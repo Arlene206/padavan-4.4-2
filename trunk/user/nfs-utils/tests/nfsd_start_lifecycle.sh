@@ -49,11 +49,15 @@ case "$name" in
 	rpcbind|rpc.nfsd|rpc.mountd)
 		[ "$FAIL_COMMAND" != "$name" ] || exit 17
 		case "$name" in
-			rpcbind) state_file="$STATE_DIR/rpcbind" ;;
-			rpc.nfsd) state_file="$STATE_DIR/nfsd" ;;
-			rpc.mountd) state_file="$STATE_DIR/rpc.mountd" ;;
+			rpcbind) state_file="$STATE_DIR/rpcbind"; process_pid=125; process_name=rpcbind ;;
+			rpc.nfsd) state_file="$STATE_DIR/nfsd"; process_pid=123; process_name=nfsd ;;
+			rpc.mountd) state_file="$STATE_DIR/rpc.mountd"; process_pid=124; process_name=rpc.mountd ;;
 		esac
-		[ "$NO_PID_COMMAND" = "$name" ] || : > "$state_file"
+		if [ "$NO_PID_COMMAND" != "$name" ]; then
+			: > "$state_file"
+			mkdir -p "$PROC_ROOT/$process_pid"
+			printf '%s\n' "$process_name" > "$PROC_ROOT/$process_pid/comm"
+		fi
 		exit 0
 		;;
 	exportfs|modprobe|mount|umount|killall)
@@ -69,8 +73,8 @@ case "$name" in
 			killall)
 				for target in "$@"; do :; done
 				case "$target" in
-					nfsd) rm -f "$STATE_DIR/nfsd" ;;
-					rpc.mountd) rm -f "$STATE_DIR/rpc.mountd" ;;
+					nfsd) rm -f "$STATE_DIR/nfsd"; rm -rf "$PROC_ROOT/123" ;;
+					rpc.mountd) rm -f "$STATE_DIR/rpc.mountd"; rm -rf "$PROC_ROOT/124" ;;
 				esac
 				;;
 		esac
@@ -90,6 +94,8 @@ done
 export COMMAND_LOG="$tmp_dir/commands.log"
 export STATE_DIR="$tmp_dir/state"
 export MOUNTS_FILE="$tmp_dir/proc/mounts"
+export PROC_ROOT="$tmp_dir/proc"
+export NFSD_PROC_ROOT="$tmp_dir/proc"
 mkdir -p "$STATE_DIR"
 export PATH="$tmp_dir/bin:$PATH"
 
@@ -99,12 +105,27 @@ ln -s "$tmp_dir/bin/mock-command" "$tmp_dir/no-pidof-bin/logger"
 reset_fixture()
 {
 	rm -f "$STATE_DIR/rpcbind" "$STATE_DIR/nfsd" "$STATE_DIR/rpc.mountd"
+	rm -rf "$PROC_ROOT/1" "$PROC_ROOT/123" "$PROC_ROOT/124" "$PROC_ROOT/125"
 	rm -f "$tmp_dir/etc/exports" "$tmp_dir/var/lib/nfs/etab" \
 		"$tmp_dir/var/lib/nfs/rmtab" "$tmp_dir/var/lib/nfs/xtab"
 	: > "$COMMAND_LOG"
 	: > "$MOUNTS_FILE"
 	printf 'nodev\tnfsd\n' > "$tmp_dir/proc/filesystems"
 	: > "$tmp_dir/proc/fs/nfsd/max_block_size"
+}
+
+mark_running_process()
+{
+	process_name=$1
+	case "$process_name" in
+		rpcbind) process_pid=125; state_file="$STATE_DIR/rpcbind" ;;
+		nfsd) process_pid=123; state_file="$STATE_DIR/nfsd" ;;
+		rpc.mountd) process_pid=124; state_file="$STATE_DIR/rpc.mountd" ;;
+		*) echo "unsupported test process: $process_name" >&2; exit 1 ;;
+	esac
+	: > "$state_file"
+	mkdir -p "$PROC_ROOT/$process_pid"
+	printf '%s\n' "$process_name" > "$PROC_ROOT/$process_pid/comm"
 }
 
 run_command()
@@ -145,54 +166,60 @@ assert_failed()
 	}
 }
 
-# Missing process inventory is UNKNOWN, not proof that daemons are absent.
+# Missing or incomplete procfs inventories are UNKNOWN, not ABSENT.
 reset_fixture
-status=$(PATH="$tmp_dir/no-pidof-bin" run_command "" "" start)
-[ "$status" -eq 127 ] || {
-	echo "NFS start without pidof returned $status, expected 127" >&2
-	exit 1
-}
+status=$(NFSD_PROC_ROOT="$tmp_dir/missing-proc" run_command "" "" start)
+assert_failed "$status" "NFS start with missing process inventory"
 assert_command logger
 assert_no_command rpcbind
 assert_no_command mount
 assert_no_command exportfs
 
 reset_fixture
-: > "$STATE_DIR/rpcbind"
-: > "$STATE_DIR/nfsd"
-: > "$STATE_DIR/rpc.mountd"
+mark_running_process rpcbind
+mark_running_process nfsd
+mark_running_process rpc.mountd
 : > "$tmp_dir/etc/exports"
-status=$(PATH="$tmp_dir/no-pidof-bin" run_command "" "" reload)
-[ "$status" -eq 127 ] || {
-	echo "NFS reload without pidof returned $status, expected 127" >&2
-	exit 1
-}
+status=$(NFSD_PROC_ROOT="$tmp_dir/missing-proc" run_command "" "" reload)
+assert_failed "$status" "NFS reload with missing process inventory"
 assert_command logger
 assert_no_command exportfs
 
 reset_fixture
-: > "$STATE_DIR/rpcbind"
-: > "$STATE_DIR/nfsd"
-: > "$STATE_DIR/rpc.mountd"
+mark_running_process rpcbind
+mark_running_process nfsd
+mark_running_process rpc.mountd
 : > "$tmp_dir/etc/exports"
 printf 'nfsd %s nfsd rw 0 0\nrpc_pipefs %s rpc_pipefs rw 0 0\n' \
 	"$tmp_dir/proc/fs/nfsd" "$tmp_dir/var/lib/nfs/rpc_pipefs" > "$MOUNTS_FILE"
 mounts_before=$(cat "$MOUNTS_FILE")
-status=$(PATH="$tmp_dir/no-pidof-bin" run_command "" "" stop)
-[ "$status" -eq 127 ] || {
-	echo "NFS stop without pidof returned $status, expected 127" >&2
-	exit 1
-}
+status=$(NFSD_PROC_ROOT="$tmp_dir/missing-proc" run_command "" "" stop)
+assert_failed "$status" "NFS stop with missing process inventory"
 assert_command logger
 assert_no_command killall
 assert_no_command exportfs
 assert_no_command umount
 [ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ] || {
-	echo "NFS stop without pidof disturbed running daemon state" >&2
+	echo "NFS stop with missing procfs disturbed daemon state" >&2
 	exit 1
 }
 [ "$(cat "$MOUNTS_FILE")" = "$mounts_before" ] || {
-	echo "NFS stop without pidof changed mounted filesystem state" >&2
+	echo "NFS stop with missing procfs changed mounted filesystem state" >&2
+	exit 1
+}
+
+# An empty comm entry for a live numeric PID is UNKNOWN.
+reset_fixture
+prepare_running_nfs
+mkdir -p "$PROC_ROOT/1"
+: > "$PROC_ROOT/1/comm"
+status=$(run_command "" "" stop)
+assert_failed "$status" "NFS stop with malformed process inventory"
+assert_no_command killall
+assert_no_command exportfs
+assert_no_command umount
+[ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "NFS stop disturbed daemon state after an incomplete inventory" >&2
 	exit 1
 }
 
@@ -297,9 +324,9 @@ assert_command rpc.mountd
 }
 
 reset_fixture
-: > "$STATE_DIR/rpcbind"
-: > "$STATE_DIR/nfsd"
-: > "$STATE_DIR/rpc.mountd"
+mark_running_process rpcbind
+mark_running_process nfsd
+mark_running_process rpc.mountd
 : > "$tmp_dir/etc/exports"
 status=$(run_command exportfs "" start)
 assert_failed "$status" "running-service exportfs failure"
@@ -311,8 +338,8 @@ assert_no_command rpc.nfsd
 }
 
 reset_fixture
-: > "$STATE_DIR/rpcbind"
-: > "$STATE_DIR/nfsd"
+mark_running_process rpcbind
+mark_running_process nfsd
 printf 'recovery-state\n' > "$tmp_dir/var/lib/nfs/etab"
 status=$(run_command "" "" start)
 assert_failed "$status" "partial NFS daemon state"
@@ -323,24 +350,24 @@ assert_failed "$status" "partial NFS daemon state"
 assert_no_command exportfs
 
 reset_fixture
-: > "$STATE_DIR/nfsd"
-: > "$STATE_DIR/rpc.mountd"
+mark_running_process nfsd
+mark_running_process rpc.mountd
 : > "$tmp_dir/etc/exports"
 status=$(run_command "" "" reload)
 assert_failed "$status" "reload without rpcbind"
 assert_no_command exportfs
 
 reset_fixture
-: > "$STATE_DIR/rpcbind"
-: > "$STATE_DIR/nfsd"
+mark_running_process rpcbind
+mark_running_process nfsd
 status=$(run_command "" "" reload)
 assert_failed "$status" "reload without exports file"
 assert_no_command exportfs
 
 reset_fixture
-: > "$STATE_DIR/rpcbind"
-: > "$STATE_DIR/nfsd"
-: > "$STATE_DIR/rpc.mountd"
+mark_running_process rpcbind
+mark_running_process nfsd
+mark_running_process rpc.mountd
 : > "$tmp_dir/etc/exports"
 status=$(run_command exportfs "" reload)
 assert_failed "$status" "reload exportfs failure"
@@ -427,8 +454,8 @@ assert_no_command umount
 reset_fixture
 prepare_running_nfs()
 {
-	: > "$STATE_DIR/nfsd"
-	: > "$STATE_DIR/rpc.mountd"
+	mark_running_process nfsd
+	mark_running_process rpc.mountd
 	printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
 	printf 'rpc_pipefs %s rpc_pipefs rw 0 0\n' "$tmp_dir/var/lib/nfs/rpc_pipefs" >> "$MOUNTS_FILE"
 	printf 'recovery-state\n' > "$tmp_dir/var/lib/nfs/etab"

@@ -1,5 +1,7 @@
 #!/bin/sh
 
+proc_root="${NFSD_PROC_ROOT:-/proc}"
+
 # Return 0 when exactly the expected source/filesystem is mounted at the
 # path, 1 when the path is unused, and 2 for conflicts or inventory errors.
 func_mount_status()
@@ -67,34 +69,64 @@ func_mount_if_needed()
 	esac
 }
 
-func_require_pidof()
+# Return 0 when a matching process is running, 1 when absent and 2 when
+# procfs cannot provide a complete answer. UNKNOWN must never authorize
+# destructive NFS state reset, export withdrawal, or pseudo-filesystem unmount.
+func_process_presence()
 {
-	if command -v pidof >/dev/null 2>&1; then
-		return 0
-	fi
+	local wanted_name="$1"
+	local process_dir process_comm
 
-	logger -t "NFS server" "pidof is unavailable; refusing NFS lifecycle action"
-	return 127
+	[ -d "$proc_root" ] && [ -r "$proc_root" ] || return 2
+	for process_dir in "$proc_root"/[0-9]*; do
+		[ -d "$process_dir" ] || continue
+		if ! IFS= read -r process_comm < "$process_dir/comm"; then
+			[ ! -d "$process_dir" ] && continue
+			return 2
+		fi
+		[ -n "$process_comm" ] || return 2
+		[ "$process_comm" = "$wanted_name" ] && return 0
+	done
+	return 1
 }
 func_start()
 {
-	func_require_pidof || return $?
-
-	# rpcbind is required by the NFS user-space services.
-	if [ -z "$(pidof rpcbind)" ] ; then
+	func_process_presence rpcbind
+	rpcbind_state=$?
+	case "$rpcbind_state" in
+	0)
+		;;
+	1)
 		/sbin/rpcbind || {
 			logger -t "NFS server" "cannot start rpcbind"
 			return 1
 		}
 		sleep 1
-		if [ -z "$(pidof rpcbind)" ] ; then
-			logger -t "NFS server" "rpcbind command succeeded but the daemon is not running"
+		func_process_presence rpcbind
+		rpcbind_state=$?
+		if [ "$rpcbind_state" -ne 0 ]; then
+			logger -t "NFS server" "rpcbind command returned success but the daemon is not running"
 			return 1
 		fi
+		;;
+	*)
+		logger -t "NFS server" "cannot verify rpcbind process inventory; refusing NFS startup"
+		return 1
+		;;
+	esac
+
+	# A partial process scan must not be mistaken for an empty NFS service.
+	func_process_presence nfsd
+	nfsd_state=$?
+	func_process_presence rpc.mountd
+	mountd_state=$?
+	if [ "$nfsd_state" -eq 2 ] || [ "$mountd_state" -eq 2 ]; then
+		logger -t "NFS server" "cannot verify NFS daemon inventory; refusing to reset NFS state"
+		return 1
 	fi
 
 	# A complete running service only needs its exports reloaded.
-	if [ -n "$(pidof nfsd)" ] && [ -n "$(pidof rpc.mountd)" ] ; then
+	if [ "$nfsd_state" -eq 0 ] && [ "$mountd_state" -eq 0 ]; then
 		if [ ! -f /etc/exports ] ; then
 			logger -t "NFS server" "cannot reload exports because /etc/exports is missing"
 			return 1
@@ -107,7 +139,7 @@ func_start()
 	fi
 
 	# Do not erase export/recovery state while only half of the service is alive.
-	if [ -n "$(pidof nfsd)" ] || [ -n "$(pidof rpc.mountd)" ] ; then
+	if [ "$nfsd_state" -eq 0 ] || [ "$mountd_state" -eq 0 ]; then
 		logger -t "NFS server" "refusing to reset NFS state while only one server daemon is running"
 		return 1
 	fi
@@ -174,7 +206,9 @@ func_start()
 		func_stop || logger -t "NFS server" "NFS startup cleanup after nfsd failure was incomplete"
 		return 1
 	}
-	if [ -z "$(pidof nfsd)" ] ; then
+	func_process_presence nfsd
+	nfsd_state=$?
+	if [ "$nfsd_state" -ne 0 ]; then
 		logger -t "NFS server" "rpc.nfsd returned success but nfsd is not running"
 		func_stop || logger -t "NFS server" "NFS startup cleanup after nfsd failure was incomplete"
 		return 1
@@ -185,7 +219,9 @@ func_start()
 		func_stop || logger -t "NFS server" "NFS startup cleanup after rpc.mountd failure was incomplete"
 		return 1
 	}
-	if [ -z "$(pidof rpc.mountd)" ] ; then
+	func_process_presence rpc.mountd
+	mountd_state=$?
+	if [ "$mountd_state" -ne 0 ]; then
 		logger -t "NFS server" "rpc.mountd returned success but the daemon is not running"
 		func_stop || logger -t "NFS server" "NFS startup cleanup after rpc.mountd failure was incomplete"
 		return 1
@@ -197,13 +233,25 @@ func_start()
 
 func_reload()
 {
-	func_require_pidof || return $?
-
-	if [ -z "$(pidof rpcbind)" ] ; then
+	func_process_presence rpcbind
+	rpcbind_state=$?
+	if [ "$rpcbind_state" -eq 2 ]; then
+		logger -t "NFS server" "cannot reload NFS exports because rpcbind process inventory is unknown"
+		return 1
+	fi
+	if [ "$rpcbind_state" -ne 0 ]; then
 		logger -t "NFS server" "cannot reload NFS exports because rpcbind is not running"
 		return 1
 	fi
-	if [ -z "$(pidof nfsd)" ] || [ -z "$(pidof rpc.mountd)" ] ; then
+	func_process_presence nfsd
+	nfsd_state=$?
+	func_process_presence rpc.mountd
+	mountd_state=$?
+	if [ "$nfsd_state" -eq 2 ] || [ "$mountd_state" -eq 2 ]; then
+		logger -t "NFS server" "cannot reload NFS exports because NFS daemon inventory is unknown"
+		return 1
+	fi
+	if [ "$nfsd_state" -ne 0 ] || [ "$mountd_state" -ne 0 ]; then
 		logger -t "NFS server" "cannot reload NFS exports because the NFS daemons are not both running"
 		return 1
 	fi
@@ -246,53 +294,75 @@ func_unmount_if_mounted()
 
 func_stop()
 {
-	func_require_pidof || return $?
+	func_process_presence rpc.mountd
+	mountd_state=$?
+	func_process_presence nfsd
+	nfsd_state=$?
+	if [ "$mountd_state" -eq 2 ] || [ "$nfsd_state" -eq 2 ]; then
+		logger -t "NFS server" "cannot verify NFS daemon inventory; refusing to withdraw exports or unmount filesystems"
+		return 1
+	fi
 
-	status=0
+	if [ "$mountd_state" -eq 0 ] || [ "$nfsd_state" -eq 0 ]; then
+		command -v killall >/dev/null 2>&1 || {
+			logger -t "NFS server" "killall is unavailable; refusing to stop NFS daemons"
+			return 127
+		}
+	fi
 
 	# Stop rpc.mountd and the kernel NFS server before touching export state.
-	[ -n "`pidof rpc.mountd`" ] && killall -q rpc.mountd
-	[ -n "`pidof nfsd`" ] && killall -q -2 nfsd
+	[ "$mountd_state" -eq 0 ] && killall -q rpc.mountd >/dev/null 2>&1 || :
+	[ "$nfsd_state" -eq 0 ] && killall -q -2 nfsd >/dev/null 2>&1 || :
 
 	for i in 1 2 3 ; do
-		[ -z "`pidof rpc.mountd`" ] && [ -z "`pidof nfsd`" ] && break
+		func_process_presence rpc.mountd
+		mountd_state=$?
+		func_process_presence nfsd
+		nfsd_state=$?
+		if [ "$mountd_state" -eq 2 ] || [ "$nfsd_state" -eq 2 ]; then
+			logger -t "NFS server" "NFS daemon inventory became unknown during graceful stop"
+			return 1
+		fi
+		[ "$mountd_state" -eq 1 ] && [ "$nfsd_state" -eq 1 ] && break
 		sleep 1
 	done
 
 	# Force termination only after the graceful stop window has expired.
-	[ -n "`pidof rpc.mountd`" ] && killall -q -9 rpc.mountd
-	[ -n "`pidof nfsd`" ] && killall -q -9 nfsd
+	if [ "$mountd_state" -eq 0 ] || [ "$nfsd_state" -eq 0 ]; then
+		[ "$mountd_state" -eq 0 ] && killall -q -9 rpc.mountd >/dev/null 2>&1 || :
+		[ "$nfsd_state" -eq 0 ] && killall -q -9 nfsd >/dev/null 2>&1 || :
+		for i in 1 2 3 ; do
+			func_process_presence rpc.mountd
+			mountd_state=$?
+			func_process_presence nfsd
+			nfsd_state=$?
+			if [ "$mountd_state" -eq 2 ] || [ "$nfsd_state" -eq 2 ]; then
+				logger -t "NFS server" "NFS daemon inventory became unknown during forced stop"
+				return 1
+			fi
+			[ "$mountd_state" -eq 1 ] && [ "$nfsd_state" -eq 1 ] && break
+			sleep 1
+		done
+	fi
 
-	for i in 1 2 3 ; do
-		[ -z "`pidof rpc.mountd`" ] && [ -z "`pidof nfsd`" ] && break
-		sleep 1
-	done
-
-	# Never unexport or detach pseudo-filesystems while either server survives.
-	if [ -n "`pidof rpc.mountd`" ] || [ -n "`pidof nfsd`" ] ; then
-		status=1
+	# Never unexport or detach pseudo-filesystems while either daemon survives.
+	func_process_presence rpc.mountd
+	mountd_state=$?
+	func_process_presence nfsd
+	nfsd_state=$?
+	if [ "$mountd_state" -ne 1 ] || [ "$nfsd_state" -ne 1 ]; then
+		logger -t "NFS server" "stop incomplete; retaining NFS state"
+		return 1
 	fi
 
 	# etab records exported state. Keep it as recovery evidence on any failure.
-	if [ "$status" -eq 0 ] && [ -f /var/lib/nfs/etab ] ; then
-		/sbin/exportfs -ua || status=1
+	if [ -f /var/lib/nfs/etab ] ; then
+		/sbin/exportfs -ua || return 1
 	fi
-
-	if [ "$status" -eq 0 ] ; then
-		func_unmount_if_mounted /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs || status=1
-	fi
-	if [ "$status" -eq 0 ] ; then
-		func_unmount_if_mounted /proc/fs/nfsd nfsd nfsd || status=1
-	fi
-
-	if [ "$status" -eq 0 ] ; then
-		rm -f /var/lib/nfs/etab || status=1
-	fi
-
-	if [ "$status" -ne 0 ] ; then
-		logger -t "NFS server" "stop incomplete; retaining NFS state"
-	fi
-	return "$status"
+	func_unmount_if_mounted /var/lib/nfs/rpc_pipefs rpc_pipefs rpc_pipefs || return 1
+	func_unmount_if_mounted /proc/fs/nfsd nfsd nfsd || return 1
+	rm -f /var/lib/nfs/etab || return 1
+	return 0
 }
 
 case "$1" in
