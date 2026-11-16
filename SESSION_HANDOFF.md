@@ -8,24 +8,22 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; current parent for this source slice: d28729af83c9692f376539c31d9578f129774d20.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, unchanged/read-only.
-- Source status: IPv6 global route/address/neighbor cleanup failure propagation and strict tri-state module loading are implemented. The last wireless Boolean module-load caller was migrated to is_module_loaded_status() in b6ff015.
-- Exact-head d28729a results: WAN route 43967040074 PASS; AI handoff 43967040010 PASS; Process inventory 43967040068 PASS; NVRAM transaction audit 43967039938 PASS; AliDDNS 43967040108 PASS; AliyunDrive 43967040044 PASS; infosvr 43967039889 PASS; AdGuardHome 43967039819 PASS. XY-C1 run 43967039935 was compiling at last poll; TRX and artifact steps were pending.
+- Repository: Arlene206/padavan-4.4-2; current parent for this checker correction: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- Source slice: restart_all_sysctl() now returns the errno-style status of set_passthrough_pppoe(1), logs the failure, and its sole RCN_RESTART_SYSCTL caller merges the result into PID 1's notification status.
+- The new checker caught and corrected a doubled-backslash whitespace regex before the queued Process job ran; it now checks the whitespace-compacted function signature. The host regression checks positive errno retention and notification failure mapping.
 
 ## Active task
 
-Propagate the errno-style status from set_passthrough_pppoe(1) through restart_all_sysctl() and the RCN_RESTART_SYSCTL PID 1 notification. The setter returns a status, but the void sysctl helper discarded it and its only caller ignored the helper result. This commit returns/logs the PPPoE relay status, merges it into the notification result, and adds a regression plus a production source contract.
+Verify exact-head Process lifecycle and XY-C1 for the PPPoE sysctl result-propagation commit and this checker correction. The preceding source/checker baseline d28729a has a complete XY-C1 Build/TRX/artifact pass; that L3 result does not cover the new sysctl source change.
 
 ## Verification boundary
 
-- Parent d28729af: WAN route regression 43967040074 PASS; AI handoff 43967040010 PASS; Process inventory 43967040068 PASS; NVRAM 43967039938 PASS; several service/security regressions also PASS.
-- Parent d28729af XY-C1 run 43967039935 was in progress with Build XY-C1 running and TRX/artifact pending at last poll. Do not report L3 until Build, TRX verification and artifact upload pass on one exact SHA.
-- Current sysctl/PPPoE source, unit regression and integration contract require exact-head Process lifecycle and XY-C1 verification after this commit.
-- Physical-router L4 remains NOT VERIFIED.
+- d28729af exact-head WAN route 43967040074 PASS, AI handoff 43967040010 PASS, Process inventory 43967040068 PASS, NVRAM audit 43967039938 PASS, and XY-C1 Build/TRX/artifact run 43967039935 PASS.
+- Commit 1e105141 introduced the sysctl PPPoE status propagation; its Process lifecycle job 43968920396 was queued and XY-C1 43968920456 was building when polled. The checker fix in this commit is now in place before Process execution; exact-head reruns are pending.
+- Current sysctl commit Build/TRX/artifact must all pass on the same current SHA before claiming L3. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process lifecycle and XY-C1 Actions for this sysctl notification commit. Check the host regression/source contract and separately verify same-SHA Build XY-C1, TRX and artifact upload.
-2. Once verified, continue auditing concrete dropped network/RC results. The next candidate is flush_conntrack_table() in RCN_RESTART_NETFILTER, which currently has its result ignored; trace the writer's contract and every caller before changing any API.
-3. Keep complete-tree atomic main commits with freshly fetched expected-SHA non-forced CAS. Frozen backup remains read-only; do not claim physical-router L4 without device evidence.
+1. Inspect exact-head Process and XY-C1 runs for this checker correction. Verify host regression/source integration and same-SHA Build XY-C1, TRX output and artifact upload.
+2. If those pass, continue auditing remaining dropped RC/network statuses. The next candidate is flush_conntrack_table() under RCN_RESTART_NETFILTER; inspect return semantics and all callers before API changes.
+3. Keep full-tree atomic commits and expected-SHA non-forced CAS; never alter the frozen backup or claim physical-router L4 without device evidence.

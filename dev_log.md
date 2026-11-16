@@ -1,3 +1,11 @@
+## 2026-11-16 — Correct whitespace contract in sysctl status checker
+
+- Parent main: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. Review of the new Process integration assertion found its raw-string regex had doubled backslashes, so it looked for literal slash-s tokens rather than whitespace. Replaced that unnecessary regex with a whitespace-compacted exact signature assertion; the C function-body and actual caller contracts remain in place.
+- XY-C1 exact-head run 43967039935 on d28729a completed successfully: Build XY-C1, TRX verification and artifact upload all PASS. The later 1e105 sysctl source change still requires its own exact-head Build/TRX/artifact run.
+- The Process lifecycle regression on 1e105 was queued when last checked; this checker correction is included before its first execution. Exact-head Process/XY-C1 results for this repair remain pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
 ## 2026-11-16 — Propagate PPPoE relay failure through sysctl notification
 
 - Parent main: d28729af83c9692f376539c31d9578f129774d20. set_passthrough_pppoe(1) returns an errno-style status, but restart_all_sysctl() discarded it and its only RCN_RESTART_SYSCTL caller also ignored the helper result. PID 1 could therefore acknowledge a failed PPPoE relay startup/readiness operation.

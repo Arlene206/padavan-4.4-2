@@ -1704,7 +1704,7 @@ sysctl_common = (root / "trunk/user/rc/src/common_ex.c").read_text()
 sysctl_header = (root / "trunk/user/rc/src/rc.h").read_text()
 sysctl_rc = (root / "trunk/user/rc/src/rc.c").read_text()
 sysctl_body = c_function_body(sysctl_common, "restart_all_sysctl(void)")
-assert re.search(r"(?m)^int\\s+restart_all_sysctl\\(void\\)", sysctl_common)
+assert "int restart_all_sysctl(void)" in " ".join(sysctl_common.split())
 assert '#include "service_start_status.h"' in sysctl_common
 assert "passthrough_status = set_passthrough_pppoe(1);" in sysctl_body
 assert "rc_first_service_start_status(restart_status, passthrough_status)" in " ".join(sysctl_body.split())

@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Current production/code parent for this slice: d28729af83c9692f376539c31d9578f129774d20. IPv6 disable cleanup and strict tri-state module-load verification are in place; the last wireless module loader uses is_module_loaded_status() rather than the lossy Boolean probe.
-- Exact-head d28729a WAN route 43967040074, AI handoff 43967040010, Process inventory 43967040068 and NVRAM transaction audit 43967039938 passed. XY-C1 43967039935 was building at last poll; TRX/artifact pending.
-- Confirmed result-loss defect: set_passthrough_pppoe(1) returns an errno-style status, but void restart_all_sysctl() discarded it and its sole RCN_RESTART_SYSCTL dispatcher also ignored the helper result. This commit returns/logs the PPPoE status, updates the prototype and merges it through rc_notify_merge_action_result() to keep the notification pending on failure.
-- Added a service_start_status host regression for positive errno retention and PID 1 notification failure mapping, and an integration contract for the real function/prototype/caller. Exact-head Process and XY-C1 results for this commit are pending.
-- Next source candidate: flush_conntrack_table() under RCN_RESTART_NETFILTER discards its result; inspect function return semantics and all callers before deciding whether/how to propagate. Frozen backup remains read-only. Physical-router L4 remains NOT VERIFIED.
+- Current source slice parent: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. restart_all_sysctl() now returns PPPoE relay startup/readiness failures through the RCN_RESTART_SYSCTL PID 1 result; host regression and caller/prototype checker are wired to Process/XY-C1 paths.
+- Exact-head d28729a XY-C1 Build, TRX verification and artifact upload all passed (43967039935). Its WAN route 43967040074, AI handoff 43967040010, Process inventory 43967040068 and NVRAM audit 43967039938 also passed.
+- Review caught a doubled-backslash regex in the new sysctl source checker before its first queued Process execution. This commit replaces it with a whitespace-compacted exact function signature check; actual source/caller/status contracts remain enforced.
+- Exact-head Process and XY-C1 runs for the sysctl source commit 1e105 are pending. Do not reuse d28729a's firmware result for the new C source.
+- Next candidate is the ignored flush_conntrack_table() result in RCN_RESTART_NETFILTER. Inspect its return contract and callers before making source changes. Frozen backup stays read-only; physical-router L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 
