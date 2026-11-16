@@ -81,6 +81,9 @@ spindown_hdd(char *sd_dev)
 
 static int storage_optware_result_fd = -1;
 
+static int create_mp_link_status(char *search_dir, char *link_path,
+				 int force_first_valid);
+
 static int
 is_valid_storage_device(const char *devname)
 {
@@ -1845,25 +1848,37 @@ int create_mp_link(char *search_dir, char *link_path, int force_first_valid)
 	char mount_options[256], target_path[512];
 	int link_created, path_len;
 	int read_error, close_error, parse_error;
+	int first_error, operation_error, close_status;
 
-	if (!search_dir || !link_path)
+	if (!search_dir || !search_dir[0] || !link_path || !link_path[0]) {
+		errno = EINVAL;
 		return 0;
+	}
 
 	link_created = 0;
 	read_error = 0;
 	close_error = 0;
 	parse_error = 0;
+	first_error = 0;
 
+	errno = 0;
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
-	if (!procpt)
+	if (!procpt) {
+		errno = storage_nfs_export_errno_or_eio(errno);
 		return 0;
+	}
 
-	while (fgets(line, sizeof(line), procpt)) {
+	while (1) {
+		errno = 0;
+		if (!fgets(line, sizeof(line), procpt))
+			break;
+
 		if (storage_nfs_export_parse_mount_line(
 			    line, devname, sizeof(devname), mpname, sizeof(mpname),
 			    fstype, sizeof(fstype), mount_options,
 			    sizeof(mount_options)) != 0) {
 			parse_error = 1;
+			first_error = storage_nfs_export_first_error(first_error, EINVAL);
 			break;
 		}
 
@@ -1882,34 +1897,101 @@ int create_mp_link(char *search_dir, char *link_path, int force_first_valid)
 
 		if (strncmp(mpname, "/media/", 7) == 0) {
 			path_len = snprintf(target_path, sizeof(target_path), "%s/%s", mpname, search_dir);
-			if (path_len < 0 || path_len >= (int)sizeof(target_path))
+			if (path_len < 0) {
+				first_error = storage_nfs_export_first_error(
+					first_error, storage_nfs_export_errno_or_eio(errno));
 				continue;
+			}
+			if (path_len >= (int)sizeof(target_path)) {
+				first_error = storage_nfs_export_first_error(first_error, ENAMETOOLONG);
+				continue;
+			}
+
 			if (!force_first_valid) {
+				errno = 0;
 				if (check_if_dir_exist(target_path)) {
+					errno = 0;
 					if (symlink(target_path, link_path) == 0)
 						link_created = 1;
+					else
+						first_error = storage_nfs_export_first_error(
+							first_error,
+							storage_nfs_export_errno_or_eio(errno));
+				} else {
+					operation_error = errno;
+					if (operation_error == 0)
+						operation_error = ENOTDIR;
+					first_error = storage_nfs_export_first_error(
+							first_error, operation_error);
 				}
 			} else {
+				errno = 0;
 				if (mkdir_if_none(target_path, "777")) {
+					errno = 0;
 					if (symlink(target_path, link_path) == 0)
 						link_created = 1;
+					else
+						first_error = storage_nfs_export_first_error(
+							first_error,
+							storage_nfs_export_errno_or_eio(errno));
+				} else {
+					operation_error = errno ? errno : EEXIST;
+					first_error = storage_nfs_export_first_error(
+							first_error, operation_error);
 				}
 			}
 		}
 	}
 
 	read_error = ferror(procpt) ? 1 : 0;
-	close_error = (fclose(procpt) != 0);
+	operation_error = read_error ? errno : 0;
+	errno = 0;
+	close_status = fclose(procpt);
+	close_error = close_status != 0;
+	if (read_error)
+		first_error = storage_nfs_export_first_error(
+			first_error, storage_nfs_export_errno_or_eio(operation_error));
+	if (close_error)
+		first_error = storage_nfs_export_first_error(
+			first_error, storage_nfs_export_errno_or_eio(errno));
+
 	if (!storage_nfs_export_inventory_complete(read_error, close_error,
 						   parse_error)) {
-		if (link_created && unlink(link_path) != 0)
-			logmessage("Storage", "unable to remove storage link after incomplete mount scan: %s",
-				   link_path);
+		if (link_created) {
+			errno = 0;
+			if (unlink(link_path) != 0)
+				first_error = storage_nfs_export_first_error(
+					first_error,
+					storage_nfs_export_errno_or_eio(errno));
+		}
 		logmessage("Storage", "incomplete /proc/mounts inventory; refusing storage link");
+		errno = storage_nfs_export_errno_or_eio(first_error);
 		return 0;
 	}
 
-	return link_created;
+	if (link_created) {
+		errno = 0;
+		return 1;
+	}
+
+	errno = storage_nfs_export_errno_or_eio(first_error ? first_error : ENOENT);
+	return 0;
+}
+
+static int
+create_mp_link_status(char *search_dir, char *link_path, int force_first_valid)
+{
+	int status;
+
+	errno = 0;
+	if (create_mp_link(search_dir, link_path, force_first_valid)) {
+		errno = 0;
+		return 0;
+	}
+
+	status = storage_nfs_export_errno_or_eio(errno);
+	errno = status;
+	return status;
 }
 
 #if defined (APP_MINIDLNA)
@@ -2003,6 +2085,7 @@ int run_dms(int force_rescan)
 	int process_state;
 	int config_status;
 	int launch_status;
+	int link_status;
 	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};
 	char mac_str[16];
 	char *apps_name = "Media Server";
@@ -2032,12 +2115,13 @@ int run_dms(int force_rescan)
 	}
 
 	unlink(link_path);
-	if (!create_mp_link(dest_dir, link_path, 0))
-	{
-		if (!create_mp_link(dest_dir, link_path, 1))
-		{
-			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes!", dest_dir);
-			return errno ? errno : EIO;
+	link_status = create_mp_link_status(dest_dir, link_path, 0);
+	if (link_status != 0) {
+		link_status = create_mp_link_status(dest_dir, link_path, 1);
+		if (link_status != 0) {
+			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes (status=%d)!",
+				   dest_dir, link_status);
+			return link_status;
 		}
 	}
 
@@ -2173,6 +2257,7 @@ int run_itunes(void)
 	int launch_status;
 	int config_status;
 	int path_length;
+	int link_status;
 
 	if (!nvram_match("apps_itunes", "1"))
 		return 0;
@@ -2189,10 +2274,13 @@ int run_itunes(void)
 	}
 
 	unlink(link_path);
-	if (!create_mp_link(dest_dir, link_path, 0)) {
-		if (!create_mp_link(dest_dir, link_path, 1)) {
-			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes!", dest_dir);
-			return errno ? errno : EIO;
+	link_status = create_mp_link_status(dest_dir, link_path, 0);
+	if (link_status != 0) {
+		link_status = create_mp_link_status(dest_dir, link_path, 1);
+		if (link_status != 0) {
+			logmessage(apps_name, "Cannot start: unable to create DB dir (/%s) on any volumes (status=%d)!",
+				   dest_dir, link_status);
+			return link_status;
 		}
 	}
 
@@ -2332,6 +2420,7 @@ int run_torrent(void)
 	char *dest_dir = "transmission";
 	int process_state;
 	int launch_status;
+	int link_status;
 
 	if (!nvram_match("trmd_enable", "1"))
 		return 0;
@@ -2348,9 +2437,11 @@ int run_torrent(void)
 	}
 
 	unlink(link_path);
-	if (!create_mp_link(dest_dir, link_path, 0)) {
-		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume!", dest_dir);
-		return errno ? errno : EIO;
+	link_status = create_mp_link_status(dest_dir, link_path, 0);
+	if (link_status != 0) {
+		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume (status=%d)!",
+			   dest_dir, link_status);
+		return link_status;
 	}
 
 	launch_status = eval("/usr/bin/transmission.sh", "start");
@@ -2466,6 +2557,7 @@ int run_aria(void)
 	char *dest_dir = "aria";
 	int process_state;
 	int launch_status;
+	int link_status;
 
 	if (!nvram_match("aria_enable", "1"))
 		return 0;
@@ -2482,9 +2574,11 @@ int run_aria(void)
 	}
 
 	unlink(link_path);
-	if (!create_mp_link(dest_dir, link_path, 0)) {
-		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume!", dest_dir);
-		return errno ? errno : EIO;
+	link_status = create_mp_link_status(dest_dir, link_path, 0);
+	if (link_status != 0) {
+		logmessage(apps_name, "Cannot start: please create dir \"%s\" on target volume (status=%d)!",
+			   dest_dir, link_status);
+		return link_status;
 	}
 
 	launch_status = eval("/usr/bin/aria.sh", "start");

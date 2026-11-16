@@ -1,3 +1,13 @@
+## 2026-11-16 23:57 CST — Make storage media mount-link failures deterministic
+
+- Parent main: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`. Implemented deterministic errno handling in `create_mp_link()` while retaining its boolean API and current mount-selection/fallback behavior. Invalid input, mount inventory open/read/parse/close, path length, directory preparation, symlink creation and incomplete-inventory cleanup now produce normalized errors; the first actionable non-ENOENT error is preserved.
+- Added `create_mp_link_status()` before all four media callers. MiniDLNA and Firefly keep their existing mode-0 then mode-1 fallback; Transmission and Aria retain mode 0 only. Callers return normalized status rather than inheriting stale errno.
+- Added GNU89 errno-policy cases and storage source contracts; wired the test into the storage workflow and both push/PR filters. Corrected the wireless force-disable contract to require the current bridge-membership helper. Added the literal `one atomic main commit` handoff invariant required by the documentation validator.
+- Exact parent-SHA evidence: XY-C1 run 43897222785 passed Build XY-C1, TRX verification and artifact upload on `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`; that result does not verify this new source commit. Parent Wireless run 43897222713 and AI handoff run 43897222818 failed on stale contracts, both corrected in this milestone. New exact-head checks are pending.
+- Local full-repository compile/source checks were not run because no local repository checkout is available in this execution environment; do not treat this as a local test pass. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Stabilize mount-link errno and storage daemon status reporting
 
 - Main parent at checkpoint: `435293278a5deca3b80bd5a21f876a49445d7430`; latest source commit identified: `339d62070960aea11fee1d0b5b18fbf7e373cb86`.

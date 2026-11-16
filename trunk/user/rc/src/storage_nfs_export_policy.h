@@ -320,4 +320,29 @@ storage_nfs_start_status(int export_status, int command_status)
 	return (export_status == 0 && command_status == 0) ? 0 : -1;
 }
 
+/*
+ * Keep the first actionable filesystem/inventory error. ENOENT is a common
+ * candidate-probe result while scanning mounts, so a later useful error
+ * takes precedence over an earlier missing-path result.
+ */
+static int
+storage_nfs_export_first_error(int first_error, int next_error)
+{
+	if (first_error > 0 && first_error != ENOENT)
+		return first_error;
+	if (next_error > 0 && next_error != ENOENT)
+		return next_error;
+	if (first_error > 0)
+		return first_error;
+	if (next_error > 0)
+		return next_error;
+	return EIO;
+}
+
+static int
+storage_nfs_export_errno_or_eio(int error)
+{
+	return error > 0 ? error : EIO;
+}
+
 #endif /* PADAVAN_STORAGE_NFS_EXPORT_POLICY_H */

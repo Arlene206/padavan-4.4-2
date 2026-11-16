@@ -479,7 +479,7 @@ jobs:
           assert down_call in disable_path, "start_inic_mii: missing checked rai0 shutdown"
           down_pos = disable_path.index(down_call)
           disable_steps = (
-              "br_add_del_if(IFNAME_BR, ifname_inic, 0)",
+              "wireless_bridge_membership_record(&all_started, ifname_inic, 0);",
               "phy_isolate_inic(1)",
               "phy_disable_inic(1)",
               "cpu_gpio_set_pin(1, 0)",

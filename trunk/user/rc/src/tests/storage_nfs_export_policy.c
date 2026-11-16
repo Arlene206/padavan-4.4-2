@@ -166,6 +166,16 @@ main(void)
 		"2001:db8::1", "128", ipv6_acl, sizeof(ipv6_acl)) == -1);
 #endif /* USE_IPV6 */
 
+	/* Missing-path probes are fallback errors; the first actionable error wins. */
+	assert(storage_nfs_export_errno_or_eio(EACCES) == EACCES);
+	assert(storage_nfs_export_errno_or_eio(ENOENT) == ENOENT);
+	assert(storage_nfs_export_errno_or_eio(0) == EIO);
+	assert(storage_nfs_export_first_error(0, EACCES) == EACCES);
+	assert(storage_nfs_export_first_error(EACCES, EINVAL) == EACCES);
+	assert(storage_nfs_export_first_error(ENOENT, EACCES) == EACCES);
+	assert(storage_nfs_export_first_error(EINVAL, ENOENT) == EINVAL);
+	assert(storage_nfs_export_first_error(0, ENOENT) == ENOENT);
+
 	assert(storage_nfs_export_inventory_complete(0, 0, 0));
 	assert(!storage_nfs_export_inventory_complete(1, 0, 0));
 	assert(!storage_nfs_export_inventory_complete(0, 1, 0));

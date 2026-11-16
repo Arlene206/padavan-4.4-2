@@ -74,6 +74,8 @@ disk_policy = read("trunk/user/libdisk/src/disk_inventory_policy.h")
 disk_policy_test = read("trunk/user/libdisk/src/tests/disk_inventory_policy.c")
 disk_header = read("trunk/user/libdisk/src/disk_initial.h")
 storage = read("trunk/user/rc/src/services_stor.c")
+mount_link_policy = read("trunk/user/rc/src/storage_nfs_export_policy.h")
+mount_link_policy_test = read("trunk/user/rc/src/tests/storage_nfs_export_policy.c")
 services = read("trunk/user/rc/src/services.c")
 services_usb = read("trunk/user/rc/src/services_usb.c")
 net = read("trunk/user/rc/src/net.c")
@@ -869,4 +871,71 @@ require("malformed stat record" in mtd_storage_restore_test and
         "RSTAT_STOP_FAIL=1 run_restore" in mtd_storage_restore_test,
         "storage restore regression must cover UNKNOWN procfs state and failed daemon stop")
 
-print("Storage eject inventory, failure propagation and persistence gates: PASS")
+
+# create_mp_link keeps its compatibility boolean API but every failure has a
+# deterministic errno; the status adapter is visible before all media callers.
+mount_link = body(storage, "int create_mp_link(char *search_dir, char *link_path, int force_first_valid)")
+require("errno = EINVAL;" in mount_link and "errno = 0;" in mount_link,
+        "mount-link must reject invalid arguments and isolate stale errno")
+require('fopen(PROC_MOUNTS_FILE, "r")' in mount_link and
+        "storage_nfs_export_errno_or_eio(errno)" in mount_link,
+        "mount inventory open failure must return its errno or EIO")
+require("storage_nfs_export_parse_mount_line(" in mount_link and
+        "storage_nfs_export_first_error(first_error, EINVAL)" in mount_link,
+        "malformed mount rows must retain a deterministic parse error")
+require("path_len >= (int)sizeof(target_path)" in mount_link and
+        "ENAMETOOLONG" in mount_link,
+        "overlong media database paths must produce ENAMETOOLONG")
+require("check_if_dir_exist(target_path)" in mount_link and
+        'mkdir_if_none(target_path, "777")' in mount_link and
+        "ENOTDIR" in mount_link and "EEXIST" in mount_link,
+        "directory discovery/preparation needs deterministic errors")
+require(mount_link.count("symlink(target_path, link_path)") == 2,
+        "both mount-link symlink paths must preserve creation errno")
+require("ferror(procpt)" in mount_link and "fclose(procpt)" in mount_link and
+        "storage_nfs_export_inventory_complete(read_error, close_error," in mount_link,
+        "mount inventory read/parse/close failures must invalidate the link")
+require("unlink(link_path)" in mount_link and
+        "errno = storage_nfs_export_errno_or_eio(first_error);" in mount_link,
+        "incomplete inventory must clean up the link and preserve its first error")
+require("return 1;" in mount_link and "return 0;" in mount_link,
+        "legacy create_mp_link API must remain boolean")
+
+mount_status_adapter = body(storage, "create_mp_link_status(")
+require("errno = 0;" in mount_status_adapter and
+        "create_mp_link(search_dir, link_path, force_first_valid)" in mount_status_adapter and
+        "errno = status;" in mount_status_adapter,
+        "status adapter must isolate errno and return the normalized error")
+adapter_declaration = storage.index("static int create_mp_link_status(")
+for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
+                  "int run_torrent(void)", "int run_aria(void)"):
+    require(adapter_declaration < storage.index(signature),
+            "mount-link status adapter must be declared before " + signature)
+    caller = body(storage, signature)
+    require("create_mp_link_status(" in caller and "link_status" in caller and
+            "return link_status;" in caller and "create_mp_link(" not in caller,
+            "media caller must use the errno-normalizing adapter: " + signature)
+for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)"):
+    caller = body(storage, signature)
+    require(caller.index("create_mp_link_status(dest_dir, link_path, 0)") <
+            caller.index("create_mp_link_status(dest_dir, link_path, 1)"),
+            "media database fallback selection changed: " + signature)
+for signature in ("int run_torrent(void)", "int run_aria(void)"):
+    caller = body(storage, signature)
+    require("create_mp_link_status(dest_dir, link_path, 0)" in caller and
+            "create_mp_link_status(dest_dir, link_path, 1)" not in caller,
+            "download daemon mount selection semantics changed: " + signature)
+
+require("storage_nfs_export_first_error" in mount_link_policy and
+        "storage_nfs_export_errno_or_eio" in mount_link_policy_test and
+        "storage_nfs_export_first_error(ENOENT, EACCES)" in mount_link_policy_test and
+        "storage_nfs_export_errno_or_eio(0) == EIO" in mount_link_policy_test,
+        "mount-link errno policy requires GNU89 regression cases")
+require("Compile and run storage mount-link errno policy regression" in workflow,
+        "storage workflow must compile and run errno policy regression")
+for path in ("trunk/user/rc/src/storage_nfs_export_policy.h",
+             "trunk/user/rc/src/tests/storage_nfs_export_policy.c"):
+    require(workflow.count('"' + path + '"') == 2,
+            "storage push/PR filters must include " + path)
+
+print("Storage eject inventory, mount-link errno, failure propagation and persistence gates: PASS")

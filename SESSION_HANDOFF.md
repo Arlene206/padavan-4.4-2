@@ -6,37 +6,34 @@ Before context exhaustion, finish or reduce the current safe slice, run its regr
 
 Continue this repository as one continuous engineering effort across ChatGPT conversations. Recover once, do not repeat completed audits, and do not ask the user to choose the next task.
 
-Every logical change must be created as one complete Git tree and one atomic commit parented to freshly fetched main, then update main with a non-forced expected-SHA compare-and-swap. Never force-push, split a logical multi-file change into half-commits, or modify the frozen backup branch.
+Every multi-file logical change must be created as one complete Git tree and one atomic main commit parented to freshly fetched main, then update main with a non-forced expected-SHA compare-and-swap. Never force-push, split a logical multi-file change into half-commits, or modify the frozen backup branch.
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; main at handoff checkpoint: `435293278a5deca3b80bd5a21f876a49445d7430`.
-- Latest product-source commit found in recent main history: `339d62070960aea11fee1d0b5b18fbf7e373cb86`.
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `not returned`; read-only.
-- Storage hotplug now propagates FTP/Samba/NFS start failures through `start_stor_apps()` and `try_start_stor_apps()`, while continuing configured starts and preserving one-shot event handling. Safe-removal restart failures are logged.
-- Storage media/download helpers `run_dms()`, `run_itunes()`, `run_torrent()`, and `run_aria()` return status; the shared post-launch check reports launch failure, absent process and unknown process-inventory failure. The aggregator preserves first failure across all seven configured daemons.
-- USB modem hotplug returns WAN reconnect failures, retains coalesced replug events until unplug completes, restores failed event flags, and schedules retry through the existing five-second alarm.
-- WAN IPv6 restart/teardown propagates the first failed stop/start status. LAN/Wi-Fi startup changes propagate service-start failures rather than silently reporting success.
-- Mount-link errno normalization on current main: NOT CONFIRMED — inspect create_mp_link() and ensure media/download callers do not inherit stale errno.
+- Repository: `Arlene206/padavan-4.4-2`; current source parent before this slice: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`.
+- Mount-link errno fix, GNU89 policy regression, storage source contracts, and workflow corrections are included together in THIS COMMIT.
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
+- Storage application startup returns first errors from all seven configured services; media/download daemon launch and readiness errors flow through the common startup result, and deferred hotplug preserves retry events until success.
+- `create_mp_link()` retains its boolean API but now initializes errno, normalizes mount inventory/path/directory/symlink/cleanup failures, keeps the first actionable error, and exposes `create_mp_link_status()` before all four media callers. MiniDLNA/Firefly retain the 0→1 directory fallback; Transmission/Aria retain mode 0 only.
+- USB modem hotplug preserves coalesced unplug/replug events and retries failed reconnects; WAN IPv6 and LAN/Wi-Fi startup paths propagate failures.
 
 ## Active task
 
-Continue P1 storage and router-service reliability. The immediate storage edge is `create_mp_link()`: keep its boolean success API for existing callers, but make failure errno deterministic, ensure the errno-normalizing wrapper is declared before every media caller, and retain the first useful filesystem/inventory error. Verify all paths that can fail (invalid input, mount inventory open/read/parse/close, path length, directory preparation, symlink creation, incomplete inventory cleanup). Do not change the existing mount selection/fallback semantics without tests.
+The bounded mount-link reliability slice is implemented in THIS COMMIT. Do not repeat its audit. It covers invalid input, `/proc/mounts` open/read/parse/close failures, path length, directory preparation, symlink creation, and failed link cleanup after an incomplete inventory. The GNU89 policy regression and storage source contract are wired into the USB storage workflow. Existing mount selection and fallback semantics are unchanged.
 
-The errno-isolation wrapper is not confirmed in current main. First implement it with a GNU89 regression and source-contract test, then verify the storage workflow.
+After exact-head checks pass, continue P1 storage/router-service reliability with the next concrete defect in the remaining hotplug/eject/service-restart call graph. Do not repeat already-completed process inventory, modem retry, WAN IPv6, or mount-link audits without a new failure signal.
 
 ## Verification boundary
 
-- Exact product-source SHA for current checkpoint: `339d62070960aea11fee1d0b5b18fbf7e373cb86`.
-- XY-C1 Firmware Validation exact-SHA status: UNVERIFIED.
-
-- Exact-SHA workflow runs observed: `AliDDNS signed API transport security regression`=success (run 43894246294); `AliyunDrive WebDAV lifecycle stability regression`=success (run 43894245942); `Process inventory and lifecycle fail-closed regression`=success (run 43894246097); `infosvr packet and signal lifecycle stability regression`=success (run 43894245954); `AI handoff documentation contract`=success (run 43894246002); `AdGuardHome config security regression`=success (run 43894246085); `USB storage hotplug stability regression`=success (run 43894246341); `NVRAM transaction boundary audit`=success (run 43894245938).
-- A prior Build/TRX/artifact PASS is valid only for the SHA on which all three passed; do not reuse it for later source commits.
-- Physical-router L4 remains NOT VERIFIED.
+- Product-source parent SHA: `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`; this commit contains a new product-source change and requires its own exact-head checks.
+- XY-C1 Firmware Validation on parent SHA `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`: PASS (run `43897222785`; Build XY-C1, Verify TRX output, and artifact upload all succeeded on that exact SHA). This L3 result does not transfer to THIS COMMIT.
+- Exact-head checks on `e05ccbcb8c458ee2bc07c6020ed5af52b3d4cff8`: iNIC signal `43897223046` PASS; watchdog signal `43897222831` PASS; HTTPD authentication/security `43897223223` PASS; process lifecycle inventory `43897222738` PASS; process inventory/fail-closed `43897222797` PASS; NVRAM transaction audit `43897222771` PASS.
+- Two parent-SHA failures are corrected in THIS COMMIT: Wireless radio state `43897222713` failed because its checker expected a direct bridge ioctl instead of the current bridge-membership helper; AI handoff docs `43897222818` failed because the handoff omitted the required literal `one atomic main commit` phrase.
+- Exact-head storage, wireless, AI docs and XY-C1 Actions for THIS COMMIT: PENDING until their push runs are observed. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA storage-hotplug, process-lifecycle, WAN-route, USB-modem, and XY-C1 runs for `339d62070960aea11fee1d0b5b18fbf7e373cb86`; read failing job logs instead of repeating old audits.
-2. Compile and run `trunk/user/rc/src/tests/storage_nfs_export_policy.c` in GNU89 mode with `-Wall -Wextra -Werror -fsanitize=address,undefined`; run `scripts/check_storage_safe_remove.py` and the relevant workflow source contracts.
-3. If `create_mp_link()` errno handling passes, move to the next storage lifecycle defect; if it fails, fix the exact cause in one atomic commit. Do not wait on PENDING jobs—work on independent source slices.
-4. Do not claim current L3 without Build XY-C1, TRX verification and artifact upload passing on the same source SHA. Preserve the frozen backup. Physical-router L4 remains unverified.
+1. Fetch live `main` and inspect exact-head push runs for USB storage hotplug, Wireless radio state, AI handoff docs and XY-C1 Firmware Validation on THIS COMMIT; read any failing job logs before declaring the slice green.
+2. Confirm the storage run executes the GNU89/ASan/UBSan mount-link policy regression and `scripts/check_storage_safe_remove.py`; verify XY-C1 Build, TRX verification and artifact upload all pass on the identical SHA.
+3. If relevant checks pass, continue the next unclosed P1 storage/hotplug/eject reliability item from live source and roadmap. If a check fails, fix its first causal failure in one atomic `main` commit, then recheck that new SHA. Do not idle on PENDING jobs.
+4. Preserve the frozen backup branch. Physical-router L4 remains unverified.
