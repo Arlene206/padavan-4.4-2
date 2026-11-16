@@ -1,3 +1,11 @@
+## 2026-11-16 — Align HTTPD workflow's cross-check of automount module locking
+
+- Parent main: `8795f568cf1c53d8aa9b045b5a1074d3634e8f42`. HTTPD run `43911560358` failed at `Verify filesystem checker statuses gate read-write automount`, Python `<stdin>` line 69. The failure was a stale assertion requiring the old literal redirection `) 9>/var/lock/fs_module.lock`; the corrected module loader uses the configurable lock path and append-open `) 9>>"$lock_file"`.
+- Updated the cross-workflow integration assertion to require the current append-open lock descriptor, default `/var/lock/fs_module.lock`, and the explicit fail-closed `if ! flock 9` check. Product source is unchanged.
+- Exact-head USB storage run `43911560366` separately failed at new shell test step 24 after all preceding checks passed. Diagnostic xtrace is committed in `8795f568cf1c53d8aa9b045b5a1074d3634e8f42`; its replacement run is pending. XY-C1 `43911560375` was still running on product SHA eff340 at last poll.
+
+---
+
 ## 2026-11-16 — Diagnose the new module-loader regression CI failure
 
 - Parent main: `eff340da753ab117ee243d1451d2c5080d99e046`. USB storage run `43911560366` passed all 23 preceding checks, including automount syntax, then the new module-loader test (step 24) exited 1 without enough context. The production shell syntax check passed. This is a test-harness failure until proven otherwise, not a product-source failure.

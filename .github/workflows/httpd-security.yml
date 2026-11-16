@@ -2921,7 +2921,9 @@ jobs:
                   assert "8>&-" in command, f"mount helper may inherit the lock: {command}"
           assert "flock 9" in lock_test and "start\\n" in lock_test and "end\\n" in lock_test
           assert "flock 8" in automount
-          assert "flock 9" in automount and ") 9>/var/lock/fs_module.lock" in automount
+          assert "flock 9" in automount and ') 9>>"$lock_file"' in automount
+          assert "lock_file=/var/lock/fs_module.lock" in automount
+          assert "if ! flock 9; then" in automount
           assert "500" not in automount, "high-numbered file descriptors are not portable to POSIX sh"
           assert "$(CP) $(PKG_BUILD_DIR)/files/* $(ROMFSDIR)/" in scripts_make
           print("FAT/NTFS checker gates and serialized automount mountpoint ownership: OK")
