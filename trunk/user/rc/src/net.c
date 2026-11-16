@@ -41,6 +41,7 @@
 #include "route_status_policy.h"
 #include "igmpproxy_config_file.h"
 #include "service_start_status.h"
+#include "xupnpd_config_file.h"
 #if defined (APP_MSD_LITE)
 #include "msd_lite_config_file.h"
 #endif
@@ -390,9 +391,9 @@ int
 start_xupnpd(char *wan_ifname)
 {
 	int i, xport, has_daemon, launch_status;
-	int config_status, saved_errno, sync_status;
+	int config_status, saved_errno, sync_status, config_fd;
 	FILE *fp1, *fp2;
-	char tmp1[64], tmp2[64], line[256];
+	char tmp1[128], tmp2[128], line[256];
 	char *dir_src = "/etc_ro/xupnpd";
 	char *dir_dst = "/etc/storage/xupnpd";
 	char *xdir1[] = { "config", "playlists", NULL };
@@ -401,12 +402,17 @@ start_xupnpd(char *wan_ifname)
 
 	if (!is_xupnpd_support())
 		return 0;
+	if (!xupnpd_config_valid_interface(wan_ifname) ||
+	    !xupnpd_config_valid_ipv4(nvram_safe_get("lan_ipaddr_t")))
+		return EINVAL;
 
 	unlink("/var/run/xupnpd.pid");
 
 	xport = nvram_get_int("xupnpd_enable_x");
 	if (xport < 1024)
 		return 0;
+	if (xport > 65535)
+		return EINVAL;
 
 	if (!check_if_dir_exist(dir_dst))
 		mkdir(dir_dst, 0755);
@@ -442,11 +448,17 @@ start_xupnpd(char *wan_ifname)
 	 * Do not replace a working config with an empty/truncated file when the
 	 * old config cannot be read or a write/close/rename step fails.
 	 */
-	snprintf(tmp1, sizeof(tmp1), "%s/config/common.lua.tmp", dir_dst);
 	snprintf(tmp2, sizeof(tmp2), "%s/config/common.lua", dir_dst);
-	fp1 = fopen(tmp1, "w");
-	if (fp1 == NULL)
+	config_fd = xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1));
+	if (config_fd < 0)
 		return errno ? errno : EIO;
+	fp1 = fdopen(config_fd, "w");
+	if (fp1 == NULL) {
+		saved_errno = errno ? errno : EIO;
+		close(config_fd);
+		unlink(tmp1);
+		return saved_errno;
+	}
 	fp2 = fopen(tmp2, "r");
 	if (fp2 == NULL) {
 		saved_errno = errno ? errno : EIO;
@@ -489,11 +501,17 @@ start_xupnpd(char *wan_ifname)
 	}
 
 	has_daemon = 0;
-	snprintf(tmp1, sizeof(tmp1), "%s/xupnpd.lua.tmp", dir_dst);
 	snprintf(tmp2, sizeof(tmp2), "%s/xupnpd.lua", dir_dst);
-	fp1 = fopen(tmp1, "w");
-	if (fp1 == NULL)
+	config_fd = xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1));
+	if (config_fd < 0)
 		return errno ? errno : EIO;
+	fp1 = fdopen(config_fd, "w");
+	if (fp1 == NULL) {
+		saved_errno = errno ? errno : EIO;
+		close(config_fd);
+		unlink(tmp1);
+		return saved_errno;
+	}
 	fp2 = fopen(tmp2, "r");
 	if (fp2 == NULL) {
 		saved_errno = errno ? errno : EIO;
@@ -511,6 +529,10 @@ start_xupnpd(char *wan_ifname)
 			char *lua_rem = "--";
 			char *lan_addr = nvram_safe_get("lan_ipaddr_t");
 			int udpxy_port = nvram_get_int("udpxy_enable_x");
+			if (udpxy_port < 0 || udpxy_port > 65535) {
+				config_status = EINVAL;
+				break;
+			}
 			if (udpxy_port > 1023 && nvram_match("xupnpd_udpxy", "1"))
 				lua_rem = "";
 			if (udpxy_port == 0)

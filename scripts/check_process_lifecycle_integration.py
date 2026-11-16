@@ -244,6 +244,20 @@ assert 'xupnpd launch command failed (status=%d)' in xupnpd_start
 assert "return launch_status;" in xupnpd_start
 assert "int start_xupnpd(char *wan_ifname);" in rc_header
 assert "if (fp1 == NULL)" in xupnpd_start and "if (fp2 == NULL)" in xupnpd_start
+assert '#include "xupnpd_config_file.h"' in net_source
+assert "xupnpd_config_valid_interface(wan_ifname)" in xupnpd_start
+assert "xupnpd_config_valid_ipv4(nvram_safe_get" in xupnpd_start
+assert xupnpd_start.count("xupnpd_config_tempfile_open(tmp2, tmp1, sizeof(tmp1))") == 2
+assert 'fopen(tmp1, "w")' not in xupnpd_start
+xupnpd_config_header = (root / "trunk/user/rc/src/xupnpd_config_file.h").read_text()
+xupnpd_config_test = (root / "trunk/user/rc/src/tests/xupnpd_config_file.c").read_text()
+assert "mkstemp(temporary)" in xupnpd_config_header
+assert "lstat(destination, &st)" in xupnpd_config_header
+assert "fchmod(fd, mode)" in xupnpd_config_header
+assert "test_unique_exclusive_temp_and_symlink" not in xupnpd_config_test
+assert "must-not-change" in xupnpd_config_test
+assert "os.execute" in xupnpd_config_test
+
 assert "ferror(fp2)" in xupnpd_start and "fflush(fp1)" in xupnpd_start
 assert "fsync(fileno(fp1))" in xupnpd_start and "rename(tmp1, tmp2)" in xupnpd_start
 assert "unlink(tmp1)" in xupnpd_start
