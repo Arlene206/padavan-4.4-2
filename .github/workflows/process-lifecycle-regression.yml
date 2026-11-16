@@ -89,6 +89,8 @@ on:
 
   pull_request:
     paths:
+      - "trunk/user/adbyby/adbyby.sh"
+      - "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wireless_module_load_policy.h"
       - "trunk/user/rc/src/tests/wireless_module_load_policy.c"

@@ -7,6 +7,7 @@ on:
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/adbyby/tests/hosts_config_preservation.sh"
       - "trunk/user/adbyby/tests/lifecycle_lock.sh"
+      - "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
       - "trunk/user/adbyby/tests/rules_download.sh"
       - "trunk/user/adbyby/tests/external_downloads.sh"
       - "trunk/user/adbyby/tests/anti_ad_download.sh"
@@ -28,6 +29,7 @@ on:
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/adbyby/tests/hosts_config_preservation.sh"
       - "trunk/user/adbyby/tests/lifecycle_lock.sh"
+      - "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
       - "trunk/user/adbyby/tests/rules_download.sh"
       - "trunk/user/adbyby/tests/external_downloads.sh"
       - "trunk/user/adbyby/tests/anti_ad_download.sh"
@@ -59,12 +61,14 @@ jobs:
           sh -n trunk/user/adbyby/adbyby.sh
           sh -n trunk/user/adbyby/tests/hosts_config_preservation.sh
           sh -n trunk/user/adbyby/tests/lifecycle_lock.sh
+          sh -n trunk/user/adbyby/tests/adbyby_stop_postcondition.sh
           sh -n trunk/user/adbyby/tests/rules_download.sh
           sh -n trunk/user/adbyby/tests/external_downloads.sh
           sh -n trunk/user/adbyby/tests/anti_ad_download.sh
           sh -n trunk/user/adbyby/tests/host_list_download.sh
           sh trunk/user/adbyby/tests/hosts_config_preservation.sh
           sh trunk/user/adbyby/tests/lifecycle_lock.sh
+          sh trunk/user/adbyby/tests/adbyby_stop_postcondition.sh
           sh trunk/user/adbyby/tests/rules_download.sh
           sh trunk/user/adbyby/tests/external_downloads.sh
           sh trunk/user/adbyby/tests/anti_ad_download.sh
