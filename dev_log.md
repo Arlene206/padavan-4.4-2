@@ -18,7 +18,7 @@
 
 - Commit `1e43d33ce171a0ea4fd5c9cc81ff67a21d017468` removes transient PID-file handling from scutclient and mentohust wrappers. The old code could SIGKILL a reused unrelated PID, rewrite the file with the short-lived shell PID, and remove it after the action.
 - Added a regression that seeds a nonexistent high PID and verifies both wrappers leave the stale marker untouched while preserving their daemon stop/logout commands.
-- Exact-head legacy-wrapper regression, process lifecycle, inventory, handoff and NVRAM checks PASS. Exact-head XY-C1 build was still in progress; no L3/L4 claim.
+- Exact-head legacy-wrapper regression, process lifecycle, inventory, handoff and NVRAM checks PASS. XY-C1 run `43799216333` on this exact SHA completed PASS: MIPS TRX recognized and artifact uploaded as ID `14195992622` (SHA256 `22759358b13a0a64624d4a6b4c97e2fe5e9fcf663810dd36a972aa32f40b6fbc`). L3 is limited to `1e43d33`; no physical-router/L4 claim.
 
 ---
 

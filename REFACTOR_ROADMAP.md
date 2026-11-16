@@ -4,7 +4,7 @@
 - Exact-head L2 PASS: Adbyby updater `867e481`; Shadowsocks watchcat `a8d5017`; AliyunDrive `982ec54`; DDNSTO lifecycle/checker `7968c1e`; legacy wrapper stale-pidfile workflow `1e43d33` (its XY-C1 build is still pending).
 - Redsocks `831ebfb`: exact-head shell syntax, dynamic lifecycle regression and source checker PASS; Redsocks `43800078490` and handoff `43800078518` both SUCCESS. L2 host verification is closed; target Bash/BusyBox and live service behavior remain unverified.
 - Legacy PR #1 is closed; all substantive AliDDNS/CA source work is already on main in identical or stronger form. No unmerged product work remains to port.
-- No physical-router runtime or L4 validation is claimed. The only current L3 candidate is the still-pending XY-C1 run on `1e43d33`; do not transfer that result to later source SHAs.
+- No physical-router runtime or L4 validation is claimed. L3 build/TRX/artifact verification passed on `1e43d33` only; later source changes through `831ebfb` have not had a corresponding XY-C1 build.
 
 ### P1 — Storage daemon startup and config publication
 

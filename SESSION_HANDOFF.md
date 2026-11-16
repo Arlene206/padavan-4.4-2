@@ -74,9 +74,9 @@ Legacy PR #1 is CLOSED and its branch ref is absent. The 17-commit PR diff was c
 
 ## Exact first action for the next GPT
 
-1. Check exact-head documentation validation for current parent `c17d2121b58c0fe608c4c24f9ce638fb4dffdad3`; its sibling module checks were IN PROGRESS at the last checkpoint.
+1. Check exact-head documentation validation for current parent `16cc5962385c98c690df546fafb0d98bac11f81a`; process lifecycle `133078296242`, AliyunDrive `133078295943`, AdGuardHome `133078295907`, AliDDNS `133078295891`, infosvr `133078295845`, handoff `133078295830`, and NVRAM `133078295807` were IN PROGRESS at the last checkpoint.
 2. Use the latest process inventory artifact from run `43799550922` to select the next high-risk direct stop/signal caller. A concrete remaining candidate is the `scutclient`/`mentohust` daemon `killall -9` path: stale wrapper PID-file signaling is fixed, but daemon stop postconditions are not yet verified. Do not repeat Adbyby, Shadowsocks, AliyunDrive, DDNSTO, Redsocks or stale PID-file work.
-3. Recheck XY-C1 run `43799216333` on source SHA `1e43d33ce171a0ea4fd5c9cc81ff67a21d017468`; claim L3 only if Build, TRX verification and artifact upload all complete on that exact SHA.
+3. L3 is complete on source SHA `1e43d33ce171a0ea4fd5c9cc81ff67a21d017468`: XY-C1 build, TRX verification and artifact upload all PASS; artifact ID `14195992622`. Do not transfer this result to later source SHA `831ebfb` or current main.
 4. Keep all target BusyBox/MIPS/uClibc and physical-router L4 claims separate; none is established by host tests alone.
 
 ## Governance and safety constraints
