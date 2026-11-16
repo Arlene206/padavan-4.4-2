@@ -259,7 +259,8 @@ igmpproxy_start = net_source.split("int\nstart_igmpproxy(char *wan_ifname)", 1)[
 assert '#include "igmpproxy_config_file.h"' in net_source
 assert "igmpproxy_config_publish(igmpproxy_conf, &config_values)" in igmpproxy_start
 assert 'igmpproxy config publication failed (status=%d)' in igmpproxy_start
-assert igmpproxy_start.index("igmpproxy_config_publish(") < igmpproxy_start.index('return eval("/bin/igmpproxy", igmpproxy_conf);')
+assert igmpproxy_start.index("igmpproxy_config_publish(") < igmpproxy_start.index('eval("/bin/igmpproxy", igmpproxy_conf)')
+assert "return rc_first_service_start_status(start_status," in igmpproxy_start
 assert "if (config_status != 0)" in igmpproxy_start
 assert "fopen(igmpproxy_conf" not in igmpproxy_start
 assert "igmpproxy_config_printf(" in igmpproxy_config_header
