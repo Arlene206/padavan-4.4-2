@@ -1,3 +1,13 @@
+## 2026-11-16 — Align shared and HTTPD route-startup contracts with global cache flush API
+
+- Parent main: `bb0c693125f0ddfd4e845d6c9d4f8fb58f68d2e2`; product-source route-cache change is `493f981e4db110923ca8d16328e29aec541a3734`. The WAN route workflow `43978255126` passed, including the injected GNU89/ASan/UBSan global-cache regression.
+- Exact 493f Process regression `43978254976`, Firewall Startup `43978255243`, XY-C1 `43978254941`, and HTTPD security `43978255197` all failed at stale source contracts left behind by the intentional `full_restart_wan()` API change: the common checker still required the old direct `rc_wan_route_flush_apply()` plus separate `flush_route_caches()`, and HTTPD still required the pre-composite helper call. Production source was not implicated by these failures.
+- Updated both shared checker contracts to assert the composite `rc_wan_route_flush_and_cache_apply()` call, the global cache callback, first-error gate and ordering before switch reconstruction. The exact 493f AI docs failure was separately fixed by `bb0c693`, which restored the 22 previous complete root records plus the 493f record; exact AI handoff run `43978638161` now PASSes with 23 entries.
+- The exact 493f XY-C1 workflow stopped in its pre-build source checker, so route-cache product-source L3 is **NOT VERIFIED**. Exact 493f WAN route `43978255126` PASS; exact bb0c Process common checker `43978638091` still failed at the same stale assertion.
+- THIS COMMIT is checker/documentation only and requires fresh exact-head Process, Firewall, HTTPD, WAN route and XY-C1 results. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Propagate global route-cache flush failures through full WAN restart
 
 - Parent main: `2c503c9ee1b3cda569700d3e85f614eed0317ad8`. `flush_route_caches()` discarded the result of `system("ip route flush cache")`, and its only RC caller, `full_restart_wan()`, ignored the result before switch/WAN reconstruction.

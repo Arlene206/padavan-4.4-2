@@ -1314,9 +1314,13 @@ jobs:
           assert 'return eval("ip", "route", "flush", "dev", ifname, "scope", "global")' in " ".join(clear_route.split())
           assert "doSystem" not in clear_route
           full_restart_routes = body(net_wan, "full_restart_wan(void)")
-          assert "rc_wan_route_flush_apply(route_ifnames, 2, clear_if_route4)" in " ".join(full_restart_routes.split())
-          assert full_restart_routes.index("if (route_flush_status != 0)") < full_restart_routes.index("phy_clear_mac_table()")
+          full_restart_compact = " ".join(full_restart_routes.split())
+          assert "route_flush_status = rc_wan_route_flush_and_cache_apply(" in full_restart_compact
+          assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" in full_restart_compact
+          assert full_restart_compact.index("if (route_flush_status != 0)") < full_restart_compact.index("phy_clear_mac_table()")
+          assert "interface routes or the global route cache could not be flushed" in full_restart_routes
           assert "return route_flush_status;" in full_restart_routes
+          assert "test_global_cache_flush_is_attempted_and_errors_are_preserved" in route_flush_test
           assert "rc_first_service_start_status(first_status, status)" in route_flush_policy
           assert "test_all_interfaces_are_attempted_and_first_error_is_preserved" in route_flush_test
           assert lan_restart.index("if (get_ap_mode())") < lan_restart.index("pvid_wan_before = phy_vlan_pvid_wan_get();")

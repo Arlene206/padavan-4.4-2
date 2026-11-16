@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- Product-source conntrack result-propagation remains L3 VERIFIED at cffc149 from XY-C1 run 43973861873 (Build/TRX/artifact).
-- LAN IPv4 static-route teardown fix 759c18d captures clear_if_route4() status; exact 2c503 Process 43977147335, WAN route 43977147385 and AI handoff 43977147281 passed.
-- Route-cache change 493f981e4db110923ca8d16328e29aec541a3734 returns global `ip route flush cache` status and combines it with interface route flushing before WAN restart. Exact 493f WAN route 43978255126, Process inventory 43978254677, Process lifecycle 43978254742 and WAN DHCP 43978255203 passed. AI handoff 43978255204 failed only because root log contained one record; restoration commit brings it to 23. XY-C1 43978254941 remained in progress; route-cache L3 is not yet verified.
-- Next source item: clear_lan_addr6() currently discards clear_if_addr6() result; change to int and aggregate into stop_lan() without skipping bridge shutdown. Add regression and Process/WAN source contracts; XY trigger needs net_lan6.c.
-- Frozen backup remains read-only; physical-router L4 remains NOT VERIFIED.
+- Conntrack teardown source `cffc149` is L3 VERIFIED by exact XY-C1 run `43973861873` (Build, TRX verification and artifact upload).
+- LAN IPv4 route teardown fix `759c18d` captures and aggregates `clear_if_route4(IFNAME_BR)`.
+- Product-source route-cache change `493f981` now returns and aggregates the global `ip route flush cache` result with per-interface route flushes; exact 493f WAN route `43978255126` passed its injected regression and source check.
+- Exact 493f Process regression `43978254976`, Firewall Startup `43978255243`, HTTPD security `43978255197` and XY-C1 `43978254941` failed before final validation because their checker contracts still expected the old route/cache call structure. THIS COMMIT updates the shared and HTTPD checks to the combined helper. Exact reruns are required; current route-cache L3 is NOT VERIFIED.
+- AI handoff root-log repair `bb0c693` restored the 23-entry root log; exact AI docs run `43978638161` PASS.
+- Physical-router L4 remains **NOT VERIFIED**.
 
 ## Whole-repository module status
 

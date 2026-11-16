@@ -8,26 +8,25 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; development branch: main. Current parent for root-log restoration: 493f981e4db110923ca8d16328e29aec541a3734; last product-source commit: 493f981e4db110923ca8d16328e29aec541a3734.
-- Product source in 493f adds checked global route-cache flushing: flush_route_caches() now returns eval() status, and full_restart_wan() merges that with interface route flushes before proceeding. The WAN route policy has injected coverage for interface failure, cache-only failure, success and missing callback.
-- Exact 493f actions: WAN route 43978255126 PASS; Process inventory 43978254677 PASS; Process lifecycle 43978254742 PASS; WAN DHCP callback 43978255203 PASS; AI handoff 43978255204 failed only because a concurrent change truncated dev_log.md to one record. This commit restores all 22 preexisting post-rotation root records from parent 2c503 and retains the new 493f entry, giving 23 complete entries.
-- Additional 493f PASS: VPN server 43978254778; rstats 43978255262; miniupnpd 43978255125; NFS 43978255151; AliDDNS 43978255190; ZeroTier 43978254753; iNIC 43978254862; wireless 43978254858; infosvr 43978255102; Crond 43978255000; Inadyn 43978254672; networkmap 43978254722; DDNSTO 43978254886; detect_internet 43978255129; detect_link 43978255100; FRP 43978255115; HTTPD lifecycle 43978255003.
-- Exact 493f XY-C1 run 43978254941 was IN_PROGRESS at last poll; therefore route-cache source L3 is NOT YET VERIFIED. cffc149 remains previously L3 verified by XY-C1 43973861873 (Build/TRX/artifact).
-- Next source defect: stop_lan() still ignores clear_lan_addr6()'s return because that wrapper is void and discards clear_if_addr6(IFNAME_BR) errno. Convert wrapper to return int, propagate through stop_lan while keeping bridge-down attempted, and add regression/source-contract tests.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807. Physical-router L4 remains NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; development branch: `main`. Parent before THIS COMMIT: `bb0c693125f0ddfd4e845d6c9d4f8fb58f68d2e2`; current product-source route-cache commit: `493f981e4db110923ca8d16328e29aec541a3734`.
+- Conntrack teardown result propagation remains L3 VERIFIED at `cffc149` (exact XY-C1 run `43973861873`, Build/TRX/artifact pass). LAN IPv4 route teardown code is in `759c18d`; route-cache API/source change is `493f981`.
+- Exact 493f WAN route `43978255126` PASS; Process inventory `43978254677`, Process lifecycle `43978254742`, WAN DHCP `43978255203` and the other successful jobs are recorded in the log. The 493f Process regression `43978254976`, Firewall Startup `43978255243`, XY-C1 `43978254941` and HTTPD security `43978255197` failed only at stale route-cache source assertions: the checkers still expected the old direct per-interface flush plus separate cache call, not the new combined helper.
+- AI handoff `43978255204` failed because 493f reduced root `dev_log.md` to one entry. `bb0c693` restored 22 preexisting entries plus the new 493f record; exact bb0c AI handoff `43978638161` PASS confirms 23 complete entries.
+- THIS COMMIT updates the common modem-WAN checker and HTTPD security checker to verify `rc_wan_route_flush_and_cache_apply()`, the cache callback, and the error gate before switch reconstruction. Exact reruns are required; XY-C1 has not yet reached firmware Build because the common checker stopped it.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains **NOT VERIFIED**.
 
 ## Active task
 
-Fix LAN IPv6 address cleanup error loss: change clear_lan_addr6() to return clear_if_addr6(IFNAME_BR), update rc.h, capture/log ipv6_status in stop_lan(), and aggregate first error in conntrack→IPv4 routes→IPv6 address→bridge-down order without skipping later cleanup. Add injected service_start_status coverage and source checks in Process/WAN route CI; include net_lan6.c in XY-C1 path filters. Then inspect exact-SHA Process, WAN route, AI handoff and XY-C1 Actions.
+Validate the route-cache checker correction on the next exact main SHA: Process regression, Firewall Startup, HTTPD security, WAN route and XY-C1. The prior failures all originated in outdated assertions for the newly composed route/interface + global-cache helper. Resolve actual first causal failures if anything else remains.
 
 ## Verification boundary
 
-- Product-source L3 for the earlier conntrack change is VERIFIED at cffc149 by XY-C1 run 43973861873 (Build, TRX verification and artifact upload).
-- 493f WAN route 43978255126, Process inventory 43978254677, Process lifecycle 43978254742 and WAN DHCP 43978255203 passed. AI handoff 43978255204 failed because root dev_log.md had been reduced to one record by that commit; this repair restores 23 complete records. Exact rerun is required.
-- 493f XY-C1 43978254941 was still in progress at last poll. No current-source route-cache L3 claim until same-SHA Build/TRX/artifact passes. Physical-router L4 remains NOT VERIFIED.
+- Exact 493f WAN route `43978255126` PASS; exact bb0c AI handoff `43978638161` PASS.
+- Exact 493f Process regression `43978254976`, Firewall Startup `43978255243`, HTTPD security `43978255197` and XY-C1 `43978254941` did not pass because their old route-cache API assertions failed. XY-C1 stopped before Build/TRX/artifact; route-cache L3 is NOT VERIFIED.
+- cffc149 L3 remains verified; 759c18d LAN route and 493f route-cache source require exact-source firmware build, TRX verification and artifact upload. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Confirm the AI handoff rerun for the restored 23-entry root log and inspect exact 493f XY-C1 Build/TRX/artifact status.
-2. Implement clear_lan_addr6() errno propagation through stop_lan(), including injected first-error and cleanup-continuation tests, while XY is pending.
-3. Continue using main-only complete-tree commits and expected-SHA non-forced updates; preserve frozen backup and do not claim L4 without device evidence.
+1. Inspect exact-head Process, Firewall Startup, HTTPD security, WAN route, AI docs and XY-C1 results for THIS COMMIT. The shared checker path is used by Process/Firewall/XY; HTTPD has a second inline route assertion.
+2. After these pass, implement the identified LAN IPv6 teardown defect: change `clear_lan_addr6()` to return `clear_if_addr6(IFNAME_BR)`, update its prototype, capture/log/aggregate it in `stop_lan()`, keep bridge-down attempted, and add a focused GNU89/ASan/UBSan regression plus CI source/path checks.
+3. Preserve exact-SHA evidence, atomic main-only commits, expected-SHA non-forced ref updates, frozen backup immutability and L4 NOT VERIFIED unless physical hardware is tested.

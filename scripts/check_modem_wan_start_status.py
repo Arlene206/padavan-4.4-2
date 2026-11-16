@@ -331,11 +331,18 @@ assert "if (!ifnames[i] || !ifnames[i][0])" in route_policy
 assert "test_all_interfaces_are_attempted_and_first_error_is_preserved" in ROUTE_FLUSH_POLICY_TEST
 assert "test_invalid_interface_does_not_skip_other_cleanup" in ROUTE_FLUSH_POLICY_TEST
 full_restart_routes = compact(body(WAN_SOURCE, "full_restart_wan(void)"))
-route_apply_pos = full_restart_routes.index("route_flush_status = rc_wan_route_flush_apply(route_ifnames, 2, clear_if_route4);")
-assert route_apply_pos < full_restart_routes.index("flush_route_caches();")
-assert full_restart_routes.index("flush_route_caches();") < full_restart_routes.index("if (route_flush_status != 0)")
-assert full_restart_routes.index("if (route_flush_status != 0)") < full_restart_routes.index("phy_clear_mac_table()")
+route_apply_pos = full_restart_routes.index("route_flush_status = rc_wan_route_flush_and_cache_apply(")
+route_apply_end = full_restart_routes.index("flush_route_caches);", route_apply_pos)
+route_gate_pos = full_restart_routes.index("if (route_flush_status != 0)")
+assert route_apply_pos < route_apply_end < route_gate_pos < full_restart_routes.index("phy_clear_mac_table()")
+assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" in full_restart_routes
+assert "interface routes or the global route cache could not be flushed" in full_restart_routes
 assert "return route_flush_status;" in full_restart_routes
+cache_policy = compact(body(ROUTE_FLUSH_POLICY_SOURCE, "rc_wan_route_flush_and_cache_apply("))
+assert "rc_wan_route_flush_apply(ifnames, count, flush)" in cache_policy
+assert "flush_cache ? flush_cache() : EINVAL" in cache_policy
+assert "rc_first_service_start_status(first_status, cache_status)" in cache_policy
+assert "test_global_cache_flush_is_attempted_and_errors_are_preserved" in ROUTE_FLUSH_POLICY_TEST
 
 for signature in (
     "full_restart_wan(void)",
