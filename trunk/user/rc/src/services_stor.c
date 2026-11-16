@@ -38,6 +38,7 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include "modem_wan_start_policy.h"
 #include "process_inventory.h"
 #include "storage_operation_lock.h"
 #include "samba_share_policy.h"
@@ -3268,7 +3269,9 @@ on_deferred_hotplug_dev(void)
 	int plug_modem = 0;
 	int unplug_modem = 0;
 	int printer_start_status;
-	int modem_start_status;
+	int modem_unplug_status = 0;
+	int modem_plug_status = 0;
+	unsigned int modem_retry_mask;
 #endif
 	int storage_start_result;
 
@@ -3311,31 +3314,41 @@ on_deferred_hotplug_dev(void)
 	if (nvram_match("usb_hotplug_md", "1"))
 	{
 		plug_modem = 1;
-		nvram_set_int_temp("usb_hotplug_md", 0);
+		/*
+		 * If detach and re-enumeration arrived together, leave the plug event
+		 * pending until the unplug reconnect has completed successfully.
+		 */
+		if (!unplug_modem)
+			nvram_set_int_temp("usb_hotplug_md", 0);
 	}
 
-	if (unplug_modem)
-	{
-		modem_start_status = try_wan_reconnect(1, 0);
-		if (modem_start_status != 0) {
+	if (unplug_modem) {
+		modem_unplug_status = try_wan_reconnect(1, 0);
+		if (modem_unplug_status != 0)
 			logmessage("USB hotplug",
-				   "WAN reconnect after USB modem unplug failed; preserving event for retry (status=%d)",
-				   modem_start_status);
-			nvram_set_int_temp("usb_unplug_md", 1);
-			alarm(5);
-		}
+				   "WAN reconnect after USB modem unplug failed (status=%d)",
+				   modem_unplug_status);
 	}
 
-	if (plug_modem && !unplug_modem)
-	{
-		modem_start_status = try_start_usb_modem_to_wan();
-		if (modem_start_status != 0) {
+	if (plug_modem && !unplug_modem) {
+		modem_plug_status = try_start_usb_modem_to_wan();
+		if (modem_plug_status != 0)
 			logmessage("USB hotplug",
-				   "USB modem WAN startup failed; preserving event for retry (status=%d)",
-				   modem_start_status);
-			nvram_set_int_temp("usb_hotplug_md", 1);
-			alarm(5);
-		}
+				   "USB modem WAN startup failed (status=%d)",
+				   modem_plug_status);
+	}
+
+	modem_retry_mask = modem_wan_hotplug_retry_mask(unplug_modem, plug_modem,
+						 modem_unplug_status, modem_plug_status);
+	if (modem_retry_mask & MODEM_WAN_HOTPLUG_RETRY_UNPLUG)
+		nvram_set_int_temp("usb_unplug_md", 1);
+	if (modem_retry_mask & MODEM_WAN_HOTPLUG_RETRY_PLUG)
+		nvram_set_int_temp("usb_hotplug_md", 1);
+	if (modem_retry_mask != 0) {
+		logmessage("USB hotplug",
+			   "deferring modem WAN hotplug transition for retry (mask=%u)",
+			   modem_retry_mask);
+		alarm(5);
 	}
 #endif
 }

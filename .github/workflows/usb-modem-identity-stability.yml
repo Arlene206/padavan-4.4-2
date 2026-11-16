@@ -9,6 +9,9 @@ on:
       - "trunk/user/libdisk/src/usb_info.c"
       - "trunk/user/rc/src/hotplug_usb.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/modem_wan_start_policy.h"
+      - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
+      - "scripts/check_modem_wan_start_status.py"
       - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/modem_node_file.h"
@@ -28,6 +31,9 @@ on:
       - "trunk/user/libdisk/src/usb_info.c"
       - "trunk/user/rc/src/hotplug_usb.c"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/modem_wan_start_policy.h"
+      - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
+      - "scripts/check_modem_wan_start_status.py"
       - "trunk/user/rc/src/services_usb.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/modem_node_file.h"
@@ -64,6 +70,14 @@ jobs:
             trunk/user/rc/src/tests/modem_module_reload_policy.c \
             -o /tmp/modem-module-reload-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/modem-module-reload-policy
+      - name: Compile and run modem WAN deferred-event retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_wan_start_policy.c \
+            -o /tmp/modem-wan-start-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-wan-start-policy
       - name: Verify WDM discovery, hotplug identity publication and NDIS matching
         run: |
           python3 - <<'PY'
@@ -76,6 +90,9 @@ jobs:
           usb_info = (libdisk / "usb_info.c").read_text()
           hotplug = (rc / "hotplug_usb.c").read_text()
           modem = (rc / "usb_modem.c").read_text()
+          services_stor = (rc / "services_stor.c").read_text()
+          retry_policy = (rc / "modem_wan_start_policy.h").read_text()
+          retry_test = (rc / "tests/modem_wan_start_policy.c").read_text()
           services_stor = (rc / "services_stor.c").read_text()
           services_usb = (rc / "services_usb.c").read_text()
           metadata = (rc / "modem_node_file.h").read_text()
@@ -162,6 +179,15 @@ jobs:
           assert "kill_services_with_pidfiles" in remove
           assert "set_usb_modem_dev_wan(0, 0)" in remove
           assert remove.index("if (stop_status != 0)") < remove.index("set_usb_modem_dev_wan(0, 0)")
+
+          deferred_hotplug = body(services_stor, "on_deferred_hotplug_dev(void)")
+          assert "modem_wan_hotplug_retry_mask(unplug_modem, plug_modem, modem_unplug_status, modem_plug_status)" in deferred_hotplug
+          plug_event = deferred_hotplug[deferred_hotplug.index('if (nvram_match("usb_hotplug_md", "1"))'):deferred_hotplug.index("if (unplug_modem)")]
+          assert "if (!unplug_modem)" in plug_event
+          assert plug_event.index("if (!unplug_modem)") < plug_event.index('nvram_set_int_temp("usb_hotplug_md", 0)')
+          assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in retry_policy
+          assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in retry_policy
+          assert "test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events" in retry_test
 
           modem_start = body(services_usb, "try_start_usb_modem_to_wan(void)")
           assert "return try_wan_reconnect(1, 0);" in modem_start

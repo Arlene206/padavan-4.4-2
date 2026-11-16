@@ -119,6 +119,31 @@ test_wan_adjunct_service_failures_reach_start_status(void)
 }
 
 static void
+test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events(void)
+{
+	unsigned int retry_mask;
+
+	retry_mask = modem_wan_hotplug_retry_mask(0, 0, 0, 0);
+	assert(retry_mask == 0);
+
+	retry_mask = modem_wan_hotplug_retry_mask(1, 0, EIO, 0);
+	assert(retry_mask == MODEM_WAN_HOTPLUG_RETRY_UNPLUG);
+
+	retry_mask = modem_wan_hotplug_retry_mask(0, 1, 0, EIO);
+	assert(retry_mask == MODEM_WAN_HOTPLUG_RETRY_PLUG);
+
+	/* A simultaneous replug waits even when unplug's reconnect succeeds. */
+	retry_mask = modem_wan_hotplug_retry_mask(1, 1, 0, 0);
+	assert(retry_mask == MODEM_WAN_HOTPLUG_RETRY_PLUG);
+
+	/* If unplug also fails, keep both independent events pending. */
+	retry_mask = modem_wan_hotplug_retry_mask(1, 1, EBUSY, EIO);
+	assert(retry_mask ==
+	       (MODEM_WAN_HOTPLUG_RETRY_UNPLUG |
+		MODEM_WAN_HOTPLUG_RETRY_PLUG));
+}
+
+static void
 test_static_wan_address_and_netmask_validation(void)
 {
 	assert(dhcp_lease_ipv4_is_valid("192.0.2.10"));
@@ -144,6 +169,7 @@ main(void)
 	test_required_ppp_failures_reach_wan_start_status();
 	test_required_ipoe_failures_reach_wan_start_status();
 	test_wan_adjunct_service_failures_reach_start_status();
+	test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events();
 	test_static_wan_address_and_netmask_validation();
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;

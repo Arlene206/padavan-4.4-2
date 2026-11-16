@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 USB_SOURCE = (RC / "usb_modem.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
+STORAGE_SOURCE = (RC / "services_stor.c").read_text()
+SERVICES_USB_SOURCE = (RC / "services_usb.c").read_text()
 RC_SOURCE = (RC / "rc.c").read_text()
 HEADER = (RC / "rc.h").read_text()
 
@@ -279,5 +281,34 @@ for declaration in (
     "int manual_wan_reconnect(void);",
 ):
     assert declaration in HEADER
+
+
+deferred_hotplug = compact(body(STORAGE_SOURCE, "on_deferred_hotplug_dev(void)"))
+modem_start = compact(body(SERVICES_USB_SOURCE, "try_start_usb_modem_to_wan(void)"))
+assert "return try_wan_reconnect(1, 0);" in modem_start
+assert "return;" not in modem_start
+
+unplug_event = deferred_hotplug.index('if (nvram_match("usb_unplug_md", "1"))')
+plug_event = deferred_hotplug.index('if (nvram_match("usb_hotplug_md", "1"))')
+unplug_attempt = deferred_hotplug.index("if (unplug_modem)")
+plug_attempt = deferred_hotplug.index("if (plug_modem && !unplug_modem)")
+retry_policy = deferred_hotplug.index("modem_wan_hotplug_retry_mask(")
+assert unplug_event < plug_event < unplug_attempt < plug_attempt < retry_policy
+
+plug_capture = deferred_hotplug[plug_event:unplug_attempt]
+assert "plug_modem = 1;" in plug_capture
+assert "if (!unplug_modem)" in plug_capture
+assert plug_capture.index("if (!unplug_modem)") < plug_capture.index('nvram_set_int_temp("usb_hotplug_md", 0)')
+assert "modem_unplug_status = try_wan_reconnect(1, 0);" in deferred_hotplug
+assert "modem_plug_status = try_start_usb_modem_to_wan();" in deferred_hotplug
+assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in deferred_hotplug
+assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in deferred_hotplug
+assert 'nvram_set_int_temp("usb_unplug_md", 1)' in deferred_hotplug
+assert 'nvram_set_int_temp("usb_hotplug_md", 1)' in deferred_hotplug
+assert "if (modem_retry_mask != 0)" in deferred_hotplug
+assert "alarm(5);" in deferred_hotplug
+assert "test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events" in (
+    RC / "tests/modem_wan_start_policy.c"
+).read_text()
 
 print("USB modem WAN startup status propagation: PASS")
