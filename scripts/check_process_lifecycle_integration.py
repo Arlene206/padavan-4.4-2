@@ -1186,8 +1186,8 @@ for call in (
     "start_udpxy(IFNAME_BR)", "start_xupnpd(IFNAME_BR)",
 ):
     assert re.search(
-        r"rc_first_service_start_status\\(start_status,\\s*" +
-        re.escape(call) + r"\\)",
+        r"rc_first_service_start_status\(start_status,\s*" +
+        re.escape(call) + r"\)",
         boot_start,
     ), "boot service status aggregation missing for " + call
 
