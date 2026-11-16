@@ -1,3 +1,11 @@
+## 2026-11-16 14:22 Beijing — Complete canonical handoff checkpoint marker
+
+- Parent main: `7ac958281702b5d3b39284a3666a90b17e01f75f`. Exact `7ac958281702b5d3b39284a3666a90b17e01f75f` Process lifecycle `43815025586` now PASS after correcting the LAN source-order checker. The full set of compile/regression steps and final source-integration checker passed.
+- AI handoff `43815025491` on exact 7ac failed because the validator requires the literal heading marker `Mandatory handoff checkpoint` as well as the sentence `The checkpoint is mandatory; a document edit is conditional.`; the previous repair had restored only the latter sentence. This commit adds the required marker while preserving the mandatory checkpoint and conditional-edit semantics.
+- Exact b2 XY-C1 run `43814395678` remained IN_PROGRESS at last check after all staged policy regressions including the new LAN status test passed; Build, TRX and artifact upload had not yet been confirmed.
+- THIS COMMIT exact-head AI/Process checks remain to be verified. No L3 evidence is claimed for b2/7ac, and no physical-router L4 test has been performed.
+---
+
 ## 2026-11-16 14:18 Beijing — Align LAN restart checker and handoff checkpoint
 
 - Parent main: `f66dc26260ba426245ad403b6703b5ba6d52336a`. Commit `b2d3288b6282c16cf23859eb9e7f8fdce083cd62` implemented first-error aggregation for the full LAN restart. Its extended service-status regression passed in both Process and XY-C1 host-test steps.
