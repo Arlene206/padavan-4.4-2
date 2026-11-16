@@ -71,9 +71,14 @@ require("unknown after TERM blocks KILL" in test and "pidof error blocks named s
         "pgrep error blocks monitor stop" in test and
         "unknown after monitor TERM blocks KILL" in test,
         "regression must prove unknown inventory prevents signals and escalation")
-require('[ "$ss_wait_count" -lt 3 ]' in helper and
-        '[ "$ss_wait_count" -lt 1 ]' in helper,
-        "process shutdown waits must remain bounded")
+require(helper.count('ss_wait_limit=$1') == 2 and
+        helper.count('[ "$ss_wait_count" -lt "$ss_wait_limit" ]') == 2 and
+        helper.count('sleep 1 || return 2') == 2 and
+        'ss_wait_named_processes 3 "$@"' in helper and
+        'ss_wait_named_processes 1 "$@"' in helper and
+        'ss_wait_process_pattern 3 "$ss_process_pattern"' in helper and
+        'ss_wait_process_pattern 1 "$ss_process_pattern"' in helper,
+        "named and pattern shutdown waits must remain bounded and fail closed on sleep errors")
 require("config PGREP\n\tbool \"pgrep\"\n\tdefault y" in busybox_config and
         "config PKILL\n\tbool \"pkill\"\n\tdefault y" in busybox_config and
         busybox_pgrep.count("Match against entire command line") >= 2,
