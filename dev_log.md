@@ -1,3 +1,12 @@
+## 2026-11-16 — Finish strict HW NAT CI contract and exact checkpoint wording
+
+- Parent main: `99d8562d8b007e83ceaff397f7c11337b9c6277a`. Exact 99d856 actions exposed one last stale common source assertion: `reload_nat_modules()` now configures radio settings only under `hwnat_loaded == 1`, passing literal 1 to the policy callback, but the checker still required the old raw `hwnat_loaded` argument. Replaced it with explicit verified-loaded gating and no-legacy-helper assertions.
+- Exact-head 99d856 Process `43971105805`, Firewall Startup `43971105848` and XY-C1 `43971105719` all failed at that same checker assertion before their downstream integration/build steps. The 99d856 AI handoff `43971105596` found the handoff omitted the exact sentence `The checkpoint is mandatory; a document edit is conditional.`; this commit adds the required exact contract wording.
+- Exact 99d856 PASS: NVRAM `43971105616`, USB modem identity `43971105688`, infosvr `43971105912`, HTTPD `43971105585`, AliyunDrive `43971106167`, AliDDNS `43971105599`, AdGuardHome `43971106008`. No same-SHA firmware build/TRX/artifact completed because XY-C1 stopped at the shared checker; current-source L3 remains NOT VERIFIED.
+- Source HW NAT/FTP/SFE code remains as in `1554a5f3`; this atomic follow-up changes only checker/documentation contracts. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Align NAT tri-state caller contracts across CI
 
 - Parent main: `ebf2d285454eba3480fe594808aa31367513ffe4`; source implementation is already in `1554a5f3`. Exact-head 1554 Process `43969810170`, Firewall Startup `43969809710` and XY-C1 `43969809836` all reached `check_modem_wan_start_status.py` and failed at the same stale assertion: the source stores `-module_loaded` in `status` then returns `status`, while the checker incorrectly required a direct `return -module_loaded`. Exact 1554 HTTPD `43969809668` failed its stale HW NAT radio assertion, which still expected the pre-change `hwnat_loaded` argument.

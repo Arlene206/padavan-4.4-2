@@ -1,11 +1,11 @@
 ## Current source / CI checkpoint
 
-- Source implementation parent: `1554a5f3fbb1bf13c3325ad765b7e806d74d1537`; checker correction parent: `ebf2d285454eba3480fe594808aa31367513ffe4`.
-- Exact-head 1554 Process `43969810170`, Firewall Startup `43969809710` and XY-C1 `43969809836` failed at a stale common checker assertion (`return -module_loaded;` versus the implemented `status = -module_loaded; return status;`). HTTPD `43969809668` failed a stale radio-state assertion that expected the old `hwnat_loaded` argument.
-- Exact-head ebf2 Process `43970209366` hit the same checker assertion; its AI handoff, NVRAM, AdGuardHome, infosvr, AliyunDrive and AliDDNS actions passed. This follow-up updates both source contracts to match the tri-state implementation and preserve positive-state gating.
-- Existing injected module policy tests exercise negative probe errno and unload postconditions. Same-SHA Process, Firewall Startup, HTTPD, XY-C1 and AI handoff runs remain required.
-- d287 XY-C1 run `43967039935` passed Build/TRX/artifact, but predates the new production source; current-source L3 remains NOT VERIFIED until same-SHA Build, TRX and artifact upload pass. Physical-router L4 remains **NOT VERIFIED**.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only. Continue RC/network result-propagation work across userland.
+- Production tri-state HW NAT/FTP/SFE implementation: `1554a5f3fbb1bf13c3325ad765b7e806d74d1537`; current source/checker/doc parent: `99d8562d8b007e83ceaff397f7c11337b9c6277a`.
+- Exact 99d856 Process `43971105805`, Firewall Startup `43971105848` and XY-C1 `43971105719` failed at the common assertion expecting the old HW NAT radio argument. This commit requires verified-loaded gating and literal enabled state. AI handoff `43971105596` failed because it lacked the required end-of-session checkpoint sentence; fixed in the same atomic tree.
+- Exact 99d856 PASS: NVRAM `43971105616`, USB modem identity `43971105688`, infosvr `43971105912`, HTTPD `43971105585`, AliyunDrive `43971106167`, AliDDNS `43971105599`, AdGuardHome `43971106008`.
+- Existing tri-state policy tests cover probe errors/unload postconditions; exact-head Process, Firewall Startup, XY-C1 and AI handoff need to pass after this correction.
+- d287 Build/TRX/artifact L3 is only for d287. Current source L3 is **NOT VERIFIED** until same-SHA XY-C1 Build, TRX and artifact upload pass. Physical-router L4 remains **NOT VERIFIED**.
+- Frozen backup remains read-only. Independent next candidate: ignored `flush_conntrack_table()` result in `RCN_RESTART_NETFILTER`; locate definition and every caller before altering API.
 
 ## Whole-repository module status
 

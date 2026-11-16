@@ -609,7 +609,10 @@ assert 'doSystem("echo 7 %d > /sys/kernel/debug/hnat/hnat_setting", enabled)' in
 assert "rc_hwnat_command_status_policy(command_status, saved_errno)" in compact(NET_SOURCE)
 assert "WIFEXITED(wait_status)" in HWNAT_POLICY_SOURCE
 assert "rc_hwnat_configure_radio_policy(" in nat_reload
-assert "hwnat_loaded, nvram_get_int(\"hw_nat_mode\")" in nat_reload
+assert "if (hwnat_loaded == 1)" in nat_reload
+assert "hwnat_allow, 1, nvram_get_int(\"hw_nat_mode\")" in nat_reload
+assert "is_hwnat_loaded();" not in nat_reload
+assert "if (hwnat_loaded && !hwnat_allow)" not in nat_reload
 assert "hwnat_set_radio_registration, hwnat_set_ipv6_nat_debug" in nat_reload
 assert "test_system_wait_status_is_normalized" in HWNAT_POLICY_TEST
 assert "test_radio_failures_do_not_skip_independent_writes" in HWNAT_POLICY_TEST
