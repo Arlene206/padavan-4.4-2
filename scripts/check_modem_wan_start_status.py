@@ -27,7 +27,7 @@ def body(source: str, signature: str) -> str:
 
 
 def compact(source: str) -> str:
-    return re.sub(r"\\s+", " ", source).strip()
+    return re.sub(r"\s+", " ", source).strip()
 
 
 ndis = compact(body(USB_SOURCE, "launch_wan_usbnet(int unit)"))
@@ -47,7 +47,16 @@ assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
 assert wan_start.count(
     "modem_start_status = rc_first_service_start_status(modem_start_status, vlan_result);"
-) >= 3
+) == 3
+ras_migration = "vlan_result = check_upnp_wanif_changed(ppp_ifname);"
+assert ras_migration in wan_start
+assert wan_start.index(ras_migration) < wan_start.index(
+    "modem_start_status = rc_first_service_start_status(modem_start_status, vlan_result);",
+    wan_start.index(ras_migration),
+), "RAS migration failure must be retained"
+eapol_start = wan_start.index("if (auth_status != 0)")
+eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
+assert "modem_start_status" not in wan_start[eapol_start:eapol_end]
 assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.index("return modem_start_status;")
 
 for signature in (

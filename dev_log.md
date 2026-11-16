@@ -1,3 +1,13 @@
+## 2026-11-16 — Correct WAN modem status propagation integration checks
+
+- Parent main: `8c3772e33127c3870c4465c45a8fedc1142a06b3`, whose exact-head Process run `43838099251` and XY-C1 run `43838100294` failed at the added source checker. The host modem policy test passed; the checker failure exposed its over-escaped whitespace regex and a missing RAS migration error aggregation.
+- Also corrected a misplaced RAS status merge in the unrelated IPoE EAPOL failure branch. The full WAN restart implementation is restored to its original ordered `stop_wan()`, bridge teardown and LAN bridge setup gates; its new int return contract uses `-1` for abort and returns the final `start_wan()` status.
+- Updated existing source-contract checks for the deliberate int-return migration, captured RAS miniupnpd status, and the IPTV callback's route+multicast accumulated result. WAN teardown, miniupnpd, DHCP callback and WAN route workflows had failed on `8c3772e`; this commit updates their contracts and restores the missing route-gate source shape.
+- The previous modem policy regression compiled and passed under GNU89/Werror/ASan/UBSan. Re-run local policy test plus exact-head Process, XY-C1, WAN teardown, miniupnpd atomic publication, WAN DHCP callback and WAN route checks on this corrective SHA. None of those new exact-head results is claimed yet.
+- Next: verify all corrective exact-head checks; once green, resume NDIS control-TTY physical USB identity matching and regression coverage.
+
+---
+
 ## 2026-11-16 — Propagate NDIS modem WAN startup failures
 
 - Parent main: `d0d75c6925c2640df348f9a16e55f612356a88ac`. Exact-head Process run `43833861533` and XY-C1 run `43833861360` both SUCCESS; XY-C1 completed build and TRX/artifact verification. These runs verify the preceding bridge STP/forward-delay status fix.

@@ -1702,9 +1702,12 @@ start_wan(void)
 				
 				vlan_result = check_upnp_wanif_changed(ppp_ifname);
 				if (vlan_result != 0) {
-				logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration", unit);
-				continue;
-			}
+					logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration (status=%d)",
+						   unit, vlan_result);
+					modem_start_status = rc_first_service_start_status(
+						modem_start_status, vlan_result);
+					continue;
+				}
 				set_wan_unit_value(unit, "proto_t", "RAS Modem");
 				set_wan_unit_value(unit, "ifname_t", ppp_ifname);
 				
@@ -1871,8 +1874,6 @@ start_wan(void)
 					if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
 					    ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL) != 0)
 						logmessage(LOGNAME, "failed to clear static WAN address after EAPOL startup failure on %s", wan_ifname);
-						modem_start_status = rc_first_service_start_status(
-						modem_start_status, vlan_result);
 					continue;
 				}
 			}
@@ -2723,12 +2724,12 @@ int
 full_restart_wan(void)
 {
 	int status;
+
 	if (get_ap_mode())
 		return 0;
-	status = stop_wan();
-	if (status != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because services did not stop (status=%d)", status);
-		return status;
+	if (stop_wan() != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because services did not stop");
+		return -1;
 	}
 	clear_if_route4(get_man_ifname(0));
 	clear_if_route4(IFNAME_BR);
@@ -2741,15 +2742,13 @@ full_restart_wan(void)
 	notify_reset_detect_link();
 	switch_config_vlan(0);
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-	status = disassembly_bridges_wan();
-	if (status != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed (status=%d)", status);
-		return status;
+	if (disassembly_bridges_wan() != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed");
+		return -1;
 	}
-	status = config_soft_bridge_lan();
-	if (status != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because LAN bridge VLAN setup failed (status=%d)", status);
-		return status;
+	if (config_soft_bridge_lan() != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because LAN bridge VLAN setup failed");
+		return -1;
 	}
 #endif
 	status = start_wan();

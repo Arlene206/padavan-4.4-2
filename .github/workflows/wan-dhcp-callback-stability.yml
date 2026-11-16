@@ -259,7 +259,7 @@ jobs:
           assert "route_result = route_add(man_ifname, 10" in viptv_bound
           assert viptv_bound.count("route_setup_status = route_status_accumulate(route_setup_status, route_result);") == 2
           assert "accepted but route setup is incomplete" in viptv_bound
-          assert "return route_setup_status;" in viptv_bound
+          assert "return route_status_accumulate(route_setup_status, multicast_status);" in viptv_bound
           assert 'nvram_set_int_temp("manv_route_err", route_setup_status)' in viptv_bound
           viptv_renew = body(source, "udhcpc_viptv_renew(char *man_ifname)")
           assert "dhcp_wan_route_setup_retry_required" in viptv_renew
@@ -840,8 +840,8 @@ jobs:
           apcli_error = 'logmessage(LOGNAME, "aborting WAN startup: AP-client WISP migration failed (status=%d)",'
           assert apcli_call in wan_start and apcli_error in wan_start
           apcli_failure = wan_start[wan_start.index(apcli_call):wan_start.index("vlan_result = launch_viptv_wan();")]
-          assert "if (vlan_result != 0)" in apcli_failure and "remove_cb_links();" in apcli_failure and "return;" in apcli_failure
-          assert apcli_failure.index("if (vlan_result != 0)") < apcli_failure.index(apcli_error) < apcli_failure.index("remove_cb_links();") < apcli_failure.index("return;")
+          assert "if (vlan_result != 0)" in apcli_failure and "remove_cb_links();" in apcli_failure and "return vlan_result;" in apcli_failure
+          assert apcli_failure.index("if (vlan_result != 0)") < apcli_failure.index(apcli_error) < apcli_failure.index("remove_cb_links();") < apcli_failure.index("return vlan_result;")
           physical_setup = wan_start[wan_start.index("/* Prepare the physical WAN interface without a shell command."):wan_start.index("/* perform ApCli reconnect */")]
           assert "mtu_status = set_interface_mtu(wan_ifname, 1500);" in physical_setup
           assert 'logmessage(LOGNAME, "WAN interface %s MTU setup incomplete (status=%d)",' in physical_setup
