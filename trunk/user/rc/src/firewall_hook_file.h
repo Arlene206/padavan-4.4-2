@@ -145,12 +145,34 @@ fail:
     return -1;
 }
 
-static void
+typedef int (*firewall_hook_file_unlink_fn)(const char *path);
+
+static int
+firewall_hook_file_remove_with(char *staged_path,
+                               firewall_hook_file_unlink_fn unlink_fn)
+{
+    if (!staged_path || !unlink_fn) {
+        errno = EINVAL;
+        return -1;
+    }
+    if (!staged_path[0])
+        return 0;
+    if (unlink_fn(staged_path) != 0) {
+        if (errno == ENOENT) {
+            staged_path[0] = '\0';
+            return 0;
+        }
+        if (!errno)
+            errno = EIO;
+        return -1;
+    }
+    staged_path[0] = '\0';
+    return 0;
+}
+
+static int
 firewall_hook_file_remove(char *staged_path)
 {
-    if (staged_path && staged_path[0]) {
-        unlink(staged_path);
-        staged_path[0] = '\0';
-    }
+    return firewall_hook_file_remove_with(staged_path, unlink);
 }
 #endif
