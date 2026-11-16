@@ -9,6 +9,16 @@
 
 ---
 
+## 2026-11-16 — Update modem WAN checker for merged L2TP start status
+
+- Parent main: `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a`. Exact-head Process run `43862009119`, job `133280916393`, completed all compiled inventory/policy regressions and the modem WAN policy binary successfully, then failed in `scripts/check_modem_wan_start_status.py` because its old contract expected `return status;` from full WAN restart, reconnect and deferred reconnect.
+- This expectation became stale after `merge_l2tp_server_start_status()` was introduced to preserve negative L2TP server startup results without treating positive already-running as failure.
+- Updated the checker to assert the helper's status semantics and require each of the three WAN start callers to return `merge_l2tp_server_start_status(status)`. Product WAN C source unchanged in this checker fix.
+- Exact-head rerun is required; no same-SHA XY-C1 firmware/TRX/artifact L3 or physical-router L4 result is claimed.
+- Next: verify Process/AI docs and current XY-C1/security Actions; continue the call-site audit of WAN startup/teardown and interface MTU return values.
+
+---
+
 ## 2026-11-16 — Correct bridge-member errno assertion close ordering
 
 - Parent main: `73940a656e2c62e7d7d172b1ef4c622e07715ca4`. Process run `43860996821` on `43d0ebe973f06f578282531eed4abc0fdba1bb3b`, job `133277465787`, failed at the bridge-member errno source assertion after all compiled policy tests passed.

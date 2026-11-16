@@ -64,6 +64,15 @@ eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
 assert "modem_start_status" not in wan_start[eapol_start:eapol_end]
 assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.index("return modem_start_status;")
 
+l2tp_start_merge = compact(
+    body(WAN_SOURCE, "merge_l2tp_server_start_status(int wan_status)")
+)
+assert 'nvram_match("l2tp_srv_t", "1")' in l2tp_start_merge
+assert "xl2tp_status = safe_start_xl2tpd();" in l2tp_start_merge
+assert "wan_status == 0 && xl2tp_status < 0" in l2tp_start_merge
+assert "return xl2tp_status;" in l2tp_start_merge
+assert "return wan_status;" in l2tp_start_merge
+
 for signature in (
     "full_restart_wan(void)",
     "try_wan_reconnect(int try_use_modem, long pause_in_seconds)",
@@ -71,7 +80,7 @@ for signature in (
 ):
     function = compact(body(WAN_SOURCE, signature))
     assert "status = start_wan();" in function
-    assert "return status;" in function
+    assert "return merge_l2tp_server_start_status(status);" in function
 
 for signature, call in (
     ("manual_wan_reconnect(void)", "try_wan_reconnect(1, 0)"),

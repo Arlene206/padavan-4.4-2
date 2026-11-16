@@ -1,9 +1,11 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS WAN restart status slice: `01d9147b742391933a22781b42eb1213063cb1c1`. Full WAN restart already aborts on static LAN route restoration and switch VLAN configuration failures.
-- THIS slice requires switch MAC table clear before WAN start, and propagates configured L2TP server start errors across full restart, normal reconnect and deferred reconnect. Positive `safe_start_xl2tpd()` denotes an already-running shared daemon and remains success.
-- Process source contract checks these return semantics and callers. Exact-parent Process `43861241910`, AI docs `43861242056`, NVRAM `43861243064` and XY-C1 `43861242089` were pending/queued; THIS commit needs fresh exact-head runs.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No same-SHA XY-C1 Build+TRX+artifact L3 or hardware L4 result claimed.
+- Live main before THIS checker correction: `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a`.
+- LAN bridge/VLAN/switch and required module status propagates to PID1. Shared bridge create/member ioctl helpers preserve ioctl errno across close. WAN restart checks switch VLAN, static LAN route restoration and switch MAC-table clear before WAN startup.
+- Full restart, normal reconnect and deferred reconnect merge the L2TP server start result; the positive already-running result is success and negative startup errors are preserved.
+- Exact-head Process run `43862009119` / job `133280916393` on `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a` passed compiled process/policy and modem WAN policy tests before failing in an obsolete checker assertion for raw `return status;`. THIS correction updates `scripts/check_modem_wan_start_status.py` to validate the merged L2TP result contract.
+- Current exact-head Actions for THIS commit must be checked. No same-source-SHA XY-C1 Build+TRX+artifact L3 or physical router L4 is claimed.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 
