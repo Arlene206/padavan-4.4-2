@@ -972,17 +972,24 @@ reload_nat_modules(void)
 #endif
 }
 
-void
+int
 restart_firewall(void)
 {
+	int upnp_status;
+
 	if (get_ap_mode())
-		return;
+		return 0;
 
 	/* re-build iptables rules */
 	start_firewall_ex();
 
 	/* update UPnP forwards from lease file */
-	update_upnp();
+	upnp_status = update_upnp();
+	if (upnp_status != 0)
+		logmessage(LOGNAME, "UPnP forward refresh incomplete after firewall restart (status=%d)",
+			   upnp_status);
+
+	return upnp_status;
 }
 
 void

@@ -10,28 +10,26 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Parent main before THIS COMMIT: `4e1d18dd4d95ab16163a2373d70a674e00990db3`. It contains the manual PPPoE physical-WAN setup status fix in `4e1d18dd4d95ab16163a2373d70a674e00990db3`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged, immutable and read-only.
-- Exact-head validation for parent `59681e0b5edf6803a47280c0c0256f596d217392`: Process `43927478287` PASS; AI docs `43927478510` PASS; USB modem identity `43927478496` PASS; XY-C1 `43927478225` PASS including Build XY-C1, TRX verification and artifact upload.
-- Parent `4e1d18dd4d95ab16163a2373d70a674e00990db3` Actions: Process regression `43928812921` FAIL and XY-C1 `43928812622` FAIL because `scripts/check_modem_wan_start_status.py:209` used a double-escaped raw regex for the new WANX status assertion. The policy test itself printed PASS before the semantic checker failed. AI docs `43928812779` FAIL because the updated handoff removed the mandatory end-of-session checkpoint contract. Numerous independent parent-head suites passed.
-- PR #1 is historical closed/unmerged work, superseded by mainline port `74b66ff960457379518d13c723c44a3515e6a228`; never resume its head.
+- Parent main before THIS COMMIT: `11e166fc85af30acb12165a198943b0be04f5117`. It contains the manual PPPoE physical-WAN status fix `4e1d18dd4d95ab16163a2373d70a674e00990db3` and the repaired WANX checker/handoff contract in `11e166fc85af30acb12165a198943b0be04f5117`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
+- On parent `11e166fc85af30acb12165a198943b0be04f5117`, Process `43930702272` PASS and AI docs `43930702155` PASS; XY-C1 `43930702412` remained IN_PROGRESS at last poll. Previous completed parent `59681e0b5edf6803a47280c0c0256f596d217392` had Process `43927478287`, AI docs `43927478510`, USB modem identity `43927478496`, and XY-C1 `43927478225` all PASS, including Build/TRX/artifact.
+- On parent `4e1d18dd4d95ab16163a2373d70a674e00990db3`, Process `43928812921` and XY-C1 `43928812622` failed at the new double-escaped WANX regex; the policy binary passed. AI docs `43928812779` failed because the shortened handoff dropped its mandatory checkpoint contract. Both issues were fixed in `11e166f`.
+- PR #1 is historical closed/unmerged work, superseded by mainline port `74b66ff960457379518d13c723c44a3515e6a228`; do not resume that PR head.
 
 ## Active task
 
-THIS COMMIT fixes both validation regressions found on parent `4e1d18dd4d95ab16163a2373d70a674e00990db3`. The WANX checker now uses proper single raw-regex whitespace escapes for the first-error aggregation added to configured PPPoE MAN setup. The full mandatory cross-session execution and accuracy-checkpoint preamble is restored in this handoff so the AI documentation contract can verify it. No production code is changed in THIS COMMIT.
+THIS COMMIT fixes the generic firewall-refresh UPnP status propagation gap. `restart_firewall()` previously called int-returning `update_upnp()` then discarded its result behind a `void` API. It now returns/logs the refresh status. Four RC notification paths merge it into `action_result` so a failed refresh keeps the incomplete marker; the direct CLI path returns it; SSH/HTTPD restart paths return it after preserving earlier start/postcondition errors. The existing RC notification policy tests normalization of positive EBUSY/EIO failures; the semantic WAN checker now binds the production return to every consumer. Static-IPoE and PPPoE-MAN startup fixes remain present.
 
 ## Verification boundary
 
-- The static-IPoE UPnP result propagation landed in `1b06d3178c366ae764f894d6bb15847b8f5f6e21`; its checker regex was corrected in `59681e0b5edf6803a47280c0c0256f596d217392`. On `59681e0...`, exact-head Process, AI docs, USB modem and XY-C1 Build/TRX/artifact all passed.
-- The manual PPPoE physical-start fix in parent `4e1d18d...` adds GNU89 policy coverage and preserves PPPD best-effort startup. On that parent, the WAN policy test ran and printed PASS, then the checker failed at its newly added WANX regex assertion; this is fixed in THIS COMMIT.
-- The parent AI docs job failed specifically because the current handoff lacked the required "Mandatory handoff checkpoint" text and explicit conditional/no-op gate; both are restored above.
-- Exact-head Process, XY-C1 and AI documentation checks for THIS COMMIT must pass. L3 is only verified if Build XY-C1, TRX output verification and artifact upload all pass on THIS COMMIT's exact SHA. Physical-router L4 remains NOT VERIFIED.
-- No local full-tree checkout/test is available in this session; prior focused GNU89/Werror/ASan/UBSan first-error smoke passed. Do not claim that as a full product test.
+- Source-level and C policy checks for THIS COMMIT run in existing Process and XY-C1 workflows. The checker verifies all four RC notification consumers, CLI, SSH and HTTPD status paths; existing RC notification policy tests positive errno normalization.
+- A full local repository checkout/build is unavailable in this session; no local full C test is claimed. Previous GNU89/Werror/ASan/UBSan smoke coverage applied only to first-error aggregation helper semantics.
+- Exact-head Process and AI docs must pass. L3 requires Build XY-C1, TRX verification and artifact upload together on THIS COMMIT's exact SHA. Physical-router L4 remains NOT VERIFIED.
+- Frozen backup remains unchanged.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-`head_sha` Process, XY-C1 and AI docs runs for THIS COMMIT. Process must compile/run the modem WAN policy suite and execute the corrected checker; XY-C1 must complete Build, TRX verification and artifact upload on the same SHA. Diagnose any failed step from its logs.
-2. Confirm configured PPPoE MAN failure is included in the returned WAN first-error status while PPPD is still attempted; confirm the exact source contract.
-3. Continue the P1 RC startup-result audit, beginning with `restart_firewall()` / `update_upnp()`: verify all RC notification, CLI, SSH and HTTPD callers preserve UPnP refresh errors before implementing the next atomic slice.
-4. Keep the frozen backup read-only and physical-router L4 marked NOT VERIFIED.
+1. Inspect exact-head Process, XY-C1 and AI docs runs for THIS COMMIT. Confirm the checker and notification policy tests, then confirm same-SHA Build/TRX/artifact separately. Diagnose failures from the first causal step.
+2. Continue the P1 RC status audit around `reload_nat_modules()` and `start_firewall_ex()`: trace enabled module load/unload results and callers; distinguish required configured services from optional work before aggregating.
+3. Keep the main-only atomic commit/CAS workflow, leave the frozen backup read-only, and keep physical-router L4 NOT VERIFIED.
 

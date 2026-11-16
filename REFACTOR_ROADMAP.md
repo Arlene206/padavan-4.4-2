@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Parent main at takeover: `4e1d18dd4d95ab16163a2373d70a674e00990db3`. Its manual PPPoE physical-WAN status aggregation fix is in `4e1d18dd4d95ab16163a2373d70a674e00990db3`.
-- Exact-head validation for parent `59681e0b5edf6803a47280c0c0256f596d217392`: Process `43927478287`, AI docs `43927478510`, USB modem stability `43927478496`, and XY-C1 `43927478225` all PASS. The XY-C1 run completed Build, TRX verification and artifact upload on that exact SHA.
-- Parent `4e1d18d...`: Process `43928812921` and XY-C1 `43928812622` failed at the new WANX source regex assertion; AI docs `43928812779` failed because the handoff lacked its mandatory end-of-session checkpoint preamble. This commit fixes both.
-- THIS COMMIT exact-head Process, XY-C1 and AI docs are pending. Current product-source L3 needs same-SHA Build, TRX verification and artifact upload; physical-router L4 remains NOT VERIFIED.
+- Parent main: `11e166fc85af30acb12165a198943b0be04f5117`. This slice extends static-IPoE `update_upnp()` first-error propagation to generic `restart_firewall()` callers (RC notifications, CLI, SSH and HTTPD).
+- Checker/handoff repair parent `11e166fc85af30acb12165a198943b0be04f5117`: exact-head Process `43930702272` PASS, AI docs `43930702155` PASS, and XY-C1 `43930702412` IN_PROGRESS at last poll.
+- Earlier parent `59681e0b5edf6803a47280c0c0256f596d217392` passed Process `43927478287`, AI docs `43927478510`, USB modem identity `43927478496`, and XY-C1 Build/TRX/artifact `43927478225`.
+- THIS COMMIT exact-head Process, XY-C1 and AI docs results pending. Current-source L3 requires same-SHA Build, TRX verification and artifact upload; physical-router L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status

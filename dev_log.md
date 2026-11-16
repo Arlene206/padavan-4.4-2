@@ -1,3 +1,12 @@
+## 2026-11-17 — Propagate UPnP refresh failures through firewall restart callers
+
+- Parent main: `11e166fc85af30acb12165a198943b0be04f5117`; checker/handoff repair commit `11e166fc85af30acb12165a198943b0be04f5117`.
+- Found another dropped result in generic `restart_firewall()`: it called int-returning `update_upnp()` but returned void. RC notification consumers cleared their incomplete marker after a failed mapping refresh; SSH/HTTPD restart and direct CLI consumers also discarded that status.
+- Changed `restart_firewall()` to return/log the UPnP refresh result; the four notification paths now merge it into `action_result`, CLI returns it, and SSH/HTTPD return it after preserving earlier failure precedence. Extended the canonical WAN semantic checker to cover all call paths. Existing RC notification policy tests assert positive EBUSY/EIO statuses normalize to a retained action failure.
+- Parent exact-head Process `43930702272` and AI docs `43930702155` passed; XY-C1 `43930702412` was still running. This slice's exact-head Process, XY-C1 Build/TRX/artifact and AI docs results remain to be checked. Physical-router L4 NOT VERIFIED; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 — Repair PPPoE WANX checker and restore mandatory handoff checkpoint
 
 - Parent main: `4e1d18dd4d95ab16163a2373d70a674e00990db3`; source fix `4e1d18dd4d95ab16163a2373d70a674e00990db3`.

@@ -1362,7 +1362,8 @@ handle_notifications(void)
 			int is_ap_mode = get_ap_mode();
 			action_result = rc_notify_merge_action_result(action_result, restart_iptv(is_ap_mode));
 			if (!is_ap_mode)
-				restart_firewall();
+				action_result = rc_notify_merge_action_result(
+					action_result, restart_firewall());
 		}
 		else if(!strcmp(entry->d_name, "deferred_wan_connect"))
 		{
@@ -1813,17 +1814,20 @@ handle_notifications(void)
 		{
 			update_router_mode();
 			reload_nat_modules();
-			restart_firewall();
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_firewall());
 			flush_conntrack_table(NULL);
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_FIREWALL) == 0)
 		{
 			reload_nat_modules();
-			restart_firewall();
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_firewall());
 		}
 		else if (strcmp(entry->d_name, "restart_firewall_wan") == 0)
 		{
-			restart_firewall();
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_firewall());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_NTPC) == 0)
 		{
@@ -2220,7 +2224,7 @@ main(int argc, char **argv)
 		ret = restart_networkmap();
 	}
 	else if (!strcmp(base, "restart_firewall")) {
-		restart_firewall();
+		ret = restart_firewall();
 	}
 	else if (!strcmp(base, "radio2_toggle")) {
 		manual_toggle_radio_rt(-1);

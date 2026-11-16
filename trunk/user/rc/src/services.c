@@ -508,6 +508,7 @@ int restart_sshd(void)
 	int scan_error;
 	int stop_status;
 	int start_status;
+	int firewall_status = 0;
 
 	before_state = sshd_process_presence(NULL);
 	stop_status = stop_sshd();
@@ -533,7 +534,7 @@ int restart_sshd(void)
 
 	if (sshd_firewall_refresh_required(before_state, after_state) &&
 	    nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+		firewall_status = restart_firewall();
 
 	if (start_status != 0)
 		return start_status;
@@ -542,7 +543,7 @@ int restart_sshd(void)
 		logmessage(LOGNAME, "SSH startup state is unknown (scan_error=%d)", scan_error);
 		return -1;
 	}
-	return 0;
+	return firewall_status;
 }
 #endif
 
@@ -1062,7 +1063,7 @@ int
 start_httpd(int restart_fw)
 {
 	int http_proto, argv_index, http_port, restart_fw_need;
-	int launch_status, attempt, status, scan_error;
+	int launch_status, attempt, status, scan_error, firewall_status = 0;
 	enum process_presence presence;
 	char http_port_s[8];
 #if defined (SUPPORT_HTTPS)
@@ -1174,8 +1175,11 @@ start_httpd(int restart_fw)
 
 	nvram_set_int_temp("httpd_started", 1);
 
-	if (restart_fw && restart_fw_need && nvram_match("fw_enable_x", "1"))
-		restart_firewall();
+	if (restart_fw && restart_fw_need && nvram_match("fw_enable_x", "1")) {
+		firewall_status = restart_firewall();
+		if (firewall_status != 0)
+			return firewall_status;
+	}
 
 	return 0;
 }

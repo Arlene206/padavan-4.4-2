@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify USB modem WAN launch failures reach boot and RC action results."""
+"""Verify WAN/RC startup and firewall refresh failures reach action results."""
 
 from pathlib import Path
 import re
@@ -8,6 +8,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 USB_SOURCE = (RC / "usb_modem.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
+NET_SOURCE = (RC / "net.c").read_text()
+SERVICES_SOURCE = (RC / "services.c").read_text()
 STORAGE_SOURCE = (RC / "services_stor.c").read_text()
 SERVICES_USB_SOURCE = (RC / "services_usb.c").read_text()
 RC_SOURCE = (RC / "rc.c").read_text()
@@ -382,4 +384,48 @@ assert "test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events" in 
     RC / "tests/modem_wan_start_policy.c"
 ).read_text()
 
+firewall_restart = compact(body(NET_SOURCE, "restart_firewall(void)"))
+assert "int restart_firewall(void);" in HEADER
+assert "upnp_status = update_upnp();" in firewall_restart
+assert "if (upnp_status != 0)" in firewall_restart
+assert "return upnp_status;" in firewall_restart
+
+notify = compact(body(RC_SOURCE, "handle_notifications(void)"))
+for marker in (
+    "RCN_RESTART_IPTV",
+    "RCN_RESTART_NETFILTER",
+    "RCN_RESTART_FIREWALL",
+    '"restart_firewall_wan"',
+):
+    marker_pos = notify.index(marker)
+    branch_end = notify.find("else if", marker_pos + len(marker))
+    branch = notify[marker_pos:branch_end if branch_end >= 0 else len(notify)]
+    assert re.search(
+        r"rc_notify_merge_action_result\s*\(\s*action_result\s*,\s*restart_firewall\(\)\s*\)\s*;",
+        branch,
+    ), marker + " must preserve firewall/UPnP refresh failure in RC notification"
+
+cli_pos = RC_SOURCE.index('else if (!strcmp(base, "restart_firewall"))')
+cli_end = RC_SOURCE.index('else if (!strcmp(base, "radio2_toggle"))', cli_pos)
+assert "ret = restart_firewall();" in RC_SOURCE[cli_pos:cli_end]
+
+sshd_restart = compact(body(SERVICES_SOURCE, "int restart_sshd(void)"))
+assert "firewall_status = restart_firewall();" in sshd_restart
+assert "if (start_status != 0)" in sshd_restart
+assert "PROCESS_PRESENCE_UNKNOWN" in sshd_restart
+assert "return firewall_status;" in sshd_restart
+assert sshd_restart.index("if (start_status != 0)") < sshd_restart.index("return firewall_status;")
+assert sshd_restart.index("PROCESS_PRESENCE_UNKNOWN") < sshd_restart.index("return firewall_status;")
+
+httpd_start = compact(body(SERVICES_SOURCE, "start_httpd(int restart_fw)"))
+assert "firewall_status = restart_firewall();" in httpd_start
+assert "if (firewall_status != 0) return firewall_status;" in httpd_start
+
+notify_policy = (RC / "rc_notify_batch_policy.h").read_text()
+notify_test = (RC / "tests/rc_notify_batch_policy.c").read_text()
+assert "operation_status != 0" in notify_policy
+assert "rc_notify_merge_action_result(0, EBUSY) == -1" in notify_test
+assert "rc_notify_merge_action_result(0, EIO) == -1" in notify_test
+
+print("WAN firewall UPnP refresh status propagation: PASS")
 print("USB modem WAN startup status propagation: PASS")
