@@ -1,3 +1,20 @@
+## 2026-11-16 — Fail closed when WAN interface route cleanup fails
+
+- Parent main: `e928181da3a52b4035d1ccf03307f212cafa2a4e`. `full_restart_wan()` ignored both `clear_if_route4()` command results and continued into switch table clearing, WAN variable reset, static route restoration and WAN restart. A stale interface route could survive undetected.
+- Changed `clear_if_route4()` to return the `eval()` status and pass the interface name as a single argv element rather than shell interpolation. Added `rc_wan_route_flush_apply()`: attempt both interface flushes, retain the first failure, and stop the WAN rebuild before switch/MAC and route reconfiguration when either flush fails.
+- Added GNU89/`-Werror`/ASan/UBSan regression for two-interface attempt order, first-error retention, later-only failure, invalid interface and invalid policy arguments. Process lifecycle run `43960589874` passed this test on source SHA `58318f5`; WAN route regression `43960590043` also passed.
+- Workflow path filters were repaired in `f2d9ccef50d3ebfc0f6f5dde94fae7893c7bb58d`. Exact-head Firewall Startup `43961249138` passed. HTTPD `43961249141` exposed a whitespace-sensitive checker for a multiline call (the compiled route test passed); checker normalization is fixed in `eb566f346f63d3d6ed295c08170ac6d834ff7f04`. Current-head HTTPD `43961727463` passed. Current-head XY-C1 `43961726533` passed all pre-build checks and route host regression; Build XY-C1 was in progress at last poll, with TRX/artifact pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Propagate HW NAT radio configuration failures
+
+- Parent main: `93d0254006bea2e5743715e9b039bb51a0c09f52`. HW NAT radio-registration commands for 2.4 GHz and 5 GHz plus the IPv6 debugfs write previously discarded their `doSystem()` results.
+- Added wait-status normalization (including command-launch errno), independent attempt semantics for both radios and IPv6 debugfs, first-error propagation into the NAT reload result, and fault-injection coverage for success, nonzero command exit, signal termination, command-launch failure, disabled/unloaded module and invalid callback.
+- Exact-head `0b32b9111c38e2cf7588cf6605b2491f25e3ce31` had Firewall and Process regressions pass; XY-C1 Build/TRX/artifact passed. HTTPD initially failed only on a newline-sensitive source assertion; it was corrected in `e928181da3a52b4035d1ccf03307f212cafa2a4e`. Exact-head `e928181` HTTPD, AI handoff and XY-C1 (including Build, TRX and artifact upload) all passed. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Propagate Adbyby update action failure to PID 1
 
 - Main parent: `e09e044195fd936142ed0b42ead1bd73f6262c02`. In the RC notification dispatcher, `RCN_RESTART_UPDATEADB` called `update_adb()`; that void wrapper ignored the wait status returned by `eval("/usr/bin/adbyby.sh", "updateadb")`. A failed update therefore left the notification action result unchanged.

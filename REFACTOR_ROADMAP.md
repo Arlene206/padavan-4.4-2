@@ -1,8 +1,9 @@
 ## Current source / CI checkpoint
 
-- Main parent for the Adbyby update-action fix: `e09e044195fd936142ed0b42ead1bd73f6262c02`. Strict module-state probing is committed at `4c43578509463afc2d25c05892ff39075245f173`; its exact-head Firewall Startup, Process integration, HTTPD, AI handoff and Process inventory suites passed. 38/39 Actions were complete and green at last poll; XY-C1 `43953778444` was still in progress.
-- Confirmed dropped result: `RCN_RESTART_UPDATEADB` invoked `void update_adb()`, which discarded the wait status from `eval("/usr/bin/adbyby.sh", "updateadb")`. The current commit makes the wrapper return int and merges it into RC notification action status. The integration checker enforces the wrapper, prototype and caller contract.
-- 4c435 strict-probe firmware Build/TRX/artifact remains pending until its XY-C1 run completes. After this new SHA, revalidate the status merge and firmware. Physical-router L4 remains NOT VERIFIED.
+- Current source baseline: `eb566f346f63d3d6ed295c08170ac6d834ff7f04`. The latest production changes are the HW NAT radio/debugfs status propagation (`0b32b911`, checker repair `e928181d`) and fail-closed WAN interface-route cleanup (`58318f53`, workflow filter repair `f2d9ccef`, whitespace-tolerant HTTPD checker `eb566f34`).
+- HW NAT exact-head XY-C1 Build/TRX/artifact passed on `e928181d`. The later WAN route cleanup host regression passed in exact-head Process run `43960589874`; Firewall Startup `43961249138` and HTTPD `43961727463` passed on the route-change lineage. Current exact-head XY-C1 `43961726533` passed all pre-build checks, including the WAN route-flush test, and was building at the last poll; TRX/artifact are not yet verified for this source.
+- The route cleanup change makes `clear_if_route4()` return status using argv-safe `eval()`. Both physical WAN and bridge flushes are attempted; `full_restart_wan()` returns the first failure before MAC-table clearing and WAN rebuild. The policy and injected regression are in `wan_route_flush_policy.h` and `tests/wan_route_flush_policy.c`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only. Physical-router L4 remains **NOT VERIFIED**. Next: complete exact-SHA XY-C1 Build/TRX/artifact validation, then continue only with evidence-backed network/RC result-loss defects.
 
 
 

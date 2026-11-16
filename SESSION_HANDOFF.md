@@ -10,25 +10,27 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Main parent for this service-action fix: `e09e044195fd936142ed0b42ead1bd73f6262c02`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
-- The strict module-state probe hardening is on main at `4c43578509463afc2d25c05892ff39075245f173`: tri-state `is_module_loaded_status()`, legacy boolean wrapper, verified-unload error propagation and two injected failure-path tests.
-- Exact-head 4c435 Actions at last poll: 38 of 39 completed runs passed, none failed; XY-C1 `43953778444` was still in progress. Firewall Startup `43953778572`, Process integration `43953778499`, HTTPD `43953778353`, AI handoff `43953778474`, and Process inventory `43953778187` passed.
-- A further RC notification defect is confirmed: `RCN_RESTART_UPDATEADB` called a void `update_adb()` wrapper that discarded the `eval()` wait status. This slice changes it to return the status and merges it into the RC action result.
+- Current production-source baseline on `main`: `eb566f346f63d3d6ed295c08170ac6d834ff7f04`. The follow-on handoff/documentation commit changes only these project-status documents; no production source changes are pending in that documentation slice.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and read-only.
+- `0b32b9111c38e2cf7588cf6605b2491f25e3ce31` fixed HW NAT 2.4/5 GHz radio-registration and IPv6 debugfs configuration: command wait status is normalized, each independent write is attempted, and the first failure is propagated. The HTTPD whitespace-sensitive source assertion was corrected in `e928181da3a52b4035d1ccf03307f212cafa2a4e`.
+- `58318f53937622672e10d6bcea8b07f8a4753aa3` fixed WAN restart route cleanup: interface names are passed to `ip` as argv elements; both interface flushes are attempted and a failure aborts route/table/WAN reconfiguration. Host regression `wan_route_flush_policy.c` covers first-error retention and independent cleanup.
+- `f2d9ccef50d3ebfc0f6f5dde94fae7893c7bb58d` corrected missing pull-request path-filter entries for the new policy/test. Its HTTPD source assertion was then found to be whitespace-sensitive and fixed in `eb566f346f63d3d6ed295c08170ac6d834ff7f04`.
 
 ## Active task
 
-Finish the Adbyby rule-update result path. The `RCN_RESTART_UPDATEADB` notification previously invoked a void wrapper that called `eval("/usr/bin/adbyby.sh", "updateadb")` and discarded its wait status. `update_adb()` now returns the status, the header matches, and the RC notification branch merges it with `rc_notify_merge_action_result()`.
-
-The preceding strict module-probe change is under exact-SHA verification; keep its results tied to SHA `4c43578509463afc2d25c05892ff39075245f173`.
+Verify the exact-current-source XY-C1 build for `eb566f346f63d3d6ed295c08170ac6d834ff7f04`. This is the first firmware build that includes the WAN interface-route flush change. Do not infer its result from the earlier firmware success on `e928181da3a52b4035d1ccf03307f212cafa2a4e`.
 
 ## Verification boundary
 
-- Exact-head 4c435 Process integration `43953778499`, Firewall Startup `43953778572`, HTTPD `43953778353`, AI handoff `43953778474`, and Process inventory `43953778187` passed. Overall 38/39 Actions were complete and green at last poll; XY-C1 `43953778444` remained in progress.
-- Strict-probe initial/final error tests are included in 4c435 and passed in Process and Firewall Startup workflows. Firmware Build/TRX/artifact on 4c435 is still pending until the XY-C1 job completes.
-- The Adbyby update status fix in this commit has not yet been built or tested on its new exact SHA. Physical-router L4 remains NOT VERIFIED.
+- Exact-head `eb566f3` HTTPD run `43961727463` passed, including the switch/route source contract and the compiled WAN route-flush regression. AI handoff contract run `43961726579` passed before this documentation update.
+- Exact-head `eb566f3` XY-C1 run `43961726533`: all pre-build host/source checks passed, including `Compile and run WAN route flush failure regression`; `Build XY-C1` was still in progress at handoff. TRX verification and artifact upload had not yet run.
+- Exact-head `f2d9cce` Firewall Startup run `43961249138` passed. Its HTTPD run `43961249141` failed only at the whitespace-sensitive source assertion for the multiline `rc_wan_route_flush_apply(...)` call; this is corrected in `eb566f3`, and the current-head HTTPD rerun is green.
+- The same route regression passed in Process lifecycle run `43960589874` on source SHA `58318f5`; the WAN route-operation regression `43960590043` also passed. The earlier `e928181` XY-C1 run `43957697560` completed Build XY-C1, TRX verification and artifact upload successfully, but predates the WAN route cleanup source change.
+- The initial HW NAT implementation SHA `0b32b91` had one HTTPD checker failure, fixed on `e928181`; the Firewall, Process and XY-C1 checks on `0b32b91` passed.
+- Physical-router L4 remains **NOT VERIFIED**. No claim of live radio registration, route behavior, or router stability is made from host CI alone.
 
 ## Exact first action for the next GPT
 
-1. Check exact-SHA Process integration, HTTPD, Firewall Startup and XY-C1 for the Adbyby update action status fix; inspect Build/TRX/artifact before claiming current firmware verification.
-2. Recheck the 4c435 XY-C1 Build/TRX/artifact completion, then continue auditing demonstrated dropped RC service-action results across the remaining notifier handlers.
-3. Main-only atomic complete-tree commits; expected-SHA CAS, no force push. Frozen backup read-only; physical-router L4 NOT VERIFIED.
+1. Poll exact-SHA XY-C1 run `43961726533` for `eb566f346f63d3d6ed295c08170ac6d834ff7f04`. Inspect `Build XY-C1`, `Verify TRX output`, and artifact upload separately; fix any failure before marking this source L3 verified.
+2. Recheck main and the frozen backup before the next write. Continue source-level audits of remaining dropped network/RC command results only where the operation is required for a correct state transition; add fault-injection regression and exact-SHA Actions for each confirmed defect.
+3. Keep main-only atomic full-tree commits with expected-SHA non-forced compare-and-swap. Never force-push, create a work branch/PR, or modify the frozen backup. Physical-router L4 remains NOT VERIFIED.
