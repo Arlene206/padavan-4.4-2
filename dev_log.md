@@ -1,3 +1,13 @@
+## 2026-11-16 — Repair USB storage workflow PR filters and report optional hook failures
+
+- Parent main: `0409c2b90d8da55531b8370dbb16e7a1ed978d67`. Exact-head storage-hotplug run `43880100890` / job `133343396256` failed at embedded source-check line 138: the checker correctly required every test input in both event filters, but `service_start_status.h` and `tests/service_start_status.c` were included only in push paths. Added both to pull_request paths.
+- The latest source also uses a fork/exec FD_CLOEXEC pipe for u2ec/LPRng, preventing background-shell success from masking exec/setup failures. It confirms exec handoff, not daemon runtime readiness.
+- Found another error propagation gap: an installed `on_hotplug_printer.sh` hook returned a status that was logged but not merged. Added the hook status to first-error aggregation while preserving all later p910nd/u2ec/lpd attempts, with GNU89 regression and source assertion.
+- Storage step 22 compiled and ran `service_start_status.c`; all prior ash/storage checks passed. Same-SHA XY-C1 `43880100797` and NVRAM `43880100873` were still in progress at last inspection; AI docs `43880101001`, process inventory `43880100870` and process lifecycle `43880100789` passed. Earlier `f6fba...` firmware L3 does not transfer to newer SHA; L4 remains NOT VERIFIED.
+- Next: verify exact-head storage and XY-C1 Actions, then resume P1 cross-userland RC startup-result propagation.
+
+---
+
 ## 2026-11-16 — Propagate USB printer daemon launch failures
 
 - Parent main: `f6fba229aba497988d2308c8c99879aca5da1214`. Review of `services_usb.c` found that `start_p910nd()` discarded `eval()`, `start_u2ec()` and `start_lpd()` discarded `system()`, and `exec_printer_daemons()` plus both public spooler entry points were void. The actual callers lost failures as well: `handle_notifications()` completed spooler requests and `on_deferred_hotplug_dev()` cleared the pending printer hotplug flag without checking launch results.

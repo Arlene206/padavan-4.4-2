@@ -101,6 +101,25 @@ test_usb_printer_launchers_preserve_first_failure_and_continue(void)
 }
 
 static void
+test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue(void)
+{
+	int status = 0;
+	int attempts = 0;
+
+	/* An optional hook failure is reported while core spooler launches continue. */
+	attempts++;
+	status = rc_first_service_start_status(status, EACCES);
+	attempts++;
+	status = rc_first_service_start_status(status, EIO);
+	attempts++;
+	status = rc_first_service_start_status(status, 0);
+	attempts++;
+	status = rc_first_service_start_status(status, 0);
+	assert(attempts == 4);
+	assert(status == EACCES);
+}
+
+static void
 test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
 {
 	int status = 0;
@@ -142,6 +161,7 @@ main(void)
 	test_first_error_survives_lan_restart_recovery();
 	test_negative_and_positive_statuses_are_preserved();
 	test_usb_printer_launchers_preserve_first_failure_and_continue();
+	test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue();
 	test_bridge_parameters_are_both_attempted_and_first_error_survives();
 	test_loopback_start_preserves_first_required_failure();
 	test_lan_start_preserves_first_required_failure();

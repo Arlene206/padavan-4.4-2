@@ -276,6 +276,7 @@ exec_printer_daemons(int call_fw)
 				if (start_status != 0)
 					logmessage("USB Printer", "optional printer hook failed for %s (status=%d)",
 						   dev_lp, start_status);
+				first_status = rc_first_service_start_status(first_status, start_status);
 			}
 			start_status = start_p910nd(dev_lp);
 			first_status = rc_first_service_start_status(first_status, start_status);

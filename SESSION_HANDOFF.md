@@ -1,8 +1,8 @@
 # Cross-session execution mandate
 
-Mandatory handoff checkpoint: Every session MUST inspect the live repository state and compare it with `SESSION_HANDOFF.md` before ending or handing off. Verify the engineering/source baseline, active task, relevant exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, leave the file untouched and make no no-op commit.
+Mandatory handoff checkpoint: Every session MUST inspect the live repository state and compare it with `SESSION_HANDOFF.md` before ending or handing off. Verify source baseline, active task, exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action remain accurate, leave the file untouched and make no no-op commit.
 
-Before context exhaustion, finish or reduce the current safe slice, check exact-head Actions, commit any completed work atomically and preserve the precise first next action here.
+Before context exhaustion, finish or reduce the current safe slice, check exact-head Actions, commit completed work atomically and preserve the precise first next action here.
 
 Continue this engineering task across ChatGPT conversations. Recover live repository state once, do not repeat completed audits, and do not ask the user what to do next.
 
@@ -11,27 +11,31 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active ref: `main`.
-- Parent main for this USB printer launch-result propagation slice: `f6fba229aba497988d2308c8c99879aca5da1214`; write protocol is complete-tree atomic commits with non-forced expected-SHA compare-and-swap.
+- Parent main for the current USB printer error-propagation correction: `0409c2b90d8da55531b8370dbb16e7a1ed978d67`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Startup recovery is complete; do not repeat.
-- Root dev log has 40 records before this entry; part-012 retains the oldest 100.
-- PPP ip-up validates canonical local/peer IPCP IPv4 addresses and a contiguous netmask before interface configuration or lease publication; invalid callback values return EINVAL without side effects.
-- WAN IPv6 teardown preserves the last live runtime `ifname6` through RA/autoconfiguration and route/address cleanup; DHCPv6 generation fencing must remain intact.
-- Optional WAN MTU ioctl failures remain diagnostic-only and do not set DHCP or route failure state.
+- Root dev log has 42 records before this entry; archive part-012 retains older entries.
+- PPP ip-up validates canonical local/peer IPCP IPv4 addresses and contiguous netmask before interface setup or lease publication.
+- WAN IPv6 teardown preserves the last live runtime `ifname6` through RA/autoconfiguration and route/address cleanup; DHCPv6 callback generation fencing remains required.
+- Optional WAN MTU ioctl failures remain diagnostic-only and do not set DHCP, interface or route failure state.
 
 ## Active task
 
-USB printer daemon startup previously discarded every launch result: `start_p910nd()` ignored `eval()`, `start_u2ec()` and `start_lpd()` ignored `system()`, the common printer-start loop returned void, and both restart/deferred-hotplug callers could therefore report success. In particular, `handle_notifications()` did not retain the spooler notification's incomplete marker on launch failure; deferred hotplug cleared its pending flag permanently. The current slice changes these launchers and callers to return/aggregate the first nonzero status, preserves attempts to later daemons, re-arms failed deferred hotplug for retry, and makes spooler notification completion conditional on the actual restart result. A GNU89 regression and exact source contracts are added to the existing storage workflow.
+USB printer launch failures now propagate from p910nd and direct u2ec/LPRng exec. The latest `services_usb.c` slice replaced `system("/usr/sbin/{u2ec,lpd} &")`, whose shell background status masked exec failures, with a fork/exec helper using an FD_CLOEXEC pipe to report exec errors to the caller. The helper does not wait for daemon runtime readiness; it only confirms successful `execv` handoff or returns the precise exec/setup error.
+
+The exact-head storage workflow on `0409c2b90d8da55531b8370dbb16e7a1ed978d67` failed at its last path-filter assertion: `service_start_status.h` and `tests/service_start_status.c` were present in push filters but absent in pull_request filters. The current correction adds both PR paths. Review also found a remaining production omission: the optional `on_hotplug_printer.sh` hook's `doSystem()` status was logged but dropped; this correction aggregates it without skipping p910nd or shared spooler starts. A focused GNU89 error/continue test and source contract cover the hook.
 
 ## Verification boundary
 
-Exact-head Actions for source parent `f6fba229aba497988d2308c8c99879aca5da1214`:
-- XY-C1 Firmware Validation `43876689861`: PASS. The same SHA passed all host regression/pre-build checks, Build XY-C1, TRX output verification and artifact upload. Firmware product-source L3 is VERIFIED on this SHA; physical-router L4 remains NOT VERIFIED.
-- WAN DHCP callback `43876690140`, WAN route `43876689913`, WAN interface teardown `43876690232`, NVRAM transaction boundary `43876690184`, process lifecycle `43876690199`, process inventory fail-closed `43876690163`, DNSMasq lifecycle `43876690078`, miniupnpd atomic configuration `43876690083`, USB modem identity `43876690111`, detect_internet `43876690026`, detect_link `43876690176`, infosvr `43876689855`, AdGuardHome `43876690213`, AliDDNS `43876689993`, AliyunDrive `43876690064`, VPN server lifecycle `43876690139`, HTTPD security `43876690034`, WAN gateway ARP `43876690059`, and AI docs `43876690148`: PASS.
-- The USB printer status-propagation slice in the current commit has not yet run on its new SHA; its storage workflow is expected to execute the new GNU89 test and source contracts.
+Exact-head Actions for `0409c2b90d8da55531b8370dbb16e7a1ed978d67`:
+- USB storage hotplug `43880100890`, job `133343396256`: FAIL at source-contract line 138 because `service_start_status.h` and `tests/service_start_status.c` were missing from pull_request filters. All steps through RC service-start GNU89 compile/run (step 22) passed, including BusyBox 1.24.2 ash and storage regressions. This commit adds the missing PR paths and asserts the optional hook result is aggregated.
+- XY-C1 Firmware Validation `43880100797`: IN_PROGRESS at last inspection; no same-SHA Build/TRX/artifact outcome available yet.
+- NVRAM transaction `43880100873`: IN_PROGRESS at last inspection.
+- AI handoff documentation `43880101001`, process inventory/lifecycle `43880100870`, process lifecycle `43880100789`: PASS on this parent.
+- Product-source firmware L3 was previously verified on `f6fba229aba497988d2308c8c99879aca5da1214` with same-SHA Build, TRX verification and artifact upload. Do not transfer that claim to this SHA until the current exact-head XY-C1 run passes all stages. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-SHA `storage-hotplug` Actions for the USB printer launch-result propagation commit; fix any failure from its first causal log, not by weakening assertions.
-2. Inspect exact-head XY-C1, WAN DHCP/route and AI documentation workflows after the new commit; only claim firmware L3 for a SHA whose Build, TRX and artifact upload all pass.
-3. Continue the P1 RC startup-result propagation review across independent userland modules; trace each real caller before changing legacy APIs.
-4. Preserve the frozen backup branch. Physical-router L4 remains unverified.
+1. Inspect exact-head storage-hotplug and XY-C1 Actions on the resulting main SHA; fix the first causal failure without weakening contracts.
+2. Require current-SHA XY-C1 Build, TRX and artifact upload to pass before claiming firmware L3.
+3. Continue P1 broad RC startup-result propagation across userland modules. Trace every actual caller and preserve lock/process identity contracts.
+4. Keep physical-router L4 explicitly NOT VERIFIED until hardware validation evidence exists.
