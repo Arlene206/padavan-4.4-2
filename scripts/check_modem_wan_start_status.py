@@ -45,16 +45,13 @@ wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
 assert "int modem_start_status = 0;" in wan_start
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
-assert len(re.findall(
-    r"modem_start_status\\s*=\\s*rc_first_service_start_status\\s*\\(\\s*modem_start_status\\s*,\\s*vlan_result\\s*\\)\\s*;",
-    wan_start,
-)) == 3
+aggregate_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*vlan_result\s*\)\s*;"
+aggregate_matches = list(re.finditer(aggregate_pattern, wan_start))
+assert len(aggregate_matches) == 3
 ras_migration = "vlan_result = check_upnp_wanif_changed(ppp_ifname);"
 assert ras_migration in wan_start
-assert wan_start.index(ras_migration) < wan_start.index(
-    "modem_start_status = rc_first_service_start_status(modem_start_status, vlan_result);",
-    wan_start.index(ras_migration),
-), "RAS migration failure must be retained"
+ras_migration_start = wan_start.index(ras_migration)
+assert re.search(aggregate_pattern, wan_start[ras_migration_start:]), "RAS migration failure must be retained"
 eapol_start = wan_start.index("if (auth_status != 0)")
 eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
 assert "modem_start_status" not in wan_start[eapol_start:eapol_end]

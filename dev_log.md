@@ -1,3 +1,12 @@
+## 2026-11-16 — Make modem status source checker whitespace-safe
+
+- Parent main: `3d0a5692490b6eb1bc35fae74c74764be4fa234d`. Review of the newly committed checker correction found that the Python raw regex still contained doubled backslashes, so it matched a literal backslash instead of C whitespace; the adjacent RAS-order assertion also still assumed a single-line call.
+- Replaced both brittle checks with one whitespace-tolerant regex, counted exactly three modem first-error aggregations and required one such aggregation after the RAS migration call. This keeps the production contract strict while accepting its multiline formatting.
+- Parent `3d0a569` triggered Process run `43842343441` (queued at last inspection); no exact-head result is claimed. XY-C1, miniupnpd and WAN DHCP trigger coverage must also be confirmed on this correction. The preceding parent `58fced5` host policy binaries passed, but Process/XY source checks still failed before firmware build.
+- Next: inspect this correction's exact-head Process and XY-C1 results and verify miniupnpd/WAN DHCP workflows; then proceed with NDIS control-TTY physical identity matching. No L3/L4 result is claimed.
+
+---
+
 ## 2026-11-16 — Repair WAN modem and callback regression contracts
 
 - Parent main: `58fced5de7155e7d90d5307f81a6f0a56c56ea39`. Exact-head Process `43841042079` and XY-C1 `43841041502` both ran the GNU89/Werror/ASan/UBSan policy binaries successfully, then failed in `check_modem_wan_start_status.py` because the checker counted a literal one-line C call while the valid source wraps its arguments across lines. Replace this with a whitespace-tolerant regex and retain the required three call sites.
