@@ -95,8 +95,9 @@ export TEST_TERM_MODE
 if func_stop; then fail "UNKNOWN after TERM was accepted"; fi
 [[ "$(cat "$TEST_SIGNALS")" == "-q redsocks" ]] || fail "UNKNOWN after TERM escalated to KILL"
 reset running
+TEST_TERM_MODE=keep
 TEST_SLEEP_FAIL=1
-export TEST_SLEEP_FAIL
+export TEST_TERM_MODE TEST_SLEEP_FAIL
 if func_stop; then fail "sleep failure was accepted as a successful stop"; fi
 [[ "$(cat "$TEST_SIGNALS")" == "-q redsocks" ]] || fail "sleep failure escalated to KILL"
 [[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" == 1 ]] || fail "sleep failure was not observed once"
