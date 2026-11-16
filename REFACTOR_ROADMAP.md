@@ -1,9 +1,11 @@
 ## Current source / CI checkpoint
 
-- Current main before THIS workflow assertion correction: b81207777615d31b096c1425ff1fa8110898b0c2. Production bridge configuration result propagation and GNU89/Werror/ASan/UBSan callback regression are in b81207777615d31b096c1425ff1fa8110898b0c2; local policy test passed.
-- The Process source checker had an over-escaped newline literal for the config_bridge() return type. THIS update uses chr(10), leaving production code and regression unchanged. Exact-head Process rerun required.
-- On parent b81207777615d31b096c1425ff1fa8110898b0c2: Process regression 43850461801 was in progress at LAN status tests; XY-C1 43850461476 was in progress at dependency setup. Process inventory 43850461826 passed. No current-SHA firmware/TRX/artifact L3 or physical L4 result.
-- Next: inspect exact-head Process bridge policy and XY-C1 Build/TRX/artifact; continue capability-aware bridge/IPTV status handling. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Live main before THIS storage-checker correction: `c066d1f230a2cadfceb091ccc9f45233f17dff09`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- LAN/IPTV bridge status propagation and injected GNU89/Werror/ASan/UBSan bridge policy tests are in `b81207777615d31b096c1425ff1fa8110898b0c2`. The Process source assertion escaping fix is in `c066d1f230a2cadfceb091ccc9f45233f17dff09`; exact-head Process `43850767730` passes all steps.
+- USB storage hotplug run `43850461648` on source SHA `b81207777615d31b096c1425ff1fa8110898b0c2` failed at a stale IPTV source assertion: production now aggregates bridge setup + proxy launch/stop statuses rather than direct-returning the proxy result. THIS checker-only commit updates the asserted behavior. Storage's earlier caller graph, BusyBox/ash and lock regression checks all passed.
+- On current main `c066d1f230a2cadfceb091ccc9f45233f17dff09`, AI docs `43850767697`, infosvr `43850767611`, AdGuardHome `43850767872`, AliDDNS `43850767755`, AliyunDrive `43850767862` and Process regression `43850767730` passed; NVRAM `43850767802` was still running.
+- XY-C1 `43850461476` for production source SHA `b81207777615d31b096c1425ff1fa8110898b0c2` was at Build, TRX/artifact pending; no current-main firmware L3 and no physical L4 result established.
+- Next: verify exact-head storage re-run, then continue loopback or another independent RC boot result-propagation task.
 
 ## Whole-repository module status
 

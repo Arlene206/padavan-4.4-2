@@ -394,14 +394,17 @@ require("return stop_status;" in igmp_start and
         'eval("/bin/igmpproxy", igmpproxy_conf)' in igmp_start,
         "IPTV start must propagate stop and every enabled proxy launch status")
 iptv_restart = body(net, "int\nrestart_iptv(int is_ap_mode)")
-require("return start_igmpproxy(wan_ifname);" in iptv_restart and
+require("operation_status = config_bridge(is_ap_mode);" in iptv_restart and
+        "operation_status = start_igmpproxy(wan_ifname);" in iptv_restart and
+        "return rc_first_service_start_status(start_status, operation_status);" in iptv_restart and
         "stop_status = stop_igmpproxy(NULL);" in iptv_restart and
-        "return stop_status;" in iptv_restart and
-        iptv_restart.index("return stop_status;") < iptv_restart.index("start_udpxy(IFNAME_BR)") and
-        "rc_first_service_start_status(start_status, start_udpxy(IFNAME_BR))" in iptv_restart and
-        "rc_first_service_start_status(start_status, start_xupnpd(IFNAME_BR))" in iptv_restart and
+        "return rc_first_service_start_status(start_status, stop_status);" in iptv_restart and
+        iptv_restart.index("return rc_first_service_start_status(start_status, stop_status);") <
+        iptv_restart.index("start_udpxy(IFNAME_BR)") and
+        "start_status = rc_first_service_start_status(start_status, start_udpxy(IFNAME_BR));" in iptv_restart and
+        "start_status = rc_first_service_start_status(start_status, start_xupnpd(IFNAME_BR));" in iptv_restart and
         "return start_status;" in iptv_restart,
-        "IPTV restart must propagate stop and enabled proxy launch outcomes")
+        "IPTV restart must preserve bridge errors, proxy stop gates and enabled launch outcomes")
 require("int restart_iptv(int is_ap_mode);" in rc_header and
         "int start_igmpproxy(char *wan_ifname);" in rc_header,
         "IPTV start/restart declarations must return checked status")

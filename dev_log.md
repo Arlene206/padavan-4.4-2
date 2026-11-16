@@ -1,3 +1,13 @@
+## 2026-11-16 — Align storage IPTV source contract with aggregated restart results
+
+- Parent main: `c066d1f230a2cadfceb091ccc9f45233f17dff09`. USB storage workflow run `43850461648` on source commit `b81207777615d31b096c1425ff1fa8110898b0c2` passed storage/eject lock, BusyBox 1.24.2/ash, caller graph and persistence checks, then failed at `scripts/check_storage_safe_remove.py` because it expected the old direct `return start_igmpproxy(...)` and bare stop return.
+- Production `restart_iptv()` now merges `config_bridge()`, router proxy start, AP proxy stop and enabled UDPxy/XUPnPD start outcomes through the first-error policy; the AP stop-before-replace gate must remain before starting either replacement proxy. Updated the source contract to check those current semantics and ordering, without relaxing the safety invariant.
+- Process bridge source/regression validation `43850767730` passed on exact main `c066d1f230a2cadfceb091ccc9f45233f17dff09`, as did AI docs `43850767697`, infosvr `43850767611`, AdGuardHome `43850767872`, AliDDNS `43850767755` and AliyunDrive `43850767862`. NVRAM `43850767802` was pending.
+- XY-C1 `43850461476` for production source SHA `b81207777615d31b096c1425ff1fa8110898b0c2` was still at Build; TRX verification/artifact upload had not completed. No L4 result.
+- THIS COMMIT triggers the storage hotplug workflow through the checker path. Next: inspect the exact-head storage rerun and resolve any further first-causal failure before selecting another RC reliability fix.
+
+---
+
 ## 2026-11-16 — Correct bridge return-type source assertion escaping
 
 - Parent main: b81207777615d31b096c1425ff1fa8110898b0c2. The bridge policy source and test commit b81207777615d31b096c1425ff1fa8110898b0c2 is published; local GNU89/Werror/ASan/UBSan policy test had passed.
