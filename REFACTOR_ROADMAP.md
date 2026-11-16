@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Current main before THIS metadata cleanup slice: `d6738c390b0578ba07a7bd9f0c2c23a4a1bca764`; this source fix changes modem metadata publication/cleanup and its host/source regression.
-- Exact-head parent `d6738c390b0578ba07a7bd9f0c2c23a4a1bca764`: USB modem identity `43846822594`, Process lifecycle `43846822569` and `43846822993`, HTTPD Security `43846822596`, AI handoff `43846822710`, WAN teardown `43846822592`, infosvr `43846822597`, AdGuardHome `43846822892`, AliDDNS `43846822840`, AliyunDrive `43846822598` SUCCESS. XY-C1 `43846822718` and NVRAM `43846822673` were IN_PROGRESS at last observation; recheck before relying on them.
-- USB modem path includes NDIS physical USB port ID + devnum matching and fail-closed RAS manual-index behavior. THIS slice additionally clears stale `wwanX/wethX` metadata after failed/truncated NDIS metadata publication; exact-head USB identity Action required.
-- No current-source XY-C1 Build/TRX/artifact L3 result or physical-router/L4 result is established. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Next: inspect exact-head modem identity/XY-C1/NVRAM; then review `reload_modem_modules()` readiness carefully and broaden RC startup-result propagation outside modem-only work.
+- Current main before THIS HTTPD checker correction: `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`; production NDIS metadata cleanup is implemented in `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`.
+- Exact-head USB identity `43847475018` and AI handoff `43847474937` SUCCESS. Process lifecycle `43847474942` and infosvr `43847475001` SUCCESS. HTTPD umbrella `43847474960` failed only because its metadata step still required direct network-handler writes after NDIS moved to the cleanup helper; this correction updates those source assertions.
+- NVRAM `43847475238` IN_PROGRESS at last inspection. Ancestor XY-C1 `43846822718` was IN_PROGRESS while Build XY-C1 ran; recheck live runs before claiming L3. No physical-router/L4 result.
+- Next: verify exact-head HTTPD/USB/AI and XY-C1/NVRAM; continue the safe `reload_modem_modules()` readiness assessment and broaden RC startup result propagation.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status
 

@@ -1,3 +1,13 @@
+## 2026-11-16 — Align HTTPD modem metadata contract with fail-closed publisher
+
+- Parent main: `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`. Source commit `b83383f9798d5a3e43d86877f9f37c0b1594ffd0` introduced a production metadata publication helper that removes stale network-node identity after invalid content or write failure.
+- Exact-parent USB identity `43847475018` and AI handoff `43847474937` passed. The C regression printed PASS in HTTPD run `43847474960`, which then failed its stale source-only assumptions: it expected three direct calls to `modem_node_file_write()` and required that call directly inside `mdev_net_main()`.
+- Updated the HTTPD umbrella to assert two remaining direct writers (WDM and TTY), the NDIS handler's use of `modem_node_file_publish_identity()`, the cleanup-failure branch, the helper's remove-on-failure semantics and the regression marker.
+- NVRAM `43847475238` was in progress at last inspection; XY-C1 ancestor run `43846822718` had been building. No L3/L4 claim.
+- Next: inspect exact-head HTTPD/USB/AI and XY-C1/NVRAM results; then continue module readiness and broad RC startup-status governance.
+
+---
+
 ## 2026-11-16 — Clear stale NDIS identity after publication failure
 
 - Parent main: `d6738c390b0578ba07a7bd9f0c2c23a4a1bca764`. Exact-parent USB modem WDM/NDIS run `43846822594`, Process runs `43846822569`/`43846822993`, HTTPD `43846822596`, AI docs `43846822710`, WAN teardown `43846822592`, infosvr `43846822597`, AdGuardHome `43846822892`, AliDDNS `43846822840` and AliyunDrive `43846822598` passed. XY-C1 `43846822718` and NVRAM `43846822673` were still in progress; no L3 claim.
