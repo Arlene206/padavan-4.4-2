@@ -19,6 +19,8 @@ cat > "$TMP_DIR/bin/nvram" <<'STUB'
 case "$2" in
 	adg_enable) echo "${ENABLE_ADG:-1}" ;;
 	ddnsto_enable) echo "${ENABLE_DDNSTO:-1}" ;;
+	sdns_enable) echo "${ENABLE_SMARTDNS:-0}" ;;
+	sdns_port) echo "${SMARTDNS_PORT:-6053}" ;;
 	frpc_enable) echo "${ENABLE_FRPC:-1}" ;;
 	frps_enable) echo 0 ;;
 	*) echo 0 ;;
@@ -54,6 +56,11 @@ cat > "$TMP_DIR/bin/frp.sh" <<'STUB'
 #!/bin/sh
 printf 'frp:%s\n' "$*" >> "$AUTOSTART_CALLS"
 exit "${FRP_STATUS:-0}"
+STUB
+cat > "$TMP_DIR/bin/smartdns.sh" <<'STUB'
+#!/bin/sh
+printf 'smartdns:%s\n' "$*" >> "$AUTOSTART_CALLS"
+exit "${SMARTDNS_STATUS:-0}"
 STUB
 chmod 755 "$TMP_DIR/bin/"*
 
@@ -112,4 +119,74 @@ if grep -Eq 'AdGuardHome autostart failed|DDNSTO autostart failed|FRP autostart 
 	exit 1
 fi
 
-echo "optional add-on autostart failure propagation regression: PASS"
+
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
+mkdir -p "$TMP_DIR/storage/dnsmasq"
+printf '去广告规则\nadbyby\ncustom-rule\n' > "$TMP_DIR/storage/smartdns_custom.conf"
+printf 'no-resolv\nserver=127.0.0.1#6053\nserver=127.0.0.1#53\nserver=/example.com/127.0.0.1#6053\nport=0\nserver=8.8.8.8#53\n' > "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"
+printf 'stale-state\n' > "$TMP_DIR/storage/smartdns_conf.ini"
+ENABLE_SMARTDNS=1
+SMARTDNS_PORT=6053
+export ENABLE_SMARTDNS SMARTDNS_PORT
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
+	echo "autostart failed during SmartDNS config cleanup" >&2
+	exit 1
+}
+if grep -Fxq 'no-resolv' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || grep -Fxq 'port=0' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"; then
+	echo "SmartDNS cleanup left stale DNSmasq directives" >&2
+	exit 1
+fi
+if grep -Fxq 'server=127.0.0.1#6053' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"; then
+	echo "SmartDNS cleanup left its stale configured upstream" >&2
+	exit 1
+fi
+grep -Fxq 'server=127.0.0.1#53' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
+	echo "SmartDNS cleanup removed an unrelated loopback upstream" >&2
+	exit 1
+}
+grep -Fxq 'server=/example.com/127.0.0.1#6053' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
+	echo "SmartDNS cleanup removed a domain-specific upstream" >&2
+	exit 1
+}
+grep -Fxq 'server=8.8.8.8#53' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
+	echo "SmartDNS cleanup removed an unrelated upstream" >&2
+	exit 1
+}
+grep -Fxq 'custom-rule' "$TMP_DIR/storage/smartdns_custom.conf" || {
+	echo "SmartDNS cleanup removed custom configuration" >&2
+	exit 1
+}
+if grep -Eq '去广告|adbyby' "$TMP_DIR/storage/smartdns_custom.conf"; then
+	echo "SmartDNS cleanup retained obsolete ad-blocking configuration" >&2
+	exit 1
+fi
+[ ! -e "$TMP_DIR/storage/smartdns_conf.ini" ] || {
+	echo "SmartDNS cleanup did not invalidate stale state" >&2
+	exit 1
+}
+grep -Fxq 'smartdns:start' "$AUTOSTART_CALLS" || {
+	echo "SmartDNS launcher was not attempted after cleanup" >&2
+	exit 1
+}
+
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
+printf 'server=127.0.0.1#6053\nserver=127.0.0.1#53\n' > "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"
+SMARTDNS_PORT='6053/d'
+export SMARTDNS_PORT
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
+	echo "autostart failed on an invalid SmartDNS port value" >&2
+	exit 1
+}
+grep -Fxq 'server=127.0.0.1#6053' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
+	echo "invalid SmartDNS port modified a dnsmasq upstream" >&2
+	exit 1
+}
+grep -Fq 'SmartDNS port is invalid; leaving the dnsmasq loopback upstream unchanged' "$AUTOSTART_LOG" || {
+	echo "invalid SmartDNS port was not rejected before sed" >&2
+	exit 1
+}
+
+echo "optional add-on and SmartDNS autostart regression: PASS"
+
