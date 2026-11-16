@@ -62,6 +62,7 @@ rc_module_load_requirements_apply(const rc_module_load_requirement_t *requiremen
 
 typedef struct {
 	int (*unload)(const char *module_name, int recurse_unload);
+	/* 1 = loaded, 0 = absent, negative errno = probe failed. */
 	int (*is_loaded)(const char *module_name);
 } rc_module_unload_ops_t;
 
@@ -73,15 +74,23 @@ static inline int
 rc_module_unload_verified(const char *module_name, int recurse_unload,
 			  const rc_module_unload_ops_t *ops)
 {
+	int loaded;
+
 	if (!module_name || module_name[0] == '\0' ||
 	    !ops || !ops->unload || !ops->is_loaded)
 		return EINVAL;
 
-	if (!ops->is_loaded(module_name))
+	loaded = ops->is_loaded(module_name);
+	if (loaded < 0)
+		return -loaded;
+	if (loaded == 0)
 		return 0;
 
 	(void)ops->unload(module_name, recurse_unload);
-	return ops->is_loaded(module_name) ? EBUSY : 0;
+	loaded = ops->is_loaded(module_name);
+	if (loaded < 0)
+		return -loaded;
+	return loaded ? EBUSY : 0;
 }
 
 /* Preserve the existing call shape for wireless-driver users. */

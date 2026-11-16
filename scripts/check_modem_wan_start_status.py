@@ -27,6 +27,7 @@ RC_SOURCE = (RC / "rc.c").read_text()
 HEADER = (RC / "rc.h").read_text()
 MODULE_POLICY_SOURCE = (RC / "wireless_module_load_policy.h").read_text()
 MODULE_POLICY_TEST = (RC / "tests/wireless_module_load_policy.c").read_text()
+COMMON_EX_SOURCE = (RC / "common_ex.c").read_text()
 HWNAT_POLICY_SOURCE = (RC / "hwnat_config_policy.h").read_text()
 HWNAT_POLICY_TEST = (RC / "tests/hwnat_config_policy.c").read_text()
 SFE_POLICY_SOURCE = (RC / "sfe_config_policy.h").read_text()
@@ -519,8 +520,15 @@ assert 'rc_module_unload_verified("nf_nat_sip", 1, &module_unload_ops)' in nat_r
 assert 'rc_module_unload_verified("nf_nat_ftp", 0, &module_unload_ops)' in nat_reload
 assert 'rc_module_unload_verified("nf_conntrack_ftp", 0, &module_unload_ops)' in nat_reload
 assert "rc_module_unload_verified" in MODULE_POLICY_SOURCE
+assert "is_module_loaded_status(const char *module_name)" in COMMON_EX_SOURCE
+assert "opendir(\"/sys/module\")" in COMMON_EX_SOURCE
+assert "return is_module_loaded_status(module_name) > 0;" in COMMON_EX_SOURCE
+assert "if (errno == ENOENT)" in COMMON_EX_SOURCE
+assert "int is_module_loaded_status(const char *module_name);" in HEADER
 assert "test_unload_busy_module_is_not_reported_as_removed" in MODULE_POLICY_TEST
 assert "test_unload_requirement_set_attempts_all_and_keeps_first_failure" in MODULE_POLICY_TEST
+assert "test_unload_initial_probe_error_fails_closed" in MODULE_POLICY_TEST
+assert "test_unload_postcondition_probe_error_is_reported" in MODULE_POLICY_TEST
 
 # HW NAT must not be reported enabled unless the WAN VID sysfs write succeeds.
 hwnat_config = compact(body(NET_SOURCE, "hwnat_configure(int wan_vid, int hwnat_allow)"))

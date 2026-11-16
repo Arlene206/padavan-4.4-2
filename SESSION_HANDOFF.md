@@ -10,28 +10,25 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-- Main parent for this firmware link fix: `89a43d9afab380b167b8b47a80b4b3837976e33f`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
-- Exact-head 09ea XY-C1 `43947164750` reached the MIPS link step but failed with undefined references to `rc_first_service_start_status` from `firewall_ex.o`. The helper is `static inline` in `service_start_status.h`; `firewall_ex.c` used it without including that header. This commit includes the header and adds a source-check assertion to prevent recurrence.
-- Exact-head 89a43d9 Firewall Startup `43948306770`, Process regression `43948306885`, HTTPD `43948306816`, AI handoff `43948306828`, USB modem `43948306849`, infosvr `43948306784`, AliDDNS `43948306867`, AdGuardHome `43948306841`, and AliyunDrive `43948306780` passed. NVRAM `43948306748` was pending at last poll; XY-C1 `43948306746` was actively cross-building.
-- Exact-head 39190 NAT source SHA failed only stale validation contracts at that stage: Firewall Startup/Process shared the policy-variable mismatch; HTTPD expected the old HW NAT helper signature. Those were corrected in 89a43d9. New-SHA firmware and NAT unit verification is required after this fix.
+- Main parent for the strict module-probe slice: `1aca5ab3a776a66138814769b84d5e5ceb43b46c`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only.
+- Recent source changes verify configured NAT helper loads, HW NAT WAN-VID configuration and SFE sysfs configuration. A fail-open edge remains in the legacy module probe: `is_module_loaded()` returns 0 for both ENOENT and other `opendir("/sys/module/<name>")` errors. This slice adds a tri-state probe, preserves the legacy boolean API, and makes verified unload propagate probe errors.
+- Exact-head 1aca Actions: Process lifecycle regression `43952107815`, HTTPD `43952107789`, and AI handoff `43952107818` passed. XY-C1 `43952107870` status is recorded below; these runs do not include this new strict-probe commit.
+- ec923 previously passed XY-C1 module-policy regression, firmware build, TRX and artifact upload. That build predates later HW NAT/SFE source changes and must not be treated as current-source L3 evidence.
 
 ## Active task
 
-The Shadowsocks, persistent post-firewall and Optware hook paths now propagate non-ENOENT staging failures, command failures and staged-file cleanup errors to `start_firewall_ex()`, while continuing independent hooks. Missing optional scripts remain no-op; a successful built-in firewall stays enabled even when an extension fails. Staged-path removal retains its path when unlink fails.
+Harden NAT module unload postconditions. The previous verifier treated any zero-valued presence probe as "absent", while `is_module_loaded()` conflates ENOENT and sysfs permission/resource failures. The strict probe returns 1 for loaded, 0 only for a missing module after confirming the sysfs module root is readable, and negative errno for lookup failures. Existing boolean callers keep their legacy API.
 
-The implementation is present, but the integration suites exposed two stale checker assumptions: a doubly escaped whitespace regex and an outdated `static void` signature. This slice fixes those validation contracts only.
-
-Next P1: audit NAT helper and HW NAT/SFE module load/unload postconditions in `net.c`. Verify required ALG failures remain visible and optional accelerator failures do not block ordinary WAN/firewall service. Add injectable unload postcondition tests.
+Injectable policy regressions prove an initial probe failure prevents unload and a post-unload probe failure is returned rather than reported as success. Configured helper unloads must still be attempted independently, retaining the first failure.
 
 ## Verification boundary
 
-- Exact-head 09ea XY-C1 `43947164750` failed at link: `firewall_ex.o` referenced `rc_first_service_start_status` without including its header definition. The inline function resides in `service_start_status.h`; this commit adds the missing include.
-- 89a43d9 Firewall Startup, Process regression, HTTPD, AI handoff, USB modem, infosvr, AliDDNS, AdGuardHome and AliyunDrive passed. NVRAM was pending and XY-C1 was still building at the last poll.
-- 39190 NAT policy and test code has not yet completed green exact-SHA CI; its initial source-checker failures are fixed by 89a43d9, and the current firmware link repair must be verified on a fresh SHA.
-- No XY-C1 Build/TRX/artifact success is claimed for the new SHA until the corresponding exact-SHA job passes. Physical-router L4 remains NOT VERIFIED.
+- Exact-head 1aca Process lifecycle regression `43952107815`, HTTPD `43952107789`, and AI handoff `43952107818` passed. XY-C1 `43952107870` was `in_progress` at the last poll.
+- Earlier ec923 XY-C1 run `43948787188` passed the module policy test, firmware build, TRX verification and artifact upload. It predates subsequent HW NAT/SFE source modifications and is not current-source L3 evidence.
+- The strict module-probe source changes and two injected failure cases are in this commit; no new-SHA CI or firmware result is claimed until exact-head Actions complete. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect new-SHA Firewall Startup, Process regression, HTTPD and XY-C1 cross-build. Verify the `service_start_status.h` inline helper now resolves at firmware link.
-2. Verify the NAT load/unload policy unit test under ASan/UBSan and the HW NAT/SFE path assertions; diagnose any new source/compile issue.
-3. Keep commits main-only and atomic with non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.
+1. Inspect new-SHA Process, Firewall Startup, HTTPD and XY-C1 Actions. Require the strict-probe regressions to pass and inspect Build/TRX/artifact before claiming firmware validation.
+2. Continue the cross-userland RC startup-result audit: trace enabled service launchers through actual callers and PID 1 action-result merges; fix only demonstrated dropped errors.
+3. Keep main-only complete-tree commits with non-forced expected-SHA CAS. Frozen backup read-only; physical-router L4 NOT VERIFIED.

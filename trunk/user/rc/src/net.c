@@ -878,7 +878,7 @@ reload_nat_modules(void)
 		module_smart_load, is_module_loaded
 	};
 	static const rc_module_unload_ops_t module_unload_ops = {
-		module_smart_unload, is_module_loaded
+		module_smart_unload, is_module_loaded_status
 	};
 	rc_module_load_requirement_t pptp_modules[2] = {
 		{ "nf_conntrack_pptp", NULL, 1 },

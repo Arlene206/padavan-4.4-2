@@ -1387,9 +1387,16 @@ for test_case in (
     "test_visible_module_state_wins_over_loader_status",
     "test_module_parameter_is_forwarded",
     "test_invalid_inputs_fail_before_side_effects",
+    "test_unload_initial_probe_error_fails_closed",
+    "test_unload_postcondition_probe_error_is_reported",
 ):
     assert test_case in wireless_module_load_test
 assert "Compile and run RC wireless module post-load verification regression" in process_workflow
+assert "test_unload_initial_probe_error_fails_closed" in wireless_module_load_test
+assert "test_unload_postcondition_probe_error_is_reported" in wireless_module_load_test
+assert "is_module_loaded_status(const char *module_name)" in common_ex
+assert "opendir(\"/sys/module\")" in common_ex
+assert "return is_module_loaded_status(module_name) > 0;" in common_ex
 assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in process_workflow
 assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in process_workflow
 assert "Compile and run RC module load/unload postcondition regression" in xy_workflow

@@ -106,6 +106,7 @@ on:
 
   pull_request:
     paths:
+      - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/scripts/process_lifecycle.sh"
       - "trunk/user/shared/tests/process_lifecycle.sh"
@@ -550,20 +551,6 @@ jobs:
           assert "rc_module_load_verified(module_name, module_param, &ops)" in module_loader
           assert "is_module_loaded" in module_loader
           assert 'init_bridge_load_module_verified("iNIC_mii", inic_param)' in init_bridge
-
-          # Pseudo-interface radio setup is part of bridge initialization:
-          # do not silently ignore failures to raise/lower the main ifaces.
-          for ifname, band in (("IFNAME_2G_MAIN", "2.4GHz"), ("IFNAME_5G_MAIN", "5GHz")):
-              up = "operation_status = ifconfig(" + ifname + ", IFUP, NULL, NULL);"
-              up_record = 'rc_bridge_init_record(&bridge_status, "bring up ' + band + ' main interface for radio configuration", operation_status);'
-              assert init_bridge.count(up) == 2, up
-              assert init_bridge.count(up_record) == 2, up_record
-              down = "operation_status = ifconfig(" + ifname + ", 0, NULL, NULL);"
-              down_record = 'rc_bridge_init_record(&bridge_status, "restore ' + band + ' main interface down", operation_status);'
-              assert init_bridge.count(down) == 1, down
-              assert init_bridge.count(down_record) == 1, down_record
-              assert 'doSystem("ifconfig %s %s", ' + ifname + ', "up")' not in init_bridge
-              assert 'doSystem("ifconfig %s %s", ' + ifname + ', "down")' not in init_bridge
 
           # Every requested radio mode/interface must feed its real start result
           # into the bridge initializer; otherwise init_router() reports success

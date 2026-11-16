@@ -582,26 +582,41 @@ module_parameter_path(char *path, size_t path_size,
 }
 
 int
-is_module_loaded(const char *module_name)
+is_module_loaded_status(const char *module_name)
 {
 	DIR *dir_to_open;
 	char mod_path[64];
 	int path_len;
 
 	if (!is_safe_module_name(module_name))
-		return 0;
+		return -EINVAL;
 	path_len = snprintf(mod_path, sizeof(mod_path), "/sys/module/%s", module_name);
-	if (path_len < 0 || path_len >= (int)sizeof(mod_path))
-		return 0;
+	if (path_len < 0)
+		return -EIO;
+	if (path_len >= (int)sizeof(mod_path))
+		return -ENAMETOOLONG;
+
+	/* Treat ENOENT as absence only after verifying the sysfs module root. */
+	dir_to_open = opendir("/sys/module");
+	if (!dir_to_open)
+		return -(errno ? errno : EIO);
+	closedir(dir_to_open);
+
 	dir_to_open = opendir(mod_path);
 	if (dir_to_open) {
 		closedir(dir_to_open);
 		return 1;
 	}
-
-	return 0;
+	if (errno == ENOENT)
+		return 0;
+	return -(errno ? errno : EIO);
 }
 
+int
+is_module_loaded(const char *module_name)
+{
+	return is_module_loaded_status(module_name) > 0;
+}
 int
 get_module_refcount(const char *module_name)
 {

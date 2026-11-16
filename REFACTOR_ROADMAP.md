@@ -1,8 +1,9 @@
 ## Current source / CI checkpoint
 
-- Main parent: `89a43d9afab380b167b8b47a80b4b3837976e33f`. Exact-head 09ea XY-C1 `43947164750` failed at firmware link because `firewall_ex.o` referenced the static-inline `rc_first_service_start_status` helper without including `service_start_status.h`. The current repair adds the include and a canonical assertion.
-- Exact-head 89a43d9 Firewall Startup, Process regression, HTTPD, AI handoff, USB modem, infosvr, AliDDNS, AdGuardHome and AliyunDrive passed; NVRAM was pending and XY-C1 was cross-building. Exact-head 39190 policy/test source validation still needs a new green run following checker repairs.
-- Next verification: firmware link/Build/TRX/artifact on the new SHA, then validate the NAT module unload policy tests and HW NAT/SFE state transitions. No physical-router L4 claim.
+- Main parent for the strict module-probe change: `1aca5ab3a776a66138814769b84d5e5ceb43b46c`. Exact-head Process lifecycle regression `43952107815`, HTTPD `43952107789`, and AI handoff `43952107818` passed; XY-C1 `43952107870` was `in_progress`. New source changes require fresh exact-SHA validation.
+- NAT load/unload verification found that legacy `is_module_loaded()` conflates a missing module with any sysfs lookup failure. The current change adds strict tri-state `is_module_loaded_status()`, validates the sysfs module root before treating ENOENT as absence, preserves the legacy boolean wrapper, and propagates initial/post-unload probe errors through `rc_module_unload_verified()`. Two injectable failure-path tests are added.
+- The ec923 XY-C1 build/TRX/artifact passed but predates subsequent HW NAT/SFE work; it is not current-source L3 evidence. Next: verify the strict-probe and latest XY-C1 runs, then continue broad RC service launcher result propagation. Physical-router L4 remains NOT VERIFIED.
+
 
 
 

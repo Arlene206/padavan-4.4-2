@@ -215,6 +215,8 @@ static int unload_command_results[UNLOAD_TEST_MODULES];
 static int unload_expected_count;
 static int unload_calls;
 static int unload_probe_calls;
+static int unload_probe_error_call;
+static int unload_probe_error;
 
 static int
 mock_module_unload(const char *module_name, int recurse_unload)
@@ -244,6 +246,8 @@ mock_module_unload_probe(const char *module_name)
 	}
 	assert(i < unload_expected_count);
 	++unload_probe_calls;
+	if (unload_probe_error_call == unload_probe_calls)
+		return -unload_probe_error;
 	return unload_module_loaded[i];
 }
 
@@ -263,6 +267,8 @@ reset_unload_case(const char *name, int loaded, int command_result,
 	unload_expected_count = 1;
 	unload_calls = 0;
 	unload_probe_calls = 0;
+	unload_probe_error_call = 0;
+	unload_probe_error = 0;
 }
 
 static void
@@ -351,6 +357,32 @@ test_unload_requirement_set_attempts_all_and_keeps_first_failure(void)
 	assert(unload_module_loaded[2] == 0);
 }
 
+static void
+test_unload_initial_probe_error_fails_closed(void)
+{
+	reset_unload_case("nf_nat_pptp", 1, 0, 1);
+	unload_probe_error_call = 1;
+	unload_probe_error = EACCES;
+	assert(rc_module_unload_verified("nf_nat_pptp", 1,
+					 &mock_unload_ops) == EACCES);
+	assert(unload_calls == 0);
+	assert(unload_probe_calls == 1);
+	assert(unload_module_loaded[0] == 1);
+}
+
+static void
+test_unload_postcondition_probe_error_is_reported(void)
+{
+	reset_unload_case("nf_nat_h323", 1, 0, 1);
+	unload_probe_error_call = 2;
+	unload_probe_error = EIO;
+	assert(rc_module_unload_verified("nf_nat_h323", 1,
+					 &mock_unload_ops) == EIO);
+	assert(unload_calls == 1);
+	assert(unload_probe_calls == 2);
+	assert(unload_module_loaded[0] == 0);
+}
+
 int
 main(void)
 {
@@ -367,6 +399,8 @@ main(void)
 	test_unload_busy_module_is_not_reported_as_removed();
 	test_unload_invalid_inputs_have_no_side_effects();
 	test_unload_requirement_set_attempts_all_and_keeps_first_failure();
+	test_unload_initial_probe_error_fails_closed();
+	test_unload_postcondition_probe_error_is_reported();
 	puts("RC module load/unload postcondition policies: PASS");
 	return 0;
 }

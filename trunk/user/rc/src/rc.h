@@ -180,6 +180,7 @@ void char_to_ascii(char *output, char *input);
 unsigned int get_param_int_hex(const char *param);
 void load_user_config(FILE *fp, const char *dir_name, const char *file_name, const char **forbid_list);
 int is_module_loaded(const char *module_name);
+int is_module_loaded_status(const char *module_name);
 int get_module_refcount(const char *module_name);
 int module_smart_load(const char *module_name, const char *module_param);
 int module_smart_unload(const char *module_name, int recurse_unload);

@@ -1,3 +1,12 @@
+## 2026-11-16 — Fail closed on RC module-state probe errors
+
+- Main parent: `1aca5ab3a776a66138814769b84d5e5ceb43b46c`. Audited `common_ex.c:is_module_loaded()`: it returned 0 for all `opendir("/sys/module/<name>")` failures, conflating absence (ENOENT) with permission/resource/sysfs errors. `rc_module_unload_verified()` could consequently skip an unload and falsely report absence.
+- Added tri-state `is_module_loaded_status()`: 1=loaded, 0=ENOENT only after the sysfs module root opens, negative errno=invalid path or probe failure. Preserved the legacy boolean `is_module_loaded()` wrapper and bound NAT unload verification to the strict probe.
+- Added injectable regressions for an initial probe error (must not call unload) and a post-unload probe error (must return the error). Updated canonical source checks and push/PR path coverage.
+- Exact 1aca runs before this slice: Process regression `43952107815`, HTTPD `43952107789`, AI handoff `43952107818` passed; XY-C1 `43952107870` was `in_progress`. This commit needs fresh exact-SHA results. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Include the inline service-start result policy in firewall_ex
 
 - Exact-head 09ea XY-C1 `43947164750` reached MIPS link and failed with undefined references to `rc_first_service_start_status` from `firewall_ex.o`. The helper is static-inline in `service_start_status.h`; `firewall_ex.c` had not included that header. Added the include and added a canonical source assertion.
