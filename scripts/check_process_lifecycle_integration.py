@@ -1276,10 +1276,11 @@ for contract in (
 ):
     assert contract in service_start_test
 assert '#include "wireless_module_load_policy.h"' in rc_source
-assert "(void)ops->load(module_name, NULL);" in wireless_module_load_policy
+assert "(void)ops->load(module_name, module_param);" in wireless_module_load_policy
 assert "return ops->is_loaded(module_name) ? 0 : EIO;" in wireless_module_load_policy
+assert "return rc_module_load_verified(module_name, NULL, ops);" in wireless_module_load_policy
 assert "if (!module_name || module_name[0] == '\\0' ||" in wireless_module_load_policy
-assert "rc_wireless_module_load_verified(module_name, &ops)" in wireless_loader
+assert "rc_module_load_verified(module_name, NULL, &ops)" in wireless_loader
 assert "module_smart_load(module_name, NULL)" not in wireless_loader
 assert "is_module_loaded(module_name)" not in wireless_loader
 assert "wireless driver module load failed or module is unavailable" in wireless_loader
@@ -1292,10 +1293,10 @@ for module_name in (
     assert 'load_wireless_module("' + module_name + '")' in wireless_bulk_loader
     assert "rc_first_service_start_status(start_status, load_wireless_module(" in wireless_bulk_loader
 assert "return start_status;" in wireless_bulk_loader
-assert "wireless_modules_status = load_wireless_modules();" in rc_source
-assert "Router initialization continuing with unavailable wireless driver(s)" in rc_source
-assert rc_source.index("wireless_modules_status = load_wireless_modules();") < rc_source.index("load_mmc_modules();")
-assert "int boot_services_status = wireless_modules_status;" in rc_source
+assert "boot_modules_status = load_wireless_modules();" in rc_source
+assert "Router initialization continuing with one or more unavailable hardware modules" in rc_source
+assert rc_source.index("boot_modules_status = load_wireless_modules();") < rc_source.index("load_mmc_modules();")
+assert "int boot_services_status = boot_modules_status;" in rc_source
 assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
 assert "rc_first_service_start_status(boot_services_status," in rc_source
 for test_case in (
@@ -1303,6 +1304,7 @@ for test_case in (
     "test_newly_loaded_is_success",
     "test_failed_modprobe_is_not_success",
     "test_visible_module_state_wins_over_loader_status",
+    "test_module_parameter_is_forwarded",
     "test_invalid_inputs_fail_before_side_effects",
 ):
     assert test_case in wireless_module_load_test
@@ -1312,7 +1314,7 @@ assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in process_work
 assert "Compile and run RC wireless module post-load verification regression" in xy_workflow
 assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in xy_workflow
 assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in xy_workflow
-assert "int boot_services_status = wireless_modules_status;" in rc_source
+assert "int boot_services_status = boot_modules_status;" in rc_source
 assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
 assert "rc_first_service_start_status(boot_services_status," in rc_source
 assert "one or more boot service startup operations failed (first status=%d)" in rc_source

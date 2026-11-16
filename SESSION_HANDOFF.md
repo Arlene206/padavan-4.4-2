@@ -15,11 +15,11 @@ For each logical task, create all changed files in one Git tree and one atomic m
 
 ## Active task
 
-Latest main source commit `8a8dfed5441936dc9fcf8e9414f45a21684aff33` contains verified status aggregation for USB/XHCI/EHCI/OHCI, AHCI, MMC/SDHCI, MTK AES and IPSet boot module groups, including preservation of XHCI parameters. Its XY-C1 build, TRX and artifact validation remain in progress at last inspection (run `43823036488`, Build XY-C1 step still running).
+Production-source commit `8a8dfed5441936dc9fcf8e9414f45a21684aff33` adds post-load-verified status reporting for USB/XHCI/EHCI/OHCI, AHCI, MMC/SDHCI, MTK AES and IPSet module groups, retaining XHCI's `usb3_disable` parameter and aggregating first errors into `init_router()`. Its exact-source XY-C1 workflow completed SUCCESS on run `43823036488`, job `133150286335`: boot module policy regression, semantic module-group check, Build XY-C1, TRX verification and artifact upload all passed.
 
-IGMP proxy lifecycle source commit `3e7acc5caeb8b8a9d0588edbcc8ab9292b750479` passed XY-C1 Build/TRX/artifact. Static IPTV regression passed. WAN-route exact-SHA checker chain still fails only in older exact operation-count assertions: after fixing MAN teardown count, the next failure was its stale MAN up exact accumulation count; WAN up has the same stale count (+1 from the correctly accumulated proxy result). This follow-up makes the historical operation counts lower bounds, while the independent semantic checker already requires explicit start/stop proxy status capture and aggregation.
+WAN-route regression is green on exact main `f9de514198a1b6cb90b1e12528b87e7d16f955c2`: run `43823916390` SUCCESS. The process-lifecycle exact-head run `43823916381`, job `133153102957`, failed only at the final shared-library/RC source contract because its checker still required the former wireless-only `rc_wireless_module_load_verified()` implementation and `wireless_modules_status` variable. The production code intentionally generalized policy to `rc_module_load_verified(module_name, module_param, &ops)` and aggregates all optional hardware groups as `boot_modules_status`; earlier host regressions and the generalized module policy test passed. THIS COMMIT updates those stale checker assumptions, explicitly verifies the retained wireless compatibility wrapper and XHCI parameter-forwarding test, and does not change production behavior. The Process workflow already watches this checker path in both push and pull_request filters.
 
-Next: check exact-head WAN-route after this test-only patch, and check XY-C1 for boot module commit `8a8dfed...`. Then continue tracing legacy `reload_modem_modules()` implementation/callers before modifying any of its void API.
+The next engineering item is the legacy `reload_modem_modules()` API. Trace its full implementation, all callers, modem type/rule configuration paths, module availability semantics, and restart/rollback behavior before deciding whether to alter its void return contract. Do not change the prototype without an end-to-end caller contract and regression.
 
 ## Files and caller chain reviewed
 
@@ -41,17 +41,16 @@ Next: check exact-head WAN-route after this test-only patch, and check XY-C1 for
 
 ## Verification boundary
 
-- Previous source L3: b2d3288b6282c16cf23859eb9e7f8fdce083cd62, XY-C1 run 43814395678 completed Build, TRX verification and artifact upload successfully. This evidence predates the current IGMP source change.
-- Previous live main d552d85d79196f95d88d22ea2b29f45061cda4f2: AI handoff 43816938416, DNSMasq 43816938423, Process lifecycle 43816938428, NVRAM 43816938384, AdGuardHome 43816938365, infosvr 43816938338, AliyunDrive 43816938443, and AliDDNS 43816938506 all completed SUCCESS on that exact SHA. NVRAM run 43815228491 also completed SUCCESS.
-- The earlier DNSMasq YAML indentation failure 43816311414 on 78af5220da96994440003d1e794ea948457dbd5f was fixed; d552 exact-head DNSMasq is PASS.
-- THIS COMMIT: L1 source review is complete. Static IPTV host regression and semantic caller checks are wired into the WAN-route workflow but their exact-head Actions result is not yet known until publication. Exact-source XY-C1 build/TRX/artifact result is also pending after publication.
-- No local full repository checkout or local host test execution was available during this slice. No L4 physical-router validation is claimed.
+- L3 firmware verification for boot-module source `8a8dfed5441936dc9fcf8e9414f45a21684aff33`: XY-C1 run `43823036488`, job `133150286335`, completed SUCCESS including module policy regression, semantic group checker, Build XY-C1, TRX verification and artifact upload.
+- Exact main `f9de514198a1b6cb90b1e12528b87e7d16f955c2`: WAN-route `43823916390`, AI handoff `43823916418`, AliDDNS `43823916394`, AliyunDrive `43823916419`, infosvr `43823916437` and AdGuardHome `43823916443` completed SUCCESS. NVRAM `43823916423` was still IN_PROGRESS when checked. Process lifecycle `43823916381` FAILED only in the final RC source-integration checker (job `133153102957`, assertion line 1279); all preceding compile/runtime regressions passed.
+- THIS COMMIT is test/source-contract and handoff-only. Exact-head Process rerun is required. No new firmware build is implied; L3 evidence remains attached to source SHA `8a8dfed...`.
+- Previous IGMP source `3e7acc5caeb8b8a9d0588edbcc8ab9292b750479` also completed XY-C1 Build/TRX/artifact on run `43820348179`. No L4 physical-router validation is claimed; no local full checkout/host execution was available in this session.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, then inspect exact-head WAN route operation status regression and XY-C1 Firmware Validation push runs for THIS COMMIT. Confirm static IPTV callback test and MAN/WAN/DHCP/ZeroConf caller contracts actually ran. If either fails, inspect the first causal job/log and repair it with a new atomic main commit; do not count older-SHA runs.
-2. Continue P1 RC service startup-result audit outside WAN/IPTV: trace remaining enabled daemon/module launch helpers and their notification/startup callers for discarded nonzero results. Start with trunk/user/rc/src/services_ex.c plus declarations/callers; add a production-linked regression for a confirmed defect rather than changing void APIs without an end-to-end caller.
-3. Preserve the frozen backup and keep L3/L4 validation boundary explicit.
+1. Fetch live `main` and inspect the exact-head Process inventory/lifecycle Action for THIS COMMIT. Confirm the RC integration checker now validates the generic post-load module helper, wireless compatibility wrapper, boot-module aggregate and parameter-forwarding test. Diagnose any remaining assertion against current source semantics rather than weakening unrelated checks.
+2. Once Process is green, continue the P1 `reload_modem_modules()` audit: trace implementation, declarations, all callers, module helper semantics, modem type/rule transitions, and failure cleanup. Add a regression and propagate a first error only where the end-to-end contract can be preserved. Make a small atomic source/test commit and verify its exact-SHA Actions.
+3. Preserve the immutable backup and distinguish source, CI, XY-C1 and hardware validation. Do not repeat the completed bootstrap or boot-module source audit.
 
 ## Governance constraints
 

@@ -1,3 +1,12 @@
+## 2026-11-16 15:34 Beijing — Align RC process integration checker with generalized module loader
+
+- Parent main: `f9de514198a1b6cb90b1e12528b87e7d16f955c2`. Exact-head Process run `43823916381`, job `133153102957`, passed all compile/runtime policy tests, then failed only in the final RC source-integration checker because it still required `ops->load(module_name, NULL)`, the wireless-only helper call and `wireless_modules_status`.
+- Source commit `8a8dfed...` intentionally generalized post-load verification to forward module parameters and aggregate wireless plus USB/ATA/MMC/AES/IPSet outcomes as `boot_modules_status`. Updated the checker for the generic helper, retained wireless compatibility wrapper, boot aggregate, and XHCI parameter-forwarding regression.
+- The Process workflow already includes `scripts/check_process_lifecycle_integration.py` in both push and pull_request filters; this commit's checker change triggers the exact-head rerun without a workflow-path adjustment.
+- WAN-route exact-head run `43823916390` on parent `f9de514...` is SUCCESS. XY-C1 run `43823036488` for source SHA `8a8dfed...` completed SUCCESS: boot-module policy/source checks, Build XY-C1, TRX verification and artifact upload.
+- THIS COMMIT is test/docs-only; exact-head Process rerun pending. Next source task after a green run: trace `reload_modem_modules()` implementation/callers and failure semantics before changing its legacy void API.
+---
+
 ## 2026-11-16 — Relax MAN/WAN up operation counts in WAN source contract
 
 - Parent: ea22f196ad50bfc07aaa64547e02001f5946ae99. Exact-head WAN run 43823569962 passed C host tests and earlier cleanup checks but failed at a stale MAN-up aggregation-count assertion. Inspection of source at that exact SHA confirmed MAN-up has four accumulations (the added IGMP start is the fourth) and WAN-up has seven (the added IGMP start is the seventh). Previous exact equality expectations were 3 and 6.
