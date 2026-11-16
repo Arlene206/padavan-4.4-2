@@ -12,6 +12,11 @@ on:
       - "trunk/user/rc/src/modem_node_file.h"
       - "trunk/user/rc/src/modem_node_identity_policy.h"
       - "trunk/user/rc/src/tests/modem_node_file.c"
+      - "scripts/check_modem_module_reload.py"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/modem_module_reload_policy.h"
+      - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
   pull_request:
     paths:
@@ -24,6 +29,11 @@ on:
       - "trunk/user/rc/src/modem_node_file.h"
       - "trunk/user/rc/src/modem_node_identity_policy.h"
       - "trunk/user/rc/src/tests/modem_node_file.c"
+      - "scripts/check_modem_module_reload.py"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/modem_module_reload_policy.h"
+      - "trunk/user/rc/src/tests/modem_module_reload_policy.c"
       - "trunk/user/rc/src/net_wan.c"
 
 permissions:
@@ -42,6 +52,14 @@ jobs:
             trunk/user/rc/src/tests/modem_node_file.c \
             -o /tmp/modem-node-file
           ASAN_OPTIONS=detect_leaks=1 /tmp/modem-node-file
+      - name: Compile and run modem module alternative readiness regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_module_reload_policy.c \
+            -o /tmp/modem-module-reload-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-module-reload-policy
       - name: Verify WDM discovery, hotplug identity publication and NDIS matching
         run: |
           python3 - <<'PY'
@@ -172,3 +190,5 @@ jobs:
 
           print("USB modem WDM/NDIS physical identity and TTY selection contract: PASS")
           PY
+      - name: Verify modem module alternatives and readiness propagation
+        run: python3 scripts/check_modem_module_reload.py

@@ -225,9 +225,10 @@ load_usb_modules(void)
 	start_status = rc_first_service_start_status(start_status,
 						     load_boot_module("usb_storage", NULL));
 
-	/* load usb modem modules; this legacy void API handles its own failures. */
+	/* Verify that at least one driver in the selected modem family is available. */
 	if (!get_ap_mode() && nvram_get_int("modem_rule") > 0)
-		reload_modem_modules(nvram_get_int("modem_type"), 0);
+		start_status = rc_first_service_start_status(
+			start_status, reload_modem_modules(nvram_get_int("modem_type"), 0));
 
 	/* start usb host */
 #if defined (USE_USB_XHCI)
@@ -1400,7 +1401,8 @@ handle_notifications(void)
 					nvram_modem_rule = modem_rule;
 					if (modem_rule > 0) {
 						modules_reloaded = 1;
-						reload_modem_modules(modem_type, 1);
+						action_result = rc_notify_merge_action_result(
+							action_result, reload_modem_modules(modem_type, 1));
 					} else {
 						unload_modem_modules();
 					}
@@ -1421,7 +1423,8 @@ handle_notifications(void)
 							}
 						}
 						if (!stop_failed)
-							reload_modem_modules(modem_type, 1);
+							action_result = rc_notify_merge_action_result(
+								action_result, reload_modem_modules(modem_type, 1));
 					}
 				}
 				if (!stop_failed)

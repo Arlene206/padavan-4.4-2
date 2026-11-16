@@ -9,35 +9,39 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Parent for THIS HTTPD metadata-contract correction: `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`. Re-fetch live `main` before each later write and use expected-SHA non-forced CAS.
-- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable/read-only.
-- Startup protocol/archive/backup/PR recovery are complete; do not repeat the initial audit.
-- `dev_log.md` contains 92 newest-first records before THIS entry; this entry makes 93. Keep 20–119 and preserve archived shards/indexes.
+- Parent main for THIS modem module readiness slice: `a445812cf9e168d21f24f51e035cddf6934c12d9`. Refetch live `main` before every later write and use expected-SHA non-forced compare-and-swap.
+- Frozen archive: `backup/pre-plugin-overhaul-2026-11-14` = `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
+- Startup protocol, root governance, archive index, backup marker and PR #1 recovery are complete; do not repeat that audit.
+- Root `dev_log.md` contains 93 newest-first records before this entry; this commit brings it to 94. Keep 20–119 and preserve archived shards/indexes.
 
 ## Active task
 
-Synchronize the HTTPD umbrella's modem metadata test with the new fail-closed publication helper:
-- Source fix `b83383f9798d5a3e43d86877f9f37c0b1594ffd0` adds `modem_node_file_publish_identity()` and changes `mdev_net_main()` to remove stale `wwanX/wethX` metadata when new identity content is invalid or atomic write fails.
-- Exact-head USB identity workflow `43847475018` PASSED, including GNU89/Werror/ASan/UBSan and production-path checker; handoff validation `43847474937` PASSED.
-- HTTPD umbrella `43847474960` failed only because its legacy nested metadata source checker still required three direct `modem_node_file_write()` calls and assumed the NDIS handler called that writer directly. NDIS now calls the policy helper, which invokes the writer and removes the old entry on failure. THIS commit updates the umbrella assertions without weakening the identity/cleanup requirements.
-- The RAS manual-index selector hard-pin correction remains in `d6738c390b0578ba07a7bd9f0c2c23a4a1bca764`.
+The USB modem P1 path now contains:
+- Same-device NDIS TTY selection bound to physical USB port ID + devnum. Manual selection is constrained to that identity; automatic preference/fallback stays on that modem.
+- A `reload_modem_modules()` family-readiness contract: attempt every optional driver candidate and verify observable `/sys/module` state. One available family member is sufficient; not every alternative is required.
+- NDIS candidates: `cdc_ether`, `rndis_host`, `qmi_wwan`, `cdc_ncm` (`prefer_mbim=0`), `huawei_cdc_ncm`, `cdc_mbim`, `sierra_net`. RAS candidates: `cdc_acm`, `qcserial`, `sierra`, `option`. NDIS serial AT/control modules remain supplemental optional loads.
+- The readiness result is merged into initial USB boot health and both explicit modem-reconfiguration notification paths.
+- Added GNU89/Werror/ASan/UBSan policy coverage and a semantic production-source contract.
+
+Boundary: module presence under `/sys/module` verifies module-family availability only; it does NOT prove the selected USB interface actually bound to that driver. Device binding remains a separate open issue.
 
 ## Verification boundary
 
-Exact-head observations on parent `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`:
-- USB modem identity `43847475018`: SUCCESS.
-- AI handoff docs `43847474937`: SUCCESS.
-- Process lifecycle `43847474942`: SUCCESS; infosvr `43847475001`: SUCCESS.
-- HTTPD `43847474960`: FAIL only at its nested `Verify USB modem node metadata staging` Python source assertions; the C regression printed `USB modem node identity and private metadata staging: PASS` before the stale assertions failed.
-- NVRAM `43847475238`: IN_PROGRESS at last inspection.
-- XY-C1 run `43846822718` from ancestor `d6738c390b0578ba07a7bd9f0c2c23a4a1bca764` had previously been building; no current-source L3 Build/TRX/artifact or physical-router/L4 result is claimed.
+Exact-parent Action summary:
+`XY-C1 Firmware Validation 43847848258=in_progress/PENDING; NVRAM transaction boundary audit 43847848244=in_progress/PENDING; AI handoff documentation contract 43847848285=completed/success; AliyunDrive WebDAV lifecycle stability regression 43847848020=completed/success; HTTPD Authentication and Security Regression 43847848338=completed/success; AdGuardHome config security regression 43847848288=completed/success; infosvr packet and signal lifecycle stability regression 43847848286=completed/success; AliDDNS signed API transport security regression 43847848417=completed/success; Process inventory and lifecycle fail-closed regression 43847847921=completed/success`
+No Action result from this parent is a validation of the new module-readiness commit. Do not claim L3 unless exact-SHA Build XY-C1, TRX verification and artifact upload pass. No L4 physical-router result is established.
+
+Previously observed ancestor checks:
+- USB identity `43847475018` on parent `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`: SUCCESS; same-device TTY and hotplug metadata source contracts.
+- Process lifecycle inventory `43847475193` and AI handoff docs `43847474937` on the same parent: SUCCESS.
+- A different parent run `43847474960` had an HTTPD authentication regression failure in a switch-port ioctl contract; unrelated to this module slice.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head HTTPD rerun, USB identity, AI handoff and current XY-C1/NVRAM Actions. Read any failures; claim firmware L3 only after Build, TRX verification and artifact upload all pass.
-2. Continue the device-aware `reload_modem_modules()` readiness review. `module_smart_load()` returns zero for both already-loaded and failed loads; verify actual `/sys/module` state where appropriate. Do not require every alternative driver, and check selected-device readiness only after USB host initialization.
-3. Broaden RC/service-start status propagation outside the modem subsystem with caller-level regressions.
+1. Fetch live main; inspect exact-head USB identity, module readiness, Process integration, XY-C1 and AI docs Actions. Read all failure logs. Record L3 only after exact-SHA Build XY-C1, TRX verification and artifact upload pass.
+2. Determine whether USB sysfs/hotplug reliably maps the selected NDIS interface to its bound driver. A module present in `/sys/module` does not prove device binding; add a device-level check only with evidence.
+3. Continue broader user-space stability/security governance beyond the modem path once this slice is verified.
 
 ## Governance constraints
 
-Preserve security, architecture, compatibility, target-toolchain and mandatory tests. Use only `main`; frozen backup is immutable. Update root `dev_log.md` on each source/documentation commit; keep 20–119 records and preserve archive shards/indexes verbatim. Distinguish source, CI, firmware and physical-router validation. Never claim an unrun test/build/hardware result.
+Preserve security, architecture, compatibility, target-toolchain and mandatory tests. Use only `main`; frozen backup is read-only. Update root `dev_log.md` for every code/documentation commit; keep 20–119 records and preserve archive shards/indexes verbatim. Distinguish source, CI, firmware and physical-router validation. No force-push, history rewrite, or unrun-test/build/hardware claim.

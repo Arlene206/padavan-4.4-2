@@ -35,6 +35,7 @@
 #include <process_inventory.h>
 #include "ppp_options_file.h"
 #include "modem_node_identity_policy.h"
+#include "modem_module_reload_policy.h"
 
 #define MODEM_SCRIPTS_DIR	"/etc_ro"
 #define MAX_USB_NODE		(15)
@@ -746,11 +747,56 @@ unload_modem_modules(void)
 		sleep(1);
 }
 
-void
+static int
+load_modem_module_group(const char *group_name,
+		const char *const *module_names,
+		const char *const *module_params,
+		size_t module_count)
+{
+	static const rc_modem_module_load_ops_t ops = {
+		module_smart_load,
+		is_module_loaded
+	};
+	size_t available = 0;
+	int status;
+
+	status = rc_modem_module_load_group_verified(module_names, module_params,
+						     module_count, &ops,
+						     &available);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "no usable %s USB modem driver module is available (checked=%lu)",
+			   group_name, (unsigned long)module_count);
+	else
+		logmessage(LOGNAME,
+			   "USB modem %s driver readiness: %lu/%lu alternatives available",
+			   group_name, (unsigned long)available,
+			   (unsigned long)module_count);
+
+	return status;
+}
+
+int
 reload_modem_modules(int modem_type, int reload)
 {
-	unlink(QMI_CLIENT_ID);
+	static const char *const ndis_modules[] = {
+		"cdc_ether", "rndis_host", "qmi_wwan", "cdc_ncm",
+		"huawei_cdc_ncm", "cdc_mbim", "sierra_net"
+	};
+	static const char *const ndis_params[] = {
+		NULL, NULL, NULL, "prefer_mbim=0", NULL, NULL, NULL
+	};
+	static const char *const ras_modules[] = {
+		"cdc_acm", "qcserial", "sierra", "option"
+	};
+	static const char *const serial_aux_modules[] = {
+		"qcserial", "sierra", "option"
+	};
 	int ret = 0;
+	int status = 0;
+	size_t i;
+
+	unlink(QMI_CLIENT_ID);
 	ret |= module_smart_unload("option", 1);
 	ret |= module_smart_unload("sierra", 1);
 	ret |= module_smart_unload("qcserial", 1);
@@ -758,13 +804,12 @@ reload_modem_modules(int modem_type, int reload)
 	if (modem_type == 3) {
 		if (ret)
 			sleep(1);
-		module_smart_load("cdc_ether", NULL);
-		module_smart_load("rndis_host", NULL);
-		module_smart_load("qmi_wwan", NULL);
-		module_smart_load("cdc_ncm", "prefer_mbim=0");
-		module_smart_load("huawei_cdc_ncm", NULL);
-		module_smart_load("cdc_mbim", NULL);
-		module_smart_load("sierra_net", NULL);
+		status = load_modem_module_group("NDIS", ndis_modules,
+						 ndis_params,
+						 sizeof(ndis_modules) / sizeof(ndis_modules[0]));
+		/* Serial AT/control ports remain supplemental optional drivers. */
+		for (i = 0; i < sizeof(serial_aux_modules) / sizeof(serial_aux_modules[0]); i++)
+			(void)module_smart_load(serial_aux_modules[i], NULL);
 	} else {
 		ret |= module_smart_unload("sierra_net", 1);
 		ret |= module_smart_unload("cdc_mbim", 1);
@@ -775,13 +820,13 @@ reload_modem_modules(int modem_type, int reload)
 		ret |= module_smart_unload("cdc_ether", 1);
 		if (ret)
 			sleep(1);
-		module_smart_load("cdc_acm", NULL);
+		status = load_modem_module_group("RAS", ras_modules, NULL,
+						 sizeof(ras_modules) / sizeof(ras_modules[0]));
 	}
-	module_smart_load("qcserial", NULL);
-	module_smart_load("sierra", NULL);
-	module_smart_load("option", NULL);
 	if (reload)
 		sleep(1);
+
+	return status;
 }
 
 void

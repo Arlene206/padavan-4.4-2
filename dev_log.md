@@ -1,3 +1,15 @@
+## 2026-11-16 — Report modem module family readiness through boot and RC actions
+
+- Parent main: `a445812cf9e168d21f24f51e035cddf6934c12d9`. Exact-parent USB identity `43847475018`, Process inventory `43847475193`, AI docs `43847474937`, infosvr `43847475001`, AdGuardHome `43847475008`, AliDDNS `43847475086`, AliyunDrive `43847474932` and HTTPD check `43847474960` were observed; NVRAM `43847475238` and Process integration `43847474942` were in progress, while HTTPD reported failure in the parent run. Do not treat this parent evidence as current-SHA verification.
+- `module_smart_load()` returns zero for both already-loaded modules and failed loads. Added `rc_modem_module_load_group_verified()`: attempt every optional candidate, then check observable module state. A family is available when at least one alternative is present; this does not make every NDIS/RAS driver mandatory.
+- Changed `reload_modem_modules()` to return explicit NDIS/RAS family readiness. NDIS preserves all seven candidate attempts and supplemental serial AT/control loads; RAS preserves its four serial candidate attempts. Existing unload behavior and delays remain intact.
+- Aggregated readiness into initial USB boot module health and both explicit modem-reconfiguration notification results.
+- Added GNU89/Werror/ASan/UBSan policy regressions for one available alternative, already-loaded state, all candidates absent, parameter forwarding, all-candidates-attempted semantics and invalid-input preflight; added semantic source checking and workflow filters/steps.
+- No Actions have run for this new source slice. Module presence does not prove that the selected USB interface bound to a driver; interface binding, exact-SHA XY-C1 build/TRX/artifact and L4 hardware remain unverified.
+- Next: inspect this commit's exact-head USB identity, module policy, Process, XY-C1 and AI docs Actions; then investigate selected-interface-to-driver binding only if current sysfs/hotplug data supports it.
+
+---
+
 ## 2026-11-16 — Align HTTPD modem metadata contract with fail-closed publisher
 
 - Parent main: `b83383f9798d5a3e43d86877f9f37c0b1594ffd0`. Source commit `b83383f9798d5a3e43d86877f9f37c0b1594ffd0` introduced a production metadata publication helper that removes stale network-node identity after invalid content or write failure.
