@@ -12,6 +12,30 @@ enum inadyn_daemon_action {
 	INADYN_DAEMON_RELOAD = 1
 };
 
+#define INADYN_START_WAIT_ATTEMPTS 4
+
+/* A successful fork/daemonize return is not a running-service postcondition. */
+static int
+inadyn_start_status(int launch_status, enum process_presence state,
+		    int scan_error)
+{
+	int status;
+
+	if (launch_status != 0)
+		return launch_status;
+	if (state == PROCESS_PRESENCE_RUNNING)
+		return 0;
+	if (state == PROCESS_PRESENCE_UNKNOWN)
+		status = inadyn_presence_error(state, scan_error);
+	else if (state == PROCESS_PRESENCE_ABSENT)
+		status = ETIMEDOUT;
+	else
+		status = EINVAL;
+
+	errno = status;
+	return status;
+}
+
 static enum inadyn_daemon_action
 inadyn_action_for_presence(enum process_presence state)
 {

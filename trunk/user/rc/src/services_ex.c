@@ -2236,6 +2236,60 @@ write_inadyn_conf(const char *conf_file)
 	return 1;
 }
 
+static enum process_presence
+inadyn_process_presence(int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+
+	state = process_inventory_scan("inadyn", &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (state == PROCESS_PRESENCE_UNKNOWN)
+		errno = (scan_error && *scan_error > 0) ? *scan_error : EIO;
+	return state;
+}
+
+static int
+inadyn_confirm_started(int launch_status)
+{
+	int attempt;
+	int scan_error = 0;
+	int status;
+	enum process_presence state = PROCESS_PRESENCE_ABSENT;
+
+	if (launch_status != 0)
+		return inadyn_start_status(launch_status, state, 0);
+
+	/* Inadyn daemonizes by default. The launcher exit status does not prove
+	 * that the detached process survived startup; --no-pidfile means procfs
+	 * inventory is the postcondition source.
+	 */
+	for (attempt = 0; attempt < INADYN_START_WAIT_ATTEMPTS; attempt++) {
+		state = inadyn_process_presence(&scan_error);
+		status = inadyn_start_status(launch_status, state, scan_error);
+		if (state == PROCESS_PRESENCE_RUNNING)
+			return 0;
+		if (state == PROCESS_PRESENCE_UNKNOWN) {
+			logmessage(LOGNAME,
+				   "cannot verify Inadyn startup process inventory (errno=%d)",
+				   status);
+			return status;
+		}
+		if (state != PROCESS_PRESENCE_ABSENT)
+			return status;
+		if (attempt + 1 < INADYN_START_WAIT_ATTEMPTS)
+			sleep(1);
+	}
+
+	status = inadyn_start_status(launch_status, state, scan_error);
+	logmessage(LOGNAME,
+		   "Inadyn launcher returned success but no daemon appeared within %d seconds",
+		   INADYN_START_WAIT_ATTEMPTS - 1);
+	return status;
+}
+
 int
 start_ddns(int clear_cache)
 {
@@ -2243,6 +2297,7 @@ start_ddns(int clear_cache)
 	char* ddns_verbose_str[] = { "err", "notice", "debug" };
 	char* startup_delay;
 	int stop_status;
+	int launch_status;
 
 	if (get_ap_mode())
 		return -1;
@@ -2268,7 +2323,7 @@ start_ddns(int clear_cache)
 
 	startup_delay = (!is_ntpc_updated()) ? "30" : "3";
 
-	return eval("/bin/inadyn",
+	launch_status = eval("/bin/inadyn",
 		"--no-pidfile",
 		"-l", ddns_verbose_str[verbose_idx],
 		"-t", startup_delay,
@@ -2276,6 +2331,12 @@ start_ddns(int clear_cache)
 		"--cache-dir", DDNS_CACHE_DIR,
 		"-e", DDNS_DONE_SCRIPT,
 		"--exec-mode", "compat");
+	if (launch_status != 0) {
+		logmessage(LOGNAME, "Inadyn launcher failed (status=%d)", launch_status);
+		return launch_status;
+	}
+
+	return inadyn_confirm_started(launch_status);
 }
 
 static enum process_presence

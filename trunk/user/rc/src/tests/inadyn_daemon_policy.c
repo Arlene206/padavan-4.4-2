@@ -212,10 +212,23 @@ test_identity_bound_usr1_signal(void)
 	assert(errno == EACCES && fake.signal_count == 0);
 }
 
+static void
+test_start_postcondition_status(void)
+{
+	assert(inadyn_start_status(17, PROCESS_PRESENCE_RUNNING, 0) == 17);
+	assert(inadyn_start_status(0, PROCESS_PRESENCE_RUNNING, 0) == 0);
+	assert(inadyn_start_status(0, PROCESS_PRESENCE_UNKNOWN, EACCES) == EACCES);
+	assert(inadyn_start_status(0, PROCESS_PRESENCE_UNKNOWN, 0) == EIO);
+	assert(inadyn_start_status(0, PROCESS_PRESENCE_ABSENT, 0) == ETIMEDOUT);
+	assert(inadyn_start_status(0, (enum process_presence)7, 0) == EINVAL);
+	assert(errno == EINVAL);
+}
+
 int
 main(void)
 {
 	test_presence_decisions();
+	test_start_postcondition_status();
 	test_config_preflight_requires_all_live_identities();
 	test_identity_bound_hup_signal();
 	test_identity_bound_usr1_signal();

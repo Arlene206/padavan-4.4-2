@@ -39,6 +39,14 @@ assert "pids(\"inadyn\")" not in notify
 start = body("start_ddns(int clear_cache)")
 assert "stop_status = stop_ddns()" in start
 assert start.index("if (stop_status != 0)") < start.index('eval("/bin/inadyn"')
+assert 'launch_status = eval("/bin/inadyn"' in start
+assert "inadyn_confirm_started(launch_status)" in start
+confirm = body("inadyn_confirm_started(int launch_status)")
+assert "inadyn_process_presence(&scan_error)" in confirm
+assert "INADYN_START_WAIT_ATTEMPTS" in confirm and "sleep(1)" in confirm
+presence = body("inadyn_process_presence(int *scan_error)")
+assert 'process_inventory_scan("inadyn", &snapshot)' in presence
+assert "inadyn_start_status(launch_status, state, scan_error)" in confirm
 stop = body("stop_ddns(void)")
 assert "return kill_services(svcs, 3, 1)" in stop
 assert "int stop_ddns(void);" in header
@@ -48,6 +56,7 @@ assert "sig != SIGHUP && sig != SIGUSR1" in policy
 assert "process_identity_validate(\"inadyn\", identity)" in source
 assert "kill(pid, signal_number)" in source
 assert "test_config_preflight_requires_all_live_identities" in test
+assert "test_start_postcondition_status" in test
 assert "test_identity_bound_hup_signal" in test
 assert "test_identity_bound_usr1_signal" in test
 assert "UNKNOWN" in test and "SIGHUP" in test and "SIGUSR1" in test
