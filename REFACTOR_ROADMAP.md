@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Last meaningful product-source/test baseline: `fbc61e15eb5365bbcc7b000e99e053ebf1adf734`; live main before this documentation commit was the same SHA. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Last meaningful product-source/test baseline: `31a0841d657ef8be12457c828a04c46945d02bf5`; live main before this documentation commit was the same SHA. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Exact-head L2 PASS: Adbyby updater `867e481`; Shadowsocks watchcat `a8d5017`; AliyunDrive `982ec54`; DDNSTO lifecycle/checker `7968c1e`; legacy wrapper stale-pidfile workflow `1e43d33` (its XY-C1 build is still pending).
-- Redsocks `fbc61e1`: exact-head Redsocks and handoff reruns are queued; the previous `081c53b` failure was test harness argv only. No L2 closure yet.
+- Redsocks `31a0841`: exact-head Redsocks and handoff reruns are in progress; previous failures were test harness argv setup only. No L2 closure yet.
 - Legacy PR #1 is closed; all substantive AliDDNS/CA source work is already on main in identical or stronger form. No unmerged product work remains to port.
 - No physical-router runtime or L4 validation is claimed. The only current L3 candidate is the still-pending XY-C1 run on `1e43d33`; do not transfer that result to later source SHAs.
 
