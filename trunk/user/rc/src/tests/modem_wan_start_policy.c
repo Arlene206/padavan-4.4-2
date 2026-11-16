@@ -27,6 +27,30 @@ test_dhcp_launch_result_is_returned_after_migration(void)
 }
 
 static void
+test_ndis_interface_bringup_failure_skips_network_start(void)
+{
+	int interface_status = EIO;
+	int status = 0;
+	int firewall_calls = 0;
+	int control_calls = 0;
+	int dhcp_calls = 0;
+
+	/* launch_wan_usbnet() must return before starting any dependent service. */
+	if (interface_status != 0) {
+		status = modem_wan_start_status(0, interface_status);
+	} else {
+		firewall_calls++;
+		control_calls++;
+		dhcp_calls++;
+	}
+
+	assert(status == EIO);
+	assert(firewall_calls == 0);
+	assert(control_calls == 0);
+	assert(dhcp_calls == 0);
+}
+
+static void
 test_first_modem_error_survives_best_effort_followup(void)
 {
 	int status = 0;
@@ -163,6 +187,7 @@ main(void)
 {
 	test_miniupnp_migration_failure_blocks_dhcp();
 	test_dhcp_launch_result_is_returned_after_migration();
+	test_ndis_interface_bringup_failure_skips_network_start();
 	test_first_modem_error_survives_best_effort_followup();
 	test_ras_physical_setup_error_survives_ras_launch();
 	test_physical_wan_ifup_failure_survives_cleanup();

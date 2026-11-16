@@ -43,6 +43,19 @@ assert migration_failure < ndis.index(dhcp_launch)
 assert "return modem_wan_start_status(migration_status, dhcp_status);" in ndis
 assert 'set_wan_unit_value_int(unit, "err", dhcp_status != 0);' in ndis
 
+interface_setup = 'interface_status = doSystem("ifconfig %s mtu %d up %s", ndis_ifname, ndis_mtu, "0.0.0.0");'
+assert interface_setup in ndis, "NDIS interface MTU/UP command status must be captured"
+interface_failure_pos = ndis.index("if (interface_status != 0)")
+firewall_start_pos = ndis.index("start_firewall_ex();")
+control_start_pos = ndis.index("ndis_control_network(ndis_ifname, modem_devnum, 1)")
+dhcp_start_pos = ndis.index(dhcp_launch)
+assert interface_setup.index("interface_status") < interface_failure_pos < firewall_start_pos
+assert interface_failure_pos < control_start_pos and interface_failure_pos < dhcp_start_pos
+interface_failure = ndis[interface_failure_pos:firewall_start_pos]
+assert 'set_wan_unit_value_int(unit, "err", 1);' in interface_failure
+assert "return modem_wan_start_status(migration_status, interface_status);" in interface_failure
+assert "logmessage(LOGNAME" in interface_failure
+
 vinet_setup = compact(body(WAN_SOURCE, "config_vinet_wan(void)"))
 parent_ipv6_call = vinet_setup.index("ret = control_if_ipv6(ifname_wan_cpu, 0);")
 parent_ipv6_guard = vinet_setup.rfind("if (get_ipv6_type() != IPV6_DISABLED)", 0, parent_ipv6_call)

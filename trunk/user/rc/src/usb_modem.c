@@ -974,7 +974,7 @@ int
 launch_wan_usbnet(int unit)
 {
 	int modem_devnum = 0;
-	int migration_status, dhcp_status;
+	int migration_status, interface_status, dhcp_status;
 	char ndis_ifname[16] = {0};
 
 	if (get_modem_ndis_ifname(ndis_ifname, &modem_devnum) &&
@@ -992,7 +992,14 @@ launch_wan_usbnet(int unit)
 
 		set_wan_unit_value(unit, "proto_t", "NDIS Modem");
 		set_wan_unit_value(unit, "ifname_t", ndis_ifname);
-		doSystem("ifconfig %s mtu %d up %s", ndis_ifname, ndis_mtu, "0.0.0.0");
+		interface_status = doSystem("ifconfig %s mtu %d up %s", ndis_ifname, ndis_mtu, "0.0.0.0");
+		if (interface_status != 0) {
+			set_wan_unit_value_int(unit, "err", 1);
+			logmessage(LOGNAME,
+				   "USB modem WAN interface %s bring-up failed (status=%d)",
+				   ndis_ifname, interface_status);
+			return modem_wan_start_status(migration_status, interface_status);
+		}
 		start_firewall_ex();
 
 		if (ndis_control_network(ndis_ifname, modem_devnum, 1) == 0)

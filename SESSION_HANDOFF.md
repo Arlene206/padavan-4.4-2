@@ -10,22 +10,25 @@ Every multi-file logical change must be created as one complete Git tree and one
 
 ## Current repository state
 
-- Latest main parent before THIS COMMIT: `a4daa0fd1ec33223b2d9bfaf6e3bff442079119a` (`fix(smartdns): preserve adblock parser error status`). The SmartDNS lifecycle test still references `$tmpdir` under `set -u` without creating it; ancestor Process inventory run `43916101921` demonstrated the exact failure. THIS COMMIT repairs the test fixture and cleanup.
+- Latest main parent before THIS COMMIT: `4a299088849a2f22993ea89f551da1bf1a56be67`. Exact-head Actions at last poll: AI handoff documentation contract 43916525818 completed/success; AliDDNS signed API transport security regression 43916526281 completed/success; Process lifecycle inventory - 4a299088849a2f22993ea89f551da1bf1a56be67 43916526118 completed/success; Process inventory and lifecycle fail-closed regression 43916526135 completed/success; AdGuardHome config security regression 43916526309 completed/success; infosvr packet and signal lifecycle stability regression 43916526519 completed/success; AliyunDrive WebDAV lifecycle stability regression 43916526362 completed/success; XY-C1 Firmware Validation 43916527161 in_progress; USB storage hotplug stability regression 43916525886 completed/success; NVRAM transaction boundary audit 43916525919 completed/success
 - Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and read-only.
-- `automount.sh` now uses checked `/proc/modules` snapshots, checked `modprobe -l` catalog capture, and a checked tri-state `/proc/mounts` inventory for preflight, revalidation, safe unmount and final source-device ownership. Only confirmed foreign ownership permits fallback; UNKNOWN/malformed inventory aborts.
-- The SmartDNS process/Adblock regression is invoked by the USB storage and Process inventory workflows. Its previous CI blocker was test-fixture setup, not a production SmartDNS or automount failure.
+- USB storage automount now uses checked `/proc/modules` snapshots, checked `modprobe -l` catalog capture, and a checked tri-state `/proc/mounts` inventory. Preflight, revalidation, safe unmount and final source-device ownership use the mount table directly; UNKNOWN/malformed state aborts.
+- SmartDNS Adblock lifecycle regression setup was repaired in parent history; current Process inventory and USB storage Actions must independently establish the fixture passes.
+
 ## Active task
 
-Fixing an actual shared CI blocker: `trunk/user/smartdns/tests/smartdns_process_lifecycle.sh` runs with `set -u` but lacked a `tmpdir` initialization before using `$tmpdir/adblock/...`, causing exit at line 86. THIS COMMIT creates a private temporary workspace and cleans it on exit/signals. It also fixes a doubled-backslash `printf` in the invalid Adblock fixture. Product source is unchanged. Next inspect the exact-head Process and USB storage runs to confirm the shared regression completes, then resume independent product work.
+THIS COMMIT fixes an NDIS USB-modem startup error-propagation gap in `launch_wan_usbnet()`: the initial `ifconfig <wwan> mtu ... up 0.0.0.0` was unchecked, allowing firewall setup, modem-control commands and DHCP launch to continue against an interface that had failed to come up. It now captures `doSystem()` status, marks the WAN unit errored, logs the exact interface/status, and returns before any dependent startup. Added a GNU89 regression simulating the failed-IFUP transition and a source checker asserting the real call/guard order.
+
 ## Verification boundary
 
-- Ancestor `06bfebfa986d6b6b0c7c61a98ee389327019a7af`: Process inventory run `43916101921` FAILED at `smartdns_process_lifecycle.sh:86` with `tmpdir: parameter not set`, after the process-state assertions passed. The failure is reproducible from the test file and also blocks the embedded USB storage workflow step.
-- Parent `a4daa0fd1ec33223b2d9bfaf6e3bff442079119a`: current source already includes the SmartDNS Adblock parser error-status correction; exact-head Process `43916362695`, USB storage `43916362699`, XY-C1 `43916362791`, NVRAM `43916362746`, AI docs `43916362841`, and Process lifecycle `43916362778` were IN_PROGRESS at last poll.
-- THIS COMMIT changes only the SmartDNS shell regression fixture and handoff/log; exact-head Actions for THIS COMMIT pending. No local shell test or firmware build is claimed.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 remains NOT VERIFIED.
+- Parent `4a299088849a2f22993ea89f551da1bf1a56be67` exact-head Actions at commit time: AI handoff documentation contract 43916525818 completed/success; AliDDNS signed API transport security regression 43916526281 completed/success; Process lifecycle inventory - 4a299088849a2f22993ea89f551da1bf1a56be67 43916526118 completed/success; Process inventory and lifecycle fail-closed regression 43916526135 completed/success; AdGuardHome config security regression 43916526309 completed/success; infosvr packet and signal lifecycle stability regression 43916526519 completed/success; AliyunDrive WebDAV lifecycle stability regression 43916526362 completed/success; XY-C1 Firmware Validation 43916527161 in_progress; USB storage hotplug stability regression 43916525886 completed/success; NVRAM transaction boundary audit 43916525919 completed/success
+- The XY-C1 workflow already includes `usb_modem.c`, `modem_wan_start_policy.c`, and `check_modem_wan_start_status.py` in its trigger and invokes the GNU89/Werror/ASan/UBSan test plus semantic source checker. This commit therefore triggers same-SHA product build/TRX/artifact verification.
+- No full local repository build is available or claimed. Physical-router L4 remains NOT VERIFIED.
+- Frozen backup remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head Process inventory and USB storage Actions for THIS COMMIT. Confirm the SmartDNS lifecycle regression gets past Adblock fixture setup and the automount module-catalog/mount-owner tests then run.
-2. Recheck XY-C1 Build, TRX verification and artifact upload on the latest product-source SHA; do not carry an earlier mount-owner result over a later source change.
-3. If these jobs remain pending, continue the next independent P1 stability issue, not another audit of completed mount ownership/module-load work.
-4. Keep the frozen backup unchanged and physical-router L4 marked NOT VERIFIED.
+1. Inspect exact-head XY-C1 actions for THIS COMMIT; require modem policy regression and `check_modem_wan_start_status.py` to pass, then inspect MIPS Build, TRX verification and artifact upload.
+2. Inspect current exact-head USB storage and Process inventory runs already pending at parent; confirm SmartDNS fixture and automount regressions are green without re-auditing prior work.
+3. If Actions remain pending, continue another independent WAN/USB-modem reliability defect.
+4. Keep backup read-only and physical-router L4 marked NOT VERIFIED.

@@ -1,3 +1,12 @@
+## 2026-11-16 — Fail closed when NDIS modem interface bring-up fails
+
+- Parent main: `4a299088849a2f22993ea89f551da1bf1a56be67`. `launch_wan_usbnet()` set the selected NDIS interface's MTU and `up` state via `doSystem("ifconfig ...")` but ignored its return value, then continued firewall setup, USB modem control and WAN DHCP. An IFUP/MTU failure could therefore be hidden behind a later successful DHCP launch.
+- Captured the command status, marked the WAN unit errored and returned the original status through `modem_wan_start_status()` before any downstream network startup. This preserves the migration-status contract and prevents DHCP/firewall from running against a failed interface.
+- Added a GNU89 policy regression for the IFUP failure transition and extended `scripts/check_modem_wan_start_status.py` to check the production source's ordering and status return. Existing XY-C1 workflow already triggers on these paths and executes the test under Werror/ASan/UBSan.
+- Parent `4a299088849a2f22993ea89f551da1bf1a56be67` exact-head Actions at commit time: AI handoff documentation contract 43916525818 completed/success; AliDDNS signed API transport security regression 43916526281 completed/success; Process lifecycle inventory - 4a299088849a2f22993ea89f551da1bf1a56be67 43916526118 completed/success; Process inventory and lifecycle fail-closed regression 43916526135 completed/success; AdGuardHome config security regression 43916526309 completed/success; infosvr packet and signal lifecycle stability regression 43916526519 completed/success; AliyunDrive WebDAV lifecycle stability regression 43916526362 completed/success; XY-C1 Firmware Validation 43916527161 in_progress; USB storage hotplug stability regression 43916525886 completed/success; NVRAM transaction boundary audit 43916525919 completed/success. Exact-head XY-C1 Build/TRX/artifact for THIS COMMIT required; no full local firmware build claimed. Frozen backup unchanged; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Repair SmartDNS lifecycle regression temporary fixtures
 
 - Parent main: `a4daa0fd1ec33223b2d9bfaf6e3bff442079119a` (`fix(smartdns): preserve adblock parser error status`). Exact-head Process inventory run `43916101921` on ancestor `06bfebfa986d6b6b0c7c61a98ee389327019a7af` failed after all process-state cases passed: `smartdns_process_lifecycle.sh: 86: tmpdir: parameter not set`. The same regression is also run inside USB storage workflow, so it can stop both larger suites before their own tests execute.
