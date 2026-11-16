@@ -1,3 +1,13 @@
+## 2026-11-16 — OpenSSH, Transmission and ZeroTier lifecycle fail-closed slices
+
+- OpenSSH commit `952e97ccbf9bc8d913bfa6a084e59ae3cda0d8bc`: reload now validates PID-file shape, sshd procfs command identity and start-time identity, rereads the PID file before SIGHUP, and propagates signal errors. Added PID reuse, malformed/symlink/stale file and signal-failure regressions. Exact-SHA Process, inventory, AI-doc, NVRAM and XY-C1 Actions #43793042766, #43793042723, #43793042720, #43793042760 and #43793042756 PASS.
+- Transmission commit `8e0556d2379f227da3e68ebf9e75668ddde09367`: reload now distinguishes absent from UNKNOWN pidof output, validates returned PID tokens and propagates SIGHUP failures. Added `tests/reload_status.sh`. Exact-SHA Process #43794003957, inventory #43794003936, storage hotplug #43794003942 and NVRAM #43794003930 PASS; XY-C1 #43794003979 was pending at the checkpoint. AI docs #43794003967 failed because the prior handoff missed mandatory checkpoint wording.
+- ZeroTier commit `fc867b505ef94cb3579760a53c12923515888d34`: introduced RUNNING/ABSENT/UNKNOWN process inventory semantics; UNKNOWN blocks TERM/KILL escalation and stop cleanup. Regression test portion passed, but its first static-contract run #43794661493 failed because the checker still encoded the old inline-pidof implementation. Process run #43794661499 also hit a separate RC boot-source assertion, later aligned by main commit `69bf1373d07fa4c4810a2f122ed9fc9a272e3316`; that exact-SHA Process run #43794762732 PASS.
+- ZeroTier checker follow-up `0731e7aa932661260456a3f95f0fbebbecc42fa2` validates tri-state semantics and UNKNOWN escalation gating. Exact-SHA ZeroTier workflow #43794876436 PASS. AI docs #43794876451 failed only because the prior handoff lacked the mandatory end-of-session checkpoint section; corrected by this checkpoint.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; no physical-router/L4 validation was performed. First next source investigation: Adbyby stop postcondition / cleanup gating.
+
+---
+
 ## 2026-11-15 — RC lifecycle hardening handoff (97d4d6720b8a)
 
 - Live source baseline at handoff: `97d4d6720b8aff12d6a10b8b816084f870d9e468`; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
