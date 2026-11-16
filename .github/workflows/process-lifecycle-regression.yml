@@ -509,6 +509,7 @@ jobs:
           switch_storm = body(lan, "switch_config_storm(void)")
           switch_link = body(lan, "switch_config_link(void)")
           bridge_create = body(lan, "init_bridge_add_bridge(const char *bridge_ifname)")
+          module_loader = body(lan, "init_bridge_load_module_verified(const char *module_name, const char *module_param)")
           assert ("int" + chr(10) + "init_bridge(int is_ap_mode)") in lan
           assert "int init_bridge(int is_ap_mode);" in header
           assert "operation_status = switch_config_vlan(1);" in init_bridge
@@ -527,6 +528,12 @@ jobs:
           assert "saved_errno == EEXIST" in bridge_create
           assert "br_bridge_is_empty(bridge_ifname)" in bridge_create
           assert "rc_bridge_init_add_bridge_result" in bridge_create
+          assert "rc_module_load_verified(module_name, module_param, &ops)" in module_loader
+          assert "is_module_loaded" in module_loader
+          assert 'init_bridge_load_module_verified("iNIC_mii", inic_param)' in init_bridge
+          assert 'rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);' in init_bridge
+          assert "optional hw_nat bridge offload unavailable" in init_bridge
+          assert 'init_bridge_load_module_verified("hw_nat", "ttl_regen=0")' in init_bridge
           assert ("int" + chr(10) + "switch_config_vlan(int first_call)") in lan
           assert "int switch_config_vlan(int first_call);" in header
           assert "operation_status = phy_vlan_rule_set(vrule, vlan_vid[vrule], vlan_pri[vrule], vlan_tag[vrule]);" in switch_vlan

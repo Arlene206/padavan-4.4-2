@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS switch configuration status slice: `4322737edbbe77196e4380fc7506da3f0851dc0d`. The prior router GMAC2 conditional and AP-tagged LAN member status fix is in `4322737edbbe77196e4380fc7506da3f0851dc0d`; exact-head runs were still pending at last check.
-- THIS change makes switch base/storm/link helpers return first-error from each checked PHY ioctl, merges these into PID1 bridge startup and runtime switch-config notification results, and adds Process semantic assertions. LED indication stays best-effort; unsupported MTK ESW options are documented as successful no-ops by the driver.
-- Exact-SHA Process on earlier bridge-init commit `aa5d3c9f2566927a4b17fce5d391f525cccc8095`: run `43857640159`, job `133265909696`, SUCCESS; bridge-init and bridge-member policy tests and LAN source checker passed. THIS source slice requires fresh exact-head Actions.
-- On parent `4322737edbbe77196e4380fc7506da3f0851dc0d`, Process `43858257725`, XY-C1 `43858257611`, NVRAM `43858257798`, AI docs `43858257985` and HTTPD auth `43858257690` were IN_PROGRESS at last inspection. No same-SHA XY-C1 Build+TRX+artifact L3 or physical router L4 was established.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Live main before THIS module-load verification slice: `59047eb21838e0cf78dd24e0a6eab78bea7fc886`. The preceding switch base/storm/link result propagation is source commit `2c0a0f1be6edf5a604a71ce02e726d0b2393a00c`; its exact-head Process/XY-C1 checks were queued at the last query.
+- THIS slice reuses the verified module-load policy already used for wireless/USB drivers. Required `iNIC_mii` now uses post-load `/sys/module` verification and contributes to PID1 bridge health; optional `hw_nat` offload is verified/logged accurately and remains non-fatal. Process source contract asserts required-vs-optional treatment.
+- Exact AI handoff docs run `43858670960` on `2c0a...` failed only because its explicit handoff checkpoint sentence was missing; it was restored on `59047eb21838e0cf78dd24e0a6eab78bea7fc886`. Exact rerun `43858811955` was in progress at last query. THIS module change requires new exact-SHA checks.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. No same-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 result is claimed.
 
 ## Whole-repository module status
 

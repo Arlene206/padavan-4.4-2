@@ -1,3 +1,13 @@
+## 2026-11-16 — Verify required and optional LAN bridge modules after load
+
+- Parent main: `59047eb21838e0cf78dd24e0a6eab78bea7fc886`. The existing `rc_module_load_verified()` policy explicitly documents that `module_smart_load()` can return zero after a failed `modprobe`; post-load `is_module_loaded()` state is authoritative. Its regression is already part of Process CI.
+- Found ignored module load calls in `init_bridge()`: required `iNIC_mii` on `USE_RT3352_MII` boards and optional `hw_nat` bridge offload. The former could fail silently and leave an incomplete iNIC LAN path; the latter was logged as enabled unconditionally even when it had not loaded.
+- Added a LAN wrapper using `rc_module_load_verified()`. Required iNIC load status now joins bridge/PID1 startup error aggregation. Optional hardware NAT offload is verified and reports enabled/unavailable, but never makes bridge startup fail.
+- Process source contracts now classify both paths; the existing verified module loader unit test remains in the Process workflow. Exact-head CI is pending after publication; no firmware L3 or router L4 claim.
+- Next: inspect current exact-head Process/XY-C1 and prior pending docs/security/NVRAM runs, then continue the remaining RC boot operations audit.
+
+---
+
 ## 2026-11-16 — Restore mandatory handoff checkpoint contract
 
 - Parent main: `2c0a0f1be6edf5a604a71ce02e726d0b2393a00c`. Exact-head AI handoff documentation run `43858670960`, job `133269446982`, failed because `SESSION_HANDOFF.md` no longer carried the validator-required explicit end-of-session accuracy-checkpoint wording.

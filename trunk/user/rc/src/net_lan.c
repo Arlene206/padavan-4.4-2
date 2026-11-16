@@ -40,6 +40,7 @@
 #include "service_start_status.h"
 #include "bridge_config_policy.h"
 #include "bridge_init_policy.h"
+#include "wireless_module_load_policy.h"
 #include <gpioutils.h>
 
 #if BOARD_RAM_SIZE < 32
@@ -123,6 +124,17 @@ init_bridge_add_bridge(const char *bridge_ifname)
 	if (status != 0)
 		errno = saved_errno;
 	return status;
+}
+
+static int
+init_bridge_load_module_verified(const char *module_name, const char *module_param)
+{
+	static const rc_module_load_ops_t ops = {
+		module_smart_load,
+		is_module_loaded
+	};
+
+	return rc_module_load_verified(module_name, module_param, &ops);
 }
 
 int
@@ -275,9 +287,13 @@ init_bridge(int is_ap_mode)
 		operation_status = br_add_del_if(IFNAME_BR, IFNAME_MAC2, 1);
 		rc_bridge_init_record(&bridge_status, "attach GMAC2 secondary interface", operation_status);
 #if defined (USE_HW_NAT)
-		/* enable PPE to forward bridge traffic */
-		module_smart_load("hw_nat", "ttl_regen=0");
-		logmessage(LOGNAME, "%s: %s", "Hardware NAT/Routing", "Enabled, L2 bridge offload");
+		/* Hardware offload is optional; report accurately without failing bridge startup. */
+		operation_status = init_bridge_load_module_verified("hw_nat", "ttl_regen=0");
+		if (operation_status != 0)
+			logmessage(LOGNAME, "optional hw_nat bridge offload unavailable (status=%d); continuing without offload",
+				   operation_status);
+		else
+			logmessage(LOGNAME, "%s: %s", "Hardware NAT/Routing", "Enabled, L2 bridge offload");
 #endif
 #endif
 	}
@@ -287,7 +303,8 @@ init_bridge(int is_ap_mode)
 		char inic_param[80];
 		snprintf(inic_param, sizeof(inic_param), "miimaster=%s mode=%s syncmiimac=%d bridge=%d max_fw_upload=%d",
 			IFNAME_MAC, "ap", 0, 1, 10);
-		module_smart_load("iNIC_mii", inic_param);
+		operation_status = init_bridge_load_module_verified("iNIC_mii", inic_param);
+		rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);
 	}
 #endif
 
