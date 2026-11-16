@@ -43,6 +43,10 @@ assert 'set_wan_unit_value_int(unit, "err", dhcp_status != 0);' in ndis
 
 wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
 assert "int modem_start_status = 0;" in wan_start
+assert "wan_up_status = wan_up(wan_ifname, unit, 1);" in wan_start
+assert "wan_start_status = rc_first_service_start_status(wan_start_status, wan_up_status);" in wan_start
+assert "return rc_first_service_start_status(modem_start_status, wan_start_status);" in wan_start
+assert "wan_start_status = rc_first_service_start_status(wan_start_status, ipv6_status);" in wan_start
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
 aggregate_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*vlan_result\s*\)\s*;"
@@ -81,6 +85,13 @@ for signature in (
     function = compact(body(WAN_SOURCE, signature))
     assert "status = start_wan();" in function
     assert "return merge_l2tp_server_start_status(status);" in function
+
+wan_stop = compact(body(WAN_SOURCE, "stop_wan_locked(void)"))
+assert "stop_status = wan_down(man_ifname, unit, 1);" in wan_stop
+assert "static WAN route teardown incomplete" in wan_stop
+assert "int modem_stop_status = stop_wan_usbnet();" in wan_stop
+assert "rc_first_service_start_status(stop_status, modem_stop_status)" in wan_stop
+assert wan_stop.index("stop_status = wan_down(man_ifname, unit, 1);") < wan_stop.index("int modem_stop_status = stop_wan_usbnet();")
 
 for signature, call in (
     ("manual_wan_reconnect(void)", "try_wan_reconnect(1, 0)"),

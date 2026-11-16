@@ -11,37 +11,35 @@ For each logical task, create all changed files in one Git tree and one atomic m
 ## Current state
 
 - Repository: Arlene206/padavan-4.4-2; active branch: main.
-- Parent for current WAN result-contract correction: `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. The one-time comparison found main 588 commits ahead / 1 behind; do not repeat branch/archive recovery.
-- Startup governance and backup/archive recovery are complete.
+- Parent for THIS WAN route status slice: `066697195b12b3bbc8bad1efa4a4c4abea5052fa`; refetch live main before the next write and use non-forced expected-SHA update.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only. One-time comparison found main 588 commits ahead / 1 behind; do not repeat recovery.
+- Startup governance/archive recovery is complete.
 
-## Current engineering baseline
+## Engineering baseline
 
-- LAN bridge startup returns and aggregates essential switch VLAN, switch base/storm/link, interface/member, and required iNIC MII module-load failures into PID1. Optional hw_nat offload and LED reporting remain best-effort.
-- Switch VLAN rule writes and bridge-mode ioctl results are preserved. Duplicate bridge creation is accepted only after kernel bridge identity confirmation; bridge membership is idempotent only after inventory confirms the requested state.
-- `br_add_del_bridge()` and `br_add_del_if_internal()` preserve the original bridge ioctl errno across socket close.
-- `full_restart_wan()` fails closed before WAN start if switch VLAN reconfiguration, static LAN route restoration, or switch MAC table clearing fails.
-- WAN L2TP server start results are merged for full restart, normal reconnect and deferred reconnect. Positive `safe_start_xl2tpd()` means already running and is success; negative startup errors are returned when WAN start succeeded.
+- LAN bridge/VLAN/switch startup errors and required iNIC MII post-load verification propagate into PID1. Optional hw_nat offload and LED paths remain best-effort.
+- Shared bridge-add and bridge-member ioctl helpers preserve ioctl errno across socket close.
+- Full WAN restart fails closed before starting WAN on switch VLAN failure, static LAN route restoration failure, and switch MAC-table clear failure.
+- L2TP server start failures are merged for full restart, reconnect and deferred reconnect; positive already-running status remains success.
+- `start_wan()` now also propagates static WAN route/service setup errors and configured IPv6 tunnel setup failure. `stop_wan_locked()` records static WAN route teardown errors and preserves them through USB modem shutdown/physical interface teardown.
 
-## Active checker repair
+## Active test-contract repair
 
-Process exact-SHA run `43862009119` on parent `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a`, job `133280916393`, passed the compiled process/policy regression steps including RC startup aggregation and modem WAN start policy binaries, then failed `scripts/check_modem_wan_start_status.py` at the old assertion `return status;`. The script predates L2TP status propagation and still expected each WAN reconnect wrapper to return raw WAN status.
-
-THIS correction updates that source contract to verify `merge_l2tp_server_start_status()` semantics and ensure all three callers return the merged status. The source code was not changed in this correction.
+Process run `43862663789` on parent `066697195b12b3bbc8bad1efa4a4c4abea5052fa` was in progress at the last check. That parent's code had updated all three WAN connect paths to return `merge_l2tp_server_start_status(status)`; the older `scripts/check_modem_wan_start_status.py` still expected raw `return status;`. This correction updates the checker to verify the shared helper's semantics and three callers.
 
 ## Verification boundary
 
-- Exact-parent Process run `43862009119`: FAIL only in the stale modem WAN checker assertion described above; compiled unit/policy test steps had passed before the checker.
-- Other exact-head Actions for parent `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a` have not yet been reconciled in this handoff. Query exact SHA before claiming any pass/fail.
-- No same-source-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 result is established for this branch head.
+- Exact-SHA Process and AI-doc runs for `066697195b12b3bbc8bad1efa4a4c4abea5052fa` were queued/in progress at last query: Process `43862663789`, AI docs `43862663478`, XY-C1 `43862663471`, NVRAM `43862663293`, AdGuardHome `43862663396`, infosvr `43862663310`, AliyunDrive `43862663359`, AliDDNS `43862663392`.
+- On that parent, Process reached the modem WAN source checker after preceding compiled policy tests; its old expectation of raw `return status;` no longer matched L2TP merged semantics. THIS correction requires a fresh exact-head run.
+- No same-source-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 result established.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head Process and AI docs plus XY-C1/NVRAM/security/service Actions for this checker correction.
-2. Confirm modem WAN source contract now accepts the L2TP status wrapper and still covers modem migration, RAS physical setup and PID1/runtime aggregation.
-3. Continue auditing int-returning operations in `start_wan()`, `stop_wan_locked()`, `wan_up()`, `wan_down()` and DHCP callbacks. Distinguish required forwarding/session operations from optional diagnostics and cleanup.
-4. XY-C1 L3 requires build, TRX verification and artifact upload on one identical production-source SHA; hardware testing remains L4-only.
+1. Check exact-head Process, AI docs, XY-C1, NVRAM and service/security Actions for THIS commit; inspect failures.
+2. Verify WAN route start and teardown results are preserved, including stop-status combination with USB modem and ifdown operations.
+3. Continue auditing ignored return values in `start_wan()`, `stop_wan_locked()`, DHCP callbacks and any MTU/address setup. Keep best-effort cleanup distinct from required forwarding/session setup.
+4. Claim XY-C1 L3 only with Build, TRX verification and artifact upload on the same exact production-source SHA; hardware testing remains L4-only.
 
 ## Governance
 
-Main only; frozen backup read-only. Every logical change: one complete tree and atomic commit, then non-forced update with expected SHA. Update `dev_log.md` for source milestones and keep 20–119 newest records. Keep exact CI, host regression, firmware/TRX and physical-router evidence separate. Never claim an unrun result.
+Main only; frozen backup read-only. One full tree and atomic commit per logical task, then non-forced expected-SHA update. Update `dev_log.md` for source changes and preserve archive history. Distinguish host tests, exact-SHA Actions, firmware/TRX L3 and physical-router L4. Never claim an unrun result.

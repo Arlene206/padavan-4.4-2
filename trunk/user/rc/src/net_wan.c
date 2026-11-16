@@ -1609,6 +1609,7 @@ start_wan(void)
 	int unit, wan_proto;
 	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
 	int modem_start_status = 0;
+	int wan_start_status = 0, wan_up_status;
 	char *wan_ifname;
 
 	/* Secure PPP callback/peer storage before publishing callback links. */
@@ -1884,7 +1885,12 @@ start_wan(void)
 			/* We are done configuration */
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 				if (!wan_err) {
-					wan_up(wan_ifname, unit, 1);
+					wan_up_status = wan_up(wan_ifname, unit, 1);
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, wan_up_status);
+					if (wan_up_status != 0)
+						logmessage(LOGNAME, "static WAN route/service setup incomplete on %s (status=%d)",
+							   wan_ifname, wan_up_status);
 					/* Update UPnP forwards after WAN setup; do not hide reload failure. */
 					wan_upnp_status = update_upnp();
 					if (wan_upnp_status != 0)
@@ -1902,6 +1908,8 @@ start_wan(void)
 #if defined (USE_IPV6)
 			if (is_wan_ipv6_type_sit() == 0) {
 				int ipv6_status = wan6_up(wan_ifname, unit);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, ipv6_status);
 				if (ipv6_status != 0)
 					logmessage(LOGNAME, "WAN IPv6 setup incomplete on %s (status=%d)",
 						   wan_ifname, ipv6_status);
@@ -1917,7 +1925,7 @@ start_wan(void)
 				   passthrough_status);
 	}
 
-	return modem_start_status;
+	return rc_first_service_start_status(modem_start_status, wan_start_status);
 }
 
 static int
@@ -2067,13 +2075,19 @@ stop_wan_locked(void)
 		goto abort_resume_detect;
 	}
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
-	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0)
-		wan_down(man_ifname, unit, 1);
-	stop_status = 0;
+	    strcmp(man_ifname, get_wan_unit_value(unit, "ifname_t")) == 0) {
+		stop_status = wan_down(man_ifname, unit, 1);
+		if (stop_status != 0)
+			logmessage(LOGNAME, "static WAN route teardown incomplete on %s (status=%d)",
+				   man_ifname, stop_status);
+	}
 #if defined (USE_USB_SUPPORT)
 	if (get_usb_modem_wan(unit) && nvram_get_int("modem_type") == 3)
 		usbnet_ifname = get_wan_unit_value(unit, "ifname_t");
-	stop_status = stop_wan_usbnet();
+	{
+		int modem_stop_status = stop_wan_usbnet();
+		stop_status = rc_first_service_start_status(stop_status, modem_stop_status);
+	}
 #endif
 	ifdown_status = wan_teardown_ifdown_interfaces(man_ifname, IFNAME_WAN,
 						       usbnet_ifname,

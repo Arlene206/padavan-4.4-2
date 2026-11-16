@@ -1,10 +1,10 @@
 ## Current source / CI checkpoint
 
-- Live main before THIS checker correction: `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a`.
-- LAN bridge/VLAN/switch and required module status propagates to PID1. Shared bridge create/member ioctl helpers preserve ioctl errno across close. WAN restart checks switch VLAN, static LAN route restoration and switch MAC-table clear before WAN startup.
-- Full restart, normal reconnect and deferred reconnect merge the L2TP server start result; the positive already-running result is success and negative startup errors are preserved.
-- Exact-head Process run `43862009119` / job `133280916393` on `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a` passed compiled process/policy and modem WAN policy tests before failing in an obsolete checker assertion for raw `return status;`. THIS correction updates `scripts/check_modem_wan_start_status.py` to validate the merged L2TP result contract.
-- Current exact-head Actions for THIS commit must be checked. No same-source-SHA XY-C1 Build+TRX+artifact L3 or physical router L4 is claimed.
+- Live main before THIS WAN route-result slice: `066697195b12b3bbc8bad1efa4a4c4abea5052fa`.
+- LAN bridge/VLAN/switch and required module status propagates into PID1. Shared bridge ioctl helpers preserve errno across close. Full WAN restart fails closed on switch VLAN, static LAN route and MAC table clear errors; L2TP server startup failure is merged across full restart/reconnect/deferred reconnect.
+- THIS slice captures static `wan_up()` route/session setup and configured IPv6 setup results in `start_wan()`; `stop_wan_locked()` retains static route teardown status and merges USB modem stop status before interface teardown.
+- Parent exact-head Process `43862663789`, AI docs `43862663478`, XY-C1 `43862663471`, NVRAM `43862663293`, AdGuardHome `43862663396`, infosvr `43862663310`, AliyunDrive `43862663359` and AliDDNS `43862663392` were in progress at last inspection. The parent Process reached a stale checker expecting raw `return status;` after L2TP wrapper changes; checker fixed on `066697195b12b3bbc8bad1efa4a4c4abea5052fa`.
+- THIS slice requires fresh exact-head Actions. No same-SHA XY-C1 Build+TRX+artifact L3 or physical-router L4 result claimed.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Whole-repository module status

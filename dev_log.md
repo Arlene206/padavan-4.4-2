@@ -9,6 +9,17 @@
 
 ---
 
+## 2026-11-16 — Propagate WAN route setup and teardown results
+
+- Parent main: `066697195b12b3bbc8bad1efa4a4c4abea5052fa`. Call-site audit found static IPoE `start_wan()` ignored the int result of `wan_up()`, which reports default/static WAN route and related session setup failures. It now aggregates this result into WAN startup status rather than returning success on an incomplete route setup.
+- Configured IPv6 SIT tunnel startup failure is now also included in WAN startup status while the code continues attempting the independent remaining setup.
+- `stop_wan_locked()` ignored `wan_down()` route teardown result and then reset `stop_status` to zero. It now preserves the route teardown failure and merges USB modem stop result before physical interface teardown; the existing final fail-closed state-clear gate now sees either error.
+- Expanded `scripts/check_modem_wan_start_status.py` to assert the WAN route/IPv6 start results, static route teardown result and modem-stop aggregation.
+- Parent exact-head Process `43862663789`, AI docs `43862663478`, XY-C1 `43862663471`, NVRAM `43862663293`, AdGuardHome `43862663396`, infosvr `43862663310`, AliyunDrive `43862663359` and AliDDNS `43862663392` were pending at last query. The previous Process reached a stale raw-return assertion in the modem WAN checker after compiled policy tests; the checker was corrected in `066697195b12b3bbc8bad1efa4a4c4abea5052fa`. This source slice requires new exact-head CI; no L3/L4 claim.
+- Next: validate all exact-head checks and continue the remaining WAN MTU/address result audit.
+
+---
+
 ## 2026-11-16 — Update modem WAN checker for merged L2TP start status
 
 - Parent main: `e97f95dc097e7faa8cd00aa491de9f1fb4ad519a`. Exact-head Process run `43862009119`, job `133280916393`, completed all compiled inventory/policy regressions and the modem WAN policy binary successfully, then failed in `scripts/check_modem_wan_start_status.py` because its old contract expected `return status;` from full WAN restart, reconnect and deferred reconnect.
