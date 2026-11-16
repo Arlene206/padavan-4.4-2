@@ -1,9 +1,10 @@
 ## Current source / CI checkpoint
 
-- Main parent for the Shadowsocks adblock parser/publication fix: `9cd5348bba7bee2a2f163d46cc553e32ffb44daa`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 9cd HTTPD security #43779833479, Process lifecycle #43779833453, NVRAM #43779833462, AI docs #43779833509, AdGuardHome #43779833447, infosvr #43779833483, AliDDNS #43779833617 and AliyunDrive #43779833471 PASS.
-- Exact 9cd XY-C1 #43779833547 remained in Build XY-C1 at last poll; TRX/artifact pending.
-- THIS COMMIT fixes Shadowsocks `start_AD()` malformed `check =` command syntax and unvalidated adblock publication. It stages a fully parsed config beside the destination and atomically renames only a valid non-empty result; host regression covers supported formats and last-good preservation.
+- Main parent for the Shadowsocks shell-expansion repair: `b33ed42356995a1ab6dcce42c29db7f9cdf5e67b`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact b33 Shadowsocks #43781109010 failed because shell variable expansions in mktemp templates were written with literal backslashes; shell syntax and the existing process-lifecycle test passed. THIS COMMIT removes the escapes.
+- Exact b33 Process #43781108999, inventory #43781109077, AI docs #43781108988, AdGuardHome #43781109013, infosvr #43781108991, AliyunDrive #43781109183 and AliDDNS #43781109014 PASS; NVRAM #43781109000 pending at last poll.
+- Exact 9cd XY-C1 #43779833547 PASS: Build, TRX verification and artifact upload.
+- The adblock parser stages complete, validated dnsmasq/Adblock output and atomically preserves last-good config. XY-C1 push filters now include the changed Shadowsocks script; exact follow-up Actions pending.
 
 
 ### P1 — Shadowsocks adblock configuration parser

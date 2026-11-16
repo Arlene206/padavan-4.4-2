@@ -2,7 +2,7 @@
 set -eu
 
 TEST_DIR=$(CDPATH= cd -- "$(dirname "$0")" && pwd)
-TMP_DIR=$(mktemp -d "\${TMPDIR:-/tmp}/shadowsocks-adblock.XXXXXX")
+TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/shadowsocks-adblock.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 SCRIPT="$TEST_DIR/../scripts/shadowsocks.sh"
 OUTPUT="$TMP_DIR/anti-ad-for-dnsmasq.conf"

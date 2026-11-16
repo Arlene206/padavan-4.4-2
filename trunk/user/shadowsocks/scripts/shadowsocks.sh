@@ -433,14 +433,14 @@ ss_publish_adblock_config() {
 	local ss_adblock_rules=""
 
 	[ -r "$ss_adblock_input" ] && [ -s "$ss_adblock_input" ] || return 1
-	ss_adblock_tmp=$(mktemp "\${ss_adblock_output}.tmp.XXXXXX") || return 1
+	ss_adblock_tmp=$(mktemp "${ss_adblock_output}.tmp.XXXXXX") || return 1
 	if grep -q '^[[:space:]]*address=' "$ss_adblock_input"; then
 		if ! cp "$ss_adblock_input" "$ss_adblock_tmp"; then
 			rm -f "$ss_adblock_tmp"
 			return 1
 		fi
 	else
-		ss_adblock_rules=$(mktemp "\${ss_adblock_output}.rules.XXXXXX") || {
+		ss_adblock_rules=$(mktemp "${ss_adblock_output}.rules.XXXXXX") || {
 			rm -f "$ss_adblock_tmp"
 			return 1
 		}

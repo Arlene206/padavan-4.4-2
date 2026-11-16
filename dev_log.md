@@ -1,3 +1,12 @@
+## 2026-11-15 — Correct shell mktemp template expansion and add XY-C1 source trigger
+
+- Exact b33 Shadowsocks Action #43781109010 failed in the new adblock test: literal backslashes before `${TMPDIR:-/tmp}` and `${ss_adblock_output}` prevented shell expansion in mktemp templates. The shell syntax and existing process-lifecycle test both passed.
+- Removed those escapes so POSIX shell expands both temporary directory and output-file templates. Added `trunk/user/shadowsocks/scripts/shadowsocks.sh` to the XY-C1 workflow's push paths so this packaged script is covered by firmware validation.
+- Exact b33 Process #43781108999, inventory #43781109077, AI docs #43781108988, AdGuardHome #43781109013, infosvr #43781108991, AliyunDrive #43781109183 and AliDDNS #43781109014 PASS; NVRAM #43781109000 remained running at last poll.
+- Exact 9cd XY-C1 #43779833547 PASS (Build, TRX and artifact upload). Exact follow-up Actions pending.
+
+---
+
 ## 2026-11-15 — Fix Shadowsocks adblock parser and atomic publication
 
 - `start_AD()` used `check = `grep -wq ...``, which is not a shell assignment; quiet grep also emits no value for command substitution. The intended dnsmasq/address versus Adblock-list detection was therefore not reliable.

@@ -4,6 +4,7 @@ on:
   push:
     paths:
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/shadowsocks/scripts/shadowsocks.sh"
       - "trunk/user/smartdns/**"
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/rc/src/msd_lite_config_file.h"

@@ -9,29 +9,28 @@ Only edit it when the live facts or first next action change materially.
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`.
-- Main parent for the Shadowsocks adblock parser/publication fix: `9cd5348bba7bee2a2f163d46cc553e32ffb44daa`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Exact 9cd HTTPD security #43779833479 PASS; AI docs #43779833509 PASS; Process lifecycle #43779833453 PASS; NVRAM #43779833462 PASS; AdGuardHome #43779833447 PASS; infosvr #43779833483 PASS; AliDDNS #43779833617 PASS; AliyunDrive #43779833471 PASS.
-- Exact 9cd XY-C1 #43779833547 remains in progress. Last poll: Build XY-C1 running; TRX verification and artifact upload pending. This SHA includes the AiDisk unused-label cleanup and identity-bound Inadyn SIGUSR1 change.
-- Manual DDNS identity-bound refresh commit `f71ee12cbca49972cc927457338d395e64818381`: exact Inadyn lifecycle #43779424646 PASS (GNU89/ASan/UBSan, PID-bound SIGUSR1 success + UNKNOWN rejection).
-- AiDisk fail-closed Samba/FTP change `891b46b51481d171aab6de88ac6634f4d6f56124`; unused success label cleaned in `2d97d3b11b48464a21ace2113a04ab26769aff2a`. Exact 9cd Process/HTTPD/AI-doc checks pass.
-- Current independent source defect: `trunk/user/shadowsocks/scripts/shadowsocks.sh:start_AD()` contains invalid `check = ...` shell syntax, so intended dnsmasq/Adblock format detection is not performed. THIS COMMIT adds a tested parser and atomic last-good publication.
+- Main parent for the Shadowsocks shell-expansion repair: `b33ed42356995a1ab6dcce42c29db7f9cdf5e67b`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Exact b33 Shadowsocks workflow #43781109010 FAIL: shell syntax and the existing process-lifecycle regression PASS; the new adblock test stopped at `mktemp` because literal backslashes before `${TMPDIR:-/tmp}` and `${ss_adblock_output}` prevented shell expansion. THIS COMMIT removes the escapes; no pass is claimed until rerun.
+- Exact b33 Process lifecycle #43781108999, full inventory #43781109077, AI docs #43781108988, AdGuardHome #43781109013, infosvr #43781108991, AliyunDrive #43781109183 and AliDDNS #43781109014 PASS. NVRAM #43781109000 was still running at last poll.
+- Exact 9cd XY-C1 #43779833547 PASS: Build XY-C1, TRX verification and artifact upload all succeeded on the same SHA. This commit adds the Shadowsocks script to the workflow's push path filter for future exact-source firmware validation.
+- Prior fixes remain: AiDisk fail-closed Samba/FTP `891b46b51481d171aab6de88ac6634f4d6f56124`, unused-label cleanup `2d97d3b11b48464a21ace2113a04ab26769aff2a`, identity-bound Inadyn SIGUSR1 `f71ee12cbca49972cc927457338d395e64818381`.
 - Frozen backup unchanged; no physical-router/L4 validation.
 
 ## Active task
 
-### Fix Shadowsocks adblock format detection and preserve last-good configuration
+### Repair mktemp templates and trigger XY-C1 for Shadowsocks script changes
 
-The `start_AD()` function contains `check = `grep -wq ...``, which attempts to execute a command instead of assigning a variable; quiet grep also cannot provide the intended content test. Correctly distinguish dnsmasq `address=` files from simple `||domain^` rules, convert only supported domain rules, reject empty/unsupported input, and publish through a same-directory temporary file and atomic rename. A focused shell regression and Shadowsocks CI workflow test this behavior.
+The exact b33 Shadowsocks Action failed because literal backslashes before `${TMPDIR:-/tmp}` and `${ss_adblock_output}` prevented shell variable expansion in mktemp templates. Remove the escapes in both the production publisher and regression harness. Add the Shadowsocks script to the XY-C1 push path filter so future parser changes receive an exact-source firmware build.
 
 ## Verification boundary
 
-- Exact 9cd HTTPD security, Process lifecycle, NVRAM, AI docs, AdGuardHome, infosvr, AliDDNS and AliyunDrive Actions all PASS.
-- Exact 9cd XY-C1 #43779833547 remained at Build XY-C1 at last poll; TRX verification and artifact upload pending.
-- THIS COMMIT adds a host shell regression for dnsmasq passthrough, Adblock domain conversion, unsupported/empty input rejection and last-good preservation. The Shadowsocks lifecycle workflow must run on this exact source SHA.
-- No L3/L4 claim until exact-source XY-C1 Build, TRX validation and artifact upload all pass; no hardware testing is available.
+- Exact b33 Shadowsocks #43781109010 FAIL only at `mktemp`: the new test's literal `${TMPDIR:-/tmp}` path could not be created. Shell syntax and the previous process-lifecycle test passed. THIS COMMIT removes the literal escapes; exact rerun pending.
+- Exact b33 Process #43781108999, full inventory #43781109077, AI docs #43781108988, AdGuardHome #43781109013, infosvr #43781108991, AliyunDrive #43781109183 and AliDDNS #43781109014 PASS; NVRAM #43781109000 pending at last poll.
+- Exact 9cd XY-C1 #43779833547 PASS: Build, TRX verification and artifact upload succeeded.
+- THIS COMMIT adds the script to the XY-C1 push filter; exact-head Shadowsocks, AI-doc, Process and XY-C1 checks remain pending. No L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Shadowsocks lifecycle and XY-C1 Actions. Confirm both new adblock regressions and same-SHA Build XY-C1 / TRX / artifact upload.
-2. Review remaining high-impact legacy process-presence and name-wide signal consumers from artifact #14186597970, without changing global Boolean API semantics.
-3. Preserve the frozen backup and archived log inventory; no L4 without physical hardware.
+1. Inspect exact-head Shadowsocks workflow, Process regression, AI-doc and the newly triggered XY-C1 Build/TRX/artifact; diagnose any genuine failures.
+2. Continue reviewing consequential legacy process-presence/name-wide signal consumers from inventory artifact #14186597970 without changing global Boolean API semantics.
+3. Preserve the frozen backup and archived log shards/index; no L4 without physical hardware.
