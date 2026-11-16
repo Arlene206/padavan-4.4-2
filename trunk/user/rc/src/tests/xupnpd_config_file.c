@@ -73,6 +73,33 @@ test_source_rejects_symlinks_and_special_files(const char *directory)
 	assert(unlink(regular) == 0);
 }
 
+static void
+test_storage_directory_rejects_symlinks_and_non_directories(const char *directory)
+{
+	char real_dir[PATH_MAX], link_path[PATH_MAX], regular[PATH_MAX];
+	char missing[PATH_MAX];
+	int fd;
+
+	join(real_dir, sizeof(real_dir), directory, "storage-real");
+	join(link_path, sizeof(link_path), directory, "storage-link");
+	join(regular, sizeof(regular), directory, "storage-file");
+	join(missing, sizeof(missing), directory, "storage-missing");
+
+	assert(mkdir(real_dir, 0700) == 0);
+	assert(xupnpd_config_directory_validate(real_dir) == 0);
+	assert(symlink(real_dir, link_path) == 0);
+	assert(xupnpd_config_directory_validate(link_path) == ELOOP);
+	fd = open(regular, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	assert(fd >= 0 && close(fd) == 0);
+	assert(xupnpd_config_directory_validate(regular) == ENOTDIR);
+	assert(xupnpd_config_directory_validate(missing) == ENOENT);
+	assert(xupnpd_config_directory_validate(NULL) == EINVAL);
+
+	assert(unlink(link_path) == 0);
+	assert(unlink(regular) == 0);
+	assert(rmdir(real_dir) == 0);
+}
+
 int
 main(void)
 {
@@ -129,6 +156,7 @@ main(void)
 	assert(!xupnpd_config_valid_ipv4("192.168.1.1';os.execute('id')"));
 	assert(!xupnpd_config_valid_ipv4("999.1.1.1"));
 	test_source_rejects_symlinks_and_special_files(dir);
+	test_storage_directory_rejects_symlinks_and_non_directories(dir);
 
 	assert(unlink(destination) == 0);
 	join(destination, sizeof(destination), dir, "common.lua");

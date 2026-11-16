@@ -264,6 +264,13 @@ assert "test_unique_exclusive_temp_and_symlink" not in xupnpd_config_test
 assert "must-not-change" in xupnpd_config_test
 assert "os.execute" in xupnpd_config_test
 assert "test_source_rejects_symlinks_and_special_files" in xupnpd_config_test
+assert 'xupnpd_config_directory_validate("/etc/storage")' in xupnpd_start
+assert "xupnpd_config_directory_validate(dir_dst)" in xupnpd_start
+assert 'xupnpd_config_directory_validate(tmp2)' in xupnpd_start
+assert "lstat(directory_path, &st)" in xupnpd_config_header
+assert "S_ISLNK(st.st_mode)" in xupnpd_config_header
+assert "S_ISDIR(st.st_mode)" in xupnpd_config_header
+assert "test_storage_directory_rejects_symlinks_and_non_directories" in xupnpd_config_test
 assert "mkfifo(fifo_path" in xupnpd_config_test
 
 assert "ferror(fp2)" in xupnpd_start and "fflush(fp1)" in xupnpd_start

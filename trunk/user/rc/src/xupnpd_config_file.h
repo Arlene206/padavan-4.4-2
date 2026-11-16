@@ -49,6 +49,32 @@ xupnpd_config_valid_ipv4(const char *address)
  * to a FIFO harmless; lstat/fstat identity comparison closes the path-swap
  * window even on platforms without O_NOFOLLOW.
  */
+/*
+ * Reject pre-existing symlink/non-directory roots in writable XUPnPD storage
+ * before root performs mkdir, unlink, copy, or config-file replacement.
+ */
+static inline int
+xupnpd_config_directory_validate(const char *directory_path)
+{
+	struct stat st;
+	int status = 0;
+
+	if (directory_path == NULL)
+		status = EINVAL;
+	else if (lstat(directory_path, &st) != 0)
+		status = errno ? errno : EIO;
+	else if (S_ISLNK(st.st_mode))
+		status = ELOOP;
+	else if (!S_ISDIR(st.st_mode))
+		status = ENOTDIR;
+
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	return 0;
+}
+
 static inline FILE *
 xupnpd_config_source_open(const char *source_path)
 {

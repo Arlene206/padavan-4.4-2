@@ -406,7 +406,6 @@ start_xupnpd(char *wan_ifname)
 	    !xupnpd_config_valid_ipv4(nvram_safe_get("lan_ipaddr_t")))
 		return EINVAL;
 
-	unlink("/var/run/xupnpd.pid");
 
 	xport = nvram_get_int("xupnpd_enable_x");
 	if (xport < 1024)
@@ -414,14 +413,39 @@ start_xupnpd(char *wan_ifname)
 	if (xport > 65535)
 		return EINVAL;
 
+	{
+		int status = xupnpd_config_directory_validate("/etc/storage");
+		if (status != 0) {
+			logmessage(LOGNAME, "xupnpd storage root is unsafe (status=%d)", status);
+			return status;
+		}
+	}
+
 	if (!check_if_dir_exist(dir_dst))
 		mkdir(dir_dst, 0755);
+	{
+		int status = xupnpd_config_directory_validate(dir_dst);
+		if (status != 0) {
+			logmessage(LOGNAME, "xupnpd storage directory is unsafe (status=%d)", status);
+			return status;
+		}
+	}
 
 	for (i=0; xdir1[i]; i++) {
 		snprintf(tmp2, sizeof(tmp2), "%s/%s", dir_dst, xdir1[i]);
 		if (!check_if_dir_exist(tmp2))
 			mkdir(tmp2, 0755);
 	}
+	snprintf(tmp2, sizeof(tmp2), "%s/config", dir_dst);
+	{
+		int status = xupnpd_config_directory_validate(tmp2);
+		if (status != 0) {
+			logmessage(LOGNAME, "xupnpd config directory is unsafe (status=%d)", status);
+			return status;
+		}
+	}
+
+	unlink("/var/run/xupnpd.pid");
 
 	for (i=0; xdir2[i]; i++) {
 		snprintf(tmp2, sizeof(tmp2), "%s/%s", dir_dst, xdir2[i]);
