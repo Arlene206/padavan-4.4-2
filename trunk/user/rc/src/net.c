@@ -41,6 +41,7 @@
 #include "route_status_policy.h"
 #include "igmpproxy_config_file.h"
 #include "service_start_status.h"
+#include "wireless_module_load_policy.h"
 #include "xupnpd_config_file.h"
 #if defined (APP_MSD_LITE)
 #include "msd_lite_config_file.h"
@@ -952,6 +953,9 @@ reload_nat_modules(void)
 	hwnat_configure(hwnat_wan_vid);
 #endif
 #if defined (USE_SFE)
+	static const rc_module_load_ops_t sfe_module_ops = {
+		module_smart_load, is_module_loaded
+	};
 	int sfe_enable = nvram_get_int("sfe_enable");
 	int sfe_loaded = is_module_loaded("fast_classifier");
 
@@ -960,8 +964,12 @@ reload_nat_modules(void)
 		sfe_loaded = 0;
 	}
 	if (sfe_enable && !sfe_loaded) {
-		module_smart_load("fast_classifier", NULL);
-		sfe_loaded = 1;
+		if (rc_module_load_verified("fast_classifier", NULL, &sfe_module_ops) == 0)
+			sfe_loaded = 1;
+		else {
+			sfe_loaded = 0;
+			logmessage(LOGNAME, "Software flow offload requested but fast_classifier failed to load; continuing without SFE");
+		}
 	}
 	if (sfe_loaded) {
 		if (sfe_enable == 1)

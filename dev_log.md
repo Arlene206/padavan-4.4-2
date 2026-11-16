@@ -1,3 +1,12 @@
+## 2026-11-17 — Verify SFE module state before sysfs configuration
+
+- Parent main: `086466e8e9dab3b198585cf5ec0033ff6ff82749`. Auditing the remaining optional-module path found that `reload_nat_modules()` set `sfe_loaded = 1` unconditionally after `module_smart_load("fast_classifier")`. The loader intentionally returns zero for both already-loaded and failed cases, so a failed load could still trigger writes under `/sys/fast_classifier`.
+- Reused the tested `rc_module_load_verified()` post-load probe for this optional acceleration module. Failure now leaves `sfe_loaded = 0`, logs that operation will continue without SFE, and skips its sysfs controls rather than reporting an imaginary successful load.
+- Extended the canonical WAN/RC checker and Firewall Startup push/PR triggers; added the existing GNU89/-Werror/ASan/UBSan post-load policy test to that workflow. This is not a required WAN/firewall dependency; SFE remains optional.
+- Parent 086 Firewall Startup `43935911317`, Process `43935911201`, AI docs `43935911142`, storage checker `43935659776`, and NVRAM `43935911152` are PASS (NVRAM run finished successfully after initial poll); XY-C1 `43935911346` is still building at the last observed poll. Fresh exact-SHA CI and XY-C1 build/TRX/artifact are required for this source change. Physical-router L4 remains NOT VERIFIED; frozen backup unchanged.
+
+---
+
 ## 2026-11-17 — Propagate VPN client firewall status and preserve VPN errno
 
 - Parent main: `987b3bc75261b8fed86ffd78c3bd58eb0ba79c80`. The direct caller inventory found `restart_vpn_client_locked()` still ignored the now-int-returning `restart_firewall()`; this commit propagates that status when first and preserves errno across later xl2tpd restore. VPN-server restart now snapshots errno when firewall refresh is its first error.

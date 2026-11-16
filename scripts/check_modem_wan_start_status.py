@@ -484,3 +484,15 @@ assert direct_firewall_references == 16, (
     + str(direct_firewall_references)
 )
 print("VPN client/server and complete direct firewall caller status contracts: PASS")
+
+# SFE is optional acceleration, but only touch its sysfs controls after a
+# post-load probe confirms the module actually exists.
+assert '#include "wireless_module_load_policy.h"' in NET_SOURCE
+nat_reload = compact(body(NET_SOURCE, "reload_nat_modules(void)"))
+assert 'rc_module_load_verified("fast_classifier", NULL, &sfe_module_ops)' in nat_reload
+assert "if (rc_module_load_verified(" in nat_reload
+assert "sfe_loaded = 1;" in nat_reload
+assert "sfe_loaded = 0;" in nat_reload
+assert "continuing without SFE" in nat_reload
+assert 'module_smart_load("fast_classifier", NULL);' not in nat_reload
+print("Optional SFE module post-load verification contract: PASS")
