@@ -2702,11 +2702,15 @@ jobs:
           assert ejected.index("if (umount(entry->mountpoint) != 0)") < ejected.index("(void)rmdir(entry->mountpoint)")
           public_eject = service[service.index("umount_ejected(void)"):service.index("struct storage_unmount_mount_entry", service.index("umount_ejected(void)"))]
           assert "umount_ejected_locked(0, 1)" in public_eject
-          assert "mount_count = count_stor_mountpoint();" in ejected
-          assert ejected.index("mount_count = count_stor_mountpoint();") < ejected.index("start_status = start_stor_apps();")
-          assert "if (mount_count > 0)" in ejected
-          assert "else if (mount_count == 0)" in ejected and "unload_nfsd();" in ejected
-          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected and "alarm(5);" in ejected
+          incomplete_gate = ejected.index("if (result != 0)", ejected.index("free_storage_ejected_partitions(partitions)"))
+          mount_count = ejected.index("mount_count = count_stor_mountpoint();")
+          restart_apps = ejected.index("start_status = start_stor_apps();")
+          assert incomplete_gate < mount_count < restart_apps
+          assert "leaving storage applications stopped because physical eject cleanup was incomplete" in ejected[incomplete_gate:mount_count]
+          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[incomplete_gate:mount_count] and "alarm(5);" in ejected[incomplete_gate:mount_count]
+          assert "if (mount_count > 0)" in ejected[mount_count:]
+          assert "else if (mount_count == 0)" in ejected[mount_count:] and "unload_nfsd();" in ejected
+          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[mount_count:] and "alarm(5);" in ejected[mount_count:]
 
           path_start = service.index("umount_stor_path_range(")
           path_end = service.index("umount_stor_path(disk_info_t", path_start)

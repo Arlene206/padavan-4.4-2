@@ -169,15 +169,22 @@ require(
     and "if (has_ejected_mounts && restart_storage_apps)" in ejected,
     "ejected cleanup must avoid double-stop/restart when called by the already-locked safe-remove path",
 )
+incomplete_cleanup_gate = ejected.index(
+    "if (result != 0)",
+    ejected.index("free_storage_ejected_partitions(partitions)"),
+)
 remaining = ejected.index("mount_count = count_stor_mountpoint()")
 restart = ejected.index("start_status = start_stor_apps()", remaining)
 require(
-    remaining < restart
+    incomplete_cleanup_gate < remaining < restart
+    and "leaving storage applications stopped because physical eject cleanup was incomplete" in ejected[incomplete_cleanup_gate:remaining]
+    and 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[incomplete_cleanup_gate:remaining]
+    and "alarm(5);" in ejected[incomplete_cleanup_gate:remaining]
     and ejected.index("if (mount_count > 0)", remaining) < restart
     and "else if (mount_count == 0)" in ejected[remaining:]
     and "else {" in ejected[remaining:]
     and 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[remaining:],
-    "physical eject must restart apps only for remaining mounts, unload NFS when empty, and retry unknown/start failure",
+    "physical eject must keep apps stopped and retry incomplete stale unmounts, then restart only for remaining mounts",
 )
 ejected_public = body(storage, "umount_ejected(void)")
 require(

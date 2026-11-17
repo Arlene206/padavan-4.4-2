@@ -2925,26 +2925,37 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	free_storage_ejected_partitions(partitions);
 
 	if (has_ejected_mounts && restart_storage_apps) {
-		errno = 0;
-		mount_count = count_stor_mountpoint();
-		if (mount_count > 0) {
-			start_status = start_stor_apps();
-			if (start_status != 0) {
-				logmessage("Storage", "storage applications failed to restart after physical eject (status=%d)",
-					   start_status);
+		/*
+		 * A failed Optware hook or unmount leaves an ejected mountpoint in
+		 * place. Do not relaunch daemons against that stale mount; retry the
+		 * cleanup first, then restart only after every ejected mount is gone.
+		 */
+		if (result != 0) {
+			logmessage("Storage", "leaving storage applications stopped because physical eject cleanup was incomplete");
+			nvram_set_int_temp("usb_hotplug_ms", 1);
+			alarm(5);
+		} else {
+			errno = 0;
+			mount_count = count_stor_mountpoint();
+			if (mount_count > 0) {
+				start_status = start_stor_apps();
+				if (start_status != 0) {
+					logmessage("Storage", "storage applications failed to restart after physical eject (status=%d)",
+						   start_status);
+					nvram_set_int_temp("usb_hotplug_ms", 1);
+					alarm(5);
+					result = -1;
+				}
+			} else if (mount_count == 0) {
+#if defined(APP_NFSD)
+				unload_nfsd();
+#endif
+			} else {
+				logmessage("Storage", "remaining storage mount inventory is unknown after physical eject; leaving storage applications stopped");
 				nvram_set_int_temp("usb_hotplug_ms", 1);
 				alarm(5);
 				result = -1;
 			}
-		} else if (mount_count == 0) {
-#if defined(APP_NFSD)
-			unload_nfsd();
-#endif
-		} else {
-			logmessage("Storage", "remaining storage mount inventory is unknown after physical eject; leaving storage applications stopped");
-			nvram_set_int_temp("usb_hotplug_ms", 1);
-			alarm(5);
-			result = -1;
 		}
 	}
 

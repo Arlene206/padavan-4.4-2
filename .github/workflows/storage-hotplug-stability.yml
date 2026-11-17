@@ -413,11 +413,15 @@ jobs:
           rollback_abort = eject.index("return -1;", rollback_at)
           assert rollback_at < rollback_abort < eject.index(optware_unmount)
           assert "if (has_ejected_mounts && restart_storage_apps)" in eject
-          assert "mount_count = count_stor_mountpoint();" in eject
-          assert eject.index("mount_count = count_stor_mountpoint();") < eject.index("start_status = start_stor_apps();")
-          assert "if (mount_count > 0)" in eject
-          assert "else if (mount_count == 0)" in eject and "unload_nfsd();" in eject
-          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in eject and "alarm(5);" in eject
+          incomplete_gate = eject.index("if (result != 0)", eject.index("free_storage_ejected_partitions(partitions)"))
+          mount_count = eject.index("mount_count = count_stor_mountpoint();")
+          restart_apps = eject.index("start_status = start_stor_apps();")
+          assert incomplete_gate < mount_count < restart_apps
+          assert "leaving storage applications stopped because physical eject cleanup was incomplete" in eject[incomplete_gate:mount_count]
+          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in eject[incomplete_gate:mount_count] and "alarm(5);" in eject[incomplete_gate:mount_count]
+          assert "if (mount_count > 0)" in eject[mount_count:]
+          assert "else if (mount_count == 0)" in eject[mount_count:] and "unload_nfsd();" in eject
+          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in eject[mount_count:] and "alarm(5);" in eject[mount_count:]
           public_eject = function_body(storage, "umount_ejected(void)")
           assert "umount_ejected_locked(0, 1)" in public_eject
           targeted_eject = function_body(storage, "safe_remove_stor_device(")
@@ -579,16 +583,16 @@ jobs:
               assert body.count("file_unlock(storage_lock);") == 1
               assert body.rindex("file_unlock(storage_lock);") < body.rindex("file_unlock(isLock);")
 
-          storage_locked = function_body(storage, "umount_ejected_locked(void)")
+          storage_locked = function_body(storage, "umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)")
           wrapper = function_body(storage, "umount_ejected(void)")
           assert "storage_stage_ejected_partitions(&partitions)" in storage_locked
           assert "storage_operation_lock_acquire(file_lock)" in wrapper
-          assert wrapper.index("storage_operation_lock_acquire(file_lock)") < wrapper.index("umount_ejected_locked()")
+          assert wrapper.index("storage_operation_lock_acquire(file_lock)") < wrapper.index("umount_ejected_locked(0, 1)")
           assert "file_unlock(storage_lock);" in wrapper
 
           safe_remove = function_body(storage, "safe_remove_stor_device(")
           assert safe_remove.index("storage_operation_lock_acquire(file_lock)") < safe_remove.index("read_disk_data()")
-          assert "umount_ejected_locked()" in safe_remove
+          assert "umount_ejected_locked(1, 0)" in safe_remove
           assert safe_remove.count("file_unlock(storage_lock);") == 3
           assert "umount_ejected();" not in safe_remove
 
@@ -814,7 +818,7 @@ jobs:
           assert "_eval(argv, NULL, 0, NULL);" in shutils
 
           for name, body in (
-              ("ejected-device cleanup", function_body(storage, "umount_ejected_locked(void)")),
+              ("ejected-device cleanup", function_body(storage, "umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)")),
               ("safe-removal disk cleanup", function_body(storage, "storage_unmount_staged_disk_mounts(")),
           ):
               hook = body.index('hook_status = eval("/usr/bin/opt-umount.sh"')
@@ -881,7 +885,7 @@ jobs:
           assert "free_disk_data(disks_info);" in safe_remove[rollback_gate:stop_abort]
           assert "file_unlock(storage_lock);" in safe_remove[rollback_gate:stop_abort]
           assert "errno = stop_errno;" in safe_remove[rollback_gate:stop_abort]
-          assert safe_remove.index("umount_stor_path_range(") < safe_remove.index("umount_ejected_locked()")
+          assert safe_remove.index("umount_stor_path_range(") < safe_remove.index("umount_ejected_locked(1, 0)")
           assert "unmount_status != 0 || ejected_status != 0" in safe_remove
           assert "mount_count < 0 || unmount_status != 0 || ejected_status != 0" in safe_remove
 
