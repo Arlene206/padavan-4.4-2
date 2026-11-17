@@ -162,6 +162,20 @@ test_fail_closed_rollback_success_and_invalid_ops(void)
 }
 
 static void
+test_interface_flag_read_errors_are_not_reported_as_down(void)
+{
+	int is_up = 7;
+
+	assert(wireless_guest_isolation_link_state(-1, 0x1, &is_up) == -EIO);
+	assert(is_up == 7);
+	assert(wireless_guest_isolation_link_state(0, 0x1, &is_up) == 0);
+	assert(is_up == 0);
+	assert(wireless_guest_isolation_link_state(0x1, 0x1, &is_up) == 0);
+	assert(is_up == 1);
+	assert(wireless_guest_isolation_link_state(0, 0x1, NULL) == -EINVAL);
+}
+
+static void
 test_null_status_is_fail_safe(void)
 {
 	assert(wireless_guest_isolation_status_result(NULL) == -EIO);
@@ -178,6 +192,7 @@ main(void)
 	test_control_result_preserves_changed_boolean_only_on_success();
 	test_fail_closed_rollback_attempts_every_step();
 	test_fail_closed_rollback_success_and_invalid_ops();
+	test_interface_flag_read_errors_are_not_reported_as_down();
 	test_null_status_is_fail_safe();
 	puts("Wireless guest LAN isolation status aggregation: PASS");
 	return 0;

@@ -1,3 +1,13 @@
+## 2026-11-17 — Keep guest AP rollback link-state inspection fail-closed
+
+- Parent main SHA: `776bd2af8e84ec7c4b87b336a31158ab09c69ae3`; result: THIS COMMIT.
+- The rollback callbacks used `is_interface_up()`, which returns 0 for both a confirmed-down interface and any `get_interface_flags()` socket/ioctl failure. That made a failed link-state query indistinguishable from down and could falsely skip interface-down and pass final rollback verification.
+- Added `wireless_guest_isolation_link_state()`: negative flag reads return `-EIO`; only valid flag values can produce up/down; invalid output pointer returns `-EINVAL`. Both rollback bring-down and verify-down callbacks now use `get_interface_flags()` and propagate query failure.
+- Added GNU89-compatible unit cases for flags-read error, confirmed down, confirmed up and null output. Extended the Process source contract to ensure both production callbacks use the checked helper and never fall back to `is_interface_up()`.
+- Exact-head parent `776bd2af`: Process lifecycle `44067663998` PASS (includes guest isolation/M2U source checker and C regressions); NVRAM `44067664059` PASS; AdGuardHome `44067664276` PASS; AI handoff `44067664224` PASS; AliyunDrive `44067664006` PASS; infosvr `44067664305` PASS; AliDDNS `44067664325` PASS. XY-C1 source run `44066355563` for `69e4ab00` completed SUCCESS; Wireless radio run `44066355414` for `69e4ab00` completed SUCCESS. These builds validate the prior M2U source commit, not this new tri-state change.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
 ## 2026-11-17 — Ensure guest Wi-Fi source checker runs on pushes
 
 - Parent main SHA: `080b8c91cb636fa95a8511c83b552bd4e639ba15`; result: THIS COMMIT.

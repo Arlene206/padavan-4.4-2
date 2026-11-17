@@ -79,7 +79,16 @@ wireless_guest_rollback_bring_down(void *context)
 	wireless_guest_rollback_context_t *rollback =
 		(wireless_guest_rollback_context_t *)context;
 
-	if (!is_interface_up(rollback->ifname_ap))
+	int interface_flags;
+	int is_up;
+	int status;
+
+	interface_flags = get_interface_flags(rollback->ifname_ap);
+	status = wireless_guest_isolation_link_state(interface_flags, IFF_UP,
+						     &is_up);
+	if (status != 0)
+		return status;
+	if (!is_up)
 		return 0;
 	return wif_control_success(rollback->ifname_ap, 0) ? 0 : -EIO;
 }
@@ -99,7 +108,16 @@ wireless_guest_rollback_verify_down(void *context)
 	wireless_guest_rollback_context_t *rollback =
 		(wireless_guest_rollback_context_t *)context;
 
-	return is_interface_up(rollback->ifname_ap) ? -EBUSY : 0;
+	int interface_flags;
+	int is_up;
+	int status;
+
+	interface_flags = get_interface_flags(rollback->ifname_ap);
+	status = wireless_guest_isolation_link_state(interface_flags, IFF_UP,
+						     &is_up);
+	if (status != 0)
+		return status;
+	return is_up ? -EBUSY : 0;
 }
 
 static void

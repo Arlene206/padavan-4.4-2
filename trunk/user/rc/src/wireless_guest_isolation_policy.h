@@ -38,6 +38,22 @@ wireless_guest_isolation_status_result(const wireless_guest_isolation_status_t *
 	return (status && status->first_status == 0) ? 0 : -EIO;
 }
 
+/*
+ * get_interface_flags() returns -1 when the kernel cannot report link flags.
+ * Do not silently interpret that state as "interface down".
+ */
+static inline int
+wireless_guest_isolation_link_state(int interface_flags, int up_mask,
+				    int *is_up)
+{
+	if (!is_up)
+		return -EINVAL;
+	if (interface_flags < 0)
+		return -EIO;
+	*is_up = (interface_flags & up_mask) != 0;
+	return 0;
+}
+
 /* Guest-control APIs retain 0/1 as unchanged/changed on success. */
 static inline int
 wireless_guest_isolation_control_result(int changed,

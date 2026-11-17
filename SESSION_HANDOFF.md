@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `080b8c91cb636fa95a8511c83b552bd4e639ba15`.
+- Current main: THIS COMMIT; parent `776bd2af8e84ec7c4b87b336a31158ab09c69ae3`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,9 +31,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Re-run exact-head Process lifecycle after the M2U checker was corrected on 080b8c91. The checker-only fix did not trigger Process CI because its script path was missing from push.paths; this commit adds that path.
-2. Verify XY-C1 Build → TRX → artifact for source SHA 69e4ab000835efe5f5107fbfdce696c68cf95706. Wireless radio passed on 69e4ab00.
-3. Continue guest Wi-Fi startup/rollback audit after Process is green.
+1. Verify this commit's exact-head Process guest-isolation and Wireless radio unit/source-contract checks.
+2. Continue guest AP lifecycle review for any remaining cases where a failed kernel/interface-state query is treated as a down link.
+3. Keep the frozen backup unchanged; no target-toolchain build or physical-router L4 validation is claimed.
 
 
 ## Verification boundary
@@ -49,4 +49,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live main and exact-head Actions. This commit adds scripts/check_guest_lan_isolation_status.py to Process push paths; verify the triggered Process run executes the corrected checker. Then re-check XY-C1 for source 69e4ab00 and continue guest AP startup audit.
+Fetch live main and exact-head Actions. Verify the tri-state rollback link-state regression added in this commit. Then continue the guest AP startup review for other paths that collapse interface-query failures into a false/down state.

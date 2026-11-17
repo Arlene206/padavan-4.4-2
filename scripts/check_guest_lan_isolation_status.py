@@ -104,6 +104,15 @@ for signature, finish_label in (
     assert down_pos < down_record < detach_pos
     assert "goto " + finish_label + ";" not in body[down_record:detach_pos]
 
+bring_down = function_body(wifi, "wireless_guest_rollback_bring_down(void *context)")
+verify_down = function_body(wifi, "wireless_guest_rollback_verify_down(void *context)")
+for callback in (bring_down, verify_down):
+    assert "get_interface_flags(rollback->ifname_ap)" in callback
+    assert "wireless_guest_isolation_link_state(interface_flags, IFF_UP," in callback
+    assert "if (status != 0)" in callback
+assert "is_interface_up(rollback->ifname_ap)" not in bring_down
+assert "is_interface_up(rollback->ifname_ap)" not in verify_down
+
 rollback_helper = function_body(wifi, "static void\nwireless_guest_ap_rollback(")
 assert "wireless_guest_isolation_status_rollback(status, &ops, &context)" in rollback_helper
 assert "br_add_del_if(IFNAME_BR, rollback->bridge_ifname, 0)" in wifi
