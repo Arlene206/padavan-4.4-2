@@ -93,6 +93,7 @@ lifecycle_locked_action = function_body(source, "aliddns_lifecycle_locked_action
 lifecycle_lock_run = function_body(source, "aliddns_lifecycle_lock_run() {")
 keeper_pid_matches = function_body(source, "aliddns_keeper_pid_matches() {")
 find_keeper_pids = function_body(source, "aliddns_find_keeper_pids() {")
+interval_normalize = function_body(source, "aliddns_interval_normalize() {")
 stop_keeper = function_body(source, "aliddns_stop_keeper() {")
 keeper_close = function_body(source, "aliddns_close () {")
 lifecycle_check = function_body(source, "aliddns_check () {")
@@ -206,6 +207,14 @@ require('EVM_RESTART_ALIDDNS' in variables and
         'int restart_aliddns(void)' in services,
         "HTTPD NVRAM changes must continue to reach the existing RC lifecycle wrapper")
 
+require("''|*[!0-9]*)" in interval_normalize and
+        '[ "${#aliddns_interval_value}" -gt 5 ]' in interval_normalize and
+        'aliddns_interval_value="${aliddns_interval_value#0}"' in interval_normalize and
+        'aliddns_interval_value=1' in interval_normalize and
+        'aliddns_interval=$(aliddns_interval_normalize "$aliddns_interval_raw")' in source and
+        'nvram set aliddns_interval="$aliddns_interval"' in source and
+        'sleep "$aliddns_interval"' in source,
+        "AliDDNS polling interval must be a bounded positive integer passed as one sleep argument")
 require("echo /tmp/.aliddns.lifecycle.lock" in lifecycle_lock_path,
         "AliDDNS lifecycle must use one stable-inode lock path")
 require('[ -L "$aliddns_lock_dir" ]' in lifecycle_lock_prepare and
@@ -279,6 +288,7 @@ for marker in (
     "AliDDNS keeper stop uses TERM grace then bounded KILL postcondition: PASS",
     "AliDDNS restart refuses to launch when keeper remains alive: PASS",
     "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS",
+    "AliDDNS polling interval rejects invalid/zero values and bounds normalization: PASS",
 ):
     require(marker in lifecycle_test, f"keeper stop host regression missing marker: {marker}")
 require('CONFIG_FLOCK=y' in busybox_config and

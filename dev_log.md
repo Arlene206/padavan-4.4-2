@@ -1,3 +1,13 @@
+## 2026-11-17 — Bound AliDDNS polling interval to prevent a keeper busy loop
+
+- Parent main SHA: `29f9b24d3b7ad8fc5f0dd4e856e0d3d06687599a`; result: THIS COMMIT.
+- Source/UI review confirmed `aliddns_interval` is a client-side numeric field with a five-character limit, but NVRAM is not itself constrained by the browser keypress handler. The keeper previously ran unquoted `sleep $aliddns_interval`; zero could spin continuously, while multiword or malformed values made sleep fail immediately on each loop.
+- Added a POSIX-shell normalizer: accept only decimal digits up to five characters, strip leading zeros, clamp zero to one second, and fall back to 600 seconds for missing/malformed/overlong input. Persist the canonical safe value when it changes; the keeper now calls quoted `sleep "$aliddns_interval"`.
+- Extended the production-linked lifecycle regression for default, valid, zero, leading-zero, maximum UI width, overlong, multiword, malformed, metacharacter, negative and fractional values. Static checker pins both the normalization policy and quoted sleep argument.
+- Parent `29f9b24d` AliDDNS workflow `44117236166` passed the prior signed API, WAN IPv4/IPv6, DNS and keeper lifecycle tests; this new exact-head interval regression is pending. XY-C1 on parent `40fb7dfe` run `44116901861` was still building; current source needs a new exact-head target build after this commit. No local execution or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-17 — Fail closed on incomplete AliDDNS keeper inventory
 
 - Parent main SHA: `097705a6cbd46d1291dc22c281863c68cc2380e8`; result: THIS COMMIT.

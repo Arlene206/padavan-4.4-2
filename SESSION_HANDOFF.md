@@ -4,39 +4,39 @@ This checkpoint supersedes older status statements below when they conflict. Res
 
 ## Git state
 - Repository: `https://github.com/Arlene206/padavan-4.4-2`; development only on `main`.
-- Parent main SHA: `097705a6cbd46d1291dc22c281863c68cc2380e8`; result: THIS COMMIT (complete tree, expected-SHA update, no force push).
+- Parent main SHA: `29f9b24d3b7ad8fc5f0dd4e856e0d3d06687599a`; result: THIS COMMIT (complete tree, expected-SHA update, no force push).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
-- Connector-only environment: no local checkout/compiler. Physical-router L4 is NOT VERIFIED.
+- Connector-only environment: no local checkout/compiler. Physical-router L4 NOT VERIFIED.
 
-## Exact-SHA verification already observed
-- AliDDNS WAN-address hardening: exact `097705a6` run `44115712513` PASS.
-- NVRAM transaction boundary: `44115712411` PASS; AliyunDrive lifecycle: `44115712813` PASS; Process lifecycle/inventory, infosvr, AdGuardHome and AI handoff checks also PASS on exact `097705a6`.
-- Storage safe-remove checks passed on exact parent `55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540` (run `44115309645`); no storage source or checker files changed afterwards.
-- XY-C1 run `44114216599` remained IN_PROGRESS on source SHA `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`; that build predates the AliDDNS WAN helper source change. Poll only to record its result, and do not treat it as validating later AliDDNS changes.
+## AliDDNS implementation and exact-SHA verification
+- `097705a6`: public WAN IPv4 helper rejects non-global/special-use address space while preserving globally reachable IETF anycast exceptions; exact AliDDNS workflow PASS.
+- `c17ef063`: keeper inventory now returns UNKNOWN/failure when a live PID directory has unreadable cmdline instead of treating that PID as absent; chmod regression and static contract passed in exact AliDDNS run `44116425571`.
+- `40fb7dfe`: stock IPv6 address discovery now uses the configured `wan0_ifname6` interface and requires exactly one global-unicast address; native PPP and sit tunnel test cases included. This changed packaged `ddns_script.sh`, and current XY-C1 path filter now covers AliDDNS packaged sources.
+- Workflow syntax from `40fb7dfe` was initially invalid (run `44116898462`, no job created); `29f9b24d` corrected all indentation and exact AliDDNS run `44117236166` plus AI-handoff run `44117236173` passed.
+- Exact `40fb7dfe` XY-C1 run `44116901861` was still building at last poll; TRX verification and artifact upload pending. Exact `40fb7dfe` NVRAM audit `44116901954` was in progress. Do not claim L3 for a source SHA until Build, TRX and artifact all pass.
 
-## AliDDNS lifecycle slice
-- `097705a6` rejects non-global IPv4 responses in the WAN discovery helper; exact-head AliDDNS run `44115712513` passed.
-- New audit found `aliddns_find_keeper_pids()` silently skipped an unreadable `/proc/<pid>/cmdline` even while the PID directory remained visible. A partial scan could therefore report an empty keeper set and permit a duplicate keeper to start.
-- THIS COMMIT treats a still-present PID with unreadable cmdline as UNKNOWN: clears any partial PID snapshot, logs the PID and returns failure. A PID directory that has already disappeared is still treated as a normal procfs race.
-- Added a chmod-based lifecycle regression and a static contract assertion. The existing AliDDNS workflow already runs both the lifecycle test and checker.
-- XY-C1 path filtering now includes the packaged AliDDNS runtime sources; the `aliddns.sh` change in THIS COMMIT should trigger a current-main target build.
+## Current AliDDNS reliability slice
+- Audit confirmed `aliddns_interval` is accepted as NVRAM input while the UI's maxlength/key-press filter is only client-side; the keeper previously ran unquoted `sleep $aliddns_interval`. Zero became a busy loop and malformed/multiword data could make `sleep` fail immediately on every iteration.
+- THIS COMMIT normalizes the interval to one decimal integer of at most five digits, converts all-zero/zero to a one-second minimum, falls back to the default 600 seconds for empty, malformed or overlong input, and persists the safe canonical value when it differs. The keeper now invokes quoted `sleep "$aliddns_interval"`.
+- Added lifecycle tests for empty/default, zero, leading zeros, max UI width, overlong, multiword, nonnumeric, shell metacharacter, negative and fractional values; static checker asserts the sanitizer and quoted invocation. Existing AliDDNS workflow already runs that test/checker.
+- Parent exact-head AliDDNS run `44117236166` passes the WAN IPv6 discovery and prior keeper tests; new interval regression is pending on THIS COMMIT.
 
-## Recent commit trail
-- THIS COMMIT: fail closed on incomplete AliDDNS keeper process inventory; trigger XY-C1 for packaged AliDDNS runtime changes.
-- `097705a6`: reject non-global WAN IPv4 responses from AliDDNS.
-- `55ffdc1f`: fix storage eject checker normalization.
-- `e1a21c68`: align storage retry checker with fail-closed cleanup.
-- `776907e0`: gate storage app restart on complete cleanup success.
+## Recent commits in this slice
+- THIS COMMIT: bound/normalize AliDDNS polling interval to prevent busy-loop retry.
+- `29f9b24d`: repair AliDDNS IPv6 workflow YAML indentation.
+- `40fb7dfe`: use the actual WAN6 interface for IPv6 DDNS discovery.
+- `c17ef063`: fail closed on incomplete keeper process inventory and add XY-C1 path coverage.
+- `097705a6`: reject non-global WAN IPv4 responses.
 
 ## First next task
-1. Inspect exact-head AliDDNS Actions for THIS COMMIT; diagnose and fix any failing lifecycle regression or source contract.
-2. Verify that the new XY-C1 path filter actually queues an exact-head run; poll it through Build XY-C1, TRX verification and artifact upload.
-3. Continue the remaining P1 lifecycle audit in AliDDNS/other userland services only after exact-head tests; do not repeat completed HTTPD or storage audits.
+1. Inspect exact-head AliDDNS host regression/static-contract result for THIS COMMIT; fix any actual failure.
+2. Poll current-source XY-C1 Build, TRX verification and artifact upload; the previous `44116901861` is based on `40fb7dfe` and does not include this interval source change.
+3. Continue P1 whole-userland reliability work after closing this AliDDNS slice; do not repeat completed HTTPD/storage audits.
 
 ## Verification limits
-- No local host test or local firmware build was executed in this connector-only session.
-- L2 requires the exact-head host workflow; L3 requires exact-head XY-C1 Build, TRX verification and artifact upload.
-- Router hardware, actual WAN-interface behavior, and physical eject L4 remain NOT VERIFIED.
+- No local shell test, host compile or firmware build was executed in this connector-only session.
+- L2 requires successful exact-head Actions; L3 requires exact-head XY-C1 Build, TRX verification and artifact upload.
+- Actual WAN interface behavior, target BusyBox/procfs timing, router hardware and physical eject L4 remain NOT VERIFIED.
 
 
 # Cross-session execution mandate

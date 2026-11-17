@@ -29,6 +29,7 @@ extract_function() {
 		capture && $0 == "}" { exit }
 	' "$SOURCE" >> "$FUNCTIONS"
 }
+extract_function "aliddns_interval_normalize() {"
 extract_function "aliddns_lifecycle_lock_path() {"
 extract_function "aliddns_lifecycle_lock_prepare() {"
 extract_function "aliddns_lifecycle_lock_execute() {"
@@ -40,6 +41,33 @@ extract_function "aliddns_find_keeper_pids() {"
 extract_function "aliddns_stop_keeper() {"
 extract_function "aliddns_close () {"
 . "$FUNCTIONS"
+
+expect_interval() {
+	interval_input="$1"
+	interval_expected="$2"
+	interval_actual=$(aliddns_interval_normalize "$interval_input") || {
+		echo "interval normalizer failed for input: $interval_input" >&2
+		exit 1
+	}
+	[ "$interval_actual" = "$interval_expected" ] || {
+		echo "interval normalizer returned '$interval_actual' for '$interval_input', expected '$interval_expected'" >&2
+		exit 1
+	}
+}
+expect_interval "" 600
+expect_interval 600 600
+expect_interval 1 1
+expect_interval 0 1
+expect_interval 00000 1
+expect_interval 00010 10
+expect_interval 99999 99999
+expect_interval 100000 600
+expect_interval "1 2" 600
+expect_interval "10seconds" 600
+expect_interval "12;touch /tmp/aliddns-interval-injected" 600
+expect_interval -1 600
+expect_interval 1.5 600
+echo "AliDDNS polling interval rejects invalid/zero values and bounds normalization: PASS"
 
 logger() {
 	:

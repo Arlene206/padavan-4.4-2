@@ -13,12 +13,39 @@ scriptpath=$(cd "$(dirname "$0")"; pwd)
 #echo $scriptpath
 scriptname=$(basename $0)
 
+# The web UI's keypress filter is not a trust boundary: NVRAM can also be
+# changed by scripts or direct requests. Keep the polling delay one integer
+# in the UI's five-digit range, and never allow zero to spin the keeper loop.
+aliddns_interval_normalize() {
+	aliddns_interval_value="$1"
+	case "$aliddns_interval_value" in
+		''|*[!0-9]*) printf '600\\n'; return 0 ;;
+	esac
+	if [ "${#aliddns_interval_value}" -gt 5 ]; then
+		printf '600\\n'
+		return 0
+	fi
+	while [ "${#aliddns_interval_value}" -gt 1 ]; do
+		case "$aliddns_interval_value" in
+			0*) aliddns_interval_value="${aliddns_interval_value#0}" ;;
+			*) break ;;
+		esac
+	done
+	[ "$aliddns_interval_value" != "0" ] || aliddns_interval_value=1
+	printf '%s\\n' "$aliddns_interval_value"
+}
+
 aliddns_enable=`nvram get aliddns_enable`
 [ -z $aliddns_enable ] && aliddns_enable=0 && nvram set aliddns_enable=0
 if [ "$aliddns_enable" != "0" ] ; then
 #nvramshow=`nvram showall | grep '=' | grep aliddns | awk '{print gensub(/'"'"'/,"'"'"'\"'"'"'\"'"'"'","g",$0);}'| awk '{print gensub(/=/,"='\''",1,$0)"'\'';";}'` && eval $nvramshow
 
-aliddns_interval=`nvram get aliddns_interval`
+aliddns_interval_raw=`nvram get aliddns_interval`
+aliddns_interval=$(aliddns_interval_normalize "$aliddns_interval_raw")
+if [ "$aliddns_interval" != "$aliddns_interval_raw" ]; then
+	nvram set aliddns_interval="$aliddns_interval" ||
+		logger -t "AliDDNS" "无法持久化安全检查周期，当前运行使用 $aliddns_interval 秒"
+fi
 aliddns_ak=`nvram get aliddns_ak`
 aliddns_sk=`nvram get aliddns_sk`
 aliddns_domain=`nvram get aliddns_domain`
@@ -50,7 +77,6 @@ name=""
 name1=""
 timestamp=`date -u "+%Y-%m-%dT%H%%3A%M%%3A%SZ"`
 aliddns_record_id=""
-[ -z $aliddns_interval ] && aliddns_interval=600 && nvram set aliddns_interval=$aliddns_interval
 [ -z $aliddns_ttl ] && aliddns_ttl=600 && nvram set aliddns_ttl=$aliddns_ttl
 aliddns_renum=`nvram get aliddns_renum`
 
@@ -147,7 +173,7 @@ aliddns_keep () {
 aliddns_start
 logger -t "【AliDDNS动态域名】" "守护进程启动"
 while true; do
-sleep $aliddns_interval
+sleep "$aliddns_interval"
 [ ! -s "`which curl`" ] && aliddns_restart
 #nvramshow=`nvram showall | grep '=' | grep aliddns | awk '{print gensub(/'"'"'/,"'"'"'\"'"'"'\"'"'"'","g",$0);}'| awk '{print gensub(/=/,"='\''",1,$0)"'\'';";}'` && eval $nvramshow
 aliddns_enable=`nvram get aliddns_enable`

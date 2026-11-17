@@ -2,16 +2,15 @@
 
 This section is authoritative over older table rows where state conflicts.
 
-- Parent main SHA: `097705a6cbd46d1291dc22c281863c68cc2380e8`; result: THIS COMMIT.
+- Parent main SHA: `29f9b24d3b7ad8fc5f0dd4e856e0d3d06687599a`; result: THIS COMMIT.
 - Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Storage safe-remove regression passed on `55ffdc1f` (run `44115309645`); no storage paths changed in later commits.
-- AliDDNS WAN helper non-global IPv4 filter passed on exact `097705a6` (run `44115712513`). This commit closes a separate lifecycle gap: unreadable live `/proc/<pid>/cmdline` previously looked like an absent keeper; the finder now fails closed, and the regression/static checker are updated.
-- AliDDNS target-source workflow coverage was missing from XY-C1 path filters; THIS COMMIT adds the packaged `aliddns.sh`, `aliddns-ipv4.sh`, `ddns_script.sh`, Makefile and source directory so this production change triggers a target build.
-- Exact `097705a6` NVRAM run `44115712411`, AliyunDrive run `44115712813`, Process/inventory, infosvr, AdGuardHome and AI docs all passed.
-- XY-C1 run `44114216599` remained in progress on older product source SHA `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`; it does not validate the later AliDDNS WAN helper update. Current-source XY-C1 is expected from THIS COMMIT's new path coverage.
+- AliDDNS exact run `44117236166` on `29f9b24d` passed the IPv4 WAN discovery, IPv6 discovery, DNS lookup, keeper lifecycle and static contract checks. `40fb7dfe` added configured WAN6-interface selection; initial malformed workflow YAML was corrected by `29f9b24d`.
+- `c17ef063` closed a keeper-inventory UNKNOWN/ABSENT defect: visible PID with unreadable cmdline now fails closed and clears partial PID results. Exact AliDDNS regression passed on that SHA.
+- The keeper polling interval is sourced from NVRAM and the UI's five-digit/numeric restrictions are client-side only. THIS COMMIT normalizes invalid/overlong values to 600 seconds, converts zero to one second, strips leading zeroes, persists safe values, and quotes the sleep argument to prevent a tight loop.
+- Exact `40fb7dfe` XY-C1 run `44116901861` was in progress at last poll, and NVRAM run `44116901954` was still auditing raw ioctl paths. The interval source change in THIS COMMIT requires its own exact-head XY-C1 Build/TRX/artifact run.
 - No local compile/test or physical-router L4 is claimed in this connector-only session.
 
-Next: verify exact-head AliDDNS lifecycle regression and the newly triggered XY-C1 Build/TRX/artifact; then continue remaining P1 userland lifecycle work. Avoid repeating completed HTTPD/storage audits.
+Next: verify THIS COMMIT's AliDDNS interval regression/static contracts and exact-head XY-C1 Build/TRX/artifact; then continue remaining P1 whole-userland reliability work. Avoid repeating completed HTTPD/storage audits.
 
 ---
 
