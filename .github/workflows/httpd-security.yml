@@ -2559,7 +2559,15 @@ jobs:
           udhcpc_viptv_main_start = wan.index("udhcpc_viptv_main(int argc, char **argv)")
           udhcpc_viptv_main_end = wan.index("\nint\nzcip_main(", udhcpc_viptv_main_start)
           udhcpc_viptv_main = wan[udhcpc_viptv_main_start:udhcpc_viptv_main_end]
-          assert "ret = manv_route_deconfig(man_ifname);" in udhcpc_viptv_main
+          assert "ret = udhcpc_viptv_deconfig(man_ifname);" in udhcpc_viptv_main
+          assert "ret = manv_route_deconfig(man_ifname);" not in udhcpc_viptv_main
+          viptv_deconfig_start = wan.index("udhcpc_viptv_deconfig(char *man_ifname)")
+          viptv_deconfig_end = wan.index("int\\nudhcpc_viptv_main(", viptv_deconfig_start)
+          viptv_deconfig = wan[viptv_deconfig_start:viptv_deconfig_end]
+          assert "dhcp_lease_viptv_deconfig_apply(&ops, &context)" in viptv_deconfig
+          assert "address remains down" in viptv_deconfig
+          assert viptv_deconfig.index("dhcp_lease_viptv_deconfig_apply(") < viptv_deconfig.index("stop_igmpproxy(man_ifname)")
+          assert "udhcpc_viptv_deconfig_restore_address" not in wan
 
           man_start = wan.index("static int\nman_down_internal(")
           man_end = wan.index("void\nman_down(", man_start)

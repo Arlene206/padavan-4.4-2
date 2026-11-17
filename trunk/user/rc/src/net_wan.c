@@ -4870,8 +4870,6 @@ manv_route_deconfig(char *man_ifname)
 
 struct udhcpc_viptv_deconfig_context {
 	char *ifname;
-	char old_ip[INET_ADDRSTRLEN];
-	char old_netmask[INET_ADDRSTRLEN];
 };
 
 static int
@@ -4892,20 +4890,6 @@ udhcpc_viptv_deconfig_delete_routes(void *opaque)
 	return manv_route_deconfig(context->ifname);
 }
 
-static int
-udhcpc_viptv_deconfig_restore_address(void *opaque)
-{
-	struct udhcpc_viptv_deconfig_context *context =
-		(struct udhcpc_viptv_deconfig_context *)opaque;
-
-	if (!dhcp_lease_ipv4_is_valid(context->old_ip))
-		return 0;
-	if (!dhcp_lease_netmask_is_valid(context->old_netmask))
-		return EINVAL;
-	return ifconfig(context->ifname, IFUP,
-			context->old_ip, context->old_netmask);
-}
-
 static void
 udhcpc_viptv_deconfig_publish_empty_address(void *opaque)
 {
@@ -4920,27 +4904,16 @@ udhcpc_viptv_deconfig(char *man_ifname)
 	static const struct dhcp_lease_viptv_deconfig_ops ops = {
 		udhcpc_viptv_deconfig_clear_address,
 		udhcpc_viptv_deconfig_delete_routes,
-		udhcpc_viptv_deconfig_restore_address,
 		udhcpc_viptv_deconfig_publish_empty_address
 	};
-	int status, rollback_status, multicast_status;
+	int status, multicast_status;
 
 	context.ifname = man_ifname;
-	snprintf(context.old_ip, sizeof(context.old_ip), "%s",
-		 nvram_safe_get("manv_ipaddr"));
-	snprintf(context.old_netmask, sizeof(context.old_netmask), "%s",
-		 nvram_safe_get("manv_netmask"));
-
-	status = dhcp_lease_viptv_deconfig_apply(&ops, &context,
-						 &rollback_status);
+	status = dhcp_lease_viptv_deconfig_apply(&ops, &context);
 	if (status != 0) {
 		logmessage(LOGNAME,
-			   "IPTV DHCP deconfig incomplete on %s (status=%d); preserving lease identity",
+			   "IPTV DHCP deconfig incomplete on %s (status=%d); address remains down and lease metadata is retained for retry",
 			   man_ifname, status);
-		if (rollback_status != 0)
-			logmessage(LOGNAME,
-				   "failed to restore IPTV DHCP address on %s (status=%d)",
-				   man_ifname, rollback_status);
 		return status;
 	}
 

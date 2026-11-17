@@ -99,7 +99,6 @@ static const struct dhcp_lease_bound_ops dhcp_bound_fake_ops = {
 struct dhcp_viptv_deconfig_fake {
 	int clear_status;
 	int route_status;
-	int restore_status;
 	int published;
 	char events[16];
 	size_t event_count;
@@ -130,14 +129,6 @@ dhcp_viptv_deconfig_routes(void *context)
 	return fake->route_status;
 }
 
-static int
-dhcp_viptv_deconfig_restore(void *context)
-{
-	struct dhcp_viptv_deconfig_fake *fake = (struct dhcp_viptv_deconfig_fake *)context;
-	dhcp_viptv_deconfig_event(fake, 'A');
-	return fake->restore_status;
-}
-
 static void
 dhcp_viptv_deconfig_publish(void *context)
 {
@@ -149,7 +140,6 @@ dhcp_viptv_deconfig_publish(void *context)
 static const struct dhcp_lease_viptv_deconfig_ops dhcp_viptv_deconfig_fake_ops = {
 	dhcp_viptv_deconfig_clear,
 	dhcp_viptv_deconfig_routes,
-	dhcp_viptv_deconfig_restore,
 	dhcp_viptv_deconfig_publish
 };
 
@@ -348,46 +338,38 @@ main(void)
 	assert(strcmp(fake.events, "aP") == 0);
 
 
+	/* A withdrawn IPTV lease stays deconfigured when route cleanup fails.
+	 * The route inventory remains available for BusyBox's callback retry. */
 	memset(&viptv_fake, 0, sizeof(viptv_fake));
 	transaction_status = dhcp_lease_viptv_deconfig_apply(
-		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
-	assert(transaction_status == 0 && rollback_status == 0);
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake);
+	assert(transaction_status == 0);
 	assert(strcmp(viptv_fake.events, "CRP") == 0);
 	assert(viptv_fake.published == 1);
 
 	memset(&viptv_fake, 0, sizeof(viptv_fake));
 	viptv_fake.clear_status = EIO;
 	transaction_status = dhcp_lease_viptv_deconfig_apply(
-		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
-	assert(transaction_status == EIO && rollback_status == 0);
-	assert(strcmp(viptv_fake.events, "CA") == 0);
-	assert(viptv_fake.published == 0);
-
-	memset(&viptv_fake, 0, sizeof(viptv_fake));
-	viptv_fake.clear_status = EIO;
-	viptv_fake.restore_status = ENOSPC;
-	transaction_status = dhcp_lease_viptv_deconfig_apply(
-		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
-	assert(transaction_status == EIO && rollback_status == ENOSPC);
-	assert(strcmp(viptv_fake.events, "CA") == 0);
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake);
+	assert(transaction_status == EIO);
+	assert(strcmp(viptv_fake.events, "C") == 0);
 	assert(viptv_fake.published == 0);
 
 	memset(&viptv_fake, 0, sizeof(viptv_fake));
 	viptv_fake.route_status = EIO;
 	transaction_status = dhcp_lease_viptv_deconfig_apply(
-		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
-	assert(transaction_status == EIO && rollback_status == 0);
-	assert(strcmp(viptv_fake.events, "CRA") == 0);
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake);
+	assert(transaction_status == EIO);
+	assert(strcmp(viptv_fake.events, "CR") == 0);
 	assert(viptv_fake.published == 0);
-
-	memset(&viptv_fake, 0, sizeof(viptv_fake));
-	viptv_fake.route_status = EIO;
-	viptv_fake.restore_status = EBUSY;
+	/* DECONFIG_PENDING retry: clear is idempotent, then route cleanup can
+	 * complete and only then is the old lease identity withdrawn. */
+	viptv_fake.route_status = 0;
 	transaction_status = dhcp_lease_viptv_deconfig_apply(
-		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
-	assert(transaction_status == EIO && rollback_status == EBUSY);
-	assert(strcmp(viptv_fake.events, "CRA") == 0);
-	assert(viptv_fake.published == 0);
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake);
+	assert(transaction_status == 0);
+	assert(strcmp(viptv_fake.events, "CRCRP") == 0);
+	assert(viptv_fake.published == 1);
 
 	puts("DHCP lease input policy regression: OK");
 	return 0;

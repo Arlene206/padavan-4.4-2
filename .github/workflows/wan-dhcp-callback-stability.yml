@@ -342,20 +342,15 @@ jobs:
           assert viptv_deconfig.index("if (route_status == 0)") < viptv_deconfig.index('nvram_set_temp("manv_gateway", "")')
           assert "preserving route inventory" in viptv_deconfig
           viptv_dhcp_deconfig = body(source, "udhcpc_viptv_deconfig(char *man_ifname)")
-          compact_viptv_dhcp_deconfig = "".join(viptv_dhcp_deconfig.split())
-          assert 'snprintf(context.old_ip,sizeof(context.old_ip),"%s",nvram_safe_get("manv_ipaddr"))' in compact_viptv_dhcp_deconfig
-          assert 'snprintf(context.old_netmask,sizeof(context.old_netmask),"%s",nvram_safe_get("manv_netmask"))' in compact_viptv_dhcp_deconfig
-          assert "dhcp_lease_viptv_deconfig_apply(&ops, &context," in viptv_dhcp_deconfig
-          assert "preserving lease identity" in viptv_dhcp_deconfig
+          assert "dhcp_lease_viptv_deconfig_apply(&ops, &context)" in viptv_dhcp_deconfig
+          assert "address remains down" in viptv_dhcp_deconfig
           assert viptv_dhcp_deconfig.index("dhcp_lease_viptv_deconfig_apply(") < viptv_dhcp_deconfig.index("stop_igmpproxy(man_ifname)")
+          assert "udhcpc_viptv_deconfig_restore_address" not in source
           clear_address = body(source, "udhcpc_viptv_deconfig_clear_address(void *opaque)")
           delete_routes = body(source, "udhcpc_viptv_deconfig_delete_routes(void *opaque)")
-          restore_address = body(source, "udhcpc_viptv_deconfig_restore_address(void *opaque)")
           publish_address = body(source, "udhcpc_viptv_deconfig_publish_empty_address(void *opaque)")
           assert 'ifconfig(context->ifname, IFUP, "0.0.0.0", NULL)' in clear_address
           assert "return manv_route_deconfig(context->ifname);" in delete_routes
-          assert "dhcp_lease_ipv4_is_valid(context->old_ip)" in restore_address
-          assert "ifconfig(context->ifname, IFUP," in restore_address
           assert 'nvram_set_temp("manv_ipaddr", "0.0.0.0")' in publish_address
           viptv_main = body(source, "udhcpc_viptv_main(int argc, char **argv)")
           assert "ret = udhcpc_viptv_deconfig(man_ifname)" in viptv_main

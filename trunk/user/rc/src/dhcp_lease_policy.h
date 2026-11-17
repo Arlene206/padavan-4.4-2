@@ -349,46 +349,35 @@ dhcp_lease_route_text_is_safe(const char *value)
 }
 
 
-/* Clear an IPTV DHCP address before route teardown. If either operation
- * fails, restore the previous address and retain lease identity for retry. */
+/* A withdrawn DHCP lease must remain deconfigured even when route
+ * cleanup is incomplete. Keep its NVRAM identity until a retry removes all
+ * old routes; never re-install an address NAK/expiry has revoked. */
 typedef int (*dhcp_lease_viptv_deconfig_operation)(void *context);
 typedef void (*dhcp_lease_viptv_deconfig_publish_operation)(void *context);
 
 struct dhcp_lease_viptv_deconfig_ops {
 	dhcp_lease_viptv_deconfig_operation clear_address;
 	dhcp_lease_viptv_deconfig_operation delete_routes;
-	dhcp_lease_viptv_deconfig_operation restore_address;
 	dhcp_lease_viptv_deconfig_publish_operation publish_empty_address;
 };
 
 static inline int
 dhcp_lease_viptv_deconfig_apply(
-	const struct dhcp_lease_viptv_deconfig_ops *ops, void *context,
-	int *rollback_status)
+	const struct dhcp_lease_viptv_deconfig_ops *ops, void *context)
 {
-	int status, rollback;
+	int status;
 
-	if (rollback_status)
-		*rollback_status = 0;
 	if (!ops || !ops->clear_address || !ops->delete_routes ||
-	    !ops->restore_address || !ops->publish_empty_address)
+	    !ops->publish_empty_address)
 		return EINVAL;
 
 	status = ops->clear_address(context);
-	if (status != 0) {
-		rollback = ops->restore_address(context);
-		if (rollback_status)
-			*rollback_status = rollback;
+	if (status != 0)
 		return status;
-	}
 
 	status = ops->delete_routes(context);
-	if (status != 0) {
-		rollback = ops->restore_address(context);
-		if (rollback_status)
-			*rollback_status = rollback;
+	if (status != 0)
 		return status;
-	}
 
 	ops->publish_empty_address(context);
 	return 0;
