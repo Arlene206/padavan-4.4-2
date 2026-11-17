@@ -1,3 +1,14 @@
+## 2026-11-17 — Propagate guest Wi-Fi isolation and bridge-operation failures
+
+- Parent main SHA: `d0ea67338241d47223dbf2ae434411dfeb53f242`; result: THIS COMMIT.
+- Guest Wi-Fi control previously ignored `br_add_del_if()`, multicast-to-unicast bridge-port setup, `brport_set_param_int()`, ebtables flush/delete/rule installation, and ebtables module load/unload results. A guest interface could therefore be reported enabled despite an incomplete LAN isolation policy; PID-1 also ignored all six guest-control notification results.
+- Added first-error/failure-count policy and host regression. The AP ebtables rule builder and cleanup now record each command; filter modules are retained if flush/delete fails. Bridge-port writes are attempted only for interfaces currently up, avoiding failures caused by disabled guest interfaces.
+- `restart_guest_lan_isolation()` now returns a negative failure status. Initial bridge setup records it; full radio restarts return it; guest-control APIs preserve the existing 0/1 unchanged/changed success convention but return negative on bridge/multicast/isolation failure; PID-1 notification handlers retain those failures.
+- Parent d0 exact-head Actions were 15/15 SUCCESS: Process lifecycle `44056030149`, NVRAM `44056029909`, AI handoff `44056030069`, and XY-C1 `44056030091` all passed. XY-C1 completed Build, TRX verification and artifact upload. New exact-head checks are pending after push.
+- Host unit test and source integration checker are included. This does not yet fail-close an already enabled guest interface after isolation failure; next task is safe interface rollback. Target MIPS/uClibc, DBDC, RT3352 MII/iNIC and physical-router L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Verify LAN DHCP event-handler symlink before launching udhcpc
 
 - Parent main SHA: `89aff3132fd80f3853f38315112811ca5d72fb67`; result: THIS COMMIT.
@@ -6,7 +17,7 @@
 - AP-mode DHCP launch is now gated on successful link verification. A failure is logged and merged into `start_lan()`'s first-error status while later independent LAN configuration continues. Correct existing links remain idempotent across LAN restarts.
 - Added GNU89/Werror/ASan/UBSan policy tests for link creation, exact-target idempotency, wrong target, non-symlink collision, creation/readback failure, invalid arguments and overlong targets. The Process workflow also asserts production gating/order.
 - Traced the neighboring AP hostname path: initial `create_hosts_lan()` failure is retried by `prepare_dns_dhcpd()` via `update_hosts_ap()`; DNSMasq publication/start is refused on failure, and the AP DHCPD notification also gates restart. No defect was confirmed there.
-- Local host regression PASS. Exact-head Process lifecycle and XY-C1 Build/TRX/artifact checks pending after push. Physical-router L4 NOT VERIFIED; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Local GNU89/Werror/ASan/UBSan symlink-policy regression PASS. Exact d0 Process lifecycle, AI handoff, NVRAM and XY-C1 Build/TRX/artifact all passed; the new commit's Actions are pending. Physical-router L4 NOT VERIFIED; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ---
 

@@ -479,7 +479,7 @@ int restart_wifi_wl(int radio_on, int need_reload_conf);
 int restart_wifi_rt(int radio_on, int need_reload_conf);
 int stop_wifi_all_wl(void);
 int stop_wifi_all_rt(void);
-void restart_guest_lan_isolation(void);
+int restart_guest_lan_isolation(void);
 int  manual_toggle_radio_rt(int radio_on);
 int  manual_toggle_radio_wl(int radio_on);
 int  manual_change_radio_rt(int radio_on);

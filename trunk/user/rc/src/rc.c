@@ -1898,28 +1898,34 @@ handle_notifications(void)
 		else if (!strcmp(entry->d_name, "control_wifi_guest_wl"))
 		{
 			int guest_on = is_guest_allowed_wl();
-			control_guest_wl(guest_on, 1);
+			if (control_guest_wl(guest_on, 1) < 0)
+				action_result = -1;
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_guest_rt"))
 		{
 			int guest_on = is_guest_allowed_rt();
-			control_guest_rt(guest_on, 1);
+			if (control_guest_rt(guest_on, 1) < 0)
+				action_result = -1;
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_guest_wl_on"))
 		{
-			control_guest_wl(1, 0);
+			if (control_guest_wl(1, 0) < 0)
+				action_result = -1;
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_guest_wl_off"))
 		{
-			control_guest_wl(0, 0);
+			if (control_guest_wl(0, 0) < 0)
+				action_result = -1;
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_guest_rt_on"))
 		{
-			control_guest_rt(1, 0);
+			if (control_guest_rt(1, 0) < 0)
+				action_result = -1;
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_guest_rt_off"))
 		{
-			control_guest_rt(0, 0);
+			if (control_guest_rt(0, 0) < 0)
+				action_result = -1;
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_radio_wl"))
 		{

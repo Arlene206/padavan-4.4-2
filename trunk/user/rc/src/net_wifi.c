@@ -30,6 +30,7 @@
 #include "rc.h"
 #include "wireless_restart_policy.h"
 #include "wireless_radio_policy.h"
+#include "wireless_guest_isolation_policy.h"
 #include "switch.h"
 #include "gpio_pins.h"
 #include <gpioutils.h>
@@ -311,13 +312,15 @@ check_apcli_wan(int is_5g, int radio_on)
 	}
 }
 
-static inline void
+static inline int
 wif_control_m2u(int is_aband, const char *wifname)
 {
 #if !defined(USE_IGMP_SNOOP)
 	int i_m2u = nvram_wlan_get_int(is_aband, "IgmpSnEnable");
 
-	brport_set_m2u(wifname, i_m2u);
+	return brport_set_m2u(wifname, i_m2u);
+#else
+	return 0;
 #endif
 }
 
@@ -947,6 +950,7 @@ int
 restart_wifi_wl(int radio_on, int need_reload_conf)
 {
 	int auth_start_status;
+	int isolation_status = 0;
 #if BOARD_HAS_5G_RADIO
 	if (wireless_restart_preflight(need_reload_conf, gen_ralink_config_5g) < 0) {
 		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 5GHz configuration");
@@ -1029,7 +1033,10 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		}
 	}
 #endif
-	restart_guest_lan_isolation();
+	isolation_status = restart_guest_lan_isolation();
+	if (isolation_status != 0)
+		logmessage(LOGNAME, "5GHz wireless restart: guest LAN isolation failed (status=%d)",
+			   isolation_status);
 
 	check_apcli_wan(1, radio_on);
 
@@ -1039,13 +1046,14 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 	}
 	system("/usr/bin/iappd.sh restart");
 #endif
-	return 0;
+	return isolation_status;
 }
 
 int
 restart_wifi_rt(int radio_on, int need_reload_conf)
 {
 	int auth_start_status;
+	int isolation_status;
 
 	if (wireless_restart_preflight(need_reload_conf, gen_ralink_config_2g) < 0) {
 		logmessage(LOGNAME, "Wireless restart aborted: failed to generate 2.4GHz configuration");
@@ -1128,7 +1136,10 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		}
 	}
 #endif
-	restart_guest_lan_isolation();
+	isolation_status = restart_guest_lan_isolation();
+	if (isolation_status != 0)
+		logmessage(LOGNAME, "2.4GHz wireless restart: guest LAN isolation failed (status=%d)",
+			   isolation_status);
 
 	check_apcli_wan(0, radio_on);
 
@@ -1137,7 +1148,7 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		LED_CONTROL(LED_SW2G, LED_ON);
 	}
 	system("/usr/bin/iappd.sh restart");
-	return 0;
+	return isolation_status;
 }
 
 int is_need_8021x(char *auth_mode)
@@ -1361,55 +1372,85 @@ control_radio_rt(int radio_on, int manual)
 	return is_radio_changed;
 }
 
+static void
+wireless_guest_isolation_record(wireless_guest_isolation_status_t *status,
+				const char *operation, int operation_status);
+
 int
 control_guest_wl(int guest_on, int manual)
 {
 	int is_ap_changed = 0;
+	wireless_guest_isolation_status_t control_status;
 #if BOARD_HAS_5G_RADIO
-	const char *ifname_ap = IFNAME_5G_GUEST;
-	int radio_on = get_enabled_radio_wl();
-	int i_mode_x = get_mode_radio_wl();
-
-	// check WDS only, ApCli only or Radio disabled (force or by schedule)
-	if ((guest_on) && (i_mode_x == 1 || i_mode_x == 3 || !radio_on || !is_interface_up(IFNAME_5G_MAIN)))
-	{
-		return 0;
-	}
-
-	if (guest_on)
-	{
-		if (!is_interface_up(ifname_ap)) {
-			if (!wif_control_success(ifname_ap, 1))
-				return 0;
-			is_ap_changed = 1;
-		}
-		br_add_del_if(IFNAME_BR, ifname_ap, 1);
-		wif_control_m2u(1, ifname_ap);
-	}
-	else
-	{
-		if (is_interface_up(ifname_ap)) {
-			if (!wif_control_success(ifname_ap, 0))
-				return 0;
-			is_ap_changed = 1;
-		}
-		br_add_del_if(IFNAME_BR, ifname_ap, 0);
-	}
-
-	if (is_ap_changed)
-		restart_guest_lan_isolation();
-
-	if (is_ap_changed && !manual)
-		logmessage("WiFi scheduler", "5GHz guest AP: %s", (guest_on) ? "ON" : "OFF");
+	int operation_status;
+	int isolation_status;
 #endif
 
-	return is_ap_changed;
+	wireless_guest_isolation_status_reset(&control_status);
+#if BOARD_HAS_5G_RADIO
+	{
+		const char *ifname_ap = IFNAME_5G_GUEST;
+		int radio_on = get_enabled_radio_wl();
+		int i_mode_x = get_mode_radio_wl();
+
+		if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on ||
+				 !is_interface_up(IFNAME_5G_MAIN)))
+			return 0;
+
+		if (guest_on) {
+			if (!is_interface_up(ifname_ap)) {
+				if (!wif_control_success(ifname_ap, 1)) {
+					wireless_guest_isolation_status_record(&control_status,
+						"bring up 5GHz guest AP", -EIO);
+					goto finish_wl;
+				}
+				is_ap_changed = 1;
+			}
+			operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 1);
+			wireless_guest_isolation_record(&control_status,
+				"attach 5GHz guest AP to LAN bridge", operation_status);
+			operation_status = wif_control_m2u(1, ifname_ap);
+			wireless_guest_isolation_record(&control_status,
+				"configure 5GHz guest AP multicast-to-unicast", operation_status);
+		} else {
+			if (is_interface_up(ifname_ap)) {
+				if (!wif_control_success(ifname_ap, 0)) {
+					wireless_guest_isolation_status_record(&control_status,
+						"bring down 5GHz guest AP", -EIO);
+					goto finish_wl;
+				}
+				is_ap_changed = 1;
+			}
+			operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 0);
+			wireless_guest_isolation_record(&control_status,
+				"detach 5GHz guest AP from LAN bridge", operation_status);
+		}
+	}
+finish_wl:
+	isolation_status = restart_guest_lan_isolation();
+	wireless_guest_isolation_record(&control_status,
+		"reapply guest LAN isolation after 5GHz guest update", isolation_status);
+
+	if (is_ap_changed && !manual &&
+	    wireless_guest_isolation_status_result(&control_status) == 0)
+		logmessage("WiFi scheduler", "5GHz guest AP: %s", guest_on ? "ON" : "OFF");
+#endif
+
+	if (control_status.first_status != 0)
+		logmessage(LOGNAME,
+			"5GHz guest AP control incomplete: %s failed first (status=%d; failed_operations=%u)",
+			control_status.first_operation ? control_status.first_operation : "unknown",
+			control_status.first_status, control_status.failure_count);
+	return wireless_guest_isolation_control_result(is_ap_changed, &control_status);
 }
 
 int
 control_guest_rt(int guest_on, int manual)
 {
 	int is_ap_changed = 0;
+	wireless_guest_isolation_status_t control_status;
+	int operation_status;
+	int isolation_status;
 	const char *ifname_ap = IFNAME_2G_GUEST;
 	int radio_on = get_enabled_radio_rt();
 	int i_mode_x = get_mode_radio_rt();
@@ -1417,91 +1458,142 @@ control_guest_rt(int guest_on, int manual)
 	int is_ap_mode = get_ap_mode();
 #endif
 
-	// check WDS only, ApCli only or Radio disabled (force or by schedule)
-	if ((guest_on) && (i_mode_x == 1 || i_mode_x == 3 || !radio_on || !is_interface_up(IFNAME_2G_MAIN)))
-	{
+	wireless_guest_isolation_status_reset(&control_status);
+	if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on ||
+			 !is_interface_up(IFNAME_2G_MAIN)))
 		return 0;
-	}
 
-	if (guest_on)
-	{
+	if (guest_on) {
 		if (!is_interface_up(ifname_ap)) {
-			if (!wif_control_success(ifname_ap, 1))
-				return 0;
+			if (!wif_control_success(ifname_ap, 1)) {
+				wireless_guest_isolation_status_record(&control_status,
+					"bring up 2.4GHz guest AP", -EIO);
+				goto finish_rt;
+			}
 			is_ap_changed = 1;
 		}
 #if defined(USE_RT3352_MII)
-		if (!is_ap_mode)
-			br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 1);
+		if (!is_ap_mode) {
+			operation_status = br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 1);
+			wireless_guest_isolation_record(&control_status,
+				"attach iNIC guest VLAN to LAN bridge", operation_status);
+		}
 #else
-		br_add_del_if(IFNAME_BR, ifname_ap, 1);
-		wif_control_m2u(0, ifname_ap);
+		operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 1);
+		wireless_guest_isolation_record(&control_status,
+			"attach 2.4GHz guest AP to LAN bridge", operation_status);
+		operation_status = wif_control_m2u(0, ifname_ap);
+		wireless_guest_isolation_record(&control_status,
+			"configure 2.4GHz guest AP multicast-to-unicast", operation_status);
 #endif
-	}
-	else
-	{
+	} else {
 		if (is_interface_up(ifname_ap)) {
-			if (!wif_control_success(ifname_ap, 0))
-				return 0;
+			if (!wif_control_success(ifname_ap, 0)) {
+				wireless_guest_isolation_status_record(&control_status,
+					"bring down 2.4GHz guest AP", -EIO);
+				goto finish_rt;
+			}
 			is_ap_changed = 1;
 		}
 #if defined(USE_RT3352_MII)
-		if (!is_ap_mode)
-			br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 0);
+		if (!is_ap_mode) {
+			operation_status = br_add_del_if(IFNAME_BR, IFNAME_INIC_GUEST_VLAN, 0);
+			wireless_guest_isolation_record(&control_status,
+				"detach iNIC guest VLAN from LAN bridge", operation_status);
+		}
 #else
-		br_add_del_if(IFNAME_BR, ifname_ap, 0);
+		operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 0);
+		wireless_guest_isolation_record(&control_status,
+			"detach 2.4GHz guest AP from LAN bridge", operation_status);
 #endif
 	}
 
-	if (is_ap_changed)
-		restart_guest_lan_isolation();
+finish_rt:
+	isolation_status = restart_guest_lan_isolation();
+	wireless_guest_isolation_record(&control_status,
+		"reapply guest LAN isolation after 2.4GHz guest update", isolation_status);
 
-	if (is_ap_changed && !manual)
-		logmessage("WiFi scheduler", "2.4GHz guest AP: %s", (guest_on) ? "ON" : "OFF");
+	if (is_ap_changed && !manual &&
+	    wireless_guest_isolation_status_result(&control_status) == 0)
+		logmessage("WiFi scheduler", "2.4GHz guest AP: %s", guest_on ? "ON" : "OFF");
 
-	return is_ap_changed;
+	if (control_status.first_status != 0)
+		logmessage(LOGNAME,
+			"2.4GHz guest AP control incomplete: %s failed first (status=%d; failed_operations=%u)",
+			control_status.first_operation ? control_status.first_operation : "unknown",
+			control_status.first_status, control_status.failure_count);
+	return wireless_guest_isolation_control_result(is_ap_changed, &control_status);
 }
 
 static void
-ebtables_filter_guest_ap(const char *wifname, int is_aband, int i_need_dhcp)
+wireless_guest_isolation_record(wireless_guest_isolation_status_t *status,
+				const char *operation, int operation_status)
 {
-	if (i_need_dhcp) {
-		/* drop all IPv4 traffic to router host (exclude DHCPv4)  */
-		doSystem("ebtables -A %s -i %s -p IPv4 --ip-protocol ! %s -j %s",
-				"INPUT", wifname, "udp", "DROP");
-		doSystem("ebtables -A %s -i %s -p IPv4 --ip-protocol %s --ip-destination-port ! %d -j %s",
-				"INPUT", wifname, "udp", 67, "DROP");
-	} else {
-		/* drop all traffic to router host  */
-		doSystem("ebtables -A %s -i %s -j %s",
-				"INPUT", wifname, "DROP");
-	}
+	if (operation_status != 0)
+		logmessage(LOGNAME, "guest LAN isolation operation '%s' failed (status=%d)",
+			   operation, operation_status);
+	wireless_guest_isolation_status_record(status, operation, operation_status);
+}
 
-	/* drop forwards between 2.4/5GHz AP wifs */
+static void
+ebtables_filter_guest_ap(const char *wifname, int is_aband, int i_need_dhcp,
+			 wireless_guest_isolation_status_t *status)
+{
+#if !BOARD_HAS_5G_RADIO
+	(void)is_aband;
+#endif
+	if (i_need_dhcp) {
+		wireless_guest_isolation_record(status, "add guest INPUT non-DHCP IPv4 drop",
+			doSystem("ebtables -A %s -i %s -p IPv4 --ip-protocol ! %s -j %s",
+				 "INPUT", wifname, "udp", "DROP"));
+		wireless_guest_isolation_record(status, "add guest INPUT non-DHCP UDP drop",
+			doSystem("ebtables -A %s -i %s -p IPv4 --ip-protocol %s --ip-destination-port ! %d -j %s",
+				 "INPUT", wifname, "udp", 67, "DROP"));
+	} else {
+		wireless_guest_isolation_record(status, "add guest INPUT drop",
+			doSystem("ebtables -A %s -i %s -j %s",
+				 "INPUT", wifname, "DROP"));
+	}
 #if BOARD_HAS_5G_RADIO
 	if (is_aband) {
 #if defined(USE_RT3352_MII)
-		doSystem("ebtables -A %s -i %s -o %s -j %s", "FORWARD", wifname, IFNAME_INIC_GUEST_VLAN, "DROP");
+		wireless_guest_isolation_record(status, "add 5GHz-to-iNIC guest FORWARD drop",
+			doSystem("ebtables -A %s -i %s -o %s -j %s",
+				 "FORWARD", wifname, IFNAME_INIC_GUEST_VLAN, "DROP"));
 #else
-		doSystem("ebtables -A %s -i %s -o %s -j %s", "FORWARD", wifname, IFNAME_2G_MAIN, "DROP");
-		doSystem("ebtables -A %s -i %s -o %s -j %s", "FORWARD", wifname, IFNAME_2G_GUEST, "DROP");
+		wireless_guest_isolation_record(status, "add 5GHz-to-2.4GHz primary FORWARD drop",
+			doSystem("ebtables -A %s -i %s -o %s -j %s",
+				 "FORWARD", wifname, IFNAME_2G_MAIN, "DROP"));
+		wireless_guest_isolation_record(status, "add 5GHz-to-2.4GHz guest FORWARD drop",
+			doSystem("ebtables -A %s -i %s -o %s -j %s",
+				 "FORWARD", wifname, IFNAME_2G_GUEST, "DROP"));
 #endif
 	} else {
-		doSystem("ebtables -A %s -i %s -o %s -j %s", "FORWARD", wifname, IFNAME_5G_MAIN, "DROP");
-		doSystem("ebtables -A %s -i %s -o %s -j %s", "FORWARD", wifname, IFNAME_5G_GUEST, "DROP");
+		wireless_guest_isolation_record(status, "add 2.4GHz-to-5GHz primary FORWARD drop",
+			doSystem("ebtables -A %s -i %s -o %s -j %s",
+				 "FORWARD", wifname, IFNAME_5G_MAIN, "DROP"));
+		wireless_guest_isolation_record(status, "add 2.4GHz-to-5GHz guest FORWARD drop",
+			doSystem("ebtables -A %s -i %s -o %s -j %s",
+				 "FORWARD", wifname, IFNAME_5G_GUEST, "DROP"));
 	}
 #endif
 }
 
-void
+int
 restart_guest_lan_isolation(void)
 {
 	int bp_isolate, is_need_ebtables = 0;
 	int is_ap_mode = get_ap_mode();
+	int cleanup_status = 0;
+	int operation_status;
 	const char *rt_ifname_guest = IFNAME_2G_GUEST;
+	wireless_guest_isolation_status_t status;
 #if BOARD_HAS_5G_RADIO
 	const char *wl_ifname_guest = IFNAME_5G_GUEST;
+#endif
 
+	wireless_guest_isolation_status_reset(&status);
+#if BOARD_HAS_5G_RADIO
 	bp_isolate = 0;
 	if (is_interface_up(wl_ifname_guest)) {
 		if (nvram_wlan_get_int(1, "guest_lan_isolate")) {
@@ -1510,9 +1602,10 @@ restart_guest_lan_isolation(void)
 			else
 				is_need_ebtables |= 0x10;
 		}
+		operation_status = brport_set_param_int(wl_ifname_guest, "isolate_mode", bp_isolate);
+		wireless_guest_isolation_record(&status, "set 5GHz guest bridge isolate_mode",
+					operation_status);
 	}
-
-	brport_set_param_int(wl_ifname_guest, "isolate_mode", bp_isolate);
 #endif
 
 	bp_isolate = 0;
@@ -1524,39 +1617,60 @@ restart_guest_lan_isolation(void)
 				is_need_ebtables |= 0x01;
 		}
 	}
-
 #if defined(USE_RT3352_MII)
 	rt_ifname_guest = IFNAME_INIC_GUEST_VLAN;
 	if (is_ap_mode)
 		is_need_ebtables &= ~0x01;
 #endif
+	if (is_interface_up(rt_ifname_guest)) {
+		operation_status = brport_set_param_int(rt_ifname_guest, "isolate_mode", bp_isolate);
+		wireless_guest_isolation_record(&status, "set 2.4GHz/iNIC guest bridge isolate_mode",
+					operation_status);
+	}
 
-	brport_set_param_int(rt_ifname_guest, "isolate_mode", bp_isolate);
-
-	if (!is_ap_mode)
-		return;
-
-	if (is_need_ebtables) {
-		int i_need_dhcp = is_dhcpd_enabled(1);
-		
-		module_smart_load("ebtable_filter", NULL);
-		doSystem("ebtables %s", "-F");
-		doSystem("ebtables %s", "-X");
+	if (is_ap_mode) {
+		if (is_need_ebtables) {
+			int i_need_dhcp = is_dhcpd_enabled(1);
+			operation_status = module_smart_load("ebtable_filter", NULL);
+			wireless_guest_isolation_record(&status, "load ebtables filter module", operation_status);
+			operation_status = doSystem("ebtables %s", "-F");
+			wireless_guest_isolation_record(&status, "flush ebtables rules before guest isolation", operation_status);
+			operation_status = doSystem("ebtables %s", "-X");
+			wireless_guest_isolation_record(&status, "delete ebtables user chains before guest isolation", operation_status);
 #if BOARD_HAS_5G_RADIO
-		if (is_need_ebtables & 0x10)
-			ebtables_filter_guest_ap(wl_ifname_guest, 1, i_need_dhcp);
+			if (is_need_ebtables & 0x10)
+				ebtables_filter_guest_ap(wl_ifname_guest, 1, i_need_dhcp, &status);
 #endif
-		if (is_need_ebtables & 0x01)
-			ebtables_filter_guest_ap(rt_ifname_guest, 0, i_need_dhcp);
+			if (is_need_ebtables & 0x01)
+				ebtables_filter_guest_ap(rt_ifname_guest, 0, i_need_dhcp, &status);
+		} else if (is_module_loaded("ebtables")) {
+			operation_status = doSystem("ebtables %s", "-F");
+			wireless_guest_isolation_record(&status, "flush ebtables rules while disabling guest isolation", operation_status);
+			cleanup_status = operation_status;
+			operation_status = doSystem("ebtables %s", "-X");
+			wireless_guest_isolation_record(&status, "delete ebtables user chains while disabling guest isolation", operation_status);
+			cleanup_status = cleanup_status != 0 ? cleanup_status : operation_status;
+			if (cleanup_status == 0) {
+				operation_status = module_smart_unload("ebt_ip", 0);
+				wireless_guest_isolation_record(&status, "unload ebt_ip after clearing guest isolation", operation_status);
+				operation_status = module_smart_unload("ebtable_filter", 0);
+				wireless_guest_isolation_record(&status, "unload ebtables filter after clearing guest isolation", operation_status);
+				operation_status = module_smart_unload("ebtables", 0);
+				wireless_guest_isolation_record(&status, "unload ebtables after clearing guest isolation", operation_status);
+			} else {
+				logmessage(LOGNAME,
+					"retaining ebtables modules because rule cleanup was incomplete (status=%d)",
+					cleanup_status);
+			}
+		}
 	}
-	else if (is_module_loaded("ebtables")) {
-		doSystem("ebtables %s", "-F");
-		doSystem("ebtables %s", "-X");
-		
-		module_smart_unload("ebt_ip", 0);
-		module_smart_unload("ebtable_filter", 0);
-		module_smart_unload("ebtables", 0);
-	}
+
+	if (status.first_status != 0)
+		logmessage(LOGNAME,
+			"guest LAN isolation incomplete: %s failed first (status=%d; failed_operations=%u)",
+			status.first_operation ? status.first_operation : "unknown",
+			status.first_status, status.failure_count);
+	return wireless_guest_isolation_status_result(&status);
 }
 
 int 

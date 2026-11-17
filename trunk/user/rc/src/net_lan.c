@@ -397,7 +397,8 @@ init_bridge(int is_ap_mode)
 		update_vga_clamp_rt(1);
 #endif
 
-	restart_guest_lan_isolation();
+	operation_status = restart_guest_lan_isolation();
+	rc_bridge_init_record(&bridge_status, "guest LAN isolation", operation_status);
 
 	nvram_set_int_temp("reload_svc_wl", 0);
 	nvram_set_int_temp("reload_svc_rt", 0);

@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `89aff3132fd80f3853f38315112811ca5d72fb67`.
+- Current main: THIS COMMIT; parent `d0ea67338241d47223dbf2ae434411dfeb53f242`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,13 +31,15 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify THIS COMMIT's exact-head Process lifecycle regression, host symlink-policy test, and XY-C1 Build → TRX → artifact checks.
-2. If verification passes, continue the P1 LAN stability review beyond completed bridge setup/restart aggregation: inspect the guest-LAN isolation restart path for ignored required bridge/firewall operations and add a narrow regression only for a confirmed failure-propagation defect. Do not repeat the verified AP hostname/hosts retry gate, bridge first-error handling, or multi-bridge ownership rollback.
-3. Work only on `main`; preserve the frozen backup branch unchanged; use one complete Git tree/commit and a non-forced expected-SHA update per logical task.
+1. Verify THIS COMMIT's exact-head Process lifecycle guest-isolation unit/source contract and XY-C1 Build → TRX → artifact.
+2. Continue the P1 guest-Wi-Fi security slice: make guest AP activation fail closed when bridge membership or isolation enforcement fails, including safe rollback of newly enabled interfaces. Do not repeat the result-propagation work committed here.
+3. Work only on `main`; preserve frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; publish each logical multi-file task as one tree/commit with a non-forced expected-SHA update.
+
 ## Verification boundary
-- On exact main SHA `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` passed; AdGuardHome, infosvr, AI handoff docs, AliDDNS and AliyunDrive also passed. NVRAM `44054844849` was pending at last poll. Its source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f` has XY-C1 run `44054425508` still building at last poll; do not describe Build/TRX/artifact as passed until that job completes.
+- On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
 - AP hostname file preparation retry is confirmed in `prepare_dns_dhcpd()`: `update_hosts_ap()` failure blocks DNSMasq configuration publication and launch; `RCN_RESTART_DHCPD` also gates restart on successful AP host publication.
-- THIS COMMIT's exact-head host symlink test and XY-C1 Build/TRX/artifact checks are pending; local GNU89/Werror/ASan/UBSan compile/run of the symlink-policy test passed. Physical-router L4 remains NOT VERIFIED.
+- On exact main SHA `d0ea67338241d47223dbf2ae434411dfeb53f242`, all 15/15 push Actions completed SUCCESS. Process lifecycle `44056030149` passed the new LAN DHCP link regression, bridge regressions and LAN startup integration checks; NVRAM `44056029909` passed; AI handoff `44056030069` passed; XY-C1 `44056030091` completed Build XY-C1, TRX verification and artifact upload successfully. All WAN route/DHCP, HTTPD, DNSMasq, AdGuardHome, AliDDNS, AliyunDrive, infosvr, detect_link/internet and process-inventory runs also passed on that exact SHA.
+- THIS COMMIT's new guest-isolation status regression and exact-head XY-C1 checks are pending after push. Physical-router L4 remains NOT VERIFIED.
 
 - Parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f` contains the production LAN restart result-propagation fix. Its Process job `44054425453` passed all compiled regressions including the expanded LAN first-error test, then failed at the final semantic Python contract due to an order-assertion false positive: `start_vpn_server()` also appears earlier in the DNSMasq-lock-acquisition recovery branch. This follow-up scopes the VPN index to the call after `full_restart_wan()`; no production failure was reported.
 - On `0b2168e1`, WAN route `44054425489`, WAN DHCP `44054425743`, Process inventory `44054425531`, AI handoff docs `44054425761`, AdGuardHome `44054425537`, infosvr `44054425744`, detect_link `44054425584`, and detect_internet `44054425871` PASS. XY-C1 `44054425508` and NVRAM `44054425712` were still running at checkpoint.
@@ -45,4 +47,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live `main`, filter Actions by exact `head_sha`, and verify the Process lifecycle regression (including the new host symlink-policy test) and XY-C1 Build/TRX/artifact. If they pass, continue the P1 LAN review by inspecting the guest-LAN isolation restart path for required status propagation. Do not repeat bridge restart, bridge startup, AP hostname retry, DHCP MTU, or multi-bridge rollback work.
+Fetch live `main`, filter Actions by exact `head_sha`, and verify THIS COMMIT's Process lifecycle guest-isolation unit/source contract and XY-C1 Build/TRX/artifact. If they pass, continue by implementing fail-closed rollback for guest AP startup when bridge or isolation policy installation fails. Do not repeat the status aggregation slice.
