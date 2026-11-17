@@ -34,23 +34,25 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 - Same-source XY-C1 run `44013905031` on `e5d3cdfd` had reached artifact upload at the last poll, but remains unconfirmed until workflow conclusion. NVRAM audit `44013905187` on `e5d3cdfd` PASS.
 - HTTPD umbrella `44013229543` failure root cause confirmed: workflow asserted `kill_services(svcs, 3, 1)`, while live source `services.c:1678-1679` contains four daemons including `gpio_btn` and correctly passes count four. THIS COMMIT updates the stale HTTPD contract to check both the GPIO entry and four-count call.
 
+- WAN static-IPoE MTU failure was silently discarded in `start_wan()`: when a configured MTU in 1300–1499 failed, code still assigned the static address and proceeded to `wan_up()`, with no nonzero return status. THIS COMMIT sets `wan_err`, merges the MTU result using first-error semantics, and skips address/route setup. The WAN route status workflow now has a source-contract assertion plus a GNU89 regression ensuring later success cannot mask the MTU failure; exact-head run pending.
+- DDNSTO lifecycle `44015005394` on `4c499369` PASS; same-source XY-C1 `44013905031` on `e5d3cdfd` PASS (Build, TRX verification and artifact upload). HTTPD umbrella `44015242107` on `c5fc9136` PASS after the GPIO stop-count checker correction. Process inventory, NVRAM, AI docs, infosvr, AliyunDrive, AliDDNS and AdGuardHome on `c5fc9136` PASS.
+
 ## Active task
 
-1. Inspect exact-head DDNSTO run `44015005394` for shell and semantic-checker result; resolve any failure and require full PASS.
-2. Verify XY-C1 run `44013905031` through successful Build XY-C1, TRX verification and artifact upload.
-3. Verify the HTTPD umbrella workflow after THIS checker correction. If it fails elsewhere, inspect that exact job log and fix only a confirmed cause. Continue independent P1 RC lifecycle work while Actions are pending.
+1. Inspect exact-head WAN route status regression for THIS static MTU fail-closed change; resolve any sanitizer, GNU89 or source-contract failure.
+2. Confirm the same-source XY-C1 run on `c5fc9136` (and this descendant if the workflow path triggers) completes Build, TRX verification and artifact upload.
+3. Continue the next independent P1 RC lifecycle/error-propagation defect while CI is pending; do not repeat DDNSTO, HTTPD GPIO stop count, RWFS, firewall, modem, IPv6 or NVRAM work already verified.
 
 
 ## Verification boundary
 
-- DDNSTO production source `574caf1b`: shell lifecycle regression passed on `6e997ddb`, `e48aca6b` and `e5d3cdfd`; the last stale checker string was corrected in `4c499369`. Exact-head DDNSTO `44015005394` is still running; no final L2 claim yet.
-- XY-C1 run `44013905031` on DDNSTO product source descendant `e5d3cdfd` had reached artifact upload at last poll; Build/TRX/artifact result not yet confirmed.
-- NVRAM `44013905187` PASS on `e5d3cdfd`.
-- HTTPD `44013229543` on `e48aca6b` failed only because an inline source contract expected three entries in `stop_misc()`. Production adds `gpio_btn` and correctly uses `kill_services(svcs, 4, 1)`; THIS COMMIT updates the checker to verify both. Exact-head HTTPD rerun pending.
-- On `3c2ee531`, Process inventory `44014408639`, NVRAM audit `44014408877`, AI handoff `44014408656`, infosvr `44014408753`, AliyunDrive `44014408640`, AliDDNS `44014408747`, and AdGuardHome `44014408744` PASS.
-- Earlier firewall, DNS Forwarder, RWFS, IAPP, USB storage and watchdog validations remain source-specific as recorded. Local checkout/toolchain not mounted; local execution NOT RUN. Physical-router L4 remains NOT VERIFIED.
+- DDNSTO production source `574caf1b`: exact DDNSTO workflow `44015005394` on `4c499369` PASS; same-source XY-C1 `44013905031` on `e5d3cdfd` PASS including Build XY-C1, TRX verification and artifact upload.
+- HTTPD stop_misc source contract correction `c5fc9136`: umbrella `44015242107` PASS. Process inventory `44015242052`, NVRAM `44015242074`, AI docs `44015241932`, infosvr `44015241959`, AliyunDrive `44015241928`, AliDDNS `44015242005`, AdGuardHome `44015241955` also PASS on `c5fc9136`.
+- WAN static MTU failure propagation is changed in THIS COMMIT; exact WAN-route regression pending. No claim yet that the WAN MTU change passed GNU89/ASan/UBSan CI.
+- Earlier CPU-watchdog, modem, IPv6, firewall, DNS Forwarder, RWFS, IAPP, USB storage and GPIO stop changes retain their recorded source-specific validation.
+- No local checkout/toolchain mounted; local execution NOT RUN. Physical-router L4 remains NOT VERIFIED.
 
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and inspect exact-head DDNSTO `44015005394`, XY-C1 `44013905031`, and the new HTTPD workflow run for THIS commit. Verify shell tests, semantic checker, Build XY-C1, TRX, artifact upload, and HTTPD's bounded-stop source contract independently. Fix only the first confirmed failure; if any workflow remains pending, continue an independent P1 RC defect. Keep backup frozen and use full-tree atomic commits with non-forced expected-SHA compare-and-swap.
+Fetch live `main` and inspect this commit's exact WAN route-status workflow. Verify `route_status_policy` under GNU89/ASan/UBSan and the updated `check_wan_vlan_setup.py` static-MTU source contract. Then check any descendant XY-C1 Build/TRX/artifact run if the net_wan source path triggers it. Continue independent P1 RC work while CI is pending; keep the backup frozen and use full-tree atomic commits with non-forced expected-SHA CAS.

@@ -1,3 +1,12 @@
+## 2026-11-17 — Fail closed when configured static WAN MTU cannot be applied
+
+- Base main SHA: `c5fc913650e3ae70b8056f63eb70c8db49737505`; result: THIS COMMIT.
+- Defect: for static IPoE MTU values in the supported override range (1300–1499), `start_wan()` logged a failed `set_interface_mtu()` call but left `wan_err == 0`, continued assigning the static address, and could call `wan_up()` while returning success. This made the configured WAN MTU failure invisible to RC callers and falsely published an operational WAN.
+- The failure now sets `wan_err`, preserves the first status in `wan_start_status`, and gates static address assignment/route publication. The interface remains at its pre-address `0.0.0.0` state and the per-WAN NVRAM error flag is set by the existing path.
+- Added source-contract assertions for the failure flag/first-error merge/address gate and a GNU89 route-status regression proving later successful operations do not overwrite the MTU error. Exact WAN workflow pending. Local execution NOT RUN; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align HTTPD stop_misc contract with GPIO daemon registration
 
 - Base main SHA: `4c499369ec8f9aedd2643e0f012b12752ab67b7d`; result: THIS COMMIT.

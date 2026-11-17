@@ -15,9 +15,22 @@ apply_results(const int *results, size_t count, size_t *attempts)
 	return status;
 }
 
+static void
+test_static_mtu_failure_is_not_masked_by_later_success(void)
+{
+	const int startup_steps[] = { EINVAL, 0, 0 };
+	size_t attempts = 0;
+
+	assert(apply_results(startup_steps,
+			     sizeof(startup_steps) / sizeof(startup_steps[0]),
+			     &attempts) == EINVAL);
+	assert(attempts == sizeof(startup_steps) / sizeof(startup_steps[0]));
+}
+
 int
 main(void)
 {
+	test_static_mtu_failure_is_not_masked_by_later_success();
 	const int first_error[] = { 0, EIO, 0, ENETUNREACH };
 	const int negative_error[] = { 0, -1, 0, EPERM };
 	const int no_errors[] = { 0, 0, 0 };

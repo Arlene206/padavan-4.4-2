@@ -1931,22 +1931,29 @@ start_wan(void)
 				} else {
 					if (wan_mtu >= 1300 && wan_mtu < 1500) {
 						mtu_status = set_interface_mtu(wan_ifname, wan_mtu);
-						if (mtu_status != 0)
-							logmessage(LOGNAME, "static WAN interface %s MTU setup incomplete (status=%d)",
+						if (mtu_status != 0) {
+							wan_err = 1;
+							wan_start_status = rc_first_service_start_status(
+								wan_start_status, mtu_status);
+							logmessage(LOGNAME, "static WAN interface %s MTU setup failed (status=%d); skipping address and route setup",
 								   wan_ifname, mtu_status);
+						}
 					}
 					
-					address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);
-					if (address_status != 0) {
-						wan_err = 1;
-						wan_start_status = rc_first_service_start_status(
-							wan_start_status, address_status);
-						logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",
-							   wan_ifname, address_status);
-						clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
-						if (clear_status != 0)
-							logmessage(LOGNAME, "failed to clear partially configured static WAN address on %s (status=%d)",
-								   wan_ifname, clear_status);
+					/* Do not publish an address or route using a requested MTU we failed to apply. */
+					if (!wan_err) {
+						address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);
+						if (address_status != 0) {
+							wan_err = 1;
+							wan_start_status = rc_first_service_start_status(
+								wan_start_status, address_status);
+							logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",
+								   wan_ifname, address_status);
+							clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+							if (clear_status != 0)
+								logmessage(LOGNAME, "failed to clear partially configured static WAN address on %s (status=%d)",
+									   wan_ifname, clear_status);
+						}
 					}
 				}
 				

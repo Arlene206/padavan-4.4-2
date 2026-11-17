@@ -88,6 +88,20 @@ fd = body(netutils, "br_set_fd(")
 require("INT_MAX / 100" in fd and "return br_set_param_int(" in fd,
         "bridge forward-delay conversion must reject integer overflow")
 
+wan_start = body(wan, "start_wan(void)")
+static_mtu_start = wan_start.index("if (wan_mtu >= 1300 && wan_mtu < 1500)")
+static_mtu_end = wan_start.index('set_wan_unit_value_int(unit, "err", wan_err);',
+                                static_mtu_start)
+static_mtu = wan_start[static_mtu_start:static_mtu_end]
+mtu_failure = static_mtu.index("if (mtu_status != 0)")
+mtu_error_flag = static_mtu.index("wan_err = 1;", mtu_failure)
+mtu_status_merge = static_mtu.index("wan_start_status = rc_first_service_start_status(",
+                                    mtu_failure)
+address_gate = static_mtu.index("if (!wan_err) {")
+address_setup = static_mtu.index("address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);")
+require(mtu_failure < mtu_error_flag < mtu_status_merge < address_gate < address_setup,
+        "failed configured static MTU must set WAN error, preserve first status, and block address/route startup")
+
 soft_lan = body(wan, "config_soft_bridge_lan(void)")
 for marker in ("create_vlan_iface_tracked(", "br_add_del_if_tracked(",
                "remove_vlan_iface(", "brport_set_m2u(", "rollback:",
