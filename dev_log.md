@@ -1,3 +1,9 @@
+## 2026-11-17 — Fix newline escapes in raw swap inventory tests
+
+- Exact-head HTTPD run `44159082928` on `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3` passed the previous HTTPD/NVRAM/wireless/storage source checks and then failed at the newly added `storage_ejected_parse_swaps_header()` policy assertion.
+- Inspection of the actual C source showed the `/proc/swaps` header and row test literals contained two backslashes before `n`; the compiled string therefore ended in literal `\n` rather than a newline and correctly failed `storage_ejected_line_is_complete()`. Normalize only the new swap fixtures to single C newline escapes.
+- Move the test's PASS message from before the new assertions to after them so the output cannot report success before all cases run. No production source changed in this test repair.
+- Parent exact-head AliDDNS, AliyunDrive, Firewall, vsftpd, AI docs, USB modem, NFS, Samba, infosvr and AdGuardHome passed; storage, Process, NVRAM and XY-C1 were still in progress at last poll.
 ## 2026-11-17 — Retry raw swap-only devices during physical eject
 
 - `umount_ejected_locked()` previously returned success immediately if the complete `/proc/mounts` inventory contained no removable storage mounts. Its swapoff retry loop only visited stale mounted partitions. A raw SD/MMC swap partition can exist without a filesystem mount; if the mdev partition-remove callback's first swapoff attempt failed, the subsequent whole-device notification had no stale mount to drive a deferred retry.

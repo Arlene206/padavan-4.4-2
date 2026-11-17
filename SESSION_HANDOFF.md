@@ -1,25 +1,23 @@
-# 2026-11-17 continuation checkpoint — retry raw swap-only devices during physical eject
+# 2026-11-17 continuation checkpoint — fix /proc/swaps regression fixture escapes
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `12f4ba4a44e4430471001c7d20491241347887a6`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; all development remains main-only with non-forced compare-and-swap updates.
-- The full `REFACTOR_ROADMAP.md` whole-repository dashboard was restored on parent `12f4ba4a`; AI docs exact-head run `44157887368` passed. The preceding AI failure on `5bdf59f` was traced to the checkpoint-only roadmap truncation and is repaired.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Main-only atomic commits; no force-push.
+- Full whole-repository module dashboard and priority queue remain present in `REFACTOR_ROADMAP.md`; do not truncate or snapshot it.
 
-## Active task — swap-only physical eject
-- `umount_ejected_locked()` stages `/proc/mounts` and immediately returns when no removable mount entries exist. Its swapoff recheck only walks stale mounted partitions, so a raw `/dev/sdaN` or `/dev/mmcblkNpN` swap-only device can miss deferred retry after the mdev swapoff attempt fails.
-- THIS COMMIT stages and validates `/proc/swaps` independently, identifies raw removable swap entries missing from `/proc/partitions`, retries swapoff, and returns failure on any failed/UNKNOWN retry. The public `umount_ejected()` then schedules the existing `usb_unplug_ms` retry even if there are no mountpoints.
-- Added GNU89 policy cases for strict swap header/row parsing and exact SD/MMC device path extraction; updated the storage production-order contract.
+## Active task — swap-only physical eject regression
+- `umount_ejected_locked()` now stages `/proc/swaps` independently of mounts, identifies raw removable SD/MMC swap entries missing from `/proc/partitions`, retries swapoff and propagates failure to `usb_unplug_ms` retry scheduling, even with no filesystem mountpoints.
+- The new policy test fixtures were written with two backslashes before `n`, so C passed a literal backslash+n to `storage_ejected_line_is_complete()` instead of a newline. HTTPD run `44159082928` caught this at `storage_ejected_parse_swaps_header()`; this was a test-fixture defect, not a production compile failure. THIS COMMIT normalizes those C string escapes and moves the PASS print until after all assertions.
 
 ## Verification boundary
-- Parent `12f4ba4a` exact-head AI `44157887368`, AdGuardHome `44157887421`, infosvr `44157887279`, Process inventory/lifecycle `44157887281`, AliDDNS `44157887376` and AliyunDrive `44157887436`: SUCCESS. NVRAM audit `44157887472`: IN_PROGRESS at last poll.
-- This is a storage-source change and will trigger the storage integration workflow; other path-filtered checks are pending until queried against the resulting exact SHA.
-- XY-C1 `44156955220` for earlier parent source `5bdf59f` was still IN_PROGRESS at last poll. No current firmware build/TRX artifact or physical L4 result is claimed.
-- No local MIPS/uClibc target toolchain or router hardware is available; L4 remains NOT VERIFIED.
+- Exact-head SHA `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3`: HTTPD `44159082928` FAILURE at the GNU89 storage policy assertion for the escaped newline fixture. Storage `44159082983`, Process lifecycle `44159083056`, Process inventory `44159082910`, NVRAM `44159082643`, and XY-C1 `44159082732` were IN_PROGRESS at last poll.
+- Exact-head AliDDNS `44159082676`, AliyunDrive `44159083161`, Firewall `44159083062`, vsftpd `44159082703`, AI handoff `44159082888`, USB modem `44159082977`, NFS `44159082911`, Samba `44159082927`, infosvr `44159082706`, AdGuardHome `44159082702`: SUCCESS.
+- No local MIPS/uClibc toolchain or physical router; current-source L3/L4 only when exact Build/TRX/artifact and actual router test evidence exist. No L4 result claimed.
 
 ## Exact first action for the next GPT
-- Inspect exact-SHA USB storage regression, HTTPD/Samba/Process checks triggered by `services_stor.c`, AI handoff, and any XY-C1 Build/TRX/artifact. On FAIL, inspect the exact job logs and fix only the demonstrated contract/source issue.
-- Continue a separate P1 service lifecycle or NVRAM postcondition while long firmware jobs run; do not repeat the completed Samba eject lock, physical mounted-device swapoff, automount result, or tri-state partition gate work.
-- Preserve the frozen backup; never force-push.
+- Inspect exact-SHA storage, HTTPD, Process, AI and XY-C1 Actions for THIS COMMIT; if tests fail, use their exact job logs. Require the new GNU89 parser cases to pass before considering the swap-only task L2 verified.
+- While XY-C1 is pending, continue a separate independent P1 service lifecycle or NVRAM postcondition. Do not repeat the already completed Samba eject lock, mounted-device swapoff, hotplug automount result or partition topology changes.
+- Preserve the frozen backup; use complete Git trees and expected-SHA non-forced `main` updates.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

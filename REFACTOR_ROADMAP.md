@@ -1,11 +1,10 @@
 # 2026-11-17 latest source checkpoint
 
-- Parent main SHA: `12f4ba4a44e4430471001c7d20491241347887a6`; THIS COMMIT detects and retries raw swap-only SD/MMC devices during physical eject even when `/proc/mounts` has no removable entries. The complete whole-repository module dashboard below remains preserved. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` is unchanged.
-- Parent AI handoff `44157887368`, AdGuardHome `44157887421`, infosvr `44157887279`, Process inventory/lifecycle `44157887281`, AliDDNS `44157887376`, AliyunDrive `44157887436`: SUCCESS. NVRAM `44157887472`: IN_PROGRESS at last poll.
-- Parent WAN teardown/XY-C1 source `5bdf59f` already has `msd_lite` in its stop inventory and adds `hotplug_stor.c` to the firmware workflow path filter. Exact parent XY-C1 `44156955220` was still IN_PROGRESS at last poll; TRX/artifact pending.
-- Storage finding: `umount_ejected_locked()` used to return success when `/proc/mounts` had no removable mount entries, so it never retried raw `/dev/sd*`/`/dev/mmcblk*` swaps after a failed mdev swapoff. THIS COMMIT stages `/proc/swaps` and `/proc/partitions` before no-work return; stale raw swap entries are retried and failure flows to `usb_unplug_ms` scheduling.
+- Parent main SHA: `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3`; THIS COMMIT repairs the GNU89 swap-inventory fixture: new `/proc/swaps` test strings had literal `\\n` rather than newline escapes, so header/row completeness tests failed. The source implementation remains unchanged; PASS print moves after all assertions. Dashboard below is preserved.
+- Exact-parent AliDDNS `44159082676`, AliyunDrive `44159083161`, Firewall `44159083062`, vsftpd `44159082703`, AI `44159082888`, USB modem `44159082977`, NFS `44159082911`, Samba `44159082927`, infosvr `44159082706`, AdGuardHome `44159082702`: SUCCESS.
+- Exact-parent HTTPD `44159082928`: FAILURE at `storage_ejected_parse_swaps_header()` because the test fixture supplied a literal backslash+n. Storage `44159082983`, Process lifecycle `44159083056`, Process inventory `44159082910`, NVRAM `44159082643`, XY-C1 `44159082732`: IN_PROGRESS at last poll.
 
-Next: inspect exact-SHA storage, HTTPD/Samba/Process and AI checks; poll XY-C1 Build/TRX/artifact. Continue a separate P1 defect while any independent check is pending.
+Next: verify exact-SHA storage/HTTPD and XY-C1 Build/TRX/artifact, then continue an independent P1 service lifecycle postcondition.
 ---
 
 ## Whole-repository module status

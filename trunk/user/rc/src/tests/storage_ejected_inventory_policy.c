@@ -121,31 +121,29 @@ main(void)
 	assert(!storage_ejected_may_unmount(0, 0, 1, 0));
 	assert(!storage_ejected_may_unmount(0, 0, 0, 1));
 
-	puts("Storage ejected-device inventory policy: PASS");
-
 	assert(storage_ejected_parse_swaps_header(
-		"Filename Type Size Used Priority\\n") == 0);
+		"Filename Type Size Used Priority\n") == 0);
 	assert(storage_ejected_parse_swaps_header(
-		"Filename Type Size Used\\n") != 0);
+		"Filename Type Size Used\n") != 0);
 	assert(storage_ejected_parse_swaps_header(
-		"Filename Type Size Used Priority extra\\n") != 0);
+		"Filename Type Size Used Priority extra\n") != 0);
 	assert(storage_ejected_parse_swaps_header(
 		"Filename Type Size Used Priority") != 0);
 	assert(storage_ejected_parse_swap_line(
-		"/dev/sda1 partition 12582908 0 -2\\n", swap_path,
+		"/dev/sda1 partition 12582908 0 -2\n", swap_path,
 		sizeof(swap_path)) == 0);
 	assert(strcmp(swap_path, "/dev/sda1") == 0);
 	assert(storage_ejected_parse_swap_line(
-		"/dev/mmcblk0p2 partition 8388604 0 -3\\n", swap_path,
+		"/dev/mmcblk0p2 partition 8388604 0 -3\n", swap_path,
 		sizeof(swap_path)) == 0);
 	assert(storage_ejected_parse_swap_line(
-		"/dev/sda1 partition 12582908 0\\n", swap_path,
+		"/dev/sda1 partition 12582908 0\n", swap_path,
 		sizeof(swap_path)) != 0);
 	assert(storage_ejected_parse_swap_line(
 		"/dev/sda1 partition 12582908 0 -2", swap_path,
 		sizeof(swap_path)) != 0);
 	assert(storage_ejected_parse_swap_line(
-		"/dev/sda1 partition 12582908 0 -2 extra\\n", swap_path,
+		"/dev/sda1 partition 12582908 0 -2 extra\n", swap_path,
 		sizeof(swap_path)) != 0);
 	assert(storage_ejected_swap_device_name("/dev/sda", swap_device,
 		sizeof(swap_device)) == 1);
@@ -166,5 +164,6 @@ main(void)
 		sizeof(swap_device)) == -1);
 	assert(storage_ejected_swap_device_name("/dev/mmcblkp1", swap_device,
 		sizeof(swap_device)) == -1);
+	puts("Storage ejected-device inventory policy: PASS");
 	return 0;
 }
