@@ -203,9 +203,8 @@ for token in (
     require(token in TEST, "MAN MTU failure-continuation coverage missing " + token)
 
 
-# A DHCP MTU option can change on renewal. Apply it on both bound and renew
-# callbacks, preserve setter failure in the retry status, and keep route_err
-# as the existing retry trigger rather than silently accepting the mismatch.
+# DHCP-advertised MTU is optional: reapply changes on renewal, but keep
+# ioctl failure diagnostic-only. Only actual route errors drive route_err retry.
 wan_bound = body(WAN, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
 require("mtu_status = 0;" in wan_bound,
         "WAN DHCP MTU status must be initialized when the option is absent")
@@ -213,30 +212,27 @@ wan_mtu_condition = wan_bound.index("if (dhcp_mtu >= 1300 && dhcp_mtu < 1500)")
 wan_mtu_set = wan_bound.index(
     "mtu_status = set_interface_mtu(wan_ifname, dhcp_mtu);", wan_mtu_condition
 )
-wan_mtu_log = wan_bound.index(
-    "MTU setup incomplete (status=%d)", wan_mtu_set
-)
+wan_mtu_log = wan_bound.index("MTU setup incomplete (status=%d)", wan_mtu_set)
 wan_route_call = wan_bound.index(
-    "route_setup_status = wan_up_internal(wan_ifname, unit, 0);",
-    wan_mtu_log,
+    "route_setup_status = wan_up_internal(wan_ifname, unit, 0);", wan_mtu_log
 )
-wan_merge = wan_bound.index(
-    "route_setup_status = route_status_accumulate(", wan_route_call
-)
-wan_merge_args = wan_bound.index("mtu_status, route_setup_status", wan_merge)
 wan_route_err = wan_bound.index(
     'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status);',
-    wan_merge_args,
+    wan_route_call,
 )
+wan_return = wan_bound.index("return route_setup_status;", wan_route_err)
 require(
     wan_mtu_condition < wan_mtu_set < wan_mtu_log < wan_route_call
-    < wan_merge < wan_merge_args < wan_route_err,
-    "WAN DHCP MTU error must be retained with the route result and published to retry state",
+    < wan_route_err < wan_return,
+    "WAN DHCP MTU remains diagnostic-only before independent route status publication",
 )
+require("mtu_status, route_setup_status" not in wan_bound,
+        "optional WAN MTU failure must not be merged into route retry status")
 require(
     "!is_renew_mode" not in wan_bound[wan_mtu_condition - 80:wan_mtu_set],
     "changed DHCP MTU must also be applied during renew callbacks",
 )
+
 wan_renew = body(WAN, "udhcpc_renew(char *wan_ifname)")
 wan_renew_retry = wan_renew.index("dhcp_wan_route_setup_retry_required(")
 wan_retry_bound = wan_renew.index("return udhcpc_bound(wan_ifname, 1);", wan_renew_retry)
@@ -246,7 +242,7 @@ wan_mtu_change_bound = wan_renew.index(
 )
 require(
     wan_renew_retry < wan_retry_bound < wan_renew_mtu < wan_mtu_change_bound,
-    "WAN renew must retry failed setup and re-enter bound after a DHCP MTU change",
+    "WAN renew must retry route failures and re-enter bound after a DHCP MTU change",
 )
 
 viptv_bound = body(WAN, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
@@ -256,27 +252,26 @@ tv_mtu_condition = viptv_bound.index("if (dhcp_mtu >= 1300 && dhcp_mtu < 1500)")
 tv_mtu_set = viptv_bound.index(
     "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);", tv_mtu_condition
 )
-tv_mtu_merge = viptv_bound.index(
-    "route_setup_status = route_status_accumulate(", tv_mtu_set
-)
-tv_mtu_log = viptv_bound.index(
-    "MTU setup incomplete (status=%d)", tv_mtu_merge
-)
+tv_mtu_log = viptv_bound.index("MTU setup incomplete (status=%d)", tv_mtu_set)
 tv_routes = viptv_bound.index("route_result = add_dhcp_routes(", tv_mtu_log)
-tv_route_err = viptv_bound.index('nvram_set_int_temp("manv_route_err", route_setup_status);', tv_routes)
+tv_route_err = viptv_bound.index(
+    'nvram_set_int_temp("manv_route_err", route_setup_status);', tv_routes
+)
 tv_return = viptv_bound.index(
     "return route_status_accumulate(route_setup_status, multicast_status);",
     tv_route_err,
 )
 require(
-    tv_mtu_condition < tv_mtu_set < tv_mtu_merge < tv_mtu_log
-    < tv_routes < tv_route_err < tv_return,
-    "IPTV DHCP MTU errors must be retained while route/multicast setup continues",
+    tv_mtu_condition < tv_mtu_set < tv_mtu_log < tv_routes < tv_route_err < tv_return,
+    "IPTV DHCP MTU remains diagnostic-only while route and multicast status are returned",
 )
+require("route_setup_status, mtu_status" not in viptv_bound,
+        "optional IPTV MTU failure must not be merged into route retry status")
 require(
     "!is_renew_mode" not in viptv_bound[tv_mtu_condition - 80:tv_mtu_set],
     "changed IPTV DHCP MTU must also be applied during renew callbacks",
 )
+
 viptv_renew = body(WAN, "udhcpc_viptv_renew(char *man_ifname)")
 tv_retry = viptv_renew.index("dhcp_wan_route_setup_retry_required(")
 tv_retry_bound = viptv_renew.index(
@@ -288,21 +283,18 @@ tv_mtu_change_bound = viptv_renew.index(
 )
 require(
     tv_retry < tv_retry_bound < tv_renew_mtu < tv_mtu_change_bound,
-    "IPTV renew must retry failed setup and re-enter bound after a DHCP MTU change",
+    "IPTV renew must retry route failures and re-enter bound after a DHCP MTU change",
 )
 
 require(
-    '#include "route_status_policy.h"' in DHCP_TEST
-    and "test_dhcp_mtu_failure_is_retained_and_scheduled_for_retry();" in DHCP_TEST
-    and "assert(dhcp_wan_route_setup_retry_required(setup_status));" in DHCP_TEST,
-    "DHCP interface regression must cover MTU failure retention and retry",
+    "test_dhcp_optional_mtu_failure_does_not_request_route_retry();" in DHCP_TEST
+    and "assert(!dhcp_wan_route_setup_retry_required(route_setup_status));" in DHCP_TEST,
+    "DHCP interface regression must preserve diagnostic-only optional MTU semantics",
 )
-for path in (
-    "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c",
-):
+for path in ("trunk/user/rc/src/tests/dhcp_wan_interface_policy.c",):
     require(
         WAN_WORKFLOW.count('"' + path + '"') >= 2,
         "WAN push and pull_request filters must include " + path,
     )
 
-print("WAN physical, MAN and DHCP MTU failure propagation: PASS")
+print("WAN required and optional MTU policy: PASS")

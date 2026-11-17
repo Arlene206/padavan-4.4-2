@@ -5,7 +5,6 @@
 
 #include "dhcp_wan_interface_policy.h"
 #include "dhcp_wan_route_transition_policy.h"
-#include "route_status_policy.h"
 
 struct fake_interface {
 	int clear_status;
@@ -231,24 +230,19 @@ test_route_setup_failure_requires_retry(void)
 }
 
 static void
-test_dhcp_mtu_failure_is_retained_and_scheduled_for_retry(void)
+test_dhcp_optional_mtu_failure_does_not_request_route_retry(void)
 {
-	int setup_status = 0;
+	int mtu_status = EIO;
+	int route_setup_status = 0;
 
-	/* A DHCP MTU ioctl failure must survive later successful route setup. */
-	setup_status = route_status_accumulate(setup_status, EIO);
-	setup_status = route_status_accumulate(setup_status, 0);
-	assert(setup_status == EIO);
-	assert(dhcp_wan_route_setup_retry_required(setup_status));
+	/* Optional DHCP MTU ioctl errors are logged, not promoted to route errors. */
+	assert(mtu_status != 0);
+	assert(route_setup_status == 0);
+	assert(!dhcp_wan_route_setup_retry_required(route_setup_status));
 
-	/* A later route error must not hide the first interface setup failure. */
-	setup_status = route_status_accumulate(setup_status, ENETUNREACH);
-	assert(setup_status == EIO);
-
-	/* A fully successful retry clears the retry condition. */
-	setup_status = route_status_accumulate(0, 0);
-	assert(setup_status == 0);
-	assert(!dhcp_wan_route_setup_retry_required(setup_status));
+	/* Independent route failures still use the established retry mechanism. */
+	route_setup_status = ENETUNREACH;
+	assert(dhcp_wan_route_setup_retry_required(route_setup_status));
 }
 
 static void
@@ -329,7 +323,7 @@ main(void)
 	test_failed_clear_without_previous_lease_is_reported();
 	test_invalid_input_has_no_side_effects();
 	test_route_setup_failure_requires_retry();
-	test_dhcp_mtu_failure_is_retained_and_scheduled_for_retry();
+	test_dhcp_optional_mtu_failure_does_not_request_route_retry();
 	test_route_transition_success();
 	test_route_transition_ignores_missing_old_routes();
 	test_route_transition_rolls_back_all_after_delete_errors();

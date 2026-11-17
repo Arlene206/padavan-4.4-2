@@ -4272,12 +4272,9 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 			route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL);
 		else
 			route_setup_status = wan_up_internal(wan_ifname, unit, 0);
-		route_setup_status = route_status_accumulate(
-			mtu_status, route_setup_status);
-
 		if (route_setup_status != 0)
 			logmessage(log_prefix,
-				   "%s (%s) accepted but interface/route setup is incomplete (error=%d)",
+				   "%s (%s) accepted but route setup is incomplete (error=%d)",
 				   udhcpc_state, wan_ifname, route_setup_status);
 	}
 
@@ -4453,12 +4450,9 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	if (!i_err) {
 		if (dhcp_mtu >= 1300 && dhcp_mtu < 1500) {
 			mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);
-			if (mtu_status != 0) {
-				route_setup_status = route_status_accumulate(
-					route_setup_status, mtu_status);
+			if (mtu_status != 0)
 				logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)",
 					   udhcpc_state, man_ifname, mtu_status);
-			}
 		}
 
 		logmessage(log_prefix,
@@ -4481,7 +4475,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 
 		if (route_setup_status != 0)
 			logmessage(log_prefix,
-				"%s (%s) accepted but interface/route setup is incomplete (error=%d)",
+				"%s (%s) accepted but route setup is incomplete (error=%d)",
 				udhcpc_state, man_ifname, route_setup_status);
 		multicast_status = start_igmpproxy(man_ifname);
 		if (multicast_status != 0)
