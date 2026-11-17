@@ -1,3 +1,13 @@
+## 2026-11-18 — Restore switch clear diagnostic line endings
+
+- Parent main SHA: 642e7a20e44a654f32170e7c1d23fbd0bdaf2943; result: THIS COMMIT.
+- Review of `642e7a20` found three clear-operation diagnostic strings accidentally contained double backslashes, which would emit literal `\\n\\r` rather than the prior line endings. Corrected each to a single C escape sequence.
+- Extended the Switch CLI source contract to assert the exact output format in `table_clear()`, `dip_clear()`, and `sip_clear()`; no polling behavior changed.
+- Parent Switch CLI, Process lifecycle/inventory, XUPnPD WAN route and NVRAM Actions PASS. Parent XY-C1 Build remained IN_PROGRESS; current rebuild must be checked separately.
+- No local MIPS or physical-router L4 claim.
+
+---
+
 ## 2026-11-18 — Gate switch table clear completion on bounded status
 
 - Parent main SHA: `558901c1ca847ba491caf68c95f812c95a47b13e`; result: THIS COMMIT.

@@ -190,6 +190,7 @@ jobs:
               assert body.index("reg_write(REG_ESW_WT_MAC_ATC,") < body.index("wait_mac_atc();")
               assert body.index("wait_mac_atc();") < body.index("reg_read(REG_ESW_WT_MAC_ATC, &value)")
               assert "usleep(5000)" not in body, signature
+              assert r'printf("REG_ESW_WT_MAC_ATC is 0x%x\n\r", value);' in body
           assert "return ETIMEDOUT;" in policy
           assert "return EINVAL;" in policy
           for marker in (

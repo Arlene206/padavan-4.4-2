@@ -1277,7 +1277,7 @@ void dip_clear(void)
 	reg_write(REG_ESW_WT_MAC_ATC, 0x8102); /* clear all dip */
 	wait_mac_atc();
 	reg_read(REG_ESW_WT_MAC_ATC, &value);
-	printf("REG_ESW_WT_MAC_ATC is 0x%x\\n\\r", value);
+	printf("REG_ESW_WT_MAC_ATC is 0x%x\n\r", value);
 }
 
 
@@ -1387,7 +1387,7 @@ void sip_clear(void)
 	reg_write(REG_ESW_WT_MAC_ATC, 0x8202); /* clear all sip */
 	wait_mac_atc();
 	reg_read(REG_ESW_WT_MAC_ATC, &value);
-	printf("REG_ESW_WT_MAC_ATC is 0x%x\\n\\r", value);
+	printf("REG_ESW_WT_MAC_ATC is 0x%x\n\r", value);
 }
 
 
@@ -1590,7 +1590,7 @@ void table_clear(void)
 	reg_write(REG_ESW_WT_MAC_ATC, 0x8002); /* clear all mac */
 	wait_mac_atc();
 	reg_read(REG_ESW_WT_MAC_ATC, &value);
-	printf("REG_ESW_WT_MAC_ATC is 0x%x\\n\\r", value);
+	printf("REG_ESW_WT_MAC_ATC is 0x%x\n\r", value);
 }
 
 

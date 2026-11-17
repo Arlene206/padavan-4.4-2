@@ -1,34 +1,31 @@
-# 2026-11-18 continuation checkpoint — complete bounded switch clear operations
+# 2026-11-18 continuation checkpoint — switch clear output correction
 
-This checkpoint supersedes the older active summary below. Continue on `main`; do not repeat already-green audits.
+This checkpoint supersedes conflicting active status below. Continue on main; do not repeat completed audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2/.
-- Parent main SHA: `558901c1ca847ba491caf68c95f812c95a47b13e`; result: THIS COMMIT (one complete Git tree, non-forced expected-SHA update).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and immutable. Development remains main-only.
+- Parent main SHA: 642e7a20e44a654f32170e7c1d23fbd0bdaf2943; result: THIS COMMIT (complete Git tree, expected-SHA non-force update).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and immutable. Development only on main.
 - PR #1 remains closed/unmerged. No full local MIPS/uClibc toolchain or physical router; L4 NOT VERIFIED.
 
-## Switch CLI defect and fix
-- Review found `table_clear()`, `dip_clear()`, and `sip_clear()` still used a fixed `usleep(5000)` after writing MAC table-engine clear commands, then read/printed ATC without checking its busy bit.
-- This bypassed the bounded `wait_mac_atc()` helper already used by add/delete operations. If hardware remained busy beyond 5ms, a clear operation could return as though complete.
-- THIS COMMIT replaces each fixed sleep with `wait_mac_atc()`; timeout/register-read errors now use the existing fail-visible path (diagnostic, socket close, nonzero exit). Existing policy regression tests cover delayed completion, stuck-busy timeout and read errors; Switch CLI source contract now enforces write → bounded wait → read ordering for all three clear commands.
-- Switch workflow already compiles the common GNU89 ASan/UBSan wait-policy regression. XY-C1 path filter already watches `switch_gsw.c`.
+## Exact-head validation on parent
+- Switch CLI run `44142455997`: SUCCESS, including all clear-operation write → bounded wait → read source contracts and host sanitizer policy.
+- Process lifecycle `44142455662`, Process inventory `44142455647`, AliyunDrive `44142455639`, AliDDNS `44142455595`, infosvr `44142455491`, AdGuardHome `44142455420`, AI handoff `44142455774`, WAN route `44141514745` and NVRAM `44142455677`: SUCCESS (NVRAM completed after the initial poll).
+- XY-C1 `44142455489`: Build XY-C1 still IN_PROGRESS at last poll; TRX verification and artifact upload remain pending.
 
-## Parent exact-head status
-- Parent Process lifecycle checker alignment commit: `558901c1ca847ba491caf68c95f812c95a47b13e`. Its exact-head Process workflow `44141984432` was IN_PROGRESS at last poll.
-- Parent WAN/XUPnPD run `44141514745`: PASS; XUPnPD helper and source contract all green.
-- Parent Switch CLI strict IPv4 parser/bounded-wait run `44140771106`: PASS.
-- Parent XY-C1 `44141514685` on source SHA `7b1a1ba`: Build XY-C1 still IN_PROGRESS at last poll; TRX verification and artifact upload pending.
-- NVRAM `44141514527`, USB storage `44141514573`, AliyunDrive `44141514602`, Process inventory `44141514811`, and AI docs `44141514899` completed SUCCESS on `7b1a1ba`.
+## Switch output correction
+- Parent commit `642e7a20` correctly replaced fixed sleeps in `table_clear()`, `dip_clear()`, and `sip_clear()` with `wait_mac_atc()`, but the three diagnostic `printf` formats gained an extra source backslash and would print literal `\\n\\r` instead of line breaks.
+- THIS COMMIT restores the original single-backslash C newline/carriage-return escapes and adds an exact source assertion so that formatting regression cannot recur. No wait semantics changed.
 
-## First next actions
-1. Verify exact-head Switch CLI and XY-C1 runs for THIS COMMIT; require clear wait source contracts plus Build/TRX/artifact completion.
-2. Check parent Process run `44141984432` result for the XUPnPD directory-helper contract update; any remaining red assertion must be diagnosed from the exact job log.
-3. Continue the next P1 cross-userland reliability slice without waiting on CI; keep the production/test/Actions loop and don't revisit completed XUPnPD, WAN, NVRAM or USB audits without new evidence.
+## First next task
+1. Inspect exact-head Switch CLI run for THIS COMMIT; require the new output-format assertion and bounded clear completion contracts.
+2. Re-check XY-C1 `44142455489`; require Build, TRX and artifact-upload success on the exact source SHA.
+3. Continue P1 process/service lifecycle work on other userland paths; avoid repeating completed switch, XUPnPD, WAN, HTTPD, AliyunDrive and NVRAM checks without new evidence.
 
 ## Validation boundary
-- Bounded wait host regression passed previously under Switch CLI `44139419836` and strict IPv4 version `44140771106`; exact-head clear-operation wiring test from THIS COMMIT is pending.
-- No local firmware build or physical-router L4 claim.
+- Exact parent Switch CLI and Process lifecycle PASS; parent NVRAM finished SUCCESS and WAN route PASS.
+- XY-C1 Build remained in progress at last poll; no firmware/TRX/artifact PASS is claimed yet.
+- The source-format correction in THIS COMMIT awaits its exact-head host/source regression. No local MIPS build or physical-router L4 claim.
 
 # Cross-session execution mandate
 

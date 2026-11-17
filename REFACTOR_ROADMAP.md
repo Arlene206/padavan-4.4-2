@@ -1,11 +1,14 @@
 # 2026-11-18 latest verified checkpoint
 
-- Parent main SHA: `558901c1ca847ba491caf68c95f812c95a47b13e`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
-- Bounded Switch table waits and strict IPv4 argument parsing already pass their exact-head L2 runs. New review found MAC/DIP/SIP clear commands still used a fixed 5ms sleep and never checked completion; THIS COMMIT routes them through the bounded MAC-table wait and adds source-ordering assertions.
-- XUPnPD WAN check PASS on `7b1a1ba` run `44141514745`. Process integration checker alignment is in parent `558901c`; its exact-head Process run `44141984432` was pending.
-- XY-C1 `44141514685` remains a build in progress on source `7b1a1ba`; no current-source Build/TRX/artifact PASS claim.
+This section supersedes older active status below.
 
-Next: verify Switch CLI and XY-C1 Actions for THIS COMMIT, then continue broad P1 reliability work.
+- Parent main SHA: `642e7a20e44a654f32170e7c1d23fbd0bdaf2943`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- Parent Switch CLI exact-head run `44142455997` PASS; Process lifecycle and Process inventory PASS; XUPnPD WAN route and NVRAM PASS.
+- Parent XY-C1 run `44142455489` was still building; TRX and artifact status pending.
+- THIS COMMIT restores correct newline/carriage-return output escapes in three bounded switch clear commands and adds a regression assertion.
+- No local MIPS firmware or physical-router L4 result is claimed.
+
+Next: verify exact-head Switch CLI and XY-C1 Build/TRX/artifact; continue independent P1 service lifecycle work.
 
 ---
 
