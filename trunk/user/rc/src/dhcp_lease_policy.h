@@ -349,9 +349,9 @@ dhcp_lease_route_text_is_safe(const char *value)
 }
 
 
-/* A withdrawn DHCP lease must remain deconfigured even when route
- * cleanup is incomplete. Keep its NVRAM identity until a retry removes all
- * old routes; never re-install an address NAK/expiry has revoked. */
+/* Clear a withdrawn IPTV lease address and delete its old routes even if
+ * either operation fails. Keep lease identity until both are complete so
+ * BusyBox can retry DECONFIG_PENDING without resurrecting a revoked address. */
 typedef int (*dhcp_lease_viptv_deconfig_operation)(void *context);
 typedef void (*dhcp_lease_viptv_deconfig_publish_operation)(void *context);
 
@@ -365,17 +365,16 @@ static inline int
 dhcp_lease_viptv_deconfig_apply(
 	const struct dhcp_lease_viptv_deconfig_ops *ops, void *context)
 {
-	int status;
+	int interface_status, route_status, status;
 
 	if (!ops || !ops->clear_address || !ops->delete_routes ||
 	    !ops->publish_empty_address)
 		return EINVAL;
 
-	status = ops->clear_address(context);
-	if (status != 0)
-		return status;
-
-	status = ops->delete_routes(context);
+	/* A failed interface clear must not suppress independent route cleanup. */
+	interface_status = ops->clear_address(context);
+	route_status = ops->delete_routes(context);
+	status = dhcp_lease_deconfig_status(route_status, interface_status, 0);
 	if (status != 0)
 		return status;
 

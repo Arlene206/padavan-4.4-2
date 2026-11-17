@@ -352,7 +352,16 @@ main(void)
 	transaction_status = dhcp_lease_viptv_deconfig_apply(
 		&dhcp_viptv_deconfig_fake_ops, &viptv_fake);
 	assert(transaction_status == EIO);
-	assert(strcmp(viptv_fake.events, "C") == 0);
+	assert(strcmp(viptv_fake.events, "CR") == 0);
+	assert(viptv_fake.published == 0);
+
+	memset(&viptv_fake, 0, sizeof(viptv_fake));
+	viptv_fake.clear_status = EBUSY;
+	viptv_fake.route_status = ENOSPC;
+	transaction_status = dhcp_lease_viptv_deconfig_apply(
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake);
+	assert(transaction_status == ENOSPC);
+	assert(strcmp(viptv_fake.events, "CR") == 0);
 	assert(viptv_fake.published == 0);
 
 	memset(&viptv_fake, 0, sizeof(viptv_fake));
