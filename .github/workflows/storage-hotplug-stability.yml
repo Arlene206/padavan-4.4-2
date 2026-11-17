@@ -411,7 +411,8 @@ jobs:
           assert "storage_ejected_parse_swaps_header(line)" in swap_stage
           assert "storage_ejected_parse_swap_line(line" in swap_stage
           assert "ferror(procpt)" in swap_stage and "fclose(procpt)" in swap_stage
-          assert "storage_ejected_inventory_complete(read_error, close_error, parse_error)" in swap_stage
+          swap_stage_compact = " ".join(swap_stage.split())
+          assert "storage_ejected_inventory_complete(read_error, close_error, parse_error)" in swap_stage_compact
           swap_off = "try_device_swapoff(swap_entry->device)"
           ejected_swapoff = eject.index(swap_off)
           ejected_swap_gate = eject.index("storage_ejected_may_unmount_device(1, swapoff_status)")

@@ -1,10 +1,10 @@
 # 2026-11-17 latest source checkpoint
 
-- Parent main SHA: `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3`; THIS COMMIT repairs the GNU89 swap-inventory fixture: new `/proc/swaps` test strings had literal `\\n` rather than newline escapes, so header/row completeness tests failed. The source implementation remains unchanged; PASS print moves after all assertions. Dashboard below is preserved.
-- Exact-parent AliDDNS `44159082676`, AliyunDrive `44159083161`, Firewall `44159083062`, vsftpd `44159082703`, AI `44159082888`, USB modem `44159082977`, NFS `44159082911`, Samba `44159082927`, infosvr `44159082706`, AdGuardHome `44159082702`: SUCCESS.
-- Exact-parent HTTPD `44159082928`: FAILURE at `storage_ejected_parse_swaps_header()` because the test fixture supplied a literal backslash+n. Storage `44159082983`, Process lifecycle `44159083056`, Process inventory `44159082910`, NVRAM `44159082643`, XY-C1 `44159082732`: IN_PROGRESS at last poll.
+- Parent main SHA: `9cf66b7bec1a7befd0408ef8a9c2aec9b44563b3`; THIS COMMIT whitespace-normalizes the storage caller-graph check for the line-wrapped `storage_ejected_inventory_complete()` call. The GNU89 swap parser/test fixture passed on the parent; no product source changes here. Full module dashboard below is preserved.
+- Exact-parent HTTPD `44159705825`, AI handoff `44159706008`, Process lifecycle `44159705817`, Process inventory `44159705723`, AdGuardHome `44159705890`, AliDDNS `44159705790`, AliyunDrive `44159705762`, infosvr `44159705688`: SUCCESS.
+- USB storage `44159705744`: FAILURE only in final source contract after C policy tests passed; raw multi-line source call was checked as one contiguous string. THIS COMMIT collapses whitespace before matching. NVRAM `44159705768`: IN_PROGRESS at last poll.
 
-Next: verify exact-SHA storage/HTTPD and XY-C1 Build/TRX/artifact, then continue an independent P1 service lifecycle postcondition.
+Next: verify exact-SHA USB storage after this contract fix and query NVRAM; continue independent development while long firmware work is pending.
 ---
 
 ## Whole-repository module status

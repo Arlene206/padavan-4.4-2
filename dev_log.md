@@ -1,3 +1,8 @@
+## 2026-11-17 — Make the swap staging source contract whitespace-tolerant
+
+- Exact-head storage run `44159705744` on `9cf66b7bec1a7befd0408ef8a9c2aec9b44563b3` completed shell/ash, MTD, storage C policy tests including the new `/proc/swaps` parser cases, and earlier lifecycle tests successfully. It then failed in the final production caller graph at the source assertion for `storage_ejected_inventory_complete(read_error, close_error, parse_error)`.
+- The production call is line-wrapped after the second argument; the checker compared the full call as one raw substring. Normalize whitespace in `swap_stage` before matching. This changes only the test harness, not production C code.
+- Parent HTTPD, AI handoff, Process lifecycle/inventory, AdGuardHome, AliDDNS, AliyunDrive and infosvr passed. Parent NVRAM was still in progress at last poll.
 ## 2026-11-17 — Fix newline escapes in raw swap inventory tests
 
 - Exact-head HTTPD run `44159082928` on `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3` passed the previous HTTPD/NVRAM/wireless/storage source checks and then failed at the newly added `storage_ejected_parse_swaps_header()` policy assertion.

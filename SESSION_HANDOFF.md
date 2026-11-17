@@ -1,23 +1,23 @@
-# 2026-11-17 continuation checkpoint — fix /proc/swaps regression fixture escapes
+# 2026-11-17 continuation checkpoint — normalize source-contract whitespace for swap staging
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3`.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `9cf66b7bec1a7befd0408ef8a9c2aec9b44563b3`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Main-only atomic commits; no force-push.
 - Full whole-repository module dashboard and priority queue remain present in `REFACTOR_ROADMAP.md`; do not truncate or snapshot it.
 
-## Active task — swap-only physical eject regression
-- `umount_ejected_locked()` now stages `/proc/swaps` independently of mounts, identifies raw removable SD/MMC swap entries missing from `/proc/partitions`, retries swapoff and propagates failure to `usb_unplug_ms` retry scheduling, even with no filesystem mountpoints.
-- The new policy test fixtures were written with two backslashes before `n`, so C passed a literal backslash+n to `storage_ejected_line_is_complete()` instead of a newline. HTTPD run `44159082928` caught this at `storage_ejected_parse_swaps_header()`; this was a test-fixture defect, not a production compile failure. THIS COMMIT normalizes those C string escapes and moves the PASS print until after all assertions.
+## Active task — swap-only physical eject
+- `umount_ejected_locked()` stages `/proc/swaps` independently of mounts, identifies raw removable SD/MMC swap entries missing from `/proc/partitions`, retries swapoff and propagates failure to `usb_unplug_ms` retry scheduling, even with no filesystem mountpoints.
+- The new GNU89 policy parser tests passed on the parent exact run after correcting the C newline fixtures. Exact-head storage run `44159705744` then failed in the final caller-graph checker: its assertion compares a line-wrapped `storage_ejected_inventory_complete(read_error, close_error, parse_error)` call as one raw substring. THIS COMMIT normalizes whitespace in the extracted source before checking. No production source is changed.
 
 ## Verification boundary
-- Exact-head SHA `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3`: HTTPD `44159082928` FAILURE at the GNU89 storage policy assertion for the escaped newline fixture. Storage `44159082983`, Process lifecycle `44159083056`, Process inventory `44159082910`, NVRAM `44159082643`, and XY-C1 `44159082732` were IN_PROGRESS at last poll.
-- Exact-head AliDDNS `44159082676`, AliyunDrive `44159083161`, Firewall `44159083062`, vsftpd `44159082703`, AI handoff `44159082888`, USB modem `44159082977`, NFS `44159082911`, Samba `44159082927`, infosvr `44159082706`, AdGuardHome `44159082702`: SUCCESS.
-- No local MIPS/uClibc toolchain or physical router; current-source L3/L4 only when exact Build/TRX/artifact and actual router test evidence exist. No L4 result claimed.
+- Exact-head `9cf66b7`: HTTPD `44159705825`, AI handoff `44159706008`, Process lifecycle `44159705817`, Process inventory/fail-closed `44159705723`, AdGuardHome `44159705890`, AliDDNS `44159705790`, AliyunDrive `44159705762`, infosvr `44159705688`: SUCCESS.
+- USB storage `44159705744`: FAILURE at final production source-contract assertion after all C policy tests passed; no compile/policy failure remains. NVRAM `44159705768`: IN_PROGRESS at last poll.
+- No XY-C1 run was observed for exact test-only SHA `9cf66b7`; prior firmware run targets older source. No local MIPS/uClibc toolchain or router; physical L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-- Inspect exact-SHA storage, HTTPD, Process, AI and XY-C1 Actions for THIS COMMIT; if tests fail, use their exact job logs. Require the new GNU89 parser cases to pass before considering the swap-only task L2 verified.
-- While XY-C1 is pending, continue a separate independent P1 service lifecycle or NVRAM postcondition. Do not repeat the already completed Samba eject lock, mounted-device swapoff, hotplug automount result or partition topology changes.
-- Preserve the frozen backup; use complete Git trees and expected-SHA non-forced `main` updates.
+- Inspect exact-SHA storage workflow after the whitespace-tolerant source assertion and confirm NVRAM result for `9cf66b7` independently.
+- If storage passes, continue an independent P1 service lifecycle or NVRAM postcondition while any firmware job remains pending; do not repeat already fixed swap parser escapes or source whitespace checks.
+- Preserve frozen backup; commit complete trees with fresh expected SHA and `force:false`.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session
