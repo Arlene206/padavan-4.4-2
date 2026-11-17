@@ -27,6 +27,7 @@ on:
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/zerotier/**"
       - "trunk/user/pppoe/detect.sh"
+      - "trunk/user/pppoe/tests/detect_status.sh"
       - "trunk/user/pppoe/mwan.sh"
       - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
       - "scripts/check_pppoe_mwan_status.py"
@@ -394,9 +395,12 @@ jobs:
       - name: Verify WAN firewall result propagation
         run: python3 scripts/check_wan_firewall_status.py
 
-      - name: Verify PPPoE-MWAN private options and partial launch rollback
+      - name: Verify PPPoE-MWAN cleanup fail-closed and partial launch rollback
         run: |
           set -eu
+          bash -n trunk/user/pppoe/detect.sh
+          bash -n trunk/user/pppoe/tests/detect_status.sh
+          bash trunk/user/pppoe/tests/detect_status.sh
           sh -n trunk/user/pppoe/mwan.sh
           bash -n trunk/user/pppoe/tests/mwan_lifecycle.sh
           bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"

@@ -32,6 +32,10 @@ MOCK
 cat > "$BIN/iptables-save" <<'MOCK'
 #!/bin/sh
 [ "${FAIL_SAVE:-}" != "${2:-}" ] || exit 33
+if [ "${MALFORMED:-0}" = 1 ] && [ "${2:-}" = mangle ]; then
+	printf '%s\n' '-A PREROUTING -i br0 -m comment --comment "unterminated br0'
+	exit 0
+fi
 [ "${2:-}" != mangle ] || { echo '-A PREROUTING -i br0 -m comment --comment "remove br0" -j ACCEPT'; if [ "${MALICIOUS:-0}" = 1 ]; then printf '%s\n' "-A FORWARD -m comment --comment '\$(touch $PWNED)' -j ACCEPT"; fi; }
 MOCK
 cat > "$BIN/iptables" <<'MOCK'
@@ -60,12 +64,30 @@ exec /bin/rm "$@"
 MOCK
 chmod +x "$BIN"/*
 export PATH="$BIN:$PATH" LOG LOCK PWNED SLEEP_LOG MWAN_LOCKFILE="$LOCK"
-reset() { /bin/rm -f "$LOCK" "$LOG" "$PWNED" "$SLEEP_LOG"; : > "$LOG"; : > "$SLEEP_LOG"; unset FAIL_BR0 FAIL_SAVE FAIL_IPTABLES FAIL_IP FAIL_CLEANUP MALICIOUS PPP_NUM PPP1_UP; }
+reset() { /bin/rm -f "$LOCK" "$LOG" "$PWNED" "$SLEEP_LOG"; : > "$LOG"; : > "$SLEEP_LOG"; unset FAIL_BR0 FAIL_SAVE FAIL_IPTABLES FAIL_IP FAIL_CLEANUP MALFORMED MALICIOUS PPP_NUM PPP1_UP; }
 run() { set +e; bash "$SCRIPT"; RC=$?; set -e; }
+
+assert_cleanup_failure_stops_policy() {
+	if grep -Eq '^iptables[[:space:]]+-t[[:space:]]+(mangle|nat)[[:space:]]+-A([[:space:]]|$)' "$LOG"; then
+		fail 'new firewall rules were added after old-policy cleanup failed'
+	fi
+	if grep -Eq '^ip[[:space:]]+(rule[[:space:]]+add|route[[:space:]]+(add|replace))([[:space:]]|$)' "$LOG"; then
+		fail 'policy/default routes were changed after old-policy cleanup failed'
+	fi
+	grep -Fq $'ip\troute\tflush\tcache' "$LOG" || fail 'route-cache cleanup was skipped'
+}
+
 reset; run; [ "$RC" = 0 ] || fail "normal run status $RC"; [ ! -e "$LOCK" ] || fail 'normal run leaked lock'
 grep -Fq $'iptables\t-t\tmangle\t-D\tPREROUTING\t-i\tbr0\t-m\tcomment\t--comment\tremove br0\t-j\tACCEPT' "$LOG" || fail 'quoted iptables-save comment parsing'
 grep -Fq $'ip\troute\treplace\tdefault\tnexthop\tvia\t198.51.100.2\tdev\tppp0\tweight\t1\tnexthop\tvia\t203.0.113.2\tdev\tppp1\tweight\t1' "$LOG" || fail 'multipath default route'
-reset; export FAIL_SAVE=mangle; run; [ "$RC" = 33 ] || fail "iptables-save status $RC"; [ ! -e "$LOCK" ] || fail 'save failure leaked lock'
+reset; export FAIL_SAVE=mangle; run; [ "$RC" = 33 ] || fail "iptables-save status $RC"; [ ! -e "$LOCK" ] || fail 'save failure leaked lock'; assert_cleanup_failure_stops_policy
+echo 'PPPoE-MWAN mangle snapshot failure blocks new policy: PASS'
+reset; export FAIL_SAVE=nat; run; [ "$RC" = 33 ] || fail "NAT snapshot status $RC"; assert_cleanup_failure_stops_policy
+echo 'PPPoE-MWAN NAT snapshot failure blocks new policy: PASS'
+reset; export FAIL_IPTABLES='-D'; run; [ "$RC" = 37 ] || fail "old-rule deletion status $RC"; assert_cleanup_failure_stops_policy
+echo 'PPPoE-MWAN old-rule deletion failure blocks new policy: PASS'
+reset; export MALFORMED=1; run; [ "$RC" = 2 ] || fail "malformed saved rule status $RC"; assert_cleanup_failure_stops_policy
+echo 'PPPoE-MWAN malformed saved rule blocks new policy: PASS'
 reset; export FAIL_IPTABLES='--dport 443'; run; [ "$RC" = 37 ] || fail "iptables failure status $RC"
 reset; export FAIL_IP='route replace'; run; [ "$RC" = 39 ] || fail "route failure status $RC"; grep -Fq $'ip\troute\tflush\tcache' "$LOG" || fail 'cache flush skipped after route failure'
 reset; export FAIL_BR0=1; run; [ "$RC" = 32 ] || fail "br0 failure status $RC"; [ ! -e "$LOCK" ] || fail 'br0 error leaked lock'

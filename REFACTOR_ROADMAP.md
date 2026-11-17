@@ -1,11 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Product-source fix `8e9ea213` gates all WAN RAS/PPP/IPoE protocol startup on a successful firewall rebuild, with physical-WAN recovery or interface-down fallback.
-- Exact-head `ece8011`: WAN route, Wireless radio, AI handoff, AdGuardHome, AliyunDrive, infosvr and NVRAM PASS. Firewall Startup, Process and XY-C1 stopped at a final stale static-IPoE boundary in the modem checker. THIS COMMIT aligns it with the current firewall gate comment.
-- The new GNU89 service-start policy regression and preceding firewall/route/wireless source checks passed before that checker failure. XY-C1 Build/TRX/upload have not run successfully yet. No target L3/hardware L4 claim.
-- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- WAN firewall gating is in 8e9ea213; cross-workflow checker repairs are in ece8011, 659c072 and 319fd181.
+- Exact 319fd181 PASS: WAN DHCP 44180704527, Firewall Startup 44180704593, Process 44180704695, USB modem 44180704601, NVRAM 44180705330, AI handoff 44180704890, AdGuardHome 44180704561, AliDDNS 44180704620, AliyunDrive 44180704706 and infosvr 44180704617.
+- XY-C1 44180704552 passed all pre-build gates and Build XY-C1 was running at last poll; TRX/artifact steps pending. No L3 claim until successful exact-head Build/TRX/upload.
+- THIS COMMIT changes PPPoE-MWAN detect.sh: after snapshot/parse/delete failure during prior-rule cleanup, all independent cleanup and route-cache flush still run but new rules and policy routes are skipped. Four shell fault-injection cases and XY-C1 pre-build detector execution are added.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; hardware L4 not verified.
 
-Next: inspect exact-SHA Process/Firewall/XY-C1 reruns; if green, examine SSH restart fail-closed behavior.
+Next: inspect exact-SHA WAN-route and XY-C1 jobs; then continue other P1 RC startup/error propagation gaps.
 
 
 ---

@@ -98,6 +98,33 @@ check_caller(
     "WAN PPPoE-MWAN reconfiguration incomplete",
 )
 
+flush_helper_start = DETECT.index("mwan_flush_fail()")
+flush_helper_end = DETECT.index("\\n", flush_helper_start)
+require(
+    "MWAN_FLUSH_FAILED=1" in DETECT[flush_helper_start:flush_helper_end]
+    and 'mwan_flush_fail "$rc" "iptables-save -t $table"' in DETECT
+    and 'mwan_flush_fail 2 "cannot safely parse $table iptables-save rule"' in DETECT
+    and 'mwan_flush_fail "$rc" "iptables -t $table rule deletion"' in DETECT,
+    "snapshot, parse and old-rule deletion failures must poison prior-policy cleanup",
+)
+flush_start = DETECT.index("mwan_flush_iptables mangle ctstate")
+flush_gate = DETECT.index('if [ "$MWAN_FLUSH_FAILED" -ne 0 ]; then', flush_start)
+new_policy_start = DETECT.index("\\nlast=1", flush_start)
+require(
+    DETECT.index("mwan_flush_iptables mangle br0", flush_start) < flush_gate
+    and DETECT.index("mwan_flush_iptables nat ppp", flush_start) < flush_gate
+    and flush_gate < DETECT.index('mwan_run ip route flush cache', flush_gate)
+    and DETECT.index('exit "$MWAN_STATUS"', flush_gate) < new_policy_start,
+    "all independent cleanup must precede cache flush and abort before new policy",
+)
+require(
+    "PPPoE-MWAN mangle snapshot failure blocks new policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN NAT snapshot failure blocks new policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN old-rule deletion failure blocks new policy: PASS" in DETECT_TEST
+    and "PPPoE-MWAN malformed saved rule blocks new policy: PASS" in DETECT_TEST,
+    "PPPoE-MWAN cleanup fail-closed regression matrix is incomplete",
+)
+
 require(
     "MWAN_LOCK_WAIT_LIMIT=30" in DETECT
     and 'if [ "$MWAN_LOCK_WAITED" -ge "$MWAN_LOCK_WAIT_LIMIT" ]; then' in DETECT
@@ -161,6 +188,8 @@ require(
 )
 for marker in (
     "trunk/user/rc/src/net_ppp.c",
+    "trunk/user/pppoe/detect.sh",
+    "trunk/user/pppoe/tests/detect_status.sh",
     "scripts/check_pppoe_mwan_status.py",
     "trunk/user/pppoe/mwan.sh",
     "trunk/user/pppoe/tests/mwan_lifecycle.sh",
@@ -168,9 +197,11 @@ for marker in (
     require(f'"{marker}"' in XY_WORKFLOW,
             "XY-C1 push paths must include multi-WAN source and regression")
 require(
-    'bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"' in XY_WORKFLOW
+    "bash -n trunk/user/pppoe/detect.sh" in XY_WORKFLOW
+    and "bash trunk/user/pppoe/tests/detect_status.sh" in XY_WORKFLOW
+    and 'bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"' in XY_WORKFLOW
     and "python3 scripts/check_pppoe_mwan_status.py" in XY_WORKFLOW,
-    "XY-C1 workflow must run multi-WAN regressions/contracts before firmware build",
+    "XY-C1 workflow must run detector and multi-WAN shell regressions/contracts before firmware build",
 )
 
 # An IPv6 teardown error must not short-circuit independent IPv4 route/service cleanup.

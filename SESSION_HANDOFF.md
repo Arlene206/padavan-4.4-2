@@ -1,26 +1,27 @@
-# 2026-11-18 continuation checkpoint — repair remaining WAN source contracts
+# 2026-11-18 continuation checkpoint — fail closed after incomplete PPPoE-MWAN cleanup
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS correction: `62fbefe3d562c332c9929b22f6d2d8ea078e1ade`.
-- All development stays on `main`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Product fix `be0f5b56` returns AP-client driver errors from `reconnect_apcli()` into WAN startup. Product fix `8e9ea213` prevents USB RAS, PPP and IPoE protocol startup when required firewall rebuilds fail, with physical-WAN recovery and interface-down fallback.
-- Common source-checker delimiters were repaired in `659c0720`; WAN DHCP APCLI delimiter was repaired in `62fbefe3`. The remaining count and static-IPoE boundary assertions are fixed in THIS commit.
+- Repository: Arlene206/padavan-4.4-2; parent main SHA for this slice: 319fd18123df5e47929cbe1c27f2989fd129bef4.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- WAN firewall product fix: 8e9ea213; source-contract repairs: ece8011, 659c072, and WAN/APCLI checker correction 62fbefe / 319fd181.
+- Exact main SHA 319fd181: WAN DHCP callback 44180704527, Firewall Startup 44180704593, Process lifecycle 44180704695, USB modem 44180704601, NVRAM 44180705330, AI handoff 44180704890, AdGuardHome 44180704561, AliDDNS 44180704620, AliyunDrive 44180704706, and infosvr 44180704617 all PASS.
+- XY-C1 run 44180704552 passed all pre-build regressions including WAN firewall and PPPoE-MWAN private-options / partial-launch contracts, and was executing Build XY-C1 at last poll. TRX verification and artifact upload were pending. Do not claim L3 until all three finish successfully.
 
-## Exact-head CI diagnosis
-- On `659c0720`, Process `44179526342`, Firewall Startup `44179526456`, USB modem `44179526516`, and XY-C1 `44179526334` reached the shared modem checker and failed at line 315 because it required four WAN modem result aggregates. The current `start_wan()` path contains five checked updates: USB-net startup, RAS interface migration, RAS firewall rebuild, firewall-failure physical-WAN restoration, and RAS launch. The checker now expects five and asserts recovery aggregation.
-- On exact `62fbefe3`, WAN DHCP callback `44179778384` passed the APCLI-boundary check but failed in its inline static-IPoE contract because it still used the removed legacy final-iptables comment. The workflow now ends the static-address check at the real `vlan_result = start_firewall_ex();` call.
-- Exact `659c0720` AI handoff `44179526396`, AdGuardHome `44179526443`, infosvr `44179526331`, AliyunDrive `44179526451`, and AliDDNS `44179526391` passed. Exact `62fbefe3` AI handoff `44179778471` and AliyunDrive `44179778466` passed.
-- XY-C1 `44179526334` stopped before firmware Build, TRX verification and artifact upload at the shared checker assertion; no current-source L3 claim.
+## Active P1 — PPPoE-MWAN must not construct new routes over stale firewall policy
+- trunk/user/pppoe/detect.sh captured and returned command failures, but when any of its three required old-rule cleanup stages failed (iptables-save, safe rule parsing, or iptables -D), it still continued to add new mangle/NAT rules and policy/default routes on top of potentially stale rules.
+- THIS COMMIT introduces a cleanup-poison flag: all independent old-rule cleanup is still attempted, the first error is preserved, route cache is flushed, and the script exits before creating any new policy/routing when cleanup is incomplete.
+- Added shell failure-injection cases for mangle snapshot, NAT snapshot, old-rule deletion and malformed saved rule. Each requires no new firewall rules/policy routes, cache flush attempted, and owned lock cleanup.
+- WAN CI already runs the detector suite. XY-C1 now also filters and runs detect_status.sh before firmware build, alongside multi-WAN private-options/lifecycle tests.
 
-## THIS correction
-- `scripts/check_modem_wan_start_status.py`: expect the five actual modem-result updates and explicitly check that the RAS firewall recovery result is aggregated after `restore_wan_after_firewall_failure()`.
-- `.github/workflows/wan-dhcp-callback-stability.yml`: static IPoE config assertion ends at the actual firewall rebuild call rather than a removed comment.
-- Production C source is unchanged. No complete local repository checkout or MIPS toolchain is available; exact-head Actions must validate the contracts.
+## Verification boundary
+- On parent 319fd181, WAN DHCP, Firewall Startup, Process, USB modem, NVRAM, AI handoff, AdGuardHome, AliDDNS, AliyunDrive and infosvr exact-SHA Actions all PASS.
+- XY-C1 run 44180704552 had all pre-build tests PASS and Build XY-C1 in progress; final Build/TRX/artifact result must be rechecked after this new commit triggers its own exact-SHA run.
+- No local complete checkout/target toolchain is mounted. No fresh MIPS build, TRX/artifact, or router hardware L4 result is claimed for this slice yet.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head Process, Firewall Startup, USB modem, XY-C1 and WAN DHCP callback runs triggered by THIS correction. Inspect full step logs; the new source-contract anchors/count must pass.
-2. Require XY-C1 Build XY-C1, TRX verification and artifact upload on the exact current SHA. If another assertion fails, repair the contract/source as appropriate and rerun.
-3. Continue the next independent P1 stability/security issue after these cross-workflow gates clear. Keep backup immutable. Physical router L4 remains NOT VERIFIED.
+1. Inspect exact-SHA WAN-route and XY-C1 Actions triggered by this commit; require all four new detector failure-injection cases PASS before Build XY-C1.
+2. Resolve the pending parent 319fd181 XY-C1 Build/TRX/artifact run 44180704552 for historical evidence; do not substitute it for the new SHA build.
+3. Continue broad P1 RC startup-result propagation from the roadmap after exact-SHA PPPoE-MWAN checks clear. Keep backup immutable.
 
 # Cross-session execution mandate
 

@@ -5,6 +5,7 @@
 LOCKFILE="${MWAN_LOCKFILE:-/tmp/lock}"
 MWAN_STATUS=0
 MWAN_LOCK_OWNED=0
+MWAN_FLUSH_FAILED=0
 
 mwan_log() { logger -t MWAN "$*" >/dev/null 2>&1 || :; }
 mwan_fail() {
@@ -15,6 +16,7 @@ mwan_fail() {
 	return 0
 }
 mwan_run() { "$@"; local rc=$?; mwan_fail "$rc" "$*"; return 0; }
+mwan_flush_fail() { MWAN_FLUSH_FAILED=1; mwan_fail "$@"; }
 mwan_die() { local rc="$1"; shift; mwan_fail "$rc" "$*"; exit "$MWAN_STATUS"; }
 mwan_exit() {
 	local rc=$?
@@ -74,13 +76,13 @@ mwan_parse_rule() {
 }
 mwan_flush_iptables() {
 	local table="$1" tag="$2" saved rule rc
-	if saved=$(iptables-save -t "$table"); then :; else rc=$?; mwan_fail "$rc" "iptables-save -t $table"; return 0; fi
+	if saved=$(iptables-save -t "$table"); then :; else rc=$?; mwan_flush_fail "$rc" "iptables-save -t $table"; return 0; fi
 	while IFS= read -r rule || [ -n "$rule" ]; do
 		case "$rule" in -A\ *) ;; *) continue;; esac
 		case "$rule" in *"$tag"*) ;; *) continue;; esac
-		if ! mwan_parse_rule "$rule"; then mwan_fail 2 "cannot safely parse $table iptables-save rule"; continue; fi
+		if ! mwan_parse_rule "$rule"; then mwan_flush_fail 2 "cannot safely parse $table iptables-save rule"; continue; fi
 		iptables -t "$table" -D "${MWAN_RULE_ARGS[@]:1}"
-		rc=$?; mwan_fail "$rc" "iptables -t $table rule deletion"
+		rc=$?; mwan_flush_fail "$rc" "iptables -t $table rule deletion"
 	done <<< "$saved"
 }
 
@@ -116,6 +118,15 @@ mwan_ipv4_valid "$lanip" || mwan_die 2 "invalid br0 IPv4 address: $lanip"
 mwan_flush_iptables mangle ctstate
 mwan_flush_iptables mangle br0
 mwan_flush_iptables nat ppp
+
+# Do not construct a new policy on top of stale or partially removed rules.
+# All independent cleanup attempts have completed; refresh route cache and
+# preserve the first error before returning to the WAN lifecycle caller.
+if [ "$MWAN_FLUSH_FAILED" -ne 0 ]; then
+	mwan_log "skipping PPPoE-MWAN rules and routes because previous policy cleanup failed"
+	mwan_run ip route flush cache
+	exit "$MWAN_STATUS"
+fi
 
 last=1
 route_replace=(route replace default)

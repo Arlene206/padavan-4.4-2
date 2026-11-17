@@ -1,3 +1,11 @@
+## 2026-11-18 — Prevent PPPoE-MWAN policy rebuild after failed cleanup
+
+- Parent main SHA: 319fd18123df5e47929cbe1c27f2989fd129bef4; changed detect.sh, detect_status.sh, check_pppoe_mwan_status.py and XY-C1 workflow atomically with handoff/roadmap/log.
+- The detector previously recorded iptables-save, malformed snapshot parsing and iptables -D failures but continued adding new mangle/NAT rules and policy/default routes. This could layer a new multi-WAN policy over stale or partially removed rules.
+- A cleanup failure now poisons the previous-policy phase while all three independent cleanup tables are still attempted. The detector flushes route cache, preserves the first error, removes its owned lock via EXIT trap, and exits before any new mangle/NAT/policy/default route writes.
+- Added shell failure-injection cases for failed mangle snapshot, failed NAT snapshot, rule-deletion failure and malformed saved rule; each asserts no new policy or route mutation and cache cleanup. XY-C1 now runs this detector suite before Build in addition to WAN-route CI.
+- On parent 319fd181, WAN DHCP, Firewall Startup, Process, USB modem, NVRAM, AI docs, AdGuardHome, AliDDNS, AliyunDrive and infosvr exact-SHA Actions passed. Its XY-C1 run 44180704552 had pre-build regressions green and Build XY-C1 in progress; this new SHA requires its own WAN/XY verification. No hardware L4 claim.
+
 ## 2026-11-18 — Correct RAS startup aggregation count and WAN DHCP static-IPoE boundary
 
 - Parent main SHA: `62fbefe3d562c332c9929b22f6d2d8ea078e1ade`; only regression contracts and handoff/log changed.
