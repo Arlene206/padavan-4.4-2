@@ -201,10 +201,17 @@ require("presence_status < 0" in safe_start_locked and
 require("if (presence_status == 0)" in safe_start_locked and
         'if (!pids("xl2tpd"))' not in safe_start_locked,
         "xl2tpd must launch only after confirmed absence")
+require("xl2tpd_start_policy_completion_result(presence_status" in safe_start_locked and
+        "return eval(" not in safe_start_locked,
+        "xl2tpd child exit status must not be confused with already-running state")
 for marker in ("PROCESS_PRESENCE_RUNNING", "PROCESS_PRESENCE_ABSENT",
-               "PROCESS_PRESENCE_UNKNOWN", "xl2tpd process-presence start gate: PASS"):
+               "PROCESS_PRESENCE_UNKNOWN",
+               "xl2tpd_start_policy_completion_result(0, 1)",
+               "xl2tpd_start_policy_completion_result(0, 127)",
+               "xl2tpd_start_policy_wan_launch_result(1)",
+               "xl2tpd process-presence and launch-result policy: PASS"):
     require(marker in xl2tpd_policy + xl2tpd_test,
-            f"xl2tpd tri-state test marker missing: {marker}")
+            f"xl2tpd lifecycle result test marker missing: {marker}")
 client_start=body(vpn_client,"start_vpn_client_locked(void)")
 require("xl2tpd_status == 1" in client_start and "xl2tpd_status < 0" in client_start,
         "VPNC control must only target a confirmed running daemon")
@@ -225,8 +232,10 @@ ordered(wan_launch,["if (unit < 0)",
                     "launch_wan_pppd_locked(unit, wan_proto)",
                     "vpn_server_lifecycle_lock_release(lock_fd)"],"WAN L2TP/multi-WAN launch")
 require("kill_services(svcs, 5, 1)" in wan_launch_locked and
-        "safe_start_xl2tpd_locked()" in wan_launch_locked,
+        "xl2tpd_start_policy_wan_launch_result(" in wan_launch_locked,
         "WAN L2TP stop/config/start must remain in one locked helper")
+require("xl2tpd_start_policy_wan_launch_result(\n\t\t\t\tsafe_start_xl2tpd_locked())" in wan_launch_locked,
+        "WAN L2TP launch must accept already-running xl2tpd as success")
 ordered(wan_launch_locked,["ppp_wan_session_generation_change(&callback_generation)",
                            'nvram_match("pppoemwan_enable", "1")',
                            "kill_services(svcs_pppd, 5, 1)",

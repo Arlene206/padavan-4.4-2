@@ -1,3 +1,13 @@
+## 2026-11-16 — Normalize xl2tpd launch failures before lifecycle callers
+
+- Parent `f87343b7e7a2da599c16baf1192ec1561dc44a9b`: HTTPD `43992613516`, AliyunDrive `43992613319`, AliDDNS `43992613480`, Process lifecycle `43992613370`, VPN lifecycle `43992613425`, AI handoff `43992613327`, USB WDM/NDIS `43992613561`, Firewall `43992613416`, AdGuardHome `43992613329`, infosvr `43992613374` and NVRAM `43992613294` all PASS. XY-C1 `43992613368` had passed host regressions through step 22 and was in Build; TRX/artifact pending.
+- Defect: `safe_start_xl2tpd_locked()` uses `1` to report an already-running daemon, but directly returned `eval("/usr/sbin/xl2tpd", ...)` when the process was absent. `eval()` returns the child's positive exit code; an `xl2tpd` exit status of 1 therefore looked exactly like the success sentinel. The WAN-start merge path checks only `< 0`, so it could report WAN/L2TP server start success even though launching xl2tpd failed.
+- Added pure policy mapping: a confirmed running daemon with no launch attempt maps to 1; a confirmed absent daemon plus command status 0 maps to 0; any nonzero command result or unknown/invalid presence maps to -1. The starter preserves errno (fallback EIO) and logs the nonzero child status. WAN PPP launch maps the documented already-running result 1 to its normal success status 0.
+- Extended `tests/xl2tpd_start_policy.c` with exit statuses 1 and 127, unknown/invalid state and WAN-launch normalization cases. The VPN workflow already compiles this test with GNU89/Werror. Extended its source checker to require the normalized policy callsites and regression markers.
+- Exact production C / host CI for this slice is pending on the new SHA; parent XY-C1 had not yet completed Build/TRX/artifact. Product-source L3 and physical-router L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Restore development-log history and align PPP argv contracts
 
 - Exact-head run set for `243c2514e56474ed779a4057a1277e2ae178091c`: WAN DHCP `43991768681`, WAN route `43991768587`, USB modem identity `43991768563`, infosvr `43991768585`, AdGuardHome `43991768660`, AliDDNS `43991768674`, and standalone process inventory `43991768704` PASS.

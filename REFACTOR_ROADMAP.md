@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- `net6.c` IPv6 per-interface cleanup, all `net_wan6.c` SIT/6RD/native routes, dynamic `net_wan.c` PPP/WAN hook operands and static `net_ppp.c` L2TP/mwan control commands use argv-based `eval()`.
-- Exact SHA `71c95adc`: Firewall, WAN route, Process, USB modem, infosvr, AdGuardHome, AliDDNS and AliyunDrive PASS. AI handoff `43991464381` failed because developer-log history was truncated; XY-C1 `43991464349` had reached Build and NVRAM `43991464305` passed.
-- Exact SHA `243c2514`: WAN DHCP, WAN route, USB modem, infosvr, AdGuardHome, AliDDNS and standalone process inventory PASS. Firewall/Process exposed a malformed Python regex; VPN/HTTPD exposed stale source assertions; AI handoff found two log entries. This commit repairs these deterministic checker/documentation causes.
-- XY-C1 `43991768599`, NVRAM `43991768624` and AliyunDrive `43991768665` were pending at last poll. Same-SHA MIPS/uClibc Build/TRX/artifact L3 and physical-router L4 remain NOT VERIFIED; backup remains frozen.
-
+- Per-interface IPv6 cleanup and all SIT/6RD/native WAN IPv6 tunnel, route and teardown commands use argv-based `eval()`; dynamic PPP/WAN hook operands and PPP/L2TP control commands are likewise shell-free.
+- The xl2tpd start policy now distinguishes process presence (`1 = already running`, `0 = absent`, `-1 = unknown`) from the child launch result. Nonzero `eval()` exit status becomes a hard failure instead of colliding with the positive already-running sentinel. WAN L2TP launch explicitly treats an already-running shared daemon as success.
+- Exact parent `f87343b`: 11 non-XY workflows passed, including Firewall, WAN/PPP/VPN, Process, HTTPD, AI handoff and NVRAM. XY-C1 had completed all host regressions and was in Build; TRX/artifact pending. This xl2tpd result-normalization slice needs its own exact-head tests and target build.
+- Product-source L3 and physical-router L4 remain NOT VERIFIED; frozen backup remains read-only.
 
 ## Whole-repository module status
 

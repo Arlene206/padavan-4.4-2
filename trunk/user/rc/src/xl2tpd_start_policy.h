@@ -11,4 +11,27 @@ xl2tpd_start_policy_result(enum process_presence presence)
 		return 0;
 	return -1;
 }
+
+/*
+ * Convert the launch result without confusing a positive child exit status
+ * with the "already running" sentinel returned by xl2tpd_start_policy_result.
+ */
+static inline int
+xl2tpd_start_policy_completion_result(int presence_status, int command_status)
+{
+	if (command_status != 0)
+		return -1;
+	if (presence_status == 1 || presence_status == 0)
+		return presence_status;
+	return -1;
+}
+
+/* WAN PPP treats an already-running shared daemon as a successful start. */
+static inline int
+xl2tpd_start_policy_wan_launch_result(int start_status)
+{
+	if (start_status == 0 || start_status == 1)
+		return 0;
+	return -1;
+}
 #endif /* XL2TPD_START_POLICY_H */

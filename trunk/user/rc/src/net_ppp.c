@@ -288,7 +288,7 @@ safe_start_xl2tpd_locked(void)
 	FILE *fp;
 	int unit;
 	int use_vpn_server, use_wan_lac, use_vpnc;
-	int saved_errno, scan_error, presence_status;
+	int saved_errno, scan_error, presence_status, launch_status;
 	struct process_snapshot process_snapshot;
 	enum process_presence daemon_presence;
 	const char *invalid_value = NULL;
@@ -457,10 +457,24 @@ safe_start_xl2tpd_locked(void)
 	if (use_vpnc)
 		nvram_set_int_temp("l2tp_cli_t", 1);
 
-	/* Launch only when a complete inventory proves xl2tpd is absent. */
+	/*
+	 * Keep the process-presence sentinel (1 = already running) distinct
+	 * from eval()'s positive child exit statuses.  A failed daemon launch
+	 * must never be reported as a successfully running shared service.
+	 */
+	launch_status = 0;
 	if (presence_status == 0)
-		return eval("/usr/sbin/xl2tpd", "-c", (char *)l2tp_conf);
-	return 1;
+		launch_status = eval("/usr/sbin/xl2tpd", "-c", (char *)l2tp_conf);
+	presence_status = xl2tpd_start_policy_completion_result(presence_status,
+							       launch_status);
+	if (presence_status < 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot start xl2tpd after confirmed absence (status=%d, errno=%d)",
+			   launch_status, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	return presence_status;
 }
 
 int
@@ -896,7 +910,8 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 #endif
 		{
 			nvram_set_int_temp("l2tp_wan_t", 1);
-			launch_status = safe_start_xl2tpd_locked();
+			launch_status = xl2tpd_start_policy_wan_launch_result(
+				safe_start_xl2tpd_locked());
 		}
 	} else {
 		if (nvram_match("pppoemwan_enable", "1"))
