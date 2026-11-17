@@ -1,3 +1,12 @@
+## 2026-11-17 — Fix Process lifecycle helper extraction test
+
+- Parent main SHA: 30428280cde13499dc0703bb0eb6606398773e12; result: THIS COMMIT.
+- Exact Process workflow `44125814201` exercised process inventory, PID-file identity, service lifecycle, ZeroTier, RWFS/storage and prior RC integrations successfully, then failed in the new LAN DHCP helper assertion because the Python source literal searched for a double-escaped `\\n` rather than the function's newline delimiter.
+- Replaced the brittle prefix extraction with `split("stop_udhcpc_lan(void)")` and a real newline closing-brace delimiter. No production code changed.
+- Exact WAN-DHCP count correction `3042828` run `44126128791` was pending at last poll. Current-source XY-C1 run `44125814296` was still in build/TRX/artifact stage.
+
+---
+
 ## 2026-11-17 — Correct DHCP stop-source contract after LAN helper consolidation
 
 - Parent main SHA: e64ab93290e20935c0a11ac990612f8dc29fa363; result: THIS COMMIT.

@@ -679,7 +679,7 @@ assert "status = stop_udhcpc_lan();" in lan_stop
 assert lan_daemon_stop in lan_stop
 assert lan_stop.index("notify_pause_detect_internet()") < lan_stop.index("status = stop_udhcpc_lan();")
 assert lan_stop.index("status = stop_udhcpc_lan();") < lan_stop.index(lan_daemon_stop)
-lan_pidfile_stop = net_lan_dhcp.split("int\\nstop_udhcpc_lan(void)", 1)[1].split("\\n}", 1)[0]
+lan_pidfile_stop = net_lan_dhcp.split("stop_udhcpc_lan(void)", 1)[1].split("\n}", 1)[0]
 assert '"/var/run/udhcpc_lan.pid"' in lan_pidfile_stop
 assert 'process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)' in lan_pidfile_stop
 assert lan_dhcp_noforce_stop in lan_pidfile_stop
