@@ -2,14 +2,13 @@
 
 This section is authoritative over older rows where state conflicts.
 
-- Parent main SHA: `f02edd2564903e26e678e327bfeadcd66cb8823a`; result: THIS COMMIT. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- AliDDNS exact run `44118168748` PASS and AI handoff `44118168901` PASS on f02. NVRAM `44117807493` passed on product source `07aecfc4`; Process inventory, AliyunDrive and infosvr checks passed on descendant `b2c8815`.
-- Product-source XY-C1 run `44117807418` on `07aecfc4` was still building at last poll. Only documentation and the Python checker changed after that product-source SHA; Build/TRX/artifact must all pass before L3.
-- PPPoE-MWAN detector command-status/security/owned-lock regression passed on `4f32e40f`; both WAN-up and WAN-down caller status aggregation landed in `5525430a`.
-- THIS COMMIT bounds shared lock contention to 30 seconds so an orphaned `/tmp/lock` cannot deadlock later WAN transitions. The timeout fails visibly and leaves another process's lock untouched; a mocked-sleep regression and static contract pin the behavior.
-- No local checkout/compiler or physical-router L4 claim. New commit requires exact-head WAN-route test/checker Actions.
+- Parent main SHA: `6791d98b116c60a8097ada361d350746b2efa269`; result: THIS COMMIT. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent `14d99079` WAN-route and XY-C1 Build/TRX/artifact passed. Parent `6791d98b` USB modem, Process, WAN teardown, NVRAM, AI, AdGuardHome, Firewall, HTTPD, AliyunDrive, infosvr and AliDDNS Actions passed; XY-C1 `44121420042` remained in progress.
+- PPPoE-MWAN detector failures reach WAN up/down and the shared lock wait is bounded to 30 seconds.
+- THIS COMMIT secures the multi-WAN PPP launcher: escaped/validated credentials, unique private atomic per-session options files, checked macvlan and PPPD results, and first-error preservation. RC invalidates callback generation and stops partial PPPD sessions if launch fails.
+- Added a 12-case host regression and wired it into WAN-route and XY-C1 workflows; XY-C1 paths include the new launcher. Exact-head Actions pending; no current-source firmware L3 claim.
 
-Next: verify exact-head WAN-route and related checks; complete the product-source XY-C1 Build → TRX verification → artifact; then rotate to a different unchecked WAN/userland status path. Avoid completed HTTPD/storage/PPPoE caller audits.
+Next: verify exact-head WAN and XY-C1 tests/Build/TRX/artifact, then continue independent whole-userland reliability without repeating completed HTTPD/storage/PPPoE caller audits.
 
 ---
 

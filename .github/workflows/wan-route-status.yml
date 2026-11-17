@@ -61,6 +61,8 @@ on:
       - "scripts/check_pppoe_mwan_status.py"
       - "trunk/user/pppoe/detect.sh"
       - "trunk/user/pppoe/tests/detect_status.sh"
+      - "trunk/user/pppoe/mwan.sh"
+      - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
   pull_request:
     paths:
       - ".github/workflows/wan-route-status.yml"
@@ -121,6 +123,8 @@ on:
       - "scripts/check_pppoe_mwan_status.py"
       - "trunk/user/pppoe/detect.sh"
       - "trunk/user/pppoe/tests/detect_status.sh"
+      - "trunk/user/pppoe/mwan.sh"
+      - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
 
 jobs:
   wan-route-status:
@@ -239,6 +243,12 @@ jobs:
           bash -n trunk/user/pppoe/detect.sh
           bash -n trunk/user/pppoe/tests/detect_status.sh
           bash trunk/user/pppoe/tests/detect_status.sh
+      - name: Verify PPPoE-MWAN private options and partial launch rollback
+        run: |
+          set -eu
+          sh -n trunk/user/pppoe/mwan.sh
+          bash -n trunk/user/pppoe/tests/mwan_lifecycle.sh
+          bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"
       - name: Verify PPPoE-MWAN WAN-up and WAN-down result propagation
         run: python3 scripts/check_pppoe_mwan_status.py
       - name: Verify route result propagation and cleanup ordering

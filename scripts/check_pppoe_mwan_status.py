@@ -5,9 +5,13 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
+PPP = (RC / "net_ppp.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
+XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 DETECT = (ROOT / "trunk/user/pppoe/detect.sh").read_text()
 DETECT_TEST = (ROOT / "trunk/user/pppoe/tests/detect_status.sh").read_text()
+MWAN = (ROOT / "trunk/user/pppoe/mwan.sh").read_text()
+MWAN_TEST = (ROOT / "trunk/user/pppoe/tests/mwan_lifecycle.sh").read_text()
 
 
 def braced_body(source, opening):
@@ -101,6 +105,72 @@ require(
     and 'if [ "$MWAN_LOCK_OWNED" -eq 1 ]' in DETECT
     and "PPPoE-MWAN lock contention is bounded and foreign lock preserved: PASS" in DETECT_TEST,
     "PPPoE-MWAN lock contention must be bounded and a foreign/stale lock left untouched",
+)
+
+# Keep shell-generated PPP options consistent with the safe RC C writer.
+require(
+    "umask 077" in MWAN
+    and "mwan_pppd_quote()" in MWAN
+    and 'options_file="/tmp/ppp/options.wan$count"' in MWAN
+    and 'options_tmp="/tmp/ppp/.options.wan$count.$"' in MWAN
+    and 'if [ -L "$options_file" ]; then' in MWAN
+    and 'chmod 600 "$options_tmp"' in MWAN
+    and 'mv -f "$options_tmp" "$options_file"' in MWAN
+    and "printf 'user %s\\n' \"$quoted_user\"" in MWAN
+    and "printf 'password %s\\n' \"$quoted_pass\"" in MWAN
+    and 'if /usr/sbin/pppd file "$options_file"; then :; else' in MWAN
+    and 'echo "user $userid' not in MWAN
+    and "/tmp/ppp/options.wan0" not in MWAN,
+    "multi-WAN must quote credentials, atomically publish private per-session files, and retain command failures",
+)
+require(
+    "PPPoE-MWAN quotes PPP credentials without altering their value: PASS" in MWAN_TEST
+    and "PPPoE-MWAN rejects line-injected PPP credentials before launch: PASS" in MWAN_TEST
+    and "PPPoE-MWAN preserves first PPPD launch failure after later success: PASS" in MWAN_TEST
+    and "PPPoE-MWAN refuses symlink credential files: PASS" in MWAN_TEST,
+    "multi-WAN regression must cover credential escaping/injection, partial launch and symlink paths",
+)
+
+ppp_launch = function_body(PPP, "launch_wan_pppd_locked(int unit, int wan_proto)")
+launch_failure_start = ppp_launch.index("if (launch_status != 0)")
+launch_failure_open = ppp_launch.index("{", launch_failure_start)
+launch_failure, _ = braced_body(ppp_launch, launch_failure_open)
+invalidate = launch_failure.index("ppp_wan_session_generation_change(NULL)")
+cleanup_gate = launch_failure.index('if (wan_proto != IPV4_WAN_PROTO_L2TP &&')
+cleanup_call = launch_failure.index("cleanup_status = kill_services(svcs_pppd, 5, 1);")
+cleanup_log = launch_failure.index("failed to stop partial multi-WAN PPP sessions after launch failure")
+restore_errno = launch_failure.index("errno = saved_errno;")
+require(
+    invalidate < cleanup_gate < cleanup_call < cleanup_log < restore_errno,
+    "partial multi-WAN launch failure must invalidate callback identity then stop all partial PPPD sessions",
+)
+
+for marker in (
+    "trunk/user/rc/src/net_ppp.c",
+    "scripts/check_pppoe_mwan_status.py",
+    "trunk/user/pppoe/mwan.sh",
+    "trunk/user/pppoe/tests/mwan_lifecycle.sh",
+):
+    require(WORKFLOW.count(f'"{marker}"') >= 2,
+            "WAN push/pull triggers are missing " + marker)
+require(
+    'bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"' in WORKFLOW
+    and "python3 scripts/check_pppoe_mwan_status.py" in WORKFLOW
+    and "bash trunk/user/pppoe/tests/detect_status.sh" in WORKFLOW,
+    "WAN workflow must run detector + multi-WAN regressions and source contracts",
+)
+for marker in (
+    "trunk/user/rc/src/net_ppp.c",
+    "scripts/check_pppoe_mwan_status.py",
+    "trunk/user/pppoe/mwan.sh",
+    "trunk/user/pppoe/tests/mwan_lifecycle.sh",
+):
+    require(f'"{marker}"' in XY_WORKFLOW,
+            "XY-C1 push paths must include multi-WAN source and regression")
+require(
+    'bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"' in XY_WORKFLOW
+    and "python3 scripts/check_pppoe_mwan_status.py" in XY_WORKFLOW,
+    "XY-C1 workflow must run multi-WAN regressions/contracts before firmware build",
 )
 
 # An IPv6 teardown error must not short-circuit independent IPv4 route/service cleanup.

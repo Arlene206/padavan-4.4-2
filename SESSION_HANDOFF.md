@@ -4,30 +4,39 @@ This checkpoint supersedes older status statements below when they conflict. Res
 
 ## Git state
 - Repository: `https://github.com/Arlene206/padavan-4.4-2`; development only on `main`.
-- Parent main SHA: `14d9907941caa59b8515a05b0c8275c3e29d4047`; result: THIS COMMIT (one complete Git tree, non-forced expected-SHA update).
+- Parent main SHA: `6791d98b116c60a8097ada361d350746b2efa269`; result: THIS COMMIT (one complete Git tree, expected-SHA update, no force push).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
-- Connector-only session; no local checkout/compiler. Physical-router L4 NOT VERIFIED.
+- Connector-only session: no full repository checkout or MIPS compiler. Physical-router L4 NOT VERIFIED.
 
-## Completed immediately before this slice
-- Main SHA `14d9907941caa59b8515a05b0c8275c3e29d4047`: PPPoE-MWAN lock contention is bounded to 30 one-second waits; timeout fails visibly and preserves a foreign/stale lock.
-- Exact-head WAN route run `44119319864` PASS, including detector mocked timeout regression, caller aggregation and source contracts.
-- Exact-head XY-C1 run `44119319758` PASS through Build XY-C1, TRX output verification and artifact upload. All 10 exact-SHA push workflows on `14d9907` completed SUCCESS; there were no failures.
+## Previously validated at parent main
+- Parent `14d99079`: WAN route `44119319864` and XY-C1 `44119319758` passed; XY Build, TRX verification and artifact upload all completed.
+- Parent `6791d98b`: USB modem `44121419595`, Process `44121419600`, WAN teardown `44121419407`, NVRAM `44121419443`, AI `44121419349`, AdGuardHome `44121419731`, Firewall `44121419338`, HTTPD `44121419242`, AliyunDrive `44121419530`, infosvr `44121419432`, AliDDNS `44121420346` all SUCCESS. Parent XY-C1 `44121420042` remained IN_PROGRESS at last poll.
 
-## USB NDIS modem firewall-result propagation
-- Source review found `launch_wan_usbnet()` called `start_firewall_ex()` after NDIS interface bring-up but discarded the result. The NDIS branch of `start_wan()` relies on this helper for its first-stage firewall rebuild; unlike the RAS and ordinary WAN paths, it therefore could report a successful modem start when firewall restore/validation failed.
-- THIS COMMIT captures and logs the firewall result, seeds the existing first-error accumulator, and retains it across subsequent modem control and DHCP results. It continues independent startup work in line with the existing WAN startup policy, but returns the earlier firewall failure to `start_wan()`.
-- Added a GNU89 policy regression proving later successful control/DHCP cannot erase the firewall error, and later DHCP failure cannot replace it. The WAN source contract now checks the capture, ordering and returned status; the USB modem workflow compiles the policy regression with ASan/UBSan and runs the source checker.
+## PPPoE-MWAN reliability and security
+- `4f32e40f`: detector preserves command failures, safely parses iptables-save without eval, validates input and cleans only its owned atomic lock.
+- `5525430a`: WAN-up and WAN-down aggregate `detect.sh` exit status.
+- `14d99079`: bounds shared `/tmp/lock` wait to 30 seconds and preserves a foreign lock on timeout; exact WAN-route and XY-C1 passed.
+- THIS COMMIT fixes three adjacent launcher defects: raw NVRAM credentials were written into PPP options, every session reused `options.wan0`, and intermediate macvlan/PPPD errors could be hidden by a later successful iteration.
+- New `mwan.sh` applies pppd-compatible quote/backslash escaping, rejects control/newline/oversized credentials, validates PPP count/VLAN, checks interface setup, atomically publishes separate 0600 `options.wanN` files and preserves the first error.
+- On any partial multi-WAN launch failure, `net_ppp.c` invalidates callback generation then stops the partial PPPD set under the existing lifecycle lock.
+- A 12-case host regression covers private per-session files, credential escaping/injection, first-error retention, interface gates, NVRAM/count/VLAN validation, sync identity and symlink rejection. WAN-route and XY-C1 workflows execute it; XY-C1 paths include `mwan.sh`.
+
+## Recent commits
+- THIS COMMIT: secure per-session PPP options and roll back partial PPPD launches.
+- `6791d98b`: propagate NDIS USB modem firewall startup failure.
+- `14d99079`: bound PPPoE-MWAN detector lock contention.
+- `f02edd25`: correct AliDDNS interval checker escaping.
+- `4f32e40f`: PPPoE-MWAN detector error propagation and safe parsing.
 
 ## First next task
-1. Check exact-head USB modem workflow and XY-C1 workflow for THIS COMMIT. Require the modem policy binary, WDM/NDIS contracts, WAN startup/firewall result checker, Build XY-C1, TRX verification and artifact upload.
-2. For any FAIL, inspect the failing job log and repair the real defect on a new atomic main commit. PENDING does not block independent work.
-3. After this slice validates, continue the open LAN DHCP callback review in `trunk/user/rc/src/net_wan.c`: inspect leasefail/NAK/release semantics against BusyBox initial acquisition and `DECONFIG_PENDING` transitions. Do not repeat the completed deconfig static-host restoration or bound/renew validation work.
-4. Keep progressing across userland modules; do not return to completed HTTPD/storage/PPPoE caller audits.
+1. Inspect exact-head WAN-route and XY-C1 runs for THIS COMMIT; fix any new launcher or callback rollback regression.
+2. Verify current-source XY-C1 Build, TRX verification and artifact upload; parent run `44121420042` does not include this production-source change.
+3. Continue a distinct unchecked userland reliability issue after PPPoE-MWAN launch validation; avoid repeated HTTPD/storage/PPPoE caller audits.
 
 ## Verification boundary
-- Previous exact-head `14d9907`: 10/10 push Actions SUCCESS; WAN route `44119319864` and XY-C1 `44119319758` both SUCCESS. XY job completed Build, TRX and artifact upload.
-- THIS COMMIT's USB modem and XY-C1 runs are newly triggered and must be checked against its exact SHA.
-- No local checkout, host compiler, MIPS build or physical-router test was available in this connector-only session; none is claimed. Router L4 remains NOT VERIFIED.
+- The isolated host harness for the drafted launcher passed 12 cases; this is not a full repository checkout or target build.
+- Exact-head Actions and current-source firmware build are pending at commit creation.
+- Real MIPS/uClibc behavior, live PPP reconvergence and physical-router L4 remain NOT VERIFIED.
 
 
 # Cross-session execution mandate

@@ -1,3 +1,14 @@
+## 2026-11-17 — Secure PPPoE-MWAN session options and roll back partial launch
+
+- Parent main SHA: `6791d98b116c60a8097ada361d350746b2efa269`; result: THIS COMMIT.
+- `mwan.sh` previously interpolated NVRAM username/password into a raw PPP options line, reused `options.wan0` for every PPP session and ignored intermediate macvlan/PPPD failures.
+- Replaced it with checked POSIX-shell flow: validate count/VLAN and credentials, escape apostrophes/backslashes like the RC C writer, reject control/newline/oversized values, check interface creation/MAC/up, atomically publish separate 0600 `options.wanN` files and retain the first command error.
+- When a later PPPD fails after earlier sessions started, `net_ppp.c` invalidates callback generation and stops the partial PPPD set under the already-held VPN lifecycle lock. Cleanup failure is logged without overwriting the original launch error.
+- Added a 12-case host harness and wired it into WAN-route and XY-C1 workflows, with static contracts for the C rollback ordering and credential file policy.
+- Isolated draft host harness passed all 12 cases. Full repository Actions/current-source XY-C1 build remain pending; no local C/MIPS compile or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-17 — Propagate NDIS USB modem firewall rebuild failures
 
 - Parent main SHA: `14d9907941caa59b8515a05b0c8275c3e29d4047`; result: THIS COMMIT.

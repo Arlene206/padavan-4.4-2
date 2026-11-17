@@ -637,7 +637,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 {
 	FILE *fp;
 	int auth_type, mtu, mru, mtu_max, mru_max, mtu_def, mru_def;
-	int saved_errno, launch_status;
+	int saved_errno, launch_status, cleanup_status;
 	unsigned long callback_generation;
 	char callback_generation_text[sizeof(unsigned long) * CHAR_BIT + 1];
 #if defined (APP_RPL2TP)
@@ -926,6 +926,19 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 			   launch_status, saved_errno);
 		if (ppp_wan_session_generation_change(NULL) != 0)
 			logmessage(LOGNAME, "failed to invalidate callback token after PPP launch failure (errno=%d)", errno);
+		/*
+		 * Multi-WAN may have launched earlier PPP sessions before a later
+		 * pppd invocation failed. Invalidate callbacks first, then roll back
+		 * the partial session set while holding the lifecycle lock.
+		 */
+		if (wan_proto != IPV4_WAN_PROTO_L2TP &&
+		    nvram_match("pppoemwan_enable", "1")) {
+			cleanup_status = kill_services(svcs_pppd, 5, 1);
+			if (cleanup_status != 0)
+				logmessage(LOGNAME,
+					   "failed to stop partial multi-WAN PPP sessions after launch failure (status=%d)",
+					   cleanup_status);
+		}
 		errno = saved_errno;
 		return -1;
 	}

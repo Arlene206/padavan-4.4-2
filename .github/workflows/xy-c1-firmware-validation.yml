@@ -27,6 +27,9 @@ on:
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/zerotier/**"
       - "trunk/user/pppoe/detect.sh"
+      - "trunk/user/pppoe/mwan.sh"
+      - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
+      - "scripts/check_pppoe_mwan_status.py"
       - "trunk/user/rc/src/msd_lite_config_file.h"
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/rc/src/igmpproxy_config_file.h"
@@ -382,6 +385,14 @@ jobs:
 
       - name: Verify WAN firewall result propagation
         run: python3 scripts/check_wan_firewall_status.py
+
+      - name: Verify PPPoE-MWAN private options and partial launch rollback
+        run: |
+          set -eu
+          sh -n trunk/user/pppoe/mwan.sh
+          bash -n trunk/user/pppoe/tests/mwan_lifecycle.sh
+          bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"
+          python3 scripts/check_pppoe_mwan_status.py
 
       - name: Build XY-C1
         run: |
