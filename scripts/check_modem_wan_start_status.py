@@ -21,6 +21,8 @@ FIREWALL_COMMAND_STATUS_SOURCE = (RC / "firewall_command_status.h").read_text()
 FIREWALL_HOOK_TEST = (RC / "tests/firewall_hook_file.c").read_text()
 FIREWALL_COMMAND_STATUS_TEST = (RC / "tests/firewall_command_status.c").read_text()
 SERVICES_SOURCE = (RC / "services.c").read_text()
+HTTPD_POLICY_SOURCE = (RC / "httpd_daemon_policy.h").read_text()
+HTTPD_POLICY_TEST_SOURCE = (RC / "tests/httpd_daemon_policy.c").read_text()
 STORAGE_SOURCE = (RC / "services_stor.c").read_text()
 NET6_SOURCE = (RC / "net6.c").read_text()
 IPV6_GLOBAL_CONF_POLICY_SOURCE = (RC / "ipv6_global_conf_policy.h").read_text()
@@ -608,7 +610,37 @@ assert "httpd_lifecycle_lock_acquire_status" in httpd_start_entry
 assert "start_httpd_locked(restart_fw)" in httpd_start_entry
 assert "httpd_lifecycle_lock_finish" in httpd_start_entry
 assert "firewall_status = restart_firewall();" in httpd_start
-assert "if (firewall_status != 0) return firewall_status;" in httpd_start
+assert "errno = 0;" in httpd_start
+assert "firewall_errno = errno > 0 ?" in httpd_start
+assert "httpd_firewall_failure_requires_stop(firewall_status, presence)" in httpd_start
+assert "firewall_stop_status = stop_httpd_locked();" in httpd_start
+assert "firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);" in httpd_start
+assert "if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)" in httpd_start
+assert 'nvram_set_int_temp("httpd_started", 0)' in httpd_start
+assert 'nvram_set_int_temp("httpd_started", 1)' in httpd_start
+assert "errno = firewall_errno;" in httpd_start
+assert "return firewall_status;" in httpd_start
+httpd_firewall_order = (
+    httpd_start.index("firewall_status = restart_firewall();"),
+    httpd_start.index("firewall_errno = errno > 0 ?"),
+    httpd_start.index("httpd_firewall_failure_requires_stop(firewall_status, presence)"),
+    httpd_start.index("firewall_stop_status = stop_httpd_locked();"),
+    httpd_start.index("firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);"),
+    httpd_start.index("if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)"),
+    httpd_start.index('nvram_set_int_temp("httpd_started", 0)'),
+    httpd_start.index('nvram_set_int_temp("httpd_started", 1)'),
+    httpd_start.index("errno = firewall_errno;"),
+    httpd_start.index("return firewall_status;"),
+)
+assert httpd_firewall_order == tuple(sorted(httpd_firewall_order))
+httpd_firewall_policy = compact(body(HTTPD_POLICY_SOURCE, "httpd_firewall_failure_requires_stop("))
+assert "firewall_status != 0" in httpd_firewall_policy
+assert "after_state != PROCESS_PRESENCE_ABSENT" in httpd_firewall_policy
+assert "test_firewall_failure_requires_listener_shutdown" in HTTPD_POLICY_TEST_SOURCE
+httpd_firewall_test = compact(body(HTTPD_POLICY_TEST_SOURCE, "test_firewall_failure_requires_listener_shutdown(void)"))
+for state in ("PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_RUNNING",
+              "PROCESS_PRESENCE_UNKNOWN", "(enum process_presence)99"):
+    assert state in httpd_firewall_test
 
 notify_policy = (RC / "rc_notify_batch_policy.h").read_text()
 notify_test = (RC / "tests/rc_notify_batch_policy.c").read_text()
