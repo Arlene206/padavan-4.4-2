@@ -200,7 +200,10 @@ assert "return failure_status;" in wait_ppp
 assert "socket_status = errno ? errno : EIO;" in wait_ppp
 assert "return socket_status;" in wait_ppp
 assert "return route_status ? route_status : EIO;" in wait_ppp
-assert "return 0;" in wait_ppp[wait_ppp.index('doSystem("ping -c1 %s", ppp_gate);'):]
+ping_command = 'eval("ping", "-c1", ppp_gate);'
+assert ping_command in wait_ppp, "PPP peer probe must use argv, not a formatted shell command"
+assert 'doSystem("ping -c1 %s", ppp_gate)' not in wait_ppp
+assert "return 0;" in wait_ppp[wait_ppp.index(ping_command):]
 ppp_branch_start = wan_start.index("char *proto_desc, *ppp_ifname = IFNAME_PPP;")
 ipoe_branch_start = wan_start.index("else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP", ppp_branch_start)
 ppp_branch = wan_start[ppp_branch_start:ipoe_branch_start]

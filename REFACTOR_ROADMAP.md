@@ -1,12 +1,8 @@
 ## Current source / CI checkpoint
 
-- `net6.c` per-interface IPv6 flushes and all `net_wan6.c` SIT/6rd tunnel, MTU, route and teardown commands use argv-based `eval()`; `net_wan6.c` has no remaining `doSystem()`. `net_wan.c` PPP peer probe and custom WAN up/down hook arguments also now use argv-based calls.
-- SIT MTU/TTL are bounded and checked before tunnel mutations; IPv6 setup status gates and cleanup ordering are preserved. The shared modem/WAN checker asserts no shell interpolation for the new PPP and post-WAN script operands.
-- Exact parent `8e09623b275fec23b35952a992e2abcbb98f39fb`: WAN DHCP `43990568766` PASS; Process, Firewall, USB modem identity, AdGuardHome, AliyunDrive, infosvr, AI handoff and AliDDNS completed SUCCESS. XY-C1 `43990568825` and NVRAM `43990568681` were IN_PROGRESS at last poll.
-- Current WAN argv source checks passed locally. This new commit's exact-head Actions are pending; XY-C1 Build/TRX/artifact L3 and physical-router L4 remain NOT VERIFIED. Frozen backup unchanged.
-
-- This slice repairs the contract and adds shared argv-boundary checks that also run in Process, Firewall and XY-C1 workflows.
-- Frozen backup remains read-only.
+- Per-interface IPv6 cleanup and all SIT/6RD/native WAN IPv6 tunnel, route and teardown operations use argv-based `eval()`; `net_wan6.c` has no shell-formatted `doSystem()` calls. SIT MTU/TTL are normalized and formatted into bounded decimal arguments.
+- PPP peer probing and custom WAN up/down hooks now use argv-based execution. The exact-parent `5327f762` run failures are checker drift only: shared PPP checker line 203 and WAN route checker line 300 still expected the old `doSystem("ping -c1 %s", ppp_gate)` expression instead of `eval("ping", "-c1", ppp_gate)`.
+- Parent WAN DHCP PASS. Firewall, WAN route, Process inventory and XY-C1 were blocked by the stale assertion; NVRAM was still in progress. This follow-up aligns the checkers. Product-source L3 and physical-router L4 remain NOT VERIFIED; backup remains frozen.
 
 ## Whole-repository module status
 

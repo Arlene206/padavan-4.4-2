@@ -479,7 +479,8 @@ jobs:
           preset_call = demand_wait.index("route_status = preset_wan_ppp_routes(ppp_ifname, unit);")
           ready_gate = demand_wait.index("if (!route_status_demand_ready(route_status))")
           ready_failure = demand_wait.index("return route_status ? route_status : EIO;", ready_gate)
-          demand_ping = demand_wait.index('doSystem("ping -c1 %s", ppp_gate);')
+          demand_ping = demand_wait.index('eval("ping", "-c1", ppp_gate);')
+          assert 'doSystem("ping -c1 %s", ppp_gate)' not in demand_wait
           assert preset_call < ready_gate < ready_failure < demand_ping
           assert "PPP demand route preinstallation incomplete" in demand_wait
           assert "EEXIST-normalized entries may predate this" in demand_wait
