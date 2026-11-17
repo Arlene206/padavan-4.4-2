@@ -85,11 +85,18 @@ mwan_flush_iptables() {
 }
 
 # Preserve the shared /tmp/lock convention but create it atomically and only
-# remove a lock owned by this invocation.
+# remove a lock owned by this invocation. Bound contention so a stale lock
+# left by SIGKILL cannot wedge future WAN up/down transitions indefinitely.
+MWAN_LOCK_WAIT_LIMIT=30
+MWAN_LOCK_WAITED=0
 while :; do
 	if ( set -C; : > "$LOCKFILE" ) 2>/dev/null; then MWAN_LOCK_OWNED=1; break; fi
 	if [ -f "$LOCKFILE" ] && [ ! -L "$LOCKFILE" ]; then
+		if [ "$MWAN_LOCK_WAITED" -ge "$MWAN_LOCK_WAIT_LIMIT" ]; then
+			mwan_die 1 "timed out after ${MWAN_LOCK_WAIT_LIMIT}s waiting for $LOCKFILE"
+		fi
 		sleep 1 || mwan_die 1 "sleep failed waiting for $LOCKFILE"
+		MWAN_LOCK_WAITED=$((MWAN_LOCK_WAITED + 1))
 	else
 		mwan_die 1 "cannot acquire lock file: $LOCKFILE"
 	fi

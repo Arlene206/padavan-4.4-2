@@ -3,7 +3,7 @@ set -eu
 HERE=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 SCRIPT="$HERE/../detect.sh"
 T=$(mktemp -d /tmp/mwan-test.XXXXXX)
-BIN="$T/bin" LOG="$T/log" LOCK="$T/lock" PWNED="$T/pwned"
+BIN="$T/bin" LOG="$T/log" LOCK="$T/lock" PWNED="$T/pwned" SLEEP_LOG="$T/sleep.log"
 mkdir -p "$BIN"
 trap 'rm -rf "$T"' EXIT HUP INT TERM
 fail() { echo "PPPoE-MWAN regression: FAIL: $*" >&2; exit 1; }
@@ -48,14 +48,19 @@ cat > "$BIN/logger" <<'MOCK'
 #!/bin/sh
 exit 0
 MOCK
+cat > "$BIN/sleep" <<'MOCK'
+#!/bin/sh
+[ "$#" -eq 1 ] && [ "$1" = 1 ] || exit 92
+printf '%s\n' "$1" >> "$SLEEP_LOG"
+MOCK
 cat > "$BIN/rm" <<'MOCK'
 #!/bin/sh
 case " $* " in *" $LOCK "*) [ "${FAIL_CLEANUP:-0}" != 1 ] || exit 41;; esac
 exec /bin/rm "$@"
 MOCK
 chmod +x "$BIN"/*
-export PATH="$BIN:$PATH" LOG LOCK PWNED MWAN_LOCKFILE="$LOCK"
-reset() { /bin/rm -f "$LOCK" "$LOG" "$PWNED"; : > "$LOG"; unset FAIL_BR0 FAIL_SAVE FAIL_IPTABLES FAIL_IP FAIL_CLEANUP MALICIOUS PPP_NUM PPP1_UP; }
+export PATH="$BIN:$PATH" LOG LOCK PWNED SLEEP_LOG MWAN_LOCKFILE="$LOCK"
+reset() { /bin/rm -f "$LOCK" "$LOG" "$PWNED" "$SLEEP_LOG"; : > "$LOG"; : > "$SLEEP_LOG"; unset FAIL_BR0 FAIL_SAVE FAIL_IPTABLES FAIL_IP FAIL_CLEANUP MALICIOUS PPP_NUM PPP1_UP; }
 run() { set +e; bash "$SCRIPT"; RC=$?; set -e; }
 reset; run; [ "$RC" = 0 ] || fail "normal run status $RC"; [ ! -e "$LOCK" ] || fail 'normal run leaked lock'
 grep -Fq $'iptables\t-t\tmangle\t-D\tPREROUTING\t-i\tbr0\t-m\tcomment\t--comment\tremove br0\t-j\tACCEPT' "$LOG" || fail 'quoted iptables-save comment parsing'
@@ -70,6 +75,14 @@ reset; export FAIL_IPTABLES='--dport 443' FAIL_CLEANUP=1; run; [ "$RC" = 37 ] ||
 reset; export PPP1_UP=0; run; [ "$RC" = 0 ] || fail "missing ppp1 status $RC"; ! grep -Fq '203.0.113.2' "$LOG" || fail 'absent ppp1 appeared in route'
 reset; export PPP_NUM=08; run; [ "$RC" = 0 ] || fail "decimal 08 status $RC"
 reset; export PPP_NUM=999999999999999999999; run; [ "$RC" = 2 ] || fail "oversized PPP count status $RC"
+reset
+printf 'foreign lock owner\n' > "$LOCK"
+run
+[ "$RC" = 1 ] || fail "contended lock timeout status $RC"
+[ "$(wc -l < "$SLEEP_LOG" | tr -d ' ')" -eq 30 ] || fail "lock wait was not bounded to 30 seconds"
+[ "$(cat "$LOCK")" = 'foreign lock owner' ] || fail 'timed-out waiter removed or modified a foreign lock'
+[ ! -s "$LOG" ] || fail 'commands ran without acquiring the shared lock'
+echo 'PPPoE-MWAN lock contention is bounded and foreign lock preserved: PASS'
 reset; ! grep -Eq '(^|[[:space:]])eval[[:space:]]' "$SCRIPT" || fail 'unsafe eval remains'
 ! grep -Eq '^[[:space:]]*set[[:space:]]+-e' "$SCRIPT" || fail 'unexpected errexit mode'
 echo 'PPPoE detect status and command-safety regression: PASS'

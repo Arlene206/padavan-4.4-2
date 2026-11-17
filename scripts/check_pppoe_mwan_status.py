@@ -6,6 +6,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
+DETECT = (ROOT / "trunk/user/pppoe/detect.sh").read_text()
+DETECT_TEST = (ROOT / "trunk/user/pppoe/tests/detect_status.sh").read_text()
 
 
 def braced_body(source, opening):
@@ -90,6 +92,15 @@ check_caller(
     "wan_down_internal(char *wan_ifname, int unit, int is_static)",
     "WAN-down",
     "WAN PPPoE-MWAN reconfiguration incomplete",
+)
+
+require(
+    "MWAN_LOCK_WAIT_LIMIT=30" in DETECT
+    and 'if [ "$MWAN_LOCK_WAITED" -ge "$MWAN_LOCK_WAIT_LIMIT" ]; then' in DETECT
+    and 'timed out after ${MWAN_LOCK_WAIT_LIMIT}s' in DETECT
+    and 'if [ "$MWAN_LOCK_OWNED" -eq 1 ]' in DETECT
+    and "PPPoE-MWAN lock contention is bounded and foreign lock preserved: PASS" in DETECT_TEST,
+    "PPPoE-MWAN lock contention must be bounded and a foreign/stale lock left untouched",
 )
 
 # An IPv6 teardown error must not short-circuit independent IPv4 route/service cleanup.

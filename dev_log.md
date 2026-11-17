@@ -1,3 +1,12 @@
+## 2026-11-17 — Bound PPPoE-MWAN lock contention after stale-lock risk review
+
+- Parent main SHA: `f02edd2564903e26e678e327bfeadcd66cb8823a`; result: THIS COMMIT.
+- The detector acquired the shared `/tmp/lock` atomically and removed it during normal EXIT. But SIGKILL or process crash bypasses EXIT cleanup and can leave a stale regular file; later WAN transitions previously slept in an unbounded loop forever.
+- Added a 30-iteration one-second bound. On expiry the script returns a visible nonzero status (propagated by the WAN-up/down callers) and never removes or rewrites a lock it did not acquire. This fails closed rather than making an unsafe stale-lock ownership guess.
+- Mocked-sleep host regression checks exactly 30 waits, timeout status 1, no firewall/route commands without lock ownership, and byte-preservation of a foreign lock. The WAN source contract pins the timeout and regression marker. Exact-head WAN Actions pending; no local test/firmware build or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-17 — Correct AliDDNS interval normalizer output escaping
 
 - Parent main SHA: `b2692cec47bfd7b838fd4fdfda1368a16a088cc2`; result: THIS COMMIT.
