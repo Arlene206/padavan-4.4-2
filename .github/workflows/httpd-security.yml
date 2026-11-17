@@ -2673,7 +2673,7 @@ jobs:
           assert unmount.index("eval(\"/usr/bin/opt-umount.sh\"") < unmount.index("if (hook_status != 0)") < unmount.index("if (umount(entry->mountpoint) != 0)")
           assert unmount.index("if (umount(entry->mountpoint) != 0)") < unmount.index("(void)rmdir(entry->mountpoint)")
 
-          ejected_start = service.index("umount_ejected_locked(void)")
+          ejected_start = service.index("umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)")
           ejected_end = service.index("struct storage_unmount_mount_entry", ejected_start)
           ejected = service[ejected_start:ejected_end]
           assert "if (!procpt)" in ejected and "return -1;" in ejected
@@ -2681,13 +2681,26 @@ jobs:
           assert "storage_ejected_partition_is_active(entry->device + 5," in ejected
           assert "procpt2" not in ejected
           assert "fopen(PROC_PARTITIONS_FILE" not in ejected
+          assert "has_ejected_mounts = 1;" in ejected
+          assert "if (has_ejected_mounts && !storage_apps_stopped)" in ejected
+          assert "stop_status = stop_stor_apps();" in ejected
+          assert "storage_rollback_stor_apps_after_stop_failure(" in ejected
+          assert "if (has_ejected_mounts && restart_storage_apps)" in ejected
           assert 'eval("/usr/bin/opt-umount.sh", entry->device' in ejected
           assert "if (hook_status != 0)" in ejected
           assert "continue;" in ejected
           assert "if (umount(entry->mountpoint) != 0)" in ejected
           assert "result = -1;" in ejected and "return result;" in ejected
-          assert ejected.index("storage_stage_ejected_partitions(&partitions)") < ejected.index('eval("/usr/bin/opt-umount.sh"') < ejected.index("if (umount(entry->mountpoint) != 0)")
+          assert ejected.index("storage_stage_ejected_partitions(&partitions)") < ejected.index("has_ejected_mounts = 1;") < ejected.index("stop_stor_apps()") < ejected.index('eval("/usr/bin/opt-umount.sh"') < ejected.index("if (umount(entry->mountpoint) != 0)")
+          assert ejected.index("storage_rollback_stor_apps_after_stop_failure(") < ejected.index("return -1;") < ejected.index('eval("/usr/bin/opt-umount.sh"')
           assert ejected.index("if (umount(entry->mountpoint) != 0)") < ejected.index("(void)rmdir(entry->mountpoint)")
+          public_eject = service[service.index("umount_ejected(void)"):service.index("struct storage_unmount_mount_entry", service.index("umount_ejected(void)"))]
+          assert "umount_ejected_locked(0, 1)" in public_eject
+          assert "mount_count = count_stor_mountpoint();" in ejected
+          assert ejected.index("mount_count = count_stor_mountpoint();") < ejected.index("start_status = start_stor_apps();")
+          assert "if (mount_count > 0)" in ejected
+          assert "else if (mount_count == 0)" in ejected and "unload_nfsd();" in ejected
+          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected and "alarm(5);" in ejected
 
           path_start = service.index("umount_stor_path_range(")
           path_end = service.index("umount_stor_path(disk_info_t", path_start)
