@@ -3023,8 +3023,14 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	set_wan_unit_value_int(unit, "bytes_rx", 0);
 	set_wan_unit_value_int(unit, "bytes_tx", 0);
 
-	if (check_if_file_exist(script_postw))
-	{eval(script_postw, "down", wan_ifname, wan_addr);}
+	/* Call the optional post-WAN hook and preserve its exit status. */
+	if (check_if_file_exist(script_postw)) {
+		route_status = eval(script_postw, "down", wan_ifname, wan_addr);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "WAN post-down script incomplete on %s (status=%d)",
+				   wan_ifname, route_status);
+	}
 	if (nvram_match("pppoemwan_enable", "1")) {
 		route_status = eval("/usr/bin/detect.sh");
 		status = route_status_accumulate(status, route_status);

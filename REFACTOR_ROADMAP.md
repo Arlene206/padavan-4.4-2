@@ -1,20 +1,18 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS post-WAN hook status slice: `93c8ab702d886e7da1fe145bef5655c37dbe4a6d`.
-- Static IPoE address cleanup fix `93c8ab7`: exact WAN route `44198950271` PASS including GNU89 ASan/UBSan and source contract; exact AI docs `44198949896` PASS.
-- Factory-reset exact XY-C1 run `44197454090` on `0d58928e` completed SUCCESS: Build, TRX verification and artifact upload all PASS.
-- Exact XY-C1 for `93c8ab7`, run `44198950404`, was `IN_PROGRESS` at last poll; do not claim L3 before Build/TRX/artifact pass.
-- THIS slice captures/logs/aggregates nonzero `SCRIPT_POST_WAN` exit status while preserving later independent WAN-up startup. GNU89 first-error/later-action regression and WAN source contract are added; exact-head CI pending.
+- Parent main before THIS WAN post-down hook status slice: `2a98a8303c26414a8f5084b78f1642ea282d164c`.
+- Static IPoE address cleanup source `93c8ab7`: WAN route `44198950271` PASS and AI docs `44198949896` PASS; exact XY-C1 `44198950404` remained in Build at last poll.
+- Optional WAN-up hook source `2a98a83`: WAN route `44200079558` PASS and AI docs `44200079479` PASS; exact XY-C1 `44200079523` remained in Build at last poll. Factory-reset exact XY-C1 `44197454090` on `0d58928e` passed Build/TRX/artifact.
+- THIS slice captures/logs/aggregates nonzero `SCRIPT_POST_WAN` down-hook status while still running later PPPoE-MWAN reconfiguration. GNU89 first-error/later-action regression and source-order contract added; exact-head CI pending.
 - Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: inspect exact-head WAN route/AI/XY-C1 for THIS hook-status slice, then continue independent P1 reliability/security work.
+Next: inspect exact-head WAN/AI/XY-C1 Actions for THIS post-down hook slice and continue independent P1 work.
 
 ---
 
 ## Whole-repository module status
 
-- WAN P1 slices now cover static IPoE EAPOL cleanup (`5d0618c` / exact WAN PASS on `80dcdc6`), static-address assignment cleanup (`93c8ab7` / exact WAN run `44198950271` PASS), and configured post-WAN script failure propagation (THIS slice; exact-head pending). Optional hook failures remain nonfatal to later independent startup, but are returned/logged instead of discarded.
-
+- WAN P1 work: static IPoE EAPOL cleanup `5d0618c` (WAN PASS on `80dcdc6`); partial static-address cleanup `93c8ab7` (WAN PASS `44198950271`, AI PASS `44198949896`, XY-C1 still building); post-WAN up-hook status `2a98a83` (WAN PASS `44200079558`, AI PASS `44200079479`, XY-C1 still building); post-WAN down-hook status (THIS slice, exact-head pending).
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
 - THIS COMMIT fixes two more launcher/daemon mismatches: rstats daemonizes before allocation/PID-file publication; LLTD double-forks and calls setsid before PID publication/event loop. RC now preflights tri-state presence and verifies detached child RUNNING with bounded polls. Exact-head Process and XY-C1 pending.

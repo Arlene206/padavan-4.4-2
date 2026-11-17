@@ -119,6 +119,36 @@ require(wan_up.count('eval(script_postw, "up", wan_ifname, wan_addr)') == 1,
 require("test_wan_post_script_failure_is_reported_and_later_steps_continue" in ROUTE_STATUS_TEST,
         "post-WAN script failure must have a first-error/later-step regression")
 
+down_hook = body(WAN, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+down_hook_guard = down_hook.index("if (check_if_file_exist(script_postw))")
+down_hook_eval = down_hook.index(
+    'route_status = eval(script_postw, "down", wan_ifname, wan_addr);',
+    down_hook_guard,
+)
+down_hook_merge = down_hook.index(
+    "status = route_status_accumulate(status, route_status);", down_hook_eval
+)
+down_hook_failure = down_hook.index("if (route_status != 0)", down_hook_merge)
+down_hook_log = down_hook.index("WAN post-down script incomplete", down_hook_failure)
+later_mwan_gate = down_hook.index(
+    'if (nvram_match("pppoemwan_enable", "1"))', down_hook_log
+)
+later_mwan_eval = down_hook.index(
+    'route_status = eval("/usr/bin/detect.sh");', later_mwan_gate
+)
+down_return = down_hook.index("return status;", later_mwan_eval)
+require(
+    down_hook_guard < down_hook_eval < down_hook_merge < down_hook_failure
+    < down_hook_log < later_mwan_gate < later_mwan_eval < down_return,
+    "post-down hook failure must be captured and aggregated without skipping later PPPoE-MWAN reconfiguration",
+)
+require(down_hook.count('eval(script_postw, "down", wan_ifname, wan_addr)') == 1,
+        "post-down hook must execute exactly once")
+require(
+    "test_wan_post_down_script_failure_is_reported_and_later_steps_continue" in ROUTE_STATUS_TEST,
+    "post-down script failure must have a first-error/later-action regression",
+)
+
 require("return status;" in wan_up[launch_diagnostic:],
         "WAN-up must return the accumulated gateway checker result")
 

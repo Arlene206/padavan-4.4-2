@@ -1,3 +1,12 @@
+## 2026-11-18 — Preserve optional post-WAN down-hook exit status
+
+- Parent main SHA: `2a98a8303c26414a8f5084b78f1642ea282d164c`; exact WAN route `44200079558` and AI handoff `44200079479` for the preceding post-WAN up-hook source commit both PASS.
+- Found the matching discarded result in `wan_down_internal()`: configured `SCRIPT_POST_WAN` was invoked with the `down` event but its exit status was ignored.
+- THIS slice captures, aggregates and logs the down-hook result without skipping later PPPoE-MWAN detection/reconfiguration. Added a GNU89 first-error/later-action regression and exact source-order contract.
+- Exact-head WAN/AI/XY-C1 verification pending. The preceding `2a98a83` XY-C1 run `44200079523` and `93c8ab7` XY-C1 run `44198950404` were still building at the last poll; factory-reset source `0d58928e` exact XY-C1 run `44197454090` passed Build/TRX/artifact. No local MIPS build or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Preserve optional post-WAN script exit status
 
 - Parent main SHA: `93c8ab702d886e7da1fe145bef5655c37dbe4a6d`; exact WAN route `44198950271` and AI handoff `44198949896` for the static-IPoE address cleanup slice both PASS.
