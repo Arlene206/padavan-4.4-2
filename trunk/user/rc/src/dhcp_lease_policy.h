@@ -157,6 +157,15 @@ dhcp_lease_route_delete_is_ok(int status)
 	return status == 0 || status == ESRCH;
 }
 
+/* Static host files may be restored once the old route is absent and the
+ * interface accepted its persistent static address. Resolver publication is
+ * checked independently so a resolver retry does not leave stale host files. */
+static inline int
+dhcp_lease_deconfig_address_ready(int route_status, int ifconfig_status)
+{
+	return dhcp_lease_route_delete_is_ok(route_status) && ifconfig_status == 0;
+}
+
 /* Deconfig may publish static LAN state only after the old DHCP route is
  * absent and both interface and resolver cleanup have completed. */
 static inline int

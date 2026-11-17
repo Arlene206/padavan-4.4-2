@@ -1,3 +1,14 @@
+## 2026-11-17 — Restore static LAN hostname files on DHCP deconfig
+
+- Parent main SHA: 23e4563fc9a610c420d5aca60d485372b6718da3; result: THIS COMMIT.
+- LAN DHCP bound publishes the leased address into /etc/hostname and /etc/hosts, but deconfig restored the persistent static LAN address without restoring those host files. The old DHCP address could remain in the hostname mapping after NAK, release or lease expiry.
+- Added a route/interface readiness predicate. Once the old route is absent and static LAN address is installed, deconfig restores hostname/hosts files using persistent lan_ipaddr and lan_domain, including when resolver cleanup needs retry.
+- Host-file publication failure is returned, preserving lease identity for BusyBox DECONFIG_PENDING retry. On full success only, clear DHCP-only lan_dns_t, lan_wins_t and lan_lease_t after update_lan_status(0).
+- Added readiness cases to the GNU89 DHCP policy regression and scripts/check_lan_dhcp_deconfig.py. Wired both into WAN DHCP callback CI and the XY-C1 source path.
+- Exact-head WAN DHCP and XY-C1 Build/TRX/artifact validation for THIS COMMIT pending. Local host compile NOT RUN; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align HTTPD DHCP contract with committed lease callback status
 
 - Parent main SHA: `ee3cbaf4342d90e65978a9211bd279a6d21373ba`; result: THIS COMMIT.

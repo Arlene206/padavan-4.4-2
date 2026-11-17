@@ -1484,7 +1484,7 @@ lan_down_auto(char *lan_ifname)
 	char *lan_gateway = nvram_safe_get("lan_gateway_t");
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int route_status = 0, ifconfig_status, resolver_status = 0;
-	int lock, status;
+	int lock, status, hosts_status = 0;
 
 	/*
 	 * Remove the recorded DHCP default route before replacing the interface
@@ -1540,17 +1540,38 @@ lan_down_auto(char *lan_ifname)
 	}
 	status = dhcp_lease_deconfig_status(route_status, ifconfig_status,
 					    resolver_status);
+
+	/*
+	 * A DHCP address may have been published into /etc/hostname and /etc/hosts.
+	 * Once the old route is gone and the static interface address is restored,
+	 * restore those files even if resolver cleanup needs another retry.
+	 */
+	if (dhcp_lease_deconfig_address_ready(route_status, ifconfig_status)) {
+		hosts_status = create_hosts_lan(nvram_safe_get("lan_ipaddr"),
+						nvram_safe_get("lan_domain"));
+		if (hosts_status != 0) {
+			logmessage("DHCP LAN Client",
+				   "failed to restore static LAN hostname/hosts during deconfig (status=%d)",
+				   hosts_status);
+			if (status == 0)
+				status = hosts_status;
+		}
+	}
+
 	if (status != 0) {
 		logmessage("DHCP LAN Client",
-			   "failed to clear LAN resolver state during deconfig (status=%d); retaining lease identity",
+			   "LAN DHCP deconfig incomplete (status=%d); retaining lease identity for retry",
 			   status);
 		return status;
 	}
 
-	/* Do not pause detection or overwrite the last DHCP gateway identity
-	 * until every required cleanup step has completed successfully. */
+	/* Do not pause detection, overwrite the last DHCP gateway identity or
+	 * discard DHCP-only metadata until every required cleanup step succeeds. */
 	notify_pause_detect_internet();
 	update_lan_status(0);
+	nvram_set_temp("lan_dns_t", "");
+	nvram_set_temp("lan_wins_t", "");
+	nvram_set_temp("lan_lease_t", "");
 
 #if defined(APP_SMBD)
 	/* update SMB fastpath owner address */

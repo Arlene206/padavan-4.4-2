@@ -113,6 +113,10 @@ main(void)
 	assert(dhcp_lease_route_delete_is_ok(0));
 	assert(dhcp_lease_route_delete_is_ok(ESRCH));
 	assert(!dhcp_lease_route_delete_is_ok(EIO));
+	assert(dhcp_lease_deconfig_address_ready(0, 0));
+	assert(dhcp_lease_deconfig_address_ready(ESRCH, 0));
+	assert(!dhcp_lease_deconfig_address_ready(EIO, 0));
+	assert(!dhcp_lease_deconfig_address_ready(0, EIO));
 	assert(dhcp_lease_deconfig_status(0, 0, 0) == 0);
 	assert(dhcp_lease_deconfig_status(ESRCH, 0, 0) == 0);
 	assert(dhcp_lease_deconfig_status(EIO, 0, 0) == EIO);

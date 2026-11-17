@@ -3,6 +3,9 @@ name: WAN DHCP callback state stability regression
 on:
   push:
     paths:
+      - "scripts/check_lan_dhcp_deconfig.py"
+      - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
+      - "trunk/user/rc/src/dhcp_lease_policy.h"
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/wan_mtu_setup_policy.h"
@@ -39,6 +42,9 @@ on:
       - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
   pull_request:
     paths:
+      - "scripts/check_lan_dhcp_deconfig.py"
+      - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
+      - "trunk/user/rc/src/dhcp_lease_policy.h"
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/wan_mtu_setup_policy.h"
@@ -79,6 +85,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compile and run LAN DHCP deconfig policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/dhcp_lease_policy.c -o /tmp/dhcp-lease-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/dhcp-lease-policy
+          python3 scripts/check_lan_dhcp_deconfig.py
       - name: Compile and run WAN DHCP interface rollback regression
         run: |
           set -eu
