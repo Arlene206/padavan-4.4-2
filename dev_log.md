@@ -1,3 +1,12 @@
+## 2026-11-17 — Correct DHCP stop-source contract after LAN helper consolidation
+
+- Parent main SHA: e64ab93290e20935c0a11ac990612f8dc29fa363; result: THIS COMMIT.
+- Exact e64 WAN DHCP run 44125814011 passed its GNU89/ASan/UBSan DHCP lease policy binary, then failed the source checker because it expected four textual `kill_services_with_pidfiles(..., "udhcpc", 0, 30, 0)` statements.
+- AP LAN shutdown had been centralized into one stop_udhcpc_lan() helper, so the source now has three unique no-force stop call statements: WAN/VIPTV batch, USB WAN pidfile helper and AP LAN helper. This still covers four logical stop contexts/clients. Updated the count from 4 to 3; production source unchanged.
+- Exact WAN-route run 44125814206 SUCCESS. Exact Process and XY-C1 runs were still in progress at last poll; current-source Build/TRX/artifact pending.
+
+---
+
 ## 2026-11-17 — Release AP LAN DHCP lease before stopping udhcpc
 
 - Parent main SHA: bb64fc406b1f9a20dc2099c7d512c2588d1000c5; result: THIS COMMIT.

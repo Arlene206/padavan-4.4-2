@@ -112,7 +112,9 @@ assert "errno != ENOENT && errno != ESRCH" in lan_pidfile_stop
 assert "usleep(300000)" in lan_pidfile_stop
 assert lan_pidfile_stop.index("process_pidfile_signal") < lan_pidfile_stop.index("usleep(300000)") < lan_pidfile_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
 
-assert (wan + lan).count('"udhcpc", 0, 30, 0') == 4
+# WAN stop covers both WAN/VIPTV clients in one PID-file batch; USB WAN and
+# AP LAN use one dedicated helper each.
+assert (wan + lan).count('"udhcpc", 0, 30, 0') == 3
 assert '"udhcpc", 0, 3, 1' not in (wan + lan)
 
 # SIGTERM jumps to ret0. If a deconfig is pending, ret0 retries it rather
