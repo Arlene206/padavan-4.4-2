@@ -1,3 +1,15 @@
+## 2026-11-17 — Fail closed on UNKNOWN firewall module-table probes
+
+- Base main SHA: `b447358e3c999c5f56ba915872d2243c91c7a962`; result: THIS COMMIT.
+- IPv4 mangle/raw and IPv6 mangle builders used legacy Boolean `is_module_loaded()`; sysfs UNKNOWN collapsed to false/ABSENT and could skip empty-table restore while stale rules remained in a loaded table.
+- Added `firewall_module_table_policy.h`: 1=loaded applies, 0=absent skips unless explicit IPv4 TTL-fix requires restore, negative errno propagates, malformed positive values and INT_MIN fail closed.
+- Wired all three production gates to `is_module_loaded_status()`. Probe errors mark the active core restore transaction failed; existing transaction checks abort and roll back previously modified tables.
+- Added GNU89/Werror/ASan/UBSan tests for loaded, absent, forced restore, UNKNOWN, malformed values and invalid output pointer. Firewall Startup Stability now compiles/runs the test and checks production wiring on push/PR.
+- On parent `b447358e`, Process `44003684238`, AI handoff `44003684154`, NVRAM `44003684202`, infosvr `44003684216`, AliyunDrive `44003684191`, AliDDNS `44003684173`, and AdGuardHome `44003684129` passed. XY-C1 run `44003333586` on earlier production source `37e414f2` was still building; it cannot validate this later firewall source change.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Correct IPv6 boot status contract after exact-head failure
 
 - Exact-head Process lifecycle run `44003333415` on `37e414f2d4f6a80c7addeaca04c14f4fdcdf5f5d` reached the new IPv6 source contract and failed because its raw regex used double-escaped whitespace tokens; the production source checks before this assertion passed. This is a checker defect, not a C compile or policy-test failure.

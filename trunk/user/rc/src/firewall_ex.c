@@ -38,6 +38,7 @@
 #include "firewall_rule_file.h"
 #include "firewall_command_status.h"
 #include "firewall_restore_transaction.h"
+#include "firewall_module_table_policy.h"
 #include "firewall_hook_file.h"
 #if defined (APP_ADBYBY)
 #include "firewall_adbyby_restore_policy.h"
@@ -1855,12 +1856,34 @@ ipt_filter_default(void)
 	return result;
 }
 
+static int
+firewall_module_table_restore_required(const char *operation,
+				       const char *module_name,
+				       int force_restore,
+				       int *should_restore)
+{
+	int probe_status, status;
+
+	probe_status = is_module_loaded_status(module_name);
+	status = rc_firewall_module_table_restore_decide(probe_status,
+						 force_restore, should_restore);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "%s: cannot verify %s module state; aborting firewall rebuild (status=%d)",
+			   operation, module_name, status);
+		firewall_core_restore_transaction.failed = 1;
+		errno = status;
+	}
+	return status;
+}
+
 static void
 ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 {
 	FILE *fp;
 	int i_wan_ttl_fix;
 	int i_wan_ttl_value;
+	int should_restore;
 	const char *dtype;
 	char ipt_file[] = "/tmp/ipt_mangle.XXXXXX";
 
@@ -1878,6 +1901,10 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 		module_smart_load("iptable_mangle", NULL);
 		module_smart_load("xt_HL", NULL);
 	}
+	if (firewall_module_table_restore_required("IPv4 mangle restore",
+						   "iptable_mangle", i_wan_ttl_fix,
+						   &should_restore) != 0 || !should_restore)
+		return;
 
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 mangle")))
 		return;
@@ -1908,8 +1935,7 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 	}
 
 	fprintf(fp, "COMMIT\n\n");
-	if (firewall_finish_rule_file(fp, ipt_file, "IPv4 mangle") == 0 &&
-	    (i_wan_ttl_fix || is_module_loaded("iptable_mangle")))
+	if (firewall_finish_rule_file(fp, ipt_file, "IPv4 mangle") == 0 && should_restore)
 		firewall_apply_core_restore("IPv4 mangle restore", "iptables", "mangle", ipt_file);
 	firewall_rule_file_remove(ipt_file);
 }
@@ -1918,8 +1944,13 @@ static void
 ipt_raw_rules(void)
 {
 	FILE *fp;
+	int should_restore;
 	char ipt_file[] = "/tmp/ipt_raw.XXXXXX";
 
+	if (firewall_module_table_restore_required("IPv4 raw restore",
+						   "iptable_raw", 0,
+						   &should_restore) != 0 || !should_restore)
+		return;
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 raw")))
 		return;
 
@@ -1928,7 +1959,7 @@ ipt_raw_rules(void)
 	fprintf(fp, ":%s %s [0:0]\n", "OUTPUT", "ACCEPT");
 
 	fprintf(fp, "COMMIT\n\n");
-	if (firewall_finish_rule_file(fp, ipt_file, "IPv4 raw") == 0 && is_module_loaded("iptable_raw"))
+	if (firewall_finish_rule_file(fp, ipt_file, "IPv4 raw") == 0 && should_restore)
 		firewall_apply_core_restore("IPv4 raw restore", "iptables", "raw", ipt_file);
 	firewall_rule_file_remove(ipt_file);
 }
@@ -2268,8 +2299,13 @@ static void
 ip6t_mangle_rules(char *man_if)
 {
 	FILE *fp;
+	int should_restore;
 	char ipt_file[] = "/tmp/ip6t_mangle.XXXXXX";
 
+	if (firewall_module_table_restore_required("IPv6 mangle restore",
+						   "ip6table_mangle", 0,
+						   &should_restore) != 0 || !should_restore)
+		return;
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv6 mangle")))
 		return;
 
@@ -2281,7 +2317,7 @@ ip6t_mangle_rules(char *man_if)
 	fprintf(fp, ":%s %s [0:0]\n", "POSTROUTING", "ACCEPT");
 
 	fprintf(fp, "COMMIT\n\n");
-	if (firewall_finish_rule_file(fp, ipt_file, "IPv6 mangle") == 0 && is_module_loaded("ip6table_mangle"))
+	if (firewall_finish_rule_file(fp, ipt_file, "IPv6 mangle") == 0 && should_restore)
 		firewall_apply_core_restore("IPv6 mangle restore", "ip6tables", "mangle", ipt_file);
 	firewall_rule_file_remove(ipt_file);
 }

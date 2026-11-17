@@ -20,6 +20,8 @@ on:
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_module_table_policy.h"
+      - "trunk/user/rc/src/tests/firewall_module_table_policy.c"
       - "trunk/user/rc/src/firewall_restore_transaction.h"
       - "trunk/user/rc/src/firewall_adbyby_restore_policy.h"
       - "trunk/user/rc/src/firewall_command_status.h"
@@ -61,6 +63,8 @@ on:
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_module_table_policy.h"
+      - "trunk/user/rc/src/tests/firewall_module_table_policy.c"
       - "trunk/user/rc/src/firewall_restore_transaction.h"
       - "trunk/user/rc/src/firewall_adbyby_restore_policy.h"
       - "trunk/user/rc/src/firewall_command_status.h"
@@ -137,7 +141,23 @@ jobs:
           assert "if (ipv4_filter_status != 0)" in policy
           assert "if (ipv6_filter_required && ipv6_filter_status != 0)" in policy
 
+          module_policy = Path("trunk/user/rc/src/firewall_module_table_policy.h").read_text()
+          module_test = Path("trunk/user/rc/src/tests/firewall_module_table_policy.c").read_text()
+          firewall_source = Path("trunk/user/rc/src/firewall_ex.c").read_text()
+          for module in ("iptable_mangle", "iptable_raw", "ip6table_mangle"):
+              assert f'"{module}"' in firewall_source
+          assert "is_module_loaded_status(module_name)" in firewall_source
+          assert "rc_firewall_module_table_restore_decide" in firewall_source
+          assert "firewall_core_restore_transaction.failed = 1;" in firewall_source
+          assert "probe_status < 0" in module_policy
+          assert "probe_status > 1" in module_policy
+          assert "INT_MIN" in module_policy
+          assert "test_unknown_aborts" in module_test
+          assert "test_invalid_probe_fails_closed" in module_test
+
           paths = (
+              "trunk/user/rc/src/firewall_module_table_policy.h",
+              "trunk/user/rc/src/tests/firewall_module_table_policy.c",
               "trunk/user/rc/src/net.c",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/wan_route_flush_policy.h",
@@ -177,6 +197,12 @@ jobs:
 
           print("Required NAT restore, filter safety and push/PR workflow contracts: PASS")
           PY
+      - name: Compile and run firewall optional module-table tri-state regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/firewall_module_table_policy.c -o "$RUNNER_TEMP/firewall-module-table-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firewall-module-table-policy"
+
       - name: Compile and run core firewall restore transaction fault injection
         run: |
           set -eu
