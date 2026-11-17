@@ -2,15 +2,46 @@
 
 DDNSTO_BIN="/usr/bin/ddnsto"
 DDNSTO_LOCK_WAIT_SECONDS=10
+DDNSTO_START_WAIT_ATTEMPTS=5
 
 start_zero() {
 	logger -t "DDNSTO" "正在启动DDNSTO"
+	# Validate launch prerequisites before disrupting a currently working instance.
+	if [ ! -x "$DDNSTO_BIN" ]; then
+		logger -t "DDNSTO" "DDNSTO可执行文件缺失或不可执行，取消启动"
+		return 1
+	fi
+	if ddnsto_start_id=$(nvram get ddnsto_id); then
+		:
+	else
+		logger -t "DDNSTO" "无法读取DDNSTO身份标识，取消启动"
+		return 1
+	fi
+	if [ -z "$ddnsto_start_id" ]; then
+		logger -t "DDNSTO" "DDNSTO身份标识为空，取消启动"
+		return 1
+	fi
 	if ! kill_z; then
 		logger -t "DDNSTO" "停止旧进程失败，取消启动"
 		return 1
 	fi
 	# The daemon must not inherit the short-lived lifecycle lock descriptor.
-	"$DDNSTO_BIN" -u "$(nvram get ddnsto_id)" >/dev/null 2>&1 9>&- &
+	"$DDNSTO_BIN" -u "$ddnsto_start_id" >/dev/null 2>&1 9>&- &
+	# A successful shell fork is not proof that the daemon remained alive.
+	if ddnsto_wait_started; then
+		return 0
+	else
+		ddnsto_start_wait_status=$?
+	fi
+	case "$ddnsto_start_wait_status" in
+		1)
+			logger -t "DDNSTO" "启动后在限定时间内未检测到DDNSTO进程"
+			;;
+		*)
+			logger -t "DDNSTO" "启动后无法确认DDNSTO进程状态"
+			;;
+	esac
+	return 1
 }
 
 # Return 0 for RUNNING, 1 only for confirmed ABSENT, and 2 for UNKNOWN.
@@ -45,6 +76,33 @@ ddnsto_process_state() {
 			;;
 		*) return 2 ;;
 	esac
+}
+
+# Return 0 only for a validated RUNNING inventory. Confirmed ABSENT is retried;
+# UNKNOWN process state and a failed wait primitive abort startup immediately.
+ddnsto_wait_started() {
+	case "$DDNSTO_START_WAIT_ATTEMPTS" in
+		''|*[!0-9]*|0) return 2 ;;
+	esac
+	ddnsto_start_wait=0
+	while [ "$ddnsto_start_wait" -lt "$DDNSTO_START_WAIT_ATTEMPTS" ]; do
+		if ddnsto_process_state; then
+			return 0
+		else
+			ddnsto_start_state=$?
+		fi
+		case "$ddnsto_start_state" in
+			1) ;;
+			*) return 2 ;;
+		esac
+		ddnsto_start_wait=$((ddnsto_start_wait + 1))
+		if [ "$ddnsto_start_wait" -lt "$DDNSTO_START_WAIT_ATTEMPTS" ]; then
+			if ! sleep 1; then
+				return 2
+			fi
+		fi
+	done
+	return 1
 }
 
 # Return 0 when absent, 1 when still running after five polls, 2 when UNKNOWN.

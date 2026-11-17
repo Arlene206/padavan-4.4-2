@@ -1,3 +1,13 @@
+## 2026-11-17 — Require a confirmed DDNSTO process after asynchronous startup
+
+- Base main SHA: `b95bb7350785a1a4c5db8881e2ecd764d2b918f3`; result: THIS COMMIT.
+- Finding: `start_zero()` returned immediately after shell backgrounding. A missing ROMFS executable, failed/empty `ddnsto_id`, or an immediately exiting child could therefore be reported as a successful start to RC/autostart callers.
+- Startup now validates the executable and NVRAM identity **before** stopping a healthy existing instance. After launch, it requires a validated RUNNING result from the existing tri-state `pidof ddnsto` probe within five bounded polls. Only confirmed ABSENT is retried; UNKNOWN and sleep errors abort, and a five-poll ABSENT timeout returns nonzero. This is a process-presence gate, not an upstream/network readiness claim.
+- The production-linked shell regression now covers missing executable, NVRAM read/empty identity, no disruption of a running instance on preflight failure, immediate exit/timeout, UNKNOWN inventory, sleep failure, delayed success, and retains the existing concurrency/lock/restart tests. The semantic checker pins the bounded tri-state algorithm and prerequisite/launch ordering.
+- Exact-head DDNSTO, Process and XY-C1 Actions are pending for THIS COMMIT. No local checkout/toolchain is mounted; local execution was NOT RUN. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Remove remaining obsolete boot-module direct-assignment assertion
 
 - Base main SHA: `f5a42763bfcc08e5ea9fad31e717c7dd608ced9a`; result: THIS COMMIT.

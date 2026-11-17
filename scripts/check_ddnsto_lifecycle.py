@@ -33,6 +33,7 @@ def function_body(source: str, signature: str) -> str:
 
 state_body = function_body(script, "ddnsto_process_state()")
 wait_body = function_body(script, "ddnsto_wait_stopped()")
+wait_started_body = function_body(script, "ddnsto_wait_started()")
 kill_body = function_body(script, "kill_z()")
 start_body = function_body(script, "start_zero()")
 stop_body = function_body(script, "stop_zero()")
@@ -49,6 +50,21 @@ require('while [ "$ddnsto_wait" -lt 5 ]; do' in wait_body and
         'ddnsto_process_state' in wait_body and 'sleep 1' in wait_body and
         'return 2' in wait_body,
         "stop wait must use five bounded tri-state polls and preserve UNKNOWN")
+require('DDNSTO_START_WAIT_ATTEMPTS=5' in script and
+        'while [ "$ddnsto_start_wait" -lt "$DDNSTO_START_WAIT_ATTEMPTS" ]; do' in wait_started_body and
+        'ddnsto_process_state' in wait_started_body and
+        '1) ;;' in wait_started_body and '*) return 2 ;;' in wait_started_body and
+        'if ! sleep 1; then' in wait_started_body and 'return 1' in wait_started_body,
+        "startup must retry only confirmed ABSENT and fail closed on UNKNOWN/wait errors")
+require('[ ! -x "$DDNSTO_BIN" ]' in start_body and
+        'ddnsto_start_id=$(nvram get ddnsto_id)' in start_body and
+        '[ -z "$ddnsto_start_id" ]' in start_body and
+        'ddnsto_wait_started' in start_body and
+        'ddnsto_start_wait_status' in start_body and
+        start_body.index('[ ! -x "$DDNSTO_BIN" ]') < start_body.index('if ! kill_z; then') <
+        start_body.index('"$DDNSTO_BIN" -u "$ddnsto_start_id"') <
+        start_body.index('ddnsto_wait_started'),
+        "start must preflight executable and identity before stopping, then verify RUNNING")
 require(kill_body.count('killall ddnsto') == 1 and kill_body.count('killall -9 ddnsto') == 1,
         "stop must send TERM then a name-re-enumerated SIGKILL only once")
 require(kill_body.index('killall ddnsto') < kill_body.index('ddnsto_wait_stopped') <
@@ -110,7 +126,11 @@ require('return eval("/usr/bin/ddnsto.sh","restart");' in restart_body and
 require('int restart_ddnsto(void);' in rc_header and 'rc_notify_merge_action_result(action_result, restart_ddnsto())' in rc,
         "RC declaration / notification caller must remain wired")
 for marker in ("UNKNOWN process inventory", "UNKNOWN after TERM", "sleep failure",
-               "nonzero TERM result overrode confirmed ABSENT", "private inode", "unsafe paths", "bounds lock contention",
+               "missing DDNSTO executable", "NVRAM identity read failure",
+               "empty DDNSTO identity", "immediate-exit daemon",
+               "exactly five bounded polls", "UNKNOWN post-launch process inventory",
+               "failed startup wait primitive", "delayed but confirmed daemon",
+               "private inode", "unsafe paths", "bounds lock contention",
                "inherited FD 9", "concurrent start", "TERM-END",
                "detached daemons do not retain FD 9", "serialized restart",
                "numeric PID signalling"):

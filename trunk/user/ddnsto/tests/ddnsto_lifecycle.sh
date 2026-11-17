@@ -28,6 +28,7 @@ fail() {
 sed -n \
 	-e '/^start_zero() {$/,/^}/p' \
 	-e '/^ddnsto_process_state() {$/,/^}/p' \
+	-e '/^ddnsto_wait_started() {$/,/^}/p' \
 	-e '/^ddnsto_wait_stopped() {$/,/^}/p' \
 	-e '/^kill_z() {$/,/^}/p' \
 	-e '/^stop_zero() {$/,/^}/p' \
@@ -44,6 +45,7 @@ sed -n \
 ddnsto_lifecycle_lock_path() { printf '%s\n' "$LOCK_FILE"; }
 DDNSTO_BIN="$TEST_BIN/ddnsto"
 DDNSTO_LOCK_WAIT_SECONDS=5
+DDNSTO_START_WAIT_ATTEMPTS=5
 echo 1 > "$TEST_ENABLE_FILE"
 export DDNSTO_BIN DDNSTO_LOCK_WAIT_SECONDS
 
@@ -121,7 +123,14 @@ cat > "$TEST_BIN/nvram" <<'MOCK'
 #!/bin/sh
 printf '%s\n' "$*" >> "$TEST_NVRAM_LOG"
 case "$1:$2" in
-	get:ddnsto_id) echo regression-id ;;
+	get:ddnsto_id)
+		[ "${TEST_NVRAM_ID_FAIL:-0}" = 0 ] || exit 9
+		if [ "${TEST_NVRAM_ID_SET:-0}" = 1 ]; then
+			printf '%s\\n' "$TEST_NVRAM_ID"
+		else
+			echo regression-id
+		fi
+		;;
 	get:ddnsto_enable) cat "$TEST_ENABLE_FILE" ;;
 	*) exit 1 ;;
 esac
@@ -130,10 +139,31 @@ MOCK
 cat > "$TEST_BIN/ddnsto" <<'MOCK'
 #!/bin/sh
 [ "$1" = -u ] && [ "$2" = regression-id ] || exit 2
-echo START >> "$TEST_OPS"
-echo running > "$TEST_STATE"
-echo $$ > "$TEST_DAEMON_PID"
-exec /bin/sleep 30
+case "${TEST_DAEMON_MODE:-normal}" in
+	fail)
+		echo LAUNCH-FAIL >> "$TEST_OPS"
+		exit 42
+		;;
+	unknown)
+		echo LAUNCH-UNKNOWN >> "$TEST_OPS"
+		echo error > "$TEST_STATE"
+		exit 0
+		;;
+	delayed)
+		echo START >> "$TEST_OPS"
+		/bin/sleep 0.05
+		echo running > "$TEST_STATE"
+		echo $ > "$TEST_DAEMON_PID"
+		exec /bin/sleep 30
+		;;
+	normal)
+		echo START >> "$TEST_OPS"
+		echo running > "$TEST_STATE"
+		echo $ > "$TEST_DAEMON_PID"
+		exec /bin/sleep 30
+		;;
+	*) exit 2 ;;
+esac
 MOCK
 chmod +x "$TEST_BIN"/*
 
@@ -237,9 +267,93 @@ if run_action normal start; then fail "start accepted UNKNOWN process inventory"
 	fail "UNKNOWN start signalled or launched a duplicate"
 grep -Fqx 'get ddnsto_enable' "$TEST_NVRAM_LOG" ||
 	fail "start did not read the enable switch under the lifecycle lock"
-if grep -Fqx 'get ddnsto_id' "$TEST_NVRAM_LOG"; then
-	fail "UNKNOWN start read daemon credentials before the stop gate"
-fi
+grep -Fqx 'get ddnsto_id' "$TEST_NVRAM_LOG" ||
+	fail "start did not preflight the daemon identity under the lifecycle lock"
+
+# A failed launch prerequisite must not stop a previously running DDNSTO.
+: > "$TEST_LOG"
+: > "$TEST_OPS"
+echo running > "$TEST_STATE"
+saved_ddnsto_bin="$DDNSTO_BIN"
+DDNSTO_BIN="$TEST_TMP/missing-ddnsto"
+export DDNSTO_BIN
+if run_action normal start; then fail "start accepted a missing DDNSTO executable"; fi
+[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
+	fail "missing executable disrupted the existing daemon"
+DDNSTO_BIN="$saved_ddnsto_bin"
+export DDNSTO_BIN
+
+TEST_NVRAM_ID_FAIL=1
+export TEST_NVRAM_ID_FAIL
+if run_action normal start; then fail "start accepted an NVRAM identity read failure"; fi
+[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
+	fail "NVRAM read failure disrupted the existing daemon"
+TEST_NVRAM_ID_FAIL=0
+TEST_NVRAM_ID_SET=1
+TEST_NVRAM_ID=""
+export TEST_NVRAM_ID_FAIL TEST_NVRAM_ID_SET TEST_NVRAM_ID
+if run_action normal start; then fail "start accepted an empty DDNSTO identity"; fi
+[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
+	fail "empty identity disrupted the existing daemon"
+unset TEST_NVRAM_ID_SET TEST_NVRAM_ID
+TEST_NVRAM_ID_FAIL=0
+export TEST_NVRAM_ID_FAIL
+
+# Background fork success is insufficient: wait for validated daemon presence.
+: > "$TEST_LOG"
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+TEST_DAEMON_MODE=fail
+export TEST_DAEMON_MODE
+if run_action normal start; then fail "start reported success after the daemon exited immediately"; fi
+unset TEST_DAEMON_MODE
+[ "$(cat "$TEST_OPS")" = LAUNCH-FAIL ] || fail "immediate-exit daemon fixture did not execute"
+[ "$(cat "$TEST_STATE")" = stopped ] || fail "immediate-exit daemon changed process state"
+[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 4 ] ||
+	fail "confirmed-ABSENT startup did not use exactly five bounded polls"
+
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+TEST_DAEMON_MODE=unknown
+export TEST_DAEMON_MODE
+if run_action normal start; then fail "start accepted UNKNOWN post-launch process inventory"; fi
+unset TEST_DAEMON_MODE
+[ "$(cat "$TEST_STATE")" = error ] || fail "UNKNOWN-start fixture did not publish UNKNOWN"
+[ ! -s "$TEST_SLEEP_LOG" ] || fail "UNKNOWN startup inventory was incorrectly retried"
+
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_OPS"
+echo stopped > "$TEST_STATE"
+TEST_DAEMON_MODE=fail
+TEST_SLEEP_FAIL=1
+export TEST_DAEMON_MODE TEST_SLEEP_FAIL
+if run_action normal start; then fail "start accepted a failed startup wait primitive"; fi
+unset TEST_DAEMON_MODE
+TEST_SLEEP_FAIL=0
+export TEST_SLEEP_FAIL
+[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 1 ] ||
+	fail "startup sleep failure was not observed exactly once"
+[ "$(cat "$TEST_OPS")" = LAUNCH-FAIL ] || fail "startup wait-failure daemon fixture did not execute"
+
+# ABSENT is retried: a daemon that becomes visible satisfies startup within the bound.
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_OPS"
+: > "$TEST_DAEMON_PID"
+echo stopped > "$TEST_STATE"
+TEST_DAEMON_MODE=delayed
+export TEST_DAEMON_MODE
+run_action normal start || fail "start did not accept a delayed but confirmed daemon"
+unset TEST_DAEMON_MODE
+[ "$(cat "$TEST_STATE")" = running ] && [ -s "$TEST_DAEMON_PID" ] ||
+	fail "delayed daemon did not satisfy the RUNNING postcondition"
+[ "$(grep -Fxc START "$TEST_OPS" || :)" = 1 ] || fail "delayed startup launched more than once"
+[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" -ge 1 ] ||
+	fail "delayed startup returned without retrying confirmed ABSENT"
+run_action graceful stop || fail "delayed-start cleanup failed"
+echo stopped > "$TEST_STATE"
+: > "$TEST_DAEMON_PID"
 
 # UNKNOWN after TERM blocks name-wide SIGKILL escalation.
 : > "$TEST_LOG"
@@ -300,8 +414,8 @@ echo "DDNSTO stop retains bounded TERM/KILL and fail-closed postconditions: PASS
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_OPS"
 echo stopped > "$TEST_STATE"
-run_action normal start || fail "initial asynchronous start failed"
-# Startup is intentionally asynchronous; observe the mock child with a bounded wait.
+run_action normal start || fail "initial start did not confirm daemon presence"
+# The start call now returns only after pidof confirms the detached daemon.
 start_attempt=0
 while { [ "$(cat "$TEST_STATE")" != running ] || [ ! -s "$TEST_DAEMON_PID" ]; } &&
       [ "$start_attempt" -lt 100 ]; do
@@ -328,8 +442,8 @@ grep -Fqx TERM-BEGIN "$TEST_OPS" || fail "slow stop did not enter its critical s
 run_action normal start || fail "start did not proceed after the serialized stop released the lock"
 wait "$stop_pid" || fail "serialized stop failed"
 DDNSTO_LOCK_WAIT_SECONDS=5
-# The start launcher intentionally returns after spawning its daemon. Observe
-# the asynchronous child's START marker before asserting event ordering.
+# The launcher has already waited for validated process presence; observe the
+# detached child's START marker before asserting the serialized event ordering.
 start_after_stop_attempt=0
 while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -lt 2 ] ||
         [ "$(cat "$TEST_STATE")" != running ]; } &&
@@ -348,7 +462,7 @@ echo "DDNSTO start/stop operations serialize and detached daemons do not retain 
 : > "$TEST_OPS"
 echo running > "$TEST_STATE"
 run_action graceful restart || fail "serialized restart failed"
-# The replacement daemon forks asynchronously; wait for its marker with a hard bound.
+# The replacement daemon is detached; wait for its marker with a hard bound.
 restart_attempt=0
 while { [ "$(grep -Fxc START "$TEST_OPS" || :)" -ne 1 ] ||
         [ "$(cat "$TEST_STATE")" != running ]; } &&
