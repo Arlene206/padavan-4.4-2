@@ -27,6 +27,33 @@ test_wan_firewall_failure_blocks_protocol_launch(void)
 }
 
 static void
+test_static_ipoe_eapol_cleanup_failure_forces_interface_down(void)
+{
+	const int clear_failures[] = { -1, EIO, EBUSY };
+	int status;
+	int down_attempts;
+	int i;
+
+	assert(!rc_wan_static_ipoe_clear_failure_requires_ifdown(0, EIO));
+	assert(!rc_wan_static_ipoe_clear_failure_requires_ifdown(1, 0));
+
+	for (i = 0; i < (int)(sizeof(clear_failures) / sizeof(clear_failures[0])); i++) {
+		status = EACCES;
+		down_attempts = 0;
+
+		/* Preserve authentication as the first error, but still force link down. */
+		status = rc_first_service_start_status(status, clear_failures[i]);
+		if (rc_wan_static_ipoe_clear_failure_requires_ifdown(1, clear_failures[i])) {
+			down_attempts++;
+			status = rc_first_service_start_status(status, EBUSY);
+		}
+
+		assert(down_attempts == 1);
+		assert(status == EACCES);
+	}
+}
+
+static void
 test_wan_default_mtu_respects_static_custom_override(void)
 {
 	assert(wan_default_mtu_should_be_set(1, 1299));
@@ -472,6 +499,7 @@ main(void)
 	assert(rc_first_service_start_status(-5, 9) == -5);
 	assert(rc_first_service_start_status(4, 0) == 4);
 	test_wan_firewall_failure_blocks_protocol_launch();
+	test_static_ipoe_eapol_cleanup_failure_forces_interface_down();
 	test_wan_default_mtu_respects_static_custom_override();
 	test_wan_default_mtu_failure_is_reported_while_startup_continues();
 	test_man_custom_mtu_failure_is_reported_and_setup_continues();
@@ -487,6 +515,6 @@ main(void)
 	test_storage_event_remains_pending_after_failure();
 	test_loopback_start_preserves_first_required_failure();
 	test_lan_start_preserves_first_required_failure();
-	puts("RC boot, WAN firewall and LAN service first-failure aggregation policy: PASS");
+	puts("RC boot, WAN firewall, static IPoE EAPOL cleanup and LAN first-failure policy: PASS");
 	return 0;
 }

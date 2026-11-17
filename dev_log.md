@@ -1,3 +1,12 @@
+## 2026-11-18 07:08 CST (UTC+8) — Fail closed on static IPoE EAPOL address cleanup
+
+- Parent main SHA: `fa36ad1823344790f17511bef5890df3a9f78b09`. MiniUPnP lock-check repair is complete: exact fa36 MiniUPnP run `44195714916` and AI docs `44195714933` PASS; Process `44195398478` and AI docs `44195398394` pass on dc6.
+- Exact XY-C1 run `44193165931` for product source baseline `88770d7` completed Build XY-C1, TRX verification and artifact upload. Descendant MiniUPnP work changed test/workflow/docs only.
+- Found a concrete P1 WAN defect: static IPoE EAPOL failure attempted to clear the WAN IPv4 address but discarded the ifconfig result. The interface could remain UP with a stale address. THIS change captures/logs/aggregates the clear error and forces the interface down; failed interface-down status is also preserved, while the original EAPOL error remains first.
+- Added static-vs-dynamic and clear-success/error policy regression and extended the WAN checker to enforce operation order and diagnostics. Exact WAN and XY-C1 checks pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 07:01 CST (UTC+8) — Validate MiniUPnP lock-release status in source contracts
 
 - Parent main SHA: `654c146b2d0dcf5cbb1187a544ddaf429edc8c55`; production lock implementation remains `03a993e558b23f5f163ca1a904cbf7b54f6ef7e9`.

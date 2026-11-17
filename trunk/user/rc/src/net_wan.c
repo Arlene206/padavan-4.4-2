@@ -1683,6 +1683,7 @@ start_wan(void)
 {
 	int unit, wan_proto, wan_mtu;
 	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
+	int static_address_clear_status;
 	int modem_start_status = 0;
 	int wan_start_status = 0, wan_up_status;
 	char *wan_ifname;
@@ -2078,9 +2079,23 @@ start_wan(void)
 					logmessage(LOGNAME, "WAN EAPOL authentication startup failed on %s (status=%d); skipping address/lease setup",
 						   wan_ifname, auth_status);
 					set_wan_unit_value_int(unit, "err", 1);
-					if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC &&
-					    ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL) != 0)
-						logmessage(LOGNAME, "failed to clear static WAN address after EAPOL startup failure on %s", wan_ifname);
+					static_address_clear_status = 0;
+					if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
+						static_address_clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+					if (rc_wan_static_ipoe_clear_failure_requires_ifdown(
+						wan_proto == IPV4_WAN_PROTO_IPOE_STATIC, static_address_clear_status)) {
+						wan_start_status = rc_first_service_start_status(
+							wan_start_status, static_address_clear_status);
+						logmessage(LOGNAME, "failed to clear static WAN address after EAPOL startup failure on %s (status=%d); forcing interface down",
+							   wan_ifname, static_address_clear_status);
+						interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);
+						if (interface_cleanup_status != 0) {
+							wan_start_status = rc_first_service_start_status(
+								wan_start_status, interface_cleanup_status);
+							logmessage(LOGNAME, "failed to take static WAN interface %s down after EAPOL address cleanup failure (status=%d)",
+								   wan_ifname, interface_cleanup_status);
+						}
+					}
 					continue;
 				}
 			}

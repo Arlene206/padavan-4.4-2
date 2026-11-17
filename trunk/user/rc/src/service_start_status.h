@@ -25,4 +25,14 @@ rc_wan_firewall_start_allows_protocol(int firewall_status)
 	return firewall_status == 0;
 }
 
+/*
+ * A static IPoE address that could not be cleared after EAPOL startup failure
+ * must not remain on an administratively up physical WAN interface.
+ */
+static inline int
+rc_wan_static_ipoe_clear_failure_requires_ifdown(int is_static_ipoe, int clear_status)
+{
+	return is_static_ipoe && clear_status != 0;
+}
+
 #endif

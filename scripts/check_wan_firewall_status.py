@@ -79,6 +79,9 @@ require("rc_wan_firewall_start_allows_protocol" in policy,
 require("test_wan_firewall_failure_blocks_protocol_launch" in policy_test and
         "test_wan_firewall_failure_blocks_protocol_launch();" in policy_test,
         "WAN firewall failure gate must have a registered policy regression")
+require("test_static_ipoe_eapol_cleanup_failure_forces_interface_down" in policy_test and
+        "test_static_ipoe_eapol_cleanup_failure_forces_interface_down();" in policy_test,
+        "static IPoE EAPOL address cleanup must have a registered policy regression")
 require("int start_firewall_ex(void);" in header,
         "firewall rebuild API must expose its status")
 
@@ -151,6 +154,36 @@ for index, position in enumerate(firewall_sites):
     else:
         require("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);" in follow,
                 "PPP/IPoE firewall failure must reach wan_start_status")
+
+# A failed EAPOL launch must not leave a stale static IPoE address exposed.
+require("rc_wan_static_ipoe_clear_failure_requires_ifdown" in policy and
+        "return is_static_ipoe && clear_status != 0;" in policy,
+        "static IPoE clear failure must trigger a fail-closed interface-down decision")
+eapol = start.split("/* Start eapol authenticator */", 1)[1]
+require("auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);" in eapol,
+        "EAPOL startup result must be captured")
+eapol_order = (
+    "wan_start_status = rc_first_service_start_status(wan_start_status, auth_status);",
+    'set_wan_unit_value_int(unit, "err", 1);',
+    "static_address_clear_status = 0;",
+    'static_address_clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);',
+    "if (rc_wan_static_ipoe_clear_failure_requires_ifdown(",
+    "wan_start_status, static_address_clear_status);",
+    "interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);",
+    "if (interface_cleanup_status != 0)",
+    "wan_start_status, interface_cleanup_status);",
+    "continue;",
+)
+eapol_cursor = 0
+for marker in eapol_order:
+    position = eapol.find(marker, eapol_cursor)
+    require(position >= 0,
+            f"EAPOL static-IP cleanup/forced-down sequence missing or out of order: {marker}")
+    eapol_cursor = position + len(marker)
+require("failed to clear static WAN address after EAPOL startup failure on %s (status=%d); forcing interface down" in eapol,
+        "EAPOL static-IP clear failure must be logged with its status")
+require("failed to take static WAN interface %s down after EAPOL address cleanup failure (status=%d)" in eapol,
+        "forced-down failure must be logged with its status")
 
 recovery_marker = "vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);"
 recovery_sites = positions(start, recovery_marker)

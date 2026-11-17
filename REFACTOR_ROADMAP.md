@@ -1,17 +1,19 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS checker correction: `654c146b2d0dcf5cbb1187a544ddaf429edc8c55`.
-- MiniUPnP source commit `03a993e558b23f5f163ca1a904cbf7b54f6ef7e9` adds stable cross-process lifecycle serialization around public start, stop, WAN check, update and restart. Public wrappers retain the lock through their internal `*_locked` operation and lock release.
-- Exact e74 Process `44194600337` and MiniUPnP `44194600347` failed a stale direct-return assertion after earlier lock-aware checks passed. Exact 654 MiniUPnP `44195030330` repeated the same failure; commit 654 normalized the error predicate but left `return ret;` expected from the lock-owning wrapper. THIS correction validates the actual `miniupnpd_lifecycle_lock_finish` result and removes the remaining duplicated public-wrapper assertions.
-- Exact e74 AI docs `44194600326` PASS. Exact 654 AI docs `44195030309` was pending at the last query.
-- Parent `88770d7` NVRAM `44193165743` completed SUCCESS; XY-C1 `44193165931` was still building after all pre-build gates passed, with TRX/artifact pending at last poll.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Parent main before THIS source slice: `fa36ad1823344790f17511bef5890df3a9f78b09`.
+- MiniUPnP serialized lifecycle source remains `03a993e`; exact dedicated MiniUPnP workflow `44195714916` and AI docs `44195714933` on `fa36ad1` passed. Process lifecycle `44195398478` and AI docs `44195398394` passed on `dc6d32d`.
+- XY-C1 run `44193165931` on product source baseline `88770d7` completed Build, TRX verification and artifact upload successfully. Descendant MiniUPnP fixes through `fa36ad1` changed tests/workflow/docs only.
+- THIS source slice fixes static IPoE EAPOL cleanup: a failed EAPOL launch previously discarded the static IPv4 clear result and could leave the address on an administratively UP WAN interface. The clear error now propagates and triggers interface-down; a failed forced-down status is also propagated. A GNU89 policy regression and WAN source contract were added. Exact-head WAN/XY-C1 pending.
+- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: inspect exact-head Process/MiniUPnP/AI reruns and confirm the XY-C1 Build/TRX/artifact result. Then continue independent P1 work.
+Next: inspect exact-head WAN and XY-C1 results for EAPOL cleanup, then continue independent P1 reliability/security work.
 
 ---
 
 ## Whole-repository module status
+
+- Latest P1 WAN defect: static IPoE EAPOL failure could leave a stale address because the clear result was discarded. THIS commit propagates it and forces interface-down if clearing fails; exact-head WAN/XY-C1 pending.
+
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
