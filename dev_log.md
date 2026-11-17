@@ -1,3 +1,14 @@
+## 2026-11-17 — Retry DHCP-advertised WAN/IPTV MTU failures across renewal callbacks
+
+- Parent main SHA: `5b9cc6d16b8676e30a12002212f8440673a15937`; result: THIS COMMIT.
+- Finding: both `udhcpc_bound()` and `udhcpc_viptv_bound()` only invoked the DHCP MTU setter for an initial `bound`, although their renewal handlers explicitly route changed MTU options and failed route/setup states back through `bound(..., 1)`. The `!is_renew_mode` guard therefore skipped the required reapply on renew. Setter failures were logged but not included in the existing `route_setup_status`/retry state, so later successful address/route work masked the MTU failure.
+- Both callbacks now reapply supported advertised MTUs during bound and renew. Setter failure is retained with first-error aggregation while routes and IPTV multicast still proceed; it is persisted through the existing `route_err`/`manv_route_err` retry path and returned to BusyBox's synchronous DHCP event runner. A later successful callback clears the retry state.
+- Added `dhcp_wan_interface_policy.c` coverage for MTU failure retention across successful route work and the retry predicate; expanded `check_wan_initial_mtu_status.py` to assert both callback paths, renewal re-entry, status aggregation and route-error persistence.
+- Parent `5b9cc6d1` exact-head WAN route run `44046257356` passed including the expanded physical/MAN MTU contract; WAN DHCP callback `44046257418` passed; Process inventory `44046257192` passed; Process lifecycle `44046257377` passed including `Compile and run RC boot service status aggregation regression`. XY-C1 run `44046257252` was still building at last poll; TRX verification and artifact upload pending. This new source slice needs its own exact-head WAN/Process/XY-C1 checks.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No local MIPS toolchain; router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Preserve static MAN custom-MTU failures in launch_wanx()
 
 - Parent main SHA: `cffd4a9145b2993b41a340cb9d7e42449c97c292`; result: THIS COMMIT.
