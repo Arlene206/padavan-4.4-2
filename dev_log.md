@@ -1,3 +1,13 @@
+## 2026-11-17 — Reject non-global IPv4 responses from AliDDNS WAN discovery
+
+- Parent main SHA: 55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540; result: THIS COMMIT.
+- Audit found that `aliddns-ipv4.sh` enforced HTTPS, CA verification, HTTP 200, syntax and octet bounds, but treated any syntactically valid dotted-quad as a public WAN address. A captive portal, misconfigured HTTPS proxy or poisoned endpoint response could therefore feed private/loopback/link-local/CGNAT/documentation/benchmark/multicast/reserved space into a public DDNS A record.
+- Hardened only the external WAN-discovery helper; the general `aliddns_ipv4_valid()` syntax validator remains unchanged for operator-supplied scripts and legitimate private-network use. The helper now rejects special-use ranges while preserving globally reachable IETF anycast exceptions 192.0.0.9 and 192.0.0.10.
+- Expanded the mocked HTTPS regression across RFC1918, CGNAT, loopback, link-local, documentation, 6to4 relay, benchmarking, multicast and reserved address ranges; added acceptance coverage for 192.0.0.9. Extended the source-contract checker. The AliDDNS workflow already filters the helper, test and checker paths.
+- Parent AliDDNS run 44115309701 on 55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540 was queued at last poll; the earlier signed-API transport regression passed on 776907e. Revalidate this new address policy on this commit's exact SHA. No local test/compiler is claimed; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Correct normalized helper-call assertion in storage checker
 
 - Parent main SHA: e1a21c6867df9391d4fef938fda93e24ef05a07f; result: THIS COMMIT.

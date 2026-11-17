@@ -299,6 +299,32 @@ require("curl -k" not in ipv4_helper and "--insecure" not in ipv4_helper and
         "public IPv4 helper must not bypass TLS or follow redirects")
 require("awk -F." in ipv4_helper and "NF != 4" in ipv4_helper and "($i + 0) > 255" in ipv4_helper,
         "public IPv4 helper must validate four bounded decimal octets")
+for network_guard in (
+        "a == 0", "a == 10", "a == 127", "a >= 224",
+        "a == 100 && b >= 64 && b <= 127",
+        "a == 169 && b == 254",
+        "a == 172 && b >= 16 && b <= 31",
+        "a == 192 && b == 0 && cc == 0 && d != 9 && d != 10",
+        "a == 192 && b == 0 && cc == 2",
+        "a == 192 && b == 88 && cc == 99",
+        "a == 192 && b == 168",
+        "a == 198 && (b == 18 || b == 19)",
+        "a == 198 && b == 51 && cc == 100",
+        "a == 203 && b == 0 && cc == 113",
+):
+    require(network_guard in ipv4_helper,
+            "public IPv4 helper must reject non-global IPv4 space: " + network_guard)
+for reserved_address in (
+        "0.1.2.3", "10.1.2.3", "100.64.0.1", "100.127.255.254",
+        "127.0.0.1", "169.254.1.1", "172.16.0.1", "172.31.255.254",
+        "192.0.0.1", "192.0.2.1", "192.88.99.1", "192.168.1.1",
+        "198.18.0.1", "198.19.255.254", "198.51.100.1", "203.0.113.1",
+        "224.0.0.1", "240.0.0.1", "255.255.255.255",
+):
+    require(reserved_address in ipv4_test,
+            "public IPv4 regression must cover special-use address: " + reserved_address)
+require("special-address)" in ipv4_test and "globally reachable IETF anycast" in ipv4_test,
+        "public IPv4 regression must test reserved responses and valid IETF anycast exception")
 require("NR != 1" in ipv4_valid and "NF != 4" in ipv4_valid and
         "NR != 1" in ipv6_valid and "count >= 8" in ipv6_valid,
         "AliDDNS must validate exactly one IPv4 or syntactically valid IPv6 address")

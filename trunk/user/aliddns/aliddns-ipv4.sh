@@ -58,6 +58,25 @@ printf '%s\n' "$ip" | awk -F. '
 			if ($i !~ /^(0|[1-9][0-9]?[0-9]?)$/ || ($i + 0) > 255)
 				exit 1
 		}
+		a = $1 + 0
+		b = $2 + 0
+		cc = $3 + 0
+		d = $4 + 0
+		# This endpoint is specifically for the WAN/public address. Do not
+		# publish private, shared, local, documentation, benchmark or
+		# multicast/reserved IPv4 space as a public DDNS record.
+		if (a == 0 || a == 10 || a == 127 || a >= 224 ||
+		    (a == 100 && b >= 64 && b <= 127) ||
+		    (a == 169 && b == 254) ||
+		    (a == 172 && b >= 16 && b <= 31) ||
+		    (a == 192 && b == 0 && cc == 0 && d != 9 && d != 10) ||
+		    (a == 192 && b == 0 && cc == 2) ||
+		    (a == 192 && b == 88 && cc == 99) ||
+		    (a == 192 && b == 168) ||
+		    (a == 198 && (b == 18 || b == 19)) ||
+		    (a == 198 && b == 51 && cc == 100) ||
+		    (a == 203 && b == 0 && cc == 113))
+			exit 1
 		valid = 1
 	}
 	END {

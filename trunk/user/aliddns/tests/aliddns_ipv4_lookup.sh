@@ -33,12 +33,13 @@ IFS= read -r count < "$CURL_COUNT_FILE" || :
 count=$((count + 1))
 printf '%s\n' "$count" > "$CURL_COUNT_FILE"
 case "$FAKE_SCENARIO" in
-	valid) printf '%s\n' '203.0.113.9' '200' ;;
+	valid) printf '%s\n' '8.8.8.8' '200' ;;
+	special-address) printf '%s\n' "$FAKE_IP" '200' ;;
 	tls-failure) exit 60 ;;
 	timeout) exit 28 ;;
 	http-failure) printf '%s\n' 'upstream error' '503'; exit 22 ;;
 	redirect) printf '%s\n' 'redirect body' '302' ;;
-	non-200) printf '%s\n' '203.0.113.9' '201' ;;
+	non-200) printf '%s\n' '8.8.8.8' '201' ;;
 	*) exit 90 ;;
 esac
 MOCK_CURL
@@ -76,7 +77,7 @@ done
 # The helper pins the endpoint, certificate bundle, protocol and time bounds.
 reset_case valid
 result=$("$HELPER") || fail "valid HTTPS IPv4 response was rejected"
-[ "$result" = "203.0.113.9" ] || fail "helper did not emit exactly one IPv4 address"
+[ "$result" = "8.8.8.8" ] || fail "helper did not emit exactly one public IPv4 address"
 grep -Fqx -- '--fail' "$CURL_ARGS_LOG" || fail "curl is missing --fail"
 grep -Fqx -- '--ipv4' "$CURL_ARGS_LOG" || fail "curl is not pinned to IPv4 transport"
 grep -Fqx -- '--connect-timeout' "$CURL_ARGS_LOG" || fail "curl is missing a connect timeout"
@@ -107,10 +108,48 @@ for scenario in tls-failure timeout http-failure redirect non-200; do
 		fail "failure case retried without a bounded retry policy: $scenario"
 done
 
+# A WAN-discovery endpoint must not trick DDNS into publishing special-use
+# addresses if a proxy, captive portal, or upstream service returns bad data.
+for reserved in \
+	0.1.2.3 \
+	10.1.2.3 \
+	100.64.0.1 \
+	100.127.255.254 \
+	127.0.0.1 \
+	169.254.1.1 \
+	172.16.0.1 \
+	172.31.255.254 \
+	192.0.0.1 \
+	192.0.2.1 \
+	192.88.99.1 \
+	192.168.1.1 \
+	198.18.0.1 \
+	198.19.255.254 \
+	198.51.100.1 \
+	203.0.113.1 \
+	224.0.0.1 \
+	240.0.0.1 \
+	255.255.255.255
+do
+	reset_case special-address
+	FAKE_IP="$reserved"
+	export FAKE_IP
+	if "$HELPER" >/dev/null 2>&1; then
+		fail "non-public IPv4 accepted by WAN discovery: $reserved"
+	fi
+done
+
+# IANA protocol-assignment exceptions that are globally reachable stay valid.
+reset_case special-address
+FAKE_IP=192.0.0.9
+export FAKE_IP
+result=$("$HELPER") || fail "globally reachable IETF anycast address was rejected"
+[ "$result" = "192.0.0.9" ] || fail "IETF anycast address was changed"
+
 # Keep the previous PPPoE source-interface policy with a validated one-item argument.
 reset_case valid
 result=$("$HELPER" ppp0) || fail "ppp0-bound request failed"
-[ "$result" = "203.0.113.9" ] || fail "ppp0 request changed the address"
+[ "$result" = "8.8.8.8" ] || fail "ppp0 request changed the address"
 grep -Fqx -- '--interface' "$CURL_ARGS_LOG" || fail "ppp0 interface binding was omitted"
 grep -Fqx -- 'ppp0' "$CURL_ARGS_LOG" || fail "ppp0 source interface was not passed literally"
 count_before="$(cat "$CURL_COUNT_FILE")"
@@ -119,5 +158,5 @@ if "$HELPER" 'ppp0;touch /tmp/aliddns-test-owned'; then
 fi
 [ "$(cat "$CURL_COUNT_FILE")" = "$count_before" ] || fail "curl ran for an invalid interface argument"
 
-echo "AliDDNS public IPv4 HTTPS discovery, CA, transport and interface regression: PASS"
+echo "AliDDNS public IPv4 HTTPS discovery, global-unicast filtering, CA and interface regression: PASS"
 echo "AliDDNS strict IPv4/IPv6 address validation regression: PASS"

@@ -4,34 +4,39 @@ This checkpoint supersedes older status statements below when they conflict. Res
 
 ## Git state
 - Repository: `https://github.com/Arlene206/padavan-4.4-2`
-- Parent main SHA: `e1a21c6867df9391d4fef938fda93e24ef05a07f`; result: THIS COMMIT (complete Git tree, expected-SHA update, no force push).
+- Parent main SHA: `55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540`; result: THIS COMMIT (complete tree, expected-SHA update, no force push).
 - Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- No local checkout/compiler was available in this connector-only session. Physical-router L4 NOT VERIFIED.
+- Connector-only session: no local checkout/compiler; physical-router L4 NOT VERIFIED.
 
-## Storage safe-remove status
-- `776907e05a23638a6bf5c9cd7ab1bbef35bb4571` added the fail-closed targeted safe-remove gate: restart only after both unmount stages succeed and a fresh positive mount inventory. Failed/unknown cleanup leaves applications stopped; ordinary app-start retry remains only for a start failure after confirmed cleanup.
-- Exact-head storage run `44114215851` (SHA 776907e) passed caller graph and lock ordering, then failed on an obsolete checker requirement to retry from unknown inventory.
-- THIS COMMIT (`e1a21c6867df9391d4fef938fda93e24ef05a07f`) updated that check, but exact-head storage run `44114861725` still failed in the newly-added helper-call assertion due only to an expected-space mismatch; caller graph/lock checks again passed. THIS COMMIT corrects the normalized text assertion. Re-run before claiming L2.
-- Prior exact-head SHA `e1a21c6867df9391d4fef938fda93e24ef05a07f`: AliDDNS, AliyunDrive, infosvr and AI docs PASS; storage checker FAIL; process, AdGuardHome and NVRAM were still running/pending at last poll. XY-C1 build remained in progress on source SHA 776907e.
+## Storage slice and CI
+- `776907e05a23` gated the targeted/manual safe-remove restart on both unmount stages succeeding and fresh positive mount inventory.
+- `e1a21c6867df` updated the storage checker to forbid retry on failed/unknown cleanup; its storage run found a formatting mismatch in the new helper-call assertion.
+- `55ffdc1fd659` corrected that assertion. Its exact-head storage run was queued at last poll; check its latest state before claiming L2.
+- Parent SHA `55ffdc1fd659` also had XY-C1 run `44114216599` in progress through the Build XY-C1 step; TRX validation and artifact upload were pending. Poll to conclusion.
+
+## AliDDNS WAN discovery
+- The external `aliddns-ipv4.sh` endpoint was verified HTTPS but previously accepted any syntactically valid IPv4, including private, CGNAT, loopback, link-local, documentation, benchmark, multicast and reserved ranges.
+- THIS COMMIT filters those special-use addresses only in the public WAN helper; the general syntax validator for operator-supplied DDNS scripts remains unchanged. Added mock endpoint regressions including globally reachable IETF anycast exceptions.
+- Parent signed API transport check passed on 776907e; exact-parent AliDDNS run 44115309701 was queued at last poll. Revalidate exact SHA after publication.
 
 ## Recent commit trail
-- THIS COMMIT: correct normalized helper-call assertion in storage integration checker
+- THIS COMMIT: reject non-global IPv4 from AliDDNS WAN discovery
+- `55ffdc1fd659` test(storage): fix eject policy contract normalization
 - `e1a21c6867df` test(storage): align retry contract with fail-closed eject
 - `776907e05a23` fix(storage): gate targeted eject restart on cleanup success
 - `d023872d38c8` test(storage): validate retry scheduling on both failure paths
-- `50f7fff76e7e` test(storage): assert the distinct physical-unplug retry path
 - `576cadbbb85e` fix(storage): retry physical eject before storage app startup
 - `66afed9c10f0` fix(storage): keep dependent services stopped after failed eject
 
 ## First next task
-1. Query exact-SHA Actions for THIS COMMIT; verify storage checker and poll XY-C1 build/TRX/artifact.
-2. Once storage is green, continue AliDDNS external IPv4 discovery hardening and lifecycle follow-ups. Its signed API transport run passed on parent SHA 776907e.
-3. Do not repeat completed HTTPD, process, or storage source audits; fix only real new failures.
+1. Query exact-head Actions for THIS COMMIT; fix any real failures in the public IPv4 test, checker, or storage test.
+2. Poll XY-C1 run `44114216599` through Build, TRX validation and artifact upload.
+3. Continue the remaining whole-userland AliDDNS lifecycle P1 audit after this IP discovery slice is verified. Do not repeat completed HTTPD/storage audits.
 
 ## Verification limits
-- Do not claim local host tests or a local firmware build in this connector-only session.
-- L2/L3 require successful exact-head Actions; XY-C1 Build, TRX verification and artifact upload must all finish.
-- Physical-router L4 remains NOT VERIFIED.
+- Host regressions and firmware L3 are PASS only from successful exact-head Actions.
+- No local host test or local firmware build was executed in this connector-only session.
+- Router hardware, real WAN interface and physical eject L4 remain NOT VERIFIED.
 
 
 # Cross-session execution mandate

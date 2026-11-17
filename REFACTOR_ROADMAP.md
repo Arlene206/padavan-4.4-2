@@ -2,13 +2,14 @@
 
 This section is authoritative over older table rows where state conflicts.
 
-- Parent main SHA: `e1a21c6867df9391d4fef938fda93e24ef05a07f`; result: THIS COMMIT.
+- Parent main SHA: `55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540`; result: THIS COMMIT.
 - Frozen backup branch: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Targeted safe-remove production fix `776907e` keeps storage apps stopped on failed/unknown cleanup and restarts only after both unmount phases succeed plus positive inventory.
-- Storage exact-head run `44114215851` at 776907e failed on obsolete checker expectations; follow-up `44114861725` at e1a21c6867df9391d4fef938fda93e24ef05a07f failed only on a space mismatch in the checker helper-call assertion. Both passed the preceding production caller-graph/lock-order contract.
-- THIS COMMIT corrects that text assertion. Re-run exact-head storage before L2 PASS. Parent AliDDNS, AliyunDrive, infosvr and AI docs checks passed; XY-C1 build/TRX/artifact was still pending.
-- No local compiler/checkout; physical-router L4 NOT VERIFIED.
-- Next: exact-head storage and XY-C1, then AliDDNS external IPv4 discovery and lifecycle follow-ups. Avoid repeat audits.
+- Storage safe-remove: `776907e` production gate implemented; `e1a21c68` checker contract corrected; `55ffdc1` fixed normalized helper-call assertion. Check latest exact-head storage run.
+- AliDDNS public WAN IPv4 helper was verified HTTPS but did not reject special-use addresses. THIS COMMIT adds non-global-range filtering, mock boundary tests, and checker assertions; the syntax-only validator for operator-supplied scripts remains unchanged.
+- Parent AliDDNS run 44115309701 was queued at last poll; earlier transport security passed on 776907e. Recheck exact SHA after this commit.
+- XY-C1 run 44114216599 on source SHA 776907e had reached Build XY-C1; TRX/artifact still pending. Poll.
+- No local compile/test and no physical-router L4 in this connector-only session.
+- Next: validate exact-head AliDDNS/storage and XY-C1, then continue AliDDNS lifecycle P1 audit. Avoid repeat HTTPD/storage work.
 
 ---
 
