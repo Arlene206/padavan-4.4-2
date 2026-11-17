@@ -754,17 +754,17 @@ jobs:
           sit_start = body(wan6_source, "int start_sit_tunnel(int ipv6_type, char *wan_ifname")
           assert "WAN6_SIT_CHECK(" in sit_start
           for operation in (
-              'eval("ip", "tunnel", "del", IFNAME_SIT)'
-              'eval("ip", "tunnel", "add", IFNAME_SIT, "mode", "sit"'
-              'eval("ip", "tunnel", "6rd", "dev", IFNAME_SIT'
+              'eval("ip", "tunnel", "del", IFNAME_SIT)',
+              'eval("ip", "tunnel", "add", IFNAME_SIT, "mode", "sit"',
+              'eval("ip", "tunnel", "6rd", "dev", IFNAME_SIT',
               "route_add(wan_ifname, 0, sit_ep",
               "control_if_ipv6_radv(IFNAME_SIT, 0)",
-              'eval("ip", "link", "set", "mtu", sit_mtu_text'
+              'eval("ip", "link", "set", "mtu", sit_mtu_text',
               "control_if_ipv6(IFNAME_SIT, 1)",
               "clear_if_addr6(IFNAME_SIT)",
               'eval("ip", "-6", "addr", "add", addr6s, "dev", IFNAME_SIT)',
-              'eval("ip", "-6", "route", "add", "default", "dev"'
-              'eval("ip", "-6", "route", "add", "default", "via"'
+              'eval("ip", "-6", "route", "add", "default", "dev", IFNAME_SIT, "metric", "2048")',
+              'eval("ip", "-6", "route", "add", "default", "via", wan_gate6, "dev", IFNAME_SIT, "metric", "1")',
               "clear_if_addr6(IFNAME_BR)",
               "route_del(wan_ifname, 0, sit_ep",
               "stop_sit_tunnel()",
@@ -774,7 +774,7 @@ jobs:
           assert "if (wan_route_added)" in sit_start
           assert "if (tunnel_created)" in sit_start
           assert sit_start.index("route_add(wan_ifname, 0, sit_ep") < sit_start.index('eval("ip", "-6", "addr", "add", addr6s')
-          assert sit_start.index("ip -6 route add default") < sit_start.index("store_lan_addr6(lan_addr6s)")
+          assert sit_start.index('eval("ip", "-6", "route", "add", "default"') < sit_start.index("store_lan_addr6(lan_addr6s)")
 
           native_start = body(wan6_source, "int wan6_up(char *wan_ifname, int unit)")
           assert "WAN6_NATIVE_CHECK(" in native_start
@@ -787,9 +787,9 @@ jobs:
               "control_if_ipv6_radv(wan_ifname, 0)",
               "clear_if_addr6(wan_ifname)",
               'eval("ip", "-6", "addr", "add", addr6_text, "dev", wan_ifname)',
-              'eval("ip", "-6", "route", "add", gate6_text'
-              'eval("ip", "-6", "route", "add", "default", "via"'
-              'eval("ip", "-6", "route", "add", "default", "dev"'
+              'eval("ip", "-6", "route", "add", gate6_text, "dev", wan_ifname)',
+              'eval("ip", "-6", "route", "add", "default", "via", gate6_text, "metric", "1")',
+              'eval("ip", "-6", "route", "add", "default", "dev", wan_ifname, "metric", "2048")',
               "control_if_ipv6_autoconf(wan_ifname, allow_ra)",
               "control_if_ipv6_radv(wan_ifname, 1)",
               "start_dhcp6c(wan_ifname)",
@@ -805,15 +805,17 @@ jobs:
           # Require each high-risk side effect to be inside the status-gating
           # macro, not merely present somewhere in a function body.
           for marker in (
-              'WAN6_SIT_CHECK(eval("ip", "tunnel", "del", IFNAME_SIT)'
-              'WAN6_SIT_CHECK(eval("ip", "tunnel", "add", IFNAME_SIT, "mode", "sit"'
-              'WAN6_SIT_CHECK(eval("ip", "tunnel", "6rd", "dev", IFNAME_SIT'
+              'WAN6_SIT_CHECK(eval("ip", "tunnel", "del", IFNAME_SIT)',
+              'WAN6_SIT_CHECK(eval("ip", "tunnel", "add", IFNAME_SIT, "mode", "sit"',
+              'WAN6_SIT_CHECK(eval("ip", "tunnel", "6rd", "dev", IFNAME_SIT',
               "WAN6_SIT_CHECK(route_add(wan_ifname, 0, sit_ep",
               "WAN6_SIT_CHECK(control_if_ipv6_radv(IFNAME_SIT, 0)",
-              'WAN6_SIT_CHECK(eval("ip", "link", "set", "mtu", sit_mtu_text'
+              'WAN6_SIT_CHECK(eval("ip", "link", "set", "mtu", sit_mtu_text',
               "WAN6_SIT_CHECK(control_if_ipv6(IFNAME_SIT, 1)",
               "WAN6_SIT_CHECK(clear_if_addr6(IFNAME_SIT)",
               'WAN6_SIT_CHECK(eval("ip", "-6", "addr", "add", addr6s',
+              'WAN6_SIT_CHECK(eval("ip", "-6", "route", "add", "default", "dev", IFNAME_SIT, "metric", "2048")',
+              'WAN6_SIT_CHECK(eval("ip", "-6", "route", "add", "default", "via", wan_gate6, "dev", IFNAME_SIT, "metric", "1")',
           ):
               assert marker in sit_start, f"SIT operation not status-gated: {marker}"
           assert "doSystem(" not in wan6_source
@@ -827,9 +829,9 @@ jobs:
               "WAN6_NATIVE_CHECK(control_if_ipv6_radv(wan_ifname, 0)",
               "WAN6_NATIVE_CHECK(clear_if_addr6(wan_ifname)",
               'WAN6_NATIVE_CHECK(eval("ip", "-6", "addr", "add", addr6_text',
-              'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", gate6_text'
-              'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "via"'
-              'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "dev"'
+              'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", gate6_text, "dev", wan_ifname)',
+              'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "via", gate6_text, "metric", "1")',
+              'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "dev", wan_ifname, "metric", "2048")',
               "WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname,",
               "WAN6_NATIVE_CHECK(control_if_ipv6_autoconf(wan_ifname, allow_ra)",
               "WAN6_NATIVE_CHECK(control_if_ipv6_radv(wan_ifname, 1)",

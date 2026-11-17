@@ -400,6 +400,37 @@ assert 'inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)' in NET_WAN6_SOURC
 assert 'inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN)' in NET_WAN6_SOURCE
 assert 'format_ipv6_literal(wan_addr6, addr6_text,' in NET_WAN6_SOURCE
 
+# Every WAN IPv6 tunnel and route command must use exec argv rather than a
+# shell-formatted command, and every setup mutation must retain status gating.
+sit_start = body(NET_WAN6_SOURCE, "int start_sit_tunnel(int ipv6_type")
+native_start = body(NET_WAN6_SOURCE, "int wan6_up(char *wan_ifname, int unit)")
+wan6_down = body(NET_WAN6_SOURCE, "int wan6_down(char *wan_ifname, int unit)")
+stop_sit = body(NET_WAN6_SOURCE, "int stop_sit_tunnel(void)")
+assert "doSystem(" not in NET_WAN6_SOURCE
+for marker in (
+    'WAN6_SIT_CHECK(eval("ip", "tunnel", "del", IFNAME_SIT)',
+    'WAN6_SIT_CHECK(eval("ip", "tunnel", "add", IFNAME_SIT, "mode", "sit"',
+    'WAN6_SIT_CHECK(eval("ip", "tunnel", "6rd", "dev", IFNAME_SIT',
+    'WAN6_SIT_CHECK(eval("ip", "link", "set", "mtu", sit_mtu_text',
+    'WAN6_SIT_CHECK(eval("ip", "-6", "route", "add", "default", "dev", IFNAME_SIT, "metric", "2048")',
+    'WAN6_SIT_CHECK(eval("ip", "-6", "route", "add", "default", "via", wan_gate6, "dev", IFNAME_SIT, "metric", "1")',
+):
+    assert marker in sit_start, f"missing status-gated SIT argv command: {marker}"
+for marker in (
+    'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", gate6_text, "dev", wan_ifname)',
+    'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "via", gate6_text, "metric", "1")',
+    'WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "dev", wan_ifname, "metric", "2048")',
+):
+    assert marker in native_start, f"missing status-gated native argv command: {marker}"
+assert 'char sit_mtu_text[12], sit_ttl_text[4];' in NET_WAN6_SOURCE
+assert 'snprintf(sit_mtu_text, sizeof(sit_mtu_text), "%d", sit_mtu)' in sit_start
+assert 'snprintf(sit_ttl_text, sizeof(sit_ttl_text), "%d", sit_ttl)' in sit_start
+assert sit_start.index("snprintf(sit_mtu_text") < sit_start.index("WAN6_SIT_CHECK(")
+assert sit_start.index("snprintf(sit_ttl_text") < sit_start.index("WAN6_SIT_CHECK(")
+assert 'cleanup_status = eval("ip", "link", "set", "dev", IFNAME_SIT, "down");' in sit_start
+assert 'operation_status = eval("ip", "link", "set", "dev", IFNAME_SIT, "down");' in wan6_down
+assert 'return eval("ip", "tunnel", "del", IFNAME_SIT);' in stop_sit
+
 for signature in (
     "full_restart_wan(void)",
     "try_wan_reconnect(int try_use_modem, long pause_in_seconds)",

@@ -1,10 +1,9 @@
 ## Current source / CI checkpoint
 
-- IPv6 per-interface flushes and all SIT/native WAN IPv6 tunnel, route and teardown commands now use argv-based `eval()`; `net_wan6.c` contains no `doSystem()`. SIT MTU/TTL decimal operands use bounded checked buffers. Existing SIT/native status-gating and rollback paths remain in place.
-- Exact `05cb9ad2b672feb5ec33b62933878d8692cbb1d0` WAN route `43988195896` and WAN DHCP callback `43988195967` PASS; all nine exact-head runs on that SHA completed SUCCESS. The global IPv6 sysctl first-error/attempt-all slice and its GNU89 ASan/UBSan policy regression remain covered.
-- The current WAN IPv6 command conversion and inline contracts were locally source-checked. Exact-head Actions for this new source SHA are pending; product-source MIPS/uClibc L3 and physical-router L4 remain NOT VERIFIED.
-- Frozen backup remains read-only.
-
+- IPv6 per-interface flushes and all SIT/native WAN IPv6 tunnel, route and teardown commands use argv-based `eval()`; `net_wan6.c` has no `doSystem()` calls. SIT MTU/TTL use fixed-size checked decimal buffers; setup status wrappers and rollback remain intact.
+- On exact SHA `8b0ad1bb5760c282b1b85482be6b14ba0974720f`, WAN route run `43989785616` PASS; WAN DHCP run `43989785873` failed only in the final Python source-contract step because tuple entries were concatenated by missing commas and one route-order check still searched for removed shell text. The six preceding compiled regression steps all passed.
+- XY-C1 run `43989785677` remained in progress; Process `43989785850` and some unrelated reliability/security workflows were pending at last poll. Current-source MIPS/uClibc L3 and physical-router L4 remain NOT VERIFIED.
+- This slice repairs the contract and adds shared argv-boundary checks that also run in Process, Firewall and XY-C1 workflows.
 - Frozen backup remains read-only.
 
 ## Whole-repository module status

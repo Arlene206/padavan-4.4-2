@@ -1,3 +1,12 @@
+## 2026-11-16 — Repair WAN IPv6 argv regression assertions
+
+- Exact-head WAN route run `43989785616` passed on `8b0ad1bb5760c282b1b85482be6b14ba0974720f`. WAN DHCP run `43989785873` reached its final source-contract step after all six compiled regression steps passed, then failed because several adjacent Python string literals in operation/marker tuples had no commas and concatenated into one impossible assertion; one route-order assertion also still searched for the former shell command.
+- Restore each tuple item as a separate comma-delimited marker, assert the exact SIT/native argv vectors including both SIT default-route operations, and update the route-order check to locate the argv route command.
+- Add the same no-`doSystem()` and status-gated argv checks to `scripts/check_modem_wan_start_status.py`, already consumed by Process, Firewall and XY-C1 workflows. Exact-head reruns are pending this correction.
+- XY-C1 Build/TRX/artifact on source SHA `8b0ad1bb5760c282b1b85482be6b14ba0974720f` remained in progress at last poll; current-source L3 and physical-router L4 are NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Remove shell-formatted dynamic commands from WAN IPv6 setup
 
 - Audited all remaining `doSystem()` calls in `net_wan6.c`. Runtime interface names, validated IPv4/IPv6 literals, generated 6rd prefixes and clamped MTU/TTL values were interpolated into shell commands for SIT tunnel lifecycle, 6rd configuration, IPv6 route addition and native/SIT teardown.

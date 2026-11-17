@@ -8,23 +8,24 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Parent for this WAN IPv6 argv slice: `05cb9ad2b672feb5ec33b62933878d8692cbb1d0`.
-- `net6.c` per-interface IPv6 address/route/neighbour flushes and all `net_wan6.c` SIT/6rd tunnel lifecycle, MTU, IPv6 routes, native static routes and SIT teardown now use argv-based `eval()`; there are no remaining `doSystem()` calls in `net_wan6.c`.
-- SIT MTU/TTL are clamped first and rendered into fixed-size checked decimal buffers before side effects. `WAN6_SIT_CHECK` / `WAN6_NATIVE_CHECK` continue wrapping forward setup operations; cleanup ordering/status propagation is retained.
-- Exact `05cb9ad2b672feb5ec33b62933878d8692cbb1d0` Actions: WAN route `43988195896` PASS; WAN DHCP callback `43988195967` PASS; all nine discovered push workflows SUCCESS. The new source/workflow slice has focused local source contracts passing and requires fresh exact-head Actions.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current parent: `8b0ad1bb5760c282b1b85482be6b14ba0974720f`.
+- `net6.c` per-interface IPv6 address/route/neighbour flushes and all `net_wan6.c` SIT/6rd tunnel lifecycle, MTU, IPv6 routes, native static routes and SIT teardown use argv-based `eval()`; `net_wan6.c` has no remaining `doSystem()` calls.
+- SIT MTU/TTL are clamped and rendered into fixed-size checked decimal buffers before tunnel side effects. `WAN6_SIT_CHECK` / `WAN6_NATIVE_CHECK` preserve fail-fast status handling and cleanup ordering.
+- Exact `8b0ad1bb5760c282b1b85482be6b14ba0974720f` WAN route run `43989785616` PASS. WAN DHCP run `43989785873` failed only in the final source-contract step: adjacent Python string literals without commas concatenated multiple expected argv markers, and a route-order assertion still searched for the removed shell command. All preceding compiled regression steps passed. XY-C1 run `43989785677` remained in progress at last poll; no L3 claim is made.
+- This correction restores each marker as an independent tuple item, checks both SIT route wrappers, updates route-order assertions and adds cross-workflow source assertions for the shell-free boundary.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Verify exact-head WAN DHCP callback, WAN route, Process, Firewall and XY-C1 workflows for the current commit; inspect any failure logs and resolve the earliest causal issue. If independent runs remain pending, continue the broader WAN teardown/route and interface provenance audit without waiting. Do not repeat the completed argv conversions in `net6.c` or `net_wan6.c`.
+Correct the WAN IPv6 source-contract regression exposed by exact-head run `43989785873`: restore commas separating marker strings in the SIT/native operation tuples, update the route-order assertion to match argv-based route commands, and independently assert the shell-free argv contract in the shared modem/WAN checker. Then inspect exact-head WAN DHCP, WAN route, Process, Firewall and XY-C1 Actions. Do not repeat the completed `net6.c` or `net_wan6.c` source conversion.
 
 ## Verification boundary
 
-- Local source checks confirm all SIT/native command conversions, bounded MTU/TTL formatting and preservation of fail-fast macro wrappers. Full target compilation has not been performed locally.
-- Exact-head push Actions for this source commit have not yet been observed. Product-source MIPS/uClibc L3 (XY-C1 Build, TRX verification and artifact upload on one SHA) and physical-router L4 remain **NOT VERIFIED**.
+- Current source conversion is present and has no remaining `doSystem()` calls in `net_wan6.c`. The WAN DHCP failure is in its Python source-contract step; all earlier compiled regression steps passed.
+- The XY-C1 Build/TRX/artifact run on source SHA `8b0ad1bb5760c282b1b85482be6b14ba0974720f` was pending at last poll. Product-source MIPS/uClibc L3 and physical-router L4 remain **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Fetch `/actions/runs?head_sha=<main SHA>` and inspect exact-head WAN DHCP callback, WAN route, Process, Firewall and XY-C1. Fix only the first causal failure and then re-poll the independent runs.
-2. Continue the remaining WAN IPv6 teardown/interface provenance audit across `net_wan.c`, `net_wan6.c` and DHCP/PPP callbacks; preserve route cleanup, callback fences and first-error semantics.
-3. Keep the backup branch frozen. Do not claim product-source L3 until XY-C1 Build, TRX verification and artifact upload pass on one exact SHA.
+1. Verify the corrected workflow and shared checker on the new exact main SHA; resolve any new first causal failure from its logs.
+2. Continue the remaining WAN teardown/interface provenance audit across `net_wan.c` and DHCP/PPP callbacks, preserving route cleanup, callback fences and first-error semantics; continue independent work while XY-C1 Actions are pending.
+3. Keep the backup branch frozen. Do not claim L3 until Build, TRX verification and artifact upload all pass on one exact SHA.
