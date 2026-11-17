@@ -1861,7 +1861,8 @@ assert '#include "upnp_restart_policy.h"' in upnp_restart_source
 assert "int restart_upnp(void);" in upnp_restart_header
 assert "void restart_upnp(void);" not in upnp_restart_header
 assert "rc_upnp_restart_run(stop_upnp_locked, restart_firewall)" in upnp_restart_body
-assert "return ret;" in upnp_restart_body
+assert 'return miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart");' in upnp_restart_body
+assert "return ret;" not in upnp_restart_body
 assert "action_result = rc_notify_merge_action_result(action_result, restart_upnp());" in upnp_restart_rc
 for test_case in (
     "test_success_stops_then_restarts_firewall",
@@ -2719,7 +2720,7 @@ print("VPN server restart propagates teardown, start, restoration and unlock fai
 upnp_url_source = (root / "trunk/user/rc/src/services_ex.c").read_text()
 upnp_url_policy = (root / "trunk/user/rc/src/miniupnpd_presentation_url.h").read_text()
 upnp_url_test = (root / "trunk/user/rc/src/tests/miniupnpd_presentation_url.c").read_text()
-upnp_start_body = c_function_body(upnp_url_source, "int" + chr(10) + "start_upnp(void)")
+upnp_start_body = c_function_body(upnp_url_source, "static int" + chr(10) + "start_upnp_locked(void)")
 assert '#include "miniupnpd_presentation_url.h"' in upnp_url_source
 assert "is_valid_ipv4(lan_addr)" in upnp_start_body
 assert "is_valid_ipv4(lan_mask)" in upnp_start_body
@@ -2753,8 +2754,9 @@ upnp_restart_body = upnp_restart_source.split(
 assert '#include "upnp_restart_policy.h"' in upnp_restart_source
 assert "int restart_upnp(void);" in upnp_restart_header
 assert "void restart_upnp(void);" not in upnp_restart_header
-assert "rc_upnp_restart_run(stop_upnp, restart_firewall)" in upnp_restart_body
-assert "return ret;" in upnp_restart_body
+assert "rc_upnp_restart_run(stop_upnp_locked, restart_firewall)" in upnp_restart_body
+assert 'return miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart");' in upnp_restart_body
+assert "return ret;" not in upnp_restart_body
 assert "action_result = rc_notify_merge_action_result(action_result, restart_upnp());" in upnp_restart_rc
 for test_case in (
     "test_success_stops_then_restarts_firewall",

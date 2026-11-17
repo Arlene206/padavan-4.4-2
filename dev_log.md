@@ -1,3 +1,13 @@
+## 2026-11-18 07:01 CST (UTC+8) — Validate MiniUPnP lock-release status in source contracts
+
+- Parent main SHA: `654c146b2d0dcf5cbb1187a544ddaf429edc8c55`; production lock implementation remains `03a993e558b23f5f163ca1a904cbf7b54f6ef7e9`.
+- Exact e74 Process `44194600337` and MiniUPnP `44194600347` both failed because source contracts expected direct `return ret;` from the public restart wrapper. Exact 654 MiniUPnP run `44195030330` repeated the failure after commit 654 only normalized the return-code predicate. Correct contracts must assert `return miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart");` and reject a direct return that would hide unlock failure.
+- The Process checker has duplicated copies of MiniUPnP start/restart assertions. THIS commit updates every remaining stale copy to inspect `start_upnp_locked()`, call `stop_upnp_locked` beneath restart, and validate the lock-finish return.
+- Exact e74 AI handoff docs `44194600326` PASS. Exact 654 AI docs `44195030309` was pending at last query. Parent `88770d7` NVRAM `44193165743` completed SUCCESS; XY-C1 `44193165931` was still in Build with TRX/artifact pending.
+- No production runtime source changed. Exact-head Process/MiniUPnP reruns and the XY-C1 completion check are next. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Align MiniUPnP lifecycle integration contracts with lock wrappers
 
 - Parent main SHA: `03a993e558b23f5f163ca1a904cbf7b54f6ef7e9`, which introduced stable-inode lifecycle serialization around MiniUPnP public start/stop/WAN/update/restart entry points.
