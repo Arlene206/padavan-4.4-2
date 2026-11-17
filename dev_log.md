@@ -1,3 +1,10 @@
+## 2026-11-18 02:26 CST — Stop VPN client and server before firmware flash
+
+- `flash_firmware()` held the shared VPN lifecycle lock but only ran the broad L2TP/XL2TP/PPPD stop transaction. Since `stop_services(0)` intentionally skips its `stopall`-only VPN-server hook and does not register the VPN-client hook, OpenVPN client/server daemons and their tunnel-interface cleanup could be missed.
+- Add `stop_vpn_server_under_lifecycle_lock()`, matching the existing client entry point, and invoke both lock-owned teardown paths before the residual L2TP/PPP scan. Aggregate the first failure, log per-endpoint results, release the lock, and abort firmware flashing on any incomplete stop.
+- Extend the Process source-integration contract to verify both endpoint stops, no nested public lock wrappers, ordering inside the held lock, status propagation, and header registration. XY-C1 and Process workflows include the modified sources.
+- Exact-head Process/XY-C1 validation: THIS COMMIT / PENDING. No local MIPS/uClibc firmware build or physical VPN test is claimed.
+
 ## 2026-11-18 02:20 CST — Gate shutdown MTD persistence on LAN teardown
 
 - `shutdown_router()` previously discarded `stop_lan()`'s result and invoked it only after the MTD persistence decision. In AP mode, this stop can fail closed when the udhcpc PID/start-time identity or deconfig completion is UNKNOWN; in router mode it aggregates conntrack, route, IPv6 and bridge-down errors. Those failures were not part of the persistence precondition.

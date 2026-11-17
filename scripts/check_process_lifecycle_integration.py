@@ -542,6 +542,12 @@ assert "if (stop_status != 0)" in vpn_client_stop
 assert "vpn_server_lifecycle_lock_acquire()" in vpn_client_stop_public
 assert "stop_vpn_client_locked()" in vpn_client_stop_public
 assert "vpn_server_lifecycle_lock_release(lock_fd)" in vpn_client_stop_public
+vpn_server_locked_wrapper = vpn_server.split(
+    "int" + chr(10) + "stop_vpn_server_under_lifecycle_lock(void)", 1
+)[1].split(chr(10) + "int" + chr(10) + "stop_vpn_server(void)", 1)[0]
+assert "return stop_vpn_server_locked();" in vpn_server_locked_wrapper
+rc_header_vpn = (root / "trunk/user/rc/src/rc.h").read_text()
+assert "int stop_vpn_server_under_lifecycle_lock(void);" in rc_header_vpn
 assert 'process_inventory_scan("xl2tpd", &snapshot)' in vpn_client_stop
 assert "PROCESS_PRESENCE_START_ABORT" in vpn_client_stop
 assert 'control_xl2tpd("d", "VPNC")' in vpn_client_stop
@@ -583,6 +589,18 @@ flash = rc_source.split("flash_firmware(void)", 1)[1].split(
     "\nstatic void\nstorage_load_time", 1
 )[0]
 assert "auth_stop_status = stop_8021x_all();" in flash
+assert "int vpn_client_stop_status, vpn_server_stop_status, residual_stop_status;" in flash
+assert "stop_vpn_client_under_lifecycle_lock()" in flash
+assert "stop_vpn_server_under_lifecycle_lock()" in flash
+assert "stop_vpn_client()" not in flash and "stop_vpn_server()" not in flash
+assert "if (vpn_client_stop_status != 0 && stop_status == 0)" in flash
+assert "if (vpn_server_stop_status != 0 && stop_status == 0)" in flash
+assert "if (residual_stop_status != 0 && stop_status == 0)" in flash
+assert "VPN client/server or residual L2TP/PPP services did not stop" in flash
+assert flash.index("vpn_server_lifecycle_lock_acquire()") < flash.index("stop_vpn_client_under_lifecycle_lock()")
+assert flash.index("stop_vpn_client_under_lifecycle_lock()") < flash.index("stop_vpn_server_under_lifecycle_lock()")
+assert flash.index("stop_vpn_server_under_lifecycle_lock()") < flash.index("kill_services(svcs, 6, 1)")
+assert flash.index("kill_services(svcs, 6, 1)") < flash.index("vpn_server_lifecycle_lock_release(lock_fd)")
 assert "int script_status = doSystem(\"%s %d\", script_name, 0);" in flash
 assert "if (script_status != 0)" in flash
 assert "custom shutdown script failed" in flash

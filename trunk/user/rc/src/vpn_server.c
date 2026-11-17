@@ -510,6 +510,17 @@ stop_vpn_server_locked(void)
 	return 0;
 }
 
+/*
+ * The caller already owns vpn_server_lifecycle_lock. Do not call the public
+ * stop_vpn_server() wrapper here: F_SETLK locks are process-associated, so an
+ * inner unlock/close would release the caller's outer lock as well.
+ */
+int
+stop_vpn_server_under_lifecycle_lock(void)
+{
+	return stop_vpn_server_locked();
+}
+
 int
 stop_vpn_server(void)
 {

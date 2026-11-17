@@ -573,7 +573,8 @@ flash_firmware(void)
 {
 	const char *script_name = SCRIPT_SHUTDOWN;
 	char* svcs[] = { "l2tpd", "xl2tpd", "pppd", NULL };
-	int lock_fd, stop_status, release_status, saved_errno;
+	int lock_fd, stop_status = 0, release_status, saved_errno = 0;
+	int vpn_client_stop_status, vpn_server_stop_status, residual_stop_status;
 	int eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status;
 	int storage_time_status, storage_mtd_status;
 	int flash_status;
@@ -585,8 +586,27 @@ flash_firmware(void)
 		logmessage(LOGNAME, "firmware update aborted: cannot lock VPN server lifecycle (errno=%d)", errno);
 		return -1;
 	}
-	stop_status = kill_services(svcs, 6, 1);
-	saved_errno = errno;
+	/*
+	 * Firmware flash must stop both VPN endpoints while holding the shared
+	 * lifecycle lock. The public wrappers would reacquire and unlock this
+	 * process-associated F_SETLK lock, so use their lock-owned entry points.
+	 */
+	vpn_client_stop_status = stop_vpn_client_under_lifecycle_lock();
+	if (vpn_client_stop_status != 0 && stop_status == 0) {
+		stop_status = vpn_client_stop_status;
+		saved_errno = errno ? errno : EIO;
+	}
+	vpn_server_stop_status = stop_vpn_server_under_lifecycle_lock();
+	if (vpn_server_stop_status != 0 && stop_status == 0) {
+		stop_status = vpn_server_stop_status;
+		saved_errno = errno ? errno : EIO;
+	}
+	/* Catch residual legacy L2TP/PPP names after identity-bound endpoint stops. */
+	residual_stop_status = kill_services(svcs, 6, 1);
+	if (residual_stop_status != 0 && stop_status == 0) {
+		stop_status = residual_stop_status;
+		saved_errno = errno ? errno : EIO;
+	}
 	release_status = vpn_server_lifecycle_lock_release(lock_fd);
 	if (release_status != 0) {
 		int release_errno = errno ? errno : EIO;
@@ -598,7 +618,9 @@ flash_firmware(void)
 		}
 	}
 	if (stop_status != 0) {
-		logmessage(LOGNAME, "firmware update aborted: L2TP/PPP/wireless services did not stop");
+		logmessage(LOGNAME,
+			   "firmware update aborted: VPN client/server or residual L2TP/PPP services did not stop (client=%d, server=%d, residual=%d)",
+			   vpn_client_stop_status, vpn_server_stop_status, residual_stop_status);
 		if (saved_errno)
 			errno = saved_errno;
 		return -1;

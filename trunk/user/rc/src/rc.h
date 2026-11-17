@@ -401,6 +401,8 @@ int ip6t_filter_default(void);
 /* vpn_server.c */
 int start_vpn_server(void);
 int stop_vpn_server(void);
+/* Caller must hold vpn_server_lifecycle_lock; avoids nested F_SETLK unlock. */
+int stop_vpn_server_under_lifecycle_lock(void);
 int restart_vpn_server(void);
 int reapply_vpn_server(void);
 void get_vpns_pool(int i_vuse, unsigned int *ip_v, unsigned int *ip_m, unsigned int *vp_b, unsigned int *vp_e);

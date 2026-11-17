@@ -1,26 +1,23 @@
-# 2026-11-18 continuation checkpoint — gate MTD persistence on LAN teardown
+# 2026-11-18 continuation checkpoint — fail closed on VPN teardown before firmware flash
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `634dc3f8704a261d33a40d723b357e62fd2fc582`; this change is published as one complete tree/commit with a non-forced expected-SHA update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Development remains main-only; PR #1 remains closed/unmerged.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `dbac3b149a2b48ff890a102407cf2748c84e663d`; this change is one atomic main commit using complete Git tree + non-forced expected-SHA update.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Main-only policy preserved; PR #1 remains closed/unmerged.
 - No local full MIPS/uClibc toolchain or physical router; L4 remains NOT VERIFIED.
 
-## Parent exact-head Actions
-- Process inventory `44145177682`: SUCCESS.
-- Process lifecycle umbrella `44145177647`: IN_PROGRESS at last poll.
-- XY-C1 Firmware Validation `44145178129`: IN_PROGRESS at last poll.
-- NVRAM transaction boundary `44145177800`: IN_PROGRESS at last poll.
-- The remaining 12 of 15 parent push workflows were SUCCESS; see exact-head SHA `634dc3f8704a261d33a40d723b357e62fd2fc582`.
+## Parent exact-head validation
+- Process lifecycle regression check `134265690647`: SUCCESS; exact-head process inventory `44147261696`: SUCCESS; AI handoff documentation `44147261624`: SUCCESS.
+- XY-C1 Firmware Validation `44147261744` and NVRAM transaction audit `44147261746` were IN_PROGRESS at last poll. Other parent push workflows were predominantly green; inspect the latest exact SHA rather than infer from older builds.
+- Previous LAN shutdown persistence gate commit `dbac3b149a2b48ff890a102407cf2748c84e663d` passed its Process lifecycle and AI handoff checks.
 
-## LAN shutdown persistence fix (THIS COMMIT)
-- `shutdown_router()` formerly ignored `stop_lan()`'s result and called it after the MTD persistence decision. That discarded AP udhcpc identity/deconfig failures and router-mode conntrack/route/IPv6/bridge teardown failures.
-- The call now runs before persistence, captures/logs the status, and adds `lan_stop_status == 0` to the MTD snapshot gate. On failure the router still powers down, but no MTD storage snapshot is published.
-- `scripts/check_process_lifecycle_integration.py` now asserts one stop call, failure logging, pre-RWFS/pre-persistence ordering and gate inclusion. Process workflow already runs the checker; XY-C1 workflow tracks `rc.c`.
+## Firmware update VPN teardown fix (THIS COMMIT)
+- `flash_firmware()` held `vpn_server_lifecycle_lock` but stopped only the L2TP/XL2TP/PPPD names. It did not invoke the registered VPN client stop or the `stopall`-only VPN server hook; OpenVPN daemons and tunnel interfaces could therefore remain active during flash preparation.
+- Add the lock-owned VPN-server stop entry point; under the same existing lock, firmware update now stops VPN client then VPN server, then performs the residual L2TP/PPP inventory stop. Any endpoint or residual stop error is preserved/logged and aborts flashing.
+- The Process source contract checks wrapper declaration/implementation, lock ordering, absence of nested public wrappers and fail-closed status propagation. Exact-head Process/XY-C1 checks are pending.
 
-## Exact-head validation boundary and first next action
-- THIS COMMIT: source contract and Process/XY-C1 checks are pending until their Actions run against the resulting SHA. Do not claim a local cross-build or target verification.
-- First: inspect exact-SHA Process lifecycle, AI-handoff contract and XY-C1 Build/TRX/artifact for this commit; also reconcile any parent NVRAM run still pending. If CI is pending, continue independent P1 work rather than waiting.
-- Then continue the remaining firmware-update `stop_services()` and Samba/storage/NVRAM postcondition work; do not repeat the completed LAN shutdown gate or earlier Switch audit.
+## First next action
+- Inspect exact-SHA Process lifecycle, AI handoff and XY-C1 Build/TRX/artifact for THIS COMMIT; reconcile parent XY-C1/NVRAM outcomes. Do not wait on pending work: continue independent remaining Samba/storage/NVRAM postcondition or status-returning boot-launcher work.
+- Do not repeat the completed normal-shutdown LAN persistence gate, Process inventory pass, AI handoff pass or Switch audit.
 
 # Cross-session execution mandate
 
