@@ -1,3 +1,16 @@
+## 2026-11-17 20:03 CST — Gate PID 1 router startup on required boot environment
+
+- Parent main SHA: `ac7787ccee5df8a6e52a16177ef094f7b0504ca7`; result: THIS COMMIT.
+- Source review found `init_main_loop()` discarded the result of `system("dev_init.sh")`, while `dev_init.sh` ignored failures from essential proc/sys/dev/etc/tmp/var and devpts mounts, `mdev -s`, and private notification/HTTPD directory setup. PID 1 could therefore call `init_router()` and launch services against a broken boot filesystem/device environment.
+- Added checked helpers for mandatory mounts and directory/mode preparation; a failed requirement exits the boot script before router startup. Debugfs, cgroups, storage seeding and the optional persistent user start script remain best effort; an explicit final success prevents an optional start script failure from masking the required setup result.
+- PID 1 now records the shell status and gates `init_router()` on both successful boot-environment setup and NVRAM node readiness. If required setup fails, PID 1 remains alive but does not enter router-service startup; console availability is not guaranteed when `/dev` itself failed.
+- Added command-mocked shell tests for mount, mkdir and chmod failures and a semantic integration checker; both are wired into the existing Process lifecycle push workflow. Local test execution NOT RUN in this connector-only runtime; exact-head Actions must validate them.
+- Previous Inadyn cache-preparation fix: exact-main push workflow `44081035410` / job `134031372777` PASS (GNU89/Werror/ASan/UBSan compile, policy regression and production integration checker). Exact source SHA: `ac7787ccee5df8a6e52a16177ef094f7b0504ca7`.
+- XY-C1 firmware workflow `44081035905` on `ac7787ccee5df8a6e52a16177ef094f7b0504ca7` was in progress at last check; no L3 or L4 claim for this init slice.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 19:56 CST — Fail closed when Inadyn cache preparation fails
 
 - Parent main SHA: `8a77982a142c4d55dbad874fee8c92823dfbe3d7`; result: THIS COMMIT.

@@ -548,6 +548,7 @@ init_main_loop(void)
 	int shutdown_handled = 0;
 	int router_ready;
 	int nvram_node_result;
+	int dev_init_status;
 	int i;
 	sigset_t wait_mask, original_mask;
 
@@ -556,10 +557,14 @@ init_main_loop(void)
 	/* Basic initialization */
 	init_time();
 #if BOARD_RAM_SIZE > 32
-	system("dev_init.sh");
+	dev_init_status = system("dev_init.sh");
 #else
-	system("dev_init.sh -l");
+	dev_init_status = system("dev_init.sh -l");
 #endif
+	if (dev_init_status != 0)
+		logmessage(LOGNAME,
+			   "required device/filesystem initialization failed (system status=%d); router startup disabled",
+			   dev_init_status);
 	nvram_node_result = init_nodes();
 	if (nvram_node_result != 0)
 		logmessage(LOGNAME, "NVRAM device is unavailable or unsafe; router startup remains in recovery mode");
@@ -592,7 +597,8 @@ init_main_loop(void)
 	control_signal(SIGUSR2, SIG_BLOCK);
 
 	/* Router init and start; keep PID 1 in recovery mode on NVRAM failure. */
-	router_ready = (nvram_node_result == 0 && init_router() == 0);
+	router_ready = (dev_init_status == 0 &&
+		       nvram_node_result == 0 && init_router() == 0);
 	if (!router_ready)
 		logmessage(LOGNAME, "Router startup failed; console recovery remains available");
 

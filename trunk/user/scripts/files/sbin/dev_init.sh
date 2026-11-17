@@ -1,7 +1,30 @@
 #!/bin/sh
 
-mount -t proc proc /proc
-mount -t sysfs sysfs /sys
+required_mount()
+{
+	if ! mount "$@"; then
+		echo "dev_init: required mount failed: $*" >&2
+		return 1
+	fi
+}
+
+required_dir()
+{
+	dir_mode="$1"
+	shift
+	if ! mkdir -p "$@"; then
+		echo "dev_init: required directory creation failed: $*" >&2
+		return 1
+	fi
+	if ! chmod "$dir_mode" "$@"; then
+		echo "dev_init: required directory permission setup failed: $*" >&2
+		return 1
+	fi
+	return 0
+}
+
+required_mount -t proc proc /proc || exit 1
+required_mount -t sysfs sysfs /sys || exit 1
 [ -d /proc/bus/usb ] && mount -t usbfs usbfs /proc/bus/usb
 
 size_tmp="24M"
@@ -13,28 +36,28 @@ if [ "$1" == "-l" ] ; then
 	size_var="1M"
 fi
 
-mount -t tmpfs tmpfs /dev   -o size=8K
-mount -t tmpfs tmpfs /etc   -o size=$size_etc,noatime
+required_mount -t tmpfs tmpfs /dev   -o size=8K || exit 1
+required_mount -t tmpfs tmpfs /etc   -o size=$size_etc,noatime || exit 1
 mount -t tmpfs tmpfs /home  -o size=1M
 mount -t tmpfs tmpfs /media -o size=8K
 mount -t tmpfs tmpfs /mnt   -o size=8K
-mount -t tmpfs tmpfs /tmp   -o size=$size_tmp
-chmod 1777 /tmp
+required_mount -t tmpfs tmpfs /tmp   -o size=$size_tmp || exit 1
+required_dir 1777 /tmp || exit 1
 
 # PID 1 notification queues carry privileged service actions.
-mkdir -p -m 700 /tmp/rc_notification
-mkdir -p -m 700 /tmp/rc_action_incomplete
+required_dir 700 /tmp/rc_notification || exit 1
+required_dir 700 /tmp/rc_action_incomplete || exit 1
 chmod 700 /tmp/rc_notification /tmp/rc_action_incomplete
 
-mount -t tmpfs tmpfs /var   -o size=$size_var
+required_mount -t tmpfs tmpfs /var   -o size=$size_var || exit 1
 
-mkdir /dev/pts
-mount -t devpts devpts /dev/pts
+required_dir 755 /dev/pts || exit 1
+required_mount -t devpts devpts /dev/pts || exit 1
 
 mount -t debugfs debugfs /sys/kernel/debug
 
 ln -sf /etc_ro/mdev.conf /etc/mdev.conf
-mdev -s
+mdev -s || exit 1
 
 # create dirs
 mkdir -p -m 777 /var/lock
@@ -53,7 +76,7 @@ mkdir -p -m 777 /var/state/parport/svr_statue
 mkdir -p -m 777 /tmp/var
 mkdir -p -m 777 /tmp/hashes
 mkdir -p -m 777 /tmp/modem
-mkdir -p -m 700 /tmp/.httpd-private
+required_dir 700 /tmp/.httpd-private || exit 1
 mkdir -p -m 700 /home/root
 mkdir -p -m 700 /home/root/.ssh
 mkdir -p -m 755 /etc/storage
@@ -120,8 +143,10 @@ if [ -f /usr/bin/htop ]; then
 	echo "color_scheme=6" > /home/root/.config/htop/htoprc
 fi
 
-# perform start script
+# perform start script (best effort; do not mask required setup failures)
 if [ -x /etc/storage/start_script.sh ] ; then
 	/etc/storage/start_script.sh
 fi
+
+exit 0
 

@@ -31,13 +31,14 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. The P1 Inadyn cache-preparation defect is implemented in THIS COMMIT: `services_ex.c:start_ddns()` now treats a requested cache reset as mandatory, checks `mkdir()`, and uses `lstat()` to accept EEXIST only for a real directory. Files/symlinks and cache-operation failures abort before `write_inadyn_conf()` or daemon launch. The `system()` wait status is normalized so a child exit 1 (raw 256) cannot wrap into a successful `rc` process exit.
-2. Added injected GNU89 policy regression and expanded `scripts/check_inadyn_lifecycle.py`. Local compilation was NOT RUN in this runtime; this commit's push-triggered Inadyn workflow is the required L2 validation.
-3. Exact first action: fetch the live main SHA, then inspect the Inadyn fail-closed lifecycle workflow run whose `event=push` and `head_sha` exactly equal that SHA. On failure, diagnose the first failing step and repair on main. If pending, record its run ID/SHA and continue an independent P1 service-start audit; do not wait idly.
-4. Once the Inadyn slice is validated, rotate to the remaining startup-result propagation work outside wireless/storage. Previously observed `services.c` void wrappers (AdGuardHome, DDNS.to, Adbyby, AliDDNS and FRP) are only candidates: trace their active callers before changing any signature. Do not revisit completed guest-wireless or docs-rotation work.
+1. The Inadyn cache-preparation fix is closed at source SHA `ac7787ccee5df8a6e52a16177ef094f7b0504ca7`: exact-main push run `44081035410`, job `134031372777`, PASS; GNU89/Werror/ASan/UBSan compile, policy regression and integration checker all succeeded. No target/hardware claim follows from this L2 result.
+2. Current boot-environment slice is in THIS COMMIT. `init_main_loop()` previously ignored the `dev_init.sh` system status; the script also ignored failures for required proc/sys/dev/etc/tmp/var/devpts mounts, mdev population and sensitive PID-1/HTTPD directories. The boot script now fails on these required setup errors, PID 1 gates `init_router()`, and optional debugfs/cgroup/storage/user-start operations remain best effort.
+3. Exact first action: inspect the live-main Process inventory/lifecycle workflow run with `event=push` and `head_sha` exactly equal to live `main`; confirm both `dev_init_boot_policy.sh` and `check_dev_init_boot.py` passed. If failed, repair the first causal failure before selecting another issue. Also inspect the XY-C1 run for this exact SHA; only a successful Build + TRX + artifact sequence establishes L3.
+4. The five legacy `void start_*` wrappers in `services.c` (AdGuardHome, DDNS.to, Adbyby, AliDDNS, FRP) were traced across all 36 RC source C files: no direct caller was found; active `rc.c` notification paths call the status-returning `restart_*` wrappers instead. Do not change unused wrapper signatures without discovering another real call site.
+5. After this boot slice passes, continue the next high-priority userland stability task outside already heavily worked wireless/storage/HTTPD modules. Preserve the frozen backup at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-- Live main for this checkpoint is THIS COMMIT; resolve the exact SHA from GitHub rather than copying a chat SHA.
-- Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Live source checkpoint parent: `ac7787ccee5df8a6e52a16177ef094f7b0504ca7`; current main is THIS COMMIT, resolve its SHA from GitHub.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
