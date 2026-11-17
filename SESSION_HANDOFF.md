@@ -9,7 +9,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Before context exhaustion, inspect live main, exact-head Actions, validation boundaries, frozen backup and the concrete next task.
-- Repository: `Arlene206/padavan-4.4-2`; development only on `main`. Parent main SHA for THIS change: `9e3316f6740a77fd8db26d1f51af4183dd071021`.
+- Repository: `Arlene206/padavan-4.4-2`; development only on `main`. The firmware-notification source slice was based on `9e3316f6740a77fd8db26d1f51af4183dd071021`; the current WAN firewall-status slice is based on parent main `a84174f9f5719272c1cc111c07be083790ae5734`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - CPU-watchdog tri-state source `aeddc157`: GNU89 regression and XY-C1 Build/TRX/artifact PASS. USB modem tri-state `76683274`: dedicated readiness and Process/inventory/HTTPD/infosvr/handoff checks PASS. IPv6 boot-status source `37e414f2`: same-source XY-C1 Build/TRX/artifact PASS in `44003333586`; Process/handoff and dependent checks PASS on `b447358e`.
 - Firewall module-table UNKNOWN/invalid rollback source `736ebe86`; Firewall Startup Stability `44005295947` PASS. HTTPD checker correction `49f79883` and firmware-identical XY-C1 `44005782493` passed Build/TRX/artifact.
@@ -19,22 +19,24 @@ Every logical multi-file change must be published as one complete Git tree and o
 - DDNSTO launcher source `574caf1b`: validates the ROMFS executable and nonempty NVRAM identity before stopping an existing daemon, serializes lifecycle actions and requires validated RUNNING within five bounded polls. Exact DDNSTO run `44015005394` on `4c499369` PASS including shell syntax, lifecycle regression and semantic checker; same-source XY-C1 `44013905031` PASS through Build/TRX/artifact.
 - HTTPD stop contract was updated to include the four checked daemons including `gpio_btn`; HTTPD `44015242107` on exact main `c5fc9136` PASS. Current c5 baseline Process inventory `44015242052`, AI docs `44015241932`, infosvr `44015241959`, AliyunDrive `44015241928`, AliDDNS `44015242005`, and AdGuardHome `44015241955` PASS. NVRAM `44015242074` and XY-C1 `44015241908` were pending at last poll.
 - THIS COMMIT fixes a P1 PID 1 notification defect: `flash_firmware()` previously returned `void` and its notification handler ignored every early-abort and firmware-write status, allowing a failed update to lose its incomplete marker. It now propagates failures into `action_result`; Process/XY-C1 exact-head verification is pending.
+- P1 WAN firewall caller-status defect fixed in THIS COMMIT: three direct `start_firewall_ex()` results and one PPP-recovery rebuild result previously disappeared; `net_wan.c` now captures and merges all four paths and returns PPP recovery UPnP/firewall errors.
 - Local checkout/toolchain is unavailable; local execution is NOT RUN. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-1. Re-run exact-head Process inventory after updating the firmware-write contract in `check_process_lifecycle_integration.py`. Run `44017512634` reached the RC integration boundary and failed only because the checker still expected the pre-change inline `if (eval("/tmp/mtd_write"...))` call; production now stores the command status, restores the watchdog and returns failure.
-2. Confirm exact-head XY-C1 completes the notification source contract, Build, TRX verification and artifact upload. At the last poll `44017512514` was still running on `97bd094c`.
-3. Continue independent P1 RC lifecycle/status work while Actions run; do not repeat verified DDNSTO, GPIO, HTTPD or completed storage/network slices.
+1. Verify exact-head WAN-route, Process lifecycle, AI handoff and XY-C1 Actions for the WAN firewall caller-status change in THIS COMMIT. Confirm the new contract passes and all four `start_firewall_ex()` results plus all PPP recovery failures reach `start_wan()`.
+2. Require same-SHA XY-C1 Build, TRX verification and artifact upload before claiming L3. The older XY-C1 run `44017512514` on `97bd094c` passed Build/TRX/artifact, but predates this WAN source change.
+3. If Actions are pending, continue another independent P1 RC startup/status defect; do not repeat already verified DDNSTO, GPIO, HTTPD, storage or completed network slices.
 
 ## Verification boundary
 
-- Firmware-update notification source `1d695e75`: all ten preparation aborts and failed `mtd_write` return failure; the notification handler merges the result and preserves the incomplete marker. The GNU89 notification policy binary and dedicated source contract passed inside the Process run `44017512634`; the umbrella failed later at the old `check_process_lifecycle_integration.py:589` source-shape assertion.
-- Process workflow path/step integration and modem/WAN checker correction are in `97bd094c`. Process inventory `44017512634` on `97bd094c` failed only because its integration checker still required the obsolete inline eval form; THIS COMMIT updates it to require the status variable, failure branch, errno preservation, watchdog recovery and failure return.
-- AI handoff `44017512559` on `97bd094c` PASS. XY-C1 `44017512514` on `97bd094c` remained in progress at the last poll; no Build/TRX/artifact claim yet.
-- DDNSTO L2 `44015005394` on `4c499369` PASS; same-source XY-C1 `44013905031` on product source `e5d3cdfd` PASS Build/TRX/artifact. GPIO shutdown and HTTPD stop-count validations remain verified at their exact source boundaries recorded above.
+- Parent main SHA for THIS WAN firewall-status source change: `a84174f9f5719272c1cc111c07be083790ae5734`. The implementation captures the three primary WAN firewall rebuild statuses in `start_wan()`, converts `restore_wan_after_ppp_start_failure()` to a status-returning helper, and aggregates all three recovery callers.
+- New source-contract checker `scripts/check_wan_firewall_status.py` runs in both WAN-route status and XY-C1 firmware workflows; both path filters include it and `net_wan.c`.
+- Exact-head Process inventory `44017924214` on `a84174f9` PASS, including RC integration and LAN startup status checks. AI handoff contract `44017924265` on the same SHA PASS.
+- XY-C1 run `44017512514` on `97bd094c` completed SUCCESS through Build XY-C1, TRX verification and artifact upload. Commit `a84174f9` changed only checker/roadmap/handoff/log files, not firmware sources; nevertheless, that is not an exact-head a841 run and does not verify THIS new WAN source change.
+- Current WAN-route, Process, handoff and XY-C1 checks for THIS COMMIT are PENDING until their exact-head runs complete. No same-SHA L3 claim yet.
 - Local checkout/toolchain unavailable; local execution NOT RUN. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and inspect exact-head Process inventory and XY-C1 Actions for THIS integration-checker correction. Confirm the RC integration checker now accepts the status-capturing `mtd_write` path while retaining failure/errno/watchdog guarantees, and require same-SHA XY-C1 Build, TRX verification and artifact upload. If checks remain pending, continue a separate P1 RC lifecycle slice. Keep the backup frozen and use complete-tree atomic commits with non-forced expected-SHA compare-and-swap.
+Fetch live `main` and inspect exact-head WAN-route, Process inventory/lifecycle, AI handoff and XY-C1 runs for the WAN firewall-status commit whose parent is `a84174f9f5719272c1cc111c07be083790ae5734`. Resolve any failed contract; require the same resulting source SHA to pass XY-C1 Build, TRX verification and artifact upload. If checks remain pending, continue independent P1 RC startup-result work. Before context exhaustion, update this handoff with the exact source commit SHA, test outcomes and current workflow IDs. Keep the frozen backup unchanged; use one complete Git tree and a non-forced expected-SHA update for every atomic multi-file commit.

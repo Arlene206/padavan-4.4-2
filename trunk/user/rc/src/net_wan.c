@@ -1583,17 +1583,25 @@ wait_ppp_up(char *ppp_ifname, int unit)
 	return 0;
 }
 
-static void
+static int
 restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)
 {
+	int upnp_status, firewall_status;
+
 	/* Restore the physical path while demand PPP is unavailable. A later
 	 * successful ip-up callback may switch the active WAN back to ppp0. */
-	if (check_upnp_wanif_changed(wan_ifname) != 0) {
-		logmessage(LOGNAME, "cannot restore WAN after PPP start failure: miniupnpd did not stop");
-		return;
+	upnp_status = check_upnp_wanif_changed(wan_ifname);
+	if (upnp_status != 0) {
+		logmessage(LOGNAME, "cannot restore WAN after PPP start failure: miniupnpd did not stop (status=%d)",
+			   upnp_status);
+		return upnp_status;
 	}
 	set_wan_unit_value(unit, "ifname_t", wan_ifname);
-	start_firewall_ex();
+	firewall_status = start_firewall_ex();
+	if (firewall_status != 0)
+		logmessage(LOGNAME, "cannot restore WAN firewall after PPP start failure (status=%d)",
+			   firewall_status);
+	return firewall_status;
 }
 
 static int
@@ -1787,7 +1795,12 @@ start_wan(void)
 				}
 				
 				/* re-build iptables rules (first stage w/o WAN IP) */
-				start_firewall_ex();
+				vlan_result = start_firewall_ex();
+				modem_start_status = rc_first_service_start_status(
+					modem_start_status, vlan_result);
+				if (vlan_result != 0)
+					logmessage(LOGNAME, "USB modem RAS firewall startup incomplete (status=%d)",
+						   vlan_result);
 				
 				vlan_result = launch_wan_modem_ras(unit);
 				modem_start_status = rc_first_service_start_status(
@@ -1843,12 +1856,16 @@ start_wan(void)
 			if (!i_pppoe && wanx_status != 0) {
 				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d: physical WAN setup failed (status=%d)",
 					   unit, wanx_status);
-				restore_wan_after_ppp_start_failure(unit, wan_ifname);
+				vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
 				continue;
 			}
 			
 			/* re-build iptables rules (first stage w/o WAN IP) */
-			start_firewall_ex();
+			vlan_result = start_firewall_ex();
+			wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
+			if (vlan_result != 0)
+				logmessage(LOGNAME, "WAN PPP firewall startup incomplete (status=%d)", vlan_result);
 			
 			/* update demand option */
 			i_demand = get_wan_unit_value_int(unit, "pppoe_idletime");
@@ -1868,7 +1885,8 @@ start_wan(void)
 				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d after launch failure (status=%d)",
 					   unit, vlan_result);
 				/* Do not leave a phantom ppp0 interface in firewall/UPnP state. */
-				restore_wan_after_ppp_start_failure(unit, wan_ifname);
+				vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
 				continue;
 			}
 
@@ -1880,7 +1898,8 @@ start_wan(void)
 						wan_start_status, vlan_result);
 					logmessage(LOGNAME, "aborting WAN PPP startup for unit %d because the demand interface or route setup is incomplete (status=%d)",
 						   unit, vlan_result);
-					restore_wan_after_ppp_start_failure(unit, wan_ifname);
+					vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);
+					wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
 					continue;
 				}
 			}
@@ -1961,7 +1980,10 @@ start_wan(void)
 			}
 			
 			/* re-build iptables rules (final stage for IPoE static) */
-			start_firewall_ex();
+			vlan_result = start_firewall_ex();
+			wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
+			if (vlan_result != 0)
+				logmessage(LOGNAME, "WAN IPoE firewall startup incomplete (status=%d)", vlan_result);
 			
 			/* Start eapol authenticator */
 			wan_auth_mode = get_wan_unit_value_int(unit, "auth_mode");

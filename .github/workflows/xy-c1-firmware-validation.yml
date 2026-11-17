@@ -36,6 +36,7 @@ on:
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/aidisk.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "scripts/check_wan_firewall_status.py"
       - "trunk/user/rc/src/wan_route_flush_policy.h"
       - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
       - "trunk/user/rc/src/wan_resolver_refresh_policy.h"
@@ -361,6 +362,9 @@ jobs:
             trunk/user/rc/src/tests/lan_addr6_reload_policy.c \
             -o "$RUNNER_TEMP/lan-addr6-reload-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lan-addr6-reload-policy"
+
+      - name: Verify WAN firewall result propagation
+        run: python3 scripts/check_wan_firewall_status.py
 
       - name: Build XY-C1
         run: |

@@ -1,3 +1,12 @@
+## 2026-11-16 — Propagate WAN firewall rebuild failures through startup
+
+- Base main SHA: `a84174f9f5719272c1cc111c07be083790ae5734`; source change: THIS COMMIT.
+- Defect: `start_wan()` discarded the integer result from `start_firewall_ex()` in the USB modem RAS first-stage rebuild, normal PPP first-stage rebuild and final static-IPoE rebuild. `restore_wan_after_ppp_start_failure()` was also `void`, dropping both the UPnP interface-migration error and the firewall restore result on three PPP failure/recovery branches.
+- All four firewall calls now capture status and merge it into the first-error WAN/modem startup result. PPP recovery returns UPnP/firewall failures and each caller merges that status into `wan_start_status`; subsequent safe setup remains best-effort where existing logic permits.
+- Added `scripts/check_wan_firewall_status.py` to assert every caller/status path and wired it into WAN-route and XY-C1 workflows and their path filters. Exact-head CI is pending after this commit. Local checkout/toolchain unavailable; local execution NOT RUN. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Update RC integration checker for status-returning firmware write
 
 - Base main SHA: `97bd094ca5d05472861bbc7e79450aa1ce77c855`; result: THIS COMMIT.
