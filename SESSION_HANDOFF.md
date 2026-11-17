@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `5d7461e85ade47a6305b998a14657f12dd15cd63`.
+- Current main: THIS COMMIT; parent `f765dc8cc777916e1edff8713db6b40adc979623`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,9 +31,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify exact-head Process guest rollback suite and XY-C1 Build → TRX → artifact for THIS COMMIT.
-2. The manual guest-enable/disable CLI dispatch now maps guest-control results to shell status instead of silently acknowledging errors; review its exact-head Process source-contract run.
-3. Continue auditing guest AP activation paths for any remaining fail-open startup behavior. Preserve interfaces already up before an explicit control request and preserve RT3352 MII/iNIC VLAN bridge ownership.
+1. Verify exact-head Process inventory/lifecycle, Wireless radio, and XY-C1 Build → TRX → artifact for THIS COMMIT.
+2. Guest CLI status propagation is now fixed; this commit also closes startup M2U error swallowing: every main/guest M2U result joins the AP startup accumulator so restart failure triggers the existing rollback.
+3. Continue the guest Wi-Fi startup/rollback audit after CI, preserving already-up guest interfaces on explicit control and the RT3352 MII/iNIC VLAN bridge ownership.
 
 
 ## Verification boundary
@@ -49,4 +49,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live main and exact-head Actions. Verify the Process source-contract check for all four guest CLI dispatches and XY-C1 Build/TRX/artifact. If green, continue auditing guest AP startup paths for any remaining fail-open activation.
+Fetch live main and exact-head Actions. Verify Process/Wireless regressions for guest CLI propagation and M2U startup aggregation, then XY-C1 Build/TRX/artifact. If green, inspect remaining guest AP activation paths for unaggregated operations.

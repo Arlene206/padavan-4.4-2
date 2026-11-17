@@ -1,3 +1,14 @@
+## 2026-11-17 — Aggregate multicast-to-unicast errors during AP startup
+
+- Parent main SHA: `f765dc8cc777916e1edff8713db6b40adc979623`; result: THIS COMMIT.
+- Startup-path review found all four `wif_control_m2u()` calls in `start_wifi_ap_wl/rt` ignored their return values. A failed multicast-to-unicast bridge-port setting could therefore let AP startup return success even though the control path correctly treats the same failure as fatal.
+- Aggregate M2U success/failure with `all_started` for 5GHz main/guest and generic 2.4GHz main/guest APs. The existing restart transaction then executes its stop/rollback path on any M2U failure. RT3352 MII/iNIC path is unchanged because it does not configure M2U here.
+- Added source integration assertions for each of the four startup paths.
+- The exact Process and Wireless regression runs on the shell-fix ancestor `aec5cc95` passed (`44065308432`, `44065308208`). Exact-head Actions for THIS COMMIT are pending; no MIPS/uClibc target build is claimed yet.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Propagate guest Wi-Fi CLI failures to the caller
 
 - Parent main SHA: `5d7461e85ade47a6305b998a14657f12dd15cd63`; result: THIS COMMIT.

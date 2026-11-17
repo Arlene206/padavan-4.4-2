@@ -722,14 +722,16 @@ start_wifi_ap_wl(int radio_on)
 		if (!wif_control_success(IFNAME_5G_MAIN, 1))
 			return -EIO;
 		wireless_bridge_membership_record(&all_started, IFNAME_5G_MAIN, 1);
-		wif_control_m2u(1, IFNAME_5G_MAIN);
+		all_started = wireless_radio_startup_status(all_started,
+			wireless_radio_status_success(wif_control_m2u(1, IFNAME_5G_MAIN)));
 		
 		if (is_guest_allowed_wl())
 		{
 			if (!wif_control_success(IFNAME_5G_GUEST, 1))
 				return -EIO;
 			wireless_bridge_membership_record(&all_started, IFNAME_5G_GUEST, 1);
-			wif_control_m2u(1, IFNAME_5G_GUEST);
+			all_started = wireless_radio_startup_status(all_started,
+				wireless_radio_status_success(wif_control_m2u(1, IFNAME_5G_GUEST)));
 		}
 	}
 #endif
@@ -790,14 +792,16 @@ start_wifi_ap_rt(int radio_on)
 		if (!wif_control_success(IFNAME_2G_MAIN, 1))
 			return -EIO;
 		wireless_bridge_membership_record(&all_started, IFNAME_2G_MAIN, 1);
-		wif_control_m2u(0, IFNAME_2G_MAIN);
+		all_started = wireless_radio_startup_status(all_started,
+			wireless_radio_status_success(wif_control_m2u(0, IFNAME_2G_MAIN)));
 		
 		if (is_guest_allowed_rt())
 		{
 			if (!wif_control_success(IFNAME_2G_GUEST, 1))
 				return -EIO;
 			wireless_bridge_membership_record(&all_started, IFNAME_2G_GUEST, 1);
-			wif_control_m2u(0, IFNAME_2G_GUEST);
+			all_started = wireless_radio_startup_status(all_started,
+				wireless_radio_status_success(wif_control_m2u(0, IFNAME_2G_GUEST)));
 		}
 	}
 #endif

@@ -156,6 +156,22 @@ for test_name in (
 assert "wireless_guest_isolation_status_record" in policy
 assert "wireless_guest_isolation_status_rollback" in policy
 
+
+for signature, operations in (
+    ("int\\nstart_wifi_ap_wl(int radio_on)", (
+        "wireless_radio_status_success(wif_control_m2u(1, IFNAME_5G_MAIN))",
+        "wireless_radio_status_success(wif_control_m2u(1, IFNAME_5G_GUEST))",
+    )),
+    ("int\\nstart_wifi_ap_rt(int radio_on)", (
+        "wireless_radio_status_success(wif_control_m2u(0, IFNAME_2G_MAIN))",
+        "wireless_radio_status_success(wif_control_m2u(0, IFNAME_2G_GUEST))",
+    )),
+):
+    startup = body(wifi, signature)
+    for operation in operations:
+        assert operation in startup, operation
+        assert "wireless_radio_startup_status(all_started," in startup
+
 guest_commands = {
     'radio2_guest_enable': 'ret = manual_change_guest_rt(1) < 0 ? -1 : 0;',
     'radio2_guest_disable': 'ret = manual_change_guest_rt(0) < 0 ? -1 : 0;',
