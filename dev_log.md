@@ -1,3 +1,11 @@
+## 2026-11-17 — Align HTTPD storage regression with the parameterized eject helper
+
+- Parent main SHA: 81329ebbb04a80e11da0f13169355523bd1fe00b; result: THIS COMMIT.
+- Exact-head HTTPD run 44111149377 on 81329ebbb04a80e11da0f13169355523bd1fe00b passed the earlier inventory assertions after the call-count fix, then failed in the safe-removal source-contract step because its parser still searched for the pre-refactor `umount_ejected_locked(void)` signature. The production helper now correctly takes the stop/restart mode parameters; the separate storage workflow already checks that contract.
+- Updated the stale inline source locator to the live function signature. No product source behavior changed. Exact-head rerun required; no local checkout/compiler available and physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Remove stale exact-call-count assertion from storage inventory CI contract
 
 - Parent main SHA: d64d2e3ffd61a0e6fe00dc728988d9e57574dfd4; result: THIS COMMIT.

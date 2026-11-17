@@ -2829,7 +2829,7 @@ jobs:
           policy = Path("trunk/user/rc/src/storage_ejected_inventory_policy.h").read_text()
           test = Path("trunk/user/rc/src/tests/storage_ejected_inventory_policy.c").read_text()
 
-          start = source.index("static int\numount_ejected_locked(void)")
+          start = source.index("static int\numount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)")
           end = source.index("\nstruct storage_unmount_mount_entry", start)
           ejected_body = source[start:end]
           assert "storage_ejected_parse_mount_line" in ejected_body
