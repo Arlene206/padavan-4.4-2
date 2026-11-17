@@ -1,34 +1,35 @@
-# 2026-11-17 continuation checkpoint — XUPnPD storage provisioning
+# 2026-11-17 continuation checkpoint — complete XUPnPD setup failure gates
 
 This checkpoint supersedes conflicting older status below. Continue on main; do not repeat completed audits or mutate the frozen backup.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2/.
-- Parent main SHA: 8307f6abbc7dacade3f4744b277ae404b8096b73; result: THIS COMMIT (one full tree, expected-SHA non-force update).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
-- PR #1 remains closed/unmerged. Work only on main.
-- Connector-only environment: no local full firmware checkout or MIPS compiler; physical-router L4 NOT VERIFIED.
+- Parent main SHA: 17916d64e66ae90786f8e88838fff459bcfafdf4; result: THIS COMMIT via one complete tree and expected-SHA non-force update.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- Work only on main; PR #1 closed/unmerged.
+- No local MIPS compiler/full firmware checkout; physical-router L4 NOT VERIFIED.
 
-## Switch table-engine slice
-- Parent HEAD 8307f6abbc7dacade3f4744b277ae404b8096b73: exact Switch CLI run `44139419836` PASS, including socket/ioctl failure status, bounded VLAN/MAC table waits, DIP/SIP/MAC polling, Clause 22 and Clause 45 host/source contracts.
-- Exact Process lifecycle `44138894867` and AI handoff docs `44139419922` PASS.
-- XY-C1 run `44138894972` remains IN_PROGRESS; Build XY-C1, TRX check and artifact upload were not yet complete at last inspection. The Switch CLI PASS validates its host regression; firmware build remains separate.
+## Parent exact-head Actions
+- WAN route run `44140465411` on 6b88d9e: FAIL only in a source checker after the XUPnPD unit binary compiled and passed. Its assertion incorrectly rejected the `doSystem("cp -rf ...")` substring even when assigned and checked; the checker in THIS COMMIT distinguishes checked from unchecked calls.
+- Exact Switch CLI `44140771106` PASS, including strict IPv4 parsing and bounded table waits.
+- Exact AI handoff `44140771033`, NVRAM `44140771014`, switch and process-inventory `44140771046` PASS.
+- Process lifecycle `44140771103` failed in a separate shared-library/RC integration contract and remains an independent follow-up.
+- XY-C1 `44140771061` still RUNNING at last poll; Build XY-C1 was in progress.
 
-## Active XUPnPD reliability repair
-- Review found `start_xupnpd()` ignored `mkdir()` results for required `config/playlists` directories and ignored both `doSystem("cp -rf ...")` and `symlink()` status for the required `plugins/profiles` paths. It could run the daemon despite incomplete plugin/profile provisioning.
-- THIS COMMIT makes missing directory creation checked and race-safe, validates that low-storage mode links only to the exact expected read-only source directory, rejects unexpected symlinks and non-directories, and aborts before daemon launch on failed copy/link/validation.
-- Added unit tests to the existing config-file test and a source-wiring checker. WAN route CI compiles/runs the test with GNU89, ASan/UBSan and validates the production launch contract.
-- Exact-head WAN and XY-C1 Actions for THIS COMMIT are PENDING at commit creation.
+## XUPnPD startup failure gates
+- Initial change `6b88d9e` fixed ignored plugin/profile directory copy/link status and directory creation. GNU89 ASan/UBSan unit binary PASSED on WAN run 44140465411.
+- Source review found remaining ignored outcomes: top-level `xupnpd.lua` copy; stale PID cleanup; stale Lua override cleanup. THIS COMMIT captures copy status, removes partial copied output on failure, rejects pre-existing symlink/non-regular runtime Lua paths before copying, and aborts on unexpected unlink errors (ENOENT remains harmless).
+- Plugin/profile read-only source paths are checked as real directories before copy/symlink.
 
 ## First next task
-1. Inspect exact-head WAN route run and require XUPnPD helper regression + production wiring contract to pass.
-2. Inspect descendant XY-C1 run `44138894972` for its Build/TRX/artifact final result; it builds source SHA 4a3, whose switch source is identical to 8307 except a CI-count assertion.
-3. Continue independent P1 userland startup/lifecycle work. Do not revisit completed switch, DHCP, HTTPD, PPPoE-MWAN, USB modem, miniupnpd, storage and NVRAM items without new evidence.
+1. Inspect exact-head WAN route after this checker and cleanup fix; require all XUPnPD steps and existing WAN contracts PASS.
+2. Inspect exact-head XY-C1 Build/TRX/artifact after its run completes; do not treat the older 4a3 artifact as sufficient for later source changes.
+3. Diagnose Process run `44140771103` shared-library/RC integration failure from its exact job log, then continue independent P1 userland fixes.
 
 ## Validation boundary
-- Switch CLI, Process lifecycle and AI handoff exact-head Actions PASS on parent 8307f6abbc7dacade3f4744b277ae404b8096b73.
-- Existing XUPnPD header and tests were extended but not yet executed against THIS COMMIT; WAN CI is the authoritative check.
-- No MIPS/uClibc firmware build or physical-router L4 claim is made here.
+- XUPnPD helper regression passed on parent 6b88d9e; initial checker alone failed. THIS COMMIT adds further copy and cleanup gates; exact-head WAN pending.
+- Switch CLI and NVRAM exact-head passed on parent 17916d6.
+- No MIPS/uClibc build or physical-router L4 result is asserted.
 
 # Cross-session execution mandate
 

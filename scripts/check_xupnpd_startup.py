@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Ensure XUPnPD private storage directories are ready before daemon launch."""
+"""Ensure XUPnPD private storage setup fails before daemon launch."""
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
@@ -54,19 +55,33 @@ assert "xupnpd_config_ensure_directory(dir_dst, 0755)" in startup
 assert "xupnpd_config_ensure_directory(tmp2, 0755)" in startup
 assert "copy_storage = get_mtd_size(\"Storage\") > 0x10000;" in startup
 assert "xupnpd_config_subdirectory_validate(" in startup
-assert "copy_status = doSystem(\"cp -rf %s %s\", tmp1, tmp2);" in startup
-copy_at = startup.index('copy_status = doSystem("cp -rf %s %s", tmp1, tmp2);')
-copy_failure_at = startup.index("if (copy_status != 0)", copy_at)
-copy_return_at = startup.index("return copy_status;", copy_failure_at)
-assert copy_at < copy_failure_at < copy_return_at
-assert "symlink(tmp1, tmp2) != 0 && errno != EEXIST" in startup
-assert "xupnpd_config_subdirectory_validate(" in startup[startup.index("symlink(tmp1, tmp2)"):startup.index("for (i=0; xlua[i]; i++)")]
-assert startup.index("xupnpd_config_subdirectory_validate(") < startup.index('if (has_daemon)')
+
+copy_tree = 'copy_status = doSystem("cp -rf %s %s", tmp1, tmp2);'
+copy_lua = 'copy_status = doSystem("cp -f %s %s", tmp1, tmp2);'
+assert startup.count(copy_tree) == 1
+assert startup.count(copy_lua) == 1
+assert re.search(r'(?m)^\s*doSystem\("cp -rf %s %s"', startup) is None
+assert re.search(r'(?m)^\s*doSystem\("cp -f %s %s"', startup) is None
+
+copy_tree_failure = startup.split(copy_tree, 1)[1].split("} else if", 1)[0]
+assert "if (copy_status != 0)" in copy_tree_failure
+assert "return copy_status;" in copy_tree_failure
+copy_lua_failure = startup.split(copy_lua, 1)[1].split("\n\t\t}\n", 1)[0]
+assert "if (copy_status != 0)" in copy_lua_failure
+assert "return copy_status;" in copy_lua_failure
+
+for marker in (
+    "symlink(tmp1, tmp2) != 0 && errno != EEXIST",
+    'unlink("/var/run/xupnpd.pid") != 0 && errno != ENOENT',
+    "unlink(tmp2) != 0 && errno != ENOENT",
+    "lstat(tmp2, &lua_stat)",
+    "S_ISLNK(lua_stat.st_mode)",
+    "xupnpd_config_directory_validate(tmp1)",
+):
+    assert marker in startup, marker
+
 assert "mkdir(tmp2, 0755)" not in startup
-assert "doSystem(\"cp -rf %s %s\", tmp1, tmp2);" not in startup
 assert "symlink(tmp1, tmp2);" not in startup
-assert "static inline int\nxupnpd_config_ensure_directory" in header
-assert "static inline int\nxupnpd_config_subdirectory_validate" in header
 for marker in (
     "test_ensure_directory_creates_and_rejects_unsafe_paths",
     "test_subdirectory_requires_expected_source_link",
@@ -76,4 +91,5 @@ for marker in (
 ):
     assert marker in test, marker
 
-print("XUPnPD storage setup and failure-before-launch contract: PASS")
+assert startup.index("xupnpd_config_subdirectory_validate(") < startup.index("if (has_daemon)")
+print("XUPnPD storage, config copy and cleanup failure gates: PASS")

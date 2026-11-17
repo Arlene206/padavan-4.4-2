@@ -1,3 +1,13 @@
+## 2026-11-17 — Close remaining XUPnPD copy and cleanup failure paths
+
+- Parent main SHA: 17916d64e66ae90786f8e88838fff459bcfafdf4; result: THIS COMMIT.
+- WAN run 44140465411 showed the XUPnPD host regression compiled and passed, but its source checker falsely rejected a checked `doSystem("cp -rf ...")` call. Updated the checker to reject only unassigned command invocations.
+- Extended startup fail-closed behavior: validate plugin/profile source dirs; propagate top-level `xupnpd.lua` copy failure and remove partial output; reject pre-existing symlink/non-regular runtime Lua paths; check stale PID and generated Lua override unlink errors except ENOENT.
+- Switch CLI, NVRAM, AI handoff and process inventory Actions PASS on 17916d6. Process lifecycle separately failed at a shared-library integration contract; XY-C1 remained in progress. Exact-head WAN retry pending.
+- No MIPS firmware or physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Fail closed on XUPnPD storage provisioning errors
 
 - Parent main SHA: 8307f6abbc7dacade3f4744b277ae404b8096b73; result: THIS COMMIT.

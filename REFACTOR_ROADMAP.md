@@ -2,12 +2,12 @@
 
 This section supersedes conflicting older rows below.
 
-- Parent main SHA: `8307f6abbc7dacade3f4744b277ae404b8096b73`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
-- Parent exact-head Switch CLI, Process lifecycle and AI handoff checks PASS; XY-C1 Build/TRX/artifact remains in progress on source baseline 4a3c377.
-- XUPnPD startup reliability: required config/playlists directory creation is now checked; plugins/profiles copy or symlink status and final path identity/type are validated before daemon launch. Host regression and source wiring checker are included in WAN route CI; exact-head run pending.
-- No local MIPS/uClibc firmware build or physical-router L4 is claimed.
+- Parent main SHA: `17916d64e66ae90786f8e88838fff459bcfafdf4`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- Parent Switch CLI, NVRAM, AI handoff and process inventory checks PASS; Process lifecycle failed at its separate shared-library/RC integration contract. XY-C1 Build XY-C1 was still running.
+- XUPnPD validates required directories, plugin/profile copy/link outputs, source directories, stale PID cleanup, Lua override cleanup and top-level Lua copy before daemon launch. Exact-head WAN retry pending.
+- No MIPS/uClibc firmware build or physical-router L4 claim.
 
-Next: verify exact-head WAN regression and XY-C1 Build/TRX/artifact, then continue broad RC/userland startup result coverage.
+Next: verify exact-head WAN and XY-C1, diagnose the Process integration failure, then resume broad userland reliability.
 
 ---
 

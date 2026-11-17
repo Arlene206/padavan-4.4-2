@@ -451,12 +451,23 @@ start_xupnpd(char *wan_ifname)
 		}
 	}
 
-	unlink("/var/run/xupnpd.pid");
+	if (unlink("/var/run/xupnpd.pid") != 0 && errno != ENOENT) {
+		directory_status = errno ? errno : EIO;
+		logmessage(LOGNAME, "xupnpd stale pid cleanup failed (status=%d)",
+			   directory_status);
+		return directory_status;
+	}
 
 	copy_storage = get_mtd_size("Storage") > 0x10000;
 	for (i=0; xdir2[i]; i++) {
 		snprintf(tmp2, sizeof(tmp2), "%s/%s", dir_dst, xdir2[i]);
 		snprintf(tmp1, sizeof(tmp1), "%s/%s", dir_src, xdir2[i]);
+		directory_status = xupnpd_config_directory_validate(tmp1);
+		if (directory_status != 0) {
+			logmessage(LOGNAME, "xupnpd read-only source directory %s is unsafe (status=%d)",
+				   tmp1, directory_status);
+			return directory_status;
+		}
 		directory_status = xupnpd_config_subdirectory_validate(
 			tmp2, tmp1, !copy_storage);
 		if (directory_status == ENOENT) {
@@ -488,13 +499,50 @@ start_xupnpd(char *wan_ifname)
 
 	for (i=0; xlua[i]; i++) {
 		snprintf(tmp2, sizeof(tmp2), "%s/xupnpd%s.lua", dir_dst, xlua[i]);
-		unlink(tmp2);
+		if (unlink(tmp2) != 0 && errno != ENOENT) {
+			directory_status = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "xupnpd stale Lua file cleanup %s failed (status=%d)",
+				   tmp2, directory_status);
+			return directory_status;
+		}
 	}
 
 	snprintf(tmp1, sizeof(tmp1), "%s/xupnpd%s.lua", dir_src, "");
 	snprintf(tmp2, sizeof(tmp2), "%s/xupnpd%s.lua", dir_dst, "");
-	if (!check_if_file_exist(tmp2))
-		doSystem("cp -f %s %s", tmp1, tmp2);
+	{
+		struct stat lua_stat;
+		if (lstat(tmp2, &lua_stat) == 0) {
+			if (S_ISLNK(lua_stat.st_mode)) {
+				logmessage(LOGNAME, "xupnpd runtime Lua path is a symlink");
+				return ELOOP;
+			}
+			if (!S_ISREG(lua_stat.st_mode)) {
+				logmessage(LOGNAME, "xupnpd runtime Lua path is not a regular file");
+				return EINVAL;
+			}
+		} else {
+			if (errno != ENOENT) {
+				directory_status = errno ? errno : EIO;
+				logmessage(LOGNAME,
+					   "xupnpd runtime Lua path inspection failed (status=%d)",
+					   directory_status);
+				return directory_status;
+			}
+			copy_status = doSystem("cp -f %s %s", tmp1, tmp2);
+			if (copy_status != 0) {
+				int cleanup_status = unlink(tmp2);
+				if (cleanup_status != 0 && errno != ENOENT)
+					logmessage(LOGNAME,
+						   "xupnpd partial Lua cleanup %s failed (errno=%d)",
+						   tmp2, errno);
+				logmessage(LOGNAME,
+					   "xupnpd runtime Lua copy %s failed (status=%d)",
+					   tmp1, copy_status);
+				return copy_status;
+			}
+		}
+	}
 
 	/*
 	 * Do not replace a working config with an empty/truncated file when the
