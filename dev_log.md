@@ -1,3 +1,13 @@
+## 2026-11-17 — Propagate NDIS USB modem firewall rebuild failures
+
+- Parent main SHA: `14d9907941caa59b8515a05b0c8275c3e29d4047`; result: THIS COMMIT.
+- Source review found `launch_wan_usbnet()` discarded `start_firewall_ex()` status after bringing up an NDIS modem interface. The normal and RAS WAN startup paths already retain first-stage firewall errors, but NDIS modem startup could return success after a failed firewall rebuild.
+- Capture and log the firewall result, retain it as the first modem startup error, and preserve it through later control-session and DHCP setup. Startup continues independent work, but `start_wan()` now receives the failure instead of a false success.
+- Added a GNU89 regression for first-error retention and a source-contract check for result capture/order/returns. The USB modem workflow runs that policy binary with ASan/UBSan and executes the WAN startup/firewall source checker.
+- Exact-head USB modem Actions and XY-C1 Build/TRX/artifact are pending for THIS COMMIT. No local compiler/build or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-17 — Bound PPPoE-MWAN lock contention after stale-lock risk review
 
 - Parent main SHA: `f02edd2564903e26e678e327bfeadcd66cb8823a`; result: THIS COMMIT.

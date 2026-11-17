@@ -4,42 +4,30 @@ This checkpoint supersedes older status statements below when they conflict. Res
 
 ## Git state
 - Repository: `https://github.com/Arlene206/padavan-4.4-2`; development only on `main`.
-- Parent main SHA: `f02edd2564903e26e678e327bfeadcd66cb8823a`; result: THIS COMMIT (one complete Git tree, expected-SHA update, no force push).
+- Parent main SHA: `14d9907941caa59b8515a05b0c8275c3e29d4047`; result: THIS COMMIT (one complete Git tree, non-forced expected-SHA update).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
 - Connector-only session; no local checkout/compiler. Physical-router L4 NOT VERIFIED.
 
-## AliDDNS completion
-- WAN IPv4 special-use filtering, fail-closed keeper inventory, WAN6-interface IPv6 discovery, and NVRAM polling-interval normalization are implemented with regression coverage.
-- Exact AliDDNS run `44118168748` on `f02edd2564903e26e678e327bfeadcd66cb8823a`: SUCCESS. It passed shell syntax, signed API transport, IPv4/IPv6 discovery, DNS lookup, custom-script lifecycle, interval/keeper lifecycle tests, CA bootstrap, HMAC privacy and Python source contracts.
-- Exact AI-handoff contract run `44118168901` on the same SHA: SUCCESS.
-- Product-source XY-C1 run `44117807418` is on `07aecfc4c03368c7e05efecb5977916953b854d8`; subsequent `b2c8815` and `f02edd25` changed docs/checker only, not firmware source. At last poll Build XY-C1 was IN_PROGRESS; TRX and artifact upload were pending. Do not claim L3 until all three complete.
-- NVRAM run `44117807493` on product-source SHA `07aecfc4`: SUCCESS. Descendant b2c8815 Process inventory, AliyunDrive and infosvr checks also passed.
+## Completed immediately before this slice
+- Main SHA `14d9907941caa59b8515a05b0c8275c3e29d4047`: PPPoE-MWAN lock contention is bounded to 30 one-second waits; timeout fails visibly and preserves a foreign/stale lock.
+- Exact-head WAN route run `44119319864` PASS, including detector mocked timeout regression, caller aggregation and source contracts.
+- Exact-head XY-C1 run `44119319758` PASS through Build XY-C1, TRX output verification and artifact upload. All 10 exact-SHA push workflows on `14d9907` completed SUCCESS; there were no failures.
 
-## PPPoE-MWAN reliability
-- `4f32e40f`: detector preserves command failure, safely parses iptables-save without eval, validates input and cleans only its owned atomic lock; exact WAN workflow `44037585283` passed the Bash mock regression.
-- `5525430a`: both WAN-up and WAN-down capture `eval("/usr/bin/detect.sh")`, aggregate status and log failures; caller checker protects both.
-- THIS COMMIT bounds shared `/tmp/lock` contention to 30 one-second waits. A SIGKILL/crash that skips EXIT cleanup can no longer leave WAN transitions sleeping forever; timeout reports failure and never removes a lock it did not acquire. The test mocks sleep and checks exactly 30 attempts, no route/firewall commands while unowned, and unchanged foreign-lock content.
-- Existing `wan-route-status.yml` already executes the detector mock regression and caller/source checker; path filters cover the source, test and checker.
-
-## Recent commits
-- THIS COMMIT: bound PPPoE-MWAN lock contention after stale-lock liveness review.
-- `f02edd25`: AliDDNS interval source-contract checker correction.
-- `07aecfc4`: valid interval printf output.
-- `b2692cec`: safe AliDDNS polling interval.
-- `29f9b24d`: AliDDNS IPv6 workflow indentation.
-- `40fb7dfe`: WAN6-interface IPv6 discovery.
-- `c17ef063`: fail-closed keeper inventory.
-- `097705a6`: WAN IPv4 special-use filtering.
+## USB NDIS modem firewall-result propagation
+- Source review found `launch_wan_usbnet()` called `start_firewall_ex()` after NDIS interface bring-up but discarded the result. The NDIS branch of `start_wan()` relies on this helper for its first-stage firewall rebuild; unlike the RAS and ordinary WAN paths, it therefore could report a successful modem start when firewall restore/validation failed.
+- THIS COMMIT captures and logs the firewall result, seeds the existing first-error accumulator, and retains it across subsequent modem control and DHCP results. It continues independent startup work in line with the existing WAN startup policy, but returns the earlier firewall failure to `start_wan()`.
+- Added a GNU89 policy regression proving later successful control/DHCP cannot erase the firewall error, and later DHCP failure cannot replace it. The WAN source contract now checks the capture, ordering and returned status; the USB modem workflow compiles the policy regression with ASan/UBSan and runs the source checker.
 
 ## First next task
-1. Inspect exact-head WAN-route detector regression and caller/source contract for THIS COMMIT; repair any failures.
-2. Poll product-source XY-C1 run `44117807418` through Build, TRX verification and artifact upload. Product source is unchanged since `07aecfc4`.
-3. Continue independent whole-userland WAN reliability review; do not repeat completed PPPoE-MWAN up/down caller work or HTTPD/storage audits.
+1. Check exact-head USB modem workflow and XY-C1 workflow for THIS COMMIT. Require the modem policy binary, WDM/NDIS contracts, WAN startup/firewall result checker, Build XY-C1, TRX verification and artifact upload.
+2. For any FAIL, inspect the failing job log and repair the real defect on a new atomic main commit. PENDING does not block independent work.
+3. After this slice validates, continue the open LAN DHCP callback review in `trunk/user/rc/src/net_wan.c`: inspect leasefail/NAK/release semantics against BusyBox initial acquisition and `DECONFIG_PENDING` transitions. Do not repeat the completed deconfig static-host restoration or bound/renew validation work.
+4. Keep progressing across userland modules; do not return to completed HTTPD/storage/PPPoE caller audits.
 
 ## Verification boundary
-- AliDDNS exact f02 L2 PASS (`44118168748`); AI handoff PASS (`44118168901`).
-- New PPPoE-MWAN lock regression awaits exact-head WAN Actions; no local test is claimed.
-- XY-C1 Build/TRX/artifact still pending at last poll. MIPS/uClibc behavior and physical-router L4 remain NOT VERIFIED.
+- Previous exact-head `14d9907`: 10/10 push Actions SUCCESS; WAN route `44119319864` and XY-C1 `44119319758` both SUCCESS. XY job completed Build, TRX and artifact upload.
+- THIS COMMIT's USB modem and XY-C1 runs are newly triggered and must be checked against its exact SHA.
+- No local checkout, host compiler, MIPS build or physical-router test was available in this connector-only session; none is claimed. Router L4 remains NOT VERIFIED.
 
 
 # Cross-session execution mandate

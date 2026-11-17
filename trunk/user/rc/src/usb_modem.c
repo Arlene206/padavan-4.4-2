@@ -987,8 +987,8 @@ int
 launch_wan_usbnet(int unit)
 {
 	int modem_devnum = 0;
-	int migration_status, interface_status, control_status;
-	int control_required = 0, dhcp_status;
+	int migration_status, interface_status, firewall_status, control_status;
+	int control_required = 0, dhcp_status, startup_status;
 	char ndis_ifname[16] = {0};
 
 	if (get_modem_ndis_ifname(ndis_ifname, &modem_devnum) &&
@@ -1014,7 +1014,12 @@ launch_wan_usbnet(int unit)
 				   ndis_ifname, interface_status);
 			return modem_wan_start_status(migration_status, interface_status);
 		}
-		start_firewall_ex();
+		firewall_status = start_firewall_ex();
+		if (firewall_status != 0)
+			logmessage(LOGNAME,
+				   "USB modem WAN firewall startup incomplete (status=%d)",
+				   firewall_status);
+		startup_status = modem_wan_start_status(migration_status, firewall_status);
 
 		control_status = ndis_control_network(ndis_ifname, modem_devnum, 1,
 						     &control_required);
@@ -1023,7 +1028,7 @@ launch_wan_usbnet(int unit)
 			logmessage(LOGNAME,
 				   "USB modem control-session startup failed on %s (status=%d)",
 				   ndis_ifname, control_status);
-			return modem_wan_start_status(migration_status, control_status);
+			return modem_wan_start_status(startup_status, control_status);
 		}
 		if (control_required)
 			sleep(1);
@@ -1034,7 +1039,7 @@ launch_wan_usbnet(int unit)
 			logmessage(LOGNAME,
 				   "USB modem WAN DHCP client launch failed on %s (status=%d)",
 				   ndis_ifname, dhcp_status);
-		return modem_wan_start_status(migration_status, dhcp_status);
+		return modem_wan_start_status(startup_status, dhcp_status);
 	}
 
 	set_wan_unit_value(unit, "ifname_t", "");

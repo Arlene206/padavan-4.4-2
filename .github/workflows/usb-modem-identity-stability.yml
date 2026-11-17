@@ -246,3 +246,5 @@ jobs:
           PY
       - name: Verify modem module alternatives and readiness propagation
         run: python3 scripts/check_modem_module_reload.py
+      - name: Verify WAN startup and firewall result propagation
+        run: python3 scripts/check_modem_wan_start_status.py

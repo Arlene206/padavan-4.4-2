@@ -51,6 +51,24 @@ test_ndis_interface_bringup_failure_skips_network_start(void)
 }
 
 static void
+test_ndis_firewall_failure_reaches_startup_result(void)
+{
+	int startup_status = modem_wan_start_status(0, EIO);
+
+	/* Later successful control and DHCP setup must not hide firewall failure. */
+	assert(startup_status == EIO);
+	startup_status = modem_wan_start_status(startup_status, 0);
+	assert(startup_status == EIO);
+
+	/* A later DHCP failure must not overwrite the earlier firewall error. */
+	startup_status = modem_wan_start_status(startup_status, ETIMEDOUT);
+	assert(startup_status == EIO);
+
+	/* Without a firewall failure, DHCP's own failure is still returned. */
+	assert(modem_wan_start_status(0, ETIMEDOUT) == ETIMEDOUT);
+}
+
+static void
 test_ndis_optional_control_path_does_not_block_dhcp(void)
 {
 	int control_required = 0;
@@ -264,6 +282,7 @@ main(void)
 	test_miniupnp_migration_failure_blocks_dhcp();
 	test_dhcp_launch_result_is_returned_after_migration();
 	test_ndis_interface_bringup_failure_skips_network_start();
+	test_ndis_firewall_failure_reaches_startup_result();
 	test_ndis_optional_control_path_does_not_block_dhcp();
 	test_ndis_required_control_failure_blocks_dhcp();
 	test_ndis_required_control_success_allows_dhcp();
