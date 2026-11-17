@@ -22,8 +22,8 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 
 ## Active task
 
-1. Fetch live `main` and inspect exact-`head_sha` Process lifecycle and XY-C1 for the RWFS contract correction in THIS COMMIT. Confirm the GNU89 policy test and both source contracts pass; fix any first causal failure.
-2. Confirm same-production-source XY-C1 Build, TRX verification and artifact upload after the boot aggregation checker is corrected. Independently inspect DNS Forwarder XY-C1 run `44006695535` if it has not concluded.
+1. Inspect exact-head Process lifecycle and XY-C1 for this RWFS mountpoint-cleanup checker correction. Confirm policy, integration and boot-module checks pass; resolve any further specific failure.
+2. Verify same-production-source XY-C1 Build, TRX validation and artifact upload, then confirm USB storage/hotplug and NVRAM checks. Only then mark RWFS L3 verified.
 3. Once RWFS clears, continue P1 RC shutdown/start-result audit across independent services. Do not repeat watchdog, modem, IPv6 sysctl, firewall module-table, NVRAM, storage-eject or VPN work already recorded above.
 
 ## Verification boundary

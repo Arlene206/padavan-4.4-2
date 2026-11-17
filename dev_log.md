@@ -1,3 +1,12 @@
+## 2026-11-17 — Match RWFS mountpoint cleanup integration assertion to production guard
+
+- Base main SHA: `f73b2d55d61a9f8e007555b1d2e8b2cb5ee4f595`; result: THIS COMMIT.
+- Exact Process run `44008834957` and XY-C1 run `44008834951` both compiled and passed the GNU89 RWFS policy binary, then failed on one remaining assertion in `check_rwfs_mount_integration.py`. Production cleanup correctly invokes `rmdir(mp_rwfs)` inside a combined condition guarded by `rwfs_mountpoint_created` and excludes `ENOENT`; the checker incorrectly required a standalone `if (rwfs_mountpoint_created)`.
+- Replaced the over-specific text check with assertions on the actual combined cleanup guard and its `ENOENT` handling. The preceding exact-head XY boot-module checker passed after the prior fix to assert RWFS-first-error aggregation.
+- This is checker-only; no production code changed. Exact-head reruns are pending; XY-C1 has not yet reached Build/TRX/artifact for RWFS. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Correct RWFS source contracts after exact-head failures
 
 - Base main SHA: `fd9ab12eb7102eda5ef081b52160fd569e30aa72`; result: THIS COMMIT.

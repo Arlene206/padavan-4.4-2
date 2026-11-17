@@ -31,7 +31,8 @@ router_compact=re.sub(r"\s+"," ",router_init)
 assert "mtd_rwfs = mtd_dev_idx(MTD_PART_NAME_RWFS);" in mount
 assert "if (mtd_rwfs < 0)" in mount and "return ENODEV;" in mount
 assert "rc_rwfs_mount_execute(" in mount and "rwfs_mount_ready = 1;" in mount
-assert "if (rwfs_mountpoint_created)" in mount and "rmdir(mp_rwfs)" in mount
+assert "rwfs_mountpoint_created && rmdir(mp_rwfs) != 0" in mount
+assert "errno != ENOENT" in mount
 assert 'is_module_loaded_status("ubi")' in module_probe
 assert "rwfs_ubi_attachment_presence(mtd_rwfs, presence)" in attachment_probe
 assert "ubiattach -p /dev/mtd%d -d %d" in attach
