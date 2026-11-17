@@ -1,3 +1,13 @@
+## 2026-11-17 — Make DDNSTO PID inventory mock model empty PID files correctly
+
+- Base main SHA: `419b46899ac5d85588753683cf39a3fe44d1eb5c`; result: THIS COMMIT.
+- Exact-head DDNSTO run `44011740060` on `419b4689` failed in the test case that verifies UNKNOWN after TERM must not trigger SIGKILL. Production stop logic was fail-closed: the mock set state to RUNNING but the prior delayed-start cleanup had truncated the PID file; mock `pidof` used `cat PID || echo 12345`, so a successful empty `cat` produced an empty PID list and production correctly returned UNKNOWN before sending TERM. The test then misreported the missing TERM log as SIGKILL escalation.
+- Changed the mock to use `-s` to distinguish a populated PID file and emit a valid fallback PID when empty. Retained the `echo $$` writes for actual daemon fixtures and tightened the source contract to require both behaviors. No production DDNSTO code changed.
+- Process run `44011740122` on the base SHA and same-source XY-C1 history `44009838585` were checked separately; RWFS source `f5a42763` has same-source Build/TRX/artifact PASS. This DDNSTO test-only correction has fresh exact-head CI pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Correct DDNSTO delayed-start regression PID fixture
 
 - Base main SHA: `9c7c393d45617f2820b1285452226759a94b43c5`; result: THIS COMMIT.

@@ -137,7 +137,8 @@ for marker in ("UNKNOWN process inventory", "UNKNOWN after TERM", "sleep failure
     require(marker in test, f"regression omits lifecycle lock contract {marker}")
 require('flock -n 8' in test and 'TERM-BEGIN' in test and
         'awk ' in test, "regression must exercise two independent launchers and stop/start ordering")
-require('echo $ > "$TEST_DAEMON_PID"' in test,
+require('echo $ > "$TEST_DAEMON_PID"' in test and
+        'if [ -s "$TEST_DAEMON_PID" ]; then' in test,
         "daemon fixtures must publish their actual numeric PID to process inventory")
 require('start_after_stop_attempt' in test and
         '[ "$(grep -Fxc START "$TEST_OPS" || :)" -lt 2 ]' in test,

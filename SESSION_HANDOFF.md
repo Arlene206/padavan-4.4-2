@@ -49,7 +49,7 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 ## Active task
 
 , not a numeric PID; production correctly rejected it as UNKNOWN. Confirm the corrected fixture makes the delayed-start regression pass.
-2. Confirm DDNSTO/Process exact-head CI, then continue P1 RC start/stop status audit. RWFS L3 is verified on `f5a42763` by same-source XY-C1 `44009838585` (Build/TRX/artifact); DDNSTO's later source edit has no same-SHA XY-C1 result yet.
+2. Confirm DDNSTO/Process exact-head CI after the PID mock's empty-file fallback correction, then continue P1 RC start/stop status audit. RWFS L3 is verified on `f5a42763` by same-source XY-C1 `44009838585` (Build/TRX/artifact); DDNSTO's later source edit has no same-SHA XY-C1 result yet.
 3. Continue the P1 RC startup/shutdown status audit across independent services; do not repeat already completed watchdog, modem, IPv6, firewall, NVRAM, storage-eject or VPN work.
 
 ## Verification boundary

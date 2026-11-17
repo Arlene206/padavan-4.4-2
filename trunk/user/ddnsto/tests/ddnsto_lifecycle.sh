@@ -53,7 +53,14 @@ cat > "$TEST_BIN/pidof" <<'MOCK'
 #!/bin/sh
 [ "$1" = ddnsto ] || exit 1
 case "$(cat "$TEST_STATE")" in
-	running) echo "$(cat "$TEST_DAEMON_PID" 2>/dev/null || echo 12345)"; exit 0 ;;
+	running)
+		if [ -s "$TEST_DAEMON_PID" ]; then
+			cat "$TEST_DAEMON_PID"
+		else
+			echo 12345
+		fi
+		exit 0
+		;;
 	error|unknown) exit 2 ;;
 	malformed) echo "12345 invalid"; exit 0 ;;
 	empty-success) exit 0 ;;
