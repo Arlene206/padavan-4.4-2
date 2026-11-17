@@ -883,7 +883,10 @@ jobs:
               assert 'notify_rc("on_unplug_mass_storage")' in unplug
               assert "return (swapoff_status == 0) ? 0 : 1;" in body
               assert 'char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };' in body
-              assert 'if (_eval(mount_argv, NULL, 0, NULL) == 0)' in body
+              assert 'mount_status = _eval(mount_argv, NULL, 0, NULL);' in body
+              assert 'if (mount_status == 0)' in body
+              assert 'automount helper failed for %s' in body
+              assert 'return (swapoff_status == 0 && mount_status == 0) ? 0 : 1;' in body
               assert 'notify_rc("on_hotplug_mass_storage")' in body
 
           check_root = function_body(hotplug, "check_root_partition(")

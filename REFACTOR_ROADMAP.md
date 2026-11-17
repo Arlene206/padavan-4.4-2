@@ -1,11 +1,11 @@
 # 2026-11-17 latest source checkpoint
 
-- Parent main SHA: `0f6035754ff9092c3b0b6613ab3b7394b21589fb`; THIS COMMIT closes a physical-unplug swapoff gap. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
-- Parent exact-head Samba `44152877979`, Process lifecycle `44152878007`, Process inventory `44152878099`, AI handoff `44152877960`, and NVRAM audit `44152877994`: SUCCESS. XY-C1 `44152877927` remained IN_PROGRESS; Build/TRX/artifact not yet verified.
-- Safe-removal path already preflights all selected swaps before unmount. Physical-eject `umount_ejected_locked()` did not; mdev's `report_device_swapoff()` also discarded the status. THIS COMMIT returns swapoff failure from mdev handlers, rechecks stale mounted partitions in deferred eject, blocks all unmounts on any failed/UNKNOWN swapoff, and keeps the existing cleanup retry behavior. The GNU89 policy test already covers swapoff failure; storage CI now pins production integration.
-- Exact-head storage/Samba/Process/XY-C1 validation pending. No MIPS/uClibc target build or physical-router L4 claim.
+- Parent main SHA: `415a46d61af93b6b344d8d15f5af48ca92392c16`; THIS COMMIT propagates SD/MMC automount command failures through the mdev event result. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- Parent USB storage hotplug `44153994254`, Process lifecycle `44153994525`, Process inventory `44153994430`, and XY-C1 `44153994643` were IN_PROGRESS at last poll. Parent Samba `44153994681`, AI handoff `44153994605`, vsftpd `44153994874`, AdGuardHome `44153994468`, NFS lifecycle `44153994453` and infosvr `44153994449` passed.
+- SD/MMC insertion handlers previously ignored a nonzero `_eval(/sbin/automount.sh)` and still returned success. They now preserve the command status, log failure, notify only on success, and return nonzero if mount or removal-time swapoff failed. Storage workflow source contract updated.
+- Exact-head storage, Process and XY-C1 Build/TRX/artifact validation pending; no firmware or live router claim yet.
 
-Next: inspect exact-SHA storage-hotplug, Samba and Process workflows plus XY-C1 Build/TRX/artifact; then continue another independent P1 storage or service-stop result gap.
+Next: inspect the exact-SHA storage, Process and XY-C1 workflows; repair any failed test at that SHA, then continue a separate P1 RC lifecycle result gap.
 ---
 
 ## Whole-repository module status

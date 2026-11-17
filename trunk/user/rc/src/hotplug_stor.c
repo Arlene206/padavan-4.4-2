@@ -76,6 +76,7 @@ mdev_sd_main(int argc, char **argv)
 {
 	int isLock, storage_lock;
 	int swapoff_status = 0;
+	int mount_status = 0;
 	size_t len, disk_len;
 	char share_name[32], disk_name[32];
 	char *device_name, *action, *partno;
@@ -144,15 +145,19 @@ mdev_sd_main(int argc, char **argv)
 	umask(0000);
 	{
 		char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };
-		if (_eval(mount_argv, NULL, 0, NULL) == 0)
+		mount_status = _eval(mount_argv, NULL, 0, NULL);
+		if (mount_status == 0)
 			notify_rc("on_hotplug_mass_storage");
+		else
+			logmessage("Storage", "automount helper failed for %s (status %d)",
+				   device_name, mount_status);
 	}
 
 out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return (swapoff_status == 0) ? 0 : 1;
+	return (swapoff_status == 0 && mount_status == 0) ? 0 : 1;
 }
 #endif
 
@@ -162,6 +167,7 @@ mdev_mmc_main(int argc, char **argv)
 {
 	int isLock, storage_lock;
 	int swapoff_status = 0;
+	int mount_status = 0;
 	size_t len, disk_len, i;
 	const char *p;
 	char share_name[32], disk_name[32];
@@ -236,14 +242,18 @@ mdev_mmc_main(int argc, char **argv)
 	umask(0000);
 	{
 		char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };
-		if (_eval(mount_argv, NULL, 0, NULL) == 0)
+		mount_status = _eval(mount_argv, NULL, 0, NULL);
+		if (mount_status == 0)
 			notify_rc("on_hotplug_mass_storage");
+		else
+			logmessage("Storage", "automount helper failed for %s (status %d)",
+				   device_name, mount_status);
 	}
 
 out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return (swapoff_status == 0) ? 0 : 1;
+	return (swapoff_status == 0 && mount_status == 0) ? 0 : 1;
 }
 #endif

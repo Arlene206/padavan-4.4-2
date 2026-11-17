@@ -1,29 +1,25 @@
-# 2026-11-17 continuation checkpoint — fail closed on swapoff during physical USB eject
+# 2026-11-17 continuation checkpoint — propagate hotplug automount failures
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `0f6035754ff9092c3b0b6613ab3b7394b21589fb`; THIS COMMIT hardens physical-unplug cleanup against failed/UNKNOWN swapoff.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `415a46d61af93b6b344d8d15f5af48ca92392c16`; THIS COMMIT propagates automount helper failures from SD/MMC mdev callbacks.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only development; PR #1 remains closed/unmerged.
 - No full MIPS/uClibc toolchain or physical router is available; L4 remains NOT VERIFIED.
 
 ## Parent exact-head Actions
-- Samba share stability `44152877979`: SUCCESS.
-- Process lifecycle fail-closed regression `44152878007`: SUCCESS.
-- Process inventory `44152878099`: SUCCESS.
-- AI handoff `44152877960`: SUCCESS.
-- NVRAM transaction audit `44152877994`: SUCCESS.
-- XY-C1 `44152877927`: IN_PROGRESS at last poll; Build/TRX/artifact not yet verified for source SHA `0f6035754ff9092c3b0b6613ab3b7394b21589fb`.
+- USB storage hotplug `44153994254`: IN_PROGRESS at last poll; setup, shell syntax, Optware lifecycle, MTD save/restore, and first storage tests completed successfully; storage eject inventory and later integration steps were still pending.
+- Process lifecycle umbrella `44153994525`, Process inventory `44153994430`, and XY-C1 firmware `44153994643`: IN_PROGRESS at last poll. XY-C1 had reached the actual Build XY-C1 step after 27 preparation/regression steps passed.
+- Samba share stability `44153994681`, AI handoff `44153994605`, vsftpd `44153994874`, AdGuardHome `44153994468`, NFS daemon lifecycle `44153994453`, and infosvr `44153994449`: SUCCESS.
+- These are exact-source results for parent `415a46d61af93b6b344d8d15f5af48ca92392c16`; none validates the subsequent commit.
 
-## Physical unplug swapoff fence (THIS COMMIT)
-- Safe removal (`umount_stor_path_range`) already resolves every selected swap and refuses all unmounts if any swapoff fails or becomes UNKNOWN. Physical unplug (`umount_ejected_locked`) only checked `/proc/mounts` and `/proc/partitions`, then unmounted stale mountpoints; it never repeated or required swapoff completion.
-- The mdev removal callback attempted `try_device_swapoff()` but `report_device_swapoff()` returned void, so the callback reported success even on a failed/UNKNOWN swapoff. The eject worker could then tear down stale mounts while the kernel still considered that device active as swap.
-- Make the mdev callback return a failure status on swapoff failure while still queueing the unplug notification. In the deferred eject worker, re-check swapoff for every stale mounted partition before service stop/unmount; if any check fails, skip the entire unmount batch, keep services stopped, return failure and rely on the existing scheduled cleanup retry.
-- The existing `storage_ejected_may_unmount_device()` GNU89 policy test already covers failed swapoff. Extend the storage workflow integration contract to require callback status propagation, swapoff preflight before unmount, and fail-closed batch gating.
-- Parent Samba, Process, Process inventory, AI and NVRAM checks passed. Parent XY-C1 remained IN_PROGRESS; the new storage source test and exact-head XY-C1 are pending.
+## Hotplug mount-result propagation (THIS COMMIT)
+- Both SD and MMC mdev handlers invoked `/sbin/automount.sh` through `_eval()` but only sent `on_hotplug_mass_storage` on status 0; on failure they fell through to `return 0`, falsely reporting a successful hotplug event.
+- Capture the automount wait status, log failures and return nonzero from the handler if either mount command or the removal-time swapoff check fails. Keep the notification strictly success-gated.
+- Extend the storage workflow integration contract to require the command result to feed the event return status and keep the success notification conditional. Exact-head storage/Process/XY-C1 checks pending.
 
 ## First next action
-- Inspect exact-SHA storage-hotplug stability, Samba (shared source), Process lifecycle and XY-C1 Build/TRX/artifact for THIS COMMIT. On any FAIL, read exact job logs and fix the source/checker contract.
-- Continue another independent P1 storage/NVRAM or service-stop result gap while firmware CI is pending. Do not repeat the just-closed Samba notification/eject lock race or the already repaired IAPP/checker syntax work.
-- Keep the backup branch read-only and update main only by a complete tree with expected-SHA non-forced CAS.
+- Inspect exact-SHA USB storage hotplug, Process and XY-C1 Build/TRX/artifact for THIS COMMIT; repair any FAIL from job logs. Parent-source XY-C1 `44153994643` remains separate and must not be presented as validation for THIS COMMIT.
+- Continue another concrete P1 service-start/stop or NVRAM postcondition while independent CI is pending. Do not repeat the recent Samba storage-lock or physical-eject swapoff tasks.
+- Keep the backup branch read-only; publish complete trees with fresh expected-SHA non-forced updates only.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

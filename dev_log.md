@@ -1,3 +1,8 @@
+## 2026-11-17 — Propagate SD/MMC automount helper failures
+
+- `mdev_sd_main()` and `mdev_mmc_main()` previously discarded the failure result from `_eval("/sbin/automount.sh", ...)`: they merely skipped the hotplug notification and still returned 0, making a failed mount appear to be a successful device event.
+- Capture the helper status for both buses, log nonzero results and return a failing mdev status when either the automount command or removal-time swapoff check failed. `on_hotplug_mass_storage` remains emitted only after successful automount.
+- Update the existing storage workflow source-integration contract to require captured `_eval` result, success-only notification and failure propagation. Exact-head CI for THIS COMMIT pending; parent USB/Process/XY validation had not completed at last poll.
 ## 2026-11-17 — Block physical-unplug unmounts when swapoff is not confirmed
 
 - Safe removal already performs a full swapoff preflight and refuses all unmounts if a selected swap is active but cannot be disabled or `/proc/swaps` is UNKNOWN. The physical hotplug cleanup `umount_ejected_locked()` only compared `/proc/mounts` with `/proc/partitions`; it could unmount stale paths after the mdev swapoff attempt had failed.
