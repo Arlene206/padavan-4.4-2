@@ -1,23 +1,26 @@
-# 2026-11-18 continuation checkpoint — fail closed on VPN teardown before firmware flash
+# 2026-11-18 continuation checkpoint — diagnose boot launcher invocation failures
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `dbac3b149a2b48ff890a102407cf2748c84e663d`; this change is one atomic main commit using complete Git tree + non-forced expected-SHA update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Main-only policy preserved; PR #1 remains closed/unmerged.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `71055afc0cb2b23fd429ce01feb4322ed3eb86d1`; this slice is committed as one complete Git tree/commit using a non-forced expected-SHA update.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; development remains main-only; PR #1 remains closed/unmerged.
 - No local full MIPS/uClibc toolchain or physical router; L4 remains NOT VERIFIED.
 
-## Parent exact-head validation
-- Process lifecycle regression check `134265690647`: SUCCESS; exact-head process inventory `44147261696`: SUCCESS; AI handoff documentation `44147261624`: SUCCESS.
-- XY-C1 Firmware Validation `44147261744` and NVRAM transaction audit `44147261746` were IN_PROGRESS at last poll. Other parent push workflows were predominantly green; inspect the latest exact SHA rather than infer from older builds.
-- Previous LAN shutdown persistence gate commit `dbac3b149a2b48ff890a102407cf2748c84e663d` passed its Process lifecycle and AI handoff checks.
+## Parent exact-head Actions
+- Process lifecycle integration check `134269638472`: SUCCESS.
+- AI handoff contract `44148380813`: SUCCESS.
+- Process inventory `44148380861`: SUCCESS.
+- NVRAM transaction audit `44148380833`: SUCCESS.
+- XY-C1 Firmware Validation `44148380575`: IN_PROGRESS at last poll (Build/TRX/artifact not yet verified).
+- Exact parent source: `71055afc0cb2b23fd429ce01feb4322ed3eb86d1`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-## Firmware update VPN teardown fix (THIS COMMIT)
-- `flash_firmware()` held `vpn_server_lifecycle_lock` but stopped only the L2TP/XL2TP/PPPD names. It did not invoke the registered VPN client stop or the `stopall`-only VPN server hook; OpenVPN daemons and tunnel interfaces could therefore remain active during flash preparation.
-- Add the lock-owned VPN-server stop entry point; under the same existing lock, firmware update now stops VPN client then VPN server, then performs the residual L2TP/PPP inventory stop. Any endpoint or residual stop error is preserved/logged and aborts flashing.
-- The Process source contract checks wrapper declaration/implementation, lock ordering, absence of nested public wrappers and fail-closed status propagation. Exact-head Process/XY-C1 checks are pending.
+## Boot launcher diagnostics (THIS COMMIT)
+- PID 1 previously ignored the `system(... &)` results for the optional persistent user hook and mandatory ROMFS autostart launcher.
+- Now skip the user hook cleanly when absent, log failure to spawn its background shell when present, and log firmware autostart launch failure separately. CA trust-store preparation still precedes both.
+- Process source-integration assertions verify both return-status checks and the exact ordering. Exact-head CI pending.
 
 ## First next action
-- Inspect exact-SHA Process lifecycle, AI handoff and XY-C1 Build/TRX/artifact for THIS COMMIT; reconcile parent XY-C1/NVRAM outcomes. Do not wait on pending work: continue independent remaining Samba/storage/NVRAM postcondition or status-returning boot-launcher work.
-- Do not repeat the completed normal-shutdown LAN persistence gate, Process inventory pass, AI handoff pass or Switch audit.
+- Inspect exact-SHA Process lifecycle, AI docs and XY-C1 Build/TRX/artifact for THIS COMMIT; reconcile the parent XY-C1 run `44148380575` if still active.
+- Continue remaining Samba/storage/NVRAM postconditions while any CI is pending. Do not repeat the completed VPN flash stop fix, normal-shutdown LAN persistence gate, or Switch audit.
 
 # Cross-session execution mandate
 

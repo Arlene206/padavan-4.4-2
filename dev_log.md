@@ -1,3 +1,10 @@
+## 2026-11-18 02:34 CST — Report optional boot launcher invocation failures
+
+- PID 1 previously launched the persistent user startup hook and firmware optional-service autostart with unchecked `system(... &)` results. When the shell could not be started (for example resource exhaustion or a missing/non-executable image), boot continued silently and no diagnostics identified which launcher failed.
+- The persistent `/etc/storage/started_script.sh` is optional, so now invoke it only when present and record its background-shell launch status. The ROMFS `/usr/bin/autostart.sh` remains mandatory and now logs launch failure explicitly. Existing per-add-on diagnostics remain unchanged.
+- Extended the Process integration contract to pin optional-file handling, both status checks/logs, and CA trust preparation → user hook → firmware autostart ordering. Process and XY-C1 workflows already track `rc.c` and the integration checker.
+- Exact-head validation: THIS COMMIT / PENDING. No firmware cross-build or on-device boot test is claimed.
+
 ## 2026-11-18 02:26 CST — Stop VPN client and server before firmware flash
 
 - `flash_firmware()` held the shared VPN lifecycle lock but only ran the broad L2TP/XL2TP/PPPD stop transaction. Since `stop_services(0)` intentionally skips its `stopall`-only VPN-server hook and does not register the VPN-client hook, OpenVPN client/server daemons and their tunnel-interface cleanup could be missed.

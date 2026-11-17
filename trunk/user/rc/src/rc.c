@@ -1185,8 +1185,20 @@ init_router(void)
 	/* Install the firmware CA trust store before autostart can launch AliDDNS. */
 	if (system("/usr/bin/copyscripts.sh") != 0)
 		logmessage(LOGNAME, "startup script/CA trust-store preparation failed");
-	system("/etc/storage/started_script.sh &");
-	system("/usr/bin/autostart.sh &");
+	if (check_if_file_exist("/etc/storage/started_script.sh")) {
+		int started_script_status = system("/etc/storage/started_script.sh &");
+
+		if (started_script_status != 0)
+			logmessage(LOGNAME, "persistent user startup script launch failed (wait status=%d)",
+				   started_script_status);
+	}
+	{
+		int autostart_status = system("/usr/bin/autostart.sh &");
+
+		if (autostart_status != 0)
+			logmessage(LOGNAME, "firmware optional-service autostart launch failed (wait status=%d)",
+				   autostart_status);
+	}
 
 	return 0;
 }

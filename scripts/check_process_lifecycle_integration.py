@@ -1538,7 +1538,19 @@ assert '"trunk/user/rc/src/service_start_status.h"' in process_workflow
 assert '"trunk/user/rc/src/tests/service_start_status.c"' in process_workflow
 assert '"trunk/user/rc/src/service_start_status.h"' in xy_workflow
 assert '"trunk/user/rc/src/tests/service_start_status.c"' in xy_workflow
+boot_launch = rc_source.split(
+    "/* Install the firmware CA trust store before autostart can launch AliDDNS. */",
+    1
+)[1].split("return 0;", 1)[0]
+assert "if (check_if_file_exist(\"/etc/storage/started_script.sh\"))" in boot_launch
+assert 'int started_script_status = system("/etc/storage/started_script.sh &");' in boot_launch
+assert "persistent user startup script launch failed (wait status=%d)" in boot_launch
+assert 'int autostart_status = system("/usr/bin/autostart.sh &");' in boot_launch
+assert "firmware optional-service autostart launch failed (wait status=%d)" in boot_launch
+assert boot_launch.index("system(\"/usr/bin/copyscripts.sh\")") < boot_launch.index("started_script_status")
+assert boot_launch.index("started_script_status") < boot_launch.index("autostart_status")
 print("RC boot-service status aggregation and disabled-feature sentinel handling: PASS")
+print("Optional boot launcher invocation failure diagnostics: PASS")
 
 
 # AiDisk disable actions must always reach the RC stop handlers. The handlers
