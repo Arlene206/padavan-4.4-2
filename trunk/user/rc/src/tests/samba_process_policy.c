@@ -73,5 +73,21 @@ int main(void)
 		snap.state=PROCESS_PRESENCE_RUNNING;snap.count=0;errno=0;
 		assert(samba_daemon_signal_snapshot(&snap,SIGHUP,validate,send_signal,&x)==-1&&errno==EIO);
 	}
+	assert(samba_storage_restart_action_for(1, 1) ==
+	       SAMBA_STORAGE_RESTART_ACTION_START_SAMBA);
+	assert(samba_storage_restart_action_for(1, 0) ==
+	       SAMBA_STORAGE_RESTART_ACTION_START_WINS);
+	assert(samba_storage_restart_action_for(0, 1) ==
+	       SAMBA_STORAGE_RESTART_ACTION_START_WINS);
+	assert(samba_storage_restart_action_for(0, 0) ==
+	       SAMBA_STORAGE_RESTART_ACTION_START_WINS);
+	assert(samba_storage_restart_action_for(1, -1) ==
+	       SAMBA_STORAGE_RESTART_ACTION_ABORT);
+	assert(samba_storage_restart_action_for(0, -1) ==
+	       SAMBA_STORAGE_RESTART_ACTION_ABORT);
+	assert(samba_storage_restart_action_for(1, 2) ==
+	       SAMBA_STORAGE_RESTART_ACTION_ABORT);
+	assert(samba_storage_restart_action_for(2, 1) ==
+	       SAMBA_STORAGE_RESTART_ACTION_ABORT);
 	puts("Samba process action and identity-bound signal policy: PASS");return 0;
 }

@@ -1,3 +1,13 @@
+## 2026-11-18 — Restore WINS after restarting disabled Samba shares
+
+- Review found that `restart_smbd()` force-stops `nmbd`, then selects `run_samba()` solely from mounted-storage presence. `run_samba()` returns success immediately if `enable_samba=0` or `st_samba_mode=0`; with mounted storage and `wins_enable=1`, the restart silently left the independent WINS daemon down.
+- Added a fail-closed restart-action policy that selects Samba only when shares are enabled and storage is mounted; otherwise it restores WINS via `start_wins()` (which independently respects `wins_enable`). Invalid enablement or mount-state inputs abort.
+- Extended `samba_process_policy.c` with GNU89 cases covering Samba enabled/disabled × mounted/empty, plus negative/invalid inventory and invalid enablement. Updated the Samba workflow’s embedded production source contract to enforce the new branch and unit-test wiring.
+- Local full Samba process-policy test compiled with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan: PASS. Local targeted decision-policy matrix also PASS.
+- Exact-head Samba stability and XY-C1 runs for this source commit are pending; no target build or physical-router L4 result is claimed yet. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Fail closed on IPTV DHCP NAK/expiry/release cleanup
 
 - The first IPTV DHCP deconfig implementation restored the old address when route deletion failed. Review showed this could resurrect a lease already revoked by NAK, expiry or release. The policy now never restores the address and attempts route cleanup even when address clear fails; empty NVRAM address publishes only when both complete. BusyBox retries the retained lease/route identity after an error.

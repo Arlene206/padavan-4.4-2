@@ -1386,6 +1386,8 @@ int restart_smbd(void)
 {
 	int storage_lock, samba_status = 0;
 	int stop_status, mount_status, restart_status = -1;
+	int samba_enabled;
+	enum samba_storage_restart_action restart_action;
 
 	/* Keep Samba's stop/inventory/start transaction inside the eject barrier. */
 	storage_lock = storage_operation_lock_acquire(file_lock);
@@ -1415,19 +1417,27 @@ int restart_smbd(void)
 		logmessage("Samba Server", "restart aborted because mounted storage state is unknown");
 		goto out;
 	}
-	if (mount_status > 0) {
+	samba_enabled = !(nvram_match("enable_samba", "0") ||
+			   nvram_match("st_samba_mode", "0"));
+	restart_action = samba_storage_restart_action_for(samba_enabled,
+						  mount_status);
+	if (restart_action == SAMBA_STORAGE_RESTART_ACTION_ABORT) {
+		logmessage("Samba Server", "restart aborted because Samba/storage state is invalid");
+		errno = EIO;
+		goto out;
+	}
+	if (restart_action == SAMBA_STORAGE_RESTART_ACTION_START_SAMBA) {
 		samba_status = run_samba();
-		if (samba_status != 0) {
-			restart_status = samba_status;
-			goto out;
-		}
-	} else {
-		/* start_wins() is a no-op when WINS is disabled. */
+	} else if (restart_action == SAMBA_STORAGE_RESTART_ACTION_START_WINS) {
+		/* WINS is independent of storage-backed Samba shares. */
 		samba_status = start_wins();
-		if (samba_status != 0) {
-			restart_status = samba_status;
-			goto out;
-		}
+	} else {
+		errno = EIO;
+		goto out;
+	}
+	if (samba_status != 0) {
+		restart_status = samba_status;
+		goto out;
 	}
 
 	restart_status = samba_status;

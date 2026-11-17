@@ -1,25 +1,26 @@
-# 2026-11-17 continuation checkpoint — verify IPTV DHCP fail-closed deconfig and XY-C1
+# 2026-11-18 continuation checkpoint — preserve WINS across disabled-Samba restart
 
 ## Current repository state
-- Current main SHA before this docs checkpoint: 9be5d2918c15730b7d955669aff20d9042239d66. Main-only atomic commits use complete Git trees, expected-SHA and non-forced updates. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Concurrent service slice 92d95b83348dabe3fd3877ecb9f22fd55eb929d1 verifies detached rstats and LLTD startup; exact Process lifecycle run 44169139271 SUCCESS. Current-source XY-C1 run 44171043411 is still IN_PROGRESS; do not claim Build/TRX/artifact until all three stages complete.
-- The DDNSTO test race fix at 6b5f551 remains fully green: exact-head run 44166279131 SUCCESS. Its Process, NVRAM, AliyunDrive, infosvr, AliDDNS, AdGuardHome and AI-doc contracts also passed; don't re-audit.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA: `db362b560e6227310d4a8a539ee146aa2555fbdc`. This atomic source slice is committed on top of that parent; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The concurrent rstats/LLTD detached-child fix `92d95b83348dabe3fd3877ecb9f22fd55eb929d1` has exact Process run `44169139435` SUCCESS and XY-C1 run `44169139392` SUCCESS, including build, TRX verification and artifact upload.
+- Exact HTTPD security run `44171043495` and AI docs run `44171043503` on `9be5d2918c15730b7d955669aff20d9042239d66` passed. Its XY-C1 run `44171043411` remains IN_PROGRESS at the last check (Build step); do not infer later TRX/artifact completion.
+- The subsequent docs-only main checkpoint `db362b560e6227310d4a8a539ee146aa2555fbdc` has Process `44171722700`, infosvr `44171723249`, AliyunDrive `44171722965`, AliDDNS `44171722679`, AdGuardHome `44171722704`, and AI docs `44171722899` all SUCCESS; NVRAM `44171722663` was IN_PROGRESS at the last observation.
 
-## Implemented issue — IPTV DHCP deconfig now fails closed
-- IPTV DHCP `deconfig` is called on a NAK against an active lease, lease expiry and explicit release. The original callback removed routes only, leaving the old IPv4 address configured. The first transactional fix cleared the address, then routes, but review found that restoring a revoked address after route-delete failure would resurrect a lease withdrawn by NAK/expiry/release.
-- Current policy clears the interface address and attempts route deletion regardless of whether the address-clear operation returned an error. It publishes `manv_ipaddr=0.0.0.0` only when both operations succeed. On error it retains lease identity for BusyBox `DECONFIG_PENDING` retry and never restores a revoked address. `udhcpc_viptv_deconfig()` always stops igmpproxy—even when address or route cleanup failed—and returns the first cleanup/multicast error.
-- GNU89 policy regression now covers success `CRP`, failed interface clear still attempting route delete (`CR`), simultaneous interface+route failure with route-error precedence, failed route cleanup followed by successful retry (`CRCRP`).
+## Active task
+- Audit found a restart logic defect: `restart_smbd()` force-stops both `smbd` and `nmbd`; when storage is mounted it selected `run_samba()`. But `run_samba()` immediately returns success when Samba sharing is disabled (`enable_samba=0` or `st_samba_mode=0`), so an independently enabled WINS daemon (`wins_enable=1`) remained stopped.
+- The fix selects the restart action from both Samba enablement and the complete mounted-storage result. It launches Samba only when shares are enabled and storage is mounted; otherwise it invokes `start_wins()`, which itself is a no-op if WINS is disabled. Invalid policy inputs abort closed. The common storage-eject lock and post-stop absence checks remain in force through the transition.
+- Added GNU89 regression matrix for enabled/disabled Samba, mounted/empty storage, and invalid/UNKNOWN mount state. The Samba workflow source contract checks the production decision call and unit-test wiring.
 
 ## Verification boundary
-- Current product source is commit 47e395d94a83342a90ba5dc7b2600a13b0f7bce7; current main 9be5d291 only corrects an escaped-newline endpoint in the HTTPD cross-workflow source checker. Exact 47e WAN DHCP callback run 44170820583: SUCCESS (GNU89/-Werror/ASan/UBSan test and semantic checks). Exact 47e Process lifecycle 44170820839, WAN route 44170820821, Firewall startup 44170820495, AI docs 44170820925: SUCCESS.
-- Current exact-main HTTPD Authentication/Security run 44171043495 on 9be5d29: SUCCESS. Earlier runs 44169139433, 44170691011 and 44170820437 failed because this checker still expected direct route-only dispatch or used a literal escaped `\\n` in its function boundary; current assertions now inspect the transactional helper and run PASS.
-- Exact-current XY-C1 run 44171043411 remains IN_PROGRESS; the matching product-source 47e run 44170820700 was also in progress at last poll. Record Build XY-C1, TRX verification and artifact upload separately. Earlier Telnetd 989409e and Networkmap 34c0268 builds are not validation of the later DHCP product source. Physical-router L4 remains NOT VERIFIED.
-- `9e6d19f` parent WAN DHCP 44168515283 and its Process/NVRAM/AliDDNS/AliyunDrive/AdGuardHome/infosvr/AI checks all passed; parent 32622 WAN route 44168062198, Firewall 44168062335 and NVRAM 44168062259 passed. Current fail-closed DHCP semantics were subsequently verified by 44170820583.
+- Local GNU89 `-Wall -Wextra -Werror` + ASan/UBSan Samba process-policy regression PASS, including existing identity-bound signal cases and the new WINS/Samba decision matrix.
+- Local production-function/source-contract sanity checks PASS. Exact-head Samba Actions and XY-C1 Build/TRX/artifact checks for this new source commit are pending until queried after publication.
+- No production router runtime or physical-router L4 test was performed. Do not claim those results.
 
-## Exact first action for next GPT
-1. Resolve XY-C1 run 44171043411 (and 44170820700 if needed): require Build XY-C1, TRX verification and artifact upload all SUCCESS on the current product-source tree.
-2. Continue the next independent P1 firewall/NAT caller-status or service-startup gap from the roadmap; do not repeat DDNSTO, Networkmap, Telnetd, infosvr, DHCP callback or rstats/LLTD work already verified.
-3. Preserve backup; main-only complete-tree commits, expected-SHA compare-and-swap, no force push. Physical router L4 remains open.
+## Exact first action for the next GPT
+1. Inspect exact-SHA Samba share-stability and XY-C1 Actions for the source commit containing this checkpoint. Fix an evidenced failure from its exact job log; do not infer status from a parent SHA.
+2. Resolve NVRAM run `44171722663` and the older XY-C1 run `44171043411` separately.
+3. Continue with another concrete service/firewall reliability defect; do not repeat the completed rstats/LLTD, IPTV DHCP, Samba config-publication, or storage-lock audits.
+4. Keep the backup immutable and use one complete Git tree, one commit, and a non-forced expected-SHA update to `main`.
 
 # Cross-session execution mandate
 

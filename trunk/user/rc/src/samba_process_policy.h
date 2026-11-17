@@ -51,4 +51,22 @@ static int samba_daemon_signal_snapshot(const struct process_snapshot *snapshot,
 	}
 	if(!signalled){errno=ESRCH;return -1;}return 0;
 }
+/* Choose the service set after restart_smbd() stops both share daemons.
+ * WINS remains an independent nmbd consumer, even when Samba shares are off. */
+enum samba_storage_restart_action {
+	SAMBA_STORAGE_RESTART_ACTION_ABORT = -1,
+	SAMBA_STORAGE_RESTART_ACTION_START_WINS = 0,
+	SAMBA_STORAGE_RESTART_ACTION_START_SAMBA = 1
+};
+
+static enum samba_storage_restart_action
+samba_storage_restart_action_for(int samba_enabled, int mounted_devices)
+{
+	if ((samba_enabled != 0 && samba_enabled != 1) ||
+	    (mounted_devices != 0 && mounted_devices != 1))
+		return SAMBA_STORAGE_RESTART_ACTION_ABORT;
+	if (!samba_enabled || !mounted_devices)
+		return SAMBA_STORAGE_RESTART_ACTION_START_WINS;
+	return SAMBA_STORAGE_RESTART_ACTION_START_SAMBA;
+}
 #endif

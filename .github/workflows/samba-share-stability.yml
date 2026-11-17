@@ -284,11 +284,19 @@ jobs:
           assert "samba_daemon_signal_snapshot" in process_policy
           assert "samba_process_require_absent" in process_policy
           for token in ("SAMBA_DAEMON_ACTION_START","SAMBA_DAEMON_ACTION_RELOAD",
-                        "SAMBA_DAEMON_ACTION_ABORT","Complete preflight before first signal"):
+                        "SAMBA_DAEMON_ACTION_ABORT","Complete preflight before first signal",
+                        "samba_storage_restart_action_for",
+                        "SAMBA_STORAGE_RESTART_ACTION_START_SAMBA",
+                        "SAMBA_STORAGE_RESTART_ACTION_START_WINS",
+                        "SAMBA_STORAGE_RESTART_ACTION_ABORT"):
               assert token in process_policy
           for token in ("PROCESS_PRESENCE_UNKNOWN","signal_count==0",
                         "errno==EACCES","errno==EPERM","errno==EBUSY",
                         "samba_process_require_absent","errno==EIO",
+                        "samba_storage_restart_action_for",
+                        "SAMBA_STORAGE_RESTART_ACTION_START_SAMBA",
+                        "SAMBA_STORAGE_RESTART_ACTION_START_WINS",
+                        "SAMBA_STORAGE_RESTART_ACTION_ABORT",
                         "Samba process action and identity-bound signal policy: PASS"):
               assert token in process_test
 
@@ -314,7 +322,12 @@ jobs:
           assert "if (stop_status != 0)" in restart_smbd
           assert "mount_status = storage_has_mounted_devices" in restart_smbd
           assert "if (mount_status < 0)" in restart_smbd
-          assert "if (mount_status > 0)" in restart_smbd
+          assert "samba_storage_restart_action_for(samba_enabled, mount_status)" in restart_smbd
+          assert "SAMBA_STORAGE_RESTART_ACTION_ABORT" in restart_smbd
+          assert "SAMBA_STORAGE_RESTART_ACTION_START_SAMBA" in restart_smbd
+          assert "SAMBA_STORAGE_RESTART_ACTION_START_WINS" in restart_smbd
+          assert 'samba_enabled = !(nvram_match("enable_samba", "0")' in restart_smbd
+          assert "if (mount_status > 0)" not in restart_smbd
           assert "samba_status = start_wins()" in restart_smbd
 
           stop_nmbd = function_body(services, "int\nstop_nmbd(void)")
