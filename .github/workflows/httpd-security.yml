@@ -2696,7 +2696,9 @@ jobs:
           assert "if (umount(entry->mountpoint) != 0)" in ejected
           assert "result = -1;" in ejected and "return result;" in ejected
           assert ejected.index("storage_stage_ejected_partitions(&partitions)") < ejected.index("has_ejected_mounts = 1;") < ejected.index("stop_stor_apps()") < ejected.index('eval("/usr/bin/opt-umount.sh"') < ejected.index("if (umount(entry->mountpoint) != 0)")
-          assert ejected.index("storage_rollback_stor_apps_after_stop_failure(") < ejected.index("return -1;") < ejected.index('eval("/usr/bin/opt-umount.sh"')
+          rollback_at = ejected.index("storage_rollback_stor_apps_after_stop_failure(")
+          rollback_abort = ejected.index("return -1;", rollback_at)
+          assert rollback_at < rollback_abort < ejected.index('eval("/usr/bin/opt-umount.sh"')
           assert ejected.index("if (umount(entry->mountpoint) != 0)") < ejected.index("(void)rmdir(entry->mountpoint)")
           public_eject = service[service.index("umount_ejected(void)"):service.index("struct storage_unmount_mount_entry", service.index("umount_ejected(void)"))]
           assert "umount_ejected_locked(0, 1)" in public_eject

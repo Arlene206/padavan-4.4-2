@@ -409,7 +409,9 @@ jobs:
           assert "storage_ejected_partition_is_active(entry->device + 5," in eject
           assert "umount(entry->mountpoint)" in eject
           assert eject.index(stage_call) < eject.index(inactive_scan) < eject.index(stop_gate) < eject.index(stop_call) < eject.index(optware_unmount) < eject.index("umount(entry->mountpoint)")
-          assert rollback in eject and eject.index(rollback) < eject.index("return -1;") < eject.index(optware_unmount)
+          rollback_at = eject.index(rollback)
+          rollback_abort = eject.index("return -1;", rollback_at)
+          assert rollback_at < rollback_abort < eject.index(optware_unmount)
           assert "if (has_ejected_mounts && restart_storage_apps)" in eject
           assert "mount_count = count_stor_mountpoint();" in eject
           assert eject.index("mount_count = count_stor_mountpoint();") < eject.index("start_status = start_stor_apps();")
