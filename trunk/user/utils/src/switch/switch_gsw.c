@@ -7,6 +7,7 @@
 #include <linux/if.h>
 
 #include <ra_ioctl.h>
+#include "switch_ipv4_parse_policy.h"
 #include "switch_wait_policy.h"
 
 #define RT_SWITCH_HELP		1
@@ -51,6 +52,20 @@ void switch_fini(void)
 {
 	close(esw_fd);
 	esw_fd = -1;
+}
+
+static unsigned int
+parse_ipv4_argument(const char *text)
+{
+	unsigned int address;
+
+	if (switch_parse_ipv4_address(text, &address) != 0) {
+		fprintf(stderr, "switch: invalid IPv4 address: %.64s\n",
+			text ? text : "(null)");
+		switch_fini();
+		exit(EXIT_FAILURE);
+	}
+	return address;
 }
 
 void usage(char *cmd)
@@ -334,55 +349,6 @@ wait_search_ready(int *value, const char *table_name)
 	*value = (int)last_value;
 }
 
-int
-getnext (
-	char *	src,
-	int	separator,
-	char *	dest
-	)
-{
-    char *	c;
-    int	len;
-
-    if ( (src == NULL) || (dest == NULL) ) {
-	return -1;
-    }
-
-    c = strchr(src, separator);
-    if (c == NULL) {
-	strcpy(dest, src);
-	return -1;
-    }
-    len = c - src;
-    strncpy(dest, src, len);
-    dest[len] = '\0';
-    return len + 1;
-}
-
-int
-str_to_ip (
-	unsigned int *	ip,
-	char *		str
-	)
-{
-    int		len;
-    char *		ptr = str;
-    char		buf[128];
-    unsigned char	c[4];
-    int		i;
-
-    for (i = 0; i < 3; ++i) {
-	if ((len = getnext(ptr, '.', buf)) == -1) {
-	    return 1; /* parse error */
-	}
-	c[i] = atoi(buf);
-	ptr += len;
-    }
-    c[3] = atoi(ptr);
-    *ip = (c[0]<<24) + (c[1]<<16) + (c[2]<<8) + c[3];
-    return 0;
-}
-
 /* convert IP address from number to string */
 void
 ip_to_str (
@@ -424,7 +390,7 @@ void acl_dip_meter(int argc, char *argv[])
 	}
 
 
-	str_to_ip(&ip_value, argv[4]);
+	ip_value = parse_ipv4_argument(argv[4]);
 	//set pattern
 	value = (ip_value >> 16);
 	value |= 0xffff0000;//compare mask
@@ -526,7 +492,7 @@ void acl_dip_trtcm(int argc, char *argv[])
 		j += (argv[5][i] - '0') * (1 << i);
 	}
 
-	str_to_ip(&ip_value, argv[4]);
+	ip_value = parse_ipv4_argument(argv[4]);
 	//set pattern
 	value = (ip_value >> 16);
 	value |= 0xffff0000;//compare mask
@@ -739,7 +705,7 @@ void acl_dip_modify(int argc, char *argv[])
 	}
 
 
-	str_to_ip(&ip_value, argv[4]);
+	ip_value = parse_ipv4_argument(argv[4]);
 	//set pattern
 	value = (ip_value >> 16);
 	value |= 0xffff0000;//compare mask
@@ -848,7 +814,7 @@ void acl_dip_pppoe(int argc, char *argv[])
 	}
 
 
-	str_to_ip(&ip_value, argv[4]);
+	ip_value = parse_ipv4_argument(argv[4]);
 	//set pattern
 	value = (ip_value >> 16);
 	value |= 0xffff0000;//compare mask
@@ -957,7 +923,7 @@ void acl_dip_add(int argc, char *argv[])
 		j += (argv[5][i] - '0') * (1 << i);
 	}
 
-	str_to_ip(&ip_value, argv[4]);
+	ip_value = parse_ipv4_argument(argv[4]);
 	//set pattern
 	value = (ip_value >> 16);
 	value |= 0xffff0000;//compare mask
@@ -1242,7 +1208,7 @@ void dip_add(int argc, char *argv[])
 {
 	unsigned int i, j, value;
 
-	str_to_ip(&value, argv[3]);
+	value = parse_ipv4_argument(argv[3]);
 	
 	reg_write(REG_ESW_WT_MAC_ATA1, value);
 //	printf("REG_ESW_WT_MAC_ATA1 is 0x%x\n\r",value);
@@ -1287,7 +1253,7 @@ void dip_del(int argc, char *argv[])
 {
 	unsigned int value;
 
-	str_to_ip(&value, argv[3]);
+	value = parse_ipv4_argument(argv[3]);
 
 	reg_write(REG_ESW_WT_MAC_ATA1, value);
 
@@ -1357,22 +1323,20 @@ void sip_dump(void)
 
 void sip_add(int argc, char *argv[])
 {
-	unsigned int i, j, value;
+	unsigned int i, j, value, sip_value, dip_value;
 
-	str_to_ip(&value, argv[3]);//SIP
-	
+	/* Validate both addresses before the first switch register write. */
+	sip_value = parse_ipv4_argument(argv[3]);
+	dip_value = parse_ipv4_argument(argv[4]);
+
+	value = sip_value;
 	reg_write(REG_ESW_WT_MAC_ATA2, value);
-//	printf("REG_ESW_WT_MAC_ATA2 is 0x%x\n\r",value);
-
-	value = 0;
-	
-	str_to_ip(&value, argv[4]);//DIP
+	value = dip_value;
 	reg_write(REG_ESW_WT_MAC_ATA1, value);
-//	printf("REG_ESW_WT_MAC_ATA1 is 0x%x\n\r",value);
 
 	if (!argv[5] || strlen(argv[5]) != 8) {
-			printf("portmap format error, should be of length 7\n");
-			return;
+		printf("portmap format error, should be of length 7\n");
+		return;
 	}
 	j = 0;
 	for (i = 0; i < 7; i++) {
@@ -1382,42 +1346,37 @@ void sip_add(int argc, char *argv[])
 		}
 		j += (argv[5][i] - '0') * (1 << i);
 	}
-	value = j << 4; //w_port_map
-	value |= (0x3<< 2); //static
-
+	value = j << 4; /* w_port_map */
+	value |= (0x3 << 2); /* static */
 
 	reg_write(REG_ESW_WT_MAC_ATWD, value);
-	
 	usleep(5000);
 	reg_read(REG_ESW_WT_MAC_ATWD, &value);
-	printf("REG_ESW_WT_MAC_ATWD is 0x%x\n\r",value);
+	printf("REG_ESW_WT_MAC_ATWD is 0x%x\n\r", value);
 
-	value = 0x8021;  //single w_sip_cmd
+	value = 0x8021; /* single w_sip_cmd */
 	reg_write(REG_ESW_WT_MAC_ATC, value);
-
 	usleep(1000);
-
 	wait_mac_atc();
 }
 
 void sip_del(int argc, char *argv[])
 {
-	unsigned int value;
+	unsigned int value, sip_value, dip_value;
 
-	str_to_ip(&value, argv[3]);
-	
-	reg_write(REG_ESW_WT_MAC_ATA2, value);//SIP
+	/* Validate both addresses before mutating the switch table. */
+	sip_value = parse_ipv4_argument(argv[3]);
+	dip_value = parse_ipv4_argument(argv[4]);
 
+	value = sip_value;
+	reg_write(REG_ESW_WT_MAC_ATA2, value); /* SIP */
+	value = dip_value;
+	reg_write(REG_ESW_WT_MAC_ATA1, value); /* DIP */
 
-	str_to_ip(&value, argv[4]);
-	reg_write(REG_ESW_WT_MAC_ATA1, value);//DIP
-
-	value = 0; //STATUS=0, delete sip
+	value = 0; /* STATUS=0, delete SIP */
 	reg_write(REG_ESW_WT_MAC_ATWD, value);
-
-        value = 0x8021;  //w_sip_cmd
+	value = 0x8021; /* w_sip_cmd */
 	reg_write(REG_ESW_WT_MAC_ATC, value);
-
 	wait_mac_atc();
 }
 

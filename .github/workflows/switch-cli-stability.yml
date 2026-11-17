@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "trunk/user/utils/src/switch/switch_gsw.c"
+      - "trunk/user/utils/src/switch/switch_ipv4_parse_policy.h"
+      - "trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c"
       - "trunk/user/utils/src/switch/switch_wait_policy.h"
       - "trunk/user/utils/src/switch/tests/switch_wait_policy.c"
       - "trunk/user/utils/src/switch/Makefile"
@@ -16,6 +18,8 @@ on:
   pull_request:
     paths:
       - "trunk/user/utils/src/switch/switch_gsw.c"
+      - "trunk/user/utils/src/switch/switch_ipv4_parse_policy.h"
+      - "trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c"
       - "trunk/user/utils/src/switch/switch_wait_policy.h"
       - "trunk/user/utils/src/switch/tests/switch_wait_policy.c"
       - "trunk/user/utils/src/switch/Makefile"
@@ -64,10 +68,49 @@ jobs:
           # Operational errors fail the process; ordinary usage/help remains 0.
           # One socket failure + seven ioctl failures + the bounded table-wait
           # failure handler must all return a failing process status.
-          assert source.count("exit(EXIT_FAILURE);") == 9
+          # One socket, seven ioctl, one bounded-wait and one IPv4-parse failure.
+          assert source.count("exit(EXIT_FAILURE);") == 10
           assert source.count("exit(0);") == 1
           assert "switch_fini();\n\texit(0);" in source
           print("switch_gsw operational socket/ioctl failures return failure status: OK")
+          PY
+
+      - name: Compile and verify strict switch IPv4 argument parsing
+        run: |
+          set -eu
+          SWITCH_DIR=trunk/user/utils/src/switch
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$SWITCH_DIR" \
+            "$SWITCH_DIR/tests/switch_ipv4_parse_policy.c" \
+            -o /tmp/switch_ipv4_parse_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/switch_ipv4_parse_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+
+          assert "switch_parse_ipv4_address(text, &address)" in source
+          assert "str_to_ip(" not in source
+          assert "getnext(" not in source
+          assert source.count("parse_ipv4_argument(argv[4])") == 7
+          assert source.count("parse_ipv4_argument(argv[3])") == 4
+
+          for name in ("sip_add", "sip_del"):
+              body = source.split("void " + name + "(int argc, char *argv[])", 1)[1]
+              body = body.split("\nvoid ", 1)[0]
+              assert body.index("parse_ipv4_argument(argv[3])") < body.index("reg_write(")
+              assert body.index("parse_ipv4_argument(argv[4])") < body.index("reg_write(")
+
+          filters = workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for path in (
+              "trunk/user/utils/src/switch/switch_ipv4_parse_policy.h",
+              "trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c",
+          ):
+              assert push.count('"' + path + '"') == 1
+              assert pull_request.count('"' + path + '"') == 1
+          print("All switch IPv4 inputs are strictly parsed before register writes: PASS")
           PY
       - name: Compile and verify bounded switch table waits
         run: |
