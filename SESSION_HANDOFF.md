@@ -28,21 +28,24 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 
 - DDNSTO exact run `44013905030` on `e5d3cdfd` passed shell syntax and all shell lifecycle regression cases, then failed only in `check_ddnsto_lifecycle.py`: the checker still searched for the obsolete literal `echo $`, but current test fixtures write the numeric mock PID as `echo $$`. THIS COMMIT fixes that test-contract string. XY-C1 run `44013905031` was still running for the same SHA. Other exact-head checks: Process inventory `44013905279`, AI docs `44013904997`, infosvr `44013904956`, AliyunDrive `44013905273`, AdGuardHome `44013905011`, and AliDDNS `44013904971` PASS; NVRAM `44013905187` pending.
 
+- DDNSTO exact run `44013905030` on `e5d3cdfd` completed shell syntax and all production-linked lifecycle shell cases successfully. The only failure was a stale Python checker fixture expectation `echo $`; the actual fake daemon writes a numeric PID with `echo $$`. THIS COMMIT corrects that final assertion. Same-SHA XY-C1 `44013905031` remains in Build XY-C1; NVRAM `44013905187` PASS.
+
 ## Active task
 
-1. Inspect exact-head DDNSTO workflow after the numeric PID checker correction in THIS COMMIT; require the shell regression and all semantic source/workflow assertions to PASS.
-2. Verify XY-C1 run `44013905031` on the same DDNSTO production source through Build XY-C1, TRX verification and artifact upload.
-3. Fix the HTTPD umbrella source-contract failure `44013229543` after confirming its current exact-head workflow status; it appeared to retain a 3-process `stop_misc()` expectation after GPIO shutdown registration increased the real list to four.
+1. Inspect exact-head DDNSTO regression after THIS numeric PID checker fix; require shell tests and all semantic source/workflow contracts PASS.
+2. Verify XY-C1 run `44013905031` against the same production source through Build XY-C1, TRX verification and artifact upload.
+3. Fix HTTPD umbrella checker failure `44013229543`: its old `stop_misc()` assertion expects three processes, but production now correctly stops four, including `gpio_btn`. Re-run HTTPD after updating the source contract.
 
 
 ## Verification boundary
 
-- DDNSTO production source `574caf1b`: shell regression PASS on `6e997ddb`, `e48aca6b` and `e5d3cdfd`; the semantic source checker failed successively on stale launch-order and fake-PID expectations. The launch-order contract and XY-C1 trigger are fixed in `e5d3cdfd`; THIS COMMIT fixes the remaining numeric PID assertion. Exact DDNSTO rerun pending; same-SHA XY-C1 `44013905031` was pending at last poll.
-- GPIO button shutdown registration in `e48aca6b`: GPIO regression `44013229820`, Process inventory `44013229755` and Process lifecycle `44013229793` PASS. Same-source XY-C1 `44013229689` was pending at last poll; newer DDNSTO-containing XY-C1 `44013905031` is the more relevant build check.
-- On `e5d3cdfd`, Process inventory `44013905279`, AI docs `44013904997`, infosvr `44013904956`, AliyunDrive `44013905273`, AdGuardHome `44013905011` and AliDDNS `44013904971` PASS. NVRAM `44013905187` was pending. 
-- HTTPD umbrella `44013229543` on `e48aca6b` failed one stale checker assertion, likely affected by the new GPIO process entry; exact failed assertion in the workflow was `return kill_services(svcs, 3, 1);`, whereas production `stop_misc()` now correctly has four entries and returns `kill_services(svcs, 4, 1);`. Update the checker only after validating this production contract and rerun HTTPD.
-- Earlier firewall, DNS Forwarder, RWFS, IAPP, VPN, USB storage and watchdog results remain as recorded. Local execution was NOT RUN; target runtime/physical L4 remain unverified.
+- DDNSTO production source `574caf1b`: complete shell lifecycle tests PASS on `6e997ddb`, `e48aca6b` and `e5d3cdfd`. Prior semantic failures were stale launch-order and PID fixture assertions. Launch-order/XY-C1 trigger correction is in `e5d3cdfd`; THIS COMMIT fixes the last `echo $` expectation. Exact-head DDNSTO rerun pending.
+- Same-source XY-C1 run `44013905031` on `e5d3cdfd` was still at Build XY-C1; no Build/TRX/artifact PASS claim until all three steps finish. NVRAM audit `44013905187` PASS.
+- On `3c2ee531`: Process inventory `44014408639`, NVRAM audit `44014408877`, AI handoff `44014408656`, infosvr `44014408753`, AliyunDrive `44014408640`, AliDDNS `44014408747`, and AdGuardHome `44014408744` PASS.
+- HTTPD umbrella `44013229543` failed a stale assertion expecting `return kill_services(svcs, 3, 1);`; the actual `stop_misc()` array includes `gpio_btn` and correctly calls `kill_services(svcs, 4, 1);`. This is a checker mismatch, not a production shutdown defect.
+- Local checkout/toolchain unavailable; local execution NOT RUN. Physical-router L4 remains NOT VERIFIED.
+
 
 ## Exact first action for the next GPT
 
-Fetch live `main`. Check exact-head DDNSTO regression after this PID checker correction and same-SHA XY-C1 Build/TRX/artifact status. Then correct the HTTPD inline assertion from the old 3-daemon expectation to the production `stop_misc()` contract with four daemons (including gpio_btn), rerun HTTPD on the new SHA, and continue an independent RC stability issue if Actions are pending. Keep the backup frozen and use complete-tree atomic commits with non-forced expected-SHA compare-and-swap.
+Fetch live `main` and inspect exact-head DDNSTO result after the PID checker correction. Verify the current same-source XY-C1 Build, TRX verification and artifact upload individually. Then update the HTTPD workflow's stale `stop_misc()` assertion to require the four production daemon entries including `gpio_btn`, rerun HTTPD, and continue independent P1 RC work while Actions are pending. Keep backup frozen and use atomic complete-tree commits with non-forced expected-SHA compare-and-swap.

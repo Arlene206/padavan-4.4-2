@@ -1,3 +1,12 @@
+## 2026-11-17 — Correct final DDNSTO fake-PID checker expectation
+
+- Base main SHA: `3c2ee531e5b6f5b96a004732d82fe45ec882a5a8`; result: THIS COMMIT.
+- Exact DDNSTO run `44013905030` passed shell syntax and every production-linked lifecycle test. The remaining failure was solely a stale semantic checker assertion looking for `echo $` while the actual mock daemon writes its real PID as `echo $$`.
+- Corrected the checker to require the numeric PID fixture. Production launcher and test cases are unchanged.
+- Same-source XY-C1 `44013905031` was compiling at last poll; NVRAM audit `44013905187` PASS. Exact DDNSTO rerun pending. Local execution NOT RUN; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align DDNSTO source checker with the numeric mock PID
 
 - Base main SHA: `e5d3cdfdca314e8d8b548c5b5c2a990a6f67d226`; result: THIS COMMIT.
