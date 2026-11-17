@@ -1,40 +1,38 @@
-# 2026-11-17 continuation checkpoint — fix AP DHCP retry source contract
+# 2026-11-18 continuation checkpoint — repair WAN DHCP retry source contract
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS checker repair: `0af358f3cfd9083994054fa97d22371245246eef`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS checker repair: `509409f8a9d72127bf40641ca779f0a43c8d5783`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent-0af WAN route `44202380619` PASS; AI handoff `44202380778` PASS; DNSMasq `44202380652` PASS; detect_internet `44202380544` PASS; Wireless radio `44202380631` PASS; Process inventory `44202380727` PASS; AliDDNS `44202380589` PASS. NVRAM `44202380759` and XY-C1 `44202380583` were still IN_PROGRESS at last poll.
-- Parent WAN DHCP callback run `44202380584` failed only in `scripts/check_lan_dhcp_deconfig.py` at line 89: it compared a C call as a single-line literal, but the implementation intentionally wraps the call across lines. The DHCP lease input policy binary passed before the checker failed.
-- THIS repair normalizes whitespace in that assertion while preserving its required call/argument ordering. The WAN DHCP workflow already compiles and runs `lan_dhcp_callback_policy.c` with GNU89, ASan and UBSan after the checker step.
-- Prior static IPoE teardown fix `853748bd`: WAN teardown workflow `44201908894` PASS; WAN route's stale declaration source assertion was corrected by `d7eea9c0`, and the exact `d7ee` WAN route rerun passed `44202284751` (check this exact result when needed). NVRAM `44201909080` PASS; XY-C1 `44201909002` was still building at last poll.
-- No local MIPS toolchain or physical router: product L3 applies only to the exact SHA whose Build/TRX/artifact all pass; hardware L4 NOT VERIFIED.
+- AP LAN DHCP retry source is in `0af358f3`; standalone source-checker whitespace normalization landed in `509409f8`. Exact 509 WAN DHCP workflow `44202830940` failed in the embedded callback contract at Python line 906 because it still expected `udhcpc_lan_bound()` to call `create_hosts_lan()` directly and contain that helper's failure message. Production code correctly delegates publication to `lan_dhcp_publish_hosts_and_schedule_retry()`; the extracted helper owns the hosts write, failure diagnostic, AP retry marker and DHCPD recovery notification. The standalone `scripts/check_lan_dhcp_deconfig.py` already validates this helper and retry ordering.
+- THIS commit changes only the embedded workflow contract: it asserts lease NVRAM publication precedes the wrapper invocation, then checks that the wrapper itself calls `create_hosts_lan()` and emits the failure diagnostic. Production source unchanged.
+- Exact 509 AI docs `44202830922`, AdGuardHome `44202830932`, Process inventory/lifecycle `44202830930`, infosvr `44202831074`, AliDDNS `44202830944`, AliyunDrive `44202830935`, and NVRAM audit `44202831128` are SUCCESS. XY-C1 `44202831040` remains IN_PROGRESS at last check; same-SHA Build/TRX/artifact outcome still pending.
+- The failed WAN DHCP run passed its earlier lease-input C policy check; callback policy binary was not reached because the stale embedded assertion stopped the step.
+- Static-IPoE teardown work: WAN teardown `44201908894` PASS; WAN route source-contract correction `d7eea9c0` followed by exact route run `44202284751` PASS. Earlier XY run `44201909002` was pending when last recorded. Physical-router L4 NOT VERIFIED.
 
 ## Active task
-- The AP LAN DHCP retry implementation on `0af358f3` adds temporary `lan_hosts_retry` state, queues `RCN_RESTART_DHCPD` after an AP hostname-file publication failure and retries only host publication on a later unchanged RENEW. Successful AP host publication clears the marker.
-- The code call is deliberately formatted over multiple lines:
-  `lan_dhcp_hosts_refresh_required(` followed by `is_changed, is_renew,`. The previous checker assertion incorrectly required those tokens on one line; THIS commit changes the source check to normalize whitespace and still validates exact argument order.
-- No production source is changed by this checker repair. The separate GNU89/ASan/UBSan callback policy test is already wired into the WAN DHCP workflow.
+- THIS commit updates `.github/workflows/wan-dhcp-callback-stability.yml` only. The embedded contract previously looked for the hosts write and failure log inside `udhcpc_lan_bound()`; the implementation correctly extracts them into `lan_dhcp_publish_hosts_and_schedule_retry()`. The revised assertions follow the actual wrapper/helper boundary, while checking lease-state publication occurs before ancillary hosts publication.
+- The separate `scripts/check_lan_dhcp_deconfig.py` also checks `lan_dhcp_publish_hosts_and_schedule_retry()`, AP-only retry marker and immediate DHCPD restart notification. No production runtime changes in THIS commit.
 
 ## Verification boundary
-- Exact `0af358f3` WAN route `44202380619`: PASS.
-- Exact `0af358f3` WAN DHCP `44202380584`: FAIL only on the whitespace-sensitive checker assertion after the DHCP lease-policy binary passed; this repair needs its own exact-head rerun. Callback retry policy binary was not reached in the failed run.
-- Exact `0af358f3` AI `44202380778`, DNSMasq `44202380652`, detect_internet `44202380544`, Wireless radio `44202380631`, Process inventory `44202380727`, AliDDNS `44202380589`: PASS.
-- Exact `0af358f3` XY-C1 `44202380583` and NVRAM `44202380759`: IN_PROGRESS at last poll. Require Build XY-C1, TRX verification and artifact upload before claiming L3.
-- This repair's exact WAN DHCP/AI/XY Actions are pending. No local MIPS compile or hardware L4 claim.
+- Parent 509 WAN DHCP workflow `44202830940`: FAIL at stale embedded helper-location assertion after the preceding lease-input policy checks passed. Callback policy binary was not reached.
+- Exact 509 AI, AdGuardHome, Process, infosvr, AliDDNS, AliyunDrive and NVRAM runs listed above: PASS.
+- Exact 509 XY-C1 `44202831040`: IN_PROGRESS at last inspection. Require Build XY-C1, TRX verification and artifact upload on the same SHA before claiming L3.
+- Exact-head WAN DHCP rerun and its callback policy/source contracts: PENDING.
+- No local MIPS toolchain/build. Physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main`; inspect exact-head WAN DHCP, AI and XY-C1 runs for THIS checker repair.
-2. Require `scripts/check_lan_dhcp_deconfig.py` to pass, then require the GNU89/ASan/UBSan `lan_dhcp_callback_policy.c` binary and full WAN DHCP callback step to pass. Confirm the normalized source contract still checks both `is_changed` and `is_renew`.
-3. Recheck parent `0af358f3` NVRAM and XY-C1 runs separately; do not infer their status from this newer SHA.
-4. Continue independent P1 reliability/security work while any build is PENDING. Keep the backup unchanged and hardware L4 NOT VERIFIED.
+1. Inspect the exact-head WAN DHCP callback run for THIS correction; require the standalone DHCP checker, GNU89/ASan/UBSan lease-input and callback policy binaries, and embedded source contract all PASS.
+2. Inspect exact 509 XY-C1 `44202831040` completion. Check Build, TRX verification and artifact upload separately; record L3 only if all pass.
+3. Continue a new independent P1 stability/security slice while Actions are pending; do not repeat the AP DHCP retry audit.
+4. Keep frozen backup unchanged; no local target compile or hardware L4 claim.
 
 ## Mandatory handoff checkpoint
-Every session MUST inspect live main, materially changed exact-SHA Actions, current handoff/roadmap facts and the first actionable task before ending. The checkpoint is mandatory; a document edit is conditional. Record PASS/FAIL/PENDING accurately. If current facts and first action remain accurate, do not create a no-op documentation commit.
+At session end, inspect live main, relevant exact-SHA Actions, the handoff/roadmap and the first actionable task. The checkpoint is mandatory; documentation-only updates are conditional. Record PASS/FAIL/PENDING accurately.
 
 # Cross-session execution mandate
 
-Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and atomically commit. Do not wait idly on pending CI or ask the user what to do next.
+Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and atomically commit; do not wait idly on pending CI or ask what to do next.
 
-Every logical multi-file change must use Git data APIs to create all blobs, one complete tree and one atomic main commit, parented to freshly fetched main and published with a non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs or modify the frozen backup.
+Every logical multi-file change must create all blobs, one complete tree and one atomic main commit, parented to freshly fetched main and published with non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs or modify the frozen backup.
 
 Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first action.

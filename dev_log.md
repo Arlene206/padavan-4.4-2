@@ -1,3 +1,13 @@
+## 2026-11-18 — Align WAN DHCP callback workflow with extracted hosts retry helper
+
+- Parent main SHA: `509409f8a9d72127bf40641ca779f0a43c8d5783`; exact 509 WAN DHCP run `44202830940` failed at embedded Python line 906 because its contract still required direct `create_hosts_lan()` and the corresponding failure message inside `udhcpc_lan_bound()`.
+- The production implementation correctly extracts ancillary publication into `lan_dhcp_publish_hosts_and_schedule_retry()`; this helper performs the hosts write, AP retry marker, DHCPD restart notification and diagnostic. The standalone checker already verifies that helper's retry semantics.
+- THIS commit changes only the embedded workflow test: assert that lease NVRAM publication precedes the helper call, and inspect the helper body for `create_hosts_lan()` and the expected error message. No production source changes.
+- Exact 509 AI `44202830922`, AdGuardHome `44202830932`, Process `44202830930`, infosvr `44202831074`, AliDDNS `44202830944`, AliyunDrive `44202830935`, NVRAM `44202831128` PASS; XY-C1 `44202831040` IN_PROGRESS at last poll.
+- Exact-head WAN DHCP rerun required; callback policy binary was not reached in the parent failure. No local target build or hardware L4 claim.
+
+---
+
 ## 2026-11-17 — Make AP DHCP retry checker robust to C line wrapping
 
 - Parent main SHA: `0af358f3cfd9083994054fa97d22371245246eef`; exact WAN DHCP run `44202380584` on `0af358f3` compiled and ran the DHCP lease policy binary successfully, then failed at `check_lan_dhcp_deconfig.py:89` because a helper call formatted over multiple C lines was compared against a one-line literal.

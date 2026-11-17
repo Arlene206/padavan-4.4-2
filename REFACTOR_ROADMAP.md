@@ -1,17 +1,19 @@
-# 2026-11-17 latest source checkpoint
+# 2026-11-18 latest source checkpoint
 
-- Parent main before THIS AP DHCP retry checker repair: `0af358f3cfd9083994054fa97d22371245246eef`.
-- The AP LAN DHCP retry feature in `0af358f3` holds temporary `lan_hosts_retry`, schedules immediate DHCPD recovery after AP host publication failure, and retries only host publication on a later unchanged RENEW.
-- Exact parent WAN DHCP `44202380584` failed only because its checker required a multi-line call to be formatted on one line; the DHCP lease-policy binary passed. THIS patch makes the source check whitespace-insensitive; the WAN DHCP workflow already has a separate GNU89/ASan/UBSan callback-policy binary step.
-- Parent exact WAN route `44202380619`, AI `44202380778`, DNSMasq `44202380652`, detect_internet `44202380544`, Wireless `44202380631`, Process `44202380727` and AliDDNS `44202380589` PASS. Parent XY-C1 `44202380583` and NVRAM `44202380759` were in progress at last poll.
-- Static IPoE teardown fix `853748bd`: WAN teardown `44201908894` PASS; WAN route source assertion corrected by `d7eea9c0`; parent XY-C1 `44201909002` was still building; NVRAM `44201909080` PASS.
-- Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged; no physical-router L4 claim.
+- Parent main before THIS WAN DHCP source-contract correction: `509409f8a9d72127bf40641ca779f0a43c8d5783`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- AP DHCP retry feature `0af358f3` and standalone whitespace-normalized checker `509409f8`: exact 509 WAN DHCP `44202830940` failed at an obsolete embedded contract that expected hosts publication directly inside `udhcpc_lan_bound()`. The current implementation delegates to `lan_dhcp_publish_hosts_and_schedule_retry()`; this helper owns the create_hosts call, failure log, retry marker and DHCPD recovery notification. THIS commit validates the wrapper call after lease-state publication and the helper body separately.
+- Exact 509 AI `44202830922`, AdGuardHome `44202830932`, Process `44202830930`, infosvr `44202831074`, AliDDNS `44202830944`, AliyunDrive `44202830935`, NVRAM `44202831128` PASS. XY-C1 `44202831040` remained PENDING.
+- The failed WAN DHCP job passed its lease-input policy test but did not reach the callback policy binary. Exact-head WAN DHCP rerun required.
+- Earlier static WAN teardown source has its dedicated teardown and WAN route checks PASS; no current-source L3 claim. Physical-router L4 NOT VERIFIED.
 
-Next: exact-head WAN DHCP retry/checker and XY-C1 verification for THIS repair; then continue another independent P1 task.
+Next: exact-head WAN DHCP rerun and exact 509 XY-C1 completion; then continue independent P1 reliability/security.
 
 ---
 
 ## Whole-repository module status
+
+- AP DHCP ancillary hosts retry: embedded WAN DHCP workflow still expected `create_hosts_lan()` and its diagnostic inside `udhcpc_lan_bound()`, though production code now extracts both into `lan_dhcp_publish_hosts_and_schedule_retry()`. THIS commit corrects that contract and checks lease-state publication before ancillary helper execution; exact-head run pending.
+
 
 - WAN static IPoE setup/teardown cleanup and post-WAN hook status propagation remain in main; the teardown source check is corrected and the exact WAN route workflow passed on `d7eea9c0`.
 - AP DHCP retry state and notification recovery added on `0af358f3`; its first WAN DHCP run exposed a whitespace-sensitive source checker, fixed in THIS slice. Exact-head rerun pending.
