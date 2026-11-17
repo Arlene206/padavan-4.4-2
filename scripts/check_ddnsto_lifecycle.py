@@ -10,6 +10,7 @@ services_path = ROOT / "trunk/user/rc/src/services.c"
 rc_header_path = ROOT / "trunk/user/rc/src/rc.h"
 rc_path = ROOT / "trunk/user/rc/src/rc.c"
 workflow_path = ROOT / ".github/workflows/ddnsto-lifecycle.yml"
+xy_workflow_path = ROOT / ".github/workflows/xy-c1-firmware-validation.yml"
 
 script = script_path.read_text()
 test = test_path.read_text()
@@ -18,6 +19,7 @@ services = services_path.read_text()
 rc_header = rc_header_path.read_text()
 rc = rc_path.read_text()
 workflow = workflow_path.read_text()
+xy_workflow = xy_workflow_path.read_text()
 
 
 def require(condition: bool, message: str) -> None:
@@ -74,10 +76,10 @@ require(kill_body.rfind('ddnsto_wait_stopped') > kill_body.index('killall -9 ddn
 require('return 1' in kill_body and 'ddnsto_process_state' in kill_body and
         'ddnsto_wait_status' in kill_body and 'TERM后进程状态未知' in kill_body and
         'if ! kill_z; then' in start_body and
-        start_body.index('if ! kill_z; then') < start_body.index('"$DDNSTO_BIN"'),
+        start_body.index('if ! kill_z; then') < start_body.index('"$DDNSTO_BIN" -u "$ddnsto_start_id"'),
         "UNKNOWN must block TERM/KILL escalation and replacement daemon launch")
 require('if ! kill_z; then' in start_body and start_body.index('if ! kill_z; then') <
-        start_body.index('"$DDNSTO_BIN"'), "start must fail closed before launching a replacement")
+        start_body.index('"$DDNSTO_BIN" -u "$ddnsto_start_id"'), "start must fail closed before launching a replacement")
 require('9>&- &' in start_body and 'DDNSTO_BIN="/usr/bin/ddnsto"' in script,
         "detached daemon launch must use the fixed ROMFS binary and close the lifecycle lock FD")
 require("return kill_z" in stop_body or "kill_z" in stop_body,
@@ -161,4 +163,8 @@ for path in paths:
     require(push.count(token) == 1 and pull.count(token) == 1,
             f"{path} must appear exactly once in push and pull_request path filters")
 
-print("DDNSTO lifecycle stop/start and RC integration contracts: PASS")
+xy_push = xy_workflow.split('  push:', 1)[1].split('  workflow_dispatch:', 1)[0]
+require(xy_push.count('      - "trunk/user/ddnsto/ddnsto.sh"') == 1,
+        "XY-C1 firmware workflow must trigger for packaged DDNSTO launcher changes")
+
+print("DDNSTO lifecycle, RC integration and XY-C1 packaging contracts: PASS")

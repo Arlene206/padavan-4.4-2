@@ -65,6 +65,7 @@ on:
       - "trunk/user/rc/src/vpn_openvpn.c"
       - "trunk/user/rc/src/openvpn_process_stop_policy.h"
       - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/ddnsto/ddnsto.sh"
       - "trunk/configs/boards/XY-C1/kernel-4.4.x.config"
       - "trunk/linux-4.4.x/drivers/usb/serial/Kconfig"
       - "trunk/linux-4.4.x/drivers/usb/serial/Makefile"

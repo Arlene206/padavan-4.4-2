@@ -1,3 +1,12 @@
+## 2026-11-17 — Repair DDNSTO source checker and add firmware trigger
+
+- Base main SHA: `e48aca6bcd346f4813b6edb22974cb366423e340`; result: THIS COMMIT.
+- Exact DDNSTO runs `44012778484` and `44013229590` passed shell syntax and every lifecycle shell case, including bounded start readiness and the delayed-start scenario. The semantic checker then failed on a stale ordering assertion: it compared `kill_z` with the first `$DDNSTO_BIN` reference, which is correctly the earlier executable preflight rather than the later launch command. A separate check expected obsolete `echo $` despite the fake daemon now writing `echo $$`.
+- Both checks now pin the actual command invocation and the numeric PID fixture. The XY-C1 path filter now includes `trunk/user/ddnsto/ddnsto.sh`, so changes to this packaged launcher schedule firmware Build/TRX/artifact validation; its source checker pins this path.
+- GPIO stop-registration change `e48aca6b` passed GPIO, Process inventory and Process lifecycle; its same-head XY-C1 run remained pending. HTTPD umbrella `44013229543` failed and awaits job-log diagnosis. No local checkout/toolchain; local execution was NOT RUN. Physical L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Stop the GPIO button daemon during shutdown
 
 - Base main SHA: `6e997ddb7eeccdee56ecd6eaa2d1affb401d154e`; result: THIS COMMIT.
