@@ -1163,7 +1163,7 @@ assert "system(" not in watchdog_httpd
 
 # Watchdog recovery must use the single-lock stop/start transaction, rather
 # than reacquiring the process-associated record lock between public calls.
-httpd_restart = body(SERVICES_SOURCE, "restart_httpd(void)")
+httpd_restart = c_function_body(services_source, "restart_httpd(void)")
 assert 'httpd_lifecycle_lock_acquire_status("restart", &lock_fd)' in httpd_restart
 assert httpd_restart.index("stop_httpd_locked();") < httpd_restart.index(
     "httpd_restart_can_start(stop_status)"

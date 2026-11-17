@@ -13,6 +13,9 @@ on:
       - ".github/workflows/httpd-daemon-lifecycle.yml"
   pull_request:
     paths:
+      - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/httpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/httpd_daemon_policy.h"
