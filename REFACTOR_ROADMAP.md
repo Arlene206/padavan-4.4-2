@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS checker correction: `5d0618cc29aa67cc11d93a6487f2d5bc71c777ce`.
-- Static IPoE EAPOL cleanup source fix is in `5d0618c`: the IPv4 clear error is propagated, logged and triggers interface-down; a failed force-down is also propagated. Its C policy regressions compiled and passed under exact WAN run `44196817787` before the Python source checker stopped on a formatting-sensitive assertion (the auth aggregation call is multiline in production).
-- THIS commit changes only the WAN source checker to recognize the actual multiline status merge. Exact-head WAN and XY-C1 reruns pending. The XY-C1 run `44193165931` verifies older production source `88770d7` (MiniUPnP source `03a993e`) through Build/TRX/artifact, but does NOT verify the newer WAN source slice.
-- MiniUPnP exact-head validation remains good: dedicated workflow `44195714916` and AI `44195714933` on `fa36ad1` PASS; Process `44195398478` and AI `44195398394` on `dc6d32d` PASS.
-- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Latest implementation parent for this documentation update: `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`; factory-reset production fix is `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`.
+- Factory reset now propagates MTD erase status, gates the NVRAM reset marker and PID 1 restart on successful persistent operations, and attempts to restore configured rstats on abort. The new GPIO workflow exact run `44197451556` PASSes including GNU89 ASan/UBSan policy test and source-order checks.
+- Exact `0d58928e` Process `44197451701` and MiniUPnP `44197451163` PASS. AI handoff `44197451610` failed only because the handoff text omitted the mandatory end-of-session accuracy checkpoint clause; THIS docs update adds that required section. XY-C1 `44197454090` was QUEUED at the last poll; build/TRX/artifact still required.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: inspect exact-head WAN/XY-C1 on the EAPOL fix and then continue independent P1 work.
+Next: validate the exact-head AI handoff rerun and XY-C1 Build/TRX/artifact for `0d58928e`, then continue an independent P1 module.
 
 ---
 

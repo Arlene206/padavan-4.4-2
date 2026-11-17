@@ -1,3 +1,11 @@
+## 2026-11-18 — Record factory-reset CI results and close handoff checkpoint contract
+
+- Exact source SHA `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`: GPIO button run `44197451556` PASS, including the new GNU89 ASan/UBSan factory-reset sequence regression; Process `44197451701` PASS; MiniUPnP `44197451163` PASS.
+- AI docs run `44197451610` failed only because SESSION_HANDOFF did not explicitly require an end-of-session accuracy checkpoint. THIS documentation commit adds the mandatory section and states that a checkpoint is required but a file edit/no-op commit is conditional.
+- XY-C1 run `44197454090` was QUEUED; no L3 claim until exact-head Build, TRX verification and artifact upload pass. Local host/MIPS tests NOT RUN; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Propagate factory-reset MTD and NVRAM failures
 
 - Parent main SHA: `80dcdc629d72c11136e1b766fe730e0d33f21bd4`; runtime changes span `rc.c`, `rc.h`, `btn_action.c` and `gpio_btn.c`, with a new GNU89 policy regression, source-order checker and GPIO workflow coverage.
