@@ -6,6 +6,26 @@
 #include "wan_mtu_setup_policy.h"
 #include "rc_notify_batch_policy.h"
 
+
+static void
+test_wan_firewall_failure_blocks_protocol_launch(void)
+{
+	const int failed_statuses[] = { -1, EIO, EBUSY, EACCES };
+	int launch_attempts = 0;
+	int i;
+
+	if (rc_wan_firewall_start_allows_protocol(0))
+		launch_attempts++;
+	assert(launch_attempts == 1);
+
+	for (i = 0; i < (int)(sizeof(failed_statuses) / sizeof(failed_statuses[0])); i++) {
+		launch_attempts = 0;
+		if (rc_wan_firewall_start_allows_protocol(failed_statuses[i]))
+			launch_attempts++;
+		assert(launch_attempts == 0);
+	}
+}
+
 static void
 test_wan_default_mtu_respects_static_custom_override(void)
 {
@@ -451,6 +471,7 @@ main(void)
 	assert(rc_first_service_start_status(17, -1) == 17);
 	assert(rc_first_service_start_status(-5, 9) == -5);
 	assert(rc_first_service_start_status(4, 0) == 4);
+	test_wan_firewall_failure_blocks_protocol_launch();
 	test_wan_default_mtu_respects_static_custom_override();
 	test_wan_default_mtu_failure_is_reported_while_startup_continues();
 	test_man_custom_mtu_failure_is_reported_and_setup_continues();
@@ -466,6 +487,6 @@ main(void)
 	test_storage_event_remains_pending_after_failure();
 	test_loopback_start_preserves_first_required_failure();
 	test_lan_start_preserves_first_required_failure();
-	puts("RC boot and LAN service first-failure aggregation policy: PASS");
+	puts("RC boot, WAN firewall and LAN service first-failure aggregation policy: PASS");
 	return 0;
 }

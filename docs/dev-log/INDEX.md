@@ -21,6 +21,7 @@
 | `docs/dev-log/2026/11/part-012.md` | 100 | 2026-11-15 — Check physical WAN interface bring-up before protocol startup → 2026-11-16 — Align storage IPTV source contract with aggregated restart results | 133040 | `07cadc2b9a77f5e7735faf769f954d9980ac4ebd` |
 | `docs/dev-log/2026/11/part-013.md` | 100 | 2026-11-16 — Propagate loopback interface and route startup failures → 2026-11-17 — Repair extension-hook CI contracts after implementation | 123231 | `19c3d8ccc2d16c11936d3b498808a5ee886722e5` |
 | `docs/dev-log/2026/11/part-014.md` | 100 | 2026-11-17 — Repair escaped firewall checker regex and HTTPD hook helper signature → 2026-11-17 — Apply all parser-supported DHCP MTU values, including explicit 1500 reset | 120777 | `82560e2f808f6c66850a84acd762769bf585d39a` |
+| `docs/dev-log/2026/11/part-015.md` | 100 | 2026-11-17 — AliDDNS WAN IPv6 source correction → 2026-11-17 — Align HTTPD's duplicate storage check with tri-state hotplug topology | 111870 | `f3f0f8caa4ebe40e7500ad7f29a38b3cae2e7167` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -77,3 +78,4 @@
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` already contained 120 records at parent main `0b93418caf9e04a41fbae0a23ebdcf234ee47ae7` are preserved verbatim, oldest first, in part-013; pre-rotation root blob: `ede01b542db44e4a577a607468e65dee383c9c82`. Root retains the newest 20 complete records.
 
 - **Rolling-window continuation:** 100 oldest complete records evicted from root `dev_log.md` at parent main `c6edf06e2a9d148f24757926488166dea8f9205b` are preserved verbatim, oldest first, in `part-014.md`; pre-rotation root blob: `76139df80957fc7cf5c784ccd166357bcaccbae0`. The newest 21 records remain in root (the three new records plus the 18 previous newest records).
+- **Rolling-window continuation:** 100 oldest complete records evicted from root `dev_log.md` at parent main `be0f5b56efa203fc802334e08b846381e9a3f04a` are preserved verbatim, oldest first, in `part-015.md`; pre-rotation root blob: `8171f3c551386e19bb0c5c5599bb4a014fa2b6c3`. Root retains the new firewall entry and the 19 newest previous records.

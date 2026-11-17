@@ -1,21 +1,28 @@
-# 2026-11-17 continuation checkpoint — propagate AP-client reconnect failures
+# 2026-11-18 continuation checkpoint — fail closed on incomplete WAN firewall rebuild
 
 ## Current repository state
-- Parent main before this atomic source slice: `f4ab2110b1bfc17e6d2a1aa2f70352e2af2f5b31`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only. Main-only complete-tree commits, expected-SHA CAS, `force:false`.
-- Samba WINS restart fix `2e6974211a9e3a487913076b84dfe89eb9817b0d` + checker follow-up `6174c78a926da126139e2b4f08c455704f6e11f7`: exact Samba `44173796606` SUCCESS.
-- Syslogd/klogd detached-child startup fix `222cbfba37ef2e4c17ae13bd9275ed648c6ab407` + source-boundary checker follow-up `f4ab211`: exact Process fail-closed `44174094871` SUCCESS; NVRAM `44174094746`, infosvr `44174094855`, AI docs `44174094903`, AliDDNS `44174094743`, AdGuardHome `44174094915`, AliyunDrive `44174094822` also SUCCESS.
-- DDNSTO exact-head `44166279131`, IPTV DHCP fail-closed `44170820583`, HTTPD cross-workflow `44171043495`, rstats/LLTD Process `44169139435` and XY-C1 `44169139392` SUCCESS. These audits are closed.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA for THIS slice: `be0f5b56efa203fc802334e08b846381e9a3f04a`.
+- Main-only complete-tree commits use fresh expected-SHA updates and `force:false`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- AP-client reconnect propagation is in `be0f5b5`; its exact-head Wireless radio workflow was pending in the prior checkpoint. The syslogd/klogd source/checker fix is in `222cbfb` + `f4ab211`; Process fail-closed run `44174094871` and the listed NVRAM/infosvr/AI docs/AliDDNS/AdGuardHome/AliyunDrive checks passed on their recorded exact SHAs.
+- Previously closed slices to preserve: Samba WINS `44173796606` PASS; DDNSTO `44166279131`, IPTV DHCP `44170820583`, HTTPD cross-contract `44171043495`, and rstats/LLTD Process `44169139435` plus XY-C1 `44169139392` PASS. Do not re-audit these without a new regression.
 
-## Implemented P1 issue — AP-client reconnect command status was silently discarded
-- `reconnect_apcli()` previously returned `void` and ignored all `doSystem()` results for APCLI `ApCliAutoConnect` and forced `ApCliEnable=0/1`. In WISP mode the command controls the upstream AP association, but `start_wan()` could return success even if the driver command failed.
-- This slice changes the helper to return `int`, normalizes every raw `system()` wait status with existing `wireless_radio_restart_status()`, retains first error and still attempts the forced re-enable after a disable failure. Non-APCLI/down/irrelevant-mode no-op cases return success.
-- `start_wan()` folds APCLI failure into its existing first-error result and logs it; manual WISP reassociation logs failures. Regression extends existing GNU89 policy tests for encoded `system()` errors and sticky failure; workflow adds exact-source tests for all six driver calls and both callers, and triggers on `net_wan.c` changes.
-- Local host compile was not run in this connector-only environment; exact-head Wireless radio Actions are pending.
+## Active P1 defect — WAN protocol clients launched despite firewall rebuild failure
+- `start_wan()` accumulated `start_firewall_ex()` errors but still launched USB RAS, PPP and IPoE EAPOL/DHCP/route setup. A nonzero result means the requested ruleset or a configured extension hook/snapshot cleanup is incomplete; merely returning an error did not prevent traffic from being exposed under stale or partial policy.
+- THIS COMMIT adds `rc_wan_firewall_start_allows_protocol()` with a GNU89 host-policy regression, plus source-order assertions in `scripts/check_wan_firewall_status.py`.
+- USB RAS and PPP refuse client launch after any nonzero firewall result, retry physical-WAN policy restoration, and take the physical interface down if that recovery also fails.
+- IPoE refuses EAPOL, DHCP, route and IPv6 activation after firewall failure. Static IPoE clears the configured address; if clearing fails, it takes the interface down. First-error aggregation is preserved.
+- Changed paths: `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/service_start_status.h`, `trunk/user/rc/src/tests/service_start_status.c`, and `scripts/check_wan_firewall_status.py`. Existing WAN-route and XY-C1 path filters already cover these files.
 
-## Exact first action for next GPT
-1. Inspect exact-head Wireless radio state workflow; require GNU89 wireless and bridge policy tests, ASan/UBSan guest-isolation test, guest isolation checker, and APCLI helper/caller source contracts all PASS. Diagnose any first failure from job logs.
-2. Continue another evidenced P1 service-startup or Firewall/NAT caller-status defect outside APCLI/WISP, Samba/WINS, syslogd/klogd, DDNSTO, IPTV DHCP, Networkmap, Telnetd, rstats/LLTD and completed storage/service audits.
-3. Preserve the frozen backup and use complete-tree expected-SHA non-forced main updates. Physical router L4 remains unverified.
+## Verification boundary
+- Standalone GNU89 policy harness with `-Wall -Wextra -Werror -fsanitize=address,undefined`: PASS for zero-success and nonzero fail-closed cases (-1/EIO/EBUSY/EACCES).
+- The full repository C regression binary and Python source checker were not executed locally; no complete checkout is mounted. Exact-head WAN-route, XY-C1 Build/TRX/artifact and AI handoff Actions for THIS commit must be inspected after the push. No MIPS target build or router hardware L4 result is claimed.
+- The available GitHub run wrapper filters PR-triggered runs; an empty combined-status list is not evidence that main push Actions passed. Record exact run IDs/conclusions when available.
+
+## Exact first action for the next GPT
+1. Inspect exact-SHA WAN-route, XY-C1 and AI handoff Actions for THIS commit. Require the GNU89 policy regression and fail-closed source contract; require XY-C1 Build, TRX verification and artifact upload before claiming target L3.
+2. Resolve the APCLI/Wireless radio workflow for `be0f5b5`; then check any current-head Process workflow affected by `net_wan.c`. Fix the first actual failing step from its logs.
+3. Continue independent P1 service-startup/error-propagation or firewall gaps. Preserve the frozen backup and avoid repeating completed audits. Physical router L4 remains NOT VERIFIED.
+
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

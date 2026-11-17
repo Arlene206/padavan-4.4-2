@@ -15,4 +15,14 @@ rc_service_start_event_is_complete(int start_status)
 	return start_status == 0;
 }
 
+/*
+ * A WAN protocol client must not expose a path until the required firewall
+ * rebuild, including configured extension hooks and snapshot cleanup, succeeds.
+ */
+static inline int
+rc_wan_firewall_start_allows_protocol(int firewall_status)
+{
+	return firewall_status == 0;
+}
+
 #endif

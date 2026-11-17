@@ -1608,6 +1608,27 @@ restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)
 	return firewall_status;
 }
 
+
+static int
+restore_wan_after_firewall_failure(int unit, char *wan_ifname)
+{
+	int restore_status, down_status;
+
+	restore_status = restore_wan_after_ppp_start_failure(unit, wan_ifname);
+	if (restore_status == 0)
+		return 0;
+
+	/*
+	 * A stale or partial firewall is not sufficient to expose the WAN. If
+	 * rebuilding the physical-WAN policy also fails, take that interface down.
+	 */
+	down_status = ifconfig(wan_ifname, 0, NULL, NULL);
+	if (down_status != 0)
+		logmessage(LOGNAME, "failed to keep physical WAN interface %s down after firewall recovery failure (status=%d)",
+			   wan_ifname, down_status);
+	return rc_first_service_start_status(restore_status, down_status);
+}
+
 static int
 create_cb_links(void)
 {
@@ -1817,13 +1838,21 @@ start_wan(void)
 					}
 				}
 				
-				/* re-build iptables rules (first stage w/o WAN IP) */
+				/* Rebuild required firewall policy before exposing the RAS client. */
 				vlan_result = start_firewall_ex();
 				modem_start_status = rc_first_service_start_status(
 					modem_start_status, vlan_result);
 				if (vlan_result != 0)
 					logmessage(LOGNAME, "USB modem RAS firewall startup incomplete (status=%d)",
 						   vlan_result);
+				if (!rc_wan_firewall_start_allows_protocol(vlan_result)) {
+					logmessage(LOGNAME, "aborting USB modem RAS startup for unit %d because the firewall rebuild failed (status=%d)",
+						   unit, vlan_result);
+					vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
+					modem_start_status = rc_first_service_start_status(
+						modem_start_status, vlan_result);
+					continue;
+				}
 				
 				vlan_result = launch_wan_modem_ras(unit);
 				modem_start_status = rc_first_service_start_status(
@@ -1884,11 +1913,19 @@ start_wan(void)
 				continue;
 			}
 			
-			/* re-build iptables rules (first stage w/o WAN IP) */
+			/* Rebuild required firewall policy before launching the PPP client. */
 			vlan_result = start_firewall_ex();
 			wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
 			if (vlan_result != 0)
 				logmessage(LOGNAME, "WAN PPP firewall startup incomplete (status=%d)", vlan_result);
+			if (!rc_wan_firewall_start_allows_protocol(vlan_result)) {
+				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d because the firewall rebuild failed (status=%d)",
+					   unit, vlan_result);
+				vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				continue;
+			}
 			
 			/* update demand option */
 			i_demand = get_wan_unit_value_int(unit, "pppoe_idletime");
@@ -1931,6 +1968,7 @@ start_wan(void)
 			 wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
 		{
 			int wan_auth_mode, wan_err = 0, wan_upnp_status, auth_status, dhcp_status;
+			int firewall_cleanup_status;
 			
 			/* Configure DHCP connection. */
 			vlan_result = check_upnp_wanif_changed(wan_ifname);
@@ -2001,11 +2039,34 @@ start_wan(void)
 				set_wan_unit_value_int(unit, "err", wan_err);
 			}
 			
-			/* re-build iptables rules (final stage for IPoE static) */
+			/* Rebuild required firewall policy before EAPOL, DHCP or route activation. */
 			vlan_result = start_firewall_ex();
 			wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
 			if (vlan_result != 0)
 				logmessage(LOGNAME, "WAN IPoE firewall startup incomplete (status=%d)", vlan_result);
+			if (!rc_wan_firewall_start_allows_protocol(vlan_result)) {
+				wan_err = 1;
+				logmessage(LOGNAME, "aborting WAN IPoE protocol startup on %s because the firewall rebuild failed (status=%d)",
+					   wan_ifname, vlan_result);
+				if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
+					firewall_cleanup_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
+					if (firewall_cleanup_status != 0) {
+						wan_start_status = rc_first_service_start_status(
+							wan_start_status, firewall_cleanup_status);
+						logmessage(LOGNAME, "failed to clear static WAN address after firewall failure on %s (status=%d); forcing interface down",
+							   wan_ifname, firewall_cleanup_status);
+						interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);
+						if (interface_cleanup_status != 0) {
+							wan_start_status = rc_first_service_start_status(
+								wan_start_status, interface_cleanup_status);
+							logmessage(LOGNAME, "failed to take static WAN interface %s down after firewall failure (status=%d)",
+								   wan_ifname, interface_cleanup_status);
+						}
+					}
+				}
+				set_wan_unit_value_int(unit, "err", 1);
+				continue;
+			}
 			
 			/* Start eapol authenticator */
 			wan_auth_mode = get_wan_unit_value_int(unit, "auth_mode");
