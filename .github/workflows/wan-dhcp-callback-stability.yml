@@ -507,8 +507,13 @@ jobs:
           assert stop_ipv6 < dhcp_release < viptv_release < dhcp_stop
           wan_down_internal = body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           wan6_down_call = wan_down_internal.index("ipv6_status = wan6_down(wan_ifname, unit);")
-          assert "return ipv6_status;" in wan_down_internal[wan6_down_call:]
-          assert wan_down_internal.index("return ipv6_status;", wan6_down_call) < wan_down_internal.index("del_dhcp_routes_by_prefix")
+          wan6_status_merge = "status = route_status_accumulate(status, ipv6_status);"
+          ipv4_teardown = "wan_proto = get_wan_proto(unit);"
+          assert wan6_status_merge in wan_down_internal
+          assert "if (ipv6_status != 0)" in wan_down_internal
+          assert "return ipv6_status;" not in wan_down_internal[wan6_down_call:]
+          assert wan_down_internal.index(wan6_status_merge, wan6_down_call) < wan_down_internal.index(ipv4_teardown)
+          assert "return status;" in wan_down_internal
 
           for case in (
               "test_strict_generation_parsing_and_interface_identity",

@@ -1,3 +1,11 @@
+## 2026-11-17 — Align WAN teardown regression with continued IPv4 cleanup
+
+- Parent main SHA: 510b0756a834f6cc97d2a257a06c4c0558b612a2; result: THIS COMMIT.
+- Exact-head WAN callback run 44107179918 failed in its inline static contract because it still required `wan_down_internal()` to immediately return the IPv6 teardown error. The source fix in 510b075 instead accumulates that error and deliberately continues independent IPv4 route, multicast, static-address, resolver and conntrack cleanup before returning the combined status.
+- Updated the regression to require the IPv6 error to be accumulated before entering IPv4 protocol cleanup, require that no early `return ipv6_status` remains, and preserve the final accumulated return. The prior failure was a stale assertion, not a test or runtime failure in the new cleanup path.
+- Exact-head process-lifecycle run 44107179477 and XY-C1 run 44107179452 were still in progress at checkpoint; exact-head WAN rerun pending. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Keep HTTPD DHCP contract aligned with kernel hostname error propagation
 
 - Parent main SHA: 158bd53e800104da692ab41e87b12eca85f3ecb9; result: THIS COMMIT.
