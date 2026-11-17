@@ -33,6 +33,7 @@
 #include "rc.h"
 #include "dnsmasq_domain_policy.h"
 #include "dhcp_lease_policy.h"
+#include "lan_dhcp_callback_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "switch.h"
@@ -1765,7 +1766,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	if (!is_renew)
 		restart_networkmap();
 
-	return hosts_status;
+	return lan_dhcp_bound_callback_status(0, hosts_status);
 }
 
 static int 

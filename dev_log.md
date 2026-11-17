@@ -1,3 +1,15 @@
+## 2026-11-17 — Keep committed LAN DHCP lease aligned with BusyBox
+
+- Parent main SHA: `d4f64127749f78e463bb82541e3e1b73fc5d4992`; result: THIS COMMIT.
+- Found a post-commit status inconsistency in `udhcpc_lan_bound()`: the core transaction had changed interface address, routes, resolver and temporary NVRAM lease fields, but a later `create_hosts_lan()` failure was returned as overall DHCP script failure.
+- BusyBox treats nonzero bound/renew script status as a rejected lease: initial acquisition retries without committing BOUND; renewal retains its previous lease deadline and charges callback runtime against it. This diverges from the router's already committed network state.
+- Host-file publication remains best-effort and its failure remains logged. The callback now returns only the core lease transaction result; core errors still return before NVRAM publication.
+- Added `lan_dhcp_callback_policy.h` and a GNU89 ASan/UBSan regression proving post-commit ancillary errors cannot reject a committed lease while core transaction errors remain fatal. Wired the regression and source-order/result assertions into the WAN DHCP callback workflow and both path filters.
+- Exact parent `d4f6412` HTTPD, Process, NVRAM, AliDDNS, infosvr, AdGuardHome, AliyunDrive and AI docs passed; XY-C1 `44099813116` was IN_PROGRESS at last poll. Exact-head WAN DHCP/XY-C1 pending.
+- Local host execution NOT RUN in connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Update MAN-down firewall notification source contract
 
 - Parent main SHA: `353776121c419780fea73d1e43bb7d7f3dcc3820`; result: THIS COMMIT.

@@ -35,6 +35,8 @@ on:
       - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/zcip.c"
       - 'trunk/user/rc/src/net_lan.c'
+      - "trunk/user/rc/src/lan_dhcp_callback_policy.h"
+      - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
   pull_request:
     paths:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
@@ -69,6 +71,9 @@ on:
       - "trunk/user/rc/src/tests/wan_viptv_static_policy.c"
       - "trunk/user/busybox/busybox-1.24.x/networking/zcip.c"
 
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/lan_dhcp_callback_policy.h"
+      - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
 jobs:
   wan-dhcp-callback:
     runs-on: ubuntu-latest
@@ -122,6 +127,14 @@ jobs:
             trunk/user/rc/src/tests/dhcp6c_callback_generation.c \
             -o /tmp/dhcp6c-callback-generation
           /tmp/dhcp6c-callback-generation
+      - name: Compile and run LAN DHCP post-commit callback status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/lan_dhcp_callback_policy.c \
+            -o /tmp/lan-dhcp-callback-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/lan-dhcp-callback-policy
       - name: Verify WAN callback applies interface before publishing lease state
         run: |
           python3 - <<'PY'
@@ -129,6 +142,9 @@ jobs:
 
           rc = Path("trunk/user/rc/src")
           source = (rc / "net_wan.c").read_text()
+          lan_source = (rc / "net_lan.c").read_text()
+          lan_callback_policy = (rc / "lan_dhcp_callback_policy.h").read_text()
+          lan_callback_test = (rc / "tests/lan_dhcp_callback_policy.c").read_text()
           wan6_source = (rc / "net_wan6.c").read_text()
           wan6_policy = (rc / "wan6_teardown_policy.h").read_text()
           wan6_test = (rc / "tests/wan6_teardown_policy.c").read_text()
@@ -998,6 +1014,18 @@ jobs:
           assert restore_call in ppp_failure
           assert ppp_failure.index(restore_call) < ppp_failure.index("continue;")
           assert "aborting WAN PPP startup for unit %d: physical WAN setup failed" in ppp_failure
+
+          lan_bound = body(lan_source, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
+          assert "status = dhcp_lease_bound_apply(" in lan_bound
+          assert lan_bound.index("if (status != 0)") < lan_bound.index('nvram_set_temp("lan_ipaddr_t", lease_ip)')
+          assert "hosts_status = create_hosts_lan(lease_ip, lease_domain);" in lan_bound
+          assert "LAN lease applied but hostname files could not be published" in lan_bound
+          assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in lan_bound
+          assert "return hosts_status;" not in lan_bound
+          assert "return transaction_status;" in lan_callback_policy
+          assert "(void)ancillary_status;" in lan_callback_policy
+          assert "test_successful_lease_commit_ignores_ancillary_hosts_failure" in lan_callback_test
+          assert "test_transaction_failure_remains_fatal" in lan_callback_test
 
           print("WAN DHCP callback ordering, rollback, launcher status and static-interface failure contracts: PASS")
           PY

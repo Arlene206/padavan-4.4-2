@@ -32,14 +32,14 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Active task
 
 1. Boot-environment baseline `10be37e50fbbd11c686593b0edd3863b31055b2e`; exact `4220420` HTTPD and XY-C1 Build/TRX/artifact passed.
-2. IAPP rollback source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`, caller-status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`, and test follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` / `55374c12e124711c0b789ffd8dc3f0767c3343cc`; IAPP source `a54c1b` passed XY-C1 Build/TRX/artifact `44092579822`.
-3. AliDDNS CA-gated boot startup `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`, test fixture repair `32e2eab9757261d458f7035a7d4215c5b5dc5e88`, checker alignment `d6c0a1aa92d7f1615576811e653703364ae3b27a`; exact AliDDNS/Process/NVRAM/AdGuardHome/infosvr/AI docs/AliyunDrive descendants passed.
-4. Dynamic MAN/WAN firewall refresh status is propagated by `notify_rc_status()` and `queue_wan_firewall_restart()`. Exact WAN route status `44098885494` and PID 1 notification queue regression `44098885415` on `3271640` PASS. Production notification queue owner defaults to uid 0.
-5. HTTPD umbrella run `44098885513` first exposed a stale queue-owner assertion, corrected in `353776121c419780fea73d1e43bb7d7f3dcc3820`. Its exact rerun `44099542600` advanced further: the DHCP input and LAN bound/renew contracts PASS, but failed the remaining old MAN-down assertion that still expected direct `notify_rc("restart_firewall_wan")`. The production callback now invokes `queue_wan_firewall_restart("MAN down")` and accumulates its status. THIS COMMIT updates that semantic assertion; the other remaining direct `notify_rc` references in the workflow concern unrelated mass-storage/DDNS/UI events and are intentionally unchanged.
-6. Exact XY-C1 run `44099542554` on `3537761` remained IN_PROGRESS at last poll. Require Build XY-C1, TRX verification and artifact upload.
+2. IAPP rollback source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`, caller-status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`, and regression follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` / `55374c12e124711c0b789ffd8dc3f0767c3343cc`; IAPP source `a54c1b` passed XY-C1 Build/TRX/artifact run `44092579822`.
+3. AliDDNS CA-gated startup `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`, fixture repair `32e2eab9757261d458f7035a7d4215c5b5dc5e88`, checker alignment `d6c0a1aa92d7f1615576811e653703364ae3b27a`; exact-head AliDDNS/Process/NVRAM/AdGuardHome/infosvr/AI docs/AliyunDrive descendants passed.
+4. Dynamic MAN/WAN firewall refresh status uses `notify_rc_status()` via `queue_wan_firewall_restart()`; exact WAN route and PID 1 queue regressions `44098885494` / `44098885415` passed on `3271640`.
+5. HTTPD stale queue-owner and MAN-down source contracts were corrected in `3537761` and `d4f6412`; exact HTTPD run `44099813166` passed. On `d4f6412`, Process, NVRAM, AliDDNS, infosvr, AdGuardHome, AliyunDrive and AI docs passed; XY-C1 run `44099813116` was IN_PROGRESS at last poll.
+6. THIS COMMIT fixes LAN DHCP post-commit status mismatch: after address/routes/resolver/NVRAM are committed, `create_hosts_lan()` is ancillary and its error is logged only. Returning it made BusyBox reject the event and retain an old internal lease despite the router already using the new lease. `lan_dhcp_bound_callback_status()` propagates core transaction errors but ignores post-commit ancillary failure; GNU89 ASan/UBSan regression and workflow source assertions pin this behavior.
 
 - Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Local host execution NOT RUN in this connector-only runtime; physical-router L4 NOT VERIFIED.
+- Local host execution NOT RUN in this connector-only runtime; exact-head WAN-DHCP/XY-C1 Actions pending. Physical-router L4 NOT VERIFIED.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -56,9 +56,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head HTTPD Authentication and Security Regression after this workflow correction. Its DHCP/route semantic assertions must require MAN-down to call the checked firewall-refresh helper and aggregate its result.
-2. Poll XY-C1 `44099542554` for exact `3537761`; require Build XY-C1, TRX verification and artifact upload. If the new workflow-only changes do not trigger a target rebuild, the source build at `3271640` still needs completion before claiming L3.
-3. If HTTPD passes, continue the known open LAN DHCP event-state semantics (leasefail/NAK/release/deconfig) only after refreshing current main and checking no newer handoff supersedes it.
+1. Verify exact-head WAN DHCP callback workflow for THIS COMMIT. Run `lan_dhcp_callback_policy.c` with GNU89/ASan/UBSan and source-check that core lease failure returns before NVRAM publication while post-commit hostname-file failure is logged and returns success to BusyBox.
+2. Poll d4 XY-C1 run `44099813116` and the new exact-head XY-C1 run; require Build XY-C1, TRX verification and artifact upload.
+3. If these checks pass, continue with an independent evidence-backed userland stability/security issue; do not repeat IAPP/AliDDNS/notifier audits.
 
 Local host execution NOT RUN; physical-router L4 NOT VERIFIED. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
 
