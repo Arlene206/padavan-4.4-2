@@ -144,8 +144,9 @@ rt_interface = function_body(wifi, "wireless_guest_rt_interface_ifname(void)")
 assert "return IFNAME_INIC_GUEST;" in rt_interface
 assert "return IFNAME_2G_GUEST;" in rt_interface
 boot_rollback = function_body(wifi, "wireless_guest_init_bridge_fail_closed(int rt_guest_was_up,")
-assert "wireless_guest_startup_rollback_candidate(rt_guest_was_up, rt_guest_start_attempted)" in boot_rollback
-assert "wireless_guest_startup_rollback_candidate(wl_guest_was_up, wl_guest_start_attempted)" in boot_rollback
+assert "wireless_guest_startup_rollback_candidate(" in boot_rollback
+assert "rt_guest_was_up, rt_guest_start_attempted" in boot_rollback
+assert "wl_guest_was_up, wl_guest_start_attempted" in boot_rollback
 assert "wireless_guest_rt_interface_ifname()" in boot_rollback
 assert "wireless_guest_rt_bridge_ifname(get_ap_mode())" in boot_rollback
 assert "restart_guest_lan_isolation()" in boot_rollback
@@ -182,13 +183,16 @@ assert "wl_guest_start_attempted = wl_radio_on != 0;" in init_bridge
 assert "rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);" in init_bridge
 assert "wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);" in init_bridge
 assert "wireless_guest_init_bridge_fail_closed(" in init_bridge
-snapshot_pos = init_bridge.index("rt_guest_was_up = wireless_guest_rt_guest_is_up();")
+rt_snapshot_pos = init_bridge.index(
+    "rt_guest_state_status = wireless_guest_rt_guest_is_up(&rt_guest_was_up);")
+wl_snapshot_pos = init_bridge.index(
+    "wl_guest_state_status = wireless_guest_wl_guest_is_up(&wl_guest_was_up);")
 rt_start_pos = init_bridge.index("rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);")
 wl_start_pos = init_bridge.index("wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);")
 isolation_pos = init_bridge.index("guest_isolation_status = restart_guest_lan_isolation();")
 rollback_pos = init_bridge.index("wireless_guest_init_bridge_fail_closed(")
-assert snapshot_pos < rt_start_pos < isolation_pos < rollback_pos
-assert snapshot_pos < wl_start_pos < isolation_pos < rollback_pos
+assert rt_snapshot_pos < rt_start_pos < isolation_pos < rollback_pos
+assert wl_snapshot_pos < wl_start_pos < isolation_pos < rollback_pos
 
 notification_body = function_body(rc_source, "handle_notifications(void)")
 for call in (

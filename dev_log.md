@@ -1,3 +1,13 @@
+## 2026-11-17 19:07:56 CST — Correct guest boot rollback checker formatting and snapshot-order contracts
+
+- Parent main SHA: `85062ff1a9a0d8b633d8c11b1d90cb7d6a18c2a7`; result: THIS COMMIT.
+- Exact-head Process run `44070663265` on source `1be4affc` compiled and passed the GNU89 ASan/UBSan wireless guest-isolation policy binary. The production checker then failed at line 147 because it expected a two-line C function call as one exact string; a second assertion still expected the previous no-argument link-state API.
+- Updated checker assertions to validate the multiline RT/WL rollback arguments and the current checked status-returning snapshot calls, while preserving ordering checks through isolation and rollback. No production source changed in this checker-only repair.
+- AI handoff documentation run `44070663411` passed on `85062ff1` after restoring the 117-entry archive; `dev_log.md` remains append-only and retains its complete prior history.
+- Exact-head Process/Wireless reruns and XY-C1 current-source build need checking after this commit; physical router L4 remains NOT VERIFIED.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
 ## 2026-11-17 19:04:15 CST — Restore append-only development log archive
 
 - Parent main SHA: 1be4affc0b533639d604515b0d0b98545dcdb02f; result: THIS COMMIT.
