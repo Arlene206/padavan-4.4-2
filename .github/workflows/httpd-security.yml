@@ -13,6 +13,8 @@ on:
       - "trunk/user/rc/src/sfe_config_policy.h"
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/lan_kernel_name_policy.h"
+      - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -272,6 +274,8 @@ on:
       - "trunk/user/rc/src/sfe_config_policy.h"
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/lan_kernel_name_policy.h"
+      - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -2337,6 +2341,8 @@ jobs:
           lan = (root / "net_lan.c").read_text()
           domain_policy = (root / "dnsmasq_domain_policy.h").read_text()
           dnsmasq_file = (root / "dnsmasq_file.h").read_text()
+          kernel_name_policy = (root / "lan_kernel_name_policy.h").read_text()
+          kernel_name_test = (root / "tests/lan_kernel_name_policy.c").read_text()
           policy = (root / "dhcp_lease_policy.h").read_text()
           test = (root / "tests/dhcp_lease_policy.c").read_text()
           lan_callback_policy = (root / "lan_dhcp_callback_policy.h").read_text()
@@ -2434,7 +2440,7 @@ jobs:
           assert 'hosts_lock = dnsmasq_lifecycle_lock_acquire_path(' in hosts_writer
           assert 'DNSMASQ_HOSTNAME_LOCK_FILE' in hosts_writer
           assert 'dnsmasq_lifecycle_lock_release(hosts_lock)' in hosts_writer
-          assert hosts_writer.index('hosts_lock = dnsmasq_lifecycle_lock_acquire_path(') < hosts_writer.index('dnsmasq_file_publish_pair(') < hosts_writer.index("sethostname(lan_hname")
+          assert hosts_writer.index('hosts_lock = dnsmasq_lifecycle_lock_acquire_path(') < hosts_writer.index('dnsmasq_file_publish_pair(') < hosts_writer.index("lan_kernel_names_apply(")
           assert "dnsmasq_file_discard(hostname_temp)" in hosts_writer
           assert "dnsmasq_file_discard(hosts_temp)" in hosts_writer
           assert 'fopen("/etc/hostname", "w+")' not in hosts_writer
@@ -2449,6 +2455,10 @@ jobs:
           assert dhcpd_notify.index("hosts_status = update_hosts_ap()") < dhcpd_notify.index("if (hosts_status == 0)") < dhcpd_notify.index("restart_dhcpd()")
           assert "rc_notify_merge_action_result(action_result, hosts_status)" in dhcpd_notify
           assert "dhcp_lease_deconfig_status" in test
+          assert "lan_kernel_names_apply" in kernel_name_policy
+          assert "return first_status;" in kernel_name_policy
+          assert "test_hostname_failure_does_not_skip_domain_update" in kernel_name_test
+          assert "test_domain_failure_is_reported_after_hostname_update" in kernel_name_test
 
           lan_down_start = lan.index("lan_down_auto(char *lan_ifname)")
           lan_down_end = lan.index("void \nupdate_lan_status", lan_down_start)

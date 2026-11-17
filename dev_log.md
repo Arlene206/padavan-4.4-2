@@ -1,3 +1,11 @@
+## 2026-11-17 — Keep HTTPD DHCP contract aligned with kernel hostname error propagation
+
+- Parent main SHA: 158bd53e800104da692ab41e87b12eca85f3ecb9; result: THIS COMMIT.
+- Exact-head WAN DHCP callback run 44105702632 passed, including DHCPv6 DNS withdrawal and LAN kernel hostname/domain tests. HTTPD run 44105702667 exposed a stale inline assertion still requiring `sethostname(lan_hname)` directly inside `create_hosts_lan()` after that call was correctly moved behind the injectable `lan_kernel_names_apply()` policy.
+- Updated the HTTPD source contract to verify the pair publish precedes the policy call, both syscall adapters are present, and regression cases cover each setter failure; added the helper/test to the HTTPD workflow path filters. Production C source is unchanged by this follow-up.
+- Exact-head XY-C1 run 44105702953 remains in progress at the BusyBox cache setup step; Build/TRX/artifact results are pending. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Clear withdrawn DHCPv6 automatic DNS servers
 
 - Parent main SHA: 357347eaf5085869a80d83a7c075970affb9c073; result: THIS COMMIT.
