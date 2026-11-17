@@ -431,6 +431,11 @@ jobs:
           native_failure = wan6_up[wan6_up.index("native_failed:"):]
           assert "return operation_status;" in native_failure
           assert native_failure.index("return operation_status;") < native_failure.index("if (radv_touched)")
+          assert "if (routes_touched || addresses_touched)" in native_failure
+          native_route_cleanup = native_failure.index("operation_status = clear_if_route6(wan_ifname);")
+          native_neigh_cleanup = native_failure.index("operation_status = clear_if_neigh6(wan_ifname);")
+          native_addr_cleanup = native_failure.index("operation_status = clear_if_addr6(wan_ifname);")
+          assert native_route_cleanup < native_neigh_cleanup < native_addr_cleanup
           wan6_down = body(wan6_source, "int wan6_down(char *wan_ifname, int unit)")
           assert wan6_down.index("stop_status = stop_dhcp6c();") < wan6_down.index('previous_ifname = get_wan_unit_value(unit, "ifname6");')
           assert "if (ipv6_type == IPV6_DISABLED)" not in wan6_down
@@ -598,22 +603,25 @@ jobs:
           assert "int control_if_ipv6_autoconf(const char *ifname, int enable);" in rc_header
           assert "int clear_if_route6(char *ifname);" in rc_header
           assert "int clear_if_addr6(char *ifname);" in rc_header
+          assert "int clear_if_neigh6(char *ifname);" in rc_header
 
           teardown_ops = (
               "operation_status = control_if_ipv6_radv(wan_ifname, 0);",
               "operation_status = control_if_ipv6_autoconf(wan_ifname, 0);",
               'operation_status = eval("ip", "link", "set", "dev", IFNAME_SIT, "down");',
               "operation_status = clear_if_route6(wan6_ifname);",
+              "operation_status = clear_if_neigh6(wan6_ifname);",
               "operation_status = clear_if_addr6(wan6_ifname);",
               "operation_status = stop_sit_tunnel();",
           )
           teardown_positions = [wan6_down.index(item) for item in teardown_ops]
           assert teardown_positions == sorted(teardown_positions)
-          assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 8
+          assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 9
           previous_interface = wan6_down.index("wan6_ifname = wan6_teardown_select_ifname(")
           clear_routes = wan6_down.index("operation_status = clear_if_route6(wan6_ifname);")
+          clear_neigh = wan6_down.index("operation_status = clear_if_neigh6(wan6_ifname);")
           clear_addresses = wan6_down.index("operation_status = clear_if_addr6(wan6_ifname);")
-          assert previous_interface < clear_routes < clear_addresses
+          assert previous_interface < clear_routes < clear_neigh < clear_addresses
           assert "wan6_ifname = wan_ifname;" not in wan6_down
           dns_gate = wan6_down.index("if (status == 0)")
           dns_clear = wan6_down.index('set_wan_unit_value(unit, "dns6", "");', dns_gate)

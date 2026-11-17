@@ -455,6 +455,20 @@ assert sit_start.index("snprintf(sit_mtu_text") < sit_start.index("WAN6_SIT_CHEC
 assert sit_start.index("snprintf(sit_ttl_text") < sit_start.index("WAN6_SIT_CHECK(")
 assert 'cleanup_status = eval("ip", "link", "set", "dev", IFNAME_SIT, "down");' in sit_start
 assert 'operation_status = eval("ip", "link", "set", "dev", IFNAME_SIT, "down");' in wan6_down
+assert 'int clear_if_neigh6(char *ifname);' in HEADER
+native_failed = native_start[native_start.index("native_failed:"):]
+assert "if (routes_touched || addresses_touched)" in native_failed
+assert "operation_status = clear_if_neigh6(wan_ifname);" in native_failed
+native_route_cleanup = native_failed.index("operation_status = clear_if_route6(wan_ifname);")
+native_neigh_cleanup = native_failed.index("operation_status = clear_if_neigh6(wan_ifname);")
+native_addr_cleanup = native_failed.index("operation_status = clear_if_addr6(wan_ifname);")
+assert native_route_cleanup < native_neigh_cleanup < native_addr_cleanup
+assert "operation_status = clear_if_neigh6(wan6_ifname);" in wan6_down
+wan_route_cleanup = wan6_down.index("operation_status = clear_if_route6(wan6_ifname);")
+wan_neigh_cleanup = wan6_down.index("operation_status = clear_if_neigh6(wan6_ifname);")
+wan_addr_cleanup = wan6_down.index("operation_status = clear_if_addr6(wan6_ifname);")
+assert wan_route_cleanup < wan_neigh_cleanup < wan_addr_cleanup
+assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 9
 assert 'return eval("ip", "tunnel", "del", IFNAME_SIT);' in stop_sit
 
 for signature in (

@@ -772,6 +772,12 @@ native_failed:
 			logmessage("WAN IPv6", "failed to clear partially configured routes (status=%d)",
 				   operation_status);
 	}
+	if (routes_touched || addresses_touched) {
+		operation_status = clear_if_neigh6(wan_ifname);
+		if (operation_status != 0)
+			logmessage("WAN IPv6", "failed to clear partially configured neighbours (status=%d)",
+				   operation_status);
+	}
 	if (addresses_touched) {
 		operation_status = clear_if_addr6(wan_ifname);
 		if (operation_status != 0)
@@ -860,6 +866,12 @@ int wan6_down(char *wan_ifname, int unit)
 	status = route_status_accumulate(status, operation_status);
 	if (operation_status != 0)
 		logmessage("WAN IPv6", "failed to clear routes on %s (status=%d)",
+			   wan6_ifname, operation_status);
+
+	operation_status = clear_if_neigh6(wan6_ifname);
+	status = route_status_accumulate(status, operation_status);
+	if (operation_status != 0)
+		logmessage("WAN IPv6", "failed to clear neighbour entries on %s (status=%d)",
 			   wan6_ifname, operation_status);
 
 	operation_status = clear_if_addr6(wan6_ifname);

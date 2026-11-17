@@ -1,3 +1,13 @@
+## 2026-11-17 — Flush stale IPv6 neighbour entries during WAN cleanup
+
+- Predecessor `f87343b7e7a2da599c16baf1192ec1561dc44a9b` subsequently completed XY-C1 Build, TRX verification and artifact upload successfully on the same SHA (run `43992613368`, job `133736749350`); product-source MIPS/uClibc L3 is VERIFIED for that baseline.
+- Parent `79ba2d6f818d0cb541032b3440834b883b1e531d` extends the xl2tpd lifecycle repair by accepting the already-running daemon sentinel during VPN server restore; exact-head Actions were pending at last poll.
+- Review of `wan6_down()` found that interface-scoped IPv6 route/address flushes left the IPv6 neighbour cache untouched on a still-live native WAN interface. Native startup rollback had the same omission when undoing route/address side effects.
+- Added `clear_if_neigh6()` to native rollback when route or address side effects occurred, and to normal WAN teardown between route and address flushes. Teardown accumulates neighbour-flush status, logs failures and retains saved IPv6 WAN state when cleanup is incomplete.
+- Extended shared source contracts plus WAN DHCP callback and WAN route ordering tests to assert both paths and preserve route → neighbour → address order. Exact-head validation and a same-SHA XY-C1 build are pending this commit.
+
+---
+
 ## 2026-11-16 — Accept an already-running xl2tpd during VPN server restore
 
 - Base main SHA: `b9850f9917a6eb77b7c6d021abe75c88b4ca444c`; result: THIS COMMIT.

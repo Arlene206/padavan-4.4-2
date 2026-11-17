@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- PPP/L2TP arguments use argv-based `eval()`; xl2tpd presence and launch results have separate normalized states: 1 = already running, 0 = successfully launched, -1 = failure/unknown. Nonzero child exit statuses cannot collide with the running sentinel; WAN launch treats an already-running shared daemon as success.
-- The remaining VPN server restoration caller bug is fixed: after server restart may have started shared xl2tpd, a follow-up presence check returning 1 is success. Only negative restore status is a failure.
-- Exact parent `b9850f9`: VPN lifecycle, AI handoff, infosvr, WAN DHCP, Process inventory, process lifecycle, HTTPD, WAN route, AliDDNS, AliyunDrive and AdGuardHome PASS. XY-C1 `43993836487` was at Build and NVRAM `43993837253` was still auditing raw ioctl callers. This restore-gate follow-up needs its own exact-head checks and product-source build.
-- Current-source MIPS/uClibc L3 and physical-router L4 remain NOT VERIFIED; frozen backup remains read-only.
+- PPP/L2TP arguments use argv-based `eval()`; xl2tpd launch results distinguish already-running, successfully launched and failure/unknown states. The VPN restore caller treats only negative status as failure, accepting the valid already-running sentinel.
+- Exact parent `79ba2d6` carries the xl2tpd result normalization and VPN restore correction. Its VPN, AI handoff, Firewall, HTTPD, infosvr, AdGuardHome, AliyunDrive, Process, AliDDNS, process fail-closed, OpenVPN credential, NVRAM and XY-C1 workflows had started and were pending at last poll.
+- This slice adds neighbour-cache flushes to native rollback and WAN teardown between route/address cleanup, preserves first-error status and adds shared/DHCP/route source-order regressions. Exact-head validation is pending.
+- Product-source L3 is verified on predecessor `f87343b` only; current source requires same-SHA Build/TRX/artifact. Physical-router L4 remains NOT VERIFIED; backup is frozen.
 
 ## Whole-repository module status
 

@@ -666,9 +666,10 @@ jobs:
           assert "if (ipv6_type == IPV6_DISABLED)" not in wan6_down
           select_at = wan6_down.index("wan6_teardown_select_ifname(")
           flush_at = wan6_down.index("clear_if_route6(wan6_ifname)")
+          neigh_at = wan6_down.index("clear_if_neigh6(wan6_ifname)")
           addr_at = wan6_down.index("clear_if_addr6(wan6_ifname)")
           sit_stop_at = wan6_down.index("stop_sit_tunnel()")
-          assert select_at < flush_at < addr_at < sit_stop_at
+          assert select_at < flush_at < neigh_at < addr_at < sit_stop_at
           assert "if (!wan6_ifname)" in wan6_down
           assert 'set_wan_unit_value(unit, "dns6", "");' in wan6_down
           assert 'set_wan_unit_value(unit, "ifname6", "");' in wan6_down

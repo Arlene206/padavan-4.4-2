@@ -1,35 +1,32 @@
 # Cross-session execution mandate
 
-Every session must inspect live repository state before ending or handing off. Confirm main/source baseline, exact-head Actions, validation boundary, blockers, frozen backup, and the precise next action. Do not make no-op checkpoint commits.
+Every session must inspect live repository state before ending or handing off. Confirm the main/source baseline, exact-head Actions, validation boundary, blockers, frozen backup and precise next action. Do not create no-op checkpoint commits.
+
+Continue one engineering effort across GPT conversations: avoid repeating completed audits, do not wait on pending CI when independent work is available, and do not ask the user what to do next. Finish safe slices, add regression coverage, inspect exact-SHA Actions, commit atomically and preserve the next task.
 
 Every logical multi-file change must be published as one complete Git tree and one atomic main commit, parented to freshly fetched main and pushed with a non-forced expected-SHA compare-and-swap. Never force-push, create a development branch/PR, or modify the frozen backup.
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current source baseline before the restore-status correction: `b9850f9917a6eb77b7c6d021abe75c88b4ca444c`.
-- PPP/L2TP command arguments use argv-based `eval()`; `safe_start_xl2tpd_locked()` now normalizes all nonzero command exit statuses to -1, returns 0 after a successful launch, and 1 only when a complete inventory proves xl2tpd is already running. WAN PPP launch accepts that already-running result.
-- This follow-up fixes a remaining caller inconsistency: `restart_vpn_server()` must treat only negative xl2tpd restore status as failure. The completed server-start path can already have relaunched the shared daemon, so the subsequent restoration check can validly return 1.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-
-## Exact-base Actions on b9850f9917a6eb77b7c6d021abe75c88b4ca444c
-
-PASS: VPN lifecycle `43993836496`, AI handoff `43993836752`, infosvr `43993836668`, WAN DHCP `43993836575`, standalone process inventory `43993836554`, AliyunDrive `43993836669`, HTTPD `43993836692`, WAN route `43993836463`, Process lifecycle `43993836708`, AdGuardHome `43993836497`, and AliDDNS `43993836617`.
-
-PENDING when last checked: XY-C1 `43993836487` was on `Build XY-C1`; NVRAM audit `43993837253` was on raw userland ioctl/kernel NVRAM caller review. Both runs are pinned to the exact base SHA.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current source parent for the IPv6 neighbour-cleanup slice: `79ba2d6f818d0cb541032b3440834b883b1e531d`.
+- IPv6 per-interface route/address/neighbour cleanup uses argv-based `eval()`. This slice adds neighbour flushing during native startup rollback when route/address side effects occurred, and during normal WAN teardown between route and address cleanup. Teardown neighbour failures are logged and included in first-error aggregation, preventing saved WAN IPv6 state from being cleared after incomplete cleanup.
+- PPP probe/custom WAN hook operands in `net_wan.c`, L2TP/mwan process launches in `net_ppp.c`, and SIT/native WAN IPv6 tunnel/route operations use argv-based `eval()`; PPP lifecycle locks and DHCPv6 callback-generation fencing remain.
+- Exact-head parent `79ba2d6f818d0cb541032b3440834b883b1e531d` Actions were in progress for VPN, AI handoff, Firewall, HTTPD, infosvr, AdGuardHome, AliyunDrive, Process, AliDDNS, OpenVPN credential, NVRAM and XY-C1 when this slice began. Parent `b9850f9917a6eb77b7c6d021abe75c88b4ca444c` passed VPN lifecycle, AI handoff, infosvr, WAN DHCP, Process inventory, AliyunDrive, HTTPD, WAN route, AdGuardHome, AliDDNS and Process fail-closed checks; NVRAM and XY-C1 were pending.
+- Same-SHA product build L3 is verified for predecessor `f87343b7e7a2da599c16baf1192ec1561dc44a9b`: XY-C1 Build, TRX verification and artifact upload all PASS (run `43992613368`, job `133736749350`). Later source SHAs require their own full Build/TRX/artifact verification. Physical-router L4 remains NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Verify the restore-status gate correction on its exact new main SHA. Confirm that VPN lifecycle and the source-contract regression pass. Inspect XY-C1 Build, TRX verification and artifact upload together on one SHA, plus the NVRAM audit result.
+Run exact-head WAN DHCP, WAN route, Process, Firewall and XY-C1 Actions for the neighbour-cleanup commit. Inspect the first causal failure from its job log; fix it before interpreting dependent checks. Verify same-SHA firmware Build/TRX/artifact.
 
 ## Verification boundary
 
-- On base b985, the VPN lifecycle workflow including xl2tpd policy regression and source checker passed; the restore-callsite correction in this follow-up is not yet tested on its own SHA.
-- Current-source MIPS/uClibc L3 (Build, TRX and artifact upload) is **NOT VERIFIED** until the new commit's XY-C1 workflow completes all levels.
-- Physical-router L4 remains **NOT VERIFIED**.
+- Predecessor `f87343b7e7a2da599c16baf1192ec1561dc44a9b` has product-source MIPS/uClibc L3 VERIFIED.
+- The xl2tpd result normalization and VPN restore-sentinel correction are present on parent `79ba2d6f818d0cb541032b3440834b883b1e531d`; its exact-head Actions were in progress. The new IPv6 neighbour-cleanup source/tests and target build require new exact-SHA verification.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch `/actions/runs?head_sha=<live main SHA>`; verify VPN lifecycle and all affected exact-head checks. Fix any first causal failure from its job log.
-2. Confirm same-SHA XY-C1 Build, TRX validation and artifact upload. If still pending, continue safe independent source work.
-3. Resume the next highest-priority unverified stability/security module after this PPP/L2TP lifecycle slice is closed. Do not repeat completed argv/xl2tpd audits.
-4. Keep the frozen backup unchanged and use a single complete tree/commit with a non-forced expected-SHA update.
+1. Fetch exact-head Actions for current main, especially WAN DHCP, WAN route, Process, Firewall, VPN and XY-C1. Fix the first causal regression from the specific job log.
+2. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload. Continue safe PPP/L2TP teardown review while builds are pending.
+3. Keep backup frozen and developer-log history intact; use one complete Git tree and non-forced expected-SHA main updates.
