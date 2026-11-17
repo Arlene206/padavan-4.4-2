@@ -1,12 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS WAN post-down hook status slice: `2a98a8303c26414a8f5084b78f1642ea282d164c`.
-- Static IPoE address cleanup source `93c8ab7`: WAN route `44198950271` PASS and AI docs `44198949896` PASS; exact XY-C1 `44198950404` remained in Build at last poll.
-- Optional WAN-up hook source `2a98a83`: WAN route `44200079558` PASS and AI docs `44200079479` PASS; exact XY-C1 `44200079523` remained in Build at last poll. Factory-reset exact XY-C1 `44197454090` on `0d58928e` passed Build/TRX/artifact.
-- THIS slice captures/logs/aggregates nonzero `SCRIPT_POST_WAN` down-hook status while still running later PPPoE-MWAN reconfiguration. GNU89 first-error/later-action regression and source-order contract added; exact-head CI pending.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Parent main before THIS Ralink IAPP lifecycle slice: `b4ffae1ce9eae0f05f07bdcd9ed488ac38e101c0`; immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Factory-reset exact XY-C1 `44197454090` on `0d58928e`: SUCCESS, Build/TRX/artifact all passed.
+- Exact current source SHA `2a98a830`: WAN teardown `44200079921`, WAN ARP `44200079811`, AdGuardHome `44200079919`, AI docs `44200079479`, infosvr `44200079580`, USB modem `44200079615`, VPN server `44200079546`, WAN DHCP `44200079468`, detect_internet `44200079791`, ZeroTier `44200079778`, Process `44200079549`, DNSMasq `44200079712`, detect_link `44200079897`, MiniUPnP `44200079805`, WAN route `44200079558`, AliDDNS `44200079513`, Wireless `44200079559`, AliyunDrive `44200079775`, HTTPD security `44200079499`, Firewall Startup `44200079836`, Process inventory `44200079659` PASS; NVRAM `44200079736` and XY-C1 `44200079523` were IN_PROGRESS.
+- New P1: Ralink IAPP launcher left TCP/UDP 3517 INPUT allow rules installed after daemon stop. THIS slice gives only its own rules ownership tags and safely reconciles them at start/stop; tests prove foreign untagged rules are retained.
+- Exact-head IAPP and XY-C1 validation for THIS commit pending. Physical-router L4 NOT VERIFIED.
 
-Next: inspect exact-head WAN/AI/XY-C1 Actions for THIS post-down hook slice and continue independent P1 work.
+Next: verify IAPP lifecycle regression and XY-C1 Build/TRX/artifact for THIS commit; close any NVRAM run and continue independent P1 work.
 
 ---
 

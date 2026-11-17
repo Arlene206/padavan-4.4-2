@@ -31,7 +31,24 @@ case "$name" in
          [ "$append_count" -eq "$MOCK_IPTABLES_FAIL_AT" ]; then
         exit "$MOCK_IPTABLES"
       fi
+      shift
+      printf '%s\n' "-A $*" >> "$RULES_FILE"
+      exit 0
     fi
+    if [ "$1" = "-D" ]; then
+      [ "$MOCK_IPTABLES_DELETE" -eq 0 ] || exit "$MOCK_IPTABLES_DELETE"
+      shift
+      target="-A"
+      for arg in "$@"; do target="$target $arg"; done
+      awk -v target="$target" 'BEGIN { removed=0 } $0 == target && !removed { removed=1; next } { print } END { if (!removed) exit 1 }' "$RULES_FILE" > "$RULES_FILE.tmp" || exit 93
+      mv "$RULES_FILE.tmp" "$RULES_FILE" || exit 94
+      exit 0
+    fi
+    exit 0 ;;
+  iptables-save)
+    [ "$MOCK_IPTABLES_SAVE" -eq 0 ] || exit "$MOCK_IPTABLES_SAVE"
+    [ "$1" = "-t" ] && [ "$2" = "filter" ] || exit 95
+    cat "$RULES_FILE"
     exit 0 ;;
   killall)
     [ "$MOCK_KILLALL" -eq 0 ] && [ "$MOCK_REMOVE" -eq 1 ] && rm -f "$STATE_DIR/daemon"
@@ -41,17 +58,18 @@ case "$name" in
 esac
 EOF
 chmod +x "$tmp/mock"
-for c in pidof ralinkiappd sysctl iptables killall sleep logger; do ln -s "$tmp/mock" "$tmp/bin/$c"; done
+for c in pidof ralinkiappd sysctl iptables iptables-save killall sleep logger; do ln -s "$tmp/mock" "$tmp/bin/$c"; done
 ln -s /bin/grep "$tmp/bin/grep"
 ln -s "$tmp/bin/logger" "$tmp/no-pidof/logger"
-export PATH="$tmp/bin:$PATH" STATE_DIR="$tmp/state" COMMAND_LOG="$tmp/commands" DAEMON_LOG="$tmp/daemon"
-export MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_KILLALL=0 MOCK_REMOVE=1
+export PATH="$tmp/bin:$PATH" STATE_DIR="$tmp/state" COMMAND_LOG="$tmp/commands" DAEMON_LOG="$tmp/daemon" RULES_FILE="$tmp/state/firewall.rules"
+: > "$RULES_FILE"
+export MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILLALL=0 MOCK_REMOVE=1
 export IAPPD_PROC_MODULES="$tmp/modules" IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
 fail() { echo "$*" >&2; exit 1; }
 status() { [ "$1" -eq "$2" ] || fail "expected $2, got $1"; }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
-reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
+reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; : > "$RULES_FILE"; MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_IPTABLES_DELETE=0 MOCK_IPTABLES_SAVE=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
 
 reset
 rc=$(capture_status env PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" start)
@@ -108,10 +126,45 @@ reset
 rc=$(capture_status run start); status "$rc" 0
 [ -f "$STATE_DIR/daemon" ] || fail "start did not create daemon marker"
 grep -Fq -- "-wi rai0 -d 0" "$DAEMON_LOG" || fail "wrong radio arguments"
-[ "$(grep -c "^iptables " "$COMMAND_LOG")" -eq 2 ] || fail "missing firewall rules"
+[ "$(grep -c "^iptables -A " "$COMMAND_LOG")" -eq 2 ] || fail "missing firewall rules"
+[ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 2 ] || fail "missing tagged firewall ownership rules"
 count=$(grep -c "^ralinkiappd " "$COMMAND_LOG")
 rc=$(capture_status run start); status "$rc" 0
 [ "$(grep -c "^ralinkiappd " "$COMMAND_LOG")" -eq "$count" ] || fail "duplicate start"
+rc=$(capture_status run stop); status "$rc" 0
+[ ! -s "$RULES_FILE" ] || fail "normal stop left owned firewall rules"
+[ "$(grep -c "^iptables -D " "$COMMAND_LOG")" -eq 2 ] || fail "normal stop did not delete both owned rules"
+
+# A stop with no daemon also reconciles stale IAPP-owned rules but preserves
+# administrator rules with the same protocol/port tuple and no ownership tag.
+reset
+printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -j ACCEPT' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' '-A INPUT -i br0 -p udp --dport 3517 -m comment --comment ralinkiappd-udp -j ACCEPT' > "$RULES_FILE"
+rc=$(capture_status run stop); status "$rc" 0
+[ "$(wc -l < "$RULES_FILE" | tr -d ' ')" -eq 1 ] || fail "stop removed an unowned rule or retained owned rules"
+grep -Fq -- '-A INPUT -i br0 -p tcp --dport 3517 -j ACCEPT' "$RULES_FILE" || fail "untagged administrator rule was removed"
+
+# Startup cleans a stale owned tag before publishing the current two rules.
+reset
+printf '%s\n' '-A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT' > "$RULES_FILE"
+rc=$(capture_status run start); status "$rc" 0
+[ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 2 ] || fail "start failed to replace stale tagged rules"
+[ "$(grep -c "^iptables -D " "$COMMAND_LOG")" -eq 1 ] || fail "start did not delete the stale tagged rule"
+
+# Restart must not accumulate duplicate firewall rules.
+reset; rc=$(capture_status run start); status "$rc" 0
+rc=$(capture_status run restart); status "$rc" 0
+[ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 2 ] || fail "restart accumulated duplicate tagged rules"
+
+# A cleanup error is surfaced after the daemon is confirmed stopped. A later
+# stop can retry cleanup without leaving a daemon behind.
+reset; rc=$(capture_status run start); status "$rc" 0
+MOCK_IPTABLES_DELETE=55
+rc=$(capture_status run stop); status "$rc" 55
+[ ! -f "$STATE_DIR/daemon" ] || fail "firewall cleanup failure left daemon running"
+[ "$(grep -c "ralinkiappd-" "$RULES_FILE")" -eq 2 ] || fail "failed deletion did not preserve remaining rules"
+MOCK_IPTABLES_DELETE=0
+rc=$(capture_status run stop); status "$rc" 0
+[ ! -s "$RULES_FILE" ] || fail "subsequent stop did not finish firewall cleanup"
 
 reset; MOCK_IPTABLES=42; MOCK_IPTABLES_FAIL_AT=1
 rc=$(capture_status run start); status "$rc" 42

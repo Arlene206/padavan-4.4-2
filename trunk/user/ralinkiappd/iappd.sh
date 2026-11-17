@@ -4,6 +4,66 @@ proc_modules=${IAPPD_PROC_MODULES:-/proc/modules}
 proc_interrupts=${IAPPD_PROC_INTERRUPTS:-/proc/interrupts}
 log_iapp() { logger -t iappd "$1"; }
 
+iapp_remove_firewall_rule() {
+  local proto tag rules rc attempts
+  proto="$1"
+  case "$proto" in tcp|udp) ;; *) return 2 ;; esac
+  tag="ralinkiappd-$proto"
+  attempts=0
+
+  command -v iptables-save >/dev/null 2>&1 || {
+    log_iapp "iptables-save unavailable; cannot verify $tag cleanup"
+    return 127
+  }
+  command -v iptables >/dev/null 2>&1 || {
+    log_iapp "iptables unavailable; cannot remove $tag"
+    return 127
+  }
+
+  while [ "$attempts" -lt 8 ]; do
+    rules=$(iptables-save -t filter) || {
+      rc=$?
+      log_iapp "cannot inspect filter rules before removing $tag (status=$rc)"
+      return "$rc"
+    }
+    case "$rules" in
+      *"$tag"*) ;;
+      *) return 0 ;;
+    esac
+    iptables -D INPUT -i br0 -p "$proto" --dport 3517 \
+      -m comment --comment "$tag" -j ACCEPT || {
+      rc=$?
+      log_iapp "failed to remove $tag firewall rule (status=$rc)"
+      return "$rc"
+    }
+    attempts=$((attempts + 1))
+  done
+
+  rules=$(iptables-save -t filter) || {
+    rc=$?
+    log_iapp "cannot verify bounded $tag cleanup (status=$rc)"
+    return "$rc"
+  }
+  case "$rules" in
+    *"$tag"*) log_iapp "too many duplicate $tag rules; cleanup stopped"; return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+iapp_remove_firewall_rules() {
+  local status rc
+  status=0
+  iapp_remove_firewall_rule tcp || {
+    rc=$?
+    [ "$status" -ne 0 ] || status="$rc"
+  }
+  iapp_remove_firewall_rule udp || {
+    rc=$?
+    [ "$status" -ne 0 ] || status="$rc"
+  }
+  return "$status"
+}
+
 process_state() {
   command -v pidof >/dev/null 2>&1 || { log_iapp "pidof unavailable"; return 127; }
   pidof ralinkiappd >/dev/null 2>&1; rc=$?
@@ -36,9 +96,11 @@ wait_stopped() {
 start() {
   process_state; rc=$?
   case "$rc" in 0) log_iapp "already running; duplicate start skipped"; return 0 ;; 1) ;; *) return "$rc" ;; esac
-  for cmd in grep ralinkiappd iptables; do
+  for cmd in grep ralinkiappd iptables iptables-save; do
     command -v "$cmd" >/dev/null 2>&1 || { log_iapp "required command unavailable: $cmd"; return 127; }
   done
+  # Remove stale rules from a previous crash before publishing a new daemon.
+  iapp_remove_firewall_rules || return $?
   if grep -q mt76x3_ap "$proc_modules"; then
     radio=rai0; set -- -wi rai0 -d 0
   elif grep -q rai0 "$proc_interrupts"; then
@@ -47,8 +109,6 @@ start() {
     radio=rax0; set -- -wi rax0 -wi ra0 -d 0
   fi
   # The C daemon forks its own child; foreground invocation exposes fork errors.
-  iappd_tcp_rule_added=0
-  iappd_udp_rule_added=0
   ralinkiappd "$@" || {
     rc=$?
     log_iapp "launcher failed (status=$rc)"
@@ -66,34 +126,60 @@ start() {
       sysctl -wq "$setting" || log_iapp "sysctl update failed: $setting"
     done
   else log_iapp "sysctl unavailable; neighbor timing not updated"; fi
-  iptables -A INPUT -i br0 -p tcp --dport 3517 -j ACCEPT || {
+  iptables -A INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT || {
     rc=$?
     log_iapp "TCP firewall rule failed (status=$rc)"
     rollback_start_failure "$rc"
     return $?
   }
-  iappd_tcp_rule_added=1
-  iptables -A INPUT -i br0 -p udp --dport 3517 -j ACCEPT || {
+  iptables -A INPUT -i br0 -p udp --dport 3517 -m comment --comment ralinkiappd-udp -j ACCEPT || {
     rc=$?
     log_iapp "UDP firewall rule failed (status=$rc)"
     rollback_start_failure "$rc"
     return $?
   }
-  iappd_udp_rule_added=1
   return 0
 }
 
 stop() {
   process_state; rc=$?
-  case "$rc" in 1) return 0 ;; 0) ;; *) return "$rc" ;; esac
+  case "$rc" in
+    1) iapp_remove_firewall_rules; return $? ;;
+    0) ;;
+    *) return "$rc" ;;
+  esac
   command -v killall >/dev/null 2>&1 || { log_iapp "killall unavailable"; return 127; }
-  killall -q ralinkiappd || { stop_rc=$?; process_state; state=$?; [ "$state" -eq 1 ] && return 0; log_iapp "killall failed (status=$stop_rc)"; return "$stop_rc"; }
+  killall -q ralinkiappd || {
+    stop_rc=$?
+    process_state; state=$?
+    if [ "$state" -eq 1 ]; then
+      iapp_remove_firewall_rules
+      return $?
+    fi
+    log_iapp "killall failed (status=$stop_rc)"
+    return "$stop_rc"
+  }
   wait_stopped; rc=$?
-  [ "$rc" -eq 0 ] && return 0
+  if [ "$rc" -eq 0 ]; then
+    iapp_remove_firewall_rules
+    return $?
+  fi
   [ "$rc" -eq 1 ] || return "$rc"
-  killall -q ralinkiappd || { stop_rc=$?; process_state; state=$?; [ "$state" -eq 1 ] && return 0; log_iapp "second killall failed (status=$stop_rc)"; return "$stop_rc"; }
+  killall -q ralinkiappd || {
+    stop_rc=$?
+    process_state; state=$?
+    if [ "$state" -eq 1 ]; then
+      iapp_remove_firewall_rules
+      return $?
+    fi
+    log_iapp "second killall failed (status=$stop_rc)"
+    return "$stop_rc"
+  }
   wait_stopped; rc=$?
-  [ "$rc" -eq 0 ] && return 0
+  if [ "$rc" -eq 0 ]; then
+    iapp_remove_firewall_rules
+    return $?
+  fi
   [ "$rc" -eq 1 ] || return "$rc"
   log_iapp "daemon remained running after bounded stop attempts"
   return 1
@@ -103,21 +189,9 @@ stop() {
 # Roll back only resources created by this invocation, preserving its cause.
 rollback_start_failure() {
   rollback_failure_status=$1
-  if [ "$iappd_udp_rule_added" -eq 1 ]; then
-    iptables -D INPUT -i br0 -p udp --dport 3517 -j ACCEPT || {
-      rollback_rule_status=$?
-      log_iapp "UDP firewall rollback failed (status=$rollback_rule_status)"
-    }
-  fi
-  if [ "$iappd_tcp_rule_added" -eq 1 ]; then
-    iptables -D INPUT -i br0 -p tcp --dport 3517 -j ACCEPT || {
-      rollback_rule_status=$?
-      log_iapp "TCP firewall rollback failed (status=$rollback_rule_status)"
-    }
-  fi
   stop || {
     rollback_stop_status=$?
-    log_iapp "daemon startup rollback failed (status=$rollback_stop_status)"
+    log_iapp "daemon/firewall startup rollback failed (status=$rollback_stop_status)"
   }
   return "$rollback_failure_status"
 }

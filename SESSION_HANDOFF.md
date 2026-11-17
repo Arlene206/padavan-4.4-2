@@ -1,29 +1,26 @@
-# 2026-11-18 continuation checkpoint — capture optional post-WAN down-hook failures
+# 2026-11-18 continuation checkpoint — Ralink IAPP firewall ownership lifecycle
 
 ## Current repository state
-- Parent main before THIS source slice: `2a98a8303c26414a8f5084b78f1642ea282d164c`.
+- Parent main before THIS source slice: `b4ffae1ce9eae0f05f07bdcd9ed488ac38e101c0`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Factory-reset source `0d58928e`: GPIO workflow `44197451556` PASS; Process `44197451701` PASS; MiniUPnP `44197451163` PASS; AI handoff rerun `44197796498` on `b83c1cb` PASS. Exact XY-C1 run `44197454090` completed SUCCESS with Build XY-C1, TRX verification and artifact upload.
-- Static IPoE address cleanup source `93c8ab7`: WAN route `44198950271` PASS; AI docs `44198949896` PASS. Exact XY-C1 run `44198950404` remains IN_PROGRESS at Build XY-C1; TRX and artifact steps pending.
-- Optional WAN-up hook source `2a98a83`: WAN route `44200079558` PASS and AI docs `44200079479` PASS. Exact XY-C1 run `44200079523` is `IN_PROGRESS` at last poll, currently waiting at Build XY-C1; TRX/artifact not yet verified.
-- The earlier EAPOL-launch cleanup fix `5d0618c` and checker repair `80dcdc6` are complete; WAN route run `44197177575` PASS. No full local checkout/MIPS toolchain; no local target build or physical-router L4 claim.
+- Factory-reset source `0d58928e`: GPIO run `44197451556`, Process `44197451701`, MiniUPnP `44197451163`, AI docs `44197796498` PASS; XY-C1 `44197454090` completed SUCCESS with Build, TRX and artifact upload.
+- Current post-WAN hook source `2a98a8303c26414a8f5084b78f1642ea282d164c`: WAN teardown `44200079921`, WAN gateway ARP `44200079811`, AdGuardHome `44200079919`, AI handoff `44200079479`, infosvr `44200079580`, USB modem `44200079615`, VPN server `44200079546`, WAN DHCP callback `44200079468`, detect_internet `44200079791`, ZeroTier `44200079778`, Process `44200079549`, DNSMasq `44200079712`, detect_link `44200079897`, MiniUPnP `44200079805`, WAN route `44200079558`, AliDDNS `44200079513`, Wireless radio `44200079559`, AliyunDrive `44200079775`, HTTPD security `44200079499`, Firewall Startup `44200079836`, and Process inventory `44200079659` PASS. NVRAM transaction `44200079736` was IN_PROGRESS; XY-C1 `44200079523` was IN_PROGRESS at last poll.
+- New P1 finding: `trunk/user/ralinkiappd/iappd.sh` added TCP/UDP port 3517 INPUT allow rules during start but did not remove them on normal stop. Rules therefore survive daemon disable and repeated restart can duplicate them.
 
 ## Active task
-- THIS slice captures and aggregates the exit status of the optional `SCRIPT_POST_WAN` down hook in `wan_down_internal()`. Previously `eval(script_postw, "down", ...)` was discarded even though teardown returns an accumulated status.
-- The change logs a nonzero hook status without short-circuiting later PPPoE-MWAN detection/reconfiguration. A GNU89 first-error/later-action regression and the existing WAN route source contract enforce this behavior.
+- THIS slice tags IAPP-owned TCP/UDP rules with explicit comment ownership, removes stale tagged rules before startup, and removes active tagged rules only after the daemon absence postcondition is confirmed. It preserves untagged administrator rules.
+- Regression extends the existing POSIX mock with persistent iptables state; tests cover normal stop, stale cleanup, restart idempotency, unowned rule preservation, and cleanup-failure reporting/retry. Dedicated workflow and XY-C1 pre-build check added.
 
 ## Verification boundary
-- Exact `2a98a83` WAN route `44200079558`: PASS; AI handoff `44200079479`: PASS.
-- Exact `2a98a83` XY-C1 `44200079523`: `IN_PROGRESS` at last poll, with Build XY-C1 still in progress; TRX and artifact pending.
-- Exact `93c8ab7` XY-C1 `44198950404`: IN_PROGRESS at Build XY-C1 at last poll; TRX and artifact pending.
-- Exact `0d58928e` XY-C1 `44197454090`: SUCCESS for Build, TRX and artifact upload.
-- THIS down-hook source slice has not yet run its exact-head CI. No local compiler/MIPS toolchain and no physical-router L4 claim.
+- Exact-head IAPP lifecycle and XY-C1 for THIS commit are pending until Actions complete.
+- The source SHA `2a98a830` had WAN teardown, WAN route and most userland regression runs PASS; NVRAM transaction and XY-C1 were IN_PROGRESS at last poll.
+- Factory reset exact XY-C1 Build/TRX/artifact passed on `0d58928e`; no implication for newer source. Local shell run is NOT RUN (no mounted checkout here). Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main`; inspect exact-`head_sha` WAN route, AI docs and XY-C1 Actions for THIS down-hook commit.
-2. Require the WAN GNU89/ASan regression and complete up/down-hook source contract to pass. For XY-C1 require Build, TRX verification and artifact upload.
-3. Recheck `93c8ab7` run `44198950404` and `2a98a83` run `44200079523` separately; do not infer one source SHA's build from another.
-4. Repair the first causal failure in a separate atomic commit; continue an independent P1 issue while builds remain PENDING. Keep backup immutable and physical-router L4 NOT VERIFIED.
+1. Fetch live main and exact-`head_sha` runs for IAPP lifecycle, XY-C1, NVRAM transaction and AI handoff for THIS commit.
+2. Require the IAPP shell regression to pass ownership isolation, stale cleanup, normal stop/restart and cleanup-failure retry. For XY-C1, require Build, TRX and artifact completion.
+3. Repair the first causal failure in a separate atomic main commit; continue an independent P1 issue while any unrelated run is pending.
+4. Keep the backup immutable and hardware L4 marked NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 Every session MUST inspect the live repository state, exact-SHA Actions that materially changed, current handoff/roadmap facts, and the first actionable next task before ending. The checkpoint is mandatory; a document edit is conditional. Record new PASS/FAIL/PENDING state accurately. If the facts and first action remain accurate, leave the handoff untouched and do not create a no-op commit.

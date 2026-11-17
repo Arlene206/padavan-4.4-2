@@ -1,3 +1,12 @@
+## 2026-11-18 — Reconcile Ralink IAPP firewall rules with daemon lifecycle
+
+- Parent main SHA: `b4ffae1ce9eae0f05f07bdcd9ed488ac38e101c0`; `iappd.sh` previously installed two port-3517 INPUT allow rules but never removed them on normal stop, leaving access open after service disable and allowing repeated restart to accumulate duplicates.
+- Add comment ownership tags, inspect filter state before deletion, bound duplicate cleanup, remove stale owned rules before startup, and clean active rules only once daemon absence is confirmed. Foreign untagged rules with the same tuple are not deleted.
+- Extend shell mock to model iptables-save/append/delete and test ordinary stop, stale-rule cleanup, start/stop/restart idempotency, foreign rule preservation, and failed cleanup followed by successful retry. Add dedicated IAPP workflow and XY-C1 pre-build validation.
+- Exact-head tests are pending. Parent `2a98a830` AI, WAN DHCP, Process, MiniUPnP, firewall, and other module runs were PASS except NVRAM transaction `44200079736` and XY-C1 `44200079523` still IN_PROGRESS at last poll. Prior exact `0d58928e` XY-C1 completed successfully; this new source requires its own build.
+
+---
+
 ## 2026-11-18 — Preserve optional post-WAN down-hook exit status
 
 - Parent main SHA: `2a98a8303c26414a8f5084b78f1642ea282d164c`; exact WAN route `44200079558` and AI handoff `44200079479` for the preceding post-WAN up-hook source commit both PASS.

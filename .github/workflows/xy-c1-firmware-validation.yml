@@ -3,6 +3,8 @@ name: XY-C1 Firmware Validation
 on:
   push:
     paths:
+      - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
+      - "trunk/user/ralinkiappd/iappd.sh"
       - "trunk/user/aliddns/Makefile"
       - "trunk/user/aliddns/aliddns.sh"
       - "trunk/user/aliddns/aliddns-ipv4.sh"
@@ -406,6 +408,11 @@ jobs:
           bash trunk/user/pppoe/tests/mwan_lifecycle.sh "$GITHUB_WORKSPACE"
           python3 scripts/check_pppoe_mwan_status.py
 
+      - name: Verify Ralink IAPP daemon firewall lifecycle
+        run: |
+          set -eu
+          sh -n trunk/user/ralinkiappd/iappd.sh
+          sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
       - name: Build XY-C1
         run: |
           set -e
