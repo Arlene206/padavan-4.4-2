@@ -621,7 +621,7 @@ jobs:
           clear_addr_all = body(net6, "int clear_all_addr6(void)")
           clear_route_all = body(net6, "int clear_all_route6(void)")
           assert "if (!ifname || !ifname[0])" in clear_neigh
-          assert 'return doSystem("ip -6 neigh flush dev %s", ifname);' in clear_neigh
+          assert 'return eval("ip", "-6", "neigh", "flush", "dev", ifname);' in clear_neigh
           assert 'return doSystem("ip -6 addr flush scope global");' in clear_addr_all
           assert 'return doSystem("ip -6 route flush scope all");' in clear_route_all
           assert 'system("ip -6 route flush scope all")' not in clear_route_all

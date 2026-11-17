@@ -587,7 +587,9 @@ jobs:
           assert "return set_interface_conf_int(" in autoconf
           clear_routes = body(net6_source, "clear_if_route6(char *ifname)")
           clear_addresses = body(net6_source, "clear_if_addr6(char *ifname)")
-          assert "return doSystem(" in clear_routes and "return doSystem(" in clear_addresses
+          assert 'return eval("ip", "-6", "route", "flush", "dev", ifname);' in clear_routes
+          assert 'return eval("ip", "-6", "addr", "flush", "dev", ifname, "scope", "global");' in clear_addresses
+          assert "doSystem(" not in clear_routes and "doSystem(" not in clear_addresses
 
           stop_tunnel = body(wan6_source, "stop_sit_tunnel(void)")
           assert 'return doSystem("ip tunnel del %s", IFNAME_SIT);' in stop_tunnel

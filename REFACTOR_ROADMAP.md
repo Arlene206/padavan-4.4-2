@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
 - LAN IPv6 stop/start/reload failures are propagated; dynamic SIT/native IPv6 address-adds in `net_wan6.c` and per-interface IPv6 address/route/neighbour flushes in `net6.c` use argv-based calls. The flush functions preserve invalid-name rejection, vanished-interface no-op behaviour and command status while removing the shell boundary.
-- `control_if_ipv6_all()` now retains the first sysctl failure while attempting every applicable write, skips absent optional device paths safely, checks neighbour-cache writes, and propagates status through init/enable/disable.
-- GNU89 ASan/UBSan policy tests plus Process/Firewall/WAN/XY source contracts cover the global sysctl policy; WAN route source contracts now guard all three argv-based flushes. The new flush assertions pass locally. Exact-head push Actions are not retrievable through the connected run-list interface; an empty legacy status response is not a PASS. Product-source L3 and physical-router L4 remain NOT VERIFIED.
+- `control_if_ipv6_all()` retains the first sysctl failure while attempting every applicable write, safely skips absent optional devices, checks neighbour-cache writes and propagates status through init/enable/disable.
+- Exact parent `f1f624e3f667e67376031233f6e2f9a53f6f31df` push Actions: 11 SUCCESS; WAN route `43987743317` and WAN DHCP callback `43987743207` failed only on stale inline assertions expecting the removed shell-based flushes; XY-C1 `43987743135` was IN_PROGRESS at last poll. Both checker assertions are corrected in this slice. Product-source L3 and physical-router L4 remain NOT VERIFIED.
 - Frozen backup remains read-only.
 
 ## Whole-repository module status

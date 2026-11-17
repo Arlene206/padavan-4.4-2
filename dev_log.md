@@ -1,3 +1,11 @@
+## 2026-11-16 — Correct WAN route and DHCP IPv6 flush source contracts
+
+- Exact parent `f1f624e3f667e67376031233f6e2f9a53f6f31df` produced 14 push Actions. Eleven completed successfully; XY-C1 run `43987743135` remained in progress at last poll.
+- WAN route run `43987743317` failed only because its inline checker still required `clear_if_neigh6()` to call `doSystem()`. WAN DHCP callback run `43987743207` failed only because its inline checker required both per-interface address/route flushes to call `doSystem()`. All earlier compiled regression steps in both jobs passed; no production failure was reported.
+- Updated both inline contracts to require the exact argv-based `eval()` calls and reject shell-based execution. Focused source/checker assertions pass locally. The corrected workflows will rerun on this atomic commit; exact-head success is not yet claimed.
+
+---
+
 ## 2026-11-16 — Keep per-interface IPv6 cleanup arguments out of the shell
 
 - Audit confirmed `clear_if_addr6()`, `clear_if_route6()` and `clear_if_neigh6()` interpolated runtime interface names into `doSystem()`; `doSystem()` formats a command and passes it to `system()`, so those values crossed a shell boundary.
