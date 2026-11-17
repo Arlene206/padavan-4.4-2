@@ -1,22 +1,21 @@
-# 2026-11-18 continuation checkpoint — clear remaining WAN firewall checker boundary
+# 2026-11-18 continuation checkpoint — finish WAN DHCP CI contract alignment
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA for THIS correction: `ece8011f4cd14ed37e24ab6a95d2b847196d6d0a`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Product-source firewall caller fix is `8e9ea2131d7be59833756c15d03cf58ba288085c`; checker alignment and wireless path correction is `ece8011f4cd14ed37e24ab6a95d2b847196d6d0a`.
-- On exact `ece8011`: WAN route `44178774262` PASS; Wireless radio `44178774053` PASS; AI handoff `44178773961` PASS; AdGuardHome `44178773571`, AliyunDrive `44178773589`, infosvr `44178773674`, NVRAM `44178774246` PASS.
-- Firewall Startup `44178773543`, Process lifecycle `44178773567`, and XY-C1 `44178773562` failed at one remaining stale marker in `scripts/check_modem_wan_start_status.py` (old IPoE firewall comment used as the end of static-address verification). Their preceding service-status helper binaries and firewall-result policy steps passed. THIS COMMIT updates that final checker boundary.
-- Earlier failures on source SHA `8e9ea213` are superseded by the green exact-head WAN, Wireless and AI runs above; the XY-C1 run on ece still stopped before build because of this checker, so no target L3 yet.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS workflow correction: `659c0720a1d0baccdd5ec3644a9d2177b199bf69`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; all development remains on `main`.
+- AP-client reconnect failures propagate into WAN startup (`be0f5b56`); RAS/PPP/IPoE protocol activation fails closed when required firewall rebuild fails (`8e9ea213`).
+- Common startup source checker was aligned in `659c0720`: the IPoE address-error boundary now ends at the actual firewall rebuild call. This avoids the removed legacy iptables comment and still checks address failure aggregation before firewall setup.
 
-## Product-source checkpoint
-- `start_wan()` gates USB RAS, PPP and IPoE protocol activation on successful firewall rebuild. RAS/PPP retry physical-WAN policy recovery and bring the interface down if recovery fails. IPoE withholds EAPOL/DHCP/route/IPv6 activation; static address cleanup falls back to interface-down.
-- Exact-host policy compilation for `service_start_status.c` passed in both Process and XY-C1 workflows on ece before the stale checker. WAN-route and Wireless full source contracts also passed.
-- No MIPS target build or physical router L4 is claimed.
+## Current CI state and unresolved inline assertion
+- On exact source SHA `ece8011f`, the WAN route `44178774262`, Wireless `44178774053`, AI handoff `44178773961`, and NVRAM audit `44178774246` passed.
+- Exact ece Process `44178773567`, Firewall Startup `44178773543`, USB modem `44178773862` and XY-C1 `44178773562` all stopped at common checker line 304 because it still used a removed static-IPoE comment. The common checker boundary was corrected in `659c0720`.
+- A separate exact-head WAN DHCP failure on older product SHA `8e9ea213`, run `44177798012`, showed that `.github/workflows/wan-dhcp-callback-stability.yml` duplicated the obsolete `/* perform ApCli reconnect */` marker in its `physical_setup` slice. The workflow was not changed by `659c0720`, so this separate stale assertion remained untriggered after the common checker fix.
+- THIS commit replaces that final workflow marker with the actual `vlan_result = reconnect_apcli(wan_ifname, 0);` call. No production code changes.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA Process, Firewall Startup and XY-C1 runs triggered by THIS correction; require the modem checker to pass and require XY-C1 Build, TRX verification and artifact upload.
-2. If those clear, investigate the separate P1 SSH exposure possibility: in `restart_sshd()`, an SSH listener can remain running if `restart_firewall()` reports failure after state transition. Verify helper semantics and introduce a regression before deciding/fixing policy.
-3. Continue independent stability/security issues; keep backup immutable and update the handoff with exact run IDs and SHA.
+1. Inspect the exact-SHA WAN DHCP callback run triggered by THIS workflow change. Require the embedded source contract to pass and inspect the complete job logs.
+2. Inspect exact-head Process, Firewall Startup, USB modem and XY-C1 runs triggered by `659c0720`. The common modem checker should now pass; fix the first new genuine assertion from the logs.
+3. For XY-C1, require Build, TRX verification and artifact upload on a passing exact SHA before claiming target L3. Physical router L4 remains NOT VERIFIED.
 
 # Cross-session execution mandate
 

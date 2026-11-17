@@ -1,3 +1,10 @@
+## 2026-11-18 — Replace the final stale AP-client boundary in WAN DHCP CI
+
+- Parent main SHA: `659c0720a1d0baccdd5ec3644a9d2177b199bf69`; workflow source-contract correction only, no production C changes.
+- After the common modem checker was advanced to the current IPoE firewall gate in `659c0720`, one duplicated stale AP-client comment remained in `.github/workflows/wan-dhcp-callback-stability.yml`. Its physical-interface setup slice now ends at the real `vlan_result = reconnect_apcli(wan_ifname, 0);` caller.
+- The obsolete marker was previously exposed by the exact `8e9ea213` WAN DHCP callback run `44177798012`; this workflow was not triggered by `659c0720`, so no result on the newer source SHA is claimed yet.
+- This commit must trigger and validate WAN DHCP callback CI. Other exact-head `659c0720` workflows were still in progress at handoff; inspect their corresponding run IDs before recording results. No MIPS build or router L4 claim. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
 ## 2026-11-18 05:32 CST — Align modem checker with the new IPoE firewall gate boundary
 
 - Parent main SHA: `ece8011f4cd14ed37e24ab6a95d2b847196d6d0a`; path: `scripts/check_modem_wan_start_status.py`.
