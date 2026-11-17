@@ -1,12 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS source slice: `fa36ad1823344790f17511bef5890df3a9f78b09`.
-- MiniUPnP serialized lifecycle source remains `03a993e`; exact dedicated MiniUPnP workflow `44195714916` and AI docs `44195714933` on `fa36ad1` passed. Process lifecycle `44195398478` and AI docs `44195398394` passed on `dc6d32d`.
-- XY-C1 run `44193165931` on product source baseline `88770d7` completed Build, TRX verification and artifact upload successfully. Descendant MiniUPnP fixes through `fa36ad1` changed tests/workflow/docs only.
-- THIS source slice fixes static IPoE EAPOL cleanup: a failed EAPOL launch previously discarded the static IPv4 clear result and could leave the address on an administratively UP WAN interface. The clear error now propagates and triggers interface-down; a failed forced-down status is also propagated. A GNU89 policy regression and WAN source contract were added. Exact-head WAN/XY-C1 pending.
+- Parent main before THIS checker correction: `5d0618cc29aa67cc11d93a6487f2d5bc71c777ce`.
+- Static IPoE EAPOL cleanup source fix is in `5d0618c`: the IPv4 clear error is propagated, logged and triggers interface-down; a failed force-down is also propagated. Its C policy regressions compiled and passed under exact WAN run `44196817787` before the Python source checker stopped on a formatting-sensitive assertion (the auth aggregation call is multiline in production).
+- THIS commit changes only the WAN source checker to recognize the actual multiline status merge. Exact-head WAN and XY-C1 reruns pending. The XY-C1 run `44193165931` verifies older production source `88770d7` (MiniUPnP source `03a993e`) through Build/TRX/artifact, but does NOT verify the newer WAN source slice.
+- MiniUPnP exact-head validation remains good: dedicated workflow `44195714916` and AI `44195714933` on `fa36ad1` PASS; Process `44195398478` and AI `44195398394` on `dc6d32d` PASS.
 - Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: inspect exact-head WAN and XY-C1 results for EAPOL cleanup, then continue independent P1 reliability/security work.
+Next: inspect exact-head WAN/XY-C1 on the EAPOL fix and then continue independent P1 work.
 
 ---
 

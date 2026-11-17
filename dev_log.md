@@ -1,3 +1,12 @@
+## 2026-11-18 07:11 CST (UTC+8) — Match EAPOL source checker to multiline first-error call
+
+- Parent main SHA: `5d0618cc29aa67cc11d93a6487f2d5bc71c777ce`.
+- The exact-head WAN route run `44196817787` compiled and ran the existing ASan/UBSan regressions successfully, then the expanded source checker failed at its first EAPOL ordering assertion. Production code is correctly formatted as a two-line `rc_first_service_start_status()` call; THIS checker correction splits the expected call across its actual two source lines rather than looking for a nonexistent single-line form.
+- No production source or policy-test behavior changes in THIS correction. Exact-head WAN and XY-C1 reruns remain required; run `44196817911` was still in cross-build setup at last poll.
+- The exact XY-C1 build for the earlier MiniUPnP source `03a993e` is already complete on `88770d7`: Build, TRX verification and artifact upload all SUCCESS. The present WAN change is separate and needs its own exact-SHA firmware build.
+
+---
+
 ## 2026-11-18 07:08 CST (UTC+8) — Fail closed on static IPoE EAPOL address cleanup
 
 - Parent main SHA: `fa36ad1823344790f17511bef5890df3a9f78b09`. MiniUPnP lock-check repair is complete: exact fa36 MiniUPnP run `44195714916` and AI docs `44195714933` PASS; Process `44195398478` and AI docs `44195398394` pass on dc6.

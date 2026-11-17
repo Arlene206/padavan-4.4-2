@@ -163,7 +163,8 @@ eapol = start.split("/* Start eapol authenticator */", 1)[1]
 require("auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);" in eapol,
         "EAPOL startup result must be captured")
 eapol_order = (
-    "wan_start_status = rc_first_service_start_status(wan_start_status, auth_status);",
+    "wan_start_status = rc_first_service_start_status(",
+    "wan_start_status, auth_status);",
     'set_wan_unit_value_int(unit, "err", 1);',
     "static_address_clear_status = 0;",
     'static_address_clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);',
