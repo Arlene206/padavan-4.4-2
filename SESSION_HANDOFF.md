@@ -32,14 +32,14 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Active task
 
 1. Boot-environment baseline `10be37e50fbbd11c686593b0edd3863b31055b2e`; exact `4220420` HTTPD and XY-C1 Build/TRX/artifact passed.
-2. IAPP rollback source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`, caller status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`, and regression follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` / `55374c12e124711c0b789ffd8dc3f0767c3343cc`; IAPP product source `a54c1b` passed XY-C1 Build/TRX/artifact run `44092579822`.
-3. AliDDNS CA-gated startup source `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`; fixture repair `32e2eab9757261d458f7035a7d4215c5b5dc5e88`; semantic checker repair `d6c0a1aa92d7f1615576811e653703364ae3b27a`. Descendant `ec99ebf` exact AliDDNS, Process, NVRAM, AdGuardHome, infosvr, AI docs and AliyunDrive Actions passed.
-4. Dynamic WAN firewall refresh now uses additive `notify_rc_status()` via `queue_wan_firewall_restart()`; marker enqueue errors propagate through MAN-up/MAN-down/WAN-up first-error status. Exact WAN route status `44098885494` and PID 1 notification queue regression `44098885415` on `3271640` PASS. Production root-only queue ownership remains explicit; a failed SIGUSR1 after durable marker acceptance is logged without undoing accepted work.
-5. Exact `3271640` HTTPD security run `44098885513` failed only a stale assertion requiring `rc_notify_queue_open_dir(..., 0)`; production now derives the same root owner through `uid_t owner = RC_NOTIFY_OWNER`, whose default is `((uid_t)0)`. THIS COMMIT updates the static security assertions to enforce the root default and derived owner at both queue opens and marker touches; no HTTPD or notifier production source is changed.
-6. Exact `3271640` XY-C1 run `44098885378` was IN_PROGRESS at the last poll; require Build XY-C1, TRX verification and artifact upload. HTTPD rerun is pending this workflow correction.
+2. IAPP rollback source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`, caller-status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`, and test follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` / `55374c12e124711c0b789ffd8dc3f0767c3343cc`; IAPP source `a54c1b` passed XY-C1 Build/TRX/artifact `44092579822`.
+3. AliDDNS CA-gated boot startup `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`, test fixture repair `32e2eab9757261d458f7035a7d4215c5b5dc5e88`, checker alignment `d6c0a1aa92d7f1615576811e653703364ae3b27a`; exact AliDDNS/Process/NVRAM/AdGuardHome/infosvr/AI docs/AliyunDrive descendants passed.
+4. Dynamic MAN/WAN firewall refresh status is propagated by `notify_rc_status()` and `queue_wan_firewall_restart()`. Exact WAN route status `44098885494` and PID 1 notification queue regression `44098885415` on `3271640` PASS. Production notification queue owner defaults to uid 0.
+5. HTTPD umbrella run `44098885513` first exposed a stale queue-owner assertion, corrected in `353776121c419780fea73d1e43bb7d7f3dcc3820`. Its exact rerun `44099542600` advanced further: the DHCP input and LAN bound/renew contracts PASS, but failed the remaining old MAN-down assertion that still expected direct `notify_rc("restart_firewall_wan")`. The production callback now invokes `queue_wan_firewall_restart("MAN down")` and accumulates its status. THIS COMMIT updates that semantic assertion; the other remaining direct `notify_rc` references in the workflow concern unrelated mass-storage/DDNS/UI events and are intentionally unchanged.
+6. Exact XY-C1 run `44099542554` on `3537761` remained IN_PROGRESS at last poll. Require Build XY-C1, TRX verification and artifact upload.
 
 - Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Local host execution NOT RUN in this connector-only runtime; exact Actions provide host execution. Physical-router L4 NOT VERIFIED.
+- Local host execution NOT RUN in this connector-only runtime; physical-router L4 NOT VERIFIED.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -56,9 +56,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head HTTPD Authentication and Security Regression after this workflow correction. Its privileged queue check must confirm the production `RC_NOTIFY_OWNER` defaults to uid 0 and both queue directories use the derived owner, rather than hard-coded zero call arguments.
-2. Poll exact `3271640` XY-C1 run `44098885378`; require Build XY-C1, TRX verification and artifact upload. This validates the notifier implementation on the actual target build.
-3. If either fails for a genuine source/build defect, repair the first causal failure. If both pass, continue an independent userland stability issue from current main; do not repeat notifier queue inventory.
+1. Check the exact-head HTTPD Authentication and Security Regression after this workflow correction. Its DHCP/route semantic assertions must require MAN-down to call the checked firewall-refresh helper and aggregate its result.
+2. Poll XY-C1 `44099542554` for exact `3537761`; require Build XY-C1, TRX verification and artifact upload. If the new workflow-only changes do not trigger a target rebuild, the source build at `3271640` still needs completion before claiming L3.
+3. If HTTPD passes, continue the known open LAN DHCP event-state semantics (leasefail/NAK/release/deconfig) only after refreshing current main and checking no newer handoff supersedes it.
 
 Local host execution NOT RUN; physical-router L4 NOT VERIFIED. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
 

@@ -1,3 +1,14 @@
+## 2026-11-17 — Update MAN-down firewall notification source contract
+
+- Parent main SHA: `353776121c419780fea73d1e43bb7d7f3dcc3820`; result: THIS COMMIT.
+- After the root-owner assertion repair, HTTPD exact-head run `44099542600` passed the DHCP input policy and LAN DHCP bound/renew source contracts, then failed one later static assertion that still required the direct `notify_rc("restart_firewall_wan")` call in `man_down_internal()`.
+- The production source now routes MAN-up/MAN-down/WAN-up through `queue_wan_firewall_restart(context)`, which uses the checked `notify_rc_status()` API and propagates enqueue errors. Updated the stale MAN-down contract to require the helper call and first-error aggregation. Unrelated legacy `notify_rc()` events are unchanged.
+- The workflow itself is in its push path filter; exact-head HTTPD rerun is pending.
+- Exact WAN route `44098885494` and notification queue `44098885415` PASS on `3271640`; XY-C1 `44099542554` remains IN_PROGRESS for source build/TRX/artifact.
+- Local host execution NOT RUN in connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align HTTPD queue security contract with owner abstraction
 
 - Parent main SHA: `327164075c015004e17ef435fd06994ff4074090`; result: THIS COMMIT.

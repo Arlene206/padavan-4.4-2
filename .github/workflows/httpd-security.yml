@@ -2539,7 +2539,8 @@ jobs:
           assert 'route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");' in man_down
           assert man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");') < man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
           assert 'refresh_resolvconf_nonfatal("MAN down", 0);' in man_down
-          assert 'notify_rc("restart_firewall_wan");' in man_down
+          assert 'route_status = queue_wan_firewall_restart("MAN down");' in man_down
+          assert "status = route_status_accumulate(status, route_status);" in man_down
           print("DHCP lease normalization, route reconciliation, and resolver refresh contracts: OK")
           PY
 
