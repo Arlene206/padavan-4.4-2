@@ -396,13 +396,30 @@ jobs:
           assert "storage_ejected_inventory_complete(" in stage
           assert "free_storage_ejected_partitions(head)" in stage
 
-          eject = function_body(storage, "umount_ejected_locked(void)")
+          eject = function_body(storage, "umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)")
           stage_call = "storage_stage_ejected_partitions(&partitions)"
           unmount_loop = "for (entry = head; entry; entry = entry->next)"
+          inactive_scan = "has_ejected_mounts = 1;"
+          stop_gate = "if (has_ejected_mounts && !storage_apps_stopped)"
+          stop_call = "stop_status = stop_stor_apps();"
+          rollback = "storage_rollback_stor_apps_after_stop_failure("
+          optware_unmount = 'eval("/usr/bin/opt-umount.sh", entry->device'
           assert eject.index(stage_call) < eject.index(unmount_loop)
           assert "fopen(PROC_PARTITIONS_FILE" not in eject
           assert "storage_ejected_partition_is_active(entry->device + 5," in eject
           assert "umount(entry->mountpoint)" in eject
+          assert eject.index(stage_call) < eject.index(inactive_scan) < eject.index(stop_gate) < eject.index(stop_call) < eject.index(optware_unmount) < eject.index("umount(entry->mountpoint)")
+          assert rollback in eject and eject.index(rollback) < eject.index("return -1;") < eject.index(optware_unmount)
+          assert "if (has_ejected_mounts && restart_storage_apps)" in eject
+          assert "mount_count = count_stor_mountpoint();" in eject
+          assert eject.index("mount_count = count_stor_mountpoint();") < eject.index("start_status = start_stor_apps();")
+          assert "if (mount_count > 0)" in eject
+          assert "else if (mount_count == 0)" in eject and "unload_nfsd();" in eject
+          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in eject and "alarm(5);" in eject
+          public_eject = function_body(storage, "umount_ejected(void)")
+          assert "umount_ejected_locked(0, 1)" in public_eject
+          targeted_eject = function_body(storage, "safe_remove_stor_device(")
+          assert "umount_ejected_locked(1, 0)" in targeted_eject
 
           parse = function_body(policy, "storage_ejected_parse_partition_line(")
           assert "storage_ejected_line_is_complete(line)" in parse
