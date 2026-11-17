@@ -19,7 +19,9 @@ static inline void udhcpc_script_failure_prepare_retry(
 	unsigned remaining;
 
 	if (acquiring) {
-		*timeout = retry_timeout;
+		/* A zero -A value must not turn repeated callback failures into a
+		 * tight DHCPREQUEST loop. Match deconfig retry's one-second floor. */
+		*timeout = retry_timeout > 0 ? retry_timeout : 1;
 		*already_waited_sec = 0;
 		*packet_num = 0;
 		return;

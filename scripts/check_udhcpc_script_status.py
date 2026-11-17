@@ -68,6 +68,7 @@ assert "if (status != 0)" in runner
 assert "DHCP event script %s failed with status %d" in runner
 assert "return status;" in runner
 assert "static void udhcp_run_script" not in dhcpc
+assert 'opt_complementary = "O::x::T+:t+:A+"' in dhcpc
 
 spawn_body = function_body(spawn, "int FAST_FUNC spawn_and_wait(char **argv)")
 assert "return wait4pid(rc);" in spawn_body
@@ -140,7 +141,8 @@ assert "sleep(retry_delay);" in exit_cleanup
 assert 'release_status = udhcp_run_script(NULL, "deconfig");' in exit_cleanup
 
 assert "if (acquiring)" in policy
-assert "*timeout = retry_timeout;" in policy
+assert "*timeout = retry_timeout > 0 ? retry_timeout : 1;" in policy
+assert "A+" in dhcpc
 assert "*packet_num = 0;" in policy
 assert "script_elapsed >= remaining" in policy
 assert "*already_waited_sec += script_elapsed;" in policy
@@ -149,6 +151,7 @@ assert "test_failed_deconfig_blocks_state_transition" in test
 
 for marker in (
     "test_initial_acquisition_retries_selected_request",
+    "test_nonpositive_retry_interval_is_throttled",
     "test_failed_renewal_preserves_existing_lease_deadline",
     "test_script_runtime_cannot_extend_expired_lease",
     "test_exact_lease_deadline_is_expired",

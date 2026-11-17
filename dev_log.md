@@ -1,3 +1,12 @@
+## 2026-11-17 — Prevent zero-delay DHCP callback retry loops
+
+- Parent main SHA: da076cf8d2425b747a9ffda182144bcce49d5ab0; result: THIS COMMIT.
+- BusyBox parses -A/--tryagain with A+, which explicitly accepts zero. On a failed initial bound/renew event, udhcpc_script_failure_prepare_retry() copied that zero directly to the event-loop timeout; a persistent callback failure could therefore retry the same DHCPREQUEST continuously without sleeping.
+- Clamp the initial-acquisition callback retry delay to at least one second, matching the existing DECONFIG_PENDING retry floor. Add GNU89 test cases for both zero and negative policy inputs, and pin the public zero-accepting option contract in the source checker.
+- Exact-head da076cf WAN DHCP callback, WAN route, DNSMasq, HTTPD, Process inventory, AdGuardHome, AliDDNS, AliyunDrive, infosvr, detect_link, detect_internet, wireless-radio and AI handoff push Actions passed. NVRAM and XY-C1 were still in progress when this change was prepared; exact-head udhcpc script regression pending.
+- No local checkout/compiler in this connector-only runtime; host test execution awaits Actions. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Restore static LAN hostname files on DHCP deconfig
 
 - Parent main SHA: 23e4563fc9a610c420d5aca60d485372b6718da3; result: THIS COMMIT.

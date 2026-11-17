@@ -32,6 +32,29 @@ static int test_initial_acquisition_retries_selected_request(void)
 	return 0;
 }
 
+static int test_nonpositive_retry_interval_is_throttled(void)
+{
+	int timeout = 90;
+	int packet_num = 3;
+	unsigned already_waited_sec = 12;
+
+	udhcpc_script_failure_prepare_retry(1, 0, 0, &timeout,
+					   &already_waited_sec, &packet_num);
+	CHECK(timeout == 1);
+	CHECK(already_waited_sec == 0);
+	CHECK(packet_num == 0);
+
+	timeout = 90;
+	packet_num = 3;
+	already_waited_sec = 12;
+	udhcpc_script_failure_prepare_retry(1, -5, 0, &timeout,
+					   &already_waited_sec, &packet_num);
+	CHECK(timeout == 1);
+	CHECK(already_waited_sec == 0);
+	CHECK(packet_num == 0);
+	return 0;
+}
+
 static int test_failed_renewal_preserves_existing_lease_deadline(void)
 {
 	int timeout = 1800;
@@ -90,6 +113,7 @@ int main(void)
 {
 	if (test_failed_deconfig_blocks_state_transition() != 0 ||
 	    test_initial_acquisition_retries_selected_request() != 0 ||
+	    test_nonpositive_retry_interval_is_throttled() != 0 ||
 	    test_failed_renewal_preserves_existing_lease_deadline() != 0 ||
 	    test_script_runtime_cannot_extend_expired_lease() != 0 ||
 	    test_exact_lease_deadline_is_expired() != 0 ||
