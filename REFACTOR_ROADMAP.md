@@ -1,8 +1,9 @@
 ## Current source / CI checkpoint
 
-- NVRAM SET, COMMIT and CLEAR ioctl wrappers now propagate `/dev/nvram` close failures instead of returning false success; the primary ioctl errno wins if close also fails. Host regression and source-contract checks are added.
-- Exact-head a7e3 AI handoff, Process fail-closed, infosvr, AdGuardHome, AliDDNS and AliyunDrive passed. NVRAM `43995311260` was still auditing kernel API callers. XY-C1 `43994632505` remained at Build for source SHA f943, not same-head validation for docs-only a7e3.
-- Current-source MIPS/uClibc Build/TRX/artifact L3 remains NOT VERIFIED for the post-f943 source tree; physical-router L4 remains NOT VERIFIED. Frozen backup remains read-only.
+- Current main source head: `c221420d22838ec1632c975095c3bafa3830d6c9`. The NVRAM SET, COMMIT and CLEAR ioctl wrappers now propagate `/dev/nvram` close failures instead of false success; ioctl errors take precedence over close errors. Host regression and source-contract coverage are added.
+- Exact-head c221420d push: infosvr `43996118183` and AdGuardHome `43996118336` PASS. AI handoff `43996118214` failed because the handoff missed the validator-required `Before context exhaustion` marker; corrected here. HTTPD `43996118234`, AliDDNS `43996118325`, AliyunDrive `43996118148`, NVRAM `43996118191`, standalone Process `43996118524` and Process lifecycle `43996118185` were in progress at last inspection.
+- IPv6 neighbour-cleanup source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06` completed XY-C1 Build, TRX verification and artifact upload successfully (run `43994632505`). This verifies f943 only; current c221420d NVRAM production changes still require same-SHA firmware validation.
+- Physical-router L4 remains NOT VERIFIED. Frozen archival backup remains read-only.
 
 ## Whole-repository module status
 

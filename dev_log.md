@@ -1,3 +1,11 @@
+## 2026-11-17 — Restore mandatory end-of-session handoff marker
+
+- Exact-head AI handoff run `43996118214` on source SHA `c221420d22838ec1632c975095c3bafa3830d6c9` failed because `SESSION_HANDOFF.md` lacked the exact required phrase `Before context exhaustion`; the rest of the validator had advanced to that rule.
+- Restored the explicit checkpoint sentence and reconciled the handoff/roadmap with the live c221420d source and its current Action states. This is a documentation-contract correction only; it does not change the NVRAM source verification boundary.
+- Current c221420d NVRAM, HTTPD, AliDDNS, AliyunDrive and Process Actions were pending at the time of this update. Same-SHA NVRAM and XY-C1 Build/TRX/artifact remain to be confirmed.
+
+---
+
 ## 2026-11-17 — Propagate NVRAM ioctl file-descriptor close failures
 
 - Base main SHA: `a7e3eda16eca5d20701a0240287ebecffed443d7`; result: THIS COMMIT.
