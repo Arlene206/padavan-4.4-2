@@ -1,29 +1,25 @@
-# 2026-11-18 continuation checkpoint — verify detached rstats and LLTD startup
+# 2026-11-17 continuation checkpoint — verify IPTV DHCP fail-closed deconfig and XY-C1
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA: 9e6d19f6ca53cbfeeda33e109abf28b6251f4000.
-- Main-only atomic commits use complete Git trees, expected-SHA and non-forced updates. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- DDNSTO test repair at 6b5f551: run 44166279131 PASS. On 6b5f551 Process inventory 44166279188, Process fail-closed 44166279162, NVRAM 44166278930, AliyunDrive 44166279170, infosvr 44166279207, AliDDNS 44166279025, AdGuardHome 44166279220 and AI handoff 44166279079 all SUCCESS.
-- Telnetd source 989409e: XY-C1 run 44164998281 completed Build, TRX and artifact upload SUCCESS. b00ff490 NVRAM 44165568763, AliyunDrive 44165569031, Process 44165568972 and storage 44164998300 SUCCESS.
-- Latest IPTV deconfig fix 32622d8; checker follow-up 9e6d19f. On 9e6d19f, AdGuardHome 44168515211, infosvr 44168515146 and AI docs 44168515070 passed; WAN DHCP 44168515283, Process 44168515018, AliDDNS 44168515173, AliyunDrive 44168515303 and NVRAM 44168515186 were in progress. XY-C1 44168062063 is still the 32622 product-source build. These checks are not results for THIS commit.
+- Current main SHA before this docs checkpoint: 9be5d2918c15730b7d955669aff20d9042239d66. Main-only atomic commits use complete Git trees, expected-SHA and non-forced updates. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Concurrent service slice 92d95b83348dabe3fd3877ecb9f22fd55eb929d1 verifies detached rstats and LLTD startup; exact Process lifecycle run 44169139271 SUCCESS. Current-source XY-C1 run 44171043411 is still IN_PROGRESS; do not claim Build/TRX/artifact until all three stages complete.
+- The DDNSTO test race fix at 6b5f551 remains fully green: exact-head run 44166279131 SUCCESS. Its Process, NVRAM, AliyunDrive, infosvr, AliDDNS, AdGuardHome and AI-doc contracts also passed; don't re-audit.
 
-## Active fix — confirm detached rstats and LLTD startup
-- rstats_main() calls daemon(0, 0) before alloc_rstats() and before publishing RSTATS_PID_FILE. Either allocation or PID-file failure exits only the detached child; start_rstats() previously trusted the foreground parent result from eval("/sbin/rstats").
-- LLTD main() calls osl_become_daemon() (double-fork + setsid()) before osl_write_pidfile(), privilege drop and event_mainloop(). RC previously treated the exiting first parent from eval("/bin/lld2d", IFNAME_BR) as proof that LLTD started.
-- THIS COMMIT applies a bounded child-presence postcondition to both optional services. Existing disabled-service sentinel remains 1; preflight RUNNING is idempotent success; UNKNOWN inventory fails closed; after launch only confirmed RUNNING succeeds. Each waits one second and probes four times at one-second intervals; missing child returns ETIMEDOUT. Original nonzero launcher status is preserved.
-- Reuse the GNU89-tested RUNNING/ABSENT/UNKNOWN helper and tests. The Process checker now asserts both daemonization sequences and the RC launch/preflight/poll/result ordering. Workflow PR paths include the LLTD/rstats sources used by the checker.
+## Implemented issue — IPTV DHCP deconfig now fails closed
+- IPTV DHCP `deconfig` is called on a NAK against an active lease, lease expiry and explicit release. The original callback removed routes only, leaving the old IPv4 address configured. The first transactional fix cleared the address, then routes, but review found that restoring a revoked address after route-delete failure would resurrect a lease withdrawn by NAK/expiry/release.
+- Current policy clears the interface address and attempts route deletion regardless of whether the address-clear operation returned an error. It publishes `manv_ipaddr=0.0.0.0` only when both operations succeed. On error it retains lease identity for BusyBox `DECONFIG_PENDING` retry and never restores a revoked address. `udhcpc_viptv_deconfig()` always stops igmpproxy—even when address or route cleanup failed—and returns the first cleanup/multicast error.
+- GNU89 policy regression now covers success `CRP`, failed interface clear still attempting route delete (`CR`), simultaneous interface+route failure with route-error precedence, failed route cleanup followed by successful retry (`CRCRP`).
 
 ## Verification boundary
-- Parent 6b5f551 DDNSTO, Process inventory/fail-closed, NVRAM, AliyunDrive, infosvr, AliDDNS, AdGuardHome and AI handoff passed.
-- Telnetd product source 989409e XY-C1 44164998281: Build, TRX verification and artifact upload SUCCESS.
-- 32622 IPTV DHCP run 44168062187 originally failed only its whitespace-sensitive Python source assertion after GNU89 ASan/UBSan policy tests passed; 9e6d19f checker rerun 44168515283 remained in progress. XY-C1 44168062063 (32622 source) also pending.
-- Exact-head Process and XY-C1 for THIS rstats/LLTD update remain pending. Physical-router L4 is NOT VERIFIED.
+- Current product source is commit 47e395d94a83342a90ba5dc7b2600a13b0f7bce7; current main 9be5d291 only corrects an escaped-newline endpoint in the HTTPD cross-workflow source checker. Exact 47e WAN DHCP callback run 44170820583: SUCCESS (GNU89/-Werror/ASan/UBSan test and semantic checks). Exact 47e Process lifecycle 44170820839, WAN route 44170820821, Firewall startup 44170820495, AI docs 44170820925: SUCCESS.
+- Current exact-main HTTPD Authentication/Security run 44171043495 on 9be5d29: SUCCESS. Earlier runs 44169139433, 44170691011 and 44170820437 failed because this checker still expected direct route-only dispatch or used a literal escaped `\\n` in its function boundary; current assertions now inspect the transactional helper and run PASS.
+- Exact-current XY-C1 run 44171043411 remains IN_PROGRESS; the matching product-source 47e run 44170820700 was also in progress at last poll. Record Build XY-C1, TRX verification and artifact upload separately. Earlier Telnetd 989409e and Networkmap 34c0268 builds are not validation of the later DHCP product source. Physical-router L4 remains NOT VERIFIED.
+- `9e6d19f` parent WAN DHCP 44168515283 and its Process/NVRAM/AliDDNS/AliyunDrive/AdGuardHome/infosvr/AI checks all passed; parent 32622 WAN route 44168062198, Firewall 44168062335 and NVRAM 44168062259 passed. Current fail-closed DHCP semantics were subsequently verified by 44170820583.
 
-## Exact first action for the next GPT
-1. Inspect exact-SHA Process lifecycle and XY-C1 Build/TRX/artifact jobs for THIS commit; fix only the first evidenced failure from its exact log.
-2. Resolve 9e6d19f WAN DHCP/Process/AliDDNS/AliyunDrive/NVRAM runs and 32622d8 XY-C1 separately.
-3. Continue another proven service startup or firewall/NAT caller-result gap; do not repeat DDNSTO, Telnetd, Networkmap, infosvr or storage audits.
-4. Keep the backup immutable; main-only complete-tree expected-SHA updates, no force-push.
+## Exact first action for next GPT
+1. Resolve XY-C1 run 44171043411 (and 44170820700 if needed): require Build XY-C1, TRX verification and artifact upload all SUCCESS on the current product-source tree.
+2. Continue the next independent P1 firewall/NAT caller-status or service-startup gap from the roadmap; do not repeat DDNSTO, Networkmap, Telnetd, infosvr, DHCP callback or rstats/LLTD work already verified.
+3. Preserve backup; main-only complete-tree commits, expected-SHA compare-and-swap, no force push. Physical router L4 remains open.
 
 # Cross-session execution mandate
 

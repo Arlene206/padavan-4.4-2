@@ -1,3 +1,10 @@
+## 2026-11-17 — Fail closed on IPTV DHCP NAK/expiry/release cleanup
+
+- The first IPTV DHCP deconfig implementation restored the old address when route deletion failed. Review showed this could resurrect a lease already revoked by NAK, expiry or release. The policy now never restores the address and attempts route cleanup even when address clear fails; empty NVRAM address publishes only when both complete. BusyBox retries the retained lease/route identity after an error.
+- Ensure igmpproxy teardown still runs after either cleanup failure and aggregate the first interface/route/multicast error. Extend GNU89 regression with simultaneous failure and route-retry cases; update both WAN DHCP and HTTPD workflow contracts for the transactional dispatch and error handling.
+- Exact product-source WAN DHCP run 44170820583 PASS, including GNU89 -Wall -Wextra -Werror with ASan/UBSan and semantic source contracts. HTTPD checker run 44171043495 on 9be5d29 PASS after fixing the escaped-newline endpoint. Exact current-source XY-C1 44171043411 remains IN_PROGRESS; Build/TRX/artifact not yet verified.
+- Concurrent rstats/LLTD source `92d95b8` Process run 44169139271 PASS; XY-C1 44171043411 pending. Backup branch remains frozen.
+
 ## 2026-11-18 — Verify detached rstats and LLTD startup children
 
 - Parent main SHA: 9e6d19f6ca53cbfeeda33e109abf28b6251f4000; this commit modifies RC startup, Process integration contracts/workflow filters and handoff/roadmap.
