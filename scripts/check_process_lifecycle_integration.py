@@ -586,7 +586,14 @@ assert "watchdog_status = start_watchdog();" in stop_misc_failure
 assert "firmware update abort could not restore watchdog" in stop_misc_failure
 assert "firmware write failed and watchdog recovery also failed" in flash
 assert "start_watchdog();" in stop_misc_failure
-assert "if (eval(\"/tmp/mtd_write\"" in flash and "start_watchdog();" in flash
+assert 'flash_status = eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME);' in flash
+assert "if (flash_status != 0)" in flash
+flash_write_failure = flash.split("if (flash_status != 0)", 1)[1]
+assert "int flash_errno = errno ? errno : EIO;" in flash_write_failure
+assert "watchdog_status = start_watchdog();" in flash_write_failure
+assert "errno = flash_errno;" in flash_write_failure
+assert "return -1;" in flash_write_failure
+assert "return 0;" in flash
 syslog_restart = rc_source.split("RCN_RESTART_SYSLOG) == 0)", 1)[1].split("RCN_RESTART_WDG)", 1)[0]
 time_restart = rc_source.split("RCN_RESTART_TIME) == 0)", 1)[1].split("RCN_RESTART_SYSCTL)", 1)[0]
 assert "return kill_services(svcs, 3, 1);" in logger_stop

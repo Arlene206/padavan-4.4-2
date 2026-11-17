@@ -1,3 +1,12 @@
+## 2026-11-17 — Update RC integration checker for status-returning firmware write
+
+- Base main SHA: `97bd094ca5d05472861bbc7e79450aa1ce77c855`; result: THIS COMMIT.
+- Process inventory run `44017512634` on `97bd094c` passed the added GNU89 notification policy binary and dedicated `check_firmware_update_notification.py` contract, then failed later in `check_process_lifecycle_integration.py:589`.
+- The stale integration assertion required the old inline `if (eval("/tmp/mtd_write"...))` expression. Production now captures `flash_status`, enters an explicit nonzero branch, saves `flash_errno`, attempts watchdog recovery, restores the original errno and returns `-1`; only successful write returns zero. Updated the checker to enforce those failure semantics rather than the obsolete call shape.
+- AI handoff `44017512559` on `97bd094c` passed. XY-C1 `44017512514` was still in progress at last poll; no same-SHA Build/TRX/artifact claim. Local execution NOT RUN; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Wire notification regression into Process and align WAN-MTU checker
 
 - Base main SHA: `1d695e75ce20ee1a5055eb355bc5373f7f8e8608`; result: THIS COMMIT.
