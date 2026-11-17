@@ -4,24 +4,27 @@ This checkpoint supersedes older status statements below when they conflict. Res
 
 ## Git state
 - Repository: `https://github.com/Arlene206/padavan-4.4-2`
-- Parent main SHA: `d023872d38c866cb9427db2c29f19813f9e59d21`; result: THIS COMMIT (one complete Git tree, expected-SHA update, no force push).
+- Parent main SHA: `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`; result: THIS COMMIT (complete Git tree, expected-SHA update, no force push).
 - Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
 - Development remains on `main` only. No force push.
-- No local checkout/compiler was available in this connector-only session. Physical router L4 remains NOT VERIFIED.
+- No local checkout/compiler was available in this connector-only session. Physical-router L4 remains NOT VERIFIED.
 
 ## Completed in the current storage slice
 - `66afed9c10f0c0fae622cfa3325e677243eba38a` keeps storage-backed daemons stopped after failed physical-unplug cleanup.
 - `576cadbbb85e3a0af9ea848e2bc6264604e30fce` adds a distinct `usb_unplug_ms` cleanup retry; the deferred worker retries stale unmount cleanup before starting storage applications.
-- `50f7fff76e7ec2161a69aa855ce4c2de063a4c52` and `d023872d38c866cb9427db2c29f19813f9e59d21` repair CI contracts for the distinct retry path. On exact parent SHA d023872d, storage run 44113150032, HTTPD run 44113149870, and AI handoff run 44113149885 passed; XY-C1 run 44113149981 was still in progress at last poll.
-- THIS COMMIT fixes the parallel targeted/manual safe-remove path: storage applications restart only when both unmount stages succeed and a refreshed inventory is positively nonempty. Failed/unknown cleanup leaves them stopped; no app-start retry is queued against stale/unknown mounts.
-- The GNU89 policy regression, integration checker, and storage/HTTPD workflow source contracts now cover targeted safe removal. Query Actions by this commit's exact SHA before claiming L2/L3.
+- `50f7fff76e7ec2161a69aa855ce4c2de063a4c52` and `d023872d38c866cb9427db2c29f19813f9e59d21` repair CI contracts for the distinct retry path.
+- `776907e05a23638a6bf5c9cd7ab1bbef35bb4571` also gates targeted/manual safe-remove: storage applications restart only when both unmount stages succeed and a refreshed inventory is positively nonempty. Failed/unknown cleanup leaves them stopped; no ordinary app-start retry is queued against stale/unknown mounts.
+- Exact-head storage run `44114215851` on `776907e` passed the full caller-graph and lock-order checks, then failed only because the standalone checker still expected the now-prohibited retry on unknown mount inventory. THIS COMMIT updates that checker to require retry only after successful cleanup plus an app-start failure. The production fail-closed behavior is unchanged.
 
-## Current exact-head CI
-- This source change triggers storage-hotplug, HTTPD security, AI handoff documentation, and XY-C1 validation; statuses must be queried against the final exact commit SHA.
-- Parent exact SHA d023872d: storage, HTTPD and AI docs PASS; XY-C1 was IN_PROGRESS. Parent results do not prove this source change.
+## Exact-head CI snapshot for parent
+- `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`: 14 Actions PASS, 1 storage-checker FAIL, and XY-C1 run `44114216599` IN_PROGRESS at last poll. HTTPD security, AliDDNS API transport, process lifecycle, NVRAM, Samba, NFS, and AI handoff documentation checks all passed on that exact SHA.
+- The checker correction in THIS COMMIT requires a new exact-head storage run. Verify the new SHA before claiming its storage L2.
+- XY-C1 has passed its many preceding policy checks through the WAN firewall contract; Build XY-C1, TRX validation, and artifact upload remained in progress at last poll. Query its current conclusion; do not infer completion.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Recent commit trail
+- THIS COMMIT: align storage safe-remove checker with fail-closed retry semantics
+- `776907e05a23` fix(storage): gate targeted eject restart on cleanup success
 - `d023872d38c8` test(storage): validate retry scheduling on both failure paths
 - `50f7fff76e7e` test(storage): assert the distinct physical-unplug retry path
 - `576cadbbb85e` fix(storage): retry physical eject before storage app startup
@@ -29,9 +32,9 @@ This checkpoint supersedes older status statements below when they conflict. Res
 - `992612427259` test(storage): assert rollback return after service-stop failure
 
 ## First next task
-1. Query all Actions for the exact current SHA; inspect failures and fix source defects or stale contracts. Do not wait on pending XY-C1 when independent work remains.
-2. After targeted-eject L2 and XY-C1 L3 are verified, continue the whole-repository P1 audit at AliDDNS external-address discovery and lifecycle follow-ups. Do not repeat the completed HTTPD duplicate-launch/readiness audit.
-3. Preserve the source → regression → atomic commit → exact-SHA Actions loop; update this checkpoint only when live facts materially change.
+1. Query Actions for THIS COMMIT's exact SHA; repair any remaining real FAIL. Poll the already-running XY-C1 run and confirm Build, TRX, and artifact upload.
+2. Once the storage checker passes, continue the cross-userland P1 audit at AliDDNS external-address discovery and lifecycle; its signed API transport regression passed on parent `776907e`.
+3. Do not repeat the completed HTTPD duplicate-launch/readiness audit or the current storage safety audit. Keep source → regression → atomic commit → exact-SHA Actions.
 
 ## Verification limits
 - Do not claim local host tests or a local firmware build in this connector-only session.

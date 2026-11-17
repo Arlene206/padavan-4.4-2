@@ -2,13 +2,13 @@
 
 This section is authoritative over older table rows where state conflicts. Do not repeat completed audits merely because older rows remain below.
 
-- Parent main SHA: `d023872d38c866cb9427db2c29f19813f9e59d21`; result: THIS COMMIT.
+- Parent main SHA: `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`; result: THIS COMMIT.
 - Frozen backup branch: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Completed storage chain: physical-eject failure gate (`66afed9c`); distinct delayed unmount retry before service start (`576cadbb`); exact-SHA CI assertion repairs (`50f7fff7`, `d023872d`); targeted/manual safe-remove now requires both unmount stages to succeed and a known positive remaining-mount inventory before restarting shared daemons (THIS COMMIT).
-- Targeted safe-remove is covered by GNU89 policy cases, the storage integration checker, and storage/HTTPD source contracts. Verify this commit's exact-SHA Actions before claiming L2/L3.
-- On parent SHA `d023872d38c866cb9427db2c29f19813f9e59d21`, storage run 44113150032, HTTPD run 44113149870, and AI docs run 44113149885 passed; XY-C1 run 44113149981 was IN_PROGRESS. Parent results do not verify this source change.
-- Connector-only session: no local checkout/compiler. Physical-router L4 NOT VERIFIED.
-- Next: verify this commit's storage, HTTPD and XY-C1 Actions, then continue P1 whole-userland review at AliDDNS external-address discovery and lifecycle follow-ups. HTTPD duplicate-launch/readiness is already implemented and verified; do not repeat it.
+- Storage targeted safe-remove is now fail-closed: restart daemons only after both unmount stages succeed and fresh mount inventory is positive. Added GNU89 policy cases, integration checker, and storage/HTTPD source contracts in `776907e05a23`.
+- Exact-parent SHA `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`: 14 Actions PASS, storage checker FAIL (stale expectation of retry on unknown inventory), XY-C1 run 44114216599 still IN_PROGRESS. HTTPD, AliDDNS API, NVRAM, process, Samba, NFS, and AI handoff checks passed.
+- THIS COMMIT aligns the checker with the safety contract: retry is still required after a service-start failure following successful cleanup, but is forbidden when cleanup failed or inventory is unknown. Recheck storage Actions on the new exact SHA.
+- No local checkout/compiler in this connector-only session; physical-router L4 NOT VERIFIED.
+- Next: resolve exact-head checks and XY-C1 Build/TRX/artifact. Then continue P1 cross-userland work at AliDDNS external address discovery and lifecycle; do not repeat completed HTTPD or storage audits.
 
 ---
 

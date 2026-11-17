@@ -1,3 +1,12 @@
+## 2026-11-17 — Align storage safe-remove checker with fail-closed retry semantics
+
+- Parent main SHA: 776907e05a23638a6bf5c9cd7ab1bbef35bb4571; result: THIS COMMIT.
+- Exact-head storage run 44114215851 on 776907e05a23638a6bf5c9cd7ab1bbef35bb4571 passed the full caller-graph and lock-order checks, then failed only in `scripts/check_storage_safe_remove.py`: a legacy assertion still required an app-start retry after unknown mount inventory.
+- The new production behavior intentionally suppresses that retry when either unmount stage failed or mount inventory is unknown; a positive stale count can refer to the physically removed disk. The normal five-second retry remains required after cleanup succeeded but `start_stor_apps()` itself failed. Updated the checker to encode these two distinct cases rather than weakening production safety.
+- Parent exact-head SHA 776907e05a23638a6bf5c9cd7ab1bbef35bb4571: 14 Actions succeeded, storage checker failed, and XY-C1 firmware validation was still running. The checker correction must be revalidated on this commit's exact SHA. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Gate targeted safe-remove restart on complete unmount success
 
 - Parent main SHA: d023872d38c866cb9427db2c29f19813f9e59d21; result: THIS COMMIT.
