@@ -322,7 +322,8 @@ jobs:
           assert "if (stop_status != 0)" in restart_smbd
           assert "mount_status = storage_has_mounted_devices" in restart_smbd
           assert "if (mount_status < 0)" in restart_smbd
-          assert "samba_storage_restart_action_for(samba_enabled, mount_status)" in restart_smbd
+          restart_smbd_compact = "".join(restart_smbd.split())
+          assert "samba_storage_restart_action_for(samba_enabled,mount_status)" in restart_smbd_compact
           assert "SAMBA_STORAGE_RESTART_ACTION_ABORT" in restart_smbd
           assert "SAMBA_STORAGE_RESTART_ACTION_START_SAMBA" in restart_smbd
           assert "SAMBA_STORAGE_RESTART_ACTION_START_WINS" in restart_smbd

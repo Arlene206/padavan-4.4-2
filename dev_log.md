@@ -1,3 +1,12 @@
+## 2026-11-18 — Normalize Samba WINS restart source-contract spacing
+
+- The exact Samba run `44172985076` on `2e6974211a9e3a487913076b84dfe89eb9817b0d` passed its GNU89/Werror/ASan/UBSan C binaries, including the WINS restoration decision matrix, but the final integration checker failed at a one-line spelling assertion for a deliberately wrapped helper call.
+- Update the checker to remove whitespace from the extracted `restart_smbd()` body before matching the complete argument sequence. This addresses the checker false negative; no production C change is needed.
+- Exact rerun of the Samba workflow is pending. NFS `44172985066`, AI docs `44172984806`, and AdGuardHome `44172984782` passed on that source SHA.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-18 — Verify detached syslogd and klogd children after launcher success
 
 - Parent main SHA: `2e6974211a9e3a487913076b84dfe89eb9817b0d`; THIS COMMIT modifies RC startup, Process source integration contracts/PR filters and the live handoff/roadmap.

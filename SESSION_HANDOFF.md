@@ -24,6 +24,13 @@
 2. Resolve outstanding `9be5d29` XY-C1 and `db362b5` NVRAM runs independently.
 3. Continue further evidenced P1 service startup/security gaps outside storage, DHCP deconfig, Networkmap, infosvr, Telnetd, rstats and LLTD. Preserve the frozen backup.
 
+## Concurrent CI repair — Samba WINS restart source contract
+
+- Source fix `2e6974211a9e3a487913076b84dfe89eb9817b0d` restores independently enabled WINS after a forced Samba restart even when Samba shares are disabled and storage is mounted.
+- Its exact Samba run `44172985076` reached the source-contract stage and failed only because the checker required the policy-helper call to appear on one line. The C GNU89/`-Werror`/ASan/UBSan test binaries all passed, including the new matrix.
+- Follow-up checker update normalizes whitespace in the extracted `restart_smbd()` body before comparing helper arguments. This is a checker-only repair; exact-head Samba rerun is pending.
+- The adjacent exact NFS lifecycle run `44172985066`, AI handoff `44172984806` and AdGuardHome `44172984782` passed; XY-C1 `44172984821` remained in progress at last observation.
+
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session
