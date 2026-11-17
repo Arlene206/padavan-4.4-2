@@ -19,10 +19,10 @@ scriptname=$(basename $0)
 aliddns_interval_normalize() {
 	aliddns_interval_value="$1"
 	case "$aliddns_interval_value" in
-		''|*[!0-9]*) printf '600\\n'; return 0 ;;
+		''|*[!0-9]*) printf '600\n'; return 0 ;;
 	esac
 	if [ "${#aliddns_interval_value}" -gt 5 ]; then
-		printf '600\\n'
+		printf '600\n'
 		return 0
 	fi
 	while [ "${#aliddns_interval_value}" -gt 1 ]; do
@@ -32,7 +32,7 @@ aliddns_interval_normalize() {
 		esac
 	done
 	[ "$aliddns_interval_value" != "0" ] || aliddns_interval_value=1
-	printf '%s\\n' "$aliddns_interval_value"
+	printf '%s\n' "$aliddns_interval_value"
 }
 
 aliddns_enable=`nvram get aliddns_enable`

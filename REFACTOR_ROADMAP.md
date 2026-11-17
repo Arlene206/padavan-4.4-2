@@ -2,15 +2,14 @@
 
 This section is authoritative over older table rows where state conflicts.
 
-- Parent main SHA: `29f9b24d3b7ad8fc5f0dd4e856e0d3d06687599a`; result: THIS COMMIT.
-- Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- AliDDNS exact run `44117236166` on `29f9b24d` passed the IPv4 WAN discovery, IPv6 discovery, DNS lookup, keeper lifecycle and static contract checks. `40fb7dfe` added configured WAN6-interface selection; initial malformed workflow YAML was corrected by `29f9b24d`.
-- `c17ef063` closed a keeper-inventory UNKNOWN/ABSENT defect: visible PID with unreadable cmdline now fails closed and clears partial PID results. Exact AliDDNS regression passed on that SHA.
-- The keeper polling interval is sourced from NVRAM and the UI's five-digit/numeric restrictions are client-side only. THIS COMMIT normalizes invalid/overlong values to 600 seconds, converts zero to one second, strips leading zeroes, persists safe values, and quotes the sleep argument to prevent a tight loop.
-- Exact `40fb7dfe` XY-C1 run `44116901861` was in progress at last poll, and NVRAM run `44116901954` was still auditing raw ioctl paths. The interval source change in THIS COMMIT requires its own exact-head XY-C1 Build/TRX/artifact run.
-- No local compile/test or physical-router L4 is claimed in this connector-only session.
+- Parent main SHA: `b2692cec47bfd7b838fd4fdfda1368a16a088cc2`; result: THIS COMMIT.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- AliDDNS current code includes WAN IPv4 special-use filtering (`097705a6`), fail-closed keeper procfs inventory (`c17ef063`), and configured WAN6 IPv6 discovery (`40fb7dfe`). The malformed workflow for IPv6 was repaired by `29f9b24d`; exact AliDDNS run `44117236166` passed.
+- Interval normalization was introduced in `b2692cec`; immediate review found double-escaped printf newline output, and THIS COMMIT fixes the format and pins it in static source contract. Exact-head lifecycle regression pending.
+- Exact `40fb7dfe` XY-C1 run `44116901861` was IN_PROGRESS at last poll; this commit changes packaged `aliddns.sh` and must get its own XY-C1 Build/TRX/artifact run.
+- No local test/compile or physical-router L4 is claimed.
 
-Next: verify THIS COMMIT's AliDDNS interval regression/static contracts and exact-head XY-C1 Build/TRX/artifact; then continue remaining P1 whole-userland reliability work. Avoid repeating completed HTTPD/storage audits.
+Next: verify exact-head AliDDNS interval test and current-source XY-C1 Build/TRX/artifact, then continue P1 whole-userland reliability. Do not repeat completed HTTPD/storage audits.
 
 ---
 

@@ -1,3 +1,12 @@
+## 2026-11-17 — Correct AliDDNS interval normalizer output escaping
+
+- Parent main SHA: `b2692cec47bfd7b838fd4fdfda1368a16a088cc2`; result: THIS COMMIT.
+- Immediate source review caught that the new POSIX-shell interval normalizer used double-escaped printf format strings, which would emit literal backslash-n text instead of a valid numeric value. This would be rejected by the new lifecycle regression; it was corrected before claiming test success.
+- The helper now emits ordinary newline-terminated decimal values. The static source contract also pins the intended one-backslash format and rejects the two-backslash form. Exact-head AliDDNS regression and target build pending.
+- No local test/compiler or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-17 — Bound AliDDNS polling interval to prevent a keeper busy loop
 
 - Parent main SHA: `29f9b24d3b7ad8fc5f0dd4e856e0d3d06687599a`; result: THIS COMMIT.
