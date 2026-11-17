@@ -61,6 +61,9 @@ jobs:
           assert adapter.index('logmessage(') < adapter.rindex("return ret;")
 
           stop = function_body(source, "stop_wan_locked(void)")
+          wan_daemons = stop.split("char* svcs_wan[]", 1)[1].split("};", 1)[0]
+          for daemon in ("igmpproxy", "xupnpd", "udpxy", "msd_lite"):
+              assert f'"{daemon}"' in wan_daemons, f"WAN teardown omits {daemon}"
           usb_modem = (rc / "usb_modem.c").read_text()
           usbnet_stop = function_body(usb_modem, "int\nstop_wan_usbnet(void)")
           dhcp_client_gate = 'kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0)'

@@ -2142,7 +2142,7 @@ stop_wan_locked(void)
 		"l2tpd", "xl2tpd", "pppd", NULL
 	};
 	char* svcs_wan[] = {
-		"ntpd", "inadyn", "igmpproxy", "xupnpd", "udpxy",
+		"ntpd", "inadyn", "igmpproxy", "xupnpd", "udpxy", "msd_lite",
 		"zcip", "pppoe-relay", "detect_wan", NULL
 	};
 	const char *udhcpc_pidfiles[] = {

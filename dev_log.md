@@ -1,3 +1,10 @@
+## 2026-11-17 — Stop MSD Lite during WAN teardown
+
+- `start_udpxy()` can launch the optional `msd_lite` proxy, and the shared proxy stop list already includes it. The independent `stop_wan_locked()` inventory omitted `msd_lite`, so a WAN-down/reconnect teardown could leave the daemon alive with stale WAN routing and interface state.
+- Add `msd_lite` to the WAN daemon stop inventory and extend the WAN teardown source contract to require all four WAN proxy daemons, including MSD Lite.
+- Add `hotplug_stor.c` to the XY-C1 workflow path filters. The tri-state SD/MMC source change had only storage/HTTPD coverage; adding the source filter ensures future hotplug edits also trigger firmware validation. This commit changes `net_wan.c`, so XY-C1 is also triggered on this exact SHA.
+- Exact-head WAN, XY-C1 Build/TRX/artifact, Process, AI handoff and NVRAM checks: pending. No local MIPS/uClibc build or hardware result is claimed.
+
 ## 2026-11-17 — Align HTTPD's duplicate storage check with tri-state hotplug topology
 
 - Exact-head HTTPD run `44155697386` on `e90549004908d388123e1807abf0ddeb4a6a11fd` passed its preceding authentication, NVRAM transaction, wireless publication, USB modem metadata and other security checks, then failed at `Verify block-storage whole-disk partition gate`.
