@@ -5094,9 +5094,12 @@ jobs:
           assert "if (ipv6_status != 0)" in stop_wan
           assert stop_wan.index("if (ipv6_status != 0)") < stop_wan.index("clear_wan_state();")
           callback_fence = stop_wan.index("refusing WAN interface teardown while DHCPv6 callback fencing is incomplete")
-          wan_service_stop = stop_wan.index('if (kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1) != 0)')
+          wan_release = stop_wan.index('process_pidfile_signal(udhcpc_pidfiles[0], "udhcpc", SIGUSR2)')
+          viptv_release = stop_wan.index('process_pidfile_signal(udhcpc_pidfiles[1], "udhcpc", SIGUSR2)')
+          wan_dhcp_stop = stop_wan.index('kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0)')
+          wan_daemon_stop = stop_wan.index("kill_services(svcs_wan, 3, 1)")
           interface_teardown = stop_wan.index("wan_teardown_ifdown_interfaces(")
-          assert callback_fence < wan_service_stop < interface_teardown
+          assert callback_fence < wan_release < viptv_release < wan_dhcp_stop < wan_daemon_stop < interface_teardown
           assert "if (stop_status != 0 || ifdown_status != 0)" in stop_wan
           assert stop_wan.index("if (stop_status != 0 || ifdown_status != 0)") < stop_wan.index("clear_wan_state();")
           assert stop_wan.index("invalidate_wan_ppp_callback_session()") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")

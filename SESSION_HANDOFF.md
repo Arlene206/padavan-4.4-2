@@ -1,30 +1,29 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes conflicting older status below. Continue on main and do not repeat completed audits.
+This checkpoint supersedes conflicting older status below. Continue on main; avoid repeating completed audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2.
-- Parent main SHA: e2b5cc184a67b0b25d5ca3dfa8c6f93576adc49c; result: THIS COMMIT (single complete Git tree, expected-SHA non-force update).
+- Parent main SHA: 88d2439710316c70429535fc057dfc9a98f18085; result: THIS COMMIT (one complete Git tree; expected-SHA non-force update).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
-- Remote branches: main and the frozen backup only.
+- Remote branches: main and frozen backup only.
 - Connector-only environment: no local checkout or target MIPS compiler; physical-router L4 NOT VERIFIED.
 
-## AP DHCP stop contract and exact Actions
-- Product source remains e64ab93290e20935c0a11ac990612f8dc29fa363: AP LAN udhcpc shutdown sends PID/start-time-validated SIGUSR2, allows 300 ms for release/deconfig, then performs a bounded 30-second no-force stop. Failure aborts AP bridge teardown and resumes internet detection.
-- This session corrected the stale HTTPD count assertion and the detect_internet AP stop contract. Exact detect_internet run 44127050720 on e2b5cc1: SUCCESS; its revised helper and abort-order assertions passed.
-- HTTPD run 44127046365 on e2b5cc1 failed before creating any job because two inserted comment/assertion lines lost the YAML block indentation. THIS COMMIT removes the comments and restores the Python assertion's indentation; no product source changed.
-- Other exact e2b5cc1 runs: infosvr 44127050611, AdGuardHome 44127050808, AI handoff 44127050752, AliyunDrive 44127050549, AliDDNS 44127050688: SUCCESS. Process 44127050578, XY-C1 44127050545 and NVRAM 44127050740: IN_PROGRESS at last poll.
-- WAN-DHCP 44126128791 on 3042828 and WAN-route 44125814206 on e64ab93: SUCCESS.
+## AP LAN DHCP / WAN teardown contracts
+- Product-source baseline remains e64ab93290e20935c0a11ac990612f8dc29fa363. AP LAN udhcpc sends PID-identity-validated SIGUSR2, waits 300 ms, then performs a bounded 30-second no-force stop; unknown identity/timeout aborts bridge teardown and resumes detection.
+- Exact detect_internet run 44127050720 on e2b5cc1: SUCCESS. Exact WAN-DHCP run 44126128791 on 3042828 and WAN-route run 44125814206 on e64ab93: SUCCESS.
+- Exact e2b5cc1 Process run 44127050578 failed at checker line 804 because a second AP stop-order assertion still expected the removed inline force-kill path; THIS COMMIT updates it to verify the dedicated helper and caller abort/resume-before-ifdown ordering.
+- Exact 88d HTTPD run 44127395058 passed YAML parsing and earlier lifecycle checks, then failed at the stale combined WAN DHCP stop assertion. THIS COMMIT now checks SIGUSR2 release of both WAN/VIPTV clients, PID-bound 30-second no-force DHCP stop, separate ordinary WAN daemon stop and only then interface teardown.
+- Exact e2b5cc1 NVRAM 44127050740: SUCCESS. XY-C1 44127050545 remained IN_PROGRESS at last poll. Exact 88d NVRAM 44127395472 and XY-C1 44127395035 remained IN_PROGRESS.
 
 ## First next task
-1. Verify the exact-head HTTPD rerun; require the YAML workflow to instantiate a job and the service lifecycle / WAN stop contract step to pass.
-2. Finish Process 44127050578, XY-C1 44127050545 (Build, TRX and artifact upload), and NVRAM 44127050740 by exact SHA.
-3. Continue an independent stability/security slice across the remaining userland only after current failures and pending target build are resolved.
+1. Verify exact-head Process and HTTPD reruns; inspect real job logs if either fails.
+2. Finish XY-C1 Build/TRX/artifact and current NVRAM/independent actions.
+3. Continue a new whole-userland stability/security slice once these immediate regressions are green.
 
 ## Validation boundary
-- detect_internet's AP DHCP release/abort contract passed on exact SHA e2b5cc1.
-- HTTPD on e2b5cc1 did not execute its job due malformed YAML indentation; THIS COMMIT corrects that formatting and triggers a new exact-head run.
-- No local MIPS/uClibc compile or physical-router L4 is claimed. XY-C1 Actions are the target build authority.
+- detect_internet and WAN-DHCP source contracts passed on exact prior SHAs; HTTPD and Process had stale embedded assertions, now corrected in THIS COMMIT.
+- No local MIPS/uClibc compile or physical-router L4 is claimed. XY-C1 Actions remain the target-build authority.
 
 # Cross-session execution mandate
 

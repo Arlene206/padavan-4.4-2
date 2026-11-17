@@ -1,3 +1,13 @@
+## 2026-11-17 — Correct Process and HTTPD DHCP teardown integration contracts
+
+- Parent main SHA: 88d2439710316c70429535fc057dfc9a98f18085; result: THIS COMMIT.
+- Exact Process run 44127050578 on e2b5cc1 passed process inventory, PPPD/udhcpc PID identity, lifecycle, ZeroTier, storage, USB modem and the first LAN DHCP helper contract, then failed at a second stale source assertion (line 804) expecting the removed direct three-second force-kill stop call in stop_lan(). Replaced it with checks for SIGUSR2 identity-bound release, ENOENT/ESRCH-only exception, 300 ms wait, 30-second no-force stop and abort/resume before ifdown.
+- Exact HTTPD run 44127395058 on 88d2439 passed YAML parsing and earlier lifecycle checks, then failed because its WAN stop contract still expected a combined DHCP/daemon force-kill call. Updated it to require WAN and VIPTV SIGUSR2 release, PID-file-bound no-force DHCP termination, ordinary WAN daemon stop and interface teardown in that order.
+- No production source changed. The Process script and HTTPD workflow file are in their push path filters; both exact-head workflows are retriggered.
+- No local MIPS/uClibc build or physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Repair HTTPD workflow block indentation after contract refresh
 
 - Parent main SHA: e2b5cc184a67b0b25d5ca3dfa8c6f93576adc49c; result: THIS COMMIT.

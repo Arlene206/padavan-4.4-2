@@ -801,12 +801,19 @@ print("USB modem stop-result propagation and WAN restart gate: PASS")
 
 lan_stop_transaction = net_lan_dhcp.split("int\nstop_lan(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
 lan_pause = lan_stop_transaction.index("notify_pause_detect_internet()")
-lan_preflight = lan_stop_transaction.index('kill_services_with_pidfiles(svcs, pidfiles, "udhcpc", 0, 3, 1)')
+lan_preflight = lan_stop_transaction.index("status = stop_udhcpc_lan();")
 lan_preflight_failure = lan_stop_transaction.index("if (status != 0)", lan_preflight)
 lan_preflight_resume = lan_stop_transaction.index("notify_run_detect_internet(2)", lan_preflight_failure)
+lan_preflight_return = lan_stop_transaction.index("return status;", lan_preflight_failure)
 lan_ifdown = lan_stop_transaction.index("ifconfig(IFNAME_BR, 0, NULL, NULL)")
 lan_ifdown_resume = lan_stop_transaction.index("notify_run_detect_internet(2)", lan_ifdown)
-assert lan_pause < lan_preflight < lan_preflight_failure < lan_preflight_resume < lan_ifdown
+lan_dhcp_stop = net_lan_dhcp.split("stop_udhcpc_lan(void)", 1)[1].split("\n}\n", 1)[0]
+lan_release = lan_dhcp_stop.index('process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)')
+lan_identity_gate = lan_dhcp_stop.index("errno != ENOENT && errno != ESRCH")
+lan_release_wait = lan_dhcp_stop.index("usleep(300000)")
+lan_noforce_stop = lan_dhcp_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
+assert lan_release < lan_identity_gate < lan_release_wait < lan_noforce_stop
+assert lan_pause < lan_preflight < lan_preflight_failure < lan_preflight_resume < lan_preflight_return < lan_ifdown
 assert lan_ifdown < lan_ifdown_resume
 assert "if (status != 0 && is_ap_mode)" in lan_stop_transaction
 print("AP LAN detect_internet pause rollback on failed teardown: PASS")
