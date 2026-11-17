@@ -1,3 +1,11 @@
+## 2026-11-17 — Ensure udhcpc policy header changes trigger XY-C1 firmware validation
+
+- Parent main SHA: d674d50bfe95863dbe0851e269180d0516868586; result: THIS COMMIT.
+- The dedicated BusyBox udhcpc script-status workflow passed exact-head run 44102850811 on d674d50. Review found the XY-C1 path filter tracked dhcpc.c but omitted the included udhcpc_script_policy.h, so a header-only production fix would not trigger a same-SHA firmware build.
+- Add the policy header and the XY-C1 workflow file itself to the push path filter, ensuring the current source receives MIPS firmware validation and future trigger-filter edits are exercised. Exact-head XY-C1 run for this follow-up pending; the da076cf build is still independent and in progress.
+- Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Prevent zero-delay DHCP callback retry loops
 
 - Parent main SHA: da076cf8d2425b747a9ffda182144bcce49d5ab0; result: THIS COMMIT.
