@@ -1,3 +1,27 @@
+# 2026-11-17 latest verified checkpoint
+
+This section is authoritative over older table rows where state conflicts. Do not repeat completed audits merely because older rows remain below.
+
+- Exact main HEAD at checkpoint: `9926124272593182c7e3f8fdf6c0836d25d331a3`
+- Frozen backup branch: `72f4f157a084f8184b9597ca5bf334b8080e5807`
+- Current completed work: LAN DHCP host-file recovery and kernel-name failure propagation; zero-delay DHCP callback retry throttling; DHCPv6 DNS option withdrawal cleanup; WAN teardown IPv6-error aggregation while continuing IPv4 cleanup; tri-state process inventory integration into legacy `pids()`; final hostname validation before host-file publication.
+- Test/CI state on exact head:
+- WAN DHCP callback: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- HTTPD security: PENDING — run 44110556946 (HTTPD Authentication and Security Regression).
+- XY-C1 firmware: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- Process lifecycle: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- NVRAM audit: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- WAN route status: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- AI handoff docs: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- DNSMasq lifecycle: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- AdGuardHome: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- AliDDNS: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- AliyunDrive: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+- Host compiler was not available in the connector-only runtime; no local tests were run. Only exact-SHA Actions can establish test/build PASS. Physical router L4 remains NOT VERIFIED.
+- Next: complete exact-head WAN DHCP, HTTPD, process, NVRAM, and XY-C1 checks; repair real failures; then continue a fresh cross-userland stability/security slice. A PENDING job must not block other independent work.
+
+---
+
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact

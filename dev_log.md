@@ -1,3 +1,12 @@
+## 2026-11-17 — Cross-chat development checkpoint
+
+- Parent main SHA: 9926124272593182c7e3f8fdf6c0836d25d331a3; result: THIS COMMIT.
+- Captured exact main/backup refs, recent commits, and exact-head workflow status in SESSION_HANDOFF.md and REFACTOR_ROADMAP.md. The checkpoint records the DHCPv4/v6, LAN hostname publication, WAN teardown, and tri-state process fixes completed during this continuation.
+- No local compiler/checkout was available; no local test result is claimed. Physical router L4 remains NOT VERIFIED.
+- Exact-head Actions status is recorded in both handoff files; the handoff-doc workflow for this documentation commit must be checked after push.
+
+---
+
 ## 2026-11-17 — Require WAN and HTTPD CI to exercise the final LAN hostname guard
 
 - Parent main SHA: f680e4f6366b37f76d2cc552da9e77158b54226a; result: THIS COMMIT.
