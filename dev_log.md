@@ -1,3 +1,13 @@
+## 2026-11-17 — Propagate gateway ARP checker startup failures through WAN-up
+
+- Parent main SHA: `5525430a2ee5ff16f3d5b84912cd183e195808df`; result: THIS COMMIT.
+- Finding: `wan_up_internal()` only starts `detect_wan` after process inventory reports ABSENT, but discarded the `eval("detect_wan")` result. A failed gateway ARP checker launch could therefore leave WAN-up reporting success with monitoring unavailable.
+- Captured the launch status, merged it into the existing first-error accumulator and logged failures while preserving the existing RUNNING/UNKNOWN gates and continuing independent WAN setup.
+- Added `scripts/check_wan_detect_wan_status.py` to verify process-scan/decision/launch/aggregation/diagnostic/return ordering. The WAN workflow now runs it; the existing GNU89/ASan/UBSan `route_status_policy.c` regression continues to exercise first-error retention.
+- Parent SHA `5525430a` had all 22 exact-head push Actions PASS, including WAN route `44039076856` and XY-C1 `44039076948` (Build, TRX verification and artifact upload). Those results predate this source change. New exact-head CI is pending; local execution NOT RUN (no local checkout/toolchain), physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Propagate PPPoE-MWAN detector status through WAN-up and WAN-down
 
 - Parent main SHA: `4f32e40fdd1817a48840abf42373a483dff20d91`.

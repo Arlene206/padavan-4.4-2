@@ -9,7 +9,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `4f32e40fdd1817a48840abf42373a483dff20d91`.
+- Current main: THIS COMMIT; parent `5525430a2ee5ff16f3d5b84912cd183e195808df`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -21,12 +21,14 @@ Every logical multi-file change must be published as one complete Git tree and o
 - P1 PPPoE-MWAN detector slice `4f32e40f`: `detect.sh` preserves the first command failure, safely parses `iptables-save` without `eval`, validates NVRAM/IPv4 inputs, bounds loop counts and owns atomic lock cleanup. Its local Bash syntax/mock regression passed; exact-head WAN run `44037585283` also passed, including the production test step. Same-SHA XY-C1 run `44037585221` was still building; TRX and artifact were pending at last poll.
 - XY-C1 run `44027996318` for source SHA `d2a41360` completed SUCCESS through Build XY-C1, TRX output verification and artifact upload (artifact `14304605616`, 12.64 MB; SHA-256 `05e374b72ce3f88eb6a019f50c2b1a85c924e28faaae772103bdd102a1485e8f`). This does not verify the newer PPPoE-MWAN source in THIS COMMIT.
 - No full local repository checkout or MIPS toolchain is available. The PPPoE-MWAN host Bash syntax and mock-command regression were run locally and passed. Physical-router L4 remains NOT VERIFIED.
+- Parent main `5525430a2ee5ff16f3d5b84912cd183e195808df` had 22/22 exact-head `push` Actions successful before this source slice. WAN route run `44039076856` passed; XY-C1 run `44039076948` completed Build XY-C1, TRX output verification and artifact upload successfully. This is parent-SHA evidence only; it does not validate the gateway ARP change in THIS COMMIT.
+- THIS COMMIT captures `eval("detect_wan")` after a clean ABSENT process scan, merges/logs its failure through WAN-up's first-error accumulator, and leaves RUNNING/UNKNOWN behavior unchanged. The new caller checker is `scripts/check_wan_detect_wan_status.py`; exact-head Actions for THIS COMMIT are pending at publication.
 
 ## Active task
 
-1. Verify exact-head Actions for THIS COMMIT, especially PPPoE-MWAN detector and up/down caller contract steps, plus XY-C1 Build, TRX verification and artifact upload; inspect job steps, not only run conclusions.
-2. With CI pending, rotate the WAN reliability audit to remaining ignored command-result paths outside the completed PPPoE-MWAN up/down handlers. Select one bounded defect, add a focused regression and avoid repeating completed detector/caller audits.
-3. Preserve the frozen backup and use one complete Git tree, one commit and non-forced expected-SHA main update per logical slice.
+1. Verify exact-head push Actions for THIS COMMIT. The WAN-route job must execute the gateway ARP checker contract and GNU89/ASan/UBSan route-status test; inspect the XY-C1 Build, TRX verification and artifact-upload steps, not only the run conclusion.
+2. With any checks pending, continue a focused review of ignored status-producing operations in `trunk/user/rc/src/net_wan.c`, excluding the already-fixed PPPoE-MWAN detector and gateway ARP checker launch paths. Trace lifecycle semantics before changing optional hooks; prioritize required network/service operations.
+3. Work only on `main`, preserve the frozen backup, and publish each logical multi-file slice as one tree/commit with a non-forced expected-SHA update.
 
 ## Verification boundary
 
@@ -38,4 +40,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Exact first action for the next GPT
 
-Fetch the live main SHA and filter Actions on that exact `head_sha`/push event. Verify detector and WAN-up/WAN-down caller contracts plus XY-C1 Build → TRX verification → artifact upload. Then continue a bounded review of ignored status returns outside the PPPoE-MWAN callers; keep the backup unchanged.
+Fetch live `main`, then filter push Actions by its exact `head_sha`. Verify the WAN-route gateway ARP status checker and route-status sanitizer regression, plus XY-C1 Build → TRX output verification → artifact upload. Continue the next bounded ignored-result review in `net_wan.c`; do not repeat the already-completed PPPoE-MWAN or gateway ARP audits.

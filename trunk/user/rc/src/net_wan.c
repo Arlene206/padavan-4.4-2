@@ -2702,9 +2702,13 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		scan_error = snapshot.error;
 		process_snapshot_release(&snapshot);
 		action = process_presence_start_action_for_state(presence);
-		if (action == PROCESS_PRESENCE_START_NEW)
-			eval("detect_wan");
-		else if (action == PROCESS_PRESENCE_START_ABORT)
+		if (action == PROCESS_PRESENCE_START_NEW) {
+			route_status = eval("detect_wan");
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME, "WAN gateway ARP checker startup incomplete (status=%d)",
+					   route_status);
+		} else if (action == PROCESS_PRESENCE_START_ABORT)
 			logmessage(LOGNAME,
 				   "skipping gateway ARP checker start because process inventory is unknown (error=%d)",
 				   scan_error ? scan_error : EIO);
