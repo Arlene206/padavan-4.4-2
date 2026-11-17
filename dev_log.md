@@ -1,3 +1,12 @@
+## 2026-11-17 — Correct normalized helper-call assertion in storage checker
+
+- Parent main SHA: e1a21c6867df9391d4fef938fda93e24ef05a07f; result: THIS COMMIT.
+- The second exact-head storage run `44114861725` again passed the full storage caller-graph and lock-order checks, then the standalone checker failed on the newly added helper-wiring assertion. The checker expected a space after the opening parenthesis even though the production call is on one line. This is a test-source formatting mismatch, not a production failure.
+- Corrected the checker to match the exact normalized helper invocation. The preceding assertion that checks retry only after successful cleanup remains; the obsolete unknown-inventory retry expectation remains forbidden.
+- Exact parent SHA e1a21c6867df9391d4fef938fda93e24ef05a07f: AliDDNS, AliyunDrive, infosvr and AI-handoff checks PASS; NVRAM, process, AdGuardHome and storage are in progress or pending at last poll, and parent XY-C1 remains in progress from SHA 776907e. Re-run storage on THIS COMMIT before claiming L2. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align storage safe-remove checker with fail-closed retry semantics
 
 - Parent main SHA: 776907e05a23638a6bf5c9cd7ab1bbef35bb4571; result: THIS COMMIT.

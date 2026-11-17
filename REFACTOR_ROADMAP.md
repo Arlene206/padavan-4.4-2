@@ -1,14 +1,14 @@
 # 2026-11-17 latest verified checkpoint
 
-This section is authoritative over older table rows where state conflicts. Do not repeat completed audits merely because older rows remain below.
+This section is authoritative over older table rows where state conflicts.
 
-- Parent main SHA: `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`; result: THIS COMMIT.
+- Parent main SHA: `e1a21c6867df9391d4fef938fda93e24ef05a07f`; result: THIS COMMIT.
 - Frozen backup branch: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Storage targeted safe-remove is now fail-closed: restart daemons only after both unmount stages succeed and fresh mount inventory is positive. Added GNU89 policy cases, integration checker, and storage/HTTPD source contracts in `776907e05a23`.
-- Exact-parent SHA `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`: 14 Actions PASS, storage checker FAIL (stale expectation of retry on unknown inventory), XY-C1 run 44114216599 still IN_PROGRESS. HTTPD, AliDDNS API, NVRAM, process, Samba, NFS, and AI handoff checks passed.
-- THIS COMMIT aligns the checker with the safety contract: retry is still required after a service-start failure following successful cleanup, but is forbidden when cleanup failed or inventory is unknown. Recheck storage Actions on the new exact SHA.
-- No local checkout/compiler in this connector-only session; physical-router L4 NOT VERIFIED.
-- Next: resolve exact-head checks and XY-C1 Build/TRX/artifact. Then continue P1 cross-userland work at AliDDNS external address discovery and lifecycle; do not repeat completed HTTPD or storage audits.
+- Targeted safe-remove production fix `776907e` keeps storage apps stopped on failed/unknown cleanup and restarts only after both unmount phases succeed plus positive inventory.
+- Storage exact-head run `44114215851` at 776907e failed on obsolete checker expectations; follow-up `44114861725` at e1a21c6867df9391d4fef938fda93e24ef05a07f failed only on a space mismatch in the checker helper-call assertion. Both passed the preceding production caller-graph/lock-order contract.
+- THIS COMMIT corrects that text assertion. Re-run exact-head storage before L2 PASS. Parent AliDDNS, AliyunDrive, infosvr and AI docs checks passed; XY-C1 build/TRX/artifact was still pending.
+- No local compiler/checkout; physical-router L4 NOT VERIFIED.
+- Next: exact-head storage and XY-C1, then AliDDNS external IPv4 discovery and lifecycle follow-ups. Avoid repeat audits.
 
 ---
 

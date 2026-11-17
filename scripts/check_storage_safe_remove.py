@@ -271,7 +271,7 @@ require('storage_rollback_stor_apps_after_stop_failure( "eject-all", stop_status
         eject_rollback < eject_abort,
         "eject-all must restore stopped storage services before aborting the operation")
 require("storage_ejected_storage_start_retry_required( mount_count, start_status)" in targeted_eject_contract and
-        "storage_ejected_may_restart_apps( unmount_status, ejected_status, mount_count)" in targeted_eject_contract and
+        "storage_ejected_may_restart_apps(unmount_status, ejected_status, mount_count)" in targeted_eject_contract and
         "storage_ejected_storage_start_retry_required( mount_count, 0)" not in targeted_eject_contract,
         "targeted eject must retry failed app starts after successful cleanup, but never restart from unknown/failed cleanup")
 retry_schedule = targeted_eject.rsplit("if (retry_storage_start)", 1)[-1]

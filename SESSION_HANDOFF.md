@@ -4,42 +4,34 @@ This checkpoint supersedes older status statements below when they conflict. Res
 
 ## Git state
 - Repository: `https://github.com/Arlene206/padavan-4.4-2`
-- Parent main SHA: `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`; result: THIS COMMIT (complete Git tree, expected-SHA update, no force push).
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
-- Development remains on `main` only. No force push.
-- No local checkout/compiler was available in this connector-only session. Physical-router L4 remains NOT VERIFIED.
+- Parent main SHA: `e1a21c6867df9391d4fef938fda93e24ef05a07f`; result: THIS COMMIT (complete Git tree, expected-SHA update, no force push).
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- No local checkout/compiler was available in this connector-only session. Physical-router L4 NOT VERIFIED.
 
-## Completed in the current storage slice
-- `66afed9c10f0c0fae622cfa3325e677243eba38a` keeps storage-backed daemons stopped after failed physical-unplug cleanup.
-- `576cadbbb85e3a0af9ea848e2bc6264604e30fce` adds a distinct `usb_unplug_ms` cleanup retry; the deferred worker retries stale unmount cleanup before starting storage applications.
-- `50f7fff76e7ec2161a69aa855ce4c2de063a4c52` and `d023872d38c866cb9427db2c29f19813f9e59d21` repair CI contracts for the distinct retry path.
-- `776907e05a23638a6bf5c9cd7ab1bbef35bb4571` also gates targeted/manual safe-remove: storage applications restart only when both unmount stages succeed and a refreshed inventory is positively nonempty. Failed/unknown cleanup leaves them stopped; no ordinary app-start retry is queued against stale/unknown mounts.
-- Exact-head storage run `44114215851` on `776907e` passed the full caller-graph and lock-order checks, then failed only because the standalone checker still expected the now-prohibited retry on unknown mount inventory. THIS COMMIT updates that checker to require retry only after successful cleanup plus an app-start failure. The production fail-closed behavior is unchanged.
-
-## Exact-head CI snapshot for parent
-- `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`: 14 Actions PASS, 1 storage-checker FAIL, and XY-C1 run `44114216599` IN_PROGRESS at last poll. HTTPD security, AliDDNS API transport, process lifecycle, NVRAM, Samba, NFS, and AI handoff documentation checks all passed on that exact SHA.
-- The checker correction in THIS COMMIT requires a new exact-head storage run. Verify the new SHA before claiming its storage L2.
-- XY-C1 has passed its many preceding policy checks through the WAN firewall contract; Build XY-C1, TRX validation, and artifact upload remained in progress at last poll. Query its current conclusion; do not infer completion.
-- Physical-router L4 remains NOT VERIFIED.
+## Storage safe-remove status
+- `776907e05a23638a6bf5c9cd7ab1bbef35bb4571` added the fail-closed targeted safe-remove gate: restart only after both unmount stages succeed and a fresh positive mount inventory. Failed/unknown cleanup leaves applications stopped; ordinary app-start retry remains only for a start failure after confirmed cleanup.
+- Exact-head storage run `44114215851` (SHA 776907e) passed caller graph and lock ordering, then failed on an obsolete checker requirement to retry from unknown inventory.
+- THIS COMMIT (`e1a21c6867df9391d4fef938fda93e24ef05a07f`) updated that check, but exact-head storage run `44114861725` still failed in the newly-added helper-call assertion due only to an expected-space mismatch; caller graph/lock checks again passed. THIS COMMIT corrects the normalized text assertion. Re-run before claiming L2.
+- Prior exact-head SHA `e1a21c6867df9391d4fef938fda93e24ef05a07f`: AliDDNS, AliyunDrive, infosvr and AI docs PASS; storage checker FAIL; process, AdGuardHome and NVRAM were still running/pending at last poll. XY-C1 build remained in progress on source SHA 776907e.
 
 ## Recent commit trail
-- THIS COMMIT: align storage safe-remove checker with fail-closed retry semantics
+- THIS COMMIT: correct normalized helper-call assertion in storage integration checker
+- `e1a21c6867df` test(storage): align retry contract with fail-closed eject
 - `776907e05a23` fix(storage): gate targeted eject restart on cleanup success
 - `d023872d38c8` test(storage): validate retry scheduling on both failure paths
 - `50f7fff76e7e` test(storage): assert the distinct physical-unplug retry path
 - `576cadbbb85e` fix(storage): retry physical eject before storage app startup
 - `66afed9c10f0` fix(storage): keep dependent services stopped after failed eject
-- `992612427259` test(storage): assert rollback return after service-stop failure
 
 ## First next task
-1. Query Actions for THIS COMMIT's exact SHA; repair any remaining real FAIL. Poll the already-running XY-C1 run and confirm Build, TRX, and artifact upload.
-2. Once the storage checker passes, continue the cross-userland P1 audit at AliDDNS external-address discovery and lifecycle; its signed API transport regression passed on parent `776907e`.
-3. Do not repeat the completed HTTPD duplicate-launch/readiness audit or the current storage safety audit. Keep source → regression → atomic commit → exact-SHA Actions.
+1. Query exact-SHA Actions for THIS COMMIT; verify storage checker and poll XY-C1 build/TRX/artifact.
+2. Once storage is green, continue AliDDNS external IPv4 discovery hardening and lifecycle follow-ups. Its signed API transport run passed on parent SHA 776907e.
+3. Do not repeat completed HTTPD, process, or storage source audits; fix only real new failures.
 
 ## Verification limits
 - Do not claim local host tests or a local firmware build in this connector-only session.
-- GNU89/Werror/ASan/UBSan and source-contract results are PASS only after corresponding exact-head Actions finish successfully.
-- Router filesystem/procfs timing, USB hardware, flash behavior and all physical-router L4 smoke testing remain NOT VERIFIED.
+- L2/L3 require successful exact-head Actions; XY-C1 Build, TRX verification and artifact upload must all finish.
+- Physical-router L4 remains NOT VERIFIED.
 
 
 # Cross-session execution mandate
