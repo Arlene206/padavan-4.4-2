@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate IPv6 global sysctl failures
+
+- Parent: `8291da3892430ca915c5414c609aca246f78c7aa`. `control_if_ipv6_all()` previously discarded all `set_interface_conf_int()` and neighbour-cache `fput_int()` results; callers could not report partial configuration failure.
+- Added injectable `rc_ipv6_conf_apply()`, attempting every write while retaining the first error and failing closed on invalid inputs. The production writer skips only per-device paths whose interface is not yet registered; kernel `all` and `default` paths remain mandatory.
+- Changed `control_if_ipv6_all()` to return int, bounded path construction with `snprintf()`, checked neighbour-cache writes, logged init/runtime failures, and merged disable/enable errors into IPv6 restart status.
+- Added GNU89 ASan/UBSan tests for ordered all-write execution, first-error retention, success, no-op and invalid inputs. Wired into Process, Firewall, WAN route and XY-C1 CI and shared source assertions.
+- Parent exact Actions: WAN DHCP callback `43984154569`, AI handoff `43984154581`, Process inventory `43984154609`, AdGuardHome `43984154572`, AliDDNS `43984154561`, infosvr `43984154692`, AliyunDrive `43984154565`, NVRAM audit `43984154656` PASS. This production slice requires fresh exact-SHA checks; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Align WAN DHCP callback contracts with argv-based IPv6 address adds
 
 - Parent source SHA: `b7aa7296aab8274461a68182402357352a9d905e`. WAN DHCP callback Actions run `43983424171` failed in its inline Python source contract because it still expected the three IPv6 address-add operations to use shell-formatted `doSystem()` calls.

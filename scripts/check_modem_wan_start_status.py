@@ -22,6 +22,8 @@ FIREWALL_COMMAND_STATUS_TEST = (RC / "tests/firewall_command_status.c").read_tex
 SERVICES_SOURCE = (RC / "services.c").read_text()
 STORAGE_SOURCE = (RC / "services_stor.c").read_text()
 NET6_SOURCE = (RC / "net6.c").read_text()
+IPV6_GLOBAL_CONF_POLICY_SOURCE = (RC / "ipv6_global_conf_policy.h").read_text()
+IPV6_GLOBAL_CONF_POLICY_TEST = (RC / "tests/ipv6_global_conf_policy.c").read_text()
 VPN_SERVER_SOURCE = (RC / "vpn_server.c").read_text()
 VPN_CLIENT_SOURCE = (RC / "vpn_client.c").read_text()
 SERVICES_EX_SOURCE = (RC / "services_ex.c").read_text()
@@ -372,6 +374,24 @@ ipv6_restart = compact(body(NET6_SOURCE, "full_restart_ipv6(int ipv6_type_old)")
 assert "operation_status = reload_lan_addr6();" in ipv6_restart
 assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart
 assert "IPv6 enable could not reload LAN address (status=%d)" in ipv6_restart
+
+# Global IPv6 sysctl writes retain first failure while trying every operation.
+global_conf_policy = compact(IPV6_GLOBAL_CONF_POLICY_SOURCE)
+assert "if (operation_count == 0) return 0;" in global_conf_policy
+assert "if (!operations || !write_operation) return EINVAL;" in global_conf_policy
+assert "if (first_status == 0 && status != 0) first_status = status;" in global_conf_policy
+assert "test_all_attempted_first_error" in IPV6_GLOBAL_CONF_POLICY_TEST
+global_writer = compact(body(NET6_SOURCE, "write_ipv6_conf_operation(void *context, const char *ifname"))
+assert 'strcmp(ifname, "all") != 0' in global_writer and 'strcmp(ifname, "default") != 0' in global_writer
+assert "!is_interface_exist(ifname)" in global_writer
+assert 'return set_interface_conf_int("ipv6", ifname, param, value);' in global_writer
+global_conf = compact(body(NET6_SOURCE, "control_if_ipv6_all(int enable)"))
+assert "rc_ipv6_conf_apply(enable_ops" in global_conf and "rc_ipv6_conf_apply(disable_ops" in global_conf
+assert "int write_status = fput_int(path, 900);" in global_conf and "snprintf(path, sizeof(path)" in global_conf
+assert "int control_if_ipv6_all(int enable);" in HEADER and "void control_if_ipv6_all(int enable);" not in HEADER
+assert NET6_SOURCE.count("operation_status = control_if_ipv6_all(") == 2
+assert "IPv6 disable could not apply global sysctls (status=%d)" in NET6_SOURCE
+assert "IPv6 enable could not apply global sysctls (status=%d)" in NET6_SOURCE
 
 # Dynamic WAN IPv6 addresses are passed directly as argv, not through a shell.
 assert 'doSystem("ip -6 addr add %s dev %s"' not in NET_WAN6_SOURCE

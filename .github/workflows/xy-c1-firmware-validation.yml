@@ -117,6 +117,8 @@ on:
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"
+      - "trunk/user/rc/src/ipv6_global_conf_policy.h"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/rstats.c"
@@ -315,6 +317,14 @@ jobs:
             trunk/user/rc/src/tests/ipv6_cleanup_policy.c \
             -o "$RUNNER_TEMP/ipv6-cleanup-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ipv6-cleanup-policy"
+      - name: Compile and run IPv6 global sysctl result propagation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ipv6_global_conf_policy.c \
+            -o $RUNNER_TEMP/ipv6-global-conf-policy
+          ASAN_OPTIONS=detect_leaks=1 $RUNNER_TEMP/ipv6-global-conf-policy
 
       - name: Compile and run LAN IPv6 address reload sequencing regression
         run: |

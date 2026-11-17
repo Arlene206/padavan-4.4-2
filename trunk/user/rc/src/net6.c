@@ -38,44 +38,57 @@
 #include "dnsmasq_lifecycle_lock.h"
 #include "service_start_status.h"
 #include "ipv6_cleanup_policy.h"
+#include "ipv6_global_conf_policy.h"
 
 #if defined (USE_IPV6)
 
 void init_ipv6(void)
 {
 	int ipv6_type = get_ipv6_type();
-	control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1);
+	int conf_status = control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1);
+	if (conf_status != 0)
+		logmessage(LOGNAME, "IPv6 global sysctl initialization incomplete (status=%d)", conf_status);
 	set_libc_gai((ipv6_type == IPV6_DISABLED) ? 1 : 0);
 	reset_lan6_vars();
 }
 
-void control_if_ipv6_all(int enable)
+static int write_ipv6_conf_operation(void *context, const char *ifname, const char *param, int value)
 {
-	int i;
-	char tmp[64];
-	char* if6_on[] = { "default", "lo", IFNAME_BR, NULL };
-	char* if6_off[] = { "default", "all", NULL };
-	char* rad_off[] = { "default", "lo", "sit0", IFNAME_MAC, NULL };
+	(void)context;
+	/* Per-device sysctls do not exist until their interface is registered. */
+	if (strcmp(ifname, "all") != 0 && strcmp(ifname, "default") != 0 && !is_interface_exist(ifname))
+		return 0;
+	return set_interface_conf_int("ipv6", ifname, param, value);
+}
 
-	if (!enable) {
-		for (i=0; if6_off[i] != NULL; i++)
-			set_interface_conf_int("ipv6", if6_off[i], "disable_ipv6", 1);
-		
-		for (i=0; rad_off[i] != NULL; i++) {
-			set_interface_conf_int("ipv6", rad_off[i], "accept_ra", 0);
-			set_interface_conf_int("ipv6", rad_off[i], "accept_ra_pinfo", 0);
+int control_if_ipv6_all(int enable)
+{
+	static const struct rc_ipv6_conf_operation disable_ops[] = {
+		{ "default", "disable_ipv6", 1 }, { "all", "disable_ipv6", 1 },
+		{ "default", "accept_ra", 0 }, { "default", "accept_ra_pinfo", 0 },
+		{ "lo", "accept_ra", 0 }, { "lo", "accept_ra_pinfo", 0 },
+		{ "sit0", "accept_ra", 0 }, { "sit0", "accept_ra_pinfo", 0 },
+		{ IFNAME_MAC, "accept_ra", 0 }, { IFNAME_MAC, "accept_ra_pinfo", 0 },
+		{ "all", "forwarding", 0 }
+	};
+	static const struct rc_ipv6_conf_operation enable_ops[] = {
+		{ "all", "forwarding", 1 }, { "default", "disable_ipv6", 0 },
+		{ "lo", "disable_ipv6", 0 }, { IFNAME_BR, "disable_ipv6", 0 }
+	};
+	char path[64];
+	int path_len, status;
+	if (enable) {
+		status = rc_ipv6_conf_apply(enable_ops, sizeof(enable_ops)/sizeof(enable_ops[0]), write_ipv6_conf_operation, NULL);
+		if (is_interface_exist(IFNAME_BR)) {
+			path_len = snprintf(path, sizeof(path), "/proc/sys/net/ipv6/neigh/%s/gc_stale_time", IFNAME_BR);
+			if (path_len < 0) { errno = EIO; status = rc_first_service_start_status(status, EIO); }
+			else if (path_len >= (int)sizeof(path)) { errno = ENAMETOOLONG; status = rc_first_service_start_status(status, ENAMETOOLONG); }
+			else { int write_status = fput_int(path, 900); status = rc_first_service_start_status(status, write_status); }
 		}
-		
-		set_interface_conf_int("ipv6", "all", "forwarding", 0);
 	} else {
-		set_interface_conf_int("ipv6", "all", "forwarding", 1);
-		
-		for (i=0; if6_on[i] != NULL; i++)
-			set_interface_conf_int("ipv6", if6_on[i], "disable_ipv6", 0);
-		
-		sprintf(tmp, "/proc/sys/net/ipv6/neigh/%s/%s", IFNAME_BR, "gc_stale_time");
-		fput_int(tmp, 900); // ARP cache 15m
+		status = rc_ipv6_conf_apply(disable_ops, sizeof(disable_ops)/sizeof(disable_ops[0]), write_ipv6_conf_operation, NULL);
 	}
+	return status;
 }
 
 int control_if_ipv6(const char *ifname, int enable)
@@ -243,7 +256,10 @@ full_restart_ipv6(int ipv6_type_old)
 
 		reset_lan6_vars();
 		reset_wan6_vars();
-		control_if_ipv6_all(0);
+		operation_status = control_if_ipv6_all(0);
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 disable could not apply global sysctls (status=%d)", operation_status);
+		restart_status = rc_first_service_start_status(restart_status, operation_status);
 		set_libc_gai(1);
 		/* This no-notify refresh cannot recurse into restart_dns(). */
 		refresh_resolvconf_nonfatal_no_notify("IPv6 disabled", 0);
@@ -274,7 +290,10 @@ full_restart_ipv6(int ipv6_type_old)
 		}
 	} else {
 		set_libc_gai(0);
-		control_if_ipv6_all(1);
+		operation_status = control_if_ipv6_all(1);
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 enable could not apply global sysctls (status=%d)", operation_status);
+		restart_status = rc_first_service_start_status(restart_status, operation_status);
 		operation_status = clear_all_addr6();
 		if (operation_status != 0)
 			logmessage(LOGNAME, "IPv6 enable could not clear stale global addresses (status=%d)",

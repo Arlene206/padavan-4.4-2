@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- LAN IPv6 cleanup/reload status propagation and the argv-based WAN IPv6 address-add calls are implemented. GNU89/ASan/UBSan LAN IPv6 policy regression and shared WAN IPv6 source assertions pass on their tested source commits.
-- Exact source SHA `b7aa7296aab8274461a68182402357352a9d905e`: Process, Firewall Startup, WAN route, AI handoff and HTTPD security checks PASS. WAN DHCP callback failed at one stale inline contract that still expected the replaced shell-formatted IPv6 address-add calls; the next checker-only commit updates it to verify argv calls inside the existing status macros.
-- Exact XY-C1 `43983424207` passed all pre-build host/source checks and was still running Build XY-C1 at last poll; TRX verification/artifact upload remain pending. Product-source L3 is **NOT VERIFIED** until all three succeed on one source SHA.
-- Frozen backup remains read-only; physical-router L4 remains **NOT VERIFIED**.
+- LAN IPv6 stop/start/reload failures are propagated; dynamic SIT/native IPv6 address-add commands use argv-based calls. Exact parent `8291da3` WAN DHCP callback, Process inventory, AI, AdGuardHome, AliDDNS, infosvr, AliyunDrive and NVRAM audit passed.
+- `control_if_ipv6_all()` previously ignored all sysctl write results. This slice adds first-error aggregation while attempting all applicable operations, skips absent optional device paths safely, checks neighbour-cache writes, and propagates status through init/enable/disable.
+- ASan/UBSan policy tests and Process/Firewall/WAN/XY workflow coverage are included. Exact-head validation is pending; no product-source L3 or physical-router L4 claim is made.
+- Frozen backup remains read-only.
 
 ## Whole-repository module status
 
