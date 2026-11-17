@@ -1,3 +1,12 @@
+## 2026-11-16 — Complete mandatory handoff checkpoint wording
+
+- Parent main SHA: `0c786821fd1bb8b571c51c1c7abf32780f481157`.
+- Exact-head AI handoff workflow `44026236466` on `0c786821` identified one final required literal, `Before context exhaustion`. Added it to the existing mandatory checkpoint without changing any source behavior or weakening the checker.
+- On `0c786821`, WAN route, MiniUPnPd, HTTPD security, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS all passed. XY-C1's compile gates passed and Build XY-C1 was in progress; TRX/artifact steps were pending.
+- This documentation correction awaits its own exact-head AI handoff rerun. Local toolchain remains unavailable; L4 unverified.
+
+---
+
 ## 2026-11-16 — Correct exact-head WAN/DDNS integration gates
 
 - Parent main SHA: `01bc69f31c7a40591587e095f8be8d634b43ef23`; this commit repairs test contracts exposed by `01bc69f3`.
