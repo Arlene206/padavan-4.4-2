@@ -38,8 +38,18 @@ main(void)
 	       PROCESS_PRESENCE_START_ABORT);
 	assert(process_presence_start_action_for_state((enum process_presence)7) ==
 	       PROCESS_PRESENCE_START_ABORT);
+	assert(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS == 1);
+	assert(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS == 1);
+	assert(PROCESS_PRESENCE_START_PROBE_ATTEMPTS == 4);
+	assert(process_presence_start_postcondition(0, PROCESS_PRESENCE_RUNNING) == 0);
+	assert(process_presence_start_postcondition(0, PROCESS_PRESENCE_ABSENT) == -1);
+	assert(process_presence_start_postcondition(0, PROCESS_PRESENCE_UNKNOWN) == -1);
+	assert(process_presence_start_postcondition(0, (enum process_presence)9) == -1);
+	assert(process_presence_start_postcondition(17, PROCESS_PRESENCE_RUNNING) == 17);
+	assert(process_presence_start_postcondition(17, PROCESS_PRESENCE_ABSENT) == 17);
+
 	test_start_status_preserves_launch_and_inventory_failures();
 
-	puts("Process presence start/notify tri-state policy: PASS");
+	puts("Process presence start/notify and detached-daemon postcondition policy: PASS");
 	return 0;
 }

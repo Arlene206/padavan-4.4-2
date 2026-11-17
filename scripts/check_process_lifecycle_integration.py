@@ -973,6 +973,10 @@ print("DNSMasq resolver notification tri-state integration: PASS")
 presence_policy = (root / "trunk/user/rc/src/process_presence_start_policy.h").read_text()
 process_inventory_header = (root / "trunk/user/shared/src/process_inventory.h").read_text()
 presence_test = (root / "trunk/user/rc/src/tests/process_presence_start_policy.c").read_text()
+assert "process_presence_start_postcondition" in presence_policy
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS 4" in presence_policy
+assert "process_presence_start_postcondition(0, PROCESS_PRESENCE_RUNNING)" in presence_test
+assert "process_presence_start_postcondition(0, PROCESS_PRESENCE_UNKNOWN)" in presence_test
 detect_internet_source = (root / "trunk/user/rc/src/detect_internet.c").read_text()
 detect_link_source = (root / "trunk/user/rc/src/detect_link.c").read_text()
 di_notify = detect_internet_source.split(
@@ -1311,16 +1315,29 @@ for statement in (
 print("Optional RC daemon startup status propagation and feature guards: PASS")
 
 telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+telnetd_impl = (root / "trunk/user/busybox/busybox-1.24.x/networking/telnetd.c").read_text()
+assert "if (!(opt & OPT_FOREGROUND))" in telnetd_impl
+assert "bb_daemonize_or_rexec(0 /*was DAEMON_CHDIR_ROOT*/, argv);" in telnetd_impl
+assert telnetd_impl.index("bb_daemonize_or_rexec(0") < telnetd_impl.index("create_and_bind_stream_or_die")
 assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
 assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
 telnetd_start_compact = " ".join(telnetd_start.split())
 assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
 assert 'start_status = eval("telnetd");' in telnetd_start
 assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+assert "process_presence_start_postcondition" in telnetd_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in telnetd_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in telnetd_start
+assert 'optional_daemon_presence("telnetd", &scan_error)' in telnetd_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in telnetd_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in telnetd_start
+assert "errno = ETIMEDOUT;" in telnetd_start
 telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
-telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
-telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
-assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+telnetd_initial_wait = telnetd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", telnetd_launch)
+telnetd_probe = telnetd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", telnetd_launch)
+telnetd_inventory = telnetd_start.index('optional_daemon_presence("telnetd", &scan_error)', telnetd_probe)
+telnetd_postcondition = telnetd_start.index("process_presence_start_postcondition(start_status, process_state)", telnetd_inventory)
+assert telnetd_launch < telnetd_initial_wait < telnetd_probe < telnetd_inventory < telnetd_postcondition
 
 ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
 assert 'if (ttyd_mode != 1)' in ttyd_start
@@ -2141,16 +2158,29 @@ for statement in (
 print("Optional RC daemon startup status propagation and feature guards: PASS")
 
 telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+telnetd_impl = (root / "trunk/user/busybox/busybox-1.24.x/networking/telnetd.c").read_text()
+assert "if (!(opt & OPT_FOREGROUND))" in telnetd_impl
+assert "bb_daemonize_or_rexec(0 /*was DAEMON_CHDIR_ROOT*/, argv);" in telnetd_impl
+assert telnetd_impl.index("bb_daemonize_or_rexec(0") < telnetd_impl.index("create_and_bind_stream_or_die")
 assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
 assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
 telnetd_start_compact = " ".join(telnetd_start.split())
 assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
 assert 'start_status = eval("telnetd");' in telnetd_start
 assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+assert "process_presence_start_postcondition" in telnetd_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in telnetd_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in telnetd_start
+assert 'optional_daemon_presence("telnetd", &scan_error)' in telnetd_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in telnetd_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in telnetd_start
+assert "errno = ETIMEDOUT;" in telnetd_start
 telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
-telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
-telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
-assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+telnetd_initial_wait = telnetd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", telnetd_launch)
+telnetd_probe = telnetd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", telnetd_launch)
+telnetd_inventory = telnetd_start.index('optional_daemon_presence("telnetd", &scan_error)', telnetd_probe)
+telnetd_postcondition = telnetd_start.index("process_presence_start_postcondition(start_status, process_state)", telnetd_inventory)
+assert telnetd_launch < telnetd_initial_wait < telnetd_probe < telnetd_inventory < telnetd_postcondition
 
 ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
 assert 'if (ttyd_mode != 1)' in ttyd_start

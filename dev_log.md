@@ -1,3 +1,11 @@
+## 2026-11-18 — Verify BusyBox Telnetd after detached launch
+
+- Parent main SHA: `34c02687139afc6db6484c2eb888cca2f8f01612`; THIS COMMIT updates RC startup, shared process-presence policy/test, the Process integration checker/workflow path filter, and the handoff/roadmap.
+- BusyBox `telnetd_main()` calls `bb_daemonize_or_rexec()` unless `-F` is specified. RC calls `eval("telnetd")` without foreground mode; the detached child binds/listens only after daemonization. A port-in-use or post-fork setup failure can leave the parent launcher successful while Telnetd has exited.
+- Add bounded child-presence verification after launch: one-second initial wait, four probes, one-second retry. Only RUNNING succeeds; UNKNOWN fails closed with the procfs scan errno; ABSENT after the probes reports `ETIMEDOUT`; launcher failures are preserved.
+- Extend the GNU89 process-presence test for RUNNING/ABSENT/UNKNOWN/invalid and launcher-status cases. Update both Telnetd checker copies for BusyBox daemonize-before-bind and the launch/wait/inventory/postcondition sequence. Add BusyBox `telnetd.c` to the Process workflow push/PR filters.
+- Parent exact-head Networkmap `44163174212`, Process `44163173313`, HTTPD daemon `44163173359`, infosvr `44163173874`, SkipDBv2 `44163173539`, and USB storage `44163176401` passed on `34c0268`; XY-C1 `44163173638` and NVRAM `44163173644` were pending. THIS COMMIT's validation is pending; no L4 hardware result is claimed.
+
 ## 2026-11-17 — Verify the detached networkmap child after daemonizing launch
 
 - `trunk/user/networkmap/src/networkmap.c::main()` binds the ARP socket, installs signal handlers, calls `daemon(0, 0)`, writes its pidfile and starts the scan loop (or waits five seconds for `-w`). `start_networkmap()` previously returned the direct `eval()` result without confirming that the detached child survived.

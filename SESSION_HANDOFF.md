@@ -1,25 +1,26 @@
-# 2026-11-17 continuation checkpoint — verify detached networkmap daemon startup
+# 2026-11-18 continuation checkpoint — verify daemonized Telnetd startup
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `9f9439ed36e55f111eed7b511437e9c30b1ff717`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only complete-tree commits, non-forced expected-SHA update.
-- Full whole-repository module dashboard and priority queue remain preserved in `REFACTOR_ROADMAP.md`.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `34c02687139afc6db6484c2eb888cca2f8f01612`.
+- Main-only complete-tree commits with expected-SHA, non-forced ref updates. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
+- Storage raw swap-only physical-eject retry is L2 verified: USB storage `44160609520` PASS on `dec7924`, HTTPD storage integration `44159705825` PASS on `9cf66b7`; XY-C1 product-source SHA `fb99c2a` passed Build/TRX/artifact `44159082732`. NVRAM audit `44160609797` passed on `dec7924`.
+- On exact SHA `34c0268`, Networkmap `44163174212`, Process lifecycle `44163173313`, HTTPD daemon `44163173359`, infosvr `44163173874`, SkipDBv2 `44163173539`, USB storage `44163176401`: SUCCESS. XY-C1 `44163173638` and NVRAM `44163173644` were in progress at last poll.
 
-## Active task — networkmap launch postcondition (THIS COMMIT)
-- `networkmap` calls `daemon(0, 0)` before writing `/var/run/networkmap.pid` and entering its main scan loop. RC `start_networkmap()` previously treated a successful `eval()` of the daemonizing parent as a successful start without checking the detached child.
-- The start path now applies a bounded `/proc` inventory check (1-second initial wait, four probes, one-second retry intervals), returning success only when the child is confirmed RUNNING. UNKNOWN inventory fails closed with its scan error; an absent child after all probes returns `ETIMEDOUT`. Existing already-running and UNKNOWN-before-launch policy is retained.
-- GNU89 policy tests now cover launch status preservation and RUNNING/ABSENT/UNKNOWN/invalid postconditions; the networkmap source checker asserts launch → wait → child inventory → fail-closed ordering. Existing workflow compiles the policy test and executes this checker.
+## Active task — daemonized BusyBox Telnetd startup postcondition
+- BusyBox `telnetd_main()` calls `bb_daemonize_or_rexec()` by default when `-F` is absent, then binds/listens. RC `start_telnetd()` runs `eval("telnetd")` without `-F`; its parent can report success while the detached child fails (for example, port bind or post-fork session setup).
+- THIS COMMIT adds bounded post-launch process inventory: one-second initial wait, four probes, one-second retry interval. Only confirmed RUNNING returns success; UNKNOWN returns failure with the scan errno; ABSENT after all probes returns `ETIMEDOUT`; a nonzero launcher status is preserved. Existing disabled-service and pre-launch tri-state behavior remain unchanged.
+- The shared process-presence header and GNU89 regression test cover RUNNING/ABSENT/UNKNOWN/invalid results and launcher-status preservation. The Process checker verifies BusyBox daemonize-before-bind ordering and launch/wait/inventory/postcondition ordering; its push and PR filters now include BusyBox `telnetd.c`.
 
 ## Verification boundary
-- Exact parent SHA `9f9439ed`: infosvr packet/signal lifecycle `44162625677`, Process lifecycle `44162625483`, Process inventory/fail-closed `44162625444`, AI docs `44162625508`, networkmap signal lifecycle `44162625329`, AliDDNS `44162625656`, DNS forwarder `44162625671`, VPN `44162625537`, HTTPD `44162625690`, FRP `44162625683`, watchdog `44162625750`, detect_internet `44162625832`, ZeroTier `44162625916`, Adbyby `44162625655`, GPIO button `44162625551`, Crond `44162625757`, DDNSTO `44162625340`, detect_link `44162625310`, WAN route `44162625465`, HTTPD security `44162625298`, AliyunDrive `44162625366`, gateway ARP `44162625318`: SUCCESS.
-- Parent USB storage `44162625742`, NVRAM audit `44162625749`, SkipDBv2 `44162625827`, and XY-C1 Firmware Validation `44162625314`: IN_PROGRESS at last poll. XY-C1 is the exact parent source SHA `9f9439ed36e55f111eed7b511437e9c30b1ff717`; do not infer Build/TRX/artifact results until checked.
-- Earlier firmware-source SHA `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3` has successful XY-C1 cross-build, TRX verification and artifact upload (artifact id `14363970100`); subsequent changes through parent `9f9439ed` are tests/workflows/docs or RC source. The fb99 artifact is not an exact build of current source.
-- No physical router L4 test is available; L4 remains NOT VERIFIED.
+- Parent `34c0268`: Networkmap `44163174212`, Process lifecycle `44163173313`, HTTPD daemon `44163173359`, infosvr `44163173874`, SkipDBv2 `44163173539`, USB storage `44163176401`: SUCCESS. XY-C1 `44163173638` and NVRAM `44163173644` were pending at last poll.
+- Exact-head Process and XY-C1 checks for THIS COMMIT are pending.
+- No local MIPS/uClibc toolchain or router is available; physical L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-- Inspect exact-SHA networkmap and XY-C1 jobs for THIS COMMIT. On failure, read the corresponding exact job logs and repair the minimal failing source/contract.
-- Also resolve parent `9f9439ed` USB storage, NVRAM and SkipDBv2 pending statuses before interpreting their results; they are parent-SHA runs, not this commit.
-- Continue an independent P1 daemon start/stop result gap while unrelated CI is pending; preserve backup and do not repeat the already completed infosvr postcondition.
+1. Inspect exact-SHA Process lifecycle, HTTPD, and XY-C1 runs for this commit; fix only issues supported by exact logs.
+2. Resolve previous `34c0268` XY-C1 and NVRAM runs independently.
+3. Continue DHCP leasefail/NAK/release semantics or firewall/NAT caller-status gaps. Keep backup immutable; do not repeat completed storage, Networkmap or infosvr fixes.
+
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

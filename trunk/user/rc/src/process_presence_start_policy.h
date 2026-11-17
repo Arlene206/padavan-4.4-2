@@ -41,4 +41,18 @@ process_presence_start_status_for_action(
 	}
 }
 
+/* A detached daemon is started only after its child is confirmed RUNNING. */
+#define PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS 1
+#define PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS 1
+#define PROCESS_PRESENCE_START_PROBE_ATTEMPTS 4
+
+static int
+process_presence_start_postcondition(int launcher_status,
+				     enum process_presence process_state)
+{
+	if (launcher_status != 0)
+		return launcher_status;
+	return process_state == PROCESS_PRESENCE_RUNNING ? 0 : -1;
+}
+
 #endif /* PADAVAN_PROCESS_PRESENCE_START_POLICY_H */

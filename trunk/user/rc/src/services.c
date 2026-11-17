@@ -27,6 +27,7 @@
 #include "rc.h"
 #include "process_inventory.h"
 #include "optional_daemon_policy.h"
+#include "process_presence_start_policy.h"
 #include "logger_start_policy.h"
 #include "service_start_status.h"
 #include "watchdog_cpu_restart_policy.h"
@@ -473,7 +474,8 @@ run_telnetd(void)
 int
 start_telnetd(void)
 {
-	int start_status;
+	int start_status, attempt, scan_error;
+	enum process_presence process_state;
 
 	if (!nvram_match("telnetd", "1"))
 		return 0;
@@ -487,11 +489,37 @@ start_telnetd(void)
 		return start_status;
 	}
 
+	/*
+	 * BusyBox telnetd daemonizes before binding/listening. eval() only observes
+	 * the parent, so a bind or post-fork setup failure must not be reported as
+	 * a successful remote-terminal start.
+	 */
 	start_status = eval("telnetd");
-	if (start_status != 0)
+	if (start_status != 0) {
 		logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);
+		return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
+	}
 
-	return start_status;
+	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+		process_state = optional_daemon_presence("telnetd", &scan_error);
+		if (process_presence_start_postcondition(start_status, process_state) == 0)
+			return 0;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
+			logmessage(LOGNAME, "cannot verify telnetd startup (scan_error=%d)",
+				   errno);
+			return -1;
+		}
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "telnetd daemon did not remain running after launch");
+	return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
 }
 
 #if defined(APP_SSHD)

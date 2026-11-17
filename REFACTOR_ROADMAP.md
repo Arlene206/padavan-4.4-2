@@ -1,13 +1,12 @@
-# 2026-11-17 latest source checkpoint
+# 2026-11-18 latest source checkpoint
 
-- Parent main SHA: `9f9439ed36e55f111eed7b511437e9c30b1ff717`; THIS COMMIT adds a bounded detached-child startup postcondition for `networkmap`. The binary explicitly calls `daemon(0, 0)` before creating its pidfile and entering the scan loop; `eval()` success alone cannot confirm the daemon remains alive.
-- Exact-parent infosvr `44162625677`, Process lifecycle `44162625483`, Process inventory `44162625444`, AI handoff `44162625508`, networkmap signal lifecycle `44162625329`, AliDDNS, DNS forwarder, VPN, HTTPD daemon, FRP, watchdog, detect_internet, ZeroTier, Adbyby, GPIO, Crond, DDNSTO, detect_link, WAN route, HTTPD security, AliyunDrive, gateway ARP: SUCCESS.
-- Parent USB storage `44162625742`, NVRAM `44162625749`, SkipDB `44162625827`, XY-C1 `44162625314`: IN_PROGRESS at last poll. The previous fb99 firmware SHA has L3 Build/TRX/artifact success, but is not the current source build.
-- `start_networkmap()` now waits for up to four process-inventory probes after a zero launcher status and returns success only on RUNNING; UNKNOWN fails closed and missing child times out. GNU89 policy/source tests extended; exact-head checks pending.
+- Parent main SHA: `34c02687139afc6db6484c2eb888cca2f8f01612`; THIS COMMIT verifies the detached BusyBox `telnetd` process after a successful launcher. The applet daemonizes before binding/listening, so launcher exit alone did not prove that the remote-terminal service remained alive.
+- Exact-parent Networkmap signal/startup `44163174212`, Process lifecycle `44163173313`, HTTPD daemon lifecycle `44163173359`, infosvr packet lifecycle `44163173874`, SkipDBv2 `44163173539`, USB storage `44163176401`: SUCCESS. XY-C1 `44163173638` and NVRAM `44163173644` were IN_PROGRESS at last poll.
+- THIS COMMIT adds bounded post-launch process inventory probes and GNU89 policy coverage; exact-head Process/XY-C1 checks pending. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-Next: inspect exact-SHA networkmap and XY-C1; close any parent pending storage/NVRAM/SkipDB runs; continue another independent P1 service lifecycle gap.
+Next: verify the Telnetd postcondition on the exact SHA; resolve remaining parent XY-C1/NVRAM checks; then continue DHCP leasefail/NAK/release or firewall/NAT result propagation.
+
 ---
-
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact
