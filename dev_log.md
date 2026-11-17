@@ -1,3 +1,11 @@
+## 2026-11-17 — Repair gateway-monitor semantic checker ordering
+
+- Parent main SHA: `9722f273f005eaf323da7d80a7d0cfbc398faa73`; result: THIS COMMIT.
+- The exact-head WAN route run `44042062613` failed in `check_wan_detect_wan_status.py`, not in production code or compilation. The checker searched for the status merge before the enclosing nonzero guard; production correctly performs the merge inside that guard, so the search skipped the matching UNKNOWN branch.
+- Corrected the semantic assertion order to require: status mapping → nonzero guard → first-error merge → UNKNOWN/launch diagnostics. Process lifecycle `44042062610`, AI handoff `44042062563`, and process inventory `44042062765` passed on parent SHA `9722f273`; XY-C1 `44042062896` was still running at last poll (Build running; TRX/artifact pending). The isolated GNU89/ASan/UBSan policy fixture passed locally. Corrected WAN exact-head CI awaits execution.
+
+---
+
 ## 2026-11-17 — Propagate UNKNOWN gateway-monitor inventory failures through WAN-up
 
 - Parent main SHA: `ac9b8936d7359d4016db8475c4ae459d17f73a2f`; result: THIS COMMIT.

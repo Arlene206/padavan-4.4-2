@@ -70,8 +70,8 @@ launch = wan_up.index('route_status = eval("detect_wan");', start_gate)
 status_map = wan_up.index(
     "route_status = process_presence_start_status_for_action(", launch
 )
-merge = wan_up.index("status = route_status_accumulate(status, route_status);", status_map)
-failure_gate = wan_up.index("if (route_status != 0)", merge)
+failure_gate = wan_up.index("if (route_status != 0)", status_map)
+merge = wan_up.index("status = route_status_accumulate(status, route_status);", failure_gate)
 unknown_gate = wan_up.index("if (action == PROCESS_PRESENCE_START_ABORT)", failure_gate)
 unknown_diagnostic = wan_up.index(
     "skipping gateway ARP checker start because process inventory is unknown",
@@ -81,8 +81,8 @@ launch_diagnostic = wan_up.index(
     "WAN gateway ARP checker startup incomplete", unknown_diagnostic
 )
 require(
-    scan < release < decision < start_gate < launch < status_map < merge
-    < failure_gate < unknown_gate < unknown_diagnostic < launch_diagnostic,
+    scan < release < decision < start_gate < launch < status_map < failure_gate
+    < merge < unknown_gate < unknown_diagnostic < launch_diagnostic,
     "inventory and launch outcomes must be mapped, aggregated and logged in order",
 )
 require(wan_up.count('eval("detect_wan")') == 1,
