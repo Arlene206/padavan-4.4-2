@@ -1,33 +1,30 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes conflicting older status below. Continue implementation on main; avoid repeating completed audits.
+This checkpoint supersedes conflicting older status below. Continue on main and do not repeat completed audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2.
-- Parent main SHA: d7775129120a04b94dd8f10b5de272bccc46afaf; result: THIS COMMIT (one complete tree; expected-SHA non-force update).
+- Parent main SHA: e2b5cc184a67b0b25d5ca3dfa8c6f93576adc49c; result: THIS COMMIT (single complete Git tree, expected-SHA non-force update).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
 - Remote branches: main and the frozen backup only.
 - Connector-only environment: no local checkout or target MIPS compiler; physical-router L4 NOT VERIFIED.
 
-## AP LAN DHCP lease release
-- Product-source commit e64ab93290e20935c0a11ac990612f8dc29fa363 centralized AP DHCP termination in stop_udhcpc_lan(): identity-bound SIGUSR2 release, a 300 ms callback window, then bounded 30-second PID-file-bound no-force termination. stop_lan(AP) stops detect_wan only after the helper succeeds and resumes monitoring/aborts before bridge teardown on failure.
-- Commit 30428280 corrected the unique source-call count in scripts/check_lan_dhcp_deconfig.py; three unique no-force stop statements cover four logical stop contexts. Exact WAN-DHCP run 44126128791 on 3042828: SUCCESS.
-- Commit 4bb27f9 corrected Process helper extraction; commit d777512 updated the WAN DHCP preflight contract. Exact Process run 44126737621 on d777512: IN_PROGRESS at the last poll.
-
-## Exact-head CI failures being corrected
-- Exact e64 HTTPD run 44125813980 failed at a stale assertion expecting one kill_services() batch in stop_wan_locked(); production has two separately checked batches (PPP transport services and ordinary WAN daemons). THIS COMMIT corrects the expected count and retriggers HTTPD.
-- Exact e64 detect_internet run 44125814192 failed because the checker searched for an inline kill_services_with_pidfiles() call inside stop_lan() after DHCP stop was centralized in stop_udhcpc_lan(). THIS COMMIT checks identity-bound SIGUSR2, the ENOENT/ESRCH-only exception, the 300 ms callback window, bounded no-force termination, and abort/resume-before-ifdown ordering.
-- Exact WAN-route run 44125814206 on e64ab93: SUCCESS. XY-C1 run 44126128987 on 3042828 (same packaged product-source tree e64ab93) was IN_PROGRESS at last poll. Older XY-C1 run 44124205199 on source 7358477 completed Build/TRX/artifact, but does not validate the AP DHCP change.
+## AP DHCP stop contract and exact Actions
+- Product source remains e64ab93290e20935c0a11ac990612f8dc29fa363: AP LAN udhcpc shutdown sends PID/start-time-validated SIGUSR2, allows 300 ms for release/deconfig, then performs a bounded 30-second no-force stop. Failure aborts AP bridge teardown and resumes internet detection.
+- This session corrected the stale HTTPD count assertion and the detect_internet AP stop contract. Exact detect_internet run 44127050720 on e2b5cc1: SUCCESS; its revised helper and abort-order assertions passed.
+- HTTPD run 44127046365 on e2b5cc1 failed before creating any job because two inserted comment/assertion lines lost the YAML block indentation. THIS COMMIT removes the comments and restores the Python assertion's indentation; no product source changed.
+- Other exact e2b5cc1 runs: infosvr 44127050611, AdGuardHome 44127050808, AI handoff 44127050752, AliyunDrive 44127050549, AliDDNS 44127050688: SUCCESS. Process 44127050578, XY-C1 44127050545 and NVRAM 44127050740: IN_PROGRESS at last poll.
+- WAN-DHCP 44126128791 on 3042828 and WAN-route 44125814206 on e64ab93: SUCCESS.
 
 ## First next task
-1. Verify this commit's exact-head HTTPD and detect_internet reruns; inspect any failures from logs before changing production.
-2. Finish Process 44126737621 and XY-C1 44126128987, including Build, TRX verification and artifact upload.
-3. Continue with a new stability/security slice elsewhere in the userland after the above checks; do not repeat closed PPPoE/storage audits.
+1. Verify the exact-head HTTPD rerun; require the YAML workflow to instantiate a job and the service lifecycle / WAN stop contract step to pass.
+2. Finish Process 44127050578, XY-C1 44127050545 (Build, TRX and artifact upload), and NVRAM 44127050740 by exact SHA.
+3. Continue an independent stability/security slice across the remaining userland only after current failures and pending target build are resolved.
 
 ## Validation boundary
-- WAN-DHCP on 3042828 and WAN-route on e64ab93 passed their exact-head workflows.
-- HTTPD and detect_internet on e64ab93 failed only at stale source contracts; this commit corrects those tests, with exact-head reruns pending.
-- No local MIPS/uClibc build or physical-router L4 is claimed; XY-C1 Actions remain the target-build authority.
+- detect_internet's AP DHCP release/abort contract passed on exact SHA e2b5cc1.
+- HTTPD on e2b5cc1 did not execute its job due malformed YAML indentation; THIS COMMIT corrects that formatting and triggers a new exact-head run.
+- No local MIPS/uClibc compile or physical-router L4 is claimed. XY-C1 Actions are the target build authority.
 
 # Cross-session execution mandate
 

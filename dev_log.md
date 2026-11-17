@@ -1,3 +1,13 @@
+## 2026-11-17 — Repair HTTPD workflow block indentation after contract refresh
+
+- Parent main SHA: e2b5cc184a67b0b25d5ca3dfa8c6f93576adc49c; result: THIS COMMIT.
+- The first HTTPD contract refresh inserted two unindented lines inside a YAML literal block. GitHub created run 44127046365 on e2b5cc1 but no job; the embedded Python contract therefore did not execute. Removed the explanatory lines and restored the assertion's block indentation so the workflow remains a valid literal command.
+- The sibling detect_internet workflow run 44127050720 on exact e2b5cc1 passed, including the new AP DHCP helper identity/release/no-force and caller abort-order contracts.
+- Other e2b5cc1 results: infosvr, AdGuardHome, AI handoff, AliyunDrive and AliDDNS passed; Process, NVRAM and XY-C1 were pending. No production source changed.
+- No local MIPS/uClibc build or physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Align AP DHCP release and WAN service-batch source contracts
 
 - Parent main SHA: d7775129120a04b94dd8f10b5de272bccc46afaf; result: THIS COMMIT.

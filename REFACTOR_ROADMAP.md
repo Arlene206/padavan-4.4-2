@@ -2,14 +2,14 @@
 
 This section supersedes conflicting older rows below.
 
-- Parent main SHA: `d7775129120a04b94dd8f10b5de272bccc46afaf`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Product-source baseline is `e64ab93290e20935c0a11ac990612f8dc29fa363`; descendants `3042828`, `4bb27f9` and `d777512` changed tests/checkers and handoff only.
-- AP LAN stop sends identity-validated SIGUSR2 to the BOUND udhcpc client before bounded 30-second no-force termination; failure or unknown identity aborts bridge teardown and resumes detection.
-- Exact WAN-DHCP `44126128791` on 3042828: PASS. Exact WAN-route `44125814206` on e64ab93: PASS. Process `44126737621` on d777512: IN_PROGRESS. XY-C1 `44126128987` on 3042828 (same product sources as e64ab93): IN_PROGRESS at last poll.
-- e64 HTTPD `44125813980` and detect_internet `44125814192` failed at source contracts made stale by the DHCP helper extraction / two-batch WAN stop. THIS COMMIT updates both embedded checks and retriggers each workflow; exact-head status remains pending.
+- Parent main SHA: `e2b5cc184a67b0b25d5ca3dfa8c6f93576adc49c`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- AP LAN DHCP teardown uses PID-bound SIGUSR2 release, a 300 ms callback window and bounded no-force stop; failures abort before bridge ifdown.
+- Exact detect_internet `44127050720` on e2b5cc1: PASS. HTTPD `44127046365` on e2b5cc1 failed before job creation due malformed indentation in the workflow source; THIS COMMIT fixes the YAML block and retriggers it.
+- Exact e2b5cc1 PASS: infosvr `44127050611`, AdGuardHome `44127050808`, AI handoff `44127050752`, AliyunDrive `44127050549`, AliDDNS `44127050688`. Process `44127050578`, XY-C1 `44127050545` and NVRAM `44127050740` were IN_PROGRESS at last poll.
+- WAN-DHCP `44126128791` on 3042828 and WAN-route `44125814206` on e64ab93: PASS.
 - No local MIPS/uClibc compile or physical-router L4 is claimed.
 
-Next: verify exact-head HTTPD and detect_internet reruns, finish Process and XY-C1 Build/TRX/artifact checks on the current product-source baseline, then continue the whole-repository stability/security queue.
+Next: verify exact-head HTTPD, finish Process and NVRAM, confirm XY-C1 Build/TRX/artifact, then continue the repository-wide stability/security queue.
 
 ---
 
