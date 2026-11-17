@@ -1,25 +1,25 @@
-# 2026-11-17 continuation checkpoint — verify detached infosvr daemon startup
+# 2026-11-17 continuation checkpoint — verify detached networkmap daemon startup
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `dec7924b7ed961e08a801357fe1d6312150acf92`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only, complete-tree, non-forced expected-SHA updates.
-- Whole-repository module dashboard and priority matrix are preserved in `REFACTOR_ROADMAP.md`; do not truncate or replace them with a short note.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `9f9439ed36e55f111eed7b511437e9c30b1ff717`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only complete-tree commits, non-forced expected-SHA update.
+- Full whole-repository module dashboard and priority queue remain preserved in `REFACTOR_ROADMAP.md`.
 
-## Active task — infosvr launch postcondition (THIS COMMIT)
-- `infosvr` explicitly calls `daemon(0, 0)` before writing its pidfile and entering the long-running UDP receive loop. RC `start_infosvr()` previously treated a successful `eval()` of the daemonizing parent as complete service startup and returned success without checking the detached child.
-- The start path now performs a bounded process-inventory wait (1-second initial delay, four probes, one-second retry intervals), returns success only when `infosvr` is confirmed RUNNING, fails immediately on UNKNOWN inventory with its actual scan error, and returns `ETIMEDOUT` if the child never appears. Existing already-running and disabled-service behavior is preserved.
-- Added GNU89 unit cases for RUNNING/ABSENT/UNKNOWN/invalid postconditions and propagation of the launcher's nonzero status. Extended `check_infosvr_lifecycle.py` to enforce launch → wait → inventory → fail-closed result ordering. Existing infosvr workflow compiles the policy test and runs this checker.
+## Active task — networkmap launch postcondition (THIS COMMIT)
+- `networkmap` calls `daemon(0, 0)` before writing `/var/run/networkmap.pid` and entering its main scan loop. RC `start_networkmap()` previously treated a successful `eval()` of the daemonizing parent as a successful start without checking the detached child.
+- The start path now applies a bounded `/proc` inventory check (1-second initial wait, four probes, one-second retry intervals), returning success only when the child is confirmed RUNNING. UNKNOWN inventory fails closed with its scan error; an absent child after all probes returns `ETIMEDOUT`. Existing already-running and UNKNOWN-before-launch policy is retained.
+- GNU89 policy tests now cover launch status preservation and RUNNING/ABSENT/UNKNOWN/invalid postconditions; the networkmap source checker asserts launch → wait → child inventory → fail-closed ordering. Existing workflow compiles the policy test and executes this checker.
 
 ## Verification boundary
-- Exact HEAD `dec7924b`: USB storage `44160609520`, Process lifecycle `44160609608`, Process inventory `44160609611`, AliDDNS `44160609540`, AliyunDrive `44160609642`, infosvr `44160609576`, AI docs `44160609538`, AdGuardHome `44160609528`, NVRAM `44160609797`: SUCCESS.
-- THIS COMMIT's infosvr GNU89 policy test, source contract and packet regressions are pending until exact-SHA Actions are queried.
-- XY-C1 cross-build, TRX check and artifact upload were SUCCESS for exact firmware source SHA `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3` (artifact `XY-C1-firmware-fb99c2a7dbf4c1576e4d863d5d451f18633fefd3`, artifact id `14363970100`). Commits after fb99 changed only test/workflow/docs files, not the firmware source; this is L3 build evidence for that firmware source, not physical L4 validation.
-- No full MIPS/uClibc toolchain or physical router is available in this session; L4 remains NOT VERIFIED.
+- Exact parent SHA `9f9439ed`: infosvr packet/signal lifecycle `44162625677`, Process lifecycle `44162625483`, Process inventory/fail-closed `44162625444`, AI docs `44162625508`, networkmap signal lifecycle `44162625329`, AliDDNS `44162625656`, DNS forwarder `44162625671`, VPN `44162625537`, HTTPD `44162625690`, FRP `44162625683`, watchdog `44162625750`, detect_internet `44162625832`, ZeroTier `44162625916`, Adbyby `44162625655`, GPIO button `44162625551`, Crond `44162625757`, DDNSTO `44162625340`, detect_link `44162625310`, WAN route `44162625465`, HTTPD security `44162625298`, AliyunDrive `44162625366`, gateway ARP `44162625318`: SUCCESS.
+- Parent USB storage `44162625742`, NVRAM audit `44162625749`, SkipDBv2 `44162625827`, and XY-C1 Firmware Validation `44162625314`: IN_PROGRESS at last poll. XY-C1 is the exact parent source SHA `9f9439ed36e55f111eed7b511437e9c30b1ff717`; do not infer Build/TRX/artifact results until checked.
+- Earlier firmware-source SHA `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3` has successful XY-C1 cross-build, TRX verification and artifact upload (artifact id `14363970100`); subsequent changes through parent `9f9439ed` are tests/workflows/docs or RC source. The fb99 artifact is not an exact build of current source.
+- No physical router L4 test is available; L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-- Inspect exact-SHA infosvr packet/lifecycle Actions for THIS COMMIT, require the policy compile and Python source contract to PASS, and repair from exact logs if they fail. Check any other workflows triggered by `services.c` against the same SHA.
-- Then continue another independent P1 RC daemon startup postcondition (networkmap or telnetd) only after inspecting each daemon's actual fork/daemon behavior and exact caller contract.
-- Preserve backup branch; do not revisit already completed swap-only eject, storage topology, Samba storage-lock, or docs-dashboard repairs.
+- Inspect exact-SHA networkmap and XY-C1 jobs for THIS COMMIT. On failure, read the corresponding exact job logs and repair the minimal failing source/contract.
+- Also resolve parent `9f9439ed` USB storage, NVRAM and SkipDBv2 pending statuses before interpreting their results; they are parent-SHA runs, not this commit.
+- Continue an independent P1 daemon start/stop result gap while unrelated CI is pending; preserve backup and do not repeat the already completed infosvr postcondition.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

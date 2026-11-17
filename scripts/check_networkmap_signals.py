@@ -144,7 +144,18 @@ assert 'process_inventory_scan("networkmap", &snapshot)' in start
 assert "if (state == PROCESS_PRESENCE_RUNNING)" in start
 assert "networkmap_start_allowed(state)" in start
 assert "return state == PROCESS_PRESENCE_ABSENT;" in daemon_policy
-assert "PROCESS_PRESENCE_UNKNOWN" not in start or "start aborted" in start
+assert "networkmap_start_postcondition" in daemon_policy
+assert "NETWORKMAP_START_PROBE_ATTEMPTS 4" in daemon_policy
+assert "state == PROCESS_PRESENCE_UNKNOWN" in start
+assert "NETWORKMAP_START_INITIAL_WAIT_SECONDS" in start
+assert "NETWORKMAP_START_PROBE_ATTEMPTS" in start
+assert "networkmap_start_postcondition(launch_status, state)" in start
+assert "errno = ETIMEDOUT;" in start
+assert "return eval(" not in start
+launch = start.index('launch_status = eval("/usr/sbin/networkmap"')
+initial_wait = start.index("sleep(NETWORKMAP_START_INITIAL_WAIT_SECONDS);")
+post_launch_inventory = start.index('state = process_inventory_scan("networkmap", &snapshot);', launch)
+assert launch < initial_wait < post_launch_inventory
 assert "pids(" not in start
 assert '"networkmap"' in stop and "kill_services(" in stop
 assert 'process_inventory_scan("networkmap", &snapshot)' in restart
@@ -169,6 +180,8 @@ assert "networkmap_action_for_presence" in daemon_policy
 assert "process_identity_validate" in services
 assert "networkmap_signal_snapshot" in daemon_policy
 assert "PROCESS_PRESENCE_UNKNOWN" in daemon_test
+assert "networkmap_start_postcondition(0, PROCESS_PRESENCE_RUNNING)" in daemon_test
+assert "networkmap_start_postcondition(0, PROCESS_PRESENCE_UNKNOWN)" in daemon_test
 assert "EACCES" in daemon_test and "EPERM" in daemon_test and "ESRCH" in daemon_test
 stop_services = function_body(services, "stop_services(int stopall)")
 assert 'record_service_stop_status(&stop_status, "networkmap", stop_networkmap());' in stop_services

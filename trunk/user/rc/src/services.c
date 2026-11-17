@@ -351,7 +351,7 @@ start_networkmap(int first_call)
 {
 	struct process_snapshot snapshot;
 	enum process_presence state;
-	int scan_error;
+	int scan_error, launch_status, attempt;
 
 	state = process_inventory_scan("networkmap", &snapshot);
 	if (state == PROCESS_PRESENCE_RUNNING) {
@@ -368,7 +368,39 @@ start_networkmap(int first_call)
 	}
 	process_snapshot_release(&snapshot);
 
-	return eval("/usr/sbin/networkmap", (first_call) ? "-w" : "");
+	/*
+	 * networkmap calls daemon(0, 0) before opening its pidfile and entering
+	 * the scan loop. eval() observes the parent; verify the detached child.
+	 */
+	launch_status = eval("/usr/sbin/networkmap", (first_call) ? "-w" : "");
+	if (launch_status != 0) {
+		logmessage(LOGNAME, "networkmap launch failed (status=%d)", launch_status);
+		return launch_status;
+	}
+
+	sleep(NETWORKMAP_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < NETWORKMAP_START_PROBE_ATTEMPTS; attempt++) {
+		state = process_inventory_scan("networkmap", &snapshot);
+		if (networkmap_start_postcondition(launch_status, state) == 0) {
+			process_snapshot_release(&snapshot);
+			return 0;
+		}
+		if (state == PROCESS_PRESENCE_UNKNOWN) {
+			scan_error = snapshot.error > 0 ? snapshot.error : EIO;
+			process_snapshot_release(&snapshot);
+			errno = scan_error;
+			logmessage(LOGNAME, "networkmap startup inventory unknown (errno=%d)",
+				   scan_error);
+			return -1;
+		}
+		process_snapshot_release(&snapshot);
+		if (attempt + 1 < NETWORKMAP_START_PROBE_ATTEMPTS)
+			sleep(NETWORKMAP_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "networkmap daemon did not remain running after launch");
+	return -1;
 }
 
 int

@@ -1,3 +1,9 @@
+## 2026-11-17 — Verify the detached networkmap child after daemonizing launch
+
+- `trunk/user/networkmap/src/networkmap.c::main()` binds the ARP socket, installs signal handlers, calls `daemon(0, 0)`, writes its pidfile and starts the scan loop (or waits five seconds for `-w`). `start_networkmap()` previously returned the direct `eval()` result without confirming that the detached child survived.
+- Add a bounded process-inventory postcondition after a zero launcher status: one-second initial delay, up to four probes, one-second retry spacing. Report success only after `networkmap` is RUNNING; UNKNOWN inventory fails closed with its scan error and a child that never appears returns `ETIMEDOUT`. Existing pre-launch tri-state absence gate, already-running no-op and first-call `-w` behavior are preserved.
+- Add GNU89 policy tests for RUNNING/ABSENT/UNKNOWN/invalid states and preservation of nonzero launch status; update the networkmap source checker to enforce launch → wait → post-launch inventory order. The existing networkmap workflow tracks every changed source/test/checker path.
+- Parent `9f9439ed` infosvr, process inventory/lifecycle, AI, networkmap signal, and 20 other current-head contracts passed. Parent storage, NVRAM, SkipDB and XY-C1 were still running at last poll; new exact-head networkmap check pending.
 ## 2026-11-17 — Verify the detached infosvr child after daemonizing launch
 
 - Repository inspection confirmed `trunk/user/infosvr/src/infosvr.c::main()` binds the UDP socket and installs SIGTERM handling, then calls `daemon(0, 0)`, writes `/var/run/infosvr.pid` and enters its long-lived packet loop. `eval("/usr/sbin/infosvr", IFNAME_BR)` only reports the launcher/daemonizing parent status.

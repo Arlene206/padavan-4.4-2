@@ -75,6 +75,13 @@ main(void)
 	assert(!networkmap_start_allowed(PROCESS_PRESENCE_RUNNING));
 	assert(!networkmap_start_allowed(PROCESS_PRESENCE_UNKNOWN));
 	assert(!networkmap_start_allowed((enum process_presence)9));
+	assert(networkmap_start_postcondition(0, PROCESS_PRESENCE_RUNNING) == 0);
+	assert(networkmap_start_postcondition(0, PROCESS_PRESENCE_ABSENT) == -1);
+	assert(networkmap_start_postcondition(0, PROCESS_PRESENCE_UNKNOWN) == -1);
+	assert(networkmap_start_postcondition(0, (enum process_presence)9) == -1);
+	assert(networkmap_start_postcondition(7, PROCESS_PRESENCE_RUNNING) == 7);
+	assert(networkmap_start_postcondition(7, PROCESS_PRESENCE_ABSENT) == 7);
+
 
 	assert(networkmap_action_for_presence(PROCESS_PRESENCE_ABSENT) ==
 	       NETWORKMAP_DAEMON_START);
@@ -172,6 +179,6 @@ main(void)
 	assert(networkmap_signal_snapshot(NULL, SIGUSR1, fake_validate,
 					  fake_send_signal, NULL) == -1);
 	assert(errno == EINVAL);
-	puts("networkmap tri-state daemon action and identity-bound refresh policy: PASS");
+	puts("networkmap tri-state action, startup postcondition and identity-bound refresh policy: PASS");
 	return 0;
 }

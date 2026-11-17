@@ -90,4 +90,19 @@ networkmap_signal_snapshot(const struct process_snapshot *snapshot, int sig,
 	return 0;
 }
 
+
+#define NETWORKMAP_START_INITIAL_WAIT_SECONDS 1
+#define NETWORKMAP_START_RETRY_WAIT_SECONDS 1
+#define NETWORKMAP_START_PROBE_ATTEMPTS 4
+
+/* eval() observes the daemonizing parent; verify that its detached child lives. */
+static int
+networkmap_start_postcondition(int launch_status,
+			       enum process_presence process_state)
+{
+	if (launch_status != 0)
+		return launch_status;
+	return process_state == PROCESS_PRESENCE_RUNNING ? 0 : -1;
+}
+
 #endif
