@@ -32,14 +32,12 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Active task
 
 1. Boot-environment baseline `10be37e50fbbd11c686593b0edd3863b31055b2e`; exact `4220420` HTTPD and XY-C1 Build/TRX/artifact passed.
-2. IAPP rollback source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`; caller status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`; exact IAPP fixture follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` and `55374c12e124711c0b789ffd8dc3f0767c3343cc`. Process/NVRAM/AdGuardHome/AI docs/infosvr/AliyunDrive exact-head Actions passed on `55374c`; IAPP source `a54c1b` passed XY-C1 Build/TRX/artifact run `44092579822`.
-3. AliDDNS CA-gated boot startup source is `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`; its test fixture syntax was repaired in `32e2eab9757261d458f7035a7d4215c5b5dc5e88`. Exact-head `32e2eab` runtime/shell tests all passed, including absent/present CA behavior and continuing DDNSTO/FRP startup. The AliDDNS workflow failed only in the static checker because it still asserted the old unquoted NVRAM test and direct invocation. THIS COMMIT aligns the checker with the intended quoted test, readable CA gate, optional-start wrapper, and ordering before DDNSTO.
-4. Current-source CI for THIS checker-only correction is pending. Do not claim AliDDNS full CI until its exact-head workflow passes. NVRAM run `44095983154` on parent `32e2eab` was still running at last poll; Process, Process inventory, infosvr, AI docs, AdGuardHome and AliyunDrive passed on that SHA.
-5. Next bounded source task after repairing/validating this checker is the confirmed WAN firewall refresh enqueue failure described in the roadmap: `notify_rc_internal()` currently hides queue publication failures behind a void API while MAN/WAN state transitions ignore the enqueue result. Add an additive status API without changing legacy void wrappers, propagate it through the three dynamic MAN/WAN paths, and add an isolated GNU89 regression.
+2. IAPP rollback production source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`, shell caller status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`, and regression follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` / `55374c12e124711c0b789ffd8dc3f0767c3343cc`. IAPP product source `a54c1b` passed XY-C1 Build/TRX/artifact run `44092579822`.
+3. AliDDNS CA-gated autostart source `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`; shell regression typo corrected in `32e2eab9757261d458f7035a7d4215c5b5dc5e88`; exact AliDDNS semantic checker aligned in `d6c0a1aa92d7f1615576811e653703364ae3b27a`. Exact-head AliDDNS transport run `44096633039`, AI docs `44096632730`, infosvr `44096632745`, AliyunDrive `44096632954`, and AdGuardHome `44096632757` PASS. Process fail-closed `44096632968` and NVRAM `44096632755` were still running at last poll.
+4. The product firmware validation workflow did not yet watch the packaged ROMFS `autostart.sh`, so the CA-gate source had no automatic target build. THIS COMMIT adds that file to the XY-C1 push path list; editing the workflow itself should launch a build for this source SHA.
 
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Local host execution NOT RUN in this connector-only runtime.
-- Current-source XY-C1 after the AliDDNS autostart change and physical-router L4 remain NOT VERIFIED.
+- Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Local host tests NOT RUN in this connector-only runtime. Exact-head XY-C1 for THIS workflow-path correction is pending; physical-router L4 NOT VERIFIED.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -56,8 +54,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Exact first action for the next GPT
 
-1. Verify the exact-head AliDDNS API transport workflow for THIS COMMIT. On parent `32e2eab9757261d458f7035a7d4215c5b5dc5e88`, run `44095983119` failed only at `scripts/check_aliddns_api_transport.py` with “enabled AliDDNS must retain its existing startup path”; its shell/runtime tests passed. The stale assertion expected `if [ $(nvram get aliddns_enable) = 1 ]` and direct script invocation. THIS COMMIT now checks the actual quoted enable test, readable CA trust bundle, `run_optional_start` invocation and ordering before DDNSTO.
-2. Parent `32e2eab`: AdGuardHome `44095983135`, infosvr `44095983195`, AI docs `44095983011`, AliyunDrive `44095983148`, Process lifecycle `44095983136`, Process inventory `44095983194` PASS; NVRAM `44095983154` was in progress at last poll. These are parent-SHA results, not validation of the checker correction.
-3. After the AliDDNS exact-head checker passes, start the bounded WAN firewall enqueue-status task. Re-fetch the latest source/CI/handoff first because other same-repo sessions may push concurrently. Do not change the legacy void notifier functions; add an additive checked API and only propagate its enqueue result to MAN/WAN firewall-refresh callers.
-4. Local host execution NOT RUN in connector-only runtime; physical-router L4 NOT VERIFIED. Frozen backup remains read-only.
+1. Check the XY-C1 workflow run triggered by adding `trunk/user/scripts/files/usr/bin/autostart.sh` to its push path filter. Require Build XY-C1, TRX output verification, and artifact upload on the exact current main SHA.
+2. Poll Process fail-closed `44096632968` and NVRAM `44096632755` from parent `d6c0a1` to completion; these are parent results, not results for this workflow-only commit.
+3. Once target build and remaining checks are resolved, continue the specific next reliability issue from the handoff: checked enqueue status for WAN firewall refresh. Preserve the legacy void notifier API and add an additive checked path with a focused GNU89 regression.
+
+Local host tests NOT RUN; physical-router L4 NOT VERIFIED. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
 

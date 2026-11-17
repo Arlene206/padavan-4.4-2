@@ -1,3 +1,13 @@
+## 2026-11-17 — Trigger XY-C1 builds for packaged autostart changes
+
+- Parent main SHA: `d6c0a1aa92d7f1615576811e653703364ae3b27a`; result: THIS COMMIT.
+- Confirmed the XY-C1 firmware workflow's push path filter omitted `trunk/user/scripts/files/usr/bin/autostart.sh`, despite that file being packaged into ROMFS. As a result, the CA-readiness source change did not trigger a target build.
+- Added the packaged autostart script to the workflow's path filter. This workflow-only commit itself triggers an exact-head XY-C1 build of the current main source.
+- Exact-head AliDDNS transport run `44096633039` on parent `d6c0a1` passed after its semantic checker was updated for the CA gate. AI docs, infosvr, AliyunDrive, and AdGuardHome also passed; Process and NVRAM were pending at last poll.
+- XY-C1 Build/TRX/artifact for THIS COMMIT pending. Local host tests NOT RUN; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align AliDDNS static contract with CA-gated boot startup
 
 - Parent main SHA: `32e2eab9757261d458f7035a7d4215c5b5dc5e88`; result: THIS COMMIT.
