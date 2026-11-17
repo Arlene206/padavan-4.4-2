@@ -233,12 +233,149 @@ test_start_postcondition_status(void)
 	assert(errno == EINVAL);
 }
 
+
+struct fake_cache {
+	int clear_status;
+	int clear_errno;
+	int mkdir_status;
+	int mkdir_errno;
+	int lstat_status;
+	int lstat_errno;
+	mode_t path_mode;
+	int clear_calls;
+	int mkdir_calls;
+	int lstat_calls;
+};
+
+static int
+fake_cache_clear(void *context, const char *path)
+{
+	struct fake_cache *fake = (struct fake_cache *)context;
+
+	assert(strcmp(path, "/tmp/inadyn") == 0);
+	fake->clear_calls++;
+	if (fake->clear_status < 0)
+		errno = fake->clear_errno;
+	return fake->clear_status;
+}
+
+static int
+fake_cache_mkdir(void *context, const char *path, mode_t mode)
+{
+	struct fake_cache *fake = (struct fake_cache *)context;
+
+	assert(strcmp(path, "/tmp/inadyn") == 0);
+	assert(mode == 0777);
+	fake->mkdir_calls++;
+	if (fake->mkdir_status != 0)
+		errno = fake->mkdir_errno;
+	return fake->mkdir_status;
+}
+
+static int
+fake_cache_lstat(void *context, const char *path, struct stat *st)
+{
+	struct fake_cache *fake = (struct fake_cache *)context;
+
+	assert(strcmp(path, "/tmp/inadyn") == 0);
+	assert(st != NULL);
+	fake->lstat_calls++;
+	if (fake->lstat_status != 0) {
+		errno = fake->lstat_errno;
+		return fake->lstat_status;
+	}
+	st->st_mode = fake->path_mode;
+	return 0;
+}
+
+static void
+test_cache_prepare_status(void)
+{
+	struct fake_cache fake;
+	int status;
+
+	assert(inadyn_cache_command_status(0, 0) == 0);
+	assert(inadyn_cache_command_status(-1, EACCES) == EACCES);
+	assert(inadyn_cache_command_status(-1, 0) == EIO);
+	assert(inadyn_cache_command_status(256, 0) == EIO);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.path_mode = S_IFDIR | 0700;
+	assert(inadyn_prepare_cache_directory(1, "/tmp/inadyn",
+		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat,
+		&fake) == 0);
+	assert(fake.clear_calls == 1 && fake.mkdir_calls == 1 &&
+	       fake.lstat_calls == 1);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.clear_status = EIO;
+	status = inadyn_prepare_cache_directory(1, "/tmp/inadyn",
+		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat,
+		&fake);
+	assert(status == EIO && errno == EIO);
+	assert(fake.clear_calls == 1 && fake.mkdir_calls == 0 &&
+	       fake.lstat_calls == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.clear_status = -1;
+	fake.clear_errno = EACCES;
+	status = inadyn_prepare_cache_directory(1, "/tmp/inadyn",
+		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat,
+		&fake);
+	assert(status == EACCES);
+	assert(fake.mkdir_calls == 0 && fake.lstat_calls == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.mkdir_status = -1;
+	fake.mkdir_errno = EACCES;
+	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
+		NULL, fake_cache_mkdir, fake_cache_lstat, &fake);
+	assert(status == EACCES);
+	assert(fake.clear_calls == 0 && fake.mkdir_calls == 1 &&
+	       fake.lstat_calls == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.mkdir_status = -1;
+	fake.mkdir_errno = EEXIST;
+	fake.path_mode = S_IFDIR | 0700;
+	assert(inadyn_prepare_cache_directory(0, "/tmp/inadyn",
+		NULL, fake_cache_mkdir, fake_cache_lstat, &fake) == 0);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.mkdir_status = -1;
+	fake.mkdir_errno = EEXIST;
+	fake.path_mode = S_IFREG | 0600;
+	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
+		NULL, fake_cache_mkdir, fake_cache_lstat, &fake);
+	assert(status == ENOTDIR);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.path_mode = S_IFLNK | 0777;
+	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
+		NULL, fake_cache_mkdir, fake_cache_lstat, &fake);
+	assert(status == ENOTDIR);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.path_mode = S_IFDIR | 0700;
+	fake.lstat_status = -1;
+	fake.lstat_errno = EIO;
+	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
+		NULL, fake_cache_mkdir, fake_cache_lstat, &fake);
+	assert(status == EIO);
+
+	errno = 0;
+	assert(inadyn_prepare_cache_directory(1, "/tmp/inadyn", NULL,
+		fake_cache_mkdir, fake_cache_lstat, &fake) == EINVAL);
+	assert(errno == EINVAL);
+}
+
 int
 main(void)
 {
 	test_update_configuration_gate();
 	test_presence_decisions();
 	test_start_postcondition_status();
+	test_cache_prepare_status();
 	test_config_preflight_requires_all_live_identities();
 	test_identity_bound_hup_signal();
 	test_identity_bound_usr1_signal();

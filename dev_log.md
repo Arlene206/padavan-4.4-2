@@ -1,3 +1,14 @@
+## 2026-11-17 19:56 CST — Fail closed when Inadyn cache preparation fails
+
+- Parent main SHA: `8a77982a142c4d55dbad874fee8c92823dfbe3d7`; result: THIS COMMIT.
+- Confirmed defect in `services_ex.c:start_ddns()`: the `rm -rf /tmp/inadyn` result for an explicit cache reset and the `mkdir()` result were both ignored, so stale cache could survive a failed reset and the daemon launch could continue without a usable cache directory. Both direct callers preserve the function result (`rc.c` applet returns `ret`; `notify_ddns_update()` returns `start_ddns(0)`).
+- Added an injected cache preparation policy: a requested reset is mandatory; `system()` wait statuses are normalized (including exit status 256 -> EIO, avoiding an apparent success when narrowed by the process exit code); mkdir errors abort except EEXIST followed by `lstat()` proving an actual directory. Files and symlinks are rejected. Configuration publication and Inadyn launch occur only after successful cache preparation.
+- Added GNU89/Werror/ASan/UBSan regression cases for reset success/failure, raw system wait-status normalization, mkdir errors, existing directory, regular-file/symlink collisions, lstat failure and invalid callbacks. Extended the existing Inadyn production wiring contract; its workflow already covers all changed source/test/checker paths.
+- No local checkout/host compiler was available in this session; local L2 test NOT RUN. Exact-head Inadyn Actions are triggered by this commit and must be checked by exact `head_sha`; no target MIPS/uClibc or physical-router validation is claimed.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 19:14:54 CST — Normalize router source before checking Optware status ordering
 
 - Parent main SHA: `448cb4e6ad854228204100d5fb06f8f4135fd918`; result: THIS COMMIT.

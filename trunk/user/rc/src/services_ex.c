@@ -2287,6 +2287,30 @@ inadyn_confirm_started(int launch_status)
 	return status;
 }
 
+static int
+inadyn_cache_clear_cb(void *context, const char *path)
+{
+	int command_status;
+
+	(void)context;
+	command_status = doSystem("rm -rf %s", path);
+	return inadyn_cache_command_status(command_status, errno);
+}
+
+static int
+inadyn_cache_mkdir_cb(void *context, const char *path, mode_t mode)
+{
+	(void)context;
+	return mkdir(path, mode);
+}
+
+static int
+inadyn_cache_lstat_cb(void *context, const char *path, struct stat *st)
+{
+	(void)context;
+	return lstat(path, st);
+}
+
 int
 start_ddns(int clear_cache)
 {
@@ -2294,6 +2318,7 @@ start_ddns(int clear_cache)
 	char* ddns_verbose_str[] = { "err", "notice", "debug" };
 	char* startup_delay;
 	int stop_status;
+	int cache_status;
 	int launch_status;
 
 	if (get_ap_mode())
@@ -2310,10 +2335,15 @@ start_ddns(int clear_cache)
 	if (!nvram_match("ddns_enable_x", "1"))
 		return -1;
 
-	if (clear_cache)
-		doSystem("rm -rf %s", DDNS_CACHE_DIR);
-
-	mkdir(DDNS_CACHE_DIR, 0777);
+	cache_status = inadyn_prepare_cache_directory(
+		clear_cache, DDNS_CACHE_DIR, inadyn_cache_clear_cb,
+		inadyn_cache_mkdir_cb, inadyn_cache_lstat_cb, NULL);
+	if (cache_status != 0) {
+		logmessage(LOGNAME,
+			   "Inadyn cache preparation failed (status=%d, errno=%d)",
+			   cache_status, errno);
+		return cache_status;
+	}
 
 	if (!write_inadyn_conf(DDNS_CONF_FILE))
 		return -1;

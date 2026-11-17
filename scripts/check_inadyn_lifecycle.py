@@ -41,6 +41,22 @@ assert "stop_status = stop_ddns()" in start
 assert start.index("if (stop_status != 0)") < start.index('eval("/bin/inadyn"')
 assert 'launch_status = eval("/bin/inadyn"' in start
 assert "inadyn_confirm_started(launch_status)" in start
+assert "inadyn_prepare_cache_directory(" in start
+assert start.index("inadyn_prepare_cache_directory(") < start.index("write_inadyn_conf(DDNS_CONF_FILE)")
+assert start.index("write_inadyn_conf(DDNS_CONF_FILE)") < start.index('eval("/bin/inadyn"')
+assert "cache_status != 0" in start
+assert "inadyn_cache_clear_cb" in source and "inadyn_cache_lstat_cb" in source
+assert 'doSystem("rm -rf %s", path)' in source
+assert "inadyn_cache_command_status(command_status, errno)" in source
+assert "inadyn_prepare_cache_directory" in policy
+assert "command_status == -1 && command_errno > 0" in policy
+assert "S_ISDIR(st.st_mode)" in policy
+assert "test_cache_prepare_status" in test
+assert "doSystem(\"rm -rf %s\", DDNS_CACHE_DIR)" not in start
+assert "mkdir(DDNS_CACHE_DIR, 0777)" not in start
+assert "ret = start_ddns(1);" in rc_source
+assert "return start_ddns(0);" in source
+assert "return ret;" in rc_source
 confirm = body("inadyn_confirm_started(int launch_status)")
 assert "inadyn_process_presence(&scan_error)" in confirm
 assert "INADYN_START_WAIT_ATTEMPTS" in confirm and "sleep(1)" in confirm

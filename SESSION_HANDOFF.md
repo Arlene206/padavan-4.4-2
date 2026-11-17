@@ -31,9 +31,13 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. The documentation-rotation checkpoint is closed: exact-main AI handoff run `44073201767` passed on `76852b80f2b7629546f3439d2d489d4649aec5e3`.
-2. The product-source baseline `c6edf06e2a9d148f24757926488166dea8f9205b` completed XY-C1 Build, TRX verification and artifact upload successfully in run `44072349459`; Process inventory/lifecycle passed in `44072349383`. Main `76852b80` is one documentation-only descendant of that tested source baseline (REFACTOR_ROADMAP, SESSION_HANDOFF, dev_log rotation, archive shard and index only).
-3. Continue the next P1 startup-result propagation audit outside wireless/storage. Initial inspection of `services.c` found legacy `void` wrappers for AdGuardHome, DDNS.to, Adbyby, AliDDNS and FRP that log launcher errors; their active boot call graph is not yet established, so do not change signatures until all callers are traced. Next inspect `services_ex.c:start_ddns()` cache cleanup/directory preparation and its callers, then select only a confirmed failure-propagation defect with a focused host regression.
+1. The P1 Inadyn cache-preparation defect is implemented in THIS COMMIT: `services_ex.c:start_ddns()` now treats a requested cache reset as mandatory, checks `mkdir()`, and uses `lstat()` to accept EEXIST only for a real directory. Files/symlinks and cache-operation failures abort before `write_inadyn_conf()` or daemon launch. The `system()` wait status is normalized so a child exit 1 (raw 256) cannot wrap into a successful `rc` process exit.
+2. Added injected GNU89 policy regression and expanded `scripts/check_inadyn_lifecycle.py`. Local compilation was NOT RUN in this runtime; this commit's push-triggered Inadyn workflow is the required L2 validation.
+3. Exact first action: fetch the live main SHA, then inspect the Inadyn fail-closed lifecycle workflow run whose `event=push` and `head_sha` exactly equal that SHA. On failure, diagnose the first failing step and repair on main. If pending, record its run ID/SHA and continue an independent P1 service-start audit; do not wait idly.
+4. Once the Inadyn slice is validated, rotate to the remaining startup-result propagation work outside wireless/storage. Previously observed `services.c` void wrappers (AdGuardHome, DDNS.to, Adbyby, AliDDNS and FRP) are only candidates: trace their active callers before changing any signature. Do not revisit completed guest-wireless or docs-rotation work.
+
+- Live main for this checkpoint is THIS COMMIT; resolve the exact SHA from GitHub rather than copying a chat SHA.
+- Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.

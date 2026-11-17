@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <process_inventory.h>
 
 enum inadyn_daemon_action {
@@ -63,6 +64,93 @@ inadyn_presence_error(enum process_presence state, int scan_error)
 	if (state == PROCESS_PRESENCE_UNKNOWN)
 		return scan_error > 0 ? scan_error : EIO;
 	return EINVAL;
+}
+
+/* system() returns a wait status, not a shell exit code.  Do not return the
+ * encoded status to rc's main(), where (for example) 256 would wrap to zero.
+ */
+static int
+inadyn_cache_command_status(int command_status, int command_errno)
+{
+	if (command_status == 0)
+		return 0;
+	if (command_status == -1 && command_errno > 0)
+		return command_errno;
+	return EIO;
+}
+
+typedef int (*inadyn_cache_clear_fn)(void *context, const char *path);
+typedef int (*inadyn_cache_mkdir_fn)(void *context, const char *path,
+				     mode_t mode);
+typedef int (*inadyn_cache_lstat_fn)(void *context, const char *path,
+				     struct stat *st);
+
+/*
+ * A requested cache reset is mandatory. EEXIST from mkdir is accepted only
+ * when lstat confirms the existing path is a real directory, not a file or
+ * symlink. Errors prevent configuration publication and daemon launch.
+ */
+static int
+inadyn_prepare_cache_directory(int clear_cache, const char *path,
+			       inadyn_cache_clear_fn clear_fn,
+			       inadyn_cache_mkdir_fn mkdir_fn,
+			       inadyn_cache_lstat_fn lstat_fn,
+			       void *context)
+{
+	struct stat st;
+	int result;
+	int saved_errno;
+
+	if (!path || !*path || !mkdir_fn || !lstat_fn ||
+	    (clear_cache && !clear_fn)) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	if (clear_cache) {
+		errno = 0;
+		result = clear_fn(context, path);
+		if (result != 0) {
+			if (result < 0) {
+				saved_errno = errno;
+				errno = saved_errno > 0 ? saved_errno : EIO;
+				return errno;
+			}
+			errno = result;
+			return result;
+		}
+	}
+
+	errno = 0;
+	result = mkdir_fn(context, path, 0777);
+	saved_errno = errno;
+	if (result != 0 &&
+	    !(result == -1 && saved_errno == EEXIST)) {
+		if (result < 0) {
+			errno = saved_errno > 0 ? saved_errno : EIO;
+			return errno;
+		}
+		errno = result;
+		return result;
+	}
+
+	errno = 0;
+	result = lstat_fn(context, path, &st);
+	saved_errno = errno;
+	if (result != 0) {
+		if (result < 0) {
+			errno = saved_errno > 0 ? saved_errno : EIO;
+			return errno;
+		}
+		errno = result;
+		return result;
+	}
+	if (!S_ISDIR(st.st_mode)) {
+		errno = ENOTDIR;
+		return ENOTDIR;
+	}
+
+	return 0;
 }
 
 typedef enum process_presence (*inadyn_identity_validate_fn)(
