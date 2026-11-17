@@ -602,7 +602,11 @@ assert "return firewall_status;" in sshd_restart
 assert sshd_restart.index("if (start_status != 0)") < sshd_restart.index("return firewall_status;")
 assert sshd_restart.index("PROCESS_PRESENCE_UNKNOWN") < sshd_restart.index("return firewall_status;")
 
-httpd_start = compact(body(SERVICES_SOURCE, "start_httpd(int restart_fw)"))
+httpd_start = compact(body(SERVICES_SOURCE, "start_httpd_locked(int restart_fw)"))
+httpd_start_entry = compact(body(SERVICES_SOURCE, "start_httpd(int restart_fw)"))
+assert "httpd_lifecycle_lock_acquire_status" in httpd_start_entry
+assert "start_httpd_locked(restart_fw)" in httpd_start_entry
+assert "httpd_lifecycle_lock_finish" in httpd_start_entry
 assert "firewall_status = restart_firewall();" in httpd_start
 assert "if (firewall_status != 0) return firewall_status;" in httpd_start
 

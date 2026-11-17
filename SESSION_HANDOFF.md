@@ -1,29 +1,29 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes conflicting older status below. Continue on main; do not repeat completed audits.
+This checkpoint supersedes conflicting older status below. Continue implementation without repeating completed audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2.
-- Parent main SHA: 1a984b3d889cda4accdb6d6dbc03a283de5b4e6f; result: THIS COMMIT (one complete tree; expected-SHA non-force update).
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
-- Remote branches: main and frozen backup only.
-- Connector-only environment: no local checkout or target MIPS compiler; physical-router L4 NOT VERIFIED.
+- Parent main: `4c9793229270232501ce3a21cc6f46198bccb6cb`; this commit updates the checker and live handoff in one tree.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Only branches observed: main and frozen backup.
 
-## HTTPD cross-process lifecycle race
-- The watchdog runs separately from PID 1. Its former recovery path used separate stop_httpd() and start_httpd(0) operations; a concurrent PID-1 RCN_RESTART_HTTPD could interleave and create duplicate-launch risk around the ABSENT preflight.
-- THIS COMMIT adds stable root-private /tmp/.httpd.lifecycle.lock with O_NOFOLLOW, regular-file/owner/link/mode validation and bounded process-shared fcntl(F_SETLK). Public start/stop serialize each operation; restart holds one lock across private stop/start helpers.
-- Watchdog now calls atomic restart_httpd(). The HTTPD workflow adds fork-based contention/path-integrity regression and source checks for wrapper, restart and watchdog wiring.
-- Exact 1a984b3 checks: HTTPD 44127997829, Process 44127998494, NVRAM 44127999119, AliDDNS 44127997810, AliyunDrive 44127997736, infosvr 44127997859, AdGuardHome 44127997919, AI handoff 44127998145: SUCCESS. XY-C1 44127997776 was still building; TRX/artifact pending.
+## HTTPD serialized lifecycle source fix
+- Commit `4c9793229270232501ce3a21cc6f46198bccb6cb` added root-private process-shared lock `/tmp/.httpd.lifecycle.lock`; public start/stop wrappers are serialized and restart holds one lock across private stop/start helpers. Watchdog recovery now uses atomic `restart_httpd()`.
+- Exact SHA HTTPD auth/security run `44132791194`: SUCCESS; its new “Verify HTTPD cross-process lifecycle serialization” step, including GNU89/ASan/UBSan fork-contention and path-integrity test, passed.
+- Exact SHA Process lifecycle run `44132790766` failed in `scripts/check_modem_wan_start_status.py:606`: its older checker searched for firewall result propagation inside the public `start_httpd()` body. The production operation is now intentionally in `start_httpd_locked()`, protected by the public wrapper. THIS COMMIT updates the checker to examine the private operation and separately assert lock acquisition/release in the public entrypoint.
+- Exact SHA XY-C1 run `44132791794` stopped at the same stale host checker step; full target Build/TRX/artifact remains unverified for 4c979.
+- HTTPD daemon lifecycle `44132790625` was IN_PROGRESS at last poll. Other 4c979 exact-head workflows were still running/queued; verify by SHA rather than infer.
 
 ## First next task
-1. Verify this commit's exact-head HTTPD and Process regressions, including the forked contention test.
-2. Confirm XY-C1 Build, TRX verification and artifact upload for services.c/watchdog.c.
-3. Continue independent stability/security work elsewhere in userland after exact checks pass.
+1. Verify Process and XY-C1 reruns after this checker correction; require target Build, TRX verification and artifact upload.
+2. Inspect HTTPD daemon lifecycle run `44132790625` for any assumptions invalidated by the public wrappers.
+3. Continue the next independent P1 startup-result propagation slice outside HTTPD (inspect `services_ex.c` callers), while queued Actions run.
 
 ## Validation boundary
-- Previous exact 1a984b3 HTTPD, Process, NVRAM, AliDDNS, AliyunDrive, infosvr, AdGuardHome and AI handoff checks passed.
-- THIS COMMIT changes production services.c/watchdog.c; target MIPS/uClibc build and XY-C1 TRX/artifact must be verified at the resulting exact SHA.
-- No physical-router L4 is claimed.
+- The process-shared HTTPD lock regression and HTTPD authentication/security workflow passed on 4c979.
+- The modem WAN status checker failure was a stale function-body extraction expectation, not a failure of the production firewall status code.
+- No local MIPS/uClibc build or physical-router L4 is claimed.
 
 # Cross-session execution mandate
 

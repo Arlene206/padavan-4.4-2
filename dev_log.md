@@ -1,3 +1,13 @@
+## 2026-11-17 — Update WAN status checker for serialized HTTPD entrypoint
+
+- Parent main SHA: 4c9793229270232501ce3a21cc6f46198bccb6cb; result: THIS COMMIT.
+- The exact-head Process regression `44132790766` and XY-C1 host validation `44132791794` stopped at `scripts/check_modem_wan_start_status.py:606`. The checker still extracted `start_httpd()` to assert firewall result propagation, but the cross-process lock change moved the operation body to `start_httpd_locked()`.
+- Updated the checker to assert firewall status in the private operation and separately require the public wrapper to acquire the lifecycle lock, call the private helper and release the lock.
+- The actual HTTPD security workflow on `4c979` passed, including the new lock test. The exact current-source MIPS build/TRX and Process rerun are pending; no target build result is inferred.
+- No production source changed in this follow-up.
+
+---
+
 ## 2026-11-17 — Serialize HTTPD lifecycle across PID 1 and watchdog
 
 - Parent main SHA: 1a984b3d889cda4accdb6d6dbc03a283de5b4e6f; result: THIS COMMIT.

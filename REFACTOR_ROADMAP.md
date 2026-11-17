@@ -2,12 +2,12 @@
 
 This section supersedes conflicting older rows below.
 
-- Parent main SHA: `1a984b3d889cda4accdb6d6dbc03a283de5b4e6f`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 1a984b3 PASS: HTTPD `44127997829`, Process `44127998494`, NVRAM `44127999119`, AliDDNS `44127997810`, AliyunDrive `44127997736`, infosvr `44127997859`, AdGuardHome `44127997919`, AI handoff `44127998145`. XY-C1 `44127997776` had not yet completed Build; TRX/artifact pending.
-- P1 HTTPD race: separate watchdog/PID-1 stop and start transactions could interleave. THIS COMMIT serializes start/stop/restart with a stable root-private lock; watchdog uses one atomic restart. Forked contention/path-integrity regression and source contracts added.
-- THIS COMMIT changes production services.c/watchdog.c; exact-head HTTPD/Process and XY-C1 Build/TRX/artifact validation pending. No local MIPS/uClibc or physical-router L4 claim.
+- Parent main SHA: `4c9793229270232501ce3a21cc6f46198bccb6cb`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- HTTPD cross-process lifecycle lock/watchdog atomic restart landed on `4c9793229270232501ce3a21cc6f46198bccb6cb`. Exact HTTPD auth/security run `44132791194`: PASS, including new fork-based lock/path regression.
+- Process `44132790766` and XY-C1 `44132791794` hit a stale checker extraction that still inspected the public `start_httpd()` for firewall-start semantics after extraction into `start_httpd_locked()`. THIS COMMIT updates the assertion while checking the public lock wrapper separately; reruns pending.
+- HTTPD daemon lifecycle `44132790625` was IN_PROGRESS at checkpoint. No current-source XY-C1 Build/TRX/artifact success claimed.
 
-Next: verify exact-head HTTPD/Process and XY-C1 Build/TRX/artifact, then continue independent userland stability/security work.
+Next: verify Process, HTTPD lifecycle and XY-C1 exact-head reruns; then continue broad startup-result propagation in services_ex.c and other independent RC callers.
 
 ---
 
