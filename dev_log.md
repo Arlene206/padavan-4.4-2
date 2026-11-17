@@ -1,3 +1,14 @@
+## 2026-11-17 — Preserve UNKNOWN CPU-watchdog module probe state
+
+- Base main SHA: `6697ca6020b261725655e12c3e5a5252ffb0e9c6`; result: THIS COMMIT.
+- Confirmed a fail-open verification defect: `watchdog_cpu_restart_module_is_loaded()` called legacy Boolean `is_module_loaded()`, which maps negative `/sys/module` probe errors to false. The restart policy could then report successful disable when the module state was actually UNKNOWN; boot-time startup also collapsed the probe failure to generic EIO.
+- Changed the policy callback contract to tri-state (1=loaded, 0=absent, negative errno=UNKNOWN). Restart now returns the positive probe errno, rejects invalid positive states with EIO, and retains the existing EIO/EBUSY postcondition decisions. Boot startup uses `is_module_loaded_status()` and preserves the probe errno.
+- Added injected regression cases for UNKNOWN after both load and unload attempts and invalid probe results. Existing Process lifecycle and XY-C1 workflows already compile/run the policy with GNU89, `-Werror`, ASan and UBSan and include the changed source/test/checker paths; the source integration checker now pins strict probe wiring.
+- Storage rollback exact-main storage-hotplug (`44000009287`), Samba (`44000009517`), Process lifecycle (`44000009230`) and AI handoff (`44000009196`) passed on parent `6697ca60`. The previous `10380657` product source passed XY-C1 Build/TRX/artifact (`43998879438`), but that result predates this `services.c` change. Current-slice L2/L3 Actions must be checked by exact main SHA.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Correct storage and Samba integration contracts for rollback
 
 - Storage-hotplug run `43999509853` on checker SHA `20a1266e5f82d19d3729be24daa32a9bece75022` passed its inline full-caller graph after the prior repair, then standalone `scripts/check_storage_safe_remove.py` failed because its compacting assertion removed the significant space inside the quoted operation label and checked against the function's first unrelated unlock instead of the unlock after rollback. Rewrote the check to normalize C whitespace without damaging string literals and to scope ordering to the rollback call.

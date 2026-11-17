@@ -7,6 +7,7 @@
 typedef struct {
 	int (*load)(const char *module_name, const char *module_param);
 	int (*unload)(const char *module_name, int recurse_unload);
+	/* 1=loaded, 0=absent, negative errno=UNKNOWN/probe failure. */
 	int (*is_loaded)(const char *module_name);
 } rc_watchdog_cpu_restart_ops_t;
 
@@ -19,6 +20,8 @@ static inline int
 rc_watchdog_cpu_restart_verified(const char *module_name, int should_load,
 				 const rc_watchdog_cpu_restart_ops_t *ops)
 {
+	int probe_status;
+
 	if (!module_name || module_name[0] == '\0' || !ops ||
 	    !ops->load || !ops->unload || !ops->is_loaded)
 		return EINVAL;
@@ -28,7 +31,13 @@ rc_watchdog_cpu_restart_verified(const char *module_name, int should_load,
 	else
 		(void)ops->unload(module_name, 0);
 
-	if (ops->is_loaded(module_name))
+	/* An unreadable sysfs state is not proof that the module is absent. */
+	probe_status = ops->is_loaded(module_name);
+	if (probe_status < 0)
+		return -probe_status;
+	if (probe_status > 1)
+		return EIO;
+	if (probe_status == 1)
 		return should_load ? 0 : EBUSY;
 	return should_load ? EIO : 0;
 }

@@ -1327,15 +1327,24 @@ stop_logger(void)
 int
 start_watchdog_cpu(void)
 {
+	int module_status;
+
 	if (nvram_get_int("watchdog_cpu") == 0)
 		return 0;
 	/*
 	 * module_smart_load() returns zero for both "already loaded" and
-	 * "load failed". Verify module state instead of treating its return as
-	 * a boolean success flag.
+	 * "load failed". Verify the tri-state module probe after the operation.
 	 */
 	(void)module_smart_load("rt_timer_wdg", NULL);
-	if (!is_module_loaded("rt_timer_wdg")) {
+	module_status = is_module_loaded_status("rt_timer_wdg");
+	if (module_status < 0) {
+		int probe_error = -module_status;
+		errno = probe_error;
+		logmessage(LOGNAME, "CPU watchdog module state probe failed (errno=%d)",
+			   probe_error);
+		return probe_error;
+	}
+	if (module_status != 1) {
 		logmessage(LOGNAME, "CPU watchdog module startup failed");
 		return EIO;
 	}
@@ -1357,7 +1366,7 @@ watchdog_cpu_restart_module_unload(const char *module_name, int recurse_unload)
 static int
 watchdog_cpu_restart_module_is_loaded(const char *module_name)
 {
-	return is_module_loaded(module_name);
+	return is_module_loaded_status(module_name);
 }
 
 static const rc_watchdog_cpu_restart_ops_t watchdog_cpu_restart_ops = {

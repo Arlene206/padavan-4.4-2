@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -13,6 +14,7 @@ static int remove_on_unload;
 static int load_calls;
 static int unload_calls;
 static int probe_calls;
+static int probe_override;
 
 static int
 mock_load(const char *module_name, const char *module_param)
@@ -44,7 +46,7 @@ mock_is_loaded(const char *module_name)
 	assert(module_name != NULL);
 	assert(strcmp(module_name, "rt_timer_wdg") == 0);
 	probe_calls++;
-	return module_visible;
+	return probe_override == INT_MAX ? module_visible : probe_override;
 }
 
 static const rc_watchdog_cpu_restart_ops_t mock_ops = {
@@ -65,6 +67,7 @@ reset_case(int visible, int load_rc, int unload_rc,
 	load_calls = 0;
 	unload_calls = 0;
 	probe_calls = 0;
+	probe_override = INT_MAX;
 }
 
 static void
@@ -136,6 +139,29 @@ test_absent_postcondition_wins_over_unloader_status(void)
 }
 
 static void
+test_unknown_module_state_is_not_treated_as_absent(void)
+{
+	reset_case(0, 0, 0, 1, 0);
+	probe_override = -EACCES;
+	assert(rc_watchdog_cpu_restart_verified("rt_timer_wdg", 1, &mock_ops) == EACCES);
+	assert(load_calls == 1 && unload_calls == 0 && probe_calls == 1);
+
+	reset_case(1, 0, 0, 0, 1);
+	probe_override = -EACCES;
+	assert(rc_watchdog_cpu_restart_verified("rt_timer_wdg", 0, &mock_ops) == EACCES);
+	assert(load_calls == 0 && unload_calls == 1 && probe_calls == 1);
+}
+
+static void
+test_invalid_probe_state_fails_closed(void)
+{
+	reset_case(1, 0, 0, 0, 0);
+	probe_override = 2;
+	assert(rc_watchdog_cpu_restart_verified("rt_timer_wdg", 1, &mock_ops) == EIO);
+	assert(load_calls == 1 && probe_calls == 1);
+}
+
+static void
 test_invalid_inputs_fail_before_side_effects(void)
 {
 	rc_watchdog_cpu_restart_ops_t no_load = {
@@ -169,6 +195,8 @@ main(void)
 	test_disabled_already_absent_is_success();
 	test_busy_module_prevents_false_disable_success();
 	test_absent_postcondition_wins_over_unloader_status();
+	test_unknown_module_state_is_not_treated_as_absent();
+	test_invalid_probe_state_fails_closed();
 	test_invalid_inputs_fail_before_side_effects();
 	puts("RC watchdog module restart postcondition policy: PASS");
 	return 0;

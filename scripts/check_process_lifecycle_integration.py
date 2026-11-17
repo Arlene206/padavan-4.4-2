@@ -1484,8 +1484,23 @@ assert "watchdog_cpu_restart_module_is_loaded" in watchdog_cpu_services
 assert "int restart_watchdog_cpu(void);" in watchdog_cpu_header
 assert "void restart_watchdog_cpu(void);" not in watchdog_cpu_header
 assert "action_result = rc_notify_merge_action_result(action_result, restart_watchdog_cpu());" in watchdog_cpu_rc
+assert "probe_status = ops->is_loaded(module_name);" in watchdog_cpu_restart_policy
+assert "if (probe_status < 0)" in watchdog_cpu_restart_policy
+assert "return -probe_status;" in watchdog_cpu_restart_policy
+assert "if (probe_status > 1)" in watchdog_cpu_restart_policy
 assert "return should_load ? 0 : EBUSY;" in watchdog_cpu_restart_policy
 assert "return should_load ? EIO : 0;" in watchdog_cpu_restart_policy
+watchdog_start_body = c_function_body(
+    watchdog_cpu_services, "int" + chr(10) + "start_watchdog_cpu(void)"
+)
+assert 'module_status = is_module_loaded_status("rt_timer_wdg");' in watchdog_start_body
+assert "if (module_status < 0)" in watchdog_start_body
+assert "return probe_error;" in watchdog_start_body
+watchdog_probe_body = c_function_body(
+    watchdog_cpu_services,
+    "static int" + chr(10) + "watchdog_cpu_restart_module_is_loaded("
+)
+assert "return is_module_loaded_status(module_name);" in watchdog_probe_body
 for test_case in (
     "test_enabled_module_already_loaded_is_success",
     "test_enabled_new_module_is_verified",
@@ -1495,6 +1510,8 @@ for test_case in (
     "test_disabled_already_absent_is_success",
     "test_busy_module_prevents_false_disable_success",
     "test_absent_postcondition_wins_over_unloader_status",
+    "test_unknown_module_state_is_not_treated_as_absent",
+    "test_invalid_probe_state_fails_closed",
     "test_invalid_inputs_fail_before_side_effects",
 ):
     assert test_case in watchdog_cpu_restart_test
