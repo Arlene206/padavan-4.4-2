@@ -1,3 +1,13 @@
+## 2026-11-17 21:03 CST — Align HTTPD boot-directory contract with required_dir
+
+- Parent main SHA: `ab22c03fb3a8acd37004d52b5b3bcfd55dd1e461`; result: THIS COMMIT.
+- HTTPD umbrella run `44088845536` reached its notification queue contract and failed because it expected inline `mkdir -p -m 700` calls that had already been replaced by the checked `required_dir 700 ... || exit 1` helper. Updated the contract to validate the current required-directory order and checked `mdev -s` gate.
+- Removed the duplicate unchecked `chmod 700 /tmp/rc_notification /tmp/rc_action_incomplete` command: the preceding `required_dir` calls already create each directory and fail closed if its permission change fails. The focused PID-1 boot checker now guards against reintroducing this redundant unchecked operation.
+- Parent exact-head Process `44088845758`, NVRAM `44088845655`, USB storage `44088845567`, AI docs `44088845461`, AliDDNS `44088845627`, AdGuardHome `44088845523`, AliyunDrive `44088845392`, and infosvr `44088845694` passed. XY-C1 `44088845842` was still building at checkpoint. New exact-head HTTPD, Process, and XY-C1 Actions pending.
+- This slice removes only a redundant chmod already performed by a checked helper and repairs the stale contract; no target or hardware result is claimed. Local host tests NOT RUN in this connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 20:53 CST — Repair exact-head boot integration contracts
 
 - Parent main SHA: `10be37e50fbbd11c686593b0edd3863b31055b2e`; result: THIS COMMIT.

@@ -31,15 +31,15 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Product-source baseline: `10be37e50fbbd11c686593b0edd3863b31055b2e` adds the required boot-environment fail-closed path. `init_main_loop()` captures `dev_init.sh` status and starts router services only when boot mounts, mdev population, private directory setup and NVRAM readiness all succeed. Optional debugfs/cgroups/storage seeding/user start remain best effort.
-2. Exact-main `push` Process lifecycle run `44084634310` passed; its job `134043734932` executed both `dev_init_boot_policy.sh` and `scripts/check_dev_init_boot.py`, each PASS. AI handoff docs run `44084634333` also passed.
-3. Three unrelated umbrella checks exposed stale source contracts, not production regressions: NVRAM run `44084634391` expected the old two-condition PID-1 gate; HTTPD run `44084634464` made the same stale assertion; USB storage run `44084634290` expected `void start_rwfs_optware()` although the current API returns `int` and propagates its launch result. THIS COMMIT updates those checks to the actual production contracts.
-4. The exact-source XY-C1 workflow did not trigger for `10be37e`: its path filter omitted `init.c` and `dev_init.sh`. THIS COMMIT adds both source paths; its existing self-path entry also makes the workflow configuration change trigger an exact-head firmware build. Require Build + TRX verification + artifact upload before calling L3 verified.
-5. After the exact-head CI repairs pass, continue broad RC startup-result propagation from the whole-repository priority queue. Do not revisit completed Inadyn cache preparation, guest-Wi-Fi rollback, USB-storage lock work, or the completed boot-environment source change without new evidence. The legacy void service wrappers were traced through 36 RC C files and have no direct callers; do not change them without a newly discovered caller.
+1. Product-source baseline: `10be37e50fbbd11c686593b0edd3863b31055b2e` adds required boot-environment fail-closed handling in `dev_init.sh` and PID 1. The initial integration regression passed in Process run `44084634310`; both its shell policy test and `check_dev_init_boot.py` passed.
+2. Follow-up CI-only contract repair landed at `ab22c03fb3a8acd37004d52b5b3bcfd55dd1e461`. Exact-head NVRAM `44088845655`, Process `44088845758`, USB storage `44088845567`, AI docs `44088845461`, AliDDNS `44088845627`, AdGuardHome `44088845523`, AliyunDrive `44088845392`, and infosvr `44088845694` passed. XY-C1 `44088845842` was still running. HTTPD `44088845536` failed in an older notification-directory source contract: the boot script now uses checked `required_dir 700 ... || exit 1` calls instead of the old inline `mkdir -p -m 700` command.
+3. THIS COMMIT aligns the HTTPD contract with the checked helper and removes a redundant unchecked second `chmod` after `required_dir` has already created and permissioned both queue directories. The Process-specific boot contract now explicitly rejects that obsolete duplicate operation. No intended permission behavior is removed.
+4. The XY-C1 workflow now watches `init.c` and `dev_init.sh`; its exact run on `ab22c03` is still in progress at the time of this correction, and the source change in THIS COMMIT should launch another exact-head build. Require Build + TRX + artifact upload for L3.
+5. After CI is green, continue broad RC startup-result propagation from the whole-repository P1 queue. Avoid repeating completed boot environment, Inadyn cache preparation, guest-Wi-Fi rollback, and storage/HTTPD fixes without new evidence.
 
 - Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Local host tests are NOT RUN in this connector-only runtime.
 - Physical-router L4 remains NOT VERIFIED.
-- Current checkpoint below distinguishes the product-source baseline from this corrective CI/workflow commit.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -54,12 +54,10 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live `main` and inspect exact `event=push` Actions for that SHA. First resolve/check:
-- NVRAM transaction boundary run triggered by `scripts/check_nvram_transaction_boundary.py`: parent SHA `10be37e`, run `44084634391` failed only because the checker expected `router_ready=(nvram_node_result==0&&init_router()==0)`; the production predicate now also requires `dev_init_status==0`.
-- USB storage hotplug run `44084634290`: failed only because its embedded checker searched for the obsolete `void start_rwfs_optware(void)` signature. The implementation and header return `int`; the launch status is returned and tested.
-- HTTPD security run `44084634464`: failed only because its embedded checker expected the old PID-1 predicate; update requires both boot-environment and NVRAM success.
-- The corrective commit also adds `init.c` and `dev_init.sh` to XY-C1 push filters. Verify that exact-head XY-C1 completes Build XY-C1, TRX output verification and artifact upload. This is the first L3 opportunity for the boot-environment change; physical-router L4 remains NOT VERIFIED.
-- Process lifecycle `44084634310` (job `134043734932`) and AI handoff docs `44084634333` (job `134043735020`) passed on parent `10be37e`; do not repeat those old-SHA runs as validation for the corrective commit.
-- Local host tests were NOT RUN in the connector-only runtime; rely on the new exact-head Actions for L2, not on an implied local test result.
+Fetch live `main` and inspect exact `event=push` Actions for that SHA.
+- HTTPD Authentication/Security run `44088845536` on parent `ab22c03` failed only because its embedded PID-1 boot-directory assertion still searched for the pre-helper `mkdir -p -m 700` command. THIS COMMIT updates it to require both checked `required_dir 700 ... || exit 1` operations before `mdev -s || exit 1`, and removes a duplicate unchecked chmod after the helper has already applied the mode.
+- Process boot integration on `ab22c03` passed (`44088845758`); NVRAM `44088845655`, USB storage `44088845567`, AI docs `44088845461`, AliDDNS `44088845627`, AdGuardHome `44088845523`, AliyunDrive `44088845392`, and infosvr `44088845694` also passed on that exact SHA. Do not count them as validation for the new commit.
+- XY-C1 run `44088845842` on `ab22c03` was in progress when this follow-up was created. The new `dev_init.sh` source change should trigger another XY-C1 push run because the workflow now includes that path; verify Build XY-C1, TRX verification and artifact upload. This is the first L3 build for the required boot-environment change.
+- Local host tests NOT RUN in the connector-only runtime. Exact-head Actions are the L2 evidence; they are not physical-router L4.
 
-Once these checks are green, select the next bounded P1 user-space reliability defect from `REFACTOR_ROADMAP.md` outside the recently saturated wireless, storage and HTTPD modules. Trace source, callers and error paths, add a GNU89-compatible regression and workflow integration, then commit directly to `main`.
+After the relevant runs pass, select one bounded P1 user-space reliability defect from `REFACTOR_ROADMAP.md` outside the recently saturated HTTPD/storage/wireless modules. Continue broad RC startup-result propagation or another higher-ranked independent subsystem issue; inspect complete callers and failure paths, add a GNU89-compatible regression and workflow integration, and commit directly to `main`.

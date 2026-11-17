@@ -63,6 +63,7 @@ for path in ("/tmp/rc_notification", "/tmp/rc_action_incomplete",
                line.startswith("required_dir 700 ")
                for line in normalized), "missing private directory guard: " + path
 assert "required_dir 1777 /tmp || exit 1" in normalized
+assert "chmod 700 /tmp/rc_notification /tmp/rc_action_incomplete" not in script
 assert "mdev -s || exit 1" in normalized
 assert script.rstrip().endswith("exit 0")
 assert script.index("/etc/storage/start_script.sh") < script.rindex("exit 0")

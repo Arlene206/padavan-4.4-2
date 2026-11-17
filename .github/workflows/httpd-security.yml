@@ -1657,10 +1657,11 @@ jobs:
           rc_make = Path("trunk/user/rc/Makefile").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
 
-          create_queue = init.index("mkdir -p -m 700 /tmp/rc_notification")
-          chmod_queue = init.index("chmod 700 /tmp/rc_notification /tmp/rc_action_incomplete")
-          enumerate_devices = init.index("mdev -s")
-          assert init.index("chmod 1777 /tmp") < create_queue < chmod_queue < enumerate_devices
+          create_queue = init.index("required_dir 700 /tmp/rc_notification || exit 1")
+          create_incomplete = init.index("required_dir 700 /tmp/rc_action_incomplete || exit 1")
+          enumerate_devices = init.index("mdev -s || exit 1")
+          assert init.index("required_dir 1777 /tmp || exit 1") < create_queue < create_incomplete < enumerate_devices
+          assert "chmod 700 /tmp/rc_notification /tmp/rc_action_incomplete" not in init
           assert "mkdir -p -m 777 /tmp/rc_notification" not in init
           assert "mkdir -p -m 777 /tmp/rc_action_incomplete" not in init
           assert "rc_notify_queue_open_dir(DIR_RC_NOTIFY, 0)" in notify

@@ -47,7 +47,6 @@ required_dir 1777 /tmp || exit 1
 # PID 1 notification queues carry privileged service actions.
 required_dir 700 /tmp/rc_notification || exit 1
 required_dir 700 /tmp/rc_action_incomplete || exit 1
-chmod 700 /tmp/rc_notification /tmp/rc_action_incomplete
 
 required_mount -t tmpfs tmpfs /var   -o size=$size_var || exit 1
 
