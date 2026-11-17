@@ -8,6 +8,7 @@ on:
       - "trunk/user/**"
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_smartdns_lifecycle.py"
+      - "scripts/check_guest_lan_isolation_status.py"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/process_pidfile.c"

@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `69e4ab000835efe5f5107fbfdce696c68cf95706`.
+- Current main: THIS COMMIT; parent `080b8c91cb636fa95a8511c83b552bd4e639ba15`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,9 +31,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Re-run exact-head Process lifecycle/guest-Wi-Fi source contract after correcting the M2U startup assertion helper. The first run failed because the newly added static checker called a local string variable as a function; the corrected checker calls `function_body()` and uses actual function signatures.
-2. Verify Wireless radio and XY-C1 Build → TRX → artifact for THIS COMMIT.
-3. Continue the guest Wi-Fi startup/rollback audit after Process regression passes.
+1. Re-run exact-head Process lifecycle after the M2U checker was corrected on 080b8c91. The checker-only fix did not trigger Process CI because its script path was missing from push.paths; this commit adds that path.
+2. Verify XY-C1 Build → TRX → artifact for source SHA 69e4ab000835efe5f5107fbfdce696c68cf95706. Wireless radio passed on 69e4ab00.
+3. Continue guest Wi-Fi startup/rollback audit after Process is green.
 
 
 ## Verification boundary
@@ -49,4 +49,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live main and exact-head Actions. Re-run Process lifecycle after the M2U checker helper correction; verify Wireless radio and XY-C1 Build/TRX/artifact on THIS COMMIT. Then continue guest AP startup audit.
+Fetch live main and exact-head Actions. This commit adds scripts/check_guest_lan_isolation_status.py to Process push paths; verify the triggered Process run executes the corrected checker. Then re-check XY-C1 for source 69e4ab00 and continue guest AP startup audit.

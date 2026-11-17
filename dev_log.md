@@ -1,3 +1,12 @@
+## 2026-11-17 — Ensure guest Wi-Fi source checker runs on pushes
+
+- Parent main SHA: `080b8c91cb636fa95a8511c83b552bd4e639ba15`; result: THIS COMMIT.
+- Process exact-head run 44066722261 on e7e3f210 still failed at the corrected M2U source assertion because the helper expected a leading `int\n` not present in the source declaration. Commit 080b8c91 fixed the checker to use the actual function-name signature and function_body().
+- The follow-up 080b8c91 changed only the checker and did not trigger Process CI: scripts/check_guest_lan_isolation_status.py was included in pull_request.paths but missing from push.paths. Add the path so the corrected integration contract is exercised on push.
+- No passing Process rerun after checker correction exists yet; do not record the M2U checker as verified until this commit's exact-head Process run completes.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
 ## 2026-11-17 — Repair M2U startup checker after first CI failure
 
 - Parent main SHA: `69e4ab000835efe5f5107fbfdce696c68cf95706`; result: THIS COMMIT.
