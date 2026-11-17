@@ -1055,11 +1055,7 @@ stop_lan(int is_ap_mode)
 		int status;
 
 		notify_pause_detect_internet();
-		/*
-		 * udhcpc may be retrying a failed deconfig callback. Give its default
-		 * 20-second retry one bounded chance; never force-kill lease cleanup.
-		 */
-		status = kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0);
+		status = stop_udhcpc_lan();
 		if (status == 0)
 			status = kill_services(svcs, 3, 1);
 		if (status != 0) {
@@ -1901,7 +1897,24 @@ int
 stop_udhcpc_lan(void)
 {
 	const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
+	int signal_status;
 
-	/* Preserve BusyBox's pending-deconfig retry; fail closed on timeout. */
+	/*
+	 * The LAN client is not started with -R. SIGTERM alone exits a BOUND
+	 * client without running deconfig, so request release first. BusyBox
+	 * keeps failed deconfig callbacks pending and retries them on SIGTERM.
+	 */
+	signal_status = process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2);
+	if (signal_status != 0) {
+		if (errno != ENOENT && errno != ESRCH) {
+			logmessage(LOGNAME, "refusing LAN DHCP stop: PID identity is unknown (errno=%d)",
+				   errno);
+			return -1;
+		}
+	} else {
+		usleep(300000);
+	}
+
+	/* Never SIGKILL udhcpc while its lease cleanup may be retrying. */
 	return kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0);
 }

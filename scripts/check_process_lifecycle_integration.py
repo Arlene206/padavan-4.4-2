@@ -673,13 +673,17 @@ assert wan_dhcp_noforce_stop in wan_dhcp_stop
 assert 'process_pidfile_signal(pidfile, "udhcpc", SIGUSR1)' in net_wan_dhcp
 assert 'process_pidfile_signal(pidfile, "udhcpc", SIGUSR2)' in net_wan_dhcp
 assert "kill_pidfile(" not in net_wan_dhcp[net_wan_dhcp.index("static int\nstop_udhcpc_pidfile"):]
-assert '"/var/run/udhcpc_lan.pid"' in lan_stop
 lan_dhcp_noforce_stop = 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)'
 lan_daemon_stop = "kill_services(svcs, 3, 1)"
-assert lan_dhcp_noforce_stop in lan_stop
+assert "status = stop_udhcpc_lan();" in lan_stop
 assert lan_daemon_stop in lan_stop
-assert lan_stop.index("notify_pause_detect_internet()") < lan_stop.index(lan_dhcp_noforce_stop)
-assert lan_stop.index(lan_dhcp_noforce_stop) < lan_stop.index(lan_daemon_stop)
+assert lan_stop.index("notify_pause_detect_internet()") < lan_stop.index("status = stop_udhcpc_lan();")
+assert lan_stop.index("status = stop_udhcpc_lan();") < lan_stop.index(lan_daemon_stop)
+lan_pidfile_stop = net_lan_dhcp.split("int\\nstop_udhcpc_lan(void)", 1)[1].split("\\n}", 1)[0]
+assert '"/var/run/udhcpc_lan.pid"' in lan_pidfile_stop
+assert 'process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)' in lan_pidfile_stop
+assert lan_dhcp_noforce_stop in lan_pidfile_stop
+assert "errno != ENOENT && errno != ESRCH" in lan_pidfile_stop
 lan_abort = lan_stop.index("if (status != 0)")
 lan_resume = lan_stop.index("notify_run_detect_internet(2)", lan_abort)
 lan_return = lan_stop.index("return status;", lan_resume)

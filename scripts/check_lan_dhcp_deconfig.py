@@ -101,13 +101,16 @@ wan_pidfile_stop = compact(c_function_body(wan, "stop_udhcpc_pidfile(const char 
 assert 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)' in wan_pidfile_stop
 
 lan_stop = compact(c_function_body(lan, "stop_lan(int is_ap_mode)"))
-lan_dhcp_stop = 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)'
+lan_dhcp_stop = "stop_udhcpc_lan()"
 assert lan_dhcp_stop in lan_stop
 assert "kill_services(svcs, 3, 1)" in lan_stop
 assert lan_stop.index(lan_dhcp_stop) < lan_stop.index("kill_services(svcs, 3, 1)")
 
 lan_pidfile_stop = compact(c_function_body(lan, "stop_udhcpc_lan(void)"))
-assert lan_dhcp_stop in lan_pidfile_stop
+assert 'process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)' in lan_pidfile_stop
+assert "errno != ENOENT && errno != ESRCH" in lan_pidfile_stop
+assert "usleep(300000)" in lan_pidfile_stop
+assert lan_pidfile_stop.index("process_pidfile_signal") < lan_pidfile_stop.index("usleep(300000)") < lan_pidfile_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
 
 assert (wan + lan).count('"udhcpc", 0, 30, 0') == 4
 assert '"udhcpc", 0, 3, 1' not in (wan + lan)

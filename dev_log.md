@@ -1,3 +1,13 @@
+## 2026-11-17 — Release AP LAN DHCP lease before stopping udhcpc
+
+- Parent main SHA: bb64fc406b1f9a20dc2099c7d512c2588d1000c5; result: THIS COMMIT.
+- AP-mode LAN udhcpc starts without -R. BusyBox SIGTERM therefore exits a BOUND client without invoking deconfig unless a previous failure left it in DECONFIG_PENDING. The AP stop path had not sent SIGUSR2, so it could leave the lease address/routes configured.
+- Centralized release and stop in stop_udhcpc_lan(): validate PID/start-time identity and send SIGUSR2 first, accept only ENOENT/ESRCH when no matching client exists, allow 300ms for release/deconfig, then apply bounded 30-second no-force termination. Unknown PID identity fails closed.
+- stop_lan(AP) now calls that helper before stopping detect_wan. Updated LAN DHCP and broad Process source contracts to verify release-before-stop, timeout/forcekill behavior and teardown ordering.
+- Exact-head WAN-DHCP, Process, WAN teardown, WAN-route and XY-C1 runs pending. No local build or physical-router L4 claimed.
+
+---
+
 ## 2026-11-17 — Align Process lifecycle contract with DHCP no-force stop
 
 - Parent main SHA: `246d17ccd13189f267a98db85e6534aad743aa59`; result: THIS COMMIT.
