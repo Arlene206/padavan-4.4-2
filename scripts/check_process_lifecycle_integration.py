@@ -1411,7 +1411,13 @@ for module_group in (
 ):
     assert wireless_boot_load < rc_source.index(module_group), module_group
 assert "int boot_modules_status, boot_services_status;" in rc_source
-assert "boot_services_status = boot_modules_status;" in rc_source
+normalized_rc_source = " ".join(rc_source.split())
+assert "int rwfs_mount_status;" in rc_source
+assert "rwfs_mount_status = mount_rwfs_partition();" in rc_source
+assert (
+    "boot_services_status = rc_first_service_start_status("
+    " rwfs_mount_status, boot_modules_status);"
+) in normalized_rc_source
 assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
 assert "rc_first_service_start_status(boot_services_status," in rc_source
 for test_case in (

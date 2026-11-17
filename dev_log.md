@@ -1,3 +1,13 @@
+## 2026-11-17 — Align Process umbrella boot-status contract with RWFS first-error merge
+
+- Base main SHA: `45def115a2b7f52a7b495750ae815223f016ccff`; result: THIS COMMIT.
+- Exact Process run `44009283857` on `45def115` passed the dedicated GNU89 RWFS policy regression and `check_rwfs_mount_integration.py`, then failed in the broader `check_process_lifecycle_integration.py` at two stale assertions requiring `boot_services_status = boot_modules_status;`. Production `init_router()` now correctly seeds the first-error boot summary with `rc_first_service_start_status(rwfs_mount_status, boot_modules_status)`; the checker assertions lagged the source.
+- Updated both repeated contract assertions to require the RWFS mount status capture and its first-error merge with module-load status. No production code changes.
+- On `45def115`, XY-C1 run `44009283846` had passed the RWFS policy/integration checks and was actively compiling Build XY-C1; TRX verification and artifact upload had not started yet. This checker-only correction needs fresh exact-head Process and XY-C1 workflows.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Match RWFS mountpoint cleanup integration assertion to production guard
 
 - Base main SHA: `f73b2d55d61a9f8e007555b1d2e8b2cb5ee4f595`; result: THIS COMMIT.
