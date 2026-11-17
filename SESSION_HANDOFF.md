@@ -1,26 +1,26 @@
-# 2026-11-18 continuation checkpoint — diagnose boot launcher invocation failures
+# 2026-11-18 continuation checkpoint — propagate IAPP failures during radio restart
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `71055afc0cb2b23fd429ce01feb4322ed3eb86d1`; this slice is committed as one complete Git tree/commit using a non-forced expected-SHA update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; development remains main-only; PR #1 remains closed/unmerged.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `ad85b8b4f39a627842b9c82f6b8d94efd1afee6b`; this is one atomic source/test/handoff tree commit using a non-forced expected-SHA update.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only policy preserved; PR #1 remains closed/unmerged.
 - No local full MIPS/uClibc toolchain or physical router; L4 remains NOT VERIFIED.
 
 ## Parent exact-head Actions
-- Process lifecycle integration check `134269638472`: SUCCESS.
-- AI handoff contract `44148380813`: SUCCESS.
-- Process inventory `44148380861`: SUCCESS.
-- NVRAM transaction audit `44148380833`: SUCCESS.
-- XY-C1 Firmware Validation `44148380575`: IN_PROGRESS at last poll (Build/TRX/artifact not yet verified).
-- Exact parent source: `71055afc0cb2b23fd429ce01feb4322ed3eb86d1`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Process lifecycle regression `process-lifecycle-regression`: SUCCESS.
+- Process inventory `44149539550`: SUCCESS.
+- AI handoff contract `44149539806`: SUCCESS.
+- NVRAM transaction boundary audit `44149539038`: SUCCESS.
+- XY-C1 Firmware Validation `44149539848`: IN_PROGRESS at last poll; Build/TRX/artifact still pending.
+- Parent source SHA: `ad85b8b4f39a627842b9c82f6b8d94efd1afee6b`; exact-head Process/AI/NVRAM are green. Earlier XY-C1 runs on `71055afc` and `ad85b8b4` were also still running at last poll.
 
-## Boot launcher diagnostics (THIS COMMIT)
-- PID 1 previously ignored the `system(... &)` results for the optional persistent user hook and mandatory ROMFS autostart launcher.
-- Now skip the user hook cleanly when absent, log failure to spawn its background shell when present, and log firmware autostart launch failure separately. CA trust-store preparation still precedes both.
-- Process source-integration assertions verify both return-status checks and the exact ordering. Exact-head CI pending.
+## Wireless IAPP restart result propagation (THIS COMMIT)
+- The two band restart functions previously ignored `system("/usr/bin/iappd.sh restart")` failures even though the same IAPP restart is status-checked on boot and during service stop.
+- Both paths now capture/log the wait status and return a negative failure if IAPP restart failed, without replacing any earlier guest-isolation error. Existing PID 1 notification handlers therefore mark the wireless restart incomplete.
+- The Process source contract verifies both bands, error diagnostics, status propagation and removal of the unchecked calls. Process and XY-C1 workflows already track the modified source and checker; exact-head checks pending.
 
 ## First next action
-- Inspect exact-SHA Process lifecycle, AI docs and XY-C1 Build/TRX/artifact for THIS COMMIT; reconcile the parent XY-C1 run `44148380575` if still active.
-- Continue remaining Samba/storage/NVRAM postconditions while any CI is pending. Do not repeat the completed VPN flash stop fix, normal-shutdown LAN persistence gate, or Switch audit.
+- Inspect exact-SHA Process lifecycle, AI handoff and XY-C1 Build/TRX/artifact for THIS COMMIT. Do not wait if XY remains pending; continue other independent P1 service-stop result propagation or verified Samba/storage postconditions.
+- Do not repeat the completed normal-shutdown LAN MTD gate, firmware-update VPN teardown fix, boot launcher diagnostic change or Switch audit.
 
 # Cross-session execution mandate
 

@@ -1,3 +1,10 @@
+## 2026-11-18 02:41 CST — Propagate IAPP restart failures from wireless restart paths
+
+- Both `restart_wifi_wl()` and `restart_wifi_rt()` previously invoked `system("/usr/bin/iappd.sh restart")` without checking the wait status. The boot path already records this command's failure, but a wireless restart could report success while the Ralink IAPP helper had failed.
+- Capture and log the wait status on each band. Preserve any earlier guest-isolation error; otherwise normalize a nonzero `system()` result to `-1` so the existing PID 1 notification handler records the restart as incomplete (its caller checks negative statuses).
+- Extend the Process source-integration contract to require both status checks, diagnostics, failure propagation and absence of the old unchecked calls. Process and XY-C1 workflows already track `net_wifi.c` and the checker.
+- Exact-head Process/XY-C1 validation: THIS COMMIT / PENDING. No target wireless runtime or physical-router test is claimed.
+
 ## 2026-11-18 02:34 CST — Report optional boot launcher invocation failures
 
 - PID 1 previously launched the persistent user startup hook and firmware optional-service autostart with unchecked `system(... &)` results. When the shell could not be started (for example resource exhaustion or a missing/non-executable image), boot continued silently and no diagnostics identified which launcher failed.

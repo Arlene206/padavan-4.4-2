@@ -1272,7 +1272,17 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 		update_vga_clamp_wl(0);
 		LED_CONTROL(LED_SW5G, LED_ON);
 	}
-	system("/usr/bin/iappd.sh restart");
+	{
+		int iappd_restart_status = system("/usr/bin/iappd.sh restart");
+
+		if (iappd_restart_status != 0) {
+			logmessage(LOGNAME,
+				   "Ralink IAPP restart after 5GHz wireless restart failed (wait status=%d)",
+				   iappd_restart_status);
+			if (isolation_status == 0)
+				isolation_status = -1;
+		}
+	}
 #endif
 	return isolation_status;
 }
@@ -1381,7 +1391,17 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 		update_vga_clamp_rt(0);
 		LED_CONTROL(LED_SW2G, LED_ON);
 	}
-	system("/usr/bin/iappd.sh restart");
+	{
+		int iappd_restart_status = system("/usr/bin/iappd.sh restart");
+
+		if (iappd_restart_status != 0) {
+			logmessage(LOGNAME,
+				   "Ralink IAPP restart after 2.4GHz wireless restart failed (wait status=%d)",
+				   iappd_restart_status);
+			if (isolation_status == 0)
+				isolation_status = -1;
+		}
+	}
 	return isolation_status;
 }
 

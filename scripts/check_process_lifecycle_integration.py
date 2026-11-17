@@ -1105,6 +1105,846 @@ assert "auth_start_status = start_8021x_wl();" in restart_wifi_wl
 assert "auth_start_status = start_8021x_rt();" in restart_wifi_rt
 assert "wireless restart aborted: 802.1X authenticator launch failed" in restart_wifi_wl
 assert "wireless restart aborted: 802.1X authenticator launch failed" in restart_wifi_rt
+for band, block in (("5GHz", restart_wifi_wl), ("2.4GHz", restart_wifi_rt)):
+    assert 'int iappd_restart_status = system("/usr/bin/iappd.sh restart");' in block
+    assert "if (iappd_restart_status != 0)" in block
+    assert "Ralink IAPP restart after " + band + " wireless restart failed (wait status=%d)" in block
+    assert "if (isolation_status == 0)" in block
+    assert "isolation_status = -1;" in block
+    assert block.index("int iappd_restart_status = system(") < block.index("if (iappd_restart_status != 0)")
+    assert block.index("if (iappd_restart_status != 0)") < block.index("return isolation_status;")
+    assert not re.search(r'(?m)^\s*system\("/usr/bin/iappd\.sh restart"\);
+shutdown_router = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
+assert "auth_stop_status = stop_8021x_all();" in shutdown_router
+assert "auth_stop_status == 0" in shutdown_router
+assert "int wifi_wl_stop_status = 0, wifi_rt_stop_status = 0;" in shutdown_router
+assert "wifi_wl_stop_status = stop_wifi_all_wl();" in shutdown_router
+assert "wifi_rt_stop_status = stop_wifi_all_rt();" in shutdown_router
+assert "wifi_wl_stop_status != 0" in shutdown_router
+assert "wifi_rt_stop_status != 0" in shutdown_router
+assert "wifi_wl_stop_status == 0" in shutdown_router
+assert "wifi_rt_stop_status == 0" in shutdown_router
+assert "int lan_stop_status = 0;" in shutdown_router
+assert "lan_stop_status = stop_lan(is_ap_mode);" in shutdown_router
+assert "if (lan_stop_status != 0)" in shutdown_router
+assert "lan_stop_status == 0" in shutdown_router
+assert 'LAN shutdown incomplete; continuing power-down without storage persistence' in shutdown_router
+assert shutdown_router.count("stop_lan(is_ap_mode);") == 1
+mtd_gate_pos = shutdown_router.index("if (storage_remove_status == 0")
+assert shutdown_router.index("wifi_wl_stop_status = stop_wifi_all_wl();") < mtd_gate_pos
+assert shutdown_router.index("wifi_rt_stop_status = stop_wifi_all_rt();") < mtd_gate_pos
+lan_stop_pos = shutdown_router.index("lan_stop_status = stop_lan(is_ap_mode);")
+assert shutdown_router.index("wifi_wl_stop_status = stop_wifi_all_wl();") < lan_stop_pos < mtd_gate_pos
+assert lan_stop_pos < shutdown_router.index("rwfs_unmount_status = umount_rwfs_partition();")
+assert shutdown_router.index("if (lan_stop_status != 0)") < mtd_gate_pos
+assert shutdown_router.count("stop_lan(is_ap_mode);") == 1
+assert shutdown_router.count("stop_wifi_all_wl();") == 1
+assert shutdown_router.count("stop_wifi_all_rt();") == 1
+assert shutdown_router.index("auth_stop_status = stop_8021x_all();") < shutdown_router.index(
+    "auth_stop_status == 0"
+)
+assert '"trunk/user/rc/src/net_wifi.c"' in process_workflow
+assert '"trunk/user/rc/src/rc.c"' in process_workflow
+
+auth_source = (root / "trunk/user/rc/src/auth.c").read_text()
+auth_stop_kabinet = auth_source.split("int stop_auth_kabinet(void)", 1)[1].split("\n}", 1)[0]
+auth_stop_eapol = auth_source.split("int stop_auth_eapol(void)", 1)[1].split("\n}", 1)[0]
+auth_start_kabinet = auth_source.split("int start_auth_kabinet(void)", 1)[1].split("\n}", 1)[0]
+auth_start_eapol = auth_source.split("int start_auth_eapol(", 1)[1].split("\n}", 1)[0]
+assert "return kill_services(svcs, 3, 1);" in auth_stop_kabinet
+assert "return kill_services(svcs, 3, 1);" in auth_stop_eapol
+assert "ret = stop_auth_kabinet();" in auth_start_kabinet
+assert "if (ret != 0)" in auth_start_kabinet
+assert auth_start_kabinet.index("ret = stop_auth_kabinet();") < auth_start_kabinet.index("if (ret != 0)") < auth_start_kabinet.index('eval("/usr/sbin/lanauth"')
+assert "ret = stop_auth_eapol();" in auth_start_eapol
+assert "if (ret != 0)" in auth_start_eapol
+assert auth_start_eapol.index("ret = stop_auth_eapol();") < auth_start_eapol.index("if (ret != 0)") < auth_start_eapol.index('fopen(wpa_conf, "w")')
+assert '"trunk/user/rc/src/auth.c"' in process_workflow
+assert '"trunk/user/rc/src/auth.c"' in xy_workflow
+
+watchdog_source = (root / "trunk/user/rc/src/watchdog.c").read_text()
+httpd_probe = watchdog_source.split("static int\nhttpd_check_v2()", 1)[1].split(
+    "\nstatic int\nrefresh_ntp(void)", 1
+)[0]
+busybox_config = (root / "trunk/configs/boards/busybox.config").read_text()
+assert 'wget -q -T 1 http://127.0.0.1:%d/httpd_check.htm' in httpd_probe
+assert 'pids("wget")' not in httpd_probe
+assert 'killall wget' not in httpd_probe
+assert "CONFIG_FEATURE_WGET_TIMEOUT=y" in busybox_config
+watchdog_httpd = watchdog_source.split("static void httpd_process_check(void)", 1)[1].split(
+    "/* Sometimes, dnsmasq crashed, try to re-run it */", 1
+)[0]
+watchdog_dnsmasq = watchdog_source.split("static void\ndnsmasq_process_check(void)", 1)[1].split(
+    "\n}\n", 1
+)[0]
+watchdog_start = watchdog_source.split("int\nstart_watchdog(void)", 1)[1].split(
+    "\n}\n", 1
+)[0]
+watchdog_notify = watchdog_source.split("void\nnotify_watchdog_time(void)", 1)[1].split(
+    "\n}\n", 1
+)[0]
+for body, service in ((watchdog_httpd, "httpd"), (watchdog_dnsmasq, "dnsmasq"),
+                      (watchdog_start, "watchdog")):
+    assert 'process_inventory_scan("{}", &snapshot)'.format(service) in body
+    assert "scan_error = snapshot.error;" in body
+    assert body.index("scan_error = snapshot.error;") < body.index("process_snapshot_release(&snapshot);")
+    assert body.index("process_snapshot_release(&snapshot);") < body.index("process_presence_start_action_for_state(presence)")
+    assert "pids(" not in body
+assert "is_dns_dhcpd_run()" not in watchdog_dnsmasq
+assert "PROCESS_PRESENCE_START_ABORT" in watchdog_httpd
+assert "restart_status = restart_httpd();" in watchdog_httpd
+assert watchdog_httpd.count("restart_httpd();") == 1
+assert "if (restart_status != 0)" in watchdog_httpd
+assert "HTTPD recovery restart failed" in watchdog_httpd
+assert "stop_httpd(" not in watchdog_httpd
+assert "start_httpd(0)" not in watchdog_httpd
+assert "killall -9 httpd" not in watchdog_httpd
+assert "system(" not in watchdog_httpd
+
+# Watchdog recovery must use the single-lock stop/start transaction, rather
+# than reacquiring the process-associated record lock between public calls.
+httpd_restart = c_function_body(services_source, "restart_httpd(void)")
+assert 'httpd_lifecycle_lock_acquire_status("restart", &lock_fd)' in httpd_restart
+assert httpd_restart.index("stop_httpd_locked();") < httpd_restart.index(
+    "httpd_restart_can_start(stop_status)"
+) < httpd_restart.index("start_httpd_locked(1);")
+assert "httpd_lifecycle_lock_finish(lock_fd, status, \"restart\")" in httpd_restart
+assert "PROCESS_PRESENCE_START_ABORT" in watchdog_dnsmasq
+assert "PROCESS_PRESENCE_START_NEW" in watchdog_dnsmasq
+assert "dnsmasq_missing = 0;" in watchdog_dnsmasq
+assert "PROCESS_PRESENCE_START_NOTIFY" in watchdog_start
+assert "PROCESS_PRESENCE_START_NEW" in watchdog_start
+assert "PROCESS_PRESENCE_START_ABORT" in watchdog_start
+assert "if (action == PROCESS_PRESENCE_START_NEW)" in watchdog_start
+assert "launch_status = eval(\"/sbin/watchdog\")" in watchdog_start
+assert "if (launch_status != 0)" in watchdog_start
+assert "watchdog launcher failed (status=%d)" in watchdog_start
+assert "return launch_status;" in watchdog_start
+assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
+    "launch_status = eval(\"/sbin/watchdog\")"
+) < watchdog_start.index("if (launch_status != 0)") < watchdog_start.index("return launch_status;")
+assert "refusing watchdog start because process-presence policy is invalid" in watchdog_start
+assert "start_watchdog()" in watchdog_notify
+assert "pids(" not in watchdog_notify
+assert "process_pidfile_signal(WD_PID_FILE, \"watchdog\", SIGHUP)" in watchdog_notify
+assert '"trunk/user/rc/src/watchdog.c"' in process_workflow
+assert '"trunk/user/rc/src/watchdog.c"' in xy_workflow
+assert '"trunk/user/rc/src/process_presence_start_policy.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/process_presence_start_policy.c"' in process_workflow
+print("watchdog process inventory tri-state recovery/start integration: PASS")
+
+
+lltd_start = services_source.split("int\nstart_lltd(void)", 1)[1].split("\n}", 1)[0]
+assert 'if (nvram_invmatch("lltd_enable", "1"))' in lltd_start
+assert lltd_start.index("return 1;") < lltd_start.index('start_status = eval("/bin/lld2d", IFNAME_BR);')
+assert 'logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);' in lltd_start
+assert "return start_status;" in lltd_start
+assert lltd_start.index('start_status = eval("/bin/lld2d", IFNAME_BR);') < lltd_start.index("if (start_status != 0)") < lltd_start.index("return start_status;")
+
+rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
+assert 'if (nvram_invmatch("rstats_enable", "1"))' in rstats_start
+assert rstats_start.index("return 1;") < rstats_start.index('start_status = eval("/sbin/rstats");')
+assert 'logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);' in rstats_start
+assert "return start_status;" in rstats_start
+assert rstats_start.index('start_status = eval("/sbin/rstats");') < rstats_start.index("if (start_status != 0)") < rstats_start.index("return start_status;")
+
+assert '"trunk/user/rc/src/services.c"' in process_workflow
+assert '"trunk/user/rc/src/services.c"' in xy_workflow
+print("LLTD/rstats boot launch status and disabled-sentinel contracts: PASS")
+
+iappd_boot = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
+iappd_restart_at = iappd_boot.index('int iappd_restart_status = system("/usr/bin/iappd.sh restart");')
+tproxy_load_at = iappd_boot.index('int tproxy_module_status = system("modprobe xt_TPROXY");')
+iappd_test_at = iappd_boot.index('int iappd_test_status = system("/usr/bin/iappd.sh test");')
+assert "Ralink IAPP restart command failed (wait status=%d)" in iappd_boot
+assert "xt_TPROXY module load command failed (wait status=%d)" in iappd_boot
+assert "Ralink IAPP post-start test failed (wait status=%d)" in iappd_boot
+assert iappd_restart_at < tproxy_load_at < iappd_test_at
+assert "if (iappd_restart_status != 0)" in iappd_boot
+assert "if (tproxy_module_status != 0)" in iappd_boot
+assert "if (iappd_test_status != 0)" in iappd_boot
+assert not re.search(r'(?m)^\s*system\("/usr/bin/iappd\.sh restart"\);$', iappd_boot)
+assert not re.search(r'(?m)^\s*system\("/usr/bin/iappd\.sh test"\);$', iappd_boot)
+assert not re.search(r'(?m)^\s*system\("modprobe xt_TPROXY"\);$', iappd_boot)
+print("IAPPD RC restart, TPROXY load and post-start test status propagation: PASS")
+
+optional_boot_calls = (
+    ("APP_SKIPDBV2", 'int skipdb_start_status = doSystem("/usr/sbin/skipd -d /etc/storage/db");',
+     "skipdb_start_status", "SkipDBv2 boot startup failed (wait status=%d)"),
+    ("APP_SCUT", "int scut_start_status = start_scutclient();",
+     "scut_start_status", "SCUT client boot startup failed (status=%d)"),
+    ("APP_DNSFORWARDER", "int dnsforwarder_start_status = start_dnsforwarder();",
+     "dnsforwarder_start_status", "DNS Forwarder boot startup failed (status=%d)"),
+    ("APP_VLMCSD", "int vlmcsd_start_status = start_vlmcsd();",
+     "vlmcsd_start_status", "vlmcsd boot startup failed (status=%d)"),
+    ("APP_IPERF3", "int iperf3_start_status = start_iperf3();",
+     "iperf3_start_status", "iperf3 boot startup failed (status=%d)"),
+    ("APP_MENTOHUST", "int mentohust_start_status = start_mentohust();",
+     "mentohust_start_status", "MentoHUST boot startup failed (status=%d)"),
+)
+optional_call_positions = []
+for feature, assignment, status_name, diagnostic in optional_boot_calls:
+    feature_at = iappd_boot.index("#if defined(" + feature + ")")
+    call_at = iappd_boot.index(assignment)
+    check_at = iappd_boot.index("if (" + status_name + " != 0)", call_at)
+    log_at = iappd_boot.index(diagnostic, check_at)
+    assert feature_at < call_at < check_at < log_at
+    assert "logmessage(LOGNAME," in iappd_boot[check_at:log_at]
+    optional_call_positions.append(call_at)
+assert optional_call_positions == sorted(optional_call_positions)
+standalone_boot_calls = {line.strip() for line in iappd_boot.splitlines()}
+for statement in (
+    'doSystem("/usr/sbin/skipd -d /etc/storage/db");',
+    "start_scutclient();",
+    "start_dnsforwarder();",
+    "start_vlmcsd();",
+    "start_iperf3();",
+    "start_mentohust();",
+):
+    assert statement not in standalone_boot_calls
+print("Optional RC daemon startup status propagation and feature guards: PASS")
+
+telnetd_start = services_source.split("int\nstart_telnetd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (!nvram_match("telnetd", "1"))' in telnetd_start
+assert telnetd_start.index("return 0;") < telnetd_start.index('optional_daemon_start_status("telnetd", "telnetd")')
+telnetd_start_compact = " ".join(telnetd_start.split())
+assert 'logmessage(LOGNAME, "telnetd start aborted: process inventory unavailable (status=%d)", start_status);' in telnetd_start_compact
+assert 'start_status = eval("telnetd");' in telnetd_start
+assert 'logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);' in telnetd_start
+telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
+telnetd_launch_failure = telnetd_start.index("if (start_status != 0)", telnetd_launch)
+telnetd_launch_return = telnetd_start.index("return start_status;", telnetd_launch_failure)
+assert telnetd_launch < telnetd_launch_failure < telnetd_launch_return
+
+ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert 'if (ttyd_mode != 1)' in ttyd_start
+assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
+ttyd_start_compact = " ".join(ttyd_start.split())
+assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
+assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
+assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
+ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
+ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
+print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+
+optional_start_contracts = (
+    ("start_adguardhome", "AdGuardHome"),
+    ("start_ddnsto", "DDNS.to"),
+    ("start_adbyby", "Adbyby"),
+    ("start_aliddns", "AliDDNS"),
+)
+for function_name, log_label in optional_start_contracts:
+    optional_start = services_source.split(function_name + "(void)", 1)[1].split("\n}", 1)[0]
+    eval_at = optional_start.index("start_status = eval(")
+    assert "int start_status;" in optional_start
+    assert re.search(r"\bif\s*\(", optional_start[:eval_at])  # retain the original enabled/disabled guard
+    failure_guard = optional_start.index("if (start_status != 0)", eval_at)
+    failure_log = optional_start.index(f'logmessage(LOGNAME, "{log_label} launcher failed (status=%d)", start_status);', failure_guard)
+    assert eval_at < failure_guard < failure_log
+print("optional AdGuardHome/DDNS.to/Adbyby/AliDDNS launch diagnostics: PASS")
+
+# Adbyby rule updates are RC notification actions too: propagate eval()'s
+# wait status through PID 1 instead of discarding it in a void wrapper.
+update_adb_body = services_source.split("int update_adb(void)", 1)[1].split("\n}", 1)[0]
+assert 'return eval("/usr/bin/adbyby.sh","updateadb");' in update_adb_body
+assert "int update_adb(void);" in rc_header
+update_adb_notify = rc_source.split("RCN_RESTART_UPDATEADB) == 0)", 1)[1].split("\n\t\t}", 1)[0]
+assert "rc_notify_merge_action_result(action_result, update_adb())" in update_adb_notify
+print("Adbyby update action result propagation: PASS")
+
+
+# MSD Lite config publication must finish before enabling or launching the daemon.
+msd_config_header = (root / "trunk/user/rc/src/msd_lite_config_file.h").read_text()
+msd_config_test = (root / "trunk/user/rc/src/tests/msd_lite_config_file.c").read_text()
+udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split(
+    "\n#if defined(APP_XUPNPD)", 1
+)[0]
+msd_lite_branch = udpxy_start.split("#if defined (APP_MSD_LITE)", 1)[1].split("#else", 1)[0]
+assert '#include "msd_lite_config_file.h"' in net_source
+assert "msd_lite_config_publish(src_conf, dst_conf, wan_ifname, port)" in msd_lite_branch
+assert "if (config_status != 0)" in msd_lite_branch
+assert msd_lite_branch.index("if (config_status != 0)") < msd_lite_branch.index('nvram_set("msd_lite_enable", "1")')
+assert msd_lite_branch.index("if (config_status != 0)") < msd_lite_branch.index('eval("/usr/bin/msd_lite"')
+assert 'fopen(dst_conf, "w")' not in msd_lite_branch
+assert 'doSystem("cp -f %s %s", src_conf, dst_conf)' not in msd_lite_branch
+assert "fopen(source_path, \"r\")" in msd_config_header
+assert "fstat(fileno(source), &source_stat)" in msd_config_header
+assert "lstat(destination_path, &destination_stat)" in msd_config_header
+assert "mkstemp(temporary_path)" in msd_config_header
+assert "fchmod(fd, mode)" in msd_config_header
+assert "ferror(source)" in msd_config_header
+assert "fflush(output)" in msd_config_header
+assert "fsync(fileno(output))" in msd_config_header
+assert "fclose(source)" in msd_config_header
+assert "fclose(output)" in msd_config_header
+assert "rename(temporary_path, destination_path)" in msd_config_header
+assert "unlink(temporary_path)" in msd_config_header
+assert "last-good-configuration" in msd_config_test
+assert "RLIMIT_FSIZE" in msd_config_test
+assert "symlink(symlink_target, symlink_path)" in msd_config_test
+assert "eth3.2\\nquickleave" in msd_config_test
+assert '"trunk/user/rc/src/msd_lite_config_file.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/msd_lite_config_file.c"' in process_workflow
+assert '"trunk/user/rc/src/msd_lite_config_file.h"' in xy_workflow
+assert '"trunk/user/rc/src/tests/msd_lite_config_file.c"' in xy_workflow
+assert "Compile and run MSD Lite atomic configuration publication regression" in process_workflow
+print("MSD Lite atomic config publication and launch gate integration: PASS")
+
+
+service_start_policy = (root / "trunk/user/rc/src/service_start_status.h").read_text()
+wireless_module_load_policy = (root / "trunk/user/rc/src/wireless_module_load_policy.h").read_text()
+wireless_module_load_test = (root / "trunk/user/rc/src/tests/wireless_module_load_policy.c").read_text()
+module_rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
+module_net_source = (root / "trunk/user/rc/src/net.c").read_text()
+module_net_lan_source = (root / "trunk/user/rc/src/net_lan.c").read_text()
+wireless_loader = rc_source.split("static int" + chr(10) + "load_wireless_module(", 1)[1].split(
+    chr(10) + "#if defined (USE_USB_SUPPORT)", 1
+)[0]
+wireless_bulk_loader = wireless_loader.split(
+    "static int" + chr(10) + "load_wireless_modules(void)", 1
+)[1].split(chr(10) + "}", 1)[0]
+
+service_start_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+boot_start = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
+assert '#include "service_start_status.h"' in services_source
+for call in (
+    "start_httpd(0)", "start_telnetd()", "start_sshd()", "start_watchdog()",
+    "start_gpio_btn()", "start_infosvr()", "start_upnp()", "start_lltd()",
+    "start_udpxy(IFNAME_BR)", "start_xupnpd(IFNAME_BR)",
+    "start_crond()", "start_networkmap(1)", "start_rstats()",
+):
+    assert call in boot_start
+for call in (
+    "start_httpd(0)", "start_telnetd()", "start_sshd()", "start_watchdog()",
+    "start_gpio_btn()", "start_upnp()",
+    "start_udpxy(IFNAME_BR)", "start_xupnpd(IFNAME_BR)",
+):
+    assert re.search(
+        r"rc_first_service_start_status\(start_status,\s*" +
+        re.escape(call) + r"\)",
+        boot_start,
+    ), "boot service status aggregation missing for " + call
+
+ap_mode_start = boot_start.split("} else {", 1)[1].split("\n\t}", 1)[0]
+assert "rc_first_service_start_status(start_status," in ap_mode_start
+assert "start_udpxy(IFNAME_BR)" in ap_mode_start
+assert "start_xupnpd(IFNAME_BR)" in ap_mode_start
+
+# networkmap's status is captured for diagnostics before it is aggregated.
+assert "int networkmap_start_status = start_networkmap(1);" in boot_start
+assert 'logmessage(LOGNAME,' in boot_start
+assert "rc_first_service_start_status(start_status, networkmap_start_status)" in boot_start
+for service, flag in (
+    ("start_infosvr()", "adsc_enable"),
+    ("start_lltd()", "lltd_enable"),
+    ("start_crond()", "crond_enable"),
+    ("start_rstats()", "rstats_enable"),
+):
+    assert 'if (nvram_match("' + flag + '", "1"))' in boot_start
+    assert "rc_first_service_start_status(start_status, " + service + ")" in boot_start
+assert "return start_status;" in boot_start
+assert "return first_status != 0 ? first_status : next_status;" in service_start_policy
+for contract in (
+    "rc_first_service_start_status(0, 0) == 0",
+    "rc_first_service_start_status(0, -1) == -1",
+    "rc_first_service_start_status(0, 17) == 17",
+    "rc_first_service_start_status(-1, 0) == -1",
+    "rc_first_service_start_status(17, -1) == 17",
+    "rc_first_service_start_status(-5, 9) == -5",
+    "rc_first_service_start_status(4, 0) == 4",
+):
+    assert contract in service_start_test
+assert '#include "wireless_module_load_policy.h"' in rc_source
+assert "(void)ops->load(module_name, module_param);" in wireless_module_load_policy
+assert "loaded = ops->is_loaded(module_name);" in wireless_module_load_policy
+assert "if (loaded < 0)" in wireless_module_load_policy
+assert "return -loaded;" in wireless_module_load_policy
+assert "return loaded == 1 ? 0 : EIO;" in wireless_module_load_policy
+assert "return rc_module_load_verified(module_name, NULL, ops);" in wireless_module_load_policy
+assert "if (!module_name || module_name[0] == '\\0' ||" in wireless_module_load_policy
+module_loaders = (
+    c_function_body(module_net_source, "reload_nat_modules(void)"),
+    c_function_body(module_rc_source, "load_boot_module(const char *module_name, const char *module_param)"),
+    c_function_body(module_rc_source, "load_wireless_module(const char *module_name)"),
+    c_function_body(module_net_lan_source, "init_bridge_load_module_verified(const char *module_name, const char *module_param)"),
+)
+for loader_body in module_loaders:
+    loader_code = " ".join(loader_body.split())
+    assert "module_smart_load, is_module_loaded_status" in loader_code
+    assert "module_smart_load, is_module_loaded)" not in loader_code
+assert '"trunk/user/rc/src/net.c"' in process_workflow
+assert '"trunk/user/rc/src/net_lan.c"' in process_workflow
+assert '"trunk/user/rc/src/net.c"' in xy_workflow
+assert '"trunk/user/rc/src/net_lan.c"' in xy_workflow
+assert "rc_module_load_verified(module_name, NULL, &ops)" in wireless_loader
+assert "module_smart_load(module_name, NULL)" not in wireless_loader
+assert "is_module_loaded(module_name)" not in wireless_loader
+assert "wireless driver module load failed or module is unavailable" in wireless_loader
+assert "return status;" in wireless_loader
+for module_name in (
+    "rt2860v2_ap", "mt7628_ap", "mt76x2_ap", "mt_7615e",
+    "rt3090_ap", "rt5392_ap", "mt76x3_ap", "rt5592_ap",
+    "rt3593_ap", "mt7610_ap",
+):
+    assert 'load_wireless_module("' + module_name + '")' in wireless_bulk_loader
+    assert "rc_first_service_start_status(start_status, load_wireless_module(" in wireless_bulk_loader
+assert "return start_status;" in wireless_bulk_loader
+assert "boot_modules_status = load_wireless_modules();" in rc_source
+assert "Router initialization continuing with one or more unavailable hardware modules" in rc_source
+wireless_boot_load = rc_source.index("boot_modules_status = load_wireless_modules();")
+for module_group in (
+    "boot_modules_status, load_mmc_modules());",
+    "boot_modules_status, load_usb_modules());",
+    "boot_modules_status, load_ata_modules());",
+    "boot_modules_status, load_crypto_modules());",
+    "boot_modules_status, load_ipset_modules());",
+):
+    assert wireless_boot_load < rc_source.index(module_group), module_group
+assert "int boot_modules_status, boot_services_status;" in rc_source
+normalized_rc_source = " ".join(rc_source.split())
+assert "int rwfs_mount_status;" in rc_source
+assert "rwfs_mount_status = mount_rwfs_partition();" in rc_source
+assert (
+    "boot_services_status = rc_first_service_start_status("
+    " rwfs_mount_status, boot_modules_status);"
+) in normalized_rc_source
+assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
+assert "rc_first_service_start_status(boot_services_status," in rc_source
+for test_case in (
+    "test_already_loaded_is_success",
+    "test_newly_loaded_is_success",
+    "test_failed_modprobe_is_not_success",
+    "test_visible_module_state_wins_over_loader_status",
+    "test_load_probe_error_is_reported",
+    "test_required_module_set_probe_error_attempts_all_and_keeps_first_failure",
+    "test_module_parameter_is_forwarded",
+    "test_invalid_inputs_fail_before_side_effects",
+    "test_unload_initial_probe_error_fails_closed",
+    "test_unload_postcondition_probe_error_is_reported",
+):
+    assert test_case in wireless_module_load_test
+assert "Compile and run RC wireless module post-load verification regression" in process_workflow
+assert "test_unload_initial_probe_error_fails_closed" in wireless_module_load_test
+assert "test_unload_postcondition_probe_error_is_reported" in wireless_module_load_test
+assert "is_module_loaded_status(const char *module_name)" in common_ex
+assert "opendir(\"/sys/module\")" in common_ex
+assert "return is_module_loaded_status(module_name) > 0;" in common_ex
+assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in process_workflow
+assert "Compile and run RC module load/unload postcondition regression" in xy_workflow
+assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in xy_workflow
+assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in xy_workflow
+assert "int boot_modules_status, boot_services_status;" in rc_source
+assert "rwfs_mount_status, boot_modules_status);" in " ".join(rc_source.split())
+assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
+assert "rc_first_service_start_status(boot_services_status," in rc_source
+assert "one or more boot service startup operations failed (first status=%d)" in rc_source
+assert "boot_services_status != 0" in rc_source
+assert "Compile and run RC boot service status aggregation regression" in process_workflow
+assert '"trunk/user/rc/src/service_start_status.h"' in process_workflow
+assert '"trunk/user/rc/src/tests/service_start_status.c"' in process_workflow
+assert '"trunk/user/rc/src/service_start_status.h"' in xy_workflow
+assert '"trunk/user/rc/src/tests/service_start_status.c"' in xy_workflow
+boot_launch = rc_source.split(
+    "/* Install the firmware CA trust store before autostart can launch AliDDNS. */",
+    1
+)[1].split("return 0;", 1)[0]
+assert "if (check_if_file_exist(\"/etc/storage/started_script.sh\"))" in boot_launch
+assert 'int started_script_status = system("/etc/storage/started_script.sh &");' in boot_launch
+assert "persistent user startup script launch failed (wait status=%d)" in boot_launch
+assert 'int autostart_status = system("/usr/bin/autostart.sh &");' in boot_launch
+assert "firmware optional-service autostart launch failed (wait status=%d)" in boot_launch
+assert boot_launch.index("system(\"/usr/bin/copyscripts.sh\")") < boot_launch.index("started_script_status")
+assert boot_launch.index("started_script_status") < boot_launch.index("autostart_status")
+print("RC boot-service status aggregation and disabled-feature sentinel handling: PASS")
+print("Optional boot launcher invocation failure diagnostics: PASS")
+
+
+# AiDisk disable actions must always reach the RC stop handlers. The handlers
+# own process-inventory policy and must propagate UNKNOWN rather than treating
+# a failed legacy Boolean presence query as confirmed ABSENT.
+aidisk_source = (root / "trunk/user/httpd/src/aidisk.c").read_text()
+aidisk_handler_start = aidisk_source.index("int\nej_set_AiDisk_status")
+aidisk_handler_end = aidisk_source.index("\nint\nej_get_all_accounts", aidisk_handler_start)
+aidisk_handler = aidisk_source[aidisk_handler_start:aidisk_handler_end]
+aidisk_handler_code = re.sub(r"/\*.*?\*/|//[^\n]*", "", aidisk_handler, flags=re.S)
+assert not re.search(r"\bpids\s*\(", aidisk_handler_code)
+assert 'result = system("/sbin/stop_samba");' in aidisk_handler
+assert 'result = system("/sbin/stop_ftp");' in aidisk_handler
+assert "SET_AIDISK_STATUS_SUCCESS:" not in aidisk_handler
+print("AiDisk Samba/FTP disable uses tri-state RC stop handlers without legacy Boolean prechecks: PASS")
+
+
+# CPU watchdog hot-restart notifications must return verified module-state
+# failures to rc_notify instead of discarding them in a void helper.
+watchdog_cpu_restart_policy = (
+    root / "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+).read_text()
+watchdog_cpu_restart_test = (
+    root / "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
+).read_text()
+watchdog_cpu_services = (root / "trunk/user/rc/src/services.c").read_text()
+watchdog_cpu_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+watchdog_cpu_header = (root / "trunk/user/rc/src/rc.h").read_text()
+watchdog_restart_body = watchdog_cpu_services.split(
+    "int" + chr(10) + "restart_watchdog_cpu(void)", 1
+)[1].split(chr(10) + "}", 1)[0]
+assert '#include "watchdog_cpu_restart_policy.h"' in watchdog_cpu_services
+assert 'rc_watchdog_cpu_restart_verified("rt_timer_wdg", should_load,' in watchdog_restart_body
+assert "watchdog_cpu_restart_module_load" in watchdog_cpu_services
+assert "watchdog_cpu_restart_module_unload" in watchdog_cpu_services
+assert "watchdog_cpu_restart_module_is_loaded" in watchdog_cpu_services
+assert "int restart_watchdog_cpu(void);" in watchdog_cpu_header
+assert "void restart_watchdog_cpu(void);" not in watchdog_cpu_header
+assert "action_result = rc_notify_merge_action_result(action_result, restart_watchdog_cpu());" in watchdog_cpu_rc
+assert "probe_status = ops->is_loaded(module_name);" in watchdog_cpu_restart_policy
+assert "if (probe_status < 0)" in watchdog_cpu_restart_policy
+assert "return -probe_status;" in watchdog_cpu_restart_policy
+assert "if (probe_status > 1)" in watchdog_cpu_restart_policy
+assert "return should_load ? 0 : EBUSY;" in watchdog_cpu_restart_policy
+assert "return should_load ? EIO : 0;" in watchdog_cpu_restart_policy
+watchdog_start_body = c_function_body(
+    watchdog_cpu_services, "int" + chr(10) + "start_watchdog_cpu(void)"
+)
+assert 'module_status = is_module_loaded_status("rt_timer_wdg");' in watchdog_start_body
+assert "if (module_status < 0)" in watchdog_start_body
+assert "return probe_error;" in watchdog_start_body
+watchdog_probe_body = c_function_body(
+    watchdog_cpu_services,
+    "static int" + chr(10) + "watchdog_cpu_restart_module_is_loaded("
+)
+assert "return is_module_loaded_status(module_name);" in watchdog_probe_body
+for test_case in (
+    "test_enabled_module_already_loaded_is_success",
+    "test_enabled_new_module_is_verified",
+    "test_failed_load_is_not_success",
+    "test_visible_module_state_wins_over_loader_status",
+    "test_disabled_module_unload_is_verified",
+    "test_disabled_already_absent_is_success",
+    "test_busy_module_prevents_false_disable_success",
+    "test_absent_postcondition_wins_over_unloader_status",
+    "test_unknown_module_state_is_not_treated_as_absent",
+    "test_invalid_probe_state_fails_closed",
+    "test_invalid_inputs_fail_before_side_effects",
+):
+    assert test_case in watchdog_cpu_restart_test
+assert "Compile and run RC watchdog module restart postcondition regression" in process_workflow
+assert "Compile and run RC watchdog module restart postcondition regression" in xy_workflow
+for required_path in (
+    '"trunk/user/rc/src/watchdog_cpu_restart_policy.h"',
+    '"trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"',
+):
+    assert required_path in process_workflow
+    assert required_path in xy_workflow
+print("RC CPU watchdog restart verifies module state and propagates notification failures: PASS")
+
+
+# DDNS restart notifications must preserve stop/start failures. The start
+# handler already performs its own stop-before-start operation; disabled or
+# AP-mode configurations only need an explicit stop.
+ddns_restart_policy = (root / "trunk/user/rc/src/ddns_restart_policy.h").read_text()
+ddns_restart_test = (root / "trunk/user/rc/src/tests/ddns_restart_policy.c").read_text()
+ddns_restart_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+ddns_restart_branch = ddns_restart_rc.split(
+    'strcmp(entry->d_name, RCN_RESTART_DDNS) == 0', 1
+)[1].split('else if (strcmp(entry->d_name, RCN_RESTART_DI) == 0', 1)[0]
+assert '#include "ddns_restart_policy.h"' in ddns_restart_rc
+assert "rc_ddns_restart_run(get_ap_mode()," in ddns_restart_branch
+assert 'nvram_match("ddns_enable_x", "1")' in ddns_restart_branch
+assert "start_ddns, stop_ddns" in ddns_restart_branch
+assert "action_result = rc_notify_merge_action_result(action_result, ddns_status);" in ddns_restart_branch
+assert "stop_ddns();" not in ddns_restart_branch
+assert "start_ddns(1);" not in ddns_restart_branch
+assert "if (ap_mode || !ddns_enabled)" in ddns_restart_policy
+assert "return stop();" in ddns_restart_policy
+assert "return start(1);" in ddns_restart_policy
+for test_case in (
+    "test_enabled_router_uses_one_start_transaction",
+    "test_enabled_router_propagates_start_failure",
+    "test_disabled_ddns_stops_without_starting",
+    "test_disabled_ddns_propagates_stop_failure",
+    "test_ap_mode_stops_even_when_ddns_is_enabled",
+    "test_ap_mode_propagates_stop_failure",
+    "test_invalid_callbacks_fail_without_side_effects",
+):
+    assert test_case in ddns_restart_test
+assert "Compile and run RC DDNS restart result policy regression" in process_workflow
+assert "Compile and run RC DDNS restart result policy regression" in xy_workflow
+for required_path in (
+    '"trunk/user/rc/src/ddns_restart_policy.h"',
+    '"trunk/user/rc/src/tests/ddns_restart_policy.c"',
+):
+    assert required_path in process_workflow
+    assert required_path in xy_workflow
+print("RC DDNS restart notification preserves disabled/AP behavior and operation failures: PASS")
+
+
+# VPN server restart must preserve failures through teardown, start, shared
+# xl2tpd restoration and lifecycle-lock release. Both the PID-1 notification
+# and direct rc applet return the same status to their caller.
+vpn_restart_policy = (root / "trunk/user/rc/src/vpn_server_restart_policy.h").read_text()
+vpn_restart_test = (root / "trunk/user/rc/src/tests/vpn_server_restart_policy.c").read_text()
+vpn_restart_source = (root / "trunk/user/rc/src/vpn_server.c").read_text()
+vpn_restart_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+vpn_restart_header = (root / "trunk/user/rc/src/rc.h").read_text()
+vpn_restart_body = vpn_restart_source.split(
+    "int" + chr(10) + "restart_vpn_server(void)", 1
+)[1].split(chr(10) + "static void" + chr(10) + "reapply_vpn_server_locked", 1)[0]
+assert '#include "vpn_server_restart_policy.h"' in vpn_restart_source
+assert "int restart_vpn_server(void);" in vpn_restart_header
+assert "void restart_vpn_server(void);" not in vpn_restart_header
+assert 'restore_shared_xl2tpd_locked("after incomplete VPN teardown")' in vpn_restart_body
+assert "vpn_server_restart_first_error(restart_status, start_status)" in vpn_restart_body
+assert "vpn_server_restart_first_error(restart_status, restore_status)" in vpn_restart_body
+assert "vpn_server_restart_first_error(restart_status, -1)" in vpn_restart_body
+# A failed stop transaction may already have stopped shared xl2tpd before
+# a later daemon/script/lease cleanup error. Keep the restore intent set before
+# the transaction, and restore the WAN/VPN client daemon on both failure and
+# normal restart paths while the lifecycle lock remains held.
+vpn_stop_body = vpn_restart_source.split(
+    "static int" + chr(10) + "stop_vpn_server_locked(void)", 1
+)[1].split(chr(10) + "int" + chr(10) + "stop_vpn_server(void)", 1)[0]
+vpn_shared_restore = vpn_restart_source.split(
+    "static int" + chr(10) + "restore_shared_xl2tpd_locked(const char *phase)", 1
+)[1].split(chr(10) + "int" + chr(10) + "restart_vpn_server(void)", 1)[0]
+assert "xl2tpd_stop_attempted_vpns = xl2tpd_active;" in vpn_stop_body
+assert vpn_stop_body.index("xl2tpd_stop_attempted_vpns = xl2tpd_active;") < vpn_stop_body.index("kill_services_with_pidfiles(")
+assert "vpn_server_restart_should_restore_shared_xl2tpd(" in vpn_shared_restore
+assert "restore_status = safe_start_xl2tpd_locked();" in vpn_shared_restore
+assert 'restore_shared_xl2tpd_locked("after incomplete VPN teardown")' in vpn_restart_body
+assert 'restore_shared_xl2tpd_locked("after VPN server restart")' in vpn_restart_body
+assert vpn_restart_body.index("restore_shared_xl2tpd_locked(\"after incomplete VPN teardown\")") < vpn_restart_body.index("vpn_server_lifecycle_lock_release(lock_fd);")
+assert "test_shared_xl2tpd_restoration_decision" in vpn_restart_test
+assert "restore_status < 0" in vpn_restart_body
+assert "restore_status != 0" not in vpn_restart_body
+assert "release_status = vpn_server_lifecycle_lock_release(lock_fd);" in vpn_restart_body
+assert "action_result = rc_notify_merge_action_result(action_result, restart_vpn_server());" in vpn_restart_rc
+assert 'ret = restart_vpn_server();' in vpn_restart_rc
+for test_case in (
+    "test_success_stays_success",
+    "test_start_failure_is_returned",
+    "test_restore_failure_is_returned_when_start_succeeded",
+    "test_first_failure_survives_later_restore_and_unlock_errors",
+    "test_unlock_failure_is_returned_after_successful_operations",
+    "test_positive_wait_status_is_not_lost",
+):
+    assert test_case in vpn_restart_test
+assert "Compile and run VPN server restart status propagation regression" in process_workflow
+assert "Compile and run VPN server restart status propagation regression" in xy_workflow
+for required_path in (
+    '"trunk/user/rc/src/vpn_server_restart_policy.h"',
+    '"trunk/user/rc/src/tests/vpn_server_restart_policy.c"',
+    '"trunk/user/rc/src/vpn_server.c"',
+    '"trunk/user/rc/src/rc.h"',
+):
+    assert required_path in process_workflow
+    assert required_path in xy_workflow
+print("VPN server restart propagates teardown, start, restoration and unlock failures: PASS")
+
+
+# Validate NVRAM LAN values and bound MiniUPnP presentation URL formatting.
+upnp_url_source = (root / "trunk/user/rc/src/services_ex.c").read_text()
+upnp_url_policy = (root / "trunk/user/rc/src/miniupnpd_presentation_url.h").read_text()
+upnp_url_test = (root / "trunk/user/rc/src/tests/miniupnpd_presentation_url.c").read_text()
+upnp_start_body = c_function_body(upnp_url_source, "int" + chr(10) + "start_upnp(void)")
+assert '#include "miniupnpd_presentation_url.h"' in upnp_url_source
+assert "is_valid_ipv4(lan_addr)" in upnp_start_body
+assert "is_valid_ipv4(lan_mask)" in upnp_start_body
+assert "miniupnpd_format_lan_url(lan_addr, ret, var, sizeof(var))" in upnp_start_body
+assert "sprintf(var," not in upnp_start_body
+assert "http_port < 0 || http_port > 65535" in upnp_url_policy
+assert "snprintf(buffer, buffer_size" in upnp_url_policy
+assert "errno = ENOSPC;" in upnp_url_policy
+for test_case in (
+    "test_default_ports_omit_suffix",
+    "test_custom_port_is_appended",
+    "test_oversized_address_fails_without_truncation",
+    "test_invalid_port_and_null_address_fail",
+    "test_invalid_output_buffer_fails",
+    "test_short_output_buffer_is_cleared",
+):
+    assert test_case in upnp_url_test, test_case
+print("MiniUPnP LAN URL validation and bounded formatting contract: PASS")
+
+
+# UPnP restart refuses to reapply firewall rules when stop_upnp() cannot
+# prove that the old daemon stopped; preserve that status to PID 1.
+upnp_restart_policy = (root / "trunk/user/rc/src/upnp_restart_policy.h").read_text()
+upnp_restart_test = (root / "trunk/user/rc/src/tests/upnp_restart_policy.c").read_text()
+upnp_restart_source = (root / "trunk/user/rc/src/services_ex.c").read_text()
+upnp_restart_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+upnp_restart_header = (root / "trunk/user/rc/src/rc.h").read_text()
+upnp_restart_body = upnp_restart_source.split(
+    "int" + chr(10) + "restart_upnp(void)", 1
+)[1].split("int" + chr(10) + "ddns_updated_main", 1)[0]
+assert '#include "upnp_restart_policy.h"' in upnp_restart_source
+assert "int restart_upnp(void);" in upnp_restart_header
+assert "void restart_upnp(void);" not in upnp_restart_header
+assert "rc_upnp_restart_run(stop_upnp, restart_firewall)" in upnp_restart_body
+assert "return ret;" in upnp_restart_body
+assert "action_result = rc_notify_merge_action_result(action_result, restart_upnp());" in upnp_restart_rc
+for test_case in (
+    "test_success_stops_then_restarts_firewall",
+    "test_stop_failure_aborts_firewall_restart_and_propagates",
+    "test_firewall_refresh_failure_is_propagated",
+    "test_stop_error_wins_when_firewall_is_not_attempted",
+    "test_invalid_callbacks_fail_without_side_effects",
+):
+    assert test_case in upnp_restart_test
+assert "Compile and run RC UPnP restart stop-result regression" in process_workflow
+assert "Compile and run RC UPnP restart stop-result regression" in xy_workflow
+for required_path in (
+    '"trunk/user/rc/src/upnp_restart_policy.h"',
+    '"trunk/user/rc/src/tests/upnp_restart_policy.c"',
+    '"trunk/user/rc/src/services_ex.c"',
+    '"trunk/user/rc/src/rc.h"',
+):
+    assert required_path in process_workflow
+    assert required_path in xy_workflow
+print("RC UPnP restart preserves daemon stop failure in PID 1 result: PASS")
+
+
+# full_restart_lan() is a single PID-1 notification transaction: retain first
+# failure from status-bearing teardown, recovery, reload and start operations.
+lan_source = (root / "trunk/user/rc/src/net_lan.c").read_text()
+lan_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+lan_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+assert '#include "service_start_status.h"' in lan_source
+lan_start = lan_source.index("int" + chr(10) + "full_restart_lan(void)")
+lan_brace = lan_source.index("{", lan_start)
+lan_depth = 0
+for lan_index in range(lan_brace, len(lan_source)):
+    if lan_source[lan_index] == "{":
+        lan_depth += 1
+    elif lan_source[lan_index] == "}":
+        lan_depth -= 1
+        if lan_depth == 0:
+            lan_body = lan_source[lan_start:lan_index + 1]
+            break
+else:
+    raise AssertionError("unterminated full_restart_lan()")
+for contract in (
+    'lan_restart_record_status(&restart_status, "stop logger", stop_logger())',
+    'lan_restart_record_status(&restart_status, "stop LLTD", stop_lltd())',
+    'lan_restart_record_status(&restart_status, "stop infosvr", stop_infosvr())',
+    'lan_restart_record_status(&restart_status, "stop networkmap", stop_networkmap())',
+    'lan_restart_record_status(&restart_status, "stop miniupnpd", stop_upnp())',
+    'lan_restart_record_status(&restart_status, "stop DNSMasq", dnsmasq_status)',
+    'lan_restart_record_status(&restart_status, "stop LAN services", lan_status)',
+    'lan_restart_record_status(&restart_status, "start logger", start_logger(0))',
+    'lan_restart_record_status(&restart_status, "start VPN server after WAN restart",',
+    'lan_restart_record_status(&restart_status, "restart VPN server",',
+    'lan_restart_record_status(&restart_status, "restart IPTV services",',
+    'lan_restart_record_status(&restart_status, "reload NFS exports", reload_nfsd())',
+    'lan_restart_record_status(&restart_status, "reload NetBIOS services", reload_nmbd())',
+    'lan_restart_record_status(&restart_status, "start infosvr", start_infosvr())',
+    'lan_restart_record_status(&restart_status, "start LLTD", start_lltd())',
+    'lan_restart_record_status(&restart_status, "start networkmap", start_networkmap(1))',
+    'lan_restart_record_status(&restart_status, "restart IAPP daemon",',
+    'lan_restart_record_status(&restart_status, "notify HTTPD logout",',
+    'return restart_status;',
+):
+    assert contract in lan_body, contract
+assert "return dnsmasq_status;" not in lan_body
+assert "rc_notify_merge_action_result(action_result, full_restart_lan())" in lan_rc
+assert "test_first_error_survives_lan_restart_recovery" in lan_test
+assert "test_negative_and_positive_statuses_are_preserved" in lan_test
+print("RC full LAN restart first-error propagation and PID 1 integration: PASS")
+
+
+# Router-mode bridge STP and forward-delay configuration are fallible sysfs
+# writes. Both operations must be attempted and the first failure retained.
+bridge_source = (root / "trunk/user/rc/src/services.c").read_text()
+bridge_start = bridge_source.split("start_services_once(int is_ap_mode)", 1)[1].split(
+    "stop_services(int stopall)", 1
+)[0]
+for status_name, call in (
+    ("bridge_stp_status", "br_set_stp(IFNAME_BR, 1)"),
+    ("bridge_forward_delay_status", "br_set_fd(IFNAME_BR, 15)"),
+):
+    assert f"{status_name} = {call};" in bridge_start, status_name
+    assert f"start_status, {status_name});" in bridge_start, status_name
+assert "LAN bridge STP enable failed" in bridge_start
+assert "LAN bridge forward-delay configuration failed" in bridge_start
+assert "return start_status;" in bridge_start
+bridge_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+assert "test_bridge_parameters_are_both_attempted_and_first_error_survives" in bridge_test
+assert "Compile and run RC boot service status aggregation regression" in process_workflow
+assert "Compile and run RC LAN restart first-error aggregation regression" in xy_workflow
+print("RC bridge STP and forward-delay result propagation: PASS")
+
+# RCN_RESTART_SYSCTL must preserve the errno-style PPPoE relay postcondition.
+sysctl_common = (root / "trunk/user/rc/src/common_ex.c").read_text()
+sysctl_header = (root / "trunk/user/rc/src/rc.h").read_text()
+sysctl_rc = (root / "trunk/user/rc/src/rc.c").read_text()
+sysctl_body = c_function_body(sysctl_common, "restart_all_sysctl(void)")
+assert "int restart_all_sysctl(void)" in " ".join(sysctl_common.split())
+assert '#include "service_start_status.h"' in sysctl_common
+assert "passthrough_status = set_passthrough_pppoe(1);" in sysctl_body
+sysctl_body_compact = "".join(sysctl_body.split())
+assert "rc_first_service_start_status(restart_status,passthrough_status)" in sysctl_body_compact
+assert "return restart_status;" in sysctl_body
+assert "int restart_all_sysctl(void);" in sysctl_header
+sysctl_dispatch = " ".join(sysctl_rc.split("RCN_RESTART_SYSCTL) == 0)", 1)[1].split(";", 1)[0].split())
+assert "rc_notify_merge_action_result(" in sysctl_dispatch
+assert "restart_all_sysctl()" in sysctl_dispatch
+sysctl_regression = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+assert "test_sysctl_pppoe_relay_failure_keeps_notification_pending" in sysctl_regression
+assert "rc_notify_merge_action_result(action_result, restart_status)" in sysctl_regression
+print("RC sysctl PPPoE relay status reaches PID 1 notification result: PASS")
+
+
+# stop_lan() previously discarded clear_if_route4() status. Preserve its
+# failure after conntrack cleanup while still attempting IPv6/interface teardown.
+lan6_source = (root / "trunk/user/rc/src/net_lan6.c").read_text()
+clear_lan_addr6 = c_function_body(lan6_source, "clear_lan_addr6(void)")
+assert "return clear_if_addr6(IFNAME_BR);" in clear_lan_addr6
+lan_teardown = c_function_body(lan_source, "stop_lan(int is_ap_mode)")
+lan_teardown_compact = "".join(lan_teardown.split())
+assert "intconntrack_status=0,route_status=0,ipv6_status=0;" in lan_teardown_compact
+assert "route_status=clear_if_route4(IFNAME_BR);" in lan_teardown_compact
+assert 'if(route_status!=0)logmessage(LOGNAME,"LANroutecleanupfailed(status=%d)",route_status);' in lan_teardown_compact
+assert "ipv6_status=clear_lan_addr6();" in lan_teardown_compact
+assert "returnrc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),ipv6_status),status);" in lan_teardown_compact
+route_flush_at = lan_teardown_compact.index("route_status=clear_if_route4(IFNAME_BR);")
+ipv6_cleanup_at = lan_teardown_compact.index("ipv6_status=clear_lan_addr6();")
+bridge_down_at = lan_teardown_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
+assert route_flush_at < ipv6_cleanup_at < bridge_down_at
+assert "test_router_lan_teardown_preserves_route_failure_and_continues" in lan_test
+assert "test_router_lan_teardown_preserves_route_failure_and_continues();" in lan_test
+assert "test_router_lan_teardown_preserves_ipv6_clear_failure_and_continues" in lan_test
+assert "test_router_lan_teardown_preserves_ipv6_clear_failure_and_continues();" in lan_test
+print("LAN route flush errno reaches stop_lan() result without skipping later cleanup: PASS")
+
+
+net6_source = (root / "trunk/user/rc/src/net6.c").read_text()
+rc_boot_source = (root / "trunk/user/rc/src/rc.c").read_text()
+rc_header_source = (root / "trunk/user/rc/src/rc.h").read_text()
+ipv6_init_body = c_function_body(net6_source, "int init_ipv6(void)")
+assert "control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1)" in ipv6_init_body
+assert "if (conf_status != 0)" in ipv6_init_body
+assert ipv6_init_body.index("reset_lan6_vars();") < ipv6_init_body.index("return conf_status;")
+assert "int init_ipv6(void);" in rc_header_source
+assert "void init_ipv6(void);" not in rc_header_source
+
+router_init_body = c_function_body(rc_boot_source, "init_router(void)")
+router_init_compact = re.sub(r"\s+", " ", router_init_body)
+assert "int ipv6_init_status = init_ipv6();" in router_init_compact
+assert (
+    "boot_services_status = rc_first_service_start_status( "
+    "boot_services_status, ipv6_init_status);"
+) in router_init_compact, "init_router must preserve IPv6 global sysctl failure in its first-error boot status"
+assert router_init_body.index("ipv6_init_status = init_ipv6()") < router_init_body.index("set_cpu_affinity();")
+assert '"trunk/user/rc/src/net6.c"' in process_workflow
+assert '"trunk/user/rc/src/rc.c"' in process_workflow
+assert '"trunk/user/rc/src/rc.h"' in process_workflow
+assert '"trunk/user/rc/src/net6.c"' in xy_workflow
+assert '"trunk/user/rc/src/rc.c"' in xy_workflow
+assert '"trunk/user/rc/src/rc.h"' in xy_workflow
+print("IPv6 boot sysctl initialization status aggregation: PASS")
+, block)
 shutdown_router = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
 assert "auth_stop_status = stop_8021x_all();" in shutdown_router
 assert "auth_stop_status == 0" in shutdown_router
