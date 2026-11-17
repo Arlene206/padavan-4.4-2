@@ -1,3 +1,12 @@
+## 2026-11-17 — Restore mandatory handoff checkpoint wording
+
+- Base main SHA: `8b63b6ea70536e2677204e6da8741a662145ba5f`; result: THIS COMMIT.
+- Exact-head AI handoff run `44006695428` failed in `scripts/check_ai_handoff_docs.py` because the current handoff no longer contained the mandated literal `Before context exhaustion`. Restored the required checkpoint sentence; no workflow or archive-index changes were needed.
+- The DNS Forwarder source integration contract and Process lifecycle run `44006695435` PASS; DNS Forwarder launch-path regression `44006695180` PASS. XY-C1 `44006695535` remains in progress; no Build/TRX/artifact claim.
+- Documentation-only correction; production source is unchanged. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Register DNS Forwarder in checked RC service shutdown
 
 - Base main SHA: `49f798836772a802efad324498b875fa6a05b94c`; result: THIS COMMIT.
@@ -5,7 +14,7 @@
 - Consequence: normal reboot/halt could leave the daemon running after the RC service-stop pass; a firmware update could enter flash preparation while DNS Forwarder remained alive. The missed status also could not participate in the existing shutdown MTD-persistence gate.
 - Added `stop_dnsforwarder()` to `stop_services()` under the matching `APP_DNSFORWARDER` guard using `record_service_stop_status()`. Stop failure now reaches `stop_services()`, blocks firmware update through its existing abort gate and blocks shutdown storage persistence through `service_stop_status`.
 - Extended `scripts/check_optional_app_start_status.py` with a brace-aware C function extractor and an integration contract covering the matching start/stop guards, wrapper, shutdown storage-persistence gate and firmware-update abort gate. The Process workflow watches both changed files for push and pull_request; XY-C1 watches and compiles the changed RC source.
-- Exact-head Process/XY-C1 tests have not run on this commit yet. No local repository checkout or MIPS toolchain is mounted, so local host/firmware execution was NOT RUN. Prior firewall XY-C1 run `44005782493` was still building on the unchanged pre-this-commit source; it does not validate this edit.
+- Exact-head Process lifecycle run `44006695435` and DNS Forwarder launch-path regression `44006695180` PASS on this SHA. XY-C1 run `44006695535` remains in progress. AI handoff run `44006695428` failed only because this handoff rewrite omitted the required literal `Before context exhaustion`; this docs-only follow-up restores it. No local repository checkout or MIPS toolchain is mounted, so local host/firmware execution was NOT RUN.
 - Physical-router L4 remains NOT VERIFIED.
 
 ---
