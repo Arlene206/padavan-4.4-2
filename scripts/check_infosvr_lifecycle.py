@@ -61,6 +61,8 @@ workflow = read(".github/workflows/infosvr-packet-stability.yml")
 
 assert '#include "infosvr_daemon_policy.h"' in services
 assert "process_state == PROCESS_PRESENCE_ABSENT" in policy
+assert "infosvr_start_postcondition" in policy
+assert "INFOSVR_START_PROBE_ATTEMPTS 4" in policy
 
 start = function_body(services, "start_infosvr(void)")
 assert 'optional_daemon_start_status("infosvr", "infosvr")' in start
@@ -74,6 +76,14 @@ assert running < unknown < disabled < launch_status < launch_log < launch_return
 assert "return 1;" in start[disabled:launch_status]
 assert "if (start_status != 0)" in start
 assert "return start_status;" in start
+assert "sleep(INFOSVR_START_INITIAL_WAIT_SECONDS);" in start
+assert "for (attempt = 0; attempt < INFOSVR_START_PROBE_ATTEMPTS; attempt++)" in start
+assert 'process_state = optional_daemon_presence("infosvr", &scan_error);' in start
+assert "infosvr_start_postcondition(start_status, process_state)" in start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in start
+assert "errno = ETIMEDOUT;" in start
+assert start.index('eval("/usr/sbin/infosvr", IFNAME_BR);') < start.index("sleep(INFOSVR_START_INITIAL_WAIT_SECONDS);")
 stop = function_body(services, "stop_infosvr(void)")
 assert "return kill_services(svcs, 3, 1);" in stop
 
@@ -106,7 +116,9 @@ for marker in (
     "test_remaining_process_blocks_replacement",
     "test_unknown_inventory_blocks_replacement",
     "test_confirmed_absence_allows_start",
-    "infosvr tri-state stop-before-start daemon policy: PASS",
+    "test_start_requires_running_postcondition",
+    "test_start_preserves_launcher_failure",
+    "infosvr tri-state stop-before-start and daemon-start postcondition policy: PASS",
 ):
     assert marker in test, marker
 

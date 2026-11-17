@@ -1,10 +1,11 @@
 # 2026-11-17 latest source checkpoint
 
-- Parent main SHA: `9cf66b7bec1a7befd0408ef8a9c2aec9b44563b3`; THIS COMMIT whitespace-normalizes the storage caller-graph check for the line-wrapped `storage_ejected_inventory_complete()` call. The GNU89 swap parser/test fixture passed on the parent; no product source changes here. Full module dashboard below is preserved.
-- Exact-parent HTTPD `44159705825`, AI handoff `44159706008`, Process lifecycle `44159705817`, Process inventory `44159705723`, AdGuardHome `44159705890`, AliDDNS `44159705790`, AliyunDrive `44159705762`, infosvr `44159705688`: SUCCESS.
-- USB storage `44159705744`: FAILURE only in final source contract after C policy tests passed; raw multi-line source call was checked as one contiguous string. THIS COMMIT collapses whitespace before matching. NVRAM `44159705768`: IN_PROGRESS at last poll.
+- Parent main SHA: `dec7924b7ed961e08a801357fe1d6312150acf92`; THIS COMMIT hardens RC `start_infosvr()` with a bounded detached-child RUNNING postcondition. The infosvr executable calls `daemon(0, 0)` before writing `/var/run/infosvr.pid` and entering its UDP loop; a zero `eval()` result alone is not proof that the daemon remains alive.
+- Exact-parent USB storage `44160609520`, Process lifecycle `44160609608`, Process inventory `44160609611`, AliDDNS `44160609540`, AliyunDrive `44160609642`, infosvr `44160609576`, AI handoff `44160609538`, AdGuardHome `44160609528`, NVRAM `44160609797`: SUCCESS.
+- THIS COMMIT adds bounded RUNNING verification, fails closed on UNKNOWN scan, returns `ETIMEDOUT` if the child never appears, and extends GNU89 policy plus source-order tests. Exact-head infosvr check pending.
+- XY-C1 L3 build, TRX verification and artifact upload passed for firmware source SHA `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3` (artifact id `14363970100`). Subsequent commits were tests/workflows/docs only; no physical router L4 result.
 
-Next: verify exact-SHA USB storage after this contract fix and query NVRAM; continue independent development while long firmware work is pending.
+Next: verify exact-SHA infosvr packet/lifecycle regression; then inspect another real daemonization startup path before adding a separate readiness fix.
 ---
 
 ## Whole-repository module status

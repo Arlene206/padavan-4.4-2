@@ -173,7 +173,8 @@ stop_infosvr(void)
 int
 start_infosvr(void)
 {
-	int start_status;
+	int start_status, attempt, scan_error;
+	enum process_presence process_state;
 
 	start_status = optional_daemon_start_status("infosvr", "infosvr");
 	if (start_status > 0)
@@ -184,11 +185,36 @@ start_infosvr(void)
 	if (nvram_invmatch("adsc_enable", "1"))
 		return 1;
 
+	/*
+	 * infosvr calls daemon() before entering its packet loop. eval() only
+	 * observes the daemonizing parent, so confirm the detached child remains
+	 * visible before reporting a successful service start to PID 1.
+	 */
 	start_status = eval("/usr/sbin/infosvr", IFNAME_BR);
-	if (start_status != 0)
+	if (start_status != 0) {
 		logmessage("infosvr", "infosvr launch failed (status=%d)",
 			   start_status);
-	return start_status;
+		return start_status;
+	}
+
+	sleep(INFOSVR_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < INFOSVR_START_PROBE_ATTEMPTS; attempt++) {
+		process_state = optional_daemon_presence("infosvr", &scan_error);
+		if (infosvr_start_postcondition(start_status, process_state) == 0)
+			return 0;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
+			logmessage("infosvr", "cannot verify daemon startup (scan_error=%d)",
+				   errno);
+			return -1;
+		}
+		if (attempt + 1 < INFOSVR_START_PROBE_ATTEMPTS)
+			sleep(INFOSVR_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage("infosvr", "daemon did not remain running after launch");
+	return -1;
 }
 
 int

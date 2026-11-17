@@ -1,23 +1,25 @@
-# 2026-11-17 continuation checkpoint — normalize source-contract whitespace for swap staging
+# 2026-11-17 continuation checkpoint — verify detached infosvr daemon startup
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `9cf66b7bec1a7befd0408ef8a9c2aec9b44563b3`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Main-only atomic commits; no force-push.
-- Full whole-repository module dashboard and priority queue remain present in `REFACTOR_ROADMAP.md`; do not truncate or snapshot it.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `dec7924b7ed961e08a801357fe1d6312150acf92`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only, complete-tree, non-forced expected-SHA updates.
+- Whole-repository module dashboard and priority matrix are preserved in `REFACTOR_ROADMAP.md`; do not truncate or replace them with a short note.
 
-## Active task — swap-only physical eject
-- `umount_ejected_locked()` stages `/proc/swaps` independently of mounts, identifies raw removable SD/MMC swap entries missing from `/proc/partitions`, retries swapoff and propagates failure to `usb_unplug_ms` retry scheduling, even with no filesystem mountpoints.
-- The new GNU89 policy parser tests passed on the parent exact run after correcting the C newline fixtures. Exact-head storage run `44159705744` then failed in the final caller-graph checker: its assertion compares a line-wrapped `storage_ejected_inventory_complete(read_error, close_error, parse_error)` call as one raw substring. THIS COMMIT normalizes whitespace in the extracted source before checking. No production source is changed.
+## Active task — infosvr launch postcondition (THIS COMMIT)
+- `infosvr` explicitly calls `daemon(0, 0)` before writing its pidfile and entering the long-running UDP receive loop. RC `start_infosvr()` previously treated a successful `eval()` of the daemonizing parent as complete service startup and returned success without checking the detached child.
+- The start path now performs a bounded process-inventory wait (1-second initial delay, four probes, one-second retry intervals), returns success only when `infosvr` is confirmed RUNNING, fails immediately on UNKNOWN inventory with its actual scan error, and returns `ETIMEDOUT` if the child never appears. Existing already-running and disabled-service behavior is preserved.
+- Added GNU89 unit cases for RUNNING/ABSENT/UNKNOWN/invalid postconditions and propagation of the launcher's nonzero status. Extended `check_infosvr_lifecycle.py` to enforce launch → wait → inventory → fail-closed result ordering. Existing infosvr workflow compiles the policy test and runs this checker.
 
 ## Verification boundary
-- Exact-head `9cf66b7`: HTTPD `44159705825`, AI handoff `44159706008`, Process lifecycle `44159705817`, Process inventory/fail-closed `44159705723`, AdGuardHome `44159705890`, AliDDNS `44159705790`, AliyunDrive `44159705762`, infosvr `44159705688`: SUCCESS.
-- USB storage `44159705744`: FAILURE at final production source-contract assertion after all C policy tests passed; no compile/policy failure remains. NVRAM `44159705768`: IN_PROGRESS at last poll.
-- No XY-C1 run was observed for exact test-only SHA `9cf66b7`; prior firmware run targets older source. No local MIPS/uClibc toolchain or router; physical L4 remains NOT VERIFIED.
+- Exact HEAD `dec7924b`: USB storage `44160609520`, Process lifecycle `44160609608`, Process inventory `44160609611`, AliDDNS `44160609540`, AliyunDrive `44160609642`, infosvr `44160609576`, AI docs `44160609538`, AdGuardHome `44160609528`, NVRAM `44160609797`: SUCCESS.
+- THIS COMMIT's infosvr GNU89 policy test, source contract and packet regressions are pending until exact-SHA Actions are queried.
+- XY-C1 cross-build, TRX check and artifact upload were SUCCESS for exact firmware source SHA `fb99c2a7dbf4c1576e4d863d5d451f18633fefd3` (artifact `XY-C1-firmware-fb99c2a7dbf4c1576e4d863d5d451f18633fefd3`, artifact id `14363970100`). Commits after fb99 changed only test/workflow/docs files, not the firmware source; this is L3 build evidence for that firmware source, not physical L4 validation.
+- No full MIPS/uClibc toolchain or physical router is available in this session; L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-- Inspect exact-SHA storage workflow after the whitespace-tolerant source assertion and confirm NVRAM result for `9cf66b7` independently.
-- If storage passes, continue an independent P1 service lifecycle or NVRAM postcondition while any firmware job remains pending; do not repeat already fixed swap parser escapes or source whitespace checks.
-- Preserve frozen backup; commit complete trees with fresh expected SHA and `force:false`.
+- Inspect exact-SHA infosvr packet/lifecycle Actions for THIS COMMIT, require the policy compile and Python source contract to PASS, and repair from exact logs if they fail. Check any other workflows triggered by `services.c` against the same SHA.
+- Then continue another independent P1 RC daemon startup postcondition (networkmap or telnetd) only after inspecting each daemon's actual fork/daemon behavior and exact caller contract.
+- Preserve backup branch; do not revisit already completed swap-only eject, storage topology, Samba storage-lock, or docs-dashboard repairs.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

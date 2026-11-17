@@ -1,3 +1,9 @@
+## 2026-11-17 — Verify the detached infosvr child after daemonizing launch
+
+- Repository inspection confirmed `trunk/user/infosvr/src/infosvr.c::main()` binds the UDP socket and installs SIGTERM handling, then calls `daemon(0, 0)`, writes `/var/run/infosvr.pid` and enters its long-lived packet loop. `eval("/usr/sbin/infosvr", IFNAME_BR)` only reports the launcher/daemonizing parent status.
+- `start_infosvr()` previously returned success as soon as `eval()` returned zero; a detached child that exited before the first packet loop could therefore be reported as successfully started. Add bounded process-inventory verification (initial 1-second wait, up to four probes) and report success only after `infosvr` is confirmed RUNNING. UNKNOWN inventory fails closed with the actual scan error; a missing child returns `ETIMEDOUT`.
+- Preserve the existing pre-launch tri-state gate and disabled-service no-op. Add GNU89 policy tests for RUNNING/ABSENT/UNKNOWN/invalid state and launcher error preservation; extend the infosvr source checker for launch → wait → inventory ordering. Existing workflow already compiles the policy test and runs the checker.
+- Parent exact-head storage, Process lifecycle/inventory, AliDDNS, AliyunDrive, infosvr, AI, AdGuardHome and NVRAM checks all passed on `dec7924b`. New exact-head infosvr CI pending. XY-C1 L3 Build/TRX/artifact is green for firmware source `fb99c2a`; no hardware L4 claim.
 ## 2026-11-17 — Make the swap staging source contract whitespace-tolerant
 
 - Exact-head storage run `44159705744` on `9cf66b7bec1a7befd0408ef8a9c2aec9b44563b3` completed shell/ash, MTD, storage C policy tests including the new `/proc/swaps` parser cases, and earlier lifecycle tests successfully. It then failed in the final production caller graph at the source assertion for `storage_ejected_inventory_complete(read_error, close_error, parse_error)`.
