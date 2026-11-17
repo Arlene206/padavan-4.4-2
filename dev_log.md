@@ -1,3 +1,14 @@
+## 2026-11-17 — Align HTTPD queue security contract with owner abstraction
+
+- Parent main SHA: `327164075c015004e17ef435fd06994ff4074090`; result: THIS COMMIT.
+- Exact-head HTTPD run `44098885513` failed only in the static privileged-queue check after the notifier introduced a local owner variable. Its assertions still required `rc_notify_queue_open_dir(..., 0)`.
+- The production default remains root-only: `#ifndef RC_NOTIFY_OWNER / #define RC_NOTIFY_OWNER ((uid_t)0)`; both queue open operations and marker touches use `uid_t owner = RC_NOTIFY_OWNER`. The test can override ownership for temporary directories.
+- Updated HTTPD workflow assertions to verify the default root owner and the derived owner at both directory opens and marker touches. This is a CI contract correction; no production HTTPD or notifier source changed.
+- Exact-head WAN route `44098885494` and PID 1 notification queue `44098885415` passed on `3271640`. XY-C1 `44098885378` remained in progress at last poll; this change triggers the HTTPD security workflow again.
+- Local host execution NOT RUN in connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Propagate WAN firewall notification enqueue failures
 
 - Parent main SHA: `ec99ebf0f47393f712b62771a1f34e5af8f621bf`; result: THIS COMMIT.
