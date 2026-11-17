@@ -1,3 +1,11 @@
+## 2026-11-18 — Correct RAS startup aggregation count and WAN DHCP static-IPoE boundary
+
+- Parent main SHA: `62fbefe3d562c332c9929b22f6d2d8ea078e1ade`; only regression contracts and handoff/log changed.
+- Exact-head `659c0720` runs Process `44179526342`, Firewall Startup `44179526456`, USB modem `44179526516`, and XY-C1 `44179526334` advanced through the earlier source-boundary fixes and stopped at `scripts/check_modem_wan_start_status.py:315`: the checker still expected four `modem_start_status` aggregates. The current `start_wan()` path has five distinct results, including USB-net startup, RAS interface migration, RAS firewall rebuild, firewall-failure physical-WAN restoration, and RAS launch. The checker now expects five and explicitly verifies RAS restoration is followed by result aggregation.
+- Exact-head `62fbefe3` WAN DHCP callback `44179778384` passed the APCLI call-boundary slice but failed later at embedded Python line 852 because its static-IPoE block still ended at the removed legacy iptables comment. That inline checker now ends at the actual `vlan_result = start_firewall_ex();` gate after static address configuration.
+- On `659c0720`, AI handoff `44179526396`, AdGuardHome `44179526443`, infosvr `44179526331`, AliyunDrive `44179526451`, and AliDDNS `44179526391` passed. Process/Firewall/USB/XY failures were at the shared checker count, not production compile failures; XY-C1 Build/TRX/artifact were skipped.
+- Exact `62fbefe3` AI handoff `44179778471` and AliyunDrive `44179778466` passed; WAN DHCP `44179778384` failed only at the second stale inline source boundary. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No target L3 or router L4 result claimed.
+
 ## 2026-11-18 — Replace the final stale AP-client boundary in WAN DHCP CI
 
 - Parent main SHA: `659c0720a1d0baccdd5ec3644a9d2177b199bf69`; workflow source-contract correction only, no production C changes.

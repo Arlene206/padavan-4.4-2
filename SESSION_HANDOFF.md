@@ -1,21 +1,26 @@
-# 2026-11-18 continuation checkpoint — finish WAN DHCP CI contract alignment
+# 2026-11-18 continuation checkpoint — repair remaining WAN source contracts
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS workflow correction: `659c0720a1d0baccdd5ec3644a9d2177b199bf69`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; all development remains on `main`.
-- AP-client reconnect failures propagate into WAN startup (`be0f5b56`); RAS/PPP/IPoE protocol activation fails closed when required firewall rebuild fails (`8e9ea213`).
-- Common startup source checker was aligned in `659c0720`: the IPoE address-error boundary now ends at the actual firewall rebuild call. This avoids the removed legacy iptables comment and still checks address failure aggregation before firewall setup.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS correction: `62fbefe3d562c332c9929b22f6d2d8ea078e1ade`.
+- All development stays on `main`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product fix `be0f5b56` returns AP-client driver errors from `reconnect_apcli()` into WAN startup. Product fix `8e9ea213` prevents USB RAS, PPP and IPoE protocol startup when required firewall rebuilds fail, with physical-WAN recovery and interface-down fallback.
+- Common source-checker delimiters were repaired in `659c0720`; WAN DHCP APCLI delimiter was repaired in `62fbefe3`. The remaining count and static-IPoE boundary assertions are fixed in THIS commit.
 
-## Current CI state and unresolved inline assertion
-- On exact source SHA `ece8011f`, the WAN route `44178774262`, Wireless `44178774053`, AI handoff `44178773961`, and NVRAM audit `44178774246` passed.
-- Exact ece Process `44178773567`, Firewall Startup `44178773543`, USB modem `44178773862` and XY-C1 `44178773562` all stopped at common checker line 304 because it still used a removed static-IPoE comment. The common checker boundary was corrected in `659c0720`.
-- A separate exact-head WAN DHCP failure on older product SHA `8e9ea213`, run `44177798012`, showed that `.github/workflows/wan-dhcp-callback-stability.yml` duplicated the obsolete `/* perform ApCli reconnect */` marker in its `physical_setup` slice. The workflow was not changed by `659c0720`, so this separate stale assertion remained untriggered after the common checker fix.
-- THIS commit replaces that final workflow marker with the actual `vlan_result = reconnect_apcli(wan_ifname, 0);` call. No production code changes.
+## Exact-head CI diagnosis
+- On `659c0720`, Process `44179526342`, Firewall Startup `44179526456`, USB modem `44179526516`, and XY-C1 `44179526334` reached the shared modem checker and failed at line 315 because it required four WAN modem result aggregates. The current `start_wan()` path contains five checked updates: USB-net startup, RAS interface migration, RAS firewall rebuild, firewall-failure physical-WAN restoration, and RAS launch. The checker now expects five and asserts recovery aggregation.
+- On exact `62fbefe3`, WAN DHCP callback `44179778384` passed the APCLI-boundary check but failed in its inline static-IPoE contract because it still used the removed legacy final-iptables comment. The workflow now ends the static-address check at the real `vlan_result = start_firewall_ex();` call.
+- Exact `659c0720` AI handoff `44179526396`, AdGuardHome `44179526443`, infosvr `44179526331`, AliyunDrive `44179526451`, and AliDDNS `44179526391` passed. Exact `62fbefe3` AI handoff `44179778471` and AliyunDrive `44179778466` passed.
+- XY-C1 `44179526334` stopped before firmware Build, TRX verification and artifact upload at the shared checker assertion; no current-source L3 claim.
+
+## THIS correction
+- `scripts/check_modem_wan_start_status.py`: expect the five actual modem-result updates and explicitly check that the RAS firewall recovery result is aggregated after `restore_wan_after_firewall_failure()`.
+- `.github/workflows/wan-dhcp-callback-stability.yml`: static IPoE config assertion ends at the actual firewall rebuild call rather than a removed comment.
+- Production C source is unchanged. No complete local repository checkout or MIPS toolchain is available; exact-head Actions must validate the contracts.
 
 ## Exact first action for the next GPT
-1. Inspect the exact-SHA WAN DHCP callback run triggered by THIS workflow change. Require the embedded source contract to pass and inspect the complete job logs.
-2. Inspect exact-head Process, Firewall Startup, USB modem and XY-C1 runs triggered by `659c0720`. The common modem checker should now pass; fix the first new genuine assertion from the logs.
-3. For XY-C1, require Build, TRX verification and artifact upload on a passing exact SHA before claiming target L3. Physical router L4 remains NOT VERIFIED.
+1. Inspect exact-head Process, Firewall Startup, USB modem, XY-C1 and WAN DHCP callback runs triggered by THIS correction. Inspect full step logs; the new source-contract anchors/count must pass.
+2. Require XY-C1 Build XY-C1, TRX verification and artifact upload on the exact current SHA. If another assertion fails, repair the contract/source as appropriate and rerun.
+3. Continue the next independent P1 stability/security issue after these cross-workflow gates clear. Keep backup immutable. Physical router L4 remains NOT VERIFIED.
 
 # Cross-session execution mandate
 

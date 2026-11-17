@@ -1023,7 +1023,7 @@ jobs:
           assert "start_udhcpc_wan(wan_ifname, unit, 0);" not in wan_start.replace(ipoe_dhcp_launch, "")
           assert wan_start.count("WAN physical interface setup incomplete") == 2
           ipoe_static_begin = wan_start.index("/* Assign static IP address to i/f */")
-          ipoe_static_end = wan_start.index("/* re-build iptables rules (final stage for IPoE static) */", ipoe_static_begin)
+          ipoe_static_end = wan_start.index("vlan_result = start_firewall_ex();", ipoe_static_begin)
           ipoe_static_config = wan_start[ipoe_static_begin:ipoe_static_end]
           invalid_static = "if (!dhcp_lease_ipv4_is_valid(wan_addr) ||"
           assert invalid_static in ipoe_static_config
