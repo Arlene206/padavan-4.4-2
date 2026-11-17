@@ -1,3 +1,9 @@
+## 2026-11-17 — Serialize notification-driven Samba restart with storage eject
+
+- PID 1 routes both `RCN_RESTART_NMBD` and `RCN_RESTART_WINS` through `restart_nmbd()`. The running-smbd branch rewrites `smb.conf`, restarts nmbd and SIGHUP-reloads the captured smbd processes; the no-smbd branch stops nmbd and starts WINS. Unlike `restart_smbd()`, this notification route lacked the common storage-operation lock.
+- A notification could race safe eject: storage teardown holds the lock while stopping Samba and unmounting shares, but unguarded `restart_nmbd()` could start/reload daemons against mounts being removed. Take the same cross-process eject barrier before first process inventory and retain it across config publication, stop/absence checks, launch/readiness, smbd identity-bound reload and WINS startup. Lock failure now aborts fail-closed.
+- Add Samba workflow source assertions for lock acquisition preceding inventory, no process/config side effect before lock success, lock retention through transition calls and exactly one unlock. Workflow already includes `services_ex.c` in path filters.
+- Checker-repair parent `85c02c4` had Process exact-head run `44152539523` still in progress at last poll; all of its tracked source checks were not yet conclusively green. THIS COMMIT exact-head Samba/Process/XY-C1 checks pending. No MIPS/uClibc or router/L4 validation is claimed.
 ## 2026-11-17 — Remove orphaned Process checker continuation
 
 - The exact-head Process umbrella `44151820845` on `83909383adb5c2ac3cf9b5fae2760c6b02426088` failed only at its final Python source-integration step; all 46 preceding steps passed. The job log reports `SyntaxError: unmatched ')'` at line 1953.

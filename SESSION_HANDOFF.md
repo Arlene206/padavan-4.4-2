@@ -1,25 +1,26 @@
-# 2026-11-17 continuation checkpoint — remove orphaned Process checker syntax
+# 2026-11-17 continuation checkpoint — serialize notification-driven Samba restart with storage eject
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `83909383adb5c2ac3cf9b5fae2760c6b02426088`; THIS COMMIT repairs the final Process-checker syntax error.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `85c02c41612225552ce270304167d40778be8be3`; THIS COMMIT adds the shared storage eject barrier to `restart_nmbd()` and its regression.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; development remains main-only; PR #1 remains closed/unmerged.
-- No full MIPS/uClibc toolchain or physical router is available; target build and L4 claims remain separate.
+- No full MIPS/uClibc toolchain or physical router is available; L4 remains NOT VERIFIED.
 
 ## Parent exact-head Actions
-- Process inventory `44151820656`: SUCCESS.
-- Process lifecycle umbrella `44151820845`: FAILURE in the final source-integration step. All preceding 46 steps passed; its log reports `SyntaxError: unmatched ')'` at `scripts/check_process_lifecycle_integration.py:1953`.
-- Wireless radio `44151820832`, AI handoff `44151820726`, iNIC `44151821105`, watchdog `44151820709`, infosvr `44151820814`, AliDDNS `44151820675`, AliyunDrive `44151820658`, HTTPD `44151820706`, AdGuardHome `44151820835`: SUCCESS.
-- NVRAM `44151820699` and XY-C1 firmware validation `44151820834`: IN_PROGRESS at last poll. These are all exact-head runs for parent `83909383adb5c2ac3cf9b5fae2760c6b02426088`.
+- Process inventory/lifecycle `44152539523`: IN_PROGRESS at last poll for checker-fix SHA `85c02c41612225552ce270304167d40778be8be3`; exact test-contract completion is not yet known.
+- AI handoff `44152539399`, NVRAM `44152539327`, AdGuardHome `44152539417`, infosvr `44152539400`, AliDDNS `44152539489` and AliyunDrive `44152539557`: IN_PROGRESS at last poll, all on parent `85c02c41612225552ce270304167d40778be8be3`.
+- No exact-head XY-C1 firmware run was triggered for the checker/docs-only parent commit; do not treat prior-source firmware runs as validation of any later source.
 
-## Process checker syntax repair (THIS COMMIT)
-- After the previous commit corrected the incomplete IAPP `re.search()` line, the Process umbrella exposed a second orphan: a standalone `, block)` at line 1953, left behind after an earlier multi-line assertion was removed. It is not attached to any expression and makes the complete checker fail to parse.
-- Remove only that orphaned continuation line. The preceding IPv6 boot-status contract and following shutdown assertions remain intact; no firmware source changes in this fix.
-- The Process workflow already tracks `scripts/check_process_lifecycle_integration.py`. Exact-head rerun is required before treating the checker as repaired.
+## Samba/storage synchronization repair (THIS COMMIT)
+- Both `RCN_RESTART_NMBD` and `RCN_RESTART_WINS` are dispatched through `restart_nmbd()`. When smbd is present, this route republishes `smb.conf`, stops/restarts nmbd and reloads the captured smbd identities; otherwise it stops nmbd and starts WINS.
+- The route previously had no shared storage-operation lock. Safe eject/hotplug can hold that lock while stopping Samba and unmounting USB shares, so an interleaved notification could publish/relaunch Samba while those share mounts are being removed.
+- Acquire `storage_operation_lock` before the first procfs inventory and hold it through config publication, daemon stop/absence, launch/readiness, smbd identity-bound reload, or WINS startup. Lock acquisition failure aborts before scans or mutations.
+- Extend Samba's existing source integration contract to require lock-before-inventory, fail-closed acquisition, coverage of the config/daemon operations and exactly one unlock. Samba workflow already watches `services_ex.c`.
+- Parent checker-only commit `85c02c4` removed the orphaned Process-checker syntax line; the exact Process run was still pending at last poll. This source commit triggers its own Samba/Process/XY-C1 validations where path filters apply.
 
 ## First next action
-- Inspect the exact-SHA Process umbrella run for THIS COMMIT and require its final source-integration step to complete. Poll XY-C1 `44151820834` and NVRAM `44151820699` only as parent-source results; do not transfer them to this checker-only commit.
-- Then implement the demonstrated Samba/storage race: `restart_nmbd()` handles `RCN_RESTART_NMBD`/`RCN_RESTART_WINS` and can republish share configuration/restart daemons without taking the shared storage eject lock. Put the complete transition under the lock and add Samba source-contract coverage.
-- Keep the frozen backup untouched and use a fresh expected-SHA non-forced update for every atomic commit.
+- Inspect exact-SHA Samba stability, Process lifecycle/inventory and XY-C1 Build/TRX/artifact for THIS COMMIT; any FAIL must be diagnosed from its job logs. Also resolve the pending Process checker run from `85c02c4` if its result arrives.
+- Continue another independent storage/NVRAM or service-stop result propagation issue while XY-C1 is pending. Do not repeat completed IAPP result propagation, boot launcher, shutdown LAN-persistence or firmware VPN teardown work.
+- Keep the frozen backup read-only; update `main` only with complete trees and non-forced expected-SHA compare-and-swap.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

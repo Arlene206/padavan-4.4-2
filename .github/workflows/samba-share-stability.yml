@@ -341,6 +341,20 @@ jobs:
           assert "killall" not in reload_nmbd and "pids(" not in reload_nmbd
 
           restart_nmbd = function_body(services, "int\nrestart_nmbd(void)")
+          assert '#include "storage_operation_lock.h"' in services
+          nmbd_lock = restart_nmbd.index("storage_operation_lock_acquire(file_lock)")
+          nmbd_first_inventory = restart_nmbd.index('process_inventory_scan("nmbd", &nmbd_snapshot)')
+          assert nmbd_lock < nmbd_first_inventory
+          assert "if (storage_lock < 0)" in restart_nmbd
+          assert "refusing nmbd restart" in restart_nmbd
+          nmbd_unlock = restart_nmbd.index("file_unlock(storage_lock);")
+          assert restart_nmbd.index("write_smb_conf() != 0") < nmbd_unlock
+          assert restart_nmbd.index("stop_nmbd()") < nmbd_unlock
+          assert restart_nmbd.index('eval("/sbin/nmbd"') < nmbd_unlock
+          assert restart_nmbd.index("samba_daemon_signal_snapshot(") < nmbd_unlock
+          assert restart_nmbd.index("result = start_wins();") < nmbd_unlock
+          assert restart_nmbd.count("storage_operation_lock_acquire(file_lock)") == 1
+          assert restart_nmbd.count("file_unlock(storage_lock);") == 1
           assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in restart_nmbd
           assert 'process_inventory_scan("smbd", &smbd_snapshot)' in restart_nmbd
           assert restart_nmbd.index('process_inventory_scan("smbd", &smbd_snapshot)') < restart_nmbd.index("write_smb_conf() != 0")

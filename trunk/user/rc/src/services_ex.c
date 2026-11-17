@@ -33,6 +33,7 @@
 #include <net/ethernet.h>
 
 #include "rc.h"
+#include "storage_operation_lock.h"
 #include "upnp_restart_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_dhcp_range_policy.h"
@@ -1504,12 +1505,24 @@ int
 restart_nmbd(void)
 {
 	int result = -1, scan_error, command_status;
+	int storage_lock;
 	struct process_snapshot nmbd_snapshot;
 	enum process_presence nmbd_presence;
 #if defined(APP_SMBD)
 	struct process_snapshot smbd_snapshot;
 	enum process_presence smbd_presence;
 #endif
+
+	/*
+	 * Network notifications can republish Samba configuration and restart
+	 * daemons while USB hotplug or safe removal is changing share mounts.
+	 * Hold the common eject barrier through the entire process transition.
+	 */
+	storage_lock = storage_operation_lock_acquire(file_lock);
+	if (storage_lock < 0) {
+		logmessage("Samba Server", "cannot acquire storage operation lock; refusing nmbd restart");
+		return -1;
+	}
 
 	memset(&nmbd_snapshot, 0, sizeof(nmbd_snapshot));
 #if defined(APP_SMBD)
@@ -1591,6 +1604,7 @@ out:
 #if defined(APP_SMBD)
 	process_snapshot_release(&smbd_snapshot);
 #endif
+	file_unlock(storage_lock);
 	return result;
 }
 #endif
