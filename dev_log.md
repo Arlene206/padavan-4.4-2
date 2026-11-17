@@ -1,3 +1,9 @@
+## 2026-11-17 — Correct Process lifecycle syslogd/klogd source-boundary escapes
+
+- Process exact `222cbfba37ef2e4c17ae13bd9275ed648c6ab407` run `44173365883` reached the syslogd/klogd source-contract section after prior C/RC integration checks passed. Its Python checker split on `"int\\\\nstart_syslogd(void)"` and `"\\\\n}"`, which searched literal backslash-n rather than C newlines, causing `IndexError`.
+- Correct both syslogd and klogd delimiters to Python newline escapes. No production code or test binary changes in this correction. Current-head Process rerun `44173796903` was in progress at last poll.
+- Samba exact run `44173796606` on current ancestor `6174c78` passed after the preceding whitespace-insensitive checker correction. Current exact NVRAM `44173796346` remained pending.
+
 ## 2026-11-18 — Normalize Samba WINS restart source-contract spacing
 
 - The exact Samba run `44172985076` on `2e6974211a9e3a487913076b84dfe89eb9817b0d` passed its GNU89/Werror/ASan/UBSan C binaries, including the WINS restoration decision matrix, but the final integration checker failed at a one-line spelling assertion for a deliberately wrapped helper call.

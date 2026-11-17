@@ -1,36 +1,17 @@
-# 2026-11-18 continuation checkpoint — verify syslogd/klogd startup
+# 2026-11-17 continuation checkpoint — repair syslogd/klogd source-boundary checker
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA: `2e6974211a9e3a487913076b84dfe89eb9817b0d`.
-- Main-only full-tree commits use fresh expected-SHA updates and `force:false`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` last confirmed at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- rstats/LLTD detached-start postconditions were committed at `92d95b8`; exact Process inventory `44169139435` and Process lifecycle `44169139271`: PASS.
-- IPTV lease withdrawal/route/address cleanup fixes are in `6d545f4`, `58d05ed`, `f25e742`, `47e395d`, `9be5d29`. HTTPD Security `44171043495` on `9be5d29`: PASS. XY-C1 `44171043411` was still running at last poll.
-- Latest docs checkpoint `db362b5`: Process fail-closed `44171722700` PASS; NVRAM `44171722663` was pending at last poll.
-- THIS COMMIT addresses two additional default-daemonization mismatches: BusyBox syslogd and klogd fork into background children while RC previously accepted only their launcher status.
+- Current main parent for this checker correction: `6174c78a926da126139e2b4f08c455704f6e11f7`. Main-only full-tree commits use expected-SHA CAS and `force:false`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
+- WINS/Samba restart commit `2e6974211a9e3a487913076b84dfe89eb9817b0d` checker repair `6174c78a926da126139e2b4f08c455704f6e11f7`: exact Samba run `44173796606` SUCCESS. GNU89/-Werror/ASan/UBSan matrix and source contracts passed.
+- Syslogd/klogd source commit `222cbfba37ef2e4c17ae13bd9275ed648c6ab407`: exact Process run `44173365883` failed only at the Python checker because its source-boundary strings used literal `\\n` rather than newline escapes. This commit fixes both syslogd and klogd delimiters.
+- Exact main `6174c78` Process lifecycle fail-closed run `44173796903` was IN_PROGRESS at last poll. Other exact-head checks: NVRAM `44173796346` IN_PROGRESS; Samba `44173796606` SUCCESS; AliDDNS `44173796329`, AdGuardHome `44173796300`, AI docs `44173796266`, infosvr `44173796359`, AliyunDrive `44173796340` SUCCESS.
+- Exact parent `222cbf` XY-C1 `44173365858`, FRP async startup `44173365449`, SkipDBv2 `44173365808` were pending at last poll; Samba exact `2e697` XY-C1 `44172984821` pending. The earlier `92d95` rstats/LLTD XY-C1 `44169139392` completed Build/TRX/artifact successfully. Physical router L4 remains unverified.
+- DDNSTO `44166279131`, IPTV DHCP `44170820583`, HTTPD cross-workflow `44171043495`, Samba `44173796606`, and rstats/LLTD Process `44169139435`/XY `44169139392` are already green. Do not repeat these audits.
 
-## Active fix — syslogd/klogd launcher-only success
-- RC `start_syslogd()` supplies no `-n`; BusyBox `syslogd_main()` invokes `bb_daemonize_or_rexec()` before PID-file publication and `do_syslogd()`. `_eval(..., ppid=NULL)` waits for the short-lived launcher, not the detached logging child.
-- RC `start_klogd()` supplies no `-n`; BusyBox `klogd_main()` invokes `bb_daemonize_or_rexec()` before opening kernel log and entering its read loop. `eval()` similarly observes only the launcher.
-- THIS COMMIT preflights optional-daemon tri-state presence: a running daemon is idempotent success; UNKNOWN fails closed. Following launch it waits one second and probes four times at one-second intervals. Only RUNNING returns success; UNKNOWN returns failure with scan errno; absent child returns `ETIMEDOUT`; launcher errors are preserved.
-- Existing generic RUNNING/ABSENT/UNKNOWN policy tests are reused. The Process checker pins BusyBox daemonization and RC launch/preflight/poll order. Both Process workflow path filters now include the syslogd/klogd BusyBox sources.
-
-## Verification boundary
-- Parent `db362b5`: Process fail-closed `44171722700` PASS; NVRAM `44171722663` pending at last poll.
-- Parent `9be5d29`: HTTPD Security `44171043495` PASS; XY-C1 `44171043411` pending at last poll.
-- Exact-head Process and XY-C1 for THIS syslogd/klogd slice: PENDING. No local MIPS/uClibc build or router L4 result is claimed.
-
-## Exact first action for the next GPT
-1. Inspect exact-SHA Process lifecycle and XY-C1 for THIS slice; fix only first actual failures from their logs.
-2. Resolve outstanding `9be5d29` XY-C1 and `db362b5` NVRAM runs independently.
-3. Continue further evidenced P1 service startup/security gaps outside storage, DHCP deconfig, Networkmap, infosvr, Telnetd, rstats and LLTD. Preserve the frozen backup.
-
-## Concurrent CI repair — Samba WINS restart source contract
-
-- Source fix `2e6974211a9e3a487913076b84dfe89eb9817b0d` restores independently enabled WINS after a forced Samba restart even when Samba shares are disabled and storage is mounted.
-- Its exact Samba run `44172985076` reached the source-contract stage and failed only because the checker required the policy-helper call to appear on one line. The C GNU89/`-Werror`/ASan/UBSan test binaries all passed, including the new matrix.
-- Follow-up checker update normalizes whitespace in the extracted `restart_smbd()` body before comparing helper arguments. This is a checker-only repair; exact-head Samba rerun is pending.
-- The adjacent exact NFS lifecycle run `44172985066`, AI handoff `44172984806` and AdGuardHome `44172984782` passed; XY-C1 `44172984821` remained in progress at last observation.
-
+## Exact first action for next GPT
+1. Inspect exact-head Process run `44173796903` after the newline-boundary repair. Require the `start_syslogd`/`start_klogd` source contracts and remaining Process checks to pass; fix any actual first failure.
+2. Resolve current main `6174c78` NVRAM `44173796346` and prior source `222cbf` XY-C1 `44173365858`, FRP `44173365449`, SkipDBv2 `44173365808` individually.
+3. Continue an independent P1 service-startup / firewall reliability gap outside the completed Samba, syslogd/klogd, DDNSTO, IPTV DHCP, Networkmap, Telnetd, rstats/LLTD and storage slices.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

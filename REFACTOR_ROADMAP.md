@@ -1,13 +1,9 @@
-# 2026-11-18 latest source checkpoint
+# 2026-11-17 latest source checkpoint
 
-- Parent main SHA: `2e6974211a9e3a487913076b84dfe89eb9817b0d`; THIS COMMIT adds bounded post-launch child verification for BusyBox syslogd and klogd.
-- Both applets daemonize before log service; RC previously observed only the launcher. Existing tri-state postcondition policy tests are reused, while source contracts pin daemonization and startup-result order.
-- Parent `db362b5`: Process fail-closed `44171722700` PASS; NVRAM `44171722663` pending. Parent `9be5d29`: HTTPD Security `44171043495` PASS; XY-C1 `44171043411` still running at last poll.
-- Exact-head Process/XY-C1 for THIS commit: pending. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-
-- Concurrent Samba fix on ancestor `2e697421`: WINS restoration policy C tests PASS under GNU89/ASan/UBSan; exact run `44172985076` failed only its whitespace-sensitive source assertion. Checker now compares a whitespace-normalized call; rerun pending.
-
-Next: validate syslogd/klogd on exact SHA; finish pending parent checks; continue other proven P1 userland issues.
+- Current main before checker repair: `6174c78a926da126139e2b4f08c455704f6e11f7`; latest product fix is syslogd/klogd detached-child startup postcondition in `222cbfba37ef2e4c17ae13bd9275ed648c6ab407`, with Samba/WINS in ancestor `2e6974211a9e3a487913076b84dfe89eb9817b0d`.
+- Samba exact rerun `44173796606` on `6174c78`: SUCCESS. Syslogd/klogd Process run `44173365883` on `222cbf` failed its Python source extractor because function-boundary strings expected literal backslash-n; this slice fixes both. Exact current-head Process rerun `44173796903` pending.
+- Exact `6174c78`: NVRAM `44173796346` pending; AliDDNS `44173796329`, AdGuardHome `44173796300`, AI docs `44173796266`, infosvr `44173796359`, AliyunDrive `44173796340` pass. XY-C1/FRP/SkipDB checks on parent `222cbf` were pending at last observation.
+- rstats/LLTD XY-C1 `44169139392` SUCCESS (Build/TRX/artifact); DDNSTO, IPTV DHCP and HTTPD cross-contract tests already pass. Physical L4 unverified.
 
 ---
 

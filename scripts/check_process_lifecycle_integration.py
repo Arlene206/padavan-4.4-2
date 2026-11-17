@@ -2917,8 +2917,8 @@ assert '"trunk/user/rc/src/rc.h"' in xy_workflow
 print("IPv6 boot sysctl initialization status aggregation: PASS")
 
 # BusyBox syslogd/klogd detach before service operation; verify the child.
-syslogd_start = services_source.split("int\\nstart_syslogd(void)", 1)[1].split("\\n}", 1)[0]
-klogd_start = services_source.split("int\\nstart_klogd(void)", 1)[1].split("\\n}", 1)[0]
+syslogd_start = services_source.split("int\nstart_syslogd(void)", 1)[1].split("\n}", 1)[0]
+klogd_start = services_source.split("int\nstart_klogd(void)", 1)[1].split("\n}", 1)[0]
 
 assert 'start_status = optional_daemon_start_status("syslogd", "syslogd");' in syslogd_start
 assert "start_status = _eval(syslogd_argv, NULL, 0, NULL);" in syslogd_start
