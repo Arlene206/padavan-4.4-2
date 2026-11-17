@@ -1,17 +1,21 @@
-# 2026-11-17 continuation checkpoint — repair syslogd/klogd source-boundary checker
+# 2026-11-17 continuation checkpoint — propagate AP-client reconnect failures
 
 ## Current repository state
-- Current main parent for this checker correction: `6174c78a926da126139e2b4f08c455704f6e11f7`. Main-only full-tree commits use expected-SHA CAS and `force:false`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
-- WINS/Samba restart commit `2e6974211a9e3a487913076b84dfe89eb9817b0d` checker repair `6174c78a926da126139e2b4f08c455704f6e11f7`: exact Samba run `44173796606` SUCCESS. GNU89/-Werror/ASan/UBSan matrix and source contracts passed.
-- Syslogd/klogd source commit `222cbfba37ef2e4c17ae13bd9275ed648c6ab407`: exact Process run `44173365883` failed only at the Python checker because its source-boundary strings used literal `\\n` rather than newline escapes. This commit fixes both syslogd and klogd delimiters.
-- Exact main `6174c78` Process lifecycle fail-closed run `44173796903` was IN_PROGRESS at last poll. Other exact-head checks: NVRAM `44173796346` IN_PROGRESS; Samba `44173796606` SUCCESS; AliDDNS `44173796329`, AdGuardHome `44173796300`, AI docs `44173796266`, infosvr `44173796359`, AliyunDrive `44173796340` SUCCESS.
-- Exact parent `222cbf` XY-C1 `44173365858`, FRP async startup `44173365449`, SkipDBv2 `44173365808` were pending at last poll; Samba exact `2e697` XY-C1 `44172984821` pending. The earlier `92d95` rstats/LLTD XY-C1 `44169139392` completed Build/TRX/artifact successfully. Physical router L4 remains unverified.
-- DDNSTO `44166279131`, IPTV DHCP `44170820583`, HTTPD cross-workflow `44171043495`, Samba `44173796606`, and rstats/LLTD Process `44169139435`/XY `44169139392` are already green. Do not repeat these audits.
+- Parent main before this atomic source slice: `f4ab2110b1bfc17e6d2a1aa2f70352e2af2f5b31`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged/read-only. Main-only complete-tree commits, expected-SHA CAS, `force:false`.
+- Samba WINS restart fix `2e6974211a9e3a487913076b84dfe89eb9817b0d` + checker follow-up `6174c78a926da126139e2b4f08c455704f6e11f7`: exact Samba `44173796606` SUCCESS.
+- Syslogd/klogd detached-child startup fix `222cbfba37ef2e4c17ae13bd9275ed648c6ab407` + source-boundary checker follow-up `f4ab211`: exact Process fail-closed `44174094871` SUCCESS; NVRAM `44174094746`, infosvr `44174094855`, AI docs `44174094903`, AliDDNS `44174094743`, AdGuardHome `44174094915`, AliyunDrive `44174094822` also SUCCESS.
+- DDNSTO exact-head `44166279131`, IPTV DHCP fail-closed `44170820583`, HTTPD cross-workflow `44171043495`, rstats/LLTD Process `44169139435` and XY-C1 `44169139392` SUCCESS. These audits are closed.
+
+## Implemented P1 issue — AP-client reconnect command status was silently discarded
+- `reconnect_apcli()` previously returned `void` and ignored all `doSystem()` results for APCLI `ApCliAutoConnect` and forced `ApCliEnable=0/1`. In WISP mode the command controls the upstream AP association, but `start_wan()` could return success even if the driver command failed.
+- This slice changes the helper to return `int`, normalizes every raw `system()` wait status with existing `wireless_radio_restart_status()`, retains first error and still attempts the forced re-enable after a disable failure. Non-APCLI/down/irrelevant-mode no-op cases return success.
+- `start_wan()` folds APCLI failure into its existing first-error result and logs it; manual WISP reassociation logs failures. Regression extends existing GNU89 policy tests for encoded `system()` errors and sticky failure; workflow adds exact-source tests for all six driver calls and both callers, and triggers on `net_wan.c` changes.
+- Local host compile was not run in this connector-only environment; exact-head Wireless radio Actions are pending.
 
 ## Exact first action for next GPT
-1. Inspect exact-head Process run `44173796903` after the newline-boundary repair. Require the `start_syslogd`/`start_klogd` source contracts and remaining Process checks to pass; fix any actual first failure.
-2. Resolve current main `6174c78` NVRAM `44173796346` and prior source `222cbf` XY-C1 `44173365858`, FRP `44173365449`, SkipDBv2 `44173365808` individually.
-3. Continue an independent P1 service-startup / firewall reliability gap outside the completed Samba, syslogd/klogd, DDNSTO, IPTV DHCP, Networkmap, Telnetd, rstats/LLTD and storage slices.
+1. Inspect exact-head Wireless radio state workflow; require GNU89 wireless and bridge policy tests, ASan/UBSan guest-isolation test, guest isolation checker, and APCLI helper/caller source contracts all PASS. Diagnose any first failure from job logs.
+2. Continue another evidenced P1 service-startup or Firewall/NAT caller-status defect outside APCLI/WISP, Samba/WINS, syslogd/klogd, DDNSTO, IPTV DHCP, Networkmap, Telnetd, rstats/LLTD and completed storage/service audits.
+3. Preserve the frozen backup and use complete-tree expected-SHA non-forced main updates. Physical router L4 remains unverified.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

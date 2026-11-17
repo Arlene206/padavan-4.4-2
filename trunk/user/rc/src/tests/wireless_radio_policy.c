@@ -77,6 +77,31 @@ test_restart_failure_wait_status_is_normalized_and_sticky(void)
 	       wireless_radio_restart_status(-EACCES, 256) != -EACCES;
 }
 
+static int
+test_apcli_autoconnect_failure_is_reported(void)
+{
+	int status = 0;
+
+	status = wireless_radio_restart_status(status, 0);
+	status = wireless_radio_restart_status(status, 256);
+	if (status != -EIO)
+		return 1;
+
+	/* A later successful command must not erase the first failure. */
+	status = wireless_radio_restart_status(status, 0);
+	return status != -EIO;
+}
+
+static int
+test_apcli_forced_reenable_failure_is_reported(void)
+{
+	int status = 0;
+
+	status = wireless_radio_restart_status(status, 0);
+	status = wireless_radio_restart_status(status, -1);
+	return status != -EIO;
+}
+
 int
 main(void)
 {
@@ -86,7 +111,9 @@ main(void)
 	    test_incomplete_shutdown_is_reported() ||
 	    test_startup_failure_is_sticky() ||
 	    test_incomplete_startup_is_reported() ||
-	    test_restart_failure_wait_status_is_normalized_and_sticky()) {
+	    test_restart_failure_wait_status_is_normalized_and_sticky() ||
+	    test_apcli_autoconnect_failure_is_reported() ||
+	    test_apcli_forced_reenable_failure_is_reported()) {
 		fprintf(stderr, "Wireless interface status policy: FAIL\n");
 		return 1;
 	}

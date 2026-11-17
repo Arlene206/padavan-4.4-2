@@ -1,9 +1,9 @@
 # 2026-11-17 latest source checkpoint
 
-- Current main before checker repair: `6174c78a926da126139e2b4f08c455704f6e11f7`; latest product fix is syslogd/klogd detached-child startup postcondition in `222cbfba37ef2e4c17ae13bd9275ed648c6ab407`, with Samba/WINS in ancestor `2e6974211a9e3a487913076b84dfe89eb9817b0d`.
-- Samba exact rerun `44173796606` on `6174c78`: SUCCESS. Syslogd/klogd Process run `44173365883` on `222cbf` failed its Python source extractor because function-boundary strings expected literal backslash-n; this slice fixes both. Exact current-head Process rerun `44173796903` pending.
-- Exact `6174c78`: NVRAM `44173796346` pending; AliDDNS `44173796329`, AdGuardHome `44173796300`, AI docs `44173796266`, infosvr `44173796359`, AliyunDrive `44173796340` pass. XY-C1/FRP/SkipDB checks on parent `222cbf` were pending at last observation.
-- rstats/LLTD XY-C1 `44169139392` SUCCESS (Build/TRX/artifact); DDNSTO, IPTV DHCP and HTTPD cross-contract tests already pass. Physical L4 unverified.
+- Parent main before current APCLI source slice: `f4ab2110b1bfc17e6d2a1aa2f70352e2af2f5b31`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- P1 call-site fix: `reconnect_apcli()` now returns normalized status for every APCLI `iwpriv` call; `start_wan()` aggregates the failure and manual WISP reassociation logs it. GNU89 status regression and exact-source path checks pending.
+- Samba `44173796606`, Process syslogd/klogd `44174094871`, NVRAM `44174094746`, infosvr `44174094855`, AI docs `44174094903`, AliDDNS `44174094743`, AdGuardHome `44174094915`, AliyunDrive `44174094822` all SUCCESS on their exact noted SHAs.
+- Already verified: DDNSTO `44166279131`, IPTV DHCP `44170820583`, HTTPD cross-contract `44171043495`, rstats/LLTD Process `44169139435` and XY-C1 `44169139392`. Physical router L4 unverified.
 
 ---
 
@@ -66,6 +66,7 @@
 
    - Current integration repair: exact-head `01bc69f3` exposed five stale CI/source-contract gates (WAN compile include, handoff checkpoint sections, MiniUPnPd/HTTPD PPP rollback assertions). Correct those tests against the checked return-value implementation; do not regress source behavior to satisfy obsolete expectations.
 2. **P1 — Continue broad RC startup-result propagation.** Find remaining enabled service launch/module-load paths whose failures are discarded by `void` helpers or callers. Fix concrete defects with tests; cover service callers, not just helper return types.
+   - APCLI/WISP callsite coverage in the latest source slice: `reconnect_apcli()` exposes `iwpriv` failures; `start_wan()` aggregates them and manual reassociation logs them. Exact Wireless radio Actions pending.
 
    - Completed slice in THIS COMMIT: `wan_up_internal()` now preserves configured Inadyn start/reload failures from `notify_ddns_update()`; DDNS-disabled and AP-mode notifier calls are explicitly successful no-ops, with policy and WAN-caller regression coverage. Continue with other dropped WAN-up optional-launch results.
 

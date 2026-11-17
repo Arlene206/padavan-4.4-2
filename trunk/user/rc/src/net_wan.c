@@ -1760,8 +1760,14 @@ start_wan(void)
 			continue;
 		}
 		
-		/* perform ApCli reconnect */
-		reconnect_apcli(wan_ifname, 0);
+		/* Perform AP-client reconnect and retain driver command failures. */
+		vlan_result = reconnect_apcli(wan_ifname, 0);
+		if (vlan_result != 0) {
+			wan_start_status = rc_first_service_start_status(
+				wan_start_status, vlan_result);
+			logmessage(LOGNAME, "WAN AP-client reconnect incomplete on %s (status=%d)",
+				   wan_ifname, vlan_result);
+		}
 		
 #if defined (USE_USB_SUPPORT)
 		if (get_usb_modem_wan(unit))
@@ -3093,13 +3099,17 @@ void
 manual_wisp_reassoc(void)
 {
 	char *wisp_ifname = get_apcli_wisp_ifname();
+	int reconnect_status;
 
 	if (!wisp_ifname)
 		return;
 
 	logmessage(LOGNAME, "Perform WISP %s %s", "manual", "reassoc");
 
-	reconnect_apcli(wisp_ifname, 1);
+	reconnect_status = reconnect_apcli(wisp_ifname, 1);
+	if (reconnect_status != 0)
+		logmessage(LOGNAME, "manual WISP reassociation failed on %s (status=%d)",
+			   wisp_ifname, reconnect_status);
 }
 
 int

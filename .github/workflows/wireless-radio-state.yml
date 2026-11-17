@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "scripts/check_guest_lan_isolation_status.py"
       - "trunk/user/rc/src/wireless_guest_isolation_policy.h"
@@ -78,6 +79,32 @@ jobs:
               raise AssertionError(f"unterminated function: {signature}")
 
           assert '#include "wireless_radio_policy.h"' in source
+          header = (rc / "rc.h").read_text()
+          wan_source = (rc / "net_wan.c").read_text()
+
+          reconnect = function_body(source, "reconnect_apcli(const char *ifname_apcli, int force)")
+          assert "int status = 0;" in reconnect
+          assert "return status;" in reconnect
+          assert reconnect.count("doSystem(") == reconnect.count("wireless_radio_restart_status(status,")
+          assert reconnect.count("ApCliAutoConnect") == 4
+          assert reconnect.count("ApCliEnable") == 2
+          disable_pos = reconnect.index('"ApCliEnable", 0')
+          wait_pos = reconnect.index("usleep(300000);", disable_pos)
+          enable_pos = reconnect.index('"ApCliEnable", 1', wait_pos)
+          assert disable_pos < wait_pos < enable_pos
+          assert "AP-client reconnect command failed" in reconnect
+          assert "int reconnect_apcli(const char *ifname_apcli, int force);" in header
+
+          wan_start = function_body(wan_source, "start_wan(void)")
+          reconnect_call = wan_start.index("vlan_result = reconnect_apcli(wan_ifname, 0);")
+          reconnect_result = wan_start.index("wan_start_status = rc_first_service_start_status(", reconnect_call)
+          reconnect_log = wan_start.index("WAN AP-client reconnect incomplete", reconnect_call)
+          assert reconnect_call < reconnect_result < reconnect_log
+
+          manual_reassoc = function_body(wan_source, "manual_wisp_reassoc(void)")
+          assert "reconnect_status = reconnect_apcli(wisp_ifname, 1);" in manual_reassoc
+          assert "if (reconnect_status != 0)" in manual_reassoc
+          assert "manual WISP reassociation failed" in manual_reassoc
 
           wl = function_body(source, "mlme_radio_wl_apply(int is_on)")
           assert "if (!wifname)" in wl

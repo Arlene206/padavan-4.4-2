@@ -467,7 +467,7 @@ int start_wifi_wds_wl(int radio_on);
 int start_wifi_wds_rt(int radio_on);
 int start_wifi_apcli_wl(int radio_on);
 int start_wifi_apcli_rt(int radio_on);
-void reconnect_apcli(const char *ifname_apcli, int force);
+int reconnect_apcli(const char *ifname_apcli, int force);
 int  is_need_8021x(char *auth_mode);
 int start_8021x_wl(void);
 int start_8021x_rt(void);

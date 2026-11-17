@@ -1,3 +1,10 @@
+## 2026-11-17 — Propagate AP-client reconnect driver failures into WAN startup
+
+- `reconnect_apcli()` in `net_wifi.c` was `void` and discarded all `doSystem()` results for APCLI `ApCliAutoConnect` and forced `ApCliEnable=0/1`. Failed driver commands could leave WISP unassociated while `start_wan()` still returned success.
+- Return normalized status using `wireless_radio_restart_status()`; retain the first failure while still attempting forced re-enable after disable error. `start_wan()` aggregates the error and continues other WAN setup; manual WISP reassociation logs nonzero status. No-op cases remain successful.
+- Extend GNU89 wireless policy regression and exact source contract across `net_wifi.c`, `rc.h`, and `net_wan.c`; path filters now cover the WAN caller. Exact-head Wireless radio Actions pending; local host compile not available in this runtime.
+- Preceding verifications: Samba `44173796606`, Process `44174094871`, NVRAM `44174094746`, infosvr `44174094855`, AI docs `44174094903`, AliDDNS `44174094743`, AdGuardHome `44174094915`, AliyunDrive `44174094822` PASS.
+
 ## 2026-11-17 — Correct Process lifecycle syslogd/klogd source-boundary escapes
 
 - Process exact `222cbfba37ef2e4c17ae13bd9275ed648c6ab407` run `44173365883` reached the syslogd/klogd source-contract section after prior C/RC integration checks passed. Its Python checker split on `"int\\\\nstart_syslogd(void)"` and `"\\\\n}"`, which searched literal backslash-n rather than C newlines, causing `IndexError`.

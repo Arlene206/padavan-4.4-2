@@ -1121,10 +1121,14 @@ start_wifi_apcli_rt(int radio_on)
 	return wireless_radio_startup_result(all_started);
 }
 
-void
+int
 reconnect_apcli(const char *ifname_apcli, int force)
 {
 	int is_aband, i_mode_x;
+	int status = 0;
+
+	if (!ifname_apcli)
+		return 0;
 
 	if (strcmp(ifname_apcli, IFNAME_2G_APCLI) == 0)
 		is_aband = 0;
@@ -1133,39 +1137,50 @@ reconnect_apcli(const char *ifname_apcli, int force)
 		is_aband = 1;
 #endif
 	else
-		return;
+		return 0;
 
 	if (!is_interface_up(ifname_apcli))
-		return;
+		return 0;
 
 	i_mode_x = nvram_wlan_get_int(is_aband, "mode_x");
 	if (i_mode_x != 3 && i_mode_x != 4)
-		return;
+		return 0;
 
 	if (get_apcli_sta_auto(is_aband)) {
 		if (is_aband) {
 #if defined (USE_WID_5G) && (USE_WID_5G==7615 || USE_WID_5G==7915)
-			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3);
+			status = wireless_radio_restart_status(status,
+				doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3));
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 3");
 #else
-			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1);
+			status = wireless_radio_restart_status(status,
+				doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1));
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 1");
 #endif
 		} else {
 #if defined (USE_WID_2G) && (USE_WID_2G==7615 || USE_WID_2G==7915)
-			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3);
+			status = wireless_radio_restart_status(status,
+				doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 3));
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 3");
 #else
-			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1);
+			status = wireless_radio_restart_status(status,
+				doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect", 1));
 			logmessage(LOGNAME, "Set ApCliAutoConnect to 1");
 #endif
 		}
-		
 	} else if (force) {
-		doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliEnable", 0);
+		/* Re-enable even if disable failed; retain the first command error. */
+		status = wireless_radio_restart_status(status,
+			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliEnable", 0));
 		usleep(300000);
-		doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliEnable", 1);
+		status = wireless_radio_restart_status(status,
+			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliEnable", 1));
 	}
+
+	if (status != 0)
+		logmessage(LOGNAME, "AP-client reconnect command failed on %s (status=%d)",
+			   ifname_apcli, status);
+	return status;
 }
 
 int
