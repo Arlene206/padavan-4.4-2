@@ -1,3 +1,12 @@
+## 2026-11-17 — Align watchdog boot source contract with tri-state probing
+
+- Exact-head Process lifecycle run `44000632768` on `aeddc15730e1a23419b1516ed88c330e148ac883` completed the watchdog policy regression and preceding integration checks, then failed because a legacy source assertion still searched for `if (!is_module_loaded("rt_timer_wdg"))`.
+- Production boot startup intentionally uses `is_module_loaded_status()` so UNKNOWN probe errors are not converted into ABSENT. Replaced the stale Boolean assertion with checks for strict probe ordering, UNKNOWN propagation and known-absent handling, and asserted the tri-state helper contract. Checker/docs-only; no firmware C source changed.
+- Exact-head AI handoff run `44000632603` PASS. XY-C1 run `44000632827` on production source `aeddc157` had passed the watchdog policy regression and was still building; final Build/TRX/artifact status must be confirmed.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Preserve UNKNOWN CPU-watchdog module probe state
 
 - Base main SHA: `6697ca6020b261725655e12c3e5a5252ffb0e9c6`; result: THIS COMMIT.

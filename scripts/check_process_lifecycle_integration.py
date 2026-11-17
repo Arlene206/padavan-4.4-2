@@ -994,11 +994,16 @@ assert "if (is_module_loaded(module_name))" in module_load_start
 assert "return 0;" in module_load_start
 assert "return (ret == 0) ? 1 : 0;" in module_load_start
 assert watchdog_start.index('module_smart_load("rt_timer_wdg", NULL)') < watchdog_start.index(
-    'if (!is_module_loaded("rt_timer_wdg"))'
+    'module_status = is_module_loaded_status("rt_timer_wdg")'
 )
 assert "if (!module_smart_load(" not in watchdog_start
+assert "if (module_status < 0)" in watchdog_start
+assert "return probe_error;" in watchdog_start
+assert "if (module_status != 1)" in watchdog_start
 assert "CPU watchdog module startup failed" in watchdog_start
 assert "return EIO;" in watchdog_start and "return 0;" in watchdog_start
+assert "is_module_loaded_status(const char *module_name)" in common_source
+assert "return is_module_loaded_status(module_name) > 0;" in common_source
 assert "rc_first_service_start_status(start_status, start_watchdog_cpu())" in boot_services
 assert start_8021x_rt.index('start_status = eval("rtinicapd"') < start_8021x_rt.index(
     '802.1X 2.4GHz authenticator launch failed'
