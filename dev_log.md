@@ -1,3 +1,10 @@
+## 2026-11-18 04:25 CST — Clear stale IPTV DHCP address on lease deconfig
+
+- Exact 6b5f5514f412e9a9ba173cc2148b5945ea082df3 DDNSTO 44166279131 passed shell syntax, full lifecycle regression and Python source contract. Process 44166279162, Process inventory 44166279188, AliDDNS 44166279025, AI docs 44166279079, AdGuardHome 44166279220, NVRAM 44166278930, infosvr 44166279207, and AliyunDrive 44166279170 also passed.
+- Found an IPTV DHCP deconfig defect: BusyBox invokes the script for NAK with an active lease, lease expiry and explicit release, but udhcpc_viptv_main(deconfig) called only manv_route_deconfig(). Routes/gateway state were removed without clearing the interface address or manv_ipaddr.
+- Implement failure-aware clear-address → route-removal transaction. Restore the previous address if either step fails; publish manv_ipaddr=0.0.0.0 only after both succeed; then stop igmpproxy and propagate its status. Extend dhcp_lease_policy.h, GNU89 fault-injection tests and WAN-DHCP workflow source assertions. BusyBox deconfig retry behavior is unchanged.
+- Local host compile/run was NOT performed. Exact-head WAN-DHCP callback policy/source contract and XY-C1 are pending after this commit.
+
 ## 2026-11-18 04:05 CST — Make the DDNSTO UNKNOWN-startup regression deterministic
 
 - Exact-head DDNSTO push run `44163173235` on `34c02687139afc6db6484c2eb888cca2f8f01612` passed shell syntax, then failed at `UNKNOWN startup inventory was incorrectly retried`; the semantic source-contract step was skipped. The background mock could update its state after the first post-launch `pidof`, allowing a legitimate ABSENT observation to cause a retry before UNKNOWN was published.

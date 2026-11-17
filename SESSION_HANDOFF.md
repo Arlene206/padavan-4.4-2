@@ -1,27 +1,23 @@
-# 2026-11-18 continuation checkpoint — make DDNSTO UNKNOWN-startup regression deterministic
+# 2026-11-18 continuation checkpoint — clear stale IPTV DHCP address on deconfig
 
 ## Current repository state
-- Live parent `main` SHA: `b00ff4908ca3d3d45964c983fe974c359f95f5de`. Latest product-source baseline is `989409e1a02a92ea5018f3550d52d75c33b028f8` (BusyBox Telnetd detached-child startup postcondition); `b00ff490` is its Process checker-only follow-up.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and read-only. Develop only on `main`.
-- Exact `b00ff4908ca3d3d45964c983fe974c359f95f5de` Process lifecycle regression `44165568972`, AliDDNS `44165568791`, infosvr `44165568767`, AdGuardHome `44165569096`, and AI handoff `44165568764`: SUCCESS. NVRAM `44165568763` and AliyunDrive `44165569031` were IN_PROGRESS at last observation.
-- The new Telnetd source slice's exact `989409e` Process checker repair passes on `b00ff4908ca3d3d45964c983fe974c359f95f5de`; parent USB storage `44164998300` and NVRAM `44164998225` are SUCCESS. XY-C1 `44164998281` for the Telnetd source baseline was IN_PROGRESS at last observation.
-- Networkmap's detached-child startup implementation passed its exact-head regression on `34c0268`; XY-C1 run `44163173638` for that source SHA completed Build XY-C1, TRX verification and artifact upload successfully. That does not include the later Telnetd source change.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA before this atomic slice: 6b5f5514f412e9a9ba173cc2148b5945ea082df3.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807, unchanged and read-only. Develop on main only; no force push.
+- Exact-head DDNSTO run 44166279131 on 6b5f5514f412e9a9ba173cc2148b5945ea082df3 PASSED shell syntax, the full lifecycle regression, and Python lifecycle/RC integration contracts. The asynchronous UNKNOWN-fixture race is fixed; do not repeat its audit.
+- Exact 6b5f5514f412e9a9ba173cc2148b5945ea082df3 Process fail-closed run 44166279162, Process inventory 44166279188, AliDDNS 44166279025, AI docs 44166279079, AdGuardHome 44166279220, NVRAM 44166278930, infosvr 44166279207, AliyunDrive 44166279170: SUCCESS.
+- Telnetd product-source baseline 989409e1a02a92ea5018f3550d52d75c33b028f8 XY-C1 run 44164998281 was IN_PROGRESS at last observation. Parent 6b5f5514f412e9a9ba173cc2148b5945ea082df3 adds no firmware product source. Networkmap source 34c0268 has exact Build/TRX/artifact success 44163173638. Physical router L4 remains NOT VERIFIED.
 
-## Active task — DDNSTO startup UNKNOWN regression fixture (test-only)
-- Exact-head DDNSTO run `44163173235` on `34c02687139afc6db6484c2eb888cca2f8f01612` failed in `trunk/user/ddnsto/tests/ddnsto_lifecycle.sh` after shell syntax passed: `UNKNOWN startup inventory was incorrectly retried`. The semantic checker was skipped.
-- Root cause is a test race: the mocked daemon is launched asynchronously and writes `error` to fixture state after scheduling; the first post-launch `pidof` can observe the old `stopped` state (confirmed ABSENT), which production `ddnsto_wait_started()` must retry. This was not evidence that production retries UNKNOWN.
-- This slice makes the fixture deterministic: its pre-launch inventory returns ABSENT, while the first post-launch inventory is forced to UNKNOWN by a per-test call-count gate. A bounded test-only wait observes the mock's state publication. No production source changes.
+## Implemented issue — IPTV DHCP deconfig stale-address leak
+- Before this slice, udhcpc_viptv_main(..., deconfig) called only manv_route_deconfig(): routes and gateway metadata could be removed while the negotiated IPv4 address stayed configured on the interface and manv_ipaddr remained stale.
+- BusyBox invokes this callback for a DHCP NAK with an active lease, lease-expiry cleanup, and explicit release. BusyBox retries nonzero deconfig callbacks through DECONFIG_PENDING; the old route-only IPTV callback was incomplete.
+- This slice routes DHCP IPTV deconfig through a tested transaction: clear interface address, remove DHCP/default route inventory, then publish manv_ipaddr=0.0.0.0. If address clear or route deletion fails, restore the previous valid address and preserve lease identity for BusyBox's retry. After successful address/route teardown it stops igmpproxy and propagates its status. ZeroConf IPTV deconfig remains a separate callback.
+- Regression policy covers success order, clear failure, route failure, restore failure and suppression of premature empty-state publication. The existing WAN-DHCP Actions workflow adds exact-source assertions for callback wiring and ordering.
+- Local host compile/run was NOT performed in this runtime; exact-head Actions are pending.
 
-## Verification boundary
-- Exact `34c0268` DDNSTO run `44163173235`: FAILED at the asynchronous fixture assertion; shell syntax passed; Python source contract did not run.
-- Exact `34c0268` Networkmap `44163174212`, Process inventory `44163173313`, Process lifecycle `44163176396`, AI handoff `44163173533`, USB storage `44163176401`, HTTPD security `44163176352`: SUCCESS. XY-C1 `44163173638`: Build XY-C1, TRX verification and artifact upload SUCCESS.
-- Exact `b00ff4908ca3d3d45964c983fe974c359f95f5de` Process lifecycle `44165568972`, infosvr `44165568767`, AliDDNS `44165568791`, AdGuardHome `44165569096`, AI handoff `44165568764`: SUCCESS; NVRAM `44165568763` and AliyunDrive `44165569031` were pending at the last check.
-- XY-C1 `44164998281` for the Telnetd product-source baseline `989409e` remained IN_PROGRESS at the last check. No current-source L3 for `989409e` is claimed until Build/TRX/artifact stages complete. Physical router L4 remains NOT VERIFIED.
-
-## Exact first action for the next GPT
-1. Inspect the exact-head push-triggered DDNSTO lifecycle run after this fixture repair. Require shell syntax, full lifecycle regression and `scripts/check_ddnsto_lifecycle.py` all PASS; diagnose the actual first failure if not.
-2. Resolve XY-C1 `44164998281` for exact product-source `989409e` and check whether NVRAM `44165568763` and AliyunDrive `44165569031` on `b00ff4908ca3d3d45964c983fe974c359f95f5de` have completed.
-3. Continue the next independent P1 task from the roadmap (DHCP leasefail/NAK/release state transitions or firewall/NAT caller-status propagation); do not repeat completed storage, infosvr or networkmap audits. Preserve the frozen backup and commit atomically to main only.
+## Exact first action for next GPT
+1. Inspect exact-head WAN DHCP callback policy/source-contract run for this commit. Require GNU89 ASan/UBSan policy tests and all Python callback contracts to pass; diagnose any failure against the transaction semantics.
+2. Check XY-C1 44164998281 for Telnetd product source 989409e; keep product source SHA distinct from docs/test-only descendants.
+3. Continue remaining DHCP leasefail behavior and WAN/firewall first-error propagation only after this IPTV deconfig slice is green. Do not repeat DDNSTO, Networkmap, Telnetd, infosvr or completed process/storage audits. Keep backup immutable.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

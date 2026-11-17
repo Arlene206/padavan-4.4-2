@@ -95,12 +95,71 @@ static const struct dhcp_lease_bound_ops dhcp_bound_fake_ops = {
 	dhcp_bound_fake_publish
 };
 
+
+struct dhcp_viptv_deconfig_fake {
+	int clear_status;
+	int route_status;
+	int restore_status;
+	int published;
+	char events[16];
+	size_t event_count;
+};
+
+static void
+dhcp_viptv_deconfig_event(struct dhcp_viptv_deconfig_fake *fake, char event)
+{
+	if (fake->event_count + 1 < sizeof(fake->events)) {
+		fake->events[fake->event_count++] = event;
+		fake->events[fake->event_count] = 0;
+	}
+}
+
+static int
+dhcp_viptv_deconfig_clear(void *context)
+{
+	struct dhcp_viptv_deconfig_fake *fake = (struct dhcp_viptv_deconfig_fake *)context;
+	dhcp_viptv_deconfig_event(fake, 'C');
+	return fake->clear_status;
+}
+
+static int
+dhcp_viptv_deconfig_routes(void *context)
+{
+	struct dhcp_viptv_deconfig_fake *fake = (struct dhcp_viptv_deconfig_fake *)context;
+	dhcp_viptv_deconfig_event(fake, 'R');
+	return fake->route_status;
+}
+
+static int
+dhcp_viptv_deconfig_restore(void *context)
+{
+	struct dhcp_viptv_deconfig_fake *fake = (struct dhcp_viptv_deconfig_fake *)context;
+	dhcp_viptv_deconfig_event(fake, 'A');
+	return fake->restore_status;
+}
+
+static void
+dhcp_viptv_deconfig_publish(void *context)
+{
+	struct dhcp_viptv_deconfig_fake *fake = (struct dhcp_viptv_deconfig_fake *)context;
+	fake->published++;
+	dhcp_viptv_deconfig_event(fake, 'P');
+}
+
+static const struct dhcp_lease_viptv_deconfig_ops dhcp_viptv_deconfig_fake_ops = {
+	dhcp_viptv_deconfig_clear,
+	dhcp_viptv_deconfig_routes,
+	dhcp_viptv_deconfig_restore,
+	dhcp_viptv_deconfig_publish
+};
+
 int
 main(void)
 {
 	char first[INET_ADDRSTRLEN];
 	unsigned int number = 0;
 	struct dhcp_bound_fake fake;
+	struct dhcp_viptv_deconfig_fake viptv_fake;
 	int rollback_status, transaction_status;
 
 	assert(dhcp_lease_ipv4_is_valid("192.0.2.1"));
@@ -287,6 +346,48 @@ main(void)
 		0, 0, 1, &dhcp_bound_fake_ops, &fake, &rollback_status);
 	assert(transaction_status == 0 && rollback_status == 0);
 	assert(strcmp(fake.events, "aP") == 0);
+
+
+	memset(&viptv_fake, 0, sizeof(viptv_fake));
+	transaction_status = dhcp_lease_viptv_deconfig_apply(
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
+	assert(transaction_status == 0 && rollback_status == 0);
+	assert(strcmp(viptv_fake.events, "CRP") == 0);
+	assert(viptv_fake.published == 1);
+
+	memset(&viptv_fake, 0, sizeof(viptv_fake));
+	viptv_fake.clear_status = EIO;
+	transaction_status = dhcp_lease_viptv_deconfig_apply(
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
+	assert(transaction_status == EIO && rollback_status == 0);
+	assert(strcmp(viptv_fake.events, "CA") == 0);
+	assert(viptv_fake.published == 0);
+
+	memset(&viptv_fake, 0, sizeof(viptv_fake));
+	viptv_fake.clear_status = EIO;
+	viptv_fake.restore_status = ENOSPC;
+	transaction_status = dhcp_lease_viptv_deconfig_apply(
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
+	assert(transaction_status == EIO && rollback_status == ENOSPC);
+	assert(strcmp(viptv_fake.events, "CA") == 0);
+	assert(viptv_fake.published == 0);
+
+	memset(&viptv_fake, 0, sizeof(viptv_fake));
+	viptv_fake.route_status = EIO;
+	transaction_status = dhcp_lease_viptv_deconfig_apply(
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
+	assert(transaction_status == EIO && rollback_status == 0);
+	assert(strcmp(viptv_fake.events, "CRA") == 0);
+	assert(viptv_fake.published == 0);
+
+	memset(&viptv_fake, 0, sizeof(viptv_fake));
+	viptv_fake.route_status = EIO;
+	viptv_fake.restore_status = EBUSY;
+	transaction_status = dhcp_lease_viptv_deconfig_apply(
+		&dhcp_viptv_deconfig_fake_ops, &viptv_fake, &rollback_status);
+	assert(transaction_status == EIO && rollback_status == EBUSY);
+	assert(strcmp(viptv_fake.events, "CRA") == 0);
+	assert(viptv_fake.published == 0);
 
 	puts("DHCP lease input policy regression: OK");
 	return 0;

@@ -225,6 +225,7 @@ jobs:
               "zcip_bound",
               "zcip_viptv_bound",
               "manv_route_deconfig",
+              "udhcpc_viptv_deconfig",
               "zcip_viptv_deconfig",
           ):
               signature = "static int" + chr(10) + name + "("
@@ -340,7 +341,24 @@ jobs:
           assert viptv_deconfig.index("if (!dhcp_lease_route_delete_is_ok(route_result))") < viptv_deconfig.index("route_status = route_status_accumulate(route_status, route_result);", viptv_deconfig.index("route_result = route_del(man_ifname, 10"))
           assert viptv_deconfig.index("if (route_status == 0)") < viptv_deconfig.index('nvram_set_temp("manv_gateway", "")')
           assert "preserving route inventory" in viptv_deconfig
-          assert 'ret = manv_route_deconfig(man_ifname)' in body(source, "udhcpc_viptv_main(int argc, char **argv)")
+          viptv_dhcp_deconfig = body(source, "udhcpc_viptv_deconfig(char *man_ifname)")
+          assert 'snprintf(context.old_ip, sizeof(context.old_ip), "%s", nvram_safe_get("manv_ipaddr"))' in viptv_dhcp_deconfig
+          assert 'snprintf(context.old_netmask, sizeof(context.old_netmask), "%s", nvram_safe_get("manv_netmask"))' in viptv_dhcp_deconfig
+          assert "dhcp_lease_viptv_deconfig_apply(&ops, &context," in viptv_dhcp_deconfig
+          assert "preserving lease identity" in viptv_dhcp_deconfig
+          assert viptv_dhcp_deconfig.index("dhcp_lease_viptv_deconfig_apply(") < viptv_dhcp_deconfig.index("stop_igmpproxy(man_ifname)")
+          clear_address = body(source, "udhcpc_viptv_deconfig_clear_address(void *opaque)")
+          delete_routes = body(source, "udhcpc_viptv_deconfig_delete_routes(void *opaque)")
+          restore_address = body(source, "udhcpc_viptv_deconfig_restore_address(void *opaque)")
+          publish_address = body(source, "udhcpc_viptv_deconfig_publish_empty_address(void *opaque)")
+          assert 'ifconfig(context->ifname, IFUP, "0.0.0.0", NULL)' in clear_address
+          assert "return manv_route_deconfig(context->ifname);" in delete_routes
+          assert "dhcp_lease_ipv4_is_valid(context->old_ip)" in restore_address
+          assert "ifconfig(context->ifname, IFUP," in restore_address
+          assert 'nvram_set_temp("manv_ipaddr", "0.0.0.0")' in publish_address
+          viptv_main = body(source, "udhcpc_viptv_main(int argc, char **argv)")
+          assert "ret = udhcpc_viptv_deconfig(man_ifname)" in viptv_main
+          assert "ret = manv_route_deconfig(man_ifname)" not in viptv_main
 
           man_down = body(source, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           state_gate = man_down.index("if (status == 0)")

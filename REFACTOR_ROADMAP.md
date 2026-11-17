@@ -1,11 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main at slice parent: `b00ff4908ca3d3d45964c983fe974c359f95f5de`; current product-source baseline: Telnetd detached-child postcondition in `989409e1a02a92ea5018f3550d52d75c33b028f8`; `b00ff490` repairs the Process checker output marker only.
-- Exact `b00ff4908ca3d3d45964c983fe974c359f95f5de` Process lifecycle `44165568972`, infosvr `44165568767`, AliDDNS `44165568791`, AdGuardHome `44165569096`, AI docs `44165568764`: SUCCESS. NVRAM `44165568763` and AliyunDrive `44165569031` remained IN_PROGRESS at last observation.
-- Telnetd source baseline `989409e`: Process umbrella follow-up on `b00ff4908ca3d3d45964c983fe974c359f95f5de` SUCCESS; USB storage `44164998300` and NVRAM `44164998225` SUCCESS; XY-C1 `44164998281` remained IN_PROGRESS. Do not claim current-source L3 yet.
-- Networkmap startup regression on `34c0268` passed; XY-C1 `44163173638` completed Build/TRX/artifact SUCCESS for that earlier source SHA.
-- DDNSTO exact-head run `44163173235` on `34c0268` failed only in its async UNKNOWN-startup fixture after shell syntax; production helper correctly distinguishes ABSENT (retry) from UNKNOWN (abort). THIS COMMIT makes the mock sequence deterministic; exact-head DDNSTO lifecycle + checker rerun pending.
-- Next: verify DDNSTO; resolve Telnetd exact-source XY-C1 and current NVRAM/AliyunDrive pending runs; continue DHCP leasefail/NAK/release or firewall/NAT status propagation.
+- Parent main SHA before current atomic slice: 6b5f5514f412e9a9ba173cc2148b5945ea082df3; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact parent 6b5f5514f412e9a9ba173cc2148b5945ea082df3 DDNSTO lifecycle 44166279131, Process fail-closed 44166279162, Process inventory 44166279188, AliDDNS 44166279025, AI docs 44166279079, AdGuardHome 44166279220, NVRAM 44166278930, infosvr 44166279207, AliyunDrive 44166279170: SUCCESS. DDNSTO's deterministic UNKNOWN-after-launch test passed full lifecycle and semantic contracts.
+- This slice repairs IPTV DHCP deconfig: previous udhcpc_viptv_main deconfig removed routes only, leaving the old IPv4 address configured and manv_ipaddr stale. New tested transaction clears address, removes route inventory, publishes empty lease identity only after both succeed, restores the prior address on either failure, then stops igmpproxy. Exact-source GNU89/ASan/UBSan and callback workflow contracts pending.
+- Telnetd exact product-source XY-C1 44164998281 for 989409e was IN_PROGRESS at last observation; Networkmap source 34c0268 exact Build/TRX/artifact 44163173638 PASSED. Physical router L4 is unverified.
+- Next: verify current IPTV DHCP slice, then continue DHCP leasefail/retry semantics and WAN/firewall first-error propagation. Do not repeat green subsystem audits.
 
 ---
 
