@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `d3be26d0590ae05c20422db624d23868809c67b7`.
+- Current main: THIS COMMIT; parent `56fb66fb68ed46bd8389c2dbdd4009243023f52c`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,15 +31,16 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify THIS COMMIT's wireless radio regression (updated for the guest-control fail-closed goto), Process guest-isolation integration and exact-head XY-C1 Build → TRX → artifact.
-2. Continue the guest Wi-Fi security slice: fail closed and roll back guest AP activation if bridge membership, multicast configuration or isolation enforcement fails. Preserve already-up interfaces and account for RT3352 MII/iNIC bridge topology. Do not repeat status propagation.
-3. Work only on main; preserve frozen backup backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; one complete tree/commit and non-forced expected-SHA update per logical task.
+1. Verify THIS COMMIT's HTTPD security workflow compatibility assertion, wireless-radio guest failure gate regression, Process guest-isolation suite and XY-C1 Build → TRX → artifact.
+2. Continue the guest Wi-Fi security slice: fail closed and roll back guest AP activation if bridge membership, multicast configuration or isolation enforcement fails. Preserve already-up interfaces and account for RT3352 MII/iNIC bridge topology.
+3. Work only on main; preserve the frozen backup branch unchanged; one complete Git tree/commit and non-forced expected-SHA update per logical task.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
 - AP hostname file preparation retry is confirmed in `prepare_dns_dhcpd()`: `update_hosts_ap()` failure blocks DNSMasq configuration publication and launch; `RCN_RESTART_DHCPD` also gates restart on successful AP host publication.
 - On exact main SHA `d0ea67338241d47223dbf2ae434411dfeb53f242`, all 15/15 push Actions completed SUCCESS. Process lifecycle `44056030149` passed the new LAN DHCP link regression, bridge regressions and LAN startup integration checks; NVRAM `44056029909` passed; AI handoff `44056030069` passed; XY-C1 `44056030091` completed Build XY-C1, TRX verification and artifact upload successfully. All WAN route/DHCP, HTTPD, DNSMasq, AdGuardHome, AliDDNS, AliyunDrive, infosvr, detect_link/internet and process-inventory runs also passed on that exact SHA.
-- On exact d3 SHA, the Process lifecycle job 44060466306 passed, including the new guest-isolation unit regression and source integration checker. AI handoff 44060466402 passed. Wireless-radio 44060466245 failed only because its pre-existing inline checker expected an immediate return 0 from ifconfig-failure branches; the new production code correctly records the error and jumps to its fail-closed cleanup label. Corrected checker is in THIS COMMIT. XY-C1 44060466380 was still building at last poll; TRX/artifact pending. Physical-router L4 remains NOT VERIFIED.
+- Exact-d3 HTTPD authentication run `44060465977` also failed only in a downstream static assertion requiring `return 0;` from `restart_wifi_wl/rt`; the production guest-isolation integration now returns `isolation_status` so upper layers can observe policy failures. The HTTPD workflow is corrected in THIS COMMIT.
+- On exact d3 SHA, the Process lifecycle job 44060466306 passed, including the new guest-isolation unit regression and source integration checker. AI handoff 44060466402 passed. Wireless-radio 44060466245 failed only because its pre-existing inline checker expected an immediate return 0 from ifconfig-failure branches; the new production code correctly records the error and jumps to its fail-closed cleanup label. Wireless-radio run 44061356170 on exact follow-up SHA 56fb66fb68ed46bd8389c2dbdd4009243023f52c passed. XY-C1 44060466380 was still building at last poll; TRX/artifact pending. Physical-router L4 remains NOT VERIFIED.
 
 - Parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f` contains the production LAN restart result-propagation fix. Its Process job `44054425453` passed all compiled regressions including the expanded LAN first-error test, then failed at the final semantic Python contract due to an order-assertion false positive: `start_vpn_server()` also appears earlier in the DNSMasq-lock-acquisition recovery branch. This follow-up scopes the VPN index to the call after `full_restart_wan()`; no production failure was reported.
 - On `0b2168e1`, WAN route `44054425489`, WAN DHCP `44054425743`, Process inventory `44054425531`, AI handoff docs `44054425761`, AdGuardHome `44054425537`, infosvr `44054425744`, detect_link `44054425584`, and detect_internet `44054425871` PASS. XY-C1 `44054425508` and NVRAM `44054425712` were still running at checkpoint.
@@ -47,4 +48,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live main, filter Actions by exact head_sha, verify the wireless-radio checker correction, Process guest-isolation regression and XY-C1 Build/TRX/artifact. If these pass, implement guest AP rollback after required bridge/multicast/isolation failure, with injected helper regression tests for newly enabled versus already-up interfaces and the RT3352 MII/iNIC topology.
+Fetch live main, filter Actions by exact head_sha, verify this commit's HTTPD, wireless-radio, Process guest-isolation and XY-C1 checks. If they pass, implement safe rollback when newly enabled guest AP setup fails after ifconfig UP, bridge attach, multicast-to-unicast or isolation policy install. Preserve already-up interfaces and handle RT3352 MII/iNIC bridge ownership explicitly.

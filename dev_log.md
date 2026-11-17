@@ -1,3 +1,13 @@
+## 2026-11-17 — Update HTTPD security source contract for wireless restart failure propagation
+
+- Parent main SHA: `56fb66fb68ed46bd8389c2dbdd4009243023f52c`; result: THIS COMMIT.
+- Exact-d3 wireless-radio regression was repaired by updating its stale interface-failure assertion; exact follow-up run `44061356170` passed. Exact-56fb Process lifecycle run `44061356114` passed, including guest-isolation unit and source-contract checks.
+- Exact-d3 HTTPD security run `44060465977` failed in its final static source checker: it still required `return 0;` from `restart_wifi_wl/rt`. The guest-isolation change correctly returns `isolation_status` to propagate policy errors; update the HTTPD checker to require that result instead. Prior HTTPD C and Ralink atomic-publication tests passed.
+- Exact-d3 XY-C1 Build was still running at the last checkpoint; no TRX/artifact result recorded here. This commit's exact-head Actions pending.
+- Next guest-Wi-Fi task: implement rollback of only newly enabled guest AP interfaces when bridge, multicast or isolation configuration fails; preserve pre-existing interfaces and account for RT3352 MII/iNIC VLAN bridge membership.
+
+---
+
 ## 2026-11-17 — Align wireless-radio regression with fail-closed guest-control status flow
 
 - Parent main SHA: `d3be26d0590ae05c20422db624d23868809c67b7`; result: THIS COMMIT.

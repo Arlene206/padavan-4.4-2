@@ -965,7 +965,9 @@ jobs:
           assert wl_restart.index("wireless_restart_preflight") < wl_restart.index("stop_8021x_wl")
           assert rt_restart.index("wireless_restart_preflight") < rt_restart.index("stop_8021x_rt")
           assert "return -1;" in wl_restart and "return -1;" in rt_restart
-          assert "return 0;" in wl_restart and "return 0;" in rt_restart
+          for restart in (wl_restart, rt_restart):
+              assert "isolation_status = restart_guest_lan_isolation();" in restart
+              assert "return isolation_status;" in restart
 
           handler_start = rc.index("handle_notifications(void)")
           handler_end = rc.index("\ntypedef struct {", handler_start)
