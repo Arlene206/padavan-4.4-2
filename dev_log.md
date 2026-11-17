@@ -1,3 +1,14 @@
+## 2026-11-17 — Propagate IPv6 global sysctl initialization status into boot results
+
+- Base main SHA: `f7b975c6bbe3f891498602c6363017cf6e6cc4c8`; result: THIS COMMIT.
+- Finding: `control_if_ipv6_all()` already attempted all global IPv6 sysctl writes and retained the first error, but `init_ipv6()` exposed a void API. `init_router()` therefore could not include this early network-configuration failure in its existing first-error `boot_services_status` summary.
+- Changed `init_ipv6()` to return its sysctl status and merged that result into `init_router()` before later network startup. Existing best-effort boot ordering and the precise local syslog message are preserved; the boot-level first-error record now includes this failure.
+- Added a semantic integration contract for the production return path, header declaration, init_router aggregation and workflow path coverage. The existing GNU89 IPv6 global-configuration policy test verifies all writes are attempted and the first failure is retained.
+- No local checkout/toolchain is mounted; local execution was NOT RUN. Parent `f7b975c6` had Process lifecycle run `44002780748` and XY-C1 run `44002780753` in progress; those do not validate this source change. Exact-head Process/XY-C1 Actions and same-SHA Build/TRX/artifact are pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Update XY-C1 modem readiness source contract for tri-state results
 
 - Exact-head XY-C1 run `44002424380` on SHA `766832746b81a67faaa5d88e3ba78cbd1228faef` reached the USB modem driver configuration checker and failed because `scripts/check_usb_modem_driver_config.py` still required the old any-nonzero-is-available expression and legacy Boolean state callback.

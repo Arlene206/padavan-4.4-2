@@ -1782,3 +1782,31 @@ assert "test_router_lan_teardown_preserves_route_failure_and_continues();" in la
 assert "test_router_lan_teardown_preserves_ipv6_clear_failure_and_continues" in lan_test
 assert "test_router_lan_teardown_preserves_ipv6_clear_failure_and_continues();" in lan_test
 print("LAN route flush errno reaches stop_lan() result without skipping later cleanup: PASS")
+
+
+net6_source = (root / "trunk/user/rc/src/net6.c").read_text()
+rc_boot_source = (root / "trunk/user/rc/src/rc.c").read_text()
+rc_header_source = (root / "trunk/user/rc/src/rc.h").read_text()
+ipv6_init_body = c_function_body(net6_source, "int init_ipv6(void)")
+assert "control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1)" in ipv6_init_body
+assert "if (conf_status != 0)" in ipv6_init_body
+assert ipv6_init_body.index("reset_lan6_vars();") < ipv6_init_body.index("return conf_status;")
+assert "int init_ipv6(void);" in rc_header_source
+assert "void init_ipv6(void);" not in rc_header_source
+
+router_init_body = c_function_body(rc_boot_source, "init_router(void)")
+assert re.search(r"int\\s+ipv6_init_status\\s*=\\s*init_ipv6\\s*\\(\\s*\\)\\s*;", router_init_body)
+assert re.search(
+    r"boot_services_status\\s*=\\s*rc_first_service_start_status\\s*"
+    r"\\(\\s*boot_services_status\\s*,\\s*ipv6_init_status\\s*\\)",
+    router_init_body,
+    flags=re.DOTALL,
+), "init_router must preserve IPv6 global sysctl failure in its first-error boot status"
+assert router_init_body.index("ipv6_init_status = init_ipv6()") < router_init_body.index("set_cpu_affinity();")
+assert '"trunk/user/rc/src/net6.c"' in process_workflow
+assert '"trunk/user/rc/src/rc.c"' in process_workflow
+assert '"trunk/user/rc/src/rc.h"' in process_workflow
+assert '"trunk/user/rc/src/net6.c"' in xy_workflow
+assert '"trunk/user/rc/src/rc.c"' in xy_workflow
+assert '"trunk/user/rc/src/rc.h"' in xy_workflow
+print("IPv6 boot sysctl initialization status aggregation: PASS")

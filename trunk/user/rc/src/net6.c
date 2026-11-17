@@ -42,7 +42,7 @@
 
 #if defined (USE_IPV6)
 
-void init_ipv6(void)
+int init_ipv6(void)
 {
 	int ipv6_type = get_ipv6_type();
 	int conf_status = control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1);
@@ -50,6 +50,7 @@ void init_ipv6(void)
 		logmessage(LOGNAME, "IPv6 global sysctl initialization incomplete (status=%d)", conf_status);
 	set_libc_gai((ipv6_type == IPV6_DISABLED) ? 1 : 0);
 	reset_lan6_vars();
+	return conf_status;
 }
 
 static int write_ipv6_conf_operation(void *context, const char *ifname, const char *param, int value)

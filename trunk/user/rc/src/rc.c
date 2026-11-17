@@ -1017,7 +1017,11 @@ init_router(void)
 			boot_services_status, bridge_start_status);
 	}
 #if defined (USE_IPV6)
-	init_ipv6();
+	{
+		int ipv6_init_status = init_ipv6();
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, ipv6_init_status);
+	}
 #endif
 	set_cpu_affinity();
 

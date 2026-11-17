@@ -341,7 +341,7 @@ int  ipdown_main(int argc, char **argv);
 
 #if defined (USE_IPV6)
 /* net6.c */
-void init_ipv6(void);
+int init_ipv6(void);
 int control_if_ipv6_all(int enable);
 int control_if_ipv6(const char *ifname, int enable);
 int control_if_ipv6_autoconf(const char *ifname, int enable);
