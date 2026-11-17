@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Exact SHA 319fd181 passed the Process/Firewall/USB/WAN DHCP/AdGuardHome/AliDDNS/AliyunDrive/infosvr/NVRAM/AI matrix; XY-C1 `44180704552` passed Build, TRX verification and artifact upload (L3 verified for 319 only).
-- PPPoE-MWAN cleanup guard is in `c8b8ba8c`; source-checker newline boundary follow-up is `7ffa8707`. Exact-head WAN route, XY-C1, Process and NVRAM runs were still executing at last observation.
-- THIS commit fixes a P1 SSH gap: failed public firewall refresh now triggers listener stop and tri-state absence verification. GNU89/ASan/UBSan policy coverage and source checker are wired into Process CI; exact-head Process and XY-C1 are pending.
+- SSH fail-closed implementation `36b2b171`: exact-head Process `44185018675` PASS (including GNU89/ASan/UBSan regression and source checker); WAN route `44185018710` PASS including PPPoE-MWAN cleanup failure injections. XY-C1 `44185018862` was still building at last observation; L3 is not yet certified for 36b.
+- THIS HTTPD correction closes the parallel exposure: required firewall-refresh failure after HTTPD startup now triggers locked stop plus tri-state absence verification; `httpd_started=0` is published only after confirmed absence.
+- Exact-head HTTPD/Process/XY-C1 checks for this source commit remain pending.
 - Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-Next: inspect exact-SHA SSH Process/XY-C1 and PPPoE-MWAN WAN-route regressions; then continue broad service lifecycle review.
+Next: inspect exact-SHA HTTPD/Process/XY-C1, then continue remaining service lifecycle/security gaps.
 
 
 ---

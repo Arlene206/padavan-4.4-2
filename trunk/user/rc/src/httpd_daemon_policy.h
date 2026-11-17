@@ -56,4 +56,13 @@ httpd_restart_can_start(int stop_status)
 	return stop_status == 0;
 }
 
+/* A failed firewall refresh cannot leave a possibly active public HTTP listener. */
+static inline int
+httpd_firewall_failure_requires_stop(int firewall_status,
+				     enum process_presence after_state)
+{
+	return firewall_status != 0 &&
+	       after_state != PROCESS_PRESENCE_ABSENT;
+}
+
 #endif /* HTTPD_DAEMON_POLICY_H */

@@ -1,3 +1,11 @@
+## 2026-11-18 — Withdraw HTTPD listener when firewall refresh fails
+
+- Parent main SHA: `0a297f48326221209bdbdf57173db719cd3a79b8`; production path `trunk/user/rc/src/services.c`, policy `httpd_daemon_policy.h`; regression: GNU89 HTTPD daemon policy and existing HTTPD lifecycle source contract.
+- `start_httpd_locked()` could publish `httpd_started=1`, then return a required public HTTP/HTTPS firewall refresh error while leaving the listener alive under potentially stale or incomplete rules.
+- On refresh failure, invoke `stop_httpd_locked()` under the existing lifecycle lock, rescan process inventory, publish `httpd_started=0` only for confirmed PROCESS_PRESENCE_ABSENT, otherwise retain `1` and log uncertainty. Preserve original firewall errno and status.
+- Add `httpd_firewall_failure_requires_stop()` and six GNU89 unit cases across zero/error and ABSENT/RUNNING/UNKNOWN/invalid states. Extend workflow assertions to require stop → inventory postcondition → state publication before returning the firewall error.
+- Parent SSH SHA `36b2b171`: Process `44185018675` and WAN route `44185018710` passed. XY-C1 `44185018862` was still building at last observation. THIS source SHA requires fresh HTTPD/Process/XY-C1 verification; router hardware L4 remains NOT VERIFIED; frozen backup is `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
 ## 2026-11-18 — Withdraw SSH listener when public firewall refresh fails
 
 - Parent main SHA: `7ffa87073cb7a18fadd5c7dc0fdbdd794b272f20`; production paths `trunk/user/rc/src/services.c` and `sshd_daemon_policy.h`; regression: GNU89 SSH policy test plus `scripts/check_sshd_firewall_status.py`.

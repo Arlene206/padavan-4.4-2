@@ -39,6 +39,16 @@ static void test_stop_state_requires_confirmed_exit(void)
 	assert(!httpd_stop_policy_publish_stopped(EBUSY));
 }
 
+static void test_firewall_failure_requires_listener_shutdown(void)
+{
+	assert(!httpd_firewall_failure_requires_stop(0, PROCESS_PRESENCE_RUNNING));
+	assert(!httpd_firewall_failure_requires_stop(0, PROCESS_PRESENCE_UNKNOWN));
+	assert(!httpd_firewall_failure_requires_stop(1, PROCESS_PRESENCE_ABSENT));
+	assert(httpd_firewall_failure_requires_stop(1, PROCESS_PRESENCE_RUNNING));
+	assert(httpd_firewall_failure_requires_stop(-1, PROCESS_PRESENCE_UNKNOWN));
+	assert(httpd_firewall_failure_requires_stop(1, (enum process_presence)99));
+}
+
 static void test_restart_requires_confirmed_exit(void)
 {
 	assert(httpd_restart_can_start(0));
@@ -54,6 +64,7 @@ int main(void)
 	test_detached_child_must_be_confirmed_running();
 	test_stop_state_requires_confirmed_exit();
 	test_restart_requires_confirmed_exit();
+	test_firewall_failure_requires_listener_shutdown();
 	puts("HTTPD daemon startup, duplicate-launch, stop-state and restart policy: PASS");
 	return 0;
 }

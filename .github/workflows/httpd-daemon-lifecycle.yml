@@ -150,5 +150,19 @@ jobs:
               assert '"' + path + '"' in push
               assert '"' + path + '"' in pr
 
+          assert "httpd_firewall_failure_requires_stop" in policy
+          assert "httpd_firewall_failure_requires_stop" in test
+          assert "test_firewall_failure_requires_listener_shutdown();" in test
+          firewall_call = start.index("firewall_status = restart_firewall();")
+          firewall_gate = start.index("httpd_firewall_failure_requires_stop(firewall_status, presence)")
+          firewall_stop = start.index("firewall_stop_status = stop_httpd_locked();")
+          firewall_scan = start.index("firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);")
+          firewall_absent = start.index("if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)")
+          firewall_return = start.index("return firewall_status;", firewall_call)
+          assert firewall_call < firewall_gate < firewall_stop < firewall_scan < firewall_absent < firewall_return
+          assert 'nvram_set_int_temp("httpd_started", 0)' in start[firewall_absent:firewall_return]
+          assert 'nvram_set_int_temp("httpd_started", 1)' in start[firewall_absent:firewall_return]
+          assert "firewall_errno = errno > 0 ? errno :" in start
+          assert "errno = 0;" in start
           print("HTTPD daemon startup, state publication, stop-before-start and path-filter source contracts: PASS")
           PY

@@ -1258,6 +1258,10 @@ start_httpd_locked(int restart_fw)
 {
 	int http_proto, argv_index, http_port, restart_fw_need;
 	int launch_status, attempt, status, scan_error, firewall_status = 0;
+	int firewall_errno = 0;
+	int firewall_stop_status;
+	int firewall_stop_scan_error = 0;
+	enum process_presence firewall_stop_state;
 	enum process_presence presence;
 	char http_port_s[8];
 #if defined (SUPPORT_HTTPS)
@@ -1370,9 +1374,30 @@ start_httpd_locked(int restart_fw)
 	nvram_set_int_temp("httpd_started", 1);
 
 	if (restart_fw && restart_fw_need && nvram_match("fw_enable_x", "1")) {
+		errno = 0;
 		firewall_status = restart_firewall();
-		if (firewall_status != 0)
+		if (firewall_status != 0) {
+			firewall_errno = errno > 0 ? errno :
+				(firewall_status > 0 ? firewall_status : EIO);
+			if (httpd_firewall_failure_requires_stop(firewall_status, presence)) {
+				firewall_stop_status = stop_httpd_locked();
+				firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);
+				if (firewall_stop_state == PROCESS_PRESENCE_ABSENT) {
+					nvram_set_int_temp("httpd_started", 0);
+					logmessage(LOGNAME,
+						   "HTTPD listener confirmed stopped after firewall refresh failure (stop_status=%d)",
+						   firewall_stop_status);
+				} else {
+					nvram_set_int_temp("httpd_started", 1);
+					logmessage(LOGNAME,
+						   "HTTPD listener may remain active after firewall refresh failure (stop_status=%d, state=%d, scan_error=%d)",
+						   firewall_stop_status, firewall_stop_state,
+						   firewall_stop_scan_error);
+				}
+			}
+			errno = firewall_errno;
 			return firewall_status;
+		}
 	}
 
 	return 0;

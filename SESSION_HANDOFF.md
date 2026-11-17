@@ -1,22 +1,22 @@
-# 2026-11-18 continuation checkpoint — SSH firewall failure must withdraw the listener
+# 2026-11-18 continuation checkpoint — fail closed HTTPD after firewall refresh errors
 
-## Current repository and verification baseline
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS SSH slice: `7ffa87073cb7a18fadd5c7dc0fdbdd794b272f20`.
+## Current repository and exact-SHA status
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS HTTPD slice: `0a297f48326221209bdbdf57173db719cd3a79b8`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact 319fd181 Actions passed; XY-C1 run `44180704552` passed Build, TRX verification and artifact upload. That L3 evidence applies to source SHA 319 only.
-- PPPoE-MWAN cleanup changes `ac2b1f63` and `c8b8ba8c` corrected the failed zero-status poison condition. Follow-up source-checker newline correction is `7ffa8707`; exact-head WAN-route, XY-C1 and Process/NVRAM reruns were in progress at the last check. Verify all cleanup failure-injection cases and Build/TRX/artifact on a passing exact SHA.
-- Do not repeat the already green WAN/APCLI checker audit from 319 unless a later code change touches those contracts.
+- SSH rollback source change `36b2b171`: exact-head Process run `44185018675` PASS, including GNU89/ASan/UBSan SSH fail-closed regression and source checker. Exact-head WAN-route run `44185018710` PASS, including PPPoE-MWAN normal multipath and injected cleanup failures.
+- XY-C1 run `44185018862` for SSH source SHA `36b2b171` was still building at last observation; TRX verification/artifact upload had not completed. No L3 claim for 36b2b171 yet.
+- Main parent `0a297f48` is docs-only after `36b2b171`; no intervening HTTPD/SSH production changes.
 
-## THIS SSH stability/security slice
-- `restart_sshd()` could start a listener after a process-state transition, call `restart_firewall()` for enabled public SSH, then return the refresh error without stopping the newly active listener. That could leave SSH reachable under an old or incomplete ruleset.
-- A nonzero firewall refresh now triggers `stop_sshd()` unless the listener is already confirmed ABSENT, followed by a fresh tri-state process scan. Only confirmed ABSENT counts as withdrawn. RUNNING/UNKNOWN is logged as unresolved; the original refresh error is preserved.
-- Files: `services.c`, `sshd_daemon_policy.h`, SSH policy regression, `scripts/check_sshd_firewall_status.py`, Process workflow filters/test, handoff, roadmap and dev log.
-- Exact-head Process and XY-C1 Actions for THIS production SSH change are pending; no L3 claim until Build/TRX/artifact completes for its SHA.
+## THIS HTTPD stability/security slice
+- `start_httpd_locked()` published `httpd_started=1`, then returned a required `restart_firewall()` failure without stopping the listener. For public HTTP/HTTPS this could leave the daemon exposed under stale or incomplete firewall rules.
+- On required firewall-refresh failure, the startup transaction now invokes `stop_httpd_locked()` while retaining the lifecycle lock, rescans tri-state process state, publishes `httpd_started=0` only after confirmed ABSENT, otherwise retains `1` and logs RUNNING/UNKNOWN uncertainty. Original firewall errno/status is preserved.
+- Added policy tests for zero/error and ABSENT/RUNNING/UNKNOWN/invalid states, and extended the existing HTTPD lifecycle source contract to enforce rollback ordering and state publication.
+- Exact-head HTTPD, Process and XY-C1 runs for THIS source commit must pass before claiming target L3.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA Process, XY-C1 and WAN-route runs triggered by THIS slice. Require SSH GNU89/ASan/UBSan policy and source contracts, PPPoE-MWAN normal multipath plus all cleanup-failure tests, and XY-C1 Build/TRX/artifact.
-2. Fix any first genuine failing assertion/source contract in a separate atomic commit and rerun exact SHA.
-3. After SSH is verified, inspect whether HTTPD has the same firewall-refresh-after-start rollback gap; then continue the next independent P1 runtime/security defect. Keep backup immutable. Router hardware L4 remains NOT VERIFIED.
+1. Inspect exact-SHA HTTPD daemon lifecycle, Process and XY-C1 runs triggered by THIS commit. Require policy tests/source ordering, SSH regression, and XY-C1 Build/TRX/artifact.
+2. Fix the first genuine failure in a new atomic commit. Keep `httpd_started=1` whenever stop/absence cannot be proven.
+3. Continue remaining independent P1 runtime/security defects. Do not repeat passing SSH Process/WAN-route checks unless source changes. Router hardware L4 remains NOT VERIFIED.
 
 # Cross-session execution mandate
 
