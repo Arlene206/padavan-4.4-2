@@ -1,13 +1,13 @@
 # 2026-11-17 latest verified checkpoint
 
-This section supersedes conflicting older status below.
+This section supersedes conflicting older rows below.
 
-- Parent main SHA: `7ebc2c006799f2fa3b6f0139ad535affa13aa8b0`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
-- Exact parent-head Process lifecycle, HTTPD daemon lifecycle, AI handoff, AliyunDrive, AdGuardHome, infosvr and AliDDNS Actions PASS; parent NVRAM was still PENDING at last check.
-- Switch CLI slice: VLAN/MAC table busy waits now fail closed after 20 × 1 ms; DIP/SIP/MAC searches wait at most 20 × 5 ms for idle+ready/end. GNU89 host regression PASS locally with ASan/UBSan. Exact-head Switch CLI and XY-C1 Actions await this commit.
+- Parent main SHA: `8307f6abbc7dacade3f4744b277ae404b8096b73`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- Parent exact-head Switch CLI, Process lifecycle and AI handoff checks PASS; XY-C1 Build/TRX/artifact remains in progress on source baseline 4a3c377.
+- XUPnPD startup reliability: required config/playlists directory creation is now checked; plugins/profiles copy or symlink status and final path identity/type are validated before daemon launch. Host regression and source wiring checker are included in WAN route CI; exact-head run pending.
 - No local MIPS/uClibc firmware build or physical-router L4 is claimed.
 
-Next: verify exact-head Switch CLI and XY-C1 Actions; then continue broad RC/userland startup-result coverage.
+Next: verify exact-head WAN regression and XY-C1 Build/TRX/artifact, then continue broad RC/userland startup result coverage.
 
 ---
 

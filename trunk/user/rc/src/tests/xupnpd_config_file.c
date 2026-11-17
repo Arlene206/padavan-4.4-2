@@ -43,6 +43,72 @@ read_text(const char *path, char *out, size_t size)
 	assert(fclose(fp) == 0);
 }
 
+
+static void
+test_ensure_directory_creates_and_rejects_unsafe_paths(const char *directory)
+{
+	char created[PATH_MAX], real_dir[PATH_MAX], link_path[PATH_MAX];
+	char regular[PATH_MAX], missing_parent[PATH_MAX];
+	int fd;
+
+	join(created, sizeof(created), directory, "created-dir");
+	join(real_dir, sizeof(real_dir), directory, "real-dir");
+	join(link_path, sizeof(link_path), directory, "dir-link");
+	join(regular, sizeof(regular), directory, "regular-file");
+	join(missing_parent, sizeof(missing_parent), directory, "missing-parent/child");
+
+	assert(xupnpd_config_ensure_directory(created, 0755) == 0);
+	assert(xupnpd_config_ensure_directory(created, 0755) == 0);
+	assert(xupnpd_config_directory_validate(created) == 0);
+	assert(mkdir(real_dir, 0700) == 0);
+	assert(symlink(real_dir, link_path) == 0);
+	fd = open(regular, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	assert(fd >= 0 && close(fd) == 0);
+	assert(xupnpd_config_ensure_directory(link_path, 0755) == ELOOP);
+	assert(xupnpd_config_ensure_directory(regular, 0755) == ENOTDIR);
+	assert(xupnpd_config_ensure_directory(missing_parent, 0755) == ENOENT);
+	assert(xupnpd_config_ensure_directory(NULL, 0755) == EINVAL);
+
+	assert(unlink(link_path) == 0);
+	assert(unlink(regular) == 0);
+	assert(rmdir(real_dir) == 0);
+	assert(rmdir(created) == 0);
+}
+
+static void
+test_subdirectory_requires_expected_source_link(const char *directory)
+{
+	char source[PATH_MAX], alternate[PATH_MAX], expected_link[PATH_MAX];
+	char wrong_link[PATH_MAX], regular[PATH_MAX], missing[PATH_MAX];
+	int fd;
+
+	join(source, sizeof(source), directory, "source-dir");
+	join(alternate, sizeof(alternate), directory, "alternate-dir");
+	join(expected_link, sizeof(expected_link), directory, "expected-link");
+	join(wrong_link, sizeof(wrong_link), directory, "wrong-link");
+	join(regular, sizeof(regular), directory, "subdir-file");
+	join(missing, sizeof(missing), directory, "subdir-missing");
+	assert(mkdir(source, 0700) == 0);
+	assert(mkdir(alternate, 0700) == 0);
+	assert(symlink(source, expected_link) == 0);
+	assert(symlink(alternate, wrong_link) == 0);
+	fd = open(regular, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	assert(fd >= 0 && close(fd) == 0);
+
+	assert(xupnpd_config_subdirectory_validate(expected_link, source, 1) == 0);
+	assert(xupnpd_config_subdirectory_validate(expected_link, source, 0) == ELOOP);
+	assert(xupnpd_config_subdirectory_validate(wrong_link, source, 1) == ELOOP);
+	assert(xupnpd_config_subdirectory_validate(regular, source, 1) == ENOTDIR);
+	assert(xupnpd_config_subdirectory_validate(missing, source, 1) == ENOENT);
+	assert(xupnpd_config_subdirectory_validate(NULL, source, 1) == EINVAL);
+
+	assert(unlink(expected_link) == 0);
+	assert(unlink(wrong_link) == 0);
+	assert(unlink(regular) == 0);
+	assert(rmdir(source) == 0);
+	assert(rmdir(alternate) == 0);
+}
+
 static void
 test_source_rejects_symlinks_and_special_files(const char *directory)
 {
@@ -155,6 +221,8 @@ main(void)
 	assert(xupnpd_config_valid_ipv4("192.168.1.1"));
 	assert(!xupnpd_config_valid_ipv4("192.168.1.1';os.execute('id')"));
 	assert(!xupnpd_config_valid_ipv4("999.1.1.1"));
+	test_ensure_directory_creates_and_rejects_unsafe_paths(dir);
+	test_subdirectory_requires_expected_source_link(dir);
 	test_source_rejects_symlinks_and_special_files(dir);
 	test_storage_directory_rejects_symlinks_and_non_directories(dir);
 
@@ -164,6 +232,6 @@ main(void)
 	assert(unlink(fixed_temp) == 0);
 	assert(unlink(sentinel) == 0);
 	assert(rmdir(dir) == 0);
-	puts("XUPnPD unique temporary-file and input validation regression: PASS");
+	puts("XUPnPD storage directory preparation and config-file safety regression: PASS");
 	return 0;
 }

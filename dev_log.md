@@ -1,3 +1,13 @@
+## 2026-11-17 — Fail closed on XUPnPD storage provisioning errors
+
+- Parent main SHA: 8307f6abbc7dacade3f4744b277ae404b8096b73; result: THIS COMMIT.
+- Found ignored `mkdir()` failures for required XUPnPD config/playlists directories and ignored `doSystem("cp -rf ...")` / `symlink()` results for plugins/profiles. The daemon could launch after required runtime content was not provisioned.
+- Added checked directory creation, strict directory validation and exact-source symlink validation for low-storage mode. Copy/link/validation failures are logged and returned before launching XUPnPD; a wrong pre-existing symlink or non-directory is rejected.
+- Extended GNU89 host tests for missing-directory creation, symlink/non-directory rejection, expected/wrong source links and missing paths; added a production wiring checker. WAN CI compiles with ASan/UBSan and runs both regressions.
+- Parent Switch CLI, Process lifecycle and AI handoff Actions PASS; exact-head WAN/XY-C1 for this commit PENDING. No local MIPS firmware or physical-router L4 claim.
+
+---
+
 ## 2026-11-18 — Bound switch table-engine and search polling
 
 - Parent main SHA: 7ebc2c006799f2fa3b6f0139ad535affa13aa8b0; result: THIS COMMIT.

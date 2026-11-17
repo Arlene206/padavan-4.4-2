@@ -75,6 +75,63 @@ xupnpd_config_directory_validate(const char *directory_path)
 	return 0;
 }
 
+/* Create a missing private directory, then verify the final path without
+ * following a pre-existing symlink. EEXIST is treated as a race and checked. */
+static inline int
+xupnpd_config_ensure_directory(const char *directory_path, mode_t mode)
+{
+	int status;
+
+	if (directory_path == NULL)
+		return EINVAL;
+	status = xupnpd_config_directory_validate(directory_path);
+	if (status == 0)
+		return 0;
+	if (status != ENOENT)
+		return status;
+	if (mkdir(directory_path, mode) != 0 && errno != EEXIST)
+		return errno ? errno : EIO;
+	return xupnpd_config_directory_validate(directory_path);
+}
+
+/* A low-storage install may use only the exact read-only source symlink.
+ * Copied mode requires a real destination directory and rejects all links. */
+static inline int
+xupnpd_config_subdirectory_validate(const char *directory_path,
+				    const char *source_path,
+				    int allow_source_symlink)
+{
+	struct stat destination_stat;
+	char link_target[128];
+	ssize_t target_length;
+	int status;
+
+	if (directory_path == NULL || source_path == NULL)
+		return EINVAL;
+	if (lstat(directory_path, &destination_stat) != 0)
+		return errno ? errno : EIO;
+	if (S_ISLNK(destination_stat.st_mode)) {
+		if (!allow_source_symlink)
+			return ELOOP;
+		target_length = readlink(directory_path, link_target,
+					 sizeof(link_target));
+		if (target_length < 0)
+			return errno ? errno : EIO;
+		if ((size_t)target_length >= sizeof(link_target))
+			return ENAMETOOLONG;
+		link_target[target_length] = '\0';
+		if (strcmp(link_target, source_path) != 0)
+			return ELOOP;
+		status = xupnpd_config_directory_validate(source_path);
+		if (status != 0)
+			return status;
+		return 0;
+	}
+	if (!S_ISDIR(destination_stat.st_mode))
+		return ENOTDIR;
+	return 0;
+}
+
 static inline FILE *
 xupnpd_config_source_open(const char *source_path)
 {

@@ -1,32 +1,34 @@
-# 2026-11-17 continuation checkpoint — bounded switch table waits
+# 2026-11-17 continuation checkpoint — XUPnPD storage provisioning
 
 This checkpoint supersedes conflicting older status below. Continue on main; do not repeat completed audits or mutate the frozen backup.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2/.
-- Parent main SHA: 7ebc2c006799f2fa3b6f0139ad535affa13aa8b0; result: THIS COMMIT (one complete tree, expected-SHA non-force update).
-- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- Parent main SHA: 8307f6abbc7dacade3f4744b277ae404b8096b73; result: THIS COMMIT (one full tree, expected-SHA non-force update).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
 - PR #1 remains closed/unmerged. Work only on main.
-- Connector-only environment: no local MIPS toolchain or full checkout; physical-router L4 NOT VERIFIED.
+- Connector-only environment: no local full firmware checkout or MIPS compiler; physical-router L4 NOT VERIFIED.
 
-## Recent exact-head CI
-- On parent 7ebc2c0, HTTPD daemon lifecycle 44136887817 PASS; Process lifecycle 44136887714 PASS; AI docs 44136887724 PASS; AliyunDrive 44136887752 PASS; AdGuardHome 44136887743 PASS; infosvr 44136887715 PASS; AliDDNS 44136887708 PASS. NVRAM run 44136887703 was still IN_PROGRESS at last inspection.
-- Exact-head HTTPD and Process source-contract repairs are complete; do not repeat those older checker audits.
-- Switch CLI defects fixed in THIS COMMIT: VTCR/MAC busy timeouts previously printed "timeout" but continued and exited success; DIP/SIP table search could spin forever; MAC table search silently advanced after 20 unsuccessful polls.
-- New shared GNU89 wait policy uses bounded polling and accepts table-ready/end markers only after the busy bit clears. Timeout/read failure reports register and last value, closes the switch socket and exits nonzero.
-- Host regression covers immediate/delayed idle, busy timeout, register-read error, busy+stale-ready, ready/end markers, search timeout and invalid inputs. Switch CLI workflow compiles with ASan/UBSan and checks production wiring; XY-C1 filter includes switch source/header/test.
-- Exact-head Switch CLI and XY-C1 runs for THIS COMMIT are PENDING at commit creation. No target firmware build is claimed.
+## Switch table-engine slice
+- Parent HEAD 8307f6abbc7dacade3f4744b277ae404b8096b73: exact Switch CLI run `44139419836` PASS, including socket/ioctl failure status, bounded VLAN/MAC table waits, DIP/SIP/MAC polling, Clause 22 and Clause 45 host/source contracts.
+- Exact Process lifecycle `44138894867` and AI handoff docs `44139419922` PASS.
+- XY-C1 run `44138894972` remains IN_PROGRESS; Build XY-C1, TRX check and artifact upload were not yet complete at last inspection. The Switch CLI PASS validates its host regression; firmware build remains separate.
+
+## Active XUPnPD reliability repair
+- Review found `start_xupnpd()` ignored `mkdir()` results for required `config/playlists` directories and ignored both `doSystem("cp -rf ...")` and `symlink()` status for the required `plugins/profiles` paths. It could run the daemon despite incomplete plugin/profile provisioning.
+- THIS COMMIT makes missing directory creation checked and race-safe, validates that low-storage mode links only to the exact expected read-only source directory, rejects unexpected symlinks and non-directories, and aborts before daemon launch on failed copy/link/validation.
+- Added unit tests to the existing config-file test and a source-wiring checker. WAN route CI compiles/runs the test with GNU89, ASan/UBSan and validates the production launch contract.
+- Exact-head WAN and XY-C1 Actions for THIS COMMIT are PENDING at commit creation.
 
 ## First next task
-1. Inspect exact-SHA Switch CLI Actions; require GNU89 ASan/UBSan policy regression and production source wiring to pass.
-2. Inspect exact-SHA XY-C1 Actions; require Build XY-C1, TRX verification and artifact upload.
-3. Continue independent P1 startup-result/lifecycle work in another userland subsystem while any CI run is pending; do not repeat completed audits.
+1. Inspect exact-head WAN route run and require XUPnPD helper regression + production wiring contract to pass.
+2. Inspect descendant XY-C1 run `44138894972` for its Build/TRX/artifact final result; it builds source SHA 4a3, whose switch source is identical to 8307 except a CI-count assertion.
+3. Continue independent P1 userland startup/lifecycle work. Do not revisit completed switch, DHCP, HTTPD, PPPoE-MWAN, USB modem, miniupnpd, storage and NVRAM items without new evidence.
 
 ## Validation boundary
-- Parent 7ebc2c0 exact-head Process and HTTPD tests PASS; NVRAM was pending at last inspection.
-- New host GNU89 -Wall -Wextra -Werror ASan/UBSan policy compile and execution PASS locally.
-- Current Switch CLI and XY-C1 workflows have not run at this commit creation.
-- No local MIPS/uClibc firmware build or physical-router L4 is claimed.
+- Switch CLI, Process lifecycle and AI handoff exact-head Actions PASS on parent 8307f6abbc7dacade3f4744b277ae404b8096b73.
+- Existing XUPnPD header and tests were extended but not yet executed against THIS COMMIT; WAN CI is the authoritative check.
+- No MIPS/uClibc firmware build or physical-router L4 claim is made here.
 
 # Cross-session execution mandate
 

@@ -396,6 +396,7 @@ start_xupnpd(char *wan_ifname)
 {
 	int i, xport, has_daemon, launch_status;
 	int config_status, saved_errno, sync_status, config_fd;
+	int copy_storage, directory_status, copy_status;
 	FILE *fp1, *fp2;
 	char tmp1[128], tmp2[128], line[256];
 	char *dir_src = "/etc_ro/xupnpd";
@@ -425,20 +426,21 @@ start_xupnpd(char *wan_ifname)
 		}
 	}
 
-	if (!check_if_dir_exist(dir_dst))
-		mkdir(dir_dst, 0755);
-	{
-		int status = xupnpd_config_directory_validate(dir_dst);
-		if (status != 0) {
-			logmessage(LOGNAME, "xupnpd storage directory is unsafe (status=%d)", status);
-			return status;
-		}
+	directory_status = xupnpd_config_ensure_directory(dir_dst, 0755);
+	if (directory_status != 0) {
+		logmessage(LOGNAME, "xupnpd storage directory creation/validation failed (status=%d)",
+			   directory_status);
+		return directory_status;
 	}
 
 	for (i=0; xdir1[i]; i++) {
 		snprintf(tmp2, sizeof(tmp2), "%s/%s", dir_dst, xdir1[i]);
-		if (!check_if_dir_exist(tmp2))
-			mkdir(tmp2, 0755);
+		directory_status = xupnpd_config_ensure_directory(tmp2, 0755);
+		if (directory_status != 0) {
+			logmessage(LOGNAME, "xupnpd storage subdirectory %s is unsafe (status=%d)",
+				   tmp2, directory_status);
+			return directory_status;
+		}
 	}
 	snprintf(tmp2, sizeof(tmp2), "%s/config", dir_dst);
 	{
@@ -451,14 +453,36 @@ start_xupnpd(char *wan_ifname)
 
 	unlink("/var/run/xupnpd.pid");
 
+	copy_storage = get_mtd_size("Storage") > 0x10000;
 	for (i=0; xdir2[i]; i++) {
 		snprintf(tmp2, sizeof(tmp2), "%s/%s", dir_dst, xdir2[i]);
-		if (!check_if_dir_exist(tmp2)) {
-			snprintf(tmp1, sizeof(tmp1), "%s/%s", dir_src, xdir2[i]);
-			if (get_mtd_size("Storage") > 0x10000)
-				doSystem("cp -rf %s %s", tmp1, tmp2);
-			else
-				symlink(tmp1, tmp2);
+		snprintf(tmp1, sizeof(tmp1), "%s/%s", dir_src, xdir2[i]);
+		directory_status = xupnpd_config_subdirectory_validate(
+			tmp2, tmp1, !copy_storage);
+		if (directory_status == ENOENT) {
+			if (copy_storage) {
+				copy_status = doSystem("cp -rf %s %s", tmp1, tmp2);
+				if (copy_status != 0) {
+					logmessage(LOGNAME,
+						   "xupnpd storage copy %s failed (status=%d)",
+						   tmp1, copy_status);
+					return copy_status;
+				}
+			} else if (symlink(tmp1, tmp2) != 0 && errno != EEXIST) {
+				directory_status = errno ? errno : EIO;
+				logmessage(LOGNAME,
+					   "xupnpd storage link %s -> %s failed (status=%d)",
+					   tmp2, tmp1, directory_status);
+				return directory_status;
+			}
+			directory_status = xupnpd_config_subdirectory_validate(
+				tmp2, tmp1, !copy_storage);
+		}
+		if (directory_status != 0) {
+			logmessage(LOGNAME,
+				   "xupnpd storage subdirectory %s validation failed (status=%d)",
+				   tmp2, directory_status);
+			return directory_status;
 		}
 	}
 
