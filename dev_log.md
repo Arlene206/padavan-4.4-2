@@ -1,3 +1,13 @@
+## 2026-11-17 — Use checked interface state throughout guest controls
+
+- Parent main SHA: `5c5300876827a62a99bd2d5ac82d98853b5a230d`; result: THIS COMMIT.
+- Explicit guest enable/disable previously used `is_interface_up()`, which masks `get_interface_flags()` errors as down, to decide whether the main AP was active and whether the guest VIF was already up.
+- Added a shared checked-state reader and used it for main/guest interface decisions in both guest controls. Guest activation refuses to proceed when required state cannot be read. Guest-disable records unknown state but still attempts ifconfig-down and bridge detach, then reapplies isolation.
+- Rollback callbacks use the same checked reader. Process source contract checks the helper and confirms both controls avoid unchecked `is_interface_up()`.
+- Exact-head parent `5c530087`: Process run `44069081348` was pending at last poll; AdGuardHome `44069081212` passed; remaining workflow runs pending. This commit requires fresh Process/Wireless results.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
 ## 2026-11-17 18:53:50 CST — Correct Process source contract for direct AP-start status variables
 
 - Parent main SHA: `89f232e6a5e1ed445129dc18a45356c148e71c14`; result: THIS COMMIT.

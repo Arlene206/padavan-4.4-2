@@ -74,18 +74,22 @@ typedef struct {
 } wireless_guest_rollback_context_t;
 
 static int
+wireless_guest_interface_state_checked(const char *ifname, int *is_up)
+{
+	return wireless_guest_isolation_link_state(get_interface_flags(ifname),
+						   IFF_UP, is_up);
+}
+
+static int
 wireless_guest_rollback_bring_down(void *context)
 {
 	wireless_guest_rollback_context_t *rollback =
 		(wireless_guest_rollback_context_t *)context;
-
-	int interface_flags;
 	int is_up;
 	int status;
 
-	interface_flags = get_interface_flags(rollback->ifname_ap);
-	status = wireless_guest_isolation_link_state(interface_flags, IFF_UP,
-						     &is_up);
+	status = wireless_guest_interface_state_checked(rollback->ifname_ap,
+							 &is_up);
 	if (status != 0)
 		return status;
 	if (!is_up)
@@ -107,14 +111,11 @@ wireless_guest_rollback_verify_down(void *context)
 {
 	wireless_guest_rollback_context_t *rollback =
 		(wireless_guest_rollback_context_t *)context;
-
-	int interface_flags;
 	int is_up;
 	int status;
 
-	interface_flags = get_interface_flags(rollback->ifname_ap);
-	status = wireless_guest_isolation_link_state(interface_flags, IFF_UP,
-						     &is_up);
+	status = wireless_guest_interface_state_checked(rollback->ifname_ap,
+							 &is_up);
 	if (status != 0)
 		return status;
 	return is_up ? -EBUSY : 0;
@@ -1606,17 +1607,36 @@ control_guest_wl(int guest_on, int manual)
 	int i_mode_x = get_mode_radio_wl();
 	int operation_status;
 	int isolation_status;
+	int state_status;
+	int main_is_up = 0;
+	int guest_is_up = 0;
 	int rollback_candidate = 0;
 #endif
 
 	wireless_guest_isolation_status_reset(&control_status);
 #if BOARD_HAS_5G_RADIO
-	if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on ||
-			 !is_interface_up(IFNAME_5G_MAIN)))
+	if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on))
 		return 0;
 
 	if (guest_on) {
-		if (!is_interface_up(ifname_ap)) {
+		state_status = wireless_guest_interface_state_checked(IFNAME_5G_MAIN,
+							      &main_is_up);
+		wireless_guest_isolation_status_record(&control_status,
+			"inspect 5GHz main AP state before guest activation", state_status);
+		if (state_status != 0)
+			goto finish_wl;
+		if (!main_is_up)
+			return 0;
+	}
+
+	state_status = wireless_guest_interface_state_checked(ifname_ap, &guest_is_up);
+	wireless_guest_isolation_status_record(&control_status,
+		"inspect 5GHz guest AP state", state_status);
+	if (state_status != 0 && guest_on)
+		goto finish_wl;
+
+	if (guest_on) {
+		if (!guest_is_up) {
 			/* Roll back only an interface that was down before this request. */
 			rollback_candidate = 1;
 			if (!wif_control_success(ifname_ap, 1)) {
@@ -1633,15 +1653,15 @@ control_guest_wl(int guest_on, int manual)
 		wireless_guest_isolation_record(&control_status,
 			"configure 5GHz guest AP multicast-to-unicast", operation_status);
 	} else {
-		if (is_interface_up(ifname_ap)) {
+		/* Unknown state still triggers best-effort down and bridge detach. */
+		if (state_status != 0 || guest_is_up) {
 			if (!wif_control_success(ifname_ap, 0)) {
 				wireless_guest_isolation_status_record(&control_status,
 					"bring down 5GHz guest AP", -EIO);
-			} else {
+			} else if (guest_is_up) {
 				is_ap_changed = 1;
 			}
 		}
-		/* A failed ifconfig-down must not suppress bridge detach. */
 		operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 0);
 		wireless_guest_isolation_record(&control_status,
 			"detach 5GHz guest AP from LAN bridge", operation_status);
@@ -1668,15 +1688,16 @@ finish_wl:
 			control_status.first_operation ? control_status.first_operation : "unknown",
 			control_status.first_status, control_status.failure_count);
 	return wireless_guest_isolation_control_result(is_ap_changed, &control_status);
-}
-
-int
+}int
 control_guest_rt(int guest_on, int manual)
 {
 	int is_ap_changed = 0;
 	wireless_guest_isolation_status_t control_status;
 	int operation_status;
 	int isolation_status;
+	int state_status;
+	int main_is_up = 0;
+	int guest_is_up = 0;
 	int rollback_candidate = 0;
 	const char *ifname_ap = IFNAME_2G_GUEST;
 	int radio_on = get_enabled_radio_rt();
@@ -1689,12 +1710,27 @@ control_guest_rt(int guest_on, int manual)
 #endif
 
 	wireless_guest_isolation_status_reset(&control_status);
-	if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on ||
-			 !is_interface_up(IFNAME_2G_MAIN)))
+	if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on))
 		return 0;
+	if (guest_on) {
+		state_status = wireless_guest_interface_state_checked(IFNAME_2G_MAIN,
+							      &main_is_up);
+		wireless_guest_isolation_status_record(&control_status,
+			"inspect 2.4GHz main AP state before guest activation", state_status);
+		if (state_status != 0)
+			goto finish_rt;
+		if (!main_is_up)
+			return 0;
+	}
+
+	state_status = wireless_guest_interface_state_checked(ifname_ap, &guest_is_up);
+	wireless_guest_isolation_status_record(&control_status,
+		"inspect 2.4GHz guest AP state", state_status);
+	if (state_status != 0 && guest_on)
+		goto finish_rt;
 
 	if (guest_on) {
-		if (!is_interface_up(ifname_ap)) {
+		if (!guest_is_up) {
 			/* Preserve a guest AP that was already up before this call. */
 			rollback_candidate = 1;
 			if (!wif_control_success(ifname_ap, 1)) {
@@ -1719,11 +1755,12 @@ control_guest_rt(int guest_on, int manual)
 			"configure 2.4GHz guest AP multicast-to-unicast", operation_status);
 #endif
 	} else {
-		if (is_interface_up(ifname_ap)) {
+		/* Unknown state still triggers best-effort down and bridge detach. */
+		if (state_status != 0 || guest_is_up) {
 			if (!wif_control_success(ifname_ap, 0)) {
 				wireless_guest_isolation_status_record(&control_status,
 					"bring down 2.4GHz guest AP", -EIO);
-			} else {
+			} else if (guest_is_up) {
 				is_ap_changed = 1;
 			}
 		}

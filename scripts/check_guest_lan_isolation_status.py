@@ -113,6 +113,21 @@ for callback in (bring_down, verify_down):
 assert "is_interface_up(rollback->ifname_ap)" not in bring_down
 assert "is_interface_up(rollback->ifname_ap)" not in verify_down
 
+checked_state = function_body(wifi, "wireless_guest_interface_state_checked(const char *ifname, int *is_up)")
+assert "get_interface_flags(ifname)" in checked_state
+assert "wireless_guest_isolation_link_state" in checked_state
+
+for signature, main_if in (
+    ("control_guest_wl(int guest_on, int manual)", "IFNAME_5G_MAIN"),
+    ("control_guest_rt(int guest_on, int manual)", "IFNAME_2G_MAIN"),
+):
+    control = function_body(wifi, signature)
+    assert "wireless_guest_interface_state_checked(" + main_if in control
+    assert "wireless_guest_interface_state_checked(ifname_ap, &guest_is_up)" in control
+    assert "if (state_status != 0 && guest_on)" in control
+    assert "is_interface_up(" not in control
+    assert "if (state_status != 0 || guest_is_up)" in control
+
 rollback_helper = function_body(wifi, "static void\nwireless_guest_ap_rollback(")
 assert "wireless_guest_isolation_status_rollback(status, &ops, &context)" in rollback_helper
 assert "br_add_del_if(IFNAME_BR, rollback->bridge_ifname, 0)" in wifi

@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `89f232e6a5e1ed445129dc18a45356c148e71c14`.
+- Current main: THIS COMMIT; parent `5c5300876827a62a99bd2d5ac82d98853b5a230d`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,9 +31,10 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Re-run exact-head Process lifecycle after correcting the stale LAN-init source assertion: AP startup calls now record into dedicated RT/5GHz status variables so init_bridge can separately make rollback decisions.
-2. Verify the exact-head XY-C1 Build → TRX → artifact for the direct guest AP boot rollback source commit; Wireless radio and Process guest-isolation/M2U unit/source contracts passed on it.
-3. If Process and XY-C1 pass, move to the next independent stability issue outside guest Wi-Fi.
+1. Verify this commit's exact-head Process guest-isolation and Wireless radio regression.
+2. Continue guest Wi-Fi lifecycle audit for remaining unchecked interface-state and bridge ownership decisions in startup/restart paths.
+3. Keep physical-router L4 marked NOT VERIFIED until actual hardware validation is recorded.
+
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -48,4 +49,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch exact-head Process lifecycle after the assertion update. Then confirm XY-C1 Build/TRX/artifact for source SHA 89f232e6. If green, select the next independent whole-repository stability issue outside wireless.
+Fetch live main and exact-head Actions. Verify checked main/guest interface-state handling in both guest-control functions. Then review AP startup/restart for any remaining is_interface_up() checks that collapse inspection errors into down.
