@@ -261,6 +261,21 @@ jobs:
           assert "test_clear_failure_prevents_new_address_publication" in lan6_reload_test
           assert "test_add_failure_is_returned_after_successful_clear" in lan6_reload_test
 
+          # Runtime interface names must stay argv elements, never shell syntax.
+          ipv6_flush_cases = (
+              ("clear_if_addr6(char *ifname)", 'return eval("ip", "-6", "addr", "flush", "dev", ifname, "scope", "global");'),
+              ("clear_if_route6(char *ifname)", 'return eval("ip", "-6", "route", "flush", "dev", ifname);'),
+              ("clear_if_neigh6(char *ifname)", 'return eval("ip", "-6", "neigh", "flush", "dev", ifname);'),
+          )
+          for signature, argv_call in ipv6_flush_cases:
+              flush_body = body(net6, signature)
+              flush_compact = " ".join(flush_body.split())
+              assert "if (!ifname || !ifname[0])" in flush_body
+              assert "if (!is_interface_exist(ifname)) return 0;" in flush_compact
+              assert argv_call in flush_body
+              assert "doSystem(" not in flush_body
+
+
           route_cache = body(net, "flush_route_caches(void)")
           assert 'return eval("ip", "route", "flush", "cache");' in route_cache
           assert 'system("ip route flush cache")' not in route_cache

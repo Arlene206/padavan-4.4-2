@@ -133,7 +133,7 @@ int clear_if_addr6(char *ifname)
 	}
 	if (!is_interface_exist(ifname))
 		return 0;
-	return doSystem("ip -6 addr flush dev %s scope global", ifname);
+	return eval("ip", "-6", "addr", "flush", "dev", ifname, "scope", "global");
 }
 
 int clear_if_route6(char *ifname)
@@ -144,7 +144,7 @@ int clear_if_route6(char *ifname)
 	}
 	if (!is_interface_exist(ifname))
 		return 0;
-	return doSystem("ip -6 route flush dev %s", ifname);
+	return eval("ip", "-6", "route", "flush", "dev", ifname);
 }
 
 int clear_if_neigh6(char *ifname)
@@ -155,7 +155,7 @@ int clear_if_neigh6(char *ifname)
 	}
 	if (!is_interface_exist(ifname))
 		return 0;
-	return doSystem("ip -6 neigh flush dev %s", ifname);
+	return eval("ip", "-6", "neigh", "flush", "dev", ifname);
 }
 
 int clear_all_addr6(void)

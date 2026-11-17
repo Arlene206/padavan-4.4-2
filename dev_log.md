@@ -1,3 +1,12 @@
+## 2026-11-16 — Keep per-interface IPv6 cleanup arguments out of the shell
+
+- Audit confirmed `clear_if_addr6()`, `clear_if_route6()` and `clear_if_neigh6()` interpolated runtime interface names into `doSystem()`; `doSystem()` formats a command and passes it to `system()`, so those values crossed a shell boundary.
+- Replaced all three operations with argv-based `eval()`. Existing empty-name rejection, absent-interface no-op behaviour and command-result propagation are unchanged.
+- Extended the WAN route workflow's source regression to require the exact argv vectors and forbid shell-based execution in all three functions.
+- The new source contract passes locally against the edited source. Exact-head push Actions are not exposed by the available run-list integration (the commit-status response is empty and its run-list wrapper returns PR-triggered runs only); do not treat that as CI PASS. MIPS build/TRX and physical-router L4 remain unverified.
+
+---
+
 ## 2026-11-16 — Propagate IPv6 global sysctl failures
 
 - Parent: `8291da3892430ca915c5414c609aca246f78c7aa`. `control_if_ipv6_all()` previously discarded all `set_interface_conf_int()` and neighbour-cache `fput_int()` results; callers could not report partial configuration failure.

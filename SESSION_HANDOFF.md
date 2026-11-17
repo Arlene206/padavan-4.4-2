@@ -8,23 +8,24 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Parent for this IPv6 global sysctl slice: `8291da3892430ca915c5414c609aca246f78c7aa`.
-- Exact parent Actions: WAN DHCP callback `43984154569` PASS; AI handoff `43984154581` PASS; Process inventory `43984154609` PASS; AdGuardHome `43984154572` PASS; AliDDNS `43984154561` PASS; infosvr `43984154692` PASS; AliyunDrive `43984154565` PASS; NVRAM audit `43984154656` PASS.
-- LAN IPv6 cleanup/reload status propagation is implemented. Dynamic SIT/native WAN IPv6 address-adds in `net_wan6.c` use argv-based `eval()`; the WAN DHCP checker correction is in this parent.
-- This slice makes `control_if_ipv6_all()` return first sysctl failure while attempting all applicable writes, skips only per-device entries for interfaces not yet registered, checks neighbour-cache writes, and propagates status through IPv6 init/enable/disable.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains **NOT VERIFIED**.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Parent at start of this atomic slice: `4179895832c0d2f3e26b1996f362ed02d2dbd682`.
+- `net6.c` now sends runtime interface names to `ip -6 addr/route/neigh flush` as separate argv elements. The old `doSystem("...%s...", ifname)` calls crossed `system()`'s shell boundary; the new calls use the existing `eval()` argv macro.
+- Existing input rejection, absent-interface no-op handling and return-status propagation are unchanged. The WAN route workflow now asserts all three exact argv vectors and forbids reverting those wrappers to `doSystem()`.
+- The current global IPv6 sysctl status-propagation slice remains in place. Its standalone GNU89/ASan/UBSan policy binary passed locally in this session; the new IPv6 flush source-contract assertions also pass locally.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Validate this commit's IPv6 global sysctl policy: first-error retention while every applicable operation continues, safe skipping of absent optional devices, checked neighbour-cache sysctl output, and result aggregation in IPv6 initialization and runtime enable/disable. Inspect exact Process, Firewall, WAN route, AI docs and XY-C1 Actions.
+Continue the IPv6 route/tunnel shell-boundary audit in `net_wan6.c`. Address only commands whose dynamic operands have verified provenance and validated representation; preserve `WAN6_SIT_CHECK` / `WAN6_NATIVE_CHECK` status capture and rollback ordering. Prioritize remaining tunnel creation, 6rd configuration, MTU and route operations. Do not repeat the completed per-interface flush change.
 
 ## Verification boundary
 
-- Exact parent `8291da3892430ca915c5414c609aca246f78c7aa`: WAN DHCP callback, AI handoff, Process inventory, AdGuardHome, AliDDNS, infosvr, AliyunDrive and NVRAM audit passed.
-- This commit adds global IPv6 sysctl result propagation and ASan/UBSan tests. Its exact-head workflows must complete before validation claims. Physical-router L4 remains **NOT VERIFIED**.
+- The new WAN route workflow contract was run locally against the edited source and passed. Its exact-head GitHub push run has not yet been independently observed.
+- For parent `4179895832c0d2f3e26b1996f362ed02d2dbd682`, combined legacy commit status returned no contexts; the available workflow-run wrapper only exposes PR-triggered runs. This is an observability limitation, not evidence of Actions PASS or FAIL.
+- Product-source MIPS/uClibc L3 (XY-C1 build, TRX and artifact on one SHA) and physical-router L4 remain **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Inspect this commit's exact-head Process, Firewall, WAN route, AI docs, WAN DHCP callback, NVRAM audit and XY-C1 runs; resolve the first causal failure.
-2. Confirm XY-C1 Build, TRX verification and artifact upload on one exact SHA; product-source L3 remains NOT VERIFIED until all pass. Physical-router L4 remains NOT VERIFIED.
-3. Continue the IPv6 route/tunnel command and interface-provenance audit; preserve frozen backup and use non-forced expected-SHA updates.
+1. Read the new live `main` head once and retrieve its exact push Actions through an available authoritative route; resolve any first causal failure without re-auditing already passed parent work.
+2. Continue the bounded `net_wan6.c` audit: validate SIT/6rd address and prefix provenance, convert only the remaining safe dynamic shell commands to argv-based `eval()`, and extend the WAN route/DHCP source regressions.
+3. Keep the backup branch frozen. Do not claim product-source L3 until XY-C1 Build, TRX verification and artifact upload pass on one exact SHA; physical-router L4 remains NOT VERIFIED.
