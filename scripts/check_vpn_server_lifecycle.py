@@ -242,12 +242,14 @@ server_start=body(vpn,"start_vpn_server_locked(void)")
 require("xl2tpd_status < 0" in server_start,
         "L2TP server start must propagate unknown daemon state")
 server_restart=body(vpn,"restart_vpn_server(void)")
-restore_start=server_restart.index("restore_status = safe_start_xl2tpd_locked();")
-restore_end=server_restart.index("\n\t\t}\n", restore_start)
-restore_block=server_restart[restore_start:restore_end]
-require("if (restore_status < 0)" in restore_block and
-        "if (restore_status != 0)" not in restore_block,
-        "VPN server restart must accept the already-running xl2tpd success sentinel")
+shared_restore=body(vpn,"restore_shared_xl2tpd_locked(const char *phase)")
+require("vpn_server_restart_should_restore_shared_xl2tpd(" in shared_restore and
+        "restore_status = safe_start_xl2tpd_locked();" in shared_restore and
+        "return restore_status < 0 ? restore_status : 0;" in shared_restore,
+        "shared xl2tpd restore must accept the already-running success sentinel")
+require('restore_shared_xl2tpd_locked("after incomplete VPN teardown")' in server_restart and
+        'restore_shared_xl2tpd_locked("after VPN server restart")' in server_restart,
+        "VPN server restart must restore shared clients after abort and normal restart")
 client_restart=body(vpn_client,"restart_vpn_client_locked(void)")
 require("restore_status < 0" in client_restart and "start_status = -1" in client_restart,
         "VPNC restart must propagate failed shared daemon restoration")

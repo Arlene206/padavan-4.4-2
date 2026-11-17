@@ -1563,7 +1563,7 @@ vpn_restart_body = vpn_restart_source.split(
 assert '#include "vpn_server_restart_policy.h"' in vpn_restart_source
 assert "int restart_vpn_server(void);" in vpn_restart_header
 assert "void restart_vpn_server(void);" not in vpn_restart_header
-assert "return vpn_server_restart_first_error(stop_status," in vpn_restart_body
+assert 'restore_shared_xl2tpd_locked("after incomplete VPN teardown")' in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, start_status)" in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, restore_status)" in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, -1)" in vpn_restart_body
