@@ -189,7 +189,7 @@ int module_param_set_int(const char *module_name, const char *module_param, int 
 void oom_score_adjust(pid_t pid, int oom_score_adj);
 int mount_rwfs_partition(void);
 int umount_rwfs_partition(void);
-void start_rwfs_optware(void);
+int start_rwfs_optware(void);
 int retry_rwfs_optware(void);
 int stop_rwfs_optware(void);
 int kill_services(char* svc_name[], int wtimeout, int forcekill);

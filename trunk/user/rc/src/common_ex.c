@@ -1286,27 +1286,31 @@ retry_rwfs_optware(void)
 	return 1;
 }
 
-void start_rwfs_optware(void)
+int start_rwfs_optware(void)
 {
 	int mtd_rwfs;
+	int start_status;
 
+	/* No RWFS mount, optional partition, or already-pending worker is a no-op. */
 	if (!rwfs_mount_ready || rwfs_optware_start_pending ||
 	    !check_if_dir_exist(MP_MTD_RWFS))
-		return;
+		return 0;
 
 	mtd_rwfs = mtd_dev_idx(MTD_PART_NAME_RWFS);
 	if (mtd_rwfs < 3)
-		return;
+		return 0;
 
 	snprintf(rwfs_optware_device, sizeof(rwfs_optware_device),
 		 "/dev/ubi%d_0", mtd_rwfs);
 	rwfs_optware_start_pending = 1;
-	if (rwfs_optware_start_worker() != 0) {
+	start_status = rwfs_optware_start_worker();
+	if (start_status != 0) {
 		logmessage(LOGNAME, "initial MTD Optware startup launch failed; will retry");
 		rwfs_optware_schedule_retry();
 	}
 	/* Poll the nonblocking result channel even if the worker does not signal. */
 	alarm(5);
+	return start_status;
 }
 
 /*
@@ -1435,7 +1439,7 @@ stop_rwfs_optware(void)
 #else
 inline int mount_rwfs_partition(void) { return 0; }
 inline int umount_rwfs_partition(void) { return 0; }
-inline void start_rwfs_optware(void) {}
+inline int start_rwfs_optware(void) { return 0; }
 inline int retry_rwfs_optware(void) { return 0; }
 inline int stop_rwfs_optware(void) { return 0; }
 #endif

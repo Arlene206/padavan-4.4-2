@@ -1131,15 +1131,24 @@ init_router(void)
 
 		boot_services_status = rc_first_service_start_status(boot_services_status,
 								      service_start_status);
-		if (boot_services_status != 0)
-			logmessage(LOGNAME,
-				   "one or more boot service startup operations failed (first status=%d)",
-				   boot_services_status);
 	}
 
 	notify_leds_detect_link();
 
-	start_rwfs_optware();
+	{
+		int optware_start_status = start_rwfs_optware();
+
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, optware_start_status);
+		if (optware_start_status != 0)
+			logmessage(LOGNAME,
+				   "initial MTD Optware worker launch failed; retry is scheduled (status=%d)",
+				   optware_start_status);
+	}
+	if (boot_services_status != 0)
+		logmessage(LOGNAME,
+			   "one or more boot service startup operations failed (first status=%d)",
+			   boot_services_status);
 
 	if (init_crontab()) {
 		storage_save_status = write_storage_to_mtd();

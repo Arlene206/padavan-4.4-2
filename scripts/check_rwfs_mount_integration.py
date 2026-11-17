@@ -20,7 +20,7 @@ def body(source, signature):
             if depth==0: return source[opening+1:pos]
     raise AssertionError("unterminated function: "+signature)
 mount=body(common,"int mount_rwfs_partition(void)")
-start=body(common,"void start_rwfs_optware(void)")
+start=body(common,"int start_rwfs_optware(void)")
 prepare=body(common,"rwfs_mount_prepare_mountpoint(")
 mount_ubifs=body(common,"rwfs_mount_ubifs(")
 attach=body(common,"rwfs_mount_attach_ubi(")
@@ -40,7 +40,11 @@ assert "lstat(mountpoint, &st)" in prepare and "S_ISLNK(st.st_mode)" in prepare
 assert "S_ISDIR(st.st_mode)" in prepare
 assert 'mount(device, mountpoint, "ubifs", 0, NULL)' in mount_ubifs
 assert "!rwfs_mount_ready" in start
-assert "int mount_rwfs_partition(void);" in header
+assert "start_status = rwfs_optware_start_worker();" in start
+assert "if (start_status != 0)" in start
+assert "return start_status;" in start
+assert "int start_rwfs_optware(void);" in header
+assert "inline int start_rwfs_optware(void) { return 0; }" in common
 assert "inline int mount_rwfs_partition(void) { return 0; }" in common
 assert "module_status < 0" in policy
 assert "module_status == 0" in policy and "module_status != 1" in policy
@@ -57,4 +61,9 @@ assert "int rwfs_mount_status;" in router_init
 assert "rwfs_mount_status = mount_rwfs_partition();" in router_init
 assert "boot_services_status = rc_first_service_start_status(" in router_init
 assert "rwfs_mount_status, boot_modules_status" in router_compact
-print("RWFS boot mount, verified UBI attachment and Optware readiness wiring: PASS")
+assert "int optware_start_status = start_rwfs_optware();" in router_init
+assert "boot_services_status, optware_start_status" in router_compact
+assert router_init.index("start_rwfs_optware();") < router_init.index(
+    "boot_services_status = rc_first_service_start_status( boot_services_status, optware_start_status);")
+assert "initial MTD Optware worker launch failed; retry is scheduled" in router_init
+print("RWFS mount, Optware launch result propagation and retry wiring: PASS")

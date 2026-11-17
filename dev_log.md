@@ -1,3 +1,14 @@
+## 2026-11-17 19:12:43 CST — Propagate initial deferred Optware worker launch failures
+
+- Parent main SHA: `40dc687e25b1537febbd35a8b633a10067f6bc65`; result: THIS COMMIT.
+- P1 startup-status inspection found `start_rwfs_optware()` returned void even though its asynchronous worker launch can fail during pipe setup, descriptor configuration, or fork. The function logged and scheduled a retry, but `init_router()` discarded that initial launch failure and did not include it in the existing `boot_services_status` aggregate.
+- Changed the function/API and non-NAND stub to return the immediate launch result (`0` for not-applicable/already-pending; the worker's nonzero status when initial launch fails). Retry scheduling and the nonblocking alarm remain unchanged.
+- `init_router()` now folds the initial Optware launch result into `boot_services_status` and emits a specific retry-scheduled diagnostic. The aggregate summary moved after this step so it covers the initial Optware launch too; it still does not make optional service failure fatal to PID 1 recovery readiness.
+- Extended `scripts/check_rwfs_mount_integration.py` to verify the return contract, non-NAND stub, and caller aggregation/logging. Existing storage Optware policy tests cover child-result decoding and retry/backoff; exact-head CIs will validate the integration checker.
+- Guest Process/Wireless source-contract fix and AI docs passed on descendant SHA `40dc687e`; XY-C1 Build/TRX/artifact for source `1be4affc` was still pending at last poll.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 19:07:56 CST — Correct guest boot rollback checker formatting and snapshot-order contracts
 
 - Parent main SHA: `85062ff1a9a0d8b633d8c11b1d90cb7d6a18c2a7`; result: THIS COMMIT.
