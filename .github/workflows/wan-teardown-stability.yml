@@ -63,7 +63,8 @@ jobs:
           stop = function_body(source, "stop_wan_locked(void)")
           usb_modem = (rc / "usb_modem.c").read_text()
           usbnet_stop = function_body(usb_modem, "int\nstop_wan_usbnet(void)")
-          service_gate = 'kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1)'
+          dhcp_client_gate = 'kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0)'
+          wan_daemon_gate = "kill_services(svcs_wan, 3, 1)"
           teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
           failure_gate = "if (stop_status != 0 || ifdown_status != 0)"
           usbnet_gate = 'if (get_usb_modem_wan(unit) && nvram_get_int("modem_type") == 3)'
@@ -76,7 +77,7 @@ jobs:
           assert "modem_ndis_control_failed(control_required, control_status)" in usbnet_stop
           assert "ifdown_status != ENODEV" in usbnet_stop
           assert "return result;" in usbnet_stop
-          assert stop.index(service_gate) < stop.index("stop_status = stop_wan_usbnet();") < stop.index(teardown)
+          assert stop.index(dhcp_client_gate) < stop.index(wan_daemon_gate) < stop.index("stop_status = stop_wan_usbnet();") < stop.index(teardown)
           teardown_path = stop[stop.index(teardown):stop.index("remove_cb_links();")]
           assert "usbnet_ifname" in teardown_path
           assert stop.index(teardown) < stop.index("remove_cb_links();")

@@ -1,3 +1,12 @@
+## 2026-11-17 — Align DHCP stop-order workflow contracts with fail-closed client cleanup
+
+- Parent main SHA: 735847725be8fa488bc54f575ce71514e910d617; result: THIS COMMIT.
+- The new udhcpc no-force stop behavior was already covered by scripts/check_lan_dhcp_deconfig.py. Exact WAN-DHCP run 44124204917 and WAN teardown run 44124205356 then failed in older embedded source contracts that still required the previous combined 3-second SIGKILL transaction.
+- Updated both workflow contracts to require SIGUSR2 release of both DHCP clients, bounded 30-second no-force udhcpc stop, then the ordinary WAN daemon stop with its existing 3-second TERM/KILL policy, before USB modem stop/interface teardown.
+- No production source changed in this commit. WAN-route on source 7358477 passed (44124204908); exact-head WAN-DHCP, teardown and XY-C1 reruns pending. XY parent run 44124205199 was still in its Build/TRX/artifact stage at last poll.
+
+---
+
 ## 2026-11-17 — Preserve BusyBox pending deconfig during DHCP client stop
 
 - Parent main SHA: bae6e8715fa5d1ba583f8fba5601de46ee6aa7d1; result: THIS COMMIT.
