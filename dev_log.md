@@ -1,3 +1,12 @@
+## 2026-11-17 — Fix DDNSTO empty-identity regression fixture
+
+- Base main SHA: `574caf1b5abe240ea7dd025120a74414c83cefc3`; result: THIS COMMIT.
+- Exact-head DDNSTO run `44010845222` failed at the assertion `empty identity disrupted the existing daemon`; production `start_zero()` validates the ID before invoking `kill_z()`, so this failure was traced to the test's NVRAM mock.
+- The mock used a two-backslash printf format (`%s\\n`) inside single quotes. With an empty test value, printf emitted the literal two-character sequence `\n`, so the production command substitution saw a nonempty ID and legitimately proceeded to stop the old daemon. Corrected the fixture to a real newline format (`%s\n`), which now supplies an actually empty value and tests the intended fail-before-stop invariant.
+- No production DDNSTO behavior changed. Exact-head rerun pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Require a confirmed DDNSTO process after asynchronous startup
 
 - Base main SHA: `b95bb7350785a1a4c5db8881e2ecd764d2b918f3`; result: THIS COMMIT.

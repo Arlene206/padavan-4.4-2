@@ -126,7 +126,7 @@ case "$1:$2" in
 	get:ddnsto_id)
 		[ "${TEST_NVRAM_ID_FAIL:-0}" = 0 ] || exit 9
 		if [ "${TEST_NVRAM_ID_SET:-0}" = 1 ]; then
-			printf '%s\\n' "$TEST_NVRAM_ID"
+			printf '%s\n' "$TEST_NVRAM_ID"
 		else
 			echo regression-id
 		fi
