@@ -108,7 +108,11 @@ assert "sethostname(name, length)" in lan
 assert "lan_setdomainname_status" in lan
 assert "setdomainname(name, length)" in lan
 assert host_body.index("lan_kernel_names_apply") < host_body.index("dnsmasq_lifecycle_lock_release(hosts_lock)")
-assert host_body.index("dnsmasq_lifecycle_lock_release(hosts_lock)") < host_body.index("if (saved_errno != 0)")
+apply_status = host_body.index("lan_kernel_names_apply")
+lock_release = host_body.index("dnsmasq_lifecycle_lock_release(hosts_lock)")
+first_error_log = host_body.index("if (saved_errno != 0)", apply_status)
+final_error = host_body.index("if (saved_errno != 0) {", lock_release)
+assert apply_status < first_error_log < lock_release < final_error
 assert "errno = saved_errno;" in host_body
 assert "return saved_errno;" in host_body
 assert "sethostname(lan_hname" not in host_body

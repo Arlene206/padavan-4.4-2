@@ -1,3 +1,11 @@
+## 2026-11-17 — Correct LAN kernel-name checker ordering after first CI run
+
+- Parent main SHA: ff47cd7cfe079529edbd1f058603666bcc37774f; result: THIS COMMIT.
+- Exact-head WAN DHCP run 44104199182 compiled and passed the existing DHCP lease regression, then failed in scripts/check_lan_dhcp_deconfig.py. The new assertion incorrectly compared lock release against the first `if (saved_errno != 0)`, which is intentionally the pre-release diagnostic log, not the post-release error return.
+- Corrected the source contract to distinguish first-error logging from the final post-lock-release return. Production behavior remains unchanged; the dedicated kernel hostname/domain regression compile step was not reached in the failed run and is pending rerun.
+- Exact-head XY-C1 run 44104199066 remains in progress; no build result inferred. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Propagate failed kernel hostname/domain updates during LAN host publication
 
 - Parent main SHA: 422e006dc861caefcb7f3b231f0f53842ec63eef; result: THIS COMMIT.
