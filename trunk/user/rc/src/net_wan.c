@@ -2196,7 +2196,18 @@ stop_wan_locked(void)
 		goto abort_resume_detect;
 	}
 	usleep(300000);
-	if (kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1) != 0) {
+	/*
+	 * udhcpc owns retries for a failed deconfig callback (default -A is 20s).
+	 * Never SIGKILL it: wait once for its callback retry and abort teardown
+	 * on timeout. Stop unrelated WAN daemons separately so they retain the
+	 * normal bounded TERM/KILL policy.
+	 */
+	if (kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0) != 0) {
+		logmessage(LOGNAME, "refusing WAN interface teardown while DHCP deconfig is active or unknown");
+		stop_status = -1;
+		goto abort_resume_detect;
+	}
+	if (kill_services(svcs_wan, 3, 1) != 0) {
 		logmessage(LOGNAME, "refusing WAN interface teardown while WAN services remain active");
 		stop_status = -1;
 		goto abort_resume_detect;
@@ -5068,7 +5079,8 @@ stop_udhcpc_pidfile(const char *path)
 
 	pidfiles[0] = path;
 	pidfiles[1] = NULL;
-	return kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 3, 1);
+	/* Let BusyBox complete its pending-deconfig retry; never SIGKILL it. */
+	return kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0);
 }
 
 int renew_udhcpc_wan(int unit)

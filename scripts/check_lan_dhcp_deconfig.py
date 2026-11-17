@@ -4,6 +4,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 lan = (root / "trunk/user/rc/src/net_lan.c").read_text()
+wan = (root / "trunk/user/rc/src/net_wan.c").read_text()
 policy = (root / "trunk/user/rc/src/dhcp_lease_policy.h").read_text()
 test = (root / "trunk/user/rc/src/tests/dhcp_lease_policy.c").read_text()
 kernel_policy = (root / "trunk/user/rc/src/lan_kernel_name_policy.h").read_text()
@@ -11,6 +12,25 @@ kernel_test = (root / "trunk/user/rc/src/tests/lan_kernel_name_policy.c").read_t
 busybox = (root / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
 workflow = (root / ".github/workflows/wan-dhcp-callback-stability.yml").read_text()
 xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+
+
+def c_function_body(source, signature):
+    start = source.index(signature)
+    opening = source.index("{", start)
+    depth = 0
+    for position in range(opening, len(source)):
+        if source[position] == "{":
+            depth += 1
+        elif source[position] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[opening + 1:position]
+    raise AssertionError("unterminated C function: " + signature)
+
+
+def compact(source):
+    return " ".join(source.split())
+
 
 helper_start = policy.index("dhcp_lease_deconfig_address_ready(int route_status, int ifconfig_status)")
 helper_end = policy.index("}", helper_start)
@@ -65,6 +85,44 @@ pending_body = busybox[pending:pending_end]
 assert 'udhcp_run_script(NULL, "deconfig")' in pending_body
 assert "udhcpc_deconfig_retry_required(deconfig_status)" in pending_body
 assert "state = deconfig_resume_state;" in pending_body
+
+# A pending DHCP deconfig belongs to udhcpc: do not SIGKILL it before its
+# built-in retry. Isolate DHCP stop policy from ordinary daemon escalation.
+wan_stop = compact(c_function_body(wan, "stop_wan_locked(void)"))
+wan_dhcp_stop = 'kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0)'
+wan_daemon_stop = "kill_services(svcs_wan, 3, 1)"
+assert wan_dhcp_stop in wan_stop
+assert wan_daemon_stop in wan_stop
+assert wan_stop.index('process_pidfile_signal(udhcpc_pidfiles[0], "udhcpc", SIGUSR2)') < wan_stop.index(wan_dhcp_stop)
+assert wan_stop.index('process_pidfile_signal(udhcpc_pidfiles[1], "udhcpc", SIGUSR2)') < wan_stop.index(wan_dhcp_stop)
+assert wan_stop.index(wan_dhcp_stop) < wan_stop.index(wan_daemon_stop)
+
+wan_pidfile_stop = compact(c_function_body(wan, "stop_udhcpc_pidfile(const char *path)"))
+assert 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)' in wan_pidfile_stop
+
+lan_stop = compact(c_function_body(lan, "stop_lan(int is_ap_mode)"))
+lan_dhcp_stop = 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)'
+assert lan_dhcp_stop in lan_stop
+assert "kill_services(svcs, 3, 1)" in lan_stop
+assert lan_stop.index(lan_dhcp_stop) < lan_stop.index("kill_services(svcs, 3, 1)")
+
+lan_pidfile_stop = compact(c_function_body(lan, "stop_udhcpc_lan(void)"))
+assert lan_dhcp_stop in lan_pidfile_stop
+
+assert (wan + lan).count('"udhcpc", 0, 30, 0') == 4
+assert '"udhcpc", 0, 3, 1' not in (wan + lan)
+
+# SIGTERM jumps to ret0. If a deconfig is pending, ret0 retries it rather
+# than letting the client exit immediately; default -A is 20 seconds.
+assert 'int tryagain_timeout = 20;' in busybox
+sigterm_start = busybox.index("case SIGTERM:")
+sigterm_end = busybox.index("/* Is it a packet? */", sigterm_start)
+assert "goto ret0;" in busybox[sigterm_start:sigterm_end]
+ret0 = busybox[busybox.index(" ret0:"):]
+assert "state == DECONFIG_PENDING" in ret0
+assert 'udhcp_run_script(NULL, "deconfig")' in ret0
+assert "while (udhcpc_deconfig_retry_required(release_status))" in ret0
+assert "sleep(retry_delay);" in ret0
 
 filters = workflow.split("jobs:", 1)[0]
 push, pr = filters.split("  pull_request:", 1)

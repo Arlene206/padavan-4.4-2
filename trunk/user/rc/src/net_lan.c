@@ -1055,7 +1055,13 @@ stop_lan(int is_ap_mode)
 		int status;
 
 		notify_pause_detect_internet();
-		status = kill_services_with_pidfiles(svcs, pidfiles, "udhcpc", 0, 3, 1);
+		/*
+		 * udhcpc may be retrying a failed deconfig callback. Give its default
+		 * 20-second retry one bounded chance; never force-kill lease cleanup.
+		 */
+		status = kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0);
+		if (status == 0)
+			status = kill_services(svcs, 3, 1);
 		if (status != 0) {
 			/* The old AP network is still live; undo the pause because the
 			 * fail-closed DHCP preflight aborted before touching the bridge. */
@@ -1896,5 +1902,6 @@ stop_udhcpc_lan(void)
 {
 	const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
 
-	return kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 3, 1);
+	/* Preserve BusyBox's pending-deconfig retry; fail closed on timeout. */
+	return kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0);
 }

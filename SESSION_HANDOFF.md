@@ -1,28 +1,32 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes older statements below when they conflict. Work on main only; do not repeat completed audits.
+This checkpoint supersedes older status statements below when they conflict. Work on main only; do not repeat completed audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2.
-- Parent main SHA: def277350a862c452c2324fd86876aab9bdbaf21; result: THIS COMMIT (one complete Git tree, non-forced expected-SHA update).
+- Parent main SHA: bae6e8715fa5d1ba583f8fba5601de46ee6aa7d1; result: THIS COMMIT (single complete Git tree, non-forced expected-SHA update).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (immutable).
-- Connector-only session: no full checkout or local MIPS compiler; physical-router L4 NOT VERIFIED.
+- Connector-only session: no full checkout or MIPS compiler; physical-router L4 NOT VERIFIED.
 
-## PPPoE-MWAN verification and checker correction
-- Commit ab02de4517cd3cd5f4a978964dc0255a9be31adc hardened mwan.sh credential quoting, validation, private per-session options.wanN publication and first-error/partial-session cleanup. Commit def277350a862c452c2324fd86876aab9bdbaf21 corrected the host fixture's expected backslashes; the exact-head WAN-route test passed all 12 shell scenarios.
-- Exact-head WAN-route run 44123334960 then FAILED in scripts/check_pppoe_mwan_status.py at its combined private-options contract. The checker expected a temporary filename ending in one dollar sign, while production correctly uses `.$$` to append the process ID to the unique staging path. THIS COMMIT corrects the source contract; production code is unchanged.
-- Parent exact-head XY-C1 run 44123335528 remained IN_PROGRESS at last poll. New exact-head WAN-route and XY-C1 workflows must be checked after this commit.
+## PPPoE-MWAN hardening / verification
+- Commit ab02de4517cd3cd5f4a978964dc0255a9be31adc hardens mwan.sh credential escaping, input validation, private per-session options.wanN and partial launch rollback. Commit def277350a862c452c2324fd86876aab9bdbaf21 corrected username/password escaping expectations; its exact-head WAN-route run 44123334960 passed all 12 shell scenarios but failed the Python source contract because that checker expected one dollar in the temporary filename instead of the production `.$$` PID suffix.
+- Commit bae6e8715fa5d1ba583f8fba5601de46ee6aa7d1 corrected the source checker to require `.$$`. At the last exact-head query it had only AI handoff 44123840477, AdGuard 44123840602 and Process inventory 44123840476 queued; no exact-head WAN-route or XY-C1 run had yet appeared. THIS COMMIT also touches net_wan.c, which is a configured trigger for both WAN-route and XY-C1.
+
+## DHCP graceful-stop reliability
+- BusyBox udhcpc keeps failed deconfig callbacks in DECONFIG_PENDING, retries using default -A 20 seconds, and routes SIGTERM through ret0 where pending deconfig is retried. RC stop paths previously forced SIGKILL after 3 seconds, truncating that cleanup.
+- THIS COMMIT changes all four udhcpc stop paths to bounded 30-second waits with forcekill=0. WAN sends SIGUSR2 release to both DHCP clients, then stops them separately from ordinary WAN daemons; LAN AP stop likewise separates udhcpc from detect_wan. Normal non-DHCP daemons retain the existing bounded TERM/KILL policy. DHCP stop failure/unknown identity aborts teardown, leaving the client available to complete cleanup.
+- scripts/check_lan_dhcp_deconfig.py now checks all four stop call sites, the split ordering, no-force-kill arguments and BusyBox SIGTERM/DECONFIG_PENDING retry behavior. Existing WAN-DHCP callback and XY-C1 workflows run this checker and filter the changed source paths.
 
 ## First next task
-1. Check exact-head WAN-route source contract and PPPoE-MWAN shell harness. Require both to pass (the shell harness passed 12/12 on def277350).
-2. Check exact-head XY-C1 all pre-build contracts, Build XY-C1, TRX verification and artifact upload.
-3. Then implement the independent udhcpc cleanup issue: generic WAN/AP-LAN stop helpers use 3-second SIGKILL escalation, which can terminate BusyBox while DECONFIG_PENDING retries a failed deconfig callback. Separate DHCP clients from ordinary WAN daemons, use a bounded no-force wait, abort teardown on timeout, and pin behavior in scripts/check_lan_dhcp_deconfig.py.
-4. Continue cross-userland stability/security without repeating completed PPPoE detector/caller logic, HTTPD or storage audits.
+1. Inspect exact-head WAN-DHCP callback, WAN-route and XY-C1 runs for THIS COMMIT. Require the new udhcpc stop contract and PPPoE-MWAN source contract to pass.
+2. Verify XY-C1 Build XY-C1, TRX output and artifact upload for the exact SHA; do not reuse an older source artifact.
+3. If any workflow fails, inspect that job's log and fix the real issue atomically; PENDING does not block independent tasks.
+4. Continue WAN DHCP leasefail/NAK/release callback semantics only after these regressions pass; confirm BusyBox state-transition details before changing callbacks.
 
 ## Verification boundary
-- Parent def277350 WAN route run 44123334960: all 12 multi-WAN shell scenarios PASS; Python checker FAILED solely on its incorrect `.$` instead of `.$$` temporary PID suffix expectation. Correction is included here; exact rerun pending.
-- Parent XY-C1 run 44123335528 was IN_PROGRESS at last poll; no Build/TRX/artifact success is claimed.
-- No full local C/MIPS/uClibc build or physical-router L4 is claimed.
+- Parent def277350 exact WAN-route run 44123334960 passed all 12 PPPoE-MWAN host scenarios; source contract then failed on an assertion typo. Commit bae6 corrects it, but no exact WAN-route rerun was visible at last poll.
+- THIS COMMIT's WAN-DHCP callback, WAN-route and XY-C1 checks are pending at commit creation.
+- No local full build, MIPS/uClibc compile or physical-router L4 is claimed.
 
 
 # Cross-session execution mandate

@@ -1,3 +1,13 @@
+## 2026-11-17 — Preserve BusyBox pending deconfig during DHCP client stop
+
+- Parent main SHA: bae6e8715fa5d1ba583f8fba5601de46ee6aa7d1; result: THIS COMMIT.
+- BusyBox udhcpc retries a failed deconfig in DECONFIG_PENDING using its default 20-second -A interval. SIGTERM routes through ret0, which retries pending deconfig; RC stop callers were using a 3-second wait followed by SIGKILL, able to terminate the client before its callback retry.
+- Changed all four WAN/AP-LAN udhcpc stop call sites to a bounded 30-second wait with forcekill=0. WAN releases both DHCP clients and stops them separately from ordinary daemons; LAN AP shutdown separates DHCP from detect_wan. A timeout or unknown PID identity aborts interface teardown.
+- Extended scripts/check_lan_dhcp_deconfig.py to assert all four paths, no-force-kill settings, stop ordering and BusyBox pending-deconfig retry semantics. Existing WAN DHCP callback and XY-C1 workflows execute the checker and trigger on the changed sources.
+- Exact-head WAN-DHCP, WAN-route and XY-C1 Actions are pending; no local build or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-17 — Correct PPPoE-MWAN temporary PID suffix source contract
 
 - Parent main SHA: def277350a862c452c2324fd86876aab9bdbaf21; result: THIS COMMIT.
