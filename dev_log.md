@@ -1,3 +1,8 @@
+## 2026-11-17 — Restore the live module dashboard after accidental roadmap truncation
+
+- Exact-head AI handoff run `44156954920` on `5bdf59f0bcceb7802bd94309bd0bdb5b467381b7` failed because `REFACTOR_ROADMAP.md` lacked the required `## Whole-repository module status` dashboard. The job log identified this single invariant; other document checks passed.
+- The live roadmap had been reduced to a 996-byte checkpoint-only note, losing the 51,338-byte module dashboard, priority queue and verification matrix. Restore the full version from Git history at `e90549004908d388123e1807abf0ddeb4a6a11fd`, update the current checkpoint, and keep the historical dashboard content intact.
+- Parent WAN teardown `44156954967`, HTTPD `44156954859`, Process lifecycle/inventory `44156955420`/`44156955350`, and NVRAM `44156954872` passed. Exact parent XY-C1 `44156955220` was still building; TRX/artifact pending.
 ## 2026-11-17 — Stop MSD Lite during WAN teardown
 
 - `start_udpxy()` can launch the optional `msd_lite` proxy, and the shared proxy stop list already includes it. The independent `stop_wan_locked()` inventory omitted `msd_lite`, so a WAN-down/reconnect teardown could leave the daemon alive with stale WAN routing and interface state.

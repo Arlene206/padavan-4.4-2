@@ -1,26 +1,24 @@
-# 2026-11-17 continuation checkpoint — stop MSD Lite during WAN teardown
+# 2026-11-17 continuation checkpoint — restore live module dashboard and validate WAN teardown
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `0a90c01469edfa5b63129cfeac042ddc94d616fe`; this is one atomic source/test/workflow/handoff commit using a complete Git tree and non-forced expected-SHA update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Main-only development, no force-push; PR #1 remains closed/unmerged.
-- No local full MIPS/uClibc toolchain or physical router; L4 remains NOT VERIFIED.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `5bdf59f0bcceb7802bd94309bd0bdb5b467381b7`; THIS COMMIT restores the accidentally truncated live roadmap dashboard and refreshes the handoff.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only development; PR #1 remains closed/unmerged.
+- No local MIPS/uClibc toolchain or physical router. Physical L4 is NOT VERIFIED.
 
-## Parent exact-head Actions
-- HTTPD security `44156398138`: SUCCESS; this validates the repaired tri-state partition source contract after the previous stale assertion failure.
-- AI handoff `44156398311`: SUCCESS.
-- XY-C1 Firmware Validation `44156397861`, Process inventory/lifecycle `44156397929`, and NVRAM transaction audit `44156397925`: IN_PROGRESS at last poll; 6 of 9 parent push workflows were complete-success.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+## Parent exact-head Actions (SHA `5bdf59f0bcceb7802bd94309bd0bdb5b467381b7`)
+- WAN DHCP callback `44156955298`, WAN route `44156954948`, AliDDNS transport `44156954915`, Firewall startup `44156955323`, detect_internet `44156955147`, ZeroTier `44156954913`, gateway ARP `44156955224`, AliyunDrive `44156955184`, USB modem `44156955336`, HTTPD `44156954859`, Process lifecycle `44156955420`, infosvr `44156955706`, detect_link `44156954837`, WAN teardown `44156954967`, VPN server `44156955177`, DNSMasq `44156955297`, AdGuardHome `44156955302`, miniupnpd `44156955245`, Process inventory/fail-closed `44156955350`, NVRAM transaction audit `44156954872`: SUCCESS.
+- AI handoff contract `44156954920`: FAILURE because `REFACTOR_ROADMAP.md` no longer contained `## Whole-repository module status` and `AUDITING`. Job log reports exactly `roadmap does not contain a current module status dashboard`; the checker did not report any other failed document invariant.
+- XY-C1 firmware validation `44156955220`: IN_PROGRESS at `Build XY-C1`; TRX verification and artifact upload not yet completed. This run is for exact source SHA `5bdf59f0bcceb7802bd94309bd0bdb5b467381b7`.
 
-## WAN teardown proxy inventory fix (THIS COMMIT)
-- `start_udpxy()` can launch optional `msd_lite`; the common proxy stop list includes it, but `stop_wan_locked()` had a separate `svcs_wan[]` inventory that omitted it. A standalone WAN teardown could leave MSD Lite attached to old WAN state.
-- Add `msd_lite` to that inventory and require it in the WAN teardown regression alongside igmpproxy/xupnpd/udpxy.
-- Add `hotplug_stor.c` to the XY-C1 path filter. Its tri-state source behavior was previously checked by storage/HTTPD workflows but did not trigger a target firmware validation. The modified `net_wan.c` also triggers XY-C1 now.
-- Exact-head Actions for THIS COMMIT pending; no MIPS firmware/TRX artifact or physical-router validation is claimed.
+## Dashboard restoration (THIS COMMIT)
+- The prior roadmap at `e90549004908d388123e1807abf0ddeb4a6a11fd` contains the full 51,338-byte whole-repository dashboard, priority queue and verification matrix. The later `0a90c014` update accidentally replaced it with a 996-byte checkpoint-only file.
+- Restore the previous complete dashboard from Git history and update only its top live checkpoint. Keep the 2026-11-17 WAN teardown/MSD Lite change visible and preserve all archived history in place.
+- The exact-head AI workflow failure is documentation integrity, not product source. No firmware source is changed by this repair.
 
 ## First next action
-- Inspect exact-SHA WAN teardown, XY-C1 Build/TRX/artifact, Process, AI handoff and NVRAM Actions. Fix any real failing assertion from its job log.
-- While builds are pending, continue an independent userland lifecycle/result-propagation defect; do not repeat the completed SD/MMC topology gate or HTTPD checker repair.
-
+- Verify the AI handoff action for THIS COMMIT; if the live dashboard contract passes, continue the swap-only physical eject gap: `umount_ejected_locked()` still early-returns when `/proc/mounts` contains no removable mount, so raw removable-device swap entries can be skipped after a failed mdev swapoff.
+- Inspect XY-C1 `44156955220` through Build, TRX verification and artifact upload. Do not report an artifact until the exact-SHA steps complete.
+- Keep backup branch read-only and use complete-tree expected-SHA updates with `force:false`.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session
