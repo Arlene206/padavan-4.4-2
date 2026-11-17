@@ -1,12 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS WAN DHCP source-contract correction: `509409f8a9d72127bf40641ca779f0a43c8d5783`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- AP DHCP retry feature `0af358f3` and standalone whitespace-normalized checker `509409f8`: exact 509 WAN DHCP `44202830940` failed at an obsolete embedded contract that expected hosts publication directly inside `udhcpc_lan_bound()`. The current implementation delegates to `lan_dhcp_publish_hosts_and_schedule_retry()`; this helper owns the create_hosts call, failure log, retry marker and DHCPD recovery notification. THIS commit validates the wrapper call after lease-state publication and the helper body separately.
-- Exact 509 AI `44202830922`, AdGuardHome `44202830932`, Process `44202830930`, infosvr `44202831074`, AliDDNS `44202830944`, AliyunDrive `44202830935`, NVRAM `44202831128` PASS. XY-C1 `44202831040` remained PENDING.
-- The failed WAN DHCP job passed its lease-input policy test but did not reach the callback policy binary. Exact-head WAN DHCP rerun required.
-- Earlier static WAN teardown source has its dedicated teardown and WAN route checks PASS; no current-source L3 claim. Physical-router L4 NOT VERIFIED.
+- Main after the AP DHCP embedded source-contract correction: d7f4bc9f2e41fb5764e807409d4fe9420ddd6bed.
+- Exact WAN DHCP callback workflow run 44203603261 PASS on d7f4bc9f. The standalone normalized checker, embedded wrapper/helper contract, and GNU89/ASan/UBSan callback-policy regression all completed successfully.
+- Exact AI documentation run 44203603286 FAIL on d7f4bc9 because SESSION_HANDOFF.md had weakened the mandatory end-of-session checkpoint wording. Protocol and bootstrap contain the required rules; THIS documentation repair restores the exact handoff contract and states the live-check/no-op rule.
+- Exact Process lifecycle 44203603303 PASS; NVRAM transaction audit 44203603328 PASS; AliDDNS 44203603381 PASS; AdGuardHome 44203603460 PASS; infosvr 44203603262 PASS; AliyunDrive 44203603304 PASS.
+- XY-C1 for the preceding 509409f8 product source, run 44202831040, remained IN_PROGRESS at Build XY-C1; TRX and artifact upload were pending. This does not validate a later product SHA.
+- Frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807 unchanged; no local MIPS build or physical-router L4 claim.
 
-Next: exact-head WAN DHCP rerun and exact 509 XY-C1 completion; then continue independent P1 reliability/security.
+Next: exact-head AI handoff rerun for this checkpoint restoration, then continue the concrete WAN-up notification-status gap in net_wan.c. The 509 XY-C1 build can be independently rechecked if still relevant.
 
 ---
 

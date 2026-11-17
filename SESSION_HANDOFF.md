@@ -27,6 +27,9 @@
 4. Keep frozen backup unchanged; no local target compile or hardware L4 claim.
 
 ## Mandatory handoff checkpoint
+The checkpoint is mandatory; a document edit is conditional.
+Every session MUST inspect the live repository state, relevant exact-head Actions, the current handoff/roadmap facts, the validation boundary and the exact first actionable task before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit; do not create a no-op commit.
+
 At session end, inspect live main, relevant exact-SHA Actions, the handoff/roadmap and the first actionable task. The checkpoint is mandatory; documentation-only updates are conditional. Record PASS/FAIL/PENDING accurately.
 
 # Cross-session execution mandate

@@ -1,3 +1,13 @@
+## 2026-11-18 — Restore mandatory end-of-session handoff checkpoint contract
+
+- Parent main SHA: d7f4bc9f2e41fb5764e807409d4fe9420ddd6bed. Exact WAN DHCP callback run 44203603261 PASS after the embedded source-contract fix in that parent.
+- Exact AI docs run 44203603286 failed because the live handoff still had the heading but no longer contained the exact required sentence: "The checkpoint is mandatory; a document edit is conditional." The development protocol and bootstrap already contained the full checkpoint requirements.
+- THIS commit restores the exact handoff literal and makes the verification steps explicit: inspect exact-SHA changes, compare handoff facts, and make no commit when facts/first action remain accurate. No production code is changed.
+- Exact Process 44203603303, NVRAM 44203603328, AliDDNS 44203603381, AdGuardHome 44203603460, infosvr 44203603262 and AliyunDrive 44203603304 PASS on d7f4bc9f. Exact 509 XY-C1 run 44202831040 remained in progress at Build; no L3 claim.
+- Next exact-head validation is AI handoff. Afterward continue the discovered WAN VPN-start notification return-status defect. No local MIPS or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Align WAN DHCP callback workflow with extracted hosts retry helper
 
 - Parent main SHA: `509409f8a9d72127bf40641ca779f0a43c8d5783`; exact 509 WAN DHCP run `44202830940` failed at embedded Python line 906 because its contract still required direct `create_hosts_lan()` and the corresponding failure message inside `udhcpc_lan_bound()`.
