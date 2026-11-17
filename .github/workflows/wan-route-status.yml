@@ -12,6 +12,10 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/inadyn_daemon_policy.h"
+      - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "scripts/check_wan_ddns_status.py"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"
       - "trunk/user/rc/src/ipv6_global_conf_policy.h"
@@ -54,6 +58,10 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/inadyn_daemon_policy.h"
+      - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "scripts/check_wan_ddns_status.py"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"
       - "trunk/user/rc/src/ipv6_global_conf_policy.h"
@@ -99,6 +107,14 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+      - name: Compile and run Inadyn configured-WAN update policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/inadyn_daemon_policy.c \
+            -o /tmp/inadyn-daemon-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/inadyn-daemon-policy
       - name: Compile and run IPv6 restart runtime-mode commit regression
         run: |
           set -eu
@@ -181,6 +197,8 @@ jobs:
         run: python3 scripts/check_wan_vlan_setup.py
       - name: Verify WAN firewall result propagation
         run: python3 scripts/check_wan_firewall_status.py
+      - name: Verify WAN DDNS update status propagation
+        run: python3 scripts/check_wan_ddns_status.py
       - name: Verify route result propagation and cleanup ordering
         run: |
           python3 - <<'PY'

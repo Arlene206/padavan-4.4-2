@@ -1,3 +1,13 @@
+## 2026-11-16 — Preserve Inadyn failure status during WAN-up
+
+- Parent main SHA: `9116f521c171d011f45a9a19abebcf57cdbedcc9`; source and regression changes are THIS COMMIT.
+- Defect: `wan_up_internal()` called `notify_ddns_update()` but discarded its result. When configured DDNS could not be started, its process inventory was UNKNOWN, its configuration could not be published, or its HUP failed, WAN-up still returned success.
+- A direct aggregation alone would misreport normal routers: the notifier also ran when DDNS was disabled or in AP mode, while `start_ddns()` correctly rejects those configurations. Added a shared eligibility policy so those cases are successful no-ops before any process scan or daemon start.
+- WAN-up now merges the notifier result into its existing first-error status and logs failures. Added the four-case enable/AP policy regression, a source-level caller contract, and exact workflow gates.
+- Exact-head Actions for THIS COMMIT were pending at commit creation. Local compile/test was not run because no checkout/toolchain is available; physical-router L4 remains unverified.
+
+---
+
 ## 2026-11-16 — Correct WAN firewall caller-contract checks
 
 - Parent main SHA: `9a0256f5d4cd97a902e48e32839fde7e1391d370`; the implementation commit is `9a0256f5d4cd97a902e48e32839fde7e1391d370`.

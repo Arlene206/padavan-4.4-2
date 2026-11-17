@@ -51,6 +51,8 @@
 
 1. **P0 — Verify exact-SHA CI after each source/handoff commit.** Resolve any FAIL at the corresponding SHA; treat runs without a conclusion as PENDING and work on independent tasks.
 2. **P1 — Continue broad RC startup-result propagation.** Find remaining enabled service launch/module-load paths whose failures are discarded by `void` helpers or callers. Fix concrete defects with tests; cover service callers, not just helper return types.
+
+   - Completed slice in THIS COMMIT: `wan_up_internal()` now preserves configured Inadyn start/reload failures from `notify_ddns_update()`; DDNS-disabled and AP-mode notifier calls are explicitly successful no-ops, with policy and WAN-caller regression coverage. Continue with other dropped WAN-up optional-launch results.
 3. **P1 — Extend lifecycle and rollback coverage across independent services.** Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.
 4. **P2 — Continue storage/configuration boundary hardening.** Inspect other privileged writers for predictable temp names, symlink substitution, unchecked file operations, and unsafe config interpolation; add host regressions where practical.
 5. **P2 — Keep handoff state current.** Update `SESSION_HANDOFF.md`, this roadmap, and `dev_log.md` after material commits; do not duplicate verified work.

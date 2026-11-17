@@ -12,6 +12,13 @@ enum inadyn_daemon_action {
 	INADYN_DAEMON_RELOAD = 1
 };
 
+/* WAN notifications are normal when optional DDNS is disabled or in AP mode. */
+static int
+inadyn_update_should_run(int ddns_enabled, int is_ap_mode)
+{
+	return ddns_enabled && !is_ap_mode;
+}
+
 #define INADYN_START_WAIT_ATTEMPTS 4
 
 static int inadyn_presence_error(enum process_presence state, int scan_error);

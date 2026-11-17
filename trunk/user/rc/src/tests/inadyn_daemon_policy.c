@@ -47,6 +47,15 @@ fake_send_signal(void *context, pid_t pid, int sig)
 }
 
 static void
+test_update_configuration_gate(void)
+{
+	assert(inadyn_update_should_run(1, 0) == 1);
+	assert(inadyn_update_should_run(0, 0) == 0);
+	assert(inadyn_update_should_run(1, 1) == 0);
+	assert(inadyn_update_should_run(0, 1) == 0);
+}
+
+static void
 test_presence_decisions(void)
 {
 	assert(inadyn_action_for_presence(PROCESS_PRESENCE_ABSENT) ==
@@ -227,6 +236,7 @@ test_start_postcondition_status(void)
 int
 main(void)
 {
+	test_update_configuration_gate();
 	test_presence_decisions();
 	test_start_postcondition_status();
 	test_config_preflight_requires_all_live_identities();

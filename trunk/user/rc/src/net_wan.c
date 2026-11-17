@@ -2677,8 +2677,12 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 				   wan_ifname, route_status);
 	}
 
-	/* notify DDNS client */
-	notify_ddns_update();
+	/* Notify the DDNS client only when configured, and preserve any failure. */
+	route_status = notify_ddns_update();
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "WAN DDNS client update incomplete on %s (status=%d)",
+			   wan_ifname, route_status);
 
 	/* notify watchdog for NTP update */
 	notify_watchdog_time();

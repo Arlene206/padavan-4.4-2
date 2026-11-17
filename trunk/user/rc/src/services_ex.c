@@ -2361,6 +2361,10 @@ notify_ddns_update(void)
 	int result;
 	int saved_errno;
 
+	if (!inadyn_update_should_run(nvram_match("ddns_enable_x", "1"),
+				      get_ap_mode()))
+		return 0;
+
 	state = process_inventory_scan("inadyn", &snapshot);
 	action = inadyn_action_for_presence(state);
 	if (action == INADYN_DAEMON_ABORT) {
