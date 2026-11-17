@@ -112,7 +112,7 @@ require(
     "umask 077" in MWAN
     and "mwan_pppd_quote()" in MWAN
     and 'options_file="/tmp/ppp/options.wan$count"' in MWAN
-    and 'options_tmp="/tmp/ppp/.options.wan$count.$"' in MWAN
+    and 'options_tmp="/tmp/ppp/.options.wan$count.$$"' in MWAN
     and 'if [ -L "$options_file" ]; then' in MWAN
     and 'chmod 600 "$options_tmp"' in MWAN
     and 'mv -f "$options_tmp" "$options_file"' in MWAN

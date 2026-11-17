@@ -1,3 +1,12 @@
+## 2026-11-17 — Correct PPPoE-MWAN temporary PID suffix source contract
+
+- Parent main SHA: def277350a862c452c2324fd86876aab9bdbaf21; result: THIS COMMIT.
+- After the credential expectation correction, exact-head WAN-route run 44123334960 passed all 12 PPPoE-MWAN shell scenarios, then the Python source contract failed because it expected the temporary path to end in one dollar sign.
+- Production uses `.$$` to append the current process ID and isolate per-process staging files. Updated the checker to require the exact PID suffix. No production source changed.
+- Exact-head WAN-route rerun and XY-C1 Build/TRX/artifact verification are pending.
+
+---
+
 ## 2026-11-17 — Correct PPPoE-MWAN credential escaping regression expectation
 
 - Parent main SHA: `ab02de4517cd3cd5f4a978964dc0255a9be31adc`; result: THIS COMMIT.

@@ -1,32 +1,28 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes older statements below where they conflict. Restore once; do not repeat completed audits.
+This checkpoint supersedes older statements below when they conflict. Work on main only; do not repeat completed audits.
 
 ## Git state
-- Repository: `Arlene206/padavan-4.4-2`, development only on `main`.
-- Parent main SHA: `ab02de4517cd3cd5f4a978964dc0255a9be31adc`; result: THIS COMMIT, one complete Git tree and expected-SHA non-force update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- No full local checkout or MIPS compiler; physical-router L4 NOT VERIFIED.
+- Repository: https://github.com/Arlene206/padavan-4.4-2.
+- Parent main SHA: def277350a862c452c2324fd86876aab9bdbaf21; result: THIS COMMIT (one complete Git tree, non-forced expected-SHA update).
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (immutable).
+- Connector-only session: no full checkout or local MIPS compiler; physical-router L4 NOT VERIFIED.
 
-## Previous source verification
-- Main `6791d98b` USB modem, Process, WAN teardown, NVRAM, AI, AdGuardHome, Firewall, HTTPD, AliyunDrive, infosvr and AliDDNS checks passed; XY-C1 was still in progress at last poll.
-- Exact new-source WAN route run `44122651031` on `ab02de45` reached the new PPPoE-MWAN test: production launcher created the expected private per-session files, then the fixture stopped at its username escaping assertion.
-- Diagnosis: test expected only one output backslash before the credential's literal backslash; pppd-safe escaping correctly emits two. No production failure was indicated by the first failing assertion. THIS COMMIT corrects both username/password expected strings.
-- The isolated host harness on this corrected expected output passes all 12 scenarios.
-
-## PPPoE-MWAN launcher change
-- `ab02de45` hardens credential quoting, rejects control/newline/oversized values, validates PPP count/VLAN, checks macvlan setup, writes distinct 0600 temporary options files and atomically publishes `options.wanN`, and preserves the first error.
-- The RC caller invalidates callback generation and terminates any partial multi-WAN PPPD sessions when launch fails.
-- WAN-route run `44122651031` failed only at the incorrect test expectation; rerun after this test correction. XY-C1 run `44122651004` on ab02 was in progress at last poll and must also be checked; current source still requires exact-head Build/TRX/artifact.
+## PPPoE-MWAN verification and checker correction
+- Commit ab02de4517cd3cd5f4a978964dc0255a9be31adc hardened mwan.sh credential quoting, validation, private per-session options.wanN publication and first-error/partial-session cleanup. Commit def277350a862c452c2324fd86876aab9bdbaf21 corrected the host fixture's expected backslashes; the exact-head WAN-route test passed all 12 shell scenarios.
+- Exact-head WAN-route run 44123334960 then FAILED in scripts/check_pppoe_mwan_status.py at its combined private-options contract. The checker expected a temporary filename ending in one dollar sign, while production correctly uses `.$$` to append the process ID to the unique staging path. THIS COMMIT corrects the source contract; production code is unchanged.
+- Parent exact-head XY-C1 run 44123335528 remained IN_PROGRESS at last poll. New exact-head WAN-route and XY-C1 workflows must be checked after this commit.
 
 ## First next task
-1. Verify the corrected credential assertion in exact-head WAN-route and XY-C1 regression; then inspect the Python source contract/C rollback assertion.
-2. Verify current-source XY-C1 Build, TRX verification and artifact upload. Do not reuse older source SHA as L3.
-3. Resume the next independent WAN DHCP callback review (BusyBox initial acquisition, leasefail/NAK/release and deconfig retry semantics) only after this PPP launcher is green.
+1. Check exact-head WAN-route source contract and PPPoE-MWAN shell harness. Require both to pass (the shell harness passed 12/12 on def277350).
+2. Check exact-head XY-C1 all pre-build contracts, Build XY-C1, TRX verification and artifact upload.
+3. Then implement the independent udhcpc cleanup issue: generic WAN/AP-LAN stop helpers use 3-second SIGKILL escalation, which can terminate BusyBox while DECONFIG_PENDING retries a failed deconfig callback. Separate DHCP clients from ordinary WAN daemons, use a bounded no-force wait, abort teardown on timeout, and pin behavior in scripts/check_lan_dhcp_deconfig.py.
+4. Continue cross-userland stability/security without repeating completed PPPoE detector/caller logic, HTTPD or storage audits.
 
 ## Verification boundary
-- Isolated host fixture: 12/12 PASS on drafted launcher and corrected assertion.
-- Full repo exact-head Actions and product build pending; no local C/MIPS compile or router L4 claimed.
+- Parent def277350 WAN route run 44123334960: all 12 multi-WAN shell scenarios PASS; Python checker FAILED solely on its incorrect `.$` instead of `.$$` temporary PID suffix expectation. Correction is included here; exact rerun pending.
+- Parent XY-C1 run 44123335528 was IN_PROGRESS at last poll; no Build/TRX/artifact success is claimed.
+- No full local C/MIPS/uClibc build or physical-router L4 is claimed.
 
 
 # Cross-session execution mandate
