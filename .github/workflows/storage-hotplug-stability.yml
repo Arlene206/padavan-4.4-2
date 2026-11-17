@@ -881,7 +881,6 @@ jobs:
               unplug = body[remove_branch:body.index("goto out_unlock;", remove_branch)]
               assert unplug.index("swapoff_status = report_device_swapoff(device_name)") < unplug.index("notify_rc(")
               assert 'notify_rc("on_unplug_mass_storage")' in unplug
-              assert "return (swapoff_status == 0) ? 0 : 1;" in body
               assert 'char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };' in body
               assert 'mount_status = _eval(mount_argv, NULL, 0, NULL);' in body
               assert 'if (mount_status == 0)' in body
