@@ -1,23 +1,20 @@
-# 2026-11-18 continuation checkpoint — clear stale IPTV DHCP address on deconfig
+# 2026-11-18 continuation checkpoint — normalize IPTV DHCP deconfig source contract
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA before this atomic slice: 6b5f5514f412e9a9ba173cc2148b5945ea082df3.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807, unchanged and read-only. Develop on main only; no force push.
-- Exact-head DDNSTO run 44166279131 on 6b5f5514f412e9a9ba173cc2148b5945ea082df3 PASSED shell syntax, the full lifecycle regression, and Python lifecycle/RC integration contracts. The asynchronous UNKNOWN-fixture race is fixed; do not repeat its audit.
-- Exact 6b5f5514f412e9a9ba173cc2148b5945ea082df3 Process fail-closed run 44166279162, Process inventory 44166279188, AliDDNS 44166279025, AI docs 44166279079, AdGuardHome 44166279220, NVRAM 44166278930, infosvr 44166279207, AliyunDrive 44166279170: SUCCESS.
-- Telnetd product-source baseline 989409e1a02a92ea5018f3550d52d75c33b028f8 XY-C1 run 44164998281 was IN_PROGRESS at last observation. Parent 6b5f5514f412e9a9ba173cc2148b5945ea082df3 adds no firmware product source. Networkmap source 34c0268 has exact Build/TRX/artifact success 44163173638. Physical router L4 remains NOT VERIFIED.
+- Current main source commit: 32622d8549a0b5c022bfb765b189e7c3214a801c. Its production fix clears the IPTV DHCP address before route teardown, restores the last-known-good address on failure, publishes empty identity only after cleanup and stops igmpproxy.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged/read-only. All development is main-only with expected-SHA non-force updates.
+- DDNSTO exact-head run 44166279131 and all exact-head source checks on parent 6b5f551: SUCCESS. Process run 44166279162, Process inventory 44166279188, AliDDNS 44166279025, AI docs 44166279079, AdGuardHome 44166279220, NVRAM 44166278930, infosvr 44166279207 and AliyunDrive 44166279170: SUCCESS.
+- New commit 32622 exact WAN DHCP job 44168062187: GNU89 -Wall -Wextra -Werror ASan/UBSan DHCP policy compile/run PASSED, as did every preceding test step. Final Python callback/source contract FAILED at line 171 because the checker expected the two snprintf() calls to be single-line; production deliberately wraps the arguments. The assertion needs whitespace normalization; this is a checker-only failure, not a source/test failure.
+- Exact 32622 WAN route operation status run 44168062198: SUCCESS. AI docs 44168062208: SUCCESS. XY-C1 run 44168062063, Firewall run 44168062335 and NVRAM audit run 44168062259 were still pending/in progress at last observation. Telnetd product-source SHA 989409e XY-C1 run 44164998281 has since completed SUCCESS (Build XY-C1, TRX verification and artifact upload all green). Networkmap source 34c0268 XY-C1 44163173638 also SUCCESS. Physical router L4 remains NOT VERIFIED.
 
-## Implemented issue — IPTV DHCP deconfig stale-address leak
-- Before this slice, udhcpc_viptv_main(..., deconfig) called only manv_route_deconfig(): routes and gateway metadata could be removed while the negotiated IPv4 address stayed configured on the interface and manv_ipaddr remained stale.
-- BusyBox invokes this callback for a DHCP NAK with an active lease, lease-expiry cleanup, and explicit release. BusyBox retries nonzero deconfig callbacks through DECONFIG_PENDING; the old route-only IPTV callback was incomplete.
-- This slice routes DHCP IPTV deconfig through a tested transaction: clear interface address, remove DHCP/default route inventory, then publish manv_ipaddr=0.0.0.0. If address clear or route deletion fails, restore the previous valid address and preserve lease identity for BusyBox's retry. After successful address/route teardown it stops igmpproxy and propagates its status. ZeroConf IPTV deconfig remains a separate callback.
-- Regression policy covers success order, clear failure, route failure, restore failure and suppression of premature empty-state publication. The existing WAN-DHCP Actions workflow adds exact-source assertions for callback wiring and ordering.
-- Local host compile/run was NOT performed in this runtime; exact-head Actions are pending.
+## Active task — make exact-source contract whitespace-insensitive
+- Correct the two IPTV deconfig snprintf() assertions in .github/workflows/wan-dhcp-callback-stability.yml by removing whitespace from the function body before matching. Keep semantic ordering checks unchanged.
+- Re-run exact-head WAN DHCP workflow; C regression itself already passed five new clear/route/rollback/publication scenarios under GNU89 + ASan + UBSan.
 
 ## Exact first action for next GPT
-1. Inspect exact-head WAN DHCP callback policy/source-contract run for this commit. Require GNU89 ASan/UBSan policy tests and all Python callback contracts to pass; diagnose any failure against the transaction semantics.
-2. Check XY-C1 44164998281 for Telnetd product source 989409e; keep product source SHA distinct from docs/test-only descendants.
-3. Continue remaining DHCP leasefail behavior and WAN/firewall first-error propagation only after this IPTV deconfig slice is green. Do not repeat DDNSTO, Networkmap, Telnetd, infosvr or completed process/storage audits. Keep backup immutable.
+1. Check the rerun WAN DHCP job after this checker-only commit. Confirm full callback semantic contract is green, then resolve current-source XY-C1 run 44168062063 (commit 32622 includes the product fix).
+2. Check 44168062335 Firewall and 44168062259 NVRAM exact 32622 results; fix genuine regressions, do not wait on pending unrelated work.
+3. Continue next independent P1 gap from roadmap: DHCP leasefail semantics or WAN/firewall first-error propagation. Backup branch remains frozen.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

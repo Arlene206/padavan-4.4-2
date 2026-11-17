@@ -342,8 +342,9 @@ jobs:
           assert viptv_deconfig.index("if (route_status == 0)") < viptv_deconfig.index('nvram_set_temp("manv_gateway", "")')
           assert "preserving route inventory" in viptv_deconfig
           viptv_dhcp_deconfig = body(source, "udhcpc_viptv_deconfig(char *man_ifname)")
-          assert 'snprintf(context.old_ip, sizeof(context.old_ip), "%s", nvram_safe_get("manv_ipaddr"))' in viptv_dhcp_deconfig
-          assert 'snprintf(context.old_netmask, sizeof(context.old_netmask), "%s", nvram_safe_get("manv_netmask"))' in viptv_dhcp_deconfig
+          compact_viptv_dhcp_deconfig = "".join(viptv_dhcp_deconfig.split())
+          assert 'snprintf(context.old_ip,sizeof(context.old_ip),"%s",nvram_safe_get("manv_ipaddr"))' in compact_viptv_dhcp_deconfig
+          assert 'snprintf(context.old_netmask,sizeof(context.old_netmask),"%s",nvram_safe_get("manv_netmask"))' in compact_viptv_dhcp_deconfig
           assert "dhcp_lease_viptv_deconfig_apply(&ops, &context," in viptv_dhcp_deconfig
           assert "preserving lease identity" in viptv_dhcp_deconfig
           assert viptv_dhcp_deconfig.index("dhcp_lease_viptv_deconfig_apply(") < viptv_dhcp_deconfig.index("stop_igmpproxy(man_ifname)")

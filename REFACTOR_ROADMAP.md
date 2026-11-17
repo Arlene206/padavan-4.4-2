@@ -1,10 +1,9 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main SHA before current atomic slice: 6b5f5514f412e9a9ba173cc2148b5945ea082df3; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent 6b5f5514f412e9a9ba173cc2148b5945ea082df3 DDNSTO lifecycle 44166279131, Process fail-closed 44166279162, Process inventory 44166279188, AliDDNS 44166279025, AI docs 44166279079, AdGuardHome 44166279220, NVRAM 44166278930, infosvr 44166279207, AliyunDrive 44166279170: SUCCESS. DDNSTO's deterministic UNKNOWN-after-launch test passed full lifecycle and semantic contracts.
-- This slice repairs IPTV DHCP deconfig: previous udhcpc_viptv_main deconfig removed routes only, leaving the old IPv4 address configured and manv_ipaddr stale. New tested transaction clears address, removes route inventory, publishes empty lease identity only after both succeed, restores the prior address on either failure, then stops igmpproxy. Exact-source GNU89/ASan/UBSan and callback workflow contracts pending.
-- Telnetd exact product-source XY-C1 44164998281 for 989409e was IN_PROGRESS at last observation; Networkmap source 34c0268 exact Build/TRX/artifact 44163173638 PASSED. Physical router L4 is unverified.
-- Next: verify current IPTV DHCP slice, then continue DHCP leasefail/retry semantics and WAN/firewall first-error propagation. Do not repeat green subsystem audits.
+- Current production/test source SHA: 32622d8549a0b5c022bfb765b189e7c3214a801c. IPTV DHCP deconfig now clears the address, cleans route inventory, publishes an empty IP identity only on full success, restores the previous address if either stage fails, then stops igmpproxy.
+- Exact-head 32622 WAN DHCP run 44168062187: new GNU89 ASan/UBSan policy regression PASSED; Python caller/source contract FAILED only at whitespace-sensitive matching of multiline snprintf() arguments (line 171); checker fix pending. WAN route run 44168062198 and AI docs 44168062208: SUCCESS.
+- Exact 32622 XY-C1 44168062063, Firewall 44168062335 and NVRAM 44168062259 pending at last check. Telnetd product baseline 989409e XY-C1 44164998281 and Networkmap baseline 34c0268 XY-C1 44163173638 completed Build/TRX/artifact SUCCESS. Physical L4 unverified.
+- Next: re-run WAN DHCP exact-source contract, verify current-source XY-C1, then continue DHCP leasefail or firewall status aggregation.
 
 ---
 

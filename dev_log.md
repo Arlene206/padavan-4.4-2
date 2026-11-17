@@ -1,3 +1,9 @@
+## 2026-11-18 04:32 CST — Fix whitespace-sensitive IPTV DHCP checker assertion
+
+- Exact source commit 32622d8549a0b5c022bfb765b189e7c3214a801c WAN DHCP run 44168062187 compiled and ran dhcp_lease_policy.c under GNU89, -Wall -Wextra -Werror, AddressSanitizer and UBSan; all five new IPTV deconfig transaction cases passed. Earlier DHCP policy steps also passed.
+- Embedded Python caller contract then failed at line 171: it compared a multiline snprintf() call against a single-line string. Source formatting is valid; normalize whitespace before checking both old-address snapshots. No production or C-test change required for this correction.
+- Exact 32622 WAN route run 44168062198 and AI docs run 44168062208 passed. XY-C1 44168062063, Firewall 44168062335 and NVRAM 44168062259 were still in progress at observation. Telnetd source 989409e XY-C1 44164998281 completed Build/TRX/artifact SUCCESS.
+
 ## 2026-11-18 04:25 CST — Clear stale IPTV DHCP address on lease deconfig
 
 - Exact 6b5f5514f412e9a9ba173cc2148b5945ea082df3 DDNSTO 44166279131 passed shell syntax, full lifecycle regression and Python source contract. Process 44166279162, Process inventory 44166279188, AliDDNS 44166279025, AI docs 44166279079, AdGuardHome 44166279220, NVRAM 44166278930, infosvr 44166279207, and AliyunDrive 44166279170 also passed.
