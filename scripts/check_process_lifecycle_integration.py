@@ -58,6 +58,9 @@ def c_function_body(source, signature):
 
 
 root = Path(__file__).resolve().parents[1]
+rstats_source = (root / "trunk/user/rc/src/rstats.c").read_text()
+lldt_main_source = (root / "trunk/user/lldt/src/main.c").read_text()
+lldt_osl_source = (root / "trunk/user/lldt/src/osl-linux.c").read_text()
 shared_makefile = (root / "trunk/user/shared/src/Makefile").read_text()
 shared_header = (root / "trunk/user/shared/src/shutils.h").read_text()
 pids_source = (root / "trunk/user/shared/src/pids.c").read_text()
@@ -1245,22 +1248,72 @@ print("watchdog process inventory tri-state recovery/start integration: PASS")
 
 
 lltd_start = services_source.split("int\nstart_lltd(void)", 1)[1].split("\n}", 1)[0]
+lltd_launcher = 'start_status = eval("/bin/lld2d", IFNAME_BR);'
 assert 'if (nvram_invmatch("lltd_enable", "1"))' in lltd_start
-assert lltd_start.index("return 1;") < lltd_start.index('start_status = eval("/bin/lld2d", IFNAME_BR);')
+assert lltd_start.index("return 1;") < lltd_start.index('optional_daemon_start_status("lld2d", "lld2d")')
+assert "if (start_status > 0)" in lltd_start and "if (start_status < 0)" in lltd_start
+assert lltd_launcher in lltd_start
 assert 'logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);' in lltd_start
-assert "return start_status;" in lltd_start
-assert lltd_start.index('start_status = eval("/bin/lld2d", IFNAME_BR);') < lltd_start.index("if (start_status != 0)") < lltd_start.index("return start_status;")
+assert "process_presence_start_postcondition" in lltd_start
+assert 'optional_daemon_presence("lld2d", &scan_error)' in lltd_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in lltd_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in lltd_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in lltd_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in lltd_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in lltd_start
+assert "errno = ETIMEDOUT;" in lltd_start
+lltd_preflight = lltd_start.index('optional_daemon_start_status("lld2d", "lld2d")')
+lltd_launch_at = lltd_start.index(lltd_launcher)
+lltd_wait_at = lltd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", lltd_launch_at)
+lltd_probe_at = lltd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", lltd_launch_at)
+lltd_inventory_at = lltd_start.index('optional_daemon_presence("lld2d", &scan_error)', lltd_probe_at)
+lltd_postcondition_at = lltd_start.index("process_presence_start_postcondition(start_status, process_state)", lltd_inventory_at)
+assert lltd_preflight < lltd_launch_at < lltd_wait_at < lltd_probe_at < lltd_inventory_at < lltd_postcondition_at
+assert "return process_presence_start_postcondition(start_status," in lltd_start
 
 rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
+rstats_launcher = 'start_status = eval("/sbin/rstats");'
 assert 'if (nvram_invmatch("rstats_enable", "1"))' in rstats_start
-assert rstats_start.index("return 1;") < rstats_start.index('start_status = eval("/sbin/rstats");')
+assert rstats_start.index("return 1;") < rstats_start.index('optional_daemon_start_status("rstats", "rstats")')
+assert "if (start_status > 0)" in rstats_start and "if (start_status < 0)" in rstats_start
+assert rstats_launcher in rstats_start
 assert 'logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);' in rstats_start
-assert "return start_status;" in rstats_start
-assert rstats_start.index('start_status = eval("/sbin/rstats");') < rstats_start.index("if (start_status != 0)") < rstats_start.index("return start_status;")
+assert "process_presence_start_postcondition" in rstats_start
+assert 'optional_daemon_presence("rstats", &scan_error)' in rstats_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in rstats_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in rstats_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in rstats_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in rstats_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in rstats_start
+assert "errno = ETIMEDOUT;" in rstats_start
+rstats_preflight = rstats_start.index('optional_daemon_start_status("rstats", "rstats")')
+rstats_launch_at = rstats_start.index(rstats_launcher)
+rstats_wait_at = rstats_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", rstats_launch_at)
+rstats_probe_at = rstats_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", rstats_launch_at)
+rstats_inventory_at = rstats_start.index('optional_daemon_presence("rstats", &scan_error)', rstats_probe_at)
+rstats_postcondition_at = rstats_start.index("process_presence_start_postcondition(start_status, process_state)", rstats_inventory_at)
+assert rstats_preflight < rstats_launch_at < rstats_wait_at < rstats_probe_at < rstats_inventory_at < rstats_postcondition_at
+assert "return process_presence_start_postcondition(start_status," in rstats_start
+
+rstats_main = c_function_body(rstats_source, "int rstats_main(int argc, char *argv[])")
+assert rstats_main.index("if (daemon(0, 0) < 0)") < rstats_main.index("if (alloc_rstats() < 0)")
+assert rstats_main.index("if (alloc_rstats() < 0)") < rstats_main.index('process_pidfile_write(RSTATS_PID_FILE, "rstats")')
+assert rstats_main.index('process_pidfile_write(RSTATS_PID_FILE, "rstats")') < rstats_main.index("while (!stopping)")
+
+lldt_main = c_function_body(lldt_main_source, "main(int argc, char **argv)")
+lldt_daemon = c_function_body(lldt_osl_source, "osl_become_daemon(osl_t *osl)")
+assert lldt_main.index("if (!opt_debug)") < lldt_main.index("osl_become_daemon(g_osl);")
+assert lldt_main.index("osl_become_daemon(g_osl);") < lldt_main.index("osl_write_pidfile(g_osl);") < lldt_main.index("event_mainloop();")
+assert lldt_daemon.count("fork()") == 2 and "setsid()" in lldt_daemon
+assert 'g_Progname = p+1;' in lldt_main_source
+assert '"/var/run/%s-%.10s.pid", g_Progname, osl->responder_if' in lldt_osl_source
+assert '"trunk/user/lldt/src/main.c"' in process_workflow
+assert '"trunk/user/lldt/src/osl-linux.c"' in process_workflow
+assert '"trunk/user/rc/src/rstats.c"' in process_workflow
 
 assert '"trunk/user/rc/src/services.c"' in process_workflow
 assert '"trunk/user/rc/src/services.c"' in xy_workflow
-print("LLTD/rstats boot launch status and disabled-sentinel contracts: PASS")
+print("LLTD/rstats detached startup postconditions and daemonization contracts: PASS")
 
 iappd_boot = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
 iappd_restart_at = iappd_boot.index('int iappd_restart_status = system("/usr/bin/iappd.sh restart");')
@@ -2088,22 +2141,72 @@ print("watchdog process inventory tri-state recovery/start integration: PASS")
 
 
 lltd_start = services_source.split("int\nstart_lltd(void)", 1)[1].split("\n}", 1)[0]
+lltd_launcher = 'start_status = eval("/bin/lld2d", IFNAME_BR);'
 assert 'if (nvram_invmatch("lltd_enable", "1"))' in lltd_start
-assert lltd_start.index("return 1;") < lltd_start.index('start_status = eval("/bin/lld2d", IFNAME_BR);')
+assert lltd_start.index("return 1;") < lltd_start.index('optional_daemon_start_status("lld2d", "lld2d")')
+assert "if (start_status > 0)" in lltd_start and "if (start_status < 0)" in lltd_start
+assert lltd_launcher in lltd_start
 assert 'logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);' in lltd_start
-assert "return start_status;" in lltd_start
-assert lltd_start.index('start_status = eval("/bin/lld2d", IFNAME_BR);') < lltd_start.index("if (start_status != 0)") < lltd_start.index("return start_status;")
+assert "process_presence_start_postcondition" in lltd_start
+assert 'optional_daemon_presence("lld2d", &scan_error)' in lltd_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in lltd_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in lltd_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in lltd_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in lltd_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in lltd_start
+assert "errno = ETIMEDOUT;" in lltd_start
+lltd_preflight = lltd_start.index('optional_daemon_start_status("lld2d", "lld2d")')
+lltd_launch_at = lltd_start.index(lltd_launcher)
+lltd_wait_at = lltd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", lltd_launch_at)
+lltd_probe_at = lltd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", lltd_launch_at)
+lltd_inventory_at = lltd_start.index('optional_daemon_presence("lld2d", &scan_error)', lltd_probe_at)
+lltd_postcondition_at = lltd_start.index("process_presence_start_postcondition(start_status, process_state)", lltd_inventory_at)
+assert lltd_preflight < lltd_launch_at < lltd_wait_at < lltd_probe_at < lltd_inventory_at < lltd_postcondition_at
+assert "return process_presence_start_postcondition(start_status," in lltd_start
 
 rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
+rstats_launcher = 'start_status = eval("/sbin/rstats");'
 assert 'if (nvram_invmatch("rstats_enable", "1"))' in rstats_start
-assert rstats_start.index("return 1;") < rstats_start.index('start_status = eval("/sbin/rstats");')
+assert rstats_start.index("return 1;") < rstats_start.index('optional_daemon_start_status("rstats", "rstats")')
+assert "if (start_status > 0)" in rstats_start and "if (start_status < 0)" in rstats_start
+assert rstats_launcher in rstats_start
 assert 'logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);' in rstats_start
-assert "return start_status;" in rstats_start
-assert rstats_start.index('start_status = eval("/sbin/rstats");') < rstats_start.index("if (start_status != 0)") < rstats_start.index("return start_status;")
+assert "process_presence_start_postcondition" in rstats_start
+assert 'optional_daemon_presence("rstats", &scan_error)' in rstats_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in rstats_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in rstats_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in rstats_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in rstats_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in rstats_start
+assert "errno = ETIMEDOUT;" in rstats_start
+rstats_preflight = rstats_start.index('optional_daemon_start_status("rstats", "rstats")')
+rstats_launch_at = rstats_start.index(rstats_launcher)
+rstats_wait_at = rstats_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", rstats_launch_at)
+rstats_probe_at = rstats_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", rstats_launch_at)
+rstats_inventory_at = rstats_start.index('optional_daemon_presence("rstats", &scan_error)', rstats_probe_at)
+rstats_postcondition_at = rstats_start.index("process_presence_start_postcondition(start_status, process_state)", rstats_inventory_at)
+assert rstats_preflight < rstats_launch_at < rstats_wait_at < rstats_probe_at < rstats_inventory_at < rstats_postcondition_at
+assert "return process_presence_start_postcondition(start_status," in rstats_start
+
+rstats_main = c_function_body(rstats_source, "int rstats_main(int argc, char *argv[])")
+assert rstats_main.index("if (daemon(0, 0) < 0)") < rstats_main.index("if (alloc_rstats() < 0)")
+assert rstats_main.index("if (alloc_rstats() < 0)") < rstats_main.index('process_pidfile_write(RSTATS_PID_FILE, "rstats")')
+assert rstats_main.index('process_pidfile_write(RSTATS_PID_FILE, "rstats")') < rstats_main.index("while (!stopping)")
+
+lldt_main = c_function_body(lldt_main_source, "main(int argc, char **argv)")
+lldt_daemon = c_function_body(lldt_osl_source, "osl_become_daemon(osl_t *osl)")
+assert lldt_main.index("if (!opt_debug)") < lldt_main.index("osl_become_daemon(g_osl);")
+assert lldt_main.index("osl_become_daemon(g_osl);") < lldt_main.index("osl_write_pidfile(g_osl);") < lldt_main.index("event_mainloop();")
+assert lldt_daemon.count("fork()") == 2 and "setsid()" in lldt_daemon
+assert 'g_Progname = p+1;' in lldt_main_source
+assert '"/var/run/%s-%.10s.pid", g_Progname, osl->responder_if' in lldt_osl_source
+assert '"trunk/user/lldt/src/main.c"' in process_workflow
+assert '"trunk/user/lldt/src/osl-linux.c"' in process_workflow
+assert '"trunk/user/rc/src/rstats.c"' in process_workflow
 
 assert '"trunk/user/rc/src/services.c"' in process_workflow
 assert '"trunk/user/rc/src/services.c"' in xy_workflow
-print("LLTD/rstats boot launch status and disabled-sentinel contracts: PASS")
+print("LLTD/rstats detached startup postconditions and daemonization contracts: PASS")
 
 iappd_boot = services_source.split("int\nstart_services_once(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
 iappd_restart_at = iappd_boot.index('int iappd_restart_status = system("/usr/bin/iappd.sh restart");')

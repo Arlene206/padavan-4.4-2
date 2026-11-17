@@ -1359,16 +1359,49 @@ stop_rstats(void)
 int
 start_rstats(void)
 {
-	int start_status;
+	int start_status, attempt, scan_error;
+	enum process_presence process_state;
 
 	if (nvram_invmatch("rstats_enable", "1"))
 		return 1;
 
-	start_status = eval("/sbin/rstats");
-	if (start_status != 0)
-		logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);
+	start_status = optional_daemon_start_status("rstats", "rstats");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
 
-	return start_status;
+	/*
+	 * rstats daemonizes before allocating and publishing its PID file.
+	 * eval() only observes the parent; verify that the child completes this
+	 * startup work and remains present before reporting success.
+	 */
+	start_status = eval("/sbin/rstats");
+	if (start_status != 0) {
+		logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);
+		return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
+	}
+
+	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+		process_state = optional_daemon_presence("rstats", &scan_error);
+		if (process_presence_start_postcondition(start_status, process_state) == 0)
+			return 0;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
+			logmessage(LOGNAME, "cannot verify rstats startup (scan_error=%d)",
+				   errno);
+			return -1;
+		}
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "rstats daemon did not remain running after launch");
+	return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
 }
 
 int
@@ -1388,16 +1421,48 @@ restart_rstats(void)
 int
 start_lltd(void)
 {
-	int start_status;
+	int start_status, attempt, scan_error;
+	enum process_presence process_state;
 
 	if (nvram_invmatch("lltd_enable", "1"))
 		return 1;
 
-	start_status = eval("/bin/lld2d", IFNAME_BR);
-	if (start_status != 0)
-		logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);
+	start_status = optional_daemon_start_status("lld2d", "lld2d");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
 
-	return start_status;
+	/*
+	 * lld2d double-forks before publishing its per-interface PID file and
+	 * entering the packet event loop. eval() observes only the exiting parent.
+	 */
+	start_status = eval("/bin/lld2d", IFNAME_BR);
+	if (start_status != 0) {
+		logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);
+		return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
+	}
+
+	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+		process_state = optional_daemon_presence("lld2d", &scan_error);
+		if (process_presence_start_postcondition(start_status, process_state) == 0)
+			return 0;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
+			logmessage(LOGNAME, "cannot verify LLTD startup (scan_error=%d)",
+				   errno);
+			return -1;
+		}
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "LLTD daemon did not remain running after launch");
+	return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
 }
 
 int

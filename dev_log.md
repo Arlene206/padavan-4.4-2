@@ -1,3 +1,12 @@
+## 2026-11-18 — Verify detached rstats and LLTD startup children
+
+- Parent main SHA: 9e6d19f6ca53cbfeeda33e109abf28b6251f4000; this commit modifies RC startup, Process integration contracts/workflow filters and handoff/roadmap.
+- rstats_main() daemonizes before alloc_rstats() and process_pidfile_write(RSTATS_PID_FILE, "rstats"); the child can exit on either failure while the parent launcher has already returned zero.
+- LLTD main() calls osl_become_daemon(); that implementation double-forks and calls setsid(). The detached child writes its interface PID file, drops privileges and enters event_mainloop() only after the parent exits.
+- start_rstats() and start_lltd() now retain their disabled sentinel, preflight tri-state presence, treat already-running as success, fail closed on UNKNOWN, and verify post-launch RUNNING with the shared 1s + four-probe bounded policy. ABSENT after attempts reports ETIMEDOUT; launcher errors are preserved.
+- Reuse the GNU89-tested process_presence_start_postcondition() policy. The Process checker validates startup ordering and daemonization source; its PR path filters include all referenced LLTD/rstats files.
+- Exact parent 6b5f551 DDNSTO, Process, NVRAM, AliyunDrive, infosvr, AliDDNS, AdGuardHome and AI-handoff runs passed. Telnetd product-source 989409e XY-C1 Build/TRX/artifact 44164998281 passed. Latest IPTV DHCP source 32622d8 checker follow-up 9e6d19f had WAN DHCP run 44168515283 in progress at last observation. THIS COMMIT exact-head Process/XY-C1 pending; no hardware L4 claimed.
+
 ## 2026-11-18 04:32 CST — Fix whitespace-sensitive IPTV DHCP checker assertion
 
 - Exact source commit 32622d8549a0b5c022bfb765b189e7c3214a801c WAN DHCP run 44168062187 compiled and ran dhcp_lease_policy.c under GNU89, -Wall -Wextra -Werror, AddressSanitizer and UBSan; all five new IPTV deconfig transaction cases passed. Earlier DHCP policy steps also passed.

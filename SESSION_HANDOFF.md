@@ -1,20 +1,30 @@
-# 2026-11-18 continuation checkpoint — normalize IPTV DHCP deconfig source contract
+# 2026-11-18 continuation checkpoint — verify detached rstats and LLTD startup
 
 ## Current repository state
-- Current main source commit: 32622d8549a0b5c022bfb765b189e7c3214a801c. Its production fix clears the IPTV DHCP address before route teardown, restores the last-known-good address on failure, publishes empty identity only after cleanup and stops igmpproxy.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged/read-only. All development is main-only with expected-SHA non-force updates.
-- DDNSTO exact-head run 44166279131 and all exact-head source checks on parent 6b5f551: SUCCESS. Process run 44166279162, Process inventory 44166279188, AliDDNS 44166279025, AI docs 44166279079, AdGuardHome 44166279220, NVRAM 44166278930, infosvr 44166279207 and AliyunDrive 44166279170: SUCCESS.
-- New commit 32622 exact WAN DHCP job 44168062187: GNU89 -Wall -Wextra -Werror ASan/UBSan DHCP policy compile/run PASSED, as did every preceding test step. Final Python callback/source contract FAILED at line 171 because the checker expected the two snprintf() calls to be single-line; production deliberately wraps the arguments. The assertion needs whitespace normalization; this is a checker-only failure, not a source/test failure.
-- Exact 32622 WAN route operation status run 44168062198: SUCCESS. AI docs 44168062208: SUCCESS. XY-C1 run 44168062063, Firewall run 44168062335 and NVRAM audit run 44168062259 were still pending/in progress at last observation. Telnetd product-source SHA 989409e XY-C1 run 44164998281 has since completed SUCCESS (Build XY-C1, TRX verification and artifact upload all green). Networkmap source 34c0268 XY-C1 44163173638 also SUCCESS. Physical router L4 remains NOT VERIFIED.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA: 9e6d19f6ca53cbfeeda33e109abf28b6251f4000.
+- Main-only atomic commits use complete Git trees, expected-SHA and non-forced updates. Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- DDNSTO test repair at 6b5f551: run 44166279131 PASS. On 6b5f551 Process inventory 44166279188, Process fail-closed 44166279162, NVRAM 44166278930, AliyunDrive 44166279170, infosvr 44166279207, AliDDNS 44166279025, AdGuardHome 44166279220 and AI handoff 44166279079 all SUCCESS.
+- Telnetd source 989409e: XY-C1 run 44164998281 completed Build, TRX and artifact upload SUCCESS. b00ff490 NVRAM 44165568763, AliyunDrive 44165569031, Process 44165568972 and storage 44164998300 SUCCESS.
+- Latest IPTV deconfig fix 32622d8; checker follow-up 9e6d19f. On 9e6d19f, AdGuardHome 44168515211, infosvr 44168515146 and AI docs 44168515070 passed; WAN DHCP 44168515283, Process 44168515018, AliDDNS 44168515173, AliyunDrive 44168515303 and NVRAM 44168515186 were in progress. XY-C1 44168062063 is still the 32622 product-source build. These checks are not results for THIS commit.
 
-## Active task — make exact-source contract whitespace-insensitive
-- Correct the two IPTV deconfig snprintf() assertions in .github/workflows/wan-dhcp-callback-stability.yml by removing whitespace from the function body before matching. Keep semantic ordering checks unchanged.
-- Re-run exact-head WAN DHCP workflow; C regression itself already passed five new clear/route/rollback/publication scenarios under GNU89 + ASan + UBSan.
+## Active fix — confirm detached rstats and LLTD startup
+- rstats_main() calls daemon(0, 0) before alloc_rstats() and before publishing RSTATS_PID_FILE. Either allocation or PID-file failure exits only the detached child; start_rstats() previously trusted the foreground parent result from eval("/sbin/rstats").
+- LLTD main() calls osl_become_daemon() (double-fork + setsid()) before osl_write_pidfile(), privilege drop and event_mainloop(). RC previously treated the exiting first parent from eval("/bin/lld2d", IFNAME_BR) as proof that LLTD started.
+- THIS COMMIT applies a bounded child-presence postcondition to both optional services. Existing disabled-service sentinel remains 1; preflight RUNNING is idempotent success; UNKNOWN inventory fails closed; after launch only confirmed RUNNING succeeds. Each waits one second and probes four times at one-second intervals; missing child returns ETIMEDOUT. Original nonzero launcher status is preserved.
+- Reuse the GNU89-tested RUNNING/ABSENT/UNKNOWN helper and tests. The Process checker now asserts both daemonization sequences and the RC launch/preflight/poll/result ordering. Workflow PR paths include the LLTD/rstats sources used by the checker.
 
-## Exact first action for next GPT
-1. Check the rerun WAN DHCP job after this checker-only commit. Confirm full callback semantic contract is green, then resolve current-source XY-C1 run 44168062063 (commit 32622 includes the product fix).
-2. Check 44168062335 Firewall and 44168062259 NVRAM exact 32622 results; fix genuine regressions, do not wait on pending unrelated work.
-3. Continue next independent P1 gap from roadmap: DHCP leasefail semantics or WAN/firewall first-error propagation. Backup branch remains frozen.
+## Verification boundary
+- Parent 6b5f551 DDNSTO, Process inventory/fail-closed, NVRAM, AliyunDrive, infosvr, AliDDNS, AdGuardHome and AI handoff passed.
+- Telnetd product source 989409e XY-C1 44164998281: Build, TRX verification and artifact upload SUCCESS.
+- 32622 IPTV DHCP run 44168062187 originally failed only its whitespace-sensitive Python source assertion after GNU89 ASan/UBSan policy tests passed; 9e6d19f checker rerun 44168515283 remained in progress. XY-C1 44168062063 (32622 source) also pending.
+- Exact-head Process and XY-C1 for THIS rstats/LLTD update remain pending. Physical-router L4 is NOT VERIFIED.
+
+## Exact first action for the next GPT
+1. Inspect exact-SHA Process lifecycle and XY-C1 Build/TRX/artifact jobs for THIS commit; fix only the first evidenced failure from its exact log.
+2. Resolve 9e6d19f WAN DHCP/Process/AliDDNS/AliyunDrive/NVRAM runs and 32622d8 XY-C1 separately.
+3. Continue another proven service startup or firewall/NAT caller-result gap; do not repeat DDNSTO, Telnetd, Networkmap, infosvr or storage audits.
+4. Keep the backup immutable; main-only complete-tree expected-SHA updates, no force-push.
+
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session
