@@ -1,59 +1,42 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes older status statements below when they conflict. Keep following the repository's startup protocol, but do not repeat completed audits.
+This checkpoint supersedes older status statements below when they conflict. Restore once from the startup protocol; do not repeat completed audits.
 
 ## Git state
 - Repository: `https://github.com/Arlene206/padavan-4.4-2`
-- Exact `main` HEAD: `9926124272593182c7e3f8fdf6c0836d25d331a3`
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (do not modify).
-- All production changes were committed as complete trees, with non-force expected-SHA main updates. No force push.
-- No local checkout/compiler was available in this connector-only session. Build/test evidence comes only from GitHub Actions below. Physical router L4 remains NOT VERIFIED.
+- Parent main SHA: `d023872d38c866cb9427db2c29f19813f9e59d21`; result: THIS COMMIT (one complete Git tree, expected-SHA update, no force push).
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
+- Development remains on `main` only. No force push.
+- No local checkout/compiler was available in this connector-only session. Physical router L4 remains NOT VERIFIED.
 
-## Completed source work in this continuation
-- LAN DHCP deconfig/host-file recovery and kernel hostname/domain setter status propagation. Both kernel setters are attempted; first error is preserved and returned after releasing the host-file lock so callback retry can reconcile state.
-- Added zero-delay guard for BusyBox `udhcpc -A 0`: initial DHCP callback failures now retry no faster than once per second.
-- DHCPv6 automatic DNS withdrawal is handled: an omitted/empty Reply option clears the old automatic server list; overlong DNS text is rejected rather than silently truncated, and validation errors propagate after callback-generation unlock.
-- WAN teardown accumulates IPv6 teardown failure but still performs independent IPv4 route/protocol cleanup before returning the aggregate status.
-- Legacy process `pids()` now uses the tri-state procfs inventory scanner; only confirmed ABSENT maps to false, while UNKNOWN fails closed. New `pids_presence()` exposes the tri-state result.
-- LAN hostname publication revalidates the final resolved hostname at the trust boundary, including the NVRAM `productid` fallback, before staging either `/etc/hostname` or `/etc/hosts`.
-- CI contracts/path filters were updated for these source and helper changes. Stale inline workflow assertions discovered by exact-SHA runs were fixed rather than weakening production behavior.
+## Completed in the current storage slice
+- `66afed9c10f0c0fae622cfa3325e677243eba38a` keeps storage-backed daemons stopped after failed physical-unplug cleanup.
+- `576cadbbb85e3a0af9ea848e2bc6264604e30fce` adds a distinct `usb_unplug_ms` cleanup retry; the deferred worker retries stale unmount cleanup before starting storage applications.
+- `50f7fff76e7ec2161a69aa855ce4c2de063a4c52` and `d023872d38c866cb9427db2c29f19813f9e59d21` repair CI contracts for the distinct retry path. On exact parent SHA d023872d, storage run 44113150032, HTTPD run 44113149870, and AI handoff run 44113149885 passed; XY-C1 run 44113149981 was still in progress at last poll.
+- THIS COMMIT fixes the parallel targeted/manual safe-remove path: storage applications restart only when both unmount stages succeed and a refreshed inventory is positively nonempty. Failed/unknown cleanup leaves them stopped; no app-start retry is queued against stale/unknown mounts.
+- The GNU89 policy regression, integration checker, and storage/HTTPD workflow source contracts now cover targeted safe removal. Query Actions by this commit's exact SHA before claiming L2/L3.
 
-## Exact-head CI snapshot
-- WAN DHCP callback: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- HTTPD security: PENDING — run 44110556946 (HTTPD Authentication and Security Regression).
-- XY-C1 firmware: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- Process lifecycle: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- NVRAM audit: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- WAN route status: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- AI handoff docs: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- DNSMasq lifecycle: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- AdGuardHome: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- AliDDNS: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
-- AliyunDrive: NOT TRIGGERED for exact head 9926124272593182c7e3f8fdf6c0836d25d331a3.
+## Current exact-head CI
+- This source change triggers storage-hotplug, HTTPD security, AI handoff documentation, and XY-C1 validation; statuses must be queried against the final exact commit SHA.
+- Parent exact SHA d023872d: storage, HTTPD and AI docs PASS; XY-C1 was IN_PROGRESS. Parent results do not prove this source change.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Recent commit trail
+- `d023872d38c8` test(storage): validate retry scheduling on both failure paths
+- `50f7fff76e7e` test(storage): assert the distinct physical-unplug retry path
+- `576cadbbb85e` fix(storage): retry physical eject before storage app startup
+- `66afed9c10f0` fix(storage): keep dependent services stopped after failed eject
 - `992612427259` test(storage): assert rollback return after service-stop failure
-- `2b7c2d95cbaa` test(storage): align caller graph check with hot-unplug lifecycle
-- `8ac5f7702cae` test(ci): assert final LAN hostname validation
-- `f680e4f6366b` test(storage): cover physical hot-unplug service lifecycle
-- `ae83dfdf4e04` fix(lan): validate final hostname before hosts publication
-- `a400a3b7e5dd` fix(storage): restart dependent apps after hot-unplug cleanup
-- `844408d4730e` test(wan): order IPv6 teardown assertions from callback
-- `95fc2873e018` test(wan): update duplicate IPv6 teardown contract
-- `24ef91459ce1` fix(process): keep unknown pids state fail-closed
-- `70cfa7881c64` test(wan): expect IPv6 error aggregation during teardown
-- `510b0756a834` fix(wan): continue IPv4 teardown after IPv6 failure
-- `d77a5c585691` test(httpd): align LAN kernel-name contract
 
 ## First next task
-1. Poll any exact-head PENDING runs; diagnose and fix every FAIL using the run's job logs. Do not wait on a PENDING run when another independent source audit is possible.
-2. Confirm the final-hostname trust-boundary assertion executes in WAN DHCP and HTTPD security runs; confirm XY-C1 Build, TRX verification, and artifact upload complete on the exact current SHA.
-3. Review the completed NVRAM transaction-boundary audit findings and select the next high-confidence cross-userland stability/security defect. Preserve tests, small atomic commits, and exact-SHA Actions checks.
+1. Query all Actions for the exact current SHA; inspect failures and fix source defects or stale contracts. Do not wait on pending XY-C1 when independent work remains.
+2. After targeted-eject L2 and XY-C1 L3 are verified, continue the whole-repository P1 audit at AliDDNS external-address discovery and lifecycle follow-ups. Do not repeat the completed HTTPD duplicate-launch/readiness audit.
+3. Preserve the source → regression → atomic commit → exact-SHA Actions loop; update this checkpoint only when live facts materially change.
 
 ## Verification limits
-- Do not claim a local host build or test execution.
-- Treat GNU89/ASan/UBSan regression results as PASS only when the corresponding exact-head Actions step concludes successfully.
-- Physical router runtime, radio/driver interaction, flash behavior, and L4 smoke testing are NOT VERIFIED.
+- Do not claim local host tests or a local firmware build in this connector-only session.
+- GNU89/Werror/ASan/UBSan and source-contract results are PASS only after corresponding exact-head Actions finish successfully.
+- Router filesystem/procfs timing, USB hardware, flash behavior and all physical-router L4 smoke testing remain NOT VERIFIED.
 
 
 # Cross-session execution mandate

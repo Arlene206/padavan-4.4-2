@@ -74,6 +74,8 @@ disk_policy = read("trunk/user/libdisk/src/disk_inventory_policy.h")
 disk_policy_test = read("trunk/user/libdisk/src/tests/disk_inventory_policy.c")
 disk_header = read("trunk/user/libdisk/src/disk_initial.h")
 storage = read("trunk/user/rc/src/services_stor.c")
+ejected_policy = read("trunk/user/rc/src/storage_ejected_inventory_policy.h")
+ejected_policy_test = read("trunk/user/rc/src/tests/storage_ejected_inventory_policy.c")
 mount_link_policy = read("trunk/user/rc/src/storage_nfs_export_policy.h")
 mount_link_policy_test = read("trunk/user/rc/src/tests/storage_nfs_export_policy.c")
 services = read("trunk/user/rc/src/services.c")
@@ -222,8 +224,14 @@ require(
 )
 targeted_eject = body(storage, "safe_remove_stor_device(")
 require(
-    "umount_ejected_locked(1, 0)" in targeted_eject,
-    "manual safe-remove must tell the shared helper that daemons are already stopped",
+    "umount_ejected_locked(1, 0)" in targeted_eject
+    and "if (storage_ejected_may_restart_apps(unmount_status, ejected_status, mount_count))" in targeted_eject
+    and "static int\nstorage_ejected_may_restart_apps" in ejected_policy
+    and "storage_ejected_may_restart_apps(0, 0, 3)" in ejected_policy_test
+    and "storage_ejected_may_restart_apps(-1, 0, 3)" in ejected_policy_test
+    and "storage_ejected_may_restart_apps(0, -1, 3)" in ejected_policy_test
+    and "storage_ejected_may_restart_apps(0, 0, -1)" in ejected_policy_test,
+    "targeted safe-remove must not restart apps after either unmount stage fails or inventory is unknown",
 )
 
 eject = body(storage, "safe_remove_all_stor_devices(int do_spindown)")

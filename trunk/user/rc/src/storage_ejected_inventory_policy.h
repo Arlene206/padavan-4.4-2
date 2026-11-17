@@ -252,4 +252,14 @@ storage_ejected_storage_start_retry_required(int remaining_mounts, int start_sta
 		(remaining_mounts > 0 && start_status != 0);
 }
 
+/* A targeted safe-remove may restart daemons only after BOTH cleanup stages
+ * succeeded and a fresh inventory confirms other storage remains mounted. */
+static int
+storage_ejected_may_restart_apps(int unmount_status, int ejected_status,
+				 int remaining_mounts)
+{
+	return unmount_status == 0 && ejected_status == 0 &&
+		remaining_mounts > 0;
+}
+
 #endif /* PADAVAN_STORAGE_EJECTED_INVENTORY_POLICY_H */

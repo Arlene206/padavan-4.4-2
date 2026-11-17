@@ -1,3 +1,12 @@
+## 2026-11-17 — Gate targeted safe-remove restart on complete unmount success
+
+- Parent main SHA: d023872d38c866cb9427db2c29f19813f9e59d21; result: THIS COMMIT.
+- Found a second unsafe restart path in `safe_remove_stor_device()`: after the requested disk's staged unmount or shared ejected-mount cleanup returned an error, it still restarted storage-backed daemons whenever any mount remained. A positive count can include a stale mount from the device being removed.
+- Added a shared policy gate requiring both unmount stages to succeed and a fresh positive mount inventory before `start_stor_apps()`. Either cleanup error or unknown inventory now leaves dependent services stopped; this path deliberately does not queue the ordinary app-start retry, because that retry could restart against stale/unknown mounts. Clean-empty NFS teardown is unchanged.
+- Added GNU89 policy cases for successful restart, either cleanup failure, empty inventory and unknown inventory. Updated the standalone integration checker and storage/HTTPD workflow source contracts. Exact-head Actions must pass before claiming L2/L3. Physical-router L4 remains NOT VERIFIED; no local checkout/compiler was available.
+
+---
+
 ## 2026-11-17 — Align HTTPD storage regression with the parameterized eject helper
 
 - Parent main SHA: 81329ebbb04a80e11da0f13169355523bd1fe00b; result: THIS COMMIT.

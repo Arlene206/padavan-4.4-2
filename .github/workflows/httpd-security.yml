@@ -2771,6 +2771,8 @@ jobs:
           assert safe_remove.count("umount_stor_path_range(") == 1
           assert "for (port = port_b; port <= port_e; port++)" not in safe_remove
           assert "mount_count == 0 && unmount_status == 0 && ejected_status == 0" in safe_remove
+          assert "if (storage_ejected_may_restart_apps(unmount_status, ejected_status, mount_count))" in safe_remove
+          assert "safe removal did not complete" in safe_remove
           all_remove_start = service.index("safe_remove_all_stor_devices(int do_spindown)")
           all_remove = service[all_remove_start:]
           assert "if (path_status == 0)" in all_remove

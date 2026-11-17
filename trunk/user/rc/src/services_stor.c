@@ -3715,7 +3715,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 			if (unmount_status != 0 || ejected_status != 0)
 				logmessage("Storage", "safe removal incomplete; one or more mount/swap releases failed");
 			mount_count = count_stor_mountpoint();
-			if (mount_count > 0) {
+			if (storage_ejected_may_restart_apps(unmount_status, ejected_status, mount_count)) {
 				start_status = start_stor_apps();
 				if (start_status != 0) {
 					logmessage("Storage", "storage services failed to restart after safe removal (status=%d)", start_status);
@@ -3727,10 +3727,8 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 				unload_nfsd();
 #endif
 			} else if (mount_count < 0 || unmount_status != 0 || ejected_status != 0) {
-				logmessage("Storage", "storage state is uncertain; leaving services stopped rather than assuming eject succeeded");
-				if (mount_count < 0)
-					retry_storage_start = storage_ejected_storage_start_retry_required(
-						mount_count, 0);
+				logmessage("Storage", "storage applications remain stopped because safe removal did not complete (mounts=%d, unmount=%d, ejected=%d)",
+					   mount_count, unmount_status, ejected_status);
 			}
 		} else if (unmount_status != 0) {
 			logmessage("Storage", "safe removal incomplete; active swap could not be disabled or mounted data could not be unmounted");
