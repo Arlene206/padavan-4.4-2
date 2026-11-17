@@ -668,7 +668,10 @@ vpn_restart = compact(body(VPN_SERVER_SOURCE, "restart_vpn_server(void)"))
 assert "firewall_status = restart_firewall();" in vpn_restart
 assert "vpn_server_restart_first_error(restart_status, firewall_status)" in vpn_restart
 upnp_restart = compact(body(SERVICES_EX_SOURCE, "restart_upnp(void)"))
-assert "rc_upnp_restart_run(stop_upnp, restart_firewall)" in upnp_restart
+assert "miniupnpd_lifecycle_lock_acquire()" in upnp_restart
+assert "rc_upnp_restart_run(stop_upnp_locked, restart_firewall)" in upnp_restart
+assert 'miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart")' in upnp_restart
+assert upnp_restart.index("miniupnpd_lifecycle_lock_acquire()") < upnp_restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)") < upnp_restart.index('miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart")')
 assert "typedef int (*rc_upnp_firewall_restart_fn)(void);" in UPNP_POLICY_SOURCE
 upnp_runner = compact(body(UPNP_POLICY_SOURCE, "rc_upnp_restart_run("))
 assert "return restart_firewall();" in upnp_runner

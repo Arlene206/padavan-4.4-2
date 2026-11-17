@@ -1,11 +1,14 @@
 # 2026-11-18 latest source checkpoint
 
-- SSH stop hardening in `f9afd25e` passed exact Process lifecycle `44190334132`, Process inventory `44190334289`, and XY-C1 `44190333512` Build/TRX/artifact.
-- PID 1 contract/history correction `0ab0849c` passed PID 1 `44191156366` and Process `44191156121`. Required cross-session handoff heading correction `7bd030fa` passed exact AI docs `44191653244`. NVRAM audit `44191653235` was pending at last inspection.
-- THIS P1 MiniUPnP slice serializes start/stop/WAN-interface check/update/restart under one stable private lock inode, uses internal locked helpers to avoid recursive acquisition, and rechecks process inventory immediately before launch. GNU89 lock contention/inode tests and exact source-order assertions are wired into Process lifecycle CI; exact-head pending.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Parent main before THIS checker correction: `03a993e558b23f5f163ca1a904cbf7b54f6ef7e9`.
+- MiniUPnP production lifecycle serialization is implemented in 03a: stable private lock covers public start, stop, WAN-interface scan/stop, lease reload and firewall restart; the internal locked helpers are intentionally called beneath it.
+- Exact 03a MiniUPnP Process `44192259665` and dedicated MiniUPnP workflow `44192259644` failed at stale checker assumptions: WAN checker expected the old public stop callback, and dedicated workflow still inspected public lock-owning wrappers as internal bodies. XY-C1 `44192259641` also stopped pre-build at the same checker.
+- Exact 03a AI docs `44192259762`, Samba `44192259623`, Inadyn `44192259711`, DNSMasq `44192259636`, infosvr `44192259808`, AdGuardHome `44192259712`, AliDDNS `44192259810`, WAN route `44192259691`, and HTTPD security `44192259847` PASS; NVRAM/AliyunDrive pending at last check.
+- THIS contract correction changes CI assertions and dedicated workflow path filters; no production runtime change. Exact-head Process/MiniUPnP/AI/XY pending.
+- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: verify exact-head MiniUPnP Process/AI/XY-C1 checks; then continue P1 service lifecycle and security audit.
+Next: check exact-head Process/MiniUPnP/AI, then XY-C1 Build/TRX/artifact for the 03a source. Continue independent P1 work if build is pending.
+
 
 ---
 

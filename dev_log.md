@@ -1,3 +1,11 @@
+## 2026-11-18 — Align MiniUPnP lifecycle integration contracts with lock wrappers
+
+- Parent main SHA: `03a993e558b23f5f163ca1a904cbf7b54f6ef7e9`, which introduced stable-inode lifecycle serialization around MiniUPnP public start/stop/WAN/update/restart entry points.
+- Exact-head Process run `44192259665` compiled and passed the process inventory, service lifecycle, PID-file, SSH and earlier C policy regressions, then failed in `scripts/check_modem_wan_start_status.py:671`: its WAN firewall contract still expected `rc_upnp_restart_run(stop_upnp, restart_firewall)`, but the now-locked implementation correctly uses `stop_upnp_locked` while holding the lifecycle lock. XY-C1 `44192259641` stopped at the same stale assertion before Build.
+- Dedicated MiniUPnP run `44192259644` passed atomic config publication and GNU89 daemon policy tests, then failed its embedded source checker because it still extracted public wrappers as though they contained the internal start/stop/WAN/update operations. Update it to inspect the `*_locked` operation bodies and verify the public restart lock ordering.
+- Exact 03a AI docs `44192259762`, Samba `44192259623`, Inadyn `44192259711`, DNSMasq `44192259636`, infosvr `44192259808`, AdGuardHome `44192259712`, AliDDNS `44192259810`, WAN route `44192259691` and HTTPD security `44192259847` passed. MiniUPnP-specific Process failure `44192259665` and MiniUPnP test-workflow failure `44192259644` are checker-only at the first causal failure; NVRAM `44192259875` and AliyunDrive `44192259658` were still running at last poll.
+- THIS commit corrects source contracts and ensures the dedicated workflow watches/runs the new lock policy checker; no production behavior changes. Exact-head Process, MiniUPnP, AI and XY-C1 checks must rerun. XY-C1 Build/TRX/artifact on 03a was skipped after its pre-build checker failed; no L3 claim.
+
 ## 2026-11-18 — Serialize MiniUPnP lifecycle transitions across RC callers
 
 - Parent main SHA: `7bd030fa1e515250e14b6c3a075901eb55d6bfa2`; source slice changes `trunk/user/rc/src/services_ex.c`, adds `miniupnpd_lifecycle_lock.h` and `tests/miniupnpd_lifecycle_lock.c`, adds `scripts/check_miniupnpd_lifecycle_lock.py`, and integrates the test in Process lifecycle workflow.

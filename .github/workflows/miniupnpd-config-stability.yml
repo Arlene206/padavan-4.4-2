@@ -16,6 +16,9 @@ on:
       - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
+      - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
+      - "scripts/check_miniupnpd_lifecycle_lock.py"
   pull_request:
     paths:
       - ".github/workflows/miniupnpd-config-stability.yml"
@@ -28,6 +31,9 @@ on:
       - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
+      - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
+      - "scripts/check_miniupnpd_lifecycle_lock.py"
   workflow_dispatch:
 
 permissions:
@@ -89,7 +95,7 @@ jobs:
           ):
               assert token in writer, token
 
-          start = function_body(service, "start_upnp(void)")
+          start = function_body(service, "start_upnp_locked(void)")
           assert "miniupnpd_process_presence(&scan_error)" in start
           assert "miniupnpd_start_allowed(state)" in start
           assert "duplicate start skipped" in start
@@ -120,22 +126,22 @@ jobs:
           assert "miniupnpd_test_identity_bound_signal" in daemon_test
           assert "miniupnpd_signal_snapshot" in policy
 
-          stop = function_body(service, "stop_upnp(void)")
+          stop = function_body(service, "stop_upnp_locked(void)")
           assert "kill_services(svcs, 3, 1)" in stop
           assert "miniupnpd_process_presence(&scan_error)" in stop
           assert "miniupnpd_presence_error(state, scan_error)" in stop
           assert "miniupnpd_stop_policy_status(0," in stop
           assert "state == PROCESS_PRESENCE_RUNNING" in stop
           assert "return ret;" in stop
-          check_wan = function_body(service, "check_upnp_wanif_changed(char *wan_ifname)")
+          check_wan = function_body(service, "check_upnp_wanif_changed_locked(char *wan_ifname)")
           assert "miniupnpd_process_presence(&scan_error)" in check_wan
           assert "miniupnpd_presence_error(state, scan_error)" in check_wan
           assert "PROCESS_PRESENCE_ABSENT" in check_wan
-          assert "return stop_upnp();" in check_wan
+          assert "return stop_upnp_locked();" in check_wan
           assert "return 0;" in check_wan
-          update = function_body(service, "update_upnp(void)")
-          assert "return start_upnp();" in update
-          assert "return stop_upnp();" in update
+          update = function_body(service, "update_upnp_locked(void)")
+          assert "return start_upnp_locked();" in update
+          assert "return stop_upnp_locked();" in update
           assert "miniupnpd_action_for_presence(state)" in update
           assert "miniupnpd_signal_snapshot(&snapshot, SIGUSR1" in update
           assert "killall" not in update
@@ -144,12 +150,17 @@ jobs:
           assert "if (result != 0)" in update and "return -1;" in update
           restart = function_body(service, "restart_upnp(void)")
           assert '#include "upnp_restart_policy.h"' in service
-          assert "rc_upnp_restart_run(stop_upnp, restart_firewall)" in restart
+          assert restart.index("miniupnpd_lifecycle_lock_acquire()") < restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)")
+          assert restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)") < restart.index('miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart")')
           assert "if (ret != 0)" in restart
           assert "return ret;" in restart
           assert "ret = stop_upnp();" not in restart
           assert "return;" not in restart
 
+          lock_checker = Path("scripts/check_miniupnpd_lifecycle_lock.py").read_text()
+          assert "miniupnpd_lifecycle_lock_acquire()" in lock_checker
+          assert "miniupnpd_lifecycle_lock_finish(lock_fd, ret, \"restart\")" in lock_checker
+          assert "restart_upnp(void)" in lock_checker
           assert "int stop_upnp(void);" in declarations
           assert "int check_upnp_wanif_changed(char *wan_ifname);" in declarations
           assert "int update_upnp(void);" in declarations
@@ -219,4 +230,5 @@ jobs:
               assert pr_filters.count(path) == 1
 
           print("miniupnpd config publication, daemon startup/stop gates and WAN migration contracts: PASS")
+          python3 scripts/check_miniupnpd_lifecycle_lock.py
           PY
