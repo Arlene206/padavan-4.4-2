@@ -79,7 +79,9 @@ assert "boot_modules_status = load_wireless_modules();" in init
 for group in ("load_mmc_modules()", "load_usb_modules()", "load_ata_modules()",
               "load_crypto_modules()", "load_ipset_modules()"):
     assert f"boot_modules_status, {group});" in init, f"init_router must aggregate {group}"
-assert "boot_services_status = boot_modules_status;" in init
+assert "rwfs_mount_status = mount_rwfs_partition();" in init
+assert "boot_services_status = rc_first_service_start_status(" in init
+assert "rwfs_mount_status, boot_modules_status);" in " ".join(init.split())
 assert "one or more unavailable hardware modules" in init
 
 normalized_init = " ".join(init.split())

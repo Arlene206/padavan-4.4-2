@@ -1,3 +1,13 @@
+## 2026-11-17 — Correct RWFS source contracts after exact-head failures
+
+- Base main SHA: `fd9ab12eb7102eda5ef081b52160fd569e30aa72`; result: THIS COMMIT.
+- Process inventory run `44008320003` on `fd9ab12e` ran the RWFS GNU89 policy binary successfully, then failed in `check_rwfs_mount_integration.py`: production callbacks use the normal multiline `static int\nfunction_name(...)` style, while the checker searched for a single-line signature. The checker now resolves those functions by their unique names.
+- XY-C1 run `44008319840` on the same production-source SHA failed before firmware compilation in `check_rc_boot_module_loads.py`: its old assertion required `boot_services_status = boot_modules_status;`. The RWFS source now correctly merges the earlier mount result with that module status using `rc_first_service_start_status()`; the source contract now verifies both terms and their order.
+- The RWFS policy test passed under GNU89, ASan and UBSan in run `44008320003`; the broader RWFS source integration step was the only failed Process step. The USB storage hotplug run `44007851445` and HTTPD run `44007851498` passed on production SHA `5f1d87f6`.
+- This correction changes checker expectations only; no production C changes. Exact-head Process/XY-C1 reruns and same-source Build/TRX/artifact remain pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Exercise Optware result decoder in RWFS host regression
 
 - Base main SHA: `5f1d87f66e0247ef192d3f375834a1a7f766a2e0`; result: THIS COMMIT.
