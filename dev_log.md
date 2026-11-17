@@ -1,3 +1,12 @@
+## 2026-11-17 — Make AP DHCP retry checker robust to C line wrapping
+
+- Parent main SHA: `0af358f3cfd9083994054fa97d22371245246eef`; exact WAN DHCP run `44202380584` on `0af358f3` compiled and ran the DHCP lease policy binary successfully, then failed at `check_lan_dhcp_deconfig.py:89` because a helper call formatted over multiple C lines was compared against a one-line literal.
+- Confirmed the implementation calls `lan_dhcp_hosts_refresh_required(is_changed, is_renew, retry_pending)` with the retry-pending state derived from AP mode and `lan_hosts_retry`; the wrap is whitespace-only.
+- THIS checker repair normalizes whitespace, verifies the exact `refresh_hosts` assignment and both lease-change/renew arguments, and leaves production behavior unchanged. The existing workflow compiles/runs the callback policy regression with GNU89, ASan and UBSan after the checker passes.
+- Exact-head WAN DHCP/AI/XY checks pending; parent XY-C1 `44202380583` and NVRAM `44202380759` were in progress at last poll. No local MIPS build or hardware L4 claim.
+
+---
+
 ## 2026-11-17 — Retry failed AP LAN DHCP host-file publication
 
 - Parent main SHA: `d7eea9c037ad0ec9074022c1e1da30d87002d7a9`; exact parent Actions IAPP `44201354894`, AI handoff `44201354982`, Process lifecycle `44201354872` PASS; XY-C1 `44201354975` was still building at last poll.

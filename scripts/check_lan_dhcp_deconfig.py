@@ -86,7 +86,7 @@ assert "return status;" in deconfig
 bound = c_function_body(lan, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
 publish = c_function_body(lan, "lan_dhcp_publish_hosts_and_schedule_retry(")
 update_ap = c_function_body(lan, "update_hosts_ap(void)")
-assert "lan_dhcp_hosts_refresh_required(is_changed, is_renew," in bound
+assert "refresh_hosts = lan_dhcp_hosts_refresh_required( is_changed, is_renew," in compact(bound)
 assert 'get_ap_mode() && nvram_match("lan_hosts_retry", "1")' in bound
 assert "if (refresh_hosts)" in bound
 assert "lan_dhcp_publish_hosts_and_schedule_retry(" in bound

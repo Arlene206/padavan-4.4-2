@@ -1,21 +1,20 @@
 # 2026-11-17 latest source checkpoint
 
-- Parent main before THIS AP LAN DHCP host-publication retry slice: `d7eea9c037ad0ec9074022c1e1da30d87002d7a9`.
-- Parent exact checks: IAPP `44201354894` PASS; AI handoff `44201354982` PASS; Process lifecycle `44201354872` PASS; XY-C1 `44201354975` was still in Build XY-C1 at last poll.
-- THIS slice fixes stale AP-mode host files after a post-commit publication error: it queues `RCN_RESTART_DHCPD`, retains temporary `lan_hosts_retry` until successful host publication, and retries that publication on a later unchanged DHCP RENEW without repeating unrelated lease side effects.
-- Added GNU89 retry-policy regression and extended `check_lan_dhcp_deconfig.py`; exact-head WAN DHCP, AI and XY-C1 verification pending.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Parent main before THIS AP DHCP retry checker repair: `0af358f3cfd9083994054fa97d22371245246eef`.
+- The AP LAN DHCP retry feature in `0af358f3` holds temporary `lan_hosts_retry`, schedules immediate DHCPD recovery after AP host publication failure, and retries only host publication on a later unchanged RENEW.
+- Exact parent WAN DHCP `44202380584` failed only because its checker required a multi-line call to be formatted on one line; the DHCP lease-policy binary passed. THIS patch makes the source check whitespace-insensitive; the WAN DHCP workflow already has a separate GNU89/ASan/UBSan callback-policy binary step.
+- Parent exact WAN route `44202380619`, AI `44202380778`, DNSMasq `44202380652`, detect_internet `44202380544`, Wireless `44202380631`, Process `44202380727` and AliDDNS `44202380589` PASS. Parent XY-C1 `44202380583` and NVRAM `44202380759` were in progress at last poll.
+- Static IPoE teardown fix `853748bd`: WAN teardown `44201908894` PASS; WAN route source assertion corrected by `d7eea9c0`; parent XY-C1 `44201909002` was still building; NVRAM `44201909080` PASS.
+- Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged; no physical-router L4 claim.
 
-Next: inspect exact-head WAN DHCP/AI/XY-C1 Actions for THIS slice; continue independent P1 work while any build is PENDING.
+Next: exact-head WAN DHCP retry/checker and XY-C1 verification for THIS repair; then continue another independent P1 task.
 
 ---
 
 ## Whole-repository module status
 
-- WAN teardown: static-IPoE address-clear failure now triggers physical interface-down; source C regression and WAN teardown workflow PASS on `853748bd`. The WAN-route embedded checker still had one stale declaration assertion and is corrected in THIS commit; exact rerun pending.
-
-
-- WAN static IPoE cleanup includes failed address-clear behavior on setup and EAPOL failure paths; THIS slice covers the separate teardown clear failure. Post-WAN up/down script return statuses are also captured. Exact verification pending.
+- WAN static IPoE setup/teardown cleanup and post-WAN hook status propagation remain in main; the teardown source check is corrected and the exact WAN route workflow passed on `d7eea9c0`.
+- AP DHCP retry state and notification recovery added on `0af358f3`; its first WAN DHCP run exposed a whitespace-sensitive source checker, fixed in THIS slice. Exact-head rerun pending.
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
 - THIS COMMIT fixes two more launcher/daemon mismatches: rstats daemonizes before allocation/PID-file publication; LLTD double-forks and calls setsid before PID publication/event loop. RC now preflights tri-state presence and verifies detached child RUNNING with bounded polls. Exact-head Process and XY-C1 pending.
