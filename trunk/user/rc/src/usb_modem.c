@@ -768,7 +768,7 @@ load_modem_module_group(const char *group_name,
 {
 	static const rc_modem_module_load_ops_t ops = {
 		module_smart_load,
-		is_module_loaded
+		is_module_loaded_status
 	};
 	size_t available = 0;
 	int status;

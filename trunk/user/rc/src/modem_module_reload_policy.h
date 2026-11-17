@@ -14,6 +14,7 @@ typedef struct {
  * modules. Attempt each candidate, then verify observable /sys/module state.
  * This distinguishes an already-loaded module from a failed
  * module_smart_load(), whose legacy return value is zero in both cases.
+ * The state callback is tri-state: 1=loaded, 0=absent, negative errno=UNKNOWN.
  */
 static inline int
 rc_modem_module_load_group_verified(const char *const *module_names,
@@ -23,6 +24,7 @@ rc_modem_module_load_group_verified(const char *const *module_names,
 				    size_t *available_count)
 {
 	size_t i, available = 0;
+	int first_probe_error = 0;
 
 	if (available_count)
 		*available_count = 0;
@@ -37,15 +39,26 @@ rc_modem_module_load_group_verified(const char *const *module_names,
 	}
 
 	for (i = 0; i < module_count; i++) {
+		int probe_status;
+
 		(void)ops->load(module_names[i],
 				module_params ? module_params[i] : NULL);
-		if (ops->is_loaded(module_names[i]))
+		probe_status = ops->is_loaded(module_names[i]);
+		if (probe_status == 1)
 			available++;
+		else if (probe_status < 0 && first_probe_error == 0)
+			first_probe_error = -probe_status;
+		else if (probe_status > 1 && first_probe_error == 0)
+			first_probe_error = EIO;
 	}
 
 	if (available_count)
 		*available_count = available;
-	return available > 0 ? 0 : ENODEV;
+	if (available > 0)
+		return 0;
+	if (first_probe_error != 0)
+		return first_probe_error;
+	return ENODEV;
 }
 
 #endif /* RC_MODEM_MODULE_RELOAD_POLICY_H */

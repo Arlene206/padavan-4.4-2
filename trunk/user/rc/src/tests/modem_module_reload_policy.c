@@ -149,6 +149,45 @@ test_driver_specific_parameter_is_forwarded(void)
 }
 
 static void
+test_unknown_probe_is_not_counted_as_available(void)
+{
+	size_t available = 99;
+
+	reset_case();
+	loaded[0] = -EACCES;
+	loaded[1] = -EPERM;
+	assert(rc_modem_module_load_group_verified(module_names, NULL,
+						  TEST_MODULES, &mock_ops,
+						  &available) == EACCES);
+	assert(available == 0);
+	assert_all_attempted();
+
+	/* One confirmed loaded alternative is sufficient despite another UNKNOWN. */
+	reset_case();
+	loaded[0] = 1;
+	loaded[1] = -EACCES;
+	assert(rc_modem_module_load_group_verified(module_names, NULL,
+						  TEST_MODULES, &mock_ops,
+						  &available) == 0);
+	assert(available == 1);
+	assert_all_attempted();
+}
+
+static void
+test_invalid_probe_value_fails_closed(void)
+{
+	size_t available = 99;
+
+	reset_case();
+	loaded[0] = 2;
+	assert(rc_modem_module_load_group_verified(module_names, NULL,
+						  TEST_MODULES, &mock_ops,
+						  &available) == EIO);
+	assert(available == 0);
+	assert_all_attempted();
+}
+
+static void
 test_invalid_group_fails_before_side_effects(void)
 {
 	const char *const invalid_names[TEST_MODULES] = {
@@ -184,6 +223,8 @@ main(void)
 	test_one_available_alternative_is_sufficient();
 	test_already_loaded_alternative_counts_as_ready();
 	test_all_missing_alternatives_fail_the_group();
+	test_unknown_probe_is_not_counted_as_available();
+	test_invalid_probe_value_fails_closed();
 	test_driver_specific_parameter_is_forwarded();
 	test_invalid_group_fails_before_side_effects();
 	puts("USB modem module alternative readiness policy: PASS");

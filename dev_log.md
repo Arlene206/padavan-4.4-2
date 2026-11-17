@@ -1,3 +1,14 @@
+## 2026-11-17 — Fail closed on UNKNOWN USB modem driver probes
+
+- Base main SHA: `58fe2c5a4d5276a57c15afd66d3f1e84756d1a58`; result: THIS COMMIT.
+- Found tri-state loss in `rc_modem_module_load_group_verified()`: any nonzero `is_loaded()` result incremented the available-driver count. Negative probe errno therefore counted as a confirmed loaded module and could return success when every `/sys/module` query was UNKNOWN.
+- USB modem readiness now uses `is_module_loaded_status()`. The policy counts only exact value 1, preserves the first negative probe errno when no driver is confirmed available, rejects invalid positive states with EIO, and still succeeds when at least one alternative is confirmed loaded.
+- Added GNU89 regression cases for all-UNKNOWN results, mixed confirmed-loaded/UNKNOWN alternatives, and invalid probe states. Updated `check_modem_module_reload.py` to enforce strict production callback wiring and the tri-state contract.
+- Watchdog exact-head Process, AI handoff and NVRAM Actions passed on parent `58fe2c5a`: `44001230583`, `44001230567`, and `44001230573`. XY-C1 run `44000632827` on production source `aeddc157` had passed the watchdog policy regression but had not completed Build/TRX/artifact before this later modem source change.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align watchdog boot source contract with tri-state probing
 
 - Exact-head Process lifecycle run `44000632768` on `aeddc15730e1a23419b1516ed88c330e148ac883` completed the watchdog policy regression and preceding integration checks, then failed because a legacy source assertion still searched for `if (!is_module_loaded("rt_timer_wdg"))`.

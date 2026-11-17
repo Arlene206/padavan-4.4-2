@@ -43,7 +43,8 @@ assert "return status;" in reload
 assert "if (reload)" in reload and "sleep(1);" in reload
 
 loader = body(USB, "load_modem_module_group(")
-assert "module_smart_load" in loader and "is_module_loaded" in loader
+assert "module_smart_load" in loader and "is_module_loaded_status" in loader
+assert "is_module_loaded(module_name)" not in loader
 assert "rc_modem_module_load_group_verified" in loader
 
 assert "int  reload_modem_modules(int modem_type, int reload);" in HEADER
@@ -60,12 +61,19 @@ notify_pattern = (
 )
 assert len(re.findall(notify_pattern, notify)) == 2
 
-assert "available > 0 ? 0 : ENODEV" in POLICY
+assert "if (probe_status == 1)" in POLICY
+assert "probe_status < 0" in POLICY
+assert "probe_status > 1" in POLICY
+assert "first_probe_error" in POLICY
+assert "return first_probe_error;" in POLICY
+assert "return ENODEV;" in POLICY
 assert "Validate the entire group before invoking any loader." in POLICY
 for marker in (
     "test_one_available_alternative_is_sufficient",
     "test_already_loaded_alternative_counts_as_ready",
     "test_all_missing_alternatives_fail_the_group",
+    "test_unknown_probe_is_not_counted_as_available",
+    "test_invalid_probe_value_fails_closed",
     "test_driver_specific_parameter_is_forwarded",
     "test_invalid_group_fails_before_side_effects",
     "USB modem module alternative readiness policy: PASS",
