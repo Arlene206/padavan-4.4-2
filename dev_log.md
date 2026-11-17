@@ -1,3 +1,12 @@
+## 2026-11-17 19:14:54 CST — Normalize router source before checking Optware status ordering
+
+- Parent main SHA: `448cb4e6ad854228204100d5fb06f8f4135fd918`; result: THIS COMMIT.
+- Preflight of the new RWFS integration assertion caught a checker-only bug: it used a whitespace-normalized expected call string against the unnormalized multiline `router_init` body. Switched the call-order comparison to the existing `router_compact` source, preserving the actual ordering assertion without depending on tabs/newlines.
+- No production code changed in this correction. The Optware initial worker launch status is still returned, aggregated into `boot_services_status`, and retry scheduling remains unchanged.
+- Exact-head Process and XY-C1 for the Optware change remain pending/in progress at this checkpoint; the checker correction is included before declaring those results.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 19:12:43 CST — Propagate initial deferred Optware worker launch failures
 
 - Parent main SHA: `40dc687e25b1537febbd35a8b633a10067f6bc65`; result: THIS COMMIT.

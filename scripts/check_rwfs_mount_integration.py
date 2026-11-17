@@ -63,7 +63,7 @@ assert "boot_services_status = rc_first_service_start_status(" in router_init
 assert "rwfs_mount_status, boot_modules_status" in router_compact
 assert "int optware_start_status = start_rwfs_optware();" in router_init
 assert "boot_services_status, optware_start_status" in router_compact
-assert router_init.index("start_rwfs_optware();") < router_init.index(
+assert router_compact.index("start_rwfs_optware();") < router_compact.index(
     "boot_services_status = rc_first_service_start_status( boot_services_status, optware_start_status);")
 assert "initial MTD Optware worker launch failed; retry is scheduled" in router_init
 print("RWFS mount, Optware launch result propagation and retry wiring: PASS")
