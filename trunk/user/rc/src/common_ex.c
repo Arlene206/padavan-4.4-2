@@ -36,6 +36,7 @@
 #include <sys/wait.h>
 
 #include "storage_optware_start_policy.h"
+#include "storage_rwfs_mount_policy.h"
 #include "service_start_status.h"
 
 #include <ralink_priv.h>
@@ -801,29 +802,117 @@ oom_score_adjust(pid_t pid, int oom_score_adj)
 }
 
 #if defined (USE_NAND_FLASH)
-void mount_rwfs_partition(void)
+static int rwfs_mount_ready;
+static int rwfs_mountpoint_created;
+
+static int rwfs_ubi_attachment_presence(int mtd_rwfs, int *presence);
+
+static void
+rwfs_mount_load_ubi(void *context)
 {
+	(void)context;
+	(void)module_smart_load("ubi", NULL);
+}
+
+static int
+rwfs_mount_ubi_module_status(void *context)
+{
+	(void)context;
+	return is_module_loaded_status("ubi");
+}
+
+static int
+rwfs_mount_ubi_attachment_status(void *context, int mtd_rwfs, int *presence)
+{
+	(void)context;
+	return rwfs_ubi_attachment_presence(mtd_rwfs, presence);
+}
+
+static int
+rwfs_mount_attach_ubi(void *context, int mtd_rwfs)
+{
+	(void)context;
+	if (doSystem("ubiattach -p /dev/mtd%d -d %d", mtd_rwfs, mtd_rwfs) != 0)
+		return EIO;
+	return 0;
+}
+
+static int
+rwfs_mount_prepare_mountpoint(void *context, const char *mountpoint)
+{
+	struct stat st;
+
+	(void)context;
+	if (mkdir(mountpoint, 0755) == 0) {
+		rwfs_mountpoint_created = 1;
+	} else if (errno != EEXIST) {
+		return errno ? errno : EIO;
+	}
+	if (lstat(mountpoint, &st) != 0)
+		return errno ? errno : EIO;
+	if (S_ISLNK(st.st_mode))
+		return ELOOP;
+	if (!S_ISDIR(st.st_mode))
+		return ENOTDIR;
+	return 0;
+}
+
+static int
+rwfs_mount_ubifs(void *context, int mtd_rwfs, const char *mountpoint)
+{
+	char device[16];
+	int path_len;
+
+	(void)context;
+	path_len = snprintf(device, sizeof(device), "/dev/ubi%d_0", mtd_rwfs);
+	if (path_len < 0 || path_len >= (int)sizeof(device))
+		return ENAMETOOLONG;
+	if (mount(device, mountpoint, "ubifs", 0, NULL) != 0)
+		return errno ? errno : EIO;
+	return 0;
+}
+
+int mount_rwfs_partition(void)
+{
+	static const rc_rwfs_mount_ops_t ops = {
+		rwfs_mount_load_ubi,
+		rwfs_mount_ubi_module_status,
+		rwfs_mount_ubi_attachment_status,
+		rwfs_mount_attach_ubi,
+		rwfs_mount_prepare_mountpoint,
+		rwfs_mount_ubifs
+	};
 	int mtd_rwfs;
-	char dev_ubi[16];
+	int mount_status;
 	const char *mp_rwfs = MP_MTD_RWFS;
 
+	rwfs_mount_ready = 0;
+	rwfs_mountpoint_created = 0;
 	if (nvram_get_int("mtd_rwfs_mount") == 0)
-		return;
+		return 0;
 
 	mtd_rwfs = mtd_dev_idx(MTD_PART_NAME_RWFS);
-	if (mtd_rwfs < 3)
-		return;
-
-	module_smart_load("ubi", NULL);
-
-	if (!is_module_loaded("ubi"))
-		return;
-
-	if (doSystem("ubiattach -p /dev/mtd%d -d %d", mtd_rwfs, mtd_rwfs) == 0) {
-		mkdir(mp_rwfs, 0755);
-		snprintf(dev_ubi, sizeof(dev_ubi), "/dev/ubi%d_0", mtd_rwfs);
-		mount(dev_ubi, mp_rwfs, "ubifs", 0, NULL);
+	if (mtd_rwfs < 0) {
+		logmessage(LOGNAME, "cannot identify configured RWFS MTD partition");
+		return ENODEV;
 	}
+	if (mtd_rwfs < 3)
+		return 0;
+
+	mount_status = rc_rwfs_mount_execute(1, mtd_rwfs, mp_rwfs, &ops, NULL);
+	if (mount_status != 0) {
+		if (rwfs_mountpoint_created && rmdir(mp_rwfs) != 0 && errno != ENOENT) {
+			logmessage(LOGNAME, "cannot remove unused RWFS mountpoint %s (errno %d)",
+				   mp_rwfs, errno ? errno : EIO);
+		}
+		logmessage(LOGNAME, "cannot mount configured RWFS at %s on MTD%d (status=%d)",
+			   mp_rwfs, mtd_rwfs, mount_status);
+		return mount_status;
+	}
+	rwfs_mountpoint_created = 0;
+	rwfs_mount_ready = 1;
+	logmessage(LOGNAME, "mounted RWFS UBIFS from MTD%d at %s", mtd_rwfs, mp_rwfs);
+	return 0;
 }
 
 static int
@@ -1201,7 +1290,8 @@ void start_rwfs_optware(void)
 {
 	int mtd_rwfs;
 
-	if (rwfs_optware_start_pending || !check_if_dir_exist(MP_MTD_RWFS))
+	if (!rwfs_mount_ready || rwfs_optware_start_pending ||
+	    !check_if_dir_exist(MP_MTD_RWFS))
 		return;
 
 	mtd_rwfs = mtd_dev_idx(MTD_PART_NAME_RWFS);
@@ -1343,7 +1433,7 @@ stop_rwfs_optware(void)
 	return result;
 }
 #else
-inline void mount_rwfs_partition(void) {}
+inline int mount_rwfs_partition(void) { return 0; }
 inline int umount_rwfs_partition(void) { return 0; }
 inline void start_rwfs_optware(void) {}
 inline int retry_rwfs_optware(void) { return 0; }

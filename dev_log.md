@@ -1,3 +1,16 @@
+## 2026-11-17 — Fail closed when configured RWFS cannot be mounted
+
+- Base main SHA: `db73892db0692050eca7249e5ac55d4eb35bb3b9`; result: THIS COMMIT.
+- Finding: `mount_rwfs_partition()` ignored the UBI module probe, `ubiattach`, mountpoint creation and UBIFS mount results, and returned void. A failed mount could leave `/media/mtd_rwfs` as an ordinary rootfs directory; `start_rwfs_optware()` used directory existence as readiness and could start services with non-persistent data.
+- RWFS boot setup now uses the tri-state UBI module probe, verifies the exact MTD-to-UBI sysfs attachment before and after attach, rejects symlink/non-directory mountpoints, and returns mount errors. `init_router()` adds the mount result to its first-error service summary. Optware startup is gated on the successful mount postcondition; a newly-created empty mountpoint is removed after failed setup.
+- Added a callback-injected GNU89 policy regression for disabled/unsupported configurations, UNKNOWN/missing module, unknown/absent UBI attachment, attach postcondition, mountpoint/mount errors and command/postcondition disagreement. Both Process lifecycle and XY-C1 workflows compile it under ASan/UBSan and run a source integration contract.
+- DNS Forwarder stop registration source `8b63b6ea`: Process `44006695435` and launch-path `44006695180` PASS; current docs-only handoff follow-up `db73892d` repaired the required checkpoint wording. XY-C1 `44006695535` was pending last check; it does not validate RWFS.
+- Prior firewall tri-state source `736ebe86`: Firewall Startup Stability `44005295947`, Process `44005296116`, inventory `44005296027`, FULLCONENAT `44005295950`, and AI handoff `44005296129` PASS. HTTPD checker follow-up `49f79883` passed `44005782392`.
+- IPv6 global sysctl status source `37e414f2`: Process `44003684238` PASS on checker-only descendant, same-source XY-C1 `44003333586` PASS including Build, TRX and artifact.
+- No local checkout/toolchain is mounted; local execution was NOT RUN. Exact-head Actions for THIS RWFS commit are pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Restore mandatory handoff checkpoint wording
 
 - Base main SHA: `8b63b6ea70536e2677204e6da8741a662145ba5f`; result: THIS COMMIT.

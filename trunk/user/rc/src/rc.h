@@ -187,7 +187,7 @@ int module_smart_unload(const char *module_name, int recurse_unload);
 int module_param_get(const char *module_name, const char *module_param, char *param_value, size_t param_value_size);
 int module_param_set_int(const char *module_name, const char *module_param, int param_value);
 void oom_score_adjust(pid_t pid, int oom_score_adj);
-void mount_rwfs_partition(void);
+int mount_rwfs_partition(void);
 int umount_rwfs_partition(void);
 void start_rwfs_optware(void);
 int retry_rwfs_optware(void);

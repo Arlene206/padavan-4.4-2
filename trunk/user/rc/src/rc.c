@@ -919,6 +919,7 @@ init_router(void)
 	int log_remote, is_ap_mode, nvram_need_commit;
 	int storage_save_status, dnsmasq_start_status;
 	int boot_modules_status, boot_services_status;
+	int rwfs_mount_status;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -946,7 +947,7 @@ init_router(void)
 		return -1;
 	}
 
-	mount_rwfs_partition();
+	rwfs_mount_status = mount_rwfs_partition();
 
 	if (gen_ralink_config_2g(0) < 0) {
 		logmessage(LOGNAME, "Router initialization stopped: failed to generate 2.4GHz wireless configuration");
@@ -979,7 +980,8 @@ init_router(void)
 	boot_modules_status = rc_first_service_start_status(
 		boot_modules_status, load_ipset_modules());
 #endif
-	boot_services_status = boot_modules_status;
+	boot_services_status = rc_first_service_start_status(
+		rwfs_mount_status, boot_modules_status);
 	if (boot_modules_status != 0)
 		logmessage(LOGNAME,
 			   "Router initialization continuing with one or more unavailable hardware modules (first status=%d)",

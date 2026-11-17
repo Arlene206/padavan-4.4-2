@@ -22,6 +22,9 @@ on:
       - "trunk/user/shared/src/Makefile"
       - "trunk/user/shared/src/tests/process_inventory.c"
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/storage_rwfs_mount_policy.h"
+      - "trunk/user/rc/src/tests/storage_rwfs_mount_policy.c"
+      - "scripts/check_rwfs_mount_integration.py"
       - "trunk/user/shared/src/file_write_status.h"
       - "trunk/user/rc/src/tests/file_write_status.c"
       - "trunk/user/rc/src/net.c"
@@ -109,6 +112,9 @@ on:
   pull_request:
     paths:
       - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/storage_rwfs_mount_policy.h"
+      - "trunk/user/rc/src/tests/storage_rwfs_mount_policy.c"
+      - "scripts/check_rwfs_mount_integration.py"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/scripts/process_lifecycle.sh"
       - "trunk/user/shared/tests/process_lifecycle.sh"
@@ -440,6 +446,15 @@ jobs:
           sh -n trunk/user/zerotier/zerotier.sh
           sh -n trunk/user/zerotier/tests/zerotier_lifecycle.sh
           sh trunk/user/zerotier/tests/zerotier_lifecycle.sh
+      - name: Compile and run RWFS UBI attach and mount fail-closed policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_rwfs_mount_policy.c \
+            -o "$RUNNER_TEMP/storage-rwfs-mount-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/storage-rwfs-mount-policy"
+      - name: Verify RWFS mount and Optware readiness integration
+        run: python3 scripts/check_rwfs_mount_integration.py
       - name: Verify shared-library and RC integration boundaries
         run: python3 scripts/check_process_lifecycle_integration.py
 
