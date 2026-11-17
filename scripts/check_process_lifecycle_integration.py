@@ -1097,9 +1097,20 @@ assert "wifi_wl_stop_status != 0" in shutdown_router
 assert "wifi_rt_stop_status != 0" in shutdown_router
 assert "wifi_wl_stop_status == 0" in shutdown_router
 assert "wifi_rt_stop_status == 0" in shutdown_router
+assert "int lan_stop_status = 0;" in shutdown_router
+assert "lan_stop_status = stop_lan(is_ap_mode);" in shutdown_router
+assert "if (lan_stop_status != 0)" in shutdown_router
+assert "lan_stop_status == 0" in shutdown_router
+assert 'LAN shutdown incomplete; continuing power-down without storage persistence' in shutdown_router
+assert shutdown_router.count("stop_lan(is_ap_mode);") == 1
 mtd_gate_pos = shutdown_router.index("if (storage_remove_status == 0")
 assert shutdown_router.index("wifi_wl_stop_status = stop_wifi_all_wl();") < mtd_gate_pos
 assert shutdown_router.index("wifi_rt_stop_status = stop_wifi_all_rt();") < mtd_gate_pos
+lan_stop_pos = shutdown_router.index("lan_stop_status = stop_lan(is_ap_mode);")
+assert shutdown_router.index("wifi_wl_stop_status = stop_wifi_all_wl();") < lan_stop_pos < mtd_gate_pos
+assert lan_stop_pos < shutdown_router.index("rwfs_unmount_status = umount_rwfs_partition();")
+assert shutdown_router.index("if (lan_stop_status != 0)") < mtd_gate_pos
+assert shutdown_router.count("stop_lan(is_ap_mode);") == 1
 assert shutdown_router.count("stop_wifi_all_wl();") == 1
 assert shutdown_router.count("stop_wifi_all_rt();") == 1
 assert shutdown_router.index("auth_stop_status = stop_8021x_all();") < shutdown_router.index(

@@ -1182,6 +1182,7 @@ shutdown_router(int level)
 	int wan_stop_status, lan_wan_stop_status = 0;
 	int auth_stop_status, logger_stop_status = 0;
 	int wifi_wl_stop_status = 0, wifi_rt_stop_status = 0;
+	int lan_stop_status = 0;
 	int optware_stop_status = 0;
 	int rwfs_unmount_status = 0;
 	int shutdown_script_status = 0;
@@ -1251,6 +1252,18 @@ shutdown_router(int level)
 	if (wifi_rt_stop_status != 0)
 		logmessage(LOGNAME, "2.4GHz radio shutdown incomplete; continuing power-down without storage persistence");
 
+	/*
+	 * LAN teardown is part of the persistence consistency boundary. In AP
+	 * mode this also waits for the identity-bound DHCP release/deconfig path;
+	 * an UNKNOWN or incomplete stop must not publish a storage snapshot.
+	 */
+	if (level < 2) {
+		lan_stop_status = stop_lan(is_ap_mode);
+		if (lan_stop_status != 0)
+			logmessage(LOGNAME, "LAN shutdown incomplete; continuing power-down without storage persistence (status=%d)",
+				   lan_stop_status);
+	}
+
 	/* Stop Optware hooks and detach RWFS before publishing MTD storage. */
 	rwfs_unmount_status = umount_rwfs_partition();
 	if (rwfs_unmount_status != 0)
@@ -1263,8 +1276,8 @@ shutdown_router(int level)
 	    wan_stop_status == 0 && lan_wan_stop_status == 0 &&
 	    auth_stop_status == 0 && logger_stop_status == 0 &&
 	    wifi_wl_stop_status == 0 && wifi_rt_stop_status == 0 &&
-	    optware_stop_status == 0 && rwfs_unmount_status == 0 &&
-	    shutdown_script_status == 0) {
+	    lan_stop_status == 0 && optware_stop_status == 0 &&
+	    rwfs_unmount_status == 0 && shutdown_script_status == 0) {
 		storage_time_status = storage_save_time(10);
 		storage_mtd_status = storage_persistence_mtd_may_run(storage_time_status) ?
 			write_storage_to_mtd() : -1;
@@ -1272,11 +1285,8 @@ shutdown_router(int level)
 			logmessage(LOGNAME, "storage MTD persistence failed (time status=%d, MTD status=%d); continuing power-down",
 				   storage_time_status, storage_mtd_status);
 	} else {
-		logmessage(LOGNAME, "skipping storage MTD persistence because shutdown-hook, RWFS/Optware teardown, safe-eject or service-stop completion was not verified");
+		logmessage(LOGNAME, "skipping storage MTD persistence because shutdown-hook, LAN/service teardown, RWFS/Optware or safe-eject completion was not verified");
 	}
-
-	if (level < 2)
-		stop_lan(is_ap_mode);
 
 
 	if (use_halt) {

@@ -1,3 +1,10 @@
+## 2026-11-18 02:20 CST — Gate shutdown MTD persistence on LAN teardown
+
+- `shutdown_router()` previously discarded `stop_lan()`'s result and invoked it only after the MTD persistence decision. In AP mode, this stop can fail closed when the udhcpc PID/start-time identity or deconfig completion is UNKNOWN; in router mode it aggregates conntrack, route, IPv6 and bridge-down errors. Those failures were not part of the persistence precondition.
+- Move the single LAN stop into the pre-persistence shutdown sequence, preserve and log its status, and require success before publishing the MTD storage snapshot. Shutdown still proceeds on failure, but persistence is skipped.
+- Extend `scripts/check_process_lifecycle_integration.py` to assert one status-capturing stop, error logging, ordering before RWFS/persistence, and fail-closed gate inclusion. Existing Process and XY-C1 workflows already cover the touched paths.
+- Exact-head Process/XY-C1 validation: THIS COMMIT / PENDING. No local RC cross-build or physical-router validation is claimed.
+
 ## 2026-11-17 — Bound and validate MiniUPnP presentation URL
 
 - Parent main SHA: `895384877b709383abd9e1d3b09d0b689ad157f8`; result: THIS COMMIT.
