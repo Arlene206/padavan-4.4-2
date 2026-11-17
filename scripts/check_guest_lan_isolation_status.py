@@ -85,13 +85,40 @@ assert "if (cleanup_status == 0)" in isolation_body
 assert "return wireless_guest_isolation_status_result(&status);" in isolation_body
 assert "failed_operations=%u" in isolation_body
 
-for signature in ("int\ncontrol_guest_wl(int guest_on, int manual)",
-                  "int\ncontrol_guest_rt(int guest_on, int manual)"):
+for signature, finish_label in (
+    ("int\ncontrol_guest_wl(int guest_on, int manual)", "finish_wl"),
+    ("int\ncontrol_guest_rt(int guest_on, int manual)", "finish_rt"),
+):
     body = function_body(wifi, signature)
     assert "br_add_del_if(" in body
     assert "wireless_guest_isolation_status_record(&control_status" in body
     assert "restart_guest_lan_isolation()" in body
+    assert "rollback_candidate = 1;" in body
+    assert "if (guest_on && rollback_candidate && control_status.first_status != 0)" in body
+    assert "wireless_guest_ap_rollback(ifname_ap, bridge_ifname, &control_status);" in body
     assert "wireless_guest_isolation_control_result(is_ap_changed, &control_status)" in body
+    down_gate = "if (!wif_control_success(ifname_ap, 0))"
+    down_pos = body.index(down_gate)
+    down_record = body.index("wireless_guest_isolation_status_record(&control_status", down_pos)
+    detach_pos = body.index("br_add_del_if(", down_record)
+    assert down_pos < down_record < detach_pos
+    assert "goto " + finish_label + ";" not in body[down_record:detach_pos]
+
+rollback_helper = function_body(wifi, "static void\nwireless_guest_ap_rollback(")
+assert "wireless_guest_isolation_status_rollback(status, &ops, &context)" in rollback_helper
+assert "br_add_del_if(IFNAME_BR, rollback->bridge_ifname, 0)" in wifi
+rt_bridge = function_body(wifi, "static const char *\nwireless_guest_rt_bridge_ifname(int is_ap_mode)")
+assert "if (!is_ap_mode)" in rt_bridge and "IFNAME_INIC_GUEST_VLAN" in rt_bridge
+
+restart_rollback = function_body(wifi, "static int\nwireless_guest_restart_fail_closed(")
+assert "wireless_guest_ap_rollback(IFNAME_5G_GUEST" in restart_rollback
+assert "wireless_guest_ap_rollback(IFNAME_2G_GUEST" in restart_rollback
+assert "restart_guest_lan_isolation()" in restart_rollback
+
+for signature in ("int\nrestart_wifi_wl(int radio_on, int need_reload_conf)",
+                  "int\nrestart_wifi_rt(int radio_on, int need_reload_conf)"):
+    body = function_body(wifi, signature)
+    assert "wireless_guest_restart_fail_closed(" in body
 assert "return brport_set_m2u(wifname, i_m2u);" in wifi
 
 for signature in ("int\nrestart_wifi_wl(int radio_on, int need_reload_conf)",
@@ -121,8 +148,11 @@ for test_name in (
     "test_positive_system_wait_status_is_a_failure",
     "test_later_failures_do_not_replace_first_error",
     "test_control_result_preserves_changed_boolean_only_on_success",
+    "test_fail_closed_rollback_attempts_every_step",
+    "test_fail_closed_rollback_success_and_invalid_ops",
     "test_null_status_is_fail_safe",
 ):
     assert test_name in regression
 assert "wireless_guest_isolation_status_record" in policy
+assert "wireless_guest_isolation_status_rollback" in policy
 print("Guest-LAN bridge, ebtables and PID-1 status propagation contract: PASS")

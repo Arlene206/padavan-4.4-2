@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `56fb66fb68ed46bd8389c2dbdd4009243023f52c`.
+- Current main: THIS COMMIT; parent `66b3354334d2d1a1e8542a2fd6564b67655d4260`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,8 +31,8 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify THIS COMMIT's HTTPD security workflow compatibility assertion, wireless-radio guest failure gate regression, Process guest-isolation suite and XY-C1 Build → TRX → artifact.
-2. Continue the guest Wi-Fi security slice: fail closed and roll back guest AP activation if bridge membership, multicast configuration or isolation enforcement fails. Preserve already-up interfaces and account for RT3352 MII/iNIC bridge topology.
+1. Verify THIS COMMIT's exact-head Process guest-isolation and wireless-radio rollback regressions, plus XY-C1 Build → TRX → artifact.
+2. Continue the guest Wi-Fi security slice from this rollback change: inspect remaining guest AP activation paths for bypasses. Preserve interfaces already up before a control request, retain explicit RT3352 MII/iNIC bridge ownership, and do not repeat this rollback-policy implementation.
 3. Work only on main; preserve the frozen backup branch unchanged; one complete Git tree/commit and non-forced expected-SHA update per logical task.
 
 ## Verification boundary
@@ -48,4 +48,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live main, filter Actions by exact head_sha, verify this commit's HTTPD, wireless-radio, Process guest-isolation and XY-C1 checks. If they pass, implement safe rollback when newly enabled guest AP setup fails after ifconfig UP, bridge attach, multicast-to-unicast or isolation policy install. Preserve already-up interfaces and handle RT3352 MII/iNIC bridge ownership explicitly.
+Fetch live main and exact-head Actions. Verify Process guest rollback tests, wireless-radio rollback wiring checks and XY-C1 Build/TRX/artifact for THIS COMMIT. Then review remaining guest AP creation paths that bypass the rollback-protected control/restart entry points.

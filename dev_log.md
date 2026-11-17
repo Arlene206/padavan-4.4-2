@@ -1,3 +1,16 @@
+## 2026-11-17 — Fail closed when guest AP setup or isolation rollback fails
+
+- Parent main SHA: `66b3354334d2d1a1e8542a2fd6564b67655d4260`; result: THIS COMMIT.
+- Guest AP control previously returned an error for bridge, multicast-to-unicast or isolation failures but could leave a newly enabled interface active. Guest-disable also skipped bridge detach when ifconfig-down failed.
+- Added a callback-driven rollback policy that always attempts interface-down, bridge detach and final down-state verification while preserving the first failure. Regression cases prove all cleanup operations run even when an earlier rollback stage fails.
+- Guest-control rollback is limited to interfaces confirmed down before this activation attempt; an already-up guest interface is preserved. Rollback detaches the correct bridge port, including RT3352 MII router mode's iNIC guest VLAN rather than the wireless VIF. Failed guest-disable still attempts bridge detach.
+- Full radio restart paths also roll back guest interfaces newly recreated by that restart when guest isolation reapply fails. DBDC peer rollback is limited to a peer radio restarted by the same request.
+- Process and wireless-radio workflows compile the GNU89/Werror/ASan/UBSan rollback tests and check production rollback ordering. Exact-head Actions for THIS COMMIT are pending; no MIPS/uClibc target build or physical-router L4 result is claimed.
+- Parent exact-head Process `44061735204` and HTTPD `44061735243` passed; XY-C1 `44061735229` and NVRAM `44061735223` were still running. Wireless-radio regression `44061356170` passed on source parent `56fb66fb68ed46bd8389c2dbdd4009243023f52c`.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Update HTTPD security source contract for wireless restart failure propagation
 
 - Parent main SHA: `56fb66fb68ed46bd8389c2dbdd4009243023f52c`; result: THIS COMMIT.

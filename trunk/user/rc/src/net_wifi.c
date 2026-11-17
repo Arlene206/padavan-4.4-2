@@ -67,6 +67,118 @@ wif_control_success(const char *wifname, int is_up)
 	return 1;
 }
 
+
+typedef struct {
+	const char *ifname_ap;
+	const char *bridge_ifname;
+} wireless_guest_rollback_context_t;
+
+static int
+wireless_guest_rollback_bring_down(void *context)
+{
+	wireless_guest_rollback_context_t *rollback =
+		(wireless_guest_rollback_context_t *)context;
+
+	if (!is_interface_up(rollback->ifname_ap))
+		return 0;
+	return wif_control_success(rollback->ifname_ap, 0) ? 0 : -EIO;
+}
+
+static int
+wireless_guest_rollback_detach_bridge(void *context)
+{
+	wireless_guest_rollback_context_t *rollback =
+		(wireless_guest_rollback_context_t *)context;
+
+	return br_add_del_if(IFNAME_BR, rollback->bridge_ifname, 0);
+}
+
+static int
+wireless_guest_rollback_verify_down(void *context)
+{
+	wireless_guest_rollback_context_t *rollback =
+		(wireless_guest_rollback_context_t *)context;
+
+	return is_interface_up(rollback->ifname_ap) ? -EBUSY : 0;
+}
+
+static void
+wireless_guest_ap_rollback(const char *ifname_ap, const char *bridge_ifname,
+			   wireless_guest_isolation_status_t *status)
+{
+	static const wireless_guest_isolation_rollback_ops_t ops = {
+		wireless_guest_rollback_bring_down,
+		wireless_guest_rollback_detach_bridge,
+		wireless_guest_rollback_verify_down
+	};
+	wireless_guest_rollback_context_t context;
+	unsigned int failures_before;
+
+	if (!status)
+		return;
+	context.ifname_ap = ifname_ap;
+	context.bridge_ifname = bridge_ifname;
+	failures_before = status->failure_count;
+	wireless_guest_isolation_status_rollback(status, &ops, &context);
+	if (status->failure_count > failures_before)
+		logmessage(LOGNAME,
+			   "guest AP fail-closed rollback for %s had %u cleanup failure(s)",
+			   ifname_ap, status->failure_count - failures_before);
+}
+
+static const char *
+wireless_guest_rt_bridge_ifname(int is_ap_mode)
+{
+#if defined(USE_RT3352_MII)
+	if (!is_ap_mode)
+		return IFNAME_INIC_GUEST_VLAN;
+#else
+	(void)is_ap_mode;
+#endif
+	return IFNAME_2G_GUEST;
+}
+
+static int
+wireless_guest_restart_fail_closed(int restart_5g, int restart_peer,
+				   int isolation_status)
+{
+	wireless_guest_isolation_status_t status;
+	int cleanup_status;
+
+	wireless_guest_isolation_status_reset(&status);
+	wireless_guest_isolation_status_record(&status,
+		"guest isolation after wireless restart", isolation_status);
+	if (restart_5g) {
+#if BOARD_HAS_5G_RADIO
+		wireless_guest_ap_rollback(IFNAME_5G_GUEST, IFNAME_5G_GUEST, &status);
+#endif
+#if defined(BOARD_MT7615_DBDC) || defined(BOARD_MT7915_DBDC)
+		if (restart_peer)
+			wireless_guest_ap_rollback(IFNAME_2G_GUEST,
+				wireless_guest_rt_bridge_ifname(get_ap_mode()), &status);
+#endif
+	} else {
+		wireless_guest_ap_rollback(IFNAME_2G_GUEST,
+			wireless_guest_rt_bridge_ifname(get_ap_mode()), &status);
+#if defined(BOARD_MT7615_DBDC) || defined(BOARD_MT7915_DBDC)
+		if (restart_peer)
+			wireless_guest_ap_rollback(IFNAME_5G_GUEST, IFNAME_5G_GUEST, &status);
+#endif
+	}
+#if !defined(BOARD_MT7615_DBDC) && !defined(BOARD_MT7915_DBDC)
+	(void)restart_peer;
+#endif
+	cleanup_status = restart_guest_lan_isolation();
+	wireless_guest_isolation_status_record(&status,
+		"reconcile guest isolation after wireless rollback", cleanup_status);
+	if (status.first_status != 0)
+		logmessage(LOGNAME,
+			   "wireless restart guest isolation rollback incomplete: %s failed first (status=%d; failed_operations=%u)",
+			   status.first_operation ? status.first_operation : "unknown",
+			   status.first_status, status.failure_count);
+	return wireless_guest_isolation_status_result(&status);
+}
+
 /*
  * Keep an interface in its current bridge while it is still up. Once the
  * driver accepted the down request, detach its LAN bridge port as part of
@@ -1034,9 +1146,15 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 	}
 #endif
 	isolation_status = restart_guest_lan_isolation();
-	if (isolation_status != 0)
-		logmessage(LOGNAME, "5GHz wireless restart: guest LAN isolation failed (status=%d)",
+	if (isolation_status != 0) {
+		logmessage(LOGNAME, "5GHz wireless restart: guest LAN isolation failed (status=%d); rolling back restarted guest APs",
 			   isolation_status);
+#if defined(BOARD_MT7615_DBDC) || defined(BOARD_MT7915_DBDC)
+		isolation_status = wireless_guest_restart_fail_closed(1, need_reload_conf, isolation_status);
+#else
+		isolation_status = wireless_guest_restart_fail_closed(1, 0, isolation_status);
+#endif
+	}
 
 	check_apcli_wan(1, radio_on);
 
@@ -1137,9 +1255,15 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 	}
 #endif
 	isolation_status = restart_guest_lan_isolation();
-	if (isolation_status != 0)
-		logmessage(LOGNAME, "2.4GHz wireless restart: guest LAN isolation failed (status=%d)",
+	if (isolation_status != 0) {
+		logmessage(LOGNAME, "2.4GHz wireless restart: guest LAN isolation failed (status=%d); rolling back restarted guest APs",
 			   isolation_status);
+#if defined(BOARD_MT7615_DBDC) || defined(BOARD_MT7915_DBDC)
+		isolation_status = wireless_guest_restart_fail_closed(0, need_reload_conf, isolation_status);
+#else
+		isolation_status = wireless_guest_restart_fail_closed(0, 0, isolation_status);
+#endif
+	}
 
 	check_apcli_wan(0, radio_on);
 
@@ -1382,54 +1506,62 @@ control_guest_wl(int guest_on, int manual)
 	int is_ap_changed = 0;
 	wireless_guest_isolation_status_t control_status;
 #if BOARD_HAS_5G_RADIO
+	const char *ifname_ap = IFNAME_5G_GUEST;
+	const char *bridge_ifname = IFNAME_5G_GUEST;
+	int radio_on = get_enabled_radio_wl();
+	int i_mode_x = get_mode_radio_wl();
 	int operation_status;
 	int isolation_status;
+	int rollback_candidate = 0;
 #endif
 
 	wireless_guest_isolation_status_reset(&control_status);
 #if BOARD_HAS_5G_RADIO
-	{
-		const char *ifname_ap = IFNAME_5G_GUEST;
-		int radio_on = get_enabled_radio_wl();
-		int i_mode_x = get_mode_radio_wl();
+	if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on ||
+			 !is_interface_up(IFNAME_5G_MAIN)))
+		return 0;
 
-		if (guest_on && (i_mode_x == 1 || i_mode_x == 3 || !radio_on ||
-				 !is_interface_up(IFNAME_5G_MAIN)))
-			return 0;
-
-		if (guest_on) {
-			if (!is_interface_up(ifname_ap)) {
-				if (!wif_control_success(ifname_ap, 1)) {
-					wireless_guest_isolation_status_record(&control_status,
-						"bring up 5GHz guest AP", -EIO);
-					goto finish_wl;
-				}
-				is_ap_changed = 1;
+	if (guest_on) {
+		if (!is_interface_up(ifname_ap)) {
+			/* Roll back only an interface that was down before this request. */
+			rollback_candidate = 1;
+			if (!wif_control_success(ifname_ap, 1)) {
+				wireless_guest_isolation_status_record(&control_status,
+					"bring up 5GHz guest AP", -EIO);
+				goto finish_wl;
 			}
-			operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 1);
-			wireless_guest_isolation_record(&control_status,
-				"attach 5GHz guest AP to LAN bridge", operation_status);
-			operation_status = wif_control_m2u(1, ifname_ap);
-			wireless_guest_isolation_record(&control_status,
-				"configure 5GHz guest AP multicast-to-unicast", operation_status);
-		} else {
-			if (is_interface_up(ifname_ap)) {
-				if (!wif_control_success(ifname_ap, 0)) {
-					wireless_guest_isolation_status_record(&control_status,
-						"bring down 5GHz guest AP", -EIO);
-					goto finish_wl;
-				}
-				is_ap_changed = 1;
-			}
-			operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 0);
-			wireless_guest_isolation_record(&control_status,
-				"detach 5GHz guest AP from LAN bridge", operation_status);
+			is_ap_changed = 1;
 		}
+		operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 1);
+		wireless_guest_isolation_record(&control_status,
+			"attach 5GHz guest AP to LAN bridge", operation_status);
+		operation_status = wif_control_m2u(1, ifname_ap);
+		wireless_guest_isolation_record(&control_status,
+			"configure 5GHz guest AP multicast-to-unicast", operation_status);
+	} else {
+		if (is_interface_up(ifname_ap)) {
+			if (!wif_control_success(ifname_ap, 0)) {
+				wireless_guest_isolation_status_record(&control_status,
+					"bring down 5GHz guest AP", -EIO);
+			} else {
+				is_ap_changed = 1;
+			}
+		}
+		/* A failed ifconfig-down must not suppress bridge detach. */
+		operation_status = br_add_del_if(IFNAME_BR, ifname_ap, 0);
+		wireless_guest_isolation_record(&control_status,
+			"detach 5GHz guest AP from LAN bridge", operation_status);
 	}
 finish_wl:
 	isolation_status = restart_guest_lan_isolation();
 	wireless_guest_isolation_record(&control_status,
 		"reapply guest LAN isolation after 5GHz guest update", isolation_status);
+	if (guest_on && rollback_candidate && control_status.first_status != 0) {
+		wireless_guest_ap_rollback(ifname_ap, bridge_ifname, &control_status);
+		isolation_status = restart_guest_lan_isolation();
+		wireless_guest_isolation_record(&control_status,
+			"reconcile guest LAN isolation after 5GHz AP rollback", isolation_status);
+	}
 
 	if (is_ap_changed && !manual &&
 	    wireless_guest_isolation_status_result(&control_status) == 0)
@@ -1451,11 +1583,15 @@ control_guest_rt(int guest_on, int manual)
 	wireless_guest_isolation_status_t control_status;
 	int operation_status;
 	int isolation_status;
+	int rollback_candidate = 0;
 	const char *ifname_ap = IFNAME_2G_GUEST;
 	int radio_on = get_enabled_radio_rt();
 	int i_mode_x = get_mode_radio_rt();
 #if defined(USE_RT3352_MII)
 	int is_ap_mode = get_ap_mode();
+	const char *bridge_ifname = wireless_guest_rt_bridge_ifname(is_ap_mode);
+#else
+	const char *bridge_ifname = IFNAME_2G_GUEST;
 #endif
 
 	wireless_guest_isolation_status_reset(&control_status);
@@ -1465,6 +1601,8 @@ control_guest_rt(int guest_on, int manual)
 
 	if (guest_on) {
 		if (!is_interface_up(ifname_ap)) {
+			/* Preserve a guest AP that was already up before this call. */
+			rollback_candidate = 1;
 			if (!wif_control_success(ifname_ap, 1)) {
 				wireless_guest_isolation_status_record(&control_status,
 					"bring up 2.4GHz guest AP", -EIO);
@@ -1491,9 +1629,9 @@ control_guest_rt(int guest_on, int manual)
 			if (!wif_control_success(ifname_ap, 0)) {
 				wireless_guest_isolation_status_record(&control_status,
 					"bring down 2.4GHz guest AP", -EIO);
-				goto finish_rt;
+			} else {
+				is_ap_changed = 1;
 			}
-			is_ap_changed = 1;
 		}
 #if defined(USE_RT3352_MII)
 		if (!is_ap_mode) {
@@ -1512,6 +1650,12 @@ finish_rt:
 	isolation_status = restart_guest_lan_isolation();
 	wireless_guest_isolation_record(&control_status,
 		"reapply guest LAN isolation after 2.4GHz guest update", isolation_status);
+	if (guest_on && rollback_candidate && control_status.first_status != 0) {
+		wireless_guest_ap_rollback(ifname_ap, bridge_ifname, &control_status);
+		isolation_status = restart_guest_lan_isolation();
+		wireless_guest_isolation_record(&control_status,
+			"reconcile guest LAN isolation after 2.4GHz AP rollback", isolation_status);
+	}
 
 	if (is_ap_changed && !manual &&
 	    wireless_guest_isolation_status_result(&control_status) == 0)
@@ -1524,7 +1668,6 @@ finish_rt:
 			control_status.first_status, control_status.failure_count);
 	return wireless_guest_isolation_control_result(is_ap_changed, &control_status);
 }
-
 static void
 wireless_guest_isolation_record(wireless_guest_isolation_status_t *status,
 				const char *operation, int operation_status)

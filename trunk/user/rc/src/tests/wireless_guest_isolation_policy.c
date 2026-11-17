@@ -73,6 +73,94 @@ test_control_result_preserves_changed_boolean_only_on_success(void)
 	assert(wireless_guest_isolation_control_result(1, &status) == -EIO);
 }
 
+typedef struct {
+	int bring_down_status;
+	int detach_status;
+	int verify_status;
+	char order[4];
+	unsigned int calls;
+} rollback_mock_t;
+
+static void
+rollback_mock_record(rollback_mock_t *mock, char step)
+{
+	assert(mock->calls < sizeof(mock->order));
+	mock->order[mock->calls++] = step;
+}
+
+static int
+rollback_mock_bring_down(void *context)
+{
+	rollback_mock_t *mock = (rollback_mock_t *)context;
+
+	rollback_mock_record(mock, 'D');
+	return mock->bring_down_status;
+}
+
+static int
+rollback_mock_detach(void *context)
+{
+	rollback_mock_t *mock = (rollback_mock_t *)context;
+
+	rollback_mock_record(mock, 'B');
+	return mock->detach_status;
+}
+
+static int
+rollback_mock_verify_down(void *context)
+{
+	rollback_mock_t *mock = (rollback_mock_t *)context;
+
+	rollback_mock_record(mock, 'V');
+	return mock->verify_status;
+}
+
+static void
+test_fail_closed_rollback_attempts_every_step(void)
+{
+	static const wireless_guest_isolation_rollback_ops_t ops = {
+		rollback_mock_bring_down,
+		rollback_mock_detach,
+		rollback_mock_verify_down
+	};
+	wireless_guest_isolation_status_t status;
+	rollback_mock_t mock = { 0, -EBUSY, -EIO, { 0 }, 0 };
+
+	wireless_guest_isolation_status_reset(&status);
+	wireless_guest_isolation_status_record(&status,
+		"guest bridge membership", -EACCES);
+
+	assert(wireless_guest_isolation_status_rollback(&status, &ops, &mock) == -EIO);
+	assert(mock.calls == 3);
+	assert(memcmp(mock.order, "DBV", 3) == 0);
+	assert(status.first_status == -EACCES);
+	assert(strcmp(status.first_operation, "guest bridge membership") == 0);
+	assert(status.failure_count == 3);
+}
+
+static void
+test_fail_closed_rollback_success_and_invalid_ops(void)
+{
+	static const wireless_guest_isolation_rollback_ops_t ops = {
+		rollback_mock_bring_down,
+		rollback_mock_detach,
+		rollback_mock_verify_down
+	};
+	wireless_guest_isolation_status_t status;
+	rollback_mock_t mock = { 0, 0, 0, { 0 }, 0 };
+
+	wireless_guest_isolation_status_reset(&status);
+	assert(wireless_guest_isolation_status_rollback(&status, &ops, &mock) == 0);
+	assert(mock.calls == 3);
+	assert(memcmp(mock.order, "DBV", 3) == 0);
+	assert(status.failure_count == 0);
+
+	wireless_guest_isolation_status_reset(&status);
+	assert(wireless_guest_isolation_status_rollback(&status, NULL, NULL) == -EIO);
+	assert(status.failure_count == 1);
+	assert(strcmp(status.first_operation, "validate guest AP rollback operations") == 0);
+}
+
 static void
 test_null_status_is_fail_safe(void)
 {
@@ -88,6 +176,8 @@ main(void)
 	test_positive_system_wait_status_is_a_failure();
 	test_later_failures_do_not_replace_first_error();
 	test_control_result_preserves_changed_boolean_only_on_success();
+	test_fail_closed_rollback_attempts_every_step();
+	test_fail_closed_rollback_success_and_invalid_ops();
 	test_null_status_is_fail_safe();
 	puts("Wireless guest LAN isolation status aggregation: PASS");
 	return 0;

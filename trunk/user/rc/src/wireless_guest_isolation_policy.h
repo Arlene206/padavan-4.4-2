@@ -46,4 +46,39 @@ wireless_guest_isolation_control_result(int changed,
 	return wireless_guest_isolation_status_result(status) != 0 ? -EIO : changed;
 }
 
+ 
+/*
+ * Callback-driven rollback lets host tests verify that every safety action is
+ * attempted even when an earlier cleanup operation fails.
+ */
+typedef struct {
+	int (*bring_down)(void *context);
+	int (*detach_bridge)(void *context);
+	int (*verify_down)(void *context);
+} wireless_guest_isolation_rollback_ops_t;
+
+static inline int
+wireless_guest_isolation_status_rollback(
+	wireless_guest_isolation_status_t *status,
+	const wireless_guest_isolation_rollback_ops_t *ops, void *context)
+{
+	if (!status)
+		return -EIO;
+	if (!ops || !ops->bring_down || !ops->detach_bridge || !ops->verify_down) {
+		wireless_guest_isolation_status_record(status,
+			"validate guest AP rollback operations", -EINVAL);
+		return -EIO;
+	}
+
+	wireless_guest_isolation_status_record(status,
+		"request guest AP down during rollback", ops->bring_down(context));
+	wireless_guest_isolation_status_record(status,
+		"detach guest AP bridge membership during rollback",
+		ops->detach_bridge(context));
+	wireless_guest_isolation_status_record(status,
+		"verify guest AP is down after rollback", ops->verify_down(context));
+
+	return wireless_guest_isolation_status_result(status);
+}
+
 #endif /* WIRELESS_GUEST_ISOLATION_POLICY_H */
