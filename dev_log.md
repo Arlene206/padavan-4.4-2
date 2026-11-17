@@ -1,3 +1,12 @@
+## 2026-11-17 — Propagate firmware-update aborts into PID 1 notification results
+
+- Base main SHA: `9e3316f6740a77fd8db26d1f51af4183dd071021`; result: THIS COMMIT.
+- Finding: `flash_firmware()` returned `void`. Its notification handler removed the request marker and called it without merging a status into `action_result`; preparation failures (VPN/service shutdown, auth/relay teardown, custom shutdown script, storage eject/persistence, printer/IGMP teardown) and a failed `/tmp/mtd_write` therefore appeared successful to the notification queue.
+- Changed `flash_firmware()` to return `-1` on all ten abort paths and on a failed firmware-write command, return zero only after a successful write command, and preserve the original write errno across watchdog recovery. The notification event now merges this result using `rc_notify_merge_action_result()`; failures retain the incomplete marker.
+- Added a Python source contract and wired it plus the existing GNU89 `rc_notify_batch_policy.c` regression (including EBUSY/EIO normalization) into Process and XY-C1 workflows. Also removed the stale duplicate module-dashboard/checkpoint block from `REFACTOR_ROADMAP.md`, preserving the canonical full table and merging the current GPIO/HTTPD/DDNSTO statuses. Local checkout/toolchain unavailable; local execution NOT RUN. Exact-head CI pending; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Fail closed when configured static WAN MTU cannot be applied
 
 - Base main SHA: `c5fc913650e3ae70b8056f63eb70c8db49737505`; result: THIS COMMIT.

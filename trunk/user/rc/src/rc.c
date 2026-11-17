@@ -568,7 +568,7 @@ erase_nvram(void)
 	return 0;
 }
 
-static void
+static int
 flash_firmware(void)
 {
 	const char *script_name = SCRIPT_SHUTDOWN;
@@ -576,13 +576,14 @@ flash_firmware(void)
 	int lock_fd, stop_status, release_status, saved_errno;
 	int eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status;
 	int storage_time_status, storage_mtd_status;
+	int flash_status;
 
 	/* PPPD callback children share this lock; stop only after in-flight
 	 * VPN callbacks have completed, then stale children fail PID identity. */
 	lock_fd = vpn_server_lifecycle_lock_acquire();
 	if (lock_fd < 0) {
 		logmessage(LOGNAME, "firmware update aborted: cannot lock VPN server lifecycle (errno=%d)", errno);
-		return;
+		return -1;
 	}
 	stop_status = kill_services(svcs, 6, 1);
 	saved_errno = errno;
@@ -600,11 +601,11 @@ flash_firmware(void)
 		logmessage(LOGNAME, "firmware update aborted: L2TP/PPP/wireless services did not stop");
 		if (saved_errno)
 			errno = saved_errno;
-		return;
+		return -1;
 	}
 	if (stop_services(0) != 0) {
 		logmessage(LOGNAME, "firmware update aborted: checked services did not stop");
-		return;
+		return -1;
 	}
 	eapol_stop_status = stop_auth_eapol();
 	kabinet_stop_status = stop_auth_kabinet();
@@ -615,14 +616,14 @@ flash_firmware(void)
 		logmessage(LOGNAME,
 			   "firmware update aborted: WAN/AP authentication or PPPoE relay daemons did not stop (EAPOL=%d, kabinet=%d, 802.1X=%d, relay=%d)",
 			   eapol_stop_status, kabinet_stop_status, auth_stop_status, pppoe_stop_status);
-		return;
+		return -1;
 	}
 	if (check_if_file_exist(script_name)) {
 		int script_status = doSystem("%s %d", script_name, 0);
 		if (script_status != 0) {
 			logmessage(LOGNAME, "firmware update aborted: custom shutdown script failed (status=%d)",
 				   script_status);
-			return;
+			return -1;
 		}
 	}
 #if defined (USE_STORAGE)
@@ -630,18 +631,18 @@ flash_firmware(void)
 		saved_errno = errno ? errno : EIO;
 		logmessage(LOGNAME, "firmware update aborted: storage eject incomplete (errno=%d)", saved_errno);
 		errno = saved_errno;
-		return;
+		return -1;
 	}
 #endif
 #if defined (USE_USB_SUPPORT)
 	if (stop_usb_printer_spoolers() != 0) {
 		logmessage(LOGNAME, "firmware update aborted: USB printer daemons did not stop");
-		return;
+		return -1;
 	}
 #endif
 	if (stop_igmpproxy(NULL) != 0) {
 		logmessage(LOGNAME, "firmware update aborted: IPTV proxy daemons did not stop");
-		return;
+		return -1;
 	}
 	/* Stop the watchdog only after every other fallible preparation is complete. */
 	if (stop_misc() != 0) {
@@ -652,7 +653,7 @@ flash_firmware(void)
 		if (watchdog_status != 0)
 			logmessage(LOGNAME, "firmware update abort could not restore watchdog (status=%d, errno=%d)",
 				   watchdog_status, watchdog_errno);
-		return;
+		return -1;
 	}
 	storage_time_status = storage_save_time(60);
 	storage_mtd_status = storage_persistence_mtd_may_run(storage_time_status) ?
@@ -668,18 +669,27 @@ flash_firmware(void)
 			logmessage(LOGNAME, "firmware update abort could not restore watchdog (status=%d, errno=%d)",
 				   watchdog_status, watchdog_errno);
 		errno = storage_errno;
-		return;
+		return -1;
 	}
 	sync();
 	sleep(1);
-	if (eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME) != 0) {
+	errno = 0;
+	flash_status = eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME);
+	if (flash_status != 0) {
+		int flash_errno = errno ? errno : EIO;
 		int watchdog_status, watchdog_errno;
+
+		logmessage(LOGNAME, "firmware write command failed (status=%d, errno=%d)",
+			   flash_status, flash_errno);
 		watchdog_status = start_watchdog();
 		watchdog_errno = errno ? errno : EIO;
 		if (watchdog_status != 0)
 			logmessage(LOGNAME, "firmware write failed and watchdog recovery also failed (status=%d, errno=%d)",
 				   watchdog_status, watchdog_errno);
+		errno = flash_errno;
+		return -1;
 	}
+	return 0;
 }
 
 static void
@@ -1331,7 +1341,8 @@ handle_notifications(void)
 		else if (!strcmp(entry->d_name, "flash_firmware"))
 		{
 			stop_handle = 1;
-			flash_firmware();
+			action_result = rc_notify_merge_action_result(
+				action_result, flash_firmware());
 		}
 #if defined (USE_IPV6)
 		else if (!strcmp(entry->d_name, RCN_RESTART_IPV6))
