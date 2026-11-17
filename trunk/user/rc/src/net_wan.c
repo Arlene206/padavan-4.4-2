@@ -2728,8 +2728,13 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 				   route_status);
 	}
 #endif
-	if (nvram_match("pppoemwan_enable", "1"))
-		{doSystem("/usr/bin/detect.sh");}
+	if (nvram_match("pppoemwan_enable", "1")) {
+		route_status = eval("/usr/bin/detect.sh");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "WAN PPPoE-MWAN detection incomplete (status=%d)",
+				   route_status);
+	}
 	return status;
 }
 
@@ -2863,8 +2868,13 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 
 	if (check_if_file_exist(script_postw))
 	{eval(script_postw, "down", wan_ifname, wan_addr);}
-	if (nvram_match("pppoemwan_enable", "1"))
-	{doSystem("/usr/bin/detect.sh");}
+	if (nvram_match("pppoemwan_enable", "1")) {
+		route_status = eval("/usr/bin/detect.sh");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "WAN PPPoE-MWAN reconfiguration incomplete (status=%d)",
+				   route_status);
+	}
 
 	return status;
 }

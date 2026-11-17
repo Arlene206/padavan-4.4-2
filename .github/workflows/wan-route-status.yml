@@ -51,6 +51,7 @@ on:
       - "trunk/user/zerotier/zerotier.sh"
       - "trunk/user/zerotier/tests/zerotier_lifecycle.sh"
       - "scripts/check_wan_zerotier_status.py"
+      - "scripts/check_pppoe_mwan_status.py"
       - "trunk/user/pppoe/detect.sh"
       - "trunk/user/pppoe/tests/detect_status.sh"
   pull_request:
@@ -103,6 +104,7 @@ on:
       - "trunk/user/zerotier/zerotier.sh"
       - "trunk/user/zerotier/tests/zerotier_lifecycle.sh"
       - "scripts/check_wan_zerotier_status.py"
+      - "scripts/check_pppoe_mwan_status.py"
       - "trunk/user/pppoe/detect.sh"
       - "trunk/user/pppoe/tests/detect_status.sh"
 
@@ -219,6 +221,8 @@ jobs:
           bash -n trunk/user/pppoe/detect.sh
           bash -n trunk/user/pppoe/tests/detect_status.sh
           bash trunk/user/pppoe/tests/detect_status.sh
+      - name: Verify PPPoE-MWAN WAN-up and WAN-down result propagation
+        run: python3 scripts/check_pppoe_mwan_status.py
       - name: Verify route result propagation and cleanup ordering
         run: |
           python3 - <<'PY'

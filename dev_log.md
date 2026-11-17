@@ -1,3 +1,13 @@
+## 2026-11-16 — Propagate PPPoE-MWAN detector status through WAN-up and WAN-down
+
+- Parent main SHA: `4f32e40fdd1817a48840abf42373a483dff20d91`.
+- Defect: both `wan_up_internal()` and `wan_down_internal()` gated `/usr/bin/detect.sh` on `pppoemwan_enable` but invoked it via `doSystem()` and discarded the result. Failed multi-WAN policy/firewall rebuilds could therefore leave either WAN transition reporting success.
+- Replaced both unchecked calls with `eval("/usr/bin/detect.sh")`, merged each result into the existing first-error `status` through `route_status_accumulate()`, and logged failures while allowing the remainder of the lifecycle to finish.
+- Added `scripts/check_pppoe_mwan_status.py`; it extracts the C function bodies, verifies both enabled gates, checked launch, ordered aggregation/diagnostics, absence of the old ignored call and returned status from both public wrappers. WAN CI runs it alongside the script-level Bash mock suite.
+- Detector-source exact-head WAN run `44037585283` passed, including syntax and command-failure mocks. Its same-SHA XY-C1 Build `44037585221` was still in progress (TRX and artifact pending) at the prior poll. This up/down caller commit's exact-head Actions and XY-C1 remain to be verified; no target/L4 result claimed.
+
+---
+
 ## 2026-11-16 — Harden PPPoE-MWAN detect.sh failure and cleanup semantics
 
 - Parent main SHA: `42097d6c2ac28c37960bbb5b4940f2db22bf30f2`.
