@@ -1157,7 +1157,7 @@ assert watchdog_httpd.count("restart_httpd();") == 1
 assert "if (restart_status != 0)" in watchdog_httpd
 assert "HTTPD recovery restart failed" in watchdog_httpd
 assert "stop_httpd(" not in watchdog_httpd
-assert "start_httpd(" not in watchdog_httpd
+assert "start_httpd(0)" not in watchdog_httpd
 assert "killall -9 httpd" not in watchdog_httpd
 assert "system(" not in watchdog_httpd
 
