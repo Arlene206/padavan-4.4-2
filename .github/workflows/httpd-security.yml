@@ -2711,6 +2711,21 @@ jobs:
           assert "if (mount_count > 0)" in ejected[mount_count:]
           assert "else if (mount_count == 0)" in ejected[mount_count:] and "unload_nfsd();" in ejected
           assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[mount_count:] and "alarm(5);" in ejected[mount_count:]
+          assert "usb_hotplug_ms" not in ejected[incomplete_gate:mount_count]
+          scheduler_start = service.index("storage_schedule_ejected_cleanup_retry(void)")
+          scheduler_end = service.index("umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)", scheduler_start)
+          retry_scheduler = service[scheduler_start:scheduler_end]
+          assert 'nvram_set_int_temp("usb_unplug_ms", 1);' in retry_scheduler and "alarm(5);" in retry_scheduler
+          public_eject = service[service.index("umount_ejected(void)"):service.index("struct storage_unmount_mount_entry", service.index("umount_ejected(void)"))]
+          assert "storage_schedule_ejected_cleanup_retry();" in public_eject
+          assert public_eject.index("file_unlock(storage_lock);") < public_eject.index("if (result != 0)") < public_eject.index("storage_schedule_ejected_cleanup_retry();")
+          deferred_start = service[service.index("on_deferred_hotplug_dev(void)"):]
+          assert 'nvram_match("usb_unplug_ms", "1")' in deferred_start
+          assert 'nvram_set_int_temp("usb_unplug_ms", 0);' in deferred_start
+          assert "storage_unplug_status = umount_ejected();" in deferred_start
+          assert '!nvram_match("usb_unplug_ms", "1")' in deferred_start
+          assert deferred_start.index("storage_unplug_status = umount_ejected();") < deferred_start.index("storage_start_result = try_start_stor_apps();")
+          assert deferred_start.index('!nvram_match("usb_unplug_ms", "1")') < deferred_start.index("storage_start_result = try_start_stor_apps();")
 
           path_start = service.index("umount_stor_path_range(")
           path_end = service.index("umount_stor_path(disk_info_t", path_start)

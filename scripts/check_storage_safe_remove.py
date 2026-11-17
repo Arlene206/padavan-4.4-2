@@ -186,10 +186,37 @@ require(
     and 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[remaining:],
     "physical eject must keep apps stopped and retry incomplete stale unmounts, then restart only for remaining mounts",
 )
+retry_scheduler = body(storage, "storage_schedule_ejected_cleanup_retry(void)")
+require(
+    'nvram_set_int_temp("usb_unplug_ms", 1);' in retry_scheduler
+    and "alarm(5);" in retry_scheduler,
+    "physical unplug cleanup must schedule a distinct unmount retry",
+)
 ejected_public = body(storage, "umount_ejected(void)")
 require(
-    "umount_ejected_locked(0, 1)" in ejected_public,
-    "physical unplug notification must manage storage app stop/restart itself",
+    "umount_ejected_locked(0, 1)" in ejected_public
+    and "storage_schedule_ejected_cleanup_retry();" in ejected_public
+    and ejected_public.index("file_unlock(storage_lock);")
+        < ejected_public.index("if (result != 0)")
+    and ejected_public.index("if (result != 0)")
+        < ejected_public.index("storage_schedule_ejected_cleanup_retry();"),
+    "physical unplug wrapper must retry lock and cleanup failures after releasing its lock",
+)
+deferred_storage = body(storage, "on_deferred_hotplug_dev(void)")
+unplug_retry = deferred_storage.index('nvram_match("usb_unplug_ms", "1")')
+unplug_clear = deferred_storage.index('nvram_set_int_temp("usb_unplug_ms", 0);')
+unplug_call = deferred_storage.index("storage_unplug_status = umount_ejected();")
+storage_start = deferred_storage.index("storage_start_result = try_start_stor_apps();")
+require(
+    unplug_retry < unplug_clear < unplug_call < storage_start
+    and '!nvram_match("usb_unplug_ms", "1")' in deferred_storage
+    and deferred_storage.index('!nvram_match("usb_unplug_ms", "1")') < storage_start,
+    "deferred worker must complete physical unmount retries before starting storage applications",
+)
+require(
+    "usb_hotplug_ms" not in ejected[incomplete_cleanup_gate:remaining]
+    and 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[remaining:],
+    "only application startup failures may use the storage-start retry flag",
 )
 targeted_eject = body(storage, "safe_remove_stor_device(")
 require(

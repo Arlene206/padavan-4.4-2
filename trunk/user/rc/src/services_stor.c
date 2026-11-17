@@ -2787,6 +2787,14 @@ restore_home_dir(void)
 	}
 }
 
+/* Retry failed physical-unplug cleanup without entering the app-start path. */
+static void
+storage_schedule_ejected_cleanup_retry(void)
+{
+	nvram_set_int_temp("usb_unplug_ms", 1);
+	alarm(5);
+}
+
 static int
 umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 {
@@ -2931,9 +2939,7 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 		 * cleanup first, then restart only after every ejected mount is gone.
 		 */
 		if (result != 0) {
-			logmessage("Storage", "leaving storage applications stopped because physical eject cleanup was incomplete");
-			nvram_set_int_temp("usb_hotplug_ms", 1);
-			alarm(5);
+			logmessage("Storage", "leaving storage applications stopped because physical eject cleanup was incomplete; scheduling unmount retry");
 		} else {
 			errno = 0;
 			mount_count = count_stor_mountpoint();
@@ -2952,8 +2958,6 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 #endif
 			} else {
 				logmessage("Storage", "remaining storage mount inventory is unknown after physical eject; leaving storage applications stopped");
-				nvram_set_int_temp("usb_hotplug_ms", 1);
-				alarm(5);
 				result = -1;
 			}
 		}
@@ -2973,12 +2977,15 @@ umount_ejected(void)
 		saved_errno = errno ? errno : EIO;
 		logmessage("Storage", "cannot acquire storage operation lock for ejected-device cleanup (errno %d)",
 			   saved_errno);
+		storage_schedule_ejected_cleanup_retry();
 		errno = saved_errno;
 		return -1;
 	}
 
 	result = umount_ejected_locked(0, 1);
 	file_unlock(storage_lock);
+	if (result != 0)
+		storage_schedule_ejected_cleanup_retry();
 	return result;
 }
 
@@ -3551,10 +3558,31 @@ on_deferred_hotplug_dev(void)
 	unsigned int modem_retry_mask;
 #endif
 	int storage_start_result;
+#if defined (USE_STORAGE)
+	int storage_unplug_status;
+#endif
 
-	if (nvram_match("usb_hotplug_ms", "1") ||
-	    nvram_match("usb_opt_start", "1") ||
-	    storage_optware_result_fd >= 0) {
+#if defined (USE_STORAGE)
+	/*
+	 * Finish any stale physical-unplug mounts before trying to start
+	 * storage-backed daemons. Failed cleanup re-arms usb_unplug_ms.
+	 */
+	if (nvram_match("usb_unplug_ms", "1")) {
+		nvram_set_int_temp("usb_unplug_ms", 0);
+		storage_unplug_status = umount_ejected();
+		if (storage_unplug_status != 0)
+			logmessage("Storage", "deferred physical-unplug cleanup retry failed (status=%d)",
+				   storage_unplug_status);
+	}
+#endif
+
+	if (
+#if defined (USE_STORAGE)
+	    !nvram_match("usb_unplug_ms", "1") &&
+#endif
+	    (nvram_match("usb_hotplug_ms", "1") ||
+	     nvram_match("usb_opt_start", "1") ||
+	     storage_optware_result_fd >= 0)) {
 		storage_start_result = try_start_stor_apps();
 		if (storage_start_result != 0)
 			alarm(5);
