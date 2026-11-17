@@ -141,6 +141,14 @@ start_syslogd(void)
 		NULL, NULL,			/* -R host:port */
 		NULL
 	};
+	int start_status, attempt, scan_error;
+	enum process_presence process_state;
+
+	start_status = optional_daemon_start_status("syslogd", "syslogd");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
 
 	snprintf(log_rot, sizeof(log_rot), "-s%d", LOG_ROTATE_SIZE_MAX);
 
@@ -155,13 +163,80 @@ start_syslogd(void)
 
 	setenv_tz();
 
-	return _eval(syslogd_argv, NULL, 0, NULL);
+	/*
+	 * BusyBox syslogd daemonizes unless -n is supplied. _eval() waits for
+	 * that short-lived launcher, not for the detached logging child.
+	 */
+	start_status = _eval(syslogd_argv, NULL, 0, NULL);
+	if (start_status != 0) {
+		logmessage(LOGNAME, "syslogd launcher failed (status=%d)", start_status);
+		return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
+	}
+
+	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+		process_state = optional_daemon_presence("syslogd", &scan_error);
+		if (process_presence_start_postcondition(start_status, process_state) == 0)
+			return 0;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
+			logmessage(LOGNAME, "cannot verify syslogd startup (scan_error=%d)",
+				   errno);
+			return -1;
+		}
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "syslogd did not remain running after launch");
+	return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
 }
 
 int
 start_klogd(void)
 {
-	return eval("/sbin/klogd");
+	int start_status, attempt, scan_error;
+	enum process_presence process_state;
+
+	start_status = optional_daemon_start_status("klogd", "klogd");
+	if (start_status > 0)
+		return 0;
+	if (start_status < 0)
+		return start_status;
+
+	/*
+	 * BusyBox klogd daemonizes by default before opening the kernel log.
+	 * Verify the detached reader, not only the short-lived launcher.
+	 */
+	start_status = eval("/sbin/klogd");
+	if (start_status != 0) {
+		logmessage(LOGNAME, "klogd launcher failed (status=%d)", start_status);
+		return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
+	}
+
+	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+		process_state = optional_daemon_presence("klogd", &scan_error);
+		if (process_presence_start_postcondition(start_status, process_state) == 0)
+			return 0;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
+			logmessage(LOGNAME, "cannot verify klogd startup (scan_error=%d)",
+				   errno);
+			return -1;
+		}
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "klogd did not remain running after launch");
+	return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
 }
 
 int

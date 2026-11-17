@@ -1,9 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main: `db362b560e6227310d4a8a539ee146aa2555fbdc`; this atomic source slice fixes WINS being left stopped when `restart_smbd()` is invoked while Samba shares are disabled and storage is mounted. The frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- `restart_smbd()` now evaluates Samba enablement independently of storage mount state: only enabled Samba with mounted storage runs `run_samba()`; otherwise it calls `start_wins()`. Invalid inputs fail closed. GNU89/Werror/ASan/UBSan decision-policy regression and the production source-contract update are included.
-- Detached rstats/LLTD startup commit `92d95b83348dabe3fd3877ecb9f22fd55eb929d1`: exact Process run `44169139435` and XY-C1 build/TRX/artifact run `44169139392` SUCCESS. 9be5 HTTPD `44171043495` and AI docs `44171043503` PASS; XY-C1 `44171043411` still IN_PROGRESS at last observation. Docs checkpoint db362 Process `44171722700`, infosvr `44171723249`, AliyunDrive `44171722965`, AliDDNS `44171722679`, AdGuardHome `44171722704`, AI docs `44171722899` PASS; NVRAM `44171722663` IN_PROGRESS.
-- Exact-head Samba stability and XY-C1 checks for the current source commit are pending. Physical-router L4 is NOT VERIFIED.
+- Parent main SHA: `2e6974211a9e3a487913076b84dfe89eb9817b0d`; THIS COMMIT adds bounded post-launch child verification for BusyBox syslogd and klogd.
+- Both applets daemonize before log service; RC previously observed only the launcher. Existing tri-state postcondition policy tests are reused, while source contracts pin daemonization and startup-result order.
+- Parent `db362b5`: Process fail-closed `44171722700` PASS; NVRAM `44171722663` pending. Parent `9be5d29`: HTTPD Security `44171043495` PASS; XY-C1 `44171043411` still running at last poll.
+- Exact-head Process/XY-C1 for THIS commit: pending. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+Next: validate syslogd/klogd on exact SHA; finish pending parent checks; continue other proven P1 userland issues.
 
 ---
 

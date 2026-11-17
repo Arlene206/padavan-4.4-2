@@ -1,26 +1,28 @@
-# 2026-11-18 continuation checkpoint — preserve WINS across disabled-Samba restart
+# 2026-11-18 continuation checkpoint — verify syslogd/klogd startup
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA: `db362b560e6227310d4a8a539ee146aa2555fbdc`. This atomic source slice is committed on top of that parent; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- The concurrent rstats/LLTD detached-child fix `92d95b83348dabe3fd3877ecb9f22fd55eb929d1` has exact Process run `44169139435` SUCCESS and XY-C1 run `44169139392` SUCCESS, including build, TRX verification and artifact upload.
-- Exact HTTPD security run `44171043495` and AI docs run `44171043503` on `9be5d2918c15730b7d955669aff20d9042239d66` passed. Its XY-C1 run `44171043411` remains IN_PROGRESS at the last check (Build step); do not infer later TRX/artifact completion.
-- The subsequent docs-only main checkpoint `db362b560e6227310d4a8a539ee146aa2555fbdc` has Process `44171722700`, infosvr `44171723249`, AliyunDrive `44171722965`, AliDDNS `44171722679`, AdGuardHome `44171722704`, and AI docs `44171722899` all SUCCESS; NVRAM `44171722663` was IN_PROGRESS at the last observation.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA: `2e6974211a9e3a487913076b84dfe89eb9817b0d`.
+- Main-only full-tree commits use fresh expected-SHA updates and `force:false`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` last confirmed at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- rstats/LLTD detached-start postconditions were committed at `92d95b8`; exact Process inventory `44169139435` and Process lifecycle `44169139271`: PASS.
+- IPTV lease withdrawal/route/address cleanup fixes are in `6d545f4`, `58d05ed`, `f25e742`, `47e395d`, `9be5d29`. HTTPD Security `44171043495` on `9be5d29`: PASS. XY-C1 `44171043411` was still running at last poll.
+- Latest docs checkpoint `db362b5`: Process fail-closed `44171722700` PASS; NVRAM `44171722663` was pending at last poll.
+- THIS COMMIT addresses two additional default-daemonization mismatches: BusyBox syslogd and klogd fork into background children while RC previously accepted only their launcher status.
 
-## Active task
-- Audit found a restart logic defect: `restart_smbd()` force-stops both `smbd` and `nmbd`; when storage is mounted it selected `run_samba()`. But `run_samba()` immediately returns success when Samba sharing is disabled (`enable_samba=0` or `st_samba_mode=0`), so an independently enabled WINS daemon (`wins_enable=1`) remained stopped.
-- The fix selects the restart action from both Samba enablement and the complete mounted-storage result. It launches Samba only when shares are enabled and storage is mounted; otherwise it invokes `start_wins()`, which itself is a no-op if WINS is disabled. Invalid policy inputs abort closed. The common storage-eject lock and post-stop absence checks remain in force through the transition.
-- Added GNU89 regression matrix for enabled/disabled Samba, mounted/empty storage, and invalid/UNKNOWN mount state. The Samba workflow source contract checks the production decision call and unit-test wiring.
+## Active fix — syslogd/klogd launcher-only success
+- RC `start_syslogd()` supplies no `-n`; BusyBox `syslogd_main()` invokes `bb_daemonize_or_rexec()` before PID-file publication and `do_syslogd()`. `_eval(..., ppid=NULL)` waits for the short-lived launcher, not the detached logging child.
+- RC `start_klogd()` supplies no `-n`; BusyBox `klogd_main()` invokes `bb_daemonize_or_rexec()` before opening kernel log and entering its read loop. `eval()` similarly observes only the launcher.
+- THIS COMMIT preflights optional-daemon tri-state presence: a running daemon is idempotent success; UNKNOWN fails closed. Following launch it waits one second and probes four times at one-second intervals. Only RUNNING returns success; UNKNOWN returns failure with scan errno; absent child returns `ETIMEDOUT`; launcher errors are preserved.
+- Existing generic RUNNING/ABSENT/UNKNOWN policy tests are reused. The Process checker pins BusyBox daemonization and RC launch/preflight/poll order. Both Process workflow path filters now include the syslogd/klogd BusyBox sources.
 
 ## Verification boundary
-- Local GNU89 `-Wall -Wextra -Werror` + ASan/UBSan Samba process-policy regression PASS, including existing identity-bound signal cases and the new WINS/Samba decision matrix.
-- Local production-function/source-contract sanity checks PASS. Exact-head Samba Actions and XY-C1 Build/TRX/artifact checks for this new source commit are pending until queried after publication.
-- No production router runtime or physical-router L4 test was performed. Do not claim those results.
+- Parent `db362b5`: Process fail-closed `44171722700` PASS; NVRAM `44171722663` pending at last poll.
+- Parent `9be5d29`: HTTPD Security `44171043495` PASS; XY-C1 `44171043411` pending at last poll.
+- Exact-head Process and XY-C1 for THIS syslogd/klogd slice: PENDING. No local MIPS/uClibc build or router L4 result is claimed.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA Samba share-stability and XY-C1 Actions for the source commit containing this checkpoint. Fix an evidenced failure from its exact job log; do not infer status from a parent SHA.
-2. Resolve NVRAM run `44171722663` and the older XY-C1 run `44171043411` separately.
-3. Continue with another concrete service/firewall reliability defect; do not repeat the completed rstats/LLTD, IPTV DHCP, Samba config-publication, or storage-lock audits.
-4. Keep the backup immutable and use one complete Git tree, one commit, and a non-forced expected-SHA update to `main`.
+1. Inspect exact-SHA Process lifecycle and XY-C1 for THIS slice; fix only first actual failures from their logs.
+2. Resolve outstanding `9be5d29` XY-C1 and `db362b5` NVRAM runs independently.
+3. Continue further evidenced P1 service startup/security gaps outside storage, DHCP deconfig, Networkmap, infosvr, Telnetd, rstats and LLTD. Preserve the frozen backup.
 
 # Cross-session execution mandate
 

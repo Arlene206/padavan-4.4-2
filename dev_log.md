@@ -1,3 +1,12 @@
+## 2026-11-18 — Verify detached syslogd and klogd children after launcher success
+
+- Parent main SHA: `2e6974211a9e3a487913076b84dfe89eb9817b0d`; THIS COMMIT modifies RC startup, Process source integration contracts/PR filters and the live handoff/roadmap.
+- BusyBox syslogd forks by default unless `-n` is supplied; RC's argv has no `-n`. The parent returns after `bb_daemonize_or_rexec()`; the detached child writes its PID file and runs `do_syslogd()`. RC `_eval()` waits only for the launcher.
+- BusyBox klogd also daemonizes by default unless foreground mode is requested; its detached child opens kernel log and enters the read loop while RC `eval()` only sees the launcher.
+- Add optional-daemon tri-state preflight and bounded child checks. Already-running is success; UNKNOWN fails closed; nonzero launcher status is preserved; only RUNNING after a 1s initial delay and four probes returns success; UNKNOWN post-scan preserves errno; ABSENT reports `ETIMEDOUT`.
+- Reuse GNU89-tested `process_presence_start_postcondition()`. Source checker verifies BusyBox daemonization plus RC launch/preflight/poll/result order; Process workflow push/PR filters cover the BusyBox sources.
+- Parent `db362b5` Process fail-closed `44171722700` PASS; NVRAM `44171722663` pending. Parent `9be5d29` HTTPD `44171043495` PASS; XY-C1 `44171043411` pending. Exact-head Process/XY-C1 for THIS slice pending; no hardware L4 claim.
+
 ## 2026-11-18 — Restore WINS after restarting disabled Samba shares
 
 - Review found that `restart_smbd()` force-stops `nmbd`, then selects `run_samba()` solely from mounted-storage presence. `run_samba()` returns success immediately if `enable_samba=0` or `st_samba_mode=0`; with mounted storage and `wins_enable=1`, the restart silently left the independent WINS daemon down.

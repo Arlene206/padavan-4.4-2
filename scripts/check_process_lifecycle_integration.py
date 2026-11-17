@@ -58,6 +58,8 @@ def c_function_body(source, signature):
 
 
 root = Path(__file__).resolve().parents[1]
+syslogd_source = (root / "trunk/user/busybox/busybox-1.24.x/sysklogd/syslogd.c").read_text()
+klogd_source = (root / "trunk/user/busybox/busybox-1.24.x/sysklogd/klogd.c").read_text()
 rstats_source = (root / "trunk/user/rc/src/rstats.c").read_text()
 lldt_main_source = (root / "trunk/user/lldt/src/main.c").read_text()
 lldt_osl_source = (root / "trunk/user/lldt/src/osl-linux.c").read_text()
@@ -2913,3 +2915,47 @@ assert '"trunk/user/rc/src/net6.c"' in xy_workflow
 assert '"trunk/user/rc/src/rc.c"' in xy_workflow
 assert '"trunk/user/rc/src/rc.h"' in xy_workflow
 print("IPv6 boot sysctl initialization status aggregation: PASS")
+
+# BusyBox syslogd/klogd detach before service operation; verify the child.
+syslogd_start = services_source.split("int\\nstart_syslogd(void)", 1)[1].split("\\n}", 1)[0]
+klogd_start = services_source.split("int\\nstart_klogd(void)", 1)[1].split("\\n}", 1)[0]
+
+assert 'start_status = optional_daemon_start_status("syslogd", "syslogd");' in syslogd_start
+assert "start_status = _eval(syslogd_argv, NULL, 0, NULL);" in syslogd_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in syslogd_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in syslogd_start
+assert 'optional_daemon_presence("syslogd", &scan_error)' in syslogd_start
+assert "process_presence_start_postcondition(start_status, process_state)" in syslogd_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in syslogd_start
+assert "errno = ETIMEDOUT;" in syslogd_start
+assert "if (start_status > 0)" in syslogd_start and "if (start_status < 0)" in syslogd_start
+syslog_preflight = syslogd_start.index('optional_daemon_start_status("syslogd", "syslogd")')
+syslog_launch = syslogd_start.index("start_status = _eval(syslogd_argv, NULL, 0, NULL);")
+syslog_wait = syslogd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", syslog_launch)
+syslog_probe = syslogd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", syslog_launch)
+syslog_inventory = syslogd_start.index('optional_daemon_presence("syslogd", &scan_error)', syslog_probe)
+syslog_result = syslogd_start.index("process_presence_start_postcondition(start_status, process_state)", syslog_inventory)
+assert syslog_preflight < syslog_launch < syslog_wait < syslog_probe < syslog_inventory < syslog_result
+assert "if (!(opts & OPT_nofork))" in syslogd_source
+assert syslogd_source.index("bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv)") < syslogd_source.index('write_pidfile(CONFIG_PID_FILE_PATH "/syslogd.pid")') < syslogd_source.index("do_syslogd()")
+assert '"-n"' not in syslogd_start
+
+assert 'start_status = optional_daemon_start_status("klogd", "klogd");' in klogd_start
+assert 'start_status = eval("/sbin/klogd");' in klogd_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in klogd_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in klogd_start
+assert 'optional_daemon_presence("klogd", &scan_error)' in klogd_start
+assert "process_presence_start_postcondition(start_status, process_state)" in klogd_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in klogd_start
+assert "errno = ETIMEDOUT;" in klogd_start
+assert "if (start_status > 0)" in klogd_start and "if (start_status < 0)" in klogd_start
+klog_preflight = klogd_start.index('optional_daemon_start_status("klogd", "klogd")')
+klog_launch = klogd_start.index('start_status = eval("/sbin/klogd");')
+klog_wait = klogd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", klog_launch)
+klog_probe = klogd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", klog_launch)
+klog_inventory = klogd_start.index('optional_daemon_presence("klogd", &scan_error)', klog_probe)
+klog_result = klogd_start.index("process_presence_start_postcondition(start_status, process_state)", klog_inventory)
+assert klog_preflight < klog_launch < klog_wait < klog_probe < klog_inventory < klog_result
+assert "bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv)" in klogd_source
+assert klogd_source.index("bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv)") < klogd_source.index('openlog("kernel"')
+print("syslogd/klogd detached startup postconditions and BusyBox contracts: PASS")
