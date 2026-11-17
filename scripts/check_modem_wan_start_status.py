@@ -400,6 +400,19 @@ assert 'inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN)' in NET_WAN6_SOURC
 assert 'inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN)' in NET_WAN6_SOURCE
 assert 'format_ipv6_literal(wan_addr6, addr6_text,' in NET_WAN6_SOURCE
 
+# PPP probe gateways and custom WAN hook arguments must remain argv elements.
+ppp_wait = body(WAN_SOURCE, "wait_ppp_up(char *ppp_ifname, int unit)")
+assert "if (is_valid_ipv4(ppp_gate))" in ppp_wait
+assert 'eval("ping", "-c1", ppp_gate);' in ppp_wait
+assert 'doSystem("ping -c1 %s", ppp_gate)' not in ppp_wait
+
+wan_up_internal = body(WAN_SOURCE, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+assert 'eval(script_postw, "up", wan_ifname, wan_addr);' in wan_up_internal
+assert 'doSystem("%s %s %s %s", script_postw, "up"' not in wan_up_internal
+wan_down_internal = body(WAN_SOURCE, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+assert 'eval(script_postw, "down", wan_ifname, wan_addr);' in wan_down_internal
+assert 'doSystem("%s %s %s %s", script_postw, "down"' not in wan_down_internal
+
 # Every WAN IPv6 tunnel and route command must use exec argv rather than a
 # shell-formatted command, and every setup mutation must retain status gating.
 sit_start = body(NET_WAN6_SOURCE, "int start_sit_tunnel(int ipv6_type")

@@ -1,3 +1,12 @@
+## 2026-11-16 — Keep PPP and custom WAN hook arguments out of the shell
+
+- Audited the remaining dynamic command strings in `net_wan.c`. `wait_ppp_up()` interpolated its kernel-retrieved IPv4 peer into `ping`; `wan_up_internal()` and `wan_down_internal()` interpolated the WAN interface name and address into the fixed custom post-WAN script path.
+- Replaced all three with argv-based `eval()`. The PPP probe retains its existing IPv4 validation gate; custom hook script path and the four expected arguments are unchanged as distinct argv elements.
+- Extended the shared `check_modem_wan_start_status.py` regression to require the exact argv calls and reject the shell-formatted alternatives. Focused local source contracts pass.
+- Parent `8e09623b275fec23b35952a992e2abcbb98f39fb` exact Actions: WAN DHCP `43990568766` PASS, WAN route `43989785616` parent PASS, and nine other completed workflows SUCCESS. XY-C1 `43990568825` and NVRAM `43990568681` remained IN_PROGRESS at last poll. Product-source L3 is not yet verified.
+
+---
+
 ## 2026-11-16 — Repair WAN IPv6 argv regression assertions
 
 - Exact-head WAN route run `43989785616` passed on `8b0ad1bb5760c282b1b85482be6b14ba0974720f`. WAN DHCP run `43989785873` reached its final source-contract step after all six compiled regression steps passed, then failed because several adjacent Python string literals in operation/marker tuples had no commas and concatenated into one impossible assertion; one route-order assertion also still searched for the former shell command.

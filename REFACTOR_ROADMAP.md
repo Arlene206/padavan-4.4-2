@@ -1,8 +1,10 @@
 ## Current source / CI checkpoint
 
-- IPv6 per-interface flushes and all SIT/native WAN IPv6 tunnel, route and teardown commands use argv-based `eval()`; `net_wan6.c` has no `doSystem()` calls. SIT MTU/TTL use fixed-size checked decimal buffers; setup status wrappers and rollback remain intact.
-- On exact SHA `8b0ad1bb5760c282b1b85482be6b14ba0974720f`, WAN route run `43989785616` PASS; WAN DHCP run `43989785873` failed only in the final Python source-contract step because tuple entries were concatenated by missing commas and one route-order check still searched for removed shell text. The six preceding compiled regression steps all passed.
-- XY-C1 run `43989785677` remained in progress; Process `43989785850` and some unrelated reliability/security workflows were pending at last poll. Current-source MIPS/uClibc L3 and physical-router L4 remain NOT VERIFIED.
+- `net6.c` per-interface IPv6 flushes and all `net_wan6.c` SIT/6rd tunnel, MTU, route and teardown commands use argv-based `eval()`; `net_wan6.c` has no remaining `doSystem()`. `net_wan.c` PPP peer probe and custom WAN up/down hook arguments also now use argv-based calls.
+- SIT MTU/TTL are bounded and checked before tunnel mutations; IPv6 setup status gates and cleanup ordering are preserved. The shared modem/WAN checker asserts no shell interpolation for the new PPP and post-WAN script operands.
+- Exact parent `8e09623b275fec23b35952a992e2abcbb98f39fb`: WAN DHCP `43990568766` PASS; Process, Firewall, USB modem identity, AdGuardHome, AliyunDrive, infosvr, AI handoff and AliDDNS completed SUCCESS. XY-C1 `43990568825` and NVRAM `43990568681` were IN_PROGRESS at last poll.
+- Current WAN argv source checks passed locally. This new commit's exact-head Actions are pending; XY-C1 Build/TRX/artifact L3 and physical-router L4 remain NOT VERIFIED. Frozen backup unchanged.
+
 - This slice repairs the contract and adds shared argv-boundary checks that also run in Process, Firewall and XY-C1 workflows.
 - Frozen backup remains read-only.
 

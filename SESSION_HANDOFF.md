@@ -8,24 +8,23 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current parent: `8b0ad1bb5760c282b1b85482be6b14ba0974720f`.
-- `net6.c` per-interface IPv6 address/route/neighbour flushes and all `net_wan6.c` SIT/6rd tunnel lifecycle, MTU, IPv6 routes, native static routes and SIT teardown use argv-based `eval()`; `net_wan6.c` has no remaining `doSystem()` calls.
-- SIT MTU/TTL are clamped and rendered into fixed-size checked decimal buffers before tunnel side effects. `WAN6_SIT_CHECK` / `WAN6_NATIVE_CHECK` preserve fail-fast status handling and cleanup ordering.
-- Exact `8b0ad1bb5760c282b1b85482be6b14ba0974720f` WAN route run `43989785616` PASS. WAN DHCP run `43989785873` failed only in the final source-contract step: adjacent Python string literals without commas concatenated multiple expected argv markers, and a route-order assertion still searched for the removed shell command. All preceding compiled regression steps passed. XY-C1 run `43989785677` remained in progress at last poll; no L3 claim is made.
-- This correction restores each marker as an independent tuple item, checks both SIT route wrappers, updates route-order assertions and adds cross-workflow source assertions for the shell-free boundary.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Parent for the PPP/WAN-hook argv slice: `8e09623b275fec23b35952a992e2abcbb98f39fb`.
+- `net6.c` per-interface IPv6 flushes and all `net_wan6.c` SIT/6rd tunnel, MTU, route and teardown commands use argv-based `eval()`; `net_wan6.c` has no `doSystem()`. SIT MTU/TTL are bounded and checked before tunnel mutation.
+- `net_wan.c` now invokes the PPP peer ping and custom WAN up/down script with argv; the shared checker covers all three and verifies PPP gateway IPv4 validation remains in place.
+- Exact parent Actions: WAN DHCP `43990568766` PASS; Process `43990568846`, Firewall `43990568911`, USB modem identity `43990568798`, AdGuardHome `43990568749`, AliyunDrive `43990568662`, infosvr `43990568989`, AI handoff `43990568727`, AliDDNS `43990568732` SUCCESS. XY-C1 `43990568825` and NVRAM `43990568681` were IN_PROGRESS at last poll.
+- The new PPP/WAN-hook source contract passed locally; current commit exact-head Actions have not yet been observed. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Correct the WAN IPv6 source-contract regression exposed by exact-head run `43989785873`: restore commas separating marker strings in the SIT/native operation tuples, update the route-order assertion to match argv-based route commands, and independently assert the shell-free argv contract in the shared modem/WAN checker. Then inspect exact-head WAN DHCP, WAN route, Process, Firewall and XY-C1 Actions. Do not repeat the completed `net6.c` or `net_wan6.c` source conversion.
+Check exact-head WAN/XY-C1/NVRAM Actions for the current commit; resolve any first causal failure. Continue the adjacent PPP lifecycle command audit in `net_ppp.c` (especially mwan dispatch and L2TP control), preserving callback fencing and status propagation.
 
 ## Verification boundary
 
-- Current source conversion is present and has no remaining `doSystem()` calls in `net_wan6.c`. The WAN DHCP failure is in its Python source-contract step; all earlier compiled regression steps passed.
-- The XY-C1 Build/TRX/artifact run on source SHA `8b0ad1bb5760c282b1b85482be6b14ba0974720f` was pending at last poll. Product-source MIPS/uClibc L3 and physical-router L4 remain **NOT VERIFIED**.
+- No shell-formatted dynamic interface/IP arguments remain in the audited PPP peer probe, custom WAN event hook, or WAN IPv6 code paths.
+- Product-source XY-C1 MIPS/uClibc Build, TRX verification and artifact upload on one exact SHA remain **NOT VERIFIED**; physical-router L4 remains **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Verify the corrected workflow and shared checker on the new exact main SHA; resolve any new first causal failure from its logs.
-2. Continue the remaining WAN teardown/interface provenance audit across `net_wan.c` and DHCP/PPP callbacks, preserving route cleanup, callback fences and first-error semantics; continue independent work while XY-C1 Actions are pending.
-3. Keep the backup branch frozen. Do not claim L3 until Build, TRX verification and artifact upload all pass on one exact SHA.
+1. Fetch `/actions/runs?head_sha=<main SHA>`; verify current WAN, Process, Firewall and XY-C1 exact-head results. Confirm Build, TRX and artifact upload on the same SHA before reporting L3.
+2. Inspect remaining `net_ppp.c` external command dispatches and lifecycle lock semantics; replace only verified dynamic shell operands with argv and add focused source tests.
+3. Keep `backup/pre-plugin-overhaul-2026-11-14` frozen and preserve all one-tree, expected-SHA commit rules.
