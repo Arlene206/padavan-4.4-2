@@ -1,3 +1,14 @@
+## 2026-11-17 22:03 CST — Cover IAPP post-launch readiness rollback
+
+- Parent main SHA: `da2808b4e7080072b7a77676ec3c0c2f7cba343b`; result: THIS COMMIT.
+- Exact-head `da2808b` Process lifecycle/inventory run `44093110816` and Process inventory run `44093110839` PASS; Process job log confirms both IAPP RC shutdown registration and daemon lifecycle regressions PASS.
+- Exact-head NVRAM `44093110807`, infosvr `44093110957`, AI handoff docs `44093110887`, AdGuardHome `44093111099`, AliDDNS `44093110904`, and AliyunDrive `44093110974` PASS.
+- Added a missing readiness-failure case: launcher returns success but daemon vanishes before the bounded running postcondition. It must return failure, must not publish either firewall rule, and must log the timeout. Production script unchanged. Test fixture state now includes `MOCK_EXIT_AFTER_LAUNCH`.
+- XY-C1 run `44092579822` for product source `a54c1b` was still IN_PROGRESS at last poll. The boot-environment-specific XY-C1 Build/TRX/artifact run `44091239961` on `4220420` completed SUCCESS. Do not generalize it to the later IAPP source. Test-only changes in this commit do not require a new firmware build.
+- Local host tests NOT RUN; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 21:52 CST — Fix IAPP mock ordinal in retained firewall failure case
 
 - Parent main SHA: `a54c1b427d0080aa4563e4da9d35051b40dbcb57`; result: THIS COMMIT.

@@ -21,6 +21,7 @@ case "$name" in
     if [ "$MOCK_START" -eq 0 ] || [ "$MOCK_PARTIAL_START" -eq 1 ]; then
       : > "$STATE_DIR/daemon"
     fi
+    [ "$MOCK_EXIT_AFTER_LAUNCH" -eq 1 ] && rm -f "$STATE_DIR/daemon"
     exit "$MOCK_START" ;;
   sysctl) exit "$MOCK_SYSCTL" ;;
   iptables)
@@ -44,13 +45,13 @@ for c in pidof ralinkiappd sysctl iptables killall sleep logger; do ln -s "$tmp/
 ln -s /bin/grep "$tmp/bin/grep"
 ln -s "$tmp/bin/logger" "$tmp/no-pidof/logger"
 export PATH="$tmp/bin:$PATH" STATE_DIR="$tmp/state" COMMAND_LOG="$tmp/commands" DAEMON_LOG="$tmp/daemon"
-export MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_KILLALL=0 MOCK_REMOVE=1
+export MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_KILLALL=0 MOCK_REMOVE=1
 export IAPPD_PROC_MODULES="$tmp/modules" IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
 fail() { echo "$*" >&2; exit 1; }
 status() { [ "$1" -eq "$2" ] || fail "expected $2, got $1"; }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
-reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
+reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_EXIT_AFTER_LAUNCH=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
 
 reset
 rc=$(capture_status env PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" start)
@@ -71,6 +72,14 @@ rc=$(capture_status run start); status "$rc" 53
 [ ! -f "$STATE_DIR/daemon" ] || fail "launcher failure left a partially started daemon"
 grep -q "^killall " "$COMMAND_LOG" || fail "launcher failure skipped daemon rollback"
 ! grep -q "^iptables -A " "$COMMAND_LOG" || fail "configured firewall after launcher failure"
+
+# A successful launcher that exits before the bounded readiness check
+# must not be reported as a successful service start or publish firewall rules.
+reset; MOCK_EXIT_AFTER_LAUNCH=1
+rc=$(capture_status run start); status "$rc" 1
+[ ! -f "$STATE_DIR/daemon" ] || fail "readiness failure left daemon marker"
+! grep -q "^iptables -A " "$COMMAND_LOG" || fail "published firewall after readiness failure"
+grep -q "did not remain running after launch" "$COMMAND_LOG" || fail "readiness timeout was not logged"
 
 # Cleanup failure must not replace the startup error being reported.
 reset; MOCK_START=53; MOCK_PARTIAL_START=1; MOCK_KILLALL=54

@@ -31,13 +31,15 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Boot-environment production slice is `10be37e50fbbd11c686593b0edd3863b31055b2e`; the stale CI contract repairs are committed in `ab22c03`, `d638def`, and `4220420d7dd9f6440f525875802646899198befa`. HTTPD on `4220420` passed run `44091239897`; its XY-C1 Build/TRX workflow `44091239961` subsequently completed successfully.
-2. Ralink IAPP rollback source and first regression expansion are in `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`; the initial helper syntax/return issue was fixed in `a54c1b427d0080aa4563e4da9d35051b40dbcb57`.
-3. Exact-head Process inventory on `a54c1b` run `44092580092` failed inside the lifecycle regression with `expected 42, got 0`. Root cause: after changing the mock iptables behavior to fail only at a selected append ordinal, one retained legacy test still set `MOCK_IPTABLES=42` without setting `MOCK_IPTABLES_FAIL_AT`, so the mock correctly returned success. THIS COMMIT updates that legacy test to explicitly fail its first append; production code is unchanged.
-4. On `a54c1b`, Process lifecycle inventory `44092579805`, infosvr `44092579891`, AdGuardHome `44092580045`, AliyunDrive `44092580008`, AliDDNS `44092579920`, and AI docs `44092579809` passed; XY-C1 `44092579822` and NVRAM `44092579905` were still running at last poll. Exact-head Process rerun is pending.
+1. Boot-environment source baseline `10be37e50fbbd11c686593b0edd3863b31055b2e`; CI contract corrections `ab22c03`, `d638def`, and `4220420d7dd9f6440f525875802646899198befa`. Exact `4220420` HTTPD `44091239897` and XY-C1 firmware build/TRX/artifact `44091239961` completed SUCCESS.
+2. IAPP partial-start rollback is in `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`; shell return-state correction is `a54c1b427d0080aa4563e4da9d35051b40dbcb57`; explicit iptables append ordinal in the legacy test fixture is `da2808b4e7080072b7a77676ec3c0c2f7cba343b`.
+3. Exact-head `da2808b` Process lifecycle/inventory `44093110816` and Process inventory `44093110839` PASS. The job log explicitly reports both “Ralink IAPP RC shutdown registration and lifecycle regression: PASS” and “Ralink IAPP daemon lifecycle regressions: PASS”. NVRAM `44093110807`, infosvr `44093110957`, AI docs `44093110887`, AdGuardHome `44093111099`, AliDDNS `44093110904`, and AliyunDrive `44093110974` also PASS.
+4. The exact-head IAPP test now adds one more guard for a launcher that exits successfully but is gone before the bounded readiness check. It verifies start returns failure, emits no firewall append, and logs the readiness timeout. Production rollback source is unchanged in this test-only follow-up.
+5. XY-C1 on the IAPP source-bearing `a54c1b` (`44092579822`) remained IN_PROGRESS at last poll; the latest completed firmware build is the earlier boot-environment SHA `4220420`. Do not claim IAPP-specific current-source L3 until that exact-head build completes. Current `da2808b` test-only changes do not require another firmware build.
 
 - Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Local host tests NOT RUN; physical-router L4 NOT VERIFIED.
+- Local host tests NOT RUN in connector-only runtime.
+- Physical-router L4 NOT VERIFIED.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -52,9 +54,8 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process inventory/lifecycle regression for THIS COMMIT. Parent `a54c1b` run `44092580092` reached `check_ralink_iappd_rc_shutdown_registration()`, ran the IAPP shell test, and failed with `expected 42, got 0`. The new mock fails only append number `MOCK_IPTABLES_FAIL_AT`; one old test set `MOCK_IPTABLES=42` but omitted `MOCK_IPTABLES_FAIL_AT=1`. THIS COMMIT corrects that test fixture. Re-run all rollback cases: partial launch failure, failed cleanup preserving original error, TCP append failure, UDP append failure after TCP append.
-2. Parent `a54c1b` had Process lifecycle inventory `44092579805`, infosvr `44092579891`, AdGuardHome `44092580045`, AliyunDrive `44092580008`, AliDDNS `44092579920`, AI docs `44092579809` PASS; XY-C1 `44092579822` and NVRAM `44092579905` were in progress at last poll. These do not validate the current test correction.
-3. Verify current SHA Process and XY-C1. No local host execution and no physical-router L4 claim.
+1. Verify exact-head Process lifecycle for THIS test-only follow-up. On parent `da2808b4`, Process workflow `44093110816` and inventory `44093110839` PASS; its log explicitly confirms the IAPP shutdown registration and daemon lifecycle regressions.
+2. Poll XY-C1 product-source run `44092579822` on `a54c1b427d0080aa4563e4da9d35051b40dbcb57`; it was IN_PROGRESS at the last check. It includes the IAPP rollback production source; only claim IAPP L3 after Build, TRX verification and artifact upload all pass. Boot-environment L3 is already complete on `4220420d` / run `44091239961`.
+3. The added readiness regression simulates a successful launcher whose daemon exits before `wait_running()`; it expects failure status 1, no iptables publication and a timeout log. If Actions fail, fix the earliest assertion before taking another source task. No local host execution and no physical-router L4 claim.
 
-After exact-head Process passes, continue to the next independent, evidence-backed userland reliability issue.
-
+Next source audit after this regression: select one concrete remaining status/rollback defect from the P1 whole-repository roadmap; avoid repeating completed wireless, USB-storage, HTTPD or IAPP work without fresh evidence.
