@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 USB_SOURCE = (RC / "usb_modem.c").read_text()
 WAN_SOURCE = (RC / "net_wan.c").read_text()
+PPP_SOURCE = (RC / "net_ppp.c").read_text()
 NET_SOURCE = (RC / "net.c").read_text()
 NET_LAN_SOURCE = (RC / "net_lan.c").read_text()
 NET_LAN6_SOURCE = (RC / "net_lan6.c").read_text()
@@ -329,6 +330,15 @@ assert "xl2tp_status = safe_start_xl2tpd();" in l2tp_start_merge
 assert "wan_status == 0 && xl2tp_status < 0" in l2tp_start_merge
 assert "return xl2tp_status;" in l2tp_start_merge
 assert "return wan_status;" in l2tp_start_merge
+
+# PPP control commands are fixed argv vectors; avoid an unnecessary shell layer.
+assert not re.search(r"\\b(system|doSystem)\\s*\\(", PPP_SOURCE)
+rpl2tp_start = compact(body(PPP_SOURCE, "start_rpl2tp(int unit)"))
+assert 'status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");' in rpl2tp_start
+assert "if (status != 0)" in rpl2tp_start
+ppp_launch = compact(body(PPP_SOURCE, "launch_wan_pppd_locked(int unit, int wan_proto)"))
+assert 'launch_status = eval("/usr/bin/mwan.sh", "--rc-lifecycle-locked");' in ppp_launch
+assert "if (launch_status != 0)" in ppp_launch
 
 route_flush = compact(body(NET_SOURCE, "clear_if_route4(char *ifname)"))
 assert 'return eval("ip", "route", "flush", "dev", ifname, "scope", "global")' in route_flush

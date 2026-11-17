@@ -568,7 +568,7 @@ start_rpl2tp(int unit)
 	}
 
 	sleep(1);
-	status = system("/usr/sbin/l2tp-control \"start-session 0.0.0.0\"");
+	status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");
 	if (status != 0)
 		logmessage(LOGNAME, "rp-l2tp start-session failed (status=%d)", status);
 	return status;
@@ -900,7 +900,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		}
 	} else {
 		if (nvram_match("pppoemwan_enable", "1"))
-			launch_status = doSystem("/usr/bin/mwan.sh --rc-lifecycle-locked");
+			launch_status = eval("/usr/bin/mwan.sh", "--rc-lifecycle-locked");
 		else
 			launch_status = eval("/usr/sbin/pppd", "file", options);
 	}

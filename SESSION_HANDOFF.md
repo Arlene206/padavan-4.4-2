@@ -8,23 +8,23 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current exact parent for the PPP source-contract repair is `5327f7626fc307c8db5e2de670e5433cd0eef55b`.
-- Production commit `5327f762` migrated the PPP peer probe in `wait_ppp_up()` and custom WAN up/down hooks to argv-based `eval()`; the command/source change itself had no compiler or runtime failure in the affected workflows.
-- Exact-head results on `5327f762`: WAN DHCP `43990883611` PASS; Firewall `43990883471` FAIL; WAN route `43990883432` FAIL; Process inventory `43990883425` FAIL; XY-C1 validation `43990883486` FAIL; NVRAM `43990883715` was still running at last poll. The same stale PPP source contract caused the Firewall, Process and XY-C1 failures: `scripts/check_modem_wan_start_status.py:203` still searched for `doSystem("ping -c1 %s", ppp_gate)` after the C source had changed to `eval("ping", "-c1", ppp_gate)`. WAN route had the same stale marker in its embedded checker at Python line 300.
-- This follow-up updates both checkers to require the exact argv probe and reject the former shell-formatted command. No production C change is needed for these CI failures.
-- The WAN IPv6 SIT/6RD/native route and per-interface IPv6 cleanup migrations remain argv-based; `net_wan6.c` contains no `doSystem()`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Parent for PPP control argv conversion: `71c95adc3e99b611ddfdb9f4b67014718ed4916a`.
+- `net6.c` per-interface IPv6 flushes, all `net_wan6.c` SIT/6rd/native route operations, and `net_wan.c` dynamic PPP/WAN hook commands use argv-based `eval()`.
+- `net_ppp.c` now invokes the fixed L2TP control command and mwan lifecycle script with argv-based `eval()`, preserving the exact command argument/lock flag and existing status checks. There are no remaining `system()` or `doSystem()` calls in this module. The shared checker now guards this.
+- The earlier PPP ping checker correction is committed on parent `71c95adc3e99b611ddfdb9f4b67014718ed4916a`; that commit's exact-head runs were in progress when last checked. This commit's focused net_ppp source contracts pass locally.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Rerun the exact-head Firewall, WAN route, Process inventory and XY-C1 workflows after the PPP checker correction. Inspect any newly exposed failures rather than assuming the shared checker was their only possible failure. Resume PPP L2TP/mwan command audit when the regressions clear.
+Verify exact-head actions for this PPP control argv slice; inspect the first causal failure, especially WAN route, Firewall, Process and XY-C1. Continue adjacent PPP startup/stop lifecycle review while independent workflows are pending.
 
 ## Verification boundary
 
-- The failing jobs reached the final source-contract assertions after preceding host regressions passed. The current failure is deterministic test/checker drift, not an observed PPP runtime regression.
-- Product-source MIPS/uClibc L3 remains **NOT VERIFIED**; the XY-C1 job stopped in a host regression before the firmware build. Same-SHA Build, TRX verification and artifact upload are still required. Physical-router L4 remains **NOT VERIFIED**.
+- No full target build was performed locally. Exact-head push Actions for this change are pending.
+- Product-source MIPS/uClibc XY-C1 L3 (Build, TRX verification and artifact upload on one SHA) and physical-router L4 remain **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head results for Firewall, WAN route, Process, XY-C1 and NVRAM after this checker-only follow-up. Resolve any remaining cause using the job log.
-2. If those regressions clear, inspect remaining `net_ppp.c` external command dispatches and L2TP/mwan lifecycle semantics; use argv only for verified dynamic operands and preserve callback fencing.
-3. Confirm a same-SHA XY-C1 Build, TRX verification and artifact upload. Do not change the frozen backup; use non-forced expected-SHA main updates.
+1. Fetch `/actions/runs?head_sha=<current main SHA>`; verify the PPP source checker and workflows. Fix any first causal regression from its log, then re-poll.
+2. Continue PPP lifecycle status review, including L2TP daemon and server-start interactions; preserve callback generation fencing, lifecycle locks, and failure propagation.
+3. Keep the frozen backup unchanged; use complete one-tree atomic commits and non-forced expected-SHA updates.

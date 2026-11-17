@@ -1,8 +1,10 @@
 ## Current source / CI checkpoint
 
-- Per-interface IPv6 cleanup and all SIT/6RD/native WAN IPv6 tunnel, route and teardown operations use argv-based `eval()`; `net_wan6.c` has no shell-formatted `doSystem()` calls. SIT MTU/TTL are normalized and formatted into bounded decimal arguments.
-- PPP peer probing and custom WAN up/down hooks now use argv-based execution. The exact-parent `5327f762` run failures are checker drift only: shared PPP checker line 203 and WAN route checker line 300 still expected the old `doSystem("ping -c1 %s", ppp_gate)` expression instead of `eval("ping", "-c1", ppp_gate)`.
-- Parent WAN DHCP PASS. Firewall, WAN route, Process inventory and XY-C1 were blocked by the stale assertion; NVRAM was still in progress. This follow-up aligns the checkers. Product-source L3 and physical-router L4 remain NOT VERIFIED; backup remains frozen.
+- `net6.c` IPv6 per-interface flushes, all `net_wan6.c` SIT/6rd/native route operations, and dynamic `net_wan.c` PPP ping/custom WAN hook arguments use argv-based `eval()`.
+- `net_ppp.c` now also uses direct argv for the fixed `l2tp-control start-session` request and the `mwan.sh --rc-lifecycle-locked` launch; it contains no `system()` or `doSystem()`. Existing L2TP launch and mwan launch nonzero handling remains.
+- Exact parent `71c95adc3e99b611ddfdb9f4b67014718ed4916a` was undergoing fresh push runs for the PPP checker correction at last poll; no new exact-head results are yet asserted. Product-source XY-C1 Build/TRX/artifact L3 and physical-router L4 remain NOT VERIFIED.
+- Frozen backup remains read-only.
+
 
 ## Whole-repository module status
 
