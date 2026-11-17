@@ -1,3 +1,12 @@
+## 2026-11-17 — Propagate failed kernel hostname/domain updates during LAN host publication
+
+- Parent main SHA: 422e006dc861caefcb7f3b231f0f53842ec63eef; result: THIS COMMIT.
+- Audit found create_hosts_lan() silently discarded both sethostname() and setdomainname() return values after publishing /etc/hostname and /etc/hosts. A kernel-name update failure was therefore reported as success; during DHCP deconfig BusyBox would leave DECONFIG_PENDING even though the running kernel hostname/domain could remain stale.
+- Added an injectable GNU89 policy that attempts both kernel setters and preserves the first errno-style failure. Production adapters normalize syscall failures to errno/EIO, create_hosts_lan() reports setter failures only after releasing the hostname lock, and the existing deconfig callback now naturally triggers BusyBox retry. No false rollback-snapshot cleanup is attempted after the file pair has already committed.
+- Added regression cases for success, hostname failure with domain update still attempted, domain-only failure, invalid callbacks and missing setters. WAN DHCP workflow compiles it with ASan/UBSan; XY-C1 path filter includes the production header and net_lan.c remains tracked.
+- Exact-head Actions and XY-C1 Build/TRX pending. No local compiler in this connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Ensure udhcpc policy header changes trigger XY-C1 firmware validation
 
 - Parent main SHA: d674d50bfe95863dbe0851e269180d0516868586; result: THIS COMMIT.

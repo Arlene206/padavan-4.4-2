@@ -122,6 +122,7 @@ on:
       - "trunk/user/rc/src/dnsmasq_file.h"
       - "trunk/user/rc/src/tests/dnsmasq_file.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/lan_kernel_name_policy.h"
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"

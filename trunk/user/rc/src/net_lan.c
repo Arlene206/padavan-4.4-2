@@ -33,6 +33,7 @@
 #include "rc.h"
 #include "dnsmasq_domain_policy.h"
 #include "dhcp_lease_policy.h"
+#include "lan_kernel_name_policy.h"
 #include "lan_dhcp_callback_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
@@ -52,6 +53,27 @@
 #endif
 
 static char udhcpc_lan_state[16] = {0};
+
+static int
+lan_sethostname_status(const char *name, size_t length)
+{
+	if (sethostname(name, length) == 0)
+		return 0;
+	return errno ? errno : EIO;
+}
+
+static int
+lan_setdomainname_status(const char *name, size_t length)
+{
+	if (setdomainname(name, length) == 0)
+		return 0;
+	return errno ? errno : EIO;
+}
+
+static const lan_kernel_name_ops_t lan_kernel_name_ops = {
+	lan_sethostname_status,
+	lan_setdomainname_status
+};
 
 static const rc_udhcpc_script_link_ops_t udhcpc_lan_script_link_ops = {
 	symlink,
@@ -861,14 +883,28 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 			   hosts_backup, errno ? errno : EIO);
 
 	/* Do not expose a new kernel name until both on-disk files are complete. */
-	sethostname(lan_hname, strlen(lan_hname));
-	setdomainname(lan_dname, strlen(lan_dname));
+	saved_errno = lan_kernel_names_apply(lan_hname, lan_dname,
+					     &lan_kernel_name_ops);
+	if (saved_errno != 0)
+		logmessage(LOGNAME,
+			   "kernel hostname/domain update failed (status=%d)",
+			   saved_errno);
+
 	if (dnsmasq_lifecycle_lock_release(hosts_lock) != 0) {
-		saved_errno = errno ? errno : EIO;
-		hosts_lock = -1;
-		goto failed;
+		int release_status = errno ? errno : EIO;
+
+		if (saved_errno == 0)
+			saved_errno = release_status;
+		else
+			logmessage(LOGNAME,
+				   "hostname file lock release also failed (status=%d; first_error=%d)",
+				   release_status, saved_errno);
 	}
 	hosts_lock = -1;
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return saved_errno;
+	}
 	return 0;
 
 failed:

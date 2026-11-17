@@ -6,6 +6,8 @@ root = Path(__file__).resolve().parents[1]
 lan = (root / "trunk/user/rc/src/net_lan.c").read_text()
 policy = (root / "trunk/user/rc/src/dhcp_lease_policy.h").read_text()
 test = (root / "trunk/user/rc/src/tests/dhcp_lease_policy.c").read_text()
+kernel_policy = (root / "trunk/user/rc/src/lan_kernel_name_policy.h").read_text()
+kernel_test = (root / "trunk/user/rc/src/tests/lan_kernel_name_policy.c").read_text()
 busybox = (root / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
 workflow = (root / ".github/workflows/wan-dhcp-callback-stability.yml").read_text()
 xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
@@ -78,5 +80,38 @@ for path in required:
     assert path in pr, "missing pull_request path: " + path
 for path in required[1:]:
     assert xy.count('"' + path + '"') == 1, "missing/duplicate XY-C1 path: " + path
+
+# Kernel hostname/domain syscalls are part of the LAN host publication
+# contract: both must be attempted and their first errno must reach deconfig.
+assert '#include "lan_kernel_name_policy.h"' in lan
+assert "typedef int (*lan_kernel_name_setter_t)(const char *name, size_t length);" in kernel_policy
+assert "status = ops->set_hostname(hostname, strlen(hostname));" in kernel_policy
+assert "status = ops->set_domainname(domainname, strlen(domainname));" in kernel_policy
+assert "if (status != 0 && first_status == 0)" in kernel_policy
+assert "return EINVAL;" in kernel_policy
+for marker in (
+    "test_success_updates_both_kernel_names",
+    "test_hostname_failure_does_not_skip_domain_update",
+    "test_domain_failure_is_reported_after_hostname_update",
+    "test_invalid_inputs_fail_before_system_calls",
+    "test_missing_setter_fails_closed",
+    "LAN kernel hostname/domain status regression: PASS",
+):
+    assert marker in kernel_test, marker
+
+host_start = lan.index("create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
+host_end = lan.index("\nint\nupdate_hosts_ap", host_start)
+host_body = lan[host_start:host_end]
+assert "lan_kernel_names_apply(lan_hname, lan_dname," in host_body
+assert "lan_sethostname_status" in lan
+assert "sethostname(name, length)" in lan
+assert "lan_setdomainname_status" in lan
+assert "setdomainname(name, length)" in lan
+assert host_body.index("lan_kernel_names_apply") < host_body.index("dnsmasq_lifecycle_lock_release(hosts_lock)")
+assert host_body.index("dnsmasq_lifecycle_lock_release(hosts_lock)") < host_body.index("if (saved_errno != 0)")
+assert "errno = saved_errno;" in host_body
+assert "return saved_errno;" in host_body
+assert "sethostname(lan_hname" not in host_body
+assert "setdomainname(lan_dname" not in host_body
 
 print("LAN DHCP deconfig static host restoration and retry contract: PASS")

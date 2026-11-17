@@ -5,6 +5,8 @@ on:
     paths:
       - "scripts/check_lan_dhcp_deconfig.py"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
+      - "trunk/user/rc/src/lan_kernel_name_policy.h"
+      - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
@@ -44,6 +46,8 @@ on:
     paths:
       - "scripts/check_lan_dhcp_deconfig.py"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
+      - "trunk/user/rc/src/lan_kernel_name_policy.h"
+      - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
       - "trunk/user/rc/src/dhcp_lease_policy.h"
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
@@ -91,6 +95,11 @@ jobs:
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/dhcp_lease_policy.c -o /tmp/dhcp-lease-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/dhcp-lease-policy
           python3 scripts/check_lan_dhcp_deconfig.py
+      - name: Compile and run LAN kernel hostname/domain status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/lan_kernel_name_policy.c -o /tmp/lan-kernel-name-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/lan-kernel-name-policy
       - name: Compile and run WAN DHCP interface rollback regression
         run: |
           set -eu
