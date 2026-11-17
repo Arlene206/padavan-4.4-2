@@ -83,6 +83,8 @@ static int storage_optware_result_fd = -1;
 
 static int create_mp_link_status(char *search_dir, char *link_path,
 				 int force_first_valid);
+static int storage_rollback_stor_apps_after_stop_failure(
+	const char *operation, int stop_status);
 
 static int
 is_valid_storage_device(const char *devname)
@@ -2786,12 +2788,14 @@ restore_home_dir(void)
 }
 
 static int
-umount_ejected_locked(void)
+umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 {
 	FILE *procpt;
 	char line[512], devname[32], mpname[256];
 	int active, result, saved_errno, hook_status;
 	int mount_read_error, mount_close_error, mount_parse_error;
+	int has_ejected_mounts, stop_status, rollback_status;
+	int mount_count, start_status;
 	struct storage_ejected_mount_entry *head, *tail, *entry;
 	struct storage_ejected_partition_entry *partitions = NULL;
 
@@ -2858,6 +2862,39 @@ umount_ejected_locked(void)
 		return -1;
 	}
 
+	/*
+	 * Physical removal is reported after the device has disappeared. Stop
+	 * storage-backed daemons before dropping their stale mount paths, then
+	 * restart them only after the remaining mount inventory is known.
+	 */
+	has_ejected_mounts = 0;
+	for (entry = head; entry; entry = entry->next) {
+		active = storage_ejected_partition_is_active(entry->device + 5,
+							     partitions);
+		if (!active) {
+			has_ejected_mounts = 1;
+			break;
+		}
+	}
+
+	if (has_ejected_mounts && !storage_apps_stopped) {
+		errno = 0;
+		stop_status = stop_stor_apps();
+		if (stop_status != 0) {
+			saved_errno = errno ? errno : EIO;
+			rollback_status = storage_rollback_stor_apps_after_stop_failure(
+				"physical hotplug eject", stop_status);
+			logmessage("Storage",
+				   "ejected-device cleanup aborted because storage services did not stop (stop=%d, rollback=%d)",
+				   stop_status, rollback_status);
+			free_storage_ejected_mounts(head);
+			free_storage_ejected_partitions(partitions);
+			restore_home_dir();
+			errno = saved_errno;
+			return -1;
+		}
+	}
+
 	result = 0;
 	for (entry = head; entry; entry = entry->next) {
 		active = storage_ejected_partition_is_active(entry->device + 5,
@@ -2886,6 +2923,31 @@ umount_ejected_locked(void)
 
 	free_storage_ejected_mounts(head);
 	free_storage_ejected_partitions(partitions);
+
+	if (has_ejected_mounts && restart_storage_apps) {
+		errno = 0;
+		mount_count = count_stor_mountpoint();
+		if (mount_count > 0) {
+			start_status = start_stor_apps();
+			if (start_status != 0) {
+				logmessage("Storage", "storage applications failed to restart after physical eject (status=%d)",
+					   start_status);
+				nvram_set_int_temp("usb_hotplug_ms", 1);
+				alarm(5);
+				result = -1;
+			}
+		} else if (mount_count == 0) {
+#if defined(APP_NFSD)
+			unload_nfsd();
+#endif
+		} else {
+			logmessage("Storage", "remaining storage mount inventory is unknown after physical eject; leaving storage applications stopped");
+			nvram_set_int_temp("usb_hotplug_ms", 1);
+			alarm(5);
+			result = -1;
+		}
+	}
+
 	restore_home_dir();
 	return result;
 }
@@ -2904,7 +2966,7 @@ umount_ejected(void)
 		return -1;
 	}
 
-	result = umount_ejected_locked();
+	result = umount_ejected_locked(0, 1);
 	file_unlock(storage_lock);
 	return result;
 }
@@ -3610,7 +3672,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 		unmount_status = umount_stor_path_range(disks_info, port_b, port_e,
 							1, dev_name, do_spindown);
 		if (has_mounted_port) {
-			ejected_status = umount_ejected_locked();
+			ejected_status = umount_ejected_locked(1, 0);
 			if (unmount_status != 0 || ejected_status != 0)
 				logmessage("Storage", "safe removal incomplete; one or more mount/swap releases failed");
 			mount_count = count_stor_mountpoint();

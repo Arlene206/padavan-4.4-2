@@ -143,6 +143,53 @@ require("storage_stage_unmount_mounts(&mounts)" in count and
         "free_storage_unmount_mounts(mounts)" in count,
         "final mount count must use the complete parsed mount inventory")
 
+# A physical unplug notification is delivered after /proc/partitions no
+# longer lists the device. Stop dependent daemons before unmounting stale
+# paths, then restore them only when other storage mounts remain.
+ejected = body(
+    storage,
+    "umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)",
+)
+ejected_inventory = ejected.index("storage_stage_ejected_partitions(&partitions)")
+ejected_scan = ejected.index("has_ejected_mounts = 1;")
+ejected_stop = ejected.index("stop_stor_apps()")
+ejected_hook = ejected.index('eval("/usr/bin/opt-umount.sh"')
+require(
+    ejected_inventory < ejected_scan < ejected_stop < ejected_hook,
+    "physical eject must stage both inventories and stop storage daemons before Optware teardown/unmount",
+)
+ejected_rollback = ejected.index("storage_rollback_stor_apps_after_stop_failure(")
+ejected_abort = ejected.index("return -1;", ejected_rollback)
+require(
+    ejected_rollback < ejected_abort < ejected_hook,
+    "failed physical-eject service stop must roll back and leave mounts untouched",
+)
+require(
+    "if (has_ejected_mounts && !storage_apps_stopped)" in ejected
+    and "if (has_ejected_mounts && restart_storage_apps)" in ejected,
+    "ejected cleanup must avoid double-stop/restart when called by the already-locked safe-remove path",
+)
+remaining = ejected.index("mount_count = count_stor_mountpoint()")
+restart = ejected.index("start_status = start_stor_apps()", remaining)
+require(
+    remaining < restart
+    and ejected.index("if (mount_count > 0)", remaining) < restart
+    and "else if (mount_count == 0)" in ejected[remaining:]
+    and "else {" in ejected[remaining:]
+    and 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[remaining:],
+    "physical eject must restart apps only for remaining mounts, unload NFS when empty, and retry unknown/start failure",
+)
+ejected_public = body(storage, "umount_ejected(void)")
+require(
+    "umount_ejected_locked(0, 1)" in ejected_public,
+    "physical unplug notification must manage storage app stop/restart itself",
+)
+targeted_eject = body(storage, "safe_remove_stor_device(")
+require(
+    "umount_ejected_locked(1, 0)" in targeted_eject,
+    "manual safe-remove must tell the shared helper that daemons are already stopped",
+)
+
 eject = body(storage, "safe_remove_all_stor_devices(int do_spindown)")
 require("read_disk_data_checked(&disks_info)" in eject and
         eject.index("read_disk_data_checked(&disks_info)") < eject.index("stop_stor_apps()"),
