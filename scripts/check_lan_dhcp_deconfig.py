@@ -102,6 +102,7 @@ for marker in (
 host_start = lan.index("create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
 host_end = lan.index("\nint\nupdate_hosts_ap", host_start)
 host_body = lan[host_start:host_end]
+assert "!lan_hname || !is_valid_hostname(lan_hname)" in host_body
 assert "lan_kernel_names_apply(lan_hname, lan_dname," in host_body
 assert "lan_sethostname_status" in lan
 assert "sethostname(name, length)" in lan

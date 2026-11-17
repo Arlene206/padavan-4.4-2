@@ -833,7 +833,8 @@ create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)
 	int hosts_lock = -1;
 
 	if (!dhcp_lease_ipv4_is_valid(lan_ipaddr) || !lan_dname ||
-	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname)) || !lan_hname) {
+	    (*lan_dname && !dnsmasq_valid_server_domain(lan_dname)) ||
+	    !lan_hname || !is_valid_hostname(lan_hname)) {
 		errno = EINVAL;
 		logmessage(LOGNAME, "refusing unsafe LAN hostname input");
 		return EINVAL;

@@ -1,3 +1,11 @@
+## 2026-11-17 — Validate fallback product hostname before writing /etc/hosts
+
+- Parent main SHA: a400a3b7e5dd4835b5126479b87bf2c01894dc19; result: THIS COMMIT.
+- Security review found `get_our_hostname()` validates the configured `computer_name` but falls back directly to the NVRAM `productid` when the configured value is empty or invalid. `create_hosts_lan()` only checked that the returned pointer was non-NULL, then wrote it into `/etc/hostname`, `/etc/hosts`, and the kernel hostname. A malformed fallback containing control characters could therefore inject extra lines into the hosts file despite the getter's apparent validation.
+- Validate the final resolved hostname again at the file-publication trust boundary with the existing `is_valid_hostname()` policy; invalid fallback values now fail before staging or publishing either file. Extended the LAN DHCP static regression contract. WAN/HTTPD/XY-C1 exact-head validation pending.
+- This is defense in depth; normal configured `computer_name` values were already validated. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Fix IPv6 aggregation checker search origin
 
 - Parent main SHA: 95fc2873e0185135938057fa08f59a3c2fc496ab; result: THIS COMMIT.
