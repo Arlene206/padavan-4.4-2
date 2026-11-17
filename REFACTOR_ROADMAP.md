@@ -1,14 +1,13 @@
 # 2026-11-17 latest verified checkpoint
 
-This section is authoritative over older rows where state conflicts.
+This section supersedes older rows where state conflicts.
 
-- Parent main SHA: `6791d98b116c60a8097ada361d350746b2efa269`; result: THIS COMMIT. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent `14d99079` WAN-route and XY-C1 Build/TRX/artifact passed. Parent `6791d98b` USB modem, Process, WAN teardown, NVRAM, AI, AdGuardHome, Firewall, HTTPD, AliyunDrive, infosvr and AliDDNS Actions passed; XY-C1 `44121420042` remained in progress.
-- PPPoE-MWAN detector failures reach WAN up/down and the shared lock wait is bounded to 30 seconds.
-- THIS COMMIT secures the multi-WAN PPP launcher: escaped/validated credentials, unique private atomic per-session options files, checked macvlan and PPPD results, and first-error preservation. RC invalidates callback generation and stops partial PPPD sessions if launch fails.
-- Added a 12-case host regression and wired it into WAN-route and XY-C1 workflows; XY-C1 paths include the new launcher. Exact-head Actions pending; no current-source firmware L3 claim.
+- Parent main SHA: `ab02de4517cd3cd5f4a978964dc0255a9be31adc`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent `6791d98b` source regressions passed for USB modem, Process, WAN teardown, NVRAM, AI, AdGuardHome, Firewall, HTTPD, AliyunDrive, infosvr and AliDDNS; XY-C1 was pending.
+- `ab02de45` secures multi-WAN PPP credentials and per-session options and rolls back partial PPPD launch. Its WAN regression failed at a fixture mismatch: expected one rather than two backslashes in the serialized value. THIS COMMIT corrects the expected username/password representation; local isolated fixture now passes all 12 cases.
+- Exact-head WAN/XY verification must be rerun, then verify current-source Build/TRX/artifact. No local MIPS compile or router L4 claimed.
 
-Next: verify exact-head WAN and XY-C1 tests/Build/TRX/artifact, then continue independent whole-userland reliability without repeating completed HTTPD/storage/PPPoE caller audits.
+Next: verify exact-head PPPoE-MWAN regression and target build; then continue the separate LAN/WAN DHCP callback lifecycle review.
 
 ---
 

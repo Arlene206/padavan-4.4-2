@@ -74,8 +74,8 @@ echo 'PPPoE-MWAN writes private per-session option files: PASS'
 
 reset; export TEST_USER="edison'lab\wan" TEST_PASS="pass with\slash"; run
 [ "$RC" -eq 0 ] || fail "quoted credential status $RC"
-grep -Fqx "user 'edison\'lab\\wan'" "$OPTIONS/options.wan0" || fail "username escaping incorrect"
-grep -Fqx "password 'pass with\\slash'" "$OPTIONS/options.wan0" || fail "password escaping incorrect"
+grep -Fqx "user 'edison\\'lab\\\\wan'" "$OPTIONS/options.wan0" || fail "username escaping incorrect"
+grep -Fqx "password 'pass with\\\\slash'" "$OPTIONS/options.wan0" || fail "password escaping incorrect"
 echo 'PPPoE-MWAN quotes PPP credentials without altering their value: PASS'
 
 reset; export TEST_USER=$'invalid\nplugin bad'; run

@@ -1,3 +1,12 @@
+## 2026-11-17 — Correct PPPoE-MWAN credential escaping regression expectation
+
+- Parent main SHA: `ab02de4517cd3cd5f4a978964dc0255a9be31adc`; result: THIS COMMIT.
+- Exact WAN Actions `44122651031` reached the launcher test after shell syntax passed and private per-session option files were created with correct mode. The test then failed because the expected string represented the credential's original backslash once, but the PPP options format correctly escapes it twice.
+- Corrected username and password expected strings to assert the exact escaped output. The isolated launcher host fixture now passes all 12 scenarios (including file modes, quotes/backslashes, newline/control rejection, failure propagation, interface gating, NVRAM and VLAN validation, sync identity and symlink rejection).
+- Rerun exact-head WAN-route and XY-C1 regression/source contracts; target Build/TRX/artifact remains unverified. No local MIPS build or router L4 claimed.
+
+---
+
 ## 2026-11-17 — Secure PPPoE-MWAN session options and roll back partial launch
 
 - Parent main SHA: `6791d98b116c60a8097ada361d350746b2efa269`; result: THIS COMMIT.

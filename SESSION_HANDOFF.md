@@ -1,42 +1,32 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes older status statements below when they conflict. Restore once from the startup protocol; do not repeat completed audits.
+This checkpoint supersedes older statements below where they conflict. Restore once; do not repeat completed audits.
 
 ## Git state
-- Repository: `https://github.com/Arlene206/padavan-4.4-2`; development only on `main`.
-- Parent main SHA: `6791d98b116c60a8097ada361d350746b2efa269`; result: THIS COMMIT (one complete Git tree, expected-SHA update, no force push).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
-- Connector-only session: no full repository checkout or MIPS compiler. Physical-router L4 NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`, development only on `main`.
+- Parent main SHA: `ab02de4517cd3cd5f4a978964dc0255a9be31adc`; result: THIS COMMIT, one complete Git tree and expected-SHA non-force update.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- No full local checkout or MIPS compiler; physical-router L4 NOT VERIFIED.
 
-## Previously validated at parent main
-- Parent `14d99079`: WAN route `44119319864` and XY-C1 `44119319758` passed; XY Build, TRX verification and artifact upload all completed.
-- Parent `6791d98b`: USB modem `44121419595`, Process `44121419600`, WAN teardown `44121419407`, NVRAM `44121419443`, AI `44121419349`, AdGuardHome `44121419731`, Firewall `44121419338`, HTTPD `44121419242`, AliyunDrive `44121419530`, infosvr `44121419432`, AliDDNS `44121420346` all SUCCESS. Parent XY-C1 `44121420042` remained IN_PROGRESS at last poll.
+## Previous source verification
+- Main `6791d98b` USB modem, Process, WAN teardown, NVRAM, AI, AdGuardHome, Firewall, HTTPD, AliyunDrive, infosvr and AliDDNS checks passed; XY-C1 was still in progress at last poll.
+- Exact new-source WAN route run `44122651031` on `ab02de45` reached the new PPPoE-MWAN test: production launcher created the expected private per-session files, then the fixture stopped at its username escaping assertion.
+- Diagnosis: test expected only one output backslash before the credential's literal backslash; pppd-safe escaping correctly emits two. No production failure was indicated by the first failing assertion. THIS COMMIT corrects both username/password expected strings.
+- The isolated host harness on this corrected expected output passes all 12 scenarios.
 
-## PPPoE-MWAN reliability and security
-- `4f32e40f`: detector preserves command failures, safely parses iptables-save without eval, validates input and cleans only its owned atomic lock.
-- `5525430a`: WAN-up and WAN-down aggregate `detect.sh` exit status.
-- `14d99079`: bounds shared `/tmp/lock` wait to 30 seconds and preserves a foreign lock on timeout; exact WAN-route and XY-C1 passed.
-- THIS COMMIT fixes three adjacent launcher defects: raw NVRAM credentials were written into PPP options, every session reused `options.wan0`, and intermediate macvlan/PPPD errors could be hidden by a later successful iteration.
-- New `mwan.sh` applies pppd-compatible quote/backslash escaping, rejects control/newline/oversized credentials, validates PPP count/VLAN, checks interface setup, atomically publishes separate 0600 `options.wanN` files and preserves the first error.
-- On any partial multi-WAN launch failure, `net_ppp.c` invalidates callback generation then stops the partial PPPD set under the existing lifecycle lock.
-- A 12-case host regression covers private per-session files, credential escaping/injection, first-error retention, interface gates, NVRAM/count/VLAN validation, sync identity and symlink rejection. WAN-route and XY-C1 workflows execute it; XY-C1 paths include `mwan.sh`.
-
-## Recent commits
-- THIS COMMIT: secure per-session PPP options and roll back partial PPPD launches.
-- `6791d98b`: propagate NDIS USB modem firewall startup failure.
-- `14d99079`: bound PPPoE-MWAN detector lock contention.
-- `f02edd25`: correct AliDDNS interval checker escaping.
-- `4f32e40f`: PPPoE-MWAN detector error propagation and safe parsing.
+## PPPoE-MWAN launcher change
+- `ab02de45` hardens credential quoting, rejects control/newline/oversized values, validates PPP count/VLAN, checks macvlan setup, writes distinct 0600 temporary options files and atomically publishes `options.wanN`, and preserves the first error.
+- The RC caller invalidates callback generation and terminates any partial multi-WAN PPPD sessions when launch fails.
+- WAN-route run `44122651031` failed only at the incorrect test expectation; rerun after this test correction. XY-C1 run `44122651004` on ab02 was in progress at last poll and must also be checked; current source still requires exact-head Build/TRX/artifact.
 
 ## First next task
-1. Inspect exact-head WAN-route and XY-C1 runs for THIS COMMIT; fix any new launcher or callback rollback regression.
-2. Verify current-source XY-C1 Build, TRX verification and artifact upload; parent run `44121420042` does not include this production-source change.
-3. Continue a distinct unchecked userland reliability issue after PPPoE-MWAN launch validation; avoid repeated HTTPD/storage/PPPoE caller audits.
+1. Verify the corrected credential assertion in exact-head WAN-route and XY-C1 regression; then inspect the Python source contract/C rollback assertion.
+2. Verify current-source XY-C1 Build, TRX verification and artifact upload. Do not reuse older source SHA as L3.
+3. Resume the next independent WAN DHCP callback review (BusyBox initial acquisition, leasefail/NAK/release and deconfig retry semantics) only after this PPP launcher is green.
 
 ## Verification boundary
-- The isolated host harness for the drafted launcher passed 12 cases; this is not a full repository checkout or target build.
-- Exact-head Actions and current-source firmware build are pending at commit creation.
-- Real MIPS/uClibc behavior, live PPP reconvergence and physical-router L4 remain NOT VERIFIED.
+- Isolated host fixture: 12/12 PASS on drafted launcher and corrected assertion.
+- Full repo exact-head Actions and product build pending; no local C/MIPS compile or router L4 claimed.
 
 
 # Cross-session execution mandate
