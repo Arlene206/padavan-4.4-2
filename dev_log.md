@@ -1,3 +1,8 @@
+## 2026-11-17 — Remove orphaned Process checker continuation
+
+- The exact-head Process umbrella `44151820845` on `83909383adb5c2ac3cf9b5fae2760c6b02426088` failed only at its final Python source-integration step; all 46 preceding steps passed. The job log reports `SyntaxError: unmatched ')'` at line 1953.
+- Inspection found one detached line `, block)` immediately after the IPv6 boot-status source assertions and before the shutdown source block. It was the orphaned suffix of a previously removed multi-line assertion. Remove that line only; preserve the adjacent IPv6 and shutdown contracts.
+- This is a checker-only correction. Exact-head Process rerun is pending; parent wireless, AI docs, Process inventory, iNIC, watchdog, infosvr, HTTPD, AliDDNS, AliyunDrive and AdGuardHome passed. Parent XY-C1 and NVRAM remained in progress at last poll.
 ## 2026-11-18 02:49 CST — Unit-test wireless restart status merging and repair Process checker
 
 - Follow up to the two-band IAPP restart failure propagation: factor the result merge into `wireless_radio_restart_status()`. It maps both `system()` fork errors and positive encoded child wait statuses to a negative RC error, while preserving an earlier guest-isolation failure.

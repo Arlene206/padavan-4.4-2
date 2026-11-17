@@ -1,26 +1,25 @@
-# 2026-11-18 continuation checkpoint — repair Process checker and test IAPP wait-status merging
+# 2026-11-17 continuation checkpoint — remove orphaned Process checker syntax
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `ff33261566bf6db7f0e5a8c9253030b17ff0406c`; this fix is a single atomic policy/source/test/checker/handoff commit via a complete tree and non-forced expected-SHA update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Main-only policy preserved; PR #1 remains closed/unmerged.
-- No local MIPS/uClibc toolchain or physical router; L4 is NOT VERIFIED.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `83909383adb5c2ac3cf9b5fae2760c6b02426088`; THIS COMMIT repairs the final Process-checker syntax error.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; development remains main-only; PR #1 remains closed/unmerged.
+- No full MIPS/uClibc toolchain or physical router is available; target build and L4 claims remain separate.
 
 ## Parent exact-head Actions
-- Process inventory `44150969359`: SUCCESS; AI handoff `44150969279`: SUCCESS; NVRAM audit `44150969211`: SUCCESS; wireless radio state `44150969340`: SUCCESS.
-- Process lifecycle umbrella `44150969175`: FAILURE. Job failed in "Verify shared-library and RC integration boundaries"; its log identifies `SyntaxError: unterminated string literal (detected at line 1116)` in the new IAPP source checker.
-- XY-C1 `44150969432`: IN_PROGRESS at last poll; no firmware artifact claim.
-- The failing Python assertion is repaired in THIS COMMIT. Previous exact source SHA: `ff33261566bf6db7f0e5a8c9253030b17ff0406c`.
+- Process inventory `44151820656`: SUCCESS.
+- Process lifecycle umbrella `44151820845`: FAILURE in the final source-integration step. All preceding 46 steps passed; its log reports `SyntaxError: unmatched ')'` at `scripts/check_process_lifecycle_integration.py:1953`.
+- Wireless radio `44151820832`, AI handoff `44151820726`, iNIC `44151821105`, watchdog `44151820709`, infosvr `44151820814`, AliDDNS `44151820675`, AliyunDrive `44151820658`, HTTPD `44151820706`, AdGuardHome `44151820835`: SUCCESS.
+- NVRAM `44151820699` and XY-C1 firmware validation `44151820834`: IN_PROGRESS at last poll. These are all exact-head runs for parent `83909383adb5c2ac3cf9b5fae2760c6b02426088`.
 
-## IAPP wait-status policy test (THIS COMMIT)
-- Both radio restart functions now use pure `wireless_radio_restart_status()` to map `system()` fork errors and positive wait statuses to a negative RC result while preserving any earlier guest-isolation error.
-- GNU89 unit tests cover success, `-1`, positive encoded wait status and earlier-error retention.
-- The source-checker syntax error is fixed by replacing the unterminated regex with exact command-count and status-order assertions. Dedicated wireless CI compiles/runs the policy test; Process and XY-C1 rerun the checker.
-- Exact-head Actions for THIS COMMIT are PENDING.
+## Process checker syntax repair (THIS COMMIT)
+- After the previous commit corrected the incomplete IAPP `re.search()` line, the Process umbrella exposed a second orphan: a standalone `, block)` at line 1953, left behind after an earlier multi-line assertion was removed. It is not attached to any expression and makes the complete checker fail to parse.
+- Remove only that orphaned continuation line. The preceding IPv6 boot-status contract and following shutdown assertions remain intact; no firmware source changes in this fix.
+- The Process workflow already tracks `scripts/check_process_lifecycle_integration.py`. Exact-head rerun is required before treating the checker as repaired.
 
 ## First next action
-- Verify exact-SHA Process lifecycle (must now pass), wireless-radio-state, AI handoff, NVRAM and XY-C1 Build/TRX/artifact. Inspect failure logs rather than guessing.
-- If XY is pending, continue an independent userland task. Do not repeat the already fixed IAPP source issue, LAN MTD gate, firmware VPN stop, boot launcher status logging, or Switch audit.
-
+- Inspect the exact-SHA Process umbrella run for THIS COMMIT and require its final source-integration step to complete. Poll XY-C1 `44151820834` and NVRAM `44151820699` only as parent-source results; do not transfer them to this checker-only commit.
+- Then implement the demonstrated Samba/storage race: `restart_nmbd()` handles `RCN_RESTART_NMBD`/`RCN_RESTART_WINS` and can republish share configuration/restart daemons without taking the shared storage eject lock. Put the complete transition under the lock and add Samba source-contract coverage.
+- Keep the frozen backup untouched and use a fresh expected-SHA non-forced update for every atomic commit.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

@@ -1,12 +1,11 @@
-# 2026-11-18 latest source checkpoint
+# 2026-11-17 latest source checkpoint
 
-- Parent main SHA: `ff33261566bf6db7f0e5a8c9253030b17ff0406c`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
-- Parent wireless-radio-state `44150969340`, Process inventory `44150969359`, AI handoff `44150969279` and NVRAM `44150969211` passed. Process lifecycle `44150969175` failed due an unterminated regex string in the new source checker (Python line 1116); fixed here with exact command-count/order assertions. XY-C1 `44150969432` was still running.
-- Both radio restart paths now capture IAPP wait status (`ff332615`). THIS COMMIT factors/test-drives the wait-status merge, preserves prior isolation errors, and repairs the failing checker.
-- Exact-head validation pending.
+- Parent main SHA: `83909383adb5c2ac3cf9b5fae2760c6b02426088`; THIS COMMIT removes a stray unmatched `, block)` continuation from `scripts/check_process_lifecycle_integration.py`. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- Parent exact-head Process inventory `44151820656`, wireless `44151820832`, AI docs `44151820726`, iNIC `44151821105`, watchdog `44151820709`, infosvr `44151820814`, AliDDNS `44151820675`, AliyunDrive `44151820658`, HTTPD `44151820706`, and AdGuardHome `44151820835` passed.
+- Process umbrella `44151820845` failed in the final source checker after 46 earlier steps passed: Python reported unmatched `)` at line 1953. This was a detached `, block)` suffix; THIS COMMIT removes that single orphan. Exact-head rerun pending.
+- XY-C1 `44151820834` and NVRAM `44151820699` for source parent `83909383adb5c2ac3cf9b5fae2760c6b02426088` were still IN_PROGRESS at last poll; Build/TRX/artifact not yet verified.
 
-Next: verify exact-SHA Process, wireless-radio-state, AI/NVRAM and XY-C1 Build/TRX/artifact; continue independent work while builds are pending.
-
+Next: verify the exact-head Process rerun, then close the `restart_nmbd()`/storage-eject lock race with source and Samba CI regression coverage while any independent firmware task remains pending.
 ---
 
 ## Whole-repository module status

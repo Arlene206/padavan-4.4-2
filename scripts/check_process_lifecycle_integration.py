@@ -1950,7 +1950,6 @@ assert '"trunk/user/rc/src/net6.c"' in xy_workflow
 assert '"trunk/user/rc/src/rc.c"' in xy_workflow
 assert '"trunk/user/rc/src/rc.h"' in xy_workflow
 print("IPv6 boot sysctl initialization status aggregation: PASS")
-, block)
 shutdown_router = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
 assert "auth_stop_status = stop_8021x_all();" in shutdown_router
 assert "auth_stop_status == 0" in shutdown_router
