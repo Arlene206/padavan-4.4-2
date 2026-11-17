@@ -8,6 +8,7 @@ RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
 POLICY = (RC / "process_presence_start_policy.h").read_text()
 TEST = (RC / "tests/process_presence_start_policy.c").read_text()
+ROUTE_STATUS_TEST = (RC / "tests/route_status_policy.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 PROCESS_WORKFLOW = (ROOT / ".github/workflows/process-lifecycle-regression.yml").read_text()
 
@@ -96,6 +97,28 @@ require(
 )
 require("route_status);" in wan_up[unknown_diagnostic:launch_diagnostic],
         "UNKNOWN inventory must report its effective error")
+post_hook = wan_up.index("/* Call the optional post-WAN hook and preserve its exit status. */")
+post_hook_guard = wan_up.index("if (check_if_file_exist(script_postw))", post_hook)
+post_hook_eval = wan_up.index(
+    'route_status = eval(script_postw, "up", wan_ifname, wan_addr);',
+    post_hook_guard,
+)
+post_hook_merge = wan_up.index(
+    "status = route_status_accumulate(status, route_status);", post_hook_eval
+)
+post_hook_failure = wan_up.index("if (route_status != 0)", post_hook_merge)
+post_hook_log = wan_up.index("WAN post-up script incomplete", post_hook_failure)
+later_zerotier = wan_up.index("#if defined(APP_ZEROTIER)", post_hook_log)
+require(
+    post_hook < post_hook_guard < post_hook_eval < post_hook_merge
+    < post_hook_failure < post_hook_log < later_zerotier,
+    "post-WAN hook exit status must be captured, aggregated and logged before later independent starts",
+)
+require(wan_up.count('eval(script_postw, "up", wan_ifname, wan_addr)') == 1,
+        "post-WAN hook must execute exactly once")
+require("test_wan_post_script_failure_is_reported_and_later_steps_continue" in ROUTE_STATUS_TEST,
+        "post-WAN script failure must have a first-error/later-step regression")
+
 require("return status;" in wan_up[launch_diagnostic:],
         "WAN-up must return the accumulated gateway checker result")
 

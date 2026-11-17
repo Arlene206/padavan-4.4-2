@@ -1,28 +1,28 @@
-# 2026-11-18 continuation checkpoint — static IPoE address cleanup fail-closed handling
+# 2026-11-18 continuation checkpoint — capture optional post-WAN hook failures
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS source slice: `b83c1cbf99d457c5155a4d613c49f8871f3c1fff`.
+- Parent main before THIS source slice: `93c8ab702d886e7da1fe145bef5655c37dbe4a6d`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Factory-reset production fix `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`: GPIO run `44197451556` PASS including GNU89 ASan/UBSan and source contracts. Exact-head AI documentation rerun `44197796498` on `b83c1cb` PASS; Process `44197451701` and MiniUPnP `44197451163` on `0d58928e` PASS.
-- Exact XY-C1 run `44197454090` on `0d58928e` had passed all pre-build checks through WAN and PPPoE-MWAN gates; Build XY-C1 was still IN_PROGRESS at last poll, with TRX verification and artifact upload PENDING. Do not claim L3 until all three complete.
-- The prior static IPoE EAPOL-launch cleanup fix `5d0618c` and its multiline checker repair `80dcdc6` are complete; exact WAN run `44197177575` on `80dcdc6` PASS.
-- No full local checkout/MIPS toolchain is available. Local target compilation is NOT RUN; physical-router L4 remains NOT VERIFIED.
+- Factory-reset source `0d58928e`: GPIO workflow `44197451556` PASS; Process `44197451701` PASS; MiniUPnP `44197451163` PASS; AI handoff rerun `44197796498` on `b83c1cb` PASS. Exact XY-C1 run `44197454090` on `0d58928e` completed SUCCESS: Build XY-C1, TRX verification and artifact upload all PASS.
+- Static IPoE address cleanup source `93c8ab702d886e7da1fe145bef5655c37dbe4a6d`: exact WAN route `44198950271` PASS (all GNU89/ASan/UBSan regressions and source contracts); AI handoff `44198949896` PASS. Exact XY-C1 run `44198950404` was `IN_PROGRESS` at last poll; inspect Build/TRX/artifact before claiming L3.
+- The earlier EAPOL-launch cleanup fix `5d0618c` and checker repair `80dcdc6` are complete; WAN route run `44197177575` PASS. No full local checkout/MIPS toolchain; no local target build or physical-router L4 claim.
 
 ## Active task
-- THIS source slice closes a separate P1 static-IPoE failure path. When assigning a configured static IPv4 address failed, the code attempted to clear a potentially partial address but discarded the clear result. The physical WAN interface could stay administratively UP with a stale address.
-- On failed clear, the code now aggregates/logs that error, forces the physical interface down and aggregates/logs any failed force-down. A per-WAN guard prevents EAPOL and the remaining IPoE protocol activation from running after this cleanup failure. Successful clears and dynamic IPoE are unchanged.
-- Added a GNU89 policy regression and expanded `scripts/check_wan_firewall_status.py` to enforce the error/cleanup/skip ordering. Existing WAN/XY-C1 workflows already include the touched source, header, test and checker paths.
+- THIS slice captures and aggregates the exit status from the optional `SCRIPT_POST_WAN` hook in `wan_up_internal()`. Previously `eval(script_postw, "up", ...)` was discarded, making a failed configured post-WAN action invisible to callers even though the function returns accumulated startup status.
+- The change logs nonzero hook status and preserves it as the first route status without short-circuiting later independent ZeroTier/PPPoE-MWAN startup. A GNU89 first-error/later-action regression and the existing WAN gateway/post-start source checker enforce the behavior.
+- Exact-head WAN route and XY-C1 Actions for THIS commit remain pending at handoff time.
 
 ## Verification boundary
-- Exact-head WAN route GNU89/ASan/UBSan regression and source contract: PENDING for THIS commit.
-- Exact-head XY-C1 Build, TRX verification and artifact upload: PENDING for THIS commit. The prior `0d58928e` build `44197454090` is still in progress at the last poll and does not verify this new source SHA.
-- Factory-reset GPIO regression on `0d58928e`: PASS. AI handoff on `b83c1cb`: PASS. No local host/target compile or hardware L4 claim.
+- Exact `93c8ab7` WAN route `44198950271`: PASS, including the static-IPoE address-cleanup regression and source-order gate. AI handoff `44198949896`: PASS.
+- Exact `93c8ab7` XY-C1 run `44198950404`: `IN_PROGRESS`; require Build XY-C1, TRX verification and artifact upload.
+- Exact `0d58928e` XY-C1 run `44197454090`: SUCCESS on the exact product source, including Build, TRX and artifact upload.
+- No local compiler/MIPS toolchain and no hardware L4 claim.
 
 ## Exact first action for the next GPT
-1. Fetch live `main`; inspect exact-`head_sha` push runs for WAN route, XY-C1 and AI handoff on THIS commit.
-2. Require the WAN policy binary and complete static-IP/EAPOL/firewall source contract to PASS. For XY-C1, require Build XY-C1, TRX verification and artifact upload.
-3. Separately recheck `0d58928e` run `44197454090`; if it completes, record the Build/TRX/artifact steps without treating it as validation of THIS newer WAN source.
-4. Repair only the first causal failure in a separate atomic commit; continue independent P1 work while any build remains PENDING. Keep backup immutable and hardware L4 NOT VERIFIED.
+1. Fetch live `main` and inspect exact-`head_sha` WAN route, AI handoff and XY-C1 runs for THIS commit; require the post-WAN hook source contract and GNU89 policy binary to pass.
+2. Require exact-head XY-C1 Build, TRX verification and artifact upload. Recheck `93c8ab7` run `44198950404` and record any completion without conflating it with THIS newer SHA.
+3. Repair the first causal failure in a separate atomic commit; continue an independent P1 issue while any build is PENDING.
+4. Keep backup immutable and physical-router L4 NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 Every session MUST inspect the live repository state, exact-SHA Actions that materially changed, current handoff/roadmap facts, and the first actionable next task before ending. The checkpoint is mandatory; a document edit is conditional. Record new PASS/FAIL/PENDING state accurately. If the facts and first action remain accurate, leave the handoff untouched and do not create a no-op commit.

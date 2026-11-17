@@ -27,10 +27,24 @@ test_static_mtu_failure_is_not_masked_by_later_success(void)
 	assert(attempts == sizeof(startup_steps) / sizeof(startup_steps[0]));
 }
 
+static void
+test_wan_post_script_failure_is_reported_and_later_steps_continue(void)
+{
+	const int startup_steps[] = { 0, EIO, 0 };
+	size_t attempts = 0;
+
+	/* Routes succeed, the custom post-WAN hook fails, and later startup still runs. */
+	assert(apply_results(startup_steps,
+			     sizeof(startup_steps) / sizeof(startup_steps[0]),
+			     &attempts) == EIO);
+	assert(attempts == sizeof(startup_steps) / sizeof(startup_steps[0]));
+}
+
 int
 main(void)
 {
 	test_static_mtu_failure_is_not_masked_by_later_success();
+	test_wan_post_script_failure_is_reported_and_later_steps_continue();
 	const int first_error[] = { 0, EIO, 0, ENETUNREACH };
 	const int negative_error[] = { 0, -1, 0, EPERM };
 	const int no_errors[] = { 0, 0, 0 };

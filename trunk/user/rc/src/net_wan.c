@@ -2869,9 +2869,14 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	/* di wakeup after 2 secs */
 	notify_run_detect_internet(2);
 
-	/* call custom user script */
-	if (check_if_file_exist(script_postw))
-		{eval(script_postw, "up", wan_ifname, wan_addr);}
+	/* Call the optional post-WAN hook and preserve its exit status. */
+	if (check_if_file_exist(script_postw)) {
+		route_status = eval(script_postw, "up", wan_ifname, wan_addr);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "WAN post-up script incomplete on %s (status=%d)",
+				   wan_ifname, route_status);
+	}
 #if defined(APP_ZEROTIER)
 	if (nvram_match("zerotier_enable", "1")) {
 		route_status = start_zerotier();

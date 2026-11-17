@@ -1,3 +1,12 @@
+## 2026-11-18 — Preserve optional post-WAN script exit status
+
+- Parent main SHA: `93c8ab702d886e7da1fe145bef5655c37dbe4a6d`; exact WAN route `44198950271` and AI handoff `44198949896` for the static-IPoE address cleanup slice both PASS.
+- Found a remaining discarded return in `wan_up_internal()`: the configured `SCRIPT_POST_WAN` was run with `eval()` but its nonzero exit status was ignored, although WAN-up returns accumulated status from other optional starts.
+- THIS slice captures, aggregates and logs the hook result without short-circuiting later independent ZeroTier/PPPoE-MWAN actions. Added a GNU89 first-error/later-action regression and extended the existing WAN post-start source contract.
+- Exact-head WAN/AI/XY-C1 verification pending. The prior factory-reset source `0d58928e` passed exact XY-C1 Build/TRX/artifact on run `44197454090`; `93c8ab7` XY run `44198950404` was `IN_PROGRESS` at last poll. No local MIPS build or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Fail closed after partial static IPoE address setup cleanup fails
 
 - Parent main SHA: `b83c1cbf99d457c5155a4d613c49f8871f3c1fff`; previous factory-reset source `0d58928e` GPIO regression `44197451556` PASS, and the required AI handoff checkpoint contract passed on `b83c1cb` run `44197796498`.

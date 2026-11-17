@@ -1,18 +1,19 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS static-IPoE cleanup source slice: `b83c1cbf99d457c5155a4d613c49f8871f3c1fff`.
-- Factory-reset fix `0d58928e` has exact GPIO regression PASS (`44197451556`); AI handoff contract rerun `44197796498` on `b83c1cb` PASS; Process `44197451701` and MiniUPnP `44197451163` on `0d58928e` PASS.
-- Exact XY-C1 run `44197454090` on `0d58928e` passed its pre-build validation gates but was still at Build XY-C1 when last polled; TRX verification and artifact upload remain PENDING. No L3 claim yet.
-- THIS slice fixes a separate static IPoE address-assignment cleanup failure: if clearing a partially configured address fails, it propagates/logs the error, forces the physical WAN interface down and blocks EAPOL/protocol activation for that WAN unit. GNU89 regression and WAN source-order contract are added; exact WAN/XY-C1 runs pending.
+- Parent main before THIS post-WAN hook status slice: `93c8ab702d886e7da1fe145bef5655c37dbe4a6d`.
+- Static IPoE address cleanup fix `93c8ab7`: exact WAN route `44198950271` PASS including GNU89 ASan/UBSan and source contract; exact AI docs `44198949896` PASS.
+- Factory-reset exact XY-C1 run `44197454090` on `0d58928e` completed SUCCESS: Build, TRX verification and artifact upload all PASS.
+- Exact XY-C1 for `93c8ab7`, run `44198950404`, was `IN_PROGRESS` at last poll; do not claim L3 before Build/TRX/artifact pass.
+- THIS slice captures/logs/aggregates nonzero `SCRIPT_POST_WAN` exit status while preserving later independent WAN-up startup. GNU89 first-error/later-action regression and WAN source contract are added; exact-head CI pending.
 - Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: inspect exact-head WAN and XY-C1 checks for THIS static-address cleanup slice; recheck the still-running `0d58928e` build, then continue independent P1 work.
+Next: inspect exact-head WAN route/AI/XY-C1 for THIS hook-status slice, then continue independent P1 reliability/security work.
 
 ---
 
 ## Whole-repository module status
 
-- Static IPoE EAPOL launch-failure cleanup was fixed in `5d0618c` and its source-check correction passed exact WAN run `44197177575` on `80dcdc6`. THIS slice addresses the separate static-address-assignment failure branch: failed partial-address clear now forces interface-down and gates EAPOL; exact-head verification pending.
+- WAN P1 slices now cover static IPoE EAPOL cleanup (`5d0618c` / exact WAN PASS on `80dcdc6`), static-address assignment cleanup (`93c8ab7` / exact WAN run `44198950271` PASS), and configured post-WAN script failure propagation (THIS slice; exact-head pending). Optional hook failures remain nonfatal to later independent startup, but are returned/logged instead of discarded.
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
