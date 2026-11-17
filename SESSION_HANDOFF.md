@@ -24,19 +24,19 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify exact-head WAN-route, Process lifecycle, AI handoff and XY-C1 Actions for the WAN firewall caller-status change in THIS COMMIT. Confirm the new contract passes and all four `start_firewall_ex()` results plus all PPP recovery failures reach `start_wan()`.
-2. Require same-SHA XY-C1 Build, TRX verification and artifact upload before claiming L3. The older XY-C1 run `44017512514` on `97bd094c` passed Build/TRX/artifact, but predates this WAN source change.
-3. If Actions are pending, continue another independent P1 RC startup/status defect; do not repeat already verified DDNSTO, GPIO, HTTPD, storage or completed network slices.
+1. Verify exact-head Actions for the WAN firewall-status implementation `9a0256f5d4cd97a902e48e32839fde7e1391d370` and this test-contract correction. The first implementation run exposed two checker-only failures; confirm both updated Python contracts pass on the new SHA.
+2. Require same-SHA XY-C1 Build, TRX verification and artifact upload after the Python gates. The 9a XY-C1 job stopped before Build because the shared modem/WAN checker still expected three, not four, modem status aggregations.
+3. If Actions remain pending, continue independent P1 RC startup-result work; avoid repeating completed lifecycle/network slices.
 
 ## Verification boundary
 
-- Parent main SHA for THIS WAN firewall-status source change: `a84174f9f5719272c1cc111c07be083790ae5734`. The implementation captures the three primary WAN firewall rebuild statuses in `start_wan()`, converts `restore_wan_after_ppp_start_failure()` to a status-returning helper, and aggregates all three recovery callers.
-- New source-contract checker `scripts/check_wan_firewall_status.py` runs in both WAN-route status and XY-C1 firmware workflows; both path filters include it and `net_wan.c`.
-- Exact-head Process inventory `44017924214` on `a84174f9` PASS, including RC integration and LAN startup status checks. AI handoff contract `44017924265` on the same SHA PASS.
-- XY-C1 run `44017512514` on `97bd094c` completed SUCCESS through Build XY-C1, TRX verification and artifact upload. Commit `a84174f9` changed only checker/roadmap/handoff/log files, not firmware sources; nevertheless, that is not an exact-head a841 run and does not verify THIS new WAN source change.
-- Current WAN-route, Process, handoff and XY-C1 checks for THIS COMMIT are PENDING until their exact-head runs complete. No same-SHA L3 claim yet.
+- WAN production-source commit `9a0256f5d4cd97a902e48e32839fde7e1391d370` (parent `a84174f9f5719272c1cc111c07be083790ae5734`) captures all four `start_firewall_ex()` returns and all three PPP-recovery results in `start_wan()`.
+- Exact-head `9a0256f5` Actions: WAN-route `44019982102` FAIL at the new checker because its regex was over-escaped; Process `44019982105`, XY-C1 `44019982156` and Firewall Startup `44019982218` FAIL in existing `check_modem_wan_start_status.py:308`, whose expected aggregation count was still 3 after the new fourth RAS firewall result. AI handoff `44019982167` PASS. These are source-contract failures; the XY build step was not reached, so no new product build claim exists.
+- Corrective test-only work in THIS COMMIT: replace the fragile regexes in `check_wan_firewall_status.py` with explicit source-position checks, and extend `check_modem_wan_start_status.py` to assert four modem status merges and specifically cover the new RAS firewall result.
+- Earlier baseline: exact-head Process `44017924214` and AI docs `44017924265` on `a84174f9` PASS. XY-C1 `44017512514` on `97bd094c` passed Build/TRX/artifact; it predates WAN source commit `9a0256f5`.
+- Exact-head WAN-route, Process, firewall, AI docs and XY-C1 reruns for the corrective commit are PENDING until Actions execute. No same-SHA L3 claim yet.
 - Local checkout/toolchain unavailable; local execution NOT RUN. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and inspect exact-head WAN-route, Process inventory/lifecycle, AI handoff and XY-C1 runs for the WAN firewall-status commit whose parent is `a84174f9f5719272c1cc111c07be083790ae5734`. Resolve any failed contract; require the same resulting source SHA to pass XY-C1 Build, TRX verification and artifact upload. If checks remain pending, continue independent P1 RC startup-result work. Before context exhaustion, update this handoff with the exact source commit SHA, test outcomes and current workflow IDs. Keep the frozen backup unchanged; use one complete Git tree and a non-forced expected-SHA update for every atomic multi-file commit.
+Fetch live `main` and inspect exact-head WAN-route, Process inventory/lifecycle, Firewall Startup Stability, AI handoff and XY-C1 runs for the checker-correction commit whose parent is `9a0256f5d4cd97a902e48e32839fde7e1391d370`. Confirm the WAN firewall caller contract and the shared modem/WAN first-error integration contract both pass; then require the same SHA to complete XY-C1 Build, TRX verification and artifact upload. If Actions remain pending, continue independent P1 RC startup-result work. Before context exhaustion, update this handoff with the correction commit SHA, test outcomes and current workflow IDs. Keep the frozen backup unchanged and publish multi-file changes as one tree via non-forced expected-SHA update.

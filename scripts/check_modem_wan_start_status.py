@@ -305,7 +305,13 @@ assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[dhcp_po
 
 aggregate_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*vlan_result\s*\)\s*;"
 aggregate_matches = list(re.finditer(aggregate_pattern, wan_start))
-assert len(aggregate_matches) == 3
+assert len(aggregate_matches) == 4
+# The RAS first-stage firewall rebuild now contributes a fourth startup result.
+ras_launch_start = wan_start.index("char *ppp_ifname = IFNAME_RAS;")
+ras_launch_end = wan_start.index("vlan_result = launch_wan_modem_ras(unit);", ras_launch_start)
+ras_branch = wan_start[ras_launch_start:ras_launch_end]
+ras_firewall_start = ras_branch.index("vlan_result = start_firewall_ex();")
+assert re.search(aggregate_pattern, ras_branch[ras_firewall_start:]), "RAS firewall failure must reach modem startup status"
 ras_migration = "vlan_result = check_upnp_wanif_changed(ppp_ifname);"
 assert ras_migration in wan_start
 ras_migration_start = wan_start.index(ras_migration)

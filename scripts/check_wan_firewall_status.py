@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Ensure WAN firewall rebuild and PPP recovery failures reach start_wan()."""
 from pathlib import Path
-import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -60,6 +59,17 @@ def body(source, signature):
     raise AssertionError(f"unterminated C function: {signature}")
 
 
+def positions(source, marker):
+    found = []
+    offset = 0
+    while True:
+        position = source.find(marker, offset)
+        if position < 0:
+            return found
+        found.append(position)
+        offset = position + len(marker)
+
+
 wan = (RC / "net_wan.c").read_text()
 header = (RC / "rc.h").read_text()
 require("int start_firewall_ex(void);" in header,
@@ -76,9 +86,8 @@ for marker in (
     require(marker in restore, f"PPP physical-WAN recovery must preserve {marker}")
 
 start = body(wan, "start_wan(void)")
-firewall_sites = [m.start() for m in re.finditer(
-    r"vlan_result = start_firewall_ex\\(\\);", start
-)]
+firewall_marker = "vlan_result = start_firewall_ex();"
+firewall_sites = positions(start, firewall_marker)
 require(len(firewall_sites) == 3,
         "USB RAS, PPP and IPoE firewall rebuilds must capture their return value")
 for index, position in enumerate(firewall_sites):
@@ -91,20 +100,19 @@ for index, position in enumerate(firewall_sites):
         require("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);" in follow,
                 "PPP/IPoE firewall error must reach wan_start_status")
 
-recovery_calls = list(re.finditer(
-    r"vlan_result = restore_wan_after_ppp_start_failure\\(unit, wan_ifname\\);", start
-))
-require(len(recovery_calls) == 3,
+recovery_marker = "vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);"
+recovery_sites = positions(start, recovery_marker)
+require(len(recovery_sites) == 3,
         "all PPP startup/recovery failure branches must capture recovery status")
-for match in recovery_calls:
-    follow = start[match.end():match.end() + 260]
+for position in recovery_sites:
+    follow = start[position + len(recovery_marker):position + len(recovery_marker) + 260]
     require("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);" in follow,
             "PPP recovery failure must be aggregated before continuing")
 
 require("return rc_first_service_start_status(modem_start_status, wan_start_status);" in start,
         "start_wan() must return the first modem/WAN error")
-require(re.search(r"(?m)^[ \\t]*start_firewall_ex\\(\\);[ \\t]*$", wan) is None,
-        "no firewall rebuild result may be discarded")
-require(len(re.findall(r"start_firewall_ex\\(\\)", wan)) == 4,
+bare_calls = [line for line in wan.splitlines() if line.strip() == "start_firewall_ex();"]
+require(not bare_calls, "no firewall rebuild result may be discarded")
+require(len(positions(wan, "start_firewall_ex()")) == 4,
         "the contract must cover all four current firewall rebuild sites")
 print("WAN firewall rebuild and PPP recovery status propagation: PASS")

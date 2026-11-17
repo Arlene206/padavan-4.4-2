@@ -1,3 +1,11 @@
+## 2026-11-16 — Correct WAN firewall caller-contract checks
+
+- Parent main SHA: `9a0256f5d4cd97a902e48e32839fde7e1391d370`; the implementation commit is `9a0256f5d4cd97a902e48e32839fde7e1391d370`.
+- Exact-head CI on 9a exposed only source-contract assertions: WAN-route `44019982102` rejected the new checker’s over-escaped regex; Process `44019982105`, XY-C1 `44019982156` and Firewall Startup `44019982218` still expected three modem startup status merges, not the new four. AI handoff `44019982167` PASS; XY-C1 stopped before compilation.
+- Replaced regex matching with deterministic source-marker positions and updated the shared modem/WAN checker to require the fourth RAS firewall status merge. The existing checks for WAN migration, RAS launch and first-error behavior remain in place. Exact-head reruns are pending; this correction changes tests only, not production C code.
+
+---
+
 ## 2026-11-16 — Propagate WAN firewall rebuild failures through startup
 
 - Base main SHA: `a84174f9f5719272c1cc111c07be083790ae5734`; source change: THIS COMMIT.
