@@ -1,3 +1,13 @@
+## 2026-11-17 21:52 CST — Fix IAPP mock ordinal in retained firewall failure case
+
+- Parent main SHA: `a54c1b427d0080aa4563e4da9d35051b40dbcb57`; result: THIS COMMIT.
+- Exact-head Process inventory/lifecycle run `44092580092` reached the IAPP regression and failed with `expected 42, got 0`. The mock was changed to fail only the Nth `iptables -A` operation, but a retained legacy test set only `MOCK_IPTABLES=42`; its zero `MOCK_IPTABLES_FAIL_AT` correctly disabled the failure.
+- Fix the test fixture to set `MOCK_IPTABLES_FAIL_AT=1`. Production IAPP script and rollback behavior are unchanged.
+- On parent `a54c1b`, Process lifecycle inventory `44092579805`, infosvr `44092579891`, AdGuardHome `44092580045`, AliyunDrive `44092580008`, AliDDNS `44092579920`, and AI docs `44092579809` PASS; XY-C1 `44092579822` and NVRAM `44092579905` were still in progress at last poll. New exact-head tests pending.
+- Local host tests NOT RUN; L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 21:44 CST — Preserve original IAPP startup error across rollback
 
 - Parent main SHA: `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`; result: THIS COMMIT.

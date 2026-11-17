@@ -104,7 +104,7 @@ count=$(grep -c "^ralinkiappd " "$COMMAND_LOG")
 rc=$(capture_status run start); status "$rc" 0
 [ "$(grep -c "^ralinkiappd " "$COMMAND_LOG")" -eq "$count" ] || fail "duplicate start"
 
-reset; MOCK_IPTABLES=42
+reset; MOCK_IPTABLES=42; MOCK_IPTABLES_FAIL_AT=1
 rc=$(capture_status run start); status "$rc" 42
 
 reset; : > "$STATE_DIR/daemon"; MOCK_KILLALL=54
