@@ -1,3 +1,14 @@
+## 2026-11-17 — Propagate physical WAN default-MTU setup failures
+
+- Parent main SHA: `d20696fc602ce90167342629ced95765a9078e29`; result: THIS COMMIT.
+- Finding: `start_wan()` attempted to set every physical WAN interface to MTU 1500, logged ioctl failure, then returned success if later setup succeeded. The shared `set_interface_mtu()` returns `-1` on socket/ioctl failure, so this error was silently dropped from WAN startup status.
+- Added a bounded policy exception for static IPoE: when the configured MTU is 1300–1499, skip the redundant initial 1500 request because the later static-IPoE transaction applies that MTU and already gates address/route publication on its result. Other WAN modes and static settings outside that valid range still attempt MTU 1500.
+- Default-MTU errors now enter `wan_start_status` using first-error aggregation and are logged; physical interface bring-up and independent protocol/service setup still continue. The static path reuses the same configured MTU read.
+- Added GNU89 boundary/failure-continuation cases to `service_start_status.c`, wired its policy header into WAN and Process push/PR filters, and added `scripts/check_wan_initial_mtu_status.py` to the WAN regression job.
+- Parent `d20696fc` had 8/8 exact-head selected Actions SUCCESS, including WAN route `44042507581`, Process inventory `44042507344`, and AI handoff `44042507552`. XY-C1 run `44042062896` for production-source SHA `9722f273` was still in Build XY-C1 at last poll; TRX verification and artifact upload remained pending. This source change triggers a new exact-head XY-C1 build. No full local checkout/toolchain is available; exact-head L2/L3 validation pending; router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Repair gateway-monitor semantic checker ordering
 
 - Parent main SHA: `9722f273f005eaf323da7d80a7d0cfbc398faa73`; result: THIS COMMIT.

@@ -32,6 +32,7 @@
 
 #include "rc.h"
 #include "service_start_status.h"
+#include "wan_mtu_setup_policy.h"
 #include "wan_route_flush_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
@@ -1656,7 +1657,7 @@ remove_cb_links(void)
 int
 start_wan(void)
 {
-	int unit, wan_proto;
+	int unit, wan_proto, wan_mtu;
 	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
 	int modem_start_status = 0;
 	int wan_start_status = 0, wan_up_status;
@@ -1725,11 +1726,24 @@ start_wan(void)
 		if (strlen(wan_ifname) < 1)
 			continue;
 		
-		/* Prepare the physical WAN interface without a shell command. */
-		mtu_status = set_interface_mtu(wan_ifname, 1500);
-		if (mtu_status != 0)
-			logmessage(LOGNAME, "WAN interface %s MTU setup incomplete (status=%d)",
-				   wan_ifname, mtu_status);
+		/* Read the configured MTU before applying the physical default. */
+		wan_mtu = get_wan_unit_value_int(unit, "mtu");
+
+		/*
+		 * Static IPoE applies its requested MTU later, immediately before
+		 * publishing the address. Do not let a redundant 1500-byte request
+		 * mask a successful configured MTU or report a false startup error.
+		 */
+		if (wan_default_mtu_should_be_set(
+			wan_proto == IPV4_WAN_PROTO_IPOE_STATIC, wan_mtu)) {
+			mtu_status = set_interface_mtu(wan_ifname, 1500);
+			if (mtu_status != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, mtu_status);
+				logmessage(LOGNAME, "WAN interface %s default MTU setup incomplete (status=%d)",
+					   wan_ifname, mtu_status);
+			}
+		}
 		interface_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 		if (interface_status != 0) {
 			wan_start_status = rc_first_service_start_status(
@@ -1927,7 +1941,6 @@ start_wan(void)
 			
 			/* Assign static IP address to i/f */
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
-				int wan_mtu = get_wan_unit_value_int(unit, "mtu");
 				int mtu_status, address_status, clear_status;
 				char *wan_addr = get_wan_unit_value(unit, "ipaddr");
 				char *wan_mask = get_wan_unit_value(unit, "netmask");

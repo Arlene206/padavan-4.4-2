@@ -3,7 +3,38 @@
 #include <stdio.h>
 
 #include "service_start_status.h"
+#include "wan_mtu_setup_policy.h"
 #include "rc_notify_batch_policy.h"
+
+static void
+test_wan_default_mtu_respects_static_custom_override(void)
+{
+	assert(wan_default_mtu_should_be_set(1, 1299));
+	assert(!wan_default_mtu_should_be_set(1, 1300));
+	assert(!wan_default_mtu_should_be_set(1, 1499));
+	assert(wan_default_mtu_should_be_set(1, 1500));
+	assert(wan_default_mtu_should_be_set(0, 1400));
+	assert(wan_default_mtu_should_be_set(0, 0));
+}
+
+static void
+test_wan_default_mtu_failure_is_reported_while_startup_continues(void)
+{
+	int status = 0;
+	int physical_ifup_attempts = 0;
+	int protocol_start_attempts = 0;
+
+	/* set_interface_mtu() returns -1 for a failed ioctl. */
+	status = rc_first_service_start_status(status, -1);
+	physical_ifup_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	protocol_start_attempts++;
+	status = rc_first_service_start_status(status, EIO);
+
+	assert(physical_ifup_attempts == 1);
+	assert(protocol_start_attempts == 1);
+	assert(status == -1);
+}
 
 static void
 test_first_error_survives_lan_restart_recovery(void)
@@ -357,6 +388,8 @@ main(void)
 	assert(rc_first_service_start_status(17, -1) == 17);
 	assert(rc_first_service_start_status(-5, 9) == -5);
 	assert(rc_first_service_start_status(4, 0) == 4);
+	test_wan_default_mtu_respects_static_custom_override();
+	test_wan_default_mtu_failure_is_reported_while_startup_continues();
 	test_first_error_survives_lan_restart_recovery();
 	test_router_lan_teardown_preserves_route_failure_and_continues();
 	test_router_lan_teardown_preserves_ipv6_clear_failure_and_continues();
