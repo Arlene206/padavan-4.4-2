@@ -1445,7 +1445,7 @@ assert "Compile and run RC module load/unload postcondition regression" in xy_wo
 assert '"trunk/user/rc/src/wireless_module_load_policy.h"' in xy_workflow
 assert '"trunk/user/rc/src/tests/wireless_module_load_policy.c"' in xy_workflow
 assert "int boot_modules_status, boot_services_status;" in rc_source
-assert "boot_services_status = boot_modules_status;" in rc_source
+assert "rwfs_mount_status, boot_modules_status);" in " ".join(rc_source.split())
 assert "int service_start_status = start_services_once(is_ap_mode);" in rc_source
 assert "rc_first_service_start_status(boot_services_status," in rc_source
 assert "one or more boot service startup operations failed (first status=%d)" in rc_source

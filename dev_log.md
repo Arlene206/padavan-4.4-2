@@ -1,3 +1,13 @@
+## 2026-11-17 — Remove remaining obsolete boot-module direct-assignment assertion
+
+- Base main SHA: `f5a42763bfcc08e5ea9fad31e717c7dd608ced9a`; result: THIS COMMIT.
+- Process run `44009629348` on `3233dc7b` proved the first of two duplicate stale expectations had been replaced, but failed at the remaining second assertion in `check_process_lifecycle_integration.py` (`boot_services_status = boot_modules_status;`). The production boot status deliberately includes the earlier RWFS mount result; no firmware source defect was involved.
+- Replaced the remaining stale assertion with a normalized check for the second argument of `rc_first_service_start_status(rwfs_mount_status, boot_modules_status)`. The focused RWFS GNU89 policy and integration steps passed on the prior SHA; no C source changed.
+- Same-source XY-C1 run `44009283846` on `45def115` had passed RWFS policy and source checks and was still in Build XY-C1; TRX/artifact had not started at last poll. It does not validate the follow-up checker SHA.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Stop Ralink IAPP during checked RC shutdown
 
 - Base main SHA: `45def115a2b7f52a7b495750ae815223f016ccff`; result: THIS COMMIT.
