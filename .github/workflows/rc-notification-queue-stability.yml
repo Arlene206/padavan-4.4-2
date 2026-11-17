@@ -18,6 +18,8 @@ on:
       - "trunk/user/shared/src/notify_rc.c"
       - "trunk/user/shared/src/rc_notify_queue.h"
       - "trunk/user/shared/src/tests/rc_notify_queue.c"
+      - "trunk/user/shared/src/notify_rc.h"
+      - "trunk/user/shared/src/tests/notify_rc_status.c"
   pull_request:
     paths:
       - ".github/workflows/rc-notification-queue-stability.yml"
@@ -35,6 +37,8 @@ on:
       - "trunk/user/shared/src/notify_rc.c"
       - "trunk/user/shared/src/rc_notify_queue.h"
       - "trunk/user/shared/src/tests/rc_notify_queue.c"
+      - "trunk/user/shared/src/notify_rc.h"
+      - "trunk/user/shared/src/tests/notify_rc_status.c"
   workflow_dispatch:
 
 permissions:
@@ -61,6 +65,14 @@ jobs:
             trunk/user/shared/src/tests/rc_notify_queue.c \
             -o /tmp/rc-notify-queue
           /tmp/rc-notify-queue
+      - name: Compile and run notification enqueue status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/notify_rc_status.c \
+            -o /tmp/notify-rc-status
+          /tmp/notify-rc-status
       - name: Compile and run optional daemon tri-state stop postcondition regression
         run: |
           set -eu
@@ -94,6 +106,8 @@ jobs:
           init = Path("trunk/user/rc/src/init.c").read_text()
           notify = Path("trunk/user/shared/src/notify_rc.c").read_text()
           queue = Path("trunk/user/shared/src/rc_notify_queue.h").read_text()
+          notify_header = Path("trunk/user/shared/src/notify_rc.h").read_text()
+          notify_status_test = Path("trunk/user/shared/src/tests/notify_rc_status.c").read_text()
           workflow = Path(".github/workflows/rc-notification-queue-stability.yml").read_text()
 
           def function_body(source, signature):
@@ -253,7 +267,14 @@ jobs:
           assert "assert(rc_notify_batch_should_requeue(10, 1, 0))" in test
           assert "assert(!rc_notify_batch_should_requeue(10, 1, 1))" in test
           assert "kill(1, SIGUSR1)" in notify
-          assert "rc_notify_queue_touch_at(notify_dir_fd, event_name, 0)" in notify
+          assert "int notify_rc_status(const char *event_name)" in notify
+          assert "return notify_rc_internal(event_name, 0);" in notify
+          assert "static int" in notify and "notify_rc_internal(" in notify
+          assert "RC_NOTIFY_OWNER ((uid_t)0)" in notify
+          assert "rc_notify_queue_touch_at(notify_dir_fd, event_name, owner)" in notify
+          assert "extern int notify_rc_status(const char *event_name);" in notify_header
+          assert "test_queue_failure_is_reported" in notify_status_test
+          assert "test_signal_failure_keeps_queued_status_successful" in notify_status_test
           assert "O_NOFOLLOW" in queue and "st.st_nlink != 1" in queue
           main_loop = function_body(init, "init_main_loop(void)")
           assert "sigaddset(&wait_mask, SIGUSR1)" in main_loop
@@ -275,6 +296,8 @@ jobs:
               "trunk/user/shared/src/notify_rc.c",
               "trunk/user/shared/src/rc_notify_queue.h",
               "trunk/user/shared/src/tests/rc_notify_queue.c",
+              "trunk/user/shared/src/notify_rc.h",
+              "trunk/user/shared/src/tests/notify_rc_status.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

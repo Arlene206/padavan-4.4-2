@@ -94,9 +94,16 @@
 
 ////////////////////////////////////////////////////////////
 
+#ifndef DIR_RC_NOTIFY
 #define DIR_RC_NOTIFY			"/tmp/rc_notification"
+#endif
+#ifndef DIR_RC_INCOMPLETE
 #define DIR_RC_INCOMPLETE		"/tmp/rc_action_incomplete"
+#endif
 
+/* Returns 0 after both queue markers are safely accepted, or -1 if the
+ * event could not be queued. A failed wakeup signal is logged separately. */
+extern int notify_rc_status(const char *event_name);
 extern void notify_rc(const char *event_name);
 extern void notify_rc_and_wait(const char *event_name, int wait_sec);
 

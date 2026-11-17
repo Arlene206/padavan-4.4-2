@@ -1,3 +1,15 @@
+## 2026-11-17 — Propagate WAN firewall notification enqueue failures
+
+- Parent main SHA: `ec99ebf0f47393f712b62771a1f34e5af8f621bf`; result: THIS COMMIT.
+- Confirmed defect: `notify_rc_internal()` logged secure-queue open/touch failures but returned `void`. Dynamic MAN-up, MAN-down and WAN-up ignored the result of queuing `restart_firewall_wan`, so a route transition could report success while the firewall refresh had not been accepted by PID 1.
+- Added additive `notify_rc_status()`: 0 means both secure queue markers were accepted; -1 means queue publication failed. Existing void wrappers remain source/ABI compatible and production queue ownership remains uid 0. Failed wakeup delivery after successful marker creation is logged without falsely reporting queue failure.
+- WAN/MAN callers merge enqueue failure into their existing first-error result.
+- Added an isolated GNU89 integration test using the production notifier with compile-time test path/owner overrides and a stubbed `kill(1, SIGUSR1)`; cases cover missing directories, invalid names, valid/duplicate markers, unsafe queue mode and successful queueing despite wakeup failure.
+- Extended notification/WAN contracts and path filters; XY-C1 also watches the changed `notify_rc.c`. Exact-head Actions pending; local C execution NOT RUN; physical-router L4 NOT VERIFIED.
+- Parent `ec99ebf` AliDDNS `44096925473`, Process `44096925510`, NVRAM `44096925502`, AdGuardHome `44096925476`, infosvr `44096925399`, AI docs `44096925411`, and AliyunDrive `44096925225` PASS.
+
+---
+
 ## 2026-11-17 — Trigger XY-C1 builds for packaged autostart changes
 
 - Parent main SHA: `d6c0a1aa92d7f1615576811e653703364ae3b27a`; result: THIS COMMIT.

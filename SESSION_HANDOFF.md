@@ -32,12 +32,14 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Active task
 
 1. Boot-environment baseline `10be37e50fbbd11c686593b0edd3863b31055b2e`; exact `4220420` HTTPD and XY-C1 Build/TRX/artifact passed.
-2. IAPP rollback production source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`, shell caller status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`, and regression follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` / `55374c12e124711c0b789ffd8dc3f0767c3343cc`. IAPP product source `a54c1b` passed XY-C1 Build/TRX/artifact run `44092579822`.
-3. AliDDNS CA-gated autostart source `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`; shell regression typo corrected in `32e2eab9757261d458f7035a7d4215c5b5dc5e88`; exact AliDDNS semantic checker aligned in `d6c0a1aa92d7f1615576811e653703364ae3b27a`. Exact-head AliDDNS transport run `44096633039`, AI docs `44096632730`, infosvr `44096632745`, AliyunDrive `44096632954`, and AdGuardHome `44096632757` PASS. Process fail-closed `44096632968` and NVRAM `44096632755` were still running at last poll.
-4. The product firmware validation workflow did not yet watch the packaged ROMFS `autostart.sh`, so the CA-gate source had no automatic target build. THIS COMMIT adds that file to the XY-C1 push path list; editing the workflow itself should launch a build for this source SHA.
+2. IAPP rollback production source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`, status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`, and lifecycle test follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` / `55374c12e124711c0b789ffd8dc3f0767c3343cc`; IAPP source SHA `a54c1b` passed XY-C1 Build/TRX/artifact run `44092579822`.
+3. AliDDNS CA-gated startup source `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`; fixture repair `32e2eab9757261d458f7035a7d4215c5b5dc5e88`; static checker repair `d6c0a1aa92d7f1615576811e653703364ae3b27a`. Descendant `ec99ebf0f47393f712b62771a1f34e5af8f621bf` exact push Actions: AliDDNS `44096925473`, Process `44096925510`, NVRAM `44096925502`, AdGuardHome `44096925476`, infosvr `44096925399`, AI docs `44096925411`, and AliyunDrive `44096925225` all PASS.
+4. THIS COMMIT fixes WAN notification enqueue failure: secure queue publication errors were logged by a void notifier but hidden from dynamic MAN-up, MAN-down and WAN-up callbacks. Additive `notify_rc_status()` reports queue publication failures; legacy void wrappers and production root-only queue ownership remain unchanged. Those callers now propagate enqueue failure through their first-error accumulator. A PID1 signal failure after durable queue acceptance is logged but does not invalidate the accepted event.
+5. A GNU89 integration regression compiles the production notifier with isolated test paths/owner and a stubbed init signal. It covers missing directories, invalid events, successful/duplicate queue markers, unsafe queue mode, and durable queue acceptance when the wakeup signal fails. Notification, WAN and XY-C1 path filters now include the affected sources. Exact-head checks pending.
 
-- Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Local host tests NOT RUN in this connector-only runtime. Exact-head XY-C1 for THIS workflow-path correction is pending; physical-router L4 NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Local host C compilation NOT RUN in connector-only runtime; exact-head Actions provide the first host execution.
+- Current-source XY-C1 for this notifier change and physical-router L4 remain NOT VERIFIED.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -54,9 +56,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Exact first action for the next GPT
 
-1. Check the XY-C1 workflow run triggered by adding `trunk/user/scripts/files/usr/bin/autostart.sh` to its push path filter. Require Build XY-C1, TRX output verification, and artifact upload on the exact current main SHA.
-2. Poll Process fail-closed `44096632968` and NVRAM `44096632755` from parent `d6c0a1` to completion; these are parent results, not results for this workflow-only commit.
-3. Once target build and remaining checks are resolved, continue the specific next reliability issue from the handoff: checked enqueue status for WAN firewall refresh. Preserve the legacy void notifier API and add an additive checked path with a focused GNU89 regression.
+1. Inspect exact-head `rc-notification-queue-stability`, `wan-route-status`, and XY-C1 Actions for THIS COMMIT. The new notifier integration must compile in GNU89/Werror and prove failed secure-queue publication returns -1, valid/duplicate markers return 0, unsafe directories are rejected, and a failed SIGUSR1 wakeup does not invalidate accepted markers.
+2. Parent `ec99ebf` AliDDNS `44096925473`, Process lifecycle `44096925510`, NVRAM `44096925502`, AdGuardHome `44096925476`, infosvr `44096925399`, AI docs `44096925411`, and AliyunDrive `44096925225` PASS; parent XY-C1 `44096925352` was running when checkpointed. This commit adds `notify_rc.c` to the XY-C1 filter so the changed notifier source is built.
+3. If any regression exposes a compile or source-contract defect, repair the first causal failure and verify all affected exact-head runs. Do not change legacy void API behavior or production root queue ownership. Physical-router L4 NOT VERIFIED; local C execution unavailable in connector runtime.
+4. After this bounded slice passes, continue P1 service-state failure propagation outside validated IAPP/AliDDNS/boot-env/storage work.
 
-Local host tests NOT RUN; physical-router L4 NOT VERIFIED. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
-
+Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only. Re-fetch main before each commit because same-repository sessions may advance concurrently.

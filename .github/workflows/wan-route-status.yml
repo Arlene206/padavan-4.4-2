@@ -12,6 +12,8 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/shared/src/notify_rc.c"
+      - "trunk/user/shared/src/notify_rc.h"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
@@ -70,6 +72,8 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/shared/src/notify_rc.c"
+      - "trunk/user/shared/src/notify_rc.h"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
@@ -248,6 +252,8 @@ jobs:
           lan6_reload_policy = (rc / "lan_addr6_reload_policy.h").read_text()
           lan6_reload_test = (rc / "tests/lan_addr6_reload_policy.c").read_text()
           wan = (rc / "net_wan.c").read_text()
+          notify_api_source = Path("trunk/user/shared/src/notify_rc.c").read_text()
+          notify_api_header = Path("trunk/user/shared/src/notify_rc.h").read_text()
           ppp = (rc / "net_ppp.c").read_text()
           wan6 = (rc / "net_wan6.c").read_text()
           net6 = (rc / "net6.c").read_text()
@@ -497,6 +503,22 @@ jobs:
           assert 'route_status = add_dhcp_routes_by_prefix("wanx_", man_ifname, 0);' in man_up
           assert "route_status = add_man_gateway_routes(man_ifname, unit, 2, gateway_route_status);" in man_up
           assert "return status;" in man_up
+
+          notification_status = body(wan, "queue_wan_firewall_restart(const char *context)")
+          assert 'notify_rc_status("restart_firewall_wan")' in notification_status
+          assert "status != 0" in notification_status
+          assert "return status;" in notification_status
+          assert "int notify_rc_status(const char *event_name)" in notify_api_source
+          assert "extern int notify_rc_status(const char *event_name);" in notify_api_header
+
+          man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+          assert 'queue_wan_firewall_restart("MAN down")' in man_down
+          assert "status = route_status_accumulate(status, route_status);" in man_down
+          assert "return status;" in man_down
+
+          assert 'queue_wan_firewall_restart("MAN up")' in man_up
+          assert "status = route_status_accumulate(status, route_status);" in man_up
+
           public_man_up = body(wan, "man_up(char *man_ifname, int unit, int is_static)")
           assert "man_up_internal(man_ifname, unit, is_static, NULL)" in public_man_up
           assert "MAN route setup incomplete" in public_man_up
@@ -510,6 +532,8 @@ jobs:
           assert "route_status = add_static_wan_routes(wan_ifname);" in wan_up
           assert "route_status = add_static_man_routes(wan_ifname);" in wan_up
           assert "route_status = add_dhcp_routes_by_prefix(prefix, wan_ifname, 0);" in wan_up
+          assert 'queue_wan_firewall_restart("WAN up")' in wan_up
+          assert "status = route_status_accumulate(status, route_status);" in wan_up
           assert "return status;" in wan_up
           public_wan_up = body(wan, "wan_up(char *wan_ifname, int unit, int is_static)")
           assert "wan_up_internal(wan_ifname, unit, is_static)" in public_wan_up

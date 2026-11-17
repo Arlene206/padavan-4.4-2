@@ -2418,6 +2418,18 @@ add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_rout
 }
 
 static int
+queue_wan_firewall_restart(const char *context)
+{
+	int status = notify_rc_status("restart_firewall_wan");
+
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "could not queue WAN firewall refresh after %s (errno=%d)",
+			   context, errno ? errno : EIO);
+	return status;
+}
+
+static int
 man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)
 {
 	int status = 0, route_status;
@@ -2452,7 +2464,8 @@ man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_st
 		refresh_resolvconf_nonfatal("MAN up", 0);
 
 		/* re-start firewall */
-		notify_rc("restart_firewall_wan");
+		route_status = queue_wan_firewall_restart("MAN up");
+		status = route_status_accumulate(status, route_status);
 	}
 
 	/* Start multicast services and preserve their status for DHCP callers. */
@@ -2544,7 +2557,8 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 	}
 
 	refresh_resolvconf_nonfatal("MAN down", 0);
-	notify_rc("restart_firewall_wan");
+	route_status = queue_wan_firewall_restart("MAN down");
+	status = route_status_accumulate(status, route_status);
 	route_status = stop_igmpproxy(man_ifname);
 	status = route_status_accumulate(status, route_status);
 	if (route_status != 0)
@@ -2671,7 +2685,8 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 
 	if (!is_static) {
 		/* re-start firewall */
-		notify_rc("restart_firewall_wan");
+		route_status = queue_wan_firewall_restart("WAN up");
+		status = route_status_accumulate(status, route_status);
 	}
 
 	/* Start kabinet authenticator (for IPoE) */
