@@ -1,3 +1,11 @@
+## 2026-11-17 — Fix IPv6 aggregation checker search origin
+
+- Parent main SHA: 95fc2873e0185135938057fa08f59a3c2fc496ab; result: THIS COMMIT.
+- Exact-head WAN run 44108152600 failed at the updated second IPv6 teardown assertion. The accumulator is intentionally executed immediately after `wan6_down()` and before the `if (ipv6_status != 0)` diagnostic block; the checker incorrectly searched for it starting at the later diagnostic position, causing `ValueError: substring not found` despite the production source containing the required aggregation.
+- Corrected the static contract to search from the `wan6_down()` call, then assert the actual order: call → accumulate status → log nonzero result → continue IPv4 route cleanup → return combined status. No production C change.
+- Exact-head process-lifecycle run 44108152657 PASS, including legacy `pids()` UNKNOWN mapping. NVRAM audit run 44108152786 remained active; XY-C1 run 44107928829 still in `Build XY-C1` with TRX verification/artifact upload pending at checkpoint. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Remove second stale WAN IPv6 teardown early-return assertion
 
 - Parent main SHA: 24ef91459ce1d3e7f17de5c3d843ce866d6aa675; result: THIS COMMIT.
