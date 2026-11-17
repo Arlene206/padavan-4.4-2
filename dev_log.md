@@ -1,3 +1,12 @@
+## 2026-11-18 — Align IAPP rollback regression with diagnostic
+
+- Parent main `e5338402f12fb46e44c8e7a752863ed48fe14f4a`; exact IAPP run `44200753434` passed POSIX syntax and failed only at line 106 because the test expected the old `daemon startup rollback failed` message, while the updated rollback path emits `daemon/firewall startup rollback failed`.
+- THIS test-only correction updates the precise diagnostic assertion; production IAPP lifecycle behavior is unchanged.
+- Exact e533 AI handoff `44200753459` and Process inventory `44200753122` PASS. Process lifecycle run `44200753226` failed in its lifecycle status propagation step; NVRAM `44200753245` and XY-C1 `44200753260` were pending (XY Build/TRX/artifact not started).
+- Next: exact-head IAPP rerun, Process job log diagnosis, and NVRAM/XY-C1 status check. No local shell/firmware or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Reconcile Ralink IAPP firewall rules with daemon lifecycle
 
 - Parent main SHA: `b4ffae1ce9eae0f05f07bdcd9ed488ac38e101c0`; `iappd.sh` previously installed two port-3517 INPUT allow rules but never removed them on normal stop, leaving access open after service disable and allowing repeated restart to accumulate duplicates.

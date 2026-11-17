@@ -103,7 +103,7 @@ grep -q "did not remain running after launch" "$COMMAND_LOG" || fail "readiness 
 reset; MOCK_START=53; MOCK_PARTIAL_START=1; MOCK_KILLALL=54
 rc=$(capture_status run start); status "$rc" 53
 [ -f "$STATE_DIR/daemon" ] || fail "failed cleanup unexpectedly changed daemon state"
-grep -q "daemon startup rollback failed" "$COMMAND_LOG" || fail "failed rollback was not logged"
+grep -q "daemon/firewall startup rollback failed" "$COMMAND_LOG" || fail "failed daemon/firewall rollback was not logged"
 
 # A failed first firewall rule stops the daemon without deleting a rule that
 # this invocation did not successfully create.

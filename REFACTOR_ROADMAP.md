@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS Ralink IAPP lifecycle slice: `b4ffae1ce9eae0f05f07bdcd9ed488ac38e101c0`; immutable backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Factory-reset exact XY-C1 `44197454090` on `0d58928e`: SUCCESS, Build/TRX/artifact all passed.
-- Exact current source SHA `2a98a830`: WAN teardown `44200079921`, WAN ARP `44200079811`, AdGuardHome `44200079919`, AI docs `44200079479`, infosvr `44200079580`, USB modem `44200079615`, VPN server `44200079546`, WAN DHCP `44200079468`, detect_internet `44200079791`, ZeroTier `44200079778`, Process `44200079549`, DNSMasq `44200079712`, detect_link `44200079897`, MiniUPnP `44200079805`, WAN route `44200079558`, AliDDNS `44200079513`, Wireless `44200079559`, AliyunDrive `44200079775`, HTTPD security `44200079499`, Firewall Startup `44200079836`, Process inventory `44200079659` PASS; NVRAM `44200079736` and XY-C1 `44200079523` were IN_PROGRESS.
-- New P1: Ralink IAPP launcher left TCP/UDP 3517 INPUT allow rules installed after daemon stop. THIS slice gives only its own rules ownership tags and safely reconciles them at start/stop; tests prove foreign untagged rules are retained.
-- Exact-head IAPP and XY-C1 validation for THIS commit pending. Physical-router L4 NOT VERIFIED.
+- Parent main before THIS correction: `e5338402f12fb46e44c8e7a752863ed48fe14f4a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- IAPP lifecycle implementation `e5338402` adds tagged firewall rule ownership and stop/stale-start cleanup. Its exact workflow `44200753434` failed only because the test expected the old `daemon startup rollback failed` phrase; production logs the more precise `daemon/firewall startup rollback failed`. THIS test-only correction updates that expectation.
+- Exact e533 AI handoff `44200753459`, Process inventory `44200753122`, AdGuardHome `44200753176`, AliDDNS `44200753133`, infosvr `44200753219`, AliyunDrive `44200753204` PASS. Process integration `44200753226` failed in its lifecycle status propagation step; NVRAM `44200753245` pending; XY-C1 `44200753260` pending before Build/TRX/artifact.
+- Exact IAPP rerun after THIS correction pending. Local shell/firmware tests not run; hardware L4 NOT VERIFIED.
 
-Next: verify IAPP lifecycle regression and XY-C1 Build/TRX/artifact for THIS commit; close any NVRAM run and continue independent P1 work.
+Next: verify exact-head IAPP, diagnose Process lifecycle regression, and close pending NVRAM/XY-C1 gates.
 
 ---
 
