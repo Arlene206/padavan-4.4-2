@@ -1,36 +1,34 @@
-# 2026-11-17 continuation checkpoint — XUPnPD provisioning gates
+# 2026-11-18 continuation checkpoint — complete bounded switch clear operations
 
-This checkpoint supersedes conflicting older status below. Continue on main; do not repeat completed audits or mutate the frozen backup.
+This checkpoint supersedes the older active summary below. Continue on `main`; do not repeat already-green audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2/.
-- Parent main SHA: 7b1a1ba2e493d9603932322c772d44a27ebc4538; result: THIS COMMIT (one complete tree, non-forced expected-SHA update).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; branch inventory contains only this archive and `main`.
-- PR #1 remains closed/unmerged. Development only on main.
-- No local MIPS/uClibc toolchain or full firmware checkout; physical-router L4 NOT VERIFIED.
+- Parent main SHA: `558901c1ca847ba491caf68c95f812c95a47b13e`; result: THIS COMMIT (one complete Git tree, non-forced expected-SHA update).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and immutable. Development remains main-only.
+- PR #1 remains closed/unmerged. No full local MIPS/uClibc toolchain or physical router; L4 NOT VERIFIED.
 
-## Product-source progress
-- XUPnPD startup now fails closed on required config/playlists directory setup, plugin/profile source validation and copy/link postconditions, stale PID/Lua cleanup errors, and top-level runtime Lua copy/path failures. Source changes are on `6b88d9e` and `7b1a1ba`.
-- Switch CLI IPv4 argument parsing was replaced with bounded strict dotted-decimal parsing plus GNU89 sanitizer regression; exact-head Switch CLI run `44140771106` on `17916d64` PASS.
-- Do not duplicate or revert those source fixes.
+## Switch CLI defect and fix
+- Review found `table_clear()`, `dip_clear()`, and `sip_clear()` still used a fixed `usleep(5000)` after writing MAC table-engine clear commands, then read/printed ATC without checking its busy bit.
+- This bypassed the bounded `wait_mac_atc()` helper already used by add/delete operations. If hardware remained busy beyond 5ms, a clear operation could return as though complete.
+- THIS COMMIT replaces each fixed sleep with `wait_mac_atc()`; timeout/register-read errors now use the existing fail-visible path (diagnostic, socket close, nonzero exit). Existing policy regression tests cover delayed completion, stuck-busy timeout and read errors; Switch CLI source contract now enforces write → bounded wait → read ordering for all three clear commands.
+- Switch workflow already compiles the common GNU89 ASan/UBSan wait-policy regression. XY-C1 path filter already watches `switch_gsw.c`.
 
-## Exact-SHA Actions
-- WAN route run `44141514745` on exact source SHA `7b1a1ba2e493d9603932322c772d44a27ebc4538`: SUCCESS, including the XUPnPD storage/config-copy/cleanup fail-closed source contract and GNU89 ASan/UBSan helper regression.
-- Process lifecycle run `44141514694` on the same exact SHA: FAILED only at the shared-library/RC integration checker. All preceding policy binaries and integration checks passed; line 352 still expected the removed `xupnpd_config_directory_validate(dir_dst)` call instead of the production `xupnpd_config_ensure_directory(dir_dst, 0755)` gate.
-- THIS COMMIT updates that contract to require the checked root directory helper before required config/playlists setup, while preserving the subdirectory identity checks. Its exact-head Process run is pending at commit creation.
-- Process inventory `44141514811`, AI handoff docs `44141514899`, WAN route `44141514745`, and the related module runs were SUCCESS on `7b1a1ba`. XY-C1 `44141514685` on exact source SHA `7b1a1ba` was IN_PROGRESS at the last poll; inspect Build XY-C1, TRX verification and artifact upload before claiming L3.
+## Parent exact-head status
+- Parent Process lifecycle checker alignment commit: `558901c1ca847ba491caf68c95f812c95a47b13e`. Its exact-head Process workflow `44141984432` was IN_PROGRESS at last poll.
+- Parent WAN/XUPnPD run `44141514745`: PASS; XUPnPD helper and source contract all green.
+- Parent Switch CLI strict IPv4 parser/bounded-wait run `44140771106`: PASS.
+- Parent XY-C1 `44141514685` on source SHA `7b1a1ba`: Build XY-C1 still IN_PROGRESS at last poll; TRX verification and artifact upload pending.
+- NVRAM `44141514527`, USB storage `44141514573`, AliyunDrive `44141514602`, Process inventory `44141514811`, and AI docs `44141514899` completed SUCCESS on `7b1a1ba`.
 
-## First next action
-1. Inspect exact-head Process lifecycle Actions for THIS COMMIT; repair any remaining genuine integration assertion without weakening production checks.
-2. Inspect XY-C1 run `44141514685` and confirm Build XY-C1, TRX and artifact upload all completed successfully.
-3. Continue the P1 process/service lifecycle and RC startup-result work from the live roadmap; don't repeat completed XUPnPD/WAN, DHCP, HTTPD, PPPoE-MWAN or storage audits without new evidence.
+## First next actions
+1. Verify exact-head Switch CLI and XY-C1 runs for THIS COMMIT; require clear wait source contracts plus Build/TRX/artifact completion.
+2. Check parent Process run `44141984432` result for the XUPnPD directory-helper contract update; any remaining red assertion must be diagnosed from the exact job log.
+3. Continue the next P1 cross-userland reliability slice without waiting on CI; keep the production/test/Actions loop and don't revisit completed XUPnPD, WAN, NVRAM or USB audits without new evidence.
 
 ## Validation boundary
-- XUPnPD WAN host regression/source contract: L2 PASS on `7b1a1ba` (run `44141514745`).
-- Process umbrella: previous exact-head failure isolated to the stale XUPnPD root-directory assertion; this commit corrects it and needs exact-head rerun.
-- Switch CLI IPv4 parsing: L2 PASS on `17916d64` (run `44140771106`).
-- XY-C1 source build at `7b1a1ba`: IN PROGRESS at last poll; no firmware/TRX/artifact success claim.
-- Physical-router L4 NOT VERIFIED.
+- Bounded wait host regression passed previously under Switch CLI `44139419836` and strict IPv4 version `44140771106`; exact-head clear-operation wiring test from THIS COMMIT is pending.
+- No local firmware build or physical-router L4 claim.
 
 # Cross-session execution mandate
 

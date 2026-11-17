@@ -1,3 +1,14 @@
+## 2026-11-18 — Gate switch table clear completion on bounded status
+
+- Parent main SHA: `558901c1ca847ba491caf68c95f812c95a47b13e`; result: THIS COMMIT.
+- Found three remaining fixed-delay paths: `table_clear()`, `dip_clear()`, and `sip_clear()` wrote the ATC clear command, slept 5ms and printed the register without requiring the busy bit to clear.
+- Replaced each fixed sleep with the existing 20-poll `wait_mac_atc()` gate. Stuck-busy or register-read errors now follow the existing nonzero/fail-visible CLI path before reporting completion.
+- Extended Switch CLI CI source contracts to require write → bounded wait → result read and forbid the fixed 5ms sleep in each clear routine. Existing GNU89 sanitizer policy tests cover timeout/read-failure behavior.
+- Parent XUPnPD WAN run `44141514745` PASS; parent Process checker alignment run `44141984432` pending. Parent XY-C1 `44141514685` remained in build.
+- No MIPS firmware or physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Correct Process integration contract for XUPnPD directory setup
 
 - Parent main SHA: 7b1a1ba2e493d9603932322c772d44a27ebc4538; result: THIS COMMIT.

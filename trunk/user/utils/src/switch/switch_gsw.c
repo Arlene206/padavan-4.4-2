@@ -1274,10 +1274,10 @@ void dip_clear(void)
 {
 	int value;
 
-	reg_write(REG_ESW_WT_MAC_ATC, 0x8102);//clear all dip
-	usleep(5000);
+	reg_write(REG_ESW_WT_MAC_ATC, 0x8102); /* clear all dip */
+	wait_mac_atc();
 	reg_read(REG_ESW_WT_MAC_ATC, &value);
-	printf("REG_ESW_WT_MAC_ATC is 0x%x\n\r",value);
+	printf("REG_ESW_WT_MAC_ATC is 0x%x\\n\\r", value);
 }
 
 
@@ -1382,13 +1382,12 @@ void sip_del(int argc, char *argv[])
 
 void sip_clear(void)
 {
-
 	int value;
-	reg_write(REG_ESW_WT_MAC_ATC, 0x8202);//clear all sip
-	usleep(5000);
-	reg_read(REG_ESW_WT_MAC_ATC, &value);
-	printf("REG_ESW_WT_MAC_ATC is 0x%x\n\r",value);
 
+	reg_write(REG_ESW_WT_MAC_ATC, 0x8202); /* clear all sip */
+	wait_mac_atc();
+	reg_read(REG_ESW_WT_MAC_ATC, &value);
+	printf("REG_ESW_WT_MAC_ATC is 0x%x\\n\\r", value);
 }
 
 
@@ -1586,13 +1585,12 @@ void table_del(int argc, char *argv[])
 
 void table_clear(void)
 {
-
 	int value;
-	reg_write(REG_ESW_WT_MAC_ATC, 0x8002);
-	usleep(5000);
-	reg_read(REG_ESW_WT_MAC_ATC, &value);
-	printf("REG_ESW_WT_MAC_ATC is 0x%x\n\r",value);
 
+	reg_write(REG_ESW_WT_MAC_ATC, 0x8002); /* clear all mac */
+	wait_mac_atc();
+	reg_read(REG_ESW_WT_MAC_ATC, &value);
+	printf("REG_ESW_WT_MAC_ATC is 0x%x\\n\\r", value);
 }
 
 

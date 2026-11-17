@@ -185,6 +185,11 @@ jobs:
               body = function_body(source, signature)
               assert "wait_search_ready(&value" in body, signature
               assert "while(1)" not in body and "while (1)" not in body
+          for signature in ("void table_clear(void)", "void dip_clear(void)", "void sip_clear(void)"):
+              body = function_body(source, signature)
+              assert body.index("reg_write(REG_ESW_WT_MAC_ATC,") < body.index("wait_mac_atc();")
+              assert body.index("wait_mac_atc();") < body.index("reg_read(REG_ESW_WT_MAC_ATC, &value)")
+              assert "usleep(5000)" not in body, signature
           assert "return ETIMEDOUT;" in policy
           assert "return EINVAL;" in policy
           for marker in (

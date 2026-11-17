@@ -1,14 +1,11 @@
-# 2026-11-17 latest verified checkpoint — XUPnPD failure gates
+# 2026-11-18 latest verified checkpoint
 
-This section supersedes conflicting older status below.
+- Parent main SHA: `558901c1ca847ba491caf68c95f812c95a47b13e`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- Bounded Switch table waits and strict IPv4 argument parsing already pass their exact-head L2 runs. New review found MAC/DIP/SIP clear commands still used a fixed 5ms sleep and never checked completion; THIS COMMIT routes them through the bounded MAC-table wait and adds source-ordering assertions.
+- XUPnPD WAN check PASS on `7b1a1ba` run `44141514745`. Process integration checker alignment is in parent `558901c`; its exact-head Process run `44141984432` was pending.
+- XY-C1 `44141514685` remains a build in progress on source `7b1a1ba`; no current-source Build/TRX/artifact PASS claim.
 
-- Product-source baseline: `7b1a1ba2e493d9603932322c772d44a27ebc4538`; THIS COMMIT updates a stale Process integration contract and records validation state. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
-- XUPnPD required directories, plugin/profile source and copy/link postconditions, stale PID/Lua cleanup and top-level Lua provisioning are checked before daemon launch. WAN host/source regression exact-head run `44141514745` PASS on `7b1a1ba`.
-- Process lifecycle run `44141514694` failed only because its checker still expected the removed root-directory validation call. THIS COMMIT requires the current `xupnpd_config_ensure_directory(dir_dst, 0755)` path; exact-head Process rerun pending.
-- Switch CLI IPv4 parser GNU89 sanitizer test PASS on `17916d64` (run `44140771106`). XY-C1 on `7b1a1ba` (run `44141514685`) was IN PROGRESS at last poll.
-- No local MIPS/uClibc firmware build or physical-router L4 is claimed.
-
-Next: verify exact-head Process integration after the contract correction and XY-C1 Build/TRX/artifact, then continue broad RC/userland lifecycle reliability.
+Next: verify Switch CLI and XY-C1 Actions for THIS COMMIT, then continue broad P1 reliability work.
 
 ---
 
