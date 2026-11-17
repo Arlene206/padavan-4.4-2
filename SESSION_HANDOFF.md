@@ -8,9 +8,9 @@
 - Other exact e533 passing checks: AdGuardHome `44200753176`, AliDDNS `44200753133`, infosvr `44200753219`, AliyunDrive `44200753204`. Do not infer firmware L3 from older SHAs.
 
 ## Active task
-- The Ralink IAPP firewall lifecycle source in `e5338402` is correct in using comment-tagged ownership for its TCP/UDP rules. The test first failed on stale rollback text; commit `8e92caa7` aligned that assertion.
-- The exact rerun `44201107917` still failed later because the UDP-publication rollback test expected an untagged `iptables -D` command, whereas the implementation deliberately deletes only the tagged IAPP-owned TCP rule. THIS repair aligns that assertion and restores the required "one atomic main commit" handoff contract string that the AI docs checker requires.
-- The previous Process regression run failed in the same lifecycle-checker path; its exact-head rerun must be checked after this fix.
+- IAPP firewall ownership implementation `e5338402` is present. The first rollback-log assertion was corrected in `8e92caa7`; the tagged TCP delete assertion and AI handoff literal contract were corrected in `a700cb6c`. Exact a700 IAPP run `44201354894` PASS and AI docs `44201354982` PASS.
+- Process lifecycle `44201354872`, XY-C1 `44201354975`, and NVRAM `44201355174` on a700 were still in progress at last poll.
+- THIS source slice fixes a separate static-IPoE teardown failure: when clearing the configured address fails, force the physical interface down, preserve clear/ifdown statuses, and continue teardown.
 
 ## Verification boundary
 - Parent e533 IAPP workflow `44200753434`: FAIL solely at the stale rollback log assertion after shell syntax passed.

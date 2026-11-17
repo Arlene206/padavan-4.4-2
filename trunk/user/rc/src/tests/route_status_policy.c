@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include "../route_status_policy.h"
+#include "service_start_status.h"
 
 static int
 apply_results(const int *results, size_t count, size_t *attempts)
@@ -53,12 +54,42 @@ test_wan_post_down_script_failure_is_reported_and_later_steps_continue(void)
 	assert(attempts == sizeof(teardown_steps) / sizeof(teardown_steps[0]));
 }
 
+static void
+test_static_ipoe_teardown_clear_failure_forces_interface_down(void)
+{
+	const int clear_failures[] = { -1, EIO, EBUSY };
+	int status;
+	int interface_down_attempts;
+	int i;
+
+	assert(!rc_wan_static_ipoe_clear_failure_requires_ifdown(0, EIO));
+	assert(!rc_wan_static_ipoe_clear_failure_requires_ifdown(1, 0));
+
+	for (i = 0; i < (int)(sizeof(clear_failures) / sizeof(clear_failures[0])); i++) {
+		status = 0;
+		interface_down_attempts = 0;
+		status = route_status_accumulate(status, clear_failures[i]);
+		if (rc_wan_static_ipoe_clear_failure_requires_ifdown(1, clear_failures[i])) {
+			interface_down_attempts++;
+			/* A force-down failure must not mask the original clear error. */
+			status = route_status_accumulate(status, EACCES);
+		}
+		assert(interface_down_attempts == 1);
+		assert(status == clear_failures[i]);
+	}
+
+	/* Successful static clear and dynamic-IPoE teardown do not force link down. */
+	assert(!rc_wan_static_ipoe_clear_failure_requires_ifdown(1, 0));
+	assert(!rc_wan_static_ipoe_clear_failure_requires_ifdown(0, EIO));
+}
+
 int
 main(void)
 {
 	test_static_mtu_failure_is_not_masked_by_later_success();
 	test_wan_post_script_failure_is_reported_and_later_steps_continue();
 	test_wan_post_down_script_failure_is_reported_and_later_steps_continue();
+	test_static_ipoe_teardown_clear_failure_forces_interface_down();
 	const int first_error[] = { 0, EIO, 0, ENETUNREACH };
 	const int negative_error[] = { 0, -1, 0, EPERM };
 	const int no_errors[] = { 0, 0, 0 };

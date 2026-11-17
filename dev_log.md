@@ -1,3 +1,12 @@
+## 2026-11-18 — Fail closed on static IPoE address cleanup during WAN teardown
+
+- Parent main SHA: `a700cb6c77cd7f12074950d2d92b96b297dd910a`; exact a700 IAPP `44201354894` PASS and AI handoff `44201354982` PASS. Process `44201354872`, XY-C1 `44201354975`, and NVRAM `44201355174` were in progress at last poll.
+- Found a distinct WAN-down edge: failure to clear a configured static IPoE address could leave the physical WAN interface administratively up with a stale address.
+- THIS slice forces interface-down on clear failure, aggregates/logs any force-down failure without masking the first clear error, and continues independent teardown.
+- Added GNU89 policy regression and source-order assertions. Exact-head WAN/XY-C1 checks pending. No local MIPS compile or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Align IAPP UDP rollback assertion and restore handoff contract token
 
 - Parent main SHA: `8e92caa7e3e3b6f66523c2fa6a051736d1030cc0`.

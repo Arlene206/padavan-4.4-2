@@ -2913,7 +2913,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	char *wan_addr, *wan_gate;
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
-	int status = 0, route_status;
+	int status = 0, route_status, interface_cleanup_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
 #endif
@@ -3000,9 +3000,15 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 		route_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
 		status = route_status_accumulate(status, route_status);
-		if (route_status != 0)
-			logmessage(LOGNAME, "failed to clear static WAN address on %s (error=%d)",
+		if (rc_wan_static_ipoe_clear_failure_requires_ifdown(1, route_status)) {
+			logmessage(LOGNAME, "failed to clear static WAN address on %s (error=%d); forcing interface down",
 				   wan_ifname, route_status);
+			interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);
+			status = route_status_accumulate(status, interface_cleanup_status);
+			if (interface_cleanup_status != 0)
+				logmessage(LOGNAME, "failed to take static WAN interface %s down after address cleanup failure (status=%d)",
+					   wan_ifname, interface_cleanup_status);
+		}
 	}
 
 	/* flush conntrack table (only old WAN IP records) */

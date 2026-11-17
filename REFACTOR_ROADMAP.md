@@ -1,16 +1,17 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS IAPP regression/AI contract repair: `8e92caa7e3e3b6f66523c2fa6a051736d1030cc0`.
-- Ralink IAPP lifecycle implementation `e5338402` tagged TCP/UDP 3517 rules and reconciles only tagged entries. First exact IAPP test failed on stale rollback wording; `8e92caa7` fixed that. Exact IAPP rerun `44201107917` then exposed a second stale assertion: UDP rollback expected an untagged delete command instead of the explicit `ralinkiappd-tcp` owner tag. THIS repair updates that assertion.
-- AI handoff run `44201108042` on `8e92caa7` failed because a wording edit removed the required literal `one atomic main commit`; THIS repair restores the checker contract.
-- Exact Process lifecycle rerun `44201108009` on `8e92caa7` is still in progress; the prior `e5338402` run failed at the shared IAPP checker test. NVRAM, XY-C1, AliDDNS, AliyunDrive checks on `8e92caa7` were still in progress at last poll.
-- Next: inspect exact-head IAPP, Process and AI results for THIS repair, plus NVRAM and XY-C1. Frozen backup unchanged; hardware L4 NOT VERIFIED.
+- Parent main before THIS static-IPoE WAN-down cleanup slice: `a700cb6c77cd7f12074950d2d92b96b297dd910a`.
+- IAPP exact run `44201354894` PASS and AI handoff `44201354982` PASS on `a700cb6c`; Process `44201354872`, XY-C1 `44201354975` and NVRAM `44201355174` were IN_PROGRESS at last poll.
+- THIS slice forces the physical WAN interface down when static-IPoE teardown cannot clear its address; original and force-down errors are both retained. GNU89 regression and source-order contract added; exact-head CI pending.
+- Factory-reset source `0d58928e` exact XY-C1 `44197454090` passed Build/TRX/artifact. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged; physical L4 NOT VERIFIED.
+
+Next: inspect exact-head WAN route/teardown and XY-C1 for this slice; recheck a700 Process/NVRAM/XY-C1, then continue cross-userland P1 work.
 
 ---
 
 ## Whole-repository module status
 
-- IAPP firewall ownership cleanup is committed at `e5338402`; this repair aligns the test to ownership-tagged deletion and restores the AI handoff wording token. Exact validation pending.
+- WAN static IPoE cleanup includes failed address-clear behavior on setup and EAPOL failure paths; THIS slice covers the separate teardown clear failure. Post-WAN up/down script return statuses are also captured. Exact verification pending.
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
 - THIS COMMIT fixes two more launcher/daemon mismatches: rstats daemonizes before allocation/PID-file publication; LLTD double-forks and calls setsid before PID publication/event loop. RC now preflights tri-state presence and verifies detached child RUNNING with bounded polls. Exact-head Process and XY-C1 pending.

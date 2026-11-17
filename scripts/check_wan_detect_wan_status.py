@@ -137,6 +137,48 @@ later_mwan_eval = down_hook.index(
     'route_status = eval("/usr/bin/detect.sh");', later_mwan_gate
 )
 down_return = down_hook.index("return status;", later_mwan_eval)
+
+
+static_down = down_hook.split(
+    "if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {", 1
+)[1].split("/* flush conntrack table", 1)[0]
+static_clear = static_down.index(
+    'route_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);'
+)
+static_accumulate = static_down.index(
+    "status = route_status_accumulate(status, route_status);", static_clear
+)
+force_down_gate = static_down.index(
+    "if (rc_wan_static_ipoe_clear_failure_requires_ifdown(1, route_status))",
+    static_accumulate,
+)
+force_down_call = static_down.index(
+    "interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);",
+    force_down_gate,
+)
+force_down_accumulate = static_down.index(
+    "status = route_status_accumulate(status, interface_cleanup_status);",
+    force_down_call,
+)
+force_down_failure = static_down.index(
+    "if (interface_cleanup_status != 0)", force_down_accumulate
+)
+require(
+    static_clear < static_accumulate < force_down_gate < force_down_call
+    < force_down_accumulate < force_down_failure,
+    "static WAN teardown address-clear failure must force interface-down and aggregate the result",
+)
+require(
+    "failed to clear static WAN address on %s (error=%d); forcing interface down" in static_down
+    and "failed to take static WAN interface %s down after address cleanup failure (status=%d)" in static_down,
+    "static WAN teardown clear and force-down failures must both be diagnosed",
+)
+require(
+    "test_static_ipoe_teardown_clear_failure_forces_interface_down" in ROUTE_STATUS_TEST
+    and "test_static_ipoe_teardown_clear_failure_forces_interface_down();" in ROUTE_STATUS_TEST,
+    "static WAN teardown failure must have a registered policy regression",
+)
+
 require(
     down_hook_guard < down_hook_eval < down_hook_merge < down_hook_failure
     < down_hook_log < later_mwan_gate < later_mwan_eval < down_return,
