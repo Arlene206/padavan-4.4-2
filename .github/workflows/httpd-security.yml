@@ -204,6 +204,8 @@ on:
       - "trunk/user/rc/src/dhcp_wan_route_transition_policy.h"
       - "trunk/user/rc/src/dnsmasq_domain_policy.h"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
+      - "trunk/user/rc/src/lan_dhcp_callback_policy.h"
+      - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
       - "trunk/user/rc/src/net_ppp.c"
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/vpn_client.c"
@@ -2337,6 +2339,8 @@ jobs:
           dnsmasq_file = (root / "dnsmasq_file.h").read_text()
           policy = (root / "dhcp_lease_policy.h").read_text()
           test = (root / "tests/dhcp_lease_policy.c").read_text()
+          lan_callback_policy = (root / "lan_dhcp_callback_policy.h").read_text()
+          lan_callback_test = (root / "tests/lan_dhcp_callback_policy.c").read_text()
           header = (root / "rc.h").read_text()
           rc_main = (root / "rc.c").read_text()
 
@@ -2408,7 +2412,13 @@ jobs:
           assert lan_bound.index("create_hosts_lan(lease_ip, lease_domain)") > lease_publish
           assert "hosts_status = create_hosts_lan(lease_ip, lease_domain);" in lan_bound
           assert "LAN lease applied but hostname files could not be published" in lan_bound
-          assert "return hosts_status;" in lan_bound
+          assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in lan_bound
+          assert "return hosts_status;" not in lan_bound
+          assert "lan_dhcp_bound_callback_status" in lan_callback_policy
+          assert "(void)ancillary_status;" in lan_callback_policy
+          assert "return transaction_status;" in lan_callback_policy
+          assert "lan_dhcp_bound_callback_status(0, EIO) == 0" in lan_callback_test
+          assert "lan_dhcp_bound_callback_status(ENOSPC, EIO) == ENOSPC" in lan_callback_test
           assert "int status, rollback_status = 0, hosts_status = 0;" in lan_bound
           hosts_writer_start = lan.index("static int\ncreate_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
           hosts_writer_end = lan.index("\nint\nupdate_hosts_ap(", hosts_writer_start)

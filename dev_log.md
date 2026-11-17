@@ -1,3 +1,13 @@
+## 2026-11-17 — Align HTTPD DHCP contract with committed lease callback status
+
+- Parent main SHA: `ee3cbaf4342d90e65978a9211bd279a6d21373ba`; result: THIS COMMIT.
+- Exact-head HTTPD run `44101239302` failed at its stale source assertion requiring `return hosts_status;`. The production fix in `ee3cbaf` now returns `lan_dhcp_bound_callback_status(0, hosts_status)`, correctly keeping a committed DHCP lease successful when only ancillary hostname/hosts publication fails.
+- Updated the HTTPD static contract to verify that post-commit ancillary failure is ignored, core transaction failure remains fatal, and the GNU89 sanitizer regression covers both outcomes. Added the helper/test files to both HTTPD workflow path filters.
+- Exact-head WAN DHCP callback run `44101239234` on `ee3cbaf` passed, including the ASan/UBSan callback regression and source contract. HTTPD rerun and AI handoff docs are triggered by this workflow/documentation-only follow-up; XY-C1 run `44101239264` on the unchanged firmware source was still IN_PROGRESS at checkpoint.
+- Local host execution NOT RUN in this connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Keep committed LAN DHCP lease aligned with BusyBox
 
 - Parent main SHA: `d4f64127749f78e463bb82541e3e1b73fc5d4992`; result: THIS COMMIT.
