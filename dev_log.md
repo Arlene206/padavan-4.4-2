@@ -1,3 +1,12 @@
+## 2026-11-17 — Align DDNSTO source checker with the numeric mock PID
+
+- Base main SHA: `e5d3cdfdca314e8d8b548c5b5c2a990a6f67d226`; result: THIS COMMIT.
+- Exact DDNSTO run `44013905030` passed both shell syntax checks and all production-linked lifecycle tests, including the delayed startup readiness and the post-cleanup process-state regressions. The Python source checker then failed because its fake PID assertion still expected `echo $`; the current mock daemon intentionally publishes its real PID using `echo $$`.
+- Updated the semantic checker to match the actual numeric PID fixture. No production source or shell test behavior changed.
+- On `e5d3cdfd`, Process inventory, AI docs, infosvr, AliyunDrive, AdGuardHome and AliDDNS passed; same-SHA XY-C1 firmware and NVRAM remained in progress at last poll. Local execution was NOT RUN; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Repair DDNSTO source checker and add firmware trigger
 
 - Base main SHA: `e48aca6bcd346f4813b6edb22974cb366423e340`; result: THIS COMMIT.
