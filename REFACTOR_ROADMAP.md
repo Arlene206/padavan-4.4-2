@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- xl2tpd status semantics are normalized: 0 = launched, 1 = already running, -1 = failure/unknown. The VPN server restore caller accepts the already-running sentinel and rejects only negative results.
-- Exact parent `830d56c`: NVRAM `43994914119`, AliyunDrive `43994914128`, Process lifecycle `43994914203`, AdGuardHome `43994914137`, infosvr `43994914142`, and AliDDNS `43994914157` PASS. AI handoff `43994914093` failed solely because the handoff lacked the exact `Before context exhaustion` marker; this documentation-only follow-up adds it.
-- The f943 source commit's XY-C1 `43994632505` was still building. Same-SHA Build/TRX/artifact validation for the current source tree remains NOT VERIFIED until all stages pass together. Physical-router L4 remains NOT VERIFIED; backup remains frozen.
+- NVRAM SET, COMMIT and CLEAR ioctl wrappers now propagate `/dev/nvram` close failures instead of returning false success; the primary ioctl errno wins if close also fails. Host regression and source-contract checks are added.
+- Exact-head a7e3 AI handoff, Process fail-closed, infosvr, AdGuardHome, AliDDNS and AliyunDrive passed. NVRAM `43995311260` was still auditing kernel API callers. XY-C1 `43994632505` remained at Build for source SHA f943, not same-head validation for docs-only a7e3.
+- Current-source MIPS/uClibc Build/TRX/artifact L3 remains NOT VERIFIED for the post-f943 source tree; physical-router L4 remains NOT VERIFIED. Frozen backup remains read-only.
 
 ## Whole-repository module status
 

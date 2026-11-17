@@ -30,6 +30,7 @@
 
 #include "nvram_linux.h"
 #include "nvram_transaction_lock.h"
+#include "nvram_ioctl_close_policy.h"
 
 #define PATH_DEV_NVRAM	"/dev/nvram"
 
@@ -106,6 +107,25 @@ nvram_get_checked_unlocked(const char *name, char **value)
 	}
 
 	return (*value != NULL) ? 1 : 0;
+}
+
+
+static int
+nvram_finish_ioctl(int nvram_fd, int ioctl_result, int ioctl_errno)
+{
+	int close_result, close_errno, result_errno;
+
+	close_result = close(nvram_fd);
+	close_errno = (close_result < 0) ? errno : 0;
+	ioctl_result = nvram_ioctl_close_status(ioctl_result, ioctl_errno,
+						close_result, close_errno,
+						&result_errno);
+	if (ioctl_result < 0) {
+		errno = result_errno;
+		perror(PATH_DEV_NVRAM);
+		errno = result_errno;
+	}
+	return ioctl_result;
 }
 
 
@@ -255,7 +275,8 @@ nvram_getall(char *buf, int count, int include_temp)
 static int
 nvram_set_unlocked(const char *name, const char *value, int is_temp)
 {
-	int ret, nvram_fd;
+
+	int ret, nvram_fd, saved_errno;
 	anvram_ioctl_t nvr;
 
 	if (!name || !*name || is_temp < 0 || is_temp > 1) {
@@ -279,12 +300,9 @@ nvram_set_unlocked(const char *name, const char *value, int is_temp)
 		nvr.len_value = strlen(value);
 
 	ret = ioctl(nvram_fd, NVRAM_IOCTL_SET, &nvr);
-	if (ret < 0)
-		perror(PATH_DEV_NVRAM);
+	saved_errno = errno;
+	return nvram_finish_ioctl(nvram_fd, ret, saved_errno);
 
-	close(nvram_fd);
-
-	return ret;
 }
 
 
@@ -356,7 +374,8 @@ nvram_invmatch(const char *name, char *invmatch)
 static int
 nvram_commit_unlocked(void)
 {
-	int ret, nvram_fd;
+
+	int ret, nvram_fd, saved_errno;
 
 	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
 	if (nvram_fd < 0) {
@@ -365,12 +384,9 @@ nvram_commit_unlocked(void)
 	}
 
 	ret = ioctl(nvram_fd, NVRAM_IOCTL_COMMIT, 0);
-	if (ret < 0)
-		perror(PATH_DEV_NVRAM);
+	saved_errno = errno;
+	return nvram_finish_ioctl(nvram_fd, ret, saved_errno);
 
-	close(nvram_fd);
-
-	return ret;
 }
 
 
@@ -389,7 +405,8 @@ nvram_commit(void)
 static int
 nvram_clear_unlocked(void)
 {
-	int ret, nvram_fd;
+
+	int ret, nvram_fd, saved_errno;
 
 	nvram_fd = open(PATH_DEV_NVRAM, O_RDWR);
 	if (nvram_fd < 0) {
@@ -398,12 +415,9 @@ nvram_clear_unlocked(void)
 	}
 
 	ret = ioctl(nvram_fd, NVRAM_IOCTL_CLEAR, 0);
-	if (ret < 0)
-		perror(PATH_DEV_NVRAM);
+	saved_errno = errno;
+	return nvram_finish_ioctl(nvram_fd, ret, saved_errno);
 
-	close(nvram_fd);
-
-	return ret;
 }
 
 

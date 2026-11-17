@@ -1,3 +1,13 @@
+## 2026-11-17 — Propagate NVRAM ioctl file-descriptor close failures
+
+- Base main SHA: `a7e3eda16eca5d20701a0240287ebecffed443d7`; result: THIS COMMIT.
+- Audit finding: `nvram_set_unlocked()`, `nvram_commit_unlocked()` and `nvram_clear_unlocked()` returned the ioctl result while ignoring `close(/dev/nvram)`. A successful ioctl followed by a close error was therefore exposed to callers as success. If ioctl and close both failed, the close could also overwrite the primary ioctl errno.
+- Added a pure result policy: ioctl failure has precedence; close failure converts an otherwise successful operation to failure; absent errno values fail closed with EIO. Applied it to SET/COMMIT/CLEAR through one fd-finishing helper. Added host regression cases and made the NVRAM workflow compile/run them; the source audit now pins all three callsites.
+- Exact-head a7e3 AI handoff `43995311437`, Process fail-closed `43995311251`, infosvr `43995311336`, AdGuardHome `43995311368`, AliDDNS `43995311339`, and AliyunDrive `43995311301` PASS. NVRAM `43995311260` was still scanning kernel callers. XY-C1 run `43994632505` remained in Build on source SHA f943, not a same-head validation for docs-only a7e3.
+- This source repair is not locally cross-built because no complete firmware checkout/toolchain is mounted. New exact-head NVRAM and XY-C1 Build/TRX/artifact checks must pass before updating the L3 verification status; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Complete the mandatory handoff checkpoint contract
 
 - Base main SHA: `830d56c243ea0c220ede0b32762b723fccf83a69`; result: THIS COMMIT.

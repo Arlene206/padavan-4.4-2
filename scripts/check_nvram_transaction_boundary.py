@@ -207,6 +207,39 @@ def run() -> int:
             "raw /dev/nvram or NVRAM_IOCTL access exists outside the locked shared adapter"
         )
 
+    # A successful SET/COMMIT/CLEAR must not hide an fd close failure;
+    # when ioctl and close both fail, retain the primary ioctl errno.
+    close_policy_path = ROOT / "trunk/user/shared/src/nvram_ioctl_close_policy.h"
+    close_policy_test_path = ROOT / "trunk/user/shared/src/tests/nvram_ioctl_close_policy.c"
+    close_policy = close_policy_path.read_text(encoding="utf-8", errors="replace")
+    close_policy_test = close_policy_test_path.read_text(encoding="utf-8", errors="replace")
+    for marker in (
+        "ioctl_status < 0",
+        "close_status < 0",
+        "ioctl_errno ? ioctl_errno : EIO",
+        "close_errno ? close_errno : EIO",
+    ):
+        if marker not in close_policy:
+            failures.append("NVRAM ioctl/close policy is missing " + marker)
+    for marker in (
+        "test_success_requires_successful_close",
+        "test_ioctl_error_takes_precedence_over_close_error",
+        "test_missing_error_values_fail_closed",
+        "NVRAM ioctl/close error precedence regression: PASS",
+    ):
+        if marker not in close_policy_test:
+            failures.append("NVRAM ioctl/close host regression is missing " + marker)
+    try:
+        finish_body = extract_function(adapter, "nvram_finish_ioctl")
+        if "nvram_ioctl_close_status" not in finish_body:
+            failures.append("NVRAM fd close result is not evaluated")
+        for function in ("nvram_set_unlocked", "nvram_commit_unlocked", "nvram_clear_unlocked"):
+            body = extract_function(adapter, function)
+            if "nvram_finish_ioctl(nvram_fd, ret, saved_errno)" not in body:
+                failures.append(f"{function} does not propagate close failure and ioctl errno")
+    except ValueError as error:
+        failures.append("NVRAM ioctl/close source contract: " + str(error))
+
     # Verify public shared-library operations hold the flock around each ioctl.
     wrapper_contracts = (
         ("nvram_get_checked", "1", "nvram_get_checked_unlocked"),

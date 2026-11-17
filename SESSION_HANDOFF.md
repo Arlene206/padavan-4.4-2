@@ -8,18 +8,15 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-Before context exhaustion, finish the current safe slice, record exact-SHA validation and the precise next action, then publish completed work atomically.
-
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current source parent for the IPv6 neighbour-cleanup slice: `79ba2d6f818d0cb541032b3440834b883b1e531d`.
-- IPv6 per-interface route/address/neighbour cleanup uses argv-based `eval()`. This slice adds neighbour flushing during native startup rollback when route/address side effects occurred, and during normal WAN teardown between route and address cleanup. Teardown neighbour failures are logged and included in first-error aggregation, preventing saved WAN IPv6 state from being cleared after incomplete cleanup.
-- PPP probe/custom WAN hook operands in `net_wan.c`, L2TP/mwan process launches in `net_ppp.c`, and SIT/native WAN IPv6 tunnel/route operations use argv-based `eval()`; PPP lifecycle locks and DHCPv6 callback-generation fencing remain.
-- Exact-head parent `79ba2d6f818d0cb541032b3440834b883b1e531d`: VPN, Firewall, HTTPD, infosvr, AdGuardHome, AliyunDrive, main Process inventory, AliDDNS, OpenVPN credential and NVRAM passed; AI handoff failed because the exact mandatory checkpoint phrase was absent, and Process fail-closed failed because its source contract still expected the old `restore_status != 0` after the implementation correctly changed to `restore_status < 0`. XY-C1 was pending. These checker/documentation failures are corrected in this follow-up. Parent `b9850f9917a6eb77b7c6d021abe75c88b4ca444c` passed VPN lifecycle, AI handoff, infosvr, WAN DHCP, Process inventory, AliyunDrive, HTTPD, WAN route, AdGuardHome, AliDDNS and Process fail-closed checks; NVRAM and XY-C1 were pending.
-- Same-SHA product build L3 is verified for predecessor `f87343b7e7a2da599c16baf1192ec1561dc44a9b`: XY-C1 Build, TRX verification and artifact upload all PASS (run `43992613368`, job `133736749350`). Later source SHAs require their own full Build/TRX/artifact verification. Physical-router L4 remains NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; current main/source parent for this NVRAM slice: `a7e3eda16eca5d20701a0240287ebecffed443d7`.
+- PPP/L2TP argv-based launch and xl2tpd result normalization are complete; VPN server restore accepts status 1 (already running) and fails only for negative status.
+- IPv6 native rollback and WAN teardown flush neighbour entries between route and address cleanup; regression coverage is present on source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06`.
+- Exact-head a7e3 AI handoff `43995311437`, Process fail-closed `43995311251`, infosvr `43995311336`, AdGuardHome `43995311368`, AliDDNS `43995311339`, and AliyunDrive `43995311301` PASS. NVRAM `43995311260` was auditing kernel API callers. XY-C1 `43994632505` was still in Build on f943, so that run is not same-head verification for docs-only a7e3.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Verify the exact-head Actions for the VPN restore-status correction and its documentation/test follow-up. Resolve the known process-integration assertion drift and handoff wording failure. Then verify the IPv6 neighbour-cleanup change and same-SHA XY-C1 Build/TRX/artifact.
+Audit NVRAM adapter result handling. This slice fixes the previously ignored `close()` results after SET, COMMIT and CLEAR ioctls. Verify the new pure policy regression, source contract and exact-head NVRAM workflow; then verify same-SHA XY-C1 Build/TRX/artifact on a source commit.
 
 ## Verification boundary
 
@@ -29,6 +26,7 @@ Verify the exact-head Actions for the VPN restore-status correction and its docu
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head Actions for current main, especially WAN DHCP, WAN route, Process, Firewall, VPN and XY-C1. Fix the first causal regression from the specific job log.
-2. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload. Continue safe PPP/L2TP teardown review while builds are pending.
-3. Keep backup frozen and developer-log history intact; use one complete Git tree and non-forced expected-SHA main updates.
+1. Fetch exact-head NVRAM workflow and inspect its kernel API caller inventory; triage any concrete raw ioctl or unsafe caller.
+2. Confirm the new close-status host test and `check_nvram_transaction_boundary.py` pass on the commit SHA.
+3. Confirm XY-C1 Build, TRX verification and artifact upload on one source SHA; if pending, continue an independent source issue.
+4. Preserve the backup and log history; make one complete Git tree/commit and update main with a non-forced expected-SHA compare-and-swap.
