@@ -9,7 +9,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `bb427148c3367bdb69139ca493caf6e2ffe193ed`.
+- Current main: THIS COMMIT; parent `038b2aa97c48a5003a0ccea4f4e368595c582846`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -23,20 +23,19 @@ Every logical multi-file change must be published as one complete Git tree and o
 - No full local repository checkout or MIPS toolchain is available. The PPPoE-MWAN host Bash syntax and mock-command regression were run locally and passed. Physical-router L4 remains NOT VERIFIED.
 - Parent main `5525430a2ee5ff16f3d5b84912cd183e195808df` had 22/22 exact-head `push` Actions successful before its descendant source slices. WAN route run `44039076856` passed; XY-C1 run `44039076948` completed Build XY-C1, TRX output verification and artifact upload successfully.
 - Gateway ARP checker launch failure propagation landed in parent `ac9b8936`: after a clean ABSENT process scan, `eval("detect_wan")` is captured, aggregated and logged. A later poll found 21/22 exact-head push runs SUCCESS with no failures; XY-C1 `44041394404` was still building.
-- Parent `9722f273` implemented UNKNOWN inventory error propagation; its WAN route semantic-check ordering issue was repaired by `d20696fc`, whose exact-head selected push Actions then completed 8/8 SUCCESS. Physical WAN initial-MTU failure propagation landed in `bb427148`; its WAN route `44043948927`, Process lifecycle `44043948999`, AI handoff `44043949051`, WAN teardown `44043949040`, ZeroTier `44043949034`, WAN ARP probe `44043949028`, and several other stability/security jobs passed. The WAN DHCP callback workflow `44043948977` failed only in a brace-format-sensitive inline checker; THIS COMMIT repairs that test boundary. XY-C1 `44043949016` was still installing dependencies at last poll; Build/TRX/artifact pending.
+- Parent `9722f273` implemented UNKNOWN inventory error propagation; its WAN route semantic-check ordering issue was repaired by `d20696fc`, whose exact-head selected push Actions then completed 8/8 SUCCESS. Physical WAN initial-MTU failure propagation landed in `bb427148`; its WAN route `44043948927`, Process lifecycle `44043948999`, AI handoff `44043949051`, WAN teardown `44043949040`, ZeroTier `44043949034`, WAN ARP probe `44043949028`, and several other stability/security jobs passed. WAN DHCP callback run `44043948977` failed at a literal brace boundary; descendant `038b2aa9` replaced it with a DHCP-launch delimiter, but run `44044646933` showed that marker was still outside the helper's extracted substring. THIS COMMIT removes the unnecessary branch-end search and keeps the ordering assertion. XY-C1 `44043949016` for source `bb427148` was still building at last poll; TRX/artifact pending.
 
 ## Active task
 
-1. Verify exact-head WAN DHCP callback contract after this boundary-checker repair, then confirm WAN route, Process and AI docs jobs; inspect XY-C1 `44043949016` through Build/TRX/artifact.
-2. Continue the bounded WISP migration review in `config_apcli_wisp()`: confirm whether a successful administrative-down fallback after failed IPv4 clearing is an acceptable fail-closed state; trace the ifconfig ioctl semantics and interface reuse before changing it.
+1. Verify the simplified WAN DHCP callback semantic check on THIS COMMIT's exact-head run; then verify Process inventory and inspect the `bb427148` XY-C1 run `44043949016` through TRX/artifact.
+2. Continue the bounded WISP migration review in `config_apcli_wisp()`; document whether down-only fallback intentionally permits stale addresses before implementing any behavioral change.
 3. Work only on `main`, preserve the frozen backup, and publish each logical multi-file slice as one tree/commit with a non-forced expected-SHA update.
 
 ## Verification boundary
 
-- Exact main source slice `bb427148c3367bdb69139ca493caf6e2ffe193ed`: WAN route `44043948927` PASS (includes the new initial-MTU source contract); Process lifecycle `44043948999` PASS; AI handoff `44043949051` PASS; other exact-head stability/security jobs include WAN teardown, ZeroTier, WAN ARP probe, VPN server, DNSMasq, firewall and Process inventory (inventory still running at last poll).
-- WAN DHCP callback `44043948977` failed in an inline semantic checker at a literal brace-delimited slice, not in the build or production code. THIS COMMIT changes its boundary to the DHCP-launch operation; rerun required.
-- XY-C1 for `bb427148`, run `44043949016`, was still installing dependencies at last poll; product Build, TRX verification and artifact upload pending. No claim of product-source firmware pass for this slice.
-- Parent `d20696fc` exact-head selected push Actions: 8/8 SUCCESS; its prior XY-C1 for source `9722f273` was still building at last poll.
+- Source commit `bb427148c3367bdb69139ca493caf6e2ffe193ed`: WAN route `44043948927` PASS including the new initial-MTU contract; Process lifecycle `44043948999` PASS; AI handoff `44043949051` PASS; several other exact-head stability/security jobs passed. WAN DHCP callback `44043948977` failed only in a source-checker slice boundary, not compilation or production code.
+- Checker-only descendant `038b2aa97c48a5003a0ccea4f4e368595c582846`: first replacement boundary still failed at WAN DHCP callback run `44044646933`; THIS COMMIT removes the unnecessary boundary. Process inventory `44044646785` was still running at last poll.
+- XY-C1 for production-source `bb427148`, run `44043949016`, remained in progress at last poll; Build XY-C1/TRX/artifact status not yet final.
 - No full local repository checkout or MIPS toolchain is available. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT

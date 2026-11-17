@@ -1,3 +1,12 @@
+## 2026-11-17 — Remove the remaining brittle WAN DHCP source-slice boundary
+
+- Parent main SHA: `038b2aa97c48a5003a0ccea4f4e368595c582846`; result: THIS COMMIT.
+- The first checker-only repair removed the literal `"} else {"` search but the exact-head WAN DHCP callback run `44044646933` still raised `ValueError: substring not found` on the replacement DHCP-launch delimiter. The inline source-slice helper did not reliably expose that later boundary.
+- Removed the unnecessary branch-end slice altogether. The contract starts at the unique `We are done configuration` marker and still requires static WAN-up to precede UPnP update; no brace or downstream DHCP marker is needed for this assertion.
+- Exact-head `bb427148` WAN route `44043948927` and Process lifecycle `44043948999` passed. XY-C1 `44043949016` remained in progress at last poll; Build/TRX/artifact pending. The WAN DHCP callback exact-head rerun is pending. Router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Make WAN DHCP callback source contract independent of brace formatting
 
 - Parent main SHA: `bb427148c3367bdb69139ca493caf6e2ffe193ed`; result: THIS COMMIT.
