@@ -31,10 +31,17 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify this commit's exact-head Process guest-isolation and Wireless radio regression.
-2. Continue guest Wi-Fi lifecycle audit for remaining unchecked interface-state and bridge ownership decisions in startup/restart paths.
-3. Keep physical-router L4 marked NOT VERIFIED until actual hardware validation is recorded.
+- Source baseline: `801d1bbfaf66448ea98a4f6ef0371f53da9c8ac5` (guest interface-state control fix).
+- Exact-head failures: Wireless radio `44069490310` and Process lifecycle `44069490305`; both failed at stale source-contract assertion `scripts/check_guest_lan_isolation_status.py:110`, which expected direct `get_interface_flags()` in rollback callbacks. Production callbacks correctly use `wireless_guest_interface_state_checked()`; the compiled guest-isolation policy regression passed before this assertion.
+- Exact-head successes: watchdog `44069490253`, iNIC `44069490242`, HTTPD `44069491214`, AdGuardHome `44069491065`, infosvr `44069490240`, AliyunDrive `44069490313`, Process inventory `44069490237`, AliDDNS `44069490291`, AI handoff `44069491442`.
+- Exact-head pending: XY-C1 `44069490610`, NVRAM `44069490286`.
+- Additional defect fixed in this commit: `restart_guest_lan_isolation()` used unchecked `is_interface_up()` for guest bridge ports, silently treating ioctl inspection errors as DOWN. All three state reads now use the checked reader and record errors while continuing independent work. The source contract now checks those reads and rollback callback usage.
+- Existing GNU89/ASan/UBSan policy regression covers negative flags, unchanged output on error, DOWN, UP and NULL output.
+- Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains NOT VERIFIED; no local MIPS/uClibc toolchain is available.
 
+## Exact first action for the next GPT
+
+Fetch live main and exact-head push Actions for this source commit. Confirm Wireless radio and Process lifecycle checks pass, and inspect XY-C1 Build/TRX/artifact status for the same SHA. Then continue auditing unchecked Wi-Fi interface-state decisions in startup/restart and RT3352 MII/iNIC/DBDC paths.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.

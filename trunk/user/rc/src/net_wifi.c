@@ -1860,6 +1860,8 @@ restart_guest_lan_isolation(void)
 	int is_ap_mode = get_ap_mode();
 	int cleanup_status = 0;
 	int operation_status;
+	int state_status;
+	int interface_is_up = 0;
 	const char *rt_ifname_guest = IFNAME_2G_GUEST;
 	wireless_guest_isolation_status_t status;
 #if BOARD_HAS_5G_RADIO
@@ -1869,7 +1871,11 @@ restart_guest_lan_isolation(void)
 	wireless_guest_isolation_status_reset(&status);
 #if BOARD_HAS_5G_RADIO
 	bp_isolate = 0;
-	if (is_interface_up(wl_ifname_guest)) {
+	state_status = wireless_guest_interface_state_checked(wl_ifname_guest,
+							      &interface_is_up);
+	wireless_guest_isolation_record(&status,
+		"inspect 5GHz guest AP state for LAN isolation", state_status);
+	if (state_status == 0 && interface_is_up) {
 		if (nvram_wlan_get_int(1, "guest_lan_isolate")) {
 			if (!is_ap_mode)
 				bp_isolate = 1;
@@ -1883,7 +1889,11 @@ restart_guest_lan_isolation(void)
 #endif
 
 	bp_isolate = 0;
-	if (is_interface_up(rt_ifname_guest)) {
+	state_status = wireless_guest_interface_state_checked(rt_ifname_guest,
+							      &interface_is_up);
+	wireless_guest_isolation_record(&status,
+		"inspect 2.4GHz guest AP state for LAN isolation", state_status);
+	if (state_status == 0 && interface_is_up) {
 		if (nvram_wlan_get_int(0, "guest_lan_isolate")) {
 			if (!is_ap_mode)
 				bp_isolate = 1;
@@ -1896,7 +1906,11 @@ restart_guest_lan_isolation(void)
 	if (is_ap_mode)
 		is_need_ebtables &= ~0x01;
 #endif
-	if (is_interface_up(rt_ifname_guest)) {
+	state_status = wireless_guest_interface_state_checked(rt_ifname_guest,
+							      &interface_is_up);
+	wireless_guest_isolation_record(&status,
+		"inspect 2.4GHz/iNIC guest bridge port state", state_status);
+	if (state_status == 0 && interface_is_up) {
 		operation_status = brport_set_param_int(rt_ifname_guest, "isolate_mode", bp_isolate);
 		wireless_guest_isolation_record(&status, "set 2.4GHz/iNIC guest bridge isolate_mode",
 					operation_status);

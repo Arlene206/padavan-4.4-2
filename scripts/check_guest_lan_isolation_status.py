@@ -83,6 +83,14 @@ for token in (
     assert token in isolation_body, token
 assert "if (cleanup_status == 0)" in isolation_body
 assert "return wireless_guest_isolation_status_result(&status);" in isolation_body
+assert isolation_body.count("wireless_guest_interface_state_checked(") == 3
+assert "is_interface_up(" not in isolation_body
+for diagnostic in (
+    "inspect 5GHz guest AP state for LAN isolation",
+    "inspect 2.4GHz guest AP state for LAN isolation",
+    "inspect 2.4GHz/iNIC guest bridge port state",
+):
+    assert diagnostic in isolation_body
 assert "failed_operations=%u" in isolation_body
 
 for signature, finish_label in (
@@ -107,7 +115,7 @@ for signature, finish_label in (
 bring_down = function_body(wifi, "wireless_guest_rollback_bring_down(void *context)")
 verify_down = function_body(wifi, "wireless_guest_rollback_verify_down(void *context)")
 for callback in (bring_down, verify_down):
-    assert "get_interface_flags(rollback->ifname_ap)" in callback
+    assert "wireless_guest_interface_state_checked(rollback->ifname_ap," in callback
     assert "wireless_guest_isolation_link_state(interface_flags, IFF_UP," in callback
     assert "if (status != 0)" in callback
 assert "is_interface_up(rollback->ifname_ap)" not in bring_down

@@ -1,3 +1,12 @@
+## 2026-11-17 — Propagate guest bridge interface-state inspection failures
+
+- Parent main SHA: `801d1bbfaf66448ea98a4f6ef0371f53da9c8ac5`; source and source-contract correction committed atomically in THIS COMMIT.
+- `restart_guest_lan_isolation()` used `is_interface_up()` for 5GHz guest, 2.4GHz guest-policy input and the actual 2.4GHz/iNIC bridge port. Failed interface-flags ioctls were treated as DOWN, silently skipping isolation configuration.
+- Replaced all three reads with `wireless_guest_interface_state_checked()`; record inspection errors and skip only the operation whose state is unknown while continuing independent band/cleanup work.
+- Updated the source checker: rollback callbacks already use the shared checked reader; prior exact-head Wireless run `44069490310` and Process run `44069490305` failed on the stale assertion at line 110, after compiled policy regression passed. New exact-head runs must verify the corrected contract.
+- Parent XY-C1 `44069490610` and NVRAM `44069490286` were pending; recheck against this commit. No L3/L4 claim.
+
+---
 ## 2026-11-17 — Use checked interface state throughout guest controls
 
 - Parent main SHA: `5c5300876827a62a99bd2d5ac82d98853b5a230d`; result: THIS COMMIT.
