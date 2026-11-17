@@ -1,3 +1,9 @@
+## 2026-11-18 — Fix stale Process regression output marker
+
+- Parent main SHA: `989409e1a02a92ea5018f3550d52d75c33b028f8`.
+- Exact Process lifecycle run `44164998210` compiled and ran the expanded GNU89 process-presence policy binary successfully. Its shared integration checker passed prior contracts, then failed only because its legacy assertion at line 1015 expected `Process presence start/notify tri-state policy: PASS`, while the test now prints `Process presence start/notify and detached-daemon postcondition policy: PASS`.
+- Correct the exact expected test output. This follow-up changes checker/handoff/roadmap only; no production source changes. Re-run the Process checker on the exact SHA.
+
 ## 2026-11-18 — Verify BusyBox Telnetd after detached launch
 
 - Parent main SHA: `34c02687139afc6db6484c2eb888cca2f8f01612`; THIS COMMIT updates RC startup, shared process-presence policy/test, the Process integration checker/workflow path filter, and the handoff/roadmap.

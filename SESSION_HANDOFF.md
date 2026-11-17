@@ -1,25 +1,23 @@
-# 2026-11-18 continuation checkpoint — verify daemonized Telnetd startup
+# 2026-11-18 continuation checkpoint — close Telnetd Process checker regression
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `34c02687139afc6db6484c2eb888cca2f8f01612`.
-- Main-only complete-tree commits with expected-SHA, non-forced ref updates. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
-- Storage raw swap-only physical-eject retry is L2 verified: USB storage `44160609520` PASS on `dec7924`, HTTPD storage integration `44159705825` PASS on `9cf66b7`; XY-C1 product-source SHA `fb99c2a` passed Build/TRX/artifact `44159082732`. NVRAM audit `44160609797` passed on `dec7924`.
-- On exact SHA `34c0268`, Networkmap `44163174212`, Process lifecycle `44163173313`, HTTPD daemon `44163173359`, infosvr `44163173874`, SkipDBv2 `44163173539`, USB storage `44163176401`: SUCCESS. XY-C1 `44163173638` and NVRAM `44163173644` were in progress at last poll.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA: `989409e1a02a92ea5018f3550d52d75c33b028f8`.
+- Main-only complete-tree commits, expected-SHA, non-forced updates. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
+- THIS commit is a checker-only correction. Telnetd GNU89 unit compile/run succeeded in exact-head Process run `44164998210`, and the integration checker passed its earlier sections. The Process workflow failed only because it expected the old PASS-line string at `scripts/check_process_lifecycle_integration.py:1015`; THIS follow-up updates that exact expected text to match the new test output.
 
-## Active task — daemonized BusyBox Telnetd startup postcondition
-- BusyBox `telnetd_main()` calls `bb_daemonize_or_rexec()` by default when `-F` is absent, then binds/listens. RC `start_telnetd()` runs `eval("telnetd")` without `-F`; its parent can report success while the detached child fails (for example, port bind or post-fork session setup).
-- THIS COMMIT adds bounded post-launch process inventory: one-second initial wait, four probes, one-second retry interval. Only confirmed RUNNING returns success; UNKNOWN returns failure with the scan errno; ABSENT after all probes returns `ETIMEDOUT`; a nonzero launcher status is preserved. Existing disabled-service and pre-launch tri-state behavior remain unchanged.
-- The shared process-presence header and GNU89 regression test cover RUNNING/ABSENT/UNKNOWN/invalid results and launcher-status preservation. The Process checker verifies BusyBox daemonize-before-bind ordering and launch/wait/inventory/postcondition ordering; its push and PR filters now include BusyBox `telnetd.c`.
+## Active task — verify checker-only repair
+- Previous commit: `989409e1a02a92ea5018f3550d52d75c33b028f8` — `fix(telnetd): verify detached startup postcondition`.
+- Telnetd startup code verifies BusyBox's detached child after launching with default daemon mode: one-second initial wait, four process inventory probes, UNKNOWN fails closed with errno, ABSENT after all probes times out, launcher error preserved. BusyBox source proves daemonization precedes bind/listen. GNU89 policy compile/run was successful.
+- Failed check was a stale source-checker assertion only; THIS COMMIT does not change production code or test behavior.
 
 ## Verification boundary
-- Parent `34c0268`: Networkmap `44163174212`, Process lifecycle `44163173313`, HTTPD daemon `44163173359`, infosvr `44163173874`, SkipDBv2 `44163173539`, USB storage `44163176401`: SUCCESS. XY-C1 `44163173638` and NVRAM `44163173644` were pending at last poll.
-- Exact-head Process and XY-C1 checks for THIS COMMIT are pending.
-- No local MIPS/uClibc toolchain or router is available; physical L4 remains NOT VERIFIED.
+- Exact SHA `989409e`: Process inventory `44164998354` PASS; Process lifecycle umbrella `44164998210` FAIL solely at the obsolete expected PASS output marker after the GNU89 unit had passed; XY-C1 `44164998281`, USB storage `44164998300`, and NVRAM `44164998225` were IN_PROGRESS at last poll.
+- The checker-only fix needs fresh exact-head Process validation; XY-C1 current-source Build/TRX/artifact also needs confirmation. No target router L4 result is claimed.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA Process lifecycle, HTTPD, and XY-C1 runs for this commit; fix only issues supported by exact logs.
-2. Resolve previous `34c0268` XY-C1 and NVRAM runs independently.
-3. Continue DHCP leasefail/NAK/release semantics or firewall/NAT caller-status gaps. Keep backup immutable; do not repeat completed storage, Networkmap or infosvr fixes.
+1. Inspect exact-SHA Process lifecycle and XY-C1 results for THIS checker fix; if Process fails again, read exact log and repair only the failing assertion.
+2. Poll/resolve parent `989409e` XY-C1, USB storage and NVRAM if not already completed.
+3. Continue independent DHCP leasefail/NAK/release semantics or firewall/NAT caller-status propagation; do not repeat storage, Infosvr or Networkmap audits.
 
 # Cross-session execution mandate
 

@@ -1012,7 +1012,7 @@ assert "PROCESS_PRESENCE_UNKNOWN" in process_inventory_header
 for token in ("PROCESS_PRESENCE_ABSENT", "PROCESS_PRESENCE_RUNNING",
               "PROCESS_PRESENCE_UNKNOWN", "(enum process_presence)7"):
     assert token in presence_test
-assert "Process presence start/notify tri-state policy: PASS" in presence_test
+assert "Process presence start/notify and detached-daemon postcondition policy: PASS" in presence_test
 for path in (
     "trunk/user/rc/src/detect_internet.c",
     "trunk/user/rc/src/detect_link.c",

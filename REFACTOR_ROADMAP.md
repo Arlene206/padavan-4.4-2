@@ -1,10 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main SHA: `34c02687139afc6db6484c2eb888cca2f8f01612`; THIS COMMIT verifies the detached BusyBox `telnetd` process after a successful launcher. The applet daemonizes before binding/listening, so launcher exit alone did not prove that the remote-terminal service remained alive.
-- Exact-parent Networkmap signal/startup `44163174212`, Process lifecycle `44163173313`, HTTPD daemon lifecycle `44163173359`, infosvr packet lifecycle `44163173874`, SkipDBv2 `44163173539`, USB storage `44163176401`: SUCCESS. XY-C1 `44163173638` and NVRAM `44163173644` were IN_PROGRESS at last poll.
-- THIS COMMIT adds bounded post-launch process inventory probes and GNU89 policy coverage; exact-head Process/XY-C1 checks pending. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent main SHA: `989409e1a02a92ea5018f3550d52d75c33b028f8`; THIS COMMIT corrects a stale Process checker marker after the Telnetd GNU89 policy test's success text was extended. No product source change in THIS follow-up.
+- Telnetd exact-head Process run `44164998210` compiled and ran the process-presence policy regression successfully and passed all preceding integration assertions, then failed only at the legacy expected output string in `scripts/check_process_lifecycle_integration.py:1015`. THIS COMMIT updates the marker to the test's new output.
+- Other exact-parent runs on `989409e`: Process lifecycle inventory `44164998354`, Networkmap, HTTPD, infosvr, SkipDBv2, AliDDNS, DNS Forwarder, DDNSTO, watchdog, GPIO, DetectLink, VPN, WAN route, AdGuardHome, ZeroTier and other triggered regressions SUCCESS. XY-C1 `44164998281`, USB storage `44164998300`, NVRAM `44164998225` were in progress at last poll.
+- Exact-head Process and XY-C1 validation for THIS follow-up remain pending. Frozen backup is unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-Next: verify the Telnetd postcondition on the exact SHA; resolve remaining parent XY-C1/NVRAM checks; then continue DHCP leasefail/NAK/release or firewall/NAT result propagation.
+Next: confirm exact-SHA Process regression, XY-C1 Build/TRX/artifact upload and outstanding NVRAM/storage checks; then resume DHCP leasefail/NAK/release or firewall/NAT caller result propagation.
 
 ---
 ## Whole-repository module status
