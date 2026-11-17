@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- Per-interface IPv6 cleanup and all SIT/6RD/native WAN IPv6 tunnel, route and teardown commands use argv-based `eval()`; dynamic PPP/WAN hook operands and PPP/L2TP control commands are likewise shell-free.
-- The xl2tpd start policy now distinguishes process presence (`1 = already running`, `0 = absent`, `-1 = unknown`) from the child launch result. Nonzero `eval()` exit status becomes a hard failure instead of colliding with the positive already-running sentinel. WAN L2TP launch explicitly treats an already-running shared daemon as success.
-- Exact parent `f87343b`: 11 non-XY workflows passed, including Firewall, WAN/PPP/VPN, Process, HTTPD, AI handoff and NVRAM. XY-C1 had completed all host regressions and was in Build; TRX/artifact pending. This xl2tpd result-normalization slice needs its own exact-head tests and target build.
-- Product-source L3 and physical-router L4 remain NOT VERIFIED; frozen backup remains read-only.
+- PPP/L2TP arguments use argv-based `eval()`; xl2tpd presence and launch results have separate normalized states: 1 = already running, 0 = successfully launched, -1 = failure/unknown. Nonzero child exit statuses cannot collide with the running sentinel; WAN launch treats an already-running shared daemon as success.
+- The remaining VPN server restoration caller bug is fixed: after server restart may have started shared xl2tpd, a follow-up presence check returning 1 is success. Only negative restore status is a failure.
+- Exact parent `b9850f9`: VPN lifecycle, AI handoff, infosvr, WAN DHCP, Process inventory, process lifecycle, HTTPD, WAN route, AliDDNS, AliyunDrive and AdGuardHome PASS. XY-C1 `43993836487` was at Build and NVRAM `43993837253` was still auditing raw ioctl callers. This restore-gate follow-up needs its own exact-head checks and product-source build.
+- Current-source MIPS/uClibc L3 and physical-router L4 remain NOT VERIFIED; frozen backup remains read-only.
 
 ## Whole-repository module status
 

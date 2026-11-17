@@ -1,3 +1,13 @@
+## 2026-11-16 — Accept an already-running xl2tpd during VPN server restore
+
+- Base main SHA: `b9850f9917a6eb77b7c6d021abe75c88b4ca444c`; result: THIS COMMIT.
+- Defect: `safe_start_xl2tpd_locked()` returns `1` when a complete process inventory confirms the shared daemon is already running, `0` when it starts the daemon, and `-1` on failure. `restart_vpn_server()` still treated every nonzero restore result as failure. When server restart had already relaunched shared xl2tpd, the subsequent WAN/VPN-client restoration probe returned the valid `1` sentinel and falsely marked the completed restart as failed.
+- Changed the server-restart restoration gate to reject only negative results. Added a lifecycle source contract that pins this callsite to the documented tri-state success semantics; the existing xl2tpd policy regression exercises the `1` already-running result.
+- Exact-base Actions: VPN lifecycle `43993836496`, AI handoff `43993836752`, Process inventory `43993836708`, process lifecycle `43993836554`, HTTPD `43993836692`, WAN route `43993836463`, WAN DHCP `43993836575`, infosvr `43993836668`, AliDDNS `43993836617`, AliyunDrive `43993836669`, and AdGuardHome `43993836497` PASS. XY-C1 `43993836487` and NVRAM `43993837253` were still running at Build/audit respectively.
+- This focused source/checker repair has not yet run on its own SHA. Target firmware build/TRX/artifact and physical-router L4 for the post-normalization source remain NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Normalize xl2tpd launch failures before lifecycle callers
 
 - Parent `f87343b7e7a2da599c16baf1192ec1561dc44a9b`: HTTPD `43992613516`, AliyunDrive `43992613319`, AliDDNS `43992613480`, Process lifecycle `43992613370`, VPN lifecycle `43992613425`, AI handoff `43992613327`, USB WDM/NDIS `43992613561`, Firewall `43992613416`, AdGuardHome `43992613329`, infosvr `43992613374` and NVRAM `43992613294` all PASS. XY-C1 `43992613368` had passed host regressions through step 22 and was in Build; TRX/artifact pending.

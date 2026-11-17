@@ -218,6 +218,13 @@ require("xl2tpd_status == 1" in client_start and "xl2tpd_status < 0" in client_s
 server_start=body(vpn,"start_vpn_server_locked(void)")
 require("xl2tpd_status < 0" in server_start,
         "L2TP server start must propagate unknown daemon state")
+server_restart=body(vpn,"restart_vpn_server(void)")
+restore_start=server_restart.index("restore_status = safe_start_xl2tpd_locked();")
+restore_end=server_restart.index("\n\t\t}\n", restore_start)
+restore_block=server_restart[restore_start:restore_end]
+require("if (restore_status < 0)" in restore_block and
+        "if (restore_status != 0)" not in restore_block,
+        "VPN server restart must accept the already-running xl2tpd success sentinel")
 client_restart=body(vpn_client,"restart_vpn_client_locked(void)")
 require("restore_status < 0" in client_restart and "start_status = -1" in client_restart,
         "VPNC restart must propagate failed shared daemon restoration")

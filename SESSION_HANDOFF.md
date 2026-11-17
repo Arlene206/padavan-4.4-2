@@ -1,30 +1,35 @@
 # Cross-session execution mandate
 
-Mandatory handoff checkpoint: Every session MUST inspect the live repository state before ending or handing off. Verify main/source baseline, active task, exact-head Actions, validation boundary, blockers, frozen backup and first next action. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action are already accurate, do not create a no-op commit.
+Every session must inspect live repository state before ending or handing off. Confirm main/source baseline, exact-head Actions, validation boundary, blockers, frozen backup, and the precise next action. Do not make no-op checkpoint commits.
 
-Before context exhaustion, finish or reduce the current safe slice, run regression checks, inspect exact-SHA Actions, commit completed work atomically, and preserve the exact next task. Continue one continuous engineering effort across GPT conversations: recover once, avoid repeating completed audits, do not wait on pending CI when independent work is available, and do not ask the user what to do next.
-
-Every logical multi-file change must be one complete Git tree and one atomic main commit, parented to freshly fetched main and pushed with a non-forced expected-SHA compare-and-swap. Never force-push, split a logical change into partial commits, create a work branch/PR, or modify the frozen backup branch.
+Every logical multi-file change must be published as one complete Git tree and one atomic main commit, parented to freshly fetched main and pushed with a non-forced expected-SHA compare-and-swap. Never force-push, create a development branch/PR, or modify the frozen backup.
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. This xl2tpd result-normalization slice is one atomic commit parented to `f87343b7e7a2da599c16baf1192ec1561dc44a9b`.
-- Exact parent `f87343b`: HTTPD `43992613516`, AliyunDrive `43992613319`, AliDDNS `43992613480`, Process lifecycle `43992613370`, VPN lifecycle `43992613425`, AI handoff `43992613327`, USB WDM/NDIS `43992613561`, Firewall `43992613416`, AdGuardHome `43992613329`, infosvr `43992613374`, and NVRAM `43992613294` all completed SUCCESS. XY-C1 `43992613368` passed every host regression through step 22 and was still in `Build XY-C1`; TRX verification and artifact upload were pending.
-- A concrete L2TP result-collision defect is fixed here. `safe_start_xl2tpd_locked()` used to return raw positive `eval()` child exit statuses, while `1` is reserved to mean "already running"; callers that treat nonnegative as success could therefore accept a failed daemon launch. The result is now normalized to `-1` on every nonzero launch status while preserving `errno`. The WAN PPP launch path maps the documented already-running sentinel to success.
-- The frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current source baseline before the restore-status correction: `b9850f9917a6eb77b7c6d021abe75c88b4ca444c`.
+- PPP/L2TP command arguments use argv-based `eval()`; `safe_start_xl2tpd_locked()` now normalizes all nonzero command exit statuses to -1, returns 0 after a successful launch, and 1 only when a complete inventory proves xl2tpd is already running. WAN PPP launch accepts that already-running result.
+- This follow-up fixes a remaining caller inconsistency: `restart_vpn_server()` must treat only negative xl2tpd restore status as failure. The completed server-start path can already have relaunched the shared daemon, so the subsequent restoration check can validly return 1.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+## Exact-base Actions on b9850f9917a6eb77b7c6d021abe75c88b4ca444c
+
+PASS: VPN lifecycle `43993836496`, AI handoff `43993836752`, infosvr `43993836668`, WAN DHCP `43993836575`, standalone process inventory `43993836554`, AliyunDrive `43993836669`, HTTPD `43993836692`, WAN route `43993836463`, Process lifecycle `43993836708`, AdGuardHome `43993836497`, and AliDDNS `43993836617`.
+
+PENDING when last checked: XY-C1 `43993836487` was on `Build XY-C1`; NVRAM audit `43993837253` was on raw userland ioctl/kernel NVRAM caller review. Both runs are pinned to the exact base SHA.
 
 ## Active task
 
-Run the xl2tpd policy regression and VPN lifecycle source checker on the exact commit SHA. If they pass, inspect exact-head XY-C1 Build/TRX/artifact completion and continue adjacent PPP lifecycle auditing.
+Verify the restore-status gate correction on its exact new main SHA. Confirm that VPN lifecycle and the source-contract regression pass. Inspect XY-C1 Build, TRX verification and artifact upload together on one SHA, plus the NVRAM audit result.
 
 ## Verification boundary
 
-- The new policy test covers daemon absent/running/unknown, child command exit statuses 1 and 127, and WAN-launch acceptance of the already-running sentinel. VPN workflow compiles it under GNU89 with `-Wall -Wextra -Werror`.
-- Parent `f87343b` had all 11 non-XY workflows PASS. The XY-C1 cross-build was still running at Build step 23; TRX and artifact upload were not yet started. No L3 claim is made until all three pass on a single SHA.
-- Product-source MIPS/uClibc L3 remains **NOT VERIFIED**; physical-router L4 remains **NOT VERIFIED**.
+- On base b985, the VPN lifecycle workflow including xl2tpd policy regression and source checker passed; the restore-callsite correction in this follow-up is not yet tested on its own SHA.
+- Current-source MIPS/uClibc L3 (Build, TRX and artifact upload) is **NOT VERIFIED** until the new commit's XY-C1 workflow completes all levels.
+- Physical-router L4 remains **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head VPN and XY-C1 Actions for this commit. Resolve source/test failures from exact logs.
-2. Confirm same-SHA XY-C1 Build, TRX validation, and artifact upload; while pending, continue an independent PPP/L2TP lifecycle slice rather than waiting.
-3. Rotate to the next unverified P1 stability/security issue after the PPP lifecycle review. Keep the backup frozen and use non-forced expected-SHA main updates.
+1. Fetch `/actions/runs?head_sha=<live main SHA>`; verify VPN lifecycle and all affected exact-head checks. Fix any first causal failure from its job log.
+2. Confirm same-SHA XY-C1 Build, TRX validation and artifact upload. If still pending, continue safe independent source work.
+3. Resume the next highest-priority unverified stability/security module after this PPP/L2TP lifecycle slice is closed. Do not repeat completed argv/xl2tpd audits.
+4. Keep the frozen backup unchanged and use a single complete tree/commit with a non-forced expected-SHA update.

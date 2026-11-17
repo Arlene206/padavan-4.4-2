@@ -585,7 +585,7 @@ restart_vpn_server(void)
 	if (xl2tpd_killed_vpns &&
 	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_cli_t", "1"))) {
 		restore_status = safe_start_xl2tpd_locked();
-		if (restore_status != 0) {
+		if (restore_status < 0) {
 			if (restart_status == 0)
 				saved_errno = errno ? errno : EIO;
 			logmessage(VPNS_LOG_NAME, "cannot restore shared xl2tpd daemon after VPN server restart (status=%d, errno=%d)",
