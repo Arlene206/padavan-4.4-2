@@ -113,12 +113,18 @@ assert re.search(
 # The generic loader attempts every optional candidate and probes observable
 # /sys/module state; the legacy modprobe return value is not treated as proof.
 assert "module_smart_load" in group_loader
-assert "is_module_loaded" in group_loader
+assert "is_module_loaded_status" in group_loader
+assert "is_module_loaded(module_name)" not in group_loader
 assert "rc_modem_module_load_group_verified(module_names, module_params" in group_loader
 load_index = MODULE_POLICY.index("(void)ops->load(module_names[i]")
-probe_index = MODULE_POLICY.index("ops->is_loaded(module_names[i])")
+probe_index = MODULE_POLICY.index("probe_status = ops->is_loaded(module_names[i])")
 assert load_index < probe_index
-assert "return available > 0 ? 0 : ENODEV;" in MODULE_POLICY
+assert "if (probe_status == 1)" in MODULE_POLICY
+assert "probe_status < 0" in MODULE_POLICY
+assert "probe_status > 1" in MODULE_POLICY
+assert "first_probe_error" in MODULE_POLICY
+assert "return first_probe_error;" in MODULE_POLICY
+assert "return ENODEV;" in MODULE_POLICY
 
 for symbol in (
     "CONFIG_USB_USBNET",

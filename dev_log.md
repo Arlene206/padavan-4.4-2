@@ -1,3 +1,12 @@
+## 2026-11-17 — Update XY-C1 modem readiness source contract for tri-state results
+
+- Exact-head XY-C1 run `44002424380` on SHA `766832746b81a67faaa5d88e3ba78cbd1228faef` reached the USB modem driver configuration checker and failed because `scripts/check_usb_modem_driver_config.py` still required the old any-nonzero-is-available expression and legacy Boolean state callback.
+- The dedicated USB modem GNU89 policy regression, strict source checker, Process lifecycle, inventory, HTTPD security, infosvr, and AI handoff Actions all passed on that exact SHA. Firmware Build had not started.
+- Updated the XY-C1 source contract to require `is_module_loaded_status()`, count only exact probe state 1, and preserve UNKNOWN/invalid-state failures. Checker-only; no production firmware C changes.
+- Watchdog production source `aeddc157` completed same-SHA XY-C1 Build, TRX verification and artifact upload in run `44000632827`.
+
+---
+
 ## 2026-11-17 — Fail closed on UNKNOWN USB modem driver probes
 
 - Base main SHA: `58fe2c5a4d5276a57c15afd66d3f1e84756d1a58`; result: THIS COMMIT.
