@@ -47,16 +47,39 @@ start() {
     radio=rax0; set -- -wi rax0 -wi ra0 -d 0
   fi
   # The C daemon forks its own child; foreground invocation exposes fork errors.
-  ralinkiappd "$@" || { rc=$?; log_iapp "launcher failed (status=$rc)"; return "$rc"; }
+  iappd_tcp_rule_added=0
+  iappd_udp_rule_added=0
+  ralinkiappd "$@" || {
+    rc=$?
+    log_iapp "launcher failed (status=$rc)"
+    rollback_start_failure "$rc"
+    return "$rc"
+  }
   wait_running; rc=$?
-  [ "$rc" -eq 0 ] || { log_iapp "startup postcondition failed (status=$rc)"; return "$rc"; }
+  [ "$rc" -eq 0 ] || {
+    log_iapp "startup postcondition failed (status=$rc)"
+    rollback_start_failure "$rc"
+    return "$rc"
+  }
   if command -v sysctl >/dev/null 2>&1; then
     for setting in "net.ipv4.neigh.$radio.base_reachable_time_ms=10000" "net.ipv4.neigh.$radio.delay_first_probe_time=1" "net.ipv4.neigh.br0.base_reachable_time_ms=10000" "net.ipv4.neigh.br0.delay_first_probe_time=1" "net.ipv4.neigh.eth2.base_reachable_time_ms=10000" "net.ipv4.neigh.eth2.delay_first_probe_time=1" "net.ipv4.neigh.ra0.base_reachable_time_ms=10000" "net.ipv4.neigh.ra0.delay_first_probe_time=1"; do
       sysctl -wq "$setting" || log_iapp "sysctl update failed: $setting"
     done
   else log_iapp "sysctl unavailable; neighbor timing not updated"; fi
-  iptables -A INPUT -i br0 -p tcp --dport 3517 -j ACCEPT || { rc=$?; log_iapp "TCP firewall rule failed (status=$rc)"; return "$rc"; }
-  iptables -A INPUT -i br0 -p udp --dport 3517 -j ACCEPT || { rc=$?; log_iapp "UDP firewall rule failed (status=$rc)"; return "$rc"; }
+  iptables -A INPUT -i br0 -p tcp --dport 3517 -j ACCEPT || {
+    rc=$?
+    log_iapp "TCP firewall rule failed (status=$rc)"
+    rollback_start_failure "$rc"
+    return "$rc"
+  }
+  iappd_tcp_rule_added=1
+  iptables -A INPUT -i br0 -p udp --dport 3517 -j ACCEPT || {
+    rc=$?
+    log_iapp "UDP firewall rule failed (status=$rc)"
+    rollback_start_failure "$rc"
+    return "$rc"
+  }
+  iappd_udp_rule_added=1
   return 0
 }
 
@@ -74,6 +97,29 @@ stop() {
   [ "$rc" -eq 1 ] || return "$rc"
   log_iapp "daemon remained running after bounded stop attempts"
   return 1
+}
+
+
+# Roll back only resources created by this invocation, preserving its cause.
+rollback_start_failure() {
+  rollback_failure_status=$1
+  if [ "\${iappd_udp_rule_added:-0}" -eq 1 ]; then
+    iptables -D INPUT -i br0 -p udp --dport 3517 -j ACCEPT || {
+      rollback_rule_status=$?
+      log_iapp "UDP firewall rollback failed (status=$rollback_rule_status)"
+    }
+  fi
+  if [ "\${iappd_tcp_rule_added:-0}" -eq 1 ]; then
+    iptables -D INPUT -i br0 -p tcp --dport 3517 -j ACCEPT || {
+      rollback_rule_status=$?
+      log_iapp "TCP firewall rollback failed (status=$rollback_rule_status)"
+    }
+  fi
+  stop || {
+    rollback_stop_status=$?
+    log_iapp "daemon startup rollback failed (status=$rollback_stop_status)"
+  }
+  return "$rollback_failure_status"
 }
 
  restart() { stop; rc=$?; [ "$rc" -eq 0 ] || return "$rc"; start; }

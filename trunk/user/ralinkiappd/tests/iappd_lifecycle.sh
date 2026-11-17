@@ -18,10 +18,20 @@ case "$name" in
     exit 1 ;;
   ralinkiappd)
     echo "$*" >> "$DAEMON_LOG"
-    [ "$MOCK_START" -eq 0 ] && : > "$STATE_DIR/daemon"
+    if [ "$MOCK_START" -eq 0 ] || [ "$MOCK_PARTIAL_START" -eq 1 ]; then
+      : > "$STATE_DIR/daemon"
+    fi
     exit "$MOCK_START" ;;
   sysctl) exit "$MOCK_SYSCTL" ;;
-  iptables) exit "$MOCK_IPTABLES" ;;
+  iptables)
+    if [ "$1" = "-A" ]; then
+      append_count=$(grep -c '^iptables -A ' "$COMMAND_LOG")
+      if [ "$MOCK_IPTABLES_FAIL_AT" -gt 0 ] &&
+         [ "$append_count" -eq "$MOCK_IPTABLES_FAIL_AT" ]; then
+        exit "$MOCK_IPTABLES"
+      fi
+    fi
+    exit 0 ;;
   killall)
     [ "$MOCK_KILLALL" -eq 0 ] && [ "$MOCK_REMOVE" -eq 1 ] && rm -f "$STATE_DIR/daemon"
     exit "$MOCK_KILLALL" ;;
@@ -34,13 +44,13 @@ for c in pidof ralinkiappd sysctl iptables killall sleep logger; do ln -s "$tmp/
 ln -s /bin/grep "$tmp/bin/grep"
 ln -s "$tmp/bin/logger" "$tmp/no-pidof/logger"
 export PATH="$tmp/bin:$PATH" STATE_DIR="$tmp/state" COMMAND_LOG="$tmp/commands" DAEMON_LOG="$tmp/daemon"
-export MOCK_PIDOF=0 MOCK_START=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_KILLALL=0 MOCK_REMOVE=1
+export MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_SYSCTL=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_KILLALL=0 MOCK_REMOVE=1
 export IAPPD_PROC_MODULES="$tmp/modules" IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
 fail() { echo "$*" >&2; exit 1; }
 status() { [ "$1" -eq "$2" ] || fail "expected $2, got $1"; }
 run() { /bin/sh "$base/iappd.sh" "$1"; }
 capture_status() { "$@"; rc=$?; printf "%s" "$rc"; }
-reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; MOCK_PIDOF=0 MOCK_START=0 MOCK_IPTABLES=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
+reset() { rm -f "$STATE_DIR/daemon"; : > "$COMMAND_LOG"; : > "$DAEMON_LOG"; MOCK_PIDOF=0 MOCK_START=0 MOCK_PARTIAL_START=0 MOCK_IPTABLES=0 MOCK_IPTABLES_FAIL_AT=0 MOCK_KILLALL=0 MOCK_REMOVE=1; }
 
 reset
 rc=$(capture_status env PATH="$tmp/no-pidof" /bin/sh "$base/iappd.sh" start)
@@ -56,9 +66,28 @@ reset; MOCK_PIDOF=2
 rc=$(capture_status run start); status "$rc" 2
 ! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "started with UNKNOWN inventory"
 
-reset; MOCK_START=53
+reset; MOCK_START=53; MOCK_PARTIAL_START=1
 rc=$(capture_status run start); status "$rc" 53
-! grep -q "^iptables " "$COMMAND_LOG" || fail "configured firewall after launcher failure"
+[ ! -f "$STATE_DIR/daemon" ] || fail "launcher failure left a partially started daemon"
+grep -q "^killall " "$COMMAND_LOG" || fail "launcher failure skipped daemon rollback"
+! grep -q "^iptables -A " "$COMMAND_LOG" || fail "configured firewall after launcher failure"
+
+# A failed first firewall rule stops the daemon without deleting a rule that
+# this invocation did not successfully create.
+reset; MOCK_IPTABLES=42; MOCK_IPTABLES_FAIL_AT=1
+rc=$(capture_status run start); status "$rc" 42
+[ ! -f "$STATE_DIR/daemon" ] || fail "TCP rule failure left daemon running"
+grep -q "^killall " "$COMMAND_LOG" || fail "TCP rule failure skipped daemon rollback"
+[ "$(grep -c "^iptables -D " "$COMMAND_LOG")" -eq 0 ] || fail "removed an unowned firewall rule"
+
+# If UDP publication fails after TCP succeeds, remove the TCP rule created by
+# this attempt and stop the daemon while preserving the original error.
+reset; MOCK_IPTABLES=42; MOCK_IPTABLES_FAIL_AT=2
+rc=$(capture_status run start); status "$rc" 42
+[ ! -f "$STATE_DIR/daemon" ] || fail "UDP rule failure left daemon running"
+grep -Fq "iptables -D INPUT -i br0 -p tcp --dport 3517 -j ACCEPT" "$COMMAND_LOG" || fail "UDP failure did not roll back TCP rule"
+[ "$(grep -c "^iptables -D " "$COMMAND_LOG")" -eq 1 ] || fail "unexpected firewall rollback rule count"
+! grep -q "iptables -D INPUT -i br0 -p udp " "$COMMAND_LOG" || fail "removed UDP rule not owned by this start"
 
 reset
 rc=$(capture_status run start); status "$rc" 0

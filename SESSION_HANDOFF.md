@@ -31,14 +31,14 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Product-source baseline remains `10be37e50fbbd11c686593b0edd3863b31055b2e`: PID 1 now gates router startup on required boot environment, NVRAM node setup, required proc/sys/dev/etc/tmp/var/devpts mounts, mdev population and private queue/HTTPD directories.
-2. Main CI contract repair `ab22c03fb3a8acd37004d52b5b3bcfd55dd1e461` fixed stale PID-1, NVRAM, RWFS return-value contracts and added XY-C1 path filtering. Its only remaining failure was HTTPD's legacy inline directory setup assumption.
-3. `d638def602cc2de4d43ed06e9ef55b24b9439afe` replaced that queue-directory assumption and removed a redundant unchecked chmod. Exact-head Process, Process inventory, NVRAM, AdGuardHome, AliyunDrive, AliDDNS, infosvr and AI docs passed. XY-C1 `44089833795` was in progress. HTTPD `44089834028` then reached a second stale assertion in the storage-restore boot ordering check: it expected `chmod 1777 /tmp` and `mkdir -p -m 700 /tmp/.httpd-private`, while the boot script correctly uses checked `required_dir` helpers.
-4. THIS COMMIT updates only that embedded HTTPD source contract: require checked mode-1777 /tmp and mode-0700 private HTTPD directory calls, and preserve their order before optional storage loading. No production code is changed.
-5. After CI cleanup, next independent P1 source candidate is Ralink IAPP startup rollback in `trunk/user/ralinkiappd/iappd.sh`: daemon launch/postcondition failures and TCP/UDP firewall rule failures currently return without fully rolling back the daemon and any earlier rule. Existing lifecycle regression exists; expand it to cover first and second firewall rule failure and partial startup cleanup. Keep this a separate atomic commit from CI contract repairs.
+1. Product-source boot environment baseline is `10be37e50fbbd11c686593b0edd3863b31055b2e`; checked mounts, mdev, private queue/HTTPD directories and NVRAM readiness gate router startup.
+2. CI follow-ups: `ab22c03` repaired stale NVRAM/HTTPD/RWFS contracts and added XY-C1 source paths; `d638def` repaired notification-directory contract and removed duplicate unchecked chmod; `4220420d7dd9f6440f525875802646899198befa` updates the HTTPD storage-restore boot-order contract from obsolete `chmod/mkdir` calls to checked `required_dir` calls.
+3. On `d638def`, Process lifecycle/inventory, NVRAM, AdGuardHome, AliyunDrive, AliDDNS, infosvr and AI docs passed exact-head. XY-C1 `44089833795` was in progress at last poll. HTTPD `44089834028` failed only at line 713 of its embedded storage-restore boot ordering checker; the checker update is in `4220420`. Its new exact-head run still needs inspection.
+4. THIS COMMIT hardens Ralink IAPP startup rollback: launcher/postcondition failures and TCP/UDP firewall append failures stop any partially started daemon; if UDP setup fails after TCP succeeds, the TCP rule added by this invocation is removed. The original startup error is retained; only rules created by this attempt are removed.
+5. Existing `trunk/user/ralinkiappd/tests/iappd_lifecycle.sh` now covers partial daemon launch rollback, TCP append failure, and UDP-after-TCP partial firewall rollback. Process CI already runs this shell regression, and XY-C1 already watches the IAPP script path.
 
 - Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Local host test execution is NOT RUN in this connector-only runtime.
+- Local host test execution is NOT RUN in this connector-only runtime; exact-head Actions are pending.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Verification boundary
@@ -54,9 +54,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Check live `main` and the exact-head `event=push` Actions for that SHA:
-- The HTTPD run `44089834028` on parent `d638def` failed at the storage restore / boot ordering contract (inline Python line 713): it still searched for old `chmod 1777 /tmp` and `mkdir -p -m 700 /tmp/.httpd-private`. THIS COMMIT replaces those assertions with the current checked `required_dir 1777 /tmp || exit 1` and `required_dir 700 /tmp/.httpd-private || exit 1`, ensuring they still precede `mtd_storage.sh load`.
-- On exact `d638def`, NVRAM `44089834067`, AdGuardHome `44089833973`, AliyunDrive `44089833865`, infosvr `44089833884`, AliDDNS `44089833907`, AI docs `44089833839`, Process lifecycle `44089833960`, and Process inventory `44089833968` passed. XY-C1 run `44089833795` was in progress at the last query; inspect its completion and the new-head run.
-- Next source fix: harden Ralink IAPP start rollback in `trunk/user/ralinkiappd/iappd.sh`. On launcher/postcondition or firewall failure, stop any partially started daemon; if TCP INPUT rule was added before UDP append failed, remove that TCP rule; preserve and return the original error. Expand `trunk/user/ralinkiappd/tests/iappd_lifecycle.sh` for first and second iptables-append failure plus daemon/rule rollback. The Process workflow already watches and runs this shell regression. Inspect XY-C1 path filtering and add the script path if missing. Keep this as a separate code/test commit after the HTTPD contract fix.
-- Local host tests NOT RUN through the connector. L4 physical router NOT VERIFIED.
+1. Inspect exact-head push Actions for `4220420d7dd9f6440f525875802646899198befa`. Confirm the HTTPD storage restore boot-order assertions now accept the checked `required_dir 1777 /tmp` and `required_dir 700 /tmp/.httpd-private` calls before optional `mtd_storage.sh load`; check XY-C1 build status for the boot-environment source.
+2. THIS COMMIT adds Ralink IAPP startup rollback and expands the already wired shell regression. Verify exact-head Process lifecycle runs `sh -n` and `sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh`; new cases cover partial daemon launch failure, TCP rule failure and UDP rule failure after TCP succeeded. Confirm XY-C1 still watches `trunk/user/ralinkiappd/iappd.sh`.
+3. Repair the first causal CI/test failure before selecting the next issue. Local host tests were NOT RUN in connector-only runtime. Current L3 requires exact-head XY-C1 Build + TRX + artifact; physical-router L4 NOT VERIFIED.
+
+After this bounded IAPP fix is green, continue auditing caller-visible startup failures across remaining userland services, outside saturated HTTPD/storage/wireless modules. Trace full call chains and only repair confirmed dropped failure.
 

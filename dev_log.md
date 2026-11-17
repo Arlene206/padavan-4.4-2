@@ -1,3 +1,13 @@
+## 2026-11-17 21:30 CST — Roll back partial Ralink IAPP startup
+
+- Parent main SHA: `4220420d7dd9f6440f525875802646899198befa`; result: THIS COMMIT.
+- Source review found IAPP launcher/readiness/firewall failures returned an error but left a partially started daemon running. If TCP INPUT rule installation succeeded and UDP rule installation failed, the TCP rule also remained.
+- `iappd.sh` now rolls back the daemon on launcher failure, failed bounded readiness postcondition, and TCP/UDP rule failure. A UDP append failure removes only the TCP rule successfully added by this invocation. Cleanup errors are logged while preserving the original startup failure.
+- Extended the existing mock-based lifecycle regression for partial-child launcher failure, first/TCP rule failure, and second/UDP rule failure after successful TCP publication. Process CI already runs this test; XY-C1 path filter already includes the production shell script.
+- The parent `4220420` exact-head checks must still be inspected; this source/test slice Actions pending. No local host execution, current-source firmware/TRX or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-17 21:15 CST — Align HTTPD storage restore boot-order contract
 
 - Parent main SHA: `d638def602cc2de4d43ed06e9ef55b24b9439afe`; result: THIS COMMIT.
