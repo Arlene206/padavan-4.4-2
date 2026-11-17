@@ -213,9 +213,9 @@ require("''|*[!0-9]*)" in interval_normalize and
         'aliddns_interval_value=1' in interval_normalize and
         'aliddns_interval=$(aliddns_interval_normalize "$aliddns_interval_raw")' in source and
         'nvram set aliddns_interval="$aliddns_interval"' in source and
-        "printf '600\\\\n'" in interval_normalize and
-        "printf '%s\\\\n'" in interval_normalize and
-        "printf '600\\\\\\\\n'" not in interval_normalize and
+        r"printf '600\n'" in interval_normalize and
+        r"printf '%s\n'" in interval_normalize and
+        r"printf '600\\n'" not in interval_normalize and
         'sleep "$aliddns_interval"' in source,
         "AliDDNS polling interval must be a bounded positive integer passed as one sleep argument")
 require("echo /tmp/.aliddns.lifecycle.lock" in lifecycle_lock_path,
