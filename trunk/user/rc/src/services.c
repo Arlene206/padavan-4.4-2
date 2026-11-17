@@ -1606,6 +1606,9 @@ stop_services(int stopall)
 #if defined(APP_IPERF3)
 	record_service_stop_status(&stop_status, "iperf3", stop_iperf3());
 #endif
+#if defined(APP_DNSFORWARDER)
+	record_service_stop_status(&stop_status, "DNS Forwarder", stop_dnsforwarder());
+#endif
 #if defined(APP_ADGUARDHOME)
 	record_service_stop_status(&stop_status, "AdGuardHome", stop_adguardhome());
 #endif

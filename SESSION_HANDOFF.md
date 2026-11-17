@@ -8,31 +8,27 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-Before context exhaustion, inspect the current source SHA, exact-head Actions, validation boundary and next concrete task; update this handoff accurately.
-
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- CPU watchdog tri-state source `aeddc157` passed GNU89 regression and XY-C1 Build/TRX/artifact (`44000632827`); Process/handoff/NVRAM passed on checker/docs-only descendant `58fe2c5a`.
-- USB modem tri-state source `76683274` passed dedicated modem readiness plus Process/inventory/HTTPD/infosvr/handoff Actions. XY-C1's first run failed a stale checker; fixed by checker-only `f7b975c6`.
-- IPv6 boot status propagation source `37e414f2` merges global sysctl errors into boot first-error status. Process checker fix is `b447358e`; Process `44003684238`, AI handoff `44003684154`, NVRAM `44003684202`, infosvr `44003684216`, AliyunDrive `44003684191`, AliDDNS `44003684173`, AdGuardHome `44003684129` passed on b447. XY-C1 run `44003333586` for `37e414f2` was still in Build at last check.
-- Firewall table UNKNOWN-probe fix is product-source commit `736ebe8638d253ae7b870d8a4554b15b7709f30b`. Firewall Startup Stability run `44005295947` PASS (new GNU89/Werror/ASan/UBSan policy test included); Process lifecycle `44005296116`, inventory `44005296027`, FULLCONENAT `44005295950`, and AI handoff `44005296129` PASS on exact 736. XY-C1 run `44005295961` was in Build XY-C1 after every policy/source-check step passed; confirm Build/TRX/artifact.
-- HTTPD umbrella run `44005296061` failed only at a stale source assertion requiring legacy Boolean `is_module_loaded("ip6table_mangle")` in IPv6 mangle; current firewall code intentionally uses the tri-state transaction helper. This commit updates that checker; no production C source changes here.
-- NVRAM boundary audit `44005296140` was still running at the last poll. Physical-router L4 remains NOT VERIFIED.
+- CPU-watchdog tri-state source `aeddc157` passed GNU89 regression and XY-C1 Build/TRX/artifact (`44000632827`). USB modem tri-state source `76683274` passed its dedicated readiness and Process/inventory/HTTPD/infosvr/handoff checks. IPv6 boot status propagation source `37e414f2` passed same-source XY-C1 Build/TRX/artifact in run `44003333586`; Process/handoff and dependent checks passed on `b447358e`.
+- Firewall module-table UNKNOWN/invalid-state rollback fix is product-source commit `736ebe8638d253ae7b870d8a4554b15b7709f30b`. Firewall Startup Stability `44005295947`, Process lifecycle `44005296027`, inventory `44005296027`, FULLCONENAT `44005295950`, NVRAM audit `44005782297`, and the follow-up exact-head checks listed below passed. HTTPD initially exposed a stale Boolean-probe contract; checker-only fix `49f798836772a802efad324498b875fa6a05b94c` passed HTTPD `44005782392`, Process `44005782244`, AI handoff `44005782352`, infosvr `44005782318`, AliyunDrive `44005782314`, AliDDNS `44005782333`, and AdGuardHome `44005782562`.
+- XY-C1 run `44005782493` on `49f798836772a802efad324498b875fa6a05b94c` was still building at the last check; do not claim Build/TRX/artifact until all three steps succeed. Earlier run `44005295961` on product-source `736ebe86` was also still in progress.
+- This source slice fixes an RC shutdown omission: `start_services_once()` starts DNS Forwarder under `APP_DNSFORWARDER`, but `stop_services()` did not register its existing checked stop wrapper. The omission could leave DNS Forwarder alive during reboot/halt or firmware update. The fix adds it to the common first-error stop accumulator; this feeds both shutdown storage-persistence and firmware-update abort gates. A source integration regression pins the start/stop guards and both caller gates.
+- Current base for this slice: `49f798836772a802efad324498b875fa6a05b94c`; result: THIS COMMIT. Exact Process and XY-C1 Actions for the DNS Forwarder stop-registration change are pending.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-1. Verify the HTTPD umbrella rerun after updating its obsolete IPv6 mangle Boolean-probe assertion; inspect any next source-contract failure.
-2. Inspect exact-source XY-C1 run `44005295961` for production SHA `736ebe8638d253ae7b870d8a4554b15b7709f30b`; confirm Build, TRX and artifact upload.
-3. Check NVRAM run `44005296140` and proceed with the next independent P1 RC reliability/security defect. Do not repeat completed watchdog, USB modem, IPv6 sysctl, firewall, storage or VPN work.
+1. Inspect exact-head Process lifecycle and XY-C1 Actions for the DNS Forwarder stop-registration commit. Fix any real failing checker/build issue and rerun on the new SHA.
+2. Verify same-SHA XY-C1 Build, TRX verification and artifact upload; never carry forward the earlier firewall build as validation of this `services.c` edit.
+3. Continue the broader P1 RC shutdown/start-result audit across independent services. Do not repeat watchdog, modem, IPv6 sysctl, firewall module-table, NVRAM, storage-eject or VPN work already recorded above.
 
 ## Verification boundary
 
-- Watchdog L2/L3: PASS on product source `aeddc157`.
-- USB modem L2: PASS on `76683274`; exact-source XY-C1 checker correction in `f7b975c6`, production firmware build still needs a completed exact-SHA result.
-- IPv6 boot status: product source `37e414f2`; Process/handoff/NVRAM/module workflows PASS on `b447358e`; XY-C1 `44003333586` still in progress at last check.
-- Firewall tri-state: Firewall Startup Stability PASS on exact source `736ebe86`; Process/inventory/FULLCONENAT/handoff PASS. XY-C1 `44005295961` in progress, so L3 not yet claimed.
-- HTTPD umbrella: `44005296061` failed a stale source assertion; checker-only correction in this commit pending rerun.
+- Watchdog, USB modem and IPv6 boot-status work: verified at their exact source boundaries above; IPv6 includes same-source XY-C1 Build/TRX/artifact.
+- Firewall tri-state: policy/source regression PASS on `736ebe86`; HTTPD stale contract repaired and exact run `44005782392` PASS on checker/docs child `49f79883`; Process/inventory/NVRAM/infosvr/AliyunDrive/AliDDNS/AdGuardHome/handoff exact-head checks PASS on `49f79883`. XY-C1 `44005782493` remained in progress; firewall-source L3 is not yet claimed.
+- DNS Forwarder RC stop registration: production source and source integration regression added in THIS COMMIT; exact Process/XY-C1 verification pending.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live main and inspect the exact-head HTTPD security rerun and XY-C1 Build/TRX/artifact for `736ebe86`. Fix the first true source/checker failure, not already-completed policy work. Keep backup frozen, maintain per-SHA validation boundaries, and publish each multi-file task with one tree/commit and expected-SHA non-forced update.
+Fetch live `main`, obtain this commit's exact `head_sha` Actions, and inspect Process lifecycle plus XY-C1 through Build, TRX verification and artifact upload. Resolve the first causal failure; if either run is pending, continue an independent RC lifecycle defect rather than waiting. Keep the backup frozen and use one complete Git tree/commit with a non-forced expected-SHA compare-and-swap.

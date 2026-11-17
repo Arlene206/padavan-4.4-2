@@ -1,3 +1,15 @@
+## 2026-11-17 — Register DNS Forwarder in checked RC service shutdown
+
+- Base main SHA: `49f798836772a802efad324498b875fa6a05b94c`; result: THIS COMMIT.
+- Finding: `start_services_once()` starts DNS Forwarder when `APP_DNSFORWARDER` is compiled, and `stop_dnsforwarder()` already delegates to the add-on's serialized, bounded, fail-closed stop action. However, `stop_services()` omitted that hook from its return-status accumulator.
+- Consequence: normal reboot/halt could leave the daemon running after the RC service-stop pass; a firmware update could enter flash preparation while DNS Forwarder remained alive. The missed status also could not participate in the existing shutdown MTD-persistence gate.
+- Added `stop_dnsforwarder()` to `stop_services()` under the matching `APP_DNSFORWARDER` guard using `record_service_stop_status()`. Stop failure now reaches `stop_services()`, blocks firmware update through its existing abort gate and blocks shutdown storage persistence through `service_stop_status`.
+- Extended `scripts/check_optional_app_start_status.py` with a brace-aware C function extractor and an integration contract covering the matching start/stop guards, wrapper, shutdown storage-persistence gate and firmware-update abort gate. The Process workflow watches both changed files for push and pull_request; XY-C1 watches and compiles the changed RC source.
+- Exact-head Process/XY-C1 tests have not run on this commit yet. No local repository checkout or MIPS toolchain is mounted, so local host/firmware execution was NOT RUN. Prior firewall XY-C1 run `44005782493` was still building on the unchanged pre-this-commit source; it does not validate this edit.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align HTTPD firewall contract with tri-state module gating
 
 - Exact-head HTTPD umbrella run `44005296061` on firewall source SHA `736ebe8638d253ae7b870d8a4554b15b7709f30b` passed the preceding auth/access checks, then failed only because its IPv6 mangle source assertion required legacy `is_module_loaded("ip6table_mangle")`.

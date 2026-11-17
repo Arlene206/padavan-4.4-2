@@ -11,6 +11,8 @@ PROCESS_LIFECYCLE_LIB = ROOT / "trunk/user/shared/scripts/process_lifecycle.sh"
 PROCESS_LIFECYCLE_TEST = ROOT / "trunk/user/shared/tests/process_lifecycle.sh"
 SHARED_MAKEFILE = ROOT / "trunk/user/shared/Makefile"
 VLM_SCRIPT = ROOT / "trunk/user/vlmcsd/vlmcsd.sh"
+RC_SERVICES_SOURCE = ROOT / "trunk/user/rc/src/services.c"
+RC_SOURCE = ROOT / "trunk/user/rc/src/rc.c"
 
 
 def executable(path, content):
@@ -32,6 +34,91 @@ def run(command, env):
         command, env=env, text=True, stdout=subprocess.PIPE,
         stderr=subprocess.PIPE, timeout=10, check=False
     )
+
+
+def extract_c_function_body(source, signature):
+    """Return one C function body while ignoring braces in comments and literals."""
+    signature_start = source.index(signature)
+    opening = source.index("{", signature_start)
+    depth = 0
+    state = "code"
+    quote = ""
+    index = opening
+
+    while index < len(source):
+        char = source[index]
+        next_char = source[index + 1] if index + 1 < len(source) else ""
+
+        if state == "code":
+            if char == "/" and next_char == "*":
+                state = "block_comment"
+                index += 2
+                continue
+            if char == "/" and next_char == "/":
+                state = "line_comment"
+                index += 2
+                continue
+            if char in ("'", '"'):
+                quote = char
+                state = "quoted"
+            elif char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[opening + 1:index]
+        elif state == "quoted":
+            if char == "\\":
+                index += 2
+                continue
+            if char == quote:
+                state = "code"
+        elif state == "line_comment":
+            if char == "\n":
+                state = "code"
+        elif state == "block_comment":
+            if char == "*" and next_char == "/":
+                state = "code"
+                index += 2
+                continue
+
+        index += 1
+
+    raise AssertionError(f"unterminated C function body: {signature}")
+
+
+def check_dns_forwarder_rc_shutdown_registration():
+    services = RC_SERVICES_SOURCE.read_text()
+    start_body = extract_c_function_body(
+        services, "start_services_once(int is_ap_mode)"
+    )
+    stop_body = extract_c_function_body(services, "stop_services(int stopall)")
+
+    start_guard = start_body.index("#if defined(APP_DNSFORWARDER)")
+    start_end = start_body.index("#endif", start_guard)
+    start_block = start_body[start_guard:start_end]
+    assert "start_dnsforwarder()" in start_block
+    assert "rc_first_service_start_status(start_status, dnsforwarder_start_status)" in start_block
+
+    stop_guard = stop_body.index("#if defined(APP_DNSFORWARDER)")
+    stop_end = stop_body.index("#endif", stop_guard)
+    stop_block = stop_body[stop_guard:stop_end]
+    assert 'record_service_stop_status(&stop_status, "DNS Forwarder", stop_dnsforwarder());' in stop_block
+    assert stop_body.index("return stop_status;") > stop_guard
+
+    stop_wrapper = extract_c_function_body(services, "stop_dnsforwarder(void)")
+    assert 'eval("/usr/bin/dns-forwarder.sh","stop")' in stop_wrapper
+
+    rc_source = RC_SOURCE.read_text()
+    shutdown_body = extract_c_function_body(rc_source, "shutdown_router(int level)")
+    assert "service_stop_status = stop_services(use_halt);" in shutdown_body
+    assert "service_stop_status == 0" in shutdown_body
+
+    firmware_update_body = extract_c_function_body(rc_source, "flash_firmware(void)")
+    assert "if (stop_services(0) != 0)" in firmware_update_body
+    assert "firmware update aborted: checked services did not stop" in firmware_update_body
+    print("DNS Forwarder RC shutdown registration and failure gates: PASS")
+
 
 
 def check_vlmcsd():
@@ -540,6 +627,7 @@ def check_shared_process_lifecycle():
 
 
 if __name__ == "__main__":
+    check_dns_forwarder_rc_shutdown_registration()
     check_shared_process_lifecycle()
     check_scutclient()
     check_vlmcsd()
