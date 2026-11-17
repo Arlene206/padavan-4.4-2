@@ -1,3 +1,15 @@
+## 2026-11-17 — Verify LAN DHCP event-handler symlink before launching udhcpc
+
+- Parent main SHA: `89aff3132fd80f3853f38315112811ca5d72fb67`; result: THIS COMMIT.
+- `start_lan()` previously ignored the result of `symlink("/sbin/rc", SCRIPT_UDHCPC_LAN)` and launched `udhcpc` regardless. A failed link creation or an unrelated pre-existing path could leave bound/renew/deconfig events without the intended RC dispatcher; an attacker-controlled script at the fixed /tmp name could also be invoked as root.
+- Added an injected helper that creates the link or accepts `EEXIST` only when `readlink()` returns the exact `/sbin/rc` target. Wrong-target symlinks, non-symlink collisions, permission errors and readback errors are returned as positive errno-style status. The existing path is never unlinked or overwritten.
+- AP-mode DHCP launch is now gated on successful link verification. A failure is logged and merged into `start_lan()`'s first-error status while later independent LAN configuration continues. Correct existing links remain idempotent across LAN restarts.
+- Added GNU89/Werror/ASan/UBSan policy tests for link creation, exact-target idempotency, wrong target, non-symlink collision, creation/readback failure, invalid arguments and overlong targets. The Process workflow also asserts production gating/order.
+- Traced the neighboring AP hostname path: initial `create_hosts_lan()` failure is retried by `prepare_dns_dhcpd()` via `update_hosts_ap()`; DNSMasq publication/start is refused on failure, and the AP DHCPD notification also gates restart. No defect was confirmed there.
+- Local host regression PASS. Exact-head Process lifecycle and XY-C1 Build/TRX/artifact checks pending after push. Physical-router L4 NOT VERIFIED; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Scope LAN restart order assertion to the nested WAN restart
 
 - Parent main SHA: `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`; result: THIS COMMIT.

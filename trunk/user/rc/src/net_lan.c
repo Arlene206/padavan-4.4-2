@@ -40,6 +40,7 @@
 #include "service_start_status.h"
 #include "bridge_config_policy.h"
 #include "bridge_init_policy.h"
+#include "udhcpc_script_link_policy.h"
 #include "wireless_module_load_policy.h"
 #include <gpioutils.h>
 
@@ -50,6 +51,11 @@
 #endif
 
 static char udhcpc_lan_state[16] = {0};
+
+static const rc_udhcpc_script_link_ops_t udhcpc_lan_script_link_ops = {
+	symlink,
+	readlink
+};
 
 in_addr_t get_lan_ip4(void)
 {
@@ -882,24 +888,33 @@ start_lan(int is_ap_mode, int do_wait)
 
 		if (nvram_match("lan_proto_x", "1")) {
 
-			symlink("/sbin/rc", SCRIPT_UDHCPC_LAN);
-
-			/* early fill XXX_t fields */
-			update_lan_status(0);
-
-			/* wait PHY ports link ready */
-			if (do_wait)
-				sleep(1);
-
-			/* di wakeup after 60 secs */
-			notify_run_detect_internet(60);
-
-			/* start dhcp daemon */
-			operation_status = start_udhcpc_lan(lan_ifname);
+			/* The callback script is required for bound/renew/deconfig events. */
+			operation_status = rc_udhcpc_script_link_ensure(
+				SCRIPT_UDHCPC_LAN, "/sbin/rc", &udhcpc_lan_script_link_ops);
 			if (operation_status != 0)
-				logmessage(LOGNAME, "LAN DHCP client launch failed (status=%d)",
+				logmessage(LOGNAME,
+					   "LAN DHCP event-handler link setup failed; refusing client launch (status=%d)",
 					   operation_status);
 			start_status = rc_first_service_start_status(start_status, operation_status);
+
+			if (operation_status == 0) {
+				/* early fill XXX_t fields */
+				update_lan_status(0);
+
+				/* wait PHY ports link ready */
+				if (do_wait)
+					sleep(1);
+
+				/* di wakeup after 60 secs */
+				notify_run_detect_internet(60);
+
+				/* start DHCP daemon only when its event handler is verified */
+				operation_status = start_udhcpc_lan(lan_ifname);
+				if (operation_status != 0)
+					logmessage(LOGNAME, "LAN DHCP client launch failed (status=%d)",
+						   operation_status);
+				start_status = rc_first_service_start_status(start_status, operation_status);
+			}
 		} else {
 
 			/* manual config lan gateway and dns */

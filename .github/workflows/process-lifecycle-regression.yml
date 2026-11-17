@@ -66,6 +66,8 @@ on:
       - "trunk/user/rc/src/wan_route_flush_policy.h"
       - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/udhcpc_script_link_policy.h"
+      - "trunk/user/rc/src/tests/udhcpc_script_link_policy.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/rc.h"
@@ -159,6 +161,8 @@ on:
       - "trunk/user/rc/src/tests/upnp_restart_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/udhcpc_script_link_policy.h"
+      - "trunk/user/rc/src/tests/udhcpc_script_link_policy.c"
       - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
       - "trunk/user/rc/src/lan_addr6_reload_policy.h"
       - "trunk/user/rc/src/net6.c"
@@ -321,6 +325,13 @@ jobs:
             -o "$RUNNER_TEMP/modem-wan-start-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/modem-wan-start-policy"
           python3 scripts/check_modem_wan_start_status.py
+      - name: Compile and run LAN DHCP event-handler link regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/udhcpc_script_link_policy.c \
+            -o "$RUNNER_TEMP/udhcpc-script-link-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/udhcpc-script-link-policy"
       - name: Compile and run bridge initialization status regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
@@ -491,6 +502,8 @@ jobs:
           bridge_regression = (rc / "tests/bridge_config_policy.c").read_text()
           bridge_init_policy = (rc / "bridge_init_policy.h").read_text()
           bridge_init_regression = (rc / "tests/bridge_init_policy.c").read_text()
+          script_link_policy = (rc / "udhcpc_script_link_policy.h").read_text()
+          script_link_regression = (rc / "tests/udhcpc_script_link_policy.c").read_text()
 
           def body(source, signature):
               start = source.index(signature)
@@ -514,7 +527,19 @@ jobs:
           assert "operation_status = start_udhcpc_lan(lan_ifname);" in start_lan
           assert "operation_status = lan_up_manual(lan_ifname, lan_dname);" in start_lan
           assert "operation_status = add_static_lan_routes(lan_ifname);" in start_lan
-          assert start_lan.count("rc_first_service_start_status(start_status, operation_status)") >= 4
+          assert '#include "udhcpc_script_link_policy.h"' in lan
+          assert "operation_status = rc_udhcpc_script_link_ensure(" in start_lan
+          link_prepare_at = start_lan.index("operation_status = rc_udhcpc_script_link_ensure(")
+          link_gate_at = start_lan.index("if (operation_status == 0)", link_prepare_at)
+          dhcp_launch_at = start_lan.index("operation_status = start_udhcpc_lan(lan_ifname);")
+          assert link_prepare_at < link_gate_at < dhcp_launch_at
+          assert start_lan.count("rc_first_service_start_status(start_status, operation_status)") >= 5
+          assert "saved_errno != EEXIST" in script_link_policy
+          assert "memcmp(existing_target, target, target_length)" in script_link_policy
+          assert "test_existing_exact_link_is_idempotent" in script_link_regression
+          assert "test_existing_wrong_link_is_not_replaced" in script_link_regression
+          assert "test_existing_non_symlink_is_rejected" in script_link_regression
+          assert "test_creation_error_does_not_attempt_readback" in script_link_regression
           assert "return start_status;" in start_lan
 
           manual = body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")

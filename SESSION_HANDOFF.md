@@ -1,6 +1,10 @@
 # Cross-session execution mandate
 
-Mandatory handoff checkpoint: Every session MUST inspect the live repository state before ending or handing off. Confirm the main/source baseline, exact-head Actions, validation boundary, blockers, frozen backup and precise next action. The checkpoint is mandatory; a document edit is conditional. Before context exhaustion, complete this accuracy checkpoint against the live main SHA and exact-head Actions; update this file only when a fact or next action materially changed. If all checkpoint facts and the first action are already accurate, do not create a no-op commit. This is the required end-of-session accuracy checkpoint.
+Mandatory handoff checkpoint: Every session
+- P1 LAN restart failure propagation in `0b2168e1`: all STP/FD, PHY power-cycle, restore and nested WAN restart results now flow through the existing first-error recorder. Follow-up Process workflow correction `89aff313` scopes its nested WAN/VPN ordering assertion correctly; exact-head Process run `44054844821` passed. Source-baseline XY-C1 run `44054425508` was still building at last poll; parent NVRAM `44054425712` passed, while descendant NVRAM `44054844849` was in progress at the last poll.
+- AP hostname/hosts failure handling was traced: `start_lan()` logs the early `create_hosts_lan()` attempt as best effort, but `prepare_dns_dhcpd()` calls `update_hosts_ap()` again and refuses DNSMasq configuration publication/start on failure; the AP DHCPD restart notification likewise blocks restart if host publication fails. This recovery gate is present; no additional source defect was confirmed in that path.
+- THIS COMMIT hardens AP-mode DHCP event-handler setup: verify `SCRIPT_UDHCPC_LAN` is either newly created or an existing symlink whose exact target is `/sbin/rc`; refuse to launch `udhcpc` on link creation errors or conflicting existing paths. The unit regression and Process workflow production wiring check are included; current exact-head Actions pending.
+ MUST inspect the live repository state before ending or handing off. Confirm the main/source baseline, exact-head Actions, validation boundary, blockers, frozen backup and precise next action. The checkpoint is mandatory; a document edit is conditional. Before context exhaustion, complete this accuracy checkpoint against the live main SHA and exact-head Actions; update this file only when a fact or next action materially changed. If all checkpoint facts and the first action are already accurate, do not create a no-op commit. This is the required end-of-session accuracy checkpoint.
 
 Continue one engineering effort across GPT conversations. Avoid repeating completed audits, do not wait on pending CI when independent work is available, and do not ask the user what to do next. Finish safe source slices, add regression coverage, inspect exact-SHA Actions, commit atomically, and preserve the next task.
 
@@ -9,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `de70a509a14fd343bc3ee1fbfb9c6b2078bbff6d`.
+- Current main: THIS COMMIT; parent `89aff3132fd80f3853f38315112811ca5d72fb67`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -27,10 +31,13 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify the follow-up exact-head Process lifecycle run for the LAN restart semantic checker correction; then inspect exact-head XY-C1 Build → TRX → artifact and all other checks.
-2. The production LAN restart fix is in `0b2168e1`: capture STP/forward-delay, LAN PHY power-cycle, restore, and nested WAN restart return values using the existing first-error recorder. Its C GNU89/ASan/UBSan test passed; the first Process semantic run failed only because the new order assertion found an earlier, unrelated VPN restoration call before the nested WAN restart. The checker is narrowed to locate the VPN start after `full_restart_wan()`.
-3. Continue on `main` only; leave frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` untouched.
+1. Verify THIS COMMIT's exact-head Process lifecycle regression, host symlink-policy test, and XY-C1 Build → TRX → artifact checks.
+2. If verification passes, continue the P1 LAN stability review beyond completed bridge setup/restart aggregation: inspect the guest-LAN isolation restart path for ignored required bridge/firewall operations and add a narrow regression only for a confirmed failure-propagation defect. Do not repeat the verified AP hostname/hosts retry gate, bridge first-error handling, or multi-bridge ownership rollback.
+3. Work only on `main`; preserve the frozen backup branch unchanged; use one complete Git tree/commit and a non-forced expected-SHA update per logical task.
 ## Verification boundary
+- On exact main SHA `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` passed; AdGuardHome, infosvr, AI handoff docs, AliDDNS and AliyunDrive also passed. NVRAM `44054844849` was pending at last poll. Its source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f` has XY-C1 run `44054425508` still building at last poll; do not describe Build/TRX/artifact as passed until that job completes.
+- AP hostname file preparation retry is confirmed in `prepare_dns_dhcpd()`: `update_hosts_ap()` failure blocks DNSMasq configuration publication and launch; `RCN_RESTART_DHCPD` also gates restart on successful AP host publication.
+- THIS COMMIT's exact-head host symlink test and XY-C1 Build/TRX/artifact checks are pending; local GNU89/Werror/ASan/UBSan compile/run of the symlink-policy test passed. Physical-router L4 remains NOT VERIFIED.
 
 - Parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f` contains the production LAN restart result-propagation fix. Its Process job `44054425453` passed all compiled regressions including the expanded LAN first-error test, then failed at the final semantic Python contract due to an order-assertion false positive: `start_vpn_server()` also appears earlier in the DNSMasq-lock-acquisition recovery branch. This follow-up scopes the VPN index to the call after `full_restart_wan()`; no production failure was reported.
 - On `0b2168e1`, WAN route `44054425489`, WAN DHCP `44054425743`, Process inventory `44054425531`, AI handoff docs `44054425761`, AdGuardHome `44054425537`, infosvr `44054425744`, detect_link `44054425584`, and detect_internet `44054425871` PASS. XY-C1 `44054425508` and NVRAM `44054425712` were still running at checkpoint.
@@ -38,4 +45,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live `main` and check exact-head Actions for this workflow-checker correction, particularly the Process lifecycle semantic step. Then inspect the `0b2168e1` XY-C1 and NVRAM run through completion. Do not repeat the completed boot bridge/start_lan or DHCP MTU reviews.
+Fetch live `main`, filter Actions by exact `head_sha`, and verify the Process lifecycle regression (including the new host symlink-policy test) and XY-C1 Build/TRX/artifact. If they pass, continue the P1 LAN review by inspecting the guest-LAN isolation restart path for required status propagation. Do not repeat bridge restart, bridge startup, AP hostname retry, DHCP MTU, or multi-bridge rollback work.
