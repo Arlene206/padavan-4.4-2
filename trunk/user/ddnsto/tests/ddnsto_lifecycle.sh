@@ -153,13 +153,13 @@ case "${TEST_DAEMON_MODE:-normal}" in
 		echo START >> "$TEST_OPS"
 		/bin/sleep 0.05
 		echo running > "$TEST_STATE"
-		echo $ > "$TEST_DAEMON_PID"
+		echo $$ > "$TEST_DAEMON_PID"
 		exec /bin/sleep 30
 		;;
 	normal)
 		echo START >> "$TEST_OPS"
 		echo running > "$TEST_STATE"
-		echo $ > "$TEST_DAEMON_PID"
+		echo $$ > "$TEST_DAEMON_PID"
 		exec /bin/sleep 30
 		;;
 	*) exit 2 ;;

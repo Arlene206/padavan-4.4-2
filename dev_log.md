@@ -1,3 +1,13 @@
+## 2026-11-17 — Correct DDNSTO delayed-start regression PID fixture
+
+- Base main SHA: `9c7c393d45617f2820b1285452226759a94b43c5`; result: THIS COMMIT.
+- Exact-head DDNSTO run `44011291797` on `9c7c393d45617f2820b1285452226759a94b43c5` failed only in the delayed-start regression: the mock daemon wrote the literal character `$` into `TEST_DAEMON_PID` (`echo $`) instead of its numeric shell PID. The production `ddnsto_process_state()` correctly rejected that malformed pidof inventory as UNKNOWN, so the fixture could never satisfy the expected RUNNING postcondition.
+- Corrected both delayed and normal mock daemon PID writes to `echo $$`, and added a source contract requiring the fixture to publish an actual numeric PID. No production DDNSTO code changed.
+- Process lifecycle run `44011291959` on the base SHA was still in progress at last poll; AI handoff, AliyunDrive and AdGuardHome exact-head checks passed. Fresh exact-head DDNSTO/Process checks are required.
+- RWFS exact-source XY-C1 run `44009838585` completed SUCCESS on production-source descendant `f5a42763`, including RWFS policy/integration, Build XY-C1, TRX verification and artifact upload. Process `44009960277` passed on descendant `b95bb735`; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Fix DDNSTO empty-identity regression fixture
 
 - Base main SHA: `574caf1b5abe240ea7dd025120a74414c83cefc3`; result: THIS COMMIT.
