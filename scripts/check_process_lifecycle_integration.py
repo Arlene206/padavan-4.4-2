@@ -668,16 +668,26 @@ net_lan_dhcp = (root / "trunk/user/rc/src/net_lan.c").read_text()
 wan_dhcp_stop = net_wan_dhcp.split("static int\nstop_udhcpc_pidfile", 1)[1].split("\nint renew_udhcpc_wan", 1)[0]
 lan_stop = net_lan_dhcp.split("int\nstop_lan(int is_ap_mode)", 1)[1].split("\nint\nfull_restart_lan", 1)[0]
 lan_restart = net_lan_dhcp.split("int\nfull_restart_lan(void)", 1)[1]
-assert "kill_services_with_pidfiles" in wan_dhcp_stop
+wan_dhcp_noforce_stop = 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)'
+assert wan_dhcp_noforce_stop in wan_dhcp_stop
 assert 'process_pidfile_signal(pidfile, "udhcpc", SIGUSR1)' in net_wan_dhcp
 assert 'process_pidfile_signal(pidfile, "udhcpc", SIGUSR2)' in net_wan_dhcp
 assert "kill_pidfile(" not in net_wan_dhcp[net_wan_dhcp.index("static int\nstop_udhcpc_pidfile"):]
-assert "kill_services_with_pidfiles(svcs, pidfiles, \"udhcpc\", 0, 3, 1)" in lan_stop
 assert '"/var/run/udhcpc_lan.pid"' in lan_stop
-assert "kill_services(svcs, 3, 1)" not in lan_stop
+lan_dhcp_noforce_stop = 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)'
+lan_daemon_stop = "kill_services(svcs, 3, 1)"
+assert lan_dhcp_noforce_stop in lan_stop
+assert lan_daemon_stop in lan_stop
+assert lan_stop.index("notify_pause_detect_internet()") < lan_stop.index(lan_dhcp_noforce_stop)
+assert lan_stop.index(lan_dhcp_noforce_stop) < lan_stop.index(lan_daemon_stop)
+lan_abort = lan_stop.index("if (status != 0)")
+lan_resume = lan_stop.index("notify_run_detect_internet(2)", lan_abort)
+lan_return = lan_stop.index("return status;", lan_resume)
+lan_bridge_down = lan_stop.index("ifconfig(IFNAME_BR, 0, NULL, NULL);")
+assert lan_abort < lan_resume < lan_return < lan_bridge_down
 assert "if (lan_status != 0)" in lan_restart
 assert "LAN restart aborted" in lan_restart
-print("WAN/LAN udhcpc identity-bound stop integration: PASS")
+print("WAN/LAN udhcpc PID-bound no-force stop and AP teardown-abort integration: PASS")
 
 wan_start = net_wan.split("int\nstart_wan(void)", 1)[1].split(
     "\nstatic int\nstop_wan_ppp_locked", 1

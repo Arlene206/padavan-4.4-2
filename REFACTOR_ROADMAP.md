@@ -2,12 +2,13 @@
 
 This section supersedes older rows where state conflicts.
 
-- Parent main SHA: `ab02de4517cd3cd5f4a978964dc0255a9be31adc`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Parent `6791d98b` source regressions passed for USB modem, Process, WAN teardown, NVRAM, AI, AdGuardHome, Firewall, HTTPD, AliyunDrive, infosvr and AliDDNS; XY-C1 was pending.
-- `ab02de45` secures multi-WAN PPP credentials and per-session options and rolls back partial PPPD launch. Its WAN regression failed at a fixture mismatch: expected one rather than two backslashes in the serialized value. THIS COMMIT corrects the expected username/password representation; local isolated fixture now passes all 12 cases.
-- Exact-head WAN/XY verification must be rerun, then verify current-source Build/TRX/artifact. No local MIPS compile or router L4 claimed.
+- Parent main SHA: `246d17ccd13189f267a98db85e6534aad743aa59`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent-main PASS: WAN DHCP `44124766309`, WAN teardown `44124766186`, AliDDNS `44124766478`, AliyunDrive `44124766290`, NVRAM `44124766288`, infosvr `44124766197`, AdGuardHome `44124766159`, AI handoff `44124766157`. Exact Process run `44124766115` failed only because the Process checker at line 675 still expected the old combined udhcpc force-kill call; THIS COMMIT corrects the contract.
+- All four udhcpc stop paths now use PID-file-bound 30-second no-force termination. WAN sends SIGUSR2 release then stops DHCP clients separately from ordinary daemons. AP LAN stops udhcpc before `detect_wan`, and aborts/resumes monitoring on timeout before bridge teardown. Parent exact DHCP and WAN teardown contracts both passed.
+- WAN-route run `44124204908` passed on product source `7358477`, including PPPoE-MWAN tests. XY-C1 `44124205199` on `7358477` was IN_PROGRESS at last poll; this checker/docs-only commit does not change packaged product source.
+- No local MIPS/uClibc compile or physical-router L4 is claimed.
 
-Next: verify exact-head PPPoE-MWAN regression and target build; then continue the separate LAN/WAN DHCP callback lifecycle review.
+Next: verify the corrected exact-head Process checker, finish XY-C1 Build/TRX/artifact for product source 7358477, then complete the narrow BusyBox leasefail/NAK/release state review without speculative source changes.
 
 ---
 

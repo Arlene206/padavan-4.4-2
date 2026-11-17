@@ -1,34 +1,42 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes older statements below when they conflict. Work on main only; do not repeat completed audits.
+This checkpoint supersedes older statements below when they conflict. Work on `main`; do not repeat completed audits.
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2.
-- Parent main SHA: 735847725be8fa488bc54f575ce71514e910d617; result: THIS COMMIT (single complete Git tree, non-forced expected-SHA update).
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (immutable).
-- Connector-only session: no full checkout or MIPS compiler; physical-router L4 NOT VERIFIED.
+- Repository: `https://github.com/Arlene206/padavan-4.4-2`.
+- Parent main SHA: `246d17ccd13189f267a98db85e6534aad743aa59`; result: THIS COMMIT (complete tree, expected-SHA non-force update).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Connector-only environment: no full checkout/MIPS compiler. Physical-router L4 NOT VERIFIED.
 
-## PPPoE-MWAN regression status
-- Commit ab02de4517cd3cd5f4a978964dc0255a9be31adc hardened mwan.sh credential escaping, private per-session options.wanN and rollback on partial launch. Commit def277350a862c452c2324fd86876aab9bdbaf21 corrected the escaped-credential host test; commit bae6e8715fa5d1ba583f8fba5601de46ee6aa7d1 corrected its source contract for the `.$$` staging PID.
-- On exact source commit 735847725be8fa488bc54f575ce71514e910d617, WAN-route run 44124204908 completed SUCCESS. This confirms the PPPoE-MWAN shell regressions and WAN-up/WAN-down source contract now pass.
+## Exact parent-main verification (SHA 246d17c)
+- WAN DHCP callback workflow `44124766309`: SUCCESS. This includes the DHCP lease/deconfig policy binary and source contract, including all four 30-second no-force udhcpc stop call sites.
+- WAN interface teardown `44124766186`: SUCCESS; the updated stop-order contract accepts the DHCP-only no-force stop followed by ordinary daemon termination.
+- AliDDNS `44124766478`, AliyunDrive `44124766290`, NVRAM transaction `44124766288`, infosvr `44124766197`, AdGuardHome `44124766159`, AI handoff `44124766157`: SUCCESS.
+- Process lifecycle `44124766115`: FAILED only at stale checker assertion `scripts/check_process_lifecycle_integration.py:675`, which still expected the removed `kill_services_with_pidfiles(svcs, pidfiles, "udhcpc", 0, 3, 1)` force-kill path. Prior process inventory, PPPD/udhcpc identity, and service lifecycle contracts in the same job had passed. THIS COMMIT updates the checker to require DHCP-only PID-bound no-force wait, then ordinary `detect_wan` daemon stop, and abort before bridge teardown if DHCP is still active/unknown.
+- WAN-route exact-source SHA `735847725be8fa488bc54f575ce71514e910d617` run `44124204908`: SUCCESS, including 12 PPPoE-MWAN shell cases and its source contract.
+- XY-C1 run `44124205199` on product-source SHA `7358477` remained IN_PROGRESS at last poll. This commit changes the process checker and documentation only; no product source changes since that build SHA.
 
-## DHCP graceful-stop reliability
-- Commit 735847725be8fa488bc54f575ce71514e910d617 changed all four WAN/AP-LAN udhcpc stop paths from a 3-second SIGKILL escalation to bounded 30-second waits with forcekill=0. WAN sends SIGUSR2 to both DHCP clients, stops them separately from ordinary WAN daemons, and preserves the normal TERM/KILL policy for those daemons. AP LAN similarly stops udhcpc separately from detect_wan. Timeouts/unknown PID identity abort teardown.
-- scripts/check_lan_dhcp_deconfig.py ran before the WAN-DHCP workflow's final inline contract and did not fail. The WAN-DHCP run 44124204917 then FAILED because its inline source assertion still expected the old combined 3-second force-kill transaction. WAN teardown run 44124205356 failed for the same stale assertion in its own inline check. No production regression was indicated; both embedded contracts must be updated to assert the new DHCP-first no-force stop followed by ordinary-daemon TERM/KILL.
-- THIS COMMIT updates both embedded workflow assertions to require `kill_services_with_pidfiles(NULL, udhcpc_pidfiles, ..., 30, 0)` before `kill_services(svcs_wan, 3, 1)`, retaining the ordering before USB modem stop and interface teardown.
-- Exact XY-C1 run 44124205199 was still IN_PROGRESS at last poll, at Build XY-C1 / TRX / artifact stage after all pre-build contracts passed.
+## DHCP graceful-stop status
+- `7358477` changed all WAN/AP-LAN udhcpc stop sites to bounded 30-second waits with `forcekill=0`. WAN issues SIGUSR2 release to WAN/VIPTV DHCP clients before waiting; it stops ordinary WAN daemons separately. AP mode pauses detection, waits for its LAN DHCP client, then stops `detect_wan`; a DHCP timeout resumes detection and returns before bridge teardown.
+- Exact DHCP workflow `44124766309` and teardown workflow `44124766186` pass on parent 246d17c.
+- BusyBox event handling was traced: failed deconfig enters `DECONFIG_PENDING` and retries; SIGUSR2 while pending changes the resume state to `RELEASED` and lets the pending deconfig retry run; SIGTERM routes through `ret0`, which retries pending deconfig. Leasefail/NAK callback side effects are small (leasefail no-op; NAK logs only) but deserve a final bounded review. Do not change callback semantics without a concrete failing path.
+
+## Recent commits
+- THIS COMMIT: fix the Process workflow's stale AP DHCP stop assertion and assert failure aborts before bridge teardown.
+- `246d17cc`: update WAN-DHCP and WAN-teardown workflow contracts for DHCP-first no-force stop.
+- `73584772`: remove SIGKILL escalation from udhcpc stop paths.
+- `def27735`: correct escaped PPP credential test expectations.
+- `bae6e871`: correct PPP staging filename checker.
 
 ## First next task
-1. Check exact-head WAN-DHCP callback, WAN teardown, WAN-route and XY-C1 workflows for THIS COMMIT. Require both updated inline stop-order contracts and scripts/check_lan_dhcp_deconfig.py to pass.
-2. Verify exact-head XY-C1 Build XY-C1, TRX output verification and artifact upload.
-3. If a workflow fails, inspect the exact log and fix the real issue in a new atomic commit. PENDING does not block independent work.
-4. Continue WAN DHCP leasefail/NAK/release callback semantics only after these regressions are green; confirm BusyBox state transitions before changing callback behavior.
+1. Verify exact-head Process lifecycle workflow; it must pass the corrected AP stop/teardown contract.
+2. Poll exact product-source XY-C1 run `44124205199` through Build, TRX verification and artifact upload; do not claim L3 until all succeed.
+3. Finish the narrow BusyBox leasefail/NAK/release state-machine review, changing source only if an actual error/state bug is confirmed; then continue another unchecked userland reliability path.
 
 ## Verification boundary
-- Exact source 7358477 WAN-route run 44124204908 SUCCESS, including PPPoE-MWAN shell + source contracts.
-- WAN-DHCP 44124204917 and WAN teardown 44124205356 FAILED only because their embedded source assertions still encoded the old combined udhcpc+daemon SIGKILL stop call; this commit updates those tests.
-- XY-C1 44124205199 was IN_PROGRESS at last poll; do not claim Build/TRX/artifact complete until its job finishes.
-- No full local build, target MIPS/uClibc compile or physical-router L4 is claimed.
+- DHCP and WAN teardown L2 PASS on exact parent 246d17c; Process L2 failed only at the stale AP-stop checker described above, now corrected in THIS COMMIT.
+- XY-C1 exact product-source SHA 7358477 is still in progress at the last poll; current-source L3 not yet confirmed.
+- No full local MIPS/uClibc build, hardware WAN transition or physical-router L4 is claimed.
 
 
 # Cross-session execution mandate

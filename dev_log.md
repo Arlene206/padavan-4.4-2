@@ -1,3 +1,13 @@
+## 2026-11-17 — Align Process lifecycle contract with DHCP no-force stop
+
+- Parent main SHA: `246d17ccd13189f267a98db85e6534aad743aa59`; result: THIS COMMIT.
+- Exact Process run `44124766115` on 246d17c completed process inventory, PPPD/udhcpc PID identity, service lifecycle, ZeroTier and storage tests successfully, then failed at line 675 because the final checker still expected the removed 3-second force-kill call in AP-mode LAN stop.
+- The AP stop path now pauses internet detection, waits up to 30 seconds for the PID-file-bound udhcpc process with `forcekill=0`, then terminates `detect_wan`. On timeout/unknown identity it resumes detection and returns before bridge teardown. Updated the checker to pin this order and failure abort boundary; its stop helper assertion now also verifies the 30-second no-force policy.
+- Exact parent DHCP callback `44124766309` and WAN teardown `44124766186` already PASS after the workflow-contract update; related AliDDNS, AliyunDrive, NVRAM, infosvr, AdGuardHome and AI-handoff parent checks PASS. Exact-head Process rerun pending.
+- XY-C1 run `44124205199` on product-source SHA `7358477` was IN_PROGRESS at last poll. No product source changed in THIS COMMIT; no MIPS build or physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Align DHCP stop-order workflow contracts with fail-closed client cleanup
 
 - Parent main SHA: 735847725be8fa488bc54f575ce71514e910d617; result: THIS COMMIT.
