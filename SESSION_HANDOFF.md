@@ -1,3 +1,29 @@
+# 2026-11-18 continuation checkpoint — serialize MiniUPnP lifecycle transitions
+
+## Current repository state
+- Repository: `Arlene206/padavan-4.4-2`; this work continues from main `7bd030fa1e515250e14b6c3a075901eb55d6bfa2`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
+- Exact SHA `6a5f1477` completed Process `44188951409`, Firewall Startup `44188951449`, USB modem WDM/NDIS `44188951386`, AI docs `44188951370`, and XY-C1 `44188951477` including Build, TRX verification and artifact upload.
+- SSH stop hardening in `f9afd25e` then passed exact Process `44190334132`, Process inventory `44190334289`, and XY-C1 `44190333512` including Build/TRX/artifact. PID 1 contract was corrected on `0ab0849c`; exact PID 1 `44191156366` and Process `44191156121` passed.
+- AI handoff contract failed on `0ab0849c` because the mandatory cross-session heading was absent; this was repaired on `7bd030fa`. Exact descendant AI docs `44191653244` PASS. NVRAM audit `44191653235` was still in progress at last poll; it is independent.
+- No hardware router L4 validation has been performed.
+
+## Active task
+- Concrete P1 race in `services_ex.c`: MiniUPnP's start, stop, WAN-interface cleanup, lease reload and firewall restart entry points did not share a lifecycle lock. `start_upnp()` could observe ABSENT, publish its config, and then race another RC/WAN notification that also observed ABSENT. Start, stop and reload could interleave with firewall restart.
+- This source slice adds one stable-inode private no-follow fcntl lock around all public state-changing MiniUPnP entry points. Internal locked helpers prevent recursive acquisition. Restart holds the lock through stop plus firewall refresh; update holds it across inventory decision and reload signal; WAN-interface check holds it across inventory and optional stop.
+- Startup performs a second process scan after config publication and immediately before exec, refusing to launch if a non-cooperating external instance appeared.
+- Added GNU89 ASan/UBSan lock contention/inode regression plus workflow-integrated source-order checks. Exact-head CI is pending for the upcoming commit.
+
+## Verification boundary
+- No local firmware or router runtime claim for this MiniUPnP slice. Require exact-SHA Process lifecycle, AI docs and XY-C1 Actions.
+- XY-C1 acceptance requires Build XY-C1, TRX output verification and artifact upload all PASS on a source SHA containing this slice.
+- Hardware L4 remains NOT VERIFIED. Frozen backup stays read-only.
+
+## Exact first action for the next GPT
+1. Inspect exact-head Process lifecycle and AI docs runs for the MiniUPnP commit; resolve any failing compile, lock test or source contract.
+2. Inspect exact-head XY-C1 Actions; require Build, TRX verification and artifact upload.
+3. Then continue P1 `services_ex.c` lifecycle and storage/configuration security review. Do not touch the backup.
+
 # 2026-11-18 continuation checkpoint — validate PID 1 SSH and restored handoff history
 
 ## Current main and exact-SHA evidence

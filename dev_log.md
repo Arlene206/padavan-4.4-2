@@ -1,3 +1,11 @@
+## 2026-11-18 — Serialize MiniUPnP lifecycle transitions across RC callers
+
+- Parent main SHA: `7bd030fa1e515250e14b6c3a075901eb55d6bfa2`; source slice changes `trunk/user/rc/src/services_ex.c`, adds `miniupnpd_lifecycle_lock.h` and `tests/miniupnpd_lifecycle_lock.c`, adds `scripts/check_miniupnpd_lifecycle_lock.py`, and integrates the test in Process lifecycle workflow.
+- Audit found public MiniUPnP start, stop, WAN-interface cleanup, lease reload and firewall restart entry points had no shared lifecycle lock. Start scanned ABSENT then published config before launch, allowing concurrent RC/WAN notifications to both pass preflight and interleave config/start/stop.
+- One stable-inode private fcntl lock now serializes every public state-changing entry point. Internal `*_locked` helpers prevent recursive acquisition. Restart retains lock through firewall refresh; update covers inventory/decision/signal; WAN check covers scan and optional stop.
+- Startup re-scans daemon presence after config publication and immediately before exec. The GNU89 ASan/UBSan regression covers cross-process contention, hardlink/symlink rejection, invalid paths and release; the Python checker validates wrapper coverage and ordering.
+- Exact-head Process, AI handoff and XY-C1 Build/TRX/artifact checks pending. No hardware L4 claim.
+
 ## 2026-11-18 — Restore required cross-session handoff heading
 
 - Parent main SHA: `0ab0849c47cb210a24264236721c18c7f4dc077c`.

@@ -1,15 +1,14 @@
 # 2026-11-18 latest source checkpoint
 
-- SSH stop hardening is in `f9afd25e`; RC uses identity-bound `kill_services()`. Exact f9 Process and Process inventory checks passed.
-- Exact `0ab0849c`: PID1 notification queue `44191156366`, Process `44191156121`, infosvr `44191156248`, AliDDNS `44191156160`, AliyunDrive `44191156171`, AdGuardHome `44191156036` PASS. NVRAM `44191156088` pending.
-- AI handoff `44191156095` failed after the rolling-log repair because the literal `# Cross-session execution mandate` heading had been dropped from SESSION_HANDOFF.md. THIS documentation fix restores it; AI exact-head rerun pending.
-- f9 XY-C1 `44190333512` passed all pre-build tests but Build remained in progress at last poll; TRX/artifact pending. 0ab is docs/test-only and did not trigger a new firmware build.
-- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- SSH stop hardening in `f9afd25e` passed exact Process lifecycle `44190334132`, Process inventory `44190334289`, and XY-C1 `44190333512` Build/TRX/artifact.
+- PID 1 contract/history correction `0ab0849c` passed PID 1 `44191156366` and Process `44191156121`. Required cross-session handoff heading correction `7bd030fa` passed exact AI docs `44191653244`. NVRAM audit `44191653235` was pending at last inspection.
+- THIS P1 MiniUPnP slice serializes start/stop/WAN-interface check/update/restart under one stable private lock inode, uses internal locked helpers to avoid recursive acquisition, and rechecks process inventory immediately before launch. GNU89 lock contention/inode tests and exact source-order assertions are wired into Process lifecycle CI; exact-head pending.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: check exact AI handoff and pending NVRAM on this docs fix; also finish observing the f9 XY-C1 Build/TRX/artifact. Then continue P1 stability/security work.
-
+Next: verify exact-head MiniUPnP Process/AI/XY-C1 checks; then continue P1 service lifecycle and security audit.
 
 ---
+
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)

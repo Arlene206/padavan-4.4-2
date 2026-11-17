@@ -48,6 +48,7 @@
 #include "miniupnpd_config_file.h"
 #include "miniupnpd_daemon_policy.h"
 #include "miniupnpd_presentation_url.h"
+#include "miniupnpd_lifecycle_lock.h"
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
 #include "samba_config_file.h"
@@ -1613,6 +1614,20 @@ out:
 // miniupnpd
 ///////////////////////////////////////////////////////////////////////
 
+static int
+miniupnpd_lifecycle_lock_finish(int lock_fd, int operation_status,
+                                const char *operation)
+{
+	int lock_errno;
+
+	if (miniupnpd_lifecycle_lock_release(lock_fd) == 0)
+		return operation_status;
+	lock_errno = errno ? errno : EIO;
+	logmessage(LOGNAME, "cannot release miniupnpd lifecycle lock after %s (errno=%d)",
+		   operation, lock_errno);
+	return operation_status != 0 ? operation_status : lock_errno;
+}
+
 static enum process_presence
 miniupnpd_process_presence(int *scan_error)
 {
@@ -1767,8 +1782,8 @@ miniupnpd_write_config(FILE *fp, void *opaque)
 	return 0;
 }
 
-int
-start_upnp(void)
+static int
+start_upnp_locked(void)
 {
 	int ret, i_proto_use, i_clean_min, i_clean_int, i_iports[2], i_eports[2];
 	int scan_error, presence_error;
@@ -1868,6 +1883,18 @@ start_upnp(void)
 		return ret;
 	}
 
+	state = miniupnpd_process_presence(&scan_error);
+	if (state != PROCESS_PRESENCE_ABSENT) {
+		presence_error = miniupnpd_presence_error(state, scan_error);
+		if (presence_error == 0)
+			presence_error = EBUSY;
+		errno = presence_error;
+		logmessage(LOGNAME,
+			   "miniupnpd launch aborted: daemon appeared during configuration (state=%d, errno=%d)",
+			   state, presence_error);
+		return presence_error;
+	}
+
 	ret = eval("/usr/bin/miniupnpd");
 	ret = miniupnpd_confirm_started(ret);
 	if (ret != 0)
@@ -1876,7 +1903,23 @@ start_upnp(void)
 }
 
 int
-stop_upnp(void)
+start_upnp(void)
+{
+	int lock_fd, status, lock_errno;
+
+	lock_fd = miniupnpd_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire miniupnpd lifecycle lock; refusing start (errno=%d)",
+			   lock_errno);
+		return lock_errno;
+	}
+	status = start_upnp_locked();
+	return miniupnpd_lifecycle_lock_finish(lock_fd, status, "start");
+}
+
+static int
+stop_upnp_locked(void)
 {
 	char* svcs[] = { "miniupnpd", NULL };
 	int ret;
@@ -1898,7 +1941,23 @@ stop_upnp(void)
 }
 
 int
-check_upnp_wanif_changed(char *wan_ifname)
+stop_upnp(void)
+{
+	int lock_fd, status, lock_errno;
+
+	lock_fd = miniupnpd_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire miniupnpd lifecycle lock; refusing stop (errno=%d)",
+			   lock_errno);
+		return lock_errno;
+	}
+	status = stop_upnp_locked();
+	return miniupnpd_lifecycle_lock_finish(lock_fd, status, "stop");
+}
+
+static int
+check_upnp_wanif_changed_locked(char *wan_ifname)
 {
 	int scan_error;
 	int presence_error;
@@ -1917,13 +1976,29 @@ check_upnp_wanif_changed(char *wan_ifname)
 
 	/* Restart miniupnpd only if the active WAN interface changes. */
 	if (strcmp(wan_ifname, get_wan_unit_value(0, "ifname_t")) != 0)
-		return stop_upnp();
+		return stop_upnp_locked();
 
 	return 0;
 }
 
 int
-update_upnp(void)
+check_upnp_wanif_changed(char *wan_ifname)
+{
+	int lock_fd, status, lock_errno;
+
+	lock_fd = miniupnpd_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire miniupnpd lifecycle lock; refusing WAN check (errno=%d)",
+			   lock_errno);
+		return lock_errno;
+	}
+	status = check_upnp_wanif_changed_locked(wan_ifname);
+	return miniupnpd_lifecycle_lock_finish(lock_fd, status, "WAN check");
+}
+
+static int
+update_upnp_locked(void)
 {
 	struct process_snapshot snapshot;
 	enum process_presence state;
@@ -1945,12 +2020,12 @@ update_upnp(void)
 	}
 	if (action == MINIUPNPD_DAEMON_START) {
 		process_snapshot_release(&snapshot);
-		return start_upnp();
+		return start_upnp_locked();
 	}
 
 	if (nvram_get_int("wan_nat_x") == 0) {
 		process_snapshot_release(&snapshot);
-		return stop_upnp();
+		return stop_upnp_locked();
 	}
 
 	/* Update UPnP forwards from the lease file without changing mapping policy. */
@@ -1974,14 +2049,37 @@ update_upnp(void)
 }
 
 int
+update_upnp(void)
+{
+	int lock_fd, status, lock_errno;
+
+	lock_fd = miniupnpd_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire miniupnpd lifecycle lock; refusing update (errno=%d)",
+			   lock_errno);
+		return lock_errno;
+	}
+	status = update_upnp_locked();
+	return miniupnpd_lifecycle_lock_finish(lock_fd, status, "update");
+}
+
+int
 restart_upnp(void)
 {
-	int ret;
+	int lock_fd, ret, lock_errno;
 
-	ret = rc_upnp_restart_run(stop_upnp, restart_firewall);
+	lock_fd = miniupnpd_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		lock_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire miniupnpd lifecycle lock; refusing restart (errno=%d)",
+			   lock_errno);
+		return lock_errno;
+	}
+	ret = rc_upnp_restart_run(stop_upnp_locked, restart_firewall);
 	if (ret != 0)
 		logmessage(LOGNAME, "skipping firewall restart because miniupnpd is still active (status %d)", ret);
-	return ret;
+	return miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart");
 }
 
 ///////////////////////////////////////////////////////////////////////
