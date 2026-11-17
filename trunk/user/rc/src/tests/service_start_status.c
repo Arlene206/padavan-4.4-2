@@ -54,6 +54,46 @@ test_static_ipoe_eapol_cleanup_failure_forces_interface_down(void)
 }
 
 static void
+test_static_ipoe_address_cleanup_failure_blocks_eapol(void)
+{
+	const int clear_failures[] = { -1, EIO, EBUSY };
+	int status;
+	int cleanup_failed;
+	int down_attempts;
+	int eapol_attempts;
+	int i;
+
+	assert(!rc_wan_static_ipoe_clear_failure_requires_ifdown(0, EIO));
+	assert(!rc_wan_static_ipoe_clear_failure_requires_ifdown(1, 0));
+
+	for (i = 0; i < (int)(sizeof(clear_failures) / sizeof(clear_failures[0])); i++) {
+		status = EADDRNOTAVAIL;
+		cleanup_failed = 0;
+		down_attempts = 0;
+		eapol_attempts = 0;
+
+		if (rc_wan_static_ipoe_clear_failure_requires_ifdown(1, clear_failures[i])) {
+			cleanup_failed = 1;
+			status = rc_first_service_start_status(status, clear_failures[i]);
+			down_attempts++;
+			/* Even a failed ifdown cannot erase the first address error. */
+			status = rc_first_service_start_status(status, EIO);
+		}
+		if (!cleanup_failed)
+			eapol_attempts++;
+
+		assert(down_attempts == 1);
+		assert(eapol_attempts == 0);
+		assert(status == EADDRNOTAVAIL);
+	}
+
+	/* A successful address clear leaves the normal EAPOL path available. */
+	cleanup_failed = rc_wan_static_ipoe_clear_failure_requires_ifdown(1, 0);
+	eapol_attempts = cleanup_failed ? 0 : 1;
+	assert(eapol_attempts == 1);
+}
+
+static void
 test_wan_default_mtu_respects_static_custom_override(void)
 {
 	assert(wan_default_mtu_should_be_set(1, 1299));
@@ -500,6 +540,7 @@ main(void)
 	assert(rc_first_service_start_status(4, 0) == 4);
 	test_wan_firewall_failure_blocks_protocol_launch();
 	test_static_ipoe_eapol_cleanup_failure_forces_interface_down();
+	test_static_ipoe_address_cleanup_failure_blocks_eapol();
 	test_wan_default_mtu_respects_static_custom_override();
 	test_wan_default_mtu_failure_is_reported_while_startup_continues();
 	test_man_custom_mtu_failure_is_reported_and_setup_continues();
@@ -515,6 +556,6 @@ main(void)
 	test_storage_event_remains_pending_after_failure();
 	test_loopback_start_preserves_first_required_failure();
 	test_lan_start_preserves_first_required_failure();
-	puts("RC boot, WAN firewall, static IPoE EAPOL cleanup and LAN first-failure policy: PASS");
+	puts("RC boot, WAN firewall, static IPoE address/EAPOL cleanup and LAN first-failure policy: PASS");
 	return 0;
 }

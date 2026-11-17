@@ -1,30 +1,28 @@
-# 2026-11-18 continuation checkpoint — factory reset status propagation and CI verification
+# 2026-11-18 continuation checkpoint — static IPoE address cleanup fail-closed handling
 
 ## Current repository state
-- Repository `Arlene206/padavan-4.4-2`; latest implementation commit: `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`.
-- The immutable backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
-- Factory-reset defect fixed in `0d58928e`: propagate MTD erase status, gate NVRAM reset marker on successful storage erase, gate PID 1 reboot request on both persistent operations, attempt configured rstats recovery on abort, and restore the reset LED when the physical button path fails.
-- Exact-head GPIO button workflow `44197451556`: PASS — GNU89 daemon policy, new fail-closed factory-reset policy under ASan/UBSan, hold timing regression, and Python source/call-order contracts all succeeded.
-- Exact-head Process lifecycle `44197451701`: PASS. Exact-head MiniUPnP configuration/lifecycle `44197451163`: PASS. AliDDNS `44197451708`, Inadyn `44197451699`, NFS `44197451136`, VPN server `44197451509`, iNIC `44197451350`, WAN ARP `44197451378`, firewall `44197451483`, FRP `44197451512`, HTTPD security/lifecycle `44197451148`/`44197451349`, AdGuardHome `44197451198`, infosvr `44197451180`, Samba `44197451302`, and MiniUPnP `44197451163` were PASS at the last exact-SHA poll.
-- Exact-head AI handoff run `44197451610`: FAIL only because this handoff had not yet included the mandatory end-of-session checkpoint clause required by the current development protocol. THIS documentation update adds the missing explicit rule and records exact statuses; no product source change is made.
-- Exact-head XY-C1 firmware run `44197454090` was QUEUED at the last poll. It must complete Build XY-C1, TRX verification and artifact upload before L3 can be claimed for `0d58928e`. Earlier `88770d79` firmware success is not evidence for this source SHA.
-- Local host/MIPS compilation was NOT RUN because no full checkout/toolchain is available in this session. Physical-router L4 remains NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS source slice: `b83c1cbf99d457c5155a4d613c49f8871f3c1fff`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Factory-reset production fix `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`: GPIO run `44197451556` PASS including GNU89 ASan/UBSan and source contracts. Exact-head AI documentation rerun `44197796498` on `b83c1cb` PASS; Process `44197451701` and MiniUPnP `44197451163` on `0d58928e` PASS.
+- Exact XY-C1 run `44197454090` on `0d58928e` had passed all pre-build checks through WAN and PPPoE-MWAN gates; Build XY-C1 was still IN_PROGRESS at last poll, with TRX verification and artifact upload PENDING. Do not claim L3 until all three complete.
+- The prior static IPoE EAPOL-launch cleanup fix `5d0618c` and its multiline checker repair `80dcdc6` are complete; exact WAN run `44197177575` on `80dcdc6` PASS.
+- No full local checkout/MIPS toolchain is available. Local target compilation is NOT RUN; physical-router L4 remains NOT VERIFIED.
 
 ## Active task
-- Factory-reset source change `0d58928e` is committed. Its new dedicated GPIO workflow is green, along with Process and MiniUPnP integration.
-- Close the exact-head documentation check and remaining queued/in-progress Actions. Inspect any first-causal failure; do not conflate an AI handoff-contract failure with firmware source failure.
-- Continue an independent high-priority reliability/security slice while XY-C1 is queued or building.
+- THIS source slice closes a separate P1 static-IPoE failure path. When assigning a configured static IPv4 address failed, the code attempted to clear a potentially partial address but discarded the clear result. The physical WAN interface could stay administratively UP with a stale address.
+- On failed clear, the code now aggregates/logs that error, forces the physical interface down and aggregates/logs any failed force-down. A per-WAN guard prevents EAPOL and the remaining IPoE protocol activation from running after this cleanup failure. Successful clears and dynamic IPoE are unchanged.
+- Added a GNU89 policy regression and expanded `scripts/check_wan_firewall_status.py` to enforce the error/cleanup/skip ordering. Existing WAN/XY-C1 workflows already include the touched source, header, test and checker paths.
 
 ## Verification boundary
-- `0d58928e`: GPIO `44197451556` PASS; Process `44197451701` PASS; MiniUPnP `44197451163` PASS; AI handoff `44197451610` FAIL on missing literal end-of-session checkpoint clause, fixed here; XY-C1 `44197454090` QUEUED.
-- Other exact-head runs above were PASS as listed; remaining run set includes queued/in-progress independent module regressions. Query exact `head_sha` before relying on any result.
-- New factory-reset GNU89 ASan/UBSan test passed in Actions. No local compilation or hardware L4 claim.
+- Exact-head WAN route GNU89/ASan/UBSan regression and source contract: PENDING for THIS commit.
+- Exact-head XY-C1 Build, TRX verification and artifact upload: PENDING for THIS commit. The prior `0d58928e` build `44197454090` is still in progress at the last poll and does not verify this new source SHA.
+- Factory-reset GPIO regression on `0d58928e`: PASS. AI handoff on `b83c1cb`: PASS. No local host/target compile or hardware L4 claim.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and the exact-`head_sha` push runs for this documentation commit, especially AI handoff and XY-C1. Require Build, TRX and artifact completion on the exact product SHA.
-2. If AI still fails, inspect the first failing assertion and preserve the exact checkpoint requirements from `scripts/check_ai_handoff_docs.py`; no no-op commit if already accurate.
-3. Repair any product CI failure in a separate atomic main commit. While XY-C1 remains queued/in progress, continue another independent P1 stability/security issue.
-4. Keep the backup immutable; hardware L4 remains NOT VERIFIED.
+1. Fetch live `main`; inspect exact-`head_sha` push runs for WAN route, XY-C1 and AI handoff on THIS commit.
+2. Require the WAN policy binary and complete static-IP/EAPOL/firewall source contract to PASS. For XY-C1, require Build XY-C1, TRX verification and artifact upload.
+3. Separately recheck `0d58928e` run `44197454090`; if it completes, record the Build/TRX/artifact steps without treating it as validation of THIS newer WAN source.
+4. Repair only the first causal failure in a separate atomic commit; continue independent P1 work while any build remains PENDING. Keep backup immutable and hardware L4 NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 Every session MUST inspect the live repository state, exact-SHA Actions that materially changed, current handoff/roadmap facts, and the first actionable next task before ending. The checkpoint is mandatory; a document edit is conditional. Record new PASS/FAIL/PENDING state accurately. If the facts and first action remain accurate, leave the handoff untouched and do not create a no-op commit.

@@ -82,6 +82,9 @@ require("test_wan_firewall_failure_blocks_protocol_launch" in policy_test and
 require("test_static_ipoe_eapol_cleanup_failure_forces_interface_down" in policy_test and
         "test_static_ipoe_eapol_cleanup_failure_forces_interface_down();" in policy_test,
         "static IPoE EAPOL address cleanup must have a registered policy regression")
+require("test_static_ipoe_address_cleanup_failure_blocks_eapol" in policy_test and
+        "test_static_ipoe_address_cleanup_failure_blocks_eapol();" in policy_test,
+        "partial static IPoE address cleanup must have a registered protocol-gating regression")
 require("int start_firewall_ex(void);" in header,
         "firewall rebuild API must expose its status")
 
@@ -154,6 +157,43 @@ for index, position in enumerate(firewall_sites):
     else:
         require("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);" in follow,
                 "PPP/IPoE firewall failure must reach wan_start_status")
+
+# A failed static address setup must not leave a stale address exposed.
+static_address = start.split("/* Assign static IP address to i/f */", 1)[1].split(
+    "/* Rebuild required firewall policy before EAPOL, DHCP or route activation. */", 1)[0]
+require("int static_address_cleanup_failed = 0;" in start.split(
+    "for (unit = 0; unit < 1; unit++)", 1)[1][:180],
+    "static address cleanup gate must be reset for every WAN unit")
+address_cleanup_order = (
+    'clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);',
+    "if (rc_wan_static_ipoe_clear_failure_requires_ifdown(",
+    "static_address_cleanup_failed = 1;",
+    "wan_start_status = rc_first_service_start_status(",
+    "wan_start_status, clear_status);",
+    "interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);",
+    "if (interface_cleanup_status != 0)",
+    "wan_start_status, interface_cleanup_status);",
+)
+address_cursor = 0
+for marker in address_cleanup_order:
+    position = static_address.find(marker, address_cursor)
+    require(position >= 0,
+            f"partial static address cleanup/force-down sequence missing or reversed: {marker}")
+    address_cursor = position + len(marker)
+require("failed to clear partially configured static WAN address on %s (status=%d); forcing interface down" in static_address,
+        "partial static address cleanup failure must be logged")
+require("failed to take static WAN interface %s down after partial address cleanup failure (status=%d)" in static_address,
+        "failed force-down after partial address cleanup must be logged")
+protocol_gate_at = start.find("if (static_address_cleanup_failed)")
+eapol_at = start.find("/* Start eapol authenticator */")
+firewall_gate_at = start.find("/* Rebuild required firewall policy before EAPOL, DHCP or route activation. */")
+require(firewall_gate_at >= 0 and firewall_gate_at < protocol_gate_at < eapol_at,
+        "partial address cleanup must gate protocol activation after firewall setup and before EAPOL")
+protocol_gate = body(start, "if (static_address_cleanup_failed)")
+require("continue;" in protocol_gate and "start_auth_eapol" not in protocol_gate,
+        "failed partial address cleanup must skip EAPOL and the remaining IPoE protocol path")
+require("skipping IPoE protocol activation after static address cleanup failure on %s" in protocol_gate,
+        "protocol activation skip must be diagnosed")
 
 # A failed EAPOL launch must not leave a stale static IPoE address exposed.
 require("rc_wan_static_ipoe_clear_failure_requires_ifdown" in policy and

@@ -1,3 +1,12 @@
+## 2026-11-18 — Fail closed after partial static IPoE address setup cleanup fails
+
+- Parent main SHA: `b83c1cbf99d457c5155a4d613c49f8871f3c1fff`; previous factory-reset source `0d58928e` GPIO regression `44197451556` PASS, and the required AI handoff checkpoint contract passed on `b83c1cb` run `44197796498`.
+- Found a separate static IPoE failure path: after configured IPv4 assignment failed, clearing a partially configured address could also fail, but the result was only logged and the physical interface stayed administratively UP.
+- THIS source slice propagates the clear error, forces the WAN interface down, preserves the first address-configuration failure, records a failed force-down, and skips EAPOL/remaining IPoE protocol activation for that WAN unit. Dynamic IPoE and successful cleanup behavior are unchanged.
+- Added GNU89 policy regression and source-order/protocol-gating assertions. Exact-head WAN and XY-C1 validation pending; the older `0d58928e` XY-C1 run `44197454090` had reached Build XY-C1 but had not completed at last poll. No local MIPS build or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Record factory-reset CI results and close handoff checkpoint contract
 
 - Exact source SHA `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`: GPIO button run `44197451556` PASS, including the new GNU89 ASan/UBSan factory-reset sequence regression; Process `44197451701` PASS; MiniUPnP `44197451163` PASS.

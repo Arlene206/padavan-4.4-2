@@ -1742,6 +1742,8 @@ start_wan(void)
 	/* Start each configured and enabled wan connection and its undelying i/f */
 	for (unit = 0; unit < 1; unit++)
 	{
+		int static_address_cleanup_failed = 0;
+
 		wan_proto = get_wan_proto(unit);
 		if (wan_proto < 0)
 			continue;
@@ -2030,9 +2032,21 @@ start_wan(void)
 							logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",
 								   wan_ifname, address_status);
 							clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
-							if (clear_status != 0)
-								logmessage(LOGNAME, "failed to clear partially configured static WAN address on %s (status=%d)",
+							if (rc_wan_static_ipoe_clear_failure_requires_ifdown(
+								wan_proto == IPV4_WAN_PROTO_IPOE_STATIC, clear_status)) {
+								static_address_cleanup_failed = 1;
+								wan_start_status = rc_first_service_start_status(
+									wan_start_status, clear_status);
+								logmessage(LOGNAME, "failed to clear partially configured static WAN address on %s (status=%d); forcing interface down",
 									   wan_ifname, clear_status);
+								interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);
+								if (interface_cleanup_status != 0) {
+									wan_start_status = rc_first_service_start_status(
+										wan_start_status, interface_cleanup_status);
+									logmessage(LOGNAME, "failed to take static WAN interface %s down after partial address cleanup failure (status=%d)",
+										   wan_ifname, interface_cleanup_status);
+								}
+							}
 						}
 					}
 				}
@@ -2069,6 +2083,12 @@ start_wan(void)
 				continue;
 			}
 			
+			if (static_address_cleanup_failed) {
+				logmessage(LOGNAME, "skipping IPoE protocol activation after static address cleanup failure on %s",
+					   wan_ifname);
+				continue;
+			}
+
 			/* Start eapol authenticator */
 			wan_auth_mode = get_wan_unit_value_int(unit, "auth_mode");
 			if (wan_auth_mode > 1) {

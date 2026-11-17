@@ -1,18 +1,18 @@
 # 2026-11-18 latest source checkpoint
 
-- Latest implementation parent for this documentation update: `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`; factory-reset production fix is `0d58928ee6ab852cbbc37f4a2201a685c8252e1e`.
-- Factory reset now propagates MTD erase status, gates the NVRAM reset marker and PID 1 restart on successful persistent operations, and attempts to restore configured rstats on abort. The new GPIO workflow exact run `44197451556` PASSes including GNU89 ASan/UBSan policy test and source-order checks.
-- Exact `0d58928e` Process `44197451701` and MiniUPnP `44197451163` PASS. AI handoff `44197451610` failed only because the handoff text omitted the mandatory end-of-session accuracy checkpoint clause; THIS docs update adds that required section. XY-C1 `44197454090` was QUEUED at the last poll; build/TRX/artifact still required.
+- Parent main before THIS static-IPoE cleanup source slice: `b83c1cbf99d457c5155a4d613c49f8871f3c1fff`.
+- Factory-reset fix `0d58928e` has exact GPIO regression PASS (`44197451556`); AI handoff contract rerun `44197796498` on `b83c1cb` PASS; Process `44197451701` and MiniUPnP `44197451163` on `0d58928e` PASS.
+- Exact XY-C1 run `44197454090` on `0d58928e` passed its pre-build validation gates but was still at Build XY-C1 when last polled; TRX verification and artifact upload remain PENDING. No L3 claim yet.
+- THIS slice fixes a separate static IPoE address-assignment cleanup failure: if clearing a partially configured address fails, it propagates/logs the error, forces the physical WAN interface down and blocks EAPOL/protocol activation for that WAN unit. GNU89 regression and WAN source-order contract are added; exact WAN/XY-C1 runs pending.
 - Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: validate the exact-head AI handoff rerun and XY-C1 Build/TRX/artifact for `0d58928e`, then continue an independent P1 module.
+Next: inspect exact-head WAN and XY-C1 checks for THIS static-address cleanup slice; recheck the still-running `0d58928e` build, then continue independent P1 work.
 
 ---
 
 ## Whole-repository module status
 
-- Latest P1 WAN defect: static IPoE EAPOL failure could leave a stale address because the clear result was discarded. THIS commit propagates it and forces interface-down if clearing fails; exact-head WAN/XY-C1 pending.
-
+- Static IPoE EAPOL launch-failure cleanup was fixed in `5d0618c` and its source-check correction passed exact WAN run `44197177575` on `80dcdc6`. THIS slice addresses the separate static-address-assignment failure branch: failed partial-address clear now forces interface-down and gates EAPOL; exact-head verification pending.
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
