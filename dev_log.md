@@ -1,3 +1,13 @@
+## 2026-11-17 — Correct DHCP MTU retry checker contracts
+
+- Parent main SHA: `02ec8ab34bf54b5e37de6e0081df2ea2aeb37ef5`; result: THIS COMMIT.
+- The exact-head WAN route run `44047414939` reached the new DHCP MTU assertions but the checker incorrectly selected the first `udhcpc_bound(..., 1)` call (the earlier route-retry branch) as the callback for a changed MTU. It now locates and asserts the separate bound re-entry after `value = getenv("mtu")`; IPTV renew uses the same ordered check.
+- WAN DHCP callback run `44047414751` compiled and passed the expanded C interface/route regression, then failed only because its existing inline contract still expected the old diagnostic text `accepted but route setup is incomplete`. The production callback now correctly labels the broader MTU + route error as `accepted but interface/route setup is incomplete`; both WAN and IPTV assertions are updated.
+- Production source and the new retry regression remain unchanged in this test-contract correction. Exact-head rerun is pending; the XY-C1 workflow for source `02ec8ab3` was still awaiting its build stage at last poll.
+- Parent `5b9cc6d1` WAN route `44046257356`, WAN DHCP `44046257418`, Process inventory `44046257192`, and Process lifecycle `44046257377` passed; XY-C1 `44046257252` had started but was not yet through Build/TRX/artifact at the last poll.
+
+---
+
 ## 2026-11-17 — Retry DHCP-advertised WAN/IPTV MTU failures across renewal callbacks
 
 - Parent main SHA: `5b9cc6d16b8676e30a12002212f8440673a15937`; result: THIS COMMIT.
