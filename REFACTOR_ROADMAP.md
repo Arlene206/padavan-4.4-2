@@ -1,9 +1,9 @@
 ## Current source / CI checkpoint
 
-- `net6.c` IPv6 per-interface flushes, all `net_wan6.c` SIT/6rd/native route operations, and dynamic `net_wan.c` PPP ping/custom WAN hook arguments use argv-based `eval()`.
-- `net_ppp.c` now also uses direct argv for the fixed `l2tp-control start-session` request and the `mwan.sh --rc-lifecycle-locked` launch; it contains no `system()` or `doSystem()`. Existing L2TP launch and mwan launch nonzero handling remains.
-- Exact parent `71c95adc3e99b611ddfdb9f4b67014718ed4916a` was undergoing fresh push runs for the PPP checker correction at last poll; no new exact-head results are yet asserted. Product-source XY-C1 Build/TRX/artifact L3 and physical-router L4 remain NOT VERIFIED.
-- Frozen backup remains read-only.
+- `net6.c` IPv6 per-interface cleanup, all `net_wan6.c` SIT/6RD/native routes, dynamic `net_wan.c` PPP/WAN hook operands and static `net_ppp.c` L2TP/mwan control commands use argv-based `eval()`.
+- Exact SHA `71c95adc`: Firewall, WAN route, Process, USB modem, infosvr, AdGuardHome, AliDDNS and AliyunDrive PASS. AI handoff `43991464381` failed because developer-log history was truncated; XY-C1 `43991464349` had reached Build and NVRAM `43991464305` passed.
+- Exact SHA `243c2514`: WAN DHCP, WAN route, USB modem, infosvr, AdGuardHome, AliDDNS and standalone process inventory PASS. Firewall/Process exposed a malformed Python regex; VPN/HTTPD exposed stale source assertions; AI handoff found two log entries. This commit repairs these deterministic checker/documentation causes.
+- XY-C1 `43991768599`, NVRAM `43991768624` and AliyunDrive `43991768665` were pending at last poll. Same-SHA MIPS/uClibc Build/TRX/artifact L3 and physical-router L4 remain NOT VERIFIED; backup remains frozen.
 
 
 ## Whole-repository module status

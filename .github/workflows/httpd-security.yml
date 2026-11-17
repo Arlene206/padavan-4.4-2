@@ -2257,7 +2257,8 @@ jobs:
           assert "ppp_config_line_value_copy(get_wan_ppp_peer(unit), peer, sizeof(peer))" in rpl2tp
           assert 'fprintf(fp,' in rpl2tp and 'options, peer) < 0' in rpl2tp
           assert 'status = eval("/usr/sbin/l2tpd");' in rpl2tp
-          assert rpl2tp.index('if (status != 0)') < rpl2tp.index('system("/usr/sbin/l2tp-control')
+          assert 'status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");' in rpl2tp
+          assert rpl2tp.index('if (status != 0)') < rpl2tp.index('status = eval("/usr/sbin/l2tp-control"')
           assert "refusing unsafe or oversized rp-l2tp peer" in rpl2tp
 
           assert "vlan_result = launch_wan_pppd(unit, wan_proto);" in wan

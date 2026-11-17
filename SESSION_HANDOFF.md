@@ -8,23 +8,23 @@ Every logical multi-file change must be one complete Git tree and one atomic mai
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Parent for PPP control argv conversion: `71c95adc3e99b611ddfdb9f4b67014718ed4916a`.
-- `net6.c` per-interface IPv6 flushes, all `net_wan6.c` SIT/6rd/native route operations, and `net_wan.c` dynamic PPP/WAN hook commands use argv-based `eval()`.
-- `net_ppp.c` now invokes the fixed L2TP control command and mwan lifecycle script with argv-based `eval()`, preserving the exact command argument/lock flag and existing status checks. There are no remaining `system()` or `doSystem()` calls in this module. The shared checker now guards this.
-- The earlier PPP ping checker correction is committed on parent `71c95adc3e99b611ddfdb9f4b67014718ed4916a`; that commit's exact-head runs were in progress when last checked. This commit's focused net_ppp source contracts pass locally.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current source parent for this test/documentation repair: `243c2514e56474ed779a4057a1277e2ae178091c`.
+- `net6.c` IPv6 per-interface cleanup, all `net_wan6.c` SIT/6RD/native route commands, `net_wan.c` dynamic PPP/WAN hook arguments and `net_ppp.c` L2TP/mwan static control calls use argv-based `eval()`.
+- Exact-head `71c95adc`: Firewall `43991464263`, WAN route `43991464458`, Process inventory `43991464459`, USB modem `43991464382`, infosvr `43991464327`, AdGuardHome `43991464383`, AliDDNS `43991464312`, AliyunDrive `43991464319` SUCCESS. AI handoff `43991464381` failed because the next commit truncated `dev_log.md` to one entry. XY-C1 `43991464349` and NVRAM `43991464305` passed host checks; XY-C1 was still at Build at last poll.
+- Exact-head `243c2514`: WAN DHCP `43991768681`, WAN route `43991768587`, USB modem `43991768563`, infosvr `43991768585`, AdGuardHome `43991768660`, AliDDNS `43991768674`, standalone process inventory `43991768704` SUCCESS. Firewall `43991768509` and Process `43991768591` failed on malformed regex; VPN `43991768846` and HTTPD `43991768656` failed on stale shell-command assertions; AI handoff `43991768626` found only two complete log entries. This commit repairs those causes.
+- XY-C1 `43991768599`, NVRAM `43991768624` and AliyunDrive `43991768665` were IN_PROGRESS at last poll. Frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-Verify exact-head actions for this PPP control argv slice; inspect the first causal failure, especially WAN route, Firewall, Process and XY-C1. Continue adjacent PPP startup/stop lifecycle review while independent workflows are pending.
+Re-run the corrected Firewall, Process, VPN, HTTPD and AI handoff checks; inspect exact-head XY-C1 Build/TRX/artifact, NVRAM and AliyunDrive outcomes. After these regressions clear, continue adjacent PPP startup/stop review across L2TP and multi-WAN lifecycle gates.
 
 ## Verification boundary
 
-- No full target build was performed locally. Exact-head push Actions for this change are pending.
+- The checker fixes in this commit have not yet run on its own SHA. Exact-head 243c failures exposed test/documentation drift rather than a C compile/runtime failure in the new PPP argv calls.
 - Product-source MIPS/uClibc XY-C1 L3 (Build, TRX verification and artifact upload on one SHA) and physical-router L4 remain **NOT VERIFIED**.
 
 ## Exact first action for the next GPT
 
-1. Fetch `/actions/runs?head_sha=<current main SHA>`; verify the PPP source checker and workflows. Fix any first causal regression from its log, then re-poll.
-2. Continue PPP lifecycle status review, including L2TP daemon and server-start interactions; preserve callback generation fencing, lifecycle locks, and failure propagation.
-3. Keep the frozen backup unchanged; use complete one-tree atomic commits and non-forced expected-SHA updates.
+1. Fetch exact-head runs for the corrected PPP/Firewall/Process/VPN/HTTPD/AI checks and resolve any residual first failure from the job log.
+2. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload; continue PPP lifecycle status review while build work is pending.
+3. Preserve the restored developer-log archive, keep the backup frozen, and use one-tree atomic commits with non-forced expected-SHA updates.

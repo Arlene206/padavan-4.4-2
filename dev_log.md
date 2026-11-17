@@ -1,18 +1,331 @@
-## 2026-11-16 — Remove unnecessary shell execution from PPP control commands
+## 2026-11-17 — Restore development-log history and align PPP argv contracts
 
-- `net_ppp.c` had only two remaining process-shell calls: `system("/usr/sbin/l2tp-control \\\"start-session 0.0.0.0\\\"")` and `doSystem("/usr/bin/mwan.sh --rc-lifecycle-locked")`. Both commands and their arguments are static; no dynamic input is involved, but the shell added an unnecessary parsing layer and returned a different status representation.
-- Replaced them with direct argv-based `eval()` calls while preserving the exact executable, single L2TP command argument, mwan lifecycle lock flag, surrounding nonzero checks and status propagation. The PPP module now has no `system()` or `doSystem()` calls.
-- Added shared source contracts requiring both argv vectors, their status checks, and no remaining shell API in `net_ppp.c`. Focused local checks pass.
-- Parent `71c95adc3e99b611ddfdb9f4b67014718ed4916a` exact-head reruns were IN_PROGRESS at last poll; the prior stale PPP ping checker issue was repaired there. Product-source XY-C1 L3 remains unverified.
+- Exact-head run set for `243c2514e56474ed779a4057a1277e2ae178091c`: WAN DHCP `43991768681`, WAN route `43991768587`, USB modem identity `43991768563`, infosvr `43991768585`, AdGuardHome `43991768660`, AliDDNS `43991768674`, and standalone process inventory `43991768704` PASS.
+- Firewall `43991768509` and Process `43991768591` exposed a malformed double-escaped regex in the new PPP shell-API assertion (`re.PatternError`); VPN server `43991768846` and HTTPD `43991768656` exposed stale source contracts expecting the former `doSystem()`/`system()` calls after their argv conversions.
+- AI handoff `43991768626` failed because `dev_log.md` still contained only two entries. This correction restores the full 314-line historical log from parent `5327f7626fc307c8db5e2de670e5433cd0eef55b` and prepends complete records for the checker repair and PPP control conversion.
+- XY-C1 `43991768599`, NVRAM `43991768624`, and AliyunDrive `43991768665` were still in progress at last poll; current-source MIPS/uClibc L3 and physical-router L4 are NOT VERIFIED.
 
 ---
 
-## 2026-11-16 — Align PPP peer-probe source contracts with argv execution
+## 2026-11-17 — Remove unnecessary shell execution from PPP control commands
 
-- Parent `5327f7626fc307c8db5e2de670e5433cd0eef55b` exact-head WAN DHCP `43990883611` PASS; Firewall `43990883471`, WAN route `43990883432`, Process inventory `43990883425` and XY-C1 `43990883486` FAIL; NVRAM `43990883715` was still running.
-- Firewall, Process and XY-C1 failure logs converged on `scripts/check_modem_wan_start_status.py:203`: the checker still located the shell-formatted ping after `wait_ppp_up()` had migrated to `eval("ping", "-c1", ppp_gate)`. WAN route's embedded checker had the same stale expression at Python line 300. Prior host regressions in those jobs passed before this source-contract failure.
-- Updated the shared checker and WAN route workflow to require the argv ping command, reject the old `doSystem()` expression, and continue checking the success return occurs after the peer probe. No production C change was needed for this CI drift.
-- Exact follow-up Actions and the XY-C1 build gate remain pending. The prior XY-C1 failure occurred in the stale host assertion before target compilation; it is not a firmware-build result.
+- `net_ppp.c` had two remaining process-shell calls: the static `l2tp-control start-session` request and `mwan.sh --rc-lifecycle-locked` launch. Neither needed shell parsing.
+- Replaced them with direct argv-based `eval()` calls while preserving the exact L2TP argument, mwan lifecycle flag, existing nonzero checks and return-status propagation.
+- Added shared contracts for exact argv vectors and for the absence of `system()`/`doSystem()` in `net_ppp.c`. The first exact-head run exposed a double-escaped regex in this assertion; this follow-up corrects it.
+- The same exact-head run exposed stale VPN/HTTPD source contracts, now updated to require the argv vectors. No production C rollback is needed.
+
+---
+
+## 2026-11-16 — Keep PPP and custom WAN hook arguments out of the shell
+
+- Audited the remaining dynamic command strings in `net_wan.c`. `wait_ppp_up()` interpolated its kernel-retrieved IPv4 peer into `ping`; `wan_up_internal()` and `wan_down_internal()` interpolated the WAN interface name and address into the fixed custom post-WAN script path.
+- Replaced all three with argv-based `eval()`. The PPP probe retains its existing IPv4 validation gate; custom hook script path and the four expected arguments are unchanged as distinct argv elements.
+- Extended the shared `check_modem_wan_start_status.py` regression to require the exact argv calls and reject the shell-formatted alternatives. Focused local source contracts pass.
+- Parent `8e09623b275fec23b35952a992e2abcbb98f39fb` exact Actions: WAN DHCP `43990568766` PASS, WAN route `43989785616` parent PASS, and nine other completed workflows SUCCESS. XY-C1 `43990568825` and NVRAM `43990568681` remained IN_PROGRESS at last poll. Product-source L3 is not yet verified.
+
+---
+
+## 2026-11-16 — Repair WAN IPv6 argv regression assertions
+
+- Exact-head WAN route run `43989785616` passed on `8b0ad1bb5760c282b1b85482be6b14ba0974720f`. WAN DHCP run `43989785873` reached its final source-contract step after all six compiled regression steps passed, then failed because several adjacent Python string literals in operation/marker tuples had no commas and concatenated into one impossible assertion; one route-order assertion also still searched for the former shell command.
+- Restore each tuple item as a separate comma-delimited marker, assert the exact SIT/native argv vectors including both SIT default-route operations, and update the route-order check to locate the argv route command.
+- Add the same no-`doSystem()` and status-gated argv checks to `scripts/check_modem_wan_start_status.py`, already consumed by Process, Firewall and XY-C1 workflows. Exact-head reruns are pending this correction.
+- XY-C1 Build/TRX/artifact on source SHA `8b0ad1bb5760c282b1b85482be6b14ba0974720f` remained in progress at last poll; current-source L3 and physical-router L4 are NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Remove shell-formatted dynamic commands from WAN IPv6 setup
+
+- Audited all remaining `doSystem()` calls in `net_wan6.c`. Runtime interface names, validated IPv4/IPv6 literals, generated 6rd prefixes and clamped MTU/TTL values were interpolated into shell commands for SIT tunnel lifecycle, 6rd configuration, IPv6 route addition and native/SIT teardown.
+- Converted every remaining command in the file to argv-based `eval()`; WAN SIT/native fail-fast macros still wrap each forward operation and return/cleanup paths still propagate status. Numeric MTU/TTL operands are rendered into fixed-size checked decimal buffers before tunnel mutation.
+- Extended the WAN DHCP callback workflow to assert argv forms, macro gating, bounded numeric conversion and zero remaining `doSystem()` use in the file. Focused local source contracts pass; exact-head GitHub Actions and XY-C1 L3 must still be checked.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Correct WAN route and DHCP IPv6 flush source contracts
+
+- Exact parent `f1f624e3f667e67376031233f6e2f9a53f6f31df` produced 14 push Actions. Eleven completed successfully; XY-C1 run `43987743135` remained in progress at last poll.
+- WAN route run `43987743317` failed only because its inline checker still required `clear_if_neigh6()` to call `doSystem()`. WAN DHCP callback run `43987743207` failed only because its inline checker required both per-interface address/route flushes to call `doSystem()`. All earlier compiled regression steps in both jobs passed; no production failure was reported.
+- Updated both inline contracts to require the exact argv-based `eval()` calls and reject shell-based execution. Focused source/checker assertions pass locally. The corrected workflows will rerun on this atomic commit; exact-head success is not yet claimed.
+
+---
+
+## 2026-11-16 — Keep per-interface IPv6 cleanup arguments out of the shell
+
+- Audit confirmed `clear_if_addr6()`, `clear_if_route6()` and `clear_if_neigh6()` interpolated runtime interface names into `doSystem()`; `doSystem()` formats a command and passes it to `system()`, so those values crossed a shell boundary.
+- Replaced all three operations with argv-based `eval()`. Existing empty-name rejection, absent-interface no-op behaviour and command-result propagation are unchanged.
+- Extended the WAN route workflow's source regression to require the exact argv vectors and forbid shell-based execution in all three functions.
+- The new source contract passes locally against the edited source. Exact-head push Actions are not exposed by the available run-list integration (the commit-status response is empty and its run-list wrapper returns PR-triggered runs only); do not treat that as CI PASS. MIPS build/TRX and physical-router L4 remain unverified.
+
+---
+
+## 2026-11-16 — Propagate IPv6 global sysctl failures
+
+- Parent: `8291da3892430ca915c5414c609aca246f78c7aa`. `control_if_ipv6_all()` previously discarded all `set_interface_conf_int()` and neighbour-cache `fput_int()` results; callers could not report partial configuration failure.
+- Added injectable `rc_ipv6_conf_apply()`, attempting every write while retaining the first error and failing closed on invalid inputs. The production writer skips only per-device paths whose interface is not yet registered; kernel `all` and `default` paths remain mandatory.
+- Changed `control_if_ipv6_all()` to return int, bounded path construction with `snprintf()`, checked neighbour-cache writes, logged init/runtime failures, and merged disable/enable errors into IPv6 restart status.
+- Added GNU89 ASan/UBSan tests for ordered all-write execution, first-error retention, success, no-op and invalid inputs. Wired into Process, Firewall, WAN route and XY-C1 CI and shared source assertions.
+- Parent exact Actions: WAN DHCP callback `43984154569`, AI handoff `43984154581`, Process inventory `43984154609`, AdGuardHome `43984154572`, AliDDNS `43984154561`, infosvr `43984154692`, AliyunDrive `43984154565`, NVRAM audit `43984154656` PASS. This production slice requires fresh exact-SHA checks; physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Align WAN DHCP callback contracts with argv-based IPv6 address adds
+
+- Parent source SHA: `b7aa7296aab8274461a68182402357352a9d905e`. WAN DHCP callback Actions run `43983424171` failed in its inline Python source contract because it still expected the three IPv6 address-add operations to use shell-formatted `doSystem()` calls.
+- The production source had intentionally converted the SIT WAN, derived SIT LAN and native static WAN address-adds to argv-based `eval()`; WAN fail-fast macros still capture their status. This is a stale checker failure, not a runtime/test failure.
+- Updated the callback workflow's required-operation and status-gating assertions to require the argv calls and added guards against reintroducing shell-formatted address additions. No production source changed.
+- On exact `b7aa7296aab8274461a68182402357352a9d905e`, WAN route `43983424396`, Process `43983424164`, Firewall `43983424297`, AI handoff `43983424148` and HTTPD `43983424199` PASS. XY-C1 `43983424207` had passed all pre-build checks and was building; TRX/artifact pending. Product-source L3 and physical-router L4 remain NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Pass dynamic WAN IPv6 address arguments without a shell
+
+- Parent: `4cdf85227650738b7a9c105322fab12e5b5d06cc`. Audited `net_wan6.c`: three dynamic IPv6 address additions used `doSystem("ip -6 addr add %s dev %s", ...)`. The IPv6 address strings are generated from validated binary IPv6 structs or passed through `format_ipv6_literal()`; replacing shell formatting with argv execution removes unnecessary shell parsing and prevents future input regressions.
+- Converted SIT WAN address, derived SIT LAN address and native static WAN address additions to `eval("ip", "-6", "addr", "add", ...)`. Existing WAN startup macros retain the exact command status and failure rollback path.
+- Added shared checker and WAN route workflow assertions for all three argv calls, absence of the shell-formatted form, and preservation of address construction/validation.
+- Exact parent checks: Process `43983013930`, Firewall `43983014009`, AI handoff `43983014049` PASS; XY-C1 `43983014153` was building with TRX/artifact pending. WAN route had passed on preceding source SHA `176e93e`; this new slice needs its own exact-head checks.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Correct LAN IPv6 reload checker normalization
+
+- Parent: `176e93e3e20889bdddcdab8769f3a4e9665ef01e`. Exact-source CI exposed a checker-only regression: `compact()` collapses whitespace to a single space, but newly added assertions expected all whitespace to be removed.
+- Fixed those assertions to match the checker's established normalization contract. No production C code or policy test changed.
+- Exact parent runs: WAN route `43982636461` PASS, including new IPv6 reload regression and inline contracts; AI handoff `43982635895` PASS. Process `43982636314`, Firewall `43982636272`, XY-C1 `43982636425` failed at that same assertion; the new C policy test passed in Process before the assertion. XY build/TRX/artifact skipped and remain unverified.
+- Rerun all exact-head suites after this commit. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Make LAN IPv6 address reload fail-visible and shell-safe
+
+- Parent main: `7c46a6055c60c2fc534610cedd9189cf30ace4d6`. The previous `reload_lan_addr6()` returned void, discarded stale-address flush and address-add results, and interpolated the NVRAM address into shell-formatted `doSystem()`. LAN startup and IPv6 restart could report success after address setup failed.
+- Added an injectable reload policy: stale-address clear must succeed before publishing a new address; empty configuration only clears; add failures are returned; missing callbacks fail closed. Production addition uses argv-based `eval("ip", "-6", "addr", "add", ...)` rather than shell interpolation.
+- Changed `reload_lan_addr6()` to return int and propagate its result through `start_lan()` and `full_restart_ipv6()` while preserving first-error semantics and continuing independent bridge/WAN/DNS work.
+- Added GNU89/ASan/UBSan tests for clear-failure gating, add failure, empty configuration and missing callbacks. Updated Process, Firewall, WAN route and XY-C1 checks.
+- Parent exact Actions: Process `43979698102`, Firewall `43979698600`, AI docs `43979698471`, HTTPD security `43979698034` PASS; WAN route `43979698355` in progress; XY-C1 `43979698609` building after host/source tests, with TRX/artifact pending. New source requires exact-SHA verification. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Propagate LAN IPv6 address cleanup failures
+
+- Parent main: 8befa2b20295be8182053dc4e224174db471ed82. clear_lan_addr6() currently discarded clear_if_addr6(IFNAME_BR)'s errno-style result, allowing stop_lan() to report success after failed IPv6 address cleanup.
+- Changed clear_lan_addr6() and rc.h declaration to return int. stop_lan() captures/logs ipv6_status and aggregates first failure in conntrack → IPv4 route → IPv6 address → bridge-down order without skipping bridge shutdown.
+- Added service_start_status regression cases for IPv6-only failure, prior route error precedence and bridge-down-only failure; Process checker validates wrapper return and production aggregation. WAN route checker validates updated result order; XY-C1 path filter adds net_lan6.c.
+- Exact 8bef AI handoff 43979147640 PASS; Firewall Startup 43979147580, USB modem 43979148326, AdGuardHome 43979147629, infosvr 43979147611 and AliDDNS 43979147585 PASS. Process 43979148973 and XY-C1 43979147638 were pending at last poll; current-source L3 and physical-router L4 remain NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Align shared and HTTPD route-startup contracts with global cache flush API
+
+- Parent main: `bb0c693125f0ddfd4e845d6c9d4f8fb58f68d2e2`; product-source route-cache change is `493f981e4db110923ca8d16328e29aec541a3734`. The WAN route workflow `43978255126` passed, including the injected GNU89/ASan/UBSan global-cache regression.
+- Exact 493f Process regression `43978254976`, Firewall Startup `43978255243`, XY-C1 `43978254941`, and HTTPD security `43978255197` all failed at stale source contracts left behind by the intentional `full_restart_wan()` API change: the common checker still required the old direct `rc_wan_route_flush_apply()` plus separate `flush_route_caches()`, and HTTPD still required the pre-composite helper call. Production source was not implicated by these failures.
+- Updated both shared checker contracts to assert the composite `rc_wan_route_flush_and_cache_apply()` call, the global cache callback, first-error gate and ordering before switch reconstruction. The exact 493f AI docs failure was separately fixed by `bb0c693`, which restored the 22 previous complete root records plus the 493f record; exact AI handoff run `43978638161` now PASSes with 23 entries.
+- The exact 493f XY-C1 workflow stopped in its pre-build source checker, so route-cache product-source L3 is **NOT VERIFIED**. Exact 493f WAN route `43978255126` PASS; exact bb0c Process common checker `43978638091` still failed at the same stale assertion.
+- THIS COMMIT is checker/documentation only and requires fresh exact-head Process, Firewall, HTTPD, WAN route and XY-C1 results. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Propagate global route-cache flush failures through full WAN restart
+
+- Parent main: `2c503c9ee1b3cda569700d3e85f614eed0317ad8`. `flush_route_caches()` discarded the result of `system("ip route flush cache")`, and its only RC caller, `full_restart_wan()`, ignored the result before switch/WAN reconstruction.
+- Converted the wrapper to return `eval("ip", "route", "flush", "cache")`, updated the public prototype, and combined global-cache and per-interface route flush results using first-error semantics. The cache attempt still runs when an interface flush fails; route-dependent WAN restart work is blocked if either cleanup stage fails.
+- Added injected regression cases for route-first failure, cache-only failure, successful cleanup, and missing callback. WAN route CI compiles the test with GNU89/ASan/UBSan and checks source API, caller wiring and restart gate.
+- Parent exact WAN route `43977147385`, Process `43977147335`, and AI handoff `43977147281` passed; NVRAM `43977147536` was pending. Exact 759c18 XY-C1 `43976717898` was still building. This route-cache change needs its own same-SHA Build/TRX/artifact verification. Physical-router L4 remains NOT VERIFIED.
+- Next: inspect exact-head WAN route/Process/AI/NVRAM/XY-C1 Actions and resolve first causal failure.
+
+---
+
+---
+
+## 2026-11-16 — Align WAN route checker with LAN teardown status propagation
+
+- Parent main: 759c18d860ba1c0cb547f43fa7ca8d21b6580987. The LAN route cleanup source change in 759c18d correctly captures clear_if_route4(IFNAME_BR), logs a nonzero result, and returns the first failure across conntrack, route cleanup and bridge shutdown while continuing IPv6/interface cleanup.
+- Process integration and service-status regression passed on 759c18d (43976717949 and 43976718109); WAN DHCP callback 43976717974 and AI handoff 43976717913 passed. WAN route run 43976718132 failed at its inline stop_lan() contract because it still required the previous two-status return rc_first_service_start_status(conntrack_status, status).
+- Updated the WAN route workflow assertion to require the nested conntrack/route/bridge status aggregator and verify route flush precedes IPv6 and interface cleanup. Checker-only change; production source unchanged. Exact-head WAN route rerun required.
+- XY-C1 43976717898 was pending at last poll. Product-source baseline cffc149 remains L3 VERIFIED by successful Build/TRX/artifact; LAN route slice still awaits same-SHA L3 evidence.
+
+---
+
+## 2026-11-16 — Preserve LAN static-route flush failures during teardown
+
+- Parent main: 344db6b6cb4309ad1a2cdbf29b2cc0ee50ad5898. In stop_lan(), clear_if_route4(IFNAME_BR) returned the route-flush result but its caller discarded it. If conntrack and bridge ifconfig succeeded, a failed static-route cleanup was silently reported as a successful LAN teardown.
+- Captured and logged route_status, then nested first-error aggregation across conntrack cleanup, route flush and bridge shutdown. IPv6 cleanup and ifconfig remain attempted after a route failure; AP-mode behavior is unchanged.
+- Added service_start_status regression coverage for route-only failure, earlier conntrack error precedence, and bridge-down-only failure. Added Process integration assertions for result capture, aggregation and route→IPv6→interface operation ordering. Existing Process and XY-C1 workflows already compile this test and trigger on net_lan.c.
+- Parent source L3: XY-C1 run 43973861873 on cffc149 passed Build, TRX verification and artifact upload. The exact 344db6b handoff rerun and this slice's exact-head Process/WAN/XY-C1 checks are pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Update WAN DHCP callback contract for conntrack cleanup status
+
+- Parent main: `44fd9bedf4b7b1ab4e9d4408a6157681158774d3`. Exact `44fd9bed` WAN route, Process inventory, AI handoff, NVRAM, AdGuardHome, AliDDNS, AliyunDrive and infosvr Actions passed.
+- Exact cffc WAN DHCP callback run `43973861977` passed its C regressions, then failed its final source-contract assertion because the test still required `return route_status_accumulate(interface_status, cleanup_status);`. `udhcpc_deconfig()` now also aggregates the conntrack write result, so the old two-status assertion was stale.
+- Updated the WAN DHCP workflow to require `conntrack_status` initialization, MAN address flush, error check, flush-before-cleanup order and the full nested first-error return. No production source changes; exact-head WAN DHCP rerun is pending.
+- XY-C1 run `43973861873` for product source SHA cffc was still building at last poll. Current product L3 and physical L4 remain NOT VERIFIED.
+- Next: inspect the exact-head WAN DHCP run and complete XY-C1 Build/TRX/artifact verification, then trace `flush_route_caches()` and every caller before any API change.
+
+---
+
+## 2026-11-16 — Fix second stale MAN conntrack status contract
+
+- Parent main: c3bcb486aa97e0dbb478f05585e6c24ab33407bc. Exact c3b WAN route run 43974249410 passed earlier injected conntrack, bridge/IPv6 and route tests; its final source contract failed at Python line 304 because a legacy assertion still expected return route_status_accumulate(interface_status, cleanup_status). Since conntrack_status is now a first-class teardown result, production correctly returns the nested first-error aggregate that includes it.
+- Updated that remaining assertion to remove whitespace before comparing the full expression. This is a checker-only correction; no production source changes. Exact c3b Process 43974249384 and AI handoff 43974249444 passed; cffc Firewall Startup 43973861431 passed. cffc XY-C1 43973861873 remained in progress at last poll.
+- Current product-source L3 and physical-router L4 remain NOT VERIFIED until exact evidence exists.
+
+---
+
+## 2026-11-16 — Normalize conntrack deconfig status contract after exact-head test
+
+- Parent main: `cffc1497fda9f65d9a0b163bad5acc1723c23f81`. Exact-head WAN route run `43973861975` compiled and passed the new conntrack errno policy regression (GNU89, ASan, UBSan), all existing route/IPv6/bridge tests and the WAN VLAN source check. Its final source-contract step failed only because the new assertion compared whitespace-formatted `udhcpc_deconfig()` code without removing all whitespace; the production return aggregation is intentionally split across lines.
+- Exact-head Process `43973862332`, Firewall Startup `43973861431` and AI handoff `43973861519` passed. XY-C1 `43973861873` was queued at last poll. This fix removes whitespace before comparing the nested first-error aggregation expression; no production source changes.
+- Earlier exact `1f829937` XY-C1 run `43971856235` passed the complete firmware build, TRX output verification and artifact upload. That L3 evidence predates the conntrack source/API change. Current cffc source L3 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Propagate conntrack table flush failures through RC teardown
+
+- Parent main: `1f8299371114d2fb846ec1c47a0116afd584668c`. Traced all RC references: `flush_conntrack_table()` was declared `void` and discarded the errno-style result of shared `fput_string("/proc/net/nf_conntrack", ip)`. All four callers ignored write failure: PID 1 `RCN_RESTART_NETFILTER`, LAN teardown, WAN teardown and MAN DHCP deconfig. The shared writer returns errors from buffered writes and close.
+- Changed the API to return the writer result and added an injectable policy regression for targeted IP writes, full-table `"f"` flush, exact errno propagation and missing writer rejection. PID 1 merges the status into its notification result; LAN, WAN and MAN teardown retain the flush error while still performing later cleanup.
+- Added the test to the GNU89/ASan/UBSan WAN route workflow and source-contract checks for every production caller. New exact-head WAN, Process, Firewall Startup, XY-C1 and AI handoff actions are required after publication.
+- Exact `1f829937` Process `43971856210`, Firewall Startup `43971856255` and AI handoff `43971856365` passed; XY-C1 `43971856235` was still building at last poll. This evidence predates the conntrack source change. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Finish strict HW NAT CI contract and exact checkpoint wording
+
+- Parent main: `99d8562d8b007e83ceaff397f7c11337b9c6277a`. Exact 99d856 actions exposed one last stale common source assertion: `reload_nat_modules()` now configures radio settings only under `hwnat_loaded == 1`, passing literal 1 to the policy callback, but the checker still required the old raw `hwnat_loaded` argument. Replaced it with explicit verified-loaded gating and no-legacy-helper assertions.
+- Exact-head 99d856 Process `43971105805`, Firewall Startup `43971105848` and XY-C1 `43971105719` all failed at that same checker assertion before their downstream integration/build steps. The 99d856 AI handoff `43971105596` found the handoff omitted the exact sentence `The checkpoint is mandatory; a document edit is conditional.`; this commit adds the required exact contract wording.
+- Exact 99d856 PASS: NVRAM `43971105616`, USB modem identity `43971105688`, infosvr `43971105912`, HTTPD `43971105585`, AliyunDrive `43971106167`, AliDDNS `43971105599`, AdGuardHome `43971106008`. No same-SHA firmware build/TRX/artifact completed because XY-C1 stopped at the shared checker; current-source L3 remains NOT VERIFIED.
+- Source HW NAT/FTP/SFE code remains as in `1554a5f3`; this atomic follow-up changes only checker/documentation contracts. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Align NAT tri-state caller contracts across CI
+
+- Parent main: `ebf2d285454eba3480fe594808aa31367513ffe4`; source implementation is already in `1554a5f3`. Exact-head 1554 Process `43969810170`, Firewall Startup `43969809710` and XY-C1 `43969809836` all reached `check_modem_wan_start_status.py` and failed at the same stale assertion: the source stores `-module_loaded` in `status` then returns `status`, while the checker incorrectly required a direct `return -module_loaded`. Exact 1554 HTTPD `43969809668` failed its stale HW NAT radio assertion, which still expected the pre-change `hwnat_loaded` argument.
+- Updated the common source checker to assert the actual errno assignment and the HTTPD integration contract to require a successful tri-state probe before policy/config use and to guard radio writes on `hwnat_loaded == 1`. This is a test-contract correction; production source remains unchanged in this commit.
+- Exact-head ebf2 AI handoff `43970209185`, NVRAM `43970209177`, AdGuardHome `43970209909`, infosvr `43970209228`, AliyunDrive `43970209300`, AliDDNS `43970209283` passed. Process inventory `43970209366` failed at the same stale `return -module_loaded` checker assertion; it is corrected here.
+- d287 exact-head XY-C1 `43967039935` previously passed Build, TRX output and artifact upload; that L3 evidence does not cover the newer HW NAT/FTP/SFE source. Exact-head reruns are required after this checker correction. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Normalize whitespace in PPPoE sysctl status assertion
+
+- Parent main: 1554a5f3fbb1bf13c3325ad765b7e806d74d1537. Exact-head Process run 43969335166 reached the new sysctl integration contract, then failed because the multiline rc_first_service_start_status() call left whitespace immediately after its opening parenthesis. The checker expected a no-space argument sequence.
+- Updated the assertion to remove all whitespace from the function body before matching the exact helper call, without weakening the production definition/prototype/dispatcher contract.
+- The d287 exact-head XY-C1 run 43967039935 passed Build, TRX verification and artifact upload; it predates the new sysctl source. Current-main Process/XY-C1 validation is pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+## 2026-11-16 — Propagate unknown NAT module state through HW NAT, FTP and SFE
+
+- Parent main: `d83760b4c8e5514fd996f986b1400b7b794876f4`. Confirmed a remaining module-state defect in `net.c`: HW NAT, FTP and SFE branches used the legacy Boolean probe before invoking strict load/unload helpers. A negative `/sys/module` probe could be treated as absence and silently skip a required teardown or configuration check.
+- HW NAT now returns tri-state status; disabled mode invokes verified unload unconditionally, enabled mode surfaces initial probe errno, only verified-loaded modules receive radio sysfs writes, and configuration propagates unknown module state. FTP parameter reconfiguration is blocked on UNKNOWN rather than risking a live helper mutation. SFE enable/disable now uses verified load/unload on every transition and returns the actual failure status.
+- d287 exact-head XY-C1 `43967039935` passed Build XY-C1, TRX verification and artifact upload; WAN route `43967040074`, Process `43967040068`, AI handoff `43967040010`, NVRAM `43967039938`, HTTPD/AdGuardHome `43967039819`, infosvr `43967039889`, AliyunDrive `43967040044`, AliDDNS `43967040108` all passed. This is L3 only for d287, not the new source.
+- d837's unrelated sysctl checker correction has AI handoff `43969335259` PASS; Process regression `43969335166`, NVRAM `43969335303`, AdGuardHome `43969335428`, AliDDNS `43969335268` were in progress at last poll. New exact-head Process, Firewall Startup, XY-C1 and handoff tests must validate this module-state source slice. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Correct whitespace contract in sysctl status checker
+
+- Parent main: 1e10514145025ceb0ce9e0a0cd5468e28e6b7fa0. The first follow-up tried to make the function-signature assertion independent of line formatting, but exact Process CI later showed the remaining failure was a separate multiline rc_first_service_start_status() call assertion: whitespace remained after the opening parenthesis. This is corrected by the next entry.
+- XY-C1 exact-head run 43967039935 on d28729a completed successfully: Build XY-C1, TRX verification and artifact upload all PASS. The later 1e105 sysctl source change still requires its own exact-head Build/TRX/artifact run.
+- The Process lifecycle regression on 1e105 was queued when last checked; this checker correction is included before its first execution. Exact-head Process/XY-C1 results for this repair remain pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+## 2026-11-16 — Propagate PPPoE relay failure through sysctl notification
+
+- Parent main: d28729af83c9692f376539c31d9578f129774d20. set_passthrough_pppoe(1) returns an errno-style status, but restart_all_sysctl() discarded it and its only RCN_RESTART_SYSCTL caller also ignored the helper result. PID 1 could therefore acknowledge a failed PPPoE relay startup/readiness operation.
+- Changed restart_all_sysctl() to return/log the relay status, keep optional Samba fastpath work independent, update the public prototype and merge the result through rc_notify_merge_action_result() at the sole PID 1 dispatcher callsite.
+- Added a host regression for positive errno retention across later independent work and conversion to a negative/unacknowledged notification result, plus an integration contract checking the actual definition, prototype and caller. Exact-head Process/XY-C1 verification is pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+## 2026-11-16 — Restore strict module-probe CI contracts and developer-log history
+
+- Parent main: `b6ff015c1a70e9b61bebfbcf33aae9d1de113946`. Commit `b6ff015c` finishes migration of all four module-load sites to the strict tri-state probe; the source checker now verifies the boot and wireless callbacks plus negative errno propagation.
+- Exact-parent Firewall Startup `43966109926` passed. WAN route `43966109986` failed only at a whitespace-sensitive assertion for the multiline IPv6 cleanup call. XY-C1 `43966109916` stopped at a stale checker expecting the previous Boolean load policy. AI handoff `43966109747` found only one root developer-log entry; restored the full 109-entry log from the pre-truncation parent snapshot.
+- Process regression `43966109822`, XY-C1 `43966109916`, NVRAM `43966109901`, GPIO `43966109653`, notification queue `43966109981`, AliDDNS `43966109957` and USB storage `43966109731` were pending/in progress at last poll. Other completed b6ff Actions passed except the failures above; query exact SHA for current outcomes.
+- Earlier source SHA `eb566f3` passed XY-C1 Build/TRX/artifact, but predates later IPv6/module-load changes. b6ff XY-C1 did not reach Build; newer L3 remains NOT VERIFIED. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Preserve tri-state module-load probe failures
+
+- Main parent: `beee6893b7c14eccc94634fe51dc41d2e748b8b7`. Strict `is_module_loaded_status()` already served unload checks, but the load verifier still treated any nonzero callback value as success and four production loaders still used the lossy Boolean wrapper.
+- Updated `rc_module_load_verified()` for 1=loaded, 0=absent and negative errno=probe failure. Migrated NAT, boot hardware, wireless driver and LAN bridge module-load sites to the strict probe.
+- Added injected tests for direct errno propagation and for trying all required modules while retaining the first failure. Extended Process/WAN source contracts to cover every production loader and both regression cases.
+- Parent exact-head AI handoff passed; WAN route regression was running after correcting its path-filter assertion. The prior `eb566f3` XY-C1 Build/TRX/artifact passed, but the newer IPv6 cleanup change and this source slice require exact-head verification. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Fail closed when WAN interface route cleanup fails
+
+- Parent main: `e928181da3a52b4035d1ccf03307f212cafa2a4e`. `full_restart_wan()` ignored both `clear_if_route4()` command results and continued into switch table clearing, WAN variable reset, static route restoration and WAN restart. A stale interface route could survive undetected.
+- Changed `clear_if_route4()` to return the `eval()` status and pass the interface name as a single argv element rather than shell interpolation. Added `rc_wan_route_flush_apply()`: attempt both interface flushes, retain the first failure, and stop the WAN rebuild before switch/MAC and route reconfiguration when either flush fails.
+- Added GNU89/`-Werror`/ASan/UBSan regression for two-interface attempt order, first-error retention, later-only failure, invalid interface and invalid policy arguments. Process lifecycle run `43960589874` passed this test on source SHA `58318f5`; WAN route regression `43960590043` also passed.
+- Workflow path filters were repaired in `f2d9ccef50d3ebfc0f6f5dde94fae7893c7bb58d`. Exact-head Firewall Startup `43961249138` passed. HTTPD `43961249141` exposed a whitespace-sensitive checker for a multiline call (the compiled route test passed); checker normalization is fixed in `eb566f346f63d3d6ed295c08170ac6d834ff7f04`. Current-head HTTPD `43961727463` passed. Current-head XY-C1 `43961726533` passed all pre-build checks and route host regression; Build XY-C1 was in progress at last poll, with TRX/artifact pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Propagate HW NAT radio configuration failures
+
+- Parent main: `93d0254006bea2e5743715e9b039bb51a0c09f52`. HW NAT radio-registration commands for 2.4 GHz and 5 GHz plus the IPv6 debugfs write previously discarded their `doSystem()` results.
+- Added wait-status normalization (including command-launch errno), independent attempt semantics for both radios and IPv6 debugfs, first-error propagation into the NAT reload result, and fault-injection coverage for success, nonzero command exit, signal termination, command-launch failure, disabled/unloaded module and invalid callback.
+- Exact-head `0b32b9111c38e2cf7588cf6605b2491f25e3ce31` had Firewall and Process regressions pass; XY-C1 Build/TRX/artifact passed. HTTPD initially failed only on a newline-sensitive source assertion; it was corrected in `e928181da3a52b4035d1ccf03307f212cafa2a4e`. Exact-head `e928181` HTTPD, AI handoff and XY-C1 (including Build, TRX and artifact upload) all passed. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Propagate Adbyby update action failure to PID 1
+
+- Main parent: `e09e044195fd936142ed0b42ead1bd73f6262c02`. In the RC notification dispatcher, `RCN_RESTART_UPDATEADB` called `update_adb()`; that void wrapper ignored the wait status returned by `eval("/usr/bin/adbyby.sh", "updateadb")`. A failed update therefore left the notification action result unchanged.
+- Changed `update_adb()` to return int, updated its public prototype, and merged its result into `action_result` with `rc_notify_merge_action_result()`. Added an integration-checker contract for the helper, declaration and actual notification caller.
+- Strict module-probe commit 4c435 had 38/39 Actions passed at last poll; its XY-C1 Build/TRX/artifact run `43953778444` was still in progress. The Adbyby fix requires a new exact-SHA verification. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-16 — Fail closed on RC module-state probe errors
+
+- Main parent: `1aca5ab3a776a66138814769b84d5e5ceb43b46c`. Audited `common_ex.c:is_module_loaded()`: it returned 0 for all `opendir("/sys/module/<name>")` failures, conflating absence (ENOENT) with permission/resource/sysfs errors. `rc_module_unload_verified()` could consequently skip an unload and falsely report absence.
+- Added tri-state `is_module_loaded_status()`: 1=loaded, 0=ENOENT only after the sysfs module root opens, negative errno=invalid path or probe failure. Preserved the legacy boolean `is_module_loaded()` wrapper and bound NAT unload verification to the strict probe.
+- Added injectable regressions for an initial probe error (must not call unload) and a post-unload probe error (must return the error). Updated canonical source checks and push/PR path coverage.
+- Exact 1aca runs before this slice: Process regression `43952107815`, HTTPD `43952107789`, AI handoff `43952107818` passed; XY-C1 `43952107870` was `in_progress`. This commit needs fresh exact-SHA results. Physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-17 — Include the inline service-start result policy in firewall_ex
+
+- Exact-head 09ea XY-C1 `43947164750` reached MIPS link and failed with undefined references to `rc_first_service_start_status` from `firewall_ex.o`. The helper is static-inline in `service_start_status.h`; `firewall_ex.c` had not included that header. Added the include and added a canonical source assertion.
+- Exact-head 89a43d9 Firewall Startup `43948306770`, Process regression `43948306885`, HTTPD `43948306816`, AI handoff `43948306828`, USB modem `43948306849`, infosvr `43948306784`, AliDDNS `43948306867`, AdGuardHome `43948306841`, and AliyunDrive `43948306780` passed. NVRAM `43948306748` remained pending and XY-C1 `43948306746` was still building.
+- This is a production link correction. Exact-SHA Build/TRX/artifact must pass again; physical-router L4 remains NOT VERIFIED.
+
+---
+
+## 2026-11-17 — Align NAT module assertions with policy inputs and HW NAT API
+
+- Exact-head 39190 Firewall Startup `43947724068` and Process regression `43947724044` failed at the new source checker because it reused `POLICY_SOURCE/POLICY_TEST`, which refer to modem-WAN policy files. Added dedicated `MODULE_POLICY_SOURCE/MODULE_POLICY_TEST` bindings for the wireless module policy and regression.
+- Exact-head 39190 HTTPD `43947724129` failed because its inline checker expected the old single-argument `hwnat_configure` signature. Updated the contract to the allow-aware two-argument function and its call.
+- 39190 USB modem identity `43947724775`, AI handoff `43947724226`, process inventory `43947724196`, and WAN route `43947724172` passed; NVRAM, USB storage and XY-C1 were pending. This is validation repair only; no firmware result inferred.
+- NAT module unload policy remains under exact-head validation; physical-router L4 is NOT VERIFIED.
+
+---
+
+## 2026-11-17 — Normalize optional firewall hook ENOENT checker
+
+- Exact-head 8c77 Firewall Startup `43946213665` and Process regression `43946213545` passed all preceding firewall/module/status policy tests but the canonical checker expected `errno!=ENOENT` after `compact()`; the normalized actual source is `errno != ENOENT`. Changed the assertion to a whitespace-tolerant `re.search`.
+- Exact-head 8c77 XY-C1 `43946213553` stopped at this checker before Build/TRX/artifact. HTTPD `43946213772`, NVRAM `43946213544`, AI handoff `43946213616`, AliyunDrive `43946213652`, AliDDNS `43946213539`, AdGuardHome `43946213561`, USB modem `43946213534`, and infosvr `43946213737` passed.
+- Next P1 remains NAT helper and HW NAT/SFE module unload/load postconditions. No physical-router L4 claim.
+
+---
+
+## 2026-11-17 — Repair escaped firewall checker regex and HTTPD hook helper signature
+
+- Exact-head 8956 Firewall Startup `43945597477`, Process regression `43945597663`, and XY-C1 `43945597624` failed because the checker regex was emitted with two backslashes in a raw string, matching literal backslashes rather than whitespace. The production source contains nine status-aggregation calls; the regex now uses one escape level.
+- Exact-head 8956 HTTPD `43945597526` failed at its inline helper boundary because the assertion expected `static void firewall_log_hook_stage_failure`, while the implementation now returns `int` to propagate staging failures. Updated the expected signature.
+- Exact-head 8956 AliyunDrive `43945597544`, AliDDNS `43945597596`, AdGuardHome `43945597557`, AI handoff `43945597849`, USB modem `43945597613`, and infosvr `43945597566` passed; NVRAM `43945597771` was pending. The old SHA's failures are not treated as fixed until the new exact-head suites pass.
+- Next P1: audit module unload/load postconditions for configured NAT helpers and optional HW NAT/SFE. No XY-C1 L3 or physical-router L4 claim for this source state.
 
 ---
 

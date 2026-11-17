@@ -332,7 +332,7 @@ assert "return xl2tp_status;" in l2tp_start_merge
 assert "return wan_status;" in l2tp_start_merge
 
 # PPP control commands are fixed argv vectors; avoid an unnecessary shell layer.
-assert not re.search(r"\\b(system|doSystem)\\s*\\(", PPP_SOURCE)
+assert not re.search(r"\b(?:system|doSystem)\s*\(", PPP_SOURCE), "PPP source must not call shell execution APIs"
 rpl2tp_start = compact(body(PPP_SOURCE, "start_rpl2tp(int unit)"))
 assert 'status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");' in rpl2tp_start
 assert "if (status != 0)" in rpl2tp_start

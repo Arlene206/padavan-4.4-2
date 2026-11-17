@@ -230,8 +230,10 @@ require("kill_services(svcs, 5, 1)" in wan_launch_locked and
 ordered(wan_launch_locked,["ppp_wan_session_generation_change(&callback_generation)",
                            'nvram_match("pppoemwan_enable", "1")',
                            "kill_services(svcs_pppd, 5, 1)",
-                           'doSystem("/usr/bin/mwan.sh --rc-lifecycle-locked")'],
+                           'eval("/usr/bin/mwan.sh", "--rc-lifecycle-locked")'],
         "multi-WAN PPP stop before helper launch")
+require('doSystem("/usr/bin/mwan.sh --rc-lifecycle-locked")' not in wan_launch_locked,
+        "multi-WAN lifecycle helper must be launched without a shell")
 require("refusing multi-WAN PPP launch: pppd did not stop" in wan_launch_locked and
         "EBUSY" in wan_launch_locked,
         "multi-WAN PPP launch must fail closed if the previous pppd processes remain")
