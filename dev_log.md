@@ -1,3 +1,11 @@
+## 2026-11-17 — Remove second stale WAN IPv6 teardown early-return assertion
+
+- Parent main SHA: 24ef91459ce1d3e7f17de5c3d843ce866d6aa675; result: THIS COMMIT.
+- Exact-head WAN run 44107619068 passed the first updated static block but then failed in a second, duplicate inline contract at workflow line 705. That block still demanded `return ipv6_status;` before `del_dhcp_routes_by_prefix`, contradicting the intended 510b075 IPv4-continuation fix.
+- Updated the second contract to require IPv6 status accumulation, continued IPv4 route cleanup, and a final combined `return status;`; no production code changed.
+- Exact-head process inventory run 44107929004 and XY-C1 run 44107928829 were pending at checkpoint; WAN rerun pending. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Route legacy pids() queries through the tri-state procfs scanner
 
 - Parent main SHA: 70cfa7881c64e25ce4109d9ded609c795600cb78; result: THIS COMMIT.

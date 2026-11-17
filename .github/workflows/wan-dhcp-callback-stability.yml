@@ -702,9 +702,10 @@ jobs:
           wan_down_internal = body(source, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           assert "ipv6_status = wan6_down(wan_ifname, unit);" in wan_down_internal
           ipv6_fail = wan_down_internal.index("if (ipv6_status != 0)")
-          ipv6_return = wan_down_internal.index("return ipv6_status;", ipv6_fail)
+          ipv6_accumulate = wan_down_internal.index("status = route_status_accumulate(status, ipv6_status);", ipv6_fail)
           ipv4_route_cleanup = wan_down_internal.index("del_dhcp_routes_by_prefix")
-          assert ipv6_fail < ipv6_return < ipv4_route_cleanup
+          assert "return ipv6_status;" not in wan_down_internal[ipv6_fail:]
+          assert ipv6_fail < ipv6_accumulate < ipv4_route_cleanup < wan_down_internal.index("return status;")
 
           launch_wanx = body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
           assert "int ipv6_status = wan6_up(man_ifname, unit);" in launch_wanx
