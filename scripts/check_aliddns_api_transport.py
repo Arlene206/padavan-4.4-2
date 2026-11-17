@@ -189,9 +189,14 @@ require('install_ca_trust_store() {' in copy_scripts and
         'system("/usr/bin/copyscripts.sh &")' not in rc and
         rc.index('system("/usr/bin/copyscripts.sh")') < rc.index('system("/usr/bin/autostart.sh &")'),
         "firmware startup must install the CA trust store synchronously before autostart")
-require('if [ $(nvram get aliddns_enable) = 1 ]' in autostart and
-        '/usr/bin/aliddns.sh start' in autostart,
-        "enabled AliDDNS must retain its existing startup path")
+require('if [ "$(nvram get aliddns_enable)" = 1 ]; then' in autostart and
+        'if [ -r /etc/ssl/certs/ca-certificates.crt ]; then' in autostart and
+        'run_optional_start "AliDDNS" /usr/bin/aliddns.sh start' in autostart and
+        'AliDDNS autostart skipped: CA trust bundle is not readable' in autostart and
+        autostart.index('if [ -r /etc/ssl/certs/ca-certificates.crt ]; then') <
+        autostart.index('run_optional_start "AliDDNS" /usr/bin/aliddns.sh start') <
+        autostart.index('if [ $(nvram get ddnsto_enable) = 1 ]'),
+        "enabled AliDDNS must retain its CA-gated optional startup path")
 
 require('EVM_RESTART_ALIDDNS' in variables and
         'RCN_RESTART_ALIDDNS' in rc and

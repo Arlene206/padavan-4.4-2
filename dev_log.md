@@ -1,3 +1,13 @@
+## 2026-11-17 — Align AliDDNS static contract with CA-gated boot startup
+
+- Parent main SHA: `32e2eab9757261d458f7035a7d4215c5b5dc5e88`; result: THIS COMMIT.
+- Exact-head AliDDNS workflow `44095983119` completed its shell syntax, signed API transport, IPv4 discovery, DNS lifecycle, custom script, keeper lifecycle, CA bootstrap success/failure, and HMAC privacy tests successfully. It failed only in `scripts/check_aliddns_api_transport.py` because the checker still expected the pre-change unquoted `aliddns_enable` condition and direct launcher invocation.
+- Updated the static contract to assert the quoted enable check, readable `/etc/ssl/certs/ca-certificates.crt` gate, `run_optional_start` invocation, skip diagnostic, and execution before the independent DDNSTO block. Product shell/source behavior is unchanged.
+- Parent `32e2eab` AdGuardHome `44095983135`, infosvr `44095983195`, AI docs `44095983011`, AliyunDrive `44095983148`, Process lifecycle `44095983136`, and Process inventory `44095983194` PASS; NVRAM `44095983154` was in progress at last poll. New exact-head AliDDNS/docs runs pending.
+- Local host tests NOT RUN; current-source XY-C1 after AliDDNS source change and physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Correct AliDDNS CA-gate regression fixture
 
 - Parent main SHA: `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`; result: THIS COMMIT.
