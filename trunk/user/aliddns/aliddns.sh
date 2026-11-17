@@ -197,9 +197,19 @@ aliddns_find_keeper_pids() {
 	fi
 
 	for aliddns_cmdline_file in "$aliddns_proc_root"/[0-9]*/cmdline; do
-		[ -r "$aliddns_cmdline_file" ] || continue
 		aliddns_pid="${aliddns_cmdline_file%/cmdline}"
 		aliddns_pid="${aliddns_pid##*/}"
+		if [ ! -r "$aliddns_cmdline_file" ]; then
+			# A vanished PID is a normal procfs race; a still-present PID with
+			# an unreadable cmdline makes the inventory incomplete. Do not
+			# mistake UNKNOWN for ABSENT and launch a second keeper.
+			if [ -d "$aliddns_proc_root/$aliddns_pid" ]; then
+				ALIDDNS_KEEPER_PIDS=""
+				logger -t "AliDDNS" "无法读取 PID $aliddns_pid 的 /proc cmdline，拒绝确认 keeper 已停止"
+				return 1
+			fi
+			continue
+		fi
 		if aliddns_keeper_pid_matches "$aliddns_pid" "$aliddns_proc_root"; then
 			if [ -n "$ALIDDNS_KEEPER_PIDS" ]; then
 				ALIDDNS_KEEPER_PIDS="$ALIDDNS_KEEPER_PIDS $aliddns_pid"

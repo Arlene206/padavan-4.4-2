@@ -3,40 +3,40 @@
 This checkpoint supersedes older status statements below when they conflict. Restore once from the startup protocol; do not repeat completed audits.
 
 ## Git state
-- Repository: `https://github.com/Arlene206/padavan-4.4-2`
-- Parent main SHA: `55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540`; result: THIS COMMIT (complete tree, expected-SHA update, no force push).
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Connector-only session: no local checkout/compiler; physical-router L4 NOT VERIFIED.
+- Repository: `https://github.com/Arlene206/padavan-4.4-2`; development only on `main`.
+- Parent main SHA: `097705a6cbd46d1291dc22c281863c68cc2380e8`; result: THIS COMMIT (complete tree, expected-SHA update, no force push).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged; never modify).
+- Connector-only environment: no local checkout/compiler. Physical-router L4 is NOT VERIFIED.
 
-## Storage slice and CI
-- `776907e05a23` gated the targeted/manual safe-remove restart on both unmount stages succeeding and fresh positive mount inventory.
-- `e1a21c6867df` updated the storage checker to forbid retry on failed/unknown cleanup; its storage run found a formatting mismatch in the new helper-call assertion.
-- `55ffdc1fd659` corrected that assertion. Its exact-head storage run was queued at last poll; check its latest state before claiming L2.
-- Parent SHA `55ffdc1fd659` also had XY-C1 run `44114216599` in progress through the Build XY-C1 step; TRX validation and artifact upload were pending. Poll to conclusion.
+## Exact-SHA verification already observed
+- AliDDNS WAN-address hardening: exact `097705a6` run `44115712513` PASS.
+- NVRAM transaction boundary: `44115712411` PASS; AliyunDrive lifecycle: `44115712813` PASS; Process lifecycle/inventory, infosvr, AdGuardHome and AI handoff checks also PASS on exact `097705a6`.
+- Storage safe-remove checks passed on exact parent `55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540` (run `44115309645`); no storage source or checker files changed afterwards.
+- XY-C1 run `44114216599` remained IN_PROGRESS on source SHA `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`; that build predates the AliDDNS WAN helper source change. Poll only to record its result, and do not treat it as validating later AliDDNS changes.
 
-## AliDDNS WAN discovery
-- The external `aliddns-ipv4.sh` endpoint was verified HTTPS but previously accepted any syntactically valid IPv4, including private, CGNAT, loopback, link-local, documentation, benchmark, multicast and reserved ranges.
-- THIS COMMIT filters those special-use addresses only in the public WAN helper; the general syntax validator for operator-supplied DDNS scripts remains unchanged. Added mock endpoint regressions including globally reachable IETF anycast exceptions.
-- Parent signed API transport check passed on 776907e; exact-parent AliDDNS run 44115309701 was queued at last poll. Revalidate exact SHA after publication.
+## AliDDNS lifecycle slice
+- `097705a6` rejects non-global IPv4 responses in the WAN discovery helper; exact-head AliDDNS run `44115712513` passed.
+- New audit found `aliddns_find_keeper_pids()` silently skipped an unreadable `/proc/<pid>/cmdline` even while the PID directory remained visible. A partial scan could therefore report an empty keeper set and permit a duplicate keeper to start.
+- THIS COMMIT treats a still-present PID with unreadable cmdline as UNKNOWN: clears any partial PID snapshot, logs the PID and returns failure. A PID directory that has already disappeared is still treated as a normal procfs race.
+- Added a chmod-based lifecycle regression and a static contract assertion. The existing AliDDNS workflow already runs both the lifecycle test and checker.
+- XY-C1 path filtering now includes the packaged AliDDNS runtime sources; the `aliddns.sh` change in THIS COMMIT should trigger a current-main target build.
 
 ## Recent commit trail
-- THIS COMMIT: reject non-global IPv4 from AliDDNS WAN discovery
-- `55ffdc1fd659` test(storage): fix eject policy contract normalization
-- `e1a21c6867df` test(storage): align retry contract with fail-closed eject
-- `776907e05a23` fix(storage): gate targeted eject restart on cleanup success
-- `d023872d38c8` test(storage): validate retry scheduling on both failure paths
-- `576cadbbb85e` fix(storage): retry physical eject before storage app startup
-- `66afed9c10f0` fix(storage): keep dependent services stopped after failed eject
+- THIS COMMIT: fail closed on incomplete AliDDNS keeper process inventory; trigger XY-C1 for packaged AliDDNS runtime changes.
+- `097705a6`: reject non-global WAN IPv4 responses from AliDDNS.
+- `55ffdc1f`: fix storage eject checker normalization.
+- `e1a21c68`: align storage retry checker with fail-closed cleanup.
+- `776907e0`: gate storage app restart on complete cleanup success.
 
 ## First next task
-1. Query exact-head Actions for THIS COMMIT; fix any real failures in the public IPv4 test, checker, or storage test.
-2. Poll XY-C1 run `44114216599` through Build, TRX validation and artifact upload.
-3. Continue the remaining whole-userland AliDDNS lifecycle P1 audit after this IP discovery slice is verified. Do not repeat completed HTTPD/storage audits.
+1. Inspect exact-head AliDDNS Actions for THIS COMMIT; diagnose and fix any failing lifecycle regression or source contract.
+2. Verify that the new XY-C1 path filter actually queues an exact-head run; poll it through Build XY-C1, TRX verification and artifact upload.
+3. Continue the remaining P1 lifecycle audit in AliDDNS/other userland services only after exact-head tests; do not repeat completed HTTPD or storage audits.
 
 ## Verification limits
-- Host regressions and firmware L3 are PASS only from successful exact-head Actions.
 - No local host test or local firmware build was executed in this connector-only session.
-- Router hardware, real WAN interface and physical eject L4 remain NOT VERIFIED.
+- L2 requires the exact-head host workflow; L3 requires exact-head XY-C1 Build, TRX verification and artifact upload.
+- Router hardware, actual WAN-interface behavior, and physical eject L4 remain NOT VERIFIED.
 
 
 # Cross-session execution mandate

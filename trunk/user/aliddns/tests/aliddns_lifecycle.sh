@@ -204,6 +204,22 @@ aliddns_find_keeper_pids
 }
 echo "AliDDNS keeper process identity matches exact script/keep argv: PASS"
 
+# An unreadable cmdline for a still-present PID makes the scan UNKNOWN, not ABSENT.
+mkdir -p "$PROC_ROOT/105"
+printf 'sh\\000%s\\000keep\\000' "$scriptfilepath" > "$PROC_ROOT/105/cmdline"
+chmod 000 "$PROC_ROOT/105/cmdline"
+if aliddns_find_keeper_pids; then
+	echo "keeper discovery accepted an incomplete /proc inventory" >&2
+	exit 1
+fi
+[ -z "$ALIDDNS_KEEPER_PIDS" ] || {
+	echo "failed keeper discovery retained a partial PID snapshot" >&2
+	exit 1
+}
+chmod 600 "$PROC_ROOT/105/cmdline"
+rm -rf "$PROC_ROOT/105"
+echo "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS"
+
 kill() {
 	printf '%s %s\n' "$1" "$2" >> "$KILL_LOG"
 	case "$MOCK_KILL_BEHAVIOR:$1" in

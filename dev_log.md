@@ -1,3 +1,14 @@
+## 2026-11-17 — Fail closed on incomplete AliDDNS keeper inventory
+
+- Parent main SHA: `097705a6cbd46d1291dc22c281863c68cc2380e8`; result: THIS COMMIT.
+- Lifecycle review found that `aliddns_find_keeper_pids()` treated an unreadable `/proc/<pid>/cmdline` as though that process were absent. If the PID directory still existed, this was an incomplete scan that could miss a running keeper and allow a duplicate start.
+- The finder now distinguishes the normal PID-disappeared procfs race from a still-present PID whose command line cannot be read. The latter clears partial results and returns failure, preserving the stop-before-start gate.
+- Added a regression with a still-present PID directory and mode-000 cmdline; it proves incomplete discovery fails and does not retain a partial PID list. The static checker pins the production fail-closed branch.
+- Extended the XY-C1 push path filter for packaged AliDDNS sources; the changed production `aliddns.sh` must trigger a target build for the current source SHA.
+- Parent exact-head AliDDNS run `44115712513` on `097705a6` passed the WAN IPv4 hardening slice. New exact-head AliDDNS and XY-C1 Actions are pending; no local execution is claimed. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Reject non-global IPv4 responses from AliDDNS WAN discovery
 
 - Parent main SHA: 55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540; result: THIS COMMIT.

@@ -251,6 +251,11 @@ require('for aliddns_cmdline_file in "$aliddns_proc_root"/[0-9]*/cmdline' in fin
         'ALIDDNS_KEEPER_PIDS' in find_keeper_pids and
         'self/cmdline' in find_keeper_pids,
         "keeper discovery must enumerate process cmdlines and fail closed without /proc visibility")
+
+require('[ -d "$aliddns_proc_root/$aliddns_pid" ]' in find_keeper_pids and
+        '无法读取 PID' in find_keeper_pids and
+        'return 1' in find_keeper_pids,
+        "keeper discovery must fail closed when a live process cmdline is unreadable")
 require('kill -TERM "$aliddns_pid"' in stop_keeper and
         'kill -KILL "$aliddns_pid"' in stop_keeper and
         'while [ "$aliddns_attempt" -lt 5 ]' in stop_keeper and
@@ -271,6 +276,7 @@ for marker in (
     "AliDDNS keeper process identity matches exact script/keep argv: PASS",
     "AliDDNS keeper stop uses TERM grace then bounded KILL postcondition: PASS",
     "AliDDNS restart refuses to launch when keeper remains alive: PASS",
+    "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS",
 ):
     require(marker in lifecycle_test, f"keeper stop host regression missing marker: {marker}")
 require('CONFIG_FLOCK=y' in busybox_config and

@@ -2,14 +2,16 @@
 
 This section is authoritative over older table rows where state conflicts.
 
-- Parent main SHA: `55ffdc1fd6591c4bf2b3aedd76a8532ab3f47540`; result: THIS COMMIT.
-- Frozen backup branch: `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
-- Storage safe-remove: `776907e` production gate implemented; `e1a21c68` checker contract corrected; `55ffdc1` fixed normalized helper-call assertion. Check latest exact-head storage run.
-- AliDDNS public WAN IPv4 helper was verified HTTPS but did not reject special-use addresses. THIS COMMIT adds non-global-range filtering, mock boundary tests, and checker assertions; the syntax-only validator for operator-supplied scripts remains unchanged.
-- Parent AliDDNS run 44115309701 was queued at last poll; earlier transport security passed on 776907e. Recheck exact SHA after this commit.
-- XY-C1 run 44114216599 on source SHA 776907e had reached Build XY-C1; TRX/artifact still pending. Poll.
-- No local compile/test and no physical-router L4 in this connector-only session.
-- Next: validate exact-head AliDDNS/storage and XY-C1, then continue AliDDNS lifecycle P1 audit. Avoid repeat HTTPD/storage work.
+- Parent main SHA: `097705a6cbd46d1291dc22c281863c68cc2380e8`; result: THIS COMMIT.
+- Frozen backup branch: `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` (unchanged).
+- Storage safe-remove regression passed on `55ffdc1f` (run `44115309645`); no storage paths changed in later commits.
+- AliDDNS WAN helper non-global IPv4 filter passed on exact `097705a6` (run `44115712513`). This commit closes a separate lifecycle gap: unreadable live `/proc/<pid>/cmdline` previously looked like an absent keeper; the finder now fails closed, and the regression/static checker are updated.
+- AliDDNS target-source workflow coverage was missing from XY-C1 path filters; THIS COMMIT adds the packaged `aliddns.sh`, `aliddns-ipv4.sh`, `ddns_script.sh`, Makefile and source directory so this production change triggers a target build.
+- Exact `097705a6` NVRAM run `44115712411`, AliyunDrive run `44115712813`, Process/inventory, infosvr, AdGuardHome and AI docs all passed.
+- XY-C1 run `44114216599` remained in progress on older product source SHA `776907e05a23638a6bf5c9cd7ab1bbef35bb4571`; it does not validate the later AliDDNS WAN helper update. Current-source XY-C1 is expected from THIS COMMIT's new path coverage.
+- No local compile/test or physical-router L4 is claimed in this connector-only session.
+
+Next: verify exact-head AliDDNS lifecycle regression and the newly triggered XY-C1 Build/TRX/artifact; then continue remaining P1 userland lifecycle work. Avoid repeating completed HTTPD/storage audits.
 
 ---
 
