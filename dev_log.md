@@ -1,3 +1,10 @@
+## 2026-11-18 05:32 CST — Align modem checker with the new IPoE firewall gate boundary
+
+- Parent main SHA: `ece8011f4cd14ed37e24ab6a95d2b847196d6d0a`; path: `scripts/check_modem_wan_start_status.py`.
+- Exact-head ece8011 run failures: Firewall Startup `44178773543`, Process `44178773567`, and XY-C1 `44178773562`. Their GNU89 service status binary and earlier firewall-specific regression passed; all three stopped in the later modem checker at line 304 because it searched for the removed `/* re-build iptables rules (final stage for IPoE static) */` marker.
+- Replace the static-address validation end marker with the current `/* Rebuild required firewall policy before EAPOL, DHCP or route activation. */` comment. This preserves the checker’s intended scope (address configuration up to firewall stage) rather than weakening assertions.
+- Exact-head ece8011: WAN route `44178774262`, Wireless radio `44178774053`, AI handoff `44178773961`, AdGuardHome `44178773571`, AliyunDrive `44178773589`, infosvr `44178773674`, and NVRAM `44178774246` PASS. XY-C1 Build/TRX/artifact remained skipped before this correction; no L3 claim.
+
 ## 2026-11-18 05:16 CST — Repair exact-head WAN and APCLI source-contract drift
 
 - Parent main SHA: `8e9ea2131d7be59833756c15d03cf58ba288085c`; paths: `scripts/check_modem_wan_start_status.py`, `scripts/check_wan_initial_mtu_status.py`, and `.github/workflows/wireless-radio-state.yml`.

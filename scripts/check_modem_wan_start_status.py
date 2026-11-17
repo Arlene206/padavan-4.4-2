@@ -301,7 +301,7 @@ iptv_mtu_failure = iptv_dhcp_bound[iptv_dhcp_bound.index("if (mtu_status != 0)")
 assert "i_err =" not in iptv_mtu_failure and "route_setup_status =" not in iptv_mtu_failure and "return " not in iptv_mtu_failure
 
 address_pos = ipoe_branch.index("if (address_status != 0)")
-address_end = ipoe_branch.index("/* re-build iptables rules (final stage for IPoE static) */", address_pos)
+address_end = ipoe_branch.index("/* Rebuild required firewall policy before EAPOL, DHCP or route activation. */", address_pos)
 assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[address_pos:address_end]
 auth_pos = ipoe_branch.index("if (auth_status != 0)")
 auth_end = ipoe_branch.index("/* We are done configuration */", auth_pos)

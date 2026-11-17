@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Product-source fix `8e9ea2131d7be59833756c15d03cf58ba288085c` gates RAS, PPP and IPoE protocol startup on a successful firewall rebuild. RAS/PPP restore physical-WAN policy or take that interface down; static IPoE address cleanup falls back to interface-down.
-- Exact-head WAN firewall gate contract passed on `8e9ea213`; the Process GNU89 service-startup policy test also passed. Four exact-head workflows then exposed stale checker assumptions: APCLI and IPoE firewall comments in two scripts, and an APCLI driver-call count that included log text. THIS checker-only commit repairs those contracts and the missing wireless PR path filter.
-- Exact `8e9ea213` results: Firewall Startup `44177798054`, WAN route `44177797840`, Wireless radio `44177798027`, Process `44177797717` FAIL at stale checker assertions; AI handoff `44177797925` PASS; XY-C1 `44177798165` still running at last poll. No target L3/hardware L4 claim.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product-source fix `8e9ea213` gates all WAN RAS/PPP/IPoE protocol startup on a successful firewall rebuild, with physical-WAN recovery or interface-down fallback.
+- Exact-head `ece8011`: WAN route, Wireless radio, AI handoff, AdGuardHome, AliyunDrive, infosvr and NVRAM PASS. Firewall Startup, Process and XY-C1 stopped at a final stale static-IPoE boundary in the modem checker. THIS COMMIT aligns it with the current firewall gate comment.
+- The new GNU89 service-start policy regression and preceding firewall/route/wireless source checks passed before that checker failure. XY-C1 Build/TRX/upload have not run successfully yet. No target L3/hardware L4 claim.
+- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-Next: inspect exact-head reruns for the four repaired checkers, then resolve XY-C1 Build/TRX/artifact on source SHA `8e9ea213`; continue independent P1 work.
+Next: inspect exact-SHA Process/Firewall/XY-C1 reruns; if green, examine SSH restart fail-closed behavior.
 
 
 ---
