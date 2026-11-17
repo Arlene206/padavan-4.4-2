@@ -6,10 +6,11 @@ SOURCE="$TEST_DIR/../files/usr/bin/autostart.sh"
 TMP_DIR=$(mktemp -d "${TMPDIR:-/tmp}/autostart-status.XXXXXX")
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
-mkdir -p "$TMP_DIR/bin" "$TMP_DIR/storage"
+mkdir -p "$TMP_DIR/bin" "$TMP_DIR/storage" "$TMP_DIR/ssl/certs"
 sed \
 	-e "s|/etc/storage|$TMP_DIR/storage|g" \
 	-e "s|/usr/bin|$TMP_DIR/bin|g" \
+	-e "s|/etc/ssl|$TMP_DIR/ssl|g" \
 	-e "s|/tmp/dnsmasq.dom|$TMP_DIR/dnsmasq.dom|g" \
 	"$SOURCE" > "$TMP_DIR/autostart.sh"
 
@@ -22,7 +23,7 @@ case "$2" in
 	sdns_enable) echo "${ENABLE_SMARTDNS:-0}" ;;
 	sdns_port) echo "${SMARTDNS_PORT:-6053}" ;;
 	frpc_enable) echo "${ENABLE_FRPC:-1}" ;;
-	frps_enable) echo 0 ;;
+	aliddns_enable) echo "${ENABLE_ALIDDNS:-0}" ;;\n	frps_enable) echo 0 ;;
 	*) echo 0 ;;
 esac
 STUB
@@ -62,6 +63,11 @@ cat > "$TMP_DIR/bin/smartdns.sh" <<'STUB'
 printf 'smartdns:%s\n' "$*" >> "$AUTOSTART_CALLS"
 exit "${SMARTDNS_STATUS:-0}"
 STUB
+cat > "$TMP_DIR/bin/aliddns.sh" <<'STUB'
+#!/bin/sh
+printf 'aliddns:%s\n' "$*" >> "$AUTOSTART_CALLS"
+exit "${ALIDDNS_STATUS:-0}"
+STUB
 chmod 755 "$TMP_DIR/bin/"*
 
 AUTOSTART_LOG="$TMP_DIR/logger.log"
@@ -73,6 +79,9 @@ ADGUARD_STATUS=41
 DDNSTO_STATUS=42
 FRP_STATUS=43
 export ADGUARD_STATUS DDNSTO_STATUS FRP_STATUS
+ENABLE_ALIDDNS=0
+ALIDDNS_STATUS=0
+export ENABLE_ALIDDNS ALIDDNS_STATUS
 
 sh -n "$TMP_DIR/autostart.sh"
 sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
@@ -185,6 +194,53 @@ grep -Fxq 'server=127.0.0.1#6053' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
 }
 grep -Fq 'SmartDNS port is invalid; leaving the dnsmasq loopback upstream unchanged' "$AUTOSTART_LOG" || {
 	echo "invalid SmartDNS port was not rejected before sed" >&2
+	exit 1
+}
+
+
+# AliDDNS depends on the firmware CA bundle. Its failure to prepare must skip
+# only AliDDNS, not the other independent autostart services.
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
+ENABLE_ALIDDNS=1
+ALIDDNS_STATUS=44
+ENABLE_SMARTDNS=0
+export ENABLE_ALIDDNS ALIDDNS_STATUS ENABLE_SMARTDNS
+rm -f "$TMP_DIR/ssl/certs/ca-certificates.crt"
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
+	echo "autostart failed when AliDDNS CA bundle was missing" >&2
+	exit 1
+}
+if grep -Fxq 'aliddns:start' "$AUTOSTART_CALLS"; then
+	echo "AliDDNS launched without its required CA trust bundle" >&2
+	exit 1
+fi
+grep -Fq 'AliDDNS autostart skipped: CA trust bundle is not readable' "$AUTOSTART_LOG" || {
+	echo "missing AliDDNS CA dependency was not logged" >&2
+	exit 1
+}
+grep -Fxq 'ddnsto:start' "$AUTOSTART_CALLS" || {
+	echo "missing AliDDNS CA bundle incorrectly blocked DDNSTO" >&2
+	exit 1
+}
+grep -Fxq 'frp:start' "$AUTOSTART_CALLS" || {
+	echo "missing AliDDNS CA bundle incorrectly blocked FRP" >&2
+	exit 1
+}
+
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
+printf 'test CA bundle\n' > "$TMP_DIR/ssl/certs/ca-certificates.crt"
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
+	echo "autostart failed when AliDDNS CA bundle was present" >&2
+	exit 1
+}
+grep -Fxq 'aliddns:start' "$AUTOSTART_CALLS" || {
+	echo "AliDDNS did not start after its CA trust bundle became readable" >&2
+	exit 1
+}
+grep -Fq 'AliDDNS autostart failed (status=44)' "$AUTOSTART_LOG" || {
+	echo "AliDDNS launcher failure status was not logged after CA readiness" >&2
 	exit 1
 }
 

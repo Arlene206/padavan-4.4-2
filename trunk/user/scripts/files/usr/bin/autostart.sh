@@ -104,9 +104,13 @@ logger -t "自动启动" "正在启动 SmartDNS..."
 run_optional_start "SmartDNS" /usr/bin/smartdns.sh start
 fi
 
-if [ $(nvram get aliddns_enable) = 1 ] ; then
-logger -t "自动启动" "正在启动阿里 ddns..."
-run_optional_start "AliDDNS" /usr/bin/aliddns.sh start
+if [ "$(nvram get aliddns_enable)" = 1 ]; then
+	if [ -r /etc/ssl/certs/ca-certificates.crt ]; then
+		logger -t "自动启动" "正在启动阿里 ddns..."
+		run_optional_start "AliDDNS" /usr/bin/aliddns.sh start
+	else
+		logger -t "自动启动" "AliDDNS autostart skipped: CA trust bundle is not readable"
+	fi
 fi
 
 if [ $(nvram get ddnsto_enable) = 1 ] ; then

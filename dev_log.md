@@ -1,3 +1,15 @@
+## 2026-11-17 — Gate AliDDNS boot startup on CA readiness
+
+- Parent main SHA: `55374c12e124711c0b789ffd8dc3f0767c3343cc`; result: THIS COMMIT.
+- Source review found a dependency gap: `rc.c` installs the firmware CA trust archive before launching `autostart.sh`, and `aliddns.sh` refuses HTTPS requests without `/etc/ssl/certs/ca-certificates.crt`, but autostart launched the AliDDNS keeper unconditionally when enabled even after CA installation failed.
+- `autostart.sh` now checks that exact CA bundle is readable before launching AliDDNS. Missing trust material logs a specific skip reason and does not block unrelated optional add-ons.
+- Extended `autostart_optional_start_status.sh` with a private CA-path fixture, an absent-bundle case proving AliDDNS is skipped while DDNSTO/FRP still start, and a present-bundle case proving AliDDNS starts and its launcher error remains logged.
+- The existing Process workflow already covers the autostart source/test paths; the AliDDNS transport workflow also watches `autostart.sh`. Exact-head runs for THIS COMMIT are pending.
+- Parent `55374c` exact-head Process lifecycle, Process inventory, NVRAM, AdGuardHome, AI docs, infosvr, AliyunDrive, and AliDDNS runs all PASS. IAPP product source `a54c1b` XY-C1 Build/TRX/artifact run `44092579822` completed SUCCESS; this does not validate the new autostart source change.
+- Local host tests NOT RUN in the connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 22:03 CST — Cover IAPP post-launch readiness rollback
 
 - Parent main SHA: `da2808b4e7080072b7a77676ec3c0c2f7cba343b`; result: THIS COMMIT.
