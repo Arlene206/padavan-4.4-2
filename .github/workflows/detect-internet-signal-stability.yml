@@ -124,12 +124,20 @@ jobs:
           assert flash.index("if (stop_services(0) != 0)") < flash.index('doSystem("%s %d", script_name, 0)')
 
           lan_stop = body(lan, "stop_lan(int is_ap_mode)")
-          preflight = lan_stop.index("kill_services_with_pidfiles(")
-          preflight_failure = lan_stop.index("if (status != 0)", preflight)
+          lan_stop_call = lan_stop.index("status = stop_udhcpc_lan();")
+          preflight_failure = lan_stop.index("if (status != 0)", lan_stop_call)
           preflight_resume = lan_stop.index("notify_run_detect_internet(2)", preflight_failure)
+          preflight_return = lan_stop.index("return status;", preflight_failure)
           ifdown = lan_stop.index("ifconfig(IFNAME_BR, 0, NULL, NULL)")
           ifdown_resume = lan_stop.index("notify_run_detect_internet(2)", ifdown)
-          assert preflight < preflight_failure < preflight_resume < ifdown < ifdown_resume
+          lan_dhcp_stop = body(lan, "stop_udhcpc_lan(void)")
+          lan_release = lan_dhcp_stop.index('process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)')
+          lan_identity_gate = lan_dhcp_stop.index("errno != ENOENT && errno != ESRCH")
+          lan_release_wait = lan_dhcp_stop.index("usleep(300000)")
+          lan_noforce_stop = lan_dhcp_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
+          assert lan_release < lan_identity_gate < lan_release_wait < lan_noforce_stop
+          assert lan_stop.index("notify_pause_detect_internet()") < lan_stop_call < preflight_failure
+          assert preflight_failure < preflight_resume < preflight_return < ifdown < ifdown_resume
           assert '"detect_internet"' in dispatcher and "detect_internet_main" in dispatcher
           assert "detect_internet.o" in makefile
           for marker in ("DI_PENDING_TIMER", "DI_PENDING_ACTIVITY", "DI_PENDING_TERMINATE",

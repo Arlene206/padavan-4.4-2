@@ -1,14 +1,15 @@
 # 2026-11-17 latest verified checkpoint
 
-This section supersedes older rows where state conflicts.
+This section supersedes conflicting older rows below.
 
-- Parent main SHA: `246d17ccd13189f267a98db85e6534aad743aa59`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent-main PASS: WAN DHCP `44124766309`, WAN teardown `44124766186`, AliDDNS `44124766478`, AliyunDrive `44124766290`, NVRAM `44124766288`, infosvr `44124766197`, AdGuardHome `44124766159`, AI handoff `44124766157`. Exact Process run `44124766115` failed only because the Process checker at line 675 still expected the old combined udhcpc force-kill call; THIS COMMIT corrects the contract.
-- All four udhcpc stop paths now use PID-file-bound 30-second no-force termination. WAN sends SIGUSR2 release then stops DHCP clients separately from ordinary daemons. AP LAN stops udhcpc before `detect_wan`, and aborts/resumes monitoring on timeout before bridge teardown. Parent exact DHCP and WAN teardown contracts both passed.
-- WAN-route run `44124204908` passed on product source `7358477`, including PPPoE-MWAN tests. XY-C1 `44124205199` on `7358477` was IN_PROGRESS at last poll; this checker/docs-only commit does not change packaged product source.
+- Parent main SHA: `d7775129120a04b94dd8f10b5de272bccc46afaf`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Product-source baseline is `e64ab93290e20935c0a11ac990612f8dc29fa363`; descendants `3042828`, `4bb27f9` and `d777512` changed tests/checkers and handoff only.
+- AP LAN stop sends identity-validated SIGUSR2 to the BOUND udhcpc client before bounded 30-second no-force termination; failure or unknown identity aborts bridge teardown and resumes detection.
+- Exact WAN-DHCP `44126128791` on 3042828: PASS. Exact WAN-route `44125814206` on e64ab93: PASS. Process `44126737621` on d777512: IN_PROGRESS. XY-C1 `44126128987` on 3042828 (same product sources as e64ab93): IN_PROGRESS at last poll.
+- e64 HTTPD `44125813980` and detect_internet `44125814192` failed at source contracts made stale by the DHCP helper extraction / two-batch WAN stop. THIS COMMIT updates both embedded checks and retriggers each workflow; exact-head status remains pending.
 - No local MIPS/uClibc compile or physical-router L4 is claimed.
 
-Next: verify the corrected exact-head Process checker, finish XY-C1 Build/TRX/artifact for product source 7358477, then complete the narrow BusyBox leasefail/NAK/release state review without speculative source changes.
+Next: verify exact-head HTTPD and detect_internet reruns, finish Process and XY-C1 Build/TRX/artifact checks on the current product-source baseline, then continue the whole-repository stability/security queue.
 
 ---
 

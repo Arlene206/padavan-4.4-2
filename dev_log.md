@@ -1,3 +1,13 @@
+## 2026-11-17 — Align AP DHCP release and WAN service-batch source contracts
+
+- Parent main SHA: d7775129120a04b94dd8f10b5de272bccc46afaf; result: THIS COMMIT.
+- Exact e64 HTTPD run 44125813980 failed at an assertion counting only one `kill_services()` batch in `stop_wan_locked()`; the production function has two separately checked batches, for PPP transport children and ordinary WAN daemons. Updated the contract to require both.
+- Exact e64 detect_internet run 44125814192 failed because its AP-LAN contract expected the PID-file stop inline in `stop_lan()`. Production now calls `stop_udhcpc_lan()`; the revised contract checks PID-identity SIGUSR2, ENOENT/ESRCH-only absence handling, the 300 ms release window, bounded no-force termination, and abort/resume before bridge ifdown.
+- No production source changed. Both workflows include their own workflow path in push filters and are retriggered by this contract commit. WAN-DHCP 44126128791 on 3042828 passed; Process 44126737621 and XY-C1 44126128987 were pending at checkpoint.
+- No local MIPS/uClibc compile or physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Align Process WAN stop contract with DHCP-first no-force teardown
 
 - Parent main SHA: 4bb27f9690a8c16f2a8753fa708727694b33140a; result: THIS COMMIT.
