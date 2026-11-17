@@ -194,11 +194,14 @@ require(
 ejected_public = body(storage, "umount_ejected(void)")
 require(
     "umount_ejected_locked(0, 1)" in ejected_public
-    and "storage_schedule_ejected_cleanup_retry();" in ejected_public
+    and ejected_public.count("storage_schedule_ejected_cleanup_retry();") == 2
+    and ejected_public.index("storage_schedule_ejected_cleanup_retry();")
+        < ejected_public.index("return -1;")
     and ejected_public.index("file_unlock(storage_lock);")
         < ejected_public.index("if (result != 0)")
     and ejected_public.index("if (result != 0)")
-        < ejected_public.index("storage_schedule_ejected_cleanup_retry();"),
+        < ejected_public.index("storage_schedule_ejected_cleanup_retry();",
+                               ejected_public.index("if (result != 0)")),
     "physical unplug wrapper must retry lock and cleanup failures after releasing its lock",
 )
 deferred_storage = body(storage, "on_deferred_hotplug_dev(void)")

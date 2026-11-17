@@ -427,8 +427,11 @@ jobs:
           assert "alarm(5);" in retry_scheduler
           public_eject = function_body(storage, "umount_ejected(void)")
           assert "umount_ejected_locked(0, 1)" in public_eject
-          assert "storage_schedule_ejected_cleanup_retry();" in public_eject
-          assert public_eject.index("file_unlock(storage_lock);") < public_eject.index("if (result != 0)") < public_eject.index("storage_schedule_ejected_cleanup_retry();")
+          assert public_eject.count("storage_schedule_ejected_cleanup_retry();") == 2
+          assert public_eject.index("storage_schedule_ejected_cleanup_retry();") < public_eject.index("return -1;")
+          cleanup_gate = public_eject.index("if (result != 0)")
+          cleanup_retry = public_eject.index("storage_schedule_ejected_cleanup_retry();", cleanup_gate)
+          assert public_eject.index("file_unlock(storage_lock);") < cleanup_gate < cleanup_retry
           deferred_storage = function_body(storage, "on_deferred_hotplug_dev(void)")
           unplug_retry = deferred_storage.index('nvram_match("usb_unplug_ms", "1")')
           unplug_clear = deferred_storage.index('nvram_set_int_temp("usb_unplug_ms", 0);')
