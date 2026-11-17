@@ -178,8 +178,7 @@ restart = ejected.index("start_status = start_stor_apps()", remaining)
 require(
     incomplete_cleanup_gate < remaining < restart
     and "leaving storage applications stopped because physical eject cleanup was incomplete" in ejected[incomplete_cleanup_gate:remaining]
-    and 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[incomplete_cleanup_gate:remaining]
-    and "alarm(5);" in ejected[incomplete_cleanup_gate:remaining]
+    and "usb_hotplug_ms" not in ejected[incomplete_cleanup_gate:remaining]
     and ejected.index("if (mount_count > 0)", remaining) < restart
     and "else if (mount_count == 0)" in ejected[remaining:]
     and "else {" in ejected[remaining:]

@@ -2707,7 +2707,7 @@ jobs:
           restart_apps = ejected.index("start_status = start_stor_apps();")
           assert incomplete_gate < mount_count < restart_apps
           assert "leaving storage applications stopped because physical eject cleanup was incomplete" in ejected[incomplete_gate:mount_count]
-          assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[incomplete_gate:mount_count] and "alarm(5);" in ejected[incomplete_gate:mount_count]
+          assert "usb_hotplug_ms" not in ejected[incomplete_gate:mount_count]
           assert "if (mount_count > 0)" in ejected[mount_count:]
           assert "else if (mount_count == 0)" in ejected[mount_count:] and "unload_nfsd();" in ejected
           assert 'nvram_set_int_temp("usb_hotplug_ms", 1);' in ejected[mount_count:] and "alarm(5);" in ejected[mount_count:]
