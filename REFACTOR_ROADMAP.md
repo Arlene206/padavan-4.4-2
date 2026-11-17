@@ -1,7 +1,7 @@
 ## Current source / CI checkpoint
 
 - PPP/L2TP arguments use argv-based `eval()`; xl2tpd launch results distinguish already-running, successfully launched and failure/unknown states. The VPN restore caller treats only negative status as failure, accepting the valid already-running sentinel.
-- Exact parent `79ba2d6` carries the xl2tpd result normalization and VPN restore correction. Its VPN, AI handoff, Firewall, HTTPD, infosvr, AdGuardHome, AliyunDrive, Process, AliDDNS, process fail-closed, OpenVPN credential, NVRAM and XY-C1 workflows had started and were pending at last poll.
+- Exact parent `79ba2d6` carries the xl2tpd result normalization and VPN restore correction. VPN, Firewall, HTTPD, infosvr, AdGuardHome, AliyunDrive, main Process inventory, AliDDNS, OpenVPN credential and NVRAM passed. AI handoff failed because the required mandatory-checkpoint phrase was missing; Process fail-closed failed because a test still asserted the former `restore_status != 0` condition. Both contract failures are repaired in this follow-up; XY-C1 was still pending.
 - This slice adds neighbour-cache flushes to native rollback and WAN teardown between route/address cleanup, preserves first-error status and adds shared/DHCP/route source-order regressions. Exact-head validation is pending.
 - Product-source L3 is verified on predecessor `f87343b` only; current source requires same-SHA Build/TRX/artifact. Physical-router L4 remains NOT VERIFIED; backup is frozen.
 

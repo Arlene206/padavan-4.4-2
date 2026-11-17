@@ -1,3 +1,11 @@
+## 2026-11-17 — Align handoff and process integration contracts with VPN restore semantics
+
+- Exact parent `79ba2d6f818d0cb541032b3440834b883b1e531d`: VPN lifecycle, Firewall, HTTPD, infosvr, AdGuardHome, AliyunDrive, main Process inventory, AliDDNS, OpenVPN credential and NVRAM passed. AI handoff `43994270363` failed because `SESSION_HANDOFF.md` omitted the validator's mandatory accuracy-checkpoint wording. Process fail-closed `43994270241` failed because `scripts/check_process_lifecycle_integration.py` still asserted `restore_status != 0` after `restart_vpn_server()` correctly changed to `restore_status < 0` to accept an already-running xl2tpd daemon.
+- Restored the explicit mandatory checkpoint wording and updated the process integration contract to require negative-only restore failure and reject the stale nonzero assertion. No production source change was needed for these two CI failures.
+- The IPv6 neighbour-cache cleanup slice was prepared but not yet committed while these exact-parent regression failures were resolved. Current f943 Actions were still running at last poll.
+
+---
+
 ## 2026-11-17 — Flush stale IPv6 neighbour entries during WAN cleanup
 
 - Predecessor `f87343b7e7a2da599c16baf1192ec1561dc44a9b` subsequently completed XY-C1 Build, TRX verification and artifact upload successfully on the same SHA (run `43992613368`, job `133736749350`); product-source MIPS/uClibc L3 is VERIFIED for that baseline.

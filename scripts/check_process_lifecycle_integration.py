@@ -1567,7 +1567,8 @@ assert "return vpn_server_restart_first_error(stop_status," in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, start_status)" in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, restore_status)" in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, -1)" in vpn_restart_body
-assert "restore_status != 0" in vpn_restart_body
+assert "restore_status < 0" in vpn_restart_body
+assert "restore_status != 0" not in vpn_restart_body
 assert "release_status = vpn_server_lifecycle_lock_release(lock_fd);" in vpn_restart_body
 assert "action_result = rc_notify_merge_action_result(action_result, restart_vpn_server());" in vpn_restart_rc
 assert 'ret = restart_vpn_server();' in vpn_restart_rc
