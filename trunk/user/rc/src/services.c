@@ -672,6 +672,10 @@ int restart_sshd(void)
 	int stop_status;
 	int start_status;
 	int firewall_status = 0;
+	int firewall_errno = 0;
+	int firewall_stop_status;
+	int firewall_stop_scan_error = 0;
+	enum process_presence firewall_stop_state;
 
 	before_state = sshd_process_presence(NULL);
 	stop_status = stop_sshd();
@@ -696,8 +700,35 @@ int restart_sshd(void)
 	after_state = sshd_process_presence(&scan_error);
 
 	if (sshd_firewall_refresh_required(before_state, after_state) &&
-	    nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1"))
+	    nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1")) {
+		errno = 0;
 		firewall_status = restart_firewall();
+		if (firewall_status != 0)
+			firewall_errno = errno > 0 ? errno :
+				(firewall_status > 0 ? firewall_status : EIO);
+	}
+
+	/*
+	 * A failed public-access refresh cannot leave a newly active listener
+	 * exposed under an unverified ruleset. Stop and verify the postcondition.
+	 */
+	if (sshd_firewall_failure_requires_stop(firewall_status, after_state)) {
+		firewall_stop_status = stop_sshd();
+		firewall_stop_state = sshd_process_presence(&firewall_stop_scan_error);
+		if (firewall_stop_state == PROCESS_PRESENCE_ABSENT) {
+			after_state = PROCESS_PRESENCE_ABSENT;
+			logmessage(LOGNAME,
+				   "SSH listener confirmed stopped after firewall refresh failure (stop_status=%d)",
+				   firewall_stop_status);
+		} else {
+			logmessage(LOGNAME,
+				   "SSH listener may remain active after firewall refresh failure (stop_status=%d, state=%d, scan_error=%d)",
+				   firewall_stop_status, firewall_stop_state,
+				   firewall_stop_scan_error);
+		}
+	}
+	if (firewall_status != 0)
+		errno = firewall_errno;
 
 	if (start_status != 0)
 		return start_status;

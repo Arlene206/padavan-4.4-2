@@ -26,4 +26,13 @@ sshd_firewall_refresh_required(enum process_presence before,
 	       after == PROCESS_PRESENCE_UNKNOWN || before != after;
 }
 
+/* Fail closed if public SSH remains or its postcondition is unknown after a failed firewall refresh. */
+static inline int
+sshd_firewall_failure_requires_stop(int firewall_status,
+			    enum process_presence after_state)
+{
+	return firewall_status != 0 &&
+	       after_state != PROCESS_PRESENCE_ABSENT;
+}
+
 #endif

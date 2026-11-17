@@ -1,21 +1,22 @@
-# 2026-11-18 continuation checkpoint — fix detector status guard and checker newline delimiter
+# 2026-11-18 continuation checkpoint — SSH firewall failure must withdraw the listener
 
-## Current repository state
-- Repository Arlene206/padavan-4.4-2; parent main SHA for THIS correction: c8b8ba8c107bebb2dd73f3390f2e0fa53f68a86e.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- WAN firewall product source 8e9ea213 has exact XY-C1 L3 evidence on parent 319fd181: run 44180704552 passed all pre-build regressions, Build XY-C1, TRX output verification and artifact upload. Router hardware L4 remains NOT VERIFIED.
-- PPPoE-MWAN cleanup gate first landed in ac2b1f6; its exact WAN-route run 44183697784 and XY-C1 run 44183697726 failed at the ordinary multipath route test because cleanup poison was set even after successful (status 0) deletes.
-- The zero-status issue is fixed in c8b8ba8, but before committing THIS checker correction, inspection found its Python source contract searched for the literal backslash+n instead of the newline delimiter. Replace those two string lookups with chr(10) so the CI checker matches actual newline boundaries.
+## Current repository and verification baseline
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS SSH slice: `7ffa87073cb7a18fadd5c7dc0fdbdd794b272f20`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact 319fd181 Actions passed; XY-C1 run `44180704552` passed Build, TRX verification and artifact upload. That L3 evidence applies to source SHA 319 only.
+- PPPoE-MWAN cleanup changes `ac2b1f63` and `c8b8ba8c` corrected the failed zero-status poison condition. Follow-up source-checker newline correction is `7ffa8707`; exact-head WAN-route, XY-C1 and Process/NVRAM reruns were in progress at the last check. Verify all cleanup failure-injection cases and Build/TRX/artifact on a passing exact SHA.
+- Do not repeat the already green WAN/APCLI checker audit from 319 unless a later code change touches those contracts.
 
-## Active PPPoE-MWAN P1
-- On a nonzero old-rule snapshot, parse or deletion result, the detector must complete the other independent cleanup attempts, flush route cache, preserve the first error and exit before adding new firewall rules or policy/default routes.
-- New detector fault-injection cases cover mangle snapshot, NAT snapshot, old-rule deletion and malformed saved rule; they have not yet run to completion because earlier baseline test caught the zero-status helper bug.
-- Normal successful cleanup must leave the flag clear; this is the key regression caught by the baseline multipath test.
+## THIS SSH stability/security slice
+- `restart_sshd()` could start a listener after a process-state transition, call `restart_firewall()` for enabled public SSH, then return the refresh error without stopping the newly active listener. That could leave SSH reachable under an old or incomplete ruleset.
+- A nonzero firewall refresh now triggers `stop_sshd()` unless the listener is already confirmed ABSENT, followed by a fresh tri-state process scan. Only confirmed ABSENT counts as withdrawn. RUNNING/UNKNOWN is logged as unresolved; the original refresh error is preserved.
+- Files: `services.c`, `sshd_daemon_policy.h`, SSH policy regression, `scripts/check_sshd_firewall_status.py`, Process workflow filters/test, handoff, roadmap and dev log.
+- Exact-head Process and XY-C1 Actions for THIS production SSH change are pending; no L3 claim until Build/TRX/artifact completes for its SHA.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA WAN-route and XY-C1 runs triggered by THIS checker correction. Require normal multipath, all four failure-injection cases and the source contract to pass.
-2. Require XY-C1 Build, TRX verification and artifact upload on the same exact SHA.
-3. Continue broad P1 RC startup result-propagation work only after PPPoE-MWAN regressions clear. Frozen backup remains immutable.
+1. Inspect exact-SHA Process, XY-C1 and WAN-route runs triggered by THIS slice. Require SSH GNU89/ASan/UBSan policy and source contracts, PPPoE-MWAN normal multipath plus all cleanup-failure tests, and XY-C1 Build/TRX/artifact.
+2. Fix any first genuine failing assertion/source contract in a separate atomic commit and rerun exact SHA.
+3. After SSH is verified, inspect whether HTTPD has the same firewall-refresh-after-start rollback gap; then continue the next independent P1 runtime/security defect. Keep backup immutable. Router hardware L4 remains NOT VERIFIED.
 
 # Cross-session execution mandate
 

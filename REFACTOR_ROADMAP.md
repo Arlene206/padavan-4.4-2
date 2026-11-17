@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- WAN firewall source fix 8e9ea213 is verified in XY-C1 parent run 44180704552: pre-build regressions, Build XY-C1, TRX verification and artifact upload all PASS. Hardware L4 not verified.
-- PPPoE-MWAN cleanup gate ac2b1f6 initially failed the normal detector multipath test because the flag was set on status-zero deletes; helper guard fixed in c8b8ba8.
-- THIS checker-only correction uses chr(10) to locate actual newlines; the prior generated Python source was searching for a literal slash-n sequence.
-- Four cleanup failure-injection cases remain unverified until exact-head WAN/XY CI runs pass. Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact SHA 319fd181 passed the Process/Firewall/USB/WAN DHCP/AdGuardHome/AliDDNS/AliyunDrive/infosvr/NVRAM/AI matrix; XY-C1 `44180704552` passed Build, TRX verification and artifact upload (L3 verified for 319 only).
+- PPPoE-MWAN cleanup guard is in `c8b8ba8c`; source-checker newline boundary follow-up is `7ffa8707`. Exact-head WAN route, XY-C1, Process and NVRAM runs were still executing at last observation.
+- THIS commit fixes a P1 SSH gap: failed public firewall refresh now triggers listener stop and tri-state absence verification. GNU89/ASan/UBSan policy coverage and source checker are wired into Process CI; exact-head Process and XY-C1 are pending.
+- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-Next: verify exact-SHA WAN-route/XY-C1 detector matrix and target Build/TRX/artifact.
+Next: inspect exact-SHA SSH Process/XY-C1 and PPPoE-MWAN WAN-route regressions; then continue broad service lifecycle review.
 
 
 ---

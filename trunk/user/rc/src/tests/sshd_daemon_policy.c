@@ -30,6 +30,16 @@ static void test_confirmed_absence_allows_start(void)
 	assert(sshd_restart_can_start(0, PROCESS_PRESENCE_ABSENT));
 }
 
+static void test_firewall_failure_requires_listener_shutdown(void)
+{
+	assert(!sshd_firewall_failure_requires_stop(0, PROCESS_PRESENCE_RUNNING));
+	assert(!sshd_firewall_failure_requires_stop(0, PROCESS_PRESENCE_UNKNOWN));
+	assert(!sshd_firewall_failure_requires_stop(1, PROCESS_PRESENCE_ABSENT));
+	assert(sshd_firewall_failure_requires_stop(1, PROCESS_PRESENCE_RUNNING));
+	assert(sshd_firewall_failure_requires_stop(-1, PROCESS_PRESENCE_UNKNOWN));
+	assert(sshd_firewall_failure_requires_stop(1, (enum process_presence)9));
+}
+
 static void test_firewall_refresh_policy(void)
 {
 	assert(!sshd_firewall_refresh_required(PROCESS_PRESENCE_ABSENT,
@@ -53,6 +63,7 @@ int main(void)
 	test_running_or_unknown_blocks_start();
 	test_confirmed_absence_allows_start();
 	test_firewall_refresh_policy();
+	test_firewall_failure_requires_listener_shutdown();
 	puts("sshd tri-state stop-before-start and firewall reconciliation policy: PASS");
 	return 0;
 }
