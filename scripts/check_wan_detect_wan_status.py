@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Verify gateway ARP checker launch failures reach the WAN-up result."""
+"""Verify gateway ARP checker inventory and launch failures reach WAN-up."""
 
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
+POLICY = (RC / "process_presence_start_policy.h").read_text()
+TEST = (RC / "tests/process_presence_start_policy.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
+PROCESS_WORKFLOW = (ROOT / ".github/workflows/process-lifecycle-regression.yml").read_text()
 
 
 def body(source, signature):
@@ -64,27 +67,66 @@ release = wan_up.index("process_snapshot_release(&snapshot);", scan)
 decision = wan_up.index("action = process_presence_start_action_for_state(presence);", release)
 start_gate = wan_up.index("if (action == PROCESS_PRESENCE_START_NEW)", decision)
 launch = wan_up.index('route_status = eval("detect_wan");', start_gate)
-merge = wan_up.index("status = route_status_accumulate(status, route_status);", launch)
+status_map = wan_up.index(
+    "route_status = process_presence_start_status_for_action(", launch
+)
+merge = wan_up.index("status = route_status_accumulate(status, route_status);", status_map)
 failure_gate = wan_up.index("if (route_status != 0)", merge)
-diagnostic = wan_up.index("WAN gateway ARP checker startup incomplete", failure_gate)
-unknown_gate = wan_up.index(
-    "else if (action == PROCESS_PRESENCE_START_ABORT)", diagnostic
+unknown_gate = wan_up.index("if (action == PROCESS_PRESENCE_START_ABORT)", failure_gate)
+unknown_diagnostic = wan_up.index(
+    "skipping gateway ARP checker start because process inventory is unknown",
+    unknown_gate,
+)
+launch_diagnostic = wan_up.index(
+    "WAN gateway ARP checker startup incomplete", unknown_diagnostic
 )
 require(
-    scan < release < decision < start_gate < launch < merge < failure_gate
-    < diagnostic < unknown_gate,
-    "only a clean ABSENT snapshot may launch; its result must be aggregated and logged",
+    scan < release < decision < start_gate < launch < status_map < merge
+    < failure_gate < unknown_gate < unknown_diagnostic < launch_diagnostic,
+    "inventory and launch outcomes must be mapped, aggregated and logged in order",
 )
+require(wan_up.count('eval("detect_wan")') == 1,
+        "the gateway ARP launch must be captured exactly once")
+require("action, scan_error, route_status" in wan_up[status_map:merge],
+        "UNKNOWN status mapping must receive scan error and launch result")
 require(
-    wan_up.count('eval("detect_wan")') == 1,
-    "the gateway ARP launch must be captured exactly once",
+    "route_status = 0;" in wan_up[decision:start_gate]
+    and "if (action == PROCESS_PRESENCE_START_NEW)" in wan_up[decision:launch],
+    "RUNNING and UNKNOWN must not launch another monitor",
 )
+require("route_status);" in wan_up[unknown_diagnostic:launch_diagnostic],
+        "UNKNOWN inventory must report its effective error")
+require("return status;" in wan_up[launch_diagnostic:],
+        "WAN-up must return the accumulated gateway checker result")
+
+status_policy = body(
+    POLICY,
+    "process_presence_start_status_for_action(",
+)
+for expected in (
+    "case PROCESS_PRESENCE_START_NEW:",
+    "return launch_status;",
+    "case PROCESS_PRESENCE_START_NOTIFY:",
+    "return 0;",
+    "case PROCESS_PRESENCE_START_ABORT:",
+    "return inventory_error ? inventory_error : EIO;",
+    "default:",
+    "return EIO;",
+):
+    require(expected in status_policy, "process status policy missing " + expected)
+
+for token in (
+    "PROCESS_PRESENCE_START_NOTIFY, EIO, EACCES) == 0",
+    "PROCESS_PRESENCE_START_ABORT, ENOMEM, 0) == ENOMEM",
+    "PROCESS_PRESENCE_START_ABORT, 0, 0) == EIO",
+    "(enum process_presence_start_action)7, 0, 0) == EIO",
+):
+    require(token in TEST, "tri-state unit test missing " + token)
 require(
-    "skipping gateway ARP checker start because process inventory is unknown" in wan_up[unknown_gate:],
-    "UNKNOWN process inventory must continue to fail closed without launching",
+    "trunk/user/rc/src/tests/process_presence_start_policy.c" in PROCESS_WORKFLOW
+    and "Compile and run process presence start/notify tri-state regression" in PROCESS_WORKFLOW,
+    "process workflow must compile and run the changed policy regression",
 )
-require("return status;" in wan_up[unknown_gate:],
-        "WAN-up must return the accumulated gateway checker launch result")
 
 wrapper = body(WAN, "wan_up(char *wan_ifname, int unit, int is_static)")
 require(
@@ -103,4 +145,4 @@ require(
     "the GNU89/ASan/UBSan first-error aggregation regression must remain enabled",
 )
 
-print("WAN gateway ARP checker launch failure propagation: PASS")
+print("WAN gateway ARP inventory and launch status propagation: PASS")

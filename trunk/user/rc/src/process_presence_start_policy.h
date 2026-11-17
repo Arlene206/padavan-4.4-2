@@ -1,6 +1,7 @@
 #ifndef PADAVAN_PROCESS_PRESENCE_START_POLICY_H
 #define PADAVAN_PROCESS_PRESENCE_START_POLICY_H
 
+#include <errno.h>
 #include <process_inventory.h>
 
 /* Decide whether an observed process can be started, notified, or must be
@@ -19,6 +20,25 @@ process_presence_start_action_for_state(enum process_presence presence)
 	if (presence == PROCESS_PRESENCE_RUNNING)
 		return PROCESS_PRESENCE_START_NOTIFY;
 	return PROCESS_PRESENCE_START_ABORT;
+}
+
+/* Report requested monitor startup failures without treating RUNNING as an
+ * error. An UNKNOWN inventory must fail closed and remain visible to callers. */
+static int
+process_presence_start_status_for_action(
+	enum process_presence_start_action action,
+	int inventory_error, int launch_status)
+{
+	switch (action) {
+	case PROCESS_PRESENCE_START_NEW:
+		return launch_status;
+	case PROCESS_PRESENCE_START_NOTIFY:
+		return 0;
+	case PROCESS_PRESENCE_START_ABORT:
+		return inventory_error ? inventory_error : EIO;
+	default:
+		return EIO;
+	}
 }
 
 #endif /* PADAVAN_PROCESS_PRESENCE_START_POLICY_H */

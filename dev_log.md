@@ -1,3 +1,13 @@
+## 2026-11-17 — Propagate UNKNOWN gateway-monitor inventory failures through WAN-up
+
+- Parent main SHA: `ac9b8936d7359d4016db8475c4ae459d17f73a2f`; result: THIS COMMIT.
+- Finding: after the gateway ARP monitor was changed to capture launch failures, an UNKNOWN process-inventory scan still only logged and skipped startup. The configured monitor could remain unavailable while WAN-up returned success.
+- Added `process_presence_start_status_for_action()`: a clean ABSENT scan returns the launch result; RUNNING remains a successful no-op; UNKNOWN returns the procfs scan error or EIO. Invalid actions fail closed with EIO.
+- WAN-up now merges both launch and UNKNOWN-inventory failures into its existing first-error status, logs the effective error, and continues independent setup without risking a duplicate monitor. Extended GNU89 policy coverage for launch error, RUNNING, UNKNOWN, missing errno and invalid action; extended the WAN semantic checker.
+- Parent `ac9b8936` exact-head push Actions were last observed at 13 SUCCESS / 9 IN_PROGRESS, including WAN route `44041394533` SUCCESS, Process lifecycle `44041394265` IN_PROGRESS and XY-C1 `44041394404` IN_PROGRESS. Those runs validate only the parent SHA. New commit Actions and XY-C1 are pending; local execution NOT RUN (no checkout/toolchain in this runtime); router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Propagate gateway ARP checker startup failures through WAN-up
 
 - Parent main SHA: `5525430a2ee5ff16f3d5b84912cd183e195808df`; result: THIS COMMIT.

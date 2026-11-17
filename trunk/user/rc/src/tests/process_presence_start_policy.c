@@ -1,7 +1,31 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 
 #include "process_presence_start_policy.h"
+
+static void
+test_start_status_preserves_launch_and_inventory_failures(void)
+{
+	assert(process_presence_start_status_for_action(
+		PROCESS_PRESENCE_START_NEW, EIO, 0) == 0);
+	assert(process_presence_start_status_for_action(
+		PROCESS_PRESENCE_START_NEW, EIO, -1) == -1);
+	assert(process_presence_start_status_for_action(
+		PROCESS_PRESENCE_START_NEW, 0, EACCES) == EACCES);
+
+	/* Existing processes are a successful no-op; never signal duplicate start. */
+	assert(process_presence_start_status_for_action(
+		PROCESS_PRESENCE_START_NOTIFY, EIO, EACCES) == 0);
+
+	/* A failed or incomplete procfs scan cannot silently skip a requested monitor. */
+	assert(process_presence_start_status_for_action(
+		PROCESS_PRESENCE_START_ABORT, ENOMEM, 0) == ENOMEM);
+	assert(process_presence_start_status_for_action(
+		PROCESS_PRESENCE_START_ABORT, 0, 0) == EIO);
+	assert(process_presence_start_status_for_action(
+		(enum process_presence_start_action)7, 0, 0) == EIO);
+}
 
 int
 main(void)
@@ -14,6 +38,7 @@ main(void)
 	       PROCESS_PRESENCE_START_ABORT);
 	assert(process_presence_start_action_for_state((enum process_presence)7) ==
 	       PROCESS_PRESENCE_START_ABORT);
+	test_start_status_preserves_launch_and_inventory_failures();
 
 	puts("Process presence start/notify tri-state policy: PASS");
 	return 0;
