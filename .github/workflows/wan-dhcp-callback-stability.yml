@@ -4,6 +4,9 @@ on:
   push:
     paths:
       - "scripts/check_lan_dhcp_deconfig.py"
+      - "scripts/check_wan6_dns_policy.py"
+      - "trunk/user/rc/src/wan6_dns_policy.h"
+      - "trunk/user/rc/src/tests/wan6_dns_policy.c"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
       - "trunk/user/rc/src/lan_kernel_name_policy.h"
       - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
@@ -45,6 +48,9 @@ on:
   pull_request:
     paths:
       - "scripts/check_lan_dhcp_deconfig.py"
+      - "scripts/check_wan6_dns_policy.py"
+      - "trunk/user/rc/src/wan6_dns_policy.h"
+      - "trunk/user/rc/src/tests/wan6_dns_policy.c"
       - "trunk/user/rc/src/tests/dhcp_lease_policy.c"
       - "trunk/user/rc/src/lan_kernel_name_policy.h"
       - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
@@ -95,6 +101,13 @@ jobs:
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/dhcp_lease_policy.c -o /tmp/dhcp-lease-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/dhcp-lease-policy
           python3 scripts/check_lan_dhcp_deconfig.py
+      - name: Verify DHCPv6 automatic DNS withdrawal contract
+        run: python3 scripts/check_wan6_dns_policy.py
+      - name: Compile and run WAN DHCPv6 DNS withdrawal policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/wan6_dns_policy.c -o /tmp/wan6-dns-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan6-dns-policy
       - name: Compile and run LAN kernel hostname/domain status regression
         run: |
           set -eu

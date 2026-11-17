@@ -1,3 +1,12 @@
+## 2026-11-17 — Clear withdrawn DHCPv6 automatic DNS servers
+
+- Parent main SHA: 357347eaf5085869a80d83a7c075970affb9c073; result: THIS COMMIT.
+- The DHCPv6 response environment only exports `new_domain_name_servers` when the Reply actually contains the DNS option. `store_wan_dns6()` previously returned without changing state for a missing or empty value, leaving DNS servers from an earlier lease in WAN NVRAM/resolver state. RFC 8415 §18.2.9 says a client SHOULD stop using previously received configuration information when it is omitted from a Renew, Rebind, or Information-request Reply.
+- Treat an absent/empty automatic DNS option as an empty list and refresh resolver state when the list is withdrawn. Reject an overlong option rather than silently truncating it, and propagate that validation failure after releasing the DHCPv6 callback generation lock.
+- Added GNU89 ASan/UBSan unit cases, a BusyBox response-environment/source contract, WAN DHCP push/PR path filters, and XY-C1 coverage for the new production policy header. Exact-head Actions for this commit pending. Prior parent 357 WAN DHCP regression [44104411947] PASS; parent XY-C1 [44104411880] was still building at last poll.
+- No local checkout/compiler in this connector-only runtime. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Correct LAN kernel-name checker ordering after first CI run
 
 - Parent main SHA: ff47cd7cfe079529edbd1f058603666bcc37774f; result: THIS COMMIT.

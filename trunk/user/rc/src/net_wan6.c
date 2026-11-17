@@ -34,6 +34,7 @@
 #include "wan6_teardown_policy.h"
 #include <dhcp6c_duid_file_policy.h>
 #include "dhcp6c_config_file.h"
+#include "wan6_dns_policy.h"
 #include "dhcp6c_callback_generation_policy.h"
 
 #if defined (USE_IPV6)
@@ -260,18 +261,19 @@ int store_wan_dns6(char *dns6_new)
 {
 	char dns6s[INET6_ADDRSTRLEN*3+8] = {0};
 	char *dns6_old;
+	size_t dns6_len = dns6_new ? strlen(dns6_new) : 0;
 
-	if (!dns6_new)
-		return 0;
-
-	snprintf(dns6s, sizeof(dns6s), "%s", dns6_new);
+	/* A missing option means the server withdrew its automatic DNS list. */
+	if (dns6_len >= sizeof(dns6s)) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	if (dns6_len)
+		memcpy(dns6s, dns6_new, dns6_len);
 	trim_r(dns6s);
 
-	if (!(*dns6s))
-		return 0;
-
 	dns6_old = get_wan_unit_value(0, "dns6");
-	if (strcmp(dns6s, dns6_old) != 0) {
+	if (wan6_dns_update_required(dns6_old, dns6s)) {
 		set_wan_unit_value(0, "dns6", dns6s);
 		return 1;
 	}
@@ -900,7 +902,7 @@ int wan6_down(char *wan_ifname, int unit)
 int dhcp6c_main(int argc, char **argv)
 {
 	int ipv6_type, dns6_auto, lan6_auto;
-	int callback_fd, unlock_status;
+	int callback_fd, unlock_status, callback_status = 0, saved_errno = 0;
 	unsigned long generation;
 	char *dns6_new, *lan_addr6_new;
 	char addr6s[INET6_ADDRSTRLEN + 5];
@@ -943,12 +945,25 @@ int dhcp6c_main(int argc, char **argv)
 	dns6_auto = nvram_get_int("ip6_dns_auto");
 	if (dns6_auto) {
 		dns6_new = getenv("new_domain_name_servers");
-		if (store_wan_dns6(dns6_new))
+		callback_status = store_wan_dns6(dns6_new);
+		if (callback_status > 0)
 			refresh_resolvconf_nonfatal("DHCPv6 DNS update", 0);
+		else if (callback_status < 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage("DHCPv6 WAN Client",
+				   "rejecting oversized DHCPv6 DNS server list (errno=%d)",
+				   saved_errno);
+		}
 	}
 
 	unlock_status = dhcp6c_callback_session_unlock(callback_fd);
-	return unlock_status == 0 ? 0 : -1;
+	if (unlock_status != 0)
+		return -1;
+	if (callback_status < 0) {
+		errno = saved_errno;
+		return callback_status;
+	}
+	return 0;
 }
 
 int start_dhcp6c(char *wan_ifname)
