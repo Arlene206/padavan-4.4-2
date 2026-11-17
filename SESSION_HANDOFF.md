@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent 9bb789d0f6597e40bcebcb1a26f42519bc6619e8.
+- Current main: THIS COMMIT; parent `1be4affc0b533639d604515b0d0b98545dcdb02f`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,9 +31,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify exact-head Process lifecycle, Wireless radio and XY-C1 Build → TRX → artifact for the tri-state snapshot / attempt-owned rollback fix.
-2. If all pass, rotate to an independent stability defect outside guest wireless; do not repeat passing M2U/rollback policy tests.
-3. Frozen backup stays immutable; only main receives atomic complete-tree commits with non-forced expected-SHA updates.
+1. Re-run exact-head AI handoff documentation validation after restoring the full 117-entry dev_log archive.
+2. Check Process lifecycle, Wireless radio and XY-C1 Build → TRX → artifact for source SHA 1be4affc; repair the first causal failure if any.
+3. Once the current guest-state slice is green, rotate to the next independent stability defect outside wireless.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -48,4 +48,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Verify exact-head Process and Wireless Actions for the tri-state link snapshot / attempt-owned rollback fix; check XY-C1 Build/TRX/artifact. If green, select the next independent stability issue outside wireless.
+Verify exact-head AI docs, Process lifecycle, Wireless radio and XY-C1 Build/TRX/artifact on current main. The 1be4affc AI docs failure was the one-entry dev_log truncation; this commit restores the parent archive and appends the latest record. If source checks are green, continue with a separate P1 service-start result propagation issue outside wireless.
