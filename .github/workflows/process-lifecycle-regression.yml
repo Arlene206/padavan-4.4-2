@@ -542,6 +542,8 @@ jobs:
           assert 'lan_restart_record_status(&restart_status, "restart WAN after LAN restart",' in restart
           assert 'full_restart_wan());' in restart
           assert 'lan_restart_record_status(&restart_status, "start VPN server after WAN restart",' in restart
+          wan_restart_at = restart.index('full_restart_wan()')
+          vpn_start_after_wan = restart.index('start_vpn_server()', wan_restart_at)
           restart_order = (
               restart.index('br_set_stp(IFNAME_BR, 0)'),
               restart.index('br_set_fd(IFNAME_BR, 2)'),
@@ -550,8 +552,8 @@ jobs:
               restart.index('start_lan(is_ap_mode, 1)'),
               restart.index('br_set_stp(IFNAME_BR, 1)'),
               restart.index('br_set_fd(IFNAME_BR, 15)'),
-              restart.index('full_restart_wan()'),
-              restart.index('start_vpn_server()'),
+              wan_restart_at,
+              vpn_start_after_wan,
           )
           assert restart_order == tuple(sorted(restart_order))
           assert "return restart_status;" in restart

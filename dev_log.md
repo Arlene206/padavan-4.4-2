@@ -1,3 +1,13 @@
+## 2026-11-17 — Scope LAN restart order assertion to the nested WAN restart
+
+- Parent main SHA: `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`; result: THIS COMMIT.
+- The production fix and expanded GNU89/ASan/UBSan LAN restart regression passed in Process run `44054425453`; the final source-contract step alone failed because a raw `restart.index("start_vpn_server()")` matched an earlier DNSMasq-lock recovery path.
+- Scope the VPN start index to the position after the nested `full_restart_wan()` call, preserving the intended order check without changing production code.
+- On parent `0b2168e1`, WAN route `44054425489`, WAN DHCP `44054425743`, Process inventory `44054425531`, AI docs `44054425761`, AdGuardHome `44054425537`, infosvr `44054425744`, detect_link `44054425584`, and detect_internet `44054425871` passed; XY-C1 `44054425508` and NVRAM `44054425712` remained in progress at checkpoint. Fresh exact-head validation is required.
+- Frozen backup unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Preserve LAN restart bridge, PHY and WAN restart results
 
 - Parent main SHA: `a0a5c7b5330d601032e83f1800fe7873612cc013`; result: THIS COMMIT.
