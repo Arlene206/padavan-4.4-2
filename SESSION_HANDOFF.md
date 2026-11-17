@@ -22,8 +22,8 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 
 ## Active task
 
-1. Fetch live `main` and inspect exact-`head_sha` Process lifecycle, XY-C1, USB storage/hotplug and HTTPD Actions for the RWFS source in THIS COMMIT. Fix any first causal failure; do not reuse older source passes.
-2. Confirm the RWFS GNU89 policy and production wiring checks pass; confirm same-source XY-C1 Build, TRX verification and artifact upload before claiming L3. Independently inspect DNS Forwarder XY-C1 run `44006695535` if it has not concluded.
+1. Fetch live `main` and inspect exact-`head_sha` Process lifecycle, XY-C1, USB storage/hotplug and HTTPD Actions for the RWFS source in `5f1d87f6` and the decoder-test correction in THIS COMMIT. Confirm the GNU89 test now compiles/runs; fix any first causal failure.
+2. Confirm the RWFS GNU89 policy/decoder tests and production wiring checks pass; confirm same-source XY-C1 Build, TRX verification and artifact upload before claiming L3. Independently inspect DNS Forwarder XY-C1 run `44006695535` if it has not concluded.
 3. Once RWFS clears, continue P1 RC shutdown/start-result audit across independent services. Do not repeat watchdog, modem, IPv6 sysctl, firewall module-table, NVRAM, storage-eject or VPN work already recorded above.
 
 ## Verification boundary
@@ -31,7 +31,7 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 - Watchdog, USB modem and IPv6 boot-status work: verified at their exact source boundaries above; IPv6 includes same-source XY-C1 Build/TRX/artifact.
 - Firewall tri-state: policy/source regression PASS on `736ebe86`; HTTPD stale contract repaired and exact run `44005782392` PASS on checker/docs child `49f79883`; Process/inventory/NVRAM/infosvr/AliyunDrive/AliDDNS/AdGuardHome/handoff exact-head checks PASS on `49f79883`. XY-C1 `44005782493` remained in progress; firewall-source L3 is not yet claimed.
 - DNS Forwarder RC stop registration: production source and integration committed in `8b63b6ea`; Process `44006695435` and launch-path `44006695180` PASS, XY-C1 `44006695535` was pending at last check. AI handoff docs-only fix `db73892d` restored the required checkpoint phrase.
-- RWFS boot mount / Optware readiness: implementation and GNU89 regression wired in THIS COMMIT; exact-head Process/XY-C1/storage actions pending. L3 NOT VERIFIED.
+- RWFS boot mount / Optware readiness: production fix committed in `5f1d87f6`. Its first exact Process run `44007851661` failed before running tests because the shared Optware result decoder was unused in the new test TU under `-Werror`; this checker/test-only child adds coverage for the decoder. Exact-head Process/XY-C1/storage reruns pending; L3 NOT VERIFIED.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT

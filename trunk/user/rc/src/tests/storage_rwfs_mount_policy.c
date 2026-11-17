@@ -31,4 +31,16 @@ static void test_existing_attachment(void) { struct mock_ops m; reset(&m); asser
 static void test_attach_requires_postcondition(void) { struct mock_ops m; reset(&m); m.attachment_before=STORAGE_OPTWARE_STOP_ABSENT; m.attachment_after=STORAGE_OPTWARE_STOP_RUNNING; assert(run(&m)==0&&m.attachment_probe_calls==2); assert(m.attach_calls==1&&m.mount_calls==1); assert(m.order[3]==4&&m.order[4]==3&&m.order[5]==5); reset(&m); m.attachment_before=STORAGE_OPTWARE_STOP_ABSENT; m.attachment_after=STORAGE_OPTWARE_STOP_RUNNING; m.attach_status=EIO; assert(run(&m)==0&&m.mount_calls==1); }
 static void test_no_mount_on_failed_attach(void) { struct mock_ops m; reset(&m); m.attachment_before=STORAGE_OPTWARE_STOP_ABSENT; m.attachment_after=STORAGE_OPTWARE_STOP_ABSENT; m.attach_status=EIO; assert(run(&m)==EIO&&m.prepare_calls==0&&m.mount_calls==0); reset(&m); m.attachment_before=STORAGE_OPTWARE_STOP_ABSENT; m.attachment_after=STORAGE_OPTWARE_STOP_ABSENT; assert(run(&m)==ENODEV&&m.mount_calls==0); }
 static void test_mount_errors(void) { struct mock_ops m; reset(&m); m.prepare_status=EACCES; assert(run(&m)==EACCES&&m.mount_calls==0); reset(&m); m.mount_status=EIO; assert(run(&m)==EIO&&m.mount_calls==1); }
-int main(void) { test_disabled_and_unsupported(); test_invalid(); test_module_states(); test_unknown_attachment(); test_existing_attachment(); test_attach_requires_postcondition(); test_no_mount_on_failed_attach(); test_mount_errors(); puts("RWFS UBI/module/mount fail-closed policy: PASS"); return 0; }
+static void test_worker_result_decoder(void)
+{
+	assert(storage_optware_start_decode_result(-1, 0) ==
+	       STORAGE_OPTWARE_START_CHILD_RUNNING);
+	assert(storage_optware_start_decode_result(1, 0) ==
+	       STORAGE_OPTWARE_START_CHILD_SUCCESS);
+	assert(storage_optware_start_decode_result(1, 1) ==
+	       STORAGE_OPTWARE_START_CHILD_FAILURE);
+	assert(storage_optware_start_decode_result(0, 0) ==
+	       STORAGE_OPTWARE_START_CHILD_FAILURE);
+}
+
+int main(void) { test_worker_result_decoder(); test_disabled_and_unsupported(); test_invalid(); test_module_states(); test_unknown_attachment(); test_existing_attachment(); test_attach_requires_postcondition(); test_no_mount_on_failed_attach(); test_mount_errors(); puts("RWFS UBI/module/mount fail-closed policy: PASS"); return 0; }

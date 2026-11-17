@@ -1,3 +1,13 @@
+## 2026-11-17 — Exercise Optware result decoder in RWFS host regression
+
+- Base main SHA: `5f1d87f66e0247ef192d3f375834a1a7f766a2e0`; result: THIS COMMIT.
+- Exact-head Process run `44007851661` on `5f1d87f6` failed while compiling the new RWFS policy test under `-Werror`: including the shared Optware policy header left its existing non-inline `storage_optware_start_decode_result()` unused in that test translation unit. The policy and production integration checks had not run because compilation stopped first.
+- Kept the shared header and production behavior unchanged. The RWFS test now includes explicit decoder success/failure/incomplete-pipe assertions, using the helper and removing the warning while adding coverage. The integration contract pins this regression.
+- Exact-head Process, XY-C1 and storage hotplug reruns are pending on this checker/test-only child. The original XY-C1 run `44007851467` was still in progress; it does not validate the new test change. No Build/TRX/artifact claim for RWFS yet.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Fail closed when configured RWFS cannot be mounted
 
 - Base main SHA: `db73892db0692050eca7249e5ac55d4eb35bb3b9`; result: THIS COMMIT.

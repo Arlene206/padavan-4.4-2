@@ -46,7 +46,7 @@ assert "module_status == 0" in policy and "module_status != 1" in policy
 attach_pos=policy.index("ops->attach_ubi(context, mtd_index)")
 assert attach_pos < policy.index("ops->ubi_attachment_status(context, mtd_index, &presence);",attach_pos)
 assert policy.index("ops->prepare_mountpoint(context, mountpoint)") < policy.index("ops->mount_ubifs(context, mtd_index, mountpoint)")
-for name in ("test_module_states","test_unknown_attachment","test_attach_requires_postcondition","test_no_mount_on_failed_attach","test_mount_errors"): assert name in test
+for name in ("test_worker_result_decoder","test_module_states","test_unknown_attachment","test_attach_requires_postcondition","test_no_mount_on_failed_attach","test_mount_errors"): assert name in test
 for workflow in (process_workflow,xy_workflow):
     assert '"trunk/user/rc/src/storage_rwfs_mount_policy.h"' in workflow
     assert '"trunk/user/rc/src/tests/storage_rwfs_mount_policy.c"' in workflow
