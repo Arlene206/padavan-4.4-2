@@ -33,6 +33,8 @@ Mandatory handoff checkpoint: Every session
 - THIS COMMIT hardens AP-mode DHCP event-handler setup: verify `SCRIPT_UDHCPC_LAN` is either newly created or an existing symlink whose exact target is `/sbin/rc`; refuse to launch `udhcpc` on link creation errors or conflicting existing paths. The unit regression and Process workflow production wiring check are included; current exact-head Actions pending.
  MUST inspect the live repository state before ending or handing off. Confirm the main/source baseline, exact-head Actions, validation boundary, blockers, frozen backup and precise next action. The checkpoint is mandatory; a document edit is conditional. Before context exhaustion, complete this accuracy checkpoint against the live main SHA and exact-head Actions; update this file only when a fact or next action materially changed. If all checkpoint facts and the first action are already accurate, do not create a no-op commit. This is the required end-of-session accuracy checkpoint.
 
+# Cross-session execution mandate
+
 Continue one engineering effort across GPT conversations. Avoid repeating completed audits, do not wait on pending CI when independent work is available, and do not ask the user what to do next. Finish safe source slices, add regression coverage, inspect exact-SHA Actions, commit atomically, and preserve the next task.
 
 Every logical multi-file change must be published as one complete Git tree and one atomic main commit, parented to freshly fetched main and pushed with a non-forced expected-SHA compare-and-swap. Never force-push, create a development branch/PR, or modify the frozen backup.

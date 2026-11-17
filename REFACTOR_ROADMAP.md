@@ -1,11 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- SSH stop hardening in `f9afd25e` routes RC stop through identity-bound `kill_services()`, revalidating PID/start-time/cmdline before signalling and requiring absence before success. Exact f9 Process lifecycle `44190334132` and Process inventory `44190334289` PASS.
-- f9 PID1 run `44190333392` exposed a stale embedded checker expecting direct `return eval()` from SSH startup; THIS correction checks captured launcher status, bounded detached-child RUNNING postcondition and identity-bound stop. AI docs `44190333813` exposed the accidental 31-to-1 dev-log truncation; restore the full rolling history in THIS correction.
-- Exact 6a5 XY-C1 `44188951477` completed Build/TRX/artifact. f9 XY-C1 `44190333512` was building at last poll; do not transfer the older artifact result to f9. AliyunDrive rerun `44190333972` PASS; NVRAM/AdGuardHome were pending.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- SSH stop hardening is in `f9afd25e`; RC uses identity-bound `kill_services()`. Exact f9 Process and Process inventory checks passed.
+- Exact `0ab0849c`: PID1 notification queue `44191156366`, Process `44191156121`, infosvr `44191156248`, AliDDNS `44191156160`, AliyunDrive `44191156171`, AdGuardHome `44191156036` PASS. NVRAM `44191156088` pending.
+- AI handoff `44191156095` failed after the rolling-log repair because the literal `# Cross-session execution mandate` heading had been dropped from SESSION_HANDOFF.md. THIS documentation fix restores it; AI exact-head rerun pending.
+- f9 XY-C1 `44190333512` passed all pre-build tests but Build remained in progress at last poll; TRX/artifact pending. 0ab is docs/test-only and did not trigger a new firmware build.
+- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: verify exact PID1/AI/XY/NVRAM/AdGuardHome for THIS correction; then continue independent P1 reliability/security work.
+Next: check exact AI handoff and pending NVRAM on this docs fix; also finish observing the f9 XY-C1 Build/TRX/artifact. Then continue P1 stability/security work.
 
 
 ---

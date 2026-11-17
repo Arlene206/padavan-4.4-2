@@ -1,3 +1,11 @@
+## 2026-11-18 — Restore required cross-session handoff heading
+
+- Parent main SHA: `0ab0849c47cb210a24264236721c18c7f4dc077c`.
+- The AI handoff checker on exact `0ab0849c`, run `44191156095`, passed the restored 32-entry `dev_log.md` retention check but failed the next exact-text contract: `SESSION_HANDOFF.md` was missing the literal `# Cross-session execution mandate` heading. The prior top-checkpoint replacement had inadvertently dropped the heading while retaining its body rules. THIS correction restores the required heading immediately before those rules.
+- Other exact `0ab0849c` checks passed: Process lifecycle `44191156121`, PID1 notification queue `44191156366`, infosvr `44191156248`, AliDDNS `44191156160`, AliyunDrive `44191156171`, and AdGuardHome `44191156036`. NVRAM `44191156088` remained in progress.
+- The production-source XY-C1 run is on f9 source SHA `f9afd25e`, run `44190333512`; all pre-build gates passed but Build XY-C1 was still in progress, with TRX/artifact pending. The 0ab correction changes only CI assertions/docs, so XY-C1 is not retriggered by its path filter.
+- This documentation-only commit corrects the exact handoff contract; the AI check must be rerun on this SHA. Hardware L4 remains NOT VERIFIED.
+
 ## 2026-11-18 — Repair PID 1 SSH lifecycle contract and restore rolling dev log
 
 - Parent main SHA: `f9afd25e8957de96c5661f9c0d00c29cf5d22da3`; source change `fix(sshd): verify daemon exit with identity-bound stop` routes C-controlled SSH stop through `kill_services()`, with Dropbear-first/OpenSSH fallback selection.
