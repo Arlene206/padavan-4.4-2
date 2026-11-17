@@ -37,6 +37,7 @@ main(void)
 	    check_merged_status("group stop success", 0, 0, 0) ||
 	    check_merged_status("second daemon failure", 0, -1, -1) ||
 	    check_merged_status("preserve first daemon failure", -2, -1, -2) ||
+	    check_merged_status("rollback preserves stop failure", -1, -2, -1) ||
 	    storage_service_process_presence_changed(0, 0) ||
 	    storage_service_process_presence_changed(1, 1) ||
 	    !storage_service_process_presence_changed(0, 1) ||

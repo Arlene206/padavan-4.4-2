@@ -1,3 +1,13 @@
+## 2026-11-17 — Restore storage apps after a failed safe-eject stop preflight
+
+- Base main SHA: `19b24e9dd2aec153a60667925f129ad6e8218c0b`.
+- Defect: `safe_remove_stor_device()` and `safe_remove_all_stor_devices()` stop storage-dependent services one by one. If a later stop fails, both correctly abort before unmounting, but earlier daemons remain stopped even though the storage is still mounted. This turns a safely aborted eject into a persistent service outage.
+- Added `storage_rollback_stor_apps_after_stop_failure()`: while the storage-operation lock is held, it runs the existing tri-state/idempotent `start_stor_apps()` path, logs an incomplete rollback, preserves the original stop errno and returns the first stop failure. Both targeted and eject-all paths use it before releasing the lock or returning.
+- Extended the storage stop policy regression to assert first-error preservation and the whole-storage source checker to pin the rollback helper and both abort paths. Storage-hotplug and XY-C1 workflows already include `services_stor.c`; exact-head CI and same-SHA Build/TRX/artifact validation are pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Restore shared xl2tpd after incomplete VPN teardown
 
 - Base main SHA: `10d50854e2ffc456d689e93c196f8c271f99cf1c`; NVRAM close-result production slice at `c221420d22838ec1632c975095c3bafa3830d6c9` has its exact-head NVRAM audit `43996118191` PASS; the IPv6 neighbour-cleanup baseline f943 also completed XY-C1 Build/TRX/artifact `43994632505` PASS.

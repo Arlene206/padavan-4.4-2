@@ -8,9 +8,11 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
+The latest storage hotplug source change rolls back previously stopped storage daemons when a later daemon fails its pre-eject stop check; the original stop error remains authoritative. Exact-head storage and XY-C1 verification are pending.
+
 Before context exhaustion, inspect the current source SHA, relevant exact-head Actions, validation boundary and first actionable task; then leave this handoff accurate for the next GPT.
 
-- Repository: `Arlene206/padavan-4.4-2`; current source slice is based on `10d50854e2ffc456d689e93c196f8c271f99cf1c` and extends the NVRAM close-result repair at `c221420d22838ec1632c975095c3bafa3830d6c9`.
+- Repository: `Arlene206/padavan-4.4-2`; latest main source slice is based on `19b24e9dd2aec153a60667925f129ad6e8218c0b` and adds rollback for partially stopped storage applications when the safe-eject stop preflight fails.
 - PPP/L2TP argv-based launch and xl2tpd result normalization are complete; VPN server restore accepts status 1 (already running) and fails only for negative status.
 - IPv6 native rollback and WAN teardown flush neighbour entries between route and address cleanup; regression coverage is present on source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06`.
 - IPv6 neighbour-cleanup source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06` completed XY-C1 Build, TRX verification and artifact upload successfully in run `43994632505`; this establishes product-source MIPS/uClibc L3 for f943, not for later production source changes.
@@ -19,10 +21,10 @@ Before context exhaustion, inspect the current source SHA, relevant exact-head A
 
 ## Active task
 
-1. Verify exact-head push Actions for the shared-xl2tpd partial-teardown restoration fix and diagnose any first causal failures.
-2. Confirm the VPN lifecycle host policy and source integration regressions pass on that exact commit.
-3. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload for the NVRAM plus VPN restoration source. The earlier f943 build does not cover later production changes.
-4. Continue the cross-tree service lifecycle audit only after exact-host regressions; do not repeat the completed IPv6 neighbour or NVRAM adapter audits.
+1. Inspect the exact-head storage-hotplug Actions for the safe-eject rollback fix and repair the first causal failure, if any.
+2. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload on the storage rollback source SHA.
+3. Continue the P1 RC boot/startup status-propagation audit: identify a concrete enabled service or module startup whose failure is discarded, add a focused policy/integration regression, and preserve first-error/rollback semantics.
+4. Do not repeat the completed IPv6 neighbour, NVRAM ioctl-close, or VPN shared-xl2tpd partial-teardown audits.
 
 ## Verification boundary
 

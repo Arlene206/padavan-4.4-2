@@ -3270,6 +3270,33 @@ start_stor_apps(void)
 	return start_status;
 }
 
+
+/* A failed service-stop preflight leaves the storage mounted. Restore the
+ * configured storage daemons that were stopped earlier in the sequence before
+ * releasing the operation lock; start routines are tri-state/idempotent and
+ * refuse duplicate launches when a daemon is still RUNNING or UNKNOWN. */
+static int
+storage_rollback_stor_apps_after_stop_failure(const char *operation,
+						      int stop_status)
+{
+	int saved_errno, start_status, result;
+
+	if (stop_status == 0)
+		return 0;
+
+	saved_errno = errno ? errno : EIO;
+	start_status = start_stor_apps();
+	result = storage_service_stop_status_merge(stop_status, start_status);
+	if (start_status != 0)
+		logmessage("Storage",
+			   "storage application rollback after %s was incomplete (stop=%d, restart=%d)",
+			   operation ? operation : "failed stop", stop_status,
+			   start_status);
+	errno = saved_errno;
+	return result;
+}
+
+
 static int
 storage_optware_start_result_read(void)
 {
@@ -3537,6 +3564,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 	int port, has_mounted_port = 0, has_swapon_port = 0;
 	int unmount_status, ejected_status, mount_count;
 	int start_status, retry_storage_start = 0;
+	int stop_status, rollback_status, stop_errno;
 	disk_info_t *disks_info, *follow_disk;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
@@ -3562,11 +3590,20 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 	}
 
 	if (has_mounted_port || has_swapon_port) {
-		if (has_mounted_port && stop_stor_apps() != 0) {
-			logmessage("Storage", "safe removal aborted because one or more required storage services did not stop");
-			free_disk_data(disks_info);
-			file_unlock(storage_lock);
-			return;
+		if (has_mounted_port) {
+			stop_status = stop_stor_apps();
+			if (stop_status != 0) {
+				stop_errno = errno ? errno : EIO;
+				rollback_status = storage_rollback_stor_apps_after_stop_failure(
+					"targeted safe removal", stop_status);
+				logmessage("Storage",
+					   "safe removal aborted because storage services did not stop (stop=%d, rollback=%d)",
+					   stop_status, rollback_status);
+				free_disk_data(disks_info);
+				file_unlock(storage_lock);
+				errno = stop_errno;
+				return;
+			}
 		}
 
 		/* Stage one inventory for the whole requested port range. */
@@ -3615,6 +3652,7 @@ safe_remove_all_stor_devices(int do_spindown)
 	int storage_lock;
 	disk_info_t *disks_info = NULL;
 	int path_status, fallback_status, mount_count;
+	int stop_status, rollback_status;
 	int result = -1, saved_errno = 0;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
@@ -3630,9 +3668,14 @@ safe_remove_all_stor_devices(int do_spindown)
 		logmessage("Storage", "cannot obtain a complete disk inventory; refusing eject-all operation (errno %d)", saved_errno);
 		goto out;
 	}
-	if (stop_stor_apps() != 0) {
+	stop_status = stop_stor_apps();
+	if (stop_status != 0) {
 		saved_errno = errno ? errno : EIO;
-		logmessage("Storage", "eject-all aborted because one or more required storage services did not stop");
+		rollback_status = storage_rollback_stor_apps_after_stop_failure(
+			"eject-all", stop_status);
+		logmessage("Storage",
+			   "eject-all aborted because storage services did not stop (stop=%d, rollback=%d)",
+			   stop_status, rollback_status);
 		goto out;
 	}
 

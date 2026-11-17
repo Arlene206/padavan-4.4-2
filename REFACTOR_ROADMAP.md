@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- The NVRAM SET/COMMIT/CLEAR wrappers propagate `/dev/nvram` close failures; exact-head NVRAM run `43996118191` passed on source `c221420d`. The subsequent current source adds shared-xl2tpd recovery after a VPN teardown transaction partially stops the daemon but aborts in later cleanup.
-- The prior PPP restore defect was concrete: `stop_vpn_server_locked()` only recorded the xl2tpd stop after the complete multi-target stop succeeded, while `restart_vpn_server()` skipped client restoration on its early stop-failure return. The new source records the attempt before stopping, shares the restore helper between early-abort and normal paths, and covers it with GNU89 policy and source integration regressions. Exact-head validation is pending.
-- IPv6 neighbour-cleanup source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06` completed XY-C1 Build/TRX/artifact (run `43994632505`). NVRAM source c221420d and the current PPP restoration source require same-SHA firmware validation; physical-router L4 remains NOT VERIFIED. Frozen backup remains read-only.
+- Main base before the current storage slice: `19b24e9dd2aec153a60667925f129ad6e8218c0b`. The NVRAM SET/COMMIT/CLEAR wrappers propagate `/dev/nvram` close failures; exact-head NVRAM run `43997464510` PASS. Shared-xl2tpd restoration after partial VPN teardown passed exact-head VPN lifecycle `43997464565` and Process inventory/lifecycle `43997464457` on 19b24e9d.
+- Safe-storage-eject stop preflight could stop NFS/Samba/FTP/media/download peers and then fail on a later daemon. The eject correctly aborted before unmount, but previously returned without restarting the peers already stopped. New rollback attempts `start_stor_apps()` under the held storage-operation lock, is guarded by the existing tri-state/idempotent launchers, and preserves the original stop errno/status. The storage policy and source integration regressions cover both targeted and eject-all paths; exact-head validation pending.
+- IPv6 neighbour-cleanup source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06` completed XY-C1 Build/TRX/artifact (run `43994632505`). Current storage rollback source must pass exact-head storage Actions and same-SHA XY-C1 Build/TRX/artifact before L3 is updated. Physical-router L4 remains NOT VERIFIED; frozen backup remains read-only.
 
 ## Whole-repository module status
 

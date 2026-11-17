@@ -160,8 +160,23 @@ require("umount_all_storage()" in eject and "count_stor_mountpoint()" in eject,
 require("storage_safe_remove_complete(path_status, fallback_status, mount_count)" in eject,
         "eject must use the fail-closed postcondition")
 require("return result;" in eject, "eject must return operation status")
+rollback = body(storage, "storage_rollback_stor_apps_after_stop_failure(")
+require("saved_errno = errno ? errno : EIO;" in rollback and
+        "start_status = start_stor_apps();" in rollback and
+        "storage_service_stop_status_merge(stop_status, start_status)" in rollback and
+        "errno = saved_errno;" in rollback,
+        "failed storage-stop preflight must restore already-stopped peers and preserve the original error")
 targeted_eject = body(storage, "safe_remove_stor_device(")
 targeted_eject_contract = " ".join(targeted_eject.split())
+targeted_eject_compact = "".join(targeted_eject.split())
+require('storage_rollback_stor_apps_after_stop_failure("targeted safe removal",stop_status)' in targeted_eject_compact and
+        targeted_eject.index("storage_rollback_stor_apps_after_stop_failure(") <
+        targeted_eject.index("file_unlock(storage_lock);"),
+        "targeted eject must roll back stopped storage services before releasing the operation lock")
+require('storage_rollback_stor_apps_after_stop_failure("eject-all",stop_status)' in "".join(eject.split()) and
+        eject.index("storage_rollback_stor_apps_after_stop_failure(") <
+        eject.index("goto out;"),
+        "eject-all must restore stopped storage services before aborting the operation")
 require("storage_ejected_storage_start_retry_required( mount_count, start_status)" in targeted_eject_contract and
         "storage_ejected_storage_start_retry_required( mount_count, 0)" in targeted_eject_contract,
         "targeted eject must retry failed service startup and unknown mount inventory")
