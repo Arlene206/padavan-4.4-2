@@ -5039,7 +5039,8 @@ jobs:
           assert "if (stop_wan_ppp() != 0)" in manual_disconnect
 
           stop_misc = body(services, "stop_misc(void)")
-          assert "return kill_services(svcs, 3, 1);" in stop_misc
+          assert '"gpio_btn"' in stop_misc
+          assert "return kill_services(svcs, 4, 1);" in stop_misc
           flash = body(rc, "flash_firmware(void)")
           assert "vpn_server_lifecycle_lock_acquire()" in flash
           stop_ppp_services = flash.index("stop_status = kill_services(svcs, 6, 1);")

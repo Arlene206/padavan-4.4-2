@@ -1,3 +1,12 @@
+## 2026-11-17 — Align HTTPD stop_misc contract with GPIO daemon registration
+
+- Base main SHA: `4c499369ec8f9aedd2643e0f012b12752ab67b7d`; result: THIS COMMIT.
+- Exact HTTPD umbrella run `44013229543` on `e48aca6b` failed at the inline source assertion requiring `return kill_services(svcs, 3, 1);`. The production `stop_misc()` currently stops `ntpd`, `detect_wan`, `watchdog`, and `gpio_btn`, then calls `kill_services(svcs, 4, 1);`. This is a stale workflow contract after the GPIO stop registration, not a production defect.
+- Updated the workflow to assert both the `gpio_btn` entry and the four-service stop count. Its push path filter includes the workflow itself, so the change should schedule an exact-head HTTPD rerun.
+- DDNSTO checker correction `4c499369` exact run `44015005394` was still running at last poll. XY-C1 `44013905031` was at artifact upload; no final result claimed. Local execution NOT RUN; physical L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Correct final DDNSTO fake-PID checker expectation
 
 - Base main SHA: `3c2ee531e5b6f5b96a004732d82fe45ec882a5a8`; result: THIS COMMIT.
