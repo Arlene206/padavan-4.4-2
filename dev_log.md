@@ -1,3 +1,12 @@
+## 2026-11-17 — Align Process WAN stop contract with DHCP-first no-force teardown
+
+- Parent main SHA: 4bb27f9690a8c16f2a8753fa708727694b33140a; result: THIS COMMIT.
+- Process run `44126339259` passed the LAN DHCP release-before-stop, 30-second no-force, and abort-before-bridge-down contracts, then exposed another stale source assertion at line 735 that expected `kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, "udhcpc", 0, 3, 1)`.
+- Updated Process source contract to require the actual WAN order: SIGUSR2 to WAN and VIPTV, 30-second no-force stop for the udhcpc PIDfile set, then separate normal TERM/KILL stop for other WAN daemons.
+- No production source changed. WAN DHCP corrected-count run `44126128791` SUCCESS; WAN-route on e64 `44125814206` SUCCESS; current-source XY-C1 e64 `44125814296` still in Build/TRX/artifact stage.
+
+---
+
 ## 2026-11-17 — Fix Process lifecycle helper extraction test
 
 - Parent main SHA: 30428280cde13499dc0703bb0eb6606398773e12; result: THIS COMMIT.

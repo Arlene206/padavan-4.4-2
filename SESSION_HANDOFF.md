@@ -1,31 +1,31 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes conflicting older status. Work on main only; no repeated audits.
+This checkpoint supersedes older statements when conflicting. Work on main only; no repeated audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2.
-- Parent main SHA: 30428280cde13499dc0703bb0eb6606398773e12; result: THIS COMMIT (one complete tree, expected-SHA non-force update).
+- Parent main SHA: 4bb27f9690a8c16f2a8753fa708727694b33140a; result: THIS COMMIT (one complete tree, non-forced expected-SHA update).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
-- Connector-only session; no target MIPS compiler or physical router. L4 NOT VERIFIED.
+- Connector-only environment: no local MIPS/uClibc compiler or physical router; L4 NOT VERIFIED.
 
-## DHCP stop fixes and current CI
-- `7358477` adds bounded 30-second no-force udhcpc termination and separates normal WAN/LAN daemon stops. `246d17c` updates embedded WAN-DHCP/teardown source assertions.
-- `bb64fc4` corrects Process workflow's stale expectation for the AP DHCP no-force stop. `e64ab93` then fixes a real AP-mode lifecycle gap: LAN udhcpc starts without `-R`, so BusyBox SIGTERM exits a BOUND client without deconfig. `stop_udhcpc_lan()` now sends identity-bound SIGUSR2, waits 300 ms for callback execution, then applies the 30-second no-force wait; `stop_lan(AP)` calls this helper before stopping detect_wan.
-- Exact e64 WAN-route run `44125814206`: SUCCESS. WAN-DHCP run `44125814011`: failed only at source-check count (it expected four textual stop statements, while helper consolidation leaves three; logical contexts remain covered). Commit `30428280cde13499dc0703bb0eb6606398773e12` corrects count 4 -> 3.
-- Process run `44125814201` failed at the final integration checker because the new helper extraction string used a double-escaped newline (`\\n`), so Python searched for a literal backslash-n. THIS COMMIT corrects the test extraction to use an actual newline delimiter; the earlier PID identity and lifecycle sections all passed.
-- Current-source XY-C1 run `44125814296` was in progress at Build XY-C1 / TRX / artifact stage at last poll. Older run `44124205199` on source SHA `7358477` completed SUCCESS including Build, TRX and artifact upload; that does not validate e64 or later code.
+## DHCP stop sequence and CI findings
+- `7358477` introduced the bounded 30-second no-force udhcpc stop and separated ordinary daemon TERM/KILL. `246d17c` corrected WAN-DHCP and WAN-teardown inline source contracts; exact WAN DHCP `44124766309` and teardown `44124766186` PASS.
+- `e64ab93` adds explicit PID-bound SIGUSR2 release before AP LAN udhcpc stop because its launch vector has no `-R`; this forces deconfig for a BOUND lease before the bounded no-force stop. The AP helper and DHCP source checker passed the new LAN checks.
+- On source/checker SHA `e64ab93`, exact WAN-DHCP first failed only on the expected unique stop-call count; commit `3042828` corrected 4 textual occurrences to the three actual helper statements and its rerun `44126128791` SUCCESS.
+- Process run `44126339259` on `4bb27f9` then passed the AP LAN release/no-force/abort contract and every preceding integration test, but failed later at line 735 because the same Process checker still expected the old combined WAN DHCP+daemon 3-second SIGKILL call. THIS COMMIT changes that last assertion to require WAN/VIPTV SIGUSR2 release → 30-second no-force DHCP stop → separate ordinary WAN-daemon TERM/KILL.
+- Exact WAN route `44125814206` on source e64 PASS. Exact XY-C1 `44125814296` was still in Build/TRX/artifact stage at last poll. Older XY-C1 `44124205199` on `7358477` completed Build, TRX and upload SUCCESS, but does not validate e64.
 
 ## First next task
-1. Inspect exact-head Process and WAN-DHCP workflow reruns for THIS COMMIT. Require check_process_lifecycle_integration.py and check_lan_dhcp_deconfig.py to pass.
-2. Poll XY-C1 run `44125814296` to confirm Build XY-C1, TRX output and artifact upload for exact source `e64ab93` (or rebuild current SHA if required).
-3. Fix only genuine failures from exact job logs, atomically, with SHA-specific verification.
-4. Continue independent stability/security work across other userland modules; do not revisit completed PPPoE, HTTPD or storage audits.
+1. Inspect exact Process rerun for THIS COMMIT. Require Process integration and all source contracts to pass.
+2. Poll exact source e64 XY-C1 run `44125814296` through Build XY-C1, TRX verification and artifact upload; verify artifact source SHA matches e64ab93.
+3. If Process or XY fails, inspect exact logs and fix the actual mismatch in an atomic follow-up. Pending does not block independent work.
+4. Continue cross-userland stability/security after this DHCP slice; do not repeat PPPoE, HTTPD or storage audits.
 
-## Verification boundary
-- `3042828` triggered WAN DHCP rerun `44126128791`, still pending at last poll; parent `e64` DHCP failed at the now-corrected count assertion.
-- Parent `e64` Process run failed only because of test extraction escaping; corrected here, exact rerun pending.
-- XY product source `7358477` Build/TRX/artifact PASS; source `e64` current Build/TRX/artifact still pending.
-- No local MIPS/uClibc build or hardware L4 claim.
+## Validation boundary
+- Exact parent `4bb27f9` Process run `44126339259`: FAILED only on the stale WAN stop assertion; prior AP LAN SIGUSR2/stop helper checks passed.
+- Exact source e64 WAN-DHCP corrected-count run `44126128791`: SUCCESS; exact WAN-route `44125814206`: SUCCESS.
+- Exact source e64 XY-C1 `44125814296` remained pending at Build/TRX/artifact last poll.
+- No local target build or physical-router L4 is claimed.
 
 
 # Cross-session execution mandate

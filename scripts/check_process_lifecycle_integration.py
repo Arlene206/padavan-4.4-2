@@ -732,7 +732,13 @@ modem_remove = usb_modem.split("int\nsafe_remove_usb_modem(void)", 1)[1].split("
 assert '"udhcpc"' not in wan_stop.split("char* svcs_wan[]", 1)[1].split("};", 1)[0]
 assert "process_pidfile_signal(udhcpc_pidfiles[0], \"udhcpc\", SIGUSR2)" in wan_stop
 assert "process_pidfile_signal(udhcpc_pidfiles[1], \"udhcpc\", SIGUSR2)" in wan_stop
-assert "kill_services_with_pidfiles(svcs_wan, udhcpc_pidfiles, \"udhcpc\", 0, 3, 1)" in wan_stop
+wan_dhcp_stop = 'kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0)'
+wan_daemon_stop = "kill_services(svcs_wan, 3, 1)"
+assert wan_dhcp_stop in wan_stop
+assert wan_daemon_stop in wan_stop
+assert wan_stop.index('process_pidfile_signal(udhcpc_pidfiles[0], "udhcpc", SIGUSR2)') < wan_stop.index(wan_dhcp_stop)
+assert wan_stop.index('process_pidfile_signal(udhcpc_pidfiles[1], "udhcpc", SIGUSR2)') < wan_stop.index(wan_dhcp_stop)
+assert wan_stop.index(wan_dhcp_stop) < wan_stop.index(wan_daemon_stop)
 assert "killall %s %s\", \"-SIGUSR2\", \"udhcpc\"" not in wan_stop
 assert "stop_udhcpc_wan(0)" in modem_remove
 assert '"/var/run/ppp-wan0.pid"' in modem_remove
