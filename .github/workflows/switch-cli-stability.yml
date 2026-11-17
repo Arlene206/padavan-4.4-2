@@ -62,7 +62,9 @@ jobs:
               assert lines[index + 2].strip() == "exit(EXIT_FAILURE);"
 
           # Operational errors fail the process; ordinary usage/help remains 0.
-          assert source.count("exit(EXIT_FAILURE);") == 8
+          # One socket failure + seven ioctl failures + the bounded table-wait
+          # failure handler must all return a failing process status.
+          assert source.count("exit(EXIT_FAILURE);") == 9
           assert source.count("exit(0);") == 1
           assert "switch_fini();\n\texit(0);" in source
           print("switch_gsw operational socket/ioctl failures return failure status: OK")
