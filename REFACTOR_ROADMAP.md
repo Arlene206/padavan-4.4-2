@@ -55,6 +55,8 @@
 2. **P1 — Continue broad RC startup-result propagation.** Find remaining enabled service launch/module-load paths whose failures are discarded by `void` helpers or callers. Fix concrete defects with tests; cover service callers, not just helper return types.
 
    - Completed slice in THIS COMMIT: `wan_up_internal()` now preserves configured Inadyn start/reload failures from `notify_ddns_update()`; DDNS-disabled and AP-mode notifier calls are explicitly successful no-ops, with policy and WAN-caller regression coverage. Continue with other dropped WAN-up optional-launch results.
+
+   - Additional source slice after the DDNS fix: configured ZeroTier startup now uses the checked `start_zerotier()` wrapper, and its failure is merged/logged by `wan_up_internal()`. A shell launch-failure regression and WAN/ZeroTier caller contract gate were added. Next, repair PPPoE-MWAN `detect.sh` failure semantics before aggregating its exit status.
 3. **P1 — Extend lifecycle and rollback coverage across independent services.** Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.
 4. **P2 — Continue storage/configuration boundary hardening.** Inspect other privileged writers for predictable temp names, symlink substitution, unchecked file operations, and unsafe config interpolation; add host regressions where practical.
 5. **P2 — Keep handoff state current.** Update `SESSION_HANDOFF.md`, this roadmap, and `dev_log.md` after material commits; do not duplicate verified work.

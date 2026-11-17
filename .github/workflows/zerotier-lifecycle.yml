@@ -11,6 +11,8 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "scripts/check_wan_zerotier_status.py"
   pull_request:
     paths:
       - ".github/workflows/zerotier-lifecycle.yml"
@@ -22,6 +24,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/rc.c"
 
+      - "trunk/user/rc/src/net_wan.c"
+      - "scripts/check_wan_zerotier_status.py"
 permissions:
   contents: read
 
@@ -34,3 +38,5 @@ jobs:
         run: sh trunk/user/zerotier/tests/zerotier_lifecycle.sh
       - name: Verify ZeroTier lifecycle and RC integration contracts
         run: python3 scripts/check_zerotier_lifecycle.py
+      - name: Verify ZeroTier launch status reaches WAN-up
+        run: python3 scripts/check_wan_zerotier_status.py

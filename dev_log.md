@@ -1,3 +1,14 @@
+## 2026-11-16 — Propagate configured ZeroTier startup failures through WAN-up
+
+- Parent main SHA: `06ed43217d0e47b54f17fc0416a81e7341593824`.
+- Defect: `wan_up_internal()` launched `zerotier.sh start` through `doSystem()` and dropped the status even though `start_zerotier()` already applies the enabled/disabled gate and returns the RC launch result.
+- Replaced the direct shell launch with the checked RC wrapper; merge the startup result into WAN-up's first-error status and log the failure. Guard the call with `APP_ZEROTIER` to match the wrapper's compile-time declaration.
+- Extended the ZeroTier shell lifecycle test with an injected `start_instance` failure and added a source-level caller contract. Both WAN-route and ZeroTier workflows now trigger on the changed WAN caller and execute the contract checker.
+- Exact-head CI for this source-bearing commit is pending at commit creation. Local shell/C test execution is unavailable; physical-router L4 remains unverified.
+- Next P1 caller: PPPoE-MWAN `detect.sh` currently masks many command failures and exits after lock cleanup; harden its own failure/cleanup contract before passing its status into WAN-up.
+
+---
+
 ## 2026-11-16 — Complete mandatory handoff checkpoint wording
 
 - Parent main SHA: `0c786821fd1bb8b571c51c1c7abf32780f481157`.

@@ -14,11 +14,13 @@ TEST_ROUTE_COUNT="$TEST_TMP/route.count"
 TEST_IFCONFIG_MODE=none
 TEST_ROUTE_MODE=none
 TEST_NAT_ENABLE=0
+TEST_START_INSTANCE_STATUS=0
 : > "$TEST_IFCONFIG_COUNT"
 : > "$TEST_ROUTE_COUNT"
 export TEST_STATE TEST_KILL_LOG TEST_SLEEP_LOG TEST_ACTION_LOG TEST_TMP
 export TEST_IPTABLES_LOG TEST_IFCONFIG_COUNT TEST_ROUTE_COUNT
 export TEST_IFCONFIG_MODE TEST_ROUTE_MODE TEST_NAT_ENABLE
+export TEST_START_INSTANCE_STATUS
 trap 'rm -rf "$TEST_TMP"' EXIT HUP INT TERM
 
 fail() {
@@ -77,7 +79,7 @@ logger() {
 # host firewall state or the developer's persistent filesystem.
 start_instance() {
 	echo start >> "$TEST_ACTION_LOG"
-	return 0
+	return "$TEST_START_INSTANCE_STATUS"
 }
 
 del_rules() {
@@ -246,6 +248,17 @@ fi
 [ ! -s "$TEST_KILL_LOG" ] || fail "start signalled after an initial process inventory error"
 [ ! -s "$TEST_ACTION_LOG" ] || fail "start reached start_instance after an initial process inventory error"
 TEST_PIDOF_MODE=""
+
+# A configured launcher must preserve the start_instance failure status.
+: > "$TEST_ACTION_LOG"
+echo stopped > "$TEST_STATE"
+TEST_MODE=none
+TEST_START_INSTANCE_STATUS=23
+if start_zero; then
+	fail "start reported success after start_instance failed"
+fi
+[ "$(cat "$TEST_ACTION_LOG")" = "start" ] || fail "start did not reach the launcher failure hook"
+TEST_START_INSTANCE_STATUS=0
 
 
 : > "$TEST_KILL_LOG"

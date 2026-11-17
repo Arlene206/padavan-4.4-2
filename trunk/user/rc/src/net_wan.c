@@ -2719,8 +2719,15 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	/* call custom user script */
 	if (check_if_file_exist(script_postw))
 		{eval(script_postw, "up", wan_ifname, wan_addr);}
-	if (nvram_match("zerotier_enable", "1"))
-		{doSystem("/usr/bin/zerotier.sh start");}
+#if defined(APP_ZEROTIER)
+	if (nvram_match("zerotier_enable", "1")) {
+		route_status = start_zerotier();
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "WAN ZeroTier startup incomplete (status=%d)",
+				   route_status);
+	}
+#endif
 	if (nvram_match("pppoemwan_enable", "1"))
 		{doSystem("/usr/bin/detect.sh");}
 	return status;

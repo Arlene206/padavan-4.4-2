@@ -47,6 +47,10 @@ on:
       - "trunk/user/rc/src/wan_route_flush_policy.h"
       - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
       - "trunk/user/rc/src/tests/route_status_policy.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/zerotier/zerotier.sh"
+      - "trunk/user/zerotier/tests/zerotier_lifecycle.sh"
+      - "scripts/check_wan_zerotier_status.py"
   pull_request:
     paths:
       - ".github/workflows/wan-route-status.yml"
@@ -199,6 +203,8 @@ jobs:
         run: python3 scripts/check_wan_firewall_status.py
       - name: Verify WAN DDNS update status propagation
         run: python3 scripts/check_wan_ddns_status.py
+      - name: Verify WAN ZeroTier launch status propagation
+        run: python3 scripts/check_wan_zerotier_status.py
       - name: Verify route result propagation and cleanup ordering
         run: |
           python3 - <<'PY'
@@ -716,3 +722,8 @@ jobs:
 
           print("WAN route result propagation and cleanup ordering contracts: PASS")
           PY
+
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/zerotier/zerotier.sh"
+      - "trunk/user/zerotier/tests/zerotier_lifecycle.sh"
+      - "scripts/check_wan_zerotier_status.py"
