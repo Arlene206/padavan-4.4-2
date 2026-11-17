@@ -27,19 +27,15 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify THIS COMMIT's exact-head WAN route, WAN DHCP callback, Process and XY-C1 Build → TRX → artifact checks for the DHCP MTU range correction.
-2. Continue the P1 LAN startup stability slice: trace first-error propagation across bridge creation, LAN address configuration and service launch; add a focused regression without repeating completed multi-bridge rollback work.
-3. Work only on `main`, preserve the frozen backup at `72f4f157a084f8184b9597ca5bf334b8080e5807`, and publish each logical multi-file slice as one tree/commit with a non-forced expected-SHA update.
-
+1. Verify this commit's exact-head Process lifecycle checks, especially the LAN restart semantic contract and GNU89/ASan/UBSan first-error regression; then verify WAN route and XY-C1 Build → TRX → artifact.
+2. Continue the P1 LAN/network restart audit only after those checks pass. Current source review confirms boot `init_bridge()`, `start_lan()`, and PID 1 status aggregation already return the main bridge/address/route/DHCP results. This slice closes discarded statuses in `full_restart_lan()`: STP/forward-delay changes, LAN PHY power cycle, STP/forward-delay restoration, and the nested WAN restart.
+3. Work on `main` only; keep frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged. Publish each logical slice as one complete tree/commit with a non-forced expected-SHA update.
 ## Verification boundary
 
-- Production-source baseline `7f7728ab553426965c47e72812c3b2a8c6ca6338`: WAN DHCP callback `44049696447` PASS; Process lifecycle `44049696038` PASS; Process inventory `44049696133` PASS. XY-C1 `44049696160` SUCCESS through Build, TRX verification and artifact upload; artifact `14314335144` (`XY-C1-firmware-7f7728ab553426965c47e72812c3b2a8c6ca6338`, 12,643,773 bytes). Descendant `de70a509` changed only semantic checker/docs after this source baseline.
-- WAN route exact-head descendant `de70a509` run `44050750448` PASS after repairing a checker false-positive. Process `44050750354` PASS; AI handoff `44050750428`, infosvr `44050750412`, AdGuardHome `44050750405`, AliyunDrive `44050750409`, AliDDNS `44050750396`, NVRAM `44050750397` PASS.
-- Confirmed gap: both DHCP bound callbacks parse MTU values 576..1500 but previously applied only 1300..1499. Values 576..1299 were silently ignored, and an explicit 1500 could not restore the default after a smaller lease. THIS COMMIT aligns setter application with the parser via a DHCP-specific helper; static/UI custom-MTU policy remains 1300..1499.
-- Existing semantics remain: DHCP MTU is applied on renew; optional setter errors are diagnostic-only and do not alter route/callback status; an omitted option remains a no-op and retains prior NVRAM state. Regression covers 575/576/1299/1300/1499/1500/1501.
-- Earlier XY-C1 run `44047414713` for `02ec8ab3` failed at a semantic checker before firmware build; it did not report a compiler error. Later exact-source `7f7728ab` Build/TRX/artifact passed.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No local MIPS toolchain; physical-router L4 remains NOT VERIFIED.
-
+- Parent product-source SHA `a0a5c7b5330d601032e83f1800fe7873612cc013`: DHCP option MTU application is aligned with its parser across `576..1500`; static/UI configured-MTU policy remains `1300..1499`. Optional DHCP MTU setter failures remain diagnostic-only, and an omitted DHCP MTU option remains a no-op preserving prior NVRAM.
+- Exact-head parent Actions all PASS: WAN route `44051968487`; WAN DHCP callback `44051968728`; Process inventory `44051968717`; Process lifecycle fail-closed `44051968786`; NVRAM `44051968689`; XY-C1 firmware `44051968495`. XY-C1 completed the RC LAN restart first-error regression, firmware Build, TRX output verification and artifact upload successfully.
+- Existing startup status chain is already present: `init_bridge()` records bridge/switch/radio setup failures; `start_lan()` aggregates bridge IPv4, AP DHCP/manual resolver, router static routes, IPv6 reload and bridge multicast setup; `init_router()` merges bridge and LAN startup into PID 1's boot status. This commit addresses a separate observed gap: `full_restart_lan()` previously discarded return values from STP/forward-delay updates, both LAN PHY power operations, STP/forward-delay restoration, and `full_restart_wan()`.
+- This commit's GNU89/ASan/UBSan regression and workflow semantic assertions are pending exact-head CI. No local MIPS toolchain is available; physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live `main`, filter Actions by exact `head_sha`, and verify this commit's DHCP MTU range regression, WAN route/DHCP and Process jobs, then exact-source XY-C1 Build/TRX/artifact. If these pass, continue the P1 LAN startup first-error path across bridge, address and service setup; do not repeat DHCP MTU, WISP containment or gateway-monitor audits.
+Fetch live `main` and filter push Actions by its exact `head_sha`. Inspect the Process lifecycle LAN restart semantic/test result, WAN route regression, and XY-C1 firmware job through Build → TRX → artifact. Fix a real failure before expanding the LAN/network restart audit. Do not repeat DHCP MTU range, WISP containment, gateway-monitor, or completed multi-bridge rollback reviews.

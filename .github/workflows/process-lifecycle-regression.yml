@@ -525,8 +525,36 @@ jobs:
           assert "return status;" in manual
 
           restart = body(lan, "full_restart_lan(void)")
+          assert 'lan_restart_record_status(&restart_status, "disable LAN bridge STP",' in restart
+          assert 'br_set_stp(IFNAME_BR, 0));' in restart
+          assert 'lan_restart_record_status(&restart_status, "set LAN bridge forward delay for restart",' in restart
+          assert 'br_set_fd(IFNAME_BR, 2));' in restart
+          assert 'lan_restart_record_status(&restart_status, "power down LAN ports",' in restart
+          assert 'phy_ports_lan_power(0));' in restart
+          assert 'lan_restart_record_status(&restart_status, "power up LAN ports",' in restart
+          assert 'phy_ports_lan_power(1));' in restart
           assert "lan_start_status = start_lan(is_ap_mode, 1);" in restart
           assert 'lan_restart_record_status(&restart_status, "start LAN services", lan_start_status);' in restart
+          assert 'lan_restart_record_status(&restart_status, "restore LAN bridge STP",' in restart
+          assert 'br_set_stp(IFNAME_BR, 1));' in restart
+          assert 'lan_restart_record_status(&restart_status, "restore LAN bridge forward delay",' in restart
+          assert 'br_set_fd(IFNAME_BR, 15));' in restart
+          assert 'lan_restart_record_status(&restart_status, "restart WAN after LAN restart",' in restart
+          assert 'full_restart_wan());' in restart
+          assert 'lan_restart_record_status(&restart_status, "start VPN server after WAN restart",' in restart
+          restart_order = (
+              restart.index('br_set_stp(IFNAME_BR, 0)'),
+              restart.index('br_set_fd(IFNAME_BR, 2)'),
+              restart.index('phy_ports_lan_power(0)'),
+              restart.index('phy_ports_lan_power(1)'),
+              restart.index('start_lan(is_ap_mode, 1)'),
+              restart.index('br_set_stp(IFNAME_BR, 1)'),
+              restart.index('br_set_fd(IFNAME_BR, 15)'),
+              restart.index('full_restart_wan()'),
+              restart.index('start_vpn_server()'),
+          )
+          assert restart_order == tuple(sorted(restart_order))
+          assert "return restart_status;" in restart
 
           loopback = body(lan, "init_loopback(void)")
           assert ("int" + chr(10) + "init_loopback(void)") in lan

@@ -1,3 +1,14 @@
+## 2026-11-17 — Preserve LAN restart bridge, PHY and WAN restart results
+
+- Parent main SHA: `a0a5c7b5330d601032e83f1800fe7873612cc013`; result: THIS COMMIT.
+- Review confirmed the boot path already aggregates `init_bridge()`, `start_lan()` and PID 1 status. The remaining concrete gap was in `full_restart_lan()`: it discarded status-returning STP, bridge forward-delay, LAN PHY power-down/up, STP/forward-delay restoration and nested `full_restart_wan()` calls.
+- Routed each result through `lan_restart_record_status()`, preserving first-error semantics while still attempting independent recovery operations and VPN startup.
+- Expanded `service_start_status.c` to cover a failure through the complete restart recovery sequence and verify every later operation is still attempted. Strengthened the Process workflow semantic contract to verify all production result captures and call ordering.
+- Parent exact-head validations all passed: WAN route `44051968487`, WAN DHCP `44051968728`, Process inventory `44051968717`, Process fail-closed `44051968786`, NVRAM `44051968689`, and XY-C1 `44051968495`; XY-C1 Build, TRX and artifact upload succeeded. This commit's exact-head checks are pending.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Apply all parser-supported DHCP MTU values, including explicit 1500 reset
 
 - Parent main SHA: `de70a509a14fd343bc3ee1fbfb9c6b2078bbff6d`; result: THIS COMMIT.

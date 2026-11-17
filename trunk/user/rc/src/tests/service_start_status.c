@@ -58,8 +58,52 @@ test_man_custom_mtu_failure_is_reported_and_setup_continues(void)
 static void
 test_first_error_survives_lan_restart_recovery(void)
 {
-	int status = rc_first_service_start_status(0, EBUSY);
+	int status = 0;
+	int stp_disable_attempts = 0;
+	int forward_delay_attempts = 0;
+	int power_down_attempts = 0;
+	int power_up_attempts = 0;
+	int lan_start_attempts = 0;
+	int stp_restore_attempts = 0;
+	int forward_delay_restore_attempts = 0;
+	int wan_restart_attempts = 0;
+	int vpn_start_attempts = 0;
 
+	/* A failed STP change must remain visible while every recovery step runs. */
+	stp_disable_attempts++;
+	status = rc_first_service_start_status(status, EIO);
+	forward_delay_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	power_down_attempts++;
+	status = rc_first_service_start_status(status, EBUSY);
+	power_up_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	lan_start_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	stp_restore_attempts++;
+	status = rc_first_service_start_status(status, EACCES);
+	forward_delay_restore_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	wan_restart_attempts++;
+	status = rc_first_service_start_status(status, ENETUNREACH);
+	vpn_start_attempts++;
+	status = rc_first_service_start_status(status, 0);
+
+	assert(stp_disable_attempts == 1);
+	assert(forward_delay_attempts == 1);
+	assert(power_down_attempts == 1);
+	assert(power_up_attempts == 1);
+	assert(lan_start_attempts == 1);
+	assert(stp_restore_attempts == 1);
+	assert(forward_delay_restore_attempts == 1);
+	assert(wan_restart_attempts == 1);
+	assert(vpn_start_attempts == 1);
+	assert(status == EIO);
+
+	/* When earlier setup succeeds, a later PHY recovery error becomes first. */
+	status = rc_first_service_start_status(0, 0);
+	status = rc_first_service_start_status(status, 0);
+	status = rc_first_service_start_status(status, EBUSY);
 	status = rc_first_service_start_status(status, 0);
 	status = rc_first_service_start_status(status, EIO);
 	assert(status == EBUSY);

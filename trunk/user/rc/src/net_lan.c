@@ -1084,14 +1084,18 @@ full_restart_lan(void)
 	reset_lan_vars();
 
 	if (!is_ap_mode) {
-		br_set_stp(IFNAME_BR, 0);
-		br_set_fd(IFNAME_BR, 2);
+		lan_restart_record_status(&restart_status, "disable LAN bridge STP",
+					  br_set_stp(IFNAME_BR, 0));
+		lan_restart_record_status(&restart_status, "set LAN bridge forward delay for restart",
+					  br_set_fd(IFNAME_BR, 2));
 	}
 
-	/* down and up all LAN ports link */
-	phy_ports_lan_power(0);
+	/* down and up all LAN ports link; always attempt the recovery step. */
+	lan_restart_record_status(&restart_status, "power down LAN ports",
+				  phy_ports_lan_power(0));
 	sleep(1);
-	phy_ports_lan_power(1);
+	lan_restart_record_status(&restart_status, "power up LAN ports",
+				  phy_ports_lan_power(1));
 
 	lan_start_status = start_lan(is_ap_mode, 1);
 	lan_restart_record_status(&restart_status, "start LAN services", lan_start_status);
@@ -1128,12 +1132,15 @@ full_restart_lan(void)
 				  release_status);
 	if (!is_ap_mode) {
 		if (is_lan_stp) {
-			br_set_stp(IFNAME_BR, 1);
-			br_set_fd(IFNAME_BR, 15);
+			lan_restart_record_status(&restart_status, "restore LAN bridge STP",
+						  br_set_stp(IFNAME_BR, 1));
+			lan_restart_record_status(&restart_status, "restore LAN bridge forward delay",
+						  br_set_fd(IFNAME_BR, 15));
 		}
 		
 		if (is_wan_err) {
-			full_restart_wan();
+			lan_restart_record_status(&restart_status, "restart WAN after LAN restart",
+						  full_restart_wan());
 			lan_restart_record_status(&restart_status, "start VPN server after WAN restart",
 						  start_vpn_server());
 		} else {
