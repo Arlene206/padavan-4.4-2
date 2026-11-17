@@ -1,3 +1,11 @@
+## 2026-11-18 05:16 CST — Repair exact-head WAN and APCLI source-contract drift
+
+- Parent main SHA: `8e9ea2131d7be59833756c15d03cf58ba288085c`; paths: `scripts/check_modem_wan_start_status.py`, `scripts/check_wan_initial_mtu_status.py`, and `.github/workflows/wireless-radio-state.yml`.
+- Exact-head Firewall Startup `44177798054` failed after all firewall policy binaries and its firewall caller checker passed; the later modem checker still searched for the old `/* perform ApCli reconnect */` comment. Process `44177797717` compiled and ran the updated GNU89 service-start policy regression successfully, then stopped at the same checker boundary.
+- WAN route `44177797840` passed its earlier firewall result propagation contract, then its initial MTU checker searched for the former IPoE firewall comment. Update both checkers to current source boundaries.
+- Wireless radio `44177798027` passed its C/policy, bridge and guest-isolation tests but its APCLI source checker counted both command and log strings. Count the four actual `doSystem(...ApCliAutoConnect...)` invocations. Also add the missing `net_wan.c` path to the PR filter and checker list.
+- AI handoff `44177797925` PASS; XY-C1 `44177798165` was in progress at last poll. No code-level failure was observed in the preceding firewall or service-status regression steps. Exact-head reruns pending; MIPS build/hardware L4 not yet claimed.
+
 ## 2026-11-18 04:48 CST — Fail closed WAN protocol startup on firewall rebuild errors
 
 - Parent main SHA: `be0f5b56efa203fc802334e08b846381e9a3f04a`; source paths: `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/service_start_status.h`, `trunk/user/rc/src/tests/service_start_status.c`, and `scripts/check_wan_firewall_status.py`.

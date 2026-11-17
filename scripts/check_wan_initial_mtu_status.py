@@ -94,7 +94,7 @@ static_branch = start_wan.index(
     "if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)", ifup
 )
 static_end = start_wan.index(
-    "/* re-build iptables rules (final stage for IPoE static) */", static_branch
+    "/* Rebuild required firewall policy before EAPOL, DHCP or route activation. */", static_branch
 )
 static = start_wan[static_branch:static_end]
 custom_set = static.index("mtu_status = set_interface_mtu(wan_ifname, wan_mtu);")

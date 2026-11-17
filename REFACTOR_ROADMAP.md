@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main SHA: `be0f5b56efa203fc802334e08b846381e9a3f04a`; THIS COMMIT gates all three `start_wan()` protocol paths on a zero `start_firewall_ex()` result. USB RAS/PPP clients are skipped on failure; physical WAN rules are retried and the interface is taken down if restoration fails. IPoE EAPOL/DHCP/route/IPv6 setup is skipped, and failed static-address removal falls back to interface-down.
-- Added `rc_wan_firewall_start_allows_protocol()` plus a GNU89 policy matrix for success, negative status, EIO, EBUSY and EACCES. The WAN firewall source contract checks gate-before-launch ordering, physical restore fallback and static-address cleanup.
-- Existing WAN-route and XY-C1 workflow filters already include the production caller, helper header and host test. Standalone GNU89 + Werror + ASan/UBSan policy harness PASS. Full source checker and complete host regression binary were not run locally.
-- The preceding APCLI/Wireless radio source slice is `be0f5b5`; its exact-head workflow was pending at the prior handoff. The syslogd/klogd Process slice and checker correction are `222cbfb`/`f4ab211`; exact recorded Process run `44174094871` passed.
-- Exact-head WAN-route, XY-C1 Build/TRX/artifact and AI handoff Actions for THIS COMMIT are pending/not verified. No target L3 or hardware L4 claim. Frozen backup remains `72f4f157`.
+- Product-source fix `8e9ea2131d7be59833756c15d03cf58ba288085c` gates RAS, PPP and IPoE protocol startup on a successful firewall rebuild. RAS/PPP restore physical-WAN policy or take that interface down; static IPoE address cleanup falls back to interface-down.
+- Exact-head WAN firewall gate contract passed on `8e9ea213`; the Process GNU89 service-startup policy test also passed. Four exact-head workflows then exposed stale checker assumptions: APCLI and IPoE firewall comments in two scripts, and an APCLI driver-call count that included log text. THIS checker-only commit repairs those contracts and the missing wireless PR path filter.
+- Exact `8e9ea213` results: Firewall Startup `44177798054`, WAN route `44177797840`, Wireless radio `44177798027`, Process `44177797717` FAIL at stale checker assertions; AI handoff `44177797925` PASS; XY-C1 `44177798165` still running at last poll. No target L3/hardware L4 claim.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-Next: inspect exact-SHA WAN-route, XY-C1 and AI handoff results; resolve APCLI/Wireless radio on `be0f5b5`; then continue other concrete P1 startup/fail-closed gaps.
+Next: inspect exact-head reruns for the four repaired checkers, then resolve XY-C1 Build/TRX/artifact on source SHA `8e9ea213`; continue independent P1 work.
 
 
 ---

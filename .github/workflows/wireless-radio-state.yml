@@ -21,6 +21,7 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_lan.c"
       - "scripts/check_guest_lan_isolation_status.py"
       - "trunk/user/rc/src/wireless_guest_isolation_policy.h"
@@ -86,7 +87,7 @@ jobs:
           assert "int status = 0;" in reconnect
           assert "return status;" in reconnect
           assert reconnect.count("doSystem(") == reconnect.count("wireless_radio_restart_status(status,")
-          assert reconnect.count("ApCliAutoConnect") == 4
+          assert reconnect.count('doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect"') == 4
           assert reconnect.count("ApCliEnable") == 2
           disable_pos = reconnect.index('"ApCliEnable", 0')
           wait_pos = reconnect.index("usleep(300000);", disable_pos)
@@ -564,6 +565,7 @@ jobs:
           paths = (
               ".github/workflows/wireless-radio-state.yml",
               "trunk/user/rc/src/net_wifi.c",
+              "trunk/user/rc/src/net_wan.c",
               "trunk/user/shared/src/netutils.c",
               "trunk/user/shared/src/bridge_membership_policy.h",
               "trunk/user/shared/src/tests/bridge_membership_policy.c",

@@ -1,27 +1,26 @@
-# 2026-11-18 continuation checkpoint — fail closed on incomplete WAN firewall rebuild
+# 2026-11-18 continuation checkpoint — repair exact-head WAN/APCLI checker drift
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA for THIS slice: `be0f5b56efa203fc802334e08b846381e9a3f04a`.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA for THIS checker repair: `8e9ea2131d7be59833756c15d03cf58ba288085c`.
 - Main-only complete-tree commits use fresh expected-SHA updates and `force:false`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- AP-client reconnect propagation is in `be0f5b5`; its exact-head Wireless radio workflow was pending in the prior checkpoint. The syslogd/klogd source/checker fix is in `222cbfb` + `f4ab211`; Process fail-closed run `44174094871` and the listed NVRAM/infosvr/AI docs/AliDDNS/AdGuardHome/AliyunDrive checks passed on their recorded exact SHAs.
-- Previously closed slices to preserve: Samba WINS `44173796606` PASS; DDNSTO `44166279131`, IPTV DHCP `44170820583`, HTTPD cross-contract `44171043495`, and rstats/LLTD Process `44169139435` plus XY-C1 `44169139392` PASS. Do not re-audit these without a new regression.
+- Firewall fail-closed source fix is `8e9ea2131d7be59833756c15d03cf58ba288085c`. Its exact-head Firewall Startup test passed all C/policy/checker steps except a later stale APCLI boundary in `check_modem_wan_start_status.py`; its WAN-route firewall caller contract passed, but WAN route stopped at a stale IPoE firewall comment in `check_wan_initial_mtu_status.py`. Both are repaired in THIS checker-only commit.
+- The same exact SHA's Process job compiled and ran `service_start_status.c` successfully, including the new firewall failure policy cases, then hit the same stale APCLI boundary checker. Wireless radio policy and guest isolation tests passed before a source-contract assertion incorrectly counted APCLI log text as driver invocations; THIS COMMIT corrects the command count and adds the missing `net_wan.c` pull_request path filter. AI handoff contract `44177797925` PASS.
+- Exact-head runs on `8e9ea213`: Firewall Startup `44177798054` FAIL (checker-only drift), WAN route `44177797840` FAIL (checker-only drift), Wireless radio `44177798027` FAIL (checker assertion), Process `44177797717` FAIL (same stale modem checker), AI handoff `44177797925` SUCCESS. XY-C1 `44177798165` was still in progress at last poll.
 
-## Active P1 defect — WAN protocol clients launched despite firewall rebuild failure
-- `start_wan()` accumulated `start_firewall_ex()` errors but still launched USB RAS, PPP and IPoE EAPOL/DHCP/route setup. A nonzero result means the requested ruleset or a configured extension hook/snapshot cleanup is incomplete; merely returning an error did not prevent traffic from being exposed under stale or partial policy.
-- THIS COMMIT adds `rc_wan_firewall_start_allows_protocol()` with a GNU89 host-policy regression, plus source-order assertions in `scripts/check_wan_firewall_status.py`.
-- USB RAS and PPP refuse client launch after any nonzero firewall result, retry physical-WAN policy restoration, and take the physical interface down if that recovery also fails.
-- IPoE refuses EAPOL, DHCP, route and IPv6 activation after firewall failure. Static IPoE clears the configured address; if clearing fails, it takes the interface down. First-error aggregation is preserved.
-- Changed paths: `trunk/user/rc/src/net_wan.c`, `trunk/user/rc/src/service_start_status.h`, `trunk/user/rc/src/tests/service_start_status.c`, and `scripts/check_wan_firewall_status.py`. Existing WAN-route and XY-C1 path filters already cover these files.
+## Product-source checkpoint
+- `start_wan()` now requires a zero status from each of its USB RAS, PPP and IPoE firewall rebuilds before protocol client/EAPOL/DHCP/route startup. RAS/PPP first try physical-WAN firewall restoration and bring the physical interface down if recovery also fails. Static IPoE clears the configured address or takes the interface down if clearing fails.
+- WAN-route source contract for the three new gates passed on `8e9ea213`. Process CI also proved the new GNU89 service-start policy binary passes under ASan/UBSan. Standalone GNU89 helper harness was separately recorded PASS.
+- No full local source compile, complete local C suite, MIPS XY-C1 build or router hardware L4 was run locally. XY-C1 run `44177798165` must be inspected before any target L3 claim.
 
-## Verification boundary
-- Standalone GNU89 policy harness with `-Wall -Wextra -Werror -fsanitize=address,undefined`: PASS for zero-success and nonzero fail-closed cases (-1/EIO/EBUSY/EACCES).
-- The full repository C regression binary and Python source checker were not executed locally; no complete checkout is mounted. Exact-head WAN-route, XY-C1 Build/TRX/artifact and AI handoff Actions for THIS commit must be inspected after the push. No MIPS target build or router hardware L4 result is claimed.
-- The available GitHub run wrapper filters PR-triggered runs; an empty combined-status list is not evidence that main push Actions passed. Record exact run IDs/conclusions when available.
+## THIS checker repair
+- `check_modem_wan_start_status.py` now uses the current AP-client reconnect source comment as the physical-interface failure block boundary.
+- `check_wan_initial_mtu_status.py` now uses the current IPoE firewall-gate comment as the end of static-address setup.
+- Wireless APCLI contract counts the four actual `doSystem(...ApCliAutoConnect...)` invocations rather than the repeated log strings; the workflow path filter and its self-check now both include `net_wan.c` under push and pull_request.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA WAN-route, XY-C1 and AI handoff Actions for THIS commit. Require the GNU89 policy regression and fail-closed source contract; require XY-C1 Build, TRX verification and artifact upload before claiming target L3.
-2. Resolve the APCLI/Wireless radio workflow for `be0f5b5`; then check any current-head Process workflow affected by `net_wan.c`. Fix the first actual failing step from its logs.
-3. Continue independent P1 service-startup/error-propagation or firewall gaps. Preserve the frozen backup and avoid repeating completed audits. Physical router L4 remains NOT VERIFIED.
+1. Inspect exact-head Firewall Startup, WAN route, Wireless radio and Process runs triggered by THIS checker repair; all four should pass the repaired source-contract steps. Fix any new failing assertion from its job log.
+2. Inspect XY-C1 `44177798165` on product-source SHA `8e9ea213`; require Build XY-C1, TRX verification and artifact upload before claiming target L3.
+3. Continue another evidenced P1 service-start or firewall defect. Keep the frozen backup immutable; physical router L4 remains NOT VERIFIED.
 
 # Cross-session execution mandate
 
