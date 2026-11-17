@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- Main base before the current storage slice: `19b24e9dd2aec153a60667925f129ad6e8218c0b`. The NVRAM SET/COMMIT/CLEAR wrappers propagate `/dev/nvram` close failures; exact-head NVRAM run `43997464510` PASS. Shared-xl2tpd restoration after partial VPN teardown passed exact-head VPN lifecycle `43997464565` and Process inventory/lifecycle `43997464457` on 19b24e9d.
-- Safe-storage-eject stop preflight could stop NFS/Samba/FTP/media/download peers and then fail on a later daemon. The eject correctly aborted before unmount, but previously returned without restarting the peers already stopped. New rollback attempts `start_stor_apps()` under the held storage-operation lock, is guarded by the existing tri-state/idempotent launchers, and preserves the original stop errno/status. The storage policy and source integration regressions cover both targeted and eject-all paths; exact-head validation pending.
-- IPv6 neighbour-cleanup source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06` completed XY-C1 Build/TRX/artifact (run `43994632505`). Current storage rollback source must pass exact-head storage Actions and same-SHA XY-C1 Build/TRX/artifact before L3 is updated. Physical-router L4 remains NOT VERIFIED; frozen backup remains read-only.
+- Current main source: `10380657db522193a781d7e3068c0c2f02a8b78f`. NVRAM close-result audit `43997464510` and VPN shared-xl2tpd teardown recovery `43997464565` plus Process lifecycle `43997464457` passed on predecessor `19b24e9d`.
+- Safe-storage-eject preflight now restores previously stopped services if a later daemon stop fails, while still aborting before unmount and preserving the original error. Exact-head storage run `43998879671` passed policy compilation/regression and the standalone source checker, then failed at the embedded workflow source graph because it expected the old combined stop condition. The workflow contract is corrected in this follow-up; rerun pending.
+- XY-C1 run `43998879438` is still building exact source `10380657`. Predecessor `acf6bc69` completed Build/TRX/artifact in run `43996866831`, validating the NVRAM plus VPN production code but not this later storage change. Physical-router L4 remains NOT VERIFIED; archival backup remains frozen.
 
 ## Whole-repository module status
 

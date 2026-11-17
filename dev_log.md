@@ -1,3 +1,11 @@
+## 2026-11-17 — Update storage hotplug workflow source contract for rollback
+
+- Exact-head storage run `43998879671` on SHA `10380657db522193a781d7e3068c0c2f02a8b78f` passed storage daemon policy compilation/regression and the standalone storage source checker, then failed at the embedded workflow source graph because it expected the old combined `stop_stor_apps()` conditions.
+- Updated the embedded contract to require captured stop status, rollback helper execution, cleanup/unlock order, and original errno preservation for both targeted eject and eject-all. No production source change in this checker-only correction.
+- Same-source XY-C1 Build/TRX/artifact run `43998879438` remained in progress at this point.
+
+---
+
 ## 2026-11-17 — Restore storage apps after a failed safe-eject stop preflight
 
 - Base main SHA: `19b24e9dd2aec153a60667925f129ad6e8218c0b`.

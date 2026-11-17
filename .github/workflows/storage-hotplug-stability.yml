@@ -855,21 +855,24 @@ jobs:
           assert "skipping all selected unmounts because swapoff did not complete" in path_range
 
           safe_remove = function_body(storage, "safe_remove_stor_device(")
-          stop_gate = safe_remove.index("if (has_mounted_port && stop_stor_apps() != 0)")
-          stop_abort = safe_remove.index("return;", stop_gate)
-          assert stop_gate < stop_abort < safe_remove.index("umount_stor_path_range(")
-          assert "free_disk_data(disks_info);" in safe_remove[stop_gate:stop_abort]
-          assert "file_unlock(storage_lock);" in safe_remove[stop_gate:stop_abort]
+          stop_gate = safe_remove.index("stop_status = stop_stor_apps();")
+          rollback_gate = safe_remove.index("storage_rollback_stor_apps_after_stop_failure(", stop_gate)
+          stop_abort = safe_remove.index("return;", rollback_gate)
+          assert stop_gate < rollback_gate < stop_abort < safe_remove.index("umount_stor_path_range(")
+          assert "free_disk_data(disks_info);" in safe_remove[rollback_gate:stop_abort]
+          assert "file_unlock(storage_lock);" in safe_remove[rollback_gate:stop_abort]
+          assert "errno = stop_errno;" in safe_remove[rollback_gate:stop_abort]
           assert safe_remove.index("umount_stor_path_range(") < safe_remove.index("umount_ejected_locked()")
           assert "unmount_status != 0 || ejected_status != 0" in safe_remove
           assert "mount_count < 0 || unmount_status != 0 || ejected_status != 0" in safe_remove
 
           remove_all = function_body(storage, "safe_remove_all_stor_devices(")
           inventory_gate = remove_all.index("read_disk_data_checked(&disks_info)")
-          stop_gate = remove_all.index("if (stop_stor_apps() != 0)")
-          stop_abort = remove_all.index("goto out;", stop_gate)
+          stop_gate = remove_all.index("stop_status = stop_stor_apps();")
+          rollback_gate = remove_all.index("storage_rollback_stor_apps_after_stop_failure(", stop_gate)
+          stop_abort = remove_all.index("goto out;", rollback_gate)
           assert remove_all.index("storage_operation_lock_acquire(file_lock)") < inventory_gate < stop_gate
-          assert stop_gate < stop_abort < remove_all.index("umount_stor_path(")
+          assert stop_gate < rollback_gate < stop_abort < remove_all.index("umount_stor_path(")
           assert "file_unlock(storage_lock);" in remove_all
           assert "path_status = disks_info ?" in remove_all
           assert "refusing fallback unmount" in remove_all
