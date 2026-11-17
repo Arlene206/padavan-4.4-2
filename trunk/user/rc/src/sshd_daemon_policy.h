@@ -1,13 +1,36 @@
 #ifndef PADAVAN_SSHD_DAEMON_POLICY_H
 #define PADAVAN_SSHD_DAEMON_POLICY_H
 
-#include "process_inventory.h"
+#include "process_presence_start_policy.h"
 
 /* Direct starts also require a complete inventory confirming absence. */
 static inline int
 sshd_start_allowed(enum process_presence process_state)
 {
 	return process_state == PROCESS_PRESENCE_ABSENT;
+}
+
+/* UNKNOWN initial inventory must never trigger a name-based stop. */
+static inline int
+sshd_restart_before_state_allows_stop(enum process_presence process_state)
+{
+	return process_state == PROCESS_PRESENCE_ABSENT ||
+	       process_state == PROCESS_PRESENCE_RUNNING;
+}
+
+/* Stop only when the initial inventory confirms a running daemon. */
+static inline int
+sshd_restart_requires_stop(enum process_presence process_state)
+{
+	return process_state == PROCESS_PRESENCE_RUNNING;
+}
+
+/* A detached launcher is successful only after its daemon is confirmed RUNNING. */
+static inline int
+sshd_start_postcondition(int launcher_status,
+			 enum process_presence process_state)
+{
+	return process_presence_start_postcondition(launcher_status, process_state);
 }
 
 /* Restart only after both the stop command and process inventory confirm absence. */

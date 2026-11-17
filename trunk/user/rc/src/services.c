@@ -644,6 +644,8 @@ int start_sshd(void)
 	int sshd_mode = nvram_get_int("sshd_enable");
 	enum process_presence state;
 	int scan_error = 0;
+	int start_status;
+	int attempt;
 
 	if (sshd_mode != 1 && sshd_mode != 2)
 		return 0;
@@ -659,8 +661,37 @@ int start_sshd(void)
 	}
 
 	if (sshd_mode == 2)
-		return eval("/usr/bin/sshd.sh", "start", "-s");
-	return eval("/usr/bin/sshd.sh", "start");
+		start_status = eval("/usr/bin/sshd.sh", "start", "-s");
+	else
+		start_status = eval("/usr/bin/sshd.sh", "start");
+	if (start_status != 0) {
+		logmessage(LOGNAME, "SSH launcher failed (status=%d)", start_status);
+		return sshd_start_postcondition(start_status, PROCESS_PRESENCE_ABSENT);
+	}
+
+	/*
+	 * OpenSSH and Dropbear detach from the RC launcher. A successful eval()
+	 * only proves that the wrapper returned; require the child to remain
+	 * visible before reporting a successful start or restart.
+	 */
+	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+		state = sshd_process_presence(&scan_error);
+		if (sshd_start_postcondition(start_status, state) == 0)
+			return 0;
+		if (state == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
+			logmessage(LOGNAME, "cannot verify SSH startup (scan_error=%d)",
+				   errno);
+			return -1;
+		}
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "SSH daemon did not remain running after launch");
+	return sshd_start_postcondition(start_status, PROCESS_PRESENCE_ABSENT);
 }
 
 int restart_sshd(void)
@@ -677,12 +708,22 @@ int restart_sshd(void)
 	int firewall_stop_scan_error = 0;
 	enum process_presence firewall_stop_state;
 
-	before_state = sshd_process_presence(NULL);
-	stop_status = stop_sshd();
-	if (stop_status != 0) {
-		logmessage(LOGNAME, "SSH restart aborted because the previous daemon did not stop (status=%d)",
-			   stop_status);
-		return stop_status;
+	before_state = sshd_process_presence(&scan_error);
+	if (!sshd_restart_before_state_allows_stop(before_state)) {
+		errno = scan_error > 0 ? scan_error : EIO;
+		logmessage(LOGNAME, "SSH restart aborted: initial process inventory unknown (scan_error=%d)",
+			   errno);
+		return -1;
+	}
+
+	stop_status = 0;
+	if (sshd_restart_requires_stop(before_state)) {
+		stop_status = stop_sshd();
+		if (stop_status != 0) {
+			logmessage(LOGNAME, "SSH restart aborted because the previous daemon did not stop (status=%d)",
+				   stop_status);
+			return stop_status;
+		}
 	}
 
 	stopped_state = sshd_process_presence(&scan_error);

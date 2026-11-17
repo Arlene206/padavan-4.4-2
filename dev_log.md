@@ -1,3 +1,11 @@
+## 2026-11-18 — Verify SSH detached startup and fail-closed restart preflight
+
+- Parent main SHA: `f1f3edd6961e2ea7f20b63da76f2304e0ab72db3`. On the parent HTTPD slice, exact-head HTTPD security `44186935262`, HTTPD lifecycle `44186935549`, and AI handoff `44186935541` passed. Process lifecycle `44186935557`, WAN route `44186935517`, NVRAM `44186935696`, and XY-C1 `44186935585` were still running at last inspection.
+- `start_sshd()` previously trusted the detached OpenSSH/Dropbear wrapper status. It now uses the shared bounded startup policy (one-second initial wait, up to four process-inventory probes); only a confirmed RUNNING child returns success. UNKNOWN preserves the inventory error, continued ABSENT returns `ETIMEDOUT`, and launcher failures remain visible.
+- `restart_sshd()` previously invoked the broad name-based stop script even when its initial process inventory was UNKNOWN. It now aborts before stop on UNKNOWN, skips unnecessary stop when already ABSENT, and only stops after a confirmed RUNNING snapshot; the post-stop scan must still confirm ABSENT before start.
+- Extend the existing GNU89/ASan/UBSan SSH policy test and `check_sshd_firewall_status.py` source-order contract. Existing Process workflow compiles/runs the policy binary; XY-C1 tracks changed production `services.c`.
+- Exact-head Process and XY-C1 checks for THIS source commit are pending. Parent CI is not a substitute for this SHA's firmware validation. No MIPS/uClibc L3 or physical-router L4 claim.
+
 ## 2026-11-18 — Withdraw HTTPD listener when firewall refresh fails
 
 - Parent main SHA: `0a297f48326221209bdbdf57173db719cd3a79b8`; production path `trunk/user/rc/src/services.c`, policy `httpd_daemon_policy.h`; regression: GNU89 HTTPD daemon policy and existing HTTPD lifecycle source contract.

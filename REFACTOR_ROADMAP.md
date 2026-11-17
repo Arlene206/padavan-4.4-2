@@ -1,18 +1,19 @@
 # 2026-11-18 latest source checkpoint
 
-- SSH fail-closed implementation `36b2b171`: exact-head Process `44185018675` PASS (including GNU89/ASan/UBSan regression and source checker); WAN route `44185018710` PASS including PPPoE-MWAN cleanup failure injections. XY-C1 `44185018862` was still building at last observation; L3 is not yet certified for 36b.
-- THIS HTTPD correction closes the parallel exposure: required firewall-refresh failure after HTTPD startup now triggers locked stop plus tri-state absence verification; `httpd_started=0` is published only after confirmed absence.
-- Exact-head HTTPD/Process/XY-C1 checks for this source commit remain pending.
-- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent main before THIS SSH detached-start/restart slice: `f1f3edd6961e2ea7f20b63da76f2304e0ab72db3`.
+- SSH firewall rollback `36b2b171`: exact Process `44185018675` and WAN route `44185018710` PASS; XY-C1 `44185018862` had PPPoE-MWAN pre-build regressions PASS but Build/TRX/artifact were still pending.
+- HTTPD public-firewall rollback landed in `f1f3edd6`; exact HTTPD security `44186935262`, HTTPD lifecycle `44186935549`, and AI docs `44186935541` PASS. Process/WAN/NVRAM/XY checks were pending at last observation.
+- THIS SSH source slice now requires a detached daemon to reach RUNNING and refuses UNKNOWN initial restart inventory before a name-based stop; it skips a stop when the daemon is already ABSENT. GNU89 policy tests and production source-order checks are extended. Exact-head Process and XY-C1 pending.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-Next: inspect exact-SHA HTTPD/Process/XY-C1, then continue remaining service lifecycle/security gaps.
+Next: verify exact-SHA Process and XY-C1 for THIS SSH commit; then continue other independent stability/security issues.
 
 
 ---
 
 ## Whole-repository module status
 
-### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact
+### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
 - THIS COMMIT fixes two more launcher/daemon mismatches: rstats daemonizes before allocation/PID-file publication; LLTD double-forks and calls setsid before PID publication/event loop. RC now preflights tri-state presence and verifies detached child RUNNING with bounded polls. Exact-head Process and XY-C1 pending.
 

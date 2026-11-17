@@ -68,3 +68,62 @@ for state in ("PROCESS_PRESENCE_ABSENT","PROCESS_PRESENCE_RUNNING",
     assert state in test
 
 print("SSH public-firewall failure listener shutdown contract: PASS")
+
+# SSH/Dropbear detach from their launcher: verify the child, not eval(), before
+# reporting success. Also gate the broad stop wrapper on a known initial state.
+start = body(SERVICES, "int start_sshd(void)")
+start_policy = body(POLICY, "sshd_start_postcondition(")
+restart_preflight_policy = body(POLICY, "sshd_restart_before_state_allows_stop(")
+restart_stop_policy = body(POLICY, "sshd_restart_requires_stop(")
+restart = body(SERVICES, "int restart_sshd(void)")
+
+assert "process_presence_start_postcondition" in start_policy
+assert "PROCESS_PRESENCE_ABSENT" in restart_preflight_policy
+assert "PROCESS_PRESENCE_RUNNING" in restart_preflight_policy
+assert "process_state == PROCESS_PRESENCE_RUNNING" in restart_stop_policy
+assert "test_restart_initial_inventory_gates_name_based_stop();" in TEST
+assert "test_detached_start_requires_running_child();" in TEST
+
+assert "if (state == PROCESS_PRESENCE_RUNNING)" in start
+assert "if (!sshd_start_allowed(state))" in start
+assert 'start_status = eval("/usr/bin/sshd.sh", "start", "-s");' in start
+assert 'start_status = eval("/usr/bin/sshd.sh", "start");' in start
+assert "if (start_status != 0)" in start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in start
+assert "sshd_process_presence(&scan_error)" in start
+assert "sshd_start_postcondition(start_status, state) == 0" in start
+assert "if (state == PROCESS_PRESENCE_UNKNOWN)" in start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in start
+assert "errno = ETIMEDOUT;" in start
+assert "sshd_start_postcondition(start_status, PROCESS_PRESENCE_ABSENT)" in start
+start_order = (
+    start.index("if (!sshd_start_allowed(state))"),
+    start.index('start_status = eval("/usr/bin/sshd.sh", "start"'),
+    start.index("if (start_status != 0)"),
+    start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);"),
+    start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)"),
+    start.index("state = sshd_process_presence(&scan_error)", start.index("for (attempt")),
+    start.index("sshd_start_postcondition(start_status, state) == 0"),
+)
+assert start_order == tuple(sorted(start_order))
+
+assert "before_state = sshd_process_presence(&scan_error);" in restart
+assert "if (!sshd_restart_before_state_allows_stop(before_state))" in restart
+assert "if (sshd_restart_requires_stop(before_state))" in restart
+assert "stop_status = 0;" in restart
+assert "stop_status = stop_sshd();" in restart
+assert "stopped_state = sshd_process_presence(&scan_error);" in restart
+assert "sshd_restart_can_start(stop_status, stopped_state)" in restart
+restart_order = (
+    restart.index("before_state = sshd_process_presence(&scan_error);"),
+    restart.index("if (!sshd_restart_before_state_allows_stop(before_state))"),
+    restart.index("if (sshd_restart_requires_stop(before_state))"),
+    restart.index("stop_status = stop_sshd();"),
+    restart.index("stopped_state = sshd_process_presence(&scan_error);"),
+)
+assert restart_order == tuple(sorted(restart_order))
+
+print("SSH detached-child startup, tri-state restart preflight and firewall rollback: PASS")
+
