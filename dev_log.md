@@ -1,3 +1,13 @@
+## 2026-11-17 — Fix wireless-radio regression workflow shell continuation
+
+- Parent main SHA: `04b98092eb68bc0c363462859a687fa235027042`; result: THIS COMMIT.
+- Exact-head Wireless radio state run `44064716798` passed the existing wireless and bridge policy unit tests, then failed before compiling the guest rollback unit because the inserted three-line compiler command had two literal trailing backslashes. The shell treated a standalone backslash as an input file (`ld: cannot find \\\\ `).
+- Corrected the three compiler continuations to one literal backslash; no production source change is required for this CI failure.
+- On exact `04b98092`, Process lifecycle `44064716995`, HTTPD `44064716837`, AdGuardHome `44064716880`, AliDDNS `44064716827`, infosvr `44064716822`, iNIC `44064716795`, AliyunDrive `44064716760`, AI handoff `44064716914`, and watchdog `44064716964` passed. XY-C1 `44064716886` and NVRAM `44064716848` remained in progress at last poll.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Fail closed when guest AP setup or isolation rollback fails
 
 - Parent main SHA: `66b3354334d2d1a1e8542a2fd6564b67655d4260`; result: THIS COMMIT.
