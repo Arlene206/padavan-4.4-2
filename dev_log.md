@@ -1,3 +1,8 @@
+## 2026-11-17 — Propagate unknown partition inventory from whole-device hotplug
+
+- Both `mdev_sd_main()` and `mdev_mmc_main()` treated any nonzero `check_root_partition()` result as the same no-op. The helper returns 1 when partitions exist, but -1 when `/proc/partitions` cannot be read or validated; the latter was being reported as successful device handling.
+- Preserve the intended partitioned-disk no-op, mount as partition 1 only when the result is 0, and log/return mdev failure when the inventory result is negative. Include the topology result alongside swapoff and automount statuses.
+- Extend storage workflow source contracts to require explicit negative and positive branches and the combined final event status. Exact-head storage CI pending; no target firmware/runtime claim.
 ## 2026-11-17 — Propagate SD/MMC automount helper failures
 
 - `mdev_sd_main()` and `mdev_mmc_main()` previously discarded the failure result from `_eval("/sbin/automount.sh", ...)`: they merely skipped the hotplug notification and still returned 0, making a failed mount appear to be a successful device event.

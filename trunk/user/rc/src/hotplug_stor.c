@@ -77,6 +77,8 @@ mdev_sd_main(int argc, char **argv)
 	int isLock, storage_lock;
 	int swapoff_status = 0;
 	int mount_status = 0;
+	int root_partition_status = 0;
+	int topology_status = 0;
 	size_t len, disk_len;
 	char share_name[32], disk_name[32];
 	char *device_name, *action, *partno;
@@ -132,7 +134,14 @@ mdev_sd_main(int argc, char **argv)
 
 		/* Whole disk: tune it and wait for partition-specific hotplug events. */
 		_eval(tune_argv, NULL, 0, NULL);
-		if (check_root_partition(disk_name, 0))
+		root_partition_status = check_root_partition(disk_name, 0);
+		if (root_partition_status < 0) {
+			logmessage("Storage", "partition inventory is unknown for %s; refusing whole-device mount",
+				   disk_name);
+			topology_status = 1;
+			goto out_unlock;
+		}
+		if (root_partition_status > 0)
 			goto out_unlock;
 		partno = "1";
 	} else {
@@ -157,7 +166,7 @@ out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return (swapoff_status == 0 && mount_status == 0) ? 0 : 1;
+	return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;
 }
 #endif
 
@@ -168,6 +177,8 @@ mdev_mmc_main(int argc, char **argv)
 	int isLock, storage_lock;
 	int swapoff_status = 0;
 	int mount_status = 0;
+	int root_partition_status = 0;
+	int topology_status = 0;
 	size_t len, disk_len, i;
 	const char *p;
 	char share_name[32], disk_name[32];
@@ -219,7 +230,14 @@ mdev_mmc_main(int argc, char **argv)
 		} else {
 			disk_len = len;
 			partno = "1";
-			if (check_root_partition(device_name, 1))
+			root_partition_status = check_root_partition(device_name, 1);
+			if (root_partition_status < 0) {
+				logmessage("Storage", "partition inventory is unknown for %s; refusing whole-device mount",
+					   device_name);
+				topology_status = 1;
+				goto out_unlock;
+			}
+			if (root_partition_status > 0)
 				goto out_unlock;
 		}
 	}
@@ -254,6 +272,6 @@ out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return (swapoff_status == 0 && mount_status == 0) ? 0 : 1;
+	return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;
 }
 #endif

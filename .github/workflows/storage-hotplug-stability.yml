@@ -885,7 +885,11 @@ jobs:
               assert 'mount_status = _eval(mount_argv, NULL, 0, NULL);' in body
               assert 'if (mount_status == 0)' in body
               assert 'automount helper failed for %s' in body
-              assert 'return (swapoff_status == 0 && mount_status == 0) ? 0 : 1;' in body
+              assert "root_partition_status = check_root_partition(" in body
+              assert "if (root_partition_status < 0)" in body
+              assert "if (root_partition_status > 0)" in body
+              assert "partition inventory is unknown for %s" in body
+              assert 'return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;' in body
               assert 'notify_rc("on_hotplug_mass_storage")' in body
 
           check_root = function_body(hotplug, "check_root_partition(")

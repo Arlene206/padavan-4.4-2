@@ -1,25 +1,24 @@
-# 2026-11-17 continuation checkpoint — propagate hotplug automount failures
+# 2026-11-17 continuation checkpoint — fail hotplug when partition topology is unknown
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `415a46d61af93b6b344d8d15f5af48ca92392c16`; THIS COMMIT propagates automount helper failures from SD/MMC mdev callbacks.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only development; PR #1 remains closed/unmerged.
-- No full MIPS/uClibc toolchain or physical router is available; L4 remains NOT VERIFIED.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `bc5eb1cc7db626d2475b8e838ea2c55e9dfffaf2`; THIS COMMIT propagates unknown `/proc/partitions` state in SD/MMC whole-device events.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; no force updates; PR #1 remains closed/unmerged.
+- No full MIPS/uClibc toolchain or physical router; L4 remains NOT VERIFIED.
 
 ## Parent exact-head Actions
-- USB storage hotplug `44153994254`: IN_PROGRESS at last poll; setup, shell syntax, Optware lifecycle, MTD save/restore, and first storage tests completed successfully; storage eject inventory and later integration steps were still pending.
-- Process lifecycle umbrella `44153994525`, Process inventory `44153994430`, and XY-C1 firmware `44153994643`: IN_PROGRESS at last poll. XY-C1 had reached the actual Build XY-C1 step after 27 preparation/regression steps passed.
-- Samba share stability `44153994681`, AI handoff `44153994605`, vsftpd `44153994874`, AdGuardHome `44153994468`, NFS daemon lifecycle `44153994453`, and infosvr `44153994449`: SUCCESS.
-- These are exact-source results for parent `415a46d61af93b6b344d8d15f5af48ca92392c16`; none validates the subsequent commit.
+- USB storage hotplug `44155187855`: IN_PROGRESS at last poll, rerunning the exact-head source contract after the stale return-expression assertion was removed.
+- AI handoff `44155187530`: SUCCESS.
+- Parent source/checker SHA: `bc5eb1cc7db626d2475b8e838ea2c55e9dfffaf2`; this commit adds a distinct mdev source-result path. No XY-C1 run was triggered by the parent workflow-only checker repair.
 
-## Hotplug mount-result propagation (THIS COMMIT)
-- Both SD and MMC mdev handlers invoked `/sbin/automount.sh` through `_eval()` but only sent `on_hotplug_mass_storage` on status 0; on failure they fell through to `return 0`, falsely reporting a successful hotplug event.
-- Capture the automount wait status, log failures and return nonzero from the handler if either mount command or the removal-time swapoff check fails. Keep the notification strictly success-gated.
-- Extend the storage workflow integration contract to require the command result to feed the event return status and keep the success notification conditional. Exact-head storage/Process/XY-C1 checks pending.
+## SD/MMC partition topology result (THIS COMMIT)
+- On whole-device add events, `check_root_partition()` returns 1 when the device has partitions (skip mounting the whole disk), 0 when no partitions are found (mount as partition 1), and -1 when `/proc/partitions` cannot be read/parsed reliably.
+- Both mdev handlers used `if (check_root_partition(...)) goto out_unlock;`, treating 1 and -1 identically. This correctly avoided an unsafe whole-disk mount on UNKNOWN, but silently returned event success on an inventory failure.
+- Distinguish the three outcomes: keep 1 as a successful skip; continue whole-device automount only for 0; log and return failure for -1. Include topology status in the final mdev event result and pin both branches in storage workflow.
 
 ## First next action
-- Inspect exact-SHA USB storage hotplug, Process and XY-C1 Build/TRX/artifact for THIS COMMIT; repair any FAIL from job logs. Parent-source XY-C1 `44153994643` remains separate and must not be presented as validation for THIS COMMIT.
-- Continue another concrete P1 service-start/stop or NVRAM postcondition while independent CI is pending. Do not repeat the recent Samba storage-lock or physical-eject swapoff tasks.
-- Keep the backup branch read-only; publish complete trees with fresh expected-SHA non-forced updates only.
+- Inspect exact-head USB storage hotplug run for THIS COMMIT; require the complete policy and caller-graph regression to pass. Check any FAIL from its exact logs.
+- Then continue the next independent P1 service stop/start result gap or NVRAM write postcondition, while any firmware build remains pending.
+- Keep frozen backup untouched; commit complete trees only with current expected SHA and force=false.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session
