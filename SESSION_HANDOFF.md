@@ -21,8 +21,8 @@ Before context exhaustion, inspect the current source SHA, relevant exact-head A
 
 ## Active task
 
-1. Verify storage-hotplug rerun after replacing the stale safe-remove source assertions; fix any remaining causal failure.
-2. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload on source `10380657`.
+1. Verify the storage-hotplug and Samba workflow reruns after fixing the two stale source assertions; fix any remaining causal failure.
+2. Confirm XY-C1 Build/TRX/artifact for production source `10380657` (run `43998879438`) and ensure no newer production-source changes bypass that evidence.
 3. Continue the P1 RC boot/startup status-propagation audit: identify a concrete enabled service or module startup whose failure is discarded, add a focused policy/integration regression, and preserve first-error/rollback semantics.
 4. Do not repeat the completed IPv6 neighbour, NVRAM ioctl-close, or VPN shared-xl2tpd partial-teardown audits.
 

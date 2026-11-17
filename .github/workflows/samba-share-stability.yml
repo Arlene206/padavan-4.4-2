@@ -307,7 +307,8 @@ jobs:
           stop_stor = function_body(stor, "int\nstop_stor_apps(void)")
           assert "if (stop_samba_locked(0) != 0)" in stop_stor
           assert "Samba server did not stop cleanly" in stop_stor
-          assert "safe removal aborted because one or more required storage services did not stop" in stor
+          assert "safe removal aborted because storage services did not stop" in stor
+          assert "storage_rollback_stor_apps_after_stop_failure" in stor
           restart_smbd = function_body(stor, "int restart_smbd(void)")
           assert "stop_status = stop_samba_locked(1)" in restart_smbd
           assert "if (stop_status != 0)" in restart_smbd

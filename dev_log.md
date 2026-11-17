@@ -1,3 +1,12 @@
+## 2026-11-17 — Correct storage and Samba integration contracts for rollback
+
+- Storage-hotplug run `43999509853` on checker SHA `20a1266e5f82d19d3729be24daa32a9bece75022` passed its inline full-caller graph after the prior repair, then standalone `scripts/check_storage_safe_remove.py` failed because its compacting assertion removed the significant space inside the quoted operation label and checked against the function's first unrelated unlock instead of the unlock after rollback. Rewrote the check to normalize C whitespace without damaging string literals and to scope ordering to the rollback call.
+- Samba share stability run `43998879597` on source `10380657db522193a781d7e3068c0c2f02a8b78f` failed because its embedded source contract retained the old exact safe-removal log sentence. Updated it to check the new failure wording and require the rollback helper in the storage path.
+- XY-C1 exact-source run `43998879438` on production source `10380657` was still building when inspected; wait for Build/TRX/artifact conclusion only by polling state, and continue independent work while pending.
+- These are test-contract corrections; no additional production firmware source changed.
+
+---
+
 ## 2026-11-17 — Update storage hotplug workflow source contract for rollback
 
 - Exact-head storage run `43998879671` on SHA `10380657db522193a781d7e3068c0c2f02a8b78f` passed storage daemon policy compilation/regression and the standalone storage source checker, then failed at the embedded workflow source graph because it expected the old combined `stop_stor_apps()` conditions.
