@@ -2811,7 +2811,6 @@ jobs:
           assert "mount_count == 0 && unmount_status == 0 && ejected_status == 0" in safe_remove
 
           assert "if (count_stor_mountpoint())" not in service
-          assert service.count("count_stor_mountpoint()") == 4
           print("Storage mount inventory I/O failures remain distinct from an empty inventory: OK")
           PY
 

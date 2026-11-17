@@ -1,3 +1,11 @@
+## 2026-11-17 — Remove stale exact-call-count assertion from storage inventory CI contract
+
+- Parent main SHA: d64d2e3ffd61a0e6fe00dc728988d9e57574dfd4; result: THIS COMMIT.
+- Triaged HTTPD security run 44110556946 on exact SHA 9926124272593182c7e3f8fdf6c0836d25d331a3. All preceding checks passed; the storage mount-inventory contract failed only because it hard-coded exactly four `count_stor_mountpoint()` call sites, while the physical hot-unplug fix correctly added a fifth call in `umount_ejected_locked()`. The surrounding checks already verify the meaningful call-site semantics.
+- Removed the brittle count-only assertion rather than changing production behavior. No local checkout/compiler is available; the updated workflow must validate this correction on its exact pushed SHA. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Cross-chat development checkpoint
 
 - Parent main SHA: 9926124272593182c7e3f8fdf6c0836d25d331a3; result: THIS COMMIT.
