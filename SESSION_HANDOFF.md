@@ -1,35 +1,32 @@
-# 2026-11-18 continuation checkpoint — HTTPD lifecycle verification
+# 2026-11-17 continuation checkpoint — bounded switch table waits
 
-This checkpoint supersedes the older active summary below. Continue on `main`; do not repeat completed audits.
+This checkpoint supersedes conflicting older status below. Continue on main; do not repeat completed audits or mutate the frozen backup.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2/.
-- Parent main SHA: `f0c5aee9d5980055cb1b409a1c598fd5fdb0bea9`; result: THIS COMMIT (complete Git tree, non-forced expected-SHA update).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable and unchanged. Branch inventory contains only `main` and this archival branch.
-- PR #1 is closed/unmerged. Work only on `main`.
-- No local source checkout or MIPS toolchain is available in this connector-only runtime; physical-router L4 remains NOT VERIFIED.
+- Parent main SHA: 7ebc2c006799f2fa3b6f0139ad535affa13aa8b0; result: THIS COMMIT (one complete tree, expected-SHA non-force update).
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- PR #1 remains closed/unmerged. Work only on main.
+- Connector-only environment: no local MIPS toolchain or full checkout; physical-router L4 NOT VERIFIED.
 
-## HTTPD lifecycle verification
-- Production change `4c9793229270232501ce3a21cc6f46198bccb6cb` serializes public HTTPD start/stop operations and keeps restart under one lock; watchdog uses `restart_httpd()`.
-- Exact-head HTTPD run `44136425461` on `f0c5aee9d5980055cb1b409a1c598fd5fdb0bea9`: GNU89/ASan/UBSan daemon policy regression PASS; embedded source contract FAIL at line 57. The checker used `body(services, "stop_httpd_locked(void)")`, which matched the forward declaration and then extracted the next function body (`record_service_stop_status`), so the expected `kill_services` call was not seen. This COMMIT anchors the lookup to the actual definition signature `static int\\nstop_httpd_locked(void)`; no firmware production source is changed.
-- On the same parent SHA, AI handoff validation `44136425520` PASS; Process lifecycle `44136425549` was IN_PROGRESS at last inspection. Commit `f0c5aee9` corrected the watchdog integration contract to inspect the actual serialized restart helper; its Process rerun must be checked by exact SHA.
-- The earlier HTTPD run `44135305632` on `0cdeffc4` failed at the same stale body extraction; it is superseded by the current failure diagnosis above.
+## Recent exact-head CI
+- On parent 7ebc2c0, HTTPD daemon lifecycle 44136887817 PASS; Process lifecycle 44136887714 PASS; AI docs 44136887724 PASS; AliyunDrive 44136887752 PASS; AdGuardHome 44136887743 PASS; infosvr 44136887715 PASS; AliDDNS 44136887708 PASS. NVRAM run 44136887703 was still IN_PROGRESS at last inspection.
+- Exact-head HTTPD and Process source-contract repairs are complete; do not repeat those older checker audits.
+- Switch CLI defects fixed in THIS COMMIT: VTCR/MAC busy timeouts previously printed "timeout" but continued and exited success; DIP/SIP table search could spin forever; MAC table search silently advanced after 20 unsuccessful polls.
+- New shared GNU89 wait policy uses bounded polling and accepts table-ready/end markers only after the busy bit clears. Timeout/read failure reports register and last value, closes the switch socket and exits nonzero.
+- Host regression covers immediate/delayed idle, busy timeout, register-read error, busy+stale-ready, ready/end markers, search timeout and invalid inputs. Switch CLI workflow compiles with ASan/UBSan and checks production wiring; XY-C1 filter includes switch source/header/test.
+- Exact-head Switch CLI and XY-C1 runs for THIS COMMIT are PENDING at commit creation. No target firmware build is claimed.
 
-## Outstanding AliyunDrive regression
-- Exact run `44133243141` on source SHA `7dac0a147c9c96524b97f9890a6fea21088ec81c` passed shell syntax and bundled MIPSel CLI `--version`/`--help` compatibility under QEMU, then failed in `trunk/user/aliyundrive-webdav/tests/aliyundrive_webdav_lifecycle.sh` with only `FAIL: special-domain start failed`. The source-contract step was skipped. The current test emits no useful reason; inspect its mock profile/config/start-state path and add failure diagnostics before deciding whether production behavior is defective. Do not assume the mock or product is at fault.
-
-## First next actions
-1. Inspect all exact-head `push` Actions for THIS COMMIT after publication, especially HTTPD lifecycle and Process lifecycle. Record exact SHA/run IDs; do not count earlier or PR runs.
-2. Diagnose the AliyunDrive special-domain failure `44133243141`; add focused diagnostics and a regression for the demonstrated cause, then verify the production integration contract.
-3. Inspect XY-C1 run `44133243104` for source SHA `7dac0a1`; confirm Build, TRX verification and artifact upload explicitly. Product firmware source has not changed in the later HTTPD checker-only commits, but do not infer completion from that fact.
-4. Resume broad user-space reliability work from the current roadmap; the Switch CLI bounded table-wait issue remains a candidate only after confirming it is still open.
+## First next task
+1. Inspect exact-SHA Switch CLI Actions; require GNU89 ASan/UBSan policy regression and production source wiring to pass.
+2. Inspect exact-SHA XY-C1 Actions; require Build XY-C1, TRX verification and artifact upload.
+3. Continue independent P1 startup-result/lifecycle work in another userland subsystem while any CI run is pending; do not repeat completed audits.
 
 ## Validation boundary
-- HTTPD lock fork/path policy regression passed on `4c979`; HTTPD policy C regression passed on `f0c5aee9d5980055cb1b409a1c598fd5fdb0bea9`, but the workflow source contract failed due the checker extraction defect now corrected in THIS COMMIT.
-- Process lifecycle rerun `44136425549` on `f0c5aee9d5980055cb1b409a1c598fd5fdb0bea9` was IN_PROGRESS at the last inspection; exact result must be fetched.
-- AliyunDrive special-domain run `44133243141` remains FAIL; no fix is claimed.
-- XY-C1 run `44133243104` remains to be checked for Build/TRX/artifact completion.
-- No local target firmware build or physical-router L4 validation is claimed.
+- Parent 7ebc2c0 exact-head Process and HTTPD tests PASS; NVRAM was pending at last inspection.
+- New host GNU89 -Wall -Wextra -Werror ASan/UBSan policy compile and execution PASS locally.
+- Current Switch CLI and XY-C1 workflows have not run at this commit creation.
+- No local MIPS/uClibc firmware build or physical-router L4 is claimed.
 
 # Cross-session execution mandate
 

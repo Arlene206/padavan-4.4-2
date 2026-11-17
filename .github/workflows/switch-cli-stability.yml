@@ -4,6 +4,8 @@ on:
   push:
     paths:
       - "trunk/user/utils/src/switch/switch_gsw.c"
+      - "trunk/user/utils/src/switch/switch_wait_policy.h"
+      - "trunk/user/utils/src/switch/tests/switch_wait_policy.c"
       - "trunk/user/utils/src/switch/Makefile"
       - "trunk/user/utils/src/switch/mii_mgr_cl45.c"
       - "trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c"
@@ -14,6 +16,8 @@ on:
   pull_request:
     paths:
       - "trunk/user/utils/src/switch/switch_gsw.c"
+      - "trunk/user/utils/src/switch/switch_wait_policy.h"
+      - "trunk/user/utils/src/switch/tests/switch_wait_policy.c"
       - "trunk/user/utils/src/switch/Makefile"
       - "trunk/user/utils/src/switch/mii_mgr_cl45.c"
       - "trunk/user/utils/src/switch/tests/mii_mgr_cl45_cli.c"
@@ -63,6 +67,101 @@ jobs:
           assert "switch_fini();\n\texit(0);" in source
           print("switch_gsw operational socket/ioctl failures return failure status: OK")
           PY
+      - name: Compile and verify bounded switch table waits
+        run: |
+          set -eu
+          SWITCH_DIR=trunk/user/utils/src/switch
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$SWITCH_DIR" \
+            "$SWITCH_DIR/tests/switch_wait_policy.c" -o /tmp/switch_wait_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/switch_wait_policy
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          policy = Path("trunk/user/utils/src/switch/switch_wait_policy.h").read_text()
+          test = Path("trunk/user/utils/src/switch/tests/switch_wait_policy.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start + len(signature))
+              depth = 0
+              state = "code"
+              index = brace
+              while index < len(text):
+                  char = text[index]
+                  nxt = text[index + 1] if index + 1 < len(text) else ""
+                  if state == "code":
+                      if char == "/" and nxt == "*":
+                          state = "block"
+                          index += 1
+                      elif char == "/" and nxt == "/":
+                          state = "line"
+                          index += 1
+                      elif char == '"':
+                          state = "string"
+                      elif char == "'":
+                          state = "char"
+                      elif char == "{":
+                          depth += 1
+                      elif char == "}":
+                          depth -= 1
+                          if depth == 0:
+                              return text[brace + 1:index]
+                  elif state in ("string", "char"):
+                      if char == "\\":
+                          index += 1
+                      elif (state == "string" and char == '"') or (state == "char" and char == "'"):
+                          state = "code"
+                  elif state == "block" and char == "*" and nxt == "/":
+                      state = "code"
+                      index += 1
+                  elif state == "line" and char == "\n":
+                      state = "code"
+                  index += 1
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "switch_wait_policy.h"' in source
+          vtcr = function_body(source, "wait_vtcr(void)")
+          mac = function_body(source, "wait_mac_atc(void)")
+          search = function_body(source, "wait_search_ready(int *value, const char *table_name)")
+          failure = function_body(source, "switch_wait_failure(")
+          assert "switch_wait_until_clear(" in vtcr and "0x80000000U" in vtcr
+          assert "20U" in vtcr and "1000U" in vtcr
+          assert "switch_wait_until_clear(" in mac and "0x8000U" in mac
+          assert "20U" in mac and "1000U" in mac
+          assert "switch_wait_for_table_result(" in search
+          assert "0x8000U" in search and "0x6000U" in search
+          assert "20U" in search and "5000U" in search
+          assert "ETIMEDOUT" in failure and "switch_fini();" in failure
+          assert "exit(EXIT_FAILURE);" in failure
+          for signature in ("void dip_dump(void)", "void sip_dump(void)", "void table_dump(void)"):
+              body = function_body(source, signature)
+              assert "wait_search_ready(&value" in body, signature
+              assert "while(1)" not in body and "while (1)" not in body
+          assert "return ETIMEDOUT;" in policy
+          assert "return EINVAL;" in policy
+          for marker in (
+              "test_busy_timeout_is_reported",
+              "test_register_read_error_is_propagated",
+              "test_search_waits_for_idle_and_ready_or_end",
+              "test_search_timeout_is_bounded",
+              "test_invalid_wait_inputs_fail",
+              "switch table-engine bounded wait policy: PASS",
+          ):
+              assert marker in test, marker
+          filters = workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for path in (
+              "trunk/user/utils/src/switch/switch_wait_policy.h",
+              "trunk/user/utils/src/switch/tests/switch_wait_policy.c",
+          ):
+              assert push.count('"' + path + '"') == 1
+              assert pull_request.count('"' + path + '"') == 1
+          print("switch VLAN/MAC table busy waits and bounded DIP/SIP/MAC searches: PASS")
+          PY
+
       - name: Check Clause 45 argument handling and source contracts
         run: |
           python3 - <<'PY'

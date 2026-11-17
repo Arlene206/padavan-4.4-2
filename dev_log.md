@@ -1,3 +1,13 @@
+## 2026-11-18 — Bound switch table-engine and search polling
+
+- Parent main SHA: 7ebc2c006799f2fa3b6f0139ad535affa13aa8b0; result: THIS COMMIT.
+- Fixed three switch CLI failure modes: VLAN/MAC table-engine busy timeouts previously returned to callers as if successful; DIP/SIP dumps could poll search status forever; MAC table dump silently advanced after its 20-poll budget expired.
+- Added shared GNU89 wait policy: VTCR/MAC busy masks clear within 20 × 1 ms; DIP/SIP/MAC search accepts ready/end only after busy clears and within 20 × 5 ms. Timeout/read error logs register and last value, closes the switch socket and exits nonzero before later table operations.
+- Host regression covers immediate/delayed idle, busy timeout, read-error propagation, busy+stale-ready, ready/end markers and invalid inputs. Local GNU89 -Wall -Wextra -Werror ASan/UBSan compile and execution PASS.
+- Switch CLI CI compiles/tests the policy and checks production wiring; XY-C1 path filter triggers firmware validation for these source files. Exact-head CI pending at commit creation; no MIPS firmware or physical-router L4 claim.
+
+---
+
 ## 2026-11-18 — Fix HTTPD lifecycle workflow function extraction
 
 - Parent main SHA: `f0c5aee9d5980055cb1b409a1c598fd5fdb0bea9`; result: THIS COMMIT.

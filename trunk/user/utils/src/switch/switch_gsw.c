@@ -7,6 +7,7 @@
 #include <linux/if.h>
 
 #include <ra_ioctl.h>
+#include "switch_wait_policy.h"
 
 #define RT_SWITCH_HELP		1
 #define RT_TABLE_MANIPULATE	1
@@ -246,33 +247,91 @@ int egress_rate_set(int on_off, int port, int bw)
 	return 0;
 }
 
-static void wait_vtcr(void)
+static int
+switch_wait_read_register(void *context, unsigned int offset,
+                          unsigned int *value)
 {
-	unsigned int i, value = 0;
+	int raw_value = 0;
+	int status;
+	(void)context;
+	status = reg_read((int)offset, &raw_value);
+	if (status != 0)
+		return status;
+	*value = (unsigned int)raw_value;
+	return 0;
+}
 
-	for (i = 0; i < 20; i++) {
-		reg_read(REG_ESW_VLAN_VTCR, &value);
-		if ((value & 0x80000000) == 0) //table busy
-			return;
-		usleep(1000);
+static void
+switch_wait_delay(void *context, unsigned int delay_us)
+{
+	(void)context;
+	usleep(delay_us);
+}
+
+static void
+switch_wait_failure(const char *operation, unsigned int offset,
+                    unsigned int last_value, int status)
+{
+	if (status == ETIMEDOUT) {
+		fprintf(stderr,
+		        "switch: %s timed out (register=0x%08x, last=0x%08x)\n",
+		        operation, (unsigned int)offset, last_value);
+	} else {
+		fprintf(stderr,
+		        "switch: %s wait failed (register=0x%08x, status=%d)\n",
+		        operation, (unsigned int)offset, status);
 	}
-	printf("timeout.\n");
+	switch_fini();
+	exit(EXIT_FAILURE);
+}
+
+static void
+wait_vtcr(void)
+{
+	unsigned int last_value = 0;
+	int status;
+	status = switch_wait_until_clear(switch_wait_read_register,
+	                                 switch_wait_delay, NULL,
+	                                 REG_ESW_VLAN_VTCR, 0x80000000U,
+	                                 20U, 1000U, &last_value);
+	if (status != 0)
+		switch_wait_failure("VLAN table engine", REG_ESW_VLAN_VTCR,
+		                    last_value, status);
 }
 
 #if RT_TABLE_MANIPULATE
 
-static void wait_mac_atc(void)
+static void
+wait_mac_atc(void)
 {
-	unsigned int i, value = 0;
+	unsigned int last_value = 0;
+	int status;
+	status = switch_wait_until_clear(switch_wait_read_register,
+	                                 switch_wait_delay, NULL,
+	                                 REG_ESW_WT_MAC_ATC, 0x8000U,
+	                                 20U, 1000U, &last_value);
+	if (status != 0)
+		switch_wait_failure("MAC table engine", REG_ESW_WT_MAC_ATC,
+		                    last_value, status);
+}
 
-	for (i = 0; i < 20; i++) {
-		reg_read(REG_ESW_WT_MAC_ATC, &value);
-		if ((value & 0x8000) == 0) //mac address busy
-			return;
-		usleep(1000);
-	}
-
-	printf("timeout.\n");
+static void
+wait_search_ready(int *value, const char *table_name)
+{
+	unsigned int last_value = 0;
+	int status;
+	if (value == NULL)
+		switch_wait_failure("invalid table search result",
+		                    REG_ESW_WT_MAC_ATC, 0, EINVAL);
+	status = switch_wait_for_table_result(switch_wait_read_register,
+	                                      switch_wait_delay, NULL,
+	                                      REG_ESW_WT_MAC_ATC, 0x8000U,
+	                                      0x6000U, 20U, 5000U,
+	                                      &last_value);
+	if (status != 0)
+		switch_wait_failure(table_name, REG_ESW_WT_MAC_ATC,
+		                    last_value, status);
+	*value = (int)last_value;
 }
 
 int
@@ -1140,52 +1199,38 @@ void dip_dump(void)
 {
 	int i, j, value, mac, mac2, value2;
 	char tmpstr[16];
-
 	reg_write(REG_ESW_WT_MAC_ATC, 0x8104);//dip search command
 	printf("hash   port(0:6)   rsp_cnt  flag  timer    dip-address      ATRD\n");
 	for (i = 0; i < 0x800; i++) {
-		while(1) {
-			reg_read(REG_ESW_WT_MAC_ATC, &value);
-
-			if (value & (0x1 << 13)) { //search_rdy
-				reg_read(REG_ESW_TABLE_ATRD, &value2);
-				//printf("REG_ESW_TABLE_ATRD=0x%x\n\r",value2); 
-				
-				printf("%03x:   ", (value >> 16) & 0xfff); //hash_addr_lu
-				j = (value2 >> 4) & 0xff; //r_port_map
-				printf("%c", (j & 0x01)? '1':'-');
-				printf("%c", (j & 0x02)? '1':'-');
-				printf("%c", (j & 0x04)? '1':'-');
-				printf("%c ", (j & 0x08)? '1':'-');
-				printf("%c", (j & 0x10)? '1':'-');
-				printf("%c", (j & 0x20)? '1':'-');
-				printf("%c", (j & 0x40)? '1':'-');
-
-				reg_read(REG_ESW_TABLE_TSRA2, &mac2);
-				printf("     0x%04x", (mac2 & 0xffff)); //RESP_CNT
-				printf("  0x%02x", ((mac2 >> 16)& 0xff));//RESP_FLAG
-				printf("  %5d", ((mac2 >> 24)& 0xff));//RESP_TIMER
-				//printf(" %4d", (value2 >> 24) & 0xff); //r_age_field
-
-				reg_read(REG_ESW_TABLE_TSRA1, &mac);
-				ip_to_str(tmpstr, mac);
-				printf("    %-15s", tmpstr);
-				printf("  0x%08x\n", value2);//ATRD
-				//printf("%04x", ((mac2 >> 16) & 0xffff));
-				//printf("     %c\n", (((value2 >> 20) & 0x03)== 0x03)? 'y':'-');
-				if (value & 0x4000) {
-					printf("end of table %d\n", i);
-					return;
-				}
-				break;
-			}
-			else if (value & 0x4000) { //at_table_end
-				printf("found the last entry %d (not ready)\n", i);
+		wait_search_ready(&value, "DIP table search");
+		if (value & (0x1 << 13)) {
+			reg_read(REG_ESW_TABLE_ATRD, &value2);
+			printf("%03x:   ", (value >> 16) & 0xfff);
+			j = (value2 >> 4) & 0xff;
+			printf("%c", (j & 0x01)? '1':'-');
+			printf("%c", (j & 0x02)? '1':'-');
+			printf("%c", (j & 0x04)? '1':'-');
+			printf("%c ", (j & 0x08)? '1':'-');
+			printf("%c", (j & 0x10)? '1':'-');
+			printf("%c", (j & 0x20)? '1':'-');
+			printf("%c", (j & 0x40)? '1':'-');
+			reg_read(REG_ESW_TABLE_TSRA2, &mac2);
+			printf("     0x%04x", (mac2 & 0xffff));
+			printf("  0x%02x", ((mac2 >> 16)& 0xff));
+			printf("  %5d", ((mac2 >> 24)& 0xff));
+			reg_read(REG_ESW_TABLE_TSRA1, &mac);
+			ip_to_str(tmpstr, mac);
+			printf("    %-15s", tmpstr);
+			printf("  0x%08x\n", value2);
+			if (value & 0x4000) {
+				printf("end of table %d\n", i);
 				return;
 			}
-			usleep(5000);
+		} else if (value & 0x4000) {
+			printf("found the last entry %d (not ready)\n", i);
+			return;
 		}
-		reg_write(REG_ESW_WT_MAC_ATC, 0x8105); //search for next dip address
+		reg_write(REG_ESW_WT_MAC_ATC, 0x8105);
 		usleep(5000);
 	}
 }
@@ -1274,52 +1319,37 @@ void sip_dump(void)
 {
 	int i, j, value, mac, mac2, value2;
 	char tmpstr[16];
-
 	reg_write(REG_ESW_WT_MAC_ATC, 0x8204);//sip search command
 	printf("hash  port(0:6)   dip-address    sip-address      ATRD\n");
 	for (i = 0; i < 0x800; i++) {
-		while(1) {
-			reg_read(REG_ESW_WT_MAC_ATC, &value);
-
-			if (value & (0x1 << 13)) { //search_rdy
-				reg_read(REG_ESW_TABLE_ATRD, &value2);
-				//printf("REG_ESW_TABLE_ATRD=0x%x\n\r",value2); 
-				
-				printf("%03x:  ", (value >> 16) & 0xfff); //hash_addr_lu
-				j = (value2 >> 4) & 0xff; //r_port_map
-				printf("%c", (j & 0x01)? '1':'-');
-				printf("%c", (j & 0x02)? '1':'-');
-				printf("%c", (j & 0x04)? '1':'-');
-				printf("%c", (j & 0x08)? '1':'-');
-				printf(" %c", (j & 0x10)? '1':'-');
-				printf("%c", (j & 0x20)? '1':'-');
-				printf("%c", (j & 0x40)? '1':'-');
-
-				reg_read(REG_ESW_TABLE_TSRA2, &mac2);
-				
-				ip_to_str(tmpstr, mac2);
-				printf("   %-15s", tmpstr);
-				//printf(" %4d", (value2 >> 24) & 0xff); //r_age_field
-
-				reg_read(REG_ESW_TABLE_TSRA1, &mac);
-				ip_to_str(tmpstr, mac);
-				printf("    %-15s", tmpstr);
-				printf("      0x%x\n", value2);
-				//printf("%04x", ((mac2 >> 16) & 0xffff));
-				//printf("     %c\n", (((value2 >> 20) & 0x03)== 0x03)? 'y':'-');
-				if (value & 0x4000) {
-					printf("end of table %d\n", i);
-					return;
-				}
-				break;
-			}
-			else if (value & 0x4000) { //at_table_end
-				printf("found the last entry %d (not ready)\n", i);
+		wait_search_ready(&value, "SIP table search");
+		if (value & (0x1 << 13)) {
+			reg_read(REG_ESW_TABLE_ATRD, &value2);
+			printf("%03x:  ", (value >> 16) & 0xfff);
+			j = (value2 >> 4) & 0xff;
+			printf("%c", (j & 0x01)? '1':'-');
+			printf("%c", (j & 0x02)? '1':'-');
+			printf("%c", (j & 0x04)? '1':'-');
+			printf("%c", (j & 0x08)? '1':'-');
+			printf(" %c", (j & 0x10)? '1':'-');
+			printf("%c", (j & 0x20)? '1':'-');
+			printf("%c", (j & 0x40)? '1':'-');
+			reg_read(REG_ESW_TABLE_TSRA2, &mac2);
+			ip_to_str(tmpstr, mac2);
+			printf("   %-15s", tmpstr);
+			reg_read(REG_ESW_TABLE_TSRA1, &mac);
+			ip_to_str(tmpstr, mac);
+			printf("    %-15s", tmpstr);
+			printf("      0x%x\n", value2);
+			if (value & 0x4000) {
+				printf("end of table %d\n", i);
 				return;
 			}
-			usleep(5000);
+		} else if (value & 0x4000) {
+			printf("found the last entry %d (not ready)\n", i);
+			return;
 		}
-		reg_write(REG_ESW_WT_MAC_ATC, 0x8205); //search for next sip address
+		reg_write(REG_ESW_WT_MAC_ATC, 0x8205);
 		usleep(5000);
 	}
 }
@@ -1405,60 +1435,50 @@ void sip_clear(void)
 
 void table_dump(void)
 {
-	int i, j, k, value, mac, mac2, value2;
-
+	int i, j, value, mac, mac2, value2;
 #if defined (CONFIG_RALINK_MT7620) || defined (CONFIG_RALINK_MT7621)
 	printf("hash  port(0:6)   fid   vid  age   mac-address     filter my_mac\n");
 #else
 	printf("hash  port(0:6)   fid   vid  age   mac-address     filter\n");
 #endif
-
 	reg_write(REG_ESW_WT_MAC_ATC, 0x8004);
 	for (i = 0; i < 0x800; i++) {
-		for (k = 0; k < 20; k++) {
-			usleep(5000);
-			reg_read(REG_ESW_WT_MAC_ATC, &value);
-			if (value & (0x1 << 15))
-				continue;
-			if (value & (0x1 << 13)) { //search_rdy
-				printf("%03x:   ", (value >> 16) & 0xfff); //hash_addr_lu
-				reg_read(REG_ESW_TABLE_ATRD, &value2);
-				j = (value2 >> 4) & 0xff; //r_port_map
-				printf("%c", (j & 0x01)? '1':'-');
-				printf("%c", (j & 0x02)? '1':'-');
-				printf("%c", (j & 0x04)? '1':'-');
-				printf("%c ", (j & 0x08)? '1':'-');
-				printf("%c", (j & 0x10)? '1':'-');
-				printf("%c", (j & 0x20)? '1':'-');
-				printf("%c", (j & 0x40)? '1':'-');
-				printf("%c", (j & 0x80)? '1':'-');
-
-				reg_read(REG_ESW_TABLE_TSRA2, &mac2);
-				
-				printf("   %2d", (mac2 >> 12) & 0x7); //FID
-				printf("  %4d", (mac2 & 0xfff));
-				printf(" %4d", (value2 >> 24) & 0xff); //r_age_field
-				reg_read(REG_ESW_TABLE_TSRA1, &mac);
-				printf("  %08x", mac);
-				printf("%04x", ((mac2 >> 16) & 0xffff));
+		usleep(5000);
+		wait_search_ready(&value, "MAC table search");
+		if (value & (0x1 << 13)) {
+			printf("%03x:   ", (value >> 16) & 0xfff);
+			reg_read(REG_ESW_TABLE_ATRD, &value2);
+			j = (value2 >> 4) & 0xff;
+			printf("%c", (j & 0x01)? '1':'-');
+			printf("%c", (j & 0x02)? '1':'-');
+			printf("%c", (j & 0x04)? '1':'-');
+			printf("%c ", (j & 0x08)? '1':'-');
+			printf("%c", (j & 0x10)? '1':'-');
+			printf("%c", (j & 0x20)? '1':'-');
+			printf("%c", (j & 0x40)? '1':'-');
+			printf("%c", (j & 0x80)? '1':'-');
+			reg_read(REG_ESW_TABLE_TSRA2, &mac2);
+			printf("   %2d", (mac2 >> 12) & 0x7);
+			printf("  %4d", (mac2 & 0xfff));
+			printf(" %4d", (value2 >> 24) & 0xff);
+			reg_read(REG_ESW_TABLE_TSRA1, &mac);
+			printf("  %08x", mac);
+			printf("%04x", ((mac2 >> 16) & 0xffff));
 #if defined (CONFIG_RALINK_MT7620) || defined (CONFIG_RALINK_MT7621)
-				printf("     %c", (((value2 >> 20) & 0x03)== 0x03)? 'y':'-');
-				printf("     %c\n", (((value2 >> 23) & 0x01)== 0x01)? 'y':'-');
+			printf("     %c", (((value2 >> 20) & 0x03)== 0x03)? 'y':'-');
+			printf("     %c\n", (((value2 >> 23) & 0x01)== 0x01)? 'y':'-');
 #else
-				printf("     %c\n", (((value2 >> 20) & 0x03)== 0x03)? 'y':'-');
+			printf("     %c\n", (((value2 >> 20) & 0x03)== 0x03)? 'y':'-');
 #endif
-				if (value & 0x4000) {
-					printf("end of table %d\n", i);
-					return;
-				}
-				break;
-			}
-			else if (value & 0x4000) { //at_table_end
-				printf("found the last entry %d (not ready)\n", i);
+			if (value & 0x4000) {
+				printf("end of table %d\n", i);
 				return;
 			}
+		} else if (value & 0x4000) {
+			printf("found the last entry %d (not ready)\n", i);
+			return;
 		}
-		reg_write(REG_ESW_WT_MAC_ATC, 0x8005); //search for next address
+		reg_write(REG_ESW_WT_MAC_ATC, 0x8005);
 	}
 }
 
