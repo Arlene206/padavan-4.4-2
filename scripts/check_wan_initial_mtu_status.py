@@ -265,7 +265,7 @@ require(
     tv_mtu_condition < tv_mtu_set < tv_mtu_log < tv_routes < tv_route_err < tv_return,
     "IPTV DHCP MTU remains diagnostic-only while route and multicast status are returned",
 )
-require("route_setup_status, mtu_status" not in viptv_bound,
+require("route_status_accumulate(route_setup_status, mtu_status)" not in viptv_bound,
         "optional IPTV MTU failure must not be merged into route retry status")
 require(
     "!is_renew_mode" not in viptv_bound[tv_mtu_condition - 80:tv_mtu_set],

@@ -9,7 +9,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `7f7728ab553426965c47e72812c3b2a8c6ca6338`.
+- Current main: THIS COMMIT; parent `482b6f7dcaffd2dac29235097c221d20cd62b595`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -35,9 +35,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 - Parent source `02ec8ab34bf54b5e37de6e0081df2ea2aeb37ef5`: WAN DHCP interface C regression passed; WAN route `44047414939` failed on renew-call checker ordering; WAN DHCP `44047414751` passed C compile/run then failed two stale diagnostic-string assertions. XY-C1 `44047414713` completed FAILURE; inspect its first compiler error.
 - Test-contract commit `6fa744ffe62e8b5e6795675d01cae50ff0c7871a`: WAN DHCP `44047855549`, AI docs `44047855547`, AliyunDrive `44047855608`, AdGuardHome `44047855578`, infosvr `44047855540`, AliDDNS `44047855453`, NVRAM `44047855349` PASS; WAN route `44047855382` failed a stale optional-MTU diagnostic assertion; Process lifecycle `44047855451` failed because its existing contract forbids MTU error aggregation.
-- THIS COMMIT restores optional DHCP MTU ioctl failures to diagnostic-only while retaining bound/renew MTU application. Its exact-head WAN/Process reruns are pending.
+- Commit `7f7728ab` restored optional DHCP MTU ioctl failures to diagnostic-only while retaining bound/renew MTU application. Its exact-head WAN DHCP, Process lifecycle, and other stability/security jobs passed; WAN route `44049696922` failed only on a checker substring false-positive caused by the variable declaration. THIS COMMIT narrows the assertion to the exact forbidden aggregation call. XY-C1 `44049696160` is still running.
 - Static configured WAN/MAN MTU failures remain status-propagated in commits bb427148 and 5b9cc6d1. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. Router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main`, then filter push Actions by its exact `head_sha`. Verify that optional DHCP MTU failures are absent from route retry state in WAN route, WAN DHCP and Process lifecycle jobs. Inspect the XY-C1 compiler error for source `02ec8ab3`; then continue the DHCP MTU edge/reset-policy review without changing diagnostic-only failures.
+Fetch live `main`, then filter push Actions by its exact `head_sha`. Verify the tightened exact-call checker in the WAN route job; confirm WAN DHCP and Process C regression remain green, and inspect XY-C1 `44049696160` through Build/TRX/artifact for source `02ec8ab3`; then continue the DHCP MTU edge/reset-policy review without changing diagnostic-only failures.

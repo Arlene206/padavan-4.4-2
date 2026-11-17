@@ -1,3 +1,13 @@
+## 2026-11-17 — Tighten optional IPTV MTU policy checker to match the actual call
+
+- Parent main SHA: `482b6f7dcaffd2dac29235097c221d20cd62b595`; result: THIS COMMIT.
+- The production correction landed in `7f7728ab`: optional DHCP MTU ioctl failures are diagnostic-only again, while a changed advertised MTU is still reapplied on renew. Exact-head WAN DHCP, Process lifecycle, and the other triggered stability/security checks passed. WAN route `44049696922` failed only because the new semantic assertion searched for the substring `route_setup_status, mtu_status`, which also legitimately appears in the local variable declaration, despite no aggregation call.
+- Replaced that broad substring check with the exact prohibited call `route_status_accumulate(route_setup_status, mtu_status)`. Source inspection confirms IPTV MTU status is only initialized, passed to the setter, tested and logged; route status is separately aggregated from route results and multicast.
+- XY-C1 run `44049696160` remains IN_PROGRESS in the cross-build job at last poll. Current-source Build/TRX/artifact completion is still pending; exact-head WAN route rerun is pending.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Preserve diagnostic-only policy for optional DHCP MTU ioctl failures
 
 - Production policy correction landed in `7f7728ab553426965c47e72812c3b2a8c6ca6338` (parent `6fa744ffe62e8b5e6795675d01cae50ff0c7871a`); THIS COMMIT records the exact-head CI diagnosis and corrects the handoff.
