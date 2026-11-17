@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `448cb4e6ad854228204100d5fb06f8f4135fd918`.
+- Current main: THIS COMMIT; parent `c6edf06e2a9d148f24757926488166dea8f9205b`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,9 +31,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify Process and XY-C1 exact-head outcomes for the RWFS/Optware worker launch status propagation, including the focused RWFS integration source contract.
-2. The integration check now compares launch/aggregate ordering against the whitespace-normalized router body, matching its multiline C formatting.
-3. If green, continue to a separate P1 service-start result-propagation issue outside wireless/storage.
+1. Re-run exact-head AI handoff documentation validation after rotating the root dev_log rolling window: 100 oldest complete records are now archived verbatim in part-014; root retains 21 newest records.
+2. Verify XY-C1 Build → TRX → artifact for source SHA `c6edf06e`; Process inventory/lifecycle on this exact SHA passed (`44072349383`). Do not infer firmware success from the earlier `1be4affc` build.
+3. If AI docs and XY-C1 pass, continue with the next independent P1 service-start result-propagation defect outside wireless/storage.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -48,4 +48,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Check exact-head Process and XY-C1 results for the Optware launch status commit and this checker ordering correction. The integration checker uses router_compact for the multiline call-order assertion; if green, choose the next P1 result-propagation issue outside wireless/storage.
+Check exact-head AI docs and XY-C1 Build/TRX/artifact after this archive rotation. On parent source SHA c6edf06e, Process inventory/lifecycle run 44072349383 passed, XY-C1 run 44072349459 was still in progress, and AI docs run 44072349503 failed only because the root dev_log had 121 records. This commit moves the oldest 100 complete records verbatim to part-014 and leaves the newest 21 in root. If checks pass, pick the next P1 startup-result propagation bug outside wireless/storage.
