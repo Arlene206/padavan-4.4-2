@@ -1,3 +1,12 @@
+## 2026-11-17 — Make WAN DHCP callback source contract independent of brace formatting
+
+- Parent main SHA: `bb427148c3367bdb69139ca493caf6e2ffe193ed`; result: THIS COMMIT.
+- The exact-head `bb427148` WAN route checker and Process lifecycle regression both passed. The WAN DHCP callback job failed only in its inline Python source checker: it sliced the static-IPoE post-configuration path by searching for the literal token `"} else {"`, then raised `ValueError: substring not found`. The production source still contains the static branch and DHCP fallback; the checker used formatting as a boundary.
+- Replaced the fragile brace-token boundary with the next semantic operation, `dhcp_status = start_udhcpc_wan(...)`. Assertions remain scoped to the static branch and still verify WAN-up → UPnP update ordering without relying on brace whitespace.
+- Exact-head XY-C1 `44043949016` was in progress at last poll (dependency installation; Build XY-C1/TRX/artifact pending). Process inventory `44043948999` and Process lifecycle passed; WAN DHCP callback retry validation and current-source XY-C1 remain pending after this checker-only commit. No firmware/router L4 claim.
+
+---
+
 ## 2026-11-17 — Propagate physical WAN default-MTU setup failures
 
 - Parent main SHA: `d20696fc602ce90167342629ced95765a9078e29`; result: THIS COMMIT.

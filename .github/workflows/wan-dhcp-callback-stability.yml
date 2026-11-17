@@ -972,8 +972,9 @@ jobs:
           assert ipoe_static_config.index(address_apply) < ipoe_static_config.index(address_failure) < ipoe_static_config.index(address_clear)
           assert ipoe_static_config.index(address_clear) < ipoe_static_config.index('set_wan_unit_value_int(unit, "err", wan_err);')
           static_finish = wan_start[wan_start.index("/* We are done configuration */"):]
-          static_finish_end = static_finish.index("} else {", static_finish.index("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)"))
-          static_finish = static_finish[:static_finish_end]
+          static_finish_start = static_finish.index("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)")
+          static_finish_end = static_finish.index("dhcp_status = start_udhcpc_wan(wan_ifname, unit, 0);", static_finish_start)
+          static_finish = static_finish[static_finish_start:static_finish_end]
           assert "if (!wan_err)" in static_finish
           assert static_finish.index("if (!wan_err)") < static_finish.index("wan_up(wan_ifname, unit, 1);") < static_finish.index("wan_upnp_status = update_upnp();")
           assert "int ipv6_status = wan6_up(wan_ifname, unit);" in wan_start
