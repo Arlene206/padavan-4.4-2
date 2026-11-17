@@ -5,6 +5,7 @@ on:
     paths:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_mtu_setup_policy.h"
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
@@ -38,6 +39,7 @@ on:
     paths:
       - ".github/workflows/wan-dhcp-callback-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_mtu_setup_policy.h"
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan6_teardown_policy.c"

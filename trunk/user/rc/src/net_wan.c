@@ -4256,7 +4256,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf);
 
 	if (!i_err) {
-		if (dhcp_mtu >= 1300 && dhcp_mtu < 1500) {
+		if (wan_dhcp_mtu_is_supported(dhcp_mtu)) {
 			mtu_status = set_interface_mtu(wan_ifname, dhcp_mtu);
 			if (mtu_status != 0)
 				logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)",
@@ -4448,7 +4448,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	route_setup_status = 0;
 	mtu_status = 0;
 	if (!i_err) {
-		if (dhcp_mtu >= 1300 && dhcp_mtu < 1500) {
+		if (wan_dhcp_mtu_is_supported(dhcp_mtu)) {
 			mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);
 			if (mtu_status != 0)
 				logmessage(log_prefix, "%s (%s) MTU setup incomplete (status=%d)",

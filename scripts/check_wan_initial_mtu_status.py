@@ -208,7 +208,7 @@ for token in (
 wan_bound = body(WAN, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
 require("mtu_status = 0;" in wan_bound,
         "WAN DHCP MTU status must be initialized when the option is absent")
-wan_mtu_condition = wan_bound.index("if (dhcp_mtu >= 1300 && dhcp_mtu < 1500)")
+wan_mtu_condition = wan_bound.index("if (wan_dhcp_mtu_is_supported(dhcp_mtu))")
 wan_mtu_set = wan_bound.index(
     "mtu_status = set_interface_mtu(wan_ifname, dhcp_mtu);", wan_mtu_condition
 )
@@ -248,7 +248,7 @@ require(
 viptv_bound = body(WAN, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
 require("mtu_status = 0;" in viptv_bound,
         "IPTV DHCP MTU status must be initialized when the option is absent")
-tv_mtu_condition = viptv_bound.index("if (dhcp_mtu >= 1300 && dhcp_mtu < 1500)")
+tv_mtu_condition = viptv_bound.index("if (wan_dhcp_mtu_is_supported(dhcp_mtu))")
 tv_mtu_set = viptv_bound.index(
     "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);", tv_mtu_condition
 )
@@ -286,6 +286,33 @@ require(
     "IPTV renew must retry route failures and re-enter bound after a DHCP MTU change",
 )
 
+dhcp_mtu_policy = body(POLICY, "wan_dhcp_mtu_is_supported(")
+require(
+    "dhcp_mtu >= 576 && dhcp_mtu <= 1500" in dhcp_mtu_policy,
+    "DHCP MTU helper must match parser-supported values 576..1500",
+)
+require(
+    "wan_dhcp_mtu_is_supported(dhcp_mtu)" in wan_bound
+    and "wan_dhcp_mtu_is_supported(dhcp_mtu)" in viptv_bound,
+    "WAN and IPTV must apply every supported DHCP MTU",
+)
+for callback in (wan_bound, viptv_bound):
+    require(
+        "dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value)" in callback,
+        "DHCP parser and setter ranges must remain aligned",
+    )
+require(
+    all(token in DHCP_TEST for token in (
+        "wan_dhcp_mtu_is_supported(575)",
+        "wan_dhcp_mtu_is_supported(576)",
+        "wan_dhcp_mtu_is_supported(1299)",
+        "wan_dhcp_mtu_is_supported(1300)",
+        "wan_dhcp_mtu_is_supported(1499)",
+        "wan_dhcp_mtu_is_supported(1500)",
+        "wan_dhcp_mtu_is_supported(1501)",
+    )),
+    "DHCP MTU regression must cover all boundary cases",
+)
 require(
     "test_dhcp_optional_mtu_failure_does_not_request_route_retry();" in DHCP_TEST
     and "assert(!dhcp_wan_route_setup_retry_required(route_setup_status));" in DHCP_TEST,

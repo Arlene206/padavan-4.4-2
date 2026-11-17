@@ -5,6 +5,7 @@
 
 #include "dhcp_wan_interface_policy.h"
 #include "dhcp_wan_route_transition_policy.h"
+#include "wan_mtu_setup_policy.h"
 
 struct fake_interface {
 	int clear_status;
@@ -234,6 +235,15 @@ test_dhcp_optional_mtu_failure_does_not_request_route_retry(void)
 {
 	int mtu_status = EIO;
 	int route_setup_status = 0;
+
+	/* Cover the entire DHCP parser range, including an explicit 1500 reset. */
+	assert(!wan_dhcp_mtu_is_supported(575));
+	assert(wan_dhcp_mtu_is_supported(576));
+	assert(wan_dhcp_mtu_is_supported(1299));
+	assert(wan_dhcp_mtu_is_supported(1300));
+	assert(wan_dhcp_mtu_is_supported(1499));
+	assert(wan_dhcp_mtu_is_supported(1500));
+	assert(!wan_dhcp_mtu_is_supported(1501));
 
 	/* Optional DHCP MTU ioctl errors are logged, not promoted to route errors. */
 	assert(mtu_status != 0);

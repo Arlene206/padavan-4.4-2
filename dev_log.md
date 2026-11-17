@@ -1,3 +1,14 @@
+## 2026-11-17 — Apply all parser-supported DHCP MTU values, including explicit 1500 reset
+
+- Parent main SHA: `de70a509a14fd343bc3ee1fbfb9c6b2078bbff6d`; result: THIS COMMIT.
+- Both `udhcpc_bound()` and `udhcpc_viptv_bound()` parse DHCP MTU in the range 576..1500 but previously applied it only for 1300..1499. Valid 576..1299 values were silently ignored; explicit 1500 could not restore the interface default after a smaller lease.
+- Added `wan_dhcp_mtu_is_supported()` for 576..1500 and used it in both callbacks. Static/UI custom-MTU policy remains 1300..1499. Added GNU89 boundary assertions for 575, 576, 1299, 1300, 1499, 1500 and 1501, and semantic assertions that parser/helper/callback ranges stay aligned.
+- Existing semantics remain: apply on renew, optional setter failure diagnostic-only, omitted option no-op preserving prior NVRAM state. Added the policy header to WAN DHCP workflow path filters.
+- Production-source baseline `7f7728ab`: WAN DHCP `44049696447`, Process lifecycle `44049696038`, Process inventory `44049696133`, XY-C1 `44049696160` all PASS. XY-C1 artifact `14314335144`, 12,643,773 bytes; Build/TRX/upload completed. Exact-head descendant `de70a509` WAN route `44050750448` and Process `44050750354` PASS. THIS COMMIT's tests/build are pending.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Tighten optional IPTV MTU policy checker to match the actual call
 
 - Parent main SHA: `482b6f7dcaffd2dac29235097c221d20cd62b595`; result: THIS COMMIT.
