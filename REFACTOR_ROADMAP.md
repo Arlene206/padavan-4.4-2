@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- SSH/HTTPD firewall failure rollback and SSH detached-start inventory checks are in main.
-- THIS P1 stop-path hardening replaces sshd.sh name-based `killall` success with identity-bound `kill_services()`: same Dropbear/OpenSSH name selection as inventory, snapshot + revalidation, bounded TERM/KILL, and verified absence before stop returns success. Process CI source assertions and GNU89 policy test cover backend mapping.
-- Exact source SHA `6a5f1477` Process/Firewall/USB/AI checks passed; XY-C1 `44188951477` was still building at last check. Exact current-head Process/XY must validate THIS stop change.
-- Separate known failure: AliyunDrive special-domain start regression run `44189266857` failed on `07b8266e`; investigate independently.
-- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- SSH stop hardening in `f9afd25e` routes RC stop through identity-bound `kill_services()`, revalidating PID/start-time/cmdline before signalling and requiring absence before success. Exact f9 Process lifecycle `44190334132` and Process inventory `44190334289` PASS.
+- f9 PID1 run `44190333392` exposed a stale embedded checker expecting direct `return eval()` from SSH startup; THIS correction checks captured launcher status, bounded detached-child RUNNING postcondition and identity-bound stop. AI docs `44190333813` exposed the accidental 31-to-1 dev-log truncation; restore the full rolling history in THIS correction.
+- Exact 6a5 XY-C1 `44188951477` completed Build/TRX/artifact. f9 XY-C1 `44190333512` was building at last poll; do not transfer the older artifact result to f9. AliyunDrive rerun `44190333972` PASS; NVRAM/AdGuardHome were pending.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next: verify exact-SHA SSH stop CI + XY build, diagnose Aliyun special-mode startup fixture/failure.
+Next: verify exact PID1/AI/XY/NVRAM/AdGuardHome for THIS correction; then continue independent P1 reliability/security work.
 
 
 ---

@@ -1,19 +1,30 @@
-# 2026-11-18 continuation checkpoint — SSH stop must prove daemon absence
+# 2026-11-18 continuation checkpoint — validate PID 1 SSH and restored handoff history
 
-## Current main and exact-SHA state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS stop-path correction: `07b8266ea07de74d6b898a184018cf949b4784a2`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact source SHA `6a5f1477`: Process inventory/lifecycle `44188951409` PASS, Firewall Startup `44188951449` PASS, USB modem `44188951386` PASS, AI docs `44188951370` PASS; XY-C1 `44188951477` was still in Build XY-C1 at last poll, so TRX/artifact/L3 were not yet confirmed.
-- Exact main descendant `07b8266e`: Process lifecycle `44189266764` PASS including SSH firewall regression; NVRAM `44189266811` PASS. AliyunDrive `44189266857` failed in its special-domain startup test and must be diagnosed separately; do not treat as an SSH regression.
-- `stop_sshd()` previously delegated to OpenSSH/Dropbear shell scripts whose `func_stop()` only ran name-based `killall -q sshd/dropbear`. A zero shell status therefore did not prove the daemon had exited. THIS commit selects the same daemon identity as inventory and calls `kill_services()`, whose process lifecycle transaction snapshots PID/start-time/cmdline identity and only returns STOPPED after a fresh absence scan (including bounded SIGKILL escalation after timeout).
-- The new selection helper is unit-tested for Dropbear/OpenSSH/absent binary configurations; the existing Process source checker enforces use of identity-bound stop.
+## Current main and exact-SHA evidence
+- Repository `Arlene206/padavan-4.4-2`; parent main before THIS correction: `f9afd25e8957de96c5661f9c0d00c29cf5d22da3`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
+- Exact 6a5 source/test SHA fully passed: Process `44188951409`, Firewall Startup `44188951449`, USB modem `44188951386`, AI docs `44188951370`, and XY-C1 `44188951477` including Build, TRX verification and artifact upload.
+- Exact f9 Process lifecycle `44190334132` and Process inventory regression `44190334289` PASS; SSH policy source/compile passed. AliyunDrive rerun `44190333972` later completed SUCCESS, so the earlier `07b8266e` special-domain failure has cleared on this descendant.
+- Exact f9 PID1 notification workflow `44190333392` failed only at its embedded source contract: it expected direct `return eval()` in `start_sshd()`, but startup now captures launcher status and verifies the detached child is RUNNING. THIS correction updates that contract to require captured status, bounded startup postcondition, and the new identity-bound `stop_sshd()`.
+- Exact f9 AI docs `44190333813` failed because `dev_log.md` was truncated from 31 entries to one. THIS correction restores the complete 31-entry rolling log from `07b8266e` and prepends an accurate checkpoint.
+- Exact f9 XY-C1 `44190333512` was still at Build XY-C1 at last poll; TRX/artifact pending. AdGuardHome `44190334184` and NVRAM `44190334351` were also in progress.
+
+## THIS checker/history correction
+- PID1's embedded source contract now expects both SSH launch modes to assign `start_status`, check launcher failure, and verify the detached child via bounded RUNNING postcondition. It also asserts PID 1 stop uses `kill_services(service_names, 3, 1)` and no shell name-wide stop.
+- Restore 31 existing complete `dev_log.md` entries; the AI docs validator requires at least 20 complete records.
+- No production runtime behavior changes in this correction.
+
+## Validation boundary
+- Exact-head PID1 and AI handoff checks for THIS correction must pass. XY-C1 must complete Build, TRX verification and artifact upload for f9 production source; the older 6a5 artifact is not verification of f9.
+- f9 Process/SSH and AliyunDrive checks have passed. Do not rerun them unless touched.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head Process inventory/lifecycle and XY-C1 Actions for THIS commit. Require the new stop mapping + identity-bound `kill_services()` source checks, SSH GNU89/ASan/UBSan tests, and XY-C1 Build/TRX/artifact.
-2. Independently diagnose AliyunDrive special-domain start failure on `07b8266e` from its exact run log and shell test; correct its real fixture/behavior without relaxing startup readiness.
-3. Continue the next P1 service/security gap. Keep backup immutable. Router hardware L4 remains NOT VERIFIED.
+1. Inspect live `main` and exact-`head_sha`, `push` PID1 notification, AI handoff, XY-C1, AdGuardHome and NVRAM runs for THIS correction. Require PID1 SSH policy/source checks and AI docs >=20-entry/archive checks.
+2. Require XY-C1 Build, TRX verification and artifact upload for f9 production source.
+3. Continue the next independent P1 stability/security defect after these gates. Keep backup immutable; do not repeat passing f9 Process/AliyunDrive tests.
 
-# Cross-session execution mandate
+
 
 
 Mandatory handoff checkpoint: Every session

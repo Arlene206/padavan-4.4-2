@@ -142,8 +142,17 @@ jobs:
           assert "process_snapshot_release(&snapshot);" in sshd_presence
           assert "PROCESS_PRESENCE_RUNNING" in function_body(services, "is_sshd_run(void)")
           sshd_start = function_body(services, "start_sshd(void)")
-          assert 'return eval("/usr/bin/sshd.sh", "start", "-s");' in sshd_start
-          assert 'return eval("/usr/bin/sshd.sh", "start");' in sshd_start
+          assert 'start_status = eval("/usr/bin/sshd.sh", "start", "-s");' in sshd_start
+          assert 'start_status = eval("/usr/bin/sshd.sh", "start");' in sshd_start
+          assert "if (start_status != 0)" in sshd_start
+          assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in sshd_start
+          assert "sshd_start_postcondition(start_status, state) == 0" in sshd_start
+          assert "return sshd_start_postcondition(start_status, PROCESS_PRESENCE_ABSENT);" in sshd_start
+          sshd_stop = function_body(services, "stop_sshd(void)")
+          assert "sshd_process_name_for_binaries" in sshd_presence
+          assert "sshd_process_name_for_binaries" in sshd_stop
+          assert "kill_services(service_names, 3, 1)" in sshd_stop
+          assert 'eval("/usr/bin/sshd.sh", "stop")' not in sshd_stop
           sshd_restart = function_body(services, "restart_sshd(void)")
           assert "sshd_restart_can_start(stop_status, stopped_state)" in sshd_restart
           assert "PROCESS_PRESENCE_UNKNOWN" in sshd_restart
