@@ -1,3 +1,13 @@
+## 2026-11-18 — Align Process lifecycle contract with serialized HTTPD restart
+
+- Beijing time: 2026-11-18 01:12 (UTC+8). Parent main SHA: 7dac0a147c9c96524b97f9890a6fea21088ec81c; result: THIS COMMIT.
+- Exact-head Process lifecycle run 44133242864 on 7dac0a1 passed 45 integration stages, then failed because its watchdog HTTPD assertion still expected separate public stop/start calls. The source now calls the serialized `restart_httpd()` transaction introduced in 4c979.
+- Updated the Process integration checker to require the watchdog restart call, nonzero-result diagnostic and the private helper's lock-acquire → stop → start-if-safe → lock-finish ordering. No production source changed.
+- Exact-head AliyunDrive lifecycle 44133243141 separately failed in the special-domain scenario and remains under diagnosis; XY-C1 run 44133243104 was pending.
+- Local execution is unavailable because this environment has no repository checkout; no target build or physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Update WAN status checker for serialized HTTPD entrypoint
 
 - Parent main SHA: 4c9793229270232501ce3a21cc6f46198bccb6cb; result: THIS COMMIT.
