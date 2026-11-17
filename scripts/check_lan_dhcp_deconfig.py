@@ -9,6 +9,8 @@ policy = (root / "trunk/user/rc/src/dhcp_lease_policy.h").read_text()
 test = (root / "trunk/user/rc/src/tests/dhcp_lease_policy.c").read_text()
 kernel_policy = (root / "trunk/user/rc/src/lan_kernel_name_policy.h").read_text()
 kernel_test = (root / "trunk/user/rc/src/tests/lan_kernel_name_policy.c").read_text()
+callback_policy = (root / "trunk/user/rc/src/lan_dhcp_callback_policy.h").read_text()
+callback_test = (root / "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c").read_text()
 busybox = (root / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
 workflow = (root / ".github/workflows/wan-dhcp-callback-stability.yml").read_text()
 xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
@@ -78,6 +80,29 @@ deconfig = lan[deconfig_start:deconfig_end]
 assert "status = lan_down_auto(lan_ifname);" in deconfig
 assert "return status;" in deconfig
 
+# A committed DHCP lease must not become permanently stuck with stale hosts
+# after one failed ancillary write: immediate PID 1 retry plus same-value
+# renewal retry are both required, without repeating unrelated side effects.
+bound = c_function_body(lan, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
+publish = c_function_body(lan, "lan_dhcp_publish_hosts_and_schedule_retry(")
+update_ap = c_function_body(lan, "update_hosts_ap(void)")
+assert "lan_dhcp_hosts_refresh_required(is_changed, is_renew," in bound
+assert 'get_ap_mode() && nvram_match("lan_hosts_retry", "1")' in bound
+assert "if (refresh_hosts)" in bound
+assert "lan_dhcp_publish_hosts_and_schedule_retry(" in bound
+assert bound.index("if (refresh_hosts)") < bound.index("lan_dhcp_publish_hosts_and_schedule_retry(")
+assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in bound
+assert 'nvram_set_int_temp("lan_hosts_retry", "1")' in publish
+assert "notify_rc_status(RCN_RESTART_DHCPD)" in publish
+assert "cannot queue AP hostname-file recovery" in publish
+assert publish.index('nvram_set_int_temp("lan_hosts_retry", "1")') < publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
+assert 'nvram_set_int_temp("lan_hosts_retry", "0")' in update_ap
+assert update_ap.index("if (status == 0)") < update_ap.index('nvram_set_int_temp("lan_hosts_retry", "0")')
+assert "lan_dhcp_hosts_refresh_required(int lease_changed, int is_renew," in callback_policy
+assert "test_hosts_refresh_retries_only_a_pending_same_value_renew" in callback_test
+assert "lan_dhcp_hosts_refresh_required(0, 1, 0) == 0" in callback_test
+assert "lan_dhcp_hosts_refresh_required(0, 1, 1) == 1" in callback_test
+
 assert "#define DECONFIG_PENDING 7" in busybox
 pending = busybox.rindex("case DECONFIG_PENDING:")
 pending_end = busybox.index("case RELEASED:", pending)
@@ -138,7 +163,11 @@ required = (
     "trunk/user/rc/src/tests/dhcp_lease_policy.c",
     "scripts/check_lan_dhcp_deconfig.py",
 )
-for path in required:
+callback_required = (
+    "trunk/user/rc/src/lan_dhcp_callback_policy.h",
+    "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c",
+)
+for path in required + callback_required:
     assert path in push, "missing push path: " + path
     assert path in pr, "missing pull_request path: " + path
 for path in required[1:]:

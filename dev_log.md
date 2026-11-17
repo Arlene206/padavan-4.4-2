@@ -1,3 +1,12 @@
+## 2026-11-17 — Retry failed AP LAN DHCP host-file publication
+
+- Parent main SHA: `d7eea9c037ad0ec9074022c1e1da30d87002d7a9`; exact parent Actions IAPP `44201354894`, AI handoff `44201354982`, Process lifecycle `44201354872` PASS; XY-C1 `44201354975` was still building at last poll.
+- Found a retry gap after successful lease transaction: failed AP `create_hosts_lan()` was deliberately non-fatal to BusyBox's lease commit, but an unchanged RENEW skipped host publication forever.
+- Added temporary `lan_hosts_retry` state, a secure `notify_rc_status(RCN_RESTART_DHCPD)` immediate retry, and same-value RENEW retry restricted to hostname publication. AP event/start host refresh clears the marker only after a successful write; non-AP behavior and lease callback status remain unchanged.
+- Added GNU89 policy regression and source-contract assertions for first failure, unchanged renewal, retry marker clear and notification ordering. Exact-head WAN DHCP/AI/XY-C1 pending; no local MIPS build or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Correct WAN teardown cleanup declaration contract
 
 - Parent main SHA: `853748bd0a49661ac29c7b854a58e40571393a20`.

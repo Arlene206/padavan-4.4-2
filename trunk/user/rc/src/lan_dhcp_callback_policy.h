@@ -8,6 +8,16 @@
  * hosts-file failure is logged, but must not make BusyBox retain an old lease
  * while the router is already using the new one.
  */
+/* Retry ancillary host publication after a same-value RENEW only when an
+ * earlier publication failed; do not repeat it for every healthy renewal. */
+static inline int
+lan_dhcp_hosts_refresh_required(int lease_changed, int is_renew,
+				int retry_pending)
+{
+	return lease_changed || !is_renew || retry_pending;
+}
+
+
 static inline int
 lan_dhcp_bound_callback_status(int transaction_status, int ancillary_status)
 {

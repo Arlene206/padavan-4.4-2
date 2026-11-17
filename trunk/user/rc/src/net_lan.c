@@ -938,7 +938,13 @@ failed:
 int
 update_hosts_ap(void)
 {
-	return create_hosts_lan(nvram_safe_get("lan_ipaddr_t"), nvram_safe_get("lan_domain_t"));
+	int status;
+
+	status = create_hosts_lan(nvram_safe_get("lan_ipaddr_t"),
+				 nvram_safe_get("lan_domain_t"));
+	if (status == 0)
+		nvram_set_int_temp("lan_hosts_retry", "0");
+	return status;
 }
 
 int
@@ -1659,6 +1665,42 @@ udhcpc_lan_deconfig(char *lan_ifname)
 	return 0;
 }
 
+
+static int
+lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
+					  const char *lease_domain)
+{
+	int hosts_status, saved_errno, queue_errno;
+
+	errno = 0;
+	hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);
+	if (hosts_status == 0) {
+		if (get_ap_mode())
+			nvram_set_int_temp("lan_hosts_retry", "0");
+		return 0;
+	}
+
+	saved_errno = errno ? errno : EIO;
+	logmessage("DHCP LAN Client",
+		   "LAN lease applied but hostname files could not be published (status=%d)",
+		   hosts_status);
+	if (get_ap_mode()) {
+		/* Preserve a retry across same-value RENEW callbacks as well as the
+		 * immediate PID 1 notification. */
+		nvram_set_int_temp("lan_hosts_retry", "1");
+		if (notify_rc_status(RCN_RESTART_DHCPD) != 0) {
+			queue_errno = errno ? errno : EIO;
+			logmessage("DHCP LAN Client",
+				   "cannot queue AP hostname-file recovery (errno=%d)",
+				   queue_errno);
+		}
+	}
+
+	errno = saved_errno;
+	return hosts_status;
+}
+
+
 static int
 udhcpc_lan_bound(char *lan_ifname, int is_renew)
 {
@@ -1671,6 +1713,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	int is_changed, ip_changed, netmask_changed, gateway_changed;
 	int address_changed, apply_gateway, lease_dur = 0;
 	int status, rollback_status = 0, hosts_status = 0;
+	int refresh_hosts;
 	struct lan_dhcp_bound_context context;
 
 	if (!lan_ifname || !*lan_ifname)
@@ -1768,6 +1811,9 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 		strcmp(old_dns, lease_dns) != 0 ||
 		strcmp(old_domain, lease_domain) != 0;
 	apply_gateway = gateway_changed || !is_renew;
+	refresh_hosts = lan_dhcp_hosts_refresh_required(
+		is_changed, is_renew,
+		get_ap_mode() && nvram_match("lan_hosts_retry", "1"));
 
 	if (is_changed || !is_renew) {
 		context.lan_ifname = lan_ifname;
@@ -1802,12 +1848,11 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	nvram_set_temp("lan_wins_t", lease_wins);
 	nvram_set_temp("lan_lease_t", lease_text);
 
+	if (refresh_hosts)
+		hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(
+			lease_ip, lease_domain);
+
 	if (is_changed || !is_renew) {
-		hosts_status = create_hosts_lan(lease_ip, lease_domain);
-		if (hosts_status != 0)
-			logmessage("DHCP LAN Client",
-				   "LAN lease applied but hostname files could not be published (status=%d)",
-				   hosts_status);
 		notify_watchdog_time();
 
 #if defined(APP_SMBD)
