@@ -188,13 +188,21 @@ static void sig_handle(int signum)
 
 static void btn_released_handle(int btn_id, int count)
 {
+	int reset_status;
+
 	btn_dbg("released_handle: btn=0x%x, count=%d\n", btn_id, count);
 
 	if (btn_id == BTN_RESET) {
 		if (gpio_btn_reset_press_count(count)) {
 			btn_dbg("perform RESET!!\n");
 			LED_CONTROL(LED_PWR, LED_OFF);
-			btn_reset_action();
+			reset_status = btn_reset_action();
+			if (reset_status != 0) {
+				logmessage("gpio_btn",
+					   "reset button factory reset failed; router remains running (status=%d)",
+					   reset_status);
+				LED_CONTROL(LED_PWR, get_state_led_pwr());
+			}
 		} else if (count > 0) {
 			btn_dbg("RESET pressed time too short!\n");
 			LED_CONTROL(LED_PWR, LED_ON);

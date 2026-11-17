@@ -1,3 +1,10 @@
+## 2026-11-18 — Propagate factory-reset MTD and NVRAM failures
+
+- Parent main SHA: `80dcdc629d72c11136e1b766fe730e0d33f21bd4`; runtime changes span `rc.c`, `rc.h`, `btn_action.c` and `gpio_btn.c`, with a new GNU89 policy regression, source-order checker and GPIO workflow coverage.
+- The old `void erase_storage()` discarded the MTD script's wait status. Both button-reset paths ignored `erase_nvram()` and always signalled PID 1; a failed rstats stop/flash erase or a failed durable reset-marker commit could still reboot into mixed persistent state.
+- Return the MTD erase status, perform storage erase before committing the NVRAM reset marker, and request PID 1 exit only if both persistent steps succeed. On every abort, attempt to restore configured rstats; the physical reset-button caller restores its normal power LED when reset fails. The source checker verifies short-circuit order, MTD exit-status preservation and both button paths.
+- Exact-head GPIO regression and XY-C1 Build/TRX/artifact are pending. Local host tests were NOT RUN (no full checkout/toolchain in this session). Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-18 07:11 CST (UTC+8) — Match EAPOL source checker to multiline first-error call
 
 - Parent main SHA: `5d0618cc29aa67cc11d93a6487f2d5bc71c777ce`.

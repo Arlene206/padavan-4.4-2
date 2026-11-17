@@ -53,6 +53,10 @@ def function_body(source, signature):
 
 
 gpio = read("trunk/user/rc/src/gpio_btn.c")
+btn_action = read("trunk/user/rc/src/btn_action.c")
+factory_reset_policy = read("trunk/user/rc/src/factory_reset_policy.h")
+factory_reset_test = read("trunk/user/rc/src/tests/factory_reset_policy.c")
+storage_script = read("trunk/user/scripts/files/sbin/mtd_storage.sh")
 policy = read("trunk/user/rc/src/gpio_btn_daemon_policy.h")
 process_inventory = read("trunk/user/shared/src/process_inventory.h")
 test = read("trunk/user/rc/src/tests/gpio_btn_daemon_policy.c")
@@ -168,9 +172,63 @@ for marker in (
     assert marker in timing_test, marker
 assert "gpio_btn_timing_policy.c" in workflow
 
+# A failed flash erase must not commit the NVRAM reset marker or signal PID 1.
+assert '#include "factory_reset_policy.h"' in btn_action
+erase_storage_body = function_body(dispatcher, "int\nerase_storage(void)")
+assert 'return doSystem("/sbin/mtd_storage.sh %s", "erase");' in erase_storage_body
+assert "int erase_storage(void);" in header
+
+reset_restore = function_body(btn_action, "btn_reset_restore_rstats(void)")
+assert 'nvram_match("rstats_enable", "1")' in reset_restore
+assert "start_status = start_rstats();" in reset_restore
+assert "if (start_status != 0)" in reset_restore
+reset_action = function_body(btn_action, "int\nbtn_reset_action(void)")
+storage_call = reset_action.index("storage_status = erase_storage();")
+storage_gate = reset_action.index("factory_reset_storage_allows_nvram(storage_status)")
+nvram_call = reset_action.index("nvram_status = erase_nvram();")
+reboot_gate = reset_action.index("factory_reset_results_allow_reboot(storage_status, nvram_status)")
+exit_call = reset_action.index("exit_status = sys_exit();")
+assert storage_call < storage_gate < nvram_call < reboot_gate < exit_call
+assert reset_action.count("btn_reset_restore_rstats();") == 3
+assert "return storage_status;" in reset_action
+assert "return nvram_status;" in reset_action
+assert "return exit_status;" in reset_action
+
+long_event = function_body(btn_action, "void\nbtn_event_long(int btn_id)")
+assert "case 15: // Reset settings" in long_event
+assert "btn_reset_action();" in long_event
+assert "erase_nvram();" not in long_event and "erase_storage();" not in long_event
+reset_release = function_body(gpio, "static void btn_released_handle")
+assert "reset_status = btn_reset_action();" in reset_release
+assert "if (reset_status != 0)" in reset_release
+assert "LED_CONTROL(LED_PWR, get_state_led_pwr());" in reset_release
+
+for marker in (
+    "test_storage_failure_blocks_nvram_reset",
+    "test_both_persistent_steps_gate_reboot",
+    "Factory reset fail-closed sequencing policy: PASS",
+):
+    assert marker in factory_reset_test, marker
+
+erase_start = storage_script.index("func_erase()")
+erase_end = storage_script.index("\nfunc_reset()", erase_start)
+erase_script = storage_script[erase_start:erase_end]
+erase_branch_start = storage_script.index("\nerase)\n")
+erase_branch_end = storage_script.index("\nreset)\n", erase_branch_start)
+erase_case = storage_script[erase_branch_start:erase_branch_end]
+assert "func_stop_apps" in erase_script
+assert "mtd_write erase" in erase_script
+assert "result=1" in erase_script
+assert "func_erase" in erase_case
+assert "exit $result" in storage_script
+
 paths = (
     ".github/workflows/gpio-btn-lifecycle.yml",
     "trunk/user/rc/src/gpio_btn.c",
+    "trunk/user/rc/src/btn_action.c",
+    "trunk/user/rc/src/factory_reset_policy.h",
+    "trunk/user/rc/src/tests/factory_reset_policy.c",
+    "trunk/user/scripts/files/sbin/mtd_storage.sh",
     "trunk/user/rc/src/gpio_btn_daemon_policy.h",
     "trunk/user/rc/src/tests/gpio_btn_daemon_policy.c",
     "trunk/user/rc/src/gpio_btn_timing_policy.h",
@@ -207,4 +265,4 @@ assert "running = 0;" in button_signal_handler
 assert "misc_stop_status = stop_misc();" in shutdown
 assert "misc_stop_status == 0" in shutdown
 assert shutdown.index("misc_stop_status = stop_misc();") < shutdown.index("storage_persistence_complete")
-print("GPIO button daemon startup, hold timing and caller postcondition contracts: PASS")
+print("GPIO button startup, hold timing and fail-closed factory reset contracts: PASS")

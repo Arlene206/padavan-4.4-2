@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "rc.h"
+#include "factory_reset_policy.h"
 #include "gpio_pins.h"
 #include <gpioutils.h>
 
@@ -382,9 +383,7 @@ btn_event_long(int btn_id)
 		ez_action_change_guest_wifi5();
 		break;
 	case 15: // Reset settings
-		erase_nvram();
-		erase_storage();
-		sys_exit();
+		btn_reset_action();
 		break;
 #if (BOARD_NUM_USB_PORTS > 1)
 	case 21: // Safe removal USB #1
@@ -397,10 +396,54 @@ btn_event_long(int btn_id)
 	}
 }
 
-void
+static void
+btn_reset_restore_rstats(void)
+{
+	int start_status;
+
+	/* Erase intentionally stops rstats before touching the storage MTD. */
+	if (!nvram_match("rstats_enable", "1"))
+		return;
+
+	start_status = start_rstats();
+	if (start_status != 0)
+		logmessage("gpio_btn",
+			   "factory reset aborted but rstats could not be restored (status=%d)",
+			   start_status);
+}
+
+int
 btn_reset_action(void)
 {
-	erase_nvram();
-	erase_storage();
-	sys_exit();
+	int storage_status;
+	int nvram_status;
+	int exit_status;
+
+	/* Do not persist the NVRAM reset marker until the storage erase succeeds. */
+	storage_status = erase_storage();
+	if (!factory_reset_storage_allows_nvram(storage_status)) {
+		logmessage("gpio_btn",
+			   "factory reset aborted: storage erase failed (status=%d)",
+			   storage_status);
+		btn_reset_restore_rstats();
+		return storage_status;
+	}
+
+	nvram_status = erase_nvram();
+	if (!factory_reset_results_allow_reboot(storage_status, nvram_status)) {
+		logmessage("gpio_btn",
+			   "factory reset aborted: NVRAM reset flag commit failed (status=%d)",
+			   nvram_status);
+		btn_reset_restore_rstats();
+		return nvram_status;
+	}
+
+	exit_status = sys_exit();
+	if (exit_status != 0) {
+		logmessage("gpio_btn",
+			   "factory reset completed but PID 1 shutdown request failed (status=%d)",
+			   exit_status);
+		btn_reset_restore_rstats();
+	}
+	return exit_status;
 }

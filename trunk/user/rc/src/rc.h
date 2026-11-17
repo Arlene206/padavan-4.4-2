@@ -152,7 +152,7 @@ void handle_notifications(void);
 void LED_CONTROL(int gpio_led, int flag);
 int storage_save_time(time_t delta);
 int write_storage_to_mtd(void);
-void erase_storage(void);
+int erase_storage(void);
 int erase_nvram(void);
 
 /* init.c */
@@ -790,7 +790,7 @@ void notify_watchdog_wifi(int is_5ghz);
 int  btn_main(int argc, char *argv[]);
 int  start_gpio_btn(void);
 int  get_state_led_pwr(void);
-void btn_reset_action(void);
+int btn_reset_action(void);
 void btn_event_long(int btn_id);
 void btn_event_short(int btn_id);
 

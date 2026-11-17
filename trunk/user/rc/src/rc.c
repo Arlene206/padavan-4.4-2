@@ -551,10 +551,10 @@ write_storage_to_mtd(void)
 	return doSystem("/sbin/mtd_storage.sh %s", "save");
 }
 
-void
+int
 erase_storage(void)
 {
-	doSystem("/sbin/mtd_storage.sh %s", "erase");
+	return doSystem("/sbin/mtd_storage.sh %s", "erase");
 }
 
 int
