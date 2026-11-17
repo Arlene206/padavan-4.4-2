@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `5c5300876827a62a99bd2d5ac82d98853b5a230d`.
+- Current main: THIS COMMIT; parent 9bb789d0f6597e40bcebcb1a26f42519bc6619e8.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,17 +31,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-- Source baseline: `801d1bbfaf66448ea98a4f6ef0371f53da9c8ac5` (guest interface-state control fix).
-- Exact-head failures: Wireless radio `44069490310` and Process lifecycle `44069490305`; both failed at stale source-contract assertion `scripts/check_guest_lan_isolation_status.py:110`, which expected direct `get_interface_flags()` in rollback callbacks. Production callbacks correctly use `wireless_guest_interface_state_checked()`; the compiled guest-isolation policy regression passed before this assertion.
-- Exact-head successes: watchdog `44069490253`, iNIC `44069490242`, HTTPD `44069491214`, AdGuardHome `44069491065`, infosvr `44069490240`, AliyunDrive `44069490313`, Process inventory `44069490237`, AliDDNS `44069490291`, AI handoff `44069491442`.
-- Exact-head pending: XY-C1 `44069490610`, NVRAM `44069490286`.
-- Additional defect fixed in this commit: `restart_guest_lan_isolation()` used unchecked `is_interface_up()` for guest bridge ports, silently treating ioctl inspection errors as DOWN. All three state reads now use the checked reader and record errors while continuing independent work. The source contract now checks those reads and rollback callback usage.
-- Existing GNU89/ASan/UBSan policy regression covers negative flags, unchanged output on error, DOWN, UP and NULL output.
-- Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Physical-router L4 remains NOT VERIFIED; no local MIPS/uClibc toolchain is available.
-
-## Exact first action for the next GPT
-
-Fetch live main and exact-head push Actions for this source commit. Confirm Wireless radio and Process lifecycle checks pass, and inspect XY-C1 Build/TRX/artifact status for the same SHA. Then continue auditing unchecked Wi-Fi interface-state decisions in startup/restart and RT3352 MII/iNIC/DBDC paths.
+1. Verify exact-head Process lifecycle, Wireless radio and XY-C1 Build → TRX → artifact for the tri-state snapshot / attempt-owned rollback fix.
+2. If all pass, rotate to an independent stability defect outside guest wireless; do not repeat passing M2U/rollback policy tests.
+3. Frozen backup stays immutable; only main receives atomic complete-tree commits with non-forced expected-SHA updates.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -56,4 +48,4 @@ Fetch live main and exact-head push Actions for this source commit. Confirm Wire
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live main and exact-head Actions. Verify checked main/guest interface-state handling in both guest-control functions. Then review AP startup/restart for any remaining is_interface_up() checks that collapse inspection errors into down.
+Verify exact-head Process and Wireless Actions for the tri-state link snapshot / attempt-owned rollback fix; check XY-C1 Build/TRX/artifact. If green, select the next independent stability issue outside wireless.

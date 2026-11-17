@@ -162,7 +162,7 @@ test_fail_closed_rollback_success_and_invalid_ops(void)
 }
 
 static void
-test_startup_rollback_only_for_newly_up_guest(void)
+test_startup_rollback_tracks_only_interfaces_started_here(void)
 {
 	assert(wireless_guest_startup_rollback_candidate(0, 1));
 	assert(!wireless_guest_startup_rollback_candidate(1, 1));
@@ -175,13 +175,23 @@ test_interface_flag_read_errors_are_not_reported_as_down(void)
 {
 	int is_up = 7;
 
-	assert(wireless_guest_isolation_link_state(-1, 0x1, &is_up) == -EIO);
+	/* Generic socket/ioctl errors are unknown, never a false DOWN result. */
+	assert(wireless_guest_isolation_link_state(-1, EACCES, ENODEV,
+						   0x1, &is_up) == -EIO);
 	assert(is_up == 7);
-	assert(wireless_guest_isolation_link_state(0, 0x1, &is_up) == 0);
+
+	/* ENODEV is the expected absent optional VIF during boot. */
+	assert(wireless_guest_isolation_link_state(-1, ENODEV, ENODEV,
+						   0x1, &is_up) == 0);
 	assert(is_up == 0);
-	assert(wireless_guest_isolation_link_state(0x1, 0x1, &is_up) == 0);
+	assert(wireless_guest_isolation_link_state(0, 0, ENODEV,
+						   0x1, &is_up) == 0);
+	assert(is_up == 0);
+	assert(wireless_guest_isolation_link_state(0x1, 0, ENODEV,
+						   0x1, &is_up) == 0);
 	assert(is_up == 1);
-	assert(wireless_guest_isolation_link_state(0, 0x1, NULL) == -EINVAL);
+	assert(wireless_guest_isolation_link_state(0, 0, ENODEV,
+						   0x1, NULL) == -EINVAL);
 }
 
 static void
@@ -202,7 +212,7 @@ main(void)
 	test_fail_closed_rollback_attempts_every_step();
 	test_fail_closed_rollback_success_and_invalid_ops();
 	test_interface_flag_read_errors_are_not_reported_as_down();
-	test_startup_rollback_only_for_newly_up_guest();
+	test_startup_rollback_tracks_only_interfaces_started_here();
 	test_null_status_is_fail_safe();
 	puts("Wireless guest LAN isolation status aggregation: PASS");
 	return 0;

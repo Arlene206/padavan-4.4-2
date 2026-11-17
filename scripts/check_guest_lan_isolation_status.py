@@ -116,14 +116,15 @@ bring_down = function_body(wifi, "wireless_guest_rollback_bring_down(void *conte
 verify_down = function_body(wifi, "wireless_guest_rollback_verify_down(void *context)")
 for callback in (bring_down, verify_down):
     assert "wireless_guest_interface_state_checked(rollback->ifname_ap," in callback
-    assert "wireless_guest_isolation_link_state(interface_flags, IFF_UP," in callback
     assert "if (status != 0)" in callback
-assert "is_interface_up(rollback->ifname_ap)" not in bring_down
-assert "is_interface_up(rollback->ifname_ap)" not in verify_down
+    assert "is_interface_up(" not in callback
 
 checked_state = function_body(wifi, "wireless_guest_interface_state_checked(const char *ifname, int *is_up)")
+assert "errno = 0;" in checked_state
+assert "interface_error = errno;" in checked_state
 assert "get_interface_flags(ifname)" in checked_state
-assert "wireless_guest_isolation_link_state" in checked_state
+assert "wireless_guest_isolation_link_state(interface_flags, interface_error," in checked_state
+assert "ENODEV, IFF_UP, is_up" in checked_state
 
 for signature, main_if in (
     ("control_guest_wl(int guest_on, int manual)", "IFNAME_5G_MAIN"),
@@ -143,7 +144,8 @@ rt_interface = function_body(wifi, "wireless_guest_rt_interface_ifname(void)")
 assert "return IFNAME_INIC_GUEST;" in rt_interface
 assert "return IFNAME_2G_GUEST;" in rt_interface
 boot_rollback = function_body(wifi, "wireless_guest_init_bridge_fail_closed(int rt_guest_was_up,")
-assert "wireless_guest_startup_rollback_candidate(" in boot_rollback
+assert "wireless_guest_startup_rollback_candidate(rt_guest_was_up, rt_guest_start_attempted)" in boot_rollback
+assert "wireless_guest_startup_rollback_candidate(wl_guest_was_up, wl_guest_start_attempted)" in boot_rollback
 assert "wireless_guest_rt_interface_ifname()" in boot_rollback
 assert "wireless_guest_rt_bridge_ifname(get_ap_mode())" in boot_rollback
 assert "restart_guest_lan_isolation()" in boot_rollback
@@ -169,8 +171,14 @@ for signature in ("int\nrestart_wifi_wl(int radio_on, int need_reload_conf)",
 
 init_bridge = function_body(lan, "int\ninit_bridge(int is_ap_mode)")
 assert 'rc_bridge_init_record(&bridge_status, "guest LAN isolation", guest_isolation_status);' in init_bridge
-assert "rt_guest_was_up = wireless_guest_rt_guest_is_up();" in init_bridge
-assert "wl_guest_was_up = wireless_guest_wl_guest_is_up();" in init_bridge
+assert "rt_guest_state_status = wireless_guest_rt_guest_is_up(&rt_guest_was_up);" in init_bridge
+assert "wl_guest_state_status = wireless_guest_wl_guest_is_up(&wl_guest_was_up);" in init_bridge
+assert '"inspect 2.4GHz guest AP before startup"' in init_bridge
+assert '"inspect 5GHz guest AP before startup"' in init_bridge
+assert "if (rt_guest_state_status == 0)" in init_bridge
+assert "if (wl_guest_state_status == 0)" in init_bridge
+assert "rt_guest_start_attempted = rt_radio_on != 0;" in init_bridge
+assert "wl_guest_start_attempted = wl_radio_on != 0;" in init_bridge
 assert "rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);" in init_bridge
 assert "wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);" in init_bridge
 assert "wireless_guest_init_bridge_fail_closed(" in init_bridge
@@ -201,13 +209,14 @@ for test_name in (
     "test_control_result_preserves_changed_boolean_only_on_success",
     "test_fail_closed_rollback_attempts_every_step",
     "test_fail_closed_rollback_success_and_invalid_ops",
-    "test_startup_rollback_only_for_newly_up_guest",
+    "test_startup_rollback_tracks_only_interfaces_started_here",
     "test_null_status_is_fail_safe",
 ):
     assert test_name in regression
 assert "wireless_guest_isolation_status_record" in policy
 assert "wireless_guest_isolation_status_rollback" in policy
 assert "wireless_guest_startup_rollback_candidate" in policy
+assert "interface_error != absent_error" in policy
 
 
 for signature, operations in (

@@ -150,8 +150,12 @@ init_bridge(int is_ap_mode)
 	int operation_status;
 	int rt_ap_start_status = 0;
 	int wl_ap_start_status = 0;
-	int rt_guest_was_up;
-	int wl_guest_was_up;
+	int rt_guest_was_up = 0;
+	int wl_guest_was_up = 0;
+	int rt_guest_state_status;
+	int wl_guest_state_status;
+	int rt_guest_start_attempted = 0;
+	int wl_guest_start_attempted = 0;
 	int guest_isolation_status;
 	int rt_radio_on = get_enabled_radio_rt();
 #if !defined(USE_RT3352_MII)
@@ -323,19 +327,36 @@ init_bridge(int is_ap_mode)
 	}
 #endif
 
-/* Snapshot guest ownership before init_bridge starts either AP radio. */
-	rt_guest_was_up = wireless_guest_rt_guest_is_up();
-	wl_guest_was_up = wireless_guest_wl_guest_is_up();
+/*
+	 * ENODEV means an optional guest VIF is absent yet (known DOWN). Other
+	 * ioctl/socket failures are unknown; do not start that radio's AP.
+	 */
+	rt_guest_state_status = wireless_guest_rt_guest_is_up(&rt_guest_was_up);
+	rc_bridge_init_record(&bridge_status,
+		"inspect 2.4GHz guest AP before startup", rt_guest_state_status);
+	wl_guest_state_status = wireless_guest_wl_guest_is_up(&wl_guest_was_up);
+	rc_bridge_init_record(&bridge_status,
+		"inspect 5GHz guest AP before startup", wl_guest_state_status);
 
 #if BOARD_2G_IN_SOC || defined (BOARD_MT7915_DBDC)
-	rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);
+	if (rt_guest_state_status == 0) {
+		rt_guest_start_attempted = rt_radio_on != 0;
+		rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);
+	} else {
+		rt_ap_start_status = rt_guest_state_status;
+	}
 	rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", rt_ap_start_status);
 	operation_status = start_wifi_wds_rt(rt_radio_on);
 	rc_bridge_init_record(&bridge_status, "2.4GHz WDS radio startup", operation_status);
 	operation_status = start_wifi_apcli_rt(rt_radio_on);
 	rc_bridge_init_record(&bridge_status, "2.4GHz APCLI radio startup", operation_status);
 #if BOARD_HAS_5G_RADIO
-	wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);
+	if (wl_guest_state_status == 0) {
+		wl_guest_start_attempted = wl_radio_on != 0;
+		wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);
+	} else {
+		wl_ap_start_status = wl_guest_state_status;
+	}
 	rc_bridge_init_record(&bridge_status, "5GHz AP radio startup", wl_ap_start_status);
 	operation_status = start_wifi_wds_wl(wl_radio_on);
 	rc_bridge_init_record(&bridge_status, "5GHz WDS radio startup", operation_status);
@@ -344,14 +365,24 @@ init_bridge(int is_ap_mode)
 #endif
 #else /* BOARD_2G_IN_SOC || defined (BOARD_MT7915_DBDC) */
 #if BOARD_HAS_5G_RADIO
-	wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);
+	if (wl_guest_state_status == 0) {
+		wl_guest_start_attempted = wl_radio_on != 0;
+		wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);
+	} else {
+		wl_ap_start_status = wl_guest_state_status;
+	}
 	rc_bridge_init_record(&bridge_status, "5GHz AP radio startup", wl_ap_start_status);
 	operation_status = start_wifi_wds_wl(wl_radio_on);
 	rc_bridge_init_record(&bridge_status, "5GHz WDS radio startup", operation_status);
 	operation_status = start_wifi_apcli_wl(wl_radio_on);
 	rc_bridge_init_record(&bridge_status, "5GHz APCLI radio startup", operation_status);
 #endif
-	rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);
+	if (rt_guest_state_status == 0) {
+		rt_guest_start_attempted = rt_radio_on != 0;
+		rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);
+	} else {
+		rt_ap_start_status = rt_guest_state_status;
+	}
 	rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", rt_ap_start_status);
 	operation_status = start_wifi_wds_rt(rt_radio_on);
 	rc_bridge_init_record(&bridge_status, "2.4GHz WDS radio startup", operation_status);
@@ -413,7 +444,8 @@ init_bridge(int is_ap_mode)
 	if (rt_ap_start_status != 0 || wl_ap_start_status != 0 ||
 	    guest_isolation_status != 0) {
 		operation_status = wireless_guest_init_bridge_fail_closed(
-			rt_guest_was_up, wl_guest_was_up, 1);
+			rt_guest_was_up, wl_guest_was_up,
+			rt_guest_start_attempted, wl_guest_start_attempted, 1);
 		rc_bridge_init_record(&bridge_status,
 			"guest AP rollback after LAN bridge startup failure",
 			operation_status);

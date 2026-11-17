@@ -76,8 +76,17 @@ typedef struct {
 static int
 wireless_guest_interface_state_checked(const char *ifname, int *is_up)
 {
-	return wireless_guest_isolation_link_state(get_interface_flags(ifname),
-						   IFF_UP, is_up);
+	int interface_flags;
+	int interface_error;
+
+	if (!ifname || !is_up)
+		return -EINVAL;
+
+	errno = 0;
+	interface_flags = get_interface_flags(ifname);
+	interface_error = errno;
+	return wireless_guest_isolation_link_state(interface_flags, interface_error,
+						   ENODEV, IFF_UP, is_up);
 }
 
 static int
@@ -168,17 +177,21 @@ wireless_guest_rt_interface_ifname(void)
 }
 
 int
-wireless_guest_rt_guest_is_up(void)
+wireless_guest_rt_guest_is_up(int *is_up)
 {
-	return is_interface_up(wireless_guest_rt_interface_ifname());
+	return wireless_guest_interface_state_checked(
+		wireless_guest_rt_interface_ifname(), is_up);
 }
 
 int
-wireless_guest_wl_guest_is_up(void)
+wireless_guest_wl_guest_is_up(int *is_up)
 {
 #if BOARD_HAS_5G_RADIO
-	return is_interface_up(IFNAME_5G_GUEST);
+	return wireless_guest_interface_state_checked(IFNAME_5G_GUEST, is_up);
 #else
+	if (!is_up)
+		return -EINVAL;
+	*is_up = 0;
 	return 0;
 #endif
 }
@@ -191,6 +204,8 @@ wireless_guest_wl_guest_is_up(void)
 int
 wireless_guest_init_bridge_fail_closed(int rt_guest_was_up,
 				       int wl_guest_was_up,
+				       int rt_guest_start_attempted,
+				       int wl_guest_start_attempted,
 				       int startup_failed)
 {
 	wireless_guest_isolation_status_t status;
@@ -199,9 +214,9 @@ wireless_guest_init_bridge_fail_closed(int rt_guest_was_up,
 	int rollback_wl;
 
 	rollback_rt = wireless_guest_startup_rollback_candidate(
-		rt_guest_was_up, wireless_guest_rt_guest_is_up());
+		rt_guest_was_up, rt_guest_start_attempted);
 	rollback_wl = wireless_guest_startup_rollback_candidate(
-		wl_guest_was_up, wireless_guest_wl_guest_is_up());
+		wl_guest_was_up, wl_guest_start_attempted);
 	if (!startup_failed || (!rollback_rt && !rollback_wl))
 		return 0;
 
@@ -1688,7 +1703,9 @@ finish_wl:
 			control_status.first_operation ? control_status.first_operation : "unknown",
 			control_status.first_status, control_status.failure_count);
 	return wireless_guest_isolation_control_result(is_ap_changed, &control_status);
-}int
+}
+
+int
 control_guest_rt(int guest_on, int manual)
 {
 	int is_ap_changed = 0;

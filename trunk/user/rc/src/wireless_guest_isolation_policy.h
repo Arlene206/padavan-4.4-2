@@ -43,13 +43,17 @@ wireless_guest_isolation_status_result(const wireless_guest_isolation_status_t *
  * Do not silently interpret that state as "interface down".
  */
 static inline int
-wireless_guest_isolation_link_state(int interface_flags, int up_mask,
-				    int *is_up)
+wireless_guest_isolation_link_state(int interface_flags, int interface_error,
+				    int absent_error, int up_mask, int *is_up)
 {
 	if (!is_up)
 		return -EINVAL;
-	if (interface_flags < 0)
-		return -EIO;
+	if (interface_flags < 0) {
+		if (interface_error != absent_error)
+			return -EIO;
+		*is_up = 0;
+		return 0;
+	}
 	*is_up = (interface_flags & up_mask) != 0;
 	return 0;
 }
@@ -65,9 +69,9 @@ wireless_guest_isolation_control_result(int changed,
  
 /* Do not tear down a guest AP that was already active before startup. */
 static inline int
-wireless_guest_startup_rollback_candidate(int was_up_before, int is_up_after)
+wireless_guest_startup_rollback_candidate(int was_up_before, int startup_attempted)
 {
-	return !was_up_before && is_up_after;
+	return !was_up_before && startup_attempted;
 }
 
 /*
