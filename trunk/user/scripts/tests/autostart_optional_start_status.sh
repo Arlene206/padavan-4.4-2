@@ -23,7 +23,8 @@ case "$2" in
 	sdns_enable) echo "${ENABLE_SMARTDNS:-0}" ;;
 	sdns_port) echo "${SMARTDNS_PORT:-6053}" ;;
 	frpc_enable) echo "${ENABLE_FRPC:-1}" ;;
-	aliddns_enable) echo "${ENABLE_ALIDDNS:-0}" ;;\n	frps_enable) echo 0 ;;
+	aliddns_enable) echo "${ENABLE_ALIDDNS:-0}" ;;
+	frps_enable) echo 0 ;;
 	*) echo 0 ;;
 esac
 STUB

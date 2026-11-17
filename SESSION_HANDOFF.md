@@ -31,15 +31,13 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Boot-environment source baseline `10be37e50fbbd11c686593b0edd3863b31055b2e`; checked CI-contract repairs are `ab22c03`, `d638def`, and `4220420d7dd9f6440f525875802646899198befa`. Exact `4220420` HTTPD run `44091239897` and XY-C1 Build/TRX/artifact run `44091239961` passed.
-2. Ralink IAPP rollback source is `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`; its shared-shell-state return correction is `a54c1b427d0080aa4563e4da9d35051b40dbcb57`; test fixture corrections and post-launch readiness coverage are `da2808b4e7080072b7a77676ec3c0c2f7cba343b` and `55374c12e124711c0b789ffd8dc3f0767c3343cc`.
-3. On exact `55374c`, Process lifecycle inventory `44094996902`, Process fail-closed inventory `44094997201`, NVRAM `44094996888`, AdGuardHome `44094996956`, AI docs `44094996958`, infosvr `44094997004`, AliyunDrive `44094997000`, and AliDDNS transport `44094997091` all passed. All eight runs were `push` events with `head_sha=55374c...`.
-4. IAPP production source on `a54c1b` passed XY-C1 run `44092579822`: Build XY-C1, TRX output verification, and artifact upload all completed SUCCESS. The later IAPP commits `da2808b` and `55374c` are test-only and do not alter the product firmware source.
-5. THIS COMMIT gates only AliDDNS boot autostart on readability of the exact CA bundle it uses at request time, `/etc/ssl/certs/ca-certificates.crt`. Missing trust material skips/logs AliDDNS only; unrelated optional autostart launchers continue. The existing Process workflow already runs the extended autostart regression, and the AliDDNS transport workflow watches `autostart.sh`.
+1. Boot-environment baseline `10be37e50fbbd11c686593b0edd3863b31055b2e`; exact `4220420` HTTPD and XY-C1 Build/TRX/artifact passed.
+2. IAPP rollback source `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`; caller status correction `a54c1b427d0080aa4563e4da9d35051b40dbcb57`; exact IAPP fixture follow-ups `da2808b4e7080072b7a77676ec3c0c2f7cba343b` and `55374c12e124711c0b789ffd8dc3f0767c3343cc`. Process/NVRAM/AdGuardHome/AI docs/infosvr/AliyunDrive/AliDDNS exact-head Actions all passed on `55374c`; IAPP source `a54c1b` passed XY-C1 Build/TRX/artifact run `44092579822`.
+3. AliDDNS boot startup now checks its exact HTTPS CA bundle before launching the keeper; the initial implementation is `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`. Its initial test stub contained a literal escaped newline in the NVRAM case list; THIS COMMIT corrects that fixture before the test can pass shell parsing.
+4. Corrected exact-head Process and AliDDNS Actions must validate the absent/present CA cases. Missing CA must skip only AliDDNS, while DDNSTO/FRP continue; present CA must allow AliDDNS to launch and log the injected failure code.
 
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Local host execution is NOT RUN in this connector-only runtime; exact-head Actions for THIS COMMIT are pending.
-- Current-source XY-C1 build/TRX/artifact after the autostart source change and physical-router L4 remain NOT VERIFIED.
+- Local host execution NOT RUN in this connector-only runtime. Current-source XY-C1 after the AliDDNS autostart change and physical-router L4 remain NOT VERIFIED.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -56,9 +54,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Process lifecycle/autostart regression and AliDDNS transport Actions for THIS COMMIT. Confirm the host test proves both cases: missing CA means no AliDDNS launch while DDNSTO/FRP still launch; a readable CA bundle permits AliDDNS launch and its injected status is logged.
-2. Inspect the exact-head XY-C1 run if the autostart shell source path triggered it. Require Build XY-C1, TRX output verification, and artifact upload before claiming L3 for this commit. Prior IAPP product source `a54c1b` did complete all three in run `44092579822`.
-3. If a relevant Actions check fails, fix its earliest causal assertion before taking another task. If checks pass or remain pending, continue with one evidence-backed userland reliability/security defect outside completed IAPP, HTTPD, wireless, and storage slices.
+1. Check the exact-head Process lifecycle/autostart regression and AliDDNS signed-transport Actions for THIS test correction. The previous SHA `0c754be` may fail at shell parsing because the NVRAM test stub contained a literal `\n`; the fixture is corrected here.
+2. Check exact-head XY-C1 if the autostart script path triggers product build validation; require Build, TRX verification, and artifact upload before claiming L3 for the AliDDNS autostart source.
+3. If the relevant Actions pass or remain pending, continue one independent source reliability/security defect; do not rerun completed IAPP audits.
 
-Do not rerun completed IAPP inventory. Local host execution remains NOT RUN in this connector-only runtime; physical-router L4 remains NOT VERIFIED. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` is read-only.
+Local host execution NOT RUN; physical-router L4 NOT VERIFIED. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
 

@@ -1,3 +1,13 @@
+## 2026-11-17 — Correct AliDDNS CA-gate regression fixture
+
+- Parent main SHA: `0c754be22ab4d4da7e78198f5ca043c521ec4dc2`; result: THIS COMMIT.
+- Corrected a test-fixture typo in `autostart_optional_start_status.sh`: the new AliDDNS NVRAM case had a literal backslash-n before the existing FRP server case, rather than a real line break. The shell regression would fail parsing before exercising either CA branch.
+- Production `autostart.sh` is unchanged; the correction is isolated to the test fixture and checkpoint metadata. Exact-head Process/AliDDNS Actions are pending for this correction.
+- The prior parent `55374c` baseline Actions all passed; IAPP product source `a54c1b` completed XY-C1 Build/TRX/artifact run `44092579822`.
+- Local host tests NOT RUN in connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Gate AliDDNS boot startup on CA readiness
 
 - Parent main SHA: `55374c12e124711c0b789ffd8dc3f0767c3343cc`; result: THIS COMMIT.
