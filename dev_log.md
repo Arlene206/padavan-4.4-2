@@ -1,3 +1,11 @@
+## 2026-11-17 — Require WAN and HTTPD CI to exercise the final LAN hostname guard
+
+- Parent main SHA: f680e4f6366b37f76d2cc552da9e77158b54226a; result: THIS COMMIT.
+- Added the final-hostname validation contract to both WAN DHCP and HTTPD security regression workflows. The production fix changes `net_lan.c`; this explicitly verifies that the already-resolved hostname is checked before either host file is staged/published, including the `productid` fallback path.
+- Normalized the WAN workflow's `net_lan.c` filter quoting and touched both workflow files so their exact-head push runs execute the new static assertions; XY-C1 already tracks `net_lan.c` and independently validates the firmware compile.
+- Exact-head Actions for this CI-contract change pending. Physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Validate fallback product hostname before writing /etc/hosts
 
 - Parent main SHA: a400a3b7e5dd4835b5126479b87bf2c01894dc19; result: THIS COMMIT.

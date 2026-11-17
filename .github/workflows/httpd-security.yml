@@ -2456,6 +2456,10 @@ jobs:
           assert "rc_notify_merge_action_result(action_result, hosts_status)" in dhcpd_notify
           assert "dhcp_lease_deconfig_status" in test
           assert "lan_kernel_names_apply" in kernel_name_policy
+          hosts_start = lan.index("create_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")
+          hosts_end = lan.index("\nint\nupdate_hosts_ap", hosts_start)
+          hosts_body = lan[hosts_start:hosts_end]
+          assert "!lan_hname || !is_valid_hostname(lan_hname)" in hosts_body
           assert "return first_status;" in kernel_name_policy
           assert "test_hostname_failure_does_not_skip_domain_update" in kernel_name_test
           assert "test_domain_failure_is_reported_after_hostname_update" in kernel_name_test
