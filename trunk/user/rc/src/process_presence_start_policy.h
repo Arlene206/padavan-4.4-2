@@ -12,7 +12,7 @@ enum process_presence_start_action {
 	PROCESS_PRESENCE_START_NOTIFY = 1
 };
 
-static enum process_presence_start_action
+static inline enum process_presence_start_action
 process_presence_start_action_for_state(enum process_presence presence)
 {
 	if (presence == PROCESS_PRESENCE_ABSENT)
@@ -24,7 +24,7 @@ process_presence_start_action_for_state(enum process_presence presence)
 
 /* Report requested monitor startup failures without treating RUNNING as an
  * error. An UNKNOWN inventory must fail closed and remain visible to callers. */
-static int
+static inline int
 process_presence_start_status_for_action(
 	enum process_presence_start_action action,
 	int inventory_error, int launch_status)
@@ -46,7 +46,7 @@ process_presence_start_status_for_action(
 #define PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS 1
 #define PROCESS_PRESENCE_START_PROBE_ATTEMPTS 4
 
-static int
+static inline int
 process_presence_start_postcondition(int launcher_status,
 				     enum process_presence process_state)
 {
