@@ -1,26 +1,29 @@
-# 2026-11-17 continuation checkpoint — serialize notification-driven Samba restart with storage eject
+# 2026-11-17 continuation checkpoint — fail closed on swapoff during physical USB eject
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `85c02c41612225552ce270304167d40778be8be3`; THIS COMMIT adds the shared storage eject barrier to `restart_nmbd()` and its regression.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; development remains main-only; PR #1 remains closed/unmerged.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `0f6035754ff9092c3b0b6613ab3b7394b21589fb`; THIS COMMIT hardens physical-unplug cleanup against failed/UNKNOWN swapoff.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only development; PR #1 remains closed/unmerged.
 - No full MIPS/uClibc toolchain or physical router is available; L4 remains NOT VERIFIED.
 
 ## Parent exact-head Actions
-- Process inventory/lifecycle `44152539523`: IN_PROGRESS at last poll for checker-fix SHA `85c02c41612225552ce270304167d40778be8be3`; exact test-contract completion is not yet known.
-- AI handoff `44152539399`, NVRAM `44152539327`, AdGuardHome `44152539417`, infosvr `44152539400`, AliDDNS `44152539489` and AliyunDrive `44152539557`: IN_PROGRESS at last poll, all on parent `85c02c41612225552ce270304167d40778be8be3`.
-- No exact-head XY-C1 firmware run was triggered for the checker/docs-only parent commit; do not treat prior-source firmware runs as validation of any later source.
+- Samba share stability `44152877979`: SUCCESS.
+- Process lifecycle fail-closed regression `44152878007`: SUCCESS.
+- Process inventory `44152878099`: SUCCESS.
+- AI handoff `44152877960`: SUCCESS.
+- NVRAM transaction audit `44152877994`: SUCCESS.
+- XY-C1 `44152877927`: IN_PROGRESS at last poll; Build/TRX/artifact not yet verified for source SHA `0f6035754ff9092c3b0b6613ab3b7394b21589fb`.
 
-## Samba/storage synchronization repair (THIS COMMIT)
-- Both `RCN_RESTART_NMBD` and `RCN_RESTART_WINS` are dispatched through `restart_nmbd()`. When smbd is present, this route republishes `smb.conf`, stops/restarts nmbd and reloads the captured smbd identities; otherwise it stops nmbd and starts WINS.
-- The route previously had no shared storage-operation lock. Safe eject/hotplug can hold that lock while stopping Samba and unmounting USB shares, so an interleaved notification could publish/relaunch Samba while those share mounts are being removed.
-- Acquire `storage_operation_lock` before the first procfs inventory and hold it through config publication, daemon stop/absence, launch/readiness, smbd identity-bound reload, or WINS startup. Lock acquisition failure aborts before scans or mutations.
-- Extend Samba's existing source integration contract to require lock-before-inventory, fail-closed acquisition, coverage of the config/daemon operations and exactly one unlock. Samba workflow already watches `services_ex.c`.
-- Parent checker-only commit `85c02c4` removed the orphaned Process-checker syntax line; the exact Process run was still pending at last poll. This source commit triggers its own Samba/Process/XY-C1 validations where path filters apply.
+## Physical unplug swapoff fence (THIS COMMIT)
+- Safe removal (`umount_stor_path_range`) already resolves every selected swap and refuses all unmounts if any swapoff fails or becomes UNKNOWN. Physical unplug (`umount_ejected_locked`) only checked `/proc/mounts` and `/proc/partitions`, then unmounted stale mountpoints; it never repeated or required swapoff completion.
+- The mdev removal callback attempted `try_device_swapoff()` but `report_device_swapoff()` returned void, so the callback reported success even on a failed/UNKNOWN swapoff. The eject worker could then tear down stale mounts while the kernel still considered that device active as swap.
+- Make the mdev callback return a failure status on swapoff failure while still queueing the unplug notification. In the deferred eject worker, re-check swapoff for every stale mounted partition before service stop/unmount; if any check fails, skip the entire unmount batch, keep services stopped, return failure and rely on the existing scheduled cleanup retry.
+- The existing `storage_ejected_may_unmount_device()` GNU89 policy test already covers failed swapoff. Extend the storage workflow integration contract to require callback status propagation, swapoff preflight before unmount, and fail-closed batch gating.
+- Parent Samba, Process, Process inventory, AI and NVRAM checks passed. Parent XY-C1 remained IN_PROGRESS; the new storage source test and exact-head XY-C1 are pending.
 
 ## First next action
-- Inspect exact-SHA Samba stability, Process lifecycle/inventory and XY-C1 Build/TRX/artifact for THIS COMMIT; any FAIL must be diagnosed from its job logs. Also resolve the pending Process checker run from `85c02c4` if its result arrives.
-- Continue another independent storage/NVRAM or service-stop result propagation issue while XY-C1 is pending. Do not repeat completed IAPP result propagation, boot launcher, shutdown LAN-persistence or firmware VPN teardown work.
-- Keep the frozen backup read-only; update `main` only with complete trees and non-forced expected-SHA compare-and-swap.
+- Inspect exact-SHA storage-hotplug stability, Samba (shared source), Process lifecycle and XY-C1 Build/TRX/artifact for THIS COMMIT. On any FAIL, read exact job logs and fix the source/checker contract.
+- Continue another independent P1 storage/NVRAM or service-stop result gap while firmware CI is pending. Do not repeat the just-closed Samba notification/eject lock race or the already repaired IAPP/checker syntax work.
+- Keep the backup branch read-only and update main only by a complete tree with expected-SHA non-forced CAS.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

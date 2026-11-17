@@ -34,17 +34,20 @@
 #include "storage_operation_lock.h"
 #include "storage_partition_probe.h"
 
-static void
+static int
 report_device_swapoff(const char *device_name)
 {
 	int status, saved_errno;
 
 	status = try_device_swapoff(device_name);
 	if (status != 0) {
-		saved_errno = errno;
+		saved_errno = errno ? errno : EIO;
 		logmessage("Storage", "could not verify or disable swap for removed device %s (status %d, errno %d)",
 			   device_name ? device_name : "(unknown)", status, saved_errno);
+		errno = saved_errno;
 	}
+
+	return status;
 }
 
 
@@ -72,6 +75,7 @@ int
 mdev_sd_main(int argc, char **argv)
 {
 	int isLock, storage_lock;
+	int swapoff_status = 0;
 	size_t len, disk_len;
 	char share_name[32], disk_name[32];
 	char *device_name, *action, *partno;
@@ -99,7 +103,7 @@ mdev_sd_main(int argc, char **argv)
 
 	// If remove the device?
 	if (!get_hotplug_action(action)) {
-		report_device_swapoff(device_name);
+		swapoff_status = report_device_swapoff(device_name);
 		len = strlen(device_name);
 		if (len > 2 && device_name[0] == 's' && device_name[1] == 'd' &&
 		    (device_name[len - 1] < '0' || device_name[len - 1] > '9'))
@@ -148,7 +152,7 @@ out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return 0;
+	return (swapoff_status == 0) ? 0 : 1;
 }
 #endif
 
@@ -157,6 +161,7 @@ int
 mdev_mmc_main(int argc, char **argv)
 {
 	int isLock, storage_lock;
+	int swapoff_status = 0;
 	size_t len, disk_len, i;
 	const char *p;
 	char share_name[32], disk_name[32];
@@ -187,7 +192,7 @@ mdev_mmc_main(int argc, char **argv)
 
 	// If remove the device?
 	if (!get_hotplug_action(action)) {
-		report_device_swapoff(device_name);
+		swapoff_status = report_device_swapoff(device_name);
 		if (strncmp(device_name, "mmcblk", 6) == 0 &&
 		    !strchr(device_name + 6, 'p'))
 			notify_rc("on_unplug_mass_storage");
@@ -239,6 +244,6 @@ out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return 0;
+	return (swapoff_status == 0) ? 0 : 1;
 }
 #endif

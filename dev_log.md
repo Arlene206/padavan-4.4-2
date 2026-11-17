@@ -1,3 +1,9 @@
+## 2026-11-17 — Block physical-unplug unmounts when swapoff is not confirmed
+
+- Safe removal already performs a full swapoff preflight and refuses all unmounts if a selected swap is active but cannot be disabled or `/proc/swaps` is UNKNOWN. The physical hotplug cleanup `umount_ejected_locked()` only compared `/proc/mounts` with `/proc/partitions`; it could unmount stale paths after the mdev swapoff attempt had failed.
+- `report_device_swapoff()` previously returned void, so `mdev_sd_main()`/`mdev_mmc_main()` always reported success even when `try_device_swapoff()` returned failure. It now returns the checked status; both handlers still queue the root-device unplug notification but return failure to their caller when swapoff was not confirmed.
+- The deferred physical-eject worker now rechecks every stale mounted partition's swap state before stopping services and before any unmount. Any failed/UNKNOWN swapoff blocks the whole unmount batch, leaves storage daemons stopped, returns failure and uses the existing `usb_unplug_ms` cleanup retry path.
+- Existing GNU89 `storage_ejected_may_unmount_device()` test covers swapoff failure; extend storage workflow source contracts to pin mdev propagation and swap-preflight → stop → gate → unmount order. Exact-head CI pending; no target firmware or L4 result claimed.
 ## 2026-11-17 — Serialize notification-driven Samba restart with storage eject
 
 - PID 1 routes both `RCN_RESTART_NMBD` and `RCN_RESTART_WINS` through `restart_nmbd()`. The running-smbd branch rewrites `smb.conf`, restarts nmbd and SIGHUP-reloads the captured smbd processes; the no-smbd branch stops nmbd and starts WINS. Unlike `restart_smbd()`, this notification route lacked the common storage-operation lock.

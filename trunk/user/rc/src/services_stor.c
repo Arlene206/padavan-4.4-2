@@ -2801,6 +2801,7 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	FILE *procpt;
 	char line[512], devname[32], mpname[256];
 	int active, result, saved_errno, hook_status;
+	int swapoff_status, swap_status;
 	int mount_read_error, mount_close_error, mount_parse_error;
 	int has_ejected_mounts, stop_status, rollback_status;
 	int mount_count, start_status;
@@ -2885,6 +2886,30 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 		}
 	}
 
+	/*
+	 * The mdev removal callback attempts swapoff first, but its event may
+	 * race a disappearing device or report an incomplete /proc/swaps scan.
+	 * Recheck every stale mounted partition here before dropping any mount;
+	 * one failed/UNKNOWN swapoff blocks the entire unmount batch.
+	 */
+	swapoff_status = 0;
+	saved_errno = 0;
+	if (has_ejected_mounts) {
+		for (entry = head; entry; entry = entry->next) {
+			active = storage_ejected_partition_is_active(entry->device + 5,
+							     partitions);
+			if (active)
+				continue;
+			swap_status = try_device_swapoff(entry->device + 5);
+			if (swap_status != 0) {
+				saved_errno = errno ? errno : EIO;
+				logmessage("Storage", "refusing ejected-device cleanup because swapoff failed for %s (status %d, errno %d)",
+					   entry->device, swap_status, saved_errno);
+				swapoff_status = -1;
+			}
+		}
+	}
+
 	if (has_ejected_mounts && !storage_apps_stopped) {
 		errno = 0;
 		stop_status = stop_stor_apps();
@@ -2904,6 +2929,10 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	}
 
 	result = 0;
+	if (!storage_ejected_may_unmount_device(1, swapoff_status)) {
+		logmessage("Storage", "skipping all ejected-device unmounts because swapoff did not complete");
+		result = -1;
+	} else {
 	for (entry = head; entry; entry = entry->next) {
 		active = storage_ejected_partition_is_active(entry->device + 5,
 							     partitions);
@@ -2927,6 +2956,7 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 		} else {
 			(void)rmdir(entry->mountpoint);
 		}
+	}
 	}
 
 	free_storage_ejected_mounts(head);

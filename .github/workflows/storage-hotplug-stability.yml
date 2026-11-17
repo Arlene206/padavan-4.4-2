@@ -406,6 +406,14 @@ jobs:
           rollback = "storage_rollback_stor_apps_after_stop_failure("
           optware_unmount = 'eval("/usr/bin/opt-umount.sh", entry->device'
           assert eject.index(stage_call) < eject.index(unmount_loop)
+          ejected_swapoff = eject.index("try_device_swapoff(entry->device + 5)")
+          ejected_swap_gate = eject.index("storage_ejected_may_unmount_device(1, swapoff_status)")
+          ejected_stop = eject.index("stop_status = stop_stor_apps()")
+          ejected_unmount = eject.index("umount(entry->mountpoint)")
+          assert ejected_swapoff < ejected_stop < ejected_swap_gate < ejected_unmount
+          assert "refusing ejected-device cleanup because swapoff failed" in eject
+          assert "skipping all ejected-device unmounts because swapoff did not complete" in eject
+          assert "swapoff_status = -1;" in eject
           assert "fopen(PROC_PARTITIONS_FILE" not in eject
           assert "storage_ejected_partition_is_active(entry->device + 5," in eject
           assert "umount(entry->mountpoint)" in eject
@@ -861,6 +869,7 @@ jobs:
           assert "try_device_swapoff(device_name)" in report_swapoff
           assert "if (status != 0)" in report_swapoff
           assert "could not verify or disable swap" in report_swapoff
+          assert "return status;" in report_swapoff
 
           for signature in ("mdev_sd_main(", "mdev_mmc_main("):
               body = function_body(hotplug, signature)
@@ -870,8 +879,9 @@ jobs:
               unlock = body.index("out_unlock:")
               assert operation_lock < remove_branch < mount_call < unlock
               unplug = body[remove_branch:body.index("goto out_unlock;", remove_branch)]
-              assert unplug.index("report_device_swapoff(device_name)") < unplug.index("notify_rc(")
+              assert unplug.index("swapoff_status = report_device_swapoff(device_name)") < unplug.index("notify_rc(")
               assert 'notify_rc("on_unplug_mass_storage")' in unplug
+              assert "return (swapoff_status == 0) ? 0 : 1;" in body
               assert 'char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };' in body
               assert 'if (_eval(mount_argv, NULL, 0, NULL) == 0)' in body
               assert 'notify_rc("on_hotplug_mass_storage")' in body
