@@ -1,6 +1,6 @@
 ## 2026-11-17 — Preserve diagnostic-only policy for optional DHCP MTU ioctl failures
 
-- Parent main SHA: `6fa744ffe62e8b5e6795675d01cae50ff0c7871a`; result: THIS COMMIT.
+- Production policy correction landed in `7f7728ab553426965c47e72812c3b2a8c6ca6338` (parent `6fa744ffe62e8b5e6795675d01cae50ff0c7871a`); THIS COMMIT records the exact-head CI diagnosis and corrects the handoff.
 - Policy correction: the earlier DHCP renewal slice `02ec8ab3` correctly removed the `!is_renew_mode` guard so a changed advertised MTU is reapplied, but it also incorrectly promoted an optional MTU ioctl failure into `route_setup_status`. The pre-existing WAN callback contract explicitly keeps optional DHCP MTU setter failures diagnostic-only; they must not fail an otherwise valid lease callback or activate route retry.
 - Restored that separation in both WAN and IPTV callbacks: MTU setter failures are logged only; real route errors alone populate `route_err`/`manv_route_err` and trigger existing retry logic. Applying supported MTU changes during renew remains enabled.
 - Replaced the incorrect “MTU failure requests route retry” fixture with a regression proving optional MTU failure leaves route retry state clear while a genuine route error still requests retry. Expanded `check_wan_initial_mtu_status.py` to enforce the diagnostic-only/renew contract; restored WAN DHCP inline assertions to the route-only diagnostic text.
