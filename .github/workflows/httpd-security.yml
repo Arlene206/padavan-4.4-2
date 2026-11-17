@@ -2567,6 +2567,8 @@ jobs:
           assert "dhcp_lease_viptv_deconfig_apply(&ops, &context)" in viptv_deconfig
           assert "address remains down" in viptv_deconfig
           assert viptv_deconfig.index("dhcp_lease_viptv_deconfig_apply(") < viptv_deconfig.index("stop_igmpproxy(man_ifname)")
+          assert viptv_deconfig.index("if (status != 0)") < viptv_deconfig.index("stop_igmpproxy(man_ifname)")
+          assert "return route_status_accumulate(status, multicast_status);" in viptv_deconfig
           assert "udhcpc_viptv_deconfig_restore_address" not in wan
 
           man_start = wan.index("static int\nman_down_internal(")

@@ -4910,19 +4910,18 @@ udhcpc_viptv_deconfig(char *man_ifname)
 
 	context.ifname = man_ifname;
 	status = dhcp_lease_viptv_deconfig_apply(&ops, &context);
-	if (status != 0) {
+	if (status != 0)
 		logmessage(LOGNAME,
-			   "IPTV DHCP deconfig incomplete on %s (status=%d); address remains down and lease metadata is retained for retry",
+			   "IPTV DHCP deconfig incomplete on %s (status=%d); address remains down after successful clear and lease metadata is retained for retry",
 			   man_ifname, status);
-		return status;
-	}
 
+	/* Always stop multicast service, even when address or route cleanup failed. */
 	multicast_status = stop_igmpproxy(man_ifname);
 	if (multicast_status != 0)
 		logmessage(LOGNAME,
 			   "IPTV DHCP multicast teardown incomplete on %s (status=%d)",
 			   man_ifname, multicast_status);
-	return multicast_status;
+	return route_status_accumulate(status, multicast_status);
 }
 
 int
