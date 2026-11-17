@@ -8,31 +8,31 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
-Before context exhaustion, inspect the current source SHA, relevant exact-head Actions, validation boundary and first actionable task; then leave this handoff accurate for the next GPT.
+Before context exhaustion, inspect the current source SHA, exact-head Actions, validation boundary and next concrete task; update this handoff accurately.
 
-- Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; legacy PR #1 is closed.
-- CPU watchdog tri-state fix: source `aeddc15730e1a23419b1516ed88c330e148ac883` passed policy tests and XY-C1 Build/TRX/artifact (`44000632827`). Process, AI handoff and NVRAM passed on checker/docs-only child `58fe2c5a` (`44001230583`, `44001230567`, `44001230573`).
-- USB modem UNKNOWN-probe fix: source `766832746b81a67faaa5d88e3ba78cbd1228faef` passed dedicated readiness, Process, inventory, HTTPD security, infosvr and AI handoff (`44002424147`, `44002424268`, `44002424300`, `44002424357`, `44002424164`, `44002424146`). Its first XY-C1 run failed only an obsolete assertion; checker-only child `f7b975c6` repaired it.
-- IPv6 boot aggregation: `init_ipv6()` now returns global sysctl status and `init_router()` merges it. Production source `37e414f2d4f6a80c7addeaca04c14f4fdcdf5f5d` had Process checker run `44003333415` fail only at a double-escaped checker regex; checker-only child `b447358e` fixed it. Process `44003684238`, AI handoff `44003684154`, NVRAM `44003684202`, infosvr `44003684216`, AliyunDrive `44003684191`, AliDDNS `44003684173`, and AdGuardHome `44003684129` passed on b447.
-- XY-C1 run `44003333586` for source `37e414f2` was still in Build XY-C1 at the last check; policy tests had run. Confirm its final Build/TRX/artifact state before claiming IPv6 L3.
-- Firewall review found that Boolean module probes for `iptable_mangle`, `iptable_raw`, and `ip6table_mangle` treated sysfs UNKNOWN as absent and could skip empty-table restore while stale rules remained active. The current source slice uses strict tri-state decisions; UNKNOWN/invalid marks the core transaction failed so existing logic aborts and rolls back earlier changes. New GNU89/Werror/ASan/UBSan policy tests and source contracts are wired into Firewall Startup Stability.
-- Physical-router L4 remains NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; development only on `main`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- CPU watchdog tri-state source `aeddc157` passed GNU89 regression and XY-C1 Build/TRX/artifact (`44000632827`); Process/handoff/NVRAM passed on checker/docs-only descendant `58fe2c5a`.
+- USB modem tri-state source `76683274` passed dedicated modem readiness plus Process/inventory/HTTPD/infosvr/handoff Actions. XY-C1's first run failed a stale checker; fixed by checker-only `f7b975c6`.
+- IPv6 boot status propagation source `37e414f2` merges global sysctl errors into boot first-error status. Process checker fix is `b447358e`; Process `44003684238`, AI handoff `44003684154`, NVRAM `44003684202`, infosvr `44003684216`, AliyunDrive `44003684191`, AliDDNS `44003684173`, AdGuardHome `44003684129` passed on b447. XY-C1 run `44003333586` for `37e414f2` was still in Build at last check.
+- Firewall table UNKNOWN-probe fix is product-source commit `736ebe8638d253ae7b870d8a4554b15b7709f30b`. Firewall Startup Stability run `44005295947` PASS (new GNU89/Werror/ASan/UBSan policy test included); Process lifecycle `44005296116`, inventory `44005296027`, FULLCONENAT `44005295950`, and AI handoff `44005296129` PASS on exact 736. XY-C1 run `44005295961` was in Build XY-C1 after every policy/source-check step passed; confirm Build/TRX/artifact.
+- HTTPD umbrella run `44005296061` failed only at a stale source assertion requiring legacy Boolean `is_module_loaded("ip6table_mangle")` in IPv6 mangle; current firewall code intentionally uses the tri-state transaction helper. This commit updates that checker; no production C source changes here.
+- NVRAM boundary audit `44005296140` was still running at the last poll. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-1. Verify exact-head Firewall Startup Stability regression and source contracts for optional module-table UNKNOWN/invalid-state rollback.
-2. Verify same-SHA XY-C1 Build, TRX and artifact upload for this firewall source change; do not carry forward older L3 results.
-3. Continue the P1 RC reliability/security review for another concrete false-success or first-error loss in a different subsystem. Do not repeat watchdog, modem, storage, VPN or NVRAM tasks.
+1. Verify the HTTPD umbrella rerun after updating its obsolete IPv6 mangle Boolean-probe assertion; inspect any next source-contract failure.
+2. Inspect exact-source XY-C1 run `44005295961` for production SHA `736ebe8638d253ae7b870d8a4554b15b7709f30b`; confirm Build, TRX and artifact upload.
+3. Check NVRAM run `44005296140` and proceed with the next independent P1 RC reliability/security defect. Do not repeat completed watchdog, USB modem, IPv6 sysctl, firewall, storage or VPN work.
 
 ## Verification boundary
 
-- Watchdog L2/L3: PASS; product source `aeddc157` passed policy and XY-C1 Build/TRX/artifact.
-- USB modem L2: PASS on `76683274`; dedicated policy and related exact-head workflows passed. Its first XY-C1 run failed only the stale checker, fixed in `f7b975c`.
-- IPv6 boot aggregation: source committed in `37e414f2`, checker fixed in `b447358e`; Process, handoff, NVRAM and module Actions passed on b447. XY-C1 `44003333586` remained in Build at last check; L3 pending.
-- Firewall module-table tri-state: current slice pending exact-head L2/L3 Actions. Earlier CI does not validate this change.
+- Watchdog L2/L3: PASS on product source `aeddc157`.
+- USB modem L2: PASS on `76683274`; exact-source XY-C1 checker correction in `f7b975c6`, production firmware build still needs a completed exact-SHA result.
+- IPv6 boot status: product source `37e414f2`; Process/handoff/NVRAM/module workflows PASS on `b447358e`; XY-C1 `44003333586` still in progress at last check.
+- Firewall tri-state: Firewall Startup Stability PASS on exact source `736ebe86`; Process/inventory/FULLCONENAT/handoff PASS. XY-C1 `44005295961` in progress, so L3 not yet claimed.
+- HTTPD umbrella: `44005296061` failed a stale source assertion; checker-only correction in this commit pending rerun.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live main and query push Actions by exact `head_sha`. Inspect Firewall Startup Stability and XY-C1 job logs for this slice; fix the first causal failure and rerun on the new SHA. Do not claim L3 until same-SHA Build, TRX verification and artifact upload pass. Preserve the frozen backup and use one complete Git tree/commit with a non-forced expected-SHA compare-and-swap.
+Fetch live main and inspect the exact-head HTTPD security rerun and XY-C1 Build/TRX/artifact for `736ebe86`. Fix the first true source/checker failure, not already-completed policy work. Keep backup frozen, maintain per-SHA validation boundaries, and publish each multi-file task with one tree/commit and expected-SHA non-forced update.

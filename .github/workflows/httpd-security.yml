@@ -4660,7 +4660,10 @@ jobs:
           ip6_mangle_start = firewall.index("ip6t_mangle_rules(")
           ip6_nat_start = firewall.index("ip6t_nat_rules(", ip6_mangle_start)
           ip6_mangle = firewall[ip6_mangle_start:ip6_nat_start]
-          assert 'is_module_loaded("ip6table_mangle")' in ip6_mangle
+          assert 'firewall_module_table_restore_required("IPv6 mangle restore"' in ip6_mangle
+          assert '"ip6table_mangle"' in ip6_mangle
+          assert "is_module_loaded_status(module_name)" in firewall
+          assert 'is_module_loaded("ip6table_mangle")' not in ip6_mangle
           assert 'is_module_loaded("iptable_mangle")' not in ip6_mangle
           assert all(f'"/tmp/{name}"' not in firewall for name in (
               "ipt_filter.rules", "ipt_filter.default", "ipt_mangle.rules",

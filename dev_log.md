@@ -1,3 +1,12 @@
+## 2026-11-17 — Align HTTPD firewall contract with tri-state module gating
+
+- Exact-head HTTPD umbrella run `44005296061` on firewall source SHA `736ebe8638d253ae7b870d8a4554b15b7709f30b` passed the preceding auth/access checks, then failed only because its IPv6 mangle source assertion required legacy `is_module_loaded("ip6table_mangle")`.
+- Firewall code now intentionally routes IPv6 mangle readiness through `firewall_module_table_restore_required()`, backed by `is_module_loaded_status()`; UNKNOWN marks the enclosing firewall transaction failed so changes are rolled back. Replaced the obsolete checker assertion with the tri-state helper/module-token contract and explicit no-legacy-Boolean assertion.
+- Checker/docs-only; no production C changes. Exact-source Firewall Startup Stability `44005295947`, Process `44005296116`, inventory `44005296027`, FULLCONENAT `44005295950`, and AI handoff `44005296129` passed on `736ebe86`. XY-C1 `44005295961` was still building.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Fail closed on UNKNOWN firewall module-table probes
 
 - Base main SHA: `b447358e3c999c5f56ba915872d2243c91c7a962`; result: THIS COMMIT.

@@ -1,10 +1,11 @@
 ## Current source / CI checkpoint
 
-- CPU watchdog: product source `aeddc15730e1a23419b1516ed88c330e148ac883` passed policy tests and XY-C1 Build/TRX/artifact (`44000632827`); Process, AI handoff and NVRAM passed on checker/docs-only child `58fe2c5a`.
-- USB modem tri-state: source `766832746b81a67faaa5d88e3ba78cbd1228faef` passed dedicated modem readiness and related exact-head Process/inventory/HTTPD/infosvr/handoff Actions. XY-C1 initially failed an obsolete checker; repaired by checker-only `f7b975c6`.
-- IPv6 boot aggregation: product source `37e414f2d4f6a80c7addeaca04c14f4fdcdf5f5d`; Process checker correction is `b447358e3c999c5f56ba915872d2243c91c7a962`. Process, handoff, NVRAM, infosvr, AliyunDrive, AliDDNS and AdGuardHome passed on b447. XY-C1 `44003333586` for `37e414f2` remained in Build; inspect Build/TRX/artifact.
-- Firewall optional table restore now distinguishes LOADED/ABSENT/UNKNOWN for IPv4 mangle/raw and IPv6 mangle. UNKNOWN/invalid fails the core transaction, triggering rollback instead of silently retaining stale rules. New GNU89/Werror/ASan/UBSan tests and source contracts are wired to Firewall Startup Stability; exact-head L2/L3 pending.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable. Physical-router L4 remains NOT VERIFIED.
+- CPU watchdog: product source `aeddc157` passed policy tests and XY-C1 Build/TRX/artifact (`44000632827`); Process/handoff/NVRAM passed on checker-only child `58fe2c5a`.
+- USB modem: source `76683274` passed dedicated readiness and Process/inventory/HTTPD/infosvr/handoff; initial XY checker failure was repaired in `f7b975c6`.
+- IPv6 boot status: source `37e414f2`; Process checker correction `b447358e`; related Process/handoff/NVRAM/infosvr/AliyunDrive/AliDDNS/AdGuardHome runs passed on b447. XY-C1 `44003333586` for `37e414f2` had not completed at last check.
+- Firewall tri-state module gates: source `736ebe8638d253ae7b870d8a4554b15b7709f30b`; Firewall Startup Stability `44005295947`, Process `44005296116`, inventory `44005296027`, FULLCONENAT `44005295950`, and AI handoff `44005296129` passed. XY-C1 `44005295961` was still in Build/TRX/artifact.
+- HTTPD umbrella `44005296061` failed only at an obsolete assertion expecting the old IPv6 mangle Boolean module probe; checker-only correction in current commit.
+- Frozen backup remains immutable; physical-router L4 NOT VERIFIED.
 
 ## Whole-repository module status
 
