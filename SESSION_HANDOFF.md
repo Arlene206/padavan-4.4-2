@@ -1,5 +1,28 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
+## 2026-11-17 continuation checkpoint (authoritative)
+
+This checkpoint supersedes older "next task" and CI notes below it.
+
+- Repository: `Arlene206/padavan-4.4-2`
+- Verified main HEAD at handoff: `07aecfc4c03368c7e05efecb5977916953b854d8`
+- Backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (frozen; do not update)
+- Most recent implementation slice: `40fb7dfe716f1003c96b4b61453017daef5495d3` — AliDDNS stock IPv6 lookup now reads `wan0_ifname6`, validates the interface token/length, queries that WAN6 interface (including `sit0`), selects exactly one `Scope:Global` address in `2000::/3`, and fails closed for empty/unsafe interfaces, ULA/link-local, ambiguous globals, or failed `ifconfig`.
+- Regression added: `trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh`; it covers native PPP, SIT, unsafe/empty interface values, ULA, link-local-only, multiple globals, ifconfig failure, and strict IPv6 syntax.
+- Static checker and `aliddns-api-transport.yml` were updated to run and protect this regression. The workflow YAML indentation repair is commit `29f9b24d3b7ad8fc5f0dd4e856e0d3d06687599a`; the earlier run on `40fb7dfe` had a malformed workflow (no job execution), so that run is not evidence of test success.
+- Exact-HEAD CI status:
+- XY-C1 Firmware Validation: in_progress (run 44117807418)
+- AI handoff documentation contract: in_progress (run 44117807484)
+- NVRAM transaction boundary audit: in_progress (run 44117807493)
+- AliDDNS signed API transport security regression: in_progress (run 44117807472)
+
+### Next developer actions
+1. Inspect exact-HEAD Actions above. For any FAIL, read the failing job log and fix it; for PENDING, continue independent work rather than waiting.
+2. Confirm the new AliDDNS WAN IPv6 regression actually ran on this HEAD; do not cite the pre-indent workflow run as a pass.
+3. Re-check XY-C1 build only if a build workflow ran for this SHA; otherwise use the repository's established firmware-validation workflow deliberately and record the resulting SHA.
+4. Continue from the roadmap's cross-userland stability/security queue; do not repeat the completed repository bootstrap or audits.
+
+
 This checkpoint supersedes older status statements below when they conflict. Restore once from the startup protocol; do not repeat completed audits.
 
 ## Git state

@@ -614,3 +614,13 @@
 
 ---
 
+
+
+## 2026-11-17 — AliDDNS WAN IPv6 source correction
+
+- Implementation commit: `40fb7dfe716f1003c96b4b61453017daef5495d3`.
+- Corrected the stock IPv6 discovery path from LAN bridge `br0` to the configured `wan0_ifname6` interface maintained by RC's WAN6 lifecycle (native PPP and `sit0` tunnel cases).
+- Rejects unsafe/empty/overlength interface names, non-public address scopes, ambiguous multiple global addresses, and failed interface queries. Does not fall back to a LAN address.
+- Added `aliddns_ipv6_lookup.sh` and wired it into `check_aliddns_api_transport.py` and `aliddns-api-transport.yml`.
+- Workflow indentation follow-up: `29f9b24d3b7ad8fc5f0dd4e856e0d3d06687599a`. The earlier malformed run on the implementation commit did not execute jobs; exact-HEAD status is recorded in `SESSION_HANDOFF.md`.
+- Main at this log entry: `07aecfc4c03368c7e05efecb5977916953b854d8`; backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
