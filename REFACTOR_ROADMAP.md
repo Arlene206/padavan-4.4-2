@@ -1,8 +1,8 @@
 ## Current source / CI checkpoint
 
-- LAN IPv6 teardown and reload status are propagated through the relevant stop/start/restart paths. The reload policy tests passed and the checker normalization fix passed exact Process, Firewall and AI jobs.
-- WAN IPv6 address creation now passes three dynamic address strings as argv values rather than shell-formatted `doSystem()` inputs. Inputs remain generated from IPv6 structs or validated with `format_ipv6_literal()`; WAN-specific source contracts and shared checker assertions are added.
-- Exact parent `4cdf852` Process/Firewall/AI jobs passed; XY-C1 was in firmware Build with TRX/artifact pending. The source slice here requires exact-head WAN, Process, Firewall, AI and XY-C1 verification.
+- LAN IPv6 cleanup/reload status propagation and the argv-based WAN IPv6 address-add calls are implemented. GNU89/ASan/UBSan LAN IPv6 policy regression and shared WAN IPv6 source assertions pass on their tested source commits.
+- Exact source SHA `b7aa7296aab8274461a68182402357352a9d905e`: Process, Firewall Startup, WAN route, AI handoff and HTTPD security checks PASS. WAN DHCP callback failed at one stale inline contract that still expected the replaced shell-formatted IPv6 address-add calls; the next checker-only commit updates it to verify argv calls inside the existing status macros.
+- Exact XY-C1 `43983424207` passed all pre-build host/source checks and was still running Build XY-C1 at last poll; TRX verification/artifact upload remain pending. Product-source L3 is **NOT VERIFIED** until all three succeed on one source SHA.
 - Frozen backup remains read-only; physical-router L4 remains **NOT VERIFIED**.
 
 ## Whole-repository module status

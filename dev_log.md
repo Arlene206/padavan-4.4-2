@@ -1,3 +1,12 @@
+## 2026-11-16 — Align WAN DHCP callback contracts with argv-based IPv6 address adds
+
+- Parent source SHA: `b7aa7296aab8274461a68182402357352a9d905e`. WAN DHCP callback Actions run `43983424171` failed in its inline Python source contract because it still expected the three IPv6 address-add operations to use shell-formatted `doSystem()` calls.
+- The production source had intentionally converted the SIT WAN, derived SIT LAN and native static WAN address-adds to argv-based `eval()`; WAN fail-fast macros still capture their status. This is a stale checker failure, not a runtime/test failure.
+- Updated the callback workflow's required-operation and status-gating assertions to require the argv calls and added guards against reintroducing shell-formatted address additions. No production source changed.
+- On exact `b7aa7296aab8274461a68182402357352a9d905e`, WAN route `43983424396`, Process `43983424164`, Firewall `43983424297`, AI handoff `43983424148` and HTTPD `43983424199` PASS. XY-C1 `43983424207` had passed all pre-build checks and was building; TRX/artifact pending. Product-source L3 and physical-router L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Pass dynamic WAN IPv6 address arguments without a shell
 
 - Parent: `4cdf85227650738b7a9c105322fab12e5b5d06cc`. Audited `net_wan6.c`: three dynamic IPv6 address additions used `doSystem("ip -6 addr add %s dev %s", ...)`. The IPv6 address strings are generated from validated binary IPv6 structs or passed through `format_ipv6_literal()`; replacing shell formatting with argv execution removes unnecessary shell parsing and prevents future input regressions.

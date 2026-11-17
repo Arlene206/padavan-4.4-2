@@ -747,6 +747,8 @@ jobs:
           assert "void start_sit_tunnel(" not in rc_header
           assert "void stop_sit_tunnel(void);" not in rc_header
 
+          assert 'doSystem("ip -6 addr add %s dev %s"' not in wan6_source
+          assert wan6_source.count('eval("ip", "-6", "addr", "add",') == 3
           sit_start = body(wan6_source, "int start_sit_tunnel(int ipv6_type, char *wan_ifname")
           assert "WAN6_SIT_CHECK(" in sit_start
           for operation in (
@@ -758,7 +760,7 @@ jobs:
               "ip link set mtu %d dev %s up",
               "control_if_ipv6(IFNAME_SIT, 1)",
               "clear_if_addr6(IFNAME_SIT)",
-              "ip -6 addr add %s dev %s",
+              'eval("ip", "-6", "addr", "add", addr6s, "dev", IFNAME_SIT)',
               "ip -6 route add default dev %s metric %d",
               "ip -6 route add default via %s dev %s metric %d",
               "clear_if_addr6(IFNAME_BR)",
@@ -769,7 +771,7 @@ jobs:
           assert "int start_sit_tunnel(" in wan6_source
           assert "if (wan_route_added)" in sit_start
           assert "if (tunnel_created)" in sit_start
-          assert sit_start.index("route_add(wan_ifname, 0, sit_ep") < sit_start.index("ip -6 addr add %s dev %s")
+          assert sit_start.index("route_add(wan_ifname, 0, sit_ep") < sit_start.index('eval("ip", "-6", "addr", "add", addr6s')
           assert sit_start.index("ip -6 route add default") < sit_start.index("store_lan_addr6(lan_addr6s)")
 
           native_start = body(wan6_source, "int wan6_up(char *wan_ifname, int unit)")
@@ -782,7 +784,7 @@ jobs:
               "control_if_ipv6_privacy(wan_ifname, 0)",
               "control_if_ipv6_radv(wan_ifname, 0)",
               "clear_if_addr6(wan_ifname)",
-              "ip -6 addr add %s dev %s",
+              'eval("ip", "-6", "addr", "add", addr6_text, "dev", wan_ifname)',
               "ip -6 route add %s dev %s",
               "ip -6 route add default via %s metric %d",
               "ip -6 route add default dev %s metric %d",
@@ -809,14 +811,14 @@ jobs:
               'WAN6_SIT_CHECK(doSystem("ip link set mtu %d dev %s up"',
               "WAN6_SIT_CHECK(control_if_ipv6(IFNAME_SIT, 1)",
               "WAN6_SIT_CHECK(clear_if_addr6(IFNAME_SIT)",
-              'WAN6_SIT_CHECK(doSystem("ip -6 addr add %s dev %s"',
+              'WAN6_SIT_CHECK(eval("ip", "-6", "addr", "add", addr6s',
           ):
               assert marker in sit_start, f"SIT operation not status-gated: {marker}"
           for marker in (
               "WAN6_NATIVE_CHECK(control_if_ipv6_privacy(wan_ifname, 0)",
               "WAN6_NATIVE_CHECK(control_if_ipv6_radv(wan_ifname, 0)",
               "WAN6_NATIVE_CHECK(clear_if_addr6(wan_ifname)",
-              'WAN6_NATIVE_CHECK(doSystem("ip -6 addr add %s dev %s"',
+              'WAN6_NATIVE_CHECK(eval("ip", "-6", "addr", "add", addr6_text',
               'WAN6_NATIVE_CHECK(doSystem("ip -6 route add %s dev %s"',
               'WAN6_NATIVE_CHECK(doSystem("ip -6 route add default via %s metric %d"',
               'WAN6_NATIVE_CHECK(doSystem("ip -6 route add default dev %s metric %d"',
