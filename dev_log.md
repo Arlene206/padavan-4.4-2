@@ -1,3 +1,13 @@
+## 2026-11-17 18:53:50 CST — Correct Process source contract for direct AP-start status variables
+
+- Parent main SHA: `89f232e6a5e1ed445129dc18a45356c148e71c14`; result: THIS COMMIT.
+- Exact-head Process workflow run `44068630031` failed in `Verify LAN startup error propagation through PID 1 and LAN restart`. Guest isolation policy/source checks passed earlier in that job. The failing assertion expected direct `start_wifi_ap_rt/wl()` calls to assign the generic `operation_status`; the new direct-boot rollback records AP startup separately as `rt_ap_start_status` and `wl_ap_start_status` so it can distinguish AP startup failures from WDS/APCLI operations.
+- Updated only the workflow's embedded source contract to accept dedicated AP status variables while retaining generic operation-status checks for WDS/APCLI. No production-source change was needed for this failure.
+- Exact-head on `89f232e6`: Wireless radio `44068630167` PASS; AI docs `44068629955` PASS; Process inventory `44068630249` PASS; Process lifecycle `44068630031` FAILED at the stale assertion described above; XY-C1 `44068629924` was still IN_PROGRESS at this checkpoint.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 18:50:33 CST — Fail closed on direct LAN-bridge AP startup
 
 - Parent main SHA: `d2b1d75c4dfa3dd9792f31c8ed55ced3de9c6262`; result: THIS COMMIT.

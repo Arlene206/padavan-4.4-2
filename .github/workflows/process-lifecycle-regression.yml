@@ -695,12 +695,17 @@ jobs:
               ("start_wifi_wds_wl(wl_radio_on)", "5GHz WDS radio startup"),
               ("start_wifi_apcli_wl(wl_radio_on)", "5GHz APCLI radio startup"),
           ):
-              expected = "operation_status = " + call + ";"
-              recorded = 'rc_bridge_init_record(&bridge_status, "' + operation + '", operation_status);'
+              status_variable = {
+                  "start_wifi_ap_rt(rt_radio_on)": "rt_ap_start_status",
+                  "start_wifi_ap_wl(wl_radio_on)": "wl_ap_start_status",
+              }.get(call, "operation_status")
+              expected = status_variable + " = " + call + ";"
+              recorded = 'rc_bridge_init_record(&bridge_status, "' + operation + '", ' + status_variable + ');'
               assert expected in init_bridge, expected
               assert recorded in init_bridge, recorded
-          assert init_bridge.index("operation_status = start_wifi_ap_rt(rt_radio_on);") < init_bridge.index('rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);')
-          assert init_bridge.index('rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);') < init_bridge.index("operation_status = ifconfig(IFNAME_BR, IFUP, NULL, NULL);")
+          rt_ap_record = 'rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", rt_ap_start_status);'
+          assert init_bridge.index("rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);") < init_bridge.index(rt_ap_record)
+          assert init_bridge.index(rt_ap_record) < init_bridge.index("operation_status = ifconfig(IFNAME_BR, IFUP, NULL, NULL);")
           assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
 
           assert 'rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);' in init_bridge
