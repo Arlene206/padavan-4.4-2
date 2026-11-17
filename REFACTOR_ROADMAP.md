@@ -1,17 +1,16 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS correction: `e5338402f12fb46e44c8e7a752863ed48fe14f4a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- IAPP lifecycle implementation `e5338402` adds tagged firewall rule ownership and stop/stale-start cleanup. Its exact workflow `44200753434` failed only because the test expected the old `daemon startup rollback failed` phrase; production logs the more precise `daemon/firewall startup rollback failed`. THIS test-only correction updates that expectation.
-- Exact e533 AI handoff `44200753459`, Process inventory `44200753122`, AdGuardHome `44200753176`, AliDDNS `44200753133`, infosvr `44200753219`, AliyunDrive `44200753204` PASS. Process integration `44200753226` failed in its lifecycle status propagation step; NVRAM `44200753245` pending; XY-C1 `44200753260` pending before Build/TRX/artifact.
-- Exact IAPP rerun after THIS correction pending. Local shell/firmware tests not run; hardware L4 NOT VERIFIED.
-
-Next: verify exact-head IAPP, diagnose Process lifecycle regression, and close pending NVRAM/XY-C1 gates.
+- Parent main before THIS IAPP regression/AI contract repair: `8e92caa7e3e3b6f66523c2fa6a051736d1030cc0`.
+- Ralink IAPP lifecycle implementation `e5338402` tagged TCP/UDP 3517 rules and reconciles only tagged entries. First exact IAPP test failed on stale rollback wording; `8e92caa7` fixed that. Exact IAPP rerun `44201107917` then exposed a second stale assertion: UDP rollback expected an untagged delete command instead of the explicit `ralinkiappd-tcp` owner tag. THIS repair updates that assertion.
+- AI handoff run `44201108042` on `8e92caa7` failed because a wording edit removed the required literal `one atomic main commit`; THIS repair restores the checker contract.
+- Exact Process lifecycle rerun `44201108009` on `8e92caa7` is still in progress; the prior `e5338402` run failed at the shared IAPP checker test. NVRAM, XY-C1, AliDDNS, AliyunDrive checks on `8e92caa7` were still in progress at last poll.
+- Next: inspect exact-head IAPP, Process and AI results for THIS repair, plus NVRAM and XY-C1. Frozen backup unchanged; hardware L4 NOT VERIFIED.
 
 ---
 
 ## Whole-repository module status
 
-- WAN P1 work: static IPoE EAPOL cleanup `5d0618c` (WAN PASS on `80dcdc6`); partial static-address cleanup `93c8ab7` (WAN PASS `44198950271`, AI PASS `44198949896`, XY-C1 still building); post-WAN up-hook status `2a98a83` (WAN PASS `44200079558`, AI PASS `44200079479`, XY-C1 still building); post-WAN down-hook status (THIS slice, exact-head pending).
+- IAPP firewall ownership cleanup is committed at `e5338402`; this repair aligns the test to ownership-tagged deletion and restores the AI handoff wording token. Exact validation pending.
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
 - THIS COMMIT fixes two more launcher/daemon mismatches: rstats daemonizes before allocation/PID-file publication; LLTD double-forks and calls setsid before PID publication/event loop. RC now preflights tri-state presence and verifies detached child RUNNING with bounded polls. Exact-head Process and XY-C1 pending.

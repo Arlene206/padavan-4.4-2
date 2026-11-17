@@ -118,7 +118,7 @@ grep -q "^killall " "$COMMAND_LOG" || fail "TCP rule failure skipped daemon roll
 reset; MOCK_IPTABLES=42; MOCK_IPTABLES_FAIL_AT=2
 rc=$(capture_status run start); status "$rc" 42
 [ ! -f "$STATE_DIR/daemon" ] || fail "UDP rule failure left daemon running"
-grep -Fq "iptables -D INPUT -i br0 -p tcp --dport 3517 -j ACCEPT" "$COMMAND_LOG" || fail "UDP failure did not roll back TCP rule"
+grep -Fq "iptables -D INPUT -i br0 -p tcp --dport 3517 -m comment --comment ralinkiappd-tcp -j ACCEPT" "$COMMAND_LOG" || fail "UDP failure did not roll back owned TCP rule"
 [ "$(grep -c "^iptables -D " "$COMMAND_LOG")" -eq 1 ] || fail "unexpected firewall rollback rule count"
 ! grep -q "iptables -D INPUT -i br0 -p udp " "$COMMAND_LOG" || fail "removed UDP rule not owned by this start"
 

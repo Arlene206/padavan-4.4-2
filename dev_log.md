@@ -1,3 +1,13 @@
+## 2026-11-18 — Align IAPP UDP rollback assertion and restore handoff contract token
+
+- Parent main SHA: `8e92caa7e3e3b6f66523c2fa6a051736d1030cc0`.
+- Exact IAPP workflow `44201107917` on `8e92caa7` passed shell syntax and the rollback-diagnostic assertion after the earlier correction, then failed because the UDP failure test still expected the pre-ownership untagged TCP delete syntax. THIS repair now expects the tagged `ralinkiappd-tcp` rule, which matches the implemented ownership boundary.
+- Exact AI handoff `44201108042` failed because `SESSION_HANDOFF.md` no longer contained the mandatory literal `one atomic main commit`; the full non-forced expected-SHA rule is restored.
+- Exact Process lifecycle run `44201108009` was still IN_PROGRESS at last poll; its earlier failure was in the same IAPP checker invoked from the optional app status checker. Recheck after this commit.
+- NVRAM and XY-C1 on `8e92caa7` were pending; this source SHA requires its own checks. No local shell/MIPS build or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Align IAPP rollback regression with diagnostic
 
 - Parent main `e5338402f12fb46e44c8e7a752863ed48fe14f4a`; exact IAPP run `44200753434` passed POSIX syntax and failed only at line 106 because the test expected the old `daemon startup rollback failed` message, while the updated rollback path emits `daemon/firewall startup rollback failed`.

@@ -8,8 +8,9 @@
 - Other exact e533 passing checks: AdGuardHome `44200753176`, AliDDNS `44200753133`, infosvr `44200753219`, AliyunDrive `44200753204`. Do not infer firmware L3 from older SHAs.
 
 ## Active task
-- THIS test-only correction aligns the regression with the implemented rollback diagnostic. The assertion now requires `daemon/firewall startup rollback failed`, matching the code path that can report either daemon or firewall cleanup rollback failure.
-- No production IAPP code changes. Re-run exact IAPP workflow, then inspect the independent Process lifecycle failure and pending NVRAM/XY-C1 work.
+- The Ralink IAPP firewall lifecycle source in `e5338402` is correct in using comment-tagged ownership for its TCP/UDP rules. The test first failed on stale rollback text; commit `8e92caa7` aligned that assertion.
+- The exact rerun `44201107917` still failed later because the UDP-publication rollback test expected an untagged `iptables -D` command, whereas the implementation deliberately deletes only the tagged IAPP-owned TCP rule. THIS repair aligns that assertion and restores the required "one atomic main commit" handoff contract string that the AI docs checker requires.
+- The previous Process regression run failed in the same lifecycle-checker path; its exact-head rerun must be checked after this fix.
 
 ## Verification boundary
 - Parent e533 IAPP workflow `44200753434`: FAIL solely at the stale rollback log assertion after shell syntax passed.
@@ -30,6 +31,6 @@ Every session MUST inspect live main, materially changed exact-SHA Actions, curr
 
 Continue one engineering effort across GPT conversations. Recover once, fix concrete defects, test, atomically commit and inspect exact-SHA Actions. Do not wait idly on pending CI or ask the user what to do next.
 
-Every logical multi-file change must use Git data APIs to create all blobs, one complete tree and one commit parented to fresh main, then publish with a non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs or modify the frozen backup.
+Every logical multi-file change must use Git data APIs to create all blobs, one complete tree and one atomic main commit parented to freshly fetched main, then publish with a non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs or modify the frozen backup.
 
 Before context exhaustion, finish a safe slice and leave a precise next action.
