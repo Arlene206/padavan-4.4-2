@@ -31,9 +31,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Re-run exact-head AI handoff documentation validation after rotating the root dev_log rolling window: 100 oldest complete records are now archived verbatim in part-014; root retains 21 newest records.
-2. Verify XY-C1 Build → TRX → artifact for source SHA `c6edf06e`; Process inventory/lifecycle on this exact SHA passed (`44072349383`). Do not infer firmware success from the earlier `1be4affc` build.
-3. If AI docs and XY-C1 pass, continue with the next independent P1 service-start result-propagation defect outside wireless/storage.
+1. The documentation-rotation checkpoint is closed: exact-main AI handoff run `44073201767` passed on `76852b80f2b7629546f3439d2d489d4649aec5e3`.
+2. The product-source baseline `c6edf06e2a9d148f24757926488166dea8f9205b` completed XY-C1 Build, TRX verification and artifact upload successfully in run `44072349459`; Process inventory/lifecycle passed in `44072349383`. Main `76852b80` is one documentation-only descendant of that tested source baseline (REFACTOR_ROADMAP, SESSION_HANDOFF, dev_log rotation, archive shard and index only).
+3. Continue the next P1 startup-result propagation audit outside wireless/storage. Initial inspection of `services.c` found legacy `void` wrappers for AdGuardHome, DDNS.to, Adbyby, AliDDNS and FRP that log launcher errors; their active boot call graph is not yet established, so do not change signatures until all callers are traced. Next inspect `services_ex.c:start_ddns()` cache cleanup/directory preparation and its callers, then select only a confirmed failure-propagation defect with a focused host regression.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -48,4 +48,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Check exact-head AI docs and XY-C1 Build/TRX/artifact after this archive rotation. On parent source SHA c6edf06e, Process inventory/lifecycle run 44072349383 passed, XY-C1 run 44072349459 was still in progress, and AI docs run 44072349503 failed only because the root dev_log had 121 records. This commit moves the oldest 100 complete records verbatim to part-014 and leaves the newest 21 in root. If checks pass, pick the next P1 startup-result propagation bug outside wireless/storage.
+Continue source review at `trunk/user/rc/src/services_ex.c:start_ddns(int clear_cache)`: trace every caller and the semantics of `DDNS_CACHE_DIR`, `doSystem("rm -rf ...")`, and `mkdir()`. Determine whether cleanup or directory creation failures can produce stale credentials/cache or a false successful daemon start. Add a small injected policy helper and GNU89/Werror/ASan/UBSan regression only if the defect is confirmed; wire its source contract into the existing Inadyn lifecycle workflow. Do not repeat the completed documentation rotation or XY-C1 checks above. Current main is `76852b80f2b7629546f3439d2d489d4649aec5e3`; tested product source baseline is `c6edf06e2a9d148f24757926488166dea8f9205b`.
