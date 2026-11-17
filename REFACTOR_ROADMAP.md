@@ -1,11 +1,11 @@
 # 2026-11-17 latest source checkpoint
 
-- Parent main SHA: `bc5eb1cc7db626d2475b8e838ea2c55e9dfffaf2`; THIS COMMIT propagates UNKNOWN whole-device partition inventory status through both SD and MMC mdev handlers. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
-- Parent AI handoff `44155187530`: SUCCESS. USB storage hotplug `44155187855`: IN_PROGRESS at last poll, checking the prior automount status fix.
-- Whole-device hotplug previously treated `check_root_partition()` values 1 (partitions exist) and -1 (inventory unavailable) as identical success. THIS COMMIT preserves 1 as a deliberate no-op, allows mount only on 0, and returns failure/logs on -1; storage CI contract extended to pin the 3-way result.
-- Exact-head storage and any target build triggered by this commit are pending; no router/L4 claim.
+- Parent main SHA: `e90549004908d388123e1807abf0ddeb4a6a11fd`; THIS COMMIT updates the HTTPD workflow's duplicated whole-device storage partition check to match the tri-state source contract. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- Exact-parent USB storage `44155697377`, Process lifecycle `44155697397`, Process inventory `44155697188`, AI handoff `44155697238`, NVRAM `44155697357`, AdGuardHome `44155697421`, infosvr `44155697728`, AliyunDrive `44155697355`, and AliDDNS `44155697169`: SUCCESS.
+- Parent HTTPD `44155697386` failed only at an outdated duplicate assertion requiring the pre-tri-state `if (check_root_partition(...))` syntax. Earlier HTTPD tests passed; same-SHA storage test passed. THIS COMMIT replaces the legacy assertion with explicit UNKNOWN/existing/empty result checks.
+- No XY-C1 job was triggered for parent SHA e905; no current target-build verification claimed. Physical L4 NOT VERIFIED.
 
-Next: verify the exact-head storage workflow, then continue one independent service lifecycle or NVRAM postcondition defect.
+Next: inspect exact-SHA HTTPD and AI handoff after this checker update, then resume a distinct product-source defect; do not repeat the completed SD/MMC topology gate.
 ---
 
 ## Whole-repository module status

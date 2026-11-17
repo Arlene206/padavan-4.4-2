@@ -1,24 +1,26 @@
-# 2026-11-17 continuation checkpoint — fail hotplug when partition topology is unknown
+# 2026-11-17 continuation checkpoint — align HTTPD storage gate with tri-state partition inventory
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `bc5eb1cc7db626d2475b8e838ea2c55e9dfffaf2`; THIS COMMIT propagates unknown `/proc/partitions` state in SD/MMC whole-device events.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; no force updates; PR #1 remains closed/unmerged.
-- No full MIPS/uClibc toolchain or physical router; L4 remains NOT VERIFIED.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `e90549004908d388123e1807abf0ddeb4a6a11fd`; THIS COMMIT updates a cross-workflow regression contract, not firmware source.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; development is main-only, no force-push; PR #1 closed/unmerged.
+- No local MIPS/uClibc toolchain or physical router; this commit does not trigger a current-head XY-C1 firmware job. Physical L4 remains NOT VERIFIED.
 
-## Parent exact-head Actions
-- USB storage hotplug `44155187855`: IN_PROGRESS at last poll, rerunning the exact-head source contract after the stale return-expression assertion was removed.
-- AI handoff `44155187530`: SUCCESS.
-- Parent source/checker SHA: `bc5eb1cc7db626d2475b8e838ea2c55e9dfffaf2`; this commit adds a distinct mdev source-result path. No XY-C1 run was triggered by the parent workflow-only checker repair.
+## Parent exact-head Actions (SHA `e90549004908d388123e1807abf0ddeb4a6a11fd`)
+- USB storage hotplug `44155697377`: SUCCESS, including C policy tests and full storage caller/source contracts.
+- Process lifecycle inventory `44155697397`: SUCCESS; Process inventory/fail-closed `44155697188`: SUCCESS.
+- AI handoff `44155697238`: SUCCESS; NVRAM transaction audit `44155697357`: SUCCESS; AdGuardHome `44155697421`: SUCCESS; infosvr `44155697728`: SUCCESS; AliyunDrive `44155697355`: SUCCESS; AliDDNS `44155697169`: SUCCESS.
+- HTTPD authentication/security `44155697386`: FAILURE at its `Verify block-storage whole-disk partition gate` step. All prior HTTPD/NVRAM/atomic-config/USB-modem tests passed; failure is an obsolete source assertion expecting `if (check_root_partition(...))`, while production now distinguishes negative UNKNOWN, positive existing partitions, and zero empty topology. The storage workflow on the same exact SHA passed this newer contract.
+- No XY-C1 run was triggered for this source SHA; no firmware build result is asserted.
 
-## SD/MMC partition topology result (THIS COMMIT)
-- On whole-device add events, `check_root_partition()` returns 1 when the device has partitions (skip mounting the whole disk), 0 when no partitions are found (mount as partition 1), and -1 when `/proc/partitions` cannot be read/parsed reliably.
-- Both mdev handlers used `if (check_root_partition(...)) goto out_unlock;`, treating 1 and -1 identically. This correctly avoided an unsafe whole-disk mount on UNKNOWN, but silently returned event success on an inventory failure.
-- Distinguish the three outcomes: keep 1 as a successful skip; continue whole-device automount only for 0; log and return failure for -1. Include topology status in the final mdev event result and pin both branches in storage workflow.
+## Cross-workflow tri-state checker repair (THIS COMMIT)
+- HTTPD's workflow had an older duplicated block-storage source check. Its two legacy string assertions still required the previous `if (check_root_partition(...))` pattern, so the job stopped even though the new SD/MMC tri-state implementation and storage-specific regression were passing.
+- Replace both stale assertions with a stronger contract requiring `root_partition_status` assignment for SD/MMC, fail on `<0`, successful no-op on `>0`, an UNKNOWN diagnostic, topology result aggregation and absence of the legacy ambiguous checks.
+- No product source is changed; this prevents a stale cross-workflow check from blocking unrelated HTTPD/NVRAM/security verification.
 
 ## First next action
-- Inspect exact-head USB storage hotplug run for THIS COMMIT; require the complete policy and caller-graph regression to pass. Check any FAIL from its exact logs.
-- Then continue the next independent P1 service stop/start result gap or NVRAM write postcondition, while any firmware build remains pending.
-- Keep frozen backup untouched; commit complete trees only with current expected SHA and force=false.
+- Inspect exact-SHA HTTPD and AI handoff Actions for THIS COMMIT; if the refreshed HTTPD checker passes, continue another independent service lifecycle or storage correctness defect.
+- Continue treating XY-C1 target build and physical L4 as unverified unless an exact-current-SHA build job and actual target run provide evidence.
+- Keep frozen backup read-only; complete-tree, `expected_sha`, `force:false` only.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

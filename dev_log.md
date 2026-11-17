@@ -1,3 +1,8 @@
+## 2026-11-17 — Align HTTPD's duplicate storage check with tri-state hotplug topology
+
+- Exact-head HTTPD run `44155697386` on `e90549004908d388123e1807abf0ddeb4a6a11fd` passed its preceding authentication, NVRAM transaction, wireless publication, USB modem metadata and other security checks, then failed at `Verify block-storage whole-disk partition gate`.
+- Its duplicated source assertion still required `if (check_root_partition(...))`, which was superseded in `hotplug_stor.c` by explicit tri-state handling. The dedicated USB storage workflow on the same SHA already passed the new check.
+- Replace the stale HTTPD contract with assertions for SD/MMC result capture, negative UNKNOWN rejection, positive partitioned no-op, topology failure aggregation and absence of the old ambiguous check. Workflow/docs-only correction; exact-head rerun pending.
 ## 2026-11-17 — Propagate unknown partition inventory from whole-device hotplug
 
 - Both `mdev_sd_main()` and `mdev_mmc_main()` treated any nonzero `check_root_partition()` result as the same no-op. The helper returns 1 when partitions exist, but -1 when `/proc/partitions` cannot be read or validated; the latter was being reported as successful device handling.

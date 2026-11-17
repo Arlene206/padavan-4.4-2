@@ -2644,8 +2644,15 @@ jobs:
           assert "if (!procpt)" in hotplug and "return -1;" in hotplug
           assert "storage_disk_has_partitions(procpt, devname, is_mmc)" in hotplug
           assert "ferror(proc_partitions)" in helper
-          assert "if (check_root_partition(disk_name, 0))" in hotplug
-          assert "if (check_root_partition(device_name, 1))" in hotplug
+          assert "root_partition_status = check_root_partition(disk_name, 0);" in hotplug
+          assert "root_partition_status = check_root_partition(device_name, 1);" in hotplug
+          assert "if (root_partition_status < 0)" in hotplug
+          assert "if (root_partition_status > 0)" in hotplug
+          assert "partition inventory is unknown for %s" in hotplug
+          assert "topology_status = 1;" in hotplug
+          assert "return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;" in hotplug
+          assert "if (check_root_partition(disk_name, 0))" not in hotplug
+          assert "if (check_root_partition(device_name, 1))" not in hotplug
           assert "storage_disk_has_partitions(NULL, \"sda\", 0) == -1" in regression
           assert "mmcblk0p1" in regression and "sdaa1" in regression
           print("Block-storage whole-disk mounting is fail-closed on unavailable partition inventory: OK")
