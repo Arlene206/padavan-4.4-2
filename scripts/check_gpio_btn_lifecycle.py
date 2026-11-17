@@ -192,4 +192,19 @@ for path in paths:
     assert push_filters.count(quoted) == 1, "push path count: " + path
     assert pr_filters.count(quoted) == 1, "pull_request path count: " + path
 
+misc_stop_source = (ROOT / "trunk/user/rc/src/services.c").read_text()
+gpio_source = (ROOT / "trunk/user/rc/src/gpio_btn.c").read_text()
+dispatcher_source = (ROOT / "trunk/user/rc/src/rc.c").read_text()
+
+misc_stop = function_body(misc_stop_source, "stop_misc(void)")
+shutdown = function_body(dispatcher_source, "shutdown_router(int level)")
+button_signal_handler = function_body(gpio_source, "static void sig_handle(int signum)")
+
+assert 'char* svcs[] = { "ntpd", "detect_wan", "watchdog", "gpio_btn", NULL };' in misc_stop
+assert "kill_services(svcs, 4, 1);" in misc_stop
+assert "sigaction(SIGTERM, &sa, NULL)" in gpio_source
+assert "running = 0;" in button_signal_handler
+assert "misc_stop_status = stop_misc();" in shutdown
+assert "misc_stop_status == 0" in shutdown
+assert shutdown.index("misc_stop_status = stop_misc();") < shutdown.index("storage_persistence_complete")
 print("GPIO button daemon startup, hold timing and caller postcondition contracts: PASS")

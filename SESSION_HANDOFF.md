@@ -21,6 +21,8 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 - Process lifecycle `44009960277` on main `b95bb735` PASS, including RWFS and the Ralink IAPP shutdown result wiring. AI handoff `44009960341` PASS. NVRAM transaction audit `44009960343` remains in progress; its result has not been claimed.
 - Physical-router L4 remains NOT VERIFIED.
 
+- GPIO button daemon lifecycle: `start_gpio_btn()` had a SIGTERM-aware loop but `stop_misc()` omitted `gpio_btn`. THIS COMMIT adds it to the common graceful stop list and extends the GPIO checker to pin the SIGTERM handler and shutdown persistence gate; exact-head GPIO/Process runs pending.
+
 ## Active task
 
 1. Inspect exact-head DDNSTO lifecycle and Process Actions for the DDNSTO fixture correction in THIS COMMIT. Base `9c7c393d` DDNSTO run `44011291797` failed because the mock PID was the literal `# Cross-session execution mandate
@@ -49,7 +51,7 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 ## Active task
 
 , not a numeric PID; production correctly rejected it as UNKNOWN. Confirm the corrected fixture makes the delayed-start regression pass.
-2. Confirm DDNSTO/Process exact-head CI after the PID mock's empty-file fallback correction, then continue P1 RC start/stop status audit. RWFS L3 is verified on `f5a42763` by same-source XY-C1 `44009838585` (Build/TRX/artifact); DDNSTO's later source edit has no same-SHA XY-C1 result yet.
+2. Inspect exact-head DDNSTO/Process Actions for `6e997ddb`; if they pass, continue P1 RC start/stop audit. GPIO button daemon shutdown registration is also committed in THIS COMMIT; inspect GPIO lifecycle and Process runs by exact SHA. RWFS L3 is verified on `f5a42763` by same-source XY-C1 `44009838585` (Build/TRX/artifact); DDNSTO's later source edit has no same-SHA XY-C1 result yet.
 3. Continue the P1 RC startup/shutdown status audit across independent services; do not repeat already completed watchdog, modem, IPv6, firewall, NVRAM, storage-eject or VPN work.
 
 ## Verification boundary

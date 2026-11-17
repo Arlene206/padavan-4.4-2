@@ -1,3 +1,14 @@
+## 2026-11-17 — Stop the GPIO button daemon during shutdown
+
+- Base main SHA: `6e997ddb7eeccdee56ecd6eaa2d1affb401d154e`; result: THIS COMMIT.
+- Finding: `start_services_once()` registered `start_gpio_btn()`, and `gpio_btn.c` already installed a SIGTERM handler that clears its daemon loop flag. However, `stop_misc()` omitted `gpio_btn`, so the independent uevent listener could remain active while services and storage were being torn down.
+- Added `gpio_btn` to the existing miscellaneous daemon stop list and incremented its explicit process count. This uses the same graceful `kill_services(..., 1)` path as `ntpd`, `detect_wan` and `watchdog`; the existing shutdown persistence gate still blocks flash writes when `stop_misc()` reports failure.
+- Extended `check_gpio_btn_lifecycle.py` to pin the stop registration, daemon SIGTERM handler, and shutdown persistence gate ordering. Existing GPIO lifecycle workflow already includes `services.c` and this checker in push/PR filters and runs GNU89 ASan/UBSan tests.
+- DDNSTO fixture correction `6e997ddb` (PID mock empty-file fallback) needs exact-head Actions; the preceding failure on `419b4689` was a test-only empty PID inventory mismatch. RWFS same-source XY-C1 L3 remains PASS on production source `f5a42763` (run `44009838585`: Build/TRX/artifact).
+- No local checkout/toolchain is mounted; local execution was NOT RUN. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Make DDNSTO PID inventory mock model empty PID files correctly
 
 - Base main SHA: `419b46899ac5d85588753683cf39a3fe44d1eb5c`; result: THIS COMMIT.
