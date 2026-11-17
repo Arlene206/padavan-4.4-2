@@ -164,6 +164,7 @@ on:
       - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
       - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"

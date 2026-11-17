@@ -474,7 +474,7 @@ static void httpd_process_check(void)
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
-	int scan_error, stop_status, start_status;
+	int scan_error, restart_status;
 	int httpd_is_run;
 
 	presence = process_inventory_scan("httpd", &snapshot);
@@ -505,19 +505,13 @@ static void httpd_process_check(void)
 	{
 		printf("## restart httpd ##\n");
 		httpd_missing = 0;
-		stop_status = stop_httpd();
-		if (stop_status != 0) {
-			logmessage("watchdog",
-				   "HTTPD recovery aborted because identity-bound stop failed (status=%d)",
-				   stop_status);
-			return;
-		}
 #ifdef HTTPD_CHECK
+		/* Discard the previous probe result before the serialized restart transaction. */
 		remove(DETECT_HTTPD_FILE);
 #endif
-		start_status = start_httpd(0);
-		if (start_status != 0)
-			logmessage("watchdog", "HTTPD recovery restart failed (status=%d)", start_status);
+		restart_status = restart_httpd();
+		if (restart_status != 0)
+			logmessage("watchdog", "HTTPD recovery restart failed (status=%d)", restart_status);
 	}
 }
 

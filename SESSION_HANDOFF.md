@@ -1,29 +1,29 @@
 # 2026-11-17 continuation checkpoint — authoritative state
 
-This checkpoint supersedes conflicting older status below. Continue on main; avoid repeating completed audits.
+This checkpoint supersedes conflicting older status below. Continue on main; do not repeat completed audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2.
-- Parent main SHA: 88d2439710316c70429535fc057dfc9a98f18085; result: THIS COMMIT (one complete Git tree; expected-SHA non-force update).
+- Parent main SHA: 1a984b3d889cda4accdb6d6dbc03a283de5b4e6f; result: THIS COMMIT (one complete tree; expected-SHA non-force update).
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
 - Remote branches: main and frozen backup only.
 - Connector-only environment: no local checkout or target MIPS compiler; physical-router L4 NOT VERIFIED.
 
-## AP LAN DHCP / WAN teardown contracts
-- Product-source baseline remains e64ab93290e20935c0a11ac990612f8dc29fa363. AP LAN udhcpc sends PID-identity-validated SIGUSR2, waits 300 ms, then performs a bounded 30-second no-force stop; unknown identity/timeout aborts bridge teardown and resumes detection.
-- Exact detect_internet run 44127050720 on e2b5cc1: SUCCESS. Exact WAN-DHCP run 44126128791 on 3042828 and WAN-route run 44125814206 on e64ab93: SUCCESS.
-- Exact e2b5cc1 Process run 44127050578 failed at checker line 804 because a second AP stop-order assertion still expected the removed inline force-kill path; THIS COMMIT updates it to verify the dedicated helper and caller abort/resume-before-ifdown ordering.
-- Exact 88d HTTPD run 44127395058 passed YAML parsing and earlier lifecycle checks, then failed at the stale combined WAN DHCP stop assertion. THIS COMMIT now checks SIGUSR2 release of both WAN/VIPTV clients, PID-bound 30-second no-force DHCP stop, separate ordinary WAN daemon stop and only then interface teardown.
-- Exact e2b5cc1 NVRAM 44127050740: SUCCESS. XY-C1 44127050545 remained IN_PROGRESS at last poll. Exact 88d NVRAM 44127395472 and XY-C1 44127395035 remained IN_PROGRESS.
+## HTTPD cross-process lifecycle race
+- The watchdog runs separately from PID 1. Its former recovery path used separate stop_httpd() and start_httpd(0) operations; a concurrent PID-1 RCN_RESTART_HTTPD could interleave and create duplicate-launch risk around the ABSENT preflight.
+- THIS COMMIT adds stable root-private /tmp/.httpd.lifecycle.lock with O_NOFOLLOW, regular-file/owner/link/mode validation and bounded process-shared fcntl(F_SETLK). Public start/stop serialize each operation; restart holds one lock across private stop/start helpers.
+- Watchdog now calls atomic restart_httpd(). The HTTPD workflow adds fork-based contention/path-integrity regression and source checks for wrapper, restart and watchdog wiring.
+- Exact 1a984b3 checks: HTTPD 44127997829, Process 44127998494, NVRAM 44127999119, AliDDNS 44127997810, AliyunDrive 44127997736, infosvr 44127997859, AdGuardHome 44127997919, AI handoff 44127998145: SUCCESS. XY-C1 44127997776 was still building; TRX/artifact pending.
 
 ## First next task
-1. Verify exact-head Process and HTTPD reruns; inspect real job logs if either fails.
-2. Finish XY-C1 Build/TRX/artifact and current NVRAM/independent actions.
-3. Continue a new whole-userland stability/security slice once these immediate regressions are green.
+1. Verify this commit's exact-head HTTPD and Process regressions, including the forked contention test.
+2. Confirm XY-C1 Build, TRX verification and artifact upload for services.c/watchdog.c.
+3. Continue independent stability/security work elsewhere in userland after exact checks pass.
 
 ## Validation boundary
-- detect_internet and WAN-DHCP source contracts passed on exact prior SHAs; HTTPD and Process had stale embedded assertions, now corrected in THIS COMMIT.
-- No local MIPS/uClibc compile or physical-router L4 is claimed. XY-C1 Actions remain the target-build authority.
+- Previous exact 1a984b3 HTTPD, Process, NVRAM, AliDDNS, AliyunDrive, infosvr, AdGuardHome and AI handoff checks passed.
+- THIS COMMIT changes production services.c/watchdog.c; target MIPS/uClibc build and XY-C1 TRX/artifact must be verified at the resulting exact SHA.
+- No physical-router L4 is claimed.
 
 # Cross-session execution mandate
 

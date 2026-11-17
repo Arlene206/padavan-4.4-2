@@ -1,3 +1,14 @@
+## 2026-11-17 — Serialize HTTPD lifecycle across PID 1 and watchdog
+
+- Parent main SHA: 1a984b3d889cda4accdb6d6dbc03a283de5b4e6f; result: THIS COMMIT.
+- Review found a cross-process race: PID 1 handles RCN_RESTART_HTTPD while standalone watchdog used split stop_httpd()/start_httpd() calls. Concurrent operations could interleave around the process-inventory ABSENT preflight.
+- Added stable root-private /tmp/.httpd.lifecycle.lock (O_NOFOLLOW, regular-file/owner/single-link/private-mode validation, bounded F_SETLK wait). Public start and stop serialize complete operations; restart holds one lock across both private helpers, avoiding nested process-associated record-lock unlock.
+- Watchdog now calls restart_httpd() once. Added fork-based contention/path-integrity regression and source checks for public wrappers, restart scope and watchdog call path.
+- Exact 1a984b3 HTTPD, Process, NVRAM, AliDDNS, AliyunDrive, infosvr, AdGuardHome and AI handoff checks passed; XY-C1 was still building at checkpoint. This production change needs exact-head target Build/TRX verification.
+- No physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Correct Process and HTTPD DHCP teardown integration contracts
 
 - Parent main SHA: 88d2439710316c70429535fc057dfc9a98f18085; result: THIS COMMIT.

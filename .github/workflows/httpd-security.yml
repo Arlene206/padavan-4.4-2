@@ -199,6 +199,9 @@ on:
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
+      - "trunk/user/rc/src/httpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/shared/src/process_inventory.h"
@@ -459,6 +462,9 @@ on:
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/common_ex.c"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
+      - "trunk/user/rc/src/httpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/shared/src/process_inventory.h"
@@ -5157,6 +5163,65 @@ jobs:
               assert launch_phase.index('nvram_set_int_temp("l2tp_wan_t", 0);') < launch_phase.index("start_rpl2tp(unit)")
           assert l2tp_start.index('nvram_set_int_temp("l2tp_wan_t", 1);') < l2tp_start.index("safe_start_xl2tpd_locked()")
           print("Service termination, WAN stop gates and L2TP transport startup contracts: OK")
+          PY
+
+      - name: Verify HTTPD cross-process lifecycle serialization
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/httpd_lifecycle_lock.c \
+            -o /tmp/httpd_lifecycle_lock
+          ASAN_OPTIONS=detect_leaks=1 /tmp/httpd_lifecycle_lock
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path("trunk/user/rc/src")
+          services = (root / "services.c").read_text()
+          watchdog = (root / "watchdog.c").read_text()
+          lock = (root / "httpd_lifecycle_lock.h").read_text()
+          test = (root / "tests/httpd_lifecycle_lock.c").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{": depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0: return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+          assert '#include "httpd_lifecycle_lock.h"' in services
+          assert '"/tmp/.httpd.lifecycle.lock"' in lock
+          assert "O_NOFOLLOW | O_CLOEXEC" in lock
+          assert "st.st_nlink != 1" in lock and "(st.st_mode & 077)" in lock
+          assert "fcntl(fd, F_SETLK, &lock)" in lock
+          assert "errno==EBUSY" in test and "errno==ELOOP" in test
+          start = body(services, "start_httpd(int restart_fw)")
+          start_locked = body(services, "start_httpd_locked(int restart_fw)")
+          presence = body(services, "httpd_process_presence(int *scan_error)")
+          stop = body(services, "stop_httpd(void)")
+          restart = body(services, "restart_httpd(void)")
+          assert "httpd_lifecycle_lock_acquire_status" in start
+          assert "start_httpd_locked(restart_fw)" in start and "httpd_lifecycle_lock_finish" in start
+          assert "httpd_lifecycle_lock_acquire_status" in stop
+          assert "stop_httpd_locked()" in stop and "httpd_lifecycle_lock_finish" in stop
+          assert "httpd_lifecycle_lock_acquire_status" in restart
+          assert "stop_httpd_locked()" in restart and "start_httpd_locked(1)" in restart
+          assert "stop_httpd()" not in restart and "start_httpd(1)" not in restart
+          assert "httpd_process_presence(&scan_error)" in start_locked
+          assert 'process_inventory_scan("httpd", &snapshot)' in presence
+          recovery = body(watchdog, "static void httpd_process_check(void)")
+          assert "restart_status = restart_httpd();" in recovery
+          assert "stop_httpd()" not in recovery and "start_httpd(0)" not in recovery
+          push, pull = workflow.split("  pull_request:", 1)
+          for path in ("trunk/user/rc/src/services.c","trunk/user/rc/src/watchdog.c",
+                       "trunk/user/rc/src/httpd_lifecycle_lock.h",
+                       "trunk/user/rc/src/tests/httpd_lifecycle_lock.c",
+                       ".github/workflows/httpd-security.yml"):
+              entry = '      - "' + path + '"'
+              assert entry in push and entry in pull, "path filter missing " + path
+          print("HTTPD lifecycle transaction serialization: PASS")
           PY
 
       - name: Verify wireless-tools scan input and event bounds

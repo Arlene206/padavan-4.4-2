@@ -32,12 +32,14 @@
 #include "watchdog_cpu_restart_policy.h"
 
 static int optional_daemon_start_status(const char *service_name, const char *process_name);
+static int stop_httpd_locked(void);
 static int optional_daemon_stop_status(const char *service_name, const char *process_name, int command_status);
 #include "sshd_daemon_policy.h"
 #include "networkmap_daemon_policy.h"
 #include "crond_daemon_policy.h"
 #include "infosvr_daemon_policy.h"
 #include "httpd_daemon_policy.h"
+#include "httpd_lifecycle_lock.h"
 
 static void
 record_service_stop_status(int *first_status, const char *service_name, int status)
@@ -1059,8 +1061,8 @@ httpd_process_presence(int *scan_error)
 	return presence;
 }
 
-int
-start_httpd(int restart_fw)
+static int
+start_httpd_locked(int restart_fw)
 {
 	int http_proto, argv_index, http_port, restart_fw_need;
 	int launch_status, attempt, status, scan_error, firewall_status = 0;
@@ -1184,8 +1186,51 @@ start_httpd(int restart_fw)
 	return 0;
 }
 
+static int
+httpd_lifecycle_lock_acquire_status(const char *operation, int *lock_fd)
+{
+	*lock_fd = httpd_lifecycle_lock_acquire();
+	if (*lock_fd >= 0)
+		return 0;
+	{
+		int lock_error = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire HTTPD %s lifecycle lock (status=%d)", operation, lock_error);
+		return lock_error;
+	}
+}
+static int
+httpd_lifecycle_lock_finish(int lock_fd, int operation_status, const char *operation)
+{
+	if (httpd_lifecycle_lock_release(lock_fd) != 0) {
+		int release_error = errno ? errno : EIO;
+		logmessage(LOGNAME, "HTTPD %s lifecycle lock release failed (status=%d)", operation, release_error);
+		if (operation_status == 0)
+			operation_status = release_error;
+	}
+	return operation_status;
+}
+int
+start_httpd(int restart_fw)
+{
+	int lock_fd, lock_status, status;
+	lock_status = httpd_lifecycle_lock_acquire_status("start", &lock_fd);
+	if (lock_status != 0)
+		return lock_status;
+	status = start_httpd_locked(restart_fw);
+	return httpd_lifecycle_lock_finish(lock_fd, status, "start");
+}
 int
 stop_httpd(void)
+{
+	int lock_fd, lock_status, status;
+	lock_status = httpd_lifecycle_lock_acquire_status("stop", &lock_fd);
+	if (lock_status != 0)
+		return lock_status;
+	status = stop_httpd_locked();
+	return httpd_lifecycle_lock_finish(lock_fd, status, "stop");
+}
+static int
+stop_httpd_locked(void)
 {
 	char* svcs[] = { "httpd", NULL };
 	int stop_status = kill_services(svcs, 3, 1);
@@ -1203,15 +1248,19 @@ stop_httpd(void)
 int
 restart_httpd(void)
 {
-	int stop_status = stop_httpd();
-
+	int lock_fd, lock_status, stop_status, status;
+	lock_status = httpd_lifecycle_lock_acquire_status("restart", &lock_fd);
+	if (lock_status != 0)
+		return lock_status;
+	stop_status = stop_httpd_locked();
 	if (!httpd_restart_can_start(stop_status)) {
 		logmessage(LOGNAME, "refusing HTTPD restart: previous daemon did not stop (status=%d)",
 			   stop_status);
-		return stop_status;
+		status = stop_status;
+	} else {
+		status = start_httpd_locked(1);
 	}
-
-	return start_httpd(1);
+	return httpd_lifecycle_lock_finish(lock_fd, status, "restart");
 }
 
 int

@@ -2,13 +2,12 @@
 
 This section supersedes conflicting older rows below.
 
-- Parent main SHA: `88d2439710316c70429535fc057dfc9a98f18085`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- AP LAN shutdown releases the DHCP lease using PID-identity SIGUSR2, 300 ms callback window, then a bounded 30-second no-force stop; failure aborts bridge ifdown and resumes monitoring.
-- Exact detect_internet `44127050720`: PASS; WAN-DHCP `44126128791`: PASS; WAN-route `44125814206`: PASS. Process `44127050578` failed at a stale second AP stop assertion; HTTPD `44127395058` failed at a stale combined WAN DHCP stop assertion. THIS COMMIT updates both contracts.
-- NVRAM `44127050740` on e2b5cc1: PASS. XY-C1 `44127050545`, NVRAM `44127395472` and XY-C1 `44127395035` were IN_PROGRESS at last poll.
-- No local MIPS/uClibc compile or physical-router L4 is claimed.
+- Parent main SHA: `1a984b3d889cda4accdb6d6dbc03a283de5b4e6f`; result: THIS COMMIT. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact 1a984b3 PASS: HTTPD `44127997829`, Process `44127998494`, NVRAM `44127999119`, AliDDNS `44127997810`, AliyunDrive `44127997736`, infosvr `44127997859`, AdGuardHome `44127997919`, AI handoff `44127998145`. XY-C1 `44127997776` had not yet completed Build; TRX/artifact pending.
+- P1 HTTPD race: separate watchdog/PID-1 stop and start transactions could interleave. THIS COMMIT serializes start/stop/restart with a stable root-private lock; watchdog uses one atomic restart. Forked contention/path-integrity regression and source contracts added.
+- THIS COMMIT changes production services.c/watchdog.c; exact-head HTTPD/Process and XY-C1 Build/TRX/artifact validation pending. No local MIPS/uClibc or physical-router L4 claim.
 
-Next: verify exact-head Process and HTTPD, finish XY-C1 Build/TRX/artifact and NVRAM, then continue the whole-repository stability/security queue.
+Next: verify exact-head HTTPD/Process and XY-C1 Build/TRX/artifact, then continue independent userland stability/security work.
 
 ---
 
