@@ -148,6 +148,11 @@ init_bridge(int is_ap_mode)
 {
 	rc_bridge_init_status_t bridge_status;
 	int operation_status;
+	int rt_ap_start_status = 0;
+	int wl_ap_start_status = 0;
+	int rt_guest_was_up;
+	int wl_guest_was_up;
+	int guest_isolation_status;
 	int rt_radio_on = get_enabled_radio_rt();
 #if !defined(USE_RT3352_MII)
 	int rt_mode_x = get_mode_radio_rt();
@@ -318,16 +323,20 @@ init_bridge(int is_ap_mode)
 	}
 #endif
 
+/* Snapshot guest ownership before init_bridge starts either AP radio. */
+	rt_guest_was_up = wireless_guest_rt_guest_is_up();
+	wl_guest_was_up = wireless_guest_wl_guest_is_up();
+
 #if BOARD_2G_IN_SOC || defined (BOARD_MT7915_DBDC)
-	operation_status = start_wifi_ap_rt(rt_radio_on);
-	rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);
+	rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);
+	rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", rt_ap_start_status);
 	operation_status = start_wifi_wds_rt(rt_radio_on);
 	rc_bridge_init_record(&bridge_status, "2.4GHz WDS radio startup", operation_status);
 	operation_status = start_wifi_apcli_rt(rt_radio_on);
 	rc_bridge_init_record(&bridge_status, "2.4GHz APCLI radio startup", operation_status);
 #if BOARD_HAS_5G_RADIO
-	operation_status = start_wifi_ap_wl(wl_radio_on);
-	rc_bridge_init_record(&bridge_status, "5GHz AP radio startup", operation_status);
+	wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);
+	rc_bridge_init_record(&bridge_status, "5GHz AP radio startup", wl_ap_start_status);
 	operation_status = start_wifi_wds_wl(wl_radio_on);
 	rc_bridge_init_record(&bridge_status, "5GHz WDS radio startup", operation_status);
 	operation_status = start_wifi_apcli_wl(wl_radio_on);
@@ -335,15 +344,15 @@ init_bridge(int is_ap_mode)
 #endif
 #else /* BOARD_2G_IN_SOC || defined (BOARD_MT7915_DBDC) */
 #if BOARD_HAS_5G_RADIO
-	operation_status = start_wifi_ap_wl(wl_radio_on);
-	rc_bridge_init_record(&bridge_status, "5GHz AP radio startup", operation_status);
+	wl_ap_start_status = start_wifi_ap_wl(wl_radio_on);
+	rc_bridge_init_record(&bridge_status, "5GHz AP radio startup", wl_ap_start_status);
 	operation_status = start_wifi_wds_wl(wl_radio_on);
 	rc_bridge_init_record(&bridge_status, "5GHz WDS radio startup", operation_status);
 	operation_status = start_wifi_apcli_wl(wl_radio_on);
 	rc_bridge_init_record(&bridge_status, "5GHz APCLI radio startup", operation_status);
 #endif
-	operation_status = start_wifi_ap_rt(rt_radio_on);
-	rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", operation_status);
+	rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);
+	rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", rt_ap_start_status);
 	operation_status = start_wifi_wds_rt(rt_radio_on);
 	rc_bridge_init_record(&bridge_status, "2.4GHz WDS radio startup", operation_status);
 	operation_status = start_wifi_apcli_rt(rt_radio_on);
@@ -397,8 +406,18 @@ init_bridge(int is_ap_mode)
 		update_vga_clamp_rt(1);
 #endif
 
-	operation_status = restart_guest_lan_isolation();
-	rc_bridge_init_record(&bridge_status, "guest LAN isolation", operation_status);
+	guest_isolation_status = restart_guest_lan_isolation();
+	rc_bridge_init_record(&bridge_status, "guest LAN isolation", guest_isolation_status);
+
+	/* Direct init_bridge AP startup bypasses restart_wifi_* fail-closed handling. */
+	if (rt_ap_start_status != 0 || wl_ap_start_status != 0 ||
+	    guest_isolation_status != 0) {
+		operation_status = wireless_guest_init_bridge_fail_closed(
+			rt_guest_was_up, wl_guest_was_up, 1);
+		rc_bridge_init_record(&bridge_status,
+			"guest AP rollback after LAN bridge startup failure",
+			operation_status);
+	}
 
 	nvram_set_int_temp("reload_svc_wl", 0);
 	nvram_set_int_temp("reload_svc_rt", 0);

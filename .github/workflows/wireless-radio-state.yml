@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "scripts/check_guest_lan_isolation_status.py"
       - "trunk/user/rc/src/wireless_guest_isolation_policy.h"
       - "trunk/user/rc/src/tests/wireless_guest_isolation_policy.c"
       - "trunk/user/shared/src/netutils.c"
@@ -18,6 +20,8 @@ on:
     paths:
       - ".github/workflows/wireless-radio-state.yml"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "scripts/check_guest_lan_isolation_status.py"
       - "trunk/user/rc/src/wireless_guest_isolation_policy.h"
       - "trunk/user/rc/src/tests/wireless_guest_isolation_policy.c"
       - "trunk/user/shared/src/netutils.c"
@@ -48,6 +52,7 @@ jobs:
           /tmp/bridge-membership-policy
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/wireless_guest_isolation_policy.c -o /tmp/wireless-guest-isolation-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/wireless-guest-isolation-policy
+          python3 scripts/check_guest_lan_isolation_status.py
           python3 - <<'PY'
           from pathlib import Path
 

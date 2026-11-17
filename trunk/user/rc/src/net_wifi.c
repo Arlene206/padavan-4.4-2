@@ -156,6 +156,78 @@ wireless_guest_rt_bridge_ifname(int is_ap_mode)
 	return IFNAME_2G_GUEST;
 }
 
+static const char *
+wireless_guest_rt_interface_ifname(void)
+{
+#if defined(USE_RT3352_MII)
+	return IFNAME_INIC_GUEST;
+#else
+	return IFNAME_2G_GUEST;
+#endif
+}
+
+int
+wireless_guest_rt_guest_is_up(void)
+{
+	return is_interface_up(wireless_guest_rt_interface_ifname());
+}
+
+int
+wireless_guest_wl_guest_is_up(void)
+{
+#if BOARD_HAS_5G_RADIO
+	return is_interface_up(IFNAME_5G_GUEST);
+#else
+	return 0;
+#endif
+}
+
+/*
+ * init_bridge() starts AP radios directly rather than through restart_wifi_*().
+ * If startup or final isolation fails, remove only guest interfaces that were
+ * down before init_bridge() and are up now.
+ */
+int
+wireless_guest_init_bridge_fail_closed(int rt_guest_was_up,
+				       int wl_guest_was_up,
+				       int startup_failed)
+{
+	wireless_guest_isolation_status_t status;
+	int cleanup_status;
+	int rollback_rt;
+	int rollback_wl;
+
+	rollback_rt = wireless_guest_startup_rollback_candidate(
+		rt_guest_was_up, wireless_guest_rt_guest_is_up());
+	rollback_wl = wireless_guest_startup_rollback_candidate(
+		wl_guest_was_up, wireless_guest_wl_guest_is_up());
+	if (!startup_failed || (!rollback_rt && !rollback_wl))
+		return 0;
+
+	wireless_guest_isolation_status_reset(&status);
+#if BOARD_HAS_5G_RADIO
+	if (rollback_wl)
+		wireless_guest_ap_rollback(IFNAME_5G_GUEST, IFNAME_5G_GUEST, &status);
+#else
+	(void)rollback_wl;
+#endif
+	if (rollback_rt)
+		wireless_guest_ap_rollback(wireless_guest_rt_interface_ifname(),
+					   wireless_guest_rt_bridge_ifname(get_ap_mode()),
+					   &status);
+
+	cleanup_status = restart_guest_lan_isolation();
+	wireless_guest_isolation_status_record(&status,
+		"reconcile guest isolation after LAN bridge startup rollback",
+		cleanup_status);
+	if (status.first_status != 0)
+		logmessage(LOGNAME,
+			   "LAN bridge guest AP rollback incomplete: %s failed first (status=%d; failed_operations=%u)",
+			   status.first_operation ? status.first_operation : "unknown",
+			   status.first_status, status.failure_count);
+	return wireless_guest_isolation_status_result(&status);
+}
+
 static int
 wireless_guest_restart_fail_closed(int restart_5g, int restart_peer,
 				   int isolation_status)
@@ -172,7 +244,7 @@ wireless_guest_restart_fail_closed(int restart_5g, int restart_peer,
 #endif
 #if defined(BOARD_MT7615_DBDC) || defined(BOARD_MT7915_DBDC)
 		if (restart_peer)
-			wireless_guest_ap_rollback(IFNAME_2G_GUEST,
+			wireless_guest_ap_rollback(wireless_guest_rt_interface_ifname(),
 				wireless_guest_rt_bridge_ifname(get_ap_mode()), &status);
 #endif
 	} else {

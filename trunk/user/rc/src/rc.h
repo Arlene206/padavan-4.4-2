@@ -452,6 +452,11 @@ void check_inic_mii_rebooted(void);
 #endif
 void update_vga_clamp_wl(int first_call);
 void update_vga_clamp_rt(int first_call);
+int wireless_guest_rt_guest_is_up(void);
+int wireless_guest_wl_guest_is_up(void);
+int wireless_guest_init_bridge_fail_closed(int rt_guest_was_up,
+					   int wl_guest_was_up,
+					   int startup_failed);
 int start_wifi_ap_wl(int radio_on);
 int start_wifi_ap_rt(int radio_on);
 int start_wifi_wds_wl(int radio_on);

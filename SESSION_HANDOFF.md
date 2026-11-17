@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `776bd2af8e84ec7c4b87b336a31158ab09c69ae3`.
+- Current main: THIS COMMIT; parent `d2b1d75c4dfa3dd9792f31c8ed55ced3de9c6262`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,11 +31,11 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Verify this commit's exact-head Process guest-isolation and Wireless radio unit/source-contract checks.
-2. Continue guest AP lifecycle review for any remaining cases where a failed kernel/interface-state query is treated as a down link.
-3. Keep the frozen backup unchanged; no target-toolchain build or physical-router L4 validation is claimed.
+1. Verify exact-head Process lifecycle, Wireless radio, AI handoff documentation contract and XY-C1 Build → TRX → artifact for the direct init_bridge guest rollback change.
+2. If green, rotate to the next highest-priority independent whole-repository stability issue outside wireless. Do not repeat the guest AP rollback and M2U slices.
+3. Preserve the frozen backup branch; continue only on main with atomic complete-tree commits and non-forced expected-SHA updates.
 
-
+- Direct LAN bridge boot AP-start bypass THIS COMMIT: init_bridge snapshots RT/5GHz guest state before direct start_wifi_ap_* calls and, on AP startup or final isolation failure, rolls back only interfaces that were down before and are up afterward. RT3352 MII uses IFNAME_INIC_GUEST as interface target and the explicit VLAN bridge endpoint. Exact-head validation pending.
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
 - AP hostname file preparation retry is confirmed in `prepare_dns_dhcpd()`: `update_hosts_ap()` failure blocks DNSMasq configuration publication and launch; `RCN_RESTART_DHCPD` also gates restart on successful AP host publication.
@@ -49,4 +49,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live main and exact-head Actions. Verify the tri-state rollback link-state regression added in this commit. Then continue the guest AP startup review for other paths that collapse interface-query failures into a false/down state.
+Fetch live main and exact-head Actions for the direct init_bridge guest rollback. Verify Process, Wireless radio and XY-C1 Build/TRX/artifact; if green, choose the next independent stability issue outside wireless.

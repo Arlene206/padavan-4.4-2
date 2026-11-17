@@ -63,6 +63,13 @@ wireless_guest_isolation_control_result(int changed,
 }
 
  
+/* Do not tear down a guest AP that was already active before startup. */
+static inline int
+wireless_guest_startup_rollback_candidate(int was_up_before, int is_up_after)
+{
+	return !was_up_before && is_up_after;
+}
+
 /*
  * Callback-driven rollback lets host tests verify that every safety action is
  * attempted even when an earlier cleanup operation fails.

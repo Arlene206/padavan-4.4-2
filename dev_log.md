@@ -1,3 +1,15 @@
+## 2026-11-17 18:50:33 CST — Fail closed on direct LAN-bridge AP startup
+
+- Parent main SHA: `d2b1d75c4dfa3dd9792f31c8ed55ced3de9c6262`; result: THIS COMMIT.
+- Audit found that `init_bridge()` starts AP radios directly via `start_wifi_ap_rt/wl()`, bypassing `restart_wifi_rt/wl()` and their guest-isolation rollback. A startup or final isolation failure could leave a guest AP that this boot path had just brought up.
+- `init_bridge()` now snapshots guest interface ownership before AP startup and checks both AP startup return values and the final guest-isolation result. The shared rollback runs only for a guest that was down before initialization and is up afterward, then reapplies isolation. Pre-existing UP guests are preserved.
+- Added a pure startup rollback-candidate predicate and GNU89 unit coverage for new-UP, pre-existing-UP, still-down and down-transition cases. Extended the source contract and wired it into both Process and Wireless CI.
+- RT3352 MII uses `IFNAME_INIC_GUEST` as the interface target and the explicit VLAN bridge endpoint; restart rollback now uses the same MII guest VIF identity.
+- Host build/physical-router L4 were not run in this ChatGPT runtime; exact-head Actions are pending.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Keep guest AP rollback link-state inspection fail-closed
 
 - Parent main SHA: `776bd2af8e84ec7c4b87b336a31158ab09c69ae3`; result: THIS COMMIT.
