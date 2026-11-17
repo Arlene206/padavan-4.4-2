@@ -10,25 +10,27 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 Before context exhaustion, inspect the current source SHA, relevant exact-head Actions, validation boundary and first actionable task; then leave this handoff accurate for the next GPT.
 
-- Repository: `Arlene206/padavan-4.4-2`; IPv6 boot-status slice base is `f7b975c6bbe3f891498602c6363017cf6e6cc4c8`; result: THIS COMMIT.
-- CPU-watchdog UNKNOWN-probe correction is in product source `aeddc157`. Same-source XY-C1 run `44000632827` passed the GNU89 policy regression, Build XY-C1, TRX verification and artifact upload. Checker/docs-only child `58fe2c5a` does not change that firmware source.
-- USB-modem driver readiness now uses tri-state `is_module_loaded_status()`: only exact state 1 counts as available; UNKNOWN returns the first probe errno when no alternative is confirmed; invalid positive states fail closed with EIO. Dedicated USB modem run `44002424147`, Process lifecycle `44002424268`, Process inventory `44002424300`, HTTPD security `44002424357`, infosvr `44002424164`, and AI handoff `44002424146` passed on product-source SHA `766832746b81a67faaa5d88e3ba78cbd1228faef`. XY-C1 run `44002424380` exposed only a stale source assertion; checker correction is in `f7b975c6`. The f7 exact-head XY-C1 `44002780753` and Process `44002780748` runs were in progress before this source commit; neither validates this change.
-- This source slice closes a boot error-aggregation gap: `init_ipv6()` previously logged failures from `control_if_ipv6_all()` but returned void, so `init_router()` could not add that first sysctl error to its existing `boot_services_status` accumulator. It now returns the original status and the init path merges it without changing startup ordering. An integration contract pins this production path; the existing IPv6 policy test covers all-attempt/first-error semantics.
+- Repository: `Arlene206/padavan-4.4-2`; IPv6 boot-status source base `f7b975c6bbe3f891498602c6363017cf6e6cc4c8`; result commit `37e414f2d4f6a80c7addeaca04c14f4fdcdf5f5d`. Checker correction base `37e414f2d4f6a80c7addeaca04c14f4fdcdf5f5d`; result: THIS COMMIT.
+- CPU-watchdog UNKNOWN-probe correction is in product source `aeddc157`. Same-source XY-C1 run `44000632827` passed the GNU89 policy regression, Build XY-C1, TRX verification and artifact upload. Later checker/docs-only child `58fe2c5a` does not change that firmware source.
+- USB modem module readiness uses tri-state `is_module_loaded_status()`: only exact 1 counts available; UNKNOWN preserves probe errno when no alternative is confirmed; invalid positive states fail closed. Dedicated USB modem run `44002424147`, Process lifecycle `44002424268`, inventory `44002424300`, HTTPD security `44002424357`, infosvr `44002424164`, and AI handoff `44002424146` passed on source `76683274`. Its first XY-C1 run `44002424380` failed only at an obsolete source assertion; checker correction was pushed in `f7b975c6`.
+- IPv6 initialization now returns the result of `control_if_ipv6_all()`, and `init_router()` merges it into its first-error `boot_services_status` before later network startup. Exact-head source/policy verification on `37e414f2` is pending.
+- Exact-head Process run `44003333415` on `37e414f2` failed only at the new integration assertion because its regular expression was double-escaped. The C source and preceding integration checks passed. This commit changes that assertion to whitespace-normalized semantic checks; no production C files change here.
+- XY-C1 run `44003333586` on product-source SHA `37e414f2` was in progress at last check; IPv6 policy test had started, but Build/TRX/artifact must be inspected. This checker-only child retains the same production firmware source.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Legacy PR #1 is closed; its head has no unmerged commits relative to its old base.
 
 ## Active task
 
-1. Fetch live main and inspect exact-`head_sha` push Actions for this commit. Resolve any first causal Process lifecycle or XY-C1 failure; do not rely on the parent f7 runs.
-2. Confirm the IPv6 policy test and new integration contract execute on the exact SHA. Confirm XY-C1 Build, TRX verification and artifact upload on this source; only then mark L3 current-source verification PASS.
-3. Once this startup-status slice clears, continue the broad P1 RC lifecycle/service-start audit and select the next concrete false-success/error-loss defect across a different subsystem. Do not repeat watchdog, USB-modem tri-state, storage eject, VPN restoration, NVRAM close, or IPv6 neighbour cleanup.
+1. Fetch live main and inspect exact-`head_sha` push Actions for this checker correction. Confirm Process integration reaches PASS after the regex repair.
+2. Inspect XY-C1 run `44003333586` on product-source SHA `37e414f2`; confirm IPv6 GNU89 policy/source steps, Build XY-C1, TRX verification and artifact upload. Do not carry L3 from watchdog-only source `aeddc157` or prior USB source builds.
+3. Once this slice clears, continue P1 RC startup/service-lifecycle audit for the next concrete false-success/error-loss defect. Do not repeat watchdog, USB modem tri-state, storage eject, VPN restoration, NVRAM close, or IPv6 neighbour cleanup.
 
 ## Verification boundary
 
-- Watchdog L3: PASS for product source `aeddc157`, run `44000632827` (Build, TRX verification and artifact upload). It does not validate subsequent USB modem or current IPv6 source changes.
-- USB modem L2: dedicated GNU89 policy/source regression plus Process and related workflows PASS on source `76683274`. Exact-head XY-C1 `44002424380` failed only at the obsolete contract; current checker correction and this IPv6 source change require a new same-SHA run.
-- Current IPv6 boot-status integration: FIXED — NOT VERIFIED until exact-head Process/XY-C1 Actions run. Existing policy-level GNU89 test had been wired into both workflows; current execution pending.
+- Watchdog L3: PASS for product source `aeddc157`, run `44000632827` (Build, TRX and artifact). It does not validate later USB modem or IPv6 source changes.
+- USB modem L2: dedicated GNU89 policy/source regression plus Process and related workflows PASS on source `76683274`. The exact-head XY-C1 checker failed on `76683274`; its corrected checker is in `f7b975c6` and needs an exact-source firmware build.
+- IPv6 boot-status integration: source change committed in `37e414f2`; Process run `44003333415` exposed a checker-only regex defect, now corrected. XY-C1 `44003333586` was still running; no current-source L3 claim yet.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch current `main` and its push Actions by exact SHA. Inspect Process lifecycle and XY-C1 logs/steps; fix the first causal failure and re-run on the new SHA. A green host/policy suite is not an XY-C1 Build/TRX/artifact result. Preserve the frozen backup and use one complete Git tree with a non-forced expected-SHA compare-and-swap.
+Fetch current `main` and query push Actions by exact SHA. Inspect Process lifecycle and XY-C1 runs/logs; fix the first causal failure and verify the new SHA. Only claim L3 after same-source Build, TRX verification and artifact upload all succeed. Preserve the frozen backup and use one complete Git tree with a non-forced expected-SHA compare-and-swap.

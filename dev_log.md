@@ -1,3 +1,12 @@
+## 2026-11-17 — Correct IPv6 boot status contract after exact-head failure
+
+- Exact-head Process lifecycle run `44003333415` on `37e414f2d4f6a80c7addeaca04c14f4fdcdf5f5d` reached the new IPv6 source contract and failed because its raw regex used double-escaped whitespace tokens; the production source checks before this assertion passed. This is a checker defect, not a C compile or policy-test failure.
+- Replaced the fragile pattern with a whitespace-normalized semantic assertion for both the `init_ipv6()` return capture and the exact first-error aggregation call.
+- XY-C1 run `44003333586` on the same product-source SHA was still in progress at last check; its IPv6 policy regression had started, but Build/TRX/artifact is not claimed until the job concludes. The corrected source contract will rerun on this checker-only child SHA.
+- No production firmware C changes in this correction. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Propagate IPv6 global sysctl initialization status into boot results
 
 - Base main SHA: `f7b975c6bbe3f891498602c6363017cf6e6cc4c8`; result: THIS COMMIT.

@@ -1795,13 +1795,12 @@ assert "int init_ipv6(void);" in rc_header_source
 assert "void init_ipv6(void);" not in rc_header_source
 
 router_init_body = c_function_body(rc_boot_source, "init_router(void)")
-assert re.search(r"int\\s+ipv6_init_status\\s*=\\s*init_ipv6\\s*\\(\\s*\\)\\s*;", router_init_body)
-assert re.search(
-    r"boot_services_status\\s*=\\s*rc_first_service_start_status\\s*"
-    r"\\(\\s*boot_services_status\\s*,\\s*ipv6_init_status\\s*\\)",
-    router_init_body,
-    flags=re.DOTALL,
-), "init_router must preserve IPv6 global sysctl failure in its first-error boot status"
+router_init_compact = re.sub(r"\s+", " ", router_init_body)
+assert "int ipv6_init_status = init_ipv6();" in router_init_compact
+assert (
+    "boot_services_status = rc_first_service_start_status( "
+    "boot_services_status, ipv6_init_status);"
+) in router_init_compact, "init_router must preserve IPv6 global sysctl failure in its first-error boot status"
 assert router_init_body.index("ipv6_init_status = init_ipv6()") < router_init_body.index("set_cpu_affinity();")
 assert '"trunk/user/rc/src/net6.c"' in process_workflow
 assert '"trunk/user/rc/src/rc.c"' in process_workflow
