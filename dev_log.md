@@ -1,3 +1,12 @@
+## 2026-11-16 — Repair WAN workflow pull_request filter placement
+
+- Parent main SHA: `d2a41360466574898f7fc9fe224236d5a51517a7`.
+- Exact-head WAN route workflow run `44027994137` for `d2a41360` failed before any job was created (`jobs.total_count=0`). The four newly added pull_request paths were appended after the workflow body because the file has no top-level permissions block.
+- Moved those paths into `on.pull_request.paths`, validated the push and pull_request filter regions, and kept the caller semantic check step in the job. No production source behavior changed.
+- On `d2a41360`, ZeroTier lifecycle and Process checks passed; XY-C1 Build was still in progress at last poll. Repair commit exact-head CI awaits execution.
+
+---
+
 ## 2026-11-16 — Propagate configured ZeroTier startup failures through WAN-up
 
 - Parent main SHA: `06ed43217d0e47b54f17fc0416a81e7341593824`.
