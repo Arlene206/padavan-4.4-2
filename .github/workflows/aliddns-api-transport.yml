@@ -12,6 +12,7 @@ on:
       - "trunk/user/aliddns/ddns_script.sh"
       - "trunk/user/aliddns/aliddns-ipv4.sh"
       - "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
+       - "trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh"
       - "trunk/user/aliddns/tests/aliddns_api_transport.sh"
       - "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
       - "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
@@ -46,7 +47,8 @@ jobs:
           sh -n trunk/user/aliddns/aliddns.sh
           sh -n trunk/user/aliddns/aliddns-ipv4.sh
           sh -n trunk/user/aliddns/ddns_script.sh
-          sh -n trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh
+          sh -n trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh
+           sh -n trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh
           sh -n trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh
           sh -n trunk/user/aliddns/tests/aliddns_lifecycle.sh
           sh -n trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh
@@ -56,7 +58,9 @@ jobs:
         run: sh trunk/user/aliddns/tests/aliddns_api_transport.sh
       - name: Run AliDDNS public IPv4 lookup regression
         run: sh trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh
-      - name: Run AliDDNS DNS lookup lifecycle regression
+      - name: Run AliDDNS WAN IPv6 discovery regression
+         run: sh trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh
+       - name: Run AliDDNS DNS lookup lifecycle regression
         run: sh trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh
       - name: Run AliDDNS custom-script lifecycle regression
         run: sh trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh

@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SOURCE_PATH = ROOT / "trunk/user/aliddns/aliddns.sh"
 TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_api_transport.sh"
 IPV4_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_ipv4_lookup.sh"
+IPV6_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh"
 NSLOOKUP_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_nslookup_lifecycle.sh"
 CUSTOM_SCRIPT_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_custom_script_lifecycle.sh"
 LIFECYCLE_TEST_PATH = ROOT / "trunk/user/aliddns/tests/aliddns_lifecycle.sh"
@@ -35,6 +36,7 @@ VARIABLES_PATH = ROOT / "trunk/user/httpd/src/variables.c"
 source = SOURCE_PATH.read_text()
 test = TEST_PATH.read_text()
 ipv4_test = IPV4_TEST_PATH.read_text()
+ipv6_test = IPV6_TEST_PATH.read_text()
 nslookup_test = NSLOOKUP_TEST_PATH.read_text()
 custom_script_test = CUSTOM_SCRIPT_TEST_PATH.read_text()
 lifecycle_test = LIFECYCLE_TEST_PATH.read_text()
@@ -339,6 +341,27 @@ require("/usr/bin/aliddns-ipv4.sh" in ddns_script and "arIpAddress6" in ddns_scr
         "curl -k" not in ddns_script and "--no-check-certificate" not in ddns_script and
         "http://" not in ddns_script,
         "stock ROMFS DDNS script must use the secure IPv4 helper and preserve IPv6")
+ipv6_discovery = function_body(ddns_script, "arIpAddress6 ()")
+require(
+    'nvram get wan0_ifname6' in ipv6_discovery
+    and 'ifconfig "$wan6_ifname"' in ipv6_discovery
+    and 'case "$wan6_ifname" in' in ipv6_discovery
+    and '[ "${#wan6_ifname}" -le 15 ]' in ipv6_discovery
+    and "Scope:Global" in ipv6_discovery
+    and "^[23][[:xdigit:]:]+$" in ipv6_discovery
+    and "ifconfig br0" not in ipv6_discovery
+    and "count != 1" in ipv6_discovery,
+    "stock IPv6 DDNS discovery must use the WAN6 interface and one unambiguous global-unicast address",
+)
+require(
+    "WAN IPv6 discovery regression" in ipv6_test
+    and "expect_success ppp0 global" in ipv6_test
+    and "expect_success sit0 sit-global" in ipv6_test
+    and "multiple-global" in ipv6_test
+    and "partial-failure" in ipv6_test
+    and "aliddns_ipv6_valid" in ipv6_test,
+    "WAN IPv6 regression must cover native/tunnel interfaces and fail-closed cases",
+)
 require('ddns_script_path="${ALIDDNS_DDNS_SCRIPT_PATH:-/etc/storage/ddns_script.sh}"' in ddns_check and
         '[ -L "$ddns_script_path" ]' in ddns_check and
         'arIpAddress=""' in ddns_check and
@@ -384,6 +407,7 @@ require(
     '- "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"' in push_filter_paths and
     '- "trunk/user/aliddns/tests/copyscripts_ca_bootstrap.sh"' in push_filter_paths and
     '- "trunk/user/aliddns/tests/aliddns_hmac_sha1.sh"' in push_filter_paths and
+    '- "trunk/user/aliddns/tests/aliddns_ipv6_lookup.sh"' in push_filter_paths and
     '- "trunk/user/aliddns/src/aliddns-hmac-sha1.c"' in push_filter_paths and
     '- "trunk/user/aliddns/src/Makefile"' in push_filter_paths and
     '- "trunk/user/aliddns/aliddns.sh"' in push_filter_paths,
