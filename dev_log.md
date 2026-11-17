@@ -1,3 +1,12 @@
+## 2026-11-18 — Correct WAN teardown cleanup declaration contract
+
+- Parent main SHA: `853748bd0a49661ac29c7b854a58e40571393a20`.
+- Exact 853 WAN interface teardown `44201908894` PASS; AI handoff `44201908973` PASS. WAN route `44201908899` failed only at embedded Python assertion line 220: source checker expected `int status = 0, route_status;` after the new teardown force-down path correctly added `interface_cleanup_status`.
+- THIS commit updates the assertion to `int status = 0, route_status, interface_cleanup_status;`; production code is unchanged.
+- Exact 853 XY-C1 `44201909002` and NVRAM `44201909080` were IN_PROGRESS at last poll. Exact route rerun pending; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Fail closed on static IPoE address cleanup during WAN teardown
 
 - Parent main SHA: `a700cb6c77cd7f12074950d2d92b96b297dd910a`; exact a700 IAPP `44201354894` PASS and AI handoff `44201354982` PASS. Process `44201354872`, XY-C1 `44201354975`, and NVRAM `44201355174` were in progress at last poll.

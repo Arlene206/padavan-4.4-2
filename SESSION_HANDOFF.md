@@ -1,36 +1,36 @@
-# 2026-11-18 continuation checkpoint — repair IAPP rollback log contract
+# 2026-11-18 continuation checkpoint — align WAN teardown source contract
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS test correction: `e5338402f12fb46e44c8e7a752863ed48fe14f4a`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS checker correction: `853748bd0a49661ac29c7b854a58e40571393a20`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- IAPP ownership-lifecycle implementation in `e5338402` tags daemon-owned TCP/UDP 3517 INPUT rules, removes stale tags before start, cleans them only after stop confirms daemon absence, and preserves untagged administrator rules. Exact IAPP run `44200753434` failed only at test assertion line 106: the implementation's rollback message now says `daemon/firewall startup rollback failed`, while the test expected the old pre-firewall-cleanup wording. POSIX syntax check passed. THIS correction updates the assertion to the actual more specific diagnostic; production behavior is unchanged.
-- Exact e533 AI handoff workflow `44200753459` PASS. Process inventory run `44200753122` PASS. Process lifecycle integration `44200753226` FAIL in its lifecycle status propagation step (separate issue; inspect exact log next). NVRAM run `44200753245` was pending; XY-C1 run `44200753260` was pending before Build XY-C1, with TRX/artifact also pending.
-- Other exact e533 passing checks: AdGuardHome `44200753176`, AliDDNS `44200753133`, infosvr `44200753219`, AliyunDrive `44200753204`. Do not infer firmware L3 from older SHAs.
+- Ralink IAPP firewall ownership work: exact a700 IAPP `44201354894` PASS; AI `44201354982` PASS; Process lifecycle `44201355348` and Process fail-closed `44201354872` PASS. Exact a700 NVRAM `44201355174` and XY-C1 `44201354975` were pending at last poll.
+- THIS parent `853748bd` added a fail-closed WAN teardown fix: if static-IPoE address clear fails, it immediately tries to take the physical WAN interface down; clear and force-down errors are both aggregated/logged, while later independent teardown continues. Exact WAN interface teardown `44201908894` PASS; WAN route workflow `44201908899` FAIL only because its embedded source contract still expected the old declaration without `interface_cleanup_status`. AI handoff `44201908973` PASS. Exact XY-C1 `44201909002` and NVRAM `44201909080` still IN_PROGRESS at last poll.
+- Older factory-reset source `0d58928e` is L3 verified by exact XY-C1 `44197454090` Build/TRX/artifact. Do not infer L3 for newer WAN source.
+- Backup unchanged; local MIPS build not available; physical-router L4 NOT VERIFIED.
 
 ## Active task
-- IAPP firewall ownership implementation `e5338402` is present. The first rollback-log assertion was corrected in `8e92caa7`; the tagged TCP delete assertion and AI handoff literal contract were corrected in `a700cb6c`. Exact a700 IAPP run `44201354894` PASS and AI docs `44201354982` PASS.
-- Process lifecycle `44201354872`, XY-C1 `44201354975`, and NVRAM `44201355174` on a700 were still in progress at last poll.
-- THIS source slice fixes a separate static-IPoE teardown failure: when clearing the configured address fails, force the physical interface down, preserve clear/ifdown statuses, and continue teardown.
+- THIS commit corrects only the embedded WAN source-contract assertion. Production code's function-local state now declares `int status = 0, route_status, interface_cleanup_status;` so teardown can preserve the forced-interface-down result after an address-clear failure. The previous test still expected the old two-variable declaration and failed at Python assertion line 220.
+- The actual teardown policy regression and source implementation were otherwise accepted by the separate WAN interface teardown workflow; no production source changes in THIS commit.
 
 ## Verification boundary
-- Parent e533 IAPP workflow `44200753434`: FAIL solely at the stale rollback log assertion after shell syntax passed.
-- THIS correction's exact-head IAPP run: pending until Actions executes.
-- Exact e533 AI `44200753459`: PASS. Process inventory `44200753122`: PASS. Process lifecycle `44200753226`: FAIL; NVRAM `44200753245`: PENDING; XY-C1 `44200753260`: PENDING at pre-build setup; Build/TRX/artifact not verified.
-- Backup remains unchanged. Local shell/firmware compilation not run in this environment; physical-router L4 remains NOT VERIFIED.
+- Parent 853 WAN interface teardown `44201908894`: PASS.
+- Parent 853 WAN route `44201908899`: FAIL at embedded source-contract line 220 for stale declaration assertion; THIS correction updates it.
+- Parent 853 AI `44201908973`: PASS. XY-C1 `44201909002` and NVRAM `44201909080`: PENDING at last poll. Exact WAN-route rerun and current-source XY build are pending.
+- No local compile/MIPS toolchain; physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect the exact-head IAPP lifecycle run for THIS correction; require POSIX syntax and the full ownership/stop/restart/cleanup retry regression to pass.
-2. Inspect Process lifecycle job `134453872643` logs for exact e533 failure; repair the underlying implementation/test contract, not just the message.
-3. Recheck NVRAM `44200753245` and XY-C1 `44200753260`; XY-C1 must pass Build, TRX verification and artifact upload before product-source L3 can be claimed.
-4. Keep backup unchanged; hardware L4 remains NOT VERIFIED.
+1. Inspect exact-head WAN-route rerun; require the embedded ordering checker, policy C regression and standalone WAN checker to pass.
+2. Inspect exact-head XY-C1; require Build XY-C1, TRX verification and artifact upload before recording L3.
+3. Recheck the separate 853 XY-C1 `44201909002` and NVRAM `44201909080` outcomes, then continue next independent P1 stability/security issue.
+4. Keep backup unchanged; do not claim local target compile or hardware L4.
 
 ## Mandatory handoff checkpoint
-Every session MUST inspect live main, materially changed exact-SHA Actions, current handoff/roadmap facts and the first actionable task before ending. The checkpoint is mandatory; a document edit is conditional. Record PASS/FAIL/PENDING accurately. If current facts remain accurate, do not create a no-op documentation commit.
+At session end, inspect live main, exact-SHA Actions, current handoff/roadmap and first actionable task. A checkpoint is mandatory; a documentation-only commit is conditional on facts needing an update. Record PASS/FAIL/PENDING accurately.
 
 # Cross-session execution mandate
 
-Continue one engineering effort across GPT conversations. Recover once, fix concrete defects, test, atomically commit and inspect exact-SHA Actions. Do not wait idly on pending CI or ask the user what to do next.
+Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and atomically commit. Do not wait idly on pending CI or ask the user what to do next.
 
-Every logical multi-file change must use Git data APIs to create all blobs, one complete tree and one atomic main commit parented to freshly fetched main, then publish with a non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs or modify the frozen backup.
+Every logical multi-file change must create all blobs, one complete tree and one atomic main commit, parented to freshly fetched main, and publish with a non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs or modify the frozen backup.
 
-Before context exhaustion, finish a safe slice and leave a precise next action.
+Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first action.

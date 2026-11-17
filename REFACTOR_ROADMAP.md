@@ -1,15 +1,19 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS static-IPoE WAN-down cleanup slice: `a700cb6c77cd7f12074950d2d92b96b297dd910a`.
-- IAPP exact run `44201354894` PASS and AI handoff `44201354982` PASS on `a700cb6c`; Process `44201354872`, XY-C1 `44201354975` and NVRAM `44201355174` were IN_PROGRESS at last poll.
-- THIS slice forces the physical WAN interface down when static-IPoE teardown cannot clear its address; original and force-down errors are both retained. GNU89 regression and source-order contract added; exact-head CI pending.
-- Factory-reset source `0d58928e` exact XY-C1 `44197454090` passed Build/TRX/artifact. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged; physical L4 NOT VERIFIED.
+- Parent main before THIS WAN checker correction: `853748bd0a49661ac29c7b854a58e40571393a20`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- WAN static-IPoE teardown fix was committed in `853748bd`: failed address clear forces physical-interface down; status aggregation/logging continues. Exact WAN interface teardown `44201908894` PASS; WAN route `44201908899` failed only because its embedded assertion still expected `int status = 0, route_status;` instead of the new `interface_cleanup_status` declaration. THIS correction updates that contract. AI docs `44201908973` PASS.
+- Exact 853 XY-C1 `44201909002` and NVRAM `44201909080` pending at last poll. Exact route rerun / current-source XY build required.
+- IAPP/Process source tests passed on a700: IAPP `44201354894`, Process `44201355348` and fail-closed `44201354872`; AI `44201354982`.
+- Factory-reset `0d58928e` had exact Build/TRX/artifact PASS, but does not verify later source. Hardware L4 NOT VERIFIED.
 
-Next: inspect exact-head WAN route/teardown and XY-C1 for this slice; recheck a700 Process/NVRAM/XY-C1, then continue cross-userland P1 work.
+Next: verify WAN-route and XY-C1 for static-IPoE teardown, recheck NVRAM, then resume P1 reliability/security.
 
 ---
 
 ## Whole-repository module status
+
+- WAN teardown: static-IPoE address-clear failure now triggers physical interface-down; source C regression and WAN teardown workflow PASS on `853748bd`. The WAN-route embedded checker still had one stale declaration assertion and is corrected in THIS commit; exact rerun pending.
+
 
 - WAN static IPoE cleanup includes failed address-clear behavior on setup and EAPOL failure paths; THIS slice covers the separate teardown clear failure. Post-WAN up/down script return statuses are also captured. Exact verification pending.
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
