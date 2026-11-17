@@ -1,3 +1,13 @@
+## 2026-11-17 — Repair M2U startup checker after first CI failure
+
+- Parent main SHA: `69e4ab000835efe5f5107fbfdce696c68cf95706`; result: THIS COMMIT.
+- Exact-head Process lifecycle run `44066355293` failed in `Compile and run guest Wi-Fi isolation status regression`; log identified `TypeError: 'str' object is not callable` at the new M2U startup contract. An earlier loop had shadowed the name `body`, so the new code invoked that string instead of the existing `function_body()` parser.
+- Corrected the call to `function_body()` and used the actual startup function signatures (the source has `int ` before the newline). No production source change was required for this regression failure.
+- On exact `69e4ab00`, Wireless radio state `44066355414` and Process inventory `44066355561` passed; Process lifecycle `44066355293` failed as above; XY-C1 `44066355563` was still running.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Aggregate multicast-to-unicast errors during AP startup
 
 - Parent main SHA: `f765dc8cc777916e1edff8713db6b40adc979623`; result: THIS COMMIT.

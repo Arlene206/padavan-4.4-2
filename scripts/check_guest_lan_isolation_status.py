@@ -167,7 +167,7 @@ for signature, operations in (
         "wireless_radio_status_success(wif_control_m2u(0, IFNAME_2G_GUEST))",
     )),
 ):
-    startup = body(wifi, signature)
+    startup = function_body(wifi, signature)
     for operation in operations:
         assert operation in startup, operation
         assert "wireless_radio_startup_status(all_started," in startup
