@@ -1,3 +1,12 @@
+## 2026-11-16 — Remove shell-formatted dynamic commands from WAN IPv6 setup
+
+- Audited all remaining `doSystem()` calls in `net_wan6.c`. Runtime interface names, validated IPv4/IPv6 literals, generated 6rd prefixes and clamped MTU/TTL values were interpolated into shell commands for SIT tunnel lifecycle, 6rd configuration, IPv6 route addition and native/SIT teardown.
+- Converted every remaining command in the file to argv-based `eval()`; WAN SIT/native fail-fast macros still wrap each forward operation and return/cleanup paths still propagate status. Numeric MTU/TTL operands are rendered into fixed-size checked decimal buffers before tunnel mutation.
+- Extended the WAN DHCP callback workflow to assert argv forms, macro gating, bounded numeric conversion and zero remaining `doSystem()` use in the file. Focused local source contracts pass; exact-head GitHub Actions and XY-C1 L3 must still be checked.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-16 — Correct WAN route and DHCP IPv6 flush source contracts
 
 - Exact parent `f1f624e3f667e67376031233f6e2f9a53f6f31df` produced 14 push Actions. Eleven completed successfully; XY-C1 run `43987743135` remained in progress at last poll.

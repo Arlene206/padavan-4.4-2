@@ -317,6 +317,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	char lan_addr6s[INET6_ADDRSTRLEN + 5];
 	char sit_6rd_prefix[INET6_ADDRSTRLEN + 5];
 	char sit_6rd_relay_prefix[32];
+	char sit_mtu_text[12], sit_ttl_text[4];
 	struct in_addr addr4, net4;
 	struct in6_addr addr6, net6, lan_addr6;
 	const char *failure = "invalid parameters";
@@ -481,18 +482,27 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 	if (sit_ttl > 255)
 		sit_ttl = 255;
 
+	written = snprintf(sit_mtu_text, sizeof(sit_mtu_text), "%d", sit_mtu);
+	if (written < 0 || (size_t)written >= sizeof(sit_mtu_text)) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	written = snprintf(sit_ttl_text, sizeof(sit_ttl_text), "%d", sit_ttl);
+	if (written < 0 || (size_t)written >= sizeof(sit_ttl_text)) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+
 	if (is_interface_exist(IFNAME_SIT))
-		WAN6_SIT_CHECK(doSystem("ip tunnel del %s", IFNAME_SIT),
+		WAN6_SIT_CHECK(eval("ip", "tunnel", "del", IFNAME_SIT),
 			       "remove previous SIT tunnel");
 
-	WAN6_SIT_CHECK(doSystem("ip tunnel add %s mode sit remote %s local %s ttl %d",
-				IFNAME_SIT, sit_remote, wan_addr4_text, sit_ttl),
+	WAN6_SIT_CHECK(eval("ip", "tunnel", "add", IFNAME_SIT, "mode", "sit", "remote", sit_remote, "local", wan_addr4_text, "ttl", sit_ttl_text),
 		       "create SIT tunnel");
 	tunnel_created = 1;
 
 	if (ipv6_type == IPV6_6RD)
-		WAN6_SIT_CHECK(doSystem("ip tunnel 6rd dev %s 6rd-prefix %s 6rd-relay_prefix %s",
-					IFNAME_SIT, sit_6rd_prefix, sit_6rd_relay_prefix),
+		WAN6_SIT_CHECK(eval("ip", "tunnel", "6rd", "dev", IFNAME_SIT, "6rd-prefix", sit_6rd_prefix, "6rd-relay_prefix", sit_6rd_relay_prefix),
 			       "configure 6rd tunnel");
 
 	/* Route the IPv4 tunnel endpoint through the physical WAN first. */
@@ -519,7 +529,7 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 
 	WAN6_SIT_CHECK(control_if_ipv6_radv(IFNAME_SIT, 0),
 		       "disable SIT router advertisements");
-	WAN6_SIT_CHECK(doSystem("ip link set mtu %d dev %s up", sit_mtu, IFNAME_SIT),
+	WAN6_SIT_CHECK(eval("ip", "link", "set", "mtu", sit_mtu_text, "dev", IFNAME_SIT, "up"),
 		       "bring SIT interface up");
 	WAN6_SIT_CHECK(control_if_ipv6(IFNAME_SIT, 1),
 		       "enable IPv6 on SIT interface");
@@ -529,12 +539,10 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 		       "add SIT WAN IPv6 address");
 
 	if (ipv6_type == IPV6_6TO4 || ipv6_type == IPV6_6RD)
-		WAN6_SIT_CHECK(doSystem("ip -6 route add default dev %s metric %d",
-					IFNAME_SIT, 2048), "add SIT fallback default route");
+		WAN6_SIT_CHECK(eval("ip", "-6", "route", "add", "default", "dev", IFNAME_SIT, "metric", "2048"), "add SIT fallback default route");
 
 	if (*wan_gate6)
-		WAN6_SIT_CHECK(doSystem("ip -6 route add default via %s dev %s metric %d",
-					wan_gate6, IFNAME_SIT, 1), "add SIT IPv6 default gateway");
+		WAN6_SIT_CHECK(eval("ip", "-6", "route", "add", "default", "via", wan_gate6, "dev", IFNAME_SIT, "metric", "1"), "add SIT IPv6 default gateway");
 
 	/* Publish a derived LAN address only after tunnel and routes are ready. */
 	if (*lan_addr6s) {
@@ -556,7 +564,7 @@ failed:
 				   cleanup_status);
 	}
 	if (tunnel_created) {
-		cleanup_status = doSystem("ip link set dev %s down", IFNAME_SIT);
+		cleanup_status = eval("ip", "link", "set", "dev", IFNAME_SIT, "down");
 		if (cleanup_status != 0)
 			logmessage("WAN IPv6", "failed to lower incomplete SIT tunnel (status=%d)",
 				   cleanup_status);
@@ -581,7 +589,7 @@ failed:
 int stop_sit_tunnel(void)
 {
 	if (is_interface_exist(IFNAME_SIT))
-		return doSystem("ip tunnel del %s", IFNAME_SIT);
+		return eval("ip", "tunnel", "del", IFNAME_SIT);
 	return 0;
 }
 
@@ -695,17 +703,14 @@ int wan6_up(char *wan_ifname, int unit)
 
 		if (*wan_gate6) {
 			routes_touched = 1;
-			WAN6_NATIVE_CHECK(doSystem("ip -6 route add %s dev %s",
-						   gate6_text, wan_ifname),
+			WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", gate6_text, "dev", wan_ifname),
 					  "add native static on-link gateway route");
-			WAN6_NATIVE_CHECK(doSystem("ip -6 route add default via %s metric %d",
-						   gate6_text, 1),
+			WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "via", gate6_text, "metric", "1"),
 					  "add native static default route");
 		}
 	} else if (ipv6_type == IPV6_NATIVE_DHCP6) {
 		routes_touched = 1;
-		WAN6_NATIVE_CHECK(doSystem("ip -6 route add default dev %s metric %d",
-					   wan_ifname, 2048),
+		WAN6_NATIVE_CHECK(eval("ip", "-6", "route", "add", "default", "dev", wan_ifname, "metric", "2048"),
 				  "add native DHCPv6 fallback default route");
 		allow_ra = nvram_invmatch("ip6_wan_dhcp", "1");
 		privacy_touched = 1;
@@ -843,7 +848,7 @@ int wan6_down(char *wan_ifname, int unit)
 
 	if (strcmp(wan6_ifname, IFNAME_SIT) == 0) {
 		if (is_interface_exist(IFNAME_SIT)) {
-			operation_status = doSystem("ip link set dev %s down", IFNAME_SIT);
+			operation_status = eval("ip", "link", "set", "dev", IFNAME_SIT, "down");
 			status = route_status_accumulate(status, operation_status);
 			if (operation_status != 0)
 				logmessage("WAN IPv6", "failed to bring SIT interface down (status=%d)",
