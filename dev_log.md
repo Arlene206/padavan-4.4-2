@@ -1,3 +1,11 @@
+## 2026-11-18 — Only poison PPPoE-MWAN cleanup on nonzero status
+
+- Parent main SHA: ac2b1f630e5bb0a51fd75aa6a7c090d2d7865c58; changed detect.sh and its Python source contract plus checkpoint docs.
+- Exact ac2b1f6 WAN-route run 44183697784 and XY-C1 run 44183697726 both failed first at the pre-existing normal multipath default-route test. Root cause was the new cleanup recorder setting MWAN_FLUSH_FAILED unconditionally even for successful iptables -D (status 0).
+- Guard the cleanup poison assignment with a nonzero status check; successful deletions leave cleanup state healthy, while snapshot, parse and deletion failures still block new rules/routes. Extend source checker to require this zero-status guard.
+- The four new failure-injection branches were not reached in the failed run and remain unverified until exact-head rerun.
+- Parent 319fd181 XY-C1 run 44180704552 did pass all pre-build checks, Build XY-C1, TRX verification and artifact upload; target L3 proven at that SHA. Router hardware L4 not run.
+
 ## 2026-11-18 — Prevent PPPoE-MWAN policy rebuild after failed cleanup
 
 - Parent main SHA: 319fd18123df5e47929cbe1c27f2989fd129bef4; changed detect.sh, detect_status.sh, check_pppoe_mwan_status.py and XY-C1 workflow atomically with handoff/roadmap/log.

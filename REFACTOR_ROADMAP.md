@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- WAN firewall gating is in 8e9ea213; cross-workflow checker repairs are in ece8011, 659c072 and 319fd181.
-- Exact 319fd181 PASS: WAN DHCP 44180704527, Firewall Startup 44180704593, Process 44180704695, USB modem 44180704601, NVRAM 44180705330, AI handoff 44180704890, AdGuardHome 44180704561, AliDDNS 44180704620, AliyunDrive 44180704706 and infosvr 44180704617.
-- XY-C1 44180704552 passed all pre-build gates and Build XY-C1 was running at last poll; TRX/artifact steps pending. No L3 claim until successful exact-head Build/TRX/upload.
-- THIS COMMIT changes PPPoE-MWAN detect.sh: after snapshot/parse/delete failure during prior-rule cleanup, all independent cleanup and route-cache flush still run but new rules and policy routes are skipped. Four shell fault-injection cases and XY-C1 pre-build detector execution are added.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807; hardware L4 not verified.
+- WAN firewall implementation 8e9ea213 is verified in XY-C1 run 44180704552: pre-build regressions, Build XY-C1, TRX verification and artifact upload all PASS. Hardware L4 remains NOT VERIFIED.
+- PPPoE-MWAN cleanup abort implementation ac2b1f6 failed the ordinary detector baseline in WAN-route 44183697784 and XY-C1 44183697726 because the helper poisoned cleanup after successful status-0 iptables deletions.
+- THIS COMMIT only poisons the cleanup phase for nonzero cleanup results; the source contract requires the zero-status guard. The new four fault-injection scenarios must be checked on this new exact SHA; they did not execute in the failed prior run.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
-Next: inspect exact-SHA WAN-route and XY-C1 jobs; then continue other P1 RC startup/error propagation gaps.
+Next: inspect exact-head WAN-route and XY-C1; require normal multipath and all cleanup-failure regressions plus Build/TRX/upload.
 
 
 ---

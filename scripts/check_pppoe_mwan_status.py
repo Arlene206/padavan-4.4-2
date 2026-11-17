@@ -101,7 +101,8 @@ check_caller(
 flush_helper_start = DETECT.index("mwan_flush_fail()")
 flush_helper_end = DETECT.index("\\n", flush_helper_start)
 require(
-    "MWAN_FLUSH_FAILED=1" in DETECT[flush_helper_start:flush_helper_end]
+    '[ "$rc" -ne 0 ] || return 0' in DETECT[flush_helper_start:flush_helper_end]
+    and "MWAN_FLUSH_FAILED=1" in DETECT[flush_helper_start:flush_helper_end]
     and 'mwan_flush_fail "$rc" "iptables-save -t $table"' in DETECT
     and 'mwan_flush_fail 2 "cannot safely parse $table iptables-save rule"' in DETECT
     and 'mwan_flush_fail "$rc" "iptables -t $table rule deletion"' in DETECT,

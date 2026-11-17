@@ -16,7 +16,7 @@ mwan_fail() {
 	return 0
 }
 mwan_run() { "$@"; local rc=$?; mwan_fail "$rc" "$*"; return 0; }
-mwan_flush_fail() { MWAN_FLUSH_FAILED=1; mwan_fail "$@"; }
+mwan_flush_fail() { local rc="$1"; [ "$rc" -ne 0 ] || return 0; MWAN_FLUSH_FAILED=1; mwan_fail "$@"; }
 mwan_die() { local rc="$1"; shift; mwan_fail "$rc" "$*"; exit "$MWAN_STATUS"; }
 mwan_exit() {
 	local rc=$?
