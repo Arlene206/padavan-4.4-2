@@ -1,14 +1,11 @@
-# 2026-11-18 latest verified checkpoint
+# 2026-11-17 latest verified checkpoint
 
-This section supersedes older active status below.
+- Parent main SHA: `895384877b709383abd9e1d3b09d0b689ad157f8`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- Switch bounded clear completion and diagnostic line endings passed exact-head Switch CLI run `44143066255`.
+- Process inventory/lifecycle exact-head run `44143066195` PASS. Parent XY-C1 run `44143066291` was building; TRX/artifact pending.
+- New review found unchecked NVRAM-derived LAN data passed into `ip2class()` and unbounded `sprintf` into the 100-byte miniupnpd presentation URL buffer. THIS COMMIT validates LAN address/netmask and uses a tested bounded formatter; exact-head Process and XY-C1 reruns pending.
 
-- Parent main SHA: `642e7a20e44a654f32170e7c1d23fbd0bdaf2943`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
-- Parent Switch CLI exact-head run `44142455997` PASS; Process lifecycle and Process inventory PASS; XUPnPD WAN route and NVRAM PASS.
-- Parent XY-C1 run `44142455489` was still building; TRX and artifact status pending.
-- THIS COMMIT restores correct newline/carriage-return output escapes in three bounded switch clear commands and adds a regression assertion.
-- No local MIPS firmware or physical-router L4 result is claimed.
-
-Next: verify exact-head Switch CLI and XY-C1 Build/TRX/artifact; continue independent P1 service lifecycle work.
+Next: verify new Process test/source contracts and XY-C1 Build/TRX/artifact, then continue broad P1 userland reliability work.
 
 ---
 

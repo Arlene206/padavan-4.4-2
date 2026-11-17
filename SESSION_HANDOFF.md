@@ -1,31 +1,35 @@
-# 2026-11-18 continuation checkpoint — switch clear output correction
+# 2026-11-17 continuation checkpoint — bound MiniUPnP presentation URL generation
 
-This checkpoint supersedes conflicting active status below. Continue on main; do not repeat completed audits.
+This checkpoint supersedes the older active summary below. Continue on `main`; do not repeat completed switch/Process audits.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2/.
-- Parent main SHA: 642e7a20e44a654f32170e7c1d23fbd0bdaf2943; result: THIS COMMIT (complete Git tree, expected-SHA non-force update).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and immutable. Development only on main.
-- PR #1 remains closed/unmerged. No full local MIPS/uClibc toolchain or physical router; L4 NOT VERIFIED.
+- Parent main SHA: `895384877b709383abd9e1d3b09d0b689ad157f8`; result: THIS COMMIT (complete Git tree, expected-SHA non-force update).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and immutable. Development remains main-only; PR #1 closed/unmerged.
+- No local full MIPS/uClibc toolchain or physical router; L4 remains NOT VERIFIED.
 
-## Exact-head validation on parent
-- Switch CLI run `44142455997`: SUCCESS, including all clear-operation write → bounded wait → read source contracts and host sanitizer policy.
-- Process lifecycle `44142455662`, Process inventory `44142455647`, AliyunDrive `44142455639`, AliDDNS `44142455595`, infosvr `44142455491`, AdGuardHome `44142455420`, AI handoff `44142455774`, WAN route `44141514745` and NVRAM `44142455677`: SUCCESS (NVRAM completed after the initial poll).
-- XY-C1 `44142455489`: Build XY-C1 still IN_PROGRESS at last poll; TRX verification and artifact upload remain pending.
+## Parent exact-head verification
+- Switch CLI run `44143066255`: PASS, including table clear ordering/output format.
+- Process lifecycle umbrella `44143066195`: PASS.
+- Process inventory audit `44143066427`, AliyunDrive `44143066462`, AliDDNS `44143066663`, infosvr `44143067103`, AI docs `44143066170`, AdGuardHome `44143066181`: PASS.
+- NVRAM transaction audit `44143066510`: was IN_PROGRESS at last poll.
+- XY-C1 firmware run `44143066291`: Build XY-C1 IN_PROGRESS; TRX verification and artifact upload pending.
 
-## Switch output correction
-- Parent commit `642e7a20` correctly replaced fixed sleeps in `table_clear()`, `dip_clear()`, and `sip_clear()` with `wait_mac_atc()`, but the three diagnostic `printf` formats gained an extra source backslash and would print literal `\\n\\r` instead of line breaks.
-- THIS COMMIT restores the original single-backslash C newline/carriage-return escapes and adds an exact source assertion so that formatting regression cannot recur. No wait semantics changed.
+## MiniUPnP memory-safety fix (THIS COMMIT)
+- `start_upnp()` built `lan_addr:http_lanport` with unbounded `sprintf(var, "%s:%d", ...)` into a 100-byte stack buffer using NVRAM-derived address data. It also passed LAN address/netmask to `ip2class()` without validating either first.
+- THIS COMMIT validates both LAN IPv4 values, replaces the unbounded interpolation with a GNU89-compatible bounded formatter, rejects invalid ports and returns a diagnosable error on truncation instead of launching miniupnpd with a partial URL.
+- Added ASan/UBSan host tests for default/custom ports, upper port boundary, oversized input, truncation, null buffers and invalid port. Added process-integration source contract and XY-C1 path coverage.
+- Exact-head Process and XY-C1 Actions for THIS COMMIT are pending; parent XY-C1 remains in progress.
 
-## First next task
-1. Inspect exact-head Switch CLI run for THIS COMMIT; require the new output-format assertion and bounded clear completion contracts.
-2. Re-check XY-C1 `44142455489`; require Build, TRX and artifact-upload success on the exact source SHA.
-3. Continue P1 process/service lifecycle work on other userland paths; avoid repeating completed switch, XUPnPD, WAN, HTTPD, AliyunDrive and NVRAM checks without new evidence.
+## First next actions
+1. Verify exact-head Process CI: run the new MiniUPnP URL test and integration checker; inspect any source-contract or compiler failure.
+2. Verify exact-head XY-C1 Build, TRX validation and artifact upload. Do not treat earlier baseline runs as current-source build proof.
+3. Continue the next independent P1 userland stability slice while any CI is pending; avoid repeating already-green Switch and Process checks without new failure evidence.
 
 ## Validation boundary
-- Exact parent Switch CLI and Process lifecycle PASS; parent NVRAM finished SUCCESS and WAN route PASS.
-- XY-C1 Build remained in progress at last poll; no firmware/TRX/artifact PASS is claimed yet.
-- The source-format correction in THIS COMMIT awaits its exact-head host/source regression. No local MIPS build or physical-router L4 claim.
+- Parent `895384877b709383abd9e1d3b09d0b689ad157f8`: Switch CLI and Process lifecycle PASS; XY-C1 Build/TRX/artifact not yet verified.
+- THIS COMMIT: host regression and embedded build results pending exact SHA.
+- No local firmware build or physical-router L4 claim.
 
 # Cross-session execution mandate
 

@@ -1694,6 +1694,31 @@ for required_path in (
 print("VPN server restart propagates teardown, start, restoration and unlock failures: PASS")
 
 
+# Validate NVRAM LAN values and bound MiniUPnP presentation URL formatting.
+upnp_url_source = (root / "trunk/user/rc/src/services_ex.c").read_text()
+upnp_url_policy = (root / "trunk/user/rc/src/miniupnpd_presentation_url.h").read_text()
+upnp_url_test = (root / "trunk/user/rc/src/tests/miniupnpd_presentation_url.c").read_text()
+upnp_start_body = c_function_body(upnp_url_source, "int" + chr(10) + "start_upnp(void)")
+assert '#include "miniupnpd_presentation_url.h"' in upnp_url_source
+assert "is_valid_ipv4(lan_addr)" in upnp_start_body
+assert "is_valid_ipv4(lan_mask)" in upnp_start_body
+assert "miniupnpd_format_lan_url(lan_addr, ret, var, sizeof(var))" in upnp_start_body
+assert "sprintf(var," not in upnp_start_body
+assert "http_port < 0 || http_port > 65535" in upnp_url_policy
+assert "snprintf(buffer, buffer_size" in upnp_url_policy
+assert "errno = ENOSPC;" in upnp_url_policy
+for test_case in (
+    "test_default_ports_omit_suffix",
+    "test_custom_port_is_appended",
+    "test_oversized_address_fails_without_truncation",
+    "test_invalid_port_and_null_address_fail",
+    "test_invalid_output_buffer_fails",
+    "test_short_output_buffer_is_cleared",
+):
+    assert test_case in upnp_url_test, test_case
+print("MiniUPnP LAN URL validation and bounded formatting contract: PASS")
+
+
 # UPnP restart refuses to reapply firewall rules when stop_upnp() cannot
 # prove that the old daemon stopped; preserve that status to PID 1.
 upnp_restart_policy = (root / "trunk/user/rc/src/upnp_restart_policy.h").read_text()

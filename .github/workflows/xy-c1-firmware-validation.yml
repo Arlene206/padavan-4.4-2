@@ -72,6 +72,8 @@ on:
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/upnp_restart_policy.h"
       - "trunk/user/rc/src/tests/upnp_restart_policy.c"
+      - "trunk/user/rc/src/miniupnpd_presentation_url.h"
+      - "trunk/user/rc/src/tests/miniupnpd_presentation_url.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/auth.c"
       - "trunk/user/rc/src/inicd.c"

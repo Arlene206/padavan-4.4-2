@@ -46,6 +46,7 @@
 #include "inadyn_daemon_policy.h"
 #include "miniupnpd_config_file.h"
 #include "miniupnpd_daemon_policy.h"
+#include "miniupnpd_presentation_url.h"
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
 #include "samba_config_file.h"
@@ -1757,6 +1758,7 @@ start_upnp(void)
 {
 	int ret, i_proto_use, i_clean_min, i_clean_int, i_iports[2], i_eports[2];
 	int scan_error, presence_error;
+	int url_error;
 	enum process_presence state;
 	char *lan_addr, *lan_mask, *lan_url, *proto_upnp, *proto_npmp, *secured;
 	char var[100];
@@ -1800,16 +1802,22 @@ start_upnp(void)
 
 	lan_addr = nvram_safe_get("lan_ipaddr");
 	lan_mask = nvram_safe_get("lan_netmask");
+	if (!is_valid_ipv4(lan_addr) || !is_valid_ipv4(lan_mask)) {
+		logmessage(LOGNAME, "miniupnpd start aborted: invalid LAN IPv4 address or netmask");
+		return EINVAL;
+	}
 	ip2class(lan_addr, lan_mask, lan_class, sizeof(lan_class));
 	memset(lan_mac, 0, sizeof(lan_mac));
 	ether_atoe(nvram_safe_get("lan_hwaddr"), lan_mac);
 
-	lan_url = lan_addr;
 	ret = nvram_get_int("http_lanport");
-	if (ret && ret != 80) {
-		sprintf(var, "%s:%d", lan_addr, ret);
-		lan_url = var;
+	if (miniupnpd_format_lan_url(lan_addr, ret, var, sizeof(var)) != 0) {
+		url_error = errno > 0 ? errno : EIO;
+		logmessage(LOGNAME, "miniupnpd start aborted: cannot format LAN presentation URL (errno %d)",
+			   url_error);
+		return url_error;
 	}
+	lan_url = var;
 
 	if (i_proto_use == 2) {
 		proto_upnp = "yes";

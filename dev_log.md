@@ -1,3 +1,14 @@
+## 2026-11-17 — Bound and validate MiniUPnP presentation URL
+
+- Parent main SHA: `895384877b709383abd9e1d3b09d0b689ad157f8`; result: THIS COMMIT.
+- `start_upnp()` previously passed unvalidated NVRAM `lan_ipaddr`/`lan_netmask` to `ip2class()`, then used unbounded `sprintf` into `char var[100]` for a custom HTTP port presentation URL.
+- Added LAN IPv4 validation and `miniupnpd_format_lan_url()`: GNU89-compatible `snprintf`, explicit port range, truncation/invalid-argument errors, and clearing of partial output on failure. Startup now fails before config publication/daemon launch if these checks fail.
+- Added ASan/UBSan tests for default/custom/max ports, oversized/truncated input, null input/output and invalid port; added integration source contract plus Process/XY-C1 path coverage.
+- Parent Switch CLI `44143066255` and Process lifecycle `44143066195` PASS; parent XY-C1 `44143066291` remained IN_PROGRESS. New exact-head Actions pending.
+- No local target build or physical-router L4 claim.
+
+---
+
 ## 2026-11-18 — Restore switch clear diagnostic line endings
 
 - Parent main SHA: 642e7a20e44a654f32170e7c1d23fbd0bdaf2943; result: THIS COMMIT.
