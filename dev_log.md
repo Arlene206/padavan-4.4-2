@@ -1,3 +1,14 @@
+## 2026-11-16 — Harden PPPoE-MWAN detect.sh failure and cleanup semantics
+
+- Parent main SHA: `42097d6c2ac28c37960bbb5b4940f2db22bf30f2`.
+- Reworked `trunk/user/pppoe/detect.sh` so failed `iptables-save`, rule deletion/insertion, `ip rule`, per-table routes, default-route replacement and route-cache cleanup are no longer silently discarded. The first nonzero operation status is preserved while independent cleanup operations still run.
+- Removed shell `eval` of `iptables-save` output. A bounded Bash tokenizer converts selected `-A` rules into argv while preserving quoted comments and treating command substitutions/backticks as inert data.
+- NVRAM counters/selectors and IPv4 inputs are validated before arithmetic or rule construction. Missing `pppN` interfaces remain expected during WAN reconvergence. Lock creation is exclusive; only the invocation that acquired the lock removes it, and EXIT cleanup failures become visible without masking an earlier operation failure.
+- Added `trunk/user/pppoe/tests/detect_status.sh`; local `bash -n` checks and the mock-command suite PASS. Coverage includes normal multipath, save/delete/insert/route failures, continued cache cleanup, invalid bridge/NVRAM/IPv4/counters, absent PPP device, leading-zero decimal input, lock cleanup and shell-metacharacter injection.
+- WAN-route push/PR filters now include the script and test, and the job runs the Bash syntax/mock suite. XY-C1 push trigger includes the production script. Exact-head Actions and XY-C1 Build/TRX/artifact verification are pending for this source commit; no firmware/L4 result is claimed.
+
+---
+
 ## 2026-11-16 — Repair WAN workflow pull_request filter placement
 
 - Parent main SHA: `d2a41360466574898f7fc9fe224236d5a51517a7`.

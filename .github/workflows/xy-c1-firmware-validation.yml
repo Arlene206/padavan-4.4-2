@@ -18,6 +18,7 @@ on:
       - "trunk/user/transmission/transmission.sh"
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/zerotier/**"
+      - "trunk/user/pppoe/detect.sh"
       - "trunk/user/rc/src/msd_lite_config_file.h"
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/rc/src/igmpproxy_config_file.h"
