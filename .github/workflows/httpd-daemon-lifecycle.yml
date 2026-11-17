@@ -63,9 +63,11 @@ jobs:
           test = Path("trunk/user/rc/src/tests/httpd_daemon_policy.c").read_text()
           workflow = Path(".github/workflows/httpd-daemon-lifecycle.yml").read_text()
 
-          start = body(services, "start_httpd(int restart_fw)")
+          start = body(services, "start_httpd_locked(int restart_fw)")
+          start_entry = body(services, "start_httpd(int restart_fw)")
           probe = body(services, "httpd_process_presence(int *scan_error)")
-          stop = body(services, "stop_httpd(void)")
+          stop = body(services, "stop_httpd_locked(void)")
+          stop_entry = body(services, "stop_httpd(void)")
           restart = body(services, "restart_httpd(void)")
 
           assert 'process_inventory_scan("httpd", &snapshot)' in probe
@@ -92,15 +94,25 @@ jobs:
           assert started_publish < start.index("restart_firewall();", started_publish)
           assert "return status;" in start
 
+          assert "httpd_lifecycle_lock_acquire_status" in start_entry
+          assert "start_httpd_locked(restart_fw)" in start_entry
+          assert "httpd_lifecycle_lock_finish" in start_entry
+
           assert "kill_services(svcs, 3, 1)" in stop
           assert stop.index("kill_services(svcs, 3, 1)") < stop.index("httpd_stop_policy_publish_stopped")
           assert stop.index("httpd_stop_policy_publish_stopped") < stop.index('nvram_set_int_temp("httpd_started", 0)')
           assert "return stop_status;" in stop
+          assert "httpd_lifecycle_lock_acquire_status" in stop_entry
+          assert "stop_httpd_locked()" in stop_entry
+          assert "httpd_lifecycle_lock_finish" in stop_entry
 
-          assert "stop_status = stop_httpd();" in restart
-          assert restart.index("stop_status = stop_httpd();") < restart.index("httpd_restart_can_start(stop_status)")
-          assert restart.index("httpd_restart_can_start(stop_status)") < restart.index("return start_httpd(1);")
-          assert "return start_httpd(1);" in restart
+          assert 'httpd_lifecycle_lock_acquire_status("restart", &lock_fd)' in restart
+          assert "stop_status = stop_httpd_locked();" in restart
+          assert restart.index("stop_status = stop_httpd_locked();") < restart.index("httpd_restart_can_start(stop_status)")
+          assert restart.index("httpd_restart_can_start(stop_status)") < restart.index("status = start_httpd_locked(1);")
+          assert 'httpd_lifecycle_lock_finish(lock_fd, status, "restart")' in restart
+          assert "stop_httpd();" not in restart
+          assert "start_httpd(1);" not in restart
 
           assert "int start_httpd(int restart_fw);" in header
           assert "int stop_httpd(void);" in header
@@ -120,6 +132,9 @@ jobs:
           pr = workflow[push_marker:dispatch_marker]
           triggers = (
               "trunk/user/rc/src/services.c",
+              "trunk/user/rc/src/watchdog.c",
+              "trunk/user/rc/src/httpd_lifecycle_lock.h",
+              "trunk/user/rc/src/tests/httpd_lifecycle_lock.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/httpd_daemon_policy.h",
               "trunk/user/rc/src/tests/httpd_daemon_policy.c",

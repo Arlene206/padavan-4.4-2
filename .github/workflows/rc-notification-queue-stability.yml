@@ -250,9 +250,13 @@ jobs:
           assert "int run_telnetd(void);" in rc_header
           assert "int start_telnetd(void);" in rc_header
           httpd_restart = function_body(services, "int\nrestart_httpd(void)")
-          assert "int stop_status = stop_httpd();" in httpd_restart
-          assert "return stop_status;" in httpd_restart
-          assert "return start_httpd(1);" in httpd_restart
+          assert 'httpd_lifecycle_lock_acquire_status("restart", &lock_fd)' in httpd_restart
+          assert "stop_status = stop_httpd_locked();" in httpd_restart
+          assert "httpd_restart_can_start(stop_status)" in httpd_restart
+          assert "status = start_httpd_locked(1);" in httpd_restart
+          assert 'httpd_lifecycle_lock_finish(lock_fd, status, "restart")' in httpd_restart
+          assert "stop_httpd();" not in httpd_restart
+          assert "start_httpd(1);" not in httpd_restart
           stop_whole_wan = function_body(handler, 'else if (!strcmp(entry->d_name, "stop_whole_wan"))')
           assert "rc_notify_merge_action_result(action_result, stop_wan())" in stop_whole_wan
           modem = function_body(handler, 'else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))')
