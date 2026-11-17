@@ -2562,7 +2562,7 @@ jobs:
           assert "ret = udhcpc_viptv_deconfig(man_ifname);" in udhcpc_viptv_main
           assert "ret = manv_route_deconfig(man_ifname);" not in udhcpc_viptv_main
           viptv_deconfig_start = wan.index("udhcpc_viptv_deconfig(char *man_ifname)")
-          viptv_deconfig_end = wan.index("int\\nudhcpc_viptv_main(", viptv_deconfig_start)
+          viptv_deconfig_end = wan.index("udhcpc_viptv_main(int argc, char **argv)", viptv_deconfig_start)
           viptv_deconfig = wan[viptv_deconfig_start:viptv_deconfig_end]
           assert "dhcp_lease_viptv_deconfig_apply(&ops, &context)" in viptv_deconfig
           assert "retaining lease metadata for retry" in viptv_deconfig
