@@ -1,8 +1,17 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "sshd_daemon_policy.h"
+
+static void test_process_name_selection_matches_inventory_backend(void)
+{
+	assert(strcmp(sshd_process_name_for_binaries(1, 1), "dropbear") == 0);
+	assert(strcmp(sshd_process_name_for_binaries(1, 0), "dropbear") == 0);
+	assert(strcmp(sshd_process_name_for_binaries(0, 1), "sshd") == 0);
+	assert(sshd_process_name_for_binaries(0, 0) == NULL);
+}
 
 static void test_direct_start_requires_confirmed_absence(void)
 {
@@ -81,6 +90,7 @@ static void test_firewall_refresh_policy(void)
 
 int main(void)
 {
+	test_process_name_selection_matches_inventory_backend();
 	test_direct_start_requires_confirmed_absence();
 	test_restart_initial_inventory_gates_name_based_stop();
 	test_detached_start_requires_running_child();

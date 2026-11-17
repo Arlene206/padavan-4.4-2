@@ -1,23 +1,17 @@
-# 2026-11-18 continuation checkpoint - validate WAN checker correction and SSH header inline fix
+# 2026-11-18 continuation checkpoint — SSH stop must prove daemon absence
 
-## Repository and exact-SHA status
-- Repository: Arlene206/padavan-4.4-2; parent main before this checkpoint: 6a5f1477771ecb1f4aa612e59a12472937051e0f.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; do not modify it.
-- HTTPD listener rollback from f1f3edd6 passed its exact HTTPD lifecycle run 44187513932 and HTTPD security run 44187513945.
-- WAN checker update 773642be replaced the obsolete unconditional-return assertion but initially used the first httpd_started=0 assignment, which belonged to the pre-launch path. This was fixed in 6a5f1477 by checking order only within the suffix after restart_firewall().
-- Shared process-presence start helpers were changed to static inline in e9144985 after exact Process and RC notification queue Actions exposed -Werror=unused-function when sshd_daemon_policy.h included that header. The e914 Process run then passed that compile stage and reached the WAN checker assertion.
-- Exact 6a5f1477 runs at the last poll: Firewall Startup Stability 44188951449 PASS; AI docs 44188951370 PASS; Process lifecycle 44188951409 in progress (inventory step); USB modem WDM/NDIS 44188951386 in progress (GNU89 compile); XY-C1 44188951477 in progress (ccache setup/build sequence). Check exact head and require XY-C1 Build, TRX verification and artifact upload before L3.
-- SSH firewall rollback Process 44185018675 and WAN route 44185018710 passed. PPPoE-MWAN WAN route 44184652136 passed with cleanup-failure cases. Hardware L4 remains NOT VERIFIED.
-
-## THIS WAN checker follow-up
-- scripts/check_modem_wan_start_status.py now validates HTTPD firewall-failure errno capture, the fail-closed stop gate, locked stop, fresh process scan, ABSENT/uncertain NVRAM publication and restoration of original firewall errno/status.
-- The order assertions are scoped from the restart_firewall() call, avoiding the older pre-launch httpd_started=0 assignment.
-- Exact source-SHA verification for 6a5f1477 is pending/in progress; do not claim it passed until the matching jobs complete.
+## Current main and exact-SHA state
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS stop-path correction: `07b8266ea07de74d6b898a184018cf949b4784a2`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact source SHA `6a5f1477`: Process inventory/lifecycle `44188951409` PASS, Firewall Startup `44188951449` PASS, USB modem `44188951386` PASS, AI docs `44188951370` PASS; XY-C1 `44188951477` was still in Build XY-C1 at last poll, so TRX/artifact/L3 were not yet confirmed.
+- Exact main descendant `07b8266e`: Process lifecycle `44189266764` PASS including SSH firewall regression; NVRAM `44189266811` PASS. AliyunDrive `44189266857` failed in its special-domain startup test and must be diagnosed separately; do not treat as an SSH regression.
+- `stop_sshd()` previously delegated to OpenSSH/Dropbear shell scripts whose `func_stop()` only ran name-based `killall -q sshd/dropbear`. A zero shell status therefore did not prove the daemon had exited. THIS commit selects the same daemon identity as inventory and calls `kill_services()`, whose process lifecycle transaction snapshots PID/start-time/cmdline identity and only returns STOPPED after a fresh absence scan (including bounded SIGKILL escalation after timeout).
+- The new selection helper is unit-tested for Dropbear/OpenSSH/absent binary configurations; the existing Process source checker enforces use of identity-bound stop.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA Process, USB modem WDM/NDIS, Firewall Startup and XY-C1 runs for 6a5f1477; require checker/source contracts and XY-C1 Build/TRX/artifact.
-2. Fix the first actual failing assertion in a separate atomic slice. Do not repeat SSH policy compilation or other already passing subtests unless touched.
-3. Continue the next independent P1 runtime/security defect. Keep the frozen backup unchanged; hardware L4 is NOT VERIFIED.
+1. Inspect exact-head Process inventory/lifecycle and XY-C1 Actions for THIS commit. Require the new stop mapping + identity-bound `kill_services()` source checks, SSH GNU89/ASan/UBSan tests, and XY-C1 Build/TRX/artifact.
+2. Independently diagnose AliyunDrive special-domain start failure on `07b8266e` from its exact run log and shell test; correct its real fixture/behavior without relaxing startup readiness.
+3. Continue the next P1 service/security gap. Keep backup immutable. Router hardware L4 remains NOT VERIFIED.
 
 # Cross-session execution mandate
 

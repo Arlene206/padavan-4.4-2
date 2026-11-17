@@ -125,5 +125,26 @@ restart_order = (
 )
 assert restart_order == tuple(sorted(restart_order))
 
+
+# A stop operation must use the same executable-to-process mapping as
+# inventory and the identity-bound lifecycle engine; shell killall success
+# only proves a signal was sent, not that the daemon exited.
+process_name_policy = body(POLICY, "sshd_process_name_for_binaries(")
+assert 'return "dropbear";' in process_name_policy
+assert 'return "sshd";' in process_name_policy
+assert "return NULL;" in process_name_policy
+presence = body(SERVICES, "sshd_process_presence(int *scan_error)")
+stop = body(SERVICES, "int stop_sshd(void)")
+assert "sshd_process_name_for_binaries(" in presence
+assert "sshd_process_name_for_binaries(" in stop
+assert 'check_if_file_exist("/usr/bin/dropbearmulti")' in stop
+assert 'check_if_file_exist("/usr/sbin/sshd")' in stop
+assert "service_names[0] = (char *)process_name;" in stop
+assert "service_names[1] = NULL;" in stop
+assert "kill_services(service_names, 3, 1)" in stop
+assert 'eval("/usr/bin/sshd.sh", "stop")' not in stop
+assert "killall" not in stop
+assert "test_process_name_selection_matches_inventory_backend();" in TEST
+
 print("SSH detached-child startup, tri-state restart preflight and firewall rollback: PASS")
 

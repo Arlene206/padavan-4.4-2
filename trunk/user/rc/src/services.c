@@ -603,12 +603,9 @@ sshd_process_presence(int *scan_error)
 {
 	struct process_snapshot snapshot;
 	enum process_presence presence;
-	const char *process_name = NULL;
-
-	if (check_if_file_exist("/usr/bin/dropbearmulti"))
-		process_name = "dropbear";
-	else if (check_if_file_exist("/usr/sbin/sshd"))
-		process_name = "sshd";
+	const char *process_name = sshd_process_name_for_binaries(
+		check_if_file_exist("/usr/bin/dropbearmulti"),
+		check_if_file_exist("/usr/sbin/sshd"));
 
 	if (!process_name) {
 		if (scan_error)
@@ -636,7 +633,22 @@ int is_sshd_run(void)
 
 int stop_sshd(void)
 {
-	return eval("/usr/bin/sshd.sh", "stop");
+	char *service_names[2];
+	const char *process_name = sshd_process_name_for_binaries(
+		check_if_file_exist("/usr/bin/dropbearmulti"),
+		check_if_file_exist("/usr/sbin/sshd"));
+
+	if (!process_name)
+		return 0;
+
+	service_names[0] = (char *)process_name;
+	service_names[1] = NULL;
+	/*
+	 * kill_services() snapshots PID/start-time identities, validates them
+	 * before TERM/KILL, and returns success only after a fresh scan confirms
+	 * the selected daemon is absent.
+	 */
+	return kill_services(service_names, 3, 1);
 }
 
 int start_sshd(void)

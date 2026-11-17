@@ -1,12 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- HTTPD public-listener rollback from f1f3edd6 passed exact HTTPD lifecycle 44187513932 and security 44187513945.
-- WAN startup checker obsolete assertion was replaced in 773642be; a checker ordering bug was then fixed in 6a5f1477 by scoping the sequence to the firewall rollback suffix.
-- SSH shared process-start helpers were made static inline in e9144985 to eliminate -Werror=unused-function in sshd policy builds; the subsequent Process job progressed beyond that compiler stage.
-- Exact 6a5f1477 Firewall Startup 44188951449 and AI docs 44188951370 passed; Process 44188951409, USB modem WDM/NDIS 44188951386 and XY-C1 44188951477 were in progress at last poll.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. XY-C1 Build/TRX/artifact and physical router L4 are not yet certified for these changes.
+- SSH/HTTPD firewall failure rollback and SSH detached-start inventory checks are in main.
+- THIS P1 stop-path hardening replaces sshd.sh name-based `killall` success with identity-bound `kill_services()`: same Dropbear/OpenSSH name selection as inventory, snapshot + revalidation, bounded TERM/KILL, and verified absence before stop returns success. Process CI source assertions and GNU89 policy test cover backend mapping.
+- Exact source SHA `6a5f1477` Process/Firewall/USB/AI checks passed; XY-C1 `44188951477` was still building at last check. Exact current-head Process/XY must validate THIS stop change.
+- Separate known failure: AliyunDrive special-domain start regression run `44189266857` failed on `07b8266e`; investigate independently.
+- Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-Next: inspect exact-head Process/USB-modem/Firewall/XY-C1 runs, then continue broad process-lifecycle/security review. Hardware L4 is NOT VERIFIED.
+Next: verify exact-SHA SSH stop CI + XY build, diagnose Aliyun special-mode startup fixture/failure.
+
 
 ---
 ## Whole-repository module status

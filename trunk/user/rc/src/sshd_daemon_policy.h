@@ -58,4 +58,15 @@ sshd_firewall_failure_requires_stop(int firewall_status,
 	       after_state != PROCESS_PRESENCE_ABSENT;
 }
 
+/* Keep process inventory and stop targeting on the same selected daemon. */
+static inline const char *
+sshd_process_name_for_binaries(int dropbear_available, int openssh_available)
+{
+	if (dropbear_available)
+		return "dropbear";
+	if (openssh_available)
+		return "sshd";
+	return NULL;
+}
+
 #endif
