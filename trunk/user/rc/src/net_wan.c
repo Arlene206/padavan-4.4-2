@@ -4912,7 +4912,7 @@ udhcpc_viptv_deconfig(char *man_ifname)
 	status = dhcp_lease_viptv_deconfig_apply(&ops, &context);
 	if (status != 0)
 		logmessage(LOGNAME,
-			   "IPTV DHCP deconfig incomplete on %s (status=%d); address remains down after successful clear and lease metadata is retained for retry",
+			   "IPTV DHCP deconfig incomplete on %s (status=%d); retaining lease metadata for retry",
 			   man_ifname, status);
 
 	/* Always stop multicast service, even when address or route cleanup failed. */
