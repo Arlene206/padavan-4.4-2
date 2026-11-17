@@ -62,6 +62,10 @@ process_identity_validate_with_ops(const char *process_name,
 enum process_presence
 process_inventory_scan(const char *process_name, struct process_snapshot *snapshot);
 
+/* Tri-state process query for callers that must distinguish UNKNOWN from ABSENT. */
+enum process_presence
+pids_presence(const char *process_name);
+
 enum process_presence
 process_identity_validate(const char *process_name,
 			  const struct process_identity *identity);

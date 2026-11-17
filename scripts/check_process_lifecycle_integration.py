@@ -61,6 +61,8 @@ root = Path(__file__).resolve().parents[1]
 shared_makefile = (root / "trunk/user/shared/src/Makefile").read_text()
 shared_header = (root / "trunk/user/shared/src/shutils.h").read_text()
 pids_source = (root / "trunk/user/shared/src/pids.c").read_text()
+pids_presence_policy = (root / "trunk/user/shared/src/pids_presence_policy.h").read_text()
+pids_presence_test = (root / "trunk/user/shared/src/tests/pids_presence_policy.c").read_text()
 common_ex = (root / "trunk/user/rc/src/common_ex.c").read_text()
 policy = (root / "trunk/user/rc/src/service_lifecycle_policy.h").read_text()
 usb_services = (root / "trunk/user/rc/src/services_usb.c").read_text()
@@ -281,6 +283,18 @@ assert "PROCESS_PRESENCE_UNKNOWN" in pids_source
 assert "return EXIT_FAILURE;" in pids_source
 assert "return EXIT_SUCCESS;" in pids_source
 assert "return count;" not in pids_source
+
+assert "pids_presence(const char *appname)" in pids_source
+assert "process_inventory_scan(appname, &snapshot)" in pids_source
+assert "pids_presence_legacy_boolean(pids_presence(appname))" in pids_source
+assert "presence != PROCESS_PRESENCE_ABSENT" in pids_presence_policy
+for marker in (
+    "test_running_remains_true",
+    "test_confirmed_absence_remains_false",
+    "test_unknown_is_never_downgraded_to_absent",
+    "test_unrecognized_state_fails_closed",
+):
+    assert marker in pids_presence_test, marker
 assert '#include <process_inventory.h>' in policy
 assert "process_inventory_scan(service_name, snapshot)" in common_ex
 assert "process_identity_validate(service_name, identity)" in common_ex

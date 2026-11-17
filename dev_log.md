@@ -1,3 +1,12 @@
+## 2026-11-17 — Route legacy pids() queries through the tri-state procfs scanner
+
+- Parent main SHA: 70cfa7881c64e25ce4109d9ded609c795600cb78; result: THIS COMMIT.
+- Process-inventory regression already established a fail-closed tri-state scanner, but the exported legacy `pids()` Boolean wrapper still called `find_pid_by_name()`. That older BusyBox-derived scan collapses procfs read/enumeration and allocation failures into an empty PID list, so service/UI callers could treat an unknown process state as a confirmed stop.
+- Added `pids_presence()` as an explicit tri-state API and routed `pids()` through it. For backward-compatible Boolean callers, only confirmed ABSENT maps to zero; UNKNOWN conservatively maps to one, avoiding false proof that a service is stopped. Empty/null process names retain their previous false result. The older `find_pid_by_name()` remains available for callers explicitly needing the PID list.
+- Added GNU89 ASan/UBSan policy regression for RUNNING, ABSENT, UNKNOWN and invalid enum values; extended the process-lifecycle source contract and push/PR filters; XY-C1 filters now track the shared-library source and policy header.
+- Exact-head Actions pending. No local checkout/compiler in this connector-only runtime; physical-router L4 NOT VERIFIED.
+
+---
 ## 2026-11-17 — Align WAN teardown regression with continued IPv4 cleanup
 
 - Parent main SHA: 510b0756a834f6cc97d2a257a06c4c0558b612a2; result: THIS COMMIT.

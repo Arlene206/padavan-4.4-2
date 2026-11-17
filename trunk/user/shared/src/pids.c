@@ -15,6 +15,7 @@
 #include <ctype.h>
 
 #include "process_inventory.h"
+#include "pids_presence_policy.h"
 
 enum {
         PSSCAN_PID      = 1 << 0,
@@ -484,23 +485,33 @@ int pids_main(char *appname)
 	return EXIT_SUCCESS;
 }
 
+enum process_presence
+pids_presence(const char *appname)
+{
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+	int scan_error;
+
+	if (!appname || !*appname) {
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+
+	presence = process_inventory_scan(appname, &snapshot);
+	scan_error = snapshot.error;
+	process_snapshot_release(&snapshot);
+	if (presence == PROCESS_PRESENCE_UNKNOWN)
+		errno = scan_error > 0 ? scan_error : EIO;
+
+	return presence;
+}
+
 int pids(char *appname)
 {
-	pid_t *pidList;
-	pid_t *pl;
-	int count = 0;
-
-	pidList = find_pid_by_name(appname);
-	if (!pidList)
+	/* Preserve the historical empty-name result for legacy Boolean callers. */
+	if (!appname || !*appname)
 		return 0;
-	for (pl = pidList; *pl; pl++) {
-		count++;
-	}
-	free(pidList);
 
-	if (count)
-		return 1;
-	else
-		return 0;
+	return pids_presence_legacy_boolean(pids_presence(appname));
 }
 
