@@ -31,14 +31,15 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. The Inadyn cache-preparation fix is closed at source SHA `ac7787ccee5df8a6e52a16177ef094f7b0504ca7`: exact-main push run `44081035410`, job `134031372777`, PASS; GNU89/Werror/ASan/UBSan compile, policy regression and integration checker all succeeded. No target/hardware claim follows from this L2 result.
-2. Current boot-environment slice is in THIS COMMIT. `init_main_loop()` previously ignored the `dev_init.sh` system status; the script also ignored failures for required proc/sys/dev/etc/tmp/var/devpts mounts, mdev population and sensitive PID-1/HTTPD directories. The boot script now fails on these required setup errors, PID 1 gates `init_router()`, and optional debugfs/cgroup/storage/user-start operations remain best effort.
-3. Exact first action: inspect the live-main Process inventory/lifecycle workflow run with `event=push` and `head_sha` exactly equal to live `main`; confirm both `dev_init_boot_policy.sh` and `check_dev_init_boot.py` passed. If failed, repair the first causal failure before selecting another issue. Also inspect the XY-C1 run for this exact SHA; only a successful Build + TRX + artifact sequence establishes L3.
-4. The five legacy `void start_*` wrappers in `services.c` (AdGuardHome, DDNS.to, Adbyby, AliDDNS, FRP) were traced across all 36 RC source C files: no direct caller was found; active `rc.c` notification paths call the status-returning `restart_*` wrappers instead. Do not change unused wrapper signatures without discovering another real call site.
-5. After this boot slice passes, continue the next high-priority userland stability task outside already heavily worked wireless/storage/HTTPD modules. Preserve the frozen backup at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+1. Product-source baseline: `10be37e50fbbd11c686593b0edd3863b31055b2e` adds the required boot-environment fail-closed path. `init_main_loop()` captures `dev_init.sh` status and starts router services only when boot mounts, mdev population, private directory setup and NVRAM readiness all succeed. Optional debugfs/cgroups/storage seeding/user start remain best effort.
+2. Exact-main `push` Process lifecycle run `44084634310` passed; its job `134043734932` executed both `dev_init_boot_policy.sh` and `scripts/check_dev_init_boot.py`, each PASS. AI handoff docs run `44084634333` also passed.
+3. Three unrelated umbrella checks exposed stale source contracts, not production regressions: NVRAM run `44084634391` expected the old two-condition PID-1 gate; HTTPD run `44084634464` made the same stale assertion; USB storage run `44084634290` expected `void start_rwfs_optware()` although the current API returns `int` and propagates its launch result. THIS COMMIT updates those checks to the actual production contracts.
+4. The exact-source XY-C1 workflow did not trigger for `10be37e`: its path filter omitted `init.c` and `dev_init.sh`. THIS COMMIT adds both source paths; its existing self-path entry also makes the workflow configuration change trigger an exact-head firmware build. Require Build + TRX verification + artifact upload before calling L3 verified.
+5. After the exact-head CI repairs pass, continue broad RC startup-result propagation from the whole-repository priority queue. Do not revisit completed Inadyn cache preparation, guest-Wi-Fi rollback, USB-storage lock work, or the completed boot-environment source change without new evidence. The legacy void service wrappers were traced through 36 RC C files and have no direct callers; do not change them without a newly discovered caller.
 
-- Live source checkpoint parent: `ac7787ccee5df8a6e52a16177ef094f7b0504ca7`; current main is THIS COMMIT, resolve its SHA from GitHub.
+- Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - Physical-router L4 remains NOT VERIFIED.
+- Current checkpoint below distinguishes the product-source baseline from this corrective CI/workflow commit.
 
 ## Verification boundary
 - On source parent `0b2168e17833d5ae8e4223f34fcecd0e7a5df82f`, XY-C1 run `44054425508` and NVRAM `44054425712` completed SUCCESS; on descendant `89aff3132fd80f3853f38315112811ca5d72fb67`, Process lifecycle `44054844821` and NVRAM `44054844849` completed SUCCESS.
@@ -53,4 +54,12 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Continue source review at `trunk/user/rc/src/services_ex.c:start_ddns(int clear_cache)`: trace every caller and the semantics of `DDNS_CACHE_DIR`, `doSystem("rm -rf ...")`, and `mkdir()`. Determine whether cleanup or directory creation failures can produce stale credentials/cache or a false successful daemon start. Add a small injected policy helper and GNU89/Werror/ASan/UBSan regression only if the defect is confirmed; wire its source contract into the existing Inadyn lifecycle workflow. Do not repeat the completed documentation rotation or XY-C1 checks above. Current main is `76852b80f2b7629546f3439d2d489d4649aec5e3`; tested product source baseline is `c6edf06e2a9d148f24757926488166dea8f9205b`.
+Fetch live `main` and inspect exact `event=push` Actions for that SHA. First resolve/check:
+- NVRAM transaction boundary run triggered by `scripts/check_nvram_transaction_boundary.py`: parent SHA `10be37e`, run `44084634391` failed only because the checker expected `router_ready=(nvram_node_result==0&&init_router()==0)`; the production predicate now also requires `dev_init_status==0`.
+- USB storage hotplug run `44084634290`: failed only because its embedded checker searched for the obsolete `void start_rwfs_optware(void)` signature. The implementation and header return `int`; the launch status is returned and tested.
+- HTTPD security run `44084634464`: failed only because its embedded checker expected the old PID-1 predicate; update requires both boot-environment and NVRAM success.
+- The corrective commit also adds `init.c` and `dev_init.sh` to XY-C1 push filters. Verify that exact-head XY-C1 completes Build XY-C1, TRX output verification and artifact upload. This is the first L3 opportunity for the boot-environment change; physical-router L4 remains NOT VERIFIED.
+- Process lifecycle `44084634310` (job `134043734932`) and AI handoff docs `44084634333` (job `134043735020`) passed on parent `10be37e`; do not repeat those old-SHA runs as validation for the corrective commit.
+- Local host tests were NOT RUN in the connector-only runtime; rely on the new exact-head Actions for L2, not on an implied local test result.
+
+Once these checks are green, select the next bounded P1 user-space reliability defect from `REFACTOR_ROADMAP.md` outside the recently saturated wireless, storage and HTTPD modules. Trace source, callers and error paths, add a GNU89-compatible regression and workflow integration, then commit directly to `main`.

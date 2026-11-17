@@ -173,6 +173,8 @@ on:
       - "trunk/user/Makefile"
       - "scripts/check_samba_shared_header.py"
       - "scripts/check_dhcp6c_duid_header_staging.py"
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/scripts/files/sbin/dev_init.sh"
       - ".github/workflows/xy-c1-firmware-validation.yml"
   workflow_dispatch:
 

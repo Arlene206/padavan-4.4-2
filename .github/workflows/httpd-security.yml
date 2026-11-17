@@ -885,7 +885,8 @@ jobs:
           assert "chmod(NVRAM_DEVICE_NODE_PATH, NVRAM_DEVICE_NODE_MODE)" in node_setup
           assert "nvram_result = init_nvram_node();" in node_init
           assert "return nvram_result;" in node_init
-          assert "router_ready = (nvram_node_result == 0 && init_router() == 0);" in main_loop
+          main_loop_compact = "".join(main_loop.split())
+          assert "router_ready=(dev_init_status==0&&nvram_node_result==0&&init_router()==0);" in main_loop_compact
           assert "if (router_ready)\n\t\t\t\thandle_notifications();" in main_loop
           assert "if (router_ready)\n\t\t\t\ton_deferred_hotplug_dev();" in main_loop
           assert "rc_nvram_policy_read" in policy

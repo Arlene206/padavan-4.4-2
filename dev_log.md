@@ -1,3 +1,15 @@
+## 2026-11-17 20:53 CST — Repair exact-head boot integration contracts
+
+- Parent main SHA: `10be37e50fbbd11c686593b0edd3863b31055b2e`; result: THIS COMMIT.
+- The boot-environment source integration passed in exact-main Process lifecycle run `44084634310`: both the command-mocked required-mount/directory policy regression and `check_dev_init_boot.py` passed. AI handoff workflow `44084634333` also passed.
+- Exact-head NVRAM `44084634391` and HTTPD security `44084634464` failed only because their static contracts still required the prior PID-1 expression `router_ready=(nvram_node_result==0&&init_router()==0)`. Update both to assert the stricter production gate, which also requires `dev_init_status==0`.
+- Exact-head USB storage `44084634290` failed in its embedded source checker because it still searched for `void start_rwfs_optware(void)`; current `common_ex.c` and `rc.h` expose `int start_rwfs_optware(void)` and return the initial worker launch status. Correct the contract and assert the returned status.
+- The XY-C1 workflow did not trigger for the boot source commit because its path filters omitted `init.c` and `dev_init.sh`. Add both paths; the workflow already watches its own file, so the corrective workflow change should trigger the current-source Build/TRX/artifact sequence.
+- This is test/workflow integration repair only; product source is unchanged. Local host execution NOT RUN in this connector-only runtime. Corrective exact-head L2/L3 Actions are pending; do not claim firmware/TRX or hardware validation until those runs complete.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 20:03 CST — Gate PID 1 router startup on required boot environment
 
 - Parent main SHA: `ac7787ccee5df8a6e52a16177ef094f7b0504ca7`; result: THIS COMMIT.

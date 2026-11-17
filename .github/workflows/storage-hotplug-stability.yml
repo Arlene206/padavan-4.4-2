@@ -984,10 +984,11 @@ jobs:
           assert "WIFEXITED(command_status)" in rwfs_worker
           assert "write(pipe_fd[1]" in rwfs_worker
           assert "kill(1, SIGALRM)" in rwfs_worker
-          rwfs_start = function_body(common_ex, "void start_rwfs_optware(void)")
+          rwfs_start = function_body(common_ex, "int start_rwfs_optware(void)")
           assert "rwfs_optware_start_pending = 1" in rwfs_start
           assert "rwfs_optware_start_worker()" in rwfs_start
           assert "alarm(5);" in rwfs_start
+          assert "return start_status;" in rwfs_start
           assert 'doSystem("/usr/bin/opt-mount.sh %s %s &"' not in rwfs_start
           rwfs_retry = function_body(common_ex, "retry_rwfs_optware(void)")
           assert "STORAGE_OPTWARE_START_CHILD_RUNNING" in rwfs_retry
