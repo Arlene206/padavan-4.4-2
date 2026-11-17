@@ -1,3 +1,13 @@
+## 2026-11-17 — Propagate guest Wi-Fi CLI failures to the caller
+
+- Parent main SHA: `5d7461e85ade47a6305b998a14657f12dd15cd63`; result: THIS COMMIT.
+- Source audit found that the four `radio2_guest_enable/disable` and `radio5_guest_enable/disable` CLI branches discarded the return from `manual_change_guest_*`. Those functions already return a negative value on guest AP/isolation failure, but `main()` initialized `ret = 0` and therefore silently reported success to scripts and shell callers.
+- Each branch now maps negative control status to `-1`, while successful unchanged (`0`) and changed (`1`) results both map to CLI success. Added integration assertions for all four branches and the final `return ret;`.
+- Exact-head on parent `aec5cc95`: Wireless radio state `44065308208`, Process lifecycle `44065308432`, AI handoff `44065307813`, AdGuardHome `44065308334`, infosvr `44065308038`, AliyunDrive `44065308080`, AliDDNS `44065307886` passed; NVRAM `44065307934` was still running at checkpoint. XY-C1 on source `04b98092` was still in progress.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Fix wireless-radio regression workflow shell continuation
 
 - Parent main SHA: `04b98092eb68bc0c363462859a687fa235027042`; result: THIS COMMIT.

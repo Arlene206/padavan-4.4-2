@@ -13,7 +13,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `04b98092eb68bc0c363462859a687fa235027042`.
+- Current main: THIS COMMIT; parent `5d7461e85ade47a6305b998a14657f12dd15cd63`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -31,10 +31,9 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Re-run the exact-head wireless-radio state regression after correcting the new ASan/UBSan compile command's shell continuation; the first exact-head run failed because the workflow had two literal trailing backslashes.
-2. Process lifecycle, HTTPD, related security and AI handoff checks passed on this SHA. XY-C1 and NVRAM were still in progress at last check.
-3. Continue the guest Wi-Fi security slice after CI is green; inspect guest AP creation paths that bypass rollback-protected control/restart entry points.
-4. Work only on main; preserve the frozen backup branch unchanged.
+1. Verify exact-head Process guest rollback suite and XY-C1 Build → TRX → artifact for THIS COMMIT.
+2. The manual guest-enable/disable CLI dispatch now maps guest-control results to shell status instead of silently acknowledging errors; review its exact-head Process source-contract run.
+3. Continue auditing guest AP activation paths for any remaining fail-open startup behavior. Preserve interfaces already up before an explicit control request and preserve RT3352 MII/iNIC VLAN bridge ownership.
 
 
 ## Verification boundary
@@ -50,4 +49,4 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-Fetch live main and exact-head Actions. Re-run wireless-radio after the shell continuation correction; verify Process guest rollback tests and XY-C1 Build/TRX/artifact for THIS COMMIT. If green, audit remaining guest AP creation paths that bypass the rollback-protected control/restart entry points.
+Fetch live main and exact-head Actions. Verify the Process source-contract check for all four guest CLI dispatches and XY-C1 Build/TRX/artifact. If green, continue auditing guest AP startup paths for any remaining fail-open activation.

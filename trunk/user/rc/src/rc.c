@@ -2272,10 +2272,10 @@ main(int argc, char **argv)
 		manual_change_radio_rt(0);
 	}
 	else if (!strcmp(base, "radio2_guest_enable")) {
-		manual_change_guest_rt(1);
+		ret = manual_change_guest_rt(1) < 0 ? -1 : 0;
 	}
 	else if (!strcmp(base, "radio2_guest_disable")) {
-		manual_change_guest_rt(0);
+		ret = manual_change_guest_rt(0) < 0 ? -1 : 0;
 	}
 	else if (!strcmp(base, "radio2_eeprom_mac")) {
 		if (argc > 1 && strlen(argv[1]) == 17)
@@ -2308,10 +2308,10 @@ main(int argc, char **argv)
 		manual_change_radio_wl(0);
 	}
 	else if (!strcmp(base, "radio5_guest_enable")) {
-		manual_change_guest_wl(1);
+		ret = manual_change_guest_wl(1) < 0 ? -1 : 0;
 	}
 	else if (!strcmp(base, "radio5_guest_disable")) {
-		manual_change_guest_wl(0);
+		ret = manual_change_guest_wl(0) < 0 ? -1 : 0;
 	}
 	else if (!strcmp(base, "radio5_eeprom_mac")) {
 		if (argc > 1 && strlen(argv[1]) == 17)

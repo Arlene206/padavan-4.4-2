@@ -155,4 +155,18 @@ for test_name in (
     assert test_name in regression
 assert "wireless_guest_isolation_status_record" in policy
 assert "wireless_guest_isolation_status_rollback" in policy
+
+guest_commands = {
+    'radio2_guest_enable': 'ret = manual_change_guest_rt(1) < 0 ? -1 : 0;',
+    'radio2_guest_disable': 'ret = manual_change_guest_rt(0) < 0 ? -1 : 0;',
+    'radio5_guest_enable': 'ret = manual_change_guest_wl(1) < 0 ? -1 : 0;',
+    'radio5_guest_disable': 'ret = manual_change_guest_wl(0) < 0 ? -1 : 0;',
+}
+for command, status_assignment in guest_commands.items():
+    branch = rc_source.index('!strcmp(base, "' + command + '")')
+    next_branch = rc_source.find('\n\telse if ', branch)
+    if next_branch < 0:
+        next_branch = len(rc_source)
+    assert status_assignment in rc_source[branch:next_branch], command
+assert "return ret;" in function_body(rc_source, "main(int argc, char **argv)")
 print("Guest-LAN bridge, ebtables and PID-1 status propagation contract: PASS")
