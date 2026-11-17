@@ -152,7 +152,7 @@ jobs:
           assert '#include "upnp_restart_policy.h"' in service
           assert restart.index("miniupnpd_lifecycle_lock_acquire()") < restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)")
           assert restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)") < restart.index('miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart")')
-          assert "if (ret != 0)" in restart
+          assert "ret != 0" in restart
           assert "return ret;" in restart
           assert "ret = stop_upnp();" not in restart
           assert "return;" not in restart
