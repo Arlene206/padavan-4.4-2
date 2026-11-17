@@ -4411,8 +4411,9 @@ jobs:
           assert 'mv "$stage_storage" "$dir_storage"' in restore
           assert 'mv "$rollback_storage" "$dir_storage"' in restore
           assert "restore install and rollback both failed" in restore
-          assert "chmod 1777 /tmp" in dev_init
-          assert dev_init.index("chmod 1777 /tmp") < dev_init.index("mkdir -p -m 700 /tmp/.httpd-private") < dev_init.index("mtd_storage.sh load")
+          assert "required_dir 1777 /tmp || exit 1" in dev_init
+          assert "required_dir 700 /tmp/.httpd-private || exit 1" in dev_init
+          assert dev_init.index("required_dir 1777 /tmp || exit 1") < dev_init.index("required_dir 700 /tmp/.httpd-private || exit 1") < dev_init.index("mtd_storage.sh load")
           backup_start = storage_script.index("func_backup()")
           backup_end = storage_script.index(chr(10) + "func_restore()", backup_start)
           backup = storage_script[backup_start:backup_end]

@@ -1,3 +1,13 @@
+## 2026-11-17 21:15 CST — Align HTTPD storage restore boot-order contract
+
+- Parent main SHA: `d638def602cc2de4d43ed06e9ef55b24b9439afe`; result: THIS COMMIT.
+- Exact-head HTTPD run `44089834028` passed its notification queue contract, then failed at embedded Python line 713: its storage restore startup contract still expected the old unchecked `chmod 1777 /tmp` and `mkdir -p -m 700 /tmp/.httpd-private`.
+- Production `dev_init.sh` now uses checked `required_dir 1777 /tmp || exit 1` and `required_dir 700 /tmp/.httpd-private || exit 1`; update the HTTPD checker to validate these exact required calls and their ordering before optional `mtd_storage.sh load`. This is checker-only.
+- Exact `d638def` NVRAM `44089834067`, AdGuardHome `44089833973`, AliyunDrive `44089833865`, infosvr `44089833884`, AliDDNS `44089833907`, AI docs `44089833839`, Process lifecycle `44089833960`, and Process inventory `44089833968` PASS. XY-C1 `44089833795` was still in progress at last query. New exact-head HTTPD/docs/XY checks pending.
+- Local host tests NOT RUN; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 21:03 CST — Align HTTPD boot-directory contract with required_dir
 
 - Parent main SHA: `ab22c03fb3a8acd37004d52b5b3bcfd55dd1e461`; result: THIS COMMIT.
