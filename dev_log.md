@@ -1,3 +1,14 @@
+## 2026-11-17 — Preserve static MAN custom-MTU failures in launch_wanx()
+
+- Parent main SHA: `cffd4a9145b2993b41a340cb9d7e42449c97c292`; result: THIS COMMIT.
+- Finding: the static MAN/PPTP/L2TP physical-interface path attempted `set_interface_mtu(man_ifname, man_mtu)` for configured MTUs 1300–1499, but only logged ioctl/socket failure. It then configured the address/routes and returned `launch_status == 0` if those later operations succeeded, hiding a known MTU mismatch from WAN startup and the caller's rollback/error handling.
+- Now the MTU setter result is merged into `launch_status` with first-error aggregation and logged. Address, route and independent IPv6 setup are still attempted; the accumulated failure is returned and existing callers decide whether PPP startup can continue or must restore the prior WAN state.
+- Extended `service_start_status.c` with failure-retention/continued-address-and-route coverage and expanded `check_wan_initial_mtu_status.py` to enforce MTU → status merge → diagnostic → address/route ordering.
+- Parent `cffd4a91` exact-head WAN DHCP callback `44045389889`, Process inventory `44045389739`, NVRAM `44045389782`, AI handoff `44045389796`, infosvr `44045389876`, AdGuardHome `44045389845`, AliDDNS `44045389821`, and AliyunDrive `44045389731` all completed SUCCESS. The preceding production-source `bb427148` XY-C1 run `44043949016` completed Build XY-C1, TRX verification and artifact upload SUCCESS. This new MAN MTU source slice awaits its own exact-head WAN/Process and XY-C1 validation.
+- No local full checkout/toolchain; router L4 NOT VERIFIED. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-17 — Update WAN DHCP integration contract for MTU status propagation
 
 - Parent main SHA: `8b950c04a80b88e475b670f02510bf67aac70db4`; result: THIS COMMIT.

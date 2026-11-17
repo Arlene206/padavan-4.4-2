@@ -9,7 +9,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current main: THIS COMMIT; parent `8b950c04a80b88e475b670f02510bf67aac70db4`.
+- Current main: THIS COMMIT; parent `cffd4a9145b2993b41a340cb9d7e42449c97c292`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - P1 WAN-up DDNS fix `01bc69f3`: configured Inadyn inventory/start/config-publication/HUP failures flow into WAN-up's first-error status; DDNS-disabled and AP-mode remain successful no-ops.
 - Integration repair `0c786821` fixed WAN test include paths and updated MiniUPnD/HTTPD PPP rollback contracts to the checked status-returning implementation. Its WAN route, MiniUPnD, HTTPD, infosvr, Process lifecycle, NVRAM, AliyunDrive, AdGuardHome and AliDDNS tests passed. The AI handoff contract passed on descendant `06ed4321`.
@@ -23,21 +23,22 @@ Every logical multi-file change must be published as one complete Git tree and o
 - No full local repository checkout or MIPS toolchain is available. The PPPoE-MWAN host Bash syntax and mock-command regression were run locally and passed. Physical-router L4 remains NOT VERIFIED.
 - Parent main `5525430a2ee5ff16f3d5b84912cd183e195808df` had 22/22 exact-head `push` Actions successful before its descendant source slices. WAN route run `44039076856` passed; XY-C1 run `44039076948` completed Build XY-C1, TRX output verification and artifact upload successfully.
 - Gateway ARP checker launch failure propagation landed in parent `ac9b8936`: after a clean ABSENT process scan, `eval("detect_wan")` is captured, aggregated and logged. A later poll found 21/22 exact-head push runs SUCCESS with no failures; XY-C1 `44041394404` was still building.
-- Parent `9722f273` implemented UNKNOWN inventory error propagation; its WAN route semantic-check ordering issue was repaired by `d20696fc`, whose exact-head selected push Actions then completed 8/8 SUCCESS. Physical WAN initial-MTU failure propagation landed in `bb427148`; its WAN route `44043948927`, Process lifecycle `44043948999`, AI handoff `44043949051`, WAN teardown `44043949040`, ZeroTier `44043949034`, WAN ARP probe `44043949028`, and several other stability/security jobs passed. WAN DHCP callback run `44043948977` on source `bb427148` still failed after two checker-only descendants (`038b2aa9`, `8b950c04`). The actual line 779 failure was a stale physical-setup marker/log assertion from before the MTU change, not the static-branch slice. THIS COMMIT updates those assertions to the new MTU policy/status flow. XY-C1 `44043949016` for source `bb427148` was still building at last poll; TRX/artifact pending.
+- Parent `9722f273` implemented UNKNOWN gateway-monitor inventory error propagation; the WAN checker ordering issue was repaired by `d20696fc` (8/8 selected exact-head push Actions SUCCESS). Production WAN physical MTU failure handling landed in `bb427148`; WAN route `44043948927` and Process lifecycle `44043948999` passed, and XY-C1 `44043949016` completed Build, TRX verification and artifact upload SUCCESS. The WAN DHCP callback checker was updated through test-only descendants `038b2aa9`, `8b950c04`, then correctly aligned to the new physical-MTU code in `cffd4a91`; that exact-head commit completed all 8/8 triggered Actions SUCCESS, including WAN DHCP `44045389889`, Process inventory `44045389739`, NVRAM `44045389782`, AI docs `44045389796`, infosvr `44045389876`, AdGuardHome `44045389845`, AliDDNS `44045389821` and AliyunDrive `44045389731`.
 
 ## Active task
 
-1. Verify WAN DHCP callback exact-head run with the corrected physical-setup contract; verify Process inventory and inspect XY-C1 `44043949016` for source `bb427148` through Build/TRX/artifact.
-2. Continue a bounded WISP migration audit; the down-only fallback intentionally prevents traffic but does not remove an IPv4 address if `SIOCSIFADDR` fails. Trace whether the old interface can later be reused before deciding whether this warrants a fail-closed source change.
-3. Work only on `main`, preserve the frozen backup, and publish each logical multi-file slice as one tree/commit with a non-forced expected-SHA update.
+1. Verify this commit's exact-head WAN route MTU checker, Process service-start regression, and XY-C1 Build → TRX → artifact result. Confirm the MAN custom-MTU integration assertion specifically passes.
+2. Audit the DHCP-bound MTU setter results in `udhcpc_bound()` and `udhcpc_viptv_bound()`: determine whether they are intentionally best-effort or should affect callback status without rejecting an otherwise valid lease.
+3. Work only on `main`, preserve the frozen backup at `72f4f157a084f8184b9597ca5bf334b8080e5807`, and publish each logical multi-file slice as one tree/commit with a non-forced expected-SHA update.
 
 ## Verification boundary
 
-- Production-source commit `bb427148c3367bdb69139ca493caf6e2ffe193ed`: WAN route `44043948927` PASS including initial-MTU contract; Process lifecycle `44043948999` PASS; AI handoff `44043949051` PASS. XY-C1 `44043949016` was still in progress at last poll; product Build/TRX/artifact not yet confirmed.
-- Checker-only descendants `038b2aa9` and `8b950c04` attempted to simplify a later static branch boundary but exposed the actual failure still at inline source-checker line 779: its physical setup marker and old MTU diagnostic expectations were stale. THIS COMMIT aligns them to the new code path.
-- The current WAN DHCP callback rerun, Process inventory, and other current-head jobs must be checked against THIS COMMIT's exact SHA.
-- No full local repository checkout or MIPS toolchain is available. Physical-router L4 remains NOT VERIFIED.
+- Production WAN default-MTU commit `bb427148c3367bdb69139ca493caf6e2ffe193ed`: WAN route `44043948927` PASS including physical WAN default MTU policy; Process lifecycle `44043949947` PASS; current-source XY-C1 `44043949016` completed Build XY-C1, TRX verification and artifact upload SUCCESS.
+- Test integration repair `cffd4a9145b2993b41a340cb9d7e42449c97c292`: WAN DHCP callback `44045389889`, Process inventory `44045389739`, NVRAM `44045389782`, AI handoff `44045389796`, infosvr `44045389876`, AdGuardHome `44045389845`, AliDDNS `44045389821`, AliyunDrive `44045389731` all exact-head SUCCESS.
+- THIS COMMIT fixes the separate static MAN custom-MTU status drop in `launch_wanx()`; its exact-head WAN route/Process/XY-C1 status is pending.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` still points to `72f4f157a084f8184b9597ca5bf334b8080e5807`; no branch mutation.
+- No local full checkout/MIPS toolchain available. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main`, then filter push Actions by its exact `head_sha`. Verify the repaired WAN DHCP callback job and exact-head WAN route/Process/AI jobs; inspect XY-C1 `44043949016` for Build, TRX and artifact completion. Then trace `config_apcli_wisp()` old-interface IPv4-clear fallback before any source change.
+Fetch live `main`, then filter push Actions by its exact `head_sha`. Verify the new MAN custom-MTU checker and service-start test in WAN route/Process jobs; inspect this source SHA's XY-C1 Build, TRX and artifact steps. Then review DHCP-bound MTU setter error semantics in both callback paths.

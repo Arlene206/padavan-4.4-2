@@ -164,4 +164,41 @@ require(
     "Process CI must compile and run the regression with the new policy header",
 )
 
-print("WAN initial MTU failure propagation and static override policy: PASS")
+
+# Static MAN/physical WAN custom MTU setup is part of launch_wanx()'s result.
+launch_wanx = body(WAN, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
+man_static = launch_wanx.index("if (man_mtu >= 1300 && man_mtu < 1500)")
+man_set = launch_wanx.index("mtu_status = set_interface_mtu(man_ifname, man_mtu);", man_static)
+man_guard = launch_wanx.index("if (mtu_status != 0)", man_set)
+man_merge = launch_wanx.index(
+    "launch_status = route_status_accumulate(", man_guard
+)
+man_merge_arg = launch_wanx.index("launch_status, mtu_status", man_merge)
+man_log = launch_wanx.index(
+    "MAN interface %s MTU setup incomplete (status=%d)", man_merge_arg
+)
+man_address = launch_wanx.index(
+    "address_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);", man_log
+)
+man_route = launch_wanx.index(
+    "route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);",
+    man_address,
+)
+require(
+    man_static < man_set < man_guard < man_merge < man_merge_arg < man_log < man_address < man_route,
+    "MAN custom MTU failure must be accumulated/logged before address and route setup",
+)
+require(
+    "return launch_status;" in launch_wanx,
+    "launch_wanx must return the accumulated MAN MTU setup result",
+)
+require("test_man_custom_mtu_failure_is_reported_and_setup_continues();" in TEST,
+        "MAN custom MTU first-error regression must run from main()")
+for token in (
+    "address_attempts == 1",
+    "route_attempts == 1",
+    "assert(status == -1)",
+):
+    require(token in TEST, "MAN MTU failure-continuation coverage missing " + token)
+
+print("WAN physical and MAN MTU failure propagation: PASS")

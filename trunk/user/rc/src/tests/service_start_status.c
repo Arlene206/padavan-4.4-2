@@ -37,6 +37,25 @@ test_wan_default_mtu_failure_is_reported_while_startup_continues(void)
 }
 
 static void
+test_man_custom_mtu_failure_is_reported_and_setup_continues(void)
+{
+	int status = 0;
+	int address_attempts = 0;
+	int route_attempts = 0;
+
+	/* A failed MAN MTU ioctl is retained while independent setup continues. */
+	status = rc_first_service_start_status(status, -1);
+	address_attempts++;
+	status = rc_first_service_start_status(status, 0);
+	route_attempts++;
+	status = rc_first_service_start_status(status, EIO);
+
+	assert(address_attempts == 1);
+	assert(route_attempts == 1);
+	assert(status == -1);
+}
+
+static void
 test_first_error_survives_lan_restart_recovery(void)
 {
 	int status = rc_first_service_start_status(0, EBUSY);
@@ -390,6 +409,7 @@ main(void)
 	assert(rc_first_service_start_status(4, 0) == 4);
 	test_wan_default_mtu_respects_static_custom_override();
 	test_wan_default_mtu_failure_is_reported_while_startup_continues();
+	test_man_custom_mtu_failure_is_reported_and_setup_continues();
 	test_first_error_survives_lan_restart_recovery();
 	test_router_lan_teardown_preserves_route_failure_and_continues();
 	test_router_lan_teardown_preserves_ipv6_clear_failure_and_continues();

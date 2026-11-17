@@ -1475,9 +1475,12 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 		} else {
 			if (man_mtu >= 1300 && man_mtu < 1500) {
 				mtu_status = set_interface_mtu(man_ifname, man_mtu);
-				if (mtu_status != 0)
+				if (mtu_status != 0) {
+					launch_status = route_status_accumulate(
+						launch_status, mtu_status);
 					logmessage(LOGNAME, "MAN interface %s MTU setup incomplete (status=%d)",
 						   man_ifname, mtu_status);
+				}
 			}
 			address_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);
 			if (address_status != 0) {
