@@ -91,6 +91,31 @@ check_caller(
     "WAN-down",
     "WAN PPPoE-MWAN reconfiguration incomplete",
 )
+
+# An IPv6 teardown error must not short-circuit independent IPv4 route/service cleanup.
+wan_down_lifecycle = function_body(
+    WAN, "wan_down_internal(char *wan_ifname, int unit, int is_static)"
+)
+ipv6_call = "ipv6_status = wan6_down(wan_ifname, unit);"
+ipv6_merge = "status = route_status_accumulate(status, ipv6_status);"
+ipv6_error_check = "if (ipv6_status != 0)"
+ipv4_teardown = "wan_proto = get_wan_proto(unit);"
+require(
+    ipv6_call in wan_down_lifecycle
+    and ipv6_merge in wan_down_lifecycle
+    and ipv6_error_check in wan_down_lifecycle
+    and ipv4_teardown in wan_down_lifecycle
+    and wan_down_lifecycle.index(ipv6_call)
+        < wan_down_lifecycle.index(ipv6_merge)
+        < wan_down_lifecycle.index(ipv6_error_check)
+        < wan_down_lifecycle.index(ipv4_teardown),
+    "WAN-down must retain IPv6 failure and continue to independent IPv4 cleanup",
+)
+require(
+    "return ipv6_status;" not in wan_down_lifecycle,
+    "WAN-down must not abandon IPv4 cleanup after an IPv6 teardown failure",
+)
+
 for signature, internal in (
     ("wan_up(char *wan_ifname, int unit, int is_static)", "wan_up_internal"),
     ("wan_down(char *wan_ifname, int unit, int is_static)", "wan_down_internal"),

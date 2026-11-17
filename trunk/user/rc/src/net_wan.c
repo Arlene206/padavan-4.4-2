@@ -2812,11 +2812,10 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 #if defined (USE_IPV6)
 	if (is_wan_ipv6_type_sit() == 1) {
 		ipv6_status = wan6_down(wan_ifname, unit);
-		if (ipv6_status != 0) {
+		status = route_status_accumulate(status, ipv6_status);
+		if (ipv6_status != 0)
 			logmessage(LOGNAME, "WAN IPv6 teardown incomplete on %s (status=%d)",
 				   wan_ifname, ipv6_status);
-			return ipv6_status;
-		}
 	}
 #endif
 
