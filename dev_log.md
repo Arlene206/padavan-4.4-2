@@ -1,3 +1,12 @@
+## 2026-11-17 — Update WAN DHCP integration contract for MTU status propagation
+
+- Parent main SHA: `8b950c04a80b88e475b670f02510bf67aac70db4`; result: THIS COMMIT.
+- The previous exact-head WAN DHCP callback reruns still failed at inline Python line 779. Inspecting that exact line identified the real mismatch: the existing checker located the physical setup using the removed comment `Prepare the physical WAN interface without a shell command` and expected the old log string that did not aggregate MTU failures. The replacement tests had targeted an unrelated later branch-boundary expression.
+- Updated the integration contract to begin at the new configured-MTU marker and assert that it reads the configured MTU, applies the static-IPoE override policy, captures/aggregates/logs default setter failure, and still attempts physical IFUP/cleanup.
+- This is test-only; production code remains in `bb427148`. WAN route `44043948927` and Process lifecycle `44043948999` passed on that source SHA. The corrected WAN DHCP exact-head workflow is pending. XY-C1 `44043949016` for `bb427148` was still in progress at last poll; Build/TRX/artifact not yet confirmed. No router L4 claim.
+
+---
+
 ## 2026-11-17 — Remove the remaining brittle WAN DHCP source-slice boundary
 
 - Parent main SHA: `038b2aa97c48a5003a0ccea4f4e368595c582846`; result: THIS COMMIT.
