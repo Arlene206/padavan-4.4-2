@@ -276,7 +276,7 @@ assert re.search(
     invalid_config_path,
 ), "invalid static WAN config must not be reported as successful startup"
 assert "mtu_status = set_interface_mtu(wan_ifname, wan_mtu);" in static_config
-assert 'logmessage(LOGNAME, "static WAN interface %s MTU setup incomplete (status=%d)"' in static_config
+assert 'logmessage(LOGNAME, "static WAN interface %s MTU setup failed (status=%d); skipping address and route setup"' in static_config
 assert static_config.index("mtu_status = set_interface_mtu(wan_ifname, wan_mtu);") > subnet_conflict_start
 assert static_config.index("mtu_status = set_interface_mtu(wan_ifname, wan_mtu);") < static_config.index("address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);")
 

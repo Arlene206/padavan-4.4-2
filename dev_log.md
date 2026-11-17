@@ -1,3 +1,13 @@
+## 2026-11-17 — Wire notification regression into Process and align WAN-MTU checker
+
+- Base main SHA: `1d695e75ce20ee1a5055eb355bc5373f7f8e8608`; result: THIS COMMIT.
+- Exact-head CI for `1d695e75` found three confirmed checker/integration issues. XY-C1 `44016786510` failed because `check_firmware_update_notification.py` requires both Process and XY-C1 to run the GNU89 notification policy test/source contract, but the Process workflow had not been modified. The XY-C1 workflow had compiled and passed the policy binary before the checker failed.
+- Process inventory `44016786493` failed at the existing static-WAN MTU assertion in `check_modem_wan_start_status.py`: production now logs that failed MTU application skips address/route setup, while the checker expected the older generic “setup incomplete” message. Updated the assertion to match the production fail-closed log; existing ordering checks still ensure MTU handling precedes address publication.
+- AI handoff `44016786535` failed because `SESSION_HANDOFF.md` lacked the literal required phrase `Before context exhaustion`; restored the mandatory checkpoint sentence. Standalone Process lifecycle `44016786612` and PID 1 notification queue regression `44016786729` passed on the base SHA.
+- Process workflow now compiles/runs `rc_notify_batch_policy.c` with GNU89/Werror/ASan/UBSan and executes `check_firmware_update_notification.py`, matching XY-C1. Re-run exact-head Process, AI handoff and XY-C1; previous XY run failed before same-source Build/TRX/artifact could be claimed. Local checkout unavailable; local execution NOT RUN. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Propagate firmware-update aborts into PID 1 notification results
 
 - Base main SHA: `9e3316f6740a77fd8db26d1f51af4183dd071021`; result: THIS COMMIT.

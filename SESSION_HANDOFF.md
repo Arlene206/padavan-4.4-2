@@ -8,6 +8,7 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
+- Before context exhaustion, inspect live main, exact-head Actions, validation boundaries, frozen backup and the concrete next task.
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`. Parent main SHA for THIS change: `9e3316f6740a77fd8db26d1f51af4183dd071021`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - CPU-watchdog tri-state source `aeddc157`: GNU89 regression and XY-C1 Build/TRX/artifact PASS. USB modem tri-state `76683274`: dedicated readiness and Process/inventory/HTTPD/infosvr/handoff checks PASS. IPv6 boot-status source `37e414f2`: same-source XY-C1 Build/TRX/artifact PASS in `44003333586`; Process/handoff and dependent checks PASS on `b447358e`.
@@ -22,17 +23,18 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Inspect exact-head Process lifecycle and XY-C1 firmware Actions for THIS firmware-update notification status fix. Require the GNU89 policy regression, source contract and full XY-C1 Build/TRX/artifact to pass on this exact source SHA.
-2. Resolve the first causal CI failure; while Actions are pending, continue an independent P1 RC lifecycle/status defect rather than waiting.
-3. Do not repeat DDNSTO, GPIO shutdown, HTTPD stop_misc, watchdog, modem, IPv6, firewall, DNS Forwarder, RWFS, IAPP, USB storage or VPN slices already verified above.
+1. Recheck exact-head Process inventory and XY-C1 Actions for the firmware-update notification change. The first run exposed three CI contract/integration issues; this follow-up wires the same regression into Process and repairs the stale WAN-MTU assertion.
+2. Require the GNU89 notification policy test and Python source contract to pass in both Process and XY-C1, then require same-SHA XY-C1 Build, TRX verification and artifact upload.
+3. While CI is pending, continue an independent P1 RC lifecycle defect; do not repeat the already verified DDNSTO, GPIO shutdown or HTTPD stop-count work.
 
 ## Verification boundary
 
-- DDNSTO L2: exact DDNSTO `44015005394` on `4c499369` PASS. DDNSTO/GPIO L3: exact XY-C1 `44013905031` on product source `e5d3cdfd` PASS: Build, TRX and artifact upload.
-- HTTPD stop-count source contract: exact HTTPD `44015242107` on `c5fc9136` PASS.
-- Current parent baseline `c5fc9136`: Process inventory `44015242052`, AI docs `44015241932`, infosvr `44015241959`, AliyunDrive `44015241928`, AliDDNS `44015242005` and AdGuardHome `44015241955` PASS. NVRAM `44015242074` and XY-C1 `44015241908` remained pending at last poll.
-- Earlier watchdog, modem, IPv6, firewall, DNS Forwarder, RWFS, IAPP and USB storage results remain source-specific as recorded above. Local tests NOT RUN. Physical-router L4 NOT VERIFIED.
+- Firmware-update notification production change `1d695e75`: all ten preparation abort paths and failed `mtd_write` now return failure; caller merges status into `action_result`, preserving the incomplete marker. GNU89 policy test passed in the 1d XY-C1 run before the source checker failed.
+- Exact-head Process inventory run `44016786493` on `1d695e75` failed in the pre-existing modem/WAN boot-status checker at its obsolete static-WAN MTU log assertion. Live production source now logs `static WAN interface %s MTU setup failed (status=%d); skipping address and route setup`; THIS COMMIT aligns the checker.
+- Exact-head XY-C1 run `44016786510` on `1d695e75` failed because the new source checker correctly required both workflows to include the policy test and Python contract, but the Process workflow hookup was missing. XY had compiled/run the GNU89 policy test; the Process workflow integration is added in THIS COMMIT.
+- PID 1 notification queue regression `44016786729` and standalone Process lifecycle `44016786612` PASS on `1d695e75`. Exact-head AI handoff `44016786535` failed only because the required phrase `Before context exhaustion` was omitted; THIS COMMIT restores it.
+- No same-SHA XY-C1 Build/TRX/artifact claim for `1d695e75`; firmware validation failed at the source contract. Local checkout/toolchain unavailable; local execution NOT RUN. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and inspect exact-head Process and XY-C1 Actions for THIS commit. Confirm the notification policy binary/source contract and the same-SHA firmware Build XY-C1, TRX verification and artifact upload independently. Fix the first causal failure; if pending, continue a separate P1 RC lifecycle slice. Keep the backup frozen and use complete-tree atomic commits with non-forced expected-SHA compare-and-swap.
+Fetch live `main` and inspect exact-head Process inventory, Process lifecycle, AI handoff and XY-C1 Actions for THIS Process workflow/checker correction. Confirm the modem/WAN source contract and notification policy/source contract both pass. Require XY-C1 Build, TRX verification and artifact upload on the exact same source SHA before claiming L3. If Actions remain pending, continue a separate P1 RC lifecycle slice. Keep the backup frozen and use complete-tree atomic commits with non-forced expected-SHA compare-and-swap.
