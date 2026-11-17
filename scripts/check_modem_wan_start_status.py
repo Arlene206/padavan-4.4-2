@@ -620,17 +620,19 @@ assert 'nvram_set_int_temp("httpd_started", 0)' in httpd_start
 assert 'nvram_set_int_temp("httpd_started", 1)' in httpd_start
 assert "errno = firewall_errno;" in httpd_start
 assert "return firewall_status;" in httpd_start
+httpd_firewall_start = httpd_start.index("firewall_status = restart_firewall();")
+httpd_firewall = httpd_start[httpd_firewall_start:]
 httpd_firewall_order = (
-    httpd_start.index("firewall_status = restart_firewall();"),
-    httpd_start.index("firewall_errno = errno > 0 ?"),
-    httpd_start.index("httpd_firewall_failure_requires_stop(firewall_status, presence)"),
-    httpd_start.index("firewall_stop_status = stop_httpd_locked();"),
-    httpd_start.index("firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);"),
-    httpd_start.index("if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)"),
-    httpd_start.index('nvram_set_int_temp("httpd_started", 0)'),
-    httpd_start.index('nvram_set_int_temp("httpd_started", 1)'),
-    httpd_start.index("errno = firewall_errno;"),
-    httpd_start.index("return firewall_status;"),
+    httpd_firewall.index("firewall_status = restart_firewall();"),
+    httpd_firewall.index("firewall_errno = errno > 0 ?"),
+    httpd_firewall.index("httpd_firewall_failure_requires_stop(firewall_status, presence)"),
+    httpd_firewall.index("firewall_stop_status = stop_httpd_locked();"),
+    httpd_firewall.index("firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);"),
+    httpd_firewall.index("if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)"),
+    httpd_firewall.index('nvram_set_int_temp("httpd_started", 0)'),
+    httpd_firewall.index('nvram_set_int_temp("httpd_started", 1)'),
+    httpd_firewall.index("errno = firewall_errno;"),
+    httpd_firewall.index("return firewall_status;"),
 )
 assert httpd_firewall_order == tuple(sorted(httpd_firewall_order))
 httpd_firewall_policy = compact(body(HTTPD_POLICY_SOURCE, "httpd_firewall_failure_requires_stop("))
