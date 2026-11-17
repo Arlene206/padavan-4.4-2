@@ -72,6 +72,12 @@ rc=$(capture_status run start); status "$rc" 53
 grep -q "^killall " "$COMMAND_LOG" || fail "launcher failure skipped daemon rollback"
 ! grep -q "^iptables -A " "$COMMAND_LOG" || fail "configured firewall after launcher failure"
 
+# Cleanup failure must not replace the startup error being reported.
+reset; MOCK_START=53; MOCK_PARTIAL_START=1; MOCK_KILLALL=54
+rc=$(capture_status run start); status "$rc" 53
+[ -f "$STATE_DIR/daemon" ] || fail "failed cleanup unexpectedly changed daemon state"
+grep -q "daemon startup rollback failed" "$COMMAND_LOG" || fail "failed rollback was not logged"
+
 # A failed first firewall rule stops the daemon without deleting a rule that
 # this invocation did not successfully create.
 reset; MOCK_IPTABLES=42; MOCK_IPTABLES_FAIL_AT=1

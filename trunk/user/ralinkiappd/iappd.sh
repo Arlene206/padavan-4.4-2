@@ -53,13 +53,13 @@ start() {
     rc=$?
     log_iapp "launcher failed (status=$rc)"
     rollback_start_failure "$rc"
-    return "$rc"
+    return $?
   }
   wait_running; rc=$?
   [ "$rc" -eq 0 ] || {
     log_iapp "startup postcondition failed (status=$rc)"
     rollback_start_failure "$rc"
-    return "$rc"
+    return $?
   }
   if command -v sysctl >/dev/null 2>&1; then
     for setting in "net.ipv4.neigh.$radio.base_reachable_time_ms=10000" "net.ipv4.neigh.$radio.delay_first_probe_time=1" "net.ipv4.neigh.br0.base_reachable_time_ms=10000" "net.ipv4.neigh.br0.delay_first_probe_time=1" "net.ipv4.neigh.eth2.base_reachable_time_ms=10000" "net.ipv4.neigh.eth2.delay_first_probe_time=1" "net.ipv4.neigh.ra0.base_reachable_time_ms=10000" "net.ipv4.neigh.ra0.delay_first_probe_time=1"; do
@@ -70,14 +70,14 @@ start() {
     rc=$?
     log_iapp "TCP firewall rule failed (status=$rc)"
     rollback_start_failure "$rc"
-    return "$rc"
+    return $?
   }
   iappd_tcp_rule_added=1
   iptables -A INPUT -i br0 -p udp --dport 3517 -j ACCEPT || {
     rc=$?
     log_iapp "UDP firewall rule failed (status=$rc)"
     rollback_start_failure "$rc"
-    return "$rc"
+    return $?
   }
   iappd_udp_rule_added=1
   return 0
@@ -103,13 +103,13 @@ stop() {
 # Roll back only resources created by this invocation, preserving its cause.
 rollback_start_failure() {
   rollback_failure_status=$1
-  if [ "\${iappd_udp_rule_added:-0}" -eq 1 ]; then
+  if [ "$iappd_udp_rule_added" -eq 1 ]; then
     iptables -D INPUT -i br0 -p udp --dport 3517 -j ACCEPT || {
       rollback_rule_status=$?
       log_iapp "UDP firewall rollback failed (status=$rollback_rule_status)"
     }
   fi
-  if [ "\${iappd_tcp_rule_added:-0}" -eq 1 ]; then
+  if [ "$iappd_tcp_rule_added" -eq 1 ]; then
     iptables -D INPUT -i br0 -p tcp --dport 3517 -j ACCEPT || {
       rollback_rule_status=$?
       log_iapp "TCP firewall rollback failed (status=$rollback_rule_status)"

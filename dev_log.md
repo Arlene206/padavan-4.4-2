@@ -1,3 +1,14 @@
+## 2026-11-17 21:44 CST — Preserve original IAPP startup error across rollback
+
+- Parent main SHA: `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`; result: THIS COMMIT.
+- Exact-head Process run `44091805839` failed in the IAPP regression. The helper contained a literal backslash before shell parameter expansion, producing an "Illegal number" test error; additionally, the call site returned global `rc` after `stop()` could overwrite it, turning a launcher failure into false success.
+- Corrected both state checks to use variables initialized by `start()`. Each startup failure path now returns the status returned by `rollback_start_failure()`, preserving the original cause independently of stop-helper bookkeeping.
+- Added a regression forcing partial-daemon cleanup to fail, asserting that the original launch code is still returned and the rollback failure is logged.
+- Parent SHA `4220420` HTTPD `44091239897` PASS; NVRAM `44091239714`, AdGuardHome `44091239939`, AliDDNS `44091239940`, AI docs `44091239799`, infosvr `44091239833`, AliyunDrive `44091239881`, and Process inventory `44091239744` PASS. XY-C1 `44091239961` was still in progress at last poll. New exact-head Actions pending.
+- Local host tests NOT RUN; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-17 21:30 CST — Roll back partial Ralink IAPP startup
 
 - Parent main SHA: `4220420d7dd9f6440f525875802646899198befa`; result: THIS COMMIT.

@@ -31,14 +31,13 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Active task
 
-1. Product-source boot environment baseline is `10be37e50fbbd11c686593b0edd3863b31055b2e`; checked mounts, mdev, private queue/HTTPD directories and NVRAM readiness gate router startup.
-2. CI follow-ups: `ab22c03` repaired stale NVRAM/HTTPD/RWFS contracts and added XY-C1 source paths; `d638def` repaired notification-directory contract and removed duplicate unchecked chmod; `4220420d7dd9f6440f525875802646899198befa` updates the HTTPD storage-restore boot-order contract from obsolete `chmod/mkdir` calls to checked `required_dir` calls.
-3. On `d638def`, Process lifecycle/inventory, NVRAM, AdGuardHome, AliyunDrive, AliDDNS, infosvr and AI docs passed exact-head. XY-C1 `44089833795` was in progress at last poll. HTTPD `44089834028` failed only at line 713 of its embedded storage-restore boot ordering checker; the checker update is in `4220420`. Its new exact-head run still needs inspection.
-4. THIS COMMIT hardens Ralink IAPP startup rollback: launcher/postcondition failures and TCP/UDP firewall append failures stop any partially started daemon; if UDP setup fails after TCP succeeds, the TCP rule added by this invocation is removed. The original startup error is retained; only rules created by this attempt are removed.
-5. Existing `trunk/user/ralinkiappd/tests/iappd_lifecycle.sh` now covers partial daemon launch rollback, TCP append failure, and UDP-after-TCP partial firewall rollback. Process CI already runs this shell regression, and XY-C1 already watches the IAPP script path.
+1. Product-source boot environment baseline remains `10be37e50fbbd11c686593b0edd3863b31055b2e`. CI-only follow-ups `ab22c03` and `d638def` fixed stale NVRAM/HTTPD/RWFS/boot-directory contracts. On exact `4220420d7dd9f6440f525875802646899198befa`, HTTPD run `44091239897` passed; NVRAM `44091239714`, AdGuardHome `44091239939`, AliDDNS `44091239940`, AI docs `44091239799`, infosvr `44091239833`, AliyunDrive `44091239881`, and Process inventory `44091239744` passed. XY-C1 `44091239961` was still building at last poll.
+2. Ralink IAPP startup rollback was implemented at `2549e37eb27b8a8879f7ad4b0fad4161e71a1f39`: launcher/postcondition failures and firewall append failures invoke rollback; UDP append failure removes the TCP rule owned by this invocation. Its first exact-head Process run `44091805839` failed because the helper's two mode checks had mistakenly escaped shell parameter expansion; the mock also exposed that the helper call could overwrite global `rc`, causing the original launch error to be returned as success.
+3. THIS COMMIT corrects the helper's variable references and returns the helper's saved original failure status via `$?`. It adds a test for failed daemon-stop rollback, confirming the launch error remains the reported status and cleanup error is logged. The Process workflow already executes these tests; XY-C1 already watches the IAPP script.
+4. Exact-head CI for THIS COMMIT is pending. Continue only after reading the causal Process result; no local host test is claimed.
 
 - Frozen backup remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Local host test execution is NOT RUN in this connector-only runtime; exact-head Actions are pending.
+- Local host tests NOT RUN in this connector-only runtime.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Verification boundary
@@ -54,9 +53,8 @@ Every logical multi-file change must be published as one complete Git tree and o
 - Physical-router L4 remains NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head push Actions for `4220420d7dd9f6440f525875802646899198befa`. Confirm the HTTPD storage restore boot-order assertions now accept the checked `required_dir 1777 /tmp` and `required_dir 700 /tmp/.httpd-private` calls before optional `mtd_storage.sh load`; check XY-C1 build status for the boot-environment source.
-2. THIS COMMIT adds Ralink IAPP startup rollback and expands the already wired shell regression. Verify exact-head Process lifecycle runs `sh -n` and `sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh`; new cases cover partial daemon launch failure, TCP rule failure and UDP rule failure after TCP succeeded. Confirm XY-C1 still watches `trunk/user/ralinkiappd/iappd.sh`.
-3. Repair the first causal CI/test failure before selecting the next issue. Local host tests were NOT RUN in connector-only runtime. Current L3 requires exact-head XY-C1 Build + TRX + artifact; physical-router L4 NOT VERIFIED.
+1. Inspect exact-head Actions for THIS COMMIT, especially Process lifecycle run for `iappd.sh` and `iappd_lifecycle.sh`. The prior `2549e37` Process run `44091805839` failed because the helper used literal escaped shell expansions (causing "Illegal number") and the call site returned global `rc` after `stop()` changed it. THIS COMMIT uses initialized state variables and returns the helper's preserved failure status with `return $?`; new regression confirms cleanup failure does not overwrite the original launch failure.
+2. On parent `4220420`, HTTPD `44091239897` PASS; NVRAM `44091239714`, AdGuardHome `44091239939`, AliDDNS `44091239940`, AI docs `44091239799`, infosvr `44091239833`, AliyunDrive `44091239881`, and Process inventory `44091239744` PASS. XY-C1 `44091239961` was still in progress at last poll. These results do not validate the current IAPP commit.
+3. Confirm Process and XY-C1 current-head runs. L3 requires Build, TRX and artifact; local host tests NOT RUN and physical-router L4 NOT VERIFIED.
 
-After this bounded IAPP fix is green, continue auditing caller-visible startup failures across remaining userland services, outside saturated HTTPD/storage/wireless modules. Trace full call chains and only repair confirmed dropped failure.
-
+Once IAPP's exact-head Process passes, continue auditing one confirmed dropped startup/stop result in an independent userland subsystem. Avoid re-opening completed slices without new failure evidence.
