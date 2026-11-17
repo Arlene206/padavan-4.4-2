@@ -1,24 +1,27 @@
-# 2026-11-18 continuation checkpoint — close Telnetd Process checker regression
+# 2026-11-18 continuation checkpoint — make DDNSTO UNKNOWN-startup regression deterministic
 
 ## Current repository state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent main SHA: `989409e1a02a92ea5018f3550d52d75c33b028f8`.
-- Main-only complete-tree commits, expected-SHA, non-forced updates. Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged.
-- THIS commit is a checker-only correction. Telnetd GNU89 unit compile/run succeeded in exact-head Process run `44164998210`, and the integration checker passed its earlier sections. The Process workflow failed only because it expected the old PASS-line string at `scripts/check_process_lifecycle_integration.py:1015`; THIS follow-up updates that exact expected text to match the new test output.
+- Live parent `main` SHA: `b00ff4908ca3d3d45964c983fe974c359f95f5de`. Latest product-source baseline is `989409e1a02a92ea5018f3550d52d75c33b028f8` (BusyBox Telnetd detached-child startup postcondition); `b00ff490` is its Process checker-only follow-up.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged and read-only. Develop only on `main`.
+- Exact `b00ff4908ca3d3d45964c983fe974c359f95f5de` Process lifecycle regression `44165568972`, AliDDNS `44165568791`, infosvr `44165568767`, AdGuardHome `44165569096`, and AI handoff `44165568764`: SUCCESS. NVRAM `44165568763` and AliyunDrive `44165569031` were IN_PROGRESS at last observation.
+- The new Telnetd source slice's exact `989409e` Process checker repair passes on `b00ff4908ca3d3d45964c983fe974c359f95f5de`; parent USB storage `44164998300` and NVRAM `44164998225` are SUCCESS. XY-C1 `44164998281` for the Telnetd source baseline was IN_PROGRESS at last observation.
+- Networkmap's detached-child startup implementation passed its exact-head regression on `34c0268`; XY-C1 run `44163173638` for that source SHA completed Build XY-C1, TRX verification and artifact upload successfully. That does not include the later Telnetd source change.
 
-## Active task — verify checker-only repair
-- Previous commit: `989409e1a02a92ea5018f3550d52d75c33b028f8` — `fix(telnetd): verify detached startup postcondition`.
-- Telnetd startup code verifies BusyBox's detached child after launching with default daemon mode: one-second initial wait, four process inventory probes, UNKNOWN fails closed with errno, ABSENT after all probes times out, launcher error preserved. BusyBox source proves daemonization precedes bind/listen. GNU89 policy compile/run was successful.
-- Failed check was a stale source-checker assertion only; THIS COMMIT does not change production code or test behavior.
+## Active task — DDNSTO startup UNKNOWN regression fixture (test-only)
+- Exact-head DDNSTO run `44163173235` on `34c02687139afc6db6484c2eb888cca2f8f01612` failed in `trunk/user/ddnsto/tests/ddnsto_lifecycle.sh` after shell syntax passed: `UNKNOWN startup inventory was incorrectly retried`. The semantic checker was skipped.
+- Root cause is a test race: the mocked daemon is launched asynchronously and writes `error` to fixture state after scheduling; the first post-launch `pidof` can observe the old `stopped` state (confirmed ABSENT), which production `ddnsto_wait_started()` must retry. This was not evidence that production retries UNKNOWN.
+- This slice makes the fixture deterministic: its pre-launch inventory returns ABSENT, while the first post-launch inventory is forced to UNKNOWN by a per-test call-count gate. A bounded test-only wait observes the mock's state publication. No production source changes.
 
 ## Verification boundary
-- Exact SHA `989409e`: Process inventory `44164998354` PASS; Process lifecycle umbrella `44164998210` FAIL solely at the obsolete expected PASS output marker after the GNU89 unit had passed; XY-C1 `44164998281`, USB storage `44164998300`, and NVRAM `44164998225` were IN_PROGRESS at last poll.
-- The checker-only fix needs fresh exact-head Process validation; XY-C1 current-source Build/TRX/artifact also needs confirmation. No target router L4 result is claimed.
+- Exact `34c0268` DDNSTO run `44163173235`: FAILED at the asynchronous fixture assertion; shell syntax passed; Python source contract did not run.
+- Exact `34c0268` Networkmap `44163174212`, Process inventory `44163173313`, Process lifecycle `44163176396`, AI handoff `44163173533`, USB storage `44163176401`, HTTPD security `44163176352`: SUCCESS. XY-C1 `44163173638`: Build XY-C1, TRX verification and artifact upload SUCCESS.
+- Exact `b00ff4908ca3d3d45964c983fe974c359f95f5de` Process lifecycle `44165568972`, infosvr `44165568767`, AliDDNS `44165568791`, AdGuardHome `44165569096`, AI handoff `44165568764`: SUCCESS; NVRAM `44165568763` and AliyunDrive `44165569031` were pending at the last check.
+- XY-C1 `44164998281` for the Telnetd product-source baseline `989409e` remained IN_PROGRESS at the last check. No current-source L3 for `989409e` is claimed until Build/TRX/artifact stages complete. Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA Process lifecycle and XY-C1 results for THIS checker fix; if Process fails again, read exact log and repair only the failing assertion.
-2. Poll/resolve parent `989409e` XY-C1, USB storage and NVRAM if not already completed.
-3. Continue independent DHCP leasefail/NAK/release semantics or firewall/NAT caller-status propagation; do not repeat storage, Infosvr or Networkmap audits.
-
+1. Inspect the exact-head push-triggered DDNSTO lifecycle run after this fixture repair. Require shell syntax, full lifecycle regression and `scripts/check_ddnsto_lifecycle.py` all PASS; diagnose the actual first failure if not.
+2. Resolve XY-C1 `44164998281` for exact product-source `989409e` and check whether NVRAM `44165568763` and AliyunDrive `44165569031` on `b00ff4908ca3d3d45964c983fe974c359f95f5de` have completed.
+3. Continue the next independent P1 task from the roadmap (DHCP leasefail/NAK/release state transitions or firewall/NAT caller-status propagation); do not repeat completed storage, infosvr or networkmap audits. Preserve the frozen backup and commit atomically to main only.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

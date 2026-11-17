@@ -11,10 +11,11 @@ TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_NVRAM_LOG="$TEST_TMP/nvram.log"
 TEST_OPS="$TEST_TMP/operations.log"
 TEST_DAEMON_PID="$TEST_TMP/daemon.pid"
+TEST_PIDOF_CALLS="$TEST_TMP/pidof.calls"
 TEST_ENABLE_FILE="$TEST_TMP/enable"
 TEST_HELPERS="$TEST_TMP/helpers.sh"
 LOCK_FILE="$TEST_TMP/.ddnsto.lifecycle.lock"
-export TEST_TMP TEST_STATE TEST_LOG TEST_SLEEP_LOG TEST_NVRAM_LOG TEST_OPS TEST_DAEMON_PID TEST_ENABLE_FILE
+export TEST_TMP TEST_STATE TEST_LOG TEST_SLEEP_LOG TEST_NVRAM_LOG TEST_OPS TEST_DAEMON_PID TEST_PIDOF_CALLS TEST_ENABLE_FILE
 
 mkdir -p "$TEST_BIN"
 trap 'if [ -s "$TEST_DAEMON_PID" ]; then kill -9 "$(cat "$TEST_DAEMON_PID")" 2>/dev/null || :; fi; rm -rf "$TEST_TMP"' EXIT HUP INT TERM
@@ -52,6 +53,13 @@ export DDNSTO_BIN DDNSTO_LOCK_WAIT_SECONDS
 cat > "$TEST_BIN/pidof" <<'MOCK'
 #!/bin/sh
 [ "$1" = ddnsto ] || exit 1
+# Make the first post-launch inventory UNKNOWN regardless of background scheduling.
+if [ "${TEST_UNKNOWN_AFTER_LAUNCH:-0}" = 1 ]; then
+	pidof_call_count=$(cat "$TEST_PIDOF_CALLS" 2>/dev/null || echo 0)
+	pidof_call_count=$((pidof_call_count + 1))
+	printf '%s\n' "$pidof_call_count" > "$TEST_PIDOF_CALLS"
+	[ "$pidof_call_count" -lt 2 ] || exit 2
+fi
 case "$(cat "$TEST_STATE")" in
 	running)
 		if [ -s "$TEST_DAEMON_PID" ]; then
@@ -323,10 +331,17 @@ unset TEST_DAEMON_MODE
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_OPS"
 echo stopped > "$TEST_STATE"
+: > "$TEST_PIDOF_CALLS"
+TEST_UNKNOWN_AFTER_LAUNCH=1
 TEST_DAEMON_MODE=unknown
-export TEST_DAEMON_MODE
+export TEST_UNKNOWN_AFTER_LAUNCH TEST_DAEMON_MODE
 if run_action normal start; then fail "start accepted UNKNOWN post-launch process inventory"; fi
-unset TEST_DAEMON_MODE
+unset TEST_UNKNOWN_AFTER_LAUNCH TEST_DAEMON_MODE
+unknown_attempt=0
+while [ "$(cat "$TEST_STATE")" != error ] && [ "$unknown_attempt" -lt 100 ]; do
+	/bin/sleep 0.02
+	unknown_attempt=$((unknown_attempt + 1))
+done
 [ "$(cat "$TEST_STATE")" = error ] || fail "UNKNOWN-start fixture did not publish UNKNOWN"
 [ ! -s "$TEST_SLEEP_LOG" ] || fail "UNKNOWN startup inventory was incorrectly retried"
 

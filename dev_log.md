@@ -1,3 +1,9 @@
+## 2026-11-18 04:05 CST — Make the DDNSTO UNKNOWN-startup regression deterministic
+
+- Exact-head DDNSTO push run `44163173235` on `34c02687139afc6db6484c2eb888cca2f8f01612` passed shell syntax, then failed at `UNKNOWN startup inventory was incorrectly retried`; the semantic source-contract step was skipped. The background mock could update its state after the first post-launch `pidof`, allowing a legitimate ABSENT observation to cause a retry before UNKNOWN was published.
+- Make only the test fixture deterministic: count pidof calls for this case, let the pre-launch stop inventory observe ABSENT, and force the first post-launch inventory to return UNKNOWN. Wait boundedly for the detached mock to publish its state; continue asserting that the production wait path did not sleep/retry UNKNOWN.
+- No production DDNSTO source changed. Local host shell execution was NOT RUN in this environment; exact-head lifecycle + Python source-contract rerun is pending. On current parent `b00ff490`, Process lifecycle `44165568972`, infosvr `44165568767`, AliDDNS `44165568791`, AdGuardHome `44165569096`, and AI docs `44165568764` passed. XY-C1 `44164998281` for product-source `989409e` was still IN_PROGRESS; no current-source L3/L4 claim.
+
 ## 2026-11-18 — Fix stale Process regression output marker
 
 - Parent main SHA: `989409e1a02a92ea5018f3550d52d75c33b028f8`.
