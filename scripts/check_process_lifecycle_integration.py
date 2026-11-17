@@ -1860,7 +1860,7 @@ upnp_restart_body = upnp_restart_source.split(
 assert '#include "upnp_restart_policy.h"' in upnp_restart_source
 assert "int restart_upnp(void);" in upnp_restart_header
 assert "void restart_upnp(void);" not in upnp_restart_header
-assert "rc_upnp_restart_run(stop_upnp, restart_firewall)" in upnp_restart_body
+assert "rc_upnp_restart_run(stop_upnp_locked, restart_firewall)" in upnp_restart_body
 assert "return ret;" in upnp_restart_body
 assert "action_result = rc_notify_merge_action_result(action_result, restart_upnp());" in upnp_restart_rc
 for test_case in (

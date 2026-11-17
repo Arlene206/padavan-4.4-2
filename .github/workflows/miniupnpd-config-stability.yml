@@ -148,7 +148,7 @@ jobs:
           assert "process_snapshot_release(&snapshot)" in update
           assert "PROCESS_PRESENCE_UNKNOWN" in policy
           assert "if (result != 0)" in update and "return -1;" in update
-          restart = function_body(service, "restart_upnp(void)")
+          restart = function_body(service, "int\nrestart_upnp(void)")
           assert '#include "upnp_restart_policy.h"' in service
           assert restart.index("miniupnpd_lifecycle_lock_acquire()") < restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)")
           assert restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)") < restart.index('miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart")')
