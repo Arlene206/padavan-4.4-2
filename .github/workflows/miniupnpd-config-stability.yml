@@ -230,5 +230,5 @@ jobs:
               assert pr_filters.count(path) == 1
 
           print("miniupnpd config publication, daemon startup/stop gates and WAN migration contracts: PASS")
-          python3 scripts/check_miniupnpd_lifecycle_lock.py
           PY
+          python3 scripts/check_miniupnpd_lifecycle_lock.py

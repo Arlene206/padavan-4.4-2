@@ -1826,7 +1826,7 @@ print("VPN server restart propagates teardown, start, restoration and unlock fai
 upnp_url_source = (root / "trunk/user/rc/src/services_ex.c").read_text()
 upnp_url_policy = (root / "trunk/user/rc/src/miniupnpd_presentation_url.h").read_text()
 upnp_url_test = (root / "trunk/user/rc/src/tests/miniupnpd_presentation_url.c").read_text()
-upnp_start_body = c_function_body(upnp_url_source, "int" + chr(10) + "start_upnp(void)")
+upnp_start_body = c_function_body(upnp_url_source, "static int" + chr(10) + "start_upnp_locked(void)")
 assert '#include "miniupnpd_presentation_url.h"' in upnp_url_source
 assert "is_valid_ipv4(lan_addr)" in upnp_start_body
 assert "is_valid_ipv4(lan_mask)" in upnp_start_body
