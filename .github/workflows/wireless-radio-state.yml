@@ -104,16 +104,19 @@ jobs:
           assert "wireless_radio_status_success(ret)" in control
           assert control.index("wireless_radio_status_success(ret)") < control.index("return 0;") < control.index("return 1;")
 
-          for name in ("control_guest_wl", "control_guest_rt"):
+          for name, finish_label in (("control_guest_wl", "finish_wl"),
+                                      ("control_guest_rt", "finish_rt")):
               body = function_body(source, name + "(int guest_on, int manual)")
+              assert finish_label + ":" in body
               for is_up in (1, 0):
                   gate = "if (!wif_control_success(ifname_ap, " + str(is_up) + "))"
                   assert gate in body, f"{name}: missing ifconfig status gate for {'up' if is_up else 'down'}"
                   gate_pos = body.index(gate)
-                  failure_return = body.index("return 0;", gate_pos)
+                  failure_record = body.index("wireless_guest_isolation_status_record(&control_status", gate_pos)
+                  failure_jump = body.index("goto " + finish_label + ";", failure_record)
                   publish = body.index("is_ap_changed = 1;", gate_pos)
                   bridge = body.index("br_add_del_if(", gate_pos)
-                  assert gate_pos < failure_return < publish < bridge, f"{name}: interface failure can still publish scheduler/bridge state"
+                  assert gate_pos < failure_record < failure_jump < publish < bridge, f"{name}: failed ifconfig can publish scheduler/bridge state before fail-closed cleanup"
 
 
           for name, gates in (

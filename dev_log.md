@@ -1,3 +1,13 @@
+## 2026-11-17 — Align wireless-radio regression with fail-closed guest-control status flow
+
+- Parent main SHA: `d3be26d0590ae05c20422db624d23868809c67b7`; result: THIS COMMIT.
+- Exact-d3 Process lifecycle `44060466306` passed, including the guest-isolation GNU89/Werror/ASan/UBSan policy unit and the integration checker. AI handoff `44060466402` passed.
+- Exact-d3 wireless-radio run `44060466245` failed at its inline source assertion, not at compilation or the existing radio/bridge unit regressions. The stale assertion required `return 0;` after an ifconfig failure. Guest-control now records the failure and jumps to its cleanup/isolation label before returning a negative status; update the checker to verify that ordering and status record instead.
+- XY-C1 exact-d3 run `44060466380` was still building at checkpoint; do not claim its TRX/artifact checks yet.
+- Next: implement rollback of a newly enabled guest AP if bridge, M2U or isolation policy setup fails, without taking down a guest interface that was already up. Handle RT3352 MII/iNIC ownership separately.
+
+---
+
 ## 2026-11-17 — Propagate guest Wi-Fi isolation and bridge-operation failures
 
 - Parent main SHA: `d0ea67338241d47223dbf2ae434411dfeb53f242`; result: THIS COMMIT.
