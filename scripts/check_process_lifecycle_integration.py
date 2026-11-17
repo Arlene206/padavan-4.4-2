@@ -349,7 +349,9 @@ assert "must-not-change" in xupnpd_config_test
 assert "os.execute" in xupnpd_config_test
 assert "test_source_rejects_symlinks_and_special_files" in xupnpd_config_test
 assert 'xupnpd_config_directory_validate("/etc/storage")' in xupnpd_start
-assert "xupnpd_config_directory_validate(dir_dst)" in xupnpd_start
+assert "xupnpd_config_ensure_directory(dir_dst, 0755)" in xupnpd_start
+assert xupnpd_start.index("xupnpd_config_ensure_directory(dir_dst, 0755)") < xupnpd_start.index("for (i=0; xdir1[i]; i++)")
+assert "xupnpd_config_subdirectory_validate(" in xupnpd_start
 assert 'xupnpd_config_directory_validate(tmp2)' in xupnpd_start
 assert "lstat(directory_path, &st)" in xupnpd_config_header
 assert "S_ISLNK(st.st_mode)" in xupnpd_config_header

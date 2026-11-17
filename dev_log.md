@@ -1,3 +1,13 @@
+## 2026-11-17 — Correct Process integration contract for XUPnPD directory setup
+
+- Parent main SHA: 7b1a1ba2e493d9603932322c772d44a27ebc4538; result: THIS COMMIT.
+- Exact-head Process lifecycle run 44141514694 failed at one stale source assertion: it expected `xupnpd_config_directory_validate(dir_dst)`, while `start_xupnpd()` correctly uses checked `xupnpd_config_ensure_directory(dir_dst, 0755)` before creating config/playlists and separately validates plugin/profile source and destination paths.
+- Updated the integration checker to assert the actual ensure-directory call, its ordering before required subdirectories, and the subdirectory-validation path. No production source or test execution was weakened.
+- WAN source/helper workflow run 44141514745 passed on the same SHA, including XUPnPD directory, copy, cleanup and source contract checks. Process exact-head rerun pending; XY-C1 run 44141514685 was still in progress.
+- No local MIPS firmware or physical-router L4 claim.
+
+---
+
 ## 2026-11-17 — Close remaining XUPnPD copy and cleanup failure paths
 
 - Parent main SHA: 17916d64e66ae90786f8e88838fff459bcfafdf4; result: THIS COMMIT.

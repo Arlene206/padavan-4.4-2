@@ -1,13 +1,14 @@
-# 2026-11-17 latest verified checkpoint
+# 2026-11-17 latest verified checkpoint — XUPnPD failure gates
 
-This section supersedes conflicting older rows below.
+This section supersedes conflicting older status below.
 
-- Parent main SHA: `17916d64e66ae90786f8e88838fff459bcfafdf4`; result: THIS COMMIT. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
-- Parent Switch CLI, NVRAM, AI handoff and process inventory checks PASS; Process lifecycle failed at its separate shared-library/RC integration contract. XY-C1 Build XY-C1 was still running.
-- XUPnPD validates required directories, plugin/profile copy/link outputs, source directories, stale PID cleanup, Lua override cleanup and top-level Lua copy before daemon launch. Exact-head WAN retry pending.
-- No MIPS/uClibc firmware build or physical-router L4 claim.
+- Product-source baseline: `7b1a1ba2e493d9603932322c772d44a27ebc4538`; THIS COMMIT updates a stale Process integration contract and records validation state. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
+- XUPnPD required directories, plugin/profile source and copy/link postconditions, stale PID/Lua cleanup and top-level Lua provisioning are checked before daemon launch. WAN host/source regression exact-head run `44141514745` PASS on `7b1a1ba`.
+- Process lifecycle run `44141514694` failed only because its checker still expected the removed root-directory validation call. THIS COMMIT requires the current `xupnpd_config_ensure_directory(dir_dst, 0755)` path; exact-head Process rerun pending.
+- Switch CLI IPv4 parser GNU89 sanitizer test PASS on `17916d64` (run `44140771106`). XY-C1 on `7b1a1ba` (run `44141514685`) was IN PROGRESS at last poll.
+- No local MIPS/uClibc firmware build or physical-router L4 is claimed.
 
-Next: verify exact-head WAN and XY-C1, diagnose the Process integration failure, then resume broad userland reliability.
+Next: verify exact-head Process integration after the contract correction and XY-C1 Build/TRX/artifact, then continue broad RC/userland lifecycle reliability.
 
 ---
 

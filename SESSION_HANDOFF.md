@@ -1,35 +1,36 @@
-# 2026-11-17 continuation checkpoint — complete XUPnPD setup failure gates
+# 2026-11-17 continuation checkpoint — XUPnPD provisioning gates
 
 This checkpoint supersedes conflicting older status below. Continue on main; do not repeat completed audits or mutate the frozen backup.
 
 ## Git state
 - Repository: https://github.com/Arlene206/padavan-4.4-2/.
-- Parent main SHA: 17916d64e66ae90786f8e88838fff459bcfafdf4; result: THIS COMMIT via one complete tree and expected-SHA non-force update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
-- Work only on main; PR #1 closed/unmerged.
-- No local MIPS compiler/full firmware checkout; physical-router L4 NOT VERIFIED.
+- Parent main SHA: 7b1a1ba2e493d9603932322c772d44a27ebc4538; result: THIS COMMIT (one complete tree, non-forced expected-SHA update).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; branch inventory contains only this archive and `main`.
+- PR #1 remains closed/unmerged. Development only on main.
+- No local MIPS/uClibc toolchain or full firmware checkout; physical-router L4 NOT VERIFIED.
 
-## Parent exact-head Actions
-- WAN route run `44140465411` on 6b88d9e: FAIL only in a source checker after the XUPnPD unit binary compiled and passed. Its assertion incorrectly rejected the `doSystem("cp -rf ...")` substring even when assigned and checked; the checker in THIS COMMIT distinguishes checked from unchecked calls.
-- Exact Switch CLI `44140771106` PASS, including strict IPv4 parsing and bounded table waits.
-- Exact AI handoff `44140771033`, NVRAM `44140771014`, switch and process-inventory `44140771046` PASS.
-- Process lifecycle `44140771103` failed in a separate shared-library/RC integration contract and remains an independent follow-up.
-- XY-C1 `44140771061` still RUNNING at last poll; Build XY-C1 was in progress.
+## Product-source progress
+- XUPnPD startup now fails closed on required config/playlists directory setup, plugin/profile source validation and copy/link postconditions, stale PID/Lua cleanup errors, and top-level runtime Lua copy/path failures. Source changes are on `6b88d9e` and `7b1a1ba`.
+- Switch CLI IPv4 argument parsing was replaced with bounded strict dotted-decimal parsing plus GNU89 sanitizer regression; exact-head Switch CLI run `44140771106` on `17916d64` PASS.
+- Do not duplicate or revert those source fixes.
 
-## XUPnPD startup failure gates
-- Initial change `6b88d9e` fixed ignored plugin/profile directory copy/link status and directory creation. GNU89 ASan/UBSan unit binary PASSED on WAN run 44140465411.
-- Source review found remaining ignored outcomes: top-level `xupnpd.lua` copy; stale PID cleanup; stale Lua override cleanup. THIS COMMIT captures copy status, removes partial copied output on failure, rejects pre-existing symlink/non-regular runtime Lua paths before copying, and aborts on unexpected unlink errors (ENOENT remains harmless).
-- Plugin/profile read-only source paths are checked as real directories before copy/symlink.
+## Exact-SHA Actions
+- WAN route run `44141514745` on exact source SHA `7b1a1ba2e493d9603932322c772d44a27ebc4538`: SUCCESS, including the XUPnPD storage/config-copy/cleanup fail-closed source contract and GNU89 ASan/UBSan helper regression.
+- Process lifecycle run `44141514694` on the same exact SHA: FAILED only at the shared-library/RC integration checker. All preceding policy binaries and integration checks passed; line 352 still expected the removed `xupnpd_config_directory_validate(dir_dst)` call instead of the production `xupnpd_config_ensure_directory(dir_dst, 0755)` gate.
+- THIS COMMIT updates that contract to require the checked root directory helper before required config/playlists setup, while preserving the subdirectory identity checks. Its exact-head Process run is pending at commit creation.
+- Process inventory `44141514811`, AI handoff docs `44141514899`, WAN route `44141514745`, and the related module runs were SUCCESS on `7b1a1ba`. XY-C1 `44141514685` on exact source SHA `7b1a1ba` was IN_PROGRESS at the last poll; inspect Build XY-C1, TRX verification and artifact upload before claiming L3.
 
-## First next task
-1. Inspect exact-head WAN route after this checker and cleanup fix; require all XUPnPD steps and existing WAN contracts PASS.
-2. Inspect exact-head XY-C1 Build/TRX/artifact after its run completes; do not treat the older 4a3 artifact as sufficient for later source changes.
-3. Diagnose Process run `44140771103` shared-library/RC integration failure from its exact job log, then continue independent P1 userland fixes.
+## First next action
+1. Inspect exact-head Process lifecycle Actions for THIS COMMIT; repair any remaining genuine integration assertion without weakening production checks.
+2. Inspect XY-C1 run `44141514685` and confirm Build XY-C1, TRX and artifact upload all completed successfully.
+3. Continue the P1 process/service lifecycle and RC startup-result work from the live roadmap; don't repeat completed XUPnPD/WAN, DHCP, HTTPD, PPPoE-MWAN or storage audits without new evidence.
 
 ## Validation boundary
-- XUPnPD helper regression passed on parent 6b88d9e; initial checker alone failed. THIS COMMIT adds further copy and cleanup gates; exact-head WAN pending.
-- Switch CLI and NVRAM exact-head passed on parent 17916d6.
-- No MIPS/uClibc build or physical-router L4 result is asserted.
+- XUPnPD WAN host regression/source contract: L2 PASS on `7b1a1ba` (run `44141514745`).
+- Process umbrella: previous exact-head failure isolated to the stale XUPnPD root-directory assertion; this commit corrects it and needs exact-head rerun.
+- Switch CLI IPv4 parsing: L2 PASS on `17916d64` (run `44140771106`).
+- XY-C1 source build at `7b1a1ba`: IN PROGRESS at last poll; no firmware/TRX/artifact success claim.
+- Physical-router L4 NOT VERIFIED.
 
 # Cross-session execution mandate
 
