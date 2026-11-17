@@ -1,3 +1,14 @@
+## 2026-11-17 — Stop Ralink IAPP during checked RC shutdown
+
+- Base main SHA: `45def115a2b7f52a7b495750ae815223f016ccff`; result: THIS COMMIT.
+- Finding: `start_services_once()` unconditionally executes `/usr/bin/iappd.sh restart` and then the script's post-start `test`; the package Makefile installs the script into ROMFS. The idempotent `stop` action already performs bounded, fail-closed daemon stop and postcondition checks, but `stop_services()` omitted it.
+- Added `system("/usr/bin/iappd.sh stop")` to `stop_services()` through `record_service_stop_status()`. A nonzero wait status now enters the common first-error result and therefore reaches the existing reboot/halt persistence and firmware-update abort gates.
+- Extended `check_optional_app_start_status.py` to pin the boot restart/test call, shutdown stop result, ROMFS installation and existing lifecycle regression wiring. The Process workflow already runs `sh -n` and `trunk/user/ralinkiappd/tests/iappd_lifecycle.sh`.
+- The Ralink IAPP script regression was previously executed successfully in Process CI, but exact-head Process and XY-C1 verification for this new RC hook is pending. RWFS policy regression passes; its exact-head Process/XY-C1 source checker runs are still pending after the mountpoint-cleanup assertion correction in `45def115`.
+- No local checkout/MIPS toolchain is mounted; local build/test execution was NOT RUN. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align Process umbrella boot-status contract with RWFS first-error merge
 
 - Base main SHA: `45def115a2b7f52a7b495750ae815223f016ccff`; result: THIS COMMIT.

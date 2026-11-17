@@ -13,6 +13,10 @@ SHARED_MAKEFILE = ROOT / "trunk/user/shared/Makefile"
 VLM_SCRIPT = ROOT / "trunk/user/vlmcsd/vlmcsd.sh"
 RC_SERVICES_SOURCE = ROOT / "trunk/user/rc/src/services.c"
 RC_SOURCE = ROOT / "trunk/user/rc/src/rc.c"
+IAPPD_SCRIPT = ROOT / "trunk/user/ralinkiappd/iappd.sh"
+IAPPD_TEST = ROOT / "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
+IAPPD_MAKEFILE = ROOT / "trunk/user/ralinkiappd/Makefile"
+PROCESS_WORKFLOW = ROOT / ".github/workflows/process-lifecycle-regression.yml"
 
 
 def executable(path, content):
@@ -119,6 +123,50 @@ def check_dns_forwarder_rc_shutdown_registration():
     assert "firmware update aborted: checked services did not stop" in firmware_update_body
     print("DNS Forwarder RC shutdown registration and failure gates: PASS")
 
+
+def check_ralink_iappd_rc_shutdown_registration():
+    services = RC_SERVICES_SOURCE.read_text()
+    start_body = extract_c_function_body(
+        services, "start_services_once(int is_ap_mode)"
+    )
+    stop_body = extract_c_function_body(services, "stop_services(int stopall)")
+
+    assert 'system("/usr/bin/iappd.sh restart")' in start_body
+    assert 'system("/usr/bin/iappd.sh test")' in start_body
+
+    stop_call = (
+        'record_service_stop_status(&stop_status, "Ralink IAPP", '
+        'system("/usr/bin/iappd.sh stop"));'
+    )
+    assert stop_call in " ".join(stop_body.split())
+    assert stop_body.index("system(\"/usr/bin/iappd.sh stop\")") < stop_body.index(
+        "return stop_status;"
+    )
+
+    makefile = IAPPD_MAKEFILE.read_text()
+    assert "$(INSTALL_BIN) ./iappd.sh $(ROMFSDIR)/usr/bin/iappd.sh" in makefile
+    script_test = IAPPD_TEST.read_text()
+    for token in (
+        "UNKNOWN inventory",
+        "launcher failure",
+        "failed killall",
+        "stop postcondition false positive",
+        "restart ran after failed stop",
+    ):
+        assert token in script_test, f"Ralink IAPP regression missing {token}"
+
+    workflow = PROCESS_WORKFLOW.read_text()
+    assert '"trunk/user/ralinkiappd/iappd.sh"' in workflow
+    assert '"trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"' in workflow
+    assert "sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh" in workflow
+
+    for path in (IAPPD_SCRIPT, IAPPD_TEST):
+        syntax = run(["/bin/sh", "-n", str(path)], os.environ.copy())
+        assert syntax.returncode == 0, syntax.stderr
+    result = run(["/bin/sh", str(IAPPD_TEST)], os.environ.copy())
+    assert result.returncode == 0, result.stderr
+    assert "Ralink IAPP daemon lifecycle regressions: PASS" in result.stdout
+    print("Ralink IAPP RC shutdown registration and lifecycle regression: PASS")
 
 
 def check_vlmcsd():
@@ -628,6 +676,7 @@ def check_shared_process_lifecycle():
 
 if __name__ == "__main__":
     check_dns_forwarder_rc_shutdown_registration()
+    check_ralink_iappd_rc_shutdown_registration()
     check_shared_process_lifecycle()
     check_scutclient()
     check_vlmcsd()

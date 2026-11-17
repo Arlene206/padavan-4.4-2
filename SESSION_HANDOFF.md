@@ -12,8 +12,8 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - CPU-watchdog tri-state source `aeddc157` passed GNU89 regression and XY-C1 Build/TRX/artifact (`44000632827`). USB modem tri-state source `76683274` passed its dedicated readiness and Process/inventory/HTTPD/infosvr/handoff checks. IPv6 boot status propagation source `37e414f2` passed same-source XY-C1 Build/TRX/artifact in run `44003333586`; Process/handoff and dependent checks passed on `b447358e`.
-- Firewall module-table UNKNOWN/invalid-state rollback fix is product-source commit `736ebe8638d253ae7b870d8a4554b15b7709f30b`. Firewall Startup Stability `44005295947`, Process lifecycle `44005296027`, inventory `44005296027`, FULLCONENAT `44005295950`, NVRAM audit `44005782297`, and the follow-up exact-head checks listed below passed. HTTPD initially exposed a stale Boolean-probe contract; checker-only fix `49f798836772a802efad324498b875fa6a05b94c` passed HTTPD `44005782392`, Process `44005782244`, AI handoff `44005782352`, infosvr `44005782318`, AliyunDrive `44005782314`, AliDDNS `44005782333`, and AdGuardHome `44005782562`.
-- XY-C1 run `44005782493` on `49f798836772a802efad324498b875fa6a05b94c` was still building at the last check; do not claim Build/TRX/artifact until all three steps succeed. Earlier run `44005295961` on product-source `736ebe86` was also still in progress.
+- Firewall module-table UNKNOWN/invalid-state rollback fix is source `736ebe86`; Firewall Startup Stability `44005295947` passed. The stale HTTPD Boolean-probe checker was corrected in `49f79883`; HTTPD `44005782392` and firmware-identical XY-C1 `44005782493` passed, including Build/TRX/artifact.
+
 - This source slice fixes an RC shutdown omission: `start_services_once()` starts DNS Forwarder under `APP_DNSFORWARDER`, but `stop_services()` did not register its existing checked stop wrapper. The omission could leave DNS Forwarder alive during reboot/halt or firmware update. The fix adds it to the common first-error stop accumulator; this feeds both shutdown storage-persistence and firmware-update abort gates. A source integration regression pins the start/stop guards and both caller gates.
 - New P1 RWFS boot-mount fix in THIS COMMIT: `mount_rwfs_partition()` previously discarded UBI module/attach/mkdir/UBIFS mount failures, while Optware start treated directory existence as mount readiness. The new flow verifies tri-state UBI module readiness and the exact MTD attachment before/after attach, validates the mountpoint, propagates its status into PID1 boot results and gates the Optware worker on successful mount; a newly created empty directory is cleaned up on failure. Dedicated GNU89 regression and Process/XY-C1 integration are wired; exact-head Actions pending.
 - DNS Forwarder product source remains `8b63b6ea70536e2677204e6da8741a662145ba5f`; docs-only handoff follow-up is `db73892db0692050eca7249e5ac55d4eb35bb3b9`. The current RWFS slice is based on this live main.
@@ -22,8 +22,8 @@ Before context exhaustion, inspect the current source SHA, exact-head Actions, v
 
 ## Active task
 
-1. Inspect exact-head Process lifecycle and XY-C1 for this RWFS mountpoint-cleanup checker correction. Confirm policy, integration and boot-module checks pass; resolve any further specific failure.
-2. Verify same-production-source XY-C1 Build, TRX validation and artifact upload, then confirm USB storage/hotplug and NVRAM checks. Only then mark RWFS L3 verified.
+1. Inspect exact-head Process lifecycle and XY-C1 for RWFS and the Ralink IAPP shutdown-hook source change in THIS COMMIT. Confirm the RWFS policy/source contracts and IAPP shutdown regression pass; resolve any causal failure.
+2. Verify same-source XY-C1 Build, TRX validation and artifact upload, plus USB storage/hotplug and NVRAM checks. Do not claim RWFS or IAPP L3 before those results.
 3. Once RWFS clears, continue P1 RC shutdown/start-result audit across independent services. Do not repeat watchdog, modem, IPv6 sysctl, firewall module-table, NVRAM, storage-eject or VPN work already recorded above.
 
 ## Verification boundary

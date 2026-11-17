@@ -1600,6 +1600,8 @@ stop_services(int stopall)
 #if defined(APP_MENTOHUST)
 	record_service_stop_status(&stop_status, "mentohust", stop_mentohust());
 #endif
+	record_service_stop_status(&stop_status, "Ralink IAPP",
+				    system("/usr/bin/iappd.sh stop"));
 #if defined(APP_VLMCSD)
 	record_service_stop_status(&stop_status, "vlmcsd", stop_vlmcsd());
 #endif
