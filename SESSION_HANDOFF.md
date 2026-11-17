@@ -8,6 +8,8 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 ## Current repository state
 
+Before context exhaustion, finish the current safe slice, record exact-SHA validation and the precise next action, then publish completed work atomically.
+
 - Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Current source parent for the IPv6 neighbour-cleanup slice: `79ba2d6f818d0cb541032b3440834b883b1e531d`.
 - IPv6 per-interface route/address/neighbour cleanup uses argv-based `eval()`. This slice adds neighbour flushing during native startup rollback when route/address side effects occurred, and during normal WAN teardown between route and address cleanup. Teardown neighbour failures are logged and included in first-error aggregation, preventing saved WAN IPv6 state from being cleared after incomplete cleanup.
 - PPP probe/custom WAN hook operands in `net_wan.c`, L2TP/mwan process launches in `net_ppp.c`, and SIT/native WAN IPv6 tunnel/route operations use argv-based `eval()`; PPP lifecycle locks and DHCPv6 callback-generation fencing remain.

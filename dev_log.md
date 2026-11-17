@@ -1,3 +1,12 @@
+## 2026-11-16 — Complete the mandatory handoff checkpoint contract
+
+- Base main SHA: `830d56c243ea0c220ede0b32762b723fccf83a69`; result: THIS COMMIT.
+- The exact-head AI handoff workflow `43994914093` failed after the prior phrase repair because `SESSION_HANDOFF.md` still omitted the required `Before context exhaustion` marker. Restored that exact cross-session requirement while retaining the validator-required mandatory-checkpoint and conditional no-churn wording.
+- The stale VPN restore assertion in `scripts/check_process_lifecycle_integration.py` was corrected in the parent commit; exact-head Process inventory/lifecycle `43994914203` now PASS. AliyunDrive `43994914128` also PASS on the parent after the one readiness failure at f943 `43994632492`; no Aliyun source change was needed. NVRAM `43994914119` PASS.
+- Other exact-head PASS on parent `830d56c`: AdGuardHome `43994914137`, infosvr `43994914142`, AliDDNS `43994914157`. AI handoff remains the only failed workflow on that docs-only SHA; its sole logged failure is the missing marker. XY-C1 remains in progress on source commit `f943ccbd8efe3e125afcec8165bf9e235b390e06` at Build; current-source same-SHA TRX/artifact completion is still pending. Product-source L3 and physical-router L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Align handoff and process integration contracts with VPN restore semantics
 
 - Exact parent `79ba2d6f818d0cb541032b3440834b883b1e531d`: VPN lifecycle, Firewall, HTTPD, infosvr, AdGuardHome, AliyunDrive, main Process inventory, AliDDNS, OpenVPN credential and NVRAM passed. AI handoff `43994270363` failed because `SESSION_HANDOFF.md` omitted the validator's mandatory accuracy-checkpoint wording. Process fail-closed `43994270241` failed because `scripts/check_process_lifecycle_integration.py` still asserted `restore_status != 0` after `restart_vpn_server()` correctly changed to `restore_status < 0` to accept an already-running xl2tpd daemon.
