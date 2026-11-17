@@ -1275,13 +1275,12 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 	{
 		int iappd_restart_status = system("/usr/bin/iappd.sh restart");
 
-		if (iappd_restart_status != 0) {
+		if (iappd_restart_status != 0)
 			logmessage(LOGNAME,
 				   "Ralink IAPP restart after 5GHz wireless restart failed (wait status=%d)",
 				   iappd_restart_status);
-			if (isolation_status == 0)
-				isolation_status = -1;
-		}
+		isolation_status = wireless_radio_restart_status(
+			isolation_status, iappd_restart_status);
 	}
 #endif
 	return isolation_status;
@@ -1394,13 +1393,12 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 	{
 		int iappd_restart_status = system("/usr/bin/iappd.sh restart");
 
-		if (iappd_restart_status != 0) {
+		if (iappd_restart_status != 0)
 			logmessage(LOGNAME,
 				   "Ralink IAPP restart after 2.4GHz wireless restart failed (wait status=%d)",
 				   iappd_restart_status);
-			if (isolation_status == 0)
-				isolation_status = -1;
-		}
+		isolation_status = wireless_radio_restart_status(
+			isolation_status, iappd_restart_status);
 	}
 	return isolation_status;
 }

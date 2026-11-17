@@ -47,4 +47,18 @@ wireless_radio_startup_result(int all_started)
 	return all_started ? 0 : -EIO;
 }
 
+/*
+ * Merge the IAPP helper's wait status into a wireless restart result.
+ * system() reports both fork errors (-1) and encoded child failures (>0);
+ * normalize either to a negative RC error while preserving an earlier
+ * guest-isolation failure.
+ */
+static inline int
+wireless_radio_restart_status(int previous_status, int operation_status)
+{
+	if (previous_status != 0)
+		return previous_status;
+	return operation_status == 0 ? 0 : -EIO;
+}
+
 #endif /* WIRELESS_RADIO_POLICY_H */

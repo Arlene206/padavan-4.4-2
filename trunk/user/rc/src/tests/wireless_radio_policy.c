@@ -66,6 +66,17 @@ test_incomplete_startup_is_reported(void)
 	       wireless_radio_startup_result(0) >= 0;
 }
 
+static int
+test_restart_failure_wait_status_is_normalized_and_sticky(void)
+{
+	return wireless_radio_restart_status(0, 0) != 0 ||
+	       wireless_radio_restart_status(0, -1) >= 0 ||
+	       wireless_radio_restart_status(0, 1) >= 0 ||
+	       wireless_radio_restart_status(0, 256) >= 0 ||
+	       wireless_radio_restart_status(-EACCES, 0) != -EACCES ||
+	       wireless_radio_restart_status(-EACCES, 256) != -EACCES;
+}
+
 int
 main(void)
 {
@@ -74,7 +85,8 @@ main(void)
 	    test_shutdown_failure_is_sticky() ||
 	    test_incomplete_shutdown_is_reported() ||
 	    test_startup_failure_is_sticky() ||
-	    test_incomplete_startup_is_reported()) {
+	    test_incomplete_startup_is_reported() ||
+	    test_restart_failure_wait_status_is_normalized_and_sticky()) {
 		fprintf(stderr, "Wireless interface status policy: FAIL\n");
 		return 1;
 	}

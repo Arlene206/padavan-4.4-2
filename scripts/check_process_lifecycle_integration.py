@@ -1109,11 +1109,17 @@ for band, block in (("5GHz", restart_wifi_wl), ("2.4GHz", restart_wifi_rt)):
     assert 'int iappd_restart_status = system("/usr/bin/iappd.sh restart");' in block
     assert "if (iappd_restart_status != 0)" in block
     assert "Ralink IAPP restart after " + band + " wireless restart failed (wait status=%d)" in block
-    assert "if (isolation_status == 0)" in block
-    assert "isolation_status = -1;" in block
+    assert "isolation_status = wireless_radio_restart_status(" in block
+    assert "iappd_restart_status);" in block
+    assert block.count('system("/usr/bin/iappd.sh restart")') == 1
     assert block.index("int iappd_restart_status = system(") < block.index("if (iappd_restart_status != 0)")
-    assert block.index("if (iappd_restart_status != 0)") < block.index("return isolation_status;")
-    assert not re.search(r'(?m)^\s*system\("/usr/bin/iappd\.sh restart"\);
+    assert block.index("if (iappd_restart_status != 0)") < block.index("wireless_radio_restart_status(") < block.index("return isolation_status;")
+radio_policy_test = (root / "trunk/user/rc/src/tests/wireless_radio_policy.c").read_text()
+radio_policy_header = (root / "trunk/user/rc/src/wireless_radio_policy.h").read_text()
+assert "wireless_radio_restart_status(int previous_status, int operation_status)" in radio_policy_header
+assert "test_restart_failure_wait_status_is_normalized_and_sticky" in radio_policy_test
+assert "wireless_radio_restart_status(0, 256) >= 0" in radio_policy_test
+assert "wireless_radio_restart_status(-EACCES, 256) != -EACCES" in radio_policy_test
 shutdown_router = rc_source.split("shutdown_router(int level)", 1)[1].split("\n}\n", 1)[0]
 assert "auth_stop_status = stop_8021x_all();" in shutdown_router
 assert "auth_stop_status == 0" in shutdown_router

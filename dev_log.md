@@ -1,3 +1,10 @@
+## 2026-11-18 02:49 CST — Unit-test wireless restart status merging and repair Process checker
+
+- Follow up to the two-band IAPP restart failure propagation: factor the result merge into `wireless_radio_restart_status()`. It maps both `system()` fork errors and positive encoded child wait statuses to a negative RC error, while preserving an earlier guest-isolation failure.
+- Extend the existing GNU89 wireless-radio policy test for success, `-1`, positive exit/wait values and first-error preservation. The Process source checker pins use of the helper in both band paths.
+- CI exposed a malformed Python regular-expression assertion added with the prior IAPP checker. Exact-head Process run `44150969175` failed at Python line 1116 with `SyntaxError: unterminated string literal`; the C wireless regression, Process inventory, AI handoff and NVRAM tests passed. Replace that fragile regex with an exact command-count assertion here.
+- The dedicated `wireless-radio-state` workflow already watches `net_wifi.c`, `wireless_radio_policy.h` and its test; Process and XY-C1 rerun the source checker. Exact-head validation for THIS COMMIT pending.
+
 ## 2026-11-18 02:41 CST — Propagate IAPP restart failures from wireless restart paths
 
 - Both `restart_wifi_wl()` and `restart_wifi_rt()` previously invoked `system("/usr/bin/iappd.sh restart")` without checking the wait status. The boot path already records this command's failure, but a wireless restart could report success while the Ralink IAPP helper had failed.

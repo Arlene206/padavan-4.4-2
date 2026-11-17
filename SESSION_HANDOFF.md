@@ -1,26 +1,25 @@
-# 2026-11-18 continuation checkpoint — propagate IAPP failures during radio restart
+# 2026-11-18 continuation checkpoint — repair Process checker and test IAPP wait-status merging
 
 ## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `ad85b8b4f39a627842b9c82f6b8d94efd1afee6b`; this is one atomic source/test/handoff tree commit using a non-forced expected-SHA update.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only policy preserved; PR #1 remains closed/unmerged.
-- No local full MIPS/uClibc toolchain or physical router; L4 remains NOT VERIFIED.
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `ff33261566bf6db7f0e5a8c9253030b17ff0406c`; this fix is a single atomic policy/source/test/checker/handoff commit via a complete tree and non-forced expected-SHA update.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged. Main-only policy preserved; PR #1 remains closed/unmerged.
+- No local MIPS/uClibc toolchain or physical router; L4 is NOT VERIFIED.
 
 ## Parent exact-head Actions
-- Process lifecycle regression `process-lifecycle-regression`: SUCCESS.
-- Process inventory `44149539550`: SUCCESS.
-- AI handoff contract `44149539806`: SUCCESS.
-- NVRAM transaction boundary audit `44149539038`: SUCCESS.
-- XY-C1 Firmware Validation `44149539848`: IN_PROGRESS at last poll; Build/TRX/artifact still pending.
-- Parent source SHA: `ad85b8b4f39a627842b9c82f6b8d94efd1afee6b`; exact-head Process/AI/NVRAM are green. Earlier XY-C1 runs on `71055afc` and `ad85b8b4` were also still running at last poll.
+- Process inventory `44150969359`: SUCCESS; AI handoff `44150969279`: SUCCESS; NVRAM audit `44150969211`: SUCCESS; wireless radio state `44150969340`: SUCCESS.
+- Process lifecycle umbrella `44150969175`: FAILURE. Job failed in "Verify shared-library and RC integration boundaries"; its log identifies `SyntaxError: unterminated string literal (detected at line 1116)` in the new IAPP source checker.
+- XY-C1 `44150969432`: IN_PROGRESS at last poll; no firmware artifact claim.
+- The failing Python assertion is repaired in THIS COMMIT. Previous exact source SHA: `ff33261566bf6db7f0e5a8c9253030b17ff0406c`.
 
-## Wireless IAPP restart result propagation (THIS COMMIT)
-- The two band restart functions previously ignored `system("/usr/bin/iappd.sh restart")` failures even though the same IAPP restart is status-checked on boot and during service stop.
-- Both paths now capture/log the wait status and return a negative failure if IAPP restart failed, without replacing any earlier guest-isolation error. Existing PID 1 notification handlers therefore mark the wireless restart incomplete.
-- The Process source contract verifies both bands, error diagnostics, status propagation and removal of the unchecked calls. Process and XY-C1 workflows already track the modified source and checker; exact-head checks pending.
+## IAPP wait-status policy test (THIS COMMIT)
+- Both radio restart functions now use pure `wireless_radio_restart_status()` to map `system()` fork errors and positive wait statuses to a negative RC result while preserving any earlier guest-isolation error.
+- GNU89 unit tests cover success, `-1`, positive encoded wait status and earlier-error retention.
+- The source-checker syntax error is fixed by replacing the unterminated regex with exact command-count and status-order assertions. Dedicated wireless CI compiles/runs the policy test; Process and XY-C1 rerun the checker.
+- Exact-head Actions for THIS COMMIT are PENDING.
 
 ## First next action
-- Inspect exact-SHA Process lifecycle, AI handoff and XY-C1 Build/TRX/artifact for THIS COMMIT. Do not wait if XY remains pending; continue other independent P1 service-stop result propagation or verified Samba/storage postconditions.
-- Do not repeat the completed normal-shutdown LAN MTD gate, firmware-update VPN teardown fix, boot launcher diagnostic change or Switch audit.
+- Verify exact-SHA Process lifecycle (must now pass), wireless-radio-state, AI handoff, NVRAM and XY-C1 Build/TRX/artifact. Inspect failure logs rather than guessing.
+- If XY is pending, continue an independent userland task. Do not repeat the already fixed IAPP source issue, LAN MTD gate, firmware VPN stop, boot launcher status logging, or Switch audit.
 
 # Cross-session execution mandate
 
