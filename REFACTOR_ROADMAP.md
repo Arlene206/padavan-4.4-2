@@ -50,6 +50,8 @@
 ## Priority queue
 
 1. **P0 — Verify exact-SHA CI after each source/handoff commit.** Resolve any FAIL at the corresponding SHA; treat runs without a conclusion as PENDING and work on independent tasks.
+
+   - Current integration repair: exact-head `01bc69f3` exposed five stale CI/source-contract gates (WAN compile include, handoff checkpoint sections, MiniUPnPd/HTTPD PPP rollback assertions). Correct those tests against the checked return-value implementation; do not regress source behavior to satisfy obsolete expectations.
 2. **P1 — Continue broad RC startup-result propagation.** Find remaining enabled service launch/module-load paths whose failures are discarded by `void` helpers or callers. Fix concrete defects with tests; cover service callers, not just helper return types.
 
    - Completed slice in THIS COMMIT: `wan_up_internal()` now preserves configured Inadyn start/reload failures from `notify_ddns_update()`; DDNS-disabled and AP-mode notifier calls are explicitly successful no-ops, with policy and WAN-caller regression coverage. Continue with other dropped WAN-up optional-launch results.

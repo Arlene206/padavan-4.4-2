@@ -1,5 +1,7 @@
 # Cross-session execution mandate
 
+Mandatory handoff checkpoint: Every session MUST inspect the live repository state before ending or handing off. Confirm the main/source baseline, exact-head Actions, validation boundary, blockers, frozen backup and precise next action. The checkpoint is mandatory; a document edit is conditional. If all checkpoint facts and the first action are already accurate, do not create a no-op commit. This is the required end-of-session accuracy checkpoint.
+
 Continue one engineering effort across GPT conversations. Avoid repeating completed audits, do not wait on pending CI when independent work is available, and do not ask the user what to do next. Finish safe source slices, add regression coverage, inspect exact-SHA Actions, commit atomically, and preserve the next task.
 
 Every logical multi-file change must be published as one complete Git tree and one atomic main commit, parented to freshly fetched main and pushed with a non-forced expected-SHA compare-and-swap. Never force-push, create a development branch/PR, or modify the frozen backup.
@@ -7,20 +9,34 @@ Every logical multi-file change must be published as one complete Git tree and o
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development only on `main`.
-- Current implementation commit: THIS COMMIT; parent main was `9116f521c171d011f45a9a19abebcf57cdbedcc9`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`. The branch inventory contained only `main` and this protected backup.
-- The immediate parent `9116f521c171d011f45a9a19abebcf57cdbedcc9` had 11 completed exact-head `push` workflows, all SUCCESS. In particular XY-C1 run `44020469451` completed the cross-build, Build XY-C1, TRX verification and artifact upload; Process lifecycle `44020469301`, WAN route `44020469586`, and Firewall Startup `44020469423` also passed.
-- THIS COMMIT fixes a P1 WAN-up status defect: `wan_up_internal()` previously discarded `notify_ddns_update()`. Enabled Inadyn process-inventory, daemon-start, configuration-publication and HUP failures now flow into the WAN-up first-error result. The notifier now treats DDNS-disabled and AP-mode configurations as successful no-ops before probing/starting Inadyn, avoiding a false error from `start_ddns()` when the optional service is intentionally disabled.
-- Regression coverage extends `inadyn_daemon_policy.c`, adds a WAN caller-contract checker, and makes the WAN route workflow compile/run the policy test and checker. The XY-C1 and Process workflows already watch the touched RC sources/header/test paths.
-- Exact-head Actions for THIS COMMIT were PENDING at commit creation. Do not claim L3 until the exact SHA has green source gates and XY-C1 Build, TRX verification and artifact upload.
+- Current main: `01bc69f31c7a40591587e095f8be8d634b43ef23`, parent `9116f521c171d011f45a9a19abebcf57cdbedcc9`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent `9116f521` had 11 exact-head push workflows completed SUCCESS. XY-C1 run `44020469451` reached and passed cross-build, Build XY-C1, TRX verification and artifact upload. Parent Process lifecycle `44020469301`, WAN route `44020469586`, and Firewall Startup `44020469423` also passed.
+- Current source commit `01bc69f3` fixes a P1 WAN-up status defect: `wan_up_internal()` previously discarded `notify_ddns_update()`. Configured Inadyn inventory/start/configuration/HUP failures now flow into WAN-up's first-error status. DDNS-disabled and AP-mode configurations are explicit successful no-ops before process probing or start.
+- Coverage adds four enable/AP configuration cases to `inadyn_daemon_policy.c`, a WAN caller contract checker, and exact workflow gates.
+- Exact-head run batch for `01bc69f3`: 23 workflows. 13 completed SUCCESS; 5 completed FAILURE due to the specific checker/integration causes recorded under Verification boundary; 5 were pending/in-progress at the last check. These are being repaired on the next descendant SHA. Do not claim L3 or firmware-build success for `01bc69f3`.
 - Local checkout/toolchain is unavailable; local compilation was NOT RUN. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-1. Fetch live `main` and inspect every `push` workflow whose `head_sha` equals THIS COMMIT. Resolve any FAIL on that exact SHA. Require WAN route, Process lifecycle and XY-C1 to complete; verify the XY-C1 job reaches Build, TRX verification and artifact upload.
-2. Once that SHA is green, continue P1 caller-result work in `wan_up_internal()`: inspect the remaining enabled optional WAN-up launch paths (including ZeroTier and the PPPoE-MWAN detection script), determine their disabled/no-op semantics, and propagate only failures that represent real configured-service faults. Add caller tests, not helper-only checks.
-3. Preserve the frozen backup; use one tree/one commit per logical slice and a non-forced expected-SHA update.
+1. Complete the five exact-SHA integration fixes identified below: add the shared include path to the Inadyn regression compile; restore the mandatory handoff checkpoint and verification boundary; update the PPP rollback source contracts to the current status-returning implementations; and preserve those changes as one logical test/handoff commit.
+2. Inspect every run for the descendant's exact `head_sha`. Resolve any FAIL on that SHA and require the WAN route, Process lifecycle and XY-C1 workflows to pass. For XY-C1, require the actual Build XY-C1, TRX verification and artifact-upload steps.
+3. When checks are pending, continue independent P1 source work rather than waiting. The next source area is the remaining WAN-up optional launches (ZeroTier and PPPoE-MWAN `detect.sh`), but first verify their enabled/disabled return semantics.
+4. Keep the backup unchanged and use one complete Git tree, one commit and non-forced expected-SHA main update per logical slice.
+
+## Verification boundary
+
+- Exact main SHA inspected: `01bc69f31c7a40591587e095f8be8d634b43ef23`; live main matched this SHA when the 23-run Actions batch was retrieved.
+- Exact-head run outcomes:
+  - SUCCESS: detect_link `44025185383`; AliyunDrive `44025185263`; AdGuardHome `44025185238`; detect_internet `44025185168`; Samba `44025185163`; AliDDNS `44025185138`; WAN ARP `44025185116`; WAN DHCP callback `44025185110`; VPN server `44025185078`; USB modem identity `44025184984`; WAN teardown `44025184941`; Firewall Startup `44025184934`; Inadyn lifecycle `44025184921`.
+  - FAILURE: WAN route `44025184940` — new Inadyn test compile omitted `-I trunk/user/shared/src`, so `process_inventory.h` was not found. This is a CI command defect, not a C source failure.
+  - FAILURE: AI handoff `44025185056` and infosvr packet `44025184943` — the new handoff lacked the mandated checkpoint text and `## Verification boundary` heading; restore those required governance sections.
+  - FAILURE: HTTPD security `44025185053` — PPP rollback contract still expected an unchecked direct `start_firewall_ex();` and void-style stop branch. Current `net_wan.c` correctly captures and returns `firewall_status` / `upnp_status`; update the stale source assertion.
+  - FAILURE: MiniUPnPd config `44025185094` — test still expected direct `if (check_upnp_wanif_changed(...) != 0)` and bare `return;`. Current code captures `upnp_status`, returns that error before changing active WAN, and separately propagates `firewall_status`; update checker to match this stronger contract.
+  - PENDING at last poll: XY-C1 `44025185181`; Process lifecycle `44025185227`; Process lifecycle inventory `44025185079`; DNSMasq `44025185052`; NVRAM transaction boundary `44025185036`. Job detail: Process lifecycle and DNSMasq jobs completed SUCCESS while workflow runs were still finishing; XY-C1 cross-build and NVRAM job were still in progress. Do not infer the full XY-C1 build or artifact outcome from the in-progress job.
+- Corrective test/handoff edits are prepared against the exact parent `01bc69f3`; exact descendant CI is not yet available.
+- No local compile/test was run in this environment. No new L3 firmware success is claimed for `01bc69f3`. Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Read the live `main` SHA and query Actions filtered by that exact `head_sha`; do not re-audit the already-green parent `9116f521`. Confirm the WAN DDNS policy/caller checker, Process lifecycle checks, and same-SHA XY-C1 Build/TRX/artifact steps. If any check is pending, work independently on the next WAN-up caller rather than waiting. Update this handoff in the next source-bearing commit with the actual commit SHA and CI outcomes.
+Fetch live main, then filter Actions by the exact descendant SHA and event `push`. Resolve any failed WAN-route, AI handoff, HTTPD security, MiniUPnPd config or infosvr gate without touching production code merely to satisfy stale assertions. Confirm XY-C1 actually reaches Build, TRX verification and artifact upload. If all are green, continue the WAN-up optional-launch result investigation (ZeroTier and PPPoE-MWAN detection); if pending, work on an independent source slice. Keep this handoff current and preserve the frozen backup.

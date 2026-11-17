@@ -41,13 +41,13 @@ def function_body(source, signature):
                 if depth == 0:
                     return source[opening + 1:index]
         elif state == "quoted":
-            if char == "\\\\":
+            if char == chr(92):
                 index += 2
                 continue
             if char == quote:
                 state = "code"
         elif state == "line_comment":
-            if char == "\\n":
+            if char == chr(10):
                 state = "code"
         elif state == "block_comment":
             if char == "*" and next_char == "/":

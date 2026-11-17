@@ -1,3 +1,14 @@
+## 2026-11-16 — Correct exact-head WAN/DDNS integration gates
+
+- Parent main SHA: `01bc69f31c7a40591587e095f8be8d634b43ef23`; this commit repairs test contracts exposed by `01bc69f3`.
+- WAN-route regression compile now includes `trunk/user/shared/src`, where `process_inventory.h` resides.
+- Restored mandatory handoff checkpoint and `## Verification boundary`; these satisfy the live AI-handoff and infosvr source-contract consumers without weakening those validations.
+- MiniUPnPd and HTTPD PPP rollback assertions are updated to enforce the current checked `upnp_status` early return and captured `firewall_status`, rather than obsolete unchecked calls and void returns.
+- The WAN DDNS semantic checker now handles escaped C strings and line comments correctly.
+- Exact-head `01bc69f3` failures were diagnosed from job logs. Corrective descendant CI has not yet run. Local toolchain remains unavailable; physical router L4 is not verified.
+
+---
+
 ## 2026-11-16 — Preserve Inadyn failure status during WAN-up
 
 - Parent main SHA: `9116f521c171d011f45a9a19abebcf57cdbedcc9`; source and regression changes are THIS COMMIT.
