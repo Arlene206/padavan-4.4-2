@@ -62,6 +62,10 @@
 #include "minidlna_config_file.h"
 #include "switch.h"
 
+#ifndef PROC_SWAPS_FILE
+#define PROC_SWAPS_FILE "/proc/swaps"
+#endif
+
 void
 spindown_hdd(char *sd_dev)
 {
@@ -2705,6 +2709,93 @@ free_storage_ejected_partitions(struct storage_ejected_partition_entry *entry)
 	}
 }
 
+
+struct storage_ejected_swap_entry {
+	char device[32];
+	struct storage_ejected_swap_entry *next;
+};
+
+static void
+free_storage_ejected_swaps(struct storage_ejected_swap_entry *entry)
+{
+	struct storage_ejected_swap_entry *next;
+
+	while (entry) {
+		next = entry->next;
+		free(entry);
+		entry = next;
+	}
+}
+
+/* Stage raw removable-device swap entries before deciding that eject is done. */
+static int
+storage_stage_ejected_swaps(struct storage_ejected_swap_entry **staged)
+{
+	FILE *procpt;
+	char line[512], swap_path[256], device[32];
+	int parse_status, parse_error, read_error, close_status, close_error;
+	struct storage_ejected_swap_entry *head, *tail, *entry;
+
+	if (!staged) {
+		errno = EINVAL;
+		return -1;
+	}
+	*staged = NULL;
+	procpt = fopen(PROC_SWAPS_FILE, "r");
+	if (!procpt) {
+		logmessage("Storage", "cannot read %s before ejected-device cleanup (errno %d)",
+			   PROC_SWAPS_FILE, errno);
+		return -1;
+	}
+
+	head = tail = NULL;
+	parse_error = 0;
+	if (!fgets(line, sizeof(line), procpt) ||
+	    storage_ejected_parse_swaps_header(line) != 0)
+		parse_error = 1;
+	while (!parse_error && fgets(line, sizeof(line), procpt)) {
+		if (storage_ejected_parse_swap_line(line, swap_path,
+						    sizeof(swap_path)) != 0) {
+			parse_error = 1;
+			break;
+		}
+		parse_status = storage_ejected_swap_device_name(swap_path, device,
+							       sizeof(device));
+		if (parse_status < 0) {
+			parse_error = 1;
+			break;
+		}
+		if (parse_status == 0)
+			continue;
+
+		entry = (struct storage_ejected_swap_entry *)malloc(sizeof(*entry));
+		if (!entry) {
+			parse_error = 1;
+			break;
+		}
+		strcpy(entry->device, device);
+		entry->next = NULL;
+		if (tail)
+			tail->next = entry;
+		else
+			head = entry;
+		tail = entry;
+	}
+	read_error = ferror(procpt);
+	close_status = fclose(procpt);
+	close_error = (close_status != 0);
+	if (!storage_ejected_inventory_complete(read_error, close_error,
+						parse_error)) {
+		logmessage("Storage", "incomplete %s before ejected-device cleanup (read error=%d, close error=%d, malformed/truncated row or allocation failure=%d); leaving swap state untouched",
+			   PROC_SWAPS_FILE, read_error, close_error, parse_error);
+		free_storage_ejected_swaps(head);
+		return -1;
+	}
+	*staged = head;
+	return 0;
+}
+
+
 /* Stage a complete partition inventory before any ejected mount is changed. */
 static int
 storage_stage_ejected_partitions(struct storage_ejected_partition_entry **staged)
@@ -2803,10 +2894,11 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	int active, result, saved_errno, hook_status;
 	int swapoff_status, swap_status;
 	int mount_read_error, mount_close_error, mount_parse_error;
-	int has_ejected_mounts, stop_status, rollback_status;
+	int has_ejected_mounts, has_ejected_swaps, stop_status, rollback_status;
 	int mount_count, start_status;
 	struct storage_ejected_mount_entry *head, *tail, *entry;
 	struct storage_ejected_partition_entry *partitions = NULL;
+	struct storage_ejected_swap_entry *swaps = NULL, *swap_entry;
 
 	head = tail = NULL;
 	procpt = fopen(PROC_MOUNTS_FILE, "r");
@@ -2860,13 +2952,19 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 		return -1;
 	}
 
-	if (!head) {
+	if (storage_stage_ejected_swaps(&swaps) != 0) {
+		free_storage_ejected_mounts(head);
+		restore_home_dir();
+		return -1;
+	}
+	if (!head && !swaps) {
+		free_storage_ejected_swaps(swaps);
 		restore_home_dir();
 		return 0;
 	}
-
 	if (storage_stage_ejected_partitions(&partitions) != 0) {
 		free_storage_ejected_mounts(head);
+		free_storage_ejected_swaps(swaps);
 		restore_home_dir();
 		return -1;
 	}
@@ -2885,28 +2983,36 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 			break;
 		}
 	}
+	has_ejected_swaps = 0;
+	for (swap_entry = swaps; swap_entry; swap_entry = swap_entry->next) {
+		if (!storage_ejected_partition_is_active(swap_entry->device, partitions)) {
+			has_ejected_swaps = 1;
+			break;
+		}
+	}
+	if (!head && !has_ejected_swaps) {
+		free_storage_ejected_partitions(partitions);
+		free_storage_ejected_swaps(swaps);
+		restore_home_dir();
+		return 0;
+	}
 
 	/*
-	 * The mdev removal callback attempts swapoff first, but its event may
-	 * race a disappearing device or report an incomplete /proc/swaps scan.
-	 * Recheck every stale mounted partition here before dropping any mount;
-	 * one failed/UNKNOWN swapoff blocks the entire unmount batch.
+	 * A removable disk may back a raw swap partition without any mounted
+	 * filesystem. Recheck every swap device absent from /proc/partitions,
+	 * including swap-only disks that have no /proc/mounts entry.
 	 */
 	swapoff_status = 0;
 	saved_errno = 0;
-	if (has_ejected_mounts) {
-		for (entry = head; entry; entry = entry->next) {
-			active = storage_ejected_partition_is_active(entry->device + 5,
-							     partitions);
-			if (active)
-				continue;
-			swap_status = try_device_swapoff(entry->device + 5);
-			if (swap_status != 0) {
-				saved_errno = errno ? errno : EIO;
-				logmessage("Storage", "refusing ejected-device cleanup because swapoff failed for %s (status %d, errno %d)",
-					   entry->device, swap_status, saved_errno);
-				swapoff_status = -1;
-			}
+	for (swap_entry = swaps; swap_entry; swap_entry = swap_entry->next) {
+		if (storage_ejected_partition_is_active(swap_entry->device, partitions))
+			continue;
+		swap_status = try_device_swapoff(swap_entry->device);
+		if (swap_status != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage("Storage", "refusing ejected-device cleanup because swapoff failed for %s (status %d, errno %d)",
+				   swap_entry->device, swap_status, saved_errno);
+			swapoff_status = -1;
 		}
 	}
 
@@ -2922,6 +3028,7 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 				   stop_status, rollback_status);
 			free_storage_ejected_mounts(head);
 			free_storage_ejected_partitions(partitions);
+			free_storage_ejected_swaps(swaps);
 			restore_home_dir();
 			errno = saved_errno;
 			return -1;
@@ -2961,6 +3068,7 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 
 	free_storage_ejected_mounts(head);
 	free_storage_ejected_partitions(partitions);
+	free_storage_ejected_swaps(swaps);
 
 	if (has_ejected_mounts && restart_storage_apps) {
 		/*

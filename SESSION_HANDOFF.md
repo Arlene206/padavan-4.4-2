@@ -1,24 +1,25 @@
-# 2026-11-17 continuation checkpoint — restore live module dashboard and validate WAN teardown
+# 2026-11-17 continuation checkpoint — retry raw swap-only devices during physical eject
 
-## Git state
-- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `5bdf59f0bcceb7802bd94309bd0bdb5b467381b7`; THIS COMMIT restores the accidentally truncated live roadmap dashboard and refreshes the handoff.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; main-only development; PR #1 remains closed/unmerged.
-- No local MIPS/uClibc toolchain or physical router. Physical L4 is NOT VERIFIED.
+## Current repository state
+- Repository: https://github.com/Arlene206/padavan-4.4-2/; parent `main` SHA: `12f4ba4a44e4430471001c7d20491241347887a6`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, unchanged; all development remains main-only with non-forced compare-and-swap updates.
+- The full `REFACTOR_ROADMAP.md` whole-repository dashboard was restored on parent `12f4ba4a`; AI docs exact-head run `44157887368` passed. The preceding AI failure on `5bdf59f` was traced to the checkpoint-only roadmap truncation and is repaired.
 
-## Parent exact-head Actions (SHA `5bdf59f0bcceb7802bd94309bd0bdb5b467381b7`)
-- WAN DHCP callback `44156955298`, WAN route `44156954948`, AliDDNS transport `44156954915`, Firewall startup `44156955323`, detect_internet `44156955147`, ZeroTier `44156954913`, gateway ARP `44156955224`, AliyunDrive `44156955184`, USB modem `44156955336`, HTTPD `44156954859`, Process lifecycle `44156955420`, infosvr `44156955706`, detect_link `44156954837`, WAN teardown `44156954967`, VPN server `44156955177`, DNSMasq `44156955297`, AdGuardHome `44156955302`, miniupnpd `44156955245`, Process inventory/fail-closed `44156955350`, NVRAM transaction audit `44156954872`: SUCCESS.
-- AI handoff contract `44156954920`: FAILURE because `REFACTOR_ROADMAP.md` no longer contained `## Whole-repository module status` and `AUDITING`. Job log reports exactly `roadmap does not contain a current module status dashboard`; the checker did not report any other failed document invariant.
-- XY-C1 firmware validation `44156955220`: IN_PROGRESS at `Build XY-C1`; TRX verification and artifact upload not yet completed. This run is for exact source SHA `5bdf59f0bcceb7802bd94309bd0bdb5b467381b7`.
+## Active task — swap-only physical eject
+- `umount_ejected_locked()` stages `/proc/mounts` and immediately returns when no removable mount entries exist. Its swapoff recheck only walks stale mounted partitions, so a raw `/dev/sdaN` or `/dev/mmcblkNpN` swap-only device can miss deferred retry after the mdev swapoff attempt fails.
+- THIS COMMIT stages and validates `/proc/swaps` independently, identifies raw removable swap entries missing from `/proc/partitions`, retries swapoff, and returns failure on any failed/UNKNOWN retry. The public `umount_ejected()` then schedules the existing `usb_unplug_ms` retry even if there are no mountpoints.
+- Added GNU89 policy cases for strict swap header/row parsing and exact SD/MMC device path extraction; updated the storage production-order contract.
 
-## Dashboard restoration (THIS COMMIT)
-- The prior roadmap at `e90549004908d388123e1807abf0ddeb4a6a11fd` contains the full 51,338-byte whole-repository dashboard, priority queue and verification matrix. The later `0a90c014` update accidentally replaced it with a 996-byte checkpoint-only file.
-- Restore the previous complete dashboard from Git history and update only its top live checkpoint. Keep the 2026-11-17 WAN teardown/MSD Lite change visible and preserve all archived history in place.
-- The exact-head AI workflow failure is documentation integrity, not product source. No firmware source is changed by this repair.
+## Verification boundary
+- Parent `12f4ba4a` exact-head AI `44157887368`, AdGuardHome `44157887421`, infosvr `44157887279`, Process inventory/lifecycle `44157887281`, AliDDNS `44157887376` and AliyunDrive `44157887436`: SUCCESS. NVRAM audit `44157887472`: IN_PROGRESS at last poll.
+- This is a storage-source change and will trigger the storage integration workflow; other path-filtered checks are pending until queried against the resulting exact SHA.
+- XY-C1 `44156955220` for earlier parent source `5bdf59f` was still IN_PROGRESS at last poll. No current firmware build/TRX artifact or physical L4 result is claimed.
+- No local MIPS/uClibc target toolchain or router hardware is available; L4 remains NOT VERIFIED.
 
-## First next action
-- Verify the AI handoff action for THIS COMMIT; if the live dashboard contract passes, continue the swap-only physical eject gap: `umount_ejected_locked()` still early-returns when `/proc/mounts` contains no removable mount, so raw removable-device swap entries can be skipped after a failed mdev swapoff.
-- Inspect XY-C1 `44156955220` through Build, TRX verification and artifact upload. Do not report an artifact until the exact-SHA steps complete.
-- Keep backup branch read-only and use complete-tree expected-SHA updates with `force:false`.
+## Exact first action for the next GPT
+- Inspect exact-SHA USB storage regression, HTTPD/Samba/Process checks triggered by `services_stor.c`, AI handoff, and any XY-C1 Build/TRX/artifact. On FAIL, inspect the exact job logs and fix only the demonstrated contract/source issue.
+- Continue a separate P1 service lifecycle or NVRAM postcondition while long firmware jobs run; do not repeat the completed Samba eject lock, physical mounted-device swapoff, automount result, or tri-state partition gate work.
+- Preserve the frozen backup; never force-push.
 # Cross-session execution mandate
 
 Mandatory handoff checkpoint: Every session

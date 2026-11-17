@@ -262,4 +262,114 @@ storage_ejected_may_restart_apps(int unmount_status, int ejected_status,
 		remaining_mounts > 0;
 }
 
+
+/* /proc/swaps header must be the complete five-column kernel format. */
+static int
+storage_ejected_parse_swaps_header(const char *line)
+{
+	static const char *const expected[] = {
+		"Filename", "Type", "Size", "Used", "Priority"
+	};
+	const char *cursor;
+	char field[32];
+	int i;
+
+	if (!storage_ejected_line_is_complete(line))
+		return -1;
+
+	cursor = line;
+	for (i = 0; i < 5; i++) {
+		if (storage_ejected_next_token(&cursor, field, sizeof(field)) != 1 ||
+		    strcmp(field, expected[i]) != 0)
+			return -1;
+	}
+	return storage_ejected_next_token(&cursor, field, sizeof(field)) == 0 ? 0 : -1;
+}
+
+/* /proc/swaps rows contain a filename followed by exactly four fields. */
+static int
+storage_ejected_parse_swap_line(const char *line, char *swap_path,
+				 size_t swap_path_size)
+{
+	const char *cursor;
+	char ignored[64];
+	int i;
+
+	if (!storage_ejected_line_is_complete(line))
+		return -1;
+	cursor = line;
+	if (storage_ejected_next_token(&cursor, swap_path, swap_path_size) != 1)
+		return -1;
+	for (i = 0; i < 4; i++) {
+		if (storage_ejected_next_token(&cursor, ignored, sizeof(ignored)) != 1)
+			return -1;
+	}
+	return storage_ejected_next_token(&cursor, ignored, sizeof(ignored)) == 0 ? 0 : -1;
+}
+
+/*
+ * Return 1 and copy a removable block-device name, 0 for a non-removable
+ * swap path (for example a swap file), or -1 for a malformed removable path.
+ */
+static int
+storage_ejected_swap_device_name(const char *swap_path, char *device,
+				size_t device_size)
+{
+	const char *name, *p;
+	size_t length;
+	int digits;
+
+	if (!swap_path || !device || device_size == 0)
+		return -1;
+	device[0] = '\0';
+
+	if (strncmp(swap_path, "/dev/sd", 7) == 0 ||
+	    strncmp(swap_path, "/dev/mmcblk", 11) == 0)
+		name = swap_path + 5;
+	else
+		return 0;
+
+	length = strlen(name);
+	if (length == 0 || length >= device_size)
+		return -1;
+
+	if (strncmp(name, "sd", 2) == 0) {
+		p = name + 2;
+		while (*p >= 'a' && *p <= 'z')
+			p++;
+		if (p == name + 2)
+			return -1;
+		while (*p >= '0' && *p <= '9')
+			p++;
+		if (*p)
+			return -1;
+	} else if (strncmp(name, "mmcblk", 6) == 0) {
+		p = name + 6;
+		digits = 0;
+		while (*p >= '0' && *p <= '9') {
+			digits++;
+			p++;
+		}
+		if (digits == 0)
+			return -1;
+		if (*p == 'p') {
+			p++;
+			digits = 0;
+			while (*p >= '0' && *p <= '9') {
+				digits++;
+				p++;
+			}
+			if (digits == 0)
+				return -1;
+		}
+		if (*p)
+			return -1;
+	} else {
+		return -1;
+	}
+
+	memcpy(device, name, length + 1);
+	return 1;
+}
+
 #endif /* PADAVAN_STORAGE_EJECTED_INVENTORY_POLICY_H */

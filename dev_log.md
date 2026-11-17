@@ -1,3 +1,9 @@
+## 2026-11-17 — Retry raw swap-only devices during physical eject
+
+- `umount_ejected_locked()` previously returned success immediately if the complete `/proc/mounts` inventory contained no removable storage mounts. Its swapoff retry loop only visited stale mounted partitions. A raw SD/MMC swap partition can exist without a filesystem mount; if the mdev partition-remove callback's first swapoff attempt failed, the subsequent whole-device notification had no stale mount to drive a deferred retry.
+- Stage and validate `/proc/swaps` independently from `/proc/mounts`, then compare raw removable swap device names against a complete `/proc/partitions` snapshot. Retry swapoff for each missing `/dev/sd*`/`/dev/mmcblk*` device. A failed/UNKNOWN attempt returns failure even with no mountpoints, so `umount_ejected()` schedules the existing `usb_unplug_ms` retry. Non-removable swap files are ignored by the raw-device path parser and continue through the existing Optware mount teardown hook.
+- Add GNU89 tests for complete five-column swap headers, exact five-field rows, truncated/extra-field rejection, SD/MMC whole-disk and partition identity, non-removable swapfiles and malformed paths. Extend storage source contracts for inventory-before-no-work and swapoff-before-stop/unmount.
+- Parent `12f4ba4a` AI docs, AdGuardHome, infosvr, Process inventory, AliDDNS and AliyunDrive checks passed; NVRAM was still in progress. No MIPS/uClibc or physical unplug result is claimed.
 ## 2026-11-17 — Restore the live module dashboard after accidental roadmap truncation
 
 - Exact-head AI handoff run `44156954920` on `5bdf59f0bcceb7802bd94309bd0bdb5b467381b7` failed because `REFACTOR_ROADMAP.md` lacked the required `## Whole-repository module status` dashboard. The job log identified this single invariant; other document checks passed.

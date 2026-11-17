@@ -406,13 +406,25 @@ jobs:
           rollback = "storage_rollback_stor_apps_after_stop_failure("
           optware_unmount = 'eval("/usr/bin/opt-umount.sh", entry->device'
           assert eject.index(stage_call) < eject.index(unmount_loop)
-          ejected_swapoff = eject.index("try_device_swapoff(entry->device + 5)")
+          swap_stage = function_body(storage, "storage_stage_ejected_swaps(")
+          assert "fopen(PROC_SWAPS_FILE" in swap_stage
+          assert "storage_ejected_parse_swaps_header(line)" in swap_stage
+          assert "storage_ejected_parse_swap_line(line" in swap_stage
+          assert "ferror(procpt)" in swap_stage and "fclose(procpt)" in swap_stage
+          assert "storage_ejected_inventory_complete(read_error, close_error, parse_error)" in swap_stage
+          swap_off = "try_device_swapoff(swap_entry->device)"
+          ejected_swapoff = eject.index(swap_off)
           ejected_swap_gate = eject.index("storage_ejected_may_unmount_device(1, swapoff_status)")
           ejected_stop = eject.index("stop_status = stop_stor_apps()")
           ejected_unmount = eject.index("umount(entry->mountpoint)")
           assert ejected_swapoff < ejected_stop < ejected_swap_gate < ejected_unmount
+          assert "has_ejected_swaps = 0;" in eject
+          assert "if (!head && !has_ejected_swaps)" in eject
+          assert eject.index("storage_stage_ejected_swaps(&swaps)") < eject.index("if (!head && !has_ejected_swaps)")
+          assert eject.index("storage_stage_ejected_partitions(&partitions)") < eject.index("if (!head && !has_ejected_swaps)")
           assert "refusing ejected-device cleanup because swapoff failed" in eject
           assert "skipping all ejected-device unmounts because swapoff did not complete" in eject
+          assert "free_storage_ejected_swaps(swaps);" in eject
           assert "swapoff_status = -1;" in eject
           assert "fopen(PROC_PARTITIONS_FILE" not in eject
           assert "storage_ejected_partition_is_active(entry->device + 5," in eject
@@ -452,6 +464,13 @@ jobs:
           targeted_eject = function_body(storage, "safe_remove_stor_device(")
           assert "umount_ejected_locked(1, 0)" in targeted_eject
 
+          swap_header = function_body(policy, "storage_ejected_parse_swaps_header(")
+          assert "Filename" in swap_header and "Priority" in swap_header
+          swap_line = function_body(policy, "storage_ejected_parse_swap_line(")
+          assert "storage_ejected_line_is_complete(line)" in swap_line
+          swap_name = function_body(policy, "storage_ejected_swap_device_name(")
+          assert "/dev/sd" in swap_name and "/dev/mmcblk" in swap_name
+          assert "return 0;" in swap_name and "return -1;" in swap_name
           parse = function_body(policy, "storage_ejected_parse_partition_line(")
           assert "storage_ejected_line_is_complete(line)" in parse
           assert "storage_ejected_decimal_token(major)" in parse
