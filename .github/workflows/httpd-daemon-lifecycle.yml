@@ -72,7 +72,7 @@ jobs:
           start = body(services, "start_httpd_locked(int restart_fw)")
           start_entry = body(services, "start_httpd(int restart_fw)")
           probe = body(services, "httpd_process_presence(int *scan_error)")
-          stop = body(services, "stop_httpd_locked(void)")
+          stop = body(services, "static int\nstop_httpd_locked(void)")
           stop_entry = body(services, "stop_httpd(void)")
           restart = body(services, "restart_httpd(void)")
 

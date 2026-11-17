@@ -1,3 +1,13 @@
+## 2026-11-18 — Fix HTTPD lifecycle workflow function extraction
+
+- Parent main SHA: `f0c5aee9d5980055cb1b409a1c598fd5fdb0bea9`; result: THIS COMMIT.
+- Exact-head HTTPD workflow `44136425461` failed at embedded source-contract line 57 after the GNU89/ASan/UBSan daemon policy regression passed. Its generic `body()` lookup matched the forward declaration `static int stop_httpd_locked(void);` and extracted the following unrelated function, so the stop-order assertion never inspected the real helper.
+- Anchored extraction on the actual definition signature `static int\\nstop_httpd_locked(void)`, preserving the production stop-order assertions without changing firmware source.
+- On the parent SHA, AI handoff workflow `44136425520` PASS; Process lifecycle `44136425549` IN_PROGRESS at checkpoint. Exact-head Actions for THIS COMMIT are pending.
+- AliyunDrive special-domain lifecycle run `44133243141` remains under diagnosis. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. No target build or physical-router L4 claim.
+
+---
+
 ## 2026-11-18 — Align Process lifecycle contract with serialized HTTPD restart
 
 - Beijing time: 2026-11-18 01:12 (UTC+8). Parent main SHA: 7dac0a147c9c96524b97f9890a6fea21088ec81c; result: THIS COMMIT.
