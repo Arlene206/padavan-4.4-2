@@ -1,27 +1,21 @@
-# 2026-11-18 continuation checkpoint — correct PPPoE cleanup status guard
+# 2026-11-18 continuation checkpoint — fix detector status guard and checker newline delimiter
 
 ## Current repository state
-- Repository: Arlene206/padavan-4.4-2; parent main SHA for THIS correction: ac2b1f630e5bb0a51fd75aa6a7c090d2d7865c58.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- WAN firewall source fix 8e9ea213 and cross-workflow checker repairs 319fd181 are integrated.
-- Exact 319fd181 XY-C1 run 44180704552 SUCCESS: all pre-build regressions, Build XY-C1, Verify TRX output and artifact upload passed. This verifies the integrated firmware source through the firewall fail-closed change at that parent SHA (target L3). Router hardware L4 remains NOT VERIFIED.
-- PPPoE-MWAN cleanup gate is in ac2b1f630e5bb0a51fd75aa6a7c090d2d7865c58. Exact-head WAN-route run 44183697784 and XY-C1 run 44183697726 both FAILED in the detector's ordinary success-path test: "multipath default route" was absent.
-- Root cause: the new helper set MWAN_FLUSH_FAILED=1 unconditionally even when an iptables -D succeeded (status 0). The cleanup helper must ignore zero statuses and only poison the phase for nonzero results. THIS correction adds that guard and makes the checker enforce it.
+- Repository Arlene206/padavan-4.4-2; parent main SHA for THIS correction: c8b8ba8c107bebb2dd73f3390f2e0fa53f68a86e.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- WAN firewall product source 8e9ea213 has exact XY-C1 L3 evidence on parent 319fd181: run 44180704552 passed all pre-build regressions, Build XY-C1, TRX output verification and artifact upload. Router hardware L4 remains NOT VERIFIED.
+- PPPoE-MWAN cleanup gate first landed in ac2b1f6; its exact WAN-route run 44183697784 and XY-C1 run 44183697726 failed at the ordinary multipath route test because cleanup poison was set even after successful (status 0) deletes.
+- The zero-status issue is fixed in c8b8ba8, but before committing THIS checker correction, inspection found its Python source contract searched for the literal backslash+n instead of the newline delimiter. Replace those two string lookups with chr(10) so the CI checker matches actual newline boundaries.
 
-## Active PPPoE-MWAN change
-- Snapshot failure, malformed saved-rule parsing and old-rule deletion failure all set the cleanup poison flag; every remaining independent cleanup stage still runs. If any cleanup fails, cache is flushed and no new rules or policy/default routes are written.
-- The four new fault-injection cases were not reached in the failed CI run because the ordinary baseline multipath test failed first. They must pass in the exact-head rerun after the zero-status guard is fixed.
-- XY-C1 workflow now runs the detector test before Build; WAN route workflow already ran it.
-
-## Verification boundary
-- Parent 319fd181 XY-C1: Build, TRX verification and artifact upload PASS (run 44180704552).
-- Current failed commit ac2b1f630e5bb0a51fd75aa6a7c090d2d7865c58: detector syntax passed; the shell suite failed at the normal multipath default route assertion (WAN run 44183697784, XY run 44183697726). No claim that the four new injected failure cases passed.
-- No router hardware L4 result.
+## Active PPPoE-MWAN P1
+- On a nonzero old-rule snapshot, parse or deletion result, the detector must complete the other independent cleanup attempts, flush route cache, preserve the first error and exit before adding new firewall rules or policy/default routes.
+- New detector fault-injection cases cover mangle snapshot, NAT snapshot, old-rule deletion and malformed saved rule; they have not yet run to completion because earlier baseline test caught the zero-status helper bug.
+- Normal successful cleanup must leave the flag clear; this is the key regression caught by the baseline multipath test.
 
 ## Exact first action for the next GPT
-1. Inspect exact-SHA WAN-route and XY-C1 runs for THIS correction. Require normal multipath behavior and all four injected cleanup-failure cases to pass; then require Build XY-C1, TRX verification and artifact upload.
-2. Fix any further failure from the exact job log, preserving the nonzero-only cleanup poison semantics.
-3. Continue the next broad P1 RC startup result-propagation task once those regressions are green. Keep backup immutable.
+1. Inspect exact-SHA WAN-route and XY-C1 runs triggered by THIS checker correction. Require normal multipath, all four failure-injection cases and the source contract to pass.
+2. Require XY-C1 Build, TRX verification and artifact upload on the same exact SHA.
+3. Continue broad P1 RC startup result-propagation work only after PPPoE-MWAN regressions clear. Frozen backup remains immutable.
 
 # Cross-session execution mandate
 

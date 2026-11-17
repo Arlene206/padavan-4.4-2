@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- WAN firewall implementation 8e9ea213 is verified in XY-C1 run 44180704552: pre-build regressions, Build XY-C1, TRX verification and artifact upload all PASS. Hardware L4 remains NOT VERIFIED.
-- PPPoE-MWAN cleanup abort implementation ac2b1f6 failed the ordinary detector baseline in WAN-route 44183697784 and XY-C1 44183697726 because the helper poisoned cleanup after successful status-0 iptables deletions.
-- THIS COMMIT only poisons the cleanup phase for nonzero cleanup results; the source contract requires the zero-status guard. The new four fault-injection scenarios must be checked on this new exact SHA; they did not execute in the failed prior run.
-- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- WAN firewall source fix 8e9ea213 is verified in XY-C1 parent run 44180704552: pre-build regressions, Build XY-C1, TRX verification and artifact upload all PASS. Hardware L4 not verified.
+- PPPoE-MWAN cleanup gate ac2b1f6 initially failed the normal detector multipath test because the flag was set on status-zero deletes; helper guard fixed in c8b8ba8.
+- THIS checker-only correction uses chr(10) to locate actual newlines; the prior generated Python source was searching for a literal slash-n sequence.
+- Four cleanup failure-injection cases remain unverified until exact-head WAN/XY CI runs pass. Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
 
-Next: inspect exact-head WAN-route and XY-C1; require normal multipath and all cleanup-failure regressions plus Build/TRX/upload.
+Next: verify exact-SHA WAN-route/XY-C1 detector matrix and target Build/TRX/artifact.
 
 
 ---

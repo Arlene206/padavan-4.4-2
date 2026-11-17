@@ -99,7 +99,7 @@ check_caller(
 )
 
 flush_helper_start = DETECT.index("mwan_flush_fail()")
-flush_helper_end = DETECT.index("\\n", flush_helper_start)
+flush_helper_end = DETECT.index(chr(10), flush_helper_start)
 require(
     '[ "$rc" -ne 0 ] || return 0' in DETECT[flush_helper_start:flush_helper_end]
     and "MWAN_FLUSH_FAILED=1" in DETECT[flush_helper_start:flush_helper_end]
@@ -110,7 +110,7 @@ require(
 )
 flush_start = DETECT.index("mwan_flush_iptables mangle ctstate")
 flush_gate = DETECT.index('if [ "$MWAN_FLUSH_FAILED" -ne 0 ]; then', flush_start)
-new_policy_start = DETECT.index("\\nlast=1", flush_start)
+new_policy_start = DETECT.index(chr(10) + "last=1", flush_start)
 require(
     DETECT.index("mwan_flush_iptables mangle br0", flush_start) < flush_gate
     and DETECT.index("mwan_flush_iptables nat ppp", flush_start) < flush_gate

@@ -1,3 +1,10 @@
+## 2026-11-18 — Correct PPPoE-MWAN source-checker newline delimiters
+
+- Parent main SHA: c8b8ba8c107bebb2dd73f3390f2e0fa53f68a86e; path scripts/check_pppoe_mwan_status.py.
+- The first detector gate attempt (ac2b1f6) failed its baseline route assertion because the new helper incorrectly set MWAN_FLUSH_FAILED on successful iptables deletions. c8b8ba8 now only poisons the phase for nonzero statuses.
+- While preparing the exact rerun, inspect the Python contract source: the generated strings contained two backslashes, so Python searched for literal \n text rather than actual newline characters. Use chr(10) in both the helper-body and pre-policy boundary lookups.
+- Parent 319fd181 XY-C1 run 44180704552 passed pre-build regressions, Build XY-C1, TRX verification and artifact upload. Current PPPoE detector changes still await new-SHA verification.
+
 ## 2026-11-18 — Only poison PPPoE-MWAN cleanup on nonzero status
 
 - Parent main SHA: ac2b1f630e5bb0a51fd75aa6a7c090d2d7865c58; changed detect.sh and its Python source contract plus checkpoint docs.
