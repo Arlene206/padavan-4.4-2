@@ -41,7 +41,7 @@
 #define VPNS_PPP_UP_SCRIPT	"/tmp/ppp/ip-up.vpns"
 #define VPNS_PPP_DW_SCRIPT	"/tmp/ppp/ip-down.vpns"
 
-static int xl2tpd_killed_vpns = 0;
+static int xl2tpd_stop_attempted_vpns = 0;
 
 /* Keep the VPN lease index root-private even though the caller uses umask(0000).
  * O_NOFOLLOW, descriptor checks and fchmod prevent shared-/tmp replacement and
@@ -474,6 +474,10 @@ stop_vpn_server_locked(void)
 	}
 	pidfile_paths[MAX_CLIENTS_NUM] = NULL;
 
+	/* Record the attempt before stopping the complete target set: the stop
+	 * transaction can partially succeed before reporting a later failure.
+	 * A restart must then restore the shared daemon for any WAN/VPN client. */
+	xl2tpd_stop_attempted_vpns = xl2tpd_active;
 	/* All daemons and every possible client PPP session are captured and
 	 * identity-checked before the first TERM; PPPD targets remain force-only. */
 	if (kill_services_with_pidfiles(svcs, pidfile_paths, "pppd", 1, 5, 1) != 0) {
@@ -481,8 +485,8 @@ stop_vpn_server_locked(void)
 			   "refusing VPN server teardown: daemon or client PPP identity is unknown/active");
 		return -1;
 	}
-	if (xl2tpd_active)
-		xl2tpd_killed_vpns = 1;
+	/* The stop-attempt flag was set before the transaction so a partial
+	 * stop failure also triggers restoration from restart_vpn_server(). */
 
 #if defined(APP_OPENVPN)
 	if (stop_openvpn_server() != 0) {
@@ -531,6 +535,26 @@ stop_vpn_server(void)
 	return result;
 }
 
+static int
+restore_shared_xl2tpd_locked(const char *phase)
+{
+	int restore_status;
+
+	if (!vpn_server_restart_should_restore_shared_xl2tpd(
+		    xl2tpd_stop_attempted_vpns,
+		    nvram_match("l2tp_wan_t", "1"),
+		    nvram_match("l2tp_cli_t", "1")))
+		return 0;
+
+	restore_status = safe_start_xl2tpd_locked();
+	if (restore_status < 0)
+		logmessage(VPNS_LOG_NAME,
+			   "cannot restore shared xl2tpd daemon %s (status=%d, errno=%d)",
+			   phase, restore_status, errno ? errno : EIO);
+	return restore_status < 0 ? restore_status : 0;
+}
+
+
 int
 restart_vpn_server(void)
 {
@@ -547,19 +571,24 @@ restart_vpn_server(void)
 		return -1;
 	}
 
-	xl2tpd_killed_vpns = 0;
+	xl2tpd_stop_attempted_vpns = 0;
 	/* Keep teardown, config publication and service restoration atomic across
 	 * independent RC applets and PID 1 notifications. */
 	stop_status = stop_vpn_server_locked();
 	if (stop_status != 0) {
 		saved_errno = errno ? errno : EIO;
 		logmessage(VPNS_LOG_NAME, "VPN server restart aborted because stop was incomplete (errno=%d)", saved_errno);
+		/* stop_vpn_server_locked() can stop xl2tpd before a later daemon,
+		 * script or lease cleanup fails. Restore shared L2TP clients even
+		 * when restart cannot proceed to the normal start phase. */
+		restart_status = vpn_server_restart_first_error(stop_status,
+			restore_shared_xl2tpd_locked("after incomplete VPN teardown"));
 		release_status = vpn_server_lifecycle_lock_release(lock_fd);
 		if (release_status != 0)
 			logmessage(VPNS_LOG_NAME, "cannot release VPN server lifecycle lock after aborted restart (errno=%d)",
 				   errno ? errno : EIO);
 		errno = saved_errno;
-		return vpn_server_restart_first_error(stop_status,
+		return vpn_server_restart_first_error(restart_status,
 						      release_status == 0 ? 0 : -1);
 	}
 	start_status = start_vpn_server_locked();
@@ -582,16 +611,11 @@ restart_vpn_server(void)
 	reload_nfsd();
 #endif
 	/* Restore L2TP WAN client/VPNC before releasing the lifecycle lock. */
-	if (xl2tpd_killed_vpns &&
-	    (nvram_match("l2tp_wan_t", "1") || nvram_match("l2tp_cli_t", "1"))) {
-		restore_status = safe_start_xl2tpd_locked();
-		if (restore_status < 0) {
-			if (restart_status == 0)
-				saved_errno = errno ? errno : EIO;
-			logmessage(VPNS_LOG_NAME, "cannot restore shared xl2tpd daemon after VPN server restart (status=%d, errno=%d)",
-				   restore_status, errno ? errno : EIO);
-			restart_status = vpn_server_restart_first_error(restart_status, restore_status);
-		}
+	restore_status = restore_shared_xl2tpd_locked("after VPN server restart");
+	if (restore_status < 0) {
+		if (restart_status == 0)
+			saved_errno = errno ? errno : EIO;
+		restart_status = vpn_server_restart_first_error(restart_status, restore_status);
 	}
 
 	release_status = vpn_server_lifecycle_lock_release(lock_fd);

@@ -1,3 +1,13 @@
+## 2026-11-17 — Restore shared xl2tpd after incomplete VPN teardown
+
+- Base main SHA: `10d50854e2ffc456d689e93c196f8c271f99cf1c`; NVRAM close-result production slice at `c221420d22838ec1632c975095c3bafa3830d6c9` has its exact-head NVRAM audit `43996118191` PASS; the IPv6 neighbour-cleanup baseline f943 also completed XY-C1 Build/TRX/artifact `43994632505` PASS.
+- Defect: `stop_vpn_server_locked()` could successfully stop shared `xl2tpd`, then abort because a later OpenVPN stop, up/down script unlink, or VPN lease cleanup failed. `restart_vpn_server()` returned immediately on this incomplete stop and skipped the shared WAN L2TP/VPNC restoration that was only present on its normal tail. Additionally, the old restoration flag was set only after the entire service-stop transaction succeeded, so a partial stop failure could also lose evidence that `xl2tpd` might already have been terminated.
+- Record the shared-daemon stop attempt before entering the multi-target stop transaction. Factor the restore condition/start into one locked helper, normalize the documented positive already-running sentinel to success, and call it both on early stop-abort and on normal restart completion. The original teardown error remains the first returned failure even if restoration and lock release also fail.
+- Extend the VPN restart policy test with the shared restore decision truth table and the Process/XY-C1 integration source checker with assertions for pre-stop tracking, restore-before-unlock on abort, and normal-tail restoration. Exact-head host checks and current-source XY-C1 build are pending this commit.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Restore mandatory end-of-session handoff marker
 
 - Exact-head AI handoff run `43996118214` on source SHA `c221420d22838ec1632c975095c3bafa3830d6c9` failed because `SESSION_HANDOFF.md` lacked the exact required phrase `Before context exhaustion`; the rest of the validator had advanced to that rule.

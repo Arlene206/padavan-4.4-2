@@ -10,24 +10,24 @@ Every logical multi-file change must be published as one complete Git tree and o
 
 Before context exhaustion, inspect the current source SHA, relevant exact-head Actions, validation boundary and first actionable task; then leave this handoff accurate for the next GPT.
 
-- Repository: `Arlene206/padavan-4.4-2`; current source head: `c221420d22838ec1632c975095c3bafa3830d6c9` (parent `a7e3eda16eca5d20701a0240287ebecffed443d7`).
+- Repository: `Arlene206/padavan-4.4-2`; current source slice is based on `10d50854e2ffc456d689e93c196f8c271f99cf1c` and extends the NVRAM close-result repair at `c221420d22838ec1632c975095c3bafa3830d6c9`.
 - PPP/L2TP argv-based launch and xl2tpd result normalization are complete; VPN server restore accepts status 1 (already running) and fails only for negative status.
 - IPv6 native rollback and WAN teardown flush neighbour entries between route and address cleanup; regression coverage is present on source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06`.
 - IPv6 neighbour-cleanup source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06` completed XY-C1 Build, TRX verification and artifact upload successfully in run `43994632505`; this establishes product-source MIPS/uClibc L3 for f943, not for later production source changes.
-- Exact current-head `c221420d` push runs: infosvr `43996118183` and AdGuardHome `43996118336` PASS. AI handoff `43996118214` failed because the handoff omitted the exact `Before context exhaustion` marker; this commit repairs the marker. HTTPD `43996118234`, AliDDNS `43996118325`, AliyunDrive `43996118148`, NVRAM `43996118191`, standalone Process inventory `43996118524`, and Process lifecycle `43996118185` were in progress at last inspection.
+- The c221420d NVRAM audit `43996118191`, HTTPD `43996118234`, AliDDNS `43996118325`, AliyunDrive `43996118148`, standalone Process inventory `43996118524`, and Process lifecycle `43996118185` completed PASS; infosvr `43996118183` and AdGuardHome `43996118336` also PASS. AI handoff `43996118214` failed only on the missing `Before context exhaustion` marker; exact-head follow-up run `43996365607` passed.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Active task
 
-1. Inspect the exact-head NVRAM workflow `43996118191` and the related current-head actions. Diagnose the first causal failure from its job log; continue independent work while runs are pending.
-2. Verify the new pure ioctl/close result policy regression and the SET/COMMIT/CLEAR source contracts on SHA `c221420d`.
-3. Verify same-SHA XY-C1 Build, TRX and artifact upload for the NVRAM production source. The earlier f943 build does not cover this source change.
-4. Continue the PPP/L2TP lifecycle review. A concrete candidate is restoration of shared xl2tpd if VPN teardown partially succeeds then aborts during later cleanup; verify the exact path and tests before changing it.
+1. Verify exact-head push Actions for the shared-xl2tpd partial-teardown restoration fix and diagnose any first causal failures.
+2. Confirm the VPN lifecycle host policy and source integration regressions pass on that exact commit.
+3. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload for the NVRAM plus VPN restoration source. The earlier f943 build does not cover later production changes.
+4. Continue the cross-tree service lifecycle audit only after exact-host regressions; do not repeat the completed IPv6 neighbour or NVRAM adapter audits.
 
 ## Verification boundary
 
 - Predecessor `f87343b7e7a2da599c16baf1192ec1561dc44a9b` has product-source MIPS/uClibc L3 VERIFIED.
-- The xl2tpd result normalization and VPN restore-sentinel correction are present on the source history; current process integration exact-head run on a7e3 passed (`43995311251`). The f943 IPv6 neighbour-cleanup source has same-SHA Build/TRX/artifact L3 VERIFIED; current NVRAM ioctl/close production change on c221420d still requires same-SHA L3.
+- The xl2tpd result normalization and VPN restore-sentinel correction have passed exact-head Process lifecycle checks. The f943 IPv6 neighbour-cleanup source has same-SHA Build/TRX/artifact L3 VERIFIED (XY-C1 run `43994632505`). The c221420d NVRAM ioctl/close production change passed its exact-head NVRAM audit, but subsequent PPP restore changes mean current-source MIPS/uClibc L3 still requires a new same-SHA Build/TRX/artifact run.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT

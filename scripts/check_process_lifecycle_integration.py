@@ -1567,6 +1567,24 @@ assert "return vpn_server_restart_first_error(stop_status," in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, start_status)" in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, restore_status)" in vpn_restart_body
 assert "vpn_server_restart_first_error(restart_status, -1)" in vpn_restart_body
+# A failed stop transaction may already have stopped shared xl2tpd before
+# a later daemon/script/lease cleanup error. Keep the restore intent set before
+# the transaction, and restore the WAN/VPN client daemon on both failure and
+# normal restart paths while the lifecycle lock remains held.
+vpn_stop_body = vpn_restart_source.split(
+    "static int" + chr(10) + "stop_vpn_server_locked(void)", 1
+)[1].split(chr(10) + "int" + chr(10) + "stop_vpn_server(void)", 1)[0]
+vpn_shared_restore = vpn_restart_source.split(
+    "static int" + chr(10) + "restore_shared_xl2tpd_locked(const char *phase)", 1
+)[1].split(chr(10) + "int" + chr(10) + "restart_vpn_server(void)", 1)[0]
+assert "xl2tpd_stop_attempted_vpns = xl2tpd_active;" in vpn_stop_body
+assert vpn_stop_body.index("xl2tpd_stop_attempted_vpns = xl2tpd_active;") < vpn_stop_body.index("kill_services_with_pidfiles(")
+assert "vpn_server_restart_should_restore_shared_xl2tpd(" in vpn_shared_restore
+assert "restore_status = safe_start_xl2tpd_locked();" in vpn_shared_restore
+assert 'restore_shared_xl2tpd_locked("after incomplete VPN teardown")' in vpn_restart_body
+assert 'restore_shared_xl2tpd_locked("after VPN server restart")' in vpn_restart_body
+assert vpn_restart_body.index("restore_shared_xl2tpd_locked(\"after incomplete VPN teardown\")") < vpn_restart_body.index("vpn_server_lifecycle_lock_release(lock_fd);")
+assert "test_shared_xl2tpd_restoration_decision" in vpn_restart_test
 assert "restore_status < 0" in vpn_restart_body
 assert "restore_status != 0" not in vpn_restart_body
 assert "release_status = vpn_server_lifecycle_lock_release(lock_fd);" in vpn_restart_body

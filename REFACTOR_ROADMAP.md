@@ -1,9 +1,8 @@
 ## Current source / CI checkpoint
 
-- Current main source head: `c221420d22838ec1632c975095c3bafa3830d6c9`. The NVRAM SET, COMMIT and CLEAR ioctl wrappers now propagate `/dev/nvram` close failures instead of false success; ioctl errors take precedence over close errors. Host regression and source-contract coverage are added.
-- Exact-head c221420d push: infosvr `43996118183` and AdGuardHome `43996118336` PASS. AI handoff `43996118214` failed because the handoff missed the validator-required `Before context exhaustion` marker; corrected here. HTTPD `43996118234`, AliDDNS `43996118325`, AliyunDrive `43996118148`, NVRAM `43996118191`, standalone Process `43996118524` and Process lifecycle `43996118185` were in progress at last inspection.
-- IPv6 neighbour-cleanup source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06` completed XY-C1 Build, TRX verification and artifact upload successfully (run `43994632505`). This verifies f943 only; current c221420d NVRAM production changes still require same-SHA firmware validation.
-- Physical-router L4 remains NOT VERIFIED. Frozen archival backup remains read-only.
+- The NVRAM SET/COMMIT/CLEAR wrappers propagate `/dev/nvram` close failures; exact-head NVRAM run `43996118191` passed on source `c221420d`. The subsequent current source adds shared-xl2tpd recovery after a VPN teardown transaction partially stops the daemon but aborts in later cleanup.
+- The prior PPP restore defect was concrete: `stop_vpn_server_locked()` only recorded the xl2tpd stop after the complete multi-target stop succeeded, while `restart_vpn_server()` skipped client restoration on its early stop-failure return. The new source records the attempt before stopping, shares the restore helper between early-abort and normal paths, and covers it with GNU89 policy and source integration regressions. Exact-head validation is pending.
+- IPv6 neighbour-cleanup source SHA `f943ccbd8efe3e125afcec8165bf9e235b390e06` completed XY-C1 Build/TRX/artifact (run `43994632505`). NVRAM source c221420d and the current PPP restoration source require same-SHA firmware validation; physical-router L4 remains NOT VERIFIED. Frozen backup remains read-only.
 
 ## Whole-repository module status
 

@@ -135,10 +135,22 @@ test_openvpn_restart_rejects_invalid_steps(void)
     assert(openvpn_step_order == 0);
 }
 
+static void
+test_shared_xl2tpd_restoration_decision(void)
+{
+    assert(vpn_server_restart_should_restore_shared_xl2tpd(1, 1, 0));
+    assert(vpn_server_restart_should_restore_shared_xl2tpd(1, 0, 1));
+    assert(vpn_server_restart_should_restore_shared_xl2tpd(1, 1, 1));
+    assert(!vpn_server_restart_should_restore_shared_xl2tpd(0, 1, 0));
+    assert(!vpn_server_restart_should_restore_shared_xl2tpd(0, 0, 1));
+    assert(!vpn_server_restart_should_restore_shared_xl2tpd(1, 0, 0));
+}
+
 int
 main(void)
 {
     test_success_stays_success();
+    test_shared_xl2tpd_restoration_decision();
     test_start_failure_is_returned();
     test_restore_failure_is_returned_when_start_succeeded();
     test_first_failure_survives_later_restore_and_unlock_errors();
