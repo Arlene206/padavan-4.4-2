@@ -1,16 +1,14 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS SSH detached-start/restart slice: `f1f3edd6961e2ea7f20b63da76f2304e0ab72db3`.
-- SSH firewall rollback `36b2b171`: exact Process `44185018675` and WAN route `44185018710` PASS; XY-C1 `44185018862` had PPPoE-MWAN pre-build regressions PASS but Build/TRX/artifact were still pending.
-- HTTPD public-firewall rollback landed in `f1f3edd6`; exact HTTPD security `44186935262`, HTTPD lifecycle `44186935549`, and AI docs `44186935541` PASS. Process/WAN/NVRAM/XY checks were pending at last observation.
-- THIS SSH source slice now requires a detached daemon to reach RUNNING and refuses UNKNOWN initial restart inventory before a name-based stop; it skips a stop when the daemon is already ABSENT. GNU89 policy tests and production source-order checks are extended. Exact-head Process and XY-C1 pending.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- HTTPD public-listener rollback from f1f3edd6 passed exact HTTPD lifecycle 44187513932 and security 44187513945.
+- WAN startup checker obsolete assertion was replaced in 773642be; a checker ordering bug was then fixed in 6a5f1477 by scoping the sequence to the firewall rollback suffix.
+- SSH shared process-start helpers were made static inline in e9144985 to eliminate -Werror=unused-function in sshd policy builds; the subsequent Process job progressed beyond that compiler stage.
+- Exact 6a5f1477 Firewall Startup 44188951449 and AI docs 44188951370 passed; Process 44188951409, USB modem WDM/NDIS 44188951386 and XY-C1 44188951477 were in progress at last poll.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. XY-C1 Build/TRX/artifact and physical router L4 are not yet certified for these changes.
 
-Next: verify exact-SHA Process and XY-C1 for THIS SSH commit; then continue other independent stability/security issues.
-
+Next: inspect exact-head Process/USB-modem/Firewall/XY-C1 runs, then continue broad process-lifecycle/security review. Hardware L4 is NOT VERIFIED.
 
 ---
-
 ## Whole-repository module status
 
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)

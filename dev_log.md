@@ -1,3 +1,11 @@
+## 2026-11-18 - Scope HTTPD checker ordering to the firewall rollback block
+
+- Parent main SHA: 6a5f1477771ecb1f4aa612e59a12472937051e0f; changed scripts/check_modem_wan_start_status.py, SESSION_HANDOFF.md and REFACTOR_ROADMAP.md.
+- The first checker adjustment 773642be removed the obsolete unconditional firewall-error return requirement, but its new order assertion accidentally selected the initial pre-launch httpd_started=0 assignment. Exact USB modem WDM/NDIS, Firewall Startup and XY-C1 jobs exposed this as line 635.
+- Scope the expected order to the block beginning at firewall_status = restart_firewall();. The checker now ensures error capture -> stop gate -> locked stop -> fresh process scan -> ABSENT/uncertain state publication -> original errno/status return.
+- Exact 6a5f1477 Firewall Startup 44188951449 and AI docs 44188951370 passed. Process 44188951409, USB modem WDM/NDIS 44188951386 and XY-C1 44188951477 were pending/in progress at last check.
+- Frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807 unchanged; no XY-C1 L3 or physical-router L4 claim.
+
 ## 2026-11-18 — Verify SSH detached startup and fail-closed restart preflight
 
 - Parent main SHA: `f1f3edd6961e2ea7f20b63da76f2304e0ab72db3`. On the parent HTTPD slice, exact-head HTTPD security `44186935262`, HTTPD lifecycle `44186935549`, and AI handoff `44186935541` passed. Process lifecycle `44186935557`, WAN route `44186935517`, NVRAM `44186935696`, and XY-C1 `44186935585` were still running at last inspection.

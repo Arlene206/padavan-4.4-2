@@ -1,26 +1,23 @@
-# 2026-11-18 continuation checkpoint — verify SSH detached startup and restart preflight
+# 2026-11-18 continuation checkpoint - validate WAN checker correction and SSH header inline fix
 
-## Current repository and verification baseline
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS SSH slice: `f1f3edd6961e2ea7f20b63da76f2304e0ab72db3`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- SSH public-firewall rollback from `36b2b171` has exact-head Process lifecycle `44185018675` PASS and WAN route `44185018710` PASS. Its XY-C1 `44185018862` passed the pre-build suite (including PPPoE-MWAN normal and failure-injection cases) but Build was still in progress at last observation; TRX/artifact pending.
-- HTTPD public-firewall rollback landed in parent `f1f3edd6`; exact-head HTTPD security `44186935262`, HTTPD lifecycle `44186935549`, and AI docs `44186935541` passed. Exact Process `44186935557`, WAN route `44186935517`, NVRAM `44186935696`, and XY-C1 `44186935585` were pending/in progress at last inspection.
-- PPPoE-MWAN cleanup guard and source checker are corrected in `c8b8ba8c` and `7ffa8707`; exact descendant WAN-route passed and the `36b2b171` XY pre-build regression passed. Keep requiring exact-SHA XY Build/TRX/artifact for any newer production source.
+## Repository and exact-SHA status
+- Repository: Arlene206/padavan-4.4-2; parent main before this checkpoint: 6a5f1477771ecb1f4aa612e59a12472937051e0f.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; do not modify it.
+- HTTPD listener rollback from f1f3edd6 passed its exact HTTPD lifecycle run 44187513932 and HTTPD security run 44187513945.
+- WAN checker update 773642be replaced the obsolete unconditional-return assertion but initially used the first httpd_started=0 assignment, which belonged to the pre-launch path. This was fixed in 6a5f1477 by checking order only within the suffix after restart_firewall().
+- Shared process-presence start helpers were changed to static inline in e9144985 after exact Process and RC notification queue Actions exposed -Werror=unused-function when sshd_daemon_policy.h included that header. The e914 Process run then passed that compile stage and reached the WAN checker assertion.
+- Exact 6a5f1477 runs at the last poll: Firewall Startup Stability 44188951449 PASS; AI docs 44188951370 PASS; Process lifecycle 44188951409 in progress (inventory step); USB modem WDM/NDIS 44188951386 in progress (GNU89 compile); XY-C1 44188951477 in progress (ccache setup/build sequence). Check exact head and require XY-C1 Build, TRX verification and artifact upload before L3.
+- SSH firewall rollback Process 44185018675 and WAN route 44185018710 passed. PPPoE-MWAN WAN route 44184652136 passed with cleanup-failure cases. Hardware L4 remains NOT VERIFIED.
 
-## THIS SSH start/restart slice
-- `start_sshd()` now validates the detached OpenSSH/Dropbear child with shared bounded process-inventory probes; wrapper success alone is no longer daemon readiness.
-- `restart_sshd()` aborts before a name-based stop when its initial process inventory is UNKNOWN and skips the stop when already ABSENT. When RUNNING, it stops then requires a fresh ABSENT scan before launch.
-- GNU89 SSH policy regression and source-order assertions cover RUNNING/ABSENT/UNKNOWN/invalid states, stop gating, launcher failure propagation and timeout. Existing Process workflow compiles the policy test and checks the production integration; XY-C1 watches `services.c`.
-
-## Verification boundary
-- Exact-head Process and XY-C1 Actions for THIS production change have not run yet. Require Process policy/source contracts and XY-C1 Build, TRX verification and artifact upload before claiming L3.
-- The parent's HTTPD tests passed, but the umbrella Process/XY-C1 and other unrelated workflows were still pending at last inspection. Do not treat pending as pass.
-- Physical-router L4 remains NOT VERIFIED.
+## THIS WAN checker follow-up
+- scripts/check_modem_wan_start_status.py now validates HTTPD firewall-failure errno capture, the fail-closed stop gate, locked stop, fresh process scan, ABSENT/uncertain NVRAM publication and restoration of original firewall errno/status.
+- The order assertions are scoped from the restart_firewall() call, avoiding the older pre-launch httpd_started=0 assignment.
+- Exact source-SHA verification for 6a5f1477 is pending/in progress; do not claim it passed until the matching jobs complete.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and inspect exact-`head_sha`, `push` Process and XY-C1 runs for THIS SSH commit. Require the new policy tests and source contracts; on XY-C1 require Build, TRX and artifact upload.
-2. Fix any causal failure in a separate atomic commit and recheck the corresponding exact SHA. Do not wait idle on pending jobs.
-3. Once SSH is green, continue broad P1 reliability/security work. The analogous HTTPD rollback gap is already implemented in parent `f1f3edd6`; do not re-audit its passing HTTPD tests unless a later source change touches that path. Keep backup immutable and hardware L4 NOT VERIFIED.
+1. Inspect exact-SHA Process, USB modem WDM/NDIS, Firewall Startup and XY-C1 runs for 6a5f1477; require checker/source contracts and XY-C1 Build/TRX/artifact.
+2. Fix the first actual failing assertion in a separate atomic slice. Do not repeat SSH policy compilation or other already passing subtests unless touched.
+3. Continue the next independent P1 runtime/security defect. Keep the frozen backup unchanged; hardware L4 is NOT VERIFIED.
 
 # Cross-session execution mandate
 
