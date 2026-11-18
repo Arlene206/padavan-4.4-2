@@ -38,10 +38,17 @@ busybox_pgrep = read("trunk/user/busybox/busybox-1.24.x/procps/pgrep.c")
 require(". /usr/bin/dnsmasq_config_lifecycle.sh || exit 1" in script and
         ". /usr/bin/dnsmasq_config_lifecycle.sh || exit 1" in rules_script and
         "line == expected" in dnsmasq_cleanup and "line != expected" in dnsmasq_cleanup and
+        "ss_dnsmasq_match=$(awk" in dnsmasq_cleanup and
+        'END { print found ? 1 : 0 }' in dnsmasq_cleanup and
+        'END { exit(found ? 0 : 1) }' not in dnsmasq_cleanup and
         "cmp -s" in dnsmasq_cleanup and
         'mv -f "$ss_dnsmasq_tmp_file" "$ss_dnsmasq_config_file"' in dnsmasq_cleanup and
         '[ ! -L "$ss_dnsmasq_config_file" ]' in dnsmasq_cleanup,
-        "DNSMasq helper must atomically remove only exact regular-file directives")
+        "DNSMasq helper must propagate AWK scan failures and atomically remove only exact regular-file directives")
+require("awk read failure status was not preserved" in dnsmasq_cleanup_test and
+        "exit 37" in dnsmasq_cleanup_test and
+        'cmp -s "$CONFIG" "$TMP_DIR/awk-failure.expected"' in dnsmasq_cleanup_test,
+        "DNSMasq regression must prove AWK scan errors propagate without modifying the live config")
 oversea_start = script.index("\n\toversea)")
 oversea_end = script.index("\n\t*)", oversea_start)
 oversea = script[oversea_start:oversea_end]

@@ -13,16 +13,16 @@ ss_dnsmasq_remove_exact_directive() {
 	[ ! -L "$ss_dnsmasq_config_file" ] || return 1
 	[ -r "$ss_dnsmasq_config_file" ] && [ -w "$ss_dnsmasq_config_file" ] || return 1
 
-	if awk -v expected="$ss_dnsmasq_expected" '
+	if ss_dnsmasq_match=$(awk -v expected="$ss_dnsmasq_expected" '
 		{ line = $0; sub(/^[[:space:]]*/, "", line); sub(/[[:space:]]*$/, "", line); if (line == expected) found = 1 }
-		END { exit(found ? 0 : 1) }
-	' "$ss_dnsmasq_config_file"; then
+		END { print found ? 1 : 0 }
+	' "$ss_dnsmasq_config_file"); then
 		:
 	else
 		ss_dnsmasq_status=$?
-		[ "$ss_dnsmasq_status" -eq 1 ] && return 0
 		return "$ss_dnsmasq_status"
 	fi
+	[ "$ss_dnsmasq_match" = "1" ] || return 0
 
 	ss_dnsmasq_tmp_file=$(mktemp "${ss_dnsmasq_config_file}.tmp.XXXXXX") || return 1
 	if cp -p "$ss_dnsmasq_config_file" "$ss_dnsmasq_tmp_file"; then :; else

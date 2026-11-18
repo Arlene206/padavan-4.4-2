@@ -82,4 +82,26 @@ if ss_dnsmasq_remove_exact_directive "$TMP_DIR/symlink.conf" 'no-resolv'; then f
  [ "$?" -eq 1 ] || fail "symlink rejection status was not 1"
 fi
 cmp -s "$CONFIG" "$TMP_DIR/symlink-target" || fail "symlink target changed"
+
+# The scanner's END block must not replace an AWK input/read error with a
+# successful no-match result. Verify the error propagates before any rewrite.
+mkdir "$TMP_DIR/failing-bin"
+cat > "$TMP_DIR/failing-bin/awk" <<'EOF_AWK'
+#!/bin/sh
+exit 37
+EOF_AWK
+chmod 755 "$TMP_DIR/failing-bin/awk"
+cp "$CONFIG" "$TMP_DIR/awk-failure.expected"
+saved_path=$PATH
+PATH="$TMP_DIR/failing-bin:$PATH"
+export PATH
+if ss_dnsmasq_remove_exact_directive "$CONFIG" 'no-resolv'; then
+	awk_status=0
+else
+	awk_status=$?
+fi
+PATH=$saved_path
+export PATH
+[ "$awk_status" -eq 37 ] || fail "awk read failure status was not preserved: $awk_status"
+cmp -s "$CONFIG" "$TMP_DIR/awk-failure.expected" || fail "awk scan failure changed the live DNSMasq config"
 echo "DNSMasq exact directive cleanup regression: PASS"
