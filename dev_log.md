@@ -1,3 +1,12 @@
+## 2026-11-18 — Give the Lua-generated Shadowsocks readiness fixture a scheduler-safe polling window
+
+- Exact-head e20 lifecycle run `44282353324` failed at `Lua-generated ipt2socks readiness`: the detached Lua mock was not observable before the test's 5-poll timeout. The e20 production watchcat change itself was not identified as the cause.
+- The mock `sleep 1` yielded only 10 ms, a total window of at most 50 ms. Increase the test-only yield to 100 ms per poll (bounded maximum 500 ms) so the spawned fixture has a reliable scheduling opportunity; no production timeout or runtime behavior is changed.
+- e20 AI handoff `44282353220`, Process inventory `44282353174` and full fail-closed inventory `44282353250` PASS. XY-C1 run `44282353140` was still in progress for product-source SHA e20; verify Build/TRX/artifact on that exact SHA.
+- The test-only correction and refreshed handoff/roadmap require exact-head Actions. No local shell run or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-18 — Gate Shadowsocks watchcat launch on validated detached-process readiness
 
 - The previous `start_watchcat()` fire-and-forgot `/usr/bin/ss-monitor` and returned success without observing the monitor. The new code performs a fail-closed `pgrep -f` inventory, skips duplicate launches when a monitor is already running, and waits for a bounded PID count increase after scheduling.

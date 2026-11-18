@@ -98,7 +98,7 @@ EOF
 cat > "$TMP_DIR/bin/sleep" <<'EOF'
 #!/bin/sh
 # Yield briefly so detached mock daemons can publish their PID fixture.
-exec /bin/sleep 0.01
+exec /bin/sleep 0.1
 EOF
 
 cat > "$TMP_DIR/bin/dnsproxy" <<'EOF'

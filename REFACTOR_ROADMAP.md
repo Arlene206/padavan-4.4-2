@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main SHA `361d4b33ef8801d94cd13d949f693974b46af1d3` corrected detached-daemon regression scheduling and restored exact AI handoff contract wording. Exact-head checks: Process inventory `44281846459` PASS; full inventory `44281846403` PASS; AI handoff docs `44281846410` FAIL solely because `Mandatory handoff checkpoint` heading was absent; corrected in this slice.
-- Current engineering slice adds fail-closed `pgrep -f` count+1 readiness to `start_watchcat()`, including duplicate prevention, bounded waiting, timeout/scheduling error propagation and failure-injection tests. This slice awaits exact-head CI.
-- Historical XY-C1 L3 PASS only for `a0cb9aad4844f7d044ce79efad6c417857c95972`; no current source build/TRX/artifact is claimed. Physical-router L4 NOT VERIFIED.
+- Product-source baseline `e20cabfd833df25b69b7ce1e164faad09769501d` adds fail-closed `start_watchcat()` process readiness, duplicate prevention and error propagation. Main now has a test-only detached fixture timing correction: the 10-ms mock sleep still starved the Lua-generated `ipt2socks` fixture under Actions; it now yields 100 ms per bounded poll.
+- Exact-head e20 checks: AI handoff `44282353220` PASS; Process inventory `44282353174` and full fail-closed inventory `44282353250` PASS; Shadowsocks lifecycle `44282353324` FAIL at Lua-generated ipt2socks readiness. The fixture-only correction is awaiting its exact-SHA rerun.
+- XY-C1 run `44282353140` targets exact product-source SHA e20 and was IN_PROGRESS at last observation. Require same-SHA Build, TRX verification and artifact upload before marking L3 VERIFIED. Physical-router L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 is closed.
 
-Next P1 after exact-head validation: add readiness/failure rollback to `start_chinadns()` and dnsmasq restart, then continue broader RC/userland stability.
+Next P1 after exact-head lifecycle validation: add bounded readiness and rollback to `start_chinadns()` and dnsmasq restart, then continue broader RC/userland stability.
 ---
 
 ## Whole-repository module status
