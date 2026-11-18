@@ -376,7 +376,7 @@ int mdev_net_main(int argc, char **argv)
 
 	// Publish root-managed metadata through atomic replacement.
 	data_len = snprintf(node_data, sizeof(node_data),
-			    "pref=%d\\ndevnum=%d\\nportid=%s\\n",
+			    "pref=%d\ndevnum=%d\nportid=%s\n",
 			    1, devnum, usb_port_id);
 	publish_status = modem_node_file_publish_identity(
 		MODEM_NODE_DIR, device_name, node_data,

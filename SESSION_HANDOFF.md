@@ -1,27 +1,27 @@
-# 2026-11-18 continuation checkpoint — report ZeroCD mode-switch failures
+# 2026-11-18 continuation checkpoint — correct NDIS metadata line separators
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS ZeroCD status fix: `2e01dae1878bdc984326895d5f464789bdcc3d76`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
-- Exact parent `2e01dae1` USB modem workflow `44213177117` PASS. The missing SG policy include fixed in `2e01dae` is now verified together with the SG/CD sanitizer tests, source contract and event filters.
-- Exact parent AI handoff `44213177260`, AdGuardHome `44213177186`, infosvr `44213177162`, AliDDNS `44213177125`, AliyunDrive `44213177140`, HTTPD Security `44213177111`, Process lifecycle `44213177094` and Process inventory `44213177132` PASS. NVRAM audit `44213177187` remained IN_PROGRESS at last poll.
-- Found another false-success path in `mdev_sg_main()`: when `modem_zcd == 0` and USB port/VID/PID discovery succeeds, the handler invokes `/sbin/zerocd` with `_eval()` but discards the return value, then prints success. `_eval()` returns the child's exit code or a nonzero errno on launch/wait failure. THIS slice captures the result, maps it through a pure status policy, logs and releases the hotplug lock before returning failure. The legacy no-op when USB identity cannot be resolved remains unchanged.
-- Extends the GNU89/Werror/ASan/UBSan SG policy regression and the USB source contract for ZeroCD success/failure propagation.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS NDIS metadata serialization fix: `b103a8e47455eb65f37470df4897696e9e1f4e02`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
+- Exact parent USB modem workflow `44213786597` PASS, including SG module readiness, ZeroCD status, SCSI CD eject/unload, WDM identity and path-filter checks. Exact parent AI, AdGuardHome, infosvr, AliDDNS, AliyunDrive, HTTPD Security, Process lifecycle and Process inventory workflows PASS; NVRAM audit `44213786481` was IN_PROGRESS at last poll.
+- Found a concrete NDIS identity regression in `mdev_net_main()`: the metadata format string used double-escaped `\\n`, so the published file contained literal backslash-n sequences on one physical line. The parser `find_modem_node_by_usb_identity()` reads one field per line and rejects lines without a real newline, so NDIS metadata could not be consumed and the physical USB identity matcher failed closed.
+- THIS fix changes the NDIS writer to the same actual newline escapes already used by the WDM and TTY writers, and adds an exact source-contract assertion for the NDIS serializer. No USB topology or identity matching behavior is otherwise changed.
+- The ZeroCD failure-propagation fix `b103a8e4` has local GNU89/Werror/ASan/UBSan policy PASS; its exact-head USB workflow is PASS on that SHA.
 - No exact-current-SHA XY-C1 Build/TRX/artifact evidence; firmware L3 and physical-router L4 NOT VERIFIED.
 
 ## Active task
-- Prevent `mdev_sg_main()` from claiming success after an attempted `zerocd` command fails; preserve the existing no-op when the USB path or VID/PID cannot be resolved.
+- Ensure NDIS device metadata uses real line breaks so the existing line-oriented modem identity parser can read `pref`, `devnum` and `portid`.
 
 ## Verification boundary
-- Exact parent USB modem, AI handoff, AdGuardHome, infosvr, AliDDNS, AliyunDrive, HTTPD Security, Process lifecycle and Process inventory workflows PASS.
-- NVRAM audit `44213177187` was IN_PROGRESS at last observation.
-- THIS ZeroCD source/policy/workflow slice's exact-head Actions are pending. Firmware L3 and physical L4 NOT VERIFIED.
+- Exact parent USB modem, AI, AdGuardHome, infosvr, AliDDNS, AliyunDrive, HTTPD Security, Process lifecycle and Process inventory workflows PASS.
+- NVRAM audit `44213786481` remained IN_PROGRESS at last observation.
+- THIS NDIS serialization fix's exact-head workflow is pending. Firmware L3 and hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect the exact-head USB modem workflow; require the SG readiness and ZeroCD policy cases, CD policy regression, WDM identity source contract and push/PR path filters to PASS.
-2. Check NVRAM audit `44213177187` and any current exact-SHA reruns.
-3. Continue an independent P1 userland storage/security issue while Actions run; check XY-C1 L3 only if Build, TRX verification and artifact upload all pass on one SHA.
-4. Keep the frozen backup unchanged and publish multi-file changes atomically to main with a non-forced expected-SHA update.
+1. Inspect the exact-head USB modem workflow; require WDM and NDIS metadata assertions, identity matcher checks, SG/ZeroCD/CD tests and push/PR filters to PASS.
+2. Check the NVRAM audit result on the exact parent SHA.
+3. Continue independent P1 storage/security/reliability work; do not wait idly on unrelated in-progress workflows.
+4. Keep the frozen backup unchanged and publish multi-file changes as one tree/commit with non-forced expected-SHA update.
 
 
 ## Mandatory handoff checkpoint

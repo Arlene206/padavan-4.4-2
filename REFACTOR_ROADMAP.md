@@ -1,12 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS ZeroCD status propagation fix: `2e01dae1878bdc984326895d5f464789bdcc3d76`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact parent USB modem `44213177117` PASS, including the SG readiness include/contract, SG and CD GNU89 sanitizer regressions, WDM identity check and event filters.
-- Exact parent AI `44213177260`, AdGuardHome `44213177186`, infosvr `44213177162`, AliDDNS `44213177125`, AliyunDrive `44213177140`, HTTPD `44213177111`, Process lifecycle `44213177094` and Process inventory `44213177132` PASS. NVRAM `44213177187` IN_PROGRESS.
-- `mdev_sg_main()` ignored the `/sbin/zerocd` `_eval()` result when USB path and VID/PID were resolved. THIS captures the exit/launch status, returns failure on nonzero and preserves the previous identity-resolution no-op.
+- Parent main before THIS NDIS metadata serialization fix: `b103a8e47455eb65f37470df4897696e9e1f4e02`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact parent USB modem `44213786597` PASS; other exact-parent security/lifecycle workflows PASS except NVRAM audit `44213786481`, which was IN_PROGRESS.
+- `mdev_net_main()` emitted literal `\\n` sequences instead of actual line separators in its NDIS metadata file. The line-oriented USB modem parser rejects this single-line record, defeating physical identity lookup. THIS changes it to actual newline escapes and adds a caller-level serialization contract.
+- ZeroCD command failure propagation `b103a8e4` has local GNU89/Werror/ASan/UBSan PASS and exact-head USB workflow PASS.
 - No same-SHA XY-C1 Build/TRX/artifact or physical-router L4 evidence.
 
-Next: verify exact-head USB modem and NVRAM audit; continue independent P1 work.
+Next: verify the exact-head NDIS source contract and check the NVRAM audit; continue independent P1 work.
 
 
 ---

@@ -1,3 +1,11 @@
+## 2026-11-18 — Fix NDIS metadata field separators
+
+- Parent main SHA: `b103a8e47455eb65f37470df4897696e9e1f4e02`. Exact parent USB modem `44213786597` PASS; AI, AdGuardHome, infosvr, AliDDNS, AliyunDrive, HTTPD Security, Process lifecycle and Process inventory PASS. NVRAM audit `44213786481` remained IN_PROGRESS.
+- `mdev_net_main()` encoded every separator as a literal backslash-n pair because the C format string contained `\\\\n` rather than `\\n`. The line-oriented `find_modem_node_by_usb_identity()` parser requires real line breaks and rejects the malformed record.
+- Replace with real newline escapes matching the WDM/TTY metadata writers and add an exact NDIS source-format regression assertion to the USB modem workflow. Exact-head verification pending.
+
+---
+
 ## 2026-11-18 — Propagate ZeroCD helper failures from SCSI generic hotplug
 
 - Parent main SHA: `2e01dae1878bdc984326895d5f464789bdcc3d76`. Exact parent USB modem `44213177117` PASS; all SG/CD policy binaries, source contract and push/PR filters verified. AI, AdGuardHome, infosvr, AliDDNS, AliyunDrive, HTTPD Security, Process lifecycle and Process inventory also PASS; NVRAM audit `44213177187` remained IN_PROGRESS.
