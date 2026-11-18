@@ -127,6 +127,24 @@ assert_no_publish()
 	fi
 }
 
+# The production launcher is detached. Reap the short-lived test double after
+# each entrypoint returns so it cannot race reset_events() or the EXIT cleanup.
+run_and_reap_detached_test_child()
+{
+	if "$@"; then
+		adbyby_test_command_status=0
+	else
+		adbyby_test_command_status=$?
+	fi
+
+	adbyby_test_child_pid=$!
+	case "$adbyby_test_child_pid" in
+		''|*[!0-9]*) ;;
+		*) wait "$adbyby_test_child_pid" 2>/dev/null || : ;;
+	esac
+	return "$adbyby_test_command_status"
+}
+
 # An already visible process satisfies the postcondition without sleeping.
 ADBYBY_TEST_PIDOF_MODE=running
 reset_events
@@ -167,7 +185,7 @@ ADBYBY_TEST_SLEEP_MODE=ok
 ADBYBY_TEST_PIDOF_MODE=state
 ADBYBY_TEST_DAEMON_MODE=running
 reset_events
-adbyby_start || fail "successful daemon postcondition did not allow startup"
+run_and_reap_detached_test_child adbyby_start || fail "successful daemon postcondition did not allow startup"
 [ "$(event_count daemon-launch)" -eq 1 ] || fail "daemon was not launched once"
 [ "$(event_count add_dns)" -eq 1 ] || fail "DNS setup did not follow confirmed startup"
 [ "$(event_count add_rule)" -eq 1 ] || fail "redirect rule setup did not follow startup"
@@ -193,7 +211,7 @@ for failed_stage in add_dns add_rule hosts_ads adbyby_restart_dhcpd add_cron; do
 	ADBYBY_TEST_PIDOF_MODE=state
 	ADBYBY_TEST_DAEMON_MODE=running
 	reset_events
-	if adbyby_start; then
+	if run_and_reap_detached_test_child adbyby_start; then
 		fail "$failed_stage failure was reported as successful startup"
 	else
 		publish_status=$?
@@ -225,7 +243,7 @@ ADBYBY_TEST_ROLLBACK_STATUS=0
 ADBYBY_TEST_PIDOF_MODE=state
 ADBYBY_TEST_DAEMON_MODE=running
 reset_events
-if adbyby_uprules; then
+if run_and_reap_detached_test_child adbyby_uprules; then
 	fail "rule update hid DNS publication failure"
 else
 	update_status=$?
@@ -239,14 +257,14 @@ ADBYBY_TEST_ADD_DNS_STATUS=0
 ADBYBY_TEST_PIDOF_MODE=unknown
 ADBYBY_TEST_DAEMON_MODE=running
 reset_events
-if adbyby_start; then fail "Adbyby start accepted UNKNOWN process state"; fi
+if run_and_reap_detached_test_child adbyby_start; then fail "Adbyby start accepted UNKNOWN process state"; fi
 assert_no_publish "start UNKNOWN"
 
 # A child that never appears must not publish a redirect or DNS configuration.
 ADBYBY_TEST_PIDOF_MODE=state
 ADBYBY_TEST_DAEMON_MODE=absent
 reset_events
-if adbyby_start; then fail "Adbyby start accepted a missing child"; fi
+if run_and_reap_detached_test_child adbyby_start; then fail "Adbyby start accepted a missing child"; fi
 assert_no_publish "start timeout"
 [ "$(event_count 'sleep:1')" -eq 4 ] || fail "start timeout did not wait four times"
 
@@ -254,7 +272,7 @@ assert_no_publish "start timeout"
 ADBYBY_TEST_PIDOF_MODE=unknown
 ADBYBY_TEST_DAEMON_MODE=running
 reset_events
-if adbyby_uprules; then fail "rule update accepted UNKNOWN daemon state"; fi
+if run_and_reap_detached_test_child adbyby_uprules; then fail "rule update accepted UNKNOWN daemon state"; fi
 assert_no_publish "rule update UNKNOWN"
 
 # The lifecycle restart wrapper must preserve the daemon launch failure.

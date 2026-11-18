@@ -1,3 +1,12 @@
+## 2026-11-18 — Reap detached Adbyby test doubles before fixture cleanup
+
+- Exact main SHA 8df3cc2f11aa9e040588d28844952005aaed9126 Process lifecycle run 44333373061 failed only in "Validate Adbyby detached startup readiness and restart status": all assertions printed PASS, then the EXIT trap's rm -rf reported that the temporary test directory was not empty.
+- Root cause: the production launcher is intentionally asynchronous; the shell regression daemon stub sets the RUNNING marker and exits quickly, but the test never waited for the detached PID. The parent could reset fixtures or remove the temp directory while the stub was still writing.
+- Add a test-only wrapper that preserves each entrypoint's status, captures the detached child PID and waits for that short-lived test double (ignoring its exit code). Apply it to every adbyby_start()/adbyby_uprules() test invocation that can launch the stub; do not change production daemon detachment.
+- Add a Process checker assertion requiring the reaper and its use for both entrypoints. Exact 8df3cc2 Actions: AI docs 44333370564 PASS; Process lifecycle 44333373061 FAIL at the Adbyby test cleanup race. The new test and checker are inside the Process workflow's explicit path allowlist. No local checkout test or hardware validation was run.
+
+---
+
 ## 2026-11-18 — Narrow Process lifecycle regression triggers without losing PR coverage
 
 - CI trigger audit found the process-lifecycle-regression workflow had a blanket trunk/user/** push pattern despite an explicit lifecycle file list; its push and pull_request lists also diverged (127 vs 88 entries, with important source/test paths covered by only one event). This caused unrelated userland assets and docs to start the long Process suite on push, while some PR changes could bypass it.

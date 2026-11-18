@@ -3091,3 +3091,14 @@ assert ".github/workflows/process-lifecycle-regression.yml" in push_paths
 assert "scripts/check_process_lifecycle_integration.py" in push_paths
 assert "trunk/user/shared/src/process_inventory.c" in push_paths
 print("Process lifecycle push/PR trigger scope and parity: PASS")
+
+# The detached Adbyby test double must be reaped before shared fixtures are
+# reset or removed; otherwise it may write into a directory being deleted.
+adbyby_start_test = (
+    root / "trunk/user/adbyby/tests/adbyby_start_postcondition.sh"
+).read_text()
+assert "run_and_reap_detached_test_child()" in adbyby_start_test
+assert 'wait "$adbyby_test_child_pid"' in adbyby_start_test
+for entrypoint in ("adbyby_start", "adbyby_uprules"):
+    assert "run_and_reap_detached_test_child " + entrypoint in adbyby_start_test
+print("Adbyby detached test-child cleanup is deterministic: PASS")
