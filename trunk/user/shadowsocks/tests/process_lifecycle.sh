@@ -64,7 +64,11 @@ cat > "$TMP_DIR/bin/pgrep" <<'EOF'
 [ -f "$PROCESS_STATE_DIR/pgrep_malformed" ] && { echo '4243 bad'; exit 0; }
 [ -f "$PROCESS_STATE_DIR/pgrep_inconsistent" ] && { echo 4243; exit 1; }
 [ -f "$PROCESS_STATE_DIR/monitor" ] || exit 1
-echo 4243
+if [ -f "$PROCESS_STATE_DIR/monitor.pids" ]; then
+	cat "$PROCESS_STATE_DIR/monitor.pids"
+else
+	echo 4243
+fi
 EOF
 
 cat > "$TMP_DIR/bin/pkill" <<'EOF'
@@ -152,6 +156,7 @@ nvram() {
 		get:pdnsd_enable) echo "${DNS_PDNSD_ENABLE:-0}" ;;
 		get:tunnel_forward) echo "${DNS_UPSTREAM-8.8.8.8#53}" ;;
 		get:ss_cgroups) echo "${MOCK_SS_CGROUPS:-0}" ;;
+		get:ss_watchcat) echo "${WATCHCAT_ENABLED:-0}" ;;
 		*) return 90 ;;
 	esac
 }
@@ -161,6 +166,8 @@ sed -n \
 	-e '/^run_bin() {/,/^}/p' \
 	-e '/^stop_dns_proxy() {/,/^}/p' \
 	-e '/^start_dns_proxy() {/,/^}/p' \
+	-e '/^ss_launch_watchcat() {/,/^}/p' \
+	-e '/^start_watchcat() {/,/^}/p' \
 	"$TEST_DIR/../scripts/shadowsocks.sh" > "$TMP_DIR/dns-proxy-functions.sh"
 . "$TMP_DIR/dns-proxy-functions.sh"
 
@@ -289,6 +296,71 @@ RUN_BIN_MODE=unknown
 expect_status 2 "run_bin unknown process inventory" run_bin ssr-redir -c /tmp/test.json
 [ ! -s "$KILL_LOG" ] || fail "run_bin signalled after unknown inventory"
 rm -f "$PROCESS_STATE_DIR/pidof_unknown" "$PROCESS_STATE_DIR/ssr-redir" "$PROCESS_STATE_DIR/ssr-redir.pids" "$PROCESS_STATE_DIR/ipt2socks" "$PROCESS_STATE_DIR/ipt2socks.pids"
+
+# Watchcat launch must be bounded, tri-state and idempotent.
+rm -f "$PROCESS_STATE_DIR/monitor" "$PROCESS_STATE_DIR/monitor.pids"
+server_count=1
+redir_tcp=1
+redir_udp=0
+tunnel_enable=0
+v2ray_enable=0
+local_enable=0
+pdnsd_enable_flag=0
+chinadnsng_enable_flag=0
+WATCHCAT_LOG="$TMP_DIR/watchcat.log"
+: > "$WATCHCAT_LOG"
+ss_launch_watchcat() {
+	printf '%s\n' "$*" >> "$WATCHCAT_LOG"
+	case "${WATCHCAT_LAUNCH_MODE:-ready}" in
+		fail) return 17 ;;
+		absent) return 0 ;;
+		ready)
+			: > "$PROCESS_STATE_DIR/monitor"
+			printf '4245\n' > "$PROCESS_STATE_DIR/monitor.pids"
+			;;
+	esac
+	return 0
+}
+export WATCHCAT_LAUNCH_MODE=ready
+WATCHCAT_ENABLED=1
+expect_status 0 "watchcat detached monitor readiness" start_watchcat
+[ -f "$PROCESS_STATE_DIR/monitor" ] || fail "watchcat launcher did not publish monitor readiness"
+[ "$(wc -l < "$WATCHCAT_LOG")" -eq 1 ] || fail "watchcat was not launched exactly once"
+rm -f "$PROCESS_STATE_DIR/monitor" "$PROCESS_STATE_DIR/monitor.pids"
+
+# A monitor process that never appears must not be reported as started.
+WATCHCAT_LAUNCH_MODE=absent
+expect_status 1 "watchcat readiness timeout" start_watchcat
+[ "$(wc -l < "$WATCHCAT_LOG")" -eq 2 ] || fail "watchcat timeout did not invoke launcher"
+
+# A scheduling failure must be preserved.
+WATCHCAT_LAUNCH_MODE=fail
+expect_status 17 "watchcat scheduling failure" start_watchcat
+[ "$(wc -l < "$WATCHCAT_LOG")" -eq 3 ] || fail "watchcat scheduling failure was not recorded"
+
+# UNKNOWN pgrep inventory blocks a duplicate launch.
+: > "$PROCESS_STATE_DIR/pgrep_unknown"
+WATCHCAT_LAUNCH_MODE=ready
+expect_status 2 "watchcat UNKNOWN preflight" start_watchcat
+[ "$(wc -l < "$WATCHCAT_LOG")" -eq 3 ] || fail "watchcat launched with UNKNOWN process inventory"
+rm -f "$PROCESS_STATE_DIR/pgrep_unknown"
+
+# An already-running monitor is accepted without starting a duplicate.
+: > "$PROCESS_STATE_DIR/monitor"
+printf '4246\n' > "$PROCESS_STATE_DIR/monitor.pids"
+WATCHCAT_LAUNCH_MODE=fail
+expect_status 0 "watchcat duplicate prevention" start_watchcat
+[ "$(wc -l < "$WATCHCAT_LOG")" -eq 3 ] || fail "watchcat relaunched an existing monitor"
+rm -f "$PROCESS_STATE_DIR/monitor" "$PROCESS_STATE_DIR/monitor.pids"
+
+WATCHCAT_ENABLED=0
+expect_status 0 "watchcat disabled" start_watchcat
+[ "$(wc -l < "$WATCHCAT_LOG")" -eq 3 ] || fail "disabled watchcat was started"
+WATCHCAT_ENABLED=1
+server_count=0
+redir_tcp=0
+expect_status 0 "watchcat no active services" start_watchcat
+[ "$(wc -l < "$WATCHCAT_LOG")" -eq 3 ] || fail "watchcat started without any active service"
 
 # The required DNS proxy stage must observe the selected daemon after launch.
 export DNS_PDNSD_ENABLE=0 DNS_UPSTREAM='8.8.8.8#53' DNS_START_MODE=ready

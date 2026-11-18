@@ -93,7 +93,7 @@ require("unknown after TERM blocks KILL" in test and "pidof error blocks named s
         "regression must prove unknown inventory prevents signals and escalation")
 require(helper.count('ss_wait_limit=$1') == 2 and
         helper.count('[ "$ss_wait_count" -lt "$ss_wait_limit" ]') == 2 and
-        helper.count('sleep 1 || return 2') == 4 and
+        helper.count('sleep 1 || return 2') == 5 and
         'ss_wait_named_processes 3 "$@"' in helper and
         'ss_wait_named_processes 1 "$@"' in helper and
         'ss_wait_process_pattern 3 "$ss_process_pattern"' in helper and
@@ -145,6 +145,24 @@ require("run_bin child exits before readiness" in test and
         "pre-existing sibling" in test and
         "gensocks.lua starts ipt2socks" in test,
         "readiness regression must cover immediate exit, UNKNOWN, siblings and Lua child")
+
+require("ss_process_pattern_count()" in helper and
+        "ss_wait_process_pattern_count()" in helper and
+        'pgrep -f "$ss_count_pattern"' in helper,
+        "pattern startup readiness must validate and count pgrep PIDs")
+
+watch_start = script[script.index("start_watchcat() {"):script.index("\n\nauto_update() {")]
+require('ss_process_pattern_count "/usr/bin/ss-monitor"' in watch_start and
+        'ss_launch_watchcat "$server_count"' in watch_start and
+        'ss_wait_process_pattern_count "/usr/bin/ss-monitor" "$watchcat_expected_count" 5' in watch_start and
+        'return "$watchcat_status"' in watch_start,
+        "watchcat startup must fail closed and verify detached monitor readiness")
+
+require("watchcat readiness timeout" in test and
+        "watchcat scheduling failure" in test and
+        "watchcat UNKNOWN preflight" in test and
+        "already-running monitor" in test,
+        "watchcat host regression must cover readiness, failure, UNKNOWN and duplicate cases")
 
 require("config PGREP\n\tbool \"pgrep\"\n\tdefault y" in busybox_config and
         "config PKILL\n\tbool \"pkill\"\n\tdefault y" in busybox_config and

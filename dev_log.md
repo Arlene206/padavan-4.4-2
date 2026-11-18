@@ -1,3 +1,12 @@
+## 2026-11-18 — Gate Shadowsocks watchcat launch on validated detached-process readiness
+
+- The previous `start_watchcat()` fire-and-forgot `/usr/bin/ss-monitor` and returned success without observing the monitor. The new code performs a fail-closed `pgrep -f` inventory, skips duplicate launches when a monitor is already running, and waits for a bounded PID count increase after scheduling.
+- Add validated process-pattern count/readiness helpers and production-linked test coverage for successful startup, timeout, scheduling failure, UNKNOWN inventory, duplicate prevention, disabled watchcat and no active proxy services.
+- Parent `361d4b33ef8801d94cd13d949f693974b46af1d3` fixed the regression harness scheduler yield and exact handoff phrase. Exact-head Actions were: Process inventory `44281846459` PASS; full inventory `44281846403` PASS; AI handoff docs `44281846410` FAIL because the handoff omitted the exact heading `Mandatory handoff checkpoint`. The heading is corrected in this handoff.
+- No local shell run or XY-C1 build is claimed. This watchcat slice needs exact-head Actions before it can be marked PASS.
+
+---
+
 ## 2026-11-18 — Make detached proxy readiness regression deterministic and restore exact handoff contract text
 
 - The parent SHA `8ad80886fbdd7623b118f3798af031a02cc6e897` re-ran the core process-lifecycle and AI-doc workflows. The latter still failed because the handoff used the literal `one atomic `main` commit` instead of the exact contract phrase `one atomic main commit`.

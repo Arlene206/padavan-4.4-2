@@ -98,6 +98,55 @@ ss_process_pattern_state() {
 	esac
 }
 
+ss_process_pattern_count() {
+	[ "$#" -eq 1 ] || return 2
+	ss_count_pattern=$1
+	[ -n "$ss_count_pattern" ] || return 2
+	ss_pattern_pid_output=$(pgrep -f "$ss_count_pattern" 2>/dev/null)
+	ss_pattern_pid_status=$?
+	case "$ss_pattern_pid_status" in
+		0)
+			ss_validate_pid_list "$ss_pattern_pid_output" || return 2
+			printf '%s\n' "$ss_pattern_pid_output" | awk '{ count += NF } END { print count + 0 }'
+			;;
+		1)
+			[ -z "$ss_pattern_pid_output" ] || return 2
+			printf '0\n'
+			;;
+		*) return 2 ;;
+	esac
+}
+
+ss_wait_process_pattern_count() {
+	[ "$#" -eq 3 ] || return 2
+	ss_pattern_wait_name=$1
+	ss_pattern_wait_expected=$2
+	ss_pattern_wait_limit=$3
+	[ -n "$ss_pattern_wait_name" ] || return 2
+	case "$ss_pattern_wait_expected" in
+		''|*[!0-9]*) return 2 ;;
+	esac
+	case "$ss_pattern_wait_limit" in
+		''|*[!0-9]*) return 2 ;;
+	esac
+	[ "$ss_pattern_wait_expected" -ge 1 ] || return 2
+	[ "$ss_pattern_wait_limit" -le 30 ] || return 2
+
+	ss_pattern_wait_count=0
+	while :; do
+		if ss_pattern_running_count=$(ss_process_pattern_count "$ss_pattern_wait_name"); then
+			:
+		else
+			ss_pattern_wait_status=$?
+			return "$ss_pattern_wait_status"
+		fi
+		[ "$ss_pattern_running_count" -ge "$ss_pattern_wait_expected" ] && return 0
+		[ "$ss_pattern_wait_count" -lt "$ss_pattern_wait_limit" ] || return 1
+		sleep 1 || return 2
+		ss_pattern_wait_count=$((ss_pattern_wait_count + 1))
+	done
+}
+
 ss_named_processes_state() {
 	ss_any_running=0
 	ss_any_unknown=0

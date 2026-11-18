@@ -721,14 +721,39 @@ rules() {
 	fi
 }
 
+ss_launch_watchcat() {
+	/usr/bin/ss-monitor "$@" >/dev/null 2>&1 &
+}
+
 start_watchcat() {
-	if [ $(nvram get ss_watchcat) = 1 ]; then
-		let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+v2ray_enable+local_enable+pdnsd_enable_flag+chinadnsng_enable_flag
-		if [ $total_count -gt 0 ]; then
-			#param:server(count) redir_tcp(0:no,1:yes)  redir_udp tunnel kcp local gfw
-			/usr/bin/ss-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $v2ray_enable $local_enable $pdnsd_enable_flag $chinadnsng_enable_flag >/dev/null 2>&1 &
-		fi
+	[ "$(nvram get ss_watchcat)" = "1" ] || return 0
+	total_count=$((server_count + redir_tcp + redir_udp + tunnel_enable + v2ray_enable + local_enable + pdnsd_enable_flag + chinadnsng_enable_flag))
+	[ "$total_count" -gt 0 ] || return 0
+
+	if watchcat_process_count=$(ss_process_pattern_count "/usr/bin/ss-monitor"); then
+		:
+	else
+		watchcat_status=$?
+		log "Cannot inspect ss-monitor before startup (status=$watchcat_status)"
+		return "$watchcat_status"
 	fi
+	[ "$watchcat_process_count" -eq 0 ] || return 0
+	watchcat_expected_count=$((watchcat_process_count + 1))
+
+	if ss_launch_watchcat "$server_count" "$redir_tcp" "$redir_udp" "$tunnel_enable" "$v2ray_enable" "$local_enable" "$pdnsd_enable_flag" "$chinadnsng_enable_flag"; then
+		:
+	else
+		watchcat_status=$?
+		log "Unable to schedule ss-monitor startup (status=$watchcat_status)"
+		return "$watchcat_status"
+	fi
+	if ss_wait_process_pattern_count "/usr/bin/ss-monitor" "$watchcat_expected_count" 5; then
+		return 0
+	else
+		watchcat_status=$?
+	fi
+	log "ss-monitor did not become ready (status=$watchcat_status)"
+	return "$watchcat_status"
 }
 
 auto_update() {
