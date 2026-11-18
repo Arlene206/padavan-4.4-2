@@ -53,7 +53,6 @@ mwan_ipv4_from_ifconfig() {
 	'
 }
 
-# Parse iptables-save output into argv; never evaluate its shell metacharacters.
 # Missing pppN devices are normal during WAN reconvergence. A failed
 # ifconfig probe is an error only while sysfs still reports the interface.
 MWAN_PPP_IPV4=
@@ -65,9 +64,10 @@ mwan_get_ppp_ipv4() {
 	if output="$(ifconfig "$iface")"; then
 		MWAN_PPP_IPV4="$(mwan_ipv4_from_ifconfig "$output")"
 		return 0
+	else
+		rc=$?
 	fi
 
-	rc=$?
 	# The interface may disappear between the sysfs check and ifconfig.
 	if [ -d "$MWAN_SYS_CLASS_NET/$iface" ]; then
 		mwan_fail "$rc" "ifconfig $iface"
@@ -75,6 +75,7 @@ mwan_get_ppp_ipv4() {
 	return 1
 }
 
+# Parse iptables-save output into argv; never evaluate its shell metacharacters.
 mwan_parse_rule() {
 	local line="$1" char quote="" token="" escaped=0 started=0 i
 	MWAN_RULE_ARGS=()
