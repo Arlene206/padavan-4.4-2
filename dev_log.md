@@ -1,3 +1,12 @@
+## 2026-11-18 — Fix HTTPD WISP source-check variable names
+
+- Parent main SHA: 01ce19d478735fe22ab2252929fe6dd0890ee330. Exact parent WAN route 44210860686 PASS (including manual WISP status propagation/source contract); AI handoff 44210860863 PASS.
+- Exact parent HTTPD Security 44210860852 failed in its inline source step with `NameError: net_wan is not defined`. That step binds the code as `wan`, `rc` and `header`; the added WISP source assertions mistakenly referenced `net_wan`, `rc_main` and `rc_header`.
+- Corrected only those references in the embedded Python contract. Product C source and assertion intent remain unchanged; exact-head HTTPD rerun pending.
+- Parent XY-C1 44210860887 and NVRAM 44210860859 remain in progress; do not infer L3.
+
+---
+
 ## 2026-11-18 — Propagate manual WISP reassociation failures into PID 1
 
 - Parent main SHA: 4e52a861c3e227baee1a914376f293557c356559. Exact parent HTTPD Security 44210330988 PASS, AI handoff 44210331008 PASS, AdGuardHome 44210331086 PASS, infosvr 44210331070 PASS, AliDDNS 44210331128 PASS, Process inventory/lifecycle 44210331089 PASS and AliyunDrive 44210330979 PASS. XY-C1 44210331166 remains in Build; NVRAM audit 44210331025 remains in raw caller audit.
