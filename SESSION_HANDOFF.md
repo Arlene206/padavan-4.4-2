@@ -1,9 +1,9 @@
-# 2026-11-19 continuation checkpoint — reject special-purpose IPv6 addresses in AliDDNS WAN discovery
+# 2026-11-19 continuation checkpoint — complete IANA IPv6 allocation filtering in AliDDNS
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Latest completed WAN source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`: all 22 exact-head workflows PASS, including XY-C1 Build/TRX/artifact run `44368075437`. The preceding startup-only SHA `865215612acd2fd5dce31d147eb6a60b809ab210` also reached 22/22 PASS. L3 is verified for both exact WAN source SHAs; physical-router L4 remains NOT VERIFIED.
+- Latest completed WAN source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`: 22/22 exact-head workflows PASS, including XY-C1 Build/TRX/artifact run `44368075437`. Its AliDDNS follow-up SHA `6fe52ee1972d96868b34685dfebafe714d5dc7ea` passed AliDDNS (`44372899008`), Process inventory (`44372899012`), AI docs (`44372899003`) and HTTPD security (`44372899085`); XY-C1 `44372899114` remained IN_PROGRESS at last poll. L3 applies only to `adedc6df`; physical-router L4 remains NOT VERIFIED.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not switch to, update or delete it.
 - PR #1 remains closed/unmerged; do not revive it.
 - No local repository checkout or local MIPS build was performed. GitHub Actions completed the XY-C1 cross-build, TRX verification and artifact upload on exact source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`; physical-router L4 remains unverified.
@@ -56,7 +56,7 @@ Reviewed `trunk/user/rc/src/init.c::init_sysctl()` against its callers and later
 
 The stock `arIpAddress6()` accepted any syntactically valid-looking address in `2000::/3` after checking Linux `Scope:Global`. That is insufficient: this broad global-unicast allocation contains special-purpose prefixes that IANA does not classify as globally reachable, including `2001:db8::/32` and the newer `3fff::/20` documentation range, benchmarking `2001:2::/48`, and deprecated ORCHIDv1 `2001:10::/28`. The kernel scope label does not replace address-registry classification.
 
-This slice adds an eight-hextet numeric classifier to stock WAN discovery, rejecting those prefixes while retaining ordinary global unicast. It leaves operator-supplied custom DDNS script semantics unchanged. The IPv6 host regression covers compressed and expanded representations of all four blocked ranges, native/tunnel interface cases, ambiguous multi-address output, ULA/link-local and ifconfig failures. Source/checker/firmware Actions for this new commit remain to be inspected before claiming validation.
+This slice adds an eight-hextet numeric classifier to stock WAN discovery, rejecting those prefixes while retaining ordinary global unicast. A follow-up review against the complete IANA allocation tables found that the 2001::/23 parent assignment contains a small set of more-specific globally reachable exceptions and that the 3f00::/8 allocation range is reserved. It also found the parser had left compressed zero hextets unset, which could miss compressed-prefix checks. This follow-up initializes omitted groups, rejects the unassigned 2001::/23 space, 2002::/16 non-universal 6to4, and all 3f00::/8, while preserving the explicit globally reachable IANA suballocations. Operator-supplied custom DDNS script semantics remain unchanged. Expanded tests exercise both rejected prefixes and the IANA allowlist; exact-head Actions for the resulting SHA remain pending.
 
 ### Exact-head result for the immediately preceding WAN security source
 
@@ -74,8 +74,8 @@ This slice adds an eight-hextet numeric classifier to stock WAN discovery, rejec
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head AliDDNS transport, Process autostart, XY-C1 and every other path-triggered Action for the new IPv6 special-purpose filter; do not transfer the previous `adedc6df` green build to this source SHA.
-2. If those checks pass, review any additional IANA non-globally-reachable prefixes that can appear inside `2000::/3`, preserving the explicitly supported native/tunnel interfaces and not changing operator custom-script behavior.
+1. Fetch live `main` and inspect exact-head AliDDNS, Process inventory, AI docs, HTTPD security and XY-C1 Actions for the complete IANA IPv6 allocation filter. The previous `6fe52ee` SHA is only partially CI-verified (4/5 pass; XY-C1 pending).
+2. Confirm the IPv6 regression exercises compressed/expanded forms and preserves IANA globally reachable more-specific exceptions while rejecting the reserved parent ranges. If any checker/build fails, fix it on this branch with another atomic source/test commit.
 3. Continue whole-userland stability/security work. Physical-router L4 remains unverified.
 ## Mandatory handoff checkpoint
 

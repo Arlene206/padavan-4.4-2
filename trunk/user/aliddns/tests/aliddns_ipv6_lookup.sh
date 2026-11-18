@@ -57,6 +57,31 @@ OUTPUT
           inet6 addr: 3fff:0fff:0000:0000:0000:0000:0000:0001/64 Scope:Global
 OUTPUT
 		;;
+	ietf-reserved)
+		cat <<'OUTPUT'
+          inet6 addr: 2001:0005:0000:0000:0000:0000:0000:0001/64 Scope:Global
+OUTPUT
+		;;
+	teredo)
+		cat <<'OUTPUT'
+          inet6 addr: 2001:0000:0000:0000:0000:0000:0000:0001/64 Scope:Global
+OUTPUT
+		;;
+	six-to-four)
+		cat <<'OUTPUT'
+          inet6 addr: 2002:0a00:0001:0000:0000:0000:0000:0001/64 Scope:Global
+OUTPUT
+		;;
+	reserved-3f00)
+		cat <<'OUTPUT'
+          inet6 addr: 3f00:0000:0000:0000:0000:0000:0000:0001/64 Scope:Global
+OUTPUT
+		;;
+	reserved-3ffe)
+		cat <<'OUTPUT'
+          inet6 addr: 3ffe:0000:0000:0000:0000:0000:0000:0001/64 Scope:Global
+OUTPUT
+		;;
 	ula)
 		cat <<'OUTPUT'
           inet6 addr: fd12:3456::1/64 Scope:Global
@@ -118,6 +143,11 @@ expect_failure ppp0 ppp0 documentation-2001
 expect_failure ppp0 ppp0 benchmarking
 expect_failure ppp0 ppp0 orchid-v1
 expect_failure ppp0 ppp0 documentation-3fff
+expect_failure ppp0 ppp0 ietf-reserved
+expect_failure ppp0 ppp0 teredo
+expect_failure ppp0 ppp0 six-to-four
+expect_failure ppp0 ppp0 reserved-3f00
+expect_failure ppp0 ppp0 reserved-3ffe
 expect_failure ppp0 ppp0 ula
 expect_failure ppp0 ppp0 link-local-only
 expect_failure ppp0 ppp0 multiple-global
@@ -132,6 +162,22 @@ fi
 if aliddns_ipv6_public_valid '3fff:0fff::1'; then
 	fail "new documentation IPv6 range passed the public-address policy"
 fi
+if aliddns_ipv6_public_valid '2001:2::1'; then
+	fail "compressed benchmarking IPv6 passed the public-address policy"
+fi
+if aliddns_ipv6_public_valid '3f00::1' || aliddns_ipv6_public_valid '3ffe::1' ||
+   aliddns_ipv6_public_valid '3fff:1000::1'; then
+	fail "reserved 3f00::/8 IPv6 allocation passed the public-address policy"
+fi
+if aliddns_ipv6_public_valid '2001:5::1' || aliddns_ipv6_public_valid '2001:1::4'; then
+	fail "unassigned IETF 2001::/23 space passed the public-address policy"
+fi
+for allowed in '2001:1::1' '2001:1::2' '2001:1::3' '2001:3::1' \
+               '2001:4:112::1' '2001:20::1' '2001:30::1'; do
+	if ! aliddns_ipv6_public_valid "$allowed"; then
+		fail "IANA globally reachable more-specific allocation was rejected: $allowed"
+	fi
+done
 if ! aliddns_ipv6_public_valid '2001:4860:4860::8888'; then
 	fail "a routable global-unicast IPv6 address was rejected"
 fi

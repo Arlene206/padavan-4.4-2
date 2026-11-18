@@ -1,3 +1,11 @@
+## 2026-11-19 — Complete IANA IPv6 reserved-range handling in AliDDNS
+
+- Parent main SHA: `6fe52ee1972d96868b34685dfebafe714d5dc7ea`. AliDDNS test run `44372899008`, Process inventory `44372899012`, AI docs `44372899003` and HTTPD security `44372899085` passed; XY-C1 `44372899114` was still running.
+- Full IANA allocation-table review showed two additional gaps in the first IPv6 filter: `2001::/23` is reserved except for explicit more-specific allocations, and the entire `3f00::/8` block is reserved (with `3fff::/20` documented). It also identified `2002::/16` 6to4 as not universally globally reachable.
+- The numeric parser now fills every compressed zero hextet explicitly. It rejects unassigned `2001::/23` addresses, Teredo via the reserved parent, 6to4, `2001:db8::/32`, deprecated ORCHIDv1 and all `3f00::/8`, while preserving the IANA globally reachable more-specific allocations `2001:1::1/128` through `::3/128`, `2001:3::/32`, `2001:4:112::/48`, `2001:20::/28` and `2001:30::/28`.
+- Regression adds compressed benchmark, reserved IETF, Teredo, 6to4 and 3fxx cases plus positive checks for every globally reachable more-specific exception. The AliDDNS source checker now pins this policy and test contract.
+- BusyBox awk smoke test passed for ordinary global addresses, the globally reachable exceptions, reserved 2001 and 3fxx prefixes, 6to4 and compressed forms. Exact-head AliDDNS/Process/AI/HTTPD/XY-C1 Actions for this follow-up SHA remain pending; no physical-router L4 result is claimed.
+
 ## 2026-11-19 — Reject non-global special-purpose IPv6 prefixes in stock AliDDNS WAN discovery
 
 - Parent main SHA: `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`. Its 22/22 exact-head Actions passed, including XY-C1 Build/TRX/artifact run `44368075437`. This previous SHA is L3 verified; it does not verify the new IPv6 filter.

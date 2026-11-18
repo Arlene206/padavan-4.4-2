@@ -378,16 +378,26 @@ require(
     and "documentation-2001" in ipv6_test
     and "benchmarking" in ipv6_test
     and "orchid-v1" in ipv6_test
-    and "documentation-3fff" in ipv6_test,
-    "WAN IPv6 regression must cover native/tunnel interfaces, IANA special-use prefixes and fail-closed cases",
+    and "documentation-3fff" in ipv6_test
+    and "ietf-reserved" in ipv6_test
+    and "teredo" in ipv6_test
+    and "six-to-four" in ipv6_test
+    and "reserved-3f00" in ipv6_test
+    and "reserved-3ffe" in ipv6_test
+    and "'2001:4:112::1'" in ipv6_test,
+    "WAN IPv6 regression must cover IANA reserved ranges and globally reachable exceptions",
 )
 require("function parse_part(part, target, offset" in ipv6_public_valid and
-        "first < 8192 || first > 16383" in ipv6_public_valid and
-        "first == 8193 && second == 2 && third == 0" in ipv6_public_valid and
-        "first == 8193 && second >= 16 && second <= 31" in ipv6_public_valid and
-        "first == 8193 && second == 3512" in ipv6_public_valid and
-        "first == 16383 && second <= 4095" in ipv6_public_valid,
-        "WAN IPv6 public-address policy must exclude special-purpose prefixes inside 2000::/3",
+        "groups[left_count + i] = 0" in ipv6_public_valid and
+        "first < 8192 || first >= 16128" in ipv6_public_valid and
+        "if (first == 8194)" in ipv6_public_valid and
+        "if (first == 8193 && second <= 511)" in ipv6_public_valid and
+        "second == 1 && third == 0" in ipv6_public_valid and
+        "if (second == 3)" in ipv6_public_valid and
+        "second == 4 && third == 274" in ipv6_public_valid and
+        "second >= 32 && second <= 63" in ipv6_public_valid and
+        "first == 8193 && second == 3512" in ipv6_public_valid,
+        "WAN IPv6 public-address policy must exclude unassigned special-purpose ranges while retaining IANA global exceptions",
 )
 require('ddns_script_path="${ALIDDNS_DDNS_SCRIPT_PATH:-/etc/storage/ddns_script.sh}"' in ddns_check and
         '[ -L "$ddns_script_path" ]' in ddns_check and

@@ -627,6 +627,8 @@ aliddns_ipv6_public_valid() {
 				    left_count + right_count >= 8)
 					exit 1
 				zero_count = 8 - left_count - right_count
+				for (i = 1; i <= zero_count; i++)
+					groups[left_count + i] = 0
 				for (i = 1; i <= right_count; i++)
 					groups[left_count + zero_count + i] = right_groups[i]
 			} else {
@@ -637,18 +639,32 @@ aliddns_ipv6_public_valid() {
 			first = groups[1]
 			second = groups[2]
 			third = groups[3]
-			# Non-global special-purpose subranges inside 2000::/3:
-			# 2001:2::/48 benchmarking, 2001:10::/28 deprecated ORCHIDv1,
-			# 2001:db8::/32 documentation, and 3fff::/20 documentation.
-			if (first < 8192 || first > 16383)
+			# Special-purpose exceptions inside the broad 2000::/3 allocation:
+			# 2001::/23 is reserved unless a more-specific globally reachable
+			# assignment exists; retain those exact IANA exceptions only.
+			# 2002::/16 (6to4) is not universally globally reachable.
+			# 2001:db8::/32 is documentation; 3f00::/8 remains reserved.
+			if (first < 8192 || first >= 16128)
 				exit 1
-			if (first == 8193 && second == 2 && third == 0)
+			if (first == 8194)
 				exit 1
-			if (first == 8193 && second >= 16 && second <= 31)
-				exit 1
+			if (first == 8193 && second <= 511) {
+				allowed = 0
+				if (second == 1 && third == 0 &&
+				    groups[4] == 0 && groups[5] == 0 &&
+				    groups[6] == 0 && groups[7] == 0 &&
+				    (groups[8] == 1 || groups[8] == 2 || groups[8] == 3))
+					allowed = 1
+				if (second == 3)
+					allowed = 1
+				if (second == 4 && third == 274)
+					allowed = 1
+				if (second >= 32 && second <= 63)
+					allowed = 1
+				if (!allowed)
+					exit 1
+			}
 			if (first == 8193 && second == 3512)
-				exit 1
-			if (first == 16383 && second <= 4095)
 				exit 1
 			valid = 1
 		}
