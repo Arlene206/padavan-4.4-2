@@ -1686,15 +1686,16 @@ miniupnpd_confirm_started(int launch_status)
 	int attempt;
 	int daemon_running = 0;
 	int scan_error;
+	int wait_status;
 	enum process_presence state;
 
 	if (launch_status != 0)
 		return miniupnpd_start_policy_status(launch_status, 0);
 
 	/* Let the detached child finish socket initialization before probing. */
-	status = service_start_wait_one_second("miniupnpd");
-	if (status != 0)
-		return status;
+	wait_status = service_start_wait_one_second("miniupnpd");
+	if (wait_status != 0)
+		return wait_status;
 	for (attempt = 0; attempt < MINIUPNPD_START_WAIT_ATTEMPTS; attempt++) {
 		state = miniupnpd_process_presence(&scan_error);
 		if (state == PROCESS_PRESENCE_RUNNING) {
@@ -1710,9 +1711,9 @@ miniupnpd_confirm_started(int launch_status)
 			return errno;
 		}
 		if (attempt + 1 < MINIUPNPD_START_WAIT_ATTEMPTS) {
-			status = service_start_wait_one_second("miniupnpd");
-			if (status != 0)
-				return status;
+			wait_status = service_start_wait_one_second("miniupnpd");
+			if (wait_status != 0)
+				return wait_status;
 		}
 	}
 

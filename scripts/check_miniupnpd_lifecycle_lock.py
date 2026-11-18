@@ -46,6 +46,9 @@ assert lock_acquire.index("if (errno == EINTR)") < lock_acquire.index("attempt++
 assert "service_wait_seconds(1)" in lock_acquire
 start_wait = body(SERVICES, "service_start_wait_one_second(const char *service_name")
 assert "service_wait_seconds(1)" in start_wait
+mini_confirm = body(SERVICES, "miniupnpd_confirm_started(int launch_status)")
+assert "int wait_status;" in mini_confirm
+assert "wait_status = service_start_wait_one_second(\"miniupnpd\")" in mini_confirm
 for signature, label in (
     ("dnsmasq_confirm_started(int launch_status)", '"DNSMasq"'),
     ("miniupnpd_confirm_started(int launch_status)", '"miniupnpd"'),
