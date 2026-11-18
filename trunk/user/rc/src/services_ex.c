@@ -49,6 +49,7 @@
 #include "miniupnpd_daemon_policy.h"
 #include "miniupnpd_presentation_url.h"
 #include "miniupnpd_lifecycle_lock.h"
+#include "service_wait_policy.h"
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
 #include "samba_config_file.h"
@@ -64,6 +65,20 @@
 #define DHCPD_LEASE_FILE	"/tmp/dnsmasq.leases"
 #define UPNPD_LEASE_FILE	"/tmp/miniupnpd.leases"
 #define INADYN_USER_DIR		"/etc/storage/inadyn"
+
+static int
+service_start_wait_one_second(const char *service_name)
+{
+	int status;
+
+	if (service_wait_seconds(1) == 0)
+		return 0;
+	status = errno ? errno : EIO;
+	logmessage(LOGNAME, "%s startup wait failed (errno=%d)", service_name, status);
+	errno = status;
+	return status;
+}
+
 
 static int
 simple_dhcp_range(const char *ip, char *dip1, char *dip2, const char *mask)
@@ -613,8 +628,11 @@ dnsmasq_confirm_started(int launch_status)
 				   scan_error ? scan_error : EIO);
 			break;
 		}
-		if (attempt + 1 < DNSMASQ_START_WAIT_ATTEMPTS)
-			sleep(1);
+		if (attempt + 1 < DNSMASQ_START_WAIT_ATTEMPTS) {
+			int wait_status = service_start_wait_one_second("DNSMasq");
+			if (wait_status != 0)
+				return wait_status;
+		}
 	}
 
 	return dnsmasq_start_policy_status(launch_status, presence);
@@ -1673,9 +1691,10 @@ miniupnpd_confirm_started(int launch_status)
 	if (launch_status != 0)
 		return miniupnpd_start_policy_status(launch_status, 0);
 
-	/* Let the detached child finish its immediate socket initialization before
-	 * the first process-presence probe; the parent has already exited 0. */
-	sleep(1);
+	/* Let the detached child finish socket initialization before probing. */
+	status = service_start_wait_one_second("miniupnpd");
+	if (status != 0)
+		return status;
 	for (attempt = 0; attempt < MINIUPNPD_START_WAIT_ATTEMPTS; attempt++) {
 		state = miniupnpd_process_presence(&scan_error);
 		if (state == PROCESS_PRESENCE_RUNNING) {
@@ -1690,8 +1709,11 @@ miniupnpd_confirm_started(int launch_status)
 				   errno);
 			return errno;
 		}
-		if (attempt + 1 < MINIUPNPD_START_WAIT_ATTEMPTS)
-			sleep(1);
+		if (attempt + 1 < MINIUPNPD_START_WAIT_ATTEMPTS) {
+			status = service_start_wait_one_second("miniupnpd");
+			if (status != 0)
+				return status;
+		}
 	}
 
 	return miniupnpd_start_policy_status(launch_status, daemon_running);
@@ -2425,8 +2447,11 @@ inadyn_confirm_started(int launch_status)
 		}
 		if (state != PROCESS_PRESENCE_ABSENT)
 			return status;
-		if (attempt + 1 < INADYN_START_WAIT_ATTEMPTS)
-			sleep(1);
+		if (attempt + 1 < INADYN_START_WAIT_ATTEMPTS) {
+			status = service_start_wait_one_second("Inadyn");
+			if (status != 0)
+				return status;
+		}
 	}
 
 	status = inadyn_start_status(launch_status, state, scan_error);

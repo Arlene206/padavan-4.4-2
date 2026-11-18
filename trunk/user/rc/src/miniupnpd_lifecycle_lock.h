@@ -7,48 +7,10 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "service_wait_policy.h"
+
 #define MINIUPNPD_LIFECYCLE_LOCK_FILE "/tmp/.miniupnpd.lifecycle.lock"
 #define MINIUPNPD_LIFECYCLE_LOCK_WAIT_SECONDS 10
-
-/*
- * sleep() returns the unslept remainder when a signal interrupts it. Keep
- * waiting for that remainder so signal traffic cannot consume the lock's
- * contention timeout early. The callback makes the interruption contract
- * deterministic in the host regression.
- */
-typedef unsigned int (*miniupnpd_lifecycle_lock_sleep_fn)(
-	unsigned int seconds, void *context);
-
-static inline unsigned int
-miniupnpd_lifecycle_lock_sleep_real(unsigned int seconds, void *context)
-{
-	(void)context;
-	return sleep(seconds);
-}
-
-static inline int
-miniupnpd_lifecycle_lock_wait(unsigned int seconds,
-			      miniupnpd_lifecycle_lock_sleep_fn sleep_fn,
-			      void *context)
-{
-	unsigned int remaining = seconds;
-
-	if (!sleep_fn) {
-		errno = EINVAL;
-		return -1;
-	}
-	while (remaining > 0) {
-		unsigned int next = sleep_fn(remaining, context);
-
-		/* sleep() cannot return more than the requested remainder. */
-		if (next > remaining) {
-			errno = EIO;
-			return -1;
-		}
-		remaining = next;
-	}
-	return 0;
-}
 
 /* Keep this inode stable: unlinking a locked file can split lock participants. */
 static inline int
@@ -94,8 +56,7 @@ miniupnpd_lifecycle_lock_acquire_path(const char *path,
 			errno = EBUSY;
 			goto failed;
 		}
-		if (miniupnpd_lifecycle_lock_wait(
-			    1, miniupnpd_lifecycle_lock_sleep_real, NULL) != 0)
+		if (service_wait_seconds(1) != 0)
 			goto failed;
 	}
 failed:

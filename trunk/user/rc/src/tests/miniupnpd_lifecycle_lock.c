@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "miniupnpd_lifecycle_lock.h"
+#include "service_wait_policy.h"
 
 static int
 test_exclusive_process_lock(void)
@@ -85,7 +86,7 @@ fixture_sleep(unsigned int seconds, void *opaque)
 }
 
 static int
-test_interrupted_lock_wait_retries_remaining_time(void)
+test_interrupted_service_wait_retries_remaining_time(void)
 {
 	struct sleep_fixture fixture;
 
@@ -93,7 +94,7 @@ test_interrupted_lock_wait_retries_remaining_time(void)
 	fixture.remaining[0] = 3; /* sleep(5) interrupted with 3 seconds left. */
 	fixture.remaining[1] = 1; /* A second signal leaves one second. */
 	fixture.remaining[2] = 0;
-	assert(miniupnpd_lifecycle_lock_wait(5, fixture_sleep, &fixture) == 0);
+	assert(service_wait_seconds_with(5, fixture_sleep, &fixture) == 0);
 	assert(fixture.calls == 3);
 	assert(fixture.requested[0] == 5);
 	assert(fixture.requested[1] == 3);
@@ -102,12 +103,12 @@ test_interrupted_lock_wait_retries_remaining_time(void)
 	memset(&fixture, 0, sizeof(fixture));
 	fixture.remaining[0] = 2; /* Remaining time cannot grow. */
 	errno = 0;
-	assert(miniupnpd_lifecycle_lock_wait(1, fixture_sleep, &fixture) == -1);
+	assert(service_wait_seconds_with(1, fixture_sleep, &fixture) == -1);
 	assert(errno == EIO);
 	assert(fixture.calls == 1);
 
 	errno = 0;
-	assert(miniupnpd_lifecycle_lock_wait(1, NULL, NULL) == -1);
+	assert(service_wait_seconds_with(1, NULL, NULL) == -1);
 	assert(errno == EINVAL);
 	return 0;
 }
@@ -118,6 +119,6 @@ main(void)
 	assert(test_exclusive_process_lock() == 0);
 	assert(test_invalid_paths_are_rejected() == 0);
 	assert(test_interrupted_lock_wait_retries_remaining_time() == 0);
-	puts("MiniUPnP lifecycle lock contention, EINTR-safe timeout, inode validation and release: PASS");
+	puts("MiniUPnP lock and detached service waits preserve remaining time across EINTR: PASS");
 	return 0;
 }
