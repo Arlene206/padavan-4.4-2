@@ -1464,8 +1464,12 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 			launch_status = start_udhcpc_wan(man_ifname, unit, wait_dhcpc);
 			
 			/* add delay 2s after eth3 up: gethostbyname delay issue (L2TP/PPTP) */
-			if (wait_dhcpc && launch_status == 0)
-				sleep(2);
+			if (wait_dhcpc && launch_status == 0 &&
+			    service_wait_seconds(2) != 0) {
+				launch_status = errno > 0 ? errno : EIO;
+				logmessage(LOGNAME, "WAN DHCP settling wait failed on %s (status=%d)",
+					   man_ifname, launch_status);
+			}
 		} else
 			launch_status = start_zcip_wan(man_ifname);
 	} else {
@@ -1551,7 +1555,12 @@ wait_ppp_up(char *ppp_ifname, int unit)
 				   ppp_ifname, failure_status);
 			return failure_status;
 		}
-		sleep(1);
+		if (service_wait_seconds(1) != 0) {
+			failure_status = errno > 0 ? errno : EIO;
+			logmessage(LOGNAME, "PPP interface %s startup wait failed (status=%d)",
+				   ppp_ifname, failure_status);
+			return failure_status;
+		}
 	}
 
 	/* Retrieve IP info */
@@ -2335,7 +2344,12 @@ stop_wan_locked(void)
 		stop_status = -1;
 		goto abort_resume_detect;
 	}
-	usleep(300000);
+	if (service_wait_microseconds(300000U) != 0) {
+		stop_status = errno > 0 ? errno : EIO;
+		logmessage(LOGNAME, "refusing WAN teardown: DHCP deconfig grace wait failed (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
 	/*
 	 * udhcpc owns retries for a failed deconfig callback (default -A is 20s).
 	 * Never SIGKILL it: wait once for its callback retry and abort teardown

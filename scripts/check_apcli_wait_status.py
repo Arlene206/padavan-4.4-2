@@ -105,6 +105,15 @@ require("rc_wan_apcli_wait_status(-1) == EACCES" in TEST and
         "regression must cover wait failure and missing errno")
 require('#include "service_wait_policy.h"' in WAN,
         "production AP-client polling must use the shared wait policy")
+launch_settle = body(WAN, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)")
+require("service_wait_seconds(2) != 0" in launch_settle and "sleep(2)" not in launch_settle,
+        "successful DHCP startup must retain its full two-second settle interval")
+ppp_wait = body(WAN, "wait_ppp_up(char *ppp_ifname, int unit)")
+require("service_wait_seconds(1) != 0" in ppp_wait and "sleep(1)" not in ppp_wait,
+        "PPP interface polling must retain its full one-second intervals")
+require("service_wait_microseconds(300000U) != 0" in WAN and
+        "DHCP deconfig grace wait failed" in WAN,
+        "WAN teardown must abort safely if the DHCP deconfig grace interval fails")
 
 required_paths = (
     "trunk/user/rc/src/net_wan.c",
