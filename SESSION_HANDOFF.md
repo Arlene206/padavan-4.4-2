@@ -18,7 +18,7 @@
 - Parent source `5ddc0319`: Process inventory and Process umbrella passed; XY-C1 `44236350451` was IN_PROGRESS at last poll. That build is not evidence for the new ttyd source.
 - THIS ttyd source/checker/docs slice awaits exact-head Process lifecycle, Process inventory, AI handoff and XY-C1 checks. No local production cross-build or physical-router run is claimed.
 
-## Exact first actions for the next GPT
+## Exact first action for the next GPT
 1. Fetch the live main SHA and inspect exact-SHA Process lifecycle/inventory, AI handoff and XY-C1 Actions for THIS ttyd change. Diagnose and fix any failure at its originating SHA.
 2. Confirm the XY-C1 job reached Build XY-C1, Verify TRX output and Upload firmware artifact on that same source SHA; host checks alone are L2, not L3.
 3. If checks pass, audit async RC optional-app launchers, especially AdGuardHome/DDNSTO/Adbyby/AliDDNS, against their own shell readiness behavior; add a concrete regression before changing any caller.

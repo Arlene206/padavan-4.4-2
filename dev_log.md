@@ -1,3 +1,10 @@
+## 2026-11-17 — Restore the exact handoff heading required by the live contract
+
+- Parent main: `9df55d47899e5b84b491f70c00c224b14998aa77`. The new ttyd handoff content was correct, but the AI documentation contract requires the exact section heading `## Exact first action for the next GPT`; this checkpoint initially used a plural variant and the exact-head AI handoff run `44237365114` failed on that literal.
+- Restore the canonical heading without changing the task or verification claims. Re-run the AI handoff documentation contract on this corrective SHA.
+
+---
+
 ## 2026-11-17 — Verify the detached ttyd child after launcher success
 
 - Parent main: `56eff0e0e7c27fd1c632eb41e96df733febd72aa`. `ttyd.sh` starts the service with `start-stop-daemon -S -b`, so `eval()` only proves that the background launch was requested. `start_ttyd()` previously returned success without checking whether the detached child survived a bind/setup failure or immediate exit.
