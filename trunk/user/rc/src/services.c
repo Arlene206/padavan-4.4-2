@@ -203,10 +203,11 @@ start_syslogd(void)
 				   errno);
 			return -1;
 		}
-		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("syslogd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
 				return start_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
@@ -251,10 +252,11 @@ start_klogd(void)
 				   errno);
 			return -1;
 		}
-		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("klogd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
 				return start_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
@@ -310,10 +312,11 @@ start_infosvr(void)
 				   errno);
 			return -1;
 		}
-		if (attempt + 1 < INFOSVR_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < INFOSVR_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("infosvr", INFOSVR_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
 				return start_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
@@ -416,10 +419,11 @@ start_crond(void)
 			break;
 		}
 
-		if (attempt + 1 < CROND_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < CROND_START_PROBE_ATTEMPTS) {
 			status = service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS);
 			if (status != 0)
 				return status;
+		}
 	}
 
 	logmessage(LOGNAME, "crond daemon did not remain running after launch");
@@ -504,10 +508,11 @@ start_networkmap(int first_call)
 			return -1;
 		}
 		process_snapshot_release(&snapshot);
-		if (attempt + 1 < NETWORKMAP_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < NETWORKMAP_START_PROBE_ATTEMPTS) {
 			launch_status = service_start_probe_wait("networkmap", NETWORKMAP_START_RETRY_WAIT_SECONDS);
 			if (launch_status != 0)
 				return launch_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
@@ -625,10 +630,11 @@ start_telnetd(void)
 				   errno);
 			return -1;
 		}
-		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("telnetd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
 				return start_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
@@ -739,10 +745,11 @@ int start_sshd(void)
 				   errno);
 			return -1;
 		}
-		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("SSH", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
 				return start_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
@@ -966,10 +973,11 @@ start_ttyd(void)
 				   errno);
 			return -1;
 		}
-		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("ttyd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
 				return start_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
@@ -1492,10 +1500,11 @@ start_httpd_locked(int restart_fw)
 			break;
 		}
 
-		if (attempt + 1 < HTTPD_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < HTTPD_START_PROBE_ATTEMPTS) {
 			status = service_start_probe_wait("HTTPD", HTTPD_START_RETRY_WAIT_SECONDS);
 			if (status != 0)
 				return status;
+		}
 	}
 
 	if (status != 0) {
@@ -1659,10 +1668,11 @@ start_rstats(void)
 				   errno);
 			return -1;
 		}
-		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("rstats", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
 				return start_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
@@ -1724,10 +1734,11 @@ start_lltd(void)
 				   errno);
 			return -1;
 		}
-		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("LLTD", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
 				return start_status;
+		}
 	}
 
 	errno = ETIMEDOUT;
