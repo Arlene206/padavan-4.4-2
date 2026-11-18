@@ -2,10 +2,10 @@
 #define PADAVAN_FIREWALL_STARTUP_POLICY_H
 
 /*
- * Do not start WAN with a required but unapplied IPv4 NAT baseline. Filtering
- * is a separate prerequisite: when enabled, every active IP family must
- * have its restrictive default INPUT/FORWARD policy installed. When a
- * feature is explicitly disabled, its status is not a startup dependency.
+ * Do not start WAN unless the required switch VLAN isolation was configured.
+ * The IPv4 NAT baseline and restrictive firewall filters are additional
+ * prerequisites. Explicitly disabled firewall/NAT features are not startup
+ * dependencies, but they never bypass the switch-isolation requirement.
  */
 static int
 firewall_startup_policy_allows_wan(int firewall_enabled,
@@ -13,8 +13,12 @@ firewall_startup_policy_allows_wan(int firewall_enabled,
 				   int ipv6_filter_required,
 				   int ipv6_filter_status,
 				   int nat_required,
-				   int nat_restore_status)
+				   int nat_restore_status,
+				   int switch_vlan_status)
 {
+	if (switch_vlan_status != 0)
+		return 0;
+
 	if (nat_required && nat_restore_status != 0)
 		return 0;
 

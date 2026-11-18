@@ -1,3 +1,14 @@
+## 2026-11-19 — Block WAN startup when switch VLAN isolation fails
+
+- Closed the previous handoff candidate after checking every RC C source and `rc.h`: the five optional-app `void start_*` wrappers (AdGuardHome, DDNSTO, Adbyby, AliDDNS and FRP) have no C callers, while the dispatcher uses their `int restart_*` entry points. No dead-code prototype changes were made. Confirmed `restart_crond() < 0` is intentional because disabled crond startup returns positive 1 as a benign no-op.
+- Found a P1 startup gap: router-mode `init_bridge()` recorded `switch_config_vlan(1)` failure, but WAN admission only checked firewall/NAT policy and could still call `start_wan()`. Exported the exact VLAN/isolation status separately from unrelated bridge/radio/guest startup results and made the WAN policy fail closed for every nonzero status, even with firewall and NAT disabled. Existing forwarding-disable cleanup remains in place.
+- Extended the firewall startup C regression for positive and negative VLAN errors; added source-level contracts for the output parameter, caller, policy order and dedicated diagnostic. Synchronized firewall workflow push/pull_request paths and added the production header plus host test to the XY-C1 push filter.
+- Base main: `26f0638d76b94a076278f14cf976a6a015d310dc`. Result: THIS COMMIT (exact SHA resolved from live main on the next recovery). Beijing time (UTC+8): 2026-11-19 00:47:43.
+- Validation: no local checkout/compiler or local C test was available. Exact-head firewall startup, Process lifecycle, XY-C1 Build/TRX/artifact and AI handoff Actions are PENDING until checked against this commit's exact `head_sha`. No L3/L4 claim is made for this slice. Prior XY-C1 run `44342177852` on `64a208a94e3609ed73633451b8afc0fe6c5db7a8` was confirmed SUCCESS for Build, TRX and artifact upload (artifact `14444558335`); it is prior-SHA evidence only.
+- Next: inspect exact-SHA Actions, then audit `init_sysctl()` write-result handling in PID 1, separating required network/firewall sysctls from best-effort tuning before changing startup behavior.
+
+---
+
 ## 2026-11-18 — Gate WAN teardown and preserve resolver scanner failures
 
 - Detector pause signalling now returns a normalized status. Controlled AP-LAN, PPP-only WAN and full-WAN stop paths fail closed before destructive teardown when the monitor may still be live; missing/already-exited monitor pidfiles remain harmless. DHCP/PPP deconfig callbacks use advisory pause and continue committed lease/interface/route cleanup.

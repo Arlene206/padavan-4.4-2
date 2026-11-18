@@ -249,7 +249,7 @@ int lan_up_manual(char *lan_ifname, char *lan_dname);
 void update_lan_status(int is_auto);
 int full_restart_lan(void);
 int init_loopback(void);
-int init_bridge(int is_ap_mode);
+int init_bridge(int is_ap_mode, int *switch_vlan_status);
 int config_bridge(int is_ap_mode);
 int switch_config_base(void);
 int switch_config_storm(void);

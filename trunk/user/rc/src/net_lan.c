@@ -168,7 +168,7 @@ init_bridge_load_module_verified(const char *module_name, const char *module_par
 }
 
 int
-init_bridge(int is_ap_mode)
+init_bridge(int is_ap_mode, int *switch_vlan_status)
 {
 	rc_bridge_init_status_t bridge_status;
 	int operation_status;
@@ -192,11 +192,15 @@ init_bridge(int is_ap_mode)
 	char *lan_hwaddr = nvram_safe_get("lan_hwaddr");
 
 	rc_bridge_init_status_reset(&bridge_status);
+	if (switch_vlan_status)
+		*switch_vlan_status = 0;
 
 	if (!is_ap_mode)
 	{
 		/* set switch bridge mode and vlan isolation */
 		operation_status = switch_config_vlan(1);
+		if (switch_vlan_status)
+			*switch_vlan_status = operation_status;
 		rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);
 	}
 	else

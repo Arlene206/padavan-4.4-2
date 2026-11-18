@@ -969,6 +969,7 @@ init_router(void)
 	int storage_save_status, dnsmasq_start_status;
 	int boot_modules_status, boot_services_status;
 	int rwfs_mount_status;
+	int switch_vlan_status = 0;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -1061,7 +1062,7 @@ init_router(void)
 			boot_services_status, loopback_start_status);
 	}
 	{
-		int bridge_start_status = init_bridge(is_ap_mode);
+		int bridge_start_status = init_bridge(is_ap_mode, &switch_vlan_status);
 		if (bridge_start_status != 0)
 			logmessage(LOGNAME, "LAN bridge boot initialization incomplete (status=%d)", bridge_start_status);
 		boot_services_status = rc_first_service_start_status(
@@ -1153,8 +1154,13 @@ init_router(void)
 							ipv6_filter_required,
 							ipv6_filter_status,
 							nat_required,
-							nat_restore_status)) {
-			logmessage(LOGNAME, "Blocking WAN startup: required NAT table or restrictive IPv4/IPv6 firewall filters could not be verified");
+							nat_restore_status,
+							switch_vlan_status)) {
+			if (switch_vlan_status != 0)
+				logmessage(LOGNAME, "Blocking WAN startup: required switch VLAN isolation could not be verified (status=%d)",
+					   switch_vlan_status);
+			else
+				logmessage(LOGNAME, "Blocking WAN startup: required NAT table or restrictive IPv4/IPv6 firewall filters could not be verified");
 			ipv4_forward_disable_status = set_ipv4_forward(0);
 			if (ipv4_forward_disable_status != 0) {
 				logmessage(LOGNAME, "failed to disable IPv4 forwarding after firewall startup rejection (status=%d)",

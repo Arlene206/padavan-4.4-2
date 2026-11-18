@@ -51,6 +51,7 @@ on:
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
       - ".github/workflows/firewall-startup-stability.yml"
+      - "trunk/user/rc/src/net_lan.c"
   pull_request:
     paths:
       - "trunk/user/rc/src/rc.c"
@@ -61,6 +62,9 @@ on:
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/net.c"
+      - "scripts/check_forwarding_control_status.py"
+      - "trunk/user/rc/src/tests/ipv4_forward_policy.c"
+      - "trunk/user/rc/src/ipv4_forward_policy.h"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/wan_route_flush_policy.h"
       - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
@@ -98,6 +102,7 @@ on:
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
       - ".github/workflows/firewall-startup-stability.yml"
+      - "trunk/user/rc/src/net_lan.c"
   workflow_dispatch:
 
 jobs:
@@ -119,6 +124,8 @@ jobs:
           from pathlib import Path
 
           rc = Path("trunk/user/rc/src/rc.c").read_text()
+          rc_header = Path("trunk/user/rc/src/rc.h").read_text()
+          net_lan = Path("trunk/user/rc/src/net_lan.c").read_text()
           policy = Path("trunk/user/rc/src/firewall_startup_policy.h").read_text()
           workflow = Path(".github/workflows/firewall-startup-stability.yml").read_text()
 
@@ -188,6 +195,29 @@ jobs:
           assert startup.index("if (!firewall_startup_policy_allows_wan(") < startup.index("start_wan();")
           assert "set_ipv4_forward(0);" in startup
           assert "required NAT table or restrictive IPv4/IPv6 firewall filters" in startup
+
+          bridge = body(net_lan, "init_bridge(int is_ap_mode, int *switch_vlan_status)")
+          bridge_compact = " ".join(bridge.split())
+          assert "if (switch_vlan_status) *switch_vlan_status = 0;" in bridge_compact
+          assert "int init_bridge(int is_ap_mode, int *switch_vlan_status);" in rc_header
+          vlan_config = bridge_compact.index("operation_status = switch_config_vlan(1);")
+          vlan_capture = bridge_compact.index("*switch_vlan_status = operation_status;", vlan_config)
+          vlan_record = bridge_compact.index('rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);', vlan_capture)
+          assert vlan_config < vlan_capture < vlan_record
+
+          router_init = body(rc, "init_router(void)")
+          router_compact = " ".join(router_init.split())
+          assert "int switch_vlan_status = 0;" in router_compact
+          assert "init_bridge(is_ap_mode, &switch_vlan_status)" in router_compact
+          policy_call = router_compact.index("firewall_startup_policy_allows_wan(")
+          policy_vlan_arg = router_compact.index("switch_vlan_status", policy_call)
+          wan_start = router_compact.index("start_wan();")
+          assert policy_call < policy_vlan_arg < wan_start
+          assert "Blocking WAN startup: required switch VLAN isolation could not be verified" in router_init
+          switch_vlan_gate = policy.index("if (switch_vlan_status != 0)")
+          nat_gate = policy.index("if (nat_required && nat_restore_status != 0)")
+          firewall_bypass = policy.index("if (!firewall_enabled)")
+          assert switch_vlan_gate < nat_gate < firewall_bypass
 
           nat_gate = policy.index("if (nat_required && nat_restore_status != 0)")
           firewall_bypass = policy.index("if (!firewall_enabled)")
@@ -277,6 +307,7 @@ jobs:
               "trunk/user/rc/src/tests/firewall_restore_transaction.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/net_lan.c",
               "trunk/user/rc/src/wireless_module_load_policy.h",
               "trunk/user/rc/src/tests/wireless_module_load_policy.c",
               "trunk/user/rc/src/firewall_startup_policy.h",
