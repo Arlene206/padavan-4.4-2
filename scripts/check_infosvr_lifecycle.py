@@ -76,14 +76,15 @@ assert running < unknown < disabled < launch_status < launch_log < launch_return
 assert "return 1;" in start[disabled:launch_status]
 assert "if (start_status != 0)" in start
 assert "return start_status;" in start
-assert "sleep(INFOSVR_START_INITIAL_WAIT_SECONDS);" in start
+assert 'service_start_probe_wait("infosvr", INFOSVR_START_INITIAL_WAIT_SECONDS)' in start
+assert 'service_start_probe_wait("infosvr", INFOSVR_START_RETRY_WAIT_SECONDS)' in start
 assert "for (attempt = 0; attempt < INFOSVR_START_PROBE_ATTEMPTS; attempt++)" in start
 assert 'process_state = optional_daemon_presence("infosvr", &scan_error);' in start
 assert "infosvr_start_postcondition(start_status, process_state)" in start
 assert "process_state == PROCESS_PRESENCE_UNKNOWN" in start
 assert "errno = scan_error > 0 ? scan_error : EIO;" in start
 assert "errno = ETIMEDOUT;" in start
-assert start.index('eval("/usr/sbin/infosvr", IFNAME_BR);') < start.index("sleep(INFOSVR_START_INITIAL_WAIT_SECONDS);")
+assert start.index('eval("/usr/sbin/infosvr", IFNAME_BR);') < start.index('service_start_probe_wait("infosvr", INFOSVR_START_INITIAL_WAIT_SECONDS)')
 stop = function_body(services, "stop_infosvr(void)")
 assert "return kill_services(svcs, 3, 1);" in stop
 
