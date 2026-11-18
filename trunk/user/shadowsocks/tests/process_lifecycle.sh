@@ -92,9 +92,43 @@ cat > "$TMP_DIR/bin/sleep" <<'EOF'
 exit 0
 EOF
 
+cat > "$TMP_DIR/bin/dnsproxy" <<'EOF'
+#!/bin/sh
+case "${DNS_START_MODE:-ready}" in
+	fail) exit 1 ;;
+	unknown) : > "$PROCESS_STATE_DIR/pidof_unknown" ;;
+esac
+printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsproxy"
+exit 0
+EOF
+
+cat > "$TMP_DIR/bin/dns2tcp" <<'EOF'
+#!/bin/sh
+case "${DNS_START_MODE:-ready}" in
+	fail) exit 1 ;;
+	unknown) : > "$PROCESS_STATE_DIR/pidof_unknown" ;;
+esac
+printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dns2tcp"
+exit 0
+EOF
+
+chmod 755 "$TMP_DIR/bin/dnsproxy" "$TMP_DIR/bin/dns2tcp"
 chmod 755 "$TMP_DIR/bin/pidof" "$TMP_DIR/bin/killall" "$TMP_DIR/bin/pgrep" "$TMP_DIR/bin/pkill" "$TMP_DIR/bin/sleep"
 log() { :; }
+nvram() {
+	case "$1:$2" in
+		get:pdnsd_enable) echo "${DNS_PDNSD_ENABLE:-0}" ;;
+		get:tunnel_forward) echo "${DNS_UPSTREAM:-8.8.8.8#53}" ;;
+		*) return 90 ;;
+	esac
+}
+ipset() { return 0; }
 . "$TEST_DIR/../scripts/shadowsocks_process_lifecycle.sh"
+sed -n \
+	-e '/^stop_dns_proxy() {/,/^}/p' \
+	-e '/^start_dns_proxy() {/,/^}/p' \
+	"$TEST_DIR/../scripts/shadowsocks.sh" > "$TMP_DIR/dns-proxy-functions.sh"
+. "$TMP_DIR/dns-proxy-functions.sh"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 expect_status() {
@@ -196,4 +230,37 @@ expect_status 1 "stuck monitor remains a stop failure" ss_stop_process_pattern '
 grep -q '^PATTERN-TERM /usr/bin/ss-monitor$' "$KILL_LOG"
 grep -q '^PATTERN-KILL /usr/bin/ss-monitor$' "$KILL_LOG"
 
+# The required DNS proxy stage must observe the selected daemon after launch.
+export DNS_PDNSD_ENABLE=0 DNS_UPSTREAM='8.8.8.8#53' DNS_START_MODE=ready
+rm -f "$PROCESS_STATE_DIR/dnsproxy" "$PROCESS_STATE_DIR/dns2tcp" "$PROCESS_STATE_DIR/pidof_unknown"
+start_dns_proxy
+[ -f "$PROCESS_STATE_DIR/dnsproxy" ] || fail "dnsproxy launch was not observed"
+stop_dns_proxy
+[ ! -f "$PROCESS_STATE_DIR/dnsproxy" ] || fail "DNS proxy stop did not remove dnsproxy"
+
+# dns2tcp is an alternate backend and is subject to the same readiness gate.
+DNS_PDNSD_ENABLE=1
+start_dns_proxy
+[ -f "$PROCESS_STATE_DIR/dns2tcp" ] || fail "dns2tcp launch was not observed"
+stop_dns_proxy
+
+# Immediate child exit is not reported as a healthy DNS service.
+DNS_PDNSD_ENABLE=0
+DNS_START_MODE=fail
+expect_status 1 "DNS proxy child launch failure" start_dns_proxy
+[ ! -f "$PROCESS_STATE_DIR/dnsproxy" ] || fail "failed dnsproxy fixture became visible"
+
+# Unknown inventory is distinct from confirmed absence and must not signal.
+: > "$KILL_LOG"
+DNS_START_MODE=unknown
+expect_status 2 "DNS proxy unknown startup inventory" start_dns_proxy
+[ ! -s "$KILL_LOG" ] || fail "unknown DNS proxy inventory caused a signal"
+rm -f "$PROCESS_STATE_DIR/pidof_unknown" "$PROCESS_STATE_DIR/dnsproxy"
+
+DNS_UPSTREAM=''
+DNS_START_MODE=ready
+expect_status 1 "empty DNS upstream rejected" start_dns_proxy
+DNS_UPSTREAM='8.8.8.8#53'
+DNS_PDNSD_ENABLE=9
+expect_status 1 "unsupported DNS proxy backend rejected" start_dns_proxy
 echo "Shadowsocks process lifecycle regression: PASS"

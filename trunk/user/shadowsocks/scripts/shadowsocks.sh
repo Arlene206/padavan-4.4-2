@@ -388,28 +388,57 @@ start_redir_udp() {
 }
 
 stop_dns_proxy() {
-	pgrep dns2tcp | args kill
-	pgrep dnsproxy | args kill	
+	ss_stop_named_processes dns2tcp dnsproxy
 }
 
 start_dns_proxy() {
+	local dns_process=""
+	local launch_status=0
+
 	pdnsd_enable=$(nvram get pdnsd_enable) # 0: dnsproxy , 1: dns2tcp
 	pdnsd_enable_flag=$pdnsd_enable
 	dnsstr="$(nvram get tunnel_forward)"
 	dnsserver=$(echo "$dnsstr" | awk -F '#' '{print $1}')
-	if [ $pdnsd_enable = 1 ]; then
-	    log "启动 dns2tcp：5353 端口..."
+	[ -n "$dnsserver" ] && [ "$dnsserver" != "nil" ] || {
+		log "DNS upstream is empty; refusing proxy launch"
+		return 1
+	}
+
+	case "$pdnsd_enable" in
+		1) dns_process=dns2tcp ;;
+		0) dns_process=dnsproxy ;;
+		*)
+			log "DNS解析方式不支持该选项: $pdnsd_enable , 建议选择dnsproxy"
+			return 1
+			;;
+	esac
+	if ! command -v "$dns_process" >/dev/null 2>&1; then
+		log "DNS proxy executable is unavailable: $dns_process"
+		return 127
+	fi
+
+	if [ "$dns_process" = "dns2tcp" ]; then
+		log "启动 dns2tcp：5353 端口..."
 		# 将dnsserver (上游国外DNS: 比如 8.8.8.8) 放入ipset:gfwlist，强制走SS_SPEC_WAN_FW代理
-		ipset add gfwlist $dnsserver 2>/dev/null
+		ipset add gfwlist "$dnsserver" 2>/dev/null
 		dns2tcp -L"127.0.0.1#5353" -R"$dnsserver" >/dev/null 2>&1 &
-	elif [ $pdnsd_enable = 0 ]; then
+	else
 		log "启动 dnsproxy：5353 端口..."
 		# 将dnsserver (上游国外DNS: 比如 8.8.8.8) 放入ipset:gfwlist，强制走SS_SPEC_WAN_FW代理
-		ipset add gfwlist $dnsserver 2>/dev/null
-		dnsproxy -d -p 5353 -R $dnsserver >/dev/null 2>&1 &
-	else
-		log "DNS解析方式不支持该选项: $pdnsd_enable , 建议选择dnsproxy"
+		ipset add gfwlist "$dnsserver" 2>/dev/null
+		dnsproxy -d -p 5353 -R "$dnsserver" >/dev/null 2>&1 &
 	fi
+
+	if ss_wait_named_process_started "$dns_process" 5; then
+		return 0
+	else
+		launch_status=$?
+	fi
+	log "DNS proxy did not become available: $dns_process (status=$launch_status)"
+	if ! ss_stop_named_processes "$dns_process"; then
+		log "DNS proxy launch cleanup could not verify $dns_process shutdown"
+	fi
+	return "$launch_status"
 }
 
 start_dns() {
@@ -455,8 +484,19 @@ EOF
 		# 不论chinadns-ng打开与否，都重启dns_proxy 
 		# 原因是针对gfwlist ipset有一个专有的dnsmasq配置表（由ss-rule创建放在/tmp/dnsmasq.dom/gfwlist_list.conf)
 		# 需要查询上游dns_proxy在本地5353端口
-		stop_dns_proxy
-		start_dns_proxy
+		if stop_dns_proxy; then
+			:
+		else
+			dns_status=$?
+			log "DNS proxy cleanup failed (status=$dns_status)"
+			return "$dns_status"
+		fi
+		if start_dns_proxy; then
+			:
+		else
+			dns_status=$?
+			return "$dns_status"
+		fi
 		start_chinadns
 	;;
 	gfw)
@@ -464,8 +504,19 @@ EOF
 		dnsserver=$(echo "$dnsstr" | awk -F '#' '{print $1}')
 		#dnsport=$(echo "$dnsstr" | awk -F '#' '{print $2}')
 		ipset add gfwlist $dnsserver 2>/dev/null
-		stop_dns_proxy
-		start_dns_proxy
+		if stop_dns_proxy; then
+			:
+		else
+			dns_status=$?
+			log "DNS proxy cleanup failed (status=$dns_status)"
+			return "$dns_status"
+		fi
+		if start_dns_proxy; then
+			:
+		else
+			dns_status=$?
+			return "$dns_status"
+		fi
 		start_chinadns
 		log "开始处理 GFWList..."
 		;;

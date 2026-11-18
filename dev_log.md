@@ -1,3 +1,12 @@
+## 2026-11-18 — Verify Shadowsocks DNS proxy startup readiness
+
+- Confirmed startup status gap: the dnsproxy/dns2tcp child was backgrounded and start_dns_proxy() returned success without checking that the required daemon appeared. stop_dns_proxy() also used unchecked pgrep/kill pipelines.
+- Add a bounded pidof readiness wait that distinguishes confirmed absence from UNKNOWN/error. DNS startup validates backend, upstream and executable, waits for the selected daemon, and attempts cleanup on failure without signalling when inventory is unknown. Teardown uses the existing validated process helper; router/GFW startup propagates cleanup and launch status.
+- Extend the host lifecycle regression for both backends, immediate child exit, unknown inventory (no signal), empty upstream and unsupported backend. Static source contract pins the caller propagation and cleanup behavior.
+- Exact-SHA Actions pending after commit. No local shell execution is claimed. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Preserve Shadowsocks cgroup setup failure statuses
 
 - Parent exact SHA: `5ed498112535ff34a3d7d7092530d0339524f6c5`. Confirmed defect: `cgroups_init()` ignored failed cgroup directory creation, CPU/memory quota writes and memory-limit readback; the trailing `export` could mask an earlier error.

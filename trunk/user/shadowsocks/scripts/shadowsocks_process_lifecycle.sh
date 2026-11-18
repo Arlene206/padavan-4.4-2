@@ -29,6 +29,35 @@ ss_process_pid_state() {
 	esac
 }
 
+# Wait for a named daemon to appear. Confirmed absence is retryable; an
+# invalid or failed process inventory is UNKNOWN and must fail closed.
+ss_wait_named_process_started() {
+	[ "$#" -eq 2 ] || return 2
+	ss_start_process_name=$1
+	ss_start_wait_limit=$2
+	[ -n "$ss_start_process_name" ] || return 2
+	case "$ss_start_wait_limit" in
+		''|*[!0-9]*) return 2 ;;
+	esac
+	[ "$ss_start_wait_limit" -le 30 ] || return 2
+
+	ss_start_wait_count=0
+	while :; do
+		if ss_process_pid_state "$ss_start_process_name"; then
+			return 0
+		else
+			ss_start_state=$?
+		fi
+		case "$ss_start_state" in
+			1) ;;
+			*) return 2 ;;
+		esac
+		[ "$ss_start_wait_count" -lt "$ss_start_wait_limit" ] || return 1
+		sleep 1 || return 2
+		ss_start_wait_count=$((ss_start_wait_count + 1))
+	done
+}
+
 ss_process_pattern_state() {
 	ss_process_pattern=$1
 	[ -n "$ss_process_pattern" ] || return 2

@@ -179,6 +179,33 @@ require("FAIL_TCP=31" in startup_test and "FAIL_UDP=32" in startup_test and
         "startup status regression must cover required failures and disabled semantics")
 print("Shadowsocks required-stage startup status source contract: PASS")
 
+
+dns_stop_start = script.index("stop_dns_proxy() {")
+dns_start_start = script.index("start_dns_proxy() {", dns_stop_start)
+dns_start_end = script.index("\n\nstart_dns() {", dns_start_start)
+dns_stop = script[dns_stop_start:dns_start_start]
+dns_start = script[dns_start_start:dns_start_end]
+require("ss_stop_named_processes dns2tcp dnsproxy" in dns_stop,
+        "DNS proxy teardown must use fail-closed process inventory")
+ordered(dns_start, [
+    'command -v "$dns_process"',
+    'dns2tcp -L"127.0.0.1#5353"',
+    'dnsproxy -d -p 5353',
+    'ss_wait_named_process_started "$dns_process" 5',
+    'ss_stop_named_processes "$dns_process"',
+    'return "$launch_status"',
+], "DNS proxy startup readiness and rollback")
+require('if stop_dns_proxy; then' in script and
+        'if start_dns_proxy; then' in script,
+        "router/GFW DNS startup must propagate cleanup and launch failures")
+require("ss_wait_named_process_started() {" in helper and
+        'case "$ss_start_state" in' in helper and
+        '*) return 2 ;;' in helper,
+        "DNS readiness must distinguish unknown process inventory from absence")
+require("DNS proxy child launch failure" in read("trunk/user/shadowsocks/tests/process_lifecycle.sh") and
+        "DNS proxy unknown startup inventory" in read("trunk/user/shadowsocks/tests/process_lifecycle.sh"),
+        "DNS readiness regression must cover child exit and unknown inventory")
+print("Shadowsocks DNS proxy readiness source contract: PASS")
 print("Shadowsocks process lifecycle source contract: PASS")
 
 
