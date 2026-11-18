@@ -1,7 +1,7 @@
 # 2026-11-18 continuation checkpoint — notification status contracts
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; branch: `main`; exact live main at checkpoint: `648e7353b58c1f33fddc4d6ba8bb65e195f6695f`.
+- Repository: `Arlene206/padavan-4.4-2`; branch: `main`; exact live main at checkpoint: `2c71477765b5e11867db4eeec1a3fb20bbb80321`.
 - Product-source change `ca5f182341dde1bc2323774c1b284c20171e719a` makes `notify_run_detect_internet()` return the normalized monitor/inventory error and propagates it through WAN/LAN startup and PID 1 DI notification.
 - Product-source change `648e7353b58c1f33fddc4d6ba8bb65e195f6695f` makes `notify_watchdog_time()` return normalized SIGHUP/recovery status, adds GNU89 policy coverage, and propagates status to WAN route, manual LAN resolver setup and PID 1 NTP/time event results.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not modify backup, PR #1 or GPT Session Rotator.
@@ -12,7 +12,7 @@
 - The intended callback exception remains explicit: the DHCP-bound callback is best-effort because its lease is already committed. Rollback DI resume calls must not replace the primary teardown failure.
 
 ## Verification boundary
-- On exact source SHA `648e7353b58c1f33fddc4d6ba8bb65e195f6695f`, Process lifecycle fail-closed run `44329872155` FAILed on the stale `void` signature in `scripts/check_process_lifecycle_integration.py`; watchdog run `44329872082` FAILed at the first-occurrence body extraction assertion; AI handoff documentation run `44329872216` FAILed because this live handoff was missing the mandatory checkpoint clause.
+- On source SHA `648e7353b58c1f33fddc4d6ba8bb65e195f6695f`, Process lifecycle run `44329872155`, watchdog run `44329872082` and AI docs run `44329872216` exposed stale signatures, a brittle first-occurrence function-body check and missing mandatory checkpoint text. Repair commit `2c71477765b5e11867db4eeec1a3fb20bbb80321` fixed the detect-internet signature, watchdog source check and handoff. Its exact watchdog run `44330853992` PASS and AI docs run `44330853859` PASS; Process run `44330853765` still failed at the second stale `void notify_watchdog_time` extraction (line 1214), now corrected in THIS commit.
 - On the same SHA, Process inventory run `44329872068`, detect-internet `44329871815`, PID 1 notification `44329871529`, WAN route `44329871940`, and other completed network/service regressions reported PASS. XY-C1 firmware run `44329872151` was still in progress at the last poll; do not infer completion.
 - No local checkout-based tests were run in this connector-only session. Firmware L3 requires a completed exact-SHA XY-C1 build, TRX validation and artifact upload. Physical LAN/WAN/watchdog/AP-client/iNIC behavior and L4 remain NOT VERIFIED.
 
@@ -24,7 +24,7 @@ At every session boundary, inspect live main, active source SHA, exact-head Acti
 The GitHub repository is the cross-conversation source of truth. Never assume a previous chat's state without checking live Git refs and exact-head run results.
 
 ## Exact first action for the next GPT
-Fetch the live `main` SHA and its exact-head Actions. Confirm whether this repair commit's Process lifecycle, watchdog signal and AI handoff checks PASS. If any FAIL, inspect its first causal line and repair that exact contract in a new atomic commit. Then verify XY-C1 Build/TRX/artifact status on the exact product-source SHA before claiming firmware validation.
+Fetch the live `main` SHA and its exact-head Actions. Confirm the Process lifecycle checker now passes after both watchdog signature sites were updated. Then verify XY-C1 Build/TRX/artifact status on the exact product-source SHA before claiming firmware validation.
 
 ## Cross-session execution mandate
 Continue across GPT conversations without repeating completed audits. One logical slice, one atomic main commit. Create all changed blobs and one complete Git tree before committing; advance `main` only with a non-forced compare-and-swap against the expected parent SHA. Continue independent work while Actions are pending. Finish the current safe slice and record the exact next action before context exhaustion.

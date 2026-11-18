@@ -1,3 +1,10 @@
+## 2026-11-18 — Align duplicated watchdog lifecycle checks with status-return API
+
+- Parent main: `2c71477765b5e11867db4eeec1a3fb20bbb80321`. Exact Process lifecycle fail-closed run `44330853765` passed the detect-internet checks and all preceding lifecycle assertions, then failed at line 1214 because the same integration script still expected `void\nnotify_watchdog_time(void)`. The stale watchdog signature existed twice in the script (two equivalent integration blocks); both now require the `int` API and assert normalized result return.
+- On this exact parent SHA, watchdog signal run `44330853992` PASS and AI handoff documentation run `44330853859` PASS. The Process checker was the only known failure in the three-run targeted set. No production behavior changes in this slice.
+- No local checkout tests were run. The exact new SHA must rerun Process lifecycle and any path-triggered suites.
+
+---
 ## 2026-11-18 — Repair stale notification contracts and handoff checkpoint
 
 - Parent main: `648e7353b58c1f33fddc4d6ba8bb65e195f6695f`. Exact Process lifecycle fail-closed run `44329872155` failed at `scripts/check_process_lifecycle_integration.py:1001`: it still split `detect_internet.c` at the old `void` signature after `notify_run_detect_internet()` began returning `int`. Align the split and assert the normalized error return.

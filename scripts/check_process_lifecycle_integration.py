@@ -1211,7 +1211,7 @@ watchdog_dnsmasq = watchdog_source.split("static void\ndnsmasq_process_check(voi
 watchdog_start = watchdog_source.split("int\nstart_watchdog(void)", 1)[1].split(
     "\n}\n", 1
 )[0]
-watchdog_notify = watchdog_source.split("void\nnotify_watchdog_time(void)", 1)[1].split(
+watchdog_notify = watchdog_source.split("int\nnotify_watchdog_time(void)", 1)[1].split(
     "\n}\n", 1
 )[0]
 for body, service in ((watchdog_httpd, "httpd"), (watchdog_dnsmasq, "dnsmasq"),
@@ -1258,6 +1258,8 @@ assert "refusing watchdog start because process-presence policy is invalid" in w
 assert "start_watchdog()" in watchdog_notify
 assert "pids(" not in watchdog_notify
 assert "process_pidfile_signal(WD_PID_FILE, \"watchdog\", SIGHUP)" in watchdog_notify
+assert "watchdog_time_notification_error(" in watchdog_notify
+assert "return operation_error;" in watchdog_notify
 assert '"trunk/user/rc/src/watchdog.c"' in process_workflow
 assert '"trunk/user/rc/src/watchdog.c"' in xy_workflow
 assert '"trunk/user/rc/src/process_presence_start_policy.h"' in process_workflow
@@ -2122,7 +2124,7 @@ watchdog_dnsmasq = watchdog_source.split("static void\ndnsmasq_process_check(voi
 watchdog_start = watchdog_source.split("int\nstart_watchdog(void)", 1)[1].split(
     "\n}\n", 1
 )[0]
-watchdog_notify = watchdog_source.split("void\nnotify_watchdog_time(void)", 1)[1].split(
+watchdog_notify = watchdog_source.split("int\nnotify_watchdog_time(void)", 1)[1].split(
     "\n}\n", 1
 )[0]
 for body, service in ((watchdog_httpd, "httpd"), (watchdog_dnsmasq, "dnsmasq"),
@@ -2169,6 +2171,8 @@ assert "refusing watchdog start because process-presence policy is invalid" in w
 assert "start_watchdog()" in watchdog_notify
 assert "pids(" not in watchdog_notify
 assert "process_pidfile_signal(WD_PID_FILE, \"watchdog\", SIGHUP)" in watchdog_notify
+assert "watchdog_time_notification_error(" in watchdog_notify
+assert "return operation_error;" in watchdog_notify
 assert '"trunk/user/rc/src/watchdog.c"' in process_workflow
 assert '"trunk/user/rc/src/watchdog.c"' in xy_workflow
 assert '"trunk/user/rc/src/process_presence_start_policy.h"' in process_workflow
