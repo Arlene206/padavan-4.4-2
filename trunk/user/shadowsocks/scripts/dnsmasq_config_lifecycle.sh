@@ -5,6 +5,7 @@ ss_dnsmasq_remove_exact_directive() {
 	local ss_dnsmasq_config_file="$1"
 	local ss_dnsmasq_expected="$2"
 	local ss_dnsmasq_tmp_file=""
+	local ss_dnsmasq_match=""
 	local ss_dnsmasq_status=0
 
 	[ -n "$ss_dnsmasq_config_file" ] && [ -n "$ss_dnsmasq_expected" ] || return 2
