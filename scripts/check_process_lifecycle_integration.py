@@ -999,7 +999,7 @@ assert "process_presence_start_postcondition(0, PROCESS_PRESENCE_UNKNOWN)" in pr
 detect_internet_source = (root / "trunk/user/rc/src/detect_internet.c").read_text()
 detect_link_source = (root / "trunk/user/rc/src/detect_link.c").read_text()
 di_notify = detect_internet_source.split(
-    "void\nnotify_run_detect_internet(int delay_time)", 1
+    "int\nnotify_run_detect_internet(int delay_time)", 1
 )[1].split("\n}\n", 1)[0]
 dl_notify = detect_link_source.split(
     "void\nnotify_reset_detect_link(void)", 1
@@ -1019,6 +1019,8 @@ for body, process_name in ((di_notify, "detect_internet"), (dl_notify, "detect_l
     assert "PROCESS_PRESENCE_START_NOTIFY" in body
     assert "skipping start/notification because process inventory is unknown" in body
     assert "pids(" not in body
+assert "return operation_error;" in di_notify
+assert "operation_error = detect_internet_operation_error(-1, scan_error);" in di_notify
 assert 'process_inventory_scan("detect_wan", &snapshot)' in wan_gateway_start
 assert "scan_error = snapshot.error;" in wan_gateway_start
 assert wan_gateway_start.index("scan_error = snapshot.error;") < wan_gateway_start.index("process_snapshot_release(&snapshot);")

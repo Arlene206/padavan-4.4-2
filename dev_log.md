@@ -1,3 +1,11 @@
+## 2026-11-18 — Repair stale notification contracts and handoff checkpoint
+
+- Parent main: `648e7353b58c1f33fddc4d6ba8bb65e195f6695f`. Exact Process lifecycle fail-closed run `44329872155` failed at `scripts/check_process_lifecycle_integration.py:1001`: it still split `detect_internet.c` at the old `void` signature after `notify_run_detect_internet()` began returning `int`. Align the split and assert the normalized error return.
+- Exact watchdog run `44329872082` failed at its inline contract: the helper selected the first textual occurrence of the LAN function name (a call site), not the function definition, so its extracted block omitted the status propagation. Check the complete source files for caller assignment/aggregation instead; production `net_lan.c` at the parent already contains the intended status handling.
+- Exact AI documentation run `44329872216` failed because the live handoff omitted the mandatory accuracy-checkpoint clause and canonical next-action heading. Restore the contract in the handoff without weakening the checker. Preserve the existing 80-record root log verbatim and prepend this record (81 total; no rotation).
+- No production source was changed in this repair slice. No local checkout tests were run. Exact-head Process, watchdog and AI documentation Actions must rerun.
+
+---
 ## 2026-11-18 — Complete handoff contract repair and restore the rolling development log
 
 - Exact AI handoff documentation run on product commit ca5f182341dde1bc2323774c1b284c20171e719a failed because the current checkpoint had lost the mandatory accuracy-checkpoint section. The first repair commit 3174d70 restored that clause, but exact AI-doc rerun 44329292757 exposed two more required handoff strings: the canonical "## Exact first action for the next GPT" heading and "Before context exhaustion" in the cross-session mandate.

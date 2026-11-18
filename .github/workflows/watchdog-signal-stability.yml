@@ -210,12 +210,10 @@ jobs:
           assert "notify_watchdog_wifi(0)" in wireless and "notify_watchdog_wifi(1)" in wireless
           assert "watchdog_time_notification_error(" in time_notify
           assert "return operation_error;" in time_notify
-          lan_manual = body(lan, "lan_up_manual(")
-          assert "notify_status = notify_watchdog_time();" in lan_manual
-          assert "rc_first_service_start_status(status, notify_status)" in lan_manual
-          wan_up = body(wan, "wan_up_internal(")
-          assert "route_status = notify_watchdog_time();" in wan_up
-          assert "route_status_accumulate(status, route_status)" in wan_up
+          assert "notify_status = notify_watchdog_time();" in lan
+          assert "rc_first_service_start_status(status, notify_status)" in lan
+          assert "route_status = notify_watchdog_time();" in wan
+          assert "route_status_accumulate(status, route_status)" in wan
           watchdog_boot = body(services, "start_services_once(int is_ap_mode)")
           assert "rc_first_service_start_status(start_status, start_watchdog())" in watchdog_boot
           watchdog_start = body(watchdog, "start_watchdog(void)")
