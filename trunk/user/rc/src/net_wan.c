@@ -3204,7 +3204,17 @@ try_wan_reconnect(int try_use_modem, long pause_in_seconds)
 		if (deferred_up_time == 0)
 			deferred_up_time++;
 		nvram_set_int_temp("deferred_wanup_t", deferred_up_time);
-		start_watchdog();
+		status = start_watchdog();
+		if (status != 0) {
+			/*
+			 * Keep the deferred intent published so a later watchdog recovery
+			 * can still perform the requested WAN reconnect.
+			 */
+			logmessage(LOGNAME,
+				   "cannot schedule deferred WAN reconnect because watchdog startup failed (status=%d)",
+				   status);
+			return status;
+		}
 		logmessage(LOGNAME, "WAN up delay: %lds.", pause_in_seconds);
 		return 0;
 	}

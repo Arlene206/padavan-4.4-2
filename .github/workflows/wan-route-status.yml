@@ -69,6 +69,7 @@ on:
       - "scripts/check_wan_zerotier_status.py"
       - "scripts/check_wan_detect_wan_status.py"
       - "scripts/check_wan_initial_mtu_status.py"
+      - "scripts/check_wan_deferred_watchdog_status.py"
       - "trunk/user/rc/src/wan_mtu_setup_policy.h"
       - "trunk/user/rc/src/tests/service_start_status.c"
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
@@ -145,6 +146,7 @@ on:
       - "scripts/check_wan_zerotier_status.py"
       - "scripts/check_wan_detect_wan_status.py"
       - "scripts/check_wan_initial_mtu_status.py"
+      - "scripts/check_wan_deferred_watchdog_status.py"
       - "trunk/user/rc/src/wan_mtu_setup_policy.h"
       - "trunk/user/rc/src/tests/service_start_status.c"
       - "trunk/user/rc/src/tests/dhcp_wan_interface_policy.c"
@@ -302,6 +304,8 @@ jobs:
         run: python3 scripts/check_wan_detect_wan_status.py
       - name: Verify physical WAN initial MTU status and static override
         run: python3 scripts/check_wan_initial_mtu_status.py
+      - name: Verify deferred WAN reconnect watchdog launch status
+        run: python3 scripts/check_wan_deferred_watchdog_status.py
       - name: Verify PPPoE-MWAN detect status and command safety
         run: |
           set -eu
