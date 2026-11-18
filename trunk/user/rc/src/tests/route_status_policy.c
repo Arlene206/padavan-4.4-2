@@ -68,6 +68,19 @@ test_wan_vpn_start_notification_failure_is_reported_without_skipping_later_actio
 }
 
 static void
+test_wan_vpn_stop_notification_failure_is_reported_without_skipping_later_cleanup(void)
+{
+	const int teardown_steps[] = { EIO, 0, 0 };
+	size_t attempts = 0;
+
+	/* Deferred VPN-stop enqueue fails, but route and interface cleanup continue. */
+	assert(apply_results(teardown_steps,
+			     sizeof(teardown_steps) / sizeof(teardown_steps[0]),
+			     &attempts) == EIO);
+	assert(attempts == sizeof(teardown_steps) / sizeof(teardown_steps[0]));
+}
+
+static void
 test_static_ipoe_teardown_clear_failure_forces_interface_down(void)
 {
 	const int clear_failures[] = { -1, EIO, EBUSY };
@@ -103,6 +116,7 @@ main(void)
 	test_wan_post_script_failure_is_reported_and_later_steps_continue();
 	test_wan_post_down_script_failure_is_reported_and_later_steps_continue();
 	test_wan_vpn_start_notification_failure_is_reported_without_skipping_later_actions();
+	test_wan_vpn_stop_notification_failure_is_reported_without_skipping_later_cleanup();
 	test_static_ipoe_teardown_clear_failure_forces_interface_down();
 	const int first_error[] = { 0, EIO, 0, ENETUNREACH };
 	const int negative_error[] = { 0, -1, 0, EPERM };

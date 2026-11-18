@@ -1,3 +1,12 @@
+## 2026-11-18 — Preserve WAN VPN stop notification enqueue status
+
+- Parent main SHA: `fda7c018f1cb3ca4d0588f1f3e30baaba13f28c0`; exact HTTPD `44204487769`, AI `44204487682`, Process `44204487756`, infosvr `44204487704`, AdGuardHome `44204487714`, AliyunDrive `44204487708` and AliDDNS `44204487832` PASS; NVRAM `44204487741` and XY-C1 `44204488447` pending at last poll.
+- Commit `816146ab` already preserves the WAN-up `start_vpn_client` enqueue result. The matching down path still called `notify_rc("stop_vpn_client")` and discarded enqueue errors, allowing WAN teardown to report success while the VPN stop event was not accepted into the queue.
+- Changed WAN-down to call `notify_rc_status()`, aggregate/log any failure, and continue later IPv6, route and interface cleanup. Added a regression for failure preservation with later successful cleanup and a workflow source contract.
+- Prior AP DHCP source SHA `509409f8` XY-C1 run `44202831040` completed Build, TRX and artifact upload successfully; this later WAN source change needs its own exact-head product build. Physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Checkpoint WAN deferred VPN enqueue status and exact product validation
 
 - Source commit 816146abeff90634d307069edb91ea338b274f2f preserves notify_rc_status("start_vpn_client") and aggregates/logs enqueue failures without skipping later WAN checks. Exact WAN route 44204417571 and Process 44204417899 PASS.

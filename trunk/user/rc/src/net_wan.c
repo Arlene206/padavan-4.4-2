@@ -2928,8 +2928,14 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 
 	/* deferred stop static VPN client (prevent rebuild resolv.conf) */
 	nvram_set_temp("vpnc_dns_t", "");
-	if (!is_static)
-		notify_rc("stop_vpn_client");
+	if (!is_static) {
+		route_status = notify_rc_status("stop_vpn_client");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME,
+				   "WAN VPN client stop notification incomplete (status=%d)",
+				   route_status);
+	}
 
 #if defined (USE_IPV6)
 	if (is_wan_ipv6_type_sit() == 1) {
