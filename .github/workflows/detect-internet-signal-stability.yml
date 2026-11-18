@@ -181,16 +181,17 @@ jobs:
           assert wan_pause < wan_pause_gate < wan_pause_return < wan_fence
           wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           wan_pause_call = wan_down.index("pause_status = notify_pause_detect_internet();")
-          wan_pause_gate = wan_down.index("if (pause_status != 0)", wan_pause_call)
-          wan_pause_return = wan_down.index("return pause_status;", wan_pause_gate)
+          wan_pause_accumulate = wan_down.index("status = route_status_accumulate(status, pause_status);", wan_pause_call)
           wan_state_mutation = wan_down.index('nvram_set_temp("vpnc_dns_t", "");')
-          assert wan_pause_call < wan_pause_gate < wan_pause_return < wan_state_mutation
+          assert wan_pause_call < wan_pause_accumulate < wan_state_mutation
+          assert "WAN route teardown continuing after Internet monitor pause failure" in wan_down
           man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           man_pause_call = man_down.index("pause_status = notify_pause_detect_internet();")
-          man_pause_gate = man_down.index("if (pause_status != 0)", man_pause_call)
-          man_pause_return = man_down.index("return pause_status;", man_pause_gate)
+          man_pause_accumulate = man_down.index("status = route_status_accumulate(status, pause_status);", man_pause_call)
           man_lease_read = man_down.index('man_gate = nvram_safe_get("wanx_gateway");')
-          assert man_pause_call < man_pause_gate < man_pause_return < man_lease_read
+          assert man_pause_call < man_pause_accumulate < man_lease_read
+          assert "MAN route teardown continuing after Internet monitor pause failure" in man_down
+          assert "if (status == 0)" in man_down
           lan_start = body(lan, "start_lan(int is_ap_mode, int do_wait)")
           assert "operation_status = notify_run_detect_internet(60);" in lan_start
           assert "operation_status = notify_run_detect_internet(2);" in lan_start

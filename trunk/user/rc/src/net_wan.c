@@ -2682,12 +2682,11 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 
 	logmessage(LOGNAME, "%s %s (%s)", "MAN", "down", man_ifname);
 	pause_status = notify_pause_detect_internet();
-	if (pause_status != 0) {
+	status = route_status_accumulate(status, pause_status);
+	if (pause_status != 0)
 		logmessage(LOGNAME,
-			   "refusing MAN route teardown because Internet monitor pause failed (status=%d)",
+			   "MAN route teardown continuing after Internet monitor pause failure (status=%d)",
 			   pause_status);
-		return pause_status;
-	}
 	man_gate = nvram_safe_get("wanx_gateway");
 	man_addr = nvram_safe_get("wanx_ipaddr");
 	man_mask = nvram_safe_get("wanx_netmask");
@@ -3008,12 +3007,11 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "down", wan_ifname);
 	pause_status = notify_pause_detect_internet();
-	if (pause_status != 0) {
+	status = route_status_accumulate(status, pause_status);
+	if (pause_status != 0)
 		logmessage(LOGNAME,
-			   "refusing WAN route teardown because Internet monitor pause failed (status=%d)",
+			   "WAN route teardown continuing after Internet monitor pause failure (status=%d)",
 			   pause_status);
-		return pause_status;
-	}
 
 	/* deferred stop static VPN client (prevent rebuild resolv.conf) */
 	nvram_set_temp("vpnc_dns_t", "");
@@ -4121,7 +4119,6 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 {
 	int unit, wan_proto, is_man;
 	int interface_status = 0, reset_man_address = 0;
-	int pause_status;
 	int conntrack_status = 0;
 	int cleanup_status;
 	char log_prefix[32], *udhcpc_state;
@@ -4132,16 +4129,6 @@ udhcpc_deconfig(char *wan_ifname, int is_zcip)
 
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", (is_zcip) ? "ZeroConf" : "DHCP", (is_man) ? "MAN" : "WAN");
 	udhcpc_state = "deconfig";
-
-	/* Pause before clearing the lease address: a failure must leave the
-	 * callback retryable without racing the detector against interface teardown. */
-	pause_status = notify_pause_detect_internet();
-	if (pause_status != 0) {
-		logmessage(log_prefix,
-			   "refusing deconfig before interface mutation because Internet monitor pause failed (status=%d)",
-			   pause_status);
-		return pause_status;
-	}
 
 	if (is_man && (wan_proto == IPV4_WAN_PROTO_PPTP ||
 	               wan_proto == IPV4_WAN_PROTO_L2TP))

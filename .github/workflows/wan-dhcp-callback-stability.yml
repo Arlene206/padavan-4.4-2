@@ -285,13 +285,6 @@ jobs:
           assert "if (rollback_status)" in apply_policy
 
           deconfig = body(source, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
-          assert "pause_status = notify_pause_detect_internet();" in deconfig
-          pause_call = deconfig.index("pause_status = notify_pause_detect_internet();")
-          pause_gate = deconfig.index("if (pause_status != 0)", pause_call)
-          pause_return = deconfig.index("return pause_status;", pause_gate)
-          interface_clear = deconfig.index("interface_status = ifconfig(wan_ifname, IFUP, \"0.0.0.0\", NULL)")
-          assert pause_call < pause_gate < pause_return < interface_clear
-          assert "refusing deconfig before interface mutation" in deconfig
           assert "interface_status = ifconfig(wan_ifname, IFUP, \"0.0.0.0\", NULL)" in deconfig
           assert "if (interface_status != 0)" in deconfig
           assert "continuing lease cleanup" in deconfig
