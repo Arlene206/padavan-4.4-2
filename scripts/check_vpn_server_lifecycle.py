@@ -343,6 +343,22 @@ require("stop_vpn_client_ppp(1)" in client_force_stop and "if (stop_status != 0)
 require("stop_vpn_client_locked()" in client_restart_locked,
         "VPN client restart must use the non-recursive locked stop helper")
 
+client_stop_failure=client_restart_locked.split(
+    "stop_status = stop_vpn_client_locked();", 1)[1].split(
+    "restore_dns_from_vpnc();", 1)[0]
+ordered(client_stop_failure, [
+    "if (stop_status != 0)",
+    "saved_errno = errno ? errno : EIO;",
+    "vpn_client_restart_should_restore_shared_xl2tpd(",
+    "safe_start_xl2tpd_locked()",
+    "if (restore_status < 0)",
+    "errno = saved_errno;",
+    "return stop_status;"
+], "VPN client incomplete-stop shared-daemon rollback")
+require("cannot restore shared xl2tpd after incomplete VPN client teardown" in
+        client_stop_failure,
+        "VPN client rollback must log an unsuccessful shared-daemon restore")
+
 wan_stop_lock=body(net_wan,"run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
 ordered(wan_stop_lock,["vpn_server_lifecycle_lock_acquire()",
                        "result = operation()",

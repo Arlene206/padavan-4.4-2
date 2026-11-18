@@ -3,6 +3,7 @@
 #include <stdio.h>
 
 #include "vpn_server_restart_policy.h"
+#include "vpn_client_restart_policy.h"
 #include "rc_notify_batch_policy.h"
 
 static void
@@ -146,11 +147,23 @@ test_shared_xl2tpd_restoration_decision(void)
     assert(!vpn_server_restart_should_restore_shared_xl2tpd(1, 0, 0));
 }
 
+static void
+test_client_restart_restores_shared_xl2tpd_after_incomplete_stop(void)
+{
+    assert(vpn_client_restart_should_restore_shared_xl2tpd(1, 1, 0));
+    assert(vpn_client_restart_should_restore_shared_xl2tpd(1, 0, 1));
+    assert(vpn_client_restart_should_restore_shared_xl2tpd(1, 1, 1));
+    assert(!vpn_client_restart_should_restore_shared_xl2tpd(0, 1, 0));
+    assert(!vpn_client_restart_should_restore_shared_xl2tpd(0, 0, 1));
+    assert(!vpn_client_restart_should_restore_shared_xl2tpd(1, 0, 0));
+}
+
 int
 main(void)
 {
     test_success_stays_success();
     test_shared_xl2tpd_restoration_decision();
+    test_client_restart_restores_shared_xl2tpd_after_incomplete_stop();
     test_start_failure_is_returned();
     test_restore_failure_is_returned_when_start_succeeded();
     test_first_failure_survives_later_restore_and_unlock_errors();

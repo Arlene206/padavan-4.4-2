@@ -29,6 +29,7 @@
 #include "rc.h"
 #include <process_inventory.h>
 #include "process_presence_start_policy.h"
+#include "vpn_client_restart_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 
 #define VPNC_LOG_NAME		"VPN client"
@@ -427,8 +428,28 @@ restart_vpn_client_locked(void)
 	if (stop_status != 0)
 		return stop_status;
 	stop_status = stop_vpn_client_locked();
-	if (stop_status != 0)
+	if (stop_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		/*
+		 * The force-stop above already removed VPNC's xl2tpd daemon.
+		 * A later identity-aware cleanup failure must not strand an
+		 * independently configured WAN L2TP client or L2TP server.
+		 */
+		if (vpn_client_restart_should_restore_shared_xl2tpd(
+			    xl2tpd_killed_vpnc,
+			    nvram_match("l2tp_wan_t", "1"),
+			    nvram_match("l2tp_srv_t", "1"))) {
+			restore_status = safe_start_xl2tpd_locked();
+			if (restore_status < 0) {
+				int restore_errno = errno ? errno : EIO;
+				logmessage(VPNC_LOG_NAME,
+					   "cannot restore shared xl2tpd after incomplete VPN client teardown (status=%d, errno=%d)",
+					   restore_status, restore_errno);
+			}
+		}
+		errno = saved_errno;
 		return stop_status;
+	}
 
 	restore_dns_from_vpnc();
 	sleep(1);
