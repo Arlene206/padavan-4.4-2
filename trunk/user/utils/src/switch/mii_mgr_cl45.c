@@ -67,32 +67,36 @@ static int parse_arguments(int argc, char *argv[],
 	while ((opt = getopt(argc, argv, options)) != -1) {
 		switch (opt) {
 		case 'g':
-			if (*method == RAETH_MII_WRITE_CL45)
+			if (*method != 0)
 				return -1;
 			*method = RAETH_MII_READ_CL45;
 			break;
 		case 's':
-			if (*method == RAETH_MII_READ_CL45)
+			if (*method != 0)
 				return -1;
 			*method = RAETH_MII_WRITE_CL45;
 			break;
 		case 'p':
-			if (parse_hex_argument(optarg, 0x1fUL, &mii->port_num) < 0)
+			if (have_port ||
+			    parse_hex_argument(optarg, 0x1fUL, &mii->port_num) < 0)
 				return -1;
 			have_port = 1;
 			break;
 		case 'd':
-			if (parse_hex_argument(optarg, 0x1fUL, &mii->dev_addr) < 0)
+			if (have_device ||
+			    parse_hex_argument(optarg, 0x1fUL, &mii->dev_addr) < 0)
 				return -1;
 			have_device = 1;
 			break;
 		case 'r':
-			if (parse_hex_argument(optarg, 0xffffUL, &mii->reg_addr) < 0)
+			if (have_register ||
+			    parse_hex_argument(optarg, 0xffffUL, &mii->reg_addr) < 0)
 				return -1;
 			have_register = 1;
 			break;
 		case 'v':
-			if (parse_hex_argument(optarg, 0xffffUL, &mii->val_in) < 0)
+			if (have_value ||
+			    parse_hex_argument(optarg, 0xffffUL, &mii->val_in) < 0)
 				return -1;
 			have_value = 1;
 			break;

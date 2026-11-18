@@ -1,9 +1,9 @@
-# 2026-11-19 continuation checkpoint — complete IANA IPv6 allocation filtering in AliDDNS
+# 2026-11-19 continuation checkpoint — reject duplicate Clause 45 MDIO CLI options
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Latest completed WAN source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`: 22/22 exact-head workflows PASS, including XY-C1 Build/TRX/artifact run `44368075437`. Its AliDDNS follow-up SHA `6fe52ee1972d96868b34685dfebafe714d5dc7ea` passed AliDDNS (`44372899008`), Process inventory (`44372899012`), AI docs (`44372899003`) and HTTPD security (`44372899085`); XY-C1 `44372899114` remained IN_PROGRESS at last poll. L3 applies only to `adedc6df`; physical-router L4 remains NOT VERIFIED.
+- Completed WAN source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759` has 22/22 exact-head workflows PASS, including XY-C1 Build/TRX/artifact run `44368075437`. AliDDNS IANA filter SHA `6fe52ee1972d96868b34685dfebafe714d5dc7ea` passed four of five triggered workflows; XY-C1 `44372899114` was previously pending. Follow-up `f3efd5e4a7101b930e699c54704fcf25a5ae341d` adds compressed-hextet initialization and full IANA reserved-range exceptions; its exact-head XY-C1 build status is checked before this handoff. The new Clause 45 parser fix below is a separate source/test SHA; previous firmware results do not verify it.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not switch to, update or delete it.
 - PR #1 remains closed/unmerged; do not revive it.
 - No local repository checkout or local MIPS build was performed. GitHub Actions completed the XY-C1 cross-build, TRX verification and artifact upload on exact source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`; physical-router L4 remains unverified.
@@ -64,6 +64,17 @@ This slice adds an eight-hextet numeric classifier to stock WAN discovery, rejec
 - Runtime-gate SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`: 22/22 exact-head workflows SUCCESS; XY-C1 run `44368075437` completed Build XY-C1, TRX verification and artifact upload.
 - The active AliDDNS IPv6 classification change is a new firmware/source SHA; no validation result from either previous WAN SHA transfers to it.
 
+## Active task — reject duplicate Clause 45 MDIO CLI options before ioctl
+
+Reviewed the production MT7621 Clause 45 utility `trunk/user/utils/src/switch/mii_mgr_cl45.c` and its host regression. The parser validated ranges and required all fields, but accepted duplicate `-p`, `-d`, `-r`, and `-v` flags with silent last-value-wins semantics; it also accepted repeated `-g`/ `-s` mode flags. This is inconsistent with the Clause 22 utility, which rejects duplicate required fields, and makes an invocation ambiguous when it changes PHY/DEVAD/register/value selection. The parser runs before socket creation and hardware ioctl, so duplicate inputs should fail before either operation.
+
+This slice rejects every duplicate mode or field flag and adds host tests for duplicate GET/SET modes, port, device address, register address, and write value. Existing switch workflow already compiles the utility under GNU89/Werror and runs the ASan/UBSan host regression. Exact-head Switch CLI and XY-C1 Actions for this new source SHA remain to be checked; no live PHY or hardware L4 validation is claimed.
+
+### IANA IPv6 filter validation boundary
+
+- AliDDNS, Process inventory, AI docs and HTTPD security runs on `f3efd5e4a7101b930e699c54704fcf25a5ae341d` passed: AliDDNS `44373890929`, Process `44373890954`, AI docs `44373891052`, HTTPD security `44373891002`.
+- XY-C1 run `44373890927` remains IN_PROGRESS at last check: `Build XY-C1` active; TRX/artifact steps pending. Its result is independent of the Clause 45 host parser change and remains an exact-source build boundary.
+
 ## Verification boundary
 
 - WAN VLAN source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`: Firewall policy C regression passed; exact-source XY-C1 run `44351420211` is now SUCCESS, including every host regression, Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for this exact firmware source SHA; physical-router L4 remains NOT VERIFIED.
@@ -74,9 +85,9 @@ This slice adds an eight-hextet numeric classifier to stock WAN discovery, rejec
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head AliDDNS, Process inventory, AI docs, HTTPD security and XY-C1 Actions for the complete IANA IPv6 allocation filter. The previous `6fe52ee` SHA is only partially CI-verified (4/5 pass; XY-C1 pending).
-2. Confirm the IPv6 regression exercises compressed/expanded forms and preserves IANA globally reachable more-specific exceptions while rejecting the reserved parent ranges. If any checker/build fails, fix it on this branch with another atomic source/test commit.
-3. Continue whole-userland stability/security work. Physical-router L4 remains unverified.
+1. Fetch live `main` and inspect the exact-head Switch CLI workflow for the duplicate-option rejection commit; verify the GNU89/Werror build and ASan/UBSan host regression pass.
+2. Inspect exact-head XY-C1 status for the immediately preceding IANA IPv6 source SHA `f3efd5e4a7101b930e699c54704fcf25a5ae341d`; do not transfer it to a newer source SHA unless a workflow build covers it.
+3. Continue whole-userland stability/security work. Physical PHY/hardware L4 remains unverified.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

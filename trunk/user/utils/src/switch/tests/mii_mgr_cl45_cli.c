@@ -67,7 +67,7 @@ static void test_write_and_bounds(void)
 	assert(parse_arguments(8, trailing_junk, &mii, &method) < 0);
 }
 
-static void test_required_and_conflicting_options(void)
+static void test_required_conflicting_and_duplicate_options(void)
 {
 	char *missing_register[] = {
 		"mii_mgr_cl45", "-g", "-p", "3", "-d", "5", NULL
@@ -79,19 +79,45 @@ static void test_required_and_conflicting_options(void)
 		"mii_mgr_cl45", "-g", "-s", "-p", "3", "-d", "5", "-r", "4",
 		"-v", "1", NULL
 	};
+	char *duplicate_get[] = {
+		"mii_mgr_cl45", "-g", "-g", "-p", "3", "-d", "5", "-r", "4", NULL
+	};
+	char *duplicate_set[] = {
+		"mii_mgr_cl45", "-s", "-s", "-p", "3", "-d", "5", "-r", "4",
+		"-v", "1", NULL
+	};
+	char *duplicate_port[] = {
+		"mii_mgr_cl45", "-g", "-p", "3", "-p", "4", "-d", "5", "-r", "4", NULL
+	};
+	char *duplicate_device[] = {
+		"mii_mgr_cl45", "-g", "-p", "3", "-d", "5", "-d", "6", "-r", "4", NULL
+	};
+	char *duplicate_register[] = {
+		"mii_mgr_cl45", "-g", "-p", "3", "-d", "5", "-r", "4", "-r", "5", NULL
+	};
+	char *duplicate_value[] = {
+		"mii_mgr_cl45", "-s", "-p", "3", "-d", "5", "-r", "4",
+		"-v", "1", "-v", "2", NULL
+	};
 	struct ra_mii_ioctl_data mii;
 	int method;
 
 	assert(parse_arguments(6, missing_register, &mii, &method) < 0);
 	assert(parse_arguments(8, missing_write_value, &mii, &method) < 0);
 	assert(parse_arguments(11, conflicting_method, &mii, &method) < 0);
+	assert(parse_arguments(8, duplicate_get, &mii, &method) < 0);
+	assert(parse_arguments(10, duplicate_set, &mii, &method) < 0);
+	assert(parse_arguments(10, duplicate_port, &mii, &method) < 0);
+	assert(parse_arguments(10, duplicate_device, &mii, &method) < 0);
+	assert(parse_arguments(10, duplicate_register, &mii, &method) < 0);
+	assert(parse_arguments(12, duplicate_value, &mii, &method) < 0);
 }
 
 int main(void)
 {
 	test_argument_order();
 	test_write_and_bounds();
-	test_required_and_conflicting_options();
-	puts("mii_mgr_cl45 argument parsing, ordering and range checks: PASS");
+	test_required_conflicting_and_duplicate_options();
+	puts("mii_mgr_cl45 argument parsing, ordering, range and duplicate checks: PASS");
 	return 0;
 }

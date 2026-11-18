@@ -1,3 +1,11 @@
+## 2026-11-19 — Reject duplicate Clause 45 MDIO CLI options before ioctl
+
+- Base main SHA: `f3efd5e4a7101b930e699c54704fcf25a5ae341d`. On that exact SHA AliDDNS (`44373890929`), Process inventory (`44373890954`), AI docs (`44373891052`) and HTTPD security (`44373891002`) passed; XY-C1 `44373890927` was still building.
+- Whole-file review of production MT7621 `mii_mgr_cl45.c` found duplicate `-p`, `-d`, `-r` and `-v` flags silently overwrote earlier values, and repeated `-g`/`-s` flags were accepted. This is inconsistent with Clause 22 parsing and makes hardware access arguments ambiguous.
+- Parser now rejects duplicate read/write mode, port, device address, register address and write-value options before socket creation and ioctl.
+- Expanded `mii_mgr_cl45_cli.c` host regression to reject repeated GET/SET modes and every duplicated field. Existing `.github/workflows/switch-cli-stability.yml` already includes the exact source and test paths and compiles/runs GNU89/Werror + ASan/UBSan tests; no workflow or path-filter change was needed.
+- Local checkout unavailable, so no local compile is claimed. Exact-head Switch CLI and XY-C1 Actions for this new commit remain pending; hardware PHY behavior remains L4 NOT VERIFIED.
+
 ## 2026-11-19 — Complete IANA IPv6 reserved-range handling in AliDDNS
 
 - Parent main SHA: `6fe52ee1972d96868b34685dfebafe714d5dc7ea`. AliDDNS test run `44372899008`, Process inventory `44372899012`, AI docs `44372899003` and HTTPD security `44372899085` passed; XY-C1 `44372899114` was still running.
