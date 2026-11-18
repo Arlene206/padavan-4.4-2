@@ -22,7 +22,7 @@
 | `docs/dev-log/2026/11/part-013.md` | 100 | 2026-11-16 — Propagate loopback interface and route startup failures → 2026-11-17 — Repair extension-hook CI contracts after implementation | 123231 | `19c3d8ccc2d16c11936d3b498808a5ee886722e5` |
 | `docs/dev-log/2026/11/part-014.md` | 100 | 2026-11-17 — Repair escaped firewall checker regex and HTTPD hook helper signature → 2026-11-17 — Apply all parser-supported DHCP MTU values, including explicit 1500 reset | 120777 | `82560e2f808f6c66850a84acd762769bf585d39a` |
 | `docs/dev-log/2026/11/part-015.md` | 100 | 2026-11-17 — AliDDNS WAN IPv6 source correction → 2026-11-17 — Align HTTPD's duplicate storage check with tri-state hotplug topology | 111870 | `f3f0f8caa4ebe40e7500ad7f29a38b3cae2e7167` |
-| `docs/dev-log/2026/11/part-016.md` | 100 | 2026-11-17 — Stop MSD Lite during WAN teardown → 2026-11-17 — Restore process workflow pull_request YAML nesting | 105054 | `633b273fa028cb3c197fc24e1d810896c1409810` |
+| `docs/dev-log/2026/11/part-016.md` | 100 | 2026-11-17 — Restore process workflow pull_request YAML nesting → 2026-11-17 — Stop MSD Lite during WAN teardown | 105054 | `21834b5077a752e54020339944937c5e0887c411` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
