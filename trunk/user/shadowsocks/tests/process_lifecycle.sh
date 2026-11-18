@@ -409,7 +409,17 @@ fi
 [ "$DNSMASQ_RESTART_CALLS" -eq 1 ] || fail "successful transaction did not use the RC restart entry point"
 [ "$(grep -c '^no-resolv$' "$dnsmasq_config")" -eq 1 ] || fail "no-resolv directive was not normalized"
 [ "$(grep -c '^min-cache-ttl=1800$' "$dnsmasq_config")" -eq 1 ] || fail "min-cache-ttl was not normalized"
-[ "$(grep -c '^dns-forward-max=1000
+[ "$(grep -c '^dns-forward-max=1000$' "$dnsmasq_config")" -eq 1 ] || fail "dns-forward-max was not normalized"
+grep -Fqx "# no-resolv and min-cache-ttl-extra in this comment must not be treated as directives." "$dnsmasq_config" || fail "ChinaDNS staging removed a comment"
+grep -Fqx 'no-resolv-extra=yes' "$dnsmasq_config" || fail "ChinaDNS staging removed a similarly named no-resolv option"
+if grep -Fqx 'server=127.0.0.1' "$dnsmasq_config"; then fail "ChinaDNS staging retained the unmanaged default loopback server"; fi
+[ "$(grep -c '^server=127.0.0.1#65353$' "$dnsmasq_config")" -eq 1 ] || fail "ChinaDNS upstream was duplicated"
+grep -Fqx 'server=127.0.0.1#5353' "$dnsmasq_config" || fail "ChinaDNS staging removed SmartDNS loopback port 5353"
+grep -Fqx 'server=127.0.0.1#6053' "$dnsmasq_config" || fail "ChinaDNS staging removed SmartDNS loopback port 6053"
+grep -Fqx 'server=/domain.example/127.0.0.1#5353' "$dnsmasq_config" || fail "ChinaDNS staging removed a domain-scoped server rule"
+grep -Fqx 'min-cache-ttl-extra=7' "$dnsmasq_config" || fail "ChinaDNS staging removed a similarly named cache option"
+grep -Fqx 'dns-forward-max-extra=30' "$dnsmasq_config" || fail "ChinaDNS staging removed a similarly named forward option"
+[ -f "$PROCESS_STATE_DIR/dnsmasq" ] || fail "dnsmasq replacement process was not observed"
 
 cp "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-validation-failure"
 DNSMASQ_TEST_MODE=fail

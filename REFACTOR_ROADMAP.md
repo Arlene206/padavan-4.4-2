@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent source/test SHA `ef855ea69acec37a6c0b5ddefaab3214da26fbf7`: Shadowsocks lifecycle `44306582439`, AI handoff `44306582505`, Process inventory `44306583185` and Process fail-closed `44306582350` all PASS. XY-C1 `44306582528` was still building (step 32) at last poll; L3 remains pending until same-SHA Build/TRX/artifact finish.
-- Follow-up fixes a remaining broad filter in `ss_publish_and_restart_dnsmasq()`: its previous `/server=127.0.0.1/d` deleted SmartDNS 5353/6053 and domain-specific loopback rules. Use exact resolver matching plus anchored cache option keys; add regressions preserving comments, near-match options, SmartDNS ports and domain server rules.
-- This follow-up source SHA's exact-head Actions are pending; hardware L4 remains NOT VERIFIED.
+- Parent `38a2e1b80c78d250c892377647a43a454623228b`: process inventory umbrella `44307638698` PASS; Shadowsocks `44307638690` FAIL in the process lifecycle test because the inserted preservation block ended with a truncated `grep -c` line; AI `44307639057` FAIL because the required heading was renamed to `## Exact-head verification boundary`; Process fail-closed `44307638688` and XY-C1 `44307638792` were still in progress.
+- This commit repairs the test block to assert the exact single ChinaDNS upstream and preserve comments, `no-resolv-extra`, SmartDNS #5353/#6053, domain server rules, and similar cache option names; restores the validator-required `## Verification boundary` heading.
+- Exact-head Shadowsocks/AI and same-SHA XY-C1 Build/TRX/artifact must be checked after this docs/test correction. Hardware L4 remains NOT VERIFIED.
 
 ---
 

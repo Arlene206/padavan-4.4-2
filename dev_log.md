@@ -1,3 +1,13 @@
+## 2026-11-18 — Repair DNSMasq staging preservation regression and handoff contract
+
+- Parent main `38a2e1b80c78d250c892377647a43a454623228b`: Shadowsocks `44307638690` passed syntax/startup and standalone exact-cleanup test, then failed in process_lifecycle because the newly inserted `dns-forward-max` assertion block was truncated at line 412. The log showed the broken quote caused grep to treat the comment words as file paths and the line count became empty; the source helper itself had passed its dedicated regression.
+- AI handoff run `44307639057` failed only because the previous checkpoint used `## Exact-head verification boundary` instead of the validator-required `## Verification boundary`. Restore the required heading. Process inventory umbrella `44307638698` PASS; Process fail-closed `44307638688` and XY-C1 `44307638792` were IN_PROGRESS at last poll.
+- Repair the whole test assertion tail and explicitly require exactly one generated `server=127.0.0.1#65353`, preserving comments, `no-resolv-extra`, SmartDNS #5353/#6053, domain-scoped server lines and similarly named cache/forward directives.
+- No local shell execution; CI exact-head is the runtime evidence. The prior ef855 exact-head Shadowsocks, AI, process umbrella and Process fail-closed PASS; ef855 XY-C1 `44306582528` still needs its Build/TRX/artifact result. Target BusyBox and physical hardware L4 remain NOT VERIFIED.
+- Next: inspect exact-head correction Actions, then continue DNS config writer scan.
+
+---
+
 ## 2026-11-18 — Preserve SmartDNS rules during ChinaDNS DNSMasq staging
 
 - Parent main `91fc1074238a31a8ce2360f1d57d3a83567b6d47`; production source baseline `ef855ea69acec37a6c0b5ddefaab3214da26fbf7`. Exact-head ef855 Shadowsocks `44306582439`, AI `44306582505`, Process inventory `44306583185` and Process fail-closed `44306582350` PASS. XY-C1 `44306582528` was at Build step 32 IN_PROGRESS at last poll, with TRX/artifact pending; do not claim L3.
