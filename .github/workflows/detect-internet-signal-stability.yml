@@ -130,7 +130,8 @@ jobs:
 
           notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
           assert "operation_status = start_detect_internet(delay_time);" in notify_run
-          assert 'operation_status = process_pidfile_signal(\n\t\t\tDI_PID_FILE, "detect_internet", SIGUSR1);' in notify_run
+          compact_notify_run = "".join(notify_run.split())
+          assert 'operation_status=process_pidfile_signal(DI_PID_FILE,"detect_internet",SIGUSR1);' in compact_notify_run
           compact_notify_run = "".join(notify_run.split())
           assert "detect_internet_operation_error(" in compact_notify_run
           assert "operation_status,operation_errno" in compact_notify_run
@@ -140,7 +141,8 @@ jobs:
           assert "(void)process_pidfile_signal(" not in notify_run
 
           notify_pause = body(detect, "notify_pause_detect_internet(void)")
-          assert 'operation_status = process_pidfile_signal(\n\tDI_PID_FILE, "detect_internet", SIGUSR2);' in notify_pause
+          compact_notify_pause = "".join(notify_pause.split())
+          assert 'operation_status=process_pidfile_signal(DI_PID_FILE,"detect_internet",SIGUSR2);' in compact_notify_pause
           compact_notify_pause = "".join(notify_pause.split())
           assert "detect_internet_operation_error(" in compact_notify_pause
           assert "operation_status,operation_errno" in compact_notify_pause

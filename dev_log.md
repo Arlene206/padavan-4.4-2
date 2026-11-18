@@ -1,3 +1,11 @@
+## 2026-11-18 — Normalize detect Internet SIGUSR1/SIGUSR2 contract formatting
+
+- Exact parent SHA `0e721be7339c59a18c9e94eff96c4454335c387f` repaired the process lifecycle checker and passed Process lifecycle run `44258799982` and AI handoff run `44258799964`.
+- Detect Internet signal stability run `44258799968` still failed only at its inline source-contract check: the SIGUSR2 call used multiline C formatting with a different indent from the brittle expected literal. The GNU89/ASan/UBSan policy executable passed. Normalize both SIGUSR1 and SIGUSR2 call expressions after stripping whitespace.
+- This repair changes CI validation/documentation only, not production behavior. Prior Internet-monitor source SHA `8c272644dfc86a047eed50dd48aee42400607b72` still needs final XY-C1 Build/TRX/artifact confirmation from run `44258150922`. No local shell/build or physical-router test is claimed; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Report Internet-monitor launch and PID-file signal failures
 
 - `notify_run_detect_internet()` discarded the `start_detect_internet()` status for a new monitor and the `process_pidfile_signal(SIGUSR1)` result for an existing monitor. `notify_pause_detect_internet()` also discarded SIGUSR2 errors, hiding launch, stale-PID and process-identity failures.
