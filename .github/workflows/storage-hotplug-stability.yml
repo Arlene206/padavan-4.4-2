@@ -27,6 +27,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
+      - "trunk/user/rc/src/storage_hotplug_name_policy.h"
+      - "trunk/user/rc/src/tests/storage_hotplug_name_policy.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/storage_partition_probe.h"
       - "trunk/user/libdisk/src/disk_initial.c"
@@ -94,6 +96,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
+      - "trunk/user/rc/src/storage_hotplug_name_policy.h"
+      - "trunk/user/rc/src/tests/storage_hotplug_name_policy.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/storage_partition_probe.h"
       - "trunk/user/libdisk/src/disk_initial.c"
@@ -142,6 +146,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compile and run storage hotplug share-name formatting regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_hotplug_name_policy.c \
+            -o /tmp/storage-hotplug-name-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/storage-hotplug-name-policy
       - name: Check NFS service stop script syntax
         run: sh -n trunk/user/nfs-utils/nfsd.sh
       - name: Check Transmission and Aria launcher syntax and startup status propagation
@@ -360,6 +372,9 @@ jobs:
 
           rc_dir = Path("trunk/user/rc/src")
           storage = (rc_dir / "services_stor.c").read_text()
+          hotplug_stor = (rc_dir / "hotplug_stor.c").read_text()
+          name_policy = (rc_dir / "storage_hotplug_name_policy.h").read_text()
+          name_policy_test = (rc_dir / "tests/storage_hotplug_name_policy.c").read_text()
           usb = (rc_dir / "services_usb.c").read_text()
           policy = (rc_dir / "storage_ejected_inventory_policy.h").read_text()
           ejected_policy_test = (rc_dir / "tests/storage_ejected_inventory_policy.c").read_text()
@@ -388,6 +403,27 @@ jobs:
                       if depth == 0:
                           return text[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
+
+          sd_hotplug = function_body(hotplug_stor, "mdev_sd_main(")
+          mmc_hotplug = function_body(hotplug_stor, "mdev_mmc_main(")
+          for name, body in (("SD", sd_hotplug), ("MMC", mmc_hotplug)):
+              assert "share_name_status = snprintf(share_name, sizeof(share_name)," in body
+              assert "storage_hotplug_name_format_status(share_name_status," in body
+              assert "share name cannot be represented" in body
+              failure = body[body.index("if (storage_hotplug_name_format_status"):body.index("umask(0000)")]
+              assert "topology_status = 1;" in failure
+              assert "goto out_unlock;" in failure
+              assert failure.index("topology_status = 1;") < failure.index("goto out_unlock;")
+              assert body.index("storage_hotplug_name_format_status") < body.index('"/sbin/automount.sh"')
+          assert "format_status >= 0 && (size_t)format_status < buffer_size" in name_policy
+          for marker in (
+              "test_fitting_names_are_accepted",
+              "test_truncation_is_rejected",
+              "test_snprintf_errors_are_rejected",
+              "test_zero_capacity_is_rejected",
+              "storage hotplug share-name formatting policy: PASS",
+          ):
+              assert marker in name_policy_test
 
           stage = function_body(storage, "storage_stage_ejected_partitions(")
           assert "fopen(PROC_PARTITIONS_FILE" in stage
@@ -1165,6 +1201,8 @@ jobs:
               "trunk/user/scripts/tests/optware_lifecycle_startup.sh",
               "trunk/user/shared/src/shutils.h",
               "trunk/user/rc/src/hotplug_stor.c",
+              "trunk/user/rc/src/storage_hotplug_name_policy.h",
+              "trunk/user/rc/src/tests/storage_hotplug_name_policy.c",
               "trunk/user/rc/src/storage_operation_lock.h",
               "trunk/user/rc/src/storage_partition_probe.h",
               "trunk/user/libdisk/src/disk_initial.c",

@@ -1,3 +1,12 @@
+## 2026-11-18 — Report SD/MMC share-name formatting failures
+
+- Parent main SHA: `e52d186ad67427672ea199210e59fc5bf42f2557`. Exact USB modem `44214240090`, AI docs `44214239903`, infosvr `44214239886`, HTTPD Security `44214240078`, AliDDNS `44214240027`, AdGuardHome `44214240003` and Process lifecycle `44214239950` PASS; NVRAM `44214240232`, AliyunDrive `44214239907` and Process inventory `44214239911` were in progress.
+- In `mdev_sd_main()` and `mdev_mmc_main()`, share-name truncation jumped to cleanup with `topology_status` still zero, so a skipped automount was acknowledged as success. The old `>= sizeof` test also let negative `snprintf()` errors through.
+- A shared `storage_hotplug_name_format_status()` accepts only nonnegative format result smaller than buffer capacity. Each caller logs and sets topology failure before cleanup. Existing root-partition no-mount path stays benign. Add GNU89/Werror/ASan/UBSan policy tests and source contract for both callers.
+- Exact-head storage workflow pending. Firmware L3 / physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Fix NDIS metadata field separators
 
 - Parent main SHA: `b103a8e47455eb65f37470df4897696e9e1f4e02`. Exact parent USB modem `44213786597` PASS; AI, AdGuardHome, infosvr, AliDDNS, AliyunDrive, HTTPD Security, Process lifecycle and Process inventory PASS. NVRAM audit `44213786481` remained IN_PROGRESS.

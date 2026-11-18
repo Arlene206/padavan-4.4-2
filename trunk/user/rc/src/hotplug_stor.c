@@ -33,6 +33,7 @@
 #include "rc.h"
 #include "storage_operation_lock.h"
 #include "storage_partition_probe.h"
+#include "storage_hotplug_name_policy.h"
 
 static int
 report_device_swapoff(const char *device_name)
@@ -79,6 +80,7 @@ mdev_sd_main(int argc, char **argv)
 	int mount_status = 0;
 	int root_partition_status = 0;
 	int topology_status = 0;
+	int share_name_status;
 	size_t len, disk_len;
 	char share_name[32], disk_name[32];
 	char *device_name, *action, *partno;
@@ -148,8 +150,15 @@ mdev_sd_main(int argc, char **argv)
 		partno = device_name + disk_len;
 	}
 
-	if (snprintf(share_name, sizeof(share_name), "AiDisk_%s%s", disk_name + 2, partno) >= (int)sizeof(share_name))
+	share_name_status = snprintf(share_name, sizeof(share_name),
+				 "AiDisk_%s%s", disk_name + 2, partno);
+	if (storage_hotplug_name_format_status(share_name_status,
+					       sizeof(share_name)) != 0) {
+		logmessage("Storage", "share name cannot be represented for %s (status %d); refusing mount",
+			   device_name, share_name_status);
+		topology_status = 1;
 		goto out_unlock;
+	}
 
 	umask(0000);
 	{
@@ -179,6 +188,7 @@ mdev_mmc_main(int argc, char **argv)
 	int mount_status = 0;
 	int root_partition_status = 0;
 	int topology_status = 0;
+	int share_name_status;
 	size_t len, disk_len, i;
 	const char *p;
 	char share_name[32], disk_name[32];
@@ -253,9 +263,15 @@ mdev_mmc_main(int argc, char **argv)
 
 	memcpy(disk_name, device_name, disk_len);
 	disk_name[disk_len] = '\0';
-	if (snprintf(share_name, sizeof(share_name), "AiCard_%s%s",
-		     disk_name + 6, partno) >= (int)sizeof(share_name))
+	share_name_status = snprintf(share_name, sizeof(share_name),
+				 "AiCard_%s%s", disk_name + 6, partno);
+	if (storage_hotplug_name_format_status(share_name_status,
+					       sizeof(share_name)) != 0) {
+		logmessage("Storage", "share name cannot be represented for %s (status %d); refusing mount",
+			   device_name, share_name_status);
+		topology_status = 1;
 		goto out_unlock;
+	}
 
 	umask(0000);
 	{

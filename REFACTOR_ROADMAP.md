@@ -1,13 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS NDIS metadata serialization fix: `b103a8e47455eb65f37470df4897696e9e1f4e02`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact parent USB modem `44213786597` PASS; other exact-parent security/lifecycle workflows PASS except NVRAM audit `44213786481`, which was IN_PROGRESS.
-- `mdev_net_main()` emitted literal `\\n` sequences instead of actual line separators in its NDIS metadata file. The line-oriented USB modem parser rejects this single-line record, defeating physical identity lookup. THIS changes it to actual newline escapes and adds a caller-level serialization contract.
-- ZeroCD command failure propagation `b103a8e4` has local GNU89/Werror/ASan/UBSan PASS and exact-head USB workflow PASS.
-- No same-SHA XY-C1 Build/TRX/artifact or physical-router L4 evidence.
+- Parent main before THIS storage share-name fix: `e52d186ad67427672ea199210e59fc5bf42f2557`; frozen backup unchanged `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent `e52d186a` PASS: USB modem `44214240090`, AI `44214239903`, infosvr `44214239886`, HTTPD Security `44214240078`, AliDDNS `44214240027`, AdGuardHome `44214240003`, Process lifecycle `44214239950`. NVRAM `44214240232`, AliyunDrive `44214239907` and Process inventory `44214239911` were still in progress.
+- `mdev_sd_main()` / `mdev_mmc_main()` returned success after share-name overflow and ignored negative `snprintf()` results. THIS fix rejects incomplete formatting, logs, sets topology failure and prevents automount; adds GNU89/Werror/ASan/UBSan tests and both-caller source contracts.
+- Firmware L3 and physical L4 NOT VERIFIED.
 
-Next: verify the exact-head NDIS source contract and check the NVRAM audit; continue independent P1 work.
-
+Next: verify exact-head storage hotplug regression and remaining NVRAM/AliyunDrive/Process Actions; continue independent P1 fixes.
 
 ---
 
