@@ -81,7 +81,8 @@ sleep() {
     test_mark_stopped
   fi
   # Yield to background daemon mocks so the readiness marker can become visible.
-  command sleep 0.05
+  # Keep asynchronous mock startup observable under a loaded CI runner.
+  command sleep 0.1
   return 0
 }
 kill() {
@@ -96,7 +97,7 @@ ALD_BIN="$TEST_DIR/mock-aliyundrive-webdav"
 ALD_WORK_DIR="$TEST_DIR/aliyundrive-webdav-workdir"
 TEST_UMASK_LOG="$TEST_DIR/umask.log"
 export ALD_WORK_DIR TEST_UMASK_LOG
-ALD_START_WAIT_SECONDS=3
+ALD_START_WAIT_SECONDS=10
 
 # The upstream daemon persists its rotated refresh token using the process
 # umask. Harden existing paths before the daemon can read or replace them.
