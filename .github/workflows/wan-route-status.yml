@@ -293,9 +293,9 @@ jobs:
       - name: Verify WAN ZeroTier launch status propagation
         run: python3 scripts/check_wan_zerotier_status.py
       - name: Verify AP-client WISP readiness result propagation
+        run: python3 scripts/check_apcli_wait_status.py
       - name: Verify WAN startup and reload network sysctl status propagation
         run: python3 scripts/check_network_sysctl_status.py
-        run: python3 scripts/check_apcli_wait_status.py
       - name: Verify WAN gateway ARP checker launch result propagation
         run: python3 scripts/check_wan_detect_wan_status.py
       - name: Verify physical WAN initial MTU status and static override
