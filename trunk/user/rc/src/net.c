@@ -333,7 +333,7 @@ remove_vlan_iface(const char *vlan_ifname)
 }
 
 static enum process_presence
-udpxy_process_presence(void *context, int *scan_error)
+iptv_proxy_process_presence(void *context, int *scan_error)
 {
 	const char *process_name = (const char *)context;
 	struct process_snapshot snapshot;
@@ -357,7 +357,7 @@ udpxy_process_presence(void *context, int *scan_error)
 }
 
 static int
-udpxy_process_wait(void *context, unsigned int seconds)
+iptv_proxy_process_wait(void *context, unsigned int seconds)
 {
 	unsigned int remaining;
 
@@ -371,10 +371,10 @@ udpxy_process_wait(void *context, unsigned int seconds)
 }
 
 static int
-udpxy_confirm_started(const char *process_name, int launch_status)
+iptv_proxy_confirm_started(const char *process_name, int launch_status)
 {
 	return detached_daemon_start_postcondition_with_ops(
-		launch_status, udpxy_process_presence, udpxy_process_wait,
+		launch_status, iptv_proxy_process_presence, iptv_proxy_process_wait,
 		(void *)process_name, PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS,
 		PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS,
 		PROCESS_PRESENCE_START_PROBE_ATTEMPTS);
@@ -406,7 +406,7 @@ start_udpxy(char *wan_ifname)
 #endif
 
 	/* Do not replace a working relay or publish config on an incomplete scan. */
-	process_state = udpxy_process_presence((void *)process_name, &scan_error);
+	process_state = iptv_proxy_process_presence((void *)process_name, &scan_error);
 	if (process_state == PROCESS_PRESENCE_UNKNOWN) {
 		saved_errno = scan_error > 0 ? scan_error : EIO;
 		errno = saved_errno;
@@ -448,7 +448,7 @@ start_udpxy(char *wan_ifname)
 		);
 #endif
 
-	launch_status = udpxy_confirm_started(process_name, launch_status);
+	launch_status = iptv_proxy_confirm_started(process_name, launch_status);
 	if (launch_status != 0)
 		logmessage(LOGNAME, "%s launch/readiness failed (status=%d errno=%d)",
 			   process_name, launch_status, errno ? errno : EIO);
@@ -864,8 +864,9 @@ start_igmpproxy(char *wan_ifname)
 	char *altnet, *viptv_iflast;
 	const char *altnet_mask;
 	char *igmpproxy_conf = "/etc/igmpproxy.conf";
-	int config_status;
+	int config_status, launch_status, scan_error = 0, saved_errno;
 	int start_status = 0;
+	enum process_presence process_state;
 
 	if (wan_ifname == NULL || *wan_ifname == '\0')
 		return EINVAL;
@@ -893,6 +894,22 @@ start_igmpproxy(char *wan_ifname)
 	if (nvram_invmatch("mr_enable_x", "1"))
 		return start_status;
 
+	/* IGMPproxy forks by default; never trust the short-lived parent status. */
+	process_state = iptv_proxy_process_presence((void *)"igmpproxy", &scan_error);
+	if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+		saved_errno = scan_error > 0 ? scan_error : EIO;
+		errno = saved_errno;
+		logmessage("IPTV", "igmpproxy process inventory is UNKNOWN; refusing startup (errno=%d)",
+			   saved_errno);
+		return rc_first_service_start_status(start_status, saved_errno);
+	}
+	if (process_state != PROCESS_PRESENCE_ABSENT) {
+		saved_errno = process_state == PROCESS_PRESENCE_RUNNING ? EBUSY : EIO;
+		errno = saved_errno;
+		logmessage("IPTV", "igmpproxy is already present or its state is invalid; refusing duplicate startup");
+		return rc_first_service_start_status(start_status, saved_errno);
+	}
+
 	altnet = nvram_get("mr_altnet_x");
 	if (altnet == NULL || strlen(altnet) <= 6)
 		altnet_mask = "0.0.0.0/0";
@@ -910,8 +927,12 @@ start_igmpproxy(char *wan_ifname)
 		return rc_first_service_start_status(start_status, config_status);
 	}
 
-	return rc_first_service_start_status(start_status,
-					     eval("/bin/igmpproxy", igmpproxy_conf));
+	launch_status = eval("/bin/igmpproxy", igmpproxy_conf);
+	launch_status = iptv_proxy_confirm_started("igmpproxy", launch_status);
+	if (launch_status != 0)
+		logmessage("IPTV", "igmpproxy launch/readiness failed (status=%d errno=%d)",
+			   launch_status, errno ? errno : EIO);
+	return rc_first_service_start_status(start_status, launch_status);
 }
 
 int

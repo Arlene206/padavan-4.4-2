@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verify UDPXY/MSD Lite detached-daemon readiness and fail-closed startup."""
+"""Verify detached startup readiness for UDPXY, MSD Lite and IGMPproxy."""
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,14 +50,14 @@ def function_body(text, signature):
     raise AssertionError("unterminated function: " + signature)
 
 
-presence = function_body(net, "udpxy_process_presence(void *context, int *scan_error)")
+presence = function_body(net, "iptv_proxy_process_presence(void *context, int *scan_error)")
 assert "process_inventory_scan(process_name, &snapshot)" in presence
 assert "process_snapshot_release(&snapshot)" in presence
 assert "PROCESS_PRESENCE_UNKNOWN" in presence
-wait = function_body(net, "udpxy_process_wait(void *context, unsigned int seconds)")
+wait = function_body(net, "iptv_proxy_process_wait(void *context, unsigned int seconds)")
 assert "sleep(seconds)" in wait
 assert "errno = EINTR;" in wait
-confirm = function_body(net, "udpxy_confirm_started(const char *process_name, int launch_status)")
+confirm = function_body(net, "iptv_proxy_confirm_started(const char *process_name, int launch_status)")
 assert "detached_daemon_start_postcondition_with_ops(" in confirm
 assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in confirm
 assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in confirm
@@ -66,14 +66,14 @@ assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in confirm
 startup = function_body(net, "start_udpxy(char *wan_ifname)")
 assert 'process_name = "msd_lite";' in startup
 assert 'process_name = "udpxy";' in startup
-assert "udpxy_process_presence((void *)process_name, &scan_error)" in startup
+assert "iptv_proxy_process_presence((void *)process_name, &scan_error)" in startup
 assert "PROCESS_PRESENCE_UNKNOWN" in startup
 assert "process_state != PROCESS_PRESENCE_ABSENT" in startup
-assert startup.index("udpxy_process_presence(") < startup.index("msd_lite_config_publish(")
-assert startup.index("udpxy_process_presence(") < startup.index('eval("/usr/sbin/udpxy"')
+assert startup.index("iptv_proxy_process_presence(") < startup.index("msd_lite_config_publish(")
+assert startup.index("iptv_proxy_process_presence(") < startup.index('eval("/usr/sbin/udpxy"')
 assert 'eval("/usr/bin/msd_lite", "-d", "-c", dst_conf)' in startup
 assert 'eval("/usr/sbin/udpxy"' in startup
-assert "launch_status = udpxy_confirm_started(process_name, launch_status);" in startup
+assert "launch_status = iptv_proxy_confirm_started(process_name, launch_status);" in startup
 assert "return launch_status;" in startup
 
 # The upstream daemon defaults to detaching when root; -T explicitly opts out.
@@ -88,4 +88,14 @@ assert "test_unknown_inventory_fails_closed" in test
 assert "test_wait_interruption_and_invalid_arguments_fail" in test
 assert "Detached-daemon startup postcondition regression: PASS" in test
 
-print("UDPXY/MSD Lite detached startup readiness and fail-closed preflight: PASS")
+igmpproxy_start = function_body(net, "start_igmpproxy(char *wan_ifname)")
+assert "PKG_VERSION:=0.3" in (ROOT / "trunk/user/igmpproxy/Makefile").read_text()
+assert 'iptv_proxy_process_presence((void *)"igmpproxy", &scan_error)' in igmpproxy_start
+assert "PROCESS_PRESENCE_UNKNOWN" in igmpproxy_start
+assert "process_state != PROCESS_PRESENCE_ABSENT" in igmpproxy_start
+assert igmpproxy_start.index("iptv_proxy_process_presence(") < igmpproxy_start.index("igmpproxy_config_publish(")
+assert 'eval("/bin/igmpproxy", igmpproxy_conf)' in igmpproxy_start
+assert 'iptv_proxy_confirm_started("igmpproxy", launch_status)' in igmpproxy_start
+assert "return rc_first_service_start_status(start_status, launch_status);" in igmpproxy_start
+
+print("UDPXY, MSD Lite and IGMPproxy detached startup readiness/fail-closed preflight: PASS")
