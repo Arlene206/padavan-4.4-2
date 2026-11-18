@@ -1,3 +1,10 @@
+## 2026-11-19 — Align WAN teardown lifecycle contracts with exact status capture
+
+- Parent SHA: `bc90e3b44af85fe5ad18a58f8f39bf36e5de680d`. WAN source SHA `bc90e3b44af85fe5ad18a58f8f39bf36e5de680d` exposed stale tests in exact-head WAN `44390606879`, VPN server `44390606952`, HTTPD security `44390607054` and Process lifecycle `44390606840`. The compile/policy test stages of WAN, VPN and HTTPD and prior Process host regressions passed before each static integration assertion failed.
+- All four failures were assertions for old PPP stop predicates/return expressions, not compile errors: WAN expected the removed ternary status return; VPN, HTTPD and Process still looked for `stop_vpn_client_under_lifecycle_lock() != 0` after production code started assigning its exact result to `stop_status` before gating.
+- Updated the contracts to verify exact result assignment, its subsequent error gate, non-reentrant under-lock helper usage, and the new primary/resume status policy in both WAN abort paths. No production code and no CI triggers/path filters were changed.
+- XY-C1 run `44390607038` was in progress at last inspection. No L3 claim for the WAN source SHA; no local tests or physical-router validation performed.
+
 ## 2026-11-19 — Preserve WAN PPP teardown and monitor-resume failure status
 
 - Parent SHA: `d8b5e9206024ba45208d95fbb1ff4dc5d73d0b4d`. Exact-head AliDDNS `44388958868`, FRP `44388958846` and AI handoff `44388958941` passed. Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf` completed XY-C1 Build, TRX verification and artifact upload `44386912939` (L3).

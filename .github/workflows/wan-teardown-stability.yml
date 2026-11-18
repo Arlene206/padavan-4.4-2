@@ -87,7 +87,9 @@ jobs:
           assert stop.index("remove_cb_links();") < stop.index(failure_gate)
           failure_path = stop[stop.index(failure_gate):]
           assert failure_path.index("goto abort_resume_detect;") < failure_path.index("clear_wan_state();")
-          assert "return stop_status != 0 ? stop_status : -1;" in failure_path
+          assert "resume_status = notify_run_detect_internet(2);" in failure_path
+          assert "Internet monitor resume failed after aborted WAN teardown" in failure_path
+          assert "return wan_teardown_abort_status(stop_status, resume_status);" in failure_path
           assert stop.index("clear_wan_state();") < stop.index("control_wan_led_isp_state(0, 0);")
           assert "ifconfig(man_ifname, 0," not in stop
           assert "ifconfig(IFNAME_WAN, 0," not in stop

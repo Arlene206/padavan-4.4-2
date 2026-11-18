@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — preserve WAN PPP teardown failure status
+# 2026-11-19 continuation checkpoint — align WAN teardown downstream contracts
 
 ## Current repository state
 
@@ -86,26 +86,25 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Fix WAN PPP teardown failure reporting and monitor recovery diagnostics.
+Repair downstream source-contract assertions after the WAN PPP teardown status-capture change.
 
-- `stop_wan_ppp_locked()` initialized `stop_status=-1` but never assigned the return values from `invalidate_wan_ppp_callback_session()`, `stop_vpn_client_under_lifecycle_lock()`, or `kill_services(svcs_ppp,...)`. Every abort therefore returned a generic -1 and lost the original operation status.
-- Both the PPP abort path and full `stop_wan_locked()` abort path discarded `notify_run_detect_internet(2)` status, leaving monitor recovery failure silent.
-- Added tested `wan_teardown_abort_status(operation_status, resume_status)`: preserve the primary failure; otherwise return a resume failure; use -1 only as final fallback. PPP teardown now captures/logs exact operation statuses; both abort paths report monitor-resume failures.
-- Existing `wan-teardown-stability.yml` already compiles GNU89/Werror policy tests and watches the modified source/header/test paths. No workflow-path widening is needed.
-- No local build/test was run; exact-head Actions are pending.
+- Exact source commit `bc90e3b` correctly changed the PPP stop helper from inline `if (operation() != 0)` expressions to assignment followed by `if (stop_status != 0)`, so the exact failure code is preserved. Existing static contracts in VPN, HTTPD and Process inventory still required the prior direct predicate.
+- The WAN teardown workflow's existing Python source contract still required `return stop_status != 0 ? stop_status : -1;`; the new shared helper return and monitor-resume diagnostics made that assertion stale.
+- This commit changes only those four existing validation files plus governance docs. It keeps the lock-order, daemon-stop, failure-gate and no-recursive-lock checks, and adds assertions for captured status and helper ordering. No workflow path filter is changed.
+- No local tests were run. Exact-head WAN, VPN, HTTPD and Process Actions must pass after this commit.
 
 ## Verification boundary
 
-- Parent SHA `d8b5e9206024ba45208d95fbb1ff4dc5d73d0b4d`: AliDDNS `44388958868`, FRP `44388958846` and AI handoff docs `44388958941` PASS.
-- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle, DNSMasq, AI docs, Process inventory, HTTPD and XY-C1 `44386912939` PASS. Build, TRX verification and artifact upload completed (L3).
-- This WAN change modifies RC C source, policy header, unit test and existing workflow source contract. Exact-head WAN teardown CI is required; no MIPS build or physical-router L4 is claimed.
-- Frozen archival backup remains read-only.
+- Parent SHA `bc90e3b44af85fe5ad18a58f8f39bf36e5de680d`: WAN teardown `44390606879` FAIL at its static source assertion (GNU89 compile/regression preceded that assertion); VPN server `44390606952` compiled and passed bounded-lock, xl2tpd, lease and restart-status regressions, then failed only source assertion; HTTPD `44390607054` passed policy, auth, storage, firewall, DNS, NVRAM, etc. checks, then failed a stale WAN stop assertion; Process inventory `44390606840` passed prior process/service regressions, then failed a stale VPN teardown assertion. XY-C1 `44390607038` was building at last check.
+
+- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: exact XY-C1 `44386912939` Build, TRX and artifact upload PASS (L3).
+- Current WAN fix has not yet passed exact-head WAN source contracts or a post-change XY-C1 L3 build. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head `wan-teardown-stability.yml` and Process lifecycle Actions; fix any concrete assertion/compiler failure without weakening regression coverage.
-2. Confirm the GNU89/Werror C policy test and static source-contract assertions pass on the exact WAN commit.
-3. Continue the next independent stability/security defect while Actions are pending; keep the backup branch immutable.
+1. Inspect exact-head WAN teardown, VPN lifecycle, HTTPD and Process Actions for this contract-only repair. Fix any remaining stale assertion without weakening safety checks.
+2. Confirm same-source SHA XY-C1 Build, TRX and artifact upload before claiming L3.
+3. Continue the next independent stability/security defect while any Actions are pending. Keep the backup branch immutable.
 
 
 ## Mandatory handoff checkpoint

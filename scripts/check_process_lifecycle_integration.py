@@ -578,9 +578,12 @@ for stop_body in (wan_ppp_stop, wan_full_stop):
     pause_return = stop_body.index("return pause_status;", pause_gate)
     callback_fence = stop_body.index("invalidate_wan_ppp_callback_session()")
     assert pause_call < pause_gate < pause_return < callback_fence
-    assert "stop_vpn_client_under_lifecycle_lock() != 0" in stop_body
     assert "stop_vpn_client() != 0" not in stop_body
     assert "kill_services(svcs_ppp, 6, 1)" in stop_body
+assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in wan_ppp_stop
+assert "stop_status = kill_services(svcs_ppp, 6, 1);" in wan_ppp_stop
+assert wan_ppp_stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < wan_ppp_stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
+assert "stop_vpn_client_under_lifecycle_lock() != 0" in wan_full_stop
 assert wan_lock_runner.index("vpn_server_lifecycle_lock_acquire()") < wan_lock_runner.index("result = operation()")
 assert wan_lock_runner.index("result = operation()") < wan_lock_runner.index("vpn_server_lifecycle_lock_release(lock_fd)")
 assert "run_wan_stop_under_vpn_lifecycle_lock(stop_wan_ppp_locked" in net_wan
