@@ -1,35 +1,31 @@
-# 2026-11-18 continuation checkpoint — Adbyby detached-test cleanup race
+# 2026-11-18 continuation checkpoint — CI trigger governance
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2, branch main. Live main before THIS COMMIT: 8df3cc2f11aa9e040588d28844952005aaed9126.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains read-only at 72f4f157a084f8184b9597ca5bf334b8080e5807. PR #1 remains closed/unmerged. Do not modify backup, PR #1 or GPT Session Rotator.
-- Product firmware validation: source SHA 648e7353b58c1f33fddc4d6ba8bb65e195f6695f completed XY-C1 Build, TRX verification and artifact upload (run 44329872151). This evidence is limited to that exact product SHA.
+- Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
+- Product-source baseline: `648e7353b58c1f33fddc4d6ba8bb65e195f6695f`; its XY-C1 build, TRX verification and artifact upload completed in run `44329872151`. This evidence applies only to that exact product SHA.
+- Current main parent for this governance milestone: `acd10ac4d35795344669b00065a7ea9520c98830`.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. GPT Session Rotator remains untouched.
 
 ## Active task
-- Exact 8df3cc2 Process regression run 44333373061 failed at the Adbyby detached-start shell test after all assertions passed; its EXIT trap reported a temporary-directory rm -rf cleanup error.
-- Production correctly launches Adbyby asynchronously. The test fake daemon writes the RUNNING marker and exits quickly, but the test did not reap that background child before resetting shared fixtures / deleting its temporary directory.
-- THIS COMMIT adds a test-only status-preserving run_and_reap_detached_test_child() wrapper, uses it for all Adbyby start/rule-update test invocations, and adds a checker assertion. Production startup semantics are unchanged.
-- The Process regression workflow's explicit path allowlist includes both modified test and checker files.
+- CI trigger review found that common RC files fan out to several focused suites. Inspection of the AdGuardHome, Inadyn, NFS, WAN route and USB modem workflows shows those tests/checkers consume relevant shared RC declarations and production call paths. Their shared-file triggers are real dependencies and must remain; do not remove them just to reduce the Action count.
+- The dedicated Process lifecycle inventory workflow intentionally scans all tracked `trunk/user/**` paths. The Process lifecycle regression workflow is separately explicit-allowlisted, with matching push and pull_request path sets.
+- XY-C1 host regressions remain available for relevant source/workflow changes. Full firmware Build, TRX verification and artifact upload are gated by the production-input detector; unknown inputs and untrustworthy comparisons must fail safe to a full build.
+- Exact parent SHA `acd10ac4d35795344669b00065a7ea9520c98830` had AI handoff run `44334501605`, Process lifecycle run `44334501702`, and Process inventory run `44334501962` all PASS. The Adbyby detached-child cleanup race was fixed in that parent by reaping the test double; production behavior was not changed.
 
 ## Verification boundary
-- On exact 8df3cc2, AI handoff 44333370564 PASS. Process regression 44333373061 FAIL due to the single Adbyby test temp cleanup race; all preceding suite steps and the Adbyby readiness/restart assertions passed.
-- The exact-head rerun for THIS COMMIT must prove the test reaper avoids the post-assertion cleanup failure and all Process lifecycle assertions remain green.
-- No local checkout-based test was run in this connector-only session. Physical WAN/LAN/watchdog/AP-client/iNIC runtime and hardware L4 remain NOT VERIFIED.
-
-## Mandatory handoff checkpoint
-The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live main and exact-head Actions before ending. Leave this handoff unchanged if active task, verification boundary and first next action remain accurate.
+- This governance commit changes root instructions, the AI handoff validator, and the AI docs workflow. It does not change firmware product source.
+- The new validator enforces the sole whole-userland inventory exception, explicit Process regression allowlist and push/PR parity, and the XY-C1 production-input gates.
+- No new full XY-C1 firmware build is warranted for these documentation/CI-governance-only changes. The XY-C1 host-only run should confirm its detector skips Build/TRX/artifact.
+- No local checkout or physical-router L4 validation was available in this session.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect exact-head Process lifecycle and AI-doc Actions for THIS COMMIT. If Process fails, inspect its first failing step/log and fix the cause without weakening assertions.
-2. Confirm run_and_reap_detached_test_child() is exercised for both adbyby_start and adbyby_uprules, and that the parent shell preserves each original return status.
-3. If Process and AI docs pass, continue the AdGuardHome privileged workdir hardening candidate; reject symlink/foreign-owned /tmp/AdGuardHome before root daemon writes, and add race/ownership regressions.
-4. Do not repeat completed trigger-scope, PPPoE-MWAN or Shadowsocks directive audits.
+1. Fetch live `main` and inspect exact-head AI handoff, Process lifecycle, Process inventory and XY-C1 Actions for this commit.
+2. Confirm the governance validator passes, Process regression and inventory remain green, and XY-C1 reports host-only validation without running Build/TRX/artifact.
+3. If a relevant run fails, inspect its first causal log and repair the defect without removing tests or weakening the production-input detector.
+4. Continue the existing whole-userland stability/security roadmap; do not repeat the completed shared-RC trigger audit absent a new concrete workflow change.
+
+## Mandatory handoff checkpoint
+Every session must inspect live main and exact-head Actions before ending. Leave this file unchanged when the active task, validation boundary and first next action remain accurate.
 
 ## Cross-session execution mandate
-One logical slice is one atomic main commit. Build the complete Git tree from the exact parent and update main only with a non-forced expected-SHA compare-and-swap. Continue independent work while Actions are pending. Before context exhaustion, record exact first action, commit SHA, tests and CI boundary for the next GPT. Leave the backup immutable.
-
-## Before context exhaustion
-Recheck live main and exact-head Actions, complete the safe slice and preserve an accurate first action and unverified boundary for the next GPT.
-
-## Whole-repository priorities
-Stability defect discovery and repair remains primary, with security review in parallel. Prioritize severe system faults and major security vulnerabilities across the full userland while preserving architecture, compatibility and required tests.
+Continue on `main` only. Use one atomic Git tree/commit for a multi-file milestone and a non-forced expected-SHA ref update. Keep the archival backup immutable. Do not create branches or PRs, and do not wait idly for pending Actions.

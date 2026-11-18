@@ -3,6 +3,14 @@
 - Live main before THIS COMMIT: `0b8acba5190a4765f643090a852cbc53d216b97d`. Signal-safe waits now cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, detached daemons, LAN PHY reset/readiness, LAN DHCP grace, AP-client reconnect and iNIC reset.
 - On `0b8acba`, Wireless, iNIC, watchdog and Process inventory regressions PASS. Process fail-closed, XY-C1, NVRAM and HTTPD were pending.
 - This commit removes four further interruptible 300ms waits after watchdog Wi-Fi notification on manual 2.4/5GHz radio and guest enables. A hard wait failure now returns before NVRAM mutation or controller action; the workflow pins all four control paths.
+## CI trigger governance — current policy
+
+- CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
+- Keep common RC paths in a workflow only when its invoked tests/checkers consume or assert that production integration. Current AdGuardHome, Inadyn, NFS, WAN route, and USB modem suites inspect relevant shared RC call paths/declarations; their shared-path fan-out is intentional, not automatically unrelated.
+- The Process lifecycle inventory workflow is the sole intentional whole-userland scan. Its regression workflow uses an explicit allowlist and matching push/pull_request paths.
+- XY-C1's expensive MIPS build, TRX verification and artifact upload remain gated by the fail-safe production-input detector; host-only changes still run relevant fast regression checks.
+- The AI handoff docs validator enforces these invariants and runs on workflow-file changes.
+
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

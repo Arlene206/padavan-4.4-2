@@ -49,6 +49,19 @@ Distinguish validation levels:
 
 A host test or green workflow is not proof of L3/L4.
 
+## CI trigger governance — mandatory for every GPT
+
+GitHub Actions are part of the firmware's safety net. Never optimize their count at the expense of stability, security, compatibility, or development feedback speed.
+
+- Treat each workflow's paths as a dependency contract. Read its actual test commands and all invoked checker/test inputs before changing filters. Keep relevant fast tests and preserve parallel execution.
+- Do not remove a shared RC path merely because it triggers several suites. Keep rc.c/rc.h, services*.c, net*.c, and shared interfaces in every workflow whose tests inspect or compile the relevant declarations, call paths, or integration. Remove only demonstrably unrelated paths.
+- No blanket `trunk/user/**` trigger belongs in a module-specific regression workflow. The dedicated Process lifecycle source-inventory workflow is the intentional whole-userland exception; the Process lifecycle regression workflow uses an explicit allowlist and matching push/pull_request coverage.
+- Never delete or skip stability/security regressions to reduce workflow counts. Do not serialize independent tests, add artificial waits, or consolidate workflows if that slows feedback or obscures failures. Genuine shared-interface fan-out is acceptable.
+- XY-C1 host validation may run for relevant source and CI changes, but the expensive Build XY-C1, TRX verification, and artifact upload steps must all be gated by `steps.firmware_inputs.outputs.changed == 'true'`. Keep the detector fail-safe: unknown inputs or an untrustworthy Git diff require a full firmware build; docs/tests/workflow/checker-only changes may skip it. Never bypass this detector.
+- For every workflow-filter change, review actual consumers and keep push/pull_request path sets aligned unless a documented event-specific reason requires otherwise. The AI handoff docs workflow must cover changes under `.github/workflows/**` so its governance contract runs after workflow edits.
+
+The objective is to prevent false-positive fan-out without losing a single meaningful regression or slowing independent development. A large run count is not automatically waste: prove a trigger is unrelated before removing it.
+
 ## Required documentation behavior
 
 The three root records have different jobs. Never mechanically update all three after every change.

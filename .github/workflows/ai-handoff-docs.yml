@@ -12,6 +12,7 @@ on:
       - "dev_log.md"
       - "docs/dev-log/**"
       - "scripts/check_ai_handoff_docs.py"
+      - ".github/workflows/**"
       - ".github/workflows/ai-handoff-docs.yml"
   workflow_dispatch:
 

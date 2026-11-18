@@ -1,3 +1,13 @@
+## 2026-11-18 — Preserve CI coverage while governing trigger fan-out
+
+- Audited shared RC path filters against the actual invoked integration checkers. AdGuardHome, Inadyn, NFS, WAN route and USB modem workflows consume relevant shared RC declarations/call paths; retaining those paths is necessary coverage, not false-positive noise. Do not remove shared paths solely because several workflows run.
+- Confirmed the Process lifecycle source-inventory workflow is the intentional whole-userland scan; the Process lifecycle regression workflow remains explicitly allowlisted with identical push/pull_request path sets.
+- Added mandatory CI governance to AI_DEVELOPMENT_PROTOCOL.md and AI_BOOTSTRAP_PROMPT.md: focused triggers must follow tested dependencies, keep useful tests parallel, reject blanket focused-workflow catch-alls, and retain the XY-C1 fail-safe production-input gate.
+- Extended the AI handoff validator to enforce the Process workflow allowlist/parity, the sole inventory catch-all exception, and XY-C1 Build/TRX/artifact gating. The AI docs workflow now runs for workflow-file changes.
+- Parent main acd10ac4d35795344669b00065a7ea9520c98830; this governance commit changes no firmware product source. Exact-head Actions must validate the new checker, Process regression/inventory and XY-C1 host-only path. No new full firmware build is expected.
+
+---
+
 ## 2026-11-18 — Reap detached Adbyby test doubles before fixture cleanup
 
 - Exact main SHA 8df3cc2f11aa9e040588d28844952005aaed9126 Process lifecycle run 44333373061 failed only in "Validate Adbyby detached startup readiness and restart status": all assertions printed PASS, then the EXIT trap's rm -rf reported that the temporary test directory was not empty.

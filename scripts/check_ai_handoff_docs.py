@@ -86,6 +86,89 @@ def check_archive_index(index_rel: str, archive_root: str, heading_pattern: byte
     return len(rows)
 
 
+
+def workflow_paths(workflow: str, event: str) -> list[str]:
+    """Return the literal paths list for one workflow event."""
+    event_match = re.search(
+        rf"(?ms)^  {re.escape(event)}:\s*\n(.*?)(?=^  [A-Za-z_][A-Za-z0-9_-]*:|^[A-Za-z_][A-Za-z0-9_-]*:)",
+        workflow,
+    )
+    if not event_match:
+        return []
+    paths_match = re.search(
+        r"(?m)^    paths:\s*\n((?:^      - .*\n?)*)",
+        event_match.group(1),
+    )
+    if not paths_match:
+        return []
+    result = []
+    for line in paths_match.group(1).splitlines():
+        value = line.strip()[2:].strip()
+        if len(value) >= 2 and value[0] in ("'", '"') and value[-1] == value[0]:
+            value = value[1:-1]
+        result.append(value)
+    return result
+
+
+def check_ci_trigger_governance() -> None:
+    """Protect test coverage while rejecting known broad-trigger regressions."""
+    workflow_root = ROOT / ".github/workflows"
+    inventory = (workflow_root / "process-lifecycle-inventory.yml").read_text()
+    if '"trunk/user/**"' not in inventory:
+        fail("whole-userland Process lifecycle inventory trigger was removed")
+
+    for workflow_path in sorted(workflow_root.glob("*.yml")):
+        source = workflow_path.read_text()
+        if re.search(r"""(?m)^\s*-\s*['"]trunk/user/\*\*['"]\s*$""", source):
+            if workflow_path.name != "process-lifecycle-inventory.yml":
+                fail(
+                    f"blanket trunk/user/** trigger is forbidden in focused workflow: "
+                    f"{workflow_path.name}"
+                )
+
+    process_workflow = (workflow_root / "process-lifecycle-regression.yml").read_text()
+    push_paths = workflow_paths(process_workflow, "push")
+    pr_paths = workflow_paths(process_workflow, "pull_request")
+    if not push_paths or not pr_paths:
+        fail("Process lifecycle regression must define push and pull_request path filters")
+    if len(push_paths) != len(set(push_paths)) or len(pr_paths) != len(set(pr_paths)):
+        fail("Process lifecycle regression contains duplicate path-filter entries")
+    if set(push_paths) != set(pr_paths):
+        fail("Process lifecycle regression push/pull_request path sets must match")
+    if "trunk/user/**" in push_paths or "trunk/user/**" in pr_paths:
+        fail("Process lifecycle regression must use an explicit allowlist")
+
+    xy_workflow = (workflow_root / "xy-c1-firmware-validation.yml").read_text()
+    for step_marker in (
+        "- name: Build XY-C1",
+        "- name: Verify TRX output",
+        "- uses: actions/upload-artifact@",
+    ):
+        start = xy_workflow.find(step_marker)
+        if start < 0:
+            fail(f"XY-C1 workflow is missing required step: {step_marker}")
+        next_step = re.search(r"(?m)^      - ", xy_workflow[start + len(step_marker):])
+        end = start + len(step_marker) + next_step.start() if next_step else len(xy_workflow)
+        step = xy_workflow[start:end]
+        if not re.search(
+            r"""(?m)^        if: steps\.firmware_inputs\.outputs\.changed == ['"]true['"]$""",
+            step,
+        ):
+            fail(f"XY-C1 expensive step is not gated by production-input detection: {step_marker}")
+
+    detector = (ROOT / "scripts/check_xy_c1_firmware_inputs.py").read_text()
+    for required in (
+        'if event_name != "push":',
+        'if paths is None:',
+        'if any(not is_non_firmware_input(path) for path in paths):',
+        'return True, paths, "firmware production inputs changed"',
+    ):
+        if required not in detector:
+            fail(f"XY-C1 production-input detector lost fail-safe behavior: {required}")
+    print("CI trigger governance and XY-C1 firmware build gate: PASS")
+
+
+
 def main() -> None:
     bootstrap = read_bytes("AI_BOOTSTRAP_PROMPT.md").decode("utf-8")
     protocol = read_bytes("AI_DEVELOPMENT_PROTOCOL.md").decode("utf-8")
@@ -222,6 +305,8 @@ def main() -> None:
             f"dev_log.md is {len(log_bytes)} bytes (target {LOG_TARGET}); "
             f"batch-rotate old records and retain the newest {LOG_RETAIN}"
         )
+
+    check_ci_trigger_governance()
 
     log_files = check_archive_index(
         "docs/dev-log/INDEX.md", "docs/dev-log", rb"^## [0-9]{4}-[0-9]{2}-[0-9]{2}"

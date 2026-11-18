@@ -208,6 +208,24 @@ The development host may not have the complete MIPS firmware toolchain. Never tr
 
 Before each round, inspect the latest main HEAD and the relevant GitHub Actions runs. Match every run to its exact head SHA.
 
+### CI trigger governance — preserve coverage, avoid false fan-out
+
+CI path filters are executable declarations of test dependencies. Treat them as correctness-critical build configuration, not as a way to make the Actions list look smaller.
+
+- Keep every fast, meaningful stability, security, compatibility, and integration regression that protects a real behavior. Do not delete, disable, skip, serialize, or weaken a test merely to reduce workflow/run counts. Do not introduce waits or artificial dependencies between independent jobs.
+- A focused workflow must list the production sources, headers, tests, build manifests, and integration points that its own tests/checkers actually compile, read, or assert. Remove a path only after inspecting the workflow steps and every invoked checker/test and proving that the path is not an input. A file being shared by several modules is not, by itself, evidence that a trigger is unrelated.
+- Public RC entry points and headers (including rc.c/rc.h, services*.c, net*.c and shared notification/process interfaces) legitimately fan out to multiple suites when those suites verify different production call paths or declarations in that file. Preserve those triggers when the suite consumes the interface. Do not blindly remove common RC paths to reduce Actions.
+- Conversely, do not use blanket source-tree catch-alls (for example trunk/user/**) in module-specific regression workflows. Keep broad whole-userland scanning only in the dedicated Process lifecycle source-inventory workflow, whose purpose is to enumerate the complete tracked userland tree. The Process lifecycle regression workflow uses an explicit dependency allowlist, with identical push and pull_request path sets; update both sets together.
+- When reviewing a trigger, classify it as direct module input, tested shared integration point, build/configuration input, or unrelated. Only the last category is eligible for removal, and only with a source-level dependency check. Preserve a shared path whenever an invoked test or checker reads/asserts it.
+- Keep fast independent suites parallel. If many tests genuinely depend on one shared RC change, their concurrent execution is preferable to dropping coverage or moving them behind a slower serial umbrella. Consolidation is allowed only if it preserves the same test set, parallelism, failure visibility, and exact-SHA coverage without increasing feedback latency.
+- XY-C1 host regressions remain available on their relevant source/workflow changes. The expensive MIPS firmware build, TRX verification, and artifact upload must all remain gated by the production-input detector output. The detector must fail safe: manual/non-push events, incomplete Git comparisons, and unknown paths require a full build; documentation, tests, CI workflow files, and checker-only changes may take the host-only path. Never bypass or broaden the host-only classification to hide a real firmware input.
+- Every workflow path-filter change must be reviewed against both push and pull_request behavior. Keep the lists identical unless an event-specific difference is necessary and explicitly explained. Add/update a source-level governance check whenever changing trigger semantics; the AI handoff documentation workflow must run when workflow files change.
+
+Before changing a path list, record the exact workflow, path, test/checker that consumes it, and why the relationship is or is not real. Do not equate a high run count with waste: a real shared-interface regression fan-out is intentional. The goal is low-latency, complete feedback—not the smallest possible Actions number.
+
+
+Before each round, inspect the latest main HEAD and the relevant GitHub Actions runs. Match every run to its exact head SHA.
+
 If CI is red:
 1. Read the failed job and relevant logs.
 2. Identify whether the failure is a source defect, regression, build/integration issue, brittle source contract, workflow error, or external infrastructure issue.
