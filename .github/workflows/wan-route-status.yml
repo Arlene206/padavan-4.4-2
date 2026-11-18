@@ -552,7 +552,11 @@ jobs:
           assert "if (!dhcp_lease_route_delete_is_ok(route_status))" in dns_loop
           assert 'status = route_status_accumulate(status, route_status);' in dns_loop
           assert "static int\nman_down_internal(" in wan
-          assert "int status = 0, route_status;" in man_down
+          assert "int status = 0, route_status, pause_status;" in man_down
+          man_pause = man_down.index("pause_status = notify_pause_detect_internet();")
+          man_pause_accumulate = man_down.index("status = route_status_accumulate(status, pause_status);", man_pause)
+          assert man_pause < man_pause_accumulate < man_down.index('man_gate = nvram_safe_get("wanx_gateway");')
+          assert "MAN route teardown continuing after Internet monitor pause failure" in man_down
           assert man_down.count("route_status = route_del(") == 3
           assert man_down.count("if (!dhcp_lease_route_delete_is_ok(route_status))") == 3
           assert man_down.count("status = route_status_accumulate(status, route_status);") >= 5
@@ -569,7 +573,11 @@ jobs:
 
           wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           assert "static int\nwan_down_internal(" in wan
-          assert "int status = 0, route_status, interface_cleanup_status;" in wan_down
+          assert "int status = 0, route_status, interface_cleanup_status, pause_status;" in wan_down
+          wan_pause = wan_down.index("pause_status = notify_pause_detect_internet();")
+          wan_pause_accumulate = wan_down.index("status = route_status_accumulate(status, pause_status);", wan_pause)
+          assert wan_pause < wan_pause_accumulate < wan_down.index('nvram_set_temp("vpnc_dns_t", "");')
+          assert "WAN route teardown continuing after Internet monitor pause failure" in wan_down
           assert "route_status = del_dhcp_routes_by_prefix(prefix, wan_ifname, 0);" in wan_down
           assert "route_status = route_del(wan_ifname, 1" in wan_down
           assert "if (!dhcp_lease_route_delete_is_ok(route_status))" in wan_down
