@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Source commit `dde3301aca4056774cd31696fdeb9b98bb0a3773` routes Shadowsocks DNSMasq restart through RC and fixes the preceding malformed shell assertion / handoff sentence. Exact-head AI handoff `44301647352`, Process fail-closed `44301647315`, and Process inventory `44301647284` PASS. Shadowsocks lifecycle `44301647472` runs syntax and startup checks successfully, then fails its rollback regression because the fixture returns the real status 19 while the assertion expected 1; the static source checker was consequently skipped.
-- THIS corrective slice changes the injected status expectation to 19 (verifying original error propagation) and fixes four `script.indexOf()` calls in the Python source checker to use Python `str.index()`; exact-head Shadowsocks and handoff Actions must rerun before marking it validated.
-- Next P1 remains exact DNSMasq include matching across Shadowsocks `oversea` / `ssp_close()` and `ss-rules`, with preservation regressions.
+- Product source `dde3301aca4056774cd31696fdeb9b98bb0a3773` routes Shadowsocks DNSMasq restarts through the RC lifecycle lock. Its first exact-head rerun `44301647472` exposed a test status-expectation defect; commit `1e75f56d758468e8cacd088af52920c261e9b48a` corrected the expected original error status 19 and Python `.indexOf()` checker defect.
+- Exact-head AI handoff `44303526325`, Process fail-closed `44303526428`, and Process inventory `44303526333` on `1e75f56` PASS. Shadowsocks `44303526422` passed shell syntax, startup status, and rollback/error preservation, but still FAILed because its successful ChinaDNS configuration did not contain the asserted upstream directive. This diagnostic change prints the actual escaped config to the next CI log before fixing production behavior.
+- Next: fix the actual DNSMasq ChinaDNS publication defect shown by the diagnostic; then finish exact include cleanup and preservation regressions.
 
 ---
 

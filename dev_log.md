@@ -1,3 +1,12 @@
+## 2026-11-18 20:15 CST — Diagnose missing ChinaDNS upstream after config publication
+
+- Parent `1e75f56d758468e8cacd088af52920c261e9b48a`: exact-head AI handoff `44303526325`, Process fail-closed `44303526428`, and Process inventory `44303526333` PASS. Shadowsocks `44303526422` passes syntax, startup and the now-correct status-19 rollback case, then fails at the successful transaction assertion because `server=127.0.0.1#65353` is absent from the final fixture config.
+- Add failure-only escaped-file diagnostics (`sed -n l`) around the exact-line assertion to capture the post-transaction config. This is necessary evidence before changing production publication logic; no speculative change to the expected directive is made.
+- The Python lifecycle checker `.indexOf()` defects and original error-status assertion are already corrected on parent `1e75f56`; its source-contract stage has not yet executed because the upstream assertion still stops the workflow. No local shell execution or new firmware-source change is claimed. Target runtime and L4 remain NOT VERIFIED.
+- Next: inspect the escaped config from the diagnostic run, fix the actual reason the ChinaDNS server line is missing, then resume exact-match DNSMasq include cleanup.
+
+---
+
 ## 2026-11-18 20:10 CST — Preserve DNSMasq restart errors and repair Shadowsocks source checker
 
 - Parent main SHA: `dde3301aca4056774cd31696fdeb9b98bb0a3773`. Exact-head Shadowsocks workflow `44301647472` passed shell syntax and startup-status regression, then process lifecycle failed because the rollback daemon fixture intentionally exits with status 19 on the first replacement launch while the test incorrectly expected 1. The production transaction returns the original status unchanged; update the test to expect 19 so it verifies first-error preservation.
