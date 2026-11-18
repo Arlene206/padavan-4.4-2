@@ -1,3 +1,13 @@
+## 2026-11-18 — Propagate manual WAN disconnect failures to PID 1
+
+- Parent main SHA: 94b5ddbf49fd71a06ce83d907c9e6b3b23caadd0. Exact parent PID 1 notification queue regression 44209458419 PASS, including positive wait-status mapping for failed command actions; AI handoff 44209458097 PASS. AliDDNS 44209458249, VPN 44209458344, Samba 44209458318, FRP 44209458244, infosvr 44209458058, rstats 44209458146, USB modem 44209458325, DNS Forwarder 44209458272, DNSMasq 44209458260, Firewall 44209458149 and iNIC 44209458219 PASS. WAN route 44209458297, XY-C1 44209458268, NVRAM 44209458222 and gateway ARP 44209458216 were pending at last poll.
+- manual_wan_disconnect() returned void and silently returned early when stop_wan() or stop_wan_ppp() failed. PID 1 discarded it too, so the incomplete marker was cleared as if disconnect succeeded.
+- Convert it to int, preserve modem-type and PPP-protocol stop selection, return/log the selected teardown result, update rc.h and merge it with PID 1 action_result. AP mode remains a successful no-op.
+- Extend WAN source checker for every branch, status return, error log, public prototype and PID 1 aggregation. Existing RC notification queue C policy regression already verifies all nonzero (including positive errno/wait status) map to a retained failure.
+- Exact-head WAN route policy/source contract pending. No physical L4 claim.
+
+---
+
 ## 2026-11-18 — Propagate HDD tune notification failures
 
 - Parent main SHA: `45eb7a00bb8e990ca3e6f8aab1eab0b0de352929`. Exact-head detect_internet `44208911848`, WAN teardown `44208911621`, AI `44208911735`, DNSMasq `44208911911`, ZeroTier `44208911792`, Wireless `44208911890`, infosvr `44208911810`, WAN DHCP `44208911737`, HTTPD Security `44208911702`, miniupnpd `44208911870`, USB modem `44208911916`, AdGuardHome `44208911853`, detect_link `44208911730`, Firewall `44208911825`, WAN route `44208911923`, AliyunDrive `44208911766`, AliDDNS `44208911855`, WAN gateway ARP `44208911946`, Process lifecycle `44208911854`, Process inventory `44208911822` PASS. XY-C1 `44208911610` and NVRAM `44208911609` remain IN_PROGRESS.

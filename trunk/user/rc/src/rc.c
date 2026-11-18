@@ -1457,7 +1457,8 @@ handle_notifications(void)
 		}
 		else if(!strcmp(entry->d_name, "manual_wan_disconnect"))
 		{
-			manual_wan_disconnect();
+			action_result = rc_notify_merge_action_result(
+				action_result, manual_wan_disconnect());
 		}
 		else if(!strcmp(entry->d_name, "manual_wisp_reassoc"))
 		{

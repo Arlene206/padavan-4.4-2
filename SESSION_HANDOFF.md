@@ -1,37 +1,39 @@
-# 2026-11-18 continuation checkpoint — preserve HDD tune notification failures
+# 2026-11-18 continuation checkpoint — propagate manual WAN disconnect failures
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS PID 1 notification fix: `45eb7a00bb8e990ca3e6f8aab1eab0b0de352929`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
-- Exact parent `45eb7a00` checks PASS: detect_internet `44208911848`, WAN interface teardown `44208911621`, AI handoff `44208911735`, DNSMasq `44208911911`, ZeroTier `44208911792`, Wireless `44208911890`, infosvr `44208911810`, WAN DHCP `44208911737`, HTTPD Security `44208911702`, miniupnpd `44208911870`, USB modem `44208911916`, AdGuardHome `44208911853`, detect_link `44208911730`, Firewall `44208911825`, WAN route `44208911923`, AliyunDrive `44208911766`, AliDDNS `44208911855`, WAN gateway ARP `44208911946`, Process lifecycle `44208911854`, Process inventory `44208911822`.
-- Exact parent `45eb7a00` XY-C1 `44208911610` and NVRAM `44208911609` remained IN_PROGRESS at last poll. The parent `6fb72f85` XY-C1 `44208495458` and NVRAM `44208494936` were also pending at their last recorded check. No L3 claim until same-SHA Build, TRX and artifact upload all pass.
-- Found another dropped status in PID 1: `RCN_RESTART_HDDTUNE` invoked synchronous `system("/sbin/hddtune.sh")` but left `action_result` unchanged. A failed tuning action could therefore be acknowledged as completed. THIS slice captures/logs the wait status and merges it through `rc_notify_merge_action_result()`, while still performing the independent `set_pagecache_reclaim()`.
-- The existing RC notification queue workflow compiles the GNU89 status policy test and checks exact PID 1 caller wiring; THIS adds a positive wait-status case and branch-order contract.
-- No physical-router L4 claim. Hardware L4 NOT VERIFIED.
+- Repository: Arlene206/padavan-4.4-2; parent main before THIS slice: 94b5ddbf49fd71a06ce83d907c9e6b3b23caadd0.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact parent 94b5 PID 1 notification queue regression 44209458419 PASS, including positive command-wait-status normalization. AI handoff 44209458097 PASS; AliDDNS 44209458249, VPN server 44209458344, Samba 44209458318, FRP 44209458244, infosvr 44209458058, rstats 44209458146, USB modem 44209458325, DNS Forwarder 44209458272, DNSMasq 44209458260, Firewall 44209458149 and iNIC 44209458219 PASS.
+- Exact parent 94b5 WAN route 44209458297, WAN gateway ARP 44209458216, XY-C1 44209458268, NVRAM 44209458222 and several unrelated lifecycle workflows were IN_PROGRESS/QUEUED at last poll. Require same-SHA Build, Verify TRX output and artifact upload before recording L3.
+- PID 1 manual WAN disconnect used void manual_wan_disconnect(), discarding every stop_wan()/stop_wan_ppp() error; rc.c called it without updating action_result. A failed manual disconnect was therefore acknowledged as complete, unlike the neighboring manual reconnect path.
+- THIS slice converts manual_wan_disconnect() to int, returns the selected stop result, logs nonzero status, updates rc.h, and merges the status in PID 1 via rc_notify_merge_action_result(). This keeps the notification incomplete marker when manual teardown fails. AP mode remains a no-op returning zero.
+- scripts/check_wan_detect_wan_status.py asserts the public prototype, modem/PPP/ordinary stop branches, error diagnostic, AP-mode no-op and PID 1 action-result aggregation. Existing WAN route workflow watches all changed C/checker paths and runs the GNU89/ASan/UBSan policy suite.
+- No local MIPS firmware build or physical router L4 claim.
 
 ## Active task
-- Propagate HDD tuning script failures into the PID 1 notification result so failed storage actions retain their incomplete marker.
-- Keep page-cache reclaim independent and unconditional; preserve first-failure behavior for all notification operations.
+- Propagate the actual manual WAN disconnect result end-to-end from stop_wan()/stop_wan_ppp() to PID 1 notification completion; prevent failure from being acknowledged as success.
+- Exact-head WAN route regression and XY-C1 Build/TRX/artifact checks are pending for THIS commit.
 
 ## Verification boundary
-- Exact `45eb7a00` detect_internet, WAN teardown/route, AI, Process, ZeroTier, DNSMasq, Firewall, Wireless, DHCP, HTTPD, miniupnpd, USB modem, infosvr, AdGuardHome, detect_link, AliyunDrive, AliDDNS and WAN gateway checks PASS.
-- Exact `45eb7a00` XY-C1 `44208911610` is PENDING at cross-build; NVRAM `44208911609` is PENDING. The HDD tune source/policy slice must pass the exact-head RC notification queue workflow after publication.
-- No MIPS/TRX L3 or physical-router L4 claim until the required same-SHA evidence completes.
+- Exact parent 94b5 PID 1 notification queue, AI handoff, AliDDNS, VPN server, Samba, FRP, infosvr, rstats, USB modem, DNS Forwarder, DNSMasq, Firewall and iNIC checks PASS.
+- Parent 94b5 WAN route 44209458297, XY-C1 44209458268, NVRAM 44209458222 and WAN gateway 44209458216 were not yet complete at last poll.
+- THIS commit's exact-head WAN route source contract and policy sanitizer checks pending.
+- Hardware L4 NOT VERIFIED; no same-SHA L3 claim.
 
 ## Exact first action for the next GPT
-1. Inspect the exact-head RC notification queue workflow; require all GNU89 policy binaries and the HDD-tune caller contract to PASS.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; claim L3 only after all three succeed on the same source SHA.
-3. Continue an independent P1 service-start/lifecycle or security defect while any unrelated Actions remain pending. Do not repeat the initial repository recovery.
-4. Keep the frozen backup untouched; physical-router L4 remains unverified.
+1. Inspect THIS commit's exact-head WAN route run. Require route status C GNU89/ASan/UBSan policy tests and the new manual WAN disconnect return/caller/source-contract assertions to PASS.
+2. Inspect exact-head XY-C1 Build, Verify TRX output and artifact-upload steps on this same source SHA. Record L3 only if all three pass.
+3. Check the current NVRAM and other pending security/lifecycle Actions. Continue independent P1 work while they run; do not wait idle.
+4. Frozen backup remains untouched. Do not repeat bootstrap recovery.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.
-Every session MUST inspect live main, exact-SHA Actions, current handoff/roadmap, validation boundary and the exact first actionable task. If these facts remain current, do not create a no-op documentation commit.
+At session end, inspect live main, relevant exact-SHA Actions, current handoff/roadmap, validation boundary and exact first action. If these facts remain accurate, no documentation edit or no-op commit is needed.
 
 # Cross-session execution mandate
 
 Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and commit atomically; do not wait idly on pending CI.
 
-Every logical slice is one atomic main commit: create all blobs, one complete tree and one commit parented to freshly fetched main; publish with non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs, or modify the frozen backup.
+Every logical slice is one atomic main commit: create all blobs, one complete tree and one commit parented to freshly fetched main, then publish with non-forced expected-SHA compare-and-swap. Never force-push, create dev branches/PRs, or modify frozen backup.
 
 Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first action.

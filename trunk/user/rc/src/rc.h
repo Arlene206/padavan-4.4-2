@@ -289,7 +289,7 @@ int try_wan_reconnect(int try_use_modem, long pause_in_seconds);
 int auto_wan_reconnect(void);
 int auto_wan_reconnect_pause(void);
 int manual_wan_reconnect(void);
-void manual_wan_disconnect(void);
+int manual_wan_disconnect(void);
 void manual_wisp_reassoc(void);
 int deferred_wan_connect(void);
 void notify_on_wan_ether_link_restored(void);

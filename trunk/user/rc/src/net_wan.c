@@ -3187,29 +3187,30 @@ deferred_wan_connect(void)
 	return merge_l2tp_server_start_status(status);
 }
 
-void
+int
 manual_wan_disconnect(void)
 {
-	int wan_proto;
+	int wan_proto, status;
 	logmessage(LOGNAME, "Perform WAN %s %s", "manual", "disconnect");
 	if (get_ap_mode())
-		return;
+		return 0;
 	wan_proto = get_wan_proto(0);
 	if (get_usb_modem_wan(0)) {
-		if (nvram_get_int("modem_type") == 3) {
-			if (stop_wan() != 0)
-				return;
-		} else if (stop_wan_ppp() != 0) {
-			return;
-		}
+		if (nvram_get_int("modem_type") == 3)
+			status = stop_wan();
+		else
+			status = stop_wan_ppp();
 	} else if (wan_proto == IPV4_WAN_PROTO_PPPOE ||
 		   wan_proto == IPV4_WAN_PROTO_PPTP ||
 		   wan_proto == IPV4_WAN_PROTO_L2TP) {
-		if (stop_wan_ppp() != 0)
-			return;
-	} else if (stop_wan() != 0) {
-		return;
+		status = stop_wan_ppp();
+	} else {
+		status = stop_wan();
 	}
+
+	if (status != 0)
+		logmessage(LOGNAME, "manual WAN disconnect failed (status=%d)", status);
+	return status;
 }
 
 int

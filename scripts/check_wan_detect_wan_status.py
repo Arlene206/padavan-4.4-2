@@ -10,6 +10,7 @@ POLICY = (RC / "process_presence_start_policy.h").read_text()
 TEST = (RC / "tests/process_presence_start_policy.c").read_text()
 ROUTE_STATUS_TEST = (RC / "tests/route_status_policy.c").read_text()
 RC_SOURCE = (RC / "rc.c").read_text()
+RC_HEADER = (RC / "rc.h").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 PROCESS_WORKFLOW = (ROOT / ".github/workflows/process-lifecycle-regression.yml").read_text()
 
@@ -278,4 +279,31 @@ require(
 require("return ret;" in rc_main,
         "manual WAN notification failures must reach the rc command exit status")
 
+manual_disconnect = body(WAN, "manual_wan_disconnect(void)")
+require(
+    "int\nmanual_wan_disconnect(void)" in WAN
+    and "int manual_wan_disconnect(void);" in RC_HEADER,
+    "manual WAN disconnect must return its teardown status through the public declaration",
+)
+require(
+    "status = stop_wan();" in manual_disconnect
+    and "status = stop_wan_ppp();" in manual_disconnect
+    and "if (status != 0)" in manual_disconnect
+    and "manual WAN disconnect failed (status=%d)" in manual_disconnect
+    and "return status;" in manual_disconnect,
+    "manual WAN disconnect must report stop_wan/stop_wan_ppp failures",
+)
+require(
+    "if (get_ap_mode())" in manual_disconnect and "return 0;" in manual_disconnect,
+    "manual WAN disconnect remains a harmless no-op in AP mode",
+)
+manual_disconnect_dispatch = body(RC_SOURCE, "handle_notifications(void)")
+manual_disconnect_action = manual_disconnect_dispatch.split(
+    'else if(!strcmp(entry->d_name, "manual_wan_disconnect"))', 1
+)[1].split('else if(!strcmp(entry->d_name, "manual_wisp_reassoc"))', 1)[0]
+require(
+    "rc_notify_merge_action_result(" in manual_disconnect_action
+    and "manual_wan_disconnect()" in manual_disconnect_action,
+    "PID 1 must retain the manual disconnect queue marker when WAN teardown fails",
+)
 print("WAN gateway ARP inventory and launch status propagation: PASS")
