@@ -9,6 +9,7 @@ WAN = (RC / "net_wan.c").read_text()
 POLICY = (RC / "process_presence_start_policy.h").read_text()
 TEST = (RC / "tests/process_presence_start_policy.c").read_text()
 ROUTE_STATUS_TEST = (RC / "tests/route_status_policy.c").read_text()
+RC_SOURCE = (RC / "rc.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 PROCESS_WORKFLOW = (ROOT / ".github/workflows/process-lifecycle-regression.yml").read_text()
 
@@ -256,5 +257,25 @@ require(
     and "ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy" in WORKFLOW,
     "the GNU89/ASan/UBSan first-error aggregation regression must remain enabled",
 )
+
+rc_main = body(RC_SOURCE, "main(int argc, char **argv)")
+stop_wan_command = rc_main.split(
+    'else if (!strcmp(base, "stop_wan"))', 1
+)[1].split('else if (!strcmp(base, "restart_wan"))', 1)[0]
+restart_wan_command = rc_main.split(
+    'else if (!strcmp(base, "restart_wan"))', 1
+)[1].split('else if (!strcmp(base, "restart_dns"))', 1)[0]
+require(
+    'ret = notify_rc_status("manual_wan_disconnect");' in stop_wan_command
+    and 'notify_rc("manual_wan_disconnect")' not in stop_wan_command,
+    "stop_wan must return the manual disconnect enqueue result",
+)
+require(
+    'ret = notify_rc_status("manual_wan_reconnect");' in restart_wan_command
+    and 'notify_rc("manual_wan_reconnect")' not in restart_wan_command,
+    "restart_wan must return the manual reconnect enqueue result",
+)
+require("return ret;" in rc_main,
+        "manual WAN notification failures must reach the rc command exit status")
 
 print("WAN gateway ARP inventory and launch status propagation: PASS")

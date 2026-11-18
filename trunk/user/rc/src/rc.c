@@ -2286,10 +2286,10 @@ main(int argc, char **argv)
 		ret = start_ddns(1);
 	}
 	else if (!strcmp(base, "stop_wan")) {
-		notify_rc("manual_wan_disconnect");
+		ret = notify_rc_status("manual_wan_disconnect");
 	}
 	else if (!strcmp(base, "restart_wan")) {
-		notify_rc("manual_wan_reconnect");
+		ret = notify_rc_status("manual_wan_reconnect");
 	}
 	else if (!strcmp(base, "restart_dns")) {
 		ret = restart_dns();
