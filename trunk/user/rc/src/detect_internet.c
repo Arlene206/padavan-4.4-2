@@ -28,6 +28,7 @@
 #include "rc.h"
 #include "detect_internet_signal_policy.h"
 #include "process_presence_start_policy.h"
+#include "detect_internet_notification_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
 #include <gpioutils.h>
@@ -376,7 +377,7 @@ notify_run_detect_internet(int delay_time)
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
-	int scan_error;
+	int scan_error, operation_status, operation_errno, operation_error;
 
 	nvram_set_int_temp("di_notify_delay", delay_time);
 
@@ -384,20 +385,51 @@ notify_run_detect_internet(int delay_time)
 	scan_error = snapshot.error;
 	process_snapshot_release(&snapshot);
 	action = process_presence_start_action_for_state(presence);
-	if (action == PROCESS_PRESENCE_START_NEW)
-		start_detect_internet(delay_time);
-	else if (action == PROCESS_PRESENCE_START_NOTIFY)
-		(void)process_pidfile_signal(DI_PID_FILE, "detect_internet", SIGUSR1);
-	else
+	if (action == PROCESS_PRESENCE_START_NEW) {
+		errno = 0;
+		operation_status = start_detect_internet(delay_time);
+		operation_errno = errno;
+		operation_error = detect_internet_operation_error(
+			operation_status, operation_errno);
+		if (operation_error != 0)
+			logmessage("detect_internet",
+				   "monitor launch failed (status=%d, errno=%d)",
+				   operation_status, operation_error);
+	} else if (action == PROCESS_PRESENCE_START_NOTIFY) {
+		errno = 0;
+		operation_status = process_pidfile_signal(
+			DI_PID_FILE, "detect_internet", SIGUSR1);
+		operation_errno = errno;
+		operation_error = detect_internet_operation_error(
+			operation_status, operation_errno);
+		if (operation_error != 0)
+			logmessage("detect_internet",
+				   "monitor resume signal failed (status=%d, errno=%d)",
+				   operation_status, operation_error);
+	} else {
 		logmessage("detect_internet",
 			   "skipping start/notification because process inventory is unknown (error=%d)",
 			   scan_error ? scan_error : EIO);
+	}
 }
 
 void
 notify_pause_detect_internet(void)
 {
-	(void)process_pidfile_signal(DI_PID_FILE, "detect_internet", SIGUSR2);
+	int operation_status, operation_errno, operation_error;
+
+	errno = 0;
+	operation_status = process_pidfile_signal(
+		DI_PID_FILE, "detect_internet", SIGUSR2);
+	operation_errno = errno;
+	operation_error = detect_internet_operation_error(
+		operation_status, operation_errno);
+	/* No monitor or a just-exited monitor is an ordinary pause no-op. */
+	if (operation_error != 0 &&
+	    operation_errno != ENOENT && operation_errno != ESRCH)
+		logmessage("detect_internet",
+			   "monitor pause signal failed (status=%d, errno=%d)",
+			   operation_status, operation_error);
 }
 
 int

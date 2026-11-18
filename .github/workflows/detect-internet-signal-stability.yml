@@ -123,7 +123,26 @@ jobs:
           assert "internet state hook failed" in wan_notify
           assert wan_notify.index("if (check_if_file_exist(script_inet))") < wan_notify.index("hook_status = doSystem(") < wan_notify.index("if (hook_status != 0)") < wan_notify.index("internet state hook failed")
           assert "detect_internet_notification_error" in notification_policy
+          assert "detect_internet_operation_error" in notification_policy
           assert "test_notification_queue_failure_preserves_errno_or_falls_back" in test
+          assert "test_launcher_and_pidfile_errors_are_normalized" in test
+          assert '#include "detect_internet_notification_policy.h"' in detect
+
+          notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
+          assert "operation_status = start_detect_internet(delay_time);" in notify_run
+          assert 'operation_status = process_pidfile_signal(\n\t\t\tDI_PID_FILE, "detect_internet", SIGUSR1);' in notify_run
+          assert "detect_internet_operation_error(operation_status, operation_errno)" in notify_run
+          assert "monitor launch failed" in notify_run
+          assert "monitor resume signal failed" in notify_run
+          assert "(void)start_detect_internet(" not in notify_run
+          assert "(void)process_pidfile_signal(" not in notify_run
+
+          notify_pause = body(detect, "notify_pause_detect_internet(void)")
+          assert 'operation_status = process_pidfile_signal(\n\tDI_PID_FILE, "detect_internet", SIGUSR2);' in notify_pause
+          assert "detect_internet_operation_error(operation_status, operation_errno)" in notify_pause
+          assert "operation_errno != ENOENT && operation_errno != ESRCH" in notify_pause
+          assert "monitor pause signal failed" in notify_pause
+          assert "(void)process_pidfile_signal(" not in notify_pause
 
           assert "notify_run_detect_internet(" in wan
           assert "notify_pause_detect_internet(" in wan

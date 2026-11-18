@@ -83,6 +83,17 @@ test_notification_queue_failure_preserves_errno_or_falls_back(void)
 }
 
 static int
+test_launcher_and_pidfile_errors_are_normalized(void)
+{
+	CHECK(detect_internet_operation_error(0, EPERM) == 0);
+	CHECK(detect_internet_operation_error(-1, ESRCH) == ESRCH);
+	CHECK(detect_internet_operation_error(-1, 0) == EIO);
+	CHECK(detect_internet_operation_error(23, 0) == 23);
+	CHECK(detect_internet_operation_error(-1, ENOSPC) == ENOSPC);
+	return 0;
+}
+
+static int
 test_unknown_signals_and_invalid_arguments_are_ignored(void)
 {
 	volatile sig_atomic_t events = 0;
@@ -107,6 +118,7 @@ main(void)
 	CHECK(test_latest_control_request_wins() == 0);
 	CHECK(test_termination_is_fail_safe_and_sticky() == 0);
 	CHECK(test_notification_queue_failure_preserves_errno_or_falls_back() == 0);
+	CHECK(test_launcher_and_pidfile_errors_are_normalized() == 0);
 	CHECK(test_unknown_signals_and_invalid_arguments_are_ignored() == 0);
 	puts("detect_internet signal deferral policy: PASS");
 	return 0;

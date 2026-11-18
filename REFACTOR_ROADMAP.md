@@ -1,11 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- Main source checkpoint: `d67ca20b78785b0d501829c12db6dfd2fc4f0fae`, parent `8b92f532974fc5363115aa1e9bd80ea791bb68d4`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
-- Adbyby now confirms detached-daemon RUNNING before publication and routes normal start/update through a shared publisher that checks DNS, firewall, hosts, dnsmasq restart and optional cron, preserves the first error and rolls back partial starts. DNS and cron file writes are checked. Failure-injection coverage lives in the existing Process lifecycle regression.
-- Exact-SHA Actions for `d67ca20`: Process lifecycle PASS, process inventory PASS, AI documentation PASS and HTTPD regression PASS. Adbyby configuration regression FAILED due to a stale source checker that still expected `hosts_ads` in each caller; this follow-up synchronizes the checker with the shared helper and strengthens its assertions. XY-C1 Firmware Validation was still IN PROGRESS at last observation; the fix SHA needs its own checks.
-- Local shell execution, MIPS/uClibc firmware build and physical-router L4 are not independently claimed; CI provides the remote test evidence.
+- Source baseline before the current Internet-monitor control-status slice: `4989579534f712f54126629b2a3323ef50436ad9`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Recent stability slices include AP-client WISP association timeout gates (`d486aba51fc1614a4e63836f1d192e2c7899ca24`), XUPnPD detached-child readiness (`4388a1cca473a89255ba0ab938f19db450ee1ba5`), WAN network-sysctl failure propagation and isolated API declarations (`49f1ab1d4c921306ed67a34c45cadd84a21f17ae`, `180ac810ea6d9c4551512ce7aa2d5bc599d60935`, `aab4a9a3eccc2ceb25bd584a8b2fb16952656534)), and SCUT/MentoHUST bounded detached-child postconditions (`777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`).
+- Exact-head repair SHA `4989579534f712f54126629b2a3323ef50436ad9`: Process lifecycle `44256754447` PASS and AI handoff docs `44256754667` PASS. The product build for source SHA `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`, run `44256159232`, remained in progress; Build/TRX/artifact did not yet provide L3 evidence.
+- This slice closes a reliability gap in `detect_internet.c`: launch and SIGUSR1/SIGUSR2 PID-file signal results are normalized and logged, with ENOENT/ESRCH treated as benign only for pause. Its host regression, source contract and XY-C1 header trigger require exact-head verification after publication.
+- Local shell execution, independent MIPS/uClibc build and physical-router L4 are not claimed. L3 requires same-SHA XY-C1 Build, TRX and artifact success.
 
-Next: inspect all exact-head Actions for the checker-fix commit and the XY-C1 run for `d67ca20`. Fix any new failures rather than marking the earlier SHA complete. Once checks pass or remain pending, continue the process-lifecycle roadmap candidate `trunk/user/rc/src/services_ex.c`; do not re-audit completed AdGuardHome/ttyd or modify the frozen backup.
+Next: inspect the exact-head detect-internet signal regression and XY-C1 Actions for this commit. Fix failures from their causal logs. Then continue the P1 whole-userland startup/lifecycle audit without re-auditing completed slices.
+
 ---
 
 ## Whole-repository module status

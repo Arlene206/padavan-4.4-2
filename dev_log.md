@@ -1,9 +1,17 @@
+## 2026-11-18 — Report Internet-monitor launch and PID-file signal failures
+
+- `notify_run_detect_internet()` discarded the `start_detect_internet()` status for a new monitor and the `process_pidfile_signal(SIGUSR1)` result for an existing monitor. `notify_pause_detect_internet()` also discarded SIGUSR2 errors, hiding launch, stale-PID and process-identity failures.
+- Normalize each status/errno pair through the detection notification policy and log failed launch/resume/pause control operations. ENOENT/ESRCH on pause remains a benign no-monitor/race condition; resume failures remain visible when inventory reported a running monitor. Keep the existing void API and call ordering.
+- Extend the GNU89 policy regression and detect-internet source contract for result capture and normalization; add the policy header to the XY-C1 source trigger. Exact-head host and product Actions must verify this slice. No local build or physical-router test is claimed.
+
+---
+
 ## 2026-11-18 — Require SCUT and MentoHUST child readiness after background launch
 
 - Parent main: `aab4a9a3eccc2ceb25bd584a8b2fb16952656534`. SCUT and MentoHUST used `start-stop-daemon -S -b` and treated a zero launcher status as a running daemon, although a detached child could exit immediately before entering the process inventory.
 - Add shared POSIX `pl_wait_started()`: a one-second initial delay followed by four tri-state probes, one second apart. Only confirmed RUNNING succeeds; confirmed ABSENT after bounded probes returns timeout; UNKNOWN inventory, invalid arguments or sleep failure fail closed. Preserve launcher errors and existing duplicate/stop semantics.
 - Require this postcondition in both scripts; extend shared and optional-app runtime regressions for absent, delayed and UNKNOWN child states; include the ROMFS-installed helper in XY-C1 build triggers and firmware-input tests.
-- Exact-head SHA `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`: Process lifecycle run `44256159139` failed only because the final SCUT logout counter was not incremented for the additional delayed-start/stop test (repairing expected count to 2); AI handoff run `44256158997` failed on missing mandatory handoff checkpoint wording/section names (adding exact contract wording). Process inventory run `44256159035` and Legacy wrapper pidfile run `44256158977` passed. XY-C1 run `44256159232` remained in progress at last poll; Build, TRX and artifact status not yet verified. No local shell execution or cross-build is claimed; physical-router L4 remains NOT VERIFIED.
+- Exact-head repair SHA `4989579534f712f54126629b2a3323ef50436ad9`: Process lifecycle run `44256754447` and AI handoff docs run `44256754667` PASS. For implementation SHA `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`, Process inventory `44256159035` and Legacy wrapper pidfile `44256158977` PASS; XY-C1 run `44256159232` remained in progress, with Build running and TRX/artifact pending. No L3 is claimed until same-SHA Build/TRX/artifact are all successful. No local shell execution or cross-build is claimed; physical-router L4 remains NOT VERIFIED.
 
 ---
 
