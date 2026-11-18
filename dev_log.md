@@ -1,3 +1,15 @@
+## 2026-11-19 — Repair exact-head checker drift after WAN VLAN gate
+
+- Inspected the exact-head Actions for `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`. The new firewall C policy regression passed, and the independent Process inventory passed; the remaining failures were stale integration contracts after the `init_bridge` and WAN policy signatures changed.
+- Firewall startup checker still expected the old six-argument policy call and used a brace counter that did not skip C comments/quoted strings. Replace the fragile nested-block scan with the existing lexical `body(rc, "init_router(void)")` helper and require the seventh switch-VLAN argument.
+- HTTPD security checker also expected the old six-argument policy and test calls. Update it to the current seven-argument form and assert the switch-isolation fail-closed policy.
+- Process lifecycle and Wireless radio jobs both failed at the shared guest-LAN source checker because it still searched for the old `init_bridge(int is_ap_mode)` signature. Update that contract and verify the separately captured switch VLAN result.
+- AI handoff validation failed because the preceding handoff rewrite omitted the mandatory checkpoint section. Restore all required headings and state the mandatory-check/conditional-edit rule explicitly.
+- Base main: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`. Beijing time (UTC+8): 2026-11-19 00:57:06. XY-C1 host checks passed; its target build was IN_PROGRESS and TRX/artifact steps PENDING at last exact-SHA poll. No L3/L4 claim is made.
+- Next source candidate after these CI contracts are green: block WAN when IPv6 is explicitly configured disabled but `init_ipv6()` fails to verify global disable sysctls; keep optional early memory/TCP tuning best-effort.
+
+---
+
 ## 2026-11-19 — Block WAN startup when switch VLAN isolation fails
 
 - Closed the previous handoff candidate after checking every RC C source and `rc.h`: the five optional-app `void start_*` wrappers (AdGuardHome, DDNSTO, Adbyby, AliDDNS and FRP) have no C callers, while the dispatcher uses their `int restart_*` entry points. No dead-code prototype changes were made. Confirmed `restart_crond() < 0` is intentional because disabled crond startup returns positive 1 as a benign no-op.

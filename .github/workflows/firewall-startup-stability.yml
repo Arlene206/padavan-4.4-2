@@ -172,29 +172,15 @@ jobs:
                   pos += 1
               raise AssertionError("unterminated function: " + signature)
 
-          def block_after(source, marker):
-              marker_pos = source.index(marker)
-              start = source.rfind("if (!is_ap_mode) {", 0, marker_pos)
-              assert start >= 0, "router-mode startup block not found"
-              brace = source.index("{", start)
-              depth = 0
-              for pos in range(brace, len(source)):
-                  if source[pos] == "{":
-                      depth += 1
-                  elif source[pos] == "}":
-                      depth -= 1
-                      if depth == 0:
-                          return source[brace + 1:pos]
-              raise AssertionError("unterminated router-mode startup block")
-
-          startup = block_after(rc, "nat_restore_status = ipt_nat_default();")
+          startup = body(rc, "init_router(void)")
           assert "nat_required = nvram_match(\"wan_nat_x\", \"1\");" in startup
           assert startup.index("nat_required = nvram_match") < startup.index("nat_restore_status = ipt_nat_default();")
           assert startup.index("nat_restore_status = ipt_nat_default();") < startup.index("firewall_startup_policy_allows_wan(")
-          assert "nat_required," in startup and "nat_restore_status))" in startup
+          assert "nat_required," in startup and "nat_restore_status," in startup and "switch_vlan_status))" in startup
           assert startup.index("if (!firewall_startup_policy_allows_wan(") < startup.index("start_wan();")
           assert "set_ipv4_forward(0);" in startup
           assert "required NAT table or restrictive IPv4/IPv6 firewall filters" in startup
+          assert "required switch VLAN isolation could not be verified" in startup
 
           bridge = body(net_lan, "init_bridge(int is_ap_mode, int *switch_vlan_status)")
           bridge_compact = " ".join(bridge.split())

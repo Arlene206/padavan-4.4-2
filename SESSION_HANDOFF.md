@@ -1,44 +1,56 @@
-# 2026-11-19 continuation checkpoint — require verified WAN switch VLAN isolation
+# 2026-11-19 continuation checkpoint — repair exact-SHA startup contracts and retain fail-closed WAN state
 
-## Repository state
+## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- This checkpoint is included in the current atomic main commit (parent: `26f0638d76b94a076278f14cf976a6a015d310dc`); resolve its resulting SHA from live `main` during the next recovery.
-- The archival branch `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never switch to, update, or delete it.
+- Main before this checkpoint repair: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`; fetch live main at the next recovery rather than assuming a remembered SHA.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not switch to, update or delete it.
 - PR #1 remains closed/unmerged; do not revive it.
-- No local checkout or MIPS build was available in this session. Physical-router L4 remains NOT VERIFIED.
+- No local checkout, MIPS cross-build or physical-router validation was available in this session.
 
-## Closed previous candidate
+## Active task
 
-- The prior handoff requested investigation of the five `void start_*` wrappers for AdGuardHome, DDNSTO, Adbyby, AliDDNS and FRP.
-- The whole `trunk/user/rc/src/*.c` inventory plus `rc.h` was searched. Those five functions have no actual C callers; `rc.c` dispatches through the status-returning `restart_*` entry points. No prototype change or dead-code refactor is justified. This candidate is closed with no source modification.
-- `restart_crond() < 0` is intentional: disabled `start_crond()` returns positive 1 as a benign no-op, while startup failures are negative. Do not convert that condition to `!= 0`.
+The previous source slice closed a P1 WAN-startup safety gap. Router-mode `init_bridge()` formerly recorded `switch_config_vlan(1)` failure in its aggregate bridge status, but WAN admission did not consume that result. `init_bridge(int is_ap_mode, int *switch_vlan_status)` now exports only the switch VLAN isolation result; `init_router()` passes it into `firewall_startup_policy_allows_wan()`. Any nonzero result blocks WAN even when firewall and NAT are disabled. Unrelated radio/guest bridge errors are not promoted to the WAN prerequisite. The existing IPv4/IPv6 forwarding-disable cleanup remains in place.
 
-## Implemented source slice — THIS COMMIT
+Atomic source commit: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` (parent `26f0638d76b94a076278f14cf976a6a015d310dc`). The C policy regression compiled and passed on its exact-head firewall run; subsequent source-integration contracts exposed several stale checkers, not a failed production C regression.
 
-The router-mode `init_bridge()` previously recorded failure of `switch_config_vlan(1)` in its overall bridge status, but `init_router()` only used that aggregate for logging/boot status. It then allowed `start_wan()` whenever the firewall/NAT policy passed, even when the required switch bridge/VLAN isolation operation had failed.
+### Exact-SHA CI failures identified for repair
 
-- `init_bridge()` now exports only the `switch_config_vlan(1)` result through an optional output parameter. AP mode reports zero because it does not enter router-mode WAN startup. Other later bridge/radio/guest errors remain separate and do not accidentally become WAN prerequisites.
-- `init_router()` supplies the output parameter to `firewall_startup_policy_allows_wan()`. A nonzero switch VLAN result blocks WAN before `start_wan()`, even when firewall and NAT are explicitly disabled; the existing IPv4 and active-IPv6 forwarding shutdown path is reused.
-- The firewall policy regression covers positive and negative switch errors and verifies successful VLAN configuration preserves the previous firewall/NAT decisions.
-- The firewall startup workflow's push/pull_request dependency sets are synchronized and now include `net_lan.c`. The XY-C1 workflow includes the production policy header and host regression in its push filter; the firmware-input detector keeps the test path host-only and treats the production header as a firmware input.
-
-Changed paths: `trunk/user/rc/src/net_lan.c`, `trunk/user/rc/src/rc.h`, `trunk/user/rc/src/rc.c`, `trunk/user/rc/src/firewall_startup_policy.h`, `trunk/user/rc/src/tests/firewall_startup_policy.c`, `.github/workflows/firewall-startup-stability.yml`, `.github/workflows/xy-c1-firmware-validation.yml`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- Firewall startup run `44351420600`: the GNU89 ASan/UBSan C regression passed. The later inline source checker failed because it still expected the old six-argument policy call and used a brace scanner that ignored comments/quotes. Replace its nested startup extraction with the existing lexical C function-body helper and verify the seventh switch-VLAN argument.
+- HTTPD authentication/security run `44351420392`: all preceding security checks passed; the inline WAN-policy contract failed on the same outdated six-argument expectations. Update its policy test call expectations and assert the switch-VLAN fail-closed gate.
+- Process lifecycle regression `44351420304` and wireless-radio run `44351420162`: both fail only because `scripts/check_guest_lan_isolation_status.py` still searches for the old `init_bridge(int is_ap_mode)` signature. Update the checker to the new signature and assert exact switch-VLAN status capture. The script is already present in both workflows' push/PR path allowlists.
+- AI handoff run `44351420055`: failed because the prior handoff rewrite dropped the mandatory checkpoint section. Restore that section and retain all required handoff headings; the checkpoint is mandatory, but a document edit is conditional.
+- Process lifecycle inventory run `44351420273`: SUCCESS.
+- XY-C1 firmware run `44351420211`: at last poll, host regressions, source contracts and the production-input detector passed; `Build XY-C1` remained IN_PROGRESS; TRX verification and artifact upload were PENDING. Recheck this exact run before claiming L3.
+- The other independent exact-head runs observed for `1fa05ac` completed successfully. Do not collapse the five failures above into a blanket CI failure or misstate the pending firmware job.
 
 ## Verification boundary
 
-- Parent main before this slice: `26f0638d76b94a076278f14cf976a6a015d310dc`.
-- Exact parent-head Actions already observed: Process inventory `44344497118` SUCCESS and Shadowsocks proxy lifecycle `44344497203` SUCCESS.
-- The earlier XY-C1 firmware run `44342177852` on product SHA `64a208a94e3609ed73633451b8afc0fe6c5db7a8` has now completed SUCCESS: host checks, Build XY-C1, TRX verification and artifact upload all passed. Artifact ID `14444558335`, size 12,659,242 bytes. This is L3 evidence for that product SHA, not for this new commit.
-- The exact-head firewall startup, Process lifecycle, XY-C1 and AI handoff-documentation Actions for THIS COMMIT are PENDING until fetched by exact `head_sha`. Do not infer PASS from the parent.
-- No local C regression was executed in this session. The updated firewall workflow must compile/run the GNU89 `-Werror` ASan/UBSan test. XY-C1 target build/TRX/artifact and physical hardware are separate validation levels.
+- Exact source commit under validation: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`.
+- Firewall startup C regression: PASS; its later inline source contract: FAIL (stale checker).
+- Process inventory: PASS; guest-LAN integration sub-contract in Process lifecycle and Wireless radio runs: FAIL (stale function signature in shared checker).
+- HTTPD authentication/security regression: FAIL in its final WAN source contract due stale policy-argument assumptions; earlier checks in that job passed.
+- AI handoff documentation contract: FAIL because the handoff mandatory section was omitted; this checkpoint restores the section.
+- XY-C1 host checks: PASS; target build/TRX/artifact state last observed PENDING/IN_PROGRESS. No L3 claim is made for the new WAN VLAN slice.
+- Prior XY-C1 run `44342177852` on product SHA `64a208a94e3609ed73633451b8afc0fe6c5db7a8` completed SUCCESS for host checks, Build XY-C1, TRX verification and artifact upload (artifact `14444558335`, 12,659,242 bytes). That is prior-SHA evidence only.
+- No local test, local firmware build, firmware artifact or hardware result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect all Actions whose `head_sha` equals the resulting commit SHA. Check firewall startup regression, Process lifecycle regression, XY-C1 firmware validation and AI handoff documentation. Inspect failed job logs before calling any result validated; continue independent work while jobs are pending.
-2. Once the firewall policy regression passes, continue the P1 PID-1 startup reliability review at `trunk/user/rc/src/init.c::init_sysctl()`: trace actual implementations/callers of `fput_int()`, `set_tcp_tweaks()`, `set_interface_conf_int()` and `control_if_ipv6_all()`; classify required network/firewall sysctls separately from optional tuning before changing return propagation. Add a focused regression/source contract for any confirmed failure path. Do not turn every best-effort tuning write into a router boot blocker without evidence.
-3. Continue cross-userland stability/security work after closing the current exact-SHA failures. Do not repeat the completed startup-wrapper caller search, CI trigger governance audit, or PPPoE-MWAN probe review without new evidence.
+1. Fetch live `main` and exact-head Actions once. Verify the checker-repair commit: firewall startup, HTTPD security, Process lifecycle, Wireless radio, AI handoff and XY-C1. Inspect failed job logs; PENDING must not block independent work.
+2. Then finish the next P1 IPv6 safety slice in `trunk/user/rc/src/rc.c`: retain the result of `init_ipv6()` beyond its current local block and block WAN only when IPv6 is configured disabled but the global disable sysctls did not complete. This prevents an unverified IPv6 disable from leaving an unfiltered path open. Extend `firewall_startup_policy.h` and its C regression for positive/negative failures; preserve current behavior for enabled IPv6, where active IPv6 firewall filter installation remains the separate gate. Re-attempt global IPv6 forwarding disable on the blocked path.
+3. Do not turn early `init_sysctl()` memory/TCP performance tuning failures into PID-1 boot blockers. Those writes are best-effort; classify actual required network/firewall state separately. Continue cross-userland stability/security afterward.
 
-## Delivery rules
+## Mandatory handoff checkpoint
 
-One coherent task per atomic main commit. Build the complete Git tree from the exact current parent and update `main` only with a non-forced expected-SHA compare-and-swap. Never create development branches or PRs; never modify the archival backup. Do not claim tests, builds, Actions or hardware results that were not actually observed. Update this handoff only when the active task, source baseline, validation boundary or precise next action materially changes.
+The checkpoint is mandatory; a document edit is conditional.
+
+Every session MUST inspect the live repository state and exact-head Actions before ending. Compare the source baseline, active task, relevant exact-SHA workflow states, validation boundary, blockers and exact first action with this handoff. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit. Do not create a no-op commit.
+
+## Cross-session execution mandate
+
+One logical slice, one atomic main commit. Build the complete Git tree from the exact parent and update `main` only with a non-forced expected-SHA compare-and-swap. Continue independent work while Actions are pending. Do not ask the user what to do next. Keep the archival backup immutable.
+
+## Before context exhaustion
+
+Finish the current safe slice and commit it atomically. Record the exact commit, tests, exact-SHA Actions and unverified boundaries. Leave the next GPT one concrete first action; do not claim local tests, builds, firmware artifacts or hardware checks that were not performed.

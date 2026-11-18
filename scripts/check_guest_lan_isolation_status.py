@@ -170,8 +170,10 @@ for signature in ("int\nrestart_wifi_wl(int radio_on, int need_reload_conf)",
     assert "isolation_status = restart_guest_lan_isolation();" in body
     assert "return isolation_status;" in body
 
-init_bridge = function_body(lan, "int\ninit_bridge(int is_ap_mode)")
+init_bridge = function_body(lan, "int\ninit_bridge(int is_ap_mode, int *switch_vlan_status)")
 assert 'rc_bridge_init_record(&bridge_status, "guest LAN isolation", guest_isolation_status);' in init_bridge
+assert "if (switch_vlan_status) *switch_vlan_status = 0;" in init_bridge
+assert "*switch_vlan_status = operation_status;" in init_bridge
 assert "rt_guest_state_status = wireless_guest_rt_guest_is_up(&rt_guest_was_up);" in init_bridge
 assert "wl_guest_state_status = wireless_guest_wl_guest_is_up(&wl_guest_was_up);" in init_bridge
 assert '"inspect 2.4GHz guest AP before startup"' in init_bridge
