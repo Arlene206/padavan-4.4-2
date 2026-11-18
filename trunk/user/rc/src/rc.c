@@ -50,6 +50,7 @@
 #include "wireless_module_load_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
+#include "service_wait_policy.h"
 #include "ddns_restart_policy.h"
 #if defined (USE_IPV6)
 #include "ipv6_restart_policy.h"
@@ -694,7 +695,23 @@ flash_firmware(void)
 		return -1;
 	}
 	sync();
-	sleep(1);
+	/* Do not start an irreversible flash until the sync settling interval
+	 * has elapsed; service_wait_seconds retries the unslept remainder on
+	 * EINTR instead of silently shortening this safety window. */
+	if (service_wait_seconds(1) != 0) {
+		int wait_errno = errno ? errno : EIO;
+		int watchdog_status, watchdog_errno;
+
+		logmessage(LOGNAME, "firmware update aborted: pre-flash settling wait failed (errno=%d)",
+			   wait_errno);
+		watchdog_status = start_watchdog();
+		watchdog_errno = errno ? errno : EIO;
+		if (watchdog_status != 0)
+			logmessage(LOGNAME, "pre-flash wait failed and watchdog recovery also failed (status=%d, errno=%d)",
+				   watchdog_status, watchdog_errno);
+		errno = wait_errno;
+		return -1;
+	}
 	errno = 0;
 	flash_status = eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME);
 	if (flash_status != 0) {

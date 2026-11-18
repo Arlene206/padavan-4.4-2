@@ -31,6 +31,16 @@ assert not re.search(r"\breturn\s*;", flash), "firmware aborts must not return s
 assert flash.count("return -1;") >= 10, "all preparation abort paths must return failure"
 write_call = 'flash_status = eval("/tmp/mtd_write", "-r", "write", FW_IMG_NAME, FW_MTD_NAME);'
 assert write_call in flash
+assert '#include "service_wait_policy.h"' in rc_source
+assert "sleep(1);" not in flash, "pre-flash wait must not be shortened by EINTR"
+pre_flash_wait = "service_wait_seconds(1)"
+assert pre_flash_wait in flash
+assert flash.index("sync();") < flash.index(pre_flash_wait) < flash.index(write_call)
+wait_failure = block(flash, "if (service_wait_seconds(1) != 0)")
+assert "int wait_errno = errno ? errno : EIO;" in wait_failure
+assert "watchdog_status = start_watchdog();" in wait_failure
+assert "errno = wait_errno;" in wait_failure
+assert "return -1;" in wait_failure
 write_failure = block(flash, "if (flash_status != 0)")
 assert "int flash_errno = errno ? errno : EIO;" in write_failure
 assert "firmware write command failed (status=%d, errno=%d)" in write_failure
