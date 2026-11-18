@@ -3,7 +3,7 @@
 - Parent main SHA: `f57161cc56f82f1b091093a8e93eac012413ce15`. Its Process inventory `44375203938`, AI docs `44375203886`, Switch CLI `44375203978` and NVRAM audit `44375203974` all PASS.
 - The IANA IPv6 Global Unicast Address Space registry lists the consecutive RESERVED blocks `2d00::/8`, `2e00::/7`, `3000::/5`, `3800::/6`, `3c00::/7`, `3e00::/8` and the `3f00..` subdivisions. The preceding filter only rejected first hextets >= `0x3f00`, leaving `2d00..3eff` incorrectly eligible when Linux reports `Scope:Global`.
 - Move the public-GUA cutoff to `0x2d00` (decimal 11520), preserving the preceding allocated `2c00::/12` block. Extend the real discovery fixture across both boundaries of every reserved range and pin the numeric cutoff in the AliDDNS source checker.
-- No local regression or MIPS build was run in this connector-only session. Exact-head AliDDNS/Process/AI/HTTPD/XY-C1 Actions for this new SHA remain pending; physical-router L4 remains NOT VERIFIED.
+- Exact-head AliDDNS run `44377211563` passed all checks, including WAN IPv6 discovery regression; Process inventory `44377211590` and HTTPD security `44377211539` also PASS. AI handoff run `44377211545` failed only because the previous handoff lacked literal `## Active task`; this docs-only follow-up restores the required heading. XY-C1 `44377211451` remains IN_PROGRESS (Build active, TRX/artifact pending). No local regression or MIPS build was run here; physical-router L4 remains NOT VERIFIED.
 
 ## 2026-11-19 — Reject duplicate Clause 45 MDIO CLI options before ioctl
 
