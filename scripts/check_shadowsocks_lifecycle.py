@@ -27,6 +27,7 @@ monitor = read("trunk/user/shadowsocks/scripts/ss-monitor")
 helper = read("trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh")
 makefile = read("trunk/user/shadowsocks/Makefile")
 test = read("trunk/user/shadowsocks/tests/process_lifecycle.sh")
+start_status_test = read("trunk/user/shadowsocks/tests/start_status.sh")
 adblock_test = read("trunk/user/shadowsocks/tests/adblock_config.sh")
 dnsmasq_cleanup = read("trunk/user/shadowsocks/scripts/dnsmasq_config_lifecycle.sh")
 dnsmasq_cleanup_test = read("trunk/user/shadowsocks/tests/dnsmasq_config_cleanup.sh")
@@ -278,7 +279,7 @@ require("dnsmasq atomic config and restart" in test and
         "dnsmasq restart failure preserves original status" in test and
         "dnsmasq rollback did not restart old service" in test and
         "DNSMASQ_RESTART_CALLS" in test and
-        "Shadowsocks DNSMasq profile-2 atomic publication regression: PASS" in test,
+        "Shadowsocks DNSMasq profile-2 atomic publication regression: PASS" in start_status_test,
         "dnsmasq regression must cover RC service restart, validation failure and rollback")
 
 
