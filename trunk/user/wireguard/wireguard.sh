@@ -225,10 +225,11 @@ start_wg()
 	if ip link set dev "$WG_IFACE" up; then
 		log "WireGuard interface is running"
 		return 0
+	else
+		start_status=$?
+		fail_start "$start_status" "cannot bring interface up"
+		return $?
 	fi
-	start_status=$?
-	fail_start "$start_status" "cannot bring interface up"
-	return $?
 }
 
 stop_wg()
