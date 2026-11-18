@@ -136,6 +136,13 @@ jobs:
           assert "rc_notify_merge_action_result" in policy
           assert "operation_status != 0" in policy
           assert "rc_notify_merge_action_result(0, EBUSY) == -1" in test
+          assert "rc_notify_merge_action_result(0, 256) == -1" in test
+          hddtune_event = function_body(handler, "else if (strcmp(entry->d_name, RCN_RESTART_HDDTUNE) == 0)")
+          assert 'int hddtune_status = system("/sbin/hddtune.sh");' in hddtune_event
+          assert "if (hddtune_status != 0)" in hddtune_event
+          assert "action_result = rc_notify_merge_action_result(action_result," in hddtune_event
+          assert "hddtune_status);" in hddtune_event
+          assert hddtune_event.index("action_result = rc_notify_merge_action_result") < hddtune_event.index("set_pagecache_reclaim();")
           assert "rc_notify_merge_action_result(action_result, restart_dhcpd())" in handler
           sshd_presence = function_body(services, "sshd_process_presence(int *scan_error)")
           assert 'process_inventory_scan(process_name, &snapshot)' in sshd_presence

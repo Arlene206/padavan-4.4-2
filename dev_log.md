@@ -1,3 +1,12 @@
+## 2026-11-18 — Propagate HDD tune notification failures
+
+- Parent main SHA: `45eb7a00bb8e990ca3e6f8aab1eab0b0de352929`. Exact-head detect_internet `44208911848`, WAN teardown `44208911621`, AI `44208911735`, DNSMasq `44208911911`, ZeroTier `44208911792`, Wireless `44208911890`, infosvr `44208911810`, WAN DHCP `44208911737`, HTTPD Security `44208911702`, miniupnpd `44208911870`, USB modem `44208911916`, AdGuardHome `44208911853`, detect_link `44208911730`, Firewall `44208911825`, WAN route `44208911923`, AliyunDrive `44208911766`, AliDDNS `44208911855`, WAN gateway ARP `44208911946`, Process lifecycle `44208911854`, Process inventory `44208911822` PASS. XY-C1 `44208911610` and NVRAM `44208911609` remain IN_PROGRESS.
+- PID 1's `RCN_RESTART_HDDTUNE` handler discarded the synchronous `system("/sbin/hddtune.sh")` status, leaving the notification `action_result` at zero after a failed storage-tuning command.
+- Capture/log the command wait status and merge it via `rc_notify_merge_action_result()`. Always retain `set_pagecache_reclaim()`, which is an independent follow-up. Add a GNU89 regression for a representative positive wait status and a workflow source contract for the exact handler.
+- Exact-head RC notification queue Actions, XY-C1 Build/TRX/artifact, and NVRAM follow-up pending. Physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Capture optional Internet-state hook exit status
 
 - Parent main SHA: 6fb72f857ae1141705e7a7c4f1e91354e46503ed. Exact 6fb detect-internet action queue regression 44208495457, WAN route 44208495523, WAN interface teardown 44208495529, AI handoff 44208495654, Process lifecycle 44208495046, AdGuardHome 44208495456, ZeroTier 44208494833, detect_link 44208494945, miniupnpd 44208494872, VPN server 44208494879, DNSMasq 44208495154 and infosvr 44208495121 PASS. XY-C1 44208495458 at Build; NVRAM 44208494936 in raw IOCTL audit.

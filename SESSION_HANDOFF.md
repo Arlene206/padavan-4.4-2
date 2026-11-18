@@ -1,28 +1,28 @@
-# 2026-11-18 continuation checkpoint — log optional Internet-state hook failures
+# 2026-11-18 continuation checkpoint — preserve HDD tune notification failures
 
 ## Current repository state
-- Repository: Arlene206/padavan-4.4-2; parent main before THIS hook-observability slice: 6fb72f857ae1141705e7a7c4f1e91354e46503ed.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent 6fb: detect-internet notification queue policy 44208495457 PASS; WAN route 44208495523 PASS; WAN interface teardown 44208495529 PASS; AI handoff 44208495654 PASS; Process lifecycle inventory 44208495046 PASS; AdGuardHome 44208495456 PASS; ZeroTier 44208494833 PASS; detect_link 44208494945 PASS; miniupnpd 44208494872 PASS; VPN server 44208494879 PASS; DNSMasq 44208495154 PASS; infosvr 44208495121 PASS.
-- Exact parent XY-C1 44208495458 is IN_PROGRESS at Build XY-C1; TRX verification and artifact upload not complete at last poll. NVRAM 44208494936 is IN_PROGRESS during the raw IOCTL/kernel NVRAM caller audit. Do not claim L3 until the same SHA passes Build, TRX and artifact upload.
-- Parent 6fb fixed three ignored Internet-loss action queue statuses using queue_internet_lost_action(), errno normalization and policy regression tests. THIS slice also captures/logs the previously discarded optional SCRIPT_INTERNET_STATE doSystem() wait status; a failed user hook remains nonfatal to Internet-state processing.
-- Prior WAN VPN queue and LAN DHCP ancillary result fixes remain in ancestry. No local MIPS build or physical-router L4 test.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS PID 1 notification fix: `45eb7a00bb8e990ca3e6f8aab1eab0b0de352929`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
+- Exact parent `45eb7a00` checks PASS: detect_internet `44208911848`, WAN interface teardown `44208911621`, AI handoff `44208911735`, DNSMasq `44208911911`, ZeroTier `44208911792`, Wireless `44208911890`, infosvr `44208911810`, WAN DHCP `44208911737`, HTTPD Security `44208911702`, miniupnpd `44208911870`, USB modem `44208911916`, AdGuardHome `44208911853`, detect_link `44208911730`, Firewall `44208911825`, WAN route `44208911923`, AliyunDrive `44208911766`, AliDDNS `44208911855`, WAN gateway ARP `44208911946`, Process lifecycle `44208911854`, Process inventory `44208911822`.
+- Exact parent `45eb7a00` XY-C1 `44208911610` and NVRAM `44208911609` remained IN_PROGRESS at last poll. The parent `6fb72f85` XY-C1 `44208495458` and NVRAM `44208494936` were also pending at their last recorded check. No L3 claim until same-SHA Build, TRX and artifact upload all pass.
+- Found another dropped status in PID 1: `RCN_RESTART_HDDTUNE` invoked synchronous `system("/sbin/hddtune.sh")` but left `action_result` unchanged. A failed tuning action could therefore be acknowledged as completed. THIS slice captures/logs the wait status and merges it through `rc_notify_merge_action_result()`, while still performing the independent `set_pagecache_reclaim()`.
+- The existing RC notification queue workflow compiles the GNU89 status policy test and checks exact PID 1 caller wiring; THIS adds a positive wait-status case and branch-order contract.
+- No physical-router L4 claim. Hardware L4 NOT VERIFIED.
 
 ## Active task
-- THIS slice captures and logs the optional Internet-state hook process wait status when the script exists, while preserving the existing detector/notification semantics.
-- Exact-head detect-internet workflow and XY-C1 Build/TRX/artifact are pending for THIS commit.
+- Propagate HDD tuning script failures into the PID 1 notification result so failed storage actions retain their incomplete marker.
+- Keep page-cache reclaim independent and unconditional; preserve first-failure behavior for all notification operations.
 
 ## Verification boundary
-- Parent 6fb detect-internet queue regression, WAN route, WAN interface teardown, AI handoff, Process lifecycle, AdGuardHome, ZeroTier, detect_link, miniupnpd, VPN server, DNSMasq and infosvr PASS.
-- Parent XY-C1 44208495458 in progress at Build; TRX/artifact not verified.
-- Parent NVRAM 44208494936 pending raw IOCTL/kernel API audit.
-- THIS commit's exact-head detect-internet source contract pending. Physical L4 NOT VERIFIED.
+- Exact `45eb7a00` detect_internet, WAN teardown/route, AI, Process, ZeroTier, DNSMasq, Firewall, Wireless, DHCP, HTTPD, miniupnpd, USB modem, infosvr, AdGuardHome, detect_link, AliyunDrive, AliDDNS and WAN gateway checks PASS.
+- Exact `45eb7a00` XY-C1 `44208911610` is PENDING at cross-build; NVRAM `44208911609` is PENDING. The HDD tune source/policy slice must pass the exact-head RC notification queue workflow after publication.
+- No MIPS/TRX L3 or physical-router L4 claim until the required same-SHA evidence completes.
 
 ## Exact first action for the next GPT
-1. Inspect THIS commit's exact-head detect-internet run; require its GNU89/ASan/UBSan policy binary and source contract for queue failure normalization plus optional hook status capture/logging to PASS.
-2. Inspect latest XY-C1 run on THIS source SHA; only record L3 after Build, Verify TRX output and artifact upload all succeed.
-3. Inspect NVRAM audit 44208494936; if it remains pending, continue other independent P1 reliability/security fixes rather than waiting.
-4. Keep frozen backup unchanged; do not repeat the initial repository recovery.
+1. Inspect the exact-head RC notification queue workflow; require all GNU89 policy binaries and the HDD-tune caller contract to PASS.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; claim L3 only after all three succeed on the same source SHA.
+3. Continue an independent P1 service-start/lifecycle or security defect while any unrelated Actions remain pending. Do not repeat the initial repository recovery.
+4. Keep the frozen backup untouched; physical-router L4 remains unverified.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.

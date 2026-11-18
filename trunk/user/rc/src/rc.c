@@ -1574,7 +1574,14 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_HDDTUNE) == 0)
 		{
-			system("/sbin/hddtune.sh");
+			int hddtune_status = system("/sbin/hddtune.sh");
+
+			if (hddtune_status != 0)
+				logmessage(LOGNAME,
+					   "HDD tuning script failed (wait status=%d)",
+					   hddtune_status);
+			action_result = rc_notify_merge_action_result(action_result,
+							      hddtune_status);
 			set_pagecache_reclaim();
 		}
 #if defined(APP_FTPD)

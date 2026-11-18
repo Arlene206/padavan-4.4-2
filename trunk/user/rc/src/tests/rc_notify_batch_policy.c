@@ -16,6 +16,7 @@ main(void)
 	assert(rc_notify_merge_action_result(0, 0) == 0);
 	assert(rc_notify_merge_action_result(0, EBUSY) == -1);
 	assert(rc_notify_merge_action_result(0, EIO) == -1);
+	assert(rc_notify_merge_action_result(0, 256) == -1);
 	assert(rc_notify_merge_action_result(0, -1) == -1);
 	assert(rc_notify_merge_action_result(-1, 0) == -1);
 	assert(rc_notify_merge_action_result(-1, EBUSY) == -1);
