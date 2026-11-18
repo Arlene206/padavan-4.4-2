@@ -4,6 +4,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
+FIREWALL = (RC / "firewall_ex.c").read_text()
 WAN = (RC / "net_wan.c").read_text()
 PPP = (RC / "net_ppp.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()

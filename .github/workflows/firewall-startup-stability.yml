@@ -111,6 +111,49 @@ jobs:
           policy = Path("trunk/user/rc/src/firewall_startup_policy.h").read_text()
           workflow = Path(".github/workflows/firewall-startup-stability.yml").read_text()
 
+          def body(source, signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              state = "code"
+              quote = ""
+              pos = opening
+              while pos < len(source):
+                  char = source[pos]
+                  nxt = source[pos + 1] if pos + 1 < len(source) else ""
+                  if state == "code":
+                      if char == "/" and nxt == "*":
+                          state = "block"
+                          pos += 2
+                          continue
+                      if char == "/" and nxt == "/":
+                          state = "line"
+                          pos += 2
+                          continue
+                      if char in ("'", '"'):
+                          quote = char
+                          state = "quote"
+                      elif char == "{":
+                          depth += 1
+                      elif char == "}":
+                          depth -= 1
+                          if depth == 0:
+                              return source[opening + 1:pos]
+                  elif state == "quote":
+                      if char == chr(92):
+                          pos += 2
+                          continue
+                      if char == quote:
+                          state = "code"
+                  elif state == "line" and char == chr(10):
+                      state = "code"
+                  elif state == "block" and char == "*" and nxt == "/":
+                      state = "code"
+                      pos += 2
+                      continue
+                  pos += 1
+              raise AssertionError("unterminated function: " + signature)
+
           def block_after(source, marker):
               marker_pos = source.index(marker)
               start = source.rfind("if (!is_ap_mode) {", 0, marker_pos)
