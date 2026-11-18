@@ -1,3 +1,11 @@
+## 2026-11-18 — Keep dnsmasq outside the Shadowsocks cgroup and align source contracts
+
+- e9a69e67 passed shell syntax, startup status, process lifecycle runtime and Adblock regressions, plus Process inventory `44289343898`, umbrella `44289344240` and AI handoff `44289343965`. The Shadowsocks workflow `44289343841` failed only in the final source checker, which still expected the previous inline ChinaDNS `sed` lines.
+- Update the ordering contract to require the transactional dnsmasq publisher after ChinaDNS daemon readiness. Review also caught that `run_bin()` attaches its process to Shadowsocks CPU/memory cgroups; dnsmasq must remain outside those cgroups. Add a standalone validated PID-count launcher with bounded count+1 wait and enable the cgroup option in its host regression.
+- e9 XY-C1 `44289343944` was IN_PROGRESS at last poll. This correction modifies ROMFS source and needs its own exact-SHA Build/TRX/artifact result. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Stage dnsmasq configuration before verified restart and rollback
 
 - ChinaDNS setup previously performed multiple live-file `sed -i`/append writes, followed by unchecked `killall dnsmasq` and detached launch. Partial writes or failed startup could strand the router without the previous working DNS configuration.

@@ -1,11 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- ChinaDNS-ng source SHA `4b956fe1d8fa3fe3c6dbad8bd9bcb8116379b7bc`: Shadowsocks lifecycle `44286192332`, Process inventory `44286192381`, umbrella Process inventory `44286192617` PASS; XY-C1 `44286192538` SUCCESS including Build/TRX/artifact; docs-only `2528eb7` AI handoff `44288452305` PASS.
-- THIS slice stages dnsmasq config beside the live file, preserves metadata, validates with `dnsmasq --test -C`, atomically publishes it, performs bounded stop/start verification and restores the previous config/service on failure.
-- Regression covers success, invalid config without live-state change, and failed restart with rollback. New exact-SHA Actions and product build pending; physical-router L4 NOT VERIFIED.
-- Frozen backup remains immutable; PR #1 closed.
+- Exact e9a69e67: shell syntax, required startup, process lifecycle and Adblock runtime PASS; Process inventory `44289343898`, umbrella `44289344240`, AI handoff `44289343965` PASS. Shadowsocks lifecycle `44289343841` failed only because the static contract still expected removed inline ChinaDNS `sed` changes. XY-C1 `44289343944` was pending.
+- THIS correction updates the source contract and removes an unintended cgroup regression: dnsmasq now uses a dedicated validated count+1 PID launcher outside the Shadowsocks CPU/memory cgroup; runtime regression sets `ss_cgroups=1` during dnsmasq restart.
+- Exact-source Actions and XY-C1 Build/TRX/artifact for this correction remain pending; L4 NOT VERIFIED.
 
-Next P1: verify this exact-SHA source/test/build slice, then inspect dnsmasq/DHCP service-manager coupling and broader RC/userland reliability.
+Next P1: verify the correction, then inspect dnsmasq/DHCP service-manager interaction and broader RC/userland reliability.
 
 ---
 ## Whole-repository module status

@@ -511,6 +511,33 @@ ss_start_chinadns_daemon() {
 	fi
 }
 
+# Start dnsmasq without enrolling the router's DHCP/DNS service in the Shadowsocks cgroup.
+ss_start_dnsmasq_daemon() {
+	[ "$#" -eq 1 ] || return 2
+	local dnsmasq_bin="$1"
+	local before_count=""
+	local expected_count=""
+	local launch_status=""
+
+	[ -x "$dnsmasq_bin" ] || return 127
+	if before_count=$(ss_process_pid_count dnsmasq); then
+		:
+	else
+		launch_status=$?
+		log "Cannot inspect dnsmasq before startup (status=$launch_status)"
+		return "$launch_status"
+	fi
+	expected_count=$((before_count + 1))
+	"$dnsmasq_bin" >/dev/null 2>&1 &
+	if ss_wait_named_process_count dnsmasq "$expected_count" 5; then
+		return 0
+	else
+		launch_status=$?
+	fi
+	log "dnsmasq did not become ready (status=$launch_status)"
+	return "$launch_status"
+}
+
 # Stage and validate dnsmasq config before atomic publication and bounded restart.
 ss_publish_and_restart_dnsmasq() {
 	[ "$#" -eq 3 ] || return 2
@@ -560,7 +587,7 @@ ss_publish_and_restart_dnsmasq() {
 	fi
 
 	if ss_stop_named_processes dnsmasq; then
-		if run_bin "$dnsmasq_bin"; then
+		if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
 			rm -f "$backup_file"
 			return 0
 		else
@@ -573,7 +600,7 @@ ss_publish_and_restart_dnsmasq() {
 	if mv -f "$backup_file" "$config_file"; then
 		backup_file=""
 		if ss_stop_named_processes dnsmasq; then
-			if run_bin "$dnsmasq_bin"; then
+			if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
 				log "Previous dnsmasq config restored and service restarted"
 			else
 				rollback_status=$?

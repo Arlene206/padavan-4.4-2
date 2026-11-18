@@ -169,7 +169,7 @@ china_fn = script[china_fn_start:china_fn_end]
 ordered(china_fn, ['ss_chdns=$(nvram get ss_chdns)',
                    'ss_start_chinadns_daemon "$china_dns" "$local_chnlist_file"',
                    'chinadnsng_enable_flag=1',
-                   "sed -i '/no-resolv/d'"],
+                   'ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$ss_chdns"'],
         "only publish ChinaDNS upstream after daemon readiness")
 require(script.count('if start_chinadns; then') == 2,
         "router and GFW start_dns branches must propagate ChinaDNS startup errors")
@@ -183,6 +183,14 @@ require("ChinaDNS-ng detached readiness" in test and
 dnsmasq_tx_start = script.index("ss_publish_and_restart_dnsmasq() {")
 dnsmasq_tx_end = script.index("\n\nstart_dns() {", dnsmasq_tx_start)
 dnsmasq_tx = script[dnsmasq_tx_start:dnsmasq_tx_end]
+dnsmasq_start_start = script.index("ss_start_dnsmasq_daemon() {")
+dnsmasq_start_end = script.index("\n\n# Stage and validate dnsmasq config", dnsmasq_start_start)
+dnsmasq_start = script[dnsmasq_start_start:dnsmasq_start_end]
+require('ss_process_pid_count dnsmasq' in dnsmasq_start and
+        'ss_wait_named_process_count dnsmasq "$expected_count" 5' in dnsmasq_start and
+        '"$dnsmasq_bin" >/dev/null 2>&1 &' in dnsmasq_start and
+        'run_bin' not in dnsmasq_start and 'cgroup' not in dnsmasq_start,
+        "dnsmasq launcher must verify a new PID without Shadowsocks cgroup enrollment")
 ordered(dnsmasq_tx, [
     'cp -p "$config_file" "$tmp_file"',
     "sed -i '/no-resolv/d' ",
@@ -190,7 +198,7 @@ ordered(dnsmasq_tx, [
     '"$dnsmasq_bin" --test -C "$tmp_file"',
     'mv -f "$tmp_file" "$config_file"',
     'ss_stop_named_processes dnsmasq',
-    'run_bin "$dnsmasq_bin"',
+    'ss_start_dnsmasq_daemon "$dnsmasq_bin"',
     'mv -f "$backup_file" "$config_file"',
 ], "dnsmasq staging, validation, atomic publication, verified restart and rollback")
 require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$ss_chdns"' in script and

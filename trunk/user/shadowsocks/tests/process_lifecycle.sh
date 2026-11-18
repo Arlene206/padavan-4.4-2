@@ -200,6 +200,7 @@ ipset() { return 0; }
 sed -n \
 	-e '/^run_bin() {/,/^}/p' \
 	-e '/^ss_start_chinadns_daemon() {/,/^}/p' \
+	-e '/^ss_start_dnsmasq_daemon() {/,/^}/p' \
 	-e '/^ss_publish_and_restart_dnsmasq() {/,/^}/p' \
 	-e '/^stop_dns_proxy() {/,/^}/p' \
 	-e '/^start_dns_proxy() {/,/^}/p' \
@@ -372,7 +373,11 @@ DNSMASQ_START_MODE=ready
 export DNSMASQ_TEST_MODE DNSMASQ_START_MODE
 printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsmasq"
 printf '4246\n' > "$PROCESS_STATE_DIR/dnsmasq.pids"
+# dnsmasq is not part of the Shadowsocks cgroup, even when that option is enabled.
+MOCK_SS_CGROUPS=1
+export MOCK_SS_CGROUPS
 expect_status 0 "dnsmasq atomic config and restart" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 1
+MOCK_SS_CGROUPS=0
 grep -q '^server=127.0.0.1#65353$' "$dnsmasq_config" || fail "ChinaDNS upstream was not published"
 [ "$(grep -c '^no-resolv$' "$dnsmasq_config")" -eq 1 ] || fail "no-resolv directive was not normalized"
 [ "$(grep -c '^min-cache-ttl=1800$' "$dnsmasq_config")" -eq 1 ] || fail "min-cache-ttl was not normalized"
