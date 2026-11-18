@@ -1,3 +1,12 @@
+## 2026-11-18 — Escape NVRAM values in generated Inadyn configuration
+
+- Parent main: \`ffd0a5466fbe0c67e512e9a5c0284138a1b8eadc\`. \`write_inadyn_conf()\` interpolated NVRAM-sourced credentials, hostnames and custom server/path values directly inside libConfuse quoted strings. Embedded quotes/backslashes could change the parsed value, while raw line/control bytes could inject or break directives despite the existing private atomic file publisher.
+- Add a quoted-value writer that escapes the libConfuse delimiters and line-control sequences, rejects unsupported control bytes, and routes every primary/secondary credential, hostname and custom endpoint through checked serialization. Any rejected/failed value discards the staged file and preserves the last-known-good config.
+- Extend the GNU89 config-file regression with delimiter escaping and control-byte rejection, add the ASan/UBSan test step and trigger paths to the Inadyn lifecycle workflow, and require the production integration in its source checker.
+- No local compile is claimed in this connector-only session. Exact-SHA Inadyn, Process, AI documentation and XY-C1 Build/TRX/artifact results remain to be inspected; physical-router L4 is not claimed.
+
+---
+
 ## 2026-11-17 — Align Adbyby source contract with shared publisher
 
 - Parent main: `d67ca20b78785b0d501829c12db6dfd2fc4f0fae`. The first exact-head Actions run passed the Process lifecycle regression, but the Adbyby configuration workflow's source-contract checker still required `hosts_ads` to appear directly in both callers after publication was correctly moved into the shared helper.

@@ -2302,25 +2302,38 @@ write_inadyn_conf(const char *conf_file)
 	}
 	fprintf(fp, "  ssl = %s\n", i_ddns1_ssl ? "true" : "false");
 	fprintf(fp, "  wildcard = %s\n", nvram_get_int("ddns_wildcard_x") ? "true" : "false");
-	if (strlen(ddns1_user) > 0)
-		fprintf(fp, "  username = \"%s\"\n", ddns1_user);
-	if (strlen(ddns1_pass) > 0)
-		fprintf(fp, "  password = \"%s\"\n", ddns1_pass);
+	if (strlen(ddns1_user) > 0 &&
+	    inadyn_config_file_write_quoted_setting(fp, "  username = \"", ddns1_user,
+					    "\"\n") != 0)
+		goto write_failed;
+	if (strlen(ddns1_pass) > 0 &&
+	    inadyn_config_file_write_quoted_setting(fp, "  password = \"", ddns1_pass,
+					    "\"\n") != 0)
+		goto write_failed;
 	if (ddns1_svr && *ddns1_svr && ddns1_url && *ddns1_url) {
 		/* custom ddns server */
-		fprintf(fp, "  ddns-server = \"%s\"\n", ddns1_svr);
-		fprintf(fp, "  ddns-path = \"/%s\"\n", ddns1_url);
+		if (inadyn_config_file_write_quoted_setting(fp, "  ddns-server = \"", ddns1_svr,
+						    "\"\n") != 0 ||
+		    inadyn_config_file_write_quoted_setting(fp, "  ddns-path = \"/",
+						    ddns1_url, "\"\n") != 0)
+			goto write_failed;
 	}
 	if (i_ddns_source == 0 && strlen(checkip_urls[i_ddns1_checkip].server) > 0) {
 		fprintf(fp, "  checkip-server = \"%s\"\n", checkip_urls[i_ddns1_checkip].server);
 		fprintf(fp, "  checkip-path = \"%s\"\n", checkip_urls[i_ddns1_checkip].path);
 		fprintf(fp, "  checkip-ssl = \"%s\"\n", checkip_urls[i_ddns1_checkip].ssl ? "true" : "false");
 	}
-	fprintf(fp, "  hostname = { \"%s\" }\n", ddns1_hname[0]);
-	if (strlen(ddns1_hname[1]) > 2)
-		fprintf(fp, "  hostname += { \"%s\" }\n", ddns1_hname[1]);
-	if (strlen(ddns1_hname[2]) > 2)
-		fprintf(fp, "  hostname += { \"%s\" }\n", ddns1_hname[2]);
+	if (inadyn_config_file_write_quoted_setting(fp, "  hostname = { \"", ddns1_hname[0],
+					    "\" }\n") != 0)
+		goto write_failed;
+	if (strlen(ddns1_hname[1]) > 2 &&
+	    inadyn_config_file_write_quoted_setting(fp, "  hostname += { \"", ddns1_hname[1],
+					    "\" }\n") != 0)
+		goto write_failed;
+	if (strlen(ddns1_hname[2]) > 2 &&
+	    inadyn_config_file_write_quoted_setting(fp, "  hostname += { \"", ddns1_hname[2],
+					    "\" }\n") != 0)
+		goto write_failed;
 	fprintf(fp, "}\n");
 
 	/* DDNS 2*/
@@ -2333,11 +2346,17 @@ write_inadyn_conf(const char *conf_file)
 			fprintf(fp, "  checkip-path = \"%s\"\n", checkip_urls[i_ddns2_checkip].path);
 			fprintf(fp, "  checkip-ssl = \"%s\"\n", checkip_urls[i_ddns2_checkip].ssl ? "true" : "false");
 		}
-		if (strlen(ddns2_user) > 0)
-			fprintf(fp, "  username = \"%s\"\n", ddns2_user);
-		if (strlen(ddns2_pass) > 0)
-			fprintf(fp, "  password = \"%s\"\n", ddns2_pass);
-		fprintf(fp, "  hostname = \"%s\"\n", ddns2_hname);
+		if (strlen(ddns2_user) > 0 &&
+		    inadyn_config_file_write_quoted_setting(fp, "  username = \"", ddns2_user,
+						    "\"\n") != 0)
+			goto write_failed;
+		if (strlen(ddns2_pass) > 0 &&
+		    inadyn_config_file_write_quoted_setting(fp, "  password = \"", ddns2_pass,
+						    "\"\n") != 0)
+			goto write_failed;
+		if (inadyn_config_file_write_quoted_setting(fp, "  hostname = \"", ddns2_hname,
+						    "\"\n") != 0)
+			goto write_failed;
 		fprintf(fp, "}\n");
 	}
 
@@ -2351,6 +2370,16 @@ write_inadyn_conf(const char *conf_file)
 	}
 
 	return 1;
+
+write_failed:
+	saved_errno = errno ? errno : EIO;
+	if (inadyn_config_file_discard(fp, staged_path) != 0)
+		logmessage(LOGNAME, "cannot discard incomplete Inadyn configuration (errno=%d)",
+			   errno ? errno : EIO);
+	logmessage(LOGNAME, "refusing unsafe or unwriteable Inadyn configuration value (errno=%d)",
+		   saved_errno);
+	errno = saved_errno;
+	return 0;
 }
 
 static enum process_presence

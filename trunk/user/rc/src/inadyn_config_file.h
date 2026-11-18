@@ -13,6 +13,71 @@
 #define PATH_MAX 4096
 #endif
 
+
+/* Emit a libConfuse string fragment. Never let NVRAM values create new
+ * directives or change the surrounding quoted-string syntax. */
+static inline int
+inadyn_config_file_write_escaped(FILE *fp, const char *value)
+{
+	const unsigned char *cursor;
+
+	if (!fp || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	for (cursor = (const unsigned char *)value; *cursor; cursor++) {
+		switch (*cursor) {
+		case '\\':
+			if (fputs("\\\\", fp) == EOF)
+				return -1;
+			break;
+		case '"':
+			if (fputs("\\\"", fp) == EOF)
+				return -1;
+			break;
+		case '\n':
+			if (fputs("\\n", fp) == EOF)
+				return -1;
+			break;
+		case '\r':
+			if (fputs("\\r", fp) == EOF)
+				return -1;
+			break;
+		case '\t':
+			if (fputs("\\t", fp) == EOF)
+				return -1;
+			break;
+		default:
+			if (*cursor < 0x20 || *cursor == 0x7f) {
+				errno = EINVAL;
+				return -1;
+			}
+			if (fputc(*cursor, fp) == EOF)
+				return -1;
+			break;
+		}
+	}
+
+	return 0;
+}
+
+static inline int
+inadyn_config_file_write_quoted_setting(FILE *fp, const char *prefix,
+                                        const char *value, const char *suffix)
+{
+	if (!fp || !prefix || !value || !suffix) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (fputs(prefix, fp) == EOF ||
+	    inadyn_config_file_write_escaped(fp, value) != 0 ||
+	    fputs(suffix, fp) == EOF)
+		return -1;
+
+	return 0;
+}
+
 /* Stage DDNS settings beside the destination. mkstemp creates an owner-only
  * inode even when PID 1's process-wide umask is 0000. */
 static inline FILE *

@@ -12,6 +12,8 @@ xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 webex = (root / "trunk/user/httpd/src/web_ex.c").read_text()
 rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
 notify_header = (root / "trunk/user/shared/src/notify_rc.h").read_text()
+config_file_header = (root / "trunk/user/rc/src/inadyn_config_file.h").read_text()
+config_file_test = (root / "trunk/user/rc/src/tests/inadyn_config_file.c").read_text()
 
 def body(signature):
     start = source.index(signature)
@@ -35,6 +37,27 @@ assert notify.index("write_inadyn_conf(DDNS_CONF_FILE)") < notify.index("inadyn_
 assert "process_snapshot_release(&snapshot)" in notify
 assert 'doSystem("killall %s %s", "-SIGHUP", "inadyn")' not in notify
 assert "pids(\"inadyn\")" not in notify
+
+config_writer = body("write_inadyn_conf(const char *conf_file)")
+assert config_writer.count("inadyn_config_file_write_quoted_setting(fp,") == 10
+for value in ("ddns1_user", "ddns1_pass", "ddns1_svr", "ddns1_url",
+              "ddns1_hname[0]", "ddns1_hname[1]", "ddns1_hname[2]",
+              "ddns2_user", "ddns2_pass", "ddns2_hname"):
+    assert value in config_writer
+assert "goto write_failed;" in config_writer
+assert "inadyn_config_file_discard(fp, staged_path)" in config_writer
+assert "refusing unsafe or unwriteable Inadyn configuration value" in config_writer
+assert "inadyn_config_file_write_escaped" in config_file_header
+assert "case '\\\\':" in config_file_header
+assert "case '\"':" in config_file_header
+assert "case '\\n':" in config_file_header
+assert "case '\\r':" in config_file_header
+assert "case '\\t':" in config_file_header
+assert "*cursor < 0x20 || *cursor == 0x7f" in config_file_header
+assert "test_quoted_setting_escapes_configuration_delimiters" in config_file_test
+assert "test_quoted_setting_rejects_control_bytes" in config_file_test
+assert "trunk/user/rc/src/inadyn_config_file.h" in workflow
+assert "trunk/user/rc/src/tests/inadyn_config_file.c" in workflow
 
 start = body("start_ddns(int clear_cache)")
 assert "stop_status = stop_ddns()" in start

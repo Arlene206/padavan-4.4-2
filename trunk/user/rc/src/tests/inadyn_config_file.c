@@ -43,6 +43,42 @@ count_staged_files(const char *directory, const char *prefix)
 	return count;
 }
 
+static void
+test_quoted_setting_escapes_configuration_delimiters(void)
+{
+	static const char input[] = "quote\" slash\\ line\ncarriage\r tab\t";
+	static const char expected[] =
+		"password = \"quote\\\" slash\\\\ line\\ncarriage\\r tab\\t\"\n";
+	char buffer[128];
+	size_t length;
+	FILE *fp = tmpfile();
+
+	assert(fp != NULL);
+	assert(inadyn_config_file_write_quoted_setting(
+		fp, "password = \"", input, "\"\n") == 0);
+	assert(fflush(fp) == 0);
+	assert(fseek(fp, 0, SEEK_SET) == 0);
+	length = fread(buffer, 1, sizeof(buffer) - 1, fp);
+	buffer[length] = '\0';
+	assert(strcmp(buffer, expected) == 0);
+	assert(!ferror(fp));
+	assert(fclose(fp) == 0);
+}
+
+static void
+test_quoted_setting_rejects_control_bytes(void)
+{
+	static const char input[] = { 's', 'a', 'f', 'e', '\001', 'b', 'a', 'd', '\0' };
+	FILE *fp = tmpfile();
+
+	assert(fp != NULL);
+	errno = 0;
+	assert(inadyn_config_file_write_quoted_setting(
+		fp, "hostname = \"", input, "\"\n") == -1);
+	assert(errno == EINVAL);
+	assert(fclose(fp) == 0);
+}
+
 int
 main(void)
 {
@@ -137,6 +173,8 @@ main(void)
 	assert(rmdir(blocked) == 0);
 	assert(rmdir(directory) == 0);
 
-	puts("Inadyn private atomic configuration publication: PASS");
+	test_quoted_setting_escapes_configuration_delimiters();
+	test_quoted_setting_rejects_control_bytes();
+	puts("Inadyn private atomic configuration publication and quoted-value escaping: PASS");
 	return 0;
 }

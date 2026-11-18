@@ -9,6 +9,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "trunk/user/rc/src/inadyn_config_file.h"
+      - "trunk/user/rc/src/tests/inadyn_config_file.c"
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/shared/src/notify_rc.h"
@@ -20,6 +22,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
+      - "trunk/user/rc/src/inadyn_config_file.h"
+      - "trunk/user/rc/src/tests/inadyn_config_file.c"
       - "trunk/user/httpd/src/web_ex.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/shared/src/notify_rc.h"
@@ -43,5 +47,13 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1
         run: "$RUNNER_TEMP/inadyn-lifecycle-policy"
+      - name: Compile Inadyn config publication and quoted-value escaping regression (GNU89, ASan, UBSan)
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/inadyn_config_file.c \
+            -o "$RUNNER_TEMP/inadyn-config-file"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/inadyn-config-file"
       - name: Verify Inadyn production integration
         run: python3 scripts/check_inadyn_lifecycle.py
