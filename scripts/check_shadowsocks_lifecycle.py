@@ -146,10 +146,10 @@ ordered(startup, [
     'nvram set check_mode=0',
     'if ssp_run_pppoe_detect; then',
 ], "required startup-stage status aggregation")
-require('SS_START_STATUS="$status"' in startup and
-        '[ "$SS_START_STATUS" -eq 0 ] || return 0' in startup and
+require('if [ "$SS_START_STATUS" -eq 0 ]; then' in startup and
+        'SS_START_STATUS="$status"' in startup and
         'Optional Shadowsocks update scheduling failed' in startup,
-        "startup must preserve first required error and keep cron scheduling best-effort")
+        "startup must preserve the first required error and keep cron scheduling best-effort")
 require('[ -n "$local_server" ] && [ "$local_server" != "nil" ]' in startup and
         'if [ "$GLOBAL_SERVER" != "nil" ]; then' in startup,
         "disabled local-only/global server paths must not become false startup-stage failures")
