@@ -1,8 +1,9 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `90cce7425d67bac64a79d17ec859bc0054aec337`. Current product work includes signal-safe DHCP/PPP settle waits and NFSd restart wait preservation; no WAN production source is changed in this checkpoint.
-- WAN DHCP callback run `44322448540` on `e0c8269` failed only because an embedded workflow assertion still required raw `sleep(2)`; the source correctly uses `service_wait_seconds(2)` with errno propagation after the EINTR-safe wait. THIS COMMIT updates the workflow contract to validate that API and failure path.
-- The same `e0c8269` SHA passed WAN route/teardown/gateway, firewall startup, DNSMasq, detection signal, VPN, Wireless, HTTPD security, MiniUPnP, USB modem, ZeroTier and process-inventory workflows. XY-C1 `44322448282` was pending at the last observation. SmartDNS product SHA `9bb9fda` remains the only newly described L3 Build/TRX/artifact pass in this checkpoint; live target/runtime L4 is unverified.
+- Live main before THIS COMMIT: `f87b0b67cc918c1011714ab09f04497e7566e9a4`. Production wait changes include EINTR-safe DHCP/PPP settle waits at `e0c8269` and NFSd restart settling at `90cce742`; this commit only fixes stale test contracts.
+- WAN DHCP callback run `44323140500` on `106af73` passed the first updated wait assertion but failed a second legacy guard at workflow line 1069. THIS COMMIT checks the shared `service_wait_seconds(2)` guard and absence of raw sleep.
+- Process run `44323338947` on `f87b0b6` passed SmartDNS lifecycle tests/contracts and failed only because the LLTD integration checker still searched for direct sleep; LLTD/rstats now use `service_start_probe_wait()`. THIS COMMIT updates duplicated ordering checks. New exact-head runs pending.
+- XY-C1 Build/TRX/artifact verification remains proven only for SmartDNS product SHA `9bb9fda`; XY-C1 on `90cce742` was still in progress at last observation. Router runtime/L4 is unverified.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

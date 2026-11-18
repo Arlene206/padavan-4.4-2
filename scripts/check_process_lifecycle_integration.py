@@ -1270,7 +1270,7 @@ assert "errno = scan_error > 0 ? scan_error : EIO;" in lltd_start
 assert "errno = ETIMEDOUT;" in lltd_start
 lltd_preflight = lltd_start.index('optional_daemon_start_status("lld2d", "lld2d")')
 lltd_launch_at = lltd_start.index(lltd_launcher)
-lltd_wait_at = lltd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", lltd_launch_at)
+lltd_wait_at = lltd_start.index('service_start_probe_wait("LLTD", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', lltd_launch_at)
 lltd_probe_at = lltd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", lltd_launch_at)
 lltd_inventory_at = lltd_start.index('optional_daemon_presence("lld2d", &scan_error)', lltd_probe_at)
 lltd_postcondition_at = lltd_start.index("process_presence_start_postcondition(start_status, process_state)", lltd_inventory_at)
@@ -1294,7 +1294,7 @@ assert "errno = scan_error > 0 ? scan_error : EIO;" in rstats_start
 assert "errno = ETIMEDOUT;" in rstats_start
 rstats_preflight = rstats_start.index('optional_daemon_start_status("rstats", "rstats")')
 rstats_launch_at = rstats_start.index(rstats_launcher)
-rstats_wait_at = rstats_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", rstats_launch_at)
+rstats_wait_at = rstats_start.index('service_start_probe_wait("rstats", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', rstats_launch_at)
 rstats_probe_at = rstats_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", rstats_launch_at)
 rstats_inventory_at = rstats_start.index('optional_daemon_presence("rstats", &scan_error)', rstats_probe_at)
 rstats_postcondition_at = rstats_start.index("process_presence_start_postcondition(start_status, process_state)", rstats_inventory_at)
@@ -2181,7 +2181,7 @@ assert "errno = scan_error > 0 ? scan_error : EIO;" in lltd_start
 assert "errno = ETIMEDOUT;" in lltd_start
 lltd_preflight = lltd_start.index('optional_daemon_start_status("lld2d", "lld2d")')
 lltd_launch_at = lltd_start.index(lltd_launcher)
-lltd_wait_at = lltd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", lltd_launch_at)
+lltd_wait_at = lltd_start.index('service_start_probe_wait("LLTD", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', lltd_launch_at)
 lltd_probe_at = lltd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", lltd_launch_at)
 lltd_inventory_at = lltd_start.index('optional_daemon_presence("lld2d", &scan_error)', lltd_probe_at)
 lltd_postcondition_at = lltd_start.index("process_presence_start_postcondition(start_status, process_state)", lltd_inventory_at)
@@ -2205,7 +2205,7 @@ assert "errno = scan_error > 0 ? scan_error : EIO;" in rstats_start
 assert "errno = ETIMEDOUT;" in rstats_start
 rstats_preflight = rstats_start.index('optional_daemon_start_status("rstats", "rstats")')
 rstats_launch_at = rstats_start.index(rstats_launcher)
-rstats_wait_at = rstats_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", rstats_launch_at)
+rstats_wait_at = rstats_start.index('service_start_probe_wait("rstats", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', rstats_launch_at)
 rstats_probe_at = rstats_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", rstats_launch_at)
 rstats_inventory_at = rstats_start.index('optional_daemon_presence("rstats", &scan_error)', rstats_probe_at)
 rstats_postcondition_at = rstats_start.index("process_presence_start_postcondition(start_status, process_state)", rstats_inventory_at)

@@ -1,3 +1,11 @@
+## 2026-11-18 — Align LLTD/rstats and WAN callback wait contracts
+
+- Parent main: `f87b0b67cc918c1011714ab09f04497e7566e9a4`. Process run `44323338947` on `f87b0b6` failed at `lltd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);")`; WAN callback run `44323140500` on `106af73` failed at a second obsolete `if (wait_dhcpc && launch_status == 0)` assertion.
+- Current production code uses `service_start_probe_wait("LLTD", ...)` and `service_start_probe_wait("rstats", ...)` before bounded process-inventory checks; both copies of those ordering assertions are updated. WAN DHCP settle uses guarded `service_wait_seconds(2)`; the final embedded assertion now checks that guard and absence of raw `sleep(2)`.
+- THIS COMMIT changes only source-contract tests and continuity records. Exact-head Process and WAN callback reruns required. No local tests or current-source XY-C1 build claimed.
+
+---
+
 ## 2026-11-18 — Align WAN DHCP settle contract with EINTR-safe helper
 
 - Parent main: `90cce7425d67bac64a79d17ec859bc0054aec337`. WAN DHCP callback run `44322448540` on `e0c8269b265618aa49ba9ce73796af9ac87458dc` failed at the embedded source contract because it still expected raw `sleep(2);`.

@@ -1066,7 +1066,9 @@ jobs:
           assert "address_status = ifconfig(man_ifname, IFUP, man_addr, man_mask);" in static_branch
           assert "if (address_status != 0)" in static_branch
           assert static_branch.index("address_status = ifconfig(") < static_branch.index("if (address_status != 0)") < static_branch.index("route_status = man_up_internal(man_ifname, unit, 1, &gateway_route_status);")
-          assert "if (wait_dhcpc && launch_status == 0)" in wanx
+          assert "if (wait_dhcpc && launch_status == 0 &&" in wanx
+          assert "service_wait_seconds(2) != 0" in wanx
+          assert "sleep(2);" not in wanx
 
           ppp_branch = wan_start[wan_start.index("int i_pppoe, i_pppoe_man, i_demand, wanx_status;"):]
           ppp_branch = ppp_branch[:ppp_branch.index("else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP")]
