@@ -208,7 +208,7 @@ require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/us
 require("dnsmasq atomic config and restart" in test and
         "invalid dnsmasq staged config rejected" in test and
         "dnsmasq stop failure preserves live config" in test and
-        "dnsmasq restart failure triggers rollback" in test and
+        "dnsmasq restart failure preserves original status" in test and
         "dnsmasq rollback did not restart old service" in test and
         "DNSMASQ_RESTART_CALLS" in test,
         "dnsmasq regression must cover RC service restart, validation failure and rollback")

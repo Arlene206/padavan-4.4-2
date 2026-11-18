@@ -1,3 +1,13 @@
+## 2026-11-18 20:30 CST — Align lifecycle checker with status-preserving rollback regression
+
+- Parent main `2f8fb1d05a505afb5e9bde72f3d5b2b4a2ac6769` Actions: AI handoff `44305279681` PASS; Shadowsocks `44305279761` passed syntax, startup status, process lifecycle and Adblock tests, then failed in Python checker line 211 because it still searched for the superseded assertion label `dnsmasq restart failure triggers rollback`.
+- The active regression expects status 19 with label `dnsmasq restart failure preserves original status`, proving the transaction returns the original failed-start status after rollback. Update only the static checker string; runtime assertions already passed.
+- Changed: `scripts/check_shadowsocks_lifecycle.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- Validation: exact-head Action log identifies the only failing source-contract assertion after runtime and Adblock. Rerun required. Checker/docs only; no XY-C1 source changes.
+- Next: exact-directive DNSMasq cleanup in Shadowsocks `oversea`/`ssp_close()` and `ss-rules`, with unrelated configuration preservation tests.
+
+---
+
 ## 2026-11-18 20:25 CST — Remove duplicated Shadowsocks lifecycle test tail
 
 - Parent main SHA `77ba640f2f8af88f8cb2856e5af62dd770ea765a`: AI handoff `44304776554`, Process fail-closed `44304776568`, and Process inventory `44304778927` PASS. Shadowsocks `44304776719` passed shell syntax and startup status; the bounded process test ran through the first complete PASS sentinel, then attempted to execute `$dnsmasq_config` and failed with Permission denied. A second old rollback assertion (expected 1) and duplicate run_bin/watchcat/DNS proxy tests followed the first sentinel.
