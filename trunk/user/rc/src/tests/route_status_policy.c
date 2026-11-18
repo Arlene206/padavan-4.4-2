@@ -55,6 +55,19 @@ test_wan_post_down_script_failure_is_reported_and_later_steps_continue(void)
 }
 
 static void
+test_wan_vpn_start_notification_failure_is_reported_without_skipping_later_actions(void)
+{
+	const int startup_steps[] = { 0, EIO, 0 };
+	size_t attempts = 0;
+
+	/* Deferred VPN enqueue fails, but later independent WAN checks still run. */
+	assert(apply_results(startup_steps,
+			     sizeof(startup_steps) / sizeof(startup_steps[0]),
+			     &attempts) == EIO);
+	assert(attempts == sizeof(startup_steps) / sizeof(startup_steps[0]));
+}
+
+static void
 test_static_ipoe_teardown_clear_failure_forces_interface_down(void)
 {
 	const int clear_failures[] = { -1, EIO, EBUSY };
@@ -89,6 +102,7 @@ main(void)
 	test_static_mtu_failure_is_not_masked_by_later_success();
 	test_wan_post_script_failure_is_reported_and_later_steps_continue();
 	test_wan_post_down_script_failure_is_reported_and_later_steps_continue();
+	test_wan_vpn_start_notification_failure_is_reported_without_skipping_later_actions();
 	test_static_ipoe_teardown_clear_failure_forces_interface_down();
 	const int first_error[] = { 0, EIO, 0, ENETUNREACH };
 	const int negative_error[] = { 0, -1, 0, EPERM };

@@ -2831,8 +2831,12 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	/* notify watchdog for NTP update */
 	notify_watchdog_time();
 
-	/* deferred start static VPN client */
-	notify_rc("start_vpn_client");
+	/* Queue the deferred VPN-client startup and preserve notification errors. */
+	route_status = notify_rc_status("start_vpn_client");
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "WAN VPN client start notification incomplete (status=%d)",
+			   route_status);
 
 	/* Start the gateway ARP checker only after a complete ABSENT scan. */
 	if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP &&

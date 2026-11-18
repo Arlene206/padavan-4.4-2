@@ -119,6 +119,23 @@ require(wan_up.count('eval(script_postw, "up", wan_ifname, wan_addr)') == 1,
 require("test_wan_post_script_failure_is_reported_and_later_steps_continue" in ROUTE_STATUS_TEST,
         "post-WAN script failure must have a first-error/later-step regression")
 
+vpn_notify = wan_up.index("/* Queue the deferred VPN-client startup and preserve notification errors. */")
+vpn_call = wan_up.index('route_status = notify_rc_status("start_vpn_client");', vpn_notify)
+vpn_merge = wan_up.index("status = route_status_accumulate(status, route_status);", vpn_call)
+vpn_failure = wan_up.index("if (route_status != 0)", vpn_merge)
+vpn_log = wan_up.index("WAN VPN client start notification incomplete", vpn_failure)
+later_gateway = wan_up.index("/* Start the gateway ARP checker", vpn_log)
+require(
+    vpn_notify < vpn_call < vpn_merge < vpn_failure < vpn_log < later_gateway,
+    "WAN deferred VPN-client notification failure must be preserved before subsequent checks",
+)
+require('notify_rc("start_vpn_client")' not in wan_up,
+        "WAN VPN client startup notification must not discard queue status")
+require(
+    "test_wan_vpn_start_notification_failure_is_reported_without_skipping_later_actions" in ROUTE_STATUS_TEST,
+    "deferred VPN-client notification failure needs a regression",
+)
+
 down_hook = body(WAN, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
 down_hook_guard = down_hook.index("if (check_if_file_exist(script_postw))")
 down_hook_eval = down_hook.index(
