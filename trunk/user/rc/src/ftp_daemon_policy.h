@@ -7,7 +7,7 @@
 /* Testable bounded wait for an FTP daemon to remain present after start. */
 struct ftp_daemon_wait_ops {
 	int (*is_running)(void *context, const char *daemon);
-	void (*sleep_us)(void *context, unsigned int microseconds);
+	int (*sleep_us)(void *context, unsigned int microseconds);
 };
 
 static int
@@ -37,7 +37,11 @@ ftp_daemon_wait_for_stable_presence(const char *daemon, unsigned int attempts,
 			return -1;
 		}
 		if (presence == PROCESS_PRESENCE_RUNNING) {
-			ops->sleep_us(context, 500000U);
+			if (ops->sleep_us(context, 500000U) != 0) {
+				if (!errno)
+					errno = EIO;
+				return -1;
+			}
 			presence = ops->is_running(context, daemon);
 			if (presence == PROCESS_PRESENCE_UNKNOWN) {
 				if (!errno)
@@ -51,7 +55,11 @@ ftp_daemon_wait_for_stable_presence(const char *daemon, unsigned int attempts,
 				return -1;
 			}
 		}
-		ops->sleep_us(context, 100000U);
+		if (ops->sleep_us(context, 100000U) != 0) {
+			if (!errno)
+				errno = EIO;
+			return -1;
+		}
 	}
 
 	errno = ETIMEDOUT;

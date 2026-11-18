@@ -17,11 +17,13 @@ on:
       - "trunk/user/vsftpd/src/sysstr.c"
       - "trunk/user/vsftpd/src/sysstr.h"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
   pull_request:
@@ -40,11 +42,13 @@ on:
       - "trunk/user/vsftpd/src/sysstr.c"
       - "trunk/user/vsftpd/src/sysstr.h"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/ftp_config_file.h"
       - "trunk/user/rc/src/tests/ftp_config_file.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
 
@@ -158,7 +162,11 @@ jobs:
           running_fn = function_body(source, "ftp_daemon_is_running(")
           sleep_fn = function_body(source, "ftp_daemon_sleep(")
           assert "return storage_daemon_presence(daemon, NULL);" in running_fn
-          assert "usleep(microseconds)" in sleep_fn
+          assert "return service_wait_microseconds(microseconds);" in sleep_fn
+          assert "int (*sleep_us)(void *context, unsigned int microseconds);" in daemon_policy
+          assert "ops->sleep_us(context, 500000U) != 0" in daemon_policy
+          assert "ops->sleep_us(context, 100000U) != 0" in daemon_policy
+          assert "fake.sleep_status != 0" in daemon_test
 
           acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
           acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")

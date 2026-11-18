@@ -41,6 +41,7 @@
 #include "service_start_status.h"
 #include "modem_wan_start_policy.h"
 #include "process_inventory.h"
+#include "service_wait_policy.h"
 #include "storage_operation_lock.h"
 #include "samba_share_policy.h"
 #if defined (APP_SMBD)
@@ -306,11 +307,11 @@ ftp_daemon_is_running(void *context, const char *daemon)
 	return storage_daemon_presence(daemon, NULL);
 }
 
-static void
+static int
 ftp_daemon_sleep(void *context, unsigned int microseconds)
 {
 	(void)context;
-	usleep(microseconds);
+	return service_wait_microseconds(microseconds);
 }
 
 static int
@@ -1103,11 +1104,11 @@ samba_daemon_is_running(void *context, const char *daemon)
 	return state;
 }
 
-static void
+static int
 samba_daemon_sleep(void *context, unsigned int microseconds)
 {
 	(void)context;
-	usleep(microseconds);
+	return service_wait_microseconds(microseconds);
 }
 
 static int

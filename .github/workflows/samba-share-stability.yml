@@ -6,6 +6,7 @@ on:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/rc.h"
@@ -25,6 +26,7 @@ on:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/rc.h"
@@ -85,6 +87,7 @@ jobs:
 
           stor = Path("trunk/user/rc/src/services_stor.c").read_text()
           services = Path("trunk/user/rc/src/services_ex.c").read_text()
+          storage_services = Path("trunk/user/rc/src/services_stor.c").read_text()
           wait_policy = Path("trunk/user/rc/src/service_wait_policy.h").read_text()
           samba_daemon_policy = Path("trunk/user/rc/src/samba_daemon_policy.h").read_text()
           wait_test = Path("trunk/user/rc/src/tests/service_wait_policy.c").read_text()
@@ -147,6 +150,9 @@ jobs:
           assert "service_wait_microseconds(microseconds)" in sleep_adapter
           assert "usleep(" not in sleep_adapter
           assert "service_wait_nanosleep_real" in wait_policy
+          samba_sleep = function_body(storage_services, "samba_daemon_sleep(void *context, unsigned int microseconds)")
+          assert "return service_wait_microseconds(microseconds);" in samba_sleep
+          assert "usleep(microseconds)" not in samba_sleep
           assert "requested = remaining;" in wait_policy
           assert "errno != EINTR" in wait_policy
           assert "service_wait_microseconds_with" in wait_test
