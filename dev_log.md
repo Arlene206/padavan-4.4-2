@@ -1,3 +1,11 @@
+## 2026-11-17 — Update HTTPD firewall status contract for the third-party WAN reconciler
+
+- Parent main: `9643053f8886c0ba542a077a53afe70f52cc3530`. The newly checked PPPoE-MWAN detector error path correctly added one use of `firewall_log_command_failure()`, but the HTTPD cross-module source contract still hard-coded the previous count of seven and caused an unrelated CI failure.
+- Require the explicit PPPoE-MWAN operation label and update the exact helper-use count to eight; runtime firewall behavior is unchanged. This workflow remains triggered for `firewall_ex.c` changes.
+- The firewall-startup and WAN-route contracts pass on `9643053f`; XY-C1 Build/TRX/artifact was pending at the last exact-head poll. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Anchor the PPPoE-MWAN source contract to the detector call
 
 - Parent main: `0a00fe1116948ffe6951c7a0f71e4ac3c57286c0`. The first firewall hook-status merge in `start_firewall_ex()` occurs before its optional PPPoE-MWAN detector call; the new contract must select the merge after that exact call rather than the first textual occurrence.
