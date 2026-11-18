@@ -2,13 +2,16 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development branch is `main` only. Current source parent for this regression-contract repair: `51596e1acf6b4842b80e1246911aac59e9dd2baf`.
+- Repository: `Arlene206/padavan-4.4-2`; development branch is `main` only. Current source parent for this static-contract repair: `e0e24637fcb2901bef453812747a5f2e7b74f864`.
 - Inadyn production SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 `44381563540` all PASS. Exact-source XY-C1 Build, TRX verification and artifact upload completed; L3 is verified for this exact production SHA.
 - Downstream checker/handoff repair main SHA `1b3117769d52021de09ba09ffbee011e149de3fe`: DNSMasq `44382455939`, WAN route `44382456589`, and AI docs `44382456088` PASS.
 - RStats history-read source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054`, and AI docs `44384384820` PASS. Process fail-closed `44384384017`, XY-C1 `44384384072`, and NVRAM `44384384235` were IN_PROGRESS at the last check. The host exact-read harness passed GNU89/Werror with ASan/UBSan; no full repository test or MIPS build was performed.
 - DDNSTO source SHA `55cf20ecfec45a5b519996c85921bce722e54d99`: DDNSTO lifecycle `44385101598`, Process inventory `44385101669` and AI docs `44385101578` PASS; XY-C1 `44385101749` was still building at last poll.
 - RStats production SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats, Process inventory, Process fail-closed, HTTPD, AI docs, NVRAM and XY-C1 all PASS; exact-SHA XY-C1 Build, TRX and artifact upload completed (L3).
-- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112` and HTTPD `44386912691` PASS. AliDDNS `44386912869` FAIL because its checker hard-coded the former inline AliDDNS NVRAM condition; FRP `44386912971` FAIL because its fixture omitted the shared `autostart_nvram_read()` function. These are integration-test mismatches, not confirmed production faults, and are being corrected in this source-only fixture repair. XY-C1 `44386912939` was IN_PROGRESS at last poll; Build/TRX/artifact not confirmed.
+- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112` and HTTPD `44386912691` PASS; AliDDNS `44386912869` and FRP `44386912971` initially failed on stale downstream contracts.
+- Static-contract repair SHA `e0e24637fcb2901bef453812747a5f2e7b74f864`: AI docs `44388094912` and Process inventory `44388094850` PASS. AliDDNS `44388094895` failed because `function_body()` expected an opening brace on the function declaration line; FRP `44388094871` failed because its checker still required direct `nvram get frpc/frps` assignments. This commit fixes both static contracts. The FRP extracted-helper host fixture and injected failure cases had passed before its static-check step.
+- XY-C1 `44386912939` for autostart product SHA `51596e1` still needs a final Build/TRX/artifact status check; do not claim L3 from earlier source builds.
+- Current change modifies only static checker scripts and docs. Exact-head AliDDNS/FRP/Process/AI checks remain required. Physical-router/hardware L4 is NOT VERIFIED.
 - This repair changes the AliDDNS static checker and FRP host fixture only; production script SHA remains `51596e1`. Exact-head AliDDNS/FRP/Process/AI checks are required after this fix; product L3 and physical-router L4 are not verified for the current autostart production change.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
 - No local repository checkout or MIPS firmware build was performed. A standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan exact-read harness passed; the full repository RStats workflow and new exact-SHA firmware build must still be checked after this production-source commit. Physical-router L4 remains NOT VERIFIED.
@@ -83,25 +86,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Repair downstream test contracts invalidated by the shared autostart NVRAM reader, then verify exact-head Actions.
+Close the two static source-contract mismatches introduced by the checked autostart NVRAM abstraction, then validate the exact head.
 
-- On production SHA `51596e1`, Process inventory, DNSMasq, AI docs, HTTPD and Process lifecycle passed. AliDDNS run `44386912869` failed only at its static checker because it still asserted the old inline `nvram get aliddns_enable` expression. FRP run `44386912971` failed because `frp_autostart.sh` extracted the FRP launcher functions but not the shared `autostart_nvram_read()`, causing a fixture error.
-- This repair changes the AliDDNS source contract to validate status-preserving common-reader behavior and the CA gate, and imports/tests that actual helper in the FRP fixture. The new FRP cases inject status 9 for both client and server settings, requiring no launch and preserving the exact error.
-- No production source or CI trigger is changed in this slice. The existing workflow filters already cover both files and the shared autostart script.
-- No local shell or Python run was performed; inspect exact-head Actions before declaring success.
+- AliDDNS run `44388094895` failed because `function_body()` was passed `autostart_nvram_read() {` while production shell declares the helper name and puts the opening brace on the next line. Anchor on `autostart_nvram_read()` / `autostart_nvram_enabled()`.
+- FRP run `44388094871` failed at `check_frp_lifecycle.py`: it still expected direct `frpc_enable/frps_enable=$(nvram get ...)` assignments. Its shell host fixture had passed after importing the shared helper; update the static contract to verify both checked helper calls, original-status propagation, and the client/server combined decision, retaining both failure-injection tests.
+- This slice changes source-contract tests and docs only; no packaged source or workflow trigger is altered.
+- No local Python/shell test was executed; inspect exact-head Actions after commit.
 
 ## Verification boundary
 
-- SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112` and HTTPD `44386912691` PASS. AliDDNS `44386912869` FAIL (old static contract), FRP `44386912971` FAIL (fixture omitted shared reader); this commit repairs both. XY-C1 `44386912939` was IN_PROGRESS at last inspection.
-- DDNSTO SHA `55cf20ecfec45a5b519996c85921bce722e54d99`: DDNSTO lifecycle `44385101598`, Process inventory `44385101669` and AI docs `44385101578` PASS; XY-C1 pending at last check.
-- RStats SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: all RStats/Process/HTTPD/AI/NVRAM/XY-C1 checks PASS; exact-SHA XY-C1 Build/TRX/artifact completed (L3).
-- Current repair requires exact-head AliDDNS and FRP PASS plus same-SHA XY-C1 Build/TRX/artifact verification before claiming product L3. Physical-router/hardware L4 remains NOT VERIFIED.
+- Production autostart SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112`, HTTPD `44386912691` PASS; AliDDNS `44386912869` and FRP `44386912971` initially failed on stale downstream integration contracts.
+- Static-contract repair SHA `e0e24637fcb2901bef453812747a5f2e7b74f864`: AI docs `44388094912` and Process inventory `44388094850` PASS; AliDDNS `44388094895` FAIL (function signature extraction), FRP `44388094871` FAIL (obsolete direct-read assertion). This commit addresses those exact failures.
+- XY-C1 run `44386912939` still requires Build/TRX/artifact verification for production SHA `51596e1`. No L3 claim is made.
+- Prior RStats SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961` has exact-SHA XY-C1 Build/TRX/artifact PASS (L3); this does not transfer to the current product change.
+- Physical-router/hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head AliDDNS and FRP workflows for this checker/fixture repair; fix any concrete regression without weakening the contract or tests.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact-upload for the autostart production SHA; do not transfer prior L3 evidence.
-3. Continue another independent stability/security issue while Actions are pending. Keep the backup branch immutable and do not repeat the closed RC wrapper caller audit.
+1. Inspect exact-head AliDDNS and FRP workflow runs for this static-checker repair; fix any concrete failure without weakening the contract.
+2. Poll XY-C1 run `44386912939` for the autostart production SHA; inspect Build, TRX verification and artifact upload separately.
+3. Continue the next independent concrete stability/security issue while Actions are pending. Keep the backup branch immutable and do not repeat the closed RC wrapper caller audit.
 
 
 ## Mandatory handoff checkpoint

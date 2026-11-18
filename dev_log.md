@@ -1,3 +1,10 @@
+## 2026-11-19 — Align AliDDNS and FRP static contracts with shared NVRAM helper
+
+- Parent SHA: `e0e24637fcb2901bef453812747a5f2e7b74f864`. Static-contract repair SHA `e0e24637fcb2901bef453812747a5f2e7b74f864`: AI docs `44388094912` and Process inventory `44388094850` PASS; AliDDNS `44388094895` and FRP `44388094871` failed at static source-check steps.
+- AliDDNS checker passed neither the NVRAM change nor a firmware condition: its generic function extractor was given a signature with an opening brace on the same line, while production declares the function and opening brace on separate lines. It now anchors only to the function declaration while retaining status and CA-order assertions.
+- FRP checker still required direct `nvram get` assignments after the common checked helper replaced them. It now verifies both helper calls, exact read-status propagation and the combined client/server enable decision; it also requires the failure-injection regression cases.
+- FRP extracted shell regression and its status-9 cases passed before its separate static source-contract step failed. No production source or workflow trigger changed. No local tests executed; exact-head CI is required.
+
 ## 2026-11-19 — Repair AliDDNS and FRP contracts for shared autostart NVRAM reader
 
 - Parent SHA: `51596e1acf6b4842b80e1246911aac59e9dd2baf`. Production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112` and HTTPD `44386912691` passed. XY-C1 `44386912939` was IN_PROGRESS; AliDDNS `44386912869` and FRP `44386912971` failed.

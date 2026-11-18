@@ -51,17 +51,24 @@ require('if [ "$result_net" = "1" ]' in check,
         "FRP restart must remain gated on successful WAN reachability")
 
 autostart_source = (ROOT / "trunk/user/scripts/files/usr/bin/autostart.sh").read_text()
+autostart_nvram_read = function_body(autostart_source, "autostart_nvram_read()")
 autostart = function_body(autostart_source, "frp_autostart()")
-require('frp_client_enabled=$(nvram get frpc_enable)' in autostart and
-        'frp_server_enabled=$(nvram get frps_enable)' in autostart and
+require('if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then' in autostart_nvram_read and
+        'return "$_autostart_nvram_status"' in autostart_nvram_read and
+        'autostart_nvram_read frpc_enable || return $?' in autostart and
+        'frp_client_enabled=$_autostart_nvram_value' in autostart and
+        'autostart_nvram_read frps_enable || return $?' in autostart and
+        'frp_server_enabled=$_autostart_nvram_value' in autostart and
         '[ "$frp_client_enabled" = "1" ] || [ "$frp_server_enabled" = "1" ]' in autostart,
-        "boot must start FRP when either frpc or frps is enabled")
+        "boot must check both FRP role reads and start when either valid switch is enabled")
 require("frp_launch" in autostart and
         "if [ $(nvram get frpc_enable) = 1 ]" not in autostart_source,
         "FRP boot activation must use the single shared launcher for either role")
 autostart_test = (ROOT / "trunk/user/frp/tests/frp_autostart.sh").read_text()
 for marker in ("client-only configuration", "server-only configuration",
                "both services enabled", "both services disabled",
+               "TEST_NVRAM_FAIL_KEY=frpc_enable", "TEST_NVRAM_FAIL_KEY=frps_enable",
+               "FRPC read failure status", "FRPS read failure status",
                "exactly once"):
     require(marker in autostart_test, f"FRP autostart regression omits {marker}")
 
