@@ -1,30 +1,28 @@
-# 2026-11-18 continuation checkpoint — propagate manual WAN disconnect failures
+# 2026-11-18 continuation checkpoint — correct stale HTTPD WAN-disconnect contract
 
 ## Current repository state
-- Repository: Arlene206/padavan-4.4-2; parent main before THIS slice: 94b5ddbf49fd71a06ce83d907c9e6b3b23caadd0.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent 94b5 PID 1 notification queue regression 44209458419 PASS, including positive command-wait-status normalization. AI handoff 44209458097 PASS; AliDDNS 44209458249, VPN server 44209458344, Samba 44209458318, FRP 44209458244, infosvr 44209458058, rstats 44209458146, USB modem 44209458325, DNS Forwarder 44209458272, DNSMasq 44209458260, Firewall 44209458149 and iNIC 44209458219 PASS.
-- Exact parent 94b5 WAN route 44209458297, WAN gateway ARP 44209458216, XY-C1 44209458268, NVRAM 44209458222 and several unrelated lifecycle workflows were IN_PROGRESS/QUEUED at last poll. Require same-SHA Build, Verify TRX output and artifact upload before recording L3.
-- PID 1 manual WAN disconnect used void manual_wan_disconnect(), discarding every stop_wan()/stop_wan_ppp() error; rc.c called it without updating action_result. A failed manual disconnect was therefore acknowledged as complete, unlike the neighboring manual reconnect path.
-- THIS slice converts manual_wan_disconnect() to int, returns the selected stop result, logs nonzero status, updates rc.h, and merges the status in PID 1 via rc_notify_merge_action_result(). This keeps the notification incomplete marker when manual teardown fails. AP mode remains a no-op returning zero.
-- scripts/check_wan_detect_wan_status.py asserts the public prototype, modem/PPP/ordinary stop branches, error diagnostic, AP-mode no-op and PID 1 action-result aggregation. Existing WAN route workflow watches all changed C/checker paths and runs the GNU89/ASan/UBSan policy suite.
-- No local MIPS firmware build or physical router L4 claim.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS workflow-contract correction: `4bbbe8a3f7bd8b81638271d092287ff986e5fa81`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
+- Exact parent `4bbbe8a3` WAN route status regression `44209928594` PASS, including manual WAN-disconnect status policy and caller contract. PID 1 notification queue `44209928573`, VPN server `44209928500`, Samba `44209928614`, USB modem `44209928547`, WAN DHCP `44209928355`, detect_internet `44209928506`, process lifecycle inventory `44209928630`, AliyunDrive `44209928293`, HTTPD Auth/Security earlier steps 1–37, and numerous service/security checks PASS.
+- Exact parent HTTPD Security run `44209928509` FAIL only at step 38, `Verify bounded service termination and WAN stop failure gates`. First cause is stale copied assertion `assert "if (stop_wan_ppp() != 0)" in manual_disconnect` at workflow line 5163: product code now stores either stop result in `status`, logs it and returns it; the WAN route workflow already verifies both `status = stop_wan_ppp();`, `status = stop_wan();`, nonzero handling and return. THIS commit aligns the duplicated HTTPD assertion, it does not weaken or change production behavior.
+- Exact parent XY-C1 `44209928351` remains IN_PROGRESS at `Build XY-C1`; TRX and artifact upload not yet reached. NVRAM `44209928413` remains IN_PROGRESS during raw userland/kernel caller audit. No L3 claim until same-SHA Build, TRX and artifact upload all succeed.
+- Product source fix `94b5ddbf` retains failed HDD-tune notification results; product source fix `4bbbe8a3` returns manual WAN disconnect teardown status and retains PID 1 notification failure markers.
+- No physical-router L4 claim.
 
 ## Active task
-- Propagate the actual manual WAN disconnect result end-to-end from stop_wan()/stop_wan_ppp() to PID 1 notification completion; prevent failure from being acknowledged as success.
-- Exact-head WAN route regression and XY-C1 Build/TRX/artifact checks are pending for THIS commit.
+- Correct the duplicated HTTPD workflow contract so it describes the new status-returning manual WAN disconnect API, and preserves checks for both modem/non-modem stop paths, error handling and status return.
 
 ## Verification boundary
-- Exact parent 94b5 PID 1 notification queue, AI handoff, AliDDNS, VPN server, Samba, FRP, infosvr, rstats, USB modem, DNS Forwarder, DNSMasq, Firewall and iNIC checks PASS.
-- Parent 94b5 WAN route 44209458297, XY-C1 44209458268, NVRAM 44209458222 and WAN gateway 44209458216 were not yet complete at last poll.
-- THIS commit's exact-head WAN route source contract and policy sanitizer checks pending.
-- Hardware L4 NOT VERIFIED; no same-SHA L3 claim.
+- Exact parent `4bbbe8a3` WAN route `44209928594` PASS; PID 1 queue `44209928573` PASS.
+- Exact parent HTTPD Security `44209928509` FAIL at the outdated assertion described above; all earlier 37 steps PASS.
+- Exact parent XY-C1 `44209928351` PENDING at Build; NVRAM `44209928413` PENDING at raw ioctl/kernel caller audit.
+- THIS workflow-only correction's exact-head HTTPD rerun is pending. Hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect THIS commit's exact-head WAN route run. Require route status C GNU89/ASan/UBSan policy tests and the new manual WAN disconnect return/caller/source-contract assertions to PASS.
-2. Inspect exact-head XY-C1 Build, Verify TRX output and artifact-upload steps on this same source SHA. Record L3 only if all three pass.
-3. Check the current NVRAM and other pending security/lifecycle Actions. Continue independent P1 work while they run; do not wait idle.
-4. Frozen backup remains untouched. Do not repeat bootstrap recovery.
+1. Inspect exact-head HTTPD Security run. Require step 38 and downstream lifecycle/wireless/NFS/NVRAM checks to PASS; diagnose any first causal failure.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload on the same SHA; no L3 claim before all pass.
+3. Inspect NVRAM raw IOCTL/kernel caller audit; continue another independent P1 reliability/security item while unrelated runs are pending.
+4. Keep the frozen backup untouched; do not repeat bootstrap recovery.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.

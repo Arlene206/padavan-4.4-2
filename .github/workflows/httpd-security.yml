@@ -5160,7 +5160,10 @@ jobs:
           assert "status = stop_wan();" in reconnect
           assert "if (status != 0)" in reconnect
           assert reconnect.index("status = stop_wan();") < reconnect.index("if (status != 0)") < reconnect.index("reset_wan_vars();")
-          assert "if (stop_wan_ppp() != 0)" in manual_disconnect
+          assert "status = stop_wan_ppp();" in manual_disconnect
+          assert "status = stop_wan();" in manual_disconnect
+          assert "if (status != 0)" in manual_disconnect
+          assert "return status;" in manual_disconnect
 
           stop_misc = body(services, "stop_misc(void)")
           assert '"gpio_btn"' in stop_misc

@@ -1,3 +1,11 @@
+## 2026-11-18 — Repair stale HTTPD contract after manual WAN disconnect status propagation
+
+- Parent main SHA: `4bbbe8a3f7bd8b81638271d092287ff986e5fa81`. WAN route regression `44209928594` and PID 1 notification queue `44209928573` PASS. Exact parent XY-C1 `44209928351` remains at Build; NVRAM `44209928413` remains in raw ioctl/kernel caller audit.
+- HTTPD Security `44209928509` passed steps 1–37 and failed only at step 38, which duplicated an outdated source assertion: `if (stop_wan_ppp() != 0)` in `manual_wan_disconnect()`. The API now assigns the selected PPP or ordinary teardown result to `status`, logs nonzero, and returns status. WAN route workflow's independent source contract already verifies this behavior.
+- THIS correction changes the HTTPD workflow to assert both stop assignments, nonzero handling and status return. It does not change product source or relax the behavior contract. Exact-head HTTPD rerun pending.
+
+---
+
 ## 2026-11-18 — Propagate manual WAN disconnect failures to PID 1
 
 - Parent main SHA: 94b5ddbf49fd71a06ce83d907c9e6b3b23caadd0. Exact parent PID 1 notification queue regression 44209458419 PASS, including positive wait-status mapping for failed command actions; AI handoff 44209458097 PASS. AliDDNS 44209458249, VPN 44209458344, Samba 44209458318, FRP 44209458244, infosvr 44209458058, rstats 44209458146, USB modem 44209458325, DNS Forwarder 44209458272, DNSMasq 44209458260, Firewall 44209458149 and iNIC 44209458219 PASS. WAN route 44209458297, XY-C1 44209458268, NVRAM 44209458222 and gateway ARP 44209458216 were pending at last poll.

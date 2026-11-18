@@ -1,13 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main parent before THIS manual WAN disconnect result-propagation slice: 94b5ddbf49fd71a06ce83d907c9e6b3b23caadd0; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent 94b5 PID 1 notification queue regression 44209458419 PASS, including positive wait-status normalization and HDD-tune notification marker behavior. AI handoff 44209458097 PASS; AliDDNS 44209458249, VPN server 44209458344, Samba 44209458318, FRP 44209458244, infosvr 44209458058, rstats 44209458146, USB modem 44209458325, DNS Forwarder 44209458272, DNSMasq 44209458260, Firewall 44209458149 and iNIC 44209458219 PASS.
-- Exact parent 94b5 WAN route 44209458297, WAN gateway ARP 44209458216, XY-C1 44209458268, NVRAM 44209458222 and several unrelated lifecycle workflows remained pending at last poll. Do not claim L3 until Build, Verify TRX and artifact upload all pass on the same SHA.
-- PID 1 notification queue already retains failed HDD-tune action results (94b5ddbf). New gap: manual WAN disconnect's public void function discarded stop_wan()/stop_wan_ppp() errors, and PID 1 acknowledged the event. THIS slice returns the selected teardown status, logs failure, and merges it into action_result so the incomplete marker remains on failure.
-- WAN route regression workflow includes net_wan.c, rc.c, rc.h and check_wan_detect_wan_status.py; exact-head CI will verify source contract and existing GNU89 sanitizer policy regression.
-- No physical router L4 or current source L3 claim.
+- Live main parent before THIS HTTPD workflow-contract correction: `4bbbe8a3f7bd8b81638271d092287ff986e5fa81`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact parent `4bbbe8a3` WAN route status `44209928594` PASS and PID 1 notification queue `44209928573` PASS. Several lifecycle/security workflows PASS; exact XY-C1 `44209928351` still Build, NVRAM `44209928413` still raw userland/kernel audit.
+- Exact parent HTTPD Security `44209928509` failed at its final bounded-service/WAN-stop contract because the copied assertion still expected `if (stop_wan_ppp() != 0)`, although the newer manual disconnect API assigns the selected teardown result to `status` and returns it. This commit updates the duplicate assertion to require both PPP and ordinary stop assignments, nonzero logging gate and returned status; production source unchanged.
+- No exact current-source L3 or hardware L4 claim.
 
-Next: verify THIS commit's exact-head WAN route source contract/sanitizer regression and inspect exact-head XY-C1 Build/TRX/artifact; continue a separate P1 stability/security item while pending Actions run.
+Next: verify exact-head HTTPD rerun and same-SHA XY-C1 Build/TRX/artifact; inspect NVRAM audit and continue another independent P1 source fix while pending checks run.
 
 ---
 
