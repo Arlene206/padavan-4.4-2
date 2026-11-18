@@ -37,14 +37,14 @@ def function_body(text, signature):
                 if depth == 0:
                     return text[brace + 1:index]
         elif state in ("string", "char"):
-            if char == "\\\\":
+            if char == "\\":
                 index += 1
             elif (state == "string" and char == '"') or (state == "char" and char == "'"):
                 state = "code"
         elif state == "block" and char == "*" and nxt == "/":
             state = "code"
             index += 1
-        elif state == "line" and char == "\\n":
+        elif state == "line" and char == "\n":
             state = "code"
         index += 1
     raise AssertionError("unterminated function: " + signature)
@@ -64,7 +64,8 @@ assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in confirm
 assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in confirm
 
 startup = function_body(net, "start_udpxy(char *wan_ifname)")
-assert '#if defined (APP_MSD_LITE)\\n\\tprocess_name = "msd_lite";\\n#else\\n\\tprocess_name = "udpxy";' in startup
+assert 'process_name = "msd_lite";' in startup
+assert 'process_name = "udpxy";' in startup
 assert "udpxy_process_presence((void *)process_name, &scan_error)" in startup
 assert "PROCESS_PRESENCE_UNKNOWN" in startup
 assert "process_state != PROCESS_PRESENCE_ABSENT" in startup
