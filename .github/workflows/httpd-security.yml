@@ -2447,7 +2447,8 @@ jobs:
           assert "lan_dhcp_bound_callback_status" in lan_callback_policy
           assert "(void)ancillary_status;" in lan_callback_policy
           assert "return transaction_status;" in lan_callback_policy
-          assert "lan_dhcp_bound_callback_status(0, EIO) == 0" in lan_callback_test
+          assert "const int ancillary_failures[] = { EIO, ENOSPC, ETIMEDOUT, ECHILD };" in lan_callback_test
+          assert "lan_dhcp_bound_callback_status(0, ancillary_failures[i]) == 0" in lan_callback_test
           assert "lan_dhcp_bound_callback_status(ENOSPC, EIO) == ENOSPC" in lan_callback_test
           assert "int status, rollback_status = 0, hosts_status = 0;" in lan_bound
           hosts_writer_start = lan.index("static int\ncreate_hosts_lan(const char *lan_ipaddr, const char *lan_dname)")

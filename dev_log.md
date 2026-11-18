@@ -1,3 +1,13 @@
+## 2026-11-18 — Align LAN DHCP ancillary regression contracts
+
+- Parent main SHA: `355a5c2565b2e6d001a721289e1e690fda997931`.
+- Exact `355a5c25`: WAN DHCP `44207255220` failed only because the workflow looked for the old C test symbol `test_successful_lease_commit_ignores_ancillary_hosts_failure`; the actual policy test is `test_successful_lease_commit_ignores_ancillary_refresh_failure`. Its preceding GNU89/ASan/UBSan and source-check steps passed.
+- HTTPD Security `44207255662` failed on a stale literal EIO assertion; the current C test loops over `EIO`, `ENOSPC`, `ETIMEDOUT`, and `ECHILD`. Updated the embedded source contract to match the actual test.
+- AI handoff `44207255510` failed because the handoff omitted the exact literal phrase `one atomic main commit`; restored that wording.
+- NVRAM `44207255182` PASS; all other exact parent runs recorded in SESSION_HANDOFF. XY-C1 `44207255537` remained in Build with TRX/artifact pending. No production source changes in this correction; hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Capture ancillary LAN DHCP follow-up failures
 
 - Parent main SHA: `e5c5bdc37a722aa7953246409c9d0c1d16002864`. Exact b3a AI handoff `44205722872` PASS; AliyunDrive `44205723343` PASS on unchanged sources after isolated 21b5 failure `44205040903`; Process inventory/lifecycle `44205723100` / `44205723080`, WAN route `44205723137`, NVRAM `44205723095`, HTTPD `44205723230` and broad lifecycle/security checks PASS. XY-C1 `44205723068` was still building; no L3 claim.

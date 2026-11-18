@@ -1,39 +1,45 @@
-# 2026-11-18 continuation checkpoint — capture ancillary LAN DHCP follow-up failures
+# 2026-11-18 continuation checkpoint — repair stale LAN DHCP workflow assertions
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS slice: `e5c5bdc37a722aa7953246409c9d0c1d16002864`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- WAN deferred VPN start/stop enqueue status is handled by `816146ab` / `21b5da97`. Manual WAN disconnect/reconnect CLI notification results propagate through `b3a42c6e971d1e58f6b3014783947d03deafb44a`.
-- Exact b3a AI handoff `44205722872` PASS; AliyunDrive `44205723343` PASS on unchanged launcher/test sources after isolated 21b5 failure `44205040903`; Process inventory/lifecycle `44205723100` / `44205723080`, WAN route `44205723137`, NVRAM `44205723095`, HTTPD `44205723230` and broad lifecycle/security workflows PASS.
-- Exact b3a XY-C1 `44205723068` was IN_PROGRESS at Build XY-C1. Require Build, Verify TRX output and artifact upload all SUCCESS on the same exact product-source SHA before claiming L3.
-- Concurrent commit `e5c5bdc3` increases AliyunDrive lifecycle mock wait for CI scheduling jitter; exact-head AliyunDrive `44206760004` and AI `44206759852` were in progress at last poll.
-- `udhcpc_lan_bound()` silently discarded IAPP restart `system()` status and `restart_networkmap()` status after interface, route, resolver and NVRAM lease state had committed. THIS slice captures/logs both failures but preserves callback success: BusyBox must not retain an old internal lease while the router is already using the new one.
-- The WAN DHCP workflow already compiles `lan_dhcp_callback_policy.c` with GNU89, `-Werror`, ASan/UBSan and runs `check_lan_dhcp_deconfig.py`; existing path filters include every file changed by THIS slice.
-- No local MIPS build or physical-router L4 claim.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS workflow-contract correction: `355a5c2565b2e6d001a721289e1e690fda997931`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `355a5c25` Actions: WAN route `44207255511` PASS; AliDDNS `44207255497` PASS; AliyunDrive `44207257596` PASS; Process inventory/fail-closed `44207255376` PASS; Process inventory `44207255263` PASS; infosvr `44207255297` PASS; AdGuardHome `44207255252` PASS; Wireless `44207255217` PASS; detect_link `44207255099` PASS; DNSMasq `44207255096` PASS; detect_internet `44207255062` PASS; NVRAM audit `44207255182` PASS.
+- Exact `355a5c25` WAN DHCP `44207255220` FAILed only in its final embedded source-contract assertion: it still expected the previous test function name `test_successful_lease_commit_ignores_ancillary_hosts_failure`, while the actual compiled policy test was renamed `test_successful_lease_commit_ignores_ancillary_refresh_failure`. Earlier GNU89/ASan/UBSan and LAN DHCP source checker steps passed.
+- Exact `355a5c25` HTTPD Security `44207255662` FAILed at an embedded assertion expecting a literal `lan_dhcp_bound_callback_status(0, EIO) == 0`; the actual policy regression uses a table of `EIO`, `ENOSPC`, `ETIMEDOUT`, `ECHILD` values and loops over them. THIS corrects the stale check to assert the real multi-error loop.
+- Exact `355a5c25` AI handoff `44207255510` FAILed because the handoff lacked the checker-required literal phrase `one atomic main commit`; THIS restores that exact governance phrase.
+- XY-C1 `44207255537` is IN_PROGRESS at Build XY-C1; Verify TRX output and artifact upload are still pending. No product-source L3 claim for this SHA yet.
+- The production LAN callback now captures and logs IAPP restart and networkmap refresh failures after lease state is committed, while keeping callback status success so BusyBox does not retain a stale internal lease. No production C changed in THIS correction.
+- Roadmap dashboard remains intact; it is about 55 KiB and retains `## Whole-repository module status` / `AUDITING`.
 
 ## Active task
-- THIS slice makes post-commit DHCP ancillary follow-ups observable: capture/log IAPP restart and networkmap refresh failure without changing the committed lease transaction or callback return semantics.
-- Exact-head WAN DHCP callback/source contract and XY-C1 Build/TRX/artifact are pending for THIS commit.
+- THIS commit fixes two stale embedded assertion assumptions and the AI handoff wording. It does not modify production code:
+  - WAN DHCP workflow now references the actual `ancillary_refresh_failure` test function.
+  - HTTPD workflow validates the current array/loop that tests multiple ancillary failure codes rather than requiring one literal EIO call.
+  - Handoff includes the required atomic-main-commit wording.
+- The underlying 355a source change is unchanged.
 
 ## Verification boundary
-- Parent b3a AI handoff PASS; AliyunDrive PASS on exact b3a rerun; Process, WAN route, NVRAM and HTTPD PASS.
-- Parent b3a XY-C1 `44205723068` remained in Build; re-check exact stages.
-- THIS commit WAN DHCP GNU89/ASan/UBSan policy test and source checker pending.
-- Physical hardware L4 NOT VERIFIED.
+- Exact parent `355a5c25`: WAN route PASS; AliDDNS PASS; AliyunDrive PASS; Process, infosvr, AdGuardHome, Wireless, detect_link, DNSMasq, detect_internet and NVRAM PASS.
+- WAN DHCP FAIL was an obsolete C test-name assertion after the C regression step had passed.
+- HTTPD Security FAIL was an obsolete literal-argument assertion; the current policy test exercises the same and additional failure cases through an array.
+- AI FAIL was missing exact wording, not a source/build defect.
+- XY-C1 `44207255537` remains in Build; TRX/artifact have not run. No L3 yet for this exact source SHA.
+- Physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect THIS commit's exact-head WAN DHCP callback workflow; require the ASan/UBSan LAN-DHCP policy binary and `check_lan_dhcp_deconfig.py` contract to PASS for both captured/logged follow-up results and unchanged successful lease semantics.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload separately; claim L3 only if all pass on one source SHA.
-3. Continue an independent P1 storage/service lifecycle or security fix while Actions run. Keep backup untouched.
+1. Inspect exact-head WAN DHCP, HTTPD Security and AI handoff runs for THIS correction; require all three PASS, including GNU89/ASan/UBSan tests and source contracts.
+2. Inspect XY-C1 `44207255537` and the new exact-head run: require Build XY-C1, Verify TRX output and artifact upload all PASS on one SHA containing the 355a LAN ancillary-status source change.
+3. Continue another independent P1 userland reliability/security defect while any Actions remain pending; do not repeat the initial repo audit.
+4. Keep frozen backup unchanged and do not claim physical-router L4.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.
-Every session MUST inspect live main, relevant exact-SHA Actions, current handoff/roadmap, validation boundary and first actionable task before ending. If all checkpoint facts and next action are accurate, explicitly conclude with no file change and no commit; do not create a no-op commit.
+Every session MUST inspect live main, exact-SHA Actions, current handoff/roadmap, validation boundary and the first actionable task before ending. If those facts and the first action remain accurate, do not create a no-op commit.
 
 # Cross-session execution mandate
 
-Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and commit atomically; do not wait idle on pending CI.
+Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and commit atomically; do not wait idly on pending CI.
 
-Every logical multi-file change creates all blobs, one complete Git tree and one commit parented to freshly fetched main, then publishes with non-forced expected-SHA compare-and-swap. Never force-push, create dev branches/PRs, or modify the frozen backup.
+Every logical multi-file change must create all blobs, one tree and **one atomic main commit**, parented to freshly fetched main and published with a non-forced expected-SHA compare-and-swap. Never force-push, create dev branches/PRs, or modify the frozen backup.
 
-Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first task.
+Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first action.

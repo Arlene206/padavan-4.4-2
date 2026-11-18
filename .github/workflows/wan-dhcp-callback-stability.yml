@@ -1086,7 +1086,7 @@ jobs:
           assert "return hosts_status;" not in lan_bound
           assert "return transaction_status;" in lan_callback_policy
           assert "(void)ancillary_status;" in lan_callback_policy
-          assert "test_successful_lease_commit_ignores_ancillary_hosts_failure" in lan_callback_test
+          assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in lan_callback_test
           assert "test_transaction_failure_remains_fatal" in lan_callback_test
 
           print("WAN DHCP callback ordering, rollback, launcher status and static-interface failure contracts: PASS")

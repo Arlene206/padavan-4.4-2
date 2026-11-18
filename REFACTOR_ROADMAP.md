@@ -1,13 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main parent before THIS LAN DHCP ancillary-error observability slice: `e5c5bdc37a722aa7953246409c9d0c1d16002864`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- WAN deferred VPN start/stop enqueue results are handled in `816146ab` and `21b5da97`; manual `stop_wan` / `restart_wan` enqueue results propagate through `b3a42c6e`.
-- Exact b3a AI handoff `44205722872` PASS; AliyunDrive `44205723343` PASS on unchanged launcher/test sources after isolated 21b5 failure. Process inventory/lifecycle `44205723100` / `44205723080`, WAN route `44205723137`, NVRAM `44205723095`, HTTPD `44205723230` and multiple lifecycle/security checks PASS. Exact b3a XY-C1 `44205723068` was IN_PROGRESS at Build; inspect exact stages before claiming L3.
-- Concurrent commit `e5c5bdc3` increased the AliyunDrive mock readiness wait for CI scheduling tolerance; exact-head AliyunDrive `44206760004` and AI `44206759852` were IN_PROGRESS at last poll.
-- Found two silent ancillary failures in LAN DHCP BOUND: `system("/usr/bin/iappd.sh restart")` and `restart_networkmap()` results were discarded after the DHCP address/route/resolver/NVRAM transaction committed. THIS slice captures and logs both statuses but keeps the BusyBox callback successful, so ancillary refresh failure cannot make BusyBox retain an old lease while the router uses the new one.
-- THIS commit requires exact-head WAN DHCP callback and XY-C1 verification. No physical hardware L4 claim.
+- Parent main before THIS workflow/handoff correction: `355a5c2565b2e6d001a721289e1e690fda997931`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact parent `355a5c25`: WAN route `44207255511`, AliDDNS `44207255497`, AliyunDrive `44207257596`, Process inventory/fail-closed `44207255376`, Process inventory `44207255263`, infosvr `44207255297`, AdGuardHome `44207255252`, Wireless `44207255217`, detect_link `44207255099`, DNSMasq `44207255096`, detect_internet `44207255062`, NVRAM `44207255182` PASS.
+- WAN DHCP `44207255220` and HTTPD Security `44207255662` failed on stale embedded regression assertions, not their policy C test runs: stale old test symbol and literal-EIO assertion (actual test uses a multi-error array/loop). AI `44207255510` required the exact phrase `one atomic main commit`. THIS correction aligns those assertions and handoff wording; no production C changes.
+- XY-C1 `44207255537` still building at Build XY-C1; TRX and artifact steps pending. No product L3 on this source SHA; hardware L4 NOT VERIFIED.
+- Whole-repository module dashboard below is preserved in full.
 
-Next: inspect this commit's WAN DHCP callback regression/source contract and current XY-C1 Build/TRX/artifact steps; continue an independent P1 service lifecycle or storage failure-propagation fix while unrelated runs are pending.
+Next: require exact-head WAN DHCP + HTTPD + AI PASS; verify same-SHA XY-C1 Build/TRX/artifact; then continue independent P1 source work.
+
 
 ---
 
