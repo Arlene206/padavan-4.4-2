@@ -213,6 +213,14 @@ require(script.count('chinadnsng_enable_flag=1') == 1,
         "ChinaDNS active flag must only be set after the transaction succeeds")
 require(script.count('if start_chinadns; then') == 2,
         "router and GFW start_dns branches must propagate ChinaDNS startup errors")
+
+start_dns_end = script.index("\n}\n\n# Publish either a dnsmasq address configuration", start_dns_start) + 2
+start_dns = script[start_dns_start:start_dns_end]
+require('local dnsmasq_restart_done=0' in start_dns and
+        'dnsmasq_restart_done=1' in china_fn and
+        'if [ "$dnsmasq_restart_done" -eq 1 ]; then' in start_dns and
+        start_dns.count('/sbin/restart_dhcpd') == 1,
+        "router/GFW DNSMasq publication must not immediately restart the service twice")
 require("ChinaDNS-ng detached readiness" in test and
         "ChinaDNS-ng immediate child exit" in test and
         "ChinaDNS-ng UNKNOWN startup inventory" in test and

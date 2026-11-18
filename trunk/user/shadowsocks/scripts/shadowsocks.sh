@@ -593,6 +593,8 @@ ss_publish_and_restart_dnsmasq() {
 }
 
 start_dns() {
+	local dnsmasq_restart_done=0
+
 	echo "create china hash:net family inet hashsize 1024 maxelem 65536" >/tmp/china.ipset
 	awk '!/^$/&&!/^#/{printf("add china %s'" "'\n",$0)}' /etc/storage/chinadns/chnroute.txt >>/tmp/china.ipset
 	ipset -! flush china
@@ -636,6 +638,7 @@ start_dns() {
 			fi
 		fi
 		if ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$use_chinadns"; then
+			dnsmasq_restart_done=1
 			if [ "$use_chinadns" = "1" ]; then
 				chinadnsng_enable_flag=1
 			fi
@@ -727,6 +730,11 @@ EOF
 		ipset add ss_spec_wan_ac $dnsserver 2>/dev/null
 	;;
 	esac
+	# start_chinadns() publishes the validated config and already performs the
+	# RC-serialized DNSMasq restart. Avoid immediately restarting it a second time.
+	if [ "$dnsmasq_restart_done" -eq 1 ]; then
+		return 0
+	fi
 	/sbin/restart_dhcpd
 }
 
