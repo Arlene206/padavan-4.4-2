@@ -2234,12 +2234,21 @@ stop_wan_ppp_locked(void)
 #endif
 		"l2tpd", "xl2tpd", "pppd", NULL
 	};
+	int pause_status, stop_status = -1;
+
+	/* A running monitor must be paused before fencing or stopping PPP. */
+	pause_status = notify_pause_detect_internet();
+	if (pause_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing to stop WAN PPP because Internet monitor pause failed (status=%d)",
+			   pause_status);
+		return pause_status;
+	}
 	if (invalidate_wan_ppp_callback_session() != 0) {
 		logmessage(LOGNAME, "refusing to stop WAN PPP without callback-session fencing");
-		return -1;
+		goto abort_resume_detect;
 	}
 	nvram_set_int_temp("deferred_wanup_t", 0);
-	notify_pause_detect_internet();
 	if (stop_vpn_client_under_lifecycle_lock() != 0) {
 		logmessage(LOGNAME, "refusing WAN PPP teardown because VPN client stop was incomplete");
 		goto abort_resume_detect;
@@ -2254,7 +2263,7 @@ stop_wan_ppp_locked(void)
 
 abort_resume_detect:
 	(void)notify_run_detect_internet(2);
-	return -1;
+	return stop_status;
 }
 
 static int
@@ -2279,8 +2288,8 @@ static const struct wan_teardown_interface_ops wan_teardown_ifdown_ops = {
 static int
 stop_wan_locked(void)
 {
-	int unit, wan_proto, ifdown_status, stop_status;
-	int eapol_stop_status, kabinet_stop_status;
+	int unit, wan_proto, ifdown_status, stop_status = -1;
+	int pause_status, eapol_stop_status, kabinet_stop_status;
 #if defined (USE_IPV6)
 	int ipv6_status = 0;
 #endif
@@ -2302,15 +2311,22 @@ stop_wan_locked(void)
 	};
 
 	unit = 0;
+	pause_status = notify_pause_detect_internet();
+	if (pause_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN teardown because Internet monitor pause failed (status=%d)",
+			   pause_status);
+		return pause_status;
+	}
 	if (invalidate_wan_ppp_callback_session() != 0) {
 		logmessage(LOGNAME, "refusing WAN teardown without PPP callback-session fencing");
-		return -1;
+		stop_status = -1;
+		goto abort_resume_detect;
 	}
 	nvram_set_int_temp("deferred_wanup_t", 0);
 	wan_proto = get_wan_proto(unit);
 	man_ifname = get_man_ifname(unit);
 	usbnet_ifname = NULL;
-	notify_pause_detect_internet();
 	if (stop_vpn_client_under_lifecycle_lock() != 0) {
 		logmessage(LOGNAME, "refusing WAN PPP teardown because VPN client stop was incomplete");
 		stop_status = -1;
@@ -2985,7 +3001,9 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "down", wan_ifname);
 
-	notify_pause_detect_internet();
+	/* A DHCP/PPP down callback is already in flight; finish cleanup even
+	 * if this advisory monitor pause cannot be delivered. */
+	(void)notify_pause_detect_internet();
 
 	/* deferred stop static VPN client (prevent rebuild resolv.conf) */
 	nvram_set_temp("vpnc_dns_t", "");

@@ -415,7 +415,7 @@ notify_run_detect_internet(int delay_time)
 	return operation_error;
 }
 
-void
+int
 notify_pause_detect_internet(void)
 {
 	int operation_status, operation_errno, operation_error;
@@ -424,14 +424,13 @@ notify_pause_detect_internet(void)
 	operation_status = process_pidfile_signal(
 		DI_PID_FILE, "detect_internet", SIGUSR2);
 	operation_errno = errno;
-	operation_error = detect_internet_operation_error(
+	operation_error = detect_internet_pause_error(
 		operation_status, operation_errno);
-	/* No monitor or a just-exited monitor is an ordinary pause no-op. */
-	if (operation_error != 0 &&
-	    operation_errno != ENOENT && operation_errno != ESRCH)
+	if (operation_error != 0)
 		logmessage("detect_internet",
 			   "monitor pause signal failed (status=%d, errno=%d)",
 			   operation_status, operation_error);
+	return operation_error;
 }
 
 int

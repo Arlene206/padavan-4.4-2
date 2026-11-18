@@ -1076,9 +1076,15 @@ stop_lan(int is_ap_mode)
 	if (is_ap_mode) {
 		char *svcs[] = { "detect_wan", NULL };
 		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
-		int status;
+		int status, pause_status;
 
-		notify_pause_detect_internet();
+		pause_status = notify_pause_detect_internet();
+		if (pause_status != 0) {
+			logmessage(LOGNAME,
+				   "refusing LAN teardown because Internet monitor pause failed (status=%d)",
+				   pause_status);
+			return pause_status;
+		}
 		status = stop_udhcpc_lan();
 		if (status == 0)
 			status = kill_services(svcs, 3, 1);
@@ -1639,8 +1645,9 @@ lan_down_auto(char *lan_ifname)
 	}
 
 	/* Do not pause detection, overwrite the last DHCP gateway identity or
-	 * discard DHCP-only metadata until every required cleanup step succeeds. */
-	notify_pause_detect_internet();
+	 * discard DHCP-only metadata until every required cleanup step succeeds.
+	 * Once the lease cleanup is committed, monitor pause is advisory. */
+	(void)notify_pause_detect_internet();
 	update_lan_status(0);
 	nvram_set_temp("lan_dns_t", "");
 	nvram_set_temp("lan_wins_t", "");

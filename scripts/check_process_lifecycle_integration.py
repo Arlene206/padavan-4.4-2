@@ -572,6 +572,12 @@ wan_ppp_stop = net_wan.split("static int\nstop_wan_ppp_locked(void)", 1)[1].spli
 wan_full_stop = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\\n}", 1)[0]
 wan_lock_runner = net_wan.split("run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)", 1)[1].split("\\n}", 1)[0]
 for stop_body in (wan_ppp_stop, wan_full_stop):
+    assert "pause_status = notify_pause_detect_internet();" in stop_body
+    pause_call = stop_body.index("pause_status = notify_pause_detect_internet();")
+    pause_gate = stop_body.index("if (pause_status != 0)", pause_call)
+    pause_return = stop_body.index("return pause_status;", pause_gate)
+    callback_fence = stop_body.index("invalidate_wan_ppp_callback_session()")
+    assert pause_call < pause_gate < pause_return < callback_fence
     assert "stop_vpn_client_under_lifecycle_lock() != 0" in stop_body
     assert "stop_vpn_client() != 0" not in stop_body
     assert "kill_services(svcs_ppp, 6, 1)" in stop_body
@@ -713,7 +719,12 @@ lan_dhcp_noforce_stop = 'kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0
 lan_daemon_stop = "kill_services(svcs, 3, 1)"
 assert "status = stop_udhcpc_lan();" in lan_stop
 assert lan_daemon_stop in lan_stop
-assert lan_stop.index("notify_pause_detect_internet()") < lan_stop.index("status = stop_udhcpc_lan();")
+assert "pause_status = notify_pause_detect_internet();" in lan_stop
+lan_pause_call = lan_stop.index("pause_status = notify_pause_detect_internet();")
+lan_pause_failure = lan_stop.index("if (pause_status != 0)", lan_pause_call)
+lan_pause_return = lan_stop.index("return pause_status;", lan_pause_failure)
+lan_dhcp_stop_call = lan_stop.index("status = stop_udhcpc_lan();")
+assert lan_pause_call < lan_pause_failure < lan_pause_return < lan_dhcp_stop_call
 assert lan_stop.index("status = stop_udhcpc_lan();") < lan_stop.index(lan_daemon_stop)
 lan_pidfile_stop = net_lan_dhcp.split("stop_udhcpc_lan(void)", 1)[1].split("\n}", 1)[0]
 assert '"/var/run/udhcpc_lan.pid"' in lan_pidfile_stop

@@ -20,6 +20,20 @@ detect_internet_operation_error(int operation_status, int operation_errno)
 	return EIO;
 }
 
+/*
+ * A missing monitor is a normal no-op during teardown. Other identity or
+ * signalling failures must be visible to lifecycle callers that are about
+ * to dismantle an interface while the monitor may still be active.
+ */
+static inline int
+detect_internet_pause_error(int operation_status, int operation_errno)
+{
+	if (operation_status == 0 ||
+	    operation_errno == ENOENT || operation_errno == ESRCH)
+		return 0;
+	return detect_internet_operation_error(operation_status, operation_errno);
+}
+
 /* Keep the queue-specific name for existing event submission callsites. */
 static inline int
 detect_internet_notification_error(int queue_status, int queue_errno)

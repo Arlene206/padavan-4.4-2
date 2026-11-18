@@ -124,8 +124,10 @@ jobs:
           assert wan_notify.index("if (check_if_file_exist(script_inet))") < wan_notify.index("hook_status = doSystem(") < wan_notify.index("if (hook_status != 0)") < wan_notify.index("internet state hook failed")
           assert "detect_internet_notification_error" in notification_policy
           assert "detect_internet_operation_error" in notification_policy
+          assert "detect_internet_pause_error" in notification_policy
           assert "test_notification_queue_failure_preserves_errno_or_falls_back" in test
           assert "test_launcher_and_pidfile_errors_are_normalized" in test
+          assert "test_pause_treats_absence_as_noop_and_reports_identity_failure" in test
           assert '#include "detect_internet_notification_policy.h"' in detect
 
           notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
@@ -145,17 +147,41 @@ jobs:
 
           notify_pause = body(detect, "notify_pause_detect_internet(void)")
           compact_notify_pause = "".join(notify_pause.split())
+          assert "int\nnotify_pause_detect_internet(void)" in detect
           assert 'operation_status=process_pidfile_signal(DI_PID_FILE,"detect_internet",SIGUSR2);' in compact_notify_pause
-          compact_notify_pause = "".join(notify_pause.split())
-          assert "detect_internet_operation_error(" in compact_notify_pause
+          assert "detect_internet_pause_error(" in compact_notify_pause
           assert "operation_status,operation_errno" in compact_notify_pause
-          assert "operation_errno != ENOENT && operation_errno != ESRCH" in notify_pause
-          assert "monitor pause signal failed" in notify_pause
+          assert "return operation_error;" in notify_pause
           assert "(void)process_pidfile_signal(" not in notify_pause
 
           assert "notify_run_detect_internet(" in wan
           assert "notify_pause_detect_internet(" in wan
+          assert "int  notify_pause_detect_internet(void);" in header
           assert "notify_run_detect_internet(" in lan
+          lan_stop = body(lan, "stop_lan(int is_ap_mode)")
+          lan_pause_call = lan_stop.index("pause_status = notify_pause_detect_internet();")
+          lan_pause_failure = lan_stop.index("if (pause_status != 0)", lan_pause_call)
+          lan_pause_return = lan_stop.index("return pause_status;", lan_pause_failure)
+          lan_dhcp_stop_call = lan_stop.index("status = stop_udhcpc_lan();")
+          assert lan_pause_call < lan_pause_failure < lan_pause_return < lan_dhcp_stop_call
+          lan_down_auto = body(lan, "lan_down_auto(char *lan_ifname)")
+          assert "(void)notify_pause_detect_internet();" in lan_down_auto
+          assert "Once the lease cleanup is committed, monitor pause is advisory." in lan_down_auto
+          wan_ppp_stop = body(wan, "stop_wan_ppp_locked(void)")
+          wan_ppp_pause = wan_ppp_stop.index("pause_status = notify_pause_detect_internet();")
+          wan_ppp_pause_gate = wan_ppp_stop.index("if (pause_status != 0)", wan_ppp_pause)
+          wan_ppp_pause_return = wan_ppp_stop.index("return pause_status;", wan_ppp_pause_gate)
+          wan_ppp_fence = wan_ppp_stop.index("invalidate_wan_ppp_callback_session()")
+          assert wan_ppp_pause < wan_ppp_pause_gate < wan_ppp_pause_return < wan_ppp_fence
+          wan_stop = body(wan, "stop_wan_locked(void)")
+          wan_pause = wan_stop.index("pause_status = notify_pause_detect_internet();")
+          wan_pause_gate = wan_stop.index("if (pause_status != 0)", wan_pause)
+          wan_pause_return = wan_stop.index("return pause_status;", wan_pause_gate)
+          wan_fence = wan_stop.index("invalidate_wan_ppp_callback_session()")
+          assert wan_pause < wan_pause_gate < wan_pause_return < wan_fence
+          wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+          assert "(void)notify_pause_detect_internet();" in wan_down
+          assert "A DHCP/PPP down callback is already in flight" in wan_down
           lan_start = body(lan, "start_lan(int is_ap_mode, int do_wait)")
           assert "operation_status = notify_run_detect_internet(60);" in lan_start
           assert "operation_status = notify_run_detect_internet(2);" in lan_start

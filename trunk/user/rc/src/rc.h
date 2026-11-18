@@ -827,7 +827,7 @@ int detect_internet_main(int argc, char *argv[]);
 int start_detect_internet(int autorun_time);
 int stop_detect_internet(void);
 int  notify_run_detect_internet(int delay_time);
-void notify_pause_detect_internet(void);
+int  notify_pause_detect_internet(void);
 
 /* detect_wan.c */
 int detect_wan_main(int argc, char *argv[]);
