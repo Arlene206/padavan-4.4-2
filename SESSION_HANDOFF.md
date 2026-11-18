@@ -30,4 +30,10 @@ The checkpoint is mandatory; a document edit is conditional. Every session must 
 Every session must inspect live main and exact-head Actions before ending. Leave this file unchanged when the active task, validation boundary and first next action remain accurate.
 
 ## Cross-session execution mandate
+
+## Cross-session execution mandate
+One logical slice is one atomic main commit. Build the complete Git tree from the exact parent and update main only with a non-forced expected-SHA compare-and-swap. Continue independent work while Actions are pending. Before context exhaustion, record the exact first action, commit SHA, tests and CI boundary for the next GPT. Leave the backup immutable.
+
+## Before context exhaustion
+Recheck live main and exact-head Actions, finish the current safe slice and preserve an accurate first action and unverified boundary for the next GPT.
 Continue on `main` only. Use one atomic Git tree/commit for a multi-file milestone and a non-forced expected-SHA ref update. Keep the archival backup immutable. Do not create branches or PRs, and do not wait idly for pending Actions.

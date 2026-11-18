@@ -1,3 +1,11 @@
+## 2026-11-18 — Restore required cross-session handoff clauses
+
+- The exact-head AI handoff validator next identified two missing required handoff clauses after the checkpoint wording correction: the one-atomic-main-commit mandate and the before-context-exhaustion checkpoint.
+- Restore both canonical sections so the handoff remains a complete continuation contract. This is a blocking documentation-validator correction, not a product-source change.
+- Parent main a048685fed08790f6acb35fd6d38fb2a0627b396; exact-head AI handoff run 44335313456 failed on the missing atomic-commit clause. The validator must be rerun after this correction.
+
+---
+
 ## 2026-11-18 — Restore exact mandatory handoff checkpoint contract
 
 - Exact main 69313c3f78d433a4364a825618055f41c9c059df AI documentation run 44335089694 failed because SESSION_HANDOFF.md contained a checkpoint heading but omitted the checker's exact mandatory sentence.
