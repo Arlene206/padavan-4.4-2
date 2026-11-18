@@ -233,6 +233,22 @@ ordered(dnsmasq_tx, [
     'mv -f "$backup_file" "$config_file"',
     'ss_restart_dhcpd',
 ], "dnsmasq staging, validation, publication, RC lifecycle restart and rollback")
+require('ss_dnsmasq_remove_exact_directive "$tmp_file" \'no-resolv\'' in dnsmasq_tx and
+        'ss_dnsmasq_remove_exact_directive "$tmp_file" \'server=127.0.0.1\'' in dnsmasq_tx and
+        'ss_dnsmasq_remove_exact_directive "$tmp_file" \'server=127.0.0.1#65353\'' in dnsmasq_tx and
+        "'/no-resolv/d'" not in dnsmasq_tx and
+        "'/server=127.0.0.1/d'" not in dnsmasq_tx and
+        "'/min-cache-ttl/d'" not in dnsmasq_tx and
+        "'/dns-forward-max/d'" not in dnsmasq_tx and
+        "'/^[[:space:]]*min-cache-ttl=.*$/d'" in dnsmasq_tx and
+        "'/^[[:space:]]*dns-forward-max=.*$/d'" in dnsmasq_tx,
+        "ChinaDNS/cache staging must remove only exact owned directives and exact option keys")
+require("SmartDNS loopback port 5353" in test and
+        "SmartDNS loopback port 6053" in test and
+        "domain-scoped server rule" in test and
+        "similarly named cache option" in test and
+        "similarly named forward option" in test,
+        "ChinaDNS staging regression must preserve SmartDNS and unrelated near-match configuration")
 require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$use_chinadns"' in script and
         'return "$dns_status"' in script,
         "ChinaDNS setup must propagate dnsmasq configuration/restart errors")

@@ -1,3 +1,13 @@
+## 2026-11-18 — Preserve SmartDNS rules during ChinaDNS DNSMasq staging
+
+- Parent main `91fc1074238a31a8ce2360f1d57d3a83567b6d47`; production source baseline `ef855ea69acec37a6c0b5ddefaab3214da26fbf7`. Exact-head ef855 Shadowsocks `44306582439`, AI `44306582505`, Process inventory `44306583185` and Process fail-closed `44306582350` PASS. XY-C1 `44306582528` was at Build step 32 IN_PROGRESS at last poll, with TRX/artifact pending; do not claim L3.
+- Found a remaining functional bug in `ss_publish_and_restart_dnsmasq()`: `/server=127.0.0.1/d` deleted the global SmartDNS loopback upstreams on port 5353 and any domain-scoped server rules; `/no-resolv/d` and cache substring matches also removed near-matches/comments. This contradicted the helper's preservation policy.
+- Replace the broad resolver filters with exact `ss_dnsmasq_remove_exact_directive` calls for only `no-resolv`, bare `server=127.0.0.1`, and prior generated `server=127.0.0.1#65353`. Anchor cache keys to `min-cache-ttl=` and `dns-forward-max=`. Extend process fixture assertions for SmartDNS #5353/#6053, domain server rules, comments and similarly named options; add static source contracts.
+- Host runtime is not run locally; verify only via this follow-up SHA's Actions. Target BusyBox and physical L4 remain NOT VERIFIED.
+- Next: resolve exact-head Actions and continue the daemon-managed config substring scan.
+
+---
+
 ## 2026-11-18 — Checkpoint exact-head CI for DNSMasq cleanup source commit
 
 - Source/test commit `ef855ea69acec37a6c0b5ddefaab3214da26fbf7` was re-checked by exact `head_sha`. Last retrieved statuses: Shadowsocks lifecycle `44306582439` PASS; AI handoff docs `44306582417` PASS; Process inventory umbrella `44306582491` PASS; Process fail-closed regression `44306582451` PENDING; XY-C1 firmware validation `44306582528` PENDING. The pending XY-C1 run means L3 is not yet verified for this source SHA; do not transfer the older `6910911` firmware PASS. Physical hardware L4 remains NOT VERIFIED.

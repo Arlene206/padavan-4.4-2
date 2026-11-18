@@ -537,15 +537,16 @@ ss_publish_and_restart_dnsmasq() {
 		return 1
 	fi
 	if [ "$use_chinadns" = "1" ]; then
-		if ! sed -i '/no-resolv/d' "$tmp_file" ||
-		   ! sed -i '/server=127.0.0.1/d' "$tmp_file" ||
+		if ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'no-resolv' ||
+		   ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'server=127.0.0.1' ||
+		   ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'server=127.0.0.1#65353' ||
 		   ! printf 'no-resolv\nserver=127.0.0.1#65353\n' >> "$tmp_file"; then
 			rm -f "$tmp_file" "$backup_file"
 			return 1
 		fi
 	fi
-	if ! sed -i '/min-cache-ttl/d' "$tmp_file" ||
-	   ! sed -i '/dns-forward-max/d' "$tmp_file" ||
+	if ! sed -i '/^[[:space:]]*min-cache-ttl=.*$/d' "$tmp_file" ||
+	   ! sed -i '/^[[:space:]]*dns-forward-max=.*$/d' "$tmp_file" ||
 	   ! printf 'min-cache-ttl=1800\ndns-forward-max=1000\n' >> "$tmp_file"; then
 		rm -f "$tmp_file" "$backup_file"
 		return 1

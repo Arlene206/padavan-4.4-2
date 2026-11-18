@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Source/test SHA `ef855ea69acec37a6c0b5ddefaab3214da26fbf7`: Shadowsocks lifecycle, AI handoff and Process inventory umbrella PASS. Process fail-closed and XY-C1 firmware actions were PENDING at the last exact-head check; L3 therefore remains PENDING and hardware L4 NOT VERIFIED.
-- Implemented shared exact DNSMasq directive cleanup across Shadowsocks OverSea, shutdown and ss-rules, plus preservation/error-injection regression coverage. The RC DNSMasq transaction remains serialized through the RC lifecycle lock.
-
-Next: resolve the two exact-head pending runs and continue scanning other daemon-managed configuration files for broad substring deletion.
+- Parent source/test SHA `ef855ea69acec37a6c0b5ddefaab3214da26fbf7`: Shadowsocks lifecycle `44306582439`, AI handoff `44306582505`, Process inventory `44306583185` and Process fail-closed `44306582350` all PASS. XY-C1 `44306582528` was still building (step 32) at last poll; L3 remains pending until same-SHA Build/TRX/artifact finish.
+- Follow-up fixes a remaining broad filter in `ss_publish_and_restart_dnsmasq()`: its previous `/server=127.0.0.1/d` deleted SmartDNS 5353/6053 and domain-specific loopback rules. Use exact resolver matching plus anchored cache option keys; add regressions preserving comments, near-match options, SmartDNS ports and domain server rules.
+- This follow-up source SHA's exact-head Actions are pending; hardware L4 remains NOT VERIFIED.
 
 ---
+
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.
