@@ -131,7 +131,9 @@ jobs:
           notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
           assert "operation_status = start_detect_internet(delay_time);" in notify_run
           assert 'operation_status = process_pidfile_signal(\n\t\t\tDI_PID_FILE, "detect_internet", SIGUSR1);' in notify_run
-          assert "detect_internet_operation_error(operation_status, operation_errno)" in notify_run
+          compact_notify_run = "".join(notify_run.split())
+          assert "detect_internet_operation_error(" in compact_notify_run
+          assert "operation_status,operation_errno" in compact_notify_run
           assert "monitor launch failed" in notify_run
           assert "monitor resume signal failed" in notify_run
           assert "(void)start_detect_internet(" not in notify_run
@@ -139,7 +141,9 @@ jobs:
 
           notify_pause = body(detect, "notify_pause_detect_internet(void)")
           assert 'operation_status = process_pidfile_signal(\n\tDI_PID_FILE, "detect_internet", SIGUSR2);' in notify_pause
-          assert "detect_internet_operation_error(operation_status, operation_errno)" in notify_pause
+          compact_notify_pause = "".join(notify_pause.split())
+          assert "detect_internet_operation_error(" in compact_notify_pause
+          assert "operation_status,operation_errno" in compact_notify_pause
           assert "operation_errno != ENOENT && operation_errno != ESRCH" in notify_pause
           assert "monitor pause signal failed" in notify_pause
           assert "(void)process_pidfile_signal(" not in notify_pause

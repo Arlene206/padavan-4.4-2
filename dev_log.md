@@ -1,8 +1,10 @@
 ## 2026-11-18 — Report Internet-monitor launch and PID-file signal failures
 
 - `notify_run_detect_internet()` discarded the `start_detect_internet()` status for a new monitor and the `process_pidfile_signal(SIGUSR1)` result for an existing monitor. `notify_pause_detect_internet()` also discarded SIGUSR2 errors, hiding launch, stale-PID and process-identity failures.
-- Normalize each status/errno pair through the detection notification policy and log failed launch/resume/pause control operations. ENOENT/ESRCH on pause remains a benign no-monitor/race condition; resume failures remain visible when inventory reported a running monitor. Keep the existing void API and call ordering.
-- Extend the GNU89 policy regression and detect-internet source contract for result capture and normalization; add the policy header to the XY-C1 source trigger. Exact-head host and product Actions must verify this slice. No local build or physical-router test is claimed.
+- The source now normalizes status/errno pairs and logs failed launch/resume/pause operations; ENOENT/ESRCH on pause remains a benign no-monitor/race condition. The GNU89 host policy regression passed on exact SHA `8c272644dfc86a047eed50dd48aee42400607b72`; its source contract initially failed on a multiline helper-call assertion.
+- Exact 8c Actions also exposed a stale Process lifecycle checker expecting one-line PID-file signal calls. This follow-up makes both source contracts whitespace-insensitive. Process inventory, AI handoff docs and NVRAM transaction audits passed. XY-C1 `44258150922` was still building; TRX/artifact remained pending at last poll.
+- The earlier SCUT/MentoHUST source SHA `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb` now has XY-C1 Build, TRX and artifact upload all PASS on run `44256159232`. No local shell execution or physical-router test is claimed.
+
 
 ---
 

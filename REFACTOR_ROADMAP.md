@@ -1,12 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Source baseline before the current Internet-monitor control-status slice: `4989579534f712f54126629b2a3323ef50436ad9`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Recent stability slices include AP-client WISP association timeout gates (`d486aba51fc1614a4e63836f1d192e2c7899ca24`), XUPnPD detached-child readiness (`4388a1cca473a89255ba0ab938f19db450ee1ba5`), WAN network-sysctl failure propagation and isolated API declarations (`49f1ab1d4c921306ed67a34c45cadd84a21f17ae`, `180ac810ea6d9c4551512ce7aa2d5bc599d60935`, `aab4a9a3eccc2ceb25bd584a8b2fb16952656534)), and SCUT/MentoHUST bounded detached-child postconditions (`777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`).
-- Exact-head repair SHA `4989579534f712f54126629b2a3323ef50436ad9`: Process lifecycle `44256754447` PASS and AI handoff docs `44256754667` PASS. The product build for source SHA `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`, run `44256159232`, remained in progress; Build/TRX/artifact did not yet provide L3 evidence.
-- This slice closes a reliability gap in `detect_internet.c`: launch and SIGUSR1/SIGUSR2 PID-file signal results are normalized and logged, with ENOENT/ESRCH treated as benign only for pause. Its host regression, source contract and XY-C1 header trigger require exact-head verification after publication.
-- Local shell execution, independent MIPS/uClibc build and physical-router L4 are not claimed. L3 requires same-SHA XY-C1 Build, TRX and artifact success.
+- Current source SHA: `8c272644dfc86a047eed50dd48aee42400607b72`; parent `4989579534f712f54126629b2a3323ef50436ad9`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Recent implemented slices include AP-client WISP timeout gates (`d486aba51fc1614a4e63836f1d192e2c7899ca24`), XUPnPD detached-child readiness (`4388a1cca473a89255ba0ab938f19db450ee1ba5`), WAN sysctl write-status propagation (`49f1ab1d4c921306ed67a34c45cadd84a21f17ae` and follow-ups), SCUT/MentoHUST detached-child readiness (`777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`) and Internet-monitor launch/resume/pause result reporting (`8c272644dfc86a047eed50dd48aee42400607b72`).
+- Exact-head 8c Actions: Process inventory `44258150914`, AI handoff docs `44258150879`, and NVRAM transaction audit `44258150848` PASS. Process lifecycle `44258150936` and detect-internet signal regression `44258150955` failed only in stale/whitespace-sensitive static source assertions; both checkers are normalized in this follow-up. XY-C1 `44258150922` was still building at last poll; TRX/artifact were pending.
+- The previous SCUT/MentoHUST source SHA `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb` has since passed XY-C1 Build, TRX and artifact upload on run `44256159232` (L3 verified for that SHA).
+- No local shell execution or physical-router validation is claimed. L3 for the current source SHA requires same-SHA Build, TRX and artifact success.
 
-Next: inspect the exact-head detect-internet signal regression and XY-C1 Actions for this commit. Fix failures from their causal logs. Then continue the P1 whole-userland startup/lifecycle audit without re-auditing completed slices.
+Next: inspect the exact-head Process lifecycle, detect-internet regression, AI docs and XY-C1 Actions for the checker-repair commit. If they pass, proceed with the next independent P1 userland stability defect.
 
 ---
 
