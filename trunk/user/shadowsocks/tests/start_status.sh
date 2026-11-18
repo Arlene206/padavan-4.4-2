@@ -26,7 +26,7 @@ log() { record "log:$*"; printf '%s\n' "$*" >> "$LOG_FILE"; }
 nvram() {
 	case "$1:$2" in
 		get:ss_enable) echo 1 ;;
-		get:ss_cgroups) echo "${MOCK_SS_CGROUPS:-0}" ;;
+		get:ss_cgroups) record cgroups_enabled_probe; echo "${MOCK_SS_CGROUPS:-0}" ;;
 		get:ss_cgoups_cpu_s) echo "${MOCK_CPU_LIMIT:-128}" ;;
 		get:ss_cgoups_mem_s) echo "${MOCK_MEM_LIMIT:-1048576}" ;;
 		get:global_server) echo "$GLOBAL_SERVER" ;;
@@ -95,7 +95,7 @@ FAIL_DETECT=34
 pppoemwan=0
 expect_status 31 "TCP proxy failure remains first"
 called rules
-called cgroups_init
+called cgroups_enabled_probe
 called start_redir_tcp
 not_called start_redir_udp
 not_called start_dns
@@ -123,7 +123,7 @@ FAIL_RULES=12
 expect_status 12 "firewall policy failure propagates"
 called start_local
 called start_watchcat
-not_called cgroups_init
+not_called cgroups_enabled_probe
 not_called start_redir_tcp
 if grep -Fq '已启动科学上网' "$LOG_FILE"; then fail "reported success after firewall failure"; fi
 
@@ -134,7 +134,7 @@ SOCKS5_ENABLE=nil
 FAIL_RULES=1
 expect_status 1 "disabled global service status"
 not_called start_local
-not_called cgroups_init
+not_called cgroups_enabled_probe
 not_called start_redir_tcp
 not_called pppoe_detect
 
