@@ -1,3 +1,14 @@
+## 2026-11-18 19:50 CST — Route Shadowsocks DNSMasq restart through the RC lifecycle lock
+
+- Parent main SHA: `e71d9e336f4c1ab03725fcbf5fb0da670098ec5a`. The preceding exact-head parent runs `44294135620` (Shadowsocks), `44294135638` (Process fail-closed), `44294135667` (Process inventory), `44294135726` (AI handoff) and `44294135701` (XY-C1) all PASS; the XY-C1 job completed Build, TRX verification and artifact upload.
+- Confirmed the Shadowsocks DNSMasq publisher directly stopped `dnsmasq` via the shared name-based helper and launched `/user/sbin/dnsmasq`, bypassing the RC-wide `/tmp/.dnsmasq.lifecycle.lock`, NVRAM service policy and the RC's fail-closed stop/start postconditions. Remove that independent launcher. After staging/validating and atomically publishing the storage include, use `ss_restart_dhcpd()` -> `/sbin/restart_dhcpd`, which acquires the shared RC lock and regenerates/starts the authoritative service. If the service restart fails, atomically restore the old include, retry the RC service against that restored config, and return the original error.
+- Extend `trunk/user/shadowsocks/tests/process_lifecycle.sh` with an injected RC restart model and explicit call-count checks for success, validation rejection (no restart), stop failure (no launch, previous file restored) and candidate-start failure followed by rollback restart. Update `scripts/check_shadowsocks_lifecycle.py` to reject direct dnsmasq kill/launch and require the serialized RC path.
+- Changed: `trunk/user/shadowsocks/scripts/shadowsocks.sh`, `trunk/user/shadowsocks/tests/process_lifecycle.sh`, `scripts/check_shadowsocks_lifecycle.py`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- Validation: local host shell execution NOT RUN (no repository checkout/network in this session); static edit sanity checks PASS. THIS COMMIT: exact-head Shadowsocks/AI/XY-C1 Actions PENDING after push; Process workflows only report when they actually trigger. Parent L3 is PASS; this source commit L3 and physical-router L4 are NOT VERIFIED.
+- Next: verify the exact SHA; then replace broad substring DNSMasq include cleanup in oversea/ssp_close/ss-rules with exact directive matching and injected preservation tests.
+
+---
+
 ## 2026-11-18 — Propagate DNSMasq restart failure from Shadowsocks shutdown
 
 - Exact b118b841d5b292285c296288fd01229fcf63f28a Shadowsocks lifecycle Action 44292658234 PASS (shell syntax, startup status, process lifecycle including DNSMasq stop-timeout/rollback, Adblock and static ROMFS/source checks); AI handoff Action 44292658587 PASS. Parent source commit cb6d80f XY-C1 run 44291015307 completed successfully: Build XY-C1, TRX verification, artifact upload and the cross-build job all SUCCESS.

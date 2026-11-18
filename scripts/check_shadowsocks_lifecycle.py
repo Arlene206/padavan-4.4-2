@@ -182,27 +182,26 @@ require("ChinaDNS-ng detached readiness" in test and
         "ChinaDNS-ng rejects empty upstream" in test,
         "ChinaDNS-ng tests must cover config, readiness, duplicate and fail-closed errors")
 
-dnsmasq_tx_start = script.index("ss_publish_and_restart_dnsmasq() {")
-dnsmasq_tx_end = script.index("\n\nstart_dns() {", dnsmasq_tx_start)
+dnsmasq_tx_start = script.indexOf("ss_publish_and_restart_dnsmasq() {")
+dnsmasq_tx_end = script.indexOf("\n\nstart_dns() {", dnsmasq_tx_start)
 dnsmasq_tx = script[dnsmasq_tx_start:dnsmasq_tx_end]
-dnsmasq_start_start = script.index("ss_start_dnsmasq_daemon() {")
-dnsmasq_start_end = script.index("\n\n# Stage and validate dnsmasq config", dnsmasq_start_start)
-dnsmasq_start = script[dnsmasq_start_start:dnsmasq_start_end]
-require('ss_process_pid_count dnsmasq' in dnsmasq_start and
-        'ss_wait_named_process_count dnsmasq "$expected_count" 5' in dnsmasq_start and
-        '"$dnsmasq_bin" >/dev/null 2>&1 &' in dnsmasq_start and
-        'run_bin' not in dnsmasq_start and 'cgroup' not in dnsmasq_start,
-        "dnsmasq launcher must verify a new PID without Shadowsocks cgroup enrollment")
+restart_helper_start = script.indexOf("ss_restart_dhcpd() {")
+restart_helper_end = script.indexOf("\n}", restart_helper_start) + 2
+restart_helper = script[restart_helper_start:restart_helper_end]
+require(restart_helper == 'ss_restart_dhcpd() {\n\t/sbin/restart_dhcpd\n}' and
+        "ss_restart_dhcpd" in dnsmasq_tx and
+        "ss_stop_named_processes dnsmasq" not in dnsmasq_tx and
+        "ss_start_dnsmasq_daemon" not in script and
+        "run_bin" not in dnsmasq_tx and "cgroup" not in dnsmasq_tx,
+        "DNSMasq lifecycle must be delegated to the RC service entry point and its cross-process lock")
 ordered(dnsmasq_tx, [
     'cp -p "$config_file" "$tmp_file"',
-    "sed -i '/no-resolv/d' ",
-    "sed -i '/server=127.0.0.1/d' ",
     '"$dnsmasq_bin" --test -C "$tmp_file"',
-    'ss_stop_named_processes dnsmasq',
     'mv -f "$tmp_file" "$config_file"',
-    'ss_start_dnsmasq_daemon "$dnsmasq_bin"',
+    'ss_restart_dhcpd',
     'mv -f "$backup_file" "$config_file"',
-], "dnsmasq staging, validation, atomic publication, verified restart and rollback")
+    'ss_restart_dhcpd',
+], "dnsmasq staging, validation, publication, RC lifecycle restart and rollback")
 require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$use_chinadns"' in script and
         'return "$dns_status"' in script,
         "ChinaDNS setup must propagate dnsmasq configuration/restart errors")
@@ -210,8 +209,9 @@ require("dnsmasq atomic config and restart" in test and
         "invalid dnsmasq staged config rejected" in test and
         "dnsmasq stop failure preserves live config" in test and
         "dnsmasq restart failure triggers rollback" in test and
-        "dnsmasq rollback did not restart old service" in test,
-        "dnsmasq regression must cover publication, validation failure and rollback")
+        "dnsmasq rollback did not restart old service" in test and
+        "DNSMASQ_RESTART_CALLS" in test,
+        "dnsmasq regression must cover RC service restart, validation failure and rollback")
 
 
 require('if ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null); then' in helper and

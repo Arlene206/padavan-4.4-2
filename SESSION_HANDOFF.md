@@ -1,28 +1,27 @@
-# 2026-11-18 continuation checkpoint — propagate Shadowsocks shutdown service errors
+# 2026-11-18 continuation checkpoint — serialize Shadowsocks DNSMasq updates through RC
 
 ## Current repository state
-- Repository Arlene206/padavan-4.4-2, branch main. This source/test slice is based on exact parent b118b841d5b292285c296288fd01229fcf63f28a; refresh live main before any further write.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807; PR #1 remains closed/unmerged.
-- Exact b118 checks: Shadowsocks lifecycle 44292658234 PASS; AI handoff docs 44292658587 PASS. XY-C1 run 44291015307 for parent source cb6d completed successfully: Build XY-C1, TRX verification, artifact upload and the cross-build job all SUCCESS. This new shutdown source slice has not yet run exact-head CI.
-- Prior test iterations on cb6d/3ec/8e fixed the DNSMasq stop-failure fixture; on 8e all runtime tests passed and only one stale source assertion remained, corrected in b118.
+- Repository: `Arlene206/padavan-4.4-2`; authorized development branch: `main`. This logical source/test slice is based on parent `e71d9e336f4c1ab03725fcbf5fb0da670098ec5a`; the new commit created from it is the current checkpoint (resolve its final SHA from the live main ref on recovery).
+- Preserve `backup/pre-plugin-overhaul-2026-11-14` permanently and read-only; its observed SHA remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed and unmerged.
+- The exact parent SHA `e71d9e336f4c1ab03725fcbf5fb0da670098ec5a` has five successful push Actions: Shadowsocks lifecycle `44294135620`, Process fail-closed regression `44294135638`, Process inventory umbrella `44294135667`, AI handoff docs `44294135726`, and XY-C1 firmware `44294135701`. The XY-C1 job completed Build XY-C1, TRX verification and artifact upload successfully on that exact source SHA.
 
 ## Active task
-- DNSMasq transaction / ChinaDNS-ng readiness work remains in place: staged syntax-checked configuration, verified stop-before-publish, bounded standalone dnsmasq PID launch outside Shadowsocks cgroups, rollback, and ChinaDNS active-state gating.
-- This slice fixes a concrete close-path defect: ssp_close previously discarded errors from firewall cleanup, DNSMasq config edits, /sbin/restart_dhcpd and PPPoE-MWAN reconciliation, then returned success unconditionally. It now preserves the first encountered cleanup/service error, logs failures, continues independent cleanup, and returns the status to stop/restart/reserver callers. Incomplete proxy process stop still exits before tearing down shared state.
-- Host tests cover healthy close, DNSMasq restart error propagation, first-error retention, and aborting cleanup after proxy stop failure.
+- DNSMasq/ChinaDNS transaction remains staged, syntax-validated and rollback-protected. This slice removes the independent Shadowsocks DNSMasq kill/launch path: after publishing a validated storage include, it now calls the existing `ss_restart_dhcpd()` wrapper, which delegates to `/sbin/restart_dhcpd`. That RC API uses `/tmp/.dnsmasq.lifecycle.lock`, checks process inventory, regenerates the authoritative RC configuration, honors service enablement and verifies the resulting daemon state. On restart failure the previous include is atomically restored and the RC restart is attempted again; the original failure status is retained.
+- The Shadowsocks process regression injects the RC restart boundary and covers the successful transaction, validation failure (no restart), stop failure with restored live config, and failed replacement launch followed by old-config restart. The static checker rejects a direct kill/launch path and pins the RC restart/rollback order.
+- The preceding `ssp_close()` first-error propagation fix is included in parent `e71d9e336f4c1ab03725fcbf5fb0da670098ec5a`; all five exact-head parent Actions listed above PASS.
 
 ## Verification boundary
-- Exact b118 Shadowsocks lifecycle and AI handoff Actions PASS. Parent cb6d XY-C1 Build/TRX/artifact SUCCESS. All new ssp_close source/test changes require fresh exact-head regression and XY-C1 Build/TRX/artifact checks.
-- No target BusyBox runtime or physical-router L4 is claimed.
+- New source/test/checker commit: exact-head push Actions are pending at the time this handoff is written; fetch and match every run to the eventual main SHA before marking verified. Host runtime was not executed locally because a repository checkout was unavailable in this session; CI is the execution evidence.
+- Parent `e71d9e336f4c1ab03725fcbf5fb0da670098ec5a` has L3 PASS (XY-C1 build, TRX and uploaded artifact). Do not transfer that result to this source-changing commit until its own exact-SHA XY-C1 job completes those three steps.
+- Target BusyBox runtime and physical router L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect exact-head Shadowsocks, Process inventory/umbrella, AI handoff and XY-C1 Actions for this shutdown-error slice; fix any actual failure rather than merely changing expected text.
-2. Confirm the same product SHA completes Build XY-C1, TRX verification and artifact upload.
-3. Continue the DNSMasq lifecycle boundary review: Shadowsocks dnsmasq helper directly stops/starts the process and therefore bypasses the existing C RC /tmp/.dnsmasq.lifecycle.lock; decide whether to use official /sbin/restart_dhcpd inside the atomic publish/rollback transaction while keeping dnsmasq outside Shadowsocks cgroups.
-4. Then replace broad substring-based dnsmasq include cleanup in oversea / ssp_close / ss-rules with exact directive matching and injected regression tests. Keep backup immutable and physical-router L4 unverified.
+1. Fetch live `main` and inspect the Shadowsocks lifecycle, AI handoff and XY-C1 push runs for this commit by exact `head_sha`; repair any real failed step before calling the slice validated. Check Process inventory jobs if the commit triggered them; do not invent a non-triggered run.
+2. Continue the next queued P1 fix: replace broad substring-based DNSMasq include cleanup in the `oversea` mode, `ssp_close()`, and `ss-rules` with exact directive matching. Add injected regression cases proving target directives are removed while unrelated comments, `conf-file`, domain address/ipset rules and paths that merely contain `cdn`, `gfwlist`, or `dnsmasq.dom` are preserved. Include all source/test/checker changes in one atomic main commit and match its exact SHA Actions.
+3. Keep the immutable backup untouched. Do not repeat the completed startup audit or re-run old CI history; rotate to the next highest-risk module after closing this slice.
 
 ## Mandatory handoff checkpoint
-Every session MUST inspect live repository state and compare it with SESSION_HANDOFF.md, verifying active engineering baseline, exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all facts are accurate, make no file change and do not create a no-op commit.
+Every session MUST compare this checkpoint with live GitHub state, verify the active engineering baseline and exact-head Actions, preserve the L3/L4 distinction, and retain an exact next action. The checkpoint changes only when the resumable task or validation boundary materially changes.
 
 # Cross-session execution mandate
-Use one atomic main commit per logical source/test slice and continue independent work during PENDING checks. Before context exhaustion, leave an accurate checkpoint with the exact source SHA, tests/Actions status, validation boundary and next first action. Never force-push, mutate the frozen backup, reopen PR #1 or claim unperformed validation.
+Use one atomic main commit per logical source/test slice and continue independent work while checks are pending. Before context exhaustion, leave a live checkpoint with the exact main/source SHA, tested evidence, CI status, unverified levels and next first action. Never force-push, change the frozen backup, reopen PR #1, or claim work that was not executed.

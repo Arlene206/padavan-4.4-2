@@ -1,10 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- Exact b118 Actions: Shadowsocks lifecycle 44292658234 PASS; AI handoff 44292658587 PASS. Parent cb6d XY-C1 run 44291015307 completed successfully through Build XY-C1, TRX verification and artifact upload.
-- This source slice fixes ssp_close swallowing /sbin/restart_dhcpd and PPPoE-MWAN reconciliation failures; it adds first-error retention and regression coverage for normal close, DHCP restart failure, cleanup error precedence and proxy stop gating. Exact-head checks are pending.
-- DNSMasq transaction tests passed on b118; physical-router L4 remains unverified.
+- Parent main `e71d9e336f4c1ab03725fcbf5fb0da670098ec5a` has exact-head PASS results for Shadowsocks lifecycle `44294135620`, Process fail-closed `44294135638`, Process inventory umbrella `44294135667`, AI handoff `44294135726`, and XY-C1 `44294135701`; the latter completed Build, TRX verification and artifact upload.
+- THIS COMMIT routes the Shadowsocks DNSMasq stage/publish/restart/rollback transaction through the existing RC `/sbin/restart_dhcpd` entry point, instead of independently killing and launching dnsmasq. RC owns `/tmp/.dnsmasq.lifecycle.lock`, process-state checks, NVRAM service enablement and daemon readiness. A regression stub covers successful restart, validation no-op, failed stop and replacement rollback.
+- Exact-head CI for THIS COMMIT is pending; parent L3 is PASS but this source commit needs its own XY-C1 Build/TRX/artifact verification. Physical-router L4 remains NOT VERIFIED.
 
-Next P1: pass exact-head Shadowsocks/Process/AI and XY-C1 Build/TRX/artifact for the close-status slice; then converge the DNSMasq helper on the RC lifecycle lock and make include cleanup exact rather than substring-based.
+Next P1: verify this exact source SHA, then replace broad substring DNSMasq include cleanup in `oversea`, `ssp_close()`, and `ss-rules` with exact directive matching plus injected tests that preserve unrelated content.
 
 ---
 

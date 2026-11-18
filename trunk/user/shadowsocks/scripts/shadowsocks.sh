@@ -512,32 +512,6 @@ ss_start_chinadns_daemon() {
 }
 
 # Start dnsmasq without enrolling the router's DHCP/DNS service in the Shadowsocks cgroup.
-ss_start_dnsmasq_daemon() {
-	[ "$#" -eq 1 ] || return 2
-	local dnsmasq_bin="$1"
-	local before_count=""
-	local expected_count=""
-	local launch_status=""
-
-	[ -x "$dnsmasq_bin" ] || return 127
-	if before_count=$(ss_process_pid_count dnsmasq); then
-		:
-	else
-		launch_status=$?
-		log "Cannot inspect dnsmasq before startup (status=$launch_status)"
-		return "$launch_status"
-	fi
-	expected_count=$((before_count + 1))
-	"$dnsmasq_bin" >/dev/null 2>&1 &
-	if ss_wait_named_process_count dnsmasq "$expected_count" 5; then
-		return 0
-	else
-		launch_status=$?
-	fi
-	log "dnsmasq did not become ready (status=$launch_status)"
-	return "$launch_status"
-}
-
 # Stage and validate dnsmasq config before atomic publication and bounded restart.
 ss_publish_and_restart_dnsmasq() {
 	[ "$#" -eq 3 ] || return 2
@@ -581,54 +555,33 @@ ss_publish_and_restart_dnsmasq() {
 		rm -f "$tmp_file" "$backup_file"
 		return 1
 	fi
-	# Keep the old live config in place unless daemon shutdown is confirmed.
-	if ss_stop_named_processes dnsmasq; then
-		:
-	else
-		restart_status=$?
-		log "dnsmasq stop failed (status=$restart_status); previous config retained"
-		rm -f "$tmp_file" "$backup_file"
-		return "$restart_status"
-	fi
+
+	# The RC service owns DNSMasq stop/start and serializes lifecycle changes
+	# with /tmp/.dnsmasq.lifecycle.lock. Publish the validated include first,
+	# then use its authoritative NVRAM configuration and fail-closed checks.
 	if mv -f "$tmp_file" "$config_file"; then
 		:
 	else
 		restart_status=$?
-		log "dnsmasq config publication failed (status=$restart_status); restarting previous config"
-		if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
-			log "dnsmasq restarted with unchanged configuration"
-		else
-			rollback_status=$?
-			log "dnsmasq old-config restart failed (status=$rollback_status)"
-		fi
+		log "dnsmasq config publication failed (status=$restart_status); previous config retained"
 		rm -f "$tmp_file" "$backup_file"
 		return "$restart_status"
 	fi
-
-	if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
+	if ss_restart_dhcpd; then
 		rm -f "$backup_file"
 		return 0
 	else
 		restart_status=$?
 	fi
-	log "dnsmasq restart failed (status=$restart_status); restoring previous config"
-	if ss_stop_named_processes dnsmasq; then
-		rollback_status=0
-	else
-		rollback_status=$?
-		log "Failed dnsmasq candidate stop is unverified (status=$rollback_status)"
-	fi
+
+	log "dnsmasq service restart failed (status=$restart_status); restoring previous config"
 	if mv -f "$backup_file" "$config_file"; then
 		backup_file=""
-		if [ "$rollback_status" -eq 0 ]; then
-			if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
-				log "Previous dnsmasq config restored and service restarted"
-			else
-				rollback_status=$?
-				log "Previous dnsmasq config restored, but service rollback failed (status=$rollback_status)"
-			fi
+		if ss_restart_dhcpd; then
+			log "Previous dnsmasq config restored and RC service restart succeeded"
 		else
-			log "Previous dnsmasq config restored, but service restart withheld because process stop is unverified"
+			rollback_status=$?
+			log "Previous dnsmasq config restored, but RC service rollback failed (status=$rollback_status)"
 		fi
 	else
 		rollback_status=$?
