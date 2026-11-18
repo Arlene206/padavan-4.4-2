@@ -27,4 +27,4 @@
 Every session MUST inspect live repository state and compare it with SESSION_HANDOFF.md, verifying active engineering baseline, exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all facts remain accurate, make no file change and do not create a no-op commit.
 
 # Cross-session execution mandate
-Use one atomic main commit per logical source/test slice, continue independent work during PENDING checks, and never force-push, mutate the frozen backup, reopen PR #1 or claim unperformed validation.
+Use one atomic main commit per logical source/test slice and continue independent work during PENDING checks. Before context exhaustion, leave an accurate checkpoint with the exact source SHA, tests/Actions status, validation boundary and next first action. Never force-push, mutate the frozen backup, reopen PR #1 or claim unperformed validation.

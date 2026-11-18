@@ -1,3 +1,12 @@
+## 2026-11-18 — Correct dnsmasq stop-failure fixture and restore handoff contract
+
+- Exact cb6d source checks found two regressions. The DNSMasq stop-failure test wrote literal backslash-n sequences into its state and PID fixtures, causing the strict PID parser to correctly classify the mock inventory as UNKNOWN (status 2) rather than exercise the intended RUNNING/never-exit process path. Write both fixtures using printf format arguments.
+- AI handoff run 44291015253 failed because SESSION_HANDOFF omitted the required literal cross-session rule “Before context exhaustion”. Restore that explicit end-of-session instruction.
+- Exact cb6d Process lifecycle inventory 44291015163 and umbrella Process inventory 44291015219 PASS. Shadowsocks 44291015279 failed at the stop-failure case; AI docs 44291015253 failed on the missing phrase. XY-C1 44291015307 was IN_PROGRESS at the last poll; no Build/TRX/artifact claim is made.
+- This correction changes only the regression fixture and handoff content; exact-head validation is required again. No local shell execution or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-18 — Make dnsmasq restart fail closed before config publication
 
 - The current e9 transaction's shell regressions passed, but its Shadowsocks exact-head run failed only in a stale static source contract. A follow-up added the standalone dnsmasq count+1 launcher to keep DHCP/DNS outside the optional Shadowsocks cgroup; exact 745 checks pass for Shadowsocks, Process inventory/umbrella and AI docs.

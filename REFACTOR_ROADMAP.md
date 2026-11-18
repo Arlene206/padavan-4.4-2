@@ -1,10 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- Exact source SHA 745bf37b2dbaaef5fdce77b11f15e1b77632f411: Shadowsocks 44290280799, Process inventory 44290280731, umbrella Process 44290280781 and AI docs 44290280778 PASS; XY-C1 44290280891 remained IN_PROGRESS at last poll.
-- 745 fixes the stale source contract and isolates dnsmasq from Shadowsocks cgroups with bounded count+1 startup. THIS correction adds stop-before-publish, rollback stop verification, and sets the ChinaDNS flag only after DNSMasq readiness; exact-head verification is pending.
-- DNSMasq L2 is implemented with current correction under validation; XY-C1 L3 and target-router L4 remain unverified.
+- Exact cb6d80f exact-head actions: Process lifecycle inventory 44291015163 PASS; umbrella Process inventory 44291015219 PASS. Shadowsocks 44291015279 failed only in the new dnsmasq stop-failure regression because its mock PID fixture contained a literal backslash-n and was therefore correctly UNKNOWN. AI docs 44291015253 failed because handoff omitted the required “Before context exhaustion” phrase. XY-C1 44291015307 was IN_PROGRESS at last poll.
+- Current follow-up corrects the fixture and restores the required handoff sentence; its exact-head Actions are pending.
+- DNSMasq L2 transaction/rollback source is implemented, but exact-head source/test checks and XY-C1 Build/TRX/artifact remain required. Target-router L4 is unverified.
 
-Next P1: pass exact-head regression and XY-C1 Build/TRX/artifact on the same source SHA; inspect remaining dnsmasq ownership/service-manager edges.
+Next P1: pass exact-head regression/AI checks, verify XY-C1 Build/TRX/artifact on the same product SHA, then inspect remaining oversea and ssp_close dnsmasq edits and DHCP service-manager coupling.
 
 ---
 
