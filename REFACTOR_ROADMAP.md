@@ -1,8 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main `2f8fb1d05a505afb5e9bde72f3d5b2b4a2ac6769` exact-head AI handoff `44305279681` PASS. Shadowsocks `44305279761` passed shell syntax, startup status, bounded process lifecycle and Adblock regressions; the Python source checker failed because one static string expected the old DNSMasq rollback test label. This commit aligns that checker with the active status-19 original-error preservation case. Process fail-closed workflow status is separately recorded in the handoff.
-- No firmware sources change in this checker-only repair. Production source `6910911ffdd65a7a04eeb97fa1088a1b8a74d886` previously completed XY-C1 Build/TRX/artifact.
-- Next P1: exact-directive DNSMasq cleanup across Shadowsocks `oversea`, `ssp_close()` and `ss-rules`, with unrelated-content preservation tests.
+- Checker correction `8569fe71229f4ef202b4f234bb9a1b6d26074714` has exact-head Shadowsocks run `44305672569` PASS across shell syntax, startup, complete process lifecycle, Adblock and Python source contract. Exact-head AI handoff `44305672773` failed because the handoff omitted the mandatory cross-session phrase `Before context exhaustion`; this commit restores the required full checkpoint clause.
+- Parent exact-head Process fail-closed `44305279690` and Process inventory umbrella `44305279672` on `2f8fb1d` PASS. No firmware source changes in this docs-only repair; product source `6910911ffdd65a7a04eeb97fa1088a1b8a74d886` has XY-C1 Build/TRX/artifact PASS.
+- Next P1: exact-directive DNSMasq cleanup in Shadowsocks `oversea`/`ssp_close()` and `ss-rules`, with preservation tests and workflow path coverage.
+
+---
 
 ## Whole-repository module status
 

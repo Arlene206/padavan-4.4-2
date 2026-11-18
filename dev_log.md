@@ -1,3 +1,12 @@
+## 2026-11-18 20:35 CST — Restore mandatory handoff checkpoint rule
+
+- Parent `8569fe71229f4ef202b4f234bb9a1b6d26074714`: exact-head Shadowsocks lifecycle `44305672569` PASS across all seven steps, including the Python source checker. AI handoff `44305672773` failed only because the cross-session mandate omitted the required phrase `Before context exhaustion`.
+- Restore the full mandatory checkpoint instruction in `SESSION_HANDOFF.md`, retaining the exact phrase required by the documentation validator. No source/test/firmware changes; no XY-C1 run expected.
+- Parent Process fail-closed `44305279690` and Process inventory `44305279672` on `2f8fb1d` PASS. Product source `6910911` previously has XY-C1 Build/TRX/artifact PASS. Target BusyBox runtime and physical-router L4 remain NOT VERIFIED.
+- Next: exact-match DNSMasq include cleanup in Shadowsocks `oversea`/`ssp_close()` and `ss-rules`, plus preservation tests and workflow coverage.
+
+---
+
 ## 2026-11-18 20:30 CST — Align lifecycle checker with status-preserving rollback regression
 
 - Parent main `2f8fb1d05a505afb5e9bde72f3d5b2b4a2ac6769` Actions: AI handoff `44305279681` PASS; Shadowsocks `44305279761` passed syntax, startup status, process lifecycle and Adblock tests, then failed in Python checker line 211 because it still searched for the superseded assertion label `dnsmasq restart failure triggers rollback`.
