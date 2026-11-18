@@ -39,6 +39,7 @@
 #include "firewall_command_status.h"
 #include "firewall_restore_transaction.h"
 #include "firewall_module_table_policy.h"
+#include "firewall_mangle_ttl_policy.h"
 #include "firewall_hook_file.h"
 #if defined (APP_ADBYBY)
 #include "firewall_adbyby_restore_policy.h"
@@ -1915,7 +1916,20 @@ ipt_mangle_rules(const char *man_if, const char *wan_if, int use_man)
 		i_wan_ttl_fix = 0;
 
 	if (i_wan_ttl_value > 1) {
-			fput_int("/proc/sys/net/ipv4/ip_default_ttl", i_wan_ttl_value);
+		int write_status, write_errno, ttl_status;
+
+		write_status = fput_int("/proc/sys/net/ipv4/ip_default_ttl", i_wan_ttl_value);
+		write_errno = errno;
+		ttl_status = firewall_mangle_ttl_write_status(
+			i_wan_ttl_value, write_status, write_errno);
+		if (ttl_status != 0) {
+			logmessage(LOGNAME,
+				   "IPv4 default TTL update failed for configured value %d (status=%d); aborting firewall rebuild",
+				   i_wan_ttl_value, ttl_status);
+			firewall_core_restore_transaction.failed = 1;
+			errno = ttl_status;
+			return;
+		}
 	}
 
 	if (i_wan_ttl_fix) {
