@@ -320,11 +320,20 @@ assert "sleep(1);" not in pppoe_confirm
 assert "pppoe_relay_start_status(launch_status, presence)" in pppoe_confirm
 udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split("\n#if defined(APP_XUPNPD)", 1)[0]
 assert "if (port < 1024)" in udpxy_start
+assert 'process_name = "msd_lite";' in udpxy_start
+assert 'process_name = "udpxy";' in udpxy_start
+assert "udpxy_process_presence((void *)process_name, &scan_error)" in udpxy_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in udpxy_start
+assert "process_state != PROCESS_PRESENCE_ABSENT" in udpxy_start
 assert 'launch_status = eval("/usr/bin/msd_lite"' in udpxy_start
-assert 'MSD Lite launch failed (status=%d)' in udpxy_start
 assert 'launch_status = eval("/usr/sbin/udpxy"' in udpxy_start
-assert 'udpxy launch failed (status=%d)' in udpxy_start
-assert udpxy_start.count("if (launch_status != 0)") == 2
+assert "launch_status = udpxy_confirm_started(process_name, launch_status);" in udpxy_start
+assert '"%s launch/readiness failed (status=%d errno=%d)"' in udpxy_start
+assert udpxy_start.count("if (launch_status != 0)") == 1
+preflight = udpxy_start.index("udpxy_process_presence((void *)process_name, &scan_error)")
+assert preflight < udpxy_start.index("msd_lite_config_publish(")
+assert preflight < udpxy_start.index('eval("/usr/bin/msd_lite"')
+assert preflight < udpxy_start.index('eval("/usr/sbin/udpxy"')
 assert "return launch_status;" in udpxy_start
 assert "int start_udpxy(char *wan_ifname);" in rc_header
 xupnpd_start = net_source.split("int\nstart_xupnpd(char *wan_ifname)", 1)[1].split("\n#endif", 1)[0]
