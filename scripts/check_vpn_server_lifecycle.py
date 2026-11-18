@@ -371,10 +371,12 @@ require("stop_status = stop_vpn_client_under_lifecycle_lock();" in wan_ppp_stop 
         wan_ppp_stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") <
         wan_ppp_stop.index("stop_status = kill_services(svcs_ppp, 6, 1);"),
         "WAN PPP stop must preserve the under-lock VPN stop result before stopping PPP services")
-require("stop_vpn_client_under_lifecycle_lock() != 0" in wan_full_stop and
-        "stop_vpn_client() != 0" not in wan_full_stop and
-        "kill_services(svcs_ppp, 6, 1)" in wan_full_stop,
-        "WAN full stop must use the non-reentrant VPN stop helper inside the lock-owning wrapper")
+require("stop_status = invalidate_wan_ppp_callback_session();" in wan_full_stop and
+        "stop_status = stop_vpn_client_under_lifecycle_lock();" in wan_full_stop and
+        "stop_status = kill_services(svcs_ppp, 6, 1);" in wan_full_stop and
+        "if (stop_status != 0)" in wan_full_stop and
+        "stop_vpn_client() != 0" not in wan_full_stop,
+        "WAN full stop must preserve callback, VPN and PPP stop statuses inside the lock-owning wrapper")
 require("return stop_vpn_client_locked();" in client_stop_under_lock and
         "vpn_server_lifecycle_lock_acquire" not in client_stop_under_lock and
         "vpn_server_lifecycle_lock_release" not in client_stop_under_lock,
