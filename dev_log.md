@@ -1,3 +1,10 @@
+## 2026-11-17 — Re-align firewall and AliDDNS regression harnesses with their production call paths
+
+- Parent main: `949cf064908eac37c38f8d2160fd655a62affe95`. Exact-head CI on the forwarding-status change found two source-contract tests still requiring direct `set_ipv4_forward(0)` calls after production code centralized IPv4/IPv6 shutdown in `firewall_disable_forwarding()`. Update both the WAN/RC checker and HTTPD add-on rollback assertion to verify the new helper, both protocol-family writes, first-error aggregation, and both rollback callers.
+- The exact-head AliDDNS lifecycle test also reused its earlier dispatcher stub: the ordering test had replaced `aliddns_check()`, so the later launch-failure assertion never executed the production implementation. Reload the extracted production functions before overriding only the intended dependencies.
+- No router runtime result is inferred from these host regression fixes. Exact-head Process, Firewall/HTTPD, AliDDNS and XY-C1 checks are required after publication.
+ 
+---
 ## 2026-11-17 — Use real procfs for the AliDDNS keeper startup test
 
 - Parent main: `ec03d483448e8021a679b615a8ae829a2fc2d57f`. Exact-head CI showed the synthetic keeper fixture used a literal dollar-sign directory instead of the child's PID, so the helper could not match it. The test failed before validating the launch postcondition.

@@ -283,6 +283,9 @@ ALIDDNS_PROC_ROOT="$PROC_ROOT"
 export ALIDDNS_PROC_ROOT
 scriptfilepath="$TEST_DIR/aliddns.sh"
 
+# Restore the production dispatcher after the earlier ordering test stubbed aliddns_check.
+. "$FUNCTIONS"
+
 # A failed launch must be returned to the locked caller, not hidden by exit 0.
 aliddns_get_status() { needed_restart=1; }
 aliddns_close() { return 0; }

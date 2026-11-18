@@ -851,7 +851,12 @@ assert "return EINVAL;" in firewall_rebuild
 assert "return EIO;" in firewall_rebuild
 assert "FIREWALL_ADBYBY_RESTORE_RECOVERY_FAILED" in firewall_rebuild
 assert "adbyby_restore_result != FIREWALL_ADBYBY_RESTORE_OK" in firewall_rebuild
-assert "set_ipv4_forward(0);" in firewall_rebuild
+forwarding_disable = compact(body(FIREWALL_SOURCE, "firewall_disable_forwarding("))
+assert "next_status = set_ipv4_forward(0);" in forwarding_disable
+assert 'next_status = set_interface_conf_int("ipv6", "all", "forwarding", 0);' in forwarding_disable
+assert forwarding_disable.count("rc_first_service_start_status") == 2
+assert 'forward_status = firewall_disable_forwarding("Core firewall rollback");' in firewall_rebuild
+assert 'forward_status = firewall_disable_forwarding("Adbyby firewall rollback");' in firewall_rebuild
 assert not re.search(r"\breturn\s*;", firewall_rebuild)
 assert "int start_firewall_ex(void);" in HEADER
 

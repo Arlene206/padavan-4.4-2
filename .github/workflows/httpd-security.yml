@@ -3369,7 +3369,8 @@ jobs:
           assert "firewall_adbyby_report_restore_failure" in adbyby_restore
           assert "FIREWALL_ADBYBY_RESTORE_RECOVERY_FAILED" in adbyby_restore
           assert "firewall_log_retained_adbyby_restore_snapshots" in adbyby_restore
-          assert "set_ipv4_forward(0)" in adbyby_restore
+          assert 'forward_status = firewall_disable_forwarding("Adbyby firewall rollback")' in adbyby_restore
+          assert "if (forward_status != 0)" in adbyby_restore
           assert "firewall_restore_transaction_abort" not in adbyby_restore
           assert "firewall_adbyby_restore_policy_prepare_reset" in adbyby_policy
           assert "firewall_adbyby_restore_policy_cleanup" in adbyby_policy
