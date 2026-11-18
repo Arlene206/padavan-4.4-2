@@ -1,3 +1,11 @@
+## 2026-11-17 — Keep Infosvr packet regression scoped to Infosvr behavior
+
+- Parent main: `10c232113e404cee71248e268485575e0b2a63c4`. The Infosvr packet/signal regression script also asserted root `SESSION_HANDOFF.md` section headings. That cross-project dependency caused an unrelated Infosvr workflow failure whenever a valid handoff used a changed heading, duplicating the dedicated AI handoff documentation contract.
+- Remove only the handoff read/assertions from `check_infosvr_packets.py`; retain all packet bounds, signal lifecycle, and workflow contracts. The canonical AI handoff workflow remains the owner of handoff structure validation.
+- Parent Infosvr run `44237364896` failed solely on the now-corrected handoff heading; the next Infosvr exact-SHA run must confirm this checker is scoped and green.
+
+---
+
 ## 2026-11-17 — Restore the exact handoff heading required by the live contract
 
 - Parent main: `9df55d47899e5b84b491f70c00c224b14998aa77`. The new ttyd handoff content was correct, but the AI documentation contract requires the exact section heading `## Exact first action for the next GPT`; this checkpoint initially used a plural variant and the exact-head AI handoff run `44237365114` failed on that literal.

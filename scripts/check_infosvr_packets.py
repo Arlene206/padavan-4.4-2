@@ -61,15 +61,6 @@ signal_policy = read("trunk/user/infosvr/src/infosvr_signal_policy.h")
 signal_test = read("trunk/user/infosvr/src/tests/infosvr_signal_policy.c")
 ibox = read("trunk/user/shared/src/include/ibox.h")
 workflow = read(".github/workflows/infosvr-packet-stability.yml")
-handoff = read("SESSION_HANDOFF.md")
-
-for required_heading in (
-    "## Current repository state",
-    "## Active task",
-    "## Verification boundary",
-    "## Exact first action for the next GPT",
-):
-    assert required_heading in handoff, required_heading
 
 for token in ("memset(packet, 0, size)", "errno = EINVAL",
               "received >= required", "required != 0"):
