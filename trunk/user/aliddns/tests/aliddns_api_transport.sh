@@ -82,6 +82,20 @@ case "$FAKE_SCENARIO" in
 			printf '%s\n' '{"RequestId":"update","Code":"RequestThrottled"}' '200'
 		fi
 		;;
+	update-spaced-success)
+		if [ "$count" -eq 1 ]; then
+			printf '%s\n' '{"RequestId" : "query", "RecordId" : "123"}' '200'
+		else
+			printf '%s\n' '{"RequestId" : "update"}' '200'
+		fi
+		;;
+	info-spaced-success)
+		if [ "$count" -eq 1 ]; then
+			printf '%s\n' '{"RequestId" : "query", "RecordId" : "123"}' '200'
+		else
+			printf '%s\n' '{"RequestId" : "details", "Type" : "A", "Value" : "203.0.113.12"}' '200'
+		fi
+		;;
 	update-success)
 		if [ "$count" -eq 1 ]; then
 			printf '%s\n' '{"RequestId":"query","RecordId":"123"}' '200'
@@ -216,6 +230,25 @@ arDdnsUpdate || fail "successful update response was rejected"
 [ "$(cat "$CURL_COUNT_FILE")" -eq 2 ] || fail "successful update made an unexpected number of requests"
 grep -Fqx 'aliddns_record_id=123' "$NVRAM_LOG" || fail "successful update did not save the record ID"
 grep -Fq '成功更新：203.0.113.9' "$NVRAM_LOG" || fail "successful update status was not published"
+
+# JSON whitespace around separators must not turn an existing record into
+# an empty lookup (which could otherwise create a duplicate DNS record).
+reset_scenario update-spaced-success
+arDdnsUpdate || fail "existing record with spaced JSON separators was not updated"
+[ "$(cat "$CURL_COUNT_FILE")" -eq 2 ] || fail "spaced RecordId lookup incorrectly attempted record creation"
+grep -Fqx 'aliddns_record_id=123' "$NVRAM_LOG" ||
+	fail "spaced RecordId was not extracted and published"
+
+reset_scenario info-spaced-success
+domain="example.com"
+name="www"
+IPv6=0
+spaced_record_ip="$(arDdnsInfo "example.com www")" ||
+	fail "record detail with spaced JSON separators was rejected"
+[ "$spaced_record_ip" = "203.0.113.12" ] ||
+	fail "spaced Type/Value fields were not extracted correctly"
+[ "$(cat "$CURL_COUNT_FILE")" -eq 2 ] ||
+	fail "spaced record detail used an unexpected number of requests"
 
 # A valid empty AliDNS result is not the same as a failed lookup.
 reset_scenario add-success

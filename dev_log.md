@@ -1,3 +1,11 @@
+## 2026-11-17 — Parse AliDNS record fields with JSON separator whitespace
+
+- Parent main: `0a84eb000c32a2f7e05a69af7980725239310842`. The API envelope validator already accepts JSON whitespace around colons, but record extraction required compact `"RecordId":"…"`, `"Type":"A"` and `"Value":"…"` tokens. A valid spaced response could therefore be mistaken for an empty record lookup; the update flow might attempt to add a duplicate record instead of updating the existing record.
+- Make RecordId, Type and Value extraction tolerate legal separator whitespace and line breaks. Add mocked existing-record update and record-detail cases with spaced JSON to prove the ID is preserved and the correct IP is read.
+- The AliDDNS regression workflow covers this host-side slice; exact-head CI is pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Preserve literal wildcard records in AliDDNS start dispatch
 
 - Parent main: `2e5622f682362a8767d10517b9290929030bcd9f`. The update/API helpers explicitly encode wildcard owner names (`*` becomes `%2A`), but `aliddns_start()` passed the three configured record names to `arDdnsCheck` unquoted. Shell pathname expansion could therefore replace a wildcard name with current-directory filenames and silently target the wrong DNS owner.

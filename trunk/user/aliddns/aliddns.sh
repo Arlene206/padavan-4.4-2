@@ -533,11 +533,17 @@ aliddns_ipv6_valid() {
 }
 
 get_recordid() {
-	grep -Eo '"RecordId":"[0-9]+"' | cut -d':' -f2 | tr -d '"' |head -n1
+	tr -d '\r\n' |
+		grep -Eo '"RecordId"[[:space:]]*:[[:space:]]*"[0-9]+"' |
+		awk -F '"' 'NR == 1 { print $4; exit }'
 }
 
 get_recordIP() {
-	sed -e "s/"'"TTL":'"/"' \n '"/g" | grep '"Type":"'$domain_type'"' | grep -Eo '"Value":"[^"]*"' | awk -F 'Value":"' '{print $2}' | tr -d '"' |head -n1
+	tr -d '\r\n' |
+		sed -e 's/"TTL"[[:space:]]*:/\n"TTL":/g' |
+		grep -E '"Type"[[:space:]]*:[[:space:]]*"'$domain_type'"' |
+		grep -Eo '"Value"[[:space:]]*:[[:space:]]*"[^"]*"' |
+		awk -F '"' 'NR == 1 { print $4; exit }'
 }
 
 query_recordInfo() {
