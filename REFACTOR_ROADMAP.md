@@ -1,10 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main `e71d9e336f4c1ab03725fcbf5fb0da670098ec5a` has exact-head PASS results for Shadowsocks lifecycle `44294135620`, Process fail-closed `44294135638`, Process inventory umbrella `44294135667`, AI handoff `44294135726`, and XY-C1 `44294135701`; the latter completed Build, TRX verification and artifact upload.
-- THIS COMMIT routes the Shadowsocks DNSMasq stage/publish/restart/rollback transaction through the existing RC `/sbin/restart_dhcpd` entry point, instead of independently killing and launching dnsmasq. RC owns `/tmp/.dnsmasq.lifecycle.lock`, process-state checks, NVRAM service enablement and daemon readiness. A regression stub covers successful restart, validation no-op, failed stop and replacement rollback.
-- Exact-head CI for THIS COMMIT is pending; parent L3 is PASS but this source commit needs its own XY-C1 Build/TRX/artifact verification. Physical-router L4 remains NOT VERIFIED.
-
-Next P1: verify this exact source SHA, then replace broad substring DNSMasq include cleanup in `oversea`, `ssp_close()`, and `ss-rules` with exact directive matching plus injected tests that preserve unrelated content.
+- Parent `6910911ffdd65a7a04eeb97fa1088a1b8a74d886` source slice routes DNSMasq restart through RC and its cross-process lock. Its Shadowsocks run `44299349261` failed at shell syntax (unterminated ChinaDNS grep assertion); AI handoff run `44299349087` failed the mandatory checkpoint sentence; Process run `44299349041` and inventory umbrella `44299348949` passed. XY-C1 `44299349040` was pending at the latest check.
+- THIS COMMIT repairs the malformed test line and restores the exact mandatory handoff checkpoint sentence. Exact-head rerun required; do not claim either failed workflow is repaired until its rerun passes.
+- Next P1 remains exact-match cleanup of Shadowsocks DNSMasq includes after the repair commit's exact-head Actions are resolved.
 
 ---
 

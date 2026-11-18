@@ -21,6 +21,8 @@
 3. Keep the immutable backup untouched. Do not repeat the completed startup audit or re-run old CI history; rotate to the next highest-risk module after closing this slice.
 
 ## Mandatory handoff checkpoint
+Every session MUST inspect live repository state and end with an accuracy checkpoint before context exhaustion. The checkpoint is mandatory; a document edit is conditional. If all facts remain accurate, leave the file untouched and do not create a no-op commit.
+
 Every session MUST compare this checkpoint with live GitHub state, verify the active engineering baseline and exact-head Actions, preserve the L3/L4 distinction, and retain an exact next action. The checkpoint changes only when the resumable task or validation boundary materially changes.
 
 # Cross-session execution mandate

@@ -392,7 +392,7 @@ MOCK_SS_CGROUPS=1
 export MOCK_SS_CGROUPS
 expect_status 0 "dnsmasq atomic config and restart" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 1
 MOCK_SS_CGROUPS=0
-grep -q '^server=127.0.0.1#65353
+grep -q '^server=127.0.0.1#65353$' "$dnsmasq_config" || fail "ChinaDNS upstream was not published"
 [ "$(grep -c '^no-resolv$' "$dnsmasq_config")" -eq 1 ] || fail "no-resolv directive was not normalized"
 [ "$(grep -c '^min-cache-ttl=1800$' "$dnsmasq_config")" -eq 1 ] || fail "min-cache-ttl was not normalized"
 [ "$(grep -c '^dns-forward-max=1000$' "$dnsmasq_config")" -eq 1 ] || fail "dns-forward-max was not normalized"
