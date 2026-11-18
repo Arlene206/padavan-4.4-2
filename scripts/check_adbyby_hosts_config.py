@@ -237,7 +237,7 @@ require("adbyby_valid_https_url" in download_https and
 for marker in ("umask 077", "mktemp -d /tmp/adbyby-rules.XXXXXX",
                 "adbyby_recover_managed_rules ||", "adbyby_rules_cache_is_usable",
                 "adbyby_manifest_digest", "adbyby_lazy_downloaded", "adbyby_video_downloaded",
-                "adbyby_rule_name.previous", "lazy.state", "video.state",
+                "adbyby_rule_name.previous", "adbyby_rule_name.state",
                 ".rules-transaction", "transaction.next", "mv -f"):
     require(marker in refresh_rules, f"managed update transaction is missing: {marker}")
 require(refresh_rules.index("adbyby_recover_managed_rules ||") <
