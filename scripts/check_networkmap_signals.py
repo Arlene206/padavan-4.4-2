@@ -149,11 +149,12 @@ assert "NETWORKMAP_START_PROBE_ATTEMPTS 4" in daemon_policy
 assert "state == PROCESS_PRESENCE_UNKNOWN" in start
 assert "NETWORKMAP_START_INITIAL_WAIT_SECONDS" in start
 assert "NETWORKMAP_START_PROBE_ATTEMPTS" in start
+assert 'service_start_probe_wait("networkmap", NETWORKMAP_START_RETRY_WAIT_SECONDS)' in start
 assert "networkmap_start_postcondition(launch_status, state)" in start
 assert "errno = ETIMEDOUT;" in start
 assert "return eval(" not in start
 launch = start.index('launch_status = eval("/usr/sbin/networkmap"')
-initial_wait = start.index("sleep(NETWORKMAP_START_INITIAL_WAIT_SECONDS);")
+initial_wait = start.index('service_start_probe_wait("networkmap", NETWORKMAP_START_INITIAL_WAIT_SECONDS)')
 post_launch_inventory = start.index('state = process_inventory_scan("networkmap", &snapshot);', launch)
 assert launch < initial_wait < post_launch_inventory
 assert "pids(" not in start

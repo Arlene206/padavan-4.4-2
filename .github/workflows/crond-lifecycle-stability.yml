@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/crond-lifecycle-stability.yml"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/crond_daemon_policy.h"
@@ -22,6 +23,7 @@ on:
     paths:
       - ".github/workflows/crond-lifecycle-stability.yml"
       - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/crond_daemon_policy.h"

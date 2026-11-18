@@ -85,11 +85,11 @@ assert start.index("return 1;") < start.index("launch_status = _eval(crond_argv"
 launch_failure = function_body(start, "if (launch_status != 0)")
 assert "return crond_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in launch_failure
 assert start.index("launch_status = _eval(crond_argv") < start.index(
-    "sleep(CROND_START_INITIAL_WAIT_SECONDS)"
+    'service_start_probe_wait("crond", CROND_START_INITIAL_WAIT_SECONDS)'
 ) < start.index("crond_process_presence(&scan_error)")
 assert "attempt < CROND_START_PROBE_ATTEMPTS" in start
 assert "attempt + 1 < CROND_START_PROBE_ATTEMPTS" in start
-assert "sleep(CROND_START_RETRY_WAIT_SECONDS)" in start
+assert 'service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS)' in start
 presence_helper = function_body(services, "crond_process_presence(int *scan_error)")
 assert 'process_inventory_scan("crond", &snapshot)' in presence_helper
 assert "*scan_error = snapshot.error;" in presence_helper
@@ -102,7 +102,7 @@ assert "presence = crond_process_presence(&scan_error);" in start
 assert "crond_start_postcondition(launch_status, presence)" in start
 assert "presence == PROCESS_PRESENCE_RUNNING" in start
 unknown = start.index("presence == PROCESS_PRESENCE_UNKNOWN")
-assert start.index("break;", unknown) < start.index("sleep(CROND_START_RETRY_WAIT_SECONDS)", unknown)
+assert start.index("break;", unknown) < start.index('service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS)', unknown)
 assert 'pids("crond")' not in start
 assert "crond daemon did not remain running after launch" in start
 assert "return status;" in start
