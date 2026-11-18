@@ -146,8 +146,15 @@ assert lan_stop.index(lan_dhcp_stop) < lan_stop.index("kill_services(svcs, 3, 1)
 lan_pidfile_stop = compact(c_function_body(lan, "stop_udhcpc_lan(void)"))
 assert 'process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)' in lan_pidfile_stop
 assert "errno != ENOENT && errno != ESRCH" in lan_pidfile_stop
-assert "usleep(300000)" in lan_pidfile_stop
-assert lan_pidfile_stop.index("process_pidfile_signal") < lan_pidfile_stop.index("usleep(300000)") < lan_pidfile_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
+assert '#include "service_wait_policy.h"' in lan
+assert "service_wait_microseconds(300000U)" in lan_pidfile_stop
+assert "if (wait_status != 0)" in lan_pidfile_stop
+assert "wait_status = errno > 0 ? errno : EIO;" in lan_pidfile_stop
+assert "refusing LAN DHCP stop: deconfig grace wait failed" in lan_pidfile_stop
+assert "errno = wait_status;" in lan_pidfile_stop
+assert "return wait_status;" in lan_pidfile_stop
+assert "usleep(300000)" not in lan_pidfile_stop
+assert lan_pidfile_stop.index("process_pidfile_signal") < lan_pidfile_stop.index("service_wait_microseconds(300000U)") < lan_pidfile_stop.index("if (wait_status != 0)") < lan_pidfile_stop.index("refusing LAN DHCP stop: deconfig grace wait failed") < lan_pidfile_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
 
 # WAN stop covers both WAN/VIPTV clients in one PID-file batch; USB WAN and
 # AP LAN use one dedicated helper each.

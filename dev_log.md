@@ -1,3 +1,10 @@
+## 2026-11-18 — Align LAN DHCP grace-wait contracts with shared EINTR helper
+
+- Parent main: `131238bbac61f8a3f5de03fe88be923795fcd3b7`. The LAN DHCP stop path now uses `service_wait_microseconds(300000U)` and refuses a no-force PID-file stop if that mandatory deconfig grace wait fails.
+- Exact-head run `44325478622` failed because `scripts/check_lan_dhcp_deconfig.py` still required raw `usleep(300000)`; run `44325478245` failed at the equivalent detect-internet inline assertion. Both contracts now require the shared helper, errno/EIO preservation, failure diagnostic and early return before force-stop.
+- The WAN-route path-filter omission for `trunk/user/rc/src/tests/service_wait_policy.c` was separately repaired by `131238bbac61f8a3f5de03fe88be923795fcd3b7`; its exact run `44325745439` PASSed. This slice updates regression contracts only; no local checkout-based test was run. Exact-head callback and detect-internet reruns are required.
+
+---
 ## 2026-11-18 — Make native DHCPv6 readiness wait EINTR-safe and fail closed
 
 - Parent main: `34cdc9e12ce6d782da38340e5a98426e38122b5c`. Review of WAN/IPv6 startup found the remaining raw `sleep(2)` between native IPv6 RA/autoconf setup and launching `dhcp6c`.

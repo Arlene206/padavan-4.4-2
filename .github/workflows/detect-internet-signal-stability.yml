@@ -172,12 +172,19 @@ jobs:
           preflight_return = lan_stop.index("return status;", preflight_failure)
           ifdown = lan_stop.index("ifconfig(IFNAME_BR, 0, NULL, NULL)")
           ifdown_resume = lan_stop.index("notify_run_detect_internet(2)", ifdown)
+          assert '#include "service_wait_policy.h"' in lan
           lan_dhcp_stop = body(lan, "stop_udhcpc_lan(void)")
           lan_release = lan_dhcp_stop.index('process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)')
           lan_identity_gate = lan_dhcp_stop.index("errno != ENOENT && errno != ESRCH")
-          lan_release_wait = lan_dhcp_stop.index("usleep(300000)")
+          lan_release_wait = lan_dhcp_stop.index("service_wait_microseconds(300000U)")
+          lan_wait_failure = lan_dhcp_stop.index("if (wait_status != 0)", lan_release_wait)
+          lan_wait_errno = lan_dhcp_stop.index("wait_status = errno > 0 ? errno : EIO;", lan_wait_failure)
+          lan_wait_log = lan_dhcp_stop.index("refusing LAN DHCP stop: deconfig grace wait failed", lan_wait_errno)
+          lan_wait_return = lan_dhcp_stop.index("return wait_status;", lan_wait_log)
           lan_noforce_stop = lan_dhcp_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
-          assert lan_release < lan_identity_gate < lan_release_wait < lan_noforce_stop
+          assert lan_release < lan_identity_gate < lan_release_wait < lan_wait_failure < lan_wait_errno < lan_wait_log < lan_wait_return < lan_noforce_stop
+          assert "errno = wait_status;" in lan_dhcp_stop
+          assert "usleep(300000)" not in lan_dhcp_stop
           assert lan_stop.index("notify_pause_detect_internet()") < lan_stop_call < preflight_failure
           assert preflight_failure < preflight_resume < preflight_return < ifdown < ifdown_resume
           assert '"detect_internet"' in dispatcher and "detect_internet_main" in dispatcher
