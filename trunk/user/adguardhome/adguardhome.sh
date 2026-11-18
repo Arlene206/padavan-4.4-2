@@ -1,5 +1,7 @@
 #!/bin/sh
 
+ADG_START_WAIT_ATTEMPTS=5
+
 adg_lifecycle_lock_path() {
   echo /tmp/.adguardhome.lifecycle.lock
 }
@@ -504,6 +506,28 @@ start_adg(){
 	logger -t "AdGuardHome" "启动 AdGuardHome"
 	# The background daemon must not inherit the launcher lock descriptor.
 	( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &
+  if adg_wait_started; then
+    return 0
+  else
+    adg_start_wait_status=$?
+  fi
+  case "$adg_start_wait_status" in
+    1)
+      logger -t "AdGuardHome" "启动后在限定时间内未检测到AdGuardHome进程，回滚DNS配置和防火墙规则"
+      if ! del_dns; then
+        logger -t "AdGuardHome" "启动超时后的DNS配置回滚失败"
+      fi
+      if ! clear_iptable; then
+        logger -t "AdGuardHome" "启动超时后的防火墙回滚失败"
+      fi
+      ;;
+    *)
+      # UNKNOWN may mean that the daemon is alive; do not dismantle traffic
+      # state that a live AdGuardHome instance could still depend on.
+      logger -t "AdGuardHome" "启动后无法确认AdGuardHome进程状态，保留DNS和防火墙配置"
+      ;;
+  esac
+  return 1
 }
 
 # Return 0 for RUNNING, 1 only for confirmed ABSENT, and 2 for UNKNOWN.
@@ -538,6 +562,33 @@ adg_process_state() {
       ;;
     *) return 2 ;;
   esac
+}
+
+# Return 0 only after a validated RUNNING snapshot, 1 on confirmed ABSENT timeout,
+# and 2 when the process inventory or wait primitive is UNKNOWN.
+adg_wait_started() {
+  case "$ADG_START_WAIT_ATTEMPTS" in
+    ""|*[!0-9]*|0) return 2 ;;
+  esac
+  adg_start_wait=0
+  while [ "$adg_start_wait" -lt "$ADG_START_WAIT_ATTEMPTS" ]; do
+    if adg_process_state; then
+      return 0
+    else
+      adg_start_state=$?
+    fi
+    case "$adg_start_state" in
+      1) ;;
+      *) return 2 ;;
+    esac
+    adg_start_wait=$((adg_start_wait + 1))
+    if [ "$adg_start_wait" -lt "$ADG_START_WAIT_ATTEMPTS" ]; then
+      if ! sleep 1; then
+        return 2
+      fi
+    fi
+  done
+  return 1
 }
 
 # Return 0 when absent, 1 when still running after five polls, 2 when UNKNOWN.

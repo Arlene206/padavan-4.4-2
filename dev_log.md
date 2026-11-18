@@ -1,3 +1,10 @@
+## 2026-11-17 — Verify AdGuardHome after detached daemon launch
+
+- Parent main: `b3b856dd6a78c4ee62333f288c64b867f7599a21`. `start_adg()` backgrounds AdGuardHome, then returned success immediately. Unlike DDNSTO and AliDDNS, this launcher had no post-fork process check; an immediate bind/config/runtime exit could leave resolver configuration and DNS redirect rules pointing at a daemon that never stayed alive.
+- Add a five-attempt tri-state process wait. Only RUNNING reports success; confirmed ABSENT timeout rolls back resolver configuration before firewall redirects; UNKNOWN (including a failed wait primitive) fails closed and preserves both traffic states because the daemon may be alive. Extend the existing shell regression with delayed RUNNING, timeout rollback, UNKNOWN and sleep-failure cases, and strengthen the Python source contract.
+- Exact-head AdGuardHome config/security and Process lifecycle/inventory checks are required. This shell-only package change is not in the XY-C1 firmware path filter; no firmware rebuild or router runtime result is claimed.
+
+---
 ## 2026-11-17 — Keep Infosvr packet regression scoped to Infosvr behavior
 
 - Parent main: `10c232113e404cee71248e268485575e0b2a63c4`. The Infosvr packet/signal regression script also asserted root `SESSION_HANDOFF.md` section headings. That cross-project dependency caused an unrelated Infosvr workflow failure whenever a valid handoff used a changed heading, duplicating the dedicated AI handoff documentation contract.

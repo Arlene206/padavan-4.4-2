@@ -534,6 +534,11 @@ killall() {
 
 sleep() {
 	printf '%s\n' "$*" >> "$TEST_ADG_SLEEP_LOG"
+	if [ -n "${TEST_ADG_START_TRANSITION:-}" ]; then
+		/bin/sleep 0.05
+		printf '%s\n' "$TEST_ADG_START_TRANSITION" > "$TEST_ADG_STATE"
+		TEST_ADG_START_TRANSITION=
+	fi
 	[ "${TEST_ADG_SLEEP_FAIL:-0}" = 0 ]
 }
 
@@ -714,4 +719,61 @@ fi
 [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 10 ] || fail "TERM/KILL waits were not bounded to five polls each"
 [ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'clear_iptable\ndel_dns')" ] || fail "failed stop removed the workdir or skipped pre-stop resolver cleanup"
 
+# Detached startup is successful only after the process-name inventory confirms RUNNING.
+(
+  mkdir() { return 0; }
+  getconfig() { adg_file="$TEST_CONFIG"; echo getconfig >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
+  set_iptable() { echo set_iptable >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
+  change_dns() { echo change_dns >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
+  AdGuardHome() { echo launch >> "$TEST_ADG_EFFECTS_LOG"; return 0; }
+
+  : > "$TEST_ADG_EFFECTS_LOG"
+  : > "$TEST_ADG_CLEANUP_LOG"
+  : > "$TEST_ADG_SLEEP_LOG"
+  echo stopped > "$TEST_ADG_STATE"
+  TEST_ADG_START_TRANSITION=running
+  TEST_ADG_SLEEP_FAIL=0
+  if ! start_adg; then exit 1; fi
+  [ "$(cat "$TEST_ADG_STATE")" = running ] || exit 1
+  [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 1 ] || exit 1
+  /bin/sleep 0.05
+  grep -Fqx launch "$TEST_ADG_EFFECTS_LOG" || exit 1
+  [ ! -s "$TEST_ADG_CLEANUP_LOG" ] || exit 1
+
+  # A confirmed ABSENT timeout must restore resolver state before firewall rules.
+  : > "$TEST_ADG_EFFECTS_LOG"
+  : > "$TEST_ADG_CLEANUP_LOG"
+  : > "$TEST_ADG_SLEEP_LOG"
+  echo stopped > "$TEST_ADG_STATE"
+  TEST_ADG_START_TRANSITION=
+  if start_adg; then exit 1; fi
+  /bin/sleep 0.05
+  grep -Fqx launch "$TEST_ADG_EFFECTS_LOG" || exit 1
+  [ "$(cat "$TEST_ADG_CLEANUP_LOG")" = "$(printf 'del_dns\nclear_iptable')" ] || exit 1
+  [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = "$((ADG_START_WAIT_ATTEMPTS - 1))" ] || exit 1
+
+  # UNKNOWN immediately after launch must fail closed without tearing down
+  # DNS/firewall state that a possibly-running daemon may still need.
+  : > "$TEST_ADG_CLEANUP_LOG"
+  : > "$TEST_ADG_SLEEP_LOG"
+  echo stopped > "$TEST_ADG_STATE"
+  TEST_ADG_START_TRANSITION=error
+  if start_adg; then exit 1; fi
+  [ "$(cat "$TEST_ADG_STATE")" = error ] || exit 1
+  [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 1 ] || exit 1
+  [ ! -s "$TEST_ADG_CLEANUP_LOG" ] || exit 1
+
+  # A failed wait primitive is UNKNOWN too and must not trigger rollback.
+  : > "$TEST_ADG_CLEANUP_LOG"
+  : > "$TEST_ADG_SLEEP_LOG"
+  echo stopped > "$TEST_ADG_STATE"
+  TEST_ADG_START_TRANSITION=
+  TEST_ADG_SLEEP_FAIL=1
+  if start_adg; then exit 1; fi
+  [ ! -s "$TEST_ADG_CLEANUP_LOG" ] || exit 1
+  [ "$(wc -l < "$TEST_ADG_SLEEP_LOG" | tr -d ' ')" = 1 ] || exit 1
+  TEST_ADG_SLEEP_FAIL=0
+) || fail "AdGuardHome detached startup postcondition or fail-closed rollback failed"
+
+echo "AdGuardHome detached startup RUNNING postcondition, timeout rollback and UNKNOWN preservation: PASS"
 echo "AdGuardHome duplicate-start and bounded stop lifecycle regression: PASS"

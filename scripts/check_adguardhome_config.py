@@ -64,6 +64,7 @@ set_redirect = function_body(script, "set_iptable()" + chr(10) + "{")
 clear_redirect = function_body(script, "clear_iptable()" + chr(10) + "{")
 process_state = function_body(script, "adg_process_state() {")
 wait_stopped = function_body(script, "adg_wait_stopped() {")
+wait_started = function_body(script, "adg_wait_started() {")
 stop_daemon = function_body(script, "adg_stop_daemon() {")
 stop = function_body(script, "stop_adg(){")
 lock_path = function_body(script, "adg_lifecycle_lock_path() {")
@@ -220,8 +221,21 @@ require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         'start|stop|restart' in lock_run,
         "all launcher service actions must pass through the same checked lock")
 require('( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &' in start and
+        "ADG_START_WAIT_ATTEMPTS=5" in script and
+        "if adg_wait_started; then" in start and
+        start.index(' ) &') < start.index("if adg_wait_started; then") and
+        'logger -t "AdGuardHome" "启动后在限定时间内未检测到AdGuardHome进程' in start and
+        start.index("if adg_wait_started; then") < start.index("if ! del_dns; then") <
+        start.index("if ! clear_iptable; then") and
+        'logger -t "AdGuardHome" "启动后无法确认AdGuardHome进程状态，保留DNS和防火墙配置"' in start and
         '/sbin/restart_dhcpd 9>&-' in script,
-        "detached AdGuardHome and dnsmasq restarts must not retain the launcher lock descriptor")
+        "detached launch must verify RUNNING; roll back only confirmed ABSENT and preserve UNKNOWN state")
+require('case "$ADG_START_WAIT_ATTEMPTS" in' in wait_started and
+        'while [ "$adg_start_wait" -lt "$ADG_START_WAIT_ATTEMPTS" ]; do' in wait_started and
+        "adg_process_state" in wait_started and
+        "sleep 1" in wait_started and
+        "return 2" in wait_started and "return 1" in wait_started,
+        "startup must use bounded tri-state process polling and fail closed on UNKNOWN")
 require('CONFIG_FLOCK=y' in busybox_config and
         'fd = xatoi_positive(argv[0]);' in busybox_flock and
         'if (flock(fd, mode) != 0)' in busybox_flock,
