@@ -221,7 +221,7 @@ require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         'start|stop|restart' in lock_run,
         "all launcher service actions must pass through the same checked lock")
 post_launch_del_dns = start.index("if ! del_dns; then", start.index("if adg_wait_started; then"))
- post_launch_clear_iptable = start.index("if ! clear_iptable; then", post_launch_del_dns)
+post_launch_clear_iptable = start.index("if ! clear_iptable; then", post_launch_del_dns)
 require('( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &' in start and
         "ADG_START_WAIT_ATTEMPTS=5" in script and
         "if adg_wait_started; then" in start and
