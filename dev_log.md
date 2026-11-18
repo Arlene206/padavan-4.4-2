@@ -1,3 +1,12 @@
+## 2026-11-18 — Report Internet-loss action enqueue failures
+
+- Parent main SHA: `33ab220a9f023b274ee402c7fa04a297f3ba4f51`; exact WAN DHCP `44208003391`, AI `44208003368`, HTTPD `44208003400`, AliyunDrive `44208004391`, AliDDNS `44208003407`, infosvr `44208003447`, AdGuardHome `44208003338` PASS. Process inventory/fail-closed `44208003464` and NVRAM `44208003259` pending; XY-C1 `44208003430` at Build.
+- Found three fire-and-forget `notify_rc()` calls in `notify_on_internet_state_changed()`: router reboot, automatic reconnect pause and USB-modem reconnect. PID 1 queue rejection was silently discarded.
+- Replaced them with `notify_rc_status()` via a helper that normalizes errno/status and logs a failed event submission. No change to detector signal handling or Internet-state script dispatch.
+- Added a GNU89/ASan/UBSan errno policy regression and extended exact workflow source/path checks. Exact-head Actions pending; prior WAN VPN stop and AP DHCP L3 validation do not validate this new source. Physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Align LAN DHCP ancillary regression contracts
 
 - Parent main SHA: `355a5c2565b2e6d001a721289e1e690fda997931`.

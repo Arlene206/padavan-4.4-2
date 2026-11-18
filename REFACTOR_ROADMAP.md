@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS workflow/handoff correction: `355a5c2565b2e6d001a721289e1e690fda997931`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact parent `355a5c25`: WAN route `44207255511`, AliDDNS `44207255497`, AliyunDrive `44207257596`, Process inventory/fail-closed `44207255376`, Process inventory `44207255263`, infosvr `44207255297`, AdGuardHome `44207255252`, Wireless `44207255217`, detect_link `44207255099`, DNSMasq `44207255096`, detect_internet `44207255062`, NVRAM `44207255182` PASS.
-- WAN DHCP `44207255220` and HTTPD Security `44207255662` failed on stale embedded regression assertions, not their policy C test runs: stale old test symbol and literal-EIO assertion (actual test uses a multi-error array/loop). AI `44207255510` required the exact phrase `one atomic main commit`. THIS correction aligns those assertions and handoff wording; no production C changes.
-- XY-C1 `44207255537` still building at Build XY-C1; TRX and artifact steps pending. No product L3 on this source SHA; hardware L4 NOT VERIFIED.
-- Whole-repository module dashboard below is preserved in full.
+- Parent main before THIS Internet-loss queue-status change: `33ab220a9f023b274ee402c7fa04a297f3ba4f51`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact `33ab220a`: WAN DHCP `44208003391`, AI `44208003368`, HTTPD `44208003400`, AliyunDrive `44208004391`, AliDDNS `44208003407`, infosvr `44208003447`, AdGuardHome `44208003338` PASS. Process inventory/fail-closed `44208003464` and NVRAM `44208003259` pending; XY-C1 `44208003430` in Build.
+- `notify_on_internet_state_changed()` had three fire-and-forget queue calls for router reboot, WAN reconnect pause and USB modem reconnect. THIS uses `notify_rc_status()`, normalizes and logs enqueue failures, adds GNU89 policy tests and wires the header to CI filters. Signal dispatch remains in normal context and is unchanged.
+- Exact-head detect-internet and XY-C1 verification pending; previous SHA XY-C1 results do not validate this new source patch; physical-router L4 NOT VERIFIED.
 
-Next: require exact-head WAN DHCP + HTTPD + AI PASS; verify same-SHA XY-C1 Build/TRX/artifact; then continue independent P1 source work.
+Next: require detect-internet regression and same-SHA XY-C1 Build/TRX/artifact; recheck parent Process/NVRAM runs.
 
 
 ---

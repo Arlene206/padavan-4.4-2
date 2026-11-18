@@ -1,5 +1,7 @@
 #include <stdio.h>
+#include <errno.h>
 #include "detect_internet_signal_policy.h"
+#include "detect_internet_notification_policy.h"
 
 #define CHECK(condition) do { \
 	if (!(condition)) { \
@@ -70,6 +72,17 @@ test_termination_is_fail_safe_and_sticky(void)
 }
 
 static int
+test_notification_queue_failure_preserves_errno_or_falls_back(void)
+{
+	CHECK(detect_internet_notification_error(0, 0) == 0);
+	CHECK(detect_internet_notification_error(-1, ENOSPC) == ENOSPC);
+	CHECK(detect_internet_notification_error(-1, 0) == EIO);
+	CHECK(detect_internet_notification_error(EACCES, 0) == EACCES);
+	CHECK(detect_internet_notification_error(EIO, ENOSPC) == ENOSPC);
+	return 0;
+}
+
+static int
 test_unknown_signals_and_invalid_arguments_are_ignored(void)
 {
 	volatile sig_atomic_t events = 0;
@@ -93,6 +106,7 @@ main(void)
 	CHECK(test_standard_signal_coalescing_is_bounded() == 0);
 	CHECK(test_latest_control_request_wins() == 0);
 	CHECK(test_termination_is_fail_safe_and_sticky() == 0);
+	CHECK(test_notification_queue_failure_preserves_errno_or_falls_back() == 0);
 	CHECK(test_unknown_signals_and_invalid_arguments_are_ignored() == 0);
 	puts("detect_internet signal deferral policy: PASS");
 	return 0;

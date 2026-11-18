@@ -40,6 +40,7 @@
 #include "ppp_options_file.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
+#include "detect_internet_notification_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_domain_policy.h"
@@ -3269,6 +3270,24 @@ notify_on_wan_ether_link_restored(void)
 	}
 }
 
+static void
+queue_internet_lost_action(const char *event_name, const char *action_name)
+{
+	int status, saved_errno;
+
+	errno = 0;
+	status = notify_rc_status(event_name);
+	saved_errno = detect_internet_notification_error(status, errno);
+	if (saved_errno == 0)
+		return;
+
+	logmessage(LOGNAME,
+		   "cannot enqueue %s after Internet loss (status=%d, errno=%d)",
+		   action_name, status, saved_errno);
+	errno = saved_errno;
+}
+
+
 void
 notify_on_internet_state_changed(int has_internet, long elapsed)
 {
@@ -3280,16 +3299,18 @@ notify_on_internet_state_changed(int has_internet, long elapsed)
 		{
 		case 1:
 			logmessage(LOGNAME, "Perform router auto-reboot on %s event", "Internet lost");
-			notify_rc(RCN_RESTART_REBOOT);
+			queue_internet_lost_action(RCN_RESTART_REBOOT, "router auto-reboot");
 			return;
 		case 2:
-			notify_rc("auto_wan_reconnect_pause");
+			queue_internet_lost_action("auto_wan_reconnect_pause",
+					   "automatic WAN reconnect pause");
 			break;
 #if defined (USE_USB_SUPPORT)
 		case 3:
 			if (get_modem_devnum()) {
 				nvram_set_int("modem_prio", (get_usb_modem_wan(0)) ? 0 : 1);
-				notify_rc("auto_wan_reconnect");
+				queue_internet_lost_action("auto_wan_reconnect",
+						   "automatic WAN reconnect");
 			}
 			break;
 #endif
