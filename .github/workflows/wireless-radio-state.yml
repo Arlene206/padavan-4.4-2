@@ -105,6 +105,27 @@ jobs:
           assert "AP-client reconnect settling wait failed" in reconnect
           assert "AP-client reconnect command failed" in reconnect
           assert "int reconnect_apcli(const char *ifname_apcli, int force);" in header
+          assert '#include "service_wait_policy.h"' in source
+          watchdog_wait = function_body(source, "wait_wifi_watchdog_update(const char *radio_name)")
+          assert "service_wait_microseconds(300000U)" in watchdog_wait
+          assert "errno > 0 ? errno : EIO" in watchdog_wait
+          assert "watchdog Wi-Fi notification settling wait failed" in watchdog_wait
+          assert "return -1;" in watchdog_wait
+          for signature, notify, label, nvram_key, control in (
+              ("manual_change_radio_rt(int radio_on)", "notify_watchdog_wifi(0)", "2.4GHz radio", '"radio_x"', "control_radio_rt"),
+              ("manual_change_radio_wl(int radio_on)", "notify_watchdog_wifi(1)", "5GHz radio", '"radio_x"', "control_radio_wl"),
+              ("manual_change_guest_rt(int radio_on)", "notify_watchdog_wifi(0)", "2.4GHz guest AP", '"guest_enable"', "control_guest_rt"),
+              ("manual_change_guest_wl(int radio_on)", "notify_watchdog_wifi(1)", "5GHz guest AP", '"guest_enable"', "control_guest_wl"),
+          ):
+              manual = function_body(source, signature)
+              notify_at = manual.index(notify)
+              wait_at = manual.index(f'wait_wifi_watchdog_update("{label}")', notify_at)
+              fail_at = manual.index("if (wait_status != 0)", wait_at)
+              return_at = manual.index("return wait_status;", fail_at)
+              nvram_at = manual.index(nvram_key, return_at)
+              control_at = manual.index(f"return {control}(", nvram_at)
+              assert notify_at < wait_at < fail_at < return_at < nvram_at < control_at
+              assert "usleep(300000);" not in manual
 
           wan_start = function_body(wan_source, "start_wan(void)")
           reconnect_call = wan_start.index("vlan_result = reconnect_apcli(wan_ifname, 0);")

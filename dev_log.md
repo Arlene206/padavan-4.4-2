@@ -1,3 +1,12 @@
+## 2026-11-18 — Make manual radio/guest watchdog settling signal-safe
+
+- Parent main: `0b8acba5190a4765f643090a852cbc53d216b97d`. In four manual WLAN enable paths, `notify_watchdog_wifi()` was followed by raw `usleep(300000)` before changing NVRAM and invoking radio/guest control. Signal interruption could shorten this serialization window and race the watchdog's Wi-Fi notification handling.
+- Add `wait_wifi_watchdog_update()` using `service_wait_microseconds(300000U)`; preserve errno/EIO and log. If the settle wait fails, each manual path returns before its NVRAM mutation/control call, instead of proceeding in a potentially racy state. No behavior change for disable paths or when no state change is required.
+- Extend Wireless source regression to check helper hard-error behavior and all four notify → wait → fail-return → NVRAM → control orderings; raw 300ms usleep is rejected. Existing shared-wait unit tests cover EINTR retry and non-EINTR failure.
+- Predecessor `0b8acba` exact Wireless `44328293451`, iNIC `44328293059`, watchdog `44328291899` and Process inventory `44328294449` PASS; Process fail-closed, XY-C1, NVRAM and HTTPD were pending at last poll. Exact-head reruns required. No local or hardware test claimed.
+
+---
+
 ## 2026-11-18 — Make iNIC reset settling wait EINTR-safe
 
 - Parent main: `ea1d3722bcbbcc7f31806b3c8902500a2e8f228e`. Review of remaining `net_wifi.c` delays found `start_inic_mii()` released the reset GPIO then used raw `usleep(50000)` before enabling RGMII. Interrupted sleep could shorten the hardware reset interval.

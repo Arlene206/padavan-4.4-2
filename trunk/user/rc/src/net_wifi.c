@@ -2072,15 +2072,35 @@ manual_toggle_radio_wl(int radio_on)
 #endif
 }
 
+static int
+wait_wifi_watchdog_update(const char *radio_name)
+{
+	int status;
+
+	status = service_wait_microseconds(300000U);
+	if (status == 0)
+		return 0;
+
+	status = errno > 0 ? errno : EIO;
+	errno = status;
+	logmessage(LOGNAME,
+		   "watchdog Wi-Fi notification settling wait failed for %s (status=%d)",
+		   radio_name, status);
+	return -1;
+}
+
 int 
 manual_change_radio_rt(int radio_on)
 {
+	int wait_status;
 	if (get_enabled_radio_rt() == radio_on)
 		return 0;
 
 	if (radio_on) {
 		notify_watchdog_wifi(0);
-		usleep(300000);
+		wait_status = wait_wifi_watchdog_update("2.4GHz radio");
+		if (wait_status != 0)
+			return wait_status;
 	}
 
 	nvram_wlan_set_int(0, "radio_x", radio_on);
@@ -2093,13 +2113,16 @@ manual_change_radio_rt(int radio_on)
 int 
 manual_change_radio_wl(int radio_on)
 {
+	int wait_status;
 #if BOARD_HAS_5G_RADIO
 	if (get_enabled_radio_wl() == radio_on)
 		return 0;
 
 	if (radio_on) {
 		notify_watchdog_wifi(1);
-		usleep(300000);
+		wait_status = wait_wifi_watchdog_update("5GHz radio");
+		if (wait_status != 0)
+			return wait_status;
 	}
 
 	nvram_wlan_set_int(1, "radio_x", radio_on);
@@ -2115,12 +2138,15 @@ manual_change_radio_wl(int radio_on)
 int 
 manual_change_guest_rt(int radio_on)
 {
+	int wait_status;
 	if (get_enabled_guest_rt() == radio_on)
 		return 0;
 
 	if (radio_on) {
 		notify_watchdog_wifi(0);
-		usleep(300000);
+		wait_status = wait_wifi_watchdog_update("2.4GHz guest AP");
+		if (wait_status != 0)
+			return wait_status;
 	}
 
 	nvram_wlan_set_int(0, "guest_enable", radio_on);
@@ -2133,13 +2159,16 @@ manual_change_guest_rt(int radio_on)
 int
 manual_change_guest_wl(int radio_on)
 {
+	int wait_status;
 #if BOARD_HAS_5G_RADIO
 	if (get_enabled_guest_wl() == radio_on)
 		return 0;
 
 	if (radio_on) {
 		notify_watchdog_wifi(1);
-		usleep(300000);
+		wait_status = wait_wifi_watchdog_update("5GHz guest AP");
+		if (wait_status != 0)
+			return wait_status;
 	}
 
 	nvram_wlan_set_int(1, "guest_enable", radio_on);
