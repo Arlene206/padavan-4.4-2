@@ -846,9 +846,10 @@ assert "skipping WAN reconnect after incomplete USB modem removal" in usb_remove
 
 usbnet_stop_pos = wan_stop.index("stop_status = stop_wan_usbnet();")
 wan_ifdown_pos = wan_stop.index("ifdown_status = wan_teardown_ifdown_interfaces(")
-wan_failure_pos = wan_stop.index("if (stop_status != 0 || ifdown_status != 0)")
+wan_failure_pos = wan_stop.index("if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)")
 wan_clear_pos = wan_stop.index("clear_wan_state();")
 assert usbnet_stop_pos < wan_ifdown_pos < wan_failure_pos < wan_clear_pos
+assert "callback_cleanup_status = remove_cb_links();" in wan_stop
 assert "goto abort_resume_detect;" in wan_stop[wan_failure_pos:]
 print("USB modem stop-result propagation and WAN restart gate: PASS")
 

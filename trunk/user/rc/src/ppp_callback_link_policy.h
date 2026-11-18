@@ -49,7 +49,10 @@ ppp_callback_link_ensure_with(const char *target,const char *path,unsigned char 
  int state,saved_errno;
  if(!created||!ops||!ops->symlink_fn){errno=EINVAL;return -1;}
  *created=0;state=ppp_callback_link_state_with(target,path,ops);
- if(state<0)return -1;if(state>0)return 0;
+ if(state<0)
+  return -1;
+ if(state>0)
+  return 0;
  if(ops->symlink_fn(target,path)==0){*created=1;return 0;}
  saved_errno=errno?errno:EIO;
  if(saved_errno==EEXIST){state=ppp_callback_link_state_with(target,path,ops);if(state>0)return 0;if(state<0)return -1;}
@@ -62,7 +65,9 @@ ppp_callback_link_remove_with(const char *target,const char *path,const struct p
 {
  int state;if(!ops||!ops->unlink_fn){errno=EINVAL;return -1;}
  state=ppp_callback_link_state_with(target,path,ops);if(state<=0)return state;
- if(ops->unlink_fn(path)==0||errno==ENOENT)return 0;return -1;
+ if(ops->unlink_fn(path)==0||errno==ENOENT)
+  return 0;
+ return -1;
 }
 static inline int ppp_callback_link_remove(const char *target,const char *path)
 {return ppp_callback_link_remove_with(target,path,&ppp_callback_link_system_ops);}
