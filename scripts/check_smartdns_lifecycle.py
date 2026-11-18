@@ -6,6 +6,7 @@ root = Path(__file__).resolve().parents[1]
 script = (root / "trunk/user/smartdns/smartdns.sh").read_text()
 helper = (root / "trunk/user/smartdns/smartdns_process_lifecycle.sh").read_text()
 test = (root / "trunk/user/smartdns/tests/smartdns_process_lifecycle.sh").read_text()
+autostart_test = (root / "trunk/user/scripts/tests/autostart_optional_start_status.sh").read_text()
 makefile = (root / "trunk/user/smartdns/Makefile").read_text()
 process_workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
 storage_workflow = (root / ".github/workflows/storage-hotplug-stability.yml").read_text()
@@ -33,11 +34,14 @@ assert 'elif [ -e "$smartdns_Ini" ]; then\n        return 1' in reader
 assert 'if Read_ini; then\n    Main\nelse' in script
 assert 'Saved SmartDNS resolver state is invalid; preserving DNSMasq configuration' in script
 assert 'exit "$smartdns_ini_status"' in script
-assert 'SMARTDNS_STATUS=45' in test
-assert 'SmartDNS autostart failed (status=45)' in test
-assert 'autostart consumed malformed SmartDNS saved state' in test
-assert 'SmartDNS failure blocked independent DDNSTO startup' in test
-assert 'SmartDNS failure blocked independent FRP startup' in test
+assert 'SMARTDNS_STATUS=45' in autostart_test
+assert 'SmartDNS autostart failed (status=45)' in autostart_test
+assert 'autostart consumed malformed SmartDNS saved state' in autostart_test
+assert 'cmp -s "$TMP_DIR/dnsmasq.before" "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"' in autostart_test
+assert 'cmp -s "$TMP_DIR/smartdns-state.before" "$TMP_DIR/storage/smartdns_conf.ini"' in autostart_test
+assert 'SMARTDNS_STATUS=0' in autostart_test
+assert 'SmartDNS failure blocked independent DDNSTO startup' in autostart_test
+assert 'SmartDNS failure blocked independent FRP startup' in autostart_test
 start = body(script, 'Start_smartdns () {', '\n}\n\nStop_smartdns')
 stop = body(script, 'Stop_smartdns () {', '\n}\n\nMain')
 main = body(script, 'Main () {', '\n}\n\nRead_ini')

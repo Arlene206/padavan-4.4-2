@@ -1,3 +1,11 @@
+## 2026-11-18 — Correct SmartDNS lifecycle checker's autostart fixture input
+
+- Parent main: `e0c8269b265618aa49ba9ce73796af9ac87458dc`. Process run `44322259809` on `b2c45feae66a367b1752628d3e20ed3d55a4beb1` passed process inventory and the SmartDNS process-lifecycle shell suite, but the Python checker failed at `SMARTDNS_STATUS=45`: the checker still named the SmartDNS-specific lifecycle regression file `test` and compared new autostart-only phrases against it.
+- The fixture itself now contains the intended status-45 invalid-state simulation, DNSMasq/state byte-comparison guards, failure log assertion and DDNSTO/FRP continuation checks. Add a distinct `autostart_test` file input and scope only those new assertions to the correct fixture; preserve the existing SmartDNS process-test checks.
+- This is checker/docs-only; no production source or shell-test change in THIS COMMIT. Exact-head Process run required. AI docs and Process inventory on `b2c45fe` passed; XY-C1 on the previous WAN source SHA `a36da985` was still running at the last poll. No local test or hardware L4 is claimed.
+
+---
+
 ## 2026-11-18 — Preserve malformed SmartDNS state across generic autostart
 
 - Parent main: `a36da98521b1d2fc3b7641f4cd98f73d103d89e7`. Process workflow `44321557863` on `661d4f30857fdf97a922a5ee3bfffdebbfc920a8` passed the SmartDNS process-state/source contract and process inventory, then failed at the optional-autostart shell test. The previous fixture had already stopped demanding generic autostart rewrite DNSMasq, but still expected the stub SmartDNS launcher to delete malformed saved state while simultaneously checking that the state bytes were unchanged.

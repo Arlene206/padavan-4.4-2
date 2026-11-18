@@ -1,5 +1,9 @@
 # 2026-11-18 latest source checkpoint
 
+- Live main before THIS COMMIT: `e0c8269b265618aa49ba9ce73796af9ac87458dc`. SmartDNS product source is unchanged at `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; this round only corrects its regression fixture/source contract.
+- SmartDNS autostart fixture now models malformed persisted state as a failing SmartDNS launch (status 45), with byte-identical DNSMasq/state preservation and independent DDNSTO/FRP continuation. The Process run `44322259809` exposed a checker wiring mistake: autostart assertions were accidentally checked against the SmartDNS-only process test file. THIS COMMIT points them at the correct test source.
+- Exact-head AI docs and Process inventory on `b2c45fe` PASS; its Process lifecycle failed only at that checker variable mismatch. The follow-up Process result is pending. On parent `a36da98`, WAN route/gateway, detect_internet/detect_link, VPN, Wireless, HTTPD security, miniupnpd, ZeroTier, USB modem and DNSMasq workflows PASS. XY-C1 and NVRAM audit on `a36da98` were pending.
+
 - Live main before THIS COMMIT: `a36da98521b1d2fc3b7641f4cd98f73d103d89e7`. SmartDNS managed DNSMasq product source remains `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; all later changes in this slice concern regression/checker/handoff records, not production SmartDNS code.
 - Process run `44321557863` on `661d4f30857fdf97a922a5ee3bfffdebbfc920a8` passed the SmartDNS process-state contract and process inventory, then failed only because the autostart fixture still expected its stub launcher to delete malformed saved state. THIS COMMIT fixes the regression to require fail-closed preservation and independent add-on continuation, and pins the production Read_ini contract.
 - DNSMasq regression `44321070200` on `0439e8c` PASS. XY-C1 `44318683585` on exact production SHA `9bb9fda` passed Build XY-C1, TRX verification and artifact upload (L3 VERIFIED on that SHA); actual router runtime/L4 remains NOT VERIFIED.
