@@ -1,3 +1,12 @@
+## 2026-11-18 22:06 CST (UTC+8) — Align SSH detached-start checker with shared wait policy
+
+- Base main SHA: `5e5c3c0515e0f42513711703e637cd7bab312c88`. The exact-head Process fail-closed run `44319662328` on `8223c9b9023f48fbeb7c6cb2a114cde7ba2d46db` passed the compiled SSH tri-state/firewall policy regression and the firewall shutdown contract, then failed in `scripts/check_sshd_firewall_status.py` because its ordering assertion still required a direct `sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS)` call.
+- Current `start_sshd()` correctly routes the initial and retry delays through `service_start_probe_wait("SSH", ...)`, the shared status-returning helper. Align the checker with that API while retaining its existing ordering and retry-bound assertions; no production source or runtime behavior changes.
+- Related SmartDNS checker repair is already on main: `e896587` replaced the obsolete direct state-file truncation assertion with the atomic `smartdns_write_ini_state()` contract; `5e5c3c0` made helper function-body extraction accept the actual POSIX `name()` declarations. Exact DNSMasq workflow `44319742816` on `5e5c3c0515e0f42513711703e637cd7bab312c88` PASS.
+- Exact Process run `44319662328` remains a failure on its older SHA until this SSH checker reruns on the new head. The independent vsftpd source-contract run `44319662317` on `8223c9b` also failed after its C host tests passed; it is the next bounded CI repair. This commit changes only a checker and project records; no local checkout-based execution, MIPS firmware build or router L4 test is claimed. New exact-head Actions are pending.
+ 
+---
+
 ## 2026-11-18 — Verify Adbyby NVRAM failure-propagation correction
 
 - Production source `0c102bce73f5905713e496da2d1dfbbccc97a0fa` changes transient NVRAM reset handling: non-stop actions fail closed on read/write errors, while stop always attempts full teardown and returns an earlier NVRAM preparation error afterwards.

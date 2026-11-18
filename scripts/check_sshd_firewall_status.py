@@ -102,7 +102,7 @@ start_order = (
     start.index("if (!sshd_start_allowed(state))"),
     start.index('start_status = eval("/usr/bin/sshd.sh", "start"'),
     start.index("if (start_status != 0)"),
-    start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);"),
+    start.index('service_start_probe_wait("SSH", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);'),
     start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)"),
     start.index("state = sshd_process_presence(&scan_error)", start.index("for (attempt")),
     start.index("sshd_start_postcondition(start_status, state) == 0"),
