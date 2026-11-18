@@ -31,6 +31,7 @@
 #include "logger_start_policy.h"
 #include "service_start_status.h"
 #include "watchdog_cpu_restart_policy.h"
+#include "service_wait_policy.h"
 
 static int optional_daemon_start_status(const char *service_name, const char *process_name);
 static int stop_httpd_locked(void);
@@ -41,6 +42,21 @@ static int optional_daemon_stop_status(const char *service_name, const char *pro
 #include "infosvr_daemon_policy.h"
 #include "httpd_daemon_policy.h"
 #include "httpd_lifecycle_lock.h"
+
+
+static int
+service_start_probe_wait(const char *service_name, unsigned int seconds)
+{
+	int status;
+
+	if (service_wait_seconds(seconds) == 0)
+		return 0;
+	status = errno > 0 ? errno : EIO;
+	logmessage(LOGNAME, "%s startup probe wait failed (errno=%d)",
+		   service_name, status);
+	errno = status;
+	return status;
+}
 
 static void
 record_service_stop_status(int *first_status, const char *service_name, int status)
@@ -174,7 +190,9 @@ start_syslogd(void)
 					     PROCESS_PRESENCE_ABSENT);
 	}
 
-	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	start_status = service_start_probe_wait("syslogd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	if (start_status != 0)
+		return start_status;
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("syslogd", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -186,7 +204,9 @@ start_syslogd(void)
 			return -1;
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
-			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			start_status = service_start_probe_wait("syslogd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			if (start_status != 0)
+				return start_status;
 	}
 
 	errno = ETIMEDOUT;
@@ -218,7 +238,9 @@ start_klogd(void)
 					     PROCESS_PRESENCE_ABSENT);
 	}
 
-	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	start_status = service_start_probe_wait("klogd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	if (start_status != 0)
+		return start_status;
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("klogd", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -230,7 +252,9 @@ start_klogd(void)
 			return -1;
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
-			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			start_status = service_start_probe_wait("klogd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			if (start_status != 0)
+				return start_status;
 	}
 
 	errno = ETIMEDOUT;
@@ -273,7 +297,9 @@ start_infosvr(void)
 		return start_status;
 	}
 
-	sleep(INFOSVR_START_INITIAL_WAIT_SECONDS);
+	start_status = service_start_probe_wait("infosvr", INFOSVR_START_INITIAL_WAIT_SECONDS);
+	if (start_status != 0)
+		return start_status;
 	for (attempt = 0; attempt < INFOSVR_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("infosvr", &scan_error);
 		if (infosvr_start_postcondition(start_status, process_state) == 0)
@@ -285,7 +311,9 @@ start_infosvr(void)
 			return -1;
 		}
 		if (attempt + 1 < INFOSVR_START_PROBE_ATTEMPTS)
-			sleep(INFOSVR_START_RETRY_WAIT_SECONDS);
+			start_status = service_start_probe_wait("infosvr", INFOSVR_START_RETRY_WAIT_SECONDS);
+			if (start_status != 0)
+				return start_status;
 	}
 
 	errno = ETIMEDOUT;
@@ -372,7 +400,9 @@ start_crond(void)
 		return crond_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);
 	}
 
-	sleep(CROND_START_INITIAL_WAIT_SECONDS);
+	status = service_start_probe_wait("crond", CROND_START_INITIAL_WAIT_SECONDS);
+	if (status != 0)
+		return status;
 	status = -1;
 	for (attempt = 0; attempt < CROND_START_PROBE_ATTEMPTS; attempt++) {
 		presence = crond_process_presence(&scan_error);
@@ -387,7 +417,9 @@ start_crond(void)
 		}
 
 		if (attempt + 1 < CROND_START_PROBE_ATTEMPTS)
-			sleep(CROND_START_RETRY_WAIT_SECONDS);
+			status = service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS);
+			if (status != 0)
+				return status;
 	}
 
 	logmessage(LOGNAME, "crond daemon did not remain running after launch");
@@ -454,7 +486,9 @@ start_networkmap(int first_call)
 		return launch_status;
 	}
 
-	sleep(NETWORKMAP_START_INITIAL_WAIT_SECONDS);
+	launch_status = service_start_probe_wait("networkmap", NETWORKMAP_START_INITIAL_WAIT_SECONDS);
+	if (launch_status != 0)
+		return launch_status;
 	for (attempt = 0; attempt < NETWORKMAP_START_PROBE_ATTEMPTS; attempt++) {
 		state = process_inventory_scan("networkmap", &snapshot);
 		if (networkmap_start_postcondition(launch_status, state) == 0) {
@@ -471,7 +505,9 @@ start_networkmap(int first_call)
 		}
 		process_snapshot_release(&snapshot);
 		if (attempt + 1 < NETWORKMAP_START_PROBE_ATTEMPTS)
-			sleep(NETWORKMAP_START_RETRY_WAIT_SECONDS);
+			launch_status = service_start_probe_wait("networkmap", NETWORKMAP_START_RETRY_WAIT_SECONDS);
+			if (launch_status != 0)
+				return launch_status;
 	}
 
 	errno = ETIMEDOUT;
@@ -576,7 +612,9 @@ start_telnetd(void)
 					     PROCESS_PRESENCE_ABSENT);
 	}
 
-	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	start_status = service_start_probe_wait("telnetd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	if (start_status != 0)
+		return start_status;
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("telnetd", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -588,7 +626,9 @@ start_telnetd(void)
 			return -1;
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
-			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			start_status = service_start_probe_wait("telnetd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			if (start_status != 0)
+				return start_status;
 	}
 
 	errno = ETIMEDOUT;
@@ -686,7 +726,9 @@ int start_sshd(void)
 	 * only proves that the wrapper returned; require the child to remain
 	 * visible before reporting a successful start or restart.
 	 */
-	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	start_status = service_start_probe_wait("SSH", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	if (start_status != 0)
+		return start_status;
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		state = sshd_process_presence(&scan_error);
 		if (sshd_start_postcondition(start_status, state) == 0)
@@ -698,7 +740,9 @@ int start_sshd(void)
 			return -1;
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
-			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			start_status = service_start_probe_wait("SSH", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			if (start_status != 0)
+				return start_status;
 	}
 
 	errno = ETIMEDOUT;
@@ -909,7 +953,9 @@ start_ttyd(void)
 					     PROCESS_PRESENCE_ABSENT);
 	}
 
-	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	start_status = service_start_probe_wait("ttyd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	if (start_status != 0)
+		return start_status;
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("ttyd", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -921,7 +967,9 @@ start_ttyd(void)
 			return -1;
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
-			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			start_status = service_start_probe_wait("ttyd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			if (start_status != 0)
+				return start_status;
 	}
 
 	errno = ETIMEDOUT;
@@ -1428,7 +1476,9 @@ start_httpd_locked(int restart_fw)
 	 * HTTPD can daemonize after _eval()'s launcher exits. Publish service
 	 * state and open firewall ports only after the child remains observable.
 	 */
-	sleep(HTTPD_START_INITIAL_WAIT_SECONDS);
+	status = service_start_probe_wait("HTTPD", HTTPD_START_INITIAL_WAIT_SECONDS);
+	if (status != 0)
+		return status;
 	status = -1;
 	for (attempt = 0; attempt < HTTPD_START_PROBE_ATTEMPTS; attempt++) {
 		presence = httpd_process_presence(&scan_error);
@@ -1443,7 +1493,9 @@ start_httpd_locked(int restart_fw)
 		}
 
 		if (attempt + 1 < HTTPD_START_PROBE_ATTEMPTS)
-			sleep(HTTPD_START_RETRY_WAIT_SECONDS);
+			status = service_start_probe_wait("HTTPD", HTTPD_START_RETRY_WAIT_SECONDS);
+			if (status != 0)
+				return status;
 	}
 
 	if (status != 0) {
@@ -1594,7 +1646,9 @@ start_rstats(void)
 					     PROCESS_PRESENCE_ABSENT);
 	}
 
-	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	start_status = service_start_probe_wait("rstats", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	if (start_status != 0)
+		return start_status;
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("rstats", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -1606,7 +1660,9 @@ start_rstats(void)
 			return -1;
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
-			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			start_status = service_start_probe_wait("rstats", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			if (start_status != 0)
+				return start_status;
 	}
 
 	errno = ETIMEDOUT;
@@ -1655,7 +1711,9 @@ start_lltd(void)
 					     PROCESS_PRESENCE_ABSENT);
 	}
 
-	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	start_status = service_start_probe_wait("LLTD", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	if (start_status != 0)
+		return start_status;
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("lld2d", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -1667,7 +1725,9 @@ start_lltd(void)
 			return -1;
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
-			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			start_status = service_start_probe_wait("LLTD", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			if (start_status != 0)
+				return start_status;
 	}
 
 	errno = ETIMEDOUT;

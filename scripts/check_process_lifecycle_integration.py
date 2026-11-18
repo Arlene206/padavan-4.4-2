@@ -2999,3 +2999,37 @@ assert klog_preflight < klog_launch < klog_wait < klog_probe < klog_inventory < 
 assert "bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv)" in klogd_source
 assert klogd_source.index("bb_daemonize_or_rexec(DAEMON_CHDIR_ROOT, argv)") < klogd_source.index('openlog("kernel"')
 print("syslogd/klogd detached startup postconditions and BusyBox contracts: PASS")
+
+
+# Detached RC daemon launchers must complete the configured settling interval
+# even when a signal interrupts sleep(); the common helper retries the remainder.
+rc_services = (root / "trunk/user/rc/src/services.c").read_text()
+service_wait = (root / "trunk/user/rc/src/service_wait_policy.h").read_text()
+assert '#include "service_wait_policy.h"' in rc_services
+wait_body = c_function_body(service_wait, "service_wait_seconds_with(unsigned int seconds")
+assert "while (seconds > 0)" in wait_body
+assert "seconds = remaining;" in wait_body
+assert "if (remaining > seconds)" in wait_body
+start_wait = c_function_body(
+    rc_services, "service_start_probe_wait(const char *service_name")
+assert "service_wait_seconds(seconds)" in start_wait
+assert "errno > 0 ? errno : EIO" in start_wait
+assert "return status;" in start_wait
+for signature, service_name, initial, retry in (
+    ("start_syslogd(void)", "syslogd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+    ("start_klogd(void)", "klogd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+    ("start_infosvr(void)", "infosvr", "INFOSVR_START_INITIAL_WAIT_SECONDS", "INFOSVR_START_RETRY_WAIT_SECONDS"),
+    ("start_crond(void)", "crond", "CROND_START_INITIAL_WAIT_SECONDS", "CROND_START_RETRY_WAIT_SECONDS"),
+    ("start_networkmap(int first_call)", "networkmap", "NETWORKMAP_START_INITIAL_WAIT_SECONDS", "NETWORKMAP_START_RETRY_WAIT_SECONDS"),
+    ("start_telnetd(void)", "telnetd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+    ("start_sshd(void)", "SSH", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+    ("start_ttyd(void)", "ttyd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+    ("start_httpd_locked(int restart_fw)", "HTTPD", "HTTPD_START_INITIAL_WAIT_SECONDS", "HTTPD_START_RETRY_WAIT_SECONDS"),
+    ("start_rstats(void)", "rstats", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+    ("start_lltd(void)", "LLTD", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+):
+    daemon_start = c_function_body(rc_services, signature)
+    assert f'service_start_probe_wait("{service_name}", {initial})' in daemon_start
+    assert f'service_start_probe_wait("{service_name}", {retry})' in daemon_start
+    assert "sleep(" not in daemon_start and "usleep(" not in daemon_start, signature
+print("RC detached-daemon startup probes preserve full wait intervals across EINTR: PASS")
