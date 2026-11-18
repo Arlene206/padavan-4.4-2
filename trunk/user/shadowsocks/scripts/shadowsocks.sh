@@ -544,7 +544,6 @@ ss_publish_and_restart_dnsmasq() {
 			rm -f "$tmp_file" "$backup_file"
 			return 1
 		fi
-	fi
 	elif [ "$dnsmasq_profile" = "2" ]; then
 		if ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'conf-dir=/etc/storage/dnsmasq-ss.d' ||
 		   ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'conf-dir=/etc/storage/dnsmasq-ss.d/' ||
