@@ -1,3 +1,11 @@
+## 2026-11-17 — Load the AliDNS record-IP parser in its API regression harness
+
+- Parent main: `26009d20fe485cb7470fd557a735c011bdf52d24`. Exact-head AliDDNS CI showed the new whitespace-tolerant record-detail case calling `arDdnsInfo()` without extracting its production `get_recordIP()` dependency into the isolated test shell. The parser change itself was present; this was a test harness omission.
+- Add the missing production-function extraction adjacent to `get_recordid()`. No product behavior changes. Rerun the entire exact-head AliDDNS transport suite and retain the XY-C1 build result separately.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Parse AliDNS record fields with JSON separator whitespace
 
 - Parent main: `0a84eb000c32a2f7e05a69af7980725239310842`. The API envelope validator already accepts JSON whitespace around colons, but record extraction required compact `"RecordId":"…"`, `"Type":"A"` and `"Value":"…"` tokens. A valid spaced response could therefore be mistaken for an empty record lookup; the update flow might attempt to add a duplicate record instead of updating the existing record.
