@@ -962,7 +962,7 @@ jobs:
               assert "if (root_partition_status < 0)" in body
               assert "if (root_partition_status > 0)" in body
               assert "partition inventory is unknown for %s" in body
-              assert 'return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;' in body
+              assert 'return (swapoff_status == 0 && tune_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;' in body
               assert 'notify_rc("on_hotplug_mass_storage")' in body
 
           check_root = function_body(hotplug, "check_root_partition(")

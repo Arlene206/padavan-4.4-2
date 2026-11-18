@@ -1,3 +1,11 @@
+## 2026-11-18 — Align storage caller contract with HDD tune result propagation
+
+- Exact storage run `44218214340` on `7f10d225` passed the new hddtune shell runtime regression, share-name policy, Optware/MTD/persistence/eject and lifecycle checks, then failed at line 585 because its old SD handler return assertion omitted the newly included `tune_status`.
+- Correct the duplicated checker expectation; no production source or runtime-test behavior changes.
+- The same source SHA HTTPD, AdGuardHome, AliDDNS, AliyunDrive, infosvr, AI docs and Process lifecycle passed; NVRAM, Process inventory and XY-C1 were still in progress. Exact storage rerun pending.
+
+---
+
 ## 2026-11-18 — Aggregate HDD tuning failures without blocking storage mount
 
 - Parent main SHA: `7f50d54c1c61ed821f063291e127da75a0268211`. USB modem `44216537116`, HTTPD `44216537047`, AI docs `44216537225`, infosvr `44216537061`, AdGuardHome `44216537101`, AliDDNS `44216537361`, AliyunDrive `44216537117`, Process inventory `44216537152`, Process lifecycle `44216537350`, and NVRAM `44216537363` PASS; XY-C1 `44216537251` remained in progress.
