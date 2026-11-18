@@ -998,18 +998,29 @@ start_lan(int is_ap_mode, int do_wait)
 				/* early fill XXX_t fields */
 				update_lan_status(0);
 
-				/* wait PHY ports link ready */
-				if (do_wait)
-					sleep(1);
+				/* Complete the PHY link-settling interval despite signal interruptions. */
+				if (do_wait) {
+					operation_status = service_wait_seconds(1);
+					if (operation_status != 0) {
+						operation_status = errno > 0 ? errno : EIO;
+						errno = operation_status;
+						logmessage(LOGNAME,
+							   "LAN PHY link readiness wait failed; refusing DHCP client launch (status=%d)",
+							   operation_status);
+					}
+				}
 
 				/* di wakeup after 60 secs */
 				notify_run_detect_internet(60);
 
-				/* start DHCP daemon only when its event handler is verified */
-				operation_status = start_udhcpc_lan(lan_ifname);
-				if (operation_status != 0)
-					logmessage(LOGNAME, "LAN DHCP client launch failed (status=%d)",
-						   operation_status);
+				/* Do not start DHCP until the mandatory PHY settle wait succeeds. */
+				if (operation_status == 0) {
+					/* start DHCP daemon only when its event handler is verified */
+					operation_status = start_udhcpc_lan(lan_ifname);
+					if (operation_status != 0)
+						logmessage(LOGNAME, "LAN DHCP client launch failed (status=%d)",
+							   operation_status);
+				}
 				start_status = rc_first_service_start_status(start_status, operation_status);
 			}
 		} else {

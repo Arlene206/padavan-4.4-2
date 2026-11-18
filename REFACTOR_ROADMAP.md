@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `8c4b3684e3386cbe63fc07ed46e5f77bf120ad37`. Existing production fixes use EINTR-safe waits for WAN/PPP, native DHCPv6, PPPoE relay, NFSd, detached daemons and LAN DHCP grace handling.
-- Latest LAN DHCP checker repair is `8c4b368`; WAN-route trigger-filter repair `131238b` has exact WAN-route run `44325745439` PASS.
-- This commit fixes a separate LAN hardware reliability gap: `full_restart_lan()` now preserves the one-second PHY reset interval across signals, records wait errors and always attempts power-up before restarting LAN services. Exact-head regression and XY-C1 results are pending.
+- Live main before THIS COMMIT: `07ef69dbac678786f287f5aa35b929af62f4c9e4`. Shared EINTR-safe readiness waits now cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, detached daemons, LAN PHY power cycling and LAN DHCP deconfig. `07ef69d` also made pre-flash sync settling signal-safe and restores watchdog on wait failure.
+- On `65d783f`, exact WAN route, WAN DHCP, detect-internet, Process inventory/fail-closed and AI docs all PASS; XY-C1/NVRAM were pending. The LAN PHY full-restart change is included in that tested SHA.
+- THIS COMMIT removes the remaining raw PHY-ready `sleep(1)` in `start_lan()`; shared wait failure now prevents udhcpc launch and propagates to the caller. Exact-head WAN-route/Process and XY-C1 results pending.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

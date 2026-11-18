@@ -405,6 +405,17 @@ jobs:
           lan_start = body(net_lan, "start_lan(int is_ap_mode, int do_wait)")
           assert "operation_status = reload_lan_addr6();" in lan_start
           assert "start_status = rc_first_service_start_status(start_status, operation_status);" in lan_start
+          phy_wait_guard = lan_start.index("if (do_wait)")
+          phy_wait = lan_start.index("operation_status = service_wait_seconds(1);", phy_wait_guard)
+          phy_wait_failure = lan_start.index("if (operation_status != 0)", phy_wait)
+          phy_wait_errno = lan_start.index("operation_status = errno > 0 ? errno : EIO;", phy_wait_failure)
+          phy_wait_log = lan_start.index("LAN PHY link readiness wait failed; refusing DHCP client launch", phy_wait_errno)
+          detect_wakeup = lan_start.index("notify_run_detect_internet(60)", phy_wait_log)
+          dhcp_gate = lan_start.index("if (operation_status == 0)", detect_wakeup)
+          dhcp_launch = lan_start.index("start_udhcpc_lan(lan_ifname)", dhcp_gate)
+          dhcp_status = lan_start.index("rc_first_service_start_status(start_status, operation_status)", dhcp_launch)
+          assert phy_wait_guard < phy_wait < phy_wait_failure < phy_wait_errno < phy_wait_log < detect_wakeup < dhcp_gate < dhcp_launch < dhcp_status
+          assert "sleep(1);" not in lan_start
           lan_restart = body(net_lan, "full_restart_lan(void)")
           assert '#include "service_wait_policy.h"' in net_lan
           power_down = lan_restart.index("phy_ports_lan_power(0)")

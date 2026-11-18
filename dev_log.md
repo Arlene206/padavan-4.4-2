@@ -1,3 +1,11 @@
+## 2026-11-18 — Require completed LAN PHY readiness wait before DHCP launch
+
+- Parent main: `07ef69dbac678786f287f5aa35b929af62f4c9e4`. `start_lan()` validated the LAN DHCP callback script but then used raw `sleep(1)` before `start_udhcpc_lan()`. Because signals can interrupt `sleep()`, the client could start before the one-second PHY settle interval completed.
+- Replace with `service_wait_seconds(1)` under `do_wait`. A hard failure is normalized to errno/EIO, logged and aggregated; `udhcpc` launch is now gated on successful wait. The independent 60-second detect-internet monitor wakeup is retained.
+- WAN-route source contract verifies the guarded wait, error propagation, monitor wakeup and DHCP launch gate. The shared wait test covers EINTR retry and hard errors. Exact-head Actions pending; no local test or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Make LAN PHY power-cycle delay EINTR-safe
 
 - Parent main: `8c4b3684e3386cbe63fc07ed46e5f77bf120ad37`. Review of `full_restart_lan()` found a raw `sleep(1)` between powering down LAN PHY ports and restoring them. A signal could shorten the hardware reset interval, causing the switch ports to be re-enabled too early.
