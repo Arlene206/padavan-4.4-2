@@ -32,6 +32,8 @@ on:
       - "trunk/user/libdisk/src/dev_info.h"
       - "trunk/user/libdisk/src/usb_info.c"
       - "trunk/user/rc/src/hotplug_usb.c"
+      - "trunk/user/rc/src/modem_sr_status_policy.h"
+      - "trunk/user/rc/src/tests/modem_sr_status_policy.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"

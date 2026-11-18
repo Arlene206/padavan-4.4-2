@@ -1,11 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Main parent before THIS USB SCSI hotplug reliability fix: `2d91171b217e6f42a96fa5af7da3cdcacc499b3f`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact parent `2d91171b` HTTPD Security `44211273335`, AI handoff `44211273436` and infosvr `44211273238` PASS. XY-C1 `44211273337` remains in Build; NVRAM `44211273258` remains in raw userland/kernel caller audit. Other lifecycle/security workflows listed in the exact-SHA runs were pending at last poll.
-- `mdev_sr_main()` previously dropped SCSI eject and safe `sr_mod` unload results. THIS fix captures both; a tri-state sysfs presence probe distinguishes helper failure from already-absent module, retains module-in-use no-op, and fails closed on present/unknown state. Adds GNU89/Werror/ASan/UBSan tests and a USB modem source contract.
-- Exact-head USB modem L2 and current-source XY-C1 Build/TRX/artifact are pending; physical L4 NOT VERIFIED.
+- Parent main before THIS USB workflow filter repair: `2fc75549023388f2e90da2c324c372873cee7ee9`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact parent USB modem workflow `44211715745` ran the SCSI eject/unload sanitizer test and source-body assertions successfully, then failed only because the new policy header/test paths were missing from `pull_request`; THIS commit adds them to the PR filter.
+- Exact parent AI handoff `44211715782` PASS. HTTPD Security `44211715867`, NVRAM audit `44211716167`, Process inventory `44211715739` and other lifecycle/security checks were pending at last poll.
+- SCSI CD handler `2fc75549` captures eject/unload results and uses tri-state module presence to recognize confirmed absence while failing closed on present/unknown state. Its GNU89/Werror/ASan/UBSan policy test PASSed on the exact parent.
+- Firmware L3 and hardware L4 NOT VERIFIED.
 
-Next: verify exact-head USB modem test/source contract and same-SHA XY-C1 Build/TRX/artifact; inspect NVRAM audit and other in-flight checks; continue independent P1 work.
+Next: verify exact-head USB modem workflow including both event filters; inspect HTTPD/NVRAM/Process checks and XY-C1 Build/TRX/artifact; continue an independent P1 fix.
 
 ---
 

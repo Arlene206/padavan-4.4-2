@@ -1,3 +1,11 @@
+## 2026-11-18 — Add USB SCSI policy files to pull_request filter
+
+- Parent main SHA: `2fc75549023388f2e90da2c324c372873cee7ee9`. Exact USB modem workflow `44211715745` successfully compiled/ran the SCSI GNU89/Werror/ASan/UBSan policy test and passed inline source assertions, then failed its final path-filter assertion because the new policy header/test were omitted from the pull_request filter.
+- THIS workflow-only correction adds both entries to the PR filter and verifies each exists exactly once under push and pull_request. Production C source unchanged.
+- Exact parent AI handoff `44211715782` PASS; HTTPD Security `44211715867`, NVRAM audit `44211716167` and Process inventory `44211715739` were pending at last observation. Exact-head USB rerun pending.
+
+---
+
 ## 2026-11-18 — Propagate USB SCSI CD eject/unload failures
 
 - Parent main SHA: `2d91171b217e6f42a96fa5af7da3cdcacc499b3f`. Exact parent HTTPD Security `44211273335`, AI docs `44211273436`, infosvr `44211273238` PASS. XY-C1 `44211273337` remains in Build; NVRAM `44211273258` remains at raw ioctl/kernel caller audit; several other lifecycle/security checks were pending.
