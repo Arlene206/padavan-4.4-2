@@ -511,6 +511,86 @@ ss_start_chinadns_daemon() {
 	fi
 }
 
+# Stage and validate dnsmasq config before atomic publication and bounded restart.
+ss_publish_and_restart_dnsmasq() {
+	[ "$#" -eq 3 ] || return 2
+	local config_file="$1"
+	local dnsmasq_bin="$2"
+	local use_chinadns="$3"
+	local tmp_file=""
+	local backup_file=""
+	local restart_status=0
+	local rollback_status=0
+
+	case "$use_chinadns" in 0|1) ;; *) return 2 ;; esac
+	[ -f "$config_file" ] && [ -r "$config_file" ] || return 1
+	[ -x "$dnsmasq_bin" ] || return 127
+	tmp_file=$(mktemp "${config_file}.tmp.XXXXXX") || return 1
+	backup_file=$(mktemp "${config_file}.rollback.XXXXXX") || {
+		rm -f "$tmp_file"
+		return 1
+	}
+	if ! cp -p "$config_file" "$tmp_file" ||
+	   ! cp -p "$config_file" "$backup_file"; then
+		rm -f "$tmp_file" "$backup_file"
+		return 1
+	fi
+	if [ "$use_chinadns" = "1" ]; then
+		if ! sed -i '/no-resolv/d' "$tmp_file" ||
+		   ! sed -i '/server=127.0.0.1/d' "$tmp_file" ||
+		   ! printf 'no-resolv\nserver=127.0.0.1#65353\n' >> "$tmp_file"; then
+			rm -f "$tmp_file" "$backup_file"
+			return 1
+		fi
+	fi
+	if ! sed -i '/min-cache-ttl/d' "$tmp_file" ||
+	   ! sed -i '/dns-forward-max/d' "$tmp_file" ||
+	   ! printf 'min-cache-ttl=1800\ndns-forward-max=1000\n' >> "$tmp_file"; then
+		rm -f "$tmp_file" "$backup_file"
+		return 1
+	fi
+	if ! "$dnsmasq_bin" --test -C "$tmp_file" >/dev/null 2>&1; then
+		log "Staged dnsmasq config failed validation; previous config retained"
+		rm -f "$tmp_file" "$backup_file"
+		return 1
+	fi
+	if ! mv -f "$tmp_file" "$config_file"; then
+		rm -f "$tmp_file" "$backup_file"
+		return 1
+	fi
+
+	if ss_stop_named_processes dnsmasq; then
+		if run_bin "$dnsmasq_bin"; then
+			rm -f "$backup_file"
+			return 0
+		else
+			restart_status=$?
+		fi
+	else
+		restart_status=$?
+	fi
+	log "dnsmasq restart failed (status=$restart_status); restoring previous config"
+	if mv -f "$backup_file" "$config_file"; then
+		backup_file=""
+		if ss_stop_named_processes dnsmasq; then
+			if run_bin "$dnsmasq_bin"; then
+				log "Previous dnsmasq config restored and service restarted"
+			else
+				rollback_status=$?
+				log "Previous dnsmasq config restored, but service rollback failed (status=$rollback_status)"
+			fi
+		else
+			rollback_status=$?
+			log "Previous dnsmasq config restored, but service stop is unverified (status=$rollback_status)"
+		fi
+	else
+		rollback_status=$?
+		log "Unable to restore previous dnsmasq config; backup retained at $backup_file (status=$rollback_status)"
+	fi
+	rm -f "$tmp_file"
+	return "$restart_status"
+}
+
 start_dns() {
 	echo "create china hash:net family inet hashsize 1024 maxelem 65536" >/tmp/china.ipset
 	awk '!/^$/&&!/^#/{printf("add china %s'" "'\n",$0)}' /etc/storage/chinadns/chnroute.txt >>/tmp/china.ipset
@@ -550,24 +630,14 @@ start_dns() {
 				log "ChinaDNS-ng failed to become ready (status=$dns_status)"
 				return "$dns_status"
 			fi
-			# adding upstream chinadns-ng 
-			sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
-			sed -i '/server=127.0.0.1/d' /etc/storage/dnsmasq/dnsmasq.conf
-			cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
-no-resolv
-server=127.0.0.1#65353
-EOF
 		fi
-		# dnsmasq optimization
-		sed -i '/min-cache-ttl/d' /etc/storage/dnsmasq/dnsmasq.conf
-		sed -i '/dns-forward-max/d' /etc/storage/dnsmasq/dnsmasq.conf
-		cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
-min-cache-ttl=1800
-dns-forward-max=1000
-EOF
-		# restart dnsmasq
-		killall dnsmasq
-		/user/sbin/dnsmasq >/dev/null 2>&1 &
+		if ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$ss_chdns"; then
+			:
+		else
+			dns_status=$?
+			log "dnsmasq configuration/restart failed (status=$dns_status)"
+			return "$dns_status"
+		fi
 	}
 	case "$run_mode" in
 	router)

@@ -1,3 +1,12 @@
+## 2026-11-18 — Stage dnsmasq configuration before verified restart and rollback
+
+- ChinaDNS setup previously performed multiple live-file `sed -i`/append writes, followed by unchecked `killall dnsmasq` and detached launch. Partial writes or failed startup could strand the router without the previous working DNS configuration.
+- Add same-directory staging and rollback copies, preserve metadata with `cp -p`, apply the intended ChinaDNS/cache directives to the staged copy, validate with `dnsmasq --test -C`, then atomically publish. Stop with the bounded lifecycle helper and require a new daemon PID via `run_bin`; on any stop/start failure, restore the previous config and attempt a verified old-service restart while preserving the original status. Keep the backup if restoration fails.
+- Regression covers successful publication/restart, invalid staged config preserving live file and service, and replacement-start failure restoring old config and recovering dnsmasq. Static checker pins transaction order and propagation.
+- Parent 4b956 Shadowsocks `44286192332`, Process inventory `44286192381`, umbrella Process `44286192617` PASS; XY-C1 `44286192538` Build/TRX/artifact PASS; docs-only 2528 AI handoff `44288452305` PASS. This source change needs its own exact-SHA Actions and XY-C1.
+
+---
+
 ## 2026-11-18 — Gate ChinaDNS-ng startup on confirmed daemon readiness
 
 - `start_chinadns()` previously set its enabled flag and launched `chinadns-ng` in the background without checking its upstream configuration, executable or child survival; router/GFW branches could mask startup errors with a later DHCP restart result.

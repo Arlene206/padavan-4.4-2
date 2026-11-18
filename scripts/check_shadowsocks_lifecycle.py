@@ -180,6 +180,29 @@ require("ChinaDNS-ng detached readiness" in test and
         "ChinaDNS-ng rejects empty upstream" in test,
         "ChinaDNS-ng tests must cover config, readiness, duplicate and fail-closed errors")
 
+dnsmasq_tx_start = script.index("ss_publish_and_restart_dnsmasq() {")
+dnsmasq_tx_end = script.index("\n\nstart_dns() {", dnsmasq_tx_start)
+dnsmasq_tx = script[dnsmasq_tx_start:dnsmasq_tx_end]
+ordered(dnsmasq_tx, [
+    'cp -p "$config_file" "$tmp_file"',
+    "sed -i '/no-resolv/d' ",
+    "sed -i '/server=127.0.0.1/d' ",
+    '"$dnsmasq_bin" --test -C "$tmp_file"',
+    'mv -f "$tmp_file" "$config_file"',
+    'ss_stop_named_processes dnsmasq',
+    'run_bin "$dnsmasq_bin"',
+    'mv -f "$backup_file" "$config_file"',
+], "dnsmasq staging, validation, atomic publication, verified restart and rollback")
+require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$ss_chdns"' in script and
+        'return "$dns_status"' in script,
+        "ChinaDNS setup must propagate dnsmasq configuration/restart errors")
+require("dnsmasq atomic config and restart" in test and
+        "invalid dnsmasq staged config rejected" in test and
+        "dnsmasq restart failure triggers rollback" in test and
+        "dnsmasq rollback did not restart old service" in test,
+        "dnsmasq regression must cover publication, validation failure and rollback")
+
+
 require('if ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null); then' in helper and
         'if ss_count_pid_output=$(pidof "$ss_count_process_name" 2>/dev/null); then' in helper and
         'if ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null); then' in helper and

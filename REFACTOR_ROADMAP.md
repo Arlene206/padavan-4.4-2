@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Exact-head e412 process lifecycle run `44285579546` PASS and AI handoff run `44285579386` PASS after correcting the Python helper range delimiters. Product source from cfbf has exact-source XY-C1 run `44283616981` SUCCESS, including Build XY-C1, TRX and artifact upload.
-- THIS production slice gates ChinaDNS-ng with validated PID inventory and bounded detached-child readiness; it validates non-empty upstream DNS and executable availability, avoids duplicate starts, sets the active feature flag only after confirmed RUNNING, and propagates router/GFW errors.
-- ChinaDNS tests and source checker added; new exact-SHA L2/L3 Actions pending. Existing dnsmasq config writes and restart remain a separate open transactional/reliability task; L4 NOT VERIFIED.
-- Frozen backup remains immutable and PR #1 closed.
+- ChinaDNS-ng source SHA `4b956fe1d8fa3fe3c6dbad8bd9bcb8116379b7bc`: Shadowsocks lifecycle `44286192332`, Process inventory `44286192381`, umbrella Process inventory `44286192617` PASS; XY-C1 `44286192538` SUCCESS including Build/TRX/artifact; docs-only `2528eb7` AI handoff `44288452305` PASS.
+- THIS slice stages dnsmasq config beside the live file, preserves metadata, validates with `dnsmasq --test -C`, atomically publishes it, performs bounded stop/start verification and restores the previous config/service on failure.
+- Regression covers success, invalid config without live-state change, and failed restart with rollback. New exact-SHA Actions and product build pending; physical-router L4 NOT VERIFIED.
+- Frozen backup remains immutable; PR #1 closed.
 
-Next P1: pass exact-SHA tests and XY-C1 for this ChinaDNS source SHA; then implement atomic dnsmasq configuration and verified stop/restart rollback.
+Next P1: verify this exact-SHA source/test/build slice, then inspect dnsmasq/DHCP service-manager coupling and broader RC/userland reliability.
 
 ---
 ## Whole-repository module status

@@ -158,6 +158,29 @@ printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/chinadns-ng"
 printf '4247\n' > "$PROCESS_STATE_DIR/chinadns-ng.pids"
 exit 0
 EOF
+
+cat > "$TMP_DIR/bin/dnsmasq" <<'EOF'
+#!/bin/sh
+if [ "${1:-}" = "--test" ]; then
+	[ "$#" -eq 3 ] && [ "$2" = "-C" ] && [ -r "$3" ] || exit 2
+	[ "${DNSMASQ_TEST_MODE:-ready}" != "fail" ] || exit 19
+	grep -q '^dns-forward-max=1000$' "$3" || exit 18
+	exit 0
+fi
+run_count=0
+[ ! -f "$PROCESS_STATE_DIR/dnsmasq_runs" ] || run_count=$(cat "$PROCESS_STATE_DIR/dnsmasq_runs")
+run_count=$((run_count + 1))
+printf '%s\n' "$run_count" > "$PROCESS_STATE_DIR/dnsmasq_runs"
+case "${DNSMASQ_START_MODE:-ready}" in
+	fail) exit 19 ;;
+	rollback) [ "$run_count" -eq 1 ] && exit 19 ;;
+	unknown) : > "$PROCESS_STATE_DIR/pidof_unknown" ;;
+esac
+printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsmasq"
+printf '4248\n' > "$PROCESS_STATE_DIR/dnsmasq.pids"
+exit 0
+EOF
+chmod 755 "$TMP_DIR/bin/dnsmasq"
 chmod 755 "$TMP_DIR/bin/ssr-redir" "$TMP_DIR/bin/lua" "$TMP_DIR/bin/chinadns-ng"
 
 chmod 755 "$TMP_DIR/bin/dnsproxy" "$TMP_DIR/bin/dns2tcp"
@@ -177,6 +200,7 @@ ipset() { return 0; }
 sed -n \
 	-e '/^run_bin() {/,/^}/p' \
 	-e '/^ss_start_chinadns_daemon() {/,/^}/p' \
+	-e '/^ss_publish_and_restart_dnsmasq() {/,/^}/p' \
 	-e '/^stop_dns_proxy() {/,/^}/p' \
 	-e '/^start_dns_proxy() {/,/^}/p' \
 	-e '/^ss_launch_watchcat() {/,/^}/p' \
@@ -332,6 +356,47 @@ expect_status 1 "ChinaDNS-ng immediate child exit" ss_start_chinadns_daemon "223
 CHINADNS_START_MODE=unknown
 expect_status 2 "ChinaDNS-ng UNKNOWN startup inventory" ss_start_chinadns_daemon "223.5.5.5" ""
 rm -f "$PROCESS_STATE_DIR/pidof_unknown" "$PROCESS_STATE_DIR/chinadns-ng" "$PROCESS_STATE_DIR/chinadns-ng.pids"
+
+# dnsmasq config is staged, validated and atomically published before service restart.
+dnsmasq_config="$TMP_DIR/dnsmasq.conf"
+cat > "$dnsmasq_config" <<'EOF'
+# valid-test baseline
+server=1.1.1.1
+no-resolv
+server=127.0.0.1#5353
+min-cache-ttl=60
+dns-forward-max=20
+EOF
+DNSMASQ_TEST_MODE=ready
+DNSMASQ_START_MODE=ready
+export DNSMASQ_TEST_MODE DNSMASQ_START_MODE
+printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsmasq"
+printf '4246\n' > "$PROCESS_STATE_DIR/dnsmasq.pids"
+expect_status 0 "dnsmasq atomic config and restart" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 1
+grep -q '^server=127.0.0.1#65353$' "$dnsmasq_config" || fail "ChinaDNS upstream was not published"
+[ "$(grep -c '^no-resolv$' "$dnsmasq_config")" -eq 1 ] || fail "no-resolv directive was not normalized"
+[ "$(grep -c '^min-cache-ttl=1800$' "$dnsmasq_config")" -eq 1 ] || fail "min-cache-ttl was not normalized"
+[ "$(grep -c '^dns-forward-max=1000$' "$dnsmasq_config")" -eq 1 ] || fail "dns-forward-max was not normalized"
+[ -f "$PROCESS_STATE_DIR/dnsmasq" ] || fail "dnsmasq replacement process was not observed"
+
+cp "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-validation-failure"
+DNSMASQ_TEST_MODE=fail
+expect_status 1 "invalid dnsmasq staged config rejected" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 0
+cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-validation-failure" || fail "invalid config changed live file"
+[ -f "$PROCESS_STATE_DIR/dnsmasq" ] || fail "invalid staged config stopped active daemon"
+DNSMASQ_TEST_MODE=ready
+
+cp "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-rollback"
+rm -f "$PROCESS_STATE_DIR/dnsmasq_runs"
+printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsmasq"
+printf '4246\n' > "$PROCESS_STATE_DIR/dnsmasq.pids"
+DNSMASQ_START_MODE=rollback
+expect_status 1 "dnsmasq restart failure triggers rollback" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 0
+cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-rollback" || fail "dnsmasq restart did not restore original config"
+[ -f "$PROCESS_STATE_DIR/dnsmasq" ] || fail "dnsmasq rollback did not restart old service"
+[ "$(cat "$PROCESS_STATE_DIR/dnsmasq_runs")" -eq 2 ] || fail "dnsmasq rollback launch count was not two"
+ss_stop_named_processes dnsmasq
+rm -f "$PROCESS_STATE_DIR/dnsmasq" "$PROCESS_STATE_DIR/dnsmasq.pids" "$PROCESS_STATE_DIR/dnsmasq_runs"
 
 # An immediate child exit is not reported as a successful service start.
 RUN_BIN_MODE=fail
