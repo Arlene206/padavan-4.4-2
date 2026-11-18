@@ -35,6 +35,7 @@
 #include "dhcp_lease_policy.h"
 #include "lan_kernel_name_policy.h"
 #include "lan_dhcp_callback_policy.h"
+#include "service_wait_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "switch.h"
@@ -1956,6 +1957,7 @@ stop_udhcpc_lan(void)
 {
 	const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
 	int signal_status;
+	int wait_status;
 
 	/*
 	 * The LAN client is not started with -R. SIGTERM alone exits a BOUND
@@ -1970,7 +1972,14 @@ stop_udhcpc_lan(void)
 			return -1;
 		}
 	} else {
-		usleep(300000);
+		wait_status = service_wait_microseconds(300000U);
+		if (wait_status != 0) {
+			wait_status = errno > 0 ? errno : EIO;
+			logmessage(LOGNAME, "refusing LAN DHCP stop: deconfig grace wait failed (status=%d)",
+				   wait_status);
+			errno = wait_status;
+			return wait_status;
+		}
 	}
 
 	/* Never SIGKILL udhcpc while its lease cleanup may be retrying. */

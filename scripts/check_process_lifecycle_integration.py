@@ -846,9 +846,12 @@ lan_ifdown_resume = lan_stop_transaction.index("notify_run_detect_internet(2)", 
 lan_dhcp_stop = net_lan_dhcp.split("stop_udhcpc_lan(void)", 1)[1].split("\n}\n", 1)[0]
 lan_release = lan_dhcp_stop.index('process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)')
 lan_identity_gate = lan_dhcp_stop.index("errno != ENOENT && errno != ESRCH")
-lan_release_wait = lan_dhcp_stop.index("usleep(300000)")
+lan_release_wait = lan_dhcp_stop.index("service_wait_microseconds(300000U)")
 lan_noforce_stop = lan_dhcp_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
 assert lan_release < lan_identity_gate < lan_release_wait < lan_noforce_stop
+assert "if (wait_status != 0)" in lan_dhcp_stop
+assert "refusing LAN DHCP stop: deconfig grace wait failed" in lan_dhcp_stop
+assert "usleep(300000)" not in lan_dhcp_stop
 assert lan_pause < lan_preflight < lan_preflight_failure < lan_preflight_resume < lan_preflight_return < lan_ifdown
 assert lan_ifdown < lan_ifdown_resume
 assert "if (status != 0 && is_ap_mode)" in lan_stop_transaction
