@@ -3,12 +3,12 @@
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- WAN VLAN source commit: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`. First checker follow-up is current main `117c52c925cb96478802d8c4bd2e829e4bd9c133`; fetch live main at the next recovery rather than assuming a remembered SHA.
+- Main before this IPv6-disabled WAN safety slice: `6b8e3f6e98ddda6d12a34167d8c1d631aecb54a1`. Previous WAN VLAN source commit: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`; fetch live main at the next recovery rather than assuming a remembered SHA.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not switch to, update or delete it.
 - PR #1 remains closed/unmerged; do not revive it.
 - No local checkout, MIPS cross-build or physical-router validation was available in this session.
 
-## Active task
+## Completed prerequisite — switch VLAN WAN gate
 
 The previous source slice closed a P1 WAN-startup safety gap. Router-mode `init_bridge()` formerly recorded `switch_config_vlan(1)` failure in its aggregate bridge status, but WAN admission did not consume that result. `init_bridge(int is_ap_mode, int *switch_vlan_status)` now exports only the switch VLAN isolation result; `init_router()` passes it into `firewall_startup_policy_allows_wan()`. Any nonzero result blocks WAN even when firewall and NAT are disabled. Unrelated radio/guest bridge errors are not promoted to the WAN prerequisite. The existing IPv4/IPv6 forwarding-disable cleanup remains in place.
 
@@ -28,6 +28,10 @@ Atomic source commit: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` (parent `26f063
 
 - Wireless radio run `44354158097` and AI handoff run `44354157678` are SUCCESS. Process lifecycle run `44354157953` still FAILS in its separate embedded LAN startup checker: that workflow itself searches for the old `init_bridge(int is_ap_mode)` signature/prototype/call after the shared guest-isolation checker was repaired. This repair updates the Process workflow's local signature, prototype and `init_router()` caller assertions to the `switch_vlan_status` output parameter, and verifies the VLAN result is captured between `switch_config_vlan(1)` and its bridge-status record. The workflow already watches its own file on both push and pull_request.
 
+## Active task — fail closed when IPv6 disable cannot be verified
+
+IPv6 configured as disabled is a security boundary: if global `disable_ipv6`, RA-suppression or forwarding sysctl writes fail, WAN must not start merely because IPv6 firewall filtering was considered unnecessary. `init_router()` now retains the exact `init_ipv6()` status and passes a dedicated disabled-IPv6 prerequisite into the WAN policy. The new gate applies only to configured-disabled IPv6; enabled IPv6 continues to rely on the existing active firewall-filter requirement. On any rejected WAN startup, PID 1 retries the global IPv6 forwarding-disable write and records a failure rather than conditioning that safety cleanup on the configured IPv6 mode.
+
 ## Verification boundary
 
 - WAN VLAN source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`: Firewall policy C regression passed; exact-source XY-C1 run `44351420211` is now SUCCESS, including every host regression, Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for this exact firmware source SHA; physical-router L4 remains NOT VERIFIED.
@@ -38,9 +42,9 @@ Atomic source commit: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` (parent `26f063
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head `push` Actions for the Process workflow-contract repair. On parent SHA `68154ac14fad3330f99b2310f796cbcf66960e2e`, Wireless radio `44354158097` and AI handoff `44354157678` are SUCCESS; Process lifecycle `44354157953` FAILS only because its separate embedded checker still expects the old `init_bridge` signature/prototype/caller. The shared guest-isolation checker itself was repaired and Wireless is now green. Firewall/HTTPD/AI contracts on prior checker SHA `117c52c925cb96478802d8c4bd2e829e4bd9c133` passed. XY-C1 run `44351420211` on product source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` passed Build, TRX and artifact upload (L3 for that SHA).
-2. After the new Process exact-head check passes, finish the next P1 IPv6 safety slice in `trunk/user/rc/src/rc.c`: retain the result of `init_ipv6()` and block WAN only when IPv6 is configured disabled but the global disable sysctls did not complete. Extend `firewall_startup_policy.h` and its C regression for positive/negative failures; preserve the existing enabled-IPv6 firewall filter gate. Re-attempt global IPv6 forwarding disable on any rejected WAN startup.
-3. Do not turn early `init_sysctl()` memory/TCP performance tuning failures into PID-1 boot blockers. Those writes are best-effort; continue cross-userland stability/security afterward.
+1. Fetch live main and inspect all exact-head push Actions for this IPv6 WAN-gate commit, especially Firewall Startup, HTTPD Security, Process lifecycle, Wireless radio, AI handoff documentation and XY-C1. Read any failed job logs; PENDING checks must not block independent work.
+2. If the exact-SHA checks pass, continue the P1 PID-1 review at `trunk/user/rc/src/init.c::init_sysctl()` only for required network/firewall state. Do not turn best-effort memory/TCP performance tuning into boot blockers.
+3. Continue cross-userland stability and security fixes; preserve the completed switch-VLAN WAN gate and disabled-IPv6 fail-closed policy. Physical-router validation remains a separate L4 requirement.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

@@ -1,3 +1,10 @@
+## 2026-11-19 01:08 CST — Gate WAN when configured-disabled IPv6 cannot be verified
+
+- Base main SHA: `6b8e3f6e98ddda6d12a34167d8c1d631aecb54a1`. The active stability candidate was a WAN-startup gap: `init_ipv6()` already reported failure to apply global IPv6 disable sysctls, but `init_router()` discarded that status after updating the aggregate boot result. With IPv6 configured disabled, the existing WAN policy did not require IPv6 filter installation and could therefore still admit WAN.
+- Retained `ipv6_disable_required` and the exact `ipv6_init_status` in PID 1. Added a separate fail-closed policy gate only for configured-disabled IPv6; enabled IPv6 continues to use the existing active firewall-filter prerequisite. Any rejected WAN path now retries the global IPv6 forwarding-disable write, even when IPv6 is configured disabled, and propagates retry failure.
+- Extended the GNU89 policy regression for successful disable, positive and negative sysctl errors, and preservation of enabled-IPv6 behavior. Updated Firewall Startup and HTTPD Security embedded source contracts. Their existing push/pull_request path filters already include `rc.c`, the policy header and its test; XY-C1 path filters include these production inputs.
+- This slice changes firmware production source, regression coverage, CI assertions and handoff tracking. No local checkout/compiler was available, so no local test or target build is claimed. Exact-head Actions, including XY-C1 Build/TRX/artifact, must be checked after publication; L4 hardware remains unverified.
+
 ## 2026-11-19 01:04 CST — Align Process workflow with switch VLAN output parameter
 
 - Parent main SHA: `68154ac14fad3330f99b2310f796cbcf66960e2e`. Wireless radio run `44354158097` and AI handoff docs `44354157678` passed after the guest-LAN checker whitespace normalization. Process lifecycle run `44354157953` then exposed a second, independent stale contract inside its own workflow: the embedded checker still searched for the previous `init_bridge` signature and expected the old prototype and one-argument caller.

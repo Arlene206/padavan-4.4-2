@@ -3630,10 +3630,12 @@ jobs:
           assert "firewall_startup_policy_allows_wan" in startup_policy
           assert "if (switch_vlan_status != 0)" in startup_policy
           assert "if (nat_required && nat_restore_status != 0)" in startup_policy
-          assert "firewall_startup_policy_allows_wan(1, 0, 0, -1, 0, 0, 0)" in startup_test
-          assert "firewall_startup_policy_allows_wan(0, -1, 1, -1, 0, -1, 0)" in startup_test
-          assert "firewall_startup_policy_allows_wan(0, -1, 0, -1, 1, -1, 0)" in startup_test
-          assert "firewall_startup_policy_allows_wan(0, -1, 0, -1, 1, 1, 0)" in startup_test
+          assert "if (ipv6_disable_required && ipv6_disable_status != 0)" in startup_policy
+          assert "test_disabled_ipv6_requires_verified_global_disable" in startup_test
+          assert "firewall_startup_policy_allows_wan(1, 0, 0, -1, 0, 0, 0, 0, 0)" in startup_test
+          assert "firewall_startup_policy_allows_wan(0, -1, 1, -1, 0, -1, 0, 0, 0)" in startup_test
+          assert "firewall_startup_policy_allows_wan(0, -1, 0, -1, 1, -1, 0, 0, 0)" in startup_test
+          assert "firewall_startup_policy_allows_wan(0, -1, 0, -1, 1, 1, 0, 0, 0)" in startup_test
           assert "int ipt_nat_default(void);" in rc_header
           assert "int ipt_filter_default(void);" in rc_header
           assert "int ip6t_filter_default(void);" in rc_header
@@ -3648,14 +3650,18 @@ jobs:
           assert 'nat_required = nvram_match("wan_nat_x", "1");' in boot
           assert boot.index("nat_required = nvram_match") < boot.index("nat_restore_status = ipt_nat_default();")
           assert "nat_restore_status = ipt_nat_default();" in boot
-          assert "nat_required," in boot and "nat_restore_status," in boot and "switch_vlan_status))" in boot
+          boot_compact = " ".join(boot.split())
+          assert "nat_required, nat_restore_status, switch_vlan_status, ipv6_disable_required, ipv6_init_status))" in boot_compact
           assert "ipv4_filter_status = ipt_filter_default();" in boot
           assert "ipv6_filter_status = ip6t_filter_default();" in boot
-          assert "get_ipv6_type() != IPV6_DISABLED" in boot
+          assert "ipv6_filter_required = !ipv6_disable_required;" in boot
+          assert "ipv6_disable_required = (get_ipv6_type() == IPV6_DISABLED);" in rc_source
+          assert "ipv6_init_status = init_ipv6();" in rc_source
+          assert "Blocking WAN startup: IPv6 is configured disabled but global disable sysctls could not be verified" in rc_source
           assert "firewall_startup_policy_allows_wan" in boot
           assert boot.index("firewall_startup_policy_allows_wan") < boot.index("start_wan();")
           assert "set_ipv4_forward(0);" in boot
-          assert 'set_interface_conf_int("ipv6", "all", "forwarding", 0);' in boot
+          assert 'ipv6_forward_disable_status = set_interface_conf_int("ipv6", "all", "forwarding", 0);' in boot
           print("Early WAN startup fails closed when an active firewall filter cannot be installed: OK")
           print("Firewall table restore transaction, reverse rollback and fail-closed recovery contracts: OK")
           print("Firewall restore and extension command failures are reported: OK")

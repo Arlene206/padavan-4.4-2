@@ -970,6 +970,8 @@ init_router(void)
 	int boot_modules_status, boot_services_status;
 	int rwfs_mount_status;
 	int switch_vlan_status = 0;
+	int ipv6_disable_required = 0;
+	int ipv6_init_status = 0;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -1069,11 +1071,10 @@ init_router(void)
 			boot_services_status, bridge_start_status);
 	}
 #if defined (USE_IPV6)
-	{
-		int ipv6_init_status = init_ipv6();
-		boot_services_status = rc_first_service_start_status(
-			boot_services_status, ipv6_init_status);
-	}
+	ipv6_disable_required = (get_ipv6_type() == IPV6_DISABLED);
+	ipv6_init_status = init_ipv6();
+	boot_services_status = rc_first_service_start_status(
+		boot_services_status, ipv6_init_status);
 #endif
 	set_cpu_affinity();
 
@@ -1142,7 +1143,7 @@ init_router(void)
 		nat_restore_status = ipt_nat_default();
 		ipv4_filter_status = ipt_filter_default();
 #if defined (USE_IPV6)
-		ipv6_filter_required = (get_ipv6_type() != IPV6_DISABLED);
+		ipv6_filter_required = !ipv6_disable_required;
 		ipv6_filter_status = ip6t_filter_default();
 #endif
 		if (nat_restore_status != 0)
@@ -1155,10 +1156,15 @@ init_router(void)
 							ipv6_filter_status,
 							nat_required,
 							nat_restore_status,
-							switch_vlan_status)) {
+							switch_vlan_status,
+							ipv6_disable_required,
+							ipv6_init_status)) {
 			if (switch_vlan_status != 0)
 				logmessage(LOGNAME, "Blocking WAN startup: required switch VLAN isolation could not be verified (status=%d)",
 					   switch_vlan_status);
+			else if (ipv6_disable_required && ipv6_init_status != 0)
+				logmessage(LOGNAME, "Blocking WAN startup: IPv6 is configured disabled but global disable sysctls could not be verified (status=%d)",
+					   ipv6_init_status);
 			else
 				logmessage(LOGNAME, "Blocking WAN startup: required NAT table or restrictive IPv4/IPv6 firewall filters could not be verified");
 			ipv4_forward_disable_status = set_ipv4_forward(0);
@@ -1169,14 +1175,12 @@ init_router(void)
 					boot_services_status, ipv4_forward_disable_status);
 			}
 #if defined (USE_IPV6)
-			if (ipv6_filter_required) {
-				ipv6_forward_disable_status = set_interface_conf_int("ipv6", "all", "forwarding", 0);
-				if (ipv6_forward_disable_status != 0) {
-					logmessage(LOGNAME, "failed to disable IPv6 forwarding after firewall startup rejection (status=%d)",
-						   ipv6_forward_disable_status);
-					boot_services_status = rc_first_service_start_status(
-						boot_services_status, ipv6_forward_disable_status);
-				}
+			ipv6_forward_disable_status = set_interface_conf_int("ipv6", "all", "forwarding", 0);
+			if (ipv6_forward_disable_status != 0) {
+				logmessage(LOGNAME, "failed to disable IPv6 forwarding after firewall startup rejection (status=%d)",
+					   ipv6_forward_disable_status);
+				boot_services_status = rc_first_service_start_status(
+					boot_services_status, ipv6_forward_disable_status);
 			}
 #endif
 		} else {
