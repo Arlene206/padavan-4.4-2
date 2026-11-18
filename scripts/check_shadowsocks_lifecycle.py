@@ -130,7 +130,9 @@ for path in ("trunk/user/shadowsocks/scripts/shadowsocks.sh",
     require(path in workflow, f"workflow path filter missing {path}")
 
 
-rules = script[script.index("rules() {"):script.index("\\n\\ncase $1 in", script.index("rules() {"))]
+rules_start = script.index("rules() {")
+rules_end = script.index("\n\ncase $1 in", rules_start)
+rules = script[rules_start:rules_end]
 require(
     'if start_rules; then' in rules and 'status=$?' in rules
     and 'return "$status"' in rules,
