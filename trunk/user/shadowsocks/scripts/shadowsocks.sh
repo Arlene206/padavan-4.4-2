@@ -1083,8 +1083,20 @@ ssp_start() {
 	return 0
 }
 
+ss_restart_dhcpd() {
+	/sbin/restart_dhcpd
+}
+
+ss_run_detect() {
+	/usr/bin/detect.sh
+}
+
 # ========== 关闭 SS ==========
 ssp_close() {
+	local close_status=0
+	local command_status=0
+	local cleanup_pattern=""
+
 	# Do not tear down firewall/configuration state while a proxy process can
 	# still be running and consuming it.
 	if ! kill_process; then
@@ -1092,22 +1104,58 @@ ssp_close() {
 		return 1
 	fi
 	rm -rf /tmp/cdn
-	$SS_RULES -f
+	if "$SS_RULES" -f; then
+		:
+	else
+		command_status=$?
+		close_status=$command_status
+		log "Shadowsocks firewall cleanup failed (status=$command_status)"
+	fi
 	cgroups_cleanup
-	sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
-	sed -i '/server=127.0.0.1/d' /etc/storage/dnsmasq/dnsmasq.conf
-	sed -i '/cdn/d' /etc/storage/dnsmasq/dnsmasq.conf
-	sed -i '/gfwlist/d' /etc/storage/dnsmasq/dnsmasq.conf
-	sed -i '/dnsmasq.oversea/d' /etc/storage/dnsmasq/dnsmasq.conf
+	for cleanup_pattern in '/no-resolv/d' '/server=127.0.0.1/d' '/cdn/d' '/gfwlist/d' '/dnsmasq.oversea/d'; do
+		if sed -i "$cleanup_pattern" /etc/storage/dnsmasq/dnsmasq.conf; then
+			:
+		else
+			command_status=$?
+			if [ "$close_status" -eq 0 ]; then
+				close_status=$command_status
+			fi
+			log "DNSMasq config cleanup failed for $cleanup_pattern (status=$command_status)"
+		fi
+	done
 	if [ -f "/etc/storage/dnsmasq-ss.d" ]; then
-		rm -f /etc/storage/dnsmasq-ss.d
+		if rm -f /etc/storage/dnsmasq-ss.d; then
+			:
+		else
+			command_status=$?
+			if [ "$close_status" -eq 0 ]; then
+				close_status=$command_status
+			fi
+			log "DNSMasq Shadowsocks include cleanup failed (status=$command_status)"
+		fi
 	fi
 	clear_iptable
-	/sbin/restart_dhcpd
-	if [ "$pppoemwan" = 0 ]; then
-		/usr/bin/detect.sh
+	if ss_restart_dhcpd; then
+		:
+	else
+		command_status=$?
+		if [ "$close_status" -eq 0 ]; then
+			close_status=$command_status
+		fi
+		log "DNSMasq service restart after Shadowsocks shutdown failed (status=$command_status)"
 	fi
-	return 0
+	if [ "$pppoemwan" = 0 ]; then
+		if ss_run_detect; then
+			:
+		else
+			command_status=$?
+			if [ "$close_status" -eq 0 ]; then
+				close_status=$command_status
+			fi
+			log "PPPoE-MWAN reconciliation after Shadowsocks shutdown failed (status=$command_status)"
+		fi
+	fi
+	return "$close_status"
 }
 
 

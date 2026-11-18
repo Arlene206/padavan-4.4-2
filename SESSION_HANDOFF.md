@@ -1,26 +1,25 @@
-# 2026-11-18 continuation checkpoint — dnsmasq transaction source contract correction
+# 2026-11-18 continuation checkpoint — propagate Shadowsocks shutdown service errors
 
 ## Current repository state
-- Repository: Arlene206/padavan-4.4-2; active branch main. This checker follow-up is based on exact parent 8e2121694004a1fdd79150a6e8107f845f2eea80. Refresh main before any further write.
+- Repository Arlene206/padavan-4.4-2, branch main. This source/test slice is based on exact parent b118b841d5b292285c296288fd01229fcf63f28a; refresh live main before any further write.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807; PR #1 remains closed/unmerged.
-- Exact 8e Actions: Process lifecycle inventory 44291689977 PASS; Process inventory umbrella 44291689958 PASS; AI handoff docs 44291690049 PASS. Shadowsocks 44291689941 passed syntax, required startup, process lifecycle (including stop-timeout fixture) and Adblock runtime tests, but failed the static source checker because one remaining assertion still expected the pre-normalized $ss_chdns argument instead of $use_chinadns. This follow-up fixes that assertion. Exact XY-C1 was not triggered by the test/docs-only 8e commit; source commit cb6d XY-C1 44291015307 was still IN_PROGRESS at last poll.
-- Exact cb6d AI docs failed because the handoff omitted a cross-session rule; 3ec corrected that rule but revealed the required heading; 8e restores all mandatory sections and the AI docs Action passed.
+- Exact b118 checks: Shadowsocks lifecycle 44292658234 PASS; AI handoff docs 44292658587 PASS. XY-C1 run 44291015307 for parent source cb6d completed successfully: Build XY-C1, TRX verification, artifact upload and the cross-build job all SUCCESS. This new shutdown source slice has not yet run exact-head CI.
+- Prior test iterations on cb6d/3ec/8e fixed the DNSMasq stop-failure fixture; on 8e all runtime tests passed and only one stale source assertion remained, corrected in b118.
 
 ## Active task
-- ChinaDNS-ng startup validates non-empty upstream and UNKNOWN-safe process inventory, avoids duplicates, and requires a bounded RUNNING postcondition.
-- DNSMasq publication stages/backs up configuration, validates with dnsmasq --test -C, confirms process stop before atomic publish, verifies startup with bounded process inventory and rolls back safely when startup fails. The standalone launcher keeps global dnsmasq outside Shadowsocks cgroups.
-- The ChinaDNS active flag is published only after the config transaction and service readiness succeed. Runtime shell regressions now pass: successful apply, syntax rejection, stop-timeout fail-closed behavior, restart rollback and cgroup isolation.
-- The current exact-head Shadowsocks failure is only a stale static checker assertion; source arguments were intentionally normalized to "$use_chinadns".
+- DNSMasq transaction / ChinaDNS-ng readiness work remains in place: staged syntax-checked configuration, verified stop-before-publish, bounded standalone dnsmasq PID launch outside Shadowsocks cgroups, rollback, and ChinaDNS active-state gating.
+- This slice fixes a concrete close-path defect: ssp_close previously discarded errors from firewall cleanup, DNSMasq config edits, /sbin/restart_dhcpd and PPPoE-MWAN reconciliation, then returned success unconditionally. It now preserves the first encountered cleanup/service error, logs failures, continues independent cleanup, and returns the status to stop/restart/reserver callers. Incomplete proxy process stop still exits before tearing down shared state.
+- Host tests cover healthy close, DNSMasq restart error propagation, first-error retention, and aborting cleanup after proxy stop failure.
 
 ## Verification boundary
-- Exact 8e runtime shell tests, startup regression and Adblock regression passed. Process inventory/umbrella and AI handoff Actions passed. The exact-head Shadowsocks source checker failed on the stale "$ss_chdns" static assertion; correction pending new exact-head check.
-- XY-C1 L3 remains unverified for the cb6d product source until run 44291015307 concludes Build XY-C1, TRX verification and artifact upload. No target BusyBox runtime or physical-router L4 is claimed.
+- Exact b118 Shadowsocks lifecycle and AI handoff Actions PASS. Parent cb6d XY-C1 Build/TRX/artifact SUCCESS. All new ssp_close source/test changes require fresh exact-head regression and XY-C1 Build/TRX/artifact checks.
+- No target BusyBox runtime or physical-router L4 is claimed.
 
 ## Exact first action for the next GPT
-1. Fetch live main and exact-head Actions for this checker correction; fix any real regression rather than merely updating text.
-2. Confirm the cb6d XY-C1 Build, TRX check and artifact upload result; run a fresh exact-source build if it failed or source has changed.
-3. Continue inspecting the oversea and ssp_close DNSMasq configuration paths. The RC restart_dhcpd implementation holds /tmp/.dnsmasq.lifecycle.lock and performs tri-state stop and bounded start; the Shadowsocks helper currently directly stops/starts dnsmasq without that shared lifecycle lock. Decide whether to converge the helper onto the RC service entry point without weakening atomic rollback or cgroup isolation.
-4. Add focused regressions for any source change, then broaden P1 reliability across RC/userland. Keep the frozen backup immutable and physical-router L4 unverified.
+1. Fetch live main and inspect exact-head Shadowsocks, Process inventory/umbrella, AI handoff and XY-C1 Actions for this shutdown-error slice; fix any actual failure rather than merely changing expected text.
+2. Confirm the same product SHA completes Build XY-C1, TRX verification and artifact upload.
+3. Continue the DNSMasq lifecycle boundary review: Shadowsocks dnsmasq helper directly stops/starts the process and therefore bypasses the existing C RC /tmp/.dnsmasq.lifecycle.lock; decide whether to use official /sbin/restart_dhcpd inside the atomic publish/rollback transaction while keeping dnsmasq outside Shadowsocks cgroups.
+4. Then replace broad substring-based dnsmasq include cleanup in oversea / ssp_close / ss-rules with exact directive matching and injected regression tests. Keep backup immutable and physical-router L4 unverified.
 
 ## Mandatory handoff checkpoint
 Every session MUST inspect live repository state and compare it with SESSION_HANDOFF.md, verifying active engineering baseline, exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all facts are accurate, make no file change and do not create a no-op commit.

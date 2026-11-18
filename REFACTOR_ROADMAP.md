@@ -1,10 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- Exact 8e Actions: runtime Shadowsocks shell tests, Process lifecycle inventory 44291689977, umbrella Process 44291689958 and AI docs 44291690049 PASS. Shadowsocks 44291689941 failed only at the final static assertion expecting "$ss_chdns" rather than normalized "$use_chinadns". This follow-up updates that checker assertion; new exact-head Actions pending.
-- Source commit cb6d changed dnsmasq stop/publish/rollback and ChinaDNS flag timing; its exact XY-C1 run 44291015307 remained IN_PROGRESS at last poll, and XY-C1 was not triggered by 8e because it changed tests/docs only.
-- Runtime dnsmasq regressions now pass on 8e, including fail-closed stop timeout, rollback and cgroup isolation. Target-router L4 remains unverified.
+- Exact b118 Actions: Shadowsocks lifecycle 44292658234 PASS; AI handoff 44292658587 PASS. Parent cb6d XY-C1 run 44291015307 completed successfully through Build XY-C1, TRX verification and artifact upload.
+- This source slice fixes ssp_close swallowing /sbin/restart_dhcpd and PPPoE-MWAN reconciliation failures; it adds first-error retention and regression coverage for normal close, DHCP restart failure, cleanup error precedence and proxy stop gating. Exact-head checks are pending.
+- DNSMasq transaction tests passed on b118; physical-router L4 remains unverified.
 
-Next P1: pass checker correction and verify cb6d XY-C1 Build/TRX/artifact; then resolve the DNSMasq lifecycle-lock boundary and clean up oversea/ssp_close config mutations.
+Next P1: pass exact-head Shadowsocks/Process/AI and XY-C1 Build/TRX/artifact for the close-status slice; then converge the DNSMasq helper on the RC lifecycle lock and make include cleanup exact rather than substring-based.
 
 ---
 

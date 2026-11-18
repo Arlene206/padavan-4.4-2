@@ -16,6 +16,9 @@ sed -n \
 	-e '/^ssp_record_start_failure() {/,/^}/p' \
 	-e '/^ssp_run_pppoe_detect() {/,/^}/p' \
 	-e '/^ssp_start() {/,/^}/p' \
+	-e '/^ss_restart_dhcpd() {/,/^}/p' \
+	-e '/^ss_run_detect() {/,/^}/p' \
+	-e '/^ssp_close() {/,/^}/p' \
 	"$SCRIPT" > "$TMP_DIR/start-functions.sh"
 . "$TMP_DIR/start-functions.sh"
 
@@ -220,4 +223,65 @@ called "log:Optional Shadowsocks update scheduling failed (status=55)"
 called start_local
 called "log:已启动科学上网..."
 
-echo "Shadowsocks required-stage startup status regression: PASS"
+# Exercise the shutdown contract with injected service and cleanup failures.
+SS_RULES=mock_ss_rules
+mock_ss_rules() { record "ss_rules:$1"; return "${FAIL_SS_RULES:-0}"; }
+kill_process() { record kill_process; return "${FAIL_KILL_PROCESS:-0}"; }
+cgroups_cleanup() { record cgroups_cleanup; return 0; }
+clear_iptable() { record clear_iptable; return 0; }
+ss_restart_dhcpd() { record restart_dhcpd; return "${FAIL_RESTART_DHCPD:-0}"; }
+ss_run_detect() { record detect; return "${FAIL_DETECT_SCRIPT:-0}"; }
+sed() { record "sed:$*"; return "${FAIL_SED:-0}"; }
+rm() {
+	if [ "$1" = "-rf" ] && [ "$2" = "/tmp/cdn" ]; then
+		record rm_cdn
+		return 0
+	fi
+	command rm "$@"
+}
+close_reset() {
+	: > "$CALL_LOG"
+	: > "$LOG_FILE"
+	pppoemwan=0
+	unset FAIL_SS_RULES FAIL_KILL_PROCESS FAIL_RESTART_DHCPD FAIL_DETECT_SCRIPT FAIL_SED
+}
+close_expect_status() {
+	expected=$1
+	label=$2
+	if ssp_close; then actual=0; else actual=$?; fi
+	[ "$actual" -eq "$expected" ] || fail "$label returned $actual, expected $expected"
+}
+close_called() { grep -Fqx "$1" "$CALL_LOG" || fail "shutdown missed stage: $1"; }
+close_not_called() { if grep -Fqx "$1" "$CALL_LOG"; then fail "shutdown unexpectedly ran stage: $1"; fi; }
+
+close_reset
+close_expect_status 0 "healthy shutdown"
+close_called kill_process
+close_called 'ss_rules:-f'
+close_called cgroups_cleanup
+close_called clear_iptable
+close_called restart_dhcpd
+close_called detect
+
+close_reset
+FAIL_RESTART_DHCPD=73
+close_expect_status 73 "DNSMasq restart failure propagation"
+close_called restart_dhcpd
+close_called detect
+grep -Fq 'DNSMasq service restart after Shadowsocks shutdown failed (status=73)' "$LOG_FILE" || fail "DNSMasq restart failure was not logged"
+
+close_reset
+FAIL_SED=74
+FAIL_RESTART_DHCPD=75
+close_expect_status 74 "first shutdown error preservation"
+close_called restart_dhcpd
+close_called detect
+
+close_reset
+FAIL_KILL_PROCESS=76
+close_expect_status 1 "proxy stop failure aborts shutdown"
+close_not_called rm_cdn
+close_not_called restart_dhcpd
+close_not_called detect
+
+echo "Shadowsocks startup/shutdown status regression: PASS"

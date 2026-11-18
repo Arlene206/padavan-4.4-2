@@ -244,8 +244,13 @@ require("config PGREP\n\tbool \"pgrep\"\n\tdefault y" in busybox_config and
 
 close = script[script.index("ssp_close() {"):script.index("\n\n\nclear_iptable() {")]
 ordered(close, ["if ! kill_process; then", "return 1", "rm -rf /tmp/cdn",
-                "$SS_RULES -f", "cgroups_cleanup"],
-        "preserve firewall/cgroup state until processes stop")
+                'if "$SS_RULES" -f; then', "cgroups_cleanup",
+                "if ss_restart_dhcpd; then", 'return "$close_status"'],
+        "preserve firewall/cgroup state until processes stop and propagate DNSMasq restart errors")
+require('ss_restart_dhcpd() {\n\t/sbin/restart_dhcpd' in script and
+        'ss_run_detect() {\n\t/usr/bin/detect.sh' in script and
+        'DNSMasq service restart after Shadowsocks shutdown failed' in close,
+        "shutdown must propagate DNSMasq and PPPoE-MWAN failures")
 for action in ("stop)", "restart)", "reserver)"):
     start = script.index(action, script.index("case $1 in"))
     end = script.find(";;", start)
@@ -313,7 +318,7 @@ require("FAIL_TCP=31" in startup_test and "FAIL_UDP=32" in startup_test and
         "FAIL_LOCAL=36" in startup_test and "FAIL_WATCHCAT=37" in startup_test and
         "FAIL_RULES=12" in startup_test and "FAIL_NVRAM_SET=41" in startup_test and
         "FAIL_DETECT=42" in startup_test and "FAIL_AUTO_UPDATE=55" in startup_test and
-        "Shadowsocks required-stage startup status regression: PASS" in startup_test,
+        "Shadowsocks startup/shutdown status regression: PASS" in startup_test,
         "startup status regression must cover required failures and disabled semantics")
 print("Shadowsocks required-stage startup status source contract: PASS")
 

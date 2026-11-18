@@ -1,3 +1,12 @@
+## 2026-11-18 — Propagate DNSMasq restart failure from Shadowsocks shutdown
+
+- Exact b118b841d5b292285c296288fd01229fcf63f28a Shadowsocks lifecycle Action 44292658234 PASS (shell syntax, startup status, process lifecycle including DNSMasq stop-timeout/rollback, Adblock and static ROMFS/source checks); AI handoff Action 44292658587 PASS. Parent source commit cb6d80f XY-C1 run 44291015307 completed successfully: Build XY-C1, TRX verification, artifact upload and the cross-build job all SUCCESS.
+- Found a concrete lifecycle reporting defect in ssp_close(): it unconditionally returned 0 after /sbin/restart_dhcpd and /usr/bin/detect.sh, so stop/restart/reserver could report success or proceed to a new startup while DNSMasq had not restarted. Preserve the first encountered firewall/config/service/reconciliation error, log failures, continue independent cleanup, and return the status to callers. Keep the existing early gate: if proxy process stop is incomplete, do not touch firewall/config/cgroups.
+- Added host regressions for healthy close, DNSMasq restart error propagation, first-error retention and aborting cleanup after proxy stop failure. Static source contract checks the new return path.
+- This commit changes ROMFS shell source and needs a fresh exact-head Shadowsocks/Process/AI/XY-C1 run. No target BusyBox runtime or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-18 — Fix stale ChinaDNS normalized-argument contract
 
 - Exact 8e2121694004a1fdd79150a6e8107f845f2eea80 Actions: Shadowsocks runtime syntax, required-startup, bounded-process and Adblock regressions all PASS; Process lifecycle inventory 44291689977 PASS; umbrella Process inventory 44291689958 PASS; AI handoff 44291690049 PASS.
