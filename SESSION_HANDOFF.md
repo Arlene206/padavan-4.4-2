@@ -25,6 +25,8 @@
 4. Continue the existing whole-userland stability/security roadmap; do not repeat the completed shared-RC trigger audit absent a new concrete workflow change.
 
 ## Mandatory handoff checkpoint
+The checkpoint is mandatory; a document edit is conditional. Every session must inspect live main and exact-head Actions before ending. Leave this handoff unchanged when the current facts and first next action remain accurate.
+
 Every session must inspect live main and exact-head Actions before ending. Leave this file unchanged when the active task, validation boundary and first next action remain accurate.
 
 ## Cross-session execution mandate

@@ -1,3 +1,11 @@
+## 2026-11-18 — Restore exact mandatory handoff checkpoint contract
+
+- Exact main 69313c3f78d433a4364a825618055f41c9c059df AI documentation run 44335089694 failed because SESSION_HANDOFF.md contained a checkpoint heading but omitted the checker's exact mandatory sentence.
+- Restore the canonical sentence without weakening scripts/check_ai_handoff_docs.py. This is a documentation-contract repair only; no product source or workflow behavior changes.
+- Parent main 69313c3f78d433a4364a825618055f41c9c059df. Exact-head AI docs rerun is required. No local test or hardware claim.
+
+---
+
 ## 2026-11-18 — Preserve CI coverage while governing trigger fan-out
 
 - Audited shared RC path filters against the actual invoked integration checkers. AdGuardHome, Inadyn, NFS, WAN route and USB modem workflows consume relevant shared RC declarations/call paths; retaining those paths is necessary coverage, not false-positive noise. Do not remove shared paths solely because several workflows run.
