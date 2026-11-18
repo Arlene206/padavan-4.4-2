@@ -1,8 +1,8 @@
-# 2026-11-19 continuation checkpoint — AP LAN DHCP PHY readiness
+# 2026-11-19 continuation checkpoint — WAN gateway monitor SIGTERM safety
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; development remains on main. Current main before this documentation-only archive batch: 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1. Current production-source baseline for the AP LAN DHCP fix is 747bb165c61051000dfe6426c0de808cfd96f8b1; follow-up commits 094d488122768b104c54ce371fb92943ceca0689 and 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 only corrected static CI contracts/docs.
+- Repository: Arlene206/padavan-4.4-2; development remains on main. Current main before this source slice: d98ef418844b40bac6c6e31df6480a24645dc47b. Current production-source baseline for the AP LAN DHCP fix is 747bb165c61051000dfe6426c0de808cfd96f8b1; follow-up commits 094d488122768b104c54ce371fb92943ceca0689 and 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 only corrected static CI contracts/docs.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,30 +77,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Close the AP-mode LAN DHCP PHY-readiness repair and unblock the handoff-document CI rotation.
+Remove unsafe asynchronous cleanup from the WAN gateway ARP monitor's SIGTERM handler.
 
-- Production defect: trunk/user/rc/src/net_lan.c::start_lan() reused operation_status for both the required one-second PHY settle wait and independent notify_run_detect_internet(60). The second call overwrote PHY failure before the DHCP launch gate. A monitor success could incorrectly permit DHCP after failed PHY readiness; a monitor failure could suppress DHCP despite successful PHY readiness.
-- Production fix commit 747bb165c61051000dfe6426c0de808cfd96f8b1 (parent a2d0b74112b4002073015dccc5fca88f6ccd43ab) retains phy_wait_status, aggregates it independently, and gates DHCP solely on that result. Added GNU89 regression cases exercise both opposite failure combinations.
-- Process regression run 44422350218 and Process lifecycle inventory run 44422350427 both SUCCESS on checker SHA 094d488122768b104c54ce371fb92943ceca0689. The first Process run on production SHA 747 (44421896053) passed the C regression and exposed one too-broad checker assertion; the corrected checker is green on 094.
-- WAN route run 44422787189 SUCCESS on exact main SHA 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1; its PHY wait/source-order checker verifies the separate PHY status and gate helper.
-- XY-C1 source run 44421896203 SUCCESS on exact production-source SHA 747bb165c61051000dfe6426c0de808cfd96f8b1. Its steps include the RC regressions, Build XY-C1, Verify TRX output, and artifact upload; L3 is VERIFIED for this exact production source SHA.
-- AI handoff docs run 44422787322 FAILED on 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 because dev_log.md reached 121 records. This archive commit moves the 101 oldest complete records verbatim to docs/dev-log/2026/11/part-017.md, retaining the newest 20, and updates the index atomically. The batch is 101 because the 120-record threshold had already been exceeded by one entry before catch-up; no history is discarded.
-- Earlier exact source-independent runs: AI docs 44421896176 SUCCESS on source SHA 747; storage 44420519515 SUCCESS on a2d0b74112b4002073015dccc5fca88f6ccd43ab.
-- Current parent for this archive-only commit: 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1. After commit, inspect the new exact-head AI handoff run. No firmware production file is part of this archival commit; no new XY build should be inferred from it.
+- Parent main SHA: `d98ef418844b40bac6c6e31df6480a24645dc47b`. AP-mode LAN DHCP readiness source `747bb165c61051000dfe6426c0de808cfd96f8b1` is L3 VERIFIED by XY-C1 run `44421896203`: host regressions, Build XY-C1, TRX verification and artifact upload all succeeded. Corrected Process contract `44422350218` and Process inventory `44422350427` are SUCCESS; WAN route checker `44422787189` is SUCCESS.
+- L1 found `trunk/user/rc/src/detect_wan.c::catch_sig_detect_wan()` directly called `remove()` and `exit()` inside SIGTERM handler context. Neither is async-signal-safe; if the signal interrupts libc stdio/allocator state, termination can deadlock or corrupt process state. The existing ARP socket has a one-second receive timeout, allowing shutdown to be deferred.
+- THIS COMMIT replaces the handler with a `volatile sig_atomic_t` stop notification; checks the flag before/after ARP receives and around retries/DHCP renewal; replaces long waits with one-second shutdown-aware slices; and removes the PID file in normal process context after the poll loop exits. Signal-action setup failures now return their errno.
+- Adds `detect_wan_signal_policy.h` and a GNU89/Werror/ASan/UBSan regression for sticky SIGTERM-only flagging; extends the WAN ARP source contract and adds the new production header to XY-C1 push filters. The changed `detect_wan.c` must pass exact-source Build/TRX/artifact.
+- Other verified prerequisites: USB storage run `44420519515` PASS; MentoHUST source `4f54d9f0` L3 PASS `44415470536`; crond/IPTV Process L2 PASS `44419048581` (their XY L3 still open). Dev-log rotation part-017 is committed and AI docs run `44424090829` SUCCESS.
 
 ## Verification boundary
 
-- L1: PASS — AP LAN DHCP admission is now tied only to mandatory PHY readiness.
-- L2: GNU89 service-start regression PASS in Process run 44421896053; corrected Process regression and inventory PASS on exact SHA 094d488122768b104c54ce371fb92943ceca0689; WAN route integration PASS on exact SHA 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1.
-- L3: PASS for production source SHA 747bb165c61051000dfe6426c0de808cfd96f8b1: XY run 44421896203 completed Build XY-C1, TRX verification and artifact upload successfully.
-- AI handoff docs on SHA 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 failed only on root log rotation threshold (121 entries); the archival correction is included here and requires a fresh exact-head docs run.
-- L4: BusyBox target runtime timing and physical-router LAN DHCP behavior remain NOT VERIFIED. No local compile/test ran in this connector-only session.
+- L1: PASS — the previous handler called `remove()/exit()` from signal context; the new handler only records a signal-safe flag and the main loop owns waits and PID cleanup.
+- L2: Exact-head WAN ARP signal-policy compile/test and source checker plus AI handoff docs are pending. Parent WAN route run `44422787189` PASS; AP LAN L2/L3 is closed on its own exact SHAs. Local tests are NOT RUN (GitHub connector-only environment).
+- L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload for this `detect_wan.c` change. A workflow that skips any of those stages is not L3.
+- L4: live gateway renewal/failover, target socket behavior and physical-router shutdown timing remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main after the archive commit and inspect its exact-head AI handoff documentation Action. Require scripts/check_ai_handoff_docs.py to pass and confirm the root has 20 records, part-017.md is indexed with its exact Git blob SHA/byte count, and every pre-existing archive remains indexed.
-2. Keep the production L3 result tied to SHA 747bb165c61051000dfe6426c0de808cfd96f8b1; do not demand a new firmware build for this documentation-only rotation.
-3. Resume the next independent P1 whole-userland source stability issue; do not repeat audits already closed. Keep the backup branch immutable.
+1. Inspect exact-head WAN ARP policy test/source-contract and XY-C1 Build/TRX/artifact for THIS COMMIT; close L2/L3 only on matching SHA.
+2. Inspect AI docs run and preserve part-017 archive/index integrity; root log currently has 20 records and this commit adds the next record.
+3. Continue another independent P1 whole-userland reliability task after this monitor fix; do not re-audit closed storage/AP-LAN work. Preserve the immutable backup.
 
 ## Mandatory handoff checkpoint
 

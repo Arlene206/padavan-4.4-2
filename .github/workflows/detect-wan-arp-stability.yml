@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/detect-wan-arp-stability.yml"
       - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/detect_wan_signal_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_signal_policy.c"
       - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -16,6 +18,8 @@ on:
     paths:
       - ".github/workflows/detect-wan-arp-stability.yml"
       - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/detect_wan_signal_policy.h"
+      - "trunk/user/rc/src/tests/detect_wan_signal_policy.c"
       - "trunk/user/rc/src/detect_wan_arp_socket_policy.h"
       - "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -40,6 +44,14 @@ jobs:
             trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c \
             -o /tmp/detect-wan-arp-socket-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-arp-socket-policy
+      - name: Compile and run GNU89 signal deferral policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_wan_signal_policy.c \
+            -o /tmp/detect-wan-signal-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-wan-signal-policy
       - name: Verify bounded receive and interface binding across the production call path
         run: |
           python3 - <<'PY'
@@ -49,6 +61,8 @@ jobs:
           detect = (rc / "detect_wan.c").read_text()
           policy = (rc / "detect_wan_arp_socket_policy.h").read_text()
           test = (rc / "tests/detect_wan_arp_socket_policy.c").read_text()
+          signal_policy = (rc / "detect_wan_signal_policy.h").read_text()
+          signal_test = (rc / "tests/detect_wan_signal_policy.c").read_text()
           wan = (rc / "net_wan.c").read_text()
           services = (rc / "services.c").read_text()
           dispatcher = (rc / "rc.c").read_text()
@@ -70,6 +84,29 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           assert '#include "detect_wan_arp_socket_policy.h"' in detect
+          # SIGTERM handler must publish only a signal-safe stop request.
+          assert '#include "detect_wan_signal_policy.h"' in detect
+          assert "static volatile sig_atomic_t dw_stopping;" in detect
+          signal_handler = "".join(body(detect, "catch_sig_detect_wan(int sig)").split())
+          assert signal_handler == "detect_wan_record_signal(&dw_stopping,sig);"
+          assert "if (!stopping || signal_number != SIGTERM)" in signal_policy
+          assert "*stopping = 1;" in signal_policy
+          assert "test_sigterm_only_sets_sticky_stop_flag" in signal_test
+          wait_body = body(detect, "detect_wan_wait(unsigned int seconds)")
+          assert "while (seconds > 0 && !dw_stopping)" in wait_body
+          assert "sleep(1)" in wait_body
+          receive_body = body(detect, "arpping_gateway(int ap_mode)")
+          receive_at = receive_body.index("recvfrom(")
+          assert "if (dw_stopping)" in receive_body[:receive_at]
+          assert "if (dw_stopping)" in receive_body[receive_at:]
+          poll_body = body(detect, "poll_gateway(void)")
+          assert "while (!dw_stopping)" in poll_body
+          assert "while (count < MAX_ARP_RETRY && !dw_stopping)" in poll_body
+          assert poll_body.index("if (dw_stopping)\n\t\t\tbreak;") < poll_body.index("chk_udhcpc(ap_mode)")
+          assert "detect_wan_wait(20);" in poll_body
+          monitor_main = body(detect, "detect_wan_main(int argc, char *argv[])")
+          assert "sigaction(SIGTERM, &sa, NULL) < 0" in monitor_main
+          assert monitor_main.index("result = poll_gateway();") < monitor_main.index("remove(DW_PID_FILE)")
           probe = body(detect, "arpping_gateway(int ap_mode)")
           setup = probe.index("detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt)")
           send = probe.index("sendto(", setup)
@@ -122,6 +159,8 @@ jobs:
           paths = (
               ".github/workflows/detect-wan-arp-stability.yml",
               "trunk/user/rc/src/detect_wan.c",
+              "trunk/user/rc/src/detect_wan_signal_policy.h",
+              "trunk/user/rc/src/tests/detect_wan_signal_policy.c",
               "trunk/user/rc/src/detect_wan_arp_socket_policy.h",
               "trunk/user/rc/src/tests/detect_wan_arp_socket_policy.c",
               "trunk/user/rc/src/net_wan.c",
@@ -135,5 +174,6 @@ jobs:
           for path in paths:
               assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
               assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+          assert "Compile and run GNU89 signal deferral policy regression" in workflow
           print("WAN gateway ARP socket binding/timeout contract: PASS")
           PY

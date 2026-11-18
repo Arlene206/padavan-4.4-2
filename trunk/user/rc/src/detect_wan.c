@@ -30,12 +30,15 @@
 #include "rc.h"
 #include "process_pidfile.h"
 #include "detect_wan_arp_socket_policy.h"
+#include "detect_wan_signal_policy.h"
 #include "detect_wan_udhcpc_policy.h"
 
 //#define DEBUG		1
 #define MAX_ARP_WAIT	5
 #define MAX_ARP_RETRY	3
 #define DW_PID_FILE	"/var/run/detect_wan.pid"
+
+static volatile sig_atomic_t dw_stopping;
 
 
 struct arpMsg {
@@ -58,6 +61,18 @@ struct arpMsg {
 } ATTRIBUTE_PACKED;
 
 
+static void
+detect_wan_wait(unsigned int seconds)
+{
+	/* One-second slices bound shutdown latency if SIGTERM arrives just
+	 * before sleep() is entered rather than during an active sleep. */
+	while (seconds > 0 && !dw_stopping) {
+		(void)sleep(1);
+		seconds--;
+	}
+}
+
+
 static int
 chk_udhcpc(int ap_mode)
 {
@@ -66,6 +81,9 @@ chk_udhcpc(int ap_mode)
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	int scan_error, renew_decision, renew_status;
+
+	if (dw_stopping)
+		return 0;
 
 	if (ap_mode || get_wan_proto(0) == IPV4_WAN_PROTO_IPOE_DHCP)
 	{
@@ -99,6 +117,8 @@ chk_udhcpc(int ap_mode)
 		if (renew_decision == 0)
 			return 0;
 
+		if (dw_stopping)
+			return 0;
 		logmessage("detect_wan", "No response from gateway (%s)! Perform DHCP renew...", gateway_str);
 		renew_status = process_pidfile_signal(detect_wan_udhcpc_pidfile(ap_mode),
 						     "udhcpc", SIGUSR1);
@@ -133,6 +153,9 @@ arpping_gateway(int ap_mode)
 	struct timeval arp_timeout;
 	long timeStart;
 	const int one = 1;
+
+	if (dw_stopping)
+		return 0;
 
 	if (!ap_mode)
 	{
@@ -209,7 +232,7 @@ arpping_gateway(int ap_mode)
 		
 		perror("sendto:");
 		
-		sleep(1);
+		detect_wan_wait(1);
 		return 0;
 	}
 
@@ -218,8 +241,12 @@ arpping_gateway(int ap_mode)
 	timeStart = uptime();
 	for(;;)
 	{
+		if (dw_stopping)
+			break;
 		rcv_bytes = recvfrom(s, &arp, sizeof(arp), 0, NULL, NULL);
-		if (rcv_bytes < 0 && errno != EINTR && errno != EAGAIN)
+		if (dw_stopping)
+			break;
+		if (rcv_bytes < 0 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
 			break;
 		
 		if (rcv_bytes >= 42 &&
@@ -256,11 +283,11 @@ poll_gateway(void)
 	int count, renew_status;
 	int ap_mode = get_ap_mode();
 
-	for(;;)
+	while (!dw_stopping)
 	{
 		count = 0;
 		
-		while (count < MAX_ARP_RETRY)
+		while (count < MAX_ARP_RETRY && !dw_stopping)
 		{
 			if (!ap_mode && !get_wan_ether_link_cached())
 			{
@@ -280,14 +307,18 @@ poll_gateway(void)
 			}
 		}
 		
+		if (dw_stopping)
+			break;
 		if ((count >= MAX_ARP_RETRY) && (ap_mode || get_wan_ether_link_cached()))
 		{
 			renew_status = chk_udhcpc(ap_mode);
+			if (dw_stopping)
+				break;
 			if (renew_status != 0)
 				return -1;
 		}
 		
-		sleep(20);
+		detect_wan_wait(20);
 	}
 
 	return 0;
@@ -296,13 +327,7 @@ poll_gateway(void)
 static void
 catch_sig_detect_wan(int sig)
 {
-	switch (sig)
-	{
-	case SIGTERM:
-		remove(DW_PID_FILE);
-		exit(0);
-		break;
-	}
+	detect_wan_record_signal(&dw_stopping, sig);
 }
 
 int
@@ -310,24 +335,44 @@ detect_wan_main(int argc, char *argv[])
 {
 	FILE *fp;
 	struct sigaction sa;
+	int result, saved_errno, cleanup_errno;
+
+	(void)argc;
+	(void)argv;
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = catch_sig_detect_wan;
 	sigemptyset(&sa.sa_mask);
-	sigaction(SIGTERM, &sa, NULL);
+	if (sigaction(SIGTERM, &sa, NULL) < 0) {
+		saved_errno = errno;
+		errno = saved_errno;
+		perror("sigaction SIGTERM");
+		return saved_errno;
+	}
 
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
-	sigaction(SIGPIPE, &sa, NULL);
-	sigaction(SIGHUP, &sa, NULL);
-	sigaction(SIGUSR1, &sa, NULL);
-	sigaction(SIGUSR2, &sa, NULL);
+	if (sigaction(SIGPIPE, &sa, NULL) < 0 ||
+	    sigaction(SIGHUP, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR1, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR2, &sa, NULL) < 0) {
+		saved_errno = errno;
+		errno = saved_errno;
+		perror("sigaction ignored signal");
+		return saved_errno;
+	}
 
 	if (daemon(0, 0) < 0) {
+		saved_errno = errno;
+		errno = saved_errno;
 		perror("daemon");
-		exit(errno);
+		return saved_errno;
 	}
+
+	/* A stop received during daemonization must not publish a stale PID. */
+	if (dw_stopping)
+		return 0;
 
 	/* write pid */
 	if ((fp = fopen(DW_PID_FILE, "w")) != NULL)
@@ -336,6 +381,18 @@ detect_wan_main(int argc, char *argv[])
 		fclose(fp);
 	}
 
-	return poll_gateway();
+	result = poll_gateway();
+	saved_errno = errno;
+	/* PID cleanup and logging run in normal context, never in the handler. */
+	if (remove(DW_PID_FILE) != 0 && errno != ENOENT) {
+		cleanup_errno = errno ? errno : EIO;
+		logmessage("detect_wan", "cannot remove pid file (errno=%d)", cleanup_errno);
+		if (result == 0) {
+			result = -1;
+			saved_errno = cleanup_errno;
+		}
+	}
+	if (result != 0 && saved_errno != 0)
+		errno = saved_errno;
+	return result;
 }
-

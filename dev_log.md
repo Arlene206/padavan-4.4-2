@@ -1,3 +1,14 @@
+## 2026-11-19 07:10 CST (UTC+8) — Defer detect_wan SIGTERM cleanup to normal context
+
+- Parent main SHA: `d98ef418844b40bac6c6e31df6480a24645dc47b`.
+- L1 found `catch_sig_detect_wan()` directly called `remove(DW_PID_FILE)` and `exit(0)` from SIGTERM handler context. Neither function is async-signal-safe; if SIGTERM interrupts libc stdio/allocator state, shutdown can deadlock or corrupt process state.
+- THIS COMMIT records SIGTERM in a `volatile sig_atomic_t` flag, checks it around bounded ARP receive/retry and DHCP renewal, replaces long waits with one-second shutdown-aware slices, and removes the PID file after the monitor loop returns in normal process context. Signal-action installation errors are no longer ignored.
+- Added `detect_wan_signal_policy.h` and GNU89/Werror/ASan/UBSan coverage for SIGTERM-only sticky flagging; extended WAN ARP source-contract checks and added the new production header to XY-C1 push filters.
+- Parent AP-LAN Process checker/inventory and WAN route runs `44422350218`, `44422350427`, `44422787189` PASS; AP-LAN XY-C1 source SHA `747bb165` is L3 PASS on `44421896203`. AI docs archive rotation PASS on `44424090829`. USB storage `44420519515` PASS; MentoHUST L3 `44415470536` PASS.
+- Local tests NOT RUN (GitHub connector-only environment); exact-head WAN ARP, XY-C1 Build/TRX/artifact rerun pending. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Update WAN route workflow for the AP LAN PHY gate
 
 - Parent main SHA: `094d488122768b104c54ce371fb92943ceca0689`. WAN route run `44421896213` on product-source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1` failed after every preceding route/IPv6/C regression passed. The failing inline source check still expected the old PHY wait result to be held in `operation_status` and used `if (operation_status == 0)` as the DHCP gate. The production change deliberately moved the PHY result to `phy_wait_status` and uses `rc_lan_ap_dhcp_start_allowed_after_phy_wait()`.
