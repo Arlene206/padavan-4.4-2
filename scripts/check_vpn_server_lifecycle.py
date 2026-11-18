@@ -115,11 +115,18 @@ ap=body(vpn,"reapply_vpn_server_locked(void)")
 ordered(s,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","start_vpn_server_locked()","vpn_server_lifecycle_lock_release(lock_fd)"],"start")
 require("return -1;" in s and "gen_vpns_pppd_options(i_type)" in sp,"start wrapper/private helper incomplete")
 options_writer=body(vpn,"gen_vpns_pppd_options(int vpns_type)")
-require('#include <file_write_status.h>' in vpn and
-        "fclose_stream_status(fp)" in options_writer and
+require('#include "ppp_options_file.h"' in vpn and
+        "ppp_options_file_open(vpns_opt)" in options_writer and
+        "ppp_options_file_finish(fp, vpns_opt)" in options_writer and
         "chmod(vpns_opt, 0644)" in options_writer and
         "return 0;" in options_writer,
-        "PPP VPN options generation must report buffered-write, close and permission failures")
+        "PPP VPN options generation must use the private no-follow writer and report flush/close/permission failures")
+require("if (gen_vpns_pppd_options(i_type) != 0)" in sp and
+        "ppp_options_file_open(vpns_sec)" in sp and
+        "ppp_options_file_finish(fp, vpns_sec)" in sp and
+        "ppp_options_file_open(vpns_cfg)" in sp and
+        "ppp_options_file_finish(fp, vpns_cfg)" in sp,
+        "VPN server must refuse launch after any required PPP configuration publication failure")
 require("test_stream_flush_reports_dev_full_failure" in
         read("trunk/user/rc/src/tests/file_write_status.c"),
         "PPP options stream close/write failure regression is missing")
