@@ -1,3 +1,9 @@
+## 2026-11-19 — Update WAN route workflow for the AP LAN PHY gate
+
+- Parent main SHA: `094d488122768b104c54ce371fb92943ceca0689`. WAN route run `44421896213` on product-source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1` failed after every preceding route/IPv6/C regression passed. The failing inline source check still expected the old PHY wait result to be held in `operation_status` and used `if (operation_status == 0)` as the DHCP gate. The production change deliberately moved the PHY result to `phy_wait_status` and uses `rc_lan_ap_dhcp_start_allowed_after_phy_wait()`.
+- Update the workflow's source contract to require separate PHY result capture, first-error aggregation, independent monitor notification, and the PHY-only DHCP gate. Preserve ordering assertions and both push/pull_request path coverage; the policy header is already present in both allowlists.
+- No production code changed in this test-contract update. Exact-head WAN route, Process and AI docs runs for the resulting commit are pending at commit creation. XY-C1 remains tied to product-source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1` (run `44421896203`); local tests and physical-router L4 remain NOT RUN/NOT VERIFIED.
+
 ## 2026-11-19 — Narrow the AP LAN DHCP source contract to the post-notification gate
 
 - Parent main SHA: `747bb165c61051000dfe6426c0de808cfd96f8b1`. Exact Process workflow run `44421896053` compiled and passed the GNU89/ASan/UBSan `service_start_status.c` regression and all earlier integration checks, then failed in the new source checker. The assertion that no `if (operation_status == 0)` existed anywhere in `start_lan()` was too broad: the existing required callback-link preflight uses that condition before the PHY wait. This was a test-contract defect, not a production-source or C-regression failure.
