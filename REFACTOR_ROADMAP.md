@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent `6910911ffdd65a7a04eeb97fa1088a1b8a74d886` source slice routes DNSMasq restart through RC and its cross-process lock. Its Shadowsocks run `44299349261` failed at shell syntax (unterminated ChinaDNS grep assertion); AI handoff run `44299349087` failed the mandatory checkpoint sentence; Process run `44299349041` and inventory umbrella `44299348949` passed. XY-C1 `44299349040` was pending at the latest check.
-- THIS COMMIT repairs the malformed test line and restores the exact mandatory handoff checkpoint sentence. Exact-head rerun required; do not claim either failed workflow is repaired until its rerun passes.
-- Next P1 remains exact-match cleanup of Shadowsocks DNSMasq includes after the repair commit's exact-head Actions are resolved.
+- Source commit `dde3301aca4056774cd31696fdeb9b98bb0a3773` routes Shadowsocks DNSMasq restart through RC and fixes the preceding malformed shell assertion / handoff sentence. Exact-head AI handoff `44301647352`, Process fail-closed `44301647315`, and Process inventory `44301647284` PASS. Shadowsocks lifecycle `44301647472` runs syntax and startup checks successfully, then fails its rollback regression because the fixture returns the real status 19 while the assertion expected 1; the static source checker was consequently skipped.
+- THIS corrective slice changes the injected status expectation to 19 (verifying original error propagation) and fixes four `script.indexOf()` calls in the Python source checker to use Python `str.index()`; exact-head Shadowsocks and handoff Actions must rerun before marking it validated.
+- Next P1 remains exact DNSMasq include matching across Shadowsocks `oversea` / `ssp_close()` and `ss-rules`, with preservation regressions.
 
 ---
 

@@ -182,11 +182,11 @@ require("ChinaDNS-ng detached readiness" in test and
         "ChinaDNS-ng rejects empty upstream" in test,
         "ChinaDNS-ng tests must cover config, readiness, duplicate and fail-closed errors")
 
-dnsmasq_tx_start = script.indexOf("ss_publish_and_restart_dnsmasq() {")
-dnsmasq_tx_end = script.indexOf("\n\nstart_dns() {", dnsmasq_tx_start)
+dnsmasq_tx_start = script.index("ss_publish_and_restart_dnsmasq() {")
+dnsmasq_tx_end = script.index("\n\nstart_dns() {", dnsmasq_tx_start)
 dnsmasq_tx = script[dnsmasq_tx_start:dnsmasq_tx_end]
-restart_helper_start = script.indexOf("ss_restart_dhcpd() {")
-restart_helper_end = script.indexOf("\n}", restart_helper_start) + 2
+restart_helper_start = script.index("ss_restart_dhcpd() {")
+restart_helper_end = script.index("\n}", restart_helper_start) + 2
 restart_helper = script[restart_helper_start:restart_helper_end]
 require(restart_helper == 'ss_restart_dhcpd() {\n\t/sbin/restart_dhcpd\n}' and
         "ss_restart_dhcpd" in dnsmasq_tx and

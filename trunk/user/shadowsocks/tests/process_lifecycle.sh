@@ -424,7 +424,7 @@ rm -f "$PROCESS_STATE_DIR/dnsmasq_runs"
 printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsmasq"
 printf '4246\n' > "$PROCESS_STATE_DIR/dnsmasq.pids"
 DNSMASQ_START_MODE=rollback
-expect_status 1 "dnsmasq restart failure triggers rollback" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 0
+expect_status 19 "dnsmasq restart failure preserves original status" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 0
 cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-rollback" || fail "dnsmasq restart did not restore original config"
 [ "$DNSMASQ_RESTART_CALLS" -eq 2 ] || fail "failed replacement did not perform the RC rollback restart"
 [ -f "$PROCESS_STATE_DIR/dnsmasq" ] || fail "dnsmasq rollback did not restart old service"

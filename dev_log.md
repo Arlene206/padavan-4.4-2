@@ -1,3 +1,12 @@
+## 2026-11-18 20:10 CST — Preserve DNSMasq restart errors and repair Shadowsocks source checker
+
+- Parent main SHA: `dde3301aca4056774cd31696fdeb9b98bb0a3773`. Exact-head Shadowsocks workflow `44301647472` passed shell syntax and startup-status regression, then process lifecycle failed because the rollback daemon fixture intentionally exits with status 19 on the first replacement launch while the test incorrectly expected 1. The production transaction returns the original status unchanged; update the test to expect 19 so it verifies first-error preservation.
+- The same failure prevented the static checker from running. Review found four Python `str.indexOf()` calls introduced with the DNSMasq RC source contract; change to `str.index()` so the checker can execute under Python.
+- Exact DDE Actions: AI handoff `44301647352` PASS; Process fail-closed `44301647315` and Process inventory `44301647284` PASS. Corrective exact-head Shadowsocks and AI checks must be inspected after commit. This is test/checker/docs-only; no new XY-C1 run is expected from firmware-source filters. No local shell run, target BusyBox runtime or L4 router test is claimed.
+- Next: exact-match DNSMasq include cleanup in Shadowsocks `oversea`, `ssp_close()` and `ss-rules`, preserving comments, `conf-file`, domain `address`/`ipset` directives and unrelated paths that only contain `cdn`, `gfwlist`, or `dnsmasq.dom`.
+
+---
+
 ## 2026-11-18 — Repair exact-head Shadowsocks shell syntax and restore handoff checkpoint contract
 
 - Exact main source SHA `6910911ffdd65a7a04eeb97fa1088a1b8a74d886` CI investigation: Shadowsocks workflow `44299349261` failed in `sh -n` before runtime tests because the ChinaDNS grep assertion had an unterminated quote at EOF; repair the full grep expression and retain the successful-RC-restart call-count assertion. AI handoff workflow `44299349087` failed because the current handoff omitted the exact mandatory sentence `The checkpoint is mandatory; a document edit is conditional.`; restore it.
