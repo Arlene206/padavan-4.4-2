@@ -48,6 +48,15 @@ for token in ('[ ! -L "$smartdns_config_file" ]',
     assert token in remove, token
 assert 'sub(/^[[:space:]]*/, "", line)' in remove
 assert 'sub(/[[:space:]]*$/, "", line)' in remove
+assert 'END { print found ? 1 : 0 }' in remove
+assert 'END { exit(found ? 0 : 1) }' not in remove
+assert 'smartdns_scan_result=$(awk' in remove
+assert 'END { print found ? 1 : 0 }' in publish
+assert 'END { exit(found ? 1 : 0) }' not in publish
+assert 'smartdns_scan_result=$(awk' in publish
+assert 'smartdns_block_status=$(awk' in block
+assert 'else if (!seen_begin) print "absent"' in block
+assert 'exit 2' not in block
 for token in ('mktemp "${smartdns_config_file}.tmp.XXXXXX"',
               'cp -p "$smartdns_config_file"',
               "smartdns-managed-dnsmasq-begin",

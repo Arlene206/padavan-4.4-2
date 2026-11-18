@@ -23,17 +23,21 @@ smartdns_dnsmasq_publish_managed_block()
 	[ -f "$smartdns_config_file" ] && [ ! -L "$smartdns_config_file" ] &&
 	[ -r "$smartdns_config_file" ] && [ -w "$smartdns_config_file" ] || return 1
 
-	if awk '
+	if smartdns_scan_result=$(awk '
 		$0=="# smartdns-managed-dnsmasq-begin" ||
 		$0=="# smartdns-managed-dnsmasq-end" { found=1 }
-		END { exit(found ? 1 : 0) }
-	' "$smartdns_config_file"; then
+		END { print found ? 1 : 0 }
+	' "$smartdns_config_file"); then
 		:
 	else
 		smartdns_status=$?
-		[ "$smartdns_status" -eq 1 ] && return 2
 		return "$smartdns_status"
 	fi
+	case "$smartdns_scan_result" in
+		0) ;;
+		1) return 2 ;;
+		*) return 1 ;;
+	esac
 
 	smartdns_tmp_file=$(mktemp "${smartdns_config_file}.tmp.XXXXXX") || return 1
 	if cp -p "$smartdns_config_file" "$smartdns_tmp_file"; then :; else
@@ -82,15 +86,19 @@ smartdns_dnsmasq_remove_exact_directives()
 	if [ ! -e "$smartdns_config_file" ] && [ ! -L "$smartdns_config_file" ]; then return 0; fi
 	[ -f "$smartdns_config_file" ] && [ ! -L "$smartdns_config_file" ] &&
 	[ -r "$smartdns_config_file" ] && [ -w "$smartdns_config_file" ] || return 1
-	if awk -v one="$smartdns_expected_one" -v two="$smartdns_expected_two" -v three="$smartdns_expected_three" '
+	if smartdns_scan_result=$(awk -v one="$smartdns_expected_one" -v two="$smartdns_expected_two" -v three="$smartdns_expected_three" '
 		{ line=$0; sub(/^[[:space:]]*/, "", line); sub(/[[:space:]]*$/, "", line)
 		  if (line==one || (two!="" && line==two) || (three!="" && line==three)) found=1 }
-		END { exit(found ? 0 : 1) }
-	' "$smartdns_config_file"; then :; else
+		END { print found ? 1 : 0 }
+	' "$smartdns_config_file"); then :; else
 		smartdns_status=$?
-		[ "$smartdns_status" -eq 1 ] && return 0
 		return "$smartdns_status"
 	fi
+	case "$smartdns_scan_result" in
+		0) return 0 ;;
+		1) ;;
+		*) return 1 ;;
+	esac
 	smartdns_tmp_file=$(mktemp "${smartdns_config_file}.tmp.XXXXXX") || return 1
 	if cp -p "$smartdns_config_file" "$smartdns_tmp_file"; then :; else
 		smartdns_status=$?; rm -f "$smartdns_tmp_file"; return "$smartdns_status"
@@ -119,8 +127,7 @@ smartdns_dnsmasq_remove_managed_block()
 	if [ ! -e "$smartdns_config_file" ] && [ ! -L "$smartdns_config_file" ]; then return 0; fi
 	[ -f "$smartdns_config_file" ] && [ ! -L "$smartdns_config_file" ] &&
 	[ -r "$smartdns_config_file" ] && [ -w "$smartdns_config_file" ] || return 1
-	smartdns_block_status=0
-	if awk '
+	smartdns_block_status=$(awk '
 		$0=="# smartdns-managed-dnsmasq-begin" {
 			if (inside || seen_begin) bad=1
 			inside=1; seen_begin=1
@@ -132,17 +139,20 @@ smartdns_dnsmasq_remove_managed_block()
 			next
 		}
 		END {
-			if (bad || inside || (seen_begin != seen_end)) exit 2
-			if (!seen_begin) exit 1
-			exit 0
+			if (bad || inside || (seen_begin != seen_end)) print "invalid"
+			else if (!seen_begin) print "absent"
+			else print "present"
 		}
-	' "$smartdns_config_file"; then
-		:
-	else
-		smartdns_block_status=$?
-		[ "$smartdns_block_status" -eq 1 ] && return 0
-		return "$smartdns_block_status"
-	fi
+	' "$smartdns_config_file") || {
+		smartdns_status=$?
+		return "$smartdns_status"
+	}
+	case "$smartdns_block_status" in
+		absent) return 0 ;;
+		present) ;;
+		invalid) return 2 ;;
+		*) return 1 ;;
+	esac
 	smartdns_tmp_file=$(mktemp "${smartdns_config_file}.tmp.XXXXXX") || return 1
 	if cp -p "$smartdns_config_file" "$smartdns_tmp_file"; then :; else
 		smartdns_status=$?; rm -f "$smartdns_tmp_file"; return "$smartdns_status"

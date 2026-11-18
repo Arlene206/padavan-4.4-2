@@ -92,6 +92,55 @@ pass "symlink configuration is refused"
 smartdns_dnsmasq_remove_saved_directives "$T/missing.conf" 1 6053 managed-v1 || fail "missing file was not a no-op"
 pass "missing configuration is a safe no-op"
 
+# AWK's END block must not replace an input/read failure with a successful
+# no-match result. Exercise every preliminary scan using a failing awk shim.
+mkdir "$T/failing-bin"
+cat > "$T/failing-bin/awk" <<'AWK_FAIL'
+#!/bin/sh
+exit 37
+AWK_FAIL
+chmod 0700 "$T/failing-bin/awk"
+saved_path=$PATH
+PATH="$T/failing-bin:$PATH"
+export PATH
+
+cat > "$F" <<'CONFIG'
+no-resolv
+server=127.0.0.1#6053
+# smartdns-managed-dnsmasq-begin
+no-resolv
+# smartdns-managed-dnsmasq-end
+user-tail
+CONFIG
+cp "$F" "$T/awk-failure.before"
+if smartdns_dnsmasq_remove_exact_directives "$F" no-resolv; then
+	scan_status=0
+else
+	scan_status=$?
+fi
+[ "$scan_status" -eq 37 ] || fail "exact-directive scan failure status was masked: $scan_status"
+cmp -s "$F" "$T/awk-failure.before" || fail "exact-directive scan failure changed live config"
+
+if smartdns_dnsmasq_remove_managed_block "$F"; then
+	scan_status=0
+else
+	scan_status=$?
+fi
+[ "$scan_status" -eq 37 ] || fail "managed-block scan failure status was masked: $scan_status"
+cmp -s "$F" "$T/awk-failure.before" || fail "managed-block scan failure changed live config"
+
+if smartdns_dnsmasq_publish_managed_block "$F" no-resolv; then
+	scan_status=0
+else
+	scan_status=$?
+fi
+[ "$scan_status" -eq 37 ] || fail "managed-block publish scan failure status was masked: $scan_status"
+cmp -s "$F" "$T/awk-failure.before" || fail "publish scan failure changed live config"
+
+PATH=$saved_path
+export PATH
+pass "all DNSMasq preliminary AWK scan failures propagate without changing live config"
+
 cat > "$F" <<'CONFIG'
 # user resolver before SmartDNS
 no-resolv
