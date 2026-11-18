@@ -1,5 +1,6 @@
 #!/bin/sh
 
+status=0
 [ ! -x /sbin/hdparm ] && exit 1
 
 if [ "$#" -gt 1 ]; then
@@ -67,7 +68,12 @@ if [ -z "$1" ] ; then
 		dev_name=${dev_path##*/}
 		removable=1
 		[ -r "$dev_path/removable" ] && removable=`cat "$dev_path/removable"`
-		[ "$removable" = "0" ] && /sbin/hdparm $HDPARM_S $HDPARM_B "/dev/$dev_name"
+		if [ "$removable" = "0" ]; then
+			if ! /sbin/hdparm $HDPARM_S $HDPARM_B "/dev/$dev_name"; then
+				logger -t hdparm "Failed to tune /dev/$dev_name"
+				status=1
+			fi
+		fi
 	done
 else
 	if [ -e "/sys/block/$1" ] ; then
@@ -76,14 +82,20 @@ else
 		if [ "$removable" = "0" ] ; then
 			if [ "$hdd_spindt" != "0" ] ; then
 				logger -t hdparm "Set spindown timeout to device /dev/$1"
-				/sbin/hdparm $HDPARM_S "/dev/$1"
+				if ! /sbin/hdparm $HDPARM_S "/dev/$1"; then
+					logger -t hdparm "Failed to set spindown for /dev/$1"
+					status=1
+				fi
 			fi
 			if [ "$hdd_apmoff" != "0" ] ; then
 				logger -t hdparm "Set APM to device /dev/$1"
-				/sbin/hdparm $HDPARM_B "/dev/$1"
+				if ! /sbin/hdparm $HDPARM_B "/dev/$1"; then
+					logger -t hdparm "Failed to set APM for /dev/$1"
+					status=1
+				fi
 			fi
 		fi
 	fi
 fi
 
-exit 0
+exit "$status"

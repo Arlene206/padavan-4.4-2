@@ -81,6 +81,7 @@ mdev_sd_main(int argc, char **argv)
 	int root_partition_status = 0;
 	int topology_status = 0;
 	int share_name_status;
+	int tune_status = 0;
 	size_t len, disk_len;
 	char share_name[32], disk_name[32];
 	char *device_name, *action, *partno;
@@ -135,7 +136,10 @@ mdev_sd_main(int argc, char **argv)
 		char *tune_argv[] = { "/sbin/hddtune.sh", disk_name, NULL };
 
 		/* Whole disk: tune it and wait for partition-specific hotplug events. */
-		_eval(tune_argv, NULL, 0, NULL);
+		tune_status = _eval(tune_argv, NULL, 0, NULL);
+		if (tune_status != 0)
+			logmessage("Storage", "disk tuning failed for %s (status %d); continuing storage mount",
+				   disk_name, tune_status);
 		root_partition_status = check_root_partition(disk_name, 0);
 		if (root_partition_status < 0) {
 			logmessage("Storage", "partition inventory is unknown for %s; refusing whole-device mount",
@@ -175,7 +179,7 @@ out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;
+	return (swapoff_status == 0 && tune_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;
 }
 #endif
 

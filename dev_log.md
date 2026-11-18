@@ -1,3 +1,12 @@
+## 2026-11-18 — Aggregate HDD tuning failures without blocking storage mount
+
+- Parent main SHA: `7f50d54c1c61ed821f063291e127da75a0268211`. USB modem `44216537116`, HTTPD `44216537047`, AI docs `44216537225`, infosvr `44216537061`, AdGuardHome `44216537101`, AliDDNS `44216537361`, AliyunDrive `44216537117`, Process inventory `44216537152`, Process lifecycle `44216537350`, and NVRAM `44216537363` PASS; XY-C1 `44216537251` remained in progress.
+- `hddtune.sh` discarded `hdparm` failures and returned success. SD whole-disk hotplug also discarded the helper wait status, masking tuning failures from hotplug/PID1.
+- Aggregate status across disks/options while continuing later operations. Capture/log SD tune status and include it in final handler status, but do not suppress partition detection or automount because tuning is best-effort.
+- Add a stubbed shell regression for success, either option failing, later disk continuation, removable media, invalid names and missing `hdparm`; update storage and XY-C1 path filters. Exact-head Actions pending; L3/L4 not claimed.
+
+---
+
 ## 2026-11-18 — Migrate WDM metadata to cleanup-aware publisher
 
 - Parent SHA: c47a1b1fdfbd1d4061df4ef9294665fd21d3fc63. HTTPD 44216025750, AI 44216026808, AdGuardHome 44216025560, infosvr 44216025661, AliDDNS 44216025635 and AliyunDrive 44216025544 PASS; NVRAM 44216025596, Process inventory 44216025643 and XY-C1 firmware 44216025599 pending at last poll.

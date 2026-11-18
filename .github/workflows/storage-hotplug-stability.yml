@@ -27,6 +27,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
+      - "trunk/user/scripts/files/sbin/hddtune.sh"
+      - "trunk/user/scripts/tests/hddtune_status.sh"
       - "trunk/user/rc/src/storage_hotplug_name_policy.h"
       - "trunk/user/rc/src/tests/storage_hotplug_name_policy.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
@@ -96,6 +98,8 @@ on:
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/nfs-utils/nfsd.sh"
       - "trunk/user/rc/src/hotplug_stor.c"
+      - "trunk/user/scripts/files/sbin/hddtune.sh"
+      - "trunk/user/scripts/tests/hddtune_status.sh"
       - "trunk/user/rc/src/storage_hotplug_name_policy.h"
       - "trunk/user/rc/src/tests/storage_hotplug_name_policy.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
@@ -154,6 +158,12 @@ jobs:
             trunk/user/rc/src/tests/storage_hotplug_name_policy.c \
             -o /tmp/storage-hotplug-name-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/storage-hotplug-name-policy
+      - name: Verify HDD tuning failures are aggregated without skipping later devices
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/hddtune.sh
+          sh -n trunk/user/scripts/tests/hddtune_status.sh
+          sh trunk/user/scripts/tests/hddtune_status.sh
       - name: Check NFS service stop script syntax
         run: sh -n trunk/user/nfs-utils/nfsd.sh
       - name: Check Transmission and Aria launcher syntax and startup status propagation
@@ -375,6 +385,7 @@ jobs:
           hotplug_stor = (rc_dir / "hotplug_stor.c").read_text()
           name_policy = (rc_dir / "storage_hotplug_name_policy.h").read_text()
           name_policy_test = (rc_dir / "tests/storage_hotplug_name_policy.c").read_text()
+          hddtune = Path("trunk/user/scripts/files/sbin/hddtune.sh").read_text()
           usb = (rc_dir / "services_usb.c").read_text()
           policy = (rc_dir / "storage_ejected_inventory_policy.h").read_text()
           ejected_policy_test = (rc_dir / "tests/storage_ejected_inventory_policy.c").read_text()
@@ -406,6 +417,12 @@ jobs:
 
           sd_hotplug = function_body(hotplug_stor, "mdev_sd_main(")
           mmc_hotplug = function_body(hotplug_stor, "mdev_mmc_main(")
+          assert "tune_status = _eval(tune_argv, NULL, 0, NULL);" in sd_hotplug
+          assert "disk tuning failed for %s" in sd_hotplug
+          assert "tune_status == 0" in sd_hotplug
+          assert sd_hotplug.index("tune_status = _eval") < sd_hotplug.index("if (tune_status != 0)") < sd_hotplug.index("check_root_partition")
+          assert "status=1" in hddtune
+          assert 'exit "$status"' in hddtune
           for name, body in (("SD", sd_hotplug), ("MMC", mmc_hotplug)):
               assert "share_name_status = snprintf(share_name, sizeof(share_name)," in body
               assert "storage_hotplug_name_format_status(share_name_status," in body
