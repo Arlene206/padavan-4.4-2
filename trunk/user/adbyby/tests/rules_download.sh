@@ -167,6 +167,58 @@ fi
 unset -f mv
 [ "$(cat "$DATA_PATH/lazy.txt")" = "old snapshot lazy" ] || fail "first file was not rolled back"
 [ "$(cat "$DATA_PATH/video.txt")" = "old snapshot video" ] || fail "second file changed on failed publication"
+[ ! -e "$DATA_PATH/.rules-transaction" ] || fail "failed publication left an unrecovered transaction marker"
+
+# Simulate abrupt shell termination after lazy.txt was replaced but before video.txt.
+printf 'recovery old lazy rules\n' > "$DATA_PATH/lazy.txt"
+printf 'recovery old video rules\n' > "$DATA_PATH/video.txt"
+recovery_stage=$(mktemp -d /tmp/adbyby-rules.XXXXXX)
+cp -p "$DATA_PATH/lazy.txt" "$recovery_stage/lazy.previous"
+cp -p "$DATA_PATH/video.txt" "$recovery_stage/video.previous"
+( umask 077
+  printf 'present\n' > "$recovery_stage/lazy.state"
+  printf 'present\n' > "$recovery_stage/video.state"
+  printf '%s\n' "$recovery_stage" > "$recovery_stage/transaction.next"
+)
+mv -f "$recovery_stage/transaction.next" "$DATA_PATH/.rules-transaction"
+printf 'interrupted new lazy rules\n' > "$DATA_PATH/lazy.txt"
+cp "$recovery_stage/lazy.previous" "$remote/lazy.txt"
+cp "$recovery_stage/video.previous" "$remote/video.txt"
+write_manifest
+: > "$test_root/curl.log"
+adbyby_refresh_managed_rules || fail "refresh did not recover an interrupted pair before reading the cache"
+[ "$(cat "$DATA_PATH/lazy.txt")" = "recovery old lazy rules" ] || fail "interrupted lazy publication was not rolled back"
+[ "$(cat "$DATA_PATH/video.txt")" = "recovery old video rules" ] || fail "interrupted video publication was not restored"
+[ ! -e "$DATA_PATH/.rules-transaction" ] || fail "successful recovery left the transaction marker"
+[ ! -e "$recovery_stage" ] || fail "successful recovery left its private journal"
+[ "$(wc -l < "$test_root/curl.log")" -eq 1 ] || fail "recovered cache caused unnecessary rule downloads"
+
+# A journal restores files that did not exist before the transaction.
+rm -f "$DATA_PATH/lazy.txt"
+printf 'original video only\n' > "$DATA_PATH/video.txt"
+recovery_stage=$(mktemp -d /tmp/adbyby-rules.XXXXXX)
+cp -p "$DATA_PATH/video.txt" "$recovery_stage/video.previous"
+( umask 077
+  printf 'absent\n' > "$recovery_stage/lazy.state"
+  printf 'present\n' > "$recovery_stage/video.state"
+  printf '%s\n' "$recovery_stage" > "$recovery_stage/transaction.next"
+)
+mv -f "$recovery_stage/transaction.next" "$DATA_PATH/.rules-transaction"
+printf 'uncommitted lazy file\n' > "$DATA_PATH/lazy.txt"
+adbyby_recover_managed_rules || fail "absent-file recovery failed"
+[ ! -e "$DATA_PATH/lazy.txt" ] || fail "recovery did not restore the previously absent lazy file"
+[ "$(cat "$DATA_PATH/video.txt")" = "original video only" ] || fail "recovery did not restore the existing video file"
+[ ! -e "$DATA_PATH/.rules-transaction" ] || fail "absent-file recovery left a journal"
+
+# Symlinked markers are rejected before any live configuration is modified.
+printf 'safe lazy snapshot\n' > "$DATA_PATH/lazy.txt"
+printf 'safe video snapshot\n' > "$DATA_PATH/video.txt"
+ln -s "$remote" "$DATA_PATH/.rules-transaction"
+if adbyby_refresh_managed_rules; then fail "symlinked recovery marker was accepted"; fi
+[ -L "$DATA_PATH/.rules-transaction" ] || fail "symlinked marker was replaced or followed"
+[ "$(cat "$DATA_PATH/lazy.txt")" = "safe lazy snapshot" ] || fail "symlink marker changed lazy cache"
+[ "$(cat "$DATA_PATH/video.txt")" = "safe video snapshot" ] || fail "symlink marker changed video cache"
+rm -f "$DATA_PATH/.rules-transaction"
 
 # Missing CA: no request is sent and a valid cache remains usable.
 ADBYBY_CA_BUNDLE="$test_root/missing-ca"

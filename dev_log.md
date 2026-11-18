@@ -1,3 +1,14 @@
+## 2026-11-18 — Add recovery journal for interrupted Adbyby rule-pair publication
+
+- Parent main `3f8e4f789c3d4eaa41f43e527a36aaeafa49940c`: Shadowsocks lifecycle `44308412124`, AI handoff `44308412085`, Process inventory `44308412166` and Process fail-closed `44308412156` all PASS.
+- The Adbyby managed-rule publisher wrote `lazy.txt` and `video.txt` via separate atomic renames. It could roll back a failed second rename, but a process interruption between the renames could leave one new file and one old file.
+- Add a private `/tmp/adbyby-rules.XXXXXX` journal and backups for both prior files before the first rename. The journal records whether each file was present; startup refresh recovers before digest/cache inspection. Recovery copies backups rather than consuming them, so it can be safely retried if itself interrupted. Marker and stage ownership/modes are validated; symlink markers and unsafe targets fail closed. The EXIT trap replays recovery on error and retains the journal if restoration is incomplete.
+- Extend `rules_download.sh` for second-rename rollback, simulated interrupted publication, absent-file restoration and symlink marker rejection; extend the Python source contract.
+- Local shell runtime NOT RUN; validate with the exact-head Adbyby Actions. Target MIPS/uClibc and physical router L4 remain NOT VERIFIED.
+- Next: inspect the exact-head Actions for this commit and repair any failure before selecting another userland stability defect.
+
+---
+
 ## 2026-11-18 — Remove stale post-PASS lifecycle test tail
 
 - Parent main `25394b7d214e9a70c78960fb6d7833fd8645e886`; previous source SHA `38a2e1b80c78d250c892377647a43a454623228b`. The 38a Shadowsocks action `44307638690` passed shell syntax, startup and standalone DNSMasq cleanup; process regression completed its full primary sequence, including the SmartDNS #5353/#6053 and domain-rule preservation checks, and emitted the PASS sentinel, but a stale duplicated tail continued afterward and failed on a malformed fragment. This corrective slice truncates the test file at the first valid final PASS marker. The file now has exactly one terminal PASS sentinel.

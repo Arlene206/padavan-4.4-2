@@ -353,6 +353,98 @@ adbyby_rules_cache_is_usable()
 	[ -f "$DATA_PATH/video.txt" ] && [ ! -L "$DATA_PATH/video.txt" ] && [ -s "$DATA_PATH/video.txt" ]
 }
 
+# Restore both rule files after an interrupted two-file publication.
+adbyby_restore_managed_rule_file()
+{
+	local adbyby_restore_name="$1"
+	local adbyby_restore_state="$2"
+	local adbyby_restore_stage="$3"
+	local adbyby_restore_target=""
+	local adbyby_restore_backup=""
+	local adbyby_restore_tmp=""
+
+	case "$adbyby_restore_name" in
+		lazy|video) ;;
+		*) return 2 ;;
+	esac
+	case "$adbyby_restore_state" in
+		present|absent) ;;
+		*) return 1 ;;
+	esac
+	adbyby_restore_target="$DATA_PATH/$adbyby_restore_name.txt"
+	if [ "$adbyby_restore_state" = "present" ]; then
+		adbyby_restore_backup="$adbyby_restore_stage/$adbyby_restore_name.previous"
+		[ -f "$adbyby_restore_backup" ] && [ ! -L "$adbyby_restore_backup" ] || return 1
+		if [ -e "$adbyby_restore_target" ] || [ -L "$adbyby_restore_target" ]; then
+			[ -f "$adbyby_restore_target" ] && [ ! -L "$adbyby_restore_target" ] || return 1
+		fi
+		adbyby_restore_tmp=$(mktemp "$DATA_PATH/.$adbyby_restore_name.restore.XXXXXX") || return 1
+		if ! cp -p "$adbyby_restore_backup" "$adbyby_restore_tmp"; then
+			rm -f "$adbyby_restore_tmp"
+			return 1
+		fi
+		if ! mv -f "$adbyby_restore_tmp" "$adbyby_restore_target"; then
+			rm -f "$adbyby_restore_tmp"
+			return 1
+		fi
+	else
+		if [ -e "$adbyby_restore_target" ] || [ -L "$adbyby_restore_target" ]; then
+			[ -f "$adbyby_restore_target" ] && [ ! -L "$adbyby_restore_target" ] || return 1
+			rm -f "$adbyby_restore_target" || return 1
+		fi
+	fi
+	return 0
+}
+
+# The marker is published only after both previous files have been backed up.
+# Recovery is idempotent: backups are copied (never consumed) until both files
+# are restored and the marker can be removed.
+adbyby_recover_managed_rules()
+{
+	local adbyby_recovery_marker="$DATA_PATH/.rules-transaction"
+	local adbyby_recovery_stage=""
+	local adbyby_recovery_name=""
+	local adbyby_recovery_state=""
+	local adbyby_recovery_uid=""
+	local adbyby_recovery_info=""
+	local adbyby_recovery_suffix=""
+
+	[ -d "$PROG_PATH" ] && [ ! -L "$PROG_PATH" ] &&
+	[ -d "$DATA_PATH" ] && [ ! -L "$DATA_PATH" ] || return 1
+	if [ ! -e "$adbyby_recovery_marker" ] && [ ! -L "$adbyby_recovery_marker" ]; then
+		return 0
+	fi
+	[ -f "$adbyby_recovery_marker" ] && [ ! -L "$adbyby_recovery_marker" ] && [ -r "$adbyby_recovery_marker" ] || return 1
+	adbyby_recovery_uid=$(id -u) || return 1
+	adbyby_recovery_info=$(stat -c '%u %a %h' "$adbyby_recovery_marker") || return 1
+	set -- $adbyby_recovery_info
+	[ "$#" -eq 3 ] && [ "$1" = "$adbyby_recovery_uid" ] &&
+	[ "$2" = 600 ] && [ "$3" = 1 ] || return 1
+
+	adbyby_recovery_stage=$(cat "$adbyby_recovery_marker") || return 1
+	adbyby_recovery_suffix=${adbyby_recovery_stage#/tmp/adbyby-rules.}
+	[ "$adbyby_recovery_suffix" != "$adbyby_recovery_stage" ] &&
+	[ "${#adbyby_recovery_suffix}" -eq 6 ] || return 1
+	case "$adbyby_recovery_suffix" in
+		*[!0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz]*) return 1 ;;
+	esac
+	[ -d "$adbyby_recovery_stage" ] && [ ! -L "$adbyby_recovery_stage" ] || return 1
+	adbyby_recovery_info=$(stat -c '%u %a' "$adbyby_recovery_stage") || return 1
+	set -- $adbyby_recovery_info
+	[ "$#" -eq 2 ] && [ "$1" = "$adbyby_recovery_uid" ] && [ "$2" = 700 ] || return 1
+
+	for adbyby_recovery_name in lazy video; do
+		[ -f "$adbyby_recovery_stage/$adbyby_recovery_name.state" ] &&
+		[ ! -L "$adbyby_recovery_stage/$adbyby_recovery_name.state" ] || return 1
+		adbyby_recovery_state=$(cat "$adbyby_recovery_stage/$adbyby_recovery_name.state") || return 1
+		adbyby_restore_managed_rule_file "$adbyby_recovery_name" "$adbyby_recovery_state" "$adbyby_recovery_stage" || return 1
+	done
+
+	rm -f "$adbyby_recovery_marker" || return 1
+	rm -rf "$adbyby_recovery_stage" || return 1
+	return 0
+}
+
 # Stage and verify both upstream lists privately. Each published file uses an
 # atomic same-filesystem rename; a failed second rename rolls back the first.
 adbyby_refresh_managed_rules()
@@ -360,6 +452,10 @@ adbyby_refresh_managed_rules()
 	umask 077
 	[ -d "$PROG_PATH" ] && [ ! -L "$PROG_PATH" ] &&
 	[ -d "$DATA_PATH" ] && [ ! -L "$DATA_PATH" ] || return 1
+	adbyby_recover_managed_rules || {
+		logger -t "adbyby" "发现未完成的规则发布事务，但无法安全恢复；拒绝继续。"
+		return 1
+	}
 	for adbyby_target in "$DATA_PATH/lazy.txt" "$DATA_PATH/video.txt"; do
 		if [ -e "$adbyby_target" ] || [ -L "$adbyby_target" ]; then
 			[ -f "$adbyby_target" ] && [ ! -L "$adbyby_target" ] || return 1
@@ -368,7 +464,16 @@ adbyby_refresh_managed_rules()
 
 	adbyby_stage_dir=$(mktemp -d /tmp/adbyby-rules.XXXXXX) || return 1
 	adbyby_keep_stage=0
-	trap 'if [ "$adbyby_keep_stage" -eq 0 ]; then rm -rf "$adbyby_stage_dir"; fi' 0
+	trap '
+		if [ -e "$DATA_PATH/.rules-transaction" ] || [ -L "$DATA_PATH/.rules-transaction" ]; then
+			if ! adbyby_recover_managed_rules; then
+				adbyby_keep_stage=1
+				logger -t "adbyby" "规则事务恢复失败，保留日志和恢复文件。"
+			fi
+		fi
+		if [ "$adbyby_keep_stage" -eq 0 ]; then rm -rf "$adbyby_stage_dir"; fi
+	' 0
+	trap 'exit 1' HUP INT TERM
 
 	adbyby_lazy_local=$(adbyby_md5_file "$DATA_PATH/lazy.txt" 2>/dev/null) || adbyby_lazy_local=""
 	adbyby_video_local=$(adbyby_md5_file "$DATA_PATH/video.txt" 2>/dev/null) || adbyby_video_local=""
@@ -433,28 +538,31 @@ adbyby_refresh_managed_rules()
 		return 1
 	fi
 
-	adbyby_had_lazy=0
-	if [ -e "$DATA_PATH/lazy.txt" ]; then
-		cp -p "$DATA_PATH/lazy.txt" "$adbyby_stage_dir/lazy.previous" || return 1
-		adbyby_had_lazy=1
-	fi
+	# Back up the full pair and publish a recovery marker before the first rename.
+	[ ! -e "$DATA_PATH/.rules-transaction" ] && [ ! -L "$DATA_PATH/.rules-transaction" ] || return 1
+	for adbyby_rule_name in lazy video; do
+		if [ -e "$DATA_PATH/$adbyby_rule_name.txt" ] || [ -L "$DATA_PATH/$adbyby_rule_name.txt" ]; then
+			[ -f "$DATA_PATH/$adbyby_rule_name.txt" ] && [ ! -L "$DATA_PATH/$adbyby_rule_name.txt" ] || return 1
+			cp -p "$DATA_PATH/$adbyby_rule_name.txt" "$adbyby_stage_dir/$adbyby_rule_name.previous" || return 1
+			printf 'present\n' > "$adbyby_stage_dir/$adbyby_rule_name.state" || return 1
+		else
+			printf 'absent\n' > "$adbyby_stage_dir/$adbyby_rule_name.state" || return 1
+		fi
+	done
+	printf '%s\n' "$adbyby_stage_dir" > "$adbyby_stage_dir/transaction.next" || return 1
+	chmod 0600 "$adbyby_stage_dir/transaction.next" || return 1
+	mv -f "$adbyby_stage_dir/transaction.next" "$DATA_PATH/.rules-transaction" || return 1
+
 	if ! mv -f "$adbyby_stage_dir/lazy.next" "$DATA_PATH/lazy.txt"; then
-		logger -t "adbyby" "lazy规则原子发布失败，保留旧规则。"
+		logger -t "adbyby" "lazy规则原子发布失败，将通过恢复日志还原规则对。"
 		return 1
 	fi
 	if ! mv -f "$adbyby_stage_dir/video.next" "$DATA_PATH/video.txt"; then
-		if [ "$adbyby_had_lazy" -eq 1 ]; then
-			if ! mv -f "$adbyby_stage_dir/lazy.previous" "$DATA_PATH/lazy.txt"; then
-				adbyby_keep_stage=1
-				logger -t "adbyby" "video规则发布及lazy回滚均失败，保留恢复文件：$adbyby_stage_dir"
-				return 1
-			fi
-		else
-			rm -f "$DATA_PATH/lazy.txt"
-		fi
-		logger -t "adbyby" "video规则原子发布失败，已回滚lazy规则。"
+		logger -t "adbyby" "video规则原子发布失败，将通过恢复日志还原规则对。"
 		return 1
 	fi
+	# The marker is the commit point; a failed removal triggers pair restoration.
+	rm -f "$DATA_PATH/.rules-transaction" || return 1
 
 	if ! printf '%s\n' "$(date '+%Y-%m-%d %H:%M:%S')" > "$PROG_PATH/adbyby.updated"; then
 		logger -t "adbyby" "规则已发布，但更新时间文件写入失败。"

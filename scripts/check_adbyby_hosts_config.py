@@ -96,6 +96,8 @@ refresh_match = re.search(r"(?ms)^adbyby_refresh_managed_rules\(\)[ \t]*\n\((.*?
 if not refresh_match:
     fail("missing subshell function adbyby_refresh_managed_rules()")
 refresh_rules = refresh_match.group(1)
+recovery = function_body(source, "adbyby_recover_managed_rules")
+restore_rule_file = function_body(source, "adbyby_restore_managed_rule_file")
 restart_match = re.search(r"(?ms)int\s+restart_adbyby\s*\(\s*void\s*\)\s*\{(.*?)^\}", service)
 if not restart_match:
     fail("missing C function int restart_adbyby(void)")
@@ -233,12 +235,30 @@ require("adbyby_valid_https_url" in download_https and
         "[ -r \"$ADBYBY_CA_BUNDLE\" ]" in download_https and "[ -s \"$ADBYBY_CA_BUNDLE\" ]" in download_https,
         "managed fetch must apply the strict HTTPS URL validator and require the firmware trust store")
 for marker in ("umask 077", "mktemp -d /tmp/adbyby-rules.XXXXXX",
-               "adbyby_rules_cache_is_usable", "adbyby_manifest_digest",
-               "adbyby_lazy_downloaded", "adbyby_video_downloaded",
-               "lazy.previous", "mv -f", "adbyby_keep_stage=1"):
+                "adbyby_recover_managed_rules ||", "adbyby_rules_cache_is_usable",
+                "adbyby_manifest_digest", "adbyby_lazy_downloaded", "adbyby_video_downloaded",
+                "lazy.previous", "video.previous", "lazy.state", "video.state",
+                ".rules-transaction", "transaction.next", "mv -f"):
     require(marker in refresh_rules, f"managed update transaction is missing: {marker}")
+require(refresh_rules.index("adbyby_recover_managed_rules ||") <
+        refresh_rules.index("adbyby_rules_cache_is_usable"),
+        "interrupted managed-rule publication must be recovered before checking or using the cache")
+require("stat -c '%u %a %h'" in recovery and
+        '[ ! -L "$adbyby_recovery_marker" ]' in recovery and
+        'rm -f "$adbyby_recovery_marker"' in recovery and
+        "adbyby_restore_managed_rule_file" in recovery,
+        "recovery marker must be private, non-symlink and removed only after both restores")
+require("present|absent" in restore_rule_file and
+        'mktemp "$DATA_PATH/.$adbyby_restore_name.restore.XXXXXX"' in restore_rule_file and
+        'mv -f "$adbyby_restore_tmp" "$adbyby_restore_target"' in restore_rule_file,
+        "recovery must safely restore present files atomically and remove previously absent files")
 require("return 0" in refresh_rules and "保留现有规则" in refresh_rules,
         "remote fetch/manifest/digest failures must preserve a usable cached pair")
+for marker in ("Simulate abrupt shell termination", "interrupted lazy publication was not rolled back",
+               "interrupted video publication was not restored", "recovery did not restore the previously absent lazy file",
+               "symlinked recovery marker was accepted", "safe video snapshot"):
+    require(marker.lower() in rules_test.lower(),
+            f"managed rule-pair recovery regression misses: {marker}")
 require("adbyby_refresh_managed_rules" in add_rules and "return 1" in add_rules,
         "add_rules must stop processing when no safe managed rule state exists")
 require("adbyby_prepare_user_rules" in add_rules and "return 1" in add_rules and
