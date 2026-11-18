@@ -47,6 +47,7 @@
 #include "hwnat_config_policy.h"
 #include "sfe_config_policy.h"
 #include "xupnpd_config_file.h"
+#include "xupnpd_daemon_policy.h"
 #if defined (APP_MSD_LITE)
 #include "msd_lite_config_file.h"
 #endif
@@ -392,11 +393,53 @@ stop_xupnpd(void)
 	kill_services(svcs, 3, 1);
 }
 
+static enum process_presence
+xupnpd_process_presence(void *context, int *scan_error)
+{
+	struct process_snapshot snapshot;
+	enum process_presence state;
+
+	(void)context;
+	memset(&snapshot, 0, sizeof(snapshot));
+	state = process_inventory_scan("xupnpd", &snapshot);
+	if (scan_error)
+		*scan_error = snapshot.error;
+	if (state == PROCESS_PRESENCE_UNKNOWN)
+		errno = snapshot.error ? snapshot.error : EIO;
+	process_snapshot_release(&snapshot);
+	return state;
+}
+
+static int
+xupnpd_process_wait(void *context, unsigned int seconds)
+{
+	unsigned int remaining;
+
+	(void)context;
+	remaining = sleep(seconds);
+	if (remaining != 0) {
+		errno = EINTR;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+xupnpd_confirm_started(int launch_status)
+{
+	return xupnpd_daemon_start_postcondition_with_ops(
+		launch_status, xupnpd_process_presence, xupnpd_process_wait,
+		NULL, PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS,
+		PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS,
+		PROCESS_PRESENCE_START_PROBE_ATTEMPTS);
+}
+
 int
 start_xupnpd(char *wan_ifname)
 {
 	int i, xport, has_daemon, launch_status;
-	int config_status, saved_errno, sync_status, config_fd;
+	int config_status, saved_errno, sync_status, config_fd, scan_error;
+	enum process_presence process_state;
 	int copy_storage, directory_status, copy_status;
 	FILE *fp1, *fp2;
 	char tmp1[128], tmp2[128], line[256];
@@ -418,6 +461,22 @@ start_xupnpd(char *wan_ifname)
 		return 0;
 	if (xport > 65535)
 		return EINVAL;
+
+	/* A complete procfs inventory is required before touching the live PID
+	 * file or publishing configuration. UNKNOWN is never an empty process set. */
+	process_state = xupnpd_process_presence(NULL, &scan_error);
+	if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+		saved_errno = scan_error ? scan_error : EIO;
+		errno = saved_errno;
+		logmessage(LOGNAME, "xupnpd inventory UNKNOWN; refusing startup (errno=%d)",
+			   saved_errno);
+		return saved_errno;
+	}
+	if (process_state != PROCESS_PRESENCE_ABSENT) {
+		errno = EBUSY;
+		logmessage(LOGNAME, "xupnpd is already present; refusing duplicate startup");
+		return EBUSY;
+	}
 
 	{
 		int status = xupnpd_config_directory_validate("/etc/storage");
@@ -672,12 +731,31 @@ start_xupnpd(char *wan_ifname)
 		return config_status;
 	}
 
+	/* Config preparation can take several seconds; recheck immediately before
+	 * launch to avoid racing another RC/UI start request. */
+	process_state = xupnpd_process_presence(NULL, &scan_error);
+	if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+		saved_errno = scan_error ? scan_error : EIO;
+		errno = saved_errno;
+		logmessage(LOGNAME, "xupnpd inventory UNKNOWN before launch; refusing (errno=%d)",
+			   saved_errno);
+		return saved_errno;
+	}
+	if (process_state != PROCESS_PRESENCE_ABSENT) {
+		errno = EBUSY;
+		logmessage(LOGNAME, "xupnpd appeared before launch; refusing duplicate startup");
+		return EBUSY;
+	}
+
 	if (has_daemon)
 		launch_status = eval("/usr/bin/xupnpd");
 	else
 		launch_status = system("/usr/bin/xupnpd &");
+	launch_status = xupnpd_confirm_started(launch_status);
 	if (launch_status != 0)
-		logmessage(LOGNAME, "xupnpd launch command failed (status=%d)", launch_status);
+		logmessage(LOGNAME,
+			   "xupnpd launch/readiness failed (status=%d errno=%d)",
+			   launch_status, errno ? errno : EIO);
 	return launch_status;
 }
 

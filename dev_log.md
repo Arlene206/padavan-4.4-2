@@ -1,9 +1,18 @@
+## 2026-11-18 — Require XUPnPD child readiness after detached startup
+
+- Parent main: f49ed8ab87a76ff4174408d49eb991649203760a. start_xupnpd() accepted the success of system("/usr/bin/xupnpd &") or the daemonizing launcher as proof of service startup, even though the child could exit immediately and no process presence was checked. A successful background shell exit could therefore produce a false RUNNING result to callers and allow IPTV startup to continue with no XUPnPD service.
+- Add a fail-closed xupnpd process inventory gate before PID/config mutation, repeat the ABSENT check immediately before launch, and require a bounded post-launch RUNNING observation for both daemon and background launch modes. UNKNOWN inventory, duplicate presence, interrupted wait and timeout all return errors.
+- Add injectable scan/wait policy and GNU89 ASan/UBSan regression cases for launch failure, immediate/delayed RUNNING, ABSENT timeout, UNKNOWN/malformed state and interrupted waits; wire source checks, WAN workflow, and XY-C1 path filters.
+- Exact-head Actions for this task are pending after the atomic commit. No local compile, MIPS build on this new source SHA, or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-18 — Escape NVRAM values in generated Inadyn configuration
 
 - Parent main: \`ffd0a5466fbe0c67e512e9a5c0284138a1b8eadc\`. \`write_inadyn_conf()\` interpolated NVRAM-sourced credentials, hostnames and custom server/path values directly inside libConfuse quoted strings. Embedded quotes/backslashes could change the parsed value, while raw line/control bytes could inject or break directives despite the existing private atomic file publisher.
 - Add a quoted-value writer that escapes the libConfuse delimiters and line-control sequences, rejects unsupported control bytes, and routes every primary/secondary credential, hostname and custom endpoint through checked serialization. Any rejected/failed value discards the staged file and preserves the last-known-good config.
 - Extend the GNU89 config-file regression with delimiter escaping and control-byte rejection, add the ASan/UBSan test step and trigger paths to the Inadyn lifecycle workflow, and require the production integration in its source checker.
-- The new rollback regression initially ran after its temporary directory had been removed; the exact SHA `60a1f9d` caught this fixture-order error before any test pass could be claimed. Move it before fixture teardown so it can assert that a rejected value after partial staging discards the stage and leaves the live config unchanged. The Inadyn/DNSMasq/Process/AI exact-head rerun is required.
+- Exact SHA c69fe60d2f3c7f5beb4a94081ad24552f4c38df4: Inadyn config escaping GNU89/ASan/UBSan tests passed; initial Inadyn/DNSMasq contract failures were repaired in 98b6bc0, e6d7ce1 and fb6f183. Exact-head fb6f183 Inadyn [44249536374], DNSMasq [44249536311] and AI handoff [44249536380] all PASS. A further partial-stage rollback test first failed on 60a1f9d because it ran after fixture teardown; corrected before cleanup in f49ed8a. Exact-head f49 Inadyn [44250475415], DNSMasq [44250475599], AI docs [44250475535], Process [44250475515, 44250475692] and NVRAM audit [44250475565] all PASS. XY-C1 exact product-source SHA c69fe60 build [44249015863] completed with Build XY-C1, TRX verification and artifact upload all SUCCESS. Host firmware validation is L3 evidence only; physical-router L4 remains NOT VERIFIED.
 
 ---
 

@@ -8,6 +8,8 @@ RC = ROOT / "trunk/user/rc/src"
 source = (RC / "net.c").read_text()
 header = (RC / "xupnpd_config_file.h").read_text()
 test = (RC / "tests/xupnpd_config_file.c").read_text()
+daemon_policy = (RC / "xupnpd_daemon_policy.h").read_text()
+daemon_test = (RC / "tests/xupnpd_daemon_policy.c").read_text()
 
 
 def function_body(text, signature):
@@ -92,4 +94,24 @@ for marker in (
     assert marker in test, marker
 
 assert startup.index("xupnpd_config_subdirectory_validate(") < startup.index("if (has_daemon)")
-print("XUPnPD storage, config copy and cleanup failure gates: PASS")
+
+presence_scan = function_body(source, "xupnpd_process_presence(void *context, int *scan_error)")
+assert 'process_inventory_scan("xupnpd", &snapshot)' in presence_scan
+assert "process_snapshot_release(&snapshot)" in presence_scan
+startup = function_body(source, "start_xupnpd(char *wan_ifname)")
+assert startup.index("xupnpd_process_presence(NULL, &scan_error)") < startup.index('unlink("/var/run/xupnpd.pid")')
+assert "process_state != PROCESS_PRESENCE_ABSENT" in startup
+assert startup.count("xupnpd_process_presence(NULL, &scan_error)") == 2
+assert "launch_status = xupnpd_confirm_started(launch_status);" in startup
+assert "xupnpd_daemon_start_postcondition_with_ops(" in daemon_policy
+assert "process_presence_start_postcondition(0, state)" in daemon_policy
+for marker in (
+    "test_delayed_daemon_appearance_is_accepted",
+    "test_absent_child_times_out",
+    "test_unknown_inventory_fails_closed",
+    "test_wait_interruption_and_invalid_arguments_fail",
+    "XUPnPD detached-daemon startup postcondition regression: PASS",
+):
+    assert marker in daemon_test, marker
+
+print("XUPnPD storage, config copy, cleanup and detached startup readiness gates: PASS")

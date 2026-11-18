@@ -27,6 +27,8 @@ on:
       - "trunk/user/rc/src/firewall_restore_transaction.h"
       - "trunk/user/rc/src/xupnpd_config_file.h"
       - "trunk/user/rc/src/tests/xupnpd_config_file.c"
+      - "trunk/user/rc/src/xupnpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/xupnpd_daemon_policy.c"
       - "trunk/user/shadowsocks/scripts/shadowsocks.sh"
       - "trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh"
       - "trunk/user/smartdns/**"
