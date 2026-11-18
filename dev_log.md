@@ -1,3 +1,12 @@
+## 2026-11-18 — Protect forced AP-client reconnect settling from EINTR
+
+- Parent main: `daf0a387b830c17312c5872fc8a6916b43c149f2`. `reconnect_apcli()` forced reconnect disabled the AP-client interface, then used raw `usleep(300000)` before re-enabling. A signal could shorten the transition interval and race the driver state machine.
+- Replace the pause with `service_wait_microseconds(300000U)`. Normalize hard errors to errno/EIO, log them, and merge the result into the existing sticky radio restart status. The re-enable command remains unconditional even when disable or wait fails.
+- Extend `wireless-radio-state.yml` to verify wait/error/re-enable ordering and add shared wait helper/header test paths to push/PR triggers. Existing helper unit tests exercise EINTR retry and non-EINTR errors; the radio policy C tests cover sticky first-error aggregation.
+- Exact-head Wireless and XY-C1 verification required. No local tests or AP-client runtime/L4 test claimed.
+
+---
+
 ## 2026-11-18 — Require completed LAN PHY readiness wait before DHCP launch
 
 - Parent main: `07ef69dbac678786f287f5aa35b929af62f4c9e4`. `start_lan()` validated the LAN DHCP callback script but then used raw `sleep(1)` before `start_udhcpc_lan()`. Because signals can interrupt `sleep()`, the client could start before the one-second PHY settle interval completed.

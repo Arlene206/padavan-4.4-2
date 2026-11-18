@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `07ef69dbac678786f287f5aa35b929af62f4c9e4`. Shared EINTR-safe readiness waits now cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, detached daemons, LAN PHY power cycling and LAN DHCP deconfig. `07ef69d` also made pre-flash sync settling signal-safe and restores watchdog on wait failure.
-- On `65d783f`, exact WAN route, WAN DHCP, detect-internet, Process inventory/fail-closed and AI docs all PASS; XY-C1/NVRAM were pending. The LAN PHY full-restart change is included in that tested SHA.
-- THIS COMMIT removes the remaining raw PHY-ready `sleep(1)` in `start_lan()`; shared wait failure now prevents udhcpc launch and propagates to the caller. Exact-head WAN-route/Process and XY-C1 results pending.
+- Live main before THIS COMMIT: `daf0a387b830c17312c5872fc8a6916b43c149f2`. Shared EINTR-safe waits now cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, RC service startup, LAN PHY reset/readiness and LAN DHCP deconfig.
+- On `65d783f`, exact WAN route, WAN DHCP, detect-internet, Process inventory/fail-closed and AI docs all PASS; XY-C1/NVRAM were pending. The two LAN wait fixes are in this tested source SHA.
+- THIS COMMIT makes forced AP-client disable/enable sequencing EINTR-safe: failed settling wait is reported and remains sticky, but APCLI re-enable is always attempted. Wireless source-contract Actions pending.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

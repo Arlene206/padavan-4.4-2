@@ -30,6 +30,7 @@
 #include "rc.h"
 #include "wireless_restart_policy.h"
 #include "wireless_radio_policy.h"
+#include "service_wait_policy.h"
 #include "wireless_guest_isolation_policy.h"
 #include "switch.h"
 #include "gpio_pins.h"
@@ -1125,7 +1126,7 @@ int
 reconnect_apcli(const char *ifname_apcli, int force)
 {
 	int is_aband, i_mode_x;
-	int status = 0;
+	int status = 0, wait_status;
 
 	if (!ifname_apcli)
 		return 0;
@@ -1169,10 +1170,18 @@ reconnect_apcli(const char *ifname_apcli, int force)
 #endif
 		}
 	} else if (force) {
-		/* Re-enable even if disable failed; retain the first command error. */
+		/* Re-enable even if disable or settling wait fails. */
 		status = wireless_radio_restart_status(status,
 			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliEnable", 0));
-		usleep(300000);
+		wait_status = service_wait_microseconds(300000U);
+		if (wait_status != 0) {
+			wait_status = errno > 0 ? errno : EIO;
+			errno = wait_status;
+			logmessage(LOGNAME,
+				   "AP-client reconnect settling wait failed on %s (status=%d)",
+				   ifname_apcli, wait_status);
+		}
+		status = wireless_radio_restart_status(status, wait_status);
 		status = wireless_radio_restart_status(status,
 			doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliEnable", 1));
 	}

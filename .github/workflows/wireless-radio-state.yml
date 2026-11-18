@@ -15,6 +15,8 @@ on:
       - "trunk/user/shared/src/tests/bridge_membership_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/wireless_radio_policy.h"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/tests/wireless_radio_policy.c"
       - "trunk/linux-4.4.x/net/bridge/br_if.c"
   pull_request:
@@ -31,6 +33,8 @@ on:
       - "trunk/user/shared/src/tests/bridge_membership_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/wireless_radio_policy.h"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/tests/wireless_radio_policy.c"
       - "trunk/linux-4.4.x/net/bridge/br_if.c"
 
@@ -86,13 +90,19 @@ jobs:
           reconnect = function_body(source, "reconnect_apcli(const char *ifname_apcli, int force)")
           assert "int status = 0;" in reconnect
           assert "return status;" in reconnect
-          assert reconnect.count("doSystem(") == reconnect.count("wireless_radio_restart_status(status,")
+          assert reconnect.count("doSystem(") + 1 == reconnect.count("wireless_radio_restart_status(status,")
           assert reconnect.count('doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect"') == 4
           assert reconnect.count("ApCliEnable") == 2
           disable_pos = reconnect.index('"ApCliEnable", 0')
-          wait_pos = reconnect.index("usleep(300000);", disable_pos)
-          enable_pos = reconnect.index('"ApCliEnable", 1', wait_pos)
-          assert disable_pos < wait_pos < enable_pos
+          wait_pos = reconnect.index("wait_status = service_wait_microseconds(300000U);", disable_pos)
+          wait_failure = reconnect.index("if (wait_status != 0)", wait_pos)
+          wait_errno = reconnect.index("wait_status = errno > 0 ? errno : EIO;", wait_failure)
+          wait_status_merge = reconnect.index("wireless_radio_restart_status(status, wait_status)", wait_errno)
+          enable_pos = reconnect.index('"ApCliEnable", 1', wait_status_merge)
+          assert disable_pos < wait_pos < wait_failure < wait_errno < wait_status_merge < enable_pos
+          assert "usleep(300000);" not in reconnect
+          assert "return" not in reconnect[wait_pos:enable_pos]
+          assert "AP-client reconnect settling wait failed" in reconnect
           assert "AP-client reconnect command failed" in reconnect
           assert "int reconnect_apcli(const char *ifname_apcli, int force);" in header
 
