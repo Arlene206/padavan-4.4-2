@@ -36,6 +36,7 @@
 #include "wan_mtu_setup_policy.h"
 #include "wan_route_flush_policy.h"
 #include "apcli_wait_policy.h"
+#include "service_wait_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
@@ -1207,7 +1208,8 @@ wait_apcli_connected(const char *ifname, int wait_sec)
 	int i;
 
 	for (i = 0; i <= (wait_sec * 2); i++) {
-		usleep(500000);
+		if (service_wait_microseconds(500000U) != 0)
+			return -1;
 		if (get_apcli_connected(ifname))
 			return 1;
 	}

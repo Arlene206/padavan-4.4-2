@@ -89,13 +89,27 @@ require(WAN.count("wait_apcli_connected(") == 3,
 require(WAN.count("rc_wan_apcli_wait_status(\n") == 2,
         "both wait call sites must convert timeout into a failure status")
 require('#include "apcli_wait_policy.h"' in WAN, "production source must include the tested policy")
-require("return connected ? 0 : ETIMEDOUT;" in HEADER, "timeout must not be normalized to success")
+wait_fn = body(WAN, "wait_apcli_connected(const char *ifname, int wait_sec)")
+require("service_wait_microseconds(500000U) != 0" in wait_fn,
+        "AP-client polling must preserve the full wait interval across EINTR")
+require("return -1;" in wait_fn and "usleep(" not in wait_fn,
+        "AP-client wait errors must not be mistaken for association")
+require("if (wait_result > 0)" in HEADER and "if (wait_result == 0)" in HEADER,
+        "connected and timeout results must remain distinct")
+require("return errno > 0 ? errno : EIO;" in HEADER,
+        "wait failures must preserve errno with an EIO fallback")
 require("rc_wan_apcli_wait_status(1) == 0" in TEST, "regression must cover connected state")
 require("rc_wan_apcli_wait_status(0) == ETIMEDOUT" in TEST, "regression must cover timeout")
+require("rc_wan_apcli_wait_status(-1) == EACCES" in TEST and
+        "rc_wan_apcli_wait_status(-1) == EIO" in TEST,
+        "regression must cover wait failure and missing errno")
+require('#include "service_wait_policy.h"' in WAN,
+        "production AP-client polling must use the shared wait policy")
 
 required_paths = (
     "trunk/user/rc/src/net_wan.c",
     "trunk/user/rc/src/apcli_wait_policy.h",
+    "trunk/user/rc/src/service_wait_policy.h",
     "trunk/user/rc/src/tests/apcli_wait_policy.c",
     "scripts/check_apcli_wait_status.py",
 )
@@ -114,5 +128,7 @@ require('"trunk/user/rc/src/net_wan.c"' in xy_filters,
         "XY-C1 product build must watch net_wan.c")
 require('"trunk/user/rc/src/apcli_wait_policy.h"' in xy_filters,
         "XY-C1 product build must watch the included AP-client policy")
+require('"trunk/user/rc/src/service_wait_policy.h"' in xy_filters,
+        "XY-C1 product build must watch the shared interrupt-safe wait policy")
 
 print("AP-client WISP timeout blocks physical and IPoE WAN activation: PASS")
