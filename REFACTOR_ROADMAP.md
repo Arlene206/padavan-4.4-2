@@ -1,14 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main SHA `4bf82b681361e5b0d4fa43ec4aa7895cc3d11a0f` widens the test scheduler yield to 100 ms after the previous 10-ms timing attempt still failed the detached Lua child test. Exact-head on e20: AI handoff `44282353220` PASS; Process inventory `44282353174` and umbrella fail-closed regression `44282353250` PASS; Shadowsocks `44282353324` FAIL at `Lua-generated ipt2socks readiness status=1 expected=0`.
-- Root cause is confirmed in POSIX shell: normal `pidof`/`pgrep` exit 1 (ABSENT) is captured by direct assignment under caller `set -e`, causing premature exit before the helpers normalize ABSENT to count zero. THIS commit changes all four process inventory helpers to conditional status capture and adds absent-PID/absent-pattern count regressions plus source contracts.
-- XY-C1 run `44282353140` is for product source SHA e20 and was still IN_PROGRESS at last poll; Build/TRX/artifact must be confirmed on that SHA. The current helper correction requires a separate exact-SHA XY-C1 build before L3.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed; physical-router L4 NOT VERIFIED.
+- Exact source baseline cfbf00f9d9100daf82017403e63342658bbac29e fixes POSIX shell set -e handling for confirmed-ABSENT pidof/pgrep lookups. Exact-head process regression 44283617129, process inventory 44283616977, and AI docs 44283617094 PASS; Shadowsocks 44283617060 fails only in a stale source-checker count expecting five sleep guards instead of seven after the two bounded PID-count waits were added. The shell regression step itself passed.
+- Current atomic follow-up updates the checker to validate all seven bounded sleep guards and both PID-count wait caps; no production source changes in this follow-up.
+- XY-C1 run 44283616981 targets exact product-source SHA cfbf and was IN_PROGRESS at last observation. Build/TRX/artifact must all pass on cfbf before L3 can be claimed. Physical-router L4 NOT VERIFIED.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable; PR #1 closed.
 
-Next P1: validate all exact-head Actions and this helper's XY-C1 Build/TRX/artifact; then add startup readiness/rollback for ChinaDNS-ng and dnsmasq, followed by broader RC/userland reliability.
-
+Next P1: after exact-head checks, add validated start/readiness and rollback to ChinaDNS-ng and dnsmasq restart; then continue broader RC/userland stability work.
 ---
-
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

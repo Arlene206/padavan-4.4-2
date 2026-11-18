@@ -1,3 +1,11 @@
+## 2026-11-18 — Align Shadowsocks process checker with bounded count-readiness helpers
+
+- Exact-head cfbf 44283617060 passed shell syntax, startup status, bounded process lifecycle and adblock publication regressions, then failed in the static checker because it still expected five sleep guards from the old helper inventory.
+- The ABSENT-under-errexit correction added two independent, bounded PID-count wait loops (named and pgrep-pattern), correctly increasing the fail-closed sleep-guard count to seven. Update the checker to assert seven guards and both new loop bounds rather than weakening production behavior.
+- cfbf process regression 44283617129, process inventory 44283616977 and AI docs 44283617094 PASS. XY-C1 44283616981 was IN_PROGRESS for exact product-source SHA cfbf; verify Build/TRX/artifact separately.
+- This checker-only correction needs a new exact-head Shadowsocks run. No local shell execution or physical-router L4 is claimed.
+
+---
 ## 2026-11-18 — Preserve confirmed ABSENT PID inventory under set -e
 
 - The exact-head e20 Shadowsocks lifecycle run `44282353324` failed at Lua-generated `ipt2socks` readiness even after the fixture sleep was widened to 100 ms. A POSIX `/bin/sh` reproduction isolated the issue: direct assignment of `pidof` output with exit status 1 is treated as errexit before the helper's ABSENT branch can normalize it.
