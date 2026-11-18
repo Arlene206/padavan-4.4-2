@@ -1852,8 +1852,13 @@ int restart_nfsd(void)
 
 	if (nvram_match("nfsd_enable", "1") &&
 	    storage_mount_inventory_has_mounts(mount_count)) {
-		sleep(1);
-		status = run_nfsd_locked();
+		if (service_wait_seconds(1) != 0) {
+			status = errno > 0 ? errno : EIO;
+			logmessage("Storage", "NFS restart settling wait failed (status %d); refusing restart",
+				   status);
+		} else {
+			status = run_nfsd_locked();
+		}
 	} else {
 		unload_nfsd();
 		status = 0;
