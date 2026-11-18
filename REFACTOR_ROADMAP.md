@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `daf0a387b830c17312c5872fc8a6916b43c149f2`. Shared EINTR-safe waits now cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, RC service startup, LAN PHY reset/readiness and LAN DHCP deconfig.
-- On `65d783f`, exact WAN route, WAN DHCP, detect-internet, Process inventory/fail-closed and AI docs all PASS; XY-C1/NVRAM were pending. The two LAN wait fixes are in this tested source SHA.
-- THIS COMMIT makes forced AP-client disable/enable sequencing EINTR-safe: failed settling wait is reported and remains sticky, but APCLI re-enable is always attempted. Wireless source-contract Actions pending.
+- Live main before THIS COMMIT: `0ac383096f1c92581f566492b002bf71ebc74fd8`. Shared EINTR-safe settling waits cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, RC daemons, LAN PHY reset/readiness and LAN DHCP deconfig.
+- AP-client forced reconnect now uses `service_wait_microseconds(300000U)`, records hard wait errors and still attempts re-enable (`0ac3830`). Its Wireless CI failed only because the checker expected the old one-variable local declaration; THIS COMMIT corrects that source contract.
+- On `0ac3830`, Process inventory/fail-closed, HTTPD security, iNIC, watchdog and AI docs PASS. XY-C1 and NVRAM were pending; current-SHA L3 is not yet verified.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

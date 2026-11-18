@@ -1,29 +1,29 @@
-# 2026-11-18 continuation checkpoint — wireless AP-client reconnect settling
+# 2026-11-18 continuation checkpoint — AP-client reconnect wait contract
 
 ## Current repository state
-- Repository `Arlene206/padavan-4.4-2`, branch `main`. Live main before THIS COMMIT: `daf0a387b830c17312c5872fc8a6916b43c149f2`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged. AliDDNS security/bootstrap work is already integrated. Do not mutate backup, PR #1 or GPT Session Rotator.
-- Main now uses shared interrupt-safe wait handling for WAN/PPP, native DHCPv6, PPPoE relay, NFSd, RC service startup, LAN PHY reset/readiness and LAN DHCP deconfig.
+- Repository `Arlene206/padavan-4.4-2`, branch `main`. Live main before THIS COMMIT: `0ac383096f1c92581f566492b002bf71ebc74fd8`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged and AliDDNS security/bootstrap changes are already integrated. Do not mutate backup, PR #1 or GPT Session Rotator.
+- Main includes EINTR-safe waits for WAN/PPP, native DHCPv6, PPPoE relay, NFSd, detached daemons, LAN PHY reset/readiness and LAN DHCP deconfig.
 
 ## Active task
-- In `reconnect_apcli()` forced reconnect, the driver is told to disable ApCli, then raw `usleep(300000)` is used before enabling it again. An asynchronous signal could shorten that transition window and issue re-enable before the driver has finished its disable operation.
-- THIS COMMIT switches to `service_wait_microseconds(300000U)`. Hard errors are normalized to errno/EIO and fed into `wireless_radio_restart_status()` so the first failure is sticky. APCLI re-enable is intentionally attempted even when disable or wait fails, preserving the recovery behavior.
-- Wireless workflow source contract now verifies disable → shared wait → hard-error normalization/aggregation → re-enable, confirms no raw usleep or early return in the recovery window, and adds shared wait header/unit-test paths to push and pull_request triggers.
+- Production change at `0ac383096f1c92581f566492b002bf71ebc74fd8` replaces raw APCLI reconnect `usleep(300000)` with `service_wait_microseconds(300000U)`. It normalizes hard errors to errno/EIO, merges the wait error into the sticky wireless restart status, and still attempts the re-enable command so recovery is not skipped.
+- Exact Wireless run `44327593252` failed only at its embedded declaration assertion: `net_wifi.c` correctly changed locals to `int status = 0, wait_status;`, but the checker still required `int status = 0;`. The shared helper, policy C tests, bridge membership tests, guest isolation sanitizer tests and other source contracts all passed before the Python source assertion. THIS COMMIT aligns that one source contract; no production behavior change.
 
 ## Verification boundary
-- Previous main SHA: `daf0a387b830c17312c5872fc8a6916b43c149f2`. On `daf0a387b830c17312c5872fc8a6916b43c149f2`, WAN route `44327167484`, WAN DHCP `44327167692`, detect-internet `44327167749`, Process inventory `44327167674`, Process fail-closed `44327167818`, detect_link `44327167645`, DNSMasq `44327167535`, AI docs `44327168058`, Wireless `44327167983` and HTTPD `44327169366` were queued/pending at last poll; XY-C1 `44327167924` and NVRAM `44327167631` were pending.
-- Previous source SHA `65d783f785157fb2c88b002f287e251d45707eeb` exact-head WAN route, WAN DHCP, detect-internet, Process fail-closed/inventory and AI docs all PASS. XY-C1 `44326654807` and NVRAM `44326655048` were in progress at the previous poll.
-- This wireless wait is not target-build or runtime verified. SmartDNS L3 is established only for `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; current source L3 and physical Wi-Fi/AP-client L4 remain NOT VERIFIED.
+- On exact `0ac383096f1c92581f566492b002bf71ebc74fd8`: Process inventory `44327593499`, Process fail-closed `44327593719`, HTTPD security `44327593507`, iNIC lifecycle `44327593416`, watchdog signal `44327593403`, and AI documentation `44327593386` PASS.
+- Wireless run `44327593252` FAIL at the stale local-declaration assertion described above. The compiled wireless radio policy, bridge membership and guest-isolation regressions had already passed. The fixed contract in THIS COMMIT needs exact-head rerun.
+- XY-C1 run `44327593330` and NVRAM audit `44327593806` remained IN_PROGRESS at last poll. No current-SHA L3 claim.
+- SmartDNS Build/TRX/artifact PASS applies only to exact product SHA `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; it does not transfer to current source. Physical AP-client association, BusyBox/uClibc and router L4 remain NOT VERIFIED.
 - No local checkout-based tests were run in this connector-only session.
 
 ## Exact first action for the next GPT
-1. Fetch live main and exact-head Wireless, WAN-route, Process, AI docs and XY-C1 runs created by THIS COMMIT; repair any first failure without weakening the recovery path.
-2. Verify APCLI re-enable is still attempted after a wait failure and first-error status remains sticky.
-3. Confirm the full Build/TRX/artifact chain on the exact current SHA before any L3 claim; retain AP-client radio/association runtime as a separate L4 test.
-4. Continue the remaining cross-userland stability/security queue in the roadmap.
+1. Fetch live main and exact-head Wireless, AI docs, XY-C1 and NVRAM runs created by THIS COMMIT. Repair any first causal failure, without weakening the driver re-enable recovery path.
+2. Confirm APCLI re-enable is attempted after a wait failure and the first wireless status remains sticky.
+3. Confirm full XY-C1 Build/TRX/artifact on the exact current firmware SHA before claiming L3; keep physical wireless/L4 separate.
+4. Continue the remaining stability/security queue in the roadmap.
 
 ## Mandatory handoff checkpoint
-The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect current main and exact-head Actions before ending. Leave this handoff unchanged if task and verification boundaries remain accurate.
+The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect current main and exact-head Actions before ending. Leave this handoff unchanged if the task and verification boundary remain accurate.
 
 ## Cross-session execution mandate
-One logical slice is one atomic main commit. Create a complete Git tree from the exact parent, then update main with non-forced expected-SHA compare-and-swap. Continue independent work while Actions are pending. Before context exhaustion, record exact first action, SHA, regression and CI status. Never claim unobserved local tests, firmware builds or physical-router validation.
+One logical slice is one atomic main commit. Create a complete Git tree from the exact parent, then update main with non-forced expected-SHA compare-and-swap. Continue independent work while Actions are pending. Before context exhaustion, record exact first action, commit SHA, test results and CI state. Never claim unobserved local tests, firmware builds or physical-router validation.

@@ -1,3 +1,11 @@
+## 2026-11-18 — Align APCLI reconnect checker with wait-status local
+
+- Parent main: `0ac383096f1c92581f566492b002bf71ebc74fd8`. Wireless workflow `44327593252` on `0ac3830` passed the GNU89 wireless radio policy, bridge-membership and ASan/UBSan guest-isolation regressions, then failed at the Python source assertion requiring `int status = 0;`.
+- Production `reconnect_apcli()` correctly declares `int status = 0, wait_status;` after adding the shared 300 ms EINTR-safe wait. The test assertion had not been updated for that new local. THIS COMMIT changes only that exact declaration contract plus continuity records; the APCLI disable → wait/error aggregation → unconditional enable assertions remain intact.
+- Exact-head Wireless and AI docs reruns pending. On the parent SHA, Process inventory/fail-closed, HTTPD security, iNIC lifecycle, watchdog and AI docs passed; XY-C1 and NVRAM were still running. No local test or current-SHA firmware result claimed.
+
+---
+
 ## 2026-11-18 — Protect forced AP-client reconnect settling from EINTR
 
 - Parent main: `daf0a387b830c17312c5872fc8a6916b43c149f2`. `reconnect_apcli()` forced reconnect disabled the AP-client interface, then used raw `usleep(300000)` before re-enabling. A signal could shorten the transition interval and race the driver state machine.

@@ -88,7 +88,7 @@ jobs:
           wan_source = (rc / "net_wan.c").read_text()
 
           reconnect = function_body(source, "reconnect_apcli(const char *ifname_apcli, int force)")
-          assert "int status = 0;" in reconnect
+          assert "int status = 0, wait_status;" in reconnect
           assert "return status;" in reconnect
           assert reconnect.count("doSystem(") + 1 == reconnect.count("wireless_radio_restart_status(status,")
           assert reconnect.count('doSystem("iwpriv %s set %s=%d", ifname_apcli, "ApCliAutoConnect"') == 4
