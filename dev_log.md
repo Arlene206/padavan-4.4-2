@@ -1,3 +1,14 @@
+## 2026-11-19 06:07 CST (UTC+8) — Protect MentoHUST credential configuration at creation and reuse
+
+- Parent main SHA: `3561edf47144278a2fa386358930cda901206ccf`.
+- L1 review found PID 1 calls `umask(0000)` in `init.c`; MentoHUST previously wrote plaintext username/password to `/var/mentohust.conf` using ordinary shell redirections, so the inherited umask could expose credentials to every local user. Existing `/etc/storage/mentohust.conf` files were reused without permission tightening. The old sed-based value substitution also made CR/LF-bearing NVRAM values capable of adding configuration directives.
+- THIS COMMIT hardens `trunk/user/mentohust/scripts/mentohust.sh`: set umask 077; write fields literally from a fixed NVRAM-to-config mapping; reject line breaks; create a same-directory mode-0600 temporary file; atomically rename; verify ownership against the executing UID; refuse symlink/directory config targets; and restrict reused regular files before daemon launch. A failed config publication blocks start.
+- Extended `scripts/tests/legacy_wrapper_pidfile_safety.sh` with private-mode, literal special-character value, existing-config mode repair, symlink refusal, newline/carriage-return rejection, and no-launch-on-failure cases. Extended `scripts/check_legacy_wrapper_pidfile_safety.py`, including repair of its over-escaped `kill -9` matcher. The existing workflow already covers all touched source/test/checker paths; the XY-C1 workflow already lists the MentoHUST production script.
+- Local tests: NOT RUN (GitHub connector-only environment; no local repository checkout). Exact-head legacy wrapper and AI handoff Actions: PENDING at commit creation. XY-C1 Build/TRX/artifact: PENDING at commit creation. Hardware L4: NOT VERIFIED.
+- Remaining compatibility boundary: verify BusyBox `stat -c`, `id -u`, `mktemp`, `readlink`, ash behavior and persistent-storage ownership on target; physical XY-C1 runtime remains unverified.
+
+---
+
 ## 2026-11-19 06:05 CST (UTC+8) — Close Redsocks heredoc-aware source contract
 
 - Parent main SHA: `81348ba7fc8cc3affcc2fa5a4b48c87ad48b906d`. Shadowsocks lifecycle push run `44406248171` passed after the oversea profile regression PASS marker was correctly read from `tests/start_status.sh`. Earlier exact `5debbf4` run had shell syntax and every runtime regression pass; its source checker failed only on that stale marker location. The `5debbf4` XY-C1 run `44406037894` remained IN_PROGRESS at checkpoint (Build in progress, TRX/artifact pending).

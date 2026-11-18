@@ -1,15 +1,12 @@
-# 2026-11-19 continuation checkpoint — complete Redsocks detached-start contract
+# 2026-11-19 continuation checkpoint — MentoHUST credential confidentiality
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; all development remains on `main`. Live HEAD at checkpoint: `81348ba7fc8cc3affcc2fa5a4b48c87ad48b906d` (`Check oversea DNSMasq regression in its test file`).
-- Exact `81348ba` Shadowsocks lifecycle run `44406248171` completed SUCCESS. Its predecessor `5debbf416f70cb136a7ad2859b002033143b4357` fixed an `elif` syntax error and passed shell syntax plus all runtime regressions; its source checker then exposed one stale location assertion for the oversea profile PASS marker. Commit `81348ba` correctly reads that marker from `tests/start_status.sh`; exact workflow now passes. Exact `5debbf` XY-C1 run `44406037894` was still building when last checked; Build was IN_PROGRESS and TRX/artifact steps PENDING. Do not claim L3 until this exact source SHA completes all required steps.
-- Exact `7c3fe66` XY-C1 run `44404566282` completed SUCCESS (Build, TRX verification and artifact upload); this is evidence for that earlier product-source SHA only, not the later Shadowsocks source changes.
-- Redsocks source/test SHA `e01cb8e8a74ed9a22f2b81374679be460dea6bfb`: AI docs `44403807297` PASS; Process inventory `44403806732` PASS; Redsocks run `44403806558` passed shell syntax and runtime regression but failed its source checker because the generic brace extractor ended inside the configuration heredoc. This commit changes only extraction to delimit `func_start()` at the next top-level `func_clean(){` declaration; all assertions remain intact. Exact-head Redsocks rerun is required.
-- WireGuard lifecycle and Process regression passed on exact `3dd89aa3d401f82ab32216cafb6f896ce458e451` (runs `44402419113` and `44402419118`). WAN callback follow-up contracts on `6a42ddbfddf98b97ebee280b989da49a949c90ef` passed WAN route `44396594883`, HTTPD `44396594914`, Process `44396594782`, Process inventory `44396594838`, AI docs `44396595183`, and NVRAM audit `44396595064`; do not repeat those repairs.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged; its valid CA-bootstrap and AliDDNS HMAC work is already present on main.
-- Physical-router L4 remains NOT VERIFIED. Distinguish host/Actions tests from target firmware Build/TRX/artifact evidence.
-
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA: `3561edf47144278a2fa386358930cda901206ccf`.
+- The previous Redsocks source/checker slice is closed: exact-main Redsocks lifecycle run `44407053205` and AI handoff run `44407053381` both completed SUCCESS on `bb6b243951b1b72adaf349546c8caebf8cb492ed`.
+- XY-C1 source SHA `5debbf416f70cb136a7ad2859b002033143b4357` run `44406037894` has now completed SUCCESS; this validates that exact earlier product source, not the current MentoHUST changes.
+- The frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 remains closed/unmerged and is not a development path.
+- Physical-router L4 remains NOT VERIFIED. Distinguish host/Actions checks from target build/artifact and hardware evidence.
 ## Completed prerequisite — switch VLAN WAN gate
 
 The previous source slice closed a P1 WAN-startup safety gap. Router-mode `init_bridge()` formerly recorded `switch_config_vlan(1)` failure in its aggregate bridge status, but WAN admission did not consume that result. `init_bridge(int is_ap_mode, int *switch_vlan_status)` now exports only the switch VLAN isolation result; `init_router()` passes it into `firewall_startup_policy_allows_wan()`. Any nonzero result blocks WAN even when firewall and NAT are disabled. Unrelated radio/guest bridge errors are not promoted to the WAN prerequisite. The existing IPv4/IPv6 forwarding-disable cleanup remains in place.
@@ -79,24 +76,25 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Complete the Redsocks detached-start readiness slice by repairing its source-contract parser.
+Close MentoHUST credential confidentiality and configuration-publication hardening.
 
-- Production fix and runtime tests are committed in `e01cb8e8a74ed9a22f2b81374679be460dea6bfb`: after the `daemon=on` launch, both existing-config and generated-config paths require bounded tri-state RUNNING confirmation; ABSENT times out after four waits; UNKNOWN/sleep failure fail closed; launcher errors are preserved.
-- Exact `e01cb8e` Redsocks run `44403806558`: Bash syntax and the complete runtime regression PASS; Python source contract FAIL because its generic brace parser treated closing braces inside the config heredoc as the end of `func_start()`. The checker now slices from `func_start(){` to the next top-level `func_clean(){` boundary, keeping all existing assertions and test markers.
-- Existing `.github/workflows/redsocks-lifecycle.yml` already watches source, test and checker paths for push and pull_request. Validate the source-contract repair on the follow-up exact `main` SHA before marking Redsocks L2 complete.
+- `trunk/user/rc/src/init.c` deliberately sets PID 1 umask to `0000`; the prior `trunk/user/mentohust/scripts/mentohust.sh` wrote plaintext username/password with ordinary redirections and left config files at inherited permissions. Its sed-based value interpolation also allowed line-breaks to inject additional config directives.
+- THIS COMMIT sets a restrictive script umask, generates a same-directory mode-0600 temporary config, writes fixed key/value names with literal `printf`, rejects CR/LF-bearing NVRAM values and symlink/directory destinations, verifies ownership against the executing UID, atomically renames the generated file, and restricts existing regular configs before launching the daemon.
+- Regression coverage is extended in `scripts/tests/legacy_wrapper_pidfile_safety.sh`; `scripts/check_legacy_wrapper_pidfile_safety.py` now enforces the production security contract and correctly detects `kill -9` tokens. The existing `.github/workflows/legacy-wrapper-pidfile-safety.yml` already watches all changed paths, and the XY-C1 production-input workflow already watches the MentoHUST script.
+- Preserve the current script's lifecycle semantics: duplicate-start preflight, bounded RUNNING verification, identity-safe stop helper, and restart stop-before-start behavior.
 
 ## Verification boundary
 
-- Exact `e01cb8e`: shell syntax PASS; full Redsocks runtime regression PASS; source-contract checker FAIL on parser scope only. AI docs and Process inventory on that SHA PASS.
-- This checker-only repair must receive a passing Redsocks push run whose `head_sha` exactly equals its new commit. The separate Shadowsocks checker run `44406248171` on `81348ba` is already SUCCESS.
-- Exact `7c3fe66` XY-C1 Build/TRX/artifact all passed. The subsequent Shadowsocks production-source change at `acea79b` and its syntax repair at `5debbf4` require the pending exact `5debbf` XY-C1 run to complete before a new L3 claim. No Redsocks firmware L3 claim; physical router L4 remains NOT VERIFIED.
+- L1 source review: PID 1 umask, plaintext NVRAM credential flow, old file creation modes, existing-config reuse, shell interpolation, and firmware script packaging were inspected. The code, regression and handoff updates are part of THIS COMMIT.
+- L2: exact-head legacy wrapper source-contract/runtime Actions and AI handoff documentation Actions must be inspected after push. No local checkout is available in this connector-only environment; do not claim local shell execution.
+- L3: current MentoHUST production script change requires exact-head XY-C1 Build, TRX verification and artifact upload. Earlier source SHA `5debbf4` run `44406037894` is successful but does not cover this change.
+- L4 physical router: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the Redsocks lifecycle push workflow for the latest main SHA. Confirm both `Run Redsocks bounded process lifecycle regression` and `Verify Redsocks source contract` pass on the exact same `head_sha`; if not, fix the concrete source/checker mismatch without relaxing assertions.
-2. Recheck XY-C1 run `44406037894` on source `5debbf416f70cb136a7ad2859b002033143b4357`; count L3 only if Build XY-C1, TRX verification and artifact upload all complete successfully.
-3. When Redsocks L2 is green, continue the P1 whole-userland service lifecycle/start-result work from `REFACTOR_ROADMAP.md`; do not repeat verified Shadowsocks, WireGuard or WAN callback fixes. Keep the archival backup immutable.
-
+1. Check Actions for THIS COMMIT's exact SHA: the `Legacy wrapper stale pidfile safety` workflow must pass shell syntax, runtime regressions and source contracts; the AI handoff docs check must pass; and XY-C1 must complete Build, TRX verification and artifact upload on this same production-source SHA.
+2. Triage any exact-head failure from its first failing log and repair the actual defect without weakening coverage. If XY-C1 or another independent check is pending, continue a separate safe P1 task rather than waiting.
+3. Then resume the P1 whole-userland service lifecycle/start-result queue in `REFACTOR_ROADMAP.md`; rotate beyond already-verified Redsocks, Shadowsocks, WireGuard and WAN callback work. Keep the archival backup immutable.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.
