@@ -165,4 +165,48 @@ ppp_options_file_finish(FILE *fp, const char *path)
 	return 0;
 }
 
+
+/* Keep PPP callbacks pinned to the in-image RC dispatcher. */
+static inline int
+ppp_options_symlink_ready(const char *path, const char *target)
+{
+	struct stat st;
+	char actual[256];
+	ssize_t length;
+	size_t target_length;
+
+	if (!path || !path[0] || !target || !target[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	target_length = strlen(target);
+	if (target_length >= sizeof(actual)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	if (lstat(path, &st) != 0) {
+		if (errno != ENOENT)
+			return -1;
+		if (symlink(target, path) == 0)
+			return 0;
+		if (errno != EEXIST)
+			return -1;
+		if (lstat(path, &st) != 0)
+			return -1;
+	}
+	if (!S_ISLNK(st.st_mode)) {
+		errno = EPERM;
+		return -1;
+	}
+	length = readlink(path, actual, sizeof(actual));
+	if (length < 0)
+		return -1;
+	if ((size_t)length != target_length ||
+	    memcmp(actual, target, target_length) != 0) {
+		errno = EPERM;
+		return -1;
+	}
+	return 0;
+}
+
 #endif /* PADAVAN_PPP_OPTIONS_FILE_H */

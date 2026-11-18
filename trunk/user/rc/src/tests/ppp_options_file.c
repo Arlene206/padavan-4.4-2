@@ -25,6 +25,9 @@ main(void)
 	char unsafe_directory[256], options[256], victim[256];
 	char symlink_path[256], hardlink_path[256], fifo_path[256], fail_path[256];
 	char peers_directory[256], peer_path[256];
+	char callback_path[256], wrong_callback_path[256], regular_callback_path[256];
+	char link_value[64];
+	ssize_t link_length;
 	FILE *fp;
 	struct stat st;
 	mode_t original_umask;
@@ -32,6 +35,24 @@ main(void)
 
 	assert(mkdtemp(directory) != NULL);
 	assert(ppp_options_directory_ready(directory) == 0);
+	assert(snprintf(callback_path, sizeof(callback_path), "%s/ip-up.vpns", directory) > 0);
+	assert(snprintf(wrong_callback_path, sizeof(wrong_callback_path), "%s/ip-down.vpns", directory) > 0);
+	assert(snprintf(regular_callback_path, sizeof(regular_callback_path), "%s/regular-callback", directory) > 0);
+	assert(ppp_options_symlink_ready(callback_path, "/sbin/rc") == 0);
+	link_length = readlink(callback_path, link_value, sizeof(link_value));
+	assert(link_length == (ssize_t)strlen("/sbin/rc"));
+	assert(memcmp(link_value, "/sbin/rc", (size_t)link_length) == 0);
+	assert(ppp_options_symlink_ready(callback_path, "/sbin/rc") == 0);
+	assert(symlink("/bin/sh", wrong_callback_path) == 0);
+	errno = 0;
+	assert(ppp_options_symlink_ready(wrong_callback_path, "/sbin/rc") == -1);
+	assert(errno == EPERM);
+	fp = fopen(regular_callback_path, "w");
+	assert(fp != NULL);
+	assert(fclose(fp) == 0);
+	errno = 0;
+	assert(ppp_options_symlink_ready(regular_callback_path, "/sbin/rc") == -1);
+	assert(errno == EPERM);
 
 	/* Reproduce PID 1's umask(0000) and the former 0777/0666 RAS writer. */
 	assert(snprintf(peers_directory, sizeof(peers_directory), "%s/peers", directory) > 0);
@@ -118,6 +139,9 @@ main(void)
 	assert(saved_errno != 0);
 	assert(access(fail_path, F_OK) != 0 && errno == ENOENT);
 
+	assert(unlink(callback_path) == 0);
+	assert(unlink(wrong_callback_path) == 0);
+	assert(unlink(regular_callback_path) == 0);
 	assert(unlink(fifo_path) == 0);
 	assert(unlink(hardlink_path) == 0);
 	assert(unlink(symlink_path) == 0);

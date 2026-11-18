@@ -32,6 +32,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "vpn_server_restart_policy.h"
 #include "vpn_server_callback_policy.h"
+#include "ppp_options_file.h"
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
@@ -219,8 +220,12 @@ gen_vpns_pppd_options(int vpns_type)
 
 	lanip  = nvram_safe_get("lan_ipaddr");
 
-	if (!(fp = fopen(vpns_opt, "w")))
+	fp = ppp_options_file_open(vpns_opt);
+	if (!fp) {
+		logmessage(VPNS_LOG_NAME, "cannot safely open PPP VPN options (errno=%d)",
+			   errno ? errno : EIO);
 		return -1;
+	}
 
 	fprintf(fp, "name %s\n", get_our_hostname());
 	fprintf(fp, "auth\n");
@@ -314,7 +319,7 @@ gen_vpns_pppd_options(int vpns_type)
 	fprintf(fp, "ip-down-script %s\n", VPNS_PPP_DW_SCRIPT);
 	fprintf(fp, "minunit %d\n", VPN_SERVER_PPP_UNIT);
 
-	if (fclose_stream_status(fp) != 0) {
+	if (ppp_options_file_finish(fp, vpns_opt) != 0) {
 		logmessage(VPNS_LOG_NAME, "cannot flush or close PPP VPN options (errno=%d)",
 			   errno ? errno : EIO);
 		return -1;
@@ -332,7 +337,7 @@ static int
 start_vpn_server_locked(void)
 {
 	FILE *fp;
-	int i, i_type, i_vuse, xl2tpd_status;
+	int i, i_type, i_vuse, xl2tpd_status, saved_errno;
 	char *vpns_cfg = "/etc/pptpd.conf";
 	const char *vpns_sec = "/tmp/ppp/chap-secrets";
 	unsigned int vaddr, vmask, vp_b, vp_e;
@@ -351,37 +356,67 @@ start_vpn_server_locked(void)
 		return start_openvpn_server();
 #endif
 
-	mkdir("/tmp/ppp", 0777);
-	symlink("/sbin/rc", VPNS_PPP_UP_SCRIPT);
-	symlink("/sbin/rc", VPNS_PPP_DW_SCRIPT);
+	if (ppp_options_directory_ready("/tmp/ppp") != 0 ||
+	    ppp_options_symlink_ready(VPNS_PPP_UP_SCRIPT, "/sbin/rc") != 0 ||
+	    ppp_options_symlink_ready(VPNS_PPP_DW_SCRIPT, "/sbin/rc") != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "refusing VPN server startup because PPP callback directory/links are unsafe (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	i_vuse = nvram_get_int("vpns_vuse");
 
 	get_vpns_pool(i_vuse, &vaddr, &vmask, &vp_b, &vp_e);
 
 	if (i_type != 1) {
-		if (!(fp = fopen(vpns_cfg, "w")))
+		fp = ppp_options_file_open(vpns_cfg);
+		if (!fp) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(VPNS_LOG_NAME, "cannot safely open PPTP configuration (errno=%d)", saved_errno);
+			errno = saved_errno;
 			return -1;
-		
+		}
+
 		fprintf(fp, "option %s\n", VPN_SERVER_PPPD_OPTIONS);
 		fprintf(fp, "connections %d\n", MAX_CLIENTS_NUM);
-		
 		pool_in.s_addr = htonl(vaddr);
 		fprintf(fp, "localip %s\n", inet_ntoa(pool_in));
-		
 		pool_in.s_addr = htonl((vaddr & vmask) | vp_b);
 		fprintf(fp, "remoteip %s-%u\n", inet_ntoa(pool_in), vp_e);
-		
-		fclose(fp);
-		
-		chmod(vpns_cfg, 0644);
+
+		if (ppp_options_file_finish(fp, vpns_cfg) != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(VPNS_LOG_NAME, "cannot flush or close PPTP configuration (errno=%d)", saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
+		if (chmod(vpns_cfg, 0644) != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(VPNS_LOG_NAME, "cannot set PPTP configuration permissions (errno=%d)", saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
 	}
 
-	gen_vpns_pppd_options(i_type);
+	if (gen_vpns_pppd_options(i_type) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot publish PPP VPN options; server startup aborted (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
-	/* create /tmp/ppp/chap-secrets */
-	fp = fopen(vpns_sec, "w+");
-	if (fp) {
+	/* Credential files must be private before they are opened/truncated. */
+	fp = ppp_options_file_open(vpns_sec);
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME, "cannot safely open private CHAP secrets (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	{
 		char *acl_user, *acl_pass;
 		char acl_user_var[32], acl_pass_var[32], acl_addr_var[32];
 		unsigned int vp_a;
@@ -405,9 +440,12 @@ start_vpn_server_locked(void)
 				fprintf(fp, "\"%s\"	*	\"%s\"	%s\n", acl_user, acl_pass, acl_addr_var);
 			}
 		}
-		fclose(fp);
-		
-		chmod(vpns_sec, 0600);
+		if (ppp_options_file_finish(fp, vpns_sec) != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(VPNS_LOG_NAME, "cannot flush or close private CHAP secrets (errno=%d)", saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
 	}
 
 	if (i_type == 1) {

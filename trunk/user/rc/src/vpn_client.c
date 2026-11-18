@@ -30,6 +30,7 @@
 #include <process_inventory.h>
 #include "process_presence_start_policy.h"
 #include "vpn_client_restart_policy.h"
+#include "ppp_options_file.h"
 #include "vpn_server_lifecycle_lock.h"
 
 #define VPNC_LOG_NAME		"VPN client"
@@ -112,15 +113,26 @@ start_vpn_client_locked(void)
 #endif
 	vpnc_opt = VPN_CLIENT_PPPD_OPTIONS;
 
-	mkdir("/tmp/ppp", 0777);
-	symlink("/sbin/rc", VPNC_PPP_UP_SCRIPT);
-	symlink("/sbin/rc", VPNC_PPP_DW_SCRIPT);
+	if (ppp_options_directory_ready("/tmp/ppp") != 0 ||
+	    ppp_options_symlink_ready(VPNC_PPP_UP_SCRIPT, "/sbin/rc") != 0 ||
+	    ppp_options_symlink_ready(VPNC_PPP_DW_SCRIPT, "/sbin/rc") != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client startup because PPP callback directory/links are unsafe (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	i_auth = nvram_get_int("vpnc_auth");
 	i_mppe = nvram_get_int("vpnc_mppe");
 
-	// Create options for pppd
-	if (!(fp = fopen(vpnc_opt, "w"))) {
+	/* Credential-bearing options must be private before truncation. */
+	fp = ppp_options_file_open(vpnc_opt);
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME, "cannot safely open private PPP options (errno=%d)", saved_errno);
+		errno = saved_errno;
 		return -1;
 	}
 
@@ -212,9 +224,12 @@ start_vpn_client_locked(void)
 	/* user specific options */
 	fprintf(fp, "%s\n", nvram_safe_get("vpnc_pppd"));
 
-	fclose(fp);
-
-	chmod(vpnc_opt, 0600);
+	if (ppp_options_file_finish(fp, vpnc_opt) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNC_LOG_NAME, "cannot flush or close private PPP options (errno=%d)", saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	if (i_type == 1)
 	{
