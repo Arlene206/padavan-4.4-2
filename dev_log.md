@@ -1,3 +1,12 @@
+## 2026-11-18 — Preserve malformed SmartDNS state across generic autostart
+
+- Parent main: `a36da98521b1d2fc3b7641f4cd98f73d103d89e7`. Process workflow `44321557863` on `661d4f30857fdf97a922a5ee3bfffdebbfc920a8` passed the SmartDNS process-state/source contract and process inventory, then failed at the optional-autostart shell test. The previous fixture had already stopped demanding generic autostart rewrite DNSMasq, but still expected the stub SmartDNS launcher to delete malformed saved state while simultaneously checking that the state bytes were unchanged.
+- Production ownership is deliberate: generic `autostart.sh` dispatches optional daemons and logs their return status; SmartDNS `Read_ini()` validates the private persisted resolver state and exits nonzero while preserving resolver configuration if it is malformed. The corrected fixture simulates status 45 from the SmartDNS launcher, asserts byte-identical DNSMasq and saved-state files, verifies the failure diagnostic, verifies DDNSTO and FRP still launch, and checks custom user rules survive obsolete ad-block-line removal.
+- Extend `scripts/check_smartdns_lifecycle.py` with source contracts for symlink/state/port/version validation, the fail-closed main entry point, and the new autostart preservation assertions. No production source change.
+- The same-head Process workflow's first failure was reproducible at the old test assertion; exact-head Process and AI docs validations for THIS COMMIT are pending. SmartDNS product source SHA `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c` has XY-C1 Build/TRX/artifact PASS on run `44318683585`; DNSMasq regression `44321070200` on checker SHA `0439e8c` PASS. No local shell test or router L4 result is claimed.
+
+---
+
 ## 2026-11-18 22:08 CST (UTC+8) — Restore SmartDNS parser and handoff checkpoint contract
 
 - Base main SHA: `2b732b768a9d840e9123e60dc47f588bce129d33`. The DNSMasq exact-head workflow `44320354409` on `20acc09` failed after all shell regression cases passed because that commit's tree accidentally reinstated the older marker-count parser; restore the regex-based declaration matcher proven on `5e5c3c0`, which anchors the function definition at line start and handles the current POSIX `name()` syntax.

@@ -1,30 +1,30 @@
-# 2026-11-18 continuation checkpoint — SSH lifecycle contract and cross-module CI repair
+# 2026-11-18 continuation checkpoint — SmartDNS autostart malformed-state regression
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`, development branch `main`. Live main immediately before this checkpoint: `2b732b768a9d840e9123e60dc47f588bce129d33`. Last product-source milestone relevant to this recovery: SmartDNS managed DNSMasq configuration preservation at `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; subsequent `e896587`, `8223c9b`, and `5e5c3c0` commits updated checker/test contracts or fixtures, not firmware production source.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged; its valid AliDDNS CA/HMAC/bootstrap work is already present in the evolved main files, so no further port is outstanding.
-- All development remains main-only. Do not touch the frozen backup, PR #1, or GPT Session Rotator.
+- Repository `Arlene206/padavan-4.4-2`, development branch `main`. Live main immediately before this checkpoint: `a36da98521b1d2fc3b7641f4cd98f73d103d89e7`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged; its useful AliDDNS CA/HMAC/bootstrap changes are already present in main. Do not mutate the backup, PR #1 or GPT Session Rotator.
+- The SmartDNS managed DNSMasq product change is `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; later commits in this series update tests/checkers/docs, not SmartDNS production source.
 
 ## Active task
-- Correct the SSH detached-child startup checker after the exact Process workflow on `8223c9b9023f48fbeb7c6cb2a114cde7ba2d46db` (run `44319662328`) passed the compiled SSH lifecycle policy tests but failed the Python source contract. The checker expected a direct `sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS)`; current `start_sshd()` correctly uses the common status-returning `service_start_probe_wait("SSH", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS)`. THIS COMMIT changes that checker assertion only.
-- SmartDNS transactional DNSMasq integration at source SHA `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c` preserves user-owned directives using a marked managed block, validates legacy saved state, stages config in the same directory and atomically renames it. Runtime regressions cover idempotent cleanup, exact legacy directives, malformed markers, symlinks, failed rename and unchanged user rules. No SmartDNS runtime product change is part of THIS COMMIT.
-- Next independent failed contract: vsftpd workflow run `44319662317` on `8223c9b`; its GNU89 C regressions passed, but the embedded Python source contract raised an unlabelled AssertionError at stdin line 89. Inspect the numbered assertion against current source before adjusting the contract.
+- Fix the optional autostart regression fixture. Process run `44320600815` on `957017518551a598a0dae1a1e6af10e5750c7d68` first exposed the obsolete expectation that generic autostart itself removes SmartDNS DNSMasq entries. Commit `661d4f3` removed those resolver-cleanup assertions but left a contradictory expectation that a stub SmartDNS launcher deletes malformed saved state even though the test also requires that state to remain unchanged.
+- Production ownership is intentional: `autostart.sh` calls the SmartDNS launcher and logs its status; `smartdns.sh` validates saved state in `Read_ini()` and explicitly refuses malformed state while preserving DNSMasq configuration. The regression now simulates launcher status 45, verifies the saved state and DNSMasq file stay byte-identical, checks the diagnostic, confirms custom user rules survive ad-block cleanup, and confirms independent DDNSTO/FRP launchers continue.
+- Extend `scripts/check_smartdns_lifecycle.py` to pin the production Read_ini fail-closed validation and the autostart preservation expectations. No production SmartDNS source edit is intended for this slice.
 
 ## Verification boundary
-- Exact-head DNSMasq workflow `44319742816` on `5e5c3c0515e0f42513711703e637cd7bab312c88`: PASS, including DNSMasq configuration preservation shell tests and the corrected Python helper extractor.
-- Process workflow `44319662328` on `8223c9b`: FAIL only at the SSH source-contract assertion after the SSH GNU89 policy test and firewall shutdown checker printed PASS; the corrected assertion in THIS COMMIT requires a new exact-head Process run.
-- Process lifecycle inventory `44319662359` on `8223c9b`: PASS. Samba share stability `44319662327` on `8223c9b`: PASS. NVRAM transaction audit `44319662342` and USB storage hotplug `44319662199` were IN_PROGRESS at the last observation.
-- vsftpd run `44319662317` on `8223c9b`: FAIL at its embedded Python source contract after GNU89 C regressions passed; investigate next.
-- The SmartDNS product source SHA `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c` had XY-C1 run `44318683585` IN_PROGRESS at the last observation; no current-SHA Build/TRX/artifact PASS is claimed. Host/router L4 and target BusyBox/uClibc runtime remain NOT VERIFIED. Local checkout and local test execution were unavailable in this connector-only session.
+- Exact Process run `44321557863` on `661d4f30857fdf97a922a5ee3bfffdebbfc920a8`: SmartDNS process-state source contract and process inventory passed; optional-add-on autostart regression failed solely at the stale saved-state deletion assertion. The corrected test/checker in THIS COMMIT require a new exact-head Process run.
+- DNSMasq workflow `44321070200` on `0439e8c83146c2242f6907f1ef3b6888e5ccf6ac`: PASS, including managed-block and user-directive preservation tests and the regex-based POSIX helper parser.
+- XY-C1 firmware run `44318683585` on the exact SmartDNS production-source SHA `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`: Build XY-C1, TRX verification and artifact upload all PASS; L3 is VERIFIED for that product-source SHA.
+- vsftpd stability `44320651576` on `2b732b768a9d840e9123e60dc47f588bce129d33`, Infosvr `44320600854` on `957017518551a598a0dae1a1e6af10e5750c7d68`, Crond `44320518213` and Networkmap `44320518215` on `0fbc1958d5d74cdf13163de5cf965bad41eaa752`: PASS. NVRAM audit `44319662342`, USB storage `44319662199`, Process inventory `44319662359` and Samba `44319662327` on `8223c9b`: PASS.
+- AI handoff workflow `44321071282` on `0439e8c` failed because the handoff omitted the exact required phrase `one atomic main commit`; THIS COMMIT adds it. New exact-head CI remains pending.
+- No local checkout-based shell test or MIPS build was run in this connector-only session. BusyBox/uClibc live runtime, DNS traffic and physical-router L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch current live main and exact-head Actions. Verify the Process run created by THIS COMMIT; inspect whether the SSH lifecycle checker now passes and repair any first causal failure.
-2. Continue the vsftpd repair from run `44319662317`: number the embedded Python here-doc and map stdin line 89 to the exact assertion, then compare the expected contract with the current source. Preserve the successful C tests and do not weaken real ACL, path identity or configuration publication checks.
-3. Revisit the NVRAM and USB-storage pending runs only if their results affect the next action; confirm the XY-C1 build for the actual SmartDNS production-source SHA before claiming L3.
-4. Continue the repo-wide stability/security queue with bounded source fixes, regressions, atomic main commits and exact-head Actions.
+1. Fetch live main and exact-head Actions. Inspect the new Process and AI handoff workflows first; repair any first causal failure without weakening source or behavioral checks.
+2. Confirm the corrected autostart test preserves malformed saved state and DNSMasq bytes while logging the SmartDNS failure and still launching DDNSTO/FRP. The host fixture stubs SmartDNS's exit status; the source checker separately proves the production Read_ini fail-closed path.
+3. Continue the next risk-ranked stability defect from `REFACTOR_ROADMAP.md`; do not reopen the closed SmartDNS parser/checker or vsftpd fixes unless new evidence shows regression.
 
 ## Mandatory handoff checkpoint
-The checkpoint is mandatory; a document edit is conditional. Every session MUST compare live repository state and exact-head Actions with this checkpoint before ending. Before context exhaustion, update this file only if the active task, verification boundary, blocker or precise next action materially changes.
+The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state and exact-head Actions before ending. If the active task, verification boundary and first action remain accurate, leave this handoff untouched.
 
 ## Cross-session execution mandate
-Continue without asking the user to select the next task. Finish safe slices with source review, regression tests, complete-tree atomic commits and non-forced expected-SHA main updates. Never claim local tests, MIPS builds, firmware artifacts or physical-device validation that were not actually observed.
+One logical slice is one atomic main commit. Finish bounded source/test work, create one complete Git tree and commit, then update main with non-forced expected-SHA compare-and-swap. Continue independent work while relevant Actions are pending. Before context exhaustion, leave the next GPT the exact first action, commit SHA, tests and CI state. Never claim unobserved local tests, target builds or physical-device validation.

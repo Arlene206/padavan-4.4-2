@@ -23,6 +23,21 @@ assert '[ -z "$_smartdns_pid_output" ] && return 1' in helper
 assert '*)\n            return 2' in helper
 assert 'killall smartdns' in helper and 'killall -9 smartdns' in helper
 assert 'smartdns_wait_stopped' in helper
+reader = body(script, 'Read_ini () {', '\n}\n\nCheck_md5')
+assert 'if [ -L "$smartdns_Ini" ]; then' in reader
+assert '[ -r "$smartdns_Ini" ] && [ -s "$smartdns_Ini" ] || return 1' in reader
+assert 'case "$hosts_type" in SmartDNS|dnsmasq|0) ;; *) return 1 ;; esac' in reader
+assert 'sdns_ported=$(smartdns_dnsmasq_normalize_port "$sdns_ported") || return 1' in reader
+assert 'managed-v1) ;;' in reader
+assert 'elif [ -e "$smartdns_Ini" ]; then\n        return 1' in reader
+assert 'if Read_ini; then\n    Main\nelse' in script
+assert 'Saved SmartDNS resolver state is invalid; preserving DNSMasq configuration' in script
+assert 'exit "$smartdns_ini_status"' in script
+assert 'SMARTDNS_STATUS=45' in test
+assert 'SmartDNS autostart failed (status=45)' in test
+assert 'autostart consumed malformed SmartDNS saved state' in test
+assert 'SmartDNS failure blocked independent DDNSTO startup' in test
+assert 'SmartDNS failure blocked independent FRP startup' in test
 start = body(script, 'Start_smartdns () {', '\n}\n\nStop_smartdns')
 stop = body(script, 'Stop_smartdns () {', '\n}\n\nMain')
 main = body(script, 'Main () {', '\n}\n\nRead_ini')

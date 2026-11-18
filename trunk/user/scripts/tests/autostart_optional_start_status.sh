@@ -140,20 +140,37 @@ cp "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" "$TMP_DIR/dnsmasq.before"
 cp "$TMP_DIR/storage/smartdns_conf.ini" "$TMP_DIR/smartdns-state.before"
 ENABLE_SMARTDNS=1
 SMARTDNS_PORT=6053
-export ENABLE_SMARTDNS SMARTDNS_PORT
+# A malformed persisted-state fixture makes the production SmartDNS Read_ini()
+# path fail closed. Autostart must report the failure but continue independent
+# add-ons; it must not bypass the resolver transaction or discard the state.
+SMARTDNS_STATUS=45
+export ENABLE_SMARTDNS SMARTDNS_PORT SMARTDNS_STATUS
 sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
 	echo "autostart failed while dispatching the SmartDNS launcher" >&2
 	exit 1
 }
-# Resolver cleanup belongs to SmartDNS's own transactional lifecycle,
-# not the generic autostart dispatcher. The stubbed launcher must not cause
-# autostart to edit DNSMasq configuration or consume SmartDNS's saved state.
 cmp -s "$TMP_DIR/dnsmasq.before" "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
 	echo "autostart modified DNSMasq configuration outside SmartDNS lifecycle" >&2
 	exit 1
 }
 cmp -s "$TMP_DIR/smartdns-state.before" "$TMP_DIR/storage/smartdns_conf.ini" || {
-	echo "autostart consumed SmartDNS state before its launcher ran" >&2
+	echo "autostart consumed malformed SmartDNS saved state" >&2
+	exit 1
+}
+grep -Fxq 'smartdns:start' "$AUTOSTART_CALLS" || {
+	echo "SmartDNS launcher was not attempted" >&2
+	exit 1
+}
+grep -Fq 'SmartDNS autostart failed (status=45)' "$AUTOSTART_LOG" || {
+	echo "SmartDNS launch failure was not reported" >&2
+	exit 1
+}
+grep -Fxq 'ddnsto:start' "$AUTOSTART_CALLS" || {
+	echo "SmartDNS failure blocked independent DDNSTO startup" >&2
+	exit 1
+}
+grep -Fxq 'frp:start' "$AUTOSTART_CALLS" || {
+	echo "SmartDNS failure blocked independent FRP startup" >&2
 	exit 1
 }
 grep -Fxq 'custom-rule' "$TMP_DIR/storage/smartdns_custom.conf" || {
@@ -164,14 +181,8 @@ if grep -Eq '去广告|adbyby' "$TMP_DIR/storage/smartdns_custom.conf"; then
 	echo "autostart did not remove obsolete ad-blocking custom lines" >&2
 	exit 1
 fi
-[ ! -e "$TMP_DIR/storage/smartdns_conf.ini" ] || {
-	echo "SmartDNS launcher was not responsible for invalidating its saved state" >&2
-	exit 1
-}
-grep -Fxq 'smartdns:start' "$AUTOSTART_CALLS" || {
-	echo "SmartDNS launcher was not attempted after cleanup" >&2
-	exit 1
-}
+SMARTDNS_STATUS=0
+export SMARTDNS_STATUS
 
 : > "$AUTOSTART_LOG"
 : > "$AUTOSTART_CALLS"
