@@ -67,7 +67,7 @@ policy = function_body(POLICY_SOURCE, "inadyn_update_should_run(")
 require("return ddns_enabled && !is_ap_mode;" in policy,
         "DDNS should run only when enabled and not in AP mode")
 
-notify = function_body(SERVICES_SOURCE, "notify_ddns_update(void)")
+notify = function_body(SERVICES_SOURCE, "notify_ddns_update_locked(void)")
 gate = notify.index("inadyn_update_should_run(")
 inventory = notify.index('process_inventory_scan("inadyn", &snapshot)')
 require(gate < inventory and

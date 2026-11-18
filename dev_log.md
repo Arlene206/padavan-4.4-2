@@ -1,10 +1,17 @@
+## 2026-11-19 — Align downstream checks with Inadyn locked helpers
+
+- Inadyn SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn regression `44381565885` (lock compile/run + production contract), Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068` and Samba `44381563561` PASS.
+- WAN route `44381563038` failed because `scripts/check_wan_ddns_status.py` still parsed `notify_ddns_update(void)` rather than `notify_ddns_update_locked(void)`. DNSMasq lifecycle `44381563474` failed because its embedded checker expected the former public start/update bodies and nested stop call. This follow-up adjusts only those source contract signatures/calls, retaining all substantive assertions.
+- AI docs `44381563154` failed because the prior handoff splice dropped the required `## Verification boundary` section. Restore it and record current exact-SHA evidence.
+- XY-C1 `44381563540` remains IN_PROGRESS (Build active; TRX/artifact pending); NVRAM audit `44381563037` was pending. No firmware L3 or physical-router L4 claim.
+
 ## 2026-11-19 — Serialize Inadyn stop/start and configuration notifications
 
 - Base main SHA: `b471b7e328b79c9eac412f2af701c51b9a573e19`. AI handoff documentation run `44377784741` PASS after restoring the literal Active task heading.
 - Review found public `stop_ddns`, `start_ddns`, `notify_ddns_update` and `notify_ddns_manual_update` had no shared process lock. Concurrent RC processes could race stop/start for the `--no-pidfile` daemon or race config publication/reload/manual refresh against restart.
 - Add root-owned `/tmp/.inadyn.lifecycle.lock` via `fcntl`; validate regular-file type, effective UID, single link and restrictive mode; open with `O_NOFOLLOW|O_CLOEXEC`; bound contention to 10 seconds. All public operations hold one lock through their transaction; internal `_locked` helpers avoid recursive acquisition.
 - Add fork-based host regression for cross-process exclusion, release/reacquisition, hardlink/symlink rejection and invalid paths; compile/run it with GNU89, ASan and UBSan in the Inadyn workflow. Add explicit lock paths to XY-C1 and Process inventory workflow filters.
-- Prior AliDDNS source SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0`: AliDDNS `44377211563`, Process `44377211590`, HTTPD `44377211539` PASS; XY-C1 `44377211451` remains IN_PROGRESS (Build active; TRX/artifact pending). New lock slice CI has not yet run. No local test or MIPS build is claimed; physical-router L4 remains NOT VERIFIED.
+- Inadyn source SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068` and Samba `44381563561` PASS. WAN route `44381563038` and DNSMasq `44381563474` failed due downstream checkers still expecting the pre-lock function bodies; AI docs `44381563154` failed due missing `## Verification boundary`. This follow-up aligns the checkers and restores the heading. XY-C1 `44381563540` remains IN_PROGRESS; NVRAM `44381563037` was also pending. L3/L4 are not claimed.
 
 ## 2026-11-19 — Reject the remaining IANA-reserved IPv6 GUA ranges in AliDDNS
 

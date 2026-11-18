@@ -247,13 +247,13 @@ jobs:
           assert 'load_user_config(fp, INADYN_USER_DIR, "inadyn.conf", NULL)' in writer
           assert writer.index("load_user_config(") < writer.index("inadyn_config_file_publish(")
 
-          start = function_body(services, "start_ddns(int clear_cache)")
-          assert "stop_status = stop_ddns()" in start
+          start = function_body(services, "start_ddns_locked(int clear_cache)")
+          assert "stop_status = stop_ddns_locked()" in start
           assert "if (stop_status != 0)" in start
           assert start.index("if (stop_status != 0)") < start.index('eval("/bin/inadyn"')
           assert "if (!write_inadyn_conf(DDNS_CONF_FILE))" in start
           assert start.index("write_inadyn_conf(DDNS_CONF_FILE)") < start.index('eval("/bin/inadyn"')
-          update = function_body(services, "notify_ddns_update(void)")
+          update = function_body(services, "notify_ddns_update_locked(void)")
           assert 'process_inventory_scan("inadyn", &snapshot)' in update
           assert "inadyn_action_for_presence(state)" in update
           assert "INADYN_DAEMON_ABORT" in update
