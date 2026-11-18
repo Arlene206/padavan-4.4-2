@@ -1,3 +1,9 @@
+## 2026-11-17 — Scope NVRAM audit triggers to the source types it actually scans
+
+- Parent main: `e326a8aa39ca8475fa89c6654490adfb7a283784`. `check_nvram_transaction_boundary.py` recursively reads only C/C++ source/header suffixes under the userland/kernel roots and board `.config`/`.cfg` files. The workflow's broad `trunk/user/**`, `trunk/linux-4.4.x/**` and board catch-alls also launched this full audit for shell-only regression fixtures and unrelated assets. Replace those filters with the scanner's exact source suffix set; keep explicit workflow/checker and NVRAM policy inputs.
+- This reduces unrelated NVRAM Actions without narrowing any file type the audit reads. Exact-head NVRAM and AI handoff checks are required after publication.
+
+---
 ## 2026-11-17 — Verify both firewall rollback callers through shared forwarding shutdown policy
 
 - Parent main: `2b4c7aea40879d7a0b0c7d1a6b95e9790c24c6d7`. The first HTTPD regression run confirmed the updated Adbyby assertion, then exposed a second stale inline contract that still expected raw IPv4/IPv6 forwarding sysctl writes inside `start_firewall_ex()`. The implementation deliberately routes those writes through `firewall_disable_forwarding()` and merges both errors. Align the remaining HTTPD contract with the helper and explicitly verify both core and Adbyby rollback call sites.

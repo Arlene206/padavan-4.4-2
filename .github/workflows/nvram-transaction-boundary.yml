@@ -5,11 +5,24 @@ on:
     paths:
       - ".github/workflows/nvram-transaction-boundary.yml"
       - "scripts/check_nvram_transaction_boundary.py"
-      - "trunk/user/**"
+      # The audit enumerates C/C++ source and header blobs only; keep its
+      # push filter aligned with scripts/check_nvram_transaction_boundary.py.
+      - "trunk/user/**/*.c"
+      - "trunk/user/**/*.h"
+      - "trunk/user/**/*.cc"
+      - "trunk/user/**/*.cpp"
+      - "trunk/user/**/*.cxx"
+      - "trunk/user/**/*.hpp"
       - "trunk/user/shared/src/nvram_ioctl_close_policy.h"
       - "trunk/user/shared/src/tests/nvram_ioctl_close_policy.c"
-      - "trunk/linux-4.4.x/**"
-      - "trunk/configs/boards/**"
+      - "trunk/linux-4.4.x/**/*.c"
+      - "trunk/linux-4.4.x/**/*.h"
+      - "trunk/linux-4.4.x/**/*.cc"
+      - "trunk/linux-4.4.x/**/*.cpp"
+      - "trunk/linux-4.4.x/**/*.cxx"
+      - "trunk/linux-4.4.x/**/*.hpp"
+      - "trunk/configs/boards/**/*.config"
+      - "trunk/configs/boards/**/*.cfg"
 
 permissions:
   contents: read
