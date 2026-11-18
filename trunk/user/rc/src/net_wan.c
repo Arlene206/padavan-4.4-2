@@ -2344,24 +2344,30 @@ stop_wan_locked(void)
 			   pause_status);
 		return pause_status;
 	}
-	if (invalidate_wan_ppp_callback_session() != 0) {
-		logmessage(LOGNAME, "refusing WAN teardown without PPP callback-session fencing");
-		stop_status = -1;
+	stop_status = invalidate_wan_ppp_callback_session();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN teardown because PPP callback-session fencing failed (status=%d)",
+			   stop_status);
 		goto abort_resume_detect;
 	}
 	nvram_set_int_temp("deferred_wanup_t", 0);
 	wan_proto = get_wan_proto(unit);
 	man_ifname = get_man_ifname(unit);
 	usbnet_ifname = NULL;
-	if (stop_vpn_client_under_lifecycle_lock() != 0) {
-		logmessage(LOGNAME, "refusing WAN PPP teardown because VPN client stop was incomplete");
-		stop_status = -1;
+	stop_status = stop_vpn_client_under_lifecycle_lock();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN PPP teardown because VPN client stop was incomplete (status=%d)",
+			   stop_status);
 		goto abort_resume_detect;
 	}
 
-	if (kill_services(svcs_ppp, 6, 1) != 0) {
-		logmessage(LOGNAME, "refusing WAN interface teardown while PPP services remain active");
-		stop_status = -1;
+	stop_status = kill_services(svcs_ppp, 6, 1);
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN interface teardown while PPP services remain active (status=%d)",
+			   stop_status);
 		goto abort_resume_detect;
 	}
 #if defined (USE_IPV6)

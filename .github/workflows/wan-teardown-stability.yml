@@ -135,6 +135,11 @@ jobs:
           assert "resume_status = notify_run_detect_internet(2);" in stop
           assert "Internet monitor resume failed after aborted WAN teardown" in stop
           assert "return wan_teardown_abort_status(stop_status, resume_status);" in stop
+          assert "stop_status = invalidate_wan_ppp_callback_session();" in stop
+          assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in stop
+          assert "stop_status = kill_services(svcs_ppp, 6, 1);" in stop
+          assert "if (stop_status != 0)" in stop
+          assert stop.index("stop_status = invalidate_wan_ppp_callback_session();") < stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
 
           policy = (rc / "wan_teardown_policy.h").read_text()
           abort_status = function_body(policy, "wan_teardown_abort_status(")
