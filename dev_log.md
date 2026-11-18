@@ -1,3 +1,13 @@
+## 2026-11-18 — Add XY-C1 build triggers for watchdog policy headers
+
+- The XY-C1 workflow watched @@watchdog.c@@ but omitted the production headers @@watchdog_ntp_policy.h@@ and @@watchdog_signal_policy.h@@ included by that translation unit. A future header-only change to error mapping or notification policy would not start target validation.
+- Add both header paths to the XY-C1 push filter, a host unit test that checks both filter entries, and a watchdog source-contract assertion so later trigger edits cannot silently remove them.
+- Exact @@ecb4931e0b2b2be4e7dcbf8acaa9dbf9a82432e0@@ Process lifecycle @@44331321091@@ and AI docs @@44331321185@@ were still running at last poll. Prior exact watchdog @@44330853992@@ and AI docs @@44330853859@@ on @@2c71477765b5e11867db4eeec1a3fb20bbb80321@@ PASS; its Process check exposed the second stale void prototype, which was corrected in ecb4931.
+- Product-source XY-C1 build @@44329872151@@ on @@648e7353b58c1f33fddc4d6ba8bb65e195f6695f@@ remained active with TRX/artifact pending; NVRAM audit @@44329871839@@ PASS. This commit changes only workflow/test/docs paths; no product firmware source is changed.
+- No local checkout tests or physical router validation claimed.
+
+---
+
 ## 2026-11-18 — Align duplicated watchdog lifecycle checks with status-return API
 
 - Parent main: `2c71477765b5e11867db4eeec1a3fb20bbb80321`. Exact Process lifecycle fail-closed run `44330853765` passed the detect-internet checks and all preceding lifecycle assertions, then failed at line 1214 because the same integration script still expected `void\nnotify_watchdog_time(void)`. The stale watchdog signature existed twice in the script (two equivalent integration blocks); both now require the `int` API and assert normalized result return.

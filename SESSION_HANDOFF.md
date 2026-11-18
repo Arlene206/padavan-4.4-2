@@ -1,44 +1,35 @@
-# 2026-11-18 continuation checkpoint — notification status contracts
+# 2026-11-18 continuation checkpoint — cover watchdog headers in XY-C1 validation
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; branch: `main`; exact live main at checkpoint: `2c71477765b5e11867db4eeec1a3fb20bbb80321`.
-- Product-source change `ca5f182341dde1bc2323774c1b284c20171e719a` makes `notify_run_detect_internet()` return the normalized monitor/inventory error and propagates it through WAN/LAN startup and PID 1 DI notification.
-- Product-source change `648e7353b58c1f33fddc4d6ba8bb65e195f6695f` makes `notify_watchdog_time()` return normalized SIGHUP/recovery status, adds GNU89 policy coverage, and propagates status to WAN route, manual LAN resolver setup and PID 1 NTP/time event results.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged. Do not modify backup, PR #1 or GPT Session Rotator.
+- Repository @@Arlene206/padavan-4.4-2@@; branch @@main@@. Live main immediately before THIS COMMIT: @@ecb4931e0b2b2be4e7dcbf8acaa9dbf9a82432e0@@.
+- Product-source baseline: @@648e7353b58c1f33fddc4d6ba8bb65e195f6695f@@. It includes integer-return status propagation for watchdog time notifications, detect-internet notifications, and WAN/LAN/PID 1 callers.
+- Frozen backup @@backup/pre-plugin-overhaul-2026-11-14@@ remains read-only at @@72f4f157a084f8184b9597ca5bf334b8080e5807@@. PR #1 remains closed/unmerged. Do not modify backup, PR #1 or GPT Session Rotator.
 
 ## Active task
-- THIS REPAIR COMMIT updates only regression contracts and this handoff/log. The Process lifecycle checker still expected the old `void` detect-internet signature; the watchdog inline check parsed the wrong block because the function-name substring first occurs at a call site.
-- `net_lan.c` at `648e7353b58c1f33fddc4d6ba8bb65e195f6695f` contains `notify_status = notify_watchdog_time();` and merges it through `rc_first_service_start_status`; the workflow must inspect the complete source text rather than use a naïve first-occurrence brace parser.
-- The intended callback exception remains explicit: the DHCP-bound callback is best-effort because its lease is already committed. Rollback DI resume calls must not replace the primary teardown failure.
+- This slice closes a CI trigger coverage gap: XY-C1's push path list watches @@watchdog.c@@ but not its production policy headers @@watchdog_ntp_policy.h@@ and @@watchdog_signal_policy.h@@. A header-only behavior change could bypass target firmware validation.
+- Add both header paths to XY-C1's push filter, a Python regression in @@scripts/tests/test_xy_c1_firmware_inputs.py@@, and a watchdog source-contract assertion that pins the target workflow's entries.
+- The Process lifecycle integration checker has now been corrected at both stale @@notify_watchdog_time()@@ extraction sites to expect @@int@@; it also asserts policy mapping and the returned operation error.
 
 ## Verification boundary
-- On source SHA `648e7353b58c1f33fddc4d6ba8bb65e195f6695f`, Process lifecycle run `44329872155`, watchdog run `44329872082` and AI docs run `44329872216` exposed stale signatures, a brittle first-occurrence function-body check and missing mandatory checkpoint text. Repair commit `2c71477765b5e11867db4eeec1a3fb20bbb80321` fixed the detect-internet signature, watchdog source check and handoff. Its exact watchdog run `44330853992` PASS and AI docs run `44330853859` PASS; Process run `44330853765` still failed at the second stale `void notify_watchdog_time` extraction (line 1214), now corrected in THIS commit.
-- On the same SHA, Process inventory run `44329872068`, detect-internet `44329871815`, PID 1 notification `44329871529`, WAN route `44329871940`, and other completed network/service regressions reported PASS. XY-C1 firmware run `44329872151` was still in progress at the last poll; do not infer completion.
-- No local checkout-based tests were run in this connector-only session. Firmware L3 requires a completed exact-SHA XY-C1 build, TRX validation and artifact upload. Physical LAN/WAN/watchdog/AP-client/iNIC behavior and L4 remain NOT VERIFIED.
+- Product source SHA @@648e7353b58c1f33fddc4d6ba8bb65e195f6695f@@ XY-C1 run @@44329872151@@ had all host validations passed and the firmware build in progress, with TRX/artifact pending at last observation. NVRAM transaction audit @@44329871839@@ PASS.
+- Checker repair commit @@2c71477765b5e11867db4eeec1a3fb20bbb80321@@ exact watchdog @@44330853992@@ PASS and AI docs @@44330853859@@ PASS; Process lifecycle @@44330853765@@ failed only because the second old watchdog void signature remained at two checker sites. Follow-up @@ecb4931e0b2b2be4e7dcbf8acaa9dbf9a82432e0@@ corrected both sites and added return-policy assertions; exact Process @@44331321091@@ and AI docs @@44331321185@@ were in progress at last poll.
+- The checker-only @@ecb4931@@ update did not trigger XY-C1 because its changed paths were outside the target workflow filters; this commit changes the target workflow and its host test, so the exact-head XY-C1 host trigger contract should run. No product input is changed by this commit, so the input detector should skip the full firmware rebuild.
+- No local checkout tests or physical router checks were run. Physical WAN/LAN/watchdog/AP-client/iNIC behavior and L4 remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
-The checkpoint is mandatory; a document edit is conditional.
-
-At every session boundary, inspect live main, active source SHA, exact-head Actions, the live handoff and rolling log. If all checkpoint facts and the first action remain accurate, leave the handoff untouched and do not create a no-op commit. Record a doc change only when the resumable task, first action, verification boundary or repository-wide priority materially changes.
-
-The GitHub repository is the cross-conversation source of truth. Never assume a previous chat's state without checking live Git refs and exact-head run results.
+The checkpoint is mandatory; a document edit is conditional. Inspect live main and exact-head Actions before ending. Leave this handoff unchanged if its active task, verification boundary and first action remain accurate.
 
 ## Exact first action for the next GPT
-Fetch the live `main` SHA and its exact-head Actions. Confirm the Process lifecycle checker now passes after both watchdog signature sites were updated. Then verify XY-C1 Build/TRX/artifact status on the exact product-source SHA before claiming firmware validation.
+1. Fetch the live main SHA and inspect exact-head push runs. Confirm Process lifecycle @@44331321091@@ and AI docs @@44331321185@@ results for @@ecb4931@@; inspect this commit's XY-C1 trigger-contract and watchdog workflow runs.
+2. Refresh product SHA @@648e7353b58c1f33fddc4d6ba8bb65e195f6695f@@ XY-C1 run @@44329872151@@ through Build, TRX and artifact upload before making any L3 claim.
+3. If any exact-head check fails, fix its causal contract or source defect without weakening first-error, fail-closed or firmware assertions.
+4. Continue the next independent stability/security slice across userland; do not repeat completed startup audits.
 
 ## Cross-session execution mandate
-Continue across GPT conversations without repeating completed audits. One logical slice, one atomic main commit. Create all changed blobs and one complete Git tree before committing; advance `main` only with a non-forced compare-and-swap against the expected parent SHA. Continue independent work while Actions are pending. Finish the current safe slice and record the exact next action before context exhaustion.
+One logical slice is one atomic main commit. Build the complete Git tree from the exact parent and advance @@main@@ only with a non-forced expected-SHA compare-and-swap. Continue independent tasks while Actions are pending. Before context exhaustion, record the exact first action, commit SHA, tests and CI boundary for the next GPT. Leave the backup immutable.
 
 ## Before context exhaustion
-Reconfirm the live head and exact-head Actions, complete the current safe repair, and leave the next GPT a verified first action and honest CI boundary.
-
-The rolling `dev_log.md` remains newest-first: 81 complete root entries at this checkpoint, within the 20–119 window. Archive only the oldest 100 complete entries when the next record would reach 120; use indexed `docs/dev-log/YYYY/MM/part-NNN.md` shards, preserve archived records verbatim, and keep the live file below 384 KiB where practical and always below 512 KiB. Retrieve older history from Git history. Do not create routine handoff/roadmap snapshot archives.
-
-## Documentation and verification rules
-- Recovery is read-only by default. Do not commit merely to synchronize a documented SHA with live main.
-- Update the handoff only when the checkpoint materially changes; update the roadmap only when repository-wide module status/evidence/priority changes; add a dev-log record for a meaningful milestone.
-- Verify documentation CI on the exact commit SHA. Do not create a second docs-only commit solely to record a completed CI result.
-- Never report local tests, firmware artifacts, or hardware observations that were not actually performed.
+Reconfirm live main and exact-head Actions, finish the current safe slice and leave an accurate first action and unverified boundary for the next GPT.
 
 ## Whole-repository priorities
-Stability defect discovery and repair remains primary, with security review in parallel. Prioritize major security vulnerabilities and severe system faults. Expand coverage across Padavan userland rather than repeatedly auditing already completed subsystems. Preserve architecture, compatibility and required tests.
+Stability defect discovery and repair remains primary, with security review in parallel. Prioritize major security vulnerabilities and severe system faults. Expand coverage across Padavan userland rather than repeatedly auditing already completed subsystems. Preserve architecture, compatibility and necessary tests.

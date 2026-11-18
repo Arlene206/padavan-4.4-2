@@ -176,6 +176,8 @@ on:
       - "trunk/user/rc/src/net_wan6.c"
       - "trunk/user/rc/src/wan6_dns_policy.h"
       - "trunk/user/rc/src/rstats.c"
+      - "trunk/user/rc/src/watchdog_ntp_policy.h"
+      - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/rc/src/detect_wan.c"

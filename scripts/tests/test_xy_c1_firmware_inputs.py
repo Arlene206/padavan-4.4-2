@@ -53,6 +53,15 @@ class FirmwareInputPathTests(unittest.TestCase):
             with self.subTest(path=path):
                 self.assertFalse(is_non_firmware_input(path))
 
+    def test_watchdog_policy_headers_trigger_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        for path in (
+            "trunk/user/rc/src/watchdog_ntp_policy.h",
+            "trunk/user/rc/src/watchdog_signal_policy.h",
+        ):
+            with self.subTest(path=path):
+                self.assertIn('      - "' + path + '"', workflow)
+
     def test_non_push_events_fail_safe_to_build(self):
         for event in ("workflow_dispatch", "pull_request", ""):
             changed, paths, reason = decide_firmware_build(
