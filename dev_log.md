@@ -1,3 +1,10 @@
+## 2026-11-18 — Fix double-escaped newline in negative recovery fixtures
+
+- Parent `f08f741851ef7ff73cfceff2b7368d7e0d6b47cf` contained double-escaped newline formats in the new invalid-path and incomplete-backup test setup. This would place literal backslash-n text in the journal/state records and fail to exercise the intended three-line marker.
+- Replace the formats with one shell printf escape (`%s\n`) and pass values separately. No production source change; exact-head test/checker rerun required. No local shell execution claimed.
+
+---
+
 ## 2026-11-18 — Correct journal fixture newline formatting
 
 - Parent test/checker commit `d08e9cd52507ff9345b20445324e2c85801ba3ef` added invalid-stage-path and incomplete-backup recovery tests. A source review caught that the new `printf` formats were double-escaped in the generated shell file, which would write literal `\\n` text rather than line endings and invalidate the journal fixture.
