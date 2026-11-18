@@ -50,13 +50,14 @@ adbyby_start()
 		return 1
 	fi
 	adbyby_launch_daemon || return $?
-	add_dns
-	iptables-save | grep ADBYBY >/dev/null || \
-	add_rule
-	hosts_ads
-	adbyby_restart_dhcpd
-	add_cron
-	logger -t "adbyby" "Adbyby启动完成。"
+	if adbyby_publish_started_service 1; then
+		logger -t "adbyby" "Adbyby启动完成。"
+		return 0
+	else
+		adbyby_start_status=$?
+	fi
+	adbyby_rollback_failed_start "$adbyby_publish_failure_stage" "$adbyby_start_status" || :
+	return "$adbyby_start_status"
 }
 
 # pidof has three outcomes here: RUNNING, confirmed ABSENT, or UNKNOWN.
@@ -148,6 +149,71 @@ adbyby_launch_daemon()
 	fi
 	logger -t "adbyby" "Adbyby后台启动未通过进程就绪检查。"
 	return "$adbyby_launch_status"
+}
+
+# Publish runtime dependencies only after the detached daemon is RUNNING.
+# Preserve the first failed command so the start/update caller can report it.
+adbyby_publish_started_service()
+{
+	adbyby_publish_with_cron="$1"
+	case "$adbyby_publish_with_cron" in
+		0|1) ;;
+		*) return 2 ;;
+	esac
+
+	adbyby_publish_failure_stage="DNS configuration"
+	if add_dns; then :; else
+		adbyby_publish_failure_status=$?
+		return "$adbyby_publish_failure_status"
+	fi
+
+	if ! iptables-save | grep ADBYBY >/dev/null; then
+		adbyby_publish_failure_stage="firewall rules"
+		if add_rule; then :; else
+			adbyby_publish_failure_status=$?
+			return "$adbyby_publish_failure_status"
+		fi
+	fi
+
+	adbyby_publish_failure_stage="hosts configuration"
+	if hosts_ads; then :; else
+		adbyby_publish_failure_status=$?
+		return "$adbyby_publish_failure_status"
+	fi
+
+	adbyby_publish_failure_stage="dnsmasq restart"
+	if adbyby_restart_dhcpd; then :; else
+		adbyby_publish_failure_status=$?
+		return "$adbyby_publish_failure_status"
+	fi
+
+	if [ "$adbyby_publish_with_cron" = "1" ]; then
+		adbyby_publish_failure_stage="cron schedule"
+		if add_cron; then :; else
+			adbyby_publish_failure_status=$?
+			return "$adbyby_publish_failure_status"
+		fi
+	fi
+
+	adbyby_publish_failure_stage=""
+	return 0
+}
+
+# Undo a partially published start while retaining the original stage status.
+adbyby_rollback_failed_start()
+{
+	adbyby_rollback_stage="$1"
+	adbyby_rollback_status="$2"
+	case "$adbyby_rollback_status" in
+		''|*[!0123456789]*|0) adbyby_rollback_status=1 ;;
+	esac
+	logger -t "adbyby" "启动阶段失败（$adbyby_rollback_stage，status=$adbyby_rollback_status），正在回滚。"
+	if adbyby_close; then
+		logger -t "adbyby" "启动失败后的服务回滚完成。"
+	else
+		logger -t "adbyby" "启动失败后的服务回滚未完全成功；保留原始错误状态。"
+	fi
+	return "$adbyby_rollback_status"
 }
 
 adbyby_stop_daemon()
@@ -509,24 +575,49 @@ add_rules()
 
 add_cron()
 {
-	if [ $adbyby_update -eq 0 ]; then
-	sed -i '/adbyby/d' /etc/storage/cron/crontabs/$http_username
-	cat >> /etc/storage/cron/crontabs/$http_username << EOF
-$adbyby_update_min $adbyby_update_hour * * * /bin/sh /usr/bin/adbyby.sh G >/dev/null 2>&1
-EOF
-	logger -t "adbyby" "设置每天$adbyby_update_hour时$adbyby_update_min分，自动更新规则！"
+	case "$http_username" in
+		''|.|..|*/*)
+			logger -t "adbyby" "Adbyby cron用户名无效。"
+			return 1
+			;;
+	esac
+	adbyby_cron_dir="/etc/storage/cron/crontabs"
+	mkdir -p "$adbyby_cron_dir" || return 1
+	[ -d "$adbyby_cron_dir" ] && [ ! -L "$adbyby_cron_dir" ] || return 1
+	adbyby_cron_file="$adbyby_cron_dir/$http_username"
+	[ ! -L "$adbyby_cron_file" ] || return 1
+	if [ ! -e "$adbyby_cron_file" ]; then
+		( umask 077; : > "$adbyby_cron_file" ) || return 1
 	fi
-if [ $adbyby_update -eq 1 ]; then
+	[ -f "$adbyby_cron_file" ] || return 1
 
-	sed -i '/adbyby/d' /etc/storage/cron/crontabs/$http_username
-	cat >> /etc/storage/cron/crontabs/$http_username << EOF
-*/$adbyby_update_min */$adbyby_update_hour * * * /bin/sh /usr/bin/adbyby.sh G >/dev/null 2>&1
-EOF
-	logger -t "adbyby" "设置每隔$adbyby_update_hour时$adbyby_update_min分，自动更新规则！"
-	fi
-	if [ $adbyby_update -eq 2 ]; then
-	sed -i '/adbyby/d' /etc/storage/cron/crontabs/$http_username
-	fi
+	case "$adbyby_update" in
+		0)
+			case "$adbyby_update_hour" in ''|*[!0123456789]*) return 1 ;; esac
+			case "$adbyby_update_min" in ''|*[!0123456789]*) return 1 ;; esac
+			[ "$adbyby_update_hour" -le 23 ] && [ "$adbyby_update_min" -le 59 ] || return 1
+			sed -i '/adbyby/d' "$adbyby_cron_file" || return 1
+			printf '%s\n' "$adbyby_update_min $adbyby_update_hour * * * /bin/sh /usr/bin/adbyby.sh G >/dev/null 2>&1" >> "$adbyby_cron_file" || return 1
+			logger -t "adbyby" "设置每天$adbyby_update_hour时$adbyby_update_min分，自动更新规则！"
+			;;
+		1)
+			case "$adbyby_update_hour" in ''|*[!0123456789]*) return 1 ;; esac
+			case "$adbyby_update_min" in ''|*[!0123456789]*) return 1 ;; esac
+			[ "$adbyby_update_hour" -ge 1 ] && [ "$adbyby_update_hour" -le 23 ] &&
+			[ "$adbyby_update_min" -ge 1 ] && [ "$adbyby_update_min" -le 59 ] || return 1
+			sed -i '/adbyby/d' "$adbyby_cron_file" || return 1
+			printf '%s\n' "*/$adbyby_update_min */$adbyby_update_hour * * * /bin/sh /usr/bin/adbyby.sh G >/dev/null 2>&1" >> "$adbyby_cron_file" || return 1
+			logger -t "adbyby" "设置每隔$adbyby_update_hour时$adbyby_update_min分，自动更新规则！"
+			;;
+		2)
+			sed -i '/adbyby/d' "$adbyby_cron_file" || return 1
+			;;
+		*)
+			logger -t "adbyby" "Adbyby cron更新模式无效。"
+			return 1
+			;;
+	esac
+	return 0
 }
 
 del_cron()
@@ -667,42 +758,34 @@ add_dns()
 		logger -t "adbyby" "Adbyby dnsmasq配置目录不安全。"
 		return 1
 	}
-	mkdir -p /tmp/dnsmasq.d
+	mkdir -p /tmp/dnsmasq.d || return 1
 	if ! anti_ad; then
 		# The optional anti-AD list must not suppress unrelated Adbyby DNS rules.
 		logger -t "adbyby" "anti_AD不可用，继续处理其他dnsmasq规则。"
 	fi
-	block_ios=`nvram get block_ios`
-	block_douyin=`nvram get block_douyin`
-	awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_esc"'\n",$0)}' $PROG_PATH/adesc.conf > /etc/storage/dnsmasq-adbyby.d/06-dnsmasq.esc
-	awk '!/^$/&&!/^#/{printf("address=/%s/'"0.0.0.0"'\n",$0)}' $PROG_PATH/adblack.conf > /etc/storage/dnsmasq-adbyby.d/07-dnsmasq.black
-	[ $block_ios -eq 1 ] && echo 'address=/mesu.apple.com/0.0.0.0' >> /etc/storage/dnsmasq-adbyby.d/07-dnsmasq.black
-	if [ $block_douyin -eq 1 ]; then
-  cat <<-EOF >/etc/storage/dnsmasq-adbyby.d/08-dnsmasq.douyin
+	block_ios=$(nvram get block_ios) || return 1
+	block_douyin=$(nvram get block_douyin) || return 1
+	awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_esc"'\n",$0)}' "$PROG_PATH/adesc.conf" > /etc/storage/dnsmasq-adbyby.d/06-dnsmasq.esc || return 1
+	awk '!/^$/&&!/^#/{printf("address=/%s/'"0.0.0.0"'\n",$0)}' "$PROG_PATH/adblack.conf" > /etc/storage/dnsmasq-adbyby.d/07-dnsmasq.black || return 1
+	if [ "$block_ios" = "1" ]; then
+		printf '%s\n' 'address=/mesu.apple.com/0.0.0.0' >> /etc/storage/dnsmasq-adbyby.d/07-dnsmasq.black || return 1
+	fi
+	if [ "$block_douyin" = "1" ]; then
+		cat <<-EOF > /etc/storage/dnsmasq-adbyby.d/08-dnsmasq.douyin || return 1
 address=/api.amemv.com/0.0.0.0
 address=/.snssdk.com/0.0.0.0
 address=/.douyin.com/0.0.0.0
 		EOF
+	else
+		rm -f /etc/storage/dnsmasq-adbyby.d/08-dnsmasq.douyin || return 1
 	fi
-	sed -i '/dnsmasq-adbyby/d' /etc/storage/dnsmasq/dnsmasq.conf
-	cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
-conf-dir=/etc/storage/dnsmasq-adbyby.d
-EOF
-	if [ $wan_mode -eq 1 ]; then
-	awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_wan"'\n",$0)}' $PROG_PATH/adhost.conf > $WAN_FILE
+	sed -i '/dnsmasq-adbyby/d' "$ADBYBY_HOSTS_CONFIG_FILE" || return 1
+	printf '%s\n' 'conf-dir=/etc/storage/dnsmasq-adbyby.d' >> "$ADBYBY_HOSTS_CONFIG_FILE" || return 1
+	if [ "$wan_mode" = "1" ]; then
+		awk '!/^$/&&!/^#/{printf("ipset=/%s/'"adbyby_wan"'\n",$0)}' "$PROG_PATH/adhost.conf" > "$WAN_FILE" || return 1
 	fi
-	if ls /etc/storage/dnsmasq-adbyby.d/* >/dev/null 2>&1; then
-	mkdir -p /tmp/dnsmasq.d
-	#if [ $abp_mode -eq 1 ]; then
-	#cp $PROG_PATH/dnsmasq.adblock /etc/storage/dnsmasq-adbyby.d/04-dnsmasq.adblock
-	#sed -i '/youku.com/d' $PROG_PATH/dnsmasq.ads
-	#cp $PROG_PATH/dnsmasq.ads /etc/storage/dnsmasq-adbyby.d/05-dnsmasq.ads
-	#fi
-	fi
-	#sed -i '/mesu.apple.com/d' /etc/dnsmasq.conf && [ $block_ios -eq 1 ] && echo 'address=/mesu.apple.com/0.0.0.0' >> /etc/dnsmasq.conf
-	#处理hosts文件
+	return 0
 }
-
 del_dns()
 {
 	sed -i '/dnsmasq-adbyby/d' /etc/storage/dnsmasq/dnsmasq.conf
@@ -851,12 +934,13 @@ adbyby_uprules()
 		return 1
 	fi
 	adbyby_launch_daemon || return $?
-	add_dns
-	iptables-save | grep ADBYBY >/dev/null || \
-	add_rule
-	hosts_ads
-	adbyby_restart_dhcpd
-	#add_cron
+	if adbyby_publish_started_service 0; then
+		return 0
+	else
+		adbyby_update_status=$?
+	fi
+	adbyby_rollback_failed_start "$adbyby_publish_failure_stage" "$adbyby_update_status" || :
+	return "$adbyby_update_status"
 }
 
 #updateadb()

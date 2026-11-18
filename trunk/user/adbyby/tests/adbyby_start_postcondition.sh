@@ -83,12 +83,12 @@ export ADBYBY_TEST_SLEEP_MODE ADBYBY_TEST_DAEMON_MODE
 logger() { printf 'logger:%s\n' "$*" >> "$events_file"; }
 addscripts() { echo addscripts >> "$events_file"; }
 add_rules() { echo add_rules >> "$events_file"; return 0; }
-add_dns() { echo add_dns >> "$events_file"; return 0; }
-add_rule() { echo add_rule >> "$events_file"; return 0; }
-hosts_ads() { echo hosts_ads >> "$events_file"; return 0; }
-adbyby_restart_dhcpd() { echo restart_dhcpd >> "$events_file"; return 0; }
-add_cron() { echo add_cron >> "$events_file"; return 0; }
-adbyby_close() { echo adbyby_close >> "$events_file"; return 0; }
+add_dns() { echo add_dns >> "$events_file"; return "${ADBYBY_TEST_ADD_DNS_STATUS:-0}"; }
+add_rule() { echo add_rule >> "$events_file"; return "${ADBYBY_TEST_ADD_RULE_STATUS:-0}"; }
+hosts_ads() { echo hosts_ads >> "$events_file"; return "${ADBYBY_TEST_HOSTS_STATUS:-0}"; }
+adbyby_restart_dhcpd() { echo restart_dhcpd >> "$events_file"; return "${ADBYBY_TEST_RESTART_STATUS:-0}"; }
+add_cron() { echo add_cron >> "$events_file"; return "${ADBYBY_TEST_CRON_STATUS:-0}"; }
+adbyby_close() { echo adbyby_close >> "$events_file"; return "${ADBYBY_TEST_ROLLBACK_STATUS:-0}"; }
 nvram() { return 0; }
 adbyby_refresh_nvram_state() { return 0; }
 
@@ -174,6 +174,66 @@ adbyby_start || fail "successful daemon postcondition did not allow startup"
 launch_line=$(grep -n '^daemon-launch$' "$events_file" | head -n 1 | cut -d: -f1)
 dns_line=$(grep -n '^add_dns$' "$events_file" | head -n 1 | cut -d: -f1)
 [ "$launch_line" -lt "$dns_line" ] || fail "DNS was published before the daemon launch"
+
+# Every post-launch setup failure must be surfaced and trigger rollback.
+for failed_stage in add_dns add_rule hosts_ads adbyby_restart_dhcpd add_cron; do
+	ADBYBY_TEST_ADD_DNS_STATUS=0
+	ADBYBY_TEST_ADD_RULE_STATUS=0
+	ADBYBY_TEST_HOSTS_STATUS=0
+	ADBYBY_TEST_RESTART_STATUS=0
+	ADBYBY_TEST_CRON_STATUS=0
+	ADBYBY_TEST_ROLLBACK_STATUS=0
+	case "$failed_stage" in
+		add_dns) ADBYBY_TEST_ADD_DNS_STATUS=31 ;;
+		add_rule) ADBYBY_TEST_ADD_RULE_STATUS=32 ;;
+		hosts_ads) ADBYBY_TEST_HOSTS_STATUS=33 ;;
+		adbyby_restart_dhcpd) ADBYBY_TEST_RESTART_STATUS=34 ;;
+		add_cron) ADBYBY_TEST_CRON_STATUS=35; ADBYBY_TEST_ROLLBACK_STATUS=46 ;;
+	esac
+	ADBYBY_TEST_PIDOF_MODE=state
+	ADBYBY_TEST_DAEMON_MODE=running
+	reset_events
+	if adbyby_start; then
+		fail "$failed_stage failure was reported as successful startup"
+	else
+		publish_status=$?
+	fi
+	case "$failed_stage" in
+		add_dns) expected_status=31 ;;
+		add_rule) expected_status=32 ;;
+		hosts_ads) expected_status=33 ;;
+		adbyby_restart_dhcpd) expected_status=34 ;;
+		add_cron) expected_status=35 ;;
+	esac
+	[ "$publish_status" -eq "$expected_status" ] || fail "$failed_stage status was not preserved"
+	[ "$(event_count adbyby_close)" -eq 1 ] || fail "$failed_stage did not request rollback"
+	case "$failed_stage" in
+		add_dns) [ "$(event_count add_rule)" -eq 0 ] || fail "firewall setup ran after DNS failure" ;;
+		add_rule) [ "$(event_count hosts_ads)" -eq 0 ] || fail "hosts setup ran after firewall failure" ;;
+		hosts_ads) [ "$(event_count restart_dhcpd)" -eq 0 ] || fail "dnsmasq restarted after hosts failure" ;;
+		adbyby_restart_dhcpd) [ "$(event_count add_cron)" -eq 0 ] || fail "cron changed after restart failure" ;;
+	esac
+done
+
+# Rule-update launch shares the checked publisher but intentionally skips cron.
+ADBYBY_TEST_ADD_DNS_STATUS=43
+ADBYBY_TEST_ADD_RULE_STATUS=0
+ADBYBY_TEST_HOSTS_STATUS=0
+ADBYBY_TEST_RESTART_STATUS=0
+ADBYBY_TEST_CRON_STATUS=0
+ADBYBY_TEST_ROLLBACK_STATUS=0
+ADBYBY_TEST_PIDOF_MODE=state
+ADBYBY_TEST_DAEMON_MODE=running
+reset_events
+if adbyby_uprules; then
+	fail "rule update hid DNS publication failure"
+else
+	update_status=$?
+fi
+[ "$update_status" -eq 43 ] || fail "rule update did not preserve DNS publication status"
+[ "$(event_count adbyby_close)" -eq 2 ] || fail "rule update did not roll back its partial new service"
+[ "$(event_count add_cron)" -eq 0 ] || fail "rule update unexpectedly modified the cron schedule"
+ADBYBY_TEST_ADD_DNS_STATUS=0
 
 # UNKNOWN startup must stop adbyby_start before DNS, firewall or cron changes.
 ADBYBY_TEST_PIDOF_MODE=unknown

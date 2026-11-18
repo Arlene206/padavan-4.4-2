@@ -1,3 +1,12 @@
+## 2026-11-17 — Roll back Adbyby when post-launch publication fails
+
+- Parent main: `8b92f532974fc5363115aa1e9bd80ea791bb68d4`. After detached-daemon RUNNING verification, both Adbyby startup paths still ignored DNS, firewall, hosts, dnsmasq-restart and cron errors, so partially configured services could be reported as started.
+- Route start and rule-update through one checked publisher. Preserve the first failing status/stage, stop and clean the partial service best-effort, and keep the update path from changing cron.
+- Harden DNS fragment/config writes and cron-file/schedule updates so those functions return real write/validation failures. Extend the existing Process regression with per-stage injected failures, rollback assertions, short-circuit ordering and update-path coverage.
+- Local shell execution was unavailable in this connector-only session; no local test, firmware build, Actions result or physical-router validation is claimed. Exact-head push Actions must be inspected after publication.
+
+---
+
 ## 2026-11-17 — Verify Adbyby before publishing DNS and redirect state
 
 - Parent main: `f50583d26acad4904271fcd0d968425c2cd906fc`. adbyby_start() and adbyby_uprules() both backgrounded the daemon and immediately continued into DNS/firewall/hosts setup without confirming the child survived. The restart action also discarded adbyby_start() failures and returned zero.
