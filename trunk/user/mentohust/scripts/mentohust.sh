@@ -175,7 +175,8 @@ func_gen_conf(){
 		return 1
 	fi
 	return 0
-}func_start(){
+}
+func_start(){
 	if pl_process_state "$mentohust_exec"; then
 		func_log "Daemon is already running"
 		return 0
