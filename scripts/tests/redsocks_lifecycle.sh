@@ -8,7 +8,8 @@ TEST_STATE="$TEST_TMP/state"
 TEST_SIGNALS="$TEST_TMP/signals"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_START_LOG="$TEST_TMP/start.log"
-export TEST_STATE TEST_SIGNALS TEST_SLEEP_LOG TEST_START_LOG
+TEST_LOG="$TEST_TMP/launcher.log"
+export TEST_STATE TEST_SIGNALS TEST_SLEEP_LOG TEST_START_LOG TEST_LOG
 
 BINARY_NAME=redsocks
 REDSOCKS_DIR="$TEST_TMP"
@@ -16,7 +17,7 @@ REDSOCKS_CONF="$TEST_TMP/redsocks.conf"
 BINARY_PATH="$TEST_TMP/redsocks"
 touch "$REDSOCKS_CONF"
 
-logger() { :; }
+logger() { printf '%s\n' "$*" >> "$TEST_LOG"; }
 pidof() {
   [[ "$1" == "$BINARY_NAME" ]] || return 2
   case "$(cat "$TEST_STATE")" in
@@ -41,10 +42,21 @@ killall() {
 sleep() {
   printf '%s\n' "$*" >> "$TEST_SLEEP_LOG"
   [[ "${TEST_SLEEP_FAIL:-0}" == 0 ]] || return 1
+  sleep_count=$(wc -l < "$TEST_SLEEP_LOG")
+  if [[ "${TEST_READY_AFTER_SLEEP:-0}" -gt 0 && "$sleep_count" -ge "${TEST_READY_AFTER_SLEEP}" ]]; then
+    echo running > "$TEST_STATE"
+  fi
   return 0
 }
 func_redsocks() {
   echo start >> "$TEST_START_LOG"
+  launch_status="${TEST_LAUNCH_STATUS:-0}"
+  [[ "$launch_status" == 0 ]] || return "$launch_status"
+  case "${TEST_LAUNCH_STATE:-running}" in
+    running) echo running > "$TEST_STATE" ;;
+    unknown) echo error > "$TEST_STATE" ;;
+    *) echo absent > "$TEST_STATE" ;;
+  esac
   return 0
 }
 func_save() { :; }
@@ -63,6 +75,13 @@ touch "$REDSOCKS_CONF"
 # Reinstall launch/save stubs after sourcing, which defines production versions.
 func_redsocks() {
   echo start >> "$TEST_START_LOG"
+  launch_status="${TEST_LAUNCH_STATUS:-0}"
+  [[ "$launch_status" == 0 ]] || return "$launch_status"
+  case "${TEST_LAUNCH_STATE:-running}" in
+    running) echo running > "$TEST_STATE" ;;
+    unknown) echo error > "$TEST_STATE" ;;
+    *) echo absent > "$TEST_STATE" ;;
+  esac
   return 0
 }
 func_save() { :; }
@@ -73,7 +92,11 @@ reset() {
   : > "$TEST_SIGNALS"
   : > "$TEST_SLEEP_LOG"
   : > "$TEST_START_LOG"
+  : > "$TEST_LOG"
   unset TEST_SLEEP_FAIL TEST_TERM_MODE TEST_KILL_MODE
+  TEST_LAUNCH_STATUS=0
+  TEST_LAUNCH_STATE=running
+  TEST_READY_AFTER_SLEEP=0
 }
 
 # UNKNOWN initial process inventory must never be interpreted as ABSENT.
@@ -143,5 +166,50 @@ func_start || fail "start did not replace a stoppable existing daemon"
 reset absent
 func_start || fail "start from confirmed ABSENT failed"
 [[ "$(cat "$TEST_START_LOG")" == start ]] || fail "initial launch missing"
+
+# Detached startup is not successful until the child is visible in pidof.
+reset absent
+TEST_LAUNCH_STATE=absent
+TEST_READY_AFTER_SLEEP=2
+func_start || fail "delayed detached child was not accepted"
+[[ "$(cat "$TEST_STATE")" == running ]] || fail "delayed child never became RUNNING"
+[[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" == 2 ]] || fail "delayed readiness polling count incorrect"
+grep -F "STARTED." "$TEST_LOG" >/dev/null || fail "STARTED was not logged after readiness"
+
+# A successful launch with no child must time out, not report STARTED.
+reset absent
+TEST_LAUNCH_STATE=absent
+if func_start; then fail "ABSENT startup timeout was accepted"; fi
+[[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" == 4 ]] || fail "startup timeout did not use four bounded waits"
+if grep -F "STARTED." "$TEST_LOG" >/dev/null; then fail "timed-out daemon was logged STARTED"; fi
+
+# UNKNOWN inventory and a failed wait primitive fail closed without retrying.
+reset absent
+TEST_LAUNCH_STATE=unknown
+if func_start; then fail "UNKNOWN startup inventory was accepted"; fi
+[[ ! -s "$TEST_SLEEP_LOG" ]] || fail "UNKNOWN startup inventory was retried"
+reset absent
+TEST_LAUNCH_STATE=absent
+TEST_SLEEP_FAIL=1
+if func_start; then fail "startup sleep failure was accepted"; fi
+[[ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" == 1 ]] || fail "startup sleep failure did not abort immediately"
+
+# Preserve the launcher's exact error and never enter readiness polling.
+reset absent
+TEST_LAUNCH_STATUS=23
+if func_start; then fail "launcher error status 23 was accepted"; else launch_result=$?; fi
+[[ "$launch_result" == 23 ]] || fail "launcher status was changed to $launch_result"
+[[ ! -s "$TEST_SLEEP_LOG" ]] || fail "readiness polling ran after launcher failure"
+
+# The generated-config path must use the same detached-child postcondition.
+reset absent
+rm -f "$REDSOCKS_CONF"
+ARG2=192.0.2.10
+ARG3=1080
+func_start || fail "generated-config detached startup failed"
+[[ -s "$REDSOCKS_CONF" ]] || fail "generated configuration was not written"
+[[ "$(cat "$TEST_STATE")" == running ]] || fail "generated-config launch skipped readiness"
+ARG2=nolog
+ARG3=test
 
 echo "Redsocks tri-state inventory, bounded stop and fail-closed restart regression: PASS"

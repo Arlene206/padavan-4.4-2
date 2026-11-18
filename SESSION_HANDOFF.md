@@ -1,15 +1,12 @@
-# 2026-11-19 continuation checkpoint — align WAN teardown downstream contracts
+# 2026-11-19 continuation checkpoint — verify Redsocks detached startup readiness
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; active development branch is `main` only. Parent for the current WAN callback fix: `8cfe4a01f116dc9f08baae9c858b3b98f2242749`.
-- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process, DNSMasq, AI docs, Process inventory, HTTPD, AliDDNS, FRP and exact-source XY-C1 `44386912939` PASS. Build, TRX verification and artifact upload succeeded (L3 VERIFIED).
-- Autostart checker SHA `d8b5e9206024ba45208e1246911aac59e9dd2baf`: AliDDNS `44388958868`, FRP `44388958846` and AI docs `44388958941` PASS.
-- WAN teardown source SHA `2c94a4e367aebfdfe87e64efe9fdbcb9fafc242c` and dependent checker SHA `8cfe4a01f116dc9f08baae9c858b3b98f2242749`: exact `8cfe` VPN server `44393711494` and Process inventory `44393711289` PASS; exact WAN teardown workflow and XY-C1 for the latest source remain to be confirmed.
-- New security slice addresses privileged callback publication ignoring `symlink(2)` failures and teardown unconditionally unlinking fixed shared-`/tmp` paths. Policy requires owned sticky `/tmp`, effective-UID-owned exact-`/sbin/rc` links, fail-closed publication and owned-only cleanup. Host GNU89 ASan/UBSan regression passed locally. Exact WAN route/teardown/Process/XY-C1 Actions pending.
-- DDNSTO `55cf20ecfec45a5b519996c85921bce722e54d99` and RStats `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961` retain exact L3 Build/TRX/artifact PASS.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged.
-- No MIPS build or physical-router validation for callback hardening. L4 remains NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; all development remains on `main`. Live recovery HEAD: `3dd89aa3d401f82ab32216cafb6f896ce458e451` (`Remove accumulated WireGuard masquerade duplicates`).
+- Exact-main Actions on `3dd89aa`: Process lifecycle inventory `44402419113` and Process inventory/lifecycle regression `44402419118` both completed SUCCESS. The latter includes the WireGuard lifecycle test path. The preceding WireGuard checker repair SHA `7b2bafe88510a6a16f1a2dc7c8221526eb81598e` also had exact Process inventory/regression PASS (`44401360468`, `44401360690`).
+- The preceding WAN callback hardening source `3c57e3a951ce78a52d1ebc510feff899a386be84` is present. Its initial WAN-route/HTTPD/Process failures were stale source contracts; follow-up checker commit `6a42ddbfddf98b97ebee280b989da49a949c90ef` passed exact WAN route `44396594883`, HTTPD `44396594914`, Process lifecycle `44396594782`, Process inventory `44396594838`, AI docs `44396595183` and NVRAM audit `44396595064`. Do not repeat that completed repair.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged; its valid CA-bootstrap and AliDDNS HMAC work is already present on main and must not be ported a second time.
+- No physical-router L4 validation is available. Preserve the distinction between host/Actions checks, target Build/TRX evidence and hardware behavior.
 
 ## Completed prerequisite — switch VLAN WAN gate
 
@@ -80,25 +77,24 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Harden privileged PPP/DHCP/WPA callback symlink publication and cleanup in `trunk/user/rc/src/net_wan.c`.
+Implement and validate Redsocks detached-start readiness in `trunk/user/redsocks/redsocks.sh`.
 
-- `create_cb_links()` ignored every `symlink(2)` failure. A pre-existing regular file or alternate symlink in shared `/tmp` could remain at a DHCP/WPA/ZeroConf callback path while WAN startup continued, allowing privileged clients to execute a foreign hook.
-- Exact target alone is insufficient in sticky `/tmp`: the link owner can replace its own link. The policy requires callback symlinks to be effective-UID-owned, and `/tmp` to be an owned directory with sticky protection if group/other writable.
-- The new helper verifies object type, owner and exact target with `lstat/readlink`, revalidates EEXIST races, never overwrites foreign objects, and removes only an exact owned `/sbin/rc` link. Startup tracks links created by the current attempt and rolls them back on failure while preserving the original errno.
-- Teardown now aggregates callback cleanup status and refuses final WAN-state clear if a foreign callback path remains. Early startup-abort cleanup failures are logged without replacing the primary error.
-- GNU89/Werror ASan/UBSan host regression passed. Coverage includes sticky-directory validation, create/re-entry/remove, regular-file and wrong-target collisions, non-owner exact symlink, injected create failure and exact-target EEXIST race. This is not MIPS build or router validation.
-- Inspect exact WAN route and WAN teardown workflows, Process inventory and XY-C1 on this source SHA. Hardware L4 remains NOT VERIFIED.
+- The packaged configuration sets `daemon = on`; `func_redsocks` returning zero only confirms that launch was requested. Before this slice, both `func_start()` branches immediately reported `STARTED.` without confirming the forked daemon survived. A bind/config/runtime failure could therefore be returned as a successful service start.
+- Add a five-probe tri-state readiness wait. Only `redsocks_process_state()==RUNNING` succeeds; confirmed ABSENT is retried with four bounded one-second sleeps then times out; UNKNOWN and sleep failure abort immediately. Preserve the launcher's exact nonzero status. Both existing-config and generated-config launch paths use the same verified helper and must not log STARTED on failure.
+- Extend `scripts/tests/redsocks_lifecycle.sh` for delayed RUNNING, ABSENT timeout, UNKNOWN, sleep failure, exact launcher-status preservation and the generated-config path. Extend `scripts/check_redsocks_lifecycle.py` to require the integration and retain the prior stop/restart assertions. Existing `.github/workflows/redsocks-lifecycle.yml` push/pull_request filters already cover all changed source/test/checker paths; no workflow filter changes are needed.
+- Parent main SHA: `3dd89aa3d401f82ab32216cafb6f896ce458e451`. This logical slice is committed atomically with tests and the handoff/log/roadmap checkpoint. No local repository checkout is available in this connector-only environment; exact-head push Actions are the required L2 execution evidence.
+
 ## Verification boundary
 
-- WAN teardown/source status SHA `2c94a4e367aebfdfe87e64efe9fdbcb9fafc242c` plus checker SHA `8cfe4a01f116dc9f08baae9c858b3b98f2242749`: exact `8cfe` VPN `44393711494` and Process inventory `44393711289` PASS; other checks pending/being inspected.
-- Autostart SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf` exact Process/DNSMasq/HTTPD/AliDDNS/FRP/AI and XY-C1 Build/TRX/artifact PASS (L3); checker SHA `d8b5e9206024ba45208e1246911aac59e9dd2baf` AliDDNS/FRP/AI PASS.
-- Callback helper/test passed local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` compile and runtime. Exact-head WAN route/teardown, Process and XY-C1 are pending for this callback source.
-- DDNSTO SHA `55cf20ecfec45a5b519996c85921bce722e54d99` and RStats SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961` retain exact L3. No MIPS build or physical-router test for callback hardening; L4 NOT VERIFIED.
+- Baseline exact-main SHA `3dd89aa3a401f82ab32216cafb6f896ce458e451`: Process inventory and Process lifecycle regression both PASS, including the existing WireGuard lifecycle integration.
+- Redsocks readiness regression and source contract must run on the new exact `main` SHA after push. Treat the workflow as PENDING until its push run has a completed conclusion and exact matching `head_sha`.
+- This slice changes an add-on shell launcher and host test/checker, not firmware C/build inputs. Do not claim a new MIPS build or L3 result from the previous XY-C1 run. Physical router L4 remains NOT VERIFIED.
+
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN route and WAN teardown regressions for callback path ownership; fix real compile/sanitizer/source-contract failures without weakening checks.
-2. Inspect Process inventory and XY-C1 for the same source SHA. L3 only after Build, TRX and artifact upload PASS.
-3. Continue an independent userland stability/security fix while Actions are pending. Keep the backup read-only and hardware L4 NOT VERIFIED.
+1. Fetch live `main`; inspect Redsocks lifecycle run(s) whose event is `push` and whose `head_sha` exactly matches the new main commit. If the regression or checker fails, repair the concrete cause without weakening tri-state or readiness assertions.
+2. When the Redsocks exact-head L2 check passes, continue the P1 repository-wide service lifecycle/start-result audit from `REFACTOR_ROADMAP.md`; select a different unfinished subsystem and avoid repeating verified work.
+3. Keep the archival backup immutable. Do not trigger a firmware build for this shell-only change, and do not claim physical-router L4.
 
 ## Mandatory handoff checkpoint
 

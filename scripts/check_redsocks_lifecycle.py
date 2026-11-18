@@ -22,6 +22,8 @@ def body(signature):
 
 state = body("redsocks_process_state()")
 wait = body("redsocks_wait_stopped()")
+wait_start = body("redsocks_wait_started()")
+start_verify = body("redsocks_start_and_verify()")
 start = body("func_start()")
 stop = body("func_stop()")
 require('pidof "$BINARY_NAME"' in state and 'redsocks_pid_status' in state and
@@ -30,6 +32,19 @@ require('pidof "$BINARY_NAME"' in state and 'redsocks_pid_status' in state and
 require('while [ "$redsocks_wait" -lt 5 ]; do' in wait and
         'redsocks_process_state' in wait and 'sleep 1 || return 2' in wait,
         "stop wait must use bounded tri-state polling and preserve sleep errors")
+require('while [ "$redsocks_wait" -lt 5 ]; do' in wait_start and
+        'redsocks_process_state' in wait_start and 'sleep 1 || return 2' in wait_start and
+        'return 1' in wait_start,
+        "detached startup must use bounded tri-state RUNNING confirmation")
+require('func_redsocks' in start_verify and 'redsocks_launch_status' in start_verify and
+        'return "$redsocks_launch_status"' in start_verify and
+        'redsocks_wait_started' in start_verify and
+        'startup timed out' in start_verify and 'startup state is UNKNOWN' in start_verify,
+        "startup must preserve launcher errors and fail closed on timeout/UNKNOWN")
+require(start.count('redsocks_start_and_verify') == 2 and
+        'func_redsocks' not in start and
+        start.count('logger -t $BINARY_NAME "STARTED."') == 1,
+        "both configuration paths must verify detached readiness before STARTED")
 require('killall -q "$BINARY_NAME"' in stop and
         'killall -q -9 "$BINARY_NAME"' in stop and
         stop.index('killall -q "$BINARY_NAME"') < stop.index('redsocks_wait_stopped') <
@@ -41,7 +56,7 @@ require('TERM postcondition unknown; refusing KILL escalation' in stop and
         "UNKNOWN must block destructive escalation and propagate stop failure")
 start_offset = source.index("func_start(){")
 start_gate_offset = source.index("if ! func_stop; then", start_offset)
-start_launch_offset = source.index("func_redsocks", start_offset)
+start_launch_offset = source.index("redsocks_start_and_verify", start_offset)
 require('redsocks_process_state' in start and
         'if ! func_stop; then' in start and
         start_gate_offset < start_launch_offset,
@@ -53,7 +68,10 @@ require('if [ "${RED_SOCKS_TEST_MODE:-0}" != 1 ]; then' in source and
         "test mode must skip only the CLI dispatcher while preserving production function definitions")
 for marker in ("UNKNOWN inventory", "UNKNOWN after TERM", "sleep failure",
                "force stop signal sequence incorrect", "stuck daemon was reported stopped",
-               "replacement daemon launched after failed stop"):
+               "replacement daemon launched after failed stop",
+               "delayed detached child", "ABSENT startup timeout",
+               "UNKNOWN startup inventory", "startup sleep failure",
+               "launcher status was changed", "generated-config detached startup"):
     require(marker in test, f"missing regression marker {marker}")
 paths = (
     ".github/workflows/redsocks-lifecycle.yml",

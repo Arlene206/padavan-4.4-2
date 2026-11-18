@@ -94,6 +94,54 @@ redsocks_wait_stopped()
 	esac
 }
 
+redsocks_wait_started()
+{
+	redsocks_wait=0
+	while [ "$redsocks_wait" -lt 5 ]; do
+		if redsocks_process_state; then
+			return 0
+		else
+			redsocks_state=$?
+		fi
+		case "$redsocks_state" in
+			1) ;;
+			*) return 2 ;;
+		esac
+		redsocks_wait=$((redsocks_wait + 1))
+		[ "$redsocks_wait" -lt 5 ] || break
+		sleep 1 || return 2
+	done
+	return 1
+}
+
+# daemon=on makes a successful command exit only a launch acknowledgement.
+# Do not report STARTED until pidof confirms the detached child is present.
+redsocks_start_and_verify()
+{
+	func_redsocks
+	redsocks_launch_status=$?
+	if [ "$redsocks_launch_status" -ne 0 ]; then
+		logger -t "$BINARY_NAME" "launch failed (status=$redsocks_launch_status)"
+		return "$redsocks_launch_status"
+	fi
+
+	if redsocks_wait_started; then
+		return 0
+	else
+		redsocks_readiness_status=$?
+	fi
+	case "$redsocks_readiness_status" in
+		1)
+			logger -t "$BINARY_NAME" "startup timed out; daemon did not become RUNNING"
+			return 1
+			;;
+		*)
+			logger -t "$BINARY_NAME" "startup state is UNKNOWN; refusing success (status=$redsocks_readiness_status)"
+			return 2
+			;;
+	esac
+}
+
 func_start(){
 MODE=true
 if redsocks_process_state; then
@@ -140,14 +188,14 @@ type = socks5;
 EOF
 func_save
 logger -t $BINARY_NAME "CONFIG FILE SAVED."
-func_redsocks
+redsocks_start_and_verify || return $?
 fi
 else
 	logger -t $BINARY_NAME "CONFIG FILE NOT FOUND"
 	return 0
 fi
 else
-	func_redsocks
+	redsocks_start_and_verify || return $?
 	logger -t $BINARY_NAME "STARTED."
 fi
 }

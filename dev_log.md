@@ -1,3 +1,13 @@
+## 2026-11-19 05:15 CST (UTC+8) — Verify Redsocks detached startup readiness
+
+- Parent main SHA: `3dd89aa3d401f82ab32216cafb6f896ce458e451`. Exact-main Process inventory `44402419113` and Process lifecycle regression `44402419118` both passed, including the existing WireGuard lifecycle test path.
+- `trunk/user/redsocks/redsocks.sh` configured the daemon with `daemon = on`, but both `func_start()` paths treated a successful launch command as proof that the detached child survived and logged `STARTED.` unconditionally. An immediate bind/config/runtime exit could therefore produce a false success.
+- Add a bounded tri-state startup wait and shared launch wrapper: only confirmed RUNNING succeeds; ABSENT gets four one-second retries then times out; UNKNOWN or sleep failure aborts; the original launcher error is preserved. Both existing-config and generated-config paths use the same postcondition.
+- Extend `scripts/tests/redsocks_lifecycle.sh` for delayed RUNNING, timeout, UNKNOWN, sleep failure, exact launch-status propagation and generated-config startup. Extend `scripts/check_redsocks_lifecycle.py` to require the production integration and test cases. Existing Redsocks workflow push/pull_request paths already cover all changed source/test/checker files; no CI filters are changed.
+- No local checkout/test execution is available in this connector-only environment. Exact-head Redsocks Actions are pending until the atomic main commit is pushed. This shell-only add-on change does not trigger or justify a new firmware L3 claim; hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Harden privileged WAN callback symlink ownership
 
 - Parent main SHA: `8cfe4a01f116dc9f08baae9c858b3b98f2242749`. Latest WAN teardown checker SHA `8cfe4a01f116dc9f08baae9c858b3b98f2242749` has exact VPN `44393711494` and Process `44393711289` PASS. It follows full WAN teardown status capture from `2c94a4e`.
