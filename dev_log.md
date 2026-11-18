@@ -1,3 +1,11 @@
+## 2026-11-18 — Fail closed when AP-client WISP association times out
+
+- Parent main: `4388a1cca473a89255ba0ab938f19db450ee1ba5`. Two WAN startup paths called wait_apcli_connected() but discarded its result. The helper returns 0 when the AP-client interface never associates within its bounded wait, yet launch_wanx() and the IPoE path continued into DHCP/ZeroConf or static-address activation.
+- Convert an unsuccessful wait into ETIMEDOUT. Abort physical WAN client setup in launch_wanx(); in IPoE startup, preserve the first WAN error, mark the unit failed, and skip address/lease activation. Add GNU89/ASan/UBSan policy coverage plus source-contract checks for both callers and both workflow path filters.
+- Host Actions and the exact-source XY-C1 build must be checked after publication. No local checkout, MIPS build, physical-router association test or L4 result is claimed.
+
+---
+
 ## 2026-11-18 — Require XUPnPD child readiness after detached startup
 
 - Parent main: f49ed8ab87a76ff4174408d49eb991649203760a. start_xupnpd() accepted the success of system("/usr/bin/xupnpd &") or the daemonizing launcher as proof of service startup, even though the child could exit immediately and no process presence was checked. A successful background shell exit could therefore produce a false RUNNING result to callers and allow IPTV startup to continue with no XUPnPD service.

@@ -34,6 +34,7 @@
 #include "service_start_status.h"
 #include "wan_mtu_setup_policy.h"
 #include "wan_route_flush_policy.h"
+#include "apcli_wait_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
@@ -1441,9 +1442,17 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 	if (!is_valid_ipv4(man_addr) || !is_valid_ipv4(man_mask))
 		man_mask = NULL;
 
-	/* add a bit delay for AP-Client ready */
-	if (is_man_wisp(man_ifname))
-		wait_apcli_connected(man_ifname, 3);
+	/* Do not launch a physical WAN client until the AP-client link is ready. */
+	if (is_man_wisp(man_ifname)) {
+		launch_status = rc_wan_apcli_wait_status(
+			wait_apcli_connected(man_ifname, 3));
+		if (launch_status != 0) {
+			logmessage(LOGNAME,
+				   "AP-client WAN interface %s did not associate before physical WAN setup (status=%d)",
+				   man_ifname, launch_status);
+			return launch_status;
+		}
+	}
 
 	if (use_zcip || !is_valid_ipv4(man_addr)) {
 		/* PPPoE connection not needed WAN physical address first, skip wait DHCP lease */
@@ -1986,9 +1995,20 @@ start_wan(void)
 			set_wan_unit_value(unit, "proto_t", "IPoE");
 			set_wan_unit_value(unit, "ifname_t", wan_ifname);
 			
-			/* add a bit delay for AP-Client ready */
-			if (is_man_wisp(wan_ifname))
-				wait_apcli_connected(wan_ifname, 3);
+			/* Do not publish static/DHCP WAN state until WISP association is ready. */
+			if (is_man_wisp(wan_ifname)) {
+				vlan_result = rc_wan_apcli_wait_status(
+					wait_apcli_connected(wan_ifname, 3));
+				if (vlan_result != 0) {
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
+					logmessage(LOGNAME,
+						   "aborting IPoE WAN activation because AP-client interface %s did not associate (status=%d)",
+						   wan_ifname, vlan_result);
+					set_wan_unit_value_int(unit, "err", 1);
+					continue;
+				}
+			}
 			
 			/* Assign static IP address to i/f */
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {

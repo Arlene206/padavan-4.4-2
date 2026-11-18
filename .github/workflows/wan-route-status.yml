@@ -17,6 +17,9 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/apcli_wait_policy.h"
+      - "trunk/user/rc/src/tests/apcli_wait_policy.c"
+      - "scripts/check_apcli_wait_status.py"
       - "trunk/user/rc/src/firewall_ex.c"
       - "trunk/user/shared/src/notify_rc.c"
       - "trunk/user/shared/src/notify_rc.h"
@@ -85,6 +88,9 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/apcli_wait_policy.h"
+      - "trunk/user/rc/src/tests/apcli_wait_policy.c"
+      - "scripts/check_apcli_wait_status.py"
       - "trunk/user/rc/src/firewall_ex.c"
       - "trunk/user/shared/src/notify_rc.c"
       - "trunk/user/shared/src/notify_rc.h"
@@ -151,6 +157,14 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+      - name: Compile and run AP-client association wait status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/apcli_wait_policy.c \
+            -o /tmp/apcli-wait-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/apcli-wait-policy
       - name: Compile and run Inadyn configured-WAN update policy regression
         run: |
           set -eu
@@ -262,6 +276,8 @@ jobs:
         run: python3 scripts/check_wan_ddns_status.py
       - name: Verify WAN ZeroTier launch status propagation
         run: python3 scripts/check_wan_zerotier_status.py
+      - name: Verify AP-client WISP readiness result propagation
+        run: python3 scripts/check_apcli_wait_status.py
       - name: Verify WAN gateway ARP checker launch result propagation
         run: python3 scripts/check_wan_detect_wan_status.py
       - name: Verify physical WAN initial MTU status and static override

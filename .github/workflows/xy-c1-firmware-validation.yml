@@ -60,6 +60,7 @@ on:
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/aidisk.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/apcli_wait_policy.h"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/scripts/files/sbin/hddtune.sh"
       - "trunk/user/shared/src/notify_rc.c"
