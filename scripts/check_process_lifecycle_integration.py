@@ -1273,6 +1273,18 @@ assert "return launch_status;" in watchdog_start
 assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
     "launch_status = eval(\"/sbin/watchdog\")"
 ) < watchdog_start.index("if (launch_status != 0)") < watchdog_start.index("return launch_status;")
+assert '#include "service_wait_policy.h"' in watchdog_source
+assert "watchdog_start_probe_wait(unsigned int seconds)" in watchdog_source
+assert "watchdog_start_probe_wait(" in watchdog_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in watchdog_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in watchdog_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in watchdog_start
+assert watchdog_start.count('process_inventory_scan("watchdog", &snapshot)') == 2
+assert "process_presence_start_postcondition(launch_status, presence)" in watchdog_start
+assert "presence == PROCESS_PRESENCE_UNKNOWN" in watchdog_start
+assert "cannot verify detached watchdog startup" in watchdog_start
+assert "errno = ETIMEDOUT;" in watchdog_start
+assert "watchdog daemon did not remain running after launch" in watchdog_start
 assert "refusing watchdog start because process-presence policy is invalid" in watchdog_start
 assert "start_watchdog()" in watchdog_notify
 assert "pids(" not in watchdog_notify
@@ -2189,6 +2201,18 @@ assert "return launch_status;" in watchdog_start
 assert watchdog_start.index("if (action == PROCESS_PRESENCE_START_NEW)") < watchdog_start.index(
     "launch_status = eval(\"/sbin/watchdog\")"
 ) < watchdog_start.index("if (launch_status != 0)") < watchdog_start.index("return launch_status;")
+assert '#include "service_wait_policy.h"' in watchdog_source
+assert "watchdog_start_probe_wait(unsigned int seconds)" in watchdog_source
+assert "watchdog_start_probe_wait(" in watchdog_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in watchdog_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in watchdog_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in watchdog_start
+assert watchdog_start.count('process_inventory_scan("watchdog", &snapshot)') == 2
+assert "process_presence_start_postcondition(launch_status, presence)" in watchdog_start
+assert "presence == PROCESS_PRESENCE_UNKNOWN" in watchdog_start
+assert "cannot verify detached watchdog startup" in watchdog_start
+assert "errno = ETIMEDOUT;" in watchdog_start
+assert "watchdog daemon did not remain running after launch" in watchdog_start
 assert "refusing watchdog start because process-presence policy is invalid" in watchdog_start
 assert "start_watchdog()" in watchdog_notify
 assert "pids(" not in watchdog_notify

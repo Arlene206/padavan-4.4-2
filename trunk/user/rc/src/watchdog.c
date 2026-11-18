@@ -39,6 +39,7 @@
 #include "process_presence_start_policy.h"
 #include "watchdog_signal_policy.h"
 #include "watchdog_ntp_policy.h"
+#include "service_wait_policy.h"
 
 #define WD_NORMAL_PERIOD	10		/* 10s */
 
@@ -650,13 +651,27 @@ catch_sig_watchdog(int sig)
 	watchdog_record_signal(&wd_pending_events, sig);
 }
 
+static int
+watchdog_start_probe_wait(unsigned int seconds)
+{
+	int status;
+
+	if (service_wait_seconds(seconds) == 0)
+		return 0;
+	status = errno > 0 ? errno : EIO;
+	errno = status;
+	logmessage("watchdog", "watchdog startup probe wait failed (status=%d)",
+		   status);
+	return status;
+}
+
 int
 start_watchdog(void)
 {
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
-	int scan_error, launch_status;
+	int scan_error, launch_status, wait_status, attempt;
 
 	presence = process_inventory_scan("watchdog", &snapshot);
 	scan_error = snapshot.error;
@@ -672,11 +687,50 @@ start_watchdog(void)
 	if (action == PROCESS_PRESENCE_START_NOTIFY)
 		return 0;
 	if (action == PROCESS_PRESENCE_START_NEW) {
+		/*
+		 * watchdog_main() calls daemon() before publishing its PID file and
+		 * arming the timer. eval() only waits for the exiting launcher; it
+		 * cannot prove the detached child survived initialization.
+		 */
 		launch_status = eval("/sbin/watchdog");
-		if (launch_status != 0)
+		if (launch_status != 0) {
 			logmessage("watchdog", "watchdog launcher failed (status=%d)",
 				   launch_status);
-		return launch_status;
+			return launch_status;
+		}
+
+		wait_status = watchdog_start_probe_wait(
+			PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+		if (wait_status != 0)
+			return wait_status;
+		for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+			presence = process_inventory_scan("watchdog", &snapshot);
+			if (process_presence_start_postcondition(launch_status, presence) == 0) {
+				process_snapshot_release(&snapshot);
+				return 0;
+			}
+			if (presence == PROCESS_PRESENCE_UNKNOWN) {
+				scan_error = snapshot.error > 0 ? snapshot.error : EIO;
+				process_snapshot_release(&snapshot);
+				errno = scan_error;
+				logmessage("watchdog",
+					   "cannot verify detached watchdog startup (errno=%d)",
+					   scan_error);
+				return -1;
+			}
+			process_snapshot_release(&snapshot);
+			if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
+				wait_status = watchdog_start_probe_wait(
+					PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+				if (wait_status != 0)
+					return wait_status;
+			}
+		}
+
+		errno = ETIMEDOUT;
+		logmessage("watchdog", "watchdog daemon did not remain running after launch");
+		return process_presence_start_postcondition(launch_status,
+						     PROCESS_PRESENCE_ABSENT);
 	}
 
 	/* Only a confirmed ABSENT inventory may authorize a new daemon. */
