@@ -131,8 +131,7 @@ on:
       # AliDDNS tests have a dedicated lifecycle workflow; they do not affect
       # the RC/process-lifecycle regression suite.
       - "!trunk/user/aliddns/tests/**"
-pull_request:
-
+  pull_request:
     paths:
       - "trunk/user/shared/src/pids.c"
       - "trunk/user/shared/src/process_inventory.h"

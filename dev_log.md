@@ -1,3 +1,9 @@
+## 2026-11-17 — Restore process workflow pull_request YAML nesting
+
+- Parent main: `947b45ac1a56e64706a240e4e104206ea1ecf356`. The push-path exclusion was committed, but the replacement accidentally removed the two-space nesting before `pull_request:`. GitHub recorded the exact-head workflow as a zero-job failure. Restore the original `on.pull_request.paths` indentation; no production or test coverage path is changed.
+- The exact-head Process workflow rerun is the required validation; the previous zero-job result is not a PASS.
+
+---
 ## 2026-11-17 — Avoid unrelated RC lifecycle regression runs for AliDDNS-only test edits
 
 - Parent main: `f96a19857e514e71c6e27ccedb62c1be807177d9`. The broad RC lifecycle push filter correctly covers production changes throughout `trunk/user/**`, but it also makes every AliDDNS-only test fixture edit run the unrelated RC service-lifecycle suite. AliDDNS already has a dedicated lifecycle/API workflow. Add a push-only negative path for `trunk/user/aliddns/tests/**`; keep the global process inventory trigger intact so its whole-repository audit still sees tracked candidates, and leave pull-request coverage unchanged.
