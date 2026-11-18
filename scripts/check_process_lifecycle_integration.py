@@ -1514,14 +1514,17 @@ msd_config_test = (root / "trunk/user/rc/src/tests/msd_lite_config_file.c").read
 udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split(
     "\n#if defined(APP_XUPNPD)", 1
 )[0]
-msd_lite_branch = udpxy_start.split("#if defined (APP_MSD_LITE)", 1)[1].split("#else", 1)[0]
 assert '#include "msd_lite_config_file.h"' in net_source
-assert "msd_lite_config_publish(src_conf, dst_conf, wan_ifname, port)" in msd_lite_branch
-assert "if (config_status != 0)" in msd_lite_branch
-assert msd_lite_branch.index("if (config_status != 0)") < msd_lite_branch.index('nvram_set("msd_lite_enable", "1")')
-assert msd_lite_branch.index("if (config_status != 0)") < msd_lite_branch.index('eval("/usr/bin/msd_lite"')
-assert 'fopen(dst_conf, "w")' not in msd_lite_branch
-assert 'doSystem("cp -f %s %s", src_conf, dst_conf)' not in msd_lite_branch
+assert 'process_name = "msd_lite";' in udpxy_start
+assert "udpxy_process_presence((void *)process_name, &scan_error)" in udpxy_start
+assert udpxy_start.index("udpxy_process_presence(") < udpxy_start.index("msd_lite_config_publish(")
+assert "msd_lite_config_publish(src_conf, dst_conf, wan_ifname, port)" in udpxy_start
+assert "if (config_status != 0)" in udpxy_start
+assert udpxy_start.index("if (config_status != 0)") < udpxy_start.index('nvram_set("msd_lite_enable", "1")')
+assert udpxy_start.index("if (config_status != 0)") < udpxy_start.index('eval("/usr/bin/msd_lite"')
+assert 'fopen(dst_conf, "w")' not in udpxy_start
+assert 'doSystem("cp -f %s %s", src_conf, dst_conf)' not in udpxy_start
+assert "udpxy_confirm_started(process_name, launch_status)" in udpxy_start
 assert "fopen(source_path, \"r\")" in msd_config_header
 assert "fstat(fileno(source), &source_stat)" in msd_config_header
 assert "lstat(destination_path, &destination_stat)" in msd_config_header
