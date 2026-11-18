@@ -33,6 +33,6 @@ Do not create no-op documentation commits; update only at meaningful validation 
 
 Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and commit atomically; do not wait idly on pending CI.
 
-Every logical multi-file change is one complete tree/commit parented to freshly fetched main and published using non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs, or modify frozen backup.
+Every logical slice is one atomic main commit: create a complete tree and commit parented to freshly fetched main, then publish with non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs, or modify frozen backup.
 
 Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first task.

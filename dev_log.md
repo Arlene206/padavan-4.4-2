@@ -1,3 +1,10 @@
+## 2026-11-17 — Restore exact atomic-main-commit handoff contract
+
+- Exact AI handoff run `44223253226` on `5fd23912733ba97a286e14df0c398d06d1414dd2` failed only because `SESSION_HANDOFF.md` paraphrased the required atomic-main-commit instruction and omitted the literal phrase `one atomic main commit`.
+- Restore the canonical wording while retaining non-forced expected-SHA publication and the frozen-backup restriction. No product source or workflow trigger changed.
+- Exact PID 1 mdev workflow `44223253251` passed its existing-config and OpenVPN TUN policy binaries plus caller source contract. XY-C1 `44223253163` passed host gates and entered Build; TRX/artifact remained pending at this checkpoint.
+
+---
 ## 2026-11-17 — Validate the OpenVPN TUN device node before trusting it
 
 - Parent main `de02f6c04d993d462983576e3db2914e9b179afe`: c500 exact-head USB, HTTPD, Process, NVRAM, Infosvr, AdGuardHome, AliDDNS, AliyunDrive, AI and XY-C1 all pass, with Build/TRX/artifact on the same SHA. Infosvr/AliyunDrive trigger-contract fixes pass on `45ed6be1`; AI checkpoint wording passes on `de02f6c0`.
