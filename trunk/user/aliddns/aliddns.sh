@@ -333,7 +333,7 @@ if [ "$aliddns_domain"x != "x" ] && [ "$aliddns_name"x != "x" ] ; then
 	aliddns_record_id=""
 	domain="$aliddns_domain"
 	name="$aliddns_name"
-	arDdnsCheck $aliddns_domain $aliddns_name
+	arDdnsCheck "$aliddns_domain" "$aliddns_name"
 fi
 if [ "$aliddns_domain2"x != "x" ] && [ "$aliddns_name2"x != "x" ] ; then
 	sleep 1
@@ -341,7 +341,7 @@ if [ "$aliddns_domain2"x != "x" ] && [ "$aliddns_name2"x != "x" ] ; then
 	aliddns_record_id=""
 	domain="$aliddns_domain2"
 	name="$aliddns_name2"
-	arDdnsCheck $aliddns_domain2 $aliddns_name2
+	arDdnsCheck "$aliddns_domain2" "$aliddns_name2"
 fi
 if [ "$aliddns_domain6"x != "x" ] && [ "$aliddns_name6"x != "x" ] ; then
 	IPv6=1
@@ -350,7 +350,7 @@ if [ "$aliddns_domain6"x != "x" ] && [ "$aliddns_name6"x != "x" ] ; then
 	aliddns_record_id=""
 	domain="$aliddns_domain6"
 	name="$aliddns_name6"
-	arDdnsCheck $aliddns_domain6 $aliddns_name6
+	arDdnsCheck "$aliddns_domain6" "$aliddns_name6"
 fi
 
 }

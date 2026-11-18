@@ -1,3 +1,11 @@
+## 2026-11-17 — Preserve literal wildcard records in AliDDNS start dispatch
+
+- Parent main: `2e5622f682362a8767d10517b9290929030bcd9f`. The update/API helpers explicitly encode wildcard owner names (`*` becomes `%2A`), but `aliddns_start()` passed the three configured record names to `arDdnsCheck` unquoted. Shell pathname expansion could therefore replace a wildcard name with current-directory filenames and silently target the wrong DNS owner.
+- Quote domain and owner arguments for A, secondary A and AAAA records. Extend the production-function regression to create matching filenames and prove literal `*` / `node*` survives the start dispatcher for all three records.
+- The patch is covered by the existing AliDDNS API transport workflow; exact-head run and XY-C1 firmware build are pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-17 — Update HTTPD firewall status contract for the third-party WAN reconciler
 
 - Parent main: `9643053f8886c0ba542a077a53afe70f52cc3530`. The newly checked PPPoE-MWAN detector error path correctly added one use of `firewall_log_command_failure()`, but the HTTPD cross-module source contract still hard-coded the previous count of seven and caused an unrelated CI failure.

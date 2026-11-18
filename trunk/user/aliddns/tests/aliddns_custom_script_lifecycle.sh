@@ -17,6 +17,7 @@ sed -n '/^aliddns_ipv4_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^aliddns_ipv6_valid() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^arDdnsCheck() {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 sed -n '/^initconfig () {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
+sed -n '/^aliddns_start () {/,/^}/p' "$SOURCE" >> "$FUNCTIONS"
 . "$FUNCTIONS"
 
 ALIDDNS_DDNS_SCRIPT_PATH="$STORAGE_DIR/ddns_script.sh"
@@ -152,6 +153,31 @@ if initconfig; then fail "initializer succeeded without a packaged default"; fi
 for leftover in "$STORAGE_DIR"/.ddns_script.*; do
 	[ ! -e "$leftover" ] || fail "initializer leaked staging directory $leftover"
 done
+
+# The public start path must pass literal wildcard record names unchanged.
+# Existing files deliberately match the patterns so an unquoted expansion fails.
+DISPATCH_LOG="$TEST_DIR/dispatch.log"
+: > "$DISPATCH_LOG"
+touch "$TEST_DIR/glob-a" "$TEST_DIR/glob-b" "$TEST_DIR/node-a" "$TEST_DIR/node-b"
+cd "$TEST_DIR"
+arDdnsCheck() {
+	printf '%s|%s|%s\n' "$1" "$2" "$IPv6" >> "$DISPATCH_LOG"
+	return 0
+}
+aliddns_domain="primary.example"
+aliddns_name="*"
+aliddns_domain2="secondary.example"
+aliddns_name2="node*"
+aliddns_domain6="ipv6.example"
+aliddns_name6="*"
+aliddns_start
+printf '%s\n' \
+	'primary.example|*|0' \
+	'secondary.example|node*|0' \
+	'ipv6.example|*|1' > "$TEST_DIR/dispatch.expected"
+cmp -s "$DISPATCH_LOG" "$TEST_DIR/dispatch.expected" ||
+	fail "wildcard A/AAAA record names were expanded by the start dispatcher"
+echo "AliDDNS start dispatch preserves literal wildcard record names: PASS"
 
 echo "AliDDNS custom-script source failure and strict address validation regression: PASS"
 echo "AliDDNS ROMFS template seeding, atomic replacement and symlink rejection regression: PASS"
