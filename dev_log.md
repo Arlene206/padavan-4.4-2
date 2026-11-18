@@ -1,3 +1,12 @@
+## 2026-11-19 06:50 CST (UTC+8) — Fix the MentoHUST production LF/CR sentinels
+
+- Parent main SHA: `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf`.
+- After the function-separator correction at `b9c9500aac4489f5d1f3841c1db8e3d19095d6e0`, Process lifecycle integration passed run `44414594807`. Legacy wrapper run `44414594963` reached runtime and failed because LF injection was accepted. A follow-up commit `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf` corrected the CR regression fixture to produce a real carriage return and extended the static checker, but exact legacy run `44415154101` still failed at the LF case.
+- Inspection confirmed the production `newline=$(printf ...)` and `carriage_return=$(printf ...)` formats still contained two backslashes. THIS COMMIT reduces each format to one, so shell `printf` creates the actual LF and CR control characters matched by the rejection case.
+- Exact-head legacy wrapper, Process lifecycle, Process inventory, AI docs and XY-C1 validation remain required. No local shell test was run; L4 physical router remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 06:07 CST (UTC+8) — Protect MentoHUST credential configuration at creation and reuse
 
 - Parent main SHA: `3561edf47144278a2fa386358930cda901206ccf`.

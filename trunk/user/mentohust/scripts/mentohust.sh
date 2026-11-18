@@ -107,9 +107,9 @@ func_gen_conf(){
 	fi
 
 	# Keep a trailing sentinel so command substitution retains the newline.
-	newline=$(printf '\\nx')
+	newline=$(printf '\nx')
 	newline=${newline%x}
-	carriage_return=$(printf '\\r')
+	carriage_return=$(printf '\r')
 	for mapping in \
 		'username:Username' \
 		'password:Password' \

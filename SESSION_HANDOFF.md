@@ -2,9 +2,10 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA: `3561edf47144278a2fa386358930cda901206ccf`.
-- The previous Redsocks source/checker slice is closed: exact-main Redsocks lifecycle run `44407053205` and AI handoff run `44407053381` both completed SUCCESS on `bb6b243951b1b72adaf349546c8caebf8cb492ed`.
-- XY-C1 source SHA `5debbf416f70cb136a7ad2859b002033143b4357` run `44406037894` has now completed SUCCESS; this validates that exact earlier product source, not the current MentoHUST changes.
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA: `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf`.
+- The earlier Redsocks source/checker slice remains closed: exact-main Redsocks lifecycle run `44407053205` and AI handoff run `44407053381` both completed SUCCESS on `bb6b243951b1b72adaf349546c8caebf8cb492ed`.
+- MentoHUST hardening was committed at `51c7d73749514a4488ddc992a19805d340284500`; the shell function separator was corrected at `b9c9500aac4489f5d1f3841c1db8e3d19095d6e0`. Process lifecycle regression passed on `b9c9500` (`44414594807`). Legacy wrapper runs `44414594963` and `44415154101` failed their LF-injection regression because the production newline sentinel still used two backslashes. THIS COMMIT corrects the production LF/CR printf escapes.
+- Current parent `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf` includes unrelated USB modem credential-line validation work; its own XY-C1 run and additional Actions must not be mistaken for validation of this MentoHUST correction.
 - The frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 remains closed/unmerged and is not a development path.
 - Physical-router L4 remains NOT VERIFIED. Distinguish host/Actions checks from target build/artifact and hardware evidence.
 ## Completed prerequisite — switch VLAN WAN gate
@@ -76,25 +77,25 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Close MentoHUST credential confidentiality and configuration-publication hardening.
+Close MentoHUST credential confidentiality and config-injection hardening.
 
-- `trunk/user/rc/src/init.c` deliberately sets PID 1 umask to `0000`; the prior `trunk/user/mentohust/scripts/mentohust.sh` wrote plaintext username/password with ordinary redirections and left config files at inherited permissions. Its sed-based value interpolation also allowed line-breaks to inject additional config directives.
-- THIS COMMIT sets a restrictive script umask, generates a same-directory mode-0600 temporary config, writes fixed key/value names with literal `printf`, rejects CR/LF-bearing NVRAM values and symlink/directory destinations, verifies ownership against the executing UID, atomically renames the generated file, and restricts existing regular configs before launching the daemon.
-- Regression coverage is extended in `scripts/tests/legacy_wrapper_pidfile_safety.sh`; `scripts/check_legacy_wrapper_pidfile_safety.py` now enforces the production security contract and correctly detects `kill -9` tokens. The existing `.github/workflows/legacy-wrapper-pidfile-safety.yml` already watches all changed paths, and the XY-C1 production-input workflow already watches the MentoHUST script.
-- Preserve the current script's lifecycle semantics: duplicate-start preflight, bounded RUNNING verification, identity-safe stop helper, and restart stop-before-start behavior.
+- `init.c` deliberately sets PID 1 umask to `0000`; MentoHUST previously wrote plaintext credentials with inherited permissions and interpolated NVRAM values through `sed`. The wrapper now uses umask 077, fixed literal fields, a same-directory mode-0600 temporary file, atomic rename, current-UID ownership checks and refuses symlink/directory config destinations.
+- The first implementation SHA `51c7d73749514a4488ddc992a19805d340284500` failed shell syntax because the two function declarations were concatenated. The separator correction `b9c9500aac4489f5d1f3841c1db8e3d19095d6e0` passed Process lifecycle integration (`44414594807`).
+- Legacy wrapper run `44414594963` on `b9c9500` failed because the LF sentinel was double escaped. After the CR fixture was corrected at `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf`, exact run `44415154101` still failed that LF case. THIS COMMIT changes the production `printf` formats to produce actual LF/CR control characters; exact-head Actions must verify both rejection cases.
+- Regression coverage includes stale PID safety, secure file mode, literal `%`/backslash values, existing-config permissions, symlink refusal, LF/CR rejection, temp cleanup, and no daemon launch after invalid settings.
 
 ## Verification boundary
 
-- L1 source review: PID 1 umask, plaintext NVRAM credential flow, old file creation modes, existing-config reuse, shell interpolation, and firmware script packaging were inspected. The code, regression and handoff updates are part of THIS COMMIT.
-- L2: exact-head legacy wrapper source-contract/runtime Actions and AI handoff documentation Actions must be inspected after push. No local checkout is available in this connector-only environment; do not claim local shell execution.
-- L3: current MentoHUST production script change requires exact-head XY-C1 Build, TRX verification and artifact upload. Earlier source SHA `5debbf4` run `44406037894` is successful but does not cover this change.
+- L1 source review: PID 1 umask, plaintext credentials, inherited file modes, existing-config reuse, old sed interpolation and firmware packaging inspected; the LF/CR escape correction is part of THIS COMMIT.
+- L2: Process lifecycle passed on `b9c9500` (`44414594807`). Legacy-wrapper runtime failed on `b9c9500` (`44414594963`) and again on `6cda7c5` (`44415154101`) only because LF was accepted. No local shell test was performed; Actions are the runtime validation path.
+- L3: parent-source XY-C1 runs do not cover THIS COMMIT; require exact-head Build, TRX verification and artifact upload.
 - L4 physical router: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check Actions for THIS COMMIT's exact SHA: the `Legacy wrapper stale pidfile safety` workflow must pass shell syntax, runtime regressions and source contracts; the AI handoff docs check must pass; and XY-C1 must complete Build, TRX verification and artifact upload on this same production-source SHA.
-2. Triage any exact-head failure from its first failing log and repair the actual defect without weakening coverage. If XY-C1 or another independent check is pending, continue a separate safe P1 task rather than waiting.
-3. Then resume the P1 whole-userland service lifecycle/start-result queue in `REFACTOR_ROADMAP.md`; rotate beyond already-verified Redsocks, Shadowsocks, WireGuard and WAN callback work. Keep the archival backup immutable.
+1. Inspect exact-head Legacy wrapper stale pidfile safety, Process lifecycle regression, Process inventory, AI docs and XY-C1 runs for THIS COMMIT. The legacy runtime test must reject both LF and CR injection and preserve stale-PID/lifecycle behavior.
+2. Triage the first failing log without weakening config privacy or control-character assertions. If XY-C1 is pending, continue another independent safe P1 slice.
+3. After current-source L2/L3 pass, continue the P1 whole-userland service lifecycle/start-result queue in `REFACTOR_ROADMAP.md`, avoiding already-verified Redsocks, Shadowsocks, WireGuard and WAN callback slices. Keep the archival backup immutable.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.
