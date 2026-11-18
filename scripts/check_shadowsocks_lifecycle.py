@@ -276,10 +276,10 @@ require('if stop_dns_proxy; then' in script and
         'if start_dns_proxy; then' in script,
         "router/GFW DNS startup must propagate cleanup and launch failures")
 named_wait_start = helper.index("ss_wait_named_process_started() {")
-named_wait_end = helper.index("\\n\\nss_process_pattern_state()", named_wait_start)
+named_wait_end = helper.index("\n\nss_process_pattern_state()", named_wait_start)
 named_wait = helper[named_wait_start:named_wait_end]
 pid_count_start = helper.index("ss_process_pid_count() {")
-pid_count_end = helper.index("\\n\\n# Wait for a newly launched process instance", pid_count_start)
+pid_count_end = helper.index("\n\n# Wait for a newly launched process instance", pid_count_start)
 pid_count = helper[pid_count_start:pid_count_end]
 require('ss_wait_named_process_count "$1" 1 "$2"' in named_wait and
         'if ss_count_pid_output=$(pidof "$ss_count_process_name"' in pid_count and

@@ -1,3 +1,11 @@
+## 2026-11-18 — Fix Python checker newline boundaries for process helper ranges
+
+- Exact-head fa45 Shadowsocks workflow 44285172102 passed shell syntax, required startup, process lifecycle and Adblock runtime regressions, then the Python checker raised ValueError while locating the next helper function.
+- The two range delimiters were written as double-escaped \\n sequences, which search for literal backslash-n text. Change them to Python newline escapes so the named-wait and PID-count sections are sliced correctly.
+- AI handoff 44285172079 PASS. cfbf XY-C1 run 44283616981 remains the only known firmware build for this production change and was IN_PROGRESS at last check; Build/TRX/artifact require exact-SHA confirmation.
+- No local full test or physical-router L4 is claimed. New exact-head Actions required.
+
+---
 ## 2026-11-18 — Update DNS readiness contract after count-wait helper refactor
 
 - Exact-head `9204e82aa06efb3ef3a5fa774c1df4753328a315` Shadowsocks lifecycle workflow `44284758611`: shell syntax, startup status, production-linked process lifecycle and adblock publication regressions all PASS. The Python source checker failed because it still expected the old inline `ss_start_state` switch in `ss_wait_named_process_started()`, which now delegates to `ss_wait_named_process_count()`.
