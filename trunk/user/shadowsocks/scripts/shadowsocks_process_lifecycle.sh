@@ -20,8 +20,11 @@ ss_validate_pid_list() {
 
 ss_process_pid_state() {
 	ss_process_name=$1
-	ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null)
-	ss_pid_status=$?
+	if ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null); then
+		ss_pid_status=0
+	else
+		ss_pid_status=$?
+	fi
 	case "$ss_pid_status" in
 		0) ss_validate_pid_list "$ss_pid_output" || return 2; return 0 ;;
 		1) [ -z "$ss_pid_output" ] && return 1; return 2 ;;
@@ -35,8 +38,11 @@ ss_process_pid_count() {
 	[ "$#" -eq 1 ] || return 2
 	ss_count_process_name=$1
 	[ -n "$ss_count_process_name" ] || return 2
-	ss_count_pid_output=$(pidof "$ss_count_process_name" 2>/dev/null)
-	ss_count_pid_status=$?
+	if ss_count_pid_output=$(pidof "$ss_count_process_name" 2>/dev/null); then
+		ss_count_pid_status=0
+	else
+		ss_count_pid_status=$?
+	fi
 	case "$ss_count_pid_status" in
 		0)
 			ss_validate_pid_list "$ss_count_pid_output" || return 2
@@ -89,8 +95,11 @@ ss_wait_named_process_started() {
 ss_process_pattern_state() {
 	ss_process_pattern=$1
 	[ -n "$ss_process_pattern" ] || return 2
-	ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null)
-	ss_pid_status=$?
+	if ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null); then
+		ss_pid_status=0
+	else
+		ss_pid_status=$?
+	fi
 	case "$ss_pid_status" in
 		0) ss_validate_pid_list "$ss_pid_output" || return 2; return 0 ;;
 		1) [ -z "$ss_pid_output" ] && return 1; return 2 ;;
@@ -102,8 +111,11 @@ ss_process_pattern_count() {
 	[ "$#" -eq 1 ] || return 2
 	ss_count_pattern=$1
 	[ -n "$ss_count_pattern" ] || return 2
-	ss_pattern_pid_output=$(pgrep -f "$ss_count_pattern" 2>/dev/null)
-	ss_pattern_pid_status=$?
+	if ss_pattern_pid_output=$(pgrep -f "$ss_count_pattern" 2>/dev/null); then
+		ss_pattern_pid_status=0
+	else
+		ss_pattern_pid_status=$?
+	fi
 	case "$ss_pattern_pid_status" in
 		0)
 			ss_validate_pid_list "$ss_pattern_pid_output" || return 2

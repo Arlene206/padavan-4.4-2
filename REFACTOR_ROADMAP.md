@@ -1,11 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Product-source baseline `e20cabfd833df25b69b7ce1e164faad09769501d` adds fail-closed `start_watchcat()` process readiness, duplicate prevention and error propagation. Main now has a test-only detached fixture timing correction: the 10-ms mock sleep still starved the Lua-generated `ipt2socks` fixture under Actions; it now yields 100 ms per bounded poll.
-- Exact-head e20 checks: AI handoff `44282353220` PASS; Process inventory `44282353174` and full fail-closed inventory `44282353250` PASS; Shadowsocks lifecycle `44282353324` FAIL at Lua-generated ipt2socks readiness. The fixture-only correction is awaiting its exact-SHA rerun.
-- XY-C1 run `44282353140` targets exact product-source SHA e20 and was IN_PROGRESS at last observation. Require same-SHA Build, TRX verification and artifact upload before marking L3 VERIFIED. Physical-router L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only; PR #1 is closed.
+- Parent main SHA `4bf82b681361e5b0d4fa43ec4aa7895cc3d11a0f` widens the test scheduler yield to 100 ms after the previous 10-ms timing attempt still failed the detached Lua child test. Exact-head on e20: AI handoff `44282353220` PASS; Process inventory `44282353174` and umbrella fail-closed regression `44282353250` PASS; Shadowsocks `44282353324` FAIL at `Lua-generated ipt2socks readiness status=1 expected=0`.
+- Root cause is confirmed in POSIX shell: normal `pidof`/`pgrep` exit 1 (ABSENT) is captured by direct assignment under caller `set -e`, causing premature exit before the helpers normalize ABSENT to count zero. THIS commit changes all four process inventory helpers to conditional status capture and adds absent-PID/absent-pattern count regressions plus source contracts.
+- XY-C1 run `44282353140` is for product source SHA e20 and was still IN_PROGRESS at last poll; Build/TRX/artifact must be confirmed on that SHA. The current helper correction requires a separate exact-SHA XY-C1 build before L3.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed; physical-router L4 NOT VERIFIED.
 
-Next P1 after exact-head lifecycle validation: add bounded readiness and rollback to `start_chinadns()` and dnsmasq restart, then continue broader RC/userland stability.
+Next P1: validate all exact-head Actions and this helper's XY-C1 Build/TRX/artifact; then add startup readiness/rollback for ChinaDNS-ng and dnsmasq, followed by broader RC/userland reliability.
+
 ---
 
 ## Whole-repository module status

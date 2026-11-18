@@ -180,6 +180,21 @@ expect_status() {
 	[ "$actual" -eq "$expected" ] || fail "$label status=$actual expected=$expected"
 }
 
+# pidof/pgrep status 1 means confirmed ABSENT, and must normalize to a zero count.
+if absent_count=$(ss_process_pid_count absent_startup); then
+	[ "$absent_count" = "0" ] || fail "ABSENT pidof count was $absent_count, expected 0"
+else
+	absent_status=$?
+	fail "ABSENT pidof lookup failed under set -e (status=$absent_status)"
+fi
+if absent_pattern_count=$(ss_process_pattern_count "/usr/bin/absent-monitor"); then
+	[ "$absent_pattern_count" = "0" ] || fail "ABSENT pgrep count was $absent_pattern_count, expected 0"
+else
+	absent_pattern_status=$?
+	fail "ABSENT pgrep lookup failed under set -e (status=$absent_pattern_status)"
+fi
+
+
 # A successful command must provide a non-empty, canonical PID list.
 expect_status 2 "pidof empty success is unknown" ss_process_pid_state empty_success
 expect_status 2 "pidof malformed PID output is unknown" ss_process_pid_state malformed

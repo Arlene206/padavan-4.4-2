@@ -150,6 +150,15 @@ require("ss_process_pattern_count()" in helper and
         "ss_wait_process_pattern_count()" in helper and
         'pgrep -f "$ss_count_pattern"' in helper,
         "pattern startup readiness must validate and count pgrep PIDs")
+require('if ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null); then' in helper and
+        'if ss_count_pid_output=$(pidof "$ss_count_process_name" 2>/dev/null); then' in helper and
+        'if ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null); then' in helper and
+        'if ss_pattern_pid_output=$(pgrep -f "$ss_count_pattern" 2>/dev/null); then' in helper,
+        "pidof/pgrep exit statuses must be captured conditionally under caller errexit")
+require("ABSENT pidof count was" in test and "ABSENT pgrep count was" in test and
+        "Lua-generated ipt2socks readiness" in test,
+        "host regression must cover absent inventory and detached-child startup")
+
 
 watch_start = script[script.index("start_watchcat() {"):script.index("\n\nauto_update() {")]
 require('ss_process_pattern_count "/usr/bin/ss-monitor"' in watch_start and

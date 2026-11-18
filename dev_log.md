@@ -1,3 +1,12 @@
+## 2026-11-18 — Preserve confirmed ABSENT PID inventory under set -e
+
+- The exact-head e20 Shadowsocks lifecycle run `44282353324` failed at Lua-generated `ipt2socks` readiness even after the fixture sleep was widened to 100 ms. A POSIX `/bin/sh` reproduction isolated the issue: direct assignment of `pidof` output with exit status 1 is treated as errexit before the helper's ABSENT branch can normalize it.
+- Change both named-process helpers and both pgrep pattern helpers to capture lookup status in conditional assignments, preserving RUNNING/ABSENT/UNKNOWN. Extend host regressions to assert ABSENT named and pattern counts are zero under `set -eu`; add checker contracts for all guarded lookups.
+- Exact e20 Actions: Shadowsocks lifecycle `44282353324` FAIL at the Lua assertion; AI handoff `44282353220`, Process inventory `44282353174`, and umbrella fail-closed regression `44282353250` PASS. XY-C1 `44282353140` targets e20 and was still IN_PROGRESS; no L3 result for this fix is claimed.
+- No full repository shell test or physical-router runtime is claimed. This helper change needs exact-head Shadowsocks and XY-C1 Build/TRX/artifact verification; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Give the Lua-generated Shadowsocks readiness fixture a scheduler-safe polling window
 
 - Exact-head e20 lifecycle run `44282353324` failed at `Lua-generated ipt2socks readiness`: the detached Lua mock was not observable before the test's 5-poll timeout. The e20 production watchcat change itself was not identified as the cause.
