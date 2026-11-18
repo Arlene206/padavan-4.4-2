@@ -93,6 +93,7 @@ assert "case '\\t':" in config_file_header
 assert "*cursor < 0x20 || *cursor == 0x7f" in config_file_header
 assert "test_quoted_setting_escapes_configuration_delimiters" in config_file_test
 assert "test_quoted_setting_rejects_control_bytes" in config_file_test
+assert "test_rejected_value_discards_partial_config" in config_file_test
 assert "trunk/user/rc/src/inadyn_config_file.h" in workflow
 assert "trunk/user/rc/src/tests/inadyn_config_file.c" in workflow
 

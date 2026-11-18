@@ -79,6 +79,27 @@ test_quoted_setting_rejects_control_bytes(void)
 	assert(fclose(fp) == 0);
 }
 
+static void
+test_rejected_value_discards_partial_config(const char *config,
+                                            const char *directory)
+{
+	static const unsigned char invalid[] = { 'u', 's', 'e', 'r', 1, 'b', 'a', 'd', 0 };
+	char staged_path[512];
+	FILE *fp;
+
+	fp = inadyn_config_file_open(config, staged_path, sizeof(staged_path));
+	assert(fp != NULL);
+	assert(fputs("partial-config-before-rejected-value\n", fp) >= 0);
+	errno = 0;
+	assert(inadyn_config_file_write_quoted_setting(
+		fp, "username = \"", (const char *)invalid, "\"\n") == -1);
+	assert(errno == EINVAL);
+	assert(inadyn_config_file_discard(fp, staged_path) == 0);
+	assert(staged_path[0] == '\0');
+	read_exact(config, "new-user\nnew-password\n");
+	assert(count_staged_files(directory, "inadyn.conf.tmp.") == 0);
+}
+
 int
 main(void)
 {
@@ -175,6 +196,7 @@ main(void)
 
 	test_quoted_setting_escapes_configuration_delimiters();
 	test_quoted_setting_rejects_control_bytes();
+	test_rejected_value_discards_partial_config(config, directory);
 	puts("Inadyn private atomic configuration publication and quoted-value escaping: PASS");
 	return 0;
 }
