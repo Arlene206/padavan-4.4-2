@@ -3,7 +3,7 @@
 - Parent main: `aab4a9a3eccc2ceb25bd584a8b2fb16952656534`. SCUT and MentoHUST used `start-stop-daemon -S -b` and treated a zero launcher status as a running daemon, although a detached child could exit immediately before entering the process inventory.
 - Add shared POSIX `pl_wait_started()`: a one-second initial delay followed by four tri-state probes, one second apart. Only confirmed RUNNING succeeds; confirmed ABSENT after bounded probes returns timeout; UNKNOWN inventory, invalid arguments or sleep failure fail closed. Preserve launcher errors and existing duplicate/stop semantics.
 - Require this postcondition in both scripts; extend shared and optional-app runtime regressions for absent, delayed and UNKNOWN child states; include the ROMFS-installed helper in XY-C1 build triggers and firmware-input tests.
-- Exact-head Process, AI handoff and XY-C1 runs for this source SHA are pending. No local shell execution or cross-build is claimed; physical-router L4 remains NOT VERIFIED.
+- Exact-head SHA `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`: Process lifecycle run `44256159139` failed only because the final SCUT logout counter was not incremented for the additional delayed-start/stop test (repairing expected count to 2); AI handoff run `44256158997` failed on missing mandatory handoff checkpoint wording/section names (adding exact contract wording). Process inventory run `44256159035` and Legacy wrapper pidfile run `44256158977` passed. XY-C1 run `44256159232` remained in progress at last poll; Build, TRX and artifact status not yet verified. No local shell execution or cross-build is claimed; physical-router L4 remains NOT VERIFIED.
 
 ---
 

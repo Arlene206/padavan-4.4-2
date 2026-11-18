@@ -341,7 +341,7 @@ exit 0
             )
         assert len(start_log.read_text().splitlines()) == starts_before
         assert len(stop_log.read_text().splitlines()) == stops_before
-        assert len(logout_log.read_text().splitlines()) == 1
+        assert len(logout_log.read_text().splitlines()) == 2
 
 
 IPERF_SCRIPT = ROOT / "trunk/user/iperf3/iperf3.sh"
