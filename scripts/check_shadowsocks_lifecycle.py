@@ -28,10 +28,41 @@ helper = read("trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh")
 makefile = read("trunk/user/shadowsocks/Makefile")
 test = read("trunk/user/shadowsocks/tests/process_lifecycle.sh")
 adblock_test = read("trunk/user/shadowsocks/tests/adblock_config.sh")
+dnsmasq_cleanup = read("trunk/user/shadowsocks/scripts/dnsmasq_config_lifecycle.sh")
+dnsmasq_cleanup_test = read("trunk/user/shadowsocks/tests/dnsmasq_config_cleanup.sh")
+rules_script = read("trunk/user/shadowsocks/scripts/ss-rules")
 workflow = read(".github/workflows/shadowsocks-lifecycle.yml")
 busybox_config = read("trunk/user/busybox/busybox-1.24.x/procps/Config.src")
 busybox_pgrep = read("trunk/user/busybox/busybox-1.24.x/procps/pgrep.c")
 
+require(". /usr/bin/dnsmasq_config_lifecycle.sh || exit 1" in script and
+        ". /usr/bin/dnsmasq_config_lifecycle.sh || exit 1" in rules_script and
+        "line == expected" in dnsmasq_cleanup and "line != expected" in dnsmasq_cleanup and
+        "cmp -s" in dnsmasq_cleanup and
+        'mv -f "$ss_dnsmasq_tmp_file" "$ss_dnsmasq_config_file"' in dnsmasq_cleanup and
+        '[ ! -L "$ss_dnsmasq_config_file" ]' in dnsmasq_cleanup,
+        "DNSMasq helper must atomically remove only exact regular-file directives")
+oversea_start = script.index("\n\toversea)")
+oversea_end = script.index("\n\t*)", oversea_start)
+oversea = script[oversea_start:oversea_end]
+close_start = script.index("ssp_close() {")
+close_end = script.index("\n\n\nclear_iptable() {", close_start)
+close = script[close_start:close_end]
+require("ss_dnsmasq_remove_exact_directive" in oversea and
+        "conf-dir=/etc/storage/dnsmasq-ss.d" in oversea and
+        "conf-dir=/etc/storage/dnsmasq.oversea" in oversea and "sed -i" not in oversea,
+        "oversea mode must remove only exact owned conf-dir entries")
+require("ss_dnsmasq_remove_exact_directive" in close and "conf-dir=/tmp/dnsmasq.dom/" in close and
+        "conf-dir=/tmp/cdn" in close and "conf-dir=/etc/storage/dnsmasq.oversea" in close and "sed -i" not in close,
+        "shutdown must use exact DNSMasq directives rather than substring deletion")
+require(rules_script.count("ss_dnsmasq_remove_exact_directive /etc/storage/dnsmasq/dnsmasq.conf 'conf-dir=/tmp/dnsmasq.dom/'") == 2 and
+        "sed -i '/dnsmasq.dom/d'" not in rules_script,
+        "ss-rules flush/build paths must use exact directive removal")
+require("unrelated directive/comment was removed" in dnsmasq_cleanup_test and
+        "DNSMasq exact directive cleanup regression: PASS" in dnsmasq_cleanup_test and
+        "conf-dir=/etc/storage/dnsmasq.oversea-custom" in dnsmasq_cleanup_test and
+        "symlink config was modified" in dnsmasq_cleanup_test,
+        "DNSMasq cleanup test must cover hostile near-matches")
 require(". /usr/bin/shadowsocks_process_lifecycle.sh || exit 1" in monitor and
         "ss_stop_named_processes ssr-server" in monitor and
         'ss_stop_named_processes "$bin"' in monitor and
@@ -257,6 +288,7 @@ for action in ("stop)", "restart)", "reserver)"):
     require("if ! ssp_close; then" in script[start:end] and "exit 1" in script[start:end],
             f"{action[:-1]} must abort follow-up cleanup/start on stop failure")
 
+require("Run exact DNSMasq directive cleanup regression" in workflow, "workflow must run exact directive regression")
 require("exit_on_term" in test and "exit_on_kill" in test and
         "never_exit" in test and "Shadowsocks process lifecycle regression: PASS" in test,
         "host regression must cover graceful, forced and failed shutdown")
@@ -265,6 +297,9 @@ for path in ("trunk/user/shadowsocks/scripts/shadowsocks.sh",
              "trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh",
              "trunk/user/shadowsocks/tests/process_lifecycle.sh",
              "trunk/user/shadowsocks/tests/start_status.sh",
+             "trunk/user/shadowsocks/scripts/ss-rules",
+             "trunk/user/shadowsocks/scripts/dnsmasq_config_lifecycle.sh",
+             "trunk/user/shadowsocks/tests/dnsmasq_config_cleanup.sh",
              "trunk/user/shadowsocks/Makefile",
              "trunk/user/busybox/busybox-1.24.x/procps/Config.src",
              "trunk/user/busybox/busybox-1.24.x/procps/pgrep.c",
@@ -284,6 +319,8 @@ require(
 
 startup = script[script.index("ssp_record_start_failure() {"):script.index("ssp_close() {")]
 startup_test = read("trunk/user/shadowsocks/tests/start_status.sh")
+require("ss_dnsmasq_remove_exact_directive()" in startup_test and "FAIL_DNSMASQ_CLEANUP" in startup_test and
+        "dnsmasq_remove:no-resolv" in startup_test, "shutdown test must cover DNSMasq cleanup failure propagation")
 ordered(startup, [
     'SS_START_STATUS=0',
     'if rules; then',

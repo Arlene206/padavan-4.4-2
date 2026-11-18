@@ -397,6 +397,7 @@ if ! grep -Fqx 'server=127.0.0.1#65353' "$dnsmasq_config"; then
 	sed -n 'l' "$dnsmasq_config" >&2
 	fail "ChinaDNS upstream was not published"
 fi
+[ "$DNSMASQ_RESTART_CALLS" -eq 1 ] || fail "successful transaction did not use the RC restart entry point"
 [ "$(grep -c '^no-resolv$' "$dnsmasq_config")" -eq 1 ] || fail "no-resolv directive was not normalized"
 [ "$(grep -c '^min-cache-ttl=1800$' "$dnsmasq_config")" -eq 1 ] || fail "min-cache-ttl was not normalized"
 [ "$(grep -c '^dns-forward-max=1000$' "$dnsmasq_config")" -eq 1 ] || fail "dns-forward-max was not normalized"

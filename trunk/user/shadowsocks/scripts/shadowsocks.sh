@@ -44,6 +44,7 @@ log() {
 }
 
 . /usr/bin/shadowsocks_process_lifecycle.sh || exit 1
+. /usr/bin/dnsmasq_config_lifecycle.sh || exit 1
 
 find_bin() {
 	case "$1" in
@@ -511,8 +512,7 @@ ss_start_chinadns_daemon() {
 	fi
 }
 
-# Start dnsmasq without enrolling the router's DHCP/DNS service in the Shadowsocks cgroup.
-# Stage and validate dnsmasq config before atomic publication and bounded restart.
+# Stage and validate the DNSMasq include before the RC-owned service lifecycle restart.
 ss_publish_and_restart_dnsmasq() {
 	[ "$#" -eq 3 ] || return 2
 	local config_file="$1"
@@ -698,13 +698,29 @@ start_dns() {
 		;;
 	oversea)
 		ipset add gfwlist $dnsserver 2>/dev/null
-		mkdir -p /etc/storage/dnsmasq.oversea
-		sed -i '/dnsmasq-ss/d' /etc/storage/dnsmasq/dnsmasq.conf
-		sed -i '/dnsmasq.oversea/d' /etc/storage/dnsmasq/dnsmasq.conf
-		cat >>/etc/storage/dnsmasq/dnsmasq.conf <<EOF
+		mkdir -p /etc/storage/dnsmasq.oversea || return $?
+		for cleanup_directive in \
+			'conf-dir=/etc/storage/dnsmasq-ss.d' \
+			'conf-dir=/etc/storage/dnsmasq-ss.d/' \
+			'conf-dir=/etc/storage/dnsmasq.oversea' \
+			'conf-dir=/etc/storage/dnsmasq.oversea/'; do
+			if ss_dnsmasq_remove_exact_directive "/etc/storage/dnsmasq/dnsmasq.conf" "$cleanup_directive"; then
+				:
+			else
+				dns_status=$?
+				log "DNSMasq include cleanup failed for $cleanup_directive (status=$dns_status)"
+				return "$dns_status"
+			fi
+		done
+		if cat >> /etc/storage/dnsmasq/dnsmasq.conf <<EOF
 conf-dir=/etc/storage/dnsmasq.oversea
 EOF
-;;
+		then
+			:
+		else
+			return $?
+		fi
+		;;
 	*)
 		ipset -N ss_spec_wan_ac hash:net 2>/dev/null
 		ipset add ss_spec_wan_ac $dnsserver 2>/dev/null
@@ -1048,7 +1064,7 @@ ss_run_detect() {
 ssp_close() {
 	local close_status=0
 	local command_status=0
-	local cleanup_pattern=""
+	local cleanup_directive=""
 
 	# Do not tear down firewall/configuration state while a proxy process can
 	# still be running and consuming it.
@@ -1065,15 +1081,25 @@ ssp_close() {
 		log "Shadowsocks firewall cleanup failed (status=$command_status)"
 	fi
 	cgroups_cleanup
-	for cleanup_pattern in '/no-resolv/d' '/server=127.0.0.1/d' '/cdn/d' '/gfwlist/d' '/dnsmasq.oversea/d'; do
-		if sed -i "$cleanup_pattern" /etc/storage/dnsmasq/dnsmasq.conf; then
+	for cleanup_directive in \
+		'no-resolv' \
+		'server=127.0.0.1' \
+		'server=127.0.0.1#65353' \
+		'conf-dir=/tmp/cdn' \
+		'conf-dir=/tmp/cdn/' \
+		'conf-dir=/tmp/dnsmasq.dom' \
+		'conf-dir=/tmp/dnsmasq.dom/' \
+		'conf-file=/tmp/dnsmasq.dom/gfwlist_list.conf' \
+		'conf-dir=/etc/storage/dnsmasq-ss.d' \
+		'conf-dir=/etc/storage/dnsmasq-ss.d/' \
+		'conf-dir=/etc/storage/dnsmasq.oversea' \
+		'conf-dir=/etc/storage/dnsmasq.oversea/'; do
+		if ss_dnsmasq_remove_exact_directive "/etc/storage/dnsmasq/dnsmasq.conf" "$cleanup_directive"; then
 			:
 		else
 			command_status=$?
-			if [ "$close_status" -eq 0 ]; then
-				close_status=$command_status
-			fi
-			log "DNSMasq config cleanup failed for $cleanup_pattern (status=$command_status)"
+			if [ "$close_status" -eq 0 ]; then close_status=$command_status; fi
+			log "DNSMasq config cleanup failed for $cleanup_directive (status=$command_status)"
 		fi
 	done
 	if [ -f "/etc/storage/dnsmasq-ss.d" ]; then

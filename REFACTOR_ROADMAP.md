@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Checker correction `8569fe71229f4ef202b4f234bb9a1b6d26074714` has exact-head Shadowsocks run `44305672569` PASS across shell syntax, startup, complete process lifecycle, Adblock and Python source contract. Exact-head AI handoff `44305672773` failed because the handoff omitted the mandatory cross-session phrase `Before context exhaustion`; this commit restores the required full checkpoint clause.
-- Parent exact-head Process fail-closed `44305279690` and Process inventory umbrella `44305279672` on `2f8fb1d` PASS. No firmware source changes in this docs-only repair; product source `6910911ffdd65a7a04eeb97fa1088a1b8a74d886` has XY-C1 Build/TRX/artifact PASS.
-- Next P1: exact-directive DNSMasq cleanup in Shadowsocks `oversea`/`ssp_close()` and `ss-rules`, with preservation tests and workflow path coverage.
+- Parent `e71777167669441d9866c0eec007580b70e6f02b` AI handoff run `44305951729` PASS. Its product/test parent `8569fe7` Shadowsocks `44305672569` PASSed syntax, process lifecycle, Adblock and source checker; AI documentation failure was the missing `Before context exhaustion` phrase, now restored.
+- THIS COMMIT replaces destructive DNSMasq substring deletion in oversea, ssp_close and ss-rules with a shared exact-directive helper, hostile near-match preservation test, shutdown error injection and CI/source-checker contracts. Exact-head Actions and this SHA's L3 are pending; physical hardware L4 is not verified.
+
+Next P1: verify this exact source SHA's Shadowsocks/AI/XY-C1 Actions, then scan remaining daemon-managed config paths for unsafe substring cleanup.
 
 ---
-
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

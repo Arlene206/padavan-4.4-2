@@ -9,6 +9,7 @@
 # See /LICENSE for more information.
 #
 # Fix rule to not be removed, $TAG has wrongly added underscore(_) at beginning of $TAG
+. /usr/bin/dnsmasq_config_lifecycle.sh || exit 1
 modprobe xt_TPROXY
 modprobe xt_set
 TAG="SS_SPEC_"   # comment tag
@@ -65,7 +66,7 @@ flush_r() {
 			$ipt -F ${chain:1} 2>/dev/null && $ipt -X ${chain:1}
 		done
 	}
-	sed -i '/dnsmasq.dom/d' /etc/storage/dnsmasq/dnsmasq.conf
+	ss_dnsmasq_remove_exact_directive /etc/storage/dnsmasq/dnsmasq.conf 'conf-dir=/tmp/dnsmasq.dom/' || return $?
 	flush_iptables nat
 	flush_iptables mangle
 	ip rule del fwmark 0x01/0x01 table 100 2>/dev/null
@@ -148,7 +149,7 @@ EOF
 	for ip in $WAN_BP_IP; do ipset -! add whitelist $ip; done
 	for ip in $WAN_FW_IP; do ipset -! add blacklist $ip; done
 	
-	sed -i '/dnsmasq.dom/d' /etc/storage/dnsmasq/dnsmasq.conf
+	ss_dnsmasq_remove_exact_directive /etc/storage/dnsmasq/dnsmasq.conf 'conf-dir=/tmp/dnsmasq.dom/' || return $?
 cat >> /etc/storage/dnsmasq/dnsmasq.conf << EOF
 conf-dir=/tmp/dnsmasq.dom/
 EOF

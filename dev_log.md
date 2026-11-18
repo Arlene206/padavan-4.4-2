@@ -1,3 +1,13 @@
+## 2026-11-18 — Restrict Shadowsocks DNSMasq cleanup to exact owned directives
+
+- Parent main `e71777167669441d9866c0eec007580b70e6f02b` AI handoff run `44305951729` PASS. Its product/test parent `8569fe71229f4ef202b4f234bb9a1b6d26074714` Shadowsocks run `44305672569` PASSed shell syntax, startup status, process lifecycle, Adblock and Python source checker. The `8569fe7` AI run failed because the handoff lacked `Before context exhaustion`, restored in the docs-only `e717771` parent. No XY-C1 run was present on these doc/test parents.
+- Replaced broad DNSMasq substring deletion in Shadowsocks `oversea`, `ssp_close()` and both `ss-rules` sites. Shared `dnsmasq_config_lifecycle.sh` removes only explicitly owned, whitespace-normalized exact lines; rejects symlinks; stages beside the original; preserves metadata with `cp -p`; and atomically renames only after a successful rewrite. User comments/includes, domain-scoped server/ipset/address entries and SmartDNS loopback port 5353 are preserved.
+- Regression coverage verifies exact removal, no-op/idempotence, near-match/comment/custom include/domain-rule preservation, missing config, bad arguments and symlink refusal. Shutdown status tests inject helper failure. Process lifecycle test has one final PASS sentinel and asserts the successful transaction called the RC restart entry point. Static checker and workflow contracts include the helper and host regression.
+- Changed: Shadowsocks `shadowsocks.sh`, `ss-rules`, new `dnsmasq_config_lifecycle.sh`, tests `start_status.sh`, `process_lifecycle.sh`, new `dnsmasq_config_cleanup.sh`, `scripts/check_shadowsocks_lifecycle.py`, `.github/workflows/shadowsocks-lifecycle.yml`, and handoff/roadmap/dev log.
+- Validation: source/checker/workflow precommit string-level checks PASS. Local shell runtime NOT RUN because no working checkout is available in this session. Exact-head Actions after this commit are the runtime evidence; this SHA's XY-C1 L3 and physical-router L4 are NOT VERIFIED.
+- Next: check exact-head Shadowsocks, AI handoff and XY-C1 Actions for this commit; repair any real failure. Then scan other daemon-managed config paths for broad substring deletion.
+
+---
 ## 2026-11-18 20:35 CST — Restore mandatory handoff checkpoint rule
 
 - Parent `8569fe71229f4ef202b4f234bb9a1b6d26074714`: exact-head Shadowsocks lifecycle `44305672569` PASS across all seven steps, including the Python source checker. AI handoff `44305672773` failed only because the cross-session mandate omitted the required phrase `Before context exhaustion`.

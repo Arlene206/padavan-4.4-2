@@ -231,7 +231,10 @@ cgroups_cleanup() { record cgroups_cleanup; return 0; }
 clear_iptable() { record clear_iptable; return 0; }
 ss_restart_dhcpd() { record restart_dhcpd; return "${FAIL_RESTART_DHCPD:-0}"; }
 ss_run_detect() { record detect; return "${FAIL_DETECT_SCRIPT:-0}"; }
-sed() { record "sed:$*"; return "${FAIL_SED:-0}"; }
+ss_dnsmasq_remove_exact_directive() {
+	record "dnsmasq_remove:$2"
+	return "${FAIL_DNSMASQ_CLEANUP:-0}"
+}
 rm() {
 	if [ "$1" = "-rf" ] && [ "$2" = "/tmp/cdn" ]; then
 		record rm_cdn
@@ -243,7 +246,7 @@ close_reset() {
 	: > "$CALL_LOG"
 	: > "$LOG_FILE"
 	pppoemwan=0
-	unset FAIL_SS_RULES FAIL_KILL_PROCESS FAIL_RESTART_DHCPD FAIL_DETECT_SCRIPT FAIL_SED
+	unset FAIL_SS_RULES FAIL_KILL_PROCESS FAIL_RESTART_DHCPD FAIL_DETECT_SCRIPT FAIL_DNSMASQ_CLEANUP
 }
 close_expect_status() {
 	expected=$1
@@ -260,6 +263,8 @@ close_called kill_process
 close_called 'ss_rules:-f'
 close_called cgroups_cleanup
 close_called clear_iptable
+close_called 'dnsmasq_remove:no-resolv'
+close_called 'dnsmasq_remove:conf-dir=/tmp/dnsmasq.dom/'
 close_called restart_dhcpd
 close_called detect
 
@@ -271,7 +276,7 @@ close_called detect
 grep -Fq 'DNSMasq service restart after Shadowsocks shutdown failed (status=73)' "$LOG_FILE" || fail "DNSMasq restart failure was not logged"
 
 close_reset
-FAIL_SED=74
+FAIL_DNSMASQ_CLEANUP=74
 FAIL_RESTART_DHCPD=75
 close_expect_status 74 "first shutdown error preservation"
 close_called restart_dhcpd

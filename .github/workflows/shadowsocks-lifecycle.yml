@@ -6,6 +6,9 @@ on:
       - 'trunk/user/shadowsocks/scripts/shadowsocks.sh'
       - 'trunk/user/shadowsocks/scripts/ss-monitor'
       - 'trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh'
+      - 'trunk/user/shadowsocks/scripts/ss-rules'
+      - 'trunk/user/shadowsocks/scripts/dnsmasq_config_lifecycle.sh'
+      - 'trunk/user/shadowsocks/tests/dnsmasq_config_cleanup.sh'
       - 'trunk/user/shadowsocks/tests/process_lifecycle.sh'
       - 'trunk/user/shadowsocks/tests/start_status.sh'
       - 'trunk/user/shadowsocks/tests/adblock_config.sh'
@@ -19,6 +22,9 @@ on:
       - 'trunk/user/shadowsocks/scripts/shadowsocks.sh'
       - 'trunk/user/shadowsocks/scripts/ss-monitor'
       - 'trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh'
+      - 'trunk/user/shadowsocks/scripts/ss-rules'
+      - 'trunk/user/shadowsocks/scripts/dnsmasq_config_lifecycle.sh'
+      - 'trunk/user/shadowsocks/tests/dnsmasq_config_cleanup.sh'
       - 'trunk/user/shadowsocks/tests/process_lifecycle.sh'
       - 'trunk/user/shadowsocks/tests/start_status.sh'
       - 'trunk/user/shadowsocks/tests/adblock_config.sh'
@@ -43,11 +49,16 @@ jobs:
           sh -n trunk/user/shadowsocks/scripts/shadowsocks.sh
           sh -n trunk/user/shadowsocks/scripts/ss-monitor
           sh -n trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh
+          sh -n trunk/user/shadowsocks/scripts/ss-rules
+          sh -n trunk/user/shadowsocks/scripts/dnsmasq_config_lifecycle.sh
+          sh -n trunk/user/shadowsocks/tests/dnsmasq_config_cleanup.sh
           sh -n trunk/user/shadowsocks/tests/process_lifecycle.sh
           sh -n trunk/user/shadowsocks/tests/start_status.sh
           sh -n trunk/user/shadowsocks/tests/adblock_config.sh
       - name: Run required startup status regression
         run: sh trunk/user/shadowsocks/tests/start_status.sh
+      - name: Run exact DNSMasq directive cleanup regression
+        run: sh trunk/user/shadowsocks/tests/dnsmasq_config_cleanup.sh
       - name: Run bounded process lifecycle regression
         run: sh trunk/user/shadowsocks/tests/process_lifecycle.sh
       - name: Run adblock config publication regression
