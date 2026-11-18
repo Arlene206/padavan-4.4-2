@@ -5160,9 +5160,19 @@ jobs:
           reconnect = body(wan, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
           manual_disconnect = body(wan, "manual_wan_disconnect(void)")
           assert "if (kill_services(svcs_ppp, 6, 1) != 0)" in stop_ppp
-          assert stop_ppp.index("return -1;") < stop_ppp.index("clear_wan_state();")
+          assert "int pause_status, stop_status = -1;" in stop_ppp
+          ppp_kill_failure = stop_ppp.split("if (kill_services(svcs_ppp, 6, 1) != 0)", 1)[1].split("clear_wan_state();", 1)[0]
+          assert "goto abort_resume_detect;" in ppp_kill_failure
+          assert "return stop_status;" in stop_ppp
           assert stop_wan.count("if (kill_services(") == 2
-          assert stop_wan.count("return -1;") == 1
+          assert "int pause_status, eapol_stop_status, kabinet_stop_status;" in stop_wan
+          assert "return stop_status != 0 ? stop_status : -1;" in stop_wan
+          for stop_body in (stop_ppp, stop_wan):
+              pause_call = stop_body.index("pause_status = notify_pause_detect_internet();")
+              pause_gate = stop_body.index("if (pause_status != 0)", pause_call)
+              pause_return = stop_body.index("return pause_status;", pause_gate)
+              callback_fence = stop_body.index("invalidate_wan_ppp_callback_session()")
+              assert pause_call < pause_gate < pause_return < callback_fence
           assert "if (ipv6_status != 0)" in stop_wan
           assert stop_wan.index("if (ipv6_status != 0)") < stop_wan.index("clear_wan_state();")
           callback_fence = stop_wan.index("refusing WAN interface teardown while DHCPv6 callback fencing is incomplete")
