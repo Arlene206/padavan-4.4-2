@@ -1,13 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- Main after the AP DHCP embedded source-contract correction: d7f4bc9f2e41fb5764e807409d4fe9420ddd6bed.
-- Exact WAN DHCP callback workflow run 44203603261 PASS on d7f4bc9f. The standalone normalized checker, embedded wrapper/helper contract, and GNU89/ASan/UBSan callback-policy regression all completed successfully.
-- Exact AI documentation run 44203603286 FAIL on d7f4bc9 because SESSION_HANDOFF.md had weakened the mandatory end-of-session checkpoint wording. Protocol and bootstrap contain the required rules; THIS documentation repair restores the exact handoff contract and states the live-check/no-op rule.
-- Exact Process lifecycle 44203603303 PASS; NVRAM transaction audit 44203603328 PASS; AliDDNS 44203603381 PASS; AdGuardHome 44203603460 PASS; infosvr 44203603262 PASS; AliyunDrive 44203603304 PASS.
-- XY-C1 for the preceding 509409f8 product source, run 44202831040, remained IN_PROGRESS at Build XY-C1; TRX and artifact upload were pending. This does not validate a later product SHA.
-- Frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807 unchanged; no local MIPS build or physical-router L4 claim.
+- Parent main before THIS HTTPD AP DHCP retry contract update: `816146abeff90634d307069edb91ea338b274f2f`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- AP DHCP production fix `0af358f3`, whitespace checker fix `509409f8`, and WAN workflow contract fix `d7f4bc9f` are in main. Exact WAN DHCP run `44203603261` PASS.
+- Exact `d7f4bc9f` Process `44203603303`, infosvr `44203603262`, AliyunDrive `44203603304`, AliDDNS `44203603381`, AdGuardHome `44203603460` PASS. AI exact rerun `44203929395` and NVRAM `44203929348` PASS on `62f315b1`.
+- XY-C1 source run `44202831040` for `509409f8` now completed SUCCESS; inspect the individual Build/TRX/artifact steps before making a product L3 statement. Subsequent commits through parent are workflow/docs-only.
+- HTTPD Security's embedded contract still expected old inline LAN host writes. THIS updates it to assert actual publisher/helper boundary, AP notification and success-only marker clear; both push and pull_request triggers include callback policy files.
+- THIS slice changes no production C. Physical-router L4 NOT VERIFIED.
 
-Next: exact-head AI handoff rerun for this checkpoint restoration, then continue the concrete WAN-up notification-status gap in net_wan.c. The 509 XY-C1 build can be independently rechecked if still relevant.
+Next: exact-head HTTPD Security and AI handoff PASS; verify XY-C1 step-level L3 evidence; then continue the independent WAN-up status propagation task.
 
 ---
 

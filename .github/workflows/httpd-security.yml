@@ -279,6 +279,8 @@ on:
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/lan_kernel_name_policy.h"
       - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
+      - "trunk/user/rc/src/lan_dhcp_callback_policy.h"
+      - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
@@ -2386,6 +2388,13 @@ jobs:
           lan_bound_start = lan.index("udhcpc_lan_bound(char *lan_ifname, int is_renew)")
           lan_bound_end = lan.index("udhcpc_lan_leasefail(", lan_bound_start)
           lan_bound = lan[lan_bound_start:lan_bound_end]
+          publish_start = lan.index("static int\nlan_dhcp_publish_hosts_and_schedule_retry(")
+          publish_end = lan.index("\n\nstatic int\nudhcpc_lan_bound", publish_start)
+          lan_publish = lan[publish_start:publish_end]
+          update_ap_start = lan.index("int\nupdate_hosts_ap(void)")
+          update_ap_end = lan.index("\nint\nstart_lan(", update_ap_start)
+          lan_update_ap = lan[update_ap_start:update_ap_end]
+          lan_bound_compact = " ".join(lan_bound.split())
           assert '#include "dhcp_lease_policy.h"' in lan
           assert '#include "dnsmasq_domain_policy.h"' in lan
           assert lan_bound.index("dhcp_lease_ipv4_is_valid(lease_ip)") < lan_bound.index("dhcp_lease_bound_apply(")
@@ -2421,11 +2430,20 @@ jobs:
           assert "return route_add(context->lan_ifname" in lan
           assert "return ifconfig(context->lan_ifname, IFUP" in lan
           assert 'nvram_set_temp("lan_gateway_t", gateway_buf)' in lan_bound
-          assert lan_bound.index("create_hosts_lan(lease_ip, lease_domain)") > lease_publish
-          assert "hosts_status = create_hosts_lan(lease_ip, lease_domain);" in lan_bound
-          assert "LAN lease applied but hostname files could not be published" in lan_bound
+          assert "refresh_hosts = lan_dhcp_hosts_refresh_required(" in lan_bound
+          assert 'is_changed, is_renew, get_ap_mode() && nvram_match("lan_hosts_retry", "1")' in lan_bound_compact
+          assert lan_bound.index("if (refresh_hosts)") < lan_bound.index("lan_dhcp_publish_hosts_and_schedule_retry(")
+          assert "hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(" in lan_bound
+          assert "hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);" in lan_publish
+          assert "LAN lease applied but hostname files could not be published" in lan_publish
+          assert 'nvram_set_int_temp("lan_hosts_retry", "1")' in lan_publish
+          assert "notify_rc_status(RCN_RESTART_DHCPD)" in lan_publish
+          assert lan_publish.index('nvram_set_int_temp("lan_hosts_retry", "1")') < lan_publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
           assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in lan_bound
           assert "return hosts_status;" not in lan_bound
+          assert "lan_dhcp_hosts_refresh_required" in lan_callback_policy
+          assert "test_hosts_refresh_retries_only_a_pending_same_value_renew" in lan_callback_test
+          assert "lan_dhcp_hosts_refresh_required(0, 1, 1) == 1" in lan_callback_test
           assert "lan_dhcp_bound_callback_status" in lan_callback_policy
           assert "(void)ancillary_status;" in lan_callback_policy
           assert "return transaction_status;" in lan_callback_policy
@@ -2452,7 +2470,10 @@ jobs:
           assert 'fopen("/etc/hostname", "w+")' not in hosts_writer
           assert 'fopen("/etc/hosts", "w+")' not in hosts_writer
           assert "int update_hosts_ap(void);" in header
-          assert "return create_hosts_lan(nvram_safe_get" in lan
+          assert 'create_hosts_lan(nvram_safe_get("lan_ipaddr_t"),' in lan_update_ap
+          assert 'nvram_safe_get("lan_domain_t")' in lan_update_ap
+          assert 'nvram_set_int_temp("lan_hosts_retry", "0")' in lan_update_ap
+          assert lan_update_ap.index("if (status == 0)") < lan_update_ap.index('nvram_set_int_temp("lan_hosts_retry", "0")')
           dhcpd_notify_start = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)')
           dhcpd_notify_end = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)', dhcpd_notify_start)
           dhcpd_notify = rc_main[dhcpd_notify_start:dhcpd_notify_end]

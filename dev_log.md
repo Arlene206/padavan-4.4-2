@@ -1,3 +1,12 @@
+## 2026-11-18 — Align HTTPD AP DHCP retry source contract
+
+- Parent main SHA: `816146abeff90634d307069edb91ea338b274f2f`; exact WAN DHCP `44203603261` PASS. Exact Process `44203603303`, infosvr `44203603262`, AliyunDrive `44203603304`, AliDDNS `44203603381`, AdGuardHome `44203603460` PASS on `d7f4bc9f`; AI `44203929395` and NVRAM `44203929348` PASS on `62f315b1`.
+- XY-C1 run `44202831040` on source `509409f8` completed SUCCESS; step-level Build/TRX/artifact confirmation is the outstanding L3 evidence.
+- HTTPD's embedded DHCP checks were stale after the LAN writer was extracted: bound callback delegates to `lan_dhcp_publish_hosts_and_schedule_retry()`, and AP refresh clears `lan_hosts_retry` only after a successful write. THIS updates those assertions and makes the pull_request path filter match the already-covered push filter.
+- No production C changes. Exact-head HTTPD/AI reruns pending; physical hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Restore mandatory end-of-session handoff checkpoint contract
 
 - Parent main SHA: d7f4bc9f2e41fb5764e807409d4fe9420ddd6bed. Exact WAN DHCP callback run 44203603261 PASS after the embedded source-contract fix in that parent.
