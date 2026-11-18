@@ -1,3 +1,13 @@
+## 2026-11-18 — Align Adbyby transaction checker with recovery journal implementation
+
+- Product source/test commit `c957987ad9971cb3f029dfb6a054d6367d059fa0` added private staging, a protected `$DATA_PATH/.rules-transaction` marker, owner/mode/link-count validation, per-file state/backup records and idempotent restore before cache use. Process recovery handles the interrupted two-rename window and absent originals; it is not reboot/power-loss durability.
+- Exact c957 checks: Process inventory `44310230750`, Process fail-closed `44310230811`, AI `44310230698`, and HTTPD security `44310230857` PASS. The first Adbyby checker run `44310230655` failed on stale literal backup-name expectations; checker-only corrections in `7e12500` and `141bf15` aligned them to `adbyby_rule_name.previous` and `adbyby_rule_name.state`. Latest Adbyby host action `44310660331` on `141bf15` PASS.
+- XY-C1 `44310230672` on exact product-source SHA c957 had completed pre-build checks and was still compiling XY-C1 when last polled; TRX/artifact upload remain pending. Do not transfer the prior 38a L3 result to c957.
+- No local shell test claimed. Target BusyBox/MIPS execution and physical L4 remain NOT VERIFIED.
+- Next: inspect c957 XY-C1 Build/TRX/artifact completion by exact SHA, then continue whole-repository stability work.
+
+---
+
 ## 2026-11-18 — Add recovery journal for interrupted Adbyby rule-pair publication
 
 - Parent main `3f8e4f789c3d4eaa41f43e527a36aaeafa49940c`: Shadowsocks lifecycle `44308412124`, AI handoff `44308412085`, Process inventory `44308412166` and Process fail-closed `44308412156` all PASS.
