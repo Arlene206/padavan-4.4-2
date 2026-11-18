@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS SCSI generic module-readiness fix: `40f0aecead8070a931809244ff5394a8afe01e90`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact `40f0aece` USB modem `44212191127`, AI `44212191043`, infosvr `44212190976`, AliDDNS `44212191022`, AdGuardHome `44212190980` and Process inventory `44212191040` PASS. NVRAM `44212191003` and AliyunDrive `44212190996` were in progress.
-- `mdev_sg_main()` previously treated `module_smart_load("sr_mod", NULL) == 0` as success without distinguishing already-loaded from failed load. THIS fix verifies tri-state module presence and fails closed on absent/unknown state; new GNU89/Werror/ASan/UBSan test and USB source contract.
-- Same-SHA firmware L3 and physical L4 not yet verified.
+- Main parent before THIS SG policy include correction: `bdeeee072c705524230d64986bdeffd5f41ff373`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent USB modem workflow `44212660230` ran the new SCSI CD and SG GNU89/Werror/ASan/UBSan policy binaries, then failed at the caller source contract because `hotplug_usb.c` omitted the included SG readiness header. THIS correction adds `#include "modem_sg_module_policy.h"`.
+- Exact parent PASS: AI `44212660039`, Process inventory `44212660239`, AliyunDrive `44212660024`, HTTPD `44212660097`, infosvr `44212660165`, AliDDNS `44212660765`, AdGuardHome `44212660124`, Process lifecycle inventory `44212660079`. NVRAM `44212660076` remains in progress.
+- No same-SHA XY-C1 Build/TRX/artifact evidence or physical-router L4.
 
-Next: verify exact-head USB tests and source contract; inspect NVRAM/AliyunDrive; continue independent P1 work.
+Next: exact-head USB rerun; inspect NVRAM audit; continue independent P1 fix.
 
 ---
 

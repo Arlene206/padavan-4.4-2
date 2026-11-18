@@ -33,6 +33,7 @@
 #include "rc.h"
 #include "modem_node_file.h"
 #include "modem_sr_status_policy.h"
+#include "modem_sg_module_policy.h"
 
 static char *
 _basename(char *name)

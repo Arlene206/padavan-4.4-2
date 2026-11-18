@@ -1,3 +1,11 @@
+## 2026-11-18 — Include SCSI generic module-readiness policy
+
+- Parent main SHA: `bdeeee072c705524230d64986bdeffd5f41ff373`. Exact parent USB modem workflow `44212660230` compiled/ran both SCSI GNU89/Werror/ASan/UBSan policy binaries but failed the inline caller assertion because `hotplug_usb.c` used `modem_sg_module_ready_status()` without including `modem_sg_module_policy.h`.
+- THIS commit adds the missing include; no other source semantics changed. Exact parent AI, Process inventory, AliyunDrive, HTTPD Security, infosvr, AliDDNS, AdGuardHome and process inventory PASS; NVRAM audit `44212660076` still in progress.
+- Exact-head USB rerun pending; no firmware L3 or physical L4 claim.
+
+---
+
 ## 2026-11-18 — Verify SCSI generic driver readiness after module load
 
 - Parent main SHA: `40f0aecead8070a931809244ff5394a8afe01e90`. Exact USB modem `44212191127`, AI `44212191043`, infosvr `44212190976`, AliDDNS `44212191022`, AdGuardHome `44212190980` and Process inventory `44212191040` PASS; NVRAM `44212191003` and AliyunDrive `44212190996` pending at last observation.

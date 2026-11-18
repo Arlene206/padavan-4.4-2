@@ -1,27 +1,26 @@
-# 2026-11-18 continuation checkpoint — verify SCSI generic module readiness
+# 2026-11-18 continuation checkpoint — include SCSI generic readiness policy
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS SCSI generic reliability fix: `40f0aecead8070a931809244ff5394a8afe01e90`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact parent `40f0aece` USB modem WDM/NDIS `44212191127` PASS, AI handoff `44212191043` PASS, infosvr `44212190976` PASS, AliDDNS `44212191022` PASS, AdGuardHome `44212190980` PASS, Process inventory `44212191040` PASS. NVRAM audit `44212191003` and AliyunDrive `44212190996` remained IN_PROGRESS at last poll.
-- Exact parent USB workflow `44212191127` included the new SCSI CD eject/unload GNU89/Werror/ASan/UBSan regression and source contract; final workflow PASS confirms path filters after `40f0aece`.
-- Found sibling false-success path in `mdev_sg_main()`: when `modem_zcd != 0`, `module_smart_load("sr_mod", NULL)` returned zero both if the module was already loaded and if load failed, but the handler silently returned success in both cases. It slept only for a new load and never checked the final module state. THIS slice probes `is_module_loaded_status("sr_mod")` and only accepts confirmed presence; absent or unknown state is logged, unlocks the device and returns failure.
-- A GNU89/Werror/ASan/UBSan policy regression covers loaded, absent and unknown module states. The USB modem workflow pins the load→presence-probe→fail-closed ordering. SCSI CD status fix `2fc75549` remains separately covered by the same workflow.
-- No same-SHA XY-C1 L3 or physical-router L4 claim.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS compile-contract correction: `bdeeee072c705524230d64986bdeffd5f41ff373`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
+- Exact parent `bdeeee07` USB modem workflow `44212660230` FAILed at inline source-contract line 95: `hotplug_usb.c` did not include `modem_sg_module_policy.h` even though the SG handler called its readiness helper. The new SCSI CD and SG module policy executables ran before this assertion; the failure is an actual missing production include, not a stale assertion. THIS commit adds the include; source contract remains.
+- Exact parent `bdeeee07` AI handoff `44212660039`, Process inventory `44212660239`, AliyunDrive `44212660024`, HTTPD Security `44212660097`, infosvr `44212660165`, AliDDNS `44212660765`, AdGuardHome `44212660124`, and Process lifecycle inventory `44212660079` PASS. NVRAM audit `44212660076` remains IN_PROGRESS at last poll.
+- SCSI CD eject/unload status handling is committed in `2fc75549`; SG readiness policy and caller logic are in `bdeeee07`. THIS commit closes the missing-header gap.
+- No exact-current-SHA XY-C1 Build/TRX/artifact or physical-router L4 claim.
 
 ## Active task
-- Ensure SG hotplug does not claim success when `sr_mod` was neither already loaded nor successfully loaded; preserve existing already-loaded and newly-loaded behavior.
+- Complete the SG readiness integration by including the policy header required by `mdev_sg_main()`; rerun USB hotplug policy/source contracts.
 
 ## Verification boundary
-- Exact `40f0aece` USB modem, AI docs, infosvr, AliDDNS, AdGuardHome and Process inventory PASS.
-- Exact `40f0aece` NVRAM audit `44212191003` and AliyunDrive `44212190996` pending at last poll.
-- THIS SG module-readiness slice has not run on its exact new SHA. Firmware L3 and physical L4 NOT VERIFIED.
+- Exact parent SG/SCSI GNU89/Werror/ASan/UBSan test binaries completed before the inline source assertion; full USB workflow FAILed because of the missing include.
+- Exact parent AI docs, Process inventory, AliyunDrive, HTTPD, infosvr, AliDDNS, AdGuardHome and process inventory workflows PASS.
+- NVRAM audit still pending; THIS include fix's exact-head USB rerun pending. Firmware L3 and hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head USB modem workflow; require both SCSI CD and SG module GNU89 sanitizer policy regressions, source contracts, and push/PR filters to PASS.
-2. Inspect exact-head NVRAM audit and AliyunDrive/lifecycle Actions.
-3. Check for a relevant same-SHA XY-C1 firmware run; claim L3 only if Build, TRX and artifact upload all succeed.
-4. Continue another independent P1 reliability/security defect while unrelated Actions run. Keep backup unchanged; do not repeat bootstrap recovery.
+1. Inspect exact-head USB modem workflow; require both SCSI policy binaries, source-body assertions and WDM identity/path-filter checks to PASS.
+2. Inspect NVRAM audit `44212660076` and any exact-head reruns.
+3. Check whether XY-C1 Build/TRX/artifact is triggered for this source SHA; no L3 claim without all three passing.
+4. Continue another independent P1 reliability/security slice while pending Actions run. Keep backup unchanged; do not repeat bootstrap recovery.
 
 Every logical multi-file change is one atomic main commit built from one complete Git tree and updated by non-forced expected-SHA compare-and-swap.
 
