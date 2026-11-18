@@ -60,8 +60,11 @@ def require(condition, message):
 
 
 reconnect = body(WAN, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
-require("int start_watchdog(void);" in HEADER,
-        "watchdog startup must have a status-returning public contract")
+require(
+    any(line.strip().split() == ["int", "start_watchdog(void);"]
+        for line in HEADER.splitlines()),
+    "watchdog startup must have a status-returning public contract",
+)
 watchdog_start = body(WATCHDOG, "start_watchdog(void)")
 require("return launch_status;" in watchdog_start
         and "PROCESS_PRESENCE_START_ABORT" in watchdog_start,

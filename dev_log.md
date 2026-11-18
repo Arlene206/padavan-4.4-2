@@ -1,3 +1,12 @@
+## 2026-11-18 — Correct PPP and deferred-watchdog CI contracts after exact-head failures
+
+- Parent main SHA: `73ba562aecb420e23d0e210b01ab9c79b2406f46`; result: THIS COMMIT.
+- Exact-head `73ba562aecb420e23d0e210b01ab9c79b2406f46` exposed three test-contract defects, not new firmware build failures: WAN route run `44264508036` rejected the valid double-spaced `int  start_watchdog(void);` declaration; AI handoff docs run `44264508172` rejected the missing exact end-of-session checkpoint rule; XY-C1 run `44264508112` stopped at the PPP source checker because its expected newline/tab pattern was double-escaped.
+- Correct the declaration parser by splitting whitespace tokens, restore the explicit mandatory checkpoint wording in SESSION_HANDOFF, and change the PPP checker to match the actual tab/newline layout. Re-run all three workflows on THIS commit before claiming PASS.
+- Firmware Build/TRX/artifact never started in failed XY-C1 `44264508112`; no L3 claim. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Close PPPoE-MWAN existing-interface probe failure propagation
 
 - Source slice: `66dbe404` introduced sysfs-aware PPP probing; test cleanup `4bc9d87c` repaired the regression block; `ba893707` moved exact `ifconfig` status capture into the failing `else` branch.

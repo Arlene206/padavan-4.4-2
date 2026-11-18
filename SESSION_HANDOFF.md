@@ -23,7 +23,8 @@
 4. Preserve the physical-router L4 status as NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
-At session end, fetch live main, exact-head Actions and the next task. Update this file only when the facts or first task materially change; no no-op documentation commits.
+The checkpoint is mandatory; a document edit is conditional.
+Every session MUST inspect the live repository state and exact-head Actions before ending. At session end, fetch live main, exact-head Actions and the next task. Update this file only when facts or the first task materially change; do not create a no-op commit.
 
 # Cross-session execution mandate
 Continue source fixes, regressions, atomic commits and exact-SHA Actions. Never force-push, mutate the backup, reopen the retired PR, or claim unperformed tests/build/hardware checks.

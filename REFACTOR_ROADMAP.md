@@ -1,10 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Current main parent for THIS commit: `ffa7f6d07522d8a51b53a9c1fede22c42d3588b2`. Current product-source additions include PPPoE-MWAN sysfs-aware PPP peer probing with preserved ifconfig failure status (`ba893707c6f5cb939980cf4eecb5cd2d5dd14871`) and deferred-WAN watchdog failure propagation (`ffa7f6d07522d8a51b53a9c1fede22c42d3588b2`).
-- Exact-head `ba893707`: WAN route `44263552770`, Process lifecycle `44263552790`, Process inventory fail-closed `44263552757` PASS. XY-C1 `44263552808` remained IN_PROGRESS at last poll: Build active, TRX/artifact pending. Latest descendant `ffa7f6d0`: WAN route `44264230949`, Process inventory `44264231061`, related lifecycle Actions IN_PROGRESS; XY-C1 `44264231022` PENDING. Refresh on the new main SHA.
-- Archive rotation AI docs exact-head run `44262705464` PASS on `808cff7a`. The frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Historical L3 is VERIFIED only for `a0cb9aad` (XY-C1 `44260005493`); physical-router L4 remains NOT VERIFIED.
+- Current main parent for THIS commit: `73ba562aecb420e23d0e210b01ab9c79b2406f46`. PPPoE-MWAN sysfs-aware PPP probe is implemented on `ba893707c6f5cb939980cf4eecb5cd2d5dd14871`; its WAN route, Process lifecycle and fail-closed regressions all passed. The PPP checker in the first follow-up contained a double-escaped newline string, so exact-head XY-C1 `44264508112` failed before firmware build at that source-contract check.
+- Deferred WAN watchdog failure propagation landed in `ffa7f6d07522d8a51b53a9c1fede22c42d3588b2`; its WAN checker expected a single space in the valid `int  start_watchdog(void);` prototype, causing an exact-head false negative. This commit makes the prototype check whitespace-insensitive.
+- AI handoff docs `44264508172` on parent `73ba562aecb420e23d0e210b01ab9c79b2406f46` failed because the updated handoff omitted the exact mandatory-checkpoint wording required by the validator; this commit restores the explicit rule. Exact-head reruns pending.
+- Historical L3 is VERIFIED only for `a0cb9aad4844f7d044ce79efad6c417857c95972` (XY-C1 `44260005493` Build/TRX/artifact). No newer SHA is L3 VERIFIED yet. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next P1 source slice: propagate required-stage startup failures through Shadowsocks `ssp_start()` and CLI `start/restart`, preserving optional/disabled semantics. Add deterministic failure injection before changing behavior.
+Next P1: after the PPP/WAN/AI docs checkers are green, continue required-stage error propagation in Shadowsocks `ssp_start()` and its CLI start/restart paths, with host failure-injection coverage.
 
 ---
 
