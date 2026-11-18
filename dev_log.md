@@ -1,3 +1,12 @@
+## 2026-11-18 — Make detached proxy readiness regression deterministic and restore exact handoff contract text
+
+- The parent SHA `8ad80886fbdd7623b118f3798af031a02cc6e897` re-ran the core process-lifecycle and AI-doc workflows. The latter still failed because the handoff used the literal `one atomic `main` commit` instead of the exact contract phrase `one atomic main commit`.
+- The detached daemon regression's mock `sleep` returned immediately, so the bounded polling loop could exhaust all observations before the asynchronous fixture process had a scheduling opportunity. The fixture now yields for 10 ms on each poll, and successful detached launch calls use `expect_status 0` for clear diagnostics.
+- Parent SHA `8ad808...`: Process inventory `44279976854` and full inventory `44279976810` PASS; Shadowsocks lifecycle `44279976835` and AI docs `44279976680` FAIL. This corrective commit fixes the test scheduling race and exact docs phrase; inspect the corresponding reruns before declaring them resolved.
+- No local shell run or XY-C1 build was executed. Exact-head Actions and Build/TRX/artifact verification remain pending.
+
+---
+
 ## 2026-11-18 — Repair detached-launch regression fixture and restore handoff contract headings
 
 - Exact-head Actions for `47b599812981423af1cd03fd8928ff7b7cef7f4b` identified two failures. The process-lifecycle script set `RUN_BIN_MODE` but did not export it to its detached mock children; the AI documentation checker required three exact handoff headings and an explicit conditional-checkpoint sentence.

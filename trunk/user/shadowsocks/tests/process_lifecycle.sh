@@ -93,7 +93,8 @@ EOF
 
 cat > "$TMP_DIR/bin/sleep" <<'EOF'
 #!/bin/sh
-exit 0
+# Yield briefly so detached mock daemons can publish their PID fixture.
+exec /bin/sleep 0.01
 EOF
 
 cat > "$TMP_DIR/bin/dnsproxy" <<'EOF'
@@ -267,13 +268,13 @@ grep -q '^PATTERN-KILL /usr/bin/ss-monitor$' "$KILL_LOG"
 : > "$PROCESS_STATE_DIR/ssr-redir"
 printf '4242\n' > "$PROCESS_STATE_DIR/ssr-redir.pids"
 export RUN_BIN_MODE=ready
-run_bin ssr-redir -c /tmp/test.json
+expect_status 0 "new detached worker readiness" run_bin ssr-redir -c /tmp/test.json
 [ "$(wc -w < "$PROCESS_STATE_DIR/ssr-redir.pids")" -eq 2 ] || fail "run_bin accepted only the pre-existing sibling"
 rm -f "$PROCESS_STATE_DIR/ssr-redir" "$PROCESS_STATE_DIR/ssr-redir.pids"
 
 # gensocks.lua starts ipt2socks and exits; monitor the actual long-lived child.
 RUN_BIN_MODE=ready
-run_bin --wait-for ipt2socks lua /etc_ro/ss/gensocks.lua node1 1080
+expect_status 0 "Lua-generated ipt2socks readiness" run_bin --wait-for ipt2socks lua /etc_ro/ss/gensocks.lua node1 1080
 [ -f "$PROCESS_STATE_DIR/ipt2socks" ] || fail "Lua-generated ipt2socks child was not observed"
 rm -f "$PROCESS_STATE_DIR/ipt2socks" "$PROCESS_STATE_DIR/ipt2socks.pids"
 

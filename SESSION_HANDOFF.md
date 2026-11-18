@@ -1,27 +1,26 @@
-# 2026-11-18 continuation checkpoint — Shadowsocks detached daemon readiness
+# 2026-11-18 continuation checkpoint — Shadowsocks detached launch regression correction
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; working branch is `main`. The preceding source milestone is `47b599812981423af1cd03fd8928ff7b7cef7f4b` (`fix(shadowsocks): verify detached proxy readiness`). This atomic correction fixes its two exact-head regression failures below.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only; its recorded SHA is `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed and no open PR was found.
-- The last historically recorded XY-C1 L3 PASS is `a0cb9aad4844f7d044ce79efad6c417857c95972`; it does not validate later source changes. Physical-router L4 remains NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`. Corrective parent is `8ad80886fbdd7623b118f3798af031a02cc6e897` (`test(shadowsocks): export detached launcher fixture mode`).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at its recorded SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed.
+- Historical XY-C1 L3 PASS only applies to `a0cb9aad4844f7d044ce79efad6c417857c95972`; physical-router L4 remains NOT VERIFIED.
 
 ## Active task
-- Exact-head run `44279555095` (Shadowsocks lifecycle, SHA `47b599812981423af1cd03fd8928ff7b7cef7f4b`) failed in `process_lifecycle.sh`; the new detached child fixtures changed `RUN_BIN_MODE` without exporting it, so subprocesses silently used the default mode. This correction exports it before the ready/fail/UNKNOWN cases.
-- Exact-head run `44279555079` (AI handoff docs, SHA `47b599812981423af1cd03fd8928ff7b7cef7f4b`) failed because the handoff omitted required headings and the exact mandatory-checkpoint sentence. This update restores those contract strings and required headings.
-- On the same SHA, Process inventory and lifecycle regression `44279554758` PASS; whole-repository process inventory `44279554805` PASS. XY-C1 run `44279555018` was still IN_PROGRESS at the last poll. The two failed workflows will re-run only for this new exact SHA.
+- The core source change on `47b599812981423af1cd03fd8928ff7b7cef7f4b` added validated PID count+1 readiness for Shadowsocks TCP/UDP/local/monitor launches. Its regression workflow failed; the subsequent correction exported `RUN_BIN_MODE` but still failed because the host test's mock `sleep` returned immediately, allowing the bounded poll loop to starve the detached fixture child. The test now yields 10 ms and reports success statuses through `expect_status 0`.
+- The AI handoff workflow also failed on parent `8ad808...` because the current record did not contain the exact literal `one atomic main commit`. The handoff has been corrected to the checker contract.
+- Parent `8ad808...` checks: Process inventory `44279976854` PASS; full inventory `44279976810` PASS; Shadowsocks lifecycle `44279976835` FAIL; AI handoff docs `44279976680` FAIL. Corrective reruns are required on this commit's new SHA.
 
 ## Verification boundary
-- The failing-shell fixture root cause is identified from the Actions job log; the correction is to export `RUN_BIN_MODE` once so its subsequent assignments are inherited by the background mock executables.
-- The handoff contract failure is identified from `scripts/check_ai_handoff_docs.py`: exact headings `## Active task`, `## Verification boundary`, and the sentence `The checkpoint is mandatory; a document edit is conditional.` are required.
-- No local shell test or firmware build was run in this connector-only session. Do not claim the corrective commit passes until its exact-head Actions finish. XY-C1 Build, TRX verification and artifact upload must be checked individually before claiming L3.
+- Root causes were inferred from the exact workflow logs and the regression implementation. No local shell run, MIPS/uClibc build, TRX verification, artifact upload or router test was performed in this connector-only session.
+- Do not claim green until the exact-head Shadowsocks lifecycle and AI handoff workflows finish. Any XY-C1 L3 claim requires Build XY-C1, TRX verification and artifact upload to pass on the same source SHA.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and inspect exact-head Actions for this correction. Confirm the Shadowsocks process-lifecycle regression and AI handoff documentation contract PASS; fix any remaining failure directly on `main`.
-2. Inspect the product-input XY-C1 run on the corrected SHA, including Build XY-C1, TRX verification and artifact upload.
-3. After these checks are closed, continue the remaining Shadowsocks background launch/readiness queue (`start_chinadns()`, `start_watchcat()`, and dnsmasq restart), then rotate to broader RC/userland P1 stability work.
+1. Fetch live `main` and inspect exact-head Actions for this regression correction; confirm Shadowsocks lifecycle and AI handoff documentation PASS, and diagnose/fix any further failures.
+2. Inspect XY-C1 Build/TRX/artifact status for the current product-input SHA if triggered.
+3. Then finish the next independent P1 slice: gate `start_watchcat()` on validated `pgrep -f` count+1 readiness with duplicate prevention, UNKNOWN/timeout handling and host regressions; after that, continue ChinaDNS-ng/dnsmasq launch readiness.
 
-## Mandatory handoff checkpoint
-Every session MUST inspect live repository state, exact-head Action results, the validation boundary, blockers and the precise first next action before ending. The checkpoint is mandatory; a document edit is conditional. If the handoff is already accurate, make no file change and no no-op commit.
+## Verification checkpoint
+Every session MUST inspect live repository state, exact-head Action results, validation boundaries, blockers and the precise next action before ending. The checkpoint is mandatory; a document edit is conditional. If these facts are already accurate, do not make a file change or no-op commit.
 
-## Cross-session execution mandate
-Complete each logical source/test slice in one atomic `main` commit, then inspect exact-SHA Actions. Continue independent work while CI is pending. Never force-push, alter the frozen backup, reopen PR #1, or claim unperformed checks. Before context exhaustion, leave the next GPT a precise first action and verified/unverified boundaries.
+# Cross-session execution mandate
+Complete each logical slice in one atomic main commit, check its exact-SHA Actions, continue independent work while CI is pending, and never force-push or modify the frozen backup. Before context exhaustion, record the next GPT's precise first action and verified/unverified boundaries.
