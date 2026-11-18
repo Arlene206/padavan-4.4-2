@@ -1,3 +1,12 @@
+## 2026-11-18 — Capture optional Internet-state hook exit status
+
+- Parent main SHA: 6fb72f857ae1141705e7a7c4f1e91354e46503ed. Exact 6fb detect-internet action queue regression 44208495457, WAN route 44208495523, WAN interface teardown 44208495529, AI handoff 44208495654, Process lifecycle 44208495046, AdGuardHome 44208495456, ZeroTier 44208494833, detect_link 44208494945, miniupnpd 44208494872, VPN server 44208494879, DNSMasq 44208495154 and infosvr 44208495121 PASS. XY-C1 44208495458 at Build; NVRAM 44208494936 in raw IOCTL audit.
+- After replacing automatic lost-Internet notify_rc() calls with status-aware queueing, the optional SCRIPT_INTERNET_STATE hook still discarded doSystem() wait status. A failing user-configured hook was not distinguishable from a successful callback.
+- Capture/log the command status only when the script exists. Failure remains nonfatal to connectivity-state processing, and reboot/pause/USB queue behavior is unchanged.
+- Extended the detect-internet workflow source contract to require the capture/log sequence. Exact-head sanitizer/source checker pending; no hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Report Internet-loss action enqueue failures
 
 - Parent main SHA: `33ab220a9f023b274ee402c7fa04a297f3ba4f51`; exact WAN DHCP `44208003391`, AI `44208003368`, HTTPD `44208003400`, AliyunDrive `44208004391`, AliDDNS `44208003407`, infosvr `44208003447`, AdGuardHome `44208003338` PASS. Process inventory/fail-closed `44208003464` and NVRAM `44208003259` pending; XY-C1 `44208003430` at Build.

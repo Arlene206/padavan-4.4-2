@@ -3292,6 +3292,7 @@ void
 notify_on_internet_state_changed(int has_internet, long elapsed)
 {
 	const char *script_inet = SCRIPT_INTERNET_STATE;
+	int hook_status;
 
 	if (!has_internet && !get_ap_mode()) {
 		int fail_action = nvram_safe_get_int("di_lost_action", 0, 0, 3);
@@ -3317,8 +3318,13 @@ notify_on_internet_state_changed(int has_internet, long elapsed)
 		}
 	}
 
-	if (check_if_file_exist(script_inet))
-		doSystem("%s %d %ld", script_inet, has_internet, elapsed);
+	if (check_if_file_exist(script_inet)) {
+		hook_status = doSystem("%s %d %ld", script_inet, has_internet, elapsed);
+		if (hook_status != 0)
+			logmessage(LOGNAME,
+				   "internet state hook failed (state=%d, elapsed=%ld, wait status=%d)",
+				   has_internet, elapsed, hook_status);
+	}
 }
 
 int

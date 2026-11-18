@@ -118,7 +118,10 @@ jobs:
           assert 'queue_internet_lost_action(RCN_RESTART_REBOOT, "router auto-reboot")' in wan_notify
           assert 'queue_internet_lost_action("auto_wan_reconnect_pause"' in wan_notify
           assert 'queue_internet_lost_action("auto_wan_reconnect"' in wan_notify
-          assert "doSystem(" in wan_notify
+          assert 'hook_status = doSystem("%s %d %ld", script_inet, has_internet, elapsed);' in wan_notify
+          assert "if (hook_status != 0)" in wan_notify
+          assert "internet state hook failed" in wan_notify
+          assert wan_notify.index("if (check_if_file_exist(script_inet))") < wan_notify.index("hook_status = doSystem(") < wan_notify.index("if (hook_status != 0)") < wan_notify.index("internet state hook failed")
           assert "detect_internet_notification_error" in notification_policy
           assert "test_notification_queue_failure_preserves_errno_or_falls_back" in test
 

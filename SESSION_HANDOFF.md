@@ -1,43 +1,37 @@
-# 2026-11-18 continuation checkpoint — check Internet-loss action queue submissions
+# 2026-11-18 continuation checkpoint — log optional Internet-state hook failures
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS Internet-loss notification slice: `33ab220a9f023b274ee402c7fa04a297f3ba4f51`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact `33ab220a` WAN DHCP `44208003391` PASS; AI handoff `44208003368` PASS; HTTPD Security `44208003400` PASS; AliyunDrive `44208004391` PASS; AliDDNS `44208003407` PASS; infosvr `44208003447` PASS; AdGuardHome `44208003338` PASS.
-- Exact `33ab220a` Process inventory/fail-closed `44208003464` and NVRAM audit `44208003259` were IN_PROGRESS at last poll. XY-C1 `44208003430` was at Build XY-C1; TRX and artifact upload pending.
-- Exact `355a5c25` WAN route `44207255511` PASS. The subsequent `33ab220a` reruns corrected the stale WAN DHCP / HTTPD / AI assertions; no production C change was needed for that correction.
-- Earlier AP DHCP source SHA `509409f8` passed XY-C1 Build, TRX and artifact upload `44202831040`. WAN VPN stop source `21b5da97` also passed XY-C1 Build/TRX/artifact `44205041399`. Do not infer this new source L3 from those prior SHAs.
-- THIS slice fixes a separate unchecked action queue: `notify_on_internet_state_changed()` used fire-and-forget `notify_rc()` for router reboot and automatic WAN reconnect actions, silently losing queue rejection. The replacement uses `notify_rc_status()`, preserves useful errno/status and logs failures; existing Internet state script dispatch and signal-state transitions remain unchanged.
-- No local MIPS target build or physical router L4 test.
+- Repository: Arlene206/padavan-4.4-2; parent main before THIS hook-observability slice: 6fb72f857ae1141705e7a7c4f1e91354e46503ed.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact parent 6fb: detect-internet notification queue policy 44208495457 PASS; WAN route 44208495523 PASS; WAN interface teardown 44208495529 PASS; AI handoff 44208495654 PASS; Process lifecycle inventory 44208495046 PASS; AdGuardHome 44208495456 PASS; ZeroTier 44208494833 PASS; detect_link 44208494945 PASS; miniupnpd 44208494872 PASS; VPN server 44208494879 PASS; DNSMasq 44208495154 PASS; infosvr 44208495121 PASS.
+- Exact parent XY-C1 44208495458 is IN_PROGRESS at Build XY-C1; TRX verification and artifact upload not complete at last poll. NVRAM 44208494936 is IN_PROGRESS during the raw IOCTL/kernel NVRAM caller audit. Do not claim L3 until the same SHA passes Build, TRX and artifact upload.
+- Parent 6fb fixed three ignored Internet-loss action queue statuses using queue_internet_lost_action(), errno normalization and policy regression tests. THIS slice also captures/logs the previously discarded optional SCRIPT_INTERNET_STATE doSystem() wait status; a failed user hook remains nonfatal to Internet-state processing.
+- Prior WAN VPN queue and LAN DHCP ancillary result fixes remain in ancestry. No local MIPS build or physical-router L4 test.
 
 ## Active task
-- Added `detect_internet_notification_policy.h` to normalize failed enqueue results (prefer errno, then positive status, otherwise EIO).
-- Added GNU89/ASan/UBSan policy regression cases to the detect-internet test binary.
-- Extended the detect-internet workflow contract to require status-aware queueing for reboot, reconnect-pause and USB-modem reconnect; added the new policy header to push/PR path filters.
-- This production source patch is restricted to reporting dropped queued actions; no detector signal handler behavior changed.
+- THIS slice captures and logs the optional Internet-state hook process wait status when the script exists, while preserving the existing detector/notification semantics.
+- Exact-head detect-internet workflow and XY-C1 Build/TRX/artifact are pending for THIS commit.
 
 ## Verification boundary
-- Exact parent `33ab220a`: WAN DHCP, AI, HTTPD, AliyunDrive, AliDDNS, infosvr and AdGuardHome PASS.
-- Process inventory/fail-closed `44208003464` and NVRAM `44208003259` pending at last poll.
-- XY-C1 `44208003430` pending at Build; no source L3 for this Internet-loss queue patch.
-- THIS slice's exact-head detect-internet, AI and XY-C1 actions pending.
-- Physical-router L4 NOT VERIFIED.
+- Parent 6fb detect-internet queue regression, WAN route, WAN interface teardown, AI handoff, Process lifecycle, AdGuardHome, ZeroTier, detect_link, miniupnpd, VPN server, DNSMasq and infosvr PASS.
+- Parent XY-C1 44208495458 in progress at Build; TRX/artifact not verified.
+- Parent NVRAM 44208494936 pending raw IOCTL/kernel API audit.
+- THIS commit's exact-head detect-internet source contract pending. Physical L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head detect-internet workflow; require the GNU89/ASan/UBSan errno regression and production source contract to PASS.
-2. Inspect exact-head XY-C1; require Build XY-C1, Verify TRX output and artifact upload all PASS on this one SHA before marking L3.
-3. Recheck parent Process inventory/fail-closed `44208003464` and NVRAM `44208003259`; inspect exact job logs if either fails.
-4. Continue independent P1 reliability/security work while CI is pending; do not revisit already closed AP DHCP / AliyunDrive fixes without new evidence.
-5. Keep backup unchanged; do not claim physical-router L4.
+1. Inspect THIS commit's exact-head detect-internet run; require its GNU89/ASan/UBSan policy binary and source contract for queue failure normalization plus optional hook status capture/logging to PASS.
+2. Inspect latest XY-C1 run on THIS source SHA; only record L3 after Build, Verify TRX output and artifact upload all succeed.
+3. Inspect NVRAM audit 44208494936; if it remains pending, continue other independent P1 reliability/security fixes rather than waiting.
+4. Keep frozen backup unchanged; do not repeat the initial repository recovery.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.
-Every session MUST inspect live main, exact-SHA Actions, current handoff/roadmap, validation boundary, and the first actionable task before ending. If these facts and the next action remain accurate, do not create a no-op commit.
+Every session MUST inspect live main, exact-SHA Actions, current handoff/roadmap, validation boundary and the exact first actionable task. If these facts remain current, do not create a no-op documentation commit.
 
 # Cross-session execution mandate
 
 Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and commit atomically; do not wait idly on pending CI.
 
-Every logical multi-file change must create all blobs, one tree and one atomic main commit, parented to freshly fetched main and published with a non-forced expected-SHA compare-and-swap. Never force-push, create dev branches/PRs, or modify the frozen backup.
+Every logical slice is one atomic main commit: create all blobs, one complete tree and one commit parented to freshly fetched main; publish with non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs, or modify the frozen backup.
 
 Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first action.

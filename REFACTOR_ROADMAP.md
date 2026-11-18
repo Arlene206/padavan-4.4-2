@@ -1,12 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS Internet-loss queue-status change: `33ab220a9f023b274ee402c7fa04a297f3ba4f51`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact `33ab220a`: WAN DHCP `44208003391`, AI `44208003368`, HTTPD `44208003400`, AliyunDrive `44208004391`, AliDDNS `44208003407`, infosvr `44208003447`, AdGuardHome `44208003338` PASS. Process inventory/fail-closed `44208003464` and NVRAM `44208003259` pending; XY-C1 `44208003430` in Build.
-- `notify_on_internet_state_changed()` had three fire-and-forget queue calls for router reboot, WAN reconnect pause and USB modem reconnect. THIS uses `notify_rc_status()`, normalizes and logs enqueue failures, adds GNU89 policy tests and wires the header to CI filters. Signal dispatch remains in normal context and is unchanged.
-- Exact-head detect-internet and XY-C1 verification pending; previous SHA XY-C1 results do not validate this new source patch; physical-router L4 NOT VERIFIED.
+- Live main parent before THIS optional-hook status slice: 6fb72f857ae1141705e7a7c4f1e91354e46503ed; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact parent 6fb detect-internet notification queue policy 44208495457, WAN route 44208495523, WAN interface teardown 44208495529, AI 44208495654, Process lifecycle 44208495046, AdGuardHome 44208495456, ZeroTier 44208494833, detect_link 44208494945, miniupnpd 44208494872, VPN server 44208494879, DNSMasq 44208495154 and infosvr 44208495121 PASS.
+- Parent XY-C1 44208495458 remained in Build; TRX/artifact still pending. Parent NVRAM 44208494936 remained in raw IOCTL/kernel caller audit.
+- Prior commit uses status-returning notification queue for automatic router reboot/WAN reconnect-pause/USB reconnect, with errno normalization, logging and GNU89/ASan/UBSan policy regression. THIS slice also stops silently discarding the optional SCRIPT_INTERNET_STATE command result: capture the wait status and log failure without changing state detector flow.
+- Exact-head detect-internet and XY-C1 verification pending. No L3/L4 claim.
 
-Next: require detect-internet regression and same-SHA XY-C1 Build/TRX/artifact; recheck parent Process/NVRAM runs.
-
+Next: inspect this SHA's detect-internet workflow, same-SHA XY-C1 Build/TRX/artifact and NVRAM caller audit; then continue independent P1 stability/security work.
 
 ---
 
