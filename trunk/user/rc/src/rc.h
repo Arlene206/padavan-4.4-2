@@ -781,7 +781,7 @@ int  ntpc_updated_main(int argc, char *argv[]);
 int  ntpc_syncnow_main(int argc, char *argv[]);
 int  watchdog_main(int argc, char *argv[]);
 int  start_watchdog(void);
-void notify_watchdog_time(void);
+int  notify_watchdog_time(void);
 void notify_watchdog_wifi(int is_5ghz);
 
 int  btn_main(int argc, char *argv[]);

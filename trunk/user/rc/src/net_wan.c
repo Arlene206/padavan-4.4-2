@@ -2883,8 +2883,11 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		logmessage(LOGNAME, "WAN DDNS client update incomplete on %s (status=%d)",
 			   wan_ifname, route_status);
 
-	/* notify watchdog for NTP update */
-	notify_watchdog_time();
+	/* Notify watchdog for NTP update and retain signalling/recovery errors. */
+	route_status = notify_watchdog_time();
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "WAN watchdog time notification incomplete (status=%d)", route_status);
 
 	/* Queue the deferred VPN-client startup and preserve notification errors. */
 	route_status = notify_rc_status("start_vpn_client");

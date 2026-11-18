@@ -19,6 +19,8 @@ on:
       - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/tests/watchdog_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/services.c"
@@ -43,6 +45,8 @@ on:
       - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/tests/watchdog_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/services.c"
@@ -93,6 +97,8 @@ jobs:
           policy = (rc / "watchdog_signal_policy.h").read_text()
           test = (rc / "tests/watchdog_signal_policy.c").read_text()
           dispatcher = (rc / "rc.c").read_text()
+          lan = (rc / "net_lan.c").read_text()
+          wan = (rc / "net_wan.c").read_text()
           header = (rc / "rc.h").read_text()
           services = (rc / "services.c").read_text()
           wireless = (rc / "net_wifi.c").read_text()
@@ -194,14 +200,22 @@ jobs:
           assert "kill_pidfile_s(WD_PID_FILE" not in time_notify
           assert time_notify.index("process_pidfile_signal(") < time_notify.index("start_watchdog();")
           assert "pids(" not in time_notify
-          assert "saved_errno == ENOENT || saved_errno == ESRCH" in time_notify
+          assert "signal_errno == ENOENT || signal_errno == ESRCH" in time_notify
           assert 'nvram_set_int_temp("wd_notify_id", wd_notify_id)' in wifi_notify
           assert 'process_pidfile_signal(WD_PID_FILE, "watchdog", SIGUSR1)' in wifi_notify
           assert "kill_pidfile_s(WD_PID_FILE" not in wifi_notify
           assert wifi_notify.index('nvram_set_int_temp("wd_notify_id", wd_notify_id)') < wifi_notify.index("process_pidfile_signal(")
-          assert "notify_watchdog_time();" in dispatcher
+          assert "notify_watchdog_time()" in dispatcher
           assert "RCN_RESTART_NTPC" in dispatcher and "RCN_RESTART_TIME" in dispatcher
           assert "notify_watchdog_wifi(0)" in wireless and "notify_watchdog_wifi(1)" in wireless
+          assert "watchdog_time_notification_error(" in time_notify
+          assert "return operation_error;" in time_notify
+          lan_manual = body(lan, "lan_up_manual(")
+          assert "notify_status = notify_watchdog_time();" in lan_manual
+          assert "rc_first_service_start_status(status, notify_status)" in lan_manual
+          wan_up = body(wan, "wan_up_internal(")
+          assert "route_status = notify_watchdog_time();" in wan_up
+          assert "route_status_accumulate(status, route_status)" in wan_up
           watchdog_boot = body(services, "start_services_once(int is_ap_mode)")
           assert "rc_first_service_start_status(start_status, start_watchdog())" in watchdog_boot
           watchdog_start = body(watchdog, "start_watchdog(void)")
@@ -215,7 +229,7 @@ jobs:
           assert '"watchdog"' in body(services, "stop_misc(void)")
           assert '"watchdog"' in dispatcher and "watchdog_main" in dispatcher
           assert "int  watchdog_main(int argc, char *argv[]);" in header
-          assert "void notify_watchdog_time(void);" in header
+          assert "int  notify_watchdog_time(void);" in header
           assert "void notify_watchdog_wifi(int is_5ghz);" in header
           assert "watchdog.o" in makefile
           assert '$(LN) rc $(ROMFSDIR)/sbin/watchdog' in package_makefile
@@ -230,6 +244,8 @@ jobs:
               "trunk/user/rc/src/watchdog_signal_policy.h",
               "trunk/user/rc/src/tests/watchdog_signal_policy.c",
               "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/services.c",
               "trunk/user/rc/src/net_wifi.c",

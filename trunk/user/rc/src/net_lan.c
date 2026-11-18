@@ -1324,7 +1324,7 @@ int
 lan_up_manual(char *lan_ifname, char *lan_dname)
 {
 	FILE *fp;
-	int lock, saved_errno;
+	int lock, saved_errno, notify_status;
 	int dns_count = 0;
 	int status = 0;
 	char *dns_ip, *gateway_ip;
@@ -1406,8 +1406,11 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 
 	file_unlock(lock);
 
-	/* sync time */
-	notify_watchdog_time();
+	/* Sync time; include watchdog notification failure in manual LAN status. */
+	notify_status = notify_watchdog_time();
+	if (notify_status != 0)
+		logmessage(LOGNAME, "LAN watchdog time notification incomplete (status=%d)", notify_status);
+	status = rc_first_service_start_status(status, notify_status);
 
 	/* fill XXX_t fields */
 	update_lan_status(0);
@@ -1878,7 +1881,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 			lease_ip, lease_domain);
 
 	if (is_changed || !is_renew) {
-		notify_watchdog_time();
+		(void)notify_watchdog_time();
 
 #if defined(APP_SMBD)
 		/* update SMB fastpath owner address */

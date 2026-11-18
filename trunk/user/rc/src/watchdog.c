@@ -686,24 +686,32 @@ start_watchdog(void)
 	return -1;
 }
 
-void
+int
 notify_watchdog_time(void)
 {
-	int saved_errno;
-	int start_status;
+	int signal_status, signal_errno;
+	int start_status = 0, start_errno = 0;
+	int operation_error;
 
-	if (process_pidfile_signal(WD_PID_FILE, "watchdog", SIGHUP) == 0)
-		return;
-
-	saved_errno = errno ? errno : EIO;
-	if (saved_errno == ENOENT || saved_errno == ESRCH) {
+	errno = 0;
+	signal_status = process_pidfile_signal(WD_PID_FILE, "watchdog", SIGHUP);
+	signal_errno = errno;
+	if (signal_status != 0 &&
+	    (signal_errno == ENOENT || signal_errno == ESRCH)) {
+		errno = 0;
 		start_status = start_watchdog();
+		start_errno = errno;
 		if (start_status != 0)
 			logmessage("watchdog", "cannot recover time-refresh notification by starting daemon (status=%d, errno=%d)",
-				   start_status, errno ? errno : EIO);
-	} else {
-		logmessage("watchdog", "cannot signal time refresh (errno=%d)", saved_errno);
+				   start_status, start_errno ? start_errno : EIO);
+	} else if (signal_status != 0) {
+		logmessage("watchdog", "cannot signal time refresh (status=%d, errno=%d)",
+			   signal_status, signal_errno ? signal_errno : EIO);
 	}
+
+	operation_error = watchdog_time_notification_error(
+		signal_status, signal_errno, start_status, start_errno);
+	return operation_error;
 }
 
 void

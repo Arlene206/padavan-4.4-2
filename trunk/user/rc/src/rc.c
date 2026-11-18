@@ -1956,7 +1956,8 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_NTPC) == 0)
 		{
-			notify_watchdog_time();
+			action_result = rc_notify_merge_action_result(
+				action_result, notify_watchdog_time());
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_TIME) == 0)
 		{
@@ -1967,7 +1968,8 @@ handle_notifications(void)
 				action_result = -1;
 			}
 			set_timezone();
-			notify_watchdog_time();
+			action_result = rc_notify_merge_action_result(
+				action_result, notify_watchdog_time());
 			notify_rstats_time();
 			if (logger_stop_status == 0 && start_logger(0) != 0) {
 				logmessage(LOGNAME, "time update failed while starting replacement logger daemons");
