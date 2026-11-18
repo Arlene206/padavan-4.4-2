@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/miniupnpd-config-stability.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/upnp_restart_policy.h"
       - "trunk/user/rc/src/tests/upnp_restart_policy.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -23,6 +24,7 @@ on:
     paths:
       - ".github/workflows/miniupnpd-config-stability.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/miniupnpd_config_file.h"
@@ -112,8 +114,10 @@ jobs:
           assert "state == PROCESS_PRESENCE_UNKNOWN" in confirm
           assert "PROCESS_PRESENCE_ABSENT" in confirm
           assert "is_upnp_run()" not in confirm
-          assert "sleep(1)" in confirm
-          assert confirm.index("sleep(1)") < confirm.index("miniupnpd_process_presence(&scan_error)")
+          assert 'service_start_wait_one_second("miniupnpd")' in confirm
+          assert confirm.count('service_start_wait_one_second("miniupnpd")') == 2
+          assert confirm.index('service_start_wait_one_second("miniupnpd")') < confirm.index("miniupnpd_process_presence(&scan_error)")
+          assert "sleep(1)" not in confirm
           assert "miniupnpd_start_policy_status(launch_status, daemon_running)" in confirm
           assert "return daemon_running ? 0 : ESRCH;" in policy
           assert "miniupnpd_start_policy_status(0, 0) == ESRCH" in daemon_test

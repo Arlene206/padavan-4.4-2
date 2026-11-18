@@ -118,7 +118,7 @@ main(void)
 {
 	assert(test_exclusive_process_lock() == 0);
 	assert(test_invalid_paths_are_rejected() == 0);
-	assert(test_interrupted_lock_wait_retries_remaining_time() == 0);
+	assert(test_interrupted_service_wait_retries_remaining_time() == 0);
 	puts("MiniUPnP lock and detached service waits preserve remaining time across EINTR: PASS");
 	return 0;
 }

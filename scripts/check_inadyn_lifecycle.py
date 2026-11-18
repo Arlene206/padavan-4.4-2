@@ -120,7 +120,9 @@ assert "return start_ddns(0);" in source
 assert "return ret;" in rc_source
 confirm = body("inadyn_confirm_started(int launch_status)")
 assert "inadyn_process_presence(&scan_error)" in confirm
-assert "INADYN_START_WAIT_ATTEMPTS" in confirm and "sleep(1)" in confirm
+assert "INADYN_START_WAIT_ATTEMPTS" in confirm
+assert 'service_start_wait_one_second("Inadyn")' in confirm
+assert "sleep(1)" not in confirm
 presence = body("inadyn_process_presence(int *scan_error)")
 assert 'process_inventory_scan("inadyn", &snapshot)' in presence
 assert "inadyn_start_status(launch_status, state, scan_error)" in confirm
