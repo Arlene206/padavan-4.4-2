@@ -75,17 +75,82 @@ run_bin() {
 	) &
 }
 
+# Keep filesystem operations behind small helpers so their failures can
+# be tested without writing to the host or router cgroup filesystem.
+ss_cgroup_mkdir() {
+	mkdir -p "$1"
+}
+
+ss_cgroup_write_value() {
+	[ "$#" -eq 2 ] || return 2
+	printf '%s\n' "$1" > "$2"
+}
+
+ss_cgroup_read_value() {
+	cat "$1"
+}
+
 cgroups_init() {
-	if [ "$(nvram get ss_cgroups)" = "1" ]; then
-		cpu_limit=$(nvram get ss_cgoups_cpu_s)
-		mem_limit=$(nvram get ss_cgoups_mem_s)
-		log "启用进程资源限制, CPU: $cpu_limit, 内存: $mem_limit"
-		mkdir -p /sys/fs/cgroup/cpu/$NAME
-		mkdir -p /sys/fs/cgroup/memory/$NAME
-		echo $cpu_limit > /sys/fs/cgroup/cpu/$NAME/cpu.shares
-		echo $mem_limit > /sys/fs/cgroup/memory/$NAME/memory.limit_in_bytes
-		limit_bytes="$(cat /sys/fs/cgroup/memory/$NAME/memory.limit_in_bytes)"
-		[ -n "$limit_bytes" ] && export GOMEMLIMIT="$limit_bytes"
+	local status
+	local cpu_dir="/sys/fs/cgroup/cpu/$NAME"
+	local memory_dir="/sys/fs/cgroup/memory/$NAME"
+	local cpu_limit
+	local mem_limit
+	local limit_bytes
+
+	if [ "$(nvram get ss_cgroups)" != "1" ]; then
+		return 0
+	fi
+	if cpu_limit=$(nvram get ss_cgoups_cpu_s); then
+		:
+	else
+		status=$?
+		return "$status"
+	fi
+	if mem_limit=$(nvram get ss_cgoups_mem_s); then
+		:
+	else
+		status=$?
+		return "$status"
+	fi
+
+	log "启用进程资源限制, CPU: $cpu_limit, 内存: $mem_limit"
+	if ss_cgroup_mkdir "$cpu_dir"; then
+		:
+	else
+		status=$?
+		return "$status"
+	fi
+	if ss_cgroup_mkdir "$memory_dir"; then
+		:
+	else
+		status=$?
+		return "$status"
+	fi
+	if ss_cgroup_write_value "$cpu_limit" "$cpu_dir/cpu.shares"; then
+		:
+	else
+		status=$?
+		return "$status"
+	fi
+	if ss_cgroup_write_value "$mem_limit" "$memory_dir/memory.limit_in_bytes"; then
+		:
+	else
+		status=$?
+		return "$status"
+	fi
+	if limit_bytes=$(ss_cgroup_read_value "$memory_dir/memory.limit_in_bytes"); then
+		:
+	else
+		status=$?
+		return "$status"
+	fi
+	[ -n "$limit_bytes" ] || return 1
+	if export GOMEMLIMIT="$limit_bytes"; then
+		return 0
+	else
+		status=$?
+		return "$status"
 	fi
 }
 

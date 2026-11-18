@@ -1,3 +1,13 @@
+## 2026-11-18 — Preserve Shadowsocks cgroup setup failure statuses
+
+- Parent exact SHA: `5ed498112535ff34a3d7d7092530d0339524f6c5`. Confirmed defect: `cgroups_init()` ignored failed cgroup directory creation, CPU/memory quota writes and memory-limit readback; the trailing `export` could mask an earlier error.
+- Added testable `ss_cgroup_mkdir`, `ss_cgroup_write_value` and `ss_cgroup_read_value` helpers. The initializer now captures each failing child status and returns it. Existing disabled-cgroup behavior remains a no-op.
+- Expanded `tests/start_status.sh` to extract the actual production cgroup functions and inject directory, CPU write, memory write and readback errors. Extended the lifecycle checker to pin every stage and failure scenario.
+- Parent rules-status follow-up: exact Shadowsocks run `44268519415` PASS on `5ed498112535ff34a3d7d7092530d0339524f6c5`; AI docs `44268393651` and Process inventory `44268393793` PASS on `eace3578`. Product-input XY-C1 `44268393871` on `eace3578` remained in progress; no L3 claim.
+- This new slice's exact-SHA Actions are pending after push. No local execution or physical-router validation is claimed; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Preserve exact Shadowsocks firewall-rule failure status
 
 - Parent SHA `efe00be7f58c93feff92ea7d1f9102c2b2829582`; this commit fixes the remaining startup result-loss gap after the broader `ssp_start()` aggregation.

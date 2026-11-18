@@ -8,6 +8,10 @@ LOG_FILE="$TMP_DIR/ss.log"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
 sed -n \
+	-e '/^ss_cgroup_mkdir() {/,/^}/p' \
+	-e '/^ss_cgroup_write_value() {/,/^}/p' \
+	-e '/^ss_cgroup_read_value() {/,/^}/p' \
+	-e '/^cgroups_init() {/,/^}/p' \
 	-e '/^rules() {/,/^}/p' \
 	-e '/^ssp_record_start_failure() {/,/^}/p' \
 	-e '/^ssp_run_pppoe_detect() {/,/^}/p' \
@@ -22,12 +26,32 @@ log() { record "log:$*"; printf '%s\n' "$*" >> "$LOG_FILE"; }
 nvram() {
 	case "$1:$2" in
 		get:ss_enable) echo 1 ;;
+		get:ss_cgroups) echo "${MOCK_SS_CGROUPS:-0}" ;;
+		get:ss_cgoups_cpu_s) echo "${MOCK_CPU_LIMIT:-128}" ;;
+		get:ss_cgoups_mem_s) echo "${MOCK_MEM_LIMIT:-1048576}" ;;
 		get:global_server) echo "$GLOBAL_SERVER" ;;
 		get:socks5_enable) echo "$SOCKS5_ENABLE" ;;
 		get:udp_relay_server) echo nil ;;
 		set:check_mode=0) record "nvram:set:$2"; return "${FAIL_NVRAM_SET:-0}" ;;
 		*) return 90 ;;
 	esac
+}
+start_ss_cgroup_mkdir() {
+	record "cgroup_mkdir:$1"
+	return "${FAIL_CGROUP_MKDIR:-0}"
+}
+ss_cgroup_write_value() {
+	record "cgroup_write:$2"
+	case "$2" in
+		*/cpu.shares) return "${FAIL_CGROUP_CPU_WRITE:-0}" ;;
+		*/memory.limit_in_bytes) return "${FAIL_CGROUP_MEM_WRITE:-0}" ;;
+	esac
+	return 0
+}
+ss_cgroup_read_value() {
+	record cgroup_read
+	[ "${FAIL_CGROUP_READ:-0}" -eq 0 ] || return "${FAIL_CGROUP_READ}"
+	printf '%s' "${MOCK_MEM_LIMIT_BYTES:-1048576}"
 }
 start_rules() { record rules; return "${FAIL_RULES:-0}"; }
 cgroups_init() { record cgroups_init; return "${FAIL_CGROUPS:-0}"; }
@@ -43,12 +67,15 @@ reset() {
 	: > "$CALL_LOG"
 	: > "$LOG_FILE"
 	GLOBAL_SERVER=node1
+	NAME=shadowsocksr
+	MOCK_SS_CGROUPS=0
 	lancons="test LAN policy"
 	SOCKS5_ENABLE=local-node
 	pppoemwan=1
 	SS_START_STATUS=0
 	unset FAIL_RULES FAIL_CGROUPS FAIL_TCP FAIL_UDP FAIL_DNS FAIL_LOCAL
 	unset FAIL_WATCHCAT FAIL_AUTO_UPDATE FAIL_NVRAM_SET FAIL_DETECT
+	unset FAIL_CGROUP_MKDIR FAIL_CGROUP_CPU_WRITE FAIL_CGROUP_MEM_WRITE FAIL_CGROUP_READ
 }
 expect_status() {
 	expected=$1
@@ -114,11 +141,44 @@ not_called pppoe_detect
 
 # Resource-limit setup failure must not be silently reported as success.
 reset
-FAIL_CGROUPS=30
-expect_status 30 "resource-limit setup failure"
+MOCK_SS_CGROUPS=1
+FAIL_CGROUP_MKDIR=30
+export MOCK_SS_CGROUPS FAIL_CGROUP_MKDIR
+expect_status 30 "resource-limit directory creation failure"
+called cgroup_mkdir:/sys/fs/cgroup/cpu/shadowsocksr
+not_called cgroup_write:/sys/fs/cgroup/cpu/shadowsocksr/cpu.shares
 called start_redir_tcp
 called start_dns
 if grep -Fq '已启动科学上网' "$LOG_FILE"; then fail "reported success after resource-limit failure"; fi
+
+# A failed cgroup setting write must preserve its exact result.
+reset
+MOCK_SS_CGROUPS=1
+FAIL_CGROUP_CPU_WRITE=38
+export MOCK_SS_CGROUPS FAIL_CGROUP_CPU_WRITE
+expect_status 38 "CPU shares write failure"
+called cgroup_write:/sys/fs/cgroup/cpu/shadowsocksr/cpu.shares
+not_called cgroup_write:/sys/fs/cgroup/memory/shadowsocksr/memory.limit_in_bytes
+called start_redir_tcp
+
+# Memory limit writes and reads are also required when cgroups are enabled.
+reset
+MOCK_SS_CGROUPS=1
+FAIL_CGROUP_MEM_WRITE=39
+export MOCK_SS_CGROUPS FAIL_CGROUP_MEM_WRITE
+expect_status 39 "memory limit write failure"
+called cgroup_write:/sys/fs/cgroup/cpu/shadowsocksr/cpu.shares
+called cgroup_write:/sys/fs/cgroup/memory/shadowsocksr/memory.limit_in_bytes
+not_called cgroup_read
+called start_redir_tcp
+
+reset
+MOCK_SS_CGROUPS=1
+FAIL_CGROUP_READ=40
+export MOCK_SS_CGROUPS FAIL_CGROUP_READ
+expect_status 40 "memory limit readback failure"
+called cgroup_read
+called start_redir_tcp
 
 # A DNS-only failure is visible even when the UDP relay is healthy.
 reset

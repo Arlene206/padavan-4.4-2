@@ -1,11 +1,14 @@
 # 2026-11-18 latest source checkpoint
 
-- Current main before THIS focused Shadowsocks fix: `efe00be7f58c93feff92ea7d1f9102c2b2829582`. Exact-head Shadowsocks lifecycle run `44267823337` PASS on `efe00be7f58c93feff92ea7d1f9102c2b2829582`; source/test host regressions passed before its source-checker-only repair.
-- THIS commit closes a confirmed status-loss gap in `rules()`: the function used to convert every failed `start_rules` / `ss-rules` result into status 1. It now preserves the child status; `tests/start_status.sh` extracts and exercises the real `rules()` rather than mocking it; the static contract asserts the production behavior.
-- Exact product-input XY-C1 run `44267333941` on `62ecae88a449deccfb697b8e490590c0c514d6c1` was IN_PROGRESS at the last check (Build active; TRX/artifact pending). XY concurrency now uses a per-SHA group without cancellation, so the result should no longer be cancelled by later commits. Poll it before claiming L3.
-- PPPoE-MWAN and deferred-WAN watchdog status fixes remain in `ba893707` and `ffa7f6d0`; the WAN route run `44265049894` on `0ecab3a6` passed their source contracts. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Historical L3 only `a0cb9aad`; physical-router L4 NOT VERIFIED.
+- Current main before THIS cgroup slice: `5ed498112535ff34a3d7d7092530d0339524f6c5`. Exact-head Shadowsocks lifecycle run `44268519415` PASS after the `rules()` status checker delimiter repair. Exact-head AI docs `44268393651` and Process inventory `44268393793` on parent `eace3578` PASS.
+- Shadowsocks startup propagation now preserves firewall-rule child exit status. THIS slice fixes cgroups error masking: `cgroups_init()` previously ignored mkdir, CPU/memory write and memory readback failures. The new testable helpers return each real child status; host regression injects each failure through the production initializer.
+- Product-input XY-C1 run `44268393871` on `eace3578af3e07f22b712bddaada8ccd69e51c76` was still in progress at last poll; inspect Build, TRX and artifact upload before any L3 claim. Exact-SHA concurrency cancellation is disabled.
+- PPPoE-MWAN and deferred-WAN watchdog fixes remain verified by WAN route tests on earlier exact source SHAs. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; historical L3 only `a0cb9aad`; physical-router L4 NOT VERIFIED.
 
-Next P1: poll the exact product-source XY-C1 run, verify all exact-SHA actions for THIS commit, then continue with the next independently confirmed RC/userland startup/teardown status-loss defect.
+Next P1: verify this commit's Actions and the outstanding product-input XY-C1 run; then continue bounded daemon launch/readiness status handling in Shadowsocks and broader RC/userland reliability.
+
+---
+
 
 ---
 

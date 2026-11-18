@@ -209,3 +209,31 @@ require("dhcp-script=/tmp/attacker.sh" in adblock_test and
         "conf-file=/tmp/attacker.conf" in adblock_test,
         "adblock regression must reject arbitrary dnsmasq directive injection")
 print("Downloaded dnsmasq directive whitelist contract: PASS")
+
+cgroup_helpers = script[script.index("ss_cgroup_mkdir() {"):script.index("cgroups_cleanup() {")]
+cgroup_init = cgroup_helpers[cgroup_helpers.index("cgroups_init() {"):]
+require(
+    "mkdir -p \"$1\"" in cgroup_helpers
+    and 'printf \'%s\\n\' "$1" > "$2"' in cgroup_helpers
+    and 'cat "$1"' in cgroup_helpers,
+    "cgroup filesystem operations must be isolated behind testable helpers",
+)
+for operation in (
+    "ss_cgroup_mkdir \"$cpu_dir\"",
+    "ss_cgroup_mkdir \"$memory_dir\"",
+    "ss_cgroup_write_value \"$cpu_limit\" \"$cpu_dir/cpu.shares\"",
+    "ss_cgroup_write_value \"$mem_limit\" \"$memory_dir/memory.limit_in_bytes\"",
+    "ss_cgroup_read_value \"$memory_dir/memory.limit_in_bytes\"",
+):
+    require(operation in cgroup_init, f"cgroups_init is missing {operation}")
+require(cgroup_init.count("status=$?") >= 5,
+        "cgroups_init must preserve mkdir/write/read child exit codes")
+for marker in (
+    "resource-limit directory creation failure",
+    "CPU shares write failure",
+    "memory limit write failure",
+    "memory limit readback failure",
+):
+    require(marker in startup_test, f"cgroup regression is missing {marker}")
+print("Shadowsocks cgroup initialization status source contract: PASS")
+
