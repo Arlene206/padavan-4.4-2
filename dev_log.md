@@ -1,3 +1,9 @@
+## 2026-11-17 — Preserve concrete WAN restart teardown errors
+
+- Parent main: `059de22e8e646f238606d543fd8ccbda3cce7fa2`. `full_restart_wan()` discarded three distinct lower-level failures: `stop_wan()`, `disassembly_bridges_wan()` and `config_soft_bridge_lan()` were each converted to generic `-1`, and the log omitted the actual status. These helpers already return checked error codes, including the first bridge teardown failure. Capture each result, log it and return it unchanged before proceeding to route/switch/restart work.
+- Add source-contract regression assertions that each result is captured, gated, logged and returned unchanged. This does not alter successful restart ordering. Exact-head WAN/Firewall, Process, USB and XY-C1 checks are required; L3 only counts if XY-C1 builds/TRX/artifact on the exact source SHA.
+
+---
 ## 2026-11-17 — Keep the common WAN checker out of redundant XY-C1 trigger fan-out
 
 - Parent main: `0ab1c2001cd807db65c949ce34fd219d1511f778`. The XY-C1 workflow already executes `scripts/check_modem_wan_start_status.py` during host validation, but editing that checker alone cannot change firmware inputs and already triggers its owning Process/Firewall/USB regression workflows. Its extra push-filter entry created a host-only XY run with no target build (the exact `2b4c7aea` run reported `Firmware production inputs changed: False`). Remove only the checker from the XY push trigger; retain execution inside XY-C1 whenever genuine firmware-input changes trigger the workflow.

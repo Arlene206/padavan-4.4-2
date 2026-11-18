@@ -372,6 +372,16 @@ assert route_apply_pos < route_apply_end < route_gate_pos < full_restart_routes.
 assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" in full_restart_routes
 assert "interface routes or the global route cache could not be flushed" in full_restart_routes
 assert "return route_flush_status;" in full_restart_routes
+for call, diagnostic in (
+    ("stop_wan()", "services did not stop (status=%d)"),
+    ("disassembly_bridges_wan()", "WAN bridge teardown failed (status=%d)"),
+    ("config_soft_bridge_lan()", "LAN bridge VLAN setup failed (status=%d)"),
+):
+    capture = full_restart_routes.index(f"status = {call};")
+    gate = full_restart_routes.index("if (status != 0)", capture)
+    log = full_restart_routes.index(diagnostic, gate)
+    returned = full_restart_routes.index("return status;", log)
+    assert capture < gate < log < returned, call
 cache_policy = compact(body(ROUTE_FLUSH_POLICY_SOURCE, "rc_wan_route_flush_and_cache_apply("))
 assert "rc_wan_route_flush_apply(ifnames, count, flush)" in cache_policy
 assert "flush_cache ? flush_cache() : EINVAL" in cache_policy

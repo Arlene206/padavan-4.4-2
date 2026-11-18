@@ -3097,9 +3097,11 @@ full_restart_wan(void)
 
 	if (get_ap_mode())
 		return 0;
-	if (stop_wan() != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because services did not stop");
-		return -1;
+	status = stop_wan();
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because services did not stop (status=%d)",
+			   status);
+		return status;
 	}
 	route_ifnames[0] = get_man_ifname(0);
 	route_ifnames[1] = IFNAME_BR;
@@ -3133,13 +3135,17 @@ full_restart_wan(void)
 		return switch_vlan_status;
 	}
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-	if (disassembly_bridges_wan() != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed");
-		return -1;
+	status = disassembly_bridges_wan();
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because WAN bridge teardown failed (status=%d)",
+			   status);
+		return status;
 	}
-	if (config_soft_bridge_lan() != 0) {
-		logmessage(LOGNAME, "aborting full WAN restart because LAN bridge VLAN setup failed");
-		return -1;
+	status = config_soft_bridge_lan();
+	if (status != 0) {
+		logmessage(LOGNAME, "aborting full WAN restart because LAN bridge VLAN setup failed (status=%d)",
+			   status);
+		return status;
 	}
 #endif
 	status = start_wan();
