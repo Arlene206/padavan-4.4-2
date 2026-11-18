@@ -1,3 +1,9 @@
+## 2026-11-17 — Avoid unrelated RC lifecycle regression runs for AliDDNS-only test edits
+
+- Parent main: `f96a19857e514e71c6e27ccedb62c1be807177d9`. The broad RC lifecycle push filter correctly covers production changes throughout `trunk/user/**`, but it also makes every AliDDNS-only test fixture edit run the unrelated RC service-lifecycle suite. AliDDNS already has a dedicated lifecycle/API workflow. Add a push-only negative path for `trunk/user/aliddns/tests/**`; keep the global process inventory trigger intact so its whole-repository audit still sees tracked candidates, and leave pull-request coverage unchanged.
+- Exact-head Process and AI handoff checks are required for this trigger-only adjustment.
+
+---
 ## 2026-11-17 — Scope NVRAM audit triggers to the source types it actually scans
 
 - Parent main: `e326a8aa39ca8475fa89c6654490adfb7a283784`. `check_nvram_transaction_boundary.py` recursively reads only C/C++ source/header suffixes under the userland/kernel roots and board `.config`/`.cfg` files. The workflow's broad `trunk/user/**`, `trunk/linux-4.4.x/**` and board catch-alls also launched this full audit for shell-only regression fixtures and unrelated assets. Replace those filters with the scanner's exact source suffix set; keep explicit workflow/checker and NVRAM policy inputs.
