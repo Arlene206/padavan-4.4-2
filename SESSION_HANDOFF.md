@@ -1,31 +1,31 @@
-# 2026-11-18 continuation checkpoint — Internet-monitor signal source-contract normalization
+# 2026-11-18 continuation checkpoint — shared L2TP recovery after incomplete VPN client restart
 
 ## Current repository state
 - Repository: `Arlene206/padavan-4.4-2`; work on `main` only.
-- Last confirmed parent before this checker repair: `0e721be7339c59a18c9e94eff96c4454335c387f` (`test(rc): normalize Internet monitor lifecycle contracts`).
+- Current main SHA: `a0cb9aad4844f7d044ce79efad6c417857c95972` (`fix(vpn): restore shared L2TP after incomplete client stop`), parent `764d7c7aeae4577f287cc6b5462d36c7e86aaa0c`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains archival at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not check out, modify, merge, delete, rename or push it.
 - PR #1 is closed and unmerged; do not reopen it or use its feature branch.
-- Internet-monitor production implementation is `8c272644dfc86a047eed50dd48aee42400607b72`; prior SCUT/MentoHUST source implementation is `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`, with its exact test/handoff repair at `4989579534f712f54126629b2a3323ef50436ad9`.
 
-## Active task
-- The production code already captures and logs failed `start_detect_internet()` and PID-file SIGUSR1/SIGUSR2 operations; ENOENT/ESRCH during pause is benign.
-- Exact-head Detect Internet CI proved its GNU89/ASan/UBSan policy test passes but found a formatting-sensitive source assertion for the two-line SIGUSR2 call. This repair normalizes whitespace in the signal operation assertions; no production logic is modified.
-- The process lifecycle integration checker was also normalized in `0e721be`; its full exact-head workflow now passes.
+## Active task completed
+- Fixed a VPN-client restart rollback gap in `trunk/user/rc/src/vpn_client.c`: after the forced VPNC stop successfully removes shared `xl2tpd`, the follow-on identity-aware client teardown can fail and previously returned immediately. The new failure path restores configured WAN-L2TP/VPN-server shared `xl2tpd` while still holding the lifecycle lock, logs restore failure, and preserves the original stop status and errno.
+- Added a focused policy header and decision-matrix regression to `tests/vpn_server_restart_policy.c`; strengthened `scripts/check_vpn_server_lifecycle.py` to verify restoration order, failure logging and first-error preservation. Added the new header to VPN stability and XY-C1 path filters.
+- The shared-daemon restart policy helper is intentionally gated by a confirmed successful forced stop and existing WAN-L2TP or L2TP-server configuration; a failed force-stop preflight does not trigger a new daemon start.
 
 ## Verification boundary
-- Exact-head SHA `0e721be7339c59a18c9e94eff96c4454335c387f`: Process lifecycle run `44258799982` PASS; AI handoff run `44258799964` PASS; Detect Internet signal stability run `44258799968` FAILED only at the static source contract. The GNU89 signal-policy executable passed. The failing inline assertion was the exact indentation-sensitive SIGUSR2 call expression.
-- Exact 8c source SHA `8c272644dfc86a047eed50dd48aee42400607b72`: process inventory `44258150914`, AI docs `44258150879`, NVRAM transaction audit `44258150848` all PASS. XY-C1 run `44258150922` was building XY-C1 at last poll; verify its final Build, TRX and artifact steps before claiming L3 for 8c.
-- Prior SCUT/MentoHUST source SHA `777d291bfad084cb7d6c7a3a28e8ed5d609c5acb`: XY-C1 run `44256159232` completed Build, TRX verification and artifact upload successfully on that same SHA (L3 verified for that source slice).
-- No local shell execution or cross-build outside cited Actions is claimed. Physical-router L4 remains NOT VERIFIED.
+- Exact-head SHA `a0cb9aad4844f7d044ce79efad6c417857c95972`: VPN stability `44260005390` PASS; Firewall startup `44260005246` PASS; DNSMasq lifecycle `44260005238` PASS; HTTPD security `44260005241` PASS; Process inventory `44260005245` PASS; Process lifecycle regression `44260005256` PASS; NVRAM boundary audit `44260005237` PASS.
+- Exact-head XY-C1 `44260005493` was IN_PROGRESS at the last poll: Build was running; TRX validation and artifact upload were PENDING. Do not claim L3 for `a0cb9aad` until all three finish successfully on that same SHA.
+- Local isolated GNU89/Werror/ASan/UBSan test of the new decision-policy header passed. The full repository VPN host regression passed through VPN stability run `44260005390`.
+- The prior Internet-monitor source SHA `8c272644dfc86a047eed50dd48aee42400607b72` has XY-C1 run `44258150922` SUCCESS, including Build, TRX and artifact upload. The checker-only follow-up `764d7c7aeae4577f287cc6b5462d36c7e86aaa0c` passed Detect Internet signal regression `44259182501` and AI handoff docs `44259181122`.
+- No physical-router test is claimed. L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main`; query exact-head Detect Internet signal stability, Process lifecycle and AI handoff Actions for this checker repair. If Detect still fails, inspect the first assertion and logs.
-2. Recheck XY-C1 run `44258150922` for source SHA `8c272644dfc86a047eed50dd48aee42400607b72`; Build, TRX and artifact must all pass on that SHA for L3.
-3. Once these gates pass or remain pending, continue the P1 whole-userland reliability/security queue. Treat Internet-monitor control-result logging as implemented; do not repeat it absent a fresh failure.
+1. Fetch live `main` and recheck exact-head XY-C1 run `44260005493`; inspect Build, TRX and artifact step outcomes on SHA `a0cb9aad4844f7d044ce79efad6c417857c95972`. If any step fails, inspect its causal log before changing firmware/source.
+2. With XY pending or after it passes, continue the P1 whole-userland RC startup/lifecycle reliability audit. Avoid re-auditing completed APCLI/WISP, XUPnPD, WAN sysctl, SCUT/MentoHUST, Internet-monitor, Adbyby, ttyd and this VPN rollback slice unless a new exact-head failure provides evidence.
+3. Keep checking the exact SHA for each new atomic commit; pending independent jobs must not block other work.
 4. Preserve the frozen backup and keep physical-router L4 marked NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
-The checkpoint is mandatory; a document edit is conditional. Every session must inspect live main, exact-head Actions and the first next task before ending. If these facts and the first action remain accurate, do not create a no-op documentation commit.
+The checkpoint is mandatory; a document edit is conditional. At session end, inspect live main, exact-head Actions and the first next task. If these facts remain accurate, do not create a no-op documentation commit.
 
 # Cross-session execution mandate
 Before context exhaustion, leave a precise continuation checkpoint. Deliver one atomic main commit per logical source/test milestone, verify exact-SHA Actions, then continue to the next independent ranked defect. Never force-push, mutate the backup, reopen the retired PR, or claim unperformed tests/build/hardware checks.

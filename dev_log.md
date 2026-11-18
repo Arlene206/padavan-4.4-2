@@ -1,3 +1,13 @@
+## 2026-11-18 — Restore shared xl2tpd after incomplete VPN client teardown
+
+- `restart_vpn_client_locked()` force-stops the VPN client and its shared `xl2tpd` before its second identity-aware stop/cleanup. If that follow-on stop failed, it returned immediately and skipped the shared-daemon restoration already present on the successful restart path, potentially stranding a configured WAN-L2TP client or L2TP VPN server.
+- Restore the shared daemon on this specific failure path when the force-stop succeeded and WAN-L2TP or L2TP-server configuration requires it. Log restoration failure but preserve the original teardown status and errno. A failed initial force-stop still fails closed and does not trigger another start attempt.
+- Add a GNU89 policy matrix regression and semantic source-contract ordering/errno checks; include the new policy header in VPN stability and XY-C1 path filters.
+- Exact SHA `a0cb9aad4844f7d044ce79efad6c417857c95972`: VPN stability `44260005390`, Firewall `44260005246`, DNSMasq `44260005238`, HTTPD security `44260005241`, Process inventory `44260005245`, Process lifecycle `44260005256`, and NVRAM audit `44260005237` PASS. XY-C1 `44260005493` was still building; TRX and artifact were pending. Isolated local GNU89/Werror/ASan/UBSan decision-policy test PASS. No L3/L4 claim for this SHA.
+- The previous Internet-monitor production SHA `8c272644dfc86a047eed50dd48aee42400607b72` passed its XY-C1 Build/TRX/artifact run `44258150922`; detect-internet static contract and handoff checks passed on checker SHA `764d7c7aeae4577f287cc6b5462d36c7e86aaa0c` (`44259182501`, `44259181122`).
+
+---
+
 ## 2026-11-18 — Normalize detect Internet SIGUSR1/SIGUSR2 contract formatting
 
 - Exact parent SHA `0e721be7339c59a18c9e94eff96c4454335c387f` repaired the process lifecycle checker and passed Process lifecycle run `44258799982` and AI handoff run `44258799964`.
