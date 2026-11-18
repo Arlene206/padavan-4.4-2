@@ -1,3 +1,11 @@
+## 2026-11-19 — Serialize Inadyn stop/start and configuration notifications
+
+- Base main SHA: `b471b7e328b79c9eac412f2af701c51b9a573e19`. AI handoff documentation run `44377784741` PASS after restoring the literal Active task heading.
+- Review found public `stop_ddns`, `start_ddns`, `notify_ddns_update` and `notify_ddns_manual_update` had no shared process lock. Concurrent RC processes could race stop/start for the `--no-pidfile` daemon or race config publication/reload/manual refresh against restart.
+- Add root-owned `/tmp/.inadyn.lifecycle.lock` via `fcntl`; validate regular-file type, effective UID, single link and restrictive mode; open with `O_NOFOLLOW|O_CLOEXEC`; bound contention to 10 seconds. All public operations hold one lock through their transaction; internal `_locked` helpers avoid recursive acquisition.
+- Add fork-based host regression for cross-process exclusion, release/reacquisition, hardlink/symlink rejection and invalid paths; compile/run it with GNU89, ASan and UBSan in the Inadyn workflow. Add explicit lock paths to XY-C1 and Process inventory workflow filters.
+- Prior AliDDNS source SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0`: AliDDNS `44377211563`, Process `44377211590`, HTTPD `44377211539` PASS; XY-C1 `44377211451` remains IN_PROGRESS (Build active; TRX/artifact pending). New lock slice CI has not yet run. No local test or MIPS build is claimed; physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-19 — Reject the remaining IANA-reserved IPv6 GUA ranges in AliDDNS
 
 - Parent main SHA: `f57161cc56f82f1b091093a8e93eac012413ce15`. Its Process inventory `44375203938`, AI docs `44375203886`, Switch CLI `44375203978` and NVRAM audit `44375203974` all PASS.

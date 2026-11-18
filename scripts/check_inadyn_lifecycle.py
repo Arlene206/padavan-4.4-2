@@ -7,6 +7,8 @@ source = (root / "trunk/user/rc/src/services_ex.c").read_text()
 header = (root / "trunk/user/rc/src/rc.h").read_text()
 policy = (root / "trunk/user/rc/src/inadyn_daemon_policy.h").read_text()
 test = (root / "trunk/user/rc/src/tests/inadyn_daemon_policy.c").read_text()
+lock_header = (root / "trunk/user/rc/src/inadyn_lifecycle_lock.h").read_text()
+lock_test = (root / "trunk/user/rc/src/tests/inadyn_lifecycle_lock.c").read_text()
 workflow = (root / ".github/workflows/inadyn-lifecycle-stability.yml").read_text()
 xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 webex = (root / "trunk/user/httpd/src/web_ex.c").read_text()
@@ -65,7 +67,7 @@ def body(signature):
 
     raise AssertionError("unterminated function: " + signature)
 
-notify = body("notify_ddns_update(void)")
+notify = body("notify_ddns_update_locked(void)")
 assert "process_inventory_scan(\"inadyn\", &snapshot)" in notify
 assert "inadyn_action_for_presence(state)" in notify
 assert "INADYN_DAEMON_ABORT" in notify and "INADYN_DAEMON_START" in notify
@@ -97,8 +99,8 @@ assert "test_rejected_value_discards_partial_config" in config_file_test
 assert "trunk/user/rc/src/inadyn_config_file.h" in workflow
 assert "trunk/user/rc/src/tests/inadyn_config_file.c" in workflow
 
-start = body("start_ddns(int clear_cache)")
-assert "stop_status = stop_ddns()" in start
+start = body("start_ddns_locked(int clear_cache)")
+assert "stop_status = stop_ddns_locked()" in start
 assert start.index("if (stop_status != 0)") < start.index('eval("/bin/inadyn"')
 assert 'launch_status = eval("/bin/inadyn"' in start
 assert "inadyn_confirm_started(launch_status)" in start
@@ -116,7 +118,7 @@ assert "test_cache_prepare_status" in test
 assert "doSystem(\"rm -rf %s\", DDNS_CACHE_DIR)" not in start
 assert "mkdir(DDNS_CACHE_DIR, 0777)" not in start
 assert "ret = start_ddns(1);" in rc_source
-assert "return start_ddns(0);" in source
+assert "return start_ddns_locked(0);" in source
 assert "return ret;" in rc_source
 confirm = body("inadyn_confirm_started(int launch_status)")
 assert "inadyn_process_presence(&scan_error)" in confirm
@@ -126,8 +128,25 @@ assert "sleep(1)" not in confirm
 presence = body("inadyn_process_presence(int *scan_error)")
 assert 'process_inventory_scan("inadyn", &snapshot)' in presence
 assert "inadyn_start_status(launch_status, state, scan_error)" in confirm
-stop = body("stop_ddns(void)")
+stop = body("stop_ddns_locked(void)")
 assert "return kill_services(svcs, 3, 1)" in stop
+for entry in (body("stop_ddns(void)"), body("start_ddns(int clear_cache)"),
+              body("notify_ddns_update(void)"), body("notify_ddns_manual_update(void)")):
+    assert "inadyn_lifecycle_lock_acquire_status(" in entry
+    assert "inadyn_lifecycle_lock_finish(" in entry
+assert "start_ddns_locked(0)" in notify
+assert '#include "inadyn_lifecycle_lock.h"' in source
+assert "O_NOFOLLOW" in lock_header and "F_SETLK" in lock_header
+assert "st.st_nlink != 1" in lock_header and "(st.st_mode & 077) != 0" in lock_header
+assert "INADYN_LIFECYCLE_LOCK_WAIT_SECONDS 10" in lock_header
+assert "test_exclusive_process_lock" in lock_test
+assert "test_invalid_paths_fail_closed" in lock_test
+assert "errno == EBUSY" in lock_test and "errno == ELOOP" in lock_test
+assert "trunk/user/rc/src/inadyn_lifecycle_lock.h" in workflow
+assert "trunk/user/rc/src/tests/inadyn_lifecycle_lock.c" in workflow
+assert "Compile Inadyn exclusive lifecycle lock regression" in workflow
+assert "trunk/user/rc/src/inadyn_lifecycle_lock.h" in xy
+assert "trunk/user/rc/src/tests/inadyn_lifecycle_lock.c" in xy
 assert "int stop_ddns(void);" in header
 assert "INADYN_DAEMON_RELOAD" in policy
 assert "state == PROCESS_PRESENCE_UNKNOWN" in policy
@@ -142,7 +161,7 @@ assert "UNKNOWN" in test and "SIGHUP" in test and "SIGUSR1" in test
 assert "trunk/user/rc/src/inadyn_daemon_policy.h" in xy
 assert "trunk/user/rc/src/services_ex.c" in workflow
 
-manual_update = body("notify_ddns_manual_update(void)")
+manual_update = body("notify_ddns_manual_update_locked(void)")
 assert 'process_inventory_scan("inadyn", &snapshot)' in manual_update
 assert "PROCESS_PRESENCE_UNKNOWN" in manual_update
 assert "PROCESS_PRESENCE_ABSENT" in manual_update

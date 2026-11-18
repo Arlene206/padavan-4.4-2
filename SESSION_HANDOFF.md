@@ -4,7 +4,7 @@
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
 - Baseline WAN SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759` has 22/22 exact-head workflows PASS, including XY-C1 Build/TRX/artifact run `44368075437`. AliDDNS IANA-filter SHA `f3efd5e4a7101b930e699c54704fcf25a5ae341d` passed AliDDNS/Process/AI/HTTPD; XY-C1 `44373890927` was still in progress at last check. Switch-only SHA `f57161cc56f82f1b091093a8e93eac012413ce15` passed Process (`44375203938`), AI docs (`44375203886`), Switch CLI (`44375203978`) and NVRAM audit (`44375203974`).
-- Current AliDDNS production/test SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0`: AliDDNS regression `44377211563` PASS (includes WAN IPv6 discovery), Process inventory `44377211590` PASS, HTTPD security `44377211539` PASS. AI handoff check `44377211545` failed only because this handoff lacked the exact required heading `## Active task`; this docs-only follow-up restores it. XY-C1 run `44377211451` remains IN_PROGRESS: Build XY-C1 active, TRX/artifact pending. L3 is not yet verified for `2fd39c3`; physical-router L4 remains NOT VERIFIED.
+- AliDDNS source SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0`: AliDDNS `44377211563`, Process `44377211590` and HTTPD security `44377211539` PASS. AI handoff docs SHA `b471b7e328b79c9eac412f2af701c51b9a573e19` PASS (`44377784741`). XY-C1 `44377211451` remains IN_PROGRESS (Build active; TRX/artifact pending); L3 is not verified. Physical-router L4 remains NOT VERIFIED.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not switch to, update or delete it.
 - PR #1 remains closed/unmerged; do not revive it.
 - No local repository checkout or local MIPS build was performed. GitHub Actions completed the XY-C1 cross-build, TRX verification and artifact upload on exact source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`; physical-router L4 remains unverified.
@@ -80,15 +80,19 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 Close the exact-head verification of the AliDDNS IPv6 global-unicast filter from source SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0`.
 
-- The IANA registry marks the remaining `2d00::` through `3fff::` GUA allocation tail RESERVED; the source now rejects it at first-hextet `0x2d00), while retaining the preceding allocated `2c00::/12` block.
-- Exact-head AliDDNS run `44377211563` passed shell syntax, signed API transport, IPv4 lookup, WAN IPv6 discovery, DNS lookup lifecycle, custom-script lifecycle, lifecycle lock, CA trust bootstrap, HMAC argv privacy, and owner source contracts. Process inventory `44377211590` and HTTPD security `44377211539` passed.
-- AI handoff run `44377211545` failed because the previous revision lacked the checker's literal required section heading `## Active task`. This docs-only correction restores that heading; confirm the new AI docs run passes.
-- XY-C1 run `44377211451` was still building at checkpoint: Build active; TRX and artifact steps pending. Do not claim L3 until this exact source SHA finishes all three.
-- No local test or MIPS build was run in this connector session. Physical-router L4 remains NOT VERIFIED.
+- The IANA registr## Active task
 
-## Verification boundary
+Serialize stock Inadyn stop/start/config-update/manual-refresh transactions with one bounded, secure inter-process lifecycle lock.
 
-- WAN VLAN source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`: Firewall policy C regression passed; exact-source XY-C1 run `44351420211` is now SUCCESS, including every host regression, Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for this exact firmware source SHA; physical-router L4 remains NOT VERIFIED.
+Before this fix, `start_ddns()` stopped and launched Inadyn without a shared transaction lock. Concurrent RC processes could both observe the `--no-pidfile` daemon as absent, both stop, then both launch duplicate daemons. Configuration publication and identity-bound HUP/USR1 operations could also race a restart. The four public entry points (`stop_ddns`, `start_ddns`, `notify_ddns_update`, `notify_ddns_manual_update`) share one `fcntl` lock; original implementations move to internal `_locked` helpers to avoid recursive acquisition. Lock files must be root-owned regular files, one link, restrictive permissions, opened with `O_NOFOLLOW|O_CLOEXEC`; contention is bounded to 10 seconds and fails closed.
+
+A fork-based host regression covers cross-process exclusion, release/reacquisition, hardlink/symlink rejection and invalid paths. The Inadyn workflow compiles/runs it under GNU89, ASan and UBSan; XY-C1 and Process inventory workflows track the new lock source/test. Exact-head results for this new source SHA are pending. No local test or MIPS build is claimed.
+
+- Previous AliDDNS source SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0`: AliDDNS `44377211563`, Process `44377211590` and HTTPD security `44377211539` PASS. AI docs correction SHA `b471b7e328b79c9eac412f2af701c51b9a573e19` passes `44377784741`.
+- XY-C1 run `44377211451` for source SHA `2fd39c3` remains IN_PROGRESS at last poll (Build active; TRX/artifact pending). Do not claim L3 until all stages complete for that exact SHA.
+- Physical-router L4 remains NOT VERIFIED.
+
+w SUCCESS, including every host regression, Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for this exact firmware source SHA; physical-router L4 remains NOT VERIFIED.
 - Checker/handoff commit `117c52c925cb96478802d8c4bd2e829e4bd9c133`: Firewall Startup run `44353199552`, HTTPD Security run `44353199583`, and AI handoff docs run `44353199773` all SUCCESS.
 - Process lifecycle run `44353199473` and Wireless radio run `44353199497` both FAIL only at the shared guest-LAN source checker. The current C policy binaries passed; the stale checker compares a multi-line C `if` assignment against a single-line literal. The checker repair in this continuation normalizes function-body whitespace and additionally asserts the VLAN capture occurs after `switch_config_vlan(1)` and before the bridge-status record.
 - The prior exact-head failures on source SHA `1fa05ac` are historical; the three successful follow-up workflows above resolved firewall, HTTPD and AI handoff contracts. Do not attribute their original failures to the new main SHA.
@@ -96,9 +100,9 @@ Close the exact-head verification of the AliDDNS IPv6 global-unicast filter from
 
 ## Exact first action for the next GPT
 
-1. Inspect the AI handoff documentation run triggered by this docs-only correction; the prior failure was the missing literal `## Active task` heading.
-2. Poll XY-C1 run `44377211451` for source SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0`; verify Build, TRX and artifact upload before claiming L3.
-3. Continue whole-userland stability/security work; do not repeat the completed AliDDNS prefix checks unless an exact-head regression fails. Physical-router L4 remains NOT VERIFIED.
+1. Inspect exact-head Inadyn lifecycle, Process inventory and XY-C1 Actions for the shared lock; repair any regression on the exact current main SHA.
+2. Confirm all four public entry points use the same lock, internal calls avoid recursive acquisition, and the GNU89/ASan/UBSan lock regression passes.
+3. Separately poll XY-C1 run `44377211451` for SHA `2fd39c3`; Build, TRX and artifact upload must all succeed before claiming L3. Physical-router L4 remains NOT VERIFIED.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

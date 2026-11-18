@@ -40,6 +40,7 @@
 #include "dnsmasq_static_host_policy.h"
 #include "dnsmasq_domain_policy.h"
 #include "inadyn_config_file.h"
+#include "inadyn_lifecycle_lock.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
 #include "dnsmasq_reload_policy.h"
@@ -2136,12 +2137,51 @@ ddns_updated_main(int argc, char *argv[])
 	return 0;
 }
 
-int
-stop_ddns(void)
+static int
+stop_ddns_locked(void)
 {
 	char* svcs[] = { "inadyn", NULL };
 
 	return kill_services(svcs, 3, 1);
+}
+
+static int
+inadyn_lifecycle_lock_acquire_status(const char *operation, int *lock_fd)
+{
+	*lock_fd = inadyn_lifecycle_lock_acquire();
+	if (*lock_fd >= 0)
+		return 0;
+	{
+		int lock_error = errno ? errno : EIO;
+		logmessage(LOGNAME, "cannot acquire Inadyn %s lifecycle lock (status=%d)",
+			   operation, lock_error);
+		return lock_error;
+	}
+}
+
+static int
+inadyn_lifecycle_lock_finish(int lock_fd, int operation_status,
+			     const char *operation)
+{
+	if (inadyn_lifecycle_lock_release(lock_fd) != 0) {
+		int release_error = errno ? errno : EIO;
+		logmessage(LOGNAME, "Inadyn %s lifecycle lock release failed (status=%d)",
+			   operation, release_error);
+		if (operation_status == 0)
+			operation_status = release_error;
+	}
+	return operation_status;
+}
+
+int
+stop_ddns(void)
+{
+	int lock_fd, lock_status, status;
+	lock_status = inadyn_lifecycle_lock_acquire_status("stop", &lock_fd);
+	if (lock_status != 0)
+		return lock_status;
+	status = stop_ddns_locked();
+	return inadyn_lifecycle_lock_finish(lock_fd, status, "stop");
 }
 
 static const struct inadyn_system_t {
@@ -2486,8 +2526,8 @@ inadyn_cache_lstat_cb(void *context, const char *path, struct stat *st)
 	return lstat(path, st);
 }
 
-int
-start_ddns(int clear_cache)
+static int
+start_ddns_locked(int clear_cache)
 {
 	int verbose_idx = nvram_safe_get_int("ddns_verbose", 0, 0, 2);
 	char* ddns_verbose_str[] = { "err", "notice", "debug" };
@@ -2499,7 +2539,7 @@ start_ddns(int clear_cache)
 	if (get_ap_mode())
 		return -1;
 
-	stop_status = stop_ddns();
+	stop_status = stop_ddns_locked();
 	if (stop_status != 0) {
 		logmessage(LOGNAME,
 			   "inadyn start aborted because previous instance did not stop (status %d)",
@@ -2541,6 +2581,17 @@ start_ddns(int clear_cache)
 	return inadyn_confirm_started(launch_status);
 }
 
+int
+start_ddns(int clear_cache)
+{
+	int lock_fd, lock_status, status;
+	lock_status = inadyn_lifecycle_lock_acquire_status("start", &lock_fd);
+	if (lock_status != 0)
+		return lock_status;
+	status = start_ddns_locked(clear_cache);
+	return inadyn_lifecycle_lock_finish(lock_fd, status, "start");
+}
+
 static enum process_presence
 inadyn_validate_identity(void *context,
 			 const struct process_identity *identity)
@@ -2556,8 +2607,8 @@ inadyn_send_signal(void *context, pid_t pid, int signal_number)
 	return kill(pid, signal_number);
 }
 
-int
-notify_ddns_update(void)
+static int
+notify_ddns_update_locked(void)
 {
 	struct process_snapshot snapshot;
 	enum process_presence state;
@@ -2583,7 +2634,7 @@ notify_ddns_update(void)
 	}
 	if (action == INADYN_DAEMON_START) {
 		process_snapshot_release(&snapshot);
-		return start_ddns(0);
+		return start_ddns_locked(0);
 	}
 
 	if (inadyn_validate_snapshot(&snapshot, inadyn_validate_identity, NULL) != 0) {
@@ -2615,13 +2666,23 @@ notify_ddns_update(void)
 	return 0;
 }
 
+int
+notify_ddns_update(void)
+{
+	int lock_fd, lock_status, status;
+	lock_status = inadyn_lifecycle_lock_acquire_status("update", &lock_fd);
+	if (lock_status != 0)
+		return lock_status;
+	status = notify_ddns_update_locked();
+	return inadyn_lifecycle_lock_finish(lock_fd, status, "update");
+}
 
 /*
  * Manual UI refresh sends SIGUSR1 only to identities captured by the process
  * inventory. ABSENT remains a no-op; UNKNOWN must fail closed.
  */
-int
-notify_ddns_manual_update(void)
+static int
+notify_ddns_manual_update_locked(void)
 {
 	struct process_snapshot snapshot;
 	enum process_presence state;
@@ -2666,6 +2727,17 @@ notify_ddns_manual_update(void)
 		return -1;
 	}
 	return 0;
+}
+
+int
+notify_ddns_manual_update(void)
+{
+	int lock_fd, lock_status, status;
+	lock_status = inadyn_lifecycle_lock_acquire_status("manual update", &lock_fd);
+	if (lock_status != 0)
+		return lock_status;
+	status = notify_ddns_manual_update_locked();
+	return inadyn_lifecycle_lock_finish(lock_fd, status, "manual update");
 }
 
 char *
