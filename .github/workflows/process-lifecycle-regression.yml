@@ -150,6 +150,8 @@ on:
       - "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
       - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/vlmcsd/vlmcsd.sh"
+      - "trunk/user/wireguard/wireguard.sh"
+      - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
 
       # Keep AliDDNS-owned tests in their dedicated lifecycle workflow.
       - "!trunk/user/aliddns/tests/**"
@@ -302,6 +304,8 @@ on:
       - "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
       - "trunk/user/ttyd/ttyd.sh"
       - "trunk/user/vlmcsd/vlmcsd.sh"
+      - "trunk/user/wireguard/wireguard.sh"
+      - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
 
       # Keep AliDDNS-owned tests in their dedicated lifecycle workflow.
       - "!trunk/user/aliddns/tests/**"
@@ -643,6 +647,8 @@ jobs:
           sh -n trunk/user/transmission/transmission.sh
           sh -n trunk/user/transmission/tests/reload_status.sh
           sh trunk/user/transmission/tests/reload_status.sh
+      - name: Verify WireGuard startup, private-key confinement and teardown lifecycle
+        run: sh trunk/user/wireguard/tests/wireguard_lifecycle.sh
       - name: Verify ZeroTier tri-state process lifecycle
         run: |
           sh -n trunk/user/zerotier/zerotier.sh
