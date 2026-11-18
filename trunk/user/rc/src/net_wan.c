@@ -1772,8 +1772,11 @@ start_wan(void)
 			   sysctl_status);
 	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
 
-	/* di wakeup after 60 secs */
-	notify_run_detect_internet(60);
+	/* DI wakeup after 60 secs; retain launch/inventory/signal errors. */
+	sysctl_status = notify_run_detect_internet(60);
+	if (sysctl_status != 0)
+		logmessage(LOGNAME, "Internet monitor startup incomplete (status=%d)", sysctl_status);
+	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
 
 	/* Start each configured and enabled wan connection and its undelying i/f */
 	for (unit = 0; unit < 1; unit++)
@@ -2250,7 +2253,7 @@ stop_wan_ppp_locked(void)
 	return 0;
 
 abort_resume_detect:
-	notify_run_detect_internet(2);
+	(void)notify_run_detect_internet(2);
 	return -1;
 }
 
@@ -2424,7 +2427,7 @@ stop_wan_locked(void)
 abort_resume_detect:
 	/* Every failure exits before a confirmed complete teardown; restore the
 	 * monitor so it can observe or recover the still-live/partial WAN. */
-	notify_run_detect_internet(2);
+	(void)notify_run_detect_internet(2);
 	return stop_status != 0 ? stop_status : -1;
 }
 
@@ -2922,8 +2925,11 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	if (wan_gate)
 		control_wan_led_isp_state(1, modem_unit_id);
 
-	/* di wakeup after 2 secs */
-	notify_run_detect_internet(2);
+	/* DI wakeup after 2 secs; retain launch/inventory/signal errors. */
+	route_status = notify_run_detect_internet(2);
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME, "WAN Internet monitor notification incomplete (status=%d)", route_status);
 
 	/* Call the optional post-WAN hook and preserve its exit status. */
 	if (check_if_file_exist(script_postw)) {

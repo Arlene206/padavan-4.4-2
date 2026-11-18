@@ -1879,7 +1879,8 @@ handle_notifications(void)
 		else if (strcmp(entry->d_name, RCN_RESTART_DI) == 0)
 		{
 			if (get_ap_mode() || has_wan_ip4(0))
-				notify_run_detect_internet(2);
+				action_result = rc_notify_merge_action_result(
+					action_result, notify_run_detect_internet(2));
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)
 		{

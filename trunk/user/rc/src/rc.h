@@ -826,7 +826,7 @@ void show_hide_ether_leds(int is_show);
 int detect_internet_main(int argc, char *argv[]);
 int start_detect_internet(int autorun_time);
 int stop_detect_internet(void);
-void notify_run_detect_internet(int delay_time);
+int  notify_run_detect_internet(int delay_time);
 void notify_pause_detect_internet(void);
 
 /* detect_wan.c */

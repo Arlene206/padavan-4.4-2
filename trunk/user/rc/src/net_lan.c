@@ -1010,8 +1010,11 @@ start_lan(int is_ap_mode, int do_wait)
 					}
 				}
 
-				/* di wakeup after 60 secs */
-				notify_run_detect_internet(60);
+				/* DI wakeup after 60 secs; retain launch/inventory/signal errors. */
+				operation_status = notify_run_detect_internet(60);
+				if (operation_status != 0)
+					logmessage(LOGNAME, "LAN Internet monitor startup incomplete (status=%d)", operation_status);
+				start_status = rc_first_service_start_status(start_status, operation_status);
 
 				/* Do not start DHCP until the mandatory PHY settle wait succeeds. */
 				if (operation_status == 0) {
@@ -1032,8 +1035,11 @@ start_lan(int is_ap_mode, int do_wait)
 					   operation_status);
 			start_status = rc_first_service_start_status(start_status, operation_status);
 
-			/* di wakeup after 2 secs */
-			notify_run_detect_internet(2);
+			/* DI wakeup after 2 secs; retain launch/inventory/signal errors. */
+			operation_status = notify_run_detect_internet(2);
+			if (operation_status != 0)
+				logmessage(LOGNAME, "LAN Internet monitor notification incomplete (status=%d)", operation_status);
+			start_status = rc_first_service_start_status(start_status, operation_status);
 		}
 	} else {
 
@@ -1079,7 +1085,7 @@ stop_lan(int is_ap_mode)
 		if (status != 0) {
 			/* The old AP network is still live; undo the pause because the
 			 * fail-closed DHCP preflight aborted before touching the bridge. */
-			notify_run_detect_internet(2);
+			(void)notify_run_detect_internet(2);
 			logmessage(LOGNAME,
 				   "refusing LAN teardown while DHCP client identity remains active or unknown (status=%d)",
 				   status);
@@ -1112,7 +1118,7 @@ stop_lan(int is_ap_mode)
 	{
 		int status = ifconfig(IFNAME_BR, 0, NULL, NULL);
 		if (status != 0 && is_ap_mode)
-			notify_run_detect_internet(2);
+			(void)notify_run_detect_internet(2);
 		return rc_first_service_start_status(
 			rc_first_service_start_status(
 				rc_first_service_start_status(conntrack_status, route_status), ipv6_status),
@@ -1880,7 +1886,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 #endif
 
 		/* di wakeup after 2 secs */
-		notify_run_detect_internet(2);
+		(void)notify_run_detect_internet(2);
 		{
 			int iappd_status = system("/usr/bin/iappd.sh restart");
 

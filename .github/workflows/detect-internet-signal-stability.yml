@@ -129,7 +129,10 @@ jobs:
           assert '#include "detect_internet_notification_policy.h"' in detect
 
           notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
+          assert "int\nnotify_run_detect_internet(int delay_time)" in detect
           assert "operation_status = start_detect_internet(delay_time);" in notify_run
+          assert "operation_error = detect_internet_operation_error(-1, scan_error);" in notify_run
+          assert "return operation_error;" in notify_run
           compact_notify_run = "".join(notify_run.split())
           assert 'operation_status=process_pidfile_signal(DI_PID_FILE,"detect_internet",SIGUSR1);' in compact_notify_run
           compact_notify_run = "".join(notify_run.split())
@@ -153,6 +156,18 @@ jobs:
           assert "notify_run_detect_internet(" in wan
           assert "notify_pause_detect_internet(" in wan
           assert "notify_run_detect_internet(" in lan
+          lan_start = body(lan, "start_lan(int is_ap_mode, int do_wait)")
+          assert "operation_status = notify_run_detect_internet(60);" in lan_start
+          assert "operation_status = notify_run_detect_internet(2);" in lan_start
+          assert "rc_first_service_start_status(start_status, operation_status)" in lan_start
+          wan_start = body(wan, "start_wan(void)")
+          assert "sysctl_status = notify_run_detect_internet(60);" in wan_start
+          assert "rc_first_service_start_status(wan_start_status, sysctl_status)" in wan_start
+          wan_up = body(wan, "wan_up_internal(")
+          assert "route_status = notify_run_detect_internet(2);" in wan_up
+          assert "route_status_accumulate(status, route_status)" in wan_up
+          notification_dispatch = body(dispatcher, "handle_notifications(void)")
+          assert "action_result, notify_run_detect_internet(2)" in notification_dispatch
           assert "notify_pause_detect_internet(" in lan
           stop_notify = body(detect, "stop_detect_internet(void)")
           assert 'kill_services_with_pidfiles(services, pidfiles, "detect_internet", 0, 3, 1)' in stop_notify

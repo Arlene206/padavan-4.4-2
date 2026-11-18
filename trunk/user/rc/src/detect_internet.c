@@ -371,7 +371,7 @@ start_detect_internet(int autorun_time)
 	return _eval(di_argv, NULL, 0, NULL);
 }
 
-void
+int
 notify_run_detect_internet(int delay_time)
 {
 	struct process_snapshot snapshot;
@@ -407,10 +407,12 @@ notify_run_detect_internet(int delay_time)
 				   "monitor resume signal failed (status=%d, errno=%d)",
 				   operation_status, operation_error);
 	} else {
+		operation_error = detect_internet_operation_error(-1, scan_error);
 		logmessage("detect_internet",
 			   "skipping start/notification because process inventory is unknown (error=%d)",
-			   scan_error ? scan_error : EIO);
+			   operation_error);
 	}
+	return operation_error;
 }
 
 void
