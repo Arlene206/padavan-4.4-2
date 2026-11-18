@@ -3605,8 +3605,12 @@ jobs:
           assert standalone_restore.index("firewall_restore_transaction_prepare_reset") < standalone_restore.index("firewall_restore_transaction_apply")
           assert "previous recovery state is unresolved" in standalone_restore
           assert "return -1;" in standalone_restore
-          assert "set_ipv4_forward(0);" in firewall_main
-          assert firewall.count('set_interface_conf_int("ipv6", "all", "forwarding", 0);') == 2
+          forwarding_disable = function_body(firewall, "firewall_disable_forwarding(")
+          assert "next_status = set_ipv4_forward(0);" in forwarding_disable
+          assert 'next_status = set_interface_conf_int("ipv6", "all", "forwarding", 0);' in forwarding_disable
+          assert forwarding_disable.count("rc_first_service_start_status") == 2
+          assert 'forward_status = firewall_disable_forwarding("Core firewall rollback");' in firewall_main
+          assert 'forward_status = firewall_disable_forwarding("Adbyby firewall rollback");' in firewall_main
           assert "test_apply_failure_reverse_rollback" in transaction_test
           assert "test_snapshot_failure_rolls_back_prior_tables" in transaction_test
           assert "test_rollback_failure_retains_snapshots" in transaction_test

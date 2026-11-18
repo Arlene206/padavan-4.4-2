@@ -1,3 +1,9 @@
+## 2026-11-17 — Verify both firewall rollback callers through shared forwarding shutdown policy
+
+- Parent main: `2b4c7aea40879d7a0b0c7d1a6b95e9790c24c6d7`. The first HTTPD regression run confirmed the updated Adbyby assertion, then exposed a second stale inline contract that still expected raw IPv4/IPv6 forwarding sysctl writes inside `start_firewall_ex()`. The implementation deliberately routes those writes through `firewall_disable_forwarding()` and merges both errors. Align the remaining HTTPD contract with the helper and explicitly verify both core and Adbyby rollback call sites.
+- This is a test-only correction; the prior source-level forwarding fix is unchanged. Exact-head HTTPD and XY-C1 checks remain required; no hardware runtime claim is made.
+
+---
 ## 2026-11-17 — Re-align firewall and AliDDNS regression harnesses with their production call paths
 
 - Parent main: `949cf064908eac37c38f8d2160fd655a62affe95`. Exact-head CI on the forwarding-status change found two source-contract tests still requiring direct `set_ipv4_forward(0)` calls after production code centralized IPv4/IPv6 shutdown in `firewall_disable_forwarding()`. Update both the WAN/RC checker and HTTPD add-on rollback assertion to verify the new helper, both protocol-family writes, first-error aggregation, and both rollback callers.
