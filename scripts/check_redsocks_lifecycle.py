@@ -24,7 +24,9 @@ state = body("redsocks_process_state()")
 wait = body("redsocks_wait_stopped()")
 wait_start = body("redsocks_wait_started()")
 start_verify = body("redsocks_start_and_verify()")
-start = body("func_start()")
+start_offset = source.index("func_start(){")
+start_end_offset = source.index("func_clean(){", start_offset)
+start = source[start_offset:start_end_offset]
 stop = body("func_stop()")
 require('pidof "$BINARY_NAME"' in state and 'redsocks_pid_status' in state and
         'return 2' in state and 'return 1' in state and 'return 0' in state,

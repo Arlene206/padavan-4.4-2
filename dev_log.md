@@ -1,3 +1,11 @@
+## 2026-11-19 06:05 CST (UTC+8) — Close Redsocks heredoc-aware source contract
+
+- Parent main SHA: `81348ba7fc8cc3affcc2fa5a4b48c87ad48b906d`. Shadowsocks lifecycle push run `44406248171` passed after the oversea profile regression PASS marker was correctly read from `tests/start_status.sh`. Earlier exact `5debbf4` run had shell syntax and every runtime regression pass; its source checker failed only on that stale marker location. The `5debbf4` XY-C1 run `44406037894` remained IN_PROGRESS at checkpoint (Build in progress, TRX/artifact pending).
+- Redsocks source/test SHA `e01cb8e8a74ed9a22f2b81374679be460dea6bfb`: shell syntax and runtime tests passed, but the checker parser's generic brace scan stopped at a brace-only line inside the config heredoc and missed both start call paths. Change checker extraction to terminate at the next top-level `func_clean(){` declaration; do not weaken the existing callsite or test assertions.
+- Update the handoff and roadmap to reflect live main `81348ba`, the Shadowsocks L2 PASS, and the pending Redsocks checker rerun. The archived backup remains untouched. No Redsocks firmware L3 or physical-router L4 claim.
+
+---
+
 ## 2026-11-19 05:15 CST (UTC+8) — Verify Redsocks detached startup readiness
 
 - Parent main SHA: `3dd89aa3d401f82ab32216cafb6f896ce458e451`. Exact-main Process inventory `44402419113` and Process lifecycle regression `44402419118` both passed, including the existing WireGuard lifecycle test path.

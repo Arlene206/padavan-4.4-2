@@ -1,12 +1,14 @@
-# 2026-11-19 continuation checkpoint — verify Redsocks detached startup readiness
+# 2026-11-19 continuation checkpoint — complete Redsocks detached-start contract
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; all development remains on `main`. Live recovery HEAD: `3dd89aa3d401f82ab32216cafb6f896ce458e451` (`Remove accumulated WireGuard masquerade duplicates`).
-- Exact-main Actions on `3dd89aa`: Process lifecycle inventory `44402419113` and Process inventory/lifecycle regression `44402419118` both completed SUCCESS. The latter includes the WireGuard lifecycle test path. The preceding WireGuard checker repair SHA `7b2bafe88510a6a16f1a2dc7c8221526eb81598e` also had exact Process inventory/regression PASS (`44401360468`, `44401360690`).
-- The preceding WAN callback hardening source `3c57e3a951ce78a52d1ebc510feff899a386be84` is present. Its initial WAN-route/HTTPD/Process failures were stale source contracts; follow-up checker commit `6a42ddbfddf98b97ebee280b989da49a949c90ef` passed exact WAN route `44396594883`, HTTPD `44396594914`, Process lifecycle `44396594782`, Process inventory `44396594838`, AI docs `44396595183` and NVRAM audit `44396595064`. Do not repeat that completed repair.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged; its valid CA-bootstrap and AliDDNS HMAC work is already present on main and must not be ported a second time.
-- No physical-router L4 validation is available. Preserve the distinction between host/Actions checks, target Build/TRX evidence and hardware behavior.
+- Repository: `Arlene206/padavan-4.4-2`; all development remains on `main`. Live HEAD at checkpoint: `81348ba7fc8cc3affcc2fa5a4b48c87ad48b906d` (`Check oversea DNSMasq regression in its test file`).
+- Exact `81348ba` Shadowsocks lifecycle run `44406248171` completed SUCCESS. Its predecessor `5debbf416f70cb136a7ad2859b002033143b4357` fixed an `elif` syntax error and passed shell syntax plus all runtime regressions; its source checker then exposed one stale location assertion for the oversea profile PASS marker. Commit `81348ba` correctly reads that marker from `tests/start_status.sh`; exact workflow now passes. Exact `5debbf` XY-C1 run `44406037894` was still building when last checked; Build was IN_PROGRESS and TRX/artifact steps PENDING. Do not claim L3 until this exact source SHA completes all required steps.
+- Exact `7c3fe66` XY-C1 run `44404566282` completed SUCCESS (Build, TRX verification and artifact upload); this is evidence for that earlier product-source SHA only, not the later Shadowsocks source changes.
+- Redsocks source/test SHA `e01cb8e8a74ed9a22f2b81374679be460dea6bfb`: AI docs `44403807297` PASS; Process inventory `44403806732` PASS; Redsocks run `44403806558` passed shell syntax and runtime regression but failed its source checker because the generic brace extractor ended inside the configuration heredoc. This commit changes only extraction to delimit `func_start()` at the next top-level `func_clean(){` declaration; all assertions remain intact. Exact-head Redsocks rerun is required.
+- WireGuard lifecycle and Process regression passed on exact `3dd89aa3d401f82ab32216cafb6f896ce458e451` (runs `44402419113` and `44402419118`). WAN callback follow-up contracts on `6a42ddbfddf98b97ebee280b989da49a949c90ef` passed WAN route `44396594883`, HTTPD `44396594914`, Process `44396594782`, Process inventory `44396594838`, AI docs `44396595183`, and NVRAM audit `44396595064`; do not repeat those repairs.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged; its valid CA-bootstrap and AliDDNS HMAC work is already present on main.
+- Physical-router L4 remains NOT VERIFIED. Distinguish host/Actions tests from target firmware Build/TRX/artifact evidence.
 
 ## Completed prerequisite — switch VLAN WAN gate
 
@@ -77,24 +79,23 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Implement and validate Redsocks detached-start readiness in `trunk/user/redsocks/redsocks.sh`.
+Complete the Redsocks detached-start readiness slice by repairing its source-contract parser.
 
-- The packaged configuration sets `daemon = on`; `func_redsocks` returning zero only confirms that launch was requested. Before this slice, both `func_start()` branches immediately reported `STARTED.` without confirming the forked daemon survived. A bind/config/runtime failure could therefore be returned as a successful service start.
-- Add a five-probe tri-state readiness wait. Only `redsocks_process_state()==RUNNING` succeeds; confirmed ABSENT is retried with four bounded one-second sleeps then times out; UNKNOWN and sleep failure abort immediately. Preserve the launcher's exact nonzero status. Both existing-config and generated-config launch paths use the same verified helper and must not log STARTED on failure.
-- Extend `scripts/tests/redsocks_lifecycle.sh` for delayed RUNNING, ABSENT timeout, UNKNOWN, sleep failure, exact launcher-status preservation and the generated-config path. Extend `scripts/check_redsocks_lifecycle.py` to require the integration and retain the prior stop/restart assertions. Existing `.github/workflows/redsocks-lifecycle.yml` push/pull_request filters already cover all changed source/test/checker paths; no workflow filter changes are needed.
-- Parent main SHA: `3dd89aa3d401f82ab32216cafb6f896ce458e451`. This logical slice is committed atomically with tests and the handoff/log/roadmap checkpoint. No local repository checkout is available in this connector-only environment; exact-head push Actions are the required L2 execution evidence.
+- Production fix and runtime tests are committed in `e01cb8e8a74ed9a22f2b81374679be460dea6bfb`: after the `daemon=on` launch, both existing-config and generated-config paths require bounded tri-state RUNNING confirmation; ABSENT times out after four waits; UNKNOWN/sleep failure fail closed; launcher errors are preserved.
+- Exact `e01cb8e` Redsocks run `44403806558`: Bash syntax and the complete runtime regression PASS; Python source contract FAIL because its generic brace parser treated closing braces inside the config heredoc as the end of `func_start()`. The checker now slices from `func_start(){` to the next top-level `func_clean(){` boundary, keeping all existing assertions and test markers.
+- Existing `.github/workflows/redsocks-lifecycle.yml` already watches source, test and checker paths for push and pull_request. Validate the source-contract repair on the follow-up exact `main` SHA before marking Redsocks L2 complete.
 
 ## Verification boundary
 
-- Baseline exact-main SHA `3dd89aa3a401f82ab32216cafb6f896ce458e451`: Process inventory and Process lifecycle regression both PASS, including the existing WireGuard lifecycle integration.
-- Redsocks readiness regression and source contract must run on the new exact `main` SHA after push. Treat the workflow as PENDING until its push run has a completed conclusion and exact matching `head_sha`.
-- This slice changes an add-on shell launcher and host test/checker, not firmware C/build inputs. Do not claim a new MIPS build or L3 result from the previous XY-C1 run. Physical router L4 remains NOT VERIFIED.
+- Exact `e01cb8e`: shell syntax PASS; full Redsocks runtime regression PASS; source-contract checker FAIL on parser scope only. AI docs and Process inventory on that SHA PASS.
+- This checker-only repair must receive a passing Redsocks push run whose `head_sha` exactly equals its new commit. The separate Shadowsocks checker run `44406248171` on `81348ba` is already SUCCESS.
+- Exact `7c3fe66` XY-C1 Build/TRX/artifact all passed. The subsequent Shadowsocks production-source change at `acea79b` and its syntax repair at `5debbf4` require the pending exact `5debbf` XY-C1 run to complete before a new L3 claim. No Redsocks firmware L3 claim; physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect Redsocks lifecycle run(s) whose event is `push` and whose `head_sha` exactly matches the new main commit. If the regression or checker fails, repair the concrete cause without weakening tri-state or readiness assertions.
-2. When the Redsocks exact-head L2 check passes, continue the P1 repository-wide service lifecycle/start-result audit from `REFACTOR_ROADMAP.md`; select a different unfinished subsystem and avoid repeating verified work.
-3. Keep the archival backup immutable. Do not trigger a firmware build for this shell-only change, and do not claim physical-router L4.
+1. Inspect the Redsocks lifecycle push workflow for the latest main SHA. Confirm both `Run Redsocks bounded process lifecycle regression` and `Verify Redsocks source contract` pass on the exact same `head_sha`; if not, fix the concrete source/checker mismatch without relaxing assertions.
+2. Recheck XY-C1 run `44406037894` on source `5debbf416f70cb136a7ad2859b002033143b4357`; count L3 only if Build XY-C1, TRX verification and artifact upload all complete successfully.
+3. When Redsocks L2 is green, continue the P1 whole-userland service lifecycle/start-result work from `REFACTOR_ROADMAP.md`; do not repeat verified Shadowsocks, WireGuard or WAN callback fixes. Keep the archival backup immutable.
 
 ## Mandatory handoff checkpoint
 
