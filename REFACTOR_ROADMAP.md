@@ -1,11 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS storage share-name fix: `e52d186ad67427672ea199210e59fc5bf42f2557`; frozen backup unchanged `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent `e52d186a` PASS: USB modem `44214240090`, AI `44214239903`, infosvr `44214239886`, HTTPD Security `44214240078`, AliDDNS `44214240027`, AdGuardHome `44214240003`, Process lifecycle `44214239950`. NVRAM `44214240232`, AliyunDrive `44214239907` and Process inventory `44214239911` were still in progress.
-- `mdev_sd_main()` / `mdev_mmc_main()` returned success after share-name overflow and ignored negative `snprintf()` results. THIS fix rejects incomplete formatting, logs, sets topology failure and prevents automount; adds GNU89/Werror/ASan/UBSan tests and both-caller source contracts.
+- Parent main before THIS TTY metadata publication fix: `9ff3bc667ea0507f311b417f16ed3b324cf19ae6`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact parent storage hotplug `44214586174` and process lifecycle inventory `44214586292` PASS; XY-C1 Build/validation `44214586399`, NVRAM `44214586157` and several independent Actions were pending at last poll.
+- `mdev_tty_main()` previously left the prior identity file intact if metadata replacement failed, then returned success. THIS uses cleanup-aware `modem_node_file_publish_identity()`, preserves cleanup status and returns failure if publishing or stale-record removal fails.
+- Existing metadata file regression covers failed-write cleanup; the USB modem workflow now asserts TTY caller use and status handling.
 - Firmware L3 and physical L4 NOT VERIFIED.
 
-Next: verify exact-head storage hotplug regression and remaining NVRAM/AliyunDrive/Process Actions; continue independent P1 fixes.
+Next: verify exact-head USB TTY/identity contract and XY-C1 build stages; continue independent P1 work.
+
 
 ---
 

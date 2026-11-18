@@ -402,7 +402,7 @@ out_unlock:
 
 int mdev_tty_main(int argc, char **argv)
 {
-	int isLock, devnum, has_int_pipe, data_len;
+	int isLock, devnum, has_int_pipe, data_len, publish_status, metadata_status = 0;
 	char usb_port_id[64], usb_interface_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -425,7 +425,10 @@ int mdev_tty_main(int argc, char **argv)
 
 	// If remove the device?
 	if(!get_hotplug_action(action)){
-		modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0) {
+			usb_dbg("(%s): Failed to remove TTY metadata.\n", device_name);
+			metadata_status = 1;
+		}
 		
 		if (get_usb_modem_wan(0))
 			notify_rc("on_unplug_usb_modem");
@@ -440,20 +443,29 @@ int mdev_tty_main(int argc, char **argv)
 	usb_interface_id[0] = '\0';
 	if (!get_usb_interface_by_device(device_name, usb_interface_id, sizeof(usb_interface_id))) {
 		usb_dbg("(%s): USB interface topology is not ready; refusing modem metadata.\n", device_name);
-		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0) {
+			usb_dbg("(%s): Failed to remove stale TTY metadata.\n", device_name);
+			metadata_status = 1;
+		}
 		goto out_unlock;
 	}
 	usb_interface_id[sizeof(usb_interface_id) - 1] = '\0';
 	if (!get_usb_port_by_interface_string(usb_interface_id, usb_port_id, sizeof(usb_port_id))) {
 		usb_dbg("(%s): USB parent topology is not ready; refusing modem metadata.\n", device_name);
-		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0) {
+			usb_dbg("(%s): Failed to remove stale TTY metadata.\n", device_name);
+			metadata_status = 1;
+		}
 		goto out_unlock;
 	}
 	usb_port_id[sizeof(usb_port_id) - 1] = '\0';
 	devnum = get_usb_devnum(usb_port_id);
 	if (!modem_node_usb_identity_is_valid(usb_port_id, devnum)) {
 		usb_dbg("(%s): USB device number is invalid; refusing modem metadata.\n", device_name);
-		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0) {
+			usb_dbg("(%s): Failed to remove stale TTY metadata.\n", device_name);
+			metadata_status = 1;
+		}
 		goto out_unlock;
 	}
 	has_int_pipe = get_usb_interface_Int_endpoint(usb_interface_id);
@@ -462,9 +474,15 @@ int mdev_tty_main(int argc, char **argv)
 	data_len = snprintf(node_data, sizeof(node_data),
 			    "pref=%d\ndevnum=%d\nportid=%s\n",
 			    (has_int_pipe) ? 1 : 0, devnum, usb_port_id);
-	if (data_len < 0 || data_len >= (int)sizeof(node_data) ||
-	    modem_node_file_write(MODEM_NODE_DIR, device_name, node_data) != 0) {
-		usb_dbg("(%s): Failed to publish modem node metadata.\n", device_name);
+	publish_status = modem_node_file_publish_identity(
+		MODEM_NODE_DIR, device_name, node_data,
+		data_len >= 0 && data_len < (int)sizeof(node_data));
+	if (publish_status != 0) {
+		if (publish_status == -2)
+			usb_dbg("(%s): Failed to publish and remove stale TTY metadata.\n", device_name);
+		else
+			usb_dbg("(%s): Failed to publish TTY metadata; stale metadata removed.\n", device_name);
+		metadata_status = 1;
 		goto out_unlock;
 	}
 
@@ -476,6 +494,6 @@ int mdev_tty_main(int argc, char **argv)
 out_unlock:
 	file_unlock(isLock);
 
-	return 0;
+	return metadata_status;
 }
 

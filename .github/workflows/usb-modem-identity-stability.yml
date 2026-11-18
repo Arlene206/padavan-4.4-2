@@ -155,6 +155,14 @@ jobs:
           net = body(hotplug, "int mdev_net_main(")
           assert "data_len >= 0 && data_len < (int)sizeof(node_data)" in net
           assert "modem_node_file_publish_identity(" in net
+          tty = body(hotplug, "int mdev_tty_main(")
+          assert "publish_status = modem_node_file_publish_identity(" in tty
+          assert "if (publish_status != 0)" in tty
+          assert "Failed to publish and remove stale TTY metadata" in tty
+          assert "Failed to publish TTY metadata; stale metadata removed" in tty
+          assert "metadata_status = 1;" in tty
+          assert "return metadata_status;" in tty
+          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name)" in tty
           assert "publish_status == -2" in net
           publish = body(metadata, "modem_node_file_publish_with_cleanup(")
           assert "write_fn(directory, name, contents) == 0" in publish

@@ -1,29 +1,28 @@
-# 2026-11-18 continuation checkpoint — fail closed on storage share-name truncation
+# 2026-11-18 continuation checkpoint — fail closed on TTY metadata publication
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS storage hotplug naming fix: `e52d186ad67427672ea199210e59fc5bf42f2557`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS TTY metadata publication fix: `9ff3bc667ea0507f311b417f16ed3b324cf19ae6`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact parent `e52d186a` USB modem `44214240090` PASS, AI handoff `44214239903` PASS, infosvr `44214239886` PASS, HTTPD Security `44214240078` PASS, AliDDNS `44214240027` PASS, AdGuardHome `44214240003` PASS, Process lifecycle `44214239950` PASS. NVRAM audit `44214240232`, AliyunDrive `44214239907`, and Process inventory `44214239911` were IN_PROGRESS at last poll.
-- Exact parent `e52d186a` also fixed the preceding NDIS metadata writer: real newline separators replace literal backslash-n escapes; its USB caller assertion and WDM/NDIS regression PASS.
-- Found a false-success path in both `mdev_sd_main()` and `mdev_mmc_main()`: truncated share-name `snprintf()` went to `out_unlock` with `topology_status == 0`, so the hotplug handler returned success despite skipping automount. Their old `>= sizeof` check also failed to reject a negative formatting error. THIS fix uses a shared pure policy to accept only nonnegative lengths strictly below the buffer size; each caller logs, sets `topology_status = 1`, then unlocks.
-- The intended no-mount skip for a disk containing the root partition remains unchanged. Added GNU89/Werror/ASan/UBSan tests for fit, truncation, negative result and zero capacity; the storage workflow pins both SD/MMC call paths.
-- No same-SHA firmware L3 or physical-router L4 claim.
+- Exact parent storage hotplug workflow `44214586174` PASS and process lifecycle inventory `44214586292` PASS. XY-C1 firmware validation `44214586399`, NVRAM audit `44214586157`, and several other exact-parent workflows were IN_PROGRESS at last poll.
+- The NDIS metadata newline defect was corrected in `e52d186a`; the exact e52 USB modem workflow `44214240090` PASS. SG/ZeroCD status propagation is in `b103a8e4`, and the SG policy include was fixed/verified in `2e01dae1`.
+- Found a stale-identity risk in `mdev_tty_main()`: when `modem_node_file_write()` fails, the handler leaves the previous TTY metadata file in place, then returns success. The line-reader can later accept that stale `portid/devnum` record if a node name and USB identity are reused. Unlike NDIS, the TTY path did not use `modem_node_file_publish_identity()`, which removes the old record after a failed replacement and distinguishes cleanup failure (-2).
+- THIS fix uses the cleanup-aware identity publisher for TTY metadata, returns a nonzero status on publication or stale-file removal failure, and keeps the existing benign behavior when topology is unavailable and stale metadata is successfully removed. The existing `modem_node_file.c` regression exercises failed-publication cleanup; the USB workflow now pins the TTY caller contract.
+- No same-SHA XY-C1 Build/TRX/artifact evidence yet; firmware L3 and physical-router L4 NOT VERIFIED.
 
 ## Active task
-- Make SD/MMC hotplug accurately fail when its exported share name cannot be represented, instead of reporting success after skipping automount.
+- Prevent failed TTY metadata replacement from preserving stale USB identity and being reported as success; make cleanup status observable.
 
 ## Verification boundary
-- Exact parent USB modem, AI, infosvr, HTTPD, AliDDNS, AdGuardHome and Process lifecycle Actions PASS.
-- Exact parent NVRAM, AliyunDrive and Process inventory checks were pending at last poll.
-- THIS storage share-name policy and its whole-workflow source contract have not run on its exact SHA. Firmware L3 and hardware L4 NOT VERIFIED.
+- Exact parent storage hotplug and process lifecycle runs PASS.
+- XY-C1 firmware, NVRAM audit and several other Actions were IN_PROGRESS at last poll.
+- THIS TTY source-contract slice's exact-head USB workflow is pending. Firmware L3 and physical L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head storage hotplug workflow and require GNU89 sanitizer policy plus both SD/MMC caller contracts to PASS.
-2. Inspect exact-head NVRAM, AliyunDrive and Process inventory results.
-3. Confirm whether XY-C1 firmware validation is triggered for the product-source SHA; L3 only after same-SHA Build, TRX and artifact upload all PASS.
-4. Continue an independent P1 reliability/security fix while pending Actions execute. Keep the backup unchanged; do not repeat bootstrap recovery.
+1. Inspect exact-head USB modem workflow; require TTY cleanup caller assertions, existing metadata cleanup tests, NDIS/WDM identity tests and SG/ZeroCD/CD policy tests to PASS.
+2. Inspect the exact-parent XY-C1 Build/TRX/artifact steps, NVRAM audit and remaining lifecycle Actions; L3 only if Build, TRX and upload pass on one SHA.
+3. Continue an independent P1 userland reliability/security defect while pending Actions run.
+4. Keep the frozen backup unchanged and use one full tree/commit with expected-SHA update for each logical change.
 
-Every logical multi-file change is one atomic main commit built from one complete Git tree and updated by non-forced expected-SHA compare-and-swap.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.

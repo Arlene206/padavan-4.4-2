@@ -1,3 +1,11 @@
+## 2026-11-18 — Clean stale TTY identity after failed metadata replacement
+
+- Parent main SHA: `9ff3bc667ea0507f311b417f16ed3b324cf19ae6`. Exact storage hotplug `44214586174` and process lifecycle inventory `44214586292` PASS; XY-C1 `44214586399`, NVRAM `44214586157` and other Actions pending at last poll.
+- `mdev_tty_main()` used `modem_node_file_write()` directly. On write failure it neither removed the old TTY identity file nor returned failure, so a stale USB port/devnum record could survive a node replacement.
+- Switch to `modem_node_file_publish_identity()`, which atomically replaces the file and removes stale metadata when a write fails; propagate publication and removal errors after releasing the lock. Extend the USB caller source contract; existing `modem_node_file.c` cleanup regression exercises the helper.
+
+---
+
 ## 2026-11-18 — Report SD/MMC share-name formatting failures
 
 - Parent main SHA: `e52d186ad67427672ea199210e59fc5bf42f2557`. Exact USB modem `44214240090`, AI docs `44214239903`, infosvr `44214239886`, HTTPD Security `44214240078`, AliDDNS `44214240027`, AdGuardHome `44214240003` and Process lifecycle `44214239950` PASS; NVRAM `44214240232`, AliyunDrive `44214239907` and Process inventory `44214239911` were in progress.
