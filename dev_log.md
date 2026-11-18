@@ -1,3 +1,12 @@
+## 2026-11-18 11:03 Beijing — Restore mandatory handoff checkpoint wording
+
+- Parent main SHA: `45ed6be1ad788a77982ce7f4e8683557265a496b`.
+- The exact-head AI handoff run `44222138719` failed only because `SESSION_HANDOFF.md` retained the checkpoint heading and accuracy instructions but omitted the contract's required sentence: “The checkpoint is mandatory; a document edit is conditional.”
+- Restore the literal required sentence and preserve the full end-of-session live-state/Actions/roadmap/first-task inspection. No product source or workflow trigger is changed.
+- On parent 45ed, Infosvr `44222138695` and AliyunDrive `44222138760` PASS after their path-filter checker fixes. AI handoff requires this documentation-only rerun. No new firmware source validation is implied.
+
+---
+
 ## 2026-11-17 — Align module checkers with narrowed documentation triggers
 
 - Parent main `a4d5a10b426159712b7d85c368e7e3973f90b674` removed canonical handoff/roadmap/log files from the Infosvr and AliyunDrive workflow path filters to prevent documentation-only pushes from running unrelated product regressions.

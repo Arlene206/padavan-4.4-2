@@ -26,6 +26,8 @@
 4. Keep the frozen backup unchanged and publish full-tree atomic commits through non-forced expected-SHA updates.
 
 ## Mandatory handoff checkpoint
+The checkpoint is mandatory; a document edit is conditional. At session end inspect live main, relevant exact-SHA Actions, current handoff/roadmap, validation boundary and first actionable task. If all remain accurate, explicitly conclude with no file change and no commit.
+
 At session end inspect live main, relevant exact-SHA Actions, current handoff/roadmap, validation boundary and first actionable task. If all remain accurate, explicitly conclude with no file change and no commit.
 
 Do not create no-op documentation commits; update only at meaningful validation/active-task boundaries.
