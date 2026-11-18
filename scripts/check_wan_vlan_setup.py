@@ -246,8 +246,13 @@ for operation in ("ret = create_vlan_iface(", "ret = config_soft_bridge_wan(",
     require(operation_pos < error_gate < error_return < publish_pos,
             f"IPTV setup must abort before interface publication after {operation}")
 restart = body(wan, "full_restart_wan(void)")
-require("config_soft_bridge_lan() != 0" in restart,
-        "full WAN restart must stop when LAN-side VLAN bridge setup fails")
+lan_bridge_call = restart.index("status = config_soft_bridge_lan();")
+lan_bridge_gate = restart.index("if (status != 0)", lan_bridge_call)
+lan_bridge_log = restart.index("LAN bridge VLAN setup failed (status=%d)", lan_bridge_gate)
+lan_bridge_return = restart.index("return status;", lan_bridge_log)
+wan_restart = restart.index("status = start_wan();")
+require(lan_bridge_call < lan_bridge_gate < lan_bridge_log < lan_bridge_return < wan_restart,
+        "full WAN restart must preserve LAN-side VLAN bridge setup failure before WAN startup")
 
 push, pr = workflow.split("  pull_request:", 1)
 pr = pr.split("\njobs:", 1)[0]

@@ -5182,8 +5182,12 @@ jobs:
           assert stop_wan.index("stop_vpn_client_under_lifecycle_lock() != 0") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")
           wan_stop_lock = body(wan, "run_wan_stop_under_vpn_lifecycle_lock(int (*operation)(void), const char *name)")
           assert wan_stop_lock.index("vpn_server_lifecycle_lock_acquire()") < wan_stop_lock.index("result = operation()") < wan_stop_lock.index("vpn_server_lifecycle_lock_release(lock_fd)")
-          assert "if (stop_wan() != 0)" in full_restart
-          assert full_restart.index("if (stop_wan() != 0)") < full_restart.index("reset_wan_vars();")
+          stop_wan_call = full_restart.index("status = stop_wan();")
+          stop_wan_gate = full_restart.index("if (status != 0)", stop_wan_call)
+          stop_wan_return = full_restart.index("return status;", stop_wan_gate)
+          stop_wan_reset = full_restart.index("reset_wan_vars();")
+          assert "services did not stop (status=%d)" in full_restart
+          assert stop_wan_call < stop_wan_gate < stop_wan_return < stop_wan_reset
           assert "status = stop_wan();" in reconnect
           assert "if (status != 0)" in reconnect
           assert reconnect.index("status = stop_wan();") < reconnect.index("if (status != 0)") < reconnect.index("reset_wan_vars();")

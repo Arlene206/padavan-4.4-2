@@ -1,3 +1,10 @@
+## 2026-11-18 — Align WAN restart regression contracts with propagated teardown statuses
+
+- Parent main: `5ddc031903da062cdd55784c8f9c31fe2c1c0d9e`. Exact-head CI for `5ddc0319` verified the new full-restart source behavior but exposed three stale callers' tests: HTTPD still required `if (stop_wan() != 0)`; WAN VLAN still required an inline `config_soft_bridge_lan() != 0`; WAN teardown searched for both old inline bridge gates and generic `return -1`.
+- Update those contracts to require status capture, nonzero gate, operation-specific diagnostic, unchanged `return status;`, and prevention of later reset/start steps. No product source behavior is changed in this test-only follow-up.
+- Exact-head HTTPD, WAN-route and WAN-teardown Actions must pass again; 5ddc0319 XY-C1 was in progress at observation and its Build/TRX/artifact state remains separately pending.
+
+---
 ## 2026-11-17 — Preserve concrete WAN restart teardown errors
 
 - Parent main: `059de22e8e646f238606d543fd8ccbda3cce7fa2`. `full_restart_wan()` discarded three distinct lower-level failures: `stop_wan()`, `disassembly_bridges_wan()` and `config_soft_bridge_lan()` were each converted to generic `-1`, and the log omitted the actual status. These helpers already return checked error codes, including the first bridge teardown failure. Capture each result, log it and return it unchanged before proceeding to route/switch/restart work.
