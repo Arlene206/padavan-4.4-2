@@ -400,7 +400,7 @@ jobs:
       - name: Compile and run RC LAN restart first-error aggregation regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
-            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            -fno-omit-frame-pointer -I trunk/user/shared/src -I trunk/user/rc/src \
             trunk/user/rc/src/tests/service_start_status.c \
             -o "$RUNNER_TEMP/service-start-status"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/service-start-status"
