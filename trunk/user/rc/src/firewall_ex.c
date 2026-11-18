@@ -40,6 +40,7 @@
 #include "firewall_restore_transaction.h"
 #include "firewall_module_table_policy.h"
 #include "firewall_mangle_ttl_policy.h"
+#include "firewall_rp_filter_policy.h"
 #include "firewall_hook_file.h"
 #if defined (APP_ADBYBY)
 #include "firewall_adbyby_restore_policy.h"
@@ -2787,7 +2788,7 @@ start_firewall_ex(void)
 {
 	int unit, wan_proto, i_tcp_mss, i_use_man, i_rp;
 	int status = 0;
-	int hook_error, forward_status;
+	int hook_error, forward_status, rp_filter_write_status;
 	char int_iptables_staged[256] = {0};
 	char opt_iptables_staged[256] = {0};
 #if defined (APP_SHADOWSOCKS)
@@ -2895,7 +2896,20 @@ start_firewall_ex(void)
 #endif
 	    )
 		i_rp = 0;
-	set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp);
+	/* Do not silently retain a stale rp_filter mode after a failed write.
+	 * A missing interface is harmless for the restrictive default value (1),
+	 * but multicast features that require value 0 must not proceed without it. */
+	rp_filter_write_status = set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp);
+	status = firewall_rp_filter_write_status(
+		man_if[0] && is_interface_exist(man_if), i_rp,
+		rp_filter_write_status, errno);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "IPv4 rp_filter update failed for interface '%s' (value=%d, status=%d); aborting firewall rebuild",
+			   man_if, i_rp, status);
+		errno = status;
+		return status;
+	}
 
 	/* Determine the log type */
 	if (nvram_match("fw_log_x", "accept") || nvram_match("fw_log_x", "both"))
