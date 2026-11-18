@@ -1,28 +1,28 @@
-# 2026-11-18 continuation checkpoint — include SCSI generic readiness policy
+# 2026-11-18 continuation checkpoint — report ZeroCD mode-switch failures
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS compile-contract correction: `bdeeee072c705524230d64986bdeffd5f41ff373`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS ZeroCD status fix: `2e01dae1878bdc984326895d5f464789bdcc3d76`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
-- Exact parent `bdeeee07` USB modem workflow `44212660230` FAILed at inline source-contract line 95: `hotplug_usb.c` did not include `modem_sg_module_policy.h` even though the SG handler called its readiness helper. The new SCSI CD and SG module policy executables ran before this assertion; the failure is an actual missing production include, not a stale assertion. THIS commit adds the include; source contract remains.
-- Exact parent `bdeeee07` AI handoff `44212660039`, Process inventory `44212660239`, AliyunDrive `44212660024`, HTTPD Security `44212660097`, infosvr `44212660165`, AliDDNS `44212660765`, AdGuardHome `44212660124`, and Process lifecycle inventory `44212660079` PASS. NVRAM audit `44212660076` remains IN_PROGRESS at last poll.
-- SCSI CD eject/unload status handling is committed in `2fc75549`; SG readiness policy and caller logic are in `bdeeee07`. THIS commit closes the missing-header gap.
-- No exact-current-SHA XY-C1 Build/TRX/artifact or physical-router L4 claim.
+- Exact parent `2e01dae1` USB modem workflow `44213177117` PASS. The missing SG policy include fixed in `2e01dae` is now verified together with the SG/CD sanitizer tests, source contract and event filters.
+- Exact parent AI handoff `44213177260`, AdGuardHome `44213177186`, infosvr `44213177162`, AliDDNS `44213177125`, AliyunDrive `44213177140`, HTTPD Security `44213177111`, Process lifecycle `44213177094` and Process inventory `44213177132` PASS. NVRAM audit `44213177187` remained IN_PROGRESS at last poll.
+- Found another false-success path in `mdev_sg_main()`: when `modem_zcd == 0` and USB port/VID/PID discovery succeeds, the handler invokes `/sbin/zerocd` with `_eval()` but discards the return value, then prints success. `_eval()` returns the child's exit code or a nonzero errno on launch/wait failure. THIS slice captures the result, maps it through a pure status policy, logs and releases the hotplug lock before returning failure. The legacy no-op when USB identity cannot be resolved remains unchanged.
+- Extends the GNU89/Werror/ASan/UBSan SG policy regression and the USB source contract for ZeroCD success/failure propagation.
+- No exact-current-SHA XY-C1 Build/TRX/artifact evidence; firmware L3 and physical-router L4 NOT VERIFIED.
 
 ## Active task
-- Complete the SG readiness integration by including the policy header required by `mdev_sg_main()`; rerun USB hotplug policy/source contracts.
+- Prevent `mdev_sg_main()` from claiming success after an attempted `zerocd` command fails; preserve the existing no-op when the USB path or VID/PID cannot be resolved.
 
 ## Verification boundary
-- Exact parent SG/SCSI GNU89/Werror/ASan/UBSan test binaries completed before the inline source assertion; full USB workflow FAILed because of the missing include.
-- Exact parent AI docs, Process inventory, AliyunDrive, HTTPD, infosvr, AliDDNS, AdGuardHome and process inventory workflows PASS.
-- NVRAM audit still pending; THIS include fix's exact-head USB rerun pending. Firmware L3 and hardware L4 NOT VERIFIED.
+- Exact parent USB modem, AI handoff, AdGuardHome, infosvr, AliDDNS, AliyunDrive, HTTPD Security, Process lifecycle and Process inventory workflows PASS.
+- NVRAM audit `44213177187` was IN_PROGRESS at last observation.
+- THIS ZeroCD source/policy/workflow slice's exact-head Actions are pending. Firmware L3 and physical L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head USB modem workflow; require both SCSI policy binaries, source-body assertions and WDM identity/path-filter checks to PASS.
-2. Inspect NVRAM audit `44212660076` and any exact-head reruns.
-3. Check whether XY-C1 Build/TRX/artifact is triggered for this source SHA; no L3 claim without all three passing.
-4. Continue another independent P1 reliability/security slice while pending Actions run. Keep backup unchanged; do not repeat bootstrap recovery.
+1. Inspect the exact-head USB modem workflow; require the SG readiness and ZeroCD policy cases, CD policy regression, WDM identity source contract and push/PR path filters to PASS.
+2. Check NVRAM audit `44213177187` and any current exact-SHA reruns.
+3. Continue an independent P1 userland storage/security issue while Actions run; check XY-C1 L3 only if Build, TRX verification and artifact upload all pass on one SHA.
+4. Keep the frozen backup unchanged and publish multi-file changes atomically to main with a non-forced expected-SHA update.
 
-Every logical multi-file change is one atomic main commit built from one complete Git tree and updated by non-forced expected-SHA compare-and-swap.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.

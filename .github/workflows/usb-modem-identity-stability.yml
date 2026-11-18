@@ -204,14 +204,21 @@ jobs:
           assert 'module_presence = is_module_loaded_status("sr_mod");' in sg
           assert "modem_sg_module_ready_status(module_presence)" in sg
           assert "SCSI generic module unavailable" in sg
+          assert 'int zerocd_status = _eval(zerocd_argv, NULL, 0, NULL);' in sg
+          assert "modem_sg_zerocd_command_status(zerocd_status)" in sg
+          assert "ZeroCD mode switch failed" in sg
+          assert sg.index("int zerocd_status = _eval") < sg.index("modem_sg_zerocd_command_status")
           assert sg.index("module_load_status = module_smart_load") < sg.index("is_module_loaded_status")
           assert sg.index("is_module_loaded_status") < sg.index("modem_sg_module_ready_status")
           assert "return (module_presence == 1) ? 0 : -1;" in sg_policy
+          assert "return (command_status == 0) ? 0 : -1;" in sg_policy
           for marker in (
               "test_loaded_module_is_ready",
               "test_absent_module_is_not_ready",
               "test_unknown_module_state_fails_closed",
-              "USB SCSI generic module readiness policy: PASS",
+              "test_zerocd_success_is_accepted",
+              "test_zerocd_failure_is_reported",
+              "USB SCSI generic/ZeroCD command status policy: PASS",
           ):
               assert marker in sg_test
 

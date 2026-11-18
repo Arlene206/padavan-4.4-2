@@ -1,11 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- Main parent before THIS SG policy include correction: `bdeeee072c705524230d64986bdeffd5f41ff373`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent USB modem workflow `44212660230` ran the new SCSI CD and SG GNU89/Werror/ASan/UBSan policy binaries, then failed at the caller source contract because `hotplug_usb.c` omitted the included SG readiness header. THIS correction adds `#include "modem_sg_module_policy.h"`.
-- Exact parent PASS: AI `44212660039`, Process inventory `44212660239`, AliyunDrive `44212660024`, HTTPD `44212660097`, infosvr `44212660165`, AliDDNS `44212660765`, AdGuardHome `44212660124`, Process lifecycle inventory `44212660079`. NVRAM `44212660076` remains in progress.
-- No same-SHA XY-C1 Build/TRX/artifact evidence or physical-router L4.
+- Parent main before THIS ZeroCD status propagation fix: `2e01dae1878bdc984326895d5f464789bdcc3d76`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact parent USB modem `44213177117` PASS, including the SG readiness include/contract, SG and CD GNU89 sanitizer regressions, WDM identity check and event filters.
+- Exact parent AI `44213177260`, AdGuardHome `44213177186`, infosvr `44213177162`, AliDDNS `44213177125`, AliyunDrive `44213177140`, HTTPD `44213177111`, Process lifecycle `44213177094` and Process inventory `44213177132` PASS. NVRAM `44213177187` IN_PROGRESS.
+- `mdev_sg_main()` ignored the `/sbin/zerocd` `_eval()` result when USB path and VID/PID were resolved. THIS captures the exit/launch status, returns failure on nonzero and preserves the previous identity-resolution no-op.
+- No same-SHA XY-C1 Build/TRX/artifact or physical-router L4 evidence.
 
-Next: exact-head USB rerun; inspect NVRAM audit; continue independent P1 fix.
+Next: verify exact-head USB modem and NVRAM audit; continue independent P1 work.
+
 
 ---
 

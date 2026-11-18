@@ -169,7 +169,15 @@ int mdev_sg_main(int argc, char **argv)
 		if (get_usb_port_by_device(device_name, usb_port_id, sizeof(usb_port_id))) {
 			if (get_usb_vid(usb_port_id, vid, sizeof(vid)) && get_usb_pid(usb_port_id, pid, sizeof(pid))) {
 				char *zerocd_argv[] = { "/sbin/zerocd", vid, pid, NULL };
-				_eval(zerocd_argv, NULL, 0, NULL);
+				int zerocd_status = _eval(zerocd_argv, NULL, 0, NULL);
+
+				if (modem_sg_zerocd_command_status(zerocd_status) != 0) {
+					logmessage("USB",
+						   "ZeroCD mode switch failed for %s (status=%d)",
+						   device_name, zerocd_status);
+					file_unlock(isLock);
+					return 1;
+				}
 			}
 		}
 	}

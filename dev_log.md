@@ -1,3 +1,11 @@
+## 2026-11-18 — Propagate ZeroCD helper failures from SCSI generic hotplug
+
+- Parent main SHA: `2e01dae1878bdc984326895d5f464789bdcc3d76`. Exact parent USB modem `44213177117` PASS; all SG/CD policy binaries, source contract and push/PR filters verified. AI, AdGuardHome, infosvr, AliDDNS, AliyunDrive, HTTPD Security, Process lifecycle and Process inventory also PASS; NVRAM audit `44213177187` remained IN_PROGRESS.
+- In the `modem_zcd == 0` branch, `mdev_sg_main()` discarded the `_eval("/sbin/zerocd", ...)` result and unconditionally reported success. Capture the child exit/launch status; on nonzero, log, unlock and return failure. Preserve the prior no-op when USB topology or VID/PID lookup fails.
+- Extend the SG pure status policy, GNU89/Werror/ASan/UBSan regression and exact workflow source contract. Exact-head USB rerun pending; firmware L3 and hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Include SCSI generic module-readiness policy
 
 - Parent main SHA: `bdeeee072c705524230d64986bdeffd5f41ff373`. Exact parent USB modem workflow `44212660230` compiled/ran both SCSI GNU89/Werror/ASan/UBSan policy binaries but failed the inline caller assertion because `hotplug_usb.c` used `modem_sg_module_ready_status()` without including `modem_sg_module_policy.h`.
