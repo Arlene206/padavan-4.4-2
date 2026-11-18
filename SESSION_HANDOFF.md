@@ -1,8 +1,8 @@
-# 2026-11-18 continuation checkpoint — crond duplicate-start gate
+# 2026-11-19 continuation checkpoint — AP LAN DHCP PHY readiness
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA for this slice: `b26b59b2175492567e2018a93bb41c78e1036bd0`.
+- Repository: Arlene206/padavan-4.4-2; development remains on main. Current main before this documentation-only archive batch: 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1. Current production-source baseline for the AP LAN DHCP fix is 747bb165c61051000dfe6426c0de808cfd96f8b1; follow-up commits 094d488122768b104c54ce371fb92943ceca0689 and 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 only corrected static CI contracts/docs.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,29 +77,30 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Align remaining LAN-startup CI contracts with the corrected AP-mode DHCP PHY-readiness gate.
+Close the AP-mode LAN DHCP PHY-readiness repair and unblock the handoff-document CI rotation.
 
-- Production commit: `747bb165c61051000dfe6426c0de808cfd96f8b1` (parent `a2d0b74112b4002073015dccc5fca88f6ccd43ab`). It keeps the mandatory PHY wait in `phy_wait_status`, aggregates it before the monitor notification, and gates DHCP only on that PHY result.
-- The GNU89 `service_start_status.c` regression passed in Process run `44421896053`; Process itself failed later because the integration checker initially rejected a pre-existing callback-link preflight condition. Test-only correction commit `094d488122768b104c54ce371fb92943ceca0689` narrows that assertion to code after the monitor notification.
-- WAN route run `44421896213` on exact product source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1` failed at its inline LAN source-order contract: it still expected the old `operation_status = service_wait_seconds(1)` and `if (operation_status == 0)` DHCP gate. The production change intentionally replaces those with `phy_wait_status` and `rc_lan_ap_dhcp_start_allowed_after_phy_wait()`. Update the route contract to require the new ordering and preserve its coverage.
-- XY-C1 run `44421896203` validates the exact product-source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1`; check Build, TRX and artifact steps before closing L3. AI docs run `44421896176` passed on that SHA.
-- Storage prerequisite remains complete: USB storage run `44420519515` passed every step on `a2d0b74112b4002073015dccc5fca88f6ccd43ab`.
-- Current correction commit is created directly on parent `094d488122768b104c54ce371fb92943ceca0689`; fetch live main for its exact SHA and inspect exact-head route/Process/AI docs runs.
+- Production defect: trunk/user/rc/src/net_lan.c::start_lan() reused operation_status for both the required one-second PHY settle wait and independent notify_run_detect_internet(60). The second call overwrote PHY failure before the DHCP launch gate. A monitor success could incorrectly permit DHCP after failed PHY readiness; a monitor failure could suppress DHCP despite successful PHY readiness.
+- Production fix commit 747bb165c61051000dfe6426c0de808cfd96f8b1 (parent a2d0b74112b4002073015dccc5fca88f6ccd43ab) retains phy_wait_status, aggregates it independently, and gates DHCP solely on that result. Added GNU89 regression cases exercise both opposite failure combinations.
+- Process regression run 44422350218 and Process lifecycle inventory run 44422350427 both SUCCESS on checker SHA 094d488122768b104c54ce371fb92943ceca0689. The first Process run on production SHA 747 (44421896053) passed the C regression and exposed one too-broad checker assertion; the corrected checker is green on 094.
+- WAN route run 44422787189 SUCCESS on exact main SHA 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1; its PHY wait/source-order checker verifies the separate PHY status and gate helper.
+- XY-C1 source run 44421896203 SUCCESS on exact production-source SHA 747bb165c61051000dfe6426c0de808cfd96f8b1. Its steps include the RC regressions, Build XY-C1, Verify TRX output, and artifact upload; L3 is VERIFIED for this exact production source SHA.
+- AI handoff docs run 44422787322 FAILED on 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 because dev_log.md reached 121 records. This archive commit moves the 101 oldest complete records verbatim to docs/dev-log/2026/11/part-017.md, retaining the newest 20, and updates the index atomically. The batch is 101 because the 120-record threshold had already been exceeded by one entry before catch-up; no history is discarded.
+- Earlier exact source-independent runs: AI docs 44421896176 SUCCESS on source SHA 747; storage 44420519515 SUCCESS on a2d0b74112b4002073015dccc5fca88f6ccd43ab.
+- Current parent for this archive-only commit: 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1. After commit, inspect the new exact-head AI handoff run. No firmware production file is part of this archival commit; no new XY build should be inferred from it.
 
 ## Verification boundary
 
-- L1: PASS — production bug confirmed and fixed in `747bb165c61051000dfe6426c0de808cfd96f8b1`.
-- L2: GNU89 policy regression PASS on `747bb165c61051000dfe6426c0de808cfd96f8b1`; Process source checker correction is in `094d488122768b104c54ce371fb92943ceca0689` and requires exact-head rerun.
-- WAN route regression failed on `747bb165c61051000dfe6426c0de808cfd96f8b1` solely at the stale LAN wait/gate source contract; the new test assertion must retain ordering and error-propagation coverage.
-- L3: XY-C1 run `44421896203` on `747bb165c61051000dfe6426c0de808cfd96f8b1` is PENDING. Build, TRX and artifact upload are required on that exact production source SHA.
-- AI docs run `44421896176` PASS on `747bb165c61051000dfe6426c0de808cfd96f8b1`; storage run `44420519515` PASS on `a2d0b74112b4002073015dccc5fca88f6ccd43ab`.
-- L4: BusyBox target DHCP timing and physical-router behavior remain NOT VERIFIED.
+- L1: PASS — AP LAN DHCP admission is now tied only to mandatory PHY readiness.
+- L2: GNU89 service-start regression PASS in Process run 44421896053; corrected Process regression and inventory PASS on exact SHA 094d488122768b104c54ce371fb92943ceca0689; WAN route integration PASS on exact SHA 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1.
+- L3: PASS for production source SHA 747bb165c61051000dfe6426c0de808cfd96f8b1: XY run 44421896203 completed Build XY-C1, TRX verification and artifact upload successfully.
+- AI handoff docs on SHA 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 failed only on root log rotation threshold (121 entries); the archival correction is included here and requires a fresh exact-head docs run.
+- L4: BusyBox target runtime timing and physical-router LAN DHCP behavior remain NOT VERIFIED. No local compile/test ran in this connector-only session.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head WAN route, Process lifecycle and AI docs runs for the commit immediately after `094d488122768b104c54ce371fb92943ceca0689`. Confirm the route check reaches the new PHY-wait assertions and completes.
-2. Inspect XY-C1 run `44421896203` on production source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1`; only claim L3 after Build XY-C1, TRX verification and artifact upload all pass.
-3. Repair any remaining exact-head failures without deleting the route-order or first-error checks; then continue the next independent P1 whole-userland stability task. Keep the backup branch immutable.
+1. Fetch live main after the archive commit and inspect its exact-head AI handoff documentation Action. Require scripts/check_ai_handoff_docs.py to pass and confirm the root has 20 records, part-017.md is indexed with its exact Git blob SHA/byte count, and every pre-existing archive remains indexed.
+2. Keep the production L3 result tied to SHA 747bb165c61051000dfe6426c0de808cfd96f8b1; do not demand a new firmware build for this documentation-only rotation.
+3. Resume the next independent P1 whole-userland source stability issue; do not repeat audits already closed. Keep the backup branch immutable.
 
 ## Mandatory handoff checkpoint
 
