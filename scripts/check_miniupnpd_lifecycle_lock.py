@@ -34,6 +34,17 @@ assert "O_NOFOLLOW | O_CLOEXEC" in LOCK
 assert "st.st_nlink != 1" in LOCK
 assert "(st.st_mode & 077) != 0" in LOCK
 assert "F_SETLK" in LOCK and "errno = EBUSY" in LOCK
+lock_wait = body(LOCK, "miniupnpd_lifecycle_lock_wait(unsigned int seconds")
+assert "while (remaining > 0)" in lock_wait
+assert "if (next > remaining)" in lock_wait
+assert "remaining = next;" in lock_wait
+lock_acquire = body(LOCK, "miniupnpd_lifecycle_lock_acquire_path(const char *path")
+assert "if (errno == EINTR)" in lock_acquire
+assert lock_acquire.index("if (errno == EINTR)") < lock_acquire.index("attempt++")
+assert "miniupnpd_lifecycle_lock_wait(" in lock_acquire
+test_source = (ROOT / "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c").read_text()
+assert "fixture.remaining[0] = 3" in test_source
+assert "fixture.requested[2] == 1" in test_source
 assert "unlink(" not in LOCK, "the stable lock inode must never be unlinked"
 
 finish = body(SERVICES, "miniupnpd_lifecycle_lock_finish(int lock_fd")

@@ -10,6 +10,46 @@
 #define MINIUPNPD_LIFECYCLE_LOCK_FILE "/tmp/.miniupnpd.lifecycle.lock"
 #define MINIUPNPD_LIFECYCLE_LOCK_WAIT_SECONDS 10
 
+/*
+ * sleep() returns the unslept remainder when a signal interrupts it. Keep
+ * waiting for that remainder so signal traffic cannot consume the lock's
+ * contention timeout early. The callback makes the interruption contract
+ * deterministic in the host regression.
+ */
+typedef unsigned int (*miniupnpd_lifecycle_lock_sleep_fn)(
+	unsigned int seconds, void *context);
+
+static inline unsigned int
+miniupnpd_lifecycle_lock_sleep_real(unsigned int seconds, void *context)
+{
+	(void)context;
+	return sleep(seconds);
+}
+
+static inline int
+miniupnpd_lifecycle_lock_wait(unsigned int seconds,
+			      miniupnpd_lifecycle_lock_sleep_fn sleep_fn,
+			      void *context)
+{
+	unsigned int remaining = seconds;
+
+	if (!sleep_fn) {
+		errno = EINVAL;
+		return -1;
+	}
+	while (remaining > 0) {
+		unsigned int next = sleep_fn(remaining, context);
+
+		/* sleep() cannot return more than the requested remainder. */
+		if (next > remaining) {
+			errno = EIO;
+			return -1;
+		}
+		remaining = next;
+	}
+	return 0;
+}
+
 /* Keep this inode stable: unlinking a locked file can split lock participants. */
 static inline int
 miniupnpd_lifecycle_lock_acquire_path(const char *path,
@@ -45,14 +85,18 @@ miniupnpd_lifecycle_lock_acquire_path(const char *path,
 	for (;;) {
 		if (fcntl(fd, F_SETLK, &lock) == 0)
 			return fd;
-		if (errno != EINTR && errno != EACCES && errno != EAGAIN)
+		/* EINTR is a transient syscall interruption, not lock contention. */
+		if (errno == EINTR)
+			continue;
+		if (errno != EACCES && errno != EAGAIN)
 			goto failed;
 		if (attempt++ >= wait_seconds) {
-			if (errno == EACCES || errno == EAGAIN)
-				errno = EBUSY;
+			errno = EBUSY;
 			goto failed;
 		}
-		(void)sleep(1);
+		if (miniupnpd_lifecycle_lock_wait(
+			    1, miniupnpd_lifecycle_lock_sleep_real, NULL) != 0)
+			goto failed;
 	}
 failed:
 	saved_errno = errno ? errno : EIO;
