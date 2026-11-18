@@ -43,6 +43,7 @@
 #include <flash_mtd.h>
 
 #include "rc.h"
+#include "network_sysctl.h"
 #include "service_lifecycle_policy.h"
 #include <process_pidfile.h>
 #include <file_write_status.h>

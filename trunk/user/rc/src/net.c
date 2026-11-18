@@ -36,6 +36,7 @@
 #include <dirent.h>
 
 #include "rc.h"
+#include "network_sysctl.h"
 #include "process_inventory.h"
 #include "pppoe_relay_policy.h"
 #include "route_status_policy.h"

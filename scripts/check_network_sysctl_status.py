@@ -7,7 +7,8 @@ RC=ROOT/"trunk/user/rc/src"
 NET=(RC/"net.c").read_text()
 COMMON=(RC/"common_ex.c").read_text()
 WAN=(RC/"net_wan.c").read_text()
-HEADER=(RC/"rc.h").read_text()
+HEADER=(RC/"network_sysctl.h").read_text()
+RC_HEADER=(RC/"rc.h").read_text()
 POLICY=(RC/"network_sysctl_policy.h").read_text()
 TEST=(RC/"tests/network_sysctl_policy.c").read_text()
 WF=(ROOT/".github/workflows/wan-route-status.yml").read_text()
@@ -74,7 +75,7 @@ require("assert(mock_calls == 4)" in TEST,"regression must assert all independen
 for proto in ("int set_nf_conntrack(void);","int set_tcp_syncookies(void);","int set_igmp_mld_version(void);"):
     require(proto in HEADER,"missing status-returning prototype: "+proto)
 for obsolete in ("void set_nf_conntrack(void);","void set_tcp_syncookies(void);","void set_igmp_mld_version(void);"):
-    require(obsolete not in HEADER,"stale void prototype: "+obsolete)
+    require(obsolete not in RC_HEADER,"stale void prototype remains in rc.h: "+obsolete)
 for source,signature,label in ((COMMON,"restart_all_sysctl(void)","sysctl reload"),
                                (WAN,"start_wan(void)","WAN startup")):
     f=body(source,signature)
@@ -83,6 +84,7 @@ for source,signature,label in ((COMMON,"restart_all_sysctl(void)","sysctl reload
     require(f.count("rc_first_service_start_status(")>=3,label+" must aggregate all three failures")
 required=("trunk/user/rc/src/net.c","trunk/user/rc/src/common_ex.c",
  "trunk/user/rc/src/net_wan.c","trunk/user/rc/src/rc.h",
+ "trunk/user/rc/src/network_sysctl.h",
  "trunk/user/rc/src/network_sysctl_policy.h",
  "trunk/user/rc/src/tests/network_sysctl_policy.c","scripts/check_network_sysctl_status.py")
 spl=WF.split("jobs:",1)[0].split("  pull_request:",1)

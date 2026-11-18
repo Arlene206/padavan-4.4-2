@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include "rc.h"
+#include "network_sysctl.h"
 #include "service_start_status.h"
 #include "wan_mtu_setup_policy.h"
 #include "wan_route_flush_policy.h"
