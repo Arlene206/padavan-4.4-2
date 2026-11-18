@@ -1,3 +1,12 @@
+## 2026-11-18 — Fix the stop-timeout fixture and handoff section contract
+
+- Exact 3ec095 Actions revealed the fixture repair still used a double-escaped printf format, so the files contained backslash-n text and pidof correctly classified the PID inventory as UNKNOWN (2). Replace with echo, which writes a valid newline-delimited PID and leaves the fake process in the intended never-exit mode.
+- The AI handoff validator then advanced to its next structural check and rejected the renamed “Active engineering slice” heading; restore the required exact heading “## Active task”. The “Before context exhaustion” phrase is present.
+- Exact 3ec095 Process inventory umbrella 44291402816 PASS. Shadowsocks 44291402913 failed at the stop-failure fixture (status 2 vs expected 1); AI docs 44291404027 failed on the required section heading. Exact-head rerun is pending. No firmware Build/TRX/artifact result is claimed here.
+- This slice changes only test fixtures and handoff structure; no local shell execution or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-18 — Correct dnsmasq stop-failure fixture and restore handoff contract
 
 - Exact cb6d source checks found two regressions. The DNSMasq stop-failure test wrote literal backslash-n sequences into its state and PID fixtures, causing the strict PID parser to correctly classify the mock inventory as UNKNOWN (status 2) rather than exercise the intended RUNNING/never-exit process path. Write both fixtures using printf format arguments.

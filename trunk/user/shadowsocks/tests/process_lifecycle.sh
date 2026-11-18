@@ -393,8 +393,8 @@ DNSMASQ_TEST_MODE=ready
 
 # An unverified stop must not replace the live config or launch a new daemon.
 cp "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-stop-failure"
-printf '%s\\n' never_exit > "$PROCESS_STATE_DIR/dnsmasq"
-printf '%s\\n' 4246 > "$PROCESS_STATE_DIR/dnsmasq.pids"
+echo never_exit > "$PROCESS_STATE_DIR/dnsmasq"
+echo 4246 > "$PROCESS_STATE_DIR/dnsmasq.pids"
 launches_before_stop_failure=$(cat "$PROCESS_STATE_DIR/dnsmasq_runs")
 expect_status 1 "dnsmasq stop failure preserves live config" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 0
 cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-stop-failure" || fail "failed stop changed live dnsmasq config"

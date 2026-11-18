@@ -1,10 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- Exact cb6d80f exact-head actions: Process lifecycle inventory 44291015163 PASS; umbrella Process inventory 44291015219 PASS. Shadowsocks 44291015279 failed only in the new dnsmasq stop-failure regression because its mock PID fixture contained a literal backslash-n and was therefore correctly UNKNOWN. AI docs 44291015253 failed because handoff omitted the required “Before context exhaustion” phrase. XY-C1 44291015307 was IN_PROGRESS at last poll.
-- Current follow-up corrects the fixture and restores the required handoff sentence; its exact-head Actions are pending.
-- DNSMasq L2 transaction/rollback source is implemented, but exact-head source/test checks and XY-C1 Build/TRX/artifact remain required. Target-router L4 is unverified.
+- Exact 3ec095 Actions: Process inventory umbrella 44291402816 PASS. Shadowsocks 44291402913 failed in the stop-failure test because the corrected fixture still emitted literal backslash-n instead of a valid PID line; AI docs 44291404027 then identified the required exact heading ## Active task (handoff currently used “Active engineering slice”). XY-C1 was not yet checked for this SHA.
+- This correction replaces those fixture writes with newline-producing echo commands and restores the required handoff section heading; exact-head Actions are pending.
+- DNSMasq transaction/rollback code remains unverified on target hardware. Exact-source XY-C1 Build/TRX/artifact and physical-router L4 have not been claimed.
 
-Next P1: pass exact-head regression/AI checks, verify XY-C1 Build/TRX/artifact on the same product SHA, then inspect remaining oversea and ssp_close dnsmasq edits and DHCP service-manager coupling.
+Next P1: pass exact-head Shadowsocks and AI checks, confirm XY-C1 Build/TRX/artifact on the current product SHA, then inspect remaining oversea and ssp_close DNSMasq edits and DHCP service-manager coupling.
 
 ---
 
