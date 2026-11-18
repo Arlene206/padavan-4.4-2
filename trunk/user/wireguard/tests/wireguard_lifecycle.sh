@@ -21,6 +21,14 @@ assert_status()
 	[ "$actual" -eq "$expected" ] || fail "expected status $expected, got $actual"
 }
 
+assert_key_removed()
+{
+	[ -f "$WG_TEST_KEY_PATH" ] || fail "private-key staging path was not recorded"
+	key_file=$(cat "$WG_TEST_KEY_PATH")
+	[ -n "$key_file" ] || fail "private-key staging path is empty"
+	[ ! -e "$key_file" ] || fail "private-key staging file was not removed: $key_file"
+}
+
 cat > "$bin/nvram" <<'STUB'
 #!/bin/sh
 [ "$1" = get ] || exit 2
@@ -112,6 +120,13 @@ printf 'logger %s\n' "$*" >> "$WG_TEST_EVENTS"
 exit 0
 STUB
 
+cat > "$bin/mktemp" <<'STUB'
+#!/bin/sh
+path=$(/usr/bin/mktemp "$@") || exit $?
+printf '%s\n' "$path" > "$WG_TEST_KEY_PATH"
+printf '%s\n' "$path"
+STUB
+
 chmod 755 "$bin/"*
 export PATH="$bin:$PATH"
 export WG_TEST_INTERFACE="$tmp/interface"
@@ -160,8 +175,7 @@ rm -f "$WG_TEST_INTERFACE" "$WG_TEST_FIREWALL" "$WG_TEST_KEY_PATH"
 if WG_TEST_WG_PEER_STATUS=23 /bin/sh "$script" start; then status=0; else status=$?; fi
 assert_status 23 "$status"
 [ ! -e "$WG_TEST_INTERFACE" ] || fail "peer failure left newly-created interface behind"
-key_file=$(cat "$WG_TEST_KEY_PATH")
-[ ! -e "$key_file" ] || fail "peer failure leaked temporary key"
+assert_key_removed
 
 # Link activation failure cleans both resources created during this startup.
 rm -f "$WG_TEST_INTERFACE" "$WG_TEST_FIREWALL" "$WG_TEST_KEY_PATH"
@@ -169,8 +183,7 @@ if WG_TEST_IP_UP_STATUS=29 /bin/sh "$script" start; then status=0; else status=$
 assert_status 29 "$status"
 [ ! -e "$WG_TEST_INTERFACE" ] || fail "link-up failure left interface behind"
 [ ! -e "$WG_TEST_FIREWALL" ] || fail "link-up failure left added NAT rule behind"
-key_file=$(cat "$WG_TEST_KEY_PATH")
-[ ! -e "$key_file" ] || fail "link-up failure leaked temporary key"
+assert_key_removed
 
 # Failed in-place updates must not delete a pre-existing interface.
 : > "$WG_TEST_INTERFACE"
@@ -178,8 +191,7 @@ rm -f "$WG_TEST_FIREWALL" "$WG_TEST_KEY_PATH"
 if WG_TEST_IP_MTU_STATUS=31 /bin/sh "$script" start; then status=0; else status=$?; fi
 assert_status 31 "$status"
 [ -f "$WG_TEST_INTERFACE" ] || fail "failed update deleted a pre-existing interface"
-key_file=$(cat "$WG_TEST_KEY_PATH")
-[ ! -e "$key_file" ] || fail "failed update leaked temporary key"
+assert_key_removed
 
 # Stop reports success only after firewall and interface cleanup complete.
 : > "$WG_TEST_FIREWALL"
@@ -214,6 +226,6 @@ rm -f "$WG_TEST_INTERFACE" "$WG_TEST_FIREWALL" "$WG_TEST_KEY_PATH"
 if WG_TEST_IP_ADD_STATUS=47 /bin/sh "$script" start; then status=0; else status=$?; fi
 assert_status 47 "$status"
 [ ! -e "$WG_TEST_INTERFACE" ] || fail "failed interface creation changed interface state"
-[ ! -e "$WG_TEST_KEY_PATH" ] || fail "failed interface creation reached private-key setup"
+assert_key_removed
 
 echo "WireGuard startup, key confinement, rollback and stop regressions: PASS"
