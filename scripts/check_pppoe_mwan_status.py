@@ -99,6 +99,22 @@ check_caller(
     "WAN PPPoE-MWAN reconfiguration incomplete",
 )
 
+# Distinguish expected PPP disappearance from a real inspection failure.
+require(
+    'MWAN_SYS_CLASS_NET="${MWAN_SYS_CLASS_NET:-/sys/class/net}"' in DETECT
+    and 'mwan_get_ppp_ipv4()' in DETECT
+    and '[ -d "$MWAN_SYS_CLASS_NET/$iface" ] || return 1' in DETECT
+    and 'if [ -d "$MWAN_SYS_CLASS_NET/$iface" ]; then' in DETECT
+    and 'mwan_fail "$rc" "ifconfig $iface"' in DETECT
+    and DETECT.count('if mwan_get_ppp_ipv4 "ppp$count"; then') == 2,
+    "PPP enumeration must distinguish absent interfaces from ifconfig errors",
+)
+require(
+    "PPPoE-MWAN reports ifconfig errors on existing PPP interfaces and continues independent peers: PASS" in DETECT_TEST
+    and "ifconfig ran for an interface absent from sysfs" in DETECT_TEST,
+    "PPP interface presence/error regression cases are missing",
+)
+
 # The firewall rebuild also invokes this detector before WAN protocol clients
 # are launched. Its command result must not disappear at this third call site.
 firewall_reconcile = function_body(FIREWALL, "start_firewall_ex(void)")

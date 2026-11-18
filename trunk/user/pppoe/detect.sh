@@ -3,6 +3,7 @@
 # Reconcile PPPoE multi-WAN firewall and policy routes. A missing pppN device
 # is normal during WAN reconvergence, so command failures are tracked explicitly.
 LOCKFILE="${MWAN_LOCKFILE:-/tmp/lock}"
+MWAN_SYS_CLASS_NET="${MWAN_SYS_CLASS_NET:-/sys/class/net}"
 MWAN_STATUS=0
 MWAN_LOCK_OWNED=0
 MWAN_FLUSH_FAILED=0
@@ -53,6 +54,27 @@ mwan_ipv4_from_ifconfig() {
 }
 
 # Parse iptables-save output into argv; never evaluate its shell metacharacters.
+# Missing pppN devices are normal during WAN reconvergence. A failed
+# ifconfig probe is an error only while sysfs still reports the interface.
+MWAN_PPP_IPV4=
+mwan_get_ppp_ipv4() {
+	local iface="$1" output rc
+
+	MWAN_PPP_IPV4=
+	[ -d "$MWAN_SYS_CLASS_NET/$iface" ] || return 1
+	if output="$(ifconfig "$iface")"; then
+		MWAN_PPP_IPV4="$(mwan_ipv4_from_ifconfig "$output")"
+		return 0
+	fi
+
+	rc=$?
+	# The interface may disappear between the sysfs check and ifconfig.
+	if [ -d "$MWAN_SYS_CLASS_NET/$iface" ]; then
+		mwan_fail "$rc" "ifconfig $iface"
+	fi
+	return 1
+}
+
 mwan_parse_rule() {
 	local line="$1" char quote="" token="" escaped=0 started=0 i
 	MWAN_RULE_ARGS=()
@@ -108,6 +130,8 @@ for cmd in nvram ifconfig iptables iptables-save ip awk; do
 	command -v "$cmd" >/dev/null 2>&1 || mwan_die 127 "required command not found: $cmd"
 done
 
+[ -d "$MWAN_SYS_CLASS_NET" ] || mwan_die 1 "cannot inspect network interface inventory: $MWAN_SYS_CLASS_NET"
+
 mwan_log "flush the rules"
 if PPP_NUM=$(nvram get pppoe_num); then :; else mwan_die "$?" "cannot read pppoe_num"; fi
 mwan_uint_max_valid "$PPP_NUM" 255 || mwan_die 2 "invalid pppoe_num: $PPP_NUM"
@@ -132,7 +156,7 @@ last=1
 route_replace=(route replace default)
 for ((i=1; i<=PPP_COUNT; i++)); do
 	count=$((i-1))
-	if ppp_output=$(ifconfig "ppp$count"); then ppp_ip=$(mwan_ipv4_from_ifconfig "$ppp_output"); else continue; fi
+	if mwan_get_ppp_ipv4 "ppp$count"; then ppp_ip="$MWAN_PPP_IPV4"; else continue; fi
 	if mwan_ipv4_valid "$ppp_ip"; then
 		mwan_run iptables -t mangle -A PREROUTING -s "$lanip/24" -m conntrack --ctstate NEW -m statistic --mode nth --every "$PPP_COUNT" --packet "$count" -j CONNMARK --set-mark "2$i"
 		last=$i
@@ -164,7 +188,7 @@ fi
 
 for ((i=1; i<=PPP_COUNT; i++)); do
 	count=$((i-1))
-	if ppp_output=$(ifconfig "ppp$count"); then ppp_ip=$(mwan_ipv4_from_ifconfig "$ppp_output"); else continue; fi
+	if mwan_get_ppp_ipv4 "ppp$count"; then ppp_ip="$MWAN_PPP_IPV4"; else continue; fi
 	if mwan_ipv4_valid "$ppp_ip"; then
 		mwan_run iptables -t mangle -A PREROUTING -i br0 -m connmark --mark "2$i" -j MARK --set-mark "2$i"
 		mwan_run iptables -t nat -A POSTROUTING -o "ppp$count" -s "$lanip/24" -j FULLCONENAT
