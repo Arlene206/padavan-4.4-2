@@ -517,13 +517,13 @@ ss_publish_and_restart_dnsmasq() {
 	[ "$#" -eq 3 ] || return 2
 	local config_file="$1"
 	local dnsmasq_bin="$2"
-	local use_chinadns="$3"
+	local dnsmasq_profile="$3"
 	local tmp_file=""
 	local backup_file=""
 	local restart_status=0
 	local rollback_status=0
 
-	case "$use_chinadns" in 0|1) ;; *) return 2 ;; esac
+	case "$dnsmasq_profile" in 0|1|2) ;; *) return 2 ;; esac
 	[ -f "$config_file" ] && [ -r "$config_file" ] || return 1
 	[ -x "$dnsmasq_bin" ] || return 127
 	tmp_file=$(mktemp "${config_file}.tmp.XXXXXX") || return 1
@@ -536,7 +536,7 @@ ss_publish_and_restart_dnsmasq() {
 		rm -f "$tmp_file" "$backup_file"
 		return 1
 	fi
-	if [ "$use_chinadns" = "1" ]; then
+	if [ "$dnsmasq_profile" = "1" ]; then
 		if ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'no-resolv' ||
 		   ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'server=127.0.0.1' ||
 		   ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'server=127.0.0.1#65353' ||
@@ -545,11 +545,23 @@ ss_publish_and_restart_dnsmasq() {
 			return 1
 		fi
 	fi
-	if ! sed -i '/^[[:space:]]*min-cache-ttl=.*$/d' "$tmp_file" ||
-	   ! sed -i '/^[[:space:]]*dns-forward-max=.*$/d' "$tmp_file" ||
-	   ! printf 'min-cache-ttl=1800\ndns-forward-max=1000\n' >> "$tmp_file"; then
-		rm -f "$tmp_file" "$backup_file"
-		return 1
+	elif [ "$dnsmasq_profile" = "2" ]; then
+		if ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'conf-dir=/etc/storage/dnsmasq-ss.d' ||
+		   ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'conf-dir=/etc/storage/dnsmasq-ss.d/' ||
+		   ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'conf-dir=/etc/storage/dnsmasq.oversea' ||
+		   ! ss_dnsmasq_remove_exact_directive "$tmp_file" 'conf-dir=/etc/storage/dnsmasq.oversea/' ||
+		   ! printf 'conf-dir=/etc/storage/dnsmasq.oversea\n' >> "$tmp_file"; then
+			rm -f "$tmp_file" "$backup_file"
+			return 1
+		fi
+	fi
+	if [ "$dnsmasq_profile" != "2" ]; then
+		if ! sed -i '/^[[:space:]]*min-cache-ttl=.*$/d' "$tmp_file" ||
+		   ! sed -i '/^[[:space:]]*dns-forward-max=.*$/d' "$tmp_file" ||
+		   ! printf 'min-cache-ttl=1800\ndns-forward-max=1000\n' >> "$tmp_file"; then
+			rm -f "$tmp_file" "$backup_file"
+			return 1
+		fi
 	fi
 	if ! "$dnsmasq_bin" --test -C "$tmp_file" >/dev/null 2>&1; then
 		log "Staged dnsmasq config failed validation; previous config retained"
@@ -703,26 +715,12 @@ start_dns() {
 	oversea)
 		ipset add gfwlist $dnsserver 2>/dev/null
 		mkdir -p /etc/storage/dnsmasq.oversea || return $?
-		for cleanup_directive in \
-			'conf-dir=/etc/storage/dnsmasq-ss.d' \
-			'conf-dir=/etc/storage/dnsmasq-ss.d/' \
-			'conf-dir=/etc/storage/dnsmasq.oversea' \
-			'conf-dir=/etc/storage/dnsmasq.oversea/'; do
-			if ss_dnsmasq_remove_exact_directive "/etc/storage/dnsmasq/dnsmasq.conf" "$cleanup_directive"; then
-				:
-			else
-				dns_status=$?
-				log "DNSMasq include cleanup failed for $cleanup_directive (status=$dns_status)"
-				return "$dns_status"
-			fi
-		done
-		if cat >> /etc/storage/dnsmasq/dnsmasq.conf <<EOF
-conf-dir=/etc/storage/dnsmasq.oversea
-EOF
-		then
-			:
+		if ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" 2; then
+			dnsmasq_restart_done=1
 		else
-			return $?
+			dns_status=$?
+			log "oversea DNSMasq configuration/restart failed (status=$dns_status)"
+			return "$dns_status"
 		fi
 		;;
 	*)

@@ -7,6 +7,9 @@ CALL_LOG="$TMP_DIR/calls.log"
 LOG_FILE="$TMP_DIR/ss.log"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
+DNSMASQ_HELPER="$HERE/../scripts/dnsmasq_config_lifecycle.sh"
+. "$DNSMASQ_HELPER"
+
 sed -n \
 	-e '/^ss_cgroup_mkdir() {/,/^}/p' \
 	-e '/^ss_cgroup_write_value() {/,/^}/p' \
@@ -16,6 +19,7 @@ sed -n \
 	-e '/^ssp_record_start_failure() {/,/^}/p' \
 	-e '/^ssp_run_pppoe_detect() {/,/^}/p' \
 	-e '/^ssp_start() {/,/^}/p' \
+	-e '/^ss_publish_and_restart_dnsmasq() {/,/^}/p' \
 	-e '/^ss_restart_dhcpd() {/,/^}/p' \
 	-e '/^ss_run_detect() {/,/^}/p' \
 	-e '/^ssp_close() {/,/^}/p' \
@@ -290,3 +294,88 @@ close_not_called restart_dhcpd
 close_not_called detect
 
 echo "Shadowsocks startup/shutdown status regression: PASS"
+ 
+# Profile 2 (oversea mode) must atomically replace legacy include directives,
+# validate the staged file, preserve unrelated options and restart DNSMasq once.
+. "$DNSMASQ_HELPER"
+DNSMASQ_BIN="$TMP_DIR/dnsmasq-test"
+DNSMASQ_CHECK_LOG="$TMP_DIR/dnsmasq-check.log"
+export DNSMASQ_CHECK_LOG
+cat > "$DNSMASQ_BIN" <<'DNSMASQ_STUB'
+#!/bin/sh
+[ "$1" = "--test" ] && [ "$2" = "-C" ] || exit 90
+printf '%s\n' "$3" >> "$DNSMASQ_CHECK_LOG"
+[ "${FAIL_DNSMASQ_TEST:-0}" -eq 0 ] || exit "$FAIL_DNSMASQ_TEST"
+[ "$(grep -Fxc 'conf-dir=/etc/storage/dnsmasq.oversea' "$3")" -eq 1 ] || exit 91
+exit 0
+DNSMASQ_STUB
+chmod 755 "$DNSMASQ_BIN"
+
+PROFILE_CONFIG="$TMP_DIR/dnsmasq-oversea.conf"
+PROFILE_ORIGINAL="$TMP_DIR/dnsmasq-oversea.original"
+write_oversea_config() {
+	cat > "$1" <<'DNSMASQ_CONFIG'
+interface=br0
+conf-dir=/etc/storage/dnsmasq-ss.d
+conf-dir=/etc/storage/dnsmasq-ss.d/
+conf-dir=/etc/storage/dnsmasq.oversea
+conf-dir=/etc/storage/dnsmasq.oversea/
+conf-dir=/etc/storage/dnsmasq.oversea-custom
+min-cache-ttl=73
+dns-forward-max=41
+DNSMASQ_CONFIG
+}
+profile_expect_status() {
+	expected=$1
+	if ss_publish_and_restart_dnsmasq "$PROFILE_CONFIG" "$DNSMASQ_BIN" 2; then
+		actual=0
+	else
+		actual=$?
+	fi
+	[ "$actual" -eq "$expected" ] || fail "oversea DNSMasq profile returned $actual, expected $expected"
+}
+
+# Successful publication removes all old exact directives but preserves
+# similarly named includes and existing cache values.
+: > "$CALL_LOG"
+: > "$DNSMASQ_CHECK_LOG"
+write_oversea_config "$PROFILE_CONFIG"
+cp -p "$PROFILE_CONFIG" "$PROFILE_ORIGINAL"
+unset FAIL_DNSMASQ_TEST FAIL_RESTART_DHCPD
+profile_expect_status 0
+[ "$(grep -Fxc 'conf-dir=/etc/storage/dnsmasq.oversea' "$PROFILE_CONFIG")" -eq 1 ] || fail "oversea include was not published exactly once"
+[ "$(grep -Fxc 'conf-dir=/etc/storage/dnsmasq-ss.d' "$PROFILE_CONFIG" || true)" -eq 0 ] || fail "legacy Shadowsocks include remained"
+[ "$(grep -Fxc 'conf-dir=/etc/storage/dnsmasq-ss.d/' "$PROFILE_CONFIG" || true)" -eq 0 ] || fail "legacy trailing-slash Shadowsocks include remained"
+[ "$(grep -Fxc 'conf-dir=/etc/storage/dnsmasq.oversea/' "$PROFILE_CONFIG" || true)" -eq 0 ] || fail "legacy trailing-slash oversea include remained"
+grep -Fqx 'conf-dir=/etc/storage/dnsmasq.oversea-custom' "$PROFILE_CONFIG" || fail "near-match include was modified"
+grep -Fqx 'min-cache-ttl=73' "$PROFILE_CONFIG" || fail "oversea profile changed min-cache-ttl"
+grep -Fqx 'dns-forward-max=41' "$PROFILE_CONFIG" || fail "oversea profile changed dns-forward-max"
+[ "$(grep -Fxc restart_dhcpd "$CALL_LOG")" -eq 1 ] || fail "oversea publication restarted DNSMasq more than once"
+[ "$(wc -l < "$DNSMASQ_CHECK_LOG" | tr -d ' ')" -eq 1 ] || fail "oversea staged config was not validated exactly once"
+
+# A failed staged validation must leave the live config untouched and skip restart.
+: > "$CALL_LOG"
+: > "$DNSMASQ_CHECK_LOG"
+write_oversea_config "$PROFILE_CONFIG"
+cp -p "$PROFILE_CONFIG" "$PROFILE_ORIGINAL"
+FAIL_DNSMASQ_TEST=27
+export FAIL_DNSMASQ_TEST
+profile_expect_status 1
+cmp -s "$PROFILE_CONFIG" "$PROFILE_ORIGINAL" || fail "oversea validation failure changed live config"
+[ "$(grep -Fc restart_dhcpd "$CALL_LOG" || true)" -eq 0 ] || fail "oversea validation failure restarted DNSMasq"
+unset FAIL_DNSMASQ_TEST
+
+# A restart failure restores the complete previous file, attempts rollback
+# restart and preserves the original service-restart error.
+: > "$CALL_LOG"
+: > "$DNSMASQ_CHECK_LOG"
+write_oversea_config "$PROFILE_CONFIG"
+cp -p "$PROFILE_CONFIG" "$PROFILE_ORIGINAL"
+FAIL_RESTART_DHCPD=43
+profile_expect_status 43
+cmp -s "$PROFILE_CONFIG" "$PROFILE_ORIGINAL" || fail "oversea restart failure did not restore original config"
+[ "$(grep -Fxc restart_dhcpd "$CALL_LOG")" -eq 2 ] || fail "oversea rollback did not attempt exactly one recovery restart"
+unset FAIL_RESTART_DHCPD
+
+echo "Shadowsocks DNSMasq profile-2 atomic publication regression: PASS"
+

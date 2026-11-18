@@ -55,10 +55,10 @@ oversea = script[oversea_start:oversea_end]
 close_start = script.index("ssp_close() {")
 close_end = script.index("\n\n\nclear_iptable() {", close_start)
 close = script[close_start:close_end]
-require("ss_dnsmasq_remove_exact_directive" in oversea and
-        "conf-dir=/etc/storage/dnsmasq-ss.d" in oversea and
-        "conf-dir=/etc/storage/dnsmasq.oversea" in oversea and "sed -i" not in oversea,
-        "oversea mode must remove only exact owned conf-dir entries")
+require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" 2' in oversea and
+        'dnsmasq_restart_done=1' in oversea and
+        'cat >> /etc/storage/dnsmasq/dnsmasq.conf' not in oversea,
+        "oversea mode must use atomic DNSMasq config publication and one RC-serialized restart")
 require("ss_dnsmasq_remove_exact_directive" in close and "conf-dir=/tmp/dnsmasq.dom/" in close and
         "conf-dir=/tmp/cdn" in close and "conf-dir=/etc/storage/dnsmasq.oversea" in close and "sed -i" not in close,
         "shutdown must use exact DNSMasq directives rather than substring deletion")
@@ -248,7 +248,12 @@ ordered(dnsmasq_tx, [
     'mv -f "$backup_file" "$config_file"',
     'ss_restart_dhcpd',
 ], "dnsmasq staging, validation, publication, RC lifecycle restart and rollback")
-require('ss_dnsmasq_remove_exact_directive "$tmp_file" \'no-resolv\'' in dnsmasq_tx and
+require('case "$dnsmasq_profile" in 0|1|2)' in dnsmasq_tx and
+        'elif [ "$dnsmasq_profile" = "2" ]; then' in dnsmasq_tx and
+        'ss_dnsmasq_remove_exact_directive "$tmp_file" \'conf-dir=/etc/storage/dnsmasq-ss.d\'' in dnsmasq_tx and
+        'ss_dnsmasq_remove_exact_directive "$tmp_file" \'conf-dir=/etc/storage/dnsmasq.oversea/\'' in dnsmasq_tx and
+        'if [ "$dnsmasq_profile" != "2" ]; then' in dnsmasq_tx and
+        'ss_dnsmasq_remove_exact_directive "$tmp_file" \'no-resolv\'' in dnsmasq_tx and
         'ss_dnsmasq_remove_exact_directive "$tmp_file" \'server=127.0.0.1\'' in dnsmasq_tx and
         'ss_dnsmasq_remove_exact_directive "$tmp_file" \'server=127.0.0.1#65353\'' in dnsmasq_tx and
         "'/no-resolv/d'" not in dnsmasq_tx and
@@ -272,7 +277,8 @@ require("dnsmasq atomic config and restart" in test and
         "dnsmasq stop failure preserves live config" in test and
         "dnsmasq restart failure preserves original status" in test and
         "dnsmasq rollback did not restart old service" in test and
-        "DNSMASQ_RESTART_CALLS" in test,
+        "DNSMASQ_RESTART_CALLS" in test and
+        "Shadowsocks DNSMasq profile-2 atomic publication regression: PASS" in test,
         "dnsmasq regression must cover RC service restart, validation failure and rollback")
 
 
