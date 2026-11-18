@@ -1,3 +1,12 @@
+## 2026-11-18 — Propagate manual WISP reassociation failures into PID 1
+
+- Parent main SHA: 4e52a861c3e227baee1a914376f293557c356559. Exact parent HTTPD Security 44210330988 PASS, AI handoff 44210331008 PASS, AdGuardHome 44210331086 PASS, infosvr 44210331070 PASS, AliDDNS 44210331128 PASS, Process inventory/lifecycle 44210331089 PASS and AliyunDrive 44210330979 PASS. XY-C1 44210331166 remains in Build; NVRAM audit 44210331025 remains in raw caller audit.
+- manual_wisp_reassoc() captured reconnect_apcli() failure but returned void; PID1 discarded it and could acknowledge a failed reassociation. Convert to int, return reconnect status and merge it through rc_notify_merge_action_result(). Preserve the no-interface case as a successful no-op and keep its diagnostic.
+- Extend WAN route source checker and HTTPD Security's duplicated lifecycle contract for the return/prototype/dispatcher path. Exact-head WAN route, HTTPD and AI runs pending.
+- No MIPS L3 or physical hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Repair stale HTTPD contract after manual WAN disconnect status propagation
 
 - Parent main SHA: `4bbbe8a3f7bd8b81638271d092287ff986e5fa81`. WAN route regression `44209928594` and PID 1 notification queue `44209928573` PASS. Exact parent XY-C1 `44209928351` remains at Build; NVRAM `44209928413` remains in raw ioctl/kernel caller audit.

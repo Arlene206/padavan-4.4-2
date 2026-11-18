@@ -290,7 +290,7 @@ int auto_wan_reconnect(void);
 int auto_wan_reconnect_pause(void);
 int manual_wan_reconnect(void);
 int manual_wan_disconnect(void);
-void manual_wisp_reassoc(void);
+int manual_wisp_reassoc(void);
 int deferred_wan_connect(void);
 void notify_on_wan_ether_link_restored(void);
 void notify_on_internet_state_changed(int has_internet, long elapsed);

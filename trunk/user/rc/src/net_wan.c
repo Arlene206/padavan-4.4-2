@@ -3220,14 +3220,14 @@ manual_wan_reconnect(void)
 	return try_wan_reconnect(1, 0);
 }
 
-void
+int
 manual_wisp_reassoc(void)
 {
 	char *wisp_ifname = get_apcli_wisp_ifname();
 	int reconnect_status;
 
 	if (!wisp_ifname)
-		return;
+		return 0;
 
 	logmessage(LOGNAME, "Perform WISP %s %s", "manual", "reassoc");
 
@@ -3235,6 +3235,7 @@ manual_wisp_reassoc(void)
 	if (reconnect_status != 0)
 		logmessage(LOGNAME, "manual WISP reassociation failed on %s (status=%d)",
 			   wisp_ifname, reconnect_status);
+	return reconnect_status;
 }
 
 int

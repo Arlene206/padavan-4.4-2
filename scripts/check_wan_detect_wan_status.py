@@ -306,4 +306,29 @@ require(
     and "manual_wan_disconnect()" in manual_disconnect_action,
     "PID 1 must retain the manual disconnect queue marker when WAN teardown fails",
 )
+manual_wisp = body(WAN, "manual_wisp_reassoc(void)")
+require(
+    "int\nmanual_wisp_reassoc(void)" in WAN
+    and "int manual_wisp_reassoc(void);" in RC_HEADER,
+    "manual WISP reassociation must return status through the public declaration",
+)
+require(
+    "if (!wisp_ifname)" in manual_wisp
+    and "return 0;" in manual_wisp
+    and "reconnect_status = reconnect_apcli(wisp_ifname, 1);" in manual_wisp
+    and "if (reconnect_status != 0)" in manual_wisp
+    and "manual WISP reassociation failed on %s (status=%d)" in manual_wisp
+    and "return reconnect_status;" in manual_wisp,
+    "manual WISP reassociation must expose APCLI reconnect status and preserve no-interface no-op",
+)
+manual_wisp_dispatch = body(RC_SOURCE, "handle_notifications(void)")
+manual_wisp_action = manual_wisp_dispatch.split(
+    'else if(!strcmp(entry->d_name, "manual_wisp_reassoc"))', 1
+)[1].split('else if(!strcmp(entry->d_name, RCN_MANUAL_DDNS_UPDATE))', 1)[0]
+require(
+    "rc_notify_merge_action_result(" in manual_wisp_action
+    and "manual_wisp_reassoc()" in manual_wisp_action,
+    "PID 1 must retain the manual WISP notification marker when reassociation fails",
+)
+
 print("WAN gateway ARP inventory and launch status propagation: PASS")

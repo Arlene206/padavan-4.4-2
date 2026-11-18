@@ -1462,7 +1462,8 @@ handle_notifications(void)
 		}
 		else if(!strcmp(entry->d_name, "manual_wisp_reassoc"))
 		{
-			manual_wisp_reassoc();
+			action_result = rc_notify_merge_action_result(
+				action_result, manual_wisp_reassoc());
 		}
 		else if(!strcmp(entry->d_name, RCN_MANUAL_DDNS_UPDATE))
 		{

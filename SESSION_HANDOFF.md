@@ -1,37 +1,39 @@
-# 2026-11-18 continuation checkpoint — correct stale HTTPD WAN-disconnect contract
+# 2026-11-18 continuation checkpoint — propagate manual WISP reassociation failures
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS workflow-contract correction: `4bbbe8a3f7bd8b81638271d092287ff986e5fa81`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
-- Exact parent `4bbbe8a3` WAN route status regression `44209928594` PASS, including manual WAN-disconnect status policy and caller contract. PID 1 notification queue `44209928573`, VPN server `44209928500`, Samba `44209928614`, USB modem `44209928547`, WAN DHCP `44209928355`, detect_internet `44209928506`, process lifecycle inventory `44209928630`, AliyunDrive `44209928293`, HTTPD Auth/Security earlier steps 1–37, and numerous service/security checks PASS.
-- Exact parent HTTPD Security run `44209928509` FAIL only at step 38, `Verify bounded service termination and WAN stop failure gates`. First cause is stale copied assertion `assert "if (stop_wan_ppp() != 0)" in manual_disconnect` at workflow line 5163: product code now stores either stop result in `status`, logs it and returns it; the WAN route workflow already verifies both `status = stop_wan_ppp();`, `status = stop_wan();`, nonzero handling and return. THIS commit aligns the duplicated HTTPD assertion, it does not weaken or change production behavior.
-- Exact parent XY-C1 `44209928351` remains IN_PROGRESS at `Build XY-C1`; TRX and artifact upload not yet reached. NVRAM `44209928413` remains IN_PROGRESS during raw userland/kernel caller audit. No L3 claim until same-SHA Build, TRX and artifact upload all succeed.
-- Product source fix `94b5ddbf` retains failed HDD-tune notification results; product source fix `4bbbe8a3` returns manual WAN disconnect teardown status and retains PID 1 notification failure markers.
-- No physical-router L4 claim.
+- Repository: Arlene206/padavan-4.4-2; parent main before THIS slice: 4e52a861c3e227baee1a914376f293557c356559.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact parent 4e52 HTTPD Security 44210330988 PASS, AI handoff 44210331008 PASS, AdGuardHome 44210331086 PASS, infosvr 44210331070 PASS, AliDDNS 44210331128 PASS, Process inventory/lifecycle 44210331089 PASS and AliyunDrive 44210330979 PASS.
+- Exact parent 4e52 XY-C1 44210331166 IN_PROGRESS at Build XY-C1; TRX verification and artifact upload not reached. NVRAM audit 44210331025 IN_PROGRESS at raw userland ioctl/kernel caller audit. Require Build, TRX verification and artifact upload all SUCCESS on one exact SHA before recording L3.
+- Exact 4bb HTTPD Security failed only at its copied stale manual-WAN-disconnect assertion; workflow-only correction 4e52 aligned assertions with status-returning manual disconnect API and exact 4e52 HTTPD Security then PASS.
+- Commit 4bbbe8a3 changed manual_wan_disconnect() to return stop_wan()/stop_wan_ppp() status and PID1 aggregates it. New sibling defect: manual_wisp_reassoc() captured reconnect_apcli() result only to log it, returned void and PID1 discarded it. THIS slice returns reconnect_status and merges it into action_result; no APCLI interface remains a successful no-op.
+- scripts/check_wan_detect_wan_status.py and HTTPD Security's duplicated lifecycle contract assert WISP public prototype, reconnect status, error diagnostic, no-interface behavior and PID1 aggregation. Existing WAN route workflow watches net_wan.c, rc.c, rc.h and the checker.
+- No local MIPS build or physical-router L4 claim.
 
 ## Active task
-- Correct the duplicated HTTPD workflow contract so it describes the new status-returning manual WAN disconnect API, and preserves checks for both modem/non-modem stop paths, error handling and status return.
+- Preserve the PID1 manual WISP notification marker when reconnect_apcli() fails by propagating its result through the dispatcher.
+- Exact-head WAN route, HTTPD Security and AI handoff workflows are pending for THIS commit.
 
 ## Verification boundary
-- Exact parent `4bbbe8a3` WAN route `44209928594` PASS; PID 1 queue `44209928573` PASS.
-- Exact parent HTTPD Security `44209928509` FAIL at the outdated assertion described above; all earlier 37 steps PASS.
-- Exact parent XY-C1 `44209928351` PENDING at Build; NVRAM `44209928413` PENDING at raw ioctl/kernel caller audit.
-- THIS workflow-only correction's exact-head HTTPD rerun is pending. Hardware L4 NOT VERIFIED.
+- Parent 4e52 HTTPD Security, AI handoff, AdGuardHome, infosvr, AliDDNS, Process inventory/lifecycle and AliyunDrive PASS.
+- Parent 4e52 XY-C1 44210331166 pending at Build; TRX/artifact not reached.
+- Parent 4e52 NVRAM audit 44210331025 pending at raw IOCTL/kernel caller audit.
+- THIS commit has no exact-head Actions result yet. Product L3 and hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head HTTPD Security run. Require step 38 and downstream lifecycle/wireless/NFS/NVRAM checks to PASS; diagnose any first causal failure.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload on the same SHA; no L3 claim before all pass.
-3. Inspect NVRAM raw IOCTL/kernel caller audit; continue another independent P1 reliability/security item while unrelated runs are pending.
-4. Keep the frozen backup untouched; do not repeat bootstrap recovery.
+1. Inspect THIS commit's exact-head WAN route run; require WISP result propagation checker and GNU89/ASan/UBSan route policy tests to PASS.
+2. Inspect THIS commit's exact-head HTTPD Security and AI handoff checks; verify both status contracts and documentation validation pass.
+3. Inspect exact-head XY-C1 Build, Verify TRX output, artifact upload and NVRAM audit. Do not claim L3 until all three firmware stages pass on one exact SHA.
+4. Continue an independent P1 service lifecycle/security issue while other Actions are pending. Keep backup immutable.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.
-At session end, inspect live main, relevant exact-SHA Actions, current handoff/roadmap, validation boundary and exact first action. If these facts remain accurate, no documentation edit or no-op commit is needed.
+At session end, inspect live main, exact-SHA Actions, current handoff/roadmap, validation boundary and first actionable task. If all facts remain accurate, do not create no-op documentation commits.
 
 # Cross-session execution mandate
 
 Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and commit atomically; do not wait idly on pending CI.
 
-Every logical slice is one atomic main commit: create all blobs, one complete tree and one commit parented to freshly fetched main, then publish with non-forced expected-SHA compare-and-swap. Never force-push, create dev branches/PRs, or modify frozen backup.
+Every logical slice is one atomic main commit: create all blobs, one complete tree and one commit parented to freshly fetched main, then publish with non-forced expected-SHA compare-and-swap. Never force-push, create dev branches/PRs, or modify the frozen backup.
 
 Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first action.

@@ -1,11 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main parent before THIS HTTPD workflow-contract correction: `4bbbe8a3f7bd8b81638271d092287ff986e5fa81`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact parent `4bbbe8a3` WAN route status `44209928594` PASS and PID 1 notification queue `44209928573` PASS. Several lifecycle/security workflows PASS; exact XY-C1 `44209928351` still Build, NVRAM `44209928413` still raw userland/kernel audit.
-- Exact parent HTTPD Security `44209928509` failed at its final bounded-service/WAN-stop contract because the copied assertion still expected `if (stop_wan_ppp() != 0)`, although the newer manual disconnect API assigns the selected teardown result to `status` and returns it. This commit updates the duplicate assertion to require both PPP and ordinary stop assignments, nonzero logging gate and returned status; production source unchanged.
-- No exact current-source L3 or hardware L4 claim.
+- Live main parent before THIS manual WISP reassociation propagation slice: 4e52a861c3e227baee1a914376f293557c356559; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Exact parent 4e52 HTTPD Security 44210330988 PASS, AI handoff 44210331008 PASS, AdGuardHome 44210331086 PASS, infosvr 44210331070 PASS, AliDDNS 44210331128 PASS, Process inventory/lifecycle 44210331089 PASS and AliyunDrive 44210330979 PASS.
+- Exact parent 4e52 XY-C1 44210331166 remains IN_PROGRESS at Build XY-C1; TRX verification and artifact upload not started. NVRAM audit 44210331025 remains IN_PROGRESS at raw userland ioctl/kernel caller audit. No L3 claim until same SHA passes Build, TRX and artifact upload.
+- Parent HTTPD check failure on 4bb was only the stale manual WAN-disconnect assertion; workflow-only correction 4e52 updated both status assignments, nonzero handling and status return and then passed.
+- Manual WAN disconnect result now propagates to PID1 via 4bbbe8a3. New symmetric issue: manual_wisp_reassoc() logged reconnect_apcli failure but returned void; PID1 could clear the notification marker despite failed APCLI reassociation. THIS slice returns reconnect status and aggregates it into PID1 action_result; missing WISP interface remains a successful no-op.
+- WAN route checker and HTTPD Security's duplicate source contract both assert the WISP status path. No local MIPS build or physical-router L4 claim.
 
-Next: verify exact-head HTTPD rerun and same-SHA XY-C1 Build/TRX/artifact; inspect NVRAM audit and continue another independent P1 source fix while pending checks run.
+Next: verify exact-head WAN route, HTTPD and AI source contracts; inspect same-SHA XY-C1 Build/TRX/artifact and NVRAM audit; continue an independent P1 reliability/security slice while pending work runs.
 
 ---
 

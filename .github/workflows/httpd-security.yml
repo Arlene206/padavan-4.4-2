@@ -5164,6 +5164,18 @@ jobs:
           assert "status = stop_wan();" in manual_disconnect
           assert "if (status != 0)" in manual_disconnect
           assert "return status;" in manual_disconnect
+          manual_wisp = body(net_wan, "manual_wisp_reassoc(void)")
+          assert "int\nmanual_wisp_reassoc(void)" in net_wan
+          assert "if (!wisp_ifname)" in manual_wisp
+          assert "return 0;" in manual_wisp
+          assert "reconnect_status = reconnect_apcli(wisp_ifname, 1);" in manual_wisp
+          assert "manual WISP reassociation failed on %s (status=%d)" in manual_wisp
+          assert "return reconnect_status;" in manual_wisp
+          assert "int manual_wisp_reassoc(void);" in rc_header
+          notifications = body(rc_main, "handle_notifications(void)")
+          wisp_action = notifications.split('else if(!strcmp(entry->d_name, "manual_wisp_reassoc"))', 1)[1].split('else if(!strcmp(entry->d_name, RCN_MANUAL_DDNS_UPDATE))', 1)[0]
+          assert "rc_notify_merge_action_result(" in wisp_action
+          assert "manual_wisp_reassoc()" in wisp_action
 
           stop_misc = body(services, "stop_misc(void)")
           assert '"gpio_btn"' in stop_misc
