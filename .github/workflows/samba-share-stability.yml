@@ -245,7 +245,8 @@ jobs:
           assert "process_snapshot_release(&snapshot)" in ex_presence
           assert "PROCESS_PRESENCE_UNKNOWN" in ex_presence
           assert "samba_daemon_wait_for_stable_presence(daemon, 30" in ex_wait_fn
-          assert "usleep(microseconds)" in sleep_fn
+          assert "return service_wait_microseconds(microseconds);" in sleep_fn
+          assert "usleep(microseconds)" not in sleep_fn
           ensure_compact = "".join(ensure_fn.split())
           assert "samba_daemon_signal_snapshot(initial_snapshot,SIGHUP" in ensure_compact
           assert "process_inventory_scan(daemon,&current_snapshot)" in ensure_compact

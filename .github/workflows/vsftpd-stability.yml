@@ -23,7 +23,6 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
-      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
   pull_request:
@@ -48,7 +47,6 @@ on:
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
-      - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
 

@@ -96,14 +96,14 @@ main(void)
 
 	{
 		const int states[] = { PROCESS_PRESENCE_UNKNOWN };
-		struct fake_daemon fake = { states, 1, 0, 0, EACCES };
+		struct fake_daemon fake = { states, 1, 0, 0, EACCES, 0, 0 };
 		errno = 0;
 		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 3, &fake_ops, &fake) == -1);
 		assert(errno == EACCES && fake.next_state == 1 && fake.slept_us == 0);
 	}
 	{
 		const int states[] = { PROCESS_PRESENCE_RUNNING, PROCESS_PRESENCE_UNKNOWN };
-		struct fake_daemon fake = { states, 2, 0, 0, EACCES };
+		struct fake_daemon fake = { states, 2, 0, 0, EACCES, 0, 0 };
 		errno = 0;
 		assert(ftp_daemon_wait_for_stable_presence("vsftpd", 3, &fake_ops, &fake) == -1);
 		assert(errno == EACCES && fake.next_state == 2 && fake.slept_us == 500000U);
