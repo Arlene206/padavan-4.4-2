@@ -1396,7 +1396,7 @@ assert "process_state == PROCESS_PRESENCE_UNKNOWN" in telnetd_start
 assert "errno = scan_error > 0 ? scan_error : EIO;" in telnetd_start
 assert "errno = ETIMEDOUT;" in telnetd_start
 telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
-telnetd_initial_wait = telnetd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", telnetd_launch)
+telnetd_initial_wait = telnetd_start.index('service_start_probe_wait("telnetd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', telnetd_launch)
 telnetd_probe = telnetd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", telnetd_launch)
 telnetd_inventory = telnetd_start.index('optional_daemon_presence("telnetd", &scan_error)', telnetd_probe)
 telnetd_postcondition = telnetd_start.index("process_presence_start_postcondition(start_status, process_state)", telnetd_inventory)
@@ -1422,7 +1422,7 @@ assert "errno = ETIMEDOUT;" in ttyd_start
 ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
 ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
 ttyd_launcher_return = ttyd_start.index("return process_presence_start_postcondition(start_status,", ttyd_launch_failure)
-ttyd_initial_wait = ttyd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", ttyd_launch)
+ttyd_initial_wait = ttyd_start.index('service_start_probe_wait("ttyd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', ttyd_launch)
 ttyd_probe = ttyd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", ttyd_initial_wait)
 ttyd_inventory = ttyd_start.index('optional_daemon_presence("ttyd", &scan_error)', ttyd_probe)
 ttyd_postcondition = ttyd_start.index("process_presence_start_postcondition(start_status, process_state)", ttyd_inventory)
@@ -2307,7 +2307,7 @@ assert "process_state == PROCESS_PRESENCE_UNKNOWN" in telnetd_start
 assert "errno = scan_error > 0 ? scan_error : EIO;" in telnetd_start
 assert "errno = ETIMEDOUT;" in telnetd_start
 telnetd_launch = telnetd_start.index('start_status = eval("telnetd");')
-telnetd_initial_wait = telnetd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", telnetd_launch)
+telnetd_initial_wait = telnetd_start.index('service_start_probe_wait("telnetd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', telnetd_launch)
 telnetd_probe = telnetd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", telnetd_launch)
 telnetd_inventory = telnetd_start.index('optional_daemon_presence("telnetd", &scan_error)', telnetd_probe)
 telnetd_postcondition = telnetd_start.index("process_presence_start_postcondition(start_status, process_state)", telnetd_inventory)
@@ -2333,7 +2333,7 @@ assert "errno = ETIMEDOUT;" in ttyd_start
 ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
 ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
 ttyd_launcher_return = ttyd_start.index("return process_presence_start_postcondition(start_status,", ttyd_launch_failure)
-ttyd_initial_wait = ttyd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", ttyd_launch)
+ttyd_initial_wait = ttyd_start.index('service_start_probe_wait("ttyd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', ttyd_launch)
 ttyd_probe = ttyd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", ttyd_initial_wait)
 ttyd_inventory = ttyd_start.index('optional_daemon_presence("ttyd", &scan_error)', ttyd_probe)
 ttyd_postcondition = ttyd_start.index("process_presence_start_postcondition(start_status, process_state)", ttyd_inventory)
@@ -2975,7 +2975,7 @@ assert "errno = ETIMEDOUT;" in syslogd_start
 assert "if (start_status > 0)" in syslogd_start and "if (start_status < 0)" in syslogd_start
 syslog_preflight = syslogd_start.index('optional_daemon_start_status("syslogd", "syslogd")')
 syslog_launch = syslogd_start.index("start_status = _eval(syslogd_argv, NULL, 0, NULL);")
-syslog_wait = syslogd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", syslog_launch)
+syslog_wait = syslogd_start.index('service_start_probe_wait("syslogd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', syslog_launch)
 syslog_probe = syslogd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", syslog_launch)
 syslog_inventory = syslogd_start.index('optional_daemon_presence("syslogd", &scan_error)', syslog_probe)
 syslog_result = syslogd_start.index("process_presence_start_postcondition(start_status, process_state)", syslog_inventory)
@@ -2995,7 +2995,7 @@ assert "errno = ETIMEDOUT;" in klogd_start
 assert "if (start_status > 0)" in klogd_start and "if (start_status < 0)" in klogd_start
 klog_preflight = klogd_start.index('optional_daemon_start_status("klogd", "klogd")')
 klog_launch = klogd_start.index('start_status = eval("/sbin/klogd");')
-klog_wait = klogd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", klog_launch)
+klog_wait = klogd_start.index('service_start_probe_wait("klogd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);', klog_launch)
 klog_probe = klogd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", klog_launch)
 klog_inventory = klogd_start.index('optional_daemon_presence("klogd", &scan_error)', klog_probe)
 klog_result = klogd_start.index("process_presence_start_postcondition(start_status, process_state)", klog_inventory)

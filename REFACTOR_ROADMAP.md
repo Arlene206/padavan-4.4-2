@@ -1,9 +1,9 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `f87b0b67cc918c1011714ab09f04497e7566e9a4`. Production wait changes include EINTR-safe DHCP/PPP settle waits at `e0c8269` and NFSd restart settling at `90cce742`; this commit only fixes stale test contracts.
-- WAN DHCP callback run `44323140500` on `106af73` passed the first updated wait assertion but failed a second legacy guard at workflow line 1069. THIS COMMIT checks the shared `service_wait_seconds(2)` guard and absence of raw sleep.
-- Process run `44323338947` on `f87b0b6` passed SmartDNS lifecycle tests/contracts and failed only because the LLTD integration checker still searched for direct sleep; LLTD/rstats now use `service_start_probe_wait()`. THIS COMMIT updates duplicated ordering checks. New exact-head runs pending.
-- XY-C1 Build/TRX/artifact verification remains proven only for SmartDNS product SHA `9bb9fda`; XY-C1 on `90cce742` was still in progress at last observation. Router runtime/L4 is unverified.
+- Live main before THIS COMMIT: `a0e5fe46e279e9356272ca2d1972a5a6e2309398`. Recent product changes include EINTR-safe WAN/PPP/NFSd settling, RC daemon retry wait scoping and logger startup wait handling. THIS COMMIT is checker-only.
+- WAN callback `44323940802` on `9cd6446` PASS; AI handoff docs `44323940948` PASS.
+- Process run `44324115817` on `8320547` passed LLTD/rstats, IAPPD and optional daemon checks, then exposed the next stale direct-sleep assertion in telnetd. Current telnetd/ttyd/syslogd/klogd source uses `service_start_probe_wait()`; THIS COMMIT aligns the duplicated ordering checks. Process inventory `44324115721` PASS.
+- On `a0e5fe4`, gateway ARP, ZeroTier, Crond, DNS Forwarder, PID 1 queue, Networkmap, DDNSTO, watchdog, HTTPD daemon, detect_internet, AliDDNS, infosvr and GPIO workflows PASS; XY-C1/NVRAM and selected module workflows were pending. Latest WAN/RC source L3 remains pending.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

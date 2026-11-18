@@ -1,3 +1,11 @@
+## 2026-11-18 — Align remaining RC daemon startup wait assertions
+
+- Parent main: `a0e5fe46e279e9356272ca2d1972a5a6e2309398`. Process run `44324115817` on `83205473630449515d6b4c475c4f017adfcd246c` passed LLTD/rstats detached-start postconditions, IAPPD status and optional daemon guards, then failed because the shared process checker still expected raw sleep in `start_telnetd()`.
+- Current `services.c` uses `service_start_probe_wait()` for telnetd, ttyd, syslogd and klogd. Replace both duplicated direct-sleep ordering assertions for telnetd/ttyd and the syslogd/klogd assertions with exact helper calls; retain preflight → launch → wait → probe → inventory → postcondition ordering.
+- THIS COMMIT is checker/handoff-only. Exact Process rerun required; no source changes or local test claim.
+
+---
+
 ## 2026-11-18 — Align LLTD/rstats and WAN callback wait contracts
 
 - Parent main: `f87b0b67cc918c1011714ab09f04497e7566e9a4`. Process run `44323338947` on `f87b0b6` failed at `lltd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);")`; WAN callback run `44323140500` on `106af73` failed at a second obsolete `if (wait_dhcpc && launch_status == 0)` assertion.
