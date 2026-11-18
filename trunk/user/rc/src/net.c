@@ -42,6 +42,7 @@
 #include "conntrack_flush_policy.h"
 #include "igmpproxy_config_file.h"
 #include "service_start_status.h"
+#include "ipv4_forward_policy.h"
 #include "wireless_module_load_policy.h"
 #include "hwnat_config_policy.h"
 #include "sfe_config_policy.h"
@@ -1308,14 +1309,17 @@ restart_firewall(void)
 	return rc_first_service_start_status(firewall_status, upnp_status);
 }
 
-void
+static int
+write_ipv4_forward_sysctl(void *context, int enabled)
+{
+	(void)context;
+	return fput_int("/proc/sys/net/ipv4/ip_forward", enabled);
+}
+
+int
 set_ipv4_forward(int is_on)
 {
-	char tmp[64];
-
-	/* enable/disable forwarding IPv4 */
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "ip_forward");
-	fput_int(tmp, (is_on) ? 1 : 0);
+	return rc_ipv4_forward_apply(is_on, write_ipv4_forward_sysctl, NULL);
 }
 
 void

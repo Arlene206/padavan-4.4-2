@@ -1114,6 +1114,10 @@ init_router(void)
 		int ipv6_filter_status = 0;
 		int firewall_enabled;
 		int ipv6_filter_required = 0;
+		int ipv4_forward_disable_status;
+#if defined (USE_IPV6)
+		int ipv6_forward_disable_status;
+#endif
 
 		firewall_enabled = nvram_match("fw_enable_x", "1");
 		nat_required = nvram_match("wan_nat_x", "1");
@@ -1134,10 +1138,23 @@ init_router(void)
 							nat_required,
 							nat_restore_status)) {
 			logmessage(LOGNAME, "Blocking WAN startup: required NAT table or restrictive IPv4/IPv6 firewall filters could not be verified");
-			set_ipv4_forward(0);
+			ipv4_forward_disable_status = set_ipv4_forward(0);
+			if (ipv4_forward_disable_status != 0) {
+				logmessage(LOGNAME, "failed to disable IPv4 forwarding after firewall startup rejection (status=%d)",
+					   ipv4_forward_disable_status);
+				boot_services_status = rc_first_service_start_status(
+					boot_services_status, ipv4_forward_disable_status);
+			}
 #if defined (USE_IPV6)
-			if (ipv6_filter_required)
-				set_interface_conf_int("ipv6", "all", "forwarding", 0);
+			if (ipv6_filter_required) {
+				ipv6_forward_disable_status = set_interface_conf_int("ipv6", "all", "forwarding", 0);
+				if (ipv6_forward_disable_status != 0) {
+					logmessage(LOGNAME, "failed to disable IPv6 forwarding after firewall startup rejection (status=%d)",
+						   ipv6_forward_disable_status);
+					boot_services_status = rc_first_service_start_status(
+						boot_services_status, ipv6_forward_disable_status);
+				}
+			}
 #endif
 		} else {
 			int wan_start_status = start_wan();
@@ -1217,6 +1234,7 @@ shutdown_router(int level)
 	int auth_stop_status, logger_stop_status = 0;
 	int wifi_wl_stop_status = 0, wifi_rt_stop_status = 0;
 	int lan_stop_status = 0;
+	int forward_stop_status = 0;
 	int optware_stop_status = 0;
 	int rwfs_unmount_status = 0;
 	int shutdown_script_status = 0;
@@ -1265,7 +1283,11 @@ shutdown_router(int level)
 		lan_wan_stop_status = stop_services_lan_wan();
 		if (lan_wan_stop_status != 0)
 			logmessage(LOGNAME, "LAN/WAN service shutdown incomplete; continuing power-down without storage persistence");
-		set_ipv4_forward(0);
+		forward_stop_status = set_ipv4_forward(0);
+		if (forward_stop_status != 0)
+			logmessage(LOGNAME, "IPv4 forwarding shutdown incomplete (status=%d)", forward_stop_status);
+		lan_wan_stop_status = rc_first_service_start_status(
+			lan_wan_stop_status, forward_stop_status);
 	}
 
 	auth_stop_status = stop_8021x_all();

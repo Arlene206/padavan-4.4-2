@@ -11,6 +11,9 @@ on:
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/net.c"
+      - "scripts/check_forwarding_control_status.py"
+      - "trunk/user/rc/src/tests/ipv4_forward_policy.c"
+      - "trunk/user/rc/src/ipv4_forward_policy.h"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/wan_route_flush_policy.h"
       - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
@@ -251,6 +254,13 @@ jobs:
 
           print("Required NAT restore, filter safety and push/PR workflow contracts: PASS")
           PY
+      - name: Compile and run IPv4 forwarding sysctl result regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/ipv4_forward_policy.c -o "$RUNNER_TEMP/ipv4-forward-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ipv4-forward-policy"
+          python3 scripts/check_forwarding_control_status.py
+
       - name: Compile and run firewall optional module-table tri-state regression
         run: |
           set -eu

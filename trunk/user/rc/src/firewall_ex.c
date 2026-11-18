@@ -319,11 +319,33 @@ firewall_abort_core_restore_after_staging_failure(void)
 }
 
 static int
+firewall_disable_forwarding(const char *operation)
+{
+	int status = 0, next_status;
+
+	next_status = set_ipv4_forward(0);
+	if (next_status != 0) {
+		logmessage(LOGNAME, "%s: failed to disable IPv4 forwarding (status=%d)",
+			   operation, next_status);
+		status = rc_first_service_start_status(status, next_status);
+	}
+#if defined (USE_IPV6)
+	next_status = set_interface_conf_int("ipv6", "all", "forwarding", 0);
+	if (next_status != 0) {
+		logmessage(LOGNAME, "%s: failed to disable IPv6 forwarding (status=%d)",
+			   operation, next_status);
+		status = rc_first_service_start_status(status, next_status);
+	}
+#endif
+	return status;
+}
+
+static int
 firewall_apply_core_restore(const char *operation, const char *family,
 			    const char *table, const char *rule_path)
 {
 	firewall_restore_command_context_t context;
-	int standalone, result;
+	int standalone, result, forward_status;
 
 	standalone = !firewall_core_restore_transaction_active;
 	context.operation = operation;
@@ -347,12 +369,11 @@ firewall_apply_core_restore(const char *operation, const char *family,
 		    firewall_core_restore_transaction.cleanup_failed)
 			firewall_log_retained_restore_snapshots(&firewall_core_restore_transaction);
 		if (firewall_restore_transaction_rollback_failed(&firewall_core_restore_transaction)) {
-			logmessage(LOGNAME, "Firewall rollback incomplete outside rebuild; disabling IPv4 forwarding");
-			set_ipv4_forward(0);
-#if defined (USE_IPV6)
-		/* IPv6 forwarding must also fail closed after an incomplete rollback. */
-		set_interface_conf_int("ipv6", "all", "forwarding", 0);
-#endif
+			logmessage(LOGNAME, "Firewall rollback incomplete outside rebuild; disabling forwarding");
+			forward_status = firewall_disable_forwarding("Standalone firewall rollback");
+			result = rc_first_service_start_status(result, forward_status);
+			if (result != 0)
+				errno = result > 0 ? result : EIO;
 		}
 	}
 	return result;
@@ -2752,7 +2773,7 @@ start_firewall_ex(void)
 {
 	int unit, wan_proto, i_tcp_mss, i_use_man, i_rp;
 	int status = 0;
-	int hook_error;
+	int hook_error, forward_status;
 	char int_iptables_staged[256] = {0};
 	char opt_iptables_staged[256] = {0};
 #if defined (APP_SHADOWSOCKS)
@@ -2923,12 +2944,11 @@ firewall_restore_complete:
 	if (firewall_restore_transaction_rollback_failed(&firewall_core_restore_transaction)) {
 		firewall_log_retained_restore_snapshots(&firewall_core_restore_transaction);
 		logmessage(LOGNAME,
-			   "Firewall rollback incomplete; disabling IPv4 forwarding and skipping remaining setup");
-		set_ipv4_forward(0);
-#if defined (USE_IPV6)
-		/* IPv6 forwarding must also fail closed after an incomplete rollback. */
-		set_interface_conf_int("ipv6", "all", "forwarding", 0);
-#endif
+			   "Firewall rollback incomplete; disabling forwarding and skipping remaining setup");
+		forward_status = firewall_disable_forwarding("Core firewall rollback");
+		if (forward_status != 0)
+			logmessage(LOGNAME, "forwarding may remain enabled after incomplete firewall rollback (status=%d)",
+				   forward_status);
 		errno = EIO;
 		return EIO;
 	}
@@ -2970,8 +2990,11 @@ firewall_restore_complete:
 		firewall_log_retained_adbyby_restore_snapshots(
 			&firewall_adbyby_restore_transaction);
 		logmessage(LOGNAME,
-			   "Adbyby firewall rollback incomplete; disabling IPv4 forwarding and aborting remaining extension hooks");
-		set_ipv4_forward(0);
+			   "Adbyby firewall rollback incomplete; disabling forwarding and aborting remaining extension hooks");
+		forward_status = firewall_disable_forwarding("Adbyby firewall rollback");
+		if (forward_status != 0)
+			logmessage(LOGNAME, "forwarding may remain enabled after Adbyby rollback failure (status=%d)",
+				   forward_status);
 		errno = EIO;
 		return EIO;
 	}
@@ -3020,7 +3043,11 @@ firewall_restore_complete:
 	}
 
 	/* enable IPv4 forward only after every built-in table was applied */
-	set_ipv4_forward(1);
+	forward_status = set_ipv4_forward(1);
+	if (forward_status != 0)
+		logmessage(LOGNAME, "failed to enable IPv4 forwarding after firewall restore (status=%d)",
+			   forward_status);
+	status = rc_first_service_start_status(status, forward_status);
 
 	if (nvram_match("pppoemwan_enable", "1")) {
 		hook_error = firewall_log_command_failure("PPPoE-MWAN detection",
