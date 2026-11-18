@@ -1,13 +1,15 @@
-# 2026-11-19 continuation checkpoint — align Inadyn lifecycle integration contracts
+# 2026-11-19 continuation checkpoint — harden RStats raw history loading
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Baseline WAN SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759` has 22/22 exact-head workflows PASS, including XY-C1 Build/TRX/artifact run `44368075437`. AliDDNS IANA-filter SHA `f3efd5e4a7101b930e699c54704fcf25a5ae341d` passed AliDDNS/Process/AI/HTTPD; XY-C1 `44373890927` was still in progress at last check. Switch-only SHA `f57161cc56f82f1b091093a8e93eac012413ce15` passed Process (`44375203938`), AI docs (`44375203886`), Switch CLI (`44375203978`) and NVRAM audit (`44375203974`).
-- Source SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn lifecycle regression `44381565885`, Process inventory `44381563425`, Process fail-closed regression `44381563270`, HTTPD security `44381563266`, miniupnpd `44381563068` and Samba `44381563561` PASS. WAN route `44381563038` and DNSMasq lifecycle `44381563474` FAIL because their source contracts still parse the thin public Inadyn wrappers, not the new `_locked` implementation helpers; this follow-up repairs both. AI docs `44381563154` FAIL because the previous handoff update omitted `## Verification boundary`; this follow-up restores it. XY-C1 `44381563540` remains IN_PROGRESS (Build active; TRX/artifact pending); NVRAM audit `44381563037` was still IN_PROGRESS. L3 is NOT VERIFIED; physical-router L4 remains NOT VERIFIED.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not switch to, update or delete it.
-- PR #1 remains closed/unmerged; do not revive it.
-- No local repository checkout or local MIPS build was performed. GitHub Actions completed the XY-C1 cross-build, TRX verification and artifact upload on exact source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`; physical-router L4 remains unverified.
+- Repository: `Arlene206/padavan-4.4-2`; development branch is `main` only. Parent for the RStats history-read slice: `1b3117769d52021de09ba09ffbee011e149de3fe`.
+- Inadyn lifecycle source SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD security `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 firmware `44381563540` all completed SUCCESS. The XY-C1 job completed Build, TRX verification and artifact upload on that exact firmware SHA; L3 is VERIFIED for `3c7bd2d`.
+- Downstream checker/handoff fix on main SHA `1b3117769d52021de09ba09ffbee011e149de3fe` passed DNSMasq `44382455939`, WAN route `44382456589`, and AI handoff docs `44382456088`.
+- AliDDNS production SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0` is L3 VERIFIED: AliDDNS `44377211563`, Process `44377211590`, HTTPD `44377211539`, and XY-C1 `44377211451` all SUCCESS; its exact-source Build, TRX and artifact upload completed.
+- This RStats slice fixes loss of otherwise valid history records when the single `read()` returned a short positive count or EINTR. The new exact-read helper retries short reads/EINTR while preserving truncated EOF as a short count for the existing record validator.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
+- No local repository checkout or MIPS firmware build was performed. A standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan exact-read harness passed; the full repository RStats workflow and new exact-SHA firmware build must still be checked after this production-source commit. Physical-router L4 remains NOT VERIFIED.
+
 
 ## Completed prerequisite — switch VLAN WAN gate
 
@@ -78,27 +80,27 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Repair the two downstream source contracts that still inspect the public Inadyn wrappers after lifecycle serialization moved implementation into `_locked` helpers, and restore the mandatory handoff verification boundary.
+Complete the RStats history-read recovery slice based on parent `1b3117769d52021de09ba09ffbee011e149de3fe`.
 
-- `scripts/check_wan_ddns_status.py` must inspect `notify_ddns_update_locked(void)` so it continues verifying the disabled/AP no-op gate before process inventory.
-- `.github/workflows/dnsmasq-lifecycle.yml` embeds a source contract that must inspect `start_ddns_locked(int clear_cache)`, assert stop uses `stop_ddns_locked()`, and inspect `notify_ddns_update_locked(void)`. Production-order and credential-publication assertions remain enabled.
-- These are checker-only compatibility repairs. No regression suite is disabled, skipped or weakened.
+- Production `trunk/user/rc/src/rstats.c::f_read()` validates inputs, retries interrupted `open()`, loops through short reads using `rstats_file_read_exact()`, and preserves read errno across descriptor close. EOF before a complete `history_t` remains a short count so `load_history_raw()` continues rejecting truncated/corrupt records.
+- `rstats_file_policy.h` provides an injectable GNU89-compatible exact-read helper. `rstats_policy_test.c` covers short chunks, one-shot EINTR, truncated EOF, EIO after partial progress, zero-length input, invalid arguments and oversize requests. The existing `rstats-stability.yml` workflow source contract is expanded; its push/PR allowlists already include all changed paths.
+- A standalone exact-read helper harness compiled and passed with `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined`. This is not the full repository RStats regression or a firmware build; exact-head Actions are required.
+
 
 ## Verification boundary
 
-Exact-head results for source SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`:
-- PASS: Inadyn lifecycle `44381565885` (including GNU89/ASan/UBSan lock regression and production integration); Process inventory `44381563425`; Process fail-closed regression `44381563270`; HTTPD security `44381563266`; miniupnpd lifecycle `44381563068`; Samba configuration stability `44381563561`.
-- FAIL: WAN route `44381563038`, because its source checker still seeks the DDNS gate inside the thin public wrapper. DNSMasq lifecycle `44381563474`, because its inline checker still expects the old public start/update bodies. Both require signature/contract alignment with internal locked helpers.
-- FAIL: AI handoff docs `44381563154`, because a prior handoff edit dropped the required `## Verification boundary` section. This repair restores the mandatory section.
-- IN_PROGRESS: XY-C1 `44381563540` (Build active; TRX/artifact pending); NVRAM audit `44381563037` was also still running at last poll.
-- Previous AliDDNS source SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0` passed AliDDNS, Process inventory and HTTPD checks; AI docs correction `b471b7e328b79c9eac412f2af701c51b9a573e19` passed `44377784741`.
-- The current Inadyn source SHA has no completed XY-C1 result; do not claim firmware L3. Physical-router L4 remains NOT VERIFIED.
+- Inadyn source SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 `44381563540` all PASS. Exact-source XY-C1 Build, TRX verification and artifact upload completed.
+- Its downstream checker/handoff correction main SHA `1b3117769d52021de09ba09ffbee0118fae159f66` passed DNSMasq `44382455939`, WAN route `44382456589`, and AI docs `44382456088`.
+- AliDDNS production SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0` has exact-source L3 verification: AliDDNS `44377211563`, Process `44377211590`, HTTPD `44377211539`, and XY-C1 `44377211451` all PASS, including Build/TRX/artifact.
+- Current RStats exact-read source commit triggers RStats, Process inventory, AI docs and XY-C1. Those exact-head Actions are PENDING until completed; XY-C1 L3 requires Build, TRX and artifact upload success on this exact new SHA.
+- Physical-router/hardware L4 is NOT VERIFIED.
+
 
 ## Exact first action for the next GPT
 
-1. Confirm WAN route and DNSMasq exact-head workflows pass after both source contracts were moved to the Inadyn internal locked helpers; confirm the AI docs contract passes with `## Verification boundary` restored.
-2. Poll XY-C1 run `44381563540` and NVRAM audit `44381563037` for source SHA `3c7bd2d`; verify Build, TRX and artifact upload before claiming L3.
-3. Continue whole-userland stability/security fixes without reducing CI coverage. Physical-router L4 remains NOT VERIFIED.
+1. Inspect live `main` and every exact-head RStats/Process/AI/XY-C1 Action for this history-read source commit. Confirm the GNU89/Werror ASan/UBSan test and integration checker pass; fix any real failure.
+2. Confirm XY-C1 Build, TRX verification and artifact upload all succeed for the exact SHA containing `trunk/user/rc/src/rstats.c`; don't transfer prior L3 results.
+3. Continue with a new concrete stability/security defect across the wider userland while independent checks run. Keep the archival backup immutable and physical-router L4 NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

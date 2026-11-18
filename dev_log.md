@@ -1,3 +1,10 @@
+## 2026-11-19 — Harden RStats raw history loading against short reads and EINTR
+
+- Parent main SHA: `1b3117769d52021de09ba09ffbee0118fae159de3fe`. `rstats.c::f_read()` previously performed one `read()` and returned its byte count; legal short reads caused `load_history_raw()` to reject otherwise valid history, and EINTR also aborted the read.
+- Add injectable `rstats_file_read_exact_with()` / `rstats_file_read_exact()` helpers: accumulate short reads, retry EINTR, return the actual short count at EOF, reject invalid arguments and oversized lengths, and propagate non-EINTR failures. `f_read()` retries interrupted `open()`, uses the exact-read helper and preserves the read errno across `close()`.
+- Add RStats fixture tests for one EINTR followed by short chunks, truncated EOF, EIO after partial progress, zero-length input, invalid arguments and oversized request. Extend `rstats-stability.yml` source-contract checks; existing push/PR filters already watch all modified source/test paths.
+- A standalone helper harness compiled and passed under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. This does not replace the full repository test or firmware build. New exact-head RStats/Process/AI/XY-C1 Actions must be inspected; XY-C1 L3 requires Build, TRX and artifact success on the exact source SHA. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-19 — Align downstream checks with Inadyn locked helpers
 
 - Inadyn SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn regression `44381565885` (lock compile/run + production contract), Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068` and Samba `44381563561` PASS.

@@ -13,6 +13,53 @@
 static char last_temp[PATH_MAX];
 static int write_mode, write_calls;
 
+struct scripted_read_fixture {
+  const char *data;
+  size_t data_length;
+  size_t offset;
+  size_t max_chunk;
+  size_t fail_after;
+  unsigned int calls;
+  int interrupt_once;
+  int fail_errno;
+};
+
+static ssize_t scripted_read(int fd, void *buffer, size_t length, void *opaque) {
+  struct scripted_read_fixture *fixture =
+      (struct scripted_read_fixture *)opaque;
+  size_t count;
+
+  assert(fd == 42);
+  ++fixture->calls;
+  if (fixture->interrupt_once) {
+    fixture->interrupt_once = 0;
+    errno = EINTR;
+    return -1;
+  }
+  if (fixture->fail_errno && fixture->offset >= fixture->fail_after) {
+    errno = fixture->fail_errno;
+    return -1;
+  }
+  if (fixture->offset >= fixture->data_length)
+    return 0;
+
+  count = fixture->data_length - fixture->offset;
+  if (count > length)
+    count = length;
+  if (fixture->max_chunk && count > fixture->max_chunk)
+    count = fixture->max_chunk;
+  if (fixture->fail_errno &&
+      count > fixture->fail_after - fixture->offset)
+    count = fixture->fail_after - fixture->offset;
+  if (count == 0) {
+    errno = EIO;
+    return -1;
+  }
+  memcpy(buffer, fixture->data + fixture->offset, count);
+  fixture->offset += count;
+  return (ssize_t)count;
+}
+
 static int test_mkstemp(char *p) {
   int fd = mkstemp(p);
   if (fd >= 0) snprintf(last_temp, sizeof(last_temp), "%s", p);
@@ -50,7 +97,74 @@ static void expect(const char *p, const char *s) {
 }
 static void temp_gone(void) { assert(last_temp[0] && access(last_temp, F_OK) < 0 && errno == ENOENT); }
 
+static void test_exact_read_retries_eintr_and_short_reads(void)
+{
+  static const char payload[] = "complete-history-record";
+  char output[sizeof(payload)];
+  struct scripted_read_fixture fixture;
+  size_t payload_length = sizeof(payload) - 1;
+  int result;
+
+  memset(&fixture, 0, sizeof(fixture));
+  fixture.data = payload;
+  fixture.data_length = payload_length;
+  fixture.max_chunk = 3;
+  fixture.interrupt_once = 1;
+  memset(output, 0, sizeof(output));
+  result = rstats_file_read_exact_with(42, output, payload_length,
+                                       scripted_read, &fixture);
+  assert(result == (int)payload_length);
+  assert(memcmp(output, payload, payload_length) == 0);
+  assert(fixture.offset == payload_length);
+  assert(fixture.calls == 1 + (payload_length + 2) / 3);
+
+  /* EOF after a partial record remains a short count. */
+  memset(&fixture, 0, sizeof(fixture));
+  fixture.data = payload;
+  fixture.data_length = 5;
+  fixture.max_chunk = 2;
+  result = rstats_file_read_exact_with(42, output, payload_length,
+                                       scripted_read, &fixture);
+  assert(result == 5);
+  assert(memcmp(output, payload, 5) == 0);
+  assert(fixture.calls == 4);
+
+  /* A non-EINTR error after partial progress stays a hard failure. */
+  memset(&fixture, 0, sizeof(fixture));
+  fixture.data = payload;
+  fixture.data_length = payload_length;
+  fixture.max_chunk = 2;
+  fixture.fail_after = 4;
+  fixture.fail_errno = EIO;
+  errno = 0;
+  assert(rstats_file_read_exact_with(42, output, payload_length,
+                                     scripted_read, &fixture) == -1);
+  assert(errno == EIO && fixture.offset == 4 && fixture.calls == 3);
+
+  /* Empty input and invalid arguments have deterministic outcomes. */
+  memset(&fixture, 0, sizeof(fixture));
+  assert(rstats_file_read_exact_with(42, NULL, 0, scripted_read,
+                                     &fixture) == 0);
+  assert(fixture.calls == 0);
+  errno = 0;
+  assert(rstats_file_read_exact_with(-1, output, 1, scripted_read,
+                                     &fixture) == -1);
+  assert(errno == EINVAL);
+  errno = 0;
+  assert(rstats_file_read_exact_with(42, NULL, 1, scripted_read,
+                                     &fixture) == -1);
+  assert(errno == EINVAL);
+  errno = 0;
+  assert(rstats_file_read_exact_with(42, output, 1, NULL, &fixture) == -1);
+  assert(errno == EINVAL);
+  errno = 0;
+  assert(rstats_file_read_exact_with(42, output, (size_t)INT_MAX + 1u,
+                                     scripted_read, &fixture) == -1);
+  assert(errno == EOVERFLOW);
+}
+
 int main(void) {
+  test_exact_read_retries_eintr_and_short_reads();
   char dir[] = "/tmp/rstats-policy.XXXXXX";
   char target[128], victim[128], stage[128];
   struct rstats_file_ops o;

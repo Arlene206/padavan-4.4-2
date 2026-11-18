@@ -127,11 +127,24 @@ static volatile sig_atomic_t rstats_pending_events = 0;
 static int f_read(const char *path, void *buffer, int max)
 {
 	int fd;
-	int n;
+	int n, saved_errno;
 
-	if ((fd = open(path, O_RDONLY)) < 0) return -1;
-	n = read(fd, buffer, max);
-	close(fd);
+	if (!path || !*path || max < 0 || (!buffer && max > 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	do {
+		fd = open(path, O_RDONLY);
+	} while (fd < 0 && errno == EINTR);
+	if (fd < 0)
+		return -1;
+
+	n = rstats_file_read_exact(fd, buffer, (size_t)max);
+	saved_errno = errno;
+	(void)close(fd);
+	if (n < 0)
+		errno = saved_errno ? saved_errno : EIO;
 	return n;
 }
 

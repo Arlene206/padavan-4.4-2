@@ -10,6 +10,63 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+/*
+ * Read a complete record despite legal short reads or signal interruption.
+ * EOF before length bytes is returned as a short count so callers can reject
+ * a truncated persistent record without treating it as valid.
+ */
+typedef ssize_t (*rstats_file_read_fn)(int fd, void *buffer, size_t length,
+                                      void *context);
+
+static inline int
+rstats_file_read_exact_with(int fd, void *buffer, size_t length,
+                            rstats_file_read_fn read_fn, void *context)
+{
+  size_t total = 0;
+
+  if (fd < 0 || (!buffer && length != 0) || !read_fn) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (length > (size_t)INT_MAX) {
+    errno = EOVERFLOW;
+    return -1;
+  }
+
+  while (total < length) {
+    ssize_t result = read_fn(fd, (char *)buffer + total, length - total,
+                             context);
+    if (result < 0) {
+      if (errno == EINTR)
+        continue;
+      return -1;
+    }
+    if (result == 0)
+      break;
+    if ((size_t)result > length - total) {
+      errno = EIO;
+      return -1;
+    }
+    total += (size_t)result;
+  }
+
+  return (int)total;
+}
+
+static inline ssize_t
+rstats_file_system_read(int fd, void *buffer, size_t length, void *context)
+{
+  (void)context;
+  return read(fd, buffer, length);
+}
+
+static inline int
+rstats_file_read_exact(int fd, void *buffer, size_t length)
+{
+  return rstats_file_read_exact_with(fd, buffer, length,
+                                     rstats_file_system_read, NULL);
+}
+
 struct rstats_file_ops {
   int (*mkstemp_fn)(char *template_path);
   int (*fchmod_fn)(int fd, mode_t mode);
