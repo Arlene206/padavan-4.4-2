@@ -118,7 +118,7 @@ log() { :; }
 nvram() {
 	case "$1:$2" in
 		get:pdnsd_enable) echo "${DNS_PDNSD_ENABLE:-0}" ;;
-		get:tunnel_forward) echo "${DNS_UPSTREAM:-8.8.8.8#53}" ;;
+		get:tunnel_forward) echo "${DNS_UPSTREAM-8.8.8.8#53}" ;;
 		*) return 90 ;;
 	esac
 }
