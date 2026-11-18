@@ -1,9 +1,18 @@
+## 2026-11-18 — Require SCUT and MentoHUST child readiness after background launch
+
+- Parent main: `aab4a9a3eccc2ceb25bd584a8b2fb16952656534`. SCUT and MentoHUST used `start-stop-daemon -S -b` and treated a zero launcher status as a running daemon, although a detached child could exit immediately before entering the process inventory.
+- Add shared POSIX `pl_wait_started()`: a one-second initial delay followed by four tri-state probes, one second apart. Only confirmed RUNNING succeeds; confirmed ABSENT after bounded probes returns timeout; UNKNOWN inventory, invalid arguments or sleep failure fail closed. Preserve launcher errors and existing duplicate/stop semantics.
+- Require this postcondition in both scripts; extend shared and optional-app runtime regressions for absent, delayed and UNKNOWN child states; include the ROMFS-installed helper in XY-C1 build triggers and firmware-input tests.
+- Exact-head Process, AI handoff and XY-C1 runs for this source SHA are pending. No local shell execution or cross-build is claimed; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Propagate WAN conntrack, TCP security and IGMP/MLD sysctl failures
 
 - The WAN startup and system-control refresh paths called `set_nf_conntrack()`, `set_tcp_syncookies()` and `set_igmp_mld_version()` as void operations. These functions ignored failed procfs writes, so configured connection-table limits, SYN-cookie/ICMP protections or multicast compatibility values could silently remain unapplied while callers reported success.
 - Return status from each setting group, attempt every independent TCP/ICMP and IGMP/MLD write, preserve the first error, and aggregate it in both `start_wan()` and `restart_all_sysctl()` without skipping unrelated WAN setup. Add a GNU89 host policy regression and source-contract checks; wire the WAN Actions and XY-C1 source filter.
 - CI trigger review: the three declarations initially changed shared `rc.h`, causing unrelated RC service workflows to run. Move this narrow API to `network_sysctl.h`; only the three consumers include it, keeping future signature changes out of the global RC header.
-- The first exact SHA `49f1ab1d4c921306ed67a34c45cadd84a21f17ae` workflow-file run (`44254413936`) was rejected before creating jobs. Inspection found the two newly added checker steps were malformed YAML (missing `run` binding for the AP-client step and duplicate `run` keys). Both steps are now explicit, separate `name`/`run` pairs; the workflow will be revalidated on the repair SHA.
+- The first exact SHA `49f1ab1d4c921306ed67a34c45cadd84a21f17ae` workflow-file run (`44254413936`) was rejected before jobs because two checker steps were malformed YAML. The correction is committed on `180ac810ea6d9c4551512ce7aa2d5bc599d60935`; exact-head WAN route run `44254662647` and AI handoff run `44254662816` PASS. XY-C1 build for SHA 49f1 was still in progress; TRX and artifact steps were pending.
 - No physical-router sysctl fault-injection or L4 result is claimed; exact-SHA Actions and XY-C1 build are the verification gates.
 
 ---

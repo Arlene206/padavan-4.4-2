@@ -201,6 +201,7 @@ def check_scutclient():
     source = SCUT_SCRIPT.read_text()
     assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in source
     assert 'pl_stop_named "$scutclient_exec" 3 2' in source
+    assert 'pl_wait_started "$scutclient_exec" 1 4 1' in source
     with tempfile.TemporaryDirectory(prefix="scutclient-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")
@@ -226,7 +227,11 @@ esac
 echo "$*" >> "$MOCK_START_LOG"
 status="$MOCK_START_STATUS"
 [ "$status" -eq 0 ] || exit "$status"
-[ "$MOCK_START_APPEARS" = 1 ] && echo running > "$MOCK_STATE_FILE"
+if [ -n "${MOCK_START_STATE:-}" ]; then
+    echo "$MOCK_START_STATE" > "$MOCK_STATE_FILE"
+elif [ "$MOCK_START_APPEARS" = 1 ]; then
+    echo running > "$MOCK_STATE_FILE"
+fi
 exit 0
 """)
         executable(bin_dir / "killall", """#!/bin/sh
@@ -235,6 +240,13 @@ echo "$MOCK_TERM_STATE" > "$MOCK_STATE_FILE"
 exit "$MOCK_STOP_STATUS"
 """)
         executable(bin_dir / "sleep", """#!/bin/sh
+count=0
+[ -r "$MOCK_SLEEP_COUNT_FILE" ] && count=$(cat "$MOCK_SLEEP_COUNT_FILE")
+count=$((count + 1))
+echo "$count" > "$MOCK_SLEEP_COUNT_FILE"
+if [ "${MOCK_SLEEP_APPEARS_AFTER:-0}" -gt 0 ] && [ "$count" -ge "$MOCK_SLEEP_APPEARS_AFTER" ]; then
+    echo running > "$MOCK_STATE_FILE"
+fi
 exit "$MOCK_SLEEP_STATUS"
 """)
         executable(bin_dir / "bin_scutclient", """#!/bin/sh
@@ -246,6 +258,8 @@ exit 0
         start_log = base / "start.log"
         stop_log = base / "stop.log"
         logout_log = base / "logout.log"
+        sleep_count = base / "sleep.count"
+        sleep_count.write_text("0")
         log = base / "logger.log"
         env = os.environ.copy()
         env.update({
@@ -260,6 +274,8 @@ exit 0
             "MOCK_STOP_STATUS": "47",
             "MOCK_TERM_STATE": "absent",
             "MOCK_SLEEP_STATUS": "0",
+            "MOCK_SLEEP_COUNT_FILE": str(sleep_count),
+            "MOCK_SLEEP_APPEARS_AFTER": "0",
             "PROCESS_LIFECYCLE_LIB": str(PROCESS_LIFECYCLE_LIB),
         })
 
@@ -286,6 +302,33 @@ exit 0
         assert state.read_text().strip() == "absent"
         assert len(stop_log.read_text().splitlines()) == 1
         assert len(logout_log.read_text().splitlines()) == 1
+
+        # A zero background-fork status is not proof that the child survived.
+        env["MOCK_START_APPEARS"] = "0"
+        sleep_count.write_text("0")
+        missing_child = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
+        assert missing_child.returncode == 1, f"SCUT accepted absent child: {missing_child.returncode}"
+        assert "startup readiness timed out" in log.read_text()
+        assert state.read_text().strip() == "absent"
+        assert sleep_count.read_text().strip() == "4"
+        sleep_count.write_text("0")
+        env["MOCK_SLEEP_APPEARS_AFTER"] = "2"
+        delayed_child = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
+        assert delayed_child.returncode == 0, delayed_child.stderr
+        assert state.read_text().strip() == "running"
+        assert sleep_count.read_text().strip() == "2"
+        stopped_delayed = run(["/bin/sh", str(SCUT_SCRIPT), "stop"], env)
+        assert stopped_delayed.returncode == 0, stopped_delayed.stderr
+        assert state.read_text().strip() == "absent"
+        assert len(logout_log.read_text().splitlines()) == 2
+        env["MOCK_SLEEP_APPEARS_AFTER"] = "0"
+        env["MOCK_START_STATE"] = "unknown"
+        sleep_count.write_text("0")
+        unknown_child = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
+        assert unknown_child.returncode == 2, f"SCUT accepted UNKNOWN child: {unknown_child.returncode}"
+        assert "startup readiness could not be verified" in log.read_text()
+        assert sleep_count.read_text().strip() == "1"
+        del env["MOCK_START_STATE"]
 
         # UNKNOWN blocks start, stop, restart, signal and logoff.
         state.write_text("unknown")
@@ -418,6 +461,7 @@ def check_mentohust():
     source = MENTOHUST_SCRIPT.read_text()
     assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in source
     assert 'pl_stop_named "$mentohust_exec" 3 2' in source
+    assert 'pl_wait_started "$mentohust_exec" 1 4 1' in source
     with tempfile.TemporaryDirectory(prefix="mentohust-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")
@@ -433,7 +477,11 @@ esac
 echo "$*" >> "$MOCK_START_LOG"
 status="$MOCK_START_STATUS"
 [ "$status" -eq 0 ] || exit "$status"
-[ "$MOCK_START_APPEARS" = 1 ] && echo running > "$MOCK_STATE_FILE"
+if [ -n "${MOCK_START_STATE:-}" ]; then
+    echo "$MOCK_START_STATE" > "$MOCK_STATE_FILE"
+elif [ "$MOCK_START_APPEARS" = 1 ]; then
+    echo running > "$MOCK_STATE_FILE"
+fi
 exit 0
 """)
         executable(bin_dir / "killall", """#!/bin/sh
@@ -442,6 +490,13 @@ echo "$MOCK_TERM_STATE" > "$MOCK_STATE_FILE"
 exit "$MOCK_STOP_STATUS"
 """)
         executable(bin_dir / "sleep", """#!/bin/sh
+count=0
+[ -r "$MOCK_SLEEP_COUNT_FILE" ] && count=$(cat "$MOCK_SLEEP_COUNT_FILE")
+count=$((count + 1))
+echo "$count" > "$MOCK_SLEEP_COUNT_FILE"
+if [ "${MOCK_SLEEP_APPEARS_AFTER:-0}" -gt 0 ] && [ "$count" -ge "$MOCK_SLEEP_APPEARS_AFTER" ]; then
+    echo running > "$MOCK_STATE_FILE"
+fi
 exit "$MOCK_SLEEP_STATUS"
 """)
         config = base / "existing-mentohust.conf"
@@ -450,6 +505,8 @@ exit "$MOCK_SLEEP_STATUS"
         state.write_text("absent")
         start_log = base / "start.log"
         stop_log = base / "stop.log"
+        sleep_count = base / "sleep.count"
+        sleep_count.write_text("0")
         log = base / "logger.log"
         env = os.environ.copy()
         env.update({
@@ -462,6 +519,8 @@ exit "$MOCK_SLEEP_STATUS"
             "MOCK_STOP_STATUS": "47",
             "MOCK_TERM_STATE": "absent",
             "MOCK_SLEEP_STATUS": "0",
+            "MOCK_SLEEP_COUNT_FILE": str(sleep_count),
+            "MOCK_SLEEP_APPEARS_AFTER": "0",
             "MOCK_LOG": str(log),
             "MENTOHUST_BIN_CONF_FILE": str(config),
             "PROCESS_LIFECYCLE_LIB": str(PROCESS_LIFECYCLE_LIB),
@@ -488,6 +547,32 @@ exit "$MOCK_SLEEP_STATUS"
         assert stopped.returncode == 0, stopped.stderr
         assert "[  OK  ]" in stopped.stdout
         assert state.read_text().strip() == "absent"
+
+        # A successful background fork must be followed by a visible child.
+        env["MOCK_START_APPEARS"] = "0"
+        sleep_count.write_text("0")
+        missing_child = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
+        assert missing_child.returncode == 1, f"mentohust accepted absent child: {missing_child.returncode}"
+        assert "startup readiness timed out" in log.read_text()
+        assert state.read_text().strip() == "absent"
+        assert sleep_count.read_text().strip() == "4"
+        sleep_count.write_text("0")
+        env["MOCK_SLEEP_APPEARS_AFTER"] = "2"
+        delayed_child = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
+        assert delayed_child.returncode == 0, delayed_child.stderr
+        assert state.read_text().strip() == "running"
+        assert sleep_count.read_text().strip() == "2"
+        stopped_delayed = run(["/bin/sh", str(MENTOHUST_SCRIPT), "stop"], env)
+        assert stopped_delayed.returncode == 0, stopped_delayed.stderr
+        assert state.read_text().strip() == "absent"
+        env["MOCK_SLEEP_APPEARS_AFTER"] = "0"
+        env["MOCK_START_STATE"] = "unknown"
+        sleep_count.write_text("0")
+        unknown_child = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
+        assert unknown_child.returncode == 2, f"mentohust accepted UNKNOWN child: {unknown_child.returncode}"
+        assert "startup readiness could not be verified" in log.read_text()
+        assert sleep_count.read_text().strip() == "1"
+        del env["MOCK_START_STATE"]
 
         # UNKNOWN blocks both stop and restart; no signal or replacement launch.
         state.write_text("unknown")
@@ -660,11 +745,13 @@ def check_shared_process_lifecycle():
     makefile = SHARED_MAKEFILE.read_text()
     assert "pl_process_state()" in helper
     assert "pl_wait_stopped()" in helper
+    assert "pl_wait_started()" in helper
     assert "pl_stop_named()" in helper
     assert "$(INSTALL_BIN) $(CURDIR)/scripts/process_lifecycle.sh $(ROMFSDIR)/usr/lib/process_lifecycle.sh" in makefile
     for token in ("empty-success", "malformed", "inconsistent", "post-TERM UNKNOWN accepted",
                   "sleep failure", "stubborn process", "UNKNOWN authorized a signal",
-                  "KILL:-q -9 test-daemon"):
+                  "KILL:-q -9 test-daemon", "ABSENT startup timeout accepted",
+                  "UNKNOWN inventory accepted", "interrupted startup wait", "delayed RUNNING start"):
         assert token in test, f"shared lifecycle regression missing {token}"
     for path in (PROCESS_LIFECYCLE_LIB, PROCESS_LIFECYCLE_TEST):
         syntax = run(["/bin/sh", "-n", str(path)], os.environ.copy())

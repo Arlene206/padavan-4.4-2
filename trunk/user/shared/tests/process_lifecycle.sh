@@ -29,15 +29,25 @@ STUB
 cat > "$tmp/bin/sleep" <<'STUB'
 #!/bin/sh
 echo sleep >> "$PL_TEST_EVENTS"
+if [ -n "$PL_TEST_SLEEP_COUNT" ]; then
+    pl_sleep_count=0
+    [ -r "$PL_TEST_SLEEP_COUNT" ] && pl_sleep_count=$(cat "$PL_TEST_SLEEP_COUNT")
+    pl_sleep_count=$((pl_sleep_count + 1))
+    echo "$pl_sleep_count" > "$PL_TEST_SLEEP_COUNT"
+    if [ "$PL_TEST_SLEEP_AFTER" -gt 0 ] && [ "$pl_sleep_count" -ge "$PL_TEST_SLEEP_AFTER" ]; then
+        echo "$PL_TEST_SLEEP_STATE" > "$PL_TEST_STATE"
+    fi
+fi
 exit "$PL_SLEEP_STATUS"
 STUB
 chmod 755 "$tmp/bin/"*
 PATH="$tmp/bin:$PATH"
 PL_TEST_STATE="$state_file"; PL_TEST_EVENTS="$events_file"
+PL_TEST_SLEEP_COUNT="$tmp/sleep-count"; PL_TEST_SLEEP_AFTER=0; PL_TEST_SLEEP_STATE=running
 PL_TERM_STATE=absent; PL_KILL_STATE=absent
 PL_TERM_STATUS=0; PL_KILL_STATUS=0; PL_SLEEP_STATUS=0
-export PATH PL_TEST_STATE PL_TEST_EVENTS PL_TERM_STATE PL_KILL_STATE
-export PL_TERM_STATUS PL_KILL_STATUS PL_SLEEP_STATUS
+export PATH PL_TEST_STATE PL_TEST_EVENTS PL_TEST_SLEEP_COUNT PL_TEST_SLEEP_AFTER PL_TEST_SLEEP_STATE
+export PL_TERM_STATE PL_KILL_STATE PL_TERM_STATUS PL_KILL_STATUS PL_SLEEP_STATUS
 . "$lib"
 count_event() { awk -v wanted="$1" '$0 == wanted { n++ } END { print n + 0 }' "$events_file"; }
 fail() { echo "shared process lifecycle regression: FAIL: $*" >&2; exit 1; }
@@ -48,6 +58,27 @@ for item in "running:0" "absent:1" "unknown:2" "empty-success:2" "malformed:2" "
  [ "$actual" -eq "$expected" ] || fail "$state classified as $actual, expected $expected"
 done
 
+# Detached startup requires a confirmed RUNNING inventory.
+echo running > "$state_file"; echo 0 > "$PL_TEST_SLEEP_COUNT"; PL_TEST_SLEEP_AFTER=0
+pl_wait_started test-daemon 1 4 1 || fail "RUNNING start rejected"
+[ "$(cat "$PL_TEST_SLEEP_COUNT")" -eq 1 ] || fail "initial start delay mismatch"
+echo absent > "$state_file"; echo 0 > "$PL_TEST_SLEEP_COUNT"; PL_TEST_SLEEP_AFTER=2
+pl_wait_started test-daemon 1 4 1 || fail "delayed RUNNING start rejected"
+[ "$(cat "$PL_TEST_SLEEP_COUNT")" -eq 2 ] || fail "delayed child count mismatch"
+echo absent > "$state_file"; echo 0 > "$PL_TEST_SLEEP_COUNT"; PL_TEST_SLEEP_AFTER=0
+if pl_wait_started test-daemon 1 4 1; then fail "ABSENT startup timeout accepted"; else status=$?; fi
+[ "$status" -eq 1 ] && [ "$(cat "$PL_TEST_SLEEP_COUNT")" -eq 4 ] || fail "ABSENT timeout bounds/status mismatch"
+echo unknown > "$state_file"; echo 0 > "$PL_TEST_SLEEP_COUNT"
+if pl_wait_started test-daemon 1 4 1; then fail "UNKNOWN inventory accepted"; else status=$?; fi
+[ "$status" -eq 2 ] && [ "$(cat "$PL_TEST_SLEEP_COUNT")" -eq 1 ] || fail "UNKNOWN inventory result mismatch"
+echo absent > "$state_file"; PL_SLEEP_STATUS=42; echo 0 > "$PL_TEST_SLEEP_COUNT"
+if pl_wait_started test-daemon 1 4 1; then fail "interrupted startup wait accepted"; else status=$?; fi
+[ "$status" -eq 2 ] || fail "interrupted wait returned $status"
+PL_SLEEP_STATUS=0
+if pl_wait_started "" 1 4 1; then fail "empty startup name accepted"; else status=$?; fi
+[ "$status" -eq 2 ] || fail "empty startup name returned $status"
+if pl_wait_started test-daemon 1 0 1; then fail "zero probe count accepted"; else status=$?; fi
+[ "$status" -eq 2 ] || fail "zero probe count returned $status"
 echo unknown > "$state_file"; : > "$events_file"
 if pl_stop_named test-daemon 2 1; then fail "UNKNOWN stop succeeded"; else status=$?; fi
 [ "$status" -eq 2 ] && [ ! -s "$events_file" ] || fail "UNKNOWN authorized a signal"

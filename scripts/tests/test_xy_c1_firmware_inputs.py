@@ -39,6 +39,7 @@ class FirmwareInputPathTests(unittest.TestCase):
         paths = [
             "trunk/user/rc/src/init.c",
             "trunk/user/httpd/src/httpd.c",
+            "trunk/user/shared/scripts/process_lifecycle.sh",
             "trunk/linux-4.4.x/net/ipv4/tcp.c",
             "trunk/configs/boards/XY-C1/kernel-4.4.x.config",
             "trunk/user/rc/Makefile",

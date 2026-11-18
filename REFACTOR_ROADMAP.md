@@ -1,4 +1,4 @@
-# 2026-11-17 latest source checkpoint
+# 2026-11-18 latest source checkpoint
 
 - Main source checkpoint: `d67ca20b78785b0d501829c12db6dfd2fc4f0fae`, parent `8b92f532974fc5363115aa1e9bd80ea791bb68d4`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
 - Adbyby now confirms detached-daemon RUNNING before publication and routes normal start/update through a shared publisher that checks DNS, firewall, hosts, dnsmasq restart and optional cron, preserves the first error and rolls back partial starts. DNS and cron file writes are checked. Failure-injection coverage lives in the existing Process lifecycle regression.
@@ -11,7 +11,7 @@ Next: inspect all exact-head Actions for the checker-fix commit and the XY-C1 ru
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.
-### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
+### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight; XUPnPD detached-child readiness; and SCUT/MentoHUST bounded RUNNING postconditions after background launch are implemented. This SCUT/MentoHUST slice awaits exact-head Process/XY-C1 verification.
 
 - THIS COMMIT fixes two more launcher/daemon mismatches: rstats daemonizes before allocation/PID-file publication; LLTD double-forks and calls setsid before PID publication/event loop. RC now preflights tri-state presence and verifies detached child RUNNING with bounded polls. Exact-head Process and XY-C1 pending.
 

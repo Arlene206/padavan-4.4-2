@@ -47,8 +47,20 @@ func_start(){
 	"$(get_arg_debug)" "$(get_arg_skip_udp_hb)" \
 	-E "${auth_hook:-"echo 0 > /tmp/scutclient_status"}" \
 	-Q "${fail_hook:-"echo 1 > /tmp/scutclient_status"}"; then
+		if pl_wait_started "$scutclient_exec" 1 4 1; then
+			:
+		else
+			readiness_status=$?
+			echo "[FAILED]"
+			if [ "$readiness_status" -eq 1 ]; then
+				func_log "Daemon startup readiness timed out (process remained absent)"
+			else
+				func_log "Daemon startup readiness could not be verified (status=$readiness_status)"
+			fi
+			return "$readiness_status"
+		fi
 		echo "[  OK  ]"
-		func_log "Daemon is started"
+		func_log "Daemon is started and running"
 		return 0
 	else
 		launch_status=$?

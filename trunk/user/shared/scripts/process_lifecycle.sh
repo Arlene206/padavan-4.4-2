@@ -18,6 +18,33 @@ pl_process_state()
         *) return 2 ;;
     esac
 }
+# pl_wait_started NAME INITIAL_WAIT PROBES RETRY_WAIT:
+# 0=confirmed RUNNING, 1=confirmed ABSENT after bounded probes,
+# 2=UNKNOWN, invalid arguments or an interrupted wait.
+pl_wait_started()
+{
+    pl_start_name="$1"
+    pl_start_initial="$2"
+    pl_start_attempts="$3"
+    pl_start_retry="$4"
+    [ -n "$pl_start_name" ] || return 2
+    for pl_start_value in "$pl_start_initial" "$pl_start_attempts" "$pl_start_retry"; do
+        case "$pl_start_value" in ''|*[!0-9]*) return 2 ;; esac
+    done
+    [ "$pl_start_attempts" -gt 0 ] || return 2
+    if [ "$pl_start_initial" -gt 0 ]; then
+        sleep "$pl_start_initial" || return 2
+    fi
+    pl_start_attempt=0
+    while [ "$pl_start_attempt" -lt "$pl_start_attempts" ]; do
+        if pl_process_state "$pl_start_name"; then pl_start_state=0; else pl_start_state=$?; fi
+        case "$pl_start_state" in 0) return 0 ;; 1) ;; *) return 2 ;; esac
+        pl_start_attempt=$((pl_start_attempt + 1))
+        [ "$pl_start_attempt" -lt "$pl_start_attempts" ] || return 1
+        if [ "$pl_start_retry" -gt 0 ]; then sleep "$pl_start_retry" || return 2; fi
+    done
+    return 1
+}
 pl_wait_stopped()
 {
     pl_wait_name="$1"; pl_wait_limit="$2"

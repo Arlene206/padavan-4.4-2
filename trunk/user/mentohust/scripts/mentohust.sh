@@ -63,8 +63,20 @@ func_start(){
 
 	echo -n "Starting mentohust:..."
 	if start-stop-daemon -S -b -x "$mentohust_exec"; then
+		if pl_wait_started "$mentohust_exec" 1 4 1; then
+			:
+		else
+			readiness_status=$?
+			echo "[FAILED]"
+			if [ "$readiness_status" -eq 1 ]; then
+				func_log "Daemon startup readiness timed out (process remained absent)"
+			else
+				func_log "Daemon startup readiness could not be verified (status=$readiness_status)"
+			fi
+			return "$readiness_status"
+		fi
 		echo "[  OK  ]"
-		func_log "Daemon is started"
+		func_log "Daemon is started and running"
 		return 0
 	else
 		launch_status=$?
