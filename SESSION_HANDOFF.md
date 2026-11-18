@@ -2,10 +2,10 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA for this slice: `a9d9594dc1875e5dd7adf2f894667d2e6566d76e`.
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA for this slice: `aabe9a0c1a2574bde10cb7b3d60025db7a57e3b0`.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
-- XY-C1 run `44415470536` for MentoHUST SHA `4f54d9f...` was still IN_PROGRESS at last poll; do not claim firmware L3 until Build, TRX verification and artifact upload pass. The new `services.c` change in THIS slice will trigger a fresh exact-head XY-C1 run.
+- MentoHUST exact-head XY-C1 run `44415470536` still requires a final status check before any L3 claim. For the crond/IGMPproxy production source, parent SHA `04c8a22d`'s XY-C1 run `44418388888` stopped before firmware Build at the host regression compile; the same missing shared include path was fixed in both Process and XY-C1 workflows by `aabe9a0c`.
 - Physical-router L4 and direct BusyBox target runtime remain NOT VERIFIED.
 ## Completed prerequisite — switch VLAN WAN gate
 
@@ -76,26 +76,27 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Close a duplicate-start gap in the BusyBox crond RC lifecycle.
+Close the crond duplicate-start guard's regression trigger and integration contract.
 
-- `trunk/user/rc/src/services.c::start_crond()` had bounded detached-child readiness, but unlike other optional daemons it performed no process-inventory preflight before `_eval()`. A repeated start request after crond was already running could fork a second scheduler and execute jobs more than once; UNKNOWN inventory was not an explicit launch barrier.
-- THIS COMMIT adds `optional_daemon_start_status("crond", "crond")` before launch: RUNNING is a logged idempotent success, UNKNOWN returns the inventory failure, and only ABSENT continues. Existing bounded readiness and stop-before-restart semantics are unchanged.
-- Regression: `trunk/user/rc/src/tests/service_start_status.c` exercises ABSENT/RUNNING/UNKNOWN/invalid-state preflight semantics. `scripts/check_process_lifecycle_integration.py` enforces preflight ordering and both branches before `_eval()`.
-- MentoHUST L2 remains verified on `4f54d9f...` by exact runs `44415470631`, `44415470654`, `44415470822` and `44415470569`; its XY-C1 run `44415470536` was pending at last poll.
+- Production change is in ancestor `a606751d6709ab6a906e685593f013095fe8c87e`: `start_crond()` calls `optional_daemon_start_status("crond", "crond")` before launch. RUNNING is a logged idempotent success, UNKNOWN returns the inventory error, and only ABSENT reaches `_eval()`; bounded detached-child readiness and stop-before-restart behavior remain unchanged.
+- The compile failure is fixed in parent main `aabe9a0c1a2574bde10cb7b3d60025db7a57e3b0`: both the Process and XY-C1 `service_start_status.c` test commands now include `-I trunk/user/shared/src -I trunk/user/rc/src`. The earlier Process run `44417690465` and XY run `44417198619` failed before test execution because `optional_daemon_policy.h` transitively includes shared `process_inventory.h`.
+- One remaining CI coverage gap: `.github/workflows/process-lifecycle-regression.yml` did not list `optional_daemon_policy.h` in its push or pull_request inputs. THIS COMMIT adds both entries and extends the semantic checker to require both triggers, the shared include directory in Process and XY-C1 compile commands, and the already-watched shared header paths.
+- On production ancestor SHA `a606751d`, Process inventory `44417198657`, dedicated crond lifecycle `44417198647`, and AI docs `44417198450` passed. The corrected current-main Process run `44418643022` and XY-C1 run `44418643024` were in progress at the last poll. IGMPproxy/UDPXY/ MSD Lite hardening in `04c8a22d` shares those pending exact-source validations; no L3 claim is made.
 
 ## Verification boundary
 
-- L1: reviewed current crond startup and common optional-daemon tri-state helper; this is a duplicate-start and UNKNOWN fail-closed improvement, not a change to its existing readiness policy.
-- L2: exact-head Process lifecycle, process inventory and AI docs Actions must pass for this commit. Local host compilation is unavailable in this connector-only environment.
-- L3: `services.c` is an XY-C1 production input; this commit needs its own exact-head Build, TRX and artifact result.
-- L4: scheduled job execution on a physical XY-C1 remains NOT VERIFIED.
+- L1: PASS for the crond tri-state duplicate-start gate and the transitive header/CI dependency review.
+- L2: Historical Process/XY compile failures `44417690465`, `44417198619`, `44418388668`, and `44418388888` all had the same test include-path cause; parent `aabe9a0c` corrects the two compiler commands. Its Process `44418643022` was IN_PROGRESS at last inspection, and AI docs `44418643233` passed. THIS COMMIT additionally makes the Process workflow trigger on its policy header and guards the dependency in the checker. Local tests were NOT RUN (GitHub connector-only environment).
+- L3: NOT VERIFIED for crond/IGMPproxy/UDPXY/MSD Lite. The last XY-C1 run `44418388888` stopped before Build on the old compile command; corrected parent run `44418643024` was IN_PROGRESS. Build, TRX verification and artifact upload must all pass on an exact production SHA.
+- L4: scheduled jobs, live IPTV relay readiness and physical-router behavior remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head Process lifecycle regression, process inventory and AI docs runs for this commit; the GNU89 ASan/UBSan `service_start_status.c` regression and process source checker must pass.
-2. Check exact-head XY-C1 Build/TRX/artifact. If pending, continue an independent safe source task instead of waiting.
-3. Recheck MentoHUST XY-C1 run `44415470536`; only record L3 if all product steps pass. Continue the P1 whole-userland service-lifecycle/start-result queue after the current crond slice.
-4. Keep the archival backup immutable.
+1. Inspect the exact-head Process run triggered by THIS COMMIT; confirm the new policy-header push/PR paths, shared compiler include path, semantic checker, and full regression suite pass.
+2. Inspect corrected XY-C1 run `44418643024`; only record L3 if Build, TRX and artifact upload all succeed for the production source SHA. If the workflow skips Build because this follow-up is integration-only, do not infer L3.
+3. Continue an independent P1 whole-userland lifecycle/start-result item while any run is pending; avoid repeating the crond/IGMPproxy source review.
+4. Check MentoHUST run `44415470536` once for L3, then preserve the archival backup unchanged.
+
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

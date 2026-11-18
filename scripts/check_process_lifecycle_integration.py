@@ -3133,6 +3133,24 @@ assert 'logmessage(LOGNAME, "crond start skipped: scheduler is already running")
 assert "return preflight_status;" in crond_start[crond_unknown_abort:crond_launcher]
 print("crond duplicate-start preflight preserves RUNNING no-op and UNKNOWN fail-closed behavior: PASS")
 
+# The crond regression consumes optional_daemon_policy.h, which itself
+# includes shared process_inventory.h. Changes to either header must trigger
+# this umbrella suite, and both compiler commands must resolve the shared API.
+assert process_workflow.count('"trunk/user/rc/src/optional_daemon_policy.h"') == 2
+assert process_workflow.count('"trunk/user/shared/src/process_inventory.h"') == 2
+process_service_build = process_workflow.split(
+    "      - name: Compile and run RC boot service status aggregation regression", 1
+)[1].split("\n      - name:", 1)[0]
+assert "-I trunk/user/shared/src -I trunk/user/rc/src" in process_service_build
+xy_service_build = xy_workflow.split(
+    "      - name: Compile and run RC LAN restart first-error aggregation regression", 1
+)[1].split("\n      - name:", 1)[0]
+assert "-I trunk/user/shared/src -I trunk/user/rc/src" in xy_service_build
+assert '"trunk/user/rc/src/optional_daemon_policy.h"' in xy_workflow
+assert '"trunk/user/shared/src/process_inventory.h"' in xy_workflow
+print("crond shared-header compiler and Process/XY-C1 path dependencies: PASS")
+
+
 # Keep push and pull_request path filters identical. A blanket trunk/user glob
 # made unrelated package assets and documentation changes start this full suite.
 process_workflow_source = (

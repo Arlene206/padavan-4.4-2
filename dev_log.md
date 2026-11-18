@@ -1,3 +1,13 @@
+## 2026-11-19 07:14 CST (UTC+8) — Add the missing crond policy-header regression trigger
+
+- Parent main SHA: `aabe9a0c1a2574bde10cb7b3d60025db7a57e3b0`.
+- Parent commit `aabe9a0c` fixed the shared include directory for the Process and XY-C1 `service_start_status.c` GNU89/ASan/UBSan compile commands. Before that correction, the exact Process and XY runs failed on `optional_daemon_policy.h` -> `process_inventory.h` resolution, not on production source or MIPS compilation.
+- The Process workflow still lacked `optional_daemon_policy.h` in both push and pull_request path filters. THIS COMMIT adds the transitive policy header to both sets and makes `check_process_lifecycle_integration.py` enforce symmetric header coverage and both compile commands' shared include path.
+- Corrected parent-main Process `44418643022` and XY-C1 `44418643024` were IN_PROGRESS at the last poll; AI docs `44418643233` passed. This follow-up's new Process trigger should run the strengthened source contract on the exact new SHA.
+- Local tests: NOT RUN (GitHub connector-only environment). L1 dependency diagnosis PASS; L2/L3 reruns pending; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Make crond startup idempotent under repeated RC start requests
 
 - Parent main SHA: `a9d9594dc1875e5dd7adf2f894667d2e6566d76e`.
