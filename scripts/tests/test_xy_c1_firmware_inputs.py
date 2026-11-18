@@ -20,6 +20,11 @@ def result(args, code=0, stdout="", stderr=""):
 
 
 class FirmwareInputPathTests(unittest.TestCase):
+    def test_each_commit_keeps_its_xy_c1_run_alive(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        self.assertIn("group: xy-c1-firmware-validation-${{ github.ref }}-${{ github.sha }}", workflow)
+        self.assertIn("cancel-in-progress: false", workflow)
+
     def test_documentation_workflow_checker_and_test_paths_skip_build(self):
         paths = [
             ".github/workflows/xy-c1-firmware-validation.yml",

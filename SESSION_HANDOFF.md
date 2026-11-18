@@ -1,8 +1,8 @@
-# 2026-11-18 continuation checkpoint — exact-head checks and next P1
+# 2026-11-18 continuation checkpoint — protect exact-SHA XY-C1 validation
 
 ## Current repository state
 - Repository: `Arlene206/padavan-4.4-2`; work on `main` only.
-- Live main at this checkpoint: `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de`; parent `73ba562aecb420e23d0e210b01ab9c79b2406f46`.
+- Live main before this workflow repair: `f46d2ed457be4553ff2cc33452b872c41da4519e`; parent `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed and unmerged; do not reopen it.
 - The development-log archive rotation is complete: `part-016.md` stores 100 records oldest-first; the exact-head archive contract on `808cff7a22b147e928a6fae47142e3016ade685a` passed AI docs run `44262705464`.
 
@@ -17,20 +17,18 @@
 - No physical-router test is claimed. L4 remains NOT VERIFIED.
 
 ## Active task
-- The next P1 source task is Shadowsocks required-stage startup result propagation in `trunk/user/shadowsocks/scripts/shadowsocks.sh`: inspect `ssp_start()` and CLI start/restart entry points; preserve optional/disabled semantics and add deterministic host failure injection before changing runtime behavior.
-
+- Current P1: fix XY-C1 concurrency so later pushes cannot cancel exact-SHA firmware builds. Use a per-commit concurrency key and disable cancellation, then add a regression to the firmware-input unittest. After this CI fix, continue Shadowsocks required-stage startup result propagation in `trunk/user/shadowsocks/scripts/shadowsocks.sh` (`ssp_start()` and CLI start/restart), preserving disabled/optional semantics.
 ## Verification boundary
 - Exact-head WAN route run `44265049894` on `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de` PASS; all route, deferred-watchdog, PPPoE detector, private options, rollback and route cleanup steps completed.
 - Exact-head AI docs run `44265049584` on the same SHA FAILED because the handoff lacked the exact cross-session phrase `one atomic main commit`; this checkpoint restores the required wording and section structure.
-- Exact-head XY-C1 run `44265049545` completed SUCCESS, but `Build XY-C1`, `Verify TRX output` and artifact upload were SKIPPED after host-only validation. This is not L3 firmware verification; investigate the production-input detector before claiming a build for the newer source SHA.
+- Exact-head XY-C1 run `44265049545` on `0ecab3a6` completed SUCCESS, but Build/TRX/artifact were SKIPPED because only CI/test/docs paths changed. The preceding production-source SHA `ffa7f6d0` had XY run `44264231022` CANCELLED after later pushes under a shared `cancel-in-progress: true` group. This commit gives each SHA its own group and disables cancellation; the next product-source commit must confirm Build/TRX/artifact all execute.
 - Historical L3 remains VERIFIED only for `a0cb9aad4844f7d044ce79efad6c417857c95972` on run `44260005493`. No physical-router test is claimed; L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and inspect exact-head AI docs, WAN route and XY-C1 results for THIS commit. For XY-C1, inspect Build, TRX verification and artifact upload; do not infer success from the top-level workflow alone.
-2. Continue the next P1 userland reliability slice: audit required-stage error propagation in `trunk/user/shadowsocks/scripts/shadowsocks.sh` (`ssp_start()` and its start/restart entry points). Keep optional/disabled service behavior intact; do not report success if required proxy, DNS, local-proxy, firewall-policy or PPPoE detector stages fail. First add a focused host regression and exact source contract, then modify behavior.
-3. Pending independent workflows must not block source work. Use one complete tree and one atomic commit per logical source/test slice; never force push or modify the frozen backup.
-4. Preserve the physical-router L4 status as NOT VERIFIED.
-
+1. Fetch live `main` and inspect exact-head AI docs and XY-C1 results for this concurrency-policy commit; confirm the policy regression ran and do not claim L3 for a host-only run.
+2. Continue Shadowsocks `ssp_start()` required-stage error propagation and CLI start/restart paths, preserving optional/disabled behavior with deterministic host failure injection.
+3. Keep per-SHA Actions exact; inspect Build, TRX and artifact upload separately for the next product-source commit.
+4. Keep the frozen backup unchanged and physical-router L4 NOT VERIFIED.
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.
 Every session MUST inspect the live repository state and exact-head Actions before ending. At session end, fetch live main, exact-head Actions and the next task. Update this file only when facts or the first task materially change; do not create a no-op commit.

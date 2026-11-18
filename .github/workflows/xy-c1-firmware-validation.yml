@@ -229,9 +229,10 @@ on:
 permissions:
   contents: read
 
+# Give every commit its own run; newer pushes must not cancel an exact-SHA firmware build.
 concurrency:
-  group: xy-c1-firmware-validation-${{ github.ref }}
-  cancel-in-progress: true
+  group: xy-c1-firmware-validation-${{ github.ref }}-${{ github.sha }}
+  cancel-in-progress: false
 
 jobs:
   firmware:

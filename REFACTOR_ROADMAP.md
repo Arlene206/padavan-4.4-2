@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main at this checkpoint: `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de`; parent `73ba562aecb420e23d0e210b01ab9c79b2406f46`. The PPPoE-MWAN probe source fix is in `ba893707c6f5cb939980cf4eecb5cd2d5dd14871`; the deferred-WAN watchdog result fix is in `ffa7f6d07522d8a51b53a9c1fede22c42d3588b2`.
-- Exact-head WAN route run `44265049894` PASS on `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de`, including the deferred-watchdog and PPPoE-MWAN checks.
-- Exact-head AI handoff docs run `44265049584` FAILED because `SESSION_HANDOFF.md` lacked the required `one atomic main commit` phrase and standard section headings; this checkpoint repairs those contracts.
-- Exact-head XY-C1 run `44265049545` completed SUCCESS with Build, TRX and artifact upload SKIPPED. Treat this as host-only, not L3. A prior verified L3 remains on `a0cb9aad4844f7d044ce79efad6c417857c95972` (`44260005493`).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 remains NOT VERIFIED.
+- Live main before this workflow repair: `f46d2ed457be4553ff2cc33452b872c41da4519e`; exact-head AI handoff docs `44265518065` PASS.
+- Exact-head WAN route `44265049894` on `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de` PASS. XY-C1 `44265049545` completed host-only checks but skipped Build/TRX/artifact because only CI/test/docs paths changed.
+- Production-source XY-C1 run `44264231022` on `ffa7f6d0` was cancelled after later pushes under a shared concurrency group with cancellation enabled. This commit switches to per-SHA groups and disables cancellation; a unittest pins the policy.
+- PPPoE-MWAN probe fix (`ba893707`) and deferred-WAN watchdog failure propagation (`ffa7f6d0`) are implemented; WAN contracts passed on `0ecab3a6`. No post-`a0cb9aad` L3 is verified yet. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
 
-Next P1 source slice: audit required-stage startup error propagation in `trunk/user/shadowsocks/scripts/shadowsocks.sh` (`ssp_start()` and CLI start/restart entry points), preserving disabled/optional semantics. Add deterministic host failure injection and a source contract before behavior changes.
+Next P1 slice: Shadowsocks required-stage startup failure propagation in `trunk/user/shadowsocks/scripts/shadowsocks.sh` (`ssp_start()` and CLI start/restart), preserving disabled/optional semantics and adding deterministic host failure injection.
 ---
 
 ## Whole-repository module status

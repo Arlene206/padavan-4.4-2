@@ -1,3 +1,12 @@
+## 2026-11-18 — Keep exact-SHA XY-C1 firmware builds alive across pushes
+
+- XY-C1 used a shared per-branch concurrency group with `cancel-in-progress: true`. The `ffa7f6d0` production-source run `44264231022` was cancelled by later pushes before Build/TRX/artifact; the subsequent docs/test-only commit `0ecab3a6` correctly skipped the build based on its own diff, leaving the source tree without a current L3 check.
+- Change the concurrency key to include `github.sha` and set cancellation false so every push's exact-SHA run remains independent. Add a unittest in `scripts/tests/test_xy_c1_firmware_inputs.py` to prevent regressions.
+- Exact-head AI docs run `44265518065` PASS on `f46d2ed`; exact-head WAN route `44265049894` PASS on `0ecab3a6`. XY `44265049545` on `0ecab3a6` was host-only; Build/TRX/artifact skipped. Next product-source commit must show all three firmware steps on its own SHA.
+- Next P1 module after this workflow fix: Shadowsocks startup required-stage error propagation. Frozen backup untouched; physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Record exact-head WAN pass and repair remaining handoff contract
 
 - Exact-head WAN route run `44265049894` PASS on `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de`, including deferred watchdog status propagation and the PPPoE-MWAN detector and caller regressions.
