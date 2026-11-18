@@ -1,12 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Current main parent for THIS commit: `73ba562aecb420e23d0e210b01ab9c79b2406f46`. PPPoE-MWAN sysfs-aware PPP probe is implemented on `ba893707c6f5cb939980cf4eecb5cd2d5dd14871`; its WAN route, Process lifecycle and fail-closed regressions all passed. The PPP checker in the first follow-up contained a double-escaped newline string, so exact-head XY-C1 `44264508112` failed before firmware build at that source-contract check.
-- Deferred WAN watchdog failure propagation landed in `ffa7f6d07522d8a51b53a9c1fede22c42d3588b2`; its WAN checker expected a single space in the valid `int  start_watchdog(void);` prototype, causing an exact-head false negative. This commit makes the prototype check whitespace-insensitive.
-- AI handoff docs `44264508172` on parent `73ba562aecb420e23d0e210b01ab9c79b2406f46` failed because the updated handoff omitted the exact mandatory-checkpoint wording required by the validator; this commit restores the explicit rule. Exact-head reruns pending.
-- Historical L3 is VERIFIED only for `a0cb9aad4844f7d044ce79efad6c417857c95972` (XY-C1 `44260005493` Build/TRX/artifact). No newer SHA is L3 VERIFIED yet. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Live main at this checkpoint: `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de`; parent `73ba562aecb420e23d0e210b01ab9c79b2406f46`. The PPPoE-MWAN probe source fix is in `ba893707c6f5cb939980cf4eecb5cd2d5dd14871`; the deferred-WAN watchdog result fix is in `ffa7f6d07522d8a51b53a9c1fede22c42d3588b2`.
+- Exact-head WAN route run `44265049894` PASS on `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de`, including the deferred-watchdog and PPPoE-MWAN checks.
+- Exact-head AI handoff docs run `44265049584` FAILED because `SESSION_HANDOFF.md` lacked the required `one atomic main commit` phrase and standard section headings; this checkpoint repairs those contracts.
+- Exact-head XY-C1 run `44265049545` completed SUCCESS with Build, TRX and artifact upload SKIPPED. Treat this as host-only, not L3. A prior verified L3 remains on `a0cb9aad4844f7d044ce79efad6c417857c95972` (`44260005493`).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 remains NOT VERIFIED.
 
-Next P1: after the PPP/WAN/AI docs checkers are green, continue required-stage error propagation in Shadowsocks `ssp_start()` and its CLI start/restart paths, with host failure-injection coverage.
-
+Next P1 source slice: audit required-stage startup error propagation in `trunk/user/shadowsocks/scripts/shadowsocks.sh` (`ssp_start()` and CLI start/restart entry points), preserving disabled/optional semantics. Add deterministic host failure injection and a source contract before behavior changes.
 ---
 
 ## Whole-repository module status

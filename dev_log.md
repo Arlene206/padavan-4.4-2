@@ -1,3 +1,12 @@
+## 2026-11-18 — Record exact-head WAN pass and repair remaining handoff contract
+
+- Exact-head WAN route run `44265049894` PASS on `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de`, including deferred watchdog status propagation and the PPPoE-MWAN detector and caller regressions.
+- AI handoff docs run `44265049584` failed on the same SHA at the cross-session mandate check: the live handoff did not state `one atomic main commit` and lacked the four standard checkpoint headings. This commit restores both while preserving the no-op documentation gate.
+- XY-C1 run `44265049545` completed with Build, TRX and artifact upload skipped; no L3 claim. Investigate why the firmware input detector did not schedule the build needed for recent production-source changes before relying on this host-only result.
+- Next P1 module task remains Shadowsocks `ssp_start()` required-stage error propagation. Frozen backup untouched; physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Correct PPP and deferred-watchdog CI contracts after exact-head failures
 
 - Parent main SHA: `73ba562aecb420e23d0e210b01ab9c79b2406f46`; result: THIS COMMIT.
