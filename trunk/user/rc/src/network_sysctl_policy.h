@@ -21,4 +21,13 @@ rc_network_sysctl_apply(unsigned int operation_count,
 	}
 	return first_status;
 }
+
+/* An explicitly enabled SYN-cookie setting is a WAN admission prerequisite. */
+static inline int
+rc_network_sysctl_tcp_syncookies_allows_wan(int syncookies_required,
+					     int syncookies_write_status)
+{
+	return !syncookies_required || syncookies_write_status == 0;
+}
+
 #endif /* RC_NETWORK_SYSCTL_POLICY_H */

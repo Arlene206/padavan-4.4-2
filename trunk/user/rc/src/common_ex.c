@@ -442,7 +442,7 @@ restart_all_sysctl(void)
 				   operation_status);
 		restart_status = rc_first_service_start_status(restart_status, operation_status);
 
-		operation_status = set_tcp_syncookies();
+		operation_status = set_tcp_syncookies(NULL);
 		if (operation_status != 0)
 			logmessage(LOGNAME, "TCP/ICMP security sysctl configuration failed (status=%d)",
 				   operation_status);

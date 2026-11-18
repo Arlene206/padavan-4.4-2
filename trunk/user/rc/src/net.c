@@ -1426,6 +1426,7 @@ set_nf_conntrack(void)
 
 struct rc_tcp_syncookies_context {
 	int enabled;
+	int syncookies_status;
 };
 
 static int
@@ -1436,7 +1437,9 @@ write_tcp_syncookies_operation(void *opaque, unsigned int operation)
 
 	switch (operation) {
 	case 0:
-		return fput_int("/proc/sys/net/ipv4/tcp_syncookies", context->enabled);
+		context->syncookies_status =
+			fput_int("/proc/sys/net/ipv4/tcp_syncookies", context->enabled);
+		return context->syncookies_status;
 	case 1:
 		return fput_int("/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses", 1);
 	case 2:
@@ -1447,12 +1450,17 @@ write_tcp_syncookies_operation(void *opaque, unsigned int operation)
 }
 
 int
-set_tcp_syncookies(void)
+set_tcp_syncookies(int *syncookies_status)
 {
 	struct rc_tcp_syncookies_context context;
+	int status;
 
 	context.enabled = nvram_get_int("fw_syn_cook") ? 1 : 0;
-	return rc_network_sysctl_apply(3, write_tcp_syncookies_operation, &context);
+	context.syncookies_status = 0;
+	status = rc_network_sysctl_apply(3, write_tcp_syncookies_operation, &context);
+	if (syncookies_status)
+		*syncookies_status = context.syncookies_status;
+	return status;
 }
 
 void

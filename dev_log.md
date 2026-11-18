@@ -1,3 +1,11 @@
+## 2026-11-19 — Gate WAN startup on an explicitly enabled SYN-cookie setting
+
+- Parent main SHA: `f0392353ce2d71a31e4efaaea4ebf1abf7903878`. Its Process lifecycle run `44361396656` and AI handoff run `44361396778` passed. The preceding disabled-IPv6 product SHA `66bdedc162493cda29d36864d17afaa826e0516b` completed XY-C1 Build, TRX verification and artifact upload in run `44360411938`; L3 is verified only for that exact product source SHA.
+- Reviewed PID 1 `init_sysctl()`: panic, socket-buffer, VM and TCP retry/timer settings are best-effort tuning; IPv6 disable is rechecked by `init_router()::init_ipv6()` and already gates WAN; actual WAN-interface rp_filter requirements are checked by firewall setup. No generic boot blocker was added for the early tuning writes.
+- Found that `start_wan()` propagated the aggregate `set_tcp_syncookies()` result but continued to launch WAN clients even when the explicit `fw_syn_cook=1` write itself failed. Exposed the exact write status separately from ICMP hardening writes and added a policy gate before callback links, VLAN work or WAN-client side effects. A disabled option remains non-blocking; unrelated ICMP write errors are still attempted and aggregated.
+- Added GNU89 policy regression coverage for disabled/enabled and positive/negative write failures. Updated the WAN sysctl source checker for the output-status API, ordering and gate. Existing WAN-route and XY-C1 path allowlists already include the production source/header/test inputs; no workflow broadening or test reduction.
+- XY-C1 `kernel-4.4.x.config` confirms `CONFIG_SYN_COOKIES=y` for this target. No local MIPS/uClibc build or physical-router validation is claimed. Exact-head WAN-route, Process and XY-C1 Actions for this new product SHA remain to be checked.
+- Next after exact-head validation: inspect runtime `RCN_RESTART_SYSCTL` when the setting changes while WAN is active; verify failed required writes cannot leave the live WAN silently outside the requested security policy.
 ## 2026-11-19 01:10 CST — Align process integration checker with retained IPv6 status
 
 - Base main SHA: `66bdedc162493cda29d36864d17afaa826e0516b`. The IPv6-disabled WAN-gate source commit passed exact-head Firewall Startup `44360411721`, HTTPD Security `44360411452` and AI handoff `44360411581`.

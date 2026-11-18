@@ -32,6 +32,7 @@
 
 #include "rc.h"
 #include "network_sysctl.h"
+#include "network_sysctl_policy.h"
 #include "service_start_status.h"
 #include "wan_mtu_setup_policy.h"
 #include "wan_route_flush_policy.h"
@@ -1708,7 +1709,22 @@ start_wan(void)
 	int static_address_clear_status;
 	int modem_start_status = 0;
 	int wan_start_status = 0, wan_up_status, sysctl_status;
+	int tcp_syncookies_status = 0;
 	char *wan_ifname;
+
+	/* Apply explicit SYN-cookie protection before any WAN setup side effects. */
+	sysctl_status = set_tcp_syncookies(&tcp_syncookies_status);
+	if (sysctl_status != 0)
+		logmessage(LOGNAME, "WAN TCP/ICMP security sysctl configuration failed (status=%d)",
+			   sysctl_status);
+	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
+	if (!rc_network_sysctl_tcp_syncookies_allows_wan(
+		nvram_get_int("fw_syn_cook"), tcp_syncookies_status)) {
+		logmessage(LOGNAME,
+			   "aborting WAN startup: configured TCP SYN cookies could not be applied (status=%d)",
+			   tcp_syncookies_status);
+		return rc_first_service_start_status(wan_start_status, tcp_syncookies_status);
+	}
 
 	/* Secure PPP callback/peer storage before publishing callback links. */
 	if (create_cb_links() != 0) {
@@ -1760,11 +1776,6 @@ start_wan(void)
 			   sysctl_status);
 	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
 
-	sysctl_status = set_tcp_syncookies();
-	if (sysctl_status != 0)
-		logmessage(LOGNAME, "WAN TCP/ICMP security sysctl configuration failed (status=%d)",
-			   sysctl_status);
-	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
 
 	sysctl_status = set_igmp_mld_version();
 	if (sysctl_status != 0)

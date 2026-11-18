@@ -46,7 +46,7 @@ def require(ok,msg):
 nf=body(NET,"set_nf_conntrack(void)")
 require('return fput_int("/proc/sys/net/nf_conntrack_max", i_nf_val);' in nf,
         "conntrack-limit write result must be returned")
-tcp=body(NET,"set_tcp_syncookies(void)")
+tcp=body(NET,"set_tcp_syncookies(int *syncookies_status)")
 require("rc_network_sysctl_apply(3, write_tcp_syncookies_operation, &context)" in tcp,
         "all three TCP/ICMP settings must be attempted")
 tcp_writer=body(NET,"write_tcp_syncookies_operation(")
@@ -54,6 +54,9 @@ for token in ('/proc/sys/net/ipv4/tcp_syncookies',
               '/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses',
               '/proc/sys/net/ipv4/icmp_echo_ignore_broadcasts'):
     require(token in tcp_writer,"missing TCP/ICMP sysctl write: "+token)
+require("context->syncookies_status" in tcp_writer and
+        "*syncookies_status = context.syncookies_status" in tcp,
+        "exact SYN-cookie operation status must be returned separately")
 igmp=body(NET,"set_igmp_mld_version(void)")
 igmp_writer=body(NET,"write_igmp_mld_operation(")
 require("rc_network_sysctl_apply(3, write_igmp_mld_operation, &context)" in igmp
@@ -72,16 +75,35 @@ require("return connected" not in POLICY,"unrelated readiness policy must not be
 require("mock_status[0] = EIO" in TEST and "mock_status[3] = EACCES" in TEST,
         "regression must verify first-error and continue-after-failure")
 require("assert(mock_calls == 4)" in TEST,"regression must assert all independent operations ran")
-for proto in ("int set_nf_conntrack(void);","int set_tcp_syncookies(void);","int set_igmp_mld_version(void);"):
+require("test_configured_syncookies_gate" in TEST and
+        "rc_network_sysctl_tcp_syncookies_allows_wan(1, EIO)" in TEST,
+        "regression must cover explicitly enabled SYN-cookie failure")
+for proto in ("int set_nf_conntrack(void);","int set_tcp_syncookies(int *syncookies_status);","int set_igmp_mld_version(void);"):
     require(proto in HEADER,"missing status-returning prototype: "+proto)
 for obsolete in ("void set_nf_conntrack(void);","void set_tcp_syncookies(void);","void set_igmp_mld_version(void);"):
     require(obsolete not in RC_HEADER,"stale void prototype remains in rc.h: "+obsolete)
-for source,signature,label in ((COMMON,"restart_all_sysctl(void)","sysctl reload"),
-                               (WAN,"start_wan(void)","WAN startup")):
-    f=body(source,signature)
-    for name in ("set_nf_conntrack","set_tcp_syncookies","set_igmp_mld_version"):
-        require(name+"();" in f and "= "+name+"();" in f,label+" must capture "+name+" result")
-    require(f.count("rc_first_service_start_status(")>=3,label+" must aggregate all three failures")
+sysctl_reload=body(COMMON,"restart_all_sysctl(void)")
+require("operation_status = set_tcp_syncookies(NULL);" in sysctl_reload,
+        "sysctl reload must retain aggregate TCP/ICMP result")
+wan_start=body(WAN,"start_wan(void)")
+for name in ("set_nf_conntrack","set_igmp_mld_version"):
+    require(name+"();" in wan_start and "= "+name+"();" in wan_start,
+            "WAN startup must capture "+name+" result")
+require("sysctl_status = set_tcp_syncookies(&tcp_syncookies_status);" in wan_start,
+        "WAN startup must capture exact SYN-cookie write status")
+require("int tcp_syncookies_status = 0;" in wan_start,
+        "WAN startup must initialize dedicated SYN-cookie status")
+wan_compact=" ".join(wan_start.split())
+require('rc_network_sysctl_tcp_syncookies_allows_wan( nvram_get_int("fw_syn_cook"), tcp_syncookies_status)' in wan_compact,
+        "configured SYN-cookie failure must block WAN")
+require(wan_start.index("sysctl_status = set_tcp_syncookies") < wan_start.index("if (create_cb_links() != 0)"),
+        "SYN-cookie admission must run before callback links and WAN side effects")
+require("return rc_first_service_start_status(wan_start_status, tcp_syncookies_status);" in wan_start,
+        "WAN rejection must preserve exact SYN-cookie error")
+require(wan_start.count("set_tcp_syncookies(")==1,
+        "WAN startup must not duplicate or defer SYN-cookie setting")
+require(wan_start.count("rc_first_service_start_status(")>=3,
+        "WAN startup must preserve independent sysctl failures")
 required=("trunk/user/rc/src/net.c","trunk/user/rc/src/common_ex.c",
  "trunk/user/rc/src/net_wan.c","trunk/user/rc/src/rc.h",
  "trunk/user/rc/src/network_sysctl.h",
