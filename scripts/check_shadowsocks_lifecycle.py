@@ -130,6 +130,13 @@ for path in ("trunk/user/shadowsocks/scripts/shadowsocks.sh",
     require(path in workflow, f"workflow path filter missing {path}")
 
 
+rules = script[script.index("rules() {"):script.index("\\n\\ncase $1 in", script.index("rules() {"))]
+require(
+    'if start_rules; then' in rules and 'status=$?' in rules
+    and 'return "$status"' in rules,
+    "rules() must preserve the original ss-rules exit status",
+)
+
 startup = script[script.index("ssp_record_start_failure() {"):script.index("ssp_close() {")]
 startup_test = read("trunk/user/shadowsocks/tests/start_status.sh")
 ordered(startup, [

@@ -568,7 +568,8 @@ rules() {
 	if start_rules; then
 		return 0
 	else
-		return 1
+		status=$?
+		return "$status"
 	fi
 }
 

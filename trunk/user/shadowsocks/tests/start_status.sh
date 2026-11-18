@@ -8,6 +8,7 @@ LOG_FILE="$TMP_DIR/ss.log"
 trap 'rm -rf "$TMP_DIR"' EXIT HUP INT TERM
 
 sed -n \
+	-e '/^rules() {/,/^}/p' \
 	-e '/^ssp_record_start_failure() {/,/^}/p' \
 	-e '/^ssp_run_pppoe_detect() {/,/^}/p' \
 	-e '/^ssp_start() {/,/^}/p' \
@@ -23,11 +24,12 @@ nvram() {
 		get:ss_enable) echo 1 ;;
 		get:global_server) echo "$GLOBAL_SERVER" ;;
 		get:socks5_enable) echo "$SOCKS5_ENABLE" ;;
+		get:udp_relay_server) echo nil ;;
 		set:check_mode=0) record "nvram:set:$2"; return "${FAIL_NVRAM_SET:-0}" ;;
 		*) return 90 ;;
 	esac
 }
-rules() { record rules; return "${FAIL_RULES:-0}"; }
+start_rules() { record rules; return "${FAIL_RULES:-0}"; }
 cgroups_init() { record cgroups_init; return "${FAIL_CGROUPS:-0}"; }
 start_redir_tcp() { record start_redir_tcp; return "${FAIL_TCP:-0}"; }
 start_redir_udp() { record start_redir_udp; return "${FAIL_UDP:-0}"; }

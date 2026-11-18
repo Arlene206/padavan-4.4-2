@@ -1,3 +1,13 @@
+## 2026-11-18 — Preserve exact Shadowsocks firewall-rule failure status
+
+- Parent SHA `efe00be7f58c93feff92ea7d1f9102c2b2829582`; this commit fixes the remaining startup result-loss gap after the broader `ssp_start()` aggregation.
+- `rules()` previously converted every nonzero `start_rules` / `ss-rules` status to 1. It now saves the failing child status immediately and returns it unchanged.
+- The host test now extracts the real `rules()` function from `shadowsocks.sh`, stubs only its `start_rules` dependency, and verifies an injected status 12 reaches `ssp_start()`. The Python source contract requires the production capture/return sequence.
+- Parent exact-head Shadowsocks lifecycle `44267823337` PASS on `efe00be7f58c93feff92ea7d1f9102c2b2829582`. Product-source XY-C1 `44267333941` on `62ecae88a449deccfb697b8e490590c0c514d6c1` was still building at last poll; its Build/TRX/artifact status is not yet known. This commit's exact-SHA Actions remain pending after push.
+- No local execution is claimed. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Keep exact-SHA XY-C1 firmware builds alive across pushes
 
 - XY-C1 used a shared per-branch concurrency group with `cancel-in-progress: true`. The `ffa7f6d0` production-source run `44264231022` was cancelled by later pushes before Build/TRX/artifact; the subsequent docs/test-only commit `0ecab3a6` correctly skipped the build based on its own diff, leaving the source tree without a current L3 check.

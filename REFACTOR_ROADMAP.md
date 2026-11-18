@@ -1,11 +1,14 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before this workflow repair: `f46d2ed457be4553ff2cc33452b872c41da4519e`; exact-head AI handoff docs `44265518065` PASS.
-- Exact-head WAN route `44265049894` on `0ecab3a6f91e6c835c24c92230d1c11ad7ad28de` PASS. XY-C1 `44265049545` completed host-only checks but skipped Build/TRX/artifact because only CI/test/docs paths changed.
-- Production-source XY-C1 run `44264231022` on `ffa7f6d0` was cancelled after later pushes under a shared concurrency group with cancellation enabled. This commit switches to per-SHA groups and disables cancellation; a unittest pins the policy.
-- PPPoE-MWAN probe fix (`ba893707`) and deferred-WAN watchdog failure propagation (`ffa7f6d0`) are implemented; WAN contracts passed on `0ecab3a6`. No post-`a0cb9aad` L3 is verified yet. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; physical-router L4 NOT VERIFIED.
+- Current main before THIS focused Shadowsocks fix: `efe00be7f58c93feff92ea7d1f9102c2b2829582`. Exact-head Shadowsocks lifecycle run `44267823337` PASS on `efe00be7f58c93feff92ea7d1f9102c2b2829582`; source/test host regressions passed before its source-checker-only repair.
+- THIS commit closes a confirmed status-loss gap in `rules()`: the function used to convert every failed `start_rules` / `ss-rules` result into status 1. It now preserves the child status; `tests/start_status.sh` extracts and exercises the real `rules()` rather than mocking it; the static contract asserts the production behavior.
+- Exact product-input XY-C1 run `44267333941` on `62ecae88a449deccfb697b8e490590c0c514d6c1` was IN_PROGRESS at the last check (Build active; TRX/artifact pending). XY concurrency now uses a per-SHA group without cancellation, so the result should no longer be cancelled by later commits. Poll it before claiming L3.
+- PPPoE-MWAN and deferred-WAN watchdog status fixes remain in `ba893707` and `ffa7f6d0`; the WAN route run `44265049894` on `0ecab3a6` passed their source contracts. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Historical L3 only `a0cb9aad`; physical-router L4 NOT VERIFIED.
 
-Next P1 slice: Shadowsocks required-stage startup failure propagation in `trunk/user/shadowsocks/scripts/shadowsocks.sh` (`ssp_start()` and CLI start/restart), preserving disabled/optional semantics and adding deterministic host failure injection.
+Next P1: poll the exact product-source XY-C1 run, verify all exact-SHA actions for THIS commit, then continue with the next independently confirmed RC/userland startup/teardown status-loss defect.
+
+---
+
 ---
 
 ## Whole-repository module status
