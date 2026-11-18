@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `34cdc9e12ce6d782da38340e5a98426e38122b5c`. Latest reliability changes include EINTR-safe WAN DHCP/PPP and PPPoE relay waits, NFSd settling, RC detached-process probes and logger startup status aggregation. THIS COMMIT extends the wait/error contract to native DHCPv6 setup.
-- Native IPv6 DHCP startup had an unchecked `sleep(2)` after RA/autoconf changes; interrupted waits could launch dhcp6c too early. THIS COMMIT uses `service_wait_seconds(2)` and rolls back IPv6 setup on a hard wait error before starting DHCPv6. WAN-route checker now pins error handling and launch ordering.
-- Previous WAN callback exact-head `44323940802` and AI docs `44323940948` on `9cd6446` PASS. Process `44324719773` on `592c0fd` and the newer main `34cdc9e` module Actions were pending at last poll; exact current Build/TRX/artifact is not yet verified.
+- Live main before THIS COMMIT: `8c4b3684e3386cbe63fc07ed46e5f77bf120ad37`. Existing production fixes use EINTR-safe waits for WAN/PPP, native DHCPv6, PPPoE relay, NFSd, detached daemons and LAN DHCP grace handling.
+- Latest LAN DHCP checker repair is `8c4b368`; WAN-route trigger-filter repair `131238b` has exact WAN-route run `44325745439` PASS.
+- This commit fixes a separate LAN hardware reliability gap: `full_restart_lan()` now preserves the one-second PHY reset interval across signals, records wait errors and always attempts power-up before restarting LAN services. Exact-head regression and XY-C1 results are pending.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

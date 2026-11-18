@@ -1,3 +1,13 @@
+## 2026-11-18 — Make LAN PHY power-cycle delay EINTR-safe
+
+- Parent main: `8c4b3684e3386cbe63fc07ed46e5f77bf120ad37`. Review of `full_restart_lan()` found a raw `sleep(1)` between powering down LAN PHY ports and restoring them. A signal could shorten the hardware reset interval, causing the switch ports to be re-enabled too early.
+- Replace it with `service_wait_seconds(1)`, normalize errors to errno/EIO and preserve the first status via `lan_restart_record_status()`. Power-up remains unconditional even when the wait fails, so the recovery action is never skipped.
+- Extend the WAN-route source contract to require power-down → shared wait → hard-error normalization/recording → power-up → LAN service start and reject raw sleep. The shared wait test already covers EINTR retries and non-EINTR failure.
+- Parent includes CI fixes from `131238b` (WAN-route exact run `44325745439` PASS) and `8c4b368` (LAN DHCP and detect-internet stale grace-wait contracts corrected; its exact-head Actions were still pending at last poll).
+- Exact-head WAN-route, Process and firmware Build/TRX/artifact runs are required for THIS COMMIT. No local test, target build or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-18 — Align LAN DHCP grace-wait contracts with shared EINTR helper
 
 - Parent main: `131238bbac61f8a3f5de03fe88be923795fcd3b7`. The LAN DHCP stop path now uses `service_wait_microseconds(300000U)` and refuses a no-force PID-file stop if that mandatory deconfig grace wait fails.

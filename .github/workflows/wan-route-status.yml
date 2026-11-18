@@ -405,6 +405,17 @@ jobs:
           lan_start = body(net_lan, "start_lan(int is_ap_mode, int do_wait)")
           assert "operation_status = reload_lan_addr6();" in lan_start
           assert "start_status = rc_first_service_start_status(start_status, operation_status);" in lan_start
+          lan_restart = body(net_lan, "full_restart_lan(void)")
+          assert '#include "service_wait_policy.h"' in net_lan
+          power_down = lan_restart.index("phy_ports_lan_power(0)")
+          power_wait = lan_restart.index("wait_status = service_wait_seconds(1);")
+          wait_failure = lan_restart.index("if (wait_status != 0)", power_wait)
+          wait_errno = lan_restart.index("wait_status = errno > 0 ? errno : EIO;", wait_failure)
+          wait_record = lan_restart.index('"wait for LAN PHY power cycle"', wait_errno)
+          power_up = lan_restart.index("phy_ports_lan_power(1)")
+          lan_start_at = lan_restart.index("start_lan(is_ap_mode, 1)")
+          assert power_down < power_wait < wait_failure < wait_errno < wait_record < power_up < lan_start_at
+          assert "sleep(1);" not in lan_restart
           ipv6_restart = body(net6, "full_restart_ipv6(int ipv6_type_old)")
           assert "operation_status = reload_lan_addr6();" in ipv6_restart
           assert "restart_status = rc_first_service_start_status(restart_status, operation_status);" in ipv6_restart

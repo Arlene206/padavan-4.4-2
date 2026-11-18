@@ -1124,7 +1124,7 @@ full_restart_lan(void)
 	int is_ap_mode, log_remote, lan_status;
 	int dnsmasq_lock, dnsmasq_lock_errno, release_status;
 	int dnsmasq_status, dnsmasq_start_status, vpn_status;
-	int lan_start_status;
+	int lan_start_status, wait_status;
 	int restart_status = 0;
 
 	is_ap_mode = get_ap_mode();
@@ -1207,7 +1207,14 @@ full_restart_lan(void)
 	/* down and up all LAN ports link; always attempt the recovery step. */
 	lan_restart_record_status(&restart_status, "power down LAN ports",
 				  phy_ports_lan_power(0));
-	sleep(1);
+	wait_status = service_wait_seconds(1);
+	if (wait_status != 0) {
+		wait_status = errno > 0 ? errno : EIO;
+		errno = wait_status;
+	}
+	lan_restart_record_status(&restart_status, "wait for LAN PHY power cycle",
+				  wait_status);
+	/* Always restore PHY power, even when the settling wait reports an error. */
 	lan_restart_record_status(&restart_status, "power up LAN ports",
 				  phy_ports_lan_power(1));
 
