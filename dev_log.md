@@ -1,3 +1,11 @@
+## 2026-11-17 — Verify the detached ttyd child after launcher success
+
+- Parent main: `56eff0e0e7c27fd1c632eb41e96df733febd72aa`. `ttyd.sh` starts the service with `start-stop-daemon -S -b`, so `eval()` only proves that the background launch was requested. `start_ttyd()` previously returned success without checking whether the detached child survived a bind/setup failure or immediate exit.
+- Add the same bounded RUNNING postcondition used by other detached RC daemons: initial wait, four process-inventory probes, immediate fail-closed UNKNOWN handling, ETIMEDOUT when the child remains ABSENT, and unchanged launcher-error propagation. Preserve disabled and already-running no-op behavior. Extend both Process integration source contracts; the existing GNU89 process-presence policy test already covers RUNNING/ABSENT/UNKNOWN/invalid states and launch-status preservation.
+- Exact-head Process lifecycle and XY-C1 Build/TRX/artifact checks are required on the new source SHA. No local production build or physical-router L4 test is claimed.
+
+---
+
 ## 2026-11-18 — Align WAN restart regression contracts with propagated teardown statuses
 
 - Parent main: `5ddc031903da062cdd55784c8f9c31fe2c1c0d9e`. Exact-head CI for `5ddc0319` verified the new full-restart source behavior but exposed three stale callers' tests: HTTPD still required `if (stop_wan() != 0)`; WAN VLAN still required an inline `config_soft_bridge_lan() != 0`; WAN teardown searched for both old inline bridge gates and generic `return -1`.

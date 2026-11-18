@@ -882,7 +882,8 @@ int
 start_ttyd(void)
 {
 	int ttyd_mode = nvram_get_int("ttyd_enable");
-	int start_status;
+	int start_status, attempt, scan_error;
+	enum process_presence process_state;
 
 	if (ttyd_mode != 1)
 		return 0;
@@ -896,11 +897,37 @@ start_ttyd(void)
 		return start_status;
 	}
 
+	/*
+	 * ttyd.sh backgrounds the daemon with start-stop-daemon -b. A successful
+	 * wrapper exit only confirms that launch was requested; require the
+	 * detached ttyd child to remain visible before reporting startup success.
+	 */
 	start_status = eval("/usr/bin/ttyd.sh", "start");
-	if (start_status != 0)
+	if (start_status != 0) {
 		logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);
+		return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
+	}
 
-	return start_status;
+	sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+		process_state = optional_daemon_presence("ttyd", &scan_error);
+		if (process_presence_start_postcondition(start_status, process_state) == 0)
+			return 0;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
+			logmessage(LOGNAME, "cannot verify ttyd startup (scan_error=%d)",
+				   errno);
+			return -1;
+		}
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS)
+			sleep(PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "ttyd daemon did not remain running after launch");
+	return process_presence_start_postcondition(start_status,
+					     PROCESS_PRESENCE_ABSENT);
 }
 
 int restart_ttyd(void){

@@ -1395,17 +1395,34 @@ telnetd_postcondition = telnetd_start.index("process_presence_start_postconditio
 assert telnetd_launch < telnetd_initial_wait < telnetd_probe < telnetd_inventory < telnetd_postcondition
 
 ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert "int start_status, attempt, scan_error;" in ttyd_start
+assert "enum process_presence process_state;" in ttyd_start
 assert 'if (ttyd_mode != 1)' in ttyd_start
 assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
 ttyd_start_compact = " ".join(ttyd_start.split())
 assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
 assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
 assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+assert "process_presence_start_postcondition" in ttyd_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in ttyd_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in ttyd_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in ttyd_start
+assert 'optional_daemon_presence("ttyd", &scan_error)' in ttyd_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in ttyd_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in ttyd_start
+assert "errno = ETIMEDOUT;" in ttyd_start
 ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
 ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
-ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
-assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
-print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+ttyd_launcher_return = ttyd_start.index("return process_presence_start_postcondition(start_status,", ttyd_launch_failure)
+ttyd_initial_wait = ttyd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", ttyd_launch)
+ttyd_probe = ttyd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", ttyd_initial_wait)
+ttyd_inventory = ttyd_start.index('optional_daemon_presence("ttyd", &scan_error)', ttyd_probe)
+ttyd_postcondition = ttyd_start.index("process_presence_start_postcondition(start_status, process_state)", ttyd_inventory)
+ttyd_unknown = ttyd_start.index("if (process_state == PROCESS_PRESENCE_UNKNOWN)", ttyd_postcondition)
+ttyd_timeout = ttyd_start.index("errno = ETIMEDOUT;", ttyd_unknown)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launcher_return < ttyd_initial_wait < ttyd_probe < ttyd_inventory < ttyd_postcondition < ttyd_unknown < ttyd_timeout
+assert ttyd_start.count("return process_presence_start_postcondition(start_status,") == 2
+print("telnetd/ttyd detached-child startup postconditions and disabled sentinels: PASS")
 
 optional_start_contracts = (
     ("start_adguardhome", "AdGuardHome"),
@@ -2289,17 +2306,34 @@ telnetd_postcondition = telnetd_start.index("process_presence_start_postconditio
 assert telnetd_launch < telnetd_initial_wait < telnetd_probe < telnetd_inventory < telnetd_postcondition
 
 ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+assert "int start_status, attempt, scan_error;" in ttyd_start
+assert "enum process_presence process_state;" in ttyd_start
 assert 'if (ttyd_mode != 1)' in ttyd_start
 assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
 ttyd_start_compact = " ".join(ttyd_start.split())
 assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
 assert 'start_status = eval("/usr/bin/ttyd.sh", "start");' in ttyd_start
 assert 'logmessage(LOGNAME, "ttyd launcher failed (status=%d)", start_status);' in ttyd_start
+assert "process_presence_start_postcondition" in ttyd_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in ttyd_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in ttyd_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in ttyd_start
+assert 'optional_daemon_presence("ttyd", &scan_error)' in ttyd_start
+assert "process_state == PROCESS_PRESENCE_UNKNOWN" in ttyd_start
+assert "errno = scan_error > 0 ? scan_error : EIO;" in ttyd_start
+assert "errno = ETIMEDOUT;" in ttyd_start
 ttyd_launch = ttyd_start.index('start_status = eval("/usr/bin/ttyd.sh", "start");')
 ttyd_launch_failure = ttyd_start.index("if (start_status != 0)", ttyd_launch)
-ttyd_launch_return = ttyd_start.index("return start_status;", ttyd_launch_failure)
-assert ttyd_launch < ttyd_launch_failure < ttyd_launch_return
-print("telnetd/ttyd boot launcher diagnostics and disabled sentinels: PASS")
+ttyd_launcher_return = ttyd_start.index("return process_presence_start_postcondition(start_status,", ttyd_launch_failure)
+ttyd_initial_wait = ttyd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);", ttyd_launch)
+ttyd_probe = ttyd_start.index("for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++)", ttyd_initial_wait)
+ttyd_inventory = ttyd_start.index('optional_daemon_presence("ttyd", &scan_error)', ttyd_probe)
+ttyd_postcondition = ttyd_start.index("process_presence_start_postcondition(start_status, process_state)", ttyd_inventory)
+ttyd_unknown = ttyd_start.index("if (process_state == PROCESS_PRESENCE_UNKNOWN)", ttyd_postcondition)
+ttyd_timeout = ttyd_start.index("errno = ETIMEDOUT;", ttyd_unknown)
+assert ttyd_launch < ttyd_launch_failure < ttyd_launcher_return < ttyd_initial_wait < ttyd_probe < ttyd_inventory < ttyd_postcondition < ttyd_unknown < ttyd_timeout
+assert ttyd_start.count("return process_presence_start_postcondition(start_status,") == 2
+print("telnetd/ttyd detached-child startup postconditions and disabled sentinels: PASS")
 
 optional_start_contracts = (
     ("start_adguardhome", "AdGuardHome"),
