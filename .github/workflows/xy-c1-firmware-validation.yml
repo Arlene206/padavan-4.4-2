@@ -35,6 +35,8 @@ on:
       - "trunk/user/pppoe/mwan.sh"
       - "trunk/user/pppoe/tests/mwan_lifecycle.sh"
       - "scripts/check_pppoe_mwan_status.py"
+      - "scripts/check_xy_c1_firmware_inputs.py"
+      - "scripts/tests/test_xy_c1_firmware_inputs.py"
       - "trunk/user/rc/src/msd_lite_config_file.h"
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/rc/src/igmpproxy_config_file.h"
@@ -425,69 +427,16 @@ jobs:
           set -eu
           sh -n trunk/user/ralinkiappd/iappd.sh
           sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
+      - name: Test XY-C1 firmware input detector
+        run: python3 scripts/tests/test_xy_c1_firmware_inputs.py
+
       - name: Detect firmware production input changes
         id: firmware_inputs
         env:
           EVENT_NAME: ${{ github.event_name }}
-        run: |
-          set -eu
-          python3 - <<'PY'
-          import json
-          import os
-          from pathlib import PurePosixPath
-
-          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as event_file:
-              event = json.load(event_file)
-
-          if os.environ["EVENT_NAME"] != "push":
-              changed_paths = []
-              firmware_changed = True
-          else:
-              commits = event.get("commits") or []
-              changed_paths = sorted({
-                  path
-                  for commit in commits
-                  for field in ("added", "modified", "removed")
-                  for path in commit.get(field, [])
-              })
-              reported_commit_count = event.get("size")
-              if not changed_paths or (
-                  reported_commit_count is not None and reported_commit_count > len(commits)
-              ):
-                  # Missing or truncated push file lists must fail safe and build.
-                  firmware_changed = True
-              else:
-                  documentation_files = {
-                      "AI_BOOTSTRAP_PROMPT.md",
-                      "AI_DEVELOPMENT_PROTOCOL.md",
-                      "SESSION_HANDOFF.md",
-                      "REFACTOR_ROADMAP.md",
-                      "dev_log.md",
-                  }
-
-                  def is_non_firmware_input(path):
-                      parts = PurePosixPath(path).parts
-                      return (
-                          path.startswith(".github/")
-                          or "tests" in parts
-                          or path.startswith("scripts/check_")
-                          or path.startswith("scripts/tests/")
-                          or path.startswith("docs/")
-                          or path in documentation_files
-                      )
-
-                  firmware_changed = any(
-                      not is_non_firmware_input(path) for path in changed_paths
-                  )
-
-          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output_file:
-              output_file.write(f"changed={'true' if firmware_changed else 'false'}\n")
-
-          print(f"Firmware production inputs changed: {firmware_changed}")
-          for path in changed_paths:
-              print(f"  {path}")
-          PY
-
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: python3 scripts/check_xy_c1_firmware_inputs.py
       - name: Build XY-C1
         if: steps.firmware_inputs.outputs.changed == 'true'
         run: |

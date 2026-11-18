@@ -1,3 +1,11 @@
+## 2026-11-17 — Use complete Git tree diffs for the XY-C1 build gate
+
+- The inline gate depended on GitHub push payload commits[] entries. Exact XY-C1 `44221748846` on `a4d5a10b` passed host tests but logged `Firmware production inputs changed: True` with no changed-path lines, then ran Build, TRX and artifact upload for a CI/docs-only commit.
+- Replace webhook path parsing with git diff --name-only --no-renames -z BEFORE AFTER; verify checkout HEAD equals AFTER and fetch exact BEFORE. A complete tree diff distinguishes host-only from firmware source/config changes even when webhook path data is truncated or empty.
+- Invalid/initial SHAs, non-push events, fetch/diff failures, timeouts and checkout mismatch fail safe to a full build. Add 10 standard-library unit regression cases. No product firmware source changes in this CI-gate slice.
+- On parent 5fd23912, PID1 TUN policy/source contract `44223253251` PASS; AI docs failure from paraphrased atomic-main-commit wording was repaired in `889b8a09`, and exact AI run `44224426682` PASS. XY-C1 `44223253163` passed host checks and was in target Build at last poll.
+
+---
 ## 2026-11-17 — Restore exact atomic-main-commit handoff contract
 
 - Exact AI handoff run `44223253226` on `5fd23912733ba97a286e14df0c398d06d1414dd2` failed only because `SESSION_HANDOFF.md` paraphrased the required atomic-main-commit instruction and omitted the literal phrase `one atomic main commit`.
