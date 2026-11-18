@@ -77,27 +77,29 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Fix the AP-mode LAN DHCP startup gate so the mandatory PHY settling result cannot be overwritten by an unrelated Internet-monitor notification.
+Close the AP-mode LAN DHCP PHY-readiness gate slice and its exact-head regression.
 
-- Parent main SHA: `a2d0b74112b4002073015dccc5fca88f6ccd43ab`. The preceding storage CI-only repair is complete: exact USB storage run `44420519515` passed every step on that exact SHA, including the shared-header-dependent RC service-launch regression, firmware BusyBox ash Optware tests, and storage persistence/eject contracts.
-- `trunk/user/rc/src/net_lan.c::start_lan()` reused one `operation_status` for the mandatory one-second PHY settle wait and `notify_run_detect_internet(60)`. The latter overwrote the wait status before both the DHCP launch gate and first-error aggregation. This allowed a successful notification to mask a failed wait and incorrectly prevented DHCP when only the independent notification failed.
-- The new source slice keeps `phy_wait_status` separate, retains it in the caller's first-error result, and uses `rc_lan_ap_dhcp_start_allowed_after_phy_wait()` as the sole DHCP gate. Monitor status remains aggregated independently. Regression covers both cases: wait fails/monitor succeeds => no DHCP; wait succeeds/monitor fails => DHCP still launches while the notification error is returned.
-- Process and XY-C1 workflow path filters already include `net_lan.c`, `service_start_status.h` and `tests/service_start_status.c`; Process also runs the strengthened `scripts/check_process_lifecycle_integration.py`. No workflow was weakened or broadened.
-- The current validation target is the new main commit created directly on parent `a2d0b74112b4002073015dccc5fca88f6ccd43ab`. Fetch live main to identify the exact resulting SHA, then inspect its exact-head Process, AI docs and XY-C1 runs. The live ref/history is authoritative; do not create a follow-up commit merely to chase a self-referential SHA field.
+- Production parent for this slice: `a2d0b74112b4002073015dccc5fca88f6ccd43ab`; source commit: `747bb165c61051000dfe6426c0de808cfd96f8b1`.
+- `net_lan.c::start_lan()` previously assigned both the required one-second PHY settle wait and `notify_run_detect_internet(60)` to `operation_status`. The monitor call overwrote the wait result before the DHCP gate and before first-error aggregation. The source commit keeps `phy_wait_status` separate, aggregates it, and gates `start_udhcpc_lan()` only on that value. Monitor errors remain aggregated but no longer mask/suppress the DHCP decision.
+- Added two GNU89 regression cases: PHY wait fails + monitor succeeds => DHCP is not started and the wait failure is returned; PHY wait succeeds + monitor fails => DHCP remains eligible and the monitor error is returned. The C regression compiled and passed in Process run `44421896053` before the later static source checker failed.
+- Process run `44421896053` failed only in the new checker assertion because it forbade the pre-existing callback-link preflight's earlier `if (operation_status == 0)`; all preceding compilation, regression and source checks passed. The checker correction narrows that assertion to the section after the monitor notification. This correction is a separate test-only commit based directly on `747bb165c61051000dfe6426c0de808cfd96f8b1`.
+- AI handoff documentation run `44421896176` passed on exact SHA `747bb165c61051000dfe6426c0de808cfd96f8b1`. XY-C1 run `44421896203` is the exact product-source validation run for `747bb165c61051000dfe6426c0de808cfd96f8b1`; check Build, TRX and artifact steps before claiming L3.
+- The storage handoff prerequisite is complete: exact USB storage run `44420519515` passed every step on `a2d0b74112b4002073015dccc5fca88f6ccd43ab`.
 
 ## Verification boundary
 
-- L1: PASS — code-path review confirmed the status overwrite and the two opposite failure modes.
-- L2: regression cases and source-order contract added; local execution NOT RUN because this session has GitHub connector access only. Exact-head Process and AI docs Actions must be checked on the resulting main SHA.
-- L3: `net_lan.c` is a firmware production input. XY-C1 Build, TRX verification and artifact upload are required on the exact new source SHA; PENDING until those steps finish.
-- L4: BusyBox target startup timing and physical-router LAN DHCP behavior remain NOT VERIFIED.
-- Storage handoff prerequisite: exact run `44420519515` on `a2d0b74112b4002073015dccc5fca88f6ccd43ab` is SUCCESS, all steps passed.
+- L1: PASS — the source defect and both failure modes were confirmed by call-flow inspection.
+- L2: C policy regression PASS on exact SHA `747bb165c61051000dfe6426c0de808cfd96f8b1`; the Process source checker had the one false-positive assertion above. Its corrected version is being rerun on the new checker/documentation commit (identify exact SHA from live main).
+- L3: XY-C1 run `44421896203` on exact production-source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1` must complete Build XY-C1, TRX verification and artifact upload successfully. Do not transfer L3 to other SHAs.
+- AI docs run `44421896176` is SUCCESS on `747bb165c61051000dfe6426c0de808cfd96f8b1`.
+- Storage run `44420519515` is SUCCESS on `a2d0b74112b4002073015dccc5fca88f6ccd43ab`.
+- L4: target BusyBox DHCP timing and physical-router behavior remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, identify the source commit immediately after parent `a2d0b74112b4002073015dccc5fca88f6ccd43ab`, and inspect its exact-head Process lifecycle, AI handoff docs and XY-C1 workflow runs.
-2. Treat L2 as closed only when the service-start regression and strengthened source checker pass on that exact SHA; treat L3 as closed only when Build XY-C1, TRX verification and artifact upload all pass on that same SHA.
-3. Repair any exact-head failure without weakening path filters or test assertions, then continue the next independent P1 whole-userland stability issue. Keep the backup branch immutable.
+1. Fetch live `main`; identify the test-only checker correction commit following `747bb165c61051000dfe6426c0de808cfd96f8b1`, then inspect its exact Process workflow result and verify the corrected checker reaches its AP LAN gate assertion and completes successfully.
+2. Inspect XY-C1 run `44421896203` on exact product-source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1`; close L3 only if Build, TRX and artifact upload all pass.
+3. Repair any remaining exact-head failures without weakening unrelated checks, then continue the next independent P1 stability issue. Keep the archive branch unchanged.
 
 ## Mandatory handoff checkpoint
 

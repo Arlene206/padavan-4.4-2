@@ -1,3 +1,10 @@
+## 2026-11-19 — Narrow the AP LAN DHCP source contract to the post-notification gate
+
+- Parent main SHA: `747bb165c61051000dfe6426c0de808cfd96f8b1`. Exact Process workflow run `44421896053` compiled and passed the GNU89/ASan/UBSan `service_start_status.c` regression and all earlier integration checks, then failed in the new source checker. The assertion that no `if (operation_status == 0)` existed anywhere in `start_lan()` was too broad: the existing required callback-link preflight uses that condition before the PHY wait. This was a test-contract defect, not a production-source or C-regression failure.
+- Correct the contract to reject the stale operation-status gate only after `notify_run_detect_internet(60)`, while retaining the required ordered PHY capture, first-error aggregation, independent monitor notification and PHY-only DHCP gate. The production implementation and regression cases are unchanged. Also normalize the policy-header comment indentation.
+- AI handoff docs run `44421896176` is SUCCESS on exact source SHA `747bb165c61051000dfe6426c0de808cfd96f8b1`. XY-C1 run `44421896203` and the corrected exact-head Process run remain pending at the time of this correction.
+- No local compile/test was run (GitHub connector-only environment). Hardware L4 remains NOT VERIFIED.
+
 ## 2026-11-19 — Keep AP LAN DHCP launch gated by PHY readiness
 
 - Parent main SHA: `a2d0b74112b4002073015dccc5fca88f6ccd43ab`. The preceding storage hotplug CI repair is verified: exact-head USB storage run `44420519515` completed SUCCESS on `a2d0b74112b4002073015dccc5fca88f6ccd43ab`; every step passed, including the shared-header-dependent RC service launch regression compile/run and firmware BusyBox ash Optware regressions.

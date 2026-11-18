@@ -2047,10 +2047,11 @@ assert "phy_wait_status = service_wait_seconds(1);" in ap_lan_start
 assert "start_status = rc_first_service_start_status(start_status, phy_wait_status);" in ap_lan_start
 assert "operation_status = notify_run_detect_internet(60);" in ap_lan_start
 assert "if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status))" in ap_lan_start
-assert "if (operation_status == 0)" not in ap_lan_start
+monitor_notify_start = ap_lan_start.index("operation_status = notify_run_detect_internet(60);")
+assert "if (operation_status == 0)" not in ap_lan_start[monitor_notify_start:]
 assert ap_lan_start.index("phy_wait_status = service_wait_seconds(1);") < ap_lan_start.index(
     "start_status = rc_first_service_start_status(start_status, phy_wait_status);"
-) < ap_lan_start.index("operation_status = notify_run_detect_internet(60);") < ap_lan_start.index(
+) < monitor_notify_start < ap_lan_start.index(
     "if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status))"
 )
 assert "rc_lan_ap_dhcp_start_allowed_after_phy_wait(int phy_wait_status)" in service_start_policy

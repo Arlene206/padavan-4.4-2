@@ -22,7 +22,7 @@ rc_lan_ap_dhcp_start_allowed_after_phy_wait(int phy_wait_status)
 	return phy_wait_status == 0;
 }
 
- /*
+/*
  * A WAN protocol client must not expose a path until the required firewall
  * rebuild, including configured extension hooks and snapshot cleanup, succeeds.
  */
