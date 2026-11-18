@@ -1,3 +1,12 @@
+## 2026-11-18 — Capture ancillary LAN DHCP follow-up failures
+
+- Parent main SHA: `e5c5bdc37a722aa7953246409c9d0c1d16002864`. Exact b3a AI handoff `44205722872` PASS; AliyunDrive `44205723343` PASS on unchanged sources after isolated 21b5 failure `44205040903`; Process inventory/lifecycle `44205723100` / `44205723080`, WAN route `44205723137`, NVRAM `44205723095`, HTTPD `44205723230` and broad lifecycle/security checks PASS. XY-C1 `44205723068` was still building; no L3 claim.
+- In `udhcpc_lan_bound()`, unchecked `system("/usr/bin/iappd.sh restart")` and discarded `restart_networkmap()` result could conceal ancillary LAN service failures after DHCP lease state had committed.
+- Capture and log each nonzero result. Do not fail the BusyBox BOUND callback: this would leave BusyBox retaining an old lease while router interface/route/resolver state uses the new lease. Updated the policy comment, expanded the policy test with timeout/child-failure statuses, and extended the source checker.
+- Exact-head WAN DHCP callback and XY-C1 verification pending. Hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Restore the complete roadmap module dashboard after checker failure
 
 - Parent main SHA: `21b5da973728481fafec579369d48c1c1f1ef564`; exact WAN route `44205041253`, WAN DHCP `44205041172`, WAN teardown `44205041312`, Process inventory/lifecycle `44205041217`/`44205041136`, infosvr `44205040920`, AdGuardHome `44205041507`, AliDDNS `44205041374`, Wireless `44205041398`, Firewall `44205041410`, miniupnpd `44205041416`, ZeroTier `44205041193`, detect_link `44205041309`, detect_internet `44205040982`, VPN server `44205040974`, DNSMasq `44205040969`, USB modem `44205040951`, HTTPD `44205040923`, NVRAM `44205040901` PASS.

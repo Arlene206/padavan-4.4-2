@@ -4,9 +4,9 @@
 /*
  * BusyBox commits its internal DHCP lease only when the bound/renew script
  * exits successfully. The address, route, resolver and NVRAM transaction
- * has already committed before hostname-file publication runs. An ancillary
- * hosts-file failure is logged, but must not make BusyBox retain an old lease
- * while the router is already using the new one.
+ * has already committed before ancillary host, IAPP and networkmap refreshes
+ * run. Failures of those optional follow-up operations are logged by the caller,
+ * but must not make BusyBox retain an old lease while the router uses the new one.
  */
 /* Retry ancillary host publication after a same-value RENEW only when an
  * earlier publication failed; do not repeat it for every healthy renewal. */

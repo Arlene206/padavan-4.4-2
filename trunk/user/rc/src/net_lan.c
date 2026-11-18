@@ -1862,14 +1862,27 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 
 		/* di wakeup after 2 secs */
 		notify_run_detect_internet(2);
-		system("/usr/bin/iappd.sh restart");
+		{
+			int iappd_status = system("/usr/bin/iappd.sh restart");
+
+			if (iappd_status != 0)
+				logmessage("DHCP LAN Client",
+					   "IAPP daemon restart after lease update failed on %s (wait status=%d)",
+					   lan_ifname, iappd_status);
+		}
 		logmessage("DHCP LAN Client",
 			"%s, IP: %s/%s, GW: %s, lease time: %d",
 			udhcpc_lan_state, lease_ip, lease_netmask, gateway_buf, lease_dur);
 	}
 
-	if (!is_renew)
-		restart_networkmap();
+	if (!is_renew) {
+		int networkmap_status = restart_networkmap();
+
+		if (networkmap_status != 0)
+			logmessage("DHCP LAN Client",
+				   "networkmap refresh after lease update failed on %s (status=%d)",
+				   lan_ifname, networkmap_status);
+	}
 
 	return lan_dhcp_bound_callback_status(0, hosts_status);
 }

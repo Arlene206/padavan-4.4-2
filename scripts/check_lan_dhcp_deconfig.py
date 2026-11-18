@@ -92,6 +92,18 @@ assert "if (refresh_hosts)" in bound
 assert "lan_dhcp_publish_hosts_and_schedule_retry(" in bound
 assert bound.index("if (refresh_hosts)") < bound.index("lan_dhcp_publish_hosts_and_schedule_retry(")
 assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in bound
+iappd_start = bound.index('int iappd_status = system("/usr/bin/iappd.sh restart");')
+iappd_failure = bound.index("if (iappd_status != 0)", iappd_start)
+iappd_log = bound.index("IAPP daemon restart after lease update failed", iappd_failure)
+networkmap_gate = bound.index("if (!is_renew)", iappd_log)
+networkmap_start = bound.index("int networkmap_status = restart_networkmap();", networkmap_gate)
+networkmap_failure = bound.index("if (networkmap_status != 0)", networkmap_start)
+networkmap_log = bound.index("networkmap refresh after lease update failed", networkmap_failure)
+callback_return = bound.index("return lan_dhcp_bound_callback_status(0, hosts_status);", networkmap_log)
+assert iappd_start < iappd_failure < iappd_log < networkmap_gate < networkmap_start < networkmap_failure < networkmap_log < callback_return
+assert bound.count('system("/usr/bin/iappd.sh restart")') == 1
+assert bound.count("restart_networkmap()") == 1
+assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in callback_test
 assert 'nvram_set_int_temp("lan_hosts_retry", "1")' in publish
 assert "notify_rc_status(RCN_RESTART_DHCPD)" in publish
 assert "cannot queue AP hostname-file recovery" in publish
