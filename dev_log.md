@@ -1,3 +1,13 @@
+## 2026-11-18 — Narrow Process lifecycle regression triggers without losing PR coverage
+
+- CI trigger audit found the process-lifecycle-regression workflow had a blanket trunk/user/** push pattern despite an explicit lifecycle file list; its push and pull_request lists also diverged (127 vs 88 entries, with important source/test paths covered by only one event). This caused unrelated userland assets and docs to start the long Process suite on push, while some PR changes could bypass it.
+- Replace the catch-all with the de-duplicated union of existing explicit push and PR patterns and use the same allowlist for both events. Preserve the AliDDNS test exclusion. The separate Process lifecycle inventory workflow intentionally retains its wider whole-userland trigger because it re-enumerates tracked source candidates across that tree; this fix does not narrow the global inventory.
+- Add a semantic contract in scripts/check_process_lifecycle_integration.py that rejects broad catch-alls, duplicates and push/PR drift while requiring the workflow and integration checker to remain in the allowlist.
+- Parent main 26e98f4103084938307951148ea51f5b01ed3613. Product XY-C1 run 44329872151 completed Build, TRX verification and artifact upload successfully on exact product source SHA 648e7353b58c1f33fddc4d6ba8bb65e195f6695f. Exact 26e AI docs 44331581877, watchdog 44331580939, Process lifecycle 44331581154, and XY-C1 host suite 44331580944 all PASS. This commit changes only CI workflow/checker/docs; it requires exact Process and AI-doc reruns, not a firmware rebuild.
+- No local checkout tests or physical router checks were run.
+
+---
+
 ## 2026-11-18 — Add XY-C1 build triggers for watchdog policy headers
 
 - The XY-C1 workflow watched @@watchdog.c@@ but omitted the production headers @@watchdog_ntp_policy.h@@ and @@watchdog_signal_policy.h@@ included by that translation unit. A future header-only change to error mapping or notification policy would not start target validation.

@@ -3049,3 +3049,45 @@ for signature, service_name, initial, retry in (
     assert f'service_start_probe_wait("{service_name}", {retry})' in daemon_start
     assert "sleep(" not in daemon_start and "usleep(" not in daemon_start, signature
 print("RC detached-daemon startup probes preserve full wait intervals across EINTR: PASS")
+
+# Keep push and pull_request path filters identical. A blanket trunk/user glob
+# made unrelated package assets and documentation changes start this full suite.
+process_workflow_source = (
+    root / ".github/workflows/process-lifecycle-regression.yml"
+).read_text()
+
+
+def workflow_paths(event):
+    header = "  " + event + ":\n    paths:\n"
+    start = process_workflow_source.find(header)
+    assert start >= 0, "missing " + event + " path filter"
+    start += len(header)
+    next_section = re.search(
+        r"(?m)^(?:  [A-Za-z_][A-Za-z0-9_-]*:|[A-Za-z_][A-Za-z0-9_-]*:)",
+        process_workflow_source[start:],
+    )
+    end = start + next_section.start() if next_section else len(process_workflow_source)
+    patterns = []
+    for line in process_workflow_source[start:end].splitlines():
+        if not line.startswith("      - "):
+            continue
+        pattern = line[len("      - "):].strip()
+        if len(pattern) >= 2 and pattern[0] in ("'", '"') and pattern[-1] == pattern[0]:
+            pattern = pattern[1:-1]
+        patterns.append(pattern)
+    return patterns
+
+
+push_paths = workflow_paths("push")
+pull_request_paths = workflow_paths("pull_request")
+assert len(push_paths) == len(set(push_paths)), "duplicate push path filter entries"
+assert len(pull_request_paths) == len(set(pull_request_paths)), "duplicate pull_request path filter entries"
+assert "trunk/user/**" not in push_paths, "process regression must not run for every userland asset"
+assert "trunk/user/**" not in pull_request_paths, "pull_request must not use a blanket userland filter"
+assert set(push_paths) == set(pull_request_paths), (
+    "push and pull_request lifecycle coverage must be identical"
+)
+assert ".github/workflows/process-lifecycle-regression.yml" in push_paths
+assert "scripts/check_process_lifecycle_integration.py" in push_paths
+assert "trunk/user/shared/src/process_inventory.c" in push_paths
+print("Process lifecycle push/PR trigger scope and parity: PASS")
