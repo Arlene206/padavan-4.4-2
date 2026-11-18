@@ -93,7 +93,7 @@ require("unknown after TERM blocks KILL" in test and "pidof error blocks named s
         "regression must prove unknown inventory prevents signals and escalation")
 require(helper.count('ss_wait_limit=$1') == 2 and
         helper.count('[ "$ss_wait_count" -lt "$ss_wait_limit" ]') == 2 and
-        helper.count('sleep 1 || return 2') == 2 and
+        helper.count('sleep 1 || return 2') == 3 and
         'ss_wait_named_processes 3 "$@"' in helper and
         'ss_wait_named_processes 1 "$@"' in helper and
         'ss_wait_process_pattern 3 "$ss_process_pattern"' in helper and
