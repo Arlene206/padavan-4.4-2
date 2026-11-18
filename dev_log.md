@@ -1,3 +1,12 @@
+## 2026-11-18 — Fix stale ChinaDNS normalized-argument contract
+
+- Exact 8e2121694004a1fdd79150a6e8107f845f2eea80 Actions: Shadowsocks runtime syntax, required-startup, bounded-process and Adblock regressions all PASS; Process lifecycle inventory 44291689977 PASS; umbrella Process inventory 44291689958 PASS; AI handoff 44291690049 PASS.
+- The Shadowsocks workflow failed only in scripts/check_shadowsocks_lifecycle.py: a final legacy assertion still expected the old raw NVRAM variable "$ss_chdns", while start_chinadns now normalizes it to "$use_chinadns" before passing the transaction helper. Update the remaining assertion to match the source's normalized contract.
+- XY-C1 was not triggered by the test/docs-only 8e commit. The source-changing cb6d XY-C1 run 44291015307 was still IN_PROGRESS at the last poll; do not claim firmware validation until its Build/TRX/artifact steps conclude.
+- No source/runtime code changed in this slice; shell runtime tests passed on 8e. No target BusyBox runtime or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-18 — Fix the stop-timeout fixture and handoff section contract
 
 - Exact 3ec095 Actions revealed the fixture repair still used a double-escaped printf format, so the files contained backslash-n text and pidof correctly classified the PID inventory as UNKNOWN (2). Replace with echo, which writes a valid newline-delimited PID and leaves the fake process in the intended never-exit mode.

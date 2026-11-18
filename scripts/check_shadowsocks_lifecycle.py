@@ -203,7 +203,7 @@ ordered(dnsmasq_tx, [
     'ss_start_dnsmasq_daemon "$dnsmasq_bin"',
     'mv -f "$backup_file" "$config_file"',
 ], "dnsmasq staging, validation, atomic publication, verified restart and rollback")
-require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$ss_chdns"' in script and
+require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$use_chinadns"' in script and
         'return "$dns_status"' in script,
         "ChinaDNS setup must propagate dnsmasq configuration/restart errors")
 require("dnsmasq atomic config and restart" in test and

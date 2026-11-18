@@ -1,10 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- Exact 3ec095 Actions: Process inventory umbrella 44291402816 PASS. Shadowsocks 44291402913 failed in the stop-failure test because the corrected fixture still emitted literal backslash-n instead of a valid PID line; AI docs 44291404027 then identified the required exact heading ## Active task (handoff currently used “Active engineering slice”). XY-C1 was not yet checked for this SHA.
-- This correction replaces those fixture writes with newline-producing echo commands and restores the required handoff section heading; exact-head Actions are pending.
-- DNSMasq transaction/rollback code remains unverified on target hardware. Exact-source XY-C1 Build/TRX/artifact and physical-router L4 have not been claimed.
+- Exact 8e Actions: runtime Shadowsocks shell tests, Process lifecycle inventory 44291689977, umbrella Process 44291689958 and AI docs 44291690049 PASS. Shadowsocks 44291689941 failed only at the final static assertion expecting "$ss_chdns" rather than normalized "$use_chinadns". This follow-up updates that checker assertion; new exact-head Actions pending.
+- Source commit cb6d changed dnsmasq stop/publish/rollback and ChinaDNS flag timing; its exact XY-C1 run 44291015307 remained IN_PROGRESS at last poll, and XY-C1 was not triggered by 8e because it changed tests/docs only.
+- Runtime dnsmasq regressions now pass on 8e, including fail-closed stop timeout, rollback and cgroup isolation. Target-router L4 remains unverified.
 
-Next P1: pass exact-head Shadowsocks and AI checks, confirm XY-C1 Build/TRX/artifact on the current product SHA, then inspect remaining oversea and ssp_close DNSMasq edits and DHCP service-manager coupling.
+Next P1: pass checker correction and verify cb6d XY-C1 Build/TRX/artifact; then resolve the DNSMasq lifecycle-lock boundary and clean up oversea/ssp_close config mutations.
 
 ---
 
