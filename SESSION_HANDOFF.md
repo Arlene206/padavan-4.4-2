@@ -2,10 +2,11 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA for this slice: `aabe9a0c1a2574bde10cb7b3d60025db7a57e3b0`.
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA for this slice: `b26b59b2175492567e2018a93bb41c78e1036bd0`.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
-- MentoHUST exact-head XY-C1 run `44415470536` still requires a final status check before any L3 claim. For the crond/IGMPproxy production source, parent SHA `04c8a22d`'s XY-C1 run `44418388888` stopped before firmware Build at the host regression compile; the same missing shared include path was fixed in both Process and XY-C1 workflows by `aabe9a0c`.
+- MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
+- Crond source `a606751d` and IPTV source `04c8a22d` have exact-head L2 Process validation PASS: current Process umbrella run `44419048581` and AI docs `44419048640` both SUCCESS on main SHA `b26b59b2`; shared include paths were fixed by `aabe9a0c` and the Process header trigger by `b26b59b2`. XY run `44418643024` on `aabe9a0c` passed host steps, but Build/TRX/artifact were SKIPPED because that commit changed no firmware inputs; do not count that as L3 for `04c8a22d`.
 - Physical-router L4 and direct BusyBox target runtime remain NOT VERIFIED.
 ## Completed prerequisite — switch VLAN WAN gate
 
@@ -76,26 +77,25 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Close the crond duplicate-start guard's regression trigger and integration contract.
+Repair the storage hotplug workflow's RC service-status test compile dependency.
 
-- Production change is in ancestor `a606751d6709ab6a906e685593f013095fe8c87e`: `start_crond()` calls `optional_daemon_start_status("crond", "crond")` before launch. RUNNING is a logged idempotent success, UNKNOWN returns the inventory error, and only ABSENT reaches `_eval()`; bounded detached-child readiness and stop-before-restart behavior remain unchanged.
-- The compile failure is fixed in parent main `aabe9a0c1a2574bde10cb7b3d60025db7a57e3b0`: both the Process and XY-C1 `service_start_status.c` test commands now include `-I trunk/user/shared/src -I trunk/user/rc/src`. The earlier Process run `44417690465` and XY run `44417198619` failed before test execution because `optional_daemon_policy.h` transitively includes shared `process_inventory.h`.
-- One remaining CI coverage gap: `.github/workflows/process-lifecycle-regression.yml` did not list `optional_daemon_policy.h` in its push or pull_request inputs. THIS COMMIT adds both entries and extends the semantic checker to require both triggers, the shared include directory in Process and XY-C1 compile commands, and the already-watched shared header paths.
-- On production ancestor SHA `a606751d`, Process inventory `44417198657`, dedicated crond lifecycle `44417198647`, and AI docs `44417198450` passed. The corrected current-main Process run `44418643022` and XY-C1 run `44418643024` were in progress at the last poll. IGMPproxy/UDPXY/ MSD Lite hardening in `04c8a22d` shares those pending exact-source validations; no L3 claim is made.
+- Exact USB storage workflow run `44418388785` (production parent SHA `04c8a22d2b514bb6b41c01c3572fa370949c4fc6`) failed at `Compile and run RC service launch status regression`; the preceding storage stop regression passed. Its `service_start_status.c` now includes `optional_daemon_policy.h`, which includes shared `process_inventory.h`, but the storage workflow supplied only `-I trunk/user/rc/src`.
+- THIS COMMIT adds `-I trunk/user/shared/src` to that workflow's GNU89 test command and strengthens its inline source checker to assert the shared include and both workflow path filters for the policy/shared headers. Those header paths are already watched in push/PR filters.
+- Crond duplicate-start/UNKNOWN fail-closed and UDPXY/MSD Lite/IGMPproxy detached-readiness source integration are L2 CLOSED on current main through Process umbrella run `44419048581` PASS and AI docs `44419048640` PASS at exact SHA `b26b59b2175492567e2018a93bb41c78e1036bd0`. Dedicated crond suite `44417198647` and process inventory `44417198657` also passed on the source parent.
+- MentoHUST source `4f54d9f0b861091c884459bd178ab4b966439719` has exact XY-C1 Build/TRX/artifact PASS on run `44415470536`. In contrast, XY run `44418643024` on CI-only commit `aabe9a0c` passed host steps but skipped Build/TRX/artifact because no firmware input changed; IPTV source SHA `04c8a22d` still needs a future source-triggered L3 run.
 
 ## Verification boundary
 
-- L1: PASS for the crond tri-state duplicate-start gate and the transitive header/CI dependency review.
-- L2: Historical Process/XY compile failures `44417690465`, `44417198619`, `44418388668`, and `44418388888` all had the same test include-path cause; parent `aabe9a0c` corrects the two compiler commands. Its Process `44418643022` was IN_PROGRESS at last inspection, and AI docs `44418643233` passed. THIS COMMIT additionally makes the Process workflow trigger on its policy header and guards the dependency in the checker. Local tests were NOT RUN (GitHub connector-only environment).
-- L3: NOT VERIFIED for crond/IGMPproxy/UDPXY/MSD Lite. The last XY-C1 run `44418388888` stopped before Build on the old compile command; corrected parent run `44418643024` was IN_PROGRESS. Build, TRX verification and artifact upload must all pass on an exact production SHA.
-- L4: scheduled jobs, live IPTV relay readiness and physical-router behavior remain NOT VERIFIED.
+- L1: PASS for the storage workflow compile failure diagnosis; failing compile is a transitive shared-header include-path error, not a production source failure.
+- L2: USB storage exact run `44418388785` FAIL at the service-status compile on old include path; its preceding storage daemon stop policy test passed. THIS COMMIT repairs the include and adds source-contract assertions; exact-head rerun pending. Crond/IPTV Process L2 PASS on `b26b59b2` (run `44419048581`); AI docs `44419048640` PASS.
+- L3: MentoHUST exact source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is VERIFIED by XY-C1 run `44415470536` with Build, TRX and artifact all successful. Crond/IPTV L3 remains NOT VERIFIED: XY run `44418643024` succeeded in host tests but skipped Build/TRX/artifact due no firmware-input changes in that CI-only commit.
+- L4: target BusyBox service timing, live IPTV relay and physical XY-C1 router behavior remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head Process run triggered by THIS COMMIT; confirm the new policy-header push/PR paths, shared compiler include path, semantic checker, and full regression suite pass.
-2. Inspect corrected XY-C1 run `44418643024`; only record L3 if Build, TRX and artifact upload all succeed for the production source SHA. If the workflow skips Build because this follow-up is integration-only, do not infer L3.
-3. Continue an independent P1 whole-userland lifecycle/start-result item while any run is pending; avoid repeating the crond/IGMPproxy source review.
-4. Check MentoHUST run `44415470536` once for L3, then preserve the archival backup unchanged.
+1. Inspect the exact-head USB storage regression run caused by THIS COMMIT; confirm the service-status GNU89 test compiles with both RC and shared include paths, and the full hotplug suite/source checker passes.
+2. Recheck XY-C1 Build/TRX/artifact after the next production-source commit that includes crond/IPTV changes; do not count host-only skipped Build as L3.
+3. Continue an independent source-level P1 whole-userland stability issue while any Action is pending; keep the immutable backup unchanged.
 
 ## Mandatory handoff checkpoint
 

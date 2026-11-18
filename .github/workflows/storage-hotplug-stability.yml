@@ -365,7 +365,7 @@ jobs:
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror \
-            -I trunk/user/rc/src \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
             trunk/user/rc/src/tests/service_start_status.c \
             -o /tmp/service-start-status
           /tmp/service-start-status
@@ -1450,6 +1450,18 @@ jobs:
           for path in busybox_paths:
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1
+
+          # service_start_status.c now imports the shared process inventory API.
+          service_start_build = workflow.split(
+              "- name: Compile and run RC service launch status regression", 1
+          )[1].split("\\n      - name:", 1)[0]
+          assert "-I trunk/user/shared/src -I trunk/user/rc/src" in service_start_build
+          for header_path in (
+              "trunk/user/rc/src/optional_daemon_policy.h",
+              "trunk/user/shared/src/process_inventory.h",
+          ):
+              assert push_filters.count(header_path) == 1
+              assert pr_filters.count(header_path) == 1
 
           print("USB storage hotplug full caller graph, lock ordering and teardown contracts: PASS")
           PY

@@ -1,3 +1,13 @@
+## 2026-11-19 07:24 CST (UTC+8) — Fix storage hotplug service-status test include path
+
+- Parent main SHA: `b26b59b2175492567e2018a93bb41c78e1036bd0`.
+- USB storage workflow run `44418388785` failed at `Compile and run RC service launch status regression`; its previous storage daemon stop policy regression passed. The new test includes `optional_daemon_policy.h`, which transitively includes `trunk/user/shared/src/process_inventory.h`, but this workflow passed only `-I trunk/user/rc/src`.
+- THIS COMMIT adds the shared include directory and extends the workflow's inline source checker to enforce both include directories and push/pull_request filters for the policy and shared inventory headers.
+- Crond/IPTV Process L2 is PASS on exact current parent main: Process umbrella `44419048581`, AI docs `44419048640`; dedicated crond lifecycle `44417198647`, inventory `44417198657` passed. MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is XY-C1 L3 PASS on run `44415470536` (Build/TRX/artifact all successful). Crond/IPTV firmware L3 remains open because run `44418643024` skipped Build/TRX/artifact after host tests; the commit changed only CI.
+- Local tests: NOT RUN (GitHub connector-only environment). Storage exact-head regression rerun pending; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 07:14 CST (UTC+8) — Add the missing crond policy-header regression trigger
 
 - Parent main SHA: `aabe9a0c1a2574bde10cb7b3d60025db7a57e3b0`.
