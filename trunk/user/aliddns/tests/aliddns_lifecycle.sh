@@ -251,28 +251,37 @@ rm -rf "$PROC_ROOT/105"
 echo "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS"
 
 # A new keeper is not accepted until its exact path/final-keep argv is visible.
-START_PROC_ROOT="$TEST_DIR/start-proc"
-mkdir -p "$START_PROC_ROOT/self"
-: > "$START_PROC_ROOT/self/cmdline"
-ALIDDNS_PROC_ROOT="$START_PROC_ROOT"
-ALIDDNS_KEEPER_START_WAIT_SECONDS=3
+ALIDDNS_PROC_ROOT="/proc"
 export ALIDDNS_PROC_ROOT
 KEEPER_LAUNCHER="$TEST_DIR/keeper-launcher.sh"
 cat > "$KEEPER_LAUNCHER" <<'KEEPER_LAUNCHER'
 #!/bin/sh
-mkdir -p "$ALIDDNS_PROC_ROOT/$"
-printf 'sh\000%s\000keep\000' "$0" > "$ALIDDNS_PROC_ROOT/$/cmdline"
-trap 'rm -f "$ALIDDNS_PROC_ROOT/$/cmdline"; rmdir "$ALIDDNS_PROC_ROOT/$" 2>/dev/null || :; exit 0' TERM INT HUP
+trap 'exit 0' TERM INT HUP
 while :; do sleep 1; done
 KEEPER_LAUNCHER
 chmod 700 "$KEEPER_LAUNCHER"
 scriptfilepath="$KEEPER_LAUNCHER"
 aliddns_start_keeper || { echo "keeper launch did not confirm exact /proc identity" >&2; exit 1; }
 [ -n "$ALIDDNS_STARTED_KEEPER_PID" ] || { echo "confirmed keeper PID was not published" >&2; exit 1; }
-aliddns_keeper_pid_matches "$ALIDDNS_STARTED_KEEPER_PID" "$START_PROC_ROOT" || { echo "confirmed PID lost exact argv identity" >&2; exit 1; }
+aliddns_keeper_pid_matches "$ALIDDNS_STARTED_KEEPER_PID" "/proc" || { echo "confirmed PID lost exact argv identity" >&2; exit 1; }
 kill -TERM "$ALIDDNS_STARTED_KEEPER_PID" 2>/dev/null || :
 wait "$ALIDDNS_STARTED_KEEPER_PID" 2>/dev/null || :
-[ ! -e "$START_PROC_ROOT/$ALIDDNS_STARTED_KEEPER_PID/cmdline" ] || { echo "keeper fixture was not cleaned" >&2; exit 1; }
+
+# A missing executable must never be accepted as a successful background start.
+scriptfilepath="$TEST_DIR/missing-keeper"
+failed_launch_status=0
+if aliddns_start_keeper; then
+	echo "missing keeper executable was accepted" >&2
+	exit 1
+else
+	failed_launch_status=$?
+fi
+[ "$failed_launch_status" -ne 0 ] || { echo "missing keeper launch returned success" >&2; exit 1; }
+[ -z "$ALIDDNS_STARTED_KEEPER_PID" ] || { echo "failed launch published a keeper PID" >&2; exit 1; }
+
+ALIDDNS_PROC_ROOT="$PROC_ROOT"
+export ALIDDNS_PROC_ROOT
+scriptfilepath="$TEST_DIR/aliddns.sh"
 
 # A failed launch must be returned to the locked caller, not hidden by exit 0.
 aliddns_get_status() { needed_restart=1; }

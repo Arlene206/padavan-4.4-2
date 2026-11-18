@@ -153,10 +153,7 @@ aliddns_start_keeper() {
 	[ -n "$scriptfilepath" ] || return 1
 	"$scriptfilepath" keep 9>&- &
 	aliddns_start_pid=$!
-	aliddns_start_wait="${ALIDDNS_KEEPER_START_WAIT_SECONDS:-5}"
-	case "$aliddns_start_wait" in
-		''|*[!0-9]*) aliddns_start_wait=5 ;;
-	esac
+	aliddns_start_wait=5
 	aliddns_start_attempt=0
 	aliddns_proc_root="${ALIDDNS_PROC_ROOT:-/proc}"
 	while [ "$aliddns_start_attempt" -lt "$aliddns_start_wait" ]; do

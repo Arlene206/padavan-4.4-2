@@ -1,3 +1,10 @@
+## 2026-11-17 — Use real procfs for the AliDDNS keeper startup test
+
+- Parent main: `ec03d483448e8021a679b615a8ae829a2fc2d57f`. Exact-head CI showed the synthetic keeper fixture used a literal dollar-sign directory instead of the child's PID, so the helper could not match it. The test failed before validating the launch postcondition.
+- Replace the synthetic cmdline fixture with a real short-lived shell child observed through Linux /proc; check successful exact argv detection, clean termination, and rejection of a missing executable. Restore the pre-existing mock proc root and script path before the existing stop-gate tests. Fix the production wait window to a fixed five seconds rather than an unbounded environment override.
+- The prior AliDDNS lifecycle regression on b613f7b failed at the fixture; this correction is pending exact-head CI.
+
+---
 ## 2026-11-17 — Require an exact RUNNING postcondition for AliDDNS keeper startup
 
 - Parent main: `f91f4c7e25381d7a2f5d2a7e89f22637a9a88a78`. aliddns_check() previously spawned the long-running keep child and immediately exited successfully without checking whether the child existed or retained the exact script-path/final-keep identity used by subsequent lifecycle stops. A failed exec or immediate child exit could therefore be reported as a successful service start.
