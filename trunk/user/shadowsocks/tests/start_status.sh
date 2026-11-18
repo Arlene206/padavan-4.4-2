@@ -36,7 +36,7 @@ nvram() {
 		*) return 90 ;;
 	esac
 }
-start_ss_cgroup_mkdir() {
+ss_cgroup_mkdir() {
 	record "cgroup_mkdir:$1"
 	return "${FAIL_CGROUP_MKDIR:-0}"
 }
@@ -54,7 +54,6 @@ ss_cgroup_read_value() {
 	printf '%s' "${MOCK_MEM_LIMIT_BYTES:-1048576}"
 }
 start_rules() { record rules; return "${FAIL_RULES:-0}"; }
-cgroups_init() { record cgroups_init; return "${FAIL_CGROUPS:-0}"; }
 start_redir_tcp() { record start_redir_tcp; return "${FAIL_TCP:-0}"; }
 start_redir_udp() { record start_redir_udp; return "${FAIL_UDP:-0}"; }
 start_dns() { record start_dns; return "${FAIL_DNS:-0}"; }
