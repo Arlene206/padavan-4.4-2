@@ -1,3 +1,12 @@
+## 2026-11-18 — Make iNIC reset settling wait EINTR-safe
+
+- Parent main: `ea1d3722bcbbcc7f31806b3c8902500a2e8f228e`. Review of remaining `net_wifi.c` delays found `start_inic_mii()` released the reset GPIO then used raw `usleep(50000)` before enabling RGMII. Interrupted sleep could shorten the hardware reset interval.
+- Replace with `service_wait_microseconds(50000U)`; normalize errno/EIO, log and enter existing `fail_start` path before RGMII enable or interface-up. The rollback path still attempts all existing cleanup actions.
+- Extend Wireless workflow's source contract to pin release → wait → failure → rollback → RGMII ordering and require no raw `usleep(50000)`. Existing shared wait C regression covers EINTR and hard errors; wireless policy/bridge/guest ASan regressions remain included.
+- Preceding APCLI wait contract fix `ea1d372`: exact Wireless `44328000618` PASS and AI docs `44328000570` PASS. XY-C1 for the older APCLI source SHA `0ac3830` was still running; exact current-source Build/TRX/artifact remains unverified. No local test or hardware L4 claim.
+
+---
+
 ## 2026-11-18 — Align APCLI reconnect checker with wait-status local
 
 - Parent main: `0ac383096f1c92581f566492b002bf71ebc74fd8`. Wireless workflow `44327593252` on `0ac3830` passed the GNU89 wireless radio policy, bridge-membership and ASan/UBSan guest-isolation regressions, then failed at the Python source assertion requiring `int status = 0;`.

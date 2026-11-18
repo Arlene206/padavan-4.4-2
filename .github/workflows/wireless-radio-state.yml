@@ -276,6 +276,15 @@ jobs:
           # RT3352 iNIC startup must verify every state-changing dependency:
           # RGMII enable, rai0 up, isolation/MLME configuration and RADIUS bridge.
           inic = function_body(source, "start_inic_mii(void)")
+          reset_release = inic.index("cpu_gpio_set_pin(1, 1);")
+          reset_wait = inic.index("operation_status = service_wait_microseconds(50000U);", reset_release)
+          wait_failure = inic.index("if (operation_status != 0)", reset_wait)
+          wait_errno = inic.index("operation_status = errno > 0 ? errno : EIO;", wait_failure)
+          wait_log = inic.index("iNIC reset settling wait failed", wait_errno)
+          wait_abort = inic.index("goto fail_start;", wait_log)
+          rgmii_enable = inic.index("operation_status = phy_disable_inic(0);")
+          assert reset_release < reset_wait < wait_failure < wait_errno < wait_log < wait_abort < rgmii_enable
+          assert "usleep(50000);" not in inic
           assert "operation_status = phy_disable_inic(0);" in inic
           assert "if (operation_status != 0)" in inic
           assert "if (!wif_control_success(ifname_inic, 1))" in inic

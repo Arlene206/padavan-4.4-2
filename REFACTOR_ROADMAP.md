@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `0ac383096f1c92581f566492b002bf71ebc74fd8`. Shared EINTR-safe settling waits cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, RC daemons, LAN PHY reset/readiness and LAN DHCP deconfig.
-- AP-client forced reconnect now uses `service_wait_microseconds(300000U)`, records hard wait errors and still attempts re-enable (`0ac3830`). Its Wireless CI failed only because the checker expected the old one-variable local declaration; THIS COMMIT corrects that source contract.
-- On `0ac3830`, Process inventory/fail-closed, HTTPD security, iNIC, watchdog and AI docs PASS. XY-C1 and NVRAM were pending; current-SHA L3 is not yet verified.
+- Live main before THIS COMMIT: `ea1d3722bcbbcc7f31806b3c8902500a2e8f228e`. Shared EINTR-safe waits now cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, RC daemons, LAN PHY reset/readiness, LAN DHCP grace and forced AP-client reconnect.
+- AP-client reconnect test contract was corrected in `ea1d372`; exact Wireless `44328000618` and AI docs `44328000570` PASS.
+- This commit converts the final iNIC reset-release `usleep(50000)` into a signal-safe wait and routes hard failure through existing startup rollback before RGMII/interface activation. Exact-head Wireless and Build results pending.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

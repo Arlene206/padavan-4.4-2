@@ -580,7 +580,15 @@ start_inic_mii(void)
 		/* release iNIC reset pin */
 		cpu_gpio_set_pin(1, 1);
 
-		usleep(50000);
+		/* Wait until the reset line has settled before enabling RGMII. */
+		operation_status = service_wait_microseconds(50000U);
+		if (operation_status != 0) {
+			operation_status = errno > 0 ? errno : EIO;
+			errno = operation_status;
+			logmessage(LOGNAME, "iNIC reset settling wait failed (status=%d)",
+				   operation_status);
+			goto fail_start;
+		}
 
 		/* Enable the RGMII port before bringing rai0 up. */
 		operation_status = phy_disable_inic(0);
