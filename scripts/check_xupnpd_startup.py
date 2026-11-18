@@ -9,6 +9,7 @@ source = (RC / "net.c").read_text()
 header = (RC / "xupnpd_config_file.h").read_text()
 test = (RC / "tests/xupnpd_config_file.c").read_text()
 daemon_policy = (RC / "xupnpd_daemon_policy.h").read_text()
+detached_policy = (RC / "detached_daemon_start_policy.h").read_text()
 daemon_test = (RC / "tests/xupnpd_daemon_policy.c").read_text()
 
 
@@ -103,8 +104,9 @@ assert startup.index("xupnpd_process_presence(NULL, &scan_error)") < startup.ind
 assert "process_state != PROCESS_PRESENCE_ABSENT" in startup
 assert startup.count("xupnpd_process_presence(NULL, &scan_error)") == 2
 assert "launch_status = xupnpd_confirm_started(launch_status);" in startup
-assert "xupnpd_daemon_start_postcondition_with_ops(" in daemon_policy
-assert "process_presence_start_postcondition(0, state)" in daemon_policy
+assert "detached_daemon_start_postcondition_with_ops(" in daemon_policy
+assert "detached_daemon_start_postcondition_with_ops(" in detached_policy
+assert "process_presence_start_postcondition(0, state)" in detached_policy
 for marker in (
     "test_delayed_daemon_appearance_is_accepted",
     "test_absent_child_times_out",
