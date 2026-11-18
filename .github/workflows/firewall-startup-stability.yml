@@ -191,7 +191,8 @@ jobs:
           assert "if (ipv4_filter_status != 0)" in policy
           assert "if (ipv6_filter_required && ipv6_filter_status != 0)" in policy
 
-          mangle_body = body(firewall_source, "ipt_mangle_rules(")
+          firewall_source_for_ttl = Path("trunk/user/rc/src/firewall_ex.c").read_text()
+          mangle_body = body(firewall_source_for_ttl, "ipt_mangle_rules(")
           ttl_write = mangle_body.index("firewall_mangle_ttl_write_status(")
           ttl_failure = mangle_body.index("firewall_core_restore_transaction.failed = 1;", ttl_write)
           ttl_return = mangle_body.index("return;", ttl_failure)
