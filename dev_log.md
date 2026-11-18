@@ -1,3 +1,12 @@
+## 2026-11-17 — Verify Adbyby before publishing DNS and redirect state
+
+- Parent main: `f50583d26acad4904271fcd0d968425c2cd906fc`. adbyby_start() and adbyby_uprules() both backgrounded the daemon and immediately continued into DNS/firewall/hosts setup without confirming the child survived. The restart action also discarded adbyby_start() failures and returned zero.
+- Add a shared bounded startup postcondition: only a validated RUNNING inventory succeeds; ABSENT is retried for five probes, UNKNOWN/malformed pidof and sleep errors fail closed. Both initial start and rule-update launch paths must pass it before publishing DNS/redirect state; restart preserves the original start error.
+- Add shell regressions for RUNNING, delayed appearance, ABSENT timeout, UNKNOWN/malformed inventory, wait failure, start/update publication gates and restart status propagation. Wire the regression into the Process lifecycle workflow; the existing XY-C1 push filter already includes the production Adbyby script.
+- The shell regression was not executable in this connector-only editing environment before publication; its exact-head Actions result must be checked. No MIPS/uClibc target build, firmware artifact or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-17 — Correct AdGuardHome checker indentation after static-test failure
 
 - Parent main: `90768054381f8756fe0771de6a02ff0fcb078509`. The shell lifecycle regression passed delayed RUNNING, confirmed-ABSENT rollback, UNKNOWN preservation and wait-failure cases. The following source-checker run failed before evaluation because the second rollback-position variable had one accidental leading space at module scope. Correct the indentation; no production code or shell fixtures change.

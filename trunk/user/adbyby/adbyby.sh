@@ -13,6 +13,7 @@ ADBYBY_HOST_SOURCE_MAX_BYTES=4194304
 ADBYBY_HOST_TOTAL_MAX_BYTES=16777216
 ADBYBY_HOST_MAX_CONFIG_BYTES=314571
 ADBYBY_HOST_MAX_SOURCES=16
+ADBYBY_START_WAIT_ATTEMPTS=5
 
 # Read mutable settings only after the lifecycle lock is held.
 adbyby_refresh_nvram_state()
@@ -48,7 +49,7 @@ adbyby_start()
 		logger -t "adbyby" "规则准备失败，拒绝启动Adbyby。"
 		return 1
 	fi
-	"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &
+	adbyby_launch_daemon || return $?
 	add_dns
 	iptables-save | grep ADBYBY >/dev/null || \
 	add_rule
@@ -96,6 +97,57 @@ adbyby_process_state()
 			printf '%s\n' UNKNOWN
 			;;
 	esac
+}
+
+# Confirm the detached Adbyby process before publishing DNS or redirect rules.
+# Only RUNNING satisfies startup; UNKNOWN fails closed and ABSENT is retried boundedly.
+adbyby_wait_started()
+{
+	case "$ADBYBY_START_WAIT_ATTEMPTS" in
+		''|*[!0123456789]*|0)
+			logger -t "adbyby" "Adbyby启动检查次数配置无效。"
+			return 1
+			;;
+	esac
+
+	adbyby_start_attempt=0
+	while [ "$adbyby_start_attempt" -lt "$ADBYBY_START_WAIT_ATTEMPTS" ]; do
+		adbyby_start_state=$(adbyby_process_state) || adbyby_start_state=UNKNOWN
+		case "$adbyby_start_state" in
+			RUNNING)
+				return 0
+				;;
+			ABSENT)
+				;;
+			*)
+				logger -t "adbyby" "无法确认Adbyby启动状态，拒绝发布DNS或防火墙规则。"
+				return 1
+				;;
+		esac
+
+		adbyby_start_attempt=$((adbyby_start_attempt + 1))
+		if [ "$adbyby_start_attempt" -lt "$ADBYBY_START_WAIT_ATTEMPTS" ]; then
+			sleep 1 || {
+				logger -t "adbyby" "等待Adbyby启动时sleep失败。"
+				return 1
+			}
+		fi
+	done
+
+	logger -t "adbyby" "Adbyby启动后在有界等待内未出现运行进程。"
+	return 1
+}
+
+adbyby_launch_daemon()
+{
+	"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &
+	if adbyby_wait_started; then
+		return 0
+	else
+		adbyby_launch_status=$?
+	fi
+	logger -t "adbyby" "Adbyby后台启动未通过进程就绪检查。"
+	return "$adbyby_launch_status"
 }
 
 adbyby_stop_daemon()
@@ -798,7 +850,7 @@ adbyby_uprules()
 		logger -t "adbyby" "规则准备失败，保持Adbyby关闭。"
 		return 1
 	fi
-	"$PROG_PATH/adbyby" 9>&- >/dev/null 2>&1 &
+	adbyby_launch_daemon || return $?
 	add_dns
 	iptables-save | grep ADBYBY >/dev/null || \
 	add_rule
@@ -1419,7 +1471,9 @@ adbyby_lifecycle_locked_action() {
 		stop) adbyby_close ;;
 		restart)
 			adbyby_close || return 1
-			if [ "$adbyby_enable" = "1" ]; then adbyby_start; fi
+			if [ "$adbyby_enable" = "1" ]; then
+				adbyby_start || return $?
+			fi
 			return 0
 			;;
 		A) add_rules ;;

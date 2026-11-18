@@ -151,6 +151,7 @@ on:
       - "scripts/check_optional_app_start_status.py"
       - "trunk/user/adbyby/adbyby.sh"
       - "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
+      - "trunk/user/adbyby/tests/adbyby_start_postcondition.sh"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/scripts/files/sbin/dev_init.sh"
@@ -270,6 +271,12 @@ jobs:
           sh -n trunk/user/adbyby/adbyby.sh
           sh -n trunk/user/adbyby/tests/adbyby_stop_postcondition.sh
           sh trunk/user/adbyby/tests/adbyby_stop_postcondition.sh
+      - name: Validate Adbyby detached startup readiness and restart status
+        run: |
+          set -eu
+          sh -n trunk/user/adbyby/adbyby.sh
+          sh -n trunk/user/adbyby/tests/adbyby_start_postcondition.sh
+          sh trunk/user/adbyby/tests/adbyby_start_postcondition.sh
       - name: Compile production scanner and injected regression (GNU89, ASan, UBSan)
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror \
