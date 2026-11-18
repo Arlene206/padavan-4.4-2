@@ -42,6 +42,7 @@
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
 #include "ppp_options_file.h"
+#include "ppp_callback_link_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "detect_internet_notification_policy.h"
@@ -1652,53 +1653,56 @@ restore_wan_after_firewall_failure(int unit, char *wan_ifname)
 	return rc_first_service_start_status(restore_status, down_status);
 }
 
+static const char *const wan_callback_link_paths[] = {
+ "/tmp/ppp/ip-up", "/tmp/ppp/ip-down",
+ SCRIPT_UDHCPC_WAN, SCRIPT_UDHCPC_VIPTV, SCRIPT_ZCIP_WAN,
+ SCRIPT_ZCIP_VIPTV, SCRIPT_WPACLI_WAN,
+#if defined (USE_IPV6)
+ "/tmp/ppp/ipv6-up", "/tmp/ppp/ipv6-down", SCRIPT_DHCP6C_WAN,
+#endif
+};
+#define WAN_CALLBACK_LINK_COUNT (sizeof(wan_callback_link_paths)/sizeof(wan_callback_link_paths[0]))
 static int
 create_cb_links(void)
 {
-	int saved_errno;
-
-	/* PID 1 uses umask(0000); keep callback paths non-writable by other uids. */
-	if (ppp_options_directory_ready("/tmp/ppp") != 0 ||
-	    ppp_options_directory_ready(PPP_PEERS_DIR) != 0) {
-		saved_errno = errno ? errno : EPERM;
-		logmessage(LOGNAME, "refusing WAN startup: unsafe PPP callback/peer directory (errno=%d)",
-			   saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-	
-	symlink("/sbin/rc", "/tmp/ppp/ip-up");
-	symlink("/sbin/rc", "/tmp/ppp/ip-down");
-	symlink("/sbin/rc", SCRIPT_UDHCPC_WAN);
-	symlink("/sbin/rc", SCRIPT_UDHCPC_VIPTV);
-	symlink("/sbin/rc", SCRIPT_ZCIP_WAN);
-	symlink("/sbin/rc", SCRIPT_ZCIP_VIPTV);
-	symlink("/sbin/rc", SCRIPT_WPACLI_WAN);
-#if defined (USE_IPV6)
-	symlink("/sbin/rc", "/tmp/ppp/ipv6-up");
-	symlink("/sbin/rc", "/tmp/ppp/ipv6-down");
-	symlink("/sbin/rc", SCRIPT_DHCP6C_WAN);
-#endif
-
-	return 0;
+ unsigned char created[WAN_CALLBACK_LINK_COUNT];size_t i;int saved_errno;
+ memset(created,0,sizeof(created));
+ if(ppp_callback_link_directory_ready("/tmp")!=0||
+    ppp_options_directory_ready("/tmp/ppp")!=0||
+    ppp_options_directory_ready(PPP_PEERS_DIR)!=0){
+  saved_errno=errno?errno:EPERM;
+  logmessage(LOGNAME,"refusing WAN startup: unsafe shared tmp/PPP callback/peer directory (errno=%d)",saved_errno);
+  errno=saved_errno;return -1;
+ }
+ for(i=0;i<WAN_CALLBACK_LINK_COUNT;++i){
+  if(ppp_callback_link_ensure("/sbin/rc",wan_callback_link_paths[i],&created[i])!=0){
+   saved_errno=errno?errno:EIO;
+   logmessage(LOGNAME,"refusing WAN startup: cannot publish trusted callback link %s (errno=%d)",wan_callback_link_paths[i],saved_errno);
+   while(i>0){
+    int rollback_errno;--i;
+    if(created[i]&&ppp_callback_link_remove("/sbin/rc",wan_callback_link_paths[i])!=0){
+     rollback_errno=errno?errno:EIO;
+     logmessage(LOGNAME,"cannot roll back callback link %s after startup abort (errno=%d)",wan_callback_link_paths[i],rollback_errno);
+    }
+   }
+   errno=saved_errno;return -1;
+  }
+ }
+ return 0;
 }
-
-static void
+static int
 remove_cb_links(void)
 {
-	/* Remove dynamically created links */
-	unlink(SCRIPT_ZCIP_WAN);
-	unlink(SCRIPT_ZCIP_VIPTV);
-	unlink(SCRIPT_UDHCPC_WAN);
-	unlink(SCRIPT_UDHCPC_VIPTV);
-	unlink(SCRIPT_WPACLI_WAN);
-	unlink("/tmp/ppp/ip-up");
-	unlink("/tmp/ppp/ip-down");
-#if defined (USE_IPV6)
-	unlink(SCRIPT_DHCP6C_WAN);
-	unlink("/tmp/ppp/ipv6-up");
-	unlink("/tmp/ppp/ipv6-down");
-#endif
+ size_t i;int first_error=0;
+ for(i=0;i<WAN_CALLBACK_LINK_COUNT;++i){
+  if(ppp_callback_link_remove("/sbin/rc",wan_callback_link_paths[i])!=0){
+   int remove_errno=errno?errno:EIO;
+   if(first_error==0)first_error=remove_errno;
+   logmessage(LOGNAME,"cannot safely remove WAN callback link %s (errno=%d)",wan_callback_link_paths[i],remove_errno);
+  }
+ }
+ if(first_error){errno=first_error;return first_error;}
+ return 0;
 }
 
 int
@@ -1706,6 +1710,7 @@ start_wan(void)
 {
 	int unit, wan_proto, wan_mtu;
 	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
+	int cleanup_status;
 	int static_address_clear_status;
 	int modem_start_status = 0;
 	int wan_start_status = 0, wan_up_status, sysctl_status;
@@ -1738,7 +1743,9 @@ start_wan(void)
 	vlan_result = config_vinet_wan();
 	if (vlan_result != 0) {
 		logmessage(LOGNAME, "aborting WAN startup: WAN VLAN configuration failed (%d)", vlan_result);
-		remove_cb_links();
+		cleanup_status = remove_cb_links();
+		if (cleanup_status != 0)
+			logmessage(LOGNAME, "WAN startup callback cleanup incomplete (status=%d)", cleanup_status);
 		return vlan_result;
 	}
 
@@ -1751,7 +1758,9 @@ start_wan(void)
 	if (vlan_result != 0) {
 		logmessage(LOGNAME, "aborting WAN startup: AP-client WISP migration failed (status=%d)",
 			   vlan_result);
-		remove_cb_links();
+		cleanup_status = remove_cb_links();
+		if (cleanup_status != 0)
+			logmessage(LOGNAME, "WAN startup callback cleanup incomplete (status=%d)", cleanup_status);
 		return vlan_result;
 	}
 
@@ -2315,6 +2324,7 @@ static int
 stop_wan_locked(void)
 {
 	int unit, wan_proto, ifdown_status, stop_status = -1;
+	int callback_cleanup_status;
 	int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;
 #if defined (USE_IPV6)
 	int ipv6_status = 0;
@@ -2452,13 +2462,15 @@ stop_wan_locked(void)
 	ifdown_status = wan_teardown_ifdown_interfaces(man_ifname, IFNAME_WAN,
 						       usbnet_ifname,
 						       &wan_teardown_ifdown_ops, NULL);
-	remove_cb_links();
-	if (stop_status != 0 || ifdown_status != 0) {
+	callback_cleanup_status = remove_cb_links();
+	if (callback_cleanup_status != 0)
+		logmessage(LOGNAME, "WAN callback link cleanup incomplete (status=%d)", callback_cleanup_status);
+	if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0) {
 		logmessage(LOGNAME,
-			   "WAN interface shutdown incomplete (modem=%d interface=%d); skipping final WAN state clear",
-			   stop_status, ifdown_status);
+			   "WAN interface shutdown incomplete (modem=%d interface=%d callbacks=%d); skipping final WAN state clear",
+			   stop_status, ifdown_status, callback_cleanup_status);
 		if (stop_status == 0)
-			stop_status = ifdown_status;
+			stop_status = ifdown_status != 0 ? ifdown_status : callback_cleanup_status;
 		goto abort_resume_detect;
 	}
 #if defined (USE_IPV6)

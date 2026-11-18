@@ -1,3 +1,12 @@
+## 2026-11-19 — Harden privileged WAN callback symlink ownership
+
+- Parent main SHA: `8cfe4a01f116dc9f08baae9c858b3b98f2242749`. Latest WAN teardown checker SHA `8cfe4a01f116dc9f08baae9c858b3b98f2242749` has exact VPN `44393711494` and Process `44393711289` PASS. It follows full WAN teardown status capture from `2c94a4e`.
+- Review found `create_cb_links()` ignored all `symlink()` errors at PPP, DHCP, ZeroConf and WPA callback paths; `remove_cb_links()` unconditionally unlinked fixed names under shared `/tmp`. Foreign files or attacker-owned symlinks could remain as privileged callbacks or be deleted by teardown.
+- Added `ppp_callback_link_policy.h`: shared `/tmp` must be owned and sticky when shared-writable; callback links must be effective-UID-owned and target exactly `/sbin/rc`; `lstat/readlink` validates type/owner/target; EEXIST is accepted only after exact-link revalidation; cleanup removes only owned matching symlinks.
+- WAN startup fails closed, tracks links created during this attempt, rolls back those links on subsequent publication failure and preserves errno. Early cleanup failures are logged. WAN stop propagates callback cleanup failure and skips final WAN state clear when an unsafe callback path remains.
+- Added GNU89/Werror ASan/UBSan regressions for sticky-directory protection, idempotent create/remove, regular-file and wrong-target collisions, non-owner exact target, injected symlink failure and exact-target EEXIST race. Local compile/runtime PASS. Exact WAN route/teardown/Process/XY-C1 Actions pending for this source; no MIPS/router L4 claim.
+- Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-19 — Align WAN teardown lifecycle contracts with exact status capture
 
 - Parent SHA: `bc90e3b44af85fe5ad18a58f8f39bf36e5de680d`. WAN source SHA `bc90e3b44af85fe5ad18a58f8f39bf36e5de680d` exposed stale tests in exact-head WAN `44390606879`, VPN server `44390606952`, HTTPD security `44390607054` and Process lifecycle `44390606840`. The compile/policy test stages of WAN, VPN and HTTPD and prior Process host regressions passed before each static integration assertion failed.

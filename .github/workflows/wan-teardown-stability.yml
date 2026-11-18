@@ -69,7 +69,7 @@ jobs:
           dhcp_client_gate = 'kill_services_with_pidfiles(NULL, udhcpc_pidfiles, "udhcpc", 0, 30, 0)'
           wan_daemon_gate = "kill_services(svcs_wan, 3, 1)"
           teardown = "ifdown_status = wan_teardown_ifdown_interfaces("
-          failure_gate = "if (stop_status != 0 || ifdown_status != 0)"
+          failure_gate = "if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)"
           usbnet_gate = 'if (get_usb_modem_wan(unit) && nvram_get_int("modem_type") == 3)'
           assert "usbnet_ifname = NULL;" in stop
           assert usbnet_gate in stop
@@ -84,6 +84,8 @@ jobs:
           teardown_path = stop[stop.index(teardown):stop.index("remove_cb_links();")]
           assert "usbnet_ifname" in teardown_path
           assert stop.index(teardown) < stop.index("remove_cb_links();")
+          assert "callback_cleanup_status = remove_cb_links();" in stop
+          assert "callbacks=%d" in stop
           assert stop.index("remove_cb_links();") < stop.index(failure_gate)
           failure_path = stop[stop.index(failure_gate):]
           assert failure_path.index("goto abort_resume_detect;") < failure_path.index("clear_wan_state();")

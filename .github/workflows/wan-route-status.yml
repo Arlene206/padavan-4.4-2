@@ -22,6 +22,8 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/ppp_callback_link_policy.h"
+      - "trunk/user/rc/src/tests/ppp_callback_link_policy.c"
       - "trunk/user/rc/src/apcli_wait_policy.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/tests/apcli_wait_policy.c"
@@ -101,6 +103,8 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/ppp_callback_link_policy.h"
+      - "trunk/user/rc/src/tests/ppp_callback_link_policy.c"
       - "trunk/user/rc/src/apcli_wait_policy.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/tests/apcli_wait_policy.c"
@@ -173,6 +177,15 @@ jobs:
             trunk/user/rc/src/tests/route_status_policy.c \
             -o /tmp/route-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/route-status-policy
+
+      - name: Compile and run PPP callback link ownership regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ppp_callback_link_policy.c \
+            -o /tmp/ppp-callback-link-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ppp-callback-link-policy
       - name: Compile and run AP-client association wait status regression
         run: |
           set -eu
@@ -335,6 +348,8 @@ jobs:
           lan6_reload_policy = (rc / "lan_addr6_reload_policy.h").read_text()
           lan6_reload_test = (rc / "tests/lan_addr6_reload_policy.c").read_text()
           wan = (rc / "net_wan.c").read_text()
+          callback_policy = (rc / "ppp_callback_link_policy.h").read_text()
+          callback_test = (rc / "tests/ppp_callback_link_policy.c").read_text()
           notify_api_source = Path("trunk/user/shared/src/notify_rc.c").read_text()
           notify_api_header = Path("trunk/user/shared/src/notify_rc.h").read_text()
           ppp = (rc / "net_ppp.c").read_text()
@@ -765,6 +780,8 @@ jobs:
               "trunk/linux-4.4.x/net/ipv4/fib_semantics.c",
               "trunk/linux-4.4.x/net/ipv4/fib_frontend.c",
               "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/ppp_callback_link_policy.h",
+              "trunk/user/rc/src/tests/ppp_callback_link_policy.c",
               "trunk/user/rc/src/net6.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/ipv6_restart_policy.h",
@@ -915,5 +932,39 @@ jobs:
           assert 'inet_ntop(AF_INET6, &lan_addr6, lan_addr6s, INET6_ADDRSTRLEN)' in wan6
           assert 'format_ipv6_literal(wan_addr6, addr6_text,' in wan6
 
+          callback_create = body(wan, "create_cb_links(void)")
+          callback_remove = body(wan, "remove_cb_links(void)")
+          callback_start = body(wan, "start_wan(void)")
+          callback_stop = body(wan, "stop_wan_locked(void)")
+          cb_paths = wan.split("static const char *const wan_callback_link_paths[] = {", 1)[1].split("};", 1)[0]
+          assert '#include "ppp_callback_link_policy.h"' in wan
+          for item in ('"/tmp/ppp/ip-up"', '"/tmp/ppp/ip-down"', "SCRIPT_UDHCPC_WAN",
+                       "SCRIPT_UDHCPC_VIPTV", "SCRIPT_ZCIP_WAN", "SCRIPT_ZCIP_VIPTV",
+                       "SCRIPT_WPACLI_WAN", '"/tmp/ppp/ipv6-up"', '"/tmp/ppp/ipv6-down"',
+                       "SCRIPT_DHCP6C_WAN"):
+              assert item in cb_paths, item
+          assert 'ppp_callback_link_directory_ready("/tmp")' in callback_create
+          assert 'ppp_options_directory_ready("/tmp/ppp")' in callback_create
+          compact_create = callback_create.replace(" ", "").replace("\\n", "")
+          compact_remove = callback_remove.replace(" ", "").replace("\\n", "")
+          assert 'ppp_callback_link_ensure("/sbin/rc",wan_callback_link_paths[i],&created[i])' in compact_create
+          assert "if(created[i]&&" in compact_create
+          assert 'ppp_callback_link_remove("/sbin/rc",wan_callback_link_paths[i])' in compact_create
+          assert 'ppp_callback_link_remove("/sbin/rc",wan_callback_link_paths[i])' in compact_remove
+          assert "unlink(" not in callback_remove and "symlink(" not in callback_create
+          assert callback_start.count("cleanup_status = remove_cb_links();") == 2
+          assert "callback_cleanup_status = remove_cb_links();" in callback_stop
+          assert "callback_cleanup_status != 0" in callback_stop
+          assert "callbacks=%d" in callback_stop
+          for token in ("S_ISDIR(st.st_mode)", "S_ISVTX", "S_ISLNK(st.st_mode)",
+                        "st.st_uid!=ops->geteuid_fn()", "ops->readlink_fn",
+                        "strcmp(actual,target)", "ops->symlink_fn", "ops->unlink_fn"):
+              assert token in callback_policy.replace(" ", ""), token
+          for case in ("test_shared_directory_requires_sticky_write_protection",
+                       "test_regular_file_collision_is_preserved", "test_wrong_symlink_is_preserved",
+                       "test_non_owner_exact_symlink_is_preserved", "test_create_error_is_preserved",
+                       "test_eexist_race_accepts_only_exact_link"):
+              assert case in callback_test, case
+          assert "PPP callback link ownership policy: PASS" in callback_test
           print("WAN route result propagation and cleanup ordering contracts: PASS")
           PY

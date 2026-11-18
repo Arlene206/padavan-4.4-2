@@ -2,20 +2,14 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active development branch is `main` only. WAN PPP teardown correction is based on parent `d8b5e9206024ba45208d95fbb1ff4dc5d73d0b4d`.
-- Inadyn production SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 `44381563540` all PASS. Exact-source XY-C1 Build, TRX verification and artifact upload completed; L3 is verified for this exact production SHA.
-- Downstream checker/handoff repair main SHA `1b3117769d52021de09ba09ffbee011e149de3fe`: DNSMasq `44382455939`, WAN route `44382456589`, and AI docs `44382456088` PASS.
-- RStats history-read source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054`, and AI docs `44384384820` PASS. Process fail-closed `44384384017`, XY-C1 `44384384072`, and NVRAM `44384384235` were IN_PROGRESS at the last check. The host exact-read harness passed GNU89/Werror with ASan/UBSan; no full repository test or MIPS build was performed.
-- DDNSTO source SHA `55cf20ecfec45a5b519996c85921bce722e54d99`: DDNSTO lifecycle `44385101598`, Process inventory `44385101669` and AI docs `44385101578` PASS; XY-C1 `44385101749` was still building at last poll.
-- RStats production SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats, Process inventory, Process fail-closed, HTTPD, AI docs, NVRAM and XY-C1 all PASS; exact-SHA XY-C1 Build, TRX and artifact upload completed (L3).
-- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112` and HTTPD `44386912691` PASS; AliDDNS `44386912869` and FRP `44386912971` initially failed on stale downstream contracts.
-- Static-contract repair SHA `e0e24637fcb2901bef453812747a5f2e7b74f864`: AI docs `44388094912` and Process inventory `44388094850` PASS. AliDDNS `44388094895` failed because `function_body()` expected an opening brace on the function declaration line; FRP `44388094871` failed because its checker still required direct `nvram get frpc/frps` assignments. This commit fixes both static contracts. The FRP extracted-helper host fixture and injected failure cases had passed before its static-check step.
-- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: exact-head XY-C1 `44386912939` completed Build XY-C1, TRX verification and artifact upload successfully (L3).
-- Current change modifies only static checker scripts and docs. Exact-head AliDDNS/FRP/Process/AI checks remain required. Physical-router/hardware L4 is NOT VERIFIED.
-- This repair changes the AliDDNS static checker and FRP host fixture only; production script SHA remains `51596e1`. Exact-head AliDDNS/FRP/Process/AI checks are required after this fix; product L3 and physical-router L4 are not verified for the current autostart production change.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
-- No local repository checkout or MIPS firmware build was performed. A standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan exact-read harness passed; the full repository RStats workflow and new exact-SHA firmware build must still be checked after this production-source commit. Physical-router L4 remains NOT VERIFIED.
-
+- Repository `Arlene206/padavan-4.4-2`; active development branch is `main` only. Parent for the current WAN callback fix: `8cfe4a01f116dc9f08baae9c858b3b98f2242749`.
+- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process, DNSMasq, AI docs, Process inventory, HTTPD, AliDDNS, FRP and exact-source XY-C1 `44386912939` PASS. Build, TRX verification and artifact upload succeeded (L3 VERIFIED).
+- Autostart checker SHA `d8b5e9206024ba45208e1246911aac59e9dd2baf`: AliDDNS `44388958868`, FRP `44388958846` and AI docs `44388958941` PASS.
+- WAN teardown source SHA `2c94a4e367aebfdfe87e64efe9fdbcb9fafc242c` and dependent checker SHA `8cfe4a01f116dc9f08baae9c858b3b98f2242749`: exact `8cfe` VPN server `44393711494` and Process inventory `44393711289` PASS; exact WAN teardown workflow and XY-C1 for the latest source remain to be confirmed.
+- New security slice addresses privileged callback publication ignoring `symlink(2)` failures and teardown unconditionally unlinking fixed shared-`/tmp` paths. Policy requires owned sticky `/tmp`, effective-UID-owned exact-`/sbin/rc` links, fail-closed publication and owned-only cleanup. Host GNU89 ASan/UBSan regression passed locally. Exact WAN route/teardown/Process/XY-C1 Actions pending.
+- DDNSTO `55cf20ecfec45a5b519996c85921bce722e54d99` and RStats `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961` retain exact L3 Build/TRX/artifact PASS.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged.
+- No MIPS build or physical-router validation for callback hardening. L4 remains NOT VERIFIED.
 
 ## Completed prerequisite — switch VLAN WAN gate
 
@@ -86,26 +80,25 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Repair downstream source-contract assertions after the WAN PPP teardown status-capture change.
+Harden privileged PPP/DHCP/WPA callback symlink publication and cleanup in `trunk/user/rc/src/net_wan.c`.
 
-- Exact source commit `bc90e3b` correctly changed the PPP stop helper from inline `if (operation() != 0)` expressions to assignment followed by `if (stop_status != 0)`, so the exact failure code is preserved. Existing static contracts in VPN, HTTPD and Process inventory still required the prior direct predicate.
-- The WAN teardown workflow's existing Python source contract still required `return stop_status != 0 ? stop_status : -1;`; the new shared helper return and monitor-resume diagnostics made that assertion stale.
-- This commit changes only those four existing validation files plus governance docs. It keeps the lock-order, daemon-stop, failure-gate and no-recursive-lock checks, and adds assertions for captured status and helper ordering. No workflow path filter is changed.
-- No local tests were run. Exact-head WAN, VPN, HTTPD and Process Actions must pass after this commit.
-
+- `create_cb_links()` ignored every `symlink(2)` failure. A pre-existing regular file or alternate symlink in shared `/tmp` could remain at a DHCP/WPA/ZeroConf callback path while WAN startup continued, allowing privileged clients to execute a foreign hook.
+- Exact target alone is insufficient in sticky `/tmp`: the link owner can replace its own link. The policy requires callback symlinks to be effective-UID-owned, and `/tmp` to be an owned directory with sticky protection if group/other writable.
+- The new helper verifies object type, owner and exact target with `lstat/readlink`, revalidates EEXIST races, never overwrites foreign objects, and removes only an exact owned `/sbin/rc` link. Startup tracks links created by the current attempt and rolls them back on failure while preserving the original errno.
+- Teardown now aggregates callback cleanup status and refuses final WAN-state clear if a foreign callback path remains. Early startup-abort cleanup failures are logged without replacing the primary error.
+- GNU89/Werror ASan/UBSan host regression passed. Coverage includes sticky-directory validation, create/re-entry/remove, regular-file and wrong-target collisions, non-owner exact symlink, injected create failure and exact-target EEXIST race. This is not MIPS build or router validation.
+- Inspect exact WAN route and WAN teardown workflows, Process inventory and XY-C1 on this source SHA. Hardware L4 remains NOT VERIFIED.
 ## Verification boundary
 
-- Parent SHA `bc90e3b44af85fe5ad18a58f8f39bf36e5de680d`: WAN teardown `44390606879` FAIL at its static source assertion (GNU89 compile/regression preceded that assertion); VPN server `44390606952` compiled and passed bounded-lock, xl2tpd, lease and restart-status regressions, then failed only source assertion; HTTPD `44390607054` passed policy, auth, storage, firewall, DNS, NVRAM, etc. checks, then failed a stale WAN stop assertion; Process inventory `44390606840` passed prior process/service regressions, then failed a stale VPN teardown assertion. XY-C1 `44390607038` was building at last check.
-
-- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: exact XY-C1 `44386912939` Build, TRX and artifact upload PASS (L3).
-- Current WAN fix has not yet passed exact-head WAN source contracts or a post-change XY-C1 L3 build. Physical-router L4 remains NOT VERIFIED.
-
+- WAN teardown/source status SHA `2c94a4e367aebfdfe87e64efe9fdbcb9fafc242c` plus checker SHA `8cfe4a01f116dc9f08baae9c858b3b98f2242749`: exact `8cfe` VPN `44393711494` and Process inventory `44393711289` PASS; other checks pending/being inspected.
+- Autostart SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf` exact Process/DNSMasq/HTTPD/AliDDNS/FRP/AI and XY-C1 Build/TRX/artifact PASS (L3); checker SHA `d8b5e9206024ba45208e1246911aac59e9dd2baf` AliDDNS/FRP/AI PASS.
+- Callback helper/test passed local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` compile and runtime. Exact-head WAN route/teardown, Process and XY-C1 are pending for this callback source.
+- DDNSTO SHA `55cf20ecfec45a5b519996c85921bce722e54d99` and RStats SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961` retain exact L3. No MIPS build or physical-router test for callback hardening; L4 NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN teardown, VPN lifecycle, HTTPD and Process Actions for this contract-only repair. Fix any remaining stale assertion without weakening safety checks.
-2. Confirm same-source SHA XY-C1 Build, TRX and artifact upload before claiming L3.
-3. Continue the next independent stability/security defect while any Actions are pending. Keep the backup branch immutable.
-
+1. Inspect exact-head WAN route and WAN teardown regressions for callback path ownership; fix real compile/sanitizer/source-contract failures without weakening checks.
+2. Inspect Process inventory and XY-C1 for the same source SHA. L3 only after Build, TRX and artifact upload PASS.
+3. Continue an independent userland stability/security fix while Actions are pending. Keep the backup read-only and hardware L4 NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
