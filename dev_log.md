@@ -1,3 +1,12 @@
+## 2026-11-17 — Align module checkers with narrowed documentation triggers
+
+- Parent main `a4d5a10b426159712b7d85c368e7e3973f90b674` removed canonical handoff/roadmap/log files from the Infosvr and AliyunDrive workflow path filters to prevent documentation-only pushes from running unrelated product regressions.
+- Exact Infosvr `44221748799` passed its GNU89 packet, SIGTERM and daemon-lifecycle runtime regressions, then failed because `scripts/check_infosvr_packets.py` still required `SESSION_HANDOFF.md` in both path filters.
+- Exact AliyunDrive `44221748973` passed shell syntax, QEMU MIPS binary validation and private-workdir/lock/stop/start lifecycle regressions, then failed because its source checker still required all three canonical docs paths.
+- Remove only those obsolete docs entries from the checkers. Preserve actual product source, test, workflow and checker path requirements; do not re-add doc triggers. Exact-head validation pending.
+
+---
+
 ## 2026-11-18 — Narrow documentation CI triggers and gate XY-C1 target builds
 
 - Parent main SHA: `c500c3a48328fc54e8949a75187de648ec0f78a6`. Audited all 54 root workflow files and exact-head fan-out. The `7f10d22` source push started 11 workflows; several module workflows ran only because canonical handoff/roadmap/log files were listed as product path triggers, while AI docs ran on every push.

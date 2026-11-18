@@ -325,10 +325,7 @@ for marker in (
     require(marker in test, f"host regression missing case or result marker: {marker}")
 
 paths = [
-    "SESSION_HANDOFF.md",
     "trunk/user/aliyundrive-webdav/aliyundrive-webdav",
-    "REFACTOR_ROADMAP.md",
-    "dev_log.md",
     ".github/workflows/aliyundrive-webdav-lifecycle.yml",
     "scripts/check_aliyundrive_webdav_lifecycle.py",
     "scripts/test_aliyundrive_webdav_binary.py",

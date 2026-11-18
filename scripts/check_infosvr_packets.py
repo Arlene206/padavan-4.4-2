@@ -177,7 +177,6 @@ for token in (
 
 paths = (
     ".github/workflows/infosvr-packet-stability.yml",
-    "SESSION_HANDOFF.md",
     "scripts/check_infosvr_packets.py",
     "trunk/user/infosvr/src/infosvr.c",
     "trunk/user/infosvr/src/asus.c",
