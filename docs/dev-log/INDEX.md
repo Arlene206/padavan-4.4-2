@@ -22,6 +22,7 @@
 | `docs/dev-log/2026/11/part-013.md` | 100 | 2026-11-16 — Propagate loopback interface and route startup failures → 2026-11-17 — Repair extension-hook CI contracts after implementation | 123231 | `19c3d8ccc2d16c11936d3b498808a5ee886722e5` |
 | `docs/dev-log/2026/11/part-014.md` | 100 | 2026-11-17 — Repair escaped firewall checker regex and HTTPD hook helper signature → 2026-11-17 — Apply all parser-supported DHCP MTU values, including explicit 1500 reset | 120777 | `82560e2f808f6c66850a84acd762769bf585d39a` |
 | `docs/dev-log/2026/11/part-015.md` | 100 | 2026-11-17 — AliDDNS WAN IPv6 source correction → 2026-11-17 — Align HTTPD's duplicate storage check with tri-state hotplug topology | 111870 | `f3f0f8caa4ebe40e7500ad7f29a38b3cae2e7167` |
+| `docs/dev-log/2026/11/part-016.md` | 100 | 2026-11-17 — Stop MSD Lite during WAN teardown → 2026-11-17 — Restore process workflow pull_request YAML nesting | 105054 | `633b273fa028cb3c197fc24e1d810896c1409810` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -79,3 +80,5 @@
 
 - **Rolling-window continuation:** 100 oldest complete records evicted from root `dev_log.md` at parent main `c6edf06e2a9d148f24757926488166dea8f9205b` are preserved verbatim, oldest first, in `part-014.md`; pre-rotation root blob: `76139df80957fc7cf5c784ccd166357bcaccbae0`. The newest 21 records remain in root (the three new records plus the 18 previous newest records).
 - **Rolling-window continuation:** 100 oldest complete records evicted from root `dev_log.md` at parent main `be0f5b56efa203fc802334e08b846381e9a3f04a` are preserved verbatim, oldest first, in `part-015.md`; pre-rotation root blob: `8171f3c551386e19bb0c5c5599bb4a014fa2b6c3`. Root retains the new firewall entry and the 19 newest previous records.
+
+- **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` contained 120 records at parent main `6330828fca8a4d6f091e07e468732f40991e0909` are preserved verbatim, oldest first, in `part-016.md`; pre-rotation root blob: `046bd6f0898aa233527607e0b6f23b83a48ed91c`. Root retains the newest 20 pre-existing complete records before the next entry is added.
