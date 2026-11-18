@@ -1,3 +1,11 @@
+## 2026-11-18 — Repair detached-launch regression fixture and restore handoff contract headings
+
+- Exact-head Actions for `47b599812981423af1cd03fd8928ff7b7cef7f4b` identified two failures. The process-lifecycle script set `RUN_BIN_MODE` but did not export it to its detached mock children; the AI documentation checker required three exact handoff headings and an explicit conditional-checkpoint sentence.
+- The correction exports the fixture mode before the success/failure/UNKNOWN cases and restores the required handoff structure/wording.
+- Exact-head Process inventory and lifecycle regression `44279554758` PASS; full inventory `44279554805` PASS. XY-C1 run `44279555018` was IN_PROGRESS at last poll. Recheck the corrective SHA before declaring either failed workflow resolved.
+
+---
+
 ## 2026-11-18 — Verify every Shadowsocks detached proxy launch before reporting startup success
 
 - `run_bin()` previously returned after scheduling a background subshell, so TCP, UDP and local-SOCKS callers could log success when the daemon exited immediately. In multi-thread mode, an old sibling could also satisfy a presence-only check.

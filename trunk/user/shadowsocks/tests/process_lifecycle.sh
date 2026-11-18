@@ -266,7 +266,7 @@ grep -q '^PATTERN-KILL /usr/bin/ss-monitor$' "$KILL_LOG"
 # Count delta prevents an existing sibling from masking a failed worker launch.
 : > "$PROCESS_STATE_DIR/ssr-redir"
 printf '4242\n' > "$PROCESS_STATE_DIR/ssr-redir.pids"
-RUN_BIN_MODE=ready
+export RUN_BIN_MODE=ready
 run_bin ssr-redir -c /tmp/test.json
 [ "$(wc -w < "$PROCESS_STATE_DIR/ssr-redir.pids")" -eq 2 ] || fail "run_bin accepted only the pre-existing sibling"
 rm -f "$PROCESS_STATE_DIR/ssr-redir" "$PROCESS_STATE_DIR/ssr-redir.pids"
