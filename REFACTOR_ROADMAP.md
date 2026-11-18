@@ -1,9 +1,9 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent `e71777167669441d9866c0eec007580b70e6f02b` AI handoff run `44305951729` PASS. Its product/test parent `8569fe7` Shadowsocks `44305672569` PASSed syntax, process lifecycle, Adblock and source checker; AI documentation failure was the missing `Before context exhaustion` phrase, now restored.
-- THIS COMMIT replaces destructive DNSMasq substring deletion in oversea, ssp_close and ss-rules with a shared exact-directive helper, hostile near-match preservation test, shutdown error injection and CI/source-checker contracts. Exact-head Actions and this SHA's L3 are pending; physical hardware L4 is not verified.
+- Source/test SHA `ef855ea69acec37a6c0b5ddefaab3214da26fbf7`: Shadowsocks lifecycle, AI handoff and Process inventory umbrella PASS. Process fail-closed and XY-C1 firmware actions were PENDING at the last exact-head check; L3 therefore remains PENDING and hardware L4 NOT VERIFIED.
+- Implemented shared exact DNSMasq directive cleanup across Shadowsocks OverSea, shutdown and ss-rules, plus preservation/error-injection regression coverage. The RC DNSMasq transaction remains serialized through the RC lifecycle lock.
 
-Next P1: verify this exact source SHA's Shadowsocks/AI/XY-C1 Actions, then scan remaining daemon-managed config paths for unsafe substring cleanup.
+Next: resolve the two exact-head pending runs and continue scanning other daemon-managed configuration files for broad substring deletion.
 
 ---
 ## Whole-repository module status

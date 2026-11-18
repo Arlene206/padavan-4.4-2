@@ -1,3 +1,10 @@
+## 2026-11-18 — Checkpoint exact-head CI for DNSMasq cleanup source commit
+
+- Source/test commit `ef855ea69acec37a6c0b5ddefaab3214da26fbf7` was re-checked by exact `head_sha`. Last retrieved statuses: Shadowsocks lifecycle `44306582439` PASS; AI handoff docs `44306582417` PASS; Process inventory umbrella `44306582491` PASS; Process fail-closed regression `44306582451` PENDING; XY-C1 firmware validation `44306582528` PENDING. The pending XY-C1 run means L3 is not yet verified for this source SHA; do not transfer the older `6910911` firmware PASS. Physical hardware L4 remains NOT VERIFIED.
+- This doc checkpoint records the verified PASS/PENDING boundary without altering source files. Host shell runtime was executed by the exact-head Shadowsocks CI job; local checkout-based shell execution remains NOT RUN.
+- Next: poll the two pending runs by exact head SHA, repair an actual failure if present, then continue the repository-wide daemon config cleanup scan. Keep this source SHA and any later docs SHA distinct when recording firmware evidence.
+
+---
 ## 2026-11-18 — Restrict Shadowsocks DNSMasq cleanup to exact owned directives
 
 - Parent main `e71777167669441d9866c0eec007580b70e6f02b` AI handoff run `44305951729` PASS. Its product/test parent `8569fe71229f4ef202b4f234bb9a1b6d26074714` Shadowsocks run `44305672569` PASSed shell syntax, startup status, process lifecycle, Adblock and Python source checker. The `8569fe7` AI run failed because the handoff lacked `Before context exhaustion`, restored in the docs-only `e717771` parent. No XY-C1 run was present on these doc/test parents.
