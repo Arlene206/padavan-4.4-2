@@ -91,6 +91,7 @@ add_dns = function_body(source, "add_dns")
 del_dns = function_body(source, "del_dns")
 start = function_body(source, "adbyby_start")
 updater = function_body(source, "adbyby_uprules")
+publisher = function_body(source, "adbyby_publish_started_service")
 refresh_match = re.search(r"(?ms)^adbyby_refresh_managed_rules\(\)[ \t]*\n\((.*?)^\)", source)
 if not refresh_match:
     fail("missing subshell function adbyby_refresh_managed_rules()")
@@ -179,9 +180,20 @@ require('cp -rf /etc_ro/adbyby_host.sh /etc/storage/' in copy_scripts,
         "boot-time default seeding must preserve the operator's configured host list")
 require("<% adbyby_action(); %>" in host_action,
         "manual Adbyby action dispatch endpoint is missing")
-require("hosts_ads" in start and "hosts_ads" in updater and
-        "F) hosts_ads" in locked_action,
+require("adbyby_publish_started_service" in start and
+        "adbyby_publish_started_service" in updater and
+        "hosts_ads" in publisher and "F) hosts_ads" in locked_action,
         "startup, updater and locked manual refresh must all use the same host-list transaction")
+require("if add_dns" in publisher and "if ! iptables-save | grep ADBYBY" in publisher and
+        "hosts_ads" in publisher and "adbyby_restart_dhcpd" in publisher and
+        'if [ "$adbyby_publish_with_cron" = "1" ]' in publisher and "add_cron" in publisher,
+        "startup publication must gate DNS, firewall, hosts, dnsmasq and optional cron stages")
+require("adbyby_publish_failure_status=$?" in publisher and
+        "adbyby_rollback_failed_start" in start and
+        "adbyby_rollback_failed_start" in updater and
+        'return "$adbyby_start_status"' in start and
+        'return "$adbyby_update_status"' in updater,
+        "post-launch stage errors must be preserved and trigger rollback for start and update")
 require('logger -t "adbyby"' in del_dns,
         "del_dns must log a failed managed-entry cleanup")
 require("adbyby_refresh_nvram_state" in firewall_test,

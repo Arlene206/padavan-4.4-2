@@ -1,11 +1,11 @@
 # 2026-11-17 latest source checkpoint
 
-- Parent main before THIS Adbyby publication-integrity slice: `8b92f532974fc5363115aa1e9bd80ea791bb68d4`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
-- The XY-C1 full-Git-diff detector, WAN restart, ttyd and AdGuardHome detached-start slices are complete; do not repeat those reviews without a new failing exact-head result.
-- THIS slice makes Adbyby post-launch publication transactional at the shell-control level: DNS, firewall, hosts, dnsmasq restart and cron failures now stop further publication, preserve the first error and trigger best-effort rollback; normal start and rule update share the gate. DNS and cron writes are checked, and the Process regression injects failures at each publication stage.
-- The regression is already wired into Process lifecycle CI. Local shell execution was not available; exact-head Process/AI Actions and XY-C1 Build/TRX/artifact status are NOT YET VERIFIED. Physical-router L4 remains unverified.
+- Main source checkpoint: `d67ca20b78785b0d501829c12db6dfd2fc4f0fae`, parent `8b92f532974fc5363115aa1e9bd80ea791bb68d4`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
+- Adbyby now confirms detached-daemon RUNNING before publication and routes normal start/update through a shared publisher that checks DNS, firewall, hosts, dnsmasq restart and optional cron, preserves the first error and rolls back partial starts. DNS and cron file writes are checked. Failure-injection coverage lives in the existing Process lifecycle regression.
+- Exact-SHA Actions for `d67ca20`: Process lifecycle PASS, process inventory PASS, AI documentation PASS and HTTPD regression PASS. Adbyby configuration regression FAILED due to a stale source checker that still expected `hosts_ads` in each caller; this follow-up synchronizes the checker with the shared helper and strengthens its assertions. XY-C1 Firmware Validation was still IN PROGRESS at last observation; the fix SHA needs its own checks.
+- Local shell execution, MIPS/uClibc firmware build and physical-router L4 are not independently claimed; CI provides the remote test evidence.
 
-Next: fetch current main and inspect exact-head push Actions for Process lifecycle, AI handoff and XY-C1; if pending or CI access is unavailable, continue the next roadmap process-lifecycle candidate in `trunk/user/rc/src/services_ex.c`. Do not re-audit completed AdGuardHome/ttyd or modify the frozen backup.
+Next: inspect all exact-head Actions for the checker-fix commit and the XY-C1 run for `d67ca20`. Fix any new failures rather than marking the earlier SHA complete. Once checks pass or remain pending, continue the process-lifecycle roadmap candidate `trunk/user/rc/src/services_ex.c`; do not re-audit completed AdGuardHome/ttyd or modify the frozen backup.
 ---
 
 ## Whole-repository module status

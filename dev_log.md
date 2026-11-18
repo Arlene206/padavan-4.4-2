@@ -1,3 +1,11 @@
+## 2026-11-17 — Align Adbyby source contract with shared publisher
+
+- Parent main: `d67ca20b78785b0d501829c12db6dfd2fc4f0fae`. The first exact-head Actions run passed the Process lifecycle regression, but the Adbyby configuration workflow's source-contract checker still required `hosts_ads` to appear directly in both callers after publication was correctly moved into the shared helper.
+- Update the checker to assert that start and rule-update invoke the shared publisher, that the helper retains DNS/firewall/hosts/dnsmasq/optional-cron ordering, and that first-error preservation and rollback remain wired to both callers. This is a checker synchronization fix, not a relaxation of production behavior.
+- Exact SHA `d67ca20`: Process lifecycle, process inventory, AI documentation and HTTPD regressions passed; the Adbyby contract failure was this stale assertion; XY-C1 firmware validation remained in progress. The rerun on the checker-fix SHA is required. No local shell execution is claimed.
+
+---
+
 ## 2026-11-17 — Roll back Adbyby when post-launch publication fails
 
 - Parent main: `8b92f532974fc5363115aa1e9bd80ea791bb68d4`. After detached-daemon RUNNING verification, both Adbyby startup paths still ignored DNS, firewall, hosts, dnsmasq-restart and cron errors, so partially configured services could be reported as started.
