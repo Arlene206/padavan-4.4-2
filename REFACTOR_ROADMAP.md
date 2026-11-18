@@ -1,11 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS HTTPD USB metadata test-contract correction: `7aca8abf312ed6ab029a8757a936a6a7f0793d07`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact parent USB modem `44215156701`, AI `44215156759`, infosvr `44215156778`, AdGuardHome `44215156718`, AliyunDrive `44215156606`, AliDDNS `44215156607`, Process lifecycle `44215156605`, Process inventory `44215156806`, and NVRAM audit `44215156739` PASS.
-- Exact parent HTTPD run `44215156710` failed because its USB metadata contract still expected two direct `modem_node_file_write()` calls and direct TTY write, but TTY changed in `7aca8abf` to cleanup-aware `modem_node_file_publish_identity()`. The metadata regression binary itself passed. THIS adjusts the duplicate HTTPD assertions, expecting one remaining direct writer and requiring TTY cleanup/status propagation.
-- No exact-current-SHA XY-C1 firmware L3 or hardware L4 claim.
+- Parent main before THIS TTY source assertion correction: c24fd0e7398c400a61982b7c57b6a22f9e368ce7; frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807 unchanged.
+- Exact parent HTTPD 44215677832 failed at the final TTY removal assertion: the test still expected a standalone modem_node_file_remove(...); although the migrated caller deliberately checks its result using != 0. The metadata regression binary and prior source assertions passed. THIS updates the assertion to match the checked call form.
+- On the exact parent, AI 44215677740 and AdGuardHome 44215677763 PASS; NVRAM, AliDDNS, infosvr, AliyunDrive, Process inventory and XY-C1 workflows were still in progress.
+- TTY production migration in 7aca8abf uses cleanup-aware metadata publishing, removes stale records on write error, and exposes failures to the caller.
+- No same-SHA firmware L3 or physical L4 claim.
 
-Next: verify exact-head HTTPD and USB workflows, then migrate the WDM handler to the same stale-metadata cleanup contract.
+Next: verify HTTPD/USB exact-head checks; then migrate WDM sibling cleanup and status reporting.
 
 
 ---

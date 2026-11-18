@@ -1,3 +1,11 @@
+## 2026-11-18 — Fix stale semicolon requirement in HTTPD TTY contract
+
+- Parent SHA: c24fd0e7398c400a61982b7c57b6a22f9e368ce7. HTTPD 44215677832 completed the metadata regression binary and first 34 Python source assertions, then failed because the last TTY removal contract insisted on the exact ignored-return statement modem_node_file_remove(...);.
+- The TTY code correctly uses modem_node_file_remove(...) != 0 to catch cleanup errors. Update the HTTPD assertion to match this checked call. No C source behavior changes.
+- Exact parent AI and AdGuardHome PASS; NVRAM, AliDDNS, infosvr, AliyunDrive, Process inventory and XY-C1 still running at last poll. Exact-head reruns pending.
+
+---
+
 ## 2026-11-18 — Align HTTPD duplicate source contract with TTY metadata cleanup
 
 - Parent main SHA: `7aca8abf312ed6ab029a8757a936a6a7f0793d07`. Exact USB, AI handoff, infosvr, AdGuardHome, AliyunDrive, AliDDNS, Process lifecycle, Process inventory and NVRAM Actions PASS.

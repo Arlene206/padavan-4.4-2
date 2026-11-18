@@ -2649,7 +2649,7 @@ jobs:
           assert "publish_status == -2" in tty_handler
           assert "return metadata_status;" in tty_handler
           assert "metadata_status = 1;" in tty_handler
-          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name);" in tty_handler
+          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0" in tty_handler
           assert "modem_node_file_publish_with_cleanup(" in helper
           assert "return remove_fn(directory, name) == 0 ? -1 : -2;" in helper
           assert "test_metadata_publication_cleanup" in regression

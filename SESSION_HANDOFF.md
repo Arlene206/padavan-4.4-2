@@ -1,26 +1,27 @@
-# 2026-11-18 continuation checkpoint — align HTTPD USB metadata regression with TTY cleanup migration
+# 2026-11-18 continuation checkpoint — correct TTY cleanup source assertion
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS test-contract correction: `7aca8abf312ed6ab029a8757a936a6a7f0793d07`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
-- Exact parent `7aca8abf` USB modem workflow `44215156701` PASS; AI handoff `44215156759` PASS; infosvr `44215156778` PASS; AdGuardHome `44215156718` PASS; AliyunDrive `44215156606` PASS; AliDDNS `44215156607` PASS; Process lifecycle `44215156605` PASS; Process inventory `44215156806` PASS; NVRAM audit `44215156739` PASS.
-- Exact parent HTTPD Security run `44215156710` FAILed in “Verify USB modem node metadata staging” after its existing `modem_node_file.c` regression passed. The failure was a stale source contract: it still expected two direct `modem_node_file_write()` call sites and required the TTY handler to use that direct writer. The TTY source was intentionally migrated in `7aca8abf` to `modem_node_file_publish_identity()`, which removes stale metadata after failed replacement and returns -1/-2 according to cleanup outcome. The USB-specific workflow already verifies this newer caller; HTTPD's cross-cutting duplicate contract had not been updated.
-- THIS correction updates only the HTTPD regression to expect one direct writer (the remaining WDM path), and requires TTY to use the cleanup-aware publisher and propagate `metadata_status`. No production source behavior changes.
-- Firmware L3 / physical-router L4 NOT VERIFIED; no exact-parent XY-C1 run was present.
+- Repository: Arlene206/padavan-4.4-2; parent main before THIS assertion correction: c24fd0e7398c400a61982b7c57b6a22f9e368ce7.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; unchanged.
+- Exact parent 7aca8abf HTTPD Security run 44215156710 failed at the USB metadata source check because it still expected two direct modem_node_file_write calls and direct TTY write. The metadata regression binary passed.
+- Exact parent c24fd0e7 HTTPD Security run 44215677832 failed at line 35 of the USB metadata source check. The preceding 34 assertions and compiled modem_node_file.c regression passed. The remaining assertion still required the literal direct-call form modem_node_file_remove(...); the TTY migration instead correctly checks the return expression modem_node_file_remove(...) != 0 to report cleanup failures. THIS correction updates the contract to check the called helper, without requiring a standalone ignored-return statement.
+- Exact parent AI handoff 44215677740 PASS, AdGuardHome 44215677763 PASS. HTTPD 44215677832 FAILED only as above. NVRAM 44215677887, AliDDNS 44215677884, infosvr 44215677798, AliyunDrive 44215677765, Process inventory 44215677732, XY-C1 firmware 44215677744 were IN_PROGRESS at last poll.
+- Exact previous head 7aca8abf: USB modem 44215156701, AI 44215156759, infosvr 44215156778, AdGuardHome 44215156718, AliyunDrive 44215156606, AliDDNS 44215156607, Process lifecycle 44215156605, Process inventory 44215156806, and NVRAM 44215156739 PASS.
+- No firmware L3 or physical-router L4 claim.
 
 ## Active task
-- Restore the HTTPD security regression's USB metadata source assertions to match the current TTY cleanup-aware publication API; rerun HTTPD and USB exact-head workflows.
+- Make the HTTPD duplicate USB metadata source contract reflect the actual cleanup-aware remove(...) != 0 check in TTY.
 
 ## Verification boundary
-- Exact parent USB, AI, infosvr, AdGuardHome, AliyunDrive, AliDDNS, Process lifecycle, Process inventory and NVRAM Actions PASS.
-- Exact parent HTTPD Action FAILed only at obsolete USB metadata caller assertions; preceding 19 HTTPD security/configuration checks and the metadata file regression passed.
-- THIS test-only correction's exact-head Actions pending. Firmware L3 and hardware L4 NOT VERIFIED.
+- c24fd0e7 HTTPD source-contract job failed on one obsolete semicolon-form assertion; prior metadata regression binary and preceding assertions PASS.
+- THIS assertion-only correction exact-head HTTPD rerun pending; other workflow results for c24 remain listed above, with five runs in progress.
+- Firmware L3/hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head HTTPD and USB modem workflows; both must PASS, confirming direct-writer count and TTY cleanup source contract are fixed.
-2. Recheck NVRAM and all exact-head security/lifecycle Actions; check for same-SHA XY-C1 Build/TRX/artifact and only claim L3 if all pass.
-3. Continue the sibling WDM stale-metadata issue: `mdev_wdm_main()` still uses direct write/remove calls and reports success after failure; migrate it to cleanup-aware publication and status propagation, updating both source-contract workflows.
-4. Keep frozen backup unchanged; use one complete tree and non-forced expected-SHA update per logical change.
+1. Verify exact-head HTTPD and USB modem workflows PASS; inspect any remaining source-contract failure precisely.
+2. Check exact-head XY-C1 Build/TRX/artifact, NVRAM and other in-progress Actions; only claim L3 if Build, TRX and upload pass on one SHA.
+3. Continue WDM stale identity fix: migrate mdev_wdm_main() from ignored direct writer/remover calls to modem_node_file_publish_identity(), with failure/cleanup status propagation; update HTTPD and USB source contracts.
+4. Keep backup unchanged and use one complete tree with non-forced expected-SHA update.
 
 
 ## Mandatory handoff checkpoint
