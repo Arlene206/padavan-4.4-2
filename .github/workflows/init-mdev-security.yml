@@ -6,12 +6,16 @@ on:
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/init_mdev_config_file.h"
       - "trunk/user/rc/src/tests/init_mdev_config_file.c"
+      - "trunk/user/rc/src/tun_device_node_policy.h"
+      - "trunk/user/rc/src/tests/tun_device_node_policy.c"
       - ".github/workflows/init-mdev-security.yml"
   pull_request:
     paths:
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/init_mdev_config_file.h"
       - "trunk/user/rc/src/tests/init_mdev_config_file.c"
+      - "trunk/user/rc/src/tun_device_node_policy.h"
+      - "trunk/user/rc/src/tests/tun_device_node_policy.c"
       - ".github/workflows/init-mdev-security.yml"
   workflow_dispatch:
 
@@ -28,6 +32,13 @@ jobs:
             trunk/user/rc/src/tests/init_mdev_config_file.c \
             -o /tmp/init_mdev_config_file
           ASAN_OPTIONS=detect_leaks=1 /tmp/init_mdev_config_file
+      - name: Build and run OpenVPN TUN device-node policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/tun_device_node_policy.c -o /tmp/tun_device_node_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/tun_device_node_policy
       - name: Check PID 1 hotplug policy publication contract
         run: |
           python3 - <<'PY'
@@ -36,6 +47,8 @@ jobs:
           init = Path("trunk/user/rc/src/init.c").read_text()
           helper = Path("trunk/user/rc/src/init_mdev_config_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/init_mdev_config_file.c").read_text()
+          tun = Path("trunk/user/rc/src/tun_device_node_policy.h").read_text()
+          tun_test = Path("trunk/user/rc/src/tests/tun_device_node_policy.c").read_text()
           workflow = Path(".github/workflows/init-mdev-security.yml").read_text()
 
           def body(source, signature):
@@ -53,6 +66,8 @@ jobs:
 
           mdev = body(init, "init_mdev(void)")
           main_loop = body(init, "init_main_loop(void)")
+          tun_init = body(init, "init_openvpn_tun_node(void)")
+          nodes = body(init, "init_nodes(void)")
           assert '#include "init_mdev_config_file.h"' in init
           assert "init_mdev_config_open(" in mdev
           assert "init_mdev_config_publish(" in mdev
@@ -63,6 +78,23 @@ jobs:
           assert 'fopen(mdev_conf, "w")' not in mdev
           assert "if (hotplug_result != 0)" in mdev
           assert "Failed to activate mdev kernel hotplug handler" in mdev
+          assert '#include "tun_device_node_policy.h"' in init
+          assert "init_openvpn_tun_node()" in nodes
+          assert "check_if_dev_exist(\"/dev/net/tun\")" not in nodes
+          for token in ('lstat("/dev/net"', "S_ISDIR", "chown(\"/dev/net\"",
+                        "chmod(\"/dev/net\"", "lstat(TUN_DEVICE_NODE_PATH",
+                        "tun_device_node_is_secure(", "unlink(TUN_DEVICE_NODE_PATH)",
+                        "mknod(TUN_DEVICE_NODE_PATH", "chown(TUN_DEVICE_NODE_PATH",
+                        "chmod(TUN_DEVICE_NODE_PATH"):
+              assert token in tun_init, token
+          for token in ("S_ISCHR", "st_rdev", "st_uid", "st_gid", "st_nlink",
+                        "0600", "0111", "07000"):
+              assert token in tun, token
+          for token in ("S_IFREG", "S_IFLNK", "makedev", "st_uid = 1000",
+                        "st_gid = 1000", "st_nlink = 2", "04666",
+                        "S_IFCHR | 0600"):
+              assert token in tun_test, token
+          assert "OpenVPN TUN device node initialization failed" in nodes
           assert "if (init_mdev() != 0)" in main_loop
           assert "mdev initialization failed; hotplug handling may be unavailable" in main_loop
 

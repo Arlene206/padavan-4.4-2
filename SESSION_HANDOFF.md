@@ -1,41 +1,38 @@
-# 2026-11-17 continuation checkpoint — reconcile validators with scoped CI triggers
+# 2026-11-17 continuation checkpoint — secure OpenVPN TUN device-node setup
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS validator correction: `a4d5a10b426159712b7d85c368e7e3973f90b674`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS PID1 TUN-node hardening: `de02f6c04d993d462983576e3db2914e9b179afe`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Parent `c500c3a4` exact USB modem, HTTPD Security, XY-C1 Build/TRX/artifact, Process inventory/lifecycle, NVRAM, infosvr, AdGuardHome, AliDDNS, AliyunDrive and AI handoff all PASS. Firmware L3 is therefore verified on `c500c3a4`.
-- Concurrent CI-fanout commit `a4d5a10b` removed canonical-document-only triggers from several module workflows and scoped AI handoff validation; it also changed XY-C1 to run host tests first and skip MIPS build/TRX/artifact when no firmware production input changed. This prevents docs/checker/workflow-only pushes from burning a full firmware build.
-- Two validation jobs then failed only because their own Python source-contract scripts still required the removed docs-only path filters:
-  - Infosvr `44221748799`: all GNU89 runtime tests PASS; source checker failed because it required `SESSION_HANDOFF.md` in push/PR paths.
-  - AliyunDrive `44221748973`: shell syntax, QEMU MIPS binary, lifecycle runtime tests all PASS; source checker failed because it required `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, and `dev_log.md` in push/PR paths.
-- THIS repair removes those obsolete documentation entries from the two checker path lists. It does not restore workflow triggers or change product code.
-- XY-C1 workflow-only run `44221748846` had completed host gates and was building the firmware at the last poll; inspect exact result. NVRAM `44221748754` was also in progress.
+- Exact `c500c3a4` USB modem `44219360846`, HTTPD Security `44219360995`, XY-C1 Firmware `44219360799`, Process inventory `44219360836`, Process lifecycle inventory `44219360992`, NVRAM `44219360895`, infosvr `44219360979`, AdGuardHome `44219360852`, AliDDNS `44219361050`, AliyunDrive `44219360927`, and AI handoff `44219360924` all PASS. XY-C1 Build, TRX and artifact upload passed on that same SHA (L3 VERIFIED for `c500c3a4`).
+- CI-fanout commit `a4d5a10b` removed docs-only triggers from product workflows and added production-input detection before target builds. Its Infosvr `44221748799` and AliyunDrive `44221748973` runtime checks passed but final source-contract steps failed because their validators still expected removed canonical-document path filters. The checker corrections in `45ed6be1` make Infosvr `44222138695` and AliyunDrive `44222138760` PASS. AI handoff failed on `45ed6be1` only because the exact mandatory checkpoint wording was missing; `de02f6c0` restored it and AI docs `44222506147` PASS.
+- Storage HDD tuning error aggregation and SD hotplug status propagation are in `7f10d225`; exact storage regression/caller graph passed on `0985b536`.
+- NDIS metadata failure propagation is verified by exact-head USB/HTTPD PASS and XY-C1 L3 on `c500c3a4`. No physical-router L4 evidence.
+- Found a PID1 device-node trust gap: `init_nodes()` used `check_if_dev_exist("/dev/net/tun")` and skipped validation whenever the path existed. A symlink, regular file, wrong character device, unexpected owner/group, hardlink or unsafe mode could be treated as the OpenVPN TUN endpoint.
+- THIS slice hardens `/dev/net` as a root-owned non-group/world-writable directory; validates `/dev/net/tun` with `lstat`, character-device type, major/minor 10:200, root ownership and single link; unlinks invalid leaf entries without following symlinks; and recreates/revalidates the expected node. It accepts stricter read/write-only permissions and keeps failure nonfatal to unrelated router startup. A GNU89 regression covers device identity, owner/group, link count and mode policy.
 
 ## Active task
-- Verify exact-head Infosvr and AliyunDrive contracts after aligning their path assertions with the new scoped triggers; inspect the XY-C1 and NVRAM results from `a4d5a10b`.
+- Verify exact-head PID1 mdev policy and XY-C1 Build/TRX/artifact for the TUN-node hardening.
 
 ## Verification boundary
-- Parent `c500c3a4`: all listed exact-SHA checks PASS, including full XY-C1 Build, TRX validation and artifact upload.
-- Parent `a4d5a10b`: Infosvr and AliyunDrive failed their checker-only path-filter assertions as described; runtime and MIPS binary tests passed. Current XY-C1 and NVRAM were pending.
-- THIS validator correction's CI is pending. No physical-router L4 evidence.
+- Parent `c500c3a4`: all eleven exact-SHA workflows pass, including same-SHA XY-C1 Build/TRX/artifact.
+- Parent `a4d5a10b`: Infosvr/AliyunDrive failed due stale docs-path checks; `45ed6be1` has both passing and `de02f6c0` has AI docs PASS. XY-C1 `44221748846` was still building at last poll.
+- THIS TUN-node slice's PID1 regression and XY-C1 exact-head Actions are pending. Physical L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head Infosvr, AliyunDrive and AI docs checks; require all pass.
-2. Inspect XY-C1 and NVRAM result on `a4d5a10b`. A build from that workflow-only SHA should be judged by its actual production-input detection and Build/TRX/artifact step results.
-3. Continue the PID1 `/dev/net/tun` device-node hardening slice after CI triage; validate exact device type, 10:200 identity, owner/group, link count and safe permissions.
-4. Keep the frozen backup unchanged and publish full-tree atomic commits through non-forced expected-SHA updates.
+1. Inspect exact-head init-mdev security and XY-C1 workflows; require the TUN policy test/source contract to PASS and same-SHA Build, TRX and artifact success before claiming L3.
+2. Check the exact `a4d5a10b` XY-C1 result and any remaining NVRAM/Process checks.
+3. Continue P1 reliability work across broader Padavan userland after this PID1 device-node slice.
+4. Keep frozen backup unchanged; publish complete trees with non-forced expected-SHA updates.
 
 ## Mandatory handoff checkpoint
-The checkpoint is mandatory; a document edit is conditional. At session end inspect live main, relevant exact-SHA Actions, current handoff/roadmap, validation boundary and first actionable task. If all remain accurate, explicitly conclude with no file change and no commit.
+The checkpoint is mandatory; a document edit is conditional. At session end inspect live main, exact-SHA Actions, current handoff/roadmap, validation boundary and first actionable task. If all remain accurate, explicitly conclude with no file change and no commit.
 
-At session end inspect live main, relevant exact-SHA Actions, current handoff/roadmap, validation boundary and first actionable task. If all remain accurate, explicitly conclude with no file change and no commit.
-
-Do not create no-op documentation commits; update only at meaningful validation/active-task boundaries.
+Do not create no-op documentation commits; update only at meaningful validation boundaries.
 
 # Cross-session execution mandate
 
 Continue one engineering effort across GPT conversations. Recover once, implement concrete defects, test and commit atomically; do not wait idly on pending CI.
 
-Every logical multi-file change is one atomic main commit: create all blobs, one complete tree and one commit parented to freshly fetched main, then publish with non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs, or modify the frozen backup.
+Every logical multi-file change is one complete tree/commit parented to freshly fetched main and published using non-forced expected-SHA compare-and-swap. Never force-push, create development branches/PRs, or modify frozen backup.
 
-Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first action.
+Before context exhaustion, finish a safe slice, inspect exact-SHA Actions and leave the next GPT a precise first task.

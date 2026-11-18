@@ -41,6 +41,7 @@
 #include "pid1_signal_policy.h"
 #include "init_mdev_config_file.h"
 #include "nvram_device_node_policy.h"
+#include "tun_device_node_policy.h"
 
 #define CONSOLE_TERMINAL	"vt100"
 #define INIT_HOME_PATH		"/home/root"
@@ -432,6 +433,97 @@ init_nvram_node(void)
 }
 
 static int
+init_openvpn_tun_node(void)
+{
+	struct stat st;
+	const dev_t tun_device = makedev(TUN_DEVICE_NODE_MAJOR,
+					 TUN_DEVICE_NODE_MINOR);
+	int saved_errno;
+
+	/* /dev/net must be a root-owned directory that untrusted users cannot alter. */
+	if (lstat("/dev/net", &st) != 0) {
+		if (errno != ENOENT)
+			return -(errno ? errno : EIO);
+		if (mkdir("/dev/net", 0755) != 0 && errno != EEXIST)
+			return -(errno ? errno : EIO);
+		if (lstat("/dev/net", &st) != 0)
+			return -(errno ? errno : EIO);
+	}
+	if (!S_ISDIR(st.st_mode)) {
+		/* Unlink a file or symlink itself; never follow it outside /dev. */
+		if (unlink("/dev/net") != 0)
+			return -(errno ? errno : EIO);
+		if (mkdir("/dev/net", 0755) != 0)
+			return -(errno ? errno : EIO);
+		if (lstat("/dev/net", &st) != 0)
+			return -(errno ? errno : EIO);
+	}
+	if (!S_ISDIR(st.st_mode))
+		return -ENOTDIR;
+
+	if (st.st_uid != (uid_t)0 || st.st_gid != (gid_t)0) {
+		if (chown("/dev/net", 0, 0) != 0)
+			return -(errno ? errno : EIO);
+	}
+	if ((st.st_mode & 0022) != 0 || (st.st_mode & 0100) == 0) {
+		if (chmod("/dev/net", 0755) != 0)
+			return -(errno ? errno : EIO);
+	}
+	if (lstat("/dev/net", &st) != 0)
+		return -(errno ? errno : EIO);
+	if (!S_ISDIR(st.st_mode) || st.st_uid != (uid_t)0 ||
+	    st.st_gid != (gid_t)0 || (st.st_mode & 0022) != 0 ||
+	    (st.st_mode & 0100) == 0)
+		return -EPERM;
+
+	/* lstat is intentional: a symlink or ordinary file is not a TUN device. */
+	if (lstat(TUN_DEVICE_NODE_PATH, &st) == 0) {
+		if (tun_device_node_is_secure(&st, tun_device))
+			return 0;
+		if (S_ISDIR(st.st_mode)) {
+			if (rmdir(TUN_DEVICE_NODE_PATH) != 0)
+				return -(errno ? errno : EIO);
+		} else if (unlink(TUN_DEVICE_NODE_PATH) != 0) {
+			return -(errno ? errno : EIO);
+		}
+	} else if (errno != ENOENT) {
+		return -(errno ? errno : EIO);
+	}
+
+	if (mknod(TUN_DEVICE_NODE_PATH, S_IFCHR | TUN_DEVICE_NODE_MODE,
+		  tun_device) != 0) {
+		saved_errno = errno ? errno : EIO;
+		/* A concurrent root setup is acceptable only after full validation. */
+		if (saved_errno == EEXIST &&
+		    lstat(TUN_DEVICE_NODE_PATH, &st) == 0 &&
+		    tun_device_node_is_secure(&st, tun_device))
+			return 0;
+		return -saved_errno;
+	}
+	if (chown(TUN_DEVICE_NODE_PATH, 0, 0) != 0) {
+		saved_errno = errno ? errno : EIO;
+		unlink(TUN_DEVICE_NODE_PATH);
+		return -saved_errno;
+	}
+	if (chmod(TUN_DEVICE_NODE_PATH, TUN_DEVICE_NODE_MODE) != 0) {
+		saved_errno = errno ? errno : EIO;
+		unlink(TUN_DEVICE_NODE_PATH);
+		return -saved_errno;
+	}
+	if (lstat(TUN_DEVICE_NODE_PATH, &st) != 0) {
+		saved_errno = errno ? errno : EIO;
+		unlink(TUN_DEVICE_NODE_PATH);
+		return -saved_errno;
+	}
+	if (!tun_device_node_is_secure(&st, tun_device)) {
+		unlink(TUN_DEVICE_NODE_PATH);
+		return -EPERM;
+	}
+
+	return 0;
+}
+
+static int
 init_nodes(void)
 {
 	int nvram_result;
@@ -444,10 +536,12 @@ init_nodes(void)
 	mknod("/dev/crypto", S_IFCHR | 0666, makedev(10, 60));
 #endif
 #if defined (APP_OPENVPN)
-	/* if kernel CONFIG_HOTPLUG is not set, mdev create /dev/tun instead of /dev/net/tun */
-	if (!check_if_dev_exist("/dev/net/tun")) {
-		mkdir("/dev/net", 0755);
-		mknod("/dev/net/tun", S_IFCHR | 0666, makedev(10, 200));
+	{
+		int tun_status = init_openvpn_tun_node();
+		if (tun_status != 0)
+			logmessage(LOGNAME,
+				   "OpenVPN TUN device node initialization failed (status=%d)",
+				   tun_status);
 	}
 #endif
 

@@ -1,3 +1,12 @@
+## 2026-11-17 — Validate the OpenVPN TUN device node before trusting it
+
+- Parent main `de02f6c04d993d462983576e3db2914e9b179afe`: c500 exact-head USB, HTTPD, Process, NVRAM, Infosvr, AdGuardHome, AliDDNS, AliyunDrive, AI and XY-C1 all pass, with Build/TRX/artifact on the same SHA. Infosvr/AliyunDrive trigger-contract fixes pass on `45ed6be1`; AI checkpoint wording passes on `de02f6c0`.
+- `init_nodes()` previously checked only whether `/dev/net/tun` existed. A regular file, symlink or different character device could bypass creation of the actual TUN endpoint.
+- Add root-owned/non-group-world-writable `/dev/net` validation and an `lstat` policy for character device 10:200, root uid/gid, single link and read/write-only permissions. Replace invalid leaf entries without following symlinks, create/chown/chmod and revalidate the TUN node. Log failure without blocking unrelated router startup.
+- Add GNU89 regression for wrong type/identity/owner/group/link count/mode and extend PID1/XY-C1 path filters. Exact-head CI pending; no physical L4 claim.
+
+---
+
 ## 2026-11-18 11:03 Beijing — Restore mandatory handoff checkpoint wording
 
 - Parent main SHA: `45ed6be1ad788a77982ce7f4e8683557265a496b`.
