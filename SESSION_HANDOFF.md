@@ -32,6 +32,12 @@ Atomic source commit: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` (parent `26f063
 
 IPv6 configured as disabled is a security boundary: if global `disable_ipv6`, RA-suppression or forwarding sysctl writes fail, WAN must not start merely because IPv6 firewall filtering was considered unnecessary. `init_router()` now retains the exact `init_ipv6()` status and passes a dedicated disabled-IPv6 prerequisite into the WAN policy. The new gate applies only to configured-disabled IPv6; enabled IPv6 continues to rely on the existing active firewall-filter requirement. On any rejected WAN startup, PID 1 retries the global IPv6 forwarding-disable write and records a failure rather than conditioning that safety cleanup on the configured IPv6 mode.
 
+### Exact-head IPv6 WAN-gate validation at 66bdedc162493cda29d36864d17afaa826e0516b
+
+- Firewall Startup `44360411721`: SUCCESS; HTTPD Security `44360411452`: SUCCESS; AI handoff docs `44360411581`: SUCCESS.
+- Process lifecycle `44360411889`: FAIL in `scripts/check_process_lifecycle_integration.py`, not in a C regression. All earlier checks in the job passed; the checker contains two identical assertions expecting the old block-local `int ipv6_init_status = init_ipv6();`. PID 1 now declares the status at `init_router()` scope and assigns it after calculating whether configured-disabled IPv6 must be gated. Both duplicated contracts are updated to validate the retained variables and assignment.
+- XY-C1 exact-source run `44360411938` was IN_PROGRESS at last poll. Do not claim L3 until Build XY-C1, TRX verification and artifact upload complete successfully.
+
 ## Verification boundary
 
 - WAN VLAN source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`: Firewall policy C regression passed; exact-source XY-C1 run `44351420211` is now SUCCESS, including every host regression, Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for this exact firmware source SHA; physical-router L4 remains NOT VERIFIED.
@@ -42,8 +48,8 @@ IPv6 configured as disabled is a security boundary: if global `disable_ipv6`, RA
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect all exact-head push Actions for this IPv6 WAN-gate commit, especially Firewall Startup, HTTPD Security, Process lifecycle, Wireless radio, AI handoff documentation and XY-C1. Read any failed job logs; PENDING checks must not block independent work.
-2. If the exact-SHA checks pass, continue the P1 PID-1 review at `trunk/user/rc/src/init.c::init_sysctl()` only for required network/firewall state. Do not turn best-effort memory/TCP performance tuning into boot blockers.
+1. Inspect exact-head push Actions after the Process lifecycle source-contract repair, especially Process lifecycle, Firewall Startup, HTTPD Security, Wireless radio, AI handoff and XY-C1. The parent SHA `66bdedc162493cda29d36864d17afaa826e0516b` has Firewall `44360411721`, HTTPD `44360411452` and AI docs `44360411581` PASS; Process `44360411889` FAILS only on two duplicated outdated declaration-form assertions; XY-C1 `44360411938` was IN_PROGRESS and must be resolved against that exact product source SHA.
+2. If exact-SHA checks pass, continue the P1 PID-1 review at `trunk/user/rc/src/init.c::init_sysctl()` only for required network/firewall state. Do not turn best-effort memory/TCP performance tuning into boot blockers.
 3. Continue cross-userland stability and security fixes; preserve the completed switch-VLAN WAN gate and disabled-IPv6 fail-closed policy. Physical-router validation remains a separate L4 requirement.
 ## Mandatory handoff checkpoint
 

@@ -1,3 +1,9 @@
+## 2026-11-19 01:10 CST — Align process integration checker with retained IPv6 status
+
+- Base main SHA: `66bdedc162493cda29d36864d17afaa826e0516b`. The IPv6-disabled WAN-gate source commit passed exact-head Firewall Startup `44360411721`, HTTPD Security `44360411452` and AI handoff `44360411581`.
+- Process lifecycle `44360411889` failed at `scripts/check_process_lifecycle_integration.py` after all earlier checks passed. Its checker contained two duplicated assertions expecting `int ipv6_init_status = init_ipv6();` inside a local block; PID 1 now retains `ipv6_init_status` at function scope and assigns it after calculating the configured-disabled prerequisite. Updated both duplicated contracts to check the retained state variables and new assignment.
+- XY-C1 run `44360411938` was IN_PROGRESS on exact firmware source SHA `66bdedc162493cda29d36864d17afaa826e0516b` at last poll. No L3 build result is claimed until Build XY-C1, TRX verification and artifact upload complete.
+- This is a regression-checker/handoff repair only; no firmware production source changed. No local tests are claimed.
 ## 2026-11-19 01:08 CST — Gate WAN when configured-disabled IPv6 cannot be verified
 
 - Base main SHA: `6b8e3f6e98ddda6d12a34167d8c1d631aecb54a1`. The active stability candidate was a WAN-startup gap: `init_ipv6()` already reported failure to apply global IPv6 disable sysctls, but `init_router()` discarded that status after updating the aggregate boot result. With IPv6 configured disabled, the existing WAN policy did not require IPv6 filter installation and could therefore still admit WAN.

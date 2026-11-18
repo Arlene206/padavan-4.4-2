@@ -2056,7 +2056,10 @@ assert "void init_ipv6(void);" not in rc_header_source
 
 router_init_body = c_function_body(rc_boot_source, "init_router(void)")
 router_init_compact = re.sub(r"\s+", " ", router_init_body)
-assert "int ipv6_init_status = init_ipv6();" in router_init_compact
+assert "int ipv6_disable_required = 0;" in router_init_compact
+assert "int ipv6_init_status = 0;" in router_init_compact
+assert "ipv6_disable_required = (get_ipv6_type() == IPV6_DISABLED);" in router_init_compact
+assert "ipv6_init_status = init_ipv6();" in router_init_compact
 assert (
     "boot_services_status = rc_first_service_start_status( "
     "boot_services_status, ipv6_init_status);"
@@ -2969,7 +2972,10 @@ assert "void init_ipv6(void);" not in rc_header_source
 
 router_init_body = c_function_body(rc_boot_source, "init_router(void)")
 router_init_compact = re.sub(r"\s+", " ", router_init_body)
-assert "int ipv6_init_status = init_ipv6();" in router_init_compact
+assert "int ipv6_disable_required = 0;" in router_init_compact
+assert "int ipv6_init_status = 0;" in router_init_compact
+assert "ipv6_disable_required = (get_ipv6_type() == IPV6_DISABLED);" in router_init_compact
+assert "ipv6_init_status = init_ipv6();" in router_init_compact
 assert (
     "boot_services_status = rc_first_service_start_status( "
     "boot_services_status, ipv6_init_status);"
