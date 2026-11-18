@@ -391,6 +391,17 @@ cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-validation-failure" || fail "i
 [ -f "$PROCESS_STATE_DIR/dnsmasq" ] || fail "invalid staged config stopped active daemon"
 DNSMASQ_TEST_MODE=ready
 
+# An unverified stop must not replace the live config or launch a new daemon.
+cp "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-stop-failure"
+printf 'never_exit\\n' > "$PROCESS_STATE_DIR/dnsmasq"
+printf '4246\\n' > "$PROCESS_STATE_DIR/dnsmasq.pids"
+launches_before_stop_failure=$(cat "$PROCESS_STATE_DIR/dnsmasq_runs")
+expect_status 1 "dnsmasq stop failure preserves live config" ss_publish_and_restart_dnsmasq "$dnsmasq_config" "$TMP_DIR/bin/dnsmasq" 0
+cmp -s "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-stop-failure" || fail "failed stop changed live dnsmasq config"
+[ -f "$PROCESS_STATE_DIR/dnsmasq" ] || fail "failed stop removed the existing daemon"
+[ "$(cat "$PROCESS_STATE_DIR/dnsmasq_runs")" -eq "$launches_before_stop_failure" ] || fail "replacement launched after stop failure"
+rm -f "$PROCESS_STATE_DIR/dnsmasq" "$PROCESS_STATE_DIR/dnsmasq.pids"
+
 cp "$dnsmasq_config" "$TMP_DIR/dnsmasq.before-rollback"
 rm -f "$PROCESS_STATE_DIR/dnsmasq_runs"
 printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dnsmasq"

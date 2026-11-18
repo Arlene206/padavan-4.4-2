@@ -581,25 +581,46 @@ ss_publish_and_restart_dnsmasq() {
 		rm -f "$tmp_file" "$backup_file"
 		return 1
 	fi
-	if ! mv -f "$tmp_file" "$config_file"; then
+	# Keep the old live config in place unless daemon shutdown is confirmed.
+	if ss_stop_named_processes dnsmasq; then
+		:
+	else
+		restart_status=$?
+		log "dnsmasq stop failed (status=$restart_status); previous config retained"
 		rm -f "$tmp_file" "$backup_file"
-		return 1
+		return "$restart_status"
+	fi
+	if mv -f "$tmp_file" "$config_file"; then
+		:
+	else
+		restart_status=$?
+		log "dnsmasq config publication failed (status=$restart_status); restarting previous config"
+		if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
+			log "dnsmasq restarted with unchanged configuration"
+		else
+			rollback_status=$?
+			log "dnsmasq old-config restart failed (status=$rollback_status)"
+		fi
+		rm -f "$tmp_file" "$backup_file"
+		return "$restart_status"
 	fi
 
-	if ss_stop_named_processes dnsmasq; then
-		if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
-			rm -f "$backup_file"
-			return 0
-		else
-			restart_status=$?
-		fi
+	if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
+		rm -f "$backup_file"
+		return 0
 	else
 		restart_status=$?
 	fi
 	log "dnsmasq restart failed (status=$restart_status); restoring previous config"
+	if ss_stop_named_processes dnsmasq; then
+		rollback_status=0
+	else
+		rollback_status=$?
+		log "Failed dnsmasq candidate stop is unverified (status=$rollback_status)"
+	fi
 	if mv -f "$backup_file" "$config_file"; then
 		backup_file=""
-		if ss_stop_named_processes dnsmasq; then
+		if [ "$rollback_status" -eq 0 ]; then
 			if ss_start_dnsmasq_daemon "$dnsmasq_bin"; then
 				log "Previous dnsmasq config restored and service restarted"
 			else
@@ -607,8 +628,7 @@ ss_publish_and_restart_dnsmasq() {
 				log "Previous dnsmasq config restored, but service rollback failed (status=$rollback_status)"
 			fi
 		else
-			rollback_status=$?
-			log "Previous dnsmasq config restored, but service stop is unverified (status=$rollback_status)"
+			log "Previous dnsmasq config restored, but service restart withheld because process stop is unverified"
 		fi
 	else
 		rollback_status=$?
@@ -628,7 +648,9 @@ start_dns() {
 		local ss_chdns=""
 		local china_dns=""
 		local local_chnlist_file=""
+		local use_chinadns=0
 		local dns_status=""
+		chinadnsng_enable_flag=0
 
 		if ss_chdns=$(nvram get ss_chdns); then
 			:
@@ -637,6 +659,7 @@ start_dns() {
 			return "$dns_status"
 		fi
 		if [ "$ss_chdns" = "1" ]; then
+			use_chinadns=1
 			local_chnlist_file='/etc/storage/chinadns/chnlist_mini.txt'
 			if china_dns=$(nvram get china_dns); then
 				:
@@ -651,15 +674,17 @@ start_dns() {
 				local_chnlist_file=""
 			fi
 			if ss_start_chinadns_daemon "$china_dns" "$local_chnlist_file"; then
-				chinadnsng_enable_flag=1
+				:
 			else
 				dns_status=$?
 				log "ChinaDNS-ng failed to become ready (status=$dns_status)"
 				return "$dns_status"
 			fi
 		fi
-		if ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$ss_chdns"; then
-			:
+		if ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$use_chinadns"; then
+			if [ "$use_chinadns" = "1" ]; then
+				chinadnsng_enable_flag=1
+			fi
 		else
 			dns_status=$?
 			log "dnsmasq configuration/restart failed (status=$dns_status)"

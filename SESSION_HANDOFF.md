@@ -1,29 +1,30 @@
-# 2026-11-18 continuation checkpoint — dnsmasq transaction/cgroup boundary correction
+# 2026-11-18 continuation checkpoint — dnsmasq transaction fail-closed ordering
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; active branch `main`. The transactional dnsmasq change is `e9a69e67c0864f34a297aa86b8d4e28d9ad2e1e6`; this correction is based on that exact parent.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- Exact e9 checks: shell syntax, required startup status, process lifecycle runtime and Adblock regression PASS; Process inventory `44289343898` and umbrella `44289344240` PASS; AI handoff `44289343965` PASS. Shadowsocks `44289343841` failed only in the static checker because it still expected the removed inline ChinaDNS `sed` edits. XY-C1 `44289343944` was IN_PROGRESS at last poll.
-- ChinaDNS source `4b956fe` has exact-source XY-C1 `44286192538` SUCCESS, including Build, TRX and artifact upload.
+- Repository: Arlene206/padavan-4.4-2; active branch main. This source correction is based on exact parent 745bf37b2dbaaef5fdce77b11f15e1b77632f411; refresh the live tip before any further write.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807; PR #1 remains closed/unmerged.
+- Exact 745 checks: Shadowsocks 44290280799 PASS; Process inventory 44290280731 PASS; umbrella Process 44290280781 PASS; AI handoff 44290280778 PASS. XY-C1 44290280891 was IN_PROGRESS at last poll; Build/TRX/artifact not yet confirmed.
+- Parent e9 source check ran the shell syntax, required startup, process lifecycle and Adblock regressions successfully; its static checker failed because it retained the old inline ChinaDNS sed expectation. This was fixed in 745 and 745's Shadowsocks source contract now passes.
 
-## Active task
-- e9a69e67 added transactional dnsmasq config staging, syntax validation, atomic publication and bounded stop/start rollback; all shell runtime regressions passed.
-- This correction changes the stale ChinaDNS source contract to require the transactional publisher after daemon readiness.
-- Review found that `run_bin()` enrolls children in the Shadowsocks CPU/memory cgroup, while dnsmasq was previously launched outside it. Add a dedicated dnsmasq launcher using validated PID-count baseline and bounded count+1 readiness without cgroup writes; a regression enables `ss_cgroups=1` during dnsmasq restart to pin this compatibility boundary.
+## Active engineering slice
+- ChinaDNS-ng start validates non-empty upstream and UNKNOWN-safe process inventory, avoids duplicates, and requires a bounded RUNNING postcondition.
+- DNSMasq publication stages and backs up in the config directory, validates with dnsmasq --test -C, and restarts through a dedicated count+1 PID launcher that intentionally leaves dnsmasq outside the Shadowsocks CPU/memory cgroup.
+- THIS correction confirms dnsmasq is stopped before the config rename; a stop timeout/UNKNOWN keeps the live config unchanged. It restarts the old config if publication fails, stops a failed candidate before rollback, and withholds a rollback restart if candidate stop cannot be verified.
+- chinadnsng_enable_flag is set only after both the DNSMasq config transaction and daemon readiness succeed. Host regression now covers stop failure without file replacement or a new launch.
 
 ## Verification boundary
-- Exact e9 shell tests passed; its Python checker stopped at the stale ChinaDNS direct-edit contract. This correction's static checker and cgroup-boundary test need exact-SHA rerun.
-- XY-C1 run `44289343944` for e9 was IN_PROGRESS at last poll. This correction changes ROMFS source and needs its own exact-SHA Build/TRX/artifact result.
+- Exact-head Actions for this correction are newly pending; verify Shadowsocks lifecycle, Process inventory, umbrella Process, AI handoff and XY-C1 by exact SHA.
+- On 745, Shadowsocks (44290280799), Process inventory (44290280731), umbrella Process (44290280781) and AI docs (44290280778) PASS. XY-C1 (44290280891) was pending. The new changes need a fresh exact-source firmware build/TRX/artifact before L3 can be claimed.
 - No target BusyBox runtime or physical-router L4 is claimed.
 
 ## Exact first action for the next GPT
-1. Fetch live `main` and inspect exact-head Shadowsocks, Process inventory, AI docs and XY-C1 for this cgroup-boundary/source-contract correction; fix the first causal failure.
-2. Confirm Build XY-C1, Verify TRX output and artifact upload on this exact source SHA.
-3. Continue checking dnsmasq restart/DHCP service-manager coupling and rollback races; then broaden to RC/userland P1 reliability.
-4. Keep the frozen backup unchanged and physical-router L4 NOT VERIFIED.
+1. Fetch live main and verify all Actions for this exact correction SHA. Repair any actual failing source/test/checker result.
+2. Confirm Build XY-C1, TRX verification and artifact upload on the same current product-source SHA.
+3. Inspect remaining DNSMasq integration paths (oversea config edits, ssp_close cleanup, restart_dhcpd service-manager coupling) for ownership and rollback races, and add focused regression coverage.
+4. Continue broader RC/userland P1 reliability work while independent CI jobs remain pending; keep backup frozen and L4 unverified.
 
 ## Mandatory handoff checkpoint
-Every session MUST inspect the live repository state and compare it with `SESSION_HANDOFF.md` before ending, verifying active baseline, exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all facts remain accurate, make no changes and do not create a no-op commit.
+Every session MUST inspect live repository state and compare it with SESSION_HANDOFF.md, verifying active engineering baseline, exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all facts remain accurate, make no file change and do not create a no-op commit.
 
 # Cross-session execution mandate
-Complete each logical source/test slice in one atomic main commit. Continue independent work while CI is PENDING. Before context exhaustion, leave a precise next action and tested/unverified boundaries. Never force-push, mutate the frozen backup, reopen PR #1 or claim unperformed tests/builds.
+Use one atomic main commit per logical source/test slice, continue independent work during PENDING checks, and never force-push, mutate the frozen backup, reopen PR #1 or claim unperformed validation.

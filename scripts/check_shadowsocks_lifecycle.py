@@ -168,9 +168,11 @@ china_fn_end = script.index('\n\tcase "$run_mode" in', china_fn_start)
 china_fn = script[china_fn_start:china_fn_end]
 ordered(china_fn, ['ss_chdns=$(nvram get ss_chdns)',
                    'ss_start_chinadns_daemon "$china_dns" "$local_chnlist_file"',
-                   'chinadnsng_enable_flag=1',
-                   'ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$ss_chdns"'],
-        "only publish ChinaDNS upstream after daemon readiness")
+                   'ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/user/sbin/dnsmasq" "$use_chinadns"',
+                   'chinadnsng_enable_flag=1'],
+        "publish ChinaDNS active state only after dnsmasq config and daemon readiness")
+require(script.count('chinadnsng_enable_flag=1') == 1,
+        "ChinaDNS active flag must only be set after the transaction succeeds")
 require(script.count('if start_chinadns; then') == 2,
         "router and GFW start_dns branches must propagate ChinaDNS startup errors")
 require("ChinaDNS-ng detached readiness" in test and
@@ -196,8 +198,8 @@ ordered(dnsmasq_tx, [
     "sed -i '/no-resolv/d' ",
     "sed -i '/server=127.0.0.1/d' ",
     '"$dnsmasq_bin" --test -C "$tmp_file"',
-    'mv -f "$tmp_file" "$config_file"',
     'ss_stop_named_processes dnsmasq',
+    'mv -f "$tmp_file" "$config_file"',
     'ss_start_dnsmasq_daemon "$dnsmasq_bin"',
     'mv -f "$backup_file" "$config_file"',
 ], "dnsmasq staging, validation, atomic publication, verified restart and rollback")
@@ -206,6 +208,7 @@ require('ss_publish_and_restart_dnsmasq "/etc/storage/dnsmasq/dnsmasq.conf" "/us
         "ChinaDNS setup must propagate dnsmasq configuration/restart errors")
 require("dnsmasq atomic config and restart" in test and
         "invalid dnsmasq staged config rejected" in test and
+        "dnsmasq stop failure preserves live config" in test and
         "dnsmasq restart failure triggers rollback" in test and
         "dnsmasq rollback did not restart old service" in test,
         "dnsmasq regression must cover publication, validation failure and rollback")

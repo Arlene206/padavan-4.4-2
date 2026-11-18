@@ -1,3 +1,11 @@
+## 2026-11-18 — Make dnsmasq restart fail closed before config publication
+
+- The current e9 transaction's shell regressions passed, but its Shadowsocks exact-head run failed only in a stale static source contract. A follow-up added the standalone dnsmasq count+1 launcher to keep DHCP/DNS outside the optional Shadowsocks cgroup; exact 745 checks pass for Shadowsocks, Process inventory/umbrella and AI docs.
+- Tighten the transaction boundary: validate first, confirm the old dnsmasq process is stopped before publishing the staged file, and leave the live config untouched on stop timeout/UNKNOWN. If publication fails, restart using the unchanged config. On replacement failure, stop the candidate before restoring the backup and do not launch another daemon if that stop is unverified.
+- Delay chinadnsng_enable_flag until dnsmasq config and service readiness are both confirmed. Add a stop-failure regression alongside success, syntax failure and restart rollback. Exact-head Actions for this correction are pending; XY-C1 L3 and physical-router L4 are not claimed.
+
+---
+
 ## 2026-11-18 — Keep dnsmasq outside the Shadowsocks cgroup and align source contracts
 
 - e9a69e67 passed shell syntax, startup status, process lifecycle runtime and Adblock regressions, plus Process inventory `44289343898`, umbrella `44289344240` and AI handoff `44289343965`. The Shadowsocks workflow `44289343841` failed only in the final source checker, which still expected the previous inline ChinaDNS `sed` lines.
