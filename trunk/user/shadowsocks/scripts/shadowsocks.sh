@@ -598,28 +598,124 @@ EOF
 	fi
 }
 
+# Keep the first required startup failure while allowing independent
+# services and WAN reconciliation to finish their own cleanup/recovery work.
+ssp_record_start_failure() {
+	local stage="$1"
+	local status="$2"
+
+	[ "$status" -ne 0 ] || return 0
+	if [ "$SS_START_STATUS" -eq 0 ]; then
+		SS_START_STATUS="$status"
+	fi
+	log "Shadowsocks startup stage failed: $stage (status=$status)"
+	return 0
+}
+
+ssp_run_pppoe_detect() {
+	/usr/bin/detect.sh
+}
+
 # ========== 启动 SS ==========
-ssp_start() { 
+ssp_start() {
+	local stage_status
+	local local_server
+
+	SS_START_STATUS=0
 	ss_enable=`nvram get ss_enable`
 	if rules; then
-		cgroups_init
+		if cgroups_init; then
+			:
+		else
+			stage_status=$?
+			ssp_record_start_failure "resource limits" "$stage_status"
+		fi
 		if start_redir_tcp; then
-			start_redir_udp
-			#start_AD
-			start_dns
+			if start_redir_udp; then
+				:
+			else
+				stage_status=$?
+				ssp_record_start_failure "UDP relay" "$stage_status"
+			fi
+			if start_dns; then
+				:
+			else
+				stage_status=$?
+				ssp_record_start_failure "DNS proxy" "$stage_status"
+			fi
+		else
+			stage_status=$?
+			ssp_record_start_failure "TCP proxy" "$stage_status"
+		fi
+	else
+		stage_status=$?
+		# No global node is a supported local-only configuration. rules()
+		# returns 1 for that state, and the legacy API reports no global start.
+		if [ "$GLOBAL_SERVER" != "nil" ]; then
+			ssp_record_start_failure "firewall policy" "$stage_status"
 		fi
 	fi
-	start_local
-	start_watchcat
-	auto_update
-	ENABLE_SERVER=$(nvram get global_server)
-	[ "$ENABLE_SERVER" = "nil" ] && return 1
+
+	if local_server=$(nvram get socks5_enable); then
+		if [ -n "$local_server" ] && [ "$local_server" != "nil" ]; then
+			if start_local; then
+				:
+			else
+				stage_status=$?
+				ssp_record_start_failure "local SOCKS5 proxy" "$stage_status"
+			fi
+		fi
+	else
+		stage_status=$?
+		ssp_record_start_failure "local SOCKS5 configuration" "$stage_status"
+	fi
+
+	if start_watchcat; then
+		:
+	else
+		stage_status=$?
+		ssp_record_start_failure "watchcat" "$stage_status"
+	fi
+
+	# Cron refresh is maintenance-only; log its failure without marking the
+	# proxy service unavailable.
+	if auto_update; then
+		:
+	else
+		stage_status=$?
+		log "Optional Shadowsocks update scheduling failed (status=$stage_status)"
+	fi
+
+	if ENABLE_SERVER=$(nvram get global_server); then
+		:
+	else
+		stage_status=$?
+		ssp_record_start_failure "global server configuration" "$stage_status"
+	fi
+	if [ "$ENABLE_SERVER" = "nil" ]; then
+		[ "$SS_START_STATUS" -ne 0 ] && return "$SS_START_STATUS"
+		return 1
+	fi
+
+	if nvram set check_mode=0; then
+		:
+	else
+		stage_status=$?
+		ssp_record_start_failure "check-mode update" "$stage_status"
+	fi
+	if [ "$pppoemwan" = 0 ]; then
+		if ssp_run_pppoe_detect; then
+			:
+		else
+			stage_status=$?
+			ssp_record_start_failure "PPPoE-MWAN reconciliation" "$stage_status"
+		fi
+	fi
+
+	[ "$SS_START_STATUS" -ne 0 ] && return "$SS_START_STATUS"
 	log "已启动科学上网..."
 	log "内网IP控制为: $lancons"
-	nvram set check_mode=0
-	if [ "$pppoemwan" = 0 ]; then
-		/usr/bin/detect.sh
-	fi
+	return 0
 }
 
 # ========== 关闭 SS ==========
@@ -688,7 +784,7 @@ start)
 	if [ $(nvram get ss_adblock) = "1" ]; then
 		start_AD
 	fi
-	ssp_start
+	ssp_start || exit $?
 	echo 3 > /proc/sys/vm/drop_caches
 	;;
 stop)
@@ -701,7 +797,7 @@ restart)
 	if ! ssp_close; then
 		exit 1
 	fi
-	ssp_start
+	ssp_start || exit $?
 	echo 3 > /proc/sys/vm/drop_caches
 	;;
 reserver)

@@ -121,12 +121,51 @@ for path in ("trunk/user/shadowsocks/scripts/shadowsocks.sh",
              "trunk/user/shadowsocks/scripts/ss-monitor",
              "trunk/user/shadowsocks/scripts/shadowsocks_process_lifecycle.sh",
              "trunk/user/shadowsocks/tests/process_lifecycle.sh",
+             "trunk/user/shadowsocks/tests/start_status.sh",
              "trunk/user/shadowsocks/Makefile",
              "trunk/user/busybox/busybox-1.24.x/procps/Config.src",
              "trunk/user/busybox/busybox-1.24.x/procps/pgrep.c",
              "scripts/check_shadowsocks_lifecycle.py",
              ".github/workflows/shadowsocks-lifecycle.yml"):
     require(path in workflow, f"workflow path filter missing {path}")
+
+
+startup = script[script.index("ssp_record_start_failure() {"):script.index("ssp_close() {")]
+startup_test = read("trunk/user/shadowsocks/tests/start_status.sh")
+ordered(startup, [
+    'SS_START_STATUS=0',
+    'if rules; then',
+    'if cgroups_init; then',
+    'if start_redir_tcp; then',
+    'if start_redir_udp; then',
+    'if start_dns; then',
+    'nvram get socks5_enable',
+    'if start_local; then',
+    'if start_watchcat; then',
+    'if ENABLE_SERVER=$(nvram get global_server); then',
+    'nvram set check_mode=0',
+    'if ssp_run_pppoe_detect; then',
+], "required startup-stage status aggregation")
+require('SS_START_STATUS="$status"' in startup and
+        '[ "$SS_START_STATUS" -eq 0 ] || return 0' in startup and
+        'Optional Shadowsocks update scheduling failed' in startup,
+        "startup must preserve first required error and keep cron scheduling best-effort")
+require('[ -n "$local_server" ] && [ "$local_server" != "nil" ]' in startup and
+        'if [ "$GLOBAL_SERVER" != "nil" ]; then' in startup,
+        "disabled local-only/global server paths must not become false startup-stage failures")
+require(startup.rfind('[ "$SS_START_STATUS" -ne 0 ] && return "$SS_START_STATUS"') >
+        startup.index('if ssp_run_pppoe_detect; then'),
+        "return the first required failure after WAN reconciliation")
+require(script.count("ssp_start || exit $?") == 2,
+        "start/restart CLI actions must preserve ssp_start status before cache dropping")
+require("FAIL_TCP=31" in startup_test and "FAIL_UDP=32" in startup_test and
+        "FAIL_CGROUPS=30" in startup_test and "FAIL_DNS=35" in startup_test and
+        "FAIL_LOCAL=36" in startup_test and "FAIL_WATCHCAT=37" in startup_test and
+        "FAIL_RULES=12" in startup_test and "FAIL_NVRAM_SET=41" in startup_test and
+        "FAIL_DETECT=42" in startup_test and "FAIL_AUTO_UPDATE=55" in startup_test and
+        "Shadowsocks required-stage startup status regression: PASS" in startup_test,
+        "startup status regression must cover required failures and disabled semantics")
+print("Shadowsocks required-stage startup status source contract: PASS")
 
 print("Shadowsocks process lifecycle source contract: PASS")
 
