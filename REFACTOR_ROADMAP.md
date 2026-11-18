@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS TTY metadata publication fix: `9ff3bc667ea0507f311b417f16ed3b324cf19ae6`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact parent storage hotplug `44214586174` and process lifecycle inventory `44214586292` PASS; XY-C1 Build/validation `44214586399`, NVRAM `44214586157` and several independent Actions were pending at last poll.
-- `mdev_tty_main()` previously left the prior identity file intact if metadata replacement failed, then returned success. THIS uses cleanup-aware `modem_node_file_publish_identity()`, preserves cleanup status and returns failure if publishing or stale-record removal fails.
-- Existing metadata file regression covers failed-write cleanup; the USB modem workflow now asserts TTY caller use and status handling.
-- Firmware L3 and physical L4 NOT VERIFIED.
+- Parent main before THIS HTTPD USB metadata test-contract correction: `7aca8abf312ed6ab029a8757a936a6a7f0793d07`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact parent USB modem `44215156701`, AI `44215156759`, infosvr `44215156778`, AdGuardHome `44215156718`, AliyunDrive `44215156606`, AliDDNS `44215156607`, Process lifecycle `44215156605`, Process inventory `44215156806`, and NVRAM audit `44215156739` PASS.
+- Exact parent HTTPD run `44215156710` failed because its USB metadata contract still expected two direct `modem_node_file_write()` calls and direct TTY write, but TTY changed in `7aca8abf` to cleanup-aware `modem_node_file_publish_identity()`. The metadata regression binary itself passed. THIS adjusts the duplicate HTTPD assertions, expecting one remaining direct writer and requiring TTY cleanup/status propagation.
+- No exact-current-SHA XY-C1 firmware L3 or hardware L4 claim.
 
-Next: verify exact-head USB TTY/identity contract and XY-C1 build stages; continue independent P1 work.
+Next: verify exact-head HTTPD and USB workflows, then migrate the WDM handler to the same stale-metadata cleanup contract.
 
 
 ---

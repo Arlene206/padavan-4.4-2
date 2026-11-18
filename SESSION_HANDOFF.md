@@ -1,27 +1,26 @@
-# 2026-11-18 continuation checkpoint — fail closed on TTY metadata publication
+# 2026-11-18 continuation checkpoint — align HTTPD USB metadata regression with TTY cleanup migration
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS TTY metadata publication fix: `9ff3bc667ea0507f311b417f16ed3b324cf19ae6`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Exact parent storage hotplug workflow `44214586174` PASS and process lifecycle inventory `44214586292` PASS. XY-C1 firmware validation `44214586399`, NVRAM audit `44214586157`, and several other exact-parent workflows were IN_PROGRESS at last poll.
-- The NDIS metadata newline defect was corrected in `e52d186a`; the exact e52 USB modem workflow `44214240090` PASS. SG/ZeroCD status propagation is in `b103a8e4`, and the SG policy include was fixed/verified in `2e01dae1`.
-- Found a stale-identity risk in `mdev_tty_main()`: when `modem_node_file_write()` fails, the handler leaves the previous TTY metadata file in place, then returns success. The line-reader can later accept that stale `portid/devnum` record if a node name and USB identity are reused. Unlike NDIS, the TTY path did not use `modem_node_file_publish_identity()`, which removes the old record after a failed replacement and distinguishes cleanup failure (-2).
-- THIS fix uses the cleanup-aware identity publisher for TTY metadata, returns a nonzero status on publication or stale-file removal failure, and keeps the existing benign behavior when topology is unavailable and stale metadata is successfully removed. The existing `modem_node_file.c` regression exercises failed-publication cleanup; the USB workflow now pins the TTY caller contract.
-- No same-SHA XY-C1 Build/TRX/artifact evidence yet; firmware L3 and physical-router L4 NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS test-contract correction: `7aca8abf312ed6ab029a8757a936a6a7f0793d07`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
+- Exact parent `7aca8abf` USB modem workflow `44215156701` PASS; AI handoff `44215156759` PASS; infosvr `44215156778` PASS; AdGuardHome `44215156718` PASS; AliyunDrive `44215156606` PASS; AliDDNS `44215156607` PASS; Process lifecycle `44215156605` PASS; Process inventory `44215156806` PASS; NVRAM audit `44215156739` PASS.
+- Exact parent HTTPD Security run `44215156710` FAILed in “Verify USB modem node metadata staging” after its existing `modem_node_file.c` regression passed. The failure was a stale source contract: it still expected two direct `modem_node_file_write()` call sites and required the TTY handler to use that direct writer. The TTY source was intentionally migrated in `7aca8abf` to `modem_node_file_publish_identity()`, which removes stale metadata after failed replacement and returns -1/-2 according to cleanup outcome. The USB-specific workflow already verifies this newer caller; HTTPD's cross-cutting duplicate contract had not been updated.
+- THIS correction updates only the HTTPD regression to expect one direct writer (the remaining WDM path), and requires TTY to use the cleanup-aware publisher and propagate `metadata_status`. No production source behavior changes.
+- Firmware L3 / physical-router L4 NOT VERIFIED; no exact-parent XY-C1 run was present.
 
 ## Active task
-- Prevent failed TTY metadata replacement from preserving stale USB identity and being reported as success; make cleanup status observable.
+- Restore the HTTPD security regression's USB metadata source assertions to match the current TTY cleanup-aware publication API; rerun HTTPD and USB exact-head workflows.
 
 ## Verification boundary
-- Exact parent storage hotplug and process lifecycle runs PASS.
-- XY-C1 firmware, NVRAM audit and several other Actions were IN_PROGRESS at last poll.
-- THIS TTY source-contract slice's exact-head USB workflow is pending. Firmware L3 and physical L4 NOT VERIFIED.
+- Exact parent USB, AI, infosvr, AdGuardHome, AliyunDrive, AliDDNS, Process lifecycle, Process inventory and NVRAM Actions PASS.
+- Exact parent HTTPD Action FAILed only at obsolete USB metadata caller assertions; preceding 19 HTTPD security/configuration checks and the metadata file regression passed.
+- THIS test-only correction's exact-head Actions pending. Firmware L3 and hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect exact-head USB modem workflow; require TTY cleanup caller assertions, existing metadata cleanup tests, NDIS/WDM identity tests and SG/ZeroCD/CD policy tests to PASS.
-2. Inspect the exact-parent XY-C1 Build/TRX/artifact steps, NVRAM audit and remaining lifecycle Actions; L3 only if Build, TRX and upload pass on one SHA.
-3. Continue an independent P1 userland reliability/security defect while pending Actions run.
-4. Keep the frozen backup unchanged and use one full tree/commit with expected-SHA update for each logical change.
+1. Inspect exact-head HTTPD and USB modem workflows; both must PASS, confirming direct-writer count and TTY cleanup source contract are fixed.
+2. Recheck NVRAM and all exact-head security/lifecycle Actions; check for same-SHA XY-C1 Build/TRX/artifact and only claim L3 if all pass.
+3. Continue the sibling WDM stale-metadata issue: `mdev_wdm_main()` still uses direct write/remove calls and reports success after failure; migrate it to cleanup-aware publication and status propagation, updating both source-contract workflows.
+4. Keep frozen backup unchanged; use one complete tree and non-forced expected-SHA update per logical change.
 
 
 ## Mandatory handoff checkpoint

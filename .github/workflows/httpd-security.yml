@@ -2623,7 +2623,7 @@ jobs:
           identity_policy = Path("trunk/user/rc/src/modem_node_identity_policy.h").read_text()
           regression = Path("trunk/user/rc/src/tests/modem_node_file.c").read_text()
           assert '#include "modem_node_file.h"' in hotplug
-          assert hotplug.count("modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)") == 2
+          assert hotplug.count("modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)") == 1
           assert hotplug.count("modem_node_file_remove(MODEM_NODE_DIR, device_name)") >= 3
           assert 'fopen(node_fname, "w+")' not in hotplug
           assert 'mkdir_if_none(MODEM_NODE_DIR, "777")' not in hotplug
@@ -2645,7 +2645,10 @@ jobs:
           assert "publish_status == -2" in net_handler
           assert "modem_node_file_remove(MODEM_NODE_DIR, device_name);" in net_handler
           assert tty_handler.index("modem_node_usb_identity_is_valid") < tty_handler.index(
-              "modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)")
+              "modem_node_file_publish_identity(")
+          assert "publish_status == -2" in tty_handler
+          assert "return metadata_status;" in tty_handler
+          assert "metadata_status = 1;" in tty_handler
           assert "modem_node_file_remove(MODEM_NODE_DIR, device_name);" in tty_handler
           assert "modem_node_file_publish_with_cleanup(" in helper
           assert "return remove_fn(directory, name) == 0 ? -1 : -2;" in helper

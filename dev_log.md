@@ -1,3 +1,11 @@
+## 2026-11-18 — Align HTTPD duplicate source contract with TTY metadata cleanup
+
+- Parent main SHA: `7aca8abf312ed6ab029a8757a936a6a7f0793d07`. Exact USB, AI handoff, infosvr, AdGuardHome, AliyunDrive, AliDDNS, Process lifecycle, Process inventory and NVRAM Actions PASS.
+- HTTPD Action `44215156710` failed only in its duplicate USB metadata source assertion: it still counted two direct metadata writes and required TTY direct write, despite `mdev_tty_main()` now using cleanup-aware `modem_node_file_publish_identity()`. The metadata policy regression binary passed before this assertion.
+- Update the HTTPD contract to count only the remaining WDM direct write and assert TTY publication cleanup/status behavior. Test-only correction; production C unchanged. Exact-head verification pending.
+
+---
+
 ## 2026-11-18 — Clean stale TTY identity after failed metadata replacement
 
 - Parent main SHA: `9ff3bc667ea0507f311b417f16ed3b324cf19ae6`. Exact storage hotplug `44214586174` and process lifecycle inventory `44214586292` PASS; XY-C1 `44214586399`, NVRAM `44214586157` and other Actions pending at last poll.
