@@ -2676,17 +2676,13 @@ static int
 man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
 	int wan_proto, is_modem_active, is_man_dns_auto;
-	int status = 0, route_status, pause_status;
+	int status = 0, route_status;
 	char *next, *man_gate, *man_addr, *man_mask, *man_dns;
 	char word[100];
 
 	logmessage(LOGNAME, "%s %s (%s)", "MAN", "down", man_ifname);
-	pause_status = notify_pause_detect_internet();
-	status = route_status_accumulate(status, pause_status);
-	if (pause_status != 0)
-		logmessage(LOGNAME,
-			   "MAN route teardown continuing after Internet monitor pause failure (status=%d)",
-			   pause_status);
+	/* DHCP loss is already committed; monitor pause is advisory here. */
+	(void)notify_pause_detect_internet();
 	man_gate = nvram_safe_get("wanx_gateway");
 	man_addr = nvram_safe_get("wanx_ipaddr");
 	man_mask = nvram_safe_get("wanx_netmask");
@@ -3000,18 +2996,14 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	char *wan_addr, *wan_gate;
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
-	int status = 0, route_status, interface_cleanup_status, pause_status;
+	int status = 0, route_status, interface_cleanup_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
 #endif
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "down", wan_ifname);
-	pause_status = notify_pause_detect_internet();
-	status = route_status_accumulate(status, pause_status);
-	if (pause_status != 0)
-		logmessage(LOGNAME,
-			   "WAN route teardown continuing after Internet monitor pause failure (status=%d)",
-			   pause_status);
+	/* The DHCP/PPP down callback is already in flight; pause is advisory. */
+	(void)notify_pause_detect_internet();
 
 	/* deferred stop static VPN client (prevent rebuild resolv.conf) */
 	nvram_set_temp("vpnc_dns_t", "");
