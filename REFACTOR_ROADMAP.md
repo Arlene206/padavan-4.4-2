@@ -1,8 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent `38a2e1b80c78d250c892377647a43a454623228b`: process inventory umbrella `44307638698` PASS; Shadowsocks `44307638690` FAIL in the process lifecycle test because the inserted preservation block ended with a truncated `grep -c` line; AI `44307639057` FAIL because the required heading was renamed to `## Exact-head verification boundary`; Process fail-closed `44307638688` and XY-C1 `44307638792` were still in progress.
-- This commit repairs the test block to assert the exact single ChinaDNS upstream and preserve comments, `no-resolv-extra`, SmartDNS #5353/#6053, domain server rules, and similar cache option names; restores the validator-required `## Verification boundary` heading.
-- Exact-head Shadowsocks/AI and same-SHA XY-C1 Build/TRX/artifact must be checked after this docs/test correction. Hardware L4 remains NOT VERIFIED.
+- Source/test SHA `38a2e1b80c78d250c892377647a43a454623228b` fixed the remaining broad ChinaDNS resolver filter and anchored cache-key matching. Parent exact-head Shadowsocks `44307638690` failed only after its first full suite PASS: an obsolete duplicate tail followed the marker and contained a malformed trailing line. AI `44307639057` failed because the handoff section heading was renamed; the required `## Verification boundary` has been restored.
+- Test/docs correction SHA `25394b7d214e9a70c78960fb6d7833fd8645e886` still had exact-head Shadowsocks `44308109878`, AI `44308109899`, Process inventory `44308109817` and Process fail-closed `44308109826` IN_PROGRESS at last poll. This commit truncates the stale tail after the first valid PASS, leaving preservation checks in the complete first test sequence.
+- Exact-head results, especially XY-C1 Build/TRX/artifact, must remain SHA-scoped. Hardware L4 remains NOT VERIFIED.
 
 ---
 

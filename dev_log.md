@@ -1,3 +1,12 @@
+## 2026-11-18 — Remove stale post-PASS lifecycle test tail
+
+- Parent main `25394b7d214e9a70c78960fb6d7833fd8645e886`; previous source SHA `38a2e1b80c78d250c892377647a43a454623228b`. The 38a Shadowsocks action `44307638690` passed shell syntax, startup and standalone DNSMasq cleanup; process regression completed its full primary sequence, including the SmartDNS #5353/#6053 and domain-rule preservation checks, and emitted the PASS sentinel, but a stale duplicated tail continued afterward and failed on a malformed fragment. This corrective slice truncates the test file at the first valid final PASS marker. The file now has exactly one terminal PASS sentinel.
+- The 38a AI documentation action `44307639057` failed because the handoff renamed the required section to `## Exact-head verification boundary`; this was corrected to `## Verification boundary` in 25394.
+- Exact-head 25394 Actions last observed: Shadowsocks `44308109878`, AI `44308109899`, Process inventory `44308109817`, and Process fail-closed `44308109826` IN_PROGRESS. No local shell execution claimed. Historical firmware validations remain separate by SHA; target BusyBox and physical L4 remain NOT VERIFIED.
+- Next: check exact-head correction Actions; then inspect remaining DNSMasq writers for broad substring deletion.
+
+---
+
 ## 2026-11-18 — Repair DNSMasq staging preservation regression and handoff contract
 
 - Parent main `38a2e1b80c78d250c892377647a43a454623228b`: Shadowsocks `44307638690` passed syntax/startup and standalone exact-cleanup test, then failed in process_lifecycle because the newly inserted `dns-forward-max` assertion block was truncated at line 412. The log showed the broken quote caused grep to treat the comment words as file paths and the line count became empty; the source helper itself had passed its dedicated regression.
