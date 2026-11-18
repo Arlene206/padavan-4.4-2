@@ -136,43 +136,36 @@ mkdir -p "$TMP_DIR/storage/dnsmasq"
 printf '去广告规则\nadbyby\ncustom-rule\n' > "$TMP_DIR/storage/smartdns_custom.conf"
 printf 'no-resolv\nserver=127.0.0.1#6053\nserver=127.0.0.1#53\nserver=/example.com/127.0.0.1#6053\nport=0\nserver=8.8.8.8#53\n' > "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"
 printf 'stale-state\n' > "$TMP_DIR/storage/smartdns_conf.ini"
+cp "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" "$TMP_DIR/dnsmasq.before"
+cp "$TMP_DIR/storage/smartdns_conf.ini" "$TMP_DIR/smartdns-state.before"
 ENABLE_SMARTDNS=1
 SMARTDNS_PORT=6053
 export ENABLE_SMARTDNS SMARTDNS_PORT
 sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
-	echo "autostart failed during SmartDNS config cleanup" >&2
+	echo "autostart failed while dispatching the SmartDNS launcher" >&2
 	exit 1
 }
-if grep -Fxq 'no-resolv' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || grep -Fxq 'port=0' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"; then
-	echo "SmartDNS cleanup left stale DNSmasq directives" >&2
-	exit 1
-fi
-if grep -Fxq 'server=127.0.0.1#6053' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"; then
-	echo "SmartDNS cleanup left its stale configured upstream" >&2
-	exit 1
-fi
-grep -Fxq 'server=127.0.0.1#53' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
-	echo "SmartDNS cleanup removed an unrelated loopback upstream" >&2
+# Resolver cleanup belongs to SmartDNS's own transactional lifecycle,
+# not the generic autostart dispatcher. The stubbed launcher must not cause
+# autostart to edit DNSMasq configuration or consume SmartDNS's saved state.
+cmp -s "$TMP_DIR/dnsmasq.before" "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
+	echo "autostart modified DNSMasq configuration outside SmartDNS lifecycle" >&2
 	exit 1
 }
-grep -Fxq 'server=/example.com/127.0.0.1#6053' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
-	echo "SmartDNS cleanup removed a domain-specific upstream" >&2
-	exit 1
-}
-grep -Fxq 'server=8.8.8.8#53' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
-	echo "SmartDNS cleanup removed an unrelated upstream" >&2
+cmp -s "$TMP_DIR/smartdns-state.before" "$TMP_DIR/storage/smartdns_conf.ini" || {
+	echo "autostart consumed SmartDNS state before its launcher ran" >&2
 	exit 1
 }
 grep -Fxq 'custom-rule' "$TMP_DIR/storage/smartdns_custom.conf" || {
-	echo "SmartDNS cleanup removed custom configuration" >&2
+	echo "autostart removed a user-owned SmartDNS custom rule" >&2
 	exit 1
 }
 if grep -Eq '去广告|adbyby' "$TMP_DIR/storage/smartdns_custom.conf"; then
-	echo "SmartDNS cleanup retained obsolete ad-blocking configuration" >&2
+	echo "autostart did not remove obsolete ad-blocking custom lines" >&2
 	exit 1
 fi
 [ ! -e "$TMP_DIR/storage/smartdns_conf.ini" ] || {
-	echo "SmartDNS cleanup did not invalidate stale state" >&2
+	echo "SmartDNS launcher was not responsible for invalidating its saved state" >&2
 	exit 1
 }
 grep -Fxq 'smartdns:start' "$AUTOSTART_CALLS" || {
