@@ -75,9 +75,10 @@ require(ipoe_wait in wan_start, "IPoE startup must check the AP-client wait resu
 failure = wan_start.index("if (vlan_result != 0)", wan_start.index(ipoe_wait))
 failure_end = wan_start.index("continue;", failure)
 failure_body = wan_start[failure:failure_end]
-require("rc_first_service_start_status(wan_start_status, vlan_result)" in failure_body,
+failure_compact = "".join(failure_body.split())
+require("rc_first_service_start_status(wan_start_status,vlan_result)" in failure_compact,
         "IPoE timeout must reach the WAN startup result")
-require('set_wan_unit_value_int(unit, "err", 1)' in failure_body,
+require('set_wan_unit_value_int(unit,"err",1)' in failure_compact,
         "IPoE timeout must mark the WAN unit in error")
 require("aborting IPoE WAN activation" in failure_body,
         "IPoE timeout must be diagnosed")

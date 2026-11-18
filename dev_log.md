@@ -2,7 +2,7 @@
 
 - Parent main: `4388a1cca473a89255ba0ab938f19db450ee1ba5`. Two WAN startup paths called wait_apcli_connected() but discarded its result. The helper returns 0 when the AP-client interface never associates within its bounded wait, yet launch_wanx() and the IPoE path continued into DHCP/ZeroConf or static-address activation.
 - Convert an unsuccessful wait into ETIMEDOUT. Abort physical WAN client setup in launch_wanx(); in IPoE startup, preserve the first WAN error, mark the unit failed, and skip address/lease activation. Add GNU89/ASan/UBSan policy coverage plus source-contract checks for both callers and both workflow path filters.
-- Host Actions and the exact-source XY-C1 build must be checked after publication. No local checkout, MIPS build, physical-router association test or L4 result is claimed.
+- The first exact-head WAN route run `44252580099` compiled and ran the new host policy, then correctly stopped at a brittle source-check assertion that did not ignore C whitespace. Normalize the checked function body in the checker; rerun against the follow-up commit. The XY-C1 build `44252579883` was pending at the first observation. No local checkout, MIPS result or physical-router association test is claimed.
 
 ---
 
