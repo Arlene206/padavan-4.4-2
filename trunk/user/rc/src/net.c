@@ -43,6 +43,7 @@
 #include "conntrack_flush_policy.h"
 #include "igmpproxy_config_file.h"
 #include "service_start_status.h"
+#include "service_wait_policy.h"
 #include "ipv4_forward_policy.h"
 #include "wireless_module_load_policy.h"
 #include "hwnat_config_policy.h"
@@ -1510,6 +1511,7 @@ static int
 pppoe_relay_confirm_started(int launch_status)
 {
 	int attempt;
+	int wait_status;
 	int scan_error = 0;
 	enum process_presence presence = PROCESS_PRESENCE_ABSENT;
 
@@ -1529,8 +1531,16 @@ pppoe_relay_confirm_started(int launch_status)
 			errno = EIO;
 			break;
 		}
-		if (attempt + 1 < PPPOE_RELAY_START_WAIT_ATTEMPTS)
-			sleep(1);
+		if (attempt + 1 < PPPOE_RELAY_START_WAIT_ATTEMPTS) {
+			wait_status = service_wait_seconds(1);
+			if (wait_status != 0) {
+				wait_status = errno > 0 ? errno : EIO;
+				logmessage(LOGNAME, "PPPoE relay readiness wait failed (status=%d)",
+					   wait_status);
+				errno = wait_status;
+				return wait_status;
+			}
+		}
 	}
 
 	if (presence == PROCESS_PRESENCE_ABSENT)

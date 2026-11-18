@@ -313,7 +313,10 @@ assert "PPPOE_RELAY_START_WAIT_ATTEMPTS 4" in net_source
 assert "pppoe_relay_process_presence(&scan_error)" in pppoe_confirm
 assert "PROCESS_PRESENCE_RUNNING" in pppoe_confirm
 assert "PROCESS_PRESENCE_UNKNOWN" in pppoe_confirm
-assert "sleep(1);" in pppoe_confirm
+assert "service_wait_seconds(1)" in pppoe_confirm
+assert "wait_status = errno > 0 ? errno : EIO;" in pppoe_confirm
+assert "return wait_status;" in pppoe_confirm
+assert "sleep(1);" not in pppoe_confirm
 assert "pppoe_relay_start_status(launch_status, presence)" in pppoe_confirm
 udpxy_start = net_source.split("int\nstart_udpxy(char *wan_ifname)", 1)[1].split("\n#if defined(APP_XUPNPD)", 1)[0]
 assert "if (port < 1024)" in udpxy_start
