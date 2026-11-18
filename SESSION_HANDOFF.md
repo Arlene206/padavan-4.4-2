@@ -1,33 +1,33 @@
-# 2026-11-18 continuation checkpoint — correct HDD tuning caller contract
+# 2026-11-18 continuation checkpoint — propagate NDIS metadata cleanup failures
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS workflow assertion correction: `7f10d2251905fa77bea523e29abade95febcf234`.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS NDIS caller fix: `0985b536e5dd2a40387fcc2069f392519d17df49`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; unchanged.
-- Commit `7f10d225` added per-device/per-setting `hdparm` failure aggregation, SD hotplug tune-status propagation without blocking automount, a stubbed runtime regression, and storage/XY-C1 path filters.
-- Exact storage run `44218214340` passed the share-name sanitizer, the new HDD tuning runtime regression, NFS/Transmission/Aria/Optware/MTD/persistence/eject/lifecycle C tests, and earlier caller checks. It failed at the old SD caller return assertion on line 585, which still expected only swapoff/mount/topology status and omitted the new `tune_status`. The actual source intentionally includes tuning status in the final event result while continuing mount processing. THIS updates the stale assertion only.
-- Exact parent HTTPD `44218214337`, AdGuardHome `44218214583`, AliDDNS `44218214425`, AliyunDrive `44218214500`, infosvr `44218214426`, AI handoff `44218214429`, and Process lifecycle `44218214477` PASS; NVRAM `44218214310`, Process inventory `44218214527`, and XY-C1 firmware `44218214468` were still in progress at last poll.
-- Exact preceding head `7f50d54c` XY-C1 Build, TRX and artifact all PASS (`44216537251`); current 7f10 contains only the shell hotplug and SD result changes, so the 7f10 exact-head run must finish before current-source L3 is claimed.
-- No physical-router L4 result.
+- Commit `7f50d54c` fixed WDM stale metadata cleanup; exact USB modem, HTTPD, process inventory/lifecycle, infosvr, AI docs, AdGuardHome, AliDDNS, AliyunDrive and NVRAM runs passed on that SHA. XY-C1 `44216537251` completed Build, TRX and artifact upload successfully (L3 for 7f50 only).
+- HDD tuning commit `7f10d225` aggregates `hdparm` failures while continuing subsequent options/disks, and SD hotplug reports tuning status without blocking partition checks/automount. Its shell regression passed. Storage workflow first failed at an obsolete return assertion; the first correction `695d2450` mistakenly applied the SD-only status to MMC, then `0985b536` split those assertions correctly. Exact storage run `44218995113` PASS, including the new runtime test and whole caller-graph check.
+- Exact `0985b536` AI handoff `44218995112`, infosvr `44218995163`, AliyunDrive `44218995175`, AliDDNS `44218995159`, and AdGuardHome `44218995324` PASS; NVRAM `44218995246` and Process inventory `44218995232` remained in progress at last poll.
+- Found the remaining NDIS metadata-status bug: `mdev_net_main()` ignored all metadata removals, returned zero after failed `modem_node_file_publish_identity()` (including stale cleanup error -2), and therefore reported success even when old USB identity could remain.
+- THIS migrates NDIS to checked removal on unplug/topology/invalid-identity paths, sets a failure status on publisher/removal errors, logs whether stale metadata was removed, and returns the result after unlocking. Topology-not-ready stays benign when removal succeeds. USB/HTTPD contracts are extended; XY-C1 path filters now include USB hotplug and metadata helper dependencies.
+- The 7f10 XY-C1 run `44218214468` was still running at last poll, with pre-build regression steps passed; no same-source L3 claim. No physical-router L4 evidence.
 
 ## Active task
-- Rerun storage caller graph with the corrected expectation, then verify exact-head XY-C1 Build/TRX/artifact.
+- Verify exact-head USB modem, HTTPD and XY-C1 Actions for NDIS metadata failure/cleanup propagation.
 
 ## Verification boundary
-- HDD tuning runtime regression PASS on exact 7f10 in storage run `44218214340`; the overall storage Action FAILED only at the obsolete source assertion described above.
-- Exact-head HTTPD, AdGuardHome, AliDDNS, AliyunDrive, infosvr, AI docs and Process lifecycle PASS. NVRAM, Process inventory and XY-C1 were pending.
-- Firmware L3/L4 NOT VERIFIED.
+- Exact parent 0985 storage and AI docs PASS; infosvr, AliyunDrive, AliDDNS and AdGuardHome PASS. NVRAM and Process inventory were pending.
+- Prior XY-C1 L3 is proven only for 7f50 via run `44216537251`; the newer 7f10 source run remained in progress.
+- THIS NDIS change's exact-head USB/HTTPD/XY-C1 Actions are pending. Physical L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect this correction's exact-head storage and XY-C1 Actions. Confirm the storage caller graph and HDD tuning regression pass; require XY-C1 Build, TRX and artifact success on one SHA before calling L3 verified.
-2. Check any exact-head NVRAM/Process failures.
-3. Continue the next concrete userland stability defect; candidate follow-up is NDIS metadata error propagation from `mdev_net_main()`, whose current caller still discards publisher/cleanup failure and returns zero.
-4. Keep backup untouched and commit complete multi-file trees with non-forced expected-SHA updates.
+1. Inspect exact-head USB modem and HTTPD contracts; require NDIS, WDM and TTY checked cleanup/status assertions and metadata helper regression to PASS.
+2. Inspect exact-head XY-C1 Build, TRX and artifact upload; claim L3 only when all pass on the same SHA. Check current NVRAM/Process and storage results as well.
+3. Continue concrete P1 reliability fixes beyond USB/storage across the Padavan userland.
+4. Keep frozen backup unchanged; commit complete trees using non-forced expected-SHA updates.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional. At session end inspect live main, relevant exact-SHA Actions, current handoff/roadmap, validation boundary and first actionable task. If all remain accurate, explicitly conclude the check with no file change and no commit.
 
-
-Do not create no-op documentation commits; update this file at meaningful validation/active-task boundaries.
+Do not create no-op documentation commits; update this file only at meaningful active-task/verification boundaries.
 
 # Cross-session execution mandate
 

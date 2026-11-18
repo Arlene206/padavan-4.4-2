@@ -1,3 +1,12 @@
+## 2026-11-18 — Propagate NDIS metadata publication and cleanup failures
+
+- Parent main SHA: `0985b536e5dd2a40387fcc2069f392519d17df49`. Exact storage run `44218995113` and AI handoff `44218995112` PASS; infosvr `44218995163`, AliyunDrive `44218995175`, AliDDNS `44218995159` and AdGuardHome `44218995324` PASS. NVRAM `44218995246` and Process inventory `44218995232` remained in progress.
+- `mdev_net_main()` returned zero on every branch after acquiring its lock, even when NDIS metadata publication failed or stale metadata could not be removed. This covered unplug, unavailable USB topology, invalid devnum and writer failure.
+- Check all explicit removals, propagate publisher -1/-2 status as handler failure, log residual stale-file cleanup, and return after unlocking. Keep topology-not-ready nonfatal when stale metadata cleanup succeeds.
+- Extend USB/HTTPD NDIS source contracts and XY-C1 filters for the USB hotplug source and helper headers. Exact-head Actions pending; L3/L4 not claimed.
+
+---
+
 ## 2026-11-18 — Make SD/MMC HDD-tune status contract branch-specific; restore handoff checkpoint
 
 - Parent main SHA: `695d24501e52985cf6e10437fee84f285d9f34cb`. Storage check on 7f10 failed at the SD final-status assertion; collaborator commit 695d2450 added tune_status but unintentionally expected it in MMC too. The production source confirms only mdev_sd_main() runs hddtune; mdev_mmc_main() has no tune_status.

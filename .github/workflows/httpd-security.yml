@@ -2650,8 +2650,14 @@ jobs:
           tty_handler = hotplug[tty_start:]
           assert net_handler.index("modem_node_usb_identity_is_valid") < net_handler.index(
               "modem_node_file_publish_identity(")
+          assert "publish_status = modem_node_file_publish_identity(" in net_handler
+          assert "if (publish_status != 0)" in net_handler
           assert "publish_status == -2" in net_handler
-          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name);" in net_handler
+          assert "Failed to publish and remove stale NDIS metadata" in net_handler
+          assert "Failed to publish NDIS metadata; stale metadata removed" in net_handler
+          assert "metadata_status = 1;" in net_handler
+          assert "return metadata_status;" in net_handler
+          assert net_handler.count("modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0") == 3
           assert tty_handler.index("modem_node_usb_identity_is_valid") < tty_handler.index(
               "modem_node_file_publish_identity(")
           assert "publish_status == -2" in tty_handler

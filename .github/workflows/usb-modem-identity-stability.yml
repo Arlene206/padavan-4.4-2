@@ -154,7 +154,15 @@ jobs:
 
           net = body(hotplug, "int mdev_net_main(")
           assert "data_len >= 0 && data_len < (int)sizeof(node_data)" in net
-          assert "modem_node_file_publish_identity(" in net
+          assert net.index("modem_node_usb_identity_is_valid") < net.index("modem_node_file_publish_identity(")
+          assert "publish_status = modem_node_file_publish_identity(" in net
+          assert "if (publish_status != 0)" in net
+          assert "publish_status == -2" in net
+          assert "Failed to publish and remove stale NDIS metadata" in net
+          assert "Failed to publish NDIS metadata; stale metadata removed" in net
+          assert "metadata_status = 1;" in net
+          assert "return metadata_status;" in net
+          assert net.count("modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0") == 3
           tty = body(hotplug, "int mdev_tty_main(")
           assert "publish_status = modem_node_file_publish_identity(" in tty
           assert "if (publish_status != 0)" in tty
