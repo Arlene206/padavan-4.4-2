@@ -23,7 +23,7 @@
 4. Continue broader RC/userland P1 reliability work while unrelated Actions are pending.
 
 ## Mandatory handoff checkpoint
-Every session MUST inspect the live branch and exact-SHA Actions before ending. The checkpoint is mandatory; a handoff edit is conditional. If the facts remain accurate, make no no-op commit.
+Every session MUST inspect the live repository state and compare it with `SESSION_HANDOFF.md` before ending, verifying the active engineering baseline, exact-head Actions, validation boundary, blockers and exact first action. The checkpoint is mandatory; a document edit is conditional. If all facts remain accurate, make no file change and do not create a no-op commit.
 
 # Cross-session execution mandate
 Complete each logical source/test slice in one atomic main commit. Continue independent work while CI is PENDING. Before context exhaustion, leave a precise next action and tested/unverified boundaries. Never force-push, mutate the frozen backup, reopen PR #1 or claim unperformed tests/builds.
