@@ -158,7 +158,7 @@ fi
 
 CR_CONFIG="$TEST_TMP/config/carriage-return.conf"
 CR_BIN_CONFIG="$TEST_TMP/storage/carriage-return.conf"
-MENTOHUST_PASSWORD=$(printf 'invalid-secret\\rInjected=1')
+MENTOHUST_PASSWORD=$(printf 'invalid-secret\rInjected=1')
 export MENTOHUST_PASSWORD
 START_COUNT=$(wc -l < "$START_LOG" | tr -d ' ')
 if MENTOHUST_CONF_FILE="$CR_CONFIG" MENTOHUST_BIN_CONF_FILE="$CR_BIN_CONFIG" \

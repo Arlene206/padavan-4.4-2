@@ -44,6 +44,7 @@ for marker in (
     "MentoHUST accepted a symlink config destination",
     "MentoHUST accepted a line-break-bearing setting",
     "MentoHUST accepted a carriage-return-bearing setting",
+    r"printf 'invalid-secret\rInjected=1'",
     "Legacy wrappers preserve stale-pidfile safety and MentoHUST credential confidentiality",
 ):
     if marker not in test:
