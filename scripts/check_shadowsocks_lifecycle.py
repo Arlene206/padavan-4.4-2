@@ -168,7 +168,10 @@ require(startup.rfind('[ "$SS_START_STATUS" -ne 0 ] && return "$SS_START_STATUS"
 require(script.count("ssp_start || exit $?") == 2,
         "start/restart CLI actions must preserve ssp_start status before cache dropping")
 require("FAIL_TCP=31" in startup_test and "FAIL_UDP=32" in startup_test and
-        "FAIL_CGROUPS=30" in startup_test and "FAIL_DNS=35" in startup_test and
+        "FAIL_CGROUP_MKDIR=30" in startup_test and
+        "FAIL_CGROUP_CPU_WRITE=38" in startup_test and
+        "FAIL_CGROUP_MEM_WRITE=39" in startup_test and
+        "FAIL_CGROUP_READ=40" in startup_test and "FAIL_DNS=35" in startup_test and
         "FAIL_LOCAL=36" in startup_test and "FAIL_WATCHCAT=37" in startup_test and
         "FAIL_RULES=12" in startup_test and "FAIL_NVRAM_SET=41" in startup_test and
         "FAIL_DETECT=42" in startup_test and "FAIL_AUTO_UPDATE=55" in startup_test and
