@@ -38,6 +38,9 @@ case "$ADBYBY_TEST_PIDOF_MODE" in
 		exit 1
 		;;
 	absent)
+		polls=$(cat "$ADBYBY_TEST_POLL_FILE")
+		polls=$((polls + 1))
+		echo "$polls" > "$ADBYBY_TEST_POLL_FILE"
 		exit 1
 		;;
 	unknown)
