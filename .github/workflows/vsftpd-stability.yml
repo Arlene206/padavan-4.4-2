@@ -164,7 +164,7 @@ jobs:
           assert "int (*sleep_us)(void *context, unsigned int microseconds);" in daemon_policy
           assert "ops->sleep_us(context, 500000U) != 0" in daemon_policy
           assert "ops->sleep_us(context, 100000U) != 0" in daemon_policy
-          assert "fake.sleep_status != 0" in daemon_test
+          assert "fake->sleep_status != 0" in daemon_test
 
           acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
           acl_upload = function_body(vsftpd_acl, "asus_check_permission_upload(")
