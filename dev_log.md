@@ -1,3 +1,11 @@
+## 2026-11-18 — Correct the bounded wait checker to match four actual loops
+
+- Parent 2f3b still failed the final Shadowsocks source contract because the checker expected seven `sleep 1 || return 2` occurrences. Direct helper inspection confirms exactly four wait loops: named/pattern shutdown and named/pattern PID-count startup. The checker already asserts shutdown wait bounds and both startup count-loop bounds individually.
+- Correct the aggregate count from seven to four. This is a test-only alignment; all production shell regression stages had already passed on cfbf/2f3b.
+- AI handoff on 2f3b passed run `44284415671`. The cfbf XY-C1 run `44283616981` remained IN_PROGRESS at last check, so current-source L3 is not yet confirmed.
+
+---
+
 ## 2026-11-18 — Align Shadowsocks process checker with bounded count-readiness helpers
 
 - Exact-head cfbf 44283617060 passed shell syntax, startup status, bounded process lifecycle and adblock publication regressions, then failed in the static checker because it still expected five sleep guards from the old helper inventory.

@@ -1,11 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Exact source baseline cfbf00f9d9100daf82017403e63342658bbac29e fixes POSIX shell set -e handling for confirmed-ABSENT pidof/pgrep lookups. Exact-head process regression 44283617129, process inventory 44283616977, and AI docs 44283617094 PASS; Shadowsocks 44283617060 fails only in a stale source-checker count expecting five sleep guards instead of seven after the two bounded PID-count waits were added. The shell regression step itself passed.
-- Current atomic follow-up updates the checker to validate all seven bounded sleep guards and both PID-count wait caps; no production source changes in this follow-up.
-- XY-C1 run 44283616981 targets exact product-source SHA cfbf and was IN_PROGRESS at last observation. Build/TRX/artifact must all pass on cfbf before L3 can be claimed. Physical-router L4 NOT VERIFIED.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains immutable; PR #1 closed.
+- Production helper correction `cfbf00f9d9100daf82017403e63342658bbac29e` fixes ABSENT `pidof`/`pgrep` handling under caller `set -e`; its shell tests (syntax, startup status, process lifecycle and Adblock) passed, as did AI docs and Process inventory. Exact-head lifecycle still failed only in the static contract.
+- Parent `2f3b3f47c40e4453a654d4fc202b7bdeb2073cdc` changed the checker to expect seven `sleep 1 || return 2` sites, but helper inspection shows four bounded loops: named stop, pattern stop, named PID startup, pattern PID startup. The checker also independently asserts both shutdown limits and both startup bounds. THIS commit corrects the aggregate expected count to four; no production source changes.
+- cfbf XY-C1 run `44283616981` was IN_PROGRESS at last poll. Build/TRX/artifact still require confirmation for current product source. Physical-router L4 NOT VERIFIED.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable; PR #1 closed.
 
-Next P1: after exact-head checks, add validated start/readiness and rollback to ChinaDNS-ng and dnsmasq restart; then continue broader RC/userland stability work.
+Next P1: verify this checker correction, then add ChinaDNS-ng readiness and error propagation, followed by dnsmasq restart/rollback and wider RC/userland work.
+
 ---
 ## Whole-repository module status
 
