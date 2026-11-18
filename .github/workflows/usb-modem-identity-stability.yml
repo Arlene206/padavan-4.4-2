@@ -8,6 +8,8 @@ on:
       - "trunk/user/libdisk/src/dev_info.h"
       - "trunk/user/libdisk/src/usb_info.c"
       - "trunk/user/rc/src/hotplug_usb.c"
+      - "trunk/user/rc/src/modem_sr_status_policy.h"
+      - "trunk/user/rc/src/tests/modem_sr_status_policy.c"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
@@ -54,6 +56,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compile and run SCSI CD eject/unload result policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_sr_status_policy.c \
+            -o /tmp/modem-sr-status-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-sr-status-policy
       - name: Compile and run GNU89 modem identity and metadata regression
         run: |
           set -eu
@@ -89,6 +99,8 @@ jobs:
           dev_info_header = (libdisk / "dev_info.h").read_text()
           usb_info = (libdisk / "usb_info.c").read_text()
           hotplug = (rc / "hotplug_usb.c").read_text()
+          sr_policy = (rc / "modem_sr_status_policy.h").read_text()
+          sr_test = (rc / "tests/modem_sr_status_policy.c").read_text()
           modem = (rc / "usb_modem.c").read_text()
           services_stor = (rc / "services_stor.c").read_text()
           retry_policy = (rc / "modem_wan_start_policy.h").read_text()
@@ -171,6 +183,29 @@ jobs:
           assert ndis.index("get_usb_port_by_device(ndis_ifname") < ndis.index("find_modem_node_by_usb_identity") < ndis.index(tty_select)
           assert 'find_modem_node("cdc-wdm", 0, 0, -1, NULL)' not in ndis
           assert "modem_node_usb_identity_matches" in identity
+
+          sr = body(hotplug, "int mdev_sr_main(")
+          assert '#include "modem_sr_status_policy.h"' in hotplug
+          assert 'eject_status = _eval(eject_argv, NULL, 0, NULL);' in sr
+          assert 'unload_status = module_smart_unload("sr_mod", 1);' in sr
+          assert 'is_module_loaded_status("sr_mod")' in sr
+          assert "modem_sr_completion_status(eject_status, unload_status," in sr
+          assert "SCSI CD eject failed" in sr
+          assert "sr_mod unload incomplete" in sr
+          assert sr.index("eject_status = _eval") < sr.index("unload_status = module_smart_unload")
+          assert sr.index("unload_status = module_smart_unload") < sr.index("is_module_loaded_status")
+          assert sr.index("is_module_loaded_status") < sr.index("modem_sr_completion_status")
+          assert "unload_status != 0 || module_presence == 0" in sr_policy
+          for marker in (
+              "test_successful_unload",
+              "test_in_use_module_is_a_safe_noop",
+              "test_already_absent_module_is_a_safe_noop",
+              "test_present_module_after_unload_failure_is_rejected",
+              "test_unknown_module_presence_fails_closed",
+              "test_eject_failure_is_reported_even_when_unload_is_safe",
+              "USB SCSI CD eject/unload result policy: PASS",
+          ):
+              assert marker in sr_test
           assert "modem_node_identity_policy.h" in metadata
 
           remove = body(modem, "safe_remove_usb_modem(void)")
@@ -228,6 +263,8 @@ jobs:
               "trunk/user/libdisk/src/dev_info.h",
               "trunk/user/libdisk/src/usb_info.c",
               "trunk/user/rc/src/hotplug_usb.c",
+              "trunk/user/rc/src/modem_sr_status_policy.h",
+              "trunk/user/rc/src/tests/modem_sr_status_policy.c",
               "trunk/user/rc/src/services_stor.c",
               "trunk/user/rc/src/services_usb.c",
               "trunk/user/rc/src/rc.h",

@@ -1,13 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main parent before THIS HTTPD workflow variable-name repair: 01ce19d478735fe22ab2252929fe6dd0890ee330; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent 01ce WAN route 44210860686 PASS, including manual WISP return/PID1 aggregation contract; AI handoff 44210860863 PASS.
-- Exact parent 01ce HTTPD Security 44210860852 failed solely with `NameError: name 'net_wan' is not defined` in its new inline WISP assertion. The script binds relevant source variables as `wan`, `rc` and `header`; THIS commit aligns the assertions to those bindings. Product C source and intended behavior contract are unchanged.
-- Exact parent XY-C1 44210860887 queued/in progress with Build, TRX verification and artifact upload not confirmed; NVRAM audit 44210860859 in progress at raw userland ioctl/kernel API callers. No current L3 claim.
-- Product fix 01ce19d4 propagates manual WISP APCLI reassociation status to PID1 action_result, preserving the queue marker on failure.
-- No local MIPS build or physical-router L4 claim.
+- Main parent before THIS USB SCSI hotplug reliability fix: `2d91171b217e6f42a96fa5af7da3cdcacc499b3f`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Exact parent `2d91171b` HTTPD Security `44211273335`, AI handoff `44211273436` and infosvr `44211273238` PASS. XY-C1 `44211273337` remains in Build; NVRAM `44211273258` remains in raw userland/kernel caller audit. Other lifecycle/security workflows listed in the exact-SHA runs were pending at last poll.
+- `mdev_sr_main()` previously dropped SCSI eject and safe `sr_mod` unload results. THIS fix captures both; a tri-state sysfs presence probe distinguishes helper failure from already-absent module, retains module-in-use no-op, and fails closed on present/unknown state. Adds GNU89/Werror/ASan/UBSan tests and a USB modem source contract.
+- Exact-head USB modem L2 and current-source XY-C1 Build/TRX/artifact are pending; physical L4 NOT VERIFIED.
 
-Next: verify THIS exact-head HTTPD rerun; then inspect same-SHA XY-C1 Build/TRX/artifact and NVRAM audit while continuing independent P1 work.
+Next: verify exact-head USB modem test/source contract and same-SHA XY-C1 Build/TRX/artifact; inspect NVRAM audit and other in-flight checks; continue independent P1 work.
 
 ---
 

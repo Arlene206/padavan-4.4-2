@@ -1,28 +1,29 @@
-# 2026-11-18 continuation checkpoint — repair HTTPD WISP contract variable names
+# 2026-11-18 continuation checkpoint — surface USB SCSI CD eject/unload failures
 
 ## Current repository state
-- Repository: Arlene206/padavan-4.4-2; parent main before THIS workflow fix: 01ce19d478735fe22ab2252929fe6dd0890ee330.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Exact parent 01ce WAN route operation regression 44210860686 PASS, including the GNU89/ASan/UBSan route policy binary and manual WISP status source contract. AI handoff 44210860863 PASS.
-- Exact parent 01ce HTTPD Authentication/Security 44210860852 FAILED in the inline Python source-contract step with NameError: net_wan is not defined. The step loads the source as variables wan, rc and header, while the added WISP assertions mistakenly referenced net_wan, rc_main and rc_header. This is an inline test-harness name error, not a product-source failure. THIS workflow-only change corrects references to the variables loaded by that step.
-- Exact parent 01ce XY-C1 44210860887 was queued/in progress; Build, TRX verification and artifact upload not confirmed. NVRAM audit 44210860859 was in progress at raw userland IOCTL/kernel caller audit. Do not claim L3 until all three product build stages pass on the same SHA.
-- Product change 01ce19d4 converts manual_wisp_reassoc() to return reconnect_apcli() result; PID1 aggregates it into action_result, retaining the notification marker on failure. Missing WISP interface remains a successful no-op.
-- No local MIPS build or physical-router L4 claim.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS USB SCSI hotplug fix: `2d91171b217e6f42a96fa5af7da3cdcacc499b3f`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; untouched.
+- Exact parent `2d91171b` HTTPD Security `44211273335` PASS, AI handoff `44211273436` PASS, infosvr `44211273238` PASS. XY-C1 `44211273337` remains IN_PROGRESS at `Build XY-C1`; TRX and artifact upload not reached. NVRAM audit `44211273258` remains IN_PROGRESS at raw userland ioctl/kernel caller audit. AliDDNS, AdGuardHome, Process inventory and AliyunDrive were IN_PROGRESS at last poll.
+- Exact parent `01ce19d4` WAN route `44210860686` PASS; its WISP return/PID1 aggregation source contract is covered. Latest follow-on HTTPD contract failure was repaired in `2d91171b`; exact HTTPD rerun on that SHA PASSed.
+- Found a false-success path in `mdev_sr_main()`: SCSI CD eject `_eval()` and `module_smart_unload("sr_mod", 1)` results were discarded, then the handler printed success and returned zero. THIS slice captures/logs both statuses. It still attempts unload after eject failure. Because `module_smart_unload()` returns zero both on a failure and when its refcount file is unavailable (including an already-absent module), the new code uses `is_module_loaded_status()` to distinguish known absence (safe/idempotent completion) from a still-present or unknown module (fail closed). Positive unload status preserves the helper's documented successful-unload/in-use-no-op behavior.
+- Added GNU89/Werror/ASan/UBSan policy coverage for successful unload, in-use no-op, already-absent no-op, present module after failed unload, unknown presence and eject errors. The USB modem workflow pins caller status capture, tri-state probing, diagnostics and operation ordering.
+- No current-source MIPS firmware build or physical-router L4 claim.
 
 ## Active task
-- Correct HTTPD Security's inline source assertions to use its actual loaded Python bindings (wan, rc, header), retaining the WISP status/dispatcher contract.
+- Prevent SCSI CD event handling from claiming success after eject or safe-unload failure; treat a module proven absent as already complete, but fail closed when it remains present or presence cannot be determined.
 
 ## Verification boundary
-- Exact parent 01ce WAN route and AI handoff PASS.
-- Exact parent 01ce HTTPD Security FAIL from NameError on the three incorrectly named variables; THIS is a workflow harness repair only.
-- Parent XY-C1 44210860887 and NVRAM 44210860859 remained pending at last poll.
-- THIS workflow correction's exact-head HTTPD rerun pending. No L3/L4 claim.
+- THIS source/policy/workflow slice is not yet verified on its exact new SHA; the USB modem WDM/NDIS workflow is the primary L2 gate.
+- Exact parent `2d91171b` HTTPD Security and AI handoff PASS; XY-C1 `44211273337` and NVRAM `44211273258` remain pending as above.
+- L3 requires same-SHA Build, TRX verification and artifact upload all PASS. Physical-router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect THIS commit's exact-head HTTPD Authentication/Security job and require the bounded service/WAN source step to pass using bindings wan, rc and header.
-2. Recheck exact-head WAN route and AI handoff; they passed on parent 01ce.
-3. Inspect XY-C1 Build, Verify TRX output and artifact upload on one exact product-source SHA, plus NVRAM raw IOCTL/kernel caller audit. Do not claim L3 before all three firmware stages pass.
-4. Continue independent P1 reliability/security work while remaining Actions run. Keep frozen backup untouched.
+1. Inspect exact-head USB modem workflow; require the new SCSI eject/unload GNU89 sanitizer test and source contract to PASS.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact upload; no L3 claim until all three pass on one SHA.
+3. Inspect NVRAM raw IOCTL/kernel caller audit and the remaining lifecycle/security Actions on the same source SHA.
+4. Continue another independent P1 storage/service/security defect while pending runs execute. Keep the frozen backup untouched; do not repeat bootstrap recovery.
+
+Every logical multi-file change is published as one atomic main commit built from one complete Git tree and updated with a non-forced expected-SHA compare-and-swap.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.

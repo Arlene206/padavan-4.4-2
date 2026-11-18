@@ -1,3 +1,12 @@
+## 2026-11-18 — Propagate USB SCSI CD eject/unload failures
+
+- Parent main SHA: `2d91171b217e6f42a96fa5af7da3cdcacc499b3f`. Exact parent HTTPD Security `44211273335`, AI docs `44211273436`, infosvr `44211273238` PASS. XY-C1 `44211273337` remains in Build; NVRAM `44211273258` remains at raw ioctl/kernel caller audit; several other lifecycle/security checks were pending.
+- `mdev_sr_main()` discarded both `eject -s` and `module_smart_unload("sr_mod", 1)` results, then always printed success. This hid incomplete virtual-CD eject or driver-unload operations.
+- Capture/log eject and unload results. Because module_smart_unload returns zero when the module is absent or when unload fails, a tri-state `is_module_loaded_status()` check treats confirmed absence as idempotent success while rejecting present/unknown state. Preserve positive result for already-in-use no-op. Add GNU89/Werror/ASan/UBSan regression and exact USB modem source contract.
+- Exact-head USB modem and XY-C1 Build/TRX/artifact pending. Physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Fix HTTPD WISP source-check variable names
 
 - Parent main SHA: 01ce19d478735fe22ab2252929fe6dd0890ee330. Exact parent WAN route 44210860686 PASS (including manual WISP status propagation/source contract); AI handoff 44210860863 PASS.

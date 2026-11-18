@@ -32,6 +32,7 @@
 
 #include "rc.h"
 #include "modem_node_file.h"
+#include "modem_sr_status_policy.h"
 
 static char *
 _basename(char *name)
@@ -170,7 +171,7 @@ int mdev_sg_main(int argc, char **argv)
 
 int mdev_sr_main(int argc, char **argv)
 {
-	int isLock, path_len;
+	int isLock, path_len, eject_status, unload_status, module_status;
 	char *device_name, *action;
 
 	if (argc != 3){
@@ -208,10 +209,29 @@ int mdev_sr_main(int argc, char **argv)
 			file_unlock(isLock);
 			return 1;
 		}
-		_eval(eject_argv, NULL, 0, NULL);
+		eject_status = _eval(eject_argv, NULL, 0, NULL);
 	}
+	if (eject_status != 0)
+		logmessage("USB", "SCSI CD eject failed for %s (status=%d)",
+			   device_name, eject_status);
+
 	sleep(1);
-	module_smart_unload("sr_mod", 1);
+	/* Always attempt safe unload. A helper success includes the in-use no-op;
+	 * if it reports failure, distinguish an already-absent module from an
+	 * unknown or still-present module before deciding whether to fail. */
+	unload_status = module_smart_unload("sr_mod", 1);
+	module_status = (unload_status != 0) ? 1 : is_module_loaded_status("sr_mod");
+	if (unload_status == 0 && module_status != 0)
+		logmessage("USB",
+			   "sr_mod unload incomplete for %s (helper=%d, presence=%d)",
+			   device_name, unload_status, module_status);
+
+	if (modem_sr_completion_status(eject_status, unload_status,
+				       module_status) != 0) {
+		usb_dbg("(%s): SCSI CD handling incomplete.\n", device_name);
+		file_unlock(isLock);
+		return 1;
+	}
 
 	usb_dbg("(%s): Success!\n", device_name);
 	file_unlock(isLock);
