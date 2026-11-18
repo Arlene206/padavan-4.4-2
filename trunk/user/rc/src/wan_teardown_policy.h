@@ -17,6 +17,17 @@ wan_teardown_status_update(int current_status, int operation_status)
 	return (operation_status != 0) ? -1 : current_status;
 }
 
+/* Keep the initiating teardown error; otherwise report a failed monitor resume. */
+static inline int
+wan_teardown_abort_status(int operation_status, int resume_status)
+{
+	if (operation_status != 0)
+		return operation_status;
+	if (resume_status != 0)
+		return resume_status;
+	return -1;
+}
+
 /*
  * Attempt every distinct interface even after an earlier failure.  Callers
  * must not publish WAN-down state unless the complete teardown succeeds.

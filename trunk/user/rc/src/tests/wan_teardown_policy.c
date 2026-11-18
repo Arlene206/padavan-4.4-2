@@ -107,6 +107,16 @@ test_status_update_handles_errno_and_ioctl_failures(void)
 	assert(wan_teardown_status_update(-1, EIO) == -1);
 }
 
+static void
+test_abort_status_preserves_primary_and_reports_resume_failures(void)
+{
+	assert(wan_teardown_abort_status(EIO, 0) == EIO);
+	assert(wan_teardown_abort_status(EIO, EBUSY) == EIO);
+	assert(wan_teardown_abort_status(-1, EBUSY) == -1);
+	assert(wan_teardown_abort_status(0, EBUSY) == EBUSY);
+	assert(wan_teardown_abort_status(0, 0) == -1);
+}
+
 int
 main(void)
 {
@@ -117,5 +127,6 @@ main(void)
 	test_duplicate_names_are_attempted_once();
 	test_invalid_required_inputs_fail_without_side_effects();
 	test_status_update_handles_errno_and_ioctl_failures();
+	test_abort_status_preserves_primary_and_reports_resume_failures();
 	return 0;
 }

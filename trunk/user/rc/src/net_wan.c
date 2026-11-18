@@ -2247,7 +2247,7 @@ stop_wan_ppp_locked(void)
 #endif
 		"l2tpd", "xl2tpd", "pppd", NULL
 	};
-	int pause_status, stop_status = -1;
+	int pause_status, stop_status = 0, resume_status;
 
 	/* A running monitor must be paused before fencing or stopping PPP. */
 	pause_status = notify_pause_detect_internet();
@@ -2257,17 +2257,26 @@ stop_wan_ppp_locked(void)
 			   pause_status);
 		return pause_status;
 	}
-	if (invalidate_wan_ppp_callback_session() != 0) {
-		logmessage(LOGNAME, "refusing to stop WAN PPP without callback-session fencing");
+	stop_status = invalidate_wan_ppp_callback_session();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing to stop WAN PPP because callback-session fencing failed (status=%d)",
+			   stop_status);
 		goto abort_resume_detect;
 	}
 	nvram_set_int_temp("deferred_wanup_t", 0);
-	if (stop_vpn_client_under_lifecycle_lock() != 0) {
-		logmessage(LOGNAME, "refusing WAN PPP teardown because VPN client stop was incomplete");
+	stop_status = stop_vpn_client_under_lifecycle_lock();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN PPP teardown because VPN client stop was incomplete (status=%d)",
+			   stop_status);
 		goto abort_resume_detect;
 	}
-	if (kill_services(svcs_ppp, 6, 1) != 0) {
-		logmessage(LOGNAME, "refusing to clear WAN PPP state while PPP services remain active");
+	stop_status = kill_services(svcs_ppp, 6, 1);
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing to clear WAN PPP state while PPP services remain active (status=%d)",
+			   stop_status);
 		goto abort_resume_detect;
 	}
 	clear_wan_state();
@@ -2275,8 +2284,12 @@ stop_wan_ppp_locked(void)
 	return 0;
 
 abort_resume_detect:
-	(void)notify_run_detect_internet(2);
-	return stop_status;
+	resume_status = notify_run_detect_internet(2);
+	if (resume_status != 0)
+		logmessage(LOGNAME,
+			   "Internet monitor resume failed after aborted WAN PPP teardown (status=%d)",
+			   resume_status);
+	return wan_teardown_abort_status(stop_status, resume_status);
 }
 
 static int
@@ -2302,7 +2315,7 @@ static int
 stop_wan_locked(void)
 {
 	int unit, wan_proto, ifdown_status, stop_status = -1;
-	int pause_status, eapol_stop_status, kabinet_stop_status;
+	int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;
 #if defined (USE_IPV6)
 	int ipv6_status = 0;
 #endif
@@ -2456,8 +2469,12 @@ stop_wan_locked(void)
 abort_resume_detect:
 	/* Every failure exits before a confirmed complete teardown; restore the
 	 * monitor so it can observe or recover the still-live/partial WAN. */
-	(void)notify_run_detect_internet(2);
-	return stop_status != 0 ? stop_status : -1;
+	resume_status = notify_run_detect_internet(2);
+	if (resume_status != 0)
+		logmessage(LOGNAME,
+			   "Internet monitor resume failed after aborted WAN teardown (status=%d)",
+			   resume_status);
+	return wan_teardown_abort_status(stop_status, resume_status);
 }
 
 static int

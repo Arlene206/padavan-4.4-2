@@ -1,8 +1,8 @@
-# 2026-11-19 continuation checkpoint — repair autostart downstream regression contracts
+# 2026-11-19 continuation checkpoint — preserve WAN PPP teardown failure status
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development branch is `main` only. Current source parent for this static-contract repair: `e0e24637fcb2901bef453812747a5f2e7b74f864`.
+- Repository: `Arlene206/padavan-4.4-2`; active development branch is `main` only. WAN PPP teardown correction is based on parent `d8b5e9206024ba45208d95fbb1ff4dc5d73d0b4d`.
 - Inadyn production SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 `44381563540` all PASS. Exact-source XY-C1 Build, TRX verification and artifact upload completed; L3 is verified for this exact production SHA.
 - Downstream checker/handoff repair main SHA `1b3117769d52021de09ba09ffbee011e149de3fe`: DNSMasq `44382455939`, WAN route `44382456589`, and AI docs `44382456088` PASS.
 - RStats history-read source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054`, and AI docs `44384384820` PASS. Process fail-closed `44384384017`, XY-C1 `44384384072`, and NVRAM `44384384235` were IN_PROGRESS at the last check. The host exact-read harness passed GNU89/Werror with ASan/UBSan; no full repository test or MIPS build was performed.
@@ -10,7 +10,7 @@
 - RStats production SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats, Process inventory, Process fail-closed, HTTPD, AI docs, NVRAM and XY-C1 all PASS; exact-SHA XY-C1 Build, TRX and artifact upload completed (L3).
 - Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112` and HTTPD `44386912691` PASS; AliDDNS `44386912869` and FRP `44386912971` initially failed on stale downstream contracts.
 - Static-contract repair SHA `e0e24637fcb2901bef453812747a5f2e7b74f864`: AI docs `44388094912` and Process inventory `44388094850` PASS. AliDDNS `44388094895` failed because `function_body()` expected an opening brace on the function declaration line; FRP `44388094871` failed because its checker still required direct `nvram get frpc/frps` assignments. This commit fixes both static contracts. The FRP extracted-helper host fixture and injected failure cases had passed before its static-check step.
-- XY-C1 `44386912939` for autostart product SHA `51596e1` still needs a final Build/TRX/artifact status check; do not claim L3 from earlier source builds.
+- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: exact-head XY-C1 `44386912939` completed Build XY-C1, TRX verification and artifact upload successfully (L3).
 - Current change modifies only static checker scripts and docs. Exact-head AliDDNS/FRP/Process/AI checks remain required. Physical-router/hardware L4 is NOT VERIFIED.
 - This repair changes the AliDDNS static checker and FRP host fixture only; production script SHA remains `51596e1`. Exact-head AliDDNS/FRP/Process/AI checks are required after this fix; product L3 and physical-router L4 are not verified for the current autostart production change.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
@@ -86,26 +86,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Close the two static source-contract mismatches introduced by the checked autostart NVRAM abstraction, then validate the exact head.
+Fix WAN PPP teardown failure reporting and monitor recovery diagnostics.
 
-- AliDDNS run `44388094895` failed because `function_body()` was passed `autostart_nvram_read() {` while production shell declares the helper name and puts the opening brace on the next line. Anchor on `autostart_nvram_read()` / `autostart_nvram_enabled()`.
-- FRP run `44388094871` failed at `check_frp_lifecycle.py`: it still expected direct `frpc_enable/frps_enable=$(nvram get ...)` assignments. Its shell host fixture had passed after importing the shared helper; update the static contract to verify both checked helper calls, original-status propagation, and the client/server combined decision, retaining both failure-injection tests.
-- This slice changes source-contract tests and docs only; no packaged source or workflow trigger is altered.
-- No local Python/shell test was executed; inspect exact-head Actions after commit.
+- `stop_wan_ppp_locked()` initialized `stop_status=-1` but never assigned the return values from `invalidate_wan_ppp_callback_session()`, `stop_vpn_client_under_lifecycle_lock()`, or `kill_services(svcs_ppp,...)`. Every abort therefore returned a generic -1 and lost the original operation status.
+- Both the PPP abort path and full `stop_wan_locked()` abort path discarded `notify_run_detect_internet(2)` status, leaving monitor recovery failure silent.
+- Added tested `wan_teardown_abort_status(operation_status, resume_status)`: preserve the primary failure; otherwise return a resume failure; use -1 only as final fallback. PPP teardown now captures/logs exact operation statuses; both abort paths report monitor-resume failures.
+- Existing `wan-teardown-stability.yml` already compiles GNU89/Werror policy tests and watches the modified source/header/test paths. No workflow-path widening is needed.
+- No local build/test was run; exact-head Actions are pending.
 
 ## Verification boundary
 
-- Production autostart SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112`, HTTPD `44386912691` PASS; AliDDNS `44386912869` and FRP `44386912971` initially failed on stale downstream integration contracts.
-- Static-contract repair SHA `e0e24637fcb2901bef453812747a5f2e7b74f864`: AI docs `44388094912` and Process inventory `44388094850` PASS; AliDDNS `44388094895` FAIL (function signature extraction), FRP `44388094871` FAIL (obsolete direct-read assertion). This commit addresses those exact failures.
-- XY-C1 run `44386912939` still requires Build/TRX/artifact verification for production SHA `51596e1`. No L3 claim is made.
-- Prior RStats SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961` has exact-SHA XY-C1 Build/TRX/artifact PASS (L3); this does not transfer to the current product change.
-- Physical-router/hardware L4 remains NOT VERIFIED.
+- Parent SHA `d8b5e9206024ba45208d95fbb1ff4dc5d73d0b4d`: AliDDNS `44388958868`, FRP `44388958846` and AI handoff docs `44388958941` PASS.
+- Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle, DNSMasq, AI docs, Process inventory, HTTPD and XY-C1 `44386912939` PASS. Build, TRX verification and artifact upload completed (L3).
+- This WAN change modifies RC C source, policy header, unit test and existing workflow source contract. Exact-head WAN teardown CI is required; no MIPS build or physical-router L4 is claimed.
+- Frozen archival backup remains read-only.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head AliDDNS and FRP workflow runs for this static-checker repair; fix any concrete failure without weakening the contract.
-2. Poll XY-C1 run `44386912939` for the autostart production SHA; inspect Build, TRX verification and artifact upload separately.
-3. Continue the next independent concrete stability/security issue while Actions are pending. Keep the backup branch immutable and do not repeat the closed RC wrapper caller audit.
+1. Inspect exact-head `wan-teardown-stability.yml` and Process lifecycle Actions; fix any concrete assertion/compiler failure without weakening regression coverage.
+2. Confirm the GNU89/Werror C policy test and static source-contract assertions pass on the exact WAN commit.
+3. Continue the next independent stability/security defect while Actions are pending; keep the backup branch immutable.
 
 
 ## Mandatory handoff checkpoint

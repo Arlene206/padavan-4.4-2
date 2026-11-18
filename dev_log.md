@@ -1,3 +1,11 @@
+## 2026-11-19 — Preserve WAN PPP teardown and monitor-resume failure status
+
+- Parent SHA: `d8b5e9206024ba45208d95fbb1ff4dc5d73d0b4d`. Exact-head AliDDNS `44388958868`, FRP `44388958846` and AI handoff `44388958941` passed. Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf` completed XY-C1 Build, TRX verification and artifact upload `44386912939` (L3).
+- WAN teardown review found `stop_wan_ppp_locked()` initialized `stop_status=-1` but never assigned callback-session fencing, VPN client stop or PPP daemon-stop results; all failure paths discarded the initiating status. PPP and full WAN abort handlers also ignored Internet-monitor resume errors.
+- Added `wan_teardown_abort_status()` to preserve the original operation failure and surface a resume error when it is the only failure. PPP teardown now captures and logs the exact return from each operation; both abort paths log a failed monitor resume.
+- Extended the existing GNU89/Werror C policy regression for primary-error precedence, resume-only failure and fallback. Extended existing `wan-teardown-stability.yml` source contracts. Existing path filters cover all modified files.
+- No local compile/test, full firmware build or hardware-router validation was run. Exact-head WAN Actions pending; physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-19 — Align AliDDNS and FRP static contracts with shared NVRAM helper
 
 - Parent SHA: `e0e24637fcb2901bef453812747a5f2e7b74f864`. Static-contract repair SHA `e0e24637fcb2901bef453812747a5f2e7b74f864`: AI docs `44388094912` and Process inventory `44388094850` PASS; AliDDNS `44388094895` and FRP `44388094871` failed at static source-check steps.

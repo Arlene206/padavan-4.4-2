@@ -119,8 +119,28 @@ jobs:
           wan_start_pos = full_restart.index("status = start_wan();")
           assert (wan_bridge_call < wan_bridge_gate < wan_bridge_log < wan_bridge_return <
                   lan_bridge_call < lan_bridge_gate < lan_bridge_log < lan_bridge_return < wan_start_pos)
+          ppp_stop = function_body(source, "stop_wan_ppp_locked(void)")
+          assert "int pause_status, stop_status = 0, resume_status;" in ppp_stop
+          assert "stop_status = invalidate_wan_ppp_callback_session();" in ppp_stop
+          assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in ppp_stop
+          assert "stop_status = kill_services(svcs_ppp, 6, 1);" in ppp_stop
+          assert ppp_stop.index("stop_status = invalidate_wan_ppp_callback_session();") < ppp_stop.index("stop_status = stop_vpn_client_under_lifecycle_lock();") < ppp_stop.index("stop_status = kill_services(svcs_ppp, 6, 1);")
+          assert "resume_status = notify_run_detect_internet(2);" in ppp_stop
+          assert "Internet monitor resume failed after aborted WAN PPP teardown" in ppp_stop
+          assert "return wan_teardown_abort_status(stop_status, resume_status);" in ppp_stop
+
+          assert "int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;" in stop
+          assert "resume_status = notify_run_detect_internet(2);" in stop
+          assert "Internet monitor resume failed after aborted WAN teardown" in stop
+          assert "return wan_teardown_abort_status(stop_status, resume_status);" in stop
+
           policy = (rc / "wan_teardown_policy.h").read_text()
-          assert "operation_status != 0" in policy
+          abort_status = function_body(policy, "wan_teardown_abort_status(")
+          assert "if (operation_status != 0)" in abort_status
+          assert "return operation_status;" in abort_status
+          assert "if (resume_status != 0)" in abort_status
+          assert "return resume_status;" in abort_status
+          assert "return -1;" in abort_status
 
           paths = (
               ".github/workflows/wan-teardown-stability.yml",
