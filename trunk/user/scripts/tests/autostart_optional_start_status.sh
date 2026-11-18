@@ -62,6 +62,7 @@ STUB
 cat > "$TMP_DIR/bin/smartdns.sh" <<'STUB'
 #!/bin/sh
 printf 'smartdns:%s\n' "$*" >> "$AUTOSTART_CALLS"
+printf 'smartdns-port:%s\n' "${SMARTDNS_PORT:-}" >> "$AUTOSTART_CALLS"
 exit "${SMARTDNS_STATUS:-0}"
 STUB
 cat > "$TMP_DIR/bin/aliddns.sh" <<'STUB'
@@ -187,18 +188,23 @@ export SMARTDNS_STATUS
 : > "$AUTOSTART_LOG"
 : > "$AUTOSTART_CALLS"
 printf 'server=127.0.0.1#6053\nserver=127.0.0.1#53\n' > "$TMP_DIR/storage/dnsmasq/dnsmasq.conf"
+cp "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" "$TMP_DIR/dnsmasq.invalid-port.before"
 SMARTDNS_PORT='6053/d'
 export SMARTDNS_PORT
 sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || {
-	echo "autostart failed on an invalid SmartDNS port value" >&2
+	echo "autostart failed while dispatching SmartDNS with an invalid port" >&2
 	exit 1
 }
-grep -Fxq 'server=127.0.0.1#6053' "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
-	echo "invalid SmartDNS port modified a dnsmasq upstream" >&2
+grep -Fxq 'smartdns:start' "$AUTOSTART_CALLS" || {
+	echo "autostart did not dispatch SmartDNS for launcher-side validation" >&2
 	exit 1
 }
-grep -Fq 'SmartDNS port is invalid; leaving the dnsmasq loopback upstream unchanged' "$AUTOSTART_LOG" || {
-	echo "invalid SmartDNS port was not rejected before sed" >&2
+grep -Fxq 'smartdns-port:6053/d' "$AUTOSTART_CALLS" || {
+	echo "autostart did not pass the configured SmartDNS port to its launcher" >&2
+	exit 1
+}
+cmp -s "$TMP_DIR/dnsmasq.invalid-port.before" "$TMP_DIR/storage/dnsmasq/dnsmasq.conf" || {
+	echo "autostart modified DNSMasq upstreams before SmartDNS validated the port" >&2
 	exit 1
 }
 
