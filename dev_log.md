@@ -1,3 +1,10 @@
+## 2026-11-19 — Reject the remaining IANA-reserved IPv6 GUA ranges in AliDDNS
+
+- Parent main SHA: `f57161cc56f82f1b091093a8e93eac012413ce15`. Its Process inventory `44375203938`, AI docs `44375203886`, Switch CLI `44375203978` and NVRAM audit `44375203974` all PASS.
+- The IANA IPv6 Global Unicast Address Space registry lists the consecutive RESERVED blocks `2d00::/8`, `2e00::/7`, `3000::/5`, `3800::/6`, `3c00::/7`, `3e00::/8` and the `3f00..` subdivisions. The preceding filter only rejected first hextets >= `0x3f00`, leaving `2d00..3eff` incorrectly eligible when Linux reports `Scope:Global`.
+- Move the public-GUA cutoff to `0x2d00` (decimal 11520), preserving the preceding allocated `2c00::/12` block. Extend the real discovery fixture across both boundaries of every reserved range and pin the numeric cutoff in the AliDDNS source checker.
+- No local regression or MIPS build was run in this connector-only session. Exact-head AliDDNS/Process/AI/HTTPD/XY-C1 Actions for this new SHA remain pending; physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-19 — Reject duplicate Clause 45 MDIO CLI options before ioctl
 
 - Base main SHA: `f3efd5e4a7101b930e699c54704fcf25a5ae341d`. On that exact SHA AliDDNS (`44373890929`), Process inventory (`44373890954`), AI docs (`44373891052`) and HTTPD security (`44373891002`) passed; XY-C1 `44373890927` was still building.

@@ -384,12 +384,15 @@ require(
     and "six-to-four" in ipv6_test
     and "reserved-3f00" in ipv6_test
     and "reserved-3ffe" in ipv6_test
+    and "allocated-boundary" in ipv6_test
+    and "2cff::1" in ipv6_test
+    and "for reserved_group in 2d00 2dff 2e00 2fff 3000 37ff 3800 3bff 3c00 3dff 3e00 3eff 3f00 3fff" in ipv6_test
     and "'2001:4:112::1'" in ipv6_test,
     "WAN IPv6 regression must cover IANA reserved ranges and globally reachable exceptions",
 )
 require("function parse_part(part, target, offset" in ipv6_public_valid and
         "groups[left_count + i] = 0" in ipv6_public_valid and
-        "first < 8192 || first >= 16128" in ipv6_public_valid and
+        "first < 8192 || first >= 11520" in ipv6_public_valid and
         "if (first == 8194)" in ipv6_public_valid and
         "if (first == 8193 && second <= 511)" in ipv6_public_valid and
         "second == 1 && third == 0" in ipv6_public_valid and

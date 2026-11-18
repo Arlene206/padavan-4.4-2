@@ -642,9 +642,11 @@ aliddns_ipv6_public_valid() {
 			# Special-purpose exceptions inside the broad 2000::/3 allocation:
 			# 2001::/23 is reserved unless a more-specific globally reachable
 			# assignment exists; retain those exact IANA exceptions only.
-			# 2002::/16 (6to4) is not universally globally reachable.
-			# 2001:db8::/32 is documentation; 3f00::/8 remains reserved.
-			if (first < 8192 || first >= 16128)
+			# IANA reserves the GUA tail from 2d00:: through 3fff::; 2c00::/12
+			# is the preceding allocated RIR block and remains eligible.
+			# 2002::/16 (6to4) is not a direct, universally reachable endpoint.
+			# 2001:db8::/32 is documentation and is filtered below.
+			if (first < 8192 || first >= 11520)
 				exit 1
 			if (first == 8194)
 				exit 1

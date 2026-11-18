@@ -52,7 +52,7 @@ Reviewed `trunk/user/rc/src/init.c::init_sysctl()` against its callers and later
 - XY-C1 run `44360411938` on product-source SHA `66bdedc162493cda29d36864d17afaa826e0516b` is SUCCESS, including Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for that exact product-source SHA; physical-router L4 remains NOT VERIFIED.
 - Firewall Startup `44360411721` and HTTPD Security `44360411452` also PASS on `66bdedc`; no known failure remains on the disabled-IPv6 source/checker slice.
 - The current SYN-cookie source change is a new firmware-source SHA; its WAN route, XY-C1 and all other path-triggered exact-head checks must be inspected before claiming verification.
-## Active task — reject non-global IPv6 special-purpose prefixes in stock AliDDNS WAN discovery
+## Completed source slice — reject non-global IPv6 special-purpose prefixes in stock AliDDNS WAN discovery
 
 The stock `arIpAddress6()` accepted any syntactically valid-looking address in `2000::/3` after checking Linux `Scope:Global`. That is insufficient: this broad global-unicast allocation contains special-purpose prefixes that IANA does not classify as globally reachable, including `2001:db8::/32` and the newer `3fff::/20` documentation range, benchmarking `2001:2::/48`, and deprecated ORCHIDv1 `2001:10::/28`. The kernel scope label does not replace address-registry classification.
 
@@ -64,11 +64,11 @@ This slice adds an eight-hextet numeric classifier to stock WAN discovery, rejec
 - Runtime-gate SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`: 22/22 exact-head workflows SUCCESS; XY-C1 run `44368075437` completed Build XY-C1, TRX verification and artifact upload.
 - The active AliDDNS IPv6 classification change is a new firmware/source SHA; no validation result from either previous WAN SHA transfers to it.
 
-## Active task — reject duplicate Clause 45 MDIO CLI options before ioctl
+## Completed source slice — reject duplicate Clause 45 MDIO CLI options before ioctl
 
 Reviewed the production MT7621 Clause 45 utility `trunk/user/utils/src/switch/mii_mgr_cl45.c` and its host regression. The parser validated ranges and required all fields, but accepted duplicate `-p`, `-d`, `-r`, and `-v` flags with silent last-value-wins semantics; it also accepted repeated `-g`/ `-s` mode flags. This is inconsistent with the Clause 22 utility, which rejects duplicate required fields, and makes an invocation ambiguous when it changes PHY/DEVAD/register/value selection. The parser runs before socket creation and hardware ioctl, so duplicate inputs should fail before either operation.
 
-This slice rejects every duplicate mode or field flag and adds host tests for duplicate GET/SET modes, port, device address, register address, and write value. Existing switch workflow already compiles the utility under GNU89/Werror and runs the ASan/UBSan host regression. Exact-head Switch CLI and XY-C1 Actions for this new source SHA remain to be checked; no live PHY or hardware L4 validation is claimed.
+The parser now rejects every duplicate mode or field flag and the host regression covers duplicate GET/SET modes, port, device address, register address and write value. Exact-head Switch CLI (`44375203978`), Process inventory (`44375203938`), AI docs (`44375203886`) and NVRAM audit (`44375203974`) all PASS on `f57161cc56f82f1b091093a8e93eac012413ce15`. No XY-C1 run was triggered by this utility-only change; live PHY/hardware L4 remains unverified.
 
 ### IANA IPv6 filter validation boundary
 

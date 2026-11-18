@@ -82,6 +82,10 @@ OUTPUT
           inet6 addr: 3ffe:0000:0000:0000:0000:0000:0000:0001/64 Scope:Global
 OUTPUT
 		;;
+	allocated-boundary|reserved-unicast)
+		[ -n "$FAKE_IPV6_PREFIX" ] || exit 95
+		printf '          inet6 addr: %s::1/64 Scope:Global\n' "$FAKE_IPV6_PREFIX"
+		;;
 	ula)
 		cat <<'OUTPUT'
           inet6 addr: fd12:3456::1/64 Scope:Global
@@ -117,7 +121,8 @@ expect_success() {
 	FAKE_WAN_IFNAME="$1"
 	EXPECTED_IFNAME="$1"
 	FAKE_IFCONFIG_MODE="$2"
-	export FAKE_WAN_IFNAME EXPECTED_IFNAME FAKE_IFCONFIG_MODE
+	FAKE_IPV6_PREFIX="${4-}"
+	export FAKE_WAN_IFNAME EXPECTED_IFNAME FAKE_IFCONFIG_MODE FAKE_IPV6_PREFIX
 	actual=$(arIpAddress6) || fail "failed to discover WAN IPv6 on $1"
 	[ "$actual" = "$3" ] || fail "wrong address for $1: $actual"
 	aliddns_ipv6_valid "$actual" || fail "discovered address failed strict IPv6 validation"
@@ -127,13 +132,15 @@ expect_failure() {
 	FAKE_WAN_IFNAME="$1"
 	EXPECTED_IFNAME="$2"
 	FAKE_IFCONFIG_MODE="$3"
-	export FAKE_WAN_IFNAME EXPECTED_IFNAME FAKE_IFCONFIG_MODE
+	FAKE_IPV6_PREFIX="${4-}"
+	export FAKE_WAN_IFNAME EXPECTED_IFNAME FAKE_IFCONFIG_MODE FAKE_IPV6_PREFIX
 	if actual=$(arIpAddress6); then
 		fail "unexpected result for $3: $actual"
 	fi
 }
 expect_success ppp0 global 2001:4860:4860::8888
 expect_success sit0 sit-global 2001:4860::1
+expect_success ppp0 allocated-boundary '2cff::1' 2cff
 calls_before=$(wc -l < "$IFCONFIG_LOG")
 malicious_ifname="ppp0;touch $TEST_DIR/injected"
 expect_failure "" "" global
@@ -148,6 +155,9 @@ expect_failure ppp0 ppp0 teredo
 expect_failure ppp0 ppp0 six-to-four
 expect_failure ppp0 ppp0 reserved-3f00
 expect_failure ppp0 ppp0 reserved-3ffe
+for reserved_group in 2d00 2dff 2e00 2fff 3000 37ff 3800 3bff 3c00 3dff 3e00 3eff 3f00 3fff; do
+	expect_failure ppp0 ppp0 reserved-unicast "$reserved_group"
+done
 expect_failure ppp0 ppp0 ula
 expect_failure ppp0 ppp0 link-local-only
 expect_failure ppp0 ppp0 multiple-global
