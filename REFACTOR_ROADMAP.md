@@ -1,11 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Production helper correction `cfbf00f9d9100daf82017403e63342658bbac29e` fixes ABSENT `pidof`/`pgrep` handling under caller `set -e`; its shell tests (syntax, startup status, process lifecycle and Adblock) passed, as did AI docs and Process inventory. Exact-head lifecycle still failed only in the static contract.
-- Parent `2f3b3f47c40e4453a654d4fc202b7bdeb2073cdc` changed the checker to expect seven `sleep 1 || return 2` sites, but helper inspection shows four bounded loops: named stop, pattern stop, named PID startup, pattern PID startup. The checker also independently asserts both shutdown limits and both startup bounds. THIS commit corrects the aggregate expected count to four; no production source changes.
-- cfbf XY-C1 run `44283616981` was IN_PROGRESS at last poll. Build/TRX/artifact still require confirmation for current product source. Physical-router L4 NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable; PR #1 closed.
+- Exact-head e412 process lifecycle run `44285579546` PASS and AI handoff run `44285579386` PASS after correcting the Python helper range delimiters. Product source from cfbf has exact-source XY-C1 run `44283616981` SUCCESS, including Build XY-C1, TRX and artifact upload.
+- THIS production slice gates ChinaDNS-ng with validated PID inventory and bounded detached-child readiness; it validates non-empty upstream DNS and executable availability, avoids duplicate starts, sets the active feature flag only after confirmed RUNNING, and propagates router/GFW errors.
+- ChinaDNS tests and source checker added; new exact-SHA L2/L3 Actions pending. Existing dnsmasq config writes and restart remain a separate open transactional/reliability task; L4 NOT VERIFIED.
+- Frozen backup remains immutable and PR #1 closed.
 
-Next P1: verify this checker correction, then add ChinaDNS-ng readiness and error propagation, followed by dnsmasq restart/rollback and wider RC/userland work.
+Next P1: pass exact-SHA tests and XY-C1 for this ChinaDNS source SHA; then implement atomic dnsmasq configuration and verified stop/restart rollback.
 
 ---
 ## Whole-repository module status

@@ -146,7 +146,19 @@ printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/ipt2socks"
 printf '4244\n' > "$PROCESS_STATE_DIR/ipt2socks.pids"
 exit 0
 EOF
-chmod 755 "$TMP_DIR/bin/ssr-redir" "$TMP_DIR/bin/lua"
+
+cat > "$TMP_DIR/bin/chinadns-ng" <<'EOF'
+#!/bin/sh
+printf 'launched\n' >> "$PROCESS_STATE_DIR/chinadns_launches"
+case "${CHINADNS_START_MODE:-ready}" in
+	fail|absent) exit 19 ;;
+	unknown) : > "$PROCESS_STATE_DIR/pidof_unknown" ;;
+esac
+printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/chinadns-ng"
+printf '4247\n' > "$PROCESS_STATE_DIR/chinadns-ng.pids"
+exit 0
+EOF
+chmod 755 "$TMP_DIR/bin/ssr-redir" "$TMP_DIR/bin/lua" "$TMP_DIR/bin/chinadns-ng"
 
 chmod 755 "$TMP_DIR/bin/dnsproxy" "$TMP_DIR/bin/dns2tcp"
 chmod 755 "$TMP_DIR/bin/pidof" "$TMP_DIR/bin/killall" "$TMP_DIR/bin/pgrep" "$TMP_DIR/bin/pkill" "$TMP_DIR/bin/sleep"
@@ -164,6 +176,7 @@ ipset() { return 0; }
 . "$TEST_DIR/../scripts/shadowsocks_process_lifecycle.sh"
 sed -n \
 	-e '/^run_bin() {/,/^}/p' \
+	-e '/^ss_start_chinadns_daemon() {/,/^}/p' \
 	-e '/^stop_dns_proxy() {/,/^}/p' \
 	-e '/^start_dns_proxy() {/,/^}/p' \
 	-e '/^ss_launch_watchcat() {/,/^}/p' \
@@ -299,6 +312,26 @@ RUN_BIN_MODE=ready
 expect_status 0 "Lua-generated ipt2socks readiness" run_bin --wait-for ipt2socks lua /etc_ro/ss/gensocks.lua node1 1080
 [ -f "$PROCESS_STATE_DIR/ipt2socks" ] || fail "Lua-generated ipt2socks child was not observed"
 rm -f "$PROCESS_STATE_DIR/ipt2socks" "$PROCESS_STATE_DIR/ipt2socks.pids"
+
+# ChinaDNS-ng is successful only when its named daemon is actually observable.
+rm -f "$PROCESS_STATE_DIR/chinadns-ng" "$PROCESS_STATE_DIR/chinadns-ng.pids" "$PROCESS_STATE_DIR/chinadns_launches" "$PROCESS_STATE_DIR/pidof_unknown"
+CHINADNS_START_MODE=ready
+export CHINADNS_START_MODE
+expect_status 1 "ChinaDNS-ng rejects empty upstream" ss_start_chinadns_daemon "" ""
+[ ! -s "$PROCESS_STATE_DIR/chinadns_launches" ] || fail "empty ChinaDNS upstream launched a child"
+expect_status 0 "ChinaDNS-ng detached readiness" ss_start_chinadns_daemon "223.5.5.5" ""
+[ -f "$PROCESS_STATE_DIR/chinadns-ng" ] || fail "ChinaDNS-ng child was not observed"
+[ "$(wc -l < "$PROCESS_STATE_DIR/chinadns_launches")" -eq 1 ] || fail "ChinaDNS-ng was not launched exactly once"
+CHINADNS_START_MODE=fail
+expect_status 0 "ChinaDNS-ng duplicate startup is idempotent" ss_start_chinadns_daemon "223.5.5.5" ""
+[ "$(wc -l < "$PROCESS_STATE_DIR/chinadns_launches")" -eq 1 ] || fail "existing ChinaDNS-ng instance was relaunched"
+rm -f "$PROCESS_STATE_DIR/chinadns-ng" "$PROCESS_STATE_DIR/chinadns-ng.pids"
+CHINADNS_START_MODE=fail
+expect_status 1 "ChinaDNS-ng immediate child exit" ss_start_chinadns_daemon "223.5.5.5" ""
+[ ! -f "$PROCESS_STATE_DIR/chinadns-ng" ] || fail "failed ChinaDNS-ng child was reported as running"
+CHINADNS_START_MODE=unknown
+expect_status 2 "ChinaDNS-ng UNKNOWN startup inventory" ss_start_chinadns_daemon "223.5.5.5" ""
+rm -f "$PROCESS_STATE_DIR/pidof_unknown" "$PROCESS_STATE_DIR/chinadns-ng" "$PROCESS_STATE_DIR/chinadns-ng.pids"
 
 # An immediate child exit is not reported as a successful service start.
 RUN_BIN_MODE=fail

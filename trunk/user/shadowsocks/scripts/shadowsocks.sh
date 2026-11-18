@@ -473,6 +473,44 @@ start_dns_proxy() {
 	return "$launch_status"
 }
 
+ss_start_chinadns_daemon() {
+	[ "$#" -eq 2 ] || return 2
+	local china_dns="$1"
+	local local_chnlist_file="$2"
+	local chinadns_bin=""
+	local chinadns_count=""
+	local launch_status=""
+
+	[ -n "$china_dns" ] || {
+		log "ChinaDNS-ng upstream DNS is empty"
+		return 1
+	}
+	if chinadns_count=$(ss_process_pid_count chinadns-ng); then
+		:
+	else
+		launch_status=$?
+		log "Cannot inspect ChinaDNS-ng before startup (status=$launch_status)"
+		return "$launch_status"
+	fi
+	[ "$chinadns_count" -gt 0 ] && return 0
+
+	if chinadns_bin=$(command -v chinadns-ng); then
+		:
+	else
+		log "ChinaDNS-ng executable is unavailable"
+		return 127
+	fi
+	[ -n "$chinadns_bin" ] || return 127
+
+	if [ -n "$local_chnlist_file" ]; then
+		run_bin "$chinadns_bin" -b 0.0.0.0 -l 65353 -c "$china_dns" \
+			-t 127.0.0.1#5353 -4 china -M -m "$local_chnlist_file"
+	else
+		run_bin "$chinadns_bin" -b 0.0.0.0 -l 65353 -c "$china_dns" \
+			-t 127.0.0.1#5353 -4 china
+	fi
+}
+
 start_dns() {
 	echo "create china hash:net family inet hashsize 1024 maxelem 65536" >/tmp/china.ipset
 	awk '!/^$/&&!/^#/{printf("add china %s'" "'\n",$0)}' /etc/storage/chinadns/chnroute.txt >>/tmp/china.ipset
@@ -480,16 +518,37 @@ start_dns() {
 	ipset -! restore </tmp/china.ipset 2>/dev/null
 	rm -f /tmp/china.ipset
 	start_chinadns() {
-		ss_chdns=$(nvram get ss_chdns)
-		if [ $ss_chdns = 1 ]; then
-			chinadnsng_enable_flag=1
+		local ss_chdns=""
+		local china_dns=""
+		local local_chnlist_file=""
+		local dns_status=""
+
+		if ss_chdns=$(nvram get ss_chdns); then
+			:
+		else
+			dns_status=$?
+			return "$dns_status"
+		fi
+		if [ "$ss_chdns" = "1" ]; then
 			local_chnlist_file='/etc/storage/chinadns/chnlist_mini.txt'
-			if [ -f "$local_chnlist_file" ]; then
-			  log "启动chinadns分流，仅国外域名走DNS代理..."
-			  chinadns-ng -b 0.0.0.0 -l 65353 -c $(nvram get china_dns) -t 127.0.0.1#5353 -4 china -M -m $local_chnlist_file >/dev/null 2>&1 &
+			if china_dns=$(nvram get china_dns); then
+				:
 			else
-			  log "启动chinadns分流，全部域名走DNS代理...本次不使用本地cdn域名文件$local_chnlist_file, 下次你自已可以创建它，文件中每行表示一个域名（不用要子域名）"
-			  chinadns-ng -b 0.0.0.0 -l 65353 -c $(nvram get china_dns) -t 127.0.0.1#5353 -4 china >/dev/null 2>&1 &
+				dns_status=$?
+				return "$dns_status"
+			fi
+			if [ -f "$local_chnlist_file" ]; then
+				log "启动chinadns分流，仅国外域名走DNS代理..."
+			else
+				log "启动chinadns分流，全部域名走DNS代理...本次不使用本地cdn域名文件$local_chnlist_file, 下次你自已可以创建它，文件中每行表示一个域名（不用要子域名）"
+				local_chnlist_file=""
+			fi
+			if ss_start_chinadns_daemon "$china_dns" "$local_chnlist_file"; then
+				chinadnsng_enable_flag=1
+			else
+				dns_status=$?
+				log "ChinaDNS-ng failed to become ready (status=$dns_status)"
+				return "$dns_status"
 			fi
 			# adding upstream chinadns-ng 
 			sed -i '/no-resolv/d' /etc/storage/dnsmasq/dnsmasq.conf
@@ -529,7 +588,12 @@ EOF
 			dns_status=$?
 			return "$dns_status"
 		fi
-		start_chinadns
+		if start_chinadns; then
+			:
+		else
+			dns_status=$?
+			return "$dns_status"
+		fi
 	;;
 	gfw)
 		dnsstr="$(nvram get tunnel_forward)"
@@ -549,7 +613,12 @@ EOF
 			dns_status=$?
 			return "$dns_status"
 		fi
-		start_chinadns
+		if start_chinadns; then
+			:
+		else
+			dns_status=$?
+			return "$dns_status"
+		fi
 		log "开始处理 GFWList..."
 		;;
 	oversea)

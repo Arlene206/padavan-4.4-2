@@ -153,6 +153,33 @@ require("ss_process_pattern_count()" in helper and
         "ss_wait_process_pattern_count()" in helper and
         'pgrep -f "$ss_count_pattern"' in helper,
         "pattern startup readiness must validate and count pgrep PIDs")
+
+china_launch_start = script.index("ss_start_chinadns_daemon() {")
+china_launch_end = script.index("\n\nstart_dns() {", china_launch_start)
+china_launch = script[china_launch_start:china_launch_end]
+require('ss_process_pid_count chinadns-ng' in china_launch and
+        'command -v chinadns-ng' in china_launch and
+        'run_bin "$chinadns_bin" -b 0.0.0.0 -l 65353 -c "$china_dns"' in china_launch and
+        'if [ -n "$local_chnlist_file" ]; then' in china_launch,
+        "ChinaDNS-ng must validate config and process inventory before detached launch")
+start_dns_start = script.index("start_dns() {")
+china_fn_start = script.index("start_chinadns() {", start_dns_start)
+china_fn_end = script.index('\n\tcase "$run_mode" in', china_fn_start)
+china_fn = script[china_fn_start:china_fn_end]
+ordered(china_fn, ['ss_chdns=$(nvram get ss_chdns)',
+                   'ss_start_chinadns_daemon "$china_dns" "$local_chnlist_file"',
+                   'chinadnsng_enable_flag=1',
+                   "sed -i '/no-resolv/d'"],
+        "only publish ChinaDNS upstream after daemon readiness")
+require(script.count('if start_chinadns; then') == 2,
+        "router and GFW start_dns branches must propagate ChinaDNS startup errors")
+require("ChinaDNS-ng detached readiness" in test and
+        "ChinaDNS-ng immediate child exit" in test and
+        "ChinaDNS-ng UNKNOWN startup inventory" in test and
+        "ChinaDNS-ng duplicate startup is idempotent" in test and
+        "ChinaDNS-ng rejects empty upstream" in test,
+        "ChinaDNS-ng tests must cover config, readiness, duplicate and fail-closed errors")
+
 require('if ss_pid_output=$(pidof "$ss_process_name" 2>/dev/null); then' in helper and
         'if ss_count_pid_output=$(pidof "$ss_count_process_name" 2>/dev/null); then' in helper and
         'if ss_pid_output=$(pgrep -f "$ss_process_pattern" 2>/dev/null); then' in helper and

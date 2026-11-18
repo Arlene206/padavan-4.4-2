@@ -1,3 +1,13 @@
+## 2026-11-18 — Gate ChinaDNS-ng startup on confirmed daemon readiness
+
+- `start_chinadns()` previously set its enabled flag and launched `chinadns-ng` in the background without checking its upstream configuration, executable or child survival; router/GFW branches could mask startup errors with a later DHCP restart result.
+- Add a validated launcher that rejects empty upstream DNS, fails closed on UNKNOWN pidof inventory, skips an existing instance and uses the common bounded count+1 `run_bin` postcondition for a new ChinaDNS-ng daemon. Set `chinadnsng_enable_flag` only after readiness and propagate errors in both router/GFW branches.
+- Production-linked regression covers empty upstream, fresh daemon, duplicate, immediate exit and UNKNOWN inventory; static source checker pins executable lookup, daemon identity and caller error propagation.
+- Parent e412 exact-head Shadowsocks lifecycle `44285579546` PASS and AI docs `44285579386` PASS. The base source has XY-C1 run `44283616981` SUCCESS with Build/TRX/artifact all PASS on cfbf source SHA; this ChinaDNS source change needs its own exact-SHA XY-C1 run before L3 is claimed.
+- No physical-router L4 is claimed. Atomic dnsmasq config publication and verified restart rollback remain the next independent DNS task.
+
+---
+
 ## 2026-11-18 — Fix Python checker newline boundaries for process helper ranges
 
 - Exact-head fa45 Shadowsocks workflow 44285172102 passed shell syntax, required startup, process lifecycle and Adblock runtime regressions, then the Python checker raised ValueError while locating the next helper function.

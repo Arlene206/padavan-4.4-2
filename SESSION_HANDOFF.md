@@ -1,29 +1,29 @@
-# 2026-11-18 continuation checkpoint — correct checker function boundaries
+# 2026-11-18 continuation checkpoint — ChinaDNS-ng startup readiness
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; active branch `main`. The ABSENT-under-errexit source fix is `cfbf00f9d9100daf82017403e63342658bbac29e`. Current parent `fa45fd0a8ba11e09249badbf248099441f77bfb6` corrected the bounded-loop count but its checker sliced helper functions using a double-escaped newline string.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged.
-- XY-C1 run `44283616981` targets cfbf source and was IN_PROGRESS at last observation. Build XY-C1, TRX verification and artifact upload have not been confirmed on cfbf; this checker-only commit does not itself claim L3. Physical-router L4 NOT VERIFIED.
-
+- Repository: `Arlene206/padavan-4.4-2`; active branch `main`. This ChinaDNS-ng source/test slice is based on live parent `e412a50bc2384b139161bda9a8cbdc9d57b7caa1`; refresh the branch tip before any further write.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
+- Shadowsocks ABSENT-under-errexit helper source fix is `cfbf00f9d9100daf82017403e63342658bbac29e`; XY-C1 run `44283616981` on that exact product source is SUCCESS, with Build XY-C1, TRX verification and artifact upload all SUCCESS.
+- Exact-head checker-boundary correction `e412a50bc2384b139161bda9a8cbdc9d57b7caa1`: Shadowsocks lifecycle `44285579546` PASS and AI handoff docs `44285579386` PASS. The shell/process fixes and checker corrections are green on the exact e412 SHA; its source tree is the same firmware product source as cfbf except checker/docs.
+ 
 ## Active task
-- The cfbf shell regression (syntax, startup status, process lifecycle, Adblock) passed, as did AI handoff and Process inventory workflows. Its final checker failed due a stale count for bounded `sleep 1 || return 2` guards.
-- Parent 2f3b changed the checker to expect seven guards, but exact-head Shadowsocks run `44284415648` still failed at that same aggregate assertion. Direct inspection of the checked-in helper shows exactly four bounded sleep sites: named shutdown, pattern shutdown, named PID-count startup, and pattern PID-count startup. The same assertion separately checks both shutdown limits and both startup count-loop bounds, so expected count four matches the four actual wait loops.
-- This atomic correction changes only the checker count from seven to four. The lifecycle shell regression itself passed on both cfbf and 2f3b; AI docs on 2f3b `44284415671` PASS.
-
-- Exact-head fa45 Shadowsocks run `44285172102`: shell syntax, startup status and all production-linked shell regressions passed; checker then raised ValueError because its function-boundary search used literal backslash-n characters (`\\n`) rather than newline separators. This correction fixes both named-wait and pid-count function boundary searches.
-- Exact-head AI handoff run `44284758515` PASS. Corrected checker Actions on the new SHA are pending.
+- Core Shadowsocks TCP/UDP/local, watchcat and DNS proxy launch paths now use bounded RUNNING/ABSENT/UNKNOWN process postconditions. The ABSENT pidof/pgrep status capture is safe under caller `set -e`.
+- This slice adds ChinaDNS-ng process identity preflight and bounded launch readiness. Empty upstream DNS is rejected, UNKNOWN PID inventory fails closed, an existing daemon is not duplicated, and `chinadnsng_enable_flag` is set only after the new or existing daemon is confirmed. Router and GFW callers preserve the startup failure instead of masking it with the later DHCP restart.
+- Host regression covers empty upstream, fresh detached child, duplicate prevention, immediate child exit and UNKNOWN inventory; static checker verifies the executable and process identity and both caller branches.
 
 ## Verification boundary
-- No production source changes in this checker correction.
-- Exact-head Actions for this new SHA must be checked. cfbf XY-C1 `44283616981` was still IN_PROGRESS at last observation; no current-source L3 claim. No physical-router L4.
+- The ChinaDNS-ng slice in this commit has not yet run exact-SHA Actions. Verify shell syntax, process lifecycle runtime, source checker, Process inventory and AI handoff after push.
+- Existing dnsmasq configuration mutation and restart are still unchecked/non-transactional legacy operations after ChinaDNS readiness; the next independent source slice is atomic dnsmasq config publication and verified stop/restart rollback.
+- XY-C1 product build evidence is successful on cfbf SHA `cfbf00f9...`; this commit changes ROMFS product source and therefore must have its own exact-SHA Build XY-C1, TRX and artifact pass before L3 can be claimed. No physical-router L4 is claimed.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect exact-head Shadowsocks and AI handoff workflows for this checker-boundary fix; diagnose any further source-contract issue.
-2. Poll cfbf XY-C1 run `44283616981` and inspect Build, TRX verification and artifact upload individually.
-3. Implement ChinaDNS-ng detached-process readiness plus dnsmasq config publication/restart rollback and make start_dns propagate failure statuses.
+1. Fetch live `main` and inspect this ChinaDNS commit's exact-head Shadowsocks, Process inventory, AI docs and XY-C1 checks; fix the first causal failure directly on main.
+2. Verify Build XY-C1, Verify TRX output and artifact upload all succeeded on the same source SHA.
+3. Implement atomic dnsmasq config staging/publication and fail-closed dnsmasq stop/start readiness with rollback; add injected tests before changing behavior.
+4. Continue broader RC/userland P1 reliability work while unrelated Actions are pending.
 
 ## Mandatory handoff checkpoint
-Every session MUST inspect live repository state and exact-head Action results before ending. The checkpoint is mandatory; a document edit is conditional. Leave the handoff untouched if it remains accurate.
+Every session MUST inspect the live branch and exact-SHA Actions before ending. The checkpoint is mandatory; a handoff edit is conditional. If the facts remain accurate, make no no-op commit.
 
 # Cross-session execution mandate
-Complete each logical source/test slice in one atomic main commit. Continue independent work while CI is PENDING. Before context exhaustion, leave a precise next action and tested/unverified boundaries. Never force-push, alter the frozen backup, reopen PR #1, or claim unperformed tests/builds.
+Complete each logical source/test slice in one atomic main commit. Continue independent work while CI is PENDING. Before context exhaustion, leave a precise next action and tested/unverified boundaries. Never force-push, mutate the frozen backup, reopen PR #1 or claim unperformed tests/builds.
