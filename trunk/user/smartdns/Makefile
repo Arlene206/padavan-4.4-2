@@ -16,5 +16,6 @@ romfs:
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/src/smartdns $(ROMFSDIR)/usr/bin/smartdns
 	$(INSTALL_BIN) ./smartdns.sh $(ROMFSDIR)/usr/bin/smartdns.sh
 	$(INSTALL_BIN) ./smartdns_process_lifecycle.sh $(ROMFSDIR)/usr/bin/smartdns_process_lifecycle.sh
+	$(INSTALL_BIN) ./smartdns_dnsmasq_config.sh $(ROMFSDIR)/usr/bin/smartdns_dnsmasq_config.sh
 	$(INSTALL_DIR) $(ROMFSDIR)/etc_ro
 	$(INSTALL_DATA) ./conf/*.conf $(ROMFSDIR)/etc_ro/

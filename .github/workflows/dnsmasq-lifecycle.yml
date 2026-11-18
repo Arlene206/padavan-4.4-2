@@ -42,6 +42,12 @@ on:
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
+      - "trunk/user/smartdns/smartdns.sh"
+      - "trunk/user/smartdns/smartdns_dnsmasq_config.sh"
+      - "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh"
+      - "trunk/user/smartdns/Makefile"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "scripts/check_smartdns_dnsmasq_config.py"
   pull_request:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
@@ -82,6 +88,12 @@ on:
       - "trunk/user/rc/src/tests/inadyn_daemon_policy.c"
       - "trunk/user/rc/src/inadyn_daemon_policy.h"
       - ".github/workflows/inadyn-lifecycle-stability.yml"
+      - "trunk/user/smartdns/smartdns.sh"
+      - "trunk/user/smartdns/smartdns_dnsmasq_config.sh"
+      - "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh"
+      - "trunk/user/smartdns/Makefile"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "scripts/check_smartdns_dnsmasq_config.py"
   workflow_dispatch:
 
 permissions:
@@ -92,6 +104,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Verify SmartDNS saved DNSMasq state and exact cleanup
+        run: |
+          set -eu
+          sh -n trunk/user/smartdns/smartdns_dnsmasq_config.sh
+          sh -n trunk/user/smartdns/tests/dnsmasq_config_preservation.sh
+          sh trunk/user/smartdns/tests/dnsmasq_config_preservation.sh
+          python3 scripts/check_smartdns_dnsmasq_config.py
       - name: Compile and run DNSMasq staged-file cleanup regression
         run: |
           set -eu
@@ -308,6 +327,12 @@ jobs:
               "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c",
               "trunk/user/rc/src/rc_notify_batch_policy.h",
               "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
+              "trunk/user/smartdns/smartdns.sh",
+              "trunk/user/smartdns/smartdns_dnsmasq_config.sh",
+              "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",
+              "trunk/user/smartdns/Makefile",
+              "trunk/user/scripts/files/usr/bin/autostart.sh",
+              "scripts/check_smartdns_dnsmasq_config.py",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)
@@ -657,6 +682,12 @@ jobs:
               "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c",
               "trunk/user/rc/src/rc_notify_batch_policy.h",
               "trunk/user/rc/src/tests/rc_notify_batch_policy.c",
+              "trunk/user/smartdns/smartdns.sh",
+              "trunk/user/smartdns/smartdns_dnsmasq_config.sh",
+              "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",
+              "trunk/user/smartdns/Makefile",
+              "trunk/user/scripts/files/usr/bin/autostart.sh",
+              "scripts/check_smartdns_dnsmasq_config.py",
 
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/vpn_client.c",

@@ -11,6 +11,12 @@ if [ ! -r "$smartdns_process_lifecycle_lib" ]; then
     exit 1
 fi
 . "$smartdns_process_lifecycle_lib"
+smartdns_dnsmasq_config_lib="/usr/bin/smartdns_dnsmasq_config.sh"
+if [ ! -r "$smartdns_dnsmasq_config_lib" ]; then
+    echo "SmartDNS DNSMasq configuration helper is missing: $smartdns_dnsmasq_config_lib" >&2
+    exit 1
+fi
+. "$smartdns_dnsmasq_config_lib"
 storage_Path="/etc/storage"
 smartdns_Bin="/usr/bin/smartdns"
 smartdns_Ini="$storage_Path/smartdns_conf.ini"
@@ -78,19 +84,50 @@ dnsmasq_md5=$(md5sum  "$dnsmasq_Conf" | awk '{ print $1 }')
 
 # 函数
 
+smartdns_state_saved=0
 Read_ini () {
-# 【读取上次成功启动时的端口等】
-    if [ -s "$smartdns_Ini" ] ; then
-        hosts_type=$(sed -n '1p' $smartdns_Ini)
-        sdns_redirected=$(sed -n '2p' $smartdns_Ini)
-        sdns_ported=$(sed -n '3p' $smartdns_Ini)
-        sdnse_ported=$(sed -n '4p' $smartdns_Ini)
+    if [ -L "$smartdns_Ini" ]; then
+        logger -t "SmartDNS" "SmartDNS saved state is a symlink; refusing resolver cleanup"
+        return 1
+    fi
+    if [ -f "$smartdns_Ini" ]; then
+        [ -r "$smartdns_Ini" ] && [ -s "$smartdns_Ini" ] || return 1
+        if hosts_type=$(sed -n '1p' "$smartdns_Ini") &&
+           sdns_redirected=$(sed -n '2p' "$smartdns_Ini") &&
+           sdns_ported=$(sed -n '3p' "$smartdns_Ini") &&
+           sdnse_ported=$(sed -n '4p' "$smartdns_Ini") &&
+           smartdns_state_version=$(sed -n '5p' "$smartdns_Ini"); then
+            :
+        else
+            return 1
+        fi
+        case "$hosts_type" in SmartDNS|dnsmasq|0) ;; *) return 1 ;; esac
+        case "$sdns_redirected" in ''|0) sdns_redirected=0 ;; 1|2) ;; *) return 1 ;; esac
+        sdns_ported=$(smartdns_dnsmasq_normalize_port "$sdns_ported") || return 1
+        case "$smartdns_state_version" in
+            ''|legacy) smartdns_state_version=legacy ;;
+            managed-v1) ;;
+            *) return 1 ;;
+        esac
+        smartdns_state_saved=1
+    elif [ -e "$smartdns_Ini" ]; then
+        return 1
     else
         hosts_type=0
         sdns_redirected=0
         sdns_ported="$sdns_port"
         sdnse_ported="$sdnse_port"
+        smartdns_state_version=legacy
+        smartdns_state_saved=0
     fi
+
+    case "$action" in
+        start|restart|reset)
+            case "$sdns_redirect" in ''|0) sdns_redirect=0 ;; 1|2) ;; *) return 1 ;; esac
+            sdns_port=$(smartdns_dnsmasq_normalize_port "$sdns_port") || return 1
+            ;;
+    esac
+    return 0
 }
 
 Check_md5 () {
@@ -484,38 +521,79 @@ Change_adbyby () {
 }
 
 Change_dnsmasq () {
-    # 删除 DNSmasq 配置文件中的相关项，避免重复
-    case $action in
+    smartdns_dnsmasq_action="${1:-$action}"
+    case "$smartdns_dnsmasq_action" in
     stop)
-        sed -i '/no-resolv/d' "$dnsmasq_Conf"
-        sed -i '/server=127.0.0.1#'"$sdns_ported"'/d' "$dnsmasq_Conf"
-        sed -i '/port=0/d' "$dnsmasq_Conf"
+        if [ "$smartdns_state_saved" = "1" ]; then
+            if smartdns_dnsmasq_remove_saved_directives "$dnsmasq_Conf" "$sdns_redirected" "$sdns_ported" "$smartdns_state_version"; then
+                :
+            else
+                smartdns_dnsmasq_status=$?
+                logger -t "SmartDNS" "Could not remove the previously managed DNSMasq directives (status=$smartdns_dnsmasq_status)"
+                return "$smartdns_dnsmasq_status"
+            fi
+        fi
         if [ "$sdns_enable" = 0 ] ; then
-            [ "$sdns_ported" = "53" ] && logger -t "SmartDNS" "已启用 DNSmasq 域名解析（DNS）功能" 
-            [ "$sdns_redirected" = "1" ] && logger -t "SmartDNS" "删除 DNSmasq 上游服务器：127.0.0.1:$sdns_ported" 
+            [ "$sdns_ported" = "53" ] && logger -t "SmartDNS" "已启用 DNSmasq 域名解析（DNS）功能"
+            [ "$sdns_redirected" = "1" ] && logger -t "SmartDNS" "删除 DNSmasq 上游服务器：127.0.0.1:$sdns_ported"
         fi
         ;;
     start)
-        # 启动 SmartDNS 时
+        set -- "$dnsmasq_Conf"
         if [ "$sdns_port" = "53" ] ; then
-            echo "port=0" >> "$dnsmasq_Conf"
-            logger -t "SmartDNS" "已关闭 DNSmasq 域名解析（DNS）功能..."
             if [ "$sdns_redirect" = "1" ] ; then
                 nvram set sdns_redirect=0
                 sdns_redirect=0
-                logger -t "SmartDNS" "因此，自动修改重定向为：无" 
+                logger -t "SmartDNS" "因此，自动修改重定向为：无"
             fi
+            set -- "$@" port=0
+            logger -t "SmartDNS" "已关闭 DNSmasq 域名解析（DNS）功能..."
         fi
         if [ "$sdns_redirect" = "1" ] ; then
-            echo "no-resolv" >> "$dnsmasq_Conf"
-            echo "server=127.0.0.1#$sdns_port" >> "$dnsmasq_Conf"
-            logger -t "SmartDNS" "作为 DNSmasq 上游服务器：127.0.0.1:$sdns_port"
+            set -- "$@" no-resolv "server=127.0.0.1#$sdns_port"
+            logger -t "SmartDNS" "作为 DNSmasq 上游服务器：127.0.0.1#$sdns_port"
             if [ "$sdnse_enable" = 1 ] ; then
                 logger -t "SmartDNS" "作为 DNSmasq 上游服务器：127.0.0.1:$sdnse_port"
             fi
         fi
+        if [ "$#" -gt 1 ]; then
+            if smartdns_dnsmasq_publish_managed_block "$@"; then
+                :
+            else
+                smartdns_dnsmasq_status=$?
+                logger -t "SmartDNS" "Could not atomically publish DNSMasq resolver directives (status=$smartdns_dnsmasq_status)"
+                return "$smartdns_dnsmasq_status"
+            fi
+        fi
+        ;;
+    *)
+        return 2
         ;;
     esac
+    return 0
+}
+smartdns_write_ini_state () {
+    [ ! -L "$smartdns_Ini" ] || return 1
+    smartdns_ini_tmp=$(mktemp "${smartdns_Ini}.tmp.XXXXXX") || return 1
+    if printf '%s\n' "$hosts_type" "$sdns_redirected" "$sdns_ported" "$sdnse_port" "$smartdns_state_version" > "$smartdns_ini_tmp"; then
+        :
+    else
+        smartdns_ini_status=$?
+        rm -f "$smartdns_ini_tmp"
+        return "$smartdns_ini_status"
+    fi
+    if chmod 600 "$smartdns_ini_tmp"; then :; else
+        smartdns_ini_status=$?
+        rm -f "$smartdns_ini_tmp"
+        return "$smartdns_ini_status"
+    fi
+    if mv -f "$smartdns_ini_tmp" "$smartdns_Ini"; then
+        return 0
+    else
+        smartdns_ini_status=$?
+        rm -f "$smartdns_ini_tmp"
+        return "$smartdns_ini_status"
+    fi
 }
 
 Change_iptable () {
@@ -583,11 +661,37 @@ Start_smartdns () {
             ;;
     esac
 
-    :>"$smartdns_Ini"
+    if [ "$smartdns_state_saved" = "1" ]; then
+        if smartdns_dnsmasq_remove_saved_directives "$dnsmasq_Conf" "$sdns_redirected" "$sdns_ported" "$smartdns_state_version"; then
+            :
+        else
+            smartdns_cleanup_status=$?
+            logger -t "SmartDNS" "Previous DNSMasq resolver state could not be removed (status=$smartdns_cleanup_status)"
+            return "$smartdns_cleanup_status"
+        fi
+    fi
     [ "$sdns_enable" -eq 0 ] && nvram set sdns_enable=1 && sdns_enable=1
-    Change_dnsmasq
     Change_adbyby
-    echo "$hosts_type" >> "$smartdns_Ini"
+    sdns_redirected="$sdns_redirect"
+    sdns_ported="$sdns_port"
+    smartdns_state_version=managed-v1
+    if [ "$sdns_port" = "53" ] && [ "$sdns_redirect" = "1" ]; then
+        sdns_redirected=0
+    fi
+    if smartdns_write_ini_state; then
+        smartdns_state_saved=1
+    else
+        smartdns_ini_status=$?
+        logger -t "SmartDNS" "Could not atomically publish resolver state (status=$smartdns_ini_status)"
+        return "$smartdns_ini_status"
+    fi
+    if Change_dnsmasq start; then
+        :
+    else
+        smartdns_dnsmasq_status=$?
+        logger -t "SmartDNS" "Could not publish DNSMasq resolver directives (status=$smartdns_dnsmasq_status)"
+        return "$smartdns_dnsmasq_status"
+    fi
     if [ "$sdns_redirect" = 0 ] ; then
         logger -t "SmartDNS" "SmartDNS 使用 $sdns_port 端口"
         if [ "$sdnse_enable" = 1 ] ; then
@@ -595,10 +699,6 @@ Start_smartdns () {
         fi
     fi
     Change_iptable
-    sdns_redirected="$sdns_redirect"
-    echo "$sdns_redirected" >> "$smartdns_Ini"
-    echo "$sdns_port" >> "$smartdns_Ini"
-    echo "$sdnse_port" >> "$smartdns_Ini"
     rm -f /tmp/sdnsipset.conf
     args=""
     logger -t "SmartDNS" "SmartDNS 创建配置文件..."
@@ -686,8 +786,16 @@ Stop_smartdns () {
 
     logger -t "SmartDNS" "结束 SmartDNS 进程..."
     Change_adbyby
-    Change_dnsmasq
+    if Change_dnsmasq stop; then
+        smartdns_dnsmasq_status=0
+    else
+        smartdns_dnsmasq_status=$?
+    fi
     Change_iptable
+    if [ "$smartdns_dnsmasq_status" -ne 0 ]; then
+        logger -t "SmartDNS" "DNSMasq resolver cleanup incomplete; saved state retained for retry (status=$smartdns_dnsmasq_status)"
+        return "$smartdns_dnsmasq_status"
+    fi
     if [ "$dnsmasq_md5" != $(md5sum "$dnsmasq_Conf" | awk '{ print $1 }') ] && [ "$sdns_enable" = 0 ] ; then
         logger -t "SmartDNS" "正在重启 DNSmasq 进程..."
         /sbin/restart_dhcpd >/dev/null 2>&1
@@ -695,6 +803,8 @@ Stop_smartdns () {
     fi
     if [ "$sdns_enable" = 0 ] ; then
         rm -f "$smartdns_Ini"
+        smartdns_state_saved=0
+        smartdns_state_version=legacy
         logger -t "SmartDNS" "SmartDNS 服务器已停用..."
     fi
     return 0
@@ -759,5 +869,10 @@ Main () {
 }
 
 
-Read_ini
-Main
+if Read_ini; then
+    Main
+else
+    smartdns_ini_status=$?
+    logger -t "SmartDNS" "Saved SmartDNS resolver state is invalid; preserving DNSMasq configuration (status=$smartdns_ini_status)"
+    exit "$smartdns_ini_status"
+fi
