@@ -3108,6 +3108,19 @@ for signature, service_name, initial, retry in (
     assert "sleep(" not in daemon_start and "usleep(" not in daemon_start, signature
 print("RC detached-daemon startup probes preserve full wait intervals across EINTR: PASS")
 
+# crond must not start a second BusyBox scheduler when a prior start already
+# succeeded. RUNNING is a no-op, UNKNOWN fails closed, and ABSENT alone reaches _eval().
+crond_start = c_function_body(rc_services, "start_crond(void)")
+crond_enable_guard = crond_start.index('if (nvram_invmatch("crond_enable", "1"))')
+crond_preflight = crond_start.index('preflight_status = optional_daemon_start_status("crond", "crond");')
+crond_running_noop = crond_start.index("if (preflight_status > 0)")
+crond_unknown_abort = crond_start.index("if (preflight_status < 0)")
+crond_launcher = crond_start.index("launch_status = _eval(crond_argv, NULL, 0, NULL);")
+assert crond_enable_guard < crond_preflight < crond_running_noop < crond_unknown_abort < crond_launcher
+assert 'logmessage(LOGNAME, "crond start skipped: scheduler is already running")' in crond_start
+assert "return preflight_status;" in crond_start[crond_unknown_abort:crond_launcher]
+print("crond duplicate-start preflight preserves RUNNING no-op and UNKNOWN fail-closed behavior: PASS")
+
 # Keep push and pull_request path filters identical. A blanket trunk/user glob
 # made unrelated package assets and documentation changes start this full suite.
 process_workflow_source = (

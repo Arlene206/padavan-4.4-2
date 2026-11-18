@@ -3,9 +3,21 @@
 #include <stdio.h>
 
 #include "service_start_status.h"
+#include "optional_daemon_policy.h"
 #include "wan_mtu_setup_policy.h"
 #include "rc_notify_batch_policy.h"
 
+
+static void
+test_optional_daemon_start_preflight_is_idempotent_and_fail_closed(void)
+{
+	/* Only a complete ABSENT scan allows launch; RUNNING is a no-op and
+	 * UNKNOWN must fail closed before a second scheduler can be spawned. */
+	assert(optional_daemon_start_allowed(PROCESS_PRESENCE_ABSENT));
+	assert(!optional_daemon_start_allowed(PROCESS_PRESENCE_RUNNING));
+	assert(!optional_daemon_start_allowed(PROCESS_PRESENCE_UNKNOWN));
+	assert(!optional_daemon_start_allowed((enum process_presence)99));
+}
 
 static void
 test_wan_firewall_failure_blocks_protocol_launch(void)
@@ -531,6 +543,7 @@ test_sysctl_pppoe_relay_failure_keeps_notification_pending(void)
 int
 main(void)
 {
+	test_optional_daemon_start_preflight_is_idempotent_and_fail_closed();
 	assert(rc_first_service_start_status(0, 0) == 0);
 	assert(rc_first_service_start_status(0, -1) == -1);
 	assert(rc_first_service_start_status(0, 17) == 17);

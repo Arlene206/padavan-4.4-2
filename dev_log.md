@@ -1,3 +1,14 @@
+## 2026-11-18 — Make crond startup idempotent under repeated RC start requests
+
+- Parent main SHA: `a9d9594dc1875e5dd7adf2f894667d2e6566d76e`.
+- L1 found `trunk/user/rc/src/services.c::start_crond()` had detached-child readiness but no initial process inventory before `_eval()`. A repeated start request could start a second BusyBox scheduler, while an UNKNOWN inventory did not block launch.
+- THIS COMMIT calls `optional_daemon_start_status("crond", "crond")` before the launcher: RUNNING is a logged no-op, UNKNOWN returns the inventory error, and ABSENT alone reaches `_eval()`. Existing bounded readiness and stop-before-restart behavior remain unchanged.
+- Added ABSENT/RUNNING/UNKNOWN/invalid-state assertions to `trunk/user/rc/src/tests/service_start_status.c`; extended `scripts/check_process_lifecycle_integration.py` with an order/branch contract. Existing Process workflow compiles this GNU89 ASan/UBSan test and executes the checker; `services.c` is already in its and XY-C1 path filters.
+- MentoHUST L2 on exact source SHA `4f54d9f0b861091c884459bd178ab4b966439719`: Legacy wrapper `44415470631` PASS, AI docs `44415470654` PASS, Process inventory `44415470822` PASS, lifecycle fail-closed `44415470569` PASS. XY-C1 `44415470536` was IN_PROGRESS at last check, so MentoHUST L3 remains pending.
+- Local compile/tests: NOT RUN. Exact-head Process lifecycle, process inventory, AI docs and XY-C1 for the crond commit are pending at commit creation. Physical router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 06:50 CST (UTC+8) — Fix the MentoHUST production LF/CR sentinels
 
 - Parent main SHA: `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf`.

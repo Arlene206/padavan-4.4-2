@@ -381,11 +381,20 @@ start_crond(void)
 		NULL,			/* -d8 */
 		NULL
 	};
-	int launch_status, attempt, status, scan_error;
+	int launch_status, attempt, status, scan_error, preflight_status;
 	enum process_presence presence;
 
 	if (nvram_invmatch("crond_enable", "1"))
 		return 1;
+
+	/* Do not spawn a second scheduler when start is requested again. */
+	preflight_status = optional_daemon_start_status("crond", "crond");
+	if (preflight_status > 0) {
+		logmessage(LOGNAME, "crond start skipped: scheduler is already running");
+		return 0;
+	}
+	if (preflight_status < 0)
+		return preflight_status;
 
 	if (nvram_match("crond_log", "0"))
 		crond_argv[1] = "-d8";

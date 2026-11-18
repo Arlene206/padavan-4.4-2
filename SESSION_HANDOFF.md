@@ -1,13 +1,12 @@
-# 2026-11-19 continuation checkpoint — MentoHUST credential confidentiality
+# 2026-11-18 continuation checkpoint — crond duplicate-start gate
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA: `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf`.
-- The earlier Redsocks source/checker slice remains closed: exact-main Redsocks lifecycle run `44407053205` and AI handoff run `44407053381` both completed SUCCESS on `bb6b243951b1b72adaf349546c8caebf8cb492ed`.
-- MentoHUST hardening was committed at `51c7d73749514a4488ddc992a19805d340284500`; the shell function separator was corrected at `b9c9500aac4489f5d1f3841c1db8e3d19095d6e0`. Process lifecycle regression passed on `b9c9500` (`44414594807`). Legacy wrapper runs `44414594963` and `44415154101` failed their LF-injection regression because the production newline sentinel still used two backslashes. THIS COMMIT corrects the production LF/CR printf escapes.
-- Current parent `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf` includes unrelated USB modem credential-line validation work; its own XY-C1 run and additional Actions must not be mistaken for validation of this MentoHUST correction.
-- The frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 remains closed/unmerged and is not a development path.
-- Physical-router L4 remains NOT VERIFIED. Distinguish host/Actions checks from target build/artifact and hardware evidence.
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA for this slice: `a9d9594dc1875e5dd7adf2f894667d2e6566d76e`.
+- Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
+- MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
+- XY-C1 run `44415470536` for MentoHUST SHA `4f54d9f...` was still IN_PROGRESS at last poll; do not claim firmware L3 until Build, TRX verification and artifact upload pass. The new `services.c` change in THIS slice will trigger a fresh exact-head XY-C1 run.
+- Physical-router L4 and direct BusyBox target runtime remain NOT VERIFIED.
 ## Completed prerequisite — switch VLAN WAN gate
 
 The previous source slice closed a P1 WAN-startup safety gap. Router-mode `init_bridge()` formerly recorded `switch_config_vlan(1)` failure in its aggregate bridge status, but WAN admission did not consume that result. `init_bridge(int is_ap_mode, int *switch_vlan_status)` now exports only the switch VLAN isolation result; `init_router()` passes it into `firewall_startup_policy_allows_wan()`. Any nonzero result blocks WAN even when firewall and NAT are disabled. Unrelated radio/guest bridge errors are not promoted to the WAN prerequisite. The existing IPv4/IPv6 forwarding-disable cleanup remains in place.
@@ -77,25 +76,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Close MentoHUST credential confidentiality and config-injection hardening.
+Close a duplicate-start gap in the BusyBox crond RC lifecycle.
 
-- `init.c` deliberately sets PID 1 umask to `0000`; MentoHUST previously wrote plaintext credentials with inherited permissions and interpolated NVRAM values through `sed`. The wrapper now uses umask 077, fixed literal fields, a same-directory mode-0600 temporary file, atomic rename, current-UID ownership checks and refuses symlink/directory config destinations.
-- The first implementation SHA `51c7d73749514a4488ddc992a19805d340284500` failed shell syntax because the two function declarations were concatenated. The separator correction `b9c9500aac4489f5d1f3841c1db8e3d19095d6e0` passed Process lifecycle integration (`44414594807`).
-- Legacy wrapper run `44414594963` on `b9c9500` failed because the LF sentinel was double escaped. After the CR fixture was corrected at `6cda7c56e6e69b4b1ea38b0d618ab87d0ee46ecf`, exact run `44415154101` still failed that LF case. THIS COMMIT changes the production `printf` formats to produce actual LF/CR control characters; exact-head Actions must verify both rejection cases.
-- Regression coverage includes stale PID safety, secure file mode, literal `%`/backslash values, existing-config permissions, symlink refusal, LF/CR rejection, temp cleanup, and no daemon launch after invalid settings.
+- `trunk/user/rc/src/services.c::start_crond()` had bounded detached-child readiness, but unlike other optional daemons it performed no process-inventory preflight before `_eval()`. A repeated start request after crond was already running could fork a second scheduler and execute jobs more than once; UNKNOWN inventory was not an explicit launch barrier.
+- THIS COMMIT adds `optional_daemon_start_status("crond", "crond")` before launch: RUNNING is a logged idempotent success, UNKNOWN returns the inventory failure, and only ABSENT continues. Existing bounded readiness and stop-before-restart semantics are unchanged.
+- Regression: `trunk/user/rc/src/tests/service_start_status.c` exercises ABSENT/RUNNING/UNKNOWN/invalid-state preflight semantics. `scripts/check_process_lifecycle_integration.py` enforces preflight ordering and both branches before `_eval()`.
+- MentoHUST L2 remains verified on `4f54d9f...` by exact runs `44415470631`, `44415470654`, `44415470822` and `44415470569`; its XY-C1 run `44415470536` was pending at last poll.
 
 ## Verification boundary
 
-- L1 source review: PID 1 umask, plaintext credentials, inherited file modes, existing-config reuse, old sed interpolation and firmware packaging inspected; the LF/CR escape correction is part of THIS COMMIT.
-- L2: Process lifecycle passed on `b9c9500` (`44414594807`). Legacy-wrapper runtime failed on `b9c9500` (`44414594963`) and again on `6cda7c5` (`44415154101`) only because LF was accepted. No local shell test was performed; Actions are the runtime validation path.
-- L3: parent-source XY-C1 runs do not cover THIS COMMIT; require exact-head Build, TRX verification and artifact upload.
-- L4 physical router: NOT VERIFIED.
+- L1: reviewed current crond startup and common optional-daemon tri-state helper; this is a duplicate-start and UNKNOWN fail-closed improvement, not a change to its existing readiness policy.
+- L2: exact-head Process lifecycle, process inventory and AI docs Actions must pass for this commit. Local host compilation is unavailable in this connector-only environment.
+- L3: `services.c` is an XY-C1 production input; this commit needs its own exact-head Build, TRX and artifact result.
+- L4: scheduled job execution on a physical XY-C1 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Legacy wrapper stale pidfile safety, Process lifecycle regression, Process inventory, AI docs and XY-C1 runs for THIS COMMIT. The legacy runtime test must reject both LF and CR injection and preserve stale-PID/lifecycle behavior.
-2. Triage the first failing log without weakening config privacy or control-character assertions. If XY-C1 is pending, continue another independent safe P1 slice.
-3. After current-source L2/L3 pass, continue the P1 whole-userland service lifecycle/start-result queue in `REFACTOR_ROADMAP.md`, avoiding already-verified Redsocks, Shadowsocks, WireGuard and WAN callback slices. Keep the archival backup immutable.
+1. Check exact-head Process lifecycle regression, process inventory and AI docs runs for this commit; the GNU89 ASan/UBSan `service_start_status.c` regression and process source checker must pass.
+2. Check exact-head XY-C1 Build/TRX/artifact. If pending, continue an independent safe source task instead of waiting.
+3. Recheck MentoHUST XY-C1 run `44415470536`; only record L3 if all product steps pass. Continue the P1 whole-userland service-lifecycle/start-result queue after the current crond slice.
+4. Keep the archival backup immutable.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.
