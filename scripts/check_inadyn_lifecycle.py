@@ -19,13 +19,50 @@ def body(signature):
     start = source.index(signature)
     brace = source.index("{", start)
     depth = 0
-    for index in range(brace, len(source)):
-        if source[index] == "{":
-            depth += 1
-        elif source[index] == "}":
-            depth -= 1
-            if depth == 0:
-                return source[start:index + 1]
+    state = "code"
+    index = brace
+
+    while index < len(source):
+        current = source[index]
+        following = source[index + 1] if index + 1 < len(source) else ""
+
+        if state == "code":
+            if current == "/" and following == "/":
+                state = "line_comment"
+                index += 2
+                continue
+            if current == "/" and following == "*":
+                state = "block_comment"
+                index += 2
+                continue
+            if current == '"':
+                state = "string"
+            elif current == "'":
+                state = "character"
+            elif current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[start:index + 1]
+        elif state in ("string", "character"):
+            if current == "\\\\":
+                index += 2
+                continue
+            if (state == "string" and current == '"') or (
+                    state == "character" and current == "'"):
+                state = "code"
+        elif state == "line_comment":
+            if current == "\\n":
+                state = "code"
+        elif state == "block_comment":
+            if current == "*" and following == "/":
+                state = "code"
+                index += 2
+                continue
+
+        index += 1
+
     raise AssertionError("unterminated function: " + signature)
 
 notify = body("notify_ddns_update(void)")
