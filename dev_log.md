@@ -1,3 +1,11 @@
+## 2026-11-17 — Propagate PPPoE-MWAN detector failures from firewall rebuild
+
+- Parent main: `7d7a30fd51b0b151bd1d35c0e3564cb8a1f60497`. The PPPoE-MWAN detector already returns its first snapshot, rule deletion, rule creation, route, and cache-flush error. `start_firewall_ex()` invoked it when multi-WAN was enabled but discarded the `doSystem()` status, so a failed policy reconciliation could be hidden while WAN protocol startup continued.
+- Capture and decode the detector command status, preserve the first firewall error, and expose it through the existing `start_firewall_ex()` result. Add the firewall call site to the WAN-route triggers and extend both WAN and firewall source contracts to reject discarded detector results.
+- Exact-head WAN-route, firewall-startup and XY-C1 validation are pending for this source commit. Physical-router L4 remains unverified.
+
+---
+
 ## 2026-11-17 — Keep the OpenVPN TUN directory traversable after privilege drop
 
 - Parent main: `c0601f0b236bad685ca2b0e945d83861e2771d57`. The generated OpenVPN server config explicitly uses `user nobody` and `group nogroup`, but PID 1 previously accepted an existing root-owned `/dev/net` with mode 0700 or 0750 because it checked only owner execute and absence of group/world write. Such a directory can prevent the unprivileged daemon from traversing `/dev/net/tun` when it opens or reopens the persistent endpoint.

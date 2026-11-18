@@ -3022,8 +3022,11 @@ firewall_restore_complete:
 	/* enable IPv4 forward only after every built-in table was applied */
 	set_ipv4_forward(1);
 
-	if (nvram_match("pppoemwan_enable", "1"))
-		{doSystem("/usr/bin/detect.sh");}
+	if (nvram_match("pppoemwan_enable", "1")) {
+		hook_error = firewall_log_command_failure("PPPoE-MWAN detection",
+						  doSystem("/usr/bin/detect.sh"));
+		status = rc_first_service_start_status(status, hook_error);
+	}
 		
 	/* try unload unused iptables modules */
 	module_smart_unload("xt_webstr", 0);

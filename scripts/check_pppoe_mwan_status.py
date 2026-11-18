@@ -98,6 +98,26 @@ check_caller(
     "WAN PPPoE-MWAN reconfiguration incomplete",
 )
 
+# The firewall rebuild also invokes this detector before WAN protocol clients
+# are launched. Its command result must not disappear at this third call site.
+firewall_reconcile = function_body(FIREWALL, "start_firewall_ex(void)")
+mwan_gate = 'if (nvram_match("pppoemwan_enable", "1"))'
+mwan_call = 'hook_error = firewall_log_command_failure("PPPoE-MWAN detection",'
+mwan_merge = "status = rc_first_service_start_status(status, hook_error);"
+require(
+    mwan_gate in firewall_reconcile
+    and mwan_call in firewall_reconcile
+    and mwan_merge in firewall_reconcile
+    and firewall_reconcile.index(mwan_gate)
+        < firewall_reconcile.index(mwan_call)
+        < firewall_reconcile.index(mwan_merge),
+    "firewall rebuild must decode and aggregate the PPPoE-MWAN detector command result",
+)
+require(
+    'doSystem("/usr/bin/detect.sh");' not in firewall_reconcile,
+    "firewall rebuild must not discard a PPPoE-MWAN detector result",
+)
+
 flush_helper_start = DETECT.index("mwan_flush_fail()")
 flush_helper_end = DETECT.index(chr(10), flush_helper_start)
 require(

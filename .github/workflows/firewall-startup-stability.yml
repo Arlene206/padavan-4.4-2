@@ -144,6 +144,15 @@ jobs:
           module_policy = Path("trunk/user/rc/src/firewall_module_table_policy.h").read_text()
           module_test = Path("trunk/user/rc/src/tests/firewall_module_table_policy.c").read_text()
           firewall_source = Path("trunk/user/rc/src/firewall_ex.c").read_text()
+          firewall_reconcile = body(firewall_source, "start_firewall_ex(void)")
+          detect_gate = 'if (nvram_match("pppoemwan_enable", "1"))'
+          detect_call = 'hook_error = firewall_log_command_failure("PPPoE-MWAN detection",'
+          detect_merge = "status = rc_first_service_start_status(status, hook_error);"
+          assert detect_gate in firewall_reconcile
+          assert detect_call in firewall_reconcile
+          assert detect_merge in firewall_reconcile
+          assert firewall_reconcile.index(detect_gate) < firewall_reconcile.index(detect_call) < firewall_reconcile.index(detect_merge)
+          assert 'doSystem("/usr/bin/detect.sh");' not in firewall_reconcile
           for module in ("iptable_mangle", "iptable_raw", "ip6table_mangle"):
               assert f'"{module}"' in firewall_source
           assert "is_module_loaded_status(module_name)" in firewall_source
