@@ -1645,22 +1645,56 @@ adbyby_lifecycle_lock_execute() {
 	return "$adbyby_action_status"
 }
 
+adbyby_reset_transient_nvram_state() {
+	for adbyby_reset_entry in \
+		'adbyby_adb=0' \
+		'adbybyip_mac_x_0=' \
+		'adbybyip_ip_x_0=' \
+		'adbybyip_name_x_0=' \
+		'adbybyip_ip_road_x_0=' \
+		'adbybyrules_x_0=' \
+		'adbybyrules_road_x_0='; do
+		if nvram set "$adbyby_reset_entry"; then
+			:
+		else
+			adbyby_reset_status=$?
+			logger -t "adbyby" "无法清理临时NVRAM状态[$adbyby_reset_entry](status=$adbyby_reset_status)。"
+			return "$adbyby_reset_status"
+		fi
+	done
+	return 0
+}
+
 adbyby_lifecycle_locked_action() {
 	adbyby_action="$1"
+	# Shutdown is safety cleanup; stale NVRAM must not block daemon teardown.
+	if [ "$adbyby_action" = "stop" ]; then
+		adbyby_stop_prepare_status=0
+		if adbyby_refresh_nvram_state; then
+			adbyby_reset_transient_nvram_state || adbyby_stop_prepare_status=$?
+		else
+			adbyby_stop_prepare_status=$?
+		fi
+		if adbyby_close; then
+			adbyby_stop_action_status=0
+		else
+			adbyby_stop_action_status=$?
+			if [ "$adbyby_stop_prepare_status" -ne 0 ]; then
+				logger -t "adbyby" "服务清理同时发生NVRAM准备错误(status=$adbyby_stop_prepare_status)和关闭错误(status=$adbyby_stop_action_status)。"
+			fi
+		fi
+		if [ "$adbyby_stop_prepare_status" -ne 0 ]; then
+			return "$adbyby_stop_prepare_status"
+		fi
+		return "$adbyby_stop_action_status"
+	fi
 	if [ "$adbyby_action" != "B" ]; then
-		adbyby_refresh_nvram_state || return 1
-		nvram set adbyby_adb=0
-		nvram set adbybyip_mac_x_0=""
-		nvram set adbybyip_ip_x_0=""
-		nvram set adbybyip_name_x_0=""
-		nvram set adbybyip_ip_road_x_0=""
-		nvram set adbybyrules_x_0=""
-		nvram set adbybyrules_road_x_0=""
+		adbyby_refresh_nvram_state || return $?
+		adbyby_reset_transient_nvram_state || return $?
 	fi
 	case "$adbyby_action" in
 		B) adbyby_refresh_blockip_set ;;
 		start) adbyby_start ;;
-		stop) adbyby_close ;;
 		restart)
 			adbyby_close || return 1
 			if [ "$adbyby_enable" = "1" ]; then

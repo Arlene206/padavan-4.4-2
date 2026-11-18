@@ -345,8 +345,21 @@ for marker in ("TLS outage", "redirect", "HTTP failure", "partial/corrupt body",
                "Adbyby private HTTPS staging, digest validation, cache fallback and publication rollback"):
     require(marker in rules_test, f"rule download regression misses: {marker}")
 
-require("adbyby_refresh_nvram_state || return 1" in locked_action,
-        "NVRAM must refresh after lock acquisition")
+reset_nvram = function_body(source, "adbyby_reset_transient_nvram_state")
+require(all(entry in reset_nvram for entry in (
+            "adbyby_adb=0", "adbybyip_mac_x_0=", "adbybyip_ip_x_0=",
+            "adbybyip_name_x_0=", "adbybyip_ip_road_x_0=",
+            "adbybyrules_x_0=", "adbybyrules_road_x_0=")) and
+        'nvram set "$adbyby_reset_entry"' in reset_nvram and
+        'return "$adbyby_reset_status"' in reset_nvram,
+        "transient NVRAM reset must cover all legacy fields and preserve the first write failure")
+require('if [ "$adbyby_action" = "stop"; then' in locked_action and
+        "adbyby_close" in locked_action and
+        'return "$adbyby_stop_prepare_status"' in locked_action,
+        "stop must always attempt teardown and preserve an earlier NVRAM preparation failure")
+require("adbyby_refresh_nvram_state || return $?" in locked_action and
+        "adbyby_reset_transient_nvram_state || return $?" in locked_action,
+        "non-stop actions must fail closed on NVRAM read or write errors")
 require("updateadb" in lock_run and "restart" in lock_run,
         "restart and update use lifecycle lock")
 require("G|updateadb) adbyby_uprules" in locked_action,
