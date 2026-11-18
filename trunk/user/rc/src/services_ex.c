@@ -1289,11 +1289,11 @@ samba_ex_require_absent(const char *daemon, const char *stage)
 	return -1;
 }
 
-static void
+static int
 samba_ex_daemon_sleep(void *context, unsigned int microseconds)
 {
 	(void)context;
-	usleep(microseconds);
+	return service_wait_microseconds(microseconds);
 }
 
 static int

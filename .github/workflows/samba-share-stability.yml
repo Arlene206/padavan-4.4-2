@@ -6,6 +6,8 @@ on:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/samba_config_file.h"
@@ -23,6 +25,8 @@ on:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/samba_config_file.h"
@@ -66,6 +70,11 @@ jobs:
           /tmp/samba-daemon-policy
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
             -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/service_wait_policy.c \
+            -o /tmp/service-wait-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/service-wait-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
             trunk/user/rc/src/tests/samba_process_policy.c \
             -o /tmp/samba-process-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/samba-process-policy
@@ -76,6 +85,9 @@ jobs:
 
           stor = Path("trunk/user/rc/src/services_stor.c").read_text()
           services = Path("trunk/user/rc/src/services_ex.c").read_text()
+          wait_policy = Path("trunk/user/rc/src/service_wait_policy.h").read_text()
+          samba_daemon_policy = Path("trunk/user/rc/src/samba_daemon_policy.h").read_text()
+          wait_test = Path("trunk/user/rc/src/tests/service_wait_policy.c").read_text()
           header = Path("trunk/user/rc/src/rc.h").read_text()
           helper = Path("trunk/user/rc/src/samba_config_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/samba_config_file.c").read_text()
@@ -130,6 +142,17 @@ jobs:
           assert "killall" not in wins
           assert "pids(" not in wins
           assert "process_snapshot_release(&nmbd_snapshot)" in wins
+          assert '#include "service_wait_policy.h"' in services
+          sleep_adapter = function_body(services, "samba_ex_daemon_sleep(void *context, unsigned int microseconds)")
+          assert "service_wait_microseconds(microseconds)" in sleep_adapter
+          assert "usleep(" not in sleep_adapter
+          assert "service_wait_nanosleep_real" in wait_policy
+          assert "requested = remaining;" in wait_policy
+          assert "errno != EINTR" in wait_policy
+          assert "service_wait_microseconds_with" in wait_test
+          assert "int (*sleep_us)(void *context, unsigned int microseconds);" in samba_daemon_policy
+          assert "ops->sleep_us(context, 500000U) != 0" in samba_daemon_policy
+          assert "ops->sleep_us(context, 100000U) != 0" in samba_daemon_policy
 
           reload = function_body(services, "reload_nmbd(void)")
           assert 'process_inventory_scan("nmbd", &snapshot)' in reload

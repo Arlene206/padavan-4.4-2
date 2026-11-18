@@ -12,6 +12,8 @@ struct fake_daemon {
 	size_t next_state;
 	int state_errno;
 	unsigned int slept_us;
+	int sleep_status;
+	int sleep_errno;
 };
 
 static enum process_presence
@@ -32,12 +34,17 @@ fake_get_presence(void *context, const char *daemon)
 	return state;
 }
 
-static void
+static int
 fake_sleep_us(void *context, unsigned int microseconds)
 {
 	struct fake_daemon *fake = (struct fake_daemon *)context;
 
 	fake->slept_us += microseconds;
+	if (fake->sleep_status != 0) {
+		errno = fake->sleep_errno ? fake->sleep_errno : EIO;
+		return -1;
+	}
+	return 0;
 }
 
 static const struct samba_daemon_wait_ops fake_ops = {
@@ -54,7 +61,7 @@ main(void)
 			PROCESS_PRESENCE_RUNNING,
 			PROCESS_PRESENCE_RUNNING
 		};
-		struct fake_daemon fake = { states, 3, 0, 0, 0 };
+		struct fake_daemon fake = { states, 3, 0, 0, 0, 0, 0 };
 
 		assert(samba_daemon_wait_for_stable_presence("nmbd", 3,
 							     &fake_ops, &fake) == 0);
@@ -68,7 +75,7 @@ main(void)
 			PROCESS_PRESENCE_ABSENT,
 			PROCESS_PRESENCE_ABSENT
 		};
-		struct fake_daemon fake = { states, 3, 0, 0, 0 };
+		struct fake_daemon fake = { states, 3, 0, 0, 0, 0, 0 };
 
 		errno = 0;
 		assert(samba_daemon_wait_for_stable_presence("nmbd", 2,
@@ -82,7 +89,7 @@ main(void)
 		const enum process_presence states[] = {
 			PROCESS_PRESENCE_UNKNOWN
 		};
-		struct fake_daemon fake = { states, 1, 0, EACCES, 0 };
+		struct fake_daemon fake = { states, 1, 0, EACCES, 0, 0, 0 };
 
 		errno = 0;
 		assert(samba_daemon_wait_for_stable_presence("nmbd", 2,
@@ -96,7 +103,7 @@ main(void)
 			PROCESS_PRESENCE_RUNNING,
 			PROCESS_PRESENCE_UNKNOWN
 		};
-		struct fake_daemon fake = { states, 2, 0, EPERM, 0 };
+		struct fake_daemon fake = { states, 2, 0, EPERM, 0, 0, 0 };
 
 		errno = 0;
 		assert(samba_daemon_wait_for_stable_presence("nmbd", 2,
@@ -109,7 +116,7 @@ main(void)
 		const enum process_presence states[] = {
 			(enum process_presence)9
 		};
-		struct fake_daemon fake = { states, 1, 0, 0, 0 };
+		struct fake_daemon fake = { states, 1, 0, 0, 0, 0, 0 };
 
 		errno = 0;
 		assert(samba_daemon_wait_for_stable_presence("nmbd", 1,
@@ -119,7 +126,7 @@ main(void)
 	}
 
 	{
-		struct fake_daemon fake = { NULL, 0, 0, 0, 0 };
+		struct fake_daemon fake = { NULL, 0, 0, 0, 0, 0, 0 };
 
 		errno = 0;
 		assert(samba_daemon_wait_for_stable_presence("nmbd", 0,
@@ -135,6 +142,18 @@ main(void)
 		assert(samba_daemon_wait_for_stable_presence("nmbd", 1,
 							     NULL, &fake) == -1);
 		assert(errno == EINVAL);
+	}
+
+
+	{
+		const enum process_presence states[] = { PROCESS_PRESENCE_RUNNING };
+		struct fake_daemon fake = { states, 1, 0, 0, 0, -1, EACCES };
+
+		errno = 0;
+		assert(samba_daemon_wait_for_stable_presence("nmbd", 2,
+							     &fake_ops, &fake) == -1);
+		assert(errno == EACCES);
+		assert(fake.next_state == 1 && fake.slept_us == 500000U);
 	}
 
 	puts("Samba tri-state daemon readiness policy: PASS");
