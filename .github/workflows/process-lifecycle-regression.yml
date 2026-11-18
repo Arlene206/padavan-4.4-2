@@ -801,7 +801,7 @@ jobs:
           assert "return rc_first_service_start_status(start_status, stop_status);" in iptv
           assert "test_first_failure_is_returned_after_all_operations" in bridge_regression
 
-          init_bridge = body(lan, "init_bridge(int is_ap_mode)")
+          init_bridge = body(lan, "init_bridge(int is_ap_mode, int *switch_vlan_status)")
           switch_vlan = body(lan, "switch_config_vlan(int first_call)")
           switch_vlan_restart = body(lan, "restart_switch_config_vlan(void)")
           switch_base = body(lan, "switch_config_base(void)")
@@ -815,9 +815,15 @@ jobs:
           bridge_add = body(netutils, "br_add_del_bridge(const char *brname, int is_add)")
           bridge_member_add = body(netutils, "br_add_del_if_internal(const char *brname, const char *ifname, int is_add,")
           module_loader = body(lan, "init_bridge_load_module_verified(const char *module_name, const char *module_param)")
-          assert ("int" + chr(10) + "init_bridge(int is_ap_mode)") in lan
-          assert "int init_bridge(int is_ap_mode);" in header
+          assert ("int" + chr(10) + "init_bridge(int is_ap_mode, int *switch_vlan_status)") in lan
+          assert "int init_bridge(int is_ap_mode, int *switch_vlan_status);" in header
           assert "operation_status = switch_config_vlan(1);" in init_bridge
+          bridge_compact = " ".join(init_bridge.split())
+          assert "if (switch_vlan_status) *switch_vlan_status = 0;" in bridge_compact
+          vlan_config = bridge_compact.index("operation_status = switch_config_vlan(1);")
+          vlan_capture = bridge_compact.index("*switch_vlan_status = operation_status;", vlan_config)
+          vlan_record = bridge_compact.index('rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);', vlan_capture)
+          assert vlan_config < vlan_capture < vlan_record
           assert 'rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);' in init_bridge
           for operation in ("set MAC interface address", "bring up MAC interface",
                             "power up switch PHYs", "create LAN bridge",
@@ -892,8 +898,10 @@ jobs:
           assert "operation_status = full_restart_wan();" in switch_vlan_restart
           assert "return start_status;" in switch_vlan_restart
           assert "int restart_switch_config_vlan(void);" in header
-          assert "int bridge_start_status = init_bridge(is_ap_mode);" in init_body
+          assert "int bridge_start_status = init_bridge(is_ap_mode, &switch_vlan_status);" in init_body
+          assert "int switch_vlan_status = 0;" in init_body
           assert "boot_services_status, bridge_start_status);" in init_body
+          assert "init_bridge(is_ap_mode, &switch_vlan_status);" in init_body
           assert "rc_notify_merge_action_result(action_result, config_bridge(get_ap_mode()))" in body(init, "handle_notifications(void)")
           assert "rc_notify_merge_action_result(action_result, restart_switch_config_vlan())" in body(init, "handle_notifications(void)")
           assert "test_bridge_add_idempotency_requires_confirmed_bridge();" in bridge_init_regression

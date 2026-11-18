@@ -24,6 +24,10 @@ Atomic source commit: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` (parent `26f063
 - XY-C1 firmware run `44351420211`: at last poll, host regressions, source contracts and the production-input detector passed; `Build XY-C1` remained IN_PROGRESS; TRX verification and artifact upload were PENDING. Recheck this exact run before claiming L3.
 - The other independent exact-head runs observed for `1fa05ac` completed successfully. Do not collapse the five failures above into a blanket CI failure or misstate the pending firmware job.
 
+### Process workflow follow-up at main 68154ac14fad3330f99b2310f796cbcf66960e2e
+
+- Wireless radio run `44354158097` and AI handoff run `44354157678` are SUCCESS. Process lifecycle run `44354157953` still FAILS in its separate embedded LAN startup checker: that workflow itself searches for the old `init_bridge(int is_ap_mode)` signature/prototype/call after the shared guest-isolation checker was repaired. This repair updates the Process workflow's local signature, prototype and `init_router()` caller assertions to the `switch_vlan_status` output parameter, and verifies the VLAN result is captured between `switch_config_vlan(1)` and its bridge-status record. The workflow already watches its own file on both push and pull_request.
+
 ## Verification boundary
 
 - WAN VLAN source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`: Firewall policy C regression passed; exact-source XY-C1 run `44351420211` is now SUCCESS, including every host regression, Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for this exact firmware source SHA; physical-router L4 remains NOT VERIFIED.
@@ -34,10 +38,9 @@ Atomic source commit: `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` (parent `26f063
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head `push` Actions for the new guest-checker repair commit: Process lifecycle and Wireless radio must pass; recheck Firewall Startup, HTTPD Security and AI handoff documentation rather than assuming results carry forward. On checker commit `117c52c925cb96478802d8c4bd2e829e4bd9c133`, Firewall `44353199552`, HTTPD `44353199583` and AI docs `44353199773` are SUCCESS; Process `44353199473` and Wireless `44353199497` are FAIL at the whitespace-sensitive checker assertion now repaired. XY-C1 source run `44351420211` on product SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` is SUCCESS through Build, TRX and artifact upload (L3 for that SHA).
-2. After the new Process/Wireless exact-head checks pass, finish the next P1 IPv6 safety slice in `trunk/user/rc/src/rc.c`: retain the result of `init_ipv6()` beyond its current local block and block WAN only when IPv6 is configured disabled but the global disable sysctls did not complete. This prevents an unverified IPv6 disable from leaving an unfiltered path open. Extend `firewall_startup_policy.h` and its C regression for positive/negative failures; preserve current behavior for enabled IPv6, where active IPv6 firewall filter installation remains the separate gate. Re-attempt global IPv6 forwarding disable on the blocked path.
-3. Do not turn early `init_sysctl()` memory/TCP performance tuning failures into PID-1 boot blockers. Those writes are best-effort; classify actual required network/firewall state separately. Continue cross-userland stability/security afterward.
-
+1. Inspect exact-head `push` Actions for the Process workflow-contract repair. On parent SHA `68154ac14fad3330f99b2310f796cbcf66960e2e`, Wireless radio `44354158097` and AI handoff `44354157678` are SUCCESS; Process lifecycle `44354157953` FAILS only because its separate embedded checker still expects the old `init_bridge` signature/prototype/caller. The shared guest-isolation checker itself was repaired and Wireless is now green. Firewall/HTTPD/AI contracts on prior checker SHA `117c52c925cb96478802d8c4bd2e829e4bd9c133` passed. XY-C1 run `44351420211` on product source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` passed Build, TRX and artifact upload (L3 for that SHA).
+2. After the new Process exact-head check passes, finish the next P1 IPv6 safety slice in `trunk/user/rc/src/rc.c`: retain the result of `init_ipv6()` and block WAN only when IPv6 is configured disabled but the global disable sysctls did not complete. Extend `firewall_startup_policy.h` and its C regression for positive/negative failures; preserve the existing enabled-IPv6 firewall filter gate. Re-attempt global IPv6 forwarding disable on any rejected WAN startup.
+3. Do not turn early `init_sysctl()` memory/TCP performance tuning failures into PID-1 boot blockers. Those writes are best-effort; continue cross-userland stability/security afterward.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

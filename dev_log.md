@@ -1,3 +1,10 @@
+## 2026-11-19 01:04 CST — Align Process workflow with switch VLAN output parameter
+
+- Parent main SHA: `68154ac14fad3330f99b2310f796cbcf66960e2e`. Wireless radio run `44354158097` and AI handoff docs `44354157678` passed after the guest-LAN checker whitespace normalization. Process lifecycle run `44354157953` then exposed a second, independent stale contract inside its own workflow: the embedded checker still searched for the previous `init_bridge` signature and expected the old prototype and one-argument caller.
+- Updated the Process workflow source contract to the `switch_vlan_status` output parameter and added assertions that the `switch_config_vlan(1)` result is captured before its bridge-status record. The workflow's own file is already included in both push and pull_request path allowlists.
+- No production firmware source changed in this checker repair. The shared guest checker and its C regression passed; the remaining failure was the workflow's own embedded static source contract. No local tests or firmware build are claimed.
+- Next after exact-head Process regression passes: resume the IPv6-disabled WAN fail-closed admission slice recorded in SESSION_HANDOFF.md.
+
 ## 2026-11-19 01:00:22 CST — Normalize guest bridge source contract after VLAN output change
 
 - Base main SHA: 117c52c925cb96478802d8c4bd2e829e4bd9c133. The preceding checker commit resolved the firewall startup, HTTPD security and AI handoff exact-head failures; Process lifecycle and Wireless radio still failed on one remaining whitespace-sensitive assertion in their shared guest-LAN checker.
