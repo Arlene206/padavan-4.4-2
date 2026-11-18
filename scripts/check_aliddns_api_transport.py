@@ -192,14 +192,20 @@ require('install_ca_trust_store() {' in copy_scripts and
         'system("/usr/bin/copyscripts.sh &")' not in rc and
         rc.index('system("/usr/bin/copyscripts.sh")') < rc.index('system("/usr/bin/autostart.sh &")'),
         "firmware startup must install the CA trust store synchronously before autostart")
-require('if [ "$(nvram get aliddns_enable)" = 1 ]; then' in autostart and
+autostart_nvram_read = function_body(autostart, "autostart_nvram_read() {")
+autostart_nvram_enabled = function_body(autostart, "autostart_nvram_enabled() {")
+require('if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then' in autostart_nvram_read and
+        'return "$_autostart_nvram_status"' in autostart_nvram_read and
+        'autostart_nvram_read "$1" || return $?' in autostart_nvram_enabled and
+        'if autostart_nvram_enabled aliddns_enable; then' in autostart and
         'if [ -r /etc/ssl/certs/ca-certificates.crt ]; then' in autostart and
         'run_optional_start "AliDDNS" /usr/bin/aliddns.sh start' in autostart and
         'AliDDNS autostart skipped: CA trust bundle is not readable' in autostart and
+        autostart.index('if autostart_nvram_enabled aliddns_enable; then') <
         autostart.index('if [ -r /etc/ssl/certs/ca-certificates.crt ]; then') <
         autostart.index('run_optional_start "AliDDNS" /usr/bin/aliddns.sh start') <
-        autostart.index('if [ $(nvram get ddnsto_enable) = 1 ]'),
-        "enabled AliDDNS must retain its CA-gated optional startup path")
+        autostart.index('if autostart_nvram_enabled ddnsto_enable; then'),
+        "enabled AliDDNS must retain a status-checked, CA-gated optional startup path")
 
 require('EVM_RESTART_ALIDDNS' in variables and
         'RCN_RESTART_ALIDDNS' in rc and

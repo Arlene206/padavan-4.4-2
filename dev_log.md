@@ -1,3 +1,10 @@
+## 2026-11-19 — Repair AliDDNS and FRP contracts for shared autostart NVRAM reader
+
+- Parent SHA: `51596e1acf6b4842b80e1246911aac59e9dd2baf`. Production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112` and HTTPD `44386912691` passed. XY-C1 `44386912939` was IN_PROGRESS; AliDDNS `44386912869` and FRP `44386912971` failed.
+- AliDDNS host transport/API suites passed; its static checker failed on a stale literal requirement for the old inline AliDDNS NVRAM expression. Updated it to assert `autostart_nvram_read()` preserves nvram status, the enable wrapper propagates it, and the CA bundle gate remains ordered before launch.
+- FRP tests passed lifecycle/watchdog/crontab before the isolated autostart fixture failed with `autostart_nvram_read: not found`: its extractor sourced only FRP functions. The fixture now imports the production reader and injects status 9 for both client/server state reads, asserting no launch and key/status logging.
+- No production source or CI trigger changed in this fix; existing workflow filters cover the checker, fixture and common script. No local Python/shell tests were run. Exact-head AliDDNS/FRP and XY-C1 results remain required.
+
 ## 2026-11-19 — Report autostart feature-switch NVRAM read failures
 
 - Parent main SHA: `55cf20ecfec45a5b519996c85921bce722e54d99`. DDNSTO source SHA `55cf20ecfec45a5b519996c85921bce722e54d99` passed exact-head DDNSTO `44385101598`, Process inventory `44385101669` and AI docs `44385101578`; XY-C1 `44385101749` was still building. RStats source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961` passed exact-head RStats/Process/HTTPD/AI/NVRAM and XY-C1, with Build/TRX/artifact complete.
