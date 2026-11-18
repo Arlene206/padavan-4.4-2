@@ -1,3 +1,13 @@
+## 2026-11-18 — Checkpoint WAN deferred VPN enqueue status and exact product validation
+
+- Source commit 816146abeff90634d307069edb91ea338b274f2f preserves notify_rc_status("start_vpn_client") and aggregates/logs enqueue failures without skipping later WAN checks. Exact WAN route 44204417571 and Process 44204417899 PASS.
+- Exact 816 WAN DHCP callback 44204417722, AI docs 44204417806 and USB modem identity 44204417584 PASS.
+- Exact descendant main 4a9b812b39de402211d9614a5ac086ec1d61ab17: HTTPD Security 44204487769 PASS; AI handoff 44204487682 PASS; NVRAM 44204487741 IN_PROGRESS.
+- XY-C1 44204488447 on 4a9b812 remains IN_PROGRESS at Build XY-C1; TRX and artifact steps pending. Descendant changes after the production source were workflow/docs-only; still require same-SHA Build/TRX/artifact success.
+- No local MIPS build or hardware L4 claim. Continue unrelated P1 implementation while pending runs proceed.
+
+---
+
 ## 2026-11-18 — Align HTTPD AP DHCP retry source contract
 
 - Parent main SHA: `816146abeff90634d307069edb91ea338b274f2f`; exact WAN DHCP `44203603261` PASS. Exact Process `44203603303`, infosvr `44203603262`, AliyunDrive `44203603304`, AliDDNS `44203603381`, AdGuardHome `44203603460` PASS on `d7f4bc9f`; AI `44203929395` and NVRAM `44203929348` PASS on `62f315b1`.

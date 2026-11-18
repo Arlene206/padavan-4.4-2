@@ -1,33 +1,36 @@
-# 2026-11-18 continuation checkpoint — align HTTPD AP DHCP retry contract
+# 2026-11-18 continuation checkpoint — WAN VPN enqueue status propagation
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS HTTPD contract correction: `816146abeff90634d307069edb91ea338b274f2f`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact parent `d7f4bc9f`: WAN DHCP callback `44203603261` PASS; Process inventory `44203603303` PASS; infosvr `44203603262` PASS; AliyunDrive `44203603304` PASS; AliDDNS `44203603381` PASS; AdGuardHome `44203603460` PASS. AI documentation action `44203603286` failed on missing exact handoff wording, then exact AI rerun `44203929395` on `62f315b1` PASSed. NVRAM `44203929348` on `62f315b1` PASSed.
-- XY-C1 run `44202831040` on source SHA `509409f8` has now completed SUCCESS. It is the same production-source tree as the DHCP AP retry implementation (later changes were workflow/docs only); verify job steps for Build XY-C1, TRX and artifact upload before claiming L3.
-- HTTPD Security still had three stale embedded assertions: direct `create_hosts_lan()` inside `udhcpc_lan_bound()`, error log inside that callback, and direct return from `update_hosts_ap()`. THIS updates the script to inspect the extracted helper, the callback's wrapper call, and success-only marker clear. Push filter already included callback policy files; pull_request filter is aligned too.
-- No local MIPS toolchain or router; physical hardware L4 NOT VERIFIED.
+- Repository: Arlene206/padavan-4.4-2. Live main at handoff: 4a9b812b39de402211d9614a5ac086ec1d61ab17.
+- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Source commit 816146abeff90634d307069edb91ea338b274f2f changes wan_up_internal() to use notify_rc_status("start_vpn_client"), preserve the returned enqueue error with route_status_accumulate(), log a failure, and continue later independent gateway checks. It adds a GNU89 first-error/later-action regression and exact source-order contract.
+- Exact 816 WAN route regression 44204417571 PASS; Process lifecycle 44204417899 PASS; WAN DHCP callback 44204417722 PASS; AI handoff 44204417806 PASS; USB modem identity 44204417584 PASS.
+- On exact main 4a9, HTTPD security 44204487769 PASS and AI handoff docs 44204487682 PASS.
+- Exact 4a9 NVRAM transaction audit 44204487741 is IN_PROGRESS. Exact XY-C1 build run 44204488447 is IN_PROGRESS at Build XY-C1; TRX verification and artifact upload are PENDING.
+- No local MIPS toolchain/build or physical router; hardware L4 NOT VERIFIED.
 
 ## Active task
-- Production AP DHCP host retry fix remains in `0af358f3`; standalone source-check whitespace fix `509409f8`; WAN integration contract fix `d7f4bc9f`.
-- THIS commit changes only HTTPD's inline regression assertions/path filters and handoff files. It verifies retry marker-before-notification ordering and success-only clearing after `update_hosts_ap()`.
-- No production C source changes.
+- The WAN deferred VPN event enqueue status gap is implemented and its exact WAN route and Process regressions passed on 816146a.
+- Current CI work: wait neither on NVRAM nor firmware. While these runs continue, independently inspect one P1 userland startup/shutdown path outside WAN and implement the next clear error-propagation or rollback defect.
 
 ## Verification boundary
-- Source SHA `509409f8`: XY-C1 workflow `44202831040` completed SUCCESS; full Build/TRX/artifact steps to be confirmed from job detail before claiming L3.
-- SHA `d7f4bc9f`: WAN DHCP `44203603261`, Process `44203603303`, infosvr `44203603262`, AliyunDrive `44203603304`, AliDDNS `44203603381`, AdGuardHome `44203603460` PASS.
-- SHA `62f315b1`: AI handoff `44203929395` PASS and NVRAM `44203929348` PASS.
-- THIS HTTPD contract change and its matching AI checkpoint will trigger exact-head HTTPD/AI verification. No hardware L4 claim.
+- 816146a: WAN route 44204417571 PASS; Process 44204417899 PASS; WAN DHCP 44204417722 PASS; AI 44204417806 PASS; USB modem identity 44204417584 PASS.
+- 4a9b812: HTTPD Security 44204487769 PASS; AI handoff 44204487682 PASS.
+- 4a9b812: NVRAM 44204487741 IN_PROGRESS; XY-C1 44204488447 IN_PROGRESS at Build XY-C1, with TRX and artifact pending.
+- XY-C1 run 44204488447 uses the same source tree as 816146a; the descendant 4a9b812 only changed HTTPD workflow assertions and handoff/roadmap/log docs. Still require the exact run's TRX verification and artifact upload before claiming L3.
+- No local MIPS build or physical-router hardware L4 claim.
 
 ## Exact first action for the next GPT
-1. Inspect this commit's exact-head HTTPD Security and AI handoff runs; require both PASS, including DHCP source assertions for helper extraction, retry flag/notification order and success-only clear.
-2. Inspect XY-C1 run `44202831040` job steps: require Build XY-C1, Verify TRX output and artifact upload on the same source SHA `509409f8`.
-3. Continue the independent WAN-up notification status defect identified in `net_wan.c`, or another P1 userland issue, while new Actions are pending.
-4. Keep the backup unchanged; no physical-router L4 claim.
+1. Fetch live main; inspect exact 4a9b812 NVRAM run 44204487741 and XY-C1 run 44204488447.
+2. For XY-C1, require Build XY-C1, Verify TRX output, and artifact upload all SUCCESS on this same SHA. Record the actual job-step outcome, not just run status.
+3. Continue the next independent P1 stability/security slice in another userland module while Actions remain pending; if any CI fails, diagnose the first causal failure from its exact job log.
+4. Keep frozen backup unchanged and hardware L4 NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.
 Every session MUST inspect the live repository state, exact-SHA Actions, current handoff/roadmap facts, validation boundary and exact first actionable task before ending. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit. Do not create a no-op commit.
+
+At session end, inspect live main, relevant exact-SHA Actions, the handoff/roadmap and the first actionable task. Record PASS/FAIL/PENDING accurately.
 
 # Cross-session execution mandate
 

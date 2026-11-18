@@ -1,23 +1,18 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS HTTPD AP DHCP retry contract update: `816146abeff90634d307069edb91ea338b274f2f`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- AP DHCP production fix `0af358f3`, whitespace checker fix `509409f8`, and WAN workflow contract fix `d7f4bc9f` are in main. Exact WAN DHCP run `44203603261` PASS.
-- Exact `d7f4bc9f` Process `44203603303`, infosvr `44203603262`, AliyunDrive `44203603304`, AliDDNS `44203603381`, AdGuardHome `44203603460` PASS. AI exact rerun `44203929395` and NVRAM `44203929348` PASS on `62f315b1`.
-- XY-C1 source run `44202831040` for `509409f8` now completed SUCCESS; inspect the individual Build/TRX/artifact steps before making a product L3 statement. Subsequent commits through parent are workflow/docs-only.
-- HTTPD Security's embedded contract still expected old inline LAN host writes. THIS updates it to assert actual publisher/helper boundary, AP notification and success-only marker clear; both push and pull_request triggers include callback policy files.
-- THIS slice changes no production C. Physical-router L4 NOT VERIFIED.
+- Live main parent: 4a9b812b39de402211d9614a5ac086ec1d61ab17. WAN deferred VPN-client event enqueue status fix is in source commit 816146a; the void notify_rc() result is no longer discarded.
+- Exact 816 WAN route 44204417571, Process 44204417899, WAN DHCP 44204417722, AI handoff 44204417806 and USB modem identity 44204417584 PASS.
+- On exact 4a9 main, HTTPD Security 44204487769 PASS and AI handoff 44204487682 PASS. NVRAM 44204487741 remains IN_PROGRESS.
+- XY-C1 44204488447 remains IN_PROGRESS at Build XY-C1; TRX verification and artifact upload are still pending. It validates the same production source tree as 816146a; no L3 claim until all steps pass.
+- Frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807 unchanged; hardware L4 NOT VERIFIED.
 
-Next: exact-head HTTPD Security and AI handoff PASS; verify XY-C1 step-level L3 evidence; then continue the independent WAN-up status propagation task.
+Next: inspect exact-SHA NVRAM and XY-C1 result changes; continue an independent P1 issue in other Padavan userland modules.
 
 ---
 
 ## Whole-repository module status
 
-- AP DHCP ancillary hosts retry: embedded WAN DHCP workflow still expected `create_hosts_lan()` and its diagnostic inside `udhcpc_lan_bound()`, though production code now extracts both into `lan_dhcp_publish_hosts_and_schedule_retry()`. THIS commit corrects that contract and checks lease-state publication before ancillary helper execution; exact-head run pending.
-
-
-- WAN static IPoE setup/teardown cleanup and post-WAN hook status propagation remain in main; the teardown source check is corrected and the exact WAN route workflow passed on `d7eea9c0`.
-- AP DHCP retry state and notification recovery added on `0af358f3`; its first WAN DHCP run exposed a whitespace-sensitive source checker, fixed in THIS slice. Exact-head rerun pending.
+- WAN route startup status aggregation includes optional post-WAN hooks, DDNS result and deferred VPN-client notification enqueue. Exact WAN and Process policy workflows passed on 816146a.
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight added in THIS slice (exact-head verification pending)
 
 - THIS COMMIT fixes two more launcher/daemon mismatches: rstats daemonizes before allocation/PID-file publication; LLTD double-forks and calls setsid before PID publication/event loop. RC now preflights tri-state presence and verifies detached child RUNNING with bounded polls. Exact-head Process and XY-C1 pending.
