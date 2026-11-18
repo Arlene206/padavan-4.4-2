@@ -1,12 +1,12 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS stale storage caller assertion repair: `7f10d2251905fa77bea523e29abade95febcf234`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- HDD tuning shell runtime regression in exact storage run `44218214340` PASS; that Action FAILED at one stale expected SD mdev return string, now corrected to include `tune_status`. All earlier storage checks passed.
-- Exact parent HTTPD `44218214337`, AdGuardHome `44218214583`, AliDDNS `44218214425`, AliyunDrive `44218214500`, infosvr `44218214426`, AI docs `44218214429`, and Process lifecycle `44218214477` PASS; NVRAM `44218214310`, Process inventory `44218214527`, and XY-C1 `44218214468` were pending at last poll.
-- HDD tuning now aggregates per-device/per-setting failures but continues the other eligible drives/settings; SD hotplug logs the optional tuning failure, still checks topology and mounts, then reports its status.
-- No physical-router L4 result; current 7f10 XY-C1 target result is pending.
+- Parent main before THIS storage/AI contract correction: `695d24501e52985cf6e10437fee84f285d9f34cb`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent `7f10d225` storage run `44218214340` passed all storage runtime/syntax tests, including HDD tuning error-continuation, then failed at the stale mdev_sd/mdev_mmc shared return assertion. The correction in parent `695d2450` added tune_status to that assertion but incorrectly applied it to both handlers; only SD has hddtune. THIS now separates SD and MMC expectations.
+- Exact parent `695d2450` AI handoff `44218702613` failed because a previous edit removed the mandatory end-of-session accuracy-checkpoint sentence; THIS restores that protocol contract.
+- On parent `695d2450`, infosvr `44218702628`, AdGuardHome `44218702606`, AliDDNS `44218702604`, AliyunDrive `44218702631`, and Process inventory/lifecycle `44218702600` PASS; NVRAM `44218702619` remained IN_PROGRESS. Storage `44218702645` had not yet been polled after its initial start.
+- XY-C1 run `44218214468` on `7f10d225` had pre-build regressions PASS, with firmware build/TRX/artifact stages still pending at last poll. Earlier `7f50d54c` exact SHA passed Build, TRX and artifact `44216537251` (L3 only for 7f50). Physical router L4 NOT VERIFIED.
 
-Next: confirm this storage checker repair and current XY-C1 Build/TRX/artifact, then close the NDIS metadata result-propagation defect.
+Next: verify exact-head storage and AI handoff; then continue NDIS metadata result propagation in `mdev_net_main()`.
 
 
 ---

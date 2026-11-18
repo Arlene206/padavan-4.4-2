@@ -1,3 +1,12 @@
+## 2026-11-18 — Make SD/MMC HDD-tune status contract branch-specific; restore handoff checkpoint
+
+- Parent main SHA: `695d24501e52985cf6e10437fee84f285d9f34cb`. Storage check on 7f10 failed at the SD final-status assertion; collaborator commit 695d2450 added tune_status but unintentionally expected it in MMC too. The production source confirms only mdev_sd_main() runs hddtune; mdev_mmc_main() has no tune_status.
+- Branch the source contract: SD checks its tune_status aggregate, MMC checks swapoff/mount/topology aggregate.
+- Exact 695 AI handoff failed because SESSION_HANDOFF.md omitted the required literal end-of-session accuracy-checkpoint rule; restore the mandated sentence and no-op commit exception.
+- Exact 695 infosvr, AdGuardHome, AliDDNS, AliyunDrive and Process inventory PASS; NVRAM in progress. Storage run was pending at last poll; XY-C1 7f10 Build/TRX/artifact still pending at last poll.
+
+---
+
 ## 2026-11-18 — Align storage caller contract with HDD tune result propagation
 
 - Exact storage run `44218214340` on `7f10d225` passed the new hddtune shell runtime regression, share-name policy, Optware/MTD/persistence/eject and lifecycle checks, then failed at line 585 because its old SD handler return assertion omitted the newly included `tune_status`.
