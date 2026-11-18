@@ -1,3 +1,12 @@
+## 2026-11-18 — Close PPPoE-MWAN existing-interface probe failure propagation
+
+- Source slice: `66dbe404` introduced sysfs-aware PPP probing; test cleanup `4bc9d87c` repaired the regression block; `ba893707` moved exact `ifconfig` status capture into the failing `else` branch.
+- Existing ppp0 with failing ifconfig preserves status 44 while ppp1 remains independently reconcilable; an absent ppp1 sysfs entry skips ifconfig and is not reported as an error.
+- Exact-head WAN route `44263552770`, Process inventory `44263552790`, Process fail-closed `44263552757` PASS on `ba893707c6f5cb939980cf4eecb5cd2d5dd14871`. XY-C1 `44263552808` was still IN_PROGRESS (Build active; TRX/artifact pending). Current descendant `ffa7f6d07522d8a51b53a9c1fede22c42d3588b2` has new independent WAN watchdog status propagation; its WAN/Process jobs were running and XY-C1 pending at last poll.
+- This commit strengthens the PPPoE source checker to require error-status capture inside `else` and records the exact cross-session state. No physical-router test; L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Rotate the development log before the 120-record limit
 
 - Exact-head AI handoff workflow `44260635743` failed because root `dev_log.md` had reached 120 complete records. The validator requires archiving the oldest 100 complete records verbatim and retaining the newest 20 before adding a further record.

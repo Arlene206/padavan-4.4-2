@@ -106,6 +106,9 @@ require(
     and '[ -d "$MWAN_SYS_CLASS_NET/$iface" ] || return 1' in DETECT
     and 'if [ -d "$MWAN_SYS_CLASS_NET/$iface" ]; then' in DETECT
     and 'mwan_fail "$rc" "ifconfig $iface"' in DETECT
+    and 'return 0\\n\\telse\\n\\t\\trc=$?\\n\\tfi' in DETECT[
+        DETECT.index("mwan_get_ppp_ipv4() {"):DETECT.index("mwan_parse_rule()")
+    ]
     and DETECT.count('if mwan_get_ppp_ipv4 "ppp$count"; then') == 2,
     "PPP enumeration must distinguish absent interfaces from ifconfig errors",
 )
