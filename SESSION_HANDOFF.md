@@ -1,7 +1,7 @@
 # 2026-11-18 continuation checkpoint — SSH lifecycle contract and cross-module CI repair
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`, development branch `main`. Live main immediately before this checkpoint: `5e5c3c0515e0f42513711703e637cd7bab312c88`. Last product-source milestone relevant to this recovery: SmartDNS managed DNSMasq configuration preservation at `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; subsequent `e896587`, `8223c9b`, and `5e5c3c0` commits updated checker/test contracts or fixtures, not firmware production source.
+- Repository: `Arlene206/padavan-4.4-2`, development branch `main`. Live main immediately before this checkpoint: `2b732b768a9d840e9123e60dc47f588bce129d33`. Last product-source milestone relevant to this recovery: SmartDNS managed DNSMasq configuration preservation at `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; subsequent `e896587`, `8223c9b`, and `5e5c3c0` commits updated checker/test contracts or fixtures, not firmware production source.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged; its valid AliDDNS CA/HMAC/bootstrap work is already present in the evolved main files, so no further port is outstanding.
 - All development remains main-only. Do not touch the frozen backup, PR #1, or GPT Session Rotator.
 
@@ -24,7 +24,7 @@
 4. Continue the repo-wide stability/security queue with bounded source fixes, regressions, atomic main commits and exact-head Actions.
 
 ## Mandatory handoff checkpoint
-Every session MUST compare live repository state and exact-head Actions with this checkpoint before ending. Before context exhaustion, update this file only if the active task, verification boundary, blocker or precise next action materially changes.
+The checkpoint is mandatory; a document edit is conditional. Every session MUST compare live repository state and exact-head Actions with this checkpoint before ending. Before context exhaustion, update this file only if the active task, verification boundary, blocker or precise next action materially changes.
 
 ## Cross-session execution mandate
 Continue without asking the user to select the next task. Finish safe slices with source review, regression tests, complete-tree atomic commits and non-forced expected-SHA main updates. Never claim local tests, MIPS builds, firmware artifacts or physical-device validation that were not actually observed.

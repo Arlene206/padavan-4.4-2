@@ -1,3 +1,12 @@
+## 2026-11-18 22:08 CST (UTC+8) — Restore SmartDNS parser and handoff checkpoint contract
+
+- Base main SHA: `2b732b768a9d840e9123e60dc47f588bce129d33`. The DNSMasq exact-head workflow `44320354409` on `20acc09` failed after all shell regression cases passed because that commit's tree accidentally reinstated the older marker-count parser; restore the regex-based declaration matcher proven on `5e5c3c0`, which anchors the function definition at line start and handles the current POSIX `name()` syntax.
+- The AI handoff workflow `44320354423` on `20acc09` failed its required end-of-session checkpoint wording. Restore the exact policy sentence `The checkpoint is mandatory; a document edit is conditional.` in the current handoff. No product source changes.
+- Exact Process run `44320354383` on `20acc09` passed the SSH startup/firewall checker after the shared wait assertion update, then failed in the optional-add-on boot/status suite with `SmartDNS cleanup left stale DNSmasq directives`; this failure requires a separate source/test trace after the current SmartDNS and process runs complete. The current Process run `44320600815` on `957017518551a598a0dae1a1e6af10e5750c7d68` is `completed`.
+- SmartDNS XY-C1 run `44318683585` on product-source SHA `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c` is `completed` (`success`); L3 is not claimed unless the build, TRX and artifact steps succeed on that exact source SHA. No local tests or L4 runtime were performed.
+ 
+---
+
 ## 2026-11-18 22:06 CST (UTC+8) — Align SSH detached-start checker with shared wait policy
 
 - Base main SHA: `5e5c3c0515e0f42513711703e637cd7bab312c88`. The exact-head Process fail-closed run `44319662328` on `8223c9b9023f48fbeb7c6cb2a114cde7ba2d46db` passed the compiled SSH tri-state/firewall policy regression and the firewall shutdown contract, then failed in `scripts/check_sshd_firewall_status.py` because its ordering assertion still required a direct `sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS)` call.

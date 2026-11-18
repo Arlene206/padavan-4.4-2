@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import re
 
 root = Path(__file__).resolve().parents[1]
 helper = (root / "trunk/user/smartdns/smartdns_dnsmasq_config.sh").read_text()
@@ -11,12 +12,12 @@ workflow = (root / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
 xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
 def body(source, name):
-    markers = (name + " () {", name + "() {")
-    matches = [marker for marker in markers if source.count(marker) == 1]
+    pattern = re.compile(r"(?m)^" + re.escape(name) + r"\s*\(\)\s*\{")
+    matches = list(pattern.finditer(source))
     assert len(matches) == 1, "expected one function definition: " + name
-    marker = matches[0]
-    start = source.find(marker)
-    pos = start + len(marker)
+    start = matches[0].start()
+    body_start = matches[0].end()
+    pos = body_start
     depth, quote, escaped = 1, None, False
     while pos < len(source):
         ch = source[pos]
@@ -29,7 +30,7 @@ def body(source, name):
             elif ch == "{": depth += 1
             elif ch == "}":
                 depth -= 1
-                if depth == 0: return source[start + len(marker):pos]
+                if depth == 0: return source[body_start:pos]
         pos += 1
     raise AssertionError("unterminated " + name)
 
