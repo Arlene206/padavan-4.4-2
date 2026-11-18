@@ -67,12 +67,44 @@ find_bin() {
 }
 
 run_bin() {
-	(if [ "$(nvram get ss_cgroups)" = "1" ]; then
-	 	echo 0 > /sys/fs/cgroup/cpu/$NAME/tasks
-	 	echo 0 > /sys/fs/cgroup/memory/$NAME/tasks
-	 fi
-	 "$@" > /dev/null 2>&1
+	[ "$#" -gt 0 ] || return 2
+	local process_name=""
+	local process_count
+	local expected_count
+	local wait_status
+
+	if [ "$1" = "--wait-for" ]; then
+		[ "$#" -ge 3 ] || return 2
+		process_name="$2"
+		shift 2
+	else
+		process_name="${1##*/}"
+	fi
+	[ -n "$process_name" ] && [ "$#" -gt 0 ] || return 2
+	if process_count=$(ss_process_pid_count "$process_name"); then
+		:
+	else
+		wait_status=$?
+		log "Cannot inspect $process_name before launch (status=$wait_status)"
+		return "$wait_status"
+	fi
+	expected_count=$((process_count + 1))
+
+	(
+		if [ "$(nvram get ss_cgroups)" = "1" ]; then
+			echo 0 > /sys/fs/cgroup/cpu/$NAME/tasks
+			echo 0 > /sys/fs/cgroup/memory/$NAME/tasks
+		fi
+		exec "$@" > /dev/null 2>&1
 	) &
+
+	if ss_wait_named_process_count "$process_name" "$expected_count" 5; then
+		return 0
+	else
+		wait_status=$?
+	fi
+	log "Proxy process did not become ready: $process_name (expected=$expected_count, status=$wait_status)"
+	return "$wait_status"
 }
 
 # Keep filesystem operations behind small helpers so their failures can
@@ -320,7 +352,7 @@ start_redir_tcp() {
 		last_config_file=$CONFIG_FILE
 		pid_file="/tmp/ssr-retcp.pid"
 		for i in $(seq 1 $threads); do
-			run_bin $bin -c $CONFIG_FILE $ARG_OTA -f /tmp/ssr-retcp_$i.pid
+			run_bin "$bin" -c "$CONFIG_FILE" $ARG_OTA -f "/tmp/ssr-retcp_$i.pid" || return $?
 			usleep 500000
 		done
 		redir_tcp=1
@@ -328,22 +360,22 @@ start_redir_tcp() {
 		;;
 	trojan)
 		for i in $(seq 1 $threads); do
-			run_bin $bin --config $trojan_json_file
+			run_bin "$bin" --config "$trojan_json_file" || return $?
 			usleep 500000
 		done
 		log "已运行 $($bin --version 2>&1 | head -1)"
 		;;
 	v2ray)
-		run_bin $bin -config $v2_json_file
+		run_bin "$bin" -config "$v2_json_file" || return $?
 		log "已运行 $($bin -version | head -1)"
 		;;
 	xray)
-		run_bin $bin -config $v2_json_file
+		run_bin "$bin" -config "$v2_json_file" || return $?
 		log "已运行 $($bin -version | head -1)"
 		;;	
 	socks5)
 		for i in $(seq 1 $threads); do
-			run_bin lua /etc_ro/ss/gensocks.lua $GLOBAL_SERVER 1080
+			run_bin --wait-for ipt2socks lua /etc_ro/ss/gensocks.lua "$GLOBAL_SERVER" 1080 || return $?
 			usleep 500000
 		done
 		;;
@@ -364,20 +396,20 @@ start_redir_udp() {
 			gen_config_file $UDP_RELAY_SERVER 1 1080
 			last_config_file=$CONFIG_UDP_FILE
 			pid_file="/var/run/ssr-reudp.pid"
-			run_bin $bin -c $last_config_file $ARG_OTA -U -f /var/run/ssr-reudp.pid
+			run_bin "$bin" -c "$last_config_file" $ARG_OTA -U -f /var/run/ssr-reudp.pid || return $?
 			;;
 		v2ray)
 			gen_config_file $UDP_RELAY_SERVER 1
-			run_bin $bin -config /tmp/v2-ssr-reudp.json
+			run_bin "$bin" -config /tmp/v2-ssr-reudp.json || return $?
 			;;
 		xray)
 			gen_config_file $UDP_RELAY_SERVER 1
-			run_bin $bin -config /tmp/v2-ssr-reudp.json
+			run_bin "$bin" -config /tmp/v2-ssr-reudp.json || return $?
 			;;	
 		trojan)
 			gen_config_file $UDP_RELAY_SERVER 1
-			$bin --config /tmp/trojan-ssr-reudp.json >/dev/null 2>&1 &
-			run_bin ipt2socks -U -b 0.0.0.0 -4 -s 127.0.0.1 -p 10801 -l 1080
+			run_bin "$bin" --config /tmp/trojan-ssr-reudp.json || return $?
+			run_bin ipt2socks -U -b 0.0.0.0 -4 -s 127.0.0.1 -p 10801 -l 1080 || return $?
 			;;
 		socks5)
 			echo "1"
@@ -644,30 +676,30 @@ start_local() {
 		[ ! -f "$bin" ] && log "Global_Socks5:Can't find $bin program, can't start!" && return 1
 		[ "$type" == "ssr" ] && name="ShadowsocksR"
 		gen_config_file $local_server 3 $s5_port
-		run_bin $bin -c $CONFIG_SOCK5_FILE -u -f /var/run/ssr-local.pid
+		run_bin "$bin" -c "$CONFIG_SOCK5_FILE" -u -f /var/run/ssr-local.pid || return $?
 		log "Global_Socks5:$name Started!"
 		;;
 	v2ray)
 		lua /etc_ro/ss/genv2config.lua $local_server tcp 0 $s5_port >/tmp/v2-ssr-local.json
 		sed -i 's/\\//g' /tmp/v2-ssr-local.json
-		run_bin $bin -config /tmp/v2-ssr-local.json
+		run_bin "$bin" -config /tmp/v2-ssr-local.json || return $?
 		log "Global_Socks5:$($bin -version | head -1) Started!"
 		;;
 	xray)
 		lua /etc_ro/ss/genxrayconfig.lua $local_server tcp 0 $s5_port >/tmp/v2-ssr-local.json
 		sed -i 's/\\//g' /tmp/v2-ssr-local.json
-		run_bin $bin -config /tmp/v2-ssr-local.json
+		run_bin "$bin" -config /tmp/v2-ssr-local.json || return $?
 		log "Global_Socks5:$($bin -version | head -1) Started!"
 		;;
 	trojan)
 		lua /etc_ro/ss/gentrojanconfig.lua $local_server client $s5_port >/tmp/trojan-ssr-local.json
 		sed -i 's/\\//g' /tmp/trojan-ssr-local.json
-		run_bin $bin --config /tmp/trojan-ssr-local.json
+		run_bin "$bin" --config /tmp/trojan-ssr-local.json || return $?
 		log "Global_Socks5:$($bin --version 2>&1 | head -1) Started!"
 		;;
 	*)
 		[ -e /proc/sys/net/ipv6 ] && local listenip='-i ::'
-		run_bin microsocks $listenip -p $s5_port ssr-local
+		run_bin microsocks $listenip -p "$s5_port" ssr-local || return $?
 		log "Global_Socks5:$type Started!"
 		;;
 	esac

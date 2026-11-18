@@ -20,7 +20,11 @@ case "$1" in
 esac
 state_file="$PROCESS_STATE_DIR/$1"
 [ -f "$state_file" ] || exit 1
-echo 4242
+if [ -f "$state_file.pids" ]; then
+	cat "$state_file.pids"
+else
+	echo 4242
+fi
 EOF
 
 cat > "$TMP_DIR/bin/killall" <<'EOF'
@@ -112,6 +116,33 @@ printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/dns2tcp"
 exit 0
 EOF
 
+cat > "$TMP_DIR/bin/ssr-redir" <<'EOF'
+#!/bin/sh
+case "${RUN_BIN_MODE:-ready}" in
+	fail|absent) exit 19 ;;
+	unknown) : > "$PROCESS_STATE_DIR/pidof_unknown" ;;
+esac
+printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/ssr-redir"
+if [ -f "$PROCESS_STATE_DIR/ssr-redir.pids" ]; then
+	printf '4243\n' >> "$PROCESS_STATE_DIR/ssr-redir.pids"
+else
+	printf '4243\n' > "$PROCESS_STATE_DIR/ssr-redir.pids"
+fi
+exit 0
+EOF
+
+cat > "$TMP_DIR/bin/lua" <<'EOF'
+#!/bin/sh
+case "${RUN_BIN_MODE:-ready}" in
+	fail|absent) exit 19 ;;
+	unknown) : > "$PROCESS_STATE_DIR/pidof_unknown" ;;
+esac
+printf 'exit_on_term\n' > "$PROCESS_STATE_DIR/ipt2socks"
+printf '4244\n' > "$PROCESS_STATE_DIR/ipt2socks.pids"
+exit 0
+EOF
+chmod 755 "$TMP_DIR/bin/ssr-redir" "$TMP_DIR/bin/lua"
+
 chmod 755 "$TMP_DIR/bin/dnsproxy" "$TMP_DIR/bin/dns2tcp"
 chmod 755 "$TMP_DIR/bin/pidof" "$TMP_DIR/bin/killall" "$TMP_DIR/bin/pgrep" "$TMP_DIR/bin/pkill" "$TMP_DIR/bin/sleep"
 log() { :; }
@@ -119,12 +150,14 @@ nvram() {
 	case "$1:$2" in
 		get:pdnsd_enable) echo "${DNS_PDNSD_ENABLE:-0}" ;;
 		get:tunnel_forward) echo "${DNS_UPSTREAM-8.8.8.8#53}" ;;
+		get:ss_cgroups) echo "${MOCK_SS_CGROUPS:-0}" ;;
 		*) return 90 ;;
 	esac
 }
 ipset() { return 0; }
 . "$TEST_DIR/../scripts/shadowsocks_process_lifecycle.sh"
 sed -n \
+	-e '/^run_bin() {/,/^}/p' \
 	-e '/^stop_dns_proxy() {/,/^}/p' \
 	-e '/^start_dns_proxy() {/,/^}/p' \
 	"$TEST_DIR/../scripts/shadowsocks.sh" > "$TMP_DIR/dns-proxy-functions.sh"
@@ -229,6 +262,32 @@ expect_status 1 "stuck monitor remains a stop failure" ss_stop_process_pattern '
 [ -e "$PROCESS_STATE_DIR/monitor" ] || fail "stuck monitor fixture disappeared"
 grep -q '^PATTERN-TERM /usr/bin/ss-monitor$' "$KILL_LOG"
 grep -q '^PATTERN-KILL /usr/bin/ss-monitor$' "$KILL_LOG"
+
+# Count delta prevents an existing sibling from masking a failed worker launch.
+: > "$PROCESS_STATE_DIR/ssr-redir"
+printf '4242\n' > "$PROCESS_STATE_DIR/ssr-redir.pids"
+RUN_BIN_MODE=ready
+run_bin ssr-redir -c /tmp/test.json
+[ "$(wc -w < "$PROCESS_STATE_DIR/ssr-redir.pids")" -eq 2 ] || fail "run_bin accepted only the pre-existing sibling"
+rm -f "$PROCESS_STATE_DIR/ssr-redir" "$PROCESS_STATE_DIR/ssr-redir.pids"
+
+# gensocks.lua starts ipt2socks and exits; monitor the actual long-lived child.
+RUN_BIN_MODE=ready
+run_bin --wait-for ipt2socks lua /etc_ro/ss/gensocks.lua node1 1080
+[ -f "$PROCESS_STATE_DIR/ipt2socks" ] || fail "Lua-generated ipt2socks child was not observed"
+rm -f "$PROCESS_STATE_DIR/ipt2socks" "$PROCESS_STATE_DIR/ipt2socks.pids"
+
+# An immediate child exit is not reported as a successful service start.
+RUN_BIN_MODE=fail
+expect_status 1 "run_bin child exits before readiness" run_bin ssr-redir -c /tmp/test.json
+[ ! -f "$PROCESS_STATE_DIR/ssr-redir" ] || fail "failed child was reported as present"
+
+# UNKNOWN inventory fails closed without signalling an unverified process.
+: > "$KILL_LOG"
+RUN_BIN_MODE=unknown
+expect_status 2 "run_bin unknown process inventory" run_bin ssr-redir -c /tmp/test.json
+[ ! -s "$KILL_LOG" ] || fail "run_bin signalled after unknown inventory"
+rm -f "$PROCESS_STATE_DIR/pidof_unknown" "$PROCESS_STATE_DIR/ssr-redir" "$PROCESS_STATE_DIR/ssr-redir.pids" "$PROCESS_STATE_DIR/ipt2socks" "$PROCESS_STATE_DIR/ipt2socks.pids"
 
 # The required DNS proxy stage must observe the selected daemon after launch.
 export DNS_PDNSD_ENABLE=0 DNS_UPSTREAM='8.8.8.8#53' DNS_START_MODE=ready

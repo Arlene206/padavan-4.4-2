@@ -1,3 +1,12 @@
+## 2026-11-18 — Verify every Shadowsocks detached proxy launch before reporting startup success
+
+- `run_bin()` previously returned after scheduling a background subshell, so TCP, UDP and local-SOCKS callers could log success when the daemon exited immediately. In multi-thread mode, an old sibling could also satisfy a presence-only check.
+- Capture the validated pre-launch PID count, replace the wrapper with the requested executable via `exec`, and require a bounded tri-state observation of count + 1. The Lua generator is checked against its actual `ipt2socks` child, not the short-lived Lua wrapper. Propagate failures through TCP, UDP (including Trojan UDP) and local startup; apply the same postcondition to watchcat replacement launches.
+- Extend the production-linked host regression for sibling count, the Lua-spawned daemon, immediate exit and UNKNOWN inventory, and pin the launch paths in the source contract.
+- No local shell test, host build, MIPS/uClibc build, TRX inspection, artifact upload or router test was run in this connector-only session. Exact-head push Actions must be checked after publication; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Verify Shadowsocks DNS proxy startup readiness
 
 - Confirmed startup status gap: the dnsproxy/dns2tcp child was backgrounded and start_dns_proxy() returned success without checking that the required daemon appeared. stop_dns_proxy() also used unchecked pgrep/kill pipelines.

@@ -31,31 +31,59 @@ ss_process_pid_state() {
 
 # Wait for a named daemon to appear. Confirmed absence is retryable; an
 # invalid or failed process inventory is UNKNOWN and must fail closed.
-ss_wait_named_process_started() {
-	[ "$#" -eq 2 ] || return 2
+ss_process_pid_count() {
+	[ "$#" -eq 1 ] || return 2
+	ss_count_process_name=$1
+	[ -n "$ss_count_process_name" ] || return 2
+	ss_count_pid_output=$(pidof "$ss_count_process_name" 2>/dev/null)
+	ss_count_pid_status=$?
+	case "$ss_count_pid_status" in
+		0)
+			ss_validate_pid_list "$ss_count_pid_output" || return 2
+			printf '%s\n' "$ss_count_pid_output" | awk '{ count += NF } END { print count + 0 }'
+			;;
+		1)
+			[ -z "$ss_count_pid_output" ] || return 2
+			printf '0\n'
+			;;
+		*) return 2 ;;
+	esac
+}
+
+# Wait for a newly launched process instance; pre-existing siblings do not count.
+ss_wait_named_process_count() {
+	[ "$#" -eq 3 ] || return 2
 	ss_start_process_name=$1
-	ss_start_wait_limit=$2
+	ss_start_expected_count=$2
+	ss_start_wait_limit=$3
 	[ -n "$ss_start_process_name" ] || return 2
+	case "$ss_start_expected_count" in
+		''|*[!0-9]*) return 2 ;;
+	esac
 	case "$ss_start_wait_limit" in
 		''|*[!0-9]*) return 2 ;;
 	esac
+	[ "$ss_start_expected_count" -ge 1 ] || return 2
 	[ "$ss_start_wait_limit" -le 30 ] || return 2
 
 	ss_start_wait_count=0
 	while :; do
-		if ss_process_pid_state "$ss_start_process_name"; then
-			return 0
+		if ss_start_process_count=$(ss_process_pid_count "$ss_start_process_name"); then
+			:
 		else
-			ss_start_state=$?
+			ss_start_status=$?
+			return "$ss_start_status"
 		fi
-		case "$ss_start_state" in
-			1) ;;
-			*) return 2 ;;
-		esac
+		[ "$ss_start_process_count" -ge "$ss_start_expected_count" ] && return 0
 		[ "$ss_start_wait_count" -lt "$ss_start_wait_limit" ] || return 1
 		sleep 1 || return 2
 		ss_start_wait_count=$((ss_start_wait_count + 1))
 	done
+}
+
+ss_wait_named_process_started() {
+	[ "$#" -eq 2 ] || return 2
+	ss_wait_named_process_count "$1" 1 "$2"
 }
 
 ss_process_pattern_state() {

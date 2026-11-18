@@ -93,12 +93,59 @@ require("unknown after TERM blocks KILL" in test and "pidof error blocks named s
         "regression must prove unknown inventory prevents signals and escalation")
 require(helper.count('ss_wait_limit=$1') == 2 and
         helper.count('[ "$ss_wait_count" -lt "$ss_wait_limit" ]') == 2 and
-        helper.count('sleep 1 || return 2') == 3 and
+        helper.count('sleep 1 || return 2') == 4 and
         'ss_wait_named_processes 3 "$@"' in helper and
         'ss_wait_named_processes 1 "$@"' in helper and
         'ss_wait_process_pattern 3 "$ss_process_pattern"' in helper and
         'ss_wait_process_pattern 1 "$ss_process_pattern"' in helper,
         "named and pattern shutdown waits must remain bounded and fail closed on sleep errors")
+require("ss_process_pid_count()" in helper and
+        "ss_wait_named_process_count()" in helper and
+        "awk '{ count += NF } END { print count + 0 }'" in helper,
+        "startup readiness must count validated PIDs and preserve UNKNOWN")
+
+main_run_start = script.index("run_bin() {")
+main_run_end = script.index("\n\n# Keep filesystem operations", main_run_start)
+main_run = script[main_run_start:main_run_end]
+require('if [ "$1" = "--wait-for" ]' in main_run and
+        'process_name="$2"' in main_run and
+        'process_name="${1##*/}"' in main_run and
+        'expected_count=$((process_count + 1))' in main_run and
+        'ss_wait_named_process_count "$process_name" "$expected_count" 5' in main_run and
+        'exec "$@"' in main_run,
+        "main launcher must verify the selected daemon process after exec")
+
+for label, start_token, end_token in (
+    ("TCP", "start_redir_tcp() {", "\n\nstart_redir_udp() {"),
+    ("UDP", "start_redir_udp() {", "\n\nstop_dns_proxy() {"),
+    ("local SOCKS5", "start_local() {", "\n\nrules() {"),
+):
+    begin = script.index(start_token)
+    section = script[begin:script.index(end_token, begin)]
+    launch_lines = [line.strip() for line in section.splitlines()
+                    if line.strip().startswith("run_bin ")]
+    require(launch_lines and all("|| return $?" in line for line in launch_lines),
+            f"{label} startup must propagate every readiness failure")
+
+require('run_bin --wait-for ipt2socks lua /etc_ro/ss/gensocks.lua' in script,
+        "Lua generator must be checked against its ipt2socks child")
+
+monitor_run_start = monitor.index("run_bin() {")
+monitor_run_end = monitor.index("\n\nstop_dns_proxy() {", monitor_run_start)
+monitor_run = monitor[monitor_run_start:monitor_run_end]
+require('ss_process_pid_count "$process_name"' in monitor_run and
+        'ss_wait_named_process_count "$process_name" "$expected_count" 5' in monitor_run and
+        'exec "$@"' in monitor_run and
+        'if run_bin /usr/bin/ssr-server' in monitor and
+        'if run_bin "/usr/bin/$bin"' in monitor,
+        "watchcat replacement launches must verify new child readiness")
+
+require("run_bin child exits before readiness" in test and
+        "run_bin unknown process inventory" in test and
+        "pre-existing sibling" in test and
+        "gensocks.lua starts ipt2socks" in test,
+        "readiness regression must cover immediate exit, UNKNOWN, siblings and Lua child")
+
 require("config PGREP\n\tbool \"pgrep\"\n\tdefault y" in busybox_config and
         "config PKILL\n\tbool \"pkill\"\n\tdefault y" in busybox_config and
         busybox_pgrep.count("Match against entire command line") >= 2,
