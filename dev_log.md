@@ -1,3 +1,9 @@
+## 2026-11-17 — Keep the common WAN checker out of redundant XY-C1 trigger fan-out
+
+- Parent main: `0ab1c2001cd807db65c949ce34fd219d1511f778`. The XY-C1 workflow already executes `scripts/check_modem_wan_start_status.py` during host validation, but editing that checker alone cannot change firmware inputs and already triggers its owning Process/Firewall/USB regression workflows. Its extra push-filter entry created a host-only XY run with no target build (the exact `2b4c7aea` run reported `Firmware production inputs changed: False`). Remove only the checker from the XY push trigger; retain execution inside XY-C1 whenever genuine firmware-input changes trigger the workflow.
+- This preserves firmware-source coverage while eliminating the redundant Actions run for checker-only edits. Exact-head XY and AI docs checks validate the trigger change.
+
+---
 ## 2026-11-17 — Restore process workflow pull_request YAML nesting
 
 - Parent main: `947b45ac1a56e64706a240e4e104206ea1ecf356`. The push-path exclusion was committed, but the replacement accidentally removed the two-space nesting before `pull_request:`. GitHub recorded the exact-head workflow as a zero-job failure. Restore the original `on.pull_request.paths` indentation; no production or test coverage path is changed.

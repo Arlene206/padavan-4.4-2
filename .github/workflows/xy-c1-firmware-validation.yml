@@ -128,7 +128,6 @@ on:
       - "trunk/user/rc/src/lan_addr6_reload_policy.h"
       - "trunk/user/rc/src/modem_wan_start_policy.h"
       - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
-      - "scripts/check_modem_wan_start_status.py"
       - "trunk/user/rc/src/logger_start_policy.h"
       - "trunk/user/rc/src/tests/logger_start_policy.c"
       - "trunk/user/ralinkiappd/iappd.sh"
