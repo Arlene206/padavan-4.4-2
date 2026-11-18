@@ -222,7 +222,7 @@ rm -f "$DATA_PATH/.rules-transaction"
 
 # Reject a journal path outside the dedicated private staging namespace.
 ( umask 077
-  printf '/tmp/not-adbyby-rules.abcdef\\n' > "$DATA_PATH/.rules-transaction"
+  printf '%s\\n' '/tmp/not-adbyby-rules.abcdef' > "$DATA_PATH/.rules-transaction"
 )
 if adbyby_refresh_managed_rules; then fail "invalid transaction stage path was accepted"; fi
 [ -f "$DATA_PATH/.rules-transaction" ] || fail "invalid transaction journal was discarded"
@@ -234,8 +234,8 @@ rm -f "$DATA_PATH/.rules-transaction"
 retry_stage=$(mktemp -d /tmp/adbyby-rules.XXXXXX)
 cp -p "$DATA_PATH/video.txt" "$retry_stage/video.previous"
 ( umask 077
-  printf 'present\\n' > "$retry_stage/lazy.state"
-  printf 'present\\n' > "$retry_stage/video.state"
+  printf '%s\\n' present > "$retry_stage/lazy.state"
+  printf '%s\\n' present > "$retry_stage/video.state"
   printf '%s\\n' "$retry_stage" > "$retry_stage/transaction.next"
 )
 mv -f "$retry_stage/transaction.next" "$DATA_PATH/.rules-transaction"

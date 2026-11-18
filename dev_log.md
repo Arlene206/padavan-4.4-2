@@ -1,3 +1,10 @@
+## 2026-11-18 — Correct journal fixture newline formatting
+
+- Parent test/checker commit `d08e9cd52507ff9345b20445324e2c85801ba3ef` added invalid-stage-path and incomplete-backup recovery tests. A source review caught that the new `printf` formats were double-escaped in the generated shell file, which would write literal `\\n` text rather than line endings and invalidate the journal fixture.
+- Change the fixtures to `printf '%s\\n' VALUE` with data passed as a separate argument. This is test-only; exact-head Adbyby and AI checks must rerun. No local shell test is claimed.
+
+---
+
 ## 2026-11-18 — Add negative-path and retry coverage for Adbyby recovery journal
 
 - Parent main `80a694bfcd97f6a2940bb24dd82e5df6e4a11364`; current production source remains `c957987ad9971cb3f029dfb6a054d6367d059fa0`. Exact-head Adbyby host run `44310660331` on checker-corrected `141bf15edf2d35f950e04c4d267ad8bd140795d4` PASS.
