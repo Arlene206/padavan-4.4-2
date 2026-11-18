@@ -1450,12 +1450,12 @@ write_tcp_syncookies_operation(void *opaque, unsigned int operation)
 }
 
 int
-set_tcp_syncookies(int *syncookies_status)
+set_tcp_syncookies(int enabled, int *syncookies_status)
 {
 	struct rc_tcp_syncookies_context context;
 	int status;
 
-	context.enabled = nvram_get_int("fw_syn_cook") ? 1 : 0;
+	context.enabled = enabled ? 1 : 0;
 	context.syncookies_status = 0;
 	status = rc_network_sysctl_apply(3, write_tcp_syncookies_operation, &context);
 	if (syncookies_status)

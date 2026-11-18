@@ -44,6 +44,7 @@
 
 #include "rc.h"
 #include "network_sysctl.h"
+#include "network_sysctl_policy.h"
 #include "service_lifecycle_policy.h"
 #include <process_pidfile.h>
 #include <file_write_status.h>
@@ -435,6 +436,9 @@ restart_all_sysctl(void)
 	if (!get_ap_mode()) {
 		int operation_status;
 		int passthrough_status;
+		int syncookies_enabled;
+		int syncookies_status = 0;
+		int stop_wan_status;
 
 		operation_status = set_nf_conntrack();
 		if (operation_status != 0)
@@ -442,7 +446,8 @@ restart_all_sysctl(void)
 				   operation_status);
 		restart_status = rc_first_service_start_status(restart_status, operation_status);
 
-		operation_status = set_tcp_syncookies(NULL);
+		syncookies_enabled = nvram_get_int("fw_syn_cook") ? 1 : 0;
+		operation_status = set_tcp_syncookies(syncookies_enabled, &syncookies_status);
 		if (operation_status != 0)
 			logmessage(LOGNAME, "TCP/ICMP security sysctl configuration failed (status=%d)",
 				   operation_status);
@@ -454,13 +459,27 @@ restart_all_sysctl(void)
 				   operation_status);
 		restart_status = rc_first_service_start_status(restart_status, operation_status);
 
-		passthrough_status = set_passthrough_pppoe(1);
-		if (passthrough_status != 0) {
+		if (!rc_network_sysctl_tcp_syncookies_allows_wan(
+			syncookies_enabled, syncookies_status)) {
 			logmessage(LOGNAME,
-				   "system control refresh could not reconcile PPPoE relay (status=%d)",
-				   passthrough_status);
+				   "configured TCP SYN cookies could not be applied; stopping the active WAN (status=%d)",
+				   syncookies_status);
+			stop_wan_status = stop_wan();
+			if (stop_wan_status != 0)
+				logmessage(LOGNAME,
+					   "WAN shutdown after SYN-cookie configuration failure was incomplete (status=%d)",
+					   stop_wan_status);
 			restart_status = rc_first_service_start_status(
-				restart_status, passthrough_status);
+				restart_status, stop_wan_status);
+		} else {
+			passthrough_status = set_passthrough_pppoe(1);
+			if (passthrough_status != 0) {
+				logmessage(LOGNAME,
+					   "system control refresh could not reconcile PPPoE relay (status=%d)",
+					   passthrough_status);
+				restart_status = rc_first_service_start_status(
+					restart_status, passthrough_status);
+			}
 		}
 	}
 

@@ -1709,17 +1709,19 @@ start_wan(void)
 	int static_address_clear_status;
 	int modem_start_status = 0;
 	int wan_start_status = 0, wan_up_status, sysctl_status;
+	int tcp_syncookies_enabled = 0;
 	int tcp_syncookies_status = 0;
 	char *wan_ifname;
 
 	/* Apply explicit SYN-cookie protection before any WAN setup side effects. */
-	sysctl_status = set_tcp_syncookies(&tcp_syncookies_status);
+	tcp_syncookies_enabled = nvram_get_int("fw_syn_cook") ? 1 : 0;
+	sysctl_status = set_tcp_syncookies(tcp_syncookies_enabled, &tcp_syncookies_status);
 	if (sysctl_status != 0)
 		logmessage(LOGNAME, "WAN TCP/ICMP security sysctl configuration failed (status=%d)",
 			   sysctl_status);
 	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
 	if (!rc_network_sysctl_tcp_syncookies_allows_wan(
-		nvram_get_int("fw_syn_cook"), tcp_syncookies_status)) {
+		tcp_syncookies_enabled, tcp_syncookies_status)) {
 		logmessage(LOGNAME,
 			   "aborting WAN startup: configured TCP SYN cookies could not be applied (status=%d)",
 			   tcp_syncookies_status);

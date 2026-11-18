@@ -1,9 +1,9 @@
-# 2026-11-19 continuation checkpoint — require configured SYN-cookie protection before WAN exposure
+# 2026-11-19 continuation checkpoint — enforce configured SYN-cookie protection at startup and runtime
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Main before this source slice: `f0392353ce2d71a31e4efaaea4ebf1abf7903878`. Product-source baseline: `66bdedc162493cda29d36864d17afaa826e0516b`; fetch live main at every continuation rather than assuming a remembered SHA.
+- Main before this runtime enforcement slice: `865215612acd2fd5dce31d147eb6a60b809ab210`. Its startup-gate commit has 21 of 22 exact-head workflows PASS; XY-C1 run `44366327618` remained IN_PROGRESS at last poll (Build XY-C1 active, TRX/artifact pending).
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not switch to, update or delete it.
 - PR #1 remains closed/unmerged; do not revive it.
 - No local checkout, MIPS cross-build or physical-router validation was available in this session.
@@ -44,7 +44,7 @@ Reviewed `trunk/user/rc/src/init.c::init_sysctl()` against its callers and later
 
 ## Active task — enforce explicitly configured SYN cookies before WAN exposure
 
-`start_wan()` already captured and returned the aggregate `set_tcp_syncookies()` result, but it still launched WAN protocols after the actual `tcp_syncookies` write failed—even when NVRAM explicitly requested SYN cookies. The two ICMP hardening writes share that aggregate but are independent of the explicit SYN-cookie prerequisite. This slice exposes the precise status of the first write, adds positive/negative error policy coverage, and evaluates the gate before callback links, VLAN migration or WAN client launch. When the feature is disabled, its write failure remains diagnostic/aggregate-only; when enabled, WAN startup fails closed. The XY-C1 kernel configuration has `CONFIG_SYN_COOKIES=y`.
+`start_wan()` and runtime `restart_all_sysctl()` now snapshot the configured `fw_syn_cook` value once and pass that exact value into `set_tcp_syncookies()`. If the option is enabled but the precise sysctl write fails, initial WAN startup is rejected before setup side effects; a runtime `RCN_RESTART_SYSCTL` failure attempts the normal lifecycle-locked `stop_wan()` path and deliberately does not restart PPPoE passthrough. Independent ICMP writes are still attempted and their errors remain aggregated. If the setting is disabled, a failed write remains diagnostic/aggregate-only. The policy regression covers both enabled and disabled cases, and the XY-C1 kernel configuration has `CONFIG_SYN_COOKIES=y`.
 
 ### Exact-head validation following the disabled-IPv6 gate
 
@@ -62,9 +62,9 @@ Reviewed `trunk/user/rc/src/init.c::init_sysctl()` against its callers and later
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect every exact-head Action for this SYN-cookie gate commit, especially WAN route status, Process lifecycle/inventory, AI handoff docs and XY-C1. The preceding disabled-IPv6 source SHA `66bdedc162493cda29d36864d17afaa826e0516b` is L3 verified; do not transfer that build result to the new source SHA.
-2. If this exact SHA passes, inspect runtime `RCN_RESTART_SYSCTL` behavior when `fw_syn_cook` is changed while WAN is already active. Confirm whether a failed required write keeps the old setting, reports a failed action, or leaves a live interface outside the requested security policy; do not assume the boot-only gate solves runtime reconfiguration.
-3. Continue cross-userland reliability/security fixes without weakening the switch-VLAN or disabled-IPv6 WAN gates. Physical-router L4 remains a separate, unverified boundary.
+1. Fetch live `main` and inspect exact-head Actions for this runtime enforcement commit, especially WAN route status, Process lifecycle, Firewall Startup, AI handoff docs and XY-C1.
+2. If CI passes, inspect `stop_wan()` failure paths under the runtime SYN-cookie gate and determine whether existing lifecycle fences sufficiently prevent WAN exposure when teardown itself is incomplete; preserve those fences.
+3. Continue whole-userland stability/security work. Physical-router L4 remains unverified.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

@@ -46,7 +46,7 @@ def require(ok,msg):
 nf=body(NET,"set_nf_conntrack(void)")
 require('return fput_int("/proc/sys/net/nf_conntrack_max", i_nf_val);' in nf,
         "conntrack-limit write result must be returned")
-tcp=body(NET,"set_tcp_syncookies(int *syncookies_status)")
+tcp=body(NET,"set_tcp_syncookies(int enabled, int *syncookies_status)")
 require("rc_network_sysctl_apply(3, write_tcp_syncookies_operation, &context)" in tcp,
         "all three TCP/ICMP settings must be attempted")
 tcp_writer=body(NET,"write_tcp_syncookies_operation(")
@@ -54,7 +54,8 @@ for token in ('/proc/sys/net/ipv4/tcp_syncookies',
               '/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses',
               '/proc/sys/net/ipv4/icmp_echo_ignore_broadcasts'):
     require(token in tcp_writer,"missing TCP/ICMP sysctl write: "+token)
-require("context->syncookies_status" in tcp_writer and
+require("context.enabled = enabled ? 1 : 0;" in tcp and
+        "context->syncookies_status" in tcp_writer and
         "*syncookies_status = context.syncookies_status" in tcp,
         "exact SYN-cookie operation status must be returned separately")
 igmp=body(NET,"set_igmp_mld_version(void)")
@@ -78,23 +79,33 @@ require("assert(mock_calls == 4)" in TEST,"regression must assert all independen
 require("test_configured_syncookies_gate" in TEST and
         "rc_network_sysctl_tcp_syncookies_allows_wan(1, EIO)" in TEST,
         "regression must cover explicitly enabled SYN-cookie failure")
-for proto in ("int set_nf_conntrack(void);","int set_tcp_syncookies(int *syncookies_status);","int set_igmp_mld_version(void);"):
+for proto in ("int set_nf_conntrack(void);","int set_tcp_syncookies(int enabled, int *syncookies_status);","int set_igmp_mld_version(void);"):
     require(proto in HEADER,"missing status-returning prototype: "+proto)
 for obsolete in ("void set_nf_conntrack(void);","void set_tcp_syncookies(void);","void set_igmp_mld_version(void);"):
     require(obsolete not in RC_HEADER,"stale void prototype remains in rc.h: "+obsolete)
 sysctl_reload=body(COMMON,"restart_all_sysctl(void)")
-require("operation_status = set_tcp_syncookies(NULL);" in sysctl_reload,
-        "sysctl reload must retain aggregate TCP/ICMP result")
+require("syncookies_enabled = nvram_get_int(\"fw_syn_cook\") ? 1 : 0;" in sysctl_reload and
+        "operation_status = set_tcp_syncookies(syncookies_enabled, &syncookies_status);" in sysctl_reload,
+        "sysctl reload must snapshot the configured SYN-cookie value and exact write status")
+require("if (!rc_network_sysctl_tcp_syncookies_allows_wan(" in sysctl_reload and
+        "syncookies_enabled, syncookies_status)" in sysctl_reload,
+        "runtime sysctl reload must enforce the same configured SYN-cookie prerequisite")
+require("stop_wan_status = stop_wan();" in sysctl_reload,
+        "runtime SYN-cookie failure must stop the existing WAN")
+require(sysctl_reload.index("stop_wan_status = stop_wan();") <
+        sysctl_reload.index("passthrough_status = set_passthrough_pppoe(1);"),
+        "runtime failure must not restart PPPoE passthrough after WAN stop")
 wan_start=body(WAN,"start_wan(void)")
 for name in ("set_nf_conntrack","set_igmp_mld_version"):
     require(name+"();" in wan_start and "= "+name+"();" in wan_start,
             "WAN startup must capture "+name+" result")
-require("sysctl_status = set_tcp_syncookies(&tcp_syncookies_status);" in wan_start,
+require("tcp_syncookies_enabled = nvram_get_int(\"fw_syn_cook\") ? 1 : 0;" in wan_start and
+        "sysctl_status = set_tcp_syncookies(tcp_syncookies_enabled, &tcp_syncookies_status);" in wan_start,
         "WAN startup must capture exact SYN-cookie write status")
 require("int tcp_syncookies_status = 0;" in wan_start,
         "WAN startup must initialize dedicated SYN-cookie status")
 wan_compact=" ".join(wan_start.split())
-require('rc_network_sysctl_tcp_syncookies_allows_wan( nvram_get_int("fw_syn_cook"), tcp_syncookies_status)' in wan_compact,
+require("rc_network_sysctl_tcp_syncookies_allows_wan( tcp_syncookies_enabled, tcp_syncookies_status)" in wan_compact,
         "configured SYN-cookie failure must block WAN")
 require(wan_start.index("sysctl_status = set_tcp_syncookies") < wan_start.index("if (create_cb_links() != 0)"),
         "SYN-cookie admission must run before callback links and WAN side effects")
