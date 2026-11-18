@@ -232,6 +232,35 @@ start_wg()
 	fi
 }
 
+remove_firewall_rules()
+{
+	removed_count=0
+	while :; do
+		if iptables $WG_FIREWALL_CHECK >/dev/null 2>&1; then
+			:
+		else
+			firewall_check_status=$?
+			if [ "$firewall_check_status" -eq 1 ]; then
+				return 0
+			fi
+			return "$firewall_check_status"
+		fi
+
+		# Older releases appended the same MASQUERADE rule on every start.
+		# Remove all exact matches, but bound the loop against unexpected
+		# firewall behaviour or concurrent rule insertion.
+		if [ "$removed_count" -ge 64 ]; then
+			log "WireGuard masquerade cleanup exceeded its 64-rule safety bound"
+			return 1
+		fi
+		if iptables $WG_FIREWALL_DELETE; then
+			removed_count=$((removed_count + 1))
+		else
+			return $?
+		fi
+	done
+}
+
 stop_wg()
 {
 	stop_status=0
@@ -239,19 +268,12 @@ stop_wg()
 	firewall_status=0
 	require_commands ip iptables || return $?
 
-	if iptables $WG_FIREWALL_CHECK >/dev/null 2>&1; then
-		if iptables $WG_FIREWALL_DELETE; then
-			:
-		else
-			stop_status=$?
-			log "failed to remove WireGuard masquerade rule (status=$stop_status)"
-		fi
+	if remove_firewall_rules; then
+		:
 	else
 		firewall_status=$?
-		if [ "$firewall_status" -ne 1 ]; then
-			stop_status=$firewall_status
-			log "cannot inspect WireGuard masquerade rule (status=$firewall_status)"
-		fi
+		stop_status=$firewall_status
+		log "WireGuard masquerade cleanup incomplete (status=$firewall_status)"
 	fi
 
 	if ip link show dev "$WG_IFACE" >/dev/null 2>&1; then

@@ -96,18 +96,30 @@ STUB
 cat > "$bin/iptables" <<'STUB'
 #!/bin/sh
 printf 'iptables %s\n' "$*" >> "$WG_TEST_EVENTS"
+if [ -f "$WG_TEST_FIREWALL" ]; then
+	count=$(cat "$WG_TEST_FIREWALL")
+else
+	count=0
+fi
 case " $* " in
-	*" -C "*) [ -f "$WG_TEST_FIREWALL" ] && exit 0; exit 1 ;;
+	*" -C "*) [ "$count" -gt 0 ] && exit 0; exit 1 ;;
 	*" -A "*)
 		status=${WG_TEST_IPTABLES_ADD_STATUS:-0}
 		[ "$status" -eq 0 ] || exit "$status"
-		: > "$WG_TEST_FIREWALL"
+		count=$((count + 1))
+		printf '%s\n' "$count" > "$WG_TEST_FIREWALL"
 		exit 0
 		;;
 	*" -D "*)
 		status=${WG_TEST_IPTABLES_DEL_STATUS:-0}
 		[ "$status" -eq 0 ] || exit "$status"
-		rm -f "$WG_TEST_FIREWALL"
+		[ "$count" -gt 0 ] || exit 1
+		count=$((count - 1))
+		if [ "$count" -eq 0 ]; then
+			rm -f "$WG_TEST_FIREWALL"
+		else
+			printf '%s\n' "$count" > "$WG_TEST_FIREWALL"
+		fi
 		exit 0
 		;;
 esac
@@ -138,6 +150,11 @@ export WG_TEST_IP_ADD_STATUS=0 WG_TEST_IP_MTU_STATUS=0
 export WG_TEST_IP_ADDRESS_STATUS=0 WG_TEST_IP_UP_STATUS=0 WG_TEST_IP_DEL_STATUS=0
 export WG_TEST_IPTABLES_ADD_STATUS=0 WG_TEST_IPTABLES_DEL_STATUS=0
 export WG_TEST_WG_KEY_STATUS=0 WG_TEST_WG_PEER_STATUS=0
+
+set_firewall_count()
+{
+	printf '%s\n' "$1" > "$WG_TEST_FIREWALL"
+}
 
 sh -n "$script"
 : > "$WG_TEST_EVENTS"
@@ -193,28 +210,31 @@ assert_status 31 "$status"
 [ -f "$WG_TEST_INTERFACE" ] || fail "failed update deleted a pre-existing interface"
 assert_key_removed
 
-# Stop reports success only after firewall and interface cleanup complete.
-: > "$WG_TEST_FIREWALL"
+# Stop removes every exact rule left by legacy starts, not just the first.
+# The old startup command appended the same MASQUERADE rule on each restart.
+set_firewall_count 4
 : > "$WG_TEST_INTERFACE"
+: > "$WG_TEST_EVENTS"
 if /bin/sh "$script" stop; then status=0; else status=$?; fi
 assert_status 0 "$status"
 [ ! -e "$WG_TEST_INTERFACE" ] || fail "stop left wg0 behind"
-[ ! -e "$WG_TEST_FIREWALL" ] || fail "stop left masquerade rule behind"
+[ ! -e "$WG_TEST_FIREWALL" ] || fail "stop left duplicate masquerade rules behind"
+[ "$(grep -c '^iptables -t nat -D POSTROUTING -o wg0 -j MASQUERADE$' "$WG_TEST_EVENTS")" -eq 4 ] || fail "stop did not remove every duplicate NAT rule"
 
 # Repeated stop is safe when both resources are already absent.
 if /bin/sh "$script" stop; then status=0; else status=$?; fi
 assert_status 0 "$status"
 
-# Interface deletion failure remains visible even after successful rule cleanup.
+# Interface deletion failure remains visible even after all firewall rules are removed.
 : > "$WG_TEST_INTERFACE"
-: > "$WG_TEST_FIREWALL"
+set_firewall_count 1
 if WG_TEST_IP_DEL_STATUS=41 /bin/sh "$script" stop; then status=0; else status=$?; fi
 assert_status 41 "$status"
 [ -f "$WG_TEST_INTERFACE" ] || fail "failed delete unexpectedly removed interface"
 [ ! -e "$WG_TEST_FIREWALL" ] || fail "stop skipped firewall cleanup after interface failure"
 
 # Firewall deletion failure is returned while interface teardown still runs.
-: > "$WG_TEST_FIREWALL"
+set_firewall_count 1
 : > "$WG_TEST_INTERFACE"
 if WG_TEST_IPTABLES_DEL_STATUS=43 /bin/sh "$script" stop; then status=0; else status=$?; fi
 assert_status 43 "$status"
