@@ -1,3 +1,12 @@
+## 2026-11-18 — Verify SCSI generic driver readiness after module load
+
+- Parent main SHA: `40f0aecead8070a931809244ff5394a8afe01e90`. Exact USB modem `44212191127`, AI `44212191043`, infosvr `44212190976`, AliDDNS `44212191022`, AdGuardHome `44212190980` and Process inventory `44212191040` PASS; NVRAM `44212191003` and AliyunDrive `44212190996` pending at last observation.
+- `mdev_sg_main()` discarded the ambiguity of `module_smart_load("sr_mod", NULL)`: zero means either already loaded or a failed load. The handler did not verify that `sr_mod` was in fact present, then printed success.
+- Preserve sleep only when a new load occurs, probe `is_module_loaded_status("sr_mod")`, accept only positively present state, and fail closed on absent/unknown status. Add GNU89/Werror/ASan/UBSan policy cases and exact caller source-contract checks to USB modem workflow.
+- Exact-head verification pending. Firmware L3 and physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Add USB SCSI policy files to pull_request filter
 
 - Parent main SHA: `2fc75549023388f2e90da2c324c372873cee7ee9`. Exact USB modem workflow `44211715745` successfully compiled/ran the SCSI GNU89/Werror/ASan/UBSan policy test and passed inline source assertions, then failed its final path-filter assertion because the new policy header/test were omitted from the pull_request filter.

@@ -121,7 +121,7 @@ out_unlock:
 
 int mdev_sg_main(int argc, char **argv)
 {
-	int isLock;
+	int isLock, module_load_status, module_presence;
 	char *device_name, *action;
 
 	if (argc < 3){
@@ -150,8 +150,18 @@ int mdev_sg_main(int argc, char **argv)
 	}
 
 	if (nvram_get_int("modem_zcd") != 0) {
-		if (module_smart_load("sr_mod", NULL))
+		module_load_status = module_smart_load("sr_mod", NULL);
+		if (module_load_status != 0)
 			sleep(1);
+
+		module_presence = is_module_loaded_status("sr_mod");
+		if (modem_sg_module_ready_status(module_presence) != 0) {
+			logmessage("USB",
+				   "SCSI generic module unavailable for %s (load=%d, presence=%d)",
+				   device_name, module_load_status, module_presence);
+			file_unlock(isLock);
+			return 1;
+		}
 	} else {
 		char vid[8] = {0}, pid[8] = {0};
 		char usb_port_id[64] = {0};

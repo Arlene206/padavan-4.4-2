@@ -1,12 +1,11 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS USB workflow filter repair: `2fc75549023388f2e90da2c324c372873cee7ee9`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
-- Exact parent USB modem workflow `44211715745` ran the SCSI eject/unload sanitizer test and source-body assertions successfully, then failed only because the new policy header/test paths were missing from `pull_request`; THIS commit adds them to the PR filter.
-- Exact parent AI handoff `44211715782` PASS. HTTPD Security `44211715867`, NVRAM audit `44211716167`, Process inventory `44211715739` and other lifecycle/security checks were pending at last poll.
-- SCSI CD handler `2fc75549` captures eject/unload results and uses tri-state module presence to recognize confirmed absence while failing closed on present/unknown state. Its GNU89/Werror/ASan/UBSan policy test PASSed on the exact parent.
-- Firmware L3 and hardware L4 NOT VERIFIED.
+- Parent main before THIS SCSI generic module-readiness fix: `40f0aecead8070a931809244ff5394a8afe01e90`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact `40f0aece` USB modem `44212191127`, AI `44212191043`, infosvr `44212190976`, AliDDNS `44212191022`, AdGuardHome `44212190980` and Process inventory `44212191040` PASS. NVRAM `44212191003` and AliyunDrive `44212190996` were in progress.
+- `mdev_sg_main()` previously treated `module_smart_load("sr_mod", NULL) == 0` as success without distinguishing already-loaded from failed load. THIS fix verifies tri-state module presence and fails closed on absent/unknown state; new GNU89/Werror/ASan/UBSan test and USB source contract.
+- Same-SHA firmware L3 and physical L4 not yet verified.
 
-Next: verify exact-head USB modem workflow including both event filters; inspect HTTPD/NVRAM/Process checks and XY-C1 Build/TRX/artifact; continue an independent P1 fix.
+Next: verify exact-head USB tests and source contract; inspect NVRAM/AliyunDrive; continue independent P1 work.
 
 ---
 

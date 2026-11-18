@@ -8,6 +8,8 @@ on:
       - "trunk/user/libdisk/src/dev_info.h"
       - "trunk/user/libdisk/src/usb_info.c"
       - "trunk/user/rc/src/hotplug_usb.c"
+      - "trunk/user/rc/src/modem_sg_module_policy.h"
+      - "trunk/user/rc/src/tests/modem_sg_module_policy.c"
       - "trunk/user/rc/src/modem_sr_status_policy.h"
       - "trunk/user/rc/src/tests/modem_sr_status_policy.c"
       - "trunk/user/rc/src/services_stor.c"
@@ -32,6 +34,8 @@ on:
       - "trunk/user/libdisk/src/dev_info.h"
       - "trunk/user/libdisk/src/usb_info.c"
       - "trunk/user/rc/src/hotplug_usb.c"
+      - "trunk/user/rc/src/modem_sg_module_policy.h"
+      - "trunk/user/rc/src/tests/modem_sg_module_policy.c"
       - "trunk/user/rc/src/modem_sr_status_policy.h"
       - "trunk/user/rc/src/tests/modem_sr_status_policy.c"
       - "trunk/user/rc/src/services_stor.c"
@@ -58,6 +62,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compile and run SCSI generic module readiness regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_sg_module_policy.c \
+            -o /tmp/modem-sg-module-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/modem-sg-module-policy
       - name: Compile and run SCSI CD eject/unload result policy regression
         run: |
           set -eu
@@ -103,6 +115,8 @@ jobs:
           hotplug = (rc / "hotplug_usb.c").read_text()
           sr_policy = (rc / "modem_sr_status_policy.h").read_text()
           sr_test = (rc / "tests/modem_sr_status_policy.c").read_text()
+          sg_policy = (rc / "modem_sg_module_policy.h").read_text()
+          sg_test = (rc / "tests/modem_sg_module_policy.c").read_text()
           modem = (rc / "usb_modem.c").read_text()
           services_stor = (rc / "services_stor.c").read_text()
           retry_policy = (rc / "modem_wan_start_policy.h").read_text()
@@ -184,6 +198,23 @@ jobs:
           assert 'get_modem_node("ttyUSB", devnum, NULL)' not in ndis
           assert ndis.index("get_usb_port_by_device(ndis_ifname") < ndis.index("find_modem_node_by_usb_identity") < ndis.index(tty_select)
           assert 'find_modem_node("cdc-wdm", 0, 0, -1, NULL)' not in ndis
+          sg = body(hotplug, "int mdev_sg_main(")
+          assert '#include "modem_sg_module_policy.h"' in hotplug
+          assert "module_load_status = module_smart_load(\"sr_mod\", NULL);" in sg
+          assert 'module_presence = is_module_loaded_status("sr_mod");' in sg
+          assert "modem_sg_module_ready_status(module_presence)" in sg
+          assert "SCSI generic module unavailable" in sg
+          assert sg.index("module_load_status = module_smart_load") < sg.index("is_module_loaded_status")
+          assert sg.index("is_module_loaded_status") < sg.index("modem_sg_module_ready_status")
+          assert "return (module_presence == 1) ? 0 : -1;" in sg_policy
+          for marker in (
+              "test_loaded_module_is_ready",
+              "test_absent_module_is_not_ready",
+              "test_unknown_module_state_fails_closed",
+              "USB SCSI generic module readiness policy: PASS",
+          ):
+              assert marker in sg_test
+
           assert "modem_node_usb_identity_matches" in identity
 
           sr = body(hotplug, "int mdev_sr_main(")
@@ -265,6 +296,8 @@ jobs:
               "trunk/user/libdisk/src/dev_info.h",
               "trunk/user/libdisk/src/usb_info.c",
               "trunk/user/rc/src/hotplug_usb.c",
+              "trunk/user/rc/src/modem_sg_module_policy.h",
+              "trunk/user/rc/src/tests/modem_sg_module_policy.c",
               "trunk/user/rc/src/modem_sr_status_policy.h",
               "trunk/user/rc/src/tests/modem_sr_status_policy.c",
               "trunk/user/rc/src/services_stor.c",
