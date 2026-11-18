@@ -66,7 +66,8 @@ for token in ('mktemp "${smartdns_config_file}.tmp.XXXXXX"',
 assert "for smartdns_directive do" in publish
 assert '# smartdns-managed-dnsmasq-begin' in block
 assert '# smartdns-managed-dnsmasq-end' in block
-assert 'if (bad || inside || (seen_begin != seen_end)) exit 2' in block
+assert 'if (bad || inside || (seen_begin != seen_end)) print "invalid"' in block
+assert 'exit 2' not in block
 assert "managed-v1" in saved and "legacy" in saved and "smartdns_dnsmasq_remove_managed_block" in saved
 assert "sed " not in helper and "eval " not in helper
 
@@ -110,6 +111,7 @@ for token in ("managed-block publication is atomic and preserves same-valued use
               "upgrade cleanup removes only exact legacy directives",
               "malformed marker block fails closed", "symlink configuration is refused",
               "missing configuration is a safe no-op",
+              "all DNSMasq preliminary AWK scan failures propagate without changing live config",
               "rename failure preserves original config",
               "failed managed-block publication leaves original config intact",
               "SmartDNS DNSMasq configuration preservation regression: PASS"):
