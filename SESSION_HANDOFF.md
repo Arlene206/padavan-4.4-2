@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — fail closed on DDNSTO enable-state read errors
+# 2026-11-19 continuation checkpoint — report autostart NVRAM read failures
 
 ## Current repository state
 
@@ -6,7 +6,9 @@
 - Inadyn production SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 `44381563540` all PASS. Exact-source XY-C1 Build, TRX verification and artifact upload completed; L3 is verified for this exact production SHA.
 - Downstream checker/handoff repair main SHA `1b3117769d52021de09ba09ffbee011e149de3fe`: DNSMasq `44382455939`, WAN route `44382456589`, and AI docs `44382456088` PASS.
 - RStats history-read source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054`, and AI docs `44384384820` PASS. Process fail-closed `44384384017`, XY-C1 `44384384072`, and NVRAM `44384384235` were IN_PROGRESS at the last check. The host exact-read harness passed GNU89/Werror with ASan/UBSan; no full repository test or MIPS build was performed.
-- This DDNSTO change updates a packaged ROMFS launcher, so the previous XY-C1 L3 result does not cover the new product input. Exact-head DDNSTO lifecycle, Process inventory and XY-C1 Actions for this commit are required. Physical-router L4 remains NOT VERIFIED.
+- DDNSTO source SHA `55cf20ecfec45a5b519996c85921bce722e54d99`: DDNSTO lifecycle `44385101598`, Process inventory `44385101669` and AI docs `44385101578` PASS. The new shell regression and source checker passed, and Process inventory completed. XY-C1 `44385101749` was still building; Build was in progress and TRX/artifact pending at last inspection. DDNSTO L2 host CI is VERIFIED; product L3 is not yet verified.
+- Parent RStats history-read SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats `44384384582`, Process inventory `44384384359`, Process fail-closed `44384384017`, HTTPD `44384384054`, AI docs `44384384820`, NVRAM `44384384235`, and XY-C1 `44384384072` all PASS. Exact-SHA XY-C1 Build, TRX and artifact upload completed; L3 VERIFIED for the RStats production SHA.
+- This autostart change modifies a packaged ROMFS script and its regression. Exact-head Process lifecycle and XY-C1 checks are required; previous L3 does not cover this source. Physical-router L4 remains NOT VERIFIED.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
 - No local repository checkout or MIPS firmware build was performed. A standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan exact-read harness passed; the full repository RStats workflow and new exact-SHA firmware build must still be checked after this production-source commit. Physical-router L4 remains NOT VERIFIED.
 
@@ -80,26 +82,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Validate the DDNSTO enable-state preflight introduced in the current source slice.
+Validate the autostart NVRAM-read hardening introduced in the current source slice.
 
-- The previous `ddnsto_lifecycle_locked_action()` hid failures from `nvram get ddnsto_enable` inside a command-substitution comparison and interpreted them as a disabled service. Its restart branch also stopped an existing daemon before that unchecked read.
-- The new `ddnsto_read_enable_state()` captures and returns the original nonzero NVRAM status. Both start and restart perform one checked read under the existing lifecycle lock; restart completes it before `stop_zero`, preserving an already-running daemon on failure.
-- The shell regression injects NVRAM status 9 for both start and restart while DDNSTO is running. It asserts error propagation, unchanged daemon state, no TERM/KILL, no launch and exactly one enable-state read. The static checker pins helper status preservation and preflight ordering.
-- No local shell regression or local MIPS build was performed. The exact-head DDNSTO lifecycle, Process inventory and XY-C1 checks must pass before claiming L2/L3 for this packaged ROMFS change.
+- The previous `autostart.sh` expanded numerous `nvram get <feature>_enable` commands directly inside test expressions. A command failure became a false/disabled comparison, silently skipping an enabled optional service; FRP checked status but returned only a generic failure.
+- New `autostart_nvram_read()` captures the command result and original status, logs the failed key and status, and `autostart_nvram_enabled()` preserves fail-closed skip semantics. All boot feature-switch guards use the helper; FRP's client/server reads use the same checked reader. Independent optional services continue after one failed read.
+- The shell regression injects NVRAM status 9 for AdGuardHome, DDNSTO and FRP, asserting the affected service is skipped, independent launches continue, and the specific status plus FRP result are logged. The existing Process workflow covers this test and XY-C1 watches the packaged autostart script.
+- No local shell regression or local firmware build was performed. Exact-head Process lifecycle and XY-C1 Actions must be inspected before claiming validation.
 
 ## Verification boundary
 
-- Previous Inadyn production SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66` has exact-head Inadyn/Process/HTTPD/miniupnpd/Samba/NVRAM and XY-C1 PASS; Build, TRX and artifact upload completed on that exact SHA (L3).
-- Its downstream checker/handoff correction main SHA `1b3117769d52021de09ba09ffbee011e149de3fe` passed DNSMasq `44382455939`, WAN route `44382456589` and AI docs `44382456088`.
-- Parent RStats source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054` and AI docs `44384384820` PASS. Process fail-closed `44384384017`, XY-C1 `44384384072` and NVRAM `44384384235` were PENDING at last inspection. Standalone exact-read harness passed GNU89/Werror/ASan/UBSan; no full local test or MIPS build.
-- This commit changes packaged `trunk/user/ddnsto/ddnsto.sh`; previous XY-C1 L3 on SHA `3c7bd2d` does not verify this input. Check exact-head DDNSTO lifecycle, Process inventory and XY-C1 Build/TRX/artifact before claiming L3.
+- DDNSTO source SHA `55cf20ecfec45a5b519996c85921bce722e54d99`: DDNSTO `44385101598`, Process inventory `44385101669` and AI docs `44385101578` PASS; XY-C1 `44385101749` was still building (TRX/artifact pending). DDNSTO L2 host CI is VERIFIED, L3 pending.
+- RStats production SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats, Process inventory, Process fail-closed, HTTPD, AI docs, NVRAM and XY-C1 all PASS; exact-SHA XY-C1 Build/TRX/artifact completed (L3).
+- Inadyn production SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66` and AliDDNS production SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0` retain exact-source L3 evidence recorded above.
+- Current autostart source/test SHA requires exact-head Process lifecycle and XY-C1 Build/TRX/artifact inspection; do not transfer earlier L3 evidence.
 - Physical-router/hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head DDNSTO lifecycle and Process inventory workflows for this source SHA; fix any real regression without reducing the shell or source-contract coverage.
-2. Inspect the same SHA's XY-C1 Build, TRX and artifact-upload stages before claiming L3.
-3. Continue with the next independent concrete stability/security defect while Actions are pending. Do not repeat the closed five-wrapper C caller audit; the archival backup remains immutable.
+1. Inspect exact-head Process lifecycle and AI documentation checks for the autostart source SHA; fix any concrete regression without removing existing coverage.
+2. Inspect the same SHA's XY-C1 Build, TRX verification and artifact-upload stages before claiming L3.
+3. Continue with the next independent stability/security defect while CI is pending. Keep the backup branch read-only and do not repeat the completed RC wrapper caller audit.
 
 
 ## Mandatory handoff checkpoint

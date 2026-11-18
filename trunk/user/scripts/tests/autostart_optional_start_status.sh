@@ -17,6 +17,9 @@ sed \
 cat > "$TMP_DIR/bin/nvram" <<'STUB'
 #!/bin/sh
 [ "$1" = get ] || exit 1
+if [ "${NVRAM_FAIL_KEY:-}" = "$2" ]; then
+	exit "${NVRAM_FAIL_STATUS:-9}"
+fi
 case "$2" in
 	adg_enable) echo "${ENABLE_ADG:-1}" ;;
 	ddnsto_enable) echo "${ENABLE_DDNSTO:-1}" ;;
@@ -254,6 +257,52 @@ grep -Fq 'AliDDNS autostart failed (status=44)' "$AUTOSTART_LOG" || {
 	echo "AliDDNS launcher failure status was not logged after CA readiness" >&2
 	exit 1
 }
+
+# A failed NVRAM read skips only that dependent feature, logs its key/status,
+# and does not prevent unrelated add-ons from starting.
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
+ADGUARD_STATUS=0
+DDNSTO_STATUS=0
+FRP_STATUS=0
+ENABLE_ADG=1
+ENABLE_DDNSTO=1
+ENABLE_FRPC=1
+ENABLE_ALIDDNS=0
+ENABLE_SMARTDNS=0
+export ADGUARD_STATUS DDNSTO_STATUS FRP_STATUS ENABLE_ADG ENABLE_DDNSTO
+export ENABLE_FRPC ENABLE_ALIDDNS ENABLE_SMARTDNS
+NVRAM_FAIL_STATUS=9
+export NVRAM_FAIL_STATUS
+
+NVRAM_FAIL_KEY=adg_enable
+export NVRAM_FAIL_KEY
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || fail "autostart aborted on adg_enable read failure"
+if grep -Fxq 'adguardhome:start' "$AUTOSTART_CALLS"; then fail "AdGuardHome launched after NVRAM read failure"; fi
+grep -Fxq 'ddnsto:start' "$AUTOSTART_CALLS" || fail "AdGuardHome read failure blocked DDNSTO"
+grep -Fxq 'frp:start' "$AUTOSTART_CALLS" || fail "AdGuardHome read failure blocked FRP"
+grep -Fq 'NVRAM read failed for adg_enable (status=9)' "$AUTOSTART_LOG" || fail "AdGuardHome NVRAM failure was not logged"
+
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
+NVRAM_FAIL_KEY=ddnsto_enable
+export NVRAM_FAIL_KEY
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || fail "autostart aborted on ddnsto_enable read failure"
+if grep -Fxq 'ddnsto:start' "$AUTOSTART_CALLS"; then fail "DDNSTO launched after NVRAM read failure"; fi
+grep -Fxq 'adguardhome:start' "$AUTOSTART_CALLS" || fail "DDNSTO read failure blocked AdGuardHome"
+grep -Fxq 'frp:start' "$AUTOSTART_CALLS" || fail "DDNSTO read failure blocked FRP"
+grep -Fq 'NVRAM read failed for ddnsto_enable (status=9)' "$AUTOSTART_LOG" || fail "DDNSTO NVRAM failure was not logged"
+
+: > "$AUTOSTART_LOG"
+: > "$AUTOSTART_CALLS"
+NVRAM_FAIL_KEY=frpc_enable
+export NVRAM_FAIL_KEY
+sh "$TMP_DIR/autostart.sh" >/dev/null 2>&1 || fail "autostart aborted on frpc_enable read failure"
+if grep -Fxq 'frp:start' "$AUTOSTART_CALLS"; then fail "FRP launched after NVRAM read failure"; fi
+grep -Fxq 'ddnsto:start' "$AUTOSTART_CALLS" || fail "FRP read failure blocked DDNSTO"
+grep -Fq 'NVRAM read failed for frpc_enable (status=9)' "$AUTOSTART_LOG" || fail "FRP NVRAM failure was not logged"
+grep -Fq 'FRP autostart failed (status=9)' "$AUTOSTART_LOG" || fail "FRP did not preserve NVRAM failure status"
+unset NVRAM_FAIL_KEY NVRAM_FAIL_STATUS
 
 echo "optional add-on and SmartDNS autostart regression: PASS"
 

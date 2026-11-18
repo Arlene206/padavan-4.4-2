@@ -1,3 +1,11 @@
+## 2026-11-19 — Report autostart feature-switch NVRAM read failures
+
+- Parent main SHA: `55cf20ecfec45a5b519996c85921bce722e54d99`. DDNSTO source SHA `55cf20ecfec45a5b519996c85921bce722e54d99` passed exact-head DDNSTO `44385101598`, Process inventory `44385101669` and AI docs `44385101578`; XY-C1 `44385101749` was still building. RStats source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961` passed exact-head RStats/Process/HTTPD/AI/NVRAM and XY-C1, with Build/TRX/artifact complete.
+- `autostart.sh` expanded feature NVRAM reads directly inside test expressions. Failed reads were silently treated as disabled switches, hiding why an enabled optional service was not launched. FRP returned a generic failure without identifying the failed key.
+- Added status-preserving `autostart_nvram_read()` and boolean `autostart_nvram_enabled()`; migrated every boot feature guard and FRP client/server read. On command failure, the dependent service remains fail-closed and the key/original status are logged; independent launchers continue.
+- Extended the existing host shell regression with injected status-9 cases for AdGuardHome, DDNSTO and FRP. It verifies the affected service is skipped, unrelated services still start, and precise NVRAM/FRP failure status is logged. Existing Process and XY-C1 path filters already include both modified files; no workflow was broadened or disabled.
+- No local shell test, full repository build or MIPS firmware build was performed. Exact-head Process lifecycle and XY-C1 verification for this source SHA are pending; physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-19 — Preserve DDNSTO on NVRAM enable-state read failure
 
 - Parent main SHA: `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`. The preceding RStats history-read commit passed RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054` and AI docs `44384384820`; Process fail-closed `44384384017`, XY-C1 `44384384072` and NVRAM `44384384235` were still in progress at implementation start.

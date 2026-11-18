@@ -43,11 +43,30 @@ do
 	fi
 done
 
-if [ $(nvram get pppoemwan_enable) = 1 ] ; then
+autostart_nvram_read()
+{
+	_autostart_nvram_key=$1
+	if _autostart_nvram_value=$(nvram get "$_autostart_nvram_key"); then
+		return 0
+	else
+		_autostart_nvram_status=$?
+	fi
+	logger -t "自动启动" "NVRAM read failed for $_autostart_nvram_key (status=$_autostart_nvram_status); dependent service remains disabled"
+	[ "$_autostart_nvram_status" -ne 0 ] || _autostart_nvram_status=1
+	return "$_autostart_nvram_status"
+}
+
+autostart_nvram_enabled()
+{
+	autostart_nvram_read "$1" || return $?
+	[ "$_autostart_nvram_value" = "1" ]
+}
+
+if autostart_nvram_enabled pppoemwan_enable; then
 sleep 20
 fi
 
-if [ $(nvram get sqm_enable) = 1 ] ; then
+if autostart_nvram_enabled sqm_enable; then
 sleep 10
 logger -t "自动启动" "正在启动 SQM QOS..."
 /usr/lib/sqm/run.sh
@@ -66,22 +85,22 @@ run_optional_start()
 	return 0
 }
 
-if [ $(nvram get adbyby_enable) = 1 ] ; then
+if autostart_nvram_enabled adbyby_enable; then
 logger -t "自动启动" "正在启动 Adbyby plus..."
 run_optional_start "Adbyby" /usr/bin/adbyby.sh start
 fi
 
-if [ $(nvram get adg_enable) = 1 ] ; then
+if autostart_nvram_enabled adg_enable; then
 logger -t "自动启动" "正在启动 adguardhome..."
 run_optional_start "AdGuardHome" /usr/bin/adguardhome.sh start
 fi
 
-if [ $(nvram get ss_enable) = 1 ] ; then
+if autostart_nvram_enabled ss_enable; then
 logger -t "自动启动" "正在启动科学上网..."
 run_optional_start "Shadowsocks" /usr/bin/shadowsocks.sh start
 fi
 
-if [ $(nvram get sdns_enable) = 1 ] ; then
+if autostart_nvram_enabled sdns_enable; then
    if [ -f "$smartdns_conf" ] ; then
        sed -i '/去广告/d' "$smartdns_conf"
        sed -i '/adbyby/d' "$smartdns_conf"
@@ -90,7 +109,7 @@ logger -t "自动启动" "正在启动 SmartDNS..."
 run_optional_start "SmartDNS" /usr/bin/smartdns.sh start
 fi
 
-if [ "$(nvram get aliddns_enable)" = 1 ]; then
+if autostart_nvram_enabled aliddns_enable; then
 	if [ -r /etc/ssl/certs/ca-certificates.crt ]; then
 		logger -t "自动启动" "正在启动阿里 ddns..."
 		run_optional_start "AliDDNS" /usr/bin/aliddns.sh start
@@ -99,22 +118,22 @@ if [ "$(nvram get aliddns_enable)" = 1 ]; then
 	fi
 fi
 
-if [ $(nvram get ddnsto_enable) = 1 ] ; then
+if autostart_nvram_enabled ddnsto_enable; then
 logger -t "自动启动" "正在启动 ddnsto..."
 run_optional_start "DDNSTO" /usr/bin/ddnsto.sh start
 fi
 
-if [ $(nvram get aliyundrive_enable) = 1 ] ; then
+if autostart_nvram_enabled aliyundrive_enable; then
 logger -t "自动启动" "正在启动阿里云盘..."
 run_optional_start "AliyunDrive WebDAV" /usr/bin/aliyundrive-webdav.sh start
 fi
 
-if [ $(nvram get zerotier_enable) = 1 ] ; then
+if autostart_nvram_enabled zerotier_enable; then
 logger -t "自动启动" "正在启动 zerotier..."
 run_optional_start "ZeroTier" /usr/bin/zerotier.sh start
 fi
 
-if [ $(nvram get wireguard_enable) = 1 ] ; then
+if autostart_nvram_enabled wireguard_enable; then
 logger -t "自动启动" "正在启动 wireguard..."
 run_optional_start "WireGuard" /usr/bin/wireguard.sh start
 fi
@@ -126,8 +145,10 @@ frp_launch()
 
 frp_autostart()
 {
-	frp_client_enabled=$(nvram get frpc_enable) || return 1
-	frp_server_enabled=$(nvram get frps_enable) || return 1
+	autostart_nvram_read frpc_enable || return $?
+	frp_client_enabled=$_autostart_nvram_value
+	autostart_nvram_read frps_enable || return $?
+	frp_server_enabled=$_autostart_nvram_value
 	if [ "$frp_client_enabled" = "1" ] || [ "$frp_server_enabled" = "1" ]; then
 		logger -t "自动启动" "正在启动 FRP..."
 		frp_launch
