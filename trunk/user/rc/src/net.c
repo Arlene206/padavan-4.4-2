@@ -46,6 +46,7 @@
 #include "wireless_module_load_policy.h"
 #include "hwnat_config_policy.h"
 #include "sfe_config_policy.h"
+#include "network_sysctl_policy.h"
 #include "xupnpd_config_file.h"
 #include "xupnpd_daemon_policy.h"
 #if defined (APP_MSD_LITE)
@@ -1400,7 +1401,7 @@ set_ipv4_forward(int is_on)
 	return rc_ipv4_forward_apply(is_on, write_ipv4_forward_sysctl, NULL);
 }
 
-void
+int
 set_nf_conntrack(void)
 {
 	int i_nf_val;
@@ -1418,24 +1419,38 @@ set_nf_conntrack(void)
 #endif
 
 	i_nf_val = nvram_safe_get_int("nf_max_conn", 16384, 4096, i_nf_lim);
-	fput_int("/proc/sys/net/nf_conntrack_max", i_nf_val);
+	return fput_int("/proc/sys/net/nf_conntrack_max", i_nf_val);
 }
 
-void
+struct rc_tcp_syncookies_context {
+	int enabled;
+};
+
+static int
+write_tcp_syncookies_operation(void *opaque, unsigned int operation)
+{
+	struct rc_tcp_syncookies_context *context =
+		(struct rc_tcp_syncookies_context *)opaque;
+
+	switch (operation) {
+	case 0:
+		return fput_int("/proc/sys/net/ipv4/tcp_syncookies", context->enabled);
+	case 1:
+		return fput_int("/proc/sys/net/ipv4/icmp_ignore_bogus_error_responses", 1);
+	case 2:
+		return fput_int("/proc/sys/net/ipv4/icmp_echo_ignore_broadcasts", 1);
+	default:
+		return EINVAL;
+	}
+}
+
+int
 set_tcp_syncookies(void)
 {
-	char tmp[64];
-	int fw_syn_cook = nvram_get_int("fw_syn_cook");
+	struct rc_tcp_syncookies_context context;
 
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_syncookies");
-	fput_int(tmp, (fw_syn_cook) ? 1 : 0);
-
-	/* Tweak DoS-related... */
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "icmp_ignore_bogus_error_responses");
-	fput_int(tmp, 1);
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "icmp_echo_ignore_broadcasts");
-	fput_int(tmp, 1);
+	context.enabled = nvram_get_int("fw_syn_cook") ? 1 : 0;
+	return rc_network_sysctl_apply(3, write_tcp_syncookies_operation, &context);
 }
 
 void
@@ -1556,24 +1571,57 @@ set_passthrough_pppoe(int is_on)
 	return kill_services(svcs, 3, 1);
 }
 
-void
+struct rc_igmp_mld_context {
+	const char *ifname;
+	int igmp_value;
+	int mld_value;
+};
+
+static int
+write_igmp_mld_operation(void *opaque, unsigned int operation)
+{
+	struct rc_igmp_mld_context *context =
+		(struct rc_igmp_mld_context *)opaque;
+
+	switch (operation) {
+	case 0:
+		return set_interface_conf_int("ipv4", "all", "force_igmp_version",
+					      context->igmp_value);
+	case 1:
+		return set_interface_conf_int("ipv4", context->ifname,
+					      "force_igmp_version", context->igmp_value);
+	case 2:
+		return set_interface_conf_int("ipv4", IFNAME_BR, "force_igmp_version",
+					      context->igmp_value);
+#if defined (USE_IPV6)
+	case 3:
+		return set_interface_conf_int("ipv6", "all", "force_mld_version",
+					      context->mld_value);
+	case 4:
+		return set_interface_conf_int("ipv6", context->ifname,
+					      "force_mld_version", context->mld_value);
+	case 5:
+		return set_interface_conf_int("ipv6", IFNAME_BR, "force_mld_version",
+					      context->mld_value);
+#endif
+	default:
+		return EINVAL;
+	}
+}
+
+int
 set_igmp_mld_version(void)
 {
-	int force_value;
-	const char *ifname = get_man_ifname(0);
+	struct rc_igmp_mld_context context;
 
-	force_value = nvram_safe_get_int("force_igmp", 2, 0, 2);
-
-	set_interface_conf_int("ipv4", "all", "force_igmp_version", force_value);
-	set_interface_conf_int("ipv4", ifname, "force_igmp_version", force_value);
-	set_interface_conf_int("ipv4", IFNAME_BR, "force_igmp_version", force_value);
-
+	context.ifname = get_man_ifname(0);
+	context.igmp_value = nvram_safe_get_int("force_igmp", 2, 0, 2);
 #if defined (USE_IPV6)
-	force_value = nvram_safe_get_int("force_mld", 0, 0, 1);
-
-	set_interface_conf_int("ipv6", "all", "force_mld_version", force_value);
-	set_interface_conf_int("ipv6", ifname, "force_mld_version", force_value);
-	set_interface_conf_int("ipv6", IFNAME_BR, "force_mld_version", force_value);
+	context.mld_value = nvram_safe_get_int("force_mld", 0, 0, 1);
+	return rc_network_sysctl_apply(6, write_igmp_mld_operation, &context);
+#else
+	context.mld_value = 0;
+	return rc_network_sysctl_apply(3, write_igmp_mld_operation, &context);
 #endif
 }
 

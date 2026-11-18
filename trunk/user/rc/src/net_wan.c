@@ -1695,7 +1695,7 @@ start_wan(void)
 	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
 	int static_address_clear_status;
 	int modem_start_status = 0;
-	int wan_start_status = 0, wan_up_status;
+	int wan_start_status = 0, wan_up_status, sysctl_status;
 	char *wan_ifname;
 
 	/* Secure PPP callback/peer storage before publishing callback links. */
@@ -1742,9 +1742,23 @@ start_wan(void)
 
 	refresh_resolvconf_nonfatal("WAN startup", 1);
 
-	set_nf_conntrack();
-	set_tcp_syncookies();
-	set_igmp_mld_version();
+	sysctl_status = set_nf_conntrack();
+	if (sysctl_status != 0)
+		logmessage(LOGNAME, "WAN conntrack limit configuration failed (status=%d)",
+			   sysctl_status);
+	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
+
+	sysctl_status = set_tcp_syncookies();
+	if (sysctl_status != 0)
+		logmessage(LOGNAME, "WAN TCP/ICMP security sysctl configuration failed (status=%d)",
+			   sysctl_status);
+	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
+
+	sysctl_status = set_igmp_mld_version();
+	if (sysctl_status != 0)
+		logmessage(LOGNAME, "WAN IGMP/MLD version sysctl configuration failed (status=%d)",
+			   sysctl_status);
+	wan_start_status = rc_first_service_start_status(wan_start_status, sysctl_status);
 
 	/* di wakeup after 60 secs */
 	notify_run_detect_internet(60);

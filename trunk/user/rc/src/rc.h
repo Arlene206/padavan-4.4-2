@@ -230,11 +230,11 @@ void hw_vlan_tx_map(int idx, int vid);
 int reload_nat_modules(void);
 int restart_firewall(void);
 int set_ipv4_forward(int is_on);
-void set_nf_conntrack(void);
-void set_tcp_syncookies(void);
+int set_nf_conntrack(void);
+int set_tcp_syncookies(void);
 void set_tcp_tweaks(void);
 int set_passthrough_pppoe(int is_on);
-void set_igmp_mld_version(void);
+int set_igmp_mld_version(void);
 void set_libc_gai(int ipv4_first);
 
 /* net_lan.c */

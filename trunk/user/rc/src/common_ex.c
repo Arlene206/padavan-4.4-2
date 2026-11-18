@@ -432,11 +432,27 @@ restart_all_sysctl(void)
 	int restart_status = 0;
 
 	if (!get_ap_mode()) {
+		int operation_status;
 		int passthrough_status;
 
-		set_nf_conntrack();
-		set_tcp_syncookies();
-		set_igmp_mld_version();
+		operation_status = set_nf_conntrack();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "nf_conntrack_max configuration failed (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status, operation_status);
+
+		operation_status = set_tcp_syncookies();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "TCP/ICMP security sysctl configuration failed (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status, operation_status);
+
+		operation_status = set_igmp_mld_version();
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IGMP/MLD version sysctl configuration failed (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status, operation_status);
+
 		passthrough_status = set_passthrough_pppoe(1);
 		if (passthrough_status != 0) {
 			logmessage(LOGNAME,

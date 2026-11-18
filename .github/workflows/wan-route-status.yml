@@ -5,6 +5,10 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/network_sysctl_policy.h"
+      - "trunk/user/rc/src/tests/network_sysctl_policy.c"
+      - "scripts/check_network_sysctl_status.py"
       - "trunk/user/rc/src/xupnpd_config_file.h"
       - "trunk/user/rc/src/tests/xupnpd_config_file.c"
       - "scripts/check_xupnpd_startup.py"
@@ -76,6 +80,10 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/network_sysctl_policy.h"
+      - "trunk/user/rc/src/tests/network_sysctl_policy.c"
+      - "scripts/check_network_sysctl_status.py"
       - "trunk/user/rc/src/xupnpd_config_file.h"
       - "trunk/user/rc/src/tests/xupnpd_config_file.c"
       - "scripts/check_xupnpd_startup.py"
@@ -165,6 +173,14 @@ jobs:
             trunk/user/rc/src/tests/apcli_wait_policy.c \
             -o /tmp/apcli-wait-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/apcli-wait-policy
+      - name: Compile and run network sysctl result policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/network_sysctl_policy.c \
+            -o /tmp/network-sysctl-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/network-sysctl-policy
       - name: Compile and run Inadyn configured-WAN update policy regression
         run: |
           set -eu
@@ -277,6 +293,8 @@ jobs:
       - name: Verify WAN ZeroTier launch status propagation
         run: python3 scripts/check_wan_zerotier_status.py
       - name: Verify AP-client WISP readiness result propagation
+      - name: Verify WAN startup and reload network sysctl status propagation
+        run: python3 scripts/check_network_sysctl_status.py
         run: python3 scripts/check_apcli_wait_status.py
       - name: Verify WAN gateway ARP checker launch result propagation
         run: python3 scripts/check_wan_detect_wan_status.py

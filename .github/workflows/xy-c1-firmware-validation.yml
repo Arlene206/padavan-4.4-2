@@ -16,6 +16,7 @@ on:
       - "trunk/user/shared/src/pids_presence_policy.h"
       - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/udhcpc_script_policy.h"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/network_sysctl_policy.h"
       - "scripts/check_forwarding_control_status.py"
       - "trunk/user/rc/src/tests/ipv4_forward_policy.c"
       - "trunk/user/rc/src/ipv4_forward_policy.h"
