@@ -16,8 +16,41 @@
 int
 main(void)
 {
-	struct stat st;
+	struct stat st, directory;
 	dev_t expected = makedev(TUN_DEVICE_NODE_MAJOR, TUN_DEVICE_NODE_MINOR);
+
+	memset(&directory, 0, sizeof(directory));
+	directory.st_mode = S_IFDIR | 0755;
+	directory.st_uid = 0;
+	directory.st_gid = 0;
+	CHECK(tun_device_directory_is_secure(&directory));
+
+	/* The daemon may run as nobody: execute access is required, listing is not. */
+	directory.st_mode = S_IFDIR | 0711;
+	CHECK(tun_device_directory_is_secure(&directory));
+
+	directory.st_mode = S_IFDIR | 0700;
+	CHECK(!tun_device_directory_is_secure(&directory));
+	directory.st_mode = S_IFDIR | 0750;
+	CHECK(!tun_device_directory_is_secure(&directory));
+	directory.st_mode = S_IFDIR | 0775;
+	CHECK(!tun_device_directory_is_secure(&directory));
+	directory.st_mode = S_IFDIR | 02755;
+	CHECK(!tun_device_directory_is_secure(&directory));
+	directory.st_mode = S_IFDIR | 01755;
+	CHECK(!tun_device_directory_is_secure(&directory));
+	directory.st_mode = S_IFREG | 0755;
+	CHECK(!tun_device_directory_is_secure(&directory));
+	directory.st_mode = S_IFLNK | 0755;
+	CHECK(!tun_device_directory_is_secure(&directory));
+
+	directory.st_mode = S_IFDIR | 0755;
+	directory.st_uid = 1000;
+	CHECK(!tun_device_directory_is_secure(&directory));
+	directory.st_uid = 0;
+	directory.st_gid = 1000;
+	CHECK(!tun_device_directory_is_secure(&directory));
+	CHECK(!tun_device_directory_is_secure(NULL));
 
 	memset(&st, 0, sizeof(st));
 	st.st_mode = S_IFCHR | TUN_DEVICE_NODE_MODE;
@@ -61,6 +94,6 @@ main(void)
 
 	CHECK(!tun_device_node_is_secure(NULL, expected));
 
-	puts("OpenVPN TUN device-node type, identity, ownership and mode policy: PASS");
+	puts("OpenVPN TUN directory traversal and device-node identity policy: PASS");
 	return 0;
 }

@@ -1,3 +1,10 @@
+## 2026-11-17 — Keep the OpenVPN TUN directory traversable after privilege drop
+
+- Parent main: `c0601f0b236bad685ca2b0e945d83861e2771d57`. The generated OpenVPN server config explicitly uses `user nobody` and `group nogroup`, but PID 1 previously accepted an existing root-owned `/dev/net` with mode 0700 or 0750 because it checked only owner execute and absence of group/world write. Such a directory can prevent the unprivileged daemon from traversing `/dev/net/tun` when it opens or reopens the persistent endpoint.
+- Add a root/root directory policy requiring owner rwx, group+other search, no group/world write and no special bits. Unsafe permissions are repaired to 0755 and then revalidated with `lstat`. Extend the GNU89 regression matrix for 0755/0711 acceptance and private, non-traversable, writable, special-bit, non-directory and ownership rejection.
+- The exact-source PID1 mdev and XY-C1 Build/TRX/artifact checks are pending for this commit. Physical-router L4 remains unverified.
+
+---
 ## 2026-11-17 — Use complete Git tree diffs for the XY-C1 build gate
 
 - The inline gate depended on GitHub push payload commits[] entries. Exact XY-C1 `44221748846` on `a4d5a10b` passed host tests but logged `Firmware production inputs changed: True` with no changed-path lines, then ran Build, TRX and artifact upload for a CI/docs-only commit.

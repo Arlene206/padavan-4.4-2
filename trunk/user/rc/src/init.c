@@ -464,16 +464,21 @@ init_openvpn_tun_node(void)
 	if (st.st_uid != (uid_t)0 || st.st_gid != (gid_t)0) {
 		if (chown("/dev/net", 0, 0) != 0)
 			return -(errno ? errno : EIO);
+		if (lstat("/dev/net", &st) != 0)
+			return -(errno ? errno : EIO);
 	}
-	if ((st.st_mode & 0022) != 0 || (st.st_mode & 0100) == 0) {
+	/*
+	 * OpenVPN's generated server config drops to nobody:nogroup. The path
+	 * must therefore remain searchable by non-root users even after the
+	 * daemon drops privileges or reopens the persistent TUN endpoint.
+	 */
+	if (!tun_device_directory_is_secure(&st)) {
 		if (chmod("/dev/net", 0755) != 0)
 			return -(errno ? errno : EIO);
 	}
 	if (lstat("/dev/net", &st) != 0)
 		return -(errno ? errno : EIO);
-	if (!S_ISDIR(st.st_mode) || st.st_uid != (uid_t)0 ||
-	    st.st_gid != (gid_t)0 || (st.st_mode & 0022) != 0 ||
-	    (st.st_mode & 0100) == 0)
+	if (!tun_device_directory_is_secure(&st))
 		return -EPERM;
 
 	/* lstat is intentional: a symlink or ordinary file is not a TUN device. */

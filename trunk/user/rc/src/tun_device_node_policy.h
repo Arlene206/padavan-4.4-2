@@ -10,6 +10,28 @@
 #define TUN_DEVICE_NODE_MODE 0666
 
 /*
+ * OpenVPN server mode drops to nobody:nogroup. Preserve root's full
+ * directory access, but keep the path searchable by both group and other
+ * users; never allow non-root writes or special directory bits.
+ */
+static inline int
+tun_device_directory_is_secure(const struct stat *st)
+{
+	mode_t mode;
+
+	if (!st || !S_ISDIR(st->st_mode) ||
+	    st->st_uid != (uid_t)0 || st->st_gid != (gid_t)0)
+		return 0;
+
+	mode = st->st_mode & 07777;
+	if ((mode & 0700) != 0700 || (mode & 0011) != 0011 ||
+	    (mode & 0022) != 0 || (mode & 07000) != 0)
+		return 0;
+
+	return 1;
+}
+
+/*
  * OpenVPN's TUN endpoint must be the kernel character device, not a regular
  * file, symlink target, or another device accidentally occupying the path.
  * Accept stricter read/write permissions, but never execute or special bits.

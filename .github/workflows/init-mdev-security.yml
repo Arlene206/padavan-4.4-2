@@ -87,10 +87,15 @@ jobs:
                         "mknod(TUN_DEVICE_NODE_PATH", "chown(TUN_DEVICE_NODE_PATH",
                         "chmod(TUN_DEVICE_NODE_PATH"):
               assert token in tun_init, token
-          for token in ("S_ISCHR", "st_rdev", "st_uid", "st_gid", "st_nlink",
-                        "0600", "0111", "07000"):
+          assert "tun_device_directory_is_secure(&st)" in tun_init
+          for token in ("S_ISDIR", "st_uid", "st_gid", "0700", "0011",
+                        "0022", "07000"):
               assert token in tun, token
-          for token in ("S_IFREG", "S_IFLNK", "makedev", "st_uid = 1000",
+          for token in ("S_IFDIR | 0711", "S_IFDIR | 0700",
+                        "S_IFDIR | 0750", "S_IFDIR | 0775",
+                        "S_IFDIR | 02755", "S_IFDIR | 01755",
+                        "S_IFREG | 0755", "S_IFLNK | 0755",
+                        "S_IFREG", "S_IFLNK", "makedev", "st_uid = 1000",
                         "st_gid = 1000", "st_nlink = 2", "04666",
                         "S_IFCHR | 0600"):
               assert token in tun_test, token
