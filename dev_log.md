@@ -1,3 +1,14 @@
+## 2026-11-18 — Verify Adbyby NVRAM failure-propagation correction
+
+- Production source `0c102bce73f5905713e496da2d1dfbbccc97a0fa` changes transient NVRAM reset handling: non-stop actions fail closed on read/write errors, while stop always attempts full teardown and returns an earlier NVRAM preparation error afterwards.
+- Exact 0c Actions: Process fail-closed `44313181302`, Process inventory `44313181361`, and HTTPD security `44313181286` PASS. Adbyby `44313181284` failed due to a typo in the source checker string: it omitted the shell closing bracket in `if [ "$adbyby_action" = "stop" ]; then`. Product source contained the correct syntax.
+- Checker fix commit `6836f3c9899466ac3cb025a6c4572922ca1d7fd2` also pins host regression markers for start-reset write failure, stop-reset write failure and stop NVRAM read failure. Exact-head Adbyby `44313402338` PASS.
+- XY-C1 run `44313181329` for production SHA 0c is still IN_PROGRESS at Build; TRX verification and artifact upload pending. Prior c957 XY-C1 `44310230672` completed Build/TRX/artifact PASS but predates the NVRAM product source change.
+- No local shell test claimed. Target BusyBox/MIPS runtime and physical L4 remain NOT VERIFIED.
+- Next: resolve the 0c XY-C1 exact-SHA run, then continue to the next risk-ranked userland stability issue.
+
+---
+
 ## 2026-11-18 — Fix double-escaped newline in negative recovery fixtures
 
 - Parent `f08f741851ef7ff73cfceff2b7368d7e0d6b47cf` contained double-escaped newline formats in the new invalid-path and incomplete-backup test setup. This would place literal backslash-n text in the journal/state records and fail to exercise the intended three-line marker.
