@@ -26,14 +26,26 @@ assert 'smartdns_wait_stopped' in helper
 start = body(script, 'Start_smartdns () {', '\n}\n\nStop_smartdns')
 stop = body(script, 'Stop_smartdns () {', '\n}\n\nMain')
 main = body(script, 'Main () {', '\n}\n\nRead_ini')
-assert start.index('smartdns_process_state') < start.index(':>"$smartdns_Ini"')
-assert start.index('smartdns_stop_process') < start.index('Change_dnsmasq')
+assert start.index('smartdns_process_state') < start.index('smartdns_stop_process')
+assert start.index('smartdns_stop_process') < start.index('smartdns_dnsmasq_remove_saved_directives')
+assert start.index('smartdns_dnsmasq_remove_saved_directives') < start.index('smartdns_write_ini_state')
+assert start.index('smartdns_write_ini_state') < start.index('Change_dnsmasq start')
+assert 'smartdns_state_version=managed-v1' in start
+assert ':>"$smartdns_Ini"' not in start
+writer = body(script, 'smartdns_write_ini_state () {', '\n}\n\n')
+assert 'mktemp "${smartdns_Ini}.tmp.XXXXXX"' in writer
+assert 'chmod 600 "$smartdns_ini_tmp"' in writer
+assert 'mv -f "$smartdns_ini_tmp" "$smartdns_Ini"' in writer
+assert 'smartdns_dnsmasq_publish_managed_block "$@"' in script
 assert 'return 2' in start and 'return 1' in start
 assert 'Cannot verify SmartDNS after launch' in start
 assert 'pidof smartdns' not in script and 'killall' not in script
 assert stop.index('smartdns_stop_process') < stop.index('Change_adbyby')
 assert stop.index('if [ "$stop_status" -ne 0 ]') < stop.index('Change_adbyby')
 assert 'return "$stop_status"' in stop
+assert 'Change_dnsmasq stop' in stop
+assert 'DNSMasq resolver cleanup incomplete' in stop
+assert stop.index('if [ "$smartdns_dnsmasq_status" -ne 0 ]') < stop.index('rm -f "$smartdns_Ini"')
 assert 'Start_smartdns\n        start_status=$?' in main
 assert 'Stop_smartdns\n        stop_status=$?' in main
 assert main.count('return "$start_status"') == 2

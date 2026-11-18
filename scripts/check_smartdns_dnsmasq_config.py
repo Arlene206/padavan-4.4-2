@@ -11,9 +11,11 @@ workflow = (root / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
 xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
 def body(source, name):
-    marker = name + " () {"
+    markers = (name + " () {", name + "() {")
+    matches = [marker for marker in markers if source.count(marker) == 1]
+    assert len(matches) == 1, "expected one function definition: " + name
+    marker = matches[0]
     start = source.find(marker)
-    assert start >= 0, "missing function " + name
     pos = start + len(marker)
     depth, quote, escaped = 1, None, False
     while pos < len(source):
