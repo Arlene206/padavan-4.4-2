@@ -60,6 +60,7 @@ server_options = function_body(server_src, "gen_vpns_pppd_options(int vpns_type)
 
 for source in (client_src, server_src):
     assert '#include "ppp_options_file.h"' in source
+assert "#include <string.h>" in helper
 for token in ("O_NOFOLLOW", "fchmod(fd, private_mode)", "ftruncate(fd, 0)",
               "readlink(path, actual, sizeof(actual))",
               "memcmp(actual, target, target_length)", "unlink(path)"):
