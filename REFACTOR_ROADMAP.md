@@ -1,8 +1,10 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `0b8acba5190a4765f643090a852cbc53d216b97d`. Signal-safe waits now cover WAN/PPP, native DHCPv6, PPPoE relay, NFSd, detached daemons, LAN PHY reset/readiness, LAN DHCP grace, AP-client reconnect and iNIC reset.
-- On `0b8acba`, Wireless, iNIC, watchdog and Process inventory regressions PASS. Process fail-closed, XY-C1, NVRAM and HTTPD were pending.
-- This commit removes four further interruptible 300ms waits after watchdog Wi-Fi notification on manual 2.4/5GHz radio and guest enables. A hard wait failure now returns before NVRAM mutation or controller action; the workflow pins all four control paths.
+- Latest main before this documentation checkpoint: `a4fca17d2830ed3e52c0a80ee5850474ed4c4ba5`. Latest product-source SHA: `64a208a94e3609ed73633451b8afc0fe6c5db7a8` (SmartDNS DNSMasq scan error handling and injected-failure regression); WAN/RC C-source SHA: `445789dd488d2f00e76ecb965888044f9421738e`.
+- WAN teardown/detector coordination is implemented and regression-covered. Controlled LAN/WAN stop preflights fail closed when monitor pause cannot be verified; DHCP/PPP deconfig callbacks retain advisory pause and complete already-committed lease/route cleanup.
+- Shadowsocks and SmartDNS DNSMasq scanners now propagate AWK read failures instead of misclassifying them as no-match/no-block. The SmartDNS exact-head DNSMasq run `44342978278` on checker-repair main `a4fca17d` PASSes. The earlier `64a208a` DNSMasq job `44342177964` failed only because the static checker expected the old `exit 2`; shell syntax and injected AWK-failure regression passed. The checker contract was corrected in `a4fca17d`.
+- XY-C1 run `44342177852` for product SHA `64a208a` was still building at last poll: every host validation completed; Build XY-C1 was in progress; TRX verification and artifact upload were pending. Do not call current product L3 complete until that exact run finishes. WAN C-source SHA `445789dd` separately passed XY-C1 Build, TRX and artifact upload in run `44341334940`.
+- This checkpoint changes no firmware source. Exact-head Actions for the documentation commit must be checked after push; physical-router L4 remains NOT VERIFIED.
 ## CI trigger governance — current policy
 
 - CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
@@ -78,7 +80,8 @@
 
    - Completed slice in THIS COMMIT: `wan_up_internal()` now preserves configured Inadyn start/reload failures from `notify_ddns_update()`; DDNS-disabled and AP-mode notifier calls are explicitly successful no-ops, with policy and WAN-caller regression coverage. Continue with other dropped WAN-up optional-launch results.
 
-   - Next defect candidate: PPPoE-MWAN `detect.sh` currently treats all failed `ifconfig pppN` probes as normal missing interfaces. Confirm absence through `/sys/class/net`; when the interface exists but `ifconfig` fails, preserve the first failure and continue independent PPP reconciliation. Add injected command-error and absent-interface tests.
+   - Completed prior slice `ba893707`: PPPoE-MWAN `detect.sh` distinguishes a genuinely absent `/sys/class/net/pppN` from an `ifconfig` failure on an existing peer, preserves the exact error/first failure, and continues reconciling independent PPP peers. Host regression and source contract are already recorded in the module table. Do not repeat this candidate without a new failing case.
+   - Next bounded source task: trace whether the `void start_adguardhome()`, `start_ddnsto()`, `start_adbyby()`, `start_aliddns()` and `start_frp()` wrappers discard required launcher status at their actual PID 1/RC entrypoints. Confirm the complete dispatcher/caller graph first; change only a demonstrated loss and add caller-level regression coverage.
 
    - CI repair: ZeroTier lifecycle `44027996550` and Process lifecycle `44027996499` passed on `d2a41360`; the WAN route workflow had zero jobs due malformed pull_request path placement. The path-filter entries were moved inside `on.pull_request.paths` without altering production code. Continue after the exact-SHA rerun.
 3. **P1 — Extend lifecycle and rollback coverage across independent services.** Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.

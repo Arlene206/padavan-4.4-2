@@ -1,3 +1,14 @@
+## 2026-11-18 — Gate WAN teardown and preserve resolver scanner failures
+
+- Detector pause signalling now returns a normalized status. Controlled AP-LAN, PPP-only WAN and full-WAN stop paths fail closed before destructive teardown when the monitor may still be live; missing/already-exited monitor pidfiles remain harmless. DHCP/PPP deconfig callbacks use advisory pause and continue committed lease/interface/route cleanup.
+- Added caller-order and error-policy coverage to the detector-signal, WAN-route and process-lifecycle contracts. WAN C-source commit `445789dd488d2f00e76ecb965888044f9421738e` passed the exact-head WAN DHCP, WAN route, WAN teardown, detector signal, Process inventory, HTTPD and other triggered suites; XY-C1 run `44341334940` passed Build, TRX verification and artifact upload on that exact SHA.
+- Fixed an AWK exit-status bug in Shadowsocks DNSMasq cleanup: an END-block exit status could mask an input/read failure as “no match”. A fake AWK exit-37 regression confirms the error propagates and the live config remains byte-identical. Exact Shadowsocks lifecycle `44339382141` and Process inventory `44339382041` passed.
+- Applied the same failure-preserving marker-output pattern to all three SmartDNS DNSMasq preliminary scans (exact directive scan, managed-block structure scan and duplicate-marker scan). Added AWK exit-37 tests proving every scan fails without changing live config. On product SHA `64a208a94e3609ed73633451b8afc0fe6c5db7a8`, shell syntax and regression tests passed; the first DNSMasq workflow failed only because the Python checker still expected the removed `exit 2`. Checker-only follow-up `a4fca17d2830ed3e52c0a80ee5850474ed4c4ba5` repaired the assertion and success-marker contract; exact DNSMasq run `44342978278` passed.
+- On `64a208a`, USB-storage regression `44342177838` and Process inventory `44342180589` passed. XY-C1 run `44342177852` was still building at last poll (all host checks passed; Build in progress; TRX/artifact pending). No local checkout tests or physical-router L4 validation were performed.
+- Main parent before this checkpoint: `a4fca17d2830ed3e52c0a80ee5850474ed4c4ba5`. PPPoE-MWAN sysfs-aware peer probing is already implemented in the earlier `ba893707` slice; no repeated audit required.
+
+---
+
 ## 2026-11-18 — Restore required cross-session handoff clauses
 
 - The exact-head AI handoff validator next identified two missing required handoff clauses after the checkpoint wording correction: the one-atomic-main-commit mandate and the before-context-exhaustion checkpoint.
