@@ -1,12 +1,12 @@
-# 2026-11-19 continuation checkpoint — enforce configured SYN-cookie protection at startup and runtime
+# 2026-11-19 continuation checkpoint — reject special-purpose IPv6 addresses in AliDDNS WAN discovery
 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main` only.
-- Main before this runtime enforcement slice: `865215612acd2fd5dce31d147eb6a60b809ab210`. Its startup-gate commit has 21 of 22 exact-head workflows PASS; XY-C1 run `44366327618` remained IN_PROGRESS at last poll (Build XY-C1 active, TRX/artifact pending).
+- Latest completed WAN source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`: all 22 exact-head workflows PASS, including XY-C1 Build/TRX/artifact run `44368075437`. The preceding startup-only SHA `865215612acd2fd5dce31d147eb6a60b809ab210` also reached 22/22 PASS. L3 is verified for both exact WAN source SHAs; physical-router L4 remains NOT VERIFIED.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not switch to, update or delete it.
 - PR #1 remains closed/unmerged; do not revive it.
-- No local checkout, MIPS cross-build or physical-router validation was available in this session.
+- No local repository checkout or local MIPS build was performed. GitHub Actions completed the XY-C1 cross-build, TRX verification and artifact upload on exact source SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`; physical-router L4 remains unverified.
 
 ## Completed prerequisite — switch VLAN WAN gate
 
@@ -42,7 +42,7 @@ IPv6 configured as disabled is a security boundary: if global `disable_ipv6`, RA
 
 Reviewed `trunk/user/rc/src/init.c::init_sysctl()` against its callers and later network setup. Kernel panic policy, socket buffer sizes, VM tuning and TCP timeout/retry values are best-effort tuning; they must not become generic PID-1 boot blockers. The early IPv6-disable operation is checked again by `init_router()::init_ipv6()`, whose status is retained and gates WAN when IPv6 is configured disabled. The early global `rp_filter` write is a baseline; the firewall separately verifies per-WAN-interface rp_filter changes when multicast policy requires them. No additional early-init change is justified without evidence that a specific global write is a mandatory boot prerequisite.
 
-## Active task — enforce explicitly configured SYN cookies before WAN exposure
+## Completed prerequisite — enforce explicitly configured SYN cookies at startup and runtime
 
 `start_wan()` and runtime `restart_all_sysctl()` now snapshot the configured `fw_syn_cook` value once and pass that exact value into `set_tcp_syncookies()`. If the option is enabled but the precise sysctl write fails, initial WAN startup is rejected before setup side effects; a runtime `RCN_RESTART_SYSCTL` failure attempts the normal lifecycle-locked `stop_wan()` path and deliberately does not restart PPPoE passthrough. Independent ICMP writes are still attempted and their errors remain aggregated. If the setting is disabled, a failed write remains diagnostic/aggregate-only. The policy regression covers both enabled and disabled cases, and the XY-C1 kernel configuration has `CONFIG_SYN_COOKIES=y`.
 
@@ -52,6 +52,18 @@ Reviewed `trunk/user/rc/src/init.c::init_sysctl()` against its callers and later
 - XY-C1 run `44360411938` on product-source SHA `66bdedc162493cda29d36864d17afaa826e0516b` is SUCCESS, including Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for that exact product-source SHA; physical-router L4 remains NOT VERIFIED.
 - Firewall Startup `44360411721` and HTTPD Security `44360411452` also PASS on `66bdedc`; no known failure remains on the disabled-IPv6 source/checker slice.
 - The current SYN-cookie source change is a new firmware-source SHA; its WAN route, XY-C1 and all other path-triggered exact-head checks must be inspected before claiming verification.
+## Active task — reject non-global IPv6 special-purpose prefixes in stock AliDDNS WAN discovery
+
+The stock `arIpAddress6()` accepted any syntactically valid-looking address in `2000::/3` after checking Linux `Scope:Global`. That is insufficient: this broad global-unicast allocation contains special-purpose prefixes that IANA does not classify as globally reachable, including `2001:db8::/32` and the newer `3fff::/20` documentation range, benchmarking `2001:2::/48`, and deprecated ORCHIDv1 `2001:10::/28`. The kernel scope label does not replace address-registry classification.
+
+This slice adds an eight-hextet numeric classifier to stock WAN discovery, rejecting those prefixes while retaining ordinary global unicast. It leaves operator-supplied custom DDNS script semantics unchanged. The IPv6 host regression covers compressed and expanded representations of all four blocked ranges, native/tunnel interface cases, ambiguous multi-address output, ULA/link-local and ifconfig failures. Source/checker/firmware Actions for this new commit remain to be inspected before claiming validation.
+
+### Exact-head result for the immediately preceding WAN security source
+
+- Startup-gate SHA `865215612acd2fd5dce31d147eb6a60b809ab210`: 22/22 exact-head workflows SUCCESS.
+- Runtime-gate SHA `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`: 22/22 exact-head workflows SUCCESS; XY-C1 run `44368075437` completed Build XY-C1, TRX verification and artifact upload.
+- The active AliDDNS IPv6 classification change is a new firmware/source SHA; no validation result from either previous WAN SHA transfers to it.
+
 ## Verification boundary
 
 - WAN VLAN source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`: Firewall policy C regression passed; exact-source XY-C1 run `44351420211` is now SUCCESS, including every host regression, Build XY-C1, TRX verification and artifact upload. L3 is VERIFIED for this exact firmware source SHA; physical-router L4 remains NOT VERIFIED.
@@ -62,8 +74,8 @@ Reviewed `trunk/user/rc/src/init.c::init_sysctl()` against its callers and later
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head Actions for this runtime enforcement commit, especially WAN route status, Process lifecycle, Firewall Startup, AI handoff docs and XY-C1.
-2. If CI passes, inspect `stop_wan()` failure paths under the runtime SYN-cookie gate and determine whether existing lifecycle fences sufficiently prevent WAN exposure when teardown itself is incomplete; preserve those fences.
+1. Fetch live `main` and inspect exact-head AliDDNS transport, Process autostart, XY-C1 and every other path-triggered Action for the new IPv6 special-purpose filter; do not transfer the previous `adedc6df` green build to this source SHA.
+2. If those checks pass, review any additional IANA non-globally-reachable prefixes that can appear inside `2000::/3`, preserving the explicitly supported native/tunnel interfaces and not changing operator custom-script behavior.
 3. Continue whole-userland stability/security work. Physical-router L4 remains unverified.
 ## Mandatory handoff checkpoint
 

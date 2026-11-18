@@ -1,3 +1,12 @@
+## 2026-11-19 — Reject non-global special-purpose IPv6 prefixes in stock AliDDNS WAN discovery
+
+- Parent main SHA: `adedc6dfef3cbdfbdee8ddcb633ab57c92bc9759`. Its 22/22 exact-head Actions passed, including XY-C1 Build/TRX/artifact run `44368075437`. This previous SHA is L3 verified; it does not verify the new IPv6 filter.
+- Whole-repo AliDDNS external-address review found a classification gap: stock WAN IPv6 discovery treated every `2000::/3` address with Linux `Scope:Global` as public. This includes IANA special-purpose ranges that are not globally reachable.
+- Added numeric eight-hextet IPv6 prefix parsing to stock discovery and reject `2001:2::/48` benchmarking, `2001:10::/28` deprecated ORCHIDv1, `2001:db8::/32` documentation and `3fff::/20` documentation. Compressed and expanded spellings map to the same numeric check. Native/tunnel interface selection and single-address ambiguity protection remain unchanged.
+- Added fixtures for all four blocked ranges, retained ordinary global-unicast expectations, and strengthened the AliDDNS source checker. No workflow path filters or test coverage were weakened; no operator custom-script semantics changed.
+- Local AWK parser smoke test passed under both host awk and BusyBox awk for accepted global-unicast and rejected documentation/benchmarking/ORCHID examples. The complete AliDDNS regression and exact-head Actions for this new SHA remain pending. No local firmware build or physical-router L4 result is claimed.
+- Next after validation: examine any additional IANA non-globally-reachable prefixes in `2000::/3` that should be rejected without blocking explicitly supported WAN/tunnel address classes.
+
 ## 2026-11-19 — Close the runtime SYN-cookie sysctl failure path
 
 - Parent main SHA: `865215612acd2fd5dce31d147eb6a60b809ab210`. Its WAN route regression `44366327524`, Firewall Startup `44366327601`, AI handoff `44366327316`, HTTPD Security `44366327378` and Process lifecycle `44366327336` all PASS. 21 of 22 exact-SHA workflows had completed successfully; XY-C1 `44366327618` was still building, with TRX verification and artifact upload pending.

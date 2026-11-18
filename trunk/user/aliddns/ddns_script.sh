@@ -16,7 +16,7 @@ arIpAddress6 () {
 
 	# Match RC's get_wan_addr6_host(): use the configured WAN6 interface.
 	ifconfig_output=$(ifconfig "$wan6_ifname" 2>/dev/null) || return 1
-	printf '%s\n' "$ifconfig_output" | awk '
+	wan6_address=$(printf '%s\n' "$ifconfig_output" | awk '
 		/Scope:Global/ {
 			for (i = 1; i < NF; i++) {
 				if ($i != "addr:")
@@ -24,8 +24,6 @@ arIpAddress6 () {
 				address = $(i + 1)
 				split(address, address_parts, "/")
 				address = address_parts[1]
-				# Public unicast belongs to 2000::/3; reject ULA and
-				# other non-public scopes even if labelled Scope:Global.
 				if (address ~ /^[23][[:xdigit:]:]+$/)
 					addresses[++count] = address
 			}
@@ -35,7 +33,9 @@ arIpAddress6 () {
 				exit 1
 			print addresses[1]
 		}
-	'
+	') || return 1
+	aliddns_ipv6_public_valid "$wan6_address" || return 1
+	printf '%s\n' "$wan6_address"
 }
 
 if [ "$IPv6" = "1" ] ; then

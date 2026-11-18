@@ -307,6 +307,7 @@ for marker in (
 
 ipv4_valid = function_body(source, "aliddns_ipv4_valid() {")
 ipv6_valid = function_body(source, "aliddns_ipv6_valid() {")
+ipv6_public_valid = function_body(source, "aliddns_ipv6_public_valid() {")
 require('ALIDDNS_CA_BUNDLE="/etc/ssl/certs/ca-certificates.crt"' in ipv4_helper and
         '--cacert "$ALIDDNS_CA_BUNDLE"' in ipv4_helper,
         "public IPv4 helper must use the firmware CA bundle")
@@ -362,6 +363,7 @@ require(
     and '[ "${#wan6_ifname}" -le 15 ]' in ipv6_discovery
     and "Scope:Global" in ipv6_discovery
     and "^[23][[:xdigit:]:]+$" in ipv6_discovery
+    and 'aliddns_ipv6_public_valid "$wan6_address" || return 1' in ipv6_discovery
     and "ifconfig br0" not in ipv6_discovery
     and "count != 1" in ipv6_discovery,
     "stock IPv6 DDNS discovery must use the WAN6 interface and one unambiguous global-unicast address",
@@ -372,8 +374,20 @@ require(
     and "expect_success sit0 sit-global" in ipv6_test
     and "multiple-global" in ipv6_test
     and "partial-failure" in ipv6_test
-    and "aliddns_ipv6_valid" in ipv6_test,
-    "WAN IPv6 regression must cover native/tunnel interfaces and fail-closed cases",
+    and "aliddns_ipv6_valid" in ipv6_test
+    and "documentation-2001" in ipv6_test
+    and "benchmarking" in ipv6_test
+    and "orchid-v1" in ipv6_test
+    and "documentation-3fff" in ipv6_test,
+    "WAN IPv6 regression must cover native/tunnel interfaces, IANA special-use prefixes and fail-closed cases",
+)
+require("function parse_part(part, target, offset" in ipv6_public_valid and
+        "first < 8192 || first > 16383" in ipv6_public_valid and
+        "first == 8193 && second == 2 && third == 0" in ipv6_public_valid and
+        "first == 8193 && second >= 16 && second <= 31" in ipv6_public_valid and
+        "first == 8193 && second == 3512" in ipv6_public_valid and
+        "first == 16383 && second <= 4095" in ipv6_public_valid,
+        "WAN IPv6 public-address policy must exclude special-purpose prefixes inside 2000::/3",
 )
 require('ddns_script_path="${ALIDDNS_DDNS_SCRIPT_PATH:-/etc/storage/ddns_script.sh}"' in ddns_check and
         '[ -L "$ddns_script_path" ]' in ddns_check and

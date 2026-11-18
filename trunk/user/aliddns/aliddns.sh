@@ -583,6 +583,82 @@ aliddns_ipv6_valid() {
 	'
 }
 
+aliddns_ipv6_public_valid() {
+	aliddns_ipv6_valid "$1" || return 1
+	printf '%s\n' "$1" | awk '
+		function hexvalue(s, i, digit, value) {
+			value = 0
+			for (i = 1; i <= length(s); i++) {
+				digit = index("0123456789abcdef", substr(s, i, 1)) - 1
+				if (digit < 0)
+					return -1
+				value = value * 16 + digit
+			}
+			return value
+		}
+		function parse_part(part, target, offset, i, n, parts, value) {
+			if (part == "")
+				return 0
+			n = split(part, parts, ":")
+			for (i = 1; i <= n; i++) {
+				if (length(parts[i]) < 1 || length(parts[i]) > 4 ||
+				    parts[i] !~ /^[[:xdigit:]]+$/)
+					return -1
+				value = hexvalue(parts[i])
+				if (value < 0)
+					return -1
+				target[offset + i] = value
+			}
+			return n
+		}
+		{
+			address = tolower($0)
+			if (NR != 1 || address !~ /^[[:xdigit:]:]+$/ || index(address, ":::"))
+				exit 1
+			compression = index(address, "::")
+			if (compression) {
+				left = substr(address, 1, compression - 1)
+				right = substr(address, compression + 2)
+				if (index(right, "::"))
+					exit 1
+				left_count = parse_part(left, groups, 0)
+				right_count = parse_part(right, right_groups, 0)
+				if (left_count < 0 || right_count < 0 ||
+				    left_count + right_count >= 8)
+					exit 1
+				zero_count = 8 - left_count - right_count
+				for (i = 1; i <= right_count; i++)
+					groups[left_count + zero_count + i] = right_groups[i]
+			} else {
+				group_count = parse_part(address, groups, 0)
+				if (group_count != 8)
+					exit 1
+			}
+			first = groups[1]
+			second = groups[2]
+			third = groups[3]
+			# Non-global special-purpose subranges inside 2000::/3:
+			# 2001:2::/48 benchmarking, 2001:10::/28 deprecated ORCHIDv1,
+			# 2001:db8::/32 documentation, and 3fff::/20 documentation.
+			if (first < 8192 || first > 16383)
+				exit 1
+			if (first == 8193 && second == 2 && third == 0)
+				exit 1
+			if (first == 8193 && second >= 16 && second <= 31)
+				exit 1
+			if (first == 8193 && second == 3512)
+				exit 1
+			if (first == 16383 && second <= 4095)
+				exit 1
+			valid = 1
+		}
+		END {
+			if (NR != 1 || !valid)
+				exit 1
+		}
+	'
+}
+
 get_recordid() {
 	tr -d '\r\n' |
 		grep -Eo '"RecordId"[[:space:]]*:[[:space:]]*"[0-9]+"' |

@@ -10,6 +10,7 @@ mkdir -p "$MOCK_BIN"
 : > "$IFCONFIG_LOG"
 sed -n '/^arIpAddress6 () {/,/^}/p' "$SCRIPT_DIR/../ddns_script.sh" >> "$FUNCTIONS"
 sed -n '/^aliddns_ipv6_valid() {/,/^}/p' "$SCRIPT_DIR/../aliddns.sh" >> "$FUNCTIONS"
+sed -n '/^aliddns_ipv6_public_valid() {/,/^}/p' "$SCRIPT_DIR/../aliddns.sh" >> "$FUNCTIONS"
 . "$FUNCTIONS"
 
 cat > "$MOCK_BIN/nvram" <<'MOCK_NVRAM'
@@ -34,6 +35,26 @@ OUTPUT
 		cat <<'OUTPUT'
 sit0 Link encap:IPv6-in-IPv4
           inet6 addr: 2001:4860::1/64 Scope:Global
+OUTPUT
+		;;
+	documentation-2001)
+		cat <<'OUTPUT'
+          inet6 addr: 2001:0db8:0000:0000:0000:0000:0000:0001/64 Scope:Global
+OUTPUT
+		;;
+		benchmarking)
+		cat <<'OUTPUT'
+          inet6 addr: 2001:0002:0000:0000:0000:0000:0000:0001/64 Scope:Global
+OUTPUT
+		;;
+		orchid-v1)
+		cat <<'OUTPUT'
+          inet6 addr: 2001:0010:0000:0000:0000:0000:0000:0001/64 Scope:Global
+OUTPUT
+		;;
+	documentation-3fff)
+		cat <<'OUTPUT'
+          inet6 addr: 3fff:0fff:0000:0000:0000:0000:0000:0001/64 Scope:Global
 OUTPUT
 		;;
 	ula)
@@ -93,6 +114,10 @@ malicious_ifname="ppp0;touch $TEST_DIR/injected"
 expect_failure "" "" global
 expect_failure "$malicious_ifname" "$malicious_ifname" global
 [ "$(wc -l < "$IFCONFIG_LOG")" -eq "$calls_before" ] || fail "invalid WAN interface reached ifconfig"
+expect_failure ppp0 ppp0 documentation-2001
+expect_failure ppp0 ppp0 benchmarking
+expect_failure ppp0 ppp0 orchid-v1
+expect_failure ppp0 ppp0 documentation-3fff
 expect_failure ppp0 ppp0 ula
 expect_failure ppp0 ppp0 link-local-only
 expect_failure ppp0 ppp0 multiple-global
@@ -100,5 +125,14 @@ expect_failure ppp0 ppp0 partial-failure
 [ ! -e "$TEST_DIR/injected" ] || fail "WAN interface was evaluated as shell code"
 if aliddns_ipv6_valid '2001::1::2'; then
 	fail "malformed IPv6 passed the strict validator"
+fi
+if aliddns_ipv6_public_valid '2001:db8::1'; then
+	fail "documentation IPv6 passed the public-address policy"
+fi
+if aliddns_ipv6_public_valid '3fff:0fff::1'; then
+	fail "new documentation IPv6 range passed the public-address policy"
+fi
+if ! aliddns_ipv6_public_valid '2001:4860:4860::8888'; then
+	fail "a routable global-unicast IPv6 address was rejected"
 fi
 printf '%s\n' 'AliDDNS WAN IPv6 discovery regression: PASS'
