@@ -136,7 +136,7 @@ main(void)
 	}
 
 	{
-		struct fake_daemon fake = { NULL, 0, 0, 0, 0 };
+		struct fake_daemon fake = { NULL, 0, 0, 0, 0, 0, 0 };
 
 		errno = 0;
 		assert(samba_daemon_wait_for_stable_presence("nmbd", 1,
