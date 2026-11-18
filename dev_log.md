@@ -1,3 +1,10 @@
+## 2026-11-19 01:00:22 CST — Normalize guest bridge source contract after VLAN output change
+
+- Base main SHA: 117c52c925cb96478802d8c4bd2e829e4bd9c133. The preceding checker commit resolved the firewall startup, HTTPD security and AI handoff exact-head failures; Process lifecycle and Wireless radio still failed on one remaining whitespace-sensitive assertion in their shared guest-LAN checker.
+- Production `net_lan.c::init_bridge()` initializes the optional switch-VLAN output on two C lines (`if (switch_vlan_status)` followed by the assignment). The source checker expected the two statements on one line. Normalize the extracted function body before matching, then assert that the `switch_config_vlan(1)` result is captured before the corresponding bridge-status record.
+- Exact-head evidence on the previous checker SHA: Firewall `44353199552` SUCCESS; HTTPD `44353199583` SUCCESS; AI handoff `44353199773` SUCCESS; Process lifecycle `44353199473` and Wireless radio `44353199497` FAIL at that single static assertion. The relevant policy regression binaries passed before the checker. XY-C1 run `44351420211` on firmware source SHA `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f` is now SUCCESS including Build XY-C1, TRX verification and artifact upload; this establishes L3 for that source SHA, not later product-source changes.
+- This is a checker/documentation/roadmap repair only; no firmware production source changed. No local tests are claimed. After publication, inspect the new exact-head Process/Wireless Actions and continue the IPv6 fail-closed WAN safety task from the handoff.
+
 ## 2026-11-19 — Repair exact-head checker drift after WAN VLAN gate
 
 - Inspected the exact-head Actions for `1fa05ac1901a1f34fd3ddc6d0a6f69defd4d968f`. The new firewall C policy regression passed, and the independent Process inventory passed; the remaining failures were stale integration contracts after the `init_bridge` and WAN policy signatures changed.
