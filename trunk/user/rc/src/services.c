@@ -1773,14 +1773,19 @@ start_logger(int showinfo)
 {
 	int syslog_status;
 	int klog_status;
+	int settle_status = 0;
 
 	/* Attempt both daemons even if the first launch fails. */
 	syslog_status = start_syslogd();
 
 	if (showinfo)
 	{
-		// wait for logger daemon started
-		usleep(300000);
+		/* Preserve the logger settling interval even when a signal arrives. */
+		settle_status = service_wait_microseconds(300000U);
+		if (settle_status != 0) {
+			settle_status = errno > 0 ? errno : EIO;
+			logmessage(LOGNAME, "logger settling wait failed (status=%d)", settle_status);
+		}
 		
 #if 0
 #if defined (VENDOR_ASUS)
@@ -1796,7 +1801,7 @@ start_logger(int showinfo)
 	if (klog_status != 0)
 		logmessage(LOGNAME, "klogd startup failed (status=%d)", klog_status);
 
-	return rc_logger_start_status(syslog_status, klog_status);
+	return rc_logger_start_status_with_wait(syslog_status, settle_status, klog_status);
 }
 
 int

@@ -670,7 +670,11 @@ assert "klog_status = start_klogd();" in logger_start
 assert logger_start.index("syslog_status = start_syslogd();") < logger_start.index("klog_status = start_klogd();")
 assert 'logmessage(LOGNAME, "syslogd startup failed (status=%d)", syslog_status);' in logger_start
 assert 'logmessage(LOGNAME, "klogd startup failed (status=%d)", klog_status);' in logger_start
-assert "return rc_logger_start_status(syslog_status, klog_status);" in logger_start
+assert "return rc_logger_start_status_with_wait(syslog_status, settle_status, klog_status);" in logger_start
+assert "service_wait_microseconds(300000U)" in logger_start
+assert "usleep(300000)" not in logger_start
+assert "settle_status = errno > 0 ? errno : EIO;" in logger_start
+assert "rc_logger_start_status_with_wait" in logger_policy
 assert "return 0;" not in logger_start
 assert "return syslog_status != 0 ? syslog_status : klog_status;" in logger_policy
 for contract in (
