@@ -1,3 +1,11 @@
+## 2026-11-17 — Anchor the PPPoE-MWAN source contract to the detector call
+
+- Parent main: `0a00fe1116948ffe6951c7a0f71e4ac3c57286c0`. The first firewall hook-status merge in `start_firewall_ex()` occurs before its optional PPPoE-MWAN detector call; the new contract must select the merge after that exact call rather than the first textual occurrence.
+- Adjust the WAN and firewall validators to search for the first status merge after the detector invocation. No product behavior changes; the exact source-change workflows will validate the corrected assertion.
+- Exact-head Actions for the preceding detector-status change are still in progress; this test-only correction will receive its own exact-SHA checks.
+
+---
+
 ## 2026-11-17 — Propagate PPPoE-MWAN detector failures from firewall rebuild
 
 - Parent main: `7d7a30fd51b0b151bd1d35c0e3564cb8a1f60497`. The PPPoE-MWAN detector already returns its first snapshot, rule deletion, rule creation, route, and cache-flush error. `start_firewall_ex()` invoked it when multi-WAN was enabled but discarded the `doSystem()` status, so a failed policy reconciliation could be hidden while WAN protocol startup continued.

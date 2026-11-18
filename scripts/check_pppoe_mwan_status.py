@@ -104,13 +104,13 @@ firewall_reconcile = function_body(FIREWALL, "start_firewall_ex(void)")
 mwan_gate = 'if (nvram_match("pppoemwan_enable", "1"))'
 mwan_call = 'hook_error = firewall_log_command_failure("PPPoE-MWAN detection",'
 mwan_merge = "status = rc_first_service_start_status(status, hook_error);"
+mwan_call_pos = firewall_reconcile.find(mwan_call)
+mwan_merge_pos = firewall_reconcile.find(mwan_merge, mwan_call_pos)
 require(
     mwan_gate in firewall_reconcile
-    and mwan_call in firewall_reconcile
-    and mwan_merge in firewall_reconcile
-    and firewall_reconcile.index(mwan_gate)
-        < firewall_reconcile.index(mwan_call)
-        < firewall_reconcile.index(mwan_merge),
+    and mwan_call_pos >= 0
+    and mwan_merge_pos > mwan_call_pos
+    and firewall_reconcile.index(mwan_gate) < mwan_call_pos,
     "firewall rebuild must decode and aggregate the PPPoE-MWAN detector command result",
 )
 require(
