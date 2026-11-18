@@ -34,6 +34,7 @@
 #include "modem_wan_start_policy.h"
 #include <process_inventory.h>
 #include "ppp_options_file.h"
+#include "ppp_option_value_policy.h"
 #include "modem_node_identity_policy.h"
 #include "modem_module_reload_policy.h"
 
@@ -65,10 +66,28 @@ get_modem_vid_pid(const char *modem_node, int *vid, int *pid)
 }
 
 static int
+write_pppd_ras_credential(FILE *fp, const char *option, const char *value,
+			  char *encoded, size_t encoded_size)
+{
+	if (!fp || !option ||
+	    ppp_option_value_escape(value, encoded, encoded_size) != 0)
+		return -1;
+
+	if (fprintf(fp, "%s '%s'\n", option, encoded) < 0) {
+		if (!errno)
+			errno = EIO;
+		return -1;
+	}
+
+	return 0;
+}
+
+static int
 write_pppd_ras_conf(const char* call_path, const char *modem_node, int unit)
 {
 	FILE *fp;
-	int modem_type, vid = 0, pid = 0;
+	int modem_type, vid = 0, pid = 0, saved_errno;
+	const char *failed_credential = NULL;
 	char tmp[256], *user, *pass, *isp, *connect;
 
 	if (!get_modem_vid_pid(modem_node, &vid, &pid))
@@ -87,10 +106,16 @@ write_pppd_ras_conf(const char* call_path, const char *modem_node, int unit)
 	fprintf(fp, "modem\n");
 	fprintf(fp, "noauth\n");
 
-	if(strlen(user) > 0)
-		fprintf(fp, "user '%s'\n", safe_pppd_line(user, tmp, sizeof(tmp)));
-	if(strlen(pass) > 0)
-		fprintf(fp, "password '%s'\n", safe_pppd_line(pass, tmp, sizeof(tmp)));
+	if (strlen(user) > 0) {
+		failed_credential = "username";
+		if (write_pppd_ras_credential(fp, "user", user, tmp, sizeof(tmp)) != 0)
+			goto invalid_credential;
+	}
+	if (strlen(pass) > 0) {
+		failed_credential = "password";
+		if (write_pppd_ras_credential(fp, "password", pass, tmp, sizeof(tmp)) != 0)
+			goto invalid_credential;
+	}
 
 	if(!strcmp(isp, "Virgin") || !strcmp(isp, "CDMA-UA")){
 		fprintf(fp, "refuse-chap\n");
@@ -143,6 +168,16 @@ write_pppd_ras_conf(const char* call_path, const char *modem_node, int unit)
 		return 0;
 
 	return 1;
+
+invalid_credential:
+	saved_errno = errno ? errno : EINVAL;
+	(void)fclose(fp);
+	if (unlink(call_path) != 0 && errno != ENOENT)
+		logmessage(LOGNAME, "cannot remove rejected USB modem PPP peer file (errno=%d)", errno);
+	logmessage(LOGNAME, "refusing unsafe USB modem PPP %s value (errno=%d)",
+		   failed_credential ? failed_credential : "credential", saved_errno);
+	errno = saved_errno;
+	return 0;
 }
 
 static int

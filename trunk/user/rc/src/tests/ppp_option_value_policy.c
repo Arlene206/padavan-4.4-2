@@ -40,6 +40,9 @@ main(void)
 	assert(out[0] == '\0');
 	assert(ppp_option_value_escape("name\rvalue", out, sizeof(out)) == -1);
 	assert(errno == EINVAL);
+	assert(ppp_option_value_escape("name\tvalue", out, sizeof(out)) == -1);
+	assert(errno == EINVAL);
+	assert(out[0] == '\0');
 	assert(ppp_option_value_escape(NULL, out, sizeof(out)) == -1);
 	assert(errno == EINVAL);
 

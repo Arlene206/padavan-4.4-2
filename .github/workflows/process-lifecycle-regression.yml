@@ -120,6 +120,8 @@ on:
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/ppp_options_file.h"
       - "trunk/user/rc/src/tests/ppp_options_file.c"
+      - "trunk/user/rc/src/ppp_option_value_policy.h"
+      - "trunk/user/rc/src/tests/ppp_option_value_policy.c"
       - "scripts/check_vpn_credential_files.py"
       - "trunk/user/rc/src/vpn_server_restart_policy.h"
       - "trunk/user/rc/src/wan_mtu_setup_policy.h"
@@ -278,6 +280,8 @@ on:
       - "trunk/user/rc/src/vpn_server.c"
       - "trunk/user/rc/src/ppp_options_file.h"
       - "trunk/user/rc/src/tests/ppp_options_file.c"
+      - "trunk/user/rc/src/ppp_option_value_policy.h"
+      - "trunk/user/rc/src/tests/ppp_option_value_policy.c"
       - "scripts/check_vpn_credential_files.py"
       - "trunk/user/rc/src/vpn_server_restart_policy.h"
       - "trunk/user/rc/src/wan_mtu_setup_policy.h"
@@ -606,6 +610,14 @@ jobs:
             -o "$RUNNER_TEMP/ppp-options-file-regression"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ppp-options-file-regression"
           python3 scripts/check_vpn_credential_files.py
+
+      - name: Compile and run PPP quoted credential value regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ppp_option_value_policy.c \
+            -o "$RUNNER_TEMP/ppp-option-value-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ppp-option-value-regression"
 
       - name: Compile and run Firefly atomic configuration publication regression
         run: |

@@ -46,6 +46,8 @@ ROUTE_FLUSH_POLICY_SOURCE = (RC / "wan_route_flush_policy.h").read_text()
 ROUTE_FLUSH_POLICY_TEST = (RC / "tests/wan_route_flush_policy.c").read_text()
 POLICY_SOURCE = (RC / "modem_wan_start_policy.h").read_text()
 WAN_TEST = (RC / "tests/modem_wan_start_policy.c").read_text()
+PPP_VALUE_POLICY_SOURCE = (RC / "ppp_option_value_policy.h").read_text()
+PPP_VALUE_POLICY_TEST = (RC / "tests/ppp_option_value_policy.c").read_text()
 
 
 def body(source: str, signature: str) -> str:
@@ -65,6 +67,19 @@ def body(source: str, signature: str) -> str:
 def compact(source: str) -> str:
     return re.sub(r"\s+", " ", source).strip()
 
+
+ras_credential_writer = compact(body(USB_SOURCE, "write_pppd_ras_credential("))
+ras_conf_writer = compact(body(USB_SOURCE, "write_pppd_ras_conf("))
+assert '#include "ppp_option_value_policy.h"' in USB_SOURCE
+assert "ppp_option_value_escape(value, encoded, encoded_size)" in ras_credential_writer
+assert "fprintf(fp, \"%s '%s'\\n\", option, encoded)" in ras_credential_writer
+assert 'write_pppd_ras_credential(fp, "user", user, tmp, sizeof(tmp))' in ras_conf_writer
+assert 'write_pppd_ras_credential(fp, "password", pass, tmp, sizeof(tmp))' in ras_conf_writer
+assert "safe_pppd_line(user" not in ras_conf_writer
+assert "safe_pppd_line(pass" not in ras_conf_writer
+assert "goto invalid_credential;" in ras_conf_writer
+assert 'ppp_option_value_escape("name\\tvalue"' in PPP_VALUE_POLICY_TEST
+assert "ppp_option_escape_internal(value, out, out_size, 0)" in PPP_VALUE_POLICY_SOURCE
 
 ndis = compact(body(USB_SOURCE, "launch_wan_usbnet(int unit)"))
 migration = "migration_status = check_upnp_wanif_changed(ndis_ifname);"
