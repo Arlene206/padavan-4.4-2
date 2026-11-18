@@ -1,3 +1,10 @@
+## 2026-11-17 — Require an exact RUNNING postcondition for AliDDNS keeper startup
+
+- Parent main: `f91f4c7e25381d7a2f5d2a7e89f22637a9a88a78`. aliddns_check() previously spawned the long-running keep child and immediately exited successfully without checking whether the child existed or retained the exact script-path/final-keep identity used by subsequent lifecycle stops. A failed exec or immediate child exit could therefore be reported as a successful service start.
+- Add a bounded startup wait that validates the new child's exact argv identity, captures the confirmed PID, and returns an error if the child never reaches that state. On timeout, cleanup is limited to the unreaped direct child; the parent closes its lifecycle lock normally on failure. Add a production-function test for successful identity confirmation and a caller test that proves launch failure is propagated rather than converted into exit 0.
+- Exact-head AliDDNS CI is pending. The previous compact JSON parser change's AliDDNS workflow failed because the harness omitted get_recordIP(), corrected in f91f4c7e. XY-C1 is being built on product-source SHA 26009d20; physical-router L4 remains NOT VERIFIED.
+
+---
 ## 2026-11-17 — Load the AliDNS record-IP parser in its API regression harness
 
 - Parent main: `26009d20fe485cb7470fd557a735c011bdf52d24`. Exact-head AliDDNS CI showed the new whitespace-tolerant record-detail case calling `arDdnsInfo()` without extracting its production `get_recordIP()` dependency into the isolated test shell. The parser change itself was present; this was a test harness omission.

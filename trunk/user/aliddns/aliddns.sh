@@ -146,6 +146,56 @@ else
 fi
 }
 
+# Launch the keeper as a detached child and require its exact /proc argv
+# identity before reporting that the service has started.
+aliddns_start_keeper() {
+	ALIDDNS_STARTED_KEEPER_PID=""
+	[ -n "$scriptfilepath" ] || return 1
+	"$scriptfilepath" keep 9>&- &
+	aliddns_start_pid=$!
+	aliddns_start_wait="${ALIDDNS_KEEPER_START_WAIT_SECONDS:-5}"
+	case "$aliddns_start_wait" in
+		''|*[!0-9]*) aliddns_start_wait=5 ;;
+	esac
+	aliddns_start_attempt=0
+	aliddns_proc_root="${ALIDDNS_PROC_ROOT:-/proc}"
+	while [ "$aliddns_start_attempt" -lt "$aliddns_start_wait" ]; do
+		if aliddns_keeper_pid_matches "$aliddns_start_pid" "$aliddns_proc_root"; then
+			ALIDDNS_STARTED_KEEPER_PID="$aliddns_start_pid"
+			return 0
+		fi
+		if ! kill -0 "$aliddns_start_pid" 2>/dev/null; then
+			break
+		fi
+		sleep 1
+		aliddns_start_attempt=$((aliddns_start_attempt + 1))
+	done
+
+	if aliddns_keeper_pid_matches "$aliddns_start_pid" "$aliddns_proc_root"; then
+		ALIDDNS_STARTED_KEEPER_PID="$aliddns_start_pid"
+		return 0
+	fi
+
+	# This PID is still our unreaped direct child, so cleanup is scoped to it.
+	if kill -0 "$aliddns_start_pid" 2>/dev/null; then
+		kill -TERM "$aliddns_start_pid" 2>/dev/null || :
+		aliddns_start_grace=0
+		while [ "$aliddns_start_grace" -lt 1 ]; do
+			if ! kill -0 "$aliddns_start_pid" 2>/dev/null; then
+				break
+			fi
+			sleep 1
+			aliddns_start_grace=$((aliddns_start_grace + 1))
+		done
+		if kill -0 "$aliddns_start_pid" 2>/dev/null; then
+			kill -KILL "$aliddns_start_pid" 2>/dev/null || :
+		fi
+	fi
+	aliddns_start_exit_status=0
+	wait "$aliddns_start_pid" 2>/dev/null || aliddns_start_exit_status=$?
+	logger -t "AliDDNS" "keeper 启动后未能确认精确进程身份 (pid=$aliddns_start_pid, status=$aliddns_start_exit_status)"
+	return 1
+}
 aliddns_check () {
 
 aliddns_get_status
@@ -158,8 +208,12 @@ fi
 if [ "$aliddns_enable" = "1" ] ; then
 	if [ "$needed_restart" = "1" ] ; then
 		aliddns_close || return $?
-		"$scriptfilepath" keep 9>&- &
-		exit 0
+		if aliddns_start_keeper; then
+			exit 0
+		else
+			aliddns_start_status=$?
+			return "$aliddns_start_status"
+		fi
 	else
 		aliddns_find_keeper_pids || return 1
 		if [ -z "$ALIDDNS_KEEPER_PIDS" ] || [ ! -s "`which curl`" ]; then

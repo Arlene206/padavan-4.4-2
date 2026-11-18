@@ -34,6 +34,8 @@ extract_function "aliddns_lifecycle_lock_path() {"
 extract_function "aliddns_lifecycle_lock_prepare() {"
 extract_function "aliddns_lifecycle_lock_execute() {"
 extract_function "aliddns_lifecycle_control_start() {"
+extract_function "aliddns_start_keeper() {"
+extract_function "aliddns_check () {"
 extract_function "aliddns_lifecycle_locked_action() {"
 extract_function "aliddns_lifecycle_lock_run() {"
 extract_function "aliddns_keeper_pid_matches() {"
@@ -247,6 +249,47 @@ fi
 chmod 600 "$PROC_ROOT/105/cmdline"
 rm -rf "$PROC_ROOT/105"
 echo "AliDDNS keeper discovery refuses incomplete /proc visibility: PASS"
+
+# A new keeper is not accepted until its exact path/final-keep argv is visible.
+START_PROC_ROOT="$TEST_DIR/start-proc"
+mkdir -p "$START_PROC_ROOT/self"
+: > "$START_PROC_ROOT/self/cmdline"
+ALIDDNS_PROC_ROOT="$START_PROC_ROOT"
+ALIDDNS_KEEPER_START_WAIT_SECONDS=3
+export ALIDDNS_PROC_ROOT
+KEEPER_LAUNCHER="$TEST_DIR/keeper-launcher.sh"
+cat > "$KEEPER_LAUNCHER" <<'KEEPER_LAUNCHER'
+#!/bin/sh
+mkdir -p "$ALIDDNS_PROC_ROOT/$"
+printf 'sh\000%s\000keep\000' "$0" > "$ALIDDNS_PROC_ROOT/$/cmdline"
+trap 'rm -f "$ALIDDNS_PROC_ROOT/$/cmdline"; rmdir "$ALIDDNS_PROC_ROOT/$" 2>/dev/null || :; exit 0' TERM INT HUP
+while :; do sleep 1; done
+KEEPER_LAUNCHER
+chmod 700 "$KEEPER_LAUNCHER"
+scriptfilepath="$KEEPER_LAUNCHER"
+aliddns_start_keeper || { echo "keeper launch did not confirm exact /proc identity" >&2; exit 1; }
+[ -n "$ALIDDNS_STARTED_KEEPER_PID" ] || { echo "confirmed keeper PID was not published" >&2; exit 1; }
+aliddns_keeper_pid_matches "$ALIDDNS_STARTED_KEEPER_PID" "$START_PROC_ROOT" || { echo "confirmed PID lost exact argv identity" >&2; exit 1; }
+kill -TERM "$ALIDDNS_STARTED_KEEPER_PID" 2>/dev/null || :
+wait "$ALIDDNS_STARTED_KEEPER_PID" 2>/dev/null || :
+[ ! -e "$START_PROC_ROOT/$ALIDDNS_STARTED_KEEPER_PID/cmdline" ] || { echo "keeper fixture was not cleaned" >&2; exit 1; }
+
+# A failed launch must be returned to the locked caller, not hidden by exit 0.
+aliddns_get_status() { needed_restart=1; }
+aliddns_close() { return 0; }
+aliddns_start_keeper() { return 23; }
+aliddns_enable=1
+start_status=0
+if aliddns_check; then
+	echo "aliddns_check accepted a failed keeper launch" >&2
+	exit 1
+else
+	start_status=$?
+fi
+[ "$start_status" -eq 23 ] || { echo "keeper launch failure status was not propagated" >&2; exit 1; }
+echo "AliDDNS keeper startup requires RUNNING identity and propagates launch failure: PASS"
+
+. "$FUNCTIONS"
 
 kill() {
 	printf '%s %s\n' "$1" "$2" >> "$KILL_LOG"
