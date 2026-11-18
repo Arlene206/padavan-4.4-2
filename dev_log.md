@@ -2,7 +2,7 @@
 
 - Parent main: `4388a1cca473a89255ba0ab938f19db450ee1ba5`. Two WAN startup paths called wait_apcli_connected() but discarded its result. The helper returns 0 when the AP-client interface never associates within its bounded wait, yet launch_wanx() and the IPoE path continued into DHCP/ZeroConf or static-address activation.
 - Convert an unsuccessful wait into ETIMEDOUT. Abort physical WAN client setup in launch_wanx(); in IPoE startup, preserve the first WAN error, mark the unit failed, and skip address/lease activation. Add GNU89/ASan/UBSan policy coverage plus source-contract checks for both callers and both workflow path filters.
-- The first exact-head WAN route run `44252580099` compiled and ran the new host policy, then correctly stopped at a brittle source-check assertion that did not ignore C whitespace. Normalize the checked function body in the checker; rerun against the follow-up commit. The XY-C1 build `44252579883` was pending at the first observation. No local checkout, MIPS result or physical-router association test is claimed.
+- Exact SHA `d486aba51fc1614a4e63836f1d192e2c7899ca24`: all relevant host suites passed except the Process lifecycle source-contract checker, which still expected the pre-readiness XUPnPD log. The WAN route suite first failed a whitespace-sensitive APCLI assertion; follow-up `aff2b0b5bd098ba4c775e84e583b8ad0cf18b149` normalized it and WAN route plus AI handoff workflows passed exactly on aff2. The checker update that matches XUPnPD's new launch/readiness status is now being applied.
 
 ---
 

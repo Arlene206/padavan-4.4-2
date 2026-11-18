@@ -329,7 +329,10 @@ assert "if (!is_xupnpd_support())" in xupnpd_start
 assert "if (xport < 1024)" in xupnpd_start
 assert 'launch_status = eval("/usr/bin/xupnpd");' in xupnpd_start
 assert 'launch_status = system("/usr/bin/xupnpd &");' in xupnpd_start
-assert 'xupnpd launch command failed (status=%d)' in xupnpd_start
+assert "launch_status = xupnpd_confirm_started(launch_status);" in xupnpd_start
+assert '"xupnpd launch/readiness failed (status=%d errno=%d)"' in xupnpd_start
+assert xupnpd_start.index('launch_status = eval("/usr/bin/xupnpd");') < xupnpd_start.index("xupnpd_confirm_started(launch_status);")
+assert xupnpd_start.index('launch_status = system("/usr/bin/xupnpd &");') < xupnpd_start.index("xupnpd_confirm_started(launch_status);")
 assert "return launch_status;" in xupnpd_start
 assert "int start_xupnpd(char *wan_ifname);" in rc_header
 assert "if (fp1 == NULL)" in xupnpd_start and "if (fp2 == NULL)" in xupnpd_start
