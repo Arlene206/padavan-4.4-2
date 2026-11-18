@@ -1,15 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `e0c8269b265618aa49ba9ce73796af9ac87458dc`. SmartDNS product source is unchanged at `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; this round only corrects its regression fixture/source contract.
-- SmartDNS autostart fixture now models malformed persisted state as a failing SmartDNS launch (status 45), with byte-identical DNSMasq/state preservation and independent DDNSTO/FRP continuation. The Process run `44322259809` exposed a checker wiring mistake: autostart assertions were accidentally checked against the SmartDNS-only process test file. THIS COMMIT points them at the correct test source.
-- Exact-head AI docs and Process inventory on `b2c45fe` PASS; its Process lifecycle failed only at that checker variable mismatch. The follow-up Process result is pending. On parent `a36da98`, WAN route/gateway, detect_internet/detect_link, VPN, Wireless, HTTPD security, miniupnpd, ZeroTier, USB modem and DNSMasq workflows PASS. XY-C1 and NVRAM audit on `a36da98` were pending.
-
-- Live main before THIS COMMIT: `a36da98521b1d2fc3b7641f4cd98f73d103d89e7`. SmartDNS managed DNSMasq product source remains `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c`; all later changes in this slice concern regression/checker/handoff records, not production SmartDNS code.
-- Process run `44321557863` on `661d4f30857fdf97a922a5ee3bfffdebbfc920a8` passed the SmartDNS process-state contract and process inventory, then failed only because the autostart fixture still expected its stub launcher to delete malformed saved state. THIS COMMIT fixes the regression to require fail-closed preservation and independent add-on continuation, and pins the production Read_ini contract.
-- DNSMasq regression `44321070200` on `0439e8c` PASS. XY-C1 `44318683585` on exact production SHA `9bb9fda` passed Build XY-C1, TRX verification and artifact upload (L3 VERIFIED on that SHA); actual router runtime/L4 remains NOT VERIFIED.
-
----
-
+- Live main before THIS COMMIT: `90cce7425d67bac64a79d17ec859bc0054aec337`. Current product work includes signal-safe DHCP/PPP settle waits and NFSd restart wait preservation; no WAN production source is changed in this checkpoint.
+- WAN DHCP callback run `44322448540` on `e0c8269` failed only because an embedded workflow assertion still required raw `sleep(2)`; the source correctly uses `service_wait_seconds(2)` with errno propagation after the EINTR-safe wait. THIS COMMIT updates the workflow contract to validate that API and failure path.
+- The same `e0c8269` SHA passed WAN route/teardown/gateway, firewall startup, DNSMasq, detection signal, VPN, Wireless, HTTPD security, MiniUPnP, USB modem, ZeroTier and process-inventory workflows. XY-C1 `44322448282` was pending at the last observation. SmartDNS product SHA `9bb9fda` remains the only newly described L3 Build/TRX/artifact pass in this checkpoint; live target/runtime L4 is unverified.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

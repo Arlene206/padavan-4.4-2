@@ -1,3 +1,11 @@
+## 2026-11-18 — Align WAN DHCP settle contract with EINTR-safe helper
+
+- Parent main: `90cce7425d67bac64a79d17ec859bc0054aec337`. WAN DHCP callback run `44322448540` on `e0c8269b265618aa49ba9ce73796af9ac87458dc` failed at the embedded source contract because it still expected raw `sleep(2);`.
+- The product code intentionally replaced that delay with `service_wait_seconds(2)`, only after successful DHCP startup, and reports the helper's errno (or EIO) if the full two-second settle cannot complete. Dedicated checker `scripts/check_apcli_wait_status.py` already asserts the new safe wait, PPP one-second wait and DHCP teardown grace wait; the stale inline workflow was the remaining legacy expectation.
+- THIS COMMIT changes only the workflow assertion and continuity records. The updated contract requires the guarded `service_wait_seconds(2)` call, errno fallback, failure diagnostic and absence of raw `sleep(2)`. Exact-head callback rerun pending; no local test or current-WAN-source firmware build is claimed.
+
+---
+
 ## 2026-11-18 — Correct SmartDNS lifecycle checker's autostart fixture input
 
 - Parent main: `e0c8269b265618aa49ba9ce73796af9ac87458dc`. Process run `44322259809` on `b2c45feae66a367b1752628d3e20ed3d55a4beb1` passed process inventory and the SmartDNS process-lifecycle shell suite, but the Python checker failed at `SMARTDNS_STATUS=45`: the checker still named the SmartDNS-specific lifecycle regression file `test` and compared new autostart-only phrases against it.

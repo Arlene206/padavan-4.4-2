@@ -1004,7 +1004,11 @@ jobs:
           assert "launch_status = start_udhcpc_wan(man_ifname, unit, wait_dhcpc);" in wanx
           assert "launch_status = start_zcip_wan(man_ifname);" in wanx
           assert "return launch_status;" in wanx
-          assert "if (wait_dhcpc && launch_status == 0)" in wanx and "sleep(2);" in wanx
+          assert "if (wait_dhcpc && launch_status == 0 &&" in wanx
+          assert "service_wait_seconds(2) != 0" in wanx
+          assert "launch_status = errno > 0 ? errno : EIO;" in wanx
+          assert '"WAN DHCP settling wait failed on %s (status=%d)"' in wanx
+          assert "sleep(2);" not in wanx
           assert "int i_pppoe, i_pppoe_man, wanx_status;" in source
           assert "int i_pppoe, i_pppoe_man, i_demand, wanx_status;" in source
           assert wan_start.count("wanx_status = launch_wanx(") == 4
