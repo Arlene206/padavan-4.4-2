@@ -353,13 +353,19 @@ require(all(entry in reset_nvram for entry in (
         'nvram set "$adbyby_reset_entry"' in reset_nvram and
         'return "$adbyby_reset_status"' in reset_nvram,
         "transient NVRAM reset must cover all legacy fields and preserve the first write failure")
-require('if [ "$adbyby_action" = "stop"; then' in locked_action and
+require('if [ "$adbyby_action" = "stop" ]; then' in locked_action and
         "adbyby_close" in locked_action and
         'return "$adbyby_stop_prepare_status"' in locked_action,
         "stop must always attempt teardown and preserve an earlier NVRAM preparation failure")
 require("adbyby_refresh_nvram_state || return $?" in locked_action and
         "adbyby_reset_transient_nvram_state || return $?" in locked_action,
         "non-stop actions must fail closed on NVRAM read or write errors")
+
+for marker in ("start ignored a failed transient NVRAM reset",
+               "stop skipped cleanup after transient NVRAM reset failure",
+               "stop skipped cleanup after NVRAM read failure"):
+    require(marker in lifecycle_test,
+            f"lifecycle regression misses NVRAM error handling: {marker}")
 require("updateadb" in lock_run and "restart" in lock_run,
         "restart and update use lifecycle lock")
 require("G|updateadb) adbyby_uprules" in locked_action,
