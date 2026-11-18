@@ -1,3 +1,13 @@
+## 2026-11-18 — Add negative-path and retry coverage for Adbyby recovery journal
+
+- Parent main `80a694bfcd97f6a2940bb24dd82e5df6e4a11364`; current production source remains `c957987ad9971cb3f029dfb6a054d6367d059fa0`. Exact-head Adbyby host run `44310660331` on checker-corrected `141bf15edf2d35f950e04c4d267ad8bd140795d4` PASS.
+- Extend recovery regression for a marker pointing outside `/tmp/adbyby-rules.*`: refresh must fail closed, retain the invalid marker for diagnosis, and leave both last-good files untouched.
+- Add an incomplete-journal scenario with a missing `lazy.previous`: refresh must refuse cache use, retain the marker and live pair, then recover successfully once the missing backup is restored.
+- Extend `check_adbyby_hosts_config.py` to require the invalid-path and retry assertions. Test/checker/docs-only; no firmware-source change. New exact-head Adbyby and AI Actions are pending.
+- XY-C1 `44310230672` for product-source c957 was still building at last poll; TRX/artifact pending. Local shell test NOT RUN; target BusyBox/MIPS and physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Align Adbyby transaction checker with recovery journal implementation
 
 - Product source/test commit `c957987ad9971cb3f029dfb6a054d6367d059fa0` added private staging, a protected `$DATA_PATH/.rules-transaction` marker, owner/mode/link-count validation, per-file state/backup records and idempotent restore before cache use. Process recovery handles the interrupted two-rename window and absent originals; it is not reboot/power-loss durability.

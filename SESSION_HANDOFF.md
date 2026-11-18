@@ -19,9 +19,9 @@
 - Local checkout-based execution was NOT RUN. Target BusyBox/uClibc/MIPS runtime and physical-router L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main, poll XY-C1 run `44310230672` for product-source SHA `c957987ad9971cb3f029dfb6a054d6367d059fa0`, and inspect Build, TRX verification and artifact upload. Mark L3 only if all three steps succeed.
-2. Keep the Adbyby host result `44310660331` tied to checker-corrected SHA `141bf15`; if source, test or workflow paths change, inspect those exact-head Actions before marking them verified.
-3. Continue the next highest-risk stability defect in the whole-userland roadmap. Keep the frozen backup unchanged and do not repeat the completed startup audit.
+1. Verify this follow-up test/checker SHA's exact-head Adbyby and AI documentation Actions; the new invalid-path and incomplete-recovery/retry assertions must pass.
+2. Poll XY-C1 run `44310230672` for product-source SHA `c957987ad9971cb3f029dfb6a054d6367d059fa0`; mark L3 only after Build, TRX verification and artifact upload all succeed.
+3. Continue the next highest-risk whole-userland stability defect after these exact-SHA checks; keep the frozen backup unchanged.
 
 ## Mandatory handoff checkpoint
 Every session MUST inspect live repository state and end with an accuracy checkpoint before context exhaustion. The checkpoint is mandatory; a document edit is conditional. If all facts remain accurate, leave the handoff untouched and do not create a no-op commit.

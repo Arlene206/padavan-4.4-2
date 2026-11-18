@@ -256,7 +256,11 @@ require("return 0" in refresh_rules and "保留现有规则" in refresh_rules,
         "remote fetch/manifest/digest failures must preserve a usable cached pair")
 for marker in ("Simulate abrupt shell termination", "interrupted lazy publication was not rolled back",
                "interrupted video publication was not restored", "recovery did not restore the previously absent lazy file",
-               "symlinked recovery marker was accepted", "safe video snapshot"):
+               "symlinked recovery marker was accepted", "safe video snapshot",
+               "invalid transaction stage path was accepted",
+               "incomplete recovery journal was discarded",
+               "incomplete recovery changed the live lazy file",
+               "repaired recovery journal retry failed"):
     require(marker.lower() in rules_test.lower(),
             f"managed rule-pair recovery regression misses: {marker}")
 require("adbyby_refresh_managed_rules" in add_rules and "return 1" in add_rules,

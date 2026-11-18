@@ -220,6 +220,36 @@ if adbyby_refresh_managed_rules; then fail "symlinked recovery marker was accept
 [ "$(cat "$DATA_PATH/video.txt")" = "safe video snapshot" ] || fail "symlink marker changed video cache"
 rm -f "$DATA_PATH/.rules-transaction"
 
+# Reject a journal path outside the dedicated private staging namespace.
+( umask 077
+  printf '/tmp/not-adbyby-rules.abcdef\\n' > "$DATA_PATH/.rules-transaction"
+)
+if adbyby_refresh_managed_rules; then fail "invalid transaction stage path was accepted"; fi
+[ -f "$DATA_PATH/.rules-transaction" ] || fail "invalid transaction journal was discarded"
+[ "$(cat "$DATA_PATH/lazy.txt")" = "safe lazy snapshot" ] || fail "invalid journal changed lazy"
+[ "$(cat "$DATA_PATH/video.txt")" = "safe video snapshot" ] || fail "invalid journal changed video"
+rm -f "$DATA_PATH/.rules-transaction"
+
+# A missing backup keeps the journal and last-good files intact for retry.
+retry_stage=$(mktemp -d /tmp/adbyby-rules.XXXXXX)
+cp -p "$DATA_PATH/video.txt" "$retry_stage/video.previous"
+( umask 077
+  printf 'present\\n' > "$retry_stage/lazy.state"
+  printf 'present\\n' > "$retry_stage/video.state"
+  printf '%s\\n' "$retry_stage" > "$retry_stage/transaction.next"
+)
+mv -f "$retry_stage/transaction.next" "$DATA_PATH/.rules-transaction"
+if adbyby_refresh_managed_rules; then fail "incomplete recovery used the cached rule pair"; fi
+[ -f "$DATA_PATH/.rules-transaction" ] || fail "incomplete recovery journal was discarded"
+[ "$(cat "$DATA_PATH/lazy.txt")" = "safe lazy snapshot" ] || fail "incomplete recovery changed the live lazy file"
+[ "$(cat "$DATA_PATH/video.txt")" = "safe video snapshot" ] || fail "incomplete recovery changed the live video file"
+cp -p "$DATA_PATH/lazy.txt" "$retry_stage/lazy.previous"
+adbyby_recover_managed_rules || fail "repaired recovery journal retry failed"
+[ "$(cat "$DATA_PATH/lazy.txt")" = "safe lazy snapshot" ] || fail "repaired recovery did not restore lazy"
+[ "$(cat "$DATA_PATH/video.txt")" = "safe video snapshot" ] || fail "repaired recovery did not preserve video"
+[ ! -e "$DATA_PATH/.rules-transaction" ] || fail "successful recovery retry left the marker"
+[ ! -e "$retry_stage" ] || fail "successful recovery retry left its stage"
+
 # Missing CA: no request is sent and a valid cache remains usable.
 ADBYBY_CA_BUNDLE="$test_root/missing-ca"
 : > "$test_root/curl.log"
