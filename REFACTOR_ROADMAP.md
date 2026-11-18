@@ -1,12 +1,13 @@
 # 2026-11-18 latest source checkpoint
 
-- Parent main before THIS TTY source assertion correction: c24fd0e7398c400a61982b7c57b6a22f9e368ce7; frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807 unchanged.
-- Exact parent HTTPD 44215677832 failed at the final TTY removal assertion: the test still expected a standalone modem_node_file_remove(...); although the migrated caller deliberately checks its result using != 0. The metadata regression binary and prior source assertions passed. THIS updates the assertion to match the checked call form.
-- On the exact parent, AI 44215677740 and AdGuardHome 44215677763 PASS; NVRAM, AliDDNS, infosvr, AliyunDrive, Process inventory and XY-C1 workflows were still in progress.
-- TTY production migration in 7aca8abf uses cleanup-aware metadata publishing, removes stale records on write error, and exposes failures to the caller.
-- No same-SHA firmware L3 or physical L4 claim.
+- Parent main before THIS WDM metadata publication fix: c47a1b1fdfbd1d4061df4ef9294665fd21d3fc63; frozen backup 72f4f157a084f8184b9597ca5bf334b8080e5807 unchanged.
+- Exact parent HTTPD 44216025750 PASS (revised TTY metadata cleanup contract), AI 44216026808 PASS, AdGuardHome 44216025560 PASS, infosvr 44216025661 PASS, AliDDNS 44216025635 PASS and AliyunDrive 44216025544 PASS.
+- Exact parent NVRAM 44216025596, Process inventory 44216025643 and XY-C1 firmware 44216025599 IN_PROGRESS at last poll.
+- mdev_wdm_main() previously used a direct metadata writer and ignored removal results, then returned success on failure. THIS migrates it to modem_node_file_publish_identity(), removes stale identity on failed write, reports -2 cleanup failures and propagates unplug/topology removal failures.
+- USB and HTTPD source contracts now check WDM caller behavior; HTTPD expects no remaining direct metadata writer across WDM/NDIS/TTY.
+- Firmware L3 and physical-router L4 NOT VERIFIED.
 
-Next: verify HTTPD/USB exact-head checks; then migrate WDM sibling cleanup and status reporting.
+Next: verify exact-head USB/HTTPD workflows and XY-C1 build stages; continue an independent P1 fix.
 
 
 ---

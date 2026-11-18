@@ -261,7 +261,7 @@ int mdev_sr_main(int argc, char **argv)
 int
 mdev_wdm_main(int argc, char **argv)
 {
-	int isLock, devnum, data_len;
+	int isLock, devnum, data_len, publish_status, metadata_status = 0;
 	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -286,7 +286,10 @@ mdev_wdm_main(int argc, char **argv)
 
 	// If remove the device?
 	if (!get_hotplug_action(action)){
-		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0) {
+			usb_dbg("(%s): Failed to remove WDM metadata.\n", device_name);
+			metadata_status = 1;
+		}
 		goto out_unlock;
 	}
 
@@ -294,14 +297,20 @@ mdev_wdm_main(int argc, char **argv)
 	usb_port_id[0] = '\0';
 	if (!get_usb_port_by_device(device_name, usb_port_id, sizeof(usb_port_id))) {
 		usb_dbg("(%s): USB parent topology is not ready; refusing WDM metadata.\n", device_name);
-		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0) {
+			usb_dbg("(%s): Failed to remove WDM metadata.\n", device_name);
+			metadata_status = 1;
+		}
 		goto out_unlock;
 	}
 	usb_port_id[sizeof(usb_port_id) - 1] = '\0';
 	devnum = get_usb_devnum(usb_port_id);
 	if (!modem_node_usb_identity_is_valid(usb_port_id, devnum)) {
 		usb_dbg("(%s): USB device number is invalid; refusing WDM metadata.\n", device_name);
-		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+		if (modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0) {
+			usb_dbg("(%s): Failed to remove WDM metadata.\n", device_name);
+			metadata_status = 1;
+		}
 		goto out_unlock;
 	}
 
@@ -309,10 +318,15 @@ mdev_wdm_main(int argc, char **argv)
 	data_len = snprintf(node_data, sizeof(node_data),
 			    "pref=%d\ndevnum=%d\nportid=%s\n",
 			    1, devnum, usb_port_id);
-	if (data_len < 0 || data_len >= (int)sizeof(node_data) ||
-	    modem_node_file_write(MODEM_NODE_DIR, device_name, node_data) != 0) {
-		usb_dbg("(%s): Failed to publish WDM node metadata.\n", device_name);
-		(void)modem_node_file_remove(MODEM_NODE_DIR, device_name);
+	publish_status = modem_node_file_publish_identity(
+		MODEM_NODE_DIR, device_name, node_data,
+		data_len >= 0 && data_len < (int)sizeof(node_data));
+	if (publish_status != 0) {
+		if (publish_status == -2)
+			usb_dbg("(%s): Failed to publish and remove stale WDM metadata.\n", device_name);
+		else
+			usb_dbg("(%s): Failed to publish WDM metadata; stale metadata removed.\n", device_name);
+		metadata_status = 1;
 		goto out_unlock;
 	}
 
@@ -321,7 +335,7 @@ mdev_wdm_main(int argc, char **argv)
 out_unlock:
 	file_unlock(isLock);
 
-	return 0;
+	return metadata_status;
 }
 
 int mdev_net_main(int argc, char **argv)

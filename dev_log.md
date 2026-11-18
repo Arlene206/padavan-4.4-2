@@ -1,3 +1,11 @@
+## 2026-11-18 — Migrate WDM metadata to cleanup-aware publisher
+
+- Parent SHA: c47a1b1fdfbd1d4061df4ef9294665fd21d3fc63. HTTPD 44216025750, AI 44216026808, AdGuardHome 44216025560, infosvr 44216025661, AliDDNS 44216025635 and AliyunDrive 44216025544 PASS; NVRAM 44216025596, Process inventory 44216025643 and XY-C1 firmware 44216025599 pending at last poll.
+- mdev_wdm_main() ignored stale-record removal errors and used modem_node_file_write() directly. On write failure its return path could leave the previous USB identity associated with the cdc-wdm node while reporting success.
+- Move to modem_node_file_publish_identity(), propagate publish/cleanup status and explicit remove errors, then add WDM caller contracts to USB and HTTPD regression workflows.
+
+---
+
 ## 2026-11-18 — Fix stale semicolon requirement in HTTPD TTY contract
 
 - Parent SHA: c24fd0e7398c400a61982b7c57b6a22f9e368ce7. HTTPD 44215677832 completed the metadata regression binary and first 34 Python source assertions, then failed because the last TTY removal contract insisted on the exact ignored-return statement modem_node_file_remove(...);.

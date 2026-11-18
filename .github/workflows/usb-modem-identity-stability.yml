@@ -176,6 +176,12 @@ jobs:
           assert "get_usb_devnum(usb_port_id)" in wdm
           assert "modem_node_usb_identity_is_valid(usb_port_id, devnum)" in wdm
           assert '"pref=%d\\ndevnum=%d\\nportid=%s\\n"' in wdm
+          assert wdm.index("modem_node_usb_identity_is_valid") < wdm.index(
+              "modem_node_file_publish_identity(")
+          assert "publish_status == -2" in wdm
+          assert "metadata_status = 1;" in wdm
+          assert "return metadata_status;" in wdm
+          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0" in wdm
           net = body(hotplug, "int mdev_net_main(")
           assert '"pref=%d\\ndevnum=%d\\nportid=%s\\n"' in net
           assert wdm.count("modem_node_file_remove(MODEM_NODE_DIR, device_name)") >= 3

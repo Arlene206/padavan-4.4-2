@@ -2623,7 +2623,7 @@ jobs:
           identity_policy = Path("trunk/user/rc/src/modem_node_identity_policy.h").read_text()
           regression = Path("trunk/user/rc/src/tests/modem_node_file.c").read_text()
           assert '#include "modem_node_file.h"' in hotplug
-          assert hotplug.count("modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)") == 1
+          assert hotplug.count("modem_node_file_write(MODEM_NODE_DIR, device_name, node_data)") == 0
           assert hotplug.count("modem_node_file_remove(MODEM_NODE_DIR, device_name)") >= 3
           assert 'fopen(node_fname, "w+")' not in hotplug
           assert 'mkdir_if_none(MODEM_NODE_DIR, "777")' not in hotplug
@@ -2636,7 +2636,15 @@ jobs:
           assert 'fopen(node_fname, "r")' in reader
           assert 'fopen(node_fname, "r+")' not in reader
           assert 'get_modem_node_by_usb_identity("ttyUSB", ndis_port_id, devnum)' in reader
-          net_start = hotplug.index("int mdev_net_main(")
+          wdm_start = hotplug.index("mdev_wdm_main(")
+          net_start = hotplug.index("int mdev_net_main(", wdm_start)
+          wdm_handler = hotplug[wdm_start:net_start]
+          assert wdm_handler.index("modem_node_usb_identity_is_valid") < wdm_handler.index(
+              "modem_node_file_publish_identity(")
+          assert "publish_status == -2" in wdm_handler
+          assert "return metadata_status;" in wdm_handler
+          assert "metadata_status = 1;" in wdm_handler
+          assert "modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0" in wdm_handler
           tty_start = hotplug.index("int mdev_tty_main(", net_start)
           net_handler = hotplug[net_start:tty_start]
           tty_handler = hotplug[tty_start:]
