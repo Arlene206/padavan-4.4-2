@@ -46,14 +46,14 @@ def body(signature):
                 if depth == 0:
                     return source[start:index + 1]
         elif state in ("string", "character"):
-            if current == "\\\\":
+            if current == chr(92):
                 index += 2
                 continue
             if (state == "string" and current == '"') or (
                     state == "character" and current == "'"):
                 state = "code"
         elif state == "line_comment":
-            if current == "\\n":
+            if current == chr(10):
                 state = "code"
         elif state == "block_comment":
             if current == "*" and following == "/":
