@@ -186,6 +186,8 @@ main(void)
 	assert(inadyn_config_file_open(NULL, staged_path, sizeof(staged_path)) == NULL);
 	assert(errno == EINVAL && staged_path[0] == '\0');
 
+	test_rejected_value_discards_partial_config(config, directory);
+
 	assert(umask(old_umask) == 0000);
 	assert(unlink(config) == 0);
 	assert(unlink(victim) == 0);
@@ -196,7 +198,6 @@ main(void)
 
 	test_quoted_setting_escapes_configuration_delimiters();
 	test_quoted_setting_rejects_control_bytes();
-	test_rejected_value_discards_partial_config(config, directory);
 	puts("Inadyn private atomic configuration publication and quoted-value escaping: PASS");
 	return 0;
 }
