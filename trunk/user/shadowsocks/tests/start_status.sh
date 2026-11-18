@@ -41,6 +41,7 @@ reset() {
 	: > "$CALL_LOG"
 	: > "$LOG_FILE"
 	GLOBAL_SERVER=node1
+	lancons="test LAN policy"
 	SOCKS5_ENABLE=local-node
 	pppoemwan=1
 	SS_START_STATUS=0
