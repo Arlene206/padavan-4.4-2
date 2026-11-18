@@ -1,30 +1,32 @@
-# 2026-11-18 continuation checkpoint — report deferred VPN stop enqueue failures
+# 2026-11-18 continuation checkpoint — restore module dashboard and preserve WAN teardown failure
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS WAN teardown slice: `fda7c018f1cb3ca4d0588f1f3e30baaba13f28c0`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- AP DHCP retry production source is committed in `0af358f3`; standalone checker correction `509409f8`; WAN DHCP integration assertion fix `d7f4bc9f`; HTTPD contract fix `4a9b812b`.
-- Exact `4a9b812b` HTTPD Security `44204487769` PASS; AI handoff `44204487682` PASS; Process inventory `44204487756` PASS; infosvr `44204487704` PASS; AdGuardHome `44204487714` PASS; AliyunDrive `44204487708` PASS; AliDDNS `44204487832` PASS. NVRAM `44204487741` and XY-C1 `44204488447` were IN_PROGRESS at last poll.
-- Exact `d7f4bc9f` WAN DHCP callback `44203603261` PASS.
-- The prior WAN start-side deferred VPN enqueue gap is already fixed in commit `816146ab`: `notify_rc_status("start_vpn_client")` is aggregated into WAN-up status. Found the symmetric teardown gap: `wan_down_internal()` used fire-and-forget `notify_rc("stop_vpn_client")`, discarded enqueue failure, and could return success while VPN-client shutdown was never queued. THIS slice uses `notify_rc_status`, logs and aggregates the error while continuing independent route/interface cleanup.
-- XY-C1 run `44202831040` on source SHA `509409f8` completed SUCCESS; Build XY-C1, Verify TRX output and artifact upload steps all reported SUCCESS. Later changes are workflow/docs or this WAN teardown source change; this WAN change needs its own exact-head firmware build before L3 can be claimed.
-- Physical-router L4 NOT VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; parent main before THIS corrective docs commit: `21b5da973728481fafec579369d48c1c1f1ef564`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact parent `21b5da97` WAN route operation status `44205041253` PASS, WAN DHCP `44205041172` PASS, WAN teardown `44205041312` PASS, Process inventory `44205041217` PASS, infosvr `44205040920` PASS, AdGuardHome `44205041507` PASS, AliDDNS `44205041374` PASS, Wireless `44205041398` PASS, Firewall startup `44205041410` PASS, miniupnpd `44205041416` PASS, ZeroTier `44205041193` PASS, detect_link `44205041309` PASS, detect_internet `44205040982` PASS, VPN server `44205040974` PASS, DNSMasq `44205040969` PASS, USB modem `44205040951` PASS, HTTPD `44205040923` PASS, NVRAM `44205040901` PASS, Process lifecycle `44205041136` PASS.
+- AI handoff `44205041164` FAILed because the preceding roadmap rewrite accidentally truncated its module status dashboard. THIS commit restores the complete roadmap dashboard from the immediately prior `fda7c018` tree and refreshes the current source/CI summary.
+- AliyunDrive `44205040903` FAILed and remains a separate diagnosis task; do not assume its cause.
+- XY-C1 `44205041399` was IN_PROGRESS at Build XY-C1; TRX and artifact upload remain unverified for the WAN-stop change.
+- AP DHCP source baseline `509409f8` has already passed exact XY-C1 run `44202831040` including Build, TRX verification and artifact upload. This is not evidence for later WAN source changes.
+- Commit `21b5da97` fixes ignored `stop_vpn_client` enqueue failure in `wan_down_internal()`; exact WAN route regression `44205041253` PASS confirms source contract and C test.
+- No physical-router L4 validation.
 
 ## Active task
-- Added focused route-status regression that simulates failed VPN-stop queueing followed by successful teardown operations and asserts the original failure remains visible while all cleanup steps execute.
-- Extended `.github/workflows/wan-route-status.yml` to assert the production ordering, status aggregation, log and absence of the old unchecked `notify_rc()` call.
-- THIS slice changes WAN teardown production source, one C regression file, the WAN route workflow and handoff docs.
+- THIS corrective commit restores the required full module status dashboard and reconciles the handoff with the actual exact-SHA run state. It changes no production code.
+- Next engineering item: diagnose the independent AliyunDrive exact-head failure `44205040903`, then continue reliability/security source work.
 
 ## Verification boundary
-- Exact parent `4a9b812b`: HTTPD, AI, Process, infosvr, AdGuardHome, AliyunDrive and AliDDNS PASS; NVRAM and XY-C1 pending at last check.
-- Exact `509409f8` XY-C1 run `44202831040`: completed SUCCESS for Build XY-C1, TRX verification and artifact upload; this is prior production-source SHA for the AP DHCP change, not this later WAN stop-notification patch.
-- THIS WAN source slice requires exact-head WAN route regression and XY-C1 Build/TRX/artifact. No hardware L4 claim.
+- Exact `21b5da97` WAN route, WAN DHCP, WAN teardown, Process inventory/lifecycle, infosvr, AdGuardHome, AliDDNS, Wireless, Firewall startup, miniupnpd, ZeroTier, detect_link, detect_internet, VPN server, DNSMasq, USB modem, HTTPD and NVRAM PASS.
+- Exact `21b5da97` AI handoff FAIL was caused by missing module dashboard; THIS restoration is intended to resolve it, and needs an exact-head rerun.
+- Exact `21b5da97` AliyunDrive FAIL cause pending inspection.
+- Exact `21b5da97` XY-C1 remains in progress at Build; no L3 claim for this WAN teardown code yet.
+- Physical hardware L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect this slice's exact-head WAN route workflow and require its GNU89/ASan/UBSan test and embedded VPN-stop source contract to PASS.
-2. Inspect exact-head XY-C1; require Build, TRX validation and artifact upload on the same SHA containing this WAN stop-notification change.
-3. Recheck the exact-parent `4a9b812b` pending NVRAM `44204487741` and XY-C1 `44204488447` results.
-4. Continue independent P1 stability/security work while CI is pending. Frozen backup unchanged; hardware L4 NOT VERIFIED.
+1. Inspect exact-head AI handoff after dashboard restoration; require `scripts/check_ai_handoff_docs.py` PASS and verify all retained module status records.
+2. Diagnose AliyunDrive `44205040903` from its failed step/job log and fix the first causal defect, not merely its assertion.
+3. Inspect XY-C1 `44205041399`: require Build XY-C1, Verify TRX output and artifact upload all PASS on the exact `21b5da97` source SHA.
+4. Continue another independent P1 userland defect while any check remains pending. Do not modify frozen backup or claim hardware L4.
 
 ## Mandatory handoff checkpoint
 The checkpoint is mandatory; a document edit is conditional.

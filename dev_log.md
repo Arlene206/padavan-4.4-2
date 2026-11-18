@@ -1,3 +1,12 @@
+## 2026-11-18 — Restore the complete roadmap module dashboard after checker failure
+
+- Parent main SHA: `21b5da973728481fafec579369d48c1c1f1ef564`; exact WAN route `44205041253`, WAN DHCP `44205041172`, WAN teardown `44205041312`, Process inventory/lifecycle `44205041217`/`44205041136`, infosvr `44205040920`, AdGuardHome `44205041507`, AliDDNS `44205041374`, Wireless `44205041398`, Firewall `44205041410`, miniupnpd `44205041416`, ZeroTier `44205041193`, detect_link `44205041309`, detect_internet `44205040982`, VPN server `44205040974`, DNSMasq `44205040969`, USB modem `44205040951`, HTTPD `44205040923`, NVRAM `44205040901` PASS.
+- AI handoff run `44205041164` failed because a prior roadmap replacement accidentally removed the required `## Whole-repository module status` / `AUDITING` dashboard. THIS commit restores the complete 54 KiB roadmap body from the immediately preceding intact `fda7c018` version while adding a new current-status intro. The source regression itself did not fail.
+- AliyunDrive run `44205040903` independently failed; cause left open for the next diagnosis. XY-C1 `44205041399` was still building, so no L3 claim for the WAN stop notification change.
+- No production source changes. Physical L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-18 — Preserve WAN VPN stop notification enqueue status
 
 - Parent main SHA: `fda7c018f1cb3ca4d0588f1f3e30baaba13f28c0`; exact HTTPD `44204487769`, AI `44204487682`, Process `44204487756`, infosvr `44204487704`, AdGuardHome `44204487714`, AliyunDrive `44204487708` and AliDDNS `44204487832` PASS; NVRAM `44204487741` and XY-C1 `44204488447` pending at last poll.
