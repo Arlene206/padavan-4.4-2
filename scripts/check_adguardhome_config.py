@@ -220,13 +220,15 @@ require('adg_lifecycle_lock_prepare "$adg_lock_file"' in lock_run and
         'adg_lifecycle_lock_execute "$adg_lock_file"' in lock_run and
         'start|stop|restart' in lock_run,
         "all launcher service actions must pass through the same checked lock")
+post_launch_del_dns = start.index("if ! del_dns; then", start.index("if adg_wait_started; then"))
+ post_launch_clear_iptable = start.index("if ! clear_iptable; then", post_launch_del_dns)
 require('( exec 9>&-; eval "AdGuardHome -c $adg_file -w /tmp/AdGuardHome -v" ) &' in start and
         "ADG_START_WAIT_ATTEMPTS=5" in script and
         "if adg_wait_started; then" in start and
         start.index(' ) &') < start.index("if adg_wait_started; then") and
         'logger -t "AdGuardHome" "启动后在限定时间内未检测到AdGuardHome进程' in start and
-        start.index("if adg_wait_started; then") < start.index("if ! del_dns; then") <
-        start.index("if ! clear_iptable; then") and
+        start.index("if adg_wait_started; then") < post_launch_del_dns <
+        post_launch_clear_iptable and
         'logger -t "AdGuardHome" "启动后无法确认AdGuardHome进程状态，保留DNS和防火墙配置"' in start and
         '/sbin/restart_dhcpd 9>&-' in script,
         "detached launch must verify RUNNING; roll back only confirmed ABSENT and preserve UNKNOWN state")

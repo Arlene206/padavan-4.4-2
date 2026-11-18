@@ -1,3 +1,9 @@
+## 2026-11-17 — Anchor AdGuardHome timeout rollback ordering after launch
+
+- Parent main: `f02fc8b380da5fc202779bbe0a9862b41841a6ef`. The detached-start shell regression passed all new cases on `f02fc8b3`, but the source checker initially searched for the first `clear_iptable()` call in `start_adg()`; that earlier call belongs to the pre-launch resolver-failure rollback, not the new post-launch timeout rollback. Anchor the second rollback check after the post-launch `del_dns()` call so it verifies the intended reverse-order cleanup without confusing the existing pre-launch path.
+- Production code and lifecycle fixtures are unchanged. Exact-head AdGuardHome config/security, Process inventory/umbrella and AI handoff checks are required again.
+
+---
 ## 2026-11-17 — Verify AdGuardHome after detached daemon launch
 
 - Parent main: `b3b856dd6a78c4ee62333f288c64b867f7599a21`. `start_adg()` backgrounds AdGuardHome, then returned success immediately. Unlike DDNSTO and AliDDNS, this launcher had no post-fork process check; an immediate bind/config/runtime exit could leave resolver configuration and DNS redirect rules pointing at a daemon that never stayed alive.
