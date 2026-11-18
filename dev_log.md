@@ -1,3 +1,13 @@
+## 2026-11-18 — Narrow documentation CI triggers and gate XY-C1 target builds
+
+- Parent main SHA: `c500c3a48328fc54e8949a75187de648ec0f78a6`. Audited all 54 root workflow files and exact-head fan-out. The `7f10d22` source push started 11 workflows; several module workflows ran only because canonical handoff/roadmap/log files were listed as product path triggers, while AI docs ran on every push.
+- Removed those docs paths from AdGuardHome, AliDDNS, AliyunDrive, infosvr, NVRAM and Process lifecycle regression. Scoped AI handoff validation to main changes in canonical records, `docs/dev-log/**`, its validator and workflow.
+- Removed the HTTPD Security workflow YAML from XY-C1 firmware-input paths. Kept host regressions, but gated target `make XY-C1`, TRX verification and artifact upload on actual production-input changes. Tests, checkers, workflow files and documentation no longer cause full MIPS builds; manual dispatch still builds.
+- Added latest-push concurrency cancellation to selected expensive/cross-cutting workflows. Preserved full-tree NVRAM and Process Inventory scans, plus Storage's BusyBox/SmartDNS patterns, because their regression scripts use those source trees.
+- No product firmware source changed in this CI-only slice. Exact-head CI is pending; a host-only run with target stages skipped is not an L3 firmware result.
+
+---
+
 ## 2026-11-18 — Propagate NDIS metadata publication and cleanup failures
 
 - Parent main SHA: `0985b536e5dd2a40387fcc2069f392519d17df49`. Exact storage run `44218995113` and AI handoff `44218995112` PASS; infosvr `44218995163`, AliyunDrive `44218995175`, AliDDNS `44218995159` and AdGuardHome `44218995324` PASS. NVRAM `44218995246` and Process inventory `44218995232` remained in progress.

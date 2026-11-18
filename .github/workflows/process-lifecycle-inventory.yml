@@ -16,8 +16,7 @@ permissions:
 
 concurrency:
   group: process-lifecycle-inventory-${{ github.ref }}
-  cancel-in-progress: false
-
+  cancel-in-progress: true
 jobs:
   inventory:
     if: github.ref == 'refs/heads/main'

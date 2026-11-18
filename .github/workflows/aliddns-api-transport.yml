@@ -3,9 +3,6 @@ name: AliDDNS signed API transport security regression
 on:
   push:
     paths:
-      - "SESSION_HANDOFF.md"
-      - "REFACTOR_ROADMAP.md"
-      - "dev_log.md"
       - ".github/workflows/aliddns-api-transport.yml"
       - "scripts/check_aliddns_api_transport.py"
       - "trunk/user/aliddns/aliddns.sh"
@@ -36,6 +33,10 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
 permissions:
   contents: read
+
+concurrency:
+  group: aliddns-api-transport-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   aliddns-api-transport:

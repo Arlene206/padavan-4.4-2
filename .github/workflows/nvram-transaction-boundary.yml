@@ -3,9 +3,6 @@ name: NVRAM transaction boundary audit
 on:
   push:
     paths:
-      - "SESSION_HANDOFF.md"
-      - "REFACTOR_ROADMAP.md"
-      - "dev_log.md"
       - ".github/workflows/nvram-transaction-boundary.yml"
       - "scripts/check_nvram_transaction_boundary.py"
       - "trunk/user/**"
@@ -16,6 +13,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: nvram-transaction-boundary-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   nvram-transaction-boundary:

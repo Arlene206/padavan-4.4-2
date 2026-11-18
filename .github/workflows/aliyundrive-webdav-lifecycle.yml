@@ -3,9 +3,6 @@ name: AliyunDrive WebDAV lifecycle stability regression
 on:
   push:
     paths:
-      - "SESSION_HANDOFF.md"
-      - "REFACTOR_ROADMAP.md"
-      - "dev_log.md"
       - ".github/workflows/aliyundrive-webdav-lifecycle.yml"
       - "scripts/check_aliyundrive_webdav_lifecycle.py"
       - "scripts/test_aliyundrive_webdav_binary.py"
@@ -23,9 +20,6 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/util-linux/flock.c"
   pull_request:
     paths:
-      - "SESSION_HANDOFF.md"
-      - "REFACTOR_ROADMAP.md"
-      - "dev_log.md"
       - ".github/workflows/aliyundrive-webdav-lifecycle.yml"
       - "scripts/check_aliyundrive_webdav_lifecycle.py"
       - "scripts/test_aliyundrive_webdav_binary.py"
@@ -44,6 +38,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: aliyundrive-webdav-lifecycle-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   aliyundrive-webdav-lifecycle:

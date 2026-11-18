@@ -2,10 +2,25 @@ name: AI handoff documentation contract
 
 on:
   push:
+    branches:
+      - main
+    paths:
+      - "AI_BOOTSTRAP_PROMPT.md"
+      - "AI_DEVELOPMENT_PROTOCOL.md"
+      - "SESSION_HANDOFF.md"
+      - "REFACTOR_ROADMAP.md"
+      - "dev_log.md"
+      - "docs/dev-log/**"
+      - "scripts/check_ai_handoff_docs.py"
+      - ".github/workflows/ai-handoff-docs.yml"
   workflow_dispatch:
 
 permissions:
   contents: read
+
+concurrency:
+  group: ai-handoff-docs-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   validate-handoff-records:

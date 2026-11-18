@@ -4,7 +4,6 @@ on:
   push:
     paths:
       - ".github/workflows/infosvr-packet-stability.yml"
-      - "SESSION_HANDOFF.md"
       - "scripts/check_infosvr_packets.py"
       - "scripts/check_infosvr_lifecycle.py"
       - "trunk/user/rc/src/services.c"
@@ -22,7 +21,6 @@ on:
   pull_request:
     paths:
       - ".github/workflows/infosvr-packet-stability.yml"
-      - "SESSION_HANDOFF.md"
       - "scripts/check_infosvr_packets.py"
       - "scripts/check_infosvr_lifecycle.py"
       - "trunk/user/rc/src/services.c"
@@ -40,6 +38,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: infosvr-packet-stability-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   infosvr-packets:

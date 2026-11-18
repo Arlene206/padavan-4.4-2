@@ -533,6 +533,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: httpd-security-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   httpd-security:
     name: HTTPD authentication and disclosure policy

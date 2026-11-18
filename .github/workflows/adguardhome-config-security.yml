@@ -3,9 +3,6 @@ name: AdGuardHome config security regression
 on:
   push:
     paths:
-      - "SESSION_HANDOFF.md"
-      - "REFACTOR_ROADMAP.md"
-      - "dev_log.md"
       - ".github/workflows/adguardhome-config-security.yml"
       - "scripts/check_adguardhome_config.py"
       - "trunk/user/adguardhome/adguardhome.sh"
@@ -27,9 +24,6 @@ on:
       - "trunk/user/iptables/Makefile"
   pull_request:
     paths:
-      - "SESSION_HANDOFF.md"
-      - "REFACTOR_ROADMAP.md"
-      - "dev_log.md"
       - ".github/workflows/adguardhome-config-security.yml"
       - "scripts/check_adguardhome_config.py"
       - "trunk/user/adguardhome/adguardhome.sh"
@@ -52,6 +46,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: adguardhome-config-security-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   adguardhome-config-security:

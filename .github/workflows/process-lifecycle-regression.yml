@@ -123,9 +123,6 @@ on:
       - "trunk/user/iperf3/iperf3.sh"
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
       - "trunk/user/scripts/tests/autostart_optional_start_status.sh"
-      - "SESSION_HANDOFF.md"
-      - "REFACTOR_ROADMAP.md"
-      - "dev_log.md"
 
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
@@ -221,6 +218,10 @@ on:
 
 permissions:
   contents: read
+
+concurrency:
+  group: process-lifecycle-regression-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   process-lifecycle-regression:

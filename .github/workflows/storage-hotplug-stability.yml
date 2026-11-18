@@ -145,6 +145,10 @@ on:
       - "trunk/user/busybox/busybox-1.24.x/**"
   workflow_dispatch:
 
+concurrency:
+  group: storage-hotplug-stability-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   storage-hotplug:
     runs-on: ubuntu-latest
