@@ -170,31 +170,149 @@ def check_ralink_iappd_rc_shutdown_registration():
 
 
 def check_vlmcsd():
+    source = VLM_SCRIPT.read_text()
+    assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in source
+    assert "pl_process_state vlmcsd" in source
+    assert "pl_wait_started vlmcsd 1 4 1" in source
+    assert "pl_stop_named vlmcsd 3 2" in source
+
     with tempfile.TemporaryDirectory(prefix="vlmcsd-start-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")
+        state = base / "state"
+        state.write_text("absent")
+        starts = base / "starts.log"
+        sleeps = base / "sleeps.log"
+        kill_log = base / "killall.log"
         executable(bin_dir / "vlmcsd", """#!/bin/sh
-exit "${MOCK_LAUNCH_STATUS:-0}"
+echo "$*" >> "$MOCK_START_LOG"
+status="${MOCK_LAUNCH_STATUS:-0}"
+[ "$status" -eq 0 ] || exit "$status"
+[ -n "${MOCK_START_STATE:-}" ] && echo "$MOCK_START_STATE" > "$MOCK_STATE_FILE"
+exit 0
+""")
+        executable(bin_dir / "pidof", """#!/bin/sh
+case "$(cat "$MOCK_STATE_FILE")" in
+    running) echo 123; exit 0 ;;
+    absent) exit 1 ;;
+    unknown) exit 2 ;;
+    *) exit 2 ;;
+esac
+""")
+        executable(bin_dir / "sleep", """#!/bin/sh
+echo "$1" >> "$MOCK_SLEEP_LOG"
+exit "${MOCK_SLEEP_STATUS:-0}"
+""")
+        executable(bin_dir / "killall", """#!/bin/sh
+echo "$*" >> "$MOCK_KILL_LOG"
+case " $* " in
+    *" -9 "*) next_state="$MOCK_KILL_STATE" ;;
+    *) next_state="$MOCK_TERM_STATE" ;;
+esac
+echo "$next_state" > "$MOCK_STATE_FILE"
+exit "${MOCK_KILLALL_STATUS:-0}"
 """)
         log = base / "logger.log"
         env = os.environ.copy()
         env.update({
             "PATH": str(bin_dir) + os.pathsep + env.get("PATH", ""),
             "MOCK_LOG": str(log),
+            "MOCK_START_LOG": str(starts),
+            "MOCK_SLEEP_LOG": str(sleeps),
+            "MOCK_KILL_LOG": str(kill_log),
+            "MOCK_STATE_FILE": str(state),
             "MOCK_LAUNCH_STATUS": "23",
+            "MOCK_KILLALL_STATUS": "0",
+            "MOCK_TERM_STATE": "absent",
+            "MOCK_KILL_STATE": "absent",
+            "PROCESS_LIFECYCLE_LIB": str(PROCESS_LIFECYCLE_LIB),
         })
+
+        # The detached launcher must preserve its own failure status.
         failed = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
         assert failed.returncode == 23, (
             f"vlmcsd must propagate launcher status 23, got "
             f"{failed.returncode}: {failed.stderr}"
         )
         assert "launch failed (status=23)" in log.read_text()
+        assert not sleeps.exists(), "failed launcher must not enter readiness polling"
 
+        # A successful daemon fork is not proof the detached process survived.
         log.write_text("")
         env["MOCK_LAUNCH_STATUS"] = "0"
-        succeeded = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
-        assert succeeded.returncode == 0, succeeded.stderr
+        env["MOCK_START_STATE"] = "running"
+        state.write_text("absent")
+        started = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
+        assert started.returncode == 0, started.stderr
         assert "KMS Activation server is running." in log.read_text()
+        assert len(starts.read_text().splitlines()) == 2
+
+        # A pre-existing daemon is a no-op; do not start a duplicate.
+        log.write_text("")
+        state.write_text("running")
+        starts_before = len(starts.read_text().splitlines())
+        duplicate = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
+        assert duplicate.returncode == 0, duplicate.stderr
+        assert len(starts.read_text().splitlines()) == starts_before
+        assert "already running" in log.read_text()
+
+        # An UNKNOWN initial inventory must fail closed without launching.
+        log.write_text("")
+        state.write_text("unknown")
+        unknown_preflight = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
+        assert unknown_preflight.returncode == 2, unknown_preflight.stderr
+        assert len(starts.read_text().splitlines()) == starts_before
+        assert "state is unknown" in log.read_text()
+
+        # If daemonization succeeds but no process appears, bounded readiness times out.
+        log.write_text("")
+        state.write_text("absent")
+        del env["MOCK_START_STATE"]
+        if sleeps.exists():
+            sleeps.unlink()
+        timeout = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
+        assert timeout.returncode == 1, (
+            f"vlmcsd accepted an absent daemon after launch: {timeout.returncode}"
+        )
+        assert "startup timed out" in log.read_text()
+        assert len(sleeps.read_text().splitlines()) == 4, "readiness wait must be bounded to four sleeps"
+
+        # UNKNOWN during readiness is distinct from a confirmed absence timeout.
+        log.write_text("")
+        state.write_text("absent")
+        env["MOCK_START_STATE"] = "unknown"
+        sleeps.unlink()
+        unknown_ready = run(["/bin/sh", str(VLM_SCRIPT), "start"], env)
+        assert unknown_ready.returncode == 2, unknown_ready.stderr
+        assert "could not be verified" in log.read_text()
+        assert len(sleeps.read_text().splitlines()) == 1
+
+        # Stop must wait for the verified postcondition, even if killall reports a signal error.
+        log.write_text("")
+        state.write_text("running")
+        env["MOCK_TERM_STATE"] = "absent"
+        env["MOCK_KILLALL_STATUS"] = "17"
+        stopped = run(["/bin/sh", str(VLM_SCRIPT), "stop"], env)
+        assert stopped.returncode == 0, stopped.stderr
+        assert state.read_text().strip() == "absent"
+        assert "stopped." in log.read_text()
+        assert len(kill_log.read_text().splitlines()) == 1
+
+        # A failed stop must prevent restart from launching a second daemon.
+        log.write_text("")
+        state.write_text("running")
+        env["MOCK_TERM_STATE"] = "running"
+        env["MOCK_KILL_STATE"] = "running"
+        env["MOCK_KILLALL_STATUS"] = "0"
+        starts_before = len(starts.read_text().splitlines())
+        restart = run(["/bin/sh", str(VLM_SCRIPT), "restart"], env)
+        assert restart.returncode == 1, (
+            f"vlmcsd restart ignored a stuck daemon: {restart.returncode}"
+        )
+        assert len(starts.read_text().splitlines()) == starts_before, (
+            "vlmcsd restart launched after stop postcondition failed"
+        )
+        assert "restart aborted" in log.read_text()
 
 
 def check_scutclient():
