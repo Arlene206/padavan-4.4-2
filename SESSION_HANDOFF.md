@@ -1,29 +1,28 @@
-# 2026-11-18 continuation checkpoint — serialize Shadowsocks DNSMasq updates through RC
+# 2026-11-18 continuation checkpoint — remove duplicated Shadowsocks test tail
 
 ## Current repository state
-- Repository: `Arlene206/padavan-4.4-2`; authorized development branch: `main`. Current live main before this diagnostic slice is `1e75f56d758468e8cacd088af52920c261e9b48a`; product source baseline remains `dde3301aca4056774cd31696fdeb9b98bb0a3773`.
-- Preserve `backup/pre-plugin-overhaul-2026-11-14` permanently and read-only; its observed SHA remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed and unmerged.
-- The exact parent SHA `e71d9e336f4c1ab03725fcbf5fb0da670098ec5a` has five successful push Actions: Shadowsocks lifecycle `44294135620`, Process fail-closed regression `44294135638`, Process inventory umbrella `44294135667`, AI handoff docs `44294135726`, and XY-C1 firmware `44294135701`. The XY-C1 job completed Build XY-C1, TRX verification and artifact upload successfully on that exact source SHA.
-
+- Repository: `Arlene206/padavan-4.4-2`; authorized development branch: `main`. This test-only repair is based on parent `77ba640f2f8af88f8cb2856e5af62dd770ea765a`; resolve the current SHA from the live `main` ref during recovery.
+- Preserve `backup/pre-plugin-overhaul-2026-11-14` permanently and read-only; observed SHA remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed and unmerged.
+- Parent exact-head Actions: AI handoff `44304776554` PASS; Process fail-closed `44304776568` PASS; Process inventory `44304778927` PASS. Shadowsocks `44304776719` FAILS because `process_lifecycle.sh` has a second copy of its DNSMasq/run_bin/watchcat/DNS proxy tests appended after the first complete PASS sentinel. The first dangling command executes the config file and returns permission denied; a second stale rollback assertion also expects 1 instead of 19. The first complete test sequence already covers all those cases.
+ 
 ## Active task
-- DNSMasq/ChinaDNS transaction remains staged, syntax-validated and rollback-protected. After publishing a validated storage include, Shadowsocks calls `ss_restart_dhcpd()` -> `/sbin/restart_dhcpd`; RC owns `/tmp/.dnsmasq.lifecycle.lock`, process inventory, authoritative configuration, NVRAM enablement and daemon readiness. On failure, the previous include is atomically restored and RC restart retried while preserving the original error.
-- The RC-restart regression covers success, validation no-op, stop failure/restore, candidate launch failure and original failure-status propagation. `ssp_close()` also retains first-error status from the preceding source slice.
-- Exact-head `dde3301aca4056774cd31696fdeb9b98bb0a3773`: AI handoff `44301647352`, Process fail-closed `44301647315`, and Process inventory `44301647284` PASS; Shadowsocks `44301647472` failed the rollback expectation (expected 1 vs actual 19). Corrective SHA `1e75f56d758468e8cacd088af52920c261e9b48a`: AI handoff `44303526325`, Process fail-closed `44303526428`, and Process inventory `44303526333` PASS; Shadowsocks `44303526422` passed shell syntax/startup and the corrected status-19 rollback check, then failed because the expected `server=127.0.0.1#65353` directive was absent after the successful config transaction. Python checker was skipped; its four `str.indexOf()` calls have now been corrected in the same corrective SHA.
+- Remove only the duplicate tail after the first complete regression PASS sentinel. Keep the complete first suite, including its correct status-19 rollback assertion and ChinaDNS failure diagnostics. The resulting test file ends with exactly one PASS sentinel.
+- Next P1 source task remains exact-directive DNSMasq cleanup in Shadowsocks `oversea`, `ssp_close()` and `ss-rules`. It must remove exact generated directives and preserve comments, unrelated `conf-file`, domain-scoped `server=`, `address=`/`ipset=` rules, SmartDNS port 6053 and similar paths containing `cdn`, `gfwlist` or `dnsmasq.dom`.
 
 ## Verification boundary
-- Current main `1e75f56d758468e8cacd088af52920c261e9b48a` fixes the rollback test's incorrect status expectation and Python checker method calls. Its exact-head Shadowsocks run `44303526422` still fails because the published ChinaDNS server directive is absent; the test now emits the complete escaped config contents on that failure. AI handoff and both Process Actions pass. No local shell test was run; CI is the execution evidence.
-- This diagnostic slice changes only the regression assertion and handoff/roadmap records. No new XY-C1 run is expected from firmware-source filters; no new product code was changed. Parent product-source L3 remains separate evidence.
-- Target BusyBox runtime and physical router L4 remain NOT VERIFIED.
+- Parent exact-head Shadowsocks run `44304776719` passed shell syntax and startup status, then printed the first PASS sentinel and failed on the appended duplicate tail with `Permission denied` executing the config path. The diagnostic upstream assertion lives inside the duplicate segment, so this log does not establish a production ChinaDNS publication defect.
+- Parent AI handoff, Process fail-closed and inventory Actions all PASS. This commit changes only regression tests and checkpoint records; no new XY-C1 run is expected. Product source SHA `6910911ffdd65a7a04eeb97fa1088a1b8a74d886` has XY-C1 Build/TRX/artifact PASS.
+- Full local repo harness unavailable. Target BusyBox runtime and physical-router L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Inspect the exact-head Shadowsocks rerun for this diagnostic commit. Its failure output includes escaped `dnsmasq.conf` lines; identify why the `use_chinadns=1` transaction did not publish the required local upstream and fix the underlying defect, not just the assertion.
-2. After the lifecycle suite reaches the Python checker and passes, implement the queued exact DNSMasq include cleanup in `shadowsocks.sh` (`oversea`/`ssp_close`) and `ss-rules`. Test that only the exact generated `conf-dir` entries are removed while comments, `conf-file`, domain `address`/`ipset` rules and unrelated paths containing `cdn`, `gfwlist`, or `dnsmasq.dom` remain.
-3. Keep the immutable backup untouched; do not repeat completed startup audits or old CI runs. Rotate to the next risk-ranked module after closing this slice.
+1. Fetch live `main` and verify exact-head Shadowsocks, AI handoff and Process Actions. Confirm the process test ends with one PASS sentinel and reaches Adblock publication and the Python source checker.
+2. Implement the queued exact-match DNSMasq ownership helper as one atomic source/test/checker/workflow slice across Shadowsocks and ss-rules; this production-source change must pass its own XY-C1 Build, TRX and artifact steps.
+3. After this slice passes, rotate to the Adbyby managed lazy/video paired-config rollback item in `REFACTOR_ROADMAP.md`; reproduce the failure window before implementation.
 
 ## Mandatory handoff checkpoint
 Every session MUST inspect live repository state and end with an accuracy checkpoint before context exhaustion. The checkpoint is mandatory; a document edit is conditional. If all facts remain accurate, leave the file untouched and do not create a no-op commit.
 
-Every session MUST compare this checkpoint with live GitHub state, verify the active engineering baseline and exact-head Actions, preserve the L3/L4 distinction, and retain an exact next action. The checkpoint changes only when the resumable task or validation boundary materially changes.
+Every session MUST compare this checkpoint with live repository state, verify the active engineering baseline and exact-head Actions, preserve the L3/L4 distinction, and retain an exact next action. The checkpoint changes only when the resumable task or validation boundary materially changes.
 
 # Cross-session execution mandate
-Use one atomic main commit per logical source/test slice and continue independent work while checks are pending. Before context exhaustion, leave a live checkpoint with the exact main/source SHA, tested evidence, CI status, unverified levels and next first action. Never force-push, change the frozen backup, reopen PR #1, or claim work that was not executed.
+Use one atomic main commit per logical source/test slice and continue independent work while checks are pending. Before context exhaustion, leave a live checkpoint with exact main/source SHA, tested evidence, CI status, unverified levels and next first action. Never force-push, change the frozen backup, reopen PR #1, or claim work that was not executed.

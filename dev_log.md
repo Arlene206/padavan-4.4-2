@@ -1,3 +1,13 @@
+## 2026-11-18 20:25 CST — Remove duplicated Shadowsocks lifecycle test tail
+
+- Parent main SHA `77ba640f2f8af88f8cb2856e5af62dd770ea765a`: AI handoff `44304776554`, Process fail-closed `44304776568`, and Process inventory `44304778927` PASS. Shadowsocks `44304776719` passed shell syntax and startup status; the bounded process test ran through the first complete PASS sentinel, then attempted to execute `$dnsmasq_config` and failed with Permission denied. A second old rollback assertion (expected 1) and duplicate run_bin/watchcat/DNS proxy tests followed the first sentinel.
+- The diagnostic line added on parent 77ba was inside the duplicate segment, so the failure does not prove a production ChinaDNS publication defect. Preserve the complete first suite and correct status-19 rollback test; truncate only the duplicate post-sentinel tail and leave one terminal PASS line.
+- Changed: `trunk/user/shadowsocks/tests/process_lifecycle.sh`, `SESSION_HANDOFF.md`, `REFACTOR_ROADMAP.md`, `dev_log.md`.
+- Validation: exact-head job log identifies the duplicate-tail error. New exact-head Shadowsocks rerun is required; parent AI, Process and inventory Actions PASS. No new XY-C1 expected for this test/docs-only commit; product source 6910911 previously passed Build/TRX/artifact. Target BusyBox/L4 NOT VERIFIED.
+- Next: implement exact-directive DNSMasq cleanup across Shadowsocks `oversea`/`ssp_close()` and `ss-rules`, with unrelated-content preservation tests.
+
+---
+
 ## 2026-11-18 20:15 CST — Diagnose missing ChinaDNS upstream after config publication
 
 - Parent `1e75f56d758468e8cacd088af52920c261e9b48a`: exact-head AI handoff `44303526325`, Process fail-closed `44303526428`, and Process inventory `44303526333` PASS. Shadowsocks `44303526422` passes syntax, startup and the now-correct status-19 rollback case, then fails at the successful transaction assertion because `server=127.0.0.1#65353` is absent from the final fixture config.
