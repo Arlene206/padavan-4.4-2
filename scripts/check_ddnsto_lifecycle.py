@@ -43,6 +43,7 @@ lock_path_body = function_body(script, "ddnsto_lifecycle_lock_path()")
 lock_prepare_body = function_body(script, "ddnsto_lifecycle_lock_prepare()")
 lock_execute_body = function_body(script, "ddnsto_lifecycle_lock_execute()")
 locked_action_body = function_body(script, "ddnsto_lifecycle_locked_action()")
+enable_state_body = function_body(script, "ddnsto_read_enable_state()")
 lock_run_body = function_body(script, "ddnsto_lifecycle_lock_run()")
 
 require('pidof ddnsto' in state_body and 'ddnsto_pidof_status' in state_body and
@@ -104,10 +105,23 @@ require("ddnsto_lifecycle_lock_prepare" in lock_run_body and
         "ddnsto_lifecycle_lock_execute" in lock_run_body and
         "start|stop|restart)" in lock_run_body,
         "all DDNSTO external lifecycle actions must fail closed behind flock")
-require("stop_zero || return $?" in locked_action_body and
-        'nvram get ddnsto_enable' in locked_action_body and
-        "start_zero" in locked_action_body,
-        "start/restart must refresh the enable state while holding one lock")
+require('if ddnsto_enable_value=$(nvram get ddnsto_enable)' in enable_state_body and
+        'ddnsto_enable_status=$?' in enable_state_body and
+        'return "$ddnsto_enable_status"' in enable_state_body,
+        "enable-state NVRAM failure must preserve the original command status")
+require(locked_action_body.count("ddnsto_read_enable_state || return $?") == 2,
+        "start and restart must each use one checked enable-state preflight")
+start_action_body = locked_action_body.split("start)", 1)[1].split(";;", 1)[0]
+restart_action_body = locked_action_body.split("restart)", 1)[1].split("*)", 1)[0]
+require(start_action_body.index("ddnsto_read_enable_state || return $?") <
+        start_action_body.index("start_zero"),
+        "start must complete enable-state preflight before daemon launch")
+require(restart_action_body.index("ddnsto_read_enable_state || return $?") <
+        restart_action_body.index("stop_zero || return $?") <
+        restart_action_body.index("start_zero"),
+        "restart must read enable state before stopping or launching a daemon")
+require('nvram get ddnsto_enable' not in locked_action_body,
+        "unchecked enable-state command substitutions must not remain in the dispatcher")
 require('kill_z' in stop_body, "stop action must propagate kill_z status")
 require(not re.search(r'\bkill\s+-9\s+"?\$ddnsto_process', script),
         "stale pidof snapshot must never be force-signalled")
@@ -129,6 +143,7 @@ require('int restart_ddnsto(void);' in rc_header and 'rc_notify_merge_action_res
         "RC declaration / notification caller must remain wired")
 for marker in ("UNKNOWN process inventory", "UNKNOWN after TERM", "sleep failure",
                "missing DDNSTO executable", "NVRAM identity read failure",
+               "NVRAM enable-state read failure", "after an NVRAM read failure",
                "empty DDNSTO identity", "immediate-exit daemon",
                "exactly five bounded polls", "UNKNOWN post-launch process inventory",
                "failed startup wait primitive", "delayed but confirmed daemon",

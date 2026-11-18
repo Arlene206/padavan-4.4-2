@@ -1,12 +1,12 @@
-# 2026-11-19 continuation checkpoint — harden RStats raw history loading
+# 2026-11-19 continuation checkpoint — fail closed on DDNSTO enable-state read errors
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development branch is `main` only. Parent for the RStats history-read slice: `1b3117769d52021de09ba09ffbee011e149de3fe`.
-- Inadyn lifecycle source SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD security `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 firmware `44381563540` all completed SUCCESS. The XY-C1 job completed Build, TRX verification and artifact upload on that exact firmware SHA; L3 is VERIFIED for `3c7bd2d`.
-- Downstream checker/handoff fix on main SHA `1b3117769d52021de09ba09ffbee011e149de3fe` passed DNSMasq `44382455939`, WAN route `44382456589`, and AI handoff docs `44382456088`.
-- AliDDNS production SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0` is L3 VERIFIED: AliDDNS `44377211563`, Process `44377211590`, HTTPD `44377211539`, and XY-C1 `44377211451` all SUCCESS; its exact-source Build, TRX and artifact upload completed.
-- This RStats slice fixes loss of otherwise valid history records when the single `read()` returned a short positive count or EINTR. The new exact-read helper retries short reads/EINTR while preserving truncated EOF as a short count for the existing record validator.
+- Repository: `Arlene206/padavan-4.4-2`; development branch is `main` only. Current source parent for this DDNSTO slice: `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`.
+- Inadyn production SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 `44381563540` all PASS. Exact-source XY-C1 Build, TRX verification and artifact upload completed; L3 is verified for this exact production SHA.
+- Downstream checker/handoff repair main SHA `1b3117769d52021de09ba09ffbee011e149de3fe`: DNSMasq `44382455939`, WAN route `44382456589`, and AI docs `44382456088` PASS.
+- RStats history-read source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054`, and AI docs `44384384820` PASS. Process fail-closed `44384384017`, XY-C1 `44384384072`, and NVRAM `44384384235` were IN_PROGRESS at the last check. The host exact-read harness passed GNU89/Werror with ASan/UBSan; no full repository test or MIPS build was performed.
+- This DDNSTO change updates a packaged ROMFS launcher, so the previous XY-C1 L3 result does not cover the new product input. Exact-head DDNSTO lifecycle, Process inventory and XY-C1 Actions for this commit are required. Physical-router L4 remains NOT VERIFIED.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
 - No local repository checkout or MIPS firmware build was performed. A standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan exact-read harness passed; the full repository RStats workflow and new exact-SHA firmware build must still be checked after this production-source commit. Physical-router L4 remains NOT VERIFIED.
 
@@ -80,27 +80,27 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Complete the RStats history-read recovery slice based on parent `1b3117769d52021de09ba09ffbee011e149de3fe`.
+Validate the DDNSTO enable-state preflight introduced in the current source slice.
 
-- Production `trunk/user/rc/src/rstats.c::f_read()` validates inputs, retries interrupted `open()`, loops through short reads using `rstats_file_read_exact()`, and preserves read errno across descriptor close. EOF before a complete `history_t` remains a short count so `load_history_raw()` continues rejecting truncated/corrupt records.
-- `rstats_file_policy.h` provides an injectable GNU89-compatible exact-read helper. `rstats_policy_test.c` covers short chunks, one-shot EINTR, truncated EOF, EIO after partial progress, zero-length input, invalid arguments and oversize requests. The existing `rstats-stability.yml` workflow source contract is expanded; its push/PR allowlists already include all changed paths.
-- A standalone exact-read helper harness compiled and passed with `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined`. This is not the full repository RStats regression or a firmware build; exact-head Actions are required.
-
+- The previous `ddnsto_lifecycle_locked_action()` hid failures from `nvram get ddnsto_enable` inside a command-substitution comparison and interpreted them as a disabled service. Its restart branch also stopped an existing daemon before that unchecked read.
+- The new `ddnsto_read_enable_state()` captures and returns the original nonzero NVRAM status. Both start and restart perform one checked read under the existing lifecycle lock; restart completes it before `stop_zero`, preserving an already-running daemon on failure.
+- The shell regression injects NVRAM status 9 for both start and restart while DDNSTO is running. It asserts error propagation, unchanged daemon state, no TERM/KILL, no launch and exactly one enable-state read. The static checker pins helper status preservation and preflight ordering.
+- No local shell regression or local MIPS build was performed. The exact-head DDNSTO lifecycle, Process inventory and XY-C1 checks must pass before claiming L2/L3 for this packaged ROMFS change.
 
 ## Verification boundary
 
-- Inadyn source SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66`: Inadyn `44381565885`, Process inventory `44381563425`, Process fail-closed `44381563270`, HTTPD `44381563266`, miniupnpd `44381563068`, Samba `44381563561`, NVRAM audit `44381563037`, and XY-C1 `44381563540` all PASS. Exact-source XY-C1 Build, TRX verification and artifact upload completed.
-- Its downstream checker/handoff correction main SHA `1b3117769d52021de09ba09ffbee0118fae159f66` passed DNSMasq `44382455939`, WAN route `44382456589`, and AI docs `44382456088`.
-- AliDDNS production SHA `2fd39c391dad08128393edeabaa2c2d48e67eeb0` has exact-source L3 verification: AliDDNS `44377211563`, Process `44377211590`, HTTPD `44377211539`, and XY-C1 `44377211451` all PASS, including Build/TRX/artifact.
-- Current RStats exact-read source commit triggers RStats, Process inventory, AI docs and XY-C1. Those exact-head Actions are PENDING until completed; XY-C1 L3 requires Build, TRX and artifact upload success on this exact new SHA.
-- Physical-router/hardware L4 is NOT VERIFIED.
-
+- Previous Inadyn production SHA `3c7bd2d28bc6cc285fca3074dee4118fae159f66` has exact-head Inadyn/Process/HTTPD/miniupnpd/Samba/NVRAM and XY-C1 PASS; Build, TRX and artifact upload completed on that exact SHA (L3).
+- Its downstream checker/handoff correction main SHA `1b3117769d52021de09ba09ffbee011e149de3fe` passed DNSMasq `44382455939`, WAN route `44382456589` and AI docs `44382456088`.
+- Parent RStats source SHA `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`: RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054` and AI docs `44384384820` PASS. Process fail-closed `44384384017`, XY-C1 `44384384072` and NVRAM `44384384235` were PENDING at last inspection. Standalone exact-read harness passed GNU89/Werror/ASan/UBSan; no full local test or MIPS build.
+- This commit changes packaged `trunk/user/ddnsto/ddnsto.sh`; previous XY-C1 L3 on SHA `3c7bd2d` does not verify this input. Check exact-head DDNSTO lifecycle, Process inventory and XY-C1 Build/TRX/artifact before claiming L3.
+- Physical-router/hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect live `main` and every exact-head RStats/Process/AI/XY-C1 Action for this history-read source commit. Confirm the GNU89/Werror ASan/UBSan test and integration checker pass; fix any real failure.
-2. Confirm XY-C1 Build, TRX verification and artifact upload all succeed for the exact SHA containing `trunk/user/rc/src/rstats.c`; don't transfer prior L3 results.
-3. Continue with a new concrete stability/security defect across the wider userland while independent checks run. Keep the archival backup immutable and physical-router L4 NOT VERIFIED.
+1. Inspect exact-head DDNSTO lifecycle and Process inventory workflows for this source SHA; fix any real regression without reducing the shell or source-contract coverage.
+2. Inspect the same SHA's XY-C1 Build, TRX and artifact-upload stages before claiming L3.
+3. Continue with the next independent concrete stability/security defect while Actions are pending. Do not repeat the closed five-wrapper C caller audit; the archival backup remains immutable.
+
 
 ## Mandatory handoff checkpoint
 

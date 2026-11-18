@@ -33,6 +33,7 @@ sed -n \
 	-e '/^ddnsto_wait_stopped() {$/,/^}/p' \
 	-e '/^kill_z() {$/,/^}/p' \
 	-e '/^stop_zero() {$/,/^}/p' \
+	-e '/^ddnsto_read_enable_state() {$/,/^}/p' \
 	-e '/^ddnsto_lifecycle_lock_path() {$/,/^}/p' \
 	-e '/^ddnsto_lifecycle_lock_prepare() {$/,/^}/p' \
 	-e '/^ddnsto_lifecycle_lock_execute() {$/,/^}/p' \
@@ -146,7 +147,10 @@ case "$1:$2" in
 			echo regression-id
 		fi
 		;;
-	get:ddnsto_enable) cat "$TEST_ENABLE_FILE" ;;
+	get:ddnsto_enable)
+		[ "${TEST_NVRAM_ENABLE_FAIL:-0}" = 0 ] || exit 9
+		cat "$TEST_ENABLE_FILE"
+		;;
 	*) exit 1 ;;
 esac
 MOCK
@@ -313,6 +317,31 @@ if run_action normal start; then fail "start accepted an empty DDNSTO identity";
 unset TEST_NVRAM_ID_SET TEST_NVRAM_ID
 TEST_NVRAM_ID_FAIL=0
 export TEST_NVRAM_ID_FAIL
+
+# Enable-state read errors must abort start/restart before disturbing a live daemon.
+TEST_NVRAM_ENABLE_FAIL=1
+export TEST_NVRAM_ENABLE_FAIL
+for enable_action in start restart; do
+	: > "$TEST_LOG"
+	: > "$TEST_OPS"
+	: > "$TEST_NVRAM_LOG"
+	echo running > "$TEST_STATE"
+	if run_action graceful "$enable_action"; then
+		fail "$enable_action accepted an NVRAM enable-state read failure"
+	else
+		enable_status=$?
+	fi
+	[ "$enable_status" -eq 9 ] ||
+		fail "$enable_action did not preserve the original NVRAM error status"
+	[ "$(cat "$TEST_STATE")" = running ] ||
+		fail "$enable_action disrupted the existing daemon after an NVRAM read failure"
+	[ ! -s "$TEST_LOG" ] && [ ! -s "$TEST_OPS" ] ||
+		fail "$enable_action sent signals or launched after an NVRAM read failure"
+	[ "$(grep -Fxc 'get ddnsto_enable' "$TEST_NVRAM_LOG" || :)" = 1 ] ||
+		fail "$enable_action did not perform exactly one enable-state preflight"
+done
+TEST_NVRAM_ENABLE_FAIL=0
+export TEST_NVRAM_ENABLE_FAIL
 
 # Background fork success is insufficient: wait for validated daemon presence.
 : > "$TEST_LOG"

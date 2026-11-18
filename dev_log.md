@@ -1,3 +1,12 @@
+## 2026-11-19 — Preserve DDNSTO on NVRAM enable-state read failure
+
+- Parent main SHA: `1bf9a30d1003b9ad5835c86a6dfaeab1fae15961`. The preceding RStats history-read commit passed RStats `44384384582`, Process inventory `44384384359`, HTTPD `44384384054` and AI docs `44384384820`; Process fail-closed `44384384017`, XY-C1 `44384384072` and NVRAM `44384384235` were still in progress at implementation start.
+- DDNSTO review found that `[ "$(nvram get ddnsto_enable)" = "1" ]` discarded the command's exit status. A read error was treated as a successful disabled state; restart additionally stopped the existing daemon before making the unchecked read, risking an avoidable service outage.
+- Added `ddnsto_read_enable_state()` to preserve the original NVRAM failure status and use one checked result for start/restart under the existing lifecycle lock. Restart now completes the read before TERM/KILL or replacement launch.
+- Added host shell regression cases injecting status 9 for both start and restart with an already-running daemon; tests assert preserved status, no signal, no launch, unchanged daemon state and exactly one enable read. The DDNSTO source checker verifies helper use and ordering. Existing DDNSTO and XY-C1 workflow path filters already include the packaged launcher, test and checker; no workflow was broadened or disabled.
+- Also corrected the roadmap's stale DDNSTO status and recorded the completed five-wrapper RC call-graph audit (no C callers; dispatch uses separate int restart entry points).
+- No local shell test, full repository build or MIPS firmware build was performed. Exact-head DDNSTO lifecycle, Process inventory and XY-C1 results for this packaged-source SHA are pending; prior L3 on `3c7bd2d` does not transfer. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-19 — Harden RStats raw history loading against short reads and EINTR
 
 - Parent main SHA: `1b3117769d52021de09ba09ffbee0118fae159de3fe`. `rstats.c::f_read()` previously performed one `read()` and returned its byte count; legal short reads caused `load_history_raw()` to reject otherwise valid history, and EINTR also aborted the read.

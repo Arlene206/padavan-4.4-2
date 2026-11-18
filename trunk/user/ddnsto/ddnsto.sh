@@ -292,10 +292,24 @@ ddnsto_lifecycle_lock_execute() {
 	return "$ddnsto_action_status"
 }
 
+# Preserve NVRAM command failures instead of treating them as a disabled service.
+# Restart performs this preflight before stopping a currently working daemon.
+ddnsto_read_enable_state() {
+	if ddnsto_enable_value=$(nvram get ddnsto_enable); then
+		return 0
+	else
+		ddnsto_enable_status=$?
+	fi
+	logger -t "DDNSTO" "无法读取DDNSTO启用状态(status=$ddnsto_enable_status)，取消服务操作"
+	[ "$ddnsto_enable_status" -ne 0 ] || ddnsto_enable_status=1
+	return "$ddnsto_enable_status"
+}
+
 ddnsto_lifecycle_locked_action() {
 	case "$1" in
 		start)
-			if [ "$(nvram get ddnsto_enable)" = "1" ]; then
+			ddnsto_read_enable_state || return $?
+			if [ "$ddnsto_enable_value" = "1" ]; then
 				start_zero
 			fi
 			;;
@@ -303,8 +317,9 @@ ddnsto_lifecycle_locked_action() {
 			stop_zero
 			;;
 		restart)
+			ddnsto_read_enable_state || return $?
 			stop_zero || return $?
-			if [ "$(nvram get ddnsto_enable)" = "1" ]; then
+			if [ "$ddnsto_enable_value" = "1" ]; then
 				start_zero
 			fi
 			;;
