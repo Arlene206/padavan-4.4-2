@@ -15,7 +15,14 @@ rc_service_start_event_is_complete(int start_status)
 	return start_status == 0;
 }
 
-/*
+/* The AP LAN DHCP client depends on PHY readiness, not monitor notification status. */
+static inline int
+rc_lan_ap_dhcp_start_allowed_after_phy_wait(int phy_wait_status)
+{
+	return phy_wait_status == 0;
+}
+
+ /*
  * A WAN protocol client must not expose a path until the required firewall
  * rebuild, including configured extension hooks and snapshot cleanup, succeeds.
  */

@@ -1,3 +1,11 @@
+## 2026-11-19 — Keep AP LAN DHCP launch gated by PHY readiness
+
+- Parent main SHA: `a2d0b74112b4002073015dccc5fca88f6ccd43ab`. The preceding storage hotplug CI repair is verified: exact-head USB storage run `44420519515` completed SUCCESS on `a2d0b74112b4002073015dccc5fca88f6ccd43ab`; every step passed, including the shared-header-dependent RC service launch regression compile/run and firmware BusyBox ash Optware regressions.
+- Review of `start_lan()` found the mandatory PHY settle wait and the independent `notify_run_detect_internet(60)` result reused `operation_status`. The monitor call overwrote the wait result before the DHCP gate and before first-error aggregation: a successful notification could therefore permit DHCP after a failed PHY wait, while a monitor notification error could suppress DHCP after a successful wait.
+- Keep `phy_wait_status` separate, aggregate it before the independent monitor notification, and gate `start_udhcpc_lan()` only on the PHY wait postcondition. Monitor-notification errors remain visible in the aggregate status but do not change DHCP eligibility.
+- Extend the GNU89 service-start policy regression with both cross-failure cases, and strengthen the Process integration checker to pin production ordering and Process/XY-C1 regression coverage. Existing workflow path filters already include every changed source/test/checker path; no workflow coverage was removed or broadened.
+- No local compile/test was run (GitHub connector-only environment). Exact-head Process lifecycle, AI handoff docs and XY-C1 Actions for the resulting source commit are pending at commit creation. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-19 07:24 CST (UTC+8) — Fix storage hotplug service-status test include path
 
 - Parent main SHA: `b26b59b2175492567e2018a93bb41c78e1036bd0`.

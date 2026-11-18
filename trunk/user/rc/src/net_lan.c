@@ -960,6 +960,7 @@ start_lan(int is_ap_mode, int do_wait)
 	char *lan_ifname = IFNAME_BR;
 	int start_status = 0;
 	int operation_status;
+	int phy_wait_status = 0;
 
 	lan_ipaddr = nvram_safe_get("lan_ipaddr");
 	lan_netmsk = nvram_safe_get("lan_netmask");
@@ -1004,24 +1005,25 @@ start_lan(int is_ap_mode, int do_wait)
 
 				/* Complete the PHY link-settling interval despite signal interruptions. */
 				if (do_wait) {
-					operation_status = service_wait_seconds(1);
-					if (operation_status != 0) {
-						operation_status = errno > 0 ? errno : EIO;
-						errno = operation_status;
+					phy_wait_status = service_wait_seconds(1);
+					if (phy_wait_status != 0) {
+						phy_wait_status = errno > 0 ? errno : EIO;
+						errno = phy_wait_status;
 						logmessage(LOGNAME,
 							   "LAN PHY link readiness wait failed; refusing DHCP client launch (status=%d)",
-							   operation_status);
+							   phy_wait_status);
 					}
 				}
+				start_status = rc_first_service_start_status(start_status, phy_wait_status);
 
-				/* DI wakeup after 60 secs; retain launch/inventory/signal errors. */
+				/* The monitor notification is independent of the mandatory PHY wait. */
 				operation_status = notify_run_detect_internet(60);
 				if (operation_status != 0)
 					logmessage(LOGNAME, "LAN Internet monitor startup incomplete (status=%d)", operation_status);
 				start_status = rc_first_service_start_status(start_status, operation_status);
 
-				/* Do not start DHCP until the mandatory PHY settle wait succeeds. */
-				if (operation_status == 0) {
+				/* A monitor notification failure must not bypass or suppress the PHY gate. */
+				if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status)) {
 					/* start DHCP daemon only when its event handler is verified */
 					operation_status = start_udhcpc_lan(lan_ifname);
 					if (operation_status != 0)

@@ -77,25 +77,27 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Repair the storage hotplug workflow's RC service-status test compile dependency.
+Fix the AP-mode LAN DHCP startup gate so the mandatory PHY settling result cannot be overwritten by an unrelated Internet-monitor notification.
 
-- Exact USB storage workflow run `44418388785` (production parent SHA `04c8a22d2b514bb6b41c01c3572fa370949c4fc6`) failed at `Compile and run RC service launch status regression`; the preceding storage stop regression passed. Its `service_start_status.c` now includes `optional_daemon_policy.h`, which includes shared `process_inventory.h`, but the storage workflow supplied only `-I trunk/user/rc/src`.
-- THIS COMMIT adds `-I trunk/user/shared/src` to that workflow's GNU89 test command and strengthens its inline source checker to assert the shared include and both workflow path filters for the policy/shared headers. Those header paths are already watched in push/PR filters.
-- Crond duplicate-start/UNKNOWN fail-closed and UDPXY/MSD Lite/IGMPproxy detached-readiness source integration are L2 CLOSED on current main through Process umbrella run `44419048581` PASS and AI docs `44419048640` PASS at exact SHA `b26b59b2175492567e2018a93bb41c78e1036bd0`. Dedicated crond suite `44417198647` and process inventory `44417198657` also passed on the source parent.
-- MentoHUST source `4f54d9f0b861091c884459bd178ab4b966439719` has exact XY-C1 Build/TRX/artifact PASS on run `44415470536`. In contrast, XY run `44418643024` on CI-only commit `aabe9a0c` passed host steps but skipped Build/TRX/artifact because no firmware input changed; IPTV source SHA `04c8a22d` still needs a future source-triggered L3 run.
+- Parent main SHA: `a2d0b74112b4002073015dccc5fca88f6ccd43ab`. The preceding storage CI-only repair is complete: exact USB storage run `44420519515` passed every step on that exact SHA, including the shared-header-dependent RC service-launch regression, firmware BusyBox ash Optware tests, and storage persistence/eject contracts.
+- `trunk/user/rc/src/net_lan.c::start_lan()` reused one `operation_status` for the mandatory one-second PHY settle wait and `notify_run_detect_internet(60)`. The latter overwrote the wait status before both the DHCP launch gate and first-error aggregation. This allowed a successful notification to mask a failed wait and incorrectly prevented DHCP when only the independent notification failed.
+- The new source slice keeps `phy_wait_status` separate, retains it in the caller's first-error result, and uses `rc_lan_ap_dhcp_start_allowed_after_phy_wait()` as the sole DHCP gate. Monitor status remains aggregated independently. Regression covers both cases: wait fails/monitor succeeds => no DHCP; wait succeeds/monitor fails => DHCP still launches while the notification error is returned.
+- Process and XY-C1 workflow path filters already include `net_lan.c`, `service_start_status.h` and `tests/service_start_status.c`; Process also runs the strengthened `scripts/check_process_lifecycle_integration.py`. No workflow was weakened or broadened.
+- The current validation target is the new main commit created directly on parent `a2d0b74112b4002073015dccc5fca88f6ccd43ab`. Fetch live main to identify the exact resulting SHA, then inspect its exact-head Process, AI docs and XY-C1 runs. The live ref/history is authoritative; do not create a follow-up commit merely to chase a self-referential SHA field.
 
 ## Verification boundary
 
-- L1: PASS for the storage workflow compile failure diagnosis; failing compile is a transitive shared-header include-path error, not a production source failure.
-- L2: USB storage exact run `44418388785` FAIL at the service-status compile on old include path; its preceding storage daemon stop policy test passed. THIS COMMIT repairs the include and adds source-contract assertions; exact-head rerun pending. Crond/IPTV Process L2 PASS on `b26b59b2` (run `44419048581`); AI docs `44419048640` PASS.
-- L3: MentoHUST exact source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is VERIFIED by XY-C1 run `44415470536` with Build, TRX and artifact all successful. Crond/IPTV L3 remains NOT VERIFIED: XY run `44418643024` succeeded in host tests but skipped Build/TRX/artifact due no firmware-input changes in that CI-only commit.
-- L4: target BusyBox service timing, live IPTV relay and physical XY-C1 router behavior remain NOT VERIFIED.
+- L1: PASS — code-path review confirmed the status overwrite and the two opposite failure modes.
+- L2: regression cases and source-order contract added; local execution NOT RUN because this session has GitHub connector access only. Exact-head Process and AI docs Actions must be checked on the resulting main SHA.
+- L3: `net_lan.c` is a firmware production input. XY-C1 Build, TRX verification and artifact upload are required on the exact new source SHA; PENDING until those steps finish.
+- L4: BusyBox target startup timing and physical-router LAN DHCP behavior remain NOT VERIFIED.
+- Storage handoff prerequisite: exact run `44420519515` on `a2d0b74112b4002073015dccc5fca88f6ccd43ab` is SUCCESS, all steps passed.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head USB storage regression run caused by THIS COMMIT; confirm the service-status GNU89 test compiles with both RC and shared include paths, and the full hotplug suite/source checker passes.
-2. Recheck XY-C1 Build/TRX/artifact after the next production-source commit that includes crond/IPTV changes; do not count host-only skipped Build as L3.
-3. Continue an independent source-level P1 whole-userland stability issue while any Action is pending; keep the immutable backup unchanged.
+1. Fetch live `main`, identify the source commit immediately after parent `a2d0b74112b4002073015dccc5fca88f6ccd43ab`, and inspect its exact-head Process lifecycle, AI handoff docs and XY-C1 workflow runs.
+2. Treat L2 as closed only when the service-start regression and strengthened source checker pass on that exact SHA; treat L3 as closed only when Build XY-C1, TRX verification and artifact upload all pass on that same SHA.
+3. Repair any exact-head failure without weakening path filters or test assertions, then continue the next independent P1 whole-userland stability issue. Keep the backup branch immutable.
 
 ## Mandatory handoff checkpoint
 

@@ -2038,6 +2038,30 @@ assert "Compile and run RC boot service status aggregation regression" in proces
 assert "Compile and run RC LAN restart first-error aggregation regression" in xy_workflow
 print("RC bridge STP and forward-delay result propagation: PASS")
 
+# AP-mode LAN DHCP launch must be gated by the required PHY settle wait only.
+# The independent Internet-monitor notification must neither mask a failed
+# wait nor prevent DHCP after a successful wait.
+ap_lan_start = c_function_body(lan_source, "start_lan(int is_ap_mode, int do_wait)")
+assert "int phy_wait_status = 0;" in ap_lan_start
+assert "phy_wait_status = service_wait_seconds(1);" in ap_lan_start
+assert "start_status = rc_first_service_start_status(start_status, phy_wait_status);" in ap_lan_start
+assert "operation_status = notify_run_detect_internet(60);" in ap_lan_start
+assert "if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status))" in ap_lan_start
+assert "if (operation_status == 0)" not in ap_lan_start
+assert ap_lan_start.index("phy_wait_status = service_wait_seconds(1);") < ap_lan_start.index(
+    "start_status = rc_first_service_start_status(start_status, phy_wait_status);"
+) < ap_lan_start.index("operation_status = notify_run_detect_internet(60);") < ap_lan_start.index(
+    "if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status))"
+)
+assert "rc_lan_ap_dhcp_start_allowed_after_phy_wait(int phy_wait_status)" in service_start_policy
+assert "test_ap_lan_dhcp_start_depends_on_phy_wait_not_monitor" in service_start_test
+assert "test_ap_lan_dhcp_start_depends_on_phy_wait_not_monitor();" in service_start_test
+assert '"trunk/user/rc/src/service_start_status.h"' in process_workflow
+assert '"trunk/user/rc/src/service_start_status.h"' in xy_workflow
+assert "Compile and run RC boot service status aggregation regression" in process_workflow
+assert "Compile and run RC LAN restart first-error aggregation regression" in xy_workflow
+print("AP LAN DHCP PHY wait gate is independent of Internet-monitor notification: PASS")
+
 # RCN_RESTART_SYSCTL must preserve the errno-style PPPoE relay postcondition.
 sysctl_common = (root / "trunk/user/rc/src/common_ex.c").read_text()
 sysctl_header = (root / "trunk/user/rc/src/rc.h").read_text()

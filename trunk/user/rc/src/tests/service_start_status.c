@@ -521,6 +521,35 @@ test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
 
 
 static void
+test_ap_lan_dhcp_start_depends_on_phy_wait_not_monitor(void)
+{
+	int phy_wait_status = ETIMEDOUT;
+	int monitor_status = 0;
+	int start_status = 0;
+	int launch_attempts = 0;
+
+	/* A successful monitor notification must not hide a failed PHY wait. */
+	start_status = rc_first_service_start_status(start_status, phy_wait_status);
+	start_status = rc_first_service_start_status(start_status, monitor_status);
+	if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status))
+		launch_attempts++;
+	assert(start_status == ETIMEDOUT);
+	assert(launch_attempts == 0);
+
+	/* A monitor failure is reported, but must not suppress a PHY-ready client. */
+	phy_wait_status = 0;
+	monitor_status = EIO;
+	start_status = 0;
+	launch_attempts = 0;
+	start_status = rc_first_service_start_status(start_status, phy_wait_status);
+	start_status = rc_first_service_start_status(start_status, monitor_status);
+	if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status))
+		launch_attempts++;
+	assert(start_status == EIO);
+	assert(launch_attempts == 1);
+}
+
+static void
 test_sysctl_pppoe_relay_failure_keeps_notification_pending(void)
 {
 	int restart_status = 0;
@@ -564,6 +593,7 @@ main(void)
 	test_usb_printer_launchers_preserve_first_failure_and_continue();
 	test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue();
 	test_bridge_parameters_are_both_attempted_and_first_error_survives();
+	test_ap_lan_dhcp_start_depends_on_phy_wait_not_monitor();
 	test_sysctl_pppoe_relay_failure_keeps_notification_pending();
 	test_storage_app_startup_preserves_first_failure_and_continues();
 	test_storage_event_remains_pending_after_failure();
