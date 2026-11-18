@@ -275,10 +275,18 @@ ordered(dns_start, [
 require('if stop_dns_proxy; then' in script and
         'if start_dns_proxy; then' in script,
         "router/GFW DNS startup must propagate cleanup and launch failures")
-require("ss_wait_named_process_started() {" in helper and
-        'case "$ss_start_state" in' in helper and
-        '*) return 2 ;;' in helper,
-        "DNS readiness must distinguish unknown process inventory from absence")
+named_wait_start = helper.index("ss_wait_named_process_started() {")
+named_wait_end = helper.index("\\n\\nss_process_pattern_state()", named_wait_start)
+named_wait = helper[named_wait_start:named_wait_end]
+pid_count_start = helper.index("ss_process_pid_count() {")
+pid_count_end = helper.index("\\n\\n# Wait for a newly launched process instance", pid_count_start)
+pid_count = helper[pid_count_start:pid_count_end]
+require('ss_wait_named_process_count "$1" 1 "$2"' in named_wait and
+        'if ss_count_pid_output=$(pidof "$ss_count_process_name"' in pid_count and
+        'case "$ss_count_pid_status" in' in pid_count and
+        '[ -z "$ss_count_pid_output" ] || return 2' in pid_count and
+        '*) return 2 ;;' in pid_count,
+        "DNS readiness must delegate to bounded count wait and distinguish ABSENT from UNKNOWN")
 require("DNS proxy child launch failure" in read("trunk/user/shadowsocks/tests/process_lifecycle.sh") and
         "DNS proxy unknown startup inventory" in read("trunk/user/shadowsocks/tests/process_lifecycle.sh"),
         "DNS readiness regression must cover child exit and unknown inventory")

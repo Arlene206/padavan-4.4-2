@@ -1,3 +1,12 @@
+## 2026-11-18 — Update DNS readiness contract after count-wait helper refactor
+
+- Exact-head `9204e82aa06efb3ef3a5fa774c1df4753328a315` Shadowsocks lifecycle workflow `44284758611`: shell syntax, startup status, production-linked process lifecycle and adblock publication regressions all PASS. The Python source checker failed because it still expected the old inline `ss_start_state` switch in `ss_wait_named_process_started()`, which now delegates to `ss_wait_named_process_count()`.
+- Update the source contract to assert the delegated bounded wait and the tri-state PID-count behavior directly: status 1 with empty output maps to zero; malformed output/other statuses remain UNKNOWN (2).
+- Exact-head AI handoff workflow `44284758515` PASS. The corrected checker has not yet been run; current XY-C1 run `44283616981` remains subject to exact Build/TRX/artifact verification.
+- No local full shell run, current firmware L3 or router L4 is claimed.
+
+---
+
 ## 2026-11-18 — Correct the bounded wait checker to match four actual loops
 
 - Parent 2f3b still failed the final Shadowsocks source contract because the checker expected seven `sleep 1 || return 2` occurrences. Direct helper inspection confirms exactly four wait loops: named/pattern shutdown and named/pattern PID-count startup. The checker already asserts shutdown wait bounds and both startup count-loop bounds individually.

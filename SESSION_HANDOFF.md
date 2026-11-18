@@ -10,6 +10,9 @@
 - Parent 2f3b changed the checker to expect seven guards, but exact-head Shadowsocks run `44284415648` still failed at that same aggregate assertion. Direct inspection of the checked-in helper shows exactly four bounded sleep sites: named shutdown, pattern shutdown, named PID-count startup, and pattern PID-count startup. The same assertion separately checks both shutdown limits and both startup count-loop bounds, so expected count four matches the four actual wait loops.
 - This atomic correction changes only the checker count from seven to four. The lifecycle shell regression itself passed on both cfbf and 2f3b; AI docs on 2f3b `44284415671` PASS.
 
+- Exact-head `9204e82...` Shadowsocks run `44284758611`: shell syntax, start status, process lifecycle runtime and adblock regression PASS; only the checker failed on an obsolete inline `ss_start_state` contract. This update checks the current wrapper delegation and ABSENT/UNKNOWN count semantics.
+- Exact-head AI handoff run `44284758515` PASS. Corrected checker Actions on the new SHA are pending.
+
 ## Verification boundary
 - No production source changes in this checker correction.
 - Exact-head Actions for this new SHA must be checked. cfbf XY-C1 `44283616981` was still IN_PROGRESS at last observation; no current-source L3 claim. No physical-router L4.
