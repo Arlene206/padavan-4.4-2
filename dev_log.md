@@ -1,3 +1,11 @@
+## 2026-11-18 — Make native DHCPv6 readiness wait EINTR-safe and fail closed
+
+- Parent main: `34cdc9e12ce6d782da38340e5a98426e38122b5c`. Review of WAN/IPv6 startup found the remaining raw `sleep(2)` between native IPv6 RA/autoconf setup and launching `dhcp6c`.
+- Because the return/remaining time from `sleep()` was ignored, an interrupt could shorten this mandatory settle period yet still launch DHCPv6. Replace it with the already-tested `service_wait_seconds(2)`; on failure preserve errno or EIO and enter existing native rollback before `dhcp6_start_attempted` is set. Add exact workflow source contracts for the helper, errno fallback, rollback path and wait-before-launch ordering; register the shared wait header/test paths in WAN-route triggers.
+- THIS COMMIT changes production `net_wan6.c`, WAN-route verification and continuity docs. Shared wait unit cases cover EINTR retry/hard errors; exact-head WAN-route and XY-C1 Build/TRX/artifact are required. No local test or L4 claim.
+ 
+---
+
 ## 2026-11-18 — Align remaining RC daemon startup wait assertions
 
 - Parent main: `a0e5fe46e279e9356272ca2d1972a5a6e2309398`. Process run `44324115817` on `83205473630449515d6b4c475c4f017adfcd246c` passed LLTD/rstats detached-start postconditions, IAPPD status and optional daemon guards, then failed because the shared process checker still expected raw sleep in `start_telnetd()`.

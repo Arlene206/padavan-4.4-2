@@ -36,6 +36,7 @@
 #include "dhcp6c_config_file.h"
 #include "wan6_dns_policy.h"
 #include "dhcp6c_callback_generation_policy.h"
+#include "service_wait_policy.h"
 
 #if defined (USE_IPV6)
 
@@ -726,8 +727,13 @@ int wan6_up(char *wan_ifname, int unit)
 		WAN6_NATIVE_CHECK(control_if_ipv6_radv(wan_ifname, 1),
 				  "enable native DHCPv6 router advertisements");
 
-		/* Wait for the interface to become ready before launching dhcp6c. */
-		sleep(2);
+		/* Complete the full readiness interval even when a signal interrupts it. */
+		if (service_wait_seconds(2) != 0) {
+			status = errno > 0 ? errno : EIO;
+			errno = status;
+			failure = "wait for native DHCPv6 interface readiness";
+			goto native_failed;
+		}
 		dhcp6_start_attempted = 1;
 		WAN6_NATIVE_CHECK(start_dhcp6c(wan_ifname),
 				  "start native DHCPv6 client");

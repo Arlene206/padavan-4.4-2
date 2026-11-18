@@ -739,6 +739,8 @@ jobs:
               "trunk/user/rc/src/tests/ipv6_restart_policy.c",
               "trunk/user/rc/src/service_start_status.h",
               "trunk/user/rc/src/net_wan6.c",
+              "trunk/user/rc/src/service_wait_policy.h",
+              "trunk/user/rc/src/tests/service_wait_policy.c",
               "trunk/user/rc/src/wan6_teardown_policy.h",
               "trunk/user/rc/src/tests/wan6_teardown_policy.c",
               "trunk/user/rc/src/net_ppp.c",
@@ -832,6 +834,20 @@ jobs:
               "IPv6 restart runtime-mode commit policy: PASS",
           ):
               assert marker in ipv6_test, marker
+
+          wan6_up = body(wan6, "int wan6_up(char *wan_ifname, int unit)")
+          native_dhcp6 = wan6_up.split("} else if (ipv6_type == IPV6_NATIVE_DHCP6) {", 1)[1].split("} else {", 1)[0]
+          assert '#include "service_wait_policy.h"' in wan6
+          assert "if (service_wait_seconds(2) != 0)" in native_dhcp6
+          assert "status = errno > 0 ? errno : EIO;" in native_dhcp6
+          assert "errno = status;" in native_dhcp6
+          assert 'failure = "wait for native DHCPv6 interface readiness";' in native_dhcp6
+          assert "goto native_failed;" in native_dhcp6
+          wait_at = native_dhcp6.index("service_wait_seconds(2)")
+          attempted_at = native_dhcp6.index("dhcp6_start_attempted = 1;")
+          start_at = native_dhcp6.index("start_dhcp6c(wan_ifname)")
+          assert wait_at < attempted_at < start_at
+          assert "sleep(2);" not in native_dhcp6
 
           wan6_down = body(wan6, "int wan6_down(char *wan_ifname, int unit)")
           assert '#include "wan6_teardown_policy.h"' in wan6

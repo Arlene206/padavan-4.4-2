@@ -1,9 +1,8 @@
 # 2026-11-18 latest source checkpoint
 
-- Live main before THIS COMMIT: `a0e5fe46e279e9356272ca2d1972a5a6e2309398`. Recent product changes include EINTR-safe WAN/PPP/NFSd settling, RC daemon retry wait scoping and logger startup wait handling. THIS COMMIT is checker-only.
-- WAN callback `44323940802` on `9cd6446` PASS; AI handoff docs `44323940948` PASS.
-- Process run `44324115817` on `8320547` passed LLTD/rstats, IAPPD and optional daemon checks, then exposed the next stale direct-sleep assertion in telnetd. Current telnetd/ttyd/syslogd/klogd source uses `service_start_probe_wait()`; THIS COMMIT aligns the duplicated ordering checks. Process inventory `44324115721` PASS.
-- On `a0e5fe4`, gateway ARP, ZeroTier, Crond, DNS Forwarder, PID 1 queue, Networkmap, DDNSTO, watchdog, HTTPD daemon, detect_internet, AliDDNS, infosvr and GPIO workflows PASS; XY-C1/NVRAM and selected module workflows were pending. Latest WAN/RC source L3 remains pending.
+- Live main before THIS COMMIT: `34cdc9e12ce6d782da38340e5a98426e38122b5c`. Latest reliability changes include EINTR-safe WAN DHCP/PPP and PPPoE relay waits, NFSd settling, RC detached-process probes and logger startup status aggregation. THIS COMMIT extends the wait/error contract to native DHCPv6 setup.
+- Native IPv6 DHCP startup had an unchecked `sleep(2)` after RA/autoconf changes; interrupted waits could launch dhcp6c too early. THIS COMMIT uses `service_wait_seconds(2)` and rolls back IPv6 setup on a hard wait error before starting DHCPv6. WAN-route checker now pins error handling and launch ordering.
+- Previous WAN callback exact-head `44323940802` and AI docs `44323940948` on `9cd6446` PASS. Process `44324719773` on `592c0fd` and the newer main `34cdc9e` module Actions were pending at last poll; exact current Build/TRX/artifact is not yet verified.
 ## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.

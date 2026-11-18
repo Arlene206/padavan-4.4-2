@@ -1,30 +1,29 @@
-# 2026-11-18 continuation checkpoint — daemon startup wait contract alignment
+# 2026-11-18 continuation checkpoint — native DHCPv6 EINTR-safe readiness gate
 
 ## Current repository state
-- Repository `Arlene206/padavan-4.4-2`, branch `main`. Live main immediately before this checkpoint: `a0e5fe46e279e9356272ca2d1972a5a6e2309398`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 stays closed/unmerged; AliDDNS CA/HMAC/bootstrap work has already landed in main. Do not touch the backup, PR #1, or GPT Session Rotator.
-- Recent product work: SmartDNS managed DNSMasq preservation (`9bb9fda`), WAN/PPP EINTR-safe settling waits (`e0c8269`), NFSd settling wait (`90cce742`), daemon retry-wait scoping/bracing (`8320547`) and logger startup settling-wait policy (`a0e5fe4`).
+- Repository `Arlene206/padavan-4.4-2`, branch `main`. Live main immediately before this checkpoint: `34cdc9e12ce6d782da38340e5a98426e38122b5c`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged. Do not mutate the backup, PR #1 or GPT Session Rotator.
+- Recent production work includes EINTR-safe WAN DHCP/PPP settling, NFSd restart waits, RC detached-daemon readiness checks, logger wait/error aggregation, and PPPoE relay readiness. Main also includes a current process-checker follow-up (`592c0fd`).
 
 ## Active task
-- Complete source-contract updates after the RC daemon startup functions migrated from direct `sleep()` to `service_start_probe_wait()`.
-- Exact Process run `44324115817` on `83205473630449515d6b4c475c4f017adfcd246c`: LLTD/rstats detached-start contract now PASSED after the previous checker fix, but the next assertion failed because `telnetd_start.index("sleep(PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);")` still expected raw sleep. Current `start_telnetd()` and `start_ttyd()` already use `service_start_probe_wait("telnetd"/"ttyd", ...)`; current `start_syslogd()` and `start_klogd()` likewise use the shared helper. THIS COMMIT changes the duplicated initial-wait ordering assertions for all four functions to their actual helper call, retaining the ordering before bounded process-inventory probes.
-- Current head `a0e5fe4` also adds a tested logger startup policy and closes braces around conditional retry waits in multiple RC daemons. Those source changes are not altered by THIS COMMIT.
+- Fix an unhandled interruptible delay in native DHCPv6 setup. In `trunk/user/rc/src/net_wan6.c::wan6_up()`, after route, privacy, autoconfiguration and RA setup, DHCPv6 launch was preceded by raw `sleep(2)` whose remaining time/result was ignored. A signal could shorten the settle interval and still launch `dhcp6c` before the interface readiness window completed.
+- THIS COMMIT replaces the raw sleep with tested `service_wait_seconds(2)`. Any non-EINTR wait failure captures errno (or EIO), preserves errno, and jumps to the existing `native_failed` rollback path before marking DHCPv6 start attempted or launching the client. The existing shared wait regression covers EINTR retry and hard errors; the WAN route workflow now pins the wait/failure gate and launch ordering.
+- This is a source-level reliability fix; it retains the existing cleanup order and no DHCPv6 runtime result is assumed.
 
 ## Verification boundary
-- WAN DHCP callback run `44323940802` on exact SHA `9cd644625e403a4b546d2be2478ba6e3c8c66081`: PASS after both stale DHCP settle assertions were aligned with the shared EINTR-safe `service_wait_seconds(2)` helper.
-- AI handoff documentation run `44323940948` on `9cd6446`: PASS.
-- Process run `44324115817` on `8320547`: FAIL only at the next stale telnetd initial-wait assertion. It printed PASS for the prior LLTD/rstats contracts, IAPPD status propagation and optional RC daemon feature guards. Process inventory run `44324115721` on the same SHA: PASS.
-- On `a0e5fe46e279e9356272ca2d1972a5a6e2309398`, the gateway ARP, ZeroTier, Crond, DNS Forwarder launch path, PID 1 notification, Networkmap, DDNSTO, watchdog signal, HTTPD daemon, detect_internet, AliDDNS signed transport, infosvr packet/signal and GPIO daemon workflows passed; the XY-C1 build, NVRAM audit and remaining module workflows were in progress at last poll.
-- XY-C1 run `44322760659` on `90cce742` was still in progress at last poll. SmartDNS L3 is proven only for exact product SHA `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c` (Build/TRX/artifact all PASS). The latest WAN/RC source has not yet been confirmed by a successful XY-C1 build. Target BusyBox/uClibc runtime and physical-router L4 remain NOT VERIFIED.
-- No local repository checkout or local tests were available; do not claim them.
+- The prior current head before THIS COMMIT was `34cdc9e12ce6d782da38340e5a98426e38122b5c`. Its PPPoE relay update changed the relay readiness wait to `service_wait_seconds(1)` with error propagation, and updated the Process source contract.
+- Process lifecycle run `44324719773` on `592c0fd` was still running at the previous poll. The new main head `34cdc9e` had Process inventory `44324943589`, Process regression `44324943624`, WAN route `44324943404`, firewall startup `44324943654`, USB storage `44324943687`, HTTPD `44324943429`, NVRAM `44324943786` and XY-C1 `44324943401` pending/in progress at last poll.
+- WAN DHCP callback `44323940802` and AI handoff docs `44323940948` on `9cd6446` PASS.
+- SmartDNS exact production SHA `9bb9fdaeff826c957b599cc45e695eb3fb8cd32c` has XY-C1 Build/TRX/artifact PASS; no current net_wan6 source SHA build is yet verified. Physical BusyBox/uClibc runtime, live IPv6/DHCPv6 traffic and L4 remain NOT VERIFIED.
+- No local checkout-based tests were run in this connector-only session.
 
 ## Exact first action for the next GPT
-1. Fetch current main and all exact-head Actions. Inspect the Process regression created by THIS COMMIT, plus the XY-C1 build/NVRAM/module results for `a0e5fe4`.
-2. If Process still fails, follow the next first failing line and compare the asserted contract with current source. Do not weaken runtime behavior contracts.
-3. Continue the P1 WAN/firewall and broader userland stability backlog in the roadmap after shared startup-wait checks are green.
+1. Fetch live main and exact-head Actions; inspect the new WAN-route regression and XY-C1 build for THIS COMMIT. Verify the DHCPv6 source-contract passes and the full Build/TRX/artifact chain on the exact product SHA before any L3 claim.
+2. Inspect Process inventory/fail-closed runs from the preceding RC wait work; follow any next failure to its source/contract cause.
+3. Continue P1 WAN/firewall and other userland stability work only where a concrete gap remains; keep physical-router L4 explicitly separate.
 
 ## Mandatory handoff checkpoint
-The checkpoint is mandatory; a document edit is conditional. Every session MUST compare live main and exact-head Actions before ending. Leave this handoff unchanged if the task and verification boundary remain accurate.
+The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live main and exact-head Actions before ending. Leave this handoff unchanged if task, verification boundary and next action remain current.
 
 ## Cross-session execution mandate
-One logical slice is one atomic main commit. Create a complete tree from the exact live parent, then update main non-forced with expected-SHA compare-and-swap. Continue independent work while Actions are pending. Before context exhaustion, leave the next GPT exact first action, SHA, test evidence and CI status. Never claim unobserved local tests, MIPS builds or physical-router validation.
+One logical slice is one atomic main commit. Use the exact live tree, create a complete commit, and update main through non-forced expected-SHA compare-and-swap. Continue independent work while Actions are pending. Before context exhaustion, record precise next task, SHA, test results and CI status. Never claim unobserved local tests, firmware or physical-device validation.
