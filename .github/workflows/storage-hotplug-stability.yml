@@ -1052,7 +1052,8 @@ jobs:
           stop_abort = safe_remove.index("goto out;", rollback_gate)
           cleanup = safe_remove.index("out:", stop_abort)
           assert stop_gate < rollback_gate < stop_abort < safe_remove.index("umount_stor_path_range(") < cleanup
-          assert "saved_errno = errno ? errno : EIO;" in safe_remove[rollback_gate:stop_abort]
+          assert safe_remove.index("saved_errno = errno ? errno : EIO;", stop_gate) < rollback_gate
+          assert "saved_errno = errno ? errno : EIO;" in safe_remove[stop_gate:stop_abort]
           assert "free_disk_data(disks_info);" in safe_remove[cleanup:]
           assert "file_unlock(storage_lock);" in safe_remove[cleanup:]
           assert "errno = saved_errno ? saved_errno : EIO;" in safe_remove[cleanup:]

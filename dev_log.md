@@ -1,3 +1,12 @@
+## 2026-11-19 — Align safe-remove errno capture contract with rollback ordering
+
+- Product-source baseline remains `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf`; no production source changes are included in this checker repair. `safe_remove_stor_device()` captures the stop failure's errno before attempting storage-service rollback, then aborts without unmounting if stop/rollback cannot be completed.
+- Exact XY-C1 run `44530185559` passed Build XY-C1, TRX verification and artifact upload on the product-source SHA (L3). HTTPD security `44530598102` and AI handoff docs `44530598334` passed on test-only SHA `46b273f46dfc92e1dc2b3229772ae7f8858a90c3`.
+- The storage caller-graph Action `44531837841` on `e1712996e052b6f5e161dc510dbe5f9ab77f19e4` passed earlier storage regressions and the corrected cleanup-order assertion, then failed because its errno check looked only after the rollback call; production correctly saves errno before rollback. THIS COMMIT checks that capture occurs before rollback and that the captured status remains within the abort branch.
+- Exact-head storage and documentation reruns are pending. No local checkout/runtime tests were available in this connector-only session; storage L2 remains pending until the exact workflow passes. Product L3 is verified at `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf`; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Verify storage swap-file eject fix and restore end-of-session handoff gate
 
 - Exact storage-hotplug Action `44526279751` PASS on `5adde0e864e7ea9db88b7c352fb04d048fc8ce6f`. Every step passed: strict storage-eject GNU89 policy regression, BusyBox 1.24.2 build and ash lifecycle tests, and final source/caller/persistence gates. The new swap-file detection and `swapoff(path)` path has host L2 evidence.

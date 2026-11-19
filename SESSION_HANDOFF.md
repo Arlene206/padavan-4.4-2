@@ -10,10 +10,10 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development branch `main`.
-- Current main/source checkpoint: `5adde0e864e7ea9db88b7c352fb04d048fc8ce6f`. This SHA includes the physical-unplug swap-file swapoff fix. Storage-hotplug Action `44526279751` PASS; same-SHA XY-C1 `44526279408` is still in progress at Build. The AI handoff doc Action `44526279501` exposed missing mandatory checkpoint wording, corrected in the next atomic docs commit.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- No local checkout is available in this connector-only environment. Exact GitHub Actions are the host/target validation source.
+- Repository `Arlene206/padavan-4.4-2`; all development remains on `main`. Product-source checkpoint: `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf`; latest observed main before this commit was `e1712996e052b6f5e161dc510dbe5f9ab77f19e4`, containing regression-contract-only follow-ups after the product source SHA.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged; its relevant AliDDNS HMAC/CA-bootstrap work is already present on main. No other development branch is permitted.
+- Exact XY-C1 run `44530185559` passed Build, TRX verification and artifact upload on product-source SHA `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf` (L3).
+- The active regression issue is the embedded storage caller-graph contract. Run `44531837841` on main `e1712996e052b6f5e161dc510dbe5f9ab77f19e4` failed because its errno assertion looked after rollback although production captures errno before rollback. THIS COMMIT repairs only that assertion; production code is unchanged.
 
 ## Latest active source slices — 2026-11-19
 
@@ -39,6 +39,14 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - Current source commit: `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`.
 - `zcip_viptv_main()` called `strlen(safe_getenv("interface"))` without protecting against a NULL environment value. It now uses the existing NULL/empty-safe DHCP interface guard, and the WAN callback workflow includes this fourth udhcpc/zcip entrypoint in its source contract.
 - Exact WAN DHCP callback `44510842900`, Process fail-closed `44510842966`, Process inventory `44510842982`, and AI handoff docs `44510843038` PASS on b7. XY-C1 `44510842879` was IN_PROGRESS at Build on the latest poll; current-main L3 is therefore pending.
+
+### Storage targeted safe removal
+
+- Product-source sequence: `136b4eafb837bbbd6943cb54ce4094130be28d28` rejects malformed swap inventories; `cf8e19950d61c9ba4ba5e5fe26b39c95a1dd4a10` propagates targeted eject outcomes; `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf` defaults the result to failure before the checked disk-inventory gate.
+- Exact XY-C1 run `44530185559` on `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf` passed Build, TRX verification and firmware artifact upload (L3).
+- HTTPD source-contract follow-up `46b273f46dfc92e1dc2b3229772ae7f8858a90c3`: exact HTTPD `44530598102` and AI docs `44530598334` PASS.
+- Storage caller-graph run `44531837841` on `e1712996e052b6f5e161dc510dbe5f9ab77f19e4` passed the corrected cleanup ordering assertion but failed at the errno assertion because it searched only after rollback. Production saves the errno before calling rollback. THIS COMMIT places that assertion at the correct side of the rollback boundary; exact reruns are pending.
+- No local checkout/test execution is available here. L2 remains open until storage-hotplug passes on the new exact SHA; product L3 remains verified on `25bc8c1`; physical-router L4 is NOT VERIFIED.
 
 ## Completed recent slices
 
@@ -119,12 +127,12 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Verification boundary
 
-- Current main source/checkpoint SHA: `5adde0e864e7ea9db88b7c352fb04d048fc8ce6f`.
-- Storage physical-unplug swap-file fix: exact storage-hotplug Action `44526279751` PASS on 5adde. All steps passed, including GNU89 eject inventory, sanitizer and source contracts, BusyBox 1.24.2 ash lifecycle regressions, and final safe-remove/persistence gates. Host L2 is verified.
-- Same-SHA XY-C1 run `44526279408` is still IN_PROGRESS at Build XY-C1. All preceding host checks passed; Build, TRX output verification and artifact upload are not yet complete. Do not claim storage L3.
-- AI handoff documentation Action `44526279501` FAILED because the previous handoff edit had dropped its mandatory end-of-session checkpoint section. This commit restores the required section and cross-session mandate verbatim; the new exact-head docs Action must pass.
-- ZeroTier host L2: exact run `44522534088` PASS on `d6acda494876c87e413939689ed3cd058b7f7fa6`; same-source firmware L3 and physical L4 remain unverified.
-- RStats source SHA `3523bb9f27ba33065731abcd946ae11726d04470`: host run `44519760957` and same-SHA XY-C1 `44519760903` Build/TRX/artifact all PASS (L3 VERIFIED).
+- Product-source baseline: `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf`. Subsequent main commits `46b273f46dfc92e1dc2b3229772ae7f8858a90c3`, `4f646662d185029c56eee922b824546bb43d0a33`, and `e1712996e052b6f5e161dc510dbe5f9ab77f19e4` change regression source contracts only.
+- XY-C1 run `44530185559` on the exact product-source SHA passed Build XY-C1, TRX output verification and artifact upload (L3).
+- HTTPD security run `44530598102` and AI docs run `44530598334` passed on `46b273f46dfc92e1dc2b3229772ae7f8858a90c3`.
+- Storage-hotplug run `44531837841` failed on `e1712996e052b6f5e161dc510dbe5f9ab77f19e4` because the embedded errno assertion searched after rollback rather than before it; its preceding storage regressions and the corrected cleanup-order assertion passed. THIS COMMIT repairs that source contract. Exact reruns are pending.
+- Process lifecycle `44530185696`, Process inventory `44530185605`, NFS `44530185824`, USB modem `44530185594`, vsftpd `44530185508`, Firewall `44530185500`, and Samba `44530185523` passed on the product-source SHA.
+- No local checkout/runtime tests were available in the connector-only session. Do not infer L2 storage completion while the caller-graph gate is red. Physical-router L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Retained historical verification details
@@ -136,16 +144,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Continue on `main` only. Parent for this production fix: `9e71646ab80473493a9f0caddc763cb624ca3c81`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` is immutable. PR #1 remains closed/unmerged.
-- Fixed a concrete physical-unplug gap: active swap files on removable mountpoints were discarded because staging accepted only raw `/dev/sd*` and `/dev/mmcblk*` swap entries. The stale mount stayed busy because cleanup never invoked `swapoff()` for the file. The new code stages absolute non-`/dev` swap paths, matches them to stale removable mountpoints with component and traversal guards, and disables each affected swap file before unmount.
-- Added GNU89 host policy cases and production source-contract assertions. Exact storage-hotplug CI is pending; no local test claim and no storage L2/L3/L4 claim yet.
-- ZeroTier L2 is verified on d6acda by `44522534088`; RStats L3 is verified on `3523bb9` by host `44519760957` and same-SHA XY-C1 `44519760903`.
+- Continue on `main` only. Product-source baseline is `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf`; do not touch the frozen backup at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Targeted safe removal in `trunk/user/rc/src/services_stor.c::safe_remove_stor_device()` obtains a complete disk inventory, preserves the first failure status, refuses success on early abort, and defaults `result` to `-1`. Exact product-source XY-C1 Build/TRX/artifact is verified by run `44530185559`.
+- The remaining active change is checker-only: the storage caller-graph contract in `.github/workflows/storage-hotplug-stability.yml` must assert that the stop error is captured before service rollback, rollback precedes abort, and no unmount occurs on that failure path. It also retains the fail-closed result/cleanup checks. THIS COMMIT updates the errno assertion without changing production code or weakening coverage.
+- Exact storage run `44531837841` on parent `e1712996e052b6f5e161dc510dbe5f9ab77f19e4` failed at that errno assertion after prior storage checks passed; exact rerun is required. HTTPD is green on `46b273f46dfc92e1dc2b3229772ae7f8858a90c3`.
 
 ## Exact first action for the next GPT
 
-1. Check the new AI handoff documentation Action for this checkpoint restoration and confirm it passes.
-2. Poll exact same-SHA XY-C1 run `44526279408`; inspect Build XY-C1, TRX output verification and artifact upload. Claim storage L3 only if all three pass on `5adde0e864e7ea9db88b7c352fb04d048fc8ce6f`.
-3. If Build is pending, continue an independent P1/P2 cross-userland reliability/security task rather than waiting. Use complete-tree atomic commits and non-forced exact-parent CAS; never modify the frozen backup.
+1. Fetch this commit's exact-head push Actions. Confirm storage-hotplug and AI handoff documentation both PASS. Inspect and repair the first real failure if either is red.
+2. Keep the product-source baseline at `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf`; its XY-C1 Build/TRX/artifact run `44530185559` already passed and should not be repeated for this checker-only change.
+3. Once storage L2 closes, move to the highest-risk unfinished P1/P2 issue in another userland subsystem from the roadmap, not another storage checker rewrite.
 
 ## Mandatory handoff checkpoint
 
