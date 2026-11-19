@@ -1,3 +1,14 @@
+## 2026-11-19 — Propagate VPN-client callback route failures
+
+- Parent main SHA: 79422b3cc31fea82dd5905720e1f31b9ea037bec.
+- L1 found both VPN-client PPP callback route helpers were void and discarded every route_add()/route_del() result. ip-up therefore returned success and set the connected state even when configured split-default or remote-LAN routes failed; with vpnc_dgw enabled, a missing half of the two /1 routes can cause traffic to use the ordinary WAN route instead of the VPN. ip-down also hid failures to remove stale callback routes.
+- Convert both helpers to return status, validate required callback interface/peer values only when the corresponding route is configured, normalize route-add EEXIST and route-delete ESRCH (already absent) as idempotent success, and preserve other errors. Both callback handlers attempt all independent route operations and return the first failure; optional up/down scripts also have their execution result preserved.
+- Extend the existing route-status policy tests for idempotent delete and errors; extend the existing WAN route-status workflow with VPN-client source assertions and push/PR path coverage. No new workflow was added.
+- Parent wireless iNIC monitor status source SHA 41c2382d45e0496fdd336fc09bc2873d9216d553 is in exact XY-C1 Build; it requires the result to be polled. Current head before this change is test-only correction 79422b3cc31fea82dd5905720e1f31b9ea037bec.
+- No local shell/C test or MIPS build was run. Exact-head WAN route status, AI docs, Process and XY-C1 checks required. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Update wireless iNIC source contract for captured startup status
 
 - Parent main SHA: 41c2382d45e0496fdd336fc09bc2873d9216d553.

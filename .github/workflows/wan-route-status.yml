@@ -71,6 +71,7 @@ on:
       - "trunk/user/rc/src/wan_route_flush_policy.h"
       - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
       - "trunk/user/rc/src/tests/route_status_policy.c"
+      - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/zerotier/zerotier.sh"
       - "trunk/user/zerotier/tests/zerotier_lifecycle.sh"
@@ -370,6 +371,7 @@ jobs:
           notify_api_source = Path("trunk/user/shared/src/notify_rc.c").read_text()
           notify_api_header = Path("trunk/user/shared/src/notify_rc.h").read_text()
           ppp = (rc / "net_ppp.c").read_text()
+          vpn_client = (rc / "vpn_client.c").read_text()
           wan6 = (rc / "net_wan6.c").read_text()
           net6 = (rc / "net6.c").read_text()
           rc_source = (rc / "rc.c").read_text()
@@ -726,6 +728,31 @@ jobs:
           assert "int preset_wan_ppp_routes(char *ppp_ifname, int unit);" in header
           assert "void preset_wan_ppp_routes(char *ppp_ifname, int unit);" not in header
 
+          assert '#include "route_status_policy.h"' in vpn_client
+          vpnc_default = body(vpn_client, "vpnc_route_dgw(")
+          assert "static int" + chr(10) + "vpnc_route_dgw(" in vpn_client
+          assert 'if (!nvram_match("vpnc_dgw", "1"))' in vpnc_default
+          assert "route_status_idempotent_add(route_status)" in vpnc_default
+          assert "route_status_idempotent_delete(route_status)" in vpnc_default
+          assert vpnc_default.count("route_status_accumulate(status, route_status)") == 2
+          assert "return status;" in vpnc_default
+          vpnc_remote = body(vpn_client, "vpnc_route_to_remote_lan(")
+          assert "route_status_idempotent_add(route_status)" in vpnc_remote
+          assert "route_status_idempotent_delete(route_status)" in vpnc_remote
+          assert "return route_status;" in vpnc_remote
+          vpnc_up = body(vpn_client, "ipup_vpnc_main(")
+          for call in ("vpnc_route_to_remote_lan(ifname, gw, 1)", "vpnc_route_dgw(ifname, gw, 1)"):
+              assert "route_status = " + call + ";" in vpnc_up
+              assert "route_status_accumulate(status, route_status)" in vpnc_up
+          assert "return status;" in vpnc_up
+          vpnc_down = body(vpn_client, "ipdown_vpnc_main(")
+          for call in ("vpnc_route_dgw(ifname, gw, 0)", "vpnc_route_to_remote_lan(ifname, gw, 0)"):
+              assert "route_status = " + call + ";" in vpnc_down
+              assert "route_status_accumulate(status, route_status)" in vpnc_down
+          assert "return status;" in vpnc_down
+          assert "route_status_idempotent_delete(ESRCH) == 0" in route_status_test
+          assert "route_status_idempotent_delete(EIO) == EIO" in route_status_test
+
           demand_wait = body(wan, "wait_ppp_up(char *ppp_ifname, int unit)")
           preset_call = demand_wait.index("route_status = preset_wan_ppp_routes(ppp_ifname, unit);")
           ready_gate = demand_wait.index("if (!route_status_demand_ready(route_status))")
@@ -825,6 +852,7 @@ jobs:
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/route_status_policy.h",
               "trunk/user/rc/src/tests/route_status_policy.c",
+              "trunk/user/rc/src/vpn_client.c",
               "trunk/user/rc/src/wan_route_flush_policy.h",
               "trunk/user/rc/src/tests/wan_route_flush_policy.c",
               "trunk/user/rc/src/wan_resolver_refresh_policy.h",

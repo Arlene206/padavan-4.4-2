@@ -30,6 +30,7 @@
 #include <process_inventory.h>
 #include "process_presence_start_policy.h"
 #include "vpn_client_restart_policy.h"
+#include "route_status_policy.h"
 #include "ppp_options_file.h"
 #include "vpn_server_lifecycle_lock.h"
 
@@ -531,43 +532,75 @@ restore_dns_from_vpnc(void)
 	}
 }
 
-static void
+static int
 vpnc_route_dgw(char *ifname, char *gw, int add)
 {
-	if (nvram_match("vpnc_dgw", "1")) {
-		if (strlen(ifname) > 0 && gw) {
-			if (add) {
-				route_add(ifname, 0, "0.0.0.0", gw, "128.0.0.0");
-				route_add(ifname, 0, "128.0.0.0", gw, "128.0.0.0");
-			} else {
-				route_del(ifname, 0, "0.0.0.0", gw, "128.0.0.0");
-				route_del(ifname, 0, "128.0.0.0", gw, "128.0.0.0");
-			}
-		}
-	}
+	int status = 0, route_status;
+
+	if (!nvram_match("vpnc_dgw", "1"))
+		return 0;
+	if (!ifname || !ifname[0] || !gw || !gw[0])
+		return EINVAL;
+
+	route_status = add ?
+		route_add(ifname, 0, "0.0.0.0", gw, "128.0.0.0") :
+		route_del(ifname, 0, "0.0.0.0", gw, "128.0.0.0");
+	if (add)
+		route_status = route_status_idempotent_add(route_status);
+	else
+		route_status = route_status_idempotent_delete(route_status);
+	if (route_status != 0)
+		logmessage(VPNC_LOG_NAME, "default VPN route %s failed on %s (status=%d)",
+			   add ? "add" : "delete", ifname, route_status);
+	status = route_status_accumulate(status, route_status);
+
+	route_status = add ?
+		route_add(ifname, 0, "128.0.0.0", gw, "128.0.0.0") :
+		route_del(ifname, 0, "128.0.0.0", gw, "128.0.0.0");
+	if (add)
+		route_status = route_status_idempotent_add(route_status);
+	else
+		route_status = route_status_idempotent_delete(route_status);
+	if (route_status != 0)
+		logmessage(VPNC_LOG_NAME, "upper-half VPN route %s failed on %s (status=%d)",
+			   add ? "add" : "delete", ifname, route_status);
+	status = route_status_accumulate(status, route_status);
+
+	return status;
 }
 
-static void
+static int
 vpnc_route_to_remote_lan(char *ifname, char *gw, int add)
 {
 	char *rnet = nvram_safe_get("vpnc_rnet");
 	char *rmsk = nvram_safe_get("vpnc_rmsk");
+	char *lnet = nvram_safe_get("lan_ipaddr");
+	char *lmsk = nvram_safe_get("lan_netmask");
+	int route_status;
 
-	if (is_valid_ipv4(rnet) && is_valid_ipv4(rmsk)) {
-		char *lnet = nvram_safe_get("lan_ipaddr");
-		char *lmsk = nvram_safe_get("lan_netmask");
-		if (strlen(ifname) > 0 && !is_same_subnet2(rnet, lnet, rmsk, lmsk)) {
-			if (add)
-				route_add(ifname, 0, rnet, gw, rmsk);
-			else
-				route_del(ifname, 0, rnet, gw, rmsk);
-		}
-	}
+	if (!is_valid_ipv4(rnet) || !is_valid_ipv4(rmsk) ||
+	    is_same_subnet2(rnet, lnet, rmsk, lmsk))
+		return 0;
+	if (!ifname || !ifname[0] || !gw || !gw[0])
+		return EINVAL;
+
+	route_status = add ?
+		route_add(ifname, 0, rnet, gw, rmsk) :
+		route_del(ifname, 0, rnet, gw, rmsk);
+	if (add)
+		route_status = route_status_idempotent_add(route_status);
+	else
+		route_status = route_status_idempotent_delete(route_status);
+	if (route_status != 0)
+		logmessage(VPNC_LOG_NAME, "remote-LAN VPN route %s failed on %s (status=%d)",
+			   add ? "add" : "delete", ifname, route_status);
+	return route_status;
 }
 
 int
 ipup_vpnc_main(int argc, char **argv)
 {
+	int status = 0, route_status;
 	char buf[256];
 	char *script_name = VPN_CLIENT_UPDOWN_SCRIPT;
 	char *ifname = safe_getenv("IFNAME");
@@ -575,8 +608,10 @@ ipup_vpnc_main(int argc, char **argv)
 
 	umask(0000);
 
-	vpnc_route_to_remote_lan(ifname, gw, 1);
-	vpnc_route_dgw(ifname, gw, 1);
+	route_status = vpnc_route_to_remote_lan(ifname, gw, 1);
+	status = route_status_accumulate(status, route_status);
+	route_status = vpnc_route_dgw(ifname, gw, 1);
+	status = route_status_accumulate(status, route_status);
 
 	set_vpn_balancing(ifname, 0);
 
@@ -600,31 +635,42 @@ ipup_vpnc_main(int argc, char **argv)
 	if (strlen(buf) > 0)
 		refresh_resolvconf_nonfatal("VPN client DNS update", 0);
 
-	if (check_if_file_exist(script_name))
-		doSystem("%s %s", script_name, "up");
+	if (check_if_file_exist(script_name)) {
+		route_status = doSystem("%s %s", script_name, "up");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(VPNC_LOG_NAME, "VPN client up hook failed (status=%d)", route_status);
+	}
 
-	return 0;
+	return status;
 }
 
 int
 ipdown_vpnc_main(int argc, char **argv)
 {
+	int status = 0, route_status;
 	char *script_name = VPN_CLIENT_UPDOWN_SCRIPT;
 	char *ifname = safe_getenv("IFNAME");
 	char *gw = getenv("IPREMOTE");
 
 	umask(0000);
 
-	vpnc_route_dgw(ifname, gw, 0);
-	vpnc_route_to_remote_lan(ifname, gw, 0);
+	route_status = vpnc_route_dgw(ifname, gw, 0);
+	status = route_status_accumulate(status, route_status);
+	route_status = vpnc_route_to_remote_lan(ifname, gw, 0);
+	status = route_status_accumulate(status, route_status);
 
 	nvram_set_int_temp("vpnc_state_t", 0);
 
 	restore_dns_from_vpnc();
 
-	if (check_if_file_exist(script_name))
-		doSystem("%s %s", script_name, "down");
+	if (check_if_file_exist(script_name)) {
+		route_status = doSystem("%s %s", script_name, "down");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(VPNC_LOG_NAME, "VPN client down hook failed (status=%d)", route_status);
+	}
 
-	return 0;
+	return status;
 }
 

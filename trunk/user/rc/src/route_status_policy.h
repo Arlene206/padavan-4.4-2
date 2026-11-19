@@ -31,6 +31,13 @@ route_status_idempotent_add(int operation_status)
 }
 
 /* Demand PPP is ready for traffic only after its complete preset route set. */
+/* SIOCDELRT reports ESRCH when the requested route is already absent. */
+static inline int
+route_status_idempotent_delete(int operation_status)
+{
+	return operation_status == ESRCH ? 0 : operation_status;
+}
+
 static inline int
 route_status_demand_ready(int route_status)
 {
