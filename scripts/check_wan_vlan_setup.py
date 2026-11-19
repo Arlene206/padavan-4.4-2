@@ -266,13 +266,21 @@ for operation in ("ret = create_vlan_iface_tracked(",
     error_return = iptv_setup.index("return ret;", rollback_call)
     require(operation_pos < error_gate < rollback_call < error_return < publish_pos,
             f"IPTV setup must transactionally roll back before returning after {operation}")
+ownership_struct_pos = wan.index("struct soft_bridge_wan_ownership {")
+other_entry_struct_pos = wan.index("struct soft_bridge_other_entry {")
+gmac_guard_pos = wan.index("#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)")
+require(ownership_struct_pos < other_entry_struct_pos < gmac_guard_pos,
+        "IPTV rollback ownership records must be declared for all board configurations")
 viptv_rollback = body(wan, "rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)")
-require("rollback_soft_bridge_other_entry(entry);" in viptv_rollback and
+require("#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)" in viptv_rollback and
+        "rollback_soft_bridge_other_entry(entry);" in viptv_rollback and
+        "entry->port_vlan_created" in viptv_rollback and
+        "remove_vlan_iface(entry->port_ifname)" in viptv_rollback and
         'nvram_set_temp("viptv_ifname", recovery_ifname);' in viptv_rollback and
         'nvram_set_temp("viptv_ifname", "");' in viptv_rollback and
         "entry->bridge.bridge_existed" in viptv_rollback and
         "get_interface_flags(entry->bridge.bridge_name)" in viptv_rollback,
-        "IPTV rollback must retain only a surviving bridge/VLAN recovery identity and clear deleted VLAN state")
+        "IPTV rollback must compile on GMAC2 and VLAN-only boards and retain only surviving recovery interfaces")
 snapshot_absolute = iptv_start + snapshot_pos
 old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
 old_vlan_clear = iptv_setup.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)

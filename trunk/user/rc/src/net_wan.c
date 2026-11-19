@@ -323,6 +323,32 @@ get_wan_bridge_iso_mode(int bridge_mode)
 	return bwan_isolation;
 }
 
+struct soft_bridge_wan_ownership {
+	char bridge_name[16];
+	char wan_ifname[24];
+	char bwan_ifname[24];
+	int bridge_created;
+	int bridge_existed;
+	int bridge_was_up;
+	int bwan_vlan_created;
+	int bwan_vlan_existed;
+	int bwan_vlan_was_up;
+	int wan_port_attach_attempted;
+	int wan_port_added;
+	int wan_port_detached_safe;
+	int bwan_port_attach_attempted;
+	int bwan_port_added;
+	int bwan_port_detached_safe;
+};
+
+struct soft_bridge_other_entry {
+	char port_ifname[24];
+	int port_vlan_created;
+	int port_vlan_existed;
+	int port_vlan_was_up;
+	struct soft_bridge_wan_ownership bridge;
+};
+
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
 
 #define BRPREFIX_WAN	"brwan"
@@ -533,31 +559,7 @@ disassembly_bridges_wan(void)
 	return status;
 }
 
-struct soft_bridge_wan_ownership {
-	char bridge_name[16];
-	char wan_ifname[24];
-	char bwan_ifname[24];
-	int bridge_created;
-	int bridge_existed;
-	int bridge_was_up;
-	int bwan_vlan_created;
-	int bwan_vlan_existed;
-	int bwan_vlan_was_up;
-	int wan_port_attach_attempted;
-	int wan_port_added;
-	int wan_port_detached_safe;
-	int bwan_port_attach_attempted;
-	int bwan_port_added;
-	int bwan_port_detached_safe;
-};
 
-struct soft_bridge_other_entry {
-	char port_ifname[24];
-	int port_vlan_created;
-	int port_vlan_existed;
-	int port_vlan_was_up;
-	struct soft_bridge_wan_ownership bridge;
-};
 
 static int
 config_soft_bridge_wan_internal(int br_id, int vid, int prio, const char *wan_ifname,
@@ -928,34 +930,6 @@ rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 	}
 	return status;
 }
-static int
-rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)
-{
-	int status, bridge_flags;
-	const char *recovery_ifname;
-
-	status = rollback_soft_bridge_other_entry(entry);
-	if (entry->bridge.bridge_name[0]) {
-		bridge_flags = get_interface_flags(entry->bridge.bridge_name);
-		if (entry->bridge.bridge_existed || bridge_flags >= 0 ||
-		    (bridge_flags < 0 && errno != ENODEV && errno != ENXIO)) {
-			recovery_ifname = entry->bridge.bridge_name;
-		} else if (status != 0 || entry->port_vlan_existed) {
-			recovery_ifname = entry->port_ifname;
-		} else {
-			nvram_set_temp("viptv_ifname", "");
-			return status;
-		}
-	} else if (status != 0 || entry->port_vlan_existed) {
-		recovery_ifname = entry->port_ifname;
-	} else {
-		nvram_set_temp("viptv_ifname", "");
-		return status;
-	}
-
-	nvram_set_temp("viptv_ifname", recovery_ifname);
-	return status;
-}
 
 static int
 config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char *wan_hwaddr, int bridge_mode)
@@ -1054,8 +1028,51 @@ rollback:
 	}
 	errno = saved_errno;
 	return ret;
-}
+}#endif
+
+static int
+rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)
+{
+	int status = 0, ret = 0;
+	const char *recovery_ifname = NULL;
+#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
+	int bridge_flags;
+
+	status = rollback_soft_bridge_other_entry(entry);
+	if (entry->bridge.bridge_name[0]) {
+		bridge_flags = get_interface_flags(entry->bridge.bridge_name);
+		if (entry->bridge.bridge_existed || bridge_flags >= 0 ||
+		    (bridge_flags < 0 && errno != ENODEV && errno != ENXIO))
+			recovery_ifname = entry->bridge.bridge_name;
+		else if (status != 0 || entry->port_vlan_existed)
+			recovery_ifname = entry->port_ifname;
+	} else if (status != 0 || entry->port_vlan_existed) {
+		recovery_ifname = entry->port_ifname;
+	}
+#else
+	/* Boards without GMAC2 bridge support still need VLAN-only rollback. */
+	if (entry->port_vlan_created) {
+		ret = remove_vlan_iface(entry->port_ifname);
+	} else if (entry->port_vlan_existed) {
+		ret = entry->port_vlan_was_up ?
+			ifconfig(entry->port_ifname, IFUP, "0.0.0.0", NULL) :
+			ifconfig(entry->port_ifname, 0, NULL, NULL);
+	}
+	if (ret != 0) {
+		status = route_status_accumulate(status, ret);
+		logmessage(LOGNAME, "IPTV VLAN-only rollback incomplete for %s (status=%d)",
+			   entry->port_ifname, ret);
+	}
+	if (status != 0 || entry->port_vlan_existed)
+		recovery_ifname = entry->port_ifname;
 #endif
+
+	if (recovery_ifname)
+		nvram_set_temp("viptv_ifname", recovery_ifname);
+	else
+		nvram_set_temp("viptv_ifname", "");
+	return status;
+}
 
 static int
 config_vinet_wan(void)
