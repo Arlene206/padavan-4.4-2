@@ -1,3 +1,13 @@
+## 2026-11-19 — Normalize VLAN rollback contract whitespace after first exact-head failure
+
+- Parent main SHA: `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6`.
+- Exact WAN route run `44467380635` compiled and ran every host regression successfully, including the new VLAN tri-state/rollback ownership ASan/UBSan binary. Its final `check_wan_vlan_setup.py` source-contract step failed on one checker-only formatting assumption: the production `vlan_interface_cleanup_status()` call wraps its second argument across lines, while the checker searched for a single-line spelling.
+- Normalize whitespace for that assertion instead of changing production formatting or removing any coverage. The failed step was a false negative; no C compilation or policy test failed.
+- At checkpoint, XY-C1 run `44467380728` for source SHA `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6` and NVRAM audit `44467380654` were still IN_PROGRESS. WAN DHCP `44467380611`, AI docs `44467380609`, process inventory `44467380658`, HTTPD `44467380676`, firewall `44467380601`, wireless `44467380729`, Process regression `44467380725`, and USB storage `44467380839` PASS.
+- This checker repair must be revalidated on its new exact SHA. No new firmware source changes in this follow-up.
+
+---
+
 ## 2026-11-19 — Fail closed on VLAN interface probe errors and preserve incomplete rollback ownership
 
 - Parent main SHA: `013d6f1ba896981b10299b4130e9d9a17b7c1eb9`.

@@ -1,53 +1,52 @@
-# 2026-11-19 continuation checkpoint — validate fail-closed WAN VLAN lifecycle
+# 2026-11-19 continuation checkpoint — revalidate VLAN rollback contract
 
 # Cross-session execution mandate
 
-Continue the repository's main-only development flow. Do not repeat completed WAN/DHCP status audits, stop for analysis-only planning or ask the user what to do next.
+Continue main-only implementation across conversations. Do not repeat completed audits or stop at a plan.
 
-- One logical slice, one atomic main commit: create every blob, one full tree and one commit; then advance main with non-forced expected-SHA compare-and-swap.
-- Before context exhaustion, complete the active safe slice, inspect exact-head Actions and leave a truthful checkpoint.
-- Security, architecture, compatibility and meaningful regression coverage are mandatory; never weaken them to reduce Actions.
+- One logical task uses one atomic commit: all blobs, one complete tree, one commit, then non-forced main update with exact expected SHA.
+- Before context exhaustion, verify the active slice and its exact-head Actions, then leave the next concrete action.
+- Never weaken security, compatibility or regression coverage to change run counts.
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; development branch `main` only.
-- Parent main SHA for this source slice: `013d6f1ba896981b10299b4130e9d9a17b7c1eb9`; the commit containing this checkpoint will become the new main tip if compare-and-swap succeeds.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed and unmerged.
-- Latest preceding product-source baseline: `5e9ebe5d5da73d770754808eaf68fbfbedcaa199`. Its exact XY-C1 run `44464340449` completed SUCCESS, including Build XY-C1, TRX verification and artifact upload. This L3 result applies to that source SHA only.
-- Current parent `013d6f1ba896981b10299b4130e9d9a17b7c1eb9` AI handoff contract passed in run `44465318684`. Exact WAN DHCP callback run `44464784723` passed on workflow/checker tip `f5fcdb9321b255acdf3e601c3b25228e6c5c7aac`.
+- Repository `Arlene206/padavan-4.4-2`; branch `main` only.
+- Parent main SHA for this checker correction: `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Product-source SHA under new validation: `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6`.
+- Preceding source SHA `5e9ebe5d5da73d770754808eaf68fbfbedcaa199` passed XY-C1 Build/TRX/artifact in exact run `44464340449`; that result does not validate the new VLAN code.
+- Parent `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6` exact-head XY-C1 run `44467380728` and NVRAM audit `44467380654` were IN_PROGRESS at last poll.
 
 ## Active task
 
-Validate the new VLAN probe/rollback ownership slice on its exact commit SHA.
+Close the VLAN tri-state probe/rollback source contract after this whitespace-only checker correction.
 
-- Production files: `trunk/user/rc/src/net.c`, `trunk/user/shared/src/netutils.c`.
-- Policy regression: `trunk/user/rc/src/vlan_interface_policy.h` and `trunk/user/rc/src/tests/vlan_interface_policy.c`.
-- Source contract and trigger coverage: `scripts/check_wan_vlan_setup.py` and `.github/workflows/wan-route-status.yml`.
-- Only ENODEV/ENXIO represent definite absence. Other failures from `get_interface_flags()` must remain errors. Failed self-rollback must retain a tracked ownership indication when a newly created VLAN might remain.
-- Local GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy test passed before commit. No local firmware build or hardware validation was performed.
+- New policy unit test compiled and ran locally under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan; PASS.
+- On exact parent `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6`, WAN route run `44467380635` passed all host binaries including the VLAN policy test, then failed only because the static checker compared a wrapped cleanup-helper invocation as a single-line string. The current correction uses normalized whitespace; it changes no source behavior and removes no assertions.
+- Parent exact-head AI docs `44467380609`, WAN DHCP `44467380611`, process inventory `44467380658`, HTTPD `44467380676`, Firewall `44467380601`, Wireless `44467380729`, Process regression `44467380725` and USB storage `44467380839` PASS.
 
 ## Verification boundary
 
-- L1: source-level tri-state inspection and cleanup ownership handling implemented; full router runtime behavior still needs validation.
-- L2: local pure-policy sanitizer binary PASS. Exact-head WAN route and AI docs Actions for this commit are pending; inspect their first causal failures and repair them without changing test coverage or triggers to hide failures.
-- L3: latest preceding firmware source SHA `5e9ebe5d5da73d770754808eaf68fbfbedcaa199` is VERIFIED by exact XY-C1 run `44464340449`; this new VLAN source change is NOT yet L3 verified. Check whether the exact commit triggers XY-C1 and do not inherit the earlier result.
-- L4: physical-router VLAN creation/removal and bridge rollback NOT VERIFIED.
+- L1: tri-state interface inspection, errno preservation and retryable rollback ownership implemented on product SHA `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6`.
+- L2: local VLAN policy ASan/UBSan test PASS; exact WAN route's first host regressions including the VLAN policy binary PASS, but final checker failed on formatting only. Recheck on this correction's SHA.
+- L3: XY-C1 for source SHA `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6` pending at last poll; do not inherit the preceding SHA's successful build.
+- L4: physical VLAN lifecycle and bridge rollback NOT VERIFIED. No local full firmware build performed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; identify the commit containing this VLAN source slice and query Actions by that exact `head_sha`.
-2. Inspect WAN route policy test, `check_wan_vlan_setup.py`, AI handoff docs and any XY-C1 run. Fix actual failures; if XY-C1 is pending, work on an independent stability/security issue rather than waiting.
-3. After the slice closes, resume the highest-priority unfinished non-WAN P1 issue from `REFACTOR_ROADMAP.md`; do not repeat completed audits.
+1. Fetch current main and inspect the exact-head WAN route and AI docs runs for this checker correction.
+2. Poll XY-C1/NVRAM for the exact product-source SHA; verify Build, TRX and artifact steps before marking L3.
+3. If a run is pending, continue an independent stability/security fix. Once VLAN checks close, move to the highest-priority unfinished non-WAN item in `REFACTOR_ROADMAP.md`.
 
 ## Mandatory handoff checkpoint
 
-Mandatory handoff checkpoint: every session MUST inspect live repository state, the latest product-source baseline, exact-head Actions, active task, verification boundary, blockers and the first next action before ending.
+Mandatory handoff checkpoint: every session MUST inspect live main, the current product-source SHA, relevant exact-head Actions, current verification boundary, and the next concrete action.
 
-The checkpoint is mandatory; a document edit is conditional. Update this file only when those facts materially change. If it remains accurate, leave it untouched; never create a no-op commit merely to synchronize a documented SHA.
+The checkpoint is mandatory; a document edit is conditional. Update only when these facts materially change; leave an accurate handoff untouched.
 
 ## Development invariants
 
-- Only `main` may be used for development; preserve the frozen backup byte-for-byte.
-- Every multi-file change is one complete Git tree and one atomic commit. Ref update must use `force=false` and the exact parent `expected_sha`.
-- Never force-push, rewrite published history, publish partial file-by-file commits, or weaken regression coverage.
-- Exact-head Actions are authoritative. Distinguish PASS/FAIL/PENDING by SHA. Host tests are not firmware builds; firmware builds do not substitute for physical-router L4 validation.
+- Main-only; never modify the frozen backup.
+- One complete Git tree and one atomic commit per logical task; use `force=false` and exact parent `expected_sha`.
+- Never force-push, rewrite history, publish partial commits or weaken tests.
+- Actions must be reported by exact SHA; host tests, firmware builds and physical-device checks are distinct validation levels.

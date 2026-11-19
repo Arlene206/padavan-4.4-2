@@ -61,7 +61,7 @@ require("if (created_out)\n\t\t*created_out = 0;" in create_vlan and
         "if (created_out)\n\t\t*created_out = created;" in create_vlan and
         "*created_out = 1;" in create_vlan and
         "vlan_interface_retain_ownership(created, cleanup_status)" in create_vlan and
-        "vlan_interface_cleanup_status(cleanup_down_status, cleanup_delete_status)" in create_vlan,
+        "vlan_interface_cleanup_status(cleanup_down_status, cleanup_delete_status)" in " ".join(create_vlan.split()),
         "tracked VLAN creation must publish surviving ownership when self-rollback is incomplete")
 require("inspect_vlan_iface(vlan_ifname, &vlan_exists)" in create_vlan and
         "is_interface_exist(vlan_ifname)" not in create_vlan,
