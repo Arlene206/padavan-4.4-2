@@ -1,3 +1,11 @@
+## 2026-11-20 — Align USB hotplug checker with checked PID-1 notifier
+
+- Base main SHA: `0f719780b4d1b1d38b0300855b8424d74d033e20`. Exact-head USB push run [44580744698](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44580744698) failed in the WDM/NDIS source-contract step after all five GNU89, -Wall/-Wextra/-Werror, ASan/UBSan policy binaries passed. The assertion still required the removed `notify_rc("on_unplug_usb_modem")` call even though the production handler now uses the checked `notify_modem_hotplug_event(...)` helper.
+- Updated the cleanup-before-notification contract to check the checked unplug notifier call. The existing assertions continue to require checked NDIS/TTY plug/unplug events, preserve status precedence, and reject legacy void notifier use. No production source changed in this checker correction.
+- On the same source SHA, Process inventory `44580744598`, Process fail-closed `44580744806`, AI docs `44580744704`, and HTTPD security `44580744667` passed; NVRAM `44580744629` and XY-C1 `44580744748` were in progress. THIS COMMIT's exact-head USB, NVRAM, and XY-C1 results must be checked after push. No local compile, MIPS build, or physical-router validation is claimed; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Propagate modem hotplug queue publication errors
 
 - notify_rc.h exposes notify_rc_status(), whose contract returns failure when secure incomplete/action queue markers cannot be accepted; legacy notify_rc() intentionally discards the result. NDIS and serial TTY hotplug handlers used the void wrapper for modem plug/unplug events, so they could report success while PID 1 had no queued transition to process.

@@ -24,13 +24,12 @@ Continue main-only implementation across conversations. Recover the exact live s
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task — propagate modem hotplug notification queue failures
+## Active task — close USB hotplug notification regression contract
 
-- Parent main SHA for this source slice: 8fea3095d59b3278a9318d401eadad0606c193b7. Frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; never modify it.
-- Completed prior NDIS unplug shutdown slice: exact-head USB modem identity run 44578459451, Process inventory 44578460016, Process fail-closed 44578459789, AI docs 44578459995, NVRAM audit 44578460023, and HTTPD security 44578459942 all PASS on exact SHA 8fea3095d59b3278a9318d401eadad0606c193b7. USB regression compiled and ran SCSI generic readiness, SCSI CD eject/unload, modem identity/metadata, module alternative readiness and modem WAN status policies; hotplug WDM/NDIS source contract passed. XY-C1 44578459810 remained IN_PROGRESS at last poll; L3 for 8fea is not yet verified.
-- Newly confirmed adjacent defect: notify_rc.h explicitly offers notify_rc_status() to report secure queue marker publication failures, while notify_rc() discards them. mdev_net_main() and mdev_tty_main() used the void wrapper for modem NDIS/TTY hotplug events and could therefore return success even though PID 1 had not accepted the plug/unplug notification.
-- THIS COMMIT replaces the four modem event call sites with a checked notifier, preserves/logs the notification errno and folds queue failures into the handler's existing metadata result. Unplug cleanup remains best-effort and notification is not skipped after an earlier interface-down or metadata error. Added policy regression for queue success/failure and first-error preservation; USB workflow source contracts pin both NDIS/TTY plug/unplug callers and prohibit void notifier use in those handlers. Exact-head USB L2/XY-C1 L3 pending.
-- No local checkout/MIPS toolchain or physical USB modem/router is available here. L4 remains NOT VERIFIED.
+- Product-source baseline: modem queue-failure propagation is committed on main as `0f719780b4d1b1d38b0300855b8424d74d033e20`; parent was `8fea3095d59b3278a9318d401eadad0606c193b7`. The checked notifier now reports `notify_rc_status()` failure, preserves/logs errno with EIO fallback, and merges the result into NDIS/TTY handler status without suppressing unplug notification after cleanup errors.
+- Exact-head Actions on source SHA `0f719780b4d1b1d38b0300855b8424d74d033e20`: USB workflow `44580744698` FAILED in the WDM/NDIS source-contract step after all five GNU89/ASan/UBSan policy binaries passed; the checker still searched for the removed legacy `notify_rc("on_unplug_usb_modem")` call. This is a stale checker assertion, not evidence of a production-source failure. Process inventory `44580744598`, Process fail-closed regression `44580744806`, AI handoff docs `44580744704`, and HTTPD security `44580744667` PASS. NVRAM transaction audit `44580744629` and XY-C1 `44580744748` were IN_PROGRESS at recovery.
+- THIS COMMIT changes only the USB workflow contract: require the checked `notify_modem_hotplug_event("on_unplug_usb_modem", device_name)` call to follow the existing metadata/cleanup status merge. Existing NDIS/TTY assertions still require checked plug/unplug notifications and prohibit the void `notify_rc()` wrapper.
+- No local checkout or MIPS toolchain is available in this connector-only session. Physical USB modem/router L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
@@ -41,9 +40,9 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB modem identity, Process, AI docs and XY-C1 Actions for this checked-notification commit. Confirm modem queue regression, source contracts and firmware Build/TRX/artifact.
-2. If any contract fails, inspect the first causal log and correct the source/checker without reverting to the void notify_rc() wrapper or suppressing notification after cleanup failure.
-3. After closing this modem queue slice, continue with the next independent P1 reliability/security issue in a different subsystem.
+1. Inspect the push-triggered USB modem workflow for the resulting main SHA. Confirm the corrected NDIS unplug ordering assertion passes and all five policy binaries plus the remaining WDM/NDIS and TTY contracts execute.
+2. Check exact-head XY-C1 and NVRAM runs on that same SHA. A checker-only commit should remain host-only under the fail-safe production-input detector; do not claim L3 unless Build XY-C1, TRX verification, and artifact upload actually complete on a product-source SHA.
+3. If USB L2 is green and no exact-head failure remains, close this source-contract slice and continue with the next independent P1 reliability issue from the roadmap in a different user-space module.
 
 ## Mandatory handoff checkpoint
 
