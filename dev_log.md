@@ -1,3 +1,12 @@
+## 2026-11-19 — Fail closed when DNSMasq resolver-file creation fails
+
+- Confirmed a concrete RC service-preparation gap in `prepare_dns_dhcpd()`: router mode called `create_file(DNS_RESOLV_CONF)` but discarded its nonzero result, then continued to publish a DNSMasq configuration that references the file and launch the daemon. A permission/filesystem failure could therefore leave resolver forwarding unavailable while the launch path treated the service as started.
+- This slice preserves the create errno (falling back to EIO), logs the failure, and aborts before DNSMasq config publication/launch. AP mode is unchanged. Added a GNU89/Werror/ASan/UBSan policy test for success, errno preservation and missing-errno failure, plus exact source-order checks and XY-C1 header path coverage.
+- Parent main SHA: `dec2079fcbf9d45731dff1ce03b2765a23bd3a31`; preceding exact-head detect-internet `44603838266`, WAN route `44603838310` and AI docs `44603838305` PASS. New DNSMasq regression, AI docs and XY-C1 Build/TRX/artifact are pending for this source commit until its exact-head runs complete.
+- No local firmware/toolchain result or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-19 — Align monitor-pause teardown source contracts
 
 - Exact-source detect-internet Action 44600896372 failed in its inline Python contract at line 134; WAN route Action 44600896744 failed at inline line 253. Both expected obsolete `(void)notify_pause_detect_internet()` calls and advisory-only behavior.

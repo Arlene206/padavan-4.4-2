@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/dnsmasq_resolv_file_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_resolv_file_policy.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/busybox/busybox-1.24.x/networking/arp.c"
@@ -57,6 +59,8 @@ on:
     paths:
       - ".github/workflows/dnsmasq-lifecycle.yml"
       - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/dnsmasq_resolv_file_policy.h"
+      - "trunk/user/rc/src/tests/dnsmasq_resolv_file_policy.c"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/dnsmasq_reload_policy.h"
@@ -143,6 +147,14 @@ jobs:
             trunk/user/rc/src/tests/dnsmasq_restart_policy.c \
             -o "$RUNNER_TEMP/dnsmasq-restart-policy"
           "$RUNNER_TEMP/dnsmasq-restart-policy"
+      - name: Compile and run DNSMasq resolver-file creation policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/dnsmasq_resolv_file_policy.c \
+            -o "$RUNNER_TEMP/dnsmasq-resolv-file-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/dnsmasq-resolv-file-policy"
       - name: Compile and run DNSMasq reload identity policy regression
         run: |
           set -eu
@@ -316,6 +328,8 @@ jobs:
           paths = (
               ".github/workflows/dnsmasq-lifecycle.yml",
               "trunk/user/rc/src/services_ex.c",
+              "trunk/user/rc/src/dnsmasq_resolv_file_policy.h",
+              "trunk/user/rc/src/tests/dnsmasq_resolv_file_policy.c",
               "trunk/user/rc/src/dnsmasq_file.h",
               "trunk/user/rc/src/init.c",
               "trunk/user/rc/src/inadyn_config_file.h",
@@ -582,6 +596,8 @@ jobs:
           arp_source = Path("trunk/user/busybox/busybox-1.24.x/networking/arp.c").read_text()
           static_mac_policy = Path("trunk/user/rc/src/dnsmasq_static_host_policy.h").read_text()
           prepare = function_body(services, "prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)")
+          resolv_policy = Path("trunk/user/rc/src/dnsmasq_resolv_file_policy.h").read_text()
+          resolv_test = Path("trunk/user/rc/src/tests/dnsmasq_resolv_file_policy.c").read_text()
           static_hosts_writer = function_body(services, "fill_static_ethers(")
           static_hosts_test = Path("trunk/user/rc/src/tests/dnsmasq_file.c").read_text()
           dnsmasq_file_helper = Path("trunk/user/rc/src/dnsmasq_file.h").read_text()
@@ -590,6 +606,29 @@ jobs:
           assert '#include "dnsmasq_domain_policy.h"' in services
           assert "if (!domain || (*domain && !dnsmasq_valid_server_domain(domain)))" in prepare
           assert prepare.index("dnsmasq_valid_server_domain(domain)") < prepare.index("fill_static_ethers(ipaddr, netmask)")
+          assert '#include "dnsmasq_resolv_file_policy.h"' in services
+          resolv_create = prepare.index("resolv_create_status = create_file(DNS_RESOLV_CONF);")
+          resolv_reset = prepare.rfind("errno = 0;", 0, resolv_create)
+          resolv_normalize = prepare.index(
+              "resolv_status = dnsmasq_resolv_file_error(resolv_create_status, errno);",
+              resolv_create,
+          )
+          resolv_failure = prepare.index("if (resolv_status != 0)", resolv_normalize)
+          resolv_config_stage = prepare.index("fp = dnsmasq_file_open(config_path);")
+          assert 0 <= resolv_reset < resolv_create < resolv_normalize < resolv_failure < resolv_config_stage
+          resolv_failure_body = prepare[resolv_failure:resolv_config_stage]
+          assert "cannot prepare DNSMasq resolver file" in resolv_failure_body
+          assert "errno = resolv_status;" in resolv_failure_body
+          assert "return resolv_status;" in resolv_failure_body
+          assert "resolv-file=" in prepare
+          assert "dnsmasq_resolv_file_error" in resolv_policy and "return create_errno > 0 ? create_errno : EIO;" in resolv_policy
+          for token in (
+              "test_success_ignores_stale_errno",
+              "test_creation_failure_preserves_errno",
+              "test_creation_failure_without_errno_fails_closed",
+              "DNSMasq resolver-file creation status policy: PASS",
+          ):
+              assert token in resolv_test
           domain_policy = Path("trunk/user/rc/src/dnsmasq_domain_policy.h").read_text()
           domain_test = Path("trunk/user/rc/src/tests/dnsmasq_domain_policy.c").read_text()
           assert "dnsmasq_valid_server_domain" in domain_policy
@@ -687,6 +726,8 @@ jobs:
           paths = (
               ".github/workflows/dnsmasq-lifecycle.yml",
               "trunk/user/rc/src/services_ex.c",
+              "trunk/user/rc/src/dnsmasq_resolv_file_policy.h",
+              "trunk/user/rc/src/tests/dnsmasq_resolv_file_policy.c",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/net_lan.c",
               "trunk/user/rc/src/rc.c",

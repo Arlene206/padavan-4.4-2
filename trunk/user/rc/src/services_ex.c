@@ -39,6 +39,7 @@
 #include "dnsmasq_dhcp_range_policy.h"
 #include "dnsmasq_static_host_policy.h"
 #include "dnsmasq_domain_policy.h"
+#include "dnsmasq_resolv_file_policy.h"
 #include "inadyn_config_file.h"
 #include "inadyn_lifecycle_lock.h"
 #include "dnsmasq_lifecycle_lock.h"
@@ -655,6 +656,7 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	FILE *fp;
 	int i_verbose, i_dhcp_enable, is_dhcp_used, is_dns_used;
 	int saved_errno, validation_errno, pool_status;
+	int resolv_create_status, resolv_status;
 	char config_path[] = "/etc/dnsmasq.conf.XXXXXX";
 	char dhcp_start[32], dhcp_end[32], dns_all[64], dnsv6[40];
 	char *ipaddr, *netmask, *gw, *dns1, *dns2, *dns3, *wins, *domain, *dns6, *dns61;
@@ -733,8 +735,22 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			return saved_errno;
 		}
 		
-		/* touch resolv.conf if not exist */
-		create_file(DNS_RESOLV_CONF);
+		/*
+		 * DNSMasq is configured with resolv-file=DNS_RESOLV_CONF. Do not
+		 * publish or launch a configuration whose resolver input could not
+		 * be created; otherwise startup may appear successful while every
+		 * forwarded lookup has no usable upstream snapshot.
+		 */
+		errno = 0;
+		resolv_create_status = create_file(DNS_RESOLV_CONF);
+		resolv_status = dnsmasq_resolv_file_error(resolv_create_status, errno);
+		if (resolv_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot prepare DNSMasq resolver file '%s'; refusing startup (errno=%d)",
+				   DNS_RESOLV_CONF, resolv_status);
+			errno = resolv_status;
+			return resolv_status;
+		}
 	}
 
 	/* Stage a complete configuration beside the live file.  A failed write,
