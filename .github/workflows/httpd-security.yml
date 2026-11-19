@@ -2471,9 +2471,12 @@ jobs:
           assert "hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(" in lan_bound
           assert "hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);" in lan_publish
           assert "LAN lease applied but hostname files could not be published" in lan_publish
-          assert 'nvram_set_int_temp("lan_hosts_retry", "1")' in lan_publish
+          assert 'nvram_set_int_temp("lan_hosts_retry", 1)' in lan_publish
+          assert 'nvram_set_int_temp("lan_hosts_retry", "1")' not in lan
+          assert 'nvram_set_int_temp("lan_hosts_retry", "0")' not in lan
           assert "notify_rc_status(RCN_RESTART_DHCPD)" in lan_publish
-          assert lan_publish.index('nvram_set_int_temp("lan_hosts_retry", "1")') < lan_publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
+          assert lan_publish.count('nvram_set_int_temp("lan_hosts_retry", 1)') == 2
+          assert lan_publish.index('nvram_set_int_temp("lan_hosts_retry", 1)') < lan_publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
           assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in lan_bound
           assert "return hosts_status;" not in lan_bound
           assert "lan_dhcp_hosts_refresh_required" in lan_callback_policy
@@ -2508,8 +2511,8 @@ jobs:
           assert "int update_hosts_ap(void);" in header
           assert 'create_hosts_lan(nvram_safe_get("lan_ipaddr_t"),' in lan_update_ap
           assert 'nvram_safe_get("lan_domain_t")' in lan_update_ap
-          assert 'nvram_set_int_temp("lan_hosts_retry", "0")' in lan_update_ap
-          assert lan_update_ap.index("if (status == 0)") < lan_update_ap.index('nvram_set_int_temp("lan_hosts_retry", "0")')
+          assert 'nvram_set_int_temp("lan_hosts_retry", 0)' in lan_update_ap
+          assert lan_update_ap.index("if (status == 0)") < lan_update_ap.index('nvram_set_int_temp("lan_hosts_retry", 0)')
           dhcpd_notify_start = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)')
           dhcpd_notify_end = rc_main.index('else if (strcmp(entry->d_name, RCN_RESTART_UPNP) == 0)', dhcpd_notify_start)
           dhcpd_notify = rc_main[dhcpd_notify_start:dhcpd_notify_end]
