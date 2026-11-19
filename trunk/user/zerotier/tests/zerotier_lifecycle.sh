@@ -214,7 +214,7 @@ iptables() {
 	shift
 	iptables_key="$iptables_table $*"
 
-	if [ "$TEST_EXPECT_SAVED_SEGMENT" -eq 1 ]; then
+	if [ "$TEST_EXPECT_SAVED_SEGMENT" -eq 1 ] && { [ "$iptables_operation" = "-C" ] || [ "$iptables_operation" = "-D" ]; }; then
 		case "$iptables_key" in
 			"filter INPUT -i ztunit -j ACCEPT"|"filter FORWARD -i ztunit -o ztunit -j ACCEPT"|"filter FORWARD -i ztunit -j ACCEPT"|"nat POSTROUTING -o ztunit -j MASQUERADE"|"nat POSTROUTING -s 10.147.17.0/24 -j MASQUERADE") ;;
 			*) fail "firewall cleanup lost the interface after daemon exit" ;;
