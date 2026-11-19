@@ -3363,7 +3363,9 @@ jobs:
           dev_init = Path("trunk/user/scripts/files/sbin/dev_init.sh").read_text()
           adbyby_policy = Path("trunk/user/rc/src/firewall_adbyby_restore_policy.h").read_text()
           adbyby_policy_test = Path("trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c").read_text()
-          dispatch = firewall[firewall.index("start_firewall_ex_locked(void)"):firewall.index("start_firewall_ex(void)")]
+          dispatch_start = firewall.index("start_firewall_ex_locked(void)")
+          dispatch_end = firewall.index("start_firewall_ex(void)\n{", dispatch_start)
+          dispatch = firewall[dispatch_start:dispatch_end]
           assert '#include "firewall_hook_file.h"' in firewall
           assert "O_NOFOLLOW" in helper and "st_uid != geteuid()" in helper
           assert "st_nlink != 1" in helper and "FIREWALL_HOOK_FILE_MAX_BYTES" in helper
