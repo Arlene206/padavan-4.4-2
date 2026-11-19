@@ -1,3 +1,12 @@
+## 2026-11-19 — Align remaining AP monitor-resume source contracts
+
+- Main parent: `908fee5e350717c881ffda0c69d81f005f7e04c7`. Exact WAN route `44552799897` failed because its new source assertion incorrectly expected the DHCP-preflight abort branch to return the monitor-resume error; that branch already has a nonzero primary stop status and must preserve `return status;`. The checker now verifies that primary return follows the resume-failure log.
+- Exact Process fail-closed `44552799701` failed because its expected compact LAN teardown aggregate predated the new final `monitor_resume_status` addition. The checker now requires that final status to be preserved, and also checks the AP DHCP-resume log.
+- Exact `908fee5` PASS: HTTPD `44552800096`, DNSMasq `44552799756`, NVRAM `44552799727`, Wireless `44552799518`, WAN DHCP callbacks `44552799472`, AI docs `44552799400`, detect_internet `44552799384`, watchdog `44552799369`, Process inventory `44552799345`, Firewall `44552799340`, detect_link `44552799320`. XY-C1 `44552799621` remained pending at last poll.
+- Source behavior and regression tests are unchanged in this correction; no assertion was removed. No local execution/physical L4 is claimed.
+
+---
+
 ## 2026-11-19 — Report AP Internet-monitor resume failures after aborted LAN teardown
 
 - Main parent: `722606bf0af021382871a58ba71f9071706a40b4`. In AP mode, `stop_lan()` paused `detect_internet`, then discarded the result of resuming it when DHCP-client identity shutdown failed or when bridge-down failed. The monitor could remain paused without a diagnostic for this secondary recovery failure.

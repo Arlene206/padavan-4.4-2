@@ -449,7 +449,9 @@ jobs:
           assert "ipv6_status = clear_lan_addr6();" in stop_lan_body
           assert "monitor_resume_status = notify_run_detect_internet(2);" in stop_lan_body
           assert stop_lan_body.count("monitor_resume_status = notify_run_detect_internet(2);") == 2
-          assert "return rc_first_service_start_status(status, monitor_resume_status);" in stop_lan_body
+          resume_log = stop_lan_body.index("Internet monitor resume failed after aborted AP DHCP teardown")
+          primary_return = stop_lan_body.index("return status;", resume_log)
+          assert primary_return > resume_log
           assert "Internet monitor resume failed after aborted AP DHCP teardown" in stop_lan_body
           assert "int monitor_resume_status = 0;" in stop_lan_body
           assert "Internet monitor resume failed after AP bridge teardown failure" in stop_lan_body

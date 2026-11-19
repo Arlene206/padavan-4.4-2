@@ -1,9 +1,8 @@
 # 2026-11-19 source checkpoint
-- Main parent for this checker follow-up: `b735ea82c111be67854b4dae33ba3a5a64fe2416`. The preceding source change adds error reporting/first-status aggregation when AP-mode LAN teardown fails to resume the Internet monitor.
-- Exact `b735ea8` WAN route `44551953519` failed because the newly added contract expected one monitor-resume capture although the source has two; it also referenced the service-start test source before defining it. This follow-up corrects the count and declaration order, and preserves the original early `return status;` because that stop failure must remain primary.
-- Exact `b735ea8` Process fail-closed `44551953591` and detect_internet `44551953522` failed stale contracts that also require the primary `return status;`. Restoring that return resolves the mismatch without removing the new resume error logs; exact reruns are required.
-- Other relevant `b735ea8` workflows passed: AI docs `44551953627`, Firewall `44551953596`, HTTPD `44551953576`, Process inventory `44551953530`, USB storage `44551953524`, DNSMasq `44551953512`, WAN DHCP callbacks `44551953404`, detect_link `44551953518`, watchdog `44551953340`, Wireless `44551953822`. NVRAM `44551953644` and XY-C1 `44551953308` were pending at last poll.
-- ZeroTier production L3 remains verified on `a834edbad9ba5a168768a882c766607065fb7708` by XY-C1 `44544667515` (Build/TRX/artifact PASS). Physical-router L4 NOT VERIFIED.
+- Main parent for this checker follow-up: `908fee5e350717c881ffda0c69d81f005f7e04c7`.
+- AP-mode LAN teardown source `b735ea8` captures/logs monitor-resume failures and preserves first-error ordering. On exact `908fee5`, WAN route `44552799897` failed because its new contract incorrectly expected the AP DHCP-preflight branch to return the resume status; it must return its already-nonzero original `status`. Process fail-closed `44552799701` failed because its compact aggregate assertion was not updated for the new final bridge-path `monitor_resume_status`. This commit updates both source contracts without weakening them.
+- Other `908fee5` workflows PASS: HTTPD `44552800096`, DNSMasq `44552799756`, NVRAM `44552799727`, Wireless `44552799518`, WAN DHCP callbacks `44552799472`, AI docs `44552799400`, detect_internet `44552799384`, watchdog `44552799369`, Process inventory `44552799345`, Firewall `44552799340`, detect_link `44552799320`. XY-C1 `44552799621` pending.
+- Check the two corrected exact-head workflows and XY-C1 Build/TRX/artifact before claiming current-main L3. ZeroTier previous L3 remains on `a834edb` / run `44544667515`; physical L4 NOT VERIFIED.
 
 ## CI trigger governance — current policy
 

@@ -2123,7 +2123,9 @@ assert "intconntrack_status=0,route_status=0,ipv6_status=0;" in lan_teardown_com
 assert "route_status=clear_if_route4(IFNAME_BR);" in lan_teardown_compact
 assert 'if(route_status!=0)logmessage(LOGNAME,"LANroutecleanupfailed(status=%d)",route_status);' in lan_teardown_compact
 assert "ipv6_status=clear_lan_addr6();" in lan_teardown_compact
-assert "returnrc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),ipv6_status),status);" in lan_teardown_compact
+assert "monitor_resume_status=notify_run_detect_internet(2);" in lan_teardown_compact
+assert "InternetmonitorresumefailedafterabortedAPDHCPteardown" in lan_teardown_compact
+assert "returnrc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),ipv6_status),status),monitor_resume_status);" in lan_teardown_compact
 route_flush_at = lan_teardown_compact.index("route_status=clear_if_route4(IFNAME_BR);")
 ipv6_cleanup_at = lan_teardown_compact.index("ipv6_status=clear_lan_addr6();")
 bridge_down_at = lan_teardown_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
