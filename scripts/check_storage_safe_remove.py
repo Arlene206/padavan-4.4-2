@@ -322,6 +322,11 @@ targeted_eject_main = body(rc, "int\nmain(int argc, char **argv)")
 require(
     "int result = -1;" in targeted_eject
     and "read_disk_data_checked(&disks_info)" in targeted_eject
+    and "has_requested_disk = (dev_name == NULL);" in targeted_eject
+    and "storage_ejected_disk_matches_request(dev_name, follow_disk->device)" in targeted_eject
+    and "saved_errno = ENODEV;" in targeted_eject
+    and "storage_ejected_disk_matches_request" in ejected_policy
+    and 'storage_ejected_disk_matches_request("sda", "sdb")' in ejected_policy_test
     and "storage_ejected_target_remove_complete" in targeted_eject
     and "errno = saved_errno;" in targeted_eject
     and "return -1;" in targeted_eject
@@ -343,7 +348,7 @@ usb_main = body(rc, "int\nmain(int argc, char **argv)")
 require(
     "storage_hotplug_parse_decimal_token(dev_name, 1, INT_MAX" in usb_remove
     and "return safe_remove_stor_device(port, port, dev_name, 1);" in usb_remove
-    and "return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, NULL, 1);" in usb_remove
+    and "return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, dev_name, 1);" in usb_remove
     and "if (!has_modem_port || !get_usb_modem_dev_wan(0, modem_devnum))" in usb_remove
     and "int safe_remove_usb_device(int port, const char *dev_name);" in rc_header,
     "USB eject must reject malformed or absent modem targets and propagate storage/modem removal outcomes",
@@ -795,6 +800,8 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
              "trunk/user/libdisk/src/storage_swap_policy.h",
+             "trunk/user/rc/src/storage_ejected_inventory_policy.h",
+             "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c",
              "trunk/user/rc/src/storage_hotplug_name_policy.h",
              "trunk/user/rc/src/tests/storage_hotplug_name_policy.c",
              "trunk/user/rc/src/storage_service_stop_policy.h",

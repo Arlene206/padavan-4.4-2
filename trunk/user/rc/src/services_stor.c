@@ -3871,6 +3871,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 {
 	int storage_lock;
 	int port, has_mounted_port = 0, has_swapon_port = 0;
+	int has_requested_disk = 0;
 	int unmount_status = 0, ejected_status = 0, mount_count = 0;
 	int start_status = 0, retry_storage_start = 0;
 	int stop_status, rollback_status, saved_errno = 0;
@@ -3893,14 +3894,24 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 		goto out;
 	}
 
+	has_requested_disk = (dev_name == NULL);
 	for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
 		port = (int)follow_disk->port_root;
 		if (port < port_b || port > port_e)
 			continue;
+		if (storage_ejected_disk_matches_request(dev_name, follow_disk->device))
+			has_requested_disk = 1;
 		if (follow_disk->mounted_number > 0)
 			has_mounted_port = 1;
 		if (follow_disk->swapon_number > 0)
 			has_swapon_port = 1;
+	}
+
+	if (!has_requested_disk) {
+		saved_errno = ENODEV;
+		logmessage("Storage", "requested disk %s is not present in the complete storage inventory; refusing safe removal",
+			   dev_name ? dev_name : "(all)");
+		goto out;
 	}
 
 	if (has_mounted_port || has_swapon_port) {

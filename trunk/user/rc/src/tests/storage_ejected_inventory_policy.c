@@ -99,6 +99,13 @@ main(void)
 	assert(storage_ejected_partition_matches("   8  1  976762584 sda1",
 						  "sda1", &matches) != 0);
 
+	assert(storage_ejected_disk_matches_request(NULL, "sda"));
+	assert(storage_ejected_disk_matches_request("sda", "sda"));
+	assert(!storage_ejected_disk_matches_request("sda", "sdb"));
+	assert(!storage_ejected_disk_matches_request("sda", "sda1"));
+	assert(!storage_ejected_disk_matches_request("sda", NULL));
+	assert(storage_ejected_disk_matches_request(NULL, NULL));
+
 	assert(storage_ejected_disk_or_partition("sda", "sda", 0));
 	assert(storage_ejected_disk_or_partition("sda1", "sda", 0));
 	assert(storage_ejected_disk_or_partition("sda12", "sda", 0));

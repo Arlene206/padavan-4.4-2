@@ -216,6 +216,15 @@ storage_ejected_may_unmount(int active, int read_error, int close_error,
 }
 
 
+/* NULL selects all disks; a supplied name must match one inventory row exactly. */
+static int
+storage_ejected_disk_matches_request(const char *requested, const char *candidate)
+{
+	if (!requested)
+		return 1;
+	return candidate && *candidate && strcmp(requested, candidate) == 0;
+}
+
 /* Match one physical disk and its partition naming scheme without prefix aliases. */
 static int
 storage_ejected_disk_or_partition(const char *candidate, const char *disk,

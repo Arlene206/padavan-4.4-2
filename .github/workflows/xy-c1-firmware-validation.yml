@@ -215,6 +215,8 @@ on:
       - "trunk/user/vsftpd/src/tests/ftp_acl_path_policy.c"
       - "trunk/user/rc/src/samba_share_policy.h"
       - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/storage_ejected_inventory_policy.h"
+      - "trunk/user/rc/src/tests/storage_ejected_inventory_policy.c"
       - "trunk/user/rc/src/firefly_config_file.h"
       - "trunk/user/rc/src/minidlna_config_file.h"
       - "trunk/user/rc/src/storage_service_stop_policy.h"

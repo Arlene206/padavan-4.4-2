@@ -63,7 +63,7 @@ safe_remove_usb_device(int port, const char *dev_name)
 			errno = EINVAL;
 			return -1;
 		}
-		return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, NULL, 1);
+		return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, dev_name, 1);
 	}
 
 	if (dev_name && strncmp(dev_name, "sd", 2) != 0) {
