@@ -5,6 +5,10 @@
 - Repository `Arlene206/padavan-4.4-2`, development branch `main`.
 - Prior source slices: WAN checker return-order correction `bef7889d16ca08912d126c3cf97c2fb8c1d04f2c`; initial switch invalid-ACL/usage fix `4f2ae0b46f16b60230888d6422fc9c3c505b90ef`. Fetch live main and backup before changes.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` is `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify. PR #1 remains closed/unmerged.
+
+- Latest main at this checkpoint: `7edb5d58b4ba61e1c68deab9aa1601f90c5339d0`. LAN DHCP restoration follow-up `7edb5d58b4ba61e1c68deab9aa1601f90c5339d0` adds a one-way best-effort restore routine. This avoids a failed compensating write being “rolled back” by reapplying the uncommitted candidate lease. New tests cover restore continuing after a failed key and ioctl/close errors reported after a write.
+- HTTPD run `44447312302` on parent `11813f0` failed after the DHCP policy binary printed PASS; the embedded HTTPD check still asserted the old single-key temporary NVRAM write. The new contract now checks seven-key transactional publication and complete rollback coverage. Re-run on current main.
+- WAN callback run `44447008179` and AI docs run `44447008247` both PASS on `d1d8473`.
 - Exact-head on `bef7889`: USB modem `44446007111` and AI docs `44446007055` passed; Process `44446007056` and Firewall `44446007049` were still in progress at last poll. No XY-C1 run was listed for that docs/checker-only SHA.
 - WAN production changes retain first chronological failure across USB NDIS/RAS and callback-link/VLAN/APCLI-WISP preflight failure paths.
 
@@ -26,7 +30,7 @@ Each guard uses the common failing `usage(argv[0])`. Extend the existing Switch 
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and immutable backup; inspect exact-head Switch CLI, XY-C1, WAN USB/Firewall/Process and AI docs Actions.
+1. Fetch live main and immutable backup; inspect exact-head HTTPD, WAN DHCP, NVRAM transaction, XY-C1, Switch CLI and AI docs Actions. The current HTTPD exact-head check is specifically responsible for validating the new seven-key lease rollback contract.
 2. Fix any specific failed check from its job log. The switch source contract must validate ACL dispatch, mirror-to, mirror-from and TrTCM arity before dereference.
 3. Verify XY-C1 Build, TRX and artifact upload on one exact SHA before declaring L3.
 4. Continue independent P1 stability/security work outside the completed switch argument paths and WAN first-error slice.

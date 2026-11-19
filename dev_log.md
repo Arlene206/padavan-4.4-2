@@ -1,3 +1,13 @@
+## 2026-11-19 — Align HTTPD DHCP contract with transactional LAN lease state and recovery
+
+- Parent main SHA: `7edb5d58b4ba61e1c68deab9aa1601f90c5339d0`; previous HTTPD exact run `44447312302` failed in `Verify DHCP lease input and renewal reconciliation`, after the GNU89 DHCP policy binary printed `DHCP lease input policy regression: OK`.
+- The stale checker still required a direct `nvram_set_temp("lan_ipaddr_t", ...)` write; the implementation now publishes seven volatile lease tuples using `lan_dhcp_nvram_state_publish()` under the shared NVRAM transaction lock.
+- Production follow-up `7edb5d5` introduces a dedicated one-way `dhcp_lease_nvram_restore()`: unlike the publish compensation helper, it attempts every previous value and never compensates a failed restore by reapplying the candidate lease. Regression covers a failed restore key and a close error after an applied restore.
+- Replace the obsolete single-key assertion with transaction ordering, all seven keys, restore helper, close/write failure test and kernel/resolver rollback diagnostics. No workflow trigger expansion.
+- Exact-head WAN callback `44447008179` and AI docs `44447008247` PASS on `d1d8473`. The HTTPD and related checks on `7edb5d5` require exact-head completion; XY-C1 L3 and router L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Add missing switch mirror and TrTCM argument guards
 
 - Parent main SHA: `bef7889d16ca08912d126c3cf97c2fb8c1d04f2c`.

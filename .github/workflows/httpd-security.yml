@@ -2424,10 +2424,26 @@ jobs:
           assert "dhcp_lease_bound_apply(" in lan_bound
           transaction_call = lan_bound.index("status = dhcp_lease_bound_apply(")
           transaction_failure = lan_bound.index("if (status != 0)", transaction_call)
-          lease_publish = lan_bound.index('nvram_set_temp("lan_ipaddr_t"')
-          assert transaction_call < transaction_failure < lease_publish
+          network_applied = lan_bound.index("network_transaction_applied = 1;")
+          lease_publish = lan_bound.index("status = lan_dhcp_nvram_state_publish(")
+          assert transaction_call < transaction_failure < network_applied < lease_publish
+          assert 'lease_state[0].name = "lan_ipaddr_t";' in lan_bound
+          assert 'lease_state[6].name = "lan_lease_t";' in lan_bound
+          assert all(key in lan_bound for key in (
+              "lan_netmask_t", "lan_gateway_t", "lan_dns_t",
+              "lan_domain_t", "lan_wins_t",
+          ))
+          assert 'nvram_set_temp("lan_ipaddr_t"' not in lan_bound
+          assert "dhcp_lease_nvram_publish" in policy
+          assert "dhcp_lease_nvram_restore" in policy
+          assert "nvram_transaction_begin(&transaction)" in lan
+          assert "nvram_transaction_end(&transaction)" in lan
+          assert "test_lan_dhcp_nvram_publish_compensates_partial_updates" in test
+          assert "dhcp_lease_nvram_restore(values, 3" in test
+          assert "fake.fail_restore_after_write = 1;" in test
+          assert "LAN DHCP NVRAM restoration incomplete" in lan_bound
+          assert "LAN DHCP kernel/resolver rollback failed" in lan_bound
           assert "rollback_status" in lan_bound
-          assert "failed to roll back LAN DHCP bound transaction" in lan_bound
           assert "dhcp_lease_bound_apply" in policy
           assert "dhcp_lease_route_add_is_ok" in policy
           assert "dhcp_lease_route_delete_is_ok(cleanup_status)" in policy
