@@ -1,3 +1,12 @@
+## 2026-11-19 — Scope VPN path-filter contract to pull_request.paths
+
+- Exact-head VPN run `44640170448` on `40eb3ad8` compiled and passed the VPN lifecycle lock, callback identity, xl2tpd start gate, rp-L2TP ASan/UBSan filesystem regression, shared lease lock and restart-status tests. It failed only in `check_vpn_server_lifecycle.py`: the checker counted the rp-L2TP regression source once in the PR trigger and again in the later compiler command.
+- The PR path list itself contains the new header and test exactly once. Updated the checker to isolate the YAML `pull_request.paths` section before asserting the count, preserving strict duplicate detection in both push and PR path filters.
+- HTTPD exact-head run `44640170448` PASS after the previous checker correction. The original rp-L2TP product source SHA `2b646cc` had a pending XY-C1 firmware run `44639411601` at last verified checkpoint.
+- This is a checker-only fix; no product-source behavior or regression semantics changed. No local MIPS build or physical-router test is claimed.
+
+---
+
 ## 2026-11-19 — Correct follow-up rp-L2TP CI contracts
 
 - The first source-contract repair was followed by exact-head failures on 09dfc4b: VPN expected mode == 0644 while the regression correctly rejects any mode != 0644; HTTPD's callback extractor searched for a literal backslash-n because the workflow heredoc line was over-escaped.

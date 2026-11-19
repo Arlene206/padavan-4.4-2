@@ -713,7 +713,8 @@ require(rc.count("action_result = rc_notify_merge_action_result(action_result, r
 
 for path in ("trunk/user/rc/src/l2tp_config_file.h",
              "trunk/user/rc/src/tests/l2tp_config_file.c"):
-    push_paths, pull_paths = workflow.split("  pull_request:", 1)
+    push_paths, pull_request_section = workflow.split("  pull_request:", 1)
+    pull_paths = pull_request_section.split("  workflow_dispatch:", 1)[0]
     require(push_paths.count(path) == 1 and pull_paths.count(path) == 1,
             f"VPN workflow must watch rp-L2TP config dependency exactly once: {path}")
 require("l2tp-config-file" in workflow and

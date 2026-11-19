@@ -11,30 +11,29 @@ Continue main-only implementation across conversations. Restore exact live sourc
 
 ## Current repository state
 
-- Product-source commit 2b646cccdcb24da5d447586893a500fdcf3cfe48 introduced the rp-L2TP private atomic publisher. Its added GNU89 ASan/UBSan filesystem regression passed in VPN run 44639411367; the subsequent failure was only source-contract mismatches.
-- Exact-head checker commit 09dfc4be938591b9e9e99f15ce7992c124080d73: AI docs 44639855299 PASS. VPN 44639855292 found a stale expected mode-comparison operator in the new test contract; HTTPD 44639855284 found an over-escaped newline in its new callback-body extraction. Both are corrected in the current checker follow-up.
-- The 2b646cc XY-C1 Build/TRX/artifact run 44639411601 was still in progress at its last check; NVRAM run 44639411416 passed. Check the XY run by its exact original SHA; a checker-only follow-up does not substitute for its same-SHA result.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807 and is read-only. Develop only on main.
+- Current main before this source-contract repair: `40eb3ad8bde1b728c449d907208886fa751f8f55`. Product-source commit `2b646cccdcb24da5d447586893a500fdcf3cfe48` added the rp-L2TP private atomic config writer; its GNU89 ASan/UBSan filesystem test passed on the original source run.
+- Checker follow-up `09dfc4be938591b9e9e99f15ce7992c124080d73` fixed the mode expectation and HTTPD checker; checker follow-up `40eb3ad8bde1b728c449d907208886fa751f8f55` fixed the second HTTPD source-body extraction mismatch. Exact-head HTTPD `44640170448` PASS.
+- Exact-head VPN run `44640170448` fails only at the source checker’s trigger-path count for `tests/l2tp_config_file.c`. The PR path filter contains the file exactly once; the checker incorrectly counts the later compiler command occurrence as a second path because it scans the entire remainder of the YAML. This commit narrows the scan to the pull_request paths block.
+- The original `2b646cc` XY-C1 run `44639411601` was pending at the last confirmed checkpoint. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 
 ## Active task
 
-- Confirmed a privileged rp-L2TP configuration publication vulnerability. PID 1 sets umask(0000) in init.c; start_rpl2tp() previously called mkdir_if_none("/etc/l2tp", "777") and ignored its result, then opened /etc/l2tp/l2tp.conf with fopen("w"). The directory helper follows an existing symlink-to-directory and does not harden an existing directory, while the leaf open follows a pre-planted symlink. This could leave /etc/l2tp world-writable and let a local user redirect a root config write.
-- Added l2tp_config_file.h: reject symlinked/foreign-owned directories, create at 0755, strip group/other write permissions through the opened fd, verify the pathname still names the checked inode, and stage the complete config in a unique same-directory file before atomic rename. A destination symlink is replaced rather than followed; failed write/flush/fsync/close/rename operations preserve the last-good config.
-- Routed APP_RPL2TP through the new writer and added GNU89 filesystem regressions for permissive umask, directory-mode repair, symlink-directory refusal, symlink-leaf replacement, last-good preservation and temporary-file cleanup. VPN lifecycle CI compiles/runs the regression and checks production wiring; XY-C1 watches the new production header.
-- Exact-head VPN, AI-docs and XY-C1 Actions must be queried after the commit. No local compiler, target MIPS/uClibc result or physical-router behavior is claimed.
+- rp-L2TP root config publication is hardened by `l2tp_config_file.h`: it rejects symlinked/foreign-owned config directories, enforces non-writable directory mode despite PID 1’s `umask(0000)`, stages in the same directory and atomically renames, replacing a leaf symlink without following it. GNU89 ASan/UBSan filesystem regression passed in original source run `44639411367`.
+- Fixed the VPN source checker’s false positive: it previously counted every occurrence after the YAML `pull_request:` key, including the `cc ... tests/l2tp_config_file.c` command under jobs. It now restricts its count to the actual `pull_request.paths` section before `workflow_dispatch:`. No production code or test behavior changed.
+- No local MIPS build, target uClibc test, or physical-router behavior is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main once and query exact-head VPN server stability, XY-C1 firmware validation and AI handoff docs for the new source SHA; inspect job logs, especially the rp-L2TP regression/source contract and Build/TRX/artifact stages.
-2. PASS is valid only for the exact source SHA. Repair causal failures without weakening security assertions; do not wait on pending XY-C1 before independent work.
-3. Continue a separate evidenced cross-userland reliability/security defect. Do not re-audit completed service-wait, process-I/O or MTD EINTR slices without new evidence.
+1. Check this checker-only commit’s exact-head VPN lifecycle and AI handoff docs results. The VPN source contract must pass while continuing to require exactly one push and PR path entry for both the config header and regression file.
+2. Recheck the original product SHA `2b646cccdcb24da5d447586893a500fdcf3cfe48` XY-C1 run `44639411601`; checker-only commits do not replace same-source firmware verification.
+3. Continue the P1 RC startup-result propagation item: trace any remaining launch path whose real failure is discarded, preserving PID 1 fatal prerequisites and degraded notification behavior.
 
 ## Verification boundary
 
-- L1: rp-L2TP no longer writes through a symlinked leaf or accepts a writable/foreign-owned/symlinked configuration directory; complete same-directory staging is atomically published at mode 0644. PID 1's umask(0000) is explicitly handled.
-- L2: GNU89 regression covers directory mode under permissive umask, mode repair, directory and leaf symlinks, atomic replacement, writer failure, last-good preservation and temporary cleanup. Exact-head workflow results require a post-commit query.
-- L3: the new net_ppp.c/header product-source change requires Build XY-C1, TRX verification and artifact upload all PASS on the same new head SHA.
-- L4: MIPS/uClibc runtime behavior, concurrent WAN transition behavior and physical-router validation remain NOT VERIFIED.
+- L1: rp-L2TP config directory/leaf handling uses owner/mode/symlink validation and same-directory atomic publication; final config mode is 0644.
+- L2: original GNU89 ASan/UBSan filesystem regression passed on source run `44639411367`. VPN exact-head run `44640170448` failed only in a workflow path-count checker bug; this scoped checker correction awaits a fresh exact-head rerun. HTTPD exact-head run `44640170448` PASS.
+- L3: original product SHA `2b646cc` XY-C1 run `44639411601` was pending at last confirmed check; re-query its status. No checker-only SHA substitutes for that product-source result.
+- L4: target MIPS/uClibc behavior, concurrent WAN transitions and physical-router validation remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
