@@ -867,6 +867,25 @@ assert modem_failure_gate < modem_failure_return < usb_remove.index("try_wan_rec
 assert "return safe_remove_stor_device(port, port, dev_name, 1);" in usb_remove
 assert "return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, dev_name, 1);" in usb_remove
 assert "skipping WAN reconnect after incomplete USB modem removal" in usb_remove
+reconnect_call = usb_remove.index("wan_reconnect_status = try_wan_reconnect(0, 0);")
+reconnect_gate = usb_remove.index("if (wan_reconnect_status != 0)", reconnect_call)
+reconnect_failure_return = usb_remove.index("return -1;", reconnect_gate)
+reconnect_success_return = usb_remove.index("return 0;", reconnect_failure_return)
+assert usb_remove.rfind("errno = 0;", 0, reconnect_call) > usb_remove.index(
+    "modem_remove_status = safe_remove_usb_modem();"
+)
+assert "errno = wan_reconnect_status;" in usb_remove[reconnect_gate:reconnect_failure_return]
+assert "else if (!errno)" in usb_remove[reconnect_gate:reconnect_failure_return]
+assert "errno = EIO;" in usb_remove[reconnect_gate:reconnect_failure_return]
+assert reconnect_call < reconnect_gate < reconnect_failure_return < reconnect_success_return
+assert "USB modem was removed but WAN reconnect failed" in usb_remove
+wan_reconnect_body = c_function_body(
+    net_wan, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)"
+)
+assert "status = stop_wan();" in wan_reconnect_body
+assert "if (status != 0)" in wan_reconnect_body and "return status;" in wan_reconnect_body
+assert "status = start_wan();" in wan_reconnect_body
+assert "return merge_l2tp_server_start_status(status);" in wan_reconnect_body
 
 usbnet_stop_pos = wan_stop.index("stop_status = stop_wan_usbnet();")
 wan_ifdown_pos = wan_stop.index("ifdown_status = wan_teardown_ifdown_interfaces(")

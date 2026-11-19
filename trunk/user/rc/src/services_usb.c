@@ -77,7 +77,7 @@ safe_remove_usb_device(int port, const char *dev_name)
 
 	if (modem_devnum) {
 		usb_info_t *usb_info, *follow_usb;
-		int has_modem_port = 0, modem_remove_status;
+		int has_modem_port = 0, modem_remove_status, wan_reconnect_status;
 
 		usb_info = get_usb_info();
 		for (follow_usb = usb_info; follow_usb != NULL; follow_usb = follow_usb->next) {
@@ -105,7 +105,19 @@ safe_remove_usb_device(int port, const char *dev_name)
 				   modem_remove_status);
 			return -1;
 		}
-		try_wan_reconnect(0, 0);
+		errno = 0;
+		wan_reconnect_status = try_wan_reconnect(0, 0);
+		if (wan_reconnect_status != 0) {
+			if (wan_reconnect_status > 0)
+				errno = wan_reconnect_status;
+			else if (!errno)
+				errno = EIO;
+			logmessage(LOGNAME,
+				   "USB modem was removed but WAN reconnect failed (status=%d, errno=%d)",
+				   wan_reconnect_status, errno);
+			return -1;
+		}
+		errno = 0;
 		return 0;
 	}
 

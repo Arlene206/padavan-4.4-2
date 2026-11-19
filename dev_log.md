@@ -1,3 +1,14 @@
+## 2026-11-19 — Propagate USB modem WAN reconnect failures
+
+- Parent main SHA: `92a098912e648e0c00a03db8592c555a3cfb2aeb`. The latest production sources include strict USB eject status/target handling (`6a846b9`, `7fa39c`) and the RPL2TP stop/rollback correction (`cd398c9`).
+- Found a caller-level result drop in `safe_remove_usb_device()`: it invoked integer-returning `try_wan_reconnect(0, 0)` after a successful modem removal, ignored any `stop_wan()`/`start_wan()`/L2TP failure and unconditionally returned success. This could report a successful modem eject while WAN recovery failed.
+- The production path now checks the reconnect result, clears stale errno before the call, maps positive statuses to errno, preserves a negative-call errno or defaults to `EIO`, logs the failure and returns `-1`. Only a successful reconnect returns zero.
+- Added source-contract regression assertions to both the Process lifecycle integration checker and storage safe-remove checker. These pin status capture, fail-closed return ordering, errno normalization, logging, and the underlying `try_wan_reconnect()` status return contract.
+- Pre-change Actions: USB storage `44536791653` PASS on 7fa; Process fail-closed `44537131446` PASS on f0a; Process inventory `44539111552` PASS on cd398; WAN route `44539829446` PASS on 92a. XY `44539829469` on 92a was host-only and skipped Build/TRX/artifact because its diff had no firmware input; the RPL2TP production change cd398 has not yet received a successful same-source build.
+- No local checkout/toolchain is available, so no local test execution is claimed. New exact-head Process/storage/XY-C1/docs Actions are pending; physical L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Align safe-remove errno capture contract with rollback ordering
 
 - Product-source baseline remains `25bc8c15915cbcd617a5cb61bd33fef4a7f524bf`; no production source changes are included in this checker repair. `safe_remove_stor_device()` captures the stop failure's errno before attempting storage-service rollback, then aborts without unmounting if stop/rollback cannot be completed.

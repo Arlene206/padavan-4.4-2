@@ -353,6 +353,19 @@ require(
     and "int safe_remove_usb_device(int port, const char *dev_name);" in rc_header,
     "USB eject must reject malformed or absent modem targets and propagate storage/modem removal outcomes",
 )
+usb_remove_contract = " ".join(usb_remove.split())
+reconnect_call = usb_remove_contract.index("wan_reconnect_status = try_wan_reconnect(0, 0);")
+reconnect_gate = usb_remove_contract.index("if (wan_reconnect_status != 0)", reconnect_call)
+reconnect_failure_return = usb_remove_contract.index("return -1;", reconnect_gate)
+reconnect_success_return = usb_remove_contract.index("return 0;", reconnect_failure_return)
+require(
+    "errno = 0; wan_reconnect_status = try_wan_reconnect(0, 0);" in usb_remove_contract
+    and "if (wan_reconnect_status > 0) errno = wan_reconnect_status;" in usb_remove_contract
+    and "else if (!errno) errno = EIO;" in usb_remove_contract
+    and reconnect_call < reconnect_gate < reconnect_failure_return < reconnect_success_return
+    and "USB modem was removed but WAN reconnect failed" in usb_remove_contract,
+    "USB modem removal must propagate WAN stop/start/reconnect failures instead of reporting success",
+)
 require(
     "storage_hotplug_parse_decimal_token(" in usb_main
     and "0, BOARD_NUM_USB_PORTS," in usb_main
