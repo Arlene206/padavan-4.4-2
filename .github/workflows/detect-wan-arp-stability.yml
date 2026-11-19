@@ -106,6 +106,17 @@ jobs:
           assert "detect_wan_wait(20);" in poll_body
           monitor_main = body(detect, "detect_wan_main(int argc, char *argv[])")
           assert "sigaction(SIGTERM, &sa, NULL) < 0" in monitor_main
+          pidfile_publish = 'process_pidfile_write(DW_PID_FILE, "detect_wan")'
+          assert '#include "process_pidfile.h"' in detect
+          assert pidfile_publish in monitor_main
+          pidfile_guard = monitor_main.index("if (" + pidfile_publish + " < 0)")
+          pidfile_poll = monitor_main.index("result = poll_gateway();")
+          pidfile_failure = monitor_main[pidfile_guard:pidfile_poll]
+          assert pidfile_guard < pidfile_poll
+          assert "saved_errno = errno ? errno : EIO;" in pidfile_failure
+          assert 'logmessage("detect_wan", "cannot publish pid file (errno=%d)", saved_errno);' in pidfile_failure
+          assert "return saved_errno;" in pidfile_failure
+          assert "fopen(DW_PID_FILE" not in monitor_main
           assert monitor_main.index("result = poll_gateway();") < monitor_main.index("remove(DW_PID_FILE)")
           probe = body(detect, "arpping_gateway(int ap_mode)")
           setup = probe.index("detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt)")

@@ -333,7 +333,6 @@ catch_sig_detect_wan(int sig)
 int
 detect_wan_main(int argc, char *argv[])
 {
-	FILE *fp;
 	struct sigaction sa;
 	int result, saved_errno, cleanup_errno;
 
@@ -374,11 +373,12 @@ detect_wan_main(int argc, char *argv[])
 	if (dw_stopping)
 		return 0;
 
-	/* write pid */
-	if ((fp = fopen(DW_PID_FILE, "w")) != NULL)
-	{
-		fprintf(fp, "%d", getpid());
-		fclose(fp);
+	/* Publish a PID/start-time identity before the monitor begins polling. */
+	if (process_pidfile_write(DW_PID_FILE, "detect_wan") < 0) {
+		saved_errno = errno ? errno : EIO;
+		errno = saved_errno;
+		logmessage("detect_wan", "cannot publish pid file (errno=%d)", saved_errno);
+		return saved_errno;
 	}
 
 	result = poll_gateway();

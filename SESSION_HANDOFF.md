@@ -1,8 +1,8 @@
-# 2026-11-19 continuation checkpoint — storage mount inventory verification
+# 2026-11-19 continuation checkpoint — detect_wan PID identity publication
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; current `main` parent SHA `35235da0cb4af66a8dedd96b7698948ec6b15687`. Backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged. VPN client/server route and callback hook fixes are committed in `835f48d`, `521c25a` and `63d20cd`; latest 63d exact VPN-server `44432264595`, WAN route `44432264560`, Process `44432264618`/`44432264602`, AI docs `44432264659`, Firewall `44432264710`, HTTPD security `44432264697`, and OpenVPN staging `44432264583` PASS; NVRAM `44432264610` needs final result. XY-C1 `44432264548` needs final Build/TRX/artifact check. Latest storage source `35235da` passes Process inventory `44432765047`, NVRAM `44432765261`, AI docs `44432765070`, HTTPD `44432765061`; storage hotplug `44432765082` failed only its overstrict errno literal check, corrected by this commit. XY-C1 `44432765098` was in progress.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA `9e7882b2354e57a4408f099b73d054b3a6635b2c`. Frozen backup branch remains `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged. VPN client/server route and callback hook fixes are committed and their exact source L2 passed; IAPP, iNIC signal and RT3352 monitor fixes have exact XY Build/TRX/artifact PASS. USB mount inventory hardening is in `35235da0cb4af66a8dedd96b7698948ec6b15687`, followed by errno checker correction `16e42d0`, escaped mount path decoding `66a0a5d`, and fixture correction `9e7882b`; exact-head Storage `44434391034`, HTTPD `44434391030`, Process inventory `44434391084`, and NVRAM `44434391143` were pending/in progress at last poll.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,26 +77,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Close exact-head verification of the USB mount-inventory fail-closed fix.
+Fail closed if the detect_wan gateway monitor cannot publish its process identity.
 
-- Source commit `35235da0cb4af66a8dedd96b7698948ec6b15687` hardens `get_partition_mount_data()`: it validates each parsed `/proc/mounts` record, checks stream read errors and `fclose()`, clears partially populated output on failure, and restores the captured errno with EIO fallback. Whole-disk inventory propagates failures rather than treating an unreadable mount snapshot as an unmounted disk.
-- Exact storage run `44432765082` failed at an inline checker assertion that expected the narrower `errno = saved_errno;` literal. The implementation correctly uses `errno = saved_errno ? saved_errno : EIO;`; this follow-up changes only the checker to require that explicit fallback.
-- On source parent `35235da`, Process inventory `44432765047`, NVRAM audit `44432765261`, AI docs `44432765070`, and HTTPD auth/security `44432765061` PASS. Storage hotplug needs an exact-head rerun after the checker correction.
-- XY-C1 run `44432765098` was still in progress at checkpoint; inspect Build XY-C1, TRX verification, and artifact upload individually. No L3 transfer from predecessor commits.
-- No local storage test or MIPS build was run. Physical USB hot-unplug L4 remains NOT VERIFIED.
+- `detect_wan_main()` previously ignored `fopen(DW_PID_FILE)`, `fprintf()`, and `fclose()` failures, then entered `poll_gateway()`. This could leave the long-running gateway monitor without a valid PID record. Its adjacent `detect_link_main()` uses the shared process PID/start-time writer and exits on publication failure.
+- THIS source slice replaces the unchecked PID-only write with `process_pidfile_write(DW_PID_FILE, "detect_wan")`; any inventory or atomic publication failure is logged with errno (EIO fallback) and prevents entry to the gateway polling loop. Normal monitor completion still unlinks the PID file.
+- The existing `.github/workflows/detect-wan-arp-stability.yml` contract now checks the helper include, guarded publish-before-poll ordering, errno fallback, controlled error log/return and removal of the unchecked fopen call. The existing Process lifecycle workflow already path-filters `detect_wan.c` and shared PID implementation/tests.
+- Parent main `9e7882b2354e57a4408f099b73d054b3a6635b2c` contains concurrent storage procfs mount decoding and test fixture corrections. Exact-head storage hotplug `44434391034`, HTTPD authentication/security `44434391030`, Process inventory `44434391084` and NVRAM `44434391143` were pending/in progress at checkpoint; inspect their final states.
+- No local shell test or MIPS build was run. Exact-head Detect WAN, Process lifecycle/inventory, AI docs, and XY-C1 Build/TRX/artifact checks are required. Physical router L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: PASS — incomplete or unreadable mount inventory remains UNKNOWN/failure rather than being interpreted as unmounted.
-- L2: Parent source Process/NVRAM/AI/HTTPD checks PASS; the storage checker had a too-narrow literal and requires exact-head rerun after correction.
+- L1: PASS — unchecked PID-file publication can no longer silently leave detect_wan polling without a valid process identity.
+- L2: Pending exact-head Detect WAN ARP contract and Process PID lifecycle/inventory regressions.
 - L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload.
-- L4: Physical unplug/eject behavior on target hardware NOT VERIFIED.
+- L4: Physical gateway monitor lifecycle and PID tracking on target hardware NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Poll exact-main storage hotplug and XY-C1 Actions for this checker-only correction; read any failing step log.
-2. Close storage L2 only after the full storage workflow passes. Close L3 only after Build XY-C1, TRX verification and artifact upload all pass on mount-inventory source SHA `35235da`.
-3. Then resume the next independent userland reliability issue; preserve the frozen backup and do not re-audit completed VPN/IAPP/iNIC fixes.
+1. Fetch live `main`; inspect exact-head Detect WAN ARP, Process lifecycle/inventory, AI docs and XY-C1 runs for this source commit. Read any failure logs.
+2. Poll storage hotplug, HTTPD security and NVRAM runs named above; fix actual failures without weakening source contracts. Confirm XY-C1 Build/TRX/artifact for the USB mount source commit `35235da`.
+3. Close detect_wan L2/L3 only on exact-source checks, then continue another independent P1 userland reliability issue. Preserve the frozen backup and do not repeat closed VPN/IAPP/iNIC audits.
 
 ## Mandatory handoff checkpoint
 

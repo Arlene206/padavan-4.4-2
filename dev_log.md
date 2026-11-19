@@ -1,3 +1,14 @@
+## 2026-11-19 — Fail closed when detect_wan cannot publish its PID identity
+
+- Parent main SHA: `9e7882b2354e57a4408f099b73d054b3a6635b2c` (includes concurrent storage mount decoding and regression fixture corrections).
+- L1 found `detect_wan_main()` ignored `fopen(DW_PID_FILE)`, `fprintf()` and `fclose()` failures, then entered `poll_gateway()`. A permissions, space or I/O error could leave a missing/partial PID file while the long-running monitor continued; the adjacent `detect_link` monitor already uses the shared strict PID/start-time writer.
+- Replace the ad-hoc PID-only write with `process_pidfile_write(DW_PID_FILE, "detect_wan")`. Any inventory or atomic publication failure now logs errno (EIO fallback) and aborts before gateway polling. Normal monitor completion still removes the PID file.
+- Extend the existing Detect WAN ARP workflow contract to require the shared PID helper, guarded publish-before-poll ordering, errno fallback, controlled error log/return, and absence of unchecked `fopen`. Existing Process lifecycle path filters already include `detect_wan.c`; no workflow or trigger expansion is needed.
+- Parent source-storage run `44432765082` had failed only a narrow literal check; correction `16e42d02368b485781c1ce1541dc513f413a7647` is followed by mount decoding/test-fixture changes `66a0a5d` and `9e7882b`. Latest exact-head Storage hotplug `44434391034`, HTTPD security `44434391030`, Process inventory `44434391084`, and NVRAM `44434391143` were still in progress/pending when this slice began; poll their results.
+- No local shell test or MIPS build was run in this connector-only session. Exact-head Detect WAN, Process, AI docs, and XY-C1 Build/TRX/artifact checks are required; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Match storage mount checker to explicit errno fallback
 
 - Parent main SHA: `35235da0cb4af66a8dedd96b7698948ec6b15687`.
