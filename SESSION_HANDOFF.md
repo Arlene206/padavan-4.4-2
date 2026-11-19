@@ -10,13 +10,11 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Recovery fetched live `main` at `5df5d3487b87fffc2c68d6637e5d994df8e724e5` (`test(zerotier): repair replacement-start assertion`), parent `0b1e7877df28865e6177b4446e339ecb32bc5c17`. The older `deed12f04f7bd2030a99acf689295396b505111e` checkpoint was four commits behind.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged; its valid changes were already ported to main and its historical head is not a development target.
-- Current ZeroTier product implementation is `a834edbad9ba5a168768a882c766607065fb7708` (`fix(zerotier): replay stale firewall state before restart`). Exact XY-C1 run `44544667515` passed Build XY-C1, TRX verification and artifact upload on that production-source SHA (L3). Subsequent `0b1e7877` and `5df5d348` commits are test-only.
-- Exact push checks on `5df5d348`: Process inventory `44545994027` PASS; WAN route status `44545994009` PASS; XY-C1 `44545994024` PASS for host validation with Build/TRX/artifact correctly skipped for this test-only commit. ZeroTier lifecycle `44545994030` FAIL: the shell regression reached and printed its final PASS marker, then `/bin/sh` reported a syntax error at line 774.
-- The preceding ZeroTier run `44545284526` on `0b1e7877` failed the exact replacement-daemon start-count assertion. Commit `5df5d348` repaired that assertion at its intended location, but a stale duplicate suffix remained after the final PASS marker. THIS COMMIT removes only that orphaned fragment; the assertions and failure gates remain intact.
-- Next action after this test repair: inspect the exact new-main ZeroTier and AI-handoff Actions; diagnose any newly exposed behavioral assertion without weakening it. If both pass, continue with the next ranked userland stability issue. Production L3 remains verified only for `a834edbad9ba5a168768a882c766607065fb7708`; no physical-router L4 is claimed.
-- No local checkout/toolchain is available in this connector-only environment; do not claim local shell execution.
+- Live main before this validator repair: `a8e8b63353ff5f665b1ec4baa532a8398646bb5d`; the next commit is documentation/test-handoff-only.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged; its valid changes are already on main.
+- ZeroTier production source `a834edbad9ba5a168768a882c766607065fb7708` passed exact XY-C1 run `44544667515` Build, TRX verification and artifact upload (L3).
+- Exact `a8e8b633` push checks: ZeroTier lifecycle `44549810631` PASS; Process inventory `44549810901` PASS; WAN route `44549810691` PASS. AI handoff docs `44549810797` failed because the handoff lacked the required `## Exact first action for the next GPT` heading. XY-C1 `44549810780` was still running at last check; it is test-only and should skip firmware Build/TRX/artifact.
+- No local checkout/toolchain is available in this connector-only environment; no local execution is claimed. Physical-router L4 remains NOT VERIFIED.
 
 ## Latest active source slices — 2026-11-19
 
@@ -151,11 +149,17 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Continue on `main` only; do not modify frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Storage targeted-eject result propagation is now closed for its product slice: `7fa39cbc3020b702ef294e97874962393b9392b8` passed Storage-hotplug `44536791653` and XY-C1 `44536791575` (Build/TRX/artifact); test-only umbrella follow-up `deed12f04f7bd2030a99acf689295396b505111e` passed Process fail-closed/inventory `44537131446`. Do not repeat that completed work.
-- Current active P1 is the ZeroTier firewall cleanup retry path in `trunk/user/zerotier/zerotier.sh`. The source/test/checker change from `151d7574c0197139c61a7b6a7e4d9a5883a21f99` adds bounded `iptables -C/-D`, a private atomic interface/NAT-segment checkpoint and retry after daemon exit. Follow-up `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` corrected table ordering to `iptables -t nat -C/-D`.
-- Exact b1 ZeroTier run `44518868454` still failed in the shell regression at the “all five firewall deletes” count assertion, despite the preceding fake-state check reporting no remaining rules; other b1 runs (AI docs `44518868503`, Process inventory `44518868804`, WAN route `44518868759`, XY-C1 `44518868802`) passed. The latest main still contains this ZeroTier code, and current-main test-only diagnostic change is intended to print the raw iptables trace and fake state on count mismatch. No new production defect is established yet.
-- Current main exact Actions: AI docs `44541196205`, USB storage `44541196245`, NVRAM transaction audit `44541196259`, USB WDM/NDIS `44541196219`, Process inventory `44541196147`, and Process fail-closed `44541196163` pass on `deed12f04f7bd2030a99acf689295396b505111e`; XY-C1 `44541196137` was in progress at Build when checked.
+- Continue on `main` only; keep frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` untouched.
+- ZeroTier stale-firewall replay is now implemented in production commit `a834edbad9ba5a168768a882c766607065fb7708`: old firewall rules and configured static routes must be removed using the persisted original interface/NAT segment before the replacement daemon starts. A failed replay blocks startup and preserves the checkpoint for retry.
+- Product-source validation boundary: exact XY-C1 run `44544667515` on `a834edb` completed Build, TRX verification and artifact upload (L3). No physical-router L4.
+- Test repair `a8e8b63353ff5f665b1ec4baa532a8398646bb5d` removed an orphaned duplicate shell fragment; exact ZeroTier run `44549810631` PASS, Process inventory `44549810901` PASS, WAN route `44549810691` PASS. AI docs run `44549810797` failed only because this handoff omitted the required next-action heading; XY-C1 `44549810780` remains pending and is test-only, so no new firmware build is needed.
+- No local checkout/toolchain is available in this connector-only environment; don't claim local tests.
+
+## Exact first action for the next GPT
+
+1. Fetch live `main` and its exact-head Actions once. Resolve any failed run for the current SHA before declaring the checkpoint complete; in particular, confirm the AI handoff validator after this heading repair and inspect the current XY-C1 result.
+2. If ZeroTier and handoff checks pass, continue the P1 repository-wide lifecycle/rollback queue with one new independent user-space stability defect. Don't repeat the completed ZeroTier stale-checkpoint audit.
+3. For any new source fix, add a focused regression, inspect workflow dependency/path contracts, commit one complete Git tree atomically to main with non-forced expected-SHA update, then inspect exact push runs. Preserve the verified L3 boundary at `a834edb` unless later production changes receive their own exact Build/TRX/artifact pass.
 
 ## Mandatory handoff checkpoint
 

@@ -1,3 +1,12 @@
+## 2026-11-19 — Restore the required next-session action heading
+
+- Main parent: `a8e8b63353ff5f665b1ec4baa532a8398646bb5d`. Exact AI handoff workflow `44549810797` failed at the documentation validator because the preceding handoff replacement omitted the mandatory `## Exact first action for the next GPT` section.
+- This follow-up restores that required heading with an actionable sequence: verify new exact-head CI once, then continue with an independent lifecycle/rollback defect without repeating the completed ZeroTier audit. The active state, exact runs, and L3/L4 boundaries are corrected as well.
+- Exact `a8e8b633` ZeroTier `44549810631`, Process inventory `44549810901`, and WAN route `44549810691` PASS. XY-C1 `44549810780` was pending on a test-only change. ZeroTier product SHA `a834edb` has exact L3 Build/TRX/artifact PASS `44544667515`.
+- No local tests or physical-router L4 are claimed.
+
+---
+
 ## 2026-11-19 — Remove orphaned ZeroTier regression fragment after assertion repair
 
 - Main parent: `5df5d3487b87fffc2c68d6637e5d994df8e724e5`. Exact ZeroTier push run `44545994030` passed the shell assertions and printed the regression PASS marker, then exited with `Syntax error: ")" unexpected` at line 774.

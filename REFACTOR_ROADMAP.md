@@ -1,8 +1,8 @@
 # 2026-11-19 source checkpoint
-- Current main baseline before the ZeroTier test-fragment repair: `5df5d3487b87fffc2c68d6637e5d994df8e724e5`. Frozen backup is unchanged at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged with its valid work already ported.
-- ZeroTier product source `a834edbad9ba5a168768a882c766607065fb7708` is L3 VERIFIED by exact XY-C1 run `44544667515` (Build, TRX and artifact all PASS). The current follow-ups are test-only.
-- Exact `5df5d348` Actions: Process inventory `44545994027` PASS; WAN route `44545994009` PASS; XY-C1 `44545994024` host checks PASS with firmware Build/TRX/artifact skipped (test-only change); ZeroTier lifecycle `44545994030` FAIL because an orphaned shell fragment after the final PASS marker causes a syntax error at test line 774.
-- The prior test-only head `0b1e7877` failed a replacement-start count assertion; `5df5d348` repaired its intended assertion but left a duplicate suffix after the final marker. This atomic slice removes only that trailing fragment and preserves the test assertions. Exact-head ZeroTier and AI docs reruns remain required; physical-router L4 is NOT VERIFIED.
+- Main baseline for this follow-up: `a8e8b63353ff5f665b1ec4baa532a8398646bb5d`; this commit repairs a required handoff heading omitted by the preceding checkpoint refresh.
+- ZeroTier production source `a834edbad9ba5a168768a882c766607065fb7708` remains L3 VERIFIED by exact XY-C1 run `44544667515` (Build/TRX/artifact all PASS).
+- Exact `a8e8b633` Actions: ZeroTier `44549810631`, Process inventory `44549810901`, WAN route `44549810691` PASS. AI docs `44549810797` failed because `SESSION_HANDOFF.md` omitted `## Exact first action for the next GPT`; current commit restores it. XY-C1 `44549810780` was pending and is test-only (firmware stages expected skipped).
+- Re-run the AI docs contract on this new SHA and inspect exact-head XY-C1 completion. Do not claim current main L3 beyond the production source SHA `a834edb`; physical-router L4 is NOT VERIFIED.
 
 ## CI trigger governance — current policy
 
