@@ -1382,6 +1382,48 @@ shutdown_router(int level)
 }
 
 static int
+rc_manual_toggle_radio_status(int is_5g, int requested_on)
+{
+	int was_on;
+	int effective_request;
+	int changed;
+
+	if (is_5g) {
+		was_on = is_radio_on_wl();
+		effective_request = requested_on < 0 ? !was_on : !!requested_on;
+		changed = manual_toggle_radio_wl(requested_on);
+	} else {
+		was_on = is_radio_on_rt();
+		effective_request = requested_on < 0 ? !was_on : !!requested_on;
+		changed = manual_toggle_radio_rt(requested_on);
+	}
+
+	return wireless_radio_notification_result(was_on, effective_request,
+						    changed);
+}
+
+static int
+rc_manual_change_radio_status(int is_5g, int requested_on)
+{
+	int was_enabled;
+	int status;
+
+	if (is_5g) {
+		was_enabled = get_enabled_radio_wl();
+		status = manual_change_radio_wl(requested_on);
+	} else {
+		was_enabled = get_enabled_radio_rt();
+		status = manual_change_radio_rt(requested_on);
+	}
+
+	/* Preserve watchdog-settling errors; 0/1 retains the legacy changed API. */
+	if (status < 0)
+		return status;
+	return wireless_radio_notification_result(was_enabled, requested_on,
+						    status);
+}
+
+static int
 rc_notify_apply_radio_control(int is_5g, int radio_on, int manual)
 {
 	int was_on;
@@ -2404,19 +2446,19 @@ main(int argc, char **argv)
 		ret = restart_firewall();
 	}
 	else if (!strcmp(base, "radio2_toggle")) {
-		manual_toggle_radio_rt(-1);
+		ret = rc_manual_toggle_radio_status(0, -1);
 	}
 	else if (!strcmp(base, "radio2_toggle_on")) {
-		manual_toggle_radio_rt(1);
+		ret = rc_manual_toggle_radio_status(0, 1);
 	}
 	else if (!strcmp(base, "radio2_toggle_off")) {
-		manual_toggle_radio_rt(0);
+		ret = rc_manual_toggle_radio_status(0, 0);
 	}
 	else if (!strcmp(base, "radio2_enable")) {
-		manual_change_radio_rt(1);
+		ret = rc_manual_change_radio_status(0, 1);
 	}
 	else if (!strcmp(base, "radio2_disable")) {
-		manual_change_radio_rt(0);
+		ret = rc_manual_change_radio_status(0, 0);
 	}
 	else if (!strcmp(base, "radio2_guest_enable")) {
 		ret = manual_change_guest_rt(1) < 0 ? -1 : 0;
@@ -2440,19 +2482,19 @@ main(int argc, char **argv)
 	}
 #if BOARD_HAS_5G_RADIO
 	else if (!strcmp(base, "radio5_toggle")) {
-		manual_toggle_radio_wl(-1);
+		ret = rc_manual_toggle_radio_status(1, -1);
 	}
 	else if (!strcmp(base, "radio5_toggle_on")) {
-		manual_toggle_radio_wl(1);
+		ret = rc_manual_toggle_radio_status(1, 1);
 	}
 	else if (!strcmp(base, "radio5_toggle_off")) {
-		manual_toggle_radio_wl(0);
+		ret = rc_manual_toggle_radio_status(1, 0);
 	}
 	else if (!strcmp(base, "radio5_enable")) {
-		manual_change_radio_wl(1);
+		ret = rc_manual_change_radio_status(1, 1);
 	}
 	else if (!strcmp(base, "radio5_disable")) {
-		manual_change_radio_wl(0);
+		ret = rc_manual_change_radio_status(1, 0);
 	}
 	else if (!strcmp(base, "radio5_guest_enable")) {
 		ret = manual_change_guest_wl(1) < 0 ? -1 : 0;

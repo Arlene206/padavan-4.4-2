@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — propagate radio-control failures through PID-1 notifications
+# 2026-11-19 continuation checkpoint — return truthful status from radio control applets
 
 # Cross-session execution mandate
 
@@ -11,41 +11,47 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; branch `main`.
-- Parent main SHA for the radio notification status fix: `ef26e97d5791fcb00c7f3e1af0693ad1bd440d4b`.
+- Parent main SHA for the radio CLI status correction: `1d1a839cab45ea4db21d2fec1ba74028baa44338`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
-## Completed prior slice — RStats output permissions
+## Completed prior slices
 
-- Product fix commit `5e11aa501a9ae2ad16e2946f0004ebff3535574e` makes both RStats atomic output paths use `0666 & ~umask` for new targets while preserving existing file modes.
-- Initial host attempt failed only because the fixture emitted a double-escaped NUL; test-only follow-up `ef26e97d5791fcb00c7f3e1af0693ad1bd440d4b` corrected it to `'\0'`.
-- Exact RStats host workflow `44470244091` on ef26: PASS, including GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` regression and source-contract step.
-- Exact XY-C1 run `44470078199` on product source `5e11aa501a9ae2ad16e2946f0004ebff3535574e`: Build PASS, TRX verification PASS, artifact upload PASS. The later ef26 commit changed only the test fixture.
-- Process inventory `44470244196` and NVRAM audit `44470244067` on ef26: PASS. No physical-router/L4 result is claimed.
+### RStats publication permissions
+
+- Product fix `5e11aa501a9ae2ad16e2946f0004ebff3535574e` makes both new RStats atomic outputs use `0666 & ~umask`, preserving existing file modes.
+- Test-only follow-up `ef26e97d5791fcb00c7f3e1af0693ad1bd440d4b` corrected the initially double-escaped NUL.
+- RStats host `44470244091` PASS on ef26; XY-C1 `44470078199` passed Build/TRX/artifact on unchanged production SHA 5e11; NVRAM audit `44470244067` and process inventory `44470244196` PASS on ef26. No L4 device claim.
+
+### PID-1 radio notification marker retention
+
+- Commit `1d1a839cab45ea4db21d2fec1ba74028baa44338` fixed all six PID-1 radio events that discarded `control_radio_*` results.
+- Exact wireless `44472557258`, Process inventory `44472557323`, PID-1 notification queue `44472557326`, AI docs `44472557416`, and Firewall `44472557194` PASS on SHA 1d1a839.
+- XY-C1 `44472557312` is still IN_PROGRESS at last poll (Build running; TRX/artifact pending). NVRAM audit `44472557377` also IN_PROGRESS. Check these exact parent-SHA runs separately.
 
 ## Active task
 
-Fix the PID-1 radio notification completion bug.
+Fix false-success exits from the `radio2_*` and `radio5_*` rc applets.
 
-- `handle_notifications()` called `control_radio_wl/rt()` for all six radio state events but discarded their return values. Since `action_result` stayed successful, the queue deleted its incomplete marker even when the radio transition failed.
-- The existing public `control_radio_*` API returns a boolean “state changed” value, not a status: 0 means either unchanged or failure. Preserve this API for existing callers.
-- A state-aware policy now treats no-op as success only when the radio was already at the requested state. A required transition succeeds only when the control reports a change; otherwise it returns `-EIO`.
-- The six PID-1 event branches use one adapter and merge its status into `action_result`. Added GNU89 host cases and source-contract assertions; wireless Actions now watch `rc.c`.
-- Parent main SHA: `ef26e97d5791fcb00c7f3e1af0693ad1bd440d4b`. Exact-head Actions for this slice are pending.
+- All ten CLI entry paths previously called `manual_toggle_radio_*` or `manual_change_radio_*` without using their return values; main then returned its default zero even after an unsuccessful transition.
+- These APIs retain a boolean changed/not-changed convention, while manual-change also exposes a negative watchdog settling error. New adapters return conventional command status: toggle checks pre-operation physical state; enable/disable checks pre-operation NVRAM state (matching its existing early no-op contract); negative settling errors are preserved.
+- All affected CLI branches assign adapter status to `ret`; no public API or NVRAM behavior is changed.
+- Added the corresponding wireless workflow source contract. Parent SHA: `1d1a839cab45ea4db21d2fec1ba74028baa44338`; exact-head Actions pending.
 
 ## Verification boundary
 
-- RStats L1/L2/L3: source fix, host regression PASS and exact XY-C1 Build/TRX/artifact PASS on production source SHA 5e11 (test-only ef26 follow-up changes no product code); NVRAM audit PASS. L4 not verified.
-- Radio notification fix: source-level implementation and policy tests committed; exact-head wireless, process-lifecycle, AI docs and XY-C1 runs must be checked before closing this slice. No L4 claim.
+- RStats host and XY-C1 Build/TRX/artifact PASS; L4 not verified.
+- PID-1 radio notification status fix: exact wireless/process/PID1 queue/docs Actions PASS on 1d1a839; XY-C1 L3 still pending for that parent.
+- Radio CLI follow-up: source committed; exact-head wireless, Process, docs and XY-C1 validation pending. No L4 claim.
 
 ## Exact first action for the next GPT
 
-1. Fetch current main and inspect exact-head wireless radio, process lifecycle/AI documentation and XY-C1 workflow runs for the radio notification fix. Require the GNU89 host regression PASS and XY-C1 Build, TRX and artifact upload PASS.
-2. Diagnose and fix any exact-SHA failure without weakening no-op/transition coverage or bypassing notification status propagation.
-3. While any workflow is pending, continue an independent P1 stability/security fix outside the wireless notification area; do not wait idle.
+1. Fetch current main and inspect exact-head wireless-radio, process lifecycle, AI docs and XY-C1 runs for the CLI status correction. Require all host/source checks and XY-C1 Build, TRX and artifact upload to PASS.
+2. Recheck parent XY-C1 `44472557312` and NVRAM audit `44472557377`; do not inherit parent run results to the child.
+3. Fix any real failure without suppressing watchdog errors or weakening radio status/no-op coverage. While checks are pending, continue an independent stability/security slice.
 
 ## Mandatory handoff checkpoint
 
-Mandatory handoff checkpoint: every session MUST inspect live main, the current product-source SHA, relevant exact-head Actions, current verification boundary, and the next concrete action.
+Mandatory handoff checkpoint: every session MUST inspect live main, current product-source SHA, relevant exact-head Actions, verification boundary, and next concrete action.
 
 The checkpoint is mandatory; a document edit is conditional. Update only when these facts materially change; leave an accurate handoff untouched.
 
@@ -54,4 +60,4 @@ The checkpoint is mandatory; a document edit is conditional. Update only when th
 - Main-only; never modify the frozen backup.
 - One complete Git tree and one atomic commit per logical task; use `force=false` and exact parent `expected_sha`.
 - Never force-push, rewrite history, publish partial commits or weaken tests.
-- Actions must be reported by exact SHA; host tests, firmware builds and physical-device checks are distinct validation levels.
+- Actions reported by exact SHA; host tests, firmware builds and physical-device checks are separate validation levels.

@@ -186,6 +186,36 @@ jobs:
           assert "control_radio_rt(" not in notification_handler
           assert '#include "wireless_radio_policy.h"' in rc_source
 
+          manual_toggle = function_body(
+              rc_source, "rc_manual_toggle_radio_status(int is_5g, int requested_on)")
+          assert "was_on = is_radio_on_wl();" in manual_toggle
+          assert "was_on = is_radio_on_rt();" in manual_toggle
+          assert "effective_request = requested_on < 0 ? !was_on : !!requested_on;" in manual_toggle
+          assert "changed = manual_toggle_radio_wl(requested_on);" in manual_toggle
+          assert "changed = manual_toggle_radio_rt(requested_on);" in manual_toggle
+          assert "wireless_radio_notification_result(was_on, effective_request," in manual_toggle
+
+          manual_change = function_body(
+              rc_source, "rc_manual_change_radio_status(int is_5g, int requested_on)")
+          assert "was_enabled = get_enabled_radio_wl();" in manual_change
+          assert "was_enabled = get_enabled_radio_rt();" in manual_change
+          assert "status = manual_change_radio_wl(requested_on);" in manual_change
+          assert "status = manual_change_radio_rt(requested_on);" in manual_change
+          assert "if (status < 0)" in manual_change
+          assert "wireless_radio_notification_result(was_enabled, requested_on," in manual_change
+
+          rc_main = rc_source[rc_source.index("main(int argc, char **argv)"):]
+          for call in (
+              "rc_manual_toggle_radio_status(0, -1)", "rc_manual_toggle_radio_status(0, 1)",
+              "rc_manual_toggle_radio_status(0, 0)", "rc_manual_change_radio_status(0, 1)",
+              "rc_manual_change_radio_status(0, 0)", "rc_manual_toggle_radio_status(1, -1)",
+              "rc_manual_toggle_radio_status(1, 1)", "rc_manual_toggle_radio_status(1, 0)",
+              "rc_manual_change_radio_status(1, 1)", "rc_manual_change_radio_status(1, 0)"):
+              assert "ret = " + call + ";" in rc_main, f"radio applet drops {call} status"
+          for raw_call in ("manual_toggle_radio_rt(", "manual_toggle_radio_wl(",
+                           "manual_change_radio_rt(", "manual_change_radio_wl("):
+              assert raw_call not in rc_main
+
           for name, generator in (("restart_wifi_wl", "gen_ralink_config_5g"),
                                   ("restart_wifi_rt", "gen_ralink_config_2g")):
               body = function_body(source, name + "(int radio_on, int need_reload_conf)")

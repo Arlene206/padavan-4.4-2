@@ -1,3 +1,13 @@
+## 2026-11-19 — Propagate radio control results from rc CLI applets
+
+- Parent main SHA: `1d1a839cab45ea4db21d2fec1ba74028baa44338`.
+- Ten `radio2_*` and `radio5_*` command branches ignored their manual radio helper return values, leaving main's default exit status zero after failed hardware transitions.
+- Added state-aware CLI adapters without changing helper APIs: toggle checks pre-operation physical state; enable/disable checks pre-operation NVRAM configuration, matching its existing no-op condition; negative watchdog-settling errors are preserved. Every affected branch now assigns the adapter result to `ret`.
+- Extended the wireless-radio source contract to require all ten CLI paths to return adapter status and reject direct unchecked manual helper calls.
+- Parent PID-1 notification slice on 1d1a839 had exact wireless `44472557258`, Process inventory `44472557323`, PID1 queue `44472557326`, AI docs `44472557416`, Firewall `44472557194` PASS. Parent XY-C1 `44472557312` and NVRAM `44472557377` remained in progress at last poll; check them separately.
+
+---
+
 ## 2026-11-19 — Retain PID-1 radio notification markers when transitions fail
 
 - Parent main SHA: `ef26e97d5791fcb00c7f3e1af0693ad1bd440d4b`.
