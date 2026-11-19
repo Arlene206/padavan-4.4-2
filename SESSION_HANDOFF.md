@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; development branch `main`.
-- Parent baseline for this ZeroTier source-contract repair: `34b5de90d7c7aa48cd30d8a258762b02beffbfcf`. The active source line includes checked ZeroTier firewall teardown and private retry checkpoint, correct NAT table ordering, and RStats NULL-safe system-time handling.
+- Parent baseline for this ZeroTier checker syntax repair: `714a4eaa2f645887ff6a199562c06fbb3d76f73a`. The active source line includes checked ZeroTier firewall teardown and private retry checkpoint, correct NAT table ordering, and RStats NULL-safe system-time handling.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout is available in this connector-only environment. Exact GitHub Actions are the host/target validation source.
 
@@ -119,10 +119,11 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Verification boundary
 
-- Active parent main SHA: `34b5de90d7c7aa48cd30d8a258762b02beffbfcf`.
-- Exact 34b5 ZeroTier run `44520810453`: shell lifecycle regression PASS; Python source/RC checker FAIL because the previous checker commit introduced an unterminated Python string at line 223. The shell run covered the table-qualified NAT append rollback and saved-state retry assertions.
-- On exact 34b5, AI docs `44520810464`, Process inventory `44520810591`, and WAN route `44520810470` PASS. XY-C1 `44520810589` completed host validation, but Build XY-C1, TRX verification and artifact upload were SKIPPED; no L3 claim.
-- This commit repairs the checker quoting and checks the exact table-qualified `iptables -t nat -D POSTROUTING -o ztunit` rollback assertion. Its exact-head ZeroTier/source contracts and downstream Actions remain to be checked. Physical-router L4 remains NOT VERIFIED.
+- Active parent main SHA: `714a4eaa2f645887ff6a199562c06fbb3d76f73a`.
+- Exact 34b5 ZeroTier run `44520810453`: shell lifecycle regression PASS; checker startup failed with an unterminated string at line 223. Exact 714a run `44521351924`: shell regression PASS; the attempted checker quote correction still had the same syntax error. This commit closes the missing quote.
+- Exact 714a AI handoff documentation contract `44521352041` PASS. The 34b5 AI docs `44520810464`, Process inventory `44520810591`, and WAN route `44520810470` PASS.
+- Current production-source SHA `3523bb9f27ba33065731abcd946ae11726d04470`: RStats regression `44519760957`, AI docs `44519760866`, HTTPD security `44519760897`, Process inventory `44519760869`, NVRAM audit `44519761011`, and XY-C1 `44519760903` PASS. XY-C1 passed Build, TRX verification and artifact upload on that exact source SHA (L3 VERIFIED).
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Retained historical verification details
 
@@ -135,14 +136,14 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 - Resume on `main` only. Parent baseline for this checker repair: `34b5de90d7c7aa48cd30d8a258762b02beffbfcf`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified; PR #1 remains closed/unmerged.
 - ZeroTier production cleanup/checkpoint is in `151d7574c0197139c61a7b6a7e4d9a5883a21f99`; b1 `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` corrected nat table/action ordering. The exact shell lifecycle test now passes on 34b5, including the idempotent saved-NAT check and the nat append rollback.
-- Exact ZeroTier run `44520810453` on 34b5 failed only at Python checker startup: line 223 contained an unterminated single-quoted string in the grep-count assertion. The same checker also had a malformed substring for the nat rollback command; this commit changes the Python delimiter to a double-quoted outer literal and asserts the exact shell grep command. No production source or test behavior changes.
+- Exact ZeroTier run `44521351924` on 714a passed the shell lifecycle regression but failed Python checker startup: the attempted line-223 fix still omitted the closing double quote before `in test`. This commit closes that literal correctly. The prior exact 34b5 shell test also passed; no production behavior change.
 - Preserve completed SkipDBv2, WAN sysfs counter, Inadyn, ZeroConf callback, SmartDNS, and other logged source work. After exact ZeroTier contracts pass, continue an independent P1/P2 integrated userland defect; do not re-audit completed areas.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle run for this Python checker syntax/contract repair; confirm shell regression, source/RC contracts and WAN-up notification steps.
-2. Inspect same-SHA XY-C1 Build, TRX verification and artifact upload separately. The previous 34b5 result was host-only with the three target steps skipped.
-3. Continue a separate P1/P2 userland reliability/security fix with production-linked regression and one atomic complete-tree commit. Keep the frozen backup untouched and update main only with non-forced exact-parent CAS.
+1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle run after this Python quoting fix. Confirm shell regression, Python source/RC contracts and WAN-up notification.
+2. The current production-source SHA `3523bb9f27ba33065731abcd946ae11726d04470` is L3 VERIFIED: XY-C1 run `44519760903` passed Build, TRX verification and artifact upload. Re-check only if a later production-source commit supersedes it.
+3. Once ZeroTier checks pass, continue an independent P1/P2 integrated userland stability/security defect. Keep backup immutable and update main only through an atomic tree/commit and non-forced exact-parent CAS.
 
 ## Mandatory handoff checkpoint
 
