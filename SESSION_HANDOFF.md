@@ -1,8 +1,8 @@
-# 2026-11-19 continuation checkpoint — VPN client route result propagation
+# 2026-11-19 continuation checkpoint — VPN server remote-LAN route status
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA: `79422b3cc31fea82dd5905720e1f31b9ea037bec`. Previous source SHA `41c2382d45e0496fdd336fc09bc2873d9216d553` adds RT3352 iNIC monitor launch status aggregation; exact Process inventory `44428277260` PASS, Wireless radio `44428277432` initially failed only at an obsolete source checker literal, repaired in test-only commit `79422b3`. XY-C1 `44428277197` still running at last poll; predecessor IAPP exact-source XY `44427295060` passed Build/TRX/artifact, while iNIC-signal XY `44427595460` was still building.
+- Repository: `Arlene206/padavan-4.4-2`; parent main SHA `aa3691d7db9efbdbf0020a5b8c58d5734a579e9f`. Crond probe-wait normalization/checker corrections are in `03d896d` and `aa3691d`; current Process integration validation on the latest SHA was pending. VPN-server lifecycle `44430527476` passed on 03d896d, while Process (`44430527367`/`44430527397`), WAN route (`44430527641`), XY-C1 (`44430527521`) and NVRAM (`44430527357`) were in progress/queued at last poll. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. IAPP `007a38b`, iNIC signal `82ac332`, and RT3352 iNIC monitor `41c2382` all L3 VERIFIED on exact-source XY Build/TRX/artifact.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,27 +77,27 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Propagate VPN-client PPP callback route setup and teardown failures.
+Propagate VPN server per-peer remote-LAN route setup and teardown failures.
 
-- L1 found `vpnc_route_dgw()` and `vpnc_route_to_remote_lan()` were `void` and discarded all `route_add()`/`route_del()` results. `ipup_vpnc_main()` then returned success even when configured split-default (`0.0.0.0/1` and `128.0.0.0/1`) or remote-LAN routes failed. With `vpnc_dgw=1`, a missing half of the split route can leave some traffic using the ordinary WAN path instead of the VPN. `ipdown_vpnc_main()` also hid route-removal errors.
-- THIS source slice makes both helpers return status, validates required callback IFNAME/IPREMOTE inputs only when those configured routes are needed, normalizes `EEXIST` for route add and `ESRCH` for an already-absent delete, logs other errors, continues independent callback work, and returns the first route/hook failure. Up/down custom hooks now contribute status too.
-- The existing `route_status_policy.h` and its sanitizer-backed `route_status_policy.c` test are extended with ESRCH/EEXIST normalization cases. The existing WAN route-status workflow adds `vpn_client.c` to push/PR filters and contracts for helper result handling and callback return propagation. No additional workflow is introduced.
-- The immediately preceding RT3352 iNIC monitor result source fix is `41c2382d45e0496fdd336fc09bc2873d9216d553`, with test-only source-contract repair `79422b3cc31fea82dd5905720e1f31b9ea037bec`. Exact Process inventory `44428277260` passed on 41c2382; Wireless radio `44428277432` failed at the stale `start_inicd() != 0` assertion (fixed in 79422b3). XY-C1 `44428277197` was still building at last poll.
-- IAPP inventory fail-closed source `007a38b34c5c7b8127f31a2aeb427e08833cdf67` is L3 VERIFIED: exact XY-C1 `44427295060` completed Build, TRX verification and artifact upload. The iNIC signal source SHA `82ac332` XY run `44427595460` was still building at last poll.
-- No local test or MIPS build was run in this connector-only session. Exact-head WAN route status, AI docs, Process integration and XY-C1 Build/TRX/artifact checks are required. Physical-router L4 NOT VERIFIED.
+- `vpns_route_to_remote_lan()` was a void helper that discarded its `route_add()`/`route_del()` result for a peer ACL network outside the router LAN subnet. An up callback could therefore publish lease/firewall state and return success despite a missing remote-LAN route; a down callback hid failure to remove stale routes.
+- THIS source slice changes the helper to return status, validates peer/interface identity, treats only EEXIST on add and ESRCH on delete as idempotent success, logs other failures, and propagates the route result through both PPP callbacks' existing `cleanup_failed` result while continuing independent lease/firewall/bcrelay work.
+- Existing `route_status_policy.h` / `tests/route_status_policy.c` cover route idempotence and first-error preservation. The VPN-server lifecycle checker asserts helper/callback propagation; the existing workflow adds the route-policy header/test to both push/PR triggers, and XY-C1 rebuild triggers include the header dependency.
+- Parent main `aa3691d7db9efbdbf0020a5b8c58d5734a579e9f` includes concurrent Crond probe-wait and checker updates. VPN-server lifecycle `44430527476` passed on 03d896d; Process integration/inventory `44430527367`/`44430527397`, WAN route `44430527641`, XY-C1 `44430527521` and NVRAM `44430527357` were in progress/queued at last poll. Inspect eventual results.
+- IAPP production `007a38b34c5c7b8127f31a2aeb427e08833cdf67`, iNIC signal `82ac332f84dbe8f454ad63247d4db53acac30c23`, and RT3352 iNIC monitor `41c2382d45e0496fdd336fc09bc2873d9216d553` are L3 VERIFIED by exact-source XY Build/TRX/artifact runs `44427295060`, `44427595460`, `44428277197`.
+- No local tests or MIPS build were run. This VPN server source requires exact-head VPN-server, WAN route-status, AI docs, Process and XY-C1 Build/TRX/artifact checks. Physical-router L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: PASS — VPN route callback statuses are no longer discarded; delete of an already-absent route remains idempotent.
-- L2: Pending exact-head route policy/contract workflow, AI docs and Process integration.
+- L1: PASS — per-peer VPN server remote-LAN route operations can no longer fail silently in either PPP callback.
+- L2: Pending exact-head route-status regression, VPN-server checker, Process and AI docs.
 - L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload.
-- L4: Real PPP callback environment, route-table recovery and VPN traffic leak behavior remain NOT VERIFIED.
+- L4: Actual VPN server PPP callback routes and physical-router cleanup remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect WAN route-status, AI docs, Process integration and XY-C1 runs on this VPN callback source SHA. Read the failing job log if any assertion fails.
-2. Close L2 only after the route policy sanitizer test and the source contract pass. Close L3 only when Build XY-C1, TRX verification and artifact upload all pass on a SHA containing these source changes.
-3. Continue the next independent P1 userland reliability or security item. Preserve the frozen backup and avoid re-auditing completed IAPP / iNIC monitor tasks.
+1. Fetch live `main`; inspect VPN-server, WAN route-status, Process, AI docs and XY-C1 Actions for this commit; inspect logs for any failure.
+2. Close L2 only after route-policy and source-contract checks pass. Close L3 only after Build XY-C1, TRX verification and artifact upload all succeed on a SHA containing this VPN-server source change.
+3. Continue an independent P1 userland stability/security issue; preserve the frozen backup and avoid repeating completed IAPP/iNIC/Crond audits.
 
 ## Mandatory handoff checkpoint
 

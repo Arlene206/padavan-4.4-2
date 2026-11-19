@@ -1,3 +1,15 @@
+## 2026-11-19 — Propagate VPN server per-peer route failures
+
+- Parent main SHA: `aa3691d7db9efbdbf0020a5b8c58d5734a579e9f`; includes concurrent Crond/shared-daemon probe-wait normalization and its checker/test corrections.
+- L1 found `vpns_route_to_remote_lan()` returned void and discarded `route_add()`/`route_del()` results. PPP up/down callbacks therefore returned success even when a configured per-peer remote-LAN route could not be installed or removed.
+- Convert the helper to return route status, reject invalid peer/interface inputs, treat `EEXIST` (route already present) and `ESRCH` (route already absent) as idempotent success, and preserve/log other route errors. Both callbacks mark failure while continuing independent lease/firewall/relay work.
+- Extend the existing route-status regression with first-error preservation and the VPN-server lifecycle checker with source contracts. Add route policy header/test to VPN-server Actions push/PR filters and the header to XY-C1 rebuild triggers; no new workflow added.
+- On parent, VPN-server lifecycle `44430527476` PASS; Process integration/inventory `44430527367`/`44430527397`, WAN route status `44430527641`, XY-C1 `44430527521`, and NVRAM `44430527357` were queued/in progress at last poll. Inspect final conclusions.
+- IAPP `007a38b34c5c7b8127f31a2aeb427e08833cdf67`, iNIC signal `82ac332f84dbe8f454ad63247d4db53acac30c23`, and RT3352 iNIC monitor `41c2382d45e0496fdd336fc09bc2873d9216d553` are L3 VERIFIED by exact-source XY Build/TRX/artifact runs `44427295060`, `44427595460`, `44428277197`.
+- No local tests or MIPS build were run. Exact-head VPN-server, WAN route-status, AI docs, Process and XY-C1 Build/TRX/artifact checks are required; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Propagate VPN-client callback route failures
 
 - Parent main SHA: 79422b3cc31fea82dd5905720e1f31b9ea037bec.

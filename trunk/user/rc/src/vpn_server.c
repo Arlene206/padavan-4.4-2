@@ -32,6 +32,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "vpn_server_restart_policy.h"
 #include "vpn_server_callback_policy.h"
+#include "route_status_policy.h"
 #include "ppp_options_file.h"
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
@@ -990,12 +991,17 @@ get_vpns_pool(int i_vuse, unsigned int *ip_v, unsigned int *ip_m, unsigned int *
 	*vp_e = lpool[1];
 }
 
-void
+int
 vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)
 {
-	int i, i_max;
+	int i, i_max, route_status;
 	char *acl_user, *acl_rnet, *acl_rmsk, *lnet, *lmsk;
 	char acl_user_var[22], acl_rnet_var[22], acl_rmsk_var[22];
+
+	if (!cname || !ifname || !ifname[0]) {
+		errno = EINVAL;
+		return EINVAL;
+	}
 
 	lnet = nvram_safe_get("lan_ipaddr");
 	lmsk = nvram_safe_get("lan_netmask");
@@ -1011,15 +1017,24 @@ vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)
 		acl_rmsk = nvram_safe_get(acl_rmsk_var);
 		if (*acl_user && strcmp(acl_user, cname) == 0 && is_valid_ipv4(acl_rnet) && is_valid_ipv4(acl_rmsk)) {
 			if (!is_same_subnet2(acl_rnet, lnet, acl_rmsk, lmsk)) {
-				if (add)
-					route_add(ifname, 0, acl_rnet, gw, acl_rmsk);
-				else
+				route_status = add ?
+					route_add(ifname, 0, acl_rnet, gw, acl_rmsk) :
 					route_del(ifname, 0, acl_rnet, gw, acl_rmsk);
+				if (add)
+					route_status = route_status_idempotent_add(route_status);
+				else
+					route_status = route_status_idempotent_delete(route_status);
+				if (route_status != 0)
+					logmessage(VPNS_LOG_NAME, "remote-LAN route %s failed for peer %s on %s (status=%d)",
+						   add ? "add" : "delete", cname, ifname, route_status);
+				return route_status;
 			}
-			
 			break;
 		}
 	}
+
+	/* No matching remote-LAN ACL, or the network is directly connected. */
+	return 0;
 }
 
 int
@@ -1027,7 +1042,7 @@ ipup_vpns_main(int argc, char **argv)
 {
 	int i_cast, i_vuse, lock_fd, firewall_status, lifecycle_fd, callback_state;
 	int cleanup_failed = 0, saved_errno, record_length;
-	int scan_error, stop_status, relay_status;
+	int scan_error, stop_status, relay_status, route_status;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action relay_action;
@@ -1113,7 +1128,12 @@ ipup_vpns_main(int argc, char **argv)
 		char *ifconfig_argv[] = { "ifconfig", argv[1], "-multicast", NULL };
 		_eval(ifconfig_argv, NULL, 0, NULL);
 	}
-	vpns_route_to_remote_lan(peer_name, argv[1], NULL, 1);
+	route_status = vpns_route_to_remote_lan(peer_name, argv[1], NULL, 1);
+	if (route_status != 0) {
+		logmessage(VPNS_LOG_NAME, "cannot install remote-LAN route for peer %s (status=%d)",
+			   peer_name, route_status);
+		cleanup_failed = 1;
+	}
 	set_vpn_balancing(argv[1], 1);
 	i_cast = nvram_get_int("vpns_cast");
 	if (i_cast == 0 || i_vuse == 0) {
@@ -1167,7 +1187,7 @@ ipdown_vpns_main(int argc, char **argv)
 {
 	int i_clients = 0, firewall_status = -1, lease_status = -1;
 	int cleanup_failed = 0, lock_fd, lifecycle_fd, callback_state;
-	int scan_error, stop_status;
+	int scan_error, stop_status, route_status;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action relay_action;
@@ -1214,7 +1234,12 @@ ipdown_vpns_main(int argc, char **argv)
 			cleanup_failed = 1;
 		}
 	}
-	vpns_route_to_remote_lan(peer_name, argv[1], NULL, 0);
+	route_status = vpns_route_to_remote_lan(peer_name, argv[1], NULL, 0);
+	if (route_status != 0) {
+		logmessage(VPNS_LOG_NAME, "cannot remove remote-LAN route for peer %s (status=%d)",
+			   peer_name, route_status);
+		cleanup_failed = 1;
+	}
 	if (check_if_file_exist(script_name)) {
 		char *hook_argv[] = {
 			(char *)script_name, "down", argv[1], argv[5], argv[6], peer_name, NULL

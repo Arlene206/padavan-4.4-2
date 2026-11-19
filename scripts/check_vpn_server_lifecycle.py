@@ -40,6 +40,8 @@ def ordered(txt,tokens,label):
         pos=found
 
 vpn=read("trunk/user/rc/src/vpn_server.c")
+route_status_policy=read("trunk/user/rc/src/route_status_policy.h")
+route_status_test=read("trunk/user/rc/src/tests/route_status_policy.c")
 rc_header=read("trunk/user/rc/src/rc.h")
 lock=read("trunk/user/rc/src/vpn_server_lifecycle_lock.h")
 lease_lock=read("trunk/user/rc/src/vpn_server_lease_lock.h")
@@ -67,6 +69,40 @@ restart_policy_test=read("trunk/user/rc/src/tests/vpn_server_restart_policy.c")
 process_pidfile=read("trunk/user/shared/src/process_pidfile.c")
 pppd_ipcp=read("trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c")
 pppd_main=read("trunk/user/pppd/ppp-2.4.7/pppd/main.c")
+require('#include "route_status_policy.h"' in vpn,
+        "VPN server remote-LAN callbacks must use shared route-result policy")
+require("int" + chr(10) + "vpns_route_to_remote_lan(" in vpn and
+        "int vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add);" in rc_header,
+        "VPN remote-LAN helper must expose operation status")
+vpn_remote_route=body(vpn,"vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)")
+ordered(vpn_remote_route,[
+    "if (!cname || !ifname || !ifname[0])",
+    "route_status = add ?",
+    "route_add(ifname, 0, acl_rnet, gw, acl_rmsk)",
+    "route_del(ifname, 0, acl_rnet, gw, acl_rmsk)",
+    "route_status_idempotent_add(route_status)",
+    "route_status_idempotent_delete(route_status)",
+    "if (route_status != 0)",
+    "return route_status",
+], "VPN server remote-LAN route status")
+require("route_status_idempotent_add(EEXIST) == 0" in route_status_test and
+        "route_status_idempotent_delete(ESRCH) == 0" in route_status_test and
+        "test_vpn_server_remote_route_failure_survives_later_callback_work" in route_status_test,
+        "VPN server route idempotence/error regression missing")
+for signature,call,label in (
+    ("ipup_vpns_main(int argc, char **argv)",
+     "vpns_route_to_remote_lan(peer_name, argv[1], NULL, 1)", "up"),
+    ("ipdown_vpns_main(int argc, char **argv)",
+     "vpns_route_to_remote_lan(peer_name, argv[1], NULL, 0)", "down"),
+):
+    callback=body(vpn,signature)
+    ordered(callback,[
+        "route_status = "+call+";",
+        "if (route_status != 0)",
+        "cleanup_failed = 1;",
+        "vpn_server_lifecycle_lock_release(lifecycle_fd)",
+        "return cleanup_failed ? -1 : 0;"
+    ], "VPN "+label+" callback route result")
 require('#include "vpn_server_lifecycle_lock.h"' in vpn,"missing lifecycle lock include")
 require("vpn_server.o" in makefile,"vpn_server.o missing from RC build")
 for t in ("O_NOFOLLOW","O_CLOEXEC","fstat(fd, &st)","S_ISREG(st.st_mode)",

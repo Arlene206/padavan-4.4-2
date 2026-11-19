@@ -122,6 +122,19 @@ test_vpn_route_idempotence_does_not_hide_real_failures(void)
 	assert(route_status_accumulate(EIO, route_status_idempotent_delete(ESRCH)) == EIO);
 }
 
+static void
+test_vpn_server_remote_route_failure_survives_later_callback_work(void)
+{
+	const int callback_steps[] = { EHOSTUNREACH, 0, EIO };
+	size_t attempts = 0;
+
+	/* Route failure remains visible while later independent work is attempted. */
+	assert(apply_results(callback_steps,
+			     sizeof(callback_steps) / sizeof(callback_steps[0]),
+			     &attempts) == EHOSTUNREACH);
+	assert(attempts == sizeof(callback_steps) / sizeof(callback_steps[0]));
+}
+
 int
 main(void)
 {
@@ -132,6 +145,7 @@ main(void)
 	test_wan_vpn_stop_notification_failure_is_reported_without_skipping_later_cleanup();
 	test_static_ipoe_teardown_clear_failure_forces_interface_down();
 	test_vpn_route_idempotence_does_not_hide_real_failures();
+	test_vpn_server_remote_route_failure_survives_later_callback_work();
 	const int first_error[] = { 0, EIO, 0, ENETUNREACH };
 	const int negative_error[] = { 0, -1, 0, EPERM };
 	const int no_errors[] = { 0, 0, 0 };
