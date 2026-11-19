@@ -14,6 +14,7 @@ on:
       - "trunk/user/shared/src/bridge_membership_policy.h"
       - "trunk/user/shared/src/tests/bridge_membership_policy.c"
       - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wireless_radio_policy.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/tests/service_wait_policy.c"
@@ -32,6 +33,7 @@ on:
       - "trunk/user/shared/src/bridge_membership_policy.h"
       - "trunk/user/shared/src/tests/bridge_membership_policy.c"
       - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wireless_radio_policy.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/tests/service_wait_policy.c"
@@ -65,6 +67,7 @@ jobs:
           root = Path(".")
           rc = root / "trunk/user/rc/src"
           source = (rc / "net_wifi.c").read_text()
+          rc_source = (rc / "rc.c").read_text()
           workflow = Path(".github/workflows/wireless-radio-state.yml").read_text()
           shared = root / "trunk/user/shared/src"
           netutils_source = (shared / "netutils.c").read_text()
@@ -157,6 +160,31 @@ jobs:
               assert "wireless_radio_status_success(" + restart + "(" in body
               assert "mlme_radio_" in body and "_apply(" in body
               assert "if (is_radio_changed && !manual)" in body
+
+          notification_policy = (rc / "wireless_radio_policy.h").read_text()
+          notification_test = (rc / "tests/wireless_radio_policy.c").read_text()
+          for token in ("was_on", "requested_on", "change_reported",
+                        "change_reported == 1 ? 0 : -EIO"):
+              assert token in notification_policy
+          for token in ("test_radio_notification_noop_is_success_only_when_already_at_target",
+                        "test_radio_notification_successful_transitions",
+                        "test_radio_notification_failed_transitions_remain_pending"):
+              assert token in notification_test
+
+          notification_adapter = function_body(
+              rc_source, "rc_notify_apply_radio_control(int is_5g, int radio_on, int manual)")
+          assert "was_on = is_radio_on_wl();" in notification_adapter
+          assert "change_reported = control_radio_wl(radio_on, manual);" in notification_adapter
+          assert "was_on = is_radio_on_rt();" in notification_adapter
+          assert "change_reported = control_radio_rt(radio_on, manual);" in notification_adapter
+          assert "wireless_radio_notification_result(was_on, radio_on," in notification_adapter
+          assert "if (status != 0)" in notification_adapter
+
+          notification_handler = function_body(rc_source, "handle_notifications(void)")
+          assert notification_handler.count("rc_notify_apply_radio_control(") == 6
+          assert "control_radio_wl(" not in notification_handler
+          assert "control_radio_rt(" not in notification_handler
+          assert '#include "wireless_radio_policy.h"' in rc_source
 
           for name, generator in (("restart_wifi_wl", "gen_ralink_config_5g"),
                                   ("restart_wifi_rt", "gen_ralink_config_2g")):

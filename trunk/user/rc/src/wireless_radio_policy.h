@@ -72,4 +72,17 @@ wireless_radio_restart_status(int previous_status, int operation_status)
 	return operation_status == 0 ? 0 : -EIO;
 }
 
+/*
+ * control_radio_* retains its legacy boolean "state changed" result. A no-op
+ * is successful only when the radio was already at the requested state.
+ */
+static inline int
+wireless_radio_notification_result(int was_on, int requested_on,
+				   int change_reported)
+{
+	if (!!was_on == !!requested_on)
+		return 0;
+	return change_reported == 1 ? 0 : -EIO;
+}
+
 #endif /* WIRELESS_RADIO_POLICY_H */

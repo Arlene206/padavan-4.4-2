@@ -51,6 +51,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
 #include "service_wait_policy.h"
+#include "wireless_radio_policy.h"
 #include "ddns_restart_policy.h"
 #if defined (USE_IPV6)
 #include "ipv6_restart_policy.h"
@@ -1380,6 +1381,30 @@ shutdown_router(int level)
 	LED_CONTROL(LED_PWR, LED_OFF);
 }
 
+static int
+rc_notify_apply_radio_control(int is_5g, int radio_on, int manual)
+{
+	int was_on;
+	int change_reported;
+	int status;
+
+	if (is_5g) {
+		was_on = is_radio_on_wl();
+		change_reported = control_radio_wl(radio_on, manual);
+	} else {
+		was_on = is_radio_on_rt();
+		change_reported = control_radio_rt(radio_on, manual);
+	}
+
+	status = wireless_radio_notification_result(was_on, radio_on,
+						    change_reported);
+	if (status != 0)
+		logmessage(LOGNAME, "%s radio notification incomplete (requested=%d, was_on=%d, changed=%d)",
+			   is_5g ? "5GHz" : "2.4GHz", !!radio_on, !!was_on,
+			   change_reported);
+	return status;
+}
+
 void
 handle_notifications(void)
 {
@@ -2048,30 +2073,36 @@ handle_notifications(void)
 			int radio_on = get_enabled_radio_wl();
 			if (radio_on)
 				radio_on = is_radio_allowed_wl();
-			control_radio_wl(radio_on, 1);
+			action_result = rc_notify_merge_action_result(
+				action_result, rc_notify_apply_radio_control(1, radio_on, 1));
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_radio_rt"))
 		{
 			int radio_on = get_enabled_radio_rt();
 			if (radio_on)
 				radio_on = is_radio_allowed_rt();
-			control_radio_rt(radio_on, 1);
+			action_result = rc_notify_merge_action_result(
+				action_result, rc_notify_apply_radio_control(0, radio_on, 1));
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_radio_wl_on"))
 		{
-			control_radio_wl(1, 0);
+			action_result = rc_notify_merge_action_result(
+				action_result, rc_notify_apply_radio_control(1, 1, 0));
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_radio_wl_off"))
 		{
-			control_radio_wl(0, 0);
+			action_result = rc_notify_merge_action_result(
+				action_result, rc_notify_apply_radio_control(1, 0, 0));
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_radio_rt_on"))
 		{
-			control_radio_rt(1, 0);
+			action_result = rc_notify_merge_action_result(
+				action_result, rc_notify_apply_radio_control(0, 1, 0));
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_radio_rt_off"))
 		{
-			control_radio_rt(0, 0);
+			action_result = rc_notify_merge_action_result(
+				action_result, rc_notify_apply_radio_control(0, 0, 0));
 		}
 		else if (!strcmp(entry->d_name, "control_wifi_config_wl"))
 		{

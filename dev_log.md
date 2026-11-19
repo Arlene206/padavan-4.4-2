@@ -1,3 +1,13 @@
+## 2026-11-19 — Retain PID-1 radio notification markers when transitions fail
+
+- Parent main SHA: `ef26e97d5791fcb00c7f3e1af0693ad1bd440d4b`.
+- All six PID-1 radio events discarded `control_radio_wl/rt()` results, leaving `action_result` at success. The notification queue therefore deleted the incomplete marker after a failed scheduled or explicit on/off transition.
+- Preserved the legacy boolean changed/not-changed API. Added a state-aware adapter: a no-op succeeds only if already at target; an actual transition requires a positive changed result; otherwise `-EIO` is merged into the event result and the incomplete marker remains.
+- Added GNU89 policy cases for no-op, successful transitions and failed transitions; wireless Actions now watch `rc.c`.
+- RStats validation update: exact RStats host run `44470244091` PASS; exact XY-C1 run `44470078199` passed Build, TRX and artifact upload on production source `5e11aa501a9ae2ad16e2946f0004ebff3535574e`; NVRAM audit `44470244067` on ef26 PASS. The initial RStats run `44470078263` failed only on the double-escaped test NUL; test-only follow-up ef26 corrected it. No L4 hardware claim.
+
+---
+
 ## 2026-11-19 — Prevent RStats atomic publishers from bypassing umask
 
 - Parent main SHA: `c4d2080843e9a39d917daf5f03e5ec340d89b039`.

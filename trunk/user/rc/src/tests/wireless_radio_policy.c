@@ -128,6 +128,28 @@ test_inic_monitor_launch_failure_is_sticky(void)
 	return all_started;
 }
 
+static int
+test_radio_notification_noop_is_success_only_when_already_at_target(void)
+{
+	return wireless_radio_notification_result(0, 0, 0) != 0 ||
+	       wireless_radio_notification_result(1, 1, 0) != 0;
+}
+
+static int
+test_radio_notification_successful_transitions(void)
+{
+	return wireless_radio_notification_result(0, 1, 1) != 0 ||
+	       wireless_radio_notification_result(1, 0, 1) != 0;
+}
+
+static int
+test_radio_notification_failed_transitions_remain_pending(void)
+{
+	return wireless_radio_notification_result(0, 1, 0) != -EIO ||
+	       wireless_radio_notification_result(1, 0, 0) != -EIO ||
+	       wireless_radio_notification_result(0, 1, 2) != -EIO;
+}
+
 int
 main(void)
 {
@@ -141,7 +163,10 @@ main(void)
 	    test_restart_failure_wait_status_is_normalized_and_sticky() ||
 	    test_apcli_autoconnect_failure_is_reported() ||
 	    test_apcli_forced_reenable_failure_is_reported() ||
-	    test_inic_monitor_launch_failure_is_sticky()) {
+	    test_inic_monitor_launch_failure_is_sticky() ||
+	    test_radio_notification_noop_is_success_only_when_already_at_target() ||
+	    test_radio_notification_successful_transitions() ||
+	    test_radio_notification_failed_transitions_remain_pending()) {
 		fprintf(stderr, "Wireless interface status policy: FAIL\n");
 		return 1;
 	}
