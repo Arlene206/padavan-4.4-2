@@ -1,3 +1,14 @@
+## 2026-11-19 — Make ZeroTier firewall cleanup fail closed and retryable
+
+- Parent main SHA: `3fb41944a5e5fb88684bcd013d9b6b246fd130af`.
+- Found a reliability gap in `trunk/user/zerotier/zerotier.sh`: `del_rules()` sent five unchecked iptables deletions, so `stop_zero()` could delete persistent identity/configuration while stale INPUT/FORWARD/NAT rules remained.
+- Add bounded check-before-delete using the repository's iptables 1.8.7 (`-C` available): status 1 means absent; other command failures propagate. Up to 32 duplicate copies are drained; all applicable cleanup operations are attempted and aggregated. Startup refuses to publish new rules if stale-rule cleanup is unverified.
+- Before daemon shutdown, write the interface and optional NAT source segment atomically into a mode-0600 checkpoint under the persistent ZeroTier config directory. If firewall cleanup fails after process exit, keep the checkpoint and identity; the next stop can load the validated values and retry without the vanished interface or kernel route. Persistent config is removed only after checked firewall and static-route cleanup.
+- Extend the shell regression with a stateful iptables fake, injected deletion failure, independent-rule cleanup assertions, persistent-state checks and a successful retry after daemon/interface disappearance. Update source contracts for bounded deletion, status classification, safe checkpoint and stop ordering.
+- No local shell execution was possible in the connector-only environment. Exact-head ZeroTier Action is pending; current-source XY-C1 L3 is not claimed.
+
+---
+
 ## 2026-11-19 — Guard the ZeroConf IPTV interface environment
 
 - Parent main SHA: `780e8e153a96d3732cdace2f2692a1c7c27dc7be`; source commit: `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`.

@@ -7,6 +7,8 @@ PROGIDT=/usr/bin/zerotier-idtool
 config_path="/etc/storage/zerotier-one"
 PLANET="/etc/storage/planet"
 ZT_READY_TIMEOUT=30
+zt0=""
+ip_segment=""
 start_instance() {
 	cfg="$1"
 	echo $cfg
@@ -156,6 +158,94 @@ zerotier_wait_route() {
 	return 1
 }
 
+# iptables 1.8.7 supports -C. Treat only exit status 1 as "absent";
+# command/xtables failures must not be mistaken for completed cleanup.
+ZEROTIER_RULE_DELETE_LIMIT=32
+zerotier_delete_firewall_rule() {
+	zerotier_rule_delete_count=0
+	while [ "$zerotier_rule_delete_count" -lt "$ZEROTIER_RULE_DELETE_LIMIT" ]; do
+		if iptables -C "$@" >/dev/null 2>&1; then
+			if ! iptables -D "$@" >/dev/null 2>&1; then
+				logger -t "zerotier" "防火墙规则删除失败: iptables -D $*"
+				return 1
+			fi
+			zerotier_rule_delete_count=$((zerotier_rule_delete_count + 1))
+		else
+			zerotier_rule_check_status=$?
+			case "$zerotier_rule_check_status" in
+				1) return 0 ;;
+				*)
+					logger -t "zerotier" "防火墙规则状态检查失败: iptables -C $* (status=$zerotier_rule_check_status)"
+					return 1
+					;;
+			esac
+		fi
+	done
+
+	# Bound duplicate cleanup. Refuse to claim success if more copies remain.
+	if iptables -C "$@" >/dev/null 2>&1; then
+		logger -t "zerotier" "防火墙规则重复数量超过清理上限: $*"
+		return 1
+	else
+		zerotier_rule_check_status=$?
+		[ "$zerotier_rule_check_status" -eq 1 ] && return 0
+		logger -t "zerotier" "防火墙规则最终状态检查失败: $* (status=$zerotier_rule_check_status)"
+		return 1
+	fi
+}
+
+zerotier_firewall_state_save() {
+	[ -n "$zt0" ] && [ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
+	case "$zt0" in
+		zt*) ;;
+		*) return 1 ;;
+	esac
+	case "$zt0" in
+		*[!A-Za-z0-9_.:-]*) return 1 ;;
+	esac
+	case "$ip_segment" in
+		*[!0-9./]*) return 1 ;;
+	esac
+
+	zt_state_file="$config_path/.firewall-state"
+	if [ -e "$zt_state_file" ] || [ -L "$zt_state_file" ]; then
+		[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ] || return 1
+	fi
+	zt_state_tmp="$(mktemp "$config_path/.firewall-state.XXXXXX")" || return 1
+	if ! printf '%s\n%s\n' "$zt0" "$ip_segment" > "$zt_state_tmp"; then
+		rm -f "$zt_state_tmp"
+		return 1
+	fi
+	if ! chmod 600 "$zt_state_tmp" || ! mv -f "$zt_state_tmp" "$zt_state_file"; then
+		rm -f "$zt_state_tmp"
+		return 1
+	fi
+	return 0
+}
+
+zerotier_firewall_state_load() {
+	zt_state_file="$config_path/.firewall-state"
+	[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ] || return 1
+	{
+		IFS= read -r zt_state_saved_interface || return 1
+		IFS= read -r zt_state_saved_segment || return 1
+		if IFS= read -r zt_state_extra; then
+			return 1
+		fi
+	} < "$zt_state_file"
+	case "$zt_state_saved_interface" in
+		zt*) ;;
+		*) return 1 ;;
+	esac
+	case "$zt_state_saved_interface" in
+		*[!A-Za-z0-9_.:-]*) return 1 ;;
+	esac
+	case "$zt_state_saved_segment" in
+		*[!0-9./]*) return 1 ;;
+	esac
+	return 0
+}
+
 zerotier_add_firewall_rule() {
 	if iptables "$@"; then
 		return 0
@@ -164,7 +254,9 @@ zerotier_add_firewall_rule() {
 	logger -t "zerotier" "防火墙规则安装失败: iptables $*"
 	# Remove every rule from this transaction; the rejected append may follow
 	# one or more successful appends, so cleanup must cover the whole set.
-	del_rules
+	if ! del_rules; then
+		logger -t "zerotier" "防火墙规则安装失败后回滚不完整"
+	fi
 	return 1
 }
 
@@ -191,7 +283,10 @@ rules() {
 		}
 	fi
 	logger -t "zerotier" "zt interface $zt0 is started!"
-	del_rules
+	if ! del_rules; then
+		logger -t "zerotier" "旧防火墙规则清理未完成，拒绝发布新规则"
+		return 1
+	fi
 	if ! zerotier_add_firewall_rule -A INPUT -i "$zt0" -j ACCEPT; then
 		return 1
 	fi
@@ -210,7 +305,9 @@ rules() {
 		fi
 		if ! zero_route "add"; then
 			logger -t "zerotier" "ZeroTier静态路由安装失败，回滚网络规则"
-			del_rules
+			if ! del_rules; then
+				logger -t "zerotier" "静态路由安装失败后防火墙回滚不完整"
+			fi
 			if ! zero_route "del"; then
 				logger -t "zerotier" "静态路由回滚未完全确认"
 			fi
@@ -222,20 +319,39 @@ rules() {
 
 
 del_rules() {
-	if [ -z "${zt0:-}" ]; then
-		zt0="$(zerotier_interface_name)"
+	del_rules_status=0
+	if [ -z "$zt0" ] || [ -z "$ip_segment" ]; then
+		if zerotier_firewall_state_load; then
+			[ -n "$zt0" ] || zt0="$zt_state_saved_interface"
+			[ -n "$ip_segment" ] || ip_segment="$zt_state_saved_segment"
+		fi
 	fi
-	if [ -z "${ip_segment:-}" ]; then
+	if [ -z "$zt0" ]; then
+		logger -t "zerotier" "无法确定ZeroTier接口，跳过无目标的防火墙删除"
+		return 0
+	fi
+	if [ -z "$ip_segment" ]; then
 		ip_segment="$(zerotier_kernel_route_segment "$zt0")"
 	fi
-#	iptables -D FORWARD -i $zt0 -j ACCEPT 2>/dev/null
-#	iptables -D FORWARD -o $zt0 -j ACCEPT 2>/dev/null
-#	iptables -D FORWARD -i $zt0 -o $zt0 -j ACCEPT
-	iptables -D INPUT -i $zt0 -j ACCEPT 2>/dev/null
-	iptables -D FORWARD -i $zt0 -o $zt0 -j ACCEPT 2>/dev/null
-	iptables -D FORWARD -i $zt0 -j ACCEPT 2>/dev/null
-	iptables -t nat -D POSTROUTING -o $zt0 -j MASQUERADE 2>/dev/null
-	iptables -t nat -D POSTROUTING -s $ip_segment -j MASQUERADE 2>/dev/null
+
+	if ! zerotier_delete_firewall_rule INPUT -i "$zt0" -j ACCEPT; then
+		del_rules_status=1
+	fi
+	if ! zerotier_delete_firewall_rule FORWARD -i "$zt0" -o "$zt0" -j ACCEPT; then
+		del_rules_status=1
+	fi
+	if ! zerotier_delete_firewall_rule FORWARD -i "$zt0" -j ACCEPT; then
+		del_rules_status=1
+	fi
+	if ! zerotier_delete_firewall_rule -t nat POSTROUTING -o "$zt0" -j MASQUERADE; then
+		del_rules_status=1
+	fi
+	if [ -n "$ip_segment" ]; then
+		if ! zerotier_delete_firewall_rule -t nat POSTROUTING -s "$ip_segment" -j MASQUERADE; then
+			del_rules_status=1
+		fi
+	fi
+	return "$del_rules_status"
 }
 
 
@@ -473,14 +589,22 @@ stop_zero() {
 	# Capture the virtual interface while zerotier-one still owns it. The
 	# interface can disappear as soon as the daemon exits, but both firewall
 	# and static-route cleanup must use the original interface name.
-	if [ -z "${zt0:-}" ]; then
+	if [ -z "$zt0" ]; then
 		zt0="$(zerotier_interface_name)"
 	fi
-	# The source-NAT rule is keyed by the connected network, not only zt0.
-	# Capture it before killing zerotier-one removes the kernel route.
 	ip_segment="$(zerotier_kernel_route_segment "$zt0")"
+	if [ -z "$zt0" ] || [ -z "$ip_segment" ]; then
+		if zerotier_firewall_state_load; then
+			[ -n "$zt0" ] || zt0="$zt_state_saved_interface"
+			[ -n "$ip_segment" ] || ip_segment="$zt_state_saved_segment"
+		fi
+	fi
 	if [ "$(nvram get zerotier_nat)" = "1" ] && [ -z "$ip_segment" ]; then
 		logger -t "zerotier" "无法在停止前读取ZeroTier内核路由，保留守护进程与网络配置"
+		return 1
+	fi
+	if [ -n "$zt0" ] && ! zerotier_firewall_state_save; then
+		logger -t "zerotier" "无法安全保存防火墙清理状态，拒绝停止ZeroTier"
 		return 1
 	fi
 
@@ -490,7 +614,10 @@ stop_zero() {
 		logger -t "zerotier" "无法确认ZeroTier已停止，保留配置与网络规则"
 		return 1
 	fi
-	del_rules
+	if ! del_rules; then
+		logger -t "zerotier" "无法确认ZeroTier防火墙规则已清理，保留清理状态与持久配置"
+		return 1
+	fi
 	if ! zero_route "del"; then
 		logger -t "zerotier" "无法确认ZeroTier静态路由已清理，保留持久身份与配置"
 		return 1

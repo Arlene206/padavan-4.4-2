@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; branch `main`.
-- Live main: `b7cfce1be8c56bb2f82c5e53919898cba3a3a542` (`fix(wan): guard ZeroConf IPTV interface environment`), parent `780e8e153a96d3732cdace2f2692a1c7c27dc7be`. It includes the previous Inadyn recovery/cache hardening, WAN sysfs counter confinement and SkipDBv2 lifecycle slices. The exact current-main WAN DHCP callback regression and all non-XY checks are PASS; XY-C1 is still running at Build.
+- Live main before this ZeroTier firewall-cleanup commit: `3fb41944a5e5fb88684bcd013d9b6b246fd130af` (parent of the atomic source/test/checker/handoff tree below). The current source line includes the WAN ZeroConf IPTV interface guard, Inadyn recovery/cache hardening, WAN sysfs counter confinement and SkipDBv2 lifecycle work.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout is available in this connector-only environment. Exact GitHub Actions are the host/target validation source.
 
@@ -134,7 +134,8 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Resume on `main` only. Current main is `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
+- Resume on `main` only. Parent for this ZeroTier firewall-cleanup slice: `3fb41944a5e5fb88684bcd013d9b6b246fd130af`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
+- New ZeroTier firewall cleanup slice in THIS COMMIT: checked `iptables -C/-D`, bounded duplicate deletion, failure aggregation, a private atomic interface/NAT-segment checkpoint and retry after daemon exit. Its shell regression injects a deletion failure, checks identity retention and verifies a retry with the interface/route gone. Exact-head CI must validate it; do not infer L3 from older host-only runs.
 - Recently completed source slices to preserve (do not re-audit): SkipDBv2 detached startup/graceful shutdown (`69e5907`); WAN sysfs counter path confinement (`2a49073`); Inadyn pre-launch recovery and private cache permissions (`01e965e`, `1f6ec97`, `03dc5a8`); ZeroConf IPTV NULL-safe interface environment (`b7cfce1`); preceding PPPoE/WAN interface bounds, AP DHCP host-file retry and RAS launch rollback changes.
 - SmartDNS source work includes atomic config publication, failed-prepare rollback, restoration of the previous daemon on failed replacement start, verified DNSMasq reload before teardown, one shell lock across start/stop/restart and fail-closed custom-config append errors.
 - Exact b7 Actions are green except XY-C1, which is still building. See Verification boundary for the full run IDs. No L4 device validation is available in this environment.
@@ -142,9 +143,9 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, then inspect XY-C1 run `44510842879` on exact SHA `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`. If still pending, move to an independent subsystem; if failed, inspect the failing step and repair its cause. Claim current-main L3 only after Build XY-C1, TRX verification and artifact upload all pass on b7.
-2. Preserve the already-passing current-SHA WAN callback and integration checks; do not repeat the completed Inadyn, SkipDBv2, sysfs counter or SmartDNS audits absent a new failure.
-3. Select an independent P1/P2 stability or security defect across the remaining userland, add a production-linked regression, and use one complete tree/atomic commit with non-forced exact-parent CAS. Keep the backup immutable.
+1. Fetch live `main`, inspect the exact-head ZeroTier lifecycle Action from THIS COMMIT, and inspect the current-source XY-C1 Build/TRX/artifact steps. Treat host-only or older-SHA runs as distinct evidence.
+2. Preserve the already-passing WAN/Process/HTTPD/Firewall/ZeroTier integrations; do not re-audit completed Inadyn, SkipDBv2, sysfs-counter or SmartDNS work absent new failures.
+3. Continue with an independent P1/P2 userland reliability/security defect after recording exact-head status. Keep the backup immutable and use one complete-tree commit with non-forced exact-parent CAS.
 
 ## Mandatory handoff checkpoint
 

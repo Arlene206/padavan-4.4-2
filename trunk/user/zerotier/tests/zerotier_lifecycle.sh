@@ -9,6 +9,7 @@ TEST_KILL_LOG="$TEST_TMP/killall.log"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_ACTION_LOG="$TEST_TMP/actions.log"
 TEST_IPTABLES_LOG="$TEST_TMP/iptables.log"
+TEST_IPTABLES_STATE_FILE="$TEST_TMP/iptables.state"
 TEST_IFCONFIG_COUNT="$TEST_TMP/ifconfig.count"
 TEST_ROUTE_COUNT="$TEST_TMP/route.count"
 TEST_IFCONFIG_MODE=none
@@ -26,10 +27,14 @@ TEST_ROUTE_DEL_STATUS=0
 TEST_ROUTE_DELETE_PERSISTS=0
 TEST_ROUTE_ADD_PARTIAL=0
 TEST_EXPECT_SAVED_SEGMENT=0
+TEST_IPTABLES_FAIL_ON=""
+TEST_IPTABLES_CHECK_FAIL_ON=""
+TEST_IPTABLES_DELETE_FAIL_ON=""
 : > "$TEST_IFCONFIG_COUNT"
 : > "$TEST_ROUTE_COUNT"
+: > "$TEST_IPTABLES_STATE_FILE"
 export TEST_STATE TEST_KILL_LOG TEST_SLEEP_LOG TEST_ACTION_LOG TEST_TMP
-export TEST_IPTABLES_LOG TEST_IFCONFIG_COUNT TEST_ROUTE_COUNT
+export TEST_IPTABLES_LOG TEST_IPTABLES_STATE_FILE TEST_IFCONFIG_COUNT TEST_ROUTE_COUNT
 export TEST_IFCONFIG_MODE TEST_ROUTE_MODE TEST_NAT_ENABLE
 export TEST_START_INSTANCE_STATUS
 trap 'rm -rf "$TEST_TMP"' EXIT HUP INT TERM
@@ -91,18 +96,6 @@ logger() {
 start_instance() {
 	echo start >> "$TEST_ACTION_LOG"
 	return "$TEST_START_INSTANCE_STATUS"
-}
-
-del_rules() {
-	if [ -z "${zt0:-}" ]; then
-		zt0="$(zerotier_interface_name)"
-	fi
-	[ "$zt0" = ztunit ] || fail "firewall cleanup lost the interface after daemon exit"
-	if [ "$TEST_EXPECT_SAVED_SEGMENT" -eq 1 ]; then
-		[ "$ip_segment" = "10.147.17.0/24" ] || fail "firewall cleanup lost the pre-stop NAT source segment"
-	fi
-	echo del_rules >> "$TEST_ACTION_LOG"
-	return 0
 }
 
 rm() {
@@ -207,11 +200,75 @@ nvram() {
 }
 
 iptables() {
-	printf '%s\n' "$*" >> "$TEST_IPTABLES_LOG"
-	if [ -n "${TEST_IPTABLES_FAIL_ON:-}" ] && [ "$*" = "$TEST_IPTABLES_FAIL_ON" ]; then
+	iptables_raw="$*"
+	printf '%s\n' "$iptables_raw" >> "$TEST_IPTABLES_LOG"
+	if [ -n "$TEST_IPTABLES_FAIL_ON" ] && [ "$iptables_raw" = "$TEST_IPTABLES_FAIL_ON" ]; then
 		return 1
 	fi
-	return 0
+	iptables_table=filter
+	if [ "$1" = "-t" ]; then
+		iptables_table="$2"
+		shift 2
+	fi
+	iptables_operation="$1"
+	shift
+	iptables_key="$iptables_table $*"
+
+	if [ "$TEST_EXPECT_SAVED_SEGMENT" -eq 1 ]; then
+		case "$iptables_key" in
+			"filter INPUT -i ztunit -j ACCEPT"|
+			"filter FORWARD -i ztunit -o ztunit -j ACCEPT"|
+			"filter FORWARD -i ztunit -j ACCEPT"|
+			"nat POSTROUTING -o ztunit -j MASQUERADE"|
+			"nat POSTROUTING -s 10.147.17.0/24 -j MASQUERADE") ;;
+			*) fail "firewall cleanup lost the interface after daemon exit" ;;
+		esac
+		if [ "$iptables_key" = "nat POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" ] &&
+		   [ "$ip_segment" != "10.147.17.0/24" ]; then
+			fail "firewall cleanup lost the pre-stop NAT source segment"
+		fi
+	fi
+
+	case "$iptables_operation" in
+		-A)
+			printf '%s\n' "$iptables_key" >> "$TEST_IPTABLES_STATE_FILE"
+			return 0
+			;;
+		-C)
+			if [ "$TEST_IPTABLES_CHECK_FAIL_ON" = "$iptables_key" ]; then
+				return 2
+			fi
+			if grep -Fqx -- "$iptables_key" "$TEST_IPTABLES_STATE_FILE"; then
+				return 0
+			fi
+			return 1
+			;;
+		-D)
+			if [ "$TEST_IPTABLES_DELETE_FAIL_ON" = "$iptables_key" ]; then
+				return 1
+			fi
+			if ! grep -Fqx -- "$iptables_key" "$TEST_IPTABLES_STATE_FILE"; then
+				return 1
+			fi
+			awk -v rule="$iptables_key" '
+				$0 == rule && !removed { removed = 1; next }
+				{ print }
+				END { if (!removed) exit 1 }
+			' "$TEST_IPTABLES_STATE_FILE" > "$TEST_IPTABLES_STATE_FILE.tmp" || return 1
+			mv "$TEST_IPTABLES_STATE_FILE.tmp" "$TEST_IPTABLES_STATE_FILE"
+			return 0
+			;;
+		*)
+			return 2
+			;;
+	esac
+}
+test_seed_firewall_rules() {
+	iptables -A INPUT -i ztunit -j ACCEPT
+	iptables -A FORWARD -i ztunit -o ztunit -j ACCEPT
+	iptables -A FORWARD -i ztunit -j ACCEPT
+	iptables -t nat -A POSTROUTING -o ztunit -j MASQUERADE
+	iptables -t nat -A POSTROUTING -s 10.147.17.0/24 -j MASQUERADE
 }
 
 : > "$TEST_KILL_LOG"
@@ -363,14 +420,66 @@ TEST_ROUTE_DELETE_PERSISTS=0
 TEST_NAT_ENABLE=1
 TEST_EXPECT_SAVED_SEGMENT=1
 ip_segment=""
+: > "$TEST_IPTABLES_STATE_FILE"
+test_seed_firewall_rules
+: > "$TEST_IPTABLES_LOG"
 TEST_MODE=graceful
 if ! stop_zero; then
 	fail "stop failed after a confirmed graceful daemon exit"
 fi
 [ ! -e "$TEST_CONFIG" ] || fail "successful stop did not complete the existing config cleanup"
-[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\nzero_route:del\nrm:-rf %s' "$TEST_CONFIG")" ] || fail "successful cleanup did not run after daemon absence"
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'zero_route:del\nrm:-rf %s' "$TEST_CONFIG")" ] || fail "successful cleanup did not run after daemon absence"
+[ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "successful stop left stale firewall rules"
+[ "$(grep -c '^-D ' "$TEST_IPTABLES_LOG")" -eq 5 ] || fail "successful stop did not delete all five installed firewall rules"
 TEST_EXPECT_SAVED_SEGMENT=0
 TEST_ROUTE_MODE=none
+
+# A firewall deletion failure must retain identity plus the exact interface/
+# route checkpoint, and a later stop must finish cleanup after the daemon and
+# virtual interface have disappeared.
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
+TEST_ROUTE_PRESENT=1
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
+TEST_NAT_ENABLE=1
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=daemon-only
+TEST_EXPECT_SAVED_SEGMENT=1
+TEST_IPTABLES_DELETE_FAIL_ON="filter INPUT -i ztunit -j ACCEPT"
+: > "$TEST_IPTABLES_STATE_FILE"
+test_seed_firewall_rules
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_ACTION_LOG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted iptables deletion failure"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "firewall deletion failure removed the persistent identity"
+[ -f "$TEST_CONFIG/.firewall-state" ] || fail "firewall deletion failure did not persist retry state"
+[ "$(cat "$TEST_CONFIG/.firewall-state")" = "$(printf 'ztunit\n10.147.17.0/24')" ] || fail "firewall retry state did not preserve exact interface and NAT segment"
+[ "$(cat "$TEST_IPTABLES_STATE_FILE")" = "filter INPUT -i ztunit -j ACCEPT" ] || fail "firewall cleanup failure did not continue deleting independent rules"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "stop continued to delete static routes after firewall cleanup failed"
+fi
+
+TEST_IPTABLES_DELETE_FAIL_ON=""
+echo stopped > "$TEST_STATE"
+TEST_IFCONFIG_MODE=none
+TEST_ROUTE_MODE=none
+zt0=""
+ip_segment=""
+: > "$TEST_ACTION_LOG"
+if ! stop_zero; then
+	fail "stop could not retry firewall cleanup from saved state after daemon exit"
+fi
+[ ! -e "$TEST_CONFIG" ] || fail "successful retry retained persistent config"
+[ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "successful retry left a firewall rule"
+grep -Fqx -- "-D INPUT -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "retry did not use saved ZeroTier interface identity"
 
 # NAT-enabled shutdown must fail before signalling the daemon if its connected
 # route cannot be captured for source-NAT firewall cleanup.
@@ -504,7 +613,8 @@ grep -Fqx -- "$TEST_IPTABLES_FAIL_ON" "$TEST_IPTABLES_LOG" || fail "filter failu
 if grep -Fqx -- "-A FORWARD -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG"; then
 	fail "rules continued publishing after a filter append failed"
 fi
-[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\ndel_rules')" ] || fail "filter append failure did not roll back previously published rules"
+[ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "filter append failure left published firewall rules behind"
+grep -Fqx -- "-D INPUT -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "filter append failure did not remove the previously published input rule"
 
 # NAT publication has the same failure gate after the filter rules and first
 # NAT rule have succeeded.
@@ -520,7 +630,8 @@ fi
 grep -Fqx -- "-A FORWARD -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "NAT failure fixture did not install filter rules"
 grep -Fqx -- "-t nat -A POSTROUTING -o ztunit -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "NAT failure fixture did not install the first NAT rule"
 grep -Fqx -- "$TEST_IPTABLES_FAIL_ON" "$TEST_IPTABLES_LOG" || fail "NAT failure fixture did not reach the rejected rule"
-[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\ndel_rules')" ] || fail "NAT append failure did not roll back partially published rules"
+[ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "NAT append failure left partially published firewall rules behind"
+grep -Fqx -- "-D POSTROUTING -o ztunit -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "NAT append failure did not remove the previously published NAT rule"
 TEST_IPTABLES_FAIL_ON=""
 TEST_NAT_ENABLE=0
 TEST_ROUTE_MODE=none
@@ -567,7 +678,8 @@ if rules; then
 	fail "rules reported success after a configured static route add failed"
 fi
 grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure fixture did not attempt route installation"
-[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\nzero_route:add\ndel_rules\nzero_route:del')" ] || fail "static route failure did not roll back firewall and partial route state"
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'zero_route:add\nzero_route:del')" ] || fail "static route failure did not roll back firewall and partial route state"
+[ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "static route failure left firewall rules behind"
 [ "$(grep -cE '(^| )-A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0

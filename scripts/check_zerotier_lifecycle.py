@@ -83,6 +83,9 @@ rules_section = script.split("rules() {", 1)[1].split("\ndel_rules() {", 1)[0]
 firewall_helper_body = function_body(script, "zerotier_add_firewall_rule()")
 cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 1)[0]
 del_rules_body = function_body(script, "del_rules()")
+delete_rule_body = function_body(script, "zerotier_delete_firewall_rule()")
+state_save_body = function_body(script, "zerotier_firewall_state_save()")
+state_load_body = function_body(script, "zerotier_firewall_state_load()")
 static_route_body = function_body(script, "zero_route()")
 route_match_body = function_body(script, "zero_route_entry_matches()")
 
@@ -112,6 +115,36 @@ require('return 1' not in kill_body or 'zerotier_wait_stopped' in kill_body,
 require('if ! kill_z; then' in start_body and
         start_body.index('if ! kill_z; then') < start_body.index("start_instance 'zerotier'"),
         "start must not launch a new daemon unless the previous daemon is absent")
+
+require("ZEROTIER_RULE_DELETE_LIMIT=32" in script and
+        'iptables -C "$@"' in delete_rule_body and
+        'iptables -D "$@"' in delete_rule_body and
+        'zerotier_rule_delete_count' in delete_rule_body,
+        "firewall deletion must check rule presence and bound duplicate cleanup")
+require('1) return 0' in delete_rule_body and
+        'zerotier_rule_check_status' in delete_rule_body and
+        'return 1' in delete_rule_body,
+        "only iptables check status 1 may be treated as an absent rule; other failures must propagate")
+require('mktemp "$config_path/.firewall-state.XXXXXX"' in state_save_body and
+        'chmod 600' in state_save_body and
+        'mv -f "$zt_state_tmp" "$zt_state_file"' in state_save_body,
+        "firewall retry identity must be atomically published with private permissions")
+require('[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ]' in state_load_body and
+        'zt_state_saved_interface' in state_load_body and
+        'zt_state_saved_segment' in state_load_body,
+        "firewall retry state must reject symlinks and restore the validated interface/network")
+require(del_rules_body.count('zerotier_delete_firewall_rule') == 5 and
+        'del_rules_status=1' in del_rules_body and
+        'return "$del_rules_status"' in del_rules_body,
+        "all applicable firewall rules must be attempted and aggregate deletion failures")
+require('if ! del_rules; then' in rules_section and
+        rules_section.index('if ! del_rules; then') < rules_section.index('zerotier_add_firewall_rule -A INPUT'),
+        "new firewall rules must not publish when stale-rule cleanup is unverified")
+require('if ! zerotier_firewall_state_save; then' in stop_body and
+        stop_body.index('if ! zerotier_firewall_state_save; then') < stop_body.index('if ! kill_z; then') <
+        stop_body.index('if ! del_rules; then') < stop_body.index('if ! zero_route "del"; then'),
+        "stop must persist cleanup identity first and preserve config/routes until checked firewall deletion succeeds")
+
 require('if [ -z "${zt0:-}" ]; then' in stop_body and
         stop_body.index('zt0="$(zerotier_interface_name)"') <
         stop_body.index('ip_segment="$(zerotier_kernel_route_segment "$zt0")"') <
@@ -188,6 +221,9 @@ require('running-only' in test and
         'static route cleanup lost the saved interface after daemon exit' in test and
         'daemon-only)' in test and
         'firewall cleanup lost the pre-stop NAT source segment' in test and
+        'stop accepted iptables deletion failure' in test and
+        'firewall deletion failure did not persist retry state' in test and
+        'stop could not retry firewall cleanup from saved state after daemon exit' in test and
         'stop accepted NAT-enabled shutdown without a connected route segment' in test,
         "stop regression must model disappearance of both the interface and kernel NAT source route")
 missing_nat_route_case = test.split("# Missing NAT route is bounded", 1)[1].split("# Malformed NVRAM NAT state", 1)[0]
