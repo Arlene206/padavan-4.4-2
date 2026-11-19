@@ -2749,7 +2749,16 @@ jobs:
           assert "if (root_partition_status > 0)" in hotplug
           assert "partition inventory is unknown for %s" in hotplug
           assert "topology_status = 1;" in hotplug
-          assert "return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;" in hotplug
+          notify_policy = Path("trunk/user/rc/src/storage_hotplug_notify_policy.h").read_text()
+          notify_regression = Path("trunk/user/rc/src/tests/storage_hotplug_notify_policy.c").read_text()
+          assert '#include "storage_hotplug_notify_policy.h"' in hotplug
+          assert "return storage_hotplug_completion_status(" in hotplug
+          assert "(swapoff_status != 0 || tune_status != 0 || mount_status != 0 || topology_status != 0)" in hotplug
+          assert "(swapoff_status != 0 || mount_status != 0 || topology_status != 0)" in hotplug
+          assert "notification_status" in hotplug
+          assert "return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;" not in hotplug
+          assert "return (operation_status == 0 && notification_status == 0) ? 0 : 1;" in notify_policy
+          assert "storage_hotplug_completion_status(0, -EIO) == 1" in notify_regression
           assert "if (check_root_partition(disk_name, 0))" not in hotplug
           assert "if (check_root_partition(device_name, 1))" not in hotplug
           assert "storage_disk_has_partitions(NULL, \"sda\", 0) == -1" in regression

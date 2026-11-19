@@ -1,3 +1,10 @@
+## 2026-11-19 — Repair APCLI path variable and storage completion contracts
+
+- Parent main SHA: `3488f129babe376bccf27e132776c45910614dd7`. Wireless `44625501907` and Process `44625501771` on `f2e8147` passed the compiled wireless/bridge policy regressions and APCLI source checks, then failed only because the checker read `rc / "tests/wireless_radio_policy.c"` while the script defines `RC`. Corrected the typo.
+- Storage hotplug `44625809558` and HTTPD security `44625809482` on `3488f12` exposed two downstream checker drifts from the SD/MMC notification result change: storage asserted the absent `tune_status == 0` even though failed tuning is logged while mounting continues and final mdev status reports the error; HTTPD expected the old boolean completion expression instead of `storage_hotplug_completion_status(operation_status, notification_status)`. Updated both checks to pin the current intended behavior and the two-input failure policy.
+- NVRAM audit `44625809632`, Process inventory `44625809765`, and AI docs `44625809759` PASS on `3488f12`. XY-C1 firmware `44625809599` was still in progress on exact product SHA `3488f12`; Build/TRX/artifact must all pass before L3. This commit changes checkers/docs only; no product source or local firmware build is claimed.
+
+---
 ## 2026-11-19 — Propagate SD/MMC mass-storage notification queue failures
 
 - `mdev_sd_main()` and `mdev_mmc_main()` used legacy void `notify_rc()` for whole-device unplug and successful automount. The shared notifier can fail to create secure PID 1 queue markers, but mdev discarded that failure and could return success while storage cleanup/startup was never scheduled.

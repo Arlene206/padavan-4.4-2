@@ -2,53 +2,51 @@
 
 ## Execution policy
 
-Continue main-only implementation across conversations. Recover the exact live source and CI state once, then resume the concrete engineering task. Use one atomic main commit per logical task. Do not repeat completed audits, create status-only commits, or stop at planning. Before context exhaustion, complete the safe slice and preserve its exact source/CI boundary.
+Continue main-only implementation across conversations. Recover the exact live source and CI state once, then resume concrete engineering tasks. Use one atomic main commit per logical task. Do not repeat completed audits, create status-only commits, or stop at planning.
 
-- One atomic main commit per logical task: create all blobs, one complete tree and one commit with the current main parent, then update main using a non-forced compare-and-swap with that exact SHA.
-- Verify push-triggered Actions by exact head_sha; a pending run does not block independent work, while a failed relevant run must be triaged before the slice is called validated.
+- Create all changed blobs, one complete tree and one commit with the current main parent; update main with non-forced compare-and-swap using that exact SHA.
+- Verify Actions by exact `head_sha`. A pending run does not block independent work; a failed relevant run must be triaged before claiming validation.
 - Preserve security, architecture, GNU89/MIPS/uClibc compatibility, regression coverage, lifecycle identity checks, bounded waits and fail-closed UNKNOWN handling.
-- The frozen backup branch `backup/pre-plugin-overhaul-2026-11-14` is archival only and must never be modified or deleted. Development stays on main.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` is archival only; never alter or delete it. Develop on main.
 
 ## Current repository state
 
-- Parent main before this slice: `f2e814729e9152102811b4be4b069efe4924bd4f` (`test(wifi): verify captured APCLI recovery result`).
-- APCLI WAN recovery production fix is `de73223da74d29a93236f29d8214fe66221b498c`; PPP physical-WAN fail-closed recovery is `5878c9d11404d1bd4a329b59430a7c1279025dd4`. Checker-only follow-ups `ccf419d` and THIS parent correct the PPP and captured-APCLI caller contracts.
-- Exact-head WAN route `44625039862` and AI docs `44625039727` PASS on `ccf419d1dcff6aff70080d37c90be707dec9fe88`. Wireless `44625039991` and Process `44625039798` failed only because a negative assertion matched the correct captured `wan_status = check_apcli_wan(...)` call; THIS parent changes the contract to require exactly one captured invocation. Those reruns remain to be checked.
-- XY-C1 `44624238619` on checker-only SHA `b50ce7d` passed host contracts but skipped Build/TRX/artifact because no production input changed. It is not L3 evidence for the PPP/APCLI source fixes. This storage slice changes firmware input `hotplug_stor.c`, so its exact-head XY-C1 workflow should perform a build.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is archival only. PR #1 remains closed/unmerged.
-- This slice changes SD/MMC mass-storage notification handling, adds a GNU89 completion policy/regression, extends the storage stability workflow and XY-C1 input filter, and adds a storage source contract. Local policy regression PASS; exact-head Storage/XY-C1 Actions must be checked after commit.
-- The GitHub connector's push-run lookup is incomplete: `fetch_commit_workflow_runs` returns PR-triggered runs and combined commit status can return an empty list for push-only commits. Never treat an empty result as PASS; inspect the repository's push Actions directly when available.
-- Root `dev_log.md` remains within its 20–119 dated-record window; no archive rotation is needed for this slice.
-- No physical router result is available. Host regression/Actions are L2; XY-C1 Build/TRX/artifact on one exact product SHA is L3; device behavior is L4 NOT VERIFIED.
+- Product-source checkpoint: `3488f129babe376bccf27e132776c45910614dd7` (mass-storage notification status fix). THIS checker repair is based on that exact parent; always re-fetch main before writing.
+- PPP physical-WAN firewall recovery hardening: `5878c9d11404d1bd4a329b59430a7c1279025dd4`. Exact WAN route checker run `44625039862` PASS on `ccf419d1dcff6aff70080d37c90be707dec9fe88`; current-source XY-C1 L3 still needed.
+- APCLI WAN recovery result propagation: `de73223da74d29a93236f29d8214fe66221b498c`. On `f2e814729e9152102811b4be4b069efe4924bd4f`, AI docs `44625501779` PASS, while Wireless `44625501907` and Process `44625501771` failed only because the guest checker referenced undefined lowercase `rc` instead of its defined `RC` path. THIS commit fixes that test-only NameError.
+- SD/MMC checked PID-1 notification source fix landed at `3488f129babe376bccf27e132776c45910614dd7`: add/remove paths use `notify_rc_status()`, preserve queue errno, and return failure if operation or queue creation fails. Existing swapoff-before-unplug-notify and notify-after-successful-mount order is retained.
+- On exact `3488f129...`: NVRAM audit `44625809632` PASS; Process inventory `44625809765` PASS; AI docs `44625809759` PASS. Storage hotplug `44625809558` failed a stale `tune_status == 0` source assertion despite the source deliberately logging tuning failure and continuing mount, then reporting that failure in final mdev status. HTTPD security `44625809482` failed a stale boolean return assertion because mdev now uses the shared two-input completion policy. THIS commit updates both contracts; exact reruns are pending.
+- XY-C1 firmware run `44625809599` on product source `3488f129...` was in progress at last query. It is the current product-source L3 candidate and includes PPP, APCLI and SD/MMC source changes; verify Build, TRX and artifact upload on this exact SHA.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify. PR #1 remains closed/unmerged. Root `dev_log.md` has 30 dated entries before THIS commit, well inside the 20–119 window.
 
 ## Active task
 
-- Confirmed mass-storage event-publication defect in `trunk/user/rc/src/hotplug_stor.c`: `mdev_sd_main()` and `mdev_mmc_main()` used the legacy void `notify_rc()` for whole-device removal and successful automount. The shared implementation can fail to create one or both secure PID 1 queue markers, but the caller discarded the failure and could return success while cleanup/startup was never scheduled.
-- This slice switches those paths to `notify_rc_status()`, logs and preserves queue errno, includes notification status in both applet return codes, and retains the existing swapoff-before-notify and notify-after-successful-mount ordering. A GNU89/Werror/ASan/UBSan policy regression plus semantic source/workflow contracts cover both SD and MMC paths.
-- Local policy binary PASS. Full storage source checker and exact-head Actions are not yet observed; do not claim Actions or XY-C1 L3 until their exact-head results are inspected.
+### Close downstream regression contracts after APCLI and storage result propagation
+
+- APCLI's production callers intentionally capture `check_apcli_wan()` into `wan_status`, then merge it into the sticky guest-isolation status. The count assertion is already corrected; the final checker failed solely due the lowercase `rc` typo. THIS commit corrects it to `RC`.
+- Storage's `mdev_sd_main()` and `mdev_mmc_main()` now return `storage_hotplug_completion_status(operation_status, notification_status)`. The HTTPD workflow still expected the pre-fix boolean expression and now verifies both operation/queue status inputs plus the tested policy. The storage workflow also had an obsolete `tune_status == 0` assertion even though tuning failure is intentionally diagnostic/non-blocking for mount and is returned as an applet error; this commit pins that behavior and final error aggregation.
+- No product source changes in THIS checker repair.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head `storage-hotplug-stability`, XY-C1 firmware validation, and AI handoff documentation Actions for this commit. Also inspect exact-head Wireless/Process reruns on `f2e8147`. Check Build, TRX verification and artifact upload on the same product-source SHA.
-2. On any FAIL, inspect the exact job log. Preserve the rule that a queued marker failure returns mdev failure; a successful queue followed by a failed PID 1 wakeup is logged by `notify_rc_status()` but remains queued and is not misreported as an unqueued event.
-3. Continue the P1 cross-userland result-propagation queue after verification. Do not reopen closed SCUT crontab, OpenVPN, WAN firewall, APCLI radio or USB modem notifier paths without new evidence. Keep L1/L2/L3/L4 claims distinct.
+1. Fetch live main and exact-head Actions for THIS checker repair: Wireless radio, Process lifecycle, Storage hotplug, HTTPD security and AI docs. Inspect each failed job's exact log and repair the actual contract issue, not the product logic.
+2. Inspect XY-C1 run `44625809599` for product SHA `3488f129...`. L3 is PASS only if Build XY-C1, TRX verification and artifact upload all succeed on that exact SHA; a skipped build is not L3.
+3. Once those contracts pass, resume another independently evidenced P1 stability issue across Padavan userland. Do not repeat the PPP recovery, APCLI result path, SD/MMC notification fix, SCUT/Crond/Process status or OpenVPN audits without new evidence.
 
 ## Verification boundary
 
-- L1: SD/MMC add and whole-device removal now use checked PID 1 notification queue status; failed queue creation is reflected in mdev exit status.
-- L2: local GNU89/Werror/ASan/UBSan notification completion policy regression PASS. Storage workflow source contracts and exact-head Action outcomes require post-push validation. The APCLI contract correction at f2e awaits exact-head Wireless/Process reruns.
-- L3: XY-C1 Build, TRX verification and artifact upload for the exact source SHA are PENDING; this commit changes a firmware production input, so the build must not be skipped as a checker-only event.
-- L4: physical USB/SD/MMC hotplug, PID 1 queue failure recovery and service transition behavior on hardware NOT VERIFIED. Physical PPP/APCLI router behavior is also unverified.
+- L1: PPP fail-closed physical-WAN recovery at `5878c9d`; APCLI WAN error propagation at `de73223`; SD/MMC queue-completion error propagation at `3488f12`.
+- L2: WAN route `44625039862` PASS; exact f2 Wireless/Process runs failed only on the lowercase checker variable, fixed here. On `3488f12`, NVRAM audit, Process inventory and AI docs PASS; Storage/HTTPD/Wireless/Process contract reruns are pending after THIS commit.
+- L3: XY-C1 run `44625809599` on `3488f12` was in progress at checkpoint. Do not claim until Build, TRX verify and artifact upload all pass.
+- L4: physical WAN fail-closed behavior, live APCLI/WISP reconnection and physical SD/MMC/PID-1 hotplug remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional.
-
-Every session must perform an end-of-session accuracy checkpoint. Compare live main, source baseline, exact-head Actions, module status and this first action. Update this file only when those resumable facts materially change; do not create a SHA-refresh or no-op commit.
+At session end, compare live main, product-source baseline, exact-head Actions, module state and this first action. Update this file only when resumable facts materially change; do not create no-op SHA-refresh commits.
 
 ## Development invariants
 
 - Main-only; never modify the frozen backup or develop on a legacy branch/PR.
-- One complete Git tree and one atomic commit per logical task; use `force=false` with the exact parent `expected_sha`.
-- Never force-push, rewrite history, publish partial commits, or weaken regression coverage.
-- Report exact SHA Actions and separate L1/L2/L3/L4. Host success is not firmware/hardware success.
+- One complete Git tree and one atomic commit per logical task; `force=false`, exact parent `expected_sha`.
+- Never force-push, rewrite history, publish partial commits or weaken regressions.
+- Report exact SHA Actions and keep L1/L2/L3/L4 distinct. Host success is not firmware/hardware success.

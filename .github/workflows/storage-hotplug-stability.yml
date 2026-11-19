@@ -452,7 +452,10 @@ jobs:
           mmc_hotplug = function_body(hotplug_stor, "mdev_mmc_main(")
           assert "tune_status = _eval(tune_argv, NULL, 0, NULL);" in sd_hotplug
           assert "disk tuning failed for %s" in sd_hotplug
-          assert "tune_status == 0" in sd_hotplug
+          assert "if (tune_status != 0)" in sd_hotplug
+          assert "disk tuning failed for %s (status %d); continuing storage mount" in sd_hotplug
+          assert sd_hotplug.index("if (tune_status != 0)") < sd_hotplug.index("check_root_partition")
+          assert "(swapoff_status != 0 || tune_status != 0 || mount_status != 0 || topology_status != 0)" in sd_hotplug
           assert sd_hotplug.index("tune_status = _eval") < sd_hotplug.index("if (tune_status != 0)") < sd_hotplug.index("check_root_partition")
           assert "status=1" in hddtune
           assert 'exit "$status"' in hddtune

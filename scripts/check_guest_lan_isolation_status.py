@@ -326,6 +326,6 @@ for signature, band in (
     assert expected in compact, expected
     assert restart.count(f"check_apcli_wan({band}, radio_on)") == 1
 assert "test_apcli_wan_recovery_failure_is_reported" in (
-    rc / "tests/wireless_radio_policy.c"
+    RC / "tests/wireless_radio_policy.c"
 ).read_text()
 print("Guest-LAN bridge, ebtables and PID-1 status propagation contract: PASS")
