@@ -178,6 +178,37 @@ test_switch_command_numeric_boundaries(void)
 }
 
 static void
+test_hex_range_parser(void)
+{
+    unsigned int value = 0x12345678U;
+
+    assert(switch_parse_hex_range("0", 0xffffU, &value) == 0 && value == 0U);
+    assert(switch_parse_hex_range("0000", 0xffffU, &value) == 0 && value == 0U);
+    assert(switch_parse_hex_range("0800", 0xffffU, &value) == 0 && value == 0x0800U);
+    assert(switch_parse_hex_range("0x0800", 0xffffU, &value) == 0 && value == 0x0800U);
+    assert(switch_parse_hex_range("0XFFFF", 0xffffU, &value) == 0 && value == 0xffffU);
+    assert(switch_parse_hex_range("ffffffff", 0xffffffffU, &value) == 0 &&
+           value == 0xffffffffU);
+
+    value = 0x12345678U;
+    assert(switch_parse_hex_range(NULL, 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range("", 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range("-1", 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range("+1", 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range("0x", 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range("1junk", 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range(" 1", 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range("1 ", 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range("10000", 0xffffU, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_hex_range("100000000", 0xffffffffU, &value) != 0 &&
+           value == 0x12345678U);
+    assert(switch_parse_hex_range("0x10junk", 0xffffU, &value) != 0 &&
+           value == 0x12345678U);
+    assert(switch_parse_hex_range("00000000000000000000000000000000", 0xffffffffU,
+                                  &value) == 0 && value == 0U);
+}
+
+static void
 test_table_portmap_parser(void)
 {
     unsigned int map = 0x12345678U;
@@ -202,6 +233,7 @@ main(void)
     test_uint_range_parser();
     test_table_portmap_parser();
     test_switch_command_numeric_boundaries();
-    puts("switch IPv4/MAC/numeric/port-map parser policy: PASS");
+    test_hex_range_parser();
+    puts("switch IPv4/MAC/numeric/port-map/hex parser policy: PASS");
 	return 0;
 }

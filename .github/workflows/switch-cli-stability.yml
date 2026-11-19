@@ -251,6 +251,55 @@ jobs:
               assert pull_request.count('"' + path + '"') == 1
           print("All switch IPv4 inputs are strictly parsed before register writes: PASS")
           PY
+      - name: Validate ACL arguments before switch register writes
+        run: |
+          set -eu
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          parser = Path("trunk/user/utils/src/switch/switch_ipv4_parse_policy.h").read_text()
+          tests = Path("trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c").read_text()
+
+          def function_body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("unterminated function: " + signature)
+
+          contracts = (
+              ("void acl_ethertype(int argc, char *argv[])",
+               "switch_parse_hex_range(argv[4], 0xffffU, &ethertype)"),
+              ("void acl_l4_add(int argc, char *argv[])",
+               "switch_parse_hex_range(argv[4], 0xffffU, &value)"),
+              ("void acl_sp_add(int argc, char *argv[])",
+               "switch_parse_uint_range(argv[4], 0U, 0xffffU, &value)"),
+          )
+          for signature, parser_call in contracts:
+              body = function_body(signature)
+              assert "if (argc != 6)" in body, signature
+              assert "usage(argv[0]);" in body and "return;" in body, signature
+              assert parser_call in body, signature
+              parser_guard = "if (" + parser_call + " != 0)"
+              assert parser_guard in body, signature
+              first_write = body.index("reg_write(")
+              assert body.index(parser_guard) < body.index("usage(argv[0]);", body.index(parser_guard)) < first_write
+              assert body.index("parse_portmap_argument(argv[5])") < first_write, signature
+              assert "strtoul(" not in body, signature
+
+          assert "switch_parse_hex_range" in parser
+          assert "test_hex_range_parser" in tests
+          assert "test_invalid_portmaps" in tests
+          assert "switch_parse_portmap(text, &portmap)" in source
+          print("EtherType, L4 payload and source-port ACL inputs validate before MMIO writes: PASS")
+          PY
       - name: Compile and verify bounded switch table waits
         run: |
           set -eu

@@ -599,27 +599,19 @@ void acl_dip_trtcm(int argc, char *argv[])
 
 void acl_ethertype(int argc, char *argv[])
 {
-	unsigned int i, j, value, ethertype;
+	unsigned int value, ethertype, portmap;
 
-	if (argc < 6) {
-		printf("insufficient arguments!\n");
+	if (argc != 6) {
+		usage(argv[0]);
 		return;
 	}
 
-	if (!argv[5] || strlen(argv[5]) != 8) {
-		printf("portmap format error, should be of length 7\n");
-			return;
-	}
-	j = 0;
-	for (i = 0; i < 7; i++) {
-		if (argv[5][i] != '0' && argv[5][i] != '1') {
-			printf("portmap format error, should be of combination of 0 or 1\n");
-			return;
-		}
-		j += (argv[5][i] - '0') * (1 << i);
-	}
+	portmap = parse_portmap_argument(argv[5]);
 
-	ethertype = strtoul(argv[4], NULL, 16);
+	if (switch_parse_hex_range(argv[4], 0xffffU, &ethertype) != 0) {
+		usage(argv[0]);
+		return;
+	}
 	//set pattern
 	value = ethertype;
 	value |= 0xffff0000;//compare mask
@@ -627,7 +619,7 @@ void acl_ethertype(int argc, char *argv[])
 	reg_write(REG_ESW_VLAN_VAWD1, value);
 //	printf("REG_ESW_VLAN_VAWD1 value is 0x%x\n\r", value);
 
-	value = j << 8; //w_port_map
+	value = portmap << 8; //w_port_map
 	value |= 0x1 << 19; //enable
 	value |= 0x0 << 16; //mac header
 	value |= 0x6 << 1; //word offset
@@ -1013,34 +1005,26 @@ void acl_dip_add(int argc, char *argv[])
 
 void acl_l4_add(int argc, char *argv[])
 {
-	unsigned int i, j, value;
+	unsigned int value, portmap;
 
-	if (argc < 6) {
-		printf("insufficient arguments!\n");
+	if (argc != 6) {
+		usage(argv[0]);
 		return;
 	}
 
-	if (!argv[5] || strlen(argv[5]) != 8) {
-		printf("portmap format error, should be of length 7\n");
-			return;
-	}
-	j = 0;
-	for (i = 0; i < 7; i++) {
-		if (argv[5][i] != '0' && argv[5][i] != '1') {
-			printf("portmap format error, should be of combination of 0 or 1\n");
-			return;
-		}
-		j += (argv[5][i] - '0') * (1 << i);
-	}
+	portmap = parse_portmap_argument(argv[5]);
 
-        value = strtoul(argv[4], NULL, 16);
+        if (switch_parse_hex_range(argv[4], 0xffffU, &value) != 0) {
+		usage(argv[0]);
+		return;
+	}
 	//set pattern
 	value |= 0xffff0000;//compare mask
 
 	reg_write(REG_ESW_VLAN_VAWD1, value);
 //	printf("REG_ESW_VLAN_VAWD1 value is 0x%x\n\r", value);
 
-	value = j << 8; //w_port_map
+	value = portmap << 8; //w_port_map
 	value |= 0x1 << 19; //enable
 	value |= 0x5 << 16; //L4 payload
 	value |= 0x0 << 1; //word offset 0 = tcp src port
@@ -1089,34 +1073,26 @@ void acl_l4_add(int argc, char *argv[])
 
 void acl_sp_add(int argc, char *argv[])
 {
-	unsigned int i, j, value;
+	unsigned int value, portmap;
 
-	if (argc < 6) {
-		printf("insufficient arguments!\n");
+	if (argc != 6) {
+		usage(argv[0]);
 		return;
 	}
 
-	if (!argv[5] || strlen(argv[5]) != 8) {
-		printf("portmap format error, should be of length 7\n");
-			return;
-	}
-	j = 0;
-	for (i = 0; i < 7; i++) {
-		if (argv[5][i] != '0' && argv[5][i] != '1') {
-			printf("portmap format error, should be of combination of 0 or 1\n");
-			return;
-		}
-		j += (argv[5][i] - '0') * (1 << i);
-	}
+	portmap = parse_portmap_argument(argv[5]);
 
-        value = strtoul(argv[4], NULL, 0);
+        if (switch_parse_uint_range(argv[4], 0U, 0xffffU, &value) != 0) {
+		usage(argv[0]);
+		return;
+	}
 	//set pattern
 	value |= 0xffff0000;//compare mask
 
 	reg_write(REG_ESW_VLAN_VAWD1, value);
 //	printf("REG_ESW_VLAN_VAWD1 value is 0x%x\n\r", value);
 
-	value = j << 8; //w_port_map
+	value = portmap << 8; //w_port_map
 	value |= 0x1 << 19; //enable
 	value |= 0x4 << 16; //L4 header
 	value |= 0x0 << 1; //word offset 0 = tcp src port

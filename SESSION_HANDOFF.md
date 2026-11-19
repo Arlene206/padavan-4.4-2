@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — repair HTTPD storage host regression include
+# 2026-11-19 continuation checkpoint — strict switch ACL input boundary
 
 # Cross-session execution mandate
 
@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; branch `main`.
-- Parent main SHA for the active HTTPD workflow correction: `2a65185fa4cb2910f80429b6b5450677a9fde25d`.
+- Parent main SHA for the active switch ACL hardening slice: `bc4e2c0ce204af2b3827fcaf6cbed17343139092`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout was available: `git clone` could not resolve github.com in this environment. Exact GitHub Actions are the validation source.
 
@@ -49,25 +49,31 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - NAT-enabled stop fails closed before signaling the daemon when the source segment cannot be captured. Regression fixtures cover route visibility only while RUNNING, saved `10.147.17.0/24` use after shutdown, and missing-route refusal without daemon/firewall/config mutation.
 - Exact d82 ZeroTier `44484902778`, WAN route `44484902793`, Process inventory `44484902785`, and AI docs `44484902809` all PASS. XY-C1 `44484902954` failed on d82 before the later storage-header fix; Build failed at the old source-tree-relative include, so no L3 is claimed for d82.
 
-## Active task — align HTTPD storage regression include path
+## Completed slice — align HTTPD storage regression include path
 
-- Main `2a65185fa4cb2910f80429b6b5450677a9fde25d` fixes the production RC include by changing `storage_partition_probe.h` to `#include "disk_inventory_policy.h"`; the staged RC build already adds `-I$(STAGING_DIR)/include/libdisk`. Its exact storage host workflow `44486117414` passes on 2a.
-- The same main SHA's HTTPD security run `44486117403` fails only in its duplicate storage host-regression compile: that workflow still supplies `-I trunk/user/rc/src` but omits `-I trunk/user/libdisk/src`, so the corrected public include cannot resolve. Its other preceding checks passed.
-- This atomic correction adds the missing include path to the HTTPD compile command and embeds a contract for the include name and compile path. It does not alter production code.
-- Exact 2a AI docs `44486117156` and Process inventory `44486117196` PASS; NVRAM transaction audit `44486117346` was still in progress at last inspection. The exact XY-C1 d82 run `44484902954` predates the production include correction and failed on the obsolete path; the corrected storage production source still needs its own Build/TRX/artifact run before L3 can be claimed.
+- The exact HTTPD security run `44486117403` on 2a failed only in its duplicate storage host-regression compile because the corrected public include `disk_inventory_policy.h` was not found with only `-I trunk/user/rc/src`.
+- Commit `bc4e2c0ce204af2b3827fcaf6cbed17343139092` added `-I trunk/user/libdisk/src` to that standalone host compile and pinned the include path in the workflow contract. Exact HTTPD security `44487439944` and AI docs `44487439972` both PASS on bc4.
+
+## Active task — validate switch ACL inputs before MMIO writes
+
+- Production target is `trunk/user/utils/src/switch/switch_gsw.c`; its Makefile explicitly builds `SRC = switch_gsw.c`. Do not change the unrelated legacy RC switch implementation for this CLI task.
+- `acl_ethertype()`, `acl_l4_add()` and `acl_sp_add()` previously accepted partial numeric tokens through `strtoul(..., NULL, ...)`, silently ignored the eighth reserved port-map character, and returned success on missing arguments while allowing extra arguments.
+- Require exactly six arguments; parse EtherType and L4 payload as strict 16-bit hexadecimal and source port as strict base-0 16-bit input; validate all eight port-map characters through the existing `parse_portmap_argument()` path before any MMIO write. Keep the original ACL register programming sequence intact.
+- Add GNU89 `-Wall -Wextra -Werror` ASan/UBSan parser coverage for prefixes, valid bounds, signs, whitespace, partial input, overflow and unchanged output on failure; add a switch workflow source contract for all three commands. The exact-head Switch CLI run and any XY-C1 production build are pending after this commit.
 
 ## Verification boundary
 
-- Storage partition inventory: policy host L2 PASS on f873 (`44480440427`); production header include correction committed on 2a and storage workflow `44486117414` PASS. HTTPD's separate host-test include path was missing on 2a (`44486117403`); this workflow-only commit fixes that regression runner. Current corrected production source still requires exact-source XY-C1 Build/TRX/artifact before L3.
-- ZeroTier static-route deletion: ZeroTier and AI docs PASS on d4 (`44483203855`, `44483203814`). NAT source-segment cleanup: ZeroTier `44484902778`, WAN `44484902793`, Process `44484902785`, AI docs `44484902809` all PASS on d82.
-- Exact 2a AI docs `44486117156`, Process inventory `44486117196`, and storage hotplug `44486117414` PASS. HTTPD security `44486117403` failed the storage policy host compile as described above; NVRAM audit `44486117346` was pending at the last check.
-- XY-C1 L3 is VERIFIED only on production SHA `255334d0dbd7e98a1a63dde528b0e3de59aef9c1` (`44476582849`). The d82 run `44484902954` failed Build before the 2a public-header include correction; no L3 claim for 2a or this descendant. Physical router L4 remains NOT VERIFIED.
+- Storage partition inventory: parser host L2 PASS on f873 (`44480440427`); production include correction on 2a verified by storage host workflow `44486117414`; HTTPD duplicate host compile correction on bc4 verified by HTTPD security `44487439944`. No target firmware Build/TRX/artifact for the corrected storage header has passed yet.
+- ZeroTier static-route deletion: ZeroTier and AI docs PASS on d4 (`44483203855`, `44483203814`). NAT source-segment cleanup: ZeroTier `44484902778`, WAN route `44484902793`, Process inventory `44484902785` and AI docs `44484902809` all PASS on d82.
+- Exact 2a AI docs `44486117156`, Process inventory `44486117196`, storage hotplug `44486117414`, and NVRAM audit `44486117346` PASS. HTTPD security and AI docs on bc4 (`44487439944`, `44487439972`) PASS.
+- XY-C1 L3 is VERIFIED only on production SHA `255334d0dbd7e98a1a63dde528b0e3de59aef9c1` (`44476582849`). d82 XY-C1 `44484902954` failed before the 2a staged-header correction; no later production-source Build/TRX/artifact evidence is available yet. Physical router L4 remains NOT VERIFIED.
+- Switch ACL slice: exact-head Switch CLI regression and XY-C1 Build/TRX/artifact have not run on the new ACL source commit.
 
 ## Exact first action for the next GPT
 
-1. Confirm live `main` equals the new commit and inspect exact-head HTTPD security, AI handoff docs, storage hotplug, Process inventory and XY-C1 runs. Inspect failure logs and require each run's `head_sha` to match.
-2. Require HTTPD's storage policy test to compile GNU89 `-Wall -Wextra -Werror` with both RC and libdisk include paths and to pass its source contract. The storage hotplug regression must remain PASS.
-3. The corrected storage production header must still be validated by a fresh XY-C1 Build/TRX/artifact run; then continue independent userland stability/security fixes, including the switch ACL argument defect already identified for the next slice.
+1. Confirm live `main` is the latest switch ACL commit and inspect exact-head Switch CLI, AI handoff docs, HTTPD security and XY-C1 Firmware Validation. Confirm every run's `head_sha` matches; inspect failures/logs.
+2. Require parser policy GNU89 `-Wall -Wextra -Werror` ASan/UBSan and the three-command ACL source contract to pass. For any production-source XY-C1 run, require Build XY-C1, TRX verification and artifact upload before claiming L3.
+3. After this slice is verified, continue the next independent P1 reliability/security issue across Padavan userland; do not repeat the completed storage or ZeroTier host fixes.
 
 ## Mandatory handoff checkpoint
 

@@ -155,6 +155,47 @@ switch_parse_uint_range(const char *text, unsigned int minimum,
     return 0;
 }
 
+/* Strict hexadecimal parser with optional 0x prefix and bounded output. */
+static int
+switch_parse_hex_range(const char *text, unsigned int maximum,
+                       unsigned int *value)
+{
+    const unsigned char *p;
+    unsigned int digit, parsed = 0, digits = 0;
+
+    if (!text || !value || !*text ||
+        *text == '+' || *text == '-' || *text == ' ' || *text == '\t' ||
+        *text == '\n' || *text == '\r')
+        return -1;
+
+    p = (const unsigned char *)text;
+    if (p[0] == '0' && (p[1] == 'x' || p[1] == 'X'))
+        p += 2;
+
+    while (*p) {
+        if (*p >= '0' && *p <= '9')
+            digit = (unsigned int)(*p - '0');
+        else if (*p >= 'a' && *p <= 'f')
+            digit = (unsigned int)(*p - 'a') + 10U;
+        else if (*p >= 'A' && *p <= 'F')
+            digit = (unsigned int)(*p - 'A') + 10U;
+        else
+            return -1;
+
+        if (digit > maximum || parsed > (maximum - digit) / 16U)
+            return -1;
+        parsed = parsed * 16U + digit;
+        ++digits;
+        ++p;
+    }
+
+    if (digits == 0U)
+        return -1;
+
+    *value = parsed;
+    return 0;
+}
+
 /* Accept documented seven-bit maps and the legacy eight-character form. */
 static int
 switch_parse_table_portmap(const char *text, unsigned int *portmap)

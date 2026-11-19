@@ -1,3 +1,13 @@
+## 2026-11-19 — Validate MT7621 ACL CLI values before switch MMIO writes
+
+- Parent main SHA: `bc4e2c0ce204af2b3827fcaf6cbed17343139092`.
+- Inspection of production `trunk/user/utils/src/switch/switch_gsw.c` found three ACL handlers still using permissive `strtoul(..., NULL, ...)`: EtherType, L4 payload and source port. Each also checked only the first seven bits of an eight-character port map, and silently returned for too few arguments without rejecting extra arguments.
+- Require exactly six arguments, use strict bounded hex parsing for EtherType/L4 payload (16-bit), strict base-0 range parsing for the source port (16-bit), and the shared full eight-character port-map parser before the first register write. Keep the hardware register-write sequence unchanged.
+- Add parser unit cases for optional 0x prefixes, boundary values, malformed/partial/signed/whitespace inputs, overflow and output stability. Add an exact source contract for all three ACL handlers to the existing GNU89/ASan/UBSan Switch CLI workflow.
+- Exact-head Switch CLI and XY-C1 validation are pending on the resulting commit; no local MIPS build or physical PHY/router result is claimed.
+
+---
+
 ## 2026-11-19 — Fix HTTPD security workflow storage policy include path
 
 - Parent main SHA: `2a65185fa4cb2910f80429b6b5450677a9fde25d`.
