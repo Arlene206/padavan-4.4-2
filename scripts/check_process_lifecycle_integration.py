@@ -3353,3 +3353,22 @@ crond_notify = rc_source.split(
 assert "action_result = rc_notify_merge_action_result(" in crond_notify
 assert "action_result, restart_crond()" in crond_notify
 
+# Optional boot daemons are aggregated unconditionally by start_services_once.
+# A disabled service is a successful no-op, never an errno-like boot failure.
+optional_start_contracts = (
+    ("start_infosvr(void)", 'if (nvram_invmatch("adsc_enable", "1"))'),
+    ("start_lltd(void)", 'if (nvram_invmatch("lltd_enable", "1"))'),
+    ("start_rstats(void)", 'if (nvram_invmatch("rstats_enable", "1"))'),
+)
+for signature, guard in optional_start_contracts:
+    body = c_function_body(services_source, signature)
+    start = body.index(guard)
+    branch_end = body.index("\\n", start)
+    disabled_branch = body[start:branch_end + 1]
+    assert "return 0;" in disabled_branch, signature + " disabled path must be success"
+    assert "return 1;" not in disabled_branch, signature + " disabled path leaked nonzero status"
+boot_services = c_function_body(services_source, "start_services_once(int is_ap_mode)")
+for call in ("start_infosvr()", "start_lltd()", "start_rstats()"):
+    assert call in boot_services, "missing optional daemon startup: " + call
+print("optional infosvr/LLTD/rstats disabled-start status aggregation: PASS")
+

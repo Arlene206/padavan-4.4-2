@@ -284,7 +284,7 @@ start_infosvr(void)
 		return start_status;
 
 	if (nvram_invmatch("adsc_enable", "1"))
-		return 1;
+		return 0;
 
 	/*
 	 * infosvr calls daemon() before entering its packet loop. eval() only
@@ -1638,7 +1638,7 @@ start_rstats(void)
 	enum process_presence process_state;
 
 	if (nvram_invmatch("rstats_enable", "1"))
-		return 1;
+		return 0;
 
 	start_status = optional_daemon_start_status("rstats", "rstats");
 	if (start_status > 0)
@@ -1705,7 +1705,7 @@ start_lltd(void)
 	enum process_presence process_state;
 
 	if (nvram_invmatch("lltd_enable", "1"))
-		return 1;
+		return 0;
 
 	start_status = optional_daemon_start_status("lld2d", "lld2d");
 	if (start_status > 0)

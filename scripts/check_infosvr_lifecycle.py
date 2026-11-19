@@ -73,7 +73,8 @@ launch_status = start.index('start_status = eval("/usr/sbin/infosvr", IFNAME_BR)
 launch_log = start.index('logmessage("infosvr", "infosvr launch failed (status=%d)",')
 launch_return = start.index("return start_status;", launch_log)
 assert running < unknown < disabled < launch_status < launch_log < launch_return
-assert "return 1;" in start[disabled:launch_status]
+assert "return 0;" in start[disabled:launch_status]
+assert "return 1;" not in start[disabled:launch_status]
 assert "if (start_status != 0)" in start
 assert "return start_status;" in start
 assert 'service_start_probe_wait("infosvr", INFOSVR_START_INITIAL_WAIT_SECONDS)' in start
