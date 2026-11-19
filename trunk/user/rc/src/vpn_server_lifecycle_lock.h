@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "service_wait_policy.h"
 #include "lifecycle_lock_retry_policy.h"
 
 #define VPN_SERVER_LIFECYCLE_LOCK_FILE "/tmp/.vpns.lifecycle.lock"
@@ -54,7 +55,9 @@ vpn_server_lifecycle_lock_acquire_path(const char *path, unsigned int wait_secon
 				errno = EBUSY;
 			goto failed;
 		}
-		(void)sleep(1);
+		/* Do not shorten the lock wait when a signal interrupts sleep(). */
+		if (service_wait_seconds(1) != 0)
+			goto failed;
 	}
 failed:
 	saved_errno = errno ? errno : EIO;

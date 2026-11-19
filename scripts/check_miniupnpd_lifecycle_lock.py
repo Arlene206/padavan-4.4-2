@@ -68,6 +68,18 @@ for source, signature in (
     release_body = body(source, signature)
     assert "unsigned int interruptions = 0;" in release_body
     assert "rc_lifecycle_lock_retry_interrupted(&interruptions)" in release_body
+
+# EINTR must preserve the configured contention wait; never burn retries instantly.
+inadyn_acquire = body(INADYN_LOCK, "inadyn_lifecycle_lock_acquire_path(const char *path")
+assert "service_wait_seconds(1)" in inadyn_acquire
+assert "if (!interrupted && service_wait_seconds(1) != 0)" not in inadyn_acquire
+dnsmasq_acquire = body(DNSMASQ_LOCK, "dnsmasq_lifecycle_lock_acquire_path(const char *path")
+assert "service_wait_seconds(1)" in dnsmasq_acquire
+assert "sleep(1)" not in dnsmasq_acquire
+vpn_acquire = body(VPN_SERVER_LOCK, "vpn_server_lifecycle_lock_acquire_path(const char *path")
+assert "service_wait_seconds(1)" in vpn_acquire
+assert "sleep(1)" not in vpn_acquire
+
 start_wait = body(SERVICES, "service_start_wait_one_second(const char *service_name")
 assert "service_wait_seconds(1)" in start_wait
 mini_confirm = body(SERVICES, "miniupnpd_confirm_started(int launch_status)")

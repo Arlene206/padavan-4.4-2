@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "service_wait_policy.h"
 #include "lifecycle_lock_retry_policy.h"
 #define DNSMASQ_LIFECYCLE_LOCK_FILE "/tmp/.dnsmasq.lifecycle.lock"
 #define DNSMASQ_HOSTNAME_LOCK_FILE "/tmp/.dnsmasq.hostname.lock"
@@ -53,8 +54,9 @@ dnsmasq_lifecycle_lock_acquire_path(const char *path, unsigned int wait_seconds)
 				errno = EBUSY;
 			goto failed;
 		}
-		/* Bounded retry prevents RC callers waiting indefinitely. */
-		(void)sleep(1);
+		/* Preserve a full interval when signals interrupt sleep(). */
+		if (service_wait_seconds(1) != 0)
+			goto failed;
 	}
 failed:
 	saved_errno = errno ? errno : EIO;

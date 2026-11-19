@@ -1,3 +1,12 @@
+## 2026-11-19 — Preserve lifecycle lock contention waits across EINTR
+
+- Inadyn lock acquire skipped its one-second contention wait on EINTR; DNSMasq and VPN server used sleep(1) without retrying the remaining interval. Repeated signals could prematurely exhaust their bounded attempt count.
+- Replaced these waits with the existing service_wait_seconds(1) policy, which preserves unslept time across EINTR. Lock identity validation and shared eight-retry unlock cap remain unchanged.
+- Extended the MiniUPnP semantic checker to require signal-safe waits in all three production acquire paths. Added the DNSMasq lock header to the XY-C1 production-input filter.
+- Exact 213 L2 Actions are PASS: MiniUPnP config, DNSMasq, Inadyn, VPN server, Process lifecycle, Process inventory, HTTPD security, AI docs, and NVRAM audit. Its XY-C1 `44631039226` was still IN_PROGRESS at last poll. This source follow-up's exact-head Actions remain pending; no local compile or router L4 is claimed.
+
+---
+
 ## 2026-11-19 — Share bounded EINTR retries across service lifecycle locks
 
 - The earlier MiniUPnP fix exposed the same unbounded unlock loop in Inadyn, DNSMasq and VPN-server lifecycle lock release helpers. Repeated signals could keep the release paths from reaching descriptor close.

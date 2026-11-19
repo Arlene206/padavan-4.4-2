@@ -45,13 +45,13 @@ inadyn_lifecycle_lock_acquire_path(const char *path, unsigned int wait_seconds)
 		if (fcntl(fd, F_SETLK, &lock) == 0)
 			return fd;
 		if (errno == EINTR || errno == EACCES || errno == EAGAIN) {
-			int interrupted = errno == EINTR;
 			if (attempt++ >= wait_seconds) {
-				if (!interrupted)
+				if (errno != EINTR)
 					errno = EBUSY;
 				goto failed;
 			}
-			if (!interrupted && service_wait_seconds(1) != 0)
+			/* Preserve the full retry interval even when this wait is interrupted. */
+			if (service_wait_seconds(1) != 0)
 				goto failed;
 			continue;
 		}
