@@ -2298,7 +2298,7 @@ jobs:
           assert 'l2tp_config_file_publish("/etc/l2tp", "l2tp.conf",' in rpl2tp
           assert "rpl2tp_config_write" in rpl2tp
           writer_start = ppp.index("rpl2tp_config_write(FILE *fp, void *opaque)")
-          writer_end = ppp.index("\\n}", writer_start)
+          writer_end = ppp.index("\n}", writer_start)
           rpl2tp_writer = ppp[writer_start:writer_end]
           assert 'fprintf(fp,' in rpl2tp_writer and 'config->options, config->peer) < 0' in rpl2tp_writer
           assert 'mkdir_if_none("/etc/l2tp", "777")' not in rpl2tp

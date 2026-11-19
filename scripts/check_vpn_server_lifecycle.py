@@ -77,7 +77,7 @@ for token in ("O_DIRECTORY", "O_NOFOLLOW", "fstat(fd, &st)",
 for token in ("test_symlink_directory_is_rejected",
               "test_file_symlink_is_replaced_without_touching_target",
               "test_failed_publish_preserves_existing_file_and_cleans_temp",
-              "umask(0000)", "ENOSPC", "(st.st_mode & 0777) == 0644"):
+              "umask(0000)", "ENOSPC", "(st.st_mode & 0777) != 0644"):
     require(token in l2tp_config_file_test,f"rp-l2tp config regression missing {token}")
 
 net_wan=read("trunk/user/rc/src/net_wan.c")

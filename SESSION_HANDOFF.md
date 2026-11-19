@@ -11,11 +11,10 @@ Continue main-only implementation across conversations. Restore exact live sourc
 
 ## Current repository state
 
-- Product-source commit: 2b646cccdcb24da5d447586893a500fdcf3cfe48 (secure rp-L2TP configuration publication).
-- On that exact SHA, VPN lifecycle run 44639411367 failed only in the Python source contract: its expected inode-comparison token had the operands reversed. The new GNU89 ASan/UBSan rp-L2TP filesystem regression itself passed.
-- HTTPD security run 44639411314 failed in its PPP credential source contract because it expected the rp-L2TP writer to remain inline in start_rpl2tp(); the implementation now delegates serialization to a checked atomic-publish callback. The current commit updates that contract.
-- AI handoff docs 44639411488, WAN DHCP 44639411403, WAN route 44639411550, Process inventory 44639411440 and Process fail-closed 44639411413 passed on 2b646cc. XY-C1 44639411601 and NVRAM 44639411416 were still in progress at last poll.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; it is read-only. Develop only on main.
+- Product-source commit 2b646cccdcb24da5d447586893a500fdcf3cfe48 introduced the rp-L2TP private atomic publisher. Its added GNU89 ASan/UBSan filesystem regression passed in VPN run 44639411367; the subsequent failure was only source-contract mismatches.
+- Exact-head checker commit 09dfc4be938591b9e9e99f15ce7992c124080d73: AI docs 44639855299 PASS. VPN 44639855292 found a stale expected mode-comparison operator in the new test contract; HTTPD 44639855284 found an over-escaped newline in its new callback-body extraction. Both are corrected in the current checker follow-up.
+- The 2b646cc XY-C1 Build/TRX/artifact run 44639411601 was still in progress at its last check; NVRAM run 44639411416 passed. Check the XY run by its exact original SHA; a checker-only follow-up does not substitute for its same-SHA result.
+- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807 and is read-only. Develop only on main.
 
 ## Active task
 

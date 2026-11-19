@@ -1,3 +1,10 @@
+## 2026-11-19 — Correct follow-up rp-L2TP CI contracts
+
+- The first source-contract repair was followed by exact-head failures on 09dfc4b: VPN expected mode == 0644 while the regression correctly rejects any mode != 0644; HTTPD's callback extractor searched for a literal backslash-n because the workflow heredoc line was over-escaped.
+- Corrected the VPN test-contract token and the HTTPD Python newline escape. Production C, filesystem regression and the security behavior are unchanged by this checker-only follow-up.
+- After commit, recheck exact-head VPN and HTTPD jobs. The RP-L2TP test binary already passed with GNU89, -Werror, ASan and UBSan on 2b646cc.
+
+---
 ## 2026-11-19 — Repair rp-L2TP security source contracts
 
 - Exact-head VPN lifecycle run 44639411367 compiled and passed the new GNU89 ASan/UBSan rp-L2TP configuration-file regression, then failed because its source checker expected the directory inode comparison with reversed operands. Corrected the checker to match the production path-to-fd comparison.
