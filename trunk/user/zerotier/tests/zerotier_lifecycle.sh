@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eu
+set -eux
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 SCRIPT="$ROOT/trunk/user/zerotier/zerotier.sh"
