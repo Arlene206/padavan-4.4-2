@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — USB modem WAN reconnect result propagation
+# 2026-11-19 continuation checkpoint — ZeroTier firewall cleanup regression
 
 # Cross-session execution mandate
 
@@ -10,19 +10,11 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-
-
-- Repository `Arlene206/padavan-4.4-2`; all development remains on `main`. Parent main SHA for this slice: `92a098912e648e0c00a03db8592c555a3cfb2aeb`.
-
-- Current production-source changes include USB safe-eject result propagation/strict device selection (`6a846b9f8c3375de08d42617b6d3b8c948b6f638`, `7fa39cbc3020b702ef294e97874962393b9392b8`) and RPL2TP failure rollback (`cd398c943c40055bbd526f94e45a7f79f61c9cbe`).
-
-- Exact USB storage run `44536791653` PASS on 7fa; Process inventory/fail-closed `44537131446` PASS on f0a; the RPL2TP WAN route regression `44539829446` PASS on 92a.
-
-- XY-C1 `44539829469` on 92a completed as host-only: its firmware-input detector found no production inputs changed in the test-only follow-up, so Build, TRX and artifact steps were skipped. The latest production change `cd398` therefore still needs a same-source firmware Build/TRX/artifact result. Do not claim L3 from this skipped run.
-
-- AI handoff docs `44539378332` PASS on da254. The exact docs run for this upcoming commit is pending.
-
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged. No other branch is permitted.
+- Repository `Arlene206/padavan-4.4-2`; development remains on `main`. Current main SHA: `deed12f04f7bd2030a99acf689295396b505111e` (`fix(usb): propagate modem WAN reconnect failures`), parent `92a098912e648e0c00a03db8592c555a3cfb2aeb`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
+- USB modem reconnect status propagation is on main; exact Process inventory/fail-closed, USB WDM/NDIS, USB storage, NVRAM transaction and AI docs Actions pass on `deed12f04f7bd2030a99acf689295396b505111e`. XY-C1 run `44541196137` has completed its host gates and is building firmware; TRX and artifact steps are still pending. Do not claim current-source L3 until all three pass.
+- Prior product SHA `7fa39cbc3020b702ef294e97874962393b9392b8` passed XY-C1 Build/TRX/artifact for targeted USB storage; the later RPL2TP and USB modem reconnect production changes mean that older L3 result does not verify current main.
+- No local checkout/toolchain is available in this connector-only environment; use exact-SHA GitHub Actions and do not claim local execution.
 
 ## Latest active source slices — 2026-11-19
 
@@ -157,18 +149,11 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Continue on `main` only. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
-- Fix the confirmed status-drop in `trunk/user/rc/src/services_usb.c::safe_remove_usb_device()`: after `safe_remove_usb_modem()` succeeds, the function called `try_wan_reconnect(0, 0)` without checking its return and then returned `0`. This hid stop/start/PPP/L2TP recovery failure from the eject applet.
-- THIS COMMIT captures reconnect status, clears errno before the call, maps positive status to errno and retains negative errno (default `EIO`), emits a precise log and returns `-1` on failure. It clears errno and returns success only if WAN reconnect completes.
-- Regression assertions are added to `scripts/check_process_lifecycle_integration.py` and `scripts/check_storage_safe_remove.py`; existing workflow path filters already include those files and `services_usb.c`.
-- The current product-source L3 boundary must be repaired: 7fa has a passing full XY build, but later production source `cd398` adds RPL2TP rollback and the later 92a XY run skipped Build/TRX/artifact. Require a new exact-SHA firmware build after this source change.
-
-## Exact first action for the next GPT
-
-1. Inspect exact-head Actions on the new commit: Process inventory/fail-closed, Process lifecycle, USB storage hotplug, XY-C1, and AI handoff docs. Also check any workflow triggered by `trunk/user/rc/src/services_usb.c`.
-2. Require Process/storage source-contract and runtime regressions to PASS; diagnose the first actual failure from its job log and repair without weakening assertions.
-3. Require XY-C1 on the exact source SHA to run Build XY-C1, Verify TRX output and artifact upload (not just host-only validation) to restore current L3 evidence.
-4. After that verification, continue the next unfinished P1 cross-userland launch/result propagation item from the roadmap; treat pending firmware builds as a reason to work on independent items, not wait.
+- Continue on `main` only; do not modify frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Storage targeted-eject result propagation is now closed for its product slice: `7fa39cbc3020b702ef294e97874962393b9392b8` passed Storage-hotplug `44536791653` and XY-C1 `44536791575` (Build/TRX/artifact); test-only umbrella follow-up `deed12f04f7bd2030a99acf689295396b505111e` passed Process fail-closed/inventory `44537131446`. Do not repeat that completed work.
+- Current active P1 is the ZeroTier firewall cleanup retry path in `trunk/user/zerotier/zerotier.sh`. The source/test/checker change from `151d7574c0197139c61a7b6a7e4d9a5883a21f99` adds bounded `iptables -C/-D`, a private atomic interface/NAT-segment checkpoint and retry after daemon exit. Follow-up `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` corrected table ordering to `iptables -t nat -C/-D`.
+- Exact b1 ZeroTier run `44518868454` still failed in the shell regression at the “all five firewall deletes” count assertion, despite the preceding fake-state check reporting no remaining rules; other b1 runs (AI docs `44518868503`, Process inventory `44518868804`, WAN route `44518868759`, XY-C1 `44518868802`) passed. The latest main still contains this ZeroTier code, and current-main test-only diagnostic change is intended to print the raw iptables trace and fake state on count mismatch. No new production defect is established yet.
+- Current main exact Actions: AI docs `44541196205`, USB storage `44541196245`, NVRAM transaction audit `44541196259`, USB WDM/NDIS `44541196219`, Process inventory `44541196147`, and Process fail-closed `44541196163` pass on `deed12f04f7bd2030a99acf689295396b505111e`; XY-C1 `44541196137` was in progress at Build when checked.
 
 ## Mandatory handoff checkpoint
 

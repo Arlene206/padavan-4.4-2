@@ -1,3 +1,13 @@
+## 2026-11-19 — Expose ZeroTier firewall-delete regression trace
+
+- Main parent: `deed12f04f7bd2030a99acf689295396b505111e`; the current source still includes the ZeroTier firewall cleanup implementation and the corrected `iptables -t nat -C/-D` ordering.
+- Exact b1 ZeroTier workflow run `44518868454` failed at the five-delete log-count assertion in `trunk/user/zerotier/tests/zerotier_lifecycle.sh`. The preceding assertion that the fake firewall-state file was empty passed, so the regression output did not yet explain why the log count disagreed with the actual fake state.
+- This diagnostic follow-up keeps the strict five-delete assertion and emits the numbered raw iptables log plus remaining fake state only on mismatch. Use the next exact-head Action to identify the exact unmatched command; do not remove the assertion or weaken state-empty/cleanup checks without proving they are redundant and replacing them with equivalent behavioral coverage.
+- No production source changed in this diagnostic slice. Current-main XY-C1 run `44541196137` was pending at Build when checked; earlier b1 XY-C1 `44518868802` does not establish L3 for later sources. No local test execution is claimed.
+- Backup branch remains immutable; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Propagate USB modem WAN reconnect failures
 
 - Parent main SHA: `92a098912e648e0c00a03db8592c555a3cfb2aeb`. The latest production sources include strict USB eject status/target handling (`6a846b9`, `7fa39c`) and the RPL2TP stop/rollback correction (`cd398c9`).
