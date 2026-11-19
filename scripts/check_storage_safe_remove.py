@@ -160,6 +160,13 @@ require("errno = 0;" in disk_creator and "if (!create_partition(" in disk_creato
 require("storage_inventory_parse_mount_line_full" in swap_policy and
         "filesystem_size" in swap_policy and "options_size" in swap_policy,
         "mount parser must expose checked filesystem/options fields to metadata readers")
+require("three-digit octal escapes" in swap_policy and
+        "decoded > 255U" in swap_policy and "decoded == 0" in swap_policy,
+        "procfs mount/swap paths must decode octal escapes and reject invalid path bytes")
+require('"/media/USB\\\\040Disk"' in swap_policy_test and
+        '"/media/USB\\\\011Disk"' in swap_policy_test and
+        '"/media/USB\\\\000Disk"' in swap_policy_test,
+        "procfs path decoding regression must cover spaces, tabs, buffer bounds and NUL escapes")
 require("rw,relatime" in swap_policy_test and '"ro"' in swap_policy_test and
         "storage_inventory_parse_mount_line_full" in swap_policy_test,
         "storage mount parser regressions must cover metadata, read-only and malformed records")

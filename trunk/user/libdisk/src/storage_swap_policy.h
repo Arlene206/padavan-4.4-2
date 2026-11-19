@@ -113,11 +113,16 @@ storage_inventory_line_is_complete(const char *line)
 }
 
 /* Return 1 for a field, 0 at end of record, and -1 for invalid/long data. */
+/*
+ * /proc/mounts and /proc/swaps encode whitespace and backslashes as
+ * three-digit octal escapes (for example, a space is \\040). Decode while
+ * tokenizing so mount/ swap syscalls receive the original pathname.
+ */
 static int
 storage_inventory_next_field(const char **cursor, char *field, size_t field_size)
 {
-	const unsigned char *start, *p;
-	size_t length;
+	const unsigned char *p, *end;
+	size_t output_length;
 
 	if (!cursor || !*cursor || !field || field_size == 0)
 		return -1;
@@ -127,19 +132,44 @@ storage_inventory_next_field(const char **cursor, char *field, size_t field_size
 		++p;
 	if (!*p) {
 		*cursor = (const char *)p;
+		field[0] = '\0';
 		return 0;
 	}
 
-	start = p;
-	while (*p && !isspace(*p))
-		++p;
-	length = (size_t)(p - start);
-	if (length == 0 || length >= field_size)
-		return -1;
+	end = p;
+	while (*end && !isspace(*end))
+		++end;
 
-	memcpy(field, start, length);
-	field[length] = '\0';
-	*cursor = (const char *)p;
+	output_length = 0;
+	field[0] = '\0';
+	while (p < end) {
+		unsigned int decoded;
+
+		if (*p == '\\') {
+			if ((size_t)(end - p) < 4 ||
+			    p[1] < '0' || p[1] > '7' ||
+			    p[2] < '0' || p[2] > '7' ||
+			    p[3] < '0' || p[3] > '7')
+				return -1;
+			decoded = (unsigned int)(p[1] - '0') * 64U +
+				  (unsigned int)(p[2] - '0') * 8U +
+				  (unsigned int)(p[3] - '0');
+			if (decoded == 0 || decoded > 255U)
+				return -1;
+			p += 4;
+		} else {
+			decoded = *p++;
+		}
+
+		if (output_length + 1 >= field_size) {
+			field[0] = '\0';
+			return -1;
+		}
+		field[output_length++] = (char)decoded;
+	}
+
+	field[output_length] = '\0';
+	*cursor = (const char *)end;
 	return 1;
 }
 
