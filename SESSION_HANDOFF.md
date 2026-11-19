@@ -11,10 +11,11 @@ Continue main-only implementation across conversations. Restore exact live sourc
 
 ## Current repository state
 
-- Parent main SHA before this focused security slice: 6e7c7034abde6bbb437e7941c751ba40100fe168 (ci(firewall): align shared netmask source contract).
-- The preceding handoff was correcting bounded MTD EINTR handling. Its Process fail-closed and AI-docs exact-head Actions were still in progress at last recorded check; re-query them only by their original SHA if relevant.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807 and is read-only. Develop only on main.
-- This task creates one source commit directly after the parent above. Resolve the new exact source SHA from live main and check all Actions against that exact SHA.
+- Product-source commit: 2b646cccdcb24da5d447586893a500fdcf3cfe48 (secure rp-L2TP configuration publication).
+- On that exact SHA, VPN lifecycle run 44639411367 failed only in the Python source contract: its expected inode-comparison token had the operands reversed. The new GNU89 ASan/UBSan rp-L2TP filesystem regression itself passed.
+- HTTPD security run 44639411314 failed in its PPP credential source contract because it expected the rp-L2TP writer to remain inline in start_rpl2tp(); the implementation now delegates serialization to a checked atomic-publish callback. The current commit updates that contract.
+- AI handoff docs 44639411488, WAN DHCP 44639411403, WAN route 44639411550, Process inventory 44639411440 and Process fail-closed 44639411413 passed on 2b646cc. XY-C1 44639411601 and NVRAM 44639411416 were still in progress at last poll.
+- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807; it is read-only. Develop only on main.
 
 ## Active task
 

@@ -1,3 +1,10 @@
+## 2026-11-19 — Repair rp-L2TP security source contracts
+
+- Exact-head VPN lifecycle run 44639411367 compiled and passed the new GNU89 ASan/UBSan rp-L2TP configuration-file regression, then failed because its source checker expected the directory inode comparison with reversed operands. Corrected the checker to match the production path-to-fd comparison.
+- Exact-head HTTPD security run 44639411314 failed only because its PPP credential source contract expected fprintf() to remain inline in start_rpl2tp(). Updated it to verify l2tp_config_file_publish() integration and the separate rpl2tp_config_write() callback, while requiring removal of the old 0777 mkdir/fopen path.
+- These are CI contract corrections, not new production changes. The exact-head reruns after this commit must pass before the slice's L2 gate is closed.
+
+---
 ## 2026-11-19 — Secure rp-L2TP configuration publication
 
 - Confirmed a privileged file-write boundary defect in APP_RPL2TP: PID 1 explicitly sets umask(0000); start_rpl2tp() used unchecked mkdir_if_none("/etc/l2tp", "777") and fopen("/etc/l2tp/l2tp.conf", "w"). The directory helper follows an existing symlink directory and does not repair permissive existing modes; the leaf open follows symlinks. A world-writable /etc/l2tp therefore let an unprivileged process redirect a root write through l2tp.conf.

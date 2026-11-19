@@ -2294,7 +2294,15 @@ jobs:
           rp_end = ppp.index("\n#endif", rp_start)
           rpl2tp = ppp[rp_start:rp_end]
           assert "ppp_config_line_value_copy(get_wan_ppp_peer(unit), peer, sizeof(peer))" in rpl2tp
-          assert 'fprintf(fp,' in rpl2tp and 'options, peer) < 0' in rpl2tp
+          assert '#include "l2tp_config_file.h"' in ppp
+          assert 'l2tp_config_file_publish("/etc/l2tp", "l2tp.conf",' in rpl2tp
+          assert "rpl2tp_config_write" in rpl2tp
+          writer_start = ppp.index("rpl2tp_config_write(FILE *fp, void *opaque)")
+          writer_end = ppp.index("\\n}", writer_start)
+          rpl2tp_writer = ppp[writer_start:writer_end]
+          assert 'fprintf(fp,' in rpl2tp_writer and 'config->options, config->peer) < 0' in rpl2tp_writer
+          assert 'mkdir_if_none("/etc/l2tp", "777")' not in rpl2tp
+          assert 'fopen(' not in rpl2tp
           assert 'status = eval("/usr/sbin/l2tpd");' in rpl2tp
           assert 'status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");' in rpl2tp
           assert rpl2tp.index('if (status != 0)') < rpl2tp.index('status = eval("/usr/sbin/l2tp-control"')

@@ -70,7 +70,7 @@ require('#include "l2tp_config_file.h"' in net_ppp and
         "rp-l2tp must use the no-follow atomic configuration publisher")
 for token in ("O_DIRECTORY", "O_NOFOLLOW", "fstat(fd, &st)",
               "st.st_uid != geteuid()", "fchmod(fd, safe_mode)",
-              "st.st_ino != path_st.st_ino", "mkstemp(temporary_path)",
+              "path_st.st_ino != st.st_ino", "mkstemp(temporary_path)",
               "st.st_nlink != 1", "rename(temporary_path, target_path)",
               "unlink(temporary_path)"):
     require(token in l2tp_config_file,f"rp-l2tp config helper missing safety invariant {token}")
