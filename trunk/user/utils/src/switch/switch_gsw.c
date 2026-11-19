@@ -2085,6 +2085,8 @@ int main(int argc, char *argv[])
 		unsigned int port, bandwidth = 0U;
 		int bw = 0;
 
+		if (argc < 3)
+			usage(argv[0]);
 		if (strcmp(argv[2], "on") == 0) {
 			if (argc != 5 ||
 			    switch_parse_uint_range(argv[3], 0U, 4U, &port) != 0 ||
@@ -2108,6 +2110,8 @@ int main(int argc, char *argv[])
 		unsigned int port, bandwidth = 0U;
 		int bw = 0;
 
+		if (argc < 3)
+			usage(argv[0]);
 		if (strcmp(argv[2], "on") == 0) {
 			if (argc != 5 ||
 			    switch_parse_uint_range(argv[3], 0U, 4U, &port) != 0 ||

@@ -129,6 +129,12 @@ jobs:
               assert " & 0x7" not in block
           assert 'strcmp(argv[2], "on") == 0' in main
           assert 'strcmp(argv[2], "off") == 0' in main
+          for command in ('!strncmp(argv[1], "ingress-rate", 6)',
+                          '!strncmp(argv[1], "egress-rate", 6)'):
+              start = main.index(command)
+              subcommand = main.index("if (argc < 3)", start)
+              selector = main.index('strcmp(argv[2], "on")', start)
+              assert subcommand < selector
           assert "argv[2][1]" not in main
           print("switch command port indices and numeric selectors reject invalid or aliased inputs: PASS")
           print("switch_gsw invalid usage and truncated ACL/mirror/TrTCM/DIP/SIP commands fail safely: PASS")
