@@ -948,8 +948,6 @@ update_hosts_ap(void)
 
 	status = create_hosts_lan(nvram_safe_get("lan_ipaddr_t"),
 				 nvram_safe_get("lan_domain_t"));
-	if (status == 0)
-		nvram_set_int_temp("lan_hosts_retry", 0);
 	return status;
 }
 
@@ -1713,43 +1711,20 @@ lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 					  const char *lease_domain)
 {
 	int hosts_status, saved_errno, retry_errno;
-	int marker_status, notification_status, schedule_status;
+	int notification_status;
 
 	errno = 0;
 	hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);
-	if (hosts_status == 0) {
-		if (get_ap_mode())
-			nvram_set_int_temp("lan_hosts_retry", 0);
+	if (hosts_status == 0)
 		return 0;
-	}
 
 	saved_errno = errno ? errno : EIO;
 	logmessage("DHCP LAN Client",
 		   "LAN lease applied but hostname files could not be published (status=%d)",
 		   hosts_status);
 	if (get_ap_mode()) {
-		/*
-		 * Two independent recovery paths exist: the retry bit makes a later
-		 * same-value RENEW retry, while the PID 1 event retries immediately.
-		 * Check and retry each failed publication once so a transient NVRAM
-		 * or queue error cannot silently discard the only recovery path.
-		 */
-		marker_status = nvram_set_int_temp("lan_hosts_retry", 1);
-		if (marker_status != 0) {
-			retry_errno = errno ? errno : EIO;
-			logmessage("DHCP LAN Client",
-				   "cannot persist AP hostname-file retry marker (errno=%d); retrying",
-				   retry_errno);
-			errno = 0;
-			marker_status = nvram_set_int_temp("lan_hosts_retry", 1);
-			if (marker_status != 0) {
-				retry_errno = errno ? errno : EIO;
-				logmessage("DHCP LAN Client",
-					   "AP hostname-file retry marker remains unavailable (errno=%d)",
-					   retry_errno);
-			}
-		}
-
+		/* Queue an immediate retry; a later AP DHCP RENEW is the durable
+		 * fallback if the notification queue is unavailable. */
 		notification_status = notify_rc_status(RCN_RESTART_DHCPD);
 		if (notification_status != 0) {
 			retry_errno = errno ? errno : EIO;
@@ -1761,17 +1736,10 @@ lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 			if (notification_status != 0) {
 				retry_errno = errno ? errno : EIO;
 				logmessage("DHCP LAN Client",
-					   "AP hostname-file recovery remains unqueued (errno=%d)",
+					   "AP hostname-file recovery remains unqueued (errno=%d); next AP DHCP renewal will retry hostname-file publication",
 					   retry_errno);
 			}
 		}
-
-		schedule_status = lan_dhcp_retry_schedule_status(
-			marker_status, notification_status);
-		if (schedule_status != 0)
-			logmessage("DHCP LAN Client",
-				   "no AP hostname-file recovery retry could be scheduled (marker_status=%d, notification_status=%d)",
-				   marker_status, notification_status);
 	}
 
 	errno = saved_errno;
@@ -2015,8 +1983,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	lease_state[6].value = lease_text;
 	lease_state[6].previous_value = old_lease;
 	refresh_hosts = lan_dhcp_hosts_refresh_required(
-		is_changed, is_renew,
-		get_ap_mode() && nvram_match("lan_hosts_retry", "1"));
+		is_changed, is_renew, get_ap_mode());
 
 	context.lan_ifname = lan_ifname;
 	context.lan_gateway = gateway_buf;

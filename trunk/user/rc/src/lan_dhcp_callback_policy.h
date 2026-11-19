@@ -8,27 +8,13 @@
  * run. Failures of those optional follow-up operations are logged by the caller,
  * but must not make BusyBox retain an old lease while the router uses the new one.
  */
-/* Retry ancillary host publication after a same-value RENEW only when an
- * earlier publication failed; do not repeat it for every healthy renewal. */
+/* Refresh AP host files on every RENEW. This periodic fallback guarantees a
+ * later retry even when the NVRAM marker and PID 1 queue are unavailable. */
 static inline int
 lan_dhcp_hosts_refresh_required(int lease_changed, int is_renew,
-				int retry_pending)
+				int is_ap_mode)
 {
-	return lease_changed || !is_renew || retry_pending;
-}
-
-
-/*
- * Host-file publication is post-commit: either a persistent same-value
- * renewal marker or an immediate PID 1 notification is sufficient to retry.
- * Return an error only when both independent recovery paths failed.
- */
-static inline int
-lan_dhcp_retry_schedule_status(int marker_status, int notification_status)
-{
-	if (marker_status == 0 || notification_status == 0)
-		return 0;
-	return marker_status != 0 ? marker_status : notification_status;
+	return lease_changed || !is_renew || is_ap_mode;
 }
 
 static inline int

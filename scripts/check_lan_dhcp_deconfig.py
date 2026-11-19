@@ -80,17 +80,14 @@ deconfig = lan[deconfig_start:deconfig_end]
 assert "status = lan_down_auto(lan_ifname);" in deconfig
 assert "return status;" in deconfig
 
-# A committed DHCP lease must not become permanently stuck with stale hosts
-# after one failed ancillary write: immediate PID 1 retry plus same-value
-# renewal retry are both required, without repeating unrelated side effects.
+# Every later AP RENEW is a recovery opportunity, including after both the
+# volatile retry marker and the immediate PID 1 queue have failed.
 bound = c_function_body(lan, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
 publish = c_function_body(lan, "lan_dhcp_publish_hosts_and_schedule_retry(")
-assert 'nvram_set_int_temp("lan_hosts_retry", "0")' not in lan
-assert 'nvram_set_int_temp("lan_hosts_retry", "1")' not in lan
+assert "lan_hosts_retry" not in lan
 
-update_ap = c_function_body(lan, "update_hosts_ap(void)")
-assert "refresh_hosts = lan_dhcp_hosts_refresh_required( is_changed, is_renew," in compact(bound)
-assert 'get_ap_mode() && nvram_match("lan_hosts_retry", "1")' in bound
+assert "refresh_hosts = lan_dhcp_hosts_refresh_required( is_changed, is_renew, get_ap_mode())" in compact(bound)
+assert 'nvram_match("lan_hosts_retry"' not in bound
 assert "if (refresh_hosts)" in bound
 assert "lan_dhcp_publish_hosts_and_schedule_retry(" in bound
 assert bound.index("if (refresh_hosts)") < bound.index("lan_dhcp_publish_hosts_and_schedule_retry(")
@@ -159,27 +156,11 @@ assert iappd_start < iappd_failure < iappd_log < networkmap_gate < networkmap_st
 assert bound.count('system("/usr/bin/iappd.sh restart")') == 1
 assert bound.count("restart_networkmap()") == 1
 assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in callback_test
-assert publish.count('nvram_set_int_temp("lan_hosts_retry", 1)') == 2
 assert publish.count("notify_rc_status(RCN_RESTART_DHCPD)") == 2
-assert "marker_status = nvram_set_int_temp" in publish
 assert "notification_status = notify_rc_status(RCN_RESTART_DHCPD);" in publish
-assert "marker_status = 0" not in publish
-assert "notification_status = 0" not in publish
-assert "lan_dhcp_retry_schedule_status(" in publish
-assert "no AP hostname-file recovery retry could be scheduled" in publish
-assert "retrying" in publish
-assert "AP hostname-file retry marker remains unavailable" in publish
-assert "AP hostname-file recovery remains unqueued" in publish
-assert "lan_dhcp_retry_schedule_status(int marker_status, int notification_status)" in callback_policy
-assert "lan_dhcp_retry_schedule_status(EIO, 0) == 0" in callback_test
-assert "lan_dhcp_retry_schedule_status(0, ENOSPC) == 0" in callback_test
-assert "lan_dhcp_retry_schedule_status(EIO, ENOSPC) == EIO" in callback_test
-assert "lan_dhcp_retry_schedule_status(-1, -1) == -1" in callback_test
-assert publish.index('nvram_set_int_temp("lan_hosts_retry", 1)') < publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
-assert 'nvram_set_int_temp("lan_hosts_retry", 0)' in update_ap
-assert update_ap.index("if (status == 0)") < update_ap.index('nvram_set_int_temp("lan_hosts_retry", 0)')
+assert "next AP DHCP renewal will retry hostname-file publication" in publish
 assert "lan_dhcp_hosts_refresh_required(int lease_changed, int is_renew," in callback_policy
-assert "test_hosts_refresh_retries_only_a_pending_same_value_renew" in callback_test
+assert "test_ap_same_value_renew_always_refreshes_hosts" in callback_test
 assert "lan_dhcp_hosts_refresh_required(0, 1, 0) == 0" in callback_test
 assert "lan_dhcp_hosts_refresh_required(0, 1, 1) == 1" in callback_test
 

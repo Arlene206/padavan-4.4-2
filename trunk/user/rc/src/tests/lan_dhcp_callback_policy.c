@@ -16,27 +16,14 @@ test_successful_lease_commit_ignores_ancillary_refresh_failure(void)
 }
 
 static void
-test_hosts_refresh_retries_only_a_pending_same_value_renew(void)
+test_ap_same_value_renew_always_refreshes_hosts(void)
 {
 	assert(lan_dhcp_hosts_refresh_required(1, 1, 0) == 1);
 	assert(lan_dhcp_hosts_refresh_required(0, 0, 0) == 1);
 	assert(lan_dhcp_hosts_refresh_required(0, 1, 0) == 0);
+	/* AP renew is the durable fallback when the immediate queue cannot retry. */
 	assert(lan_dhcp_hosts_refresh_required(0, 1, 1) == 1);
 	assert(lan_dhcp_hosts_refresh_required(1, 1, 1) == 1);
-}
-
-static void
-test_host_retry_is_scheduled_when_either_recovery_path_succeeds(void)
-{
-	assert(lan_dhcp_retry_schedule_status(0, 0) == 0);
-	/* Actual NVRAM and notification APIs return -1 with errno on failure. */
-	assert(lan_dhcp_retry_schedule_status(-1, 0) == 0);
-	assert(lan_dhcp_retry_schedule_status(0, -1) == 0);
-	assert(lan_dhcp_retry_schedule_status(-1, -1) == -1);
-	assert(lan_dhcp_retry_schedule_status(EIO, 0) == 0);
-	assert(lan_dhcp_retry_schedule_status(0, ENOSPC) == 0);
-	assert(lan_dhcp_retry_schedule_status(EIO, ENOSPC) == EIO);
-	assert(lan_dhcp_retry_schedule_status(ETIMEDOUT, ECHILD) == ETIMEDOUT);
 }
 
 static void
@@ -50,7 +37,7 @@ int
 main(void)
 {
 	test_successful_lease_commit_ignores_ancillary_refresh_failure();
-	test_hosts_refresh_retries_only_a_pending_same_value_renew();
+	test_ap_same_value_renew_always_refreshes_hosts();
 	test_host_retry_is_scheduled_when_either_recovery_path_succeeds();
 	test_transaction_failure_remains_fatal();
 	puts("LAN DHCP post-commit ancillary status and retry regression: PASS");
