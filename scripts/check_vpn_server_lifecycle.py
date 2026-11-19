@@ -69,6 +69,19 @@ restart_policy_test=read("trunk/user/rc/src/tests/vpn_server_restart_policy.c")
 process_pidfile=read("trunk/user/shared/src/process_pidfile.c")
 pppd_ipcp=read("trunk/user/pppd/ppp-2.4.7/pppd/ipcp.c")
 pppd_main=read("trunk/user/pppd/ppp-2.4.7/pppd/main.c")
+for signature,label in (
+    ("ipup_vpns_main(int argc, char **argv)", "up"),
+    ("ipdown_vpns_main(int argc, char **argv)", "down"),
+):
+    callback=body(vpn,signature)
+    ordered(callback,[
+        "hook_status = _eval(hook_argv, NULL, 0, NULL);",
+        "if (hook_status != 0)",
+        "cleanup_failed = 1;",
+        "return cleanup_failed ? -1 : 0;"
+    ], "VPN "+label+" custom hook result")
+require("test_vpn_server_custom_hook_failure_is_not_hidden" in route_status_test,
+        "VPN server custom-hook failure regression missing")
 require('#include "route_status_policy.h"' in vpn,
         "VPN server remote-LAN callbacks must use shared route-result policy")
 require("int" + chr(10) + "vpns_route_to_remote_lan(" in vpn and

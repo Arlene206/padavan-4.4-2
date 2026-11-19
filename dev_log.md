@@ -1,3 +1,13 @@
+## 2026-11-19 — Preserve VPN server up/down hook failures
+
+- Parent main SHA: `6e7e90efb393af3380f0b8607a53ecb8921ba306` (concurrent NFS daemon wait-status fix).
+- The VPN server PPP callbacks already preserve route, lease, relay and lock failures, but silently ignored the return value from the configured `VPN_SERVER_UPDOWN_SCRIPT` on both connect and disconnect. A custom hook could fail to install user routing/filtering or fail teardown while the callback still returned success.
+- Capture both `_eval(hook_argv, ...)` statuses, log the peer and exact status, and mark the callback failed without skipping subsequent independent cleanup. Add a route-policy regression for custom hook failure propagation and source contracts for both callbacks.
+- Exact parent VPN-server lifecycle `44431781964`, WAN route-status `44431782135`, Process regression `44431782106`, Process inventory `44431782022`, and AI handoff docs `44431782169` all PASS on `521c25a387bc45041f4db1e7ca9b27318e7b0e5e`. Exact XY-C1 `44431782312` was still building: Build in progress; TRX and artifact pending. This new hook change requires fresh exact-head L2 and L3.
+- No local tests or MIPS build were run. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Propagate VPN server per-peer route failures
 
 - Parent main SHA: `aa3691d7db9efbdbf0020a5b8c58d5734a579e9f`; includes concurrent Crond/shared-daemon probe-wait normalization and its checker/test corrections.

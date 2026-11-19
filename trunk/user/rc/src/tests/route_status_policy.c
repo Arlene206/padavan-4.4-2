@@ -135,6 +135,19 @@ test_vpn_server_remote_route_failure_survives_later_callback_work(void)
 	assert(attempts == sizeof(callback_steps) / sizeof(callback_steps[0]));
 }
 
+static void
+test_vpn_server_custom_hook_failure_is_not_hidden(void)
+{
+	const int callback_steps[] = { 0, EACCES, 0 };
+	size_t attempts = 0;
+
+	/* A failed custom hook must reach the callback result while later cleanup runs. */
+	assert(apply_results(callback_steps,
+			     sizeof(callback_steps) / sizeof(callback_steps[0]),
+			     &attempts) == EACCES);
+	assert(attempts == sizeof(callback_steps) / sizeof(callback_steps[0]));
+}
+
 int
 main(void)
 {
@@ -146,6 +159,7 @@ main(void)
 	test_static_ipoe_teardown_clear_failure_forces_interface_down();
 	test_vpn_route_idempotence_does_not_hide_real_failures();
 	test_vpn_server_remote_route_failure_survives_later_callback_work();
+	test_vpn_server_custom_hook_failure_is_not_hidden();
 	const int first_error[] = { 0, EIO, 0, ENETUNREACH };
 	const int negative_error[] = { 0, -1, 0, EPERM };
 	const int no_errors[] = { 0, 0, 0 };

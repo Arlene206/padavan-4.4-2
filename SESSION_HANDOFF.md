@@ -1,8 +1,8 @@
-# 2026-11-19 continuation checkpoint — VPN server remote-LAN route status
+# 2026-11-19 continuation checkpoint — VPN server callback hook status
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent main SHA `aa3691d7db9efbdbf0020a5b8c58d5734a579e9f`. Crond probe-wait normalization/checker corrections are in `03d896d` and `aa3691d`; current Process integration validation on the latest SHA was pending. VPN-server lifecycle `44430527476` passed on 03d896d, while Process (`44430527367`/`44430527397`), WAN route (`44430527641`), XY-C1 (`44430527521`) and NVRAM (`44430527357`) were in progress/queued at last poll. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`. IAPP `007a38b`, iNIC signal `82ac332`, and RT3352 iNIC monitor `41c2382` all L3 VERIFIED on exact-source XY Build/TRX/artifact.
+- Repository: `Arlene206/padavan-4.4-2`; current parent main SHA `6e7e90efb393af3380f0b8607a53ecb8921ba306` adds the NFS wait-status correction after VPN route commit `521c25a387bc45041f4db1e7ca9b27318e7b0e5e`. Exact VPN-server lifecycle `44431781964`, WAN route status `44431782135`, Process lifecycle `44431782106`, Process inventory `44431782022`, and AI docs `44431782169` all PASS on 521c25a; XY-C1 `44431782312` Build was still in progress, TRX/artifact pending. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,27 +77,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Propagate VPN server per-peer remote-LAN route setup and teardown failures.
+Propagate VPN server PPP callback custom up/down hook failures.
 
-- `vpns_route_to_remote_lan()` was a void helper that discarded its `route_add()`/`route_del()` result for a peer ACL network outside the router LAN subnet. An up callback could therefore publish lease/firewall state and return success despite a missing remote-LAN route; a down callback hid failure to remove stale routes.
-- THIS source slice changes the helper to return status, validates peer/interface identity, treats only EEXIST on add and ESRCH on delete as idempotent success, logs other failures, and propagates the route result through both PPP callbacks' existing `cleanup_failed` result while continuing independent lease/firewall/bcrelay work.
-- Existing `route_status_policy.h` / `tests/route_status_policy.c` cover route idempotence and first-error preservation. The VPN-server lifecycle checker asserts helper/callback propagation; the existing workflow adds the route-policy header/test to both push/PR triggers, and XY-C1 rebuild triggers include the header dependency.
-- Parent main `aa3691d7db9efbdbf0020a5b8c58d5734a579e9f` includes concurrent Crond probe-wait and checker updates. VPN-server lifecycle `44430527476` passed on 03d896d; Process integration/inventory `44430527367`/`44430527397`, WAN route `44430527641`, XY-C1 `44430527521` and NVRAM `44430527357` were in progress/queued at last poll. Inspect eventual results.
-- IAPP production `007a38b34c5c7b8127f31a2aeb427e08833cdf67`, iNIC signal `82ac332f84dbe8f454ad63247d4db53acac30c23`, and RT3352 iNIC monitor `41c2382d45e0496fdd336fc09bc2873d9216d553` are L3 VERIFIED by exact-source XY Build/TRX/artifact runs `44427295060`, `44427595460`, `44428277197`.
-- No local tests or MIPS build were run. This VPN server source requires exact-head VPN-server, WAN route-status, AI docs, Process and XY-C1 Build/TRX/artifact checks. Physical-router L4 NOT VERIFIED.
+- Production route fix is committed at `521c25a387bc45041f4db1e7ca9b27318e7b0e5e`: `vpns_route_to_remote_lan()` now returns status, treats only EEXIST add and ESRCH delete as idempotent, logs other failures, and both PPP callbacks fold route errors into `cleanup_failed`. Exact VPN-server lifecycle `44431781964`, WAN route-status `44431782135`, Process lifecycle `44431782106`, Process inventory `44431782022`, and AI docs `44431782169` all PASS on that SHA.
+- Exact XY-C1 run `44431782312` on the route source commit had Build in progress with TRX/artifact pending; poll and verify all three stages before marking L3.
+- THIS follow-up fixes another adjacent callback failure path: both up/down callbacks ran the configured `VPN_SERVER_UPDOWN_SCRIPT` through `_eval()` but discarded its exit status. It now records and logs hook failures, marks callback failure, and still runs later independent cleanup.
+- A sanitizer-backed route status test and the VPN-server lifecycle checker will require the hook result to be captured and propagated in both callback paths.
+- No local tests or MIPS build were run. The hook fix requires exact-head VPN-server/route-status/Process/AI and XY-C1 Build/TRX/artifact verification. Physical-router L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: PASS — per-peer VPN server remote-LAN route operations can no longer fail silently in either PPP callback.
-- L2: Pending exact-head route-status regression, VPN-server checker, Process and AI docs.
-- L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload.
-- L4: Actual VPN server PPP callback routes and physical-router cleanup remain NOT VERIFIED.
+- Route helper L1: PASS; exact L2 on the route-source SHA PASS for VPN server, WAN route policy, Process and AI docs.
+- Route-source L3: Pending XY-C1 `44431782312` Build/TRX/artifact final result.
+- Hook propagation L1: PASS by source implementation; exact-head L2/L3 pending.
+- Physical-router L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect VPN-server, WAN route-status, Process, AI docs and XY-C1 Actions for this commit; inspect logs for any failure.
-2. Close L2 only after route-policy and source-contract checks pass. Close L3 only after Build XY-C1, TRX verification and artifact upload all succeed on a SHA containing this VPN-server source change.
-3. Continue an independent P1 userland stability/security issue; preserve the frozen backup and avoid repeating completed IAPP/iNIC/Crond audits.
+1. Fetch live `main`; inspect exact-head VPN-server, WAN route-status, Process, AI docs and XY-C1 runs for this hook-status commit.
+2. Inspect Build, TRX verification and artifact upload individually for the parent route-source SHA and the new hook-source SHA.
+3. Continue an independent userland P1 reliability/security issue only after these exact-head checks; keep frozen backup unchanged.
 
 ## Mandatory handoff checkpoint
 

@@ -1042,7 +1042,7 @@ ipup_vpns_main(int argc, char **argv)
 {
 	int i_cast, i_vuse, lock_fd, firewall_status, lifecycle_fd, callback_state;
 	int cleanup_failed = 0, saved_errno, record_length;
-	int scan_error, stop_status, relay_status, route_status;
+	int scan_error, stop_status, relay_status, route_status, hook_status;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action relay_action;
@@ -1173,7 +1173,12 @@ ipup_vpns_main(int argc, char **argv)
 		char *hook_argv[] = {
 			(char *)script_name, "up", argv[1], argv[5], argv[6], peer_name, NULL
 		};
-		_eval(hook_argv, NULL, 0, NULL);
+		hook_status = _eval(hook_argv, NULL, 0, NULL);
+		if (hook_status != 0) {
+			logmessage(VPNS_LOG_NAME, "VPN up hook failed for peer %s (status=%d)",
+				   peer_name, hook_status);
+			cleanup_failed = 1;
+		}
 	}
 	if (vpn_server_lifecycle_lock_release(lifecycle_fd) != 0) {
 		logmessage(VPNS_LOG_NAME, "cannot release VPN lifecycle lock after connection callback (errno=%d)", errno);
@@ -1187,7 +1192,7 @@ ipdown_vpns_main(int argc, char **argv)
 {
 	int i_clients = 0, firewall_status = -1, lease_status = -1;
 	int cleanup_failed = 0, lock_fd, lifecycle_fd, callback_state;
-	int scan_error, stop_status, route_status;
+	int scan_error, stop_status, route_status, hook_status;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action relay_action;
@@ -1244,7 +1249,12 @@ ipdown_vpns_main(int argc, char **argv)
 		char *hook_argv[] = {
 			(char *)script_name, "down", argv[1], argv[5], argv[6], peer_name, NULL
 		};
-		_eval(hook_argv, NULL, 0, NULL);
+		hook_status = _eval(hook_argv, NULL, 0, NULL);
+		if (hook_status != 0) {
+			logmessage(VPNS_LOG_NAME, "VPN down hook failed for peer %s (status=%d)",
+				   peer_name, hook_status);
+			cleanup_failed = 1;
+		}
 	}
 	if ((lease_status == 0 && i_clients == 0) ||
 	    nvram_get_int("vpns_cast") == 0) {
