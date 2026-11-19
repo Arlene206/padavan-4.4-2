@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
-#include "../../libdisk/src/disk_inventory_policy.h"
+#include "disk_inventory_policy.h"
 
 /*
  * Return 1 when a disk has at least one child partition, 0 when no child

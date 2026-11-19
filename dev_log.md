@@ -1,3 +1,12 @@
+## 2026-11-19 — Fix staged XY-C1 build include for strict storage partition policy
+
+- Parent main SHA: `82e6e9ec3bb6b16d11e218b6fd76d5dc10a90c96`.
+- Exact XY-C1 run `44482869903` on d45 failed during Build XY-C1 at `storage_partition_probe.h:6`: `../../libdisk/src/disk_inventory_policy.h` is source-tree-relative, but RC source is compiled from staged `trunk/build/rc`, where the path points outside `trunk/user`. TRX and artifact upload were not reached.
+- RC's Makefile already adds `-I$(STAGING_DIR)/include/libdisk` for storage-enabled builds, and libdisk's source Makefile installs its headers there. Change the probe to `#include "disk_inventory_policy.h"`; add `-I trunk/user/libdisk/src` to the standalone ASan/UBSan test compile.
+- Extend the embedded workflow contract to verify the include name, host compile path, RC staged include flag, and libdisk header-install rule. No production build result is claimed yet for this fix.
+- Exact d82 runs still in progress at the time of correction: ZeroTier `44484902778`, WAN route `44484902793`, XY-C1 `44484902954`, Process inventory `44484902785`, and AI docs `44484902809`.
+
+---
 ## 2026-11-19 — Preserve ZeroTier NAT source segment across daemon shutdown
 
 - Parent main SHA: `d4f540583704b4cb2299d0fcf7a4fd61acd7f599`.

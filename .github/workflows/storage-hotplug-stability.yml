@@ -170,7 +170,7 @@ jobs:
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
-            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            -fno-omit-frame-pointer -I trunk/user/rc/src -I trunk/user/libdisk/src \
             trunk/user/rc/src/tests/storage_partition_probe.c \
             -o /tmp/storage-partition-probe
           ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/storage-partition-probe
@@ -1002,7 +1002,12 @@ jobs:
           assert "fclose(procpt) != 0 && result == 0" in check_root
           assert "storage_disk_name_is_valid" in probe
           assert "storage_disk_has_partitions" in probe
-          assert '#include "../../libdisk/src/disk_inventory_policy.h"' in probe
+          assert '#include "disk_inventory_policy.h"' in probe
+          assert "-I trunk/user/libdisk/src" in workflow
+          rc_package_makefile = Path("trunk/user/rc/Makefile").read_text()
+          libdisk_makefile = (libdisk_dir / "Makefile").read_text()
+          assert '$(if $(STORAGE_ENABLED),-I$(STAGING_DIR)/include/libdisk,)' in rc_package_makefile
+          assert '$(INSTALL) -m 644 $(HEADERS) $(DESTDIR)/include/libdisk' in libdisk_makefile
           assert "disk_inventory_line_is_complete(line)" in probe
           assert "disk_inventory_line_is_blank(line)" in probe
           assert "disk_inventory_parse_header_line(line)" in probe
