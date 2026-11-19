@@ -35,7 +35,22 @@ bridge_test = (shared / "tests/bridge_membership_policy.c").read_text()
 rc_header = (rc / "rc.h").read_text()
 netutils = (shared / "netutils.c").read_text()
 netutils_header = (shared / "netutils.h").read_text()
+vlan_policy = (rc / "vlan_interface_policy.h").read_text()
+vlan_test = (rc / "tests/vlan_interface_policy.c").read_text()
 workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
+
+require('#include "vlan_interface_policy.h"' in net,
+        "net.c must use the tested VLAN interface error policy")
+inspect_vlan = body(net, "inspect_vlan_iface(")
+require("get_interface_flags(vlan_ifname)" in inspect_vlan and
+        "vlan_interface_probe_result(flags, probe_errno, exists)" in inspect_vlan and
+        "errno = status;" in inspect_vlan,
+        "VLAN inspection must distinguish absence from probe errors and preserve errno")
+flags_reader = body(netutils, "get_interface_flags(const char *ifname)")
+require("saved_errno = errno;" in flags_reader and
+        "errno = saved_errno;" in flags_reader and
+        "close(sockfd);" in flags_reader,
+        "get_interface_flags() must preserve ioctl/copy errno across socket close")
 
 create_vlan = body(net, "create_vlan_iface_internal(")
 for marker in ("vconfig_add_if(", "vconfig_egress_map(", "set_interface_mtu(",
@@ -43,8 +58,14 @@ for marker in ("vconfig_add_if(", "vconfig_egress_map(", "set_interface_mtu(",
                "ifconfig(vlan_ifname, 0", "vconfig_del_if(", "return ret;"):
     require(marker in create_vlan, f"create_vlan_iface_internal() must propagate/rollback {marker}")
 require("if (created_out)\n\t\t*created_out = 0;" in create_vlan and
-        "if (created_out)\n\t\t*created_out = created;" in create_vlan,
-        "tracked VLAN creation must only publish ownership after full success")
+        "if (created_out)\n\t\t*created_out = created;" in create_vlan and
+        "*created_out = 1;" in create_vlan and
+        "vlan_interface_retain_ownership(created, cleanup_status)" in create_vlan and
+        "vlan_interface_cleanup_status(cleanup_down_status, cleanup_delete_status)" in create_vlan,
+        "tracked VLAN creation must publish surviving ownership when self-rollback is incomplete")
+require("inspect_vlan_iface(vlan_ifname, &vlan_exists)" in create_vlan and
+        "is_interface_exist(vlan_ifname)" not in create_vlan,
+        "VLAN creation must fail closed on unknown interface state")
 require("int\ncreate_vlan_iface(" in net and
         "int create_vlan_iface(" in rc_header and
         "int create_vlan_iface_tracked(" in rc_header and
@@ -53,8 +74,23 @@ require("int\ncreate_vlan_iface(" in net and
 remove_vlan = body(net, "remove_vlan_iface(const char *vlan_ifname")
 require("ifconfig(vlan_ifname, 0" in remove_vlan and
         "return vconfig_del_if(vlan_ifname);" in remove_vlan and
-        "int remove_vlan_iface(" in rc_header,
-        "remove_vlan_iface must report detach/delete errors")
+        "int remove_vlan_iface(" in rc_header and
+        "inspect_vlan_iface(vlan_ifname, &vlan_exists)" in remove_vlan and
+        "is_interface_exist(vlan_ifname)" not in remove_vlan,
+        "remove_vlan_iface must distinguish absent interfaces from inspection errors and report detach/delete errors")
+for test_name in ("check_probe(0, 0, 0, 1)",
+                  "check_probe(-1, ENODEV, 0, 0)",
+                  "check_probe(-1, ENXIO, 0, 0)",
+                  "check_probe(-1, EPERM, EPERM, 0)",
+                  "check_probe(-1, 0, EIO, 0)",
+                  "vlan_interface_cleanup_status(EIO, EBUSY)",
+                  "vlan_interface_retain_ownership(1, EIO)",
+                  "vlan_interface_retain_ownership(0, EIO)"):
+    require(test_name in vlan_test, f"VLAN interface policy regression missing {test_name}")
+require("vlan-interface-policy" in workflow and
+        "tests/vlan_interface_policy.c" in workflow and
+        "ASAN_OPTIONS=detect_leaks=1 /tmp/vlan-interface-policy" in workflow,
+        "WAN workflow must compile and run VLAN interface sanitizer tests")
 
 for name in ("br_set_param_int", "br_set_stp", "br_set_fd",
              "brport_set_param_int", "brport_set_m2u"):
@@ -312,6 +348,8 @@ push, pr = workflow.split("  pull_request:", 1)
 pr = pr.split("\njobs:", 1)[0]
 for path in ("trunk/user/shared/src/netutils.c",
              "trunk/user/shared/src/netutils.h",
+             "trunk/user/rc/src/vlan_interface_policy.h",
+             "trunk/user/rc/src/tests/vlan_interface_policy.c",
              "trunk/user/shared/src/bridge_membership_policy.h",
              "trunk/user/shared/src/tests/bridge_membership_policy.c",
              "trunk/user/rc/src/net_wan.c",

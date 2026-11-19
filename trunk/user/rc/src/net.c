@@ -43,6 +43,7 @@
 #include "conntrack_flush_policy.h"
 #include "igmpproxy_config_file.h"
 #include "service_start_status.h"
+#include "vlan_interface_policy.h"
 #include "service_wait_policy.h"
 #include "ipv4_forward_policy.h"
 #include "wireless_module_load_policy.h"
@@ -228,11 +229,36 @@ is_same_subnet2(const char *ip1, const char *ip2, const char *msk1, const char *
 }
 
 static int
+inspect_vlan_iface(const char *vlan_ifname, int *exists)
+{
+	int flags, probe_errno, status;
+
+	if (!vlan_ifname || !*vlan_ifname || !exists) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	flags = get_interface_flags(vlan_ifname);
+	probe_errno = errno;
+	status = vlan_interface_probe_result(flags, probe_errno, exists);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME, "unable to inspect VLAN interface %s (status=%d)",
+			   vlan_ifname, status);
+	}
+
+	return status;
+}
+
+static int
 create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
 			   const char *hwaddr, int do_up, int *created_out)
 {
 	char vlan_ifname[24];
 	int ret, saved_errno, created = 0, path_len;
+	int vlan_exists, probe_status;
+	int cleanup_down_status, cleanup_delete_status, cleanup_status;
 
 	if (created_out)
 		*created_out = 0;
@@ -246,12 +272,20 @@ create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
 		return -1;
 	}
 
-	if (!is_interface_exist(vlan_ifname)) {
+	probe_status = inspect_vlan_iface(vlan_ifname, &vlan_exists);
+	if (probe_status != 0)
+		return probe_status;
+
+	if (!vlan_exists) {
 		ret = vconfig_add_if(dev_ifname, (unsigned int)vid);
 		if (ret != 0) {
 			/* A concurrent network transition may have created this exact VLAN. */
-			if (!is_interface_exist(vlan_ifname))
+			saved_errno = errno;
+			probe_status = inspect_vlan_iface(vlan_ifname, &vlan_exists);
+			if (probe_status != 0 || !vlan_exists) {
+				errno = saved_errno;
 				return ret;
+			}
 		} else {
 			created = 1;
 		}
@@ -288,9 +322,18 @@ create_vlan_iface_internal(const char *dev_ifname, int vid, int prio, int mtu,
 fail:
 	saved_errno = errno;
 	if (created) {
-		/* Roll back only the interface created by this invocation. */
-		ifconfig(vlan_ifname, 0, NULL, NULL);
-		vconfig_del_if(vlan_ifname);
+		/* Attempt both cleanup operations and keep ownership if either fails. */
+		cleanup_down_status = ifconfig(vlan_ifname, 0, NULL, NULL);
+		cleanup_delete_status = vconfig_del_if(vlan_ifname);
+		cleanup_status = vlan_interface_cleanup_status(cleanup_down_status,
+							       cleanup_delete_status);
+		if (vlan_interface_retain_ownership(created, cleanup_status)) {
+			if (created_out)
+				*created_out = 1;
+			logmessage(LOGNAME,
+				   "VLAN rollback incomplete for %s (down=%d delete=%d); retaining ownership",
+				   vlan_ifname, cleanup_down_status, cleanup_delete_status);
+		}
 	}
 	errno = saved_errno;
 	return ret;
@@ -301,7 +344,7 @@ create_vlan_iface(const char *dev_ifname, int vid, int prio, int mtu,
 		  const char *hwaddr, int do_up)
 {
 	return create_vlan_iface_internal(dev_ifname, vid, prio, mtu, hwaddr,
-				  do_up, NULL);
+					  do_up, NULL);
 }
 
 int
@@ -313,17 +356,21 @@ create_vlan_iface_tracked(const char *dev_ifname, int vid, int prio, int mtu,
 		return -1;
 	}
 	return create_vlan_iface_internal(dev_ifname, vid, prio, mtu, hwaddr,
-				  do_up, created_out);
+					  do_up, created_out);
 }
 
 int
 remove_vlan_iface(const char *vlan_ifname)
 {
-	int ret;
+	int ret, vlan_exists;
 
 	if (!vlan_ifname || !strchr(vlan_ifname, '.'))
 		return 0;
-	if (!is_interface_exist(vlan_ifname))
+
+	ret = inspect_vlan_iface(vlan_ifname, &vlan_exists);
+	if (ret != 0)
+		return ret;
+	if (!vlan_exists)
 		return 0;
 
 	ret = ifconfig(vlan_ifname, 0, NULL, NULL);

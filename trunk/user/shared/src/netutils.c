@@ -436,22 +436,28 @@ int
 get_interface_flags(const char *ifname)
 {
 	struct ifreq ifr;
-	int sockfd, iflags;
+	int sockfd, iflags, saved_errno = 0;
 
 	if ((sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_RAW)) < 0)
 		return -1;
 
 	memset(&ifr, 0, sizeof(ifr));
 	if (copy_ifname(ifr.ifr_name, sizeof(ifr.ifr_name), ifname) < 0) {
+		saved_errno = errno;
 		close(sockfd);
+		errno = saved_errno;
 		return -1;
 	}
-	if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0)
+	if (ioctl(sockfd, SIOCGIFFLAGS, &ifr) < 0) {
+		saved_errno = errno;
 		iflags = -1;
-	else
+	} else {
 		iflags = ifr.ifr_flags;
+	}
 
 	close(sockfd);
+	if (iflags < 0)
+		errno = saved_errno;
 
 	return iflags;
 }

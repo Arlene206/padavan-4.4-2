@@ -1,3 +1,14 @@
+## 2026-11-19 — Fail closed on VLAN interface probe errors and preserve incomplete rollback ownership
+
+- Parent main SHA: `013d6f1ba896981b10299b4130e9d9a17b7c1eb9`.
+- Found that `remove_vlan_iface()` and `create_vlan_iface_internal()` used `is_interface_exist()`, which maps every negative `get_interface_flags()` result to “absent”. Socket creation, permission, invalid-name and other inspection failures could therefore be mistaken for a missing VLAN; teardown could return success without deleting the interface.
+- Added a tri-state VLAN inspection policy: only ENODEV/ENXIO are accepted as definitely absent; all other probe errors fail closed, with errno preserved across `get_interface_flags()` socket close. Both VLAN creation and removal use the checked inspection helper.
+- Failed setup now attempts both down and delete cleanup operations, preserves the original setup failure, logs incomplete cleanup and publishes tracked ownership when a newly created VLAN may remain. This allows the caller's transaction rollback to make another cleanup attempt rather than losing the resource identity.
+- Added GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy regression for present, absent, unknown and errno-zero probes, first cleanup error and retained ownership. Local compile/run passed in this environment. Exact-head WAN route and AI handoff Actions are pending; XY-C1 trigger/build status must be checked by exact SHA. No full firmware build or physical-router validation is claimed.
+- Handoff and roadmap status remain anchored to this logical slice; re-fetch exact main and update handoff after Actions results materially change the next action.
+
+---
+
 ## 2026-11-19 12:51 CST (UTC+8) — Restore the rolling development log and checkpoint IPTV CI
 
 - Parent main SHA: `f5fcdb9321b255acdf3e601c3b25228e6c5c7aac`; this record accompanies the required handoff checkpoint.

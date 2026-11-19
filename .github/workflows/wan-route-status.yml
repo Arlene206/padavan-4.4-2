@@ -5,6 +5,8 @@ on:
     paths:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/vlan_interface_policy.h"
+      - "trunk/user/rc/src/tests/vlan_interface_policy.c"
       - "trunk/user/rc/src/detached_daemon_start_policy.h"
       - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
       - "scripts/check_udpxy_startup.py"
@@ -92,6 +94,8 @@ on:
       - ".github/workflows/wan-route-status.yml"
       - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/vlan_interface_policy.h"
+      - "trunk/user/rc/src/tests/vlan_interface_policy.c"
       - "trunk/user/rc/src/detached_daemon_start_policy.h"
       - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
       - "scripts/check_udpxy_startup.py"
@@ -282,6 +286,15 @@ jobs:
             trunk/user/shared/src/tests/bridge_membership_policy.c \
             -o /tmp/bridge-membership-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/bridge-membership-policy
+      - name: Compile and run VLAN interface probe and rollback ownership regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/vlan_interface_policy.c \
+            -o /tmp/vlan-interface-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/vlan-interface-policy
+
       - name: Compile and run WAN interface and cache route flush regression
         run: |
           set -eu
