@@ -85,6 +85,9 @@ assert "return status;" in deconfig
 # renewal retry are both required, without repeating unrelated side effects.
 bound = c_function_body(lan, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
 publish = c_function_body(lan, "lan_dhcp_publish_hosts_and_schedule_retry(")
+assert 'nvram_set_int_temp("lan_hosts_retry", "0")' not in lan
+assert 'nvram_set_int_temp("lan_hosts_retry", "1")' not in lan
+
 update_ap = c_function_body(lan, "update_hosts_ap(void)")
 assert "refresh_hosts = lan_dhcp_hosts_refresh_required( is_changed, is_renew," in compact(bound)
 assert 'get_ap_mode() && nvram_match("lan_hosts_retry", "1")' in bound
@@ -156,7 +159,7 @@ assert iappd_start < iappd_failure < iappd_log < networkmap_gate < networkmap_st
 assert bound.count('system("/usr/bin/iappd.sh restart")') == 1
 assert bound.count("restart_networkmap()") == 1
 assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in callback_test
-assert publish.count('nvram_set_int_temp("lan_hosts_retry", "1")') == 2
+assert publish.count('nvram_set_int_temp("lan_hosts_retry", 1)') == 2
 assert publish.count("notify_rc_status(RCN_RESTART_DHCPD)") == 2
 assert "marker_status = nvram_set_int_temp" in publish
 assert "notification_status = notify_rc_status(RCN_RESTART_DHCPD);" in publish
@@ -171,9 +174,9 @@ assert "lan_dhcp_retry_schedule_status(int marker_status, int notification_statu
 assert "lan_dhcp_retry_schedule_status(EIO, 0) == 0" in callback_test
 assert "lan_dhcp_retry_schedule_status(0, ENOSPC) == 0" in callback_test
 assert "lan_dhcp_retry_schedule_status(EIO, ENOSPC) == EIO" in callback_test
-assert publish.index('nvram_set_int_temp("lan_hosts_retry", "1")') < publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
-assert 'nvram_set_int_temp("lan_hosts_retry", "0")' in update_ap
-assert update_ap.index("if (status == 0)") < update_ap.index('nvram_set_int_temp("lan_hosts_retry", "0")')
+assert publish.index('nvram_set_int_temp("lan_hosts_retry", 1)') < publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
+assert 'nvram_set_int_temp("lan_hosts_retry", 0)' in update_ap
+assert update_ap.index("if (status == 0)") < update_ap.index('nvram_set_int_temp("lan_hosts_retry", 0)')
 assert "lan_dhcp_hosts_refresh_required(int lease_changed, int is_renew," in callback_policy
 assert "test_hosts_refresh_retries_only_a_pending_same_value_renew" in callback_test
 assert "lan_dhcp_hosts_refresh_required(0, 1, 0) == 0" in callback_test

@@ -949,7 +949,7 @@ update_hosts_ap(void)
 	status = create_hosts_lan(nvram_safe_get("lan_ipaddr_t"),
 				 nvram_safe_get("lan_domain_t"));
 	if (status == 0)
-		nvram_set_int_temp("lan_hosts_retry", "0");
+		nvram_set_int_temp("lan_hosts_retry", 0);
 	return status;
 }
 
@@ -1719,7 +1719,7 @@ lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 	hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);
 	if (hosts_status == 0) {
 		if (get_ap_mode())
-			nvram_set_int_temp("lan_hosts_retry", "0");
+			nvram_set_int_temp("lan_hosts_retry", 0);
 		return 0;
 	}
 
@@ -1734,14 +1734,14 @@ lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 		 * Check and retry each failed publication once so a transient NVRAM
 		 * or queue error cannot silently discard the only recovery path.
 		 */
-		marker_status = nvram_set_int_temp("lan_hosts_retry", "1");
+		marker_status = nvram_set_int_temp("lan_hosts_retry", 1);
 		if (marker_status != 0) {
 			retry_errno = errno ? errno : EIO;
 			logmessage("DHCP LAN Client",
 				   "cannot persist AP hostname-file retry marker (errno=%d); retrying",
 				   retry_errno);
 			errno = 0;
-			marker_status = nvram_set_int_temp("lan_hosts_retry", "1");
+			marker_status = nvram_set_int_temp("lan_hosts_retry", 1);
 			if (marker_status != 0) {
 				retry_errno = errno ? errno : EIO;
 				logmessage("DHCP LAN Client",
