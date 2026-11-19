@@ -1,3 +1,12 @@
+## 2026-11-19 — Fix short-circuit DHCPv6 startup environment cleanup
+
+- Main parent: `7c0481f8f390db2e1f26351679fb2cb98bdfb021`. `start_dhcp6c()` used `unsetenv(IFNAME) != 0 || unsetenv(GENERATION) != 0`, so a failed first unset short-circuited and never attempted to remove the generation variable. The later startup rollback path already made two independent attempts.
+- Introduced an injectable helper that attempts both removals, preserves the first errno, and returns failure. Both post-launch and startup rollback cleanup use it. C tests simulate first-unset failure, assert the second was attempted, verify first errno, and test successful removal of both variables. WAN DHCP workflow checks callsites and regression markers.
+- Exact `ef12b80` WAN DHCP `44555817409`, Process `44555817648` and AI docs `44555817614` PASS. NVRAM `44555817580` and XY-C1 `44555817271` pending at last poll. The DHCPv6 lock-cleanup commit `7c0481f8` Actions were still running.
+- No local test or physical L4 claimed.
+
+---
+
 ## 2026-11-19 — Report DHCPv6 callback-lock cleanup failures
 
 - Main parent: `ef12b8003ef5d1a856d61ff4c7b2eb2a6bcfa3be`. In `stop_dhcp6c()`, the generation-advance failure path discarded `dhcp6c_callback_session_unlock()` status with `(void)`, suppressing possible unlock/close failure diagnostics.

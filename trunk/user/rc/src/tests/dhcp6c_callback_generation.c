@@ -54,6 +54,48 @@ test_primary_operation_errno_survives_cleanup_failure(void)
 	assert(dhcp6c_callback_primary_errno(EPERM, 0) == EPERM);
 }
 
+static int fake_unsetenv_calls;
+
+static int
+fake_unsetenv_failure(const char *name)
+{
+	fake_unsetenv_calls++;
+	if (strcmp(name, "CALLBACK_IFNAME") == 0) {
+		errno = EBUSY;
+		return -1;
+	}
+	if (strcmp(name, "CALLBACK_GENERATION") == 0) {
+		errno = EIO;
+		return -1;
+	}
+	errno = EINVAL;
+	return -1;
+}
+
+static void
+test_environment_cleanup_attempts_both_and_preserves_first_error(void)
+{
+	fake_unsetenv_calls = 0;
+	errno = 0;
+	assert(dhcp6c_callback_environment_clear(
+		"CALLBACK_IFNAME", "CALLBACK_GENERATION",
+		fake_unsetenv_failure) == -1);
+	assert(fake_unsetenv_calls == 2);
+	assert(errno == EBUSY);
+}
+
+static void
+test_environment_cleanup_success(void)
+{
+	assert(setenv("PADAVAN_DHCP6C_TEST_IFNAME", "wan0", 1) == 0);
+	assert(setenv("PADAVAN_DHCP6C_TEST_GENERATION", "7", 1) == 0);
+	assert(dhcp6c_callback_environment_clear(
+		"PADAVAN_DHCP6C_TEST_IFNAME", "PADAVAN_DHCP6C_TEST_GENERATION",
+		unsetenv) == 0);
+	assert(getenv("PADAVAN_DHCP6C_TEST_IFNAME") == NULL);
+	assert(getenv("PADAVAN_DHCP6C_TEST_GENERATION") == NULL);
+}
+
 static void
 test_callback_does_not_create_missing_generation_file(void)
 {
@@ -163,6 +205,8 @@ int main(void)
 	test_strict_generation_parsing_and_interface_identity();
 	test_generation_overflow_and_format();
 	test_primary_operation_errno_survives_cleanup_failure();
+	test_environment_cleanup_attempts_both_and_preserves_first_error();
+	test_environment_cleanup_success();
 	test_callback_does_not_create_missing_generation_file();
 	test_symlink_state_file_is_rejected();
 	test_stop_invalidation_rejects_waiting_old_callback();

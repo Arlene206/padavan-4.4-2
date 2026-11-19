@@ -1,8 +1,9 @@
 # 2026-11-19 source checkpoint
-- Parent for DHCPv6 cleanup follow-up: `ef12b8003ef5d1a856d61ff4c7b2eb2a6bcfa3be`.
-- The `ef12b80` LAN DHCP ancillary notification change has exact WAN DHCP callback `44555817409` PASS, with AI docs `44555817614` and Process fail-closed `44555817648` PASS; NVRAM `44555817580` and XY-C1 `44555817271` pending at last poll. Current production-source L3 is not yet claimed.
-- New source fix captures/logs `dhcp6c_callback_session_unlock()` failure after DHCPv6 session generation invalidation failure; the original generation errno remains primary. C tests and workflow source contracts cover precedence and cleanup ordering.
-- AP LAN production L3 remains verified on `908fee5` / XY-C1 `44552799621`; ZeroTier L3 remains verified on `a834edb` / `44544667515`. Physical L4 NOT VERIFIED.
+- Main parent for DHCPv6 environment cleanup: `7c0481f8f390db2e1f26351679fb2cb98bdfb021`.
+- Exact `ef12b80` WAN DHCP `44555817409`, AI docs `44555817614`, Process fail-closed `44555817648`, Process inventory `44555817491`, HTTPD `44555817414`, Firewall `44555817528`, watchdog `44555817550`, Wireless `44555817380`, detect_internet `44555817312`, DNSMasq `44555817270`, detect_link `44555817238`, WAN route `44555817205` PASS. NVRAM `44555817580` and XY-C1 `44555817271` pending at last poll.
+- DHCPv6 lock-release diagnostic commit `7c0481f8`: exact Actions were running at last poll; check these before handoff.
+- New production issue: Boolean-OR unsetenv cleanup in `start_dhcp6c()` skipped the generation-variable unset whenever the interface-variable unset failed. The injectable helper attempts both independently, restores first errno and is covered by C regression and WAN DHCP source integration contract.
+- AP LAN L3 remains `908fee5` / XY-C1 `44552799621`; DHCP callback diagnostic source `ef12b80` pending its XY run. Physical L4 NOT VERIFIED.
 
 ## CI trigger governance — current policy
 

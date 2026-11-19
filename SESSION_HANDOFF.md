@@ -10,13 +10,21 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Live main before this DHCPv6 lock-cleanup slice: `ef12b8003ef5d1a856d61ff4c7b2eb2a6bcfa3be`.
+- Live main before this DHCPv6 environment-cleanup slice: `7c0481f8f390db2e1f26351679fb2cb98bdfb021`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- Exact `ef12b800` PASS: Process fail-closed `44555817648`, AI docs `44555817614`, watchdog `44555817550`, Firewall `44555817528`, Process inventory `44555817491`, HTTPD `44555817414`, WAN DHCP callback `44555817409`, Wireless `44555817380`, detect_internet `44555817312`, DNSMasq `44555817270`, detect_link `44555817238`, WAN route `44555817205`. NVRAM audit `44555817580` and XY-C1 `44555817271` were in progress at the last poll.
-- Exact AP LAN source L3: XY-C1 run `44552799621` on `908fee5` passed Build, TRX and artifact. The separate current LAN DHCP ancillary-diagnostic production source is `ef12b80`; its exact XY-C1 run `44555817271` is pending and must be checked before claiming L3.
-- This commit adds DHCPv6 stop error-path lock-release diagnostics without masking the generation invalidation errno. No local toolchain/checkout; no physical-router L4.
+- Exact `ef12b80` PASS: WAN DHCP callback `44555817409`, AI docs `44555817614`, Process fail-closed `44555817648`, Process inventory `44555817491`, HTTPD `44555817414`, Firewall `44555817528`, watchdog `44555817550`, Wireless `44555817380`, detect_internet `44555817312`, DNSMasq `44555817270`, detect_link `44555817238`, WAN route `44555817205`. NVRAM `44555817580` and XY-C1 `44555817271` were pending at last poll.
+- DHCPv6 session unlock diagnostic commit `7c0481f8` was pushed; its WAN DHCP callback, Process inventory and AI docs Actions were running at last poll. Exact-head results still need inspection.
+- AP LAN production slice `b735ea8` is L3 verified by XY-C1 `44552799621` on `908fee5` (Build, TRX, artifact PASS). The LAN DHCP ancillary-diagnostic production source `ef12b80` still needs its own exact XY build result. No local compile/toolchain; no physical-router L4.
 
 ## Latest active source slices — 2026-11-19
+
+## Completed slice — always attempt both DHCPv6 callback environment cleanups
+
+- `start_dhcp6c()` used `unsetenv(IFNAME) != 0 || unsetenv(GENERATION) != 0`. C short-circuit evaluation skipped the generation-variable cleanup whenever clearing the interface variable failed, potentially leaving stale callback identity in the RC process environment.
+- A small injectable policy helper now attempts both unsets independently, preserves the first errno, and reports cleanup failure. Both post-launch cleanup and startup rollback use it. Regression simulates the first unset failing while confirming the second is still attempted, checks primary errno precedence, and validates successful removal of both environment keys.
+- This is separate from the DHCPv6 lock-release diagnostic. Exact WAN DHCP callback, Process and AI docs Actions plus current XY-C1 Build/TRX/artifact must be checked; no local toolchain is available.
+
+
 
 ## Completed slice — preserve DHCPv6 generation error while reporting lock-release failure
 
@@ -166,17 +174,18 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Main-only development. Frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` stays immutable.
-- AP-mode LAN teardown diagnostic fix is L3 verified on `908fee5` by XY-C1 `44552799621` (Build/TRX/artifact PASS).
-- The post-commit LAN DHCP watchdog/Internet-monitor diagnostic slice is in `ef12b80`; exact WAN DHCP callback `44555817409` passed. Its exact XY-C1 `44555817271` and NVRAM audit `44555817580` were pending at last poll.
-- New independent DHCPv6 slice: `stop_dhcp6c()` now captures/logs session unlock failure after generation invalidation failure, while preserving the primary errno. C policy test and WAN DHCP integration assertions accompany it.
-- No local checkout/toolchain or physical router available; don't claim local tests or L4.
+- Main-only development, immutable backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- AP-mode LAN teardown source L3 is verified on `908fee5` / XY-C1 `44552799621`.
+- LAN DHCP ancillary notification diagnostics source `ef12b80`: WAN DHCP `44555817409`, AI docs `44555817614`, Process fail-closed `44555817648` PASS; its XY-C1 `44555817271` and NVRAM `44555817580` were pending at last poll.
+- DHCPv6 lock-release diagnostic commit `7c0481f8` is a separate task; its Actions were running at last check.
+- New DHCPv6 startup cleanup fix: eliminate short-circuit double-unset bug by independently attempting both temporary environment cleanup operations; tests cover two attempts and first errno preservation.
+- No local checkout/toolchain or physical router; do not claim local execution or L4.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN DHCP callback, AI handoff, Process and XY-C1 Actions for the new DHCPv6 commit. Resolve source/test failures without weakening the original session-generation or lock checks.
-2. Record Build XY-C1, TRX verification and artifact upload independently for `ef12b80` and this DHCPv6 source SHA.
-3. If CI passes, continue with a separate userland reliability/security defect; do not repeat completed LAN DHCP or AP teardown work.
+1. Check exact-head WAN DHCP callback, Process, AI docs and XY-C1 Actions for the new DHCPv6 commit. Validate the C regression and integration checker. Record Build, TRX and artifact independently.
+2. Inspect exact `ef12b80` XY-C1 run `44555817271` and NVRAM run `44555817580`; record their completion separately.
+3. Continue with a distinct stability/security issue after the DHCPv6 startup cleanup slice; keep DHCPv6 generation fencing and locking invariants intact.
 
 ## Mandatory handoff checkpoint
 

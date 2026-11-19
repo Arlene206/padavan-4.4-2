@@ -23,6 +23,36 @@ dhcp6c_callback_primary_errno(int operation_errno, int cleanup_errno)
 	return EIO;
 }
 
+typedef int (*dhcp6c_callback_unsetenv_fn)(const char *name);
+
+/* Always attempt both cleanups; preserve the first failure for the caller. */
+static int
+dhcp6c_callback_environment_clear(const char *first_name,
+				   const char *second_name,
+				   dhcp6c_callback_unsetenv_fn unset_value)
+{
+	int first_errno = 0;
+
+	if (!first_name || !first_name[0] || !second_name || !second_name[0] ||
+	    !unset_value) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	errno = 0;
+	if (unset_value(first_name) != 0)
+		first_errno = errno ? errno : EIO;
+	errno = 0;
+	if (unset_value(second_name) != 0 && first_errno == 0)
+		first_errno = errno ? errno : EIO;
+
+	if (first_errno != 0) {
+		errno = first_errno;
+		return -1;
+	}
+	return 0;
+}
+
 static int
 dhcp6c_callback_generation_parse(const char *text, unsigned long *generation_out)
 {

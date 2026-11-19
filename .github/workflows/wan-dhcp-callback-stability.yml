@@ -443,6 +443,14 @@ jobs:
           # DHCPv6 client configuration is staged privately and published only
           # after complete write/flush/close; startup must follow the rename.
           dhcp6_start = body(wan6_source, "start_dhcp6c(char *wan_ifname)")
+          env_cleanup_call = dhcp6_start.index("dhcp6c_callback_environment_clear(")
+          env_cleanup_log = dhcp6_start.index("cannot clear temporary callback environment after client start", env_cleanup_call)
+          assert dhcp6_start.index("DHCP6C_CALLBACK_IFNAME_ENV, DHCP6C_CALLBACK_GENERATION_ENV, unsetenv", env_cleanup_call) > env_cleanup_call
+          assert "unsetenv(DHCP6C_CALLBACK_IFNAME_ENV) != 0 ||" not in dhcp6_start
+          assert "test_environment_cleanup_attempts_both_and_preserves_first_error" in dhcp6_callback_test
+          assert "test_environment_cleanup_success" in dhcp6_callback_test
+          assert "static int\ndhcp6c_callback_environment_clear(" in dhcp6_callback_policy
+          assert "cannot clear temporary callback environment during startup rollback" in dhcp6_start
           assert '#include "dhcp6c_config_file.h"' in wan6_source
           assert 'fopen(conf_file, "w")' not in dhcp6_start
           assert "dhcp6c_config_file_open_staged(staged_path, &fp)" in dhcp6_start
