@@ -110,6 +110,9 @@ require('return 1' not in kill_body or 'zerotier_wait_stopped' in kill_body,
 require('if ! kill_z; then' in start_body and
         start_body.index('if ! kill_z; then') < start_body.index("start_instance 'zerotier'"),
         "start must not launch a new daemon unless the previous daemon is absent")
+require('if [ -z "${zt0:-}" ]; then' in stop_body and
+        stop_body.index('zt0="$(zerotier_interface_name)"') < stop_body.index('if ! kill_z; then'),
+        "stop must capture the ZeroTier interface before daemon shutdown removes it")
 require('if ! kill_z; then' in stop_body and
         stop_body.index('if ! kill_z; then') < stop_body.index('del_rules') <
         stop_body.index('zero_route "del"') < stop_body.index('rm -rf "$config_path"'),
@@ -168,8 +171,10 @@ require('if ! zero_route "add"; then' in rules_section and
         'del_rules' in rules_section and
         'zero_route "del"' in rules_section,
         "a failed static-route add must roll back the published firewall/route state")
-require('zt0=ztunit' in test,
-        "strict-nounset lifecycle fixture must seed the interface state normally established by rules()")
+require('running-only' in test and
+        'firewall cleanup lost the interface after daemon exit' in test and
+        'static route cleanup lost the saved interface after daemon exit' in test,
+        "stop regression must model interface disappearance and verify saved interface cleanup")
 require('if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then' in static_route_body and
         'return 1' in static_route_body and
         '静态路由安装失败' in static_route_body,

@@ -1,3 +1,12 @@
+## 2026-11-19 — Capture ZeroTier interface before stopping its daemon
+
+- Parent main SHA: `f65813735c6f817338006777e81645b2015bc215`.
+- Exact ZeroTier run `44474852372` failed at strict-nounset cleanup, and Process lifecycle run `44475349901` on descendant 83 failed at the same ZeroTier test. Intervening test-only commits `b2d3b94b4414d0dee4ba423791a9ad91ba175893` and `f65813735c6f817338006777e81645b2015bc215` seeded `zt0` and corrected the rule-count grep. The seed masks a production lifecycle defect: `stop_zero()` kills `zerotier-one` before obtaining its interface, even though the virtual interface can disappear with the daemon.
+- Capture the interface before `kill_z()`; make `del_rules()` safe when the variable is unset in a fresh shell. The revised regression removes the test-global seed, exposes `ztunit` only while the daemon is running, then checks both firewall and static-route cleanup still target `ztunit` after daemon exit.
+- The checked firewall append, static-route add failure and rollback tests remain enabled. Exact-head ZeroTier, Process lifecycle, AI docs and XY-C1 checks are pending for this production correction. No local checkout, MIPS build or physical-router result is claimed.
+
+---
+
 ## 2026-11-19 — Count filter and NAT append tokens in ZeroTier rollback regression
 
 - Parent main SHA: `b2d3b94b4414d0dee4ba423791a9ad91ba175893`.

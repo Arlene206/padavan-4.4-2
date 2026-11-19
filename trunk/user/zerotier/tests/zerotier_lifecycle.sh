@@ -20,9 +20,6 @@ TEST_STATIC_ROUTE_ENABLE=0
 TEST_STATIC_ROUTE_IP=192.0.2.0/24
 TEST_STATIC_ROUTE_GATEWAY=192.0.2.1
 TEST_ROUTE_ADD_STATUS=0
-# start_instance is stubbed in this fixture; seed the interface state
-# that production rules() establishes before stop cleanup removes routes.
-zt0=ztunit
 : > "$TEST_IFCONFIG_COUNT"
 : > "$TEST_ROUTE_COUNT"
 export TEST_STATE TEST_KILL_LOG TEST_SLEEP_LOG TEST_ACTION_LOG TEST_TMP
@@ -91,6 +88,10 @@ start_instance() {
 }
 
 del_rules() {
+	if [ -z "${zt0:-}" ]; then
+		zt0="$(zerotier_interface_name)"
+	fi
+	[ "$zt0" = ztunit ] || fail "firewall cleanup lost the interface after daemon exit"
 	echo del_rules >> "$TEST_ACTION_LOG"
 	return 0
 }
@@ -107,6 +108,12 @@ kill() {
 
 ifconfig() {
 	case "$TEST_IFCONFIG_MODE" in
+		running-only)
+			case "$(cat "$TEST_STATE")" in
+				running) printf '%s\n' "ztunit: Link encap:Ethernet" ;;
+				*) printf '%s\n' "eth0 Link encap:Ethernet" ;;
+			esac
+			;;
 		ready)
 			printf '%s\n' "eth0 Link encap:Ethernet" "ztunit: Link encap:Ethernet"
 			;;
@@ -131,6 +138,7 @@ ip() {
 		return "$TEST_ROUTE_ADD_STATUS"
 	fi
 	if [ "$1" = route ] && [ "${2:-}" = del ]; then
+		[ "$7" = ztunit ] || fail "static route cleanup lost the saved interface after daemon exit"
 		echo "zero_route:del" >> "$TEST_ACTION_LOG"
 		return 0
 	fi
@@ -318,6 +326,7 @@ TEST_PIDOF_MODE=""
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_ACTION_LOG"
 echo running > "$TEST_STATE"
+TEST_IFCONFIG_MODE=running-only
 TEST_MODE=graceful
 if ! stop_zero; then
 	fail "stop failed after a confirmed graceful daemon exit"
@@ -326,6 +335,7 @@ fi
 [ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\nzero_route:del\nrm:-rf %s' "$TEST_CONFIG")" ] || fail "successful cleanup did not run after daemon absence"
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
+TEST_IFCONFIG_MODE=none
 
 [ ! -s "$TEST_TMP/numeric-kill.log" ] || fail "a stale numeric PID was signalled"
 

@@ -220,7 +220,7 @@ rules() {
 
 
 del_rules() {
-	if [ -z "$zt0" ]; then
+	if [ -z "${zt0:-}" ]; then
 		zt0="$(zerotier_interface_name)"
 	fi
 	ip_segment="$(zerotier_kernel_route_segment "$zt0")"
@@ -405,6 +405,13 @@ kill_z() {
 	esac
 }
 stop_zero() {
+	# Capture the virtual interface while zerotier-one still owns it. The
+	# interface can disappear as soon as the daemon exits, but both firewall
+	# and static-route cleanup must use the original interface name.
+	if [ -z "${zt0:-}" ]; then
+		zt0="$(zerotier_interface_name)"
+	fi
+
 	# Keep the persistent identity/configuration and live network state intact
 	# unless the daemon is confirmed absent.
 	if ! kill_z; then
