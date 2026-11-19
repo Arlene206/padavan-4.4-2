@@ -1,3 +1,12 @@
+## 2026-11-19 — Bound EINTR retries in shared procfs reads
+
+- `proc_default_read_file()` had unbounded `read(2)` EINTR loops in both the normal file read and the one-byte overflow probe. Repeated signal interruptions could keep process-inventory scans stuck indefinitely.
+- Added `process_io_retry_policy.h` with an eight-consecutive-interruption cap. Successful/EOF reads reset the normal counter; overflow probing has a separate finite budget. Exhaustion preserves EINTR and fails closed.
+- Added a GNU89 regression for retry success, exhausted EINTR and invalid arguments. Process lifecycle workflow now asserts that both production read loops consume the helper and tracks the new header; XY-C1 also tracks the shared header.
+- The parent lock-wait commit `d57cce1` passed AI docs, HTTPD, Process inventory, Inadyn, DNSMasq, Process regression, VPN, MiniUPnP config and NVRAM. Its XY-C1 run `44631856549` was still in progress at last poll. This new source SHA's exact-head checks remain pending; no local compile or router L4 is claimed.
+
+---
+
 ## 2026-11-19 — Preserve lifecycle lock contention waits across EINTR
 
 - Inadyn lock acquire skipped its one-second contention wait on EINTR; DNSMasq and VPN server used sleep(1) without retrying the remaining interval. Repeated signals could prematurely exhaust their bounded attempt count.

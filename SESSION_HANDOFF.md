@@ -11,33 +11,32 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current parent for the shared service-lock retry slice: `a9f3c2030c917043642aad02574da2ada180b473` (`docs(ai): restore cross-session checkpoint rule`).
-- MiniUPnP bounded EINTR source commit `e736dbfcff830e6ac6baa32026fff7a6334787d1`: Process lifecycle `44628661363`, MiniUPnP config `44628661018`, Process inventory `44628661358`, NVRAM audit `44628661528`, and XY-C1 `44628661156` all PASS. XY-C1 completed Build XY-C1, TRX verification and artifact upload on the exact e736 source SHA.
-- AI handoff documentation run `44628661127` failed on e736 because the mandatory literal phrase `Before context exhaustion` was absent; docs-only follow-up `a9f3c20` restored it and AI docs run `44629051861` PASS.
-- Shared helper source commit `213a077af64819acf40fd44ca5a6df91f7472fb4`: MiniUPnP config `44631039048`, VPN `44631039170`, AI docs `44631039225`, DNSMasq `44631039014`, Inadyn `44631039151`, Process inventory `44631039149`, Process regression `44631039075`, HTTPD security `44631039061` and NVRAM audit `44631039111` PASS. Exact XY-C1 run `44631039226` was still in progress at last query; its job had completed source builds/tests and was at Build post-run/upload cleanup, but the run conclusion had not yet been recorded. Do not claim L3 until run conclusion success and TRX/artifact steps are SUCCESS.
-- Newly confirmed defect: Inadyn, DNSMasq and VPN-server lock acquisition backoff could be shortened by EINTR. Inadyn skipped the one-second wait entirely after EINTR; DNSMasq/VPN ignored sleep()'s unslept remainder. This follow-up corrects the waits with service_wait_seconds(), whose unit regression already pins remaining-time behavior.
+- Current parent for the shared process-inventory I/O slice: `d57cce1bfbcd515f8f4bd0b6f018ac0302fb4129` (`fix(rc): preserve lock contention waits across EINTR`).
+- Prior MiniUPnP lock retry source SHA `e736dbfcff830e6ac6baa32026fff7a6334787d1`: Process lifecycle, MiniUPnP config, Process inventory, NVRAM audit and XY-C1 Build/TRX/artifact all PASS. AI docs was repaired by `a9f3c20` and passed run `44629051861`.
+- Shared lock retry source SHA `213a077af64819acf40fd44ca5a6df91f7472fb4`: MiniUPnP config `44631039048`, VPN `44631039170`, AI docs `44631039225`, DNSMasq `44631039014`, Inadyn `44631039151`, Process inventory `44631039149`, Process regression `44631039075`, HTTPD security `44631039061`, NVRAM audit `44631039111` all PASS; XY-C1 `44631039226` was still in progress at last poll.
+- Signal-safe acquisition wait source SHA `d57cce1bfbcd515f8f4bd0b6f018ac0302fb4129`: AI docs `44631860955`, HTTPD `44631856558`, Process inventory `44631856563`, Inadyn `44631856501`, DNSMasq `44631856635`, Process regression `44631856709`, VPN `44631856608`, MiniUPnP config `44631856559` and NVRAM audit `44631856644` all PASS. Exact XY-C1 `44631856549` remained IN_PROGRESS at last query; do not claim L3 until Build, TRX and artifact steps succeed.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; archival only. PR #1 remains closed/unmerged.
 - No physical-router result is available. Host Actions are L2; XY-C1 Build/TRX/artifact on one exact production SHA is L3; device behavior is L4 NOT VERIFIED.
 
 ## Active task
 
-- Confirmed a contention-timing defect in three production lifecycle lock acquire paths. Inadyn skipped the one-second wait when F_SETLK returned EINTR; DNSMasq and VPN server used sleep(1) but ignored a nonzero unslept remainder. Repeated signals could therefore exhaust retry attempts much faster than the configured wait.
-- This slice uses the existing service_wait_policy.h/service_wait_seconds(1) in all three paths, preserving the complete wait interval across EINTR. It does not change the lock's EACCES/EAGAIN retry count or the shared eight-retry EINTR cap on unlock.
-- The existing service_wait_policy regression exercises interrupted waits and remaining-time retry. The MiniUPnP semantic checker is extended to pin all three acquisition callsites; XY-C1 path filtering includes DNSMasq lock header so all changed production headers trigger firmware validation.
-- No local compilation or physical-router result is claimed.
+- Confirmed a shared process-inventory reliability defect in `proc_default_read_file()`: both the normal procfs read loop and the one-byte overflow probe retried `read(2)` indefinitely on EINTR. A signal storm could leave process inventory scans stuck instead of returning UNKNOWN.
+- Added `process_io_retry_policy.h` with an eight-consecutive-EINTR cap. Normal positive/EOF reads reset the retry streak; overflow probing has its own finite budget. Exhaustion retains `errno=EINTR`, so the scanner fails closed rather than misreporting ABSENT.
+- Added GNU89 regression coverage for normal retry budget, exhaustion and invalid argument; Process workflow now includes a source contract requiring both read loops to use the policy and watches the new header. XY-C1 also watches the header.
+- No local compilation or physical-router result is claimed for this source slice.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Inadyn, DNSMasq, VPN-server, MiniUPnP config, Process lifecycle, AI docs, HTTPD/security and XY-C1 workflows for this signal-safe acquisition-wait fix.
-2. On FAIL, inspect the exact failing job log and correct the source/check contract without weakening lock identity checks or retry bounds. XY-C1 L3 requires Build, TRX verification and artifact upload all SUCCESS on the exact same SHA.
-3. Continue the next independently evidenced cross-userland stability/security slice; do not repeat the already-corrected PPP, APCLI, SD/MMC notification or lock EINTR loops.
+1. Fetch live main and inspect exact-head Process lifecycle, Process inventory, AI-doc, NVRAM and XY-C1 workflows for the bounded procfs read change.
+2. On FAIL, inspect the exact job log and fix the demonstrated source/build contract without removing the read retry ceiling or weakening UNKNOWN semantics. XY-C1 L3 requires Build, TRX verification and artifact upload all SUCCESS on the exact same SHA.
+3. Continue with an independently evidenced stability/security issue across Padavan userland; do not repeat closed lifecycle-lock EINTR and contention-wait audits without new evidence.
 
 ## Verification boundary
 
-- L1: Inadyn, DNSMasq and VPN acquisition paths preserve the one-second lock contention interval after EINTR; shared eight-retry unlock policy remains active.
-- L2: The MiniUPnP semantic checker now pins these three acquire paths; exact-head service workflows will provide GNU89/ASan/UBSan and source-contract verification.
-- L3: Exact shared-helper commit `213a077` XY-C1 Build/TRX/artifact run `44631039226` remains IN_PROGRESS at this checkpoint. This new acquisition-wait source SHA requires its own L3 build.
-- L4: target MIPS/uClibc timing under signal load and physical-router WAN/service transitions remain NOT VERIFIED.
+- L1: `proc_default_read_file()` now caps consecutive EINTR retries at eight for both regular reads and the overflow probe; exhaustion remains a hard I/O error/UNKNOWN.
+- L2: GNU89 test and Process workflow source contract are added; exact-head Process/AI/NVRAM Actions remain pending.
+- L3: XY-C1 watches the new process-I/O policy header; Build/TRX/artifact on this exact source SHA remain pending.
+- L4: target MIPS/uClibc procfs behavior during repeated signals and physical-router process supervision remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

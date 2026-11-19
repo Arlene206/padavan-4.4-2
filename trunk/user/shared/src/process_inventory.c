@@ -14,6 +14,7 @@
 #include <limits.h>
 
 #include "process_inventory.h"
+#include "process_io_retry_policy.h"
 
 #define PROCESS_STAT_BUFFER 4096
 #define PROCESS_CMDLINE_BUFFER 4096
@@ -63,6 +64,7 @@ proc_default_read_file(void *context, const char *path, char *buffer,
 {
 	int fd, result = 0;
 	size_t used = 0;
+	unsigned int interruptions = 0;
 	char extra;
 
 	(void)context;
@@ -76,20 +78,27 @@ proc_default_read_file(void *context, const char *path, char *buffer,
 	while (used < capacity - 1) {
 		ssize_t count = read(fd, buffer + used, capacity - 1 - used);
 		if (count < 0) {
-			if (errno == EINTR)
+			if (errno == EINTR &&
+			    process_io_retry_interrupted(&interruptions) == 0)
 				continue;
 			result = -1;
 			break;
 		}
+		interruptions = 0;
 		if (count == 0)
 			break;
 		used += (size_t)count;
 	}
 	if (result == 0 && used == capacity - 1) {
 		ssize_t count;
-		do {
+		unsigned int extra_interruptions = 0;
+		for (;;) {
 			count = read(fd, &extra, 1);
-		} while (count < 0 && errno == EINTR);
+			if (count >= 0 || errno != EINTR)
+				break;
+			if (process_io_retry_interrupted(&extra_interruptions) != 0)
+				break;
+		}
 		if (count != 0) {
 			if (count > 0)
 				errno = EOVERFLOW;

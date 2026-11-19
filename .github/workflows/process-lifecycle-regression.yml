@@ -152,6 +152,7 @@ on:
       - "trunk/user/shared/src/pids_presence_policy.h"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_io_retry_policy.h"
       - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/shared/src/process_pidfile_record.h"
@@ -412,6 +413,34 @@ jobs:
         env:
           ASAN_OPTIONS: detect_leaks=1
         run: "$RUNNER_TEMP/process-inventory-regression"
+      - name: Verify bounded procfs read interruption handling
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/shared/src/process_inventory.c").read_text()
+          start = source.index("proc_default_read_file(")
+          opening = source.index("{", start)
+          depth = 0
+          for position in range(opening, len(source)):
+              if source[position] == "{":
+                  depth += 1
+              elif source[position] == "}":
+                  depth -= 1
+                  if depth == 0:
+                      body = source[opening + 1:position]
+                      break
+          else:
+              raise AssertionError("proc_default_read_file body is incomplete")
+          assert body.count("process_io_retry_interrupted(&interruptions)") == 1
+          assert body.count("process_io_retry_interrupted(&extra_interruptions)") == 1
+          assert "PROCESS_IO_MAX_INTERRUPTS 8U" in Path(
+              "trunk/user/shared/src/process_io_retry_policy.h"
+          ).read_text()
+          test = Path("trunk/user/shared/src/tests/process_inventory.c").read_text()
+          assert "test_procfs_read_eintr_retries_are_bounded" in test
+          print("Procfs read EINTR retry bound contract: PASS")
+          PY
       - name: Compile and run legacy pids() UNKNOWN mapping regression
         run: |
           set -eu

@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "../process_inventory.h"
+#include "../process_io_retry_policy.h"
 
 struct fake_process {
 	pid_t pid;
@@ -384,9 +385,29 @@ test_partial_match_then_readdir_error_is_unknown(void)
 	assert(snapshot.error == EIO);
 }
 
+static void
+test_procfs_read_eintr_retries_are_bounded(void)
+{
+	unsigned int interruptions = 0;
+	unsigned int i;
+
+	for (i = 0; i < PROCESS_IO_MAX_INTERRUPTS; i++)
+		assert(process_io_retry_interrupted(&interruptions) == 0);
+	assert(interruptions == PROCESS_IO_MAX_INTERRUPTS);
+
+	errno = 0;
+	assert(process_io_retry_interrupted(&interruptions) == -1);
+	assert(errno == EINTR);
+
+	errno = 0;
+	assert(process_io_retry_interrupted(NULL) == -1);
+	assert(errno == EINVAL);
+}
+
 int
 main(void)
 {
+	test_procfs_read_eintr_retries_are_bounded();
 	test_context_allocation_failure();
 	test_proc_open_failure();
 	test_normal_eof_is_absent();
