@@ -1,3 +1,13 @@
+## 2026-11-19 — Update wireless iNIC source contract for captured startup status
+
+- Parent main SHA: 41c2382d45e0496fdd336fc09bc2873d9216d553.
+- The new iNIC launch-result aggregation passed all preceding policy unit binaries in Wireless radio run 44428277432, but its inline source contract stopped at the legacy literal start_inicd() != 0. This assertion became stale after production code correctly captures the launcher result in inicd_start_status; it was the first failure reported by the checker.
+- Update the static contract to require the exact captured start_inicd() result and its propagation through wireless_radio_status_success(). Do not weaken the contract or change production code.
+- Exact Process inventory run 44428277260 passed on parent SHA. Wireless radio 44428277432 failed at the stale assertion. XY-C1 44428277197 was still running when polled and its host checks/build progression must be inspected separately. Parent iNIC signal SHA 82ac332 host/iNIC/Process/NVRAM/AI checks all passed; XY-C1 44427595460 was still building at last poll.
+- No local tests/build run. This is a test contract correction; exact-head Wireless radio/AI/Process checks are pending. It cannot itself establish XY-C1 L3.
+
+---
+
 ## 2026-11-19 — Propagate RT3352 iNIC health-monitor startup failures
 
 - Parent main SHA: `82ac332f84dbe8f454ad63247d4db53acac30c23`.

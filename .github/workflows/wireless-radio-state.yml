@@ -389,8 +389,11 @@ jobs:
           assert 'nvram_get_int("inic_disable") != 1 && is_guest_allowed_rt()' in ap_rt, (
               "a deliberately disabled iNIC must not be treated as a failed guest-AP start"
           )
-          assert 'start_inicd() != 0' in ap_rt, (
-              "iNIC health monitor startup failure must remain visible in the log"
+          assert "int inicd_start_status = start_inicd();" in ap_rt, (
+              "iNIC health monitor launch result must be captured"
+          )
+          assert "wireless_radio_status_success(inicd_start_status)" in ap_rt, (
+              "iNIC health monitor startup failure must be aggregated"
           )
 
           for name, helpers, own_auth, peer_helpers, peer_auth, own_stop, peer_stop in (
