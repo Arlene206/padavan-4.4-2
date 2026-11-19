@@ -96,7 +96,7 @@ assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in bound
 # Publish all seven volatile DHCP lease tuples under the shared NVRAM lock.
 assert '#include <nvram_linux.h>' in lan
 nvram_setter = c_function_body(
-    lan, "lan_dhcp_nvram_transaction_set(void *opaque, const char *name, const char *value)"
+    lan, "lan_dhcp_nvram_transaction_set("
 )
 assert "nvram_transaction_set(transaction, name, value, 1)" in nvram_setter
 assert "return errno ? errno : EIO;" in nvram_setter
@@ -106,7 +106,7 @@ assert "dhcp_lease_nvram_publish(restore, count," in nvram_restore
 assert "restore[i].value = values[i].previous_value;" in nvram_restore
 assert "nvram_transaction_end(&transaction)" in nvram_restore
 nvram_publish = c_function_body(
-    lan, "lan_dhcp_nvram_state_publish(const struct dhcp_lease_nvram_value *values,"
+    lan, "lan_dhcp_nvram_state_publish("
 )
 assert "nvram_transaction_begin(&transaction)" in nvram_publish
 assert "dhcp_lease_nvram_publish(values, count," in nvram_publish
