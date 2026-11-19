@@ -72,6 +72,8 @@ require("return 1;" in body(_probe, "probe(void)"),
 libdisk = read("trunk/user/libdisk/src/disk_initial.c")
 disk_policy = read("trunk/user/libdisk/src/disk_inventory_policy.h")
 disk_policy_test = read("trunk/user/libdisk/src/tests/disk_inventory_policy.c")
+swap_policy = read("trunk/user/libdisk/src/storage_swap_policy.h")
+swap_policy_test = read("trunk/user/rc/src/tests/storage_swap_policy.c")
 disk_header = read("trunk/user/libdisk/src/disk_initial.h")
 storage = read("trunk/user/rc/src/services_stor.c")
 ejected_policy = read("trunk/user/rc/src/storage_ejected_inventory_policy.h")
@@ -139,6 +141,27 @@ require("read_disk_data_checked(&disk_info_list)" in legacy and "return disk_inf
         "legacy read_disk_data API must remain a compatibility wrapper")
 require("read_disk_data_checked" in disk_header and "read_disk_data(void)" in disk_header,
         "both checked and legacy inventory APIs must be exported")
+
+# Mount data is part of a disk's safety inventory, not an optional UI hint.
+# An unreadable or malformed /proc/mounts snapshot must never collapse to
+# "partition is not mounted", especially for a whole-device filesystem.
+mount_reader = body(libdisk, "get_partition_mount_data(partition_info_t *part_info)")
+require("storage_inventory_parse_mount_line_full(" in mount_reader and
+        "ferror(fp)" in mount_reader and "close_status = fclose(fp)" in mount_reader and
+        "if (ret < 0)" in mount_reader and "errno = saved_errno;" in mount_reader,
+        "partition mount inspection must validate the entire procfs snapshot and close result")
+require("if (!fp)" in mount_reader and "return -1;" in mount_reader,
+        "unreadable mount inventory must be UNKNOWN, never an empty mount list")
+disk_creator = body(libdisk, "create_disk(const char *dev_name")
+require("errno = 0;" in disk_creator and "if (!create_partition(" in disk_creator and
+        "errno != 0" in disk_creator and "errno = saved_errno;" in disk_creator,
+        "whole-device mount inventory failures must propagate without rejecting a genuinely unmounted disk")
+require("storage_inventory_parse_mount_line_full" in swap_policy and
+        "filesystem_size" in swap_policy and "options_size" in swap_policy,
+        "mount parser must expose checked filesystem/options fields to metadata readers")
+require("rw,relatime" in swap_policy_test and '"ro"' in swap_policy_test and
+        "storage_inventory_parse_mount_line_full" in swap_policy_test,
+        "storage mount parser regressions must cover metadata, read-only and malformed records")
 
 count = body(storage, "count_stor_mountpoint(void)")
 require("storage_stage_unmount_mounts(&mounts)" in count and
@@ -636,6 +659,7 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
              "trunk/user/libdisk/src/tests/disk_inventory_policy.c",
+             "trunk/user/rc/src/tests/storage_swap_policy.c",
              "scripts/check_storage_safe_remove.py",
              "trunk/user/rc/src/optional_daemon_policy.h",
              "trunk/user/shared/src/process_inventory.h"):

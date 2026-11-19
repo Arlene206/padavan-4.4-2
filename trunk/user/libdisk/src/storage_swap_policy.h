@@ -143,11 +143,14 @@ storage_inventory_next_field(const char **cursor, char *field, size_t field_size
 	return 1;
 }
 
-/* /proc/mounts has exactly six fields. */
+/* /proc/mounts has exactly six fields. Keep filesystem/options too
+ * for callers that publish per-partition mount metadata. */
 static int
-storage_inventory_parse_mount_line(const char *line, char *device,
-				   size_t device_size, char *mountpoint,
-				   size_t mountpoint_size)
+storage_inventory_parse_mount_line_full(const char *line, char *device,
+					size_t device_size, char *mountpoint,
+					size_t mountpoint_size, char *filesystem,
+					size_t filesystem_size, char *options,
+					size_t options_size)
 {
 	const char *cursor;
 	char ignored[512];
@@ -158,15 +161,29 @@ storage_inventory_parse_mount_line(const char *line, char *device,
 
 	cursor = line;
 	if (storage_inventory_next_field(&cursor, device, device_size) != 1 ||
-	    storage_inventory_next_field(&cursor, mountpoint, mountpoint_size) != 1)
+	    storage_inventory_next_field(&cursor, mountpoint, mountpoint_size) != 1 ||
+	    storage_inventory_next_field(&cursor, filesystem, filesystem_size) != 1 ||
+	    storage_inventory_next_field(&cursor, options, options_size) != 1)
 		return -1;
 
-	for (i = 0; i < 4; i++) {
+	for (i = 0; i < 2; i++) {
 		status = storage_inventory_next_field(&cursor, ignored, sizeof(ignored));
 		if (status != 1)
 			return -1;
 	}
 	return storage_inventory_next_field(&cursor, ignored, sizeof(ignored)) == 0 ? 0 : -1;
+}
+
+static int
+storage_inventory_parse_mount_line(const char *line, char *device,
+				   size_t device_size, char *mountpoint,
+				   size_t mountpoint_size)
+{
+	char filesystem[512], options[512];
+
+	return storage_inventory_parse_mount_line_full(
+		line, device, device_size, mountpoint, mountpoint_size,
+		filesystem, sizeof(filesystem), options, sizeof(options));
 }
 
 /* Validate the full five-column /proc/swaps header. */

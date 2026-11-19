@@ -47,6 +47,33 @@ main(void)
 
 	{
 		char device[32], mountpoint[256], swap_path[256];
+		char filesystem[512], options[512];
+
+		assert(storage_inventory_parse_mount_line_full(
+			"/dev/sda1 /media/usb ext4 rw,relatime 0 0\n",
+			device, sizeof(device), mountpoint, sizeof(mountpoint),
+			filesystem, sizeof(filesystem), options, sizeof(options)) == 0);
+		assert(strcmp(device, "/dev/sda1") == 0);
+		assert(strcmp(mountpoint, "/media/usb") == 0);
+		assert(strcmp(filesystem, "ext4") == 0);
+		assert(strcmp(options, "rw,relatime") == 0);
+		assert(storage_inventory_parse_mount_line_full(
+			"/dev/sda1 /media/usb ext4 ro 0 0\n",
+			device, sizeof(device), mountpoint, sizeof(mountpoint),
+			filesystem, sizeof(filesystem), options, sizeof(options)) == 0);
+		assert(strcmp(options, "ro") == 0);
+		assert(storage_inventory_parse_mount_line_full(
+			"/dev/sda1 /media/usb ext4 rw 0\n",
+			device, sizeof(device), mountpoint, sizeof(mountpoint),
+			filesystem, sizeof(filesystem), options, sizeof(options)) != 0);
+		assert(storage_inventory_parse_mount_line_full(
+			"/dev/sda1 /media/usb ext4 rw 0 0 extra\n",
+			device, sizeof(device), mountpoint, sizeof(mountpoint),
+			filesystem, sizeof(filesystem), options, sizeof(options)) != 0);
+		assert(storage_inventory_parse_mount_line_full(
+			"/dev/sda1 /media/usb ext4 rw 0 0",
+			device, sizeof(device), mountpoint, sizeof(mountpoint),
+			filesystem, sizeof(filesystem), options, sizeof(options)) != 0);
 
 		assert(storage_inventory_parse_mount_line(
 			"/dev/sda1 /media/usb ext4 rw,relatime 0 0\n",

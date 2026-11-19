@@ -311,46 +311,87 @@ static int
 get_partition_mount_data(partition_info_t *part_info)
 {
 	FILE *fp;
-	int ret, dev_len;
-	char line[512], mpname[256], fstype[32], fsmode[4], dev_dst[48];
+	int ret, path_length, saved_errno, close_status, close_errno;
+	char line[512], device_path[64], mount_device[64];
+	char mpname[256], fstype[512], mount_options[512];
 
-	if (!part_info || !part_info->device)
-		return 0;
+	if (!part_info || !part_info->device) {
+		errno = EINVAL;
+		return -1;
+	}
 
+	path_length = snprintf(device_path, sizeof(device_path), "/dev/%s",
+			       part_info->device);
+	if (path_length < 0 || path_length >= (int)sizeof(device_path)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	errno = 0;
 	fp = fopen(PROC_MOUNTS_FILE, "r");
 	if (!fp)
-		return 0;
-
-	snprintf(dev_dst, sizeof(dev_dst), "/dev/%s ", part_info->device); // need space!
-	dev_len = strlen(dev_dst);
+		return -1;
 
 	ret = 0;
+	saved_errno = 0;
 	while (fgets(line, sizeof(line), fp)) {
-		if (strncmp(line, dev_dst, dev_len))
+		if (storage_inventory_parse_mount_line_full(
+			line, mount_device, sizeof(mount_device), mpname, sizeof(mpname),
+			fstype, sizeof(fstype), mount_options, sizeof(mount_options)) != 0) {
+			saved_errno = EIO;
+			ret = -1;
+			break;
+		}
+
+		/* Validate the entire procfs snapshot, but publish only the first
+		 * exact source match (never /dev/sda for /dev/sda1). */
+		if (ret != 0 || strcmp(mount_device, device_path) != 0)
 			continue;
-		
-		if (sscanf(line, "%*s %255s %31s %3[^\n]", mpname, fstype, fsmode) != 3)
-			continue;
-		
-		fsmode[2] = 0; // "rw"/"ro"
-		if (strcmp(fsmode, "ro") == 0)
+
+		if (strcmp(mount_options, "ro") == 0 ||
+		    strncmp(mount_options, "ro,", 3) == 0)
 			part_info->read_only = 1;
+
 		part_info->mount_point = strdup(mpname);
 		part_info->file_system = strdup(fstype);
 		if (!part_info->mount_point || !part_info->file_system) {
+			saved_errno = errno ? errno : ENOMEM;
 			free(part_info->mount_point);
 			free(part_info->file_system);
 			part_info->mount_point = NULL;
 			part_info->file_system = NULL;
+			part_info->read_only = 0;
 			ret = -1;
-		} else {
-			ret = 1;
+			break;
 		}
-		break;
+		ret = 1;
 	}
 
-	fclose(fp);
+	if (ret >= 0 && ferror(fp)) {
+		saved_errno = errno ? errno : EIO;
+		ret = -1;
+	}
 
+	errno = 0;
+	close_status = fclose(fp);
+	close_errno = errno;
+	if (close_status != 0) {
+		if (saved_errno == 0)
+			saved_errno = close_errno ? close_errno : EIO;
+		ret = -1;
+	}
+
+	if (ret < 0) {
+		free(part_info->mount_point);
+		free(part_info->file_system);
+		part_info->mount_point = NULL;
+		part_info->file_system = NULL;
+		part_info->read_only = 0;
+		errno = saved_errno ? saved_errno : EIO;
+		return -1;
+	}
+
+	errno = 0;
 	return ret;
 }
 
@@ -990,7 +1031,19 @@ create_disk(const char *dev_name, int dev_type, u32 major, u32 minor, disk_info_
 	}
 
 	follow_partition_list = &(follow_disk_info->partitions);
-	create_partition(dev_name, dev_type, follow_disk_info, follow_partition_list);
+	/*
+	 * A disk row is allowed to have no whole-device partition record, so
+	 * create_partition() can legitimately return NULL with errno unchanged.
+	 * Procfs and allocation failures must not be mistaken for that case.
+	 */
+	errno = 0;
+	if (!create_partition(dev_name, dev_type, follow_disk_info,
+			      follow_partition_list) && errno != 0) {
+		int saved_errno = errno;
+		free_disk_data(follow_disk_info);
+		errno = saved_errno;
+		return NULL;
+	}
 
 	*new_disk_info = follow_disk_info;
 

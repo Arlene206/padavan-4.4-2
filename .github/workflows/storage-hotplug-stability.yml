@@ -39,6 +39,7 @@ on:
       - "trunk/user/libdisk/src/tests/disk_inventory_policy.c"
       - "scripts/check_storage_safe_remove.py"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
+      - "trunk/user/rc/src/tests/storage_swap_policy.c"
       - "trunk/user/scripts/files/sbin/automount.sh"
       - "trunk/user/scripts/tests/storage_mountpoint_inventory.sh"
       - "trunk/user/scripts/tests/storage_module_load_lock.sh"
@@ -110,6 +111,7 @@ on:
       - "trunk/user/libdisk/src/tests/disk_inventory_policy.c"
       - "scripts/check_storage_safe_remove.py"
       - "trunk/user/libdisk/src/storage_swap_policy.h"
+      - "trunk/user/rc/src/tests/storage_swap_policy.c"
       - "trunk/user/scripts/files/sbin/automount.sh"
       - "trunk/user/scripts/tests/storage_mountpoint_inventory.sh"
       - "trunk/user/scripts/tests/storage_module_load_lock.sh"
@@ -317,6 +319,11 @@ jobs:
             trunk/user/rc/src/tests/storage_ejected_inventory_policy.c \
             -o /tmp/storage-ejected-inventory
           /tmp/storage-ejected-inventory
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/libdisk/src \
+            trunk/user/rc/src/tests/storage_swap_policy.c \
+            -o /tmp/storage-swap-policy
+          /tmp/storage-swap-policy
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/libdisk/src \
             trunk/user/libdisk/src/tests/disk_inventory_policy.c \
