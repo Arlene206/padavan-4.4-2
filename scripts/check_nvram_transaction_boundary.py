@@ -449,14 +449,25 @@ def run() -> int:
         if "copy_to_user" in snapshot_body:
             failures.append("NVRAM snapshot helper must not call copy_to_user under spinlock")
 
+        set_body = extract_function(kernel_driver, "user_nvram_set")
         get_body = extract_function(kernel_driver, "user_nvram_get")
+        store_length_body = extract_function(kernel_driver, "nvram_user_store_length")
+        for function_name, function_body in (("user_nvram_set", set_body), ("user_nvram_get", get_body)):
+            if "copy_from_user(&request, nvr, sizeof(request))" not in function_body:
+                failures.append(f"{function_name} does not snapshot its ioctl request with copy_from_user")
+            if re.search(r"\\bnvr\\s*->", function_body):
+                failures.append(f"{function_name} directly dereferences its __user request pointer")
+        if "put_user(length, &nvr->len_value)" not in store_length_body:
+            failures.append("NVRAM ioctl result length is not written through put_user")
+        if "nvram_user_store_length(nvr," not in get_body:
+            failures.append("NVRAM GET does not check user result-length writes")
         snapshot_call = "nvram_get_snapshot(param, capacity, &value, &len)"
         if snapshot_call not in get_body:
             failures.append("single-value ioctl does not use the stable snapshot helper")
         if "value = nvram_get(param)" in get_body:
             failures.append("single-value ioctl still retains the unlocked nvram_get() pointer")
         try:
-            copy_to_user = get_body.index("copy_to_user(nvr->value, value, len)")
+            copy_to_user = get_body.index("copy_to_user(request.value, value, len)")
             call_at = get_body.index(snapshot_call)
             if copy_to_user < call_at:
                 failures.append("single-value ioctl copies before obtaining a stable snapshot")
@@ -464,6 +475,8 @@ def run() -> int:
             failures.append("single-value ioctl does not copy its private snapshot")
         if "kfree(value)" not in get_body:
             failures.append("single-value ioctl does not release its private snapshot")
+        if "#include <linux/uaccess.h>" not in kernel_driver:
+            failures.append("NVRAM ioctl must include the explicit uaccess API")
 
         exit_body = extract_function(kernel_driver, "dev_nvram_exit")
         unregister = exit_body.index("unregister_chrdev(nvram_major, MTD_NVRAM_NAME);")

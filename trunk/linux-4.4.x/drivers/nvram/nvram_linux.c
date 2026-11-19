@@ -27,6 +27,7 @@
 #include <linux/seq_file.h>
 
 #include <linux/fs.h>
+#include <linux/uaccess.h>
 #include <linux/mtd/mtd.h>
 
 #include <nvram/bcmnvram.h>
@@ -475,49 +476,52 @@ int
 user_nvram_set(anvram_ioctl_t __user *nvr)
 {
 	int ret;
+	anvram_ioctl_t request;
 	char param[NVRAM_MAX_PARAM_LEN];
 	char tmp[64], *value;
 
 	if (!nvr)
 		return -EINVAL;
-
-	if (nvr->size != sizeof(anvram_ioctl_t))
-		return -EINVAL;
-
-	if (nvr->len_param > (NVRAM_MAX_PARAM_LEN-1) || nvr->len_param < 0)
-		return -EOVERFLOW;
-
-	if (!nvr->param)
-		return -EINVAL;
-
-	if (copy_from_user(param, nvr->param, nvr->len_param))
+	if (copy_from_user(&request, nvr, sizeof(request)))
 		return -EFAULT;
 
-	param[nvr->len_param] = '\0';
+	if (request.size != sizeof(request))
+		return -EINVAL;
+
+	if (request.len_param > (NVRAM_MAX_PARAM_LEN-1) || request.len_param < 0)
+		return -EOVERFLOW;
+
+	if (!request.param)
+		return -EINVAL;
+
+	if (copy_from_user(param, request.param, request.len_param))
+		return -EFAULT;
+
+	param[request.len_param] = '\0';
 	if (!param[0])
 		return -EINVAL;
 
-	if (nvr->len_value > (NVRAM_MAX_VALUE_LEN-1) || nvr->len_value < 0)
+	if (request.len_value > (NVRAM_MAX_VALUE_LEN-1) || request.len_value < 0)
 		return -EOVERFLOW;
 
 	value = tmp;
-	if ((nvr->len_value+1) > sizeof(tmp)) {
-		if (!(value = kmalloc(nvr->len_value+1, GFP_KERNEL)))
+	if ((request.len_value+1) > sizeof(tmp)) {
+		if (!(value = kmalloc(request.len_value+1, GFP_KERNEL)))
 			return -ENOMEM;
 	}
 
-	if (nvr->len_value > 0 && nvr->value) {
-		if (copy_from_user(value, nvr->value, nvr->len_value)) {
+	if (request.len_value > 0 && request.value) {
+		if (copy_from_user(value, request.value, request.len_value)) {
 			ret = -EFAULT;
 			goto done;
 		}
-		value[nvr->len_value] = '\0';
+		value[request.len_value] = '\0';
 	} else {
 		value[0] = '\0';
 	}
 
-	if (nvr->value)
-		ret = nvram_set_temp(param, value, nvr->is_temp);
+	if (request.value)
+		ret = nvram_set_temp(param, value, request.is_temp);
 	else
 		ret = nvram_unset(param);
 
@@ -528,29 +532,41 @@ done:
 	return ret;
 }
 
+static int
+nvram_user_store_length(anvram_ioctl_t __user *nvr, int length)
+{
+	if (!nvr)
+		return -EINVAL;
+
+	return put_user(length, &nvr->len_value) ? -EFAULT : 0;
+}
+
 int
 user_nvram_get(anvram_ioctl_t __user *nvr)
 {
 	int len, ret;
+	anvram_ioctl_t request;
 	char param[NVRAM_MAX_PARAM_LEN];
 	char *value;
 
 	if (!nvr)
 		return -EINVAL;
+	if (copy_from_user(&request, nvr, sizeof(request)))
+		return -EFAULT;
 
-	if (nvr->size != sizeof(anvram_ioctl_t))
+	if (request.size != sizeof(request))
 		return -EINVAL;
 
-	if (nvr->len_value < 1)
+	if (request.len_value < 1)
 		return -EINVAL;
 
-	if (nvr->len_param > (NVRAM_MAX_PARAM_LEN-1) || nvr->len_param < 0)
+	if (request.len_param > (NVRAM_MAX_PARAM_LEN-1) || request.len_param < 0)
 		return -EINVAL;
 
-	if (nvr->len_param > 0 && nvr->param) {
-		if (copy_from_user(param, nvr->param, nvr->len_param))
+	if (request.len_param > 0 && request.param) {
+		if (copy_from_user(param, request.param, request.len_param))
 			return -EFAULT;
-		param[nvr->len_param] = '\0';
+		param[request.len_param] = '\0';
 	} else {
 		param[0] = '\0';
 	}
@@ -558,35 +574,39 @@ user_nvram_get(anvram_ioctl_t __user *nvr)
 	ret = 0;
 
 	if (param[0] == '\0') {
-		if (nvr->is_temp < 0 || nvr->is_temp > 2)
+		if (request.is_temp < 0 || request.is_temp > 2)
 			return -EINVAL;
-		if (nvr->len_value < NVRAM_SPACE) {
-			nvr->len_value = NVRAM_SPACE;
+		if (request.len_value < NVRAM_SPACE) {
+			if (nvram_user_store_length(nvr, NVRAM_SPACE) != 0)
+				return -EFAULT;
 			return -EOVERFLOW;
 		}
-		
+
 		if (!(value = (char*)kzalloc(NVRAM_SPACE, GFP_KERNEL)))
 			return -ENOMEM;
-		
-		ret = nvram_getall(value, NVRAM_SPACE, nvr->is_temp);
+
+		ret = nvram_getall(value, NVRAM_SPACE, request.is_temp);
 		if (ret == 0) {
-			nvr->len_value = NVRAM_SPACE;
-			if (copy_to_user(nvr->value, value, NVRAM_SPACE))
+			ret = nvram_user_store_length(nvr, NVRAM_SPACE);
+			if (ret == 0 && copy_to_user(request.value, value, NVRAM_SPACE))
 				ret = -EFAULT;
 		}
 		kfree(value);
 	} else {
-		int capacity = nvr->len_value;
+		int capacity = request.len_value;
 
 		ret = nvram_get_snapshot(param, capacity, &value, &len);
 		if (ret == -ENOENT) {
-			nvr->len_value = -1;
-			ret = 0;
+			if (nvram_user_store_length(nvr, -1) != 0)
+				ret = -EFAULT;
+			else
+				ret = 0;
 		} else if (ret == -EOVERFLOW && len > 0) {
-			nvr->len_value = len;
+			if (nvram_user_store_length(nvr, len) != 0)
+				ret = -EFAULT;
 		} else if (ret == 0) {
-			nvr->len_value = len;
-			if (copy_to_user(nvr->value, value, len))
+			ret = nvram_user_store_length(nvr, len);
+			if (ret == 0 && copy_to_user(request.value, value, len))
 				ret = -EFAULT;
 			kfree(value);
 		}
