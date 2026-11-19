@@ -62,20 +62,21 @@ smartdns_config_append_filtered "$T/extra.conf" "$DST" || fail "optional config 
 smartdns_config_append_filtered "$T/missing.conf" "$DST" || fail "missing optional config was not ignored"
 pass "optional config append filters comments and empty lines"
 
+printf '%s\\n' 'staging-config' > "$T/stage.conf"
 cp "$DST" "$T/live-before-append-error"
-if smartdns_config_append_filtered "$T" "$DST"; then fail "directory source was accepted"; fi
-cmp -s "$DST" "$T/live-before-append-error" || fail "invalid source changed destination"
+if smartdns_config_append_filtered "$T" "$T/stage.conf"; then fail "directory source was accepted"; fi
+cmp -s "$T/stage.conf" <(printf '%s\\n' 'staging-config') 2>/dev/null || [ "$(cat "$T/stage.conf")" = "staging-config" ] || fail "invalid source changed staging file"
 mkdir "$T/append-bin"
 cat > "$T/append-bin/awk" <<'AWK_APPEND_FAIL'
 #!/bin/sh
-printf '%s\n' 'partial-rule'
+printf '%s\\n' 'partial-rule'
 exit 43
 AWK_APPEND_FAIL
 chmod 0700 "$T/append-bin/awk"
 old_path=$PATH
 PATH="$T/append-bin:$PATH"
 export PATH
-if smartdns_config_append_filtered "$T/extra.conf" "$DST"; then fail "append AWK failure was ignored"; else status=$?; fi
+if smartdns_config_append_filtered "$T/extra.conf" "$T/stage.conf"; then fail "append AWK failure was ignored"; else status=$?; fi
 PATH=$old_path
 export PATH
 [ "$status" -eq 43 ] || fail "append AWK failure status not propagated"
