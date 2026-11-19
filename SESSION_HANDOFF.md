@@ -11,14 +11,15 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Parent main SHA for this checker correction: `69430c238e26c0de0b9210a5d090512bb4570f50`; this correction changes the crond lifecycle source-contract assertion only.
+- Parent main SHA for this Process integration contract correction: `69d64f4bd9b70a8f32083ac84e8ebca0c8a97d9f`.
 - Exact-head AI handoff documentation `44620322445` PASS; Process inventory `44620322214` PASS; Firewall `44620322286`, vsftpd `44620322183`, PID-1 queue `44620322244`, ZeroTier `44620322876`, detect_internet `44620322573`, rstats `44620322742`, DNSMasq `44620322174`, detect_link `44620322410`, Wireless radio `44620322537`, NFS `44620322374`, and iNIC `44620322401` PASS on `69430c...`.
-- Crond lifecycle `44620322749` FAILED after the GNU89/ASan/UBSan C regression passed because `check_crond_lifecycle.py` still expected the removed `if (init_crontab())` caller. This correction asserts tri-state crontab result, persistence gating, MTD error aggregation before crond restart, and separate cron-update error propagation. No production crond code was changed.
+- Crond lifecycle `44620322749` exposed a stale caller assertion and C policy test passed; its corrected rerun `44621067912` PASS on `69d64f4bd9b70a8f32083ac84e8ebca0c8a97d9f`. AI handoff documentation `44621067804` PASS on that exact SHA.
+- Process lifecycle umbrella `44620322615` on source SHA `69430c238e26c0de0b9210a5d090512bb4570f50` passed all preceding scanner, lifecycle, WAN, boot, SCUT crontab, service and shell regression steps, then failed only because `check_process_lifecycle_integration.py` also expected the removed `if (init_crontab())` callsite. THIS COMMIT updates its source assertion to cover tri-state result, persistence gating, ordered MTD error aggregation and crond activation. The umbrella rerun is required.
 - Process umbrella `44620322615` was queued and XY-C1 `44620322487` in progress at last query. Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - Exact-head AI handoff documentation run `44617795116` PASS on `930dd7ed850ef59275cc340bc7c5a36bc7ebedc9`; the preceding missing `## Active task` contract failure is closed.
 - OpenVPN credential staging run `44613650285` PASS on checker/docs descendant `f4fbd093e934fda5304aa796cba30d59eb29b3a4`; VPN server lifecycle `44613173654` PASS and XY-C1 Build/TRX/artifact `44613173721` PASS on the OpenVPN production source SHA `e01f70a766c4e628593e272192723f6add59ffca`.
 - The frozen backup branch was last confirmed at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged and remains legacy inventory only.
-- Root `dev_log.md` currently has 21 dated records after the 101-record archive rotation in part-018; this source slice adds one record and remains under the 120-record rotation threshold.
+- Root `dev_log.md` currently has 23 dated records, within the required 20–119 window; part-018 preserves the 101 complete records evicted by the preceding catch-up rotation.
 - No physical router result is available. Host tests are L2; exact XY-C1 Build/TRX/artifact is L3; device behavior is L4 NOT VERIFIED.
 
 ## Active task
@@ -29,14 +30,14 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Exact first action for the next GPT
 
-1. Query live main and exact-head Actions for this checker correction. Ensure Crond lifecycle regression and AI handoff docs PASS; inspect new Process umbrella and XY-C1 Build/TRX/artifact conclusions on their exact SHA.
+1. Query live main and exact-head Actions for this Process contract correction. Ensure Process lifecycle umbrella, crond lifecycle and AI handoff docs PASS; inspect XY-C1 Build/TRX/artifact status for source SHA `69430c...`.
 2. Triage any failed job from its exact log. Do not weaken the 0/1/error contract or the fail-closed handling of grep/append/path failures. L3 remains pending until XY-C1 Build, TRX and artifact upload all pass on the same source SHA.
 3. Continue the P1 startup/teardown status-propagation queue after exact-head validation; do not repeat the already-closed OpenVPN, DNSMasq resolver, `create_file()` close-status, USB modem notifier, WAN monitor-pause, or reviewed `services_ex.c` call paths without new evidence.
 
 ## Verification boundary
 
 - L1: SCUT crontab script and RC boot result/persistence handling corrected in this source slice.
-- L2: local GNU89/Werror/ASan/UBSan policy binary PASS; shell syntax and isolated shell regression PASS. The source-order contract is wired into Process lifecycle Actions; exact-head result pending.
+- L2: local GNU89/Werror/ASan/UBSan C policy binary, shell syntax and isolated shell regression PASS. Crond corrected checker PASS at `69d64f4`; Process umbrella integration checker correction is in this commit and awaits exact-head validation.
 - L3: `rc.c` and the firmware-installed cron script changed; exact-head XY-C1 Build/TRX/artifact pending.
 - L4: physical crontab persistence, crond runtime and router boot behavior NOT VERIFIED.
 

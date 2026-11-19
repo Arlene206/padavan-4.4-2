@@ -1,3 +1,11 @@
+## 2026-11-19 — Update Process umbrella contract for SCUT crontab tri-state
+
+- Process lifecycle umbrella `44620322615` on `69430c238e26c0de0b9210a5d090512bb4570f50` passed the scanner, identity, WAN, startup, notification, SCUT policy, shell and service regressions through step 54, then `scripts/check_process_lifecycle_integration.py` raised IndexError because it still split `init_router()` at the removed `if (init_crontab())` callsite.
+- Updated that aggregate source contract to inspect the new status 0/1/error branches, require persistence only on a confirmed append, ensure MTD failure is aggregated before independent crond restart, require crond error aggregation, and ensure crontab failures reach boot status. No production source changed in this checker-only slice.
+- The separate crond lifecycle assertion correction is already PASS at exact SHA `69d64f4bd9b70a8f32083ac84e8ebca0c8a97d9f` (`44621067912`); AI handoff contract `44621067804` also PASS. Process umbrella rerun after this commit remains pending. Root log remains within its 20–119 entry window.
+
+---
+
 ## 2026-11-19 — Align crond lifecycle contract with SCUT tri-state boot update
 
 - Exact-head Crond lifecycle run `44620322749` at source SHA `69430c238e26c0de0b9210a5d090512bb4570f50` passed its GNU89/Werror/ASan/UBSan C daemon policy test, then failed in `scripts/check_crond_lifecycle.py`: the checker still split `init_router()` at the removed `if (init_crontab())` callsite and raised IndexError.

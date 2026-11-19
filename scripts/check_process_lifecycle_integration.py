@@ -3343,11 +3343,24 @@ disabled_crond = crond_start.split('if (nvram_invmatch("crond_enable", "1"))', 1
 )[0]
 assert "return 0;" in disabled_crond
 init_router = c_function_body(rc_source, "init_router(void)")
-crond_boot = init_router.split("if (init_crontab())", 1)[1].split("// system ready", 1)[0]
-assert "crond_status = restart_crond();" in crond_boot
-assert "if (crond_status != 0)" in crond_boot
-assert "boot_services_status = rc_first_service_start_status(" in crond_boot
-assert init_router.index("if (init_crontab())") < init_router.index(
+assert "int crontab_status = init_crontab();" in init_router
+assert "if (init_crontab())" not in init_router
+crontab_persist = init_router.split(
+    "if (rc_crontab_update_requires_persistence(crontab_status))", 1
+)[1].split("else if (crontab_status != 0)", 1)[0]
+assert "storage_save_status = write_storage_to_mtd();" in crontab_persist
+assert "boot_services_status = rc_first_service_start_status(" in crontab_persist
+assert "crond_status = restart_crond();" in crontab_persist
+assert "if (crond_status != 0)" in crontab_persist
+assert crontab_persist.index("storage_save_status = write_storage_to_mtd();") < crontab_persist.index(
+    "boot_services_status = rc_first_service_start_status("
+) < crontab_persist.index("crond_status = restart_crond();")
+assert "initial crontab changed but MTD storage persistence failed (status=%d)" in crontab_persist
+assert "crond restart after initial crontab update failed (status=%d)" in crontab_persist
+crontab_error = init_router.split("else if (crontab_status != 0)", 1)[1].split("// system ready", 1)[0]
+assert "boot_services_status = rc_first_service_start_status(" in crontab_error
+assert "initial crontab update failed (status=%d)" in crontab_error
+assert init_router.index("int crontab_status = init_crontab();") < init_router.index(
     'one or more boot service startup operations failed'
 )
 time_action = rc_source.split(
