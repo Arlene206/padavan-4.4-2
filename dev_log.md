@@ -1,3 +1,13 @@
+## 2026-11-19 — Align storage partition regression push and pull-request filters
+
+- Parent main SHA: `379fd897be61a52ee215d768fbb6c745febb087f`.
+- Exact storage hotplug run `44478957633` on `379fd897be61a52ee215d768fbb6c745febb087f` passed the strict partition-probe GNU89 `-Wall -Wextra -Werror` build and ASan/UBSan runtime, then failed in the embedded caller-graph checker at its exact assertion that every relevant path appear once in both push and pull-request filters.
+- The new `trunk/user/rc/src/tests/storage_partition_probe.c` regression was present in push but missing from pull_request. Add the same explicit path to the pull-request list; do not broaden filters or remove any test.
+- The preceding storage test-fix run `44478689416` on `41b6e0c` failed only because two valid fixtures lacked the newly required procfs header; `379fd89` fixed those and the later tests all passed. This follow-up addresses the remaining workflow governance contract failure.
+- No local checkout test was run. Exact-head storage, AI docs and other triggered Actions are pending after this commit; no target build or hardware result is claimed.
+
+---
+
 ## 2026-11-19 — Fix SD/MMC test fixtures for strict procfs header validation
 
 - Parent main SHA: `41b6e0ca0cd29a4e2fd39036b92106d7670bde09`.

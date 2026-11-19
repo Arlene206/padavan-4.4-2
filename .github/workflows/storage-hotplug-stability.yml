@@ -106,6 +106,7 @@ on:
       - "trunk/user/rc/src/tests/storage_hotplug_name_policy.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/storage_partition_probe.h"
+      - "trunk/user/rc/src/tests/storage_partition_probe.c"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/libdisk/src/disk_initial.h"
       - "trunk/user/libdisk/src/disk_inventory_policy.h"
