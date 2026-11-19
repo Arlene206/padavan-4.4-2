@@ -1028,7 +1028,8 @@ rollback:
 	}
 	errno = saved_errno;
 	return ret;
-}#endif
+}
+#endif
 
 static int
 rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)

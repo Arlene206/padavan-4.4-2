@@ -273,6 +273,8 @@ other_entry_struct_pos = wan.index("struct soft_bridge_other_entry {")
 gmac_guard_pos = wan.index("#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)")
 require(ownership_struct_pos < other_entry_struct_pos < gmac_guard_pos,
         "IPTV rollback ownership records must be declared for all board configurations")
+require("}\n#endif\n\nstatic int\nrollback_viptv_vlan_setup" in wan,
+        "GMAC-only bridge batch must close its preprocessor guard before the shared IPTV rollback adapter")
 viptv_rollback = body(wan, "rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)")
 require("#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)" in viptv_rollback and
         "rollback_soft_bridge_other_entry(entry);" in viptv_rollback and
