@@ -318,7 +318,8 @@ require(
 targeted_eject = body(storage, "safe_remove_stor_device(")
 targeted_eject_main = body(rc, "int\nmain(int argc, char **argv)")
 require(
-    "read_disk_data_checked(&disks_info)" in targeted_eject
+    "int result = -1;" in targeted_eject
+    and "read_disk_data_checked(&disks_info)" in targeted_eject
     and "storage_ejected_target_remove_complete" in targeted_eject
     and "errno = saved_errno;" in targeted_eject
     and "return -1;" in targeted_eject

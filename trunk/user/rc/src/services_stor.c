@@ -3874,7 +3874,7 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 	int unmount_status = 0, ejected_status = 0, mount_count = 0;
 	int start_status = 0, retry_storage_start = 0;
 	int stop_status, rollback_status, saved_errno = 0;
-	int result = 0;
+	int result = -1;
 	disk_info_t *disks_info = NULL, *follow_disk;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
