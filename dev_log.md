@@ -1,3 +1,12 @@
+## 2026-11-19 — Fix HTTPD security workflow storage policy include path
+
+- Parent main SHA: `2a65185fa4cb2910f80429b6b5450677a9fde25d`.
+- Exact HTTPD security run `44486117403` on 2a passed its preceding NVRAM, wireless, DHCP, resolver and USB checks, then failed the block-storage whole-disk host regression compile because `storage_partition_probe.h` now correctly includes the staged public header `disk_inventory_policy.h`, but this workflow still compiled with only `-I trunk/user/rc/src`.
+- Add `-I trunk/user/libdisk/src` to the standalone GNU89 `-Wall -Wextra -Werror` host command and add embedded assertions for the new include and compile path. The storage-hotplug workflow `44486117414` already passes on 2a; this closes the duplicate HTTPD CI consumer.
+- Exact 2a AI docs `44486117156` and Process inventory `44486117196` PASS; NVRAM `44486117346` was still running at last check. No production source changes in this correction.
+
+---
+
 ## 2026-11-19 — Fix staged XY-C1 build include for strict storage partition policy
 
 - Parent main SHA: `82e6e9ec3bb6b16d11e218b6fd76d5dc10a90c96`.

@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — fail-closed ZeroTier static-route teardown
+# 2026-11-19 continuation checkpoint — repair HTTPD storage host regression include
 
 # Cross-session execution mandate
 
@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; branch `main`.
-- Parent main SHA for this ZeroTier cleanup slice: `f873c65531a1a20f9a3f4bdce14b4c4df026f86b`; the current slice is committed atomically with this handoff update.
+- Parent main SHA for the active HTTPD workflow correction: `2a65185fa4cb2910f80429b6b5450677a9fde25d`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout was available: `git clone` could not resolve github.com in this environment. Exact GitHub Actions are the validation source.
 
@@ -43,33 +43,31 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - `stop_zero()` now retains persistent identity/configuration and returns failure when route cleanup is uncertain. Failed startup route rollback also logs an incomplete cleanup.
 - Regression coverage includes already-absent routes, deletion failure, an unreadable route inventory, a delete command that reports success while the route remains, saved-interface use after daemon exit, and partial route-add rollback. Static checker pins the exact tuple and stop gate.
 - Exact ZeroTier `44483203855` and AI docs `44483203814` both PASS on d4 after the checker marker and mandatory section heading corrections. Process inventory `44482870006` and WAN route `44482869891` PASS on d45. The XY-C1 run `44482869903` on d45 remained in progress at the last check; inspect Build/TRX/artifact before claiming L3.
-## Pending verification — retain ZeroTier NAT source segment through daemon stop
+## Completed host regression — retain ZeroTier NAT source segment through daemon stop
 
-- `stop_zero()` already saves the virtual interface before stopping the daemon, but `del_rules()` re-queries the kernel connected route after daemon exit. The route can disappear together with the interface, leaving `ip_segment` empty and causing the source-NAT MASQUERADE rule to be deleted with the wrong source operand.
-- Capture `ip_segment` while the daemon is running; `del_rules()` reuses that value and only discovers a segment when no pre-captured value exists. When NAT is enabled and the segment cannot be read before stop, abort without stopping the daemon or mutating firewall/configuration.
-- Extend the lifecycle regression so the connected route is visible only while the daemon state is RUNNING, then disappears after TERM; assert cleanup still receives `10.147.17.0/24`. Static source contracts pin capture-before-kill, preserve-if-present, and the NAT-enabled fail-closed gate.
-- Exact d82 Actions were in progress at the last check: ZeroTier `44484902778`, WAN route `44484902793`, XY-C1 `44484902954`, Process inventory `44484902785`, and AI docs `44484902809`. The NAT source-segment host regression has not yet been validated on its exact SHA. The prior route-deletion slice passed ZeroTier `44483203855` and AI docs `44483203814` on d4; no L4 router result is claimed.
+- `stop_zero()` captures the connected network segment while the daemon is still running; `del_rules()` preserves and uses that saved segment after the interface/route disappears.
+- NAT-enabled stop fails closed before signaling the daemon when the source segment cannot be captured. Regression fixtures cover route visibility only while RUNNING, saved `10.147.17.0/24` use after shutdown, and missing-route refusal without daemon/firewall/config mutation.
+- Exact d82 ZeroTier `44484902778`, WAN route `44484902793`, Process inventory `44484902785`, and AI docs `44484902809` all PASS. XY-C1 `44484902954` failed on d82 before the later storage-header fix; Build failed at the old source-tree-relative include, so no L3 is claimed for d82.
 
+## Active task — align HTTPD storage regression include path
 
-
-## Active task — restore XY-C1 build compatibility for strict storage partition inventory
-
-- Exact XY-C1 run `44482869903` on production SHA d45 failed in Build XY-C1 with `storage_partition_probe.h:6: fatal error: ../../libdisk/src/disk_inventory_policy.h: No such file or directory`. RC sources are compiled from staged `trunk/build/rc`, so that source-tree-relative path resolves outside `trunk/user`.
-- RC already adds `-I$(STAGING_DIR)/include/libdisk` when STORAGE_ENABLED; `trunk/user/libdisk/src/Makefile` installs public headers into `$(DESTDIR)/include/libdisk`. Use `#include "disk_inventory_policy.h"` so the target compiler resolves the staged public header.
-- Add `-I trunk/user/libdisk/src` to the standalone ASan/UBSan host regression compile. Extend the embedded workflow contract to verify the RC staged include flag, libdisk header-install rule, host compile include path, and header include name.
-- The parser's L2 test passed on f873 (`44480440427`); d45 has no L3 because Build failed and TRX/artifact were skipped. Exact d82 ZeroTier, WAN route, XY-C1, Process inventory and AI docs runs were pending at the last check. The include-fix descendant must pass full Build/TRX/artifact before L3 can be claimed.
+- Main `2a65185fa4cb2910f80429b6b5450677a9fde25d` fixes the production RC include by changing `storage_partition_probe.h` to `#include "disk_inventory_policy.h"`; the staged RC build already adds `-I$(STAGING_DIR)/include/libdisk`. Its exact storage host workflow `44486117414` passes on 2a.
+- The same main SHA's HTTPD security run `44486117403` fails only in its duplicate storage host-regression compile: that workflow still supplies `-I trunk/user/rc/src` but omits `-I trunk/user/libdisk/src`, so the corrected public include cannot resolve. Its other preceding checks passed.
+- This atomic correction adds the missing include path to the HTTPD compile command and embeds a contract for the include name and compile path. It does not alter production code.
+- Exact 2a AI docs `44486117156` and Process inventory `44486117196` PASS; NVRAM transaction audit `44486117346` was still in progress at last inspection. The exact XY-C1 d82 run `44484902954` predates the production include correction and failed on the obsolete path; the corrected storage production source still needs its own Build/TRX/artifact run before L3 can be claimed.
 
 ## Verification boundary
 
-- Storage partition inventory: L2 PASS on exact SHA f873 (`44480440427`); AI docs `44480440506` PASS. d45 target integration failed because the staged RC build could not resolve the source-tree-relative policy include; this commit switches to the already-staged libdisk public-header path and extends host compile/checker coverage.
-- XY-C1 L3: PASS on production SHA 255 (`44476582849`) only. d45 failed Build XY-C1 (no TRX/artifact); d82 had a fresh Build/TRX/artifact run pending at last check. No L3 on d45 or later SHA yet.
-- ZeroTier route teardown passed ZeroTier/AI docs on d4 (`44483203855`, `44483203814`). The d82 NAT-segment fix was still awaiting exact-SHA validation. No L4 router result exists.
+- Storage partition inventory: policy host L2 PASS on f873 (`44480440427`); production header include correction committed on 2a and storage workflow `44486117414` PASS. HTTPD's separate host-test include path was missing on 2a (`44486117403`); this workflow-only commit fixes that regression runner. Current corrected production source still requires exact-source XY-C1 Build/TRX/artifact before L3.
+- ZeroTier static-route deletion: ZeroTier and AI docs PASS on d4 (`44483203855`, `44483203814`). NAT source-segment cleanup: ZeroTier `44484902778`, WAN `44484902793`, Process `44484902785`, AI docs `44484902809` all PASS on d82.
+- Exact 2a AI docs `44486117156`, Process inventory `44486117196`, and storage hotplug `44486117414` PASS. HTTPD security `44486117403` failed the storage policy host compile as described above; NVRAM audit `44486117346` was pending at the last check.
+- XY-C1 L3 is VERIFIED only on production SHA `255334d0dbd7e98a1a63dde528b0e3de59aef9c1` (`44476582849`). The d82 run `44484902954` failed Build before the 2a public-header include correction; no L3 claim for 2a or this descendant. Physical router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-SHA d82 Actions: ZeroTier `44484902778`, WAN `44484902793`, XY-C1 `44484902954`, Process `44484902785`, and AI docs `44484902809`. Diagnose failures; require Build XY-C1, TRX and artifact upload for L3.
-2. Fix the XY-C1 parser-header build include with the staged libdisk include path; verify the strict parser host regression remains GNU89 -Werror plus ASan/UBSan, then require the descendant XY-C1 Build/TRX/artifact run.
-3. After this slice is closed, continue an independent network/security reliability issue across Padavan userland; do not repeat the closed SD/MMC parser or prior ZeroTier publication fixes.
+1. Confirm live `main` equals the new commit and inspect exact-head HTTPD security, AI handoff docs, storage hotplug, Process inventory and XY-C1 runs. Inspect failure logs and require each run's `head_sha` to match.
+2. Require HTTPD's storage policy test to compile GNU89 `-Wall -Wextra -Werror` with both RC and libdisk include paths and to pass its source contract. The storage hotplug regression must remain PASS.
+3. The corrected storage production header must still be validated by a fresh XY-C1 Build/TRX/artifact run; then continue independent userland stability/security fixes, including the switch ACL argument defect already identified for the next slice.
 
 ## Mandatory handoff checkpoint
 

@@ -2714,7 +2714,7 @@ jobs:
         run: |
           set -eu
           cc -std=gnu89 -Wall -Wextra -Werror \
-            -I trunk/user/rc/src \
+            -I trunk/user/rc/src -I trunk/user/libdisk/src \
             trunk/user/rc/src/tests/storage_partition_probe.c \
             -o /tmp/storage_partition_probe
           /tmp/storage_partition_probe
@@ -2724,6 +2724,9 @@ jobs:
           hotplug = Path("trunk/user/rc/src/hotplug_stor.c").read_text()
           helper = Path("trunk/user/rc/src/storage_partition_probe.h").read_text()
           regression = Path("trunk/user/rc/src/tests/storage_partition_probe.c").read_text()
+          workflow = Path(".github/workflows/httpd-security.yml").read_text()
+          assert '#include "disk_inventory_policy.h"' in helper
+          assert "-I trunk/user/libdisk/src" in workflow
           assert '#include "storage_partition_probe.h"' in hotplug
           assert "if (!procpt)" in hotplug and "return -1;" in hotplug
           assert "storage_disk_has_partitions(procpt, devname, is_mmc)" in hotplug
