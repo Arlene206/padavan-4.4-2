@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "lan_addr6_reload_policy.h"
 
