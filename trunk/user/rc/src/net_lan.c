@@ -1104,7 +1104,7 @@ stop_lan(int is_ap_mode)
 			logmessage(LOGNAME,
 				   "refusing LAN teardown while DHCP client identity remains active or unknown (status=%d)",
 				   status);
-			return rc_first_service_start_status(status, monitor_resume_status);
+			return status;
 		}
 	} else {
 		char *lan_ip = nvram_safe_get("lan_ipaddr_t");

@@ -10,11 +10,12 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Live main before this validator repair: `a8e8b63353ff5f665b1ec4baa532a8398646bb5d`; the next commit is documentation/test-handoff-only.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged; its valid changes are already on main.
-- ZeroTier production source `a834edbad9ba5a168768a882c766607065fb7708` passed exact XY-C1 run `44544667515` Build, TRX verification and artifact upload (L3).
-- Exact `a8e8b633` push checks: ZeroTier lifecycle `44549810631` PASS; Process inventory `44549810901` PASS; WAN route `44549810691` PASS. AI handoff docs `44549810797` failed because the handoff lacked the required `## Exact first action for the next GPT` heading. XY-C1 `44549810780` was still running at last check; it is test-only and should skip firmware Build/TRX/artifact.
-- No local checkout/toolchain is available in this connector-only environment; no local execution is claimed. Physical-router L4 remains NOT VERIFIED.
+- Live main before this checker follow-up: `b735ea82c111be67854b4dae33ba3a5a64fe2416`. The preceding commit added explicit AP-mode Internet-monitor resume failure diagnostics to both fail-closed LAN teardown abort paths.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- The LAN source/test change in `b735ea8` preserves primary stop/ifdown errors and adds monitor-resume diagnostics. Its exact `wan-route-status` run `44551953519` failed in the new static contract because the checker expected one capture although both AP abort paths now capture the result; the same checker also declared the test source after its first use. This follow-up corrects both.
+- Exact `b735ea8` Process fail-closed run `44551953591` and detect_internet run `44551953522` exposed stale source contracts that expected the original primary `return status;`. The AP DHCP-preflight abort now keeps that primary return unchanged (while logging the secondary resume failure); the bridge-down path aggregates resume status after the earlier cleanup/ifdown result. Those two existing contracts should therefore pass without modifying their coverage.
+- Other exact `b735ea8` results: AI docs `44551953627`, Firewall `44551953596`, HTTPD `44551953576`, Process inventory `44551953530`, USB storage `44551953524`, DNSMasq `44551953512`, WAN DHCP callbacks `44551953404`, detect_link `44551953518`, watchdog `44551953340`, Wireless radio `44551953822` PASS. NVRAM `44551953644` and XY-C1 `44551953308` were pending at last check; XY-C1 contains a production change and needs Build/TRX/artifact result review.
+- ZeroTier product source `a834edbad9ba5a168768a882c766607065fb7708` remains L3 VERIFIED by exact XY-C1 run `44544667515` (Build/TRX/artifact PASS). No physical-router L4. No local checkout/toolchain is available.
 
 ## Latest active source slices — 2026-11-19
 
@@ -149,17 +150,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Continue on `main` only; keep frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` untouched.
-- ZeroTier stale-firewall replay is now implemented in production commit `a834edbad9ba5a168768a882c766607065fb7708`: old firewall rules and configured static routes must be removed using the persisted original interface/NAT segment before the replacement daemon starts. A failed replay blocks startup and preserves the checkpoint for retry.
-- Product-source validation boundary: exact XY-C1 run `44544667515` on `a834edb` completed Build, TRX verification and artifact upload (L3). No physical-router L4.
-- Test repair `a8e8b63353ff5f665b1ec4baa532a8398646bb5d` removed an orphaned duplicate shell fragment; exact ZeroTier run `44549810631` PASS, Process inventory `44549810901` PASS, WAN route `44549810691` PASS. AI docs run `44549810797` failed only because this handoff omitted the required next-action heading; XY-C1 `44549810780` remains pending and is test-only, so no new firmware build is needed.
-- No local checkout/toolchain is available in this connector-only environment; don't claim local tests.
+- Continue on `main` only; leave frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` immutable.
+- Current implementation slice: AP-mode `stop_lan()` no longer discards Internet-monitor resume results after a failed DHCP-client/identity preflight or a failed bridge-down operation. It logs the secondary failure and preserves the original teardown error as the primary status. Regression coverage is in `tests/service_start_status.c` plus the WAN route integration source contract.
+- Previous exact `b735ea8` checks: AI docs/Firewall/HTTPD/Process inventory/USB storage/DNSMasq/WAN callbacks/detect_link/watchdog/Wireless all PASS; WAN route, Process fail-closed and detect_internet failed on assertions affected by this new source behavior and are being repaired. NVRAM and XY-C1 were pending.
+- No local checkout/toolchain or physical router is available; do not claim local execution or L4.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and its exact-head Actions once. Resolve any failed run for the current SHA before declaring the checkpoint complete; in particular, confirm the AI handoff validator after this heading repair and inspect the current XY-C1 result.
-2. If ZeroTier and handoff checks pass, continue the P1 repository-wide lifecycle/rollback queue with one new independent user-space stability defect. Don't repeat the completed ZeroTier stale-checkpoint audit.
-3. For any new source fix, add a focused regression, inspect workflow dependency/path contracts, commit one complete Git tree atomically to main with non-forced expected-SHA update, then inspect exact push runs. Preserve the verified L3 boundary at `a834edb` unless later production changes receive their own exact Build/TRX/artifact pass.
+1. Verify the exact-head WAN route, Process fail-closed, detect_internet and AI handoff Actions for the next main SHA. Resolve any failure without dropping the AP monitor-resume checks.
+2. Inspect XY-C1 run `44551953308` on `b735ea8` and its equivalent exact-head run after this change; record Build, TRX and artifact separately.
+3. Continue with a new independent stability/security defect outside this completed AP monitor-resume slice. Keep atomic main-only commits and exact-SHA CI.
 
 ## Mandatory handoff checkpoint
 

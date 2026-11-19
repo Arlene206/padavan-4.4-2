@@ -1,3 +1,13 @@
+## 2026-11-19 — Report AP Internet-monitor resume failures after aborted LAN teardown
+
+- Main parent: `722606bf0af021382871a58ba71f9071706a40b4`. In AP mode, `stop_lan()` paused `detect_internet`, then discarded the result of resuming it when DHCP-client identity shutdown failed or when bridge-down failed. The monitor could remain paused without a diagnostic for this secondary recovery failure.
+- This source slice captures both resume results, logs each failed recovery, preserves the original DHCP/bridge teardown error as the first status, and includes the bridge-abort resume status after existing cleanup statuses. Regression adds `test_ap_lan_monitor_resume_failure_preserves_primary_teardown_status`.
+- Exact `b735ea8` runs: WAN route `44551953519` failed the first new assertion because the checker expected one capture rather than two and referenced its C test variable too late. Process fail-closed `44551953591` and detect_internet `44551953522` flagged their old expectation of `return status;` after the resumed monitor; keep this primary return unchanged in the next commit, while retaining the bridge-path aggregate. Their full earlier checks and shell/host tests reached that final integration checker.
+- Other exact `b735ea8` actions PASS: AI docs `44551953627`, Firewall `44551953596`, HTTPD `44551953576`, Process inventory `44551953530`, USB storage `44551953524`, DNSMasq `44551953512`, WAN DHCP callbacks `44551953404`, detect_link `44551953518`, watchdog `44551953340`, Wireless `44551953822`. NVRAM `44551953644` and XY-C1 `44551953308` pending. ZeroTier L3 remains on `a834edb` / run `44544667515`.
+- This follow-up corrects those source contracts. No local execution or router L4 is claimed.
+
+---
+
 ## 2026-11-19 — Restore the required next-session action heading
 
 - Main parent: `a8e8b63353ff5f665b1ec4baa532a8398646bb5d`. Exact AI handoff workflow `44549810797` failed at the documentation validator because the preceding handoff replacement omitted the mandatory `## Exact first action for the next GPT` section.

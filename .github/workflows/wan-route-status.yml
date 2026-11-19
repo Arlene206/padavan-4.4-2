@@ -410,6 +410,7 @@ jobs:
           header = (rc / "rc.h").read_text()
           conntrack_policy = (rc / "conntrack_flush_policy.h").read_text()
           conntrack_test = (rc / "tests/conntrack_flush_policy.c").read_text()
+          service_start_test = (rc / "tests/service_start_status.c").read_text()
           policy = (rc / "route_status_policy.h").read_text()
           route_status_test = (rc / "tests/route_status_policy.c").read_text()
           wan_route_policy = (rc / "wan_route_flush_policy.h").read_text()
@@ -447,7 +448,7 @@ jobs:
           assert "route_status = clear_if_route4(IFNAME_BR);" in stop_lan_body
           assert "ipv6_status = clear_lan_addr6();" in stop_lan_body
           assert "monitor_resume_status = notify_run_detect_internet(2);" in stop_lan_body
-          assert stop_lan_body.count("monitor_resume_status = notify_run_detect_internet(2);") == 1
+          assert stop_lan_body.count("monitor_resume_status = notify_run_detect_internet(2);") == 2
           assert "return rc_first_service_start_status(status, monitor_resume_status);" in stop_lan_body
           assert "Internet monitor resume failed after aborted AP DHCP teardown" in stop_lan_body
           assert "int monitor_resume_status = 0;" in stop_lan_body
@@ -472,7 +473,6 @@ jobs:
           assert "void reload_lan_addr6(void);" not in header
           lan_start = body(net_lan, "start_lan(int is_ap_mode, int do_wait)")
           service_start_policy = (rc / "service_start_status.h").read_text()
-          service_start_test = (rc / "tests/service_start_status.c").read_text()
           assert "operation_status = reload_lan_addr6();" in lan_start
           assert "start_status = rc_first_service_start_status(start_status, operation_status);" in lan_start
           phy_wait_guard = lan_start.index("if (do_wait)")

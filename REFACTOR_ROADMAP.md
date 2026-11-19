@@ -1,8 +1,9 @@
 # 2026-11-19 source checkpoint
-- Main baseline for this follow-up: `a8e8b63353ff5f665b1ec4baa532a8398646bb5d`; this commit repairs a required handoff heading omitted by the preceding checkpoint refresh.
-- ZeroTier production source `a834edbad9ba5a168768a882c766607065fb7708` remains L3 VERIFIED by exact XY-C1 run `44544667515` (Build/TRX/artifact all PASS).
-- Exact `a8e8b633` Actions: ZeroTier `44549810631`, Process inventory `44549810901`, WAN route `44549810691` PASS. AI docs `44549810797` failed because `SESSION_HANDOFF.md` omitted `## Exact first action for the next GPT`; current commit restores it. XY-C1 `44549810780` was pending and is test-only (firmware stages expected skipped).
-- Re-run the AI docs contract on this new SHA and inspect exact-head XY-C1 completion. Do not claim current main L3 beyond the production source SHA `a834edb`; physical-router L4 is NOT VERIFIED.
+- Main parent for this checker follow-up: `b735ea82c111be67854b4dae33ba3a5a64fe2416`. The preceding source change adds error reporting/first-status aggregation when AP-mode LAN teardown fails to resume the Internet monitor.
+- Exact `b735ea8` WAN route `44551953519` failed because the newly added contract expected one monitor-resume capture although the source has two; it also referenced the service-start test source before defining it. This follow-up corrects the count and declaration order, and preserves the original early `return status;` because that stop failure must remain primary.
+- Exact `b735ea8` Process fail-closed `44551953591` and detect_internet `44551953522` failed stale contracts that also require the primary `return status;`. Restoring that return resolves the mismatch without removing the new resume error logs; exact reruns are required.
+- Other relevant `b735ea8` workflows passed: AI docs `44551953627`, Firewall `44551953596`, HTTPD `44551953576`, Process inventory `44551953530`, USB storage `44551953524`, DNSMasq `44551953512`, WAN DHCP callbacks `44551953404`, detect_link `44551953518`, watchdog `44551953340`, Wireless `44551953822`. NVRAM `44551953644` and XY-C1 `44551953308` were pending at last poll.
+- ZeroTier production L3 remains verified on `a834edbad9ba5a168768a882c766607065fb7708` by XY-C1 `44544667515` (Build/TRX/artifact PASS). Physical-router L4 NOT VERIFIED.
 
 ## CI trigger governance — current policy
 
