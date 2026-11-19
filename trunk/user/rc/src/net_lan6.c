@@ -38,6 +38,7 @@
 void reset_lan6_vars(void)
 {
 	struct in6_addr addr6;
+	char addr6_text[INET6_ADDRSTRLEN];
 	char addr6s[INET6_ADDRSTRLEN] = {0};
 	char *lan_addr6;
 	int lan_size6;
@@ -48,11 +49,16 @@ void reset_lan6_vars(void)
 		lan_size6 = nvram_get_int("ip6_lan_size");
 		if (*lan_addr6) {
 			memset(&addr6, 0, sizeof(addr6));
-			ipv6_from_string(lan_addr6, &addr6);
-			inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN);
-			if (lan_size6 < 48 || lan_size6 > 64)
-				lan_size6 = 64;
-			sprintf(addr6s, "%s/%d", addr6s, lan_size6);
+			if (ipv6_from_string(lan_addr6, &addr6) >= 0 &&
+			    inet_ntop(AF_INET6, &addr6, addr6_text, sizeof(addr6_text))) {
+				if (lan_size6 < 48 || lan_size6 > 64)
+					lan_size6 = 64;
+				if (rc_lan_addr6_format_prefix(addr6_text, lan_size6,
+							       addr6s, sizeof(addr6s)) != 0)
+					logmessage("LAN IPv6",
+						   "cannot format configured LAN IPv6 prefix (errno=%d)",
+						   errno ? errno : EIO);
+			}
 		}
 	}
 
@@ -193,16 +199,16 @@ char *get_lan_addr6_prefix(char *p_addr6s)
 {
 	/* force prefix len to 64 for SLAAC */
 	struct in6_addr addr6;
+	char addr6_text[INET6_ADDRSTRLEN];
 	char *lan_addr6 = nvram_safe_get("lan_addr6");
 
-	if (*lan_addr6) {
-		if (ipv6_from_string(lan_addr6, &addr6) >= 0) {
-			ipv6_to_net(&addr6, 64);
-			if (inet_ntop(AF_INET6, &addr6, p_addr6s, INET6_ADDRSTRLEN) != NULL) {
-				sprintf(p_addr6s, "%s/%d", p_addr6s, 64);
-				return p_addr6s;
-			}
-		}
+	if (p_addr6s && *lan_addr6 &&
+	    ipv6_from_string(lan_addr6, &addr6) >= 0) {
+		ipv6_to_net(&addr6, 64);
+		if (inet_ntop(AF_INET6, &addr6, addr6_text, sizeof(addr6_text)) != NULL &&
+		    rc_lan_addr6_format_prefix(addr6_text, 64, p_addr6s,
+					       INET6_ADDRSTRLEN) == 0)
+			return p_addr6s;
 	}
 
 	return NULL;

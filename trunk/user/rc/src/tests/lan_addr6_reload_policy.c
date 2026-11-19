@@ -89,9 +89,40 @@ test_missing_callbacks_fail_closed(void)
 	assert(clear_attempts == 0 && add_attempts == 0);
 }
 
+static void
+test_ipv6_prefix_format_is_bounded_and_non_overlapping(void)
+{
+	char output[46];
+	char short_output[8];
+	const char longest_literal[] = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff";
+
+	assert(rc_lan_addr6_format_prefix("2001:db8::1", 64,
+					  output, sizeof(output)) == 0);
+	assert(strcmp(output, "2001:db8::1/64") == 0);
+	assert(rc_lan_addr6_format_prefix(longest_literal, 128,
+					  output, sizeof(output)) == 0);
+	assert(strcmp(output,
+		      "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff/128") == 0);
+
+	errno = 0;
+	assert(rc_lan_addr6_format_prefix(longest_literal, 128,
+					  short_output, sizeof(short_output)) == -1);
+	assert(errno == ENAMETOOLONG && short_output[0] == '\0');
+	assert(rc_lan_addr6_format_prefix("2001:db8::1", -1,
+					  output, sizeof(output)) == -1);
+	assert(errno == EINVAL && output[0] == '\0');
+	assert(rc_lan_addr6_format_prefix("2001:db8::1", 129,
+					  output, sizeof(output)) == -1);
+	assert(rc_lan_addr6_format_prefix(NULL, 64,
+					  output, sizeof(output)) == -1);
+	assert(rc_lan_addr6_format_prefix("2001:db8::1", 64,
+					  output, 0) == -1);
+}
+
 int
 main(void)
 {
+	test_ipv6_prefix_format_is_bounded_and_non_overlapping();
 	test_clear_failure_prevents_new_address_publication();
 	test_add_failure_is_returned_after_successful_clear();
 	test_empty_configuration_only_clears_existing_address();

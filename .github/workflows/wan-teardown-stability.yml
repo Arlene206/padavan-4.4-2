@@ -5,15 +5,21 @@ on:
     paths:
       - ".github/workflows/wan-teardown-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
       - "trunk/user/rc/src/tests/wan_teardown_policy.c"
   pull_request:
     paths:
       - ".github/workflows/wan-teardown-stability.yml"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
       - "trunk/user/rc/src/tests/wan_teardown_policy.c"
 
 jobs:
@@ -29,12 +35,19 @@ jobs:
             trunk/user/rc/src/tests/wan_teardown_policy.c \
             -o /tmp/wan-teardown-policy
           /tmp/wan-teardown-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/lan_addr6_reload_policy.c \
+            -o /tmp/lan-addr6-reload-policy
+          /tmp/lan-addr6-reload-policy
           python3 - <<'PY'
           from pathlib import Path
 
           root = Path(".")
           rc = root / "trunk/user/rc/src"
           source = (rc / "net_wan.c").read_text()
+          lan6 = (rc / "net_lan6.c").read_text()
+          lan6_policy = (rc / "lan_addr6_reload_policy.h").read_text()
           workflow = Path(".github/workflows/wan-teardown-stability.yml").read_text()
 
           def function_body(text, signature):
@@ -51,6 +64,15 @@ jobs:
               raise AssertionError(f"unterminated function: {signature}")
 
           assert '#include "wan_teardown_policy.h"' in source
+          assert "rc_lan_addr6_format_prefix" in lan6_policy
+          reset_lan6 = function_body(lan6, "reset_lan6_vars(void)")
+          lan6_prefix = function_body(lan6, "get_lan_addr6_prefix(char *p_addr6s)")
+          assert "rc_lan_addr6_format_prefix(addr6_text, lan_size6" in reset_lan6
+          assert "rc_lan_addr6_format_prefix(addr6_text, 64, p_addr6s" in lan6_prefix
+          assert 'sprintf(addr6s, "%s/%d", addr6s' not in reset_lan6
+          assert 'sprintf(p_addr6s, "%s/%d", p_addr6s' not in lan6_prefix
+          assert "test_ipv6_prefix_format_is_bounded_and_non_overlapping" in (
+              (rc / "tests/lan_addr6_reload_policy.c").read_text())
 
           adapter = function_body(
               source,

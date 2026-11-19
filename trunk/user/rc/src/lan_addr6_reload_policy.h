@@ -2,9 +2,35 @@
 #define __LAN_ADDR6_RELOAD_POLICY_H__
 
 #include <errno.h>
+#include <stdio.h>
+#include <stddef.h>
 
 typedef int (*rc_lan_addr6_clear_fn)(void);
 typedef int (*rc_lan_addr6_add_fn)(void *context);
+
+/* Format address/prefix without overlapping input and output storage. */
+static inline int
+rc_lan_addr6_format_prefix(const char *address, int prefix_length,
+                           char *output, size_t output_size)
+{
+    int written;
+
+    if (!address || !address[0] || prefix_length < 0 || prefix_length > 128 ||
+        !output || output_size == 0) {
+        if (output && output_size > 0)
+            output[0] = '\0';
+        errno = EINVAL;
+        return -1;
+    }
+
+    written = snprintf(output, output_size, "%s/%d", address, prefix_length);
+    if (written < 0 || (size_t)written >= output_size) {
+        output[0] = '\0';
+        errno = written < 0 ? EIO : ENAMETOOLONG;
+        return -1;
+    }
+    return 0;
+}
 
 /* Clear stale state before publishing a replacement; preserve either error. */
 static inline int
