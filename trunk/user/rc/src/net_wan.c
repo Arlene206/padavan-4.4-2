@@ -53,6 +53,7 @@
 #include "wan_teardown_policy.h"
 #include "dhcp_lease_policy.h"
 #include "dhcp_wan_interface_policy.h"
+#include "wan_ifname_policy.h"
 #include "dhcp_wan_route_transition_policy.h"
 #include "wan_viptv_static_policy.h"
 #include "bridge_membership_policy.h"
@@ -4232,10 +4233,11 @@ get_wan_wisp_active(int *p_has_link)
 	return 1;
 }
 
-void
+int
 get_wan_ifname(char wan_ifname[16])
 {
 	int unit = 0;
+	int status;
 	char *ifname = get_man_ifname(unit);
 	char *ifname_temp = get_wan_unit_value(unit, "ifname_t");
 
@@ -4261,7 +4263,12 @@ get_wan_ifname(char wan_ifname[16])
 		}
 	}
 
-	strcpy(wan_ifname, ifname);
+	status = wan_ifname_copy(wan_ifname, 16, ifname);
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	return 0;
 }
 
 in_addr_t

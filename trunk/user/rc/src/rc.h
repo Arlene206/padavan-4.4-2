@@ -305,7 +305,7 @@ int  update_hosts_router(const char *lan_ipaddr);
 int  get_wan_ether_link_direct(int is_ap_mode);
 int  get_wan_dns_static(void);
 int  get_wan_wisp_active(int *p_has_link);
-void get_wan_ifname(char wan_ifname[16]);
+int get_wan_ifname(char wan_ifname[16]);
 void update_wan_status(int unit);
 in_addr_t get_wan_ip4(int only_broadband_wan);
 int  has_wan_ip4(int only_broadband_wan);

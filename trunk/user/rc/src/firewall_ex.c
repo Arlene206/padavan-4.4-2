@@ -2849,8 +2849,13 @@ start_firewall_ex_locked(void)
 		}
 		snprintf(wan_if, sizeof(wan_if), "%s", wan_if_value);
 	} else {
-		wan_if[0] = '\0';
-		get_wan_ifname(wan_if);
+		status = get_wan_ifname(wan_if);
+		if (status != 0) {
+			logmessage(LOGNAME, "No safe WAN interface token; refusing firewall rebuild (status=%d)",
+				   status);
+			errno = status;
+			return status;
+		}
 	}
 
 	if (!firewall_interface_name_is_safe(wan_if)) {

@@ -4,6 +4,11 @@ on:
   push:
     paths:
       - "scripts/check_lan_dhcp_deconfig.py"
+      - "scripts/check_wan_ifname_bounds.py"
+      - "trunk/user/rc/src/wan_ifname_policy.h"
+      - "trunk/user/rc/src/tests/wan_ifname_policy.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/firewall_ex.c"
       - "scripts/check_wan6_dns_policy.py"
       - "trunk/user/rc/src/wan6_dns_policy.h"
       - "trunk/user/rc/src/tests/wan6_dns_policy.c"
@@ -48,6 +53,11 @@ on:
   pull_request:
     paths:
       - "scripts/check_lan_dhcp_deconfig.py"
+      - "scripts/check_wan_ifname_bounds.py"
+      - "trunk/user/rc/src/wan_ifname_policy.h"
+      - "trunk/user/rc/src/tests/wan_ifname_policy.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/firewall_ex.c"
       - "scripts/check_wan6_dns_policy.py"
       - "trunk/user/rc/src/wan6_dns_policy.h"
       - "trunk/user/rc/src/tests/wan6_dns_policy.c"
@@ -95,6 +105,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Compile and run WAN interface-name bounds regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/wan_ifname_policy.c -o /tmp/wan-ifname-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-ifname-policy
+          python3 scripts/check_wan_ifname_bounds.py
       - name: Compile and run LAN DHCP deconfig policy regression
         run: |
           set -eu

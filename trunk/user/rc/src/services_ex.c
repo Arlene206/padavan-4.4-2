@@ -50,6 +50,7 @@
 #include "miniupnpd_daemon_policy.h"
 #include "miniupnpd_presentation_url.h"
 #include "miniupnpd_lifecycle_lock.h"
+#include "wan_ifname_policy.h"
 #include "service_wait_policy.h"
 #include "samba_config_value_policy.h"
 #if defined(APP_SMBD) || defined(APP_NMBD)
@@ -1850,8 +1851,13 @@ start_upnp_locked(void)
 	if (i_eports[0] > i_eports[1])
 		i_eports[0] = i_eports[1];
 
-	wan_ifname[0] = 0;
-	get_wan_ifname(wan_ifname);
+	ret = get_wan_ifname(wan_ifname);
+	if (ret != 0) {
+		errno = ret;
+		logmessage(LOGNAME, "miniupnpd start aborted: invalid WAN interface name (status=%d)",
+			   ret);
+		return ret;
+	}
 
 	lan_addr = nvram_safe_get("lan_ipaddr");
 	lan_mask = nvram_safe_get("lan_netmask");
@@ -2284,13 +2290,14 @@ write_inadyn_conf(const char *conf_file)
 {
 	FILE *fp;
 	char staged_path[PATH_MAX];
-	int saved_errno;
+	int saved_errno, interface_status;
 	int i_max, i_ddns_source, i_ddns_period, i_ddns_forced, i_ddns_ipv6;
 	int i_ddns1_ssl, i_ddns1_checkip;
 	int i_ddns2_ssl, i_ddns2_checkip;
 	char *ddns1_hname[3], *ddns1_user, *ddns1_pass, *ddns1_svr, *ddns1_url;
 	char *ddns2_hname,    *ddns2_user, *ddns2_pass;
 	const char *ddns1_svc, *ddns2_svc;
+	const char *management_ifname;
 	char wan_ifname[16];
 
 	i_ddns_period = nvram_safe_get_int("ddns_period", 24, 0, 72);
@@ -2303,10 +2310,27 @@ write_inadyn_conf(const char *conf_file)
 
 	wan_ifname[0] = 0;
 	i_ddns_source = nvram_get_int("ddns_source");
-	if (i_ddns_source == 1)
-		get_wan_ifname(wan_ifname);
-	else if (i_ddns_source == 2)
-		strcpy(wan_ifname, get_man_ifname(0));
+	if (i_ddns_source == 1) {
+		interface_status = get_wan_ifname(wan_ifname);
+		if (interface_status != 0) {
+			errno = interface_status;
+			logmessage(LOGNAME, "Inadyn config rejected: unsafe WAN interface name (status=%d)",
+				   interface_status);
+			return 0;
+		}
+	} else if (i_ddns_source == 2) {
+		management_ifname = get_man_ifname(0);
+		if (management_ifname != NULL && management_ifname[0] != '\0') {
+			interface_status = wan_ifname_copy(wan_ifname, sizeof(wan_ifname),
+							 management_ifname);
+			if (interface_status != 0) {
+				errno = interface_status;
+				logmessage(LOGNAME, "Inadyn config rejected: unsafe management interface name (status=%d)",
+					   interface_status);
+				return 0;
+			}
+		}
+	}
 
 	i_ddns_ipv6 = nvram_get_int("ddns_ipv6");
 
