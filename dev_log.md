@@ -1,3 +1,11 @@
+## 2026-11-19 09:20 EST — Correct the committed AI handoff checkpoint contract
+
+- Exact-head AI docs run `44571309978` failed because the handoff omitted the literal `The checkpoint is mandatory; a document edit is conditional.`. A first follow-up commit (`76161729272bdfeb553725a43afdf4b142232e10`) did not include that exact sentence or the required root heading/active-task section; its own run `44572344939` therefore failed with the same validator error. The live handoff is now corrected directly and the next commit must be verified before the documentation contract is called closed.
+- Product source commit `fe286b8cabd4334664c8270c5212d26a15ce6393`: exact-head WAN ARP regression/source contract, Process inventory, Process regression, and NVRAM audit passed. XY-C1 input detection and pre-build host gates passed; Build/TRX/artifact were still pending at last poll.
+- The corrected handoff restores the validator-required root heading, active-task section and exact mandatory-checkpoint sentence, explicitly separating mandatory accuracy review from conditional document edits. This repairs a real CI failure rather than creating a routine snapshot.
+
+---
+
 ## 2026-11-20 00:54:01 CST (UTC+8) — Validate complete WAN gateway ARP reply identity
 
 - Base main SHA: `f50387e29be43e9de4a1b55344390742a4252b53`. Product source changed in `trunk/user/rc/src/detect_wan.c` and `detect_wan_arp_result_policy.h`; regression changed in `trunk/user/rc/src/tests/detect_wan_arp_result_policy.c`; the focused `.github/workflows/detect-wan-arp-stability.yml` source contract now pins the complete matcher and tuple wiring.
