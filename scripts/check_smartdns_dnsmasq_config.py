@@ -189,7 +189,7 @@ lock_release = body(lifecycle_lock, "smartdns_lifecycle_lock_release")
 assert 'mkdir -m 0700 "$_smartdns_lock_path"' in lock_acquire
 assert 'kill -0 "$_smartdns_lock_owner"' in lock_acquire
 assert 'mv "$_smartdns_lock_path" "$_smartdns_stale_path"' in lock_acquire
-assert '$_smartdns_lock_owner" = "$"' in lock_release
+assert '$_smartdns_lock_owner" = "' + chr(36) * 2 + '"' in lock_release
 assert 'smartdns_lifecycle_lock_lib="/usr/bin/smartdns_lifecycle_lock.sh"' in smartdns
 assert '. "$smartdns_lifecycle_lock_lib"' in smartdns
 assert 'if smartdns_lifecycle_lock_acquire; then' in smartdns
