@@ -249,14 +249,17 @@ require("failed to clear static WAN address after EAPOL startup failure on %s (s
 require("failed to take static WAN interface %s down after EAPOL address cleanup failure (status=%d)" in eapol,
         "forced-down failure must be logged with its status")
 
-recovery_marker = "vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);"
+direct_recovery_marker = "vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);"
+require(direct_recovery_marker not in start,
+        "normal PPP startup must not bypass fail-closed physical-WAN recovery")
+recovery_marker = "vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);"
 recovery_sites = positions(start, recovery_marker)
-require(len(recovery_sites) == 3,
-        "all PPP startup/recovery failure branches must capture recovery status")
+require(len(recovery_sites) >= 6,
+        "all RAS and ordinary PPP failure paths must use fail-closed recovery")
 for position in recovery_sites:
     follow = start[position + len(recovery_marker):position + len(recovery_marker) + 260]
-    require("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);" in follow,
-            "PPP recovery failure must be aggregated before continuing")
+    require("wan_start_status = rc_first_service_start_status(" in follow,
+            "fail-closed PPP recovery failure must be aggregated before continuing")
 
 require("modem_start_status" not in start,
         "start_wan() must use one chronological first-error accumulator")

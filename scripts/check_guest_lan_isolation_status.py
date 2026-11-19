@@ -307,15 +307,15 @@ for command, status_assignment in guest_commands.items():
     assert status_assignment in rc_source[branch:next_branch], command
 assert "return ret;" in function_body(rc_source, "main(int argc, char **argv)")
 # AP-client radio restart must surface any dependent WAN recovery failure.
-apcli_wan = function_body(wifi, "static int\\ncheck_apcli_wan(int is_5g, int radio_on)")
+apcli_wan = function_body(wifi, "static int\ncheck_apcli_wan(int is_5g, int radio_on)")
 assert "if (get_ap_mode())" in apcli_wan and "return 0;" in apcli_wan
 assert "status = full_restart_wan();" in apcli_wan
 assert "status = try_wan_reconnect(1, 0);" in apcli_wan
 assert "if (status != 0)" in apcli_wan and "return status;" in apcli_wan
 assert "WAN recovery after %s AP-client radio restart failed" in apcli_wan
 for signature, band in (
-    ("int\\nrestart_wifi_wl(int radio_on, int need_reload_conf)", 1),
-    ("int\\nrestart_wifi_rt(int radio_on, int need_reload_conf)", 0),
+    ("int\nrestart_wifi_wl(int radio_on, int need_reload_conf)", 1),
+    ("int\nrestart_wifi_rt(int radio_on, int need_reload_conf)", 0),
 ):
     restart = function_body(wifi, signature)
     compact = " ".join(restart.split())
