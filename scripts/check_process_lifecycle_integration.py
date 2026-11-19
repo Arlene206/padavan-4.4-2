@@ -1344,7 +1344,11 @@ print("watchdog process inventory tri-state recovery/start integration: PASS")
 lltd_start = services_source.split("int\nstart_lltd(void)", 1)[1].split("\n}", 1)[0]
 lltd_launcher = 'start_status = eval("/bin/lld2d", IFNAME_BR);'
 assert 'if (nvram_invmatch("lltd_enable", "1"))' in lltd_start
-assert lltd_start.index("return 1;") < lltd_start.index('optional_daemon_start_status("lld2d", "lld2d")')
+lltd_disabled = lltd_start.split('if (nvram_invmatch("lltd_enable", "1"))', 1)[1].split(
+    'optional_daemon_start_status("lld2d", "lld2d")', 1
+)[0]
+assert "return 0;" in lltd_disabled
+assert "return 1;" not in lltd_disabled
 assert "if (start_status > 0)" in lltd_start and "if (start_status < 0)" in lltd_start
 assert lltd_launcher in lltd_start
 assert 'logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);' in lltd_start
@@ -1368,7 +1372,11 @@ assert "return process_presence_start_postcondition(start_status," in lltd_start
 rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
 rstats_launcher = 'start_status = eval("/sbin/rstats");'
 assert 'if (nvram_invmatch("rstats_enable", "1"))' in rstats_start
-assert rstats_start.index("return 1;") < rstats_start.index('optional_daemon_start_status("rstats", "rstats")')
+rstats_disabled = rstats_start.split('if (nvram_invmatch("rstats_enable", "1"))', 1)[1].split(
+    'optional_daemon_start_status("rstats", "rstats")', 1
+)[0]
+assert "return 0;" in rstats_disabled
+assert "return 1;" not in rstats_disabled
 assert "if (start_status > 0)" in rstats_start and "if (start_status < 0)" in rstats_start
 assert rstats_launcher in rstats_start
 assert 'logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);' in rstats_start
@@ -2302,7 +2310,11 @@ print("watchdog process inventory tri-state recovery/start integration: PASS")
 lltd_start = services_source.split("int\nstart_lltd(void)", 1)[1].split("\n}", 1)[0]
 lltd_launcher = 'start_status = eval("/bin/lld2d", IFNAME_BR);'
 assert 'if (nvram_invmatch("lltd_enable", "1"))' in lltd_start
-assert lltd_start.index("return 1;") < lltd_start.index('optional_daemon_start_status("lld2d", "lld2d")')
+lltd_disabled = lltd_start.split('if (nvram_invmatch("lltd_enable", "1"))', 1)[1].split(
+    'optional_daemon_start_status("lld2d", "lld2d")', 1
+)[0]
+assert "return 0;" in lltd_disabled
+assert "return 1;" not in lltd_disabled
 assert "if (start_status > 0)" in lltd_start and "if (start_status < 0)" in lltd_start
 assert lltd_launcher in lltd_start
 assert 'logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);' in lltd_start
@@ -2326,7 +2338,11 @@ assert "return process_presence_start_postcondition(start_status," in lltd_start
 rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
 rstats_launcher = 'start_status = eval("/sbin/rstats");'
 assert 'if (nvram_invmatch("rstats_enable", "1"))' in rstats_start
-assert rstats_start.index("return 1;") < rstats_start.index('optional_daemon_start_status("rstats", "rstats")')
+rstats_disabled = rstats_start.split('if (nvram_invmatch("rstats_enable", "1"))', 1)[1].split(
+    'optional_daemon_start_status("rstats", "rstats")', 1
+)[0]
+assert "return 0;" in rstats_disabled
+assert "return 1;" not in rstats_disabled
 assert "if (start_status > 0)" in rstats_start and "if (start_status < 0)" in rstats_start
 assert rstats_launcher in rstats_start
 assert 'logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);' in rstats_start
