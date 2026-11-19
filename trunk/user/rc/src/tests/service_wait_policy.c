@@ -6,6 +6,23 @@
 
 #include "service_wait_policy.h"
 
+struct sleep_fixture {
+	unsigned int calls;
+	unsigned int requested[SERVICE_WAIT_MAX_INTERRUPTS + 1U];
+	unsigned int remaining[SERVICE_WAIT_MAX_INTERRUPTS + 1U];
+};
+
+static unsigned int
+fixture_sleep(unsigned int seconds, void *opaque)
+{
+	struct sleep_fixture *fixture = (struct sleep_fixture *)opaque;
+	unsigned int index = fixture->calls++;
+
+	assert(index < SERVICE_WAIT_MAX_INTERRUPTS + 1U);
+	fixture->requested[index] = seconds;
+	return fixture->remaining[index];
+}
+
 struct nanosleep_fixture {
 	unsigned int calls;
 	struct timespec requested[SERVICE_WAIT_MAX_INTERRUPTS + 1U];
@@ -33,17 +50,20 @@ fixture_nanosleep(const struct timespec *requested,
 static void
 test_repeated_sleep_eintr_is_bounded(void)
 {
+	struct sleep_fixture sleep_fixture;
 	struct nanosleep_fixture fixture;
 	struct timespec requested;
 	unsigned int i;
 
-	memset(&fixture, 0, sizeof(fixture));
+	memset(&sleep_fixture, 0, sizeof(sleep_fixture));
 	for (i = 0; i < SERVICE_WAIT_MAX_INTERRUPTS + 1U; i++)
-		fixture.remaining[i].tv_sec = 1;
+		sleep_fixture.remaining[i] = 1;
 	errno = 0;
-	assert(service_wait_seconds_with(1, fixture_sleep, &fixture) == -1);
+	assert(service_wait_seconds_with(1, fixture_sleep, &sleep_fixture) == -1);
 	assert(errno == EINTR);
-	assert(fixture.calls == SERVICE_WAIT_MAX_INTERRUPTS + 1U);
+	assert(sleep_fixture.calls == SERVICE_WAIT_MAX_INTERRUPTS + 1U);
+	for (i = 0; i < sleep_fixture.calls; i++)
+		assert(sleep_fixture.requested[i] == 1);
 
 	memset(&fixture, 0, sizeof(fixture));
 	for (i = 0; i < SERVICE_WAIT_MAX_INTERRUPTS + 1U; i++) {

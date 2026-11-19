@@ -11,30 +11,29 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current main before this source slice: `437c7b289b77cf601544715525a1488dcf14575e` (`fix(rc): bound repeated service wait interruptions`), parent `16b755661ec1a33cd255dec10d4bac389816a8b3`.
-- The prior procfs bounded-read source SHA `53dda2c844e18cfb879abc3bf4b96bb50d46fd2d` passed Process inventory `44632416173` and NVRAM `44632416256`; its Process umbrella failure `44632416363` was push/PR path parity and was fixed on `16b7556`, whose Process umbrella `44632969368` and AI docs `44632968248` both PASS.
-- XY-C1 `44632416166` for SHA `53dda2c` was IN_PROGRESS at last check. Latest main `437c7b2` Actions are pending; first inspect Process and service-wait regression runs and XY-C1 `44633888536`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains archival at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 is closed/unmerged. No physical-router result is available.
+- Current main before this focused regression correction: `ba47b5f7425cfef4dab3f191ce971cefce329006` (`fix(shared): bound pidfile and legacy procps I/O retries`), parent `437c7b289b77cf601544715525a1488dcf14575e`.
+- Exact-head Process umbrella `44634242619` and AI handoff docs `44634242529` PASS on `ba47b5f`; NVRAM audit `44634242550` and XY-C1 `44634242726` were still IN_PROGRESS at last check. The Process job includes the new PID-file read/write policy regression.
+- On parent `437c7b2`, Process umbrella `44633888470`, AI docs `44633888315`, watchdog `44633888607`, Inadyn `44633888240`, crond `44633888255`, vsftpd `44633888215`, networkmap `44633888756`, infosvr `44633888277`, wireless `44633888761`, WAN route `44633888640`, MiniUPnP `44633888430` and NVRAM `44633888682` PASS. NFS `44633888395` and Samba `44633888489` failed because their shared service-wait test could not compile: `fixture_sleep` was undeclared. This commit adds the missing fixture and explicit seconds-argument assertions.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains archival at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No physical-router result is available.
 
 ## Active task
 
-- The current source baseline bounds service wait EINTR loops in seconds and timespec paths. This follow-up is an independent shared process-I/O hardening slice: PID-file reads/writes, inline PID start-time reads and the legacy procps compatibility reader still had unbounded EINTR loops.
-- Extended `process_io_retry_policy.h` with injectable bounded read/write wrappers and production `process_io_read()/process_io_write()`. Routed `process_pidfile_read()`, `process_pidfile_write_all()`, `process_pidfile_record_read_start_time()` and `pids.c:read_to_buf()` through these wrappers. Persistent interruption now returns `EINTR`; non-EINTR errors remain unchanged, positive short writes still advance, and EOF semantics are preserved.
-- Added GNU89 callback regressions in `tests/process_pidfile.c` for read/write recovery, exhaustion, EOF, EIO preservation and invalid callbacks. Existing Process regression workflow compiles this test and already tracks the changed source/test paths.
-- No local compilation, target MIPS result, or physical-router behavior is claimed.
+- Fixed an exact-head CI defect in `trunk/user/rc/src/tests/service_wait_policy.c`: `test_repeated_sleep_eintr_is_bounded()` referenced missing `fixture_sleep` and treated a nanosleep fixture as a seconds-sleep fixture. Added a dedicated deterministic sleep fixture/callback; its nine calls all request the same unslept one-second remainder, asserting the eighth retry ceiling returns `EINTR` on the ninth call. Existing nanosleep cases remain separate and unchanged.
+- The prior shared process-I/O slice `ba47b5f` adds bounded wrappers for PID-file reads/writes, inline proc-stat reads and legacy procps; Process umbrella run `44634242619` passed, including its read/write callback regression.
+- No local compiler, firmware build or physical-router result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and check exact-head Process inventory/lifecycle, Process inventory and XY-C1 runs for this source commit. Inspect causal job logs for failures.
-2. XY-C1 L3 requires Build XY-C1, TRX verification and artifact upload to all PASS on the same source SHA. Pending runs do not block independent work.
-3. Continue another independently evidenced cross-userland reliability/security issue. Avoid repeating completed service-wait, service-lock and procfs-read audits without new evidence.
+1. Fetch live `main` and verify this commit's AI docs and Process regression, plus NFS daemon and Samba workflows rerun after the fixture correction. Inspect exact job logs for any new failures.
+2. Check XY-C1 run `44634242726` for source SHA `ba47b5f` through Build XY-C1, TRX verification and artifact upload; L3 requires all stages PASS on the same source SHA.
+3. Continue another independently evidenced cross-userland stability/security issue; do not spend the next session re-auditing completed retry loops.
 
 ## Verification boundary
 
-- L1: shared procfs reads are bounded in source SHA `53dda2c`; this slice adds eight-consecutive-EINTR retry caps to PID-file read/write, inline proc-stat and legacy procps read paths.
-- L2: callback-level GNU89 read/write retry regressions are added to the existing `process_pidfile.c` test target; exact-head Actions for this slice are pending.
-- L3: prior XY-C1 SHA `53dda2c` run `44632416166` was still pending; current source needs a same-SHA Build/TRX/artifact pass before L3 can be claimed.
-- L4: MIPS/uClibc signal-storm behavior and physical-router service transitions remain NOT VERIFIED.
+- L1: service-wait seconds/nanosleep wrappers in `437c7b2` use an eight-consecutive-EINTR ceiling and preserve remaining-time semantics.
+- L2: PID-file/legacy procps bounded I/O policy regression passes in Process umbrella run `44634242619` on `ba47b5f`. The missing seconds-sleep fixture found by NFS run `44633888395` and Samba run `44633888489` has been corrected here; exact reruns remain pending.
+- L3: XY-C1 run `44634242726` on `ba47b5f` was in progress; verify Build/TRX/artifact before claiming L3.
+- L4: real MIPS/uClibc signal-storm timing and physical-router behavior remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

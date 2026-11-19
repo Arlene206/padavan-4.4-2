@@ -1,3 +1,12 @@
+## 2026-11-19 — Repair the service-wait EINTR regression fixture
+
+- Exact job logs for `437c7b2` showed that NFS run `44633888395` and Samba run `44633888489` both stopped compiling `tests/service_wait_policy.c`: the seconds-sleep storm test referenced an undeclared `fixture_sleep` and incorrectly reused the nanosleep fixture type.
+- Added a dedicated injectable seconds-sleep fixture/callback. The test now verifies that the same one-second remainder is requested nine times and that the ninth interrupted call returns `EINTR`; nanosleep test cases remain independent.
+- The following source SHA `ba47b5f` passed Process umbrella `44634242619` (including PID-file read/write retry tests) and AI docs `44634242529`; NVRAM `44634242550` and XY-C1 `44634242726` were pending at checkpoint.
+- This is a focused regression-only correction; no production source or physical-router result is claimed.
+
+---
+
 ## 2026-11-19 — Bound shared PID-file and legacy procps I/O retries
 
 - Extended the existing eight-consecutive-EINTR policy with injectable bounded read/write wrappers. PID-file reads/writes, the inline PID start-time reader and legacy procps `read_to_buf()` now return preserved `EINTR` rather than retry indefinitely under a signal storm.
