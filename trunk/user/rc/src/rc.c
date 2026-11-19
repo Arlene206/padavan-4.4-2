@@ -1221,7 +1221,7 @@ init_router(void)
 		if (storage_save_status != 0)
 			logmessage(LOGNAME, "initial crontab changed but MTD storage persistence failed (status=%d)",
 				   storage_save_status);
-		if (restart_crond() != 0)
+		if (restart_crond() < 0)
 			logmessage(LOGNAME, "crond restart after initial crontab update failed");
 	}
 	// system ready
@@ -1857,8 +1857,7 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_CROND) == 0)
 		{
-			action_result = rc_notify_merge_action_result(
-				action_result, restart_crond());
+			action_result = restart_crond();
 		}
 		else if (strcmp(entry->d_name, RCN_REAPPLY_VPNSVR) == 0)
 		{
@@ -1986,7 +1985,7 @@ handle_notifications(void)
 				logmessage(LOGNAME, "time update failed while starting replacement logger daemons");
 				action_result = -1;
 			}
-			if (restart_crond() != 0)
+			if (restart_crond() < 0)
 				action_result = -1;
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SYSCTL) == 0)

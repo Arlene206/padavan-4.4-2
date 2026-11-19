@@ -168,19 +168,18 @@ assert "strcmp(bb_basename(p->argv0), procName) == 0" in pids
 assert "p->state[0] != 'Z'" in pids
 
 init_router = function_body(dispatcher, "init_router(void)")
-assert "if (restart_crond() != 0)" in init_router
+assert "if (restart_crond() < 0)" in init_router
 assert "crond restart after initial crontab update failed" in init_router
 
 crond_notify = dispatcher.split(
     "else if (strcmp(entry->d_name, RCN_RESTART_CROND) == 0)", 1
 )[1].split("else if", 1)[0]
-assert "rc_notify_merge_action_result(" in crond_notify
-assert "restart_crond()" in crond_notify
+assert "action_result = restart_crond();" in crond_notify
 
 time_notify = dispatcher.split(
     "else if (strcmp(entry->d_name, RCN_RESTART_TIME) == 0)", 1
 )[1].split("else if", 1)[0]
-assert "if (restart_crond() != 0)" in time_notify
+assert "if (restart_crond() < 0)" in time_notify
 assert "action_result = -1;" in time_notify
 assert "if (action_result < 0)" in dispatcher
 assert "completion marker retained" in dispatcher
