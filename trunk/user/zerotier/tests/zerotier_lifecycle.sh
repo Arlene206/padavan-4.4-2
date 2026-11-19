@@ -477,7 +477,7 @@ fi
 [ ! -e "$TEST_CONFIG" ] || fail "successful retry retained persistent config"
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "successful retry left a firewall rule"
 grep -Fqx -- "-D INPUT -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "retry did not use saved ZeroTier interface identity"
-grep -Fqx -- "-t nat -D POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "retry did not use the saved NAT source segment"
+grep -Fqx -- "-t nat -C POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "retry did not check the saved NAT source segment"
 
 # NAT-enabled shutdown must fail before signalling the daemon if its connected
 # route cannot be captured for source-NAT firewall cleanup.

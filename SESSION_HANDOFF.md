@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — WAN callback hardening, Inadyn recovery and SkipDBv2 lifecycle
+# 2026-11-19 continuation checkpoint — ZeroTier firewall retry regression
 
 # Cross-session execution mandate
 
@@ -10,8 +10,8 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; branch `main`.
-- Live main before this ZeroTier firewall-cleanup commit: `3fb41944a5e5fb88684bcd013d9b6b246fd130af` (parent of the atomic source/test/checker/handoff tree below). The current source line includes the WAN ZeroConf IPTV interface guard, Inadyn recovery/cache hardening, WAN sysfs counter confinement and SkipDBv2 lifecycle work.
+- Repository `Arlene206/padavan-4.4-2`; development branch `main`.
+- Parent baseline for the active ZeroTier regression correction: `3523bb9f27ba33065731abcd946ae11726d04470`. The source line includes the checked ZeroTier firewall teardown/checkpoint, the NAT table-order correction, and the current RStats NULL-safe system-time policy.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout is available in this connector-only environment. Exact GitHub Actions are the host/target validation source.
 
@@ -119,11 +119,10 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Verification boundary
 
-- Current main source SHA: `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`.
-- Exact current-SHA WAN DHCP callback `44510842900`, Process fail-closed `44510842966`, Process inventory `44510842982`, WAN route `44510843083`, NVRAM audit `44510843041`, Firewall `44510843165`, VPN server `44510842994`, HTTPD `44510843028`, miniupnpd `44510843108`, Wireless `44510843085`, ZeroTier `44510843067`, watchdog `44510842886`, WAN interface teardown `44510842926`, USB modem `44510842988`, detect_link `44510843155`, detect_internet `44510843001`, DNSMasq `44510843332`, and AI handoff docs `44510843038` all PASS.
-- Exact current-SHA XY-C1 run `44510842879` remains IN_PROGRESS at `Build XY-C1`; TRX verification and artifact upload are pending. Do not claim L3 on b7 until all three succeed on the same SHA.
-- Latest verified production-source L3 before b7: XY-C1 run `44509496895` on `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae` passed Build, TRX verification and artifact upload. Older production L3 checkpoints are listed above; they do not substitute for b7.
-- Physical-router L4 remains NOT VERIFIED.
+- Active parent main SHA: `3523bb9f27ba33065731abcd946ae11726d04470`.
+- On that exact SHA, AI handoff docs `44519760866`, RStats stability `44519760957`, and HTTPD security `44519760897` PASS. Process fail-closed `44519761195`, Process inventory `44519760869`, NVRAM audit `44519761011`, and XY-C1 `44519760903` were IN_PROGRESS at the last inspection.
+- The latest ZeroTier lifecycle run is `44519285718` on `cc450246de3e9f0a3d568021c0cac6636ece290f`; it failed only at the retry fixture's saved-NAT assertion. The first cleanup had already successfully deleted that NAT rule while preserving the injected failing INPUT rule, so the later retry correctly performs an exact `iptables -t nat -C` absence check rather than another `-D`. This commit changes the regression to assert that command.
+- The same-SHA XY-C1 run on cc450 was host-only: Build XY-C1, TRX verification and artifact upload were SKIPPED. No L3 result is claimed for this active ZeroTier slice. Physical-router L4 remains NOT VERIFIED.
 
 ## Retained historical verification details
 
@@ -134,16 +133,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Resume on `main` only. Parent for this ZeroTier regression follow-up: `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
-- The production fix in b1 reorders NAT table selection before iptables check/delete. Exact-head ZeroTier run `44518868454` then failed only at the legacy test counter: its grep counted `-D` filter lines but omitted `-t nat -D` NAT lines. This commit corrects the fixture's accounting and retains the explicit retry assertion for the saved NAT segment.
-- Inspect the new exact-head ZeroTier run and the XY-C1 Build/TRX/artifact steps separately; b1's ZeroTier regression failed and its XY run was still pending. Do not claim L3 until a same-SHA Build, TRX verification and upload all pass.
-- Preserve completed SkipDBv2, WAN sysfs counter, Inadyn and ZeroConf callback work. After the ZeroTier checks pass, continue with a separate stability/security issue elsewhere in userland; keep backup immutable.
+- Resume on `main` only. Parent baseline for this bounded correction: `3523bb9f27ba33065731abcd946ae11726d04470`. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified; PR #1 remains closed/unmerged.
+- ZeroTier production cleanup/checkpoint is in `151d7574c0197139c61a7b6a7e4d9a5883a21f99`; b1 `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` corrected `iptables -t nat -C/-D` ordering; cc450 corrected the all-rules deletion counter.
+- Exact ZeroTier run `44519285718` on cc450 failed at `retry did not use the saved NAT source segment`. This was an incorrect fixture expectation: the intentionally failed first stop still tries all other rules and successfully deletes the NAT source rule, leaving only the INPUT rule for the second attempt. The retry must load the saved segment and issue `-t nat -C POSTROUTING -s 10.147.17.0/24 -j MASQUERADE` to confirm absence; it must not issue a second NAT `-D`. This commit updates the shell assertion and static checker only; no production behavior is changed.
+- Preserve completed SkipDBv2, WAN sysfs counter, Inadyn, ZeroConf callback, and SmartDNS work. Continue an independent P1/P2 reliability/security defect once this ZeroTier correction passes; do not repeat completed audits.
 
 ## Exact first action for the next GPT
 
-1. Fetch the exact-head ZeroTier lifecycle Action for this test-count correction and inspect each step. If it passes, preserve the result; if it fails, fix the causal failure rather than re-running completed audits.
-2. Inspect the same-SHA XY-C1 Build, TRX and artifact-upload steps. Claim L3 only when all three succeed on that SHA.
-3. Continue with an independent P1/P2 userland stability/security fix and production-linked regression, using a single complete-tree commit and non-forced exact-parent CAS.
+1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle Action for this NAT retry assertion correction; diagnose any failed step rather than carrying forward the old cc450 fixture failure.
+2. Inspect exact-head XY-C1 Build, TRX verification and artifact-upload steps. Host-only results are not L3; claim L3 only when all three succeed on one SHA.
+3. Continue with an independent P1/P2 integrated userland stability/security defect and production-linked regression. Keep the backup immutable and use one complete Git tree/commit with non-forced exact-parent CAS.
 
 ## Mandatory handoff checkpoint
 

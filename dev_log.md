@@ -1,3 +1,11 @@
+## 2026-11-19 — Assert the saved ZeroTier NAT tuple on retry without redundant deletion
+
+- Parent main SHA: `3523bb9f27ba33065731abcd946ae11726d04470`. Exact ZeroTier run `44519285718` on `cc450246de3e9f0a3d568021c0cac6636ece290f` passed the NAT table-order and all-five-rule deletion checks, then failed at the saved-source retry assertion.
+- The first injected-failure stop deliberately continues independent cleanup: only the INPUT deletion fails; the NAT source rule is removed successfully. On the next stop, the saved interface/network checkpoint is used in an exact `iptables -t nat -C POSTROUTING -s 10.147.17.0/24 -j MASQUERADE` query, which should report the already-absent rule. Expecting a second `-D` was incorrect.
+- Change the regression and static source contract to require that exact NAT `-C` check, preserving the assertion that the remaining INPUT rule is deleted during retry. No production code or workflow filter changes. No local checkout/test available; exact-head Actions are required and no L3/L4 claim is made.
+
+---
+
 ## 2026-11-19 — Complete ZeroTier NAT cleanup regression after table-order fix
 
 - The source correction at `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` now issues `iptables -t nat -C/-D` with the table option before the action. The exact-head ZeroTier run `44518868454` progressed past the former NAT-table parsing failure and reached the final all-rules-deleted assertion.

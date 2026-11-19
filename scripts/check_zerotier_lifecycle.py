@@ -230,8 +230,8 @@ require('running-only' in test and
         'stop accepted iptables deletion failure' in test and
         'firewall deletion failure did not persist retry state' in test and
         'stop could not retry firewall cleanup from saved state after daemon exit' in test and
-        'retry did not use the saved NAT source segment' in test and
-        '"-t nat -D POSTROUTING -s 10.147.17.0/24 -j MASQUERADE"' in test and
+        'retry did not check the saved NAT source segment' in test and
+        '"-t nat -C POSTROUTING -s 10.147.17.0/24 -j MASQUERADE"' in test and
         'stop accepted NAT-enabled shutdown without a connected route segment' in test,
         "stop regression must model disappearance of both the interface and kernel NAT source route")
 missing_nat_route_case = test.split("# Missing NAT route is bounded", 1)[1].split("# Malformed NVRAM NAT state", 1)[0]
