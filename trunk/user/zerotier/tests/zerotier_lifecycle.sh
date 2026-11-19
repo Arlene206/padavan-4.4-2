@@ -510,7 +510,7 @@ TEST_IPTABLES_DELETE_FAIL_ON="filter INPUT -i ztunit -j ACCEPT"
 test_seed_firewall_rules
 : > "$TEST_ACTION_LOG"
 mkdir -p "$TEST_CONFIG"
-printf 'ztunit\\n10.147.17.0/24\\n' > "$TEST_CONFIG/.firewall-state"
+printf 'ztunit\n10.147.17.0/24\n' > "$TEST_CONFIG/.firewall-state"
 chmod 600 "$TEST_CONFIG/.firewall-state"
 echo stopped > "$TEST_STATE"
 TEST_MODE=none
