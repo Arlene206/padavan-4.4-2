@@ -174,6 +174,7 @@ assert "lan_dhcp_retry_schedule_status(int marker_status, int notification_statu
 assert "lan_dhcp_retry_schedule_status(EIO, 0) == 0" in callback_test
 assert "lan_dhcp_retry_schedule_status(0, ENOSPC) == 0" in callback_test
 assert "lan_dhcp_retry_schedule_status(EIO, ENOSPC) == EIO" in callback_test
+assert "lan_dhcp_retry_schedule_status(-1, -1) == -1" in callback_test
 assert publish.index('nvram_set_int_temp("lan_hosts_retry", 1)') < publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
 assert 'nvram_set_int_temp("lan_hosts_retry", 0)' in update_ap
 assert update_ap.index("if (status == 0)") < update_ap.index('nvram_set_int_temp("lan_hosts_retry", 0)')

@@ -29,6 +29,10 @@ static void
 test_host_retry_is_scheduled_when_either_recovery_path_succeeds(void)
 {
 	assert(lan_dhcp_retry_schedule_status(0, 0) == 0);
+	/* Actual NVRAM and notification APIs return -1 with errno on failure. */
+	assert(lan_dhcp_retry_schedule_status(-1, 0) == 0);
+	assert(lan_dhcp_retry_schedule_status(0, -1) == 0);
+	assert(lan_dhcp_retry_schedule_status(-1, -1) == -1);
 	assert(lan_dhcp_retry_schedule_status(EIO, 0) == 0);
 	assert(lan_dhcp_retry_schedule_status(0, ENOSPC) == 0);
 	assert(lan_dhcp_retry_schedule_status(EIO, ENOSPC) == EIO);
