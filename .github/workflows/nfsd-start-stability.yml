@@ -180,6 +180,7 @@ jobs:
           assert "service_wait_seconds(1) != 0" in restart_nfsd
           assert "sleep(1)" not in restart_nfsd
           assert "NFS restart settling wait failed" in restart_nfsd
+          assert "status = service_wait_failure_status(status);" in restart_nfsd
           assert "service_wait_seconds_with(unsigned int seconds" in service_wait
           assert "storage_operation_lock_acquire(file_lock)" in restart_nfsd
           assert restart_nfsd.index("storage_operation_lock_acquire") < restart_nfsd.index("count_stor_mountpoint()")

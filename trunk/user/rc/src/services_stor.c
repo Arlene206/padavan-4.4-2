@@ -1856,6 +1856,8 @@ int restart_nfsd(void)
 			status = errno > 0 ? errno : EIO;
 			logmessage("Storage", "NFS restart settling wait failed (status %d); refusing restart",
 				   status);
+			/* PID 1 only treats negative action_result as failure. */
+			status = service_wait_failure_status(status);
 		} else {
 			status = run_nfsd_locked();
 		}
