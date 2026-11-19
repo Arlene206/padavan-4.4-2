@@ -1292,10 +1292,18 @@ jobs:
           start_wan = body(net_wan, "start_wan(void)")
           callback_setup = start_wan.index("if (create_cb_links() != 0)")
           config_start = start_wan.index("vlan_result = config_vinet_wan()")
-          remove_links = start_wan.index("remove_cb_links();", config_start)
-          return_after_config = start_wan.index("return vlan_result;", config_start)
+          callback_failure = start_wan[callback_setup:config_start]
           assert callback_setup < config_start
-          assert start_wan.index("return errno ? errno : EIO;", callback_setup) < config_start
+          assert "callback_status = errno ? errno : EIO;" in callback_failure
+          assert "wan_start_status = rc_first_service_start_status(" in callback_failure
+          assert "wan_start_status, callback_status" in callback_failure
+          assert "return wan_start_status;" in callback_failure
+
+          remove_links = start_wan.index("remove_cb_links();", config_start)
+          return_after_config = start_wan.index("return wan_start_status;", config_start)
+          config_failure = start_wan[config_start:return_after_config]
+          assert "wan_start_status = rc_first_service_start_status(" in config_failure
+          assert "wan_start_status, vlan_result" in config_failure
           assert config_start < remove_links < return_after_config
           assert config_start < start_wan.index("launch_viptv_wan()")
 
