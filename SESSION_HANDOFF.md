@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — SmartDNS lifecycle integration and Inadyn recovery
+# 2026-11-19 continuation checkpoint — WAN callback hardening, Inadyn recovery and SkipDBv2 lifecycle
 
 # Cross-session execution mandate
 
@@ -11,9 +11,34 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; branch `main`.
-- Main parent before THIS downstream-contract repair: `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae`. The active source line includes Inadyn cache-directory permissions hardening and its fixture correction; latest SmartDNS/Inadyn source tasks are listed below.
+- Live main: `b7cfce1be8c56bb2f82c5e53919898cba3a3a542` (`fix(wan): guard ZeroConf IPTV interface environment`), parent `780e8e153a96d3732cdace2f2692a1c7c27dc7be`. It includes the previous Inadyn recovery/cache hardening, WAN sysfs counter confinement and SkipDBv2 lifecycle slices. The exact current-main WAN DHCP callback regression and all non-XY checks are PASS; XY-C1 is still running at Build.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout is available in this connector-only environment. Exact GitHub Actions are the host/target validation source.
+
+## Latest active source slices — 2026-11-19
+
+### SkipDBv2 daemon lifecycle
+
+- Source commit: `69e590769fbcb44e853820efac16112a3b60212e`.
+- The `skipd` launcher daemonizes before returning. RC now preflights tri-state presence, checks a bounded detached-child RUNNING postcondition, and shuts the daemon down through SIGTERM-only handling before reboot/power-off/firmware teardown. The stop path never escalates this persistent DB daemon to SIGKILL.
+- SkipDBv2 regression `44502462286` PASS; XY-C1 `44502462390` passed Build, TRX verification and artifact upload on that source SHA.
+
+### WAN sysfs counter confinement
+
+- Source commit: `2a490739eb0ef8d9da0a1772bb779fe686f837cd`.
+- `get_ifstats_counter()` no longer interpolates an unchecked WAN interface name into a sysfs path or accepts partial/junk decimal counters. A bounded interface-component allowlist, fixed `rx_bytes`/`tx_bytes` names, checked path construction and strict uint64 parsing are regression-covered under GNU89/ASan/UBSan.
+- XY-C1 `44505963750` passed Build, TRX verification and artifact upload on this exact source SHA.
+
+### Inadyn failure recovery and private cache
+
+- Source sequence: `01e965edf79d548510786dd29c78b61e92da6eb1` adds restoration of the previous daemon after pre-launch cache/config failures; `1f6ec97d4b46c674efb6b130c8c5c83970c8d683` makes the cache directory owned/private with mode 0700; `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae` repairs the missing header include and fixture declarations.
+- The initial Inadyn CI failure on the permission-hardening commit was a test compile/fixture issue, not hidden: the follow-up fixed it. On 03dc, Inadyn `44509496651`, Process inventory `44509496666`, DNSMasq `44509496752` and WAN route `44509496774` all PASS. XY-C1 `44509496895` passed Build, TRX verification and artifact upload on 03dc.
+
+### ZeroConf IPTV callback guard
+
+- Current source commit: `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`.
+- `zcip_viptv_main()` called `strlen(safe_getenv("interface"))` without protecting against a NULL environment value. It now uses the existing NULL/empty-safe DHCP interface guard, and the WAN callback workflow includes this fourth udhcpc/zcip entrypoint in its source contract.
+- Exact WAN DHCP callback `44510842900`, Process fail-closed `44510842966`, Process inventory `44510842982`, and AI handoff docs `44510843038` PASS on b7. XY-C1 `44510842879` was IN_PROGRESS at Build on the latest poll; current-main L3 is therefore pending.
 
 ## Completed recent slices
 
@@ -94,11 +119,11 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Verification boundary
 
-- AP DHCP renewal recovery: exact WAN callback regression `44496707114` PASS on `f9d54df535c24e09ee9d7781003c180d38f896cf`.
-- WAN interface-name bounds: exact WAN callback regression `44499846484` PASS on `9f2367b578d376593d4a32d2849cba97708961a7`. The same source SHA's XY-C1 workflow `44499578824` completed Build, TRX and artifact-upload steps successfully.
-- PPPoE config and relay validation: exact WAN callback `44501725249` PASS on current main `72fc0604832ff6fa3f3cfc7a152a0895b5e74896`. The earlier `44501588287` failure on `213546` was only the static checker's escaped-newline boundary; the underlying ASan/UBSan bounds test passed and the corrected exact-SHA rerun is green.
-- On `213546dfb420c350c3754eb9cb9b2b6d706dd350`, NVRAM audit `44501588395`, AI docs `44501588399`, HTTPD auth/security `44501588392`, Process inventory `44501588327`, Process fail-closed `44501588361`, Firewall startup `44501588307`, WAN route `44501588455` and USB storage `44501588302` all PASS.
-- XY-C1 run `44501588862` on production SHA `213546dfb420c350c3754eb9cb9b2b6d706dd350` remains IN_PROGRESS at Build; TRX and artifact upload are pending. The older `44500974346` run on `1ed9992` is also in progress. Do not claim L3 for either until Build, TRX and upload complete. Physical-router L4 remains NOT VERIFIED.
+- Current main source SHA: `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`.
+- Exact current-SHA WAN DHCP callback `44510842900`, Process fail-closed `44510842966`, Process inventory `44510842982`, WAN route `44510843083`, NVRAM audit `44510843041`, Firewall `44510843165`, VPN server `44510842994`, HTTPD `44510843028`, miniupnpd `44510843108`, Wireless `44510843085`, ZeroTier `44510843067`, watchdog `44510842886`, WAN interface teardown `44510842926`, USB modem `44510842988`, detect_link `44510843155`, detect_internet `44510843001`, DNSMasq `44510843332`, and AI handoff docs `44510843038` all PASS.
+- Exact current-SHA XY-C1 run `44510842879` remains IN_PROGRESS at `Build XY-C1`; TRX verification and artifact upload are pending. Do not claim L3 on b7 until all three succeed on the same SHA.
+- Latest verified production-source L3 before b7: XY-C1 run `44509496895` on `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae` passed Build, TRX verification and artifact upload. Older production L3 checkpoints are listed above; they do not substitute for b7.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Retained historical verification details
 
@@ -109,23 +134,17 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Resume on `main` only. Parent for THIS handoff repair: `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
-- The former `get_ifstats_counter()` handoff task is already implemented at `2a490739eb0ef8d9da0a1772bb779fe686f837cd`: strict interface-component/sysfs path validation, snprintf bounds, strict uint64 decimal parsing, GNU89/ASan/UBSan cases and Process/XY-C1 trigger coverage. Do not repeat it.
-- SmartDNS source work now includes atomic generated-config publication, failed-prepare rollback, restoration of the previous daemon on failed replacement start, verified DNSMasq reload before teardown, a single shell lock across start/stop/restart, and fail-closed custom-config append errors. Dedicated shell tests cover lock ownership, config publication and append failure rollback.
-- Inadyn work includes restoration after prelaunch failures and cache-directory permissions hardening. Latest exact-head Inadyn and Process Actions are being monitored.
-- CI evidence:
-  - DNSMasq run `44509496752` PASS on `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae`.
-  - Inadyn run `44509496651`, Process inventory run `44509496666`, and WAN route run `44509496774` PASS on the same `03dc5a8` SHA.
-  - XY-C1 run `44509496895` on `03dc5a8` was IN_PROGRESS at the last check. XY-C1 run `44508947825` on `b20805b` completed successfully but Build XY-C1, TRX and artifact upload were SKIPPED (host-only); do not claim L3. The latest exact production-source Build/TRX/artifact sequence remains pending.
-  - PID 1 notification queue run `44507439447` on `01f20c6` failed only at its generic SmartDNS C restart assertion (line 122); all preceding GNU89 policy tests passed. USB storage run `44508947435` on `b20805b` passed inventory and caller-graph checks but failed the generic SmartDNS stop/start assertion. THIS COMMIT updates both consumers to require SmartDNS's exact shell-locked restart delegation while preserving generic service failure gates for every other daemon.
-  - Physical-router L4 remains NOT VERIFIED. Do not infer L3 for latest main from an earlier host-only or older firmware run.
-- No production source behavior changes in THIS commit; it aligns static integration contracts and refreshes this live handoff. After exact-head PID 1, USB storage and docs Actions pass, select an independent reliability/security task outside the just-completed SmartDNS/Inadyn slices.
+- Resume on `main` only. Current main is `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
+- Recently completed source slices to preserve (do not re-audit): SkipDBv2 detached startup/graceful shutdown (`69e5907`); WAN sysfs counter path confinement (`2a49073`); Inadyn pre-launch recovery and private cache permissions (`01e965e`, `1f6ec97`, `03dc5a8`); ZeroConf IPTV NULL-safe interface environment (`b7cfce1`); preceding PPPoE/WAN interface bounds, AP DHCP host-file retry and RAS launch rollback changes.
+- SmartDNS source work includes atomic config publication, failed-prepare rollback, restoration of the previous daemon on failed replacement start, verified DNSMasq reload before teardown, one shell lock across start/stop/restart and fail-closed custom-config append errors.
+- Exact b7 Actions are green except XY-C1, which is still building. See Verification boundary for the full run IDs. No L4 device validation is available in this environment.
+- Continue with a different integrated userland subsystem; pending XY-C1 is not a gate on independent work. When its run completes, inspect Build, TRX and artifact upload individually and record only the evidence actually present.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head PID 1 notification queue, USB storage hotplug, and AI handoff documentation Actions for THIS COMMIT. Diagnose any new causal failure; do not repeat passing source/test suites or treat failed ancestors as current failures.
-2. Inspect the exact XY-C1 run on the current production source SHA. Claim L3 only if Build XY-C1, TRX verification and artifact upload all pass on the same SHA.
-3. Continue an independent P1/P2 stability or security slice in a different integrated userland subsystem. Keep the backup immutable; create one complete tree/commit and update `main` with `force=false` and the exact expected parent.
+1. Fetch live `main`, then inspect XY-C1 run `44510842879` on exact SHA `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`. If still pending, move to an independent subsystem; if failed, inspect the failing step and repair its cause. Claim current-main L3 only after Build XY-C1, TRX verification and artifact upload all pass on b7.
+2. Preserve the already-passing current-SHA WAN callback and integration checks; do not repeat the completed Inadyn, SkipDBv2, sysfs counter or SmartDNS audits absent a new failure.
+3. Select an independent P1/P2 stability or security defect across the remaining userland, add a production-linked regression, and use one complete tree/atomic commit with non-forced exact-parent CAS. Keep the backup immutable.
 
 ## Mandatory handoff checkpoint
 

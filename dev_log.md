@@ -1,3 +1,36 @@
+## 2026-11-19 — Guard the ZeroConf IPTV interface environment
+
+- Parent main SHA: `780e8e153a96d3732cdace2f2692a1c7c27dc7be`; source commit: `b7cfce1be8c56bb2f82c5e53919898cba3a3a542`.
+- `zcip_viptv_main()` called `strlen(man_ifname)` immediately after `safe_getenv("interface")`. The existing DHCP interface policy explicitly accepts that the environment accessor may return NULL, so this path could dereference NULL before callback work began.
+- Replaced the raw length call with `dhcp_wan_interface_name_is_valid(man_ifname)` and added `zcip_viptv_main` to the callback workflow's same source-contract loop used for udhcpc/zcip entrypoints. Existing policy regression covers NULL and empty names.
+- Exact WAN DHCP callback `44510842900`, Process fail-closed `44510842966`, Process inventory `44510842982`, and AI handoff docs `44510843038` PASS on b7. XY-C1 `44510842879` was still in progress at Build; current b7 L3 remains pending.
+
+---
+
+## 2026-11-19 — Verify Inadyn rollback and private cache directory
+
+- Production sequence: `01e965edf79d548510786dd29c78b61e92da6eb1` restores a previously running Inadyn daemon after pre-launch cache/config failure; `1f6ec97d4b46c674efb6b130c8c5c83970c8d683` hardens the cache directory to an owned 0700 directory; `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae` corrects the missing unistd declaration and misplaced test-fixture assignments.
+- The initial Inadyn run on the permission change failed at policy-test compilation/fixtures. The follow-up's exact Inadyn run `44509496651` passed. Process inventory `44509496666`, DNSMasq `44509496752`, and WAN route `44509496774` also passed on 03dc.
+- Exact XY-C1 `44509496895` passed Build, TRX verification and artifact upload on 03dc. The later b7 source change requires its own XY check.
+
+---
+
+## 2026-11-19 — Confine WAN sysfs counter paths
+
+- Source commit: `2a490739eb0ef8d9da0a1772bb779fe686f837cd`.
+- Removed direct interpolation of NVRAM-derived interface names into sysfs statistics paths. New policy enforces one bounded interface component, a fixed RX/TX counter allowlist, checked snprintf results, and strict unsigned-decimal uint64 parsing.
+- Added traversal, invalid token, boundary, path truncation, sign/junk/multiline and overflow regression cases, compiled with GNU89 warnings-as-errors and ASan/UBSan in Process workflow. Exact XY-C1 `44505963750` passed Build, TRX verification and artifact upload.
+
+---
+
+## 2026-11-19 — Verify SkipDBv2 detached daemon lifecycle
+
+- Source commit: `69e590769fbcb44e853820efac16112a3b60212e`.
+- Added tri-state preflight and bounded RUNNING postcondition after `skipd` daemonization; added SIGTERM-only stop to shutdown/firmware teardown so the persistent database can commit and close cleanly.
+- SkipDBv2 regression `44502462286` passed. Exact XY-C1 `44502462390` passed Build, TRX verification and artifact upload on this source SHA.
+
+---
+
 ## 2026-11-19 — Align downstream lifecycle contracts with SmartDNS's locked restart wrapper
 
 - Parent main SHA: `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae`.
