@@ -353,6 +353,43 @@ dhcp_lease_nvram_publish(const struct dhcp_lease_nvram_value *values,
 	return 0;
 }
 
+/*
+ * Best-effort restoration is intentionally different from publish rollback:
+ * it attempts every old tuple even if one setter reports an error. It must
+ * never compensate a failed restore by re-applying the candidate lease.
+ */
+static inline int
+dhcp_lease_nvram_restore(const struct dhcp_lease_nvram_value *values,
+			 size_t count,
+			 dhcp_lease_nvram_set_operation set_value,
+			 void *context, int *restore_status)
+{
+	size_t i;
+	int status, first_status = 0;
+
+	if (restore_status)
+		*restore_status = 0;
+	if (!values || count == 0 || !set_value)
+		return EINVAL;
+
+	for (i = 0; i < count; ++i) {
+		if (!values[i].name || !*values[i].name ||
+		    !values[i].previous_value)
+			return EINVAL;
+	}
+
+	for (i = count; i > 0; --i) {
+		status = set_value(context, values[i - 1].name,
+				   values[i - 1].previous_value);
+		if (status != 0 && first_status == 0)
+			first_status = status;
+	}
+
+	if (restore_status)
+		*restore_status = first_status;
+	return first_status;
+}
+
 /* Strict decimal parser: no signs, whitespace, suffixes or overflow. */
 static inline int
 dhcp_lease_decimal_is_valid(const char *value, unsigned int minimum,

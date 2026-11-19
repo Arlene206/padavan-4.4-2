@@ -1764,20 +1764,14 @@ lan_dhcp_nvram_restore_values(
 	int *rollback_status)
 {
 	struct nvram_transaction transaction;
-	struct dhcp_lease_nvram_value restore[7];
-	int i, status, end_status, helper_rollback = 0;
+	int status, end_status;
 
 	if (rollback_status)
 		*rollback_status = 0;
-	if (!values || count == 0 || count > sizeof(restore) / sizeof(restore[0])) {
+	if (!values || count == 0 || count > 7) {
 		if (rollback_status)
 			*rollback_status = EINVAL;
 		return EINVAL;
-	}
-	for (i = 0; i < (int)count; ++i) {
-		restore[i].name = values[i].name;
-		restore[i].value = values[i].previous_value;
-		restore[i].previous_value = values[i].value;
 	}
 
 	errno = 0;
@@ -1787,16 +1781,17 @@ lan_dhcp_nvram_restore_values(
 			*rollback_status = status;
 		return status;
 	}
-	status = dhcp_lease_nvram_publish(restore, count,
+
+	status = dhcp_lease_nvram_restore(values, count,
 					  lan_dhcp_nvram_transaction_set,
-					  &transaction, &helper_rollback);
+					  &transaction, rollback_status);
 	if (nvram_transaction_end(&transaction) != 0) {
 		end_status = errno ? errno : EIO;
-		if (helper_rollback == 0)
-			helper_rollback = status != 0 ? status : end_status;
+		if (status == 0)
+			status = end_status;
+		if (rollback_status && *rollback_status == 0)
+			*rollback_status = end_status;
 	}
-	if (rollback_status)
-		*rollback_status = helper_rollback;
 	return status;
 }
 
@@ -1805,7 +1800,7 @@ lan_dhcp_nvram_state_publish(const struct dhcp_lease_nvram_value *values,
 			     size_t count, int *rollback_status)
 {
 	struct nvram_transaction transaction;
-	int status, end_status;
+	int status, end_status, recovery_status, recovery_detail = 0;
 
 	if (rollback_status)
 		*rollback_status = 0;
@@ -1817,20 +1812,27 @@ lan_dhcp_nvram_state_publish(const struct dhcp_lease_nvram_value *values,
 					  &transaction, rollback_status);
 	if (nvram_transaction_end(&transaction) != 0) {
 		end_status = errno ? errno : EIO;
-		if (status == 0) {
-			int restore_status, restore_detail = 0;
-
-			restore_status = lan_dhcp_nvram_restore_values(
-				values, count, &restore_detail);
-			if (rollback_status)
-				*rollback_status = restore_detail ? restore_detail :
-					restore_status;
-		} else if (rollback_status && *rollback_status == 0) {
-			*rollback_status = end_status;
-		}
 		if (status == 0)
 			status = end_status;
+		else if (rollback_status && *rollback_status == 0)
+			*rollback_status = end_status;
 	}
+
+	/*
+	 * The in-lock rollback above is the fast path. Re-apply every old tuple
+	 * under a fresh lock after any error: a failed ioctl/close can report
+	 * failure after the tuple was actually changed, and a failed rollback
+	 * must not prevent later keys from being restored.
+	 */
+	if (status != 0) {
+		recovery_status = lan_dhcp_nvram_restore_values(
+			values, count, &recovery_detail);
+		if (rollback_status)
+			*rollback_status = recovery_status != 0 ?
+				(recovery_detail != 0 ? recovery_detail :
+				 recovery_status) : 0;
+	}
+
 	return status;
 }
 

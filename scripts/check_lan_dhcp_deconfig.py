@@ -102,9 +102,13 @@ assert "nvram_transaction_set(transaction, name, value, 1)" in nvram_setter
 assert "return errno ? errno : EIO;" in nvram_setter
 nvram_restore = c_function_body(lan, "lan_dhcp_nvram_restore_values(")
 assert "nvram_transaction_begin(&transaction)" in nvram_restore
-assert "dhcp_lease_nvram_publish(restore, count," in nvram_restore
-assert "restore[i].value = values[i].previous_value;" in nvram_restore
+assert "dhcp_lease_nvram_restore(values, count," in nvram_restore
 assert "nvram_transaction_end(&transaction)" in nvram_restore
+assert "dhcp_lease_nvram_restore(" in policy
+assert "for (i = count; i > 0; --i)" in policy
+assert "values[i - 1].previous_value" in policy
+assert "dhcp_lease_nvram_restore(values, 3" in test
+assert "fake.fail_restore_after_write = 1;" in test
 nvram_publish = c_function_body(
     lan, "lan_dhcp_nvram_state_publish("
 )

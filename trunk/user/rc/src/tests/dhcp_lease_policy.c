@@ -106,6 +106,7 @@ struct dhcp_nvram_fake {
 	int fail_new_after_write;
 	int fail_restore_index;
 	int fail_restore_status;
+	int fail_restore_after_write;
 	char events[32];
 	size_t event_count;
 };
@@ -138,8 +139,12 @@ dhcp_nvram_fake_set(void *context, const char *name, const char *value)
 			}
 		} else if (strcmp(value, fake->old_values[i]) == 0) {
 			dhcp_nvram_fake_event(fake, (char)('a' + i));
-			if (i == fake->fail_restore_index)
+			if (i == fake->fail_restore_index) {
+				if (fake->fail_restore_after_write)
+					snprintf(fake->current[i], sizeof(fake->current[i]),
+						 "%s", value);
 				return fake->fail_restore_status;
+			}
 		} else {
 			return EINVAL;
 		}
@@ -215,6 +220,43 @@ test_lan_dhcp_nvram_publish_compensates_partial_updates(void)
 	assert(strcmp(fake.current[0], "old-a") == 0);
 	assert(strcmp(fake.current[1], "old-b") == 0);
 	assert(strcmp(fake.current[2], "new-c") == 0);
+
+	/*
+	 * Recovery after a partial rollback must not stop at the first error or
+	 * compensate an applied restore back to the failed candidate lease.
+	 */
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.new_values[i]);
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	fake.fail_restore_index = 1;
+	fake.fail_restore_status = EIO;
+	fake.fail_restore_after_write = 0;
+	assert(dhcp_lease_nvram_restore(values, 3, dhcp_nvram_fake_set,
+					&fake, &rollback_status) == EIO);
+	assert(rollback_status == EIO);
+	assert(strcmp(fake.events, "cba") == 0);
+	assert(strcmp(fake.current[0], "old-a") == 0);
+	assert(strcmp(fake.current[1], "new-b") == 0);
+	assert(strcmp(fake.current[2], "old-c") == 0);
+
+	/* A close error can follow a successful ioctl. Keep that old value and
+	 * continue restoring the rest rather than undoing the applied restore. */
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.new_values[i]);
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	fake.fail_restore_index = 2;
+	fake.fail_restore_status = EIO;
+	fake.fail_restore_after_write = 1;
+	assert(dhcp_lease_nvram_restore(values, 3, dhcp_nvram_fake_set,
+					&fake, &rollback_status) == EIO);
+	assert(rollback_status == EIO);
+	assert(strcmp(fake.events, "cba") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
 }
 
 /* A withdrawn IPTV lease stays deconfigured only when every required
