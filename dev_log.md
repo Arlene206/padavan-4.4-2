@@ -1,3 +1,14 @@
+## 2026-11-19 — Match WAN checker to compact whitespace representation
+
+- Parent main SHA: `1c368975b354e4b8e7277146f86891cf6cb34f55`.
+- Exact-head USB modem `44444344542`, Process lifecycle `44444344676`, and Firewall `44444344609` all failed at the same assertion. Logs confirmed policy binaries passed; the checker applied `compact()` (one space for each whitespace run) but expected expressions with no spaces. The first attempt's correction mistakenly removed spaces rather than matching the compact form.
+- Correct callback and setup aggregate/cleanup literals to the actual compacted source representation. No production C behavior changes.
+- AI handoff contract on parent `1c368` passed run `44444344544`; exact parent WAN route and Process inventory were successful. These parent results do not validate the new checker commit.
+- Exact-head reruns required for USB modem, Process lifecycle, Firewall and AI docs. XY-C1 remains separately subject to same-SHA Build/TRX/artifact inspection.
+- No local test, MIPS build or hardware verification performed. L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Correct WAN source-check normalization and handoff checkpoint contract
 
 - Parent main SHA: `18a73adeea90de2935a07cad347e1f214a76966c`.
