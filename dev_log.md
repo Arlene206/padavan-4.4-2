@@ -1,3 +1,11 @@
+## 2026-11-19 — Correct iNIC disable source-contract matcher
+
+- Exact-head Wireless Action `44573883138` for source commit `3d86aebbef26086a4383489efc4470e35e91b9df` passed the GNU89 `-Wall -Wextra -Werror` policy regression, bridge policy regression, and guest isolation policy regression. Its Python production-source contract then failed because the newly added expected multiline call literal was over-escaped and therefore did not match the actual C statement.
+- Fixed the checker to assert the stable call prefix and argument token independently, retaining the separate assertion that the call precedes bridge detach, PHY isolation/RGMII disable, GPIO reset, and the final status return. No production code or test behavior was weakened.
+- Exact-head AI docs, Process inventory, iNIC signal, watchdog signal and HTTPD checks passed on `3d86aeb`; Process regression, NVRAM and XY-C1 were still pending at the last poll. This checker follow-up's exact-head Wireless and XY-C1 runs must be checked after commit.
+
+---
+
 ## 2026-11-19 — Preserve iNIC force-disable interface failure in returned status
 
 - Selected a separate RC wireless stability defect after closing WAN gateway ARP identity. In `start_inic_mii()`, the explicit `inic_disable` branch discarded the result of `wif_control_success(ifname_inic, 0)`; it still continued bridge detach, PHY isolation, RGMII disable and reset, but the returned status could be successful when the initial interface-down failed and later cleanup succeeded.
