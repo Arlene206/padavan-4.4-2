@@ -1,8 +1,8 @@
-## 2026-11-19 — Align ZeroTier cleanup-state source contract with conditional state save
+## 2026-11-19 — Match ZeroTier interface and route cleanup guard contracts to POSIX shell
 
-- Exact ZeroTier run `44521726781` on `841b2e83926b4407a5e2c9a624921b5d633b4fd6` passed the complete shell lifecycle regression; the source checker then failed at its stop-order contract.
-- The checker required the literal `if ! zerotier_firewall_state_save; then`, but the implementation correctly saves only when a valid interface identity is available: `if [ -n "$zt0" ] && ! zerotier_firewall_state_save; then`. The source contract now pins that conditional form and still enforces state-save-before-kill-before-firewall-cleanup-before-route-cleanup.
-- This is a stale checker assertion, not a source-order defect. Exact-head ZeroTier/Process/XY validation remains pending. RStats source SHA `3523bb9` has already passed both exact RStats host run `44519760957` and XY-C1 Build/TRX/artifact run `44519760903`.
+- Exact ZeroTier run `44522100399` on `500ba4a4f1bd45b19f3c08c3dcaab0333562e0d8` passed the shell lifecycle regression and passed the preceding stop-state ordering contract after the prior correction.
+- The next source contract failed because it expected parameter-expansion forms `[ -z "${zt0:-}" ]` and `[ -z "${ip_segment:-}" ]`; actual production shell uses simple initialized variables `[ -z "$zt0" ]` and `[ -z "$ip_segment" ]`. The checker now asserts the exact production guards; it continues to enforce interface/route capture before daemon stop and saved-state reuse during firewall cleanup.
+- This is checker-only alignment. Product-source SHA `3523bb9` remains L3 VERIFIED by exact RStats/XY-C1 runs `44519760957` and `44519760903` (Build/TRX/artifact all PASS).
 
 ---
 

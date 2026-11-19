@@ -149,12 +149,12 @@ require('if [ -n "$zt0" ] && ! zerotier_firewall_state_save; then' in stop_body 
         stop_body.index('if ! del_rules; then') < stop_body.index('if ! zero_route "del"; then'),
         "stop must persist cleanup identity first and preserve config/routes until checked firewall deletion succeeds")
 
-require('if [ -z "${zt0:-}" ]; then' in stop_body and
+require('if [ -z "$zt0" ]; then' in stop_body and
         stop_body.index('zt0="$(zerotier_interface_name)"') <
         stop_body.index('ip_segment="$(zerotier_kernel_route_segment "$zt0")"') <
         stop_body.index('if ! kill_z; then'),
         "stop must capture both the ZeroTier interface and NAT source segment before daemon shutdown")
-require('if [ -z "${ip_segment:-}" ]; then' in del_rules_body and
+require('if [ -z "$ip_segment" ]; then' in del_rules_body and
         'ip_segment="$(zerotier_kernel_route_segment "$zt0")"' in del_rules_body,
         "firewall cleanup must reuse a pre-captured NAT source segment after the daemon route disappears")
 require('[ "$(nvram get zerotier_nat)" = "1" ] && [ -z "$ip_segment" ]' in stop_body and

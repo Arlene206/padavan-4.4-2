@@ -119,11 +119,11 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Verification boundary
 
-- Current parent main SHA: `841b2e83926b4407a5e2c9a624921b5d633b4fd6`.
-- RStats source SHA `3523bb9f27ba33065731abcd946ae11726d04470`: host regression/source contracts `44519760957` PASS; exact XY-C1 `44519760903` Build, TRX verification and artifact upload all PASS on that same SHA. RStats NULL-safe time conversion is L3 verified.
-- Exact 841b ZeroTier run `44521726781`: shell lifecycle regression PASS. The source checker reached the stop-order contract and failed because it expected an unconditional state-save literal; the implementation conditionally saves when `zt0` is present. This follow-up aligns the contract with the source while preserving ordering checks.
-- Exact 841b AI handoff docs `44521726764` PASS. Physical-router L4 remains NOT VERIFIED.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Current parent main SHA: `500ba4a4f1bd45b19f3c08c3dcaab0333562e0d8`.
+- Exact ZeroTier run `44522100399`: shell lifecycle regression PASS; Python source checker failed on a stale guard literal. It expected `if [ -z "${zt0:-}" ]; then`, while the POSIX-shell production code uses `if [ -z "$zt0" ]; then`. The adjacent cleanup check likewise expected `${ip_segment:-}` instead of the actual `$ip_segment` guard. This commit aligns both exact literals without weakening the order or cleanup assertions.
+- Exact 500ba AI handoff docs run `44522100404` PASS.
+- Product-source SHA `3523bb9f27ba33065731abcd946ae11726d04470`: RStats regression `44519760957`, AI docs `44519760866`, HTTPD security `44519760897`, Process inventory `44519760869`, NVRAM audit `44519761011`, and XY-C1 `44519760903` PASS. XY-C1 Build, TRX verification and artifact upload all succeeded on that exact source SHA (L3 VERIFIED).
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Retained historical verification details
 
@@ -135,16 +135,15 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Active task
 
 - Resume on `main` only. Parent for this source-contract correction: `841b2e83926b4407a5e2c9a624921b5d633b4fd6`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
-- ZeroTier product cleanup/checkpoint and NAT argument ordering are implemented. Exact 841b shell lifecycle regression PASS; Python source checker now reaches the stop-order assertion but fails because its literal expects unconditional state-save while production safely uses `if [ -n "$zt0" ] && ! zerotier_firewall_state_save; then`. This commit updates the contract and retains the required state-save/kill/firewall/route ordering.
+- ZeroTier product cleanup/checkpoint and NAT argument ordering are implemented. Exact 841b/500ba shell lifecycle regression PASS; the conditional state-save assertion now matches source. Exact 500ba run `44522100399` advanced to the next checker clause and failed because the checker expected `${zt0:-}` / `${ip_segment:-}` forms, while production uses POSIX shell guards `$zt0` / `$ip_segment`. This commit aligns these two guard literals; capture-before-kill and saved-route reuse ordering remain required.
 - RStats NULL-safe `localtime()` source commit `3523bb9f27ba33065731abcd946ae11726d04470` is L3 verified: host `44519760957`, XY-C1 Build/TRX/artifact `44519760903` all PASS on that exact SHA.
 - After the ZeroTier contracts pass, continue an independent P1/P2 userland reliability/security fix without repeating completed audits.
 
 ## Exact first action for the next GPT
 
-1. Fetch exact-head ZeroTier and Process Actions for this stop-state contract correction; confirm all source/RC contracts execute and pass.
-2. Preserve RStats L3 evidence: source SHA `3523bb9`, host `44519760957`, and same-SHA XY-C1 Build/TRX/artifact `44519760903` all passed.
-3. Continue with an independent P1/P2 userland stability/security source fix and regression, using a complete-tree atomic commit with non-forced exact-parent CAS. Keep the frozen backup untouched.
-
+1. Inspect the exact-head ZeroTier run from this interface/NAT guard contract correction. Shell regression already passed on 500ba; verify Python source/RC contracts and WAN-up status notification pass next.
+2. Preserve the L3 evidence for unchanged production source SHA `3523bb9f27ba33065731abcd946ae11726d04470`: RStats host `44519760957` plus XY-C1 Build/TRX/artifact `44519760903` all PASS.
+3. After ZeroTier contracts pass, select a distinct integrated P1/P2 userland stability/security defect; implement production change plus regression and one atomic full-tree commit. Keep backup immutable; use non-forced exact-parent CAS.
 ## Mandatory handoff checkpoint
 
 Mandatory handoff checkpoint: every session MUST inspect live main, current product-source SHA, relevant exact-head Actions, verification boundary, and next concrete action.
