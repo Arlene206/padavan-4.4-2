@@ -2,7 +2,7 @@
 
 ## Execution policy
 
-Continue main-only implementation across conversations. Recover the exact live source and CI state once, then resume concrete engineering tasks. Use one atomic main commit per logical task. Do not repeat completed audits, create status-only commits, or stop at planning.
+Continue main-only implementation across conversations. Recover the exact live source and CI state once, then resume concrete engineering tasks. Use one atomic main commit per logical task. Do not repeat completed audits, create status-only commits, or stop at planning. Before context exhaustion, complete the safe slice and preserve its exact source/CI boundary.
 
 - Create all changed blobs, one complete tree and one commit with the current main parent; update main with non-forced compare-and-swap using that exact SHA.
 - Verify Actions by exact `head_sha`. A pending run does not block independent work; a failed relevant run must be triaged before claiming validation.
@@ -11,12 +11,12 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current main parent for this lock-hardening slice: `9fd21db80a40dddbf64d24af1505d0e974375052` (`test(rc): align hotplug and restart contracts`). PPP fail-closed recovery, APCLI WAN result propagation and SD/MMC notification error propagation are already on main; do not repeat those source audits.
-- Product-source SHA `3488f129babe376bccf27e132776c45910614dd7` passed XY-C1 Build, TRX verification and artifact upload in run `44625809599` (L3 for that exact source SHA only).
-- Exact b4 follow-up: Wireless `44627098078` PASS. Process `44627098093` failed a stale assertion looking at an earlier APCLI status merge instead of the later IAPP failure merge. Storage `44627098102` and HTTPD security `44627098106` failed stale expectations for legacy `notify_rc()` after the checked queue change. AI docs `44627098108` failed because the mandatory checkpoint sentence had been shortened; `9fd21db` repairs these checker/docs contracts. Exact reruns on `9fd21db` remain unverified.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is archival only. PR #1 remains closed/unmerged.
-- The XY-C1 path filter did not watch `miniupnpd_lifecycle_lock.h`; this slice adds it to the push filter so a production-header change triggers a full firmware validation.
-- Root `dev_log.md` contains 32 dated records before this entry; it remains below the 120-record rotation threshold.
+- Current MiniUPnP lock hardening source commit: `e736dbfcff830e6ac6baa32026fff7a6334787d1` (`fix(rc): bound MiniUPnP lock EINTR retries`). Acquisition and release both cap consecutive `fcntl(F_SETLK)` EINTR retries at eight; the normal EACCES/EAGAIN timeout is unchanged.
+- Exact-head Process lifecycle `44628661363`, MiniUPnP atomic config `44628661018`, and Process inventory `44628661358` PASS on `e736dbfcff830e6ac6baa32026fff7a6334787d1`; this includes the GNU89 lock regression and semantic source checker.
+- AI handoff documentation run `44628661127` failed because the checker requires the literal cross-session rule `Before context exhaustion`; this docs-only follow-up restores the required sentence. Exact rerun pending.
+- NVRAM audit `44628661528` and XY-C1 firmware validation `44628661156` were IN_PROGRESS at last query. XY-C1 must complete Build, TRX verification and artifact upload on this same production-source SHA before L3 is claimed.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; archival only. PR #1 remains closed/unmerged.
+- No physical-router result is available. Host regressions/Actions are L2; XY-C1 Build/TRX/artifact on one exact production SHA is L3; device behavior is L4 NOT VERIFIED.
 - No physical-router result is available. Host regressions/Actions are L2; XY-C1 Build/TRX/artifact on one exact production SHA is L3; device behavior is L4 NOT VERIFIED.
 
 ## Active task

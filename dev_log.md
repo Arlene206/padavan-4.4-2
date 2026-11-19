@@ -1,3 +1,11 @@
+## 2026-11-19 — Restore required cross-session handoff rule
+
+- Exact-head Process lifecycle `44628661363`, MiniUPnP atomic config `44628661018`, and Process inventory `44628661358` PASS on source commit `e736dbfcff830e6ac6baa32026fff7a6334787d1`; these include the new MiniUPnP EINTR-bound source and regression contract.
+- AI handoff docs `44628661127` failed because `SESSION_HANDOFF.md` no longer contained the required literal phrase `Before context exhaustion`. Restored the cross-session execution rule; this is a documentation-contract repair only.
+- NVRAM audit `44628661528` and XY-C1 firmware run `44628661156` were still in progress at checkpoint. XY-C1 Build/TRX/artifact must all pass on `e736dbfcff830e6ac6baa32026fff7a6334787d1`; no L3 claim yet. No local compile or physical-router result is claimed.
+
+---
+
 ## 2026-11-19 — Bound MiniUPnP lifecycle-lock EINTR retries
 
 - Source review found lock acquisition and release both retry `fcntl(F_SETLK)` indefinitely on `EINTR`; the configured wait only limits EACCES/EAGAIN contention.
