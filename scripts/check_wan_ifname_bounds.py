@@ -10,6 +10,7 @@ policy = (RC / "wan_ifname_policy.h").read_text()
 net_wan = (RC / "net_wan.c").read_text()
 services = (RC / "services_ex.c").read_text()
 firewall = (RC / "firewall_ex.c").read_text()
+network = (RC / "net.c").read_text()
 ppp = (RC / "net_ppp.c").read_text()
 rc_header = (RC / "rc.h").read_text()
 
@@ -47,4 +48,14 @@ assert ppp_launch.index("wan_ifname_copy(pppoe_ifname") < ppp_launch.index("ppp_
 assert ppp_launch.index("wan_ifname_copy(pppoe_ifname") < ppp_launch.index("ppp_options_file_open(options)")
 assert 'fprintf(fp, "nic-%s\\n", pppoe_ifname);' in ppp_launch
 assert 'fprintf(fp, "nic-%s\\n", get_man_ifname(unit));' not in ppp_launch
-print("WAN interface-name bounded-copy and PPPoE config-injection contracts: PASS")
+
+assert '#include "wan_ifname_policy.h"' in network
+relay_start = network.index("set_passthrough_pppoe(int is_on)")
+relay_end = network.index("\\n}\\n", relay_start)
+relay = network[relay_start:relay_end]
+relay_compact = " ".join(relay.split())
+assert "wan_ifname_copy(relay_ifname, sizeof(relay_ifname), get_man_ifname(0))" in relay_compact
+assert 'eval("/usr/sbin/pppoe-relay", "-C", IFNAME_BR, "-S", relay_ifname)' in relay_compact
+assert 'eval("/usr/sbin/pppoe-relay", "-C", IFNAME_BR, "-S", get_man_ifname(0))' not in relay_compact
+assert relay.index("wan_ifname_copy(relay_ifname") < relay.index('eval("/usr/sbin/pppoe-relay"')
+print("WAN interface-name bounds and PPPoE configuration/argv contracts: PASS")

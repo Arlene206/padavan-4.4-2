@@ -39,6 +39,7 @@
 #include "network_sysctl.h"
 #include "process_inventory.h"
 #include "pppoe_relay_policy.h"
+#include "wan_ifname_policy.h"
 #include "route_status_policy.h"
 #include "conntrack_flush_policy.h"
 #include "igmpproxy_config_file.h"
@@ -1709,12 +1710,22 @@ set_passthrough_pppoe(int is_on)
 	if (is_on && nvram_match("fw_pt_pppoe", "1")) {
 		enum process_presence presence;
 		int scan_error = 0;
-		int start_status;
+		int start_status, interface_status;
+		char relay_ifname[16];
 
 		presence = pppoe_relay_process_presence(&scan_error);
 		if (pppoe_relay_should_start(presence)) {
+			interface_status = wan_ifname_copy(relay_ifname, sizeof(relay_ifname),
+						   get_man_ifname(0));
+			if (interface_status != 0) {
+				errno = interface_status;
+				logmessage(LOGNAME,
+					   "refusing PPPoE relay startup with invalid interface name (status=%d)",
+					   interface_status);
+				return interface_status;
+			}
 			start_status = eval("/usr/sbin/pppoe-relay", "-C", IFNAME_BR,
-					    "-S", get_man_ifname(0));
+					    "-S", relay_ifname);
 			start_status = pppoe_relay_confirm_started(start_status);
 			if (start_status != 0)
 				logmessage(LOGNAME, "pppoe-relay launch/readiness failed (status=%d, errno=%d)",
