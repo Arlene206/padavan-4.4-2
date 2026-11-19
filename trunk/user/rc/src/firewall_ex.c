@@ -38,6 +38,7 @@
 #include "firewall_rule_file.h"
 #include "firewall_command_status.h"
 #include "firewall_restore_transaction.h"
+#include "firewall_lifecycle_lock.h"
 #include "firewall_module_table_policy.h"
 #include "firewall_mangle_ttl_policy.h"
 #include "firewall_rp_filter_policy.h"
@@ -2783,8 +2784,8 @@ ipt_nat_default(void)
 	return result;
 }
 
-int
-start_firewall_ex(void)
+static int
+start_firewall_ex_locked(void)
 {
 	int unit, wan_proto, i_tcp_mss, i_use_man, i_rp;
 	int status = 0;
@@ -3095,3 +3096,44 @@ firewall_restore_complete:
 	return status;
 }
 
+int
+start_firewall_ex(void)
+{
+	int lock_fd, status, saved_errno;
+	int release_status, release_errno;
+
+	lock_fd = firewall_lifecycle_lock_acquire();
+	if (lock_fd < 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "Firewall rebuild refused: cannot acquire lifecycle lock (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return saved_errno;
+	}
+
+	/* The restore transaction spans multiple tables; serialize the whole
+	 * rebuild, not just each individual iptables-restore invocation. */
+	errno = 0;
+	status = start_firewall_ex_locked();
+	saved_errno = errno;
+
+	release_status = firewall_lifecycle_lock_release(lock_fd);
+	if (release_status != 0) {
+		release_errno = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "Firewall rebuild completed but lifecycle lock release failed (errno=%d)",
+			   release_errno);
+		if (status == 0) {
+			status = release_errno;
+			saved_errno = release_errno;
+		}
+	}
+
+	if (status != 0) {
+		if (saved_errno <= 0)
+			saved_errno = status > 0 ? status : EIO;
+		errno = saved_errno;
+	}
+	return status;
+}

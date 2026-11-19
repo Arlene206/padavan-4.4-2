@@ -23,6 +23,8 @@ on:
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/firewall_lifecycle_lock.c"
       - "trunk/user/rc/src/firewall_module_table_policy.h"
       - "trunk/user/rc/src/tests/firewall_module_table_policy.c"
       - "trunk/user/rc/src/firewall_mangle_ttl_policy.h"
@@ -74,6 +76,8 @@ on:
       - "trunk/user/rc/src/tests/sfe_config_policy.c"
       - "trunk/user/rc/src/tests/hwnat_config_policy.c"
       - "trunk/user/rc/src/firewall_ex.c"
+      - "trunk/user/rc/src/firewall_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/firewall_lifecycle_lock.c"
       - "trunk/user/rc/src/firewall_module_table_policy.h"
       - "trunk/user/rc/src/tests/firewall_module_table_policy.c"
       - "trunk/user/rc/src/firewall_mangle_ttl_policy.h"
@@ -111,6 +115,12 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+
+      - name: Compile and run firewall lifecycle interprocess lock regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/firewall_lifecycle_lock.c -o "$RUNNER_TEMP/firewall-lifecycle-lock"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firewall-lifecycle-lock"
 
       - name: Compile and run firewall startup policy regression
         run: |
@@ -223,7 +233,7 @@ jobs:
 
           firewall_source_for_ttl = Path("trunk/user/rc/src/firewall_ex.c").read_text()
           firewall_source_for_ttl = Path("trunk/user/rc/src/firewall_ex.c").read_text()
-          rp_filter_source = body(firewall_source_for_ttl, "start_firewall_ex(void)")
+          rp_filter_source = body(firewall_source_for_ttl, "start_firewall_ex_locked(void)")
           rp_filter_write = rp_filter_source.index("firewall_rp_filter_write_status(")
           rp_filter_abort = rp_filter_source.index("return status;", rp_filter_write)
           assert rp_filter_source.index('set_interface_conf_int("ipv4", man_if, "rp_filter", i_rp)') < rp_filter_write
@@ -249,7 +259,17 @@ jobs:
           module_policy = Path("trunk/user/rc/src/firewall_module_table_policy.h").read_text()
           module_test = Path("trunk/user/rc/src/tests/firewall_module_table_policy.c").read_text()
           firewall_source = Path("trunk/user/rc/src/firewall_ex.c").read_text()
-          firewall_reconcile = body(firewall_source, "start_firewall_ex(void)")
+          firewall_reconcile = body(firewall_source, "start_firewall_ex_locked(void)")
+          firewall_entry = body(firewall_source, "start_firewall_ex(void)")
+          assert '#include "firewall_lifecycle_lock.h"' in firewall_source
+          acquire_pos = firewall_entry.index("firewall_lifecycle_lock_acquire()")
+          rebuild_pos = firewall_entry.index("status = start_firewall_ex_locked();")
+          release_pos = firewall_entry.index("firewall_lifecycle_lock_release(lock_fd)")
+          assert "if (lock_fd < 0)" in firewall_entry
+          assert acquire_pos < rebuild_pos < release_pos
+          lock_test = Path("trunk/user/rc/src/tests/firewall_lifecycle_lock.c").read_text()
+          assert "test_cross_process_exclusion_and_stable_inode" in lock_test
+          assert "test_untrusted_lock_files_fail_closed" in lock_test
           detect_gate = 'if (nvram_match("pppoemwan_enable", "1"))'
           detect_call = 'hook_error = firewall_log_command_failure("PPPoE-MWAN detection",'
           detect_merge = "status = rc_first_service_start_status(status, hook_error);"
@@ -288,6 +308,8 @@ jobs:
               "trunk/user/rc/src/tests/sfe_config_policy.c",
               "trunk/user/rc/src/tests/hwnat_config_policy.c",
               "trunk/user/rc/src/firewall_ex.c",
+              "trunk/user/rc/src/firewall_lifecycle_lock.h",
+              "trunk/user/rc/src/tests/firewall_lifecycle_lock.c",
               "trunk/user/rc/src/firewall_restore_transaction.h",
               "trunk/user/rc/src/firewall_adbyby_restore_policy.h",
               "trunk/user/rc/src/firewall_command_status.h",
