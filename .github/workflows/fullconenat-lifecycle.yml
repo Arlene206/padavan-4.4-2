@@ -237,7 +237,7 @@ jobs:
           nat_writer = function_body(firewall, "ip6t_nat_rules(char *man_if)")
           assert 'firewall_apply_core_restore("IPv6 NAT restore", "ip6tables", "nat", ipt_file);' in nat_writer
           assert "-A POSTROUTING -s fc00:101:101::1/64 -j FULLCONENAT" in nat_writer
-          rebuild = function_body(firewall, "start_firewall_ex(void)")
+          rebuild = function_body(firewall, "start_firewall_ex_locked(void)")
           nat_call = rebuild.index("ip6t_nat_rules(man_if);")
           nat_gate = rebuild.index("if (!firewall_restore_transaction_ok(&firewall_core_restore_transaction))", nat_call)
           assert nat_call < nat_gate

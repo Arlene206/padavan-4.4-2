@@ -91,7 +91,7 @@ apply = body(FIREWALL, "firewall_apply_core_restore(const char *operation")
 require("forward_status = firewall_disable_forwarding(" in apply
         and "result = rc_first_service_start_status(result, forward_status);" in apply,
         "standalone rollback must retain forwarding-disable failure")
-firewall_start = body(FIREWALL, "start_firewall_ex(void)")
+firewall_start = body(FIREWALL, "start_firewall_ex_locked(void)")
 require(firewall_start.count("forward_status = firewall_disable_forwarding(") == 2,
         "both rebuild rollback branches must check forwarding disable")
 require("forward_status = set_ipv4_forward(1);" in firewall_start
