@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Radio inventory fail-closed source commit: `0c7648e03312f2923b343339209ce57cdb58f600` (parent `d7c6c57e47876b320bd42eb2f95f0542d6cb4cc6`). The immediate follow-up is a test-only fixture correction after exact IAPP run `44426426321` exposed test-state contamination; the source change itself was not implicated. The preceding WAN gateway monitor SIGTERM source fix passed all relevant exact-head checks, including XY-C1 Build/TRX/artifact. The AP LAN PHY-readiness source baseline `747bb165c61051000dfe6426c0de808cfd96f8b1` remains independently L3 VERIFIED.
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Radio inventory fail-closed source is committed as `0c7648e03312f2923b343339209ce57cdb58f600`, with fixture-only test correction `d06c6a31212a42c5ec5afec99124010b80fcc2a4`. The corrected exact-head IAPP (`44426901415`), Process regression (`44426901495`), Process inventory (`44426901507`) and AI docs (`44426901440`) runs all PASS. XY-C1 workflow `44426901490` succeeded but skipped Build/TRX/artifact because the head only changed test/docs, so the IAPP production source still requires exact-source L3. Frozen backup remains unchanged.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,26 +77,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Close the Ralink IAPP radio procfs inventory fail-closed regression and verify exact-head firmware.
+Complete exact-source validation for Ralink IAPP radio procfs inventory fail-closed handling.
 
-- Production fix committed at `0c7648e03312f2923b343339209ce57cdb58f600`: `iappd.sh::start()` now treats grep status 0 as match, 1 as a complete no-match inventory, and >1 as a procfs read error. It aborts on unreadable `/proc/modules` or required `/proc/interrupts` before daemon launch/firewall publication; only a complete no-match inventory selects the legacy `rax0` fallback.
-- Exact IAPP run `44426426321` failed at the later `wrong radio arguments` assertion. Its log confirms the two new unreadable-inventory cases and the valid fallback assertion passed; the fallback test then left shared fixtures modified for later legacy tests.
-- THIS FOLLOW-UP COMMIT restores the original `mt76x3_ap` and `rai0` fixtures immediately after the fallback test. It is a test-only harness repair and does not alter production behavior.
-- Parent production SHA `d7c6c57e47876b320bd42eb2f95f0542d6cb4cc6` had passed WAN ARP `44424808719`, Process fail-closed `44424808712`, Process inventory `44424808772`, NVRAM `44424808887`, AI docs `44424808821`, and XY-C1 `44424808889` with Build/TRX/artifact complete.
-- No local shell test or MIPS build was run in this connector-only session. Exact-head reruns of IAPP lifecycle, Process regression/inventory, AI docs and XY-C1 are required for the corrected regression. Physical-router L4 remains NOT VERIFIED.
+- Production change `0c7648e03312f2923b343339209ce57cdb58f600` distinguishes grep status 0 (radio marker found), 1 (successfully read but no marker), and >1 (procfs read error). A read error aborts before launch and firewall publication; the legacy `rax0` fallback is allowed only when both inventory files are readable and neither contains the preferred marker.
+- Initial IAPP run `44426426321` exposed a test fixture leak, corrected in test-only commit `d06c6a31212a42c5ec5afec99124010b80fcc2a4`. The corrected exact-head IAPP `44426901415`, Process fail-closed `44426901495`, Process inventory `44426901507`, and AI docs `44426901440` all PASS.
+- The corrected-head XY-C1 run `44426901490` completed but Build XY-C1, TRX verification and artifact upload were all SKIPPED because the correction changed only tests/docs. Do NOT claim L3 from it.
+- THIS SOURCE FOLLOW-UP suppresses the raw stderr from the two controlled `grep -q` inventory probes while preserving each command's exit status. The service still logs a concise actionable inventory error through `log_iapp()`; this prevents expected read failures from violating the Process integration stderr contract.
+- No local shell test or MIPS build was run in this connector-only session. Exact-head IAPP lifecycle, Process integration/inventory, AI docs and production Build/TRX/artifact must be checked for the new source SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: PASS — production code distinguishes absent radio markers from procfs read errors and fails closed.
-- L2: The first IAPP test run `44426426321` exposed only a test-fixture leak after all new branch assertions passed; this follow-up restores fixture state. Corrected exact-head IAPP and Process checks are pending. Local tests NOT RUN.
-- L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload for the production commit. This follow-up itself is test-only; the preceding parent SHA's firmware build does not validate the production commit.
+- L1: PASS — unknown procfs inventory no longer selects the fallback radio and cannot launch the daemon.
+- L2: The corrected regression parent `d06c6a3` passes IAPP, Process regression/inventory and AI docs. The stderr-suppression production follow-up requires fresh exact-head reruns.
+- L3: OPEN — no XY-C1 Build/TRX/artifact run has completed on a SHA containing the IAPP production change. Run `44426901490` is SKIPPED at those stages and is not evidence.
 - L4: Target BusyBox procfs error handling and physical-radio interface selection remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head IAPP lifecycle, Process fail-closed/inventory, AI handoff docs and XY-C1 runs for this fixture-correction commit. Read job logs on any failure.
-2. Close L2 only after IAPP lifecycle passes both procfs read-error cases and all existing tests. Close L3 only when Build XY-C1, TRX verification and artifact upload all pass on the exact production-source SHA.
-3. Continue an independent P1 userland reliability fix after these checks; do not revisit the completed AP-LAN, WAN SIGTERM or storage tasks. Keep the frozen backup unchanged.
+1. Fetch live `main`; inspect the exact-head IAPP, Process regression/inventory, AI docs and XY-C1 runs for the stderr-suppression source commit. Check Build, TRX and artifact steps individually.
+2. If any checker fails, inspect the failing log and repair the real source/test contract. Do not weaken the stderr or fail-closed assertions.
+3. After exact-source L2/L3, continue the next independent P1 userland reliability task without repeating completed AP-LAN, WAN SIGTERM or storage work. Keep the frozen backup unchanged.
 
 ## Mandatory handoff checkpoint
 

@@ -1,3 +1,13 @@
+## 2026-11-19 — Keep IAPP procfs diagnostics in the controlled service log
+
+- Parent main SHA: `d06c6a31212a42c5ec5afec99124010b80fcc2a4`.
+- The initial exact IAPP run `44426426321` emitted raw grep errors to stderr for the two intentional missing-procfs regression fixtures; the Process integration checker requires the lifecycle invocation to return no uncontrolled stderr. The production path already records each inventory error through `log_iapp()` and returns grep's exact status, so the raw grep diagnostic duplicated the controlled service log.
+- Redirect only the two `grep -q` stderr streams to `/dev/null`; preserve exit status tri-state and fail-closed returns. The structured `log_iapp()` error remains authoritative, while expected inventory faults no longer leak raw command diagnostics to the caller.
+- The fixture-only correction parent `d06c6a3` has IAPP lifecycle `44426901415`, Process regression `44426901495`, Process inventory `44426901507`, and AI docs `44426901440` PASS. Its XY-C1 workflow `44426901490` completed successfully but deliberately SKIPPED Build/TRX/artifact because it contained test/docs only; it is not L3 evidence for the radio inventory production source.
+- Exact-head IAPP, Process and XY-C1 production Build/TRX/artifact runs for this source change are pending. No local shell test or local MIPS build was run; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Restore IAPP radio fixtures after fallback regression
 
 - Parent main SHA: `0c7648e03312f2923b343339209ce57cdb58f600`.

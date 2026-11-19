@@ -103,14 +103,14 @@ start() {
   iapp_remove_firewall_rules || return $?
   # grep distinguishes an absent match (1) from an unreadable procfs
   # inventory (>1). Never choose a fallback radio when hardware state is unknown.
-  grep -q mt76x3_ap "$proc_modules"
+  grep -q mt76x3_ap "$proc_modules" 2>/dev/null
   match_status=$?
   case "$match_status" in
     0)
       radio=rai0; set -- -wi rai0 -d 0
       ;;
     1)
-      grep -q rai0 "$proc_interrupts"
+      grep -q rai0 "$proc_interrupts" 2>/dev/null
       match_status=$?
       case "$match_status" in
         0) radio=rai0; set -- -wi rai0 -wi ra0 -d 0 ;;
