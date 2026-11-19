@@ -17,6 +17,16 @@ test_interface_failures_are_not_published(void)
 }
 
 static int
+test_interface_and_hw_nat_failures_preserve_first_error(void)
+{
+	return wireless_radio_status_merge(0, 0) != 0 ||
+	       wireless_radio_status_merge(0, EIO) != EIO ||
+	       wireless_radio_status_merge(0, 256) != 256 ||
+	       wireless_radio_status_merge(-ENODEV, EIO) != -ENODEV ||
+	       wireless_radio_status_merge(7, 0) != 7;
+}
+
+static int
 test_shutdown_failure_is_sticky(void)
 {
 	int all_stopped = 1;
@@ -123,6 +133,7 @@ main(void)
 {
 	if (test_success_is_published() ||
 	    test_interface_failures_are_not_published() ||
+	    test_interface_and_hw_nat_failures_preserve_first_error() ||
 	    test_shutdown_failure_is_sticky() ||
 	    test_incomplete_shutdown_is_reported() ||
 	    test_startup_failure_is_sticky() ||

@@ -43,8 +43,16 @@ wif_control(const char *wifname, int is_up)
 	logmessage(LOGNAME, "%s: ifname: %s, isup: %d", __func__, wifname, is_up);
 	ret = ifconfig(wifname, is_up ? IFUP : 0, NULL, NULL);
 #if defined (USE_MT7615_AP) || defined (USE_MT7915_AP) || defined (USE_MT76X2_AP)
-	if (is_up && is_module_loaded("hw_nat")) {
-		doSystem("iwpriv %s set hw_nat_register=%d", wifname, 1);
+	/* Register only an interface that was actually brought up. */
+	if (ret == 0 && is_up && is_module_loaded("hw_nat")) {
+		int hw_nat_status = doSystem("iwpriv %s set hw_nat_register=%d",
+					     wifname, 1);
+
+		if (hw_nat_status != 0)
+			logmessage(LOGNAME,
+				   "%s: hardware NAT registration failed for %s (status=%d)",
+				   __func__, wifname, hw_nat_status);
+		ret = wireless_radio_status_merge(ret, hw_nat_status);
 	}
 #endif
 	return ret;

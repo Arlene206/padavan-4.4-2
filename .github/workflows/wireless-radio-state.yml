@@ -168,6 +168,13 @@ jobs:
           assert "ret = ifconfig(wifname, is_up ? IFUP : 0, NULL, NULL);" in interface_control
           assert 'doSystem("ifconfig %s %s 2>/dev/null", wifname' not in interface_control
           assert "return ret;" in interface_control
+          hw_nat_gate = 'if (ret == 0 && is_up && is_module_loaded("hw_nat")) {'
+          hw_nat_command = 'int hw_nat_status = doSystem("iwpriv %s set hw_nat_register=%d",'
+          assert hw_nat_gate in interface_control
+          assert hw_nat_command in interface_control
+          assert 'ret = wireless_radio_status_merge(ret, hw_nat_status);' in interface_control
+          assert interface_control.index(hw_nat_gate) < interface_control.index(hw_nat_command)
+          assert interface_control.index(hw_nat_command) < interface_control.index('ret = wireless_radio_status_merge(ret, hw_nat_status);')
 
           control = function_body(source, "wif_control_success(const char *wifname, int is_up)")
           assert "ret = wif_control(wifname, is_up)" in control

@@ -14,6 +14,17 @@ wireless_radio_status_success(int operation_status)
 }
 
 /*
+ * Preserve the first failed wireless operation when interface setup has more
+ * than one required step (for example, ifconfig followed by HW NAT
+ * registration). A later success must never hide an earlier failure.
+ */
+static inline int
+wireless_radio_status_merge(int first_status, int next_status)
+{
+	return first_status != 0 ? first_status : next_status;
+}
+
+/*
  * Preserve a failed interface-down result while still attempting every
  * remaining interface during radio shutdown.
  */
