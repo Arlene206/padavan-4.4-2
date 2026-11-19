@@ -149,10 +149,14 @@ def run() -> int:
     bcm_header = ROOT / "trunk/linux-4.4.x/include/nvram/bcmnvram.h"
     snapshot_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_snapshot_policy.h"
     snapshot_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_snapshot_policy.c"
+    kernel_common_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram.c"
+    compaction_policy_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/nvram_compaction_policy.h"
+    compaction_test_path = ROOT / "trunk/linux-4.4.x/drivers/nvram/tests/nvram_compaction_policy.c"
 
     for required_path in (
         adapter_path, lock_path, driver_path, driver_makefile,
-        drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path
+        drivers_makefile, bcm_header, snapshot_policy_path, snapshot_test_path,
+        kernel_common_path, compaction_policy_path, compaction_test_path
     ):
         if not required_path.is_file():
             failures.append(f"required NVRAM source missing: {required_path}")
@@ -164,6 +168,9 @@ def run() -> int:
     adapter = adapter_path.read_text(encoding="utf-8", errors="replace")
     lock_header = lock_path.read_text(encoding="utf-8", errors="replace")
     kernel_driver = driver_path.read_text(encoding="utf-8", errors="replace")
+    kernel_common = kernel_common_path.read_text(encoding="utf-8", errors="replace")
+    compaction_policy = compaction_policy_path.read_text(encoding="utf-8", errors="replace")
+    compaction_test = compaction_test_path.read_text(encoding="utf-8", errors="replace")
 
     # A raw userland ioctl/device path is allowed only in the locked shared adapter.
     raw_hits: list[tuple[str, int, str]] = []
@@ -477,6 +484,61 @@ def run() -> int:
             failures.append("single-value ioctl does not release its private snapshot")
         if "#include <linux/uaccess.h>" not in kernel_driver:
             failures.append("NVRAM ioctl must include the explicit uaccess API")
+
+
+        # Compaction must retain tuple volatility state and flash generation
+        # must never silently omit persistent tuples when the image is full.
+        compact_body = extract_function(kernel_driver, "nvram_compact_values")
+        for marker in (
+            "nvram_hash",
+            "nvram_values",
+            "nvram_offset",
+            "nvram_compaction_value_length",
+            "nvram_compaction_fits",
+            "memcpy(t->value, snapshot + source_offset, value_length + 1)",
+            "t->value =",
+            "t->val_len =",
+        ):
+            if marker not in compact_body:
+                failures.append("NVRAM arena compaction is missing " + marker)
+        if "t->val_tmp" in compact_body or "nvram_rehash(" in compact_body or "nvram_free(" in compact_body:
+            failures.append("NVRAM arena compaction must preserve tuple volatility metadata in place")
+
+        set_temp_body = extract_function(kernel_driver, "nvram_set_temp")
+        if "nvram_compact_values()" not in set_temp_body or not (
+            set_temp_body.index("nvram_compact_values()")
+            < set_temp_body.rindex("_nvram_set(")
+        ):
+            failures.append("NVRAM SET must compact its arena before retrying allocation")
+        realloc_body = extract_function(kernel_driver, "_nvram_realloc")
+        try:
+            value_publish = realloc_body.index("strcpy(rt->value, value)")
+            temp_publish = realloc_body.index("rt->val_tmp =")
+            if value_publish >= temp_publish:
+                failures.append("failed NVRAM value growth must not change tuple persistence state")
+        except ValueError:
+            failures.append("NVRAM tuple allocation does not publish its value/temp state")
+
+        generate_body = extract_function(kernel_common, "_nvram_generate")
+        if "nvram_generate_entry_size" not in generate_body or "return -ENOSPC;" not in generate_body:
+            failures.append("NVRAM flash generation must reject an image that cannot contain every persistent tuple")
+        if "if (t->val_tmp)" not in generate_body or "break;" in generate_body:
+            failures.append("NVRAM flash generation must skip only volatile tuples and never silently truncate")
+        if "nvram_free(" in generate_body or "nvram_rehash(" in generate_body:
+            failures.append("NVRAM serialization must not rebuild volatile tuples as persistent")
+
+        for marker in (
+            "nvram_compaction_value_length",
+            "nvram_compaction_fits",
+            "nvram_generate_entry_size",
+            "test_compaction_value_spans_are_bounded",
+            "test_missing_terminator_is_rejected",
+            "test_compaction_destination_boundaries",
+            "test_flash_entry_size_fails_closed",
+            "NVRAM compaction and flash-capacity policy: PASS",
+        ):
+            if marker not in compaction_policy + compaction_test:
+                failures.append("NVRAM compaction regression is missing " + marker)
 
         exit_body = extract_function(kernel_driver, "dev_nvram_exit")
         unregister = exit_body.index("unregister_chrdev(nvram_major, MTD_NVRAM_NAME);")

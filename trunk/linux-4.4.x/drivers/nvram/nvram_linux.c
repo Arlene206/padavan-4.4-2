@@ -32,6 +32,7 @@
 
 #include <nvram/bcmnvram.h>
 
+#include "nvram_compaction_policy.h"
 #include "nvram.c"
 #include "nvram_snapshot_policy.h"
 
@@ -53,6 +54,93 @@ static int nvram_major = -1;
 static struct proc_dir_entry *g_pdentry = NULL;
 static char *nvram_values = NULL;
 static unsigned long nvram_offset = 0;
+
+/*
+ * Caller holds nvram_lock. Compact only the value arena: retaining tuple
+ * nodes and their val_tmp bits keeps volatile settings volatile.
+ */
+static int
+nvram_compact_values(void)
+{
+	struct nvram_tuple *t;
+	char *snapshot;
+	unsigned long base_address;
+	size_t old_used, compacted_used, bucket;
+	int ret;
+
+	if (!nvram_values || nvram_offset > NVRAM_VALUES_SPACE)
+		return -EIO;
+
+	old_used = (size_t)nvram_offset;
+	if (old_used == 0)
+		return 0;
+
+	snapshot = kmalloc(old_used, GFP_ATOMIC);
+	if (!snapshot)
+		return -ENOMEM;
+	memcpy(snapshot, nvram_values, old_used);
+
+	base_address = (unsigned long)nvram_values;
+	compacted_used = 0;
+
+	/* Validate every old pointer and the total compacted size before
+	 * changing any tuple pointer or byte in the live value arena. */
+	for (bucket = 0; bucket < ARRAYSIZE(nvram_hash); bucket++) {
+		for (t = nvram_hash[bucket]; t; t = t->next) {
+			unsigned long value_address;
+			size_t source_offset, value_length;
+
+			if (!t->value) {
+				ret = -EIO;
+				goto done;
+			}
+			value_address = (unsigned long)t->value;
+			if (value_address < base_address ||
+			    (size_t)(value_address - base_address) >= old_used) {
+				ret = -EIO;
+				goto done;
+			}
+			source_offset = (size_t)(value_address - base_address);
+			if (nvram_compaction_value_length(snapshot, old_used,
+						  source_offset, &value_length) != 0) {
+				ret = -EIO;
+				goto done;
+			}
+			if (!nvram_compaction_fits(NVRAM_VALUES_SPACE,
+						   compacted_used, value_length)) {
+				ret = -ENOSPC;
+				goto done;
+			}
+			compacted_used += value_length + 1;
+		}
+	}
+
+	memset(nvram_values, 0, NVRAM_VALUES_SPACE);
+	compacted_used = 0;
+
+	for (bucket = 0; bucket < ARRAYSIZE(nvram_hash); bucket++) {
+		for (t = nvram_hash[bucket]; t; t = t->next) {
+			unsigned long value_address = (unsigned long)t->value;
+			size_t source_offset, value_length;
+
+			source_offset = (size_t)(value_address - base_address);
+			/* The complete source span was validated above. */
+			nvram_compaction_value_length(snapshot, old_used,
+					      source_offset, &value_length);
+			t->value = &nvram_values[compacted_used];
+			t->val_len = value_length;
+			memcpy(t->value, snapshot + source_offset, value_length + 1);
+			compacted_used += value_length + 1;
+		}
+	}
+
+	nvram_offset = compacted_used;
+	ret = 0;
+
+done:
+	kfree(snapshot);
+	return ret;
+}
 
 // from src/shared/bcmutils.c
 /*******************************************************************************
@@ -145,10 +233,8 @@ _nvram_realloc(struct nvram_tuple *t, const char *name, const char *value, int i
 		rt->next = NULL;
 	}
 
-	/* Mark for temp tuple */
-	rt->val_tmp = (is_temp) ? 1 : 0;
-
-	/* Copy value */
+	/* Copy value before changing tuple metadata; a failed growth must leave
+	 * the old value's persistence classification untouched. */
 	if (!rt->value || strcmp(rt->value, value)) {
 		if (!rt->value || val_len > rt->val_len) {
 			if ((nvram_offset + val_len + 1) >= NVRAM_VALUES_SPACE) {
@@ -160,9 +246,12 @@ _nvram_realloc(struct nvram_tuple *t, const char *name, const char *value, int i
 			rt->val_len = val_len;
 			nvram_offset += (val_len + 1);
 		}
-		
+
 		strcpy(rt->value, value);
 	}
+
+	/* Publish volatile/persistent state only after the value is committed. */
+	rt->val_tmp = (is_temp) ? 1 : 0;
 
 	return rt;
 }
@@ -198,14 +287,11 @@ nvram_set_temp(const char *name, const char *value, int is_temp)
 		return 0;
 
 	spin_lock_irqsave(&nvram_lock, flags);
-	if ((ret = _nvram_set(name, value, is_temp))) {
-		struct nvram_header *header;
-		/* Consolidate space and try again */
-		if ((header = kzalloc(NVRAM_SPACE, GFP_ATOMIC))) {
-			if (_nvram_generate(header, 1) == 0)
-				ret = _nvram_set(name, value, is_temp);
-			kfree(header);
-		}
+	ret = _nvram_set(name, value, is_temp);
+	if (ret) {
+		/* Reclaim abandoned arena bytes without serializing away val_tmp. */
+		if (nvram_compact_values() == 0)
+			ret = _nvram_set(name, value, is_temp);
 	}
 	spin_unlock_irqrestore(&nvram_lock, flags);
 
@@ -418,7 +504,7 @@ nvram_commit(void)
 
 	/* Regenerate NVRAM */
 	spin_lock_irqsave(&nvram_lock, flags);
-	ret = _nvram_generate((struct nvram_header *)bufw, 0);
+	ret = _nvram_generate((struct nvram_header *)bufw);
 	spin_unlock_irqrestore(&nvram_lock, flags);
 	if (ret)
 		goto done;

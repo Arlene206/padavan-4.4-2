@@ -26,7 +26,7 @@ char * _nvram_get(const char *name);
 int _nvram_set(const char *name, const char *value, int is_temp);
 int _nvram_unset(const char *name);
 int _nvram_getall(char *buf, int count, int include_temp);
-int _nvram_generate(struct nvram_header *header, int rehash);
+int _nvram_generate(struct nvram_header *header);
 int _nvram_init(struct nvram_header *header);
 void _nvram_uninit(void);
 
@@ -209,7 +209,7 @@ _nvram_getall(char *buf, int count, int include_temp)
 
 /* Regenerate NVRAM. Should be locked. */
 int
-_nvram_generate(struct nvram_header *header, int rehash)
+_nvram_generate(struct nvram_header *header)
 {
 	int i;
 	char *ptr, *end;
@@ -230,14 +230,25 @@ _nvram_generate(struct nvram_header *header, int rehash)
 	/* Leave space for a double NUL at the end */
 	end = (char *)header + NVRAM_SPACE - 2;
 
-	/* Write out all tuples */
+	/* Write all persistent tuples or fail without publishing a partial image. */
 	for (i = 0; i < ARRAYSIZE(nvram_hash); i++) {
 		for (t = nvram_hash[i]; t; t = t->next) {
-			if (!rehash && t->val_tmp)
+			size_t name_length, value_length, entry_length;
+
+			if (t->val_tmp)
 				continue;
-			if ((ptr + strlen(t->name) + 1 + strlen(t->value) + 1) > end)
-				break;
-			ptr += sprintf(ptr, "%s=%s", t->name, t->value) + 1;
+
+			name_length = strlen(t->name);
+			value_length = strlen(t->value);
+			if (!nvram_generate_entry_size((size_t)(end - ptr),
+						       name_length, value_length,
+						       &entry_length))
+				return -ENOSPC;
+
+			memcpy(ptr, t->name, name_length);
+			ptr[name_length] = '=';
+			memcpy(ptr + name_length + 1, t->value, value_length + 1);
+			ptr += entry_length;
 		}
 	}
 
@@ -255,12 +266,6 @@ _nvram_generate(struct nvram_header *header, int rehash)
 
 	/* Set new CRC8 */
 	header->crc_ver_init |= crc;
-
-	/* Reinitialize hash table */
-	if (rehash) {
-		nvram_free();
-		nvram_rehash(header);
-	}
 
 	return 0;
 }

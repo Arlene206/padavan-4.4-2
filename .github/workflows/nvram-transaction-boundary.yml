@@ -48,6 +48,17 @@ jobs:
             -fsanitize=address,undefined -fno-omit-frame-pointer \
             trunk/user/shared/src/tests/nvram_transaction_lock.c \
             -o "$RUNNER_TEMP/nvram-transaction-lock"
+      - name: Compile NVRAM compaction and flash-capacity policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/linux-4.4.x/drivers/nvram \
+            trunk/linux-4.4.x/drivers/nvram/tests/nvram_compaction_policy.c \
+            -o "$RUNNER_TEMP/nvram-compaction-policy"
+      - name: Exercise NVRAM compaction and flash-capacity policy
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: "$RUNNER_TEMP/nvram-compaction-policy"
       - name: Compile NVRAM unlocked-snapshot policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror \
