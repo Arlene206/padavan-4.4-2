@@ -235,6 +235,8 @@ on:
       - "trunk/user/rc/Makefile"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/src/Makefile"
+      - "trunk/user/shared/src/net_ifstats_policy.h"
+      - "trunk/user/shared/src/netutils.c"
       - "trunk/user/shared/src/include/router_account_policy.h"
       - "trunk/user/Makefile"
       - "scripts/check_samba_shared_header.py"

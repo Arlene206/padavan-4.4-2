@@ -64,6 +64,9 @@ rstats_source = (root / "trunk/user/rc/src/rstats.c").read_text()
 lldt_main_source = (root / "trunk/user/lldt/src/main.c").read_text()
 lldt_osl_source = (root / "trunk/user/lldt/src/osl-linux.c").read_text()
 shared_makefile = (root / "trunk/user/shared/src/Makefile").read_text()
+netutils_source = (root / "trunk/user/shared/src/netutils.c").read_text()
+net_ifstats_policy = (root / "trunk/user/shared/src/net_ifstats_policy.h").read_text()
+net_ifstats_test = (root / "trunk/user/shared/src/tests/net_ifstats_policy.c").read_text()
 shared_header = (root / "trunk/user/shared/src/shutils.h").read_text()
 pids_source = (root / "trunk/user/shared/src/pids.c").read_text()
 pids_presence_policy = (root / "trunk/user/shared/src/pids_presence_policy.h").read_text()
@@ -3219,6 +3222,34 @@ assert set(push_paths) == set(pull_request_paths), (
 assert ".github/workflows/process-lifecycle-regression.yml" in push_paths
 assert "scripts/check_process_lifecycle_integration.py" in push_paths
 assert "trunk/user/shared/src/process_inventory.c" in push_paths
+
+# WAN ifname originates in NVRAM (get_man_ifname); never interpolate it into
+# a sysfs path until a single bounded interface component has been validated.
+ifstats = c_function_body(
+    netutils_source,
+    "get_ifstats_counter(const char* ifname, const char* cnt_name)",
+)
+assert '#include "net_ifstats_policy.h"' in netutils_source
+assert "net_ifstats_build_path(cnt_path, sizeof(cnt_path), ifname, cnt_name)" in ifstats
+assert ifstats.index("net_ifstats_build_path") < ifstats.index('fopen(cnt_path, "r")')
+assert "net_ifstats_parse_counter(cnt_data, &cnt_val64)" in ifstats
+assert "IFNAMSIZ" in net_ifstats_policy and "ENAMETOOLONG" in net_ifstats_policy
+assert '"rx_bytes"' in net_ifstats_policy and '"tx_bytes"' in net_ifstats_policy
+assert "net_ifstats_parse_counter" in net_ifstats_test
+assert "../../etc/passwd" in net_ifstats_test
+assert "18446744073709551616" in net_ifstats_test
+for path in (
+    "trunk/user/shared/src/netutils.c",
+    "trunk/user/shared/src/net_ifstats_policy.h",
+    "trunk/user/shared/src/tests/net_ifstats_policy.c",
+):
+    assert path in push_paths and path in pull_request_paths, path
+xy_workflow_source = (
+    root / ".github/workflows/xy-c1-firmware-validation.yml"
+).read_text()
+assert '      - "trunk/user/shared/src/netutils.c"' in xy_workflow_source
+assert '      - "trunk/user/shared/src/net_ifstats_policy.h"' in xy_workflow_source
+print("WAN sysfs counter path confinement and strict decimal parsing: PASS")
 print("Process lifecycle push/PR trigger scope and parity: PASS")
 
 # The detached Adbyby test double must be reaped before shared fixtures are

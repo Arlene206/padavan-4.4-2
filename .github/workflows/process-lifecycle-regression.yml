@@ -150,6 +150,9 @@ on:
       - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/shared/src/process_pidfile_record.h"
+      - "trunk/user/shared/src/net_ifstats_policy.h"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/tests/net_ifstats_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/tests/pids_presence_policy.c"
       - "trunk/user/shared/src/tests/process_inventory.c"
@@ -313,6 +316,9 @@ on:
       - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/shared/src/process_pidfile_record.h"
+      - "trunk/user/shared/src/net_ifstats_policy.h"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/tests/net_ifstats_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/tests/pids_presence_policy.c"
       - "trunk/user/shared/src/tests/process_inventory.c"
@@ -426,6 +432,15 @@ jobs:
             trunk/user/shared/src/tests/process_pidfile.c \
             -o "$RUNNER_TEMP/process-pidfile-regression"
           "$RUNNER_TEMP/process-pidfile-regression"
+      - name: Compile and run sysfs WAN counter path and decimal parser regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/net_ifstats_policy.c \
+            -o "$RUNNER_TEMP/net-ifstats-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/net-ifstats-policy"
+
       - name: Compile and run shared PID-file record policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror \

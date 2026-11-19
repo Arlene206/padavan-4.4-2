@@ -46,6 +46,7 @@
 #include "netutils.h"
 #include "shutils.h"
 #include "bridge_membership_policy.h"
+#include "net_ifstats_policy.h"
 
 static int
 copy_ifname(char *dest, size_t dest_size, const char *ifname)
@@ -156,12 +157,18 @@ get_ifstats_counter(const char* ifname, const char* cnt_name)
 	FILE *fp;
 	uint64_t cnt_val64 = 0;
 	char cnt_path[64], cnt_data[32];
+	int path_status;
 
-	snprintf(cnt_path, sizeof(cnt_path), "/sys/class/net/%s/statistics/%s", ifname, cnt_name);
+	path_status = net_ifstats_build_path(cnt_path, sizeof(cnt_path), ifname, cnt_name);
+	if (path_status != 0) {
+		errno = path_status;
+		return 0;
+	}
+
 	fp = fopen(cnt_path, "r");
 	if (fp) {
 		if (fgets(cnt_data, sizeof(cnt_data), fp))
-			cnt_val64 = strtoull(cnt_data, NULL, 10);
+			(void)net_ifstats_parse_counter(cnt_data, &cnt_val64);
 		fclose(fp);
 	}
 
