@@ -1,3 +1,12 @@
+## 2026-11-19 — Repair the Infosvr checker after launcher-status normalization
+
+- Exact-head Infosvr Action 44600896016 on production SHA 2e61e6b4608d30127692f5d26e939bbce92f52fc passed packet, signal and daemon policy binaries under GNU89/Werror/ASan/UBSan and passed the packet/signal source checker.
+- The lifecycle checker failed only at line 132 because its marker tuple still named test_start_preserves_launcher_failure, intentionally replaced by test_start_normalizes_launcher_failure_for_pid1. Updated the expected marker; no product source changes.
+- On the same SHA, Process umbrella 44600895951, Process inventory 44600896622, PID 1 notification queue 44600896480 and AI docs 44600896036 passed. XY-C1 44600896324, SkipDBv2 44600896667 and NVRAM audit 44600896559 were still running.
+- Also tracked two separate checker failures: detect_internet 44600896372 ended in Python ValueError at line 134; WAN route 44600896744 ended in Python ValueError at inline line 253. Preserve the DHCP/monitor cleanup assertions when correcting them.
+- No physical-router L4 result claimed.
+
+---
 ## 2026-11-19 — Normalize infosvr launch wait status for PID 1 notifications
 
 - PID 1's `handle_notifications()` retains an incomplete notification marker only when `action_result < 0`. `start_infosvr()` returned a positive `eval("/usr/sbin/infosvr", IFNAME_BR)` wait status unchanged, and `infosvr_start_postcondition()` preserved it; a failed detached child could therefore be acknowledged as success and its restart marker cleared.

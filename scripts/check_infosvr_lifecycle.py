@@ -126,7 +126,7 @@ for marker in (
     "test_unknown_inventory_blocks_replacement",
     "test_confirmed_absence_allows_start",
     "test_start_requires_running_postcondition",
-    "test_start_preserves_launcher_failure",
+    "test_start_normalizes_launcher_failure_for_pid1",
     "infosvr tri-state stop-before-start and daemon-start postcondition policy: PASS",
 ):
     assert marker in test, marker

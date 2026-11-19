@@ -11,14 +11,14 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Live main parent SHA: `5c43773c08d50540c481bc8e0ca4b6204c63a7f5` (`test(httpd): align Samba trust checks with descriptor guard`).
-- Wireless guest-isolation source `ef421978331ade679241c5bc1c10dbb6350d4004` and checker correction `8325b61ef1f4ee726e448eb81f5e4a41f44341e0` validated: exact Wireless `44592865932`, Process `44592865823`, AI docs `44592865722` PASS; XY-C1 `44592415620` passed Build/TRX/artifact on the unchanged product source.
-- Samba parent-directory hardening `0e13734b95f14bdc2cd7aed926895b4933a286bf` protects `start_wins()`, `run_samba()`, and `write_smb_conf()` with effective-UID-owned 0700 no-follow parent validation before recovery. Dedicated Samba regression `44597410202` PASS. XY-C1 `44598421480` on the recent source SHA `9e51fc0...` was still IN_PROGRESS at last poll; it is the first build covering Samba production changes.
-- Exact-head `9e51fc0e6939e020b6bf4cf16d0ace2282f13f4c`: Infosvr packet/signal `44598421247`, Process umbrella `44598421270`, Crond lifecycle `44598421431`, Process inventory `44598421241`, NVRAM audit `44598421188`, and other completed module Actions PASS. XY-C1 `44598421480` remained in progress. This commit changes production `services.c`, so a new XY-C1 exact-head firmware build is required.
-- HTTPD Authentication/Security failure `44598421207` was a stale checker expecting the removed path-based Samba trust helper. Workflow-only commit `5c43773c08d50540c481bc8e0ca4b6204c63a7f5` corrected the descriptor-guard source contract; exact HTTPD security `44598733635` and AI docs `44598733483` PASS.
-- This commit fixes an infosvr launch-result leak: positive `eval()` wait status could pass through `restart_infosvr()` although PID 1 treats only negative `action_result` as failure, clearing a failed notification marker. Launch failures now normalize to `-1`, with positive wait statuses mapped to `errno=EIO`.
-- The infosvr disabled-service guard remains before process inventory, avoiding unnecessary procfs dependency when the optional daemon is disabled.
-- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it. PR #1 remains closed and unmerged.
+- Live main parent SHA: 2e61e6b4608d30127692f5d26e939bbce92f52fc (fix(infosvr): normalize daemon launch failure for PID 1).
+- Wireless guest-isolation production SHA ef421978331ade679241c5bc1c10dbb6350d4004 and checker correction 8325b61ef1f4ee726e448eb81f5e4a41f44341e0 validated: exact Wireless 44592865932, Process 44592865823, AI docs 44592865722 PASS; XY-C1 44592415620 passed Build/TRX/artifact on its exact source SHA.
+- Samba parent-directory hardening 0e13734b95f14bdc2cd7aed926895b4933a286bf protects start_wins(), run_samba(), and write_smb_conf() with effective-UID-owned 0700 no-follow parent validation before recovery. Dedicated Samba regression 44597410202 PASS. Current exact-head XY-C1 run is 44600896324.
+- Exact-head 2e61e6b: Process umbrella 44600895951, Process inventory 44600896622, PID 1 notification queue 44600896480, AI docs 44600896036, Crond 44600895984, HTTPD security 44600896461, HTTPD lifecycle 44600896067, USB hotplug 44600896597, WAN ARP 44600896033, DNSMasq 44600896722 and most other service regressions PASS.
+- Infosvr packet/signal 44600896016 failed only in scripts/check_infosvr_lifecycle.py because its marker list still required the removed test_start_preserves_launcher_failure name. All three GNU89/Werror/ASan/UBSan policy binaries passed, as did the packet checker. THIS commit updates the expected marker; exact-head rerun pending.
+- detect_internet signal 44600896372 failed in its source-contract Python at line 134 with ValueError: substring not found; WAN route status 44600896744 failed at inline source-contract line 253 with the same exception. Inspect both checker strings and correct stale contracts without weakening DHCP/monitor teardown behavior.
+- XY-C1 44600896324, SkipDBv2 44600896667 and NVRAM audit 44600896559 were IN_PROGRESS at checkpoint. Query each by exact head before making L3 claims.
+- Frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; never modify it. PR #1 remains closed and unmerged.
 - No local checkout or MIPS toolchain is available in this connector-only environment. Physical router/runtime L4 remains NOT VERIFIED.
 
 ## Closed prior task — DHCPv6 startup cleanup errno
@@ -27,26 +27,25 @@ Continue main-only implementation across conversations. Recover the exact live s
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task — normalize infosvr launch failures for PID 1 notifications
+## Active task — correct the stale Infosvr lifecycle test marker
 
-- Parent main SHA: `5c43773c08d50540c481bc8e0ca4b6204c63a7f5`.
-- Confirmed defect: PID 1 `handle_notifications()` retains incomplete notification markers only when `action_result < 0`. `start_infosvr()` returned a positive `eval("/usr/sbin/infosvr", IFNAME_BR)` wait status unchanged, and `infosvr_start_postcondition()` preserved it; a failed detached child could be acknowledged as successful and its restart marker cleared.
-- This commit retains the original status in logs, maps positive encoded wait statuses to `errno=EIO`, and returns through `infosvr_start_postcondition()`. The helper maps all nonzero launch statuses to `-1`; optional disabled-service success `0` and its guard-before-inventory ordering are preserved.
-- GNU89/Werror/ASan/UBSan regression covers positive wait statuses `7`/`256`, negative launcher failure, and RUNNING/ABSENT/UNKNOWN postconditions. Dedicated Infosvr and broad Process source contracts enforce PID 1's negative-only failure convention. Existing workflows compile the policy regression.
-- Exact-head Infosvr, Process and XY-C1 Build/TRX/artifact for the new source SHA are pending.
+- Parent main SHA: 2e61e6b4608d30127692f5d26e939bbce92f52fc.
+- Production fix in this parent converts every nonzero infosvr launcher status to -1 and sets errno=EIO for positive encoded wait statuses, preserving the original value in the log. GNU89/Werror/ASan/UBSan packet, signal and daemon policy binaries all PASS; the dedicated Python checker failed only because its marker list still required test_start_preserves_launcher_failure.
+- THIS commit changes that assertion to test_start_normalizes_launcher_failure_for_pid1. No product source changes. Exact-head Infosvr rerun pending.
+- Other independent failures remain to diagnose: detect_internet Action 44600896372 (source-contract line 134, ValueError) and WAN route Action 44600896744 (inline source-contract line 253, ValueError). XY-C1 44600896324, SkipDBv2 44600896667 and NVRAM 44600896559 were still running on the parent.
 
 ## Verification boundary
 
-- L1: source review confirms positive launch wait status violated PID 1's negative-only notification failure convention; source now returns `-1` and sets `errno=EIO` for positive statuses.
-- L2: GNU89/Werror/ASan/UBSan policy tests and dedicated Infosvr / Process source contracts are committed; exact-head Actions pending.
-- L3: same production-source SHA requires exact-head XY-C1 input detection, Build, TRX and artifact verification; pending.
-- L4: live infosvr packet discovery, signal lifecycle and physical-router interoperability remain NOT VERIFIED.
+- L1: positive infosvr launch wait statuses are normalized to the negative PID 1 failure convention; source and policy unit tests are present.
+- L2: all three infosvr C policy binaries passed on 2e61e6b4608d30127692f5d26e939bbce92f52fc; dedicated source checker failed on a stale renamed-test marker, corrected in THIS commit; exact rerun pending. Process umbrella and PID 1 notification queue passed.
+- L3: XY-C1 Build/TRX/artifact 44600896324 was in progress on the parent; current-source result pending.
+- L4: live infosvr signal/packet behavior and physical-router interoperability remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Infosvr packet/signal, Process integration, and XY-C1 input detector, Build, TRX and artifact for this commit.
-2. Fix any real failing checker/compiler/build step without weakening PID 1's negative-status failure convention or optional-disabled no-op.
-3. After L2/L3 pass, continue a separate P1 stability/security defect outside the infosvr/Samba work.
+1. Inspect the exact-head Infosvr rerun and verify XY-C1 Build/TRX/artifact, SkipDBv2 and NVRAM audit.
+2. Diagnose detect_internet line 134 and WAN route inline line 253 ValueErrors from their actual source-contract expectations, preserving DHCP/monitor cleanup and notification safety.
+3. After these independent L2/L3 items close, continue a separate P1 stability/security source fix outside infosvr, WAN and Samba.
 
 ## Mandatory handoff checkpoint
 
