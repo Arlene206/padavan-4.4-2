@@ -1,3 +1,12 @@
+## 2026-11-19 — Share bounded EINTR retries across service lifecycle locks
+
+- The earlier MiniUPnP fix exposed the same unbounded unlock loop in Inadyn, DNSMasq and VPN-server lifecycle lock release helpers. Repeated signals could keep the release paths from reaching descriptor close.
+- Added `lifecycle_lock_retry_policy.h` with a common eight-retry ceiling. MiniUPnP acquisition/release and Inadyn, DNSMasq and VPN-server release now use the shared helper; existing EACCES/EAGAIN acquisition backoff remains unchanged.
+- Reused the GNU89 MiniUPnP lock regression for retry-bound/exhaustion behavior and extended the semantic checker to pin all four release paths. XY-C1 path filtering includes the shared production helper. Per-service exact-head Actions and same-source XY-C1 remain pending.
+- Prior MiniUPnP source SHA `e736dbf`: Process lifecycle, MiniUPnP config, Process inventory, NVRAM audit and XY-C1 Build/TRX/artifact all PASS. AI handoff docs failed on e736 only due the missing required phrase and passed on follow-up `a9f3c20` (`44629051861`). No physical-router result is claimed.
+
+---
+
 ## 2026-11-19 — Restore required cross-session handoff rule
 
 - Exact-head Process lifecycle `44628661363`, MiniUPnP atomic config `44628661018`, and Process inventory `44628661358` PASS on source commit `e736dbfcff830e6ac6baa32026fff7a6334787d1`; these include the new MiniUPnP EINTR-bound source and regression contract.

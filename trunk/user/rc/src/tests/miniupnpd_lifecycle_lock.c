@@ -62,15 +62,15 @@ test_interrupted_lock_retries_are_bounded(void)
 	unsigned int interruptions = 0;
 	unsigned int i;
 
-	for (i = 0; i < MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS; i++)
-		assert(miniupnpd_lifecycle_lock_retry_interrupted(&interruptions) == 0);
-	assert(interruptions == MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS);
+	for (i = 0; i < RC_LIFECYCLE_LOCK_MAX_INTERRUPTS; i++)
+		assert(rc_lifecycle_lock_retry_interrupted(&interruptions) == 0);
+	assert(interruptions == RC_LIFECYCLE_LOCK_MAX_INTERRUPTS);
 	errno = 0;
-	assert(miniupnpd_lifecycle_lock_retry_interrupted(&interruptions) == -1);
+	assert(rc_lifecycle_lock_retry_interrupted(&interruptions) == -1);
 	assert(errno == EINTR);
 
 	errno = 0;
-	assert(miniupnpd_lifecycle_lock_retry_interrupted(NULL) == -1);
+	assert(rc_lifecycle_lock_retry_interrupted(NULL) == -1);
 	assert(errno == EINVAL);
 	return 0;
 }

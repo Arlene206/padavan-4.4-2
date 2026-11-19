@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "lifecycle_lock_retry_policy.h"
 
 #define VPN_SERVER_LIFECYCLE_LOCK_FILE "/tmp/.vpns.lifecycle.lock"
 #define VPN_SERVER_LIFECYCLE_LOCK_WAIT_SECONDS 10
@@ -73,6 +74,7 @@ static inline int
 vpn_server_lifecycle_lock_release(int fd)
 {
 	int saved_errno = 0;
+	unsigned int interruptions = 0;
 	struct flock lock;
 
 	if (fd < 0) {
@@ -84,7 +86,8 @@ vpn_server_lifecycle_lock_release(int fd)
 	lock.l_start = 0;
 	lock.l_len = 0;
 	while (fcntl(fd, F_SETLK, &lock) != 0) {
-		if (errno == EINTR)
+		if (errno == EINTR &&
+		    rc_lifecycle_lock_retry_interrupted(&interruptions) == 0)
 			continue;
 		saved_errno = errno ? errno : EIO;
 		break;

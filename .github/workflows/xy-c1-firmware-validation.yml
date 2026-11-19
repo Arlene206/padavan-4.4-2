@@ -98,6 +98,7 @@ on:
       - "trunk/user/rc/src/tests/vpn_server_restart_policy.c"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/lifecycle_lock_retry_policy.h"
       - "trunk/user/rc/src/create_file_policy.h"
       - "trunk/user/rc/src/dnsmasq_resolv_file_policy.h"
       - "trunk/user/rc/src/inadyn_lifecycle_lock.h"

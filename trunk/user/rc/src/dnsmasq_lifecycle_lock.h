@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "lifecycle_lock_retry_policy.h"
 #define DNSMASQ_LIFECYCLE_LOCK_FILE "/tmp/.dnsmasq.lifecycle.lock"
 #define DNSMASQ_HOSTNAME_LOCK_FILE "/tmp/.dnsmasq.hostname.lock"
 #define DNSMASQ_LIFECYCLE_LOCK_WAIT_SECONDS 10
@@ -71,6 +72,7 @@ static inline int
 dnsmasq_lifecycle_lock_release(int fd)
 {
 	int saved_errno = 0;
+	unsigned int interruptions = 0;
 	struct flock lock;
 	if (fd < 0) {
 		errno = EBADF;
@@ -81,7 +83,8 @@ dnsmasq_lifecycle_lock_release(int fd)
 	lock.l_start = 0;
 	lock.l_len = 0;
 	while (fcntl(fd, F_SETLK, &lock) != 0) {
-		if (errno == EINTR)
+		if (errno == EINTR &&
+		    rc_lifecycle_lock_retry_interrupted(&interruptions) == 0)
 			continue;
 		saved_errno = errno ? errno : EIO;
 		break;

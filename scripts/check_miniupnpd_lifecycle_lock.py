@@ -7,6 +7,10 @@ ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 SERVICES = (RC / "services_ex.c").read_text()
 LOCK = (RC / "miniupnpd_lifecycle_lock.h").read_text()
+RETRY = (RC / "lifecycle_lock_retry_policy.h").read_text()
+INADYN_LOCK = (RC / "inadyn_lifecycle_lock.h").read_text()
+DNSMASQ_LOCK = (RC / "dnsmasq_lifecycle_lock.h").read_text()
+VPN_SERVER_LOCK = (RC / "vpn_server_lifecycle_lock.h").read_text()
 RC_H = (RC / "rc.h").read_text()
 
 
@@ -34,10 +38,10 @@ assert "O_NOFOLLOW | O_CLOEXEC" in LOCK
 assert "st.st_nlink != 1" in LOCK
 assert "(st.st_mode & 077) != 0" in LOCK
 assert "F_SETLK" in LOCK and "errno = EBUSY" in LOCK
-assert "MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS 8U" in LOCK
-retry_policy = body(LOCK, "miniupnpd_lifecycle_lock_retry_interrupted(unsigned int *interruptions)")
+assert "RC_LIFECYCLE_LOCK_MAX_INTERRUPTS 8U" in RETRY
+retry_policy = body(RETRY, "rc_lifecycle_lock_retry_interrupted(unsigned int *interruptions)")
 assert "if (!interruptions)" in retry_policy
-assert "*interruptions >= MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS" in retry_policy
+assert "*interruptions >= RC_LIFECYCLE_LOCK_MAX_INTERRUPTS" in retry_policy
 assert "++*interruptions;" in retry_policy
 wait_header = (RC / "service_wait_policy.h").read_text()
 wait_body = body(wait_header, "service_wait_seconds_with(unsigned int seconds")
@@ -47,14 +51,23 @@ assert "seconds = remaining;" in wait_body
 assert '#include "service_wait_policy.h"' in LOCK
 lock_acquire = body(LOCK, "miniupnpd_lifecycle_lock_acquire_path(const char *path")
 assert "unsigned int interruptions = 0;" in lock_acquire
-assert "miniupnpd_lifecycle_lock_retry_interrupted(&interruptions)" in lock_acquire
+assert "rc_lifecycle_lock_retry_interrupted(&interruptions)" in lock_acquire
 assert lock_acquire.index("if (errno == EINTR)") < lock_acquire.index(
-    "miniupnpd_lifecycle_lock_retry_interrupted(&interruptions)"
+    "rc_lifecycle_lock_retry_interrupted(&interruptions)"
 ) < lock_acquire.index("attempt++")
 assert "interruptions = 0;" in lock_acquire
 assert "service_wait_seconds(1)" in lock_acquire
 lock_release = body(LOCK, "miniupnpd_lifecycle_lock_release(int fd)")
-assert "miniupnpd_lifecycle_lock_retry_interrupted(&interruptions)" in lock_release
+assert "rc_lifecycle_lock_retry_interrupted(&interruptions)" in lock_release
+for source, signature in (
+    (INADYN_LOCK, "inadyn_lifecycle_lock_release(int fd)"),
+    (DNSMASQ_LOCK, "dnsmasq_lifecycle_lock_release(int fd)"),
+    (VPN_SERVER_LOCK, "vpn_server_lifecycle_lock_release(int fd)"),
+):
+    assert '#include "lifecycle_lock_retry_policy.h"' in source
+    release_body = body(source, signature)
+    assert "unsigned int interruptions = 0;" in release_body
+    assert "rc_lifecycle_lock_retry_interrupted(&interruptions)" in release_body
 start_wait = body(SERVICES, "service_start_wait_one_second(const char *service_name")
 assert "service_wait_seconds(1)" in start_wait
 mini_confirm = body(SERVICES, "miniupnpd_confirm_started(int launch_status)")
@@ -70,7 +83,7 @@ for signature, label in (
     assert "sleep(1)" not in confirm
 test_source = (RC / "tests/miniupnpd_lifecycle_lock.c").read_text()
 assert "test_interrupted_lock_retries_are_bounded" in test_source
-assert "MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS" in test_source
+assert "RC_LIFECYCLE_LOCK_MAX_INTERRUPTS" in test_source
 assert "fixture.remaining[0] = 3" in test_source
 assert "fixture.requested[2] == 1" in test_source
 assert "test_interrupted_service_wait_retries_remaining_time" in test_source
