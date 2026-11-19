@@ -11,28 +11,28 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current main parent for this WAN checker correction: `e5bd15b2c13c33f46564d2a04863db41e7898ca7` (`fix(shared): bound MTD flash I/O EINTR retries`).
-- Exact `8987975` runs: AI docs `44635983515` PASS; HTTPD security `44635983452` PASS after the prior count fix; WAN DHCP callback `44635983525` failed only because the new checker referenced undefined Python variable `wan` instead of its existing source text variable `source`. This follow-up fixes that checker typo; source safety helper itself is present and its restoration/fail-closed assertions remain.
-- Exact `342631b`: firewall-startup policy `44635384398` and NVRAM audit `44635384340` PASS; XY-C1 `44635384278` remained IN_PROGRESS at last poll.
-- Current production source SHA `e5bd15b2c13c33f46564d2a04863db41e7898ca7` adds bounded EINTR handling to MTD flash read/write. Exact XY-C1 `44636408751`, Process umbrella `44636409282`, Process inventory `44636408664`, NVRAM `44636408634` and AI docs `44636408628` were IN_PROGRESS at last poll.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains archival at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No physical-router result.
+- Current main before this source slice: `5c557db717ec173ef151fb6e473e44a676924234` (`fix(shared): bound MTD flash I/O EINTR retries`). The MTD production change bounds flash partition read/write retries and updated Process/XY-C1 path triggers; exact-head CI is in progress.
+- The preceding exact parent `342631b4efb09b4877dd944d74f03d20da7b4164` passed Process inventory `44635384252`, Firewall Startup `44635384398`, FULLCONENAT `44635384256`, WAN route `44635384253`, NVRAM `44635384340`, and AI docs `44635384260`. Its HTTPD `44635384245` and WAN DHCP `44635384375` failed only in embedded source-contract assertions; logs confirmed no C compile or policy-binary failure. The current parent commit adds those checker corrections.
+- RStats persistence still contains unbounded EINTR loops in exact-read, atomic-write, fsync and history-file open; this slice adds a shared bounded policy and deterministic regression tests. Frozen backup remains archival and untouched.
 
 ## Active task
 
-- Checker-only follow-up: the WAN DHCP workflow was validating the stronger `restore_wan_after_firewall_failure()` helper but passed the nonexistent variable `wan` to the source-body parser. The workflow already stores the source in `source`; this change corrects the reference without weakening the restoration/fail-closed assertions.
+- RStats persistence previously retried `EINTR` indefinitely in `rstats_file_read_exact_with()`, `rstats_file_write_atomic_with_ops()`, `rstats_file_fsync_retry()` and the `f_read()` open path. Repeated signals could stall the stats daemon while loading or publishing history.
+- Added an eight-consecutive-interruption ceiling and callback-based bounded `open(O_RDONLY)`. Positive read/write progress resets the retry streak; EOF, partial-read and non-EINTR error semantics remain unchanged. Atomic publication retains the prior target if retries exhaust.
+- Added GNU89 callback coverage for open/read/write/fsync recovery, retry exhaustion, progress reset, EOF and EIO propagation. RStats workflow assertions now require the bounded helper in production callsites. This source slice awaits exact-head CI and firmware verification.
 
 ## Exact first action for the next GPT
 
-1. Verify WAN DHCP callback rerun after the checker variable correction; also poll the exact e5 MTD Process, Process inventory, NVRAM, AI-doc and XY-C1 workflows.
-2. For any source build failure, inspect exact job logs and repair it without weakening the eight-retry MTD I/O policy. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on one source SHA.
-3. Continue with a new independently evidenced cross-userland stability/security defect after validation.
+1. Inspect exact-head RStats workflow, Process umbrella and AI docs for this source commit; read and correct any causal job failure without weakening the tests.
+2. Check parent `5c557db717ec173ef151fb6e473e44a676924234` XY-C1 run `44636408751` through Build, TRX verification and artifact upload. This RStats production-source slice needs its own same-SHA XY-C1 Build/TRX/artifact result.
+3. Resolve the separate HTTPD/WAN-DHCP source-contract failures inherited from `342631b` if they remain after the `8987975` checker repair, then continue the next independent stability/security fix.
 
 ## Verification boundary
 
-- WAN restoration source: production helper uses the original physical-WAN restoration routine and forces the physical interface down if the fallback firewall recovery fails. The previous workflow failure was a Python `NameError` in the added checker variable reference; this correction uses the defined `source` variable.
-- MTD flash source SHA `e5bd15b`: Process/AI/NVRAM/XY-C1 exact-head runs are pending. No L2/L3 result has yet been claimed for this MTD change.
-- Exact `342631b` NVRAM and firewall-startup checks PASS; its XY-C1 run remained pending.
-- No local compile or physical-router L4 result is claimed.
+- L1: RStats history file open, exact-read, atomic-write and fsync now stop after eight consecutive EINTR results. Successful read/write progress resets the interruption streak; fail-closed errors preserve EINTR and old published data.
+- L2: callback tests cover open/read/write/fsync recovery, retry exhaustion, read/write progress resets, EOF and EIO preservation. Exact-head Actions pending for this source SHA.
+- L3: parent `5c557db717ec173ef151fb6e473e44a676924234` XY-C1 run `44636408751` was pending at last check. The new RStats source change needs Build/TRX/artifact all PASS on its exact source SHA.
+- L4: MIPS/uClibc signal storms, storage-fault behavior on router and physical-router results remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

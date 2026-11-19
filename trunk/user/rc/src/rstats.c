@@ -135,9 +135,7 @@ static int f_read(const char *path, void *buffer, int max)
 		return -1;
 	}
 
-	do {
-		fd = open(path, O_RDONLY);
-	} while (fd < 0 && errno == EINTR);
+	fd = rstats_file_open_readonly(path);
 	if (fd < 0)
 		return -1;
 

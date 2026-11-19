@@ -150,8 +150,8 @@ jobs:
           assert "gothup" not in rstats and "gotusr1" not in rstats and "gotusr2" not in rstats
 
           reader = body(rstats, "f_read(const char *path, void *buffer, int max)")
+          assert "rstats_file_open_readonly(path)" in reader
           assert "rstats_file_read_exact(fd, buffer, (size_t)max)" in reader
-          assert "errno == EINTR" in reader
           assert "close(fd)" in reader
 
           writer = body(rstats, "f_write(const char *path, const void *buffer, int len)")
@@ -168,8 +168,10 @@ jobs:
           assert "failed to publish speed history" in speed_export
           assert "failed to publish history view" in history_export
 
-          for token in ("rstats_file_read_exact_with", "rstats_file_read_exact",
-                        "read_fn", "total < length", "errno == EINTR"):
+          for token in ("RSTATS_FILE_MAX_INTERRUPTS", "rstats_file_retry_interrupted",
+                        "rstats_file_open_readonly_with", "rstats_file_read_exact_with",
+                        "rstats_file_read_exact", "read_fn", "total < length",
+                        "errno == EINTR"):
               assert token in file_policy, "missing complete-read guarantee: " + token
           for token in ("mkstemp", "fdopen", "fchmod", "EINTR", "fsync", "fclose",
                         "rename", "unlink", "lstat", "S_ISREG"):
@@ -183,7 +185,9 @@ jobs:
               assert token in signal_policy
           for token in ("test_null_safe_system_time_policy", "rstats_time_has_valid_year(NULL, 2020)",
                         "test_mkstemp", "rstats_file_open_stream", "partial-data",
+                        "test_bounded_open_eintr",
                         "test_exact_read_retries_eintr_and_short_reads",
+                        "test_atomic_write_and_fsync_retries",
                         "test_new_file_modes_follow_umask", "scripted_read",
                         "fail_fsync", "fail_close", "fail_rename", "/dev/full",
                         "rstats persistence and signal policy: PASS"):

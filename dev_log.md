@@ -1,3 +1,13 @@
+## 2026-11-19 — Bound EINTR retries in RStats persistence
+
+- Source review found unbounded EINTR retry loops in RStats exact reads, atomic writes, fsync and history-file open. A signal storm could indefinitely hold the stats daemon inside persistence I/O.
+- Added an eight-consecutive-interruption policy and injectable bounded read-only open. Successful read/write progress resets the interruption counter; EOF and prior non-EINTR errors keep their meanings. Failed atomic writes still remove only their temporary file and retain the last-good target.
+- Added GNU89 callback regressions for open/read/write/fsync success at the retry limit, persistent EINTR exhaustion, counter reset after progress, EOF and EIO propagation. Updated the RStats source checker to require bounded open/read integration.
+- Parent `5c557db717ec173ef151fb6e473e44a676924234` follows the MTD flash-I/O retry fix; its Process umbrella, AI docs, NVRAM and XY-C1 runs were pending at checkpoint. Earlier parent `342631b` Process, firewall, FULLCONENAT, WAN route, NVRAM and AI docs checks passed; HTTPD and WAN DHCP failed only on source checker assertions, which the subsequent `8987975` commit corrects.
+- This RStats slice awaits exact-head Actions; no local MIPS build or physical-router result is claimed.
+
+---
+
 ## 2026-11-19 — Fix WAN restoration checker variable
 
 - WAN DHCP callback run `44635983525` on source SHA `8987975` reached the new fail-closed restoration assertions but failed with `NameError: wan is not defined`; the workflow's source buffer is named `source`.

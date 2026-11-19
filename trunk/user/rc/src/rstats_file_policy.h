@@ -2,6 +2,7 @@
 #define RSTATS_FILE_POLICY_H
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +10,60 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#define RSTATS_FILE_MAX_INTERRUPTS 8U
+
+static inline int
+rstats_file_retry_interrupted(unsigned int *interruptions)
+{
+  if (!interruptions) {
+    errno = EINVAL;
+    return -1;
+  }
+  if (*interruptions >= RSTATS_FILE_MAX_INTERRUPTS) {
+    errno = EINTR;
+    return -1;
+  }
+  ++*interruptions;
+  return 0;
+}
+
+typedef int (*rstats_file_open_fn)(const char *path, int flags,
+                                   void *context);
+
+static inline int
+rstats_file_open_readonly_with(const char *path, rstats_file_open_fn open_fn,
+                               void *context)
+{
+  unsigned int interruptions = 0;
+
+  if (!path || !*path || !open_fn) {
+    errno = EINVAL;
+    return -1;
+  }
+  for (;;) {
+    int fd = open_fn(path, O_RDONLY, context);
+
+    if (fd >= 0)
+      return fd;
+    if (errno != EINTR ||
+        rstats_file_retry_interrupted(&interruptions) != 0)
+      return -1;
+  }
+}
+
+static inline int
+rstats_file_system_open(const char *path, int flags, void *context)
+{
+  (void)context;
+  return open(path, flags);
+}
+
+static inline int
+rstats_file_open_readonly(const char *path)
+{
+  return rstats_file_open_readonly_with(path, rstats_file_system_open, NULL);
+}
 
 /*
  * Read a complete record despite legal short reads or signal interruption.
@@ -23,6 +78,7 @@ rstats_file_read_exact_with(int fd, void *buffer, size_t length,
                             rstats_file_read_fn read_fn, void *context)
 {
   size_t total = 0;
+  unsigned int interruptions = 0;
 
   if (fd < 0 || (!buffer && length != 0) || !read_fn) {
     errno = EINVAL;
@@ -37,10 +93,12 @@ rstats_file_read_exact_with(int fd, void *buffer, size_t length,
     ssize_t result = read_fn(fd, (char *)buffer + total, length - total,
                              context);
     if (result < 0) {
-      if (errno == EINTR)
+      if (errno == EINTR &&
+          rstats_file_retry_interrupted(&interruptions) == 0)
         continue;
       return -1;
     }
+    interruptions = 0;
     if (result == 0)
       break;
     if ((size_t)result > length - total) {
@@ -98,11 +156,21 @@ rstats_file_creation_mode(void)
 static inline int
 rstats_file_fsync_retry(int fd, int (*fsync_fn)(int))
 {
-  int result;
-  do {
-    result = fsync_fn(fd);
-  } while (result < 0 && errno == EINTR);
-  return result;
+  unsigned int interruptions = 0;
+
+  if (!fsync_fn) {
+    errno = EINVAL;
+    return -1;
+  }
+  for (;;) {
+    int result = fsync_fn(fd);
+
+    if (result >= 0)
+      return result;
+    if (errno != EINTR ||
+        rstats_file_retry_interrupted(&interruptions) != 0)
+      return result;
+  }
 }
 
 /*
@@ -118,6 +186,7 @@ rstats_file_write_atomic_with_ops(const char *path, const void *buffer,
   struct stat existing;
   mode_t mode;
   size_t written = 0;
+  unsigned int interruptions = 0;
   int fd = -1;
   int created = 0;
   int saved_errno;
@@ -165,7 +234,8 @@ rstats_file_write_atomic_with_ops(const char *path, const void *buffer,
     ssize_t result = ops->write_fn(fd,
         (const char *) buffer + written, length - written);
     if (result < 0) {
-      if (errno == EINTR)
+      if (errno == EINTR &&
+          rstats_file_retry_interrupted(&interruptions) == 0)
         continue;
       goto fail;
     }
@@ -173,6 +243,7 @@ rstats_file_write_atomic_with_ops(const char *path, const void *buffer,
       errno = EIO;
       goto fail;
     }
+    interruptions = 0;
     written += (size_t) result;
   }
 
