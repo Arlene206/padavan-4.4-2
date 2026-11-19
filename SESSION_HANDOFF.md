@@ -1,8 +1,8 @@
-# 2026-11-19 continuation checkpoint — WAN gateway monitor SIGTERM safety
+# 2026-11-19 continuation checkpoint — Ralink IAPP radio inventory fail-closed
 
 ## Current repository state
 
-- Repository: Arlene206/padavan-4.4-2; development remains on main. Current main before this source slice: d98ef418844b40bac6c6e31df6480a24645dc47b. Current production-source baseline for the AP LAN DHCP fix is 747bb165c61051000dfe6426c0de808cfd96f8b1; follow-up commits 094d488122768b104c54ce371fb92943ceca0689 and 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 only corrected static CI contracts/docs.
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Parent main SHA for this IAPP source slice: `d7c6c57e47876b320bd42eb2f95f0542d6cb4cc6`. The immediately preceding WAN gateway monitor SIGTERM fix is committed on that parent; exact-head WAN ARP, Process regression/inventory, NVRAM and AI docs Actions all passed, and XY-C1 Build/TRX/artifact completed on that exact SHA. The AP LAN PHY-readiness source baseline `747bb165c61051000dfe6426c0de808fcd96f8b1` remains independently L3 VERIFIED.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,26 +77,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Remove unsafe asynchronous cleanup from the WAN gateway ARP monitor's SIGTERM handler.
+Fail closed when Ralink IAPP radio procfs inventory cannot be read before launching the daemon.
 
-- Parent main SHA: `d98ef418844b40bac6c6e31df6480a24645dc47b`. AP-mode LAN DHCP readiness source `747bb165c61051000dfe6426c0de808cfd96f8b1` is L3 VERIFIED by XY-C1 run `44421896203`: host regressions, Build XY-C1, TRX verification and artifact upload all succeeded. Corrected Process contract `44422350218` and Process inventory `44422350427` are SUCCESS; WAN route checker `44422787189` is SUCCESS.
-- L1 found `trunk/user/rc/src/detect_wan.c::catch_sig_detect_wan()` directly called `remove()` and `exit()` inside SIGTERM handler context. Neither is async-signal-safe; if the signal interrupts libc stdio/allocator state, termination can deadlock or corrupt process state. The existing ARP socket has a one-second receive timeout, allowing shutdown to be deferred.
-- THIS COMMIT replaces the handler with a `volatile sig_atomic_t` stop notification; checks the flag before/after ARP receives and around retries/DHCP renewal; replaces long waits with one-second shutdown-aware slices; and removes the PID file in normal process context after the poll loop exits. Signal-action setup failures now return their errno.
-- Adds `detect_wan_signal_policy.h` and a GNU89/Werror/ASan/UBSan regression for sticky SIGTERM-only flagging; extends the WAN ARP source contract and adds the new production header to XY-C1 push filters. The changed `detect_wan.c` must pass exact-source Build/TRX/artifact.
-- Other verified prerequisites: USB storage run `44420519515` PASS; MentoHUST source `4f54d9f0` L3 PASS `44415470536`; crond/IPTV Process L2 PASS `44419048581` (their XY L3 still open). Dev-log rotation part-017 is committed and AI docs run `44424090829` SUCCESS.
+- Production defect in `trunk/user/ralinkiappd/iappd.sh::start()`: the former `if grep ...; elif grep ...; else fallback` conflated grep status 1 (complete file, no match) with status 2 (read error). Missing or unreadable `/proc/modules` / `/proc/interrupts` therefore silently selected `rax0` and could start `ralinkiappd` with incorrect interface selection.
+- THIS SOURCE SLICE explicitly handles match, no-match and error results. It aborts on procfs inventory errors before launching the daemon or publishing INPUT rules, while retaining both recognized radio variants and the fallback only when both inventories were read successfully.
+- The existing `trunk/user/ralinkiappd/tests/iappd_lifecycle.sh` adds regression scenarios for unreadable module inventory, unreadable interrupt inventory, and a valid no-match fallback. Existing IAPP lifecycle, Process lifecycle and XY-C1 workflows already watch both changed paths for push and pull_request.
+- Parent main and exact-head predecessor: `d7c6c57e47876b320bd42eb2f95f0542d6cb4cc6`. Its WAN gateway monitor source fix passed WAN ARP run `44424808719`, Process fail-closed `44424808712`, Process inventory `44424808772`, NVRAM audit `44424808887`, AI docs `44424808821`, and XY-C1 `44424808889`. The XY-C1 job completed Build XY-C1, TRX verification and artifact upload successfully.
+- This IAPP source slice has not yet been validated by Actions. No local shell test or local firmware build was run in this connector-only session; do not imply otherwise.
 
 ## Verification boundary
 
-- L1: PASS — the previous handler called `remove()/exit()` from signal context; the new handler only records a signal-safe flag and the main loop owns waits and PID cleanup.
-- L2: Exact-head WAN ARP signal-policy compile/test and source checker plus AI handoff docs are pending. Parent WAN route run `44422787189` PASS; AP LAN L2/L3 is closed on its own exact SHAs. Local tests are NOT RUN (GitHub connector-only environment).
-- L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload for this `detect_wan.c` change. A workflow that skips any of those stages is not L3.
-- L4: live gateway renewal/failover, target socket behavior and physical-router shutdown timing remain NOT VERIFIED.
+- L1: PASS — unreadable procfs radio inventory was demonstrably treated as an absent marker and selected an unsafe fallback; the new shell branch preserves the distinction between no-match and read error.
+- L2: Pending exact-head IAPP lifecycle shell regression and Process lifecycle integration on this source SHA. Local tests NOT RUN.
+- L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload for this IAPP launcher/test commit. The preceding parent SHA build does not transfer.
+- L4: Target BusyBox behavior under procfs failures and physical-radio interface selection remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head WAN ARP policy test/source-contract and XY-C1 Build/TRX/artifact for THIS COMMIT; close L2/L3 only on matching SHA.
-2. Inspect AI docs run and preserve part-017 archive/index integrity; root log currently has 20 records and this commit adds the next record.
-3. Continue another independent P1 whole-userland reliability task after this monitor fix; do not re-audit closed storage/AP-LAN work. Preserve the immutable backup.
+1. Fetch live `main` and inspect exact-head IAPP lifecycle, Process fail-closed/inventory, AI handoff docs, and XY-C1 runs for this source commit. Read failing job logs rather than treating the whole Action as a generic failure.
+2. Require both unreadable-inventory regression cases to pass before closing L2. Require Build XY-C1, TRX verification and artifact upload on the exact same source SHA before claiming L3.
+3. Continue the next independent P1 whole-userland reliability issue after verification; do not repeat the closed AP-LAN, WAN SIGTERM or prior storage audits. Keep the frozen backup branch unchanged.
 
 ## Mandatory handoff checkpoint
 

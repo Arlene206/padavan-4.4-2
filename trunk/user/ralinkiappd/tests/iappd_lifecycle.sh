@@ -123,6 +123,38 @@ grep -Fq "iptables -D INPUT -i br0 -p tcp --dport 3517 -m comment --comment rali
 ! grep -q "iptables -D INPUT -i br0 -p udp " "$COMMAND_LOG" || fail "removed UDP rule not owned by this start"
 
 reset
+IAPPD_PROC_MODULES="$tmp/missing-modules"
+export IAPPD_PROC_MODULES
+rc=$(capture_status run start); status "$rc" 2
+! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "launched with unreadable module inventory"
+! grep -q "^iptables -A " "$COMMAND_LOG" || fail "published firewall with unreadable module inventory"
+grep -q "cannot inspect radio module inventory" "$COMMAND_LOG" || fail "module inventory failure was not logged"
+
+reset
+printf 'other_module\n' > "$tmp/modules"
+IAPPD_PROC_MODULES="$tmp/modules"
+IAPPD_PROC_INTERRUPTS="$tmp/missing-interrupts"
+export IAPPD_PROC_MODULES IAPPD_PROC_INTERRUPTS
+rc=$(capture_status run start); status "$rc" 2
+! grep -q "^ralinkiappd " "$COMMAND_LOG" || fail "launched with unreadable interrupt inventory"
+! grep -q "^iptables -A " "$COMMAND_LOG" || fail "published firewall with unreadable interrupt inventory"
+grep -q "cannot inspect radio interrupt inventory" "$COMMAND_LOG" || fail "interrupt inventory failure was not logged"
+
+# A complete inventory with neither radio marker preserves the documented
+# legacy fallback; only an actual procfs read error is UNKNOWN.
+reset
+printf 'other_module\n' > "$tmp/modules"
+printf 'eth0: 1\n' > "$tmp/interrupts"
+IAPPD_PROC_MODULES="$tmp/modules"
+IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
+export IAPPD_PROC_MODULES IAPPD_PROC_INTERRUPTS
+rc=$(capture_status run start); status "$rc" 0
+grep -Fq -- "-wi rax0 -wi ra0 -d 0" "$DAEMON_LOG" || fail "valid no-match inventory did not use fallback radio"
+IAPPD_PROC_MODULES="$tmp/modules"
+IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
+export IAPPD_PROC_MODULES IAPPD_PROC_INTERRUPTS
+
+reset
 rc=$(capture_status run start); status "$rc" 0
 [ -f "$STATE_DIR/daemon" ] || fail "start did not create daemon marker"
 grep -Fq -- "-wi rai0 -d 0" "$DAEMON_LOG" || fail "wrong radio arguments"

@@ -101,13 +101,31 @@ start() {
   done
   # Remove stale rules from a previous crash before publishing a new daemon.
   iapp_remove_firewall_rules || return $?
-  if grep -q mt76x3_ap "$proc_modules"; then
-    radio=rai0; set -- -wi rai0 -d 0
-  elif grep -q rai0 "$proc_interrupts"; then
-    radio=rai0; set -- -wi rai0 -wi ra0 -d 0
-  else
-    radio=rax0; set -- -wi rax0 -wi ra0 -d 0
-  fi
+  # grep distinguishes an absent match (1) from an unreadable procfs
+  # inventory (>1). Never choose a fallback radio when hardware state is unknown.
+  grep -q mt76x3_ap "$proc_modules"
+  match_status=$?
+  case "$match_status" in
+    0)
+      radio=rai0; set -- -wi rai0 -d 0
+      ;;
+    1)
+      grep -q rai0 "$proc_interrupts"
+      match_status=$?
+      case "$match_status" in
+        0) radio=rai0; set -- -wi rai0 -wi ra0 -d 0 ;;
+        1) radio=rax0; set -- -wi rax0 -wi ra0 -d 0 ;;
+        *)
+          log_iapp "cannot inspect radio interrupt inventory (status=$match_status)"
+          return "$match_status"
+          ;;
+      esac
+      ;;
+    *)
+      log_iapp "cannot inspect radio module inventory (status=$match_status)"
+      return "$match_status"
+      ;;
+  esac
   # The C daemon forks its own child; foreground invocation exposes fork errors.
   ralinkiappd "$@" || {
     rc=$?

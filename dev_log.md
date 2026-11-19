@@ -1,3 +1,14 @@
+## 2026-11-19 — Fail closed on unreadable Ralink IAPP radio inventory
+
+- Parent main SHA: `d7c6c57e47876b320bd42eb2f95f0542d6cb4cc6`.
+- `trunk/user/ralinkiappd/iappd.sh::start()` previously treated every non-match from `grep -q` as proof that a radio marker was absent. A procfs read error (grep status 2) therefore selected the legacy `rax0` fallback and could launch the daemon against the wrong interface.
+- The startup path now distinguishes grep status 0 (match), 1 (complete inventory with no match), and >1 (inventory error). An unreadable `/proc/modules` or required `/proc/interrupts` now aborts before launching `ralinkiappd` or publishing firewall rules; the verified no-match fallback is unchanged.
+- Extended the existing IAPP lifecycle regression with both procfs read-error paths and a valid no-match fallback check. Existing IAPP lifecycle, Process lifecycle, and XY-C1 workflow path filters already include the changed launcher and regression file; no workflow trigger was broadened or disabled.
+- The immediately preceding WAN monitor SIGTERM fix at `d7c6c57e47876b320bd42eb2f95f0542d6cb4cc6` passed exact-head WAN ARP (`44424808719`), Process regression (`44424808712`), Process inventory (`44424808772`), NVRAM (`44424808887`) and AI docs (`44424808821`). XY-C1 run `44424808889` completed Build, TRX verification and artifact upload on that exact preceding SHA.
+- No local shell test or MIPS build was run in this connector-only session. Exact-head IAPP lifecycle, Process, AI docs and XY-C1 Build/TRX/artifact runs for this new source SHA are required. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 07:10 CST (UTC+8) — Defer detect_wan SIGTERM cleanup to normal context
 
 - Parent main SHA: `d98ef418844b40bac6c6e31df6480a24645dc47b`.
