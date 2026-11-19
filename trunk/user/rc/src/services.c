@@ -1888,6 +1888,59 @@ restart_watchdog_cpu(void)
 	return status;
 }
 
+#if defined(APP_SKIPDBV2)
+/*
+ * skipd daemonizes before returning from doSystem(). Confirm the detached
+ * database process survived the fork/session setup before reporting startup.
+ */
+static int
+start_skipdbv2(void)
+{
+	int preflight_status, launch_status, attempt, scan_error;
+	enum process_presence process_state;
+
+	preflight_status = optional_daemon_start_status("SkipDBv2", "skipd");
+	if (preflight_status > 0)
+		return 0;
+	if (preflight_status < 0)
+		return preflight_status;
+
+	launch_status = doSystem("/usr/sbin/skipd -d /etc/storage/db");
+	if (launch_status != 0) {
+		logmessage(LOGNAME, "SkipDBv2 launcher failed (status=%d)", launch_status);
+		return launch_status;
+	}
+
+	launch_status = service_start_probe_wait(
+		"SkipDBv2", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
+	if (launch_status != 0)
+		return launch_status;
+
+	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
+		process_state = optional_daemon_presence("skipd", &scan_error);
+		if (process_presence_start_postcondition(launch_status, process_state) == 0)
+			return 0;
+		if (process_state == PROCESS_PRESENCE_UNKNOWN) {
+			scan_error = scan_error > 0 ? scan_error : EIO;
+			errno = scan_error;
+			logmessage(LOGNAME,
+				   "SkipDBv2 startup inventory unknown (errno=%d)", scan_error);
+			return -1;
+		}
+		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
+			launch_status = service_start_probe_wait(
+				"SkipDBv2", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
+			if (launch_status != 0)
+				return launch_status;
+		}
+	}
+
+	errno = ETIMEDOUT;
+	logmessage(LOGNAME, "SkipDBv2 daemon did not remain running after launch");
+	return -1;
+}
+#endif
+
 int
 start_services_once(int is_ap_mode)
 {
@@ -1968,9 +2021,9 @@ start_services_once(int is_ap_mode)
 	}
 #if defined(APP_SKIPDBV2)
 	{
-		int skipdb_start_status = doSystem("/usr/sbin/skipd -d /etc/storage/db");
+		int skipdb_start_status = start_skipdbv2();
 		if (skipdb_start_status != 0)
-			logmessage(LOGNAME, "SkipDBv2 boot startup failed (wait status=%d)",
+			logmessage(LOGNAME, "SkipDBv2 boot startup failed (status=%d)",
 				   skipdb_start_status);
 		start_status = rc_first_service_start_status(start_status, skipdb_start_status);
 	}
@@ -2167,9 +2220,29 @@ stop_services_lan_wan(void)
 	return stop_status;
 }
 
+#if defined(APP_SKIPDBV2)
+static int
+stop_skipdbv2(void)
+{
+	char *svcs[] = { "skipd", NULL };
+
+	/*
+	 * SIGTERM exits skipd's event loop and commits/closes the database.
+	 * Never SIGKILL this daemon: an unclean exit can lose persistent state.
+	 */
+	return kill_services(svcs, 30, 0);
+}
+#endif
+
 int
 stop_misc(void)
 {
-	char* svcs[] = { "ntpd", "detect_wan", "watchdog", "gpio_btn", NULL };
-	return kill_services(svcs, 4, 1);
+	char *svcs[] = { "ntpd", "detect_wan", "watchdog", "gpio_btn", NULL };
+	int stop_status = kill_services(svcs, 4, 1);
+
+#if defined(APP_SKIPDBV2)
+	/* stop_misc is part of reboot, power-off and firmware-update teardown. */
+	record_service_stop_status(&stop_status, "SkipDBv2", stop_skipdbv2());
+#endif
+	return stop_status;
 }

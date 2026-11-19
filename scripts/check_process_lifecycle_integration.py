@@ -3231,3 +3231,33 @@ assert 'wait "$adbyby_test_child_pid"' in adbyby_start_test
 for entrypoint in ("adbyby_start", "adbyby_uprules"):
     assert "run_and_reap_detached_test_child " + entrypoint in adbyby_start_test
 print("Adbyby detached test-child cleanup is deterministic: PASS")
+
+# SkipDBv2 is a detached persistent-state daemon: confirm startup and stop it
+# gracefully before shutdown/firmware persistence can release backing storage.
+skipdb_start = c_function_body(services_source, "start_skipdbv2(void)")
+skipdb_boot = c_function_body(services_source, "start_services_once(int is_ap_mode)")
+skipdb_stop = c_function_body(services_source, "stop_skipdbv2(void)")
+misc_stop = c_function_body(services_source, "stop_misc(void)")
+assert "optional_daemon_start_status(\"SkipDBv2\", \"skipd\")" in skipdb_start
+assert 'doSystem("/usr/sbin/skipd -d /etc/storage/db")' in skipdb_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in skipdb_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in skipdb_start
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in skipdb_start
+assert 'optional_daemon_presence("skipd", &scan_error)' in skipdb_start
+assert "process_presence_start_postcondition(launch_status, process_state)" in skipdb_start
+assert "PROCESS_PRESENCE_UNKNOWN" in skipdb_start and "errno = ETIMEDOUT;" in skipdb_start
+assert "start_skipdbv2()" in skipdb_boot
+assert "doSystem(\"/usr/sbin/skipd -d /etc/storage/db\")" not in skipdb_boot
+assert 'char *svcs[] = { "skipd", NULL };' in skipdb_stop
+assert "kill_services(svcs, 30, 0)" in skipdb_stop
+assert "SIGTERM" in skipdb_stop and "SIGKILL" not in skipdb_stop
+assert 'record_service_stop_status(&stop_status, "SkipDBv2", stop_skipdbv2())' in misc_stop
+assert misc_stop.index("kill_services(svcs, 4, 1)") < misc_stop.index("stop_skipdbv2()")
+assert "stop_misc()" in rc_source
+assert "stop_misc() != 0" in rc_source
+assert "stop_misc()" in rc_source.split("shutdown_router(int level)", 1)[1]
+assert "stop_misc()" in rc_source.split("flash_firmware(void)", 1)[1]
+assert "test_nonforced_timeout_blocks_followup" in lifecycle_test
+assert "assert(context.kill_signals == 0);" in lifecycle_test
+print("SkipDBv2 detached startup postcondition and graceful persistence shutdown: PASS")
+
