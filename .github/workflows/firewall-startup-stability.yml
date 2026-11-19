@@ -247,7 +247,9 @@ jobs:
           assert "Invalid LAN IPv4 netmask for default NAT; refusing restore" in nat_default
           filter_policy = Path("trunk/user/rc/src/firewall_filter_policy.h").read_text()
           filter_test = Path("trunk/user/rc/src/tests/firewall_filter_policy.c").read_text()
-          assert "ipv4_netmask_is_contiguous" in filter_policy
+          netmask_policy = Path("trunk/user/rc/src/ipv4_netmask_policy.h").read_text()
+          assert '#include "ipv4_netmask_policy.h"' in filter_policy
+          assert "ipv4_netmask_is_contiguous" in netmask_policy
           assert "test_ipv4_netmask_contiguity" in filter_test
           rp_filter_source = body(firewall_source_for_ttl, "start_firewall_ex_locked(void)")
           rp_filter_write = rp_filter_source.index("firewall_rp_filter_write_status(")

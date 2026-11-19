@@ -1,3 +1,12 @@
+## 2026-11-19 — Correct firewall netmask contract and restore handoff checkpoint heading
+
+- Firewall Startup run `44638506108` on `098a9d4` failed at its embedded source assertion because it still expected `ipv4_netmask_is_contiguous()` to be defined in `firewall_filter_policy.h`. The helper was correctly extracted into `ipv4_netmask_policy.h`; the firewall header includes it and the existing GNU89 regression calls it. Updated the checker to verify that actual include/definition relationship.
+- AI handoff docs run `44638506375` failed because the required `Before context exhaustion` heading was absent. Restored the full checkpoint section while preserving the exact conditional-checkpoint sentence.
+- On `098a9d4`, MiniUPnP config `44638505959`, Process lifecycle `44638506449`, WAN DHCP `44638506004`, WAN route `44638505955`, Samba `44638505951`, DNSMasq `44638505950` and Inadyn `44638506051` passed. Process umbrella, HTTPD, FULLCONENAT, NVRAM and XY-C1 were still pending at checkpoint.
+- No production source or physical-router behavior changed in this correction.
+
+---
+
 ## 2026-11-19 — Share strict LAN netmask validation with miniupnpd
 
 - Review found miniupnpd startup in `services_ex.c` accepted any syntactically valid dotted-IPv4 mask, then passed it to `ip2class()`. Non-contiguous masks such as `255.0.255.0` could still produce the wrong LAN prefix although firewall startup was already hardened.

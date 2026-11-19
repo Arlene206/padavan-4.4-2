@@ -11,35 +11,41 @@ Continue main-only implementation across conversations. Restore exact live sourc
 
 ## Current repository state
 
-- Parent for the shared miniupnpd netmask validation slice: `5e2c7a3fd8479bd1cdbdf455b34c18d20494e1b7`.
-- Exact parent Actions: Process inventory `44637423511` PASS; Process lifecycle fail-closed regression `44637423543` PASS. AI handoff docs `44637423581` failed because the current handoff omitted `The checkpoint is mandatory; a document edit is conditional.`; that sentence is restored here. NVRAM `44637423514` and XY-C1 `44637423396` were IN_PROGRESS at last poll.
-- MTD flash I/O uses the shared eight-consecutive-EINTR wrapper without outer restart loops. Process regression verifies bounded wrapper use, no direct syscalls/no outer retries, short-I/O progress, read EOF and zero-write EIO.
-- Earlier firewall source SHA `342631b4efb09b4877dd944d74f03d20da7b4164` passed Firewall Startup; HTTPD/WAN checker contracts were subsequently repaired in `8987975` and `5c557db`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged. No physical-router result is available.
+- Current main before this CI-contract correction: `098a9d4bec3fed1cba85c1427ca7e346d52b31ce` (`fix(upnp): validate contiguous LAN netmask`), parent `5e2c7a3fd8479bd1cdbdf455b34c18d20494e1b7`.
+- Exact-head MiniUPnP atomic configuration regression `44638505959`, Process lifecycle `44638506449`, WAN DHCP `44638506004`, WAN route `44638505955`, Samba `44638505951`, DNSMasq `44638505950`, and Inadyn `44638506051` PASS. Process umbrella `44638505913`, HTTPD `44638506210`, FULLCONENAT `44638506104`, NVRAM `44638506292`, and XY-C1 `44638506287` were still IN_PROGRESS at last poll.
+- Firewall Startup run `44638506108` failed only in its source contract: it expected the extracted helper's function body to remain in `firewall_filter_policy.h`, but the commit correctly moved it to `ipv4_netmask_policy.h`. This commit repairs the contract to verify the include and the new helper definition.
+- AI docs run `44638506375` failed because `SESSION_HANDOFF.md` omitted the required literal `Before context exhaustion`; this commit restores the section. The LAN-mask source change is already committed; no physical-router result is available.
 
 ## Active task
 
-- Firewall startup and baseline NAT reject malformed/non-contiguous LAN masks, but miniupnpd startup still checked only dotted-IPv4 syntax before `ip2class()`.
-- Extracted the nonzero contiguous IPv4 netmask predicate into shared `ipv4_netmask_policy.h`; firewall and miniupnpd both consume it. Miniupnpd now rejects invalid/non-contiguous masks and returns `EINVAL` before subnet derivation.
-- Existing firewall regression covers valid prefix masks, zero, non-contiguous, malformed and injection strings. Firewall source-order contract and miniupnpd daemon-start source-order contract cover both callers. The new shared header is included in both affected workflows' push and pull_request path filters.
-- This integration awaits exact-head Firewall, miniupnpd, Process inventory, AI docs, NVRAM and XY-C1 Actions.
+- The MiniUPnP LAN netmask gap is fixed on `098a9d4`: shared `ipv4_netmask_is_contiguous()` is called by both firewall and miniupnpd; the latter rejects invalid/non-contiguous masks before `ip2class()`. MiniUPnP exact-head workflow `44638505959` PASS.
+- The Firewall Startup checker was stale after moving the predicate implementation into `ipv4_netmask_policy.h`: it still searched for the implementation body inside `firewall_filter_policy.h`. Updated it to assert the include relationship and helper definition, without weakening the runtime regression.
+- Restored the exact AI handoff-checker heading `Before context exhaustion` and its atomic-commit/exact-SHA verification instructions. No source/runtime behavior changes in this follow-up.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head Firewall startup, miniupnpd config stability, Process inventory, AI docs, NVRAM and XY-C1 results. On FAIL, inspect the exact job log and repair only the demonstrated issue.
-2. L3 requires XY-C1 Build, TRX verification and artifact upload all SUCCESS on the same source SHA. No host regression is a substitute.
-3. Continue with an independently evidenced stability/security issue outside completed firewall netmask, MTD bounded-I/O and RStats persistence work.
+1. Check exact-head Firewall Startup and AI docs results for this correction; inspect first causal failure logs if either remains red.
+2. Recheck `098a9d4` pending Process umbrella, HTTPD, FULLCONENAT, NVRAM and XY-C1 runs. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on the same production-source SHA.
+3. Continue the P1 RC startup-result propagation investigation. Preserve PID 1 recovery semantics: distinguish mandatory router readiness from optional-service degraded status before changing `init_router()` return behavior.
 
 ## Verification boundary
 
-- L1: shared contiguous-mask policy cases run through existing GNU89 Firewall regression; integration awaits exact-head CI.
-- L2: parent MTD Process inventory and Process lifecycle runs PASS. AI docs required the exact conditional-checkpoint sentence, restored here. Current Firewall/miniupnpd/AI/Process Actions pending.
-- L3: parent NVRAM and XY-C1 were IN_PROGRESS; this integration requires exact-head Build/TRX/artifact success.
-- L4: non-contiguous LAN-mask behavior on physical router remains NOT VERIFIED.
+- L1: shared nonzero contiguous IPv4 mask policy is used by firewall and MiniUPnP; MiniUPnP rejects malformed/zero/non-contiguous mask before subnet derivation.
+- L2: MiniUPnP config suite `44638505959` and Process lifecycle suite `44638506449` PASS on exact SHA `098a9d4`. Firewall checker and AI docs needed source-contract/handoff-section repairs; their corrected exact-head runs are pending.
+- L3: XY-C1 `44638506287` on `098a9d4` was in progress; Build/TRX/artifact must all pass on one exact source SHA.
+- L4: actual MIPS/uClibc and physical-router LAN/UPnP behavior remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional. Every session MUST perform a handoff checkpoint before ending. At session end, compare live main, production-source baseline, exact-head Actions, module state and the next task. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit; do not create a no-op commit.
+
+## Before context exhaustion
+
+- Finish the current safe source/test slice and commit it atomically before handoff; do not publish related multi-file changes as sequential partial commits.
+- Re-fetch live `main`, create one complete Git tree and one commit with that exact parent, then update main only with `force=false` and the exact parent as `expected_sha`. Never force-push.
+- Query relevant Actions by exact source SHA and record PASS/FAIL/PENDING with run IDs. Pending validation does not block independent work and must not be reported as complete.
+- Record the production-source baseline, test commands/results, exact CI state, unresolved limitations and the next concrete task. Distinguish host L2, firmware L3 and device L4 evidence.
+- Confirm all work is committed and remotely present before claiming it is preserved across conversations.
 
 ## Development invariants
 
