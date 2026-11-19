@@ -1,3 +1,12 @@
+## 2026-11-19 — Fix SD/MMC test fixtures for strict procfs header validation
+
+- Parent main SHA: `41b6e0ca0cd29a4e2fd39036b92106d7670bde09`.
+- Exact storage workflow `44478689416` on `41b6e0ca0cd29a4e2fd39036b92106d7670bde09` compiled both GNU89 test binaries with `-Wall -Wextra -Werror` and ASan/UBSan. The new partition-probe test failed at the old SD no-child fixture because it contained data rows without the now-required `/proc/partitions` header; the MMC sibling fixture had the same defect.
+- Add the exact procfs header to both valid no-child/prefix-collision fixtures. Keep the separate malformed/missing-header case expecting UNKNOWN (-1), so strict header validation remains covered.
+- The storage workflow failed at test runtime (not compile); embedded source-contract and later workflow steps did not execute. No production source changes.
+
+---
+
 ## 2026-11-19 — Reject incomplete SD/MMC partition inventories before whole-disk mount
 
 - Parent main SHA: `7cc78f44fc11aa3698ae1231ea3e1399360bcb38`.

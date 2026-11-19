@@ -48,8 +48,8 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Active task — fail closed on malformed or truncated SD/MMC partition inventory
 
 - `storage_partition_probe.h` previously used permissive `sscanf`, ignored malformed and truncated lines, and broke after the first child partition. A later bad row could therefore be hidden and the parser could report an incomplete inventory as safe.
-- Reuse `disk_inventory_policy.h` strict complete-line/header/decimal parser, require the single procfs header, reject malformed rows and EOF/read errors, and scan through EOF even after the first matching partition.
-- Add GNU89 ASan/UBSan C regression for malformed, truncated, overlong, duplicate-header and post-match malformed rows; include it in storage workflow filters and embedded source-contract checks.
+- Reuse `disk_inventory_policy.h` strict complete-line/header/decimal parser, require the single procfs header, reject malformed rows and EOF/read errors, and scan through EOF even after the first matching partition. This implementation is committed in `41b6e0c`.
+- Exact storage run `44478689416` compiled the new regression with GNU89 `-Wall -Wextra -Werror` and ASan/UBSan, then failed because two legacy SD/MMC fixtures lacked the required `/proc/partitions` header; the parser correctly rejected them. This follow-up adds valid headers to those fixtures; no production source change.
 
 ## Verification boundary
 
@@ -58,9 +58,9 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head storage hotplug workflow after the strict parser change; require GNU89 -Werror plus ASan/UBSan unit tests and the embedded caller/source contract to PASS.
-2. Confirm no malformed or truncated `/proc/partitions` result can return “no partitions”; keep the whole-disk mount caller fail-closed.
-3. Check whether XY-C1 `44476582849` finished on exact production SHA 255; require Build/TRX/artifact before claiming L3. Then continue the next security/stability slice around ZeroTier route deletion cleanup status or the broader process/device inventory.
+1. Inspect exact-head storage hotplug workflow after the fixture-only correction; require GNU89 -Werror plus ASan/UBSan tests and embedded caller/source contract to PASS.
+2. Check whether XY-C1 `44476582849` completed on exact production SHA 255; require Build/TRX/artifact before claiming L3.
+3. Then examine ZeroTier route deletion cleanup: `zero_route del` may suppress individual deletion failures; ensure stop reports incomplete cleanup and preserves identity/configuration when network teardown is uncertain.
 
 ## Mandatory handoff checkpoint
 

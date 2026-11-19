@@ -104,7 +104,7 @@
    - ZeroTier cleanup follow-up remains open: `zero_route del` currently suppresses individual deletion failures; inspect whether stop should report incomplete route/firewall cleanup and preserve persistent identity when cleanup is uncertain.
  Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.
 4. **P2 — Continue storage/configuration boundary hardening.** Inspect other privileged writers for predictable temp names, symlink substitution, unchecked file operations, and unsafe config interpolation; add host regressions where practical.
-   - Active: strict SD/MMC `/proc/partitions` inventory parser. Existing `storage_partition_probe.h` ignored malformed/truncated rows and stopped at first match; strict complete-line parser + GNU89 regression is being added.
+   - Active: strict SD/MMC `/proc/partitions` inventory parser committed in `41b6e0c`; exact storage run `44478689416` compiled under GNU89 `-Werror`/ASan/UBSan but failed because two legacy valid no-child fixtures lacked the required header. This test-only follow-up supplies headers and retains a separate missing-header rejection assertion; exact rerun pending.
 5. **P2 — Keep handoff state current.** Update `SESSION_HANDOFF.md`, this roadmap, and `dev_log.md` after material commits; do not duplicate verified work.
 
 ## Working rules

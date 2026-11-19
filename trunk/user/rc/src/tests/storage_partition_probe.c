@@ -96,8 +96,8 @@ main(void)
 	assert(probe(partitions, "mmcblk1", 1) == 1);
 	assert(probe(partitions, "mmcblk2", 1) == 0);
 
-	assert(probe("8 0 100 sda\n8 1 20 sdaX\n", "sda", 0) == 0);
-	assert(probe("179 0 100 mmcblk0\n179 1 20 mmcblk0pX\n",
+	assert(probe("major minor #blocks name\n8 0 100 sda\n8 1 20 sdaX\n", "sda", 0) == 0);
+	assert(probe("major minor #blocks name\n179 0 100 mmcblk0\n179 1 20 mmcblk0pX\n",
 		     "mmcblk0", 1) == 0);
 	assert(probe(partitions, "sda1", 0) == -1);
 	assert(probe(partitions, "sd/", 0) == -1);
