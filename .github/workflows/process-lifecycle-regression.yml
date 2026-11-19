@@ -460,8 +460,15 @@ jobs:
           write_body = function_body(flash, "write_safe(int fd")
           assert "process_io_read(fd, buf + r_len, buf_len - r_len)" in read_body
           assert "process_io_write(fd, buf + w_len, buf_len - w_len)" in write_body
+          # The wrapper owns the bounded EINTR counter; do not restart it.
+          assert "if (errno == EINTR)" not in read_body
+          assert "if (errno == EINTR)" not in write_body
+          assert "continue;" not in read_body
+          assert "continue;" not in write_body
           assert "ssize_t ret = read(fd, buf + r_len" not in read_body
           assert "ssize_t ret = write(fd, buf + w_len" not in write_body
+          assert "r_len += ret;" in read_body and "if (ret == 0)" in read_body
+          assert "w_len += (size_t)ret;" in write_body and "errno = EIO;" in write_body
           print("Procfs and MTD flash I/O EINTR retry bound contract: PASS")
           PY
       - name: Compile and run legacy pids() UNKNOWN mapping regression

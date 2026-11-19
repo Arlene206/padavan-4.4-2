@@ -1,3 +1,12 @@
+## 2026-11-19 — Preserve the MTD bounded-EINTR limit through the full read/write loops
+
+- Source review after the checker-only correction found a production defect in the first MTD migration: `read_safe()` and `write_safe()` caught the terminal `EINTR` from the shared eight-retry wrapper and restarted it, resetting its internal counter. A persistent signal storm could therefore still loop forever.
+- Removed the outer EINTR restart. The bounded wrapper's terminal error now propagates; positive short I/O continues to advance buffers, read EOF remains a normal short read, and zero-progress write still fails with `EIO`.
+- Strengthened the Process source contract to forbid outer EINTR/continue loops and direct syscalls while asserting short-I/O progress, EOF and zero-write handling. The existing GNU89 `process_pidfile.c` regression covers the shared wrapper's eight retry successes and terminal ninth EINTR for reads/writes.
+- Parent `dfe8eb6d95bd5297612c41e06412e17c1a9434fe`: Process inventory and AI docs had triggered and were IN_PROGRESS at last poll. No target MIPS build or hardware result is claimed.
+
+---
+
 ## 2026-11-19 — Narrow Process raw-syscall negative assertions
 
 - Exact d7 Process umbrella `44636788168` failed at the source-contract step because substring `read(fd, ...)` also appears inside `process_io_read(fd, ...)`; same issue for write. All earlier procfs/PID-file checks ran before that assertion.

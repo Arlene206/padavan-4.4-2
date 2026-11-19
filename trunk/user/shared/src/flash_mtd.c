@@ -134,11 +134,8 @@ read_safe(int fd, unsigned char *buf, size_t buf_len)
 
 	while (r_len < buf_len) {
 		ssize_t ret = process_io_read(fd, buf + r_len, buf_len - r_len);
-		if (ret < 0) {
-			if (errno == EINTR)
-				continue;
+		if (ret < 0)
 			return -1;
-		}
 		
 		if (ret == 0)
 			break;
@@ -156,11 +153,8 @@ write_safe(int fd, const unsigned char *buf, size_t buf_len)
 
 	while (w_len < buf_len) {
 		ssize_t ret = process_io_write(fd, buf + w_len, buf_len - w_len);
-		if (ret < 0) {
-			if (errno == EINTR)
-				continue;
+		if (ret < 0)
 			return -1;
-		}
 		if (ret == 0) {
 			errno = EIO;
 			return -1;
