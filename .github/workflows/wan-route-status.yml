@@ -658,7 +658,7 @@ jobs:
           assert "static int\nwan_down_internal(" in wan
           assert "char *wan_addr, *wan_gate, *wan_route_addr, *wan_mask;" in wan_down
           assert "int ppp_index, gateway_valid, gateway_off_subnet;" in wan_down
-          assert "route_status_wan_gateway_host_route_required(gateway_valid, ppp_index, gateway_off_subnet)" in " ".join(wan_down.split())
+          assert "route_status_wan_gateway_host_route_required(gateway_valid,ppp_index,gateway_off_subnet)" in "".join(wan_down.split())
           assert 'wan_route_addr = get_wan_unit_value(unit, "ipaddr");' in wan_down
           assert 'wan_mask = get_wan_unit_value(unit, "netmask");' in wan_down
           assert 'route_status = route_del(wan_ifname, 1, wan_gate, NULL,' in wan_down
@@ -749,7 +749,7 @@ jobs:
           assert "gateway_valid = is_valid_ipv4(wan_gate);" in wan_up
           assert "ppp_index = ppp_ifindex(wan_ifname);" in wan_up
           assert "gateway_off_subnet = gateway_valid && ppp_index < 0 &&" in wan_up
-          assert "route_status_wan_gateway_host_route_required(gateway_valid, ppp_index, gateway_off_subnet)" in " ".join(wan_up.split())
+          assert "route_status_wan_gateway_host_route_required(gateway_valid,ppp_index,gateway_off_subnet)" in "".join(wan_up.split())
           assert 'route_status = route_add(wan_ifname, 1, wan_gate, NULL, "255.255.255.255");' in wan_up
           assert wan_up.count("route_status_accumulate(status, route_status)") >= 6
           assert "route_status = start_auth_kabinet();" in wan_up

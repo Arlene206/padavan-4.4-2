@@ -1,3 +1,10 @@
+## 2026-11-19 — Fix WAN route source-contract whitespace matching
+
+- Exact-head WAN route run `44585450279` on production source `29fa24741613095593a03f4e602f1d77636a21e0` compiled and ran `route_status_policy.c` with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan successfully. The subsequent Python contract failed at line 275 because its joined string retained a space after the multiline helper's opening parenthesis while the expected token did not.
+- Updated both WAN-up and WAN-down helper-call checks to remove all source whitespace before matching. This preserves the semantic assertion while allowing normal multiline formatting. Exact-head rerun pending.
+- XY-C1 run `44585450325` was still in progress at checkpoint; all other listed 29fa stability and security Actions completed PASS. No product build result is inferred from the route-policy host test.
+
+---
 ## 2026-11-19 — Remove the orphaned off-subnet WAN gateway host route
 
 - `wan_up_internal()` installed a metric-1 `/32` gateway host route for valid off-subnet gateways on non-PPP interfaces. `wan_down_internal()` deleted the default route plus DHCP/static route inventories, but did not delete that independently-created host route. It could survive WAN DHCP lease loss or replacement.
