@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — strict switch ACL input boundary
+# 2026-11-19 continuation checkpoint — USB RAS PPP cleanup and WAN rollback
 
 # Cross-session execution mandate
 
@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; branch `main`.
-- Parent main SHA for the active switch ACL hardening slice: `bc4e2c0ce204af2b3827fcaf6cbed17343139092`.
+- Current production-source main SHA: `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc` (RAS PPP failure cleanup/rollback; parent `eb379476c57a11da1f8c05af92bd60a53b7902cf`).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout was available: `git clone` could not resolve github.com in this environment. Exact GitHub Actions are the validation source.
 
@@ -67,6 +67,14 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - ACL EtherType, L4 payload and source-port commands now require exactly six arguments, strictly parse bounded numeric values and validate all eight port-map characters before the first MMIO write.
 - Exact Switch CLI `44488416113`, Process inventory `44488416467`, AI docs `44488415970` and NVRAM audit `44488416220` PASS on production SHA `752c880e995333ded4d93b4aa82186a537e40b34`. XY-C1 `44488415852` completed successfully on 752; inspect its individual build, TRX and artifact steps before using it as L3 evidence.
 
+## Completed slice — USB RAS PPP launch cleanup and physical-WAN rollback
+
+- `launch_wan_modem_ras()` previously returned the direct `eval("/usr/sbin/pppd", "call", call_file)` result. A failed launch therefore bypassed the common stale-peer cleanup path and could leave a `/tmp/ppp/peers/modem.wanN` file containing modem credentials.
+- The launcher now captures the pppd status, keeps the peer file only on success, and removes the credential-bearing file after a failed launch. It preserves both the original pppd status and errno across best-effort unlink. A small policy helper and GNU89 regression cases cover success, positive failure and negative failure.
+- `start_wan()` now restores the physical WAN binding/firewall after a RAS PPP startup failure using the existing fail-closed `restore_wan_after_firewall_failure()` path. The pppd error is aggregated before the recovery result; failed recovery keeps the physical interface down and is logged.
+- The exact-source checker verifies cleanup ordering, errno/status preservation and rollback/error aggregation.
+- On production SHA `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc`, USB modem workflow `44490980473` and WAN route workflow `44490980282` passed all steps. Process fail-closed `44490980113`, Process inventory `44490980140` and NVRAM audit `44490980245` also passed. XY-C1 `44490980325` was still building at the last poll; TRX verification and artifact upload were pending, so no L3 claim is made.
+
 ## Verification boundary
 
 - ACL input parsing: Switch CLI, Process, AI docs and NVRAM audit PASS on exact production SHA 752 (`44488416113`, `44488416467`, `44488415970`, `44488416220`). XY-C1 `44488415852` is completed PASS on 752; confirm its Build/TRX/artifact step results before claiming L3.
@@ -74,16 +82,17 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - On 3d, Process inventory `44490029325` and AI docs `44490029437` PASS; XY-C1 `44490029298` and NVRAM audit `44490029411` were still pending at the last poll.
 - Storage partition inventory: host L2 PASS on f873 and staged include/duplicate HTTPD host checks PASS on 2a/bc4; corrected production header still requires a fresh exact-source Build/TRX/artifact run. ZeroTier lifecycle verifications are recorded above. Physical switch/router L4 NOT VERIFIED.
 
-## Active task — repair the strict PHY/VLAN/raw-register source contract
+## Active task — verify XY-C1 and inspect AP DHCP retry-state failure handling
 
-- The failed check compared a line-wrapped switch_parse_decimal_range() call to a one-line string; whitespace normalization now preserves the same function-call/argument semantics.
-- Exact follow-up Switch CLI, AI docs, Process and XY-C1 checks must be confirmed on the next commit SHA.
+- The PHY/VLAN/raw-register parser source-contract failure on SHA 3d was a whitespace-format assertion, not a production-code failure. The whitespace-normalized contract correction is on `eb379476c57a11da1f8c05af92bd60a53b7902cf`; Switch CLI run `44490557134` and AI handoff docs run `44490556946` both PASS on that exact SHA.
+- The current production-source SHA is `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc`. Its USB modem and WAN route host regressions, Process inventory/fail-closed checks and NVRAM transaction audit all PASS. XY-C1 run `44490980325` is still in progress at Build; TRX and artifact steps have not yet completed.
+- After checking that exact XY-C1 run, continue with the AP DHCP `lan_hosts_retry` recovery path: establish whether retry-state publication failures can strand a committed lease without a later repair attempt. This is an investigation target, not a confirmed defect; do not change the intentionally non-fatal post-commit lease semantics without proving a failure mode.
 
 ## Exact first action for the next GPT
 
-1. Confirm live `main`; inspect exact-head Switch CLI, AI docs, Process, NVRAM and XY-C1 runs for the new commit. Read failure logs.
-2. Require the switch CLI parser GNU89 `-Wall -Wextra -Werror` ASan/UBSan tests and whitespace-normalized source contract to pass.
-3. Verify XY-C1 Build, TRX and artifact-upload steps on the exact production SHA; then continue an independent P1 RC startup/lifecycle defect without repeating completed storage or ZeroTier work.
+1. Inspect XY-C1 run `44490980325` on exact source SHA `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc`, including Build, TRX and artifact-upload step results. Do not wait if it remains pending.
+2. Continue the AP DHCP retry-state task by tracing the return contract of `nvram_set_int_temp()`, the retry marker and PID-1 queue failure path. Add a regression and source fix only if the current code can demonstrably lose the retry.
+3. Do not repeat the completed RAS peer cleanup/rollback or switch numeric parser work.
 
 ## Mandatory handoff checkpoint
 

@@ -1,3 +1,13 @@
+## 2026-11-19 — Clean up failed USB RAS PPP launches and restore physical WAN
+
+- Parent main SHA: `eb379476c57a11da1f8c05af92bd60a53b7902cf`.
+- `launch_wan_modem_ras()` previously returned pppd `eval()` status directly. When pppd launch failed, that return bypassed the common stale-peer cleanup, leaving a credential-bearing `/tmp/ppp/peers/modem.wanN` file.
+- The launch status is now captured; a successful launch retains its peer file, while a failed launch removes it and restores the original errno/status after best-effort cleanup. A GNU89 policy regression covers success, positive failure and negative failure.
+- `start_wan()` now restores the physical WAN binding and firewall after RAS PPP startup failure through the established fail-closed rollback helper. The initial pppd failure remains the first error if rollback also fails; incomplete rollback is logged and the physical interface is taken down by the helper.
+- `scripts/check_modem_wan_start_status.py` verifies the production cleanup and recovery ordering. Exact USB modem `44490980473` and WAN route `44490980282` workflows passed all steps; Process fail-closed `44490980113`, Process inventory `44490980140`, and NVRAM audit `44490980245` also passed on production SHA `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc`.
+- XY-C1 `44490980325` was still in progress at Build at the last poll; TRX and artifact upload were pending. No current-source L3 result is claimed.
+
+---
 ## 2026-11-19 — Normalize wrapped C parser calls in switch source contract
 
 - Parent main SHA: `3d6a245e86bcccf3af342b391cb420cdbe93fb8e`.
