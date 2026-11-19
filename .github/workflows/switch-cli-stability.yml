@@ -95,8 +95,8 @@ jobs:
               raise AssertionError(f"unterminated function: {signature}")
 
           for signature, guard, first_arg in (
-              ("set_mirror_to(int argc, char *argv[])", "if (argc < 4)", "argv[3]"),
-              ("set_mirror_from(int argc, char *argv[])", "if (argc < 5)", "argv[3]"),
+              ("set_mirror_to(int argc, char *argv[])", "if (argc != 4 ||", "argv[3]"),
+              ("set_mirror_from(int argc, char *argv[])", "if (argc != 5 ||", "argv[3]"),
               ("acl_dip_trtcm(int argc, char *argv[])", "if (argc < 10)", "argv[4]"),
               ("void dip_add(int argc, char *argv[])", "if (argc < 5)", "argv[3]"),
               ("void dip_del(int argc, char *argv[])", "if (argc < 4)", "argv[3]"),
