@@ -237,6 +237,14 @@ require(vinet.index("ret = create_vlan_iface(") < vinet.index('set_wan_unit_valu
 viptv = body(wan, "launch_viptv_wan(void)")
 iptv_start = viptv.index("/* VLAN interface for IPTV */")
 iptv_setup = viptv[iptv_start:]
+static_mode_pos = viptv.index('viptv_mode = nvram_get_int("viptv_mode");')
+static_addr_pos = viptv.index('viptv_addr = nvram_safe_get("viptv_ipaddr");')
+static_mask_pos = viptv.index('viptv_mask = nvram_safe_get("viptv_netmask");')
+static_validation_pos = viptv.index("if (viptv_mode == 2 &&")
+old_vlan_removal_pos = viptv.index("/* Remove a no-longer-used VLAN", static_validation_pos)
+require(static_mode_pos < static_addr_pos < static_mask_pos < static_validation_pos <
+        old_vlan_removal_pos,
+        "static IPTV input validation must precede old VLAN teardown or replacement")
 snapshot_pos = iptv_setup.index("vlan_flags = get_interface_flags(viptv_ifname);")
 create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
 bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
