@@ -645,6 +645,32 @@ Change_iptable () {
     fi
 }
 
+smartdns_start_config_rollback()
+{
+    _smartdns_failure_status=$1
+    if [ -n "$smartdns_tmp_Conf" ]; then
+        rm -f "$smartdns_tmp_Conf"
+    fi
+
+    if nvram set sdns_enable=0; then
+        _smartdns_nvram_status=0
+    else
+        _smartdns_nvram_status=$?
+        logger -t "SmartDNS" "无法持久化停用标记 (status=$_smartdns_nvram_status)"
+    fi
+    sdns_enable=0
+    Stop_smartdns
+    _smartdns_cleanup_status=$?
+    if [ "$_smartdns_cleanup_status" -ne 0 ]; then
+        logger -t "SmartDNS" "配置生成失败后的 DNSMasq 回滚未完成 (status=$_smartdns_cleanup_status)"
+        return "$_smartdns_cleanup_status"
+    fi
+    if [ "$_smartdns_nvram_status" -ne 0 ]; then
+        return "$_smartdns_nvram_status"
+    fi
+    return "$_smartdns_failure_status"
+}
+
 Start_smartdns () {
     # Do not modify DNS, firewall or persisted state until the old daemon is
     # positively classified and, when running, confirmed stopped.
@@ -710,15 +736,16 @@ Start_smartdns () {
     ipset -N smartdns hash:net >/dev/null
     smartdns_tmp_Conf=$(mktemp "${smartdns_Conf}.input.XXXXXX") || {
         logger -t "SmartDNS" "无法创建 SmartDNS 配置 staging 文件"
-        return 1
+        smartdns_start_config_rollback 1
+        return $?
     }
     if Get_sdns_conf; then
         :
     else
         smartdns_config_status=$?
-        rm -f "$smartdns_tmp_Conf"
         logger -t "SmartDNS" "SmartDNS 配置生成失败 (status=$smartdns_config_status)"
-        return "$smartdns_config_status"
+        smartdns_start_config_rollback "$smartdns_config_status"
+        return $?
     fi
     grep -v '^#' "$smartdns_address_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
     grep -v '^#' "$smartdns_blacklist_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
@@ -728,33 +755,25 @@ Start_smartdns () {
         :
     else
         smartdns_config_status=$?
-        rm -f "$smartdns_tmp_Conf"
         logger -t "SmartDNS" "SmartDNS 配置规范化失败 (status=$smartdns_config_status)"
-        return "$smartdns_config_status"
+        smartdns_start_config_rollback "$smartdns_config_status"
+        return $?
     fi
     if echo "domain-rules " "/my.router/ -c none -a $IPS4 -d no" >> "$smartdns_tmp_Conf"; then
         :
     else
         smartdns_config_status=$?
-        rm -f "$smartdns_tmp_Conf"
         logger -t "SmartDNS" "SmartDNS 配置写入失败 (status=$smartdns_config_status)"
-        return "$smartdns_config_status"
+        smartdns_start_config_rollback "$smartdns_config_status"
+        return $?
     fi
     if smartdns_config_publish_deduplicated "$smartdns_tmp_Conf" "$smartdns_Conf"; then
         :
     else
         smartdns_config_status=$?
-        rm -f "$smartdns_tmp_Conf"
         logger -t "SmartDNS" "SmartDNS 配置原子发布失败 (status=$smartdns_config_status)"
-        nvram set sdns_enable=0
-        sdns_enable=0
-        Stop_smartdns
-        smartdns_cleanup_status=$?
-        if [ "$smartdns_cleanup_status" -ne 0 ]; then
-            logger -t "SmartDNS" "配置发布失败后的 DNSMasq 回滚未完成 (status=$smartdns_cleanup_status)"
-            return "$smartdns_cleanup_status"
-        fi
-        return "$smartdns_config_status"
+        smartdns_start_config_rollback "$smartdns_config_status"
+        return $?
     fi
     rm -f "$smartdns_tmp_Conf"
     if [ "$sdns_coredump" = "1" ] ; then

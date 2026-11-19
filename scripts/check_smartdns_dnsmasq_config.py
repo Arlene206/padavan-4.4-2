@@ -158,4 +158,9 @@ for token in ("generator failure preserves last-good config",
               "symlink, special-file and missing-source targets fail closed",
               "SmartDNS atomic configuration publication regression: PASS"):
     assert token in config_file_test, token
+rollback = body(smartdns, "smartdns_start_config_rollback")
+assert "nvram set sdns_enable=0" in rollback
+assert "Stop_smartdns" in rollback
+assert "DNSMasq 回滚未完成" in rollback
+assert start.count("smartdns_start_config_rollback") == 5
 print("SmartDNS saved DNSMasq state, marked-block and atomic SmartDNS-config publication contracts: PASS")
