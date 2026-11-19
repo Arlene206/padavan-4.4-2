@@ -78,6 +78,20 @@ disk_header = read("trunk/user/libdisk/src/disk_initial.h")
 storage = read("trunk/user/rc/src/services_stor.c")
 ejected_policy = read("trunk/user/rc/src/storage_ejected_inventory_policy.h")
 ejected_policy_test = read("trunk/user/rc/src/tests/storage_ejected_inventory_policy.c")
+
+# Disk inventory must not authorize safe removal from a partial /proc/swaps
+# header or from malformed rows belonging to another device.
+swapon_probe = body(libdisk, "static int\nis_device_swapon(")
+swap_match = body(swap_policy, "storage_swap_line_matches_device(")
+require("storage_swap_header_valid(line)" in swapon_probe and
+        "storage_swap_line_matches_device(line, dev_path)" in swapon_probe and
+        "STORAGE_SWAP_UNKNOWN" in swapon_probe,
+        "disk inventory must preserve UNKNOWN swap state for failed procfs reads")
+require("storage_swap_parse_swap_line" in swap_match and
+        "storage_swap_line_is_complete" in swap_policy and
+        '"Filename", "Type", "Size", "Used", "Priority"' in swap_policy,
+        "swap inventory must validate the complete header and every five-column row")
+
 mount_link_policy = read("trunk/user/rc/src/storage_nfs_export_policy.h")
 mount_link_policy_test = read("trunk/user/rc/src/tests/storage_nfs_export_policy.c")
 services = read("trunk/user/rc/src/services.c")
@@ -722,6 +736,7 @@ pull_filters = workflow[pr_at:jobs_at]
 for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
+             "trunk/user/libdisk/src/storage_swap_policy.h",
              "trunk/user/libdisk/src/tests/disk_inventory_policy.c",
              "trunk/user/rc/src/tests/storage_swap_policy.c",
              "scripts/check_storage_safe_remove.py",
@@ -732,6 +747,7 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
 for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
+             "trunk/user/libdisk/src/storage_swap_policy.h",
              "trunk/user/rc/src/storage_service_stop_policy.h",
              "trunk/user/rc/src/storage_optware_start_policy.h",
              "trunk/user/rc/src/optional_daemon_policy.h"):

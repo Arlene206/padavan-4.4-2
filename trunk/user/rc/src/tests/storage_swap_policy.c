@@ -23,8 +23,32 @@ main(void)
 	assert(storage_swap_build_device_path(long_name, path, sizeof(path)) == -1);
 
 	assert(storage_swap_header_valid("Filename\t\tType\tSize\tUsed\tPriority\n"));
-	assert(!storage_swap_header_valid("Device\t\tType\tSize\n"));
-	assert(!storage_swap_header_valid("FilenameX Type Size\n"));
+	assert(storage_swap_header_valid("Filename Type Size Used Priority\n"));
+	assert(!storage_swap_header_valid("Filename\n"));
+	assert(!storage_swap_header_valid("Filename Type Size Used\n"));
+	assert(!storage_swap_header_valid("Filename Type Size Used Priority extra\n"));
+	assert(!storage_swap_header_valid("FilenameX Type Size Used Priority\n"));
+	assert(!storage_swap_header_valid("Filename Type Size Used Priority"));
+
+	assert(storage_swap_parse_swap_line(
+		"/dev/sda1 partition 1024 0 -2\n", path, sizeof(path)) == 0);
+	assert(strcmp(path, "/dev/sda1") == 0);
+	assert(storage_swap_parse_swap_line(
+		"/swapfile file 1024 3 5\n", path, sizeof(path)) == 0);
+	assert(storage_swap_parse_swap_line(
+		"/dev/sda1 partition 1024 0\n", path, sizeof(path)) != 0);
+	assert(storage_swap_parse_swap_line(
+		"/dev/sda1 partition x 0 -2\n", path, sizeof(path)) != 0);
+	assert(storage_swap_parse_swap_line(
+		"/dev/sda1 partition 1024 used -2\n", path, sizeof(path)) != 0);
+	assert(storage_swap_parse_swap_line(
+		"/dev/sda1 partition 1024 0 priority\n", path, sizeof(path)) != 0);
+	assert(storage_swap_parse_swap_line(
+		"/dev/sda1 device 1024 0 -2\n", path, sizeof(path)) != 0);
+	assert(storage_swap_parse_swap_line(
+		"/dev/sda1 partition 1024 0 -2 extra\n", path, sizeof(path)) != 0);
+	assert(storage_swap_parse_swap_line(
+		"/dev/sda1 partition 1024 0 -2", path, sizeof(path)) != 0);
 
 	assert(storage_swap_first_field("  /dev/sda1  partition  1024  0  -2\n",
 					field, sizeof(field)) == 1);
@@ -38,6 +62,13 @@ main(void)
 						"/dev/sda1") == 0);
 	assert(storage_swap_line_matches_device("/swapfile file 1024 0 -2\n",
 						"/dev/sda1") == 0);
+	/* A malformed row for any device must fail closed, even if it does not match. */
+	assert(storage_swap_line_matches_device("/swapfile file 1024\n",
+						"/dev/sda1") == -1);
+	assert(storage_swap_line_matches_device("/dev/sda10 partition x 0 -2\n",
+						"/dev/sda1") == -1);
+	assert(storage_swap_line_matches_device("/dev/sda1 partition 1024 0 -2",
+						"/dev/sda1") == -1);
 	assert(storage_swap_line_matches_device("  \n", "/dev/sda1") == -1);
 
 	assert(storage_swap_inventory_result(0, 0) == STORAGE_SWAP_INACTIVE);

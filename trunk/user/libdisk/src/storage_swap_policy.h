@@ -65,13 +65,113 @@ storage_swap_first_field(const char *line, char *field, size_t field_size)
 	return 1;
 }
 
+/* A procfs record must retain its newline; a short final row is unknown. */
+static int
+storage_swap_line_is_complete(const char *line)
+{
+	size_t length;
+
+	if (!line)
+		return 0;
+	length = strlen(line);
+	return length > 0 && line[length - 1] == '\n';
+}
+
+/* Return 1 for a field, 0 at end of record, or -1 for invalid/long data. */
+static int
+storage_swap_next_field(const char **cursor, char *field, size_t field_size)
+{
+	const unsigned char *p;
+	int status;
+
+	if (!cursor || !*cursor || !field || field_size == 0)
+		return -1;
+
+	p = (const unsigned char *)*cursor;
+	while (*p && isspace(*p))
+		++p;
+	if (!*p) {
+		*cursor = (const char *)p;
+		field[0] = '\0';
+		return 0;
+	}
+
+	status = storage_swap_first_field((const char *)p, field, field_size);
+	if (status != 1)
+		return -1;
+	*cursor = (const char *)p + strlen(field);
+	return 1;
+}
+
+static int
+storage_swap_decimal_field(const char *field, int allow_sign)
+{
+	const unsigned char *p;
+
+	if (!field || !*field)
+		return 0;
+	p = (const unsigned char *)field;
+	if (allow_sign && (*p == '-' || *p == '+'))
+		++p;
+	if (!*p)
+		return 0;
+	for (; *p; ++p) {
+		if (*p < '0' || *p > '9')
+			return 0;
+	}
+	return 1;
+}
+
+/* /proc/swaps has exactly five named columns; a prefix-only header is unsafe. */
 static int
 storage_swap_header_valid(const char *line)
 {
-	char field[16];
+	static const char *const expected[] = {
+		"Filename", "Type", "Size", "Used", "Priority"
+	};
+	const char *cursor;
+	char field[32];
+	int i;
 
-	return storage_swap_first_field(line, field, sizeof(field)) == 1 &&
-		strcmp(field, "Filename") == 0;
+	if (!storage_swap_line_is_complete(line))
+		return 0;
+	cursor = line;
+	for (i = 0; i < 5; i++) {
+		if (storage_swap_next_field(&cursor, field, sizeof(field)) != 1 ||
+		    strcmp(field, expected[i]) != 0)
+			return 0;
+	}
+	return storage_swap_next_field(&cursor, field, sizeof(field)) == 0;
+}
+
+/*
+ * Validate every /proc/swaps row, not just its filename. An invalid row for
+ * another device must keep this device's swap state UNKNOWN, not INACTIVE.
+ */
+static int
+storage_swap_parse_swap_line(const char *line, char *swap_path,
+			     size_t swap_path_size)
+{
+	const char *cursor;
+	char type[16], size[32], used[32], priority[32];
+
+	if (!swap_path || swap_path_size == 0 ||
+	    !storage_swap_line_is_complete(line))
+		return -1;
+
+	cursor = line;
+	if (storage_swap_next_field(&cursor, swap_path, swap_path_size) != 1 ||
+	    storage_swap_next_field(&cursor, type, sizeof(type)) != 1 ||
+	    (strcmp(type, "file") != 0 && strcmp(type, "partition") != 0) ||
+	    storage_swap_next_field(&cursor, size, sizeof(size)) != 1 ||
+	    !storage_swap_decimal_field(size, 0) ||
+	    storage_swap_next_field(&cursor, used, sizeof(used)) != 1 ||
+	    !storage_swap_decimal_field(used, 0) ||
+	    storage_swap_next_field(&cursor, priority, sizeof(priority)) != 1 ||
+	    !storage_swap_decimal_field(priority, 1))
+		return -1;
+
+	return storage_swap_next_field(&cursor, type, sizeof(type)) == 0 ? 0 : -1;
 }
 
 /* Exact first-field comparison prevents /dev/sda matching /dev/sda1. */
@@ -79,15 +179,11 @@ static int
 storage_swap_line_matches_device(const char *line, const char *device_path)
 {
 	char field[256];
-	int parsed;
 
 	if (!device_path || !*device_path)
 		return -1;
-
-	parsed = storage_swap_first_field(line, field, sizeof(field));
-	if (parsed != 1)
+	if (storage_swap_parse_swap_line(line, field, sizeof(field)) != 0)
 		return -1;
-
 	return strcmp(field, device_path) == 0;
 }
 
