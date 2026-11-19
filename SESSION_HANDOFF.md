@@ -11,40 +11,37 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Parent main SHA for this source slice: `f33ecd5a495f78e140acb40567fccd2c6ff714b5`. Prior WAN gateway ARP reply identity source SHA `fe286b8cabd4334664c8270c5212d26a15ce6393` reached exact L2/L3 PASS; the corrected AI docs contract passed on `f3f39d7d6e7acde293982a51e9dcab76994b3c8e` and the current checker-only handoff repair passed on `f33ecd5a495f78e140acb40567fccd2c6ff714b5`.
-- The preceding DHCPv6 startup errno-precedence fix is closed on exact SHA f50387e29be43e9de4a1b55344390742a4252b53. WAN DHCP callback run [44563154100](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563154100), WAN route [44563153894](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563153894), HTTPD security [44563153840](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563153840), NVRAM transaction [44563154066](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563154066), Process inventory [44563154013](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563154013), and AI handoff docs [44563154047](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563154047) all PASS on that exact push SHA.
-- XY-C1 run [44563153885](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563153885) passed its production-input detector, Build XY-C1, TRX verification and artifact upload on f50387e29be43e9de4a1b55344390742a4252b53 (L3 for that SHA). This evidence does not cover the new ARP changes below.
-- Frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; do not touch it.
-- PR #1 remains closed and unmerged. Its prior valid CA bootstrap/HMAC/package/ROMFS work was already ported to main and verified; do not revive or re-audit it.
-- No local repository checkout or MIPS toolchain is available in this connector-only environment. Physical-router L4 is NOT VERIFIED.
-
+- Main baseline before the active WAN route cleanup: `28fa4dfa2855fd49ea857e3f6ea2f655180beed6`.
+- Exact-head Actions on `28fa4dfa2855fd49ea857e3f6ea2f655180beed6`: USB modem WDM/NDIS identity `44582892745` PASS; NVRAM `44582892741` PASS; AI handoff docs `44582892806` PASS; HTTPD security `44582892824` PASS; Process lifecycle inventory `44582892966` PASS; XY-C1 firmware validation `44582892773` PASS, including production-input gates, Build XY-C1, TRX verification and artifact upload (artifact ID recorded on the run; L3 VERIFIED for 28fa only).
+- USB checked queue notifications now cover modem NDIS/TTY and USB printer plug/unplug handlers. The NDIS undeclared-local compile regression and stale USB checker assertion are fixed on the same source history; do not repeat that slice.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it. PR #1 remains closed and unmerged; do not revive or re-audit.
+- No local repository checkout or MIPS toolchain is available in this connector-only environment. Physical router, printer and modem L4 remains NOT VERIFIED.
 ## Closed prior task — DHCPv6 startup cleanup errno
 
 - start_dhcp6c() used the errno value saved immediately after a successful eval(), even though successful launch does not define errno. If the subsequent temporary callback-environment cleanup failed, the caller could receive stale errno instead of the actual cleanup error.
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task — complete checked USB hotplug events and repair product build
+## Active task — remove the orphaned off-subnet WAN gateway host route
 
-- Parent main SHA for this repair slice: 4c331818077d8b9ddfdb5998e35e9c8e0b0add6f. Frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; never modify it.
-- USB checked-notification source commit 0f719780b4d1b1d38b0300855b8424d74d033e20: policy test binaries passed but USB source contract failed on a stale assertion requiring the removed void notify_rc call. Checker-only follow-up 4c331818077d8b9ddfdb5998e35e9c8e0b0add6f fixed the assertion; exact-head USB workflow 44582391137 and AI docs 44582391240 both PASS on 4c3318.
-- XY-C1 run 44578459810 on source 8fea3095d59b3278a9318d401eadad0606c193b7 failed at Build XY-C1 because five interface_down_* locals were accidentally declared in mdev_wdm_main() rather than mdev_net_main(). Later XY run 44580744748 on 0f719 also failed at the same build stage; its first causal compiler diagnostics reported all five locals undeclared in the NDIS handler. This repair moves them to mdev_net_main().
-- Completes the original queue-failure scope for every USB event: checked notifier used for NDIS and TTY modem plug/unplug and now also for both printer plug/unplug events. The printer handler now returns nonzero if PID 1 did not accept queue markers. The workflow checker pins these calls and rejects void notify_rc in the printer handler. Exact-head USB and XY-C1 verification for this source repair pending.
-- No local checkout/MIPS toolchain or physical printer/modem/router is available here. Do not claim L3/L4 until exact CI/build and physical tests finish.
-
+- Parent main SHA: `28fa4dfa2855fd49ea857e3f6ea2f655180beed6`. The USB checked-notification slice is closed at L2/L3: USB `44582892745`, NVRAM `44582892741`, AI docs `44582892806`, HTTPD security `44582892824`, Process inventory `44582892966`, and XY-C1 `44582892773` all PASS on this exact SHA.
+- Source review found a lifecycle asymmetry: `wan_up_internal()` installs an explicit metric-1 `/32` route to a valid gateway when `ppp_ifindex(wan_ifname) < 0` and the gateway is outside the leased IPv4 subnet. `wan_down_internal()` removed the default route, DHCP route inventory and configured static routes, but never deleted this separate automatically-added `/32`. It could survive lease replacement or teardown.
+- The fix uses one route-policy predicate for both WAN up and down. It preserves the PPP exclusion and old lease IP/netmask check; teardown deletes the `/32` after attempting the default-route delete, normalizes only ESRCH as already-absent success, aggregates other failures and continues with the static-route cleanup.
+- Added regression cases for valid off-subnet non-PPP setup/cleanup, on-subnet gateway, PPP interfaces, invalid gateway, absent host route and preservation of an earlier cleanup error. WAN route workflow source contracts assert setup/teardown symmetry and the required cleanup ordering.
+- This production-source commit requires its own exact-head WAN route host regression and XY-C1 detector, Build, TRX and artifact verification. No local MIPS build or physical router test is available.
 ## Verification boundary
 
-- L1: all USB printer and modem hotplug event handlers report queue-marker acceptance; modem unplug notification is still attempted after best-effort interface/metadata cleanup failures.
-- L2: modem queue policy binaries passed on 0f719; checker-only exact-head USB workflow 44582391137 passed on 4c3318. This source repair adds printer assertions; exact-head rerun pending.
-- L3: XY-C1 runs 44578459810 and 44580744748 failed at Build XY-C1 due to undeclared NDIS locals. This commit moves those locals into mdev_net_main; exact-head detector, Build XY-C1, TRX and artifact pending.
-- L4: physical USB printer/modem attach/detach and PID-1 queue rejection simulation NOT VERIFIED.
-
+- L1: source review confirms the same predicate guards the automatically installed off-subnet gateway `/32` on WAN up and its teardown; PPP, invalid and on-subnet cases are excluded.
+- L2: route-policy GNU89/Werror/ASan/UBSan regression and WAN route source contracts require the exact-head WAN route Action; pending until it runs on the new commit.
+- L3: exact-head XY-C1 production-input detector, Build, TRX and artifact upload pending for this production source change.
+- L4: live WAN lease renew/deconfig, gateway reachability and physical router route-table validation NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB modem identity and XY-C1 Actions for this source repair. Confirm mdev_net_main compiles and all printer/modem queue source contracts pass.
-2. If build still fails, inspect the first causal diagnostic and fix without weakening WDM/NDIS/TTY identity or checked-notification contracts.
-3. After USB L2 and XY-C1 L3 are green, continue with an independent P1 issue outside USB.
+1. Inspect exact-head USB modem identity and XY-C1 Act## Exact first action for the next GPT
 
+1. Inspect exact-head WAN route and XY-C1 Actions for this `/32` lifecycle fix. Confirm policy regression, source contracts, Build XY-C1, TRX verification and artifact upload.
+2. Diagnose any relevant failure from its first causal log; do not weaken PPP/subnet exclusions or treat a missing route as a hard cleanup error.
+3. After L2/L3 close, continue the next independent P1 stability/security issue outside WAN/USB.
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.

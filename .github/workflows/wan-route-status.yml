@@ -656,7 +656,21 @@ jobs:
 
           wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           assert "static int\nwan_down_internal(" in wan
-          assert "int status = 0, route_status, interface_cleanup_status;" in wan_down
+          assert "char *wan_addr, *wan_gate, *wan_route_addr, *wan_mask;" in wan_down
+          assert "int ppp_index, gateway_valid, gateway_off_subnet;" in wan_down
+          assert "route_status_wan_gateway_host_route_required(gateway_valid, ppp_index, gateway_off_subnet)" in " ".join(wan_down.split())
+          assert 'wan_route_addr = get_wan_unit_value(unit, "ipaddr");' in wan_down
+          assert 'wan_mask = get_wan_unit_value(unit, "netmask");' in wan_down
+          assert 'route_status = route_del(wan_ifname, 1, wan_gate, NULL,' in wan_down
+          assert '"255.255.255.255");' in wan_down
+          assert "route_status = route_status_idempotent_delete(route_status);" in wan_down
+          assert "failed to delete WAN gateway host route" in wan_down
+          gateway_default_delete = wan_down.index('route_status = route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");')
+          gateway_host_delete = wan_down.index('route_status = route_del(wan_ifname, 1, wan_gate, NULL,')
+          static_route_delete = wan_down.index("route_status = del_static_wan_routes(wan_ifname);")
+          assert gateway_default_delete < gateway_host_delete < static_route_delete
+          assert "route_status_wan_gateway_host_route_required" in route_status_test
+          assert "test_wan_gateway_host_route_cleanup_matches_setup_conditions" in route_status_test
           wan_pause = wan_down.index("(void)notify_pause_detect_internet();")
           assert wan_pause < wan_down.index('nvram_set_temp("vpnc_dns_t", "");')
           assert "The DHCP/PPP down callback is already in flight; pause is advisory." in wan_down
@@ -732,6 +746,11 @@ jobs:
 
           wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
           assert "static int" + chr(10) + "wan_up_internal(" in wan
+          assert "gateway_valid = is_valid_ipv4(wan_gate);" in wan_up
+          assert "ppp_index = ppp_ifindex(wan_ifname);" in wan_up
+          assert "gateway_off_subnet = gateway_valid && ppp_index < 0 &&" in wan_up
+          assert "route_status_wan_gateway_host_route_required(gateway_valid, ppp_index, gateway_off_subnet)" in " ".join(wan_up.split())
+          assert 'route_status = route_add(wan_ifname, 1, wan_gate, NULL, "255.255.255.255");' in wan_up
           assert wan_up.count("route_status_accumulate(status, route_status)") >= 6
           assert "route_status = start_auth_kabinet();" in wan_up
           assert wan_up.count("route_add(") == wan_up.count("route_status = route_add(") == 2

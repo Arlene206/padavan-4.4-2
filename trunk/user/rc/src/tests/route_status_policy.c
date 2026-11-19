@@ -148,6 +148,19 @@ test_vpn_server_custom_hook_failure_is_not_hidden(void)
 	assert(attempts == sizeof(callback_steps) / sizeof(callback_steps[0]));
 }
 
+static void
+test_wan_gateway_host_route_cleanup_matches_setup_conditions(void)
+{
+	assert(route_status_wan_gateway_host_route_required(1, -1, 1) == 1);
+	assert(route_status_wan_gateway_host_route_required(1, -1, 0) == 0);
+	assert(route_status_wan_gateway_host_route_required(1, 0, 1) == 0);
+	assert(route_status_wan_gateway_host_route_required(1, 3, 1) == 0);
+	assert(route_status_wan_gateway_host_route_required(0, -1, 1) == 0);
+	assert(route_status_accumulate(EIO, route_status_idempotent_delete(ESRCH)) == EIO);
+	assert(route_status_accumulate(0, route_status_idempotent_delete(ESRCH)) == 0);
+	assert(route_status_idempotent_delete(EIO) == EIO);
+}
+
 int
 main(void)
 {
@@ -160,6 +173,7 @@ main(void)
 	test_vpn_route_idempotence_does_not_hide_real_failures();
 	test_vpn_server_remote_route_failure_survives_later_callback_work();
 	test_vpn_server_custom_hook_failure_is_not_hidden();
+	test_wan_gateway_host_route_cleanup_matches_setup_conditions();
 	const int first_error[] = { 0, EIO, 0, ENETUNREACH };
 	const int negative_error[] = { 0, -1, 0, EPERM };
 	const int no_errors[] = { 0, 0, 0 };

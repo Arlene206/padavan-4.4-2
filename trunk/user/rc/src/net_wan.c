@@ -2977,6 +2977,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	char wan_cnt[32], *wan_addr, *wan_mask, *wan_gate;
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
+	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
@@ -3002,19 +3003,21 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	wan_mask = get_wan_unit_value(unit, "netmask");
 	wan_gate = get_wan_unit_value(unit, "gateway");
 
-	if (!is_valid_ipv4(wan_gate))
+	gateway_valid = is_valid_ipv4(wan_gate);
+	if (!gateway_valid)
 		wan_gate = NULL;
+	ppp_index = ppp_ifindex(wan_ifname);
+	gateway_off_subnet = gateway_valid && ppp_index < 0 &&
+		!is_same_subnet(wan_gate, wan_addr, wan_mask);
 
-	/* Set default route to gateway if specified (for NDIS or IPoE) */
-	if (wan_gate && ppp_ifindex(wan_ifname) < 0) {
-		/* if the gateway is out of the subnet */
-		if (!is_same_subnet(wan_gate, wan_addr, wan_mask)) {
-			route_status = route_add(wan_ifname, 1, wan_gate, NULL, "255.255.255.255");
-			status = route_status_accumulate(status, route_status);
-			if (route_status != 0)
-				logmessage(LOGNAME, "failed to add WAN gateway host route %s on %s (error=%d)",
-					   wan_gate, wan_ifname, route_status);
-		}
+	/* Set the same off-subnet gateway host route that WAN teardown removes. */
+	if (route_status_wan_gateway_host_route_required(
+		    gateway_valid, ppp_index, gateway_off_subnet)) {
+		route_status = route_add(wan_ifname, 1, wan_gate, NULL, "255.255.255.255");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME, "failed to add WAN gateway host route %s on %s (error=%d)",
+				   wan_gate, wan_ifname, route_status);
 	}
 
 	/* default route via default gateway */
@@ -3201,9 +3204,10 @@ wan_up(char *wan_ifname, int unit, int is_static)
 static int
 wan_down_internal(char *wan_ifname, int unit, int is_static)
 {
-	char *wan_addr, *wan_gate;
+	char *wan_addr, *wan_gate, *wan_route_addr, *wan_mask;
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
+	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status, interface_cleanup_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
@@ -3268,14 +3272,32 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 		}
 	}
 
-	/* Remove default route to gateway if specified */
+	/* Remove the default route and the matching off-subnet gateway /32 route. */
 	wan_gate = get_wan_unit_value(unit, "gateway");
-	if (is_valid_ipv4(wan_gate)) {
+	gateway_valid = is_valid_ipv4(wan_gate);
+	if (gateway_valid) {
 		route_status = route_del(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
 		if (!dhcp_lease_route_delete_is_ok(route_status)) {
 			status = route_status_accumulate(status, route_status);
 			logmessage(LOGNAME, "failed to delete WAN default route via %s on %s (error=%d)",
 				   wan_gate, wan_ifname, route_status);
+		}
+
+		wan_route_addr = get_wan_unit_value(unit, "ipaddr");
+		wan_mask = get_wan_unit_value(unit, "netmask");
+		ppp_index = ppp_ifindex(wan_ifname);
+		gateway_off_subnet = ppp_index < 0 &&
+			!is_same_subnet(wan_gate, wan_route_addr, wan_mask);
+		if (route_status_wan_gateway_host_route_required(
+			    gateway_valid, ppp_index, gateway_off_subnet)) {
+			route_status = route_del(wan_ifname, 1, wan_gate, NULL,
+						 "255.255.255.255");
+			route_status = route_status_idempotent_delete(route_status);
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME,
+					   "failed to delete WAN gateway host route %s on %s (error=%d)",
+					   wan_gate, wan_ifname, route_status);
 		}
 	}
 

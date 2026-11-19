@@ -1,3 +1,10 @@
+## 2026-11-19 — Remove the orphaned off-subnet WAN gateway host route
+
+- `wan_up_internal()` installed a metric-1 `/32` gateway host route for valid off-subnet gateways on non-PPP interfaces. `wan_down_internal()` deleted the default route plus DHCP/static route inventories, but did not delete that independently-created host route. It could survive WAN DHCP lease loss or replacement.
+- A shared route-policy predicate now guards both setup and teardown using valid-gateway, non-PPP and off-subnet conditions. Teardown attempts the host-route delete after the default-route delete, treats only ESRCH as idempotent absence, accumulates other errors, and continues ordinary route cleanup.
+- Added GNU89 policy regression for PPP/on-subnet/invalid exclusions, absent route handling and first-error preservation; extended WAN route workflow contracts for setup/delete symmetry and ordering. Exact-head WAN route L2 and XY-C1 L3 are pending. No local cross-build or physical WAN test is claimed.
+
+---
 ## 2026-11-19 — Correct NDIS local scope and check all USB queue notifications
 
 - Follow-up exact-head XY-C1 runs 44578459810 and 44580744748 failed at Build XY-C1 because interface_down_status, interface_down_errno, interface_flags, interface_error and interface_cleanup_status had been declared in mdev_wdm_main() rather than mdev_net_main(). Moved the locals to the NDIS handler; the first compiler diagnostics are recorded in SESSION_HANDOFF.md.
