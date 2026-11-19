@@ -151,11 +151,22 @@ miniupnpd_test_identity_bound_signal(void)
 	assert(errno == EINVAL);
 }
 
+static void
+miniupnpd_test_update_desired_state(void)
+{
+	assert(!miniupnpd_update_should_stop(1, 1, 0));
+	assert(miniupnpd_update_should_stop(0, 1, 0));
+	assert(miniupnpd_update_should_stop(1, 0, 0));
+	assert(miniupnpd_update_should_stop(1, 1, 1));
+	assert(miniupnpd_update_should_stop(0, 0, 0));
+}
+
 int
 main(void)
 {
 	miniupnpd_test_presence_policy();
 	miniupnpd_test_identity_bound_signal();
+	miniupnpd_test_update_desired_state();
 
 	assert(miniupnpd_start_policy_status(EIO, 0) == EIO);
 	assert(miniupnpd_start_policy_status(EIO, 1) == EIO);

@@ -144,9 +144,20 @@ jobs:
           assert "return stop_upnp_locked();" in check_wan
           assert "return 0;" in check_wan
           update = function_body(service, "update_upnp_locked(void)")
+          update_compact = " ".join(update.split())
           assert "return start_upnp_locked();" in update
           assert "return stop_upnp_locked();" in update
           assert "miniupnpd_action_for_presence(state)" in update
+          assert "miniupnpd_update_should_stop(" in update
+          assert 'miniupnpd_update_should_stop(nvram_get_int("upnp_enable_x"), nvram_get_int("wan_nat_x"), get_ap_mode())' in update_compact
+          assert update.index("miniupnpd_update_should_stop(") < update.index("miniupnpd_signal_snapshot(")
+          for token in (
+              "miniupnpd_update_should_stop(1, 1, 0)",
+              "miniupnpd_update_should_stop(0, 1, 0)",
+              "miniupnpd_update_should_stop(1, 0, 0)",
+              "miniupnpd_update_should_stop(1, 1, 1)",
+          ):
+              assert token in daemon_test, token
           assert "miniupnpd_signal_snapshot(&snapshot, SIGUSR1" in update
           assert "killall" not in update
           assert "process_snapshot_release(&snapshot)" in update

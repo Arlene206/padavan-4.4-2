@@ -39,6 +39,13 @@ miniupnpd_start_allowed(enum process_presence state)
 	return state == PROCESS_PRESENCE_ABSENT;
 }
 
+/* Keep an already-running daemon aligned with the current service prerequisites. */
+static int
+miniupnpd_update_should_stop(int upnp_enabled, int nat_enabled, int ap_mode)
+{
+	return !upnp_enabled || !nat_enabled || ap_mode;
+}
+
 static enum miniupnpd_daemon_action
 miniupnpd_action_for_presence(enum process_presence state)
 {

@@ -2053,7 +2053,8 @@ update_upnp_locked(void)
 		return start_upnp_locked();
 	}
 
-	if (nvram_get_int("wan_nat_x") == 0) {
+	if (miniupnpd_update_should_stop(nvram_get_int("upnp_enable_x"),
+					 nvram_get_int("wan_nat_x"), get_ap_mode())) {
 		process_snapshot_release(&snapshot);
 		return stop_upnp_locked();
 	}
