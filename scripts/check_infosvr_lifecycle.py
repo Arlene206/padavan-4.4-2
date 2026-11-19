@@ -71,12 +71,19 @@ running = start.index("if (start_status > 0)")
 unknown = start.index("if (start_status < 0)")
 launch_status = start.index('start_status = eval("/usr/sbin/infosvr", IFNAME_BR);')
 launch_log = start.index('logmessage("infosvr", "infosvr launch failed (status=%d)",')
-launch_return = start.index("return start_status;", launch_log)
+launch_return = start.index("return infosvr_start_postcondition(start_status,", launch_log)
+launch_failure = start.split("if (start_status != 0)", 1)[1].split("\n\t}", 1)[0]
 assert disabled < running < unknown < launch_status < launch_log < launch_return
 assert "return 0;" in start[disabled:launch_status]
 assert "return 1;" not in start[disabled:launch_status]
 assert "if (start_status != 0)" in start
-assert "return start_status;" in start
+assert "return infosvr_start_postcondition(start_status," in launch_failure
+assert "return start_status;" not in launch_failure
+postcondition = function_body(policy, "infosvr_start_postcondition(")
+assert "if (launch_status != 0)" in postcondition
+assert "return -1;" in postcondition
+assert "return launch_status;" not in postcondition
+assert "test_start_normalizes_launcher_failure_for_pid1" in test
 assert 'service_start_probe_wait("infosvr", INFOSVR_START_INITIAL_WAIT_SECONDS)' in start
 assert 'service_start_probe_wait("infosvr", INFOSVR_START_RETRY_WAIT_SECONDS)' in start
 assert "for (attempt = 0; attempt < INFOSVR_START_PROBE_ATTEMPTS; attempt++)" in start

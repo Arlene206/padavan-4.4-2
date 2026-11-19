@@ -3388,6 +3388,18 @@ infosvr_start = c_function_body(services_source, "start_infosvr(void)")
 assert infosvr_start.index('if (nvram_invmatch("adsc_enable", "1"))') < infosvr_start.index(
     'optional_daemon_start_status("infosvr", "infosvr")'
 )
+infosvr_launch = infosvr_start.index('start_status = eval("/usr/sbin/infosvr", IFNAME_BR);')
+infosvr_failure = infosvr_start.index("if (start_status != 0)", infosvr_launch)
+infosvr_failure_branch = infosvr_start[infosvr_failure:].split("\n\t}", 1)[0]
+assert "errno = EIO;" in infosvr_failure_branch
+assert "return infosvr_start_postcondition(start_status," in infosvr_failure_branch
+assert "return start_status;" not in infosvr_failure_branch
+infosvr_policy = (root / "trunk/user/rc/src/infosvr_daemon_policy.h").read_text()
+infosvr_test = (root / "trunk/user/rc/src/tests/infosvr_daemon_policy.c").read_text()
+infosvr_postcondition = c_function_body(infosvr_policy, "infosvr_start_postcondition(")
+assert "return -1;" in infosvr_postcondition
+assert "return launch_status;" not in infosvr_postcondition
+assert "test_start_normalizes_launcher_failure_for_pid1" in infosvr_test
 boot_services = c_function_body(services_source, "start_services_once(int is_ap_mode)")
 for call in ("start_infosvr()", "start_lltd()", "start_rstats()"):
     assert call in boot_services, "missing optional daemon startup: " + call

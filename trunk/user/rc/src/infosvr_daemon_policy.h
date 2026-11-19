@@ -21,7 +21,7 @@ infosvr_start_postcondition(int launch_status,
 			    enum process_presence process_state)
 {
 	if (launch_status != 0)
-		return launch_status;
+		return -1;
 	return process_state == PROCESS_PRESENCE_RUNNING ? 0 : -1;
 }
 

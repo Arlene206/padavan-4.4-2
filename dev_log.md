@@ -1,3 +1,12 @@
+## 2026-11-19 — Normalize infosvr launch wait status for PID 1 notifications
+
+- PID 1's `handle_notifications()` retains an incomplete notification marker only when `action_result < 0`. `start_infosvr()` returned a positive `eval("/usr/sbin/infosvr", IFNAME_BR)` wait status unchanged, and `infosvr_start_postcondition()` preserved it; a failed detached child could therefore be acknowledged as success and its restart marker cleared.
+- The launch error path now preserves the original status in its diagnostic log, maps positive encoded wait statuses to `errno=EIO`, and returns through `infosvr_start_postcondition()`. The helper maps every nonzero launch status to `-1`; disabled optional-service success `0` and the guard-before-inventory order remain unchanged.
+- Regression tests cover positive wait statuses 7/256, negative launcher failure, and RUNNING/ABSENT/UNKNOWN postconditions. Dedicated Infosvr and broader Process source checkers now enforce the negative-only PID 1 failure convention. Existing workflows compile the GNU89/Werror/ASan/UBSan policy test.
+- Parent `5c43773c08d50540c481bc8e0ca4b6204c63a7f5` inherited exact-head Infosvr `44598421247`, Process umbrella `44598421270`, Crond `44598421431`, Process inventory `44598421241`, and NVRAM `44598421188` PASS on `9e51fc0...`; XY-C1 `44598421480` was still IN_PROGRESS. Samba L2 `44597410202` PASS on `0e137...`; HTTPD security/AI docs `44598733635`/`44598733483` PASS after descriptor-check correction. New exact-head L2/L3 pending. No physical-router L4 result claimed.
+
+---
+
 ## 2026-11-19 — Secure every Samba transaction entry point and enforce private 0700 state
 
 - Review after `536f6f0e` found two additional ways into the same state journal/passdb: `run_samba()` and public `write_smb_conf()` in `services_stor.c`. The former still created `/etc/samba` with mode 0777 before a path-based chmod; the latter recovered the journal without securing its parent. Guarding only `start_wins()` was incomplete.

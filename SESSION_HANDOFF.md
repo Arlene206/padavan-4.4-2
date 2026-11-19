@@ -11,11 +11,15 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Live main parent SHA: `94736c388977ca77fa9cf3a41833093707e9d618`.
-- First Samba parent-directory fix `536f6f0e6c5a7835a38784d277c0d51eb692eca2` removed the WINS 0777 mkdir and added no-follow parent preparation. Dedicated Samba run `44593849014` SUCCESS. XY-C1 run `44593848957` failed only because its test compile omitted `-I trunk/user/rc/src`; workflow-only commit `287aa1cb8105de24dc6683485087ccdbcb12f062` corrected it. Exact XY-C1 run `44595726202` passed source/input detection; Build/TRX/artifact were skipped because it was workflow-only.
-- Wireless rollback checker commit `8325b61ef1f4ee726e448eb81f5e4a41f44341e0`: exact Wireless `44592865932`, Process lifecycle `44592865823`, and AI docs `44592865722` PASS.
+- Live main parent SHA: `5c43773c08d50540c481bc8e0ca4b6204c63a7f5` (`test(httpd): align Samba trust checks with descriptor guard`).
+- Wireless guest-isolation source `ef421978331ade679241c5bc1c10dbb6350d4004` and checker correction `8325b61ef1f4ee726e448eb81f5e4a41f44341e0` validated: exact Wireless `44592865932`, Process `44592865823`, AI docs `44592865722` PASS; XY-C1 `44592415620` passed Build/TRX/artifact on the unchanged product source.
+- Samba parent-directory hardening `0e13734b95f14bdc2cd7aed926895b4933a286bf` protects `start_wins()`, `run_samba()`, and `write_smb_conf()` with effective-UID-owned 0700 no-follow parent validation before recovery. Dedicated Samba regression `44597410202` PASS. XY-C1 `44598421480` on the recent source SHA `9e51fc0...` was still IN_PROGRESS at last poll; it is the first build covering Samba production changes.
+- Exact-head `9e51fc0e6939e020b6bf4cf16d0ace2282f13f4c`: Infosvr packet/signal `44598421247`, Process umbrella `44598421270`, Crond lifecycle `44598421431`, Process inventory `44598421241`, NVRAM audit `44598421188`, and other completed module Actions PASS. XY-C1 `44598421480` remained in progress. This commit changes production `services.c`, so a new XY-C1 exact-head firmware build is required.
+- HTTPD Authentication/Security failure `44598421207` was a stale checker expecting the removed path-based Samba trust helper. Workflow-only commit `5c43773c08d50540c481bc8e0ca4b6204c63a7f5` corrected the descriptor-guard source contract; exact HTTPD security `44598733635` and AI docs `44598733483` PASS.
+- This commit fixes an infosvr launch-result leak: positive `eval()` wait status could pass through `restart_infosvr()` although PID 1 treats only negative `action_result` as failure, clearing a failed notification marker. Launch failures now normalize to `-1`, with positive wait statuses mapped to `errno=EIO`.
+- The infosvr disabled-service guard remains before process inventory, avoiding unnecessary procfs dependency when the optional daemon is disabled.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it. PR #1 remains closed and unmerged.
-- No local repository checkout or MIPS toolchain is available in this connector-only environment. Physical router/runtime L4 remains NOT VERIFIED.
+- No local checkout or MIPS toolchain is available in this connector-only environment. Physical router/runtime L4 remains NOT VERIFIED.
 
 ## Closed prior task — DHCPv6 startup cleanup errno
 
@@ -23,26 +27,26 @@ Continue main-only implementation across conversations. Recover the exact live s
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task — secure all Samba passdb and transaction entry points
+## Active task — normalize infosvr launch failures for PID 1 notifications
 
-- Parent main SHA: `94736c388977ca77fa9cf3a41833093707e9d618`.
-- Review after the first guard found `run_samba()` still created `/etc/samba` as 0777 before path-based chmod, and public `write_smb_conf()` recovered the journal without securing its parent. All three paths touch the same passdb/config journal.
-- This follow-up enforces exact effective-UID-owned 0700 via an opened `O_DIRECTORY|O_NOFOLLOW` fd and post-`fchmod` verification. Guards precede recovery in `start_wins()`, `run_samba()`, and `write_smb_conf()`; the legacy path-based helper and remaining 0777 mkdir are removed.
-- Initial XY-C1 compile omitted `-I trunk/user/rc/src`; commit `287aa1c` corrected it and its detector passed (Build/TRX/artifact were skipped on workflow-only SHA). Initial Samba run `44593849014` PASS; exact all-entrypoint regression and product-source Build pending on this follow-up.
-- Wireless/Process/AI runs `44592865932`, `44592865823`, `44592865722` PASS on `8325b61`.
+- Parent main SHA: `5c43773c08d50540c481bc8e0ca4b6204c63a7f5`.
+- Confirmed defect: PID 1 `handle_notifications()` retains incomplete notification markers only when `action_result < 0`. `start_infosvr()` returned a positive `eval("/usr/sbin/infosvr", IFNAME_BR)` wait status unchanged, and `infosvr_start_postcondition()` preserved it; a failed detached child could be acknowledged as successful and its restart marker cleared.
+- This commit retains the original status in logs, maps positive encoded wait statuses to `errno=EIO`, and returns through `infosvr_start_postcondition()`. The helper maps all nonzero launch statuses to `-1`; optional disabled-service success `0` and its guard-before-inventory ordering are preserved.
+- GNU89/Werror/ASan/UBSan regression covers positive wait statuses `7`/`256`, negative launcher failure, and RUNNING/ABSENT/UNKNOWN postconditions. Dedicated Infosvr and broad Process source contracts enforce PID 1's negative-only failure convention. Existing workflows compile the policy regression.
+- Exact-head Infosvr, Process and XY-C1 Build/TRX/artifact for the new source SHA are pending.
 
 ## Verification boundary
 
-- L1: all three transaction entry points identified; passdb/recovery parent must remain effective-UID-owned and exactly 0700.
-- L2: GNU89/Werror/ASan/UBSan strict-mode regression and three-callsite source contracts pending on this follow-up SHA.
-- L3: exact-head XY-C1 input detector, Build, TRX and artifact upload pending for this Samba production-source change.
-- L4: live Samba authentication, WINS browse/registration and physical-router runtime remain NOT VERIFIED.
+- L1: source review confirms positive launch wait status violated PID 1's negative-only notification failure convention; source now returns `-1` and sets `errno=EIO` for positive statuses.
+- L2: GNU89/Werror/ASan/UBSan policy tests and dedicated Infosvr / Process source contracts are committed; exact-head Actions pending.
+- L3: same production-source SHA requires exact-head XY-C1 input detection, Build, TRX and artifact verification; pending.
+- L4: live infosvr packet discovery, signal lifecycle and physical-router interoperability remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect Actions by exact main `head_sha`: Samba share configuration regression, XY-C1 Build/TRX/artifact, Process inventory and AI docs.
-2. Diagnose the first failing assertion/compiler output; maintain 0700 parent preparation before recovery in all three transaction entry points.
-3. After L2/L3 pass, continue with a separate P1 stability/security defect outside Samba transaction publication.
+1. Inspect exact-head Infosvr packet/signal, Process integration, and XY-C1 input detector, Build, TRX and artifact for this commit.
+2. Fix any real failing checker/compiler/build step without weakening PID 1's negative-status failure convention or optional-disabled no-op.
+3. After L2/L3 pass, continue a separate P1 stability/security defect outside the infosvr/Samba work.
 
 ## Mandatory handoff checkpoint
 

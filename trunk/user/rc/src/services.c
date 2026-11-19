@@ -295,7 +295,10 @@ start_infosvr(void)
 	if (start_status != 0) {
 		logmessage("infosvr", "infosvr launch failed (status=%d)",
 			   start_status);
-		return start_status;
+		if (start_status > 0)
+			errno = EIO;
+		return infosvr_start_postcondition(start_status,
+						   PROCESS_PRESENCE_ABSENT);
 	}
 
 	start_status = service_start_probe_wait("infosvr", INFOSVR_START_INITIAL_WAIT_SECONDS);
