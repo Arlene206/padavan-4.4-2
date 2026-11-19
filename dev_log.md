@@ -1,3 +1,12 @@
+## 2026-11-19 — Normalize wrapped C parser calls in switch source contract
+
+- Parent main SHA: `3d6a245e86bcccf3af342b391cb420cdbe93fb8e`.
+- Switch CLI run `44490029309` on 3d compiled and ran the strict IPv4/MAC/numeric/hex/decimal parser policy tests with GNU89 `-Wall -Wextra -Werror` ASan/UBSan successfully. The existing operational-status, IPv4 and ACL semantic contracts also passed.
+- The new PHY/VLAN/raw-register source contract failed because it compared a full parser call against a one-line literal while the production VLAN parser invocation is line-wrapped. Normalize whitespace in the extracted PHY, VLAN and register command blocks; retain all exact argument, bound, mode and pre-ioctl checks.
+- No production code changes or semantic assertions are weakened; exact-head checker rerun is pending. XY-C1 `44490029298`, Process `44490029325`, AI docs `44490029437` and NVRAM `44490029411` are tracked separately.
+
+---
+
 ## 2026-11-19 — Strictly parse remaining PHY/VLAN/raw-register CLI numbers
 
 - Parent main SHA: `752c880e995333ded4d93b4aa82186a537e40b34`.

@@ -314,21 +314,21 @@ jobs:
 
           phy_start = main.index('else if (!strncmp(argv[1], "phy", 4))')
           phy_end = main.index('else if (!strncmp(argv[1], "sip", 5))', phy_start)
-          phy = main[phy_start:phy_end]
+          phy = " ".join(main[phy_start:phy_end].split())
           assert "argc == 3" in phy and "argc == 2" in phy
           assert "switch_parse_decimal_range(argv[2], 0U, 31U, &phy_addr)" in phy
           assert "strtoul(" not in phy
 
           vlan_start = main.index('else if (!strncmp(argv[1], "vlan", 5))')
           vlan_end = main.index('else if (!strncmp(argv[1], "reg", 4))', vlan_start)
-          vlan = main[vlan_start:vlan_end]
+          vlan = " ".join(main[vlan_start:vlan_end].split())
           assert "switch_parse_decimal_range(argv[3], 0U, 0x7fffffffU, &max_vid)" in vlan
           assert "argc != 3" in vlan and "argc == 4" in vlan
           assert "strtoul(" not in vlan
 
           reg_start = main.index('else if (!strncmp(argv[1], "reg", 4))')
           reg_end = main.index('else if (!strncmp(argv[1], "ingress-rate", 6))', reg_start)
-          reg = main[reg_start:reg_end]
+          reg = " ".join(main[reg_start:reg_end].split())
           for mode in ('"r"', '"w"', '"d"'):
               assert "strcmp(argv[2], " + mode + ")" in reg
           assert "switch_parse_hex_range(argv[3], 0x7fffffffU, &parsed)" in reg

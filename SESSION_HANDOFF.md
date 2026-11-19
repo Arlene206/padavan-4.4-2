@@ -62,26 +62,28 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - Added GNU89 `-Wall -Wextra -Werror` ASan/UBSan parser coverage for prefixes, valid bounds, signs, whitespace, partial input, overflow and unchanged output on failure; the exact-source Switch CLI run `44488416113` passed on production SHA `752c880e995333ded4d93b4aa82186a537e40b34`. Process inventory `44488416467`, AI docs `44488415970`, and NVRAM audit `44488416220` also PASS on 752.
 - XY-C1 Firmware Validation `44488415852` for 752 is still in progress. Do not claim L3 until Build, TRX and artifact upload all succeed.
 
+## Completed slice — validate switch ACL inputs before MMIO writes
+
+- ACL EtherType, L4 payload and source-port commands now require exactly six arguments, strictly parse bounded numeric values and validate all eight port-map characters before the first MMIO write.
+- Exact Switch CLI `44488416113`, Process inventory `44488416467`, AI docs `44488415970` and NVRAM audit `44488416220` PASS on production SHA `752c880e995333ded4d93b4aa82186a537e40b34`. XY-C1 `44488415852` completed successfully on 752; inspect its individual build, TRX and artifact steps before using it as L3 evidence.
+
 ## Verification boundary
 
-- Storage partition inventory: parser host L2 PASS on f873 (`44480440427`); production include correction on 2a verified by storage host workflow `44486117414`; HTTPD duplicate host compile correction on bc4 verified by HTTPD security `44487439944`. No target firmware Build/TRX/artifact for the corrected storage header has passed yet.
-- ZeroTier static-route deletion: ZeroTier and AI docs PASS on d4 (`44483203855`, `44483203814`). NAT source-segment cleanup: ZeroTier `44484902778`, WAN route `44484902793`, Process inventory `44484902785` and AI docs `44484902809` all PASS on d82.
-- Exact 2a AI docs `44486117156`, Process inventory `44486117196`, storage hotplug `44486117414`, and NVRAM audit `44486117346` PASS. HTTPD security and AI docs on bc4 (`44487439944`, `44487439972`) PASS.
-- XY-C1 L3 is VERIFIED only on production SHA `255334d0dbd7e98a1a63dde528b0e3de59aef9c1` (`44476582849`). d82 XY-C1 `44484902954` failed before the 2a staged-header correction; no later production-source Build/TRX/artifact evidence is available yet. Physical router L4 remains NOT VERIFIED.
-- Switch ACL ACL-input slice: Switch CLI regression PASS on exact source SHA 752 (`44488416113`); Process `44488416467`, AI docs `44488415970` and NVRAM audit `44488416220` PASS. XY-C1 run `44488415852` remains in progress; firmware L3 not yet verified.
+- ACL input parsing: Switch CLI, Process, AI docs and NVRAM audit PASS on exact production SHA 752 (`44488416113`, `44488416467`, `44488415970`, `44488416220`). XY-C1 `44488415852` is completed PASS on 752; confirm its Build/TRX/artifact step results before claiming L3.
+- Follow-up PHY/VLAN/raw-register numeric parsing: production changes are on exact SHA 3d. GNU89/Werror ASan/UBSan parser compilation and runtime tests PASS; prior switch contracts and ACL contract PASS. Switch CLI `44490029309` failed only its new source contract because it did not normalize the C line-wrapped decimal parser call. This commit corrects the checker without weakening assertions.
+- On 3d, Process inventory `44490029325` and AI docs `44490029437` PASS; XY-C1 `44490029298` and NVRAM audit `44490029411` were still pending at the last poll.
+- Storage partition inventory: host L2 PASS on f873 and staged include/duplicate HTTPD host checks PASS on 2a/bc4; corrected production header still requires a fresh exact-source Build/TRX/artifact run. ZeroTier lifecycle verifications are recorded above. Physical switch/router L4 NOT VERIFIED.
 
-## Active task — strict numeric boundaries for PHY, VLAN dump and raw register commands
+## Active task — repair the strict PHY/VLAN/raw-register source contract
 
-- A second scan of production `switch_gsw.c` found the last six permissive conversions: PHY address (base-10), VLAN dump maximum ID (base-10), and raw register read/write/dump offsets and write values (base-16). These use `strtoul(..., NULL, base)` without end-pointer or range checks.
-- Add a strict decimal parser preserving leading-zero decimal semantics; constrain PHY address to 0–31, VLAN max ID to signed-int range while retaining the existing 1–4095 clamp inside `vlan_dump()`, and raw register offsets/values to their int/uint32 representations. The register dump offset is additionally bounded so the final +0xfc read cannot overflow signed int.
-- Require exact argument counts and exact command tokens for `reg r/w/d`; reject malformed input before ioctl/MMIO. Add parser unit coverage and source contracts to Switch CLI workflow.
-- Exact source SHA `752c880e995333ded4d93b4aa82186a537e40b34`: Switch CLI `44488416113`, Process `44488416467`, AI docs `44488415970`, NVRAM audit `44488416220` PASS; XY-C1 `44488415852` still in progress at last poll.
+- The failed check compared a line-wrapped switch_parse_decimal_range() call to a one-line string; whitespace normalization now preserves the same function-call/argument semantics.
+- Exact follow-up Switch CLI, AI docs, Process and XY-C1 checks must be confirmed on the next commit SHA.
 
 ## Exact first action for the next GPT
 
-1. Check current `main` and exact XY-C1 `44488415852` Build/TRX/artifact job; inspect the result but continue the active strict numeric CLI slice while it remains pending.
-2. Require Switch CLI parser ASan/UBSan and source contracts to pass on the resulting exact SHA. Require Build XY-C1, TRX verification and firmware artifact upload before claiming L3.
-3. Then continue an independent P1 RC startup/lifecycle defect; do not repeat already completed ACL parsing or storage/ZeroTier fixes.
+1. Confirm live `main`; inspect exact-head Switch CLI, AI docs, Process, NVRAM and XY-C1 runs for the new commit. Read failure logs.
+2. Require the switch CLI parser GNU89 `-Wall -Wextra -Werror` ASan/UBSan tests and whitespace-normalized source contract to pass.
+3. Verify XY-C1 Build, TRX and artifact-upload steps on the exact production SHA; then continue an independent P1 RC startup/lifecycle defect without repeating completed storage or ZeroTier work.
 
 ## Mandatory handoff checkpoint
 
