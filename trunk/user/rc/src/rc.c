@@ -2578,12 +2578,12 @@ main(int argc, char **argv)
 #if defined (USE_ATA_SUPPORT)
 	else if (!strcmp(base, "ejata")) {
 		char *devn = (argc > 1) ? argv[1] : NULL;
-		safe_remove_stor_device(ATA_VIRT_PORT_ID, ATA_VIRT_PORT_ID, devn, 1);
+		ret = safe_remove_stor_device(ATA_VIRT_PORT_ID, ATA_VIRT_PORT_ID, devn, 1);
 	}
 #endif
 #if defined (USE_MMC_SUPPORT)
 	else if (!strcmp(base, "ejmmc")) {
-		safe_remove_stor_device(MMC_VIRT_PORT_ID, MMC_VIRT_PORT_ID, NULL, 0);
+		ret = safe_remove_stor_device(MMC_VIRT_PORT_ID, MMC_VIRT_PORT_ID, NULL, 0);
 	}
 #endif
 #if defined (USE_STORAGE)

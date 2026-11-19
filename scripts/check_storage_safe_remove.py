@@ -316,6 +316,25 @@ require(
     "only application startup failures may use the storage-start retry flag",
 )
 targeted_eject = body(storage, "safe_remove_stor_device(")
+targeted_eject_main = body(rc, "int\nmain(int argc, char **argv)")
+require(
+    "read_disk_data_checked(&disks_info)" in targeted_eject
+    and "storage_ejected_target_remove_complete" in targeted_eject
+    and "errno = saved_errno;" in targeted_eject
+    and "return -1;" in targeted_eject
+    and "int safe_remove_stor_device(" in rc_header
+    and "ret = safe_remove_stor_device(ATA_VIRT_PORT_ID" in targeted_eject_main
+    and "ret = safe_remove_stor_device(MMC_VIRT_PORT_ID" in targeted_eject_main
+    and "storage_ejected_target_remove_complete(0, 0, 3, 0)" in ejected_policy_test
+    and "storage_ejected_target_remove_complete(0, 0, 3, -1)" in ejected_policy_test,
+    "ATA/MMC safe-remove applets must return checked inventory, cleanup and restart outcomes",
+)
+require(
+    "storage_ejected_target_remove_complete" in ejected_policy
+    and "remaining_mounts >= 0" in ejected_policy
+    and "(remaining_mounts == 0 || start_status == 0)" in ejected_policy,
+    "targeted eject completion must require a known remaining-mount inventory and successful app restart",
+)
 require(
     "umount_ejected_locked(1, 0)" in targeted_eject
     and "if (storage_ejected_may_restart_apps(unmount_status, ejected_status, mount_count))" in targeted_eject

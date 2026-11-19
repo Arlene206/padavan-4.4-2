@@ -3866,26 +3866,31 @@ on_deferred_hotplug_dev(void)
 #endif
 }
 
-void
+int
 safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spindown)
 {
 	int storage_lock;
 	int port, has_mounted_port = 0, has_swapon_port = 0;
-	int unmount_status, ejected_status, mount_count;
-	int start_status, retry_storage_start = 0;
-	int stop_status, rollback_status, stop_errno;
-	disk_info_t *disks_info, *follow_disk;
+	int unmount_status = 0, ejected_status = 0, mount_count = 0;
+	int start_status = 0, retry_storage_start = 0;
+	int stop_status, rollback_status, saved_errno = 0;
+	int result = 0;
+	disk_info_t *disks_info = NULL, *follow_disk;
 
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock == -1) {
+		saved_errno = errno ? errno : EBUSY;
 		logmessage("Storage", "cannot acquire storage operation lock; refusing safe removal");
-		return;
+		errno = saved_errno;
+		return -1;
 	}
 
-	disks_info = read_disk_data();
-	if (!disks_info) {
-		file_unlock(storage_lock);
-		return;
+	errno = 0;
+	if (read_disk_data_checked(&disks_info) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot obtain a complete disk inventory; refusing targeted safe removal (errno %d)",
+			   saved_errno);
+		goto out;
 	}
 
 	for (follow_disk = disks_info; follow_disk != NULL; follow_disk = follow_disk->next) {
@@ -3900,32 +3905,44 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 
 	if (has_mounted_port || has_swapon_port) {
 		if (has_mounted_port) {
+			errno = 0;
 			stop_status = stop_stor_apps();
 			if (stop_status != 0) {
-				stop_errno = errno ? errno : EIO;
+				saved_errno = errno ? errno : EIO;
 				rollback_status = storage_rollback_stor_apps_after_stop_failure(
 					"targeted safe removal", stop_status);
 				logmessage("Storage",
 					   "safe removal aborted because storage services did not stop (stop=%d, rollback=%d)",
 					   stop_status, rollback_status);
-				free_disk_data(disks_info);
-				file_unlock(storage_lock);
-				errno = stop_errno;
-				return;
+				goto out;
 			}
 		}
 
 		/* Stage one inventory for the whole requested port range. */
+		errno = 0;
 		unmount_status = umount_stor_path_range(disks_info, port_b, port_e,
 							1, dev_name, do_spindown);
+		if (unmount_status != 0 && saved_errno == 0)
+			saved_errno = errno ? errno : EIO;
+
 		if (has_mounted_port) {
+			errno = 0;
 			ejected_status = umount_ejected_locked(1, 0);
+			if (ejected_status != 0 && saved_errno == 0)
+				saved_errno = errno ? errno : EIO;
 			if (unmount_status != 0 || ejected_status != 0)
 				logmessage("Storage", "safe removal incomplete; one or more mount/swap releases failed");
+
+			errno = 0;
 			mount_count = count_stor_mountpoint();
+			if (mount_count < 0 && saved_errno == 0)
+				saved_errno = errno ? errno : EIO;
 			if (storage_ejected_may_restart_apps(unmount_status, ejected_status, mount_count)) {
+				errno = 0;
 				start_status = start_stor_apps();
 				if (start_status != 0) {
+					if (saved_errno == 0)
+						saved_errno = errno ? errno : EIO;
 					logmessage("Storage", "storage services failed to restart after safe removal (status=%d)", start_status);
 					retry_storage_start = storage_ejected_storage_start_retry_required(
 						mount_count, start_status);
@@ -3943,6 +3960,12 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 		}
 	}
 
+	result = storage_ejected_target_remove_complete(
+		unmount_status, ejected_status, mount_count, start_status) ? 0 : -1;
+	if (result != 0 && saved_errno == 0)
+		saved_errno = errno ? errno : EIO;
+
+out:
 	free_disk_data(disks_info);
 	file_unlock(storage_lock);
 	if (retry_storage_start) {
@@ -3950,7 +3973,12 @@ safe_remove_stor_device(int port_b, int port_e, const char *dev_name, int do_spi
 		logmessage("Storage", "queued storage application retry after safe removal; retrying in five seconds");
 		alarm(5);
 	}
-
+	if (result != 0) {
+		errno = saved_errno ? saved_errno : EIO;
+		return -1;
+	}
+	errno = 0;
+	return 0;
 }
 
 int

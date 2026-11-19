@@ -132,6 +132,13 @@ main(void)
 	assert(!storage_ejected_may_restart_apps(0, 0, 0));
 	assert(!storage_ejected_may_restart_apps(0, 0, -1));
 
+	assert(storage_ejected_target_remove_complete(0, 0, 0, 0));
+	assert(storage_ejected_target_remove_complete(0, 0, 3, 0));
+	assert(!storage_ejected_target_remove_complete(-1, 0, 3, 0));
+	assert(!storage_ejected_target_remove_complete(0, -1, 3, 0));
+	assert(!storage_ejected_target_remove_complete(0, 0, -1, 0));
+	assert(!storage_ejected_target_remove_complete(0, 0, 3, -1));
+
 	assert(storage_ejected_inventory_complete(0, 0, 0));
 	assert(!storage_ejected_inventory_complete(1, 0, 0));
 	assert(!storage_ejected_inventory_complete(0, 1, 0));

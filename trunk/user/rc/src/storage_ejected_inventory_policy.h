@@ -290,6 +290,16 @@ storage_ejected_may_restart_apps(int unmount_status, int ejected_status,
 		remaining_mounts > 0;
 }
 
+/* A targeted eject succeeds only after cleanup and any required app restart. */
+static int
+storage_ejected_target_remove_complete(int unmount_status, int ejected_status,
+				       int remaining_mounts, int start_status)
+{
+	return unmount_status == 0 && ejected_status == 0 &&
+		remaining_mounts >= 0 &&
+		(remaining_mounts == 0 || start_status == 0);
+}
+
 
 /* /proc/swaps header must be the complete five-column kernel format. */
 static int
