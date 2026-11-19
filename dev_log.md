@@ -1,3 +1,12 @@
+## 2026-11-19 — Propagate create_file close failures and satisfy exact handoff contract
+
+- Exact-head DNSMasq lifecycle regression `44606578028`, HTTPD security `44606578001`, WAN DHCP `44606577590`, Process lifecycle inventory `44606578189`, WAN route `44606578101`, Inadyn `44606577502`, Samba `44606577607`, miniupnpd `44606578008` and Process inventory `44606578137` passed on `b1835ef0936517df7a39ef06dc242168251dd4fe`. XY-C1 `44606578070` and NVRAM `44606578018` were still running.
+- AI handoff check `44606578020` failed because SESSION_HANDOFF omitted the explicit conditional-document-edit checkpoint statement and the Verification boundary heading. Restore both exact governance requirements; no source failure was reported by that job.
+- Continued the resolver-file reliability slice after reviewing shared `create_file()`: it returned success even when `close(fd)` failed. The new injectable policy returns failure with the real close errno (or EIO fallback), and GNU89 ASan/UBSan tests cover open success/failure, close failure, errno preservation and invalid inputs. `common_ex.c` now routes through the tested helper.
+- Exact-head DNSMasq, AI docs, and XY-C1 for the next commit are pending; no physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-19 — Fail closed when DNSMasq resolver-file creation fails
 
 - Confirmed a concrete RC service-preparation gap in `prepare_dns_dhcpd()`: router mode called `create_file(DNS_RESOLV_CONF)` but discarded its nonzero result, then continued to publish a DNSMasq configuration that references the file and launch the daemon. A permission/filesystem failure could therefore leave resolver forwarding unavailable while the launch path treated the service as started.

@@ -48,6 +48,7 @@
 #include "service_lifecycle_policy.h"
 #include <process_pidfile.h>
 #include <file_write_status.h>
+#include "create_file_policy.h"
 
 #define XSTR(s) STR(s)
 #define STR(s) #s
@@ -1644,16 +1645,23 @@ kill_services_with_pidfiles(char *svc_name[], const char *pidfile_paths[],
 	return result;
 }
 
+static int
+create_file_open_adapter(const char *path, int flags, mode_t mode)
+{
+	return open(path, flags, mode);
+}
+
+static int
+create_file_close_adapter(int fd)
+{
+	return close(fd);
+}
+
 int
 create_file(const char *fn)
 {
-	int fd = open(fn, O_RDWR | O_CREAT, 0666);
-	if (fd >= 0) {
-		close(fd);
-		return 0;
-	}
-
-	return 1;
+	return create_file_with_ops(fn, create_file_open_adapter,
+				    create_file_close_adapter);
 }
 
 int

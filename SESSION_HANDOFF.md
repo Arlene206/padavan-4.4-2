@@ -35,7 +35,16 @@ Continue main-only implementation across conversations. Recover the exact live s
 2. Fix any failing source-contract/test issue without weakening the resolver-file failure gate or the existing DNSMasq transaction and process-postcondition checks.
 3. After this slice is validated, continue the P1 RC service-start result-propagation queue with a separate source defect; do not revisit the closed WAN monitor-pause or Infosvr slices.
 
+## Verification boundary
+
+- L1: DNSMasq router-mode preparation now refuses to publish/start when its configured resolver input cannot be created; the shared `create_file()` helper also reports open and close failures instead of swallowing close errors.
+- L2: DNSMasq lifecycle run `44606578028` passed on exact parent `b1835ef0936517df7a39ef06dc242168251dd4fe`. The follow-up helper regression and corrected AI docs contracts require exact-head reruns on the next commit.
+- L3: XY-C1 run `44606578070` was IN_PROGRESS on `b1835ef0936517df7a39ef06dc242168251dd4fe` at last inspection; verify it and the new exact-head run. No local MIPS build result claimed.
+- L4: live router resolver failure/recovery and physical-device behavior remain NOT VERIFIED.
+
 ## Mandatory handoff checkpoint
+
+The checkpoint is mandatory; a document edit is conditional.
 
 Every session must perform an end-of-session accuracy checkpoint before context exhaustion. Compare live main, source baseline, exact-head Actions, module status and this first action. Update this file only when those resumable facts materially change; do not create SHA-refresh or routine snapshot commits.
 
