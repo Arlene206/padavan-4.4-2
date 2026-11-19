@@ -1135,11 +1135,18 @@ jobs:
           ppp_branch = wan_start[wan_start.index("int i_pppoe, i_pppoe_man, i_demand, wanx_status;"):]
           ppp_branch = ppp_branch[:ppp_branch.index("else if (wan_proto == IPV4_WAN_PROTO_IPOE_DHCP")]
           abort_guard = "if (!i_pppoe && wanx_status != 0)"
-          restore_call = "restore_wan_after_ppp_start_failure(unit, wan_ifname);"
+          restore_call = "restore_wan_after_firewall_failure(unit, wan_ifname);"
           assert abort_guard in ppp_branch
           ppp_failure = ppp_branch[ppp_branch.index(abort_guard):]
           assert restore_call in ppp_failure
           assert ppp_failure.index(restore_call) < ppp_failure.index("continue;")
+          restore_body = body(
+              wan, "static int\\nrestore_wan_after_firewall_failure(int unit, char *wan_ifname)"
+          )
+          assert "restore_wan_after_ppp_start_failure(unit, wan_ifname)" in restore_body
+          assert "if (restore_status == 0)" in restore_body
+          assert "down_status = ifconfig(wan_ifname, 0, NULL, NULL);" in restore_body
+          assert "return rc_first_service_start_status(restore_status, down_status);" in restore_body
           assert "aborting WAN PPP startup for unit %d: physical WAN setup failed" in ppp_failure
 
           lan_bound = body(lan_source, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")

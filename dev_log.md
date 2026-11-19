@@ -1,3 +1,13 @@
+## 2026-11-19 — Align HTTPD and WAN workflow contracts with firewall safety fixes
+
+- Exact parent SHA `342631b4efb09b4877dd944d74f03d20da7b4164` passed firewall-startup-policy run `44635384398`.
+- HTTPD security `44635384245` failed on a stale expected callsite count: firewall NAT input now has a second LAN IPv4 address guard, raising `firewall_ipv4_address_is_safe()` from 9 to 10. Updated the source contract to assert 10.
+- WAN DHCP callback `44635384375` expected the old direct restore helper, while source now calls stronger `restore_wan_after_firewall_failure()`. Updated the check and explicitly pin its fallback behavior: delegate original restore, then bring physical WAN down if restoring firewall also fails.
+- NVRAM `44635384340` and XY-C1 `44635384278` were in progress at last poll; this contract-only fix does not change firmware source.
+- No local build or router L4 result is claimed.
+
+---
+
 ## 2026-11-19 — Reject malformed LAN netmasks before firewall subnet derivation
 
 - `ip2class()` counts set bits instead of validating an IPv4 netmask. A non-contiguous mask such as `255.0.255.0` was silently converted to an incorrect prefix, while malformed text could be interpreted as `/32`; NAT-loopback and later firewall rules could therefore target the wrong LAN subnet.

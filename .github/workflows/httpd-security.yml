@@ -4762,7 +4762,8 @@ jobs:
           assert "firewall_ipv4_address_is_safe" in firewall_policy
           assert 'firewall_ipv4_address_is_safe("192.168.1.1\\n-A INPUT -j ACCEPT")' in firewall_test
           assert 'firewall_ipv4_address_is_safe("192.168.1.1\\rCOMMIT")' in firewall_test
-          assert firewall.count("firewall_ipv4_address_is_safe(") == 9
+          # LAN IP is validated by both global input policy and the NAT redirect path.
+          assert firewall.count("firewall_ipv4_address_is_safe(") == 10
           assert "is_valid_ipv4(" not in firewall
           firewall_main_start = firewall.index("start_firewall_ex_locked(void)")
           # Interface names become bare -i/-o tokens in iptables-restore input.
