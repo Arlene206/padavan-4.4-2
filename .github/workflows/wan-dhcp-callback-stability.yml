@@ -641,6 +641,14 @@ jobs:
           # Invalidate the callback generation while holding the session lock,
           # stop the daemon, then release the lock and report either failure.
           stop_client = body(wan6_source, "stop_dhcp6c(void)")
+          invalidate_failure = stop_client.index("if (dhcp6c_callback_session_advance(session_fd, &generation) != 0)")
+          invalidate_unlock = stop_client.index("unlock_status = dhcp6c_callback_session_unlock(session_fd);", invalidate_failure)
+          invalidate_unlock_log = stop_client.index("cannot release callback session lock after generation invalidation failure", invalidate_unlock)
+          invalidate_errno = stop_client.index("errno = dhcp6c_callback_primary_errno(saved_errno, unlock_errno);", invalidate_unlock_log)
+          assert invalidate_failure < invalidate_unlock < invalidate_unlock_log < invalidate_errno
+          assert "(void)dhcp6c_callback_session_unlock(session_fd)" not in stop_client
+          assert "dhcp6c_callback_primary_errno" in dhcp6_callback_policy
+          assert "test_primary_operation_errno_survives_cleanup_failure" in dhcp6_callback_test
           stop_kill = stop_client.index("stop_status = kill_services(svcs, 3, 1);")
           stop_unlock = stop_client.index("unlock_status = dhcp6c_callback_session_unlock(session_fd);", stop_kill)
           stop_return = stop_client.index("return stop_status;", stop_unlock)

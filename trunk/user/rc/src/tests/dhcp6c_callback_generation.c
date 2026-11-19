@@ -46,6 +46,15 @@ test_generation_overflow_and_format(void)
 }
 
 static void
+test_primary_operation_errno_survives_cleanup_failure(void)
+{
+	assert(dhcp6c_callback_primary_errno(EBUSY, EIO) == EBUSY);
+	assert(dhcp6c_callback_primary_errno(0, EIO) == EIO);
+	assert(dhcp6c_callback_primary_errno(0, 0) == EIO);
+	assert(dhcp6c_callback_primary_errno(EPERM, 0) == EPERM);
+}
+
+static void
 test_callback_does_not_create_missing_generation_file(void)
 {
 	char path[] = "/tmp/dhcp6c-callback-missing-XXXXXX";
@@ -153,6 +162,7 @@ int main(void)
 {
 	test_strict_generation_parsing_and_interface_identity();
 	test_generation_overflow_and_format();
+	test_primary_operation_errno_survives_cleanup_failure();
 	test_callback_does_not_create_missing_generation_file();
 	test_symlink_state_file_is_rejected();
 	test_stop_invalidation_rejects_waiting_old_callback();

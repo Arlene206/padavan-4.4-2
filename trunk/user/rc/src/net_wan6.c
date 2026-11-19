@@ -1189,7 +1189,7 @@ int stop_dhcp6c(void)
 {
 	char *svcs[] = { "dhcp6c", NULL };
 	unsigned long generation;
-	int session_fd, stop_status, unlock_status, saved_errno;
+	int session_fd, stop_status, unlock_status, saved_errno, unlock_errno;
 
 	session_fd = dhcp6c_callback_session_lock(DHCP6C_CALLBACK_STATE_FILE,
 						  &generation, 1);
@@ -1201,10 +1201,17 @@ int stop_dhcp6c(void)
 	}
 	if (dhcp6c_callback_session_advance(session_fd, &generation) != 0) {
 		saved_errno = errno ? errno : EIO;
-		(void)dhcp6c_callback_session_unlock(session_fd);
+		unlock_errno = 0;
+		unlock_status = dhcp6c_callback_session_unlock(session_fd);
+		if (unlock_status != 0) {
+			unlock_errno = errno ? errno : EIO;
+			logmessage("DHCPv6 WAN Client",
+				   "cannot release callback session lock after generation invalidation failure (errno=%d)",
+				   unlock_errno);
+		}
 		logmessage("DHCPv6 WAN Client",
 			   "cannot invalidate callback session before stop (errno=%d)", saved_errno);
-		errno = saved_errno;
+		errno = dhcp6c_callback_primary_errno(saved_errno, unlock_errno);
 		return -1;
 	}
 

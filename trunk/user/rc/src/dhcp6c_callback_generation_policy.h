@@ -12,6 +12,17 @@
 
 #define DHCP6C_CALLBACK_LOCK_ATTEMPTS 500
 
+/* Keep the operation failure primary while still reporting a cleanup failure. */
+static int
+dhcp6c_callback_primary_errno(int operation_errno, int cleanup_errno)
+{
+	if (operation_errno != 0)
+		return operation_errno;
+	if (cleanup_errno != 0)
+		return cleanup_errno;
+	return EIO;
+}
+
 static int
 dhcp6c_callback_generation_parse(const char *text, unsigned long *generation_out)
 {

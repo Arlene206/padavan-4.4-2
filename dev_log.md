@@ -1,3 +1,12 @@
+## 2026-11-19 — Report DHCPv6 callback-lock cleanup failures
+
+- Main parent: `ef12b8003ef5d1a856d61ff4c7b2eb2a6bcfa3be`. In `stop_dhcp6c()`, the generation-advance failure path discarded `dhcp6c_callback_session_unlock()` status with `(void)`, suppressing possible unlock/close failure diagnostics.
+- Captures the cleanup result, logs its errno, and restores the generation failure errno as the primary result. Added `dhcp6c_callback_primary_errno()` plus unit coverage for primary/secondary/fallback precedence; WAN DHCP workflow checks that the cleanup status is captured and logged before errno restoration.
+- Exact `ef12b80` WAN DHCP callback `44555817409` PASS, AI docs `44555817614` PASS, Process fail-closed `44555817648` PASS. NVRAM `44555817580` and XY-C1 `44555817271` pending at last poll.
+- No local compile or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-19 — Log post-commit LAN DHCP watchdog/monitor failures
 
 - Main parent: `a1bbc3f87e892882abde51688f88b1cfe982f9b6`. In `udhcpc_lan_bound()`, watchdog-time and detect_internet notifications were cast to void after the LAN lease transaction and NVRAM publication had committed. Unlike host-file, IAPP and networkmap ancillary work, these failures had no diagnostic.

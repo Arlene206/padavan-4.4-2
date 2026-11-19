@@ -1,8 +1,8 @@
 # 2026-11-19 source checkpoint
-- Baseline parent for the new DHCP callback ancillary-diagnostics slice: `a1bbc3f87e892882abde51688f88b1cfe982f9b6`.
-- Exact `a1bbc3f` AI handoff `44554950244` and Process fail-closed `44554950348` PASS; both duplicated AP LAN teardown contracts are closed.
-- New source change captures/logs failed watchdog and Internet-monitor notifications in `udhcpc_lan_bound()` after the lease transaction is committed. These optional notifications remain non-fatal to BusyBox's lease callback to avoid an internal DHCP lease diverging from the network's already-committed address/route/resolver/NVRAM state. Regression pins that policy and checker ordering.
-- AP LAN source L3: exact XY-C1 `44552799621` on `908fee5` passed Build, TRX verification and artifact upload. ZeroTier L3: `a834edb` / `44544667515`. This new DHCP slice changes firmware source and requires exact-head XY-C1 review before claiming L3. Physical-router L4 NOT VERIFIED.
+- Parent for DHCPv6 cleanup follow-up: `ef12b8003ef5d1a856d61ff4c7b2eb2a6bcfa3be`.
+- The `ef12b80` LAN DHCP ancillary notification change has exact WAN DHCP callback `44555817409` PASS, with AI docs `44555817614` and Process fail-closed `44555817648` PASS; NVRAM `44555817580` and XY-C1 `44555817271` pending at last poll. Current production-source L3 is not yet claimed.
+- New source fix captures/logs `dhcp6c_callback_session_unlock()` failure after DHCPv6 session generation invalidation failure; the original generation errno remains primary. C tests and workflow source contracts cover precedence and cleanup ordering.
+- AP LAN production L3 remains verified on `908fee5` / XY-C1 `44552799621`; ZeroTier L3 remains verified on `a834edb` / `44544667515`. Physical L4 NOT VERIFIED.
 
 ## CI trigger governance — current policy
 
