@@ -26,6 +26,20 @@ xl2tpd_start_policy_completion_result(int presence_status, int command_status)
 	return -1;
 }
 
+/* A failed RPL2TP session must roll back the daemon launched for it. */
+static inline int
+xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(int session_status)
+{
+	return session_status != 0;
+}
+
+/* Preserve the primary session failure while recording daemon rollback failure. */
+static inline int
+xl2tpd_start_policy_rpl2tp_failure_status(int session_status, int stop_status)
+{
+	return session_status != 0 ? session_status : stop_status;
+}
+
 /* WAN PPP treats an already-running shared daemon as a successful start. */
 static inline int
 xl2tpd_start_policy_wan_launch_result(int start_status)

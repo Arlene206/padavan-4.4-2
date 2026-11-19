@@ -7,6 +7,8 @@ RC = ROOT / "trunk/user/rc/src"
 FIREWALL = (RC / "firewall_ex.c").read_text()
 WAN = (RC / "net_wan.c").read_text()
 PPP = (RC / "net_ppp.c").read_text()
+XL2TP_POLICY = (RC / "xl2tpd_start_policy.h").read_text()
+XL2TP_TEST = (RC / "tests/xl2tpd_start_policy.c").read_text()
 WORKFLOW = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 DETECT = (ROOT / "trunk/user/pppoe/detect.sh").read_text()
@@ -207,6 +209,27 @@ require(
     and "PPPoE-MWAN preserves first PPPD launch failure after later success: PASS" in MWAN_TEST
     and "PPPoE-MWAN refuses symlink credential files: PASS" in MWAN_TEST,
     "multi-WAN regression must cover credential escaping/injection, partial launch and symlink paths",
+)
+
+rpl2tp_start = function_body(PPP, "start_rpl2tp(int unit)")
+session_start = 'status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");'
+session_gate = rpl2tp_start.index(session_start)
+cleanup_gate = rpl2tp_start.index("if (xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(status))", session_gate)
+cleanup_call = rpl2tp_start.index("stop_status = kill_services(svcs_l2tp, 5, 1);", cleanup_gate)
+cleanup_result = rpl2tp_start.index("xl2tpd_start_policy_rpl2tp_failure_status(status, stop_status)", cleanup_call)
+restore_errno = rpl2tp_start.index("errno = saved_errno;", cleanup_result)
+require(
+    session_gate < cleanup_gate < cleanup_call < cleanup_result < restore_errno
+    and "if (stop_status != 0)" in rpl2tp_start[cleanup_call:cleanup_result]
+    and '"rp-l2tp daemon rollback after session failure was incomplete"' in rpl2tp_start,
+    "RPL2TP session-start failure must stop its newly launched l2tpd, report rollback errors and preserve the primary errno",
+)
+require(
+    "xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(1)" in XL2TP_TEST
+    and "xl2tpd_start_policy_rpl2tp_failure_status(7, EBUSY) == 7" in XL2TP_TEST
+    and "xl2tpd_start_policy_rpl2tp_failure_status(0, EBUSY) == EBUSY" in XL2TP_TEST
+    and "xl2tpd_start_policy_rpl2tp_failure_requires_cleanup" in XL2TP_POLICY,
+    "RPL2TP rollback policy must cover success, session failure and cleanup failure",
 )
 
 ppp_launch = function_body(PPP, "launch_wan_pppd_locked(int unit, int wan_proto)")

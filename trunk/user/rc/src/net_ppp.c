@@ -584,8 +584,21 @@ start_rpl2tp(int unit)
 
 	sleep(1);
 	status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");
-	if (status != 0)
-		logmessage(LOGNAME, "rp-l2tp start-session failed (status=%d)", status);
+	if (xl2tpd_start_policy_rpl2tp_failure_requires_cleanup(status)) {
+		char *svcs_l2tp[] = { "l2tpd", NULL };
+		int stop_status;
+
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME, "rp-l2tp start-session failed (status=%d); stopping newly launched daemon",
+			   status);
+		stop_status = kill_services(svcs_l2tp, 5, 1);
+		if (stop_status != 0)
+			logmessage(LOGNAME,
+				   "rp-l2tp daemon rollback after session failure was incomplete (status=%d)",
+				   stop_status);
+		status = xl2tpd_start_policy_rpl2tp_failure_status(status, stop_status);
+		errno = saved_errno;
+	}
 	return status;
 }
 
