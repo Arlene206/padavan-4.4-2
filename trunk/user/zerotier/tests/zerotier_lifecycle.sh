@@ -629,7 +629,7 @@ grep -Fqx -- "-A FORWARD -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "NAT 
 grep -Fqx -- "-t nat -A POSTROUTING -o ztunit -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "NAT failure fixture did not install the first NAT rule"
 grep -Fqx -- "$TEST_IPTABLES_FAIL_ON" "$TEST_IPTABLES_LOG" || fail "NAT failure fixture did not reach the rejected rule"
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "NAT append failure left partially published firewall rules behind"
-grep -Fqx -- "-D POSTROUTING -o ztunit -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "NAT append failure did not remove the previously published NAT rule"
+grep -Fqx -- "-t nat -D POSTROUTING -o ztunit -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "NAT append failure did not remove the previously published NAT rule"
 TEST_IPTABLES_FAIL_ON=""
 TEST_NAT_ENABLE=0
 TEST_ROUTE_MODE=none

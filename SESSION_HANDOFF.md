@@ -133,16 +133,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Resume on `main` only. Parent baseline for this bounded correction: `3523bb9f27ba33065731abcd946ae11726d04470`. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified; PR #1 remains closed/unmerged.
+- Resume on `main` only. Parent baseline for this NAT rollback assertion correction: `4d015c02459d94b6d904cfe7dd0e381bb3f5cfa8`. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified; PR #1 remains closed/unmerged.
 - ZeroTier production cleanup/checkpoint is in `151d7574c0197139c61a7b6a7e4d9a5883a21f99`; b1 `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` corrected `iptables -t nat -C/-D` ordering; cc450 corrected the all-rules deletion counter.
-- Exact ZeroTier run `44519285718` on cc450 failed at `retry did not use the saved NAT source segment`. This was an incorrect fixture expectation: the intentionally failed first stop still tries all other rules and successfully deletes the NAT source rule, leaving only the INPUT rule for the second attempt. The retry must load the saved segment and issue `-t nat -C POSTROUTING -s 10.147.17.0/24 -j MASQUERADE` to confirm absence; it must not issue a second NAT `-D`. This commit updates the shell assertion and static checker only; no production behavior is changed.
+- Exact ZeroTier run `44520354130` on `4d015c02459d94b6d904cfe7dd0e381bb3f5cfa8` reached the NAT-append rollback test and failed only at its stale log assertion: the production helper correctly issued `iptables -t nat -D`, while the fixture still expected `-D` without the table selector. The preceding fake-firewall state assertion had already confirmed rollback removed the published NAT rule. This commit updates that test expectation and pins the table-qualified form in the static checker; no production behavior changes.
 - Preserve completed SkipDBv2, WAN sysfs counter, Inadyn, ZeroConf callback, and SmartDNS work. Continue an independent P1/P2 reliability/security defect once this ZeroTier correction passes; do not repeat completed audits.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle Action for this NAT retry assertion correction; diagnose any failed step rather than carrying forward the old cc450 fixture failure.
-2. Inspect exact-head XY-C1 Build, TRX verification and artifact-upload steps. Host-only results are not L3; claim L3 only when all three succeed on one SHA.
-3. Continue with an independent P1/P2 integrated userland stability/security defect and production-linked regression. Keep the backup immutable and use one complete Git tree/commit with non-forced exact-parent CAS.
+1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle run for the NAT-rollback log assertion correction; confirm shell regression, source/RC contract and WAN-up notification steps.
+2. Inspect the exact same-SHA XY-C1 Build, TRX verification and artifact upload. Host-only/skip results are not L3; claim L3 only when all three complete successfully on one SHA.
+3. After ZeroTier passes, continue an independent P1/P2 userland stability/security issue with a production-linked regression. Keep the backup immutable and use one complete-tree commit with non-forced exact-parent CAS.
 
 ## Mandatory handoff checkpoint
 

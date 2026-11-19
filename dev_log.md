@@ -1,8 +1,8 @@
-## 2026-11-19 — Assert the saved ZeroTier NAT tuple on retry without redundant deletion
+## 2026-11-19 — Align ZeroTier NAT append rollback assertion with table-qualified CLI
 
-- Parent main SHA: `3523bb9f27ba33065731abcd946ae11726d04470`. Exact ZeroTier run `44519285718` on `cc450246de3e9f0a3d568021c0cac6636ece290f` passed the NAT table-order and all-five-rule deletion checks, then failed at the saved-source retry assertion.
-- The first injected-failure stop deliberately continues independent cleanup: only the INPUT deletion fails; the NAT source rule is removed successfully. On the next stop, the saved interface/network checkpoint is used in an exact `iptables -t nat -C POSTROUTING -s 10.147.17.0/24 -j MASQUERADE` query, which should report the already-absent rule. Expecting a second `-D` was incorrect.
-- Change the regression and static source contract to require that exact NAT `-C` check, preserving the assertion that the remaining INPUT rule is deleted during retry. No production code or workflow filter changes. No local checkout/test available; exact-head Actions are required and no L3/L4 claim is made.
+- Exact ZeroTier lifecycle run `44520354130` on `4d015c02459d94b6d904cfe7dd0e381bb3f5cfa8` progressed through the retry-state tests and failed in the later NAT append rollback case.
+- The failing assertion still expected `-D POSTROUTING -o ztunit`; after the b1 production correction the helper correctly emits `-t nat -D POSTROUTING -o ztunit`. The preceding fake firewall-state check had passed, proving no previously-published NAT rule remained.
+- Update the test assertion and add a source-contract requirement for the table-qualified delete. No production behavior or workflow filters change. Exact-head Actions remain required; no L3/L4 claim is made.
 
 ---
 

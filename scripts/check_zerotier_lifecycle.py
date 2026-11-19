@@ -291,6 +291,8 @@ for token in ['graceful', '-9-exits', 'stuck', 'start_zero', 'stop_zero',
               'failed static route deletion', 'unreadable static route inventory',
               'route that remained after a successful delete command']:
     require(token in test, f"regression coverage missing {token}")
+require('" -t nat -D POSTROUTING -o ztunit -j MASQUERADE"' in test,
+        "NAT append rollback must assert the table-qualified deletion command")
 require("grep -cE '(^| )-A '" in test,
         "static-route rollback regression must count filter and NAT appends whose -A token occurs at different columns")
 
