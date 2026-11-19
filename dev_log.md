@@ -1,3 +1,13 @@
+## 2026-11-19 — Repair ZeroTier source-contract marker and required handoff heading
+
+- Parent main SHA: `d45cb7634cef62c5581ad5364a54ac4ba2b7927d`.
+- Exact ZeroTier run `44482869900` passed `sh trunk/user/zerotier/tests/zerotier_lifecycle.sh`, including the new route delete failure/query/postcondition fixtures, then failed only because the source checker required the absent phrase `route cleanup failure` instead of the fixture's actual `failed static route deletion`. Align the checker marker to the fixture.
+- Exact AI docs run `44482869908` failed because the handoff used `## Active task`-equivalent wording but changed the required literal heading to `## Active slice`. Restore the mandated section heading.
+- Exact Process inventory `44482870006` and WAN route `44482869891` PASS on d45. XY-C1 `44482869903` was still running at this checkpoint; inspect its exact-head Build/TRX/artifact result later.
+- This is a checker/handoff correction only; no production source or regression behavior changes. Rerun all relevant Actions on the descendant SHA.
+
+---
+
 ## 2026-11-19 — Verify ZeroTier static-route deletion and preserve identity on cleanup failure
 
 - Parent main SHA: `f873c65531a1a20f9a3f4bdce14b4c4df026f86b`.

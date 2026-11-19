@@ -36,13 +36,13 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - `255334d0dbd7e98a1a63dde528b0e3de59aef9c1` captures the virtual interface before stopping the daemon so cleanup still targets the original `zt0`.
 - `7cc78f44fc11aa3698ae1231ea3e1399360bcb38` corrected the missing-NAT route-timeout test fixture. Exact ZeroTier `44477056786`, Process inventory `44477056791`, WAN route `44477056811`, AI docs `44477056873` and XY-C1 host job `44477057022` passed on 7cc.
 
-## Active slice — report incomplete ZeroTier static-route cleanup
+## Active task — report incomplete ZeroTier static-route cleanup
 
 - The previous `zero_route del` discarded every `ip route del` error with `|| true`; `stop_zero()` then deleted the ZeroTier identity/configuration without proving that configured routes were absent.
 - The current source adds exact destination/gateway/interface tuple inspection, treats an already-absent route as idempotent success, checks `ip route del`, and re-reads the route to verify absence. Inspection errors, malformed enabled-route configuration, deletion errors or a still-present route produce failure; remaining routes are still attempted and aggregate failure is returned.
 - `stop_zero()` now retains persistent identity/configuration and returns failure when route cleanup is uncertain. Failed startup route rollback also logs an incomplete cleanup.
 - Regression coverage includes already-absent routes, deletion failure, an unreadable route inventory, a delete command that reports success while the route remains, saved-interface use after daemon exit, and partial route-add rollback. Static checker pins the exact tuple and stop gate.
-- This slice's exact-head ZeroTier/Process/AI docs and XY-C1 Actions are pending after the new commit. No MIPS build or physical-router evidence is claimed for this slice.
+- Exact ZeroTier shell lifecycle regression `44482869900` passed on d45, but its source-contract step failed because the checker expected a phrase absent from the test fixture; this follow-up aligns that token. Process inventory `44482870006` and WAN route `44482869891` passed. AI docs `44482869908` failed because this section heading had drifted from the required `## Active task`; the heading is restored here. XY-C1 `44482869903` was still in progress at this checkpoint. Exact descendant reruns are required before closing the slice.
 
 ## Verification boundary
 
@@ -52,7 +52,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Exact first action for the next GPT
 
-1. Fetch the live `main` head and inspect exact-SHA push Actions for ZeroTier lifecycle, Process lifecycle inventory, AI handoff docs, and XY-C1 Firmware Validation. Confirm every run's `head_sha` equals the live commit; inspect failed jobs/logs rather than relying on aggregate status.
+1. Fetch the live `main` head and inspect exact-SHA push Actions for ZeroTier lifecycle, Process lifecycle inventory, AI handoff docs, WAN route status and XY-C1 Firmware Validation on the correction descendant. Confirm every run's `head_sha` equals the live commit; inspect failures/logs.
 2. Require ZeroTier lifecycle to pass route-delete failure, unreadable-show, stale-after-delete, already-absent and route-add rollback cases. If XY-C1 was triggered, require Build XY-C1, TRX verification and artifact upload before claiming L3 on the new source SHA.
 3. After this slice is closed, continue an independent network/security reliability issue across Padavan userland; do not repeat the closed SD/MMC parser or prior ZeroTier publication fixes.
 
