@@ -1,3 +1,12 @@
+## 2026-11-19 — Scope switch MAC-table source contracts to function bounds
+
+- Parent main SHA: `0b55f61c96fedd9d83b2d2f3a099a26286d89983`.
+- Exact Switch CLI run `44453388456` on `42478d29` passed the expanded ASan/UBSan parser executable (`switch IPv4/MAC/numeric/port-map parser policy: PASS`) and failed at the following static assertion. The checker stopped the `table_del()` slice at `void table_dump`, an earlier function, accidentally including unrelated later code. Bound the source slice by the table function's own top-level closing brace; apply the same robust boundary to `table_add()`.
+- The exact-parent XY-C1 run `44453387921` stopped in `check_modem_wan_start_status.py` because the firewall reset assertion expects `firewall_restore_transaction_prepare_reset()` within `firewall_rebuild()`. Trace the production reset path before deciding whether the checker or source is wrong.
+- No production C change in this checker-only follow-up. XY-C1 L3 remains unverified.
+
+---
+
 ## 2026-11-19 — Correct the table_del static checker slice
 
 - Parent main SHA: `3fc43cb557382c5f4e1a8790bf7c88fe753ee049`.

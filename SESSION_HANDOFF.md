@@ -19,6 +19,14 @@
 - The same-parent XY-C1 run `44453387921` stopped in `scripts/check_modem_wan_start_status.py` because its firewall restore checker expects a function call absent from the current implementation. Inspect that assertion and real reset routine next; do not weaken it without understanding the intended invariant.
 - Exact-main source SHA has advanced through concurrent commits; never attribute old exact-head results to new main. XY-C1 L3 remains unverified.
 
+## 2026-11-19 — Scope MAC-table contracts to each C function
+
+- Parent main for this checker follow-up: `0b55f61c96fedd9d83b2d2f3a099a26286d89983`.
+- Switch CLI exact run `44453388456` on `42478d29` compiled and ran the expanded ASan/UBSan parser policy test successfully (`switch IPv4/MAC/numeric/port-map parser policy: PASS`), then failed only in the static contract because its `table_del` slice ended at `void table_dump`, which is defined earlier than `table_add/table_del`. The slice accidentally included unrelated later helpers and their `strtoul` calls.
+- Scope both table function slices to their own top-level closing brace instead. This makes the no-partial-parse assertion local to the actual function and avoids dependence on declaration order.
+- The same-parent XY-C1 `44453387921` failed in `check_modem_wan_start_status.py` on a missing `firewall_restore_transaction_prepare_reset()` call. Inspect the intended firewall reset invariant and source path next; do not weaken that check without tracing the implementation.
+- L3 remains NOT VERIFIED until Build, TRX and artifact pass on one identical source SHA.
+
 ## Latest switch MAC-table input hardening
 
 - Parent main: `f172f15c04d90e79d3135151589f1ae66fdd7f38`. Earlier SIP/DIP hardening is on `f3d4e793064bd97bcc105e9102406df318f29ec9`; Switch CLI `44450829755` and AI docs `44450829634` PASS, including ASan/UBSan parser tests.
