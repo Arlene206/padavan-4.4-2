@@ -256,6 +256,7 @@ jobs:
               ("udhcpc_main(int argc, char **argv)", "wan_ifname"),
               ("udhcpc_viptv_main(int argc, char **argv)", "man_ifname"),
               ("zcip_main(int argc, char **argv)", "man_ifname"),
+              ("zcip_viptv_main(int argc, char **argv)", "man_ifname"),
           ):
               entrypoint = body(source, signature)
               assert "dhcp_wan_interface_name_is_valid(" + interface_name + ")" in entrypoint
