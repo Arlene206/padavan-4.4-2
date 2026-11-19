@@ -188,6 +188,16 @@ jobs:
           assert "test_table_portmap_parser" in tests
           assert "test_switch_command_numeric_boundaries" in tests
           assert "switch_parse_mac_address" in policy
+          mt_vlan = source.split("void vlan_set(int argc, char *argv[])", 1)[1].split("\n#else\nvoid vlan_set", 1)[0]
+          legacy_vlan = source.split("\n#else\nvoid vlan_set(int argc, char *argv[])", 1)[1].split("\n#endif", 1)[0]
+          for vlan_body, count_guard in ((mt_vlan, "argc < 5 || argc > 8"),
+                                         (legacy_vlan, "argc < 6 || argc > 9")):
+              assert count_guard in vlan_body
+              assert "strtoul(" not in vlan_body
+              assert vlan_body.index("switch_parse_uint_range(") < vlan_body.index("reg_write(")
+          assert "switch_parse_uint_range(argv[3], 0U, 4095U, &cvid)" in mt_vlan
+          assert "switch_parse_uint_range(argv[3], 0U, 15U, &idx)" in legacy_vlan
+          assert "switch_parse_uint_range(argv[4], 0U, 4095U, &cvid)" in legacy_vlan
           assert "switch_parse_uint_range" in policy
           assert "switch_parse_table_portmap" in policy
 

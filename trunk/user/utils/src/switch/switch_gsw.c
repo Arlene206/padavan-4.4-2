@@ -1715,13 +1715,12 @@ void vlan_set(int argc, char *argv[])
 	int i;
 	unsigned int port_mask, cvid, stag, eg_con, egtag_mask, value, value2;
 
-	if (argc < 5) {
-		printf("insufficient arguments!\n");
+	if (argc < 5 || argc > 8) {
+		printf("invalid argument count!\n");
 		return;
 	}
 
-	cvid = strtoul(argv[3], NULL, 0);
-	if (cvid > 0xfff) {
+	if (switch_parse_uint_range(argv[3], 0U, 4095U, &cvid) != 0) {
 		printf("wrong vlan id range, should be within 0~4095\n");
 		return;
 	}
@@ -1744,8 +1743,7 @@ void vlan_set(int argc, char *argv[])
 	value2 = 0;
 
 	if (argc > 5) {
-		stag = strtoul(argv[5], NULL, 0);
-		if (stag > 0xfff) {
+		if (switch_parse_uint_range(argv[5], 0U, 4095U, &stag) != 0) {
 			printf("wrong stag range, should be within 0~4095\n");
 			return;
 		}
@@ -1753,8 +1751,7 @@ void vlan_set(int argc, char *argv[])
 	}
 
 	if (argc > 6) {
-		eg_con = strtoul(argv[6], NULL, 0);
-		if (eg_con > 1) {
+		if (switch_parse_uint_range(argv[6], 0U, 1U, &eg_con) != 0) {
 			printf("wrong eg_con range, should be within 0~1\n");
 			return;
 		}
@@ -1806,22 +1803,20 @@ void vlan_set(int argc, char *argv[])
 #else
 void vlan_set(int argc, char *argv[])
 {
-	int i, idx;
-	unsigned int vlan_id, port_mask, cvid, stag, eg_con, egtag_mask, value, value2;
+	int i;
+	unsigned int idx, vlan_id, port_mask, cvid, stag, eg_con, egtag_mask, value, value2;
 
-	if (argc < 6) {
-		printf("insufficient arguments!\n");
+	if (argc < 6 || argc > 9) {
+		printf("invalid argument count!\n");
 		return;
 	}
 
-	idx = strtoul(argv[3], NULL, 0);
-	if (idx < 0 || 15 < idx) {
+	if (switch_parse_uint_range(argv[3], 0U, 15U, &idx) != 0) {
 		printf("wrong member index range, should be within 0~15\n");
 		return;
 	}
 
-	cvid = strtoul(argv[4], NULL, 0);
-	if (cvid > 0xfff) {
+	if (switch_parse_uint_range(argv[4], 0U, 4095U, &cvid) != 0) {
 		printf("wrong vlan id range, should be within 0~4095\n");
 		return;
 	}
@@ -1844,8 +1839,7 @@ void vlan_set(int argc, char *argv[])
 	value2 = 0;
 
 	if (argc > 6) {
-		stag = strtoul(argv[6], NULL, 0);
-		if (stag > 0xfff) {
+		if (switch_parse_uint_range(argv[6], 0U, 4095U, &stag) != 0) {
 			printf("wrong stag range, should be within 0~4095\n");
 			return;
 		}
@@ -1853,8 +1847,7 @@ void vlan_set(int argc, char *argv[])
 	}
 
 	if (argc > 7) {
-		eg_con = strtoul(argv[7], NULL, 0);
-		if (eg_con > 1) {
+		if (switch_parse_uint_range(argv[7], 0U, 1U, &eg_con) != 0) {
 			printf("wrong eg_con range, should be within 0~1\n");
 			return;
 		}

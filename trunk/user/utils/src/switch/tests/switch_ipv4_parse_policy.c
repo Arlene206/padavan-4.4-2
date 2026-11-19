@@ -159,8 +159,12 @@ test_switch_command_numeric_boundaries(void)
 
     assert(switch_parse_uint_range("3", 0U, 3U, &value) == 0 && value == 3U);
     assert(switch_parse_uint_range("4", 0U, 3U, &value) != 0);
+    assert(switch_parse_uint_range("0", 0U, 15U, &value) == 0);
+    assert(switch_parse_uint_range("15", 0U, 15U, &value) == 0);
+    assert(switch_parse_uint_range("16", 0U, 15U, &value) != 0);
     assert(switch_parse_uint_range("4095", 0U, 4095U, &value) == 0);
     assert(switch_parse_uint_range("4096", 0U, 4095U, &value) != 0);
+    assert(switch_parse_uint_range("0x10junk", 0U, 4095U, &value) != 0);
 }
 
 static void
