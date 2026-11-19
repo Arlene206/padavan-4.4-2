@@ -2461,7 +2461,10 @@ jobs:
           assert "return route_del(context->lan_ifname" in lan
           assert "return route_add(context->lan_ifname" in lan
           assert "return ifconfig(context->lan_ifname, IFUP" in lan
-          assert 'nvram_set_temp("lan_gateway_t", gateway_buf)' in lan_bound
+          assert 'lease_state[2].name = "lan_gateway_t";' in lan_bound
+          assert "lease_state[2].value = gateway_buf;" in lan_bound
+          assert "lease_state[2].previous_value = old_gateway;" in lan_bound
+          assert "status = lan_dhcp_nvram_state_publish(" in lan_bound
           assert "refresh_hosts = lan_dhcp_hosts_refresh_required(" in lan_bound
           assert 'is_changed, is_renew, get_ap_mode() && nvram_match("lan_hosts_retry", "1")' in lan_bound_compact
           assert lan_bound.index("if (refresh_hosts)") < lan_bound.index("lan_dhcp_publish_hosts_and_schedule_retry(")
