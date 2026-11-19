@@ -90,6 +90,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/wan-route-status.yml"
+      - "trunk/user/rc/src/vpn_client.c"
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/detached_daemon_start_policy.h"
       - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
