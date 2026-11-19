@@ -84,7 +84,8 @@ assert "run_check 1" in shell_test and "run_check 0" in shell_test
 assert "TEST_GREP_STATUS=2" in shell_test
 assert 'ln -s "$WORK/outside" "$TEST_STORAGE_ROOT/cron"' in shell_test
 assert "SIGTERM" in regression and "WIFEXITED" in policy
-assert "wait_errno > 0 ? wait_errno : -1" in policy
+assert "wait_errno > 0 ? -wait_errno : -1" in policy
+assert "EPERM" in regression and "-EPERM" in regression
 assert "return status == 1;" in policy
 
 for path in (

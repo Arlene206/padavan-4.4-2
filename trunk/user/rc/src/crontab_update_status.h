@@ -9,7 +9,8 @@ static inline int
 rc_crontab_update_status_from_wait(int wait_status, int wait_errno)
 {
 	if (wait_status == -1)
-		return wait_errno > 0 ? wait_errno : -1;
+		/* Negative errors cannot collide with exit 1 (successful append). */
+		return wait_errno > 0 ? -wait_errno : -1;
 	if (wait_status < 0 || !WIFEXITED(wait_status))
 		return EIO;
 	return WEXITSTATUS(wait_status);

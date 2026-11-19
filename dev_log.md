@@ -1,3 +1,12 @@
+## 2026-11-19 — Prevent EPERM errno from colliding with crontab CHANGED status
+
+- Re-reviewed the new crontab status decoder and found a subtle sentinel collision: Linux `EPERM` is errno 1, the same value that `check_crontab.sh` intentionally uses for a successful append. If `system()` returned -1 with `errno=EPERM`, the positive errno mapping would have falsely treated the failed invocation as CHANGED and entered MTD persistence/crond restart.
+- Changed `system()` invocation errors to negative errno values; exit statuses 0/1/2+ remain unchanged, abnormal waits map to EIO, and the first-error merge/persistence gate treats all negative values as failures. Added explicit `EPERM`, negative merge and persistence-gate C regression assertions, and updated the Python source contract.
+- Exact Process umbrella `44621537460` and AI docs `44621537441` PASS on parent `c2fe4764d6864ee3ebab43eeb21ce74f91a2578c`. The Crond stale-checker repair `44621067912` and AI docs `44621067804` PASS on `69d64f4bd9b70a8f32083ac84e8ebca0c8a97d9f`. The XY-C1 Build/TRX/artifact run on SCUT source SHA `69430c...` was still running at the last poll; L3 not yet asserted.
+- This atomic commit changes only the C status helper, its tests, the semantic checker and handoff/roadmap/log records. Exact-head Process, Crond, AI docs and XY-C1 verification remain pending.
+
+---
+
 ## 2026-11-19 — Update Process umbrella contract for SCUT crontab tri-state
 
 - Process lifecycle umbrella `44620322615` on `69430c238e26c0de0b9210a5d090512bb4570f50` passed the scanner, identity, WAN, startup, notification, SCUT policy, shell and service regressions through step 54, then `scripts/check_process_lifecycle_integration.py` raised IndexError because it still split `init_router()` at the removed `if (init_crontab())` callsite.
