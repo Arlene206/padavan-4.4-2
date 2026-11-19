@@ -104,6 +104,23 @@ assert "stop_status = stop_ddns_locked()" in start
 assert start.index("if (stop_status != 0)") < start.index('eval("/bin/inadyn"')
 assert 'launch_status = eval("/bin/inadyn"' in start
 assert "inadyn_confirm_started(launch_status)" in start
+
+restore = body("inadyn_restore_previous_instance(int previous_running)")
+assert "inadyn_restore_action_for_state(previous_running, state)" in restore
+assert "lstat(DDNS_CONF_FILE, &config_stat)" in restore
+assert "S_ISREG(config_stat.st_mode)" in restore
+assert "config_stat.st_uid != geteuid()" in restore
+assert "config_stat.st_nlink != 1" in restore
+assert "(config_stat.st_mode & 077) != 0" in restore
+assert 'eval("/bin/inadyn"' in restore
+assert "inadyn_confirm_started(launch_status)" in restore
+assert "restored previous Inadyn daemon" in restore
+assert "inadyn_process_presence(&scan_error)" in start
+assert start.index("inadyn_process_presence(&scan_error)") < start.index("stop_status = stop_ddns_locked()")
+assert start.count("inadyn_restore_previous_instance(previous_running)") == 2
+assert "test_restore_previous_instance_action" in test
+assert "INADYN_RESTORE_LAUNCH" in policy and "INADYN_RESTORE_ABORT" in policy
+
 assert "inadyn_prepare_cache_directory(" in start
 assert start.index("inadyn_prepare_cache_directory(") < start.index("write_inadyn_conf(DDNS_CONF_FILE)")
 assert start.index("write_inadyn_conf(DDNS_CONF_FILE)") < start.index('eval("/bin/inadyn"')

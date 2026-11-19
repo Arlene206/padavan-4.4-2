@@ -222,6 +222,21 @@ test_identity_bound_usr1_signal(void)
 }
 
 static void
+test_restore_previous_instance_action(void)
+{
+	assert(inadyn_restore_action_for_state(0, PROCESS_PRESENCE_ABSENT) ==
+	       INADYN_RESTORE_NOOP);
+	assert(inadyn_restore_action_for_state(1, PROCESS_PRESENCE_RUNNING) ==
+	       INADYN_RESTORE_NOOP);
+	assert(inadyn_restore_action_for_state(1, PROCESS_PRESENCE_ABSENT) ==
+	       INADYN_RESTORE_LAUNCH);
+	assert(inadyn_restore_action_for_state(1, PROCESS_PRESENCE_UNKNOWN) ==
+	       INADYN_RESTORE_ABORT);
+	assert(inadyn_restore_action_for_state(1, (enum process_presence)7) ==
+	       INADYN_RESTORE_ABORT);
+}
+
+static void
 test_start_postcondition_status(void)
 {
 	assert(inadyn_start_status(17, PROCESS_PRESENCE_RUNNING, 0) == 17);
@@ -375,6 +390,7 @@ main(void)
 	test_update_configuration_gate();
 	test_presence_decisions();
 	test_start_postcondition_status();
+	test_restore_previous_instance_action();
 	test_cache_prepare_status();
 	test_config_preflight_requires_all_live_identities();
 	test_identity_bound_hup_signal();

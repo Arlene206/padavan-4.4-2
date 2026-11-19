@@ -2551,6 +2551,73 @@ inadyn_cache_lstat_cb(void *context, const char *path, struct stat *st)
 	return lstat(path, st);
 }
 
+/*
+ * Cache/config preparation can fail after the old Inadyn daemon has been
+ * stopped. The config writer is atomic, so these pre-launch failures leave
+ * the last-known-good file intact; restore its daemon before returning.
+ */
+static int
+inadyn_restore_previous_instance(int previous_running)
+{
+	struct stat config_stat;
+	enum process_presence state;
+	enum inadyn_restore_action action;
+	int scan_error = 0, status, verbose_idx, launch_status;
+	char *ddns_verbose_str[] = { "err", "notice", "debug" };
+	char *startup_delay;
+
+	if (!previous_running)
+		return 0;
+
+	state = inadyn_process_presence(&scan_error);
+	action = inadyn_restore_action_for_state(previous_running, state);
+	if (action == INADYN_RESTORE_NOOP)
+		return 0;
+	if (action == INADYN_RESTORE_ABORT) {
+		status = inadyn_presence_error(state, scan_error);
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot safely restore previous Inadyn daemon (presence=%d, status=%d)",
+			   state, status);
+		return status;
+	}
+
+	if (lstat(DDNS_CONF_FILE, &config_stat) != 0) {
+		status = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot restore previous Inadyn daemon: last-known-good config is unavailable (errno=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
+	if (!S_ISREG(config_stat.st_mode) || config_stat.st_uid != geteuid() ||
+	    config_stat.st_nlink != 1 || (config_stat.st_mode & 077) != 0) {
+		errno = EPERM;
+		logmessage(LOGNAME,
+			   "cannot restore previous Inadyn daemon: config is not a private regular file");
+		return EPERM;
+	}
+
+	verbose_idx = nvram_safe_get_int("ddns_verbose", 0, 0, 2);
+	startup_delay = (!is_ntpc_updated()) ? "30" : "3";
+	launch_status = eval("/bin/inadyn",
+		"--no-pidfile",
+		"-l", ddns_verbose_str[verbose_idx],
+		"-t", startup_delay,
+		"-f", DDNS_CONF_FILE,
+		"--cache-dir", DDNS_CACHE_DIR,
+		"-e", DDNS_DONE_SCRIPT,
+		"--exec-mode", "compat");
+	status = inadyn_confirm_started(launch_status);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "previous Inadyn daemon restoration failed (status=%d)", status);
+	else
+		logmessage(LOGNAME,
+			   "restored previous Inadyn daemon after an unsuccessful configuration refresh");
+	return status;
+}
+
 static int
 start_ddns_locked(int clear_cache)
 {
@@ -2560,9 +2627,31 @@ start_ddns_locked(int clear_cache)
 	int stop_status;
 	int cache_status;
 	int launch_status;
+	int previous_running = 0;
+	int scan_error = 0;
+	int restore_status;
+	int saved_status;
+	enum process_presence previous_presence;
 
 	if (get_ap_mode())
 		return -1;
+
+	/* Do not destroy the current DDNS service when its state is unknown. */
+	previous_presence = inadyn_process_presence(&scan_error);
+	if (previous_presence == PROCESS_PRESENCE_UNKNOWN) {
+		saved_status = inadyn_presence_error(previous_presence, scan_error);
+		errno = saved_status;
+		logmessage(LOGNAME,
+			   "Inadyn start aborted: cannot verify previous daemon state (status=%d)",
+			   saved_status);
+		return saved_status;
+	}
+	if (previous_presence != PROCESS_PRESENCE_ABSENT &&
+	    previous_presence != PROCESS_PRESENCE_RUNNING) {
+		errno = EIO;
+		return EIO;
+	}
+	previous_running = (previous_presence == PROCESS_PRESENCE_RUNNING);
 
 	stop_status = stop_ddns_locked();
 	if (stop_status != 0) {
@@ -2579,14 +2668,33 @@ start_ddns_locked(int clear_cache)
 		clear_cache, DDNS_CACHE_DIR, inadyn_cache_clear_cb,
 		inadyn_cache_mkdir_cb, inadyn_cache_lstat_cb, NULL);
 	if (cache_status != 0) {
+		saved_status = cache_status > 0 ? cache_status : (errno ? errno : EIO);
 		logmessage(LOGNAME,
 			   "Inadyn cache preparation failed (status=%d, errno=%d)",
-			   cache_status, errno);
+			   cache_status, saved_status);
+		if (previous_running) {
+			restore_status = inadyn_restore_previous_instance(previous_running);
+			if (restore_status != 0)
+				logmessage(LOGNAME,
+					   "Inadyn remains stopped after cache failure (restore status=%d)",
+					   restore_status);
+		}
+		errno = saved_status;
 		return cache_status;
 	}
 
-	if (!write_inadyn_conf(DDNS_CONF_FILE))
+	if (!write_inadyn_conf(DDNS_CONF_FILE)) {
+		saved_status = errno ? errno : EIO;
+		if (previous_running) {
+			restore_status = inadyn_restore_previous_instance(previous_running);
+			if (restore_status != 0)
+				logmessage(LOGNAME,
+					   "Inadyn remains stopped after config failure (restore status=%d)",
+					   restore_status);
+		}
+		errno = saved_status;
 		return -1;
+	}
 
 	startup_delay = (!is_ntpc_updated()) ? "30" : "3";
 

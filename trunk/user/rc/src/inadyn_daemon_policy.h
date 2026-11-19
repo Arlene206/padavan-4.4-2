@@ -13,6 +13,24 @@ enum inadyn_daemon_action {
 	INADYN_DAEMON_RELOAD = 1
 };
 
+enum inadyn_restore_action {
+	INADYN_RESTORE_ABORT = -1,
+	INADYN_RESTORE_NOOP = 0,
+	INADYN_RESTORE_LAUNCH = 1
+};
+
+/* Restore the last-known-good daemon only when this operation stopped one. */
+static enum inadyn_restore_action
+inadyn_restore_action_for_state(int previous_running,
+				enum process_presence current_state)
+{
+	if (!previous_running || current_state == PROCESS_PRESENCE_RUNNING)
+		return INADYN_RESTORE_NOOP;
+	if (current_state == PROCESS_PRESENCE_ABSENT)
+		return INADYN_RESTORE_LAUNCH;
+	return INADYN_RESTORE_ABORT;
+}
+
 /* WAN notifications are normal when optional DDNS is disabled or in AP mode. */
 static int
 inadyn_update_should_run(int ddns_enabled, int is_ap_mode)
