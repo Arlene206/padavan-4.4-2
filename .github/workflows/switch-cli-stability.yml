@@ -106,7 +106,12 @@ jobs:
               body = function_body(signature)
               assert guard in body, signature
               assert body.index(guard) < body.index(first_arg), signature
-              assert "usage(argv[0]);" in body[:body.index(first_arg)], signature
+              if signature.startswith("set_mirror_"):
+                  parse_call = body.index("switch_parse_uint_range(")
+                  assert body.index(guard) < parse_call, signature
+                  assert body.index("usage(argv[0]);") > parse_call, signature
+              else:
+                  assert "usage(argv[0]);" in body[:body.index(first_arg)], signature
           for signature in ("void set_mirror_to(int argc, char *argv[])", "void set_mirror_from(int argc, char *argv[])"):
               body = function_body(signature)
               assert "switch_parse_uint_range(" in body
