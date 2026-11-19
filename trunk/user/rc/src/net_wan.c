@@ -927,23 +927,31 @@ rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 	}
 	return status;
 }
-
 static int
 rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)
 {
-	int status;
+	int status, bridge_flags;
 	const char *recovery_ifname;
 
 	status = rollback_soft_bridge_other_entry(entry);
-	if (entry->bridge.bridge_name[0] &&
-	    (!entry->bridge.bridge_created || status != 0)) {
-		recovery_ifname = entry->bridge.bridge_name;
+	if (entry->bridge.bridge_name[0]) {
+		bridge_flags = get_interface_flags(entry->bridge.bridge_name);
+		if (entry->bridge.bridge_existed || bridge_flags >= 0 ||
+		    (bridge_flags < 0 && errno != ENODEV && errno != ENXIO)) {
+			recovery_ifname = entry->bridge.bridge_name;
+		} else if (status != 0 || entry->port_vlan_existed) {
+			recovery_ifname = entry->port_ifname;
+		} else {
+			nvram_set_temp("viptv_ifname", "");
+			return status;
+		}
 	} else if (status != 0 || entry->port_vlan_existed) {
 		recovery_ifname = entry->port_ifname;
 	} else {
 		nvram_set_temp("viptv_ifname", "");
 		return status;
 	}
+
 	nvram_set_temp("viptv_ifname", recovery_ifname);
 	return status;
 }

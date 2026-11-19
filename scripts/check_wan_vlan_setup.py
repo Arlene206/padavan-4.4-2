@@ -235,8 +235,8 @@ require("ret = create_vlan_iface(" in vinet and
 require(vinet.index("ret = create_vlan_iface(") < vinet.index('set_wan_unit_value(0, "viflast"'),
         "last-good WAN VLAN name must not be published before VLAN creation")
 viptv = body(wan, "launch_viptv_wan(void)")
-iptv_start = iptv.index("/* VLAN interface for IPTV */")
-iptv_setup = iptv[iptv_start:]
+iptv_start = viptv.index("/* VLAN interface for IPTV */")
+iptv_setup = viptv[iptv_start:]
 snapshot_pos = iptv_setup.index("vlan_flags = get_interface_flags(viptv_ifname);")
 create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
 bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
@@ -257,10 +257,12 @@ for operation in ("ret = create_vlan_iface_tracked(",
 viptv_rollback = body(wan, "rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)")
 require("rollback_soft_bridge_other_entry(entry);" in viptv_rollback and
         'nvram_set_temp("viptv_ifname", recovery_ifname);' in viptv_rollback and
-        'nvram_set_temp("viptv_ifname", "");' in viptv_rollback,
-        "IPTV rollback must retain recovery identity when cleanup is incomplete and clear deleted VLAN state")
-old_vlan_cleanup = iptv.index("ret = remove_vlan_iface(viptv_iflast);")
-old_vlan_clear = iptv.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)
+        'nvram_set_temp("viptv_ifname", "");' in viptv_rollback and
+        "entry->bridge.bridge_existed" in viptv_rollback and
+        "get_interface_flags(entry->bridge.bridge_name)" in viptv_rollback,
+        "IPTV rollback must retain only a surviving bridge/VLAN recovery identity and clear deleted VLAN state")
+old_vlan_cleanup = viptv.index("ret = remove_vlan_iface(viptv_iflast);")
+old_vlan_clear = viptv.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)
 require(old_vlan_cleanup < old_vlan_clear < snapshot_pos,
         "removed prior IPTV VLAN publication must be cleared before configuring its replacement")
 restart = body(wan, "full_restart_wan(void)")
