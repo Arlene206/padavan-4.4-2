@@ -405,6 +405,7 @@ def run() -> int:
     snapshot_test = snapshot_test_path.read_text(encoding="utf-8", errors="replace")
     for marker in (
         "nvram_ioctl_param_request_valid",
+        "nvram_ioctl_set_value_request_valid",
         "length == 0",
         "return !has_pointer",
         "has_embedded_nul",
@@ -418,7 +419,7 @@ def run() -> int:
             failures.append("NVRAM snapshot policy is missing " + marker)
     for marker in (
         "test_ioctl_getall_requires_an_empty_pointer_pair",
-        "test_ioctl_parameter_embedded_nul_is_rejected",
+        "test_ioctl_parameter_embedded_nul_is_rejected",        "test_ioctl_set_value_pointer_and_mode_are_consistent",
         "nvram_ioctl_param_request_valid(0, 64, 0, 0)",
         "nvram_ioctl_param_request_valid(1, 64, 0, 0)",
         "nvram_ioctl_param_request_valid(5, 64, 1, 1)",
@@ -477,6 +478,10 @@ def run() -> int:
             failures.append("NVRAM ioctl result length is not written through put_user")
         if "nvram_user_store_length(nvr," not in get_body:
             failures.append("NVRAM GET does not check user result-length writes")
+        if "nvram_ioctl_set_value_request_valid(" not in set_body:
+            failures.append("NVRAM SET does not validate its value pointer/length and is_temp mode")
+        if "request.value != NULL" not in set_body:
+            failures.append("NVRAM SET does not distinguish an empty value from an unset request")
         for function_name, function_body in (("user_nvram_set", set_body), ("user_nvram_get", get_body)):
             if "nvram_ioctl_param_request_valid(" not in function_body:
                 failures.append(f"{function_name} does not validate the parameter pointer/length pair")

@@ -12,6 +12,21 @@
 #define NVRAM_SNAPSHOT_COPY_RETRY 1
 
 /*
+ * The SET ABI uses a NULL value pointer with zero length only for unset.
+ * A non-NULL pointer with zero length is a valid empty-string assignment.
+ */
+static inline int
+nvram_ioctl_set_value_request_valid(int length, int maximum_length,
+                                    int has_pointer, int is_temp)
+{
+	if (length < 0 || maximum_length < 1 || length >= maximum_length ||
+	    is_temp < 0 || is_temp > 1)
+		return 0;
+
+	return has_pointer || length == 0;
+}
+
+/*
  * GETALL is represented by exactly (length=0, pointer=NULL). A named
  * request must carry a pointer and a non-empty, NUL-free byte span. This
  * prevents malformed requests from silently widening into a full dump.

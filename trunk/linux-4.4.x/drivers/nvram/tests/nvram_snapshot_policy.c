@@ -15,6 +15,18 @@ static void test_ioctl_getall_requires_an_empty_pointer_pair(void)
 	assert(!nvram_ioctl_param_request_valid(-1, 64, 0, 0));
 }
 
+static void test_ioctl_set_value_pointer_and_mode_are_consistent(void)
+{
+	assert(nvram_ioctl_set_value_request_valid(0, 4096, 0, 0));
+	assert(nvram_ioctl_set_value_request_valid(0, 4096, 1, 0));
+	assert(nvram_ioctl_set_value_request_valid(4095, 4096, 1, 1));
+	assert(!nvram_ioctl_set_value_request_valid(1, 4096, 0, 0));
+	assert(!nvram_ioctl_set_value_request_valid(4096, 4096, 1, 0));
+	assert(!nvram_ioctl_set_value_request_valid(-1, 4096, 0, 0));
+	assert(!nvram_ioctl_set_value_request_valid(0, 4096, 0, -1));
+	assert(!nvram_ioctl_set_value_request_valid(0, 4096, 0, 2));
+}
+
 static void test_ioctl_parameter_embedded_nul_is_rejected(void)
 {
 	assert(nvram_ioctl_param_request_valid(5, 64, 1, 0));
@@ -60,6 +72,7 @@ int main(void)
 	assert(NVRAM_GET_SNAPSHOT_RETRIES == 3);
 	test_ioctl_getall_requires_an_empty_pointer_pair();
 	test_ioctl_parameter_embedded_nul_is_rejected();
+	test_ioctl_set_value_pointer_and_mode_are_consistent();
 	test_value_that_fits_is_copied();
 	test_growth_between_sizing_and_copy_retries();
 	test_shrinkage_between_sizing_and_copy_is_safe();

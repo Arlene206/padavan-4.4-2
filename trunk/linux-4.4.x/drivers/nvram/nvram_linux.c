@@ -594,6 +594,10 @@ user_nvram_set(anvram_ioctl_t __user *nvr)
 
 	if (request.len_value > (NVRAM_MAX_VALUE_LEN-1) || request.len_value < 0)
 		return -EOVERFLOW;
+	if (!nvram_ioctl_set_value_request_valid(request.len_value,
+						NVRAM_MAX_VALUE_LEN,
+						request.value != NULL, request.is_temp))
+		return -EINVAL;
 
 	value = tmp;
 	if ((request.len_value+1) > sizeof(tmp)) {
