@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; development branch `main`.
-- Parent baseline for this ZeroTier checker syntax repair: `714a4eaa2f645887ff6a199562c06fbb3d76f73a`. The active source line includes checked ZeroTier firewall teardown and private retry checkpoint, correct NAT table ordering, and RStats NULL-safe system-time handling.
+- Current main/source checkpoint: `5adde0e864e7ea9db88b7c352fb04d048fc8ce6f`. This SHA includes the physical-unplug swap-file swapoff fix. Storage-hotplug Action `44526279751` PASS; same-SHA XY-C1 `44526279408` is still in progress at Build. The AI handoff doc Action `44526279501` exposed missing mandatory checkpoint wording, corrected in the next atomic docs commit.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout is available in this connector-only environment. Exact GitHub Actions are the host/target validation source.
 
@@ -119,11 +119,13 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Verification boundary
 
-- Parent main SHA for the swap-file safe-eject fix: `9e71646ab80473493a9f0caddc763cb624ca3c81`.
-- ZeroTier host L2: exact run `44522534088` PASS on `d6acda494876c87e413939689ed3cd058b7f7fa6`; companion AI-doc run `44522534108` PASS. ZeroTier same-source firmware L3 and physical L4 remain unverified.
+- Current main source/checkpoint SHA: `5adde0e864e7ea9db88b7c352fb04d048fc8ce6f`.
+- Storage physical-unplug swap-file fix: exact storage-hotplug Action `44526279751` PASS on 5adde. All steps passed, including GNU89 eject inventory, sanitizer and source contracts, BusyBox 1.24.2 ash lifecycle regressions, and final safe-remove/persistence gates. Host L2 is verified.
+- Same-SHA XY-C1 run `44526279408` is still IN_PROGRESS at Build XY-C1. All preceding host checks passed; Build, TRX output verification and artifact upload are not yet complete. Do not claim storage L3.
+- AI handoff documentation Action `44526279501` FAILED because the previous handoff edit had dropped its mandatory end-of-session checkpoint section. This commit restores the required section and cross-session mandate verbatim; the new exact-head docs Action must pass.
+- ZeroTier host L2: exact run `44522534088` PASS on `d6acda494876c87e413939689ed3cd058b7f7fa6`; same-source firmware L3 and physical L4 remain unverified.
 - RStats source SHA `3523bb9f27ba33065731abcd946ae11726d04470`: host run `44519760957` and same-SHA XY-C1 `44519760903` Build/TRX/artifact all PASS (L3 VERIFIED).
-- This commit addresses physical-eject swap-file handling in `services_stor.c` and adds GNU89 policy + source-contract regressions. Exact-head storage-hotplug Actions and same-SHA XY-C1 validation are pending; no storage L2/L3/L4 claim is made.
-- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 
 ## Retained historical verification details
 
@@ -141,9 +143,15 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Exact first action for the next GPT
 
-1. Check the exact-head storage-hotplug Action for this swap-file eject fix. Inspect GNU89/ASan/UBSan tests, BusyBox ash and the full safe-remove source contract; fix an actual failure on the next SHA.
-2. Check same-SHA XY-C1 Build, TRX verification and artifact upload separately; claim storage L3 only if all three pass.
-3. If green, continue another independent cross-userland P1/P2 stability/security task. Use complete-tree atomic commits and non-forced exact-parent CAS; never modify the frozen backup.
+1. Check the new AI handoff documentation Action for this checkpoint restoration and confirm it passes.
+2. Poll exact same-SHA XY-C1 run `44526279408`; inspect Build XY-C1, TRX output verification and artifact upload. Claim storage L3 only if all three pass on `5adde0e864e7ea9db88b7c352fb04d048fc8ce6f`.
+3. If Build is pending, continue an independent P1/P2 cross-userland reliability/security task rather than waiting. Use complete-tree atomic commits and non-forced exact-parent CAS; never modify the frozen backup.
+
+## Mandatory handoff checkpoint
+
+Mandatory handoff checkpoint: every session MUST inspect live main, current product-source SHA, relevant exact-head Actions, verification boundary, and next concrete action.
+
+The checkpoint is mandatory; a document edit is conditional. Update only when these facts materially change; leave an accurate handoff untouched.
 
 ## Development invariants
 

@@ -1,3 +1,12 @@
+## 2026-11-19 — Verify storage swap-file eject fix and restore end-of-session handoff gate
+
+- Exact storage-hotplug Action `44526279751` PASS on `5adde0e864e7ea9db88b7c352fb04d048fc8ce6f`. Every step passed: strict storage-eject GNU89 policy regression, BusyBox 1.24.2 build and ash lifecycle tests, and final source/caller/persistence gates. The new swap-file detection and `swapoff(path)` path has host L2 evidence.
+- Exact same-SHA XY-C1 run `44526279408` remained in progress at Build XY-C1 at the last poll; TRX verification and artifact upload remain pending. No storage L3 claim.
+- AI handoff docs run `44526279501` failed because a previous handoff edit accidentally removed the mandatory end-of-session checkpoint section. Restored the required checkpoint and main-only cross-session execution mandate in the live handoff; this docs correction will be checked on its own exact SHA.
+- Exact-head Firewall Startup, HTTPD security, NFS lifecycle, Process inventory/fail-closed, vsftpd publication, USB modem identity, and Samba configuration Actions all PASS on 5adde. NVRAM transaction audit remained in progress at the last poll.
+
+---
+
 ## 2026-11-19 — Disable swap files on physically ejected storage before unmount
 
 - Confirmed a physical-unplug cleanup gap in `umount_ejected_locked()`: `storage_stage_ejected_swaps()` discarded every `/proc/swaps` entry for which `storage_ejected_swap_device_name()` returned 0, including swap files such as `/media/usb/swapfile`. When the backing USB partition disappeared from `/proc/partitions`, the stale mount was detected but the active swap file was never passed to `swapoff()`; unmount remained busy and repeated eject retries could not release the device.
