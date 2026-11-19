@@ -44,6 +44,7 @@
 #include "service_wait_policy.h"
 #include "storage_operation_lock.h"
 #include "samba_share_policy.h"
+#include "samba_fastpath_policy.h"
 #if defined (APP_SMBD)
 #include "samba_config_file.h"
 #include "samba_daemon_policy.h"
@@ -982,6 +983,7 @@ void
 config_smb_fastpath(int check_pid)
 {
 	in_addr_t lan_ip = 0;
+	int write_status;
 
 	if (nvram_match("st_samba_fp", "1")) {
 		if (!check_pid) {
@@ -995,7 +997,7 @@ config_smb_fastpath(int check_pid)
 			state = process_inventory_scan("smbd", &snapshot);
 			scan_error = snapshot.error;
 			process_snapshot_release(&snapshot);
-			if (state == PROCESS_PRESENCE_RUNNING) {
+			if (samba_fastpath_should_enable(1, state)) {
 				lan_ip = get_lan_ip4();
 			} else if (state == PROCESS_PRESENCE_UNKNOWN) {
 				logmessage("Samba Server",
@@ -1010,7 +1012,11 @@ config_smb_fastpath(int check_pid)
 			lan_ip = 0;
 	}
 
-	fput_int("/proc/net/netfilter/nf_fp_smb", ntohl(lan_ip));
+	write_status = fput_int("/proc/net/netfilter/nf_fp_smb", ntohl(lan_ip));
+	if (write_status != 0)
+		logmessage("Samba Server",
+			   "failed to update SMB fastpath state (status=%d)",
+			   write_status);
 }
 
 static int
@@ -1335,7 +1341,11 @@ int run_samba(void)
 	}
 #endif
 
-	config_smb_fastpath(0);
+	/*
+	 * Clear stale kernel state before daemon transitions. The process-aware
+	 * helper enables acceleration only when smbd is already confirmed RUNNING.
+	 */
+	config_smb_fastpath(1);
 
 	if (samba_ensure_daemon("nmbd", &nmbd_snapshot) != 0)
 		daemon_failed = 1;
@@ -1348,6 +1358,9 @@ int run_samba(void)
 	else
 		logmessage("WSDD2", "daemon is started");
 #endif
+
+	/* Recheck actual smbd presence after start/reload before enabling offload. */
+	config_smb_fastpath(1);
 
 	if (daemon_failed) {
 		logmessage("Samba Server", "one or more required daemons failed reload/start postconditions");

@@ -21,6 +21,8 @@ on:
       - "trunk/user/rc/src/tests/samba_daemon_policy.c"
       - "trunk/user/rc/src/samba_process_policy.h"
       - "trunk/user/rc/src/tests/samba_process_policy.c"
+      - "trunk/user/rc/src/samba_fastpath_policy.h"
+      - "trunk/user/rc/src/tests/samba_fastpath_policy.c"
   pull_request:
     paths:
       - ".github/workflows/samba-share-stability.yml"
@@ -41,6 +43,8 @@ on:
       - "trunk/user/rc/src/tests/samba_daemon_policy.c"
       - "trunk/user/rc/src/samba_process_policy.h"
       - "trunk/user/rc/src/tests/samba_process_policy.c"
+      - "trunk/user/rc/src/samba_fastpath_policy.h"
+      - "trunk/user/rc/src/tests/samba_fastpath_policy.c"
 
 jobs:
   samba-config:
@@ -80,6 +84,11 @@ jobs:
             trunk/user/rc/src/tests/samba_process_policy.c \
             -o /tmp/samba-process-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/samba-process-policy
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/samba_fastpath_policy.c \
+            -o /tmp/samba-fastpath-policy
+          /tmp/samba-fastpath-policy
       - name: Verify Samba config staging and service failure gates
         run: |
           python3 - <<'PY'
@@ -94,6 +103,8 @@ jobs:
           header = Path("trunk/user/rc/src/rc.h").read_text()
           helper = Path("trunk/user/rc/src/samba_config_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/samba_config_file.c").read_text()
+          fastpath_policy = Path("trunk/user/rc/src/samba_fastpath_policy.h").read_text()
+          fastpath_test = Path("trunk/user/rc/src/tests/samba_fastpath_policy.c").read_text()
 
           def function_body(source, signature):
               start = source.index(signature)
@@ -268,9 +279,22 @@ jobs:
           assert "int restart_smbd(void);" in header
           fastpath = function_body(stor, "config_smb_fastpath(int check_pid)")
           assert 'process_inventory_scan("smbd", &snapshot)' in fastpath
-          assert "PROCESS_PRESENCE_RUNNING" in fastpath
+          assert "samba_fastpath_should_enable(1, state)" in fastpath
           assert "PROCESS_PRESENCE_UNKNOWN" in fastpath
+          assert "write_status = fput_int(" in fastpath
+          assert "failed to update SMB fastpath state" in fastpath
           assert "process_snapshot_release(&snapshot)" in fastpath
+          assert "samba_fastpath_should_enable" in fastpath_policy
+          assert "configured == 1 && smbd_presence == PROCESS_PRESENCE_RUNNING" in fastpath_policy
+          assert "Samba fastpath process-presence gate: PASS" in fastpath_test
+          preflight_fastpath = run_samba.index("config_smb_fastpath(1);")
+          nmbd_start = run_samba.index('samba_ensure_daemon("nmbd", &nmbd_snapshot)')
+          smbd_start = run_samba.index('samba_ensure_daemon("smbd", &smbd_snapshot)')
+          final_fastpath = run_samba.rindex("config_smb_fastpath(1);")
+          daemon_gate = run_samba.index("if (daemon_failed)")
+          assert preflight_fastpath < nmbd_start < smbd_start < final_fastpath < daemon_gate
+          assert run_samba.count("config_smb_fastpath(1);") == 2
+          assert "config_smb_fastpath(0);" not in run_samba
           assert "pids(" not in fastpath
 
           require_absent = function_body(stor, "samba_require_daemon_absent(")
@@ -321,6 +345,11 @@ jobs:
                         "SAMBA_STORAGE_RESTART_ACTION_START_WINS",
                         "SAMBA_STORAGE_RESTART_ACTION_ABORT"):
               assert token in process_policy
+          for token in ("samba_fastpath_should_enable(1, PROCESS_PRESENCE_RUNNING)",
+                        "samba_fastpath_should_enable(1, PROCESS_PRESENCE_ABSENT)",
+                        "samba_fastpath_should_enable(1, PROCESS_PRESENCE_UNKNOWN)",
+                        "Samba fastpath process-presence gate: PASS"):
+              assert token in fastpath_test
           for token in ("PROCESS_PRESENCE_UNKNOWN","signal_count==0",
                         "errno==EACCES","errno==EPERM","errno==EBUSY",
                         "samba_process_require_absent","errno==EIO",
