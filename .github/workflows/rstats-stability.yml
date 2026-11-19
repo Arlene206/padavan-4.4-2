@@ -173,9 +173,15 @@ jobs:
               assert token in signal_policy
           for token in ("test_mkstemp", "rstats_file_open_stream", "partial-data",
                         "test_exact_read_retries_eintr_and_short_reads",
-                        "scripted_read", "fail_fsync", "fail_close", "fail_rename", "/dev/full",
+                        "test_new_file_modes_follow_umask", "scripted_read",
+                        "fail_fsync", "fail_close", "fail_rename", "/dev/full",
                         "rstats persistence and signal policy: PASS"):
               assert token in test
+
+          for token in ("rstats_file_creation_mode", "umask(0)", "umask(mask)",
+                        "0666 & ~mask"):
+              assert token in file_policy
+          assert file_policy.count("mode = rstats_file_creation_mode();") == 2
 
           assert '{ "rstats",' in dispatcher and "rstats_main" in dispatcher
           assert "int  rstats_main(int argc, char *argv[]);" in header

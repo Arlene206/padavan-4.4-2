@@ -81,6 +81,20 @@ static const struct rstats_file_ops rstats_file_system_ops = {
   mkstemp, fchmod, write, fsync, close, rename, unlink
 };
 
+/*
+ * Match open(path, O_CREAT, 0666): mkstemp() starts at 0600, so explicitly
+ * apply the inherited umask instead of accidentally widening new files to
+ * world-writable 0666. RStats is single-threaded and calls this in normal
+ * context, never from its signal handler.
+ */
+static inline mode_t
+rstats_file_creation_mode(void)
+{
+  mode_t mask = umask(0);
+  (void)umask(mask);
+  return (mode_t)(0666 & ~mask);
+}
+
 static inline int
 rstats_file_fsync_retry(int fd, int (*fsync_fn)(int))
 {
@@ -102,7 +116,7 @@ rstats_file_write_atomic_with_ops(const char *path, const void *buffer,
 {
   char temporary[PATH_MAX];
   struct stat existing;
-  mode_t mode = 0666;
+  mode_t mode;
   size_t written = 0;
   int fd = -1;
   int created = 0;
@@ -122,6 +136,7 @@ rstats_file_write_atomic_with_ops(const char *path, const void *buffer,
     return -1;
   }
 
+  mode = rstats_file_creation_mode();
   if (lstat(path, &existing) == 0) {
     if (!S_ISREG(existing.st_mode)) {
       errno = EINVAL;
@@ -202,7 +217,7 @@ rstats_file_open_stream(const char *target, char *temporary,
                         size_t temporary_size)
 {
   struct stat existing;
-  mode_t mode = 0666;
+  mode_t mode;
   int fd;
   int saved_errno;
   int count;
@@ -213,6 +228,7 @@ rstats_file_open_stream(const char *target, char *temporary,
     return NULL;
   }
 
+  mode = rstats_file_creation_mode();
   if (lstat(target, &existing) == 0) {
     if (!S_ISREG(existing.st_mode)) {
       errno = EINVAL;

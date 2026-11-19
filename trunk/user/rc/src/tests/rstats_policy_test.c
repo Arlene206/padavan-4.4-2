@@ -97,6 +97,40 @@ static void expect(const char *p, const char *s) {
 }
 static void temp_gone(void) { assert(last_temp[0] && access(last_temp, F_OK) < 0 && errno == ENOENT); }
 
+static void test_new_file_modes_follow_umask(const char *directory)
+{
+  char raw_path[128], view_path[128], temporary[128];
+  struct rstats_file_ops ops;
+  struct stat st;
+  FILE *stream;
+  mode_t previous_mask, observed_mask;
+
+  snprintf(raw_path, sizeof(raw_path), "%s/new-history", directory);
+  snprintf(view_path, sizeof(view_path), "%s/new-view.js", directory);
+
+  previous_mask = umask(0027);
+  assert(rstats_file_creation_mode() == 0640);
+
+  ops_init(&ops);
+  last_temp[0] = '\\0';
+  assert(rstats_file_write_atomic_with_ops(raw_path, "raw", 3, &ops) == 0);
+  assert(stat(raw_path, &st) == 0 && (st.st_mode & 0777) == 0640);
+
+  stream = rstats_file_open_stream(view_path, temporary, sizeof(temporary));
+  assert(stream != NULL);
+  assert(fputs("view", stream) >= 0);
+  assert(rstats_file_publish_stream(stream, temporary, view_path) == 0);
+  assert(stat(view_path, &st) == 0 && (st.st_mode & 0777) == 0640);
+
+  /* The helper must not leave the process umask changed. */
+  observed_mask = umask(0027);
+  assert(observed_mask == 0027);
+  (void)umask(previous_mask);
+
+  assert(unlink(raw_path) == 0);
+  assert(unlink(view_path) == 0);
+}
+
 static void test_exact_read_retries_eintr_and_short_reads(void)
 {
   static const char payload[] = "complete-history-record";
@@ -173,6 +207,7 @@ int main(void) {
   sig_atomic_t events;
   FILE *fp;
   assert(mkdtemp(dir) != NULL);
+  test_new_file_modes_follow_umask(dir);
   snprintf(target, sizeof(target), "%s/history", dir);
   snprintf(victim, sizeof(victim), "%s/victim", dir);
   snprintf(stage, sizeof(stage), "%s/view.tmp", dir);

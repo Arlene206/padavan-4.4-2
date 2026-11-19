@@ -1,3 +1,12 @@
+## 2026-11-19 — Prevent RStats atomic publishers from bypassing umask
+
+- Parent main SHA: `c4d2080843e9a39d917daf5f03e5ec340d89b039`.
+- Review found both RStats new-file publication paths set an explicit `fchmod(0666)` after `mkstemp()`. This is not equivalent to the former `open(..., O_CREAT, 0666)`: fchmod ignores the process umask, so newly created raw history and spool JavaScript files become world-writable.
+- Added a shared creation-mode helper that computes `0666 & ~umask` and restores the inherited umask; existing regular-file modes remain preserved. Added GNU89 regression coverage for atomic raw history and JSON stream creation under umask `0027` (expected `0640`) and for umask restoration.
+- Added the production policy header to the XY-C1 firmware path filter, and strengthened the RStats workflow source contract. Exact-head RStats and XY-C1 validation will be recorded after these runs complete; no local checkout test or physical-router result is claimed.
+
+---
+
 ## 2026-11-19 — Restore exact atomic-main wording required by handoff validator
 
 - Parent main SHA: `fea88d3f18d7aac9c46dda14fd2c0fc2cc2180bd`.
