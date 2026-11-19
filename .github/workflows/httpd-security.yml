@@ -3599,7 +3599,16 @@ jobs:
           assert 'firewall_log_command_failure("PPPoE-MWAN detection",' in firewall
           assert firewall.count("firewall_log_command_failure(") == 8
           assert firewall.count("firewall_apply_core_restore(") == 11
-          firewall_main = firewall[firewall.index("start_firewall_ex(void)"):]
+          worker_start = firewall.index("start_firewall_ex_locked(void)")
+          entry_start = firewall.index("start_firewall_ex(void)\n{", worker_start)
+          firewall_main = firewall[worker_start:entry_start]
+          firewall_entry = firewall[entry_start:]
+          lock_acquire = firewall_entry.index("firewall_lifecycle_lock_acquire()")
+          worker_call = firewall_entry.index("status = start_firewall_ex_locked();")
+          lock_release = firewall_entry.index("firewall_lifecycle_lock_release(lock_fd)")
+          assert lock_acquire < worker_call < lock_release
+          assert "if (lock_fd < 0)" in firewall_entry
+          assert "errno = saved_errno;" in firewall_entry
           restore_gate = firewall_main.index("if (firewall_restore_transaction_ok(&firewall_core_restore_transaction))")
           assert firewall_main.index("firewall_core_restore_transaction_active = 1;") < firewall_main.index("ipt_raw_rules();")
           assert firewall_main.index("ipt_raw_rules();") < firewall_main.index("goto firewall_restore_complete;")
