@@ -1,3 +1,12 @@
+## 2026-11-19 — Repair stale DHCPv6 environment-cleanup source contract
+
+- Main parent: `0b3449bc31ceda006408409dacd31b81785908b7`. Exact push WAN DHCP callback run [44558399735](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44558399735) compiled and passed all host policy regressions, including the DHCPv6 callback-generation test, then failed in its final Python integration contract with `ValueError: substring not found` at script line 333.
+- The failing assertion still searched for a direct `unsetenv(DHCP6C_CALLBACK_IFNAME_ENV)` call after `eval()`. The production implementation had correctly moved both cleanup operations behind `dhcp6c_callback_environment_clear()`; the newer contract already verified that helper, but a second older startup-order assertion was stale.
+- Updated the startup-order contract to require the helper call after the client launch and confirm both environment names and `unsetenv` are passed to it. No product source or runtime behavior changed; push and pull_request path filters remain unchanged.
+- On parent SHA `0b3449bc31ceda006408409dacd31b81785908b7`, Process inventory [44558400105](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44558400105), HTTPD [44558399718](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44558399718), WAN route [44558399992](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44558399992), AI docs [44558399754](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44558399754), and NVRAM audit [44558399692](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44558399692) passed. XY-C1 [44558399503](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44558399503) passed Build, TRX verification and artifact upload (L3 on the parent product-source SHA). Only the WAN DHCP callback source-contract job failed.
+- This commit's new exact-head WAN DHCP, AI docs and relevant Process/XY checks must be inspected. No local checkout/toolchain or physical-router L4 is available here; no local test is claimed.
+
+---
 ## 2026-11-19 — Fix short-circuit DHCPv6 startup environment cleanup
 
 - Main parent: `7c0481f8f390db2e1f26351679fb2cb98bdfb021`. `start_dhcp6c()` used `unsetenv(IFNAME) != 0 || unsetenv(GENERATION) != 0`, so a failed first unset short-circuited and never attempted to remove the generation variable. The later startup rollback path already made two independent attempts.

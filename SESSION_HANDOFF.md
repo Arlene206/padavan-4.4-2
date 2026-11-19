@@ -10,11 +10,13 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Live main before this DHCPv6 environment-cleanup slice: `7c0481f8f390db2e1f26351679fb2cb98bdfb021`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- Exact `ef12b80` PASS: WAN DHCP callback `44555817409`, AI docs `44555817614`, Process fail-closed `44555817648`, Process inventory `44555817491`, HTTPD `44555817414`, Firewall `44555817528`, watchdog `44555817550`, Wireless `44555817380`, detect_internet `44555817312`, DNSMasq `44555817270`, detect_link `44555817238`, WAN route `44555817205`. NVRAM `44555817580` and XY-C1 `44555817271` were pending at last poll.
-- DHCPv6 session unlock diagnostic commit `7c0481f8` was pushed; its WAN DHCP callback, Process inventory and AI docs Actions were running at last poll. Exact-head results still need inspection.
-- AP LAN production slice `b735ea8` is L3 verified by XY-C1 `44552799621` on `908fee5` (Build, TRX, artifact PASS). The LAN DHCP ancillary-diagnostic production source `ef12b80` still needs its own exact XY build result. No local compile/toolchain; no physical-router L4.
+- Live main at recovery: `0b3449bc31ceda006408409dacd31b81785908b7`; this was also the current parent for the checker correction.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Main is 1,494 commits ahead of the backup and 1 behind because the backup contains its own immutable marker commit; do not modify either history.
+- PR #1 is closed and unmerged. Its closing comment confirms the unmerged CA trust-store failure propagation, OpenSSL 3 EVP_MAC HMAC-SHA1 helper, package/ROMFS integration, host regressions and semantic workflow were ported to main at `74b66ff960457379518d13c723c44a3515e6a228`; no additional PR work remains to port.
+- Exact push Actions on `0b3449bc31ceda006408409dacd31b81785908b7`: Process inventory `44558400105`, HTTPD `44558399718`, WAN route `44558399992`, AI docs `44558399754`, NVRAM audit `44558399692` all PASS. WAN DHCP callback `44558399735` FAILED only in its final Python source-contract block: stale assertion at script line 333 searched for a direct environment `unsetenv()` call that the current helper-based implementation no longer contains. Every prior host regression step, including DHCPv6 generation/stop-fencing, passed.
+- Exact XY-C1 run `44558399503` passed Build XY-C1, TRX verification and artifact upload on `0b3449bc31ceda006408409dacd31b81785908b7` (L3 for that product-source SHA). Physical-router L4 remains NOT VERIFIED.
+- The checker-only correction now changes the WAN callback source-order assertion to follow `dhcp6c_callback_environment_clear()` and confirms both environment names are supplied. Its new exact-head WAN DHCP and AI docs Actions still need inspection.
+- No local checkout/toolchain is available in this environment; no local tests or physical L4 are claimed.
 
 ## Latest active source slices — 2026-11-19
 
@@ -174,18 +176,17 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Main-only development, immutable backup `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- AP-mode LAN teardown source L3 is verified on `908fee5` / XY-C1 `44552799621`.
-- LAN DHCP ancillary notification diagnostics source `ef12b80`: WAN DHCP `44555817409`, AI docs `44555817614`, Process fail-closed `44555817648` PASS; its XY-C1 `44555817271` and NVRAM `44555817580` were pending at last poll.
-- DHCPv6 lock-release diagnostic commit `7c0481f8` is a separate task; its Actions were running at last check.
-- New DHCPv6 startup cleanup fix: eliminate short-circuit double-unset bug by independently attempting both temporary environment cleanup operations; tests cover two attempts and first errno preservation.
-- No local checkout/toolchain or physical router; do not claim local execution or L4.
+- Main-only development; frozen backup remains immutable.
+- Current product-source baseline `0b3449bc31ceda006408409dacd31b81785908b7` includes the DHCPv6 startup environment-cleanup helper fix. Its exact XY-C1 Build/TRX/artifact run `44558399503` passed (L3 on this SHA).
+- The exact WAN DHCP callback run `44558399735` passed all C policy binaries and failed only at a stale final source-contract lookup for a direct `unsetenv(IFNAME)`; the helper-based production cleanup is already covered by the preceding integration assertions and regression tests. The checker-only correction is the current commit.
+- Next: verify exact-head WAN DHCP callback and AI docs results for the checker correction; confirm other triggered process/HTTPD/WAN/NVRAM runs as applicable. Then fix the separately source-demonstrable DHCPv6 startup error-precedence issue: a successful `eval()` may leave stale `errno`, and a subsequent environment-cleanup failure must replace that stale value with the actual cleanup errno.
+- No local checkout/toolchain or physical router is available; do not claim local execution or L4.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN DHCP callback, Process, AI docs and XY-C1 Actions for the new DHCPv6 commit. Validate the C regression and integration checker. Record Build, TRX and artifact independently.
-2. Inspect exact `ef12b80` XY-C1 run `44555817271` and NVRAM run `44555817580`; record their completion separately.
-3. Continue with a distinct stability/security issue after the DHCPv6 startup cleanup slice; keep DHCPv6 generation fencing and locking invariants intact.
+1. Fetch live main, then inspect the exact push WAN DHCP callback and AI handoff docs Actions for the checker-correction SHA. The parent `0b3449bc31ceda006408409dacd31b81785908b7` WAN callback failure is already diagnosed; do not rerun or repeat its successful host binaries.
+2. Confirm whether the new WAN DHCP callback passes; if it fails, inspect the first causal log line and fix only that contract/source defect. Inspect other exact-head checks only where they gate this DHCPv6 slice.
+3. Implement and regression-test the separately identified DHCPv6 startup errno-precedence defect in `start_dhcp6c()`: cleanup failure after successful `eval()` must return the cleanup errno rather than a stale errno captured after the successful launch. Keep generation fencing and lock invariants intact.
 
 ## Mandatory handoff checkpoint
 

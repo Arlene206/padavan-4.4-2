@@ -522,7 +522,8 @@ jobs:
           start_config = start_dhcp6.index("dhcp6c_config_file_open_staged(")
           start_env = start_dhcp6.index("setenv(DHCP6C_CALLBACK_GENERATION_ENV")
           start_eval = start_dhcp6.index('eval("/sbin/dhcp6c"')
-          start_unset = start_dhcp6.index("unsetenv(DHCP6C_CALLBACK_IFNAME_ENV)", start_eval)
+          start_unset = start_dhcp6.index("dhcp6c_callback_environment_clear(", start_eval)
+          assert "DHCP6C_CALLBACK_IFNAME_ENV, DHCP6C_CALLBACK_GENERATION_ENV, unsetenv" in start_dhcp6
           assert start_lock < start_advance < start_config < start_env < start_eval < start_unset
           assert "strlen(wan_ifname) >= IFNAMSIZ" in start_dhcp6
           assert "goto session_failed;" in start_dhcp6
