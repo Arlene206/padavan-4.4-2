@@ -11,32 +11,30 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current parent for the shared wait-loop hardening slice: `16b755661ec1a33cd255dec10d4bac389816a8b3` (`ci(process): align retry policy trigger paths`).
-- The procfs bounded-read source SHA `53dda2c844e18cfb879abc3bf4b96bb50d46fd2d` passed Process inventory `44632416173`, detect_link `44632416162`, GPIO `44632416043`, DNSMasq `44632416164`, VPN `44632416149`, crond `44632417092` and NVRAM `44632416256`. Process umbrella `44632416363` and AI docs `44632416060` initially failed only because Process workflow push/PR path filters differed; workflow/doc follow-up `16b7556` reruns AI docs `44632968248` and Process regression `44632969368` PASS.
-- Exact XY-C1 `44632416166` for production source SHA `53dda2c` remained IN_PROGRESS at last poll; Build/TRX/artifact not yet confirmed. The previous shared-helper source SHA `213a077` passed XY-C1 `44631039226` (Build, TRX verification and artifact upload).
-- Previous service-lock fixes: e736 MiniUPnP EINTR cap; 213 shared eight-retry EINTR policy across MiniUPnP/Inadyn/DNSMasq/VPN release; d57 full one-second acquire wait across EINTR for Inadyn/DNSMasq/VPN.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; archival only. PR #1 remains closed/unmerged.
-- No physical-router result is available. Host Actions are L2; XY-C1 Build/TRX/artifact on one exact production SHA is L3; device behavior is L4 NOT VERIFIED.
+- Current main before this source slice: `437c7b289b77cf601544715525a1488dcf14575e` (`fix(rc): bound repeated service wait interruptions`), parent `16b755661ec1a33cd255dec10d4bac389816a8b3`.
+- The prior procfs bounded-read source SHA `53dda2c844e18cfb879abc3bf4b96bb50d46fd2d` passed Process inventory `44632416173` and NVRAM `44632416256`; its Process umbrella failure `44632416363` was push/PR path parity and was fixed on `16b7556`, whose Process umbrella `44632969368` and AI docs `44632968248` both PASS.
+- XY-C1 `44632416166` for SHA `53dda2c` was IN_PROGRESS at last check. Latest main `437c7b2` Actions are pending; first inspect Process and service-wait regression runs and XY-C1 `44633888536`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains archival at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 is closed/unmerged. No physical-router result is available.
 
 ## Active task
 
-- Confirmed a remaining signal-storm reliability gap in shared `service_wait_policy.h`: `service_wait_seconds_with()` retried the unslept integer remainder forever, and `service_wait_timespec_with()` retried every nanosleep EINTR without a limit. Repeated immediate signals could keep lifecycle/startup callers trapped inside a wait.
-- This slice adds a common eight-consecutive-EINTR ceiling to both wrappers. Normal remainder retries and invalid/error handling are preserved; exhaustion returns `-1/EINTR` so callers fail closed instead of hanging.
-- The GNU89 wait-policy regression adds repeated-EINTR exhaustion cases for both `sleep()` and `nanosleep()`. Existing Process workflow compiles this test under `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined`; XY-C1 already watches the shared policy header.
-- No local compilation or physical-router result is claimed for this source slice.
+- The current source baseline bounds service wait EINTR loops in seconds and timespec paths. This follow-up is an independent shared process-I/O hardening slice: PID-file reads/writes, inline PID start-time reads and the legacy procps compatibility reader still had unbounded EINTR loops.
+- Extended `process_io_retry_policy.h` with injectable bounded read/write wrappers and production `process_io_read()/process_io_write()`. Routed `process_pidfile_read()`, `process_pidfile_write_all()`, `process_pidfile_record_read_start_time()` and `pids.c:read_to_buf()` through these wrappers. Persistent interruption now returns `EINTR`; non-EINTR errors remain unchanged, positive short writes still advance, and EOF semantics are preserved.
+- Added GNU89 callback regressions in `tests/process_pidfile.c` for read/write recovery, exhaustion, EOF, EIO preservation and invalid callbacks. Existing Process regression workflow compiles this test and already tracks the changed source/test paths.
+- No local compilation, target MIPS result, or physical-router behavior is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Process lifecycle, service-wait regression, AI-doc, NVRAM and XY-C1 Actions for this change.
-2. On FAIL, inspect job logs and correct the demonstrated issue while retaining both eight-interruption ceilings and exact remaining-time handling. XY-C1 L3 requires Build, TRX verification and artifact upload all SUCCESS on the same source SHA.
-3. Continue another independently evidenced cross-userland stability/security issue; do not reopen the fixed MiniUPnP/service lock EINTR, acquisition wait, or procfs read loops without new evidence.
+1. Fetch live `main` and check exact-head Process inventory/lifecycle, Process inventory and XY-C1 runs for this source commit. Inspect causal job logs for failures.
+2. XY-C1 L3 requires Build XY-C1, TRX verification and artifact upload to all PASS on the same source SHA. Pending runs do not block independent work.
+3. Continue another independently evidenced cross-userland reliability/security issue. Avoid repeating completed service-wait, service-lock and procfs-read audits without new evidence.
 
 ## Verification boundary
 
-- L1: shared seconds/nanosleep wait loops now fail with EINTR after eight consecutive interrupted calls; the remaining-time contract is preserved before exhaustion.
-- L2: GNU89 Process wait-policy regression adds bounded storm cases; exact-head Process/AI/NVRAM Actions are pending.
-- L3: XY-C1 already watches `service_wait_policy.h`; same-SHA Build/TRX/artifact remains pending.
-- L4: target signal timing and physical-router service behavior remain NOT VERIFIED.
+- L1: shared procfs reads are bounded in source SHA `53dda2c`; this slice adds eight-consecutive-EINTR retry caps to PID-file read/write, inline proc-stat and legacy procps read paths.
+- L2: callback-level GNU89 read/write retry regressions are added to the existing `process_pidfile.c` test target; exact-head Actions for this slice are pending.
+- L3: prior XY-C1 SHA `53dda2c` run `44632416166` was still pending; current source needs a same-SHA Build/TRX/artifact pass before L3 can be claimed.
+- L4: MIPS/uClibc signal-storm behavior and physical-router service transitions remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

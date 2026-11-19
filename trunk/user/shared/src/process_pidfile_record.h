@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include "process_io_retry_policy.h"
 
 static inline int
 process_pidfile_record_parse_start_time(const char *text, size_t length,
@@ -88,10 +89,8 @@ process_pidfile_record_read_start_time(pid_t pid,
 	if (fd < 0)
 		return -1;
 	while (used < sizeof(buffer) - 1) {
-		count = read(fd, buffer + used, sizeof(buffer) - 1 - used);
+		count = process_io_read(fd, buffer + used, sizeof(buffer) - 1 - used);
 		if (count < 0) {
-			if (errno == EINTR)
-				continue;
 			saved_errno = errno;
 			(void)close(fd);
 			errno = saved_errno;
@@ -102,7 +101,7 @@ process_pidfile_record_read_start_time(pid_t pid,
 		used += (size_t)count;
 	}
 	if (used == sizeof(buffer) - 1) {
-		count = read(fd, &extra, 1);
+		count = process_io_read(fd, &extra, 1);
 		if (count != 0) {
 			saved_errno = count < 0 ? errno : EOVERFLOW;
 			(void)close(fd);

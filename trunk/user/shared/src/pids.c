@@ -16,6 +16,7 @@
 
 #include "process_inventory.h"
 #include "pids_presence_policy.h"
+#include "process_io_retry_policy.h"
 
 enum {
         PSSCAN_PID      = 1 << 0,
@@ -83,9 +84,7 @@ static int read_to_buf(const char *filename, void *buf)
 	int ret = -1;
 	fd = open(filename, O_RDONLY);
 	if (fd >= 0) {
-		do {
-			ret = read(fd, buf, PROCPS_BUFSIZE - 1);
-		} while (ret < 0 && errno == EINTR);
+		ret = (int)process_io_read(fd, buf, PROCPS_BUFSIZE - 1);
 		close(fd);
 	}
 	((char *)buf)[ret > 0 ? ret : 0] = '\0';

@@ -1,3 +1,12 @@
+## 2026-11-19 — Bound shared PID-file and legacy procps I/O retries
+
+- Extended the existing eight-consecutive-EINTR policy with injectable bounded read/write wrappers. PID-file reads/writes, the inline PID start-time reader and legacy procps `read_to_buf()` now return preserved `EINTR` rather than retry indefinitely under a signal storm.
+- Added GNU89 callback regressions for read/write recovery, retry exhaustion, EOF, EIO propagation and invalid callbacks. Existing Process regression workflow compiles `tests/process_pidfile.c`; current Process/XY-C1 path filters already cover the touched sources and test.
+- On the preceding source chain, Process umbrella `44632969368` and AI docs `44632968248` passed exact SHA `16b7556`; the latest service-wait hardening commit `437c7b2` was still under Actions validation at handoff.
+- No local firmware build or physical-router result is claimed; this I/O change requires its own exact-head Actions validation.
+
+---
+
 ## 2026-11-19 — Bound repeated EINTR in shared service waits
 
 - Shared `service_wait_seconds_with()` and `service_wait_timespec_with()` could retry interruption indefinitely. Under repeated immediate signals, integer-second `sleep()` can return the same remainder and keep PID 1/lifecycle callers stuck.

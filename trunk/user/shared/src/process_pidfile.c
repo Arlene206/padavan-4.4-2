@@ -11,6 +11,7 @@
 
 #include "process_inventory.h"
 #include "process_pidfile.h"
+#include "process_io_retry_policy.h"
 
 #define PROCESS_PIDFILE_RECORD_SIZE 64
 #define PROCESS_PIDFILE_PATH_SIZE 4096
@@ -162,12 +163,10 @@ process_pidfile_read(const char *path, pid_t *pid,
 		goto failed;
 	}
 	while (used < sizeof(buffer)) {
-		count = read(fd, buffer + used, sizeof(buffer) - used);
+		count = process_io_read(fd, buffer + used, sizeof(buffer) - used);
 		if (count < 0) {
-			if (errno == EINTR)
-				continue;
 			saved_errno = errno;
-			close(fd);
+			(void)close(fd);
 			errno = saved_errno;
 			return -1;
 		}
@@ -249,12 +248,9 @@ process_pidfile_write_all(int fd, const char *buffer, size_t length)
 	size_t offset = 0;
 
 	while (offset < length) {
-		ssize_t count = write(fd, buffer + offset, length - offset);
-		if (count < 0) {
-			if (errno == EINTR)
-				continue;
+		ssize_t count = process_io_write(fd, buffer + offset, length - offset);
+		if (count < 0)
 			return -1;
-		}
 		if (count == 0) {
 			errno = EIO;
 			return -1;
