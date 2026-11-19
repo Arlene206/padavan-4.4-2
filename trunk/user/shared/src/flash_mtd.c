@@ -23,6 +23,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
+
+#include "process_io_retry_policy.h"
 #include <limits.h>
 
 #include <mtd-abi.h>
@@ -131,7 +133,7 @@ read_safe(int fd, unsigned char *buf, size_t buf_len)
 	size_t r_len = 0;
 
 	while (r_len < buf_len) {
-		ssize_t ret = read(fd, buf + r_len, buf_len - r_len);
+		ssize_t ret = process_io_read(fd, buf + r_len, buf_len - r_len);
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;
@@ -153,7 +155,7 @@ write_safe(int fd, const unsigned char *buf, size_t buf_len)
 	size_t w_len = 0;
 
 	while (w_len < buf_len) {
-		ssize_t ret = write(fd, buf + w_len, buf_len - w_len);
+		ssize_t ret = process_io_write(fd, buf + w_len, buf_len - w_len);
 		if (ret < 0) {
 			if (errno == EINTR)
 				continue;

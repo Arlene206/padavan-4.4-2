@@ -1,3 +1,12 @@
+## 2026-11-19 — Bound EINTR retries in MTD flash I/O
+
+- `flash_mtd.c` had unbounded retry loops around raw `read(2)` and `write(2)`. A persistent signal storm during flash partition I/O could spin indefinitely.
+- Reused shared `process_io_read()/process_io_write()` wrappers with an eight-consecutive-EINTR cap. Positive short-I/O progress, short reads at EOF, and zero-progress write EIO behavior are unchanged.
+- Process lifecycle source-contract pins both MTD callsites and tracks `flash_mtd.c` in push/PR; XY-C1 tracks the production file so its change triggers firmware validation.
+- Parent `342631b` firewall-startup policy PASS; HTTPD/WAN workflow assertions were stale and repaired in `8987975`. Parent NVRAM/XY-C1 were pending at last poll. This MTD source SHA still needs exact-head L2/L3 validation.
+
+---
+
 ## 2026-11-19 — Align HTTPD and WAN workflow contracts with firewall safety fixes
 
 - Exact parent SHA `342631b4efb09b4877dd944d74f03d20da7b4164` passed firewall-startup-policy run `44635384398`.

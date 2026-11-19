@@ -154,6 +154,7 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/process_io_retry_policy.h"
       - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/shared/src/flash_mtd.c"
       - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/shared/src/process_pidfile_record.h"
       - "trunk/user/shared/src/net_ifstats_policy.h"
@@ -326,6 +327,7 @@ on:
       - "trunk/user/shared/src/process_inventory.h"
       - "trunk/user/shared/src/process_io_retry_policy.h"
       - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/shared/src/flash_mtd.c"
       - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/shared/src/process_pidfile_record.h"
       - "trunk/user/shared/src/net_ifstats_policy.h"
@@ -440,7 +442,27 @@ jobs:
           ).read_text()
           test = Path("trunk/user/shared/src/tests/process_inventory.c").read_text()
           assert "test_procfs_read_eintr_retries_are_bounded" in test
-          print("Procfs read EINTR retry bound contract: PASS")
+
+          flash = Path("trunk/user/shared/src/flash_mtd.c").read_text()
+          def function_body(source, signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("incomplete function: " + signature)
+          read_body = function_body(flash, "read_safe(int fd")
+          write_body = function_body(flash, "write_safe(int fd")
+          assert "process_io_read(fd, buf + r_len, buf_len - r_len)" in read_body
+          assert "process_io_write(fd, buf + w_len, buf_len - w_len)" in write_body
+          assert "read(fd, buf + r_len" not in read_body
+          assert "write(fd, buf + w_len" not in write_body
+          print("Procfs and MTD flash I/O EINTR retry bound contract: PASS")
           PY
       - name: Compile and run legacy pids() UNKNOWN mapping regression
         run: |

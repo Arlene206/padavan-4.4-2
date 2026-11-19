@@ -11,31 +11,32 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current parent for the CI-contract repair: `342631b4efb09b4877dd944d74f03d20da7b4164` (`fix(firewall): validate LAN IPv4 address before NAT redirect`).
-- The firewall-startup-policy run `44635384398` PASS on exact SHA `342631b4efb09b4877dd944d74f03d20da7b4164`.
-- HTTPD security run `44635384245` failed only at the inline assertion expecting 9 `firewall_ipv4_address_is_safe()` calls; the new NAT path adds one necessary call, and source count is 10. The checker now expects 10.
-- WAN DHCP callback run `44635384375` failed only because it expected the earlier `restore_wan_after_ppp_start_failure()` call. The source now uses stronger `restore_wan_after_firewall_failure()`, which delegates to the former and takes the physical interface down if restoring the firewall fails; the checker now pins those safeguards.
-- NVRAM audit `44635384340` and XY-C1 `44635384278` were IN_PROGRESS at last poll; exact Build/TRX/artifact not yet confirmed. No L3 claim on this source SHA.
-- Prior `ba47b5f` Process umbrella, AI docs, GPIO, detect_link, HTTPD, Process inventory, VPN, crond, watchdog and NVRAM PASS; XY-C1 `44634242726` still in progress at last poll.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No physical-router result.
+- Current main parent for the MTD flash-I/O slice: `89879756a4e2741bbde4aa0460c346039c542e6c` (`ci: align firewall and WAN safety contracts`).
+- Exact parent firewall source SHA `342631b4efb09b4877dd944d74f03d20da7b4164`: firewall-startup policy `44635384398` PASS; HTTPD `44635384245` and WAN DHCP callback `44635384375` failed stale checker assertions now repaired in `8987975`. NVRAM `44635384340` and XY-C1 `44635384278` were pending at last poll; exact Build/TRX/artifact not yet confirmed.
+- Exact source SHA `ba47b5f`: Process umbrella, AI docs, GPIO, detect_link, HTTPD, Process inventory, VPN, crond, watchdog and NVRAM PASS; XY-C1 `44634242726` remained IN_PROGRESS when last inspected.
+- Exact source SHA `39c3db7`: Process umbrella, Process inventory, AI docs, NFS, Samba, WAN route and Wireless PASS; NVRAM `44634616501` was IN_PROGRESS at last poll.
+- Shared procfs/PID-file I/O fix on `ba47b5f` reuses the common bounded wrappers. Earlier procfs source SHA `53dda2c` passed XY-C1 Build/TRX/artifact `44632416166`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains archival at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No physical-router result.
 
 ## Active task
 
-- This commit repairs two now-stale workflow assertions only; no production code changed.
-- HTTPD security expects ten explicit IPv4 address-validation callsites after the firewall path added a second LAN-IP guard for NAT redirect input.
-- WAN callback tests now expect the stronger WAN restore wrapper, and pin that it delegates the physical-WAN restoration helper and takes the interface down if the fallback firewall recovery also fails.
+- Confirmed unbounded `EINTR` loops in shared `flash_mtd.c`: `read_safe()` and `write_safe()` retried raw `read(2)`/`write(2)` indefinitely. Repeated signals during flash partition operations could spin instead of returning an error.
+- Reused `process_io_retry_policy.h` bounded wrappers for each syscall. Outer full-buffer loops still advance on positive short I/O, reads still return a short count at EOF, zero-progress writes still fail with EIO, and retry exhaustion propagates EINTR.
+- Process lifecycle CI now checks both MTD callsites and watches `flash_mtd.c` on push and pull_request. XY-C1 also watches this production file, ensuring source changes trigger firmware validation.
+- No local compile or target/router test is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head HTTPD security, WAN DHCP callback, AI-doc, NVRAM and XY-C1 Actions for this checker repair.
-2. If an assertion still fails, inspect the job log and align the checker with actual source behavior only after verifying the production safety invariant.
-3. Continue the independently evidenced shared MTD read/write EINTR issue already found in `flash_mtd.c`; do not repeat completed process/service lock and procfs audits.
+1. Fetch live main and inspect exact-head Process lifecycle, Process inventory, AI-doc, NVRAM and XY-C1 runs for the MTD retry fix.
+2. On FAIL, inspect exact job logs and fix only demonstrated source/build problems; preserve short-I/O semantics and bounded EINTR failure. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on one source SHA.
+3. Continue an independently evidenced cross-userland stability/security issue; do not reopen fixed lock, wait, procfs or PID-file retry paths without new evidence.
 
 ## Verification boundary
 
-- Firewall source/contract: HTTPD count failure is an assertion drift, corrected from 9 to 10; WAN restoration contract now expects the stronger fallback wrapper and verifies fail-closed interface shutdown.
-- Exact SHA `342631b`: Firewall startup policy PASS; HTTPD and WAN callbacks failed stale checker assertions; NVRAM and XY-C1 remained pending.
-- No local compile or physical-router result is claimed. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on the same SHA.
+- L1: MTD flash `read_safe()`/`write_safe()` now use the shared eight-consecutive-EINTR-bounded wrappers; short read/EOF and short-write semantics remain intact.
+- L2: Process lifecycle source contract pins both MTD callsites; common callback regression is covered by Process PID-file test targets. Exact-head Actions remain pending.
+- L3: XY-C1 watches `flash_mtd.c`; Build/TRX/artifact for the new source SHA remains pending.
+- L4: MIPS/uClibc MTD behavior under signal storms and physical-router firmware operations remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
