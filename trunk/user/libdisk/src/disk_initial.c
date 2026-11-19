@@ -598,14 +598,12 @@ has_dev_mountpoint(const char *mount_path)
 		if (strncmp(devname, "/dev/sd", 7) == 0) {
 			if (strcmp(mpname, mount_path) == 0) {
 				ret = 1;
-				break;
 			}
 		}
 #if defined (USE_MMC_SUPPORT)
 		else if (strncmp(devname, "/dev/mmcblk", 11) == 0) {
 			if (strcmp(mpname, mount_path) == 0) {
 				ret = 1;
-				break;
 			}
 		}
 #endif

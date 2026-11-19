@@ -149,6 +149,7 @@ mountpoint_lookup = body(libdisk, "has_dev_mountpoint(const char *mount_path)")
 require("storage_inventory_parse_mount_line_full(" in mountpoint_lookup and
         "ret >= 0 && ferror(fp)" in mountpoint_lookup and "close_status = fclose(fp)" in mountpoint_lookup and
         "if (ret < 0)" in mountpoint_lookup and "return -1;" in mountpoint_lookup and
+        mountpoint_lookup.count("break;") == 1 and
         "sscanf(" not in mountpoint_lookup,
         "pool mountpoint lookup must decode procfs paths and fail closed on read/parse/close errors")
 mount_path_adapter = body(libdisk, "get_mount_path(")
