@@ -12,6 +12,23 @@
 #define NVRAM_SNAPSHOT_COPY_RETRY 1
 
 /*
+ * GETALL is represented by exactly (length=0, pointer=NULL). A named
+ * request must carry a pointer and a non-empty, NUL-free byte span. This
+ * prevents malformed requests from silently widening into a full dump.
+ */
+static inline int
+nvram_ioctl_param_request_valid(int length, int maximum_length,
+                               int has_pointer, int has_embedded_nul)
+{
+	if (length < 0 || maximum_length < 1 || length >= maximum_length ||
+	    has_embedded_nul)
+		return 0;
+	if (length == 0)
+		return !has_pointer;
+	return has_pointer;
+}
+
+/*
  * A scan stopped at source_remaining means there was no terminator before
  * the backing pool ended. A scan stopped at destination_size means the
  * value grew after the first sizing pass and must be retried.

@@ -404,6 +404,10 @@ def run() -> int:
     snapshot_policy = snapshot_policy_path.read_text(encoding="utf-8", errors="replace")
     snapshot_test = snapshot_test_path.read_text(encoding="utf-8", errors="replace")
     for marker in (
+        "nvram_ioctl_param_request_valid",
+        "length == 0",
+        "return !has_pointer",
+        "has_embedded_nul",
         "NVRAM_GET_SNAPSHOT_RETRIES 3",
         "NVRAM_SNAPSHOT_COPY_INVALID",
         "NVRAM_SNAPSHOT_COPY_READY",
@@ -413,6 +417,11 @@ def run() -> int:
         if marker not in snapshot_policy:
             failures.append("NVRAM snapshot policy is missing " + marker)
     for marker in (
+        "test_ioctl_getall_requires_an_empty_pointer_pair",
+        "test_ioctl_parameter_embedded_nul_is_rejected",
+        "nvram_ioctl_param_request_valid(0, 64, 0, 0)",
+        "nvram_ioctl_param_request_valid(1, 64, 0, 0)",
+        "nvram_ioctl_param_request_valid(5, 64, 1, 1)",
         "test_value_that_fits_is_copied",
         "test_growth_between_sizing_and_copy_retries",
         "test_shrinkage_between_sizing_and_copy_is_safe",
@@ -468,6 +477,15 @@ def run() -> int:
             failures.append("NVRAM ioctl result length is not written through put_user")
         if "nvram_user_store_length(nvr," not in get_body:
             failures.append("NVRAM GET does not check user result-length writes")
+        for function_name, function_body in (("user_nvram_set", set_body), ("user_nvram_get", get_body)):
+            if "nvram_ioctl_param_request_valid(" not in function_body:
+                failures.append(f"{function_name} does not validate the parameter pointer/length pair")
+            if "memchr(param, '\\0', request.len_param)" not in function_body:
+                failures.append(f"{function_name} does not reject embedded NUL bytes in parameter names")
+        getall_branch = get_body.index("if (param[0] == '\\0')")
+        if "request.len_param" not in get_body[:getall_branch]:
+            failures.append("NVRAM GETALL dispatch is not preceded by request shape validation")
+
         snapshot_call = "nvram_get_snapshot(param, capacity, &value, &len)"
         if snapshot_call not in get_body:
             failures.append("single-value ioctl does not use the stable snapshot helper")

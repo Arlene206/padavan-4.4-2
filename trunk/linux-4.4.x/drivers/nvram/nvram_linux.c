@@ -33,6 +33,7 @@
 #include <nvram/bcmnvram.h>
 
 #include "nvram_compaction_policy.h"
+#include "nvram_snapshot_policy.h"
 #include "nvram.c"
 #include "nvram_snapshot_policy.h"
 
@@ -576,16 +577,20 @@ user_nvram_set(anvram_ioctl_t __user *nvr)
 
 	if (request.len_param > (NVRAM_MAX_PARAM_LEN-1) || request.len_param < 0)
 		return -EOVERFLOW;
-
-	if (!request.param)
+	if (!nvram_ioctl_param_request_valid(request.len_param,
+					    NVRAM_MAX_PARAM_LEN,
+					    request.param != NULL, 0) ||
+	    request.len_param == 0)
 		return -EINVAL;
 
 	if (copy_from_user(param, request.param, request.len_param))
 		return -EFAULT;
+	if (!nvram_ioctl_param_request_valid(request.len_param,
+					     NVRAM_MAX_PARAM_LEN, 1,
+					     memchr(param, '\0', request.len_param) != NULL))
+		return -EINVAL;
 
 	param[request.len_param] = '\0';
-	if (!param[0])
-		return -EINVAL;
 
 	if (request.len_value > (NVRAM_MAX_VALUE_LEN-1) || request.len_value < 0)
 		return -EOVERFLOW;
@@ -646,12 +651,18 @@ user_nvram_get(anvram_ioctl_t __user *nvr)
 	if (request.len_value < 1)
 		return -EINVAL;
 
-	if (request.len_param > (NVRAM_MAX_PARAM_LEN-1) || request.len_param < 0)
+	if (!nvram_ioctl_param_request_valid(request.len_param,
+					    NVRAM_MAX_PARAM_LEN,
+					    request.param != NULL, 0))
 		return -EINVAL;
 
-	if (request.len_param > 0 && request.param) {
+	if (request.len_param > 0) {
 		if (copy_from_user(param, request.param, request.len_param))
 			return -EFAULT;
+		if (!nvram_ioctl_param_request_valid(request.len_param,
+						     NVRAM_MAX_PARAM_LEN, 1,
+						     memchr(param, '\0', request.len_param) != NULL))
+			return -EINVAL;
 		param[request.len_param] = '\0';
 	} else {
 		param[0] = '\0';
