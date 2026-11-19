@@ -710,7 +710,7 @@ jobs:
           assert "file_unlock(storage_lock);" in wrapper
 
           safe_remove = function_body(storage, "safe_remove_stor_device(")
-          assert safe_remove.index("storage_operation_lock_acquire(file_lock)") < safe_remove.index("read_disk_data()")
+          assert safe_remove.index("storage_operation_lock_acquire(file_lock)") < safe_remove.index("read_disk_data_checked(&disks_info)")
           assert "umount_ejected_locked(1, 0)" in safe_remove
           assert "if (storage_ejected_may_restart_apps(unmount_status, ejected_status, mount_count))" in safe_remove
           assert "safe removal did not complete" in safe_remove
@@ -718,7 +718,11 @@ jobs:
           assert "storage_ejected_may_restart_apps(-1, 0, 3)" in ejected_policy_test
           assert "storage_ejected_may_restart_apps(0, -1, 3)" in ejected_policy_test
           assert "storage_ejected_may_restart_apps(0, 0, -1)" in ejected_policy_test
-          assert safe_remove.count("file_unlock(storage_lock);") == 3
+          assert "storage_ejected_target_remove_complete(0, 0, 3, 0)" in ejected_policy_test
+          assert "storage_ejected_target_remove_complete(0, 0, 3, -1)" in ejected_policy_test
+          assert "remaining_mounts >= 0" in policy
+          assert "(remaining_mounts == 0 || start_status == 0)" in policy
+          assert safe_remove.count("file_unlock(storage_lock);") == 1
           assert "umount_ejected();" not in safe_remove
 
           remove_all = function_body(storage, "safe_remove_all_stor_devices(")
@@ -1045,11 +1049,13 @@ jobs:
           safe_remove = function_body(storage, "safe_remove_stor_device(")
           stop_gate = safe_remove.index("stop_status = stop_stor_apps();")
           rollback_gate = safe_remove.index("storage_rollback_stor_apps_after_stop_failure(", stop_gate)
-          stop_abort = safe_remove.index("return;", rollback_gate)
-          assert stop_gate < rollback_gate < stop_abort < safe_remove.index("umount_stor_path_range(")
-          assert "free_disk_data(disks_info);" in safe_remove[rollback_gate:stop_abort]
-          assert "file_unlock(storage_lock);" in safe_remove[rollback_gate:stop_abort]
-          assert "errno = stop_errno;" in safe_remove[rollback_gate:stop_abort]
+          stop_abort = safe_remove.index("goto out;", rollback_gate)
+          cleanup = safe_remove.index("out:", stop_abort)
+          assert stop_gate < rollback_gate < stop_abort < cleanup < safe_remove.index("umount_stor_path_range(")
+          assert "saved_errno = errno ? errno : EIO;" in safe_remove[rollback_gate:stop_abort]
+          assert "free_disk_data(disks_info);" in safe_remove[cleanup:]
+          assert "file_unlock(storage_lock);" in safe_remove[cleanup:]
+          assert "errno = saved_errno ? saved_errno : EIO;" in safe_remove[cleanup:]
           assert safe_remove.index("umount_stor_path_range(") < safe_remove.index("umount_ejected_locked(1, 0)")
           assert "unmount_status != 0 || ejected_status != 0" in safe_remove
           assert "mount_count < 0 || unmount_status != 0 || ejected_status != 0" in safe_remove
@@ -1255,8 +1261,8 @@ jobs:
           assert '"mdev_mmc"' in rc and "mdev_mmc_main" in rc
           assert '"mdev_sd"' in rc and "mdev_sd_main" in rc
           assert 'else if (!strcmp(entry->d_name, "on_unplug_mass_storage"))' in notifications
-          assert 'safe_remove_stor_device(ATA_VIRT_PORT_ID, ATA_VIRT_PORT_ID, devn, 1);' in rc
-          assert 'safe_remove_stor_device(MMC_VIRT_PORT_ID, MMC_VIRT_PORT_ID, NULL, 0);' in rc
+          assert 'ret = safe_remove_stor_device(ATA_VIRT_PORT_ID, ATA_VIRT_PORT_ID, devn, 1);' in rc
+          assert 'ret = safe_remove_stor_device(MMC_VIRT_PORT_ID, MMC_VIRT_PORT_ID, NULL, 0);' in rc
           assert "if (safe_remove_all_stor_devices(0) != 0)" in rc
           assert "storage_remove_status = safe_remove_all_stor_devices(use_halt);" in rc
           assert 'ret = safe_remove_all_stor_devices(1);' in rc
