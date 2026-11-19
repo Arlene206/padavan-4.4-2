@@ -82,6 +82,7 @@ route_wait_body = function_body(script, "zerotier_wait_route()")
 rules_section = script.split("rules() {", 1)[1].split("\ndel_rules() {", 1)[0]
 firewall_helper_body = function_body(script, "zerotier_add_firewall_rule()")
 cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 1)[0]
+static_route_body = function_body(script, "zero_route()")
 
 process_state_body = function_body(script, "zerotier_process_state()")
 require('while [ "$zerotier_wait" -lt 5 ]; do' in wait_body and
@@ -163,6 +164,14 @@ cleanup_failure_return = start_instance_body.index('return 1', cleanup_branch)
 require('if ! rules; then' in start_instance_body and
         start_instance_body.index('if ! rules; then') < cleanup_branch < cleanup_failure_return,
         "daemon startup must fail and attempt cleanup when interface/route readiness times out")
+require('if ! zero_route "add"; then' in rules_section and
+        'del_rules' in rules_section and
+        'zero_route "del"' in rules_section,
+        "a failed static-route add must roll back the published firewall/route state")
+require('if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then' in static_route_body and
+        'return 1' in static_route_body and
+        '静态路由安装失败' in static_route_body,
+        "static-route add errors must propagate instead of being discarded")
 require('zerotier_kernel_route_segment "$zt0"' in cleanup_section,
         "firewall cleanup must use the same token-based route parser")
 
@@ -198,7 +207,8 @@ require('record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier())' 
 
 for token in ['graceful', '-9-exits', 'stuck', 'start_zero', 'stop_zero',
               'identity.secret', 'numeric-kill.log', 'five one-second polls',
-              'interface readiness', 'kernel route', 'single-space']:
+              'interface readiness', 'kernel route', 'single-space',
+              'configured static route add failed', 'zero_route:add']:
     require(token in test, f"regression coverage missing {token}")
 
 paths = [

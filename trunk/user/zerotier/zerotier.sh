@@ -208,7 +208,12 @@ rules() {
 		if ! zerotier_add_firewall_rule -t nat -A POSTROUTING -s "$ip_segment" -j MASQUERADE; then
 			return 1
 		fi
-		zero_route "add"
+		if ! zero_route "add"; then
+			logger -t "zerotier" "ZeroTier静态路由安装失败，回滚网络规则"
+			del_rules
+			zero_route "del"
+			return 1
+		fi
 	fi
 	return 0
 }
@@ -230,22 +235,52 @@ del_rules() {
 }
 
 zero_route() {
-	rulesnum=`nvram get zero_staticnum_x`
-	for i in $(seq 1 $rulesnum)
+	rulesnum="$(nvram get zero_staticnum_x)"
+	case "$1" in
+		add|del) ;;
+		*) return 2 ;;
+	esac
+	case "$rulesnum" in
+		""|0) return 0 ;;
+		*[!0-9]*)
+			logger -t "zerotier" "静态路由数量配置无效"
+			return 1
+			;;
+	esac
+	for i in $(seq 1 "$rulesnum")
 	do
-		j=`expr $i - 1`
-		route_enable=`nvram get zero_enable_x$j`
-		zero_ip=`nvram get zero_ip_x$j`
-		zero_route=`nvram get zero_route_x$j`
+		j=$((i - 1))
+		route_enable="$(nvram get zero_enable_x$j)"
+		zero_ip="$(nvram get zero_ip_x$j)"
+		zero_route="$(nvram get zero_route_x$j)"
+		case "$route_enable" in
+			""|0) continue ;;
+			*[!0-9]*)
+				if [ "$1" = "add" ]; then
+					logger -t "zerotier" "静态路由启用标志无效: $j"
+					return 1
+				fi
+				continue
+				;;
+		esac
+		if [ "$route_enable" -eq 0 ]; then
+			continue
+		fi
 		if [ "$1" = "add" ]; then
-			if [ $route_enable -ne 0 ]; then
-				ip route add $zero_ip via $zero_route dev $zt0
-				echo "$zt0"
+			if [ -z "$zero_ip" ] || [ -z "$zero_route" ] || [ -z "$zt0" ]; then
+				logger -t "zerotier" "静态路由配置不完整: $j"
+				return 1
 			fi
+			if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then
+				logger -t "zerotier" "静态路由安装失败: $zero_ip via $zero_route"
+				return 1
+			fi
+			echo "$zt0"
 		else
-			ip route del $zero_ip via $zero_route dev $zt0
+			ip route del "$zero_ip" via "$zero_route" dev "$zt0" >/dev/null 2>&1 || true
 		fi
 	done
+	return 0
 }
 
 start_zero() {

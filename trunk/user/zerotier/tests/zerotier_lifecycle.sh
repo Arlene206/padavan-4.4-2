@@ -15,6 +15,11 @@ TEST_IFCONFIG_MODE=none
 TEST_ROUTE_MODE=none
 TEST_NAT_ENABLE=0
 TEST_START_INSTANCE_STATUS=0
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_STATIC_ROUTE_IP=192.0.2.0/24
+TEST_STATIC_ROUTE_GATEWAY=192.0.2.1
+TEST_ROUTE_ADD_STATUS=0
 : > "$TEST_IFCONFIG_COUNT"
 : > "$TEST_ROUTE_COUNT"
 export TEST_STATE TEST_KILL_LOG TEST_SLEEP_LOG TEST_ACTION_LOG TEST_TMP
@@ -87,11 +92,6 @@ del_rules() {
 	return 0
 }
 
-zero_route() {
-	echo "zero_route:$1" >> "$TEST_ACTION_LOG"
-	return 0
-}
-
 rm() {
 	printf 'rm:%s\n' "$*" >> "$TEST_ACTION_LOG"
 	/bin/rm "$@"
@@ -123,6 +123,14 @@ ifconfig() {
 }
 
 ip() {
+	if [ "$1" = route ] && [ "${2:-}" = add ]; then
+		echo "zero_route:add" >> "$TEST_ACTION_LOG"
+		return "$TEST_ROUTE_ADD_STATUS"
+	fi
+	if [ "$1" = route ] && [ "${2:-}" = del ]; then
+		echo "zero_route:del" >> "$TEST_ACTION_LOG"
+		return 0
+	fi
 	[ "$1" = route ] || return 0
 	count=$(cat "$TEST_ROUTE_COUNT")
 	count=$((count + 1))
@@ -147,8 +155,14 @@ ip() {
 }
 
 nvram() {
-	if [ "$1" = get ] && [ "$2" = zerotier_nat ]; then
-		printf '%s\n' "$TEST_NAT_ENABLE"
+	if [ "$1" = get ]; then
+		case "$2" in
+			zerotier_nat) printf '%s\n' "$TEST_NAT_ENABLE" ;;
+			zero_staticnum_x) printf '%s\n' "$TEST_STATIC_ROUTE_COUNT" ;;
+			zero_enable_x0) printf '%s\n' "$TEST_STATIC_ROUTE_ENABLE" ;;
+			zero_ip_x0) printf '%s\n' "$TEST_STATIC_ROUTE_IP" ;;
+			zero_route_x0) printf '%s\n' "$TEST_STATIC_ROUTE_GATEWAY" ;;
+		esac
 	fi
 	return 0
 }
@@ -271,6 +285,8 @@ TEST_CONFIG="$TEST_TMP/config"
 config_path="$TEST_CONFIG"
 mkdir -p "$TEST_CONFIG"
 echo identity > "$TEST_CONFIG/identity.secret"
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
 echo running > "$TEST_STATE"
 TEST_MODE=stuck
 if stop_zero; then
@@ -305,6 +321,8 @@ if ! stop_zero; then
 fi
 [ ! -e "$TEST_CONFIG" ] || fail "successful stop did not complete the existing config cleanup"
 [ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\nzero_route:del\nrm:-rf %s' "$TEST_CONFIG")" ] || fail "successful cleanup did not run after daemon absence"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
 
 [ ! -s "$TEST_TMP/numeric-kill.log" ] || fail "a stale numeric PID was signalled"
 
@@ -381,6 +399,30 @@ fi
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 2 ] || fail "route readiness did not poll the expected two seconds"
 grep -Fqx -- "-t nat -A POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "kernel route parser selected an unrelated or missing network"
 
+# A failed configured static route must fail readiness publication and
+# remove the firewall rules which were already installed.
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_ACTION_LOG"
+echo 0 > "$TEST_ROUTE_COUNT"
+TEST_ROUTE_MODE=ready
+TEST_IFCONFIG_MODE=ready
+TEST_NAT_ENABLE=1
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
+TEST_ROUTE_ADD_STATUS=1
+if rules; then
+	fail "rules reported success after a configured static route add failed"
+fi
+grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure fixture did not attempt route installation"
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\nzero_route:add\ndel_rules\nzero_route:del')" ] || fail "static route failure did not roll back firewall and partial route state"
+[ "$(grep -c ' -A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_ROUTE_ADD_STATUS=0
+TEST_NAT_ENABLE=0
+TEST_ROUTE_MODE=none
+
 # Missing NAT route is bounded and leaves firewall state untouched.
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_IPTABLES_LOG"
@@ -401,4 +443,4 @@ if rules; then
 fi
 [ ! -s "$TEST_IPTABLES_LOG" ] || fail "invalid NAT setting changed firewall rules"
 
-echo "ZeroTier bounded stop/start, readiness, firewall rollback and persistent-config preservation: PASS"
+echo "ZeroTier bounded stop/start, readiness, firewall/static-route rollback and persistent-config preservation: PASS"

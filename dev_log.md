@@ -1,3 +1,13 @@
+## 2026-11-19 — Propagate ZeroTier static-route installation failures
+
+- Parent main SHA: `3ffb25f6357535965f095eba2bfd45a813c96db8`.
+- A second false-success path remained after firewall append checking: `zero_route()` discarded every `ip route add` status, and `rules()` discarded the helper status. NAT-enabled ZeroTier could be reported ready while one or more configured LAN routes were absent.
+- Validate the configured route count/enable flag before installation, quote route operands, fail on incomplete entries or an unsuccessful `ip route add`, and make `rules()` remove the published firewall rules plus attempt route cleanup before returning failure.
+- Reworked the lifecycle fixture to exercise the production `zero_route()` implementation with mocked NVRAM/ip commands. It now injects a static-route failure after all firewall rules have been installed and verifies both firewall and route rollback, while preserving the existing stop-cleanup route assertion.
+- The preceding firewall publication commit `3ffb25f6357535965f095eba2bfd45a813c96db8` has exact ZeroTier `44473915670`, process inventory `44473915585` and AI docs `44473915620` PASS; XY-C1 `44473915674` remained in progress. Exact-head results for this follow-up are pending. No local checkout, MIPS build, or physical-router test is claimed.
+
+---
+
 ## 2026-11-19 — Fail closed when ZeroTier firewall rules cannot be installed
 
 - Parent main SHA: `a4f6176bd774ab0ea44ab9515a367e1b8aac41d6`.
