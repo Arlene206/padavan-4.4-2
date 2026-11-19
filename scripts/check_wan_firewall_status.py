@@ -158,6 +158,29 @@ for index, position in enumerate(firewall_sites):
         require("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);" in follow,
                 "PPP/IPoE firewall failure must reach wan_start_status")
 
+
+# All ordinary PPP recovery failures must use the wrapper that takes the
+# physical WAN interface down if miniupnp/firewall restoration is incomplete.
+ppp_physical_setup_failure = body(start, "if (!i_pppoe && wanx_status != 0)")
+require("restore_wan_after_firewall_failure(unit, wan_ifname);" in ppp_physical_setup_failure,
+        "PPTP/L2TP physical setup failure must use fail-closed WAN recovery")
+require("restore_wan_after_ppp_start_failure(unit, wan_ifname);" not in start,
+        "start_wan must not bypass physical-WAN force-down on failed recovery")
+
+pppd_launch_at = start.index("vlan_result = launch_wan_pppd(unit, wan_proto);")
+pppd_launch_failure = body(start[pppd_launch_at:], "if (vlan_result != 0)")
+require("restore_wan_after_firewall_failure(unit, wan_ifname);" in pppd_launch_failure,
+        "pppd launch failure must use fail-closed physical-WAN recovery")
+require("restore_wan_after_ppp_start_failure(unit, wan_ifname);" not in pppd_launch_failure,
+        "pppd launch failure must not call the non-fail-closed recovery helper")
+
+demand_wait_at = start.index("vlan_result = wait_ppp_up(ppp_ifname, unit);")
+demand_wait_failure = body(start[demand_wait_at:], "if (vlan_result != 0)")
+require("restore_wan_after_firewall_failure(unit, wan_ifname);" in demand_wait_failure,
+        "demand PPP readiness failure must use fail-closed physical-WAN recovery")
+require("restore_wan_after_ppp_start_failure(unit, wan_ifname);" not in demand_wait_failure,
+        "demand PPP readiness failure must not call the non-fail-closed recovery helper")
+
 # A failed static address setup must not leave a stale address exposed.
 static_address = start.split("/* Assign static IP address to i/f */", 1)[1].split(
     "/* Rebuild required firewall policy before EAPOL, DHCP or route activation. */", 1)[0]

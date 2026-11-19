@@ -2132,7 +2132,7 @@ start_wan(void)
 			if (!i_pppoe && wanx_status != 0) {
 				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d: physical WAN setup failed (status=%d)",
 					   unit, wanx_status);
-				vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);
+				vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
 				wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
 				continue;
 			}
@@ -2169,7 +2169,7 @@ start_wan(void)
 				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d after launch failure (status=%d)",
 					   unit, vlan_result);
 				/* Do not leave a phantom ppp0 interface in firewall/UPnP state. */
-				vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);
+				vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
 				wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
 				continue;
 			}
@@ -2182,7 +2182,7 @@ start_wan(void)
 						wan_start_status, vlan_result);
 					logmessage(LOGNAME, "aborting WAN PPP startup for unit %d because the demand interface or route setup is incomplete (status=%d)",
 						   unit, vlan_result);
-					vlan_result = restore_wan_after_ppp_start_failure(unit, wan_ifname);
+					vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
 					wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);
 					continue;
 				}

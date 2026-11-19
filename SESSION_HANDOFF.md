@@ -11,35 +11,32 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Parent main SHA for this SCUT errno-collision correction: `c2fe4764d6864ee3ebab43eeb21ce74f91a2578c`; the Process lifecycle umbrella `44621537460` and AI docs `44621537441` both PASS on this exact SHA. The corrected Crond lifecycle contract `44621067912` and AI docs `44621067804` PASS on `69d64f4...`.
-- Exact-head AI handoff documentation `44620322445` PASS; Process inventory `44620322214` PASS; Firewall `44620322286`, vsftpd `44620322183`, PID-1 queue `44620322244`, ZeroTier `44620322876`, detect_internet `44620322573`, rstats `44620322742`, DNSMasq `44620322174`, detect_link `44620322410`, Wireless radio `44620322537`, NFS `44620322374`, and iNIC `44620322401` PASS on `69430c...`.
-- Crond lifecycle `44620322749` exposed a stale caller assertion and C policy test passed; its corrected rerun `44621067912` PASS on `69d64f4bd9b70a8f32083ac84e8ebca0c8a97d9f`. AI handoff documentation `44621067804` PASS on that exact SHA.
-- Process lifecycle umbrella `44620322615` exposed a second stale source split; after this was corrected, the exact-head Process umbrella `44621537460` PASS and AI docs `44621537441` PASS on `c2fe4764...`.
-- Process umbrella `44620322615` was queued and XY-C1 `44620322487` in progress at last query. Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- Exact-head AI handoff documentation run `44617795116` PASS on `930dd7ed850ef59275cc340bc7c5a36bc7ebedc9`; the preceding missing `## Active task` contract failure is closed.
-- OpenVPN credential staging run `44613650285` PASS on checker/docs descendant `f4fbd093e934fda5304aa796cba30d59eb29b3a4`; VPN server lifecycle `44613173654` PASS and XY-C1 Build/TRX/artifact `44613173721` PASS on the OpenVPN production source SHA `e01f70a766c4e628593e272192723f6add59ffca`.
-- The frozen backup branch was last confirmed at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged and remains legacy inventory only.
-- Root `dev_log.md` currently has 24 dated records (this errno-collision correction appends one), within the required 20–119 window; part-018 preserves the 101 complete records evicted by the preceding catch-up rotation.
-- No physical router result is available. Host tests are L2; exact XY-C1 Build/TRX/artifact is L3; device behavior is L4 NOT VERIFIED.
+- Parent main for THIS PPP recovery source fix: `52cd91c1c7f0d5c297b157a9ffb636844363f605`. It contains the SCUT EPERM/status-collision correction; exact-head Process umbrella `44622196808` and Process inventory `44622196753` PASS, AI docs `44622196858` PASS. NVRAM run `44622196798` was pending at checkpoint.
+- SCUT boot crontab correction at `69430c238e26c0de0b9210a5d090512bb4570f50` establishes 0=unchanged, 1=appended, 2+=script error; `system()`-level errno is negative so `EPERM=1` cannot be confused with successful append. Crond checker run `44621067912` PASS at `69d64f4...`; Process contract run `44621537460` PASS and AI docs `44621537441` PASS at `c2fe476...`.
+- XY-C1 run `44620322487` for the SCUT product source `69430c...` was still in progress on the last query. Its final Build, TRX verification and artifact upload must be checked before L3 can be called PASS.
+- OpenVPN credential staging run `44613650285` PASS on `f4fbd093e934fda5304aa796cba30d59eb29b3a4`; VPN server lifecycle `44613173654` PASS and XY-C1 Build/TRX/artifact `44613173721` PASS on OpenVPN product source `e01f70a766c4e628593e272192723f6add59ffca`.
+- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify. PR #1 remains closed/unmerged. Root `dev_log.md` had 25 dated records before THIS COMMIT; the new record keeps it inside the 20–119 window.
 
 ## Active task
 
-- Confirmed SCUT boot crontab result-propagation defect: `check_crontab.sh` returns 1 to mean a successful append and 0 when unchanged, but `init_crontab()` ORed the raw `system()` wait status and `init_router()` treated every nonzero result as a change. Script errors therefore triggered MTD save/crond restart instead of entering boot error aggregation. A failed `write_storage_to_mtd()` was logged but discarded from `boot_services_status`.
-- This slice establishes 0=unchanged, 1=added, 2+=error; distinguishes grep no-match from I/O failure, checks append success, rejects existing symlink/non-regular cron paths, decodes `system()` wait status and errno, persists only after a confirmed append, and aggregates crontab/MTD failures while still attempting crond activation. A second edge case was found: Linux `EPERM` is errno 1, identical to the script’s successful-append code. `system()` failures now return negative errno, preventing `EPERM` from falsely opening the MTD/crond persistence branch; an explicit EPERM regression guards this.
-- GNU89 policy tests cover normal/abnormal wait results, errno preservation, merge semantics and persistence gating. Shell tests cover add/no-op, invalid arguments, missing storage, grep error, non-regular targets and symlink rejection. Local host validation passed; exact-head Process and XY-C1 Actions are pending for this commit.
+### Fail closed when PPP recovery cannot restore the physical WAN firewall
+
+- In `trunk/user/rc/src/net_wan.c`, `restore_wan_after_ppp_start_failure()` restores physical-WAN UPnP binding and rebuilds firewall rules, returning a failure if either step fails. The existing `restore_wan_after_firewall_failure()` wrapper takes the physical interface down if restoration fails and preserves the original recovery error.
+- Three normal PPP failure branches (PPTP/L2TP physical-interface setup, pppd launch, demand-PPP readiness) previously bypassed the fail-closed wrapper and called the lower-level helper directly. These paths could leave the physical WAN administratively up with incomplete UPnP/firewall recovery.
+- THIS COMMIT routes all three branches through the wrapper and extends `check_wan_firewall_status.py` to assert those exact callers cannot bypass the force-down path. No successful PPP startup or recovery behavior changes.
 
 ## Exact first action for the next GPT
 
-1. Query live main and exact-head Actions for this EPERM/status-collision correction; ensure Process umbrella, Crond lifecycle, AI docs and XY-C1 Build/TRX/artifact all pass on an applicable exact source SHA.
-2. Triage any failed job from its exact log. Do not weaken the 0/1/error contract or the fail-closed handling of grep/append/path failures. L3 remains pending until XY-C1 Build, TRX and artifact upload all pass on the same source SHA.
-3. Continue the P1 startup/teardown status-propagation queue after exact-head validation; do not repeat the already-closed OpenVPN, DNSMasq resolver, `create_file()` close-status, USB modem notifier, WAN monitor-pause, or reviewed `services_ex.c` call paths without new evidence.
+1. Query exact-head WAN route-status and XY-C1 Actions for THIS COMMIT. Inspect all step results and logs for failures; do not claim L3 until Build XY-C1, TRX verification and artifact upload pass on one exact product-source SHA.
+2. If those runs pass, continue the next independent P1 stability issue in the wider Padavan userland. Do not repeat SCUT crontab/Crond/Process checker, OpenVPN, DNSMasq resolver, `create_file()` close-status, USB modem notifier, WAN monitor-pause or the PPP recovery call graph already closed by this commit.
+3. Keep host L2, XY-C1 L3 and physical-router L4 separate. No physical-router WAN recovery validation is claimed.
 
 ## Verification boundary
 
-- L1: SCUT crontab script and RC boot result/persistence handling corrected in this source slice.
-- L2: local GNU89/Werror/ASan/UBSan C policy binary, shell syntax and isolated shell regression PASS. Crond corrected checker PASS at `69d64f4`; Process umbrella integration checker correction is in this commit and awaits exact-head validation.
-- L3: `rc.c` and the firmware-installed cron script changed; exact-head XY-C1 Build/TRX/artifact pending.
-- L4: physical crontab persistence, crond runtime and router boot behavior NOT VERIFIED.
+- L1: all three ordinary PPP failure callers now use fail-closed physical-WAN recovery.
+- L2: a source-semantic regression is added to the existing WAN firewall checker, already covered by the WAN route workflow. This session's local brace-aware caller assertions passed; exact-head WAN route Actions remain pending.
+- L3: XY-C1 Build/TRX/artifact for the current SCUT product source `69430c...` was pending at last query; current PPP source change needs its own exact-head firmware validation.
+- L4: forcing miniupnpd/firewall recovery failures on a physical XY-C1 and verifying the WAN interface remains down is NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

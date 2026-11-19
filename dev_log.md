@@ -1,3 +1,12 @@
+## 2026-11-19 — Fail closed on incomplete PPP physical-WAN firewall recovery
+
+- Parent main SHA: `52cd91c1c7f0d5c297b157a9ffb636844363f605`. Three normal PPP startup failures in `start_wan()` bypassed `restore_wan_after_firewall_failure()` and called the lower-level recovery helper directly. If miniupnpd did not stop or rebuilding the physical-WAN firewall failed, the paths could leave the physical interface administratively up.
+- Routed PPTP/L2TP physical setup failure, pppd launch failure and demand-PPP readiness failure through the existing fail-closed wrapper. It forces the physical interface down when UPnP/firewall recovery fails and preserves the first recovery error. Successful recovery semantics are unchanged.
+- Extended `scripts/check_wan_firewall_status.py` to pin all three caller paths and forbid bypassing the wrapper. The existing WAN route workflow includes both changed paths. Local brace-aware semantic assertions for all three caller blocks PASS; exact-head WAN route and XY-C1 Build/TRX/artifact checks are pending. Physical-router L4 is NOT VERIFIED.
+- Prerequisite results: SCUT Process umbrella `44622196808` PASS, Process inventory `44622196753` PASS and AI docs `44622196858` PASS on `52cd91c...`; Crond `44621067912` PASS on `69d64f4...`.
+
+---
+
 ## 2026-11-19 — Prevent EPERM errno from colliding with crontab CHANGED status
 
 - Re-reviewed the new crontab status decoder and found a subtle sentinel collision: Linux `EPERM` is errno 1, the same value that `check_crontab.sh` intentionally uses for a successful append. If `system()` returned -1 with `errno=EPERM`, the positive errno mapping would have falsely treated the failed invocation as CHANGED and entered MTD persistence/crond restart.
