@@ -1,3 +1,12 @@
+## 2026-11-19 — Propagate modem hotplug queue publication errors
+
+- notify_rc.h exposes notify_rc_status(), whose contract returns failure when secure incomplete/action queue markers cannot be accepted; legacy notify_rc() intentionally discards the result. NDIS and serial TTY hotplug handlers used the void wrapper for modem plug/unplug events, so they could report success while PID 1 had no queued transition to process.
+- Replaced the four modem NDIS/TTY plug/unplug notifier calls with a checked helper that preserves/logs errno and merges queue failure into each handler's returned metadata status. An unplug notification is still attempted after interface-down or metadata cleanup failure; first nonzero status remains authoritative.
+- Added GNU89 policy coverage for queue success/failure and status precedence. Extended the USB modem identity workflow contract to pin NDIS and TTY plug/unplug notification wiring and reject legacy void calls in those handlers. Exact-head USB L2/XY-C1 L3 pending; no local compile or physical modem test is claimed.
+- The preceding NDIS unplug status commit 8fea3095d59b3278a9318d401eadad0606c193b7 passed USB workflow 44578459451, Process inventory 44578460016, Process fail-closed 44578459789, AI docs 44578459995, NVRAM 44578460023, and HTTPD 44578459942; XY-C1 44578459810 remained in progress at checkpoint.
+
+---
+
 ## 2026-11-19 — Preserve NDIS ifconfig-down failures on USB removal
 
 - `mdev_net_main()` discarded the result of `ifconfig(device_name, 0, "0.0.0.0", NULL)` on NDIS removal. A vanished USB interface is an expected ENODEV race, but a failed down operation on an interface that still exists was being reported as success; state-probe failures were also hidden.

@@ -75,4 +75,14 @@ modem_wan_hotplug_retry_mask(int unplug_pending, int plug_pending,
 	return retry_mask;
 }
 
+/*
+ * Hotplug metadata is not enough to complete a modem transition unless PID 1
+ * accepted the corresponding secure notification queue markers.
+ */
+static inline int
+modem_wan_hotplug_notification_result(int existing_status, int queue_status)
+{
+	return existing_status != 0 ? existing_status : (queue_status == 0 ? 0 : 1);
+}
+
 #endif

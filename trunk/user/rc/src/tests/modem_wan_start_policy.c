@@ -300,6 +300,17 @@ test_unplug_ifdown_failure_is_distinguished_from_removed_interface(void)
 }
 
 static void
+test_hotplug_notification_queue_failure_reaches_handler_result(void)
+{
+	assert(modem_wan_hotplug_notification_result(0, 0) == 0);
+	assert(modem_wan_hotplug_notification_result(0, -1) == 1);
+	assert(modem_wan_hotplug_notification_result(0, EIO) == 1);
+	assert(modem_wan_hotplug_notification_result(1, 0) == 1);
+	assert(modem_wan_hotplug_notification_result(1, -1) == 1);
+	assert(modem_wan_hotplug_notification_result(7, EIO) == 7);
+}
+
+static void
 test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events(void)
 {
 	unsigned int retry_mask;
@@ -360,6 +371,7 @@ main(void)
 	test_required_ipoe_failures_reach_wan_start_status();
 	test_wan_adjunct_service_failures_reach_start_status();
 	test_static_ipoe_upnp_reload_failure_reaches_start_status();
+	test_hotplug_notification_queue_failure_reaches_handler_result();
 	test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events();
 	test_unplug_ifdown_failure_is_distinguished_from_removed_interface();
 	test_static_wan_address_and_netmask_validation();

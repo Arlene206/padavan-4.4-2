@@ -24,26 +24,26 @@ Continue main-only implementation across conversations. Recover the exact live s
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task — preserve NDIS interface-down failures during USB removal
+## Active task — propagate modem hotplug notification queue failures
 
-- Parent main SHA for this source slice: `f0406397927cc648c7fd70c1961fb3aba1fd1243`. Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
-- Previous guest ebtables module-state fix: exact-head Wireless radio regression/source contract `44576171024` PASS; AI docs `44576170956`, NVRAM `44576171017`, Process fail-closed `44576171294`, Process inventory `44576170689`, HTTPD security `44576170606`, iNIC signal `44576171003`, and watchdog signal `44576171120` all PASS on exact source SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243`. XY-C1 run `44576170960` remained IN_PROGRESS at last poll. The preceding iNIC source run `44573883318` later completed PASS (Build XY-C1, TRX verification and artifact upload) on its exact product SHA `3d86aebbef26086a4383489efc4470e35e91b9df`.
-- Source gap: `mdev_net_main()` discarded `ifconfig(device_name, 0, "0.0.0.0", NULL)` on USB NDIS removal. The physical interface may already have disappeared (expected ENODEV), but a failed down operation on an extant interface or an UNKNOWN interface-state probe must not be reported as successful removal.
-- THIS COMMIT records the `ifconfig()` result, re-probes interface flags only on failure, treats a confirmed ENODEV as the normal physical-unplug race, preserves the ifconfig failure when the interface still exists, and returns failure when the fresh state probe is UNKNOWN. It still notifies the WAN owner after best-effort cleanup failure. GNU89 regression covers existing, removed, and UNKNOWN states; the USB-modem workflow source contract pins operation order. Exact-head USB L2 and XY-C1 L3 are pending.
-- No local checkout/MIPS toolchain or physical modem/router is available here. Hardware L4 is NOT VERIFIED.
+- Parent main SHA for this source slice: 8fea3095d59b3278a9318d401eadad0606c193b7. Frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; never modify it.
+- Completed prior NDIS unplug shutdown slice: exact-head USB modem identity run 44578459451, Process inventory 44578460016, Process fail-closed 44578459789, AI docs 44578459995, NVRAM audit 44578460023, and HTTPD security 44578459942 all PASS on exact SHA 8fea3095d59b3278a9318d401eadad0606c193b7. USB regression compiled and ran SCSI generic readiness, SCSI CD eject/unload, modem identity/metadata, module alternative readiness and modem WAN status policies; hotplug WDM/NDIS source contract passed. XY-C1 44578459810 remained IN_PROGRESS at last poll; L3 for 8fea is not yet verified.
+- Newly confirmed adjacent defect: notify_rc.h explicitly offers notify_rc_status() to report secure queue marker publication failures, while notify_rc() discards them. mdev_net_main() and mdev_tty_main() used the void wrapper for modem NDIS/TTY hotplug events and could therefore return success even though PID 1 had not accepted the plug/unplug notification.
+- THIS COMMIT replaces the four modem event call sites with a checked notifier, preserves/logs the notification errno and folds queue failures into the handler's existing metadata result. Unplug cleanup remains best-effort and notification is not skipped after an earlier interface-down or metadata error. Added policy regression for queue success/failure and first-error preservation; USB workflow source contracts pin both NDIS/TTY plug/unplug callers and prohibit void notifier use in those handlers. Exact-head USB L2/XY-C1 L3 pending.
+- No local checkout/MIPS toolchain or physical USB modem/router is available here. L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: USB NDIS remove no longer drops an extant-interface shutdown failure or an uninspectable link-state error; expected physical removal remains a no-op.
-- L2 host regression: pending exact-head USB modem identity workflow, including GNU89 `-Wall -Wextra -Werror`/ASan/UBSan modem WAN policy binary and hotplug source integration contract. Previous ebtables Wireless L2 passed on exact SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243`.
-- L3 target build: guest ebtables product-source SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243` still awaits XY-C1 run `44576170960`; this new `hotplug_usb.c` product source change requires its own exact-head detector, Build XY-C1, TRX verification and artifact upload.
-- L4 live USB NDIS unplug/replug and WAN recovery on target hardware: NOT VERIFIED.
+- L1 source review: modem hotplug event outcomes now reflect whether secure queue markers were accepted; a failed init wake-up signal remains non-fatal after durable queue acceptance, per notify_rc.h.
+- L2 host regression: pending exact-head USB modem identity workflow; it includes GNU89 -Wall -Wextra -Werror/ASan/UBSan policy binaries and source contracts for WDM/NDIS identity, modem WAN status, and hotplug queue propagation. Prior NDIS unplug-down commit reached USB L2 PASS on 44578459451.
+- L3 target build: previous product source SHA 8fea3095d59b3278a9318d401eadad0606c193b7 awaits XY-C1 run 44578459810; this new hotplug_usb.c change requires its own exact-head detector, Build XY-C1, TRX verification and artifact upload.
+- L4 live USB modem plug/unplug, PID-1 queue failure and WAN reconvergence on target hardware: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB modem identity and AI docs Actions for this NDIS unplug status commit. Confirm the new unplug-state GNU89 regression and source ordering contract, while preserving the WDM/TTY/NDIS identity tests.
-2. Poll XY-C1 run `44576170960` for the guest ebtables product-source SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243`, then inspect the new exact-head XY-C1 workflow for detector, Build XY-C1, TRX and artifact.
-3. On failure, inspect the first causal log and fix without treating UNKNOWN as absence or suppressing physical unplug notification. After closing this slice, continue with the next independent P1 item.
+1. Inspect exact-head USB modem identity, Process, AI docs and XY-C1 Actions for this checked-notification commit. Confirm modem queue regression, source contracts and firmware Build/TRX/artifact.
+2. If any contract fails, inspect the first causal log and correct the source/checker without reverting to the void notify_rc() wrapper or suppressing notification after cleanup failure.
+3. After closing this modem queue slice, continue with the next independent P1 reliability/security issue in a different subsystem.
 
 ## Mandatory handoff checkpoint
 

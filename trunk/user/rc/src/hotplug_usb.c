@@ -36,6 +36,22 @@
 #include "modem_sg_module_policy.h"
 #include "modem_wan_start_policy.h"
 
+static int
+notify_modem_hotplug_event(const char *event_name, const char *device_name)
+{
+	int status = notify_rc_status(event_name);
+	int saved_errno;
+
+	if (status != 0) {
+		saved_errno = errno > 0 ? errno : EIO;
+		logmessage("USB",
+			   "failed to queue modem hotplug event %s for %s (status=%d, errno=%d)",
+			   event_name, device_name, status, saved_errno);
+		errno = saved_errno;
+	}
+	return status;
+}
+
 static char *
 _basename(char *name)
 {
@@ -396,7 +412,9 @@ int mdev_net_main(int argc, char **argv)
 
 		/* Always notify the WAN owner even when best-effort interface cleanup fails. */
 		if (get_usb_modem_wan(0))
-			notify_rc("on_unplug_usb_modem");
+			metadata_status = modem_wan_hotplug_notification_result(
+				metadata_status,
+				notify_modem_hotplug_event("on_unplug_usb_modem", device_name));
 
 		goto out_unlock;
 	}
@@ -439,7 +457,9 @@ int mdev_net_main(int argc, char **argv)
 	}
 
 	if (nvram_invmatch("modem_prio", "0") && nvram_match("modem_rule", "1") && nvram_match("modem_type", "3"))
-		notify_rc("on_hotplug_usb_modem");
+		metadata_status = modem_wan_hotplug_notification_result(
+			metadata_status,
+			notify_modem_hotplug_event("on_hotplug_usb_modem", device_name));
 
 	usb_dbg("(%s): Success!\n", device_name);
 
@@ -480,7 +500,9 @@ int mdev_tty_main(int argc, char **argv)
 		}
 		
 		if (get_usb_modem_wan(0))
-			notify_rc("on_unplug_usb_modem");
+			metadata_status = modem_wan_hotplug_notification_result(
+				metadata_status,
+				notify_modem_hotplug_event("on_unplug_usb_modem", device_name));
 		
 		usb_dbg("(%s): Remove the modem node\n", device_name);
 		
@@ -536,7 +558,9 @@ int mdev_tty_main(int argc, char **argv)
 	}
 
 	if (nvram_invmatch("modem_prio", "0") && nvram_match("modem_rule", "1") && nvram_invmatch("modem_type", "3"))
-		notify_rc("on_hotplug_usb_modem");
+		metadata_status = modem_wan_hotplug_notification_result(
+			metadata_status,
+			notify_modem_hotplug_event("on_hotplug_usb_modem", device_name));
 
 	usb_dbg("(%s): Success!\n", device_name);
 
