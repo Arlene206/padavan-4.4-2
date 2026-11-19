@@ -976,8 +976,12 @@ jobs:
           apcli_error = 'logmessage(LOGNAME, "aborting WAN startup: AP-client WISP migration failed (status=%d)",'
           assert apcli_call in wan_start and apcli_error in wan_start
           apcli_failure = wan_start[wan_start.index(apcli_call):wan_start.index("vlan_result = launch_viptv_wan();")]
-          assert "if (vlan_result != 0)" in apcli_failure and "remove_cb_links();" in apcli_failure and "return vlan_result;" in apcli_failure
-          assert apcli_failure.index("if (vlan_result != 0)") < apcli_failure.index(apcli_error) < apcli_failure.index("remove_cb_links();") < apcli_failure.index("return vlan_result;")
+          assert "if (vlan_result != 0)" in apcli_failure
+          assert "wan_start_status = rc_first_service_start_status(" in apcli_failure
+          assert "wan_start_status, vlan_result" in apcli_failure
+          assert "remove_cb_links();" in apcli_failure
+          assert "return wan_start_status;" in apcli_failure
+          assert apcli_failure.index("if (vlan_result != 0)") < apcli_failure.index("wan_start_status = rc_first_service_start_status(") < apcli_failure.index(apcli_error) < apcli_failure.index("remove_cb_links();") < apcli_failure.index("return wan_start_status;")
           physical_setup = wan_start[wan_start.index("/* Read the configured MTU before applying the physical default."):wan_start.index("vlan_result = reconnect_apcli(wan_ifname, 0);")]
           assert 'wan_mtu = get_wan_unit_value_int(unit, "mtu");' in physical_setup
           assert "wan_default_mtu_should_be_set(" in physical_setup
