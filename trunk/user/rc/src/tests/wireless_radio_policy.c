@@ -129,6 +129,25 @@ test_inic_monitor_launch_failure_is_sticky(void)
 }
 
 static int
+test_inic_force_disable_interface_failure_is_sticky(void)
+{
+	int all_started = 1;
+
+	/* A failed rai0 ifconfig-down must remain visible after safe teardown succeeds. */
+	all_started = wireless_radio_startup_status(
+		all_started, wireless_radio_status_success(-EIO));
+	if (all_started)
+		return 1;
+
+	all_started = wireless_radio_startup_status(all_started, 1);
+	all_started = wireless_radio_startup_status(
+		all_started, wireless_radio_status_success(0));
+	all_started = wireless_radio_startup_status(
+		all_started, wireless_radio_status_success(0));
+	return all_started;
+}
+
+static int
 test_radio_notification_noop_is_success_only_when_already_at_target(void)
 {
 	return wireless_radio_notification_result(0, 0, 0) != 0 ||
@@ -164,6 +183,7 @@ main(void)
 	    test_apcli_autoconnect_failure_is_reported() ||
 	    test_apcli_forced_reenable_failure_is_reported() ||
 	    test_inic_monitor_launch_failure_is_sticky() ||
+	    test_inic_force_disable_interface_failure_is_sticky() ||
 	    test_radio_notification_noop_is_success_only_when_already_at_target() ||
 	    test_radio_notification_successful_transitions() ||
 	    test_radio_notification_failed_transitions_remain_pending()) {

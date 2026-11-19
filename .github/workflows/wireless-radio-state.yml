@@ -679,9 +679,14 @@ jobs:
           disable_pos = inic.rfind("} else {")
           assert disable_pos >= 0, "start_inic_mii: missing inic_disable branch"
           disable_path = inic[disable_pos:]
-          down_call = "(void)wif_control_success(ifname_inic, 0)"
-          assert down_call in disable_path, "start_inic_mii: missing checked rai0 shutdown"
+          down_call = ("all_started = wireless_radio_startup_status(\\n"
+                       "\\t\\tall_started, wif_control_success(ifname_inic, 0));")
+          assert down_call in disable_path, (
+              "start_inic_mii: rai0 interface-down failure must be included in returned status")
           down_pos = disable_path.index(down_call)
+          assert "test_inic_force_disable_interface_failure_is_sticky" in (
+              (rc / "tests/wireless_radio_policy.c").read_text()
+          )
           disable_steps = (
               "wireless_bridge_membership_record(&all_started, ifname_inic, 0);",
               "phy_isolate_inic(1)",
@@ -692,6 +697,7 @@ jobs:
           assert disable_positions == sorted(disable_positions), (
               "start_inic_mii: failed rai0 shutdown must not skip fail-safe cleanup"
           )
+          assert down_pos < disable_path.index("return wireless_radio_startup_result(all_started);")
           assert "return;" not in disable_path, (
               "start_inic_mii: interface-down failure must not short-circuit reset cleanup"
           )

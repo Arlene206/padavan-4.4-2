@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current main SHA: `76161729272bdfeb553725a43afdf4b142232e10` (documentation contract repair pending exact-head verification). Product source slice SHA: `fe286b8cabd4334664c8270c5212d26a15ce6393`.
+- Parent main SHA for this wireless source slice: `f3f39d7d6e7acde293982a51e9dcab76994b3c8e`. Previous product-source SHA `fe286b8cabd4334664c8270c5212d26a15ce6393` has exact L2/L3 PASS.
 - The preceding DHCPv6 startup errno-precedence fix is closed on exact SHA f50387e29be43e9de4a1b55344390742a4252b53. WAN DHCP callback run [44563154100](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563154100), WAN route [44563153894](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563153894), HTTPD security [44563153840](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563153840), NVRAM transaction [44563154066](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563154066), Process inventory [44563154013](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563154013), and AI handoff docs [44563154047](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563154047) all PASS on that exact push SHA.
 - XY-C1 run [44563153885](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44563153885) passed its production-input detector, Build XY-C1, TRX verification and artifact upload on f50387e29be43e9de4a1b55344390742a4252b53 (L3 for that SHA). This evidence does not cover the new ARP changes below.
 - Frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807; do not touch it.
@@ -24,30 +24,26 @@ Continue main-only implementation across conversations. Recover the exact live s
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task
+## Active task — preserve iNIC explicit-disable interface status
 
-- Selected from the repository P1/P2 network reliability ledger outside DHCPv6. Target files:
-  - trunk/user/rc/src/detect_wan.c, function arpping_gateway();
-  - trunk/user/rc/src/detect_wan_arp_result_policy.h;
-  - trunk/user/rc/src/tests/detect_wan_arp_result_policy.c;
-  - .github/workflows/detect-wan-arp-stability.yml.
-- Confirmed source gap: the old packet receive condition required only a minimum frame length, Ethernet EtherType ARP, ARP reply opcode, ARP target hardware equal to the local MAC, and ARP sender IPv4 equal to the gateway. It did not validate the ARP hardware/protocol type or their lengths, Ethernet source/destination addresses, Ethernet-source versus ARP-sender MAC consistency, or the target IPv4 address. A malformed or unrelated frame could be accepted as proof that the gateway is alive and suppress a necessary DHCP recovery.
-- THIS COMMIT adds a focused matcher for Ethernet/IPv4 ARP replies addressed to the current local MAC/IP, verifies source MAC consistency, and compares sender/target IPv4 via memcpy so packed unaligned bytes are safe on MIPS. Regression tests cover valid unaligned replies and malformed/unrelated identity fields. The existing local-I/O-error versus silent-no-reply behavior and three-probe DHCP gate remain unchanged.
-- Exact-head WAN ARP GNU89 sanitizer regression/source contract (run `44571309902`), Process inventory (`44571310032`), Process lifecycle regression (`44571309881`), and NVRAM transaction audit (`44571309885`) all PASS on product source SHA `fe286b8cabd4334664c8270c5212d26a15ce6393`. AI docs runs `44571309978` and `44572344939` failed because an earlier handoff edit omitted the protocol's exact checkpoint sentence; the latter run confirmed the required literal was still absent. This current edit restores the exact sentence and root heading. XY-C1 run `44571310142` passed the input detector and all pre-build host checks; Build XY-C1, TRX verification, and artifact upload were still in progress at last poll. No local execution is claimed.
+- Product reliability source `fe286b8cabd4334664c8270c5212d26a15ce6393` completed strict WAN gateway ARP reply identity validation. Exact-head WAN ARP GNU89 sanitizer/source contract `44571309902`, Process inventory `44571310032`, Process lifecycle regression `44571309881`, and NVRAM transaction audit `44571309885` PASS. XY-C1 Build `44571310142` passed the production-input detector, Build XY-C1, TRX verification, and artifact upload (L3 PASS on that exact product source SHA).
+- The AI handoff validator initially failed because the committed handoff omitted its exact checkpoint sentence; a second edit attempt still did not contain the literal. This was corrected in `f3f39d7d6e7acde293982a51e9dcab76994b3c8e`; exact-head AI handoff Action `44573162136` PASS. The docs-only intermediate commit `76161729272bdfeb553725a43afdf4b142232e10` failed the same check and is superseded by the passing correction.
+- New source task: in `trunk/user/rc/src/net_wifi.c::start_inic_mii()`, the `inic_disable` force-disable branch discarded `wif_control_success(ifname_inic, 0)` with a void cast. Later bridge detach, PHY isolation, RGMII disable and reset were attempted, but the returned aggregate only reflected those later operations. If `ifconfig rai0 down` failed while later cleanup succeeded, the caller could receive success even though the interface-down operation failed.
+- THIS COMMIT folds the failed rai0 down result into the sticky `all_started` status without adding an early return, so all safety cleanup continues. A GNU89 regression models the failed interface-down followed by successful bridge/PHY cleanup; the wireless radio workflow pins both the production aggregation and regression call. Exact-head Wireless and XY-C1 checks are pending on THIS COMMIT.
 
 ## Verification boundary
 
-- L1 source review: the matcher and complete production call-site tuple are reviewed in product source SHA `fe286b8cabd4334664c8270c5212d26a15ce6393`.
-- L2 host regression: PASS on exact product source SHA `fe286b8cabd4334664c8270c5212d26a15ce6393` via WAN ARP run `44571309902`; Process inventory, Process regression, and NVRAM audit also PASS. AI docs handoff contract remains the outstanding CI repair.
-- L3 target build: exact product source SHA `fe286b8cabd4334664c8270c5212d26a15ce6393` passed the firmware input detector and pre-build host contracts; Build XY-C1, TRX verification and artifact upload were pending in run `44571310142` at last poll. The preceding `f50387e29be43e9de4a1b55344390742a4252b53` build cannot be carried forward.
+- L1 source review: strict WAN ARP reply identity is closed on `fe286b8cabd4334664c8270c5212d26a15ce6393`; the iNIC force-disable status gap is reviewed in THIS COMMIT.
+- L2 host regression: WAN ARP, Process inventory/regression and NVRAM checks PASS on product SHA `fe286b8cabd4334664c8270c5212d26a15ce6393`; AI docs contract PASS on `f3f39d7d6e7acde293982a51e9dcab76994b3c8e`. Wireless iNIC disable regression and source contract are pending exact-head Actions for THIS COMMIT.
+- L3 target build: XY-C1 run `44571310142` PASS on product SHA `fe286b8cabd4334664c8270c5212d26a15ce6393`, including Build XY-C1, TRX verification, and artifact upload. The new iNIC source change in THIS COMMIT requires its own exact-head detector/build/TRX/artifact run.
 - L4 physical router/gateway-loss recovery: NOT VERIFIED.
 - No local build/test runner or physical router is available here.
 
 ## Exact first action for the next GPT
 
-1. Verify the AI handoff documentation contract Action triggered by this handoff repair on its exact commit SHA; it must pass now that the mandated sentence and required section names are committed.
-2. Inspect XY-C1 run `44571310142` by its named steps: Build XY-C1, TRX verification and artifact upload. The prior parent firmware build does not validate product source SHA `fe286b8cabd4334664c8270c5212d26a15ce6393`.
-3. After ARP L2/L3 and handoff docs are closed, select the next highest-value unfinished P1 stability defect from another user-space module. A likely iNIC explicit-disable status drop in `start_inic_mii()` has been identified but is not yet fixed; verify it and add source-contract/regression coverage before modifying production code. Avoid repeating the closed DHCPv6/ARP socket/signal audit.
+1. Inspect exact-head Wireless radio regression and XY-C1 firmware Actions for the iNIC force-disable status commit. Confirm GNU89 radio policy regression, source-contract ordering, firmware production-input detector, Build XY-C1, TRX verification, and artifact upload separately.
+2. If a check fails, inspect the first causal job/log and correct it without weakening continued cleanup, sticky failure propagation, or the existing iNIC interface/bridge/PHY teardown invariants. Pending checks do not block independent investigation.
+3. After closing iNIC, select the next highest-priority unfinished P1 issue from a different subsystem; keep source work broad and do not revisit closed DHCPv6, WAN ARP socket, or gateway ARP identity audits.
 
 ## Mandatory handoff checkpoint
 

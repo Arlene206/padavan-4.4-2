@@ -664,7 +664,8 @@ fail_start:
 	}
 
 	/* Force-disable path: always complete every fail-safe action. */
-	(void)wif_control_success(ifname_inic, 0);
+	all_started = wireless_radio_startup_status(
+		all_started, wif_control_success(ifname_inic, 0));
 	wireless_bridge_membership_record(&all_started, ifname_inic, 0);
 
 	operation_status = phy_isolate_inic(1);

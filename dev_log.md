@@ -1,3 +1,12 @@
+## 2026-11-19 — Preserve iNIC force-disable interface failure in returned status
+
+- Selected a separate RC wireless stability defect after closing WAN gateway ARP identity. In `start_inic_mii()`, the explicit `inic_disable` branch discarded the result of `wif_control_success(ifname_inic, 0)`; it still continued bridge detach, PHY isolation, RGMII disable and reset, but the returned status could be successful when the initial interface-down failed and later cleanup succeeded.
+- The force-disable branch now merges the interface-down boolean into the sticky `all_started` result before all later safety operations. It does not short-circuit or skip bridge/hardware/reset cleanup on failure.
+- Added `test_inic_force_disable_interface_failure_is_sticky` to model the failed ifconfig operation followed by successful detach/PHY cleanup, and added an exact production/source regression assertion in `.github/workflows/wireless-radio-state.yml`.
+- Prior WAN ARP product SHA `fe286b8cabd4334664c8270c5212d26a15ce6393` reached exact-head L2 and XY-C1 L3 PASS; the corrected AI handoff contract `44573162136` passed on `f3f39d7d6e7acde293982a51e9dcab76994b3c8e`. This new wireless slice is pending exact-head validation. No local toolchain or physical iNIC test is available.
+
+---
+
 ## 2026-11-19 09:20 EST — Correct the committed AI handoff checkpoint contract
 
 - Exact-head AI docs run `44571309978` failed because the handoff omitted the literal `The checkpoint is mandatory; a document edit is conditional.`. A first follow-up commit (`76161729272bdfeb553725a43afdf4b142232e10`) did not include that exact sentence or the required root heading/active-task section; its own run `44572344939` therefore failed with the same validator error. The live handoff is now corrected directly and the next commit must be verified before the documentation contract is called closed.
