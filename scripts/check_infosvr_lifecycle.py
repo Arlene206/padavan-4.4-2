@@ -66,13 +66,13 @@ assert "INFOSVR_START_PROBE_ATTEMPTS 4" in policy
 
 start = function_body(services, "start_infosvr(void)")
 assert 'optional_daemon_start_status("infosvr", "infosvr")' in start
+disabled = start.index('if (nvram_invmatch("adsc_enable", "1"))')
 running = start.index("if (start_status > 0)")
 unknown = start.index("if (start_status < 0)")
-disabled = start.index('if (nvram_invmatch("adsc_enable", "1"))')
 launch_status = start.index('start_status = eval("/usr/sbin/infosvr", IFNAME_BR);')
 launch_log = start.index('logmessage("infosvr", "infosvr launch failed (status=%d)",')
 launch_return = start.index("return start_status;", launch_log)
-assert running < unknown < disabled < launch_status < launch_log < launch_return
+assert disabled < running < unknown < launch_status < launch_log < launch_return
 assert "return 0;" in start[disabled:launch_status]
 assert "return 1;" not in start[disabled:launch_status]
 assert "if (start_status != 0)" in start

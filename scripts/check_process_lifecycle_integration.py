@@ -3384,6 +3384,10 @@ for signature, guard in optional_start_contracts:
     assert not re.search(re.escape(guard) + r"\s*return 1;", body), (
         signature + " disabled path leaked nonzero status"
     )
+infosvr_start = c_function_body(services_source, "start_infosvr(void)")
+assert infosvr_start.index('if (nvram_invmatch("adsc_enable", "1"))') < infosvr_start.index(
+    'optional_daemon_start_status("infosvr", "infosvr")'
+)
 boot_services = c_function_body(services_source, "start_services_once(int is_ap_mode)")
 for call in ("start_infosvr()", "start_lltd()", "start_rstats()"):
     assert call in boot_services, "missing optional daemon startup: " + call

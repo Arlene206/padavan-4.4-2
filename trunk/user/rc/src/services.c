@@ -277,14 +277,14 @@ start_infosvr(void)
 	int start_status, attempt, scan_error;
 	enum process_presence process_state;
 
+	if (nvram_invmatch("adsc_enable", "1"))
+		return 0;
+
 	start_status = optional_daemon_start_status("infosvr", "infosvr");
 	if (start_status > 0)
 		return 0;
 	if (start_status < 0)
 		return start_status;
-
-	if (nvram_invmatch("adsc_enable", "1"))
-		return 0;
 
 	/*
 	 * infosvr calls daemon() before entering its packet loop. eval() only
