@@ -203,6 +203,8 @@ require("static int\nrollback_soft_bridge_other_entry(" in wan and
         "return status;" in other_rollback and
         "if (bwan_detached_safe)" in other_rollback and
         "if (wan_detached_safe)" in other_rollback and
+        "bridge_empty_errno = bridge_empty < 0" in other_rollback and
+        "route_status_accumulate(status, bridge_empty_errno)" in other_rollback and
         "br_del_all_ifs(" not in other_rollback,
         "batch rollback must report cleanup status and never restore reused VLAN/bridge state while membership is uncertain")
 detach_bwan_pos = other_rollback.index("if (bridge->bwan_port_added")

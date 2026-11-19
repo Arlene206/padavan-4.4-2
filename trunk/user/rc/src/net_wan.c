@@ -779,7 +779,7 @@ static int
 rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 {
 	struct soft_bridge_wan_ownership *bridge = &entry->bridge;
-	int ret, bridge_flags, bridge_empty, status = 0;
+	int ret, bridge_flags, bridge_empty, bridge_empty_errno, status = 0;
 	int wan_detached_safe, bwan_detached_safe;
 
 	wan_detached_safe = bridge_batch_membership_detached_safe(
@@ -879,6 +879,7 @@ rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 		if (bridge->bridge_created) {
 			if (bridge_flags >= 0) {
 				bridge_empty = br_bridge_is_empty(bridge->bridge_name);
+				bridge_empty_errno = bridge_empty < 0 ? (errno ? errno : EIO) : 0;
 				if (bridge_batch_can_remove_created_bridge(1, bridge_empty) &&
 				    wan_detached_safe && bwan_detached_safe) {
 					ret = ifconfig(bridge->bridge_name, 0, NULL, NULL);
@@ -894,7 +895,7 @@ rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 					if (ret != 0)
 						status = route_status_accumulate(status, ret);
 					if (bridge_empty < 0)
-						status = route_status_accumulate(status, errno ? errno : EIO);
+						status = route_status_accumulate(status, bridge_empty_errno);
 					else
 						status = route_status_accumulate(status, EBUSY);
 					logmessage(LOGNAME, "LAN bridge batch rollback preserved bridge %s because it is non-empty or its port inventory is unknown",
