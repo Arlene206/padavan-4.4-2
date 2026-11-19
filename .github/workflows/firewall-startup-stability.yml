@@ -35,6 +35,7 @@ on:
       - "trunk/user/rc/src/firewall_adbyby_restore_policy.h"
       - "trunk/user/rc/src/firewall_command_status.h"
       - "trunk/user/rc/src/firewall_filter_policy.h"
+      - "trunk/user/rc/src/ipv4_netmask_policy.h"
       - "trunk/user/rc/src/firewall_hook_file.h"
       - "trunk/user/rc/src/firewall_rule_file.h"
       - "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c"
@@ -88,6 +89,7 @@ on:
       - "trunk/user/rc/src/firewall_adbyby_restore_policy.h"
       - "trunk/user/rc/src/firewall_command_status.h"
       - "trunk/user/rc/src/firewall_filter_policy.h"
+      - "trunk/user/rc/src/ipv4_netmask_policy.h"
       - "trunk/user/rc/src/firewall_hook_file.h"
       - "trunk/user/rc/src/firewall_rule_file.h"
       - "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c"
@@ -234,18 +236,18 @@ jobs:
           firewall_source_for_ttl = Path("trunk/user/rc/src/firewall_ex.c").read_text()
           firewall_entry_for_mask = body(firewall_source_for_ttl, "start_firewall_ex_locked(void)")
           mask_read = firewall_entry_for_mask.index('lan_netmask = nvram_safe_get("lan_netmask");')
-          mask_check = firewall_entry_for_mask.index("firewall_ipv4_netmask_is_safe(lan_netmask)", mask_read)
+          mask_check = firewall_entry_for_mask.index("ipv4_netmask_is_contiguous(lan_netmask)", mask_read)
           subnet_derive = firewall_entry_for_mask.index("ip2class(lan_ip, lan_netmask, lan_net", mask_check)
           assert mask_read < mask_check < subnet_derive
           assert "Invalid LAN IPv4 netmask for firewall; refusing rebuild" in firewall_entry_for_mask
           nat_default = body(firewall_source_for_ttl, "ipt_nat_default(void)")
-          nat_mask_check = nat_default.index('firewall_ipv4_netmask_is_safe(nvram_safe_get("lan_netmask"))')
+          nat_mask_check = nat_default.index('ipv4_netmask_is_contiguous(nvram_safe_get("lan_netmask"))')
           nat_file_open = nat_default.index('firewall_open_rule_file(ipt_file, "IPv4 default NAT")')
           assert nat_mask_check < nat_file_open
           assert "Invalid LAN IPv4 netmask for default NAT; refusing restore" in nat_default
           filter_policy = Path("trunk/user/rc/src/firewall_filter_policy.h").read_text()
           filter_test = Path("trunk/user/rc/src/tests/firewall_filter_policy.c").read_text()
-          assert "firewall_ipv4_netmask_is_safe" in filter_policy
+          assert "ipv4_netmask_is_contiguous" in filter_policy
           assert "test_ipv4_netmask_contiguity" in filter_test
           rp_filter_source = body(firewall_source_for_ttl, "start_firewall_ex_locked(void)")
           rp_filter_write = rp_filter_source.index("firewall_rp_filter_write_status(")
@@ -328,6 +330,7 @@ jobs:
               "trunk/user/rc/src/firewall_adbyby_restore_policy.h",
               "trunk/user/rc/src/firewall_command_status.h",
               "trunk/user/rc/src/firewall_filter_policy.h",
+              "trunk/user/rc/src/ipv4_netmask_policy.h",
               "trunk/user/rc/src/firewall_hook_file.h",
               "trunk/user/rc/src/firewall_rule_file.h",
               "trunk/user/rc/src/tests/firewall_adbyby_restore_policy.c",

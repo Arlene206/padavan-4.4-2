@@ -1,3 +1,13 @@
+## 2026-11-19 — Share strict LAN netmask validation with miniupnpd
+
+- Review found miniupnpd startup in `services_ex.c` accepted any syntactically valid dotted-IPv4 mask, then passed it to `ip2class()`. Non-contiguous masks such as `255.0.255.0` could still produce the wrong LAN prefix although firewall startup was already hardened.
+- Extracted the nonzero contiguous IPv4 mask predicate into shared GNU89 header `ipv4_netmask_policy.h`. Firewall and miniupnpd now call the same helper; miniupnpd rejects an invalid mask before `ip2class()` and returns `EINVAL`.
+- Existing Firewall GNU89 regression now compiles the shared helper and covers valid prefixes, zero, malformed values, non-contiguous masks and injected strings. Firewall and miniupnpd workflow contracts pin source ordering and push/pull_request path coverage.
+- Parent `5e2c7a3fd8479bd1cdbdf455b34c18d20494e1b7`: MTD Process lifecycle regression `44637423543` and Process inventory `44637423511` PASS. AI handoff docs `44637423581` failed because the handoff lacked its mandated exact conditional-checkpoint sentence; this handoff update restores it. NVRAM `44637423514` and XY-C1 `44637423396` were IN_PROGRESS at last poll.
+- No target MIPS build or physical-router result is claimed for this integration.
+
+---
+
 ## 2026-11-19 — Preserve the MTD bounded-EINTR limit through the full read/write loops
 
 - Source review after the checker-only correction found a production defect in the first MTD migration: `read_safe()` and `write_safe()` caught the terminal `EINTR` from the shared eight-retry wrapper and restarted it, resetting its internal counter. A persistent signal storm could therefore still loop forever.

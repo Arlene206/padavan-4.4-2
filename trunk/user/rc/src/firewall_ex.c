@@ -2754,7 +2754,7 @@ ipt_nat_default(void)
 	/* Never publish a baseline NAT table derived from a malformed LAN mask. */
 	if (is_nat_enabled &&
 	    firewall_ipv4_address_is_safe(nvram_safe_get("lan_ipaddr")) &&
-	    !firewall_ipv4_netmask_is_safe(nvram_safe_get("lan_netmask"))) {
+	    !ipv4_netmask_is_contiguous(nvram_safe_get("lan_netmask"))) {
 		logmessage(LOGNAME, "Invalid LAN IPv4 netmask for default NAT; refusing restore");
 		errno = EINVAL;
 		return EINVAL;
@@ -2888,7 +2888,7 @@ start_firewall_ex_locked(void)
 	snprintf(wan_ip, sizeof(wan_ip), "%s", get_wan_unit_value(unit, "ipaddr"));
 
 	lan_netmask = nvram_safe_get("lan_netmask");
-	if (!firewall_ipv4_netmask_is_safe(lan_netmask)) {
+	if (!ipv4_netmask_is_contiguous(lan_netmask)) {
 		logmessage(LOGNAME, "Invalid LAN IPv4 netmask for firewall; refusing rebuild");
 		errno = EINVAL;
 		return EINVAL;

@@ -11,35 +11,35 @@ Continue main-only implementation across conversations. Restore exact live sourc
 
 ## Current repository state
 
-- Parent for this MTD correction: `dfe8eb6d95bd5297612c41e06412e17c1a9434fe` (`ci(process): correct MTD raw syscall assertions`).
-- Parent exact-head Actions for dfe were Process fail-closed regression `44637246133` and AI docs `44637246124`, both IN_PROGRESS at last poll.
-- Earlier d7 Actions: Process inventory `44636788355`, RStats persistence `44636788530`, HTTPD security `44636788170`, and AI docs `44636788278` PASS. Process fail-closed regression `44636788168` failed in the MTD source contract; the substring false-positive was corrected in dfe.
-- The original MTD migration introduced a deeper issue: outer `if (errno == EINTR) continue;` branches in `read_safe()`/`write_safe()` restart the bounded wrapper and reset its interruption counter. This commit removes the unbounded restart and extends source assertions to pin the invariant.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No physical-router result is available.
+- Parent for the shared miniupnpd netmask validation slice: `5e2c7a3fd8479bd1cdbdf455b34c18d20494e1b7`.
+- Exact parent Actions: Process inventory `44637423511` PASS; Process lifecycle fail-closed regression `44637423543` PASS. AI handoff docs `44637423581` failed because the current handoff omitted `The checkpoint is mandatory; a document edit is conditional.`; that sentence is restored here. NVRAM `44637423514` and XY-C1 `44637423396` were IN_PROGRESS at last poll.
+- MTD flash I/O uses the shared eight-consecutive-EINTR wrapper without outer restart loops. Process regression verifies bounded wrapper use, no direct syscalls/no outer retries, short-I/O progress, read EOF and zero-write EIO.
+- Earlier firewall source SHA `342631b4efb09b4877dd944d74f03d20da7b4164` passed Firewall Startup; HTTPD/WAN checker contracts were subsequently repaired in `8987975` and `5c557db`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged. No physical-router result is available.
 
 ## Active task
 
-- `process_io_read()` and `process_io_write()` cap consecutive EINTR attempts at eight, then return `-1/EINTR`.
-- MTD `read_safe()` and `write_safe()` previously caught that terminal EINTR and looped again, resetting the wrapper's local retry counter. This defeated the bound under persistent signal storms.
-- Current source change propagates terminal wrapper failures directly. Positive short reads/writes still advance the buffer; read EOF behavior and zero-progress write `EIO` remain unchanged.
-- Process workflow source contract asserts bounded wrapper use, no direct syscalls, no outer EINTR/continue restart, and preservation of progress/EOF/zero-write semantics. Shared callback test coverage lives in `trunk/user/shared/src/tests/process_pidfile.c`.
+- Firewall startup and baseline NAT reject malformed/non-contiguous LAN masks, but miniupnpd startup still checked only dotted-IPv4 syntax before `ip2class()`.
+- Extracted the nonzero contiguous IPv4 netmask predicate into shared `ipv4_netmask_policy.h`; firewall and miniupnpd both consume it. Miniupnpd now rejects invalid/non-contiguous masks and returns `EINVAL` before subnet derivation.
+- Existing firewall regression covers valid prefix masks, zero, non-contiguous, malformed and injection strings. Firewall source-order contract and miniupnpd daemon-start source-order contract cover both callers. The new shared header is included in both affected workflows' push and pull_request path filters.
+- This integration awaits exact-head Firewall, miniupnpd, Process inventory, AI docs, NVRAM and XY-C1 Actions.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head Process fail-closed regression and AI-doc Actions for this source correction. Read the exact job log if either fails.
-2. Check NVRAM and XY-C1 statuses from d7/dfe; L3 requires Build, TRX verification and artifact upload all SUCCESS on the same current source SHA.
-3. Continue with independently evidenced issues. A known remaining integration gap is miniupnpd's generic `is_valid_ipv4(lan_mask)` before `ip2class()` in `services_ex.c`; strict contiguous-mask validation currently guards firewall code only.
+1. Check exact-head Firewall startup, miniupnpd config stability, Process inventory, AI docs, NVRAM and XY-C1 results. On FAIL, inspect the exact job log and repair only the demonstrated issue.
+2. L3 requires XY-C1 Build, TRX verification and artifact upload all SUCCESS on the same source SHA. No host regression is a substitute.
+3. Continue with an independently evidenced stability/security issue outside completed firewall netmask, MTD bounded-I/O and RStats persistence work.
 
 ## Verification boundary
 
-- L1: shared I/O wrapper's GNU89 regression covers eight recoverable EINTRs and terminal ninth EINTR. MTD terminal error now propagates instead of restarting.
-- L2: d7 Process inventory, RStats, HTTPD and AI-doc Actions PASS; Process fail-closed regression failed checker substring and the dfe checker-only correction is pending validation. Current source correction awaits its own exact-head Process/AI/NVRAM runs.
-- L3: d7 XY-C1 and NVRAM Actions were in progress; current source SHA needs exact-head Build/TRX/artifact verification.
-- L4: physical XY-C1 MTD signal-storm behavior remains NOT VERIFIED.
+- L1: shared contiguous-mask policy cases run through existing GNU89 Firewall regression; integration awaits exact-head CI.
+- L2: parent MTD Process inventory and Process lifecycle runs PASS. AI docs required the exact conditional-checkpoint sentence, restored here. Current Firewall/miniupnpd/AI/Process Actions pending.
+- L3: parent NVRAM and XY-C1 were IN_PROGRESS; this integration requires exact-head Build/TRX/artifact success.
+- L4: non-contiguous LAN-mask behavior on physical router remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
-Every session MUST perform a handoff checkpoint before ending. Compare live main, product-source baseline, exact-head Actions, module state and next action. Update this file only when resumable facts materially change; do not create no-op SHA-refresh commits.
+The checkpoint is mandatory; a document edit is conditional. Every session MUST perform a handoff checkpoint before ending. At session end, compare live main, production-source baseline, exact-head Actions, module state and the next task. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit; do not create a no-op commit.
 
 ## Development invariants
 

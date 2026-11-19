@@ -33,6 +33,7 @@
 #include <net/ethernet.h>
 
 #include "rc.h"
+#include "ipv4_netmask_policy.h"
 #include "storage_operation_lock.h"
 #include "upnp_restart_policy.h"
 #include "dnsmasq_file.h"
@@ -1885,8 +1886,10 @@ start_upnp_locked(void)
 
 	lan_addr = nvram_safe_get("lan_ipaddr");
 	lan_mask = nvram_safe_get("lan_netmask");
-	if (!is_valid_ipv4(lan_addr) || !is_valid_ipv4(lan_mask)) {
-		logmessage(LOGNAME, "miniupnpd start aborted: invalid LAN IPv4 address or netmask");
+	if (!is_valid_ipv4(lan_addr) || !is_valid_ipv4(lan_mask) ||
+	    !ipv4_netmask_is_contiguous(lan_mask)) {
+		logmessage(LOGNAME, "miniupnpd start aborted: invalid LAN IPv4 address or non-contiguous netmask");
+		errno = EINVAL;
 		return EINVAL;
 	}
 	ip2class(lan_addr, lan_mask, lan_class, sizeof(lan_class));
