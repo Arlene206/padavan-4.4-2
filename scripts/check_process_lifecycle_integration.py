@@ -2354,8 +2354,8 @@ assert not re.search(r'(?m)^\s*system\("modprobe xt_TPROXY"\);$', iappd_boot)
 print("IAPPD RC restart, TPROXY load and post-start test status propagation: PASS")
 
 optional_boot_calls = (
-    ("APP_SKIPDBV2", 'int skipdb_start_status = doSystem("/usr/sbin/skipd -d /etc/storage/db");',
-     "skipdb_start_status", "SkipDBv2 boot startup failed (wait status=%d)"),
+    ("APP_SKIPDBV2", "int skipdb_start_status = start_skipdbv2();",
+     "skipdb_start_status", "SkipDBv2 boot startup failed (status=%d)"),
     ("APP_SCUT", "int scut_start_status = start_scutclient();",
      "scut_start_status", "SCUT client boot startup failed (status=%d)"),
     ("APP_DNSFORWARDER", "int dnsforwarder_start_status = start_dnsforwarder();",
