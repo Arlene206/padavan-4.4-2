@@ -254,7 +254,7 @@ arpping_gateway(int ap_mode)
             arp.h_proto == htons(ETH_P_ARP) &&
             arp.operation == htons(ARPOP_REPLY) &&
             memcmp(arp.tHaddr, mac, 6) == 0 &&
-            *((uint32_t *) arp.sInaddr) == gateway_ip)
+            detect_wan_arp_source_address_matches(arp.sInaddr, gateway_ip))
         {
 #ifdef DEBUG
             fprintf(stderr, "Valid arp reply from [%02X:%02X:%02X:%02X:%02X:%02X]\n",

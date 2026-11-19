@@ -8,6 +8,21 @@
     } \
 } while (0)
 static int
+test_unaligned_arp_source_address_matches_without_integer_pointer_access(void)
+{
+    unsigned char packet[sizeof(uint32_t) + 1];
+    uint32_t expected_address = 0x01020304U;
+
+    memset(packet, 0, sizeof(packet));
+    memcpy(packet + 1, &expected_address, sizeof(expected_address));
+    CHECK(detect_wan_arp_source_address_matches(packet + 1, expected_address));
+    packet[3] ^= 0x01;
+    CHECK(!detect_wan_arp_source_address_matches(packet + 1, expected_address));
+    CHECK(!detect_wan_arp_source_address_matches(NULL, expected_address));
+    return 0;
+}
+
+static int
 test_probe_result_keeps_local_errors_distinct(void)
 {
     errno = 0;
@@ -39,6 +54,7 @@ test_dhcp_renew_requires_three_real_no_reply_probes(void)
 int
 main(void)
 {
+    CHECK(test_unaligned_arp_source_address_matches_without_integer_pointer_access() == 0);
     CHECK(test_probe_result_keeps_local_errors_distinct() == 0);
     CHECK(test_dhcp_renew_requires_three_real_no_reply_probes() == 0);
     puts("WAN ARP probe local-error and DHCP-renewal policy: PASS");

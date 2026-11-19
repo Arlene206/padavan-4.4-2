@@ -137,6 +137,9 @@ jobs:
           assert "DETECT_WAN_ARP_PROBE_ERROR" in probe_policy
           assert "detect_wan_arp_probe_result" in probe_policy
           assert "detect_wan_arp_should_renew" in probe_policy
+          assert "detect_wan_arp_source_address_matches" in probe_policy
+          assert "memcpy(&source, source_address, sizeof(source));" in probe_policy
+          assert "test_unaligned_arp_source_address_matches_without_integer_pointer_access" in probe_test
           assert "test_probe_result_keeps_local_errors_distinct" in probe_test
           assert "test_dhcp_renew_requires_three_real_no_reply_probes" in probe_test
           arp_probe = body(detect, "arpping_gateway(int ap_mode)")
@@ -145,6 +148,8 @@ jobs:
           assert "probe_errno = errno ? errno : EIO;" in arp_probe
           assert "if (close(s) < 0 && probe_errno == 0)" in arp_probe
           assert "return detect_wan_arp_probe_result(rv, probe_errno);" in arp_probe
+          assert "detect_wan_arp_source_address_matches(arp.sInaddr, gateway_ip)" in arp_probe
+          assert "((uint32_t *) arp.sInaddr)" not in arp_probe
           assert "return 0;" not in arp_probe
           poll_body = body(detect, "poll_gateway(void)")
           assert "probe_count++;" in poll_body
