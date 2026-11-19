@@ -782,6 +782,12 @@ Start_smartdns () {
     if [ "$dnsmasq_md5" != $(md5sum "$dnsmasq_Conf" | awk '{ print $1 }') ] ; then
         logger -t "SmartDNS" "正在重启 DNSmasq 进程..."
         /sbin/restart_dhcpd >/dev/null 2>&1
+        dnsmasq_restart_status=$?
+        if [ "$dnsmasq_restart_status" -ne 0 ]; then
+            logger -t "SmartDNS" "DNSMasq 重启失败，回滚 SmartDNS 启动 (status=$dnsmasq_restart_status)"
+            smartdns_start_config_rollback "$dnsmasq_restart_status"
+            return $?
+        fi
         logger -t "SmartDNS" "DNSmasq 进程已重启..."
     fi
     "$smartdns_Bin" -f -c "$smartdns_Conf" "$args"  &>/dev/null &
@@ -841,30 +847,41 @@ Start_smartdns () {
 }
 
 Stop_smartdns () {
-    smartdns_stop_process
-    stop_status=$?
-    if [ "$stop_status" -ne 0 ]; then
-        logger -t "SmartDNS" "SmartDNS stop was not verified; preserving resolver and firewall state (status=$stop_status)"
-        return "$stop_status"
-    fi
-
-    logger -t "SmartDNS" "结束 SmartDNS 进程..."
-    Change_adbyby
+    # Remove the resolver override and reload DNSMasq while SmartDNS is still
+    # available. A failed reload must leave both the daemon and its retry state.
     if Change_dnsmasq stop; then
         smartdns_dnsmasq_status=0
     else
         smartdns_dnsmasq_status=$?
     fi
-    Change_iptable
     if [ "$smartdns_dnsmasq_status" -ne 0 ]; then
-        logger -t "SmartDNS" "DNSMasq resolver cleanup incomplete; saved state retained for retry (status=$smartdns_dnsmasq_status)"
+        logger -t "SmartDNS" "DNSMasq resolver cleanup incomplete; preserving running daemon and saved state (status=$smartdns_dnsmasq_status)"
         return "$smartdns_dnsmasq_status"
     fi
-    if [ "$dnsmasq_md5" != $(md5sum "$dnsmasq_Conf" | awk '{ print $1 }') ] && [ "$sdns_enable" = 0 ] ; then
+
+    if [ "$sdns_enable" = 0 ] &&
+       { [ "$smartdns_state_saved" = 1 ] ||
+         [ "$dnsmasq_md5" != $(md5sum "$dnsmasq_Conf" | awk '{ print $1 }') ]; }; then
         logger -t "SmartDNS" "正在重启 DNSmasq 进程..."
         /sbin/restart_dhcpd >/dev/null 2>&1
+        dnsmasq_restart_status=$?
+        if [ "$dnsmasq_restart_status" -ne 0 ]; then
+            logger -t "SmartDNS" "DNSMasq 重启失败；保留 SmartDNS 和状态文件以便重试 (status=$dnsmasq_restart_status)"
+            return "$dnsmasq_restart_status"
+        fi
         logger -t "SmartDNS" "DNSmasq 进程已重启..."
     fi
+
+    smartdns_stop_process
+    stop_status=$?
+    if [ "$stop_status" -ne 0 ]; then
+        logger -t "SmartDNS" "SmartDNS stop was not verified; preserving state for retry (status=$stop_status)"
+        return "$stop_status"
+    fi
+
+    logger -t "SmartDNS" "结束 SmartDNS 进程..."
+    Change_adbyby
+    Change_iptable
     if [ "$sdns_enable" = 0 ] ; then
         rm -f "$smartdns_Ini"
         smartdns_state_saved=0

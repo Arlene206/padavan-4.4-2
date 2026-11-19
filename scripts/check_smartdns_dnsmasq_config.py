@@ -163,4 +163,13 @@ assert "nvram set sdns_enable=0" in rollback
 assert "Stop_smartdns" in rollback
 assert "DNSMasq 回滚未完成" in rollback
 assert start.count("smartdns_start_config_rollback") == 5
+# DNSMasq must successfully reload the resolver config before SmartDNS is
+# stopped, and a failed reload must preserve the daemon and saved retry state.
+stop_compact = " ".join(stop.split())
+assert stop.index("Change_dnsmasq stop") < stop.index("/sbin/restart_dhcpd") < stop.index("smartdns_stop_process")
+assert '[ "$smartdns_state_saved" = 1 ]' in stop
+assert 'return "$dnsmasq_restart_status"' in stop
+assert 'preserving running daemon and saved state' in stop
+assert 'dnsmasq_restart_status=$?' in start
+assert 'smartdns_start_config_rollback "$dnsmasq_restart_status"' in start
 print("SmartDNS saved DNSMasq state, marked-block and atomic SmartDNS-config publication contracts: PASS")
