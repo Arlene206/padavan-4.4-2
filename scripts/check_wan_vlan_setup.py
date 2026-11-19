@@ -251,9 +251,11 @@ snapshot_pos = iptv_setup.index("vlan_flags = get_interface_flags(viptv_ifname);
 create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
 bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
 rp_filter_pos = iptv_setup.index('ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);')
+old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
+old_vlan_clear = iptv_setup.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)
 publish_pos = iptv_setup.rindex('nvram_set_temp("viptv_ifname", viptv_ifname);')
 require(snapshot_pos < old_vlan_cleanup < old_vlan_clear < create_pos < bridge_pos < rp_filter_pos < publish_pos,
-        "IPTV startup must snapshot VLAN ownership, create/bridge transactionally, set rp_filter, then publish")
+        "IPTV startup must snapshot VLAN ownership, clean old VLAN state, create/bridge transactionally, set rp_filter, then publish")
 for operation in ("ret = create_vlan_iface_tracked(",
                   "ret = config_soft_bridge_wan_internal(",
                   'ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);'):

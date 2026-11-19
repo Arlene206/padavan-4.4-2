@@ -752,11 +752,11 @@ jobs:
           static_policy = body((rc / "wan_viptv_static_policy.h").read_text(),
                                "wan_viptv_static_start(")
           assert "if (viptv_mode == 2)" in static_start
-          invalid_static = static_start.index(
-              "if (!is_valid_ipv4(viptv_addr) || !is_valid_ipv4(viptv_mask))")
+          invalid_static = static_start.index("if (viptv_mode == 2 &&")
+          old_vlan_cleanup = static_start.index("/* Remove a no-longer-used VLAN")
           static_call = static_start.index("wan_viptv_static_start(")
-          assert invalid_static < static_call
-          assert "return EINVAL;" in static_start[invalid_static:static_call]
+          assert invalid_static < old_vlan_cleanup < static_call
+          assert "return EINVAL;" in static_start[invalid_static:old_vlan_cleanup]
           assert "return ret;" in static_start[static_call:]
           assert "wan_viptv_static_start(is_valid_ipv4(viptv_gate)," in static_start
           assert "IPTV VLAN or service setup incomplete" in source
