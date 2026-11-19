@@ -10,6 +10,7 @@ policy = (RC / "wan_ifname_policy.h").read_text()
 net_wan = (RC / "net_wan.c").read_text()
 services = (RC / "services_ex.c").read_text()
 firewall = (RC / "firewall_ex.c").read_text()
+ppp = (RC / "net_ppp.c").read_text()
 rc_header = (RC / "rc.h").read_text()
 
 assert "wan_ifname_copy(char *destination, size_t destination_size" in policy
@@ -35,4 +36,15 @@ assert services.count("if (interface_status != 0)") >= 2
 assert "status = get_wan_ifname(wan_if);" in firewall
 assert "No safe WAN interface token; refusing firewall rebuild (status=%d)" in firewall
 assert "if (status != 0)" in firewall
-print("WAN interface-name bounded-copy integration contract: PASS")
+
+assert '#include "wan_ifname_policy.h"' in ppp
+ppp_start = ppp.index("launch_wan_pppd_locked(int unit, int wan_proto)")
+ppp_launch = ppp[ppp_start:]
+assert "char pppoe_ifname[16];" in ppp_launch
+ppp_compact = " ".join(ppp_launch.split())
+assert "wan_ifname_copy(pppoe_ifname, sizeof(pppoe_ifname), get_man_ifname(unit))" in ppp_compact
+assert ppp_launch.index("wan_ifname_copy(pppoe_ifname") < ppp_launch.index("ppp_wan_session_generation_change(")
+assert ppp_launch.index("wan_ifname_copy(pppoe_ifname") < ppp_launch.index("ppp_options_file_open(options)")
+assert 'fprintf(fp, "nic-%s\\n", pppoe_ifname);' in ppp_launch
+assert 'fprintf(fp, "nic-%s\\n", get_man_ifname(unit));' not in ppp_launch
+print("WAN interface-name bounded-copy and PPPoE config-injection contracts: PASS")

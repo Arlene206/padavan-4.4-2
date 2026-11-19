@@ -36,6 +36,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
+#include "wan_ifname_policy.h"
 #include "ppp_option_value_policy.h"
 #include "ppp_callback_identity_policy.h"
 #include "ppp_callback_generation_policy.h"
@@ -640,6 +641,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	int saved_errno, launch_status, cleanup_status;
 	unsigned long callback_generation;
 	char callback_generation_text[sizeof(unsigned long) * CHAR_BIT + 1];
+	char pppoe_ifname[16];
 #if defined (APP_RPL2TP)
 	int use_rpl2tp = 0;
 #endif
@@ -650,6 +652,20 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 
 	if (unit < 0)
 		return -1;
+
+	/* The nic-* line is parsed as a separate pppd option. Never allow an
+	 * NVRAM interface name to inject another privileged PPP option. */
+	if (wan_proto == IPV4_WAN_PROTO_PPPOE) {
+		saved_errno = wan_ifname_copy(pppoe_ifname, sizeof(pppoe_ifname),
+					      get_man_ifname(unit));
+		if (saved_errno != 0) {
+			logmessage(LOGNAME,
+				   "refusing PPPoE launch with invalid interface name (status=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
+	}
 
 	/* Fence callbacks from the prior session before reusing shared options. */
 	if (ppp_wan_session_generation_change(&callback_generation) != 0 ||
@@ -787,7 +803,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		mru = get_wan_unit_value_int(unit, "pppoe_mru");
 		
 		fprintf(fp, "plugin rp-pppoe.so\n");
-		fprintf(fp, "nic-%s\n", get_man_ifname(unit));
+		fprintf(fp, "nic-%s\n", pppoe_ifname);
 		
 		pppoe_ac = get_wan_unit_value(unit, "pppoe_ac");
 		if (*pppoe_ac) {
