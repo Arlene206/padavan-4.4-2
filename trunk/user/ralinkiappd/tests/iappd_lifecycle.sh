@@ -154,6 +154,10 @@ IAPPD_PROC_MODULES="$tmp/modules"
 IAPPD_PROC_INTERRUPTS="$tmp/interrupts"
 export IAPPD_PROC_MODULES IAPPD_PROC_INTERRUPTS
 
+# Restore the normal radio fixture for the pre-existing lifecycle cases below.
+printf "mt76x3_ap\n" > "$tmp/modules"
+printf "rai0: 1\n" > "$tmp/interrupts"
+
 reset
 rc=$(capture_status run start); status "$rc" 0
 [ -f "$STATE_DIR/daemon" ] || fail "start did not create daemon marker"

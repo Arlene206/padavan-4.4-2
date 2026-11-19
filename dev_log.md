@@ -1,3 +1,12 @@
+## 2026-11-19 — Restore IAPP radio fixtures after fallback regression
+
+- Parent main SHA: `0c7648e03312f2923b343339209ce57cdb58f600`.
+- Exact IAPP workflow `44426426321` passed shell syntax and the new module/interrupt inventory-error branches, then failed because the added valid-fallback case mutated the shared fixture used by subsequent pre-existing lifecycle checks.
+- Restore the original `mt76x3_ap` module and `rai0` interrupt fixtures immediately after the fallback assertion. This is a test-only correction; no production behavior changed.
+- Exact-head IAPP, Process, AI docs and XY-C1 checks for the corrected regression remain pending. The preceding production-source SHA retains its independent Actions results; do not treat the failed harness run as L2 completion.
+
+---
+
 ## 2026-11-19 — Fail closed on unreadable Ralink IAPP radio inventory
 
 - Parent main SHA: `d7c6c57e47876b320bd42eb2f95f0542d6cb4cc6`.
@@ -5,7 +14,8 @@
 - The startup path now distinguishes grep status 0 (match), 1 (complete inventory with no match), and >1 (inventory error). An unreadable `/proc/modules` or required `/proc/interrupts` now aborts before launching `ralinkiappd` or publishing firewall rules; the verified no-match fallback is unchanged.
 - Extended the existing IAPP lifecycle regression with both procfs read-error paths and a valid no-match fallback check. Existing IAPP lifecycle, Process lifecycle, and XY-C1 workflow path filters already include the changed launcher and regression file; no workflow trigger was broadened or disabled.
 - The immediately preceding WAN monitor SIGTERM fix at `d7c6c57e47876b320bd42eb2f95f0542d6cb4cc6` passed exact-head WAN ARP (`44424808719`), Process regression (`44424808712`), Process inventory (`44424808772`), NVRAM (`44424808887`) and AI docs (`44424808821`). XY-C1 run `44424808889` completed Build, TRX verification and artifact upload on that exact preceding SHA.
-- No local shell test or MIPS build was run in this connector-only session. Exact-head IAPP lifecycle, Process, AI docs and XY-C1 Build/TRX/artifact runs for this new source SHA are required. Physical-router L4 remains NOT VERIFIED.
+- Exact IAPP lifecycle run `44426426321` on this source SHA failed at the later pre-existing `wrong radio arguments` assertion. The two new unreadable-procfs cases and valid fallback assertion had passed, but that fallback test left the shared module/interrupt fixtures changed for subsequent tests. This is a test-harness fixture leak, not a production-source failure; this follow-up restores the original fixture before remaining lifecycle cases. Process (`44426426254`, `44426426375`), AI docs (`44426426366`) and XY-C1 (`44426426264`) were still in progress at the correction point.
+- Local shell tests were not run in this connector-only session. The follow-up fixture correction must pass exact-head IAPP lifecycle; Process, AI docs and exact-source XY-C1 Build/TRX/artifact results must also be inspected. Physical-router L4 remains NOT VERIFIED.
 
 ---
 
