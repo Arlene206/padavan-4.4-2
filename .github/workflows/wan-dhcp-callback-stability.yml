@@ -449,6 +449,10 @@ jobs:
           assert "unsetenv(DHCP6C_CALLBACK_IFNAME_ENV) != 0 ||" not in dhcp6_start
           assert "test_environment_cleanup_attempts_both_and_preserves_first_error" in dhcp6_callback_test
           assert "test_environment_cleanup_success" in dhcp6_callback_test
+          assert "test_start_errno_uses_cleanup_error_after_successful_launch" in dhcp6_callback_test
+          assert "static int\ndhcp6c_callback_start_errno(" in dhcp6_callback_policy
+          assert "saved_errno = dhcp6c_callback_start_errno(start_status, start_errno," in dhcp6_start
+          assert dhcp6_start.index('eval("/sbin/dhcp6c"') < dhcp6_start.index("start_errno = errno;") < dhcp6_start.index("dhcp6c_callback_environment_clear(") < dhcp6_start.index("saved_errno = dhcp6c_callback_start_errno(")
           assert "static int\ndhcp6c_callback_environment_clear(" in dhcp6_callback_policy
           assert "cannot clear temporary callback environment during startup rollback" in dhcp6_start
           assert '#include "dhcp6c_config_file.h"' in wan6_source

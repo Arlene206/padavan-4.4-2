@@ -1,3 +1,11 @@
+## 2026-11-19 — Preserve the actual DHCPv6 startup-cleanup errno
+
+- Main parent: `3ae692ae9da8fe013c283b294ab6a66ee22a72f8`. The exact checker-only follow-up WAN DHCP callback `44561987026` and AI handoff docs `44561986982` both PASS, clearing the stale direct-`unsetenv()` assertion from the previous source-contract failure.
+- Source review found a distinct errno-reporting defect in `start_dhcp6c()`: it saved `errno` immediately after `eval("/sbin/dhcp6c", ...)`, but a successful `eval()` does not reset errno. If the later environment cleanup failed, startup was correctly turned into failure and logged the cleanup errno, yet the caller could receive the stale pre-existing errno because cleanup replaced it only when the saved value happened to be zero.
+- Added `dhcp6c_callback_start_errno()` to ignore errno after successful launch, return the actual cleanup errno on cleanup failure, preserve a real launch error as primary, and use EIO when a failed launch supplied no errno. Regression cases cover stale errno after successful launch, success with clean cleanup, primary launch-error precedence, and EIO fallback. The WAN DHCP source contract pins helper usage and ordering.
+- The new source SHA requires exact-head WAN DHCP and XY-C1 Build/TRX/artifact checks; parent `3ae692ae9da8fe013c283b294ab6a66ee22a72f8` is checker-only and did not change firmware inputs. No local checkout/toolchain or physical-router L4 is available; no local tests are claimed.
+
+---
 ## 2026-11-19 — Repair stale DHCPv6 environment-cleanup source contract
 
 - Main parent: `0b3449bc31ceda006408409dacd31b81785908b7`. Exact push WAN DHCP callback run [44558399735](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44558399735) compiled and passed all host policy regressions, including the DHCPv6 callback-generation test, then failed in its final Python integration contract with `ValueError: substring not found` at script line 333.

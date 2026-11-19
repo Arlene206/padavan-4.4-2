@@ -53,6 +53,23 @@ dhcp6c_callback_environment_clear(const char *first_name,
 	return 0;
 }
 
+/* Select the errno associated with startup or cleanup failure.
+ * A successful eval() does not define errno, so cleanup failure after a
+ * successful launch must not inherit an unrelated value from the process.
+ */
+static int
+dhcp6c_callback_start_errno(int start_status, int start_errno,
+			    int cleanup_status, int cleanup_errno)
+{
+	if (start_status == 0)
+		return cleanup_status != 0 ? (cleanup_errno ? cleanup_errno : EIO) : 0;
+	if (start_errno != 0)
+		return start_errno;
+	if (cleanup_status != 0 && cleanup_errno != 0)
+		return cleanup_errno;
+	return EIO;
+}
+
 static int
 dhcp6c_callback_generation_parse(const char *text, unsigned long *generation_out)
 {

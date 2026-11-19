@@ -977,7 +977,8 @@ int start_dhcp6c(char *wan_ifname)
 	FILE *fp;
 	int duid_fd, session_fd, start_status, unlock_status;
 	int wan6_dhcp, dns6_auto, lan6_auto, sla_id, sla_len;
-	int duid_error, saved_errno, generation_active, env_cleanup_status;
+	int duid_error, saved_errno, start_errno, cleanup_errno;
+	int generation_active, env_cleanup_status;
 	unsigned int ia_id;
 	unsigned long generation;
 	unsigned char ea[ETHER_ADDR_LEN];
@@ -1137,16 +1138,15 @@ int start_dhcp6c(char *wan_ifname)
 
 	logmessage("DHCPv6 WAN Client", "starting on wan (%s) ...", wan_ifname);
 	start_status = eval("/sbin/dhcp6c", "-D", "LL", wan_ifname);
-	saved_errno = errno;
+	start_errno = errno;
 	env_cleanup_status = dhcp6c_callback_environment_clear(
 		DHCP6C_CALLBACK_IFNAME_ENV, DHCP6C_CALLBACK_GENERATION_ENV, unsetenv);
+	cleanup_errno = env_cleanup_status != 0 ? (errno ? errno : EIO) : 0;
+	saved_errno = dhcp6c_callback_start_errno(start_status, start_errno,
+							 env_cleanup_status, cleanup_errno);
 	if (env_cleanup_status != 0) {
-		int cleanup_errno = errno ? errno : EIO;
-
 		if (start_status == 0)
 			start_status = -1;
-		if (saved_errno == 0)
-			saved_errno = cleanup_errno;
 		logmessage("DHCPv6 WAN Client",
 			   "cannot clear temporary callback environment after client start (errno=%d)",
 			   cleanup_errno);

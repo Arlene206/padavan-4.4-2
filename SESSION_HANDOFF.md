@@ -10,13 +10,12 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Live main at recovery: `0b3449bc31ceda006408409dacd31b81785908b7`; this was also the current parent for the checker correction.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Main is 1,494 commits ahead of the backup and 1 behind because the backup contains its own immutable marker commit; do not modify either history.
-- PR #1 is closed and unmerged. Its closing comment confirms the unmerged CA trust-store failure propagation, OpenSSL 3 EVP_MAC HMAC-SHA1 helper, package/ROMFS integration, host regressions and semantic workflow were ported to main at `74b66ff960457379518d13c723c44a3515e6a228`; no additional PR work remains to port.
-- Exact push Actions on `0b3449bc31ceda006408409dacd31b81785908b7`: Process inventory `44558400105`, HTTPD `44558399718`, WAN route `44558399992`, AI docs `44558399754`, NVRAM audit `44558399692` all PASS. WAN DHCP callback `44558399735` FAILED only in its final Python source-contract block: stale assertion at script line 333 searched for a direct environment `unsetenv()` call that the current helper-based implementation no longer contains. Every prior host regression step, including DHCPv6 generation/stop-fencing, passed.
-- Exact XY-C1 run `44558399503` passed Build XY-C1, TRX verification and artifact upload on `0b3449bc31ceda006408409dacd31b81785908b7` (L3 for that product-source SHA). Physical-router L4 remains NOT VERIFIED.
-- The checker-only correction now changes the WAN callback source-order assertion to follow `dhcp6c_callback_environment_clear()` and confirms both environment names are supplied. Its new exact-head WAN DHCP and AI docs Actions still need inspection.
-- No local checkout/toolchain is available in this environment; no local tests or physical L4 are claimed.
+- Live main at the start of this source slice: `3ae692ae9da8fe013c283b294ab6a66ee22a72f8`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Do not modify it.
+- PR #1 is closed and unmerged; its close comment confirms the CA bootstrap, OpenSSL HMAC, package/ROMFS, regression and workflow content was ported to main at `74b66ff960457379518d13c723c44a3515e6a228`. No outstanding PR content needs porting.
+- Exact parent push checks: WAN DHCP callback `44561987026` and AI docs `44561986982` PASS on `3ae692ae9da8fe013c283b294ab6a66ee22a72f8`. The preceding `0b3449bc31ceda006408409dacd31b81785908b7` parent checks also passed Process inventory, HTTPD, WAN route, NVRAM and docs; XY-C1 `44558399503` passed Build, TRX and artifact upload (L3 on that product-source SHA).
+- Current source slice fixes errno selection when DHCPv6 client startup environment cleanup fails after a successful launch. New exact-head WAN DHCP callback and XY-C1 validation are required; do not carry forward the parent L3 result.
+- No local checkout/toolchain or physical router is available. Physical-router L4 is NOT VERIFIED.
 
 ## Latest active source slices — 2026-11-19
 
@@ -79,6 +78,12 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - Production commits `6a846b9f8c3375de08d42617b6d3b8c948b6f638` and `7fa39cbc3020b702ef294e97874962393b9392b8` return and validate USB safe-eject outcomes, reject malformed/absent modem targets, and require an exact requested disk match in the complete storage inventory.
 - Exact storage-hotplug `44536791653` PASS on 7fa, including storage source/caller contracts and lifecycle tests. Exact Process inventory/fail-closed `44537131446` PASS on f0a after its USB target-selection contract repair.
 - Exact XY-C1 `44536791575` on 7fa passed Build, TRX verification and artifact upload. Later RPL2TP source change `cd398` is not yet included in a successful firmware build; XY run `44539829469` on 92a was host-only and skipped Build/TRX/artifact.
+
+## Completed slice — preserve cleanup errno after DHCPv6 client launch
+
+- `start_dhcp6c()` captured errno from `eval("/sbin/dhcp6c", ...)` before clearing temporary callback environment. A successful launch may leave an unrelated errno; when `unsetenv()` subsequently failed, the function returned `-1` but could restore that stale errno instead of the cleanup failure.
+- Added a small policy helper that treats successful launch errno as undefined, selects cleanup errno if cleanup is the only failure, preserves a real launch error as primary, and falls back to EIO when a failed launch has no errno. Added GNU89 regression cases and extended the existing WAN DHCP source contract.
+- Exact parent WAN DHCP callback `44561987026` and AI docs `44561986982` PASS on `3ae692ae9da8fe013c283b294ab6a66ee22a72f8`; these predate the production-source change. New exact-head WAN DHCP and XY-C1 Build/TRX/artifact results are pending. No local test, target build or hardware claim yet.
 
 ## Completed recent slices
 
@@ -177,16 +182,14 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Active task
 
 - Main-only development; frozen backup remains immutable.
-- Current product-source baseline `0b3449bc31ceda006408409dacd31b81785908b7` includes the DHCPv6 startup environment-cleanup helper fix. Its exact XY-C1 Build/TRX/artifact run `44558399503` passed (L3 on this SHA).
-- The exact WAN DHCP callback run `44558399735` passed all C policy binaries and failed only at a stale final source-contract lookup for a direct `unsetenv(IFNAME)`; the helper-based production cleanup is already covered by the preceding integration assertions and regression tests. The checker-only correction is the current commit.
-- Next: verify exact-head WAN DHCP callback and AI docs results for the checker correction; confirm other triggered process/HTTPD/WAN/NVRAM runs as applicable. Then fix the separately source-demonstrable DHCPv6 startup error-precedence issue: a successful `eval()` may leave stale `errno`, and a subsequent environment-cleanup failure must replace that stale value with the actual cleanup errno.
-- No local checkout/toolchain or physical router is available; do not claim local execution or L4.
+- Current task: DHCPv6 startup cleanup error precedence in `trunk/user/rc/src/net_wan6.c`. The fix uses `dhcp6c_callback_start_errno()` to avoid reusing stale errno after successful `eval()`, while preserving actual launch failure precedence and EIO fallback.
+- Regression: `trunk/user/rc/src/tests/dhcp6c_callback_generation.c`; integration/source ordering: `.github/workflows/wan-dhcp-callback-stability.yml`. The existing workflow already watches the production source, policy header, test and workflow for push and pull_request.
+- Parent SHA `3ae692ae9da8fe013c283b294ab6a66ee22a72f8` exact WAN DHCP `44561987026` and AI docs `44561986982` PASS. The parent firmware run `44558399503` passed Build/TRX/artifact on the prior production source; it does not validate this new source. Local checkout/toolchain unavailable.
+- First next action: inspect this source commit's exact WAN DHCP and XY-C1 Actions, including Build, TRX verification and artifact upload separately; inspect AI docs as triggered. If any check fails, fix the first causal fa## Exact first action for the next GPT
 
-## Exact first action for the next GPT
-
-1. Fetch live main, then inspect the exact push WAN DHCP callback and AI handoff docs Actions for the checker-correction SHA. The parent `0b3449bc31ceda006408409dacd31b81785908b7` WAN callback failure is already diagnosed; do not rerun or repeat its successful host binaries.
-2. Confirm whether the new WAN DHCP callback passes; if it fails, inspect the first causal log line and fix only that contract/source defect. Inspect other exact-head checks only where they gate this DHCPv6 slice.
-3. Implement and regression-test the separately identified DHCPv6 startup errno-precedence defect in `start_dhcp6c()`: cleanup failure after successful `eval()` must return the cleanup errno rather than a stale errno captured after the successful launch. Keep generation fencing and lock invariants intact.
+1. Read live main and inspect exact push WAN DHCP callback and XY-C1 Actions for the current DHCPv6 errno-precedence source SHA. Record Build, TRX verification and artifact upload independently; the parent L3 result is not transferable.
+2. Inspect AI handoff docs on the same SHA. If WAN DHCP or firmware CI is red, read the failed job log and fix its first causal error; otherwise close this bounded DHCPv6 slice.
+3. Continue with a separate P1 stability defect from the whole-repository ledger outside DHCPv6, keeping the rotation broad and preserving all current lifecycle/generation fencing invariants.
 
 ## Mandatory handoff checkpoint
 

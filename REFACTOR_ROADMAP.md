@@ -1,4 +1,6 @@
 # 2026-11-19 source checkpoint
+- Checker-only DHCPv6 correction `3ae692ae9da8fe013c283b294ab6a66ee22a72f8`: WAN DHCP callback `44561987026` and AI docs `44561986982` PASS on that exact SHA.
+- New P2 errno-reporting defect fixed in the current DHCPv6 source slice: errno after successful `eval()` is unspecified; cleanup failure now selects its own errno while preserving a real launch failure. Exact current-source WAN DHCP and XY-C1 Build/TRX/artifact verification must be checked separately.
 - Main parent for DHCPv6 environment cleanup: `7c0481f8f390db2e1f26351679fb2cb98bdfb021`.
 - Exact `ef12b80` WAN DHCP `44555817409`, AI docs `44555817614`, Process fail-closed `44555817648`, Process inventory `44555817491`, HTTPD `44555817414`, Firewall `44555817528`, watchdog `44555817550`, Wireless `44555817380`, detect_internet `44555817312`, DNSMasq `44555817270`, detect_link `44555817238`, WAN route `44555817205` PASS. NVRAM `44555817580` and XY-C1 `44555817271` pending at last poll.
 - DHCPv6 lock-release diagnostic commit `7c0481f8`: exact Actions were running at last poll; check these before handoff.
