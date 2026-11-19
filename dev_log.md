@@ -1,3 +1,13 @@
+## 2026-11-19 — Fail closed when guest ebtables isolation setup is incomplete
+
+- Source review found that `restart_guest_lan_isolation()` propagated module, flush and rule-add failures but left pre-existing guest AP interfaces up and bridged. The guest control callers only rolled back interfaces started by the current request, so toggling/rebuilding isolation could leave a configured guest AP connected without its required LAN isolation.
+- AP-mode ebtables policy bits are now retained even when the interface-flags probe is UNKNOWN; the code still records the probe error rather than treating the interface as up/down. A failure-count checkpoint isolates errors from module confirmation, `ebtables -F/-X`, and individual rule additions. Any new setup error now triggers down, bridge detach and independent DOWN verification for every configured guest AP using ebtables.
+- Guest rollback no longer treats an UNKNOWN initial flags probe as a reason to skip the down request: it attempts down and lets the independent postcondition probe determine completion. RT3352 MII iNIC interface/VLAN mapping is preserved.
+- Added GNU89 policy cases for UNKNOWN-triggered rollback requests and ebtables setup failure/mask semantics; extended the existing Wireless production-source contract. Exact-head Wireless L2, AI docs and XY-C1 Build/TRX/artifact for this product-source change are pending.
+- The parent `981857e60def0d4237253a3c0b061b85111ebbf5` WAN route and AI handoff Actions `44586115401` / `44586115612` passed; prior product SHA `29fa...` XY-C1 run `44585450325` passed detector, Build XY-C1, TRX and artifact, but does not validate this new wireless source. No local compile or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-19 — Fix WAN route source-contract whitespace matching
 
 - Exact-head WAN route run `44585450279` on production source `29fa24741613095593a03f4e602f1d77636a21e0` compiled and ran `route_status_policy.c` with GNU89, `-Wall -Wextra -Werror`, ASan and UBSan successfully. The subsequent Python contract failed at line 275 because its joined string retained a space after the multiline helper's opening parenthesis while the expected token did not.

@@ -82,6 +82,17 @@ for token in (
 ):
     assert token in isolation_body, token
 assert "if (cleanup_status == 0)" in isolation_body
+assert "wireless_guest_isolation_ebtables_rollback_required(" in isolation_body
+assert "ebtables_failures_before = status.failure_count;" in isolation_body
+ebtables_baseline = isolation_body.index("ebtables_failures_before = status.failure_count;")
+ebtables_module_load = isolation_body.index('(void)module_smart_load("ebtable_filter", NULL);')
+ebtables_rollback = isolation_body.index("wireless_guest_isolation_ebtables_rollback_required(")
+assert ebtables_baseline < ebtables_module_load < ebtables_rollback
+assert 'wireless_guest_ap_rollback(IFNAME_5G_GUEST, IFNAME_5G_GUEST, &status);' in isolation_body
+assert 'wireless_guest_ap_rollback(wireless_guest_rt_interface_ifname(),' in isolation_body
+assert 'taking configured guest APs offline' in isolation_body
+assert 'is_need_ebtables |= 0x10;' in isolation_body
+assert 'is_need_ebtables |= 0x01;' in isolation_body
 assert 'is_module_loaded("ebtables")' not in isolation_body
 assert '(void)module_smart_load("ebtable_filter", NULL);' in isolation_body
 enable_load_pos = isolation_body.index('(void)module_smart_load("ebtable_filter", NULL);')
@@ -141,6 +152,10 @@ for signature, finish_label in (
 
 bring_down = function_body(wifi, "wireless_guest_rollback_bring_down(void *context)")
 verify_down = function_body(wifi, "wireless_guest_rollback_verify_down(void *context)")
+assert "wireless_guest_rollback_should_request_down(status, is_up)" in bring_down
+assert "if (!wif_control_success(rollback->ifname_ap, 0))" in bring_down
+assert "return status != 0 ? status : -EIO;" in bring_down
+assert "wireless_guest_interface_state_checked(rollback->ifname_ap," in verify_down
 for callback in (bring_down, verify_down):
     assert "wireless_guest_interface_state_checked(rollback->ifname_ap," in callback
     assert "if (status != 0)" in callback
@@ -248,11 +263,15 @@ for test_name in (
     "test_fail_closed_rollback_attempts_every_step",
     "test_fail_closed_rollback_success_and_invalid_ops",
     "test_startup_rollback_tracks_only_interfaces_started_here",
+    "test_unknown_guest_link_state_still_requests_down",
+    "test_ebtables_setup_failure_requires_rollback_of_enabled_guest_aps",
     "test_null_status_is_fail_safe",
 ):
     assert test_name in regression
 assert "wireless_guest_isolation_status_record" in policy
 assert "wireless_guest_isolation_status_rollback" in policy
+assert "wireless_guest_rollback_should_request_down" in policy
+assert "wireless_guest_isolation_ebtables_rollback_required" in policy
 assert "wireless_guest_startup_rollback_candidate" in policy
 assert "interface_error != absent_error" in policy
 

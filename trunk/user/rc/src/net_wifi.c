@@ -108,11 +108,16 @@ wireless_guest_rollback_bring_down(void *context)
 
 	status = wireless_guest_interface_state_checked(rollback->ifname_ap,
 							 &is_up);
-	if (status != 0)
-		return status;
-	if (!is_up)
+	if (!wireless_guest_rollback_should_request_down(status, is_up))
 		return 0;
-	return wif_control_success(rollback->ifname_ap, 0) ? 0 : -EIO;
+	if (!wif_control_success(rollback->ifname_ap, 0))
+		return status != 0 ? status : -EIO;
+	/*
+	 * A failed flags probe is UNKNOWN, not DOWN. Still request the interface
+	 * down; the rollback's independent postcondition probe decides whether
+	 * the fail-closed transition actually completed.
+	 */
+	return 0;
 }
 
 static int
@@ -1945,6 +1950,7 @@ restart_guest_lan_isolation(void)
 	int operation_status;
 	int state_status;
 	int ebtables_module_status, ebtables_module_error, ebtables_disable_action;
+	unsigned int ebtables_failures_before = 0;
 	int interface_is_up = 0;
 	const char *rt_ifname_guest = IFNAME_2G_GUEST;
 	wireless_guest_isolation_status_t status;
@@ -1959,13 +1965,13 @@ restart_guest_lan_isolation(void)
 							      &interface_is_up);
 	wireless_guest_isolation_record(&status,
 		"inspect 5GHz guest AP state for LAN isolation", state_status);
+	if (nvram_wlan_get_int(1, "guest_lan_isolate")) {
+		if (is_ap_mode)
+			is_need_ebtables |= 0x10;
+		else if (state_status == 0 && interface_is_up)
+			bp_isolate = 1;
+	}
 	if (state_status == 0 && interface_is_up) {
-		if (nvram_wlan_get_int(1, "guest_lan_isolate")) {
-			if (!is_ap_mode)
-				bp_isolate = 1;
-			else
-				is_need_ebtables |= 0x10;
-		}
 		operation_status = brport_set_param_int(wl_ifname_guest, "isolate_mode", bp_isolate);
 		wireless_guest_isolation_record(&status, "set 5GHz guest bridge isolate_mode",
 					operation_status);
@@ -1977,13 +1983,11 @@ restart_guest_lan_isolation(void)
 							      &interface_is_up);
 	wireless_guest_isolation_record(&status,
 		"inspect 2.4GHz guest AP state for LAN isolation", state_status);
-	if (state_status == 0 && interface_is_up) {
-		if (nvram_wlan_get_int(0, "guest_lan_isolate")) {
-			if (!is_ap_mode)
-				bp_isolate = 1;
-			else
-				is_need_ebtables |= 0x01;
-		}
+	if (nvram_wlan_get_int(0, "guest_lan_isolate")) {
+		if (is_ap_mode)
+			is_need_ebtables |= 0x01;
+		else if (state_status == 0 && interface_is_up)
+			bp_isolate = 1;
 	}
 #if defined(USE_RT3352_MII)
 	rt_ifname_guest = IFNAME_INIC_GUEST_VLAN;
@@ -2001,6 +2005,7 @@ restart_guest_lan_isolation(void)
 	}
 
 	if (is_ap_mode) {
+		ebtables_failures_before = status.failure_count;
 		if (is_need_ebtables) {
 			int i_need_dhcp = is_dhcpd_enabled(1);
 
@@ -2069,6 +2074,20 @@ restart_guest_lan_isolation(void)
 						   cleanup_status);
 				}
 			}
+		}
+		if (wireless_guest_isolation_ebtables_rollback_required(
+			    (unsigned int)is_need_ebtables, ebtables_failures_before,
+			    status.failure_count)) {
+			logmessage(LOGNAME,
+				   "guest ebtables isolation setup failed; taking configured guest APs offline");
+#if BOARD_HAS_5G_RADIO
+			if (is_need_ebtables & 0x10)
+				wireless_guest_ap_rollback(IFNAME_5G_GUEST, IFNAME_5G_GUEST, &status);
+#endif
+			if (is_need_ebtables & 0x01)
+				wireless_guest_ap_rollback(wireless_guest_rt_interface_ifname(),
+							   wireless_guest_rt_bridge_ifname(is_ap_mode),
+							   &status);
 		}
 	}
 

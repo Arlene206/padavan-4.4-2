@@ -162,6 +162,25 @@ test_fail_closed_rollback_success_and_invalid_ops(void)
 }
 
 static void
+test_unknown_guest_link_state_still_requests_down(void)
+{
+	assert(!wireless_guest_rollback_should_request_down(0, 0));
+	assert(wireless_guest_rollback_should_request_down(0, 1));
+	assert(wireless_guest_rollback_should_request_down(-EIO, 0));
+	assert(wireless_guest_rollback_should_request_down(-EACCES, 1));
+}
+
+static void
+test_ebtables_setup_failure_requires_rollback_of_enabled_guest_aps(void)
+{
+	assert(!wireless_guest_isolation_ebtables_rollback_required(0U, 0U, 1U));
+	assert(!wireless_guest_isolation_ebtables_rollback_required(0x11U, 2U, 2U));
+	assert(wireless_guest_isolation_ebtables_rollback_required(0x01U, 0U, 1U));
+	assert(wireless_guest_isolation_ebtables_rollback_required(0x10U, 3U, 4U));
+	assert(!wireless_guest_isolation_ebtables_rollback_required(0x11U, 4U, 3U));
+}
+
+static void
 test_startup_rollback_tracks_only_interfaces_started_here(void)
 {
 	assert(wireless_guest_startup_rollback_candidate(0, 1));
@@ -236,6 +255,8 @@ main(void)
 	test_fail_closed_rollback_attempts_every_step();
 	test_fail_closed_rollback_success_and_invalid_ops();
 	test_interface_flag_read_errors_are_not_reported_as_down();
+	test_unknown_guest_link_state_still_requests_down();
+	test_ebtables_setup_failure_requires_rollback_of_enabled_guest_aps();
 	test_startup_rollback_tracks_only_interfaces_started_here();
 	test_null_status_is_fail_safe();
 	puts("Wireless guest LAN isolation status aggregation: PASS");

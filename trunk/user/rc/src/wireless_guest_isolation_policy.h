@@ -101,6 +101,28 @@ wireless_guest_isolation_control_result(int changed,
 }
 
  
+/*
+ * UNKNOWN link state must not suppress the fail-closed down request. A later
+ * independent interface-state probe verifies whether the request took effect.
+ */
+static inline int
+wireless_guest_rollback_should_request_down(int state_status, int is_up)
+{
+	return state_status != 0 || is_up;
+}
+
+/*
+ * Ebtables publication is all-or-nothing for an enabled guest isolation
+ * policy. Any new setup failure requires taking the affected guest APs down.
+ */
+static inline int
+wireless_guest_isolation_ebtables_rollback_required(unsigned int isolation_mask,
+						     unsigned int failures_before,
+						     unsigned int failures_after)
+{
+	return isolation_mask != 0U && failures_after > failures_before;
+}
+
 /* Do not tear down a guest AP that was already active before startup. */
 static inline int
 wireless_guest_startup_rollback_candidate(int was_up_before, int startup_attempted)
