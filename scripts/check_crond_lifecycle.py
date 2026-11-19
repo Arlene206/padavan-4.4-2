@@ -55,6 +55,8 @@ def function_body(source, signature):
 services = read("trunk/user/rc/src/services.c")
 policy = read("trunk/user/rc/src/crond_daemon_policy.h")
 test = read("trunk/user/rc/src/tests/crond_daemon_policy.c")
+wait_policy = read("trunk/user/rc/src/service_wait_policy.h")
+wait_test = read("trunk/user/rc/src/tests/service_wait_policy.c")
 header = read("trunk/user/rc/src/rc.h")
 dispatcher = read("trunk/user/rc/src/rc.c")
 common = read("trunk/user/rc/src/common_ex.c")
@@ -72,12 +74,18 @@ assert "#define CROND_START_RETRY_WAIT_SECONDS 1" in policy
 assert "#define CROND_START_PROBE_ATTEMPTS 4" in policy
 assert '#include <process_inventory.h>' in policy
 assert "if (process_presence == PROCESS_PRESENCE_RUNNING)" in policy
-assert "return wait_status == 0 ? 0 : -1;" in policy
 assert "return -1;" in policy
 assert "return stop_status == 0;" in policy
 
 stop = function_body(services, "stop_crond(void)")
 assert "return kill_services(svcs, 3, 1);" in stop
+
+wait_helper = function_body(
+    services, "service_start_probe_wait(const char *service_name, unsigned int seconds)"
+)
+assert "service_wait_failure_status(status)" in wait_helper
+assert "errno = status;" not in wait_helper
+assert "return status;" not in wait_helper
 
 start = function_body(services, "start_crond(void)")
 assert 'if (nvram_invmatch("crond_enable", "1"))' in start
@@ -89,9 +97,7 @@ initial_wait = start.index(
     'service_start_probe_wait("crond", CROND_START_INITIAL_WAIT_SECONDS)'
 )
 initial_wait_failure = start.index("if (status != 0)", initial_wait)
-initial_wait_return = start.index(
-    "return crond_start_probe_wait_status(status);", initial_wait_failure
-)
+initial_wait_return = start.index("return status;", initial_wait_failure)
 assert start.index("launch_status = _eval(crond_argv") < initial_wait < initial_wait_failure < initial_wait_return < start.index("crond_process_presence(&scan_error)")
 assert "attempt < CROND_START_PROBE_ATTEMPTS" in start
 assert "attempt + 1 < CROND_START_PROBE_ATTEMPTS" in start
@@ -99,9 +105,7 @@ retry_wait = start.index(
     'service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS)'
 )
 retry_wait_failure = start.index("if (status != 0)", retry_wait)
-assert retry_wait_failure < start.index(
-    "return crond_start_probe_wait_status(status);", retry_wait_failure
-)
+assert retry_wait_failure < start.index("return status;", retry_wait_failure)
 presence_helper = function_body(services, "crond_process_presence(int *scan_error)")
 assert 'process_inventory_scan("crond", &snapshot)' in presence_helper
 assert "*scan_error = snapshot.error;" in presence_helper
@@ -187,11 +191,15 @@ assert "completion marker retained" in dispatcher
 for marker in (
     "test_launcher_failure_is_not_hidden",
     "test_detached_child_must_be_present",
-    "test_probe_wait_errors_use_rc_failure_convention",
     "test_restart_waits_for_complete_stop",
     "crond daemon startup and restart policy: PASS",
 ):
     assert marker in test, marker
+
+assert "service_wait_failure_status" in wait_policy
+assert "service_wait_failure_status(EACCES)" in wait_test
+assert "service_wait_failure_status(0)" in wait_test
+assert "service_wait_failure_status(-1)" in wait_test
 
 paths = (
     ".github/workflows/crond-lifecycle-stability.yml",

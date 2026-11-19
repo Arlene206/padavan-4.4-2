@@ -54,8 +54,7 @@ service_start_probe_wait(const char *service_name, unsigned int seconds)
 	status = errno > 0 ? errno : EIO;
 	logmessage(LOGNAME, "%s startup probe wait failed (errno=%d)",
 		   service_name, status);
-	errno = status;
-	return status;
+	return service_wait_failure_status(status);
 }
 
 static void
@@ -414,7 +413,7 @@ start_crond(void)
 
 	status = service_start_probe_wait("crond", CROND_START_INITIAL_WAIT_SECONDS);
 	if (status != 0)
-		return crond_start_probe_wait_status(status);
+		return status;
 	status = -1;
 	for (attempt = 0; attempt < CROND_START_PROBE_ATTEMPTS; attempt++) {
 		presence = crond_process_presence(&scan_error);
@@ -431,7 +430,7 @@ start_crond(void)
 		if (attempt + 1 < CROND_START_PROBE_ATTEMPTS) {
 			status = service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS);
 			if (status != 0)
-				return crond_start_probe_wait_status(status);
+				return status;
 		}
 	}
 

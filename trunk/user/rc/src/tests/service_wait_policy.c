@@ -36,6 +36,16 @@ main(void)
 	struct nanosleep_fixture fixture;
 	struct timespec invalid;
 
+	errno = 0;
+	assert(service_wait_failure_status(EACCES) == -1);
+	assert(errno == EACCES);
+	errno = 0;
+	assert(service_wait_failure_status(0) == -1);
+	assert(errno == EIO);
+	errno = 0;
+	assert(service_wait_failure_status(-1) == -1);
+	assert(errno == EIO);
+
 	memset(&fixture, 0, sizeof(fixture));
 	fixture.errors[0] = EINTR;
 	fixture.errors[1] = EINTR;

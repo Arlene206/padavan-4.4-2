@@ -46,6 +46,17 @@ service_wait_seconds(unsigned int seconds)
 	return service_wait_seconds_with(seconds, service_wait_sleep_real, NULL);
 }
 
+/*
+ * Probe waits are service-start prerequisites: preserve errno for diagnostics
+ * while returning the negative failure convention consumed by PID 1.
+ */
+static inline int
+service_wait_failure_status(int wait_errno)
+{
+	errno = wait_errno > 0 ? wait_errno : EIO;
+	return -1;
+}
+
 
 /*
  * nanosleep() reports an unslept remainder on EINTR. Retry that exact

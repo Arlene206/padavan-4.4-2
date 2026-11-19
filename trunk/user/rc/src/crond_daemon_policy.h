@@ -7,16 +7,6 @@
 #define CROND_START_RETRY_WAIT_SECONDS 1
 #define CROND_START_PROBE_ATTEMPTS 4
 
-/*
- * service_start_probe_wait() reports positive errno values. Normalize them
- * to the negative failure convention used by RC restart callers.
- */
-static inline int
-crond_start_probe_wait_status(int wait_status)
-{
-	return wait_status == 0 ? 0 : -1;
-}
-
 /* Normalize launcher and detached-child postcondition failures for RC. */
 static inline int
 crond_start_postcondition(int launcher_status,
