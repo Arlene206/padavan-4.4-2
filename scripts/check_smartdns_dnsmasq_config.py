@@ -203,7 +203,7 @@ for token in ("exclusive acquire, owner validation and release",
 services = (root / "trunk/user/rc/src/services.c").read_text()
 restart_signature = "int restart_smartdns(void){"
 assert services.count(restart_signature) == 1
-restart_wrapper = services.split(restart_signature, 1)[1].split("\\n}", 1)[0]
+restart_wrapper = services.split(restart_signature, 1)[1].split(chr(10) + "}", 1)[0]
 assert 'eval("/usr/bin/smartdns.sh","restart")' in restart_wrapper
 assert "stop_smartdns()" not in restart_wrapper
 assert 'if [ "$sdns_enable" != "1" ]; then' in smartdns
