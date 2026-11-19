@@ -419,7 +419,7 @@ if rules; then
 fi
 grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure fixture did not attempt route installation"
 [ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\nzero_route:add\ndel_rules\nzero_route:del')" ] || fail "static route failure did not roll back firewall and partial route state"
-[ "$(grep -c ' -A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
+[ "$(grep -cE '(^| )-A ' "$TEST_IPTABLES_LOG" || true)" -eq 5 ] || fail "static route failure fixture did not publish all firewall rules before route failure"
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_ROUTE_ADD_STATUS=0

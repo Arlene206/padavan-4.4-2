@@ -212,6 +212,8 @@ for token in ['graceful', '-9-exits', 'stuck', 'start_zero', 'stop_zero',
               'interface readiness', 'kernel route', 'single-space',
               'configured static route add failed', 'zero_route:add']:
     require(token in test, f"regression coverage missing {token}")
+require("grep -cE '(^| )-A '" in test,
+        "static-route rollback regression must count filter and NAT appends whose -A token occurs at different columns")
 
 paths = [
     '.github/workflows/zerotier-lifecycle.yml',

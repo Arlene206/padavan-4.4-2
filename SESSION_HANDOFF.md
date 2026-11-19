@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — repair ZeroTier route-test fixture
+# 2026-11-19 continuation checkpoint — correct ZeroTier firewall append counting
 
 # Cross-session execution mandate
 
@@ -37,23 +37,28 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - Commit `67a45de88cb4776cf464164a9d3784e8555e0546` validates static-route count/enable values, quotes route operands, returns nonzero on `ip route add` failure, and rolls back the already-published firewall and route state.
 - Exact WAN-route `44474852328`, process inventory `44474852420` and AI docs `44474852357` PASS. The exact-head ZeroTier run `44474852372` failed in the shell fixture before route assertions because the test's stubbed `start_instance()` never seeded `zt0`, while strict `set -u` made stop cleanup reference it. XY-C1 `44474852399` was IN_PROGRESS at last poll.
 
-## Active task — repair ZeroTier route-test fixture
+## Completed prior slice — seed ZeroTier fixture interface state
 
-- The lifecycle test sources production functions under `set -u`, but replaces `start_instance()` with a no-op stub. That stub bypasses the normal interface-discovery path that assigns `zt0`; a later stop-cleanup case with configured static routes therefore aborts with `zt0: parameter not set`.
-- Seed `zt0=ztunit` in the fixture to model the interface state established by successful startup, and assert that contract in `check_zerotier_lifecycle.py`. Production ZeroTier logic is unchanged in this test-only repair.
-- Exact-head ZeroTier, AI docs, process inventory and XY-C1 checks are pending after this commit. No local or physical-router test is claimed.
+- Commit `b2d3b94b4414d0dee4ba423791a9ad91ba175893` seeds `zt0=ztunit` because the test's `start_instance()` stub bypasses production interface discovery.
+- Exact AI docs `44475876921`, process inventory `44475876966`, WAN route `44475876871` and XY-C1 `44475877010` PASS. The exact ZeroTier run `44475876933` advances past the original nounset error but fails the final firewall count assertion: `grep -c ' -A '` misses the three filter append lines where `-A` is the first token.
+
+## Active task — count all ZeroTier filter and NAT append commands correctly
+
+- The route-failure regression expected five firewall appends after all rules were installed. Its grep pattern required a space before `-A`, which matched the two NAT commands (`-t nat -A`) but missed the three filter commands beginning with `-A INPUT/FORWARD`.
+- Replace it with a boundary-aware extended-regex pattern `(^| )-A `, which counts `-A` at the start of a command or after an option token. Pin the exact pattern in the Python source contract.
+- This is a test-only correction; the firewall and static-route production behavior is unchanged. Exact-head ZeroTier and docs/process checks are pending; XY-C1 passed on the prior b2 source SHA.
 
 ## Verification boundary
 
 - RStats L1/L2/L3 passed as recorded above; L4 not verified.
 - Radio status/policy checks are green on the exact SHAs above; XY-C1 build confirmation was still outstanding on the radio parent SHAs at the last poll.
-- ZeroTier firewall publication fix is committed on `3ffb25f6357535965f095eba2bfd45a813c96db8`; static-route add production fix is on `67a45de88cb4776cf464164a9d3784e8555e0546`. The exact 67a ZeroTier shell run `44474852372` failed from the unseeded fixture variable described above; this follow-up only repairs the fixture, with exact rerun pending. Parent XY-C1 `44474852399` was IN_PROGRESS at last poll. No MIPS firmware or L4 router result is claimed.
+- ZeroTier firewall publication fix is on `3ffb25f6357535965f095eba2bfd45a813c96db8`; static-route add production fix is on `67a45de88cb4776cf464164a9d3784e8555e0546`. The fixture seed `b2d3b94b4414d0dee4ba423791a9ad91ba175893` passed exact XY-C1 `44475877010`, AI docs `44475876921`, process inventory `44475876966` and WAN route `44475876871`; ZeroTier `44475876933` then exposed a grep count bug, now corrected in this test-only follow-up. No MIPS result beyond the exact XY-C1 artifact, and no L4 router result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head ZeroTier, process inventory, AI docs and XY-C1 runs for this fixture-only repair. Confirm the route-add failure injection and all existing lifecycle cases reach the test's final PASS line.
-2. Require XY-C1 Build, TRX verification and artifact upload before claiming L3 for the ZeroTier production-source SHA `67a45de88cb4776cf464164a9d3784e8555e0546`.
-3. Then continue the independent whole-device SD/MMC hotplug inventory hardening: `storage_partition_probe.h` ignores malformed/truncated `/proc/partitions` rows and stops scanning at the first partition match; add strict parser and GNU89 CI coverage.
+1. Inspect the exact ZeroTier run and AI docs/process inventory for this grep-count correction. Require the host regression to pass through its final summary and verify the production route-add rollback assertion executes.
+2. The exact XY-C1 run `44475877010` passed on the unchanged production source from b2; do not inherit it as a check on unrelated future production changes.
+3. Continue whole-device SD/MMC hotplug inventory hardening: `storage_partition_probe.h` ignores malformed/truncated `/proc/partitions` rows and stops scanning at the first partition match; implement strict parser and GNU89 CI coverage.
 
 ## Mandatory handoff checkpoint
 

@@ -1,3 +1,12 @@
+## 2026-11-19 — Count filter and NAT append tokens in ZeroTier rollback regression
+
+- Parent main SHA: `b2d3b94b4414d0dee4ba423791a9ad91ba175893`.
+- The exact ZeroTier run `44475876933` passed the earlier `zt0` fixture setup but failed the final five-rule assertion. The grep expression `' -A '` required a leading space and therefore counted only the two NAT commands; INPUT/FORWARD commands start with `-A` in column one.
+- Replace it with the POSIX extended-regex boundary `'(^| )-A '`, which matches both a command-leading `-A` and the NAT form after `-t nat`. Add a source-contract assertion so the regression cannot revert to the incomplete count.
+- Exact AI docs `44475876921`, process inventory `44475876966`, WAN route `44475876871` and XY-C1 `44475877010` PASS on parent b2; ZeroTier failed only at the count assertion after route failure handling. Exact rerun pending. Production ZeroTier code is unchanged.
+
+---
+
 ## 2026-11-19 — Seed the ZeroTier interface in the strict-nounset lifecycle fixture
 
 - Parent main SHA: `67a45de88cb4776cf464164a9d3784e8555e0546`; the fixture-only repair is based on current main `83b726a87e5948d38afee7885e050d82d2d03452`.

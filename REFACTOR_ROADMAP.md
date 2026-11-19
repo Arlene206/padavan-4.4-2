@@ -96,6 +96,8 @@
 
    - CI repair: ZeroTier lifecycle `44027996550` and Process lifecycle `44027996499` passed on `d2a41360`; the WAN route workflow had zero jobs due malformed pull_request path placement. The path-filter entries were moved inside `on.pull_request.paths` without altering production code. Continue after the exact-SHA rerun.
 3. **P1 — Extend lifecycle and rollback coverage across independent services.**
+   - ZeroTier route rollback regression: fixture seed `zt0=ztunit` is in `b2d3b94`, but exact ZeroTier `44475876933` then exposed a test grep pattern that counted NAT `-A` tokens but missed filter tokens at column 1. Follow-up uses `grep -cE '(^| )-A '` and statically pins it; exact rerun pending.
+
    - ZeroTier static-route add status: production failure propagation and firewall/route rollback are in `67a45de`; its exact-host run `44474852372` exposed a strict-nounset fixture omission (`zt0` was not seeded because `start_instance()` is stubbed). This follow-up repairs and statically guards the test fixture before closing that slice.
  Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.
 4. **P2 — Continue storage/configuration boundary hardening.** Inspect other privileged writers for predictable temp names, symlink substitution, unchecked file operations, and unsafe config interpolation; add host regressions where practical.
