@@ -1131,8 +1131,16 @@ jobs:
           assert "hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(" in lan_bound
           assert "hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);" in lan_publish
           assert "LAN lease applied but hostname files could not be published" in lan_publish
+          assert "watchdog_status = notify_watchdog_time();" in lan_bound
+          assert "watchdog time notification after lease update failed" in lan_bound
+          assert "monitor_status = notify_run_detect_internet(2);" in lan_bound
+          assert "Internet monitor notification after lease update failed" in lan_bound
+          assert lan_bound.index("status = lan_dhcp_nvram_state_publish(") < lan_bound.index("watchdog_status = notify_watchdog_time();")
+          assert lan_bound.index("watchdog_status = notify_watchdog_time();") < lan_bound.index("monitor_status = notify_run_detect_internet(2);")
+          assert lan_bound.index("monitor_status = notify_run_detect_internet(2);") < lan_bound.index("system(\"/usr/bin/iappd.sh restart\")")
           assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in lan_bound
           assert "return hosts_status;" not in lan_bound
+          assert "test_watchdog_and_monitor_notification_failures_are_ancillary" in lan_callback_test
           assert "return transaction_status;" in lan_callback_policy
           assert "(void)ancillary_status;" in lan_callback_policy
           assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in lan_callback_test

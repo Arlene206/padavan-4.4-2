@@ -16,6 +16,17 @@ test_successful_lease_commit_ignores_ancillary_refresh_failure(void)
 }
 
 static void
+test_watchdog_and_monitor_notification_failures_are_ancillary(void)
+{
+	/* The lease tuple and network transaction have committed before these
+	 * notifications. Their failures must be logged, not returned to BusyBox. */
+	assert(lan_dhcp_bound_callback_status(0, EIO) == 0);
+	assert(lan_dhcp_bound_callback_status(0, ETIMEDOUT) == 0);
+	assert(lan_dhcp_bound_callback_status(0, ENOBUFS) == 0);
+	assert(lan_dhcp_bound_callback_status(EIO, ETIMEDOUT) == EIO);
+}
+
+static void
 test_ap_same_value_renew_always_refreshes_hosts(void)
 {
 	assert(lan_dhcp_hosts_refresh_required(1, 1, 0) == 1);
@@ -37,6 +48,7 @@ int
 main(void)
 {
 	test_successful_lease_commit_ignores_ancillary_refresh_failure();
+	test_watchdog_and_monitor_notification_failures_are_ancillary();
 	test_ap_same_value_renew_always_refreshes_hosts();
 	test_transaction_failure_remains_fatal();
 	puts("LAN DHCP post-commit ancillary status and AP renewal fallback regression: PASS");

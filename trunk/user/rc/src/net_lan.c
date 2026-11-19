@@ -1867,6 +1867,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	int address_changed, apply_address, clear_address, apply_gateway;
 	int lease_dur = 0;
 	int status, rollback_status = 0, hosts_status = 0;
+	int watchdog_status, monitor_status;
 	int nvram_rollback_status = 0, network_rollback_status = 0;
 	int network_rollback_cleanup_status = 0, network_transaction_applied = 0;
 	int refresh_hosts;
@@ -2064,7 +2065,11 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 			lease_ip, lease_domain);
 
 	if (is_changed || !is_renew) {
-		(void)notify_watchdog_time();
+		watchdog_status = notify_watchdog_time();
+		if (watchdog_status != 0)
+			logmessage("DHCP LAN Client",
+				   "watchdog time notification after lease update failed on %s (status=%d)",
+				   lan_ifname, watchdog_status);
 
 #if defined(APP_SMBD)
 		/* update SMB fastpath owner address */
@@ -2072,7 +2077,11 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 #endif
 
 		/* di wakeup after 2 secs */
-		(void)notify_run_detect_internet(2);
+		monitor_status = notify_run_detect_internet(2);
+		if (monitor_status != 0)
+			logmessage("DHCP LAN Client",
+				   "Internet monitor notification after lease update failed on %s (status=%d)",
+				   lan_ifname, monitor_status);
 		{
 			int iappd_status = system("/usr/bin/iappd.sh restart");
 

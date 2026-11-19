@@ -1,3 +1,12 @@
+## 2026-11-19 — Log post-commit LAN DHCP watchdog/monitor failures
+
+- Main parent: `a1bbc3f87e892882abde51688f88b1cfe982f9b6`. In `udhcpc_lan_bound()`, watchdog-time and detect_internet notifications were cast to void after the LAN lease transaction and NVRAM publication had committed. Unlike host-file, IAPP and networkmap ancillary work, these failures had no diagnostic.
+- This change captures/logs both notification statuses, while leaving them out of the BusyBox callback result: once the router's address/route/resolver/NVRAM tuple is committed, a failed optional notification must not cause BusyBox to keep an old internal lease. Added explicit C policy cases for watchdog/monitor errors with successful and failed transaction status; WAN DHCP workflow now asserts order, logging and non-propagation.
+- Exact `a1bbc3f` AI docs `44554950244` and Process fail-closed `44554950348` PASS. AP LAN source L3 is separately verified on `908fee5` / XY-C1 `44552799621`; ZeroTier L3 on `a834edb` / `44544667515`.
+- No local test/compile or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-19 — Update duplicate Process LAN teardown contract
 
 - Main parent: `82153dbc2fb46c48e85f7f88f2466c5845a4c152`. Process fail-closed run `44554200782` failed at line 3059 of `scripts/check_process_lifecycle_integration.py`: a second copy of the old LAN teardown return assertion still omitted `monitor_resume_status`. The first copy had already been updated and passed. This commit fixes only the stale duplicate.

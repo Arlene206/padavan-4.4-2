@@ -4,9 +4,10 @@
 /*
  * BusyBox commits its internal DHCP lease only when the bound/renew script
  * exits successfully. The address, route, resolver and NVRAM transaction
- * has already committed before ancillary host, IAPP and networkmap refreshes
- * run. Failures of those optional follow-up operations are logged by the caller,
- * but must not make BusyBox retain an old lease while the router uses the new one.
+ * has already committed before ancillary host, watchdog, Internet-monitor,
+ * IAPP and networkmap refreshes run. Failures of those optional follow-up
+ * operations are logged by the caller, but must not make BusyBox retain an old
+ * lease while the router uses the new one.
  */
 /* Refresh AP host files on every RENEW. This periodic fallback guarantees a
  * later retry even when the NVRAM marker and PID 1 queue are unavailable. */

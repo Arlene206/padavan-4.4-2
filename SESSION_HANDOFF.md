@@ -10,13 +10,23 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Live main before this duplicate-contract repair: `82153dbc2fb46c48e85f7f88f2466c5845a4c152`.
+- Live main before this new DHCP ancillary-diagnostic slice: `a1bbc3f87e892882abde51688f88b1cfe982f9b6`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- AP-mode LAN teardown source `b735ea82c111be67854b4dae33ba3a5a64fe2416` captures/logs both Internet-monitor resume failures while preserving the original DHCP stop/bridge-down failure. Exact XY-C1 run `44552799621` on `908fee5` passed Build XY-C1, TRX verification and artifact upload (L3 for the AP LAN source).
-- Exact `82153dbc` results: AI docs `44554201629` PASS; WAN route `44554200970` PASS. Process fail-closed `44554200782` failed only because a second duplicated contract in `scripts/check_process_lifecycle_integration.py` (line 3059) still expected the old LAN teardown aggregate without `monitor_resume_status`; the earlier copy of the same contract already passed after its update. This commit updates the remaining duplicate.
-- ZeroTier previous product SHA `a834edbad9ba5a168768a882c766607065fb7708` remains L3-verified on XY-C1 `44544667515`. No physical-router L4 or local checkout/toolchain.
+- Exact `a1bbc3f` AI handoff run `44554950244` PASS and Process fail-closed run `44554950348` PASS, closing the final duplicated LAN teardown source contract.
+- AP-mode LAN teardown production fix `b735ea82c111be67854b4dae33ba3a5a64fe2416` is L3 VERIFIED by exact XY-C1 run `44552799621` on `908fee5` (Build, TRX verification, artifact upload all PASS).
+- ZeroTier stale firewall replay source `a834edbad9ba5a168768a882c766607065fb7708` remains L3 VERIFIED by exact XY-C1 run `44544667515`.
+- No local checkout/toolchain is available in this connector-only environment; no local test/compile is claimed. Physical-router L4 remains NOT VERIFIED.
 
 ## Latest active source slices — 2026-11-19
+
+## Completed slice — capture post-commit DHCP ancillary notification errors
+
+- In `udhcpc_lan_bound()`, the watchdog time and Internet-monitor notifications run only after the address/route/resolver and volatile NVRAM lease transaction has committed. Their previous `(void)` calls discarded failures without diagnostics, unlike adjacent host-file, IAPP and networkmap refreshes.
+- This commit captures and logs each notification failure. It intentionally does NOT return these ancillary errors to BusyBox: the router already uses the committed lease, so a nonzero bound callback here could make BusyBox retain an old internal lease inconsistent with the live network.
+- `tests/lan_dhcp_callback_policy.c` now pins that watchdog/monitor notification failures remain ancillary while transaction failures stay fatal. The WAN DHCP callback workflow checks call ordering, diagnostic messages and that the callback still returns only transaction/host-refresh policy status.
+- Exact SHA verification is required after this commit; no local compiler/test runner is available.
+
+
 
 ### USB modem eject — preserve WAN reconnect failure
 
@@ -149,16 +159,17 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Continue on `main` only; keep backup `72f4f157a084f8184b9597ca5bf334b8080e5807` immutable.
-- The AP LAN monitor-resume source slice is L3 VERIFIED: exact XY-C1 run `44552799621` passed Build, TRX verification and artifact upload on `908fee5`, which includes production source commit `b735ea8`.
-- Remaining CI issue on `82153dbc` is a duplicate source-contract assertion in Process lifecycle checker, not a runtime/test compilation failure. The primary WAN route and docs Actions on that SHA passed. This commit updates the second copy; exact Process run is required.
-- No local build or physical-router L4 is claimed.
+- Continue on `main` only; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` is immutable.
+- Just completed: AP-mode `stop_lan()` monitor-resume failure reporting; its product source is L3 verified by XY-C1 `44552799621` on `908fee5`.
+- Current slice: post-commit LAN DHCP bound callback now captures/logs watchdog and Internet-monitor notification errors without propagating them to BusyBox after the lease transaction has committed. The focused C policy regression and exact WAN DHCP workflow source contract are included in the same atomic change.
+- Prior exact head `a1bbc3f` AI docs `44554950244` and Process fail-closed `44554950348` PASS. ZeroTier product L3 is recorded at `a834edb` / `44544667515`.
+- No local checkout/toolchain or physical router; do not claim local execution or L4.
 
 ## Exact first action for the next GPT
 
-1. Verify exact-head Process fail-closed and AI handoff Actions for the next main SHA. Ensure both duplicated LAN teardown assertions expect the aggregate including `monitor_resume_status`.
-2. The AP LAN production source has Build/TRX/artifact L3 PASS on `44552799621`; retain that evidence and do not repeat the build unless production inputs change.
-3. Continue with a distinct stability/security bug outside this AP LAN teardown slice, using main-only atomic commits and exact-SHA Actions.
+1. Inspect exact-head WAN DHCP callback stability and AI handoff Actions for this new commit; fix only real failures at that SHA.
+2. If PASS, continue with a separate concrete cross-userland stability/security issue; do not repeat AP-LAN resume or DHCP ancillary audit.
+3. Maintain Build/TRX/artifact and physical-router L4 as separate verification labels. AP LAN source L3 currently passes on `908fee5`; a future source-input-changing commit needs its own XY-C1 build.
 
 ## Mandatory handoff checkpoint
 

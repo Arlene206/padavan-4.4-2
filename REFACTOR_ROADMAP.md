@@ -1,8 +1,8 @@
 # 2026-11-19 source checkpoint
-- Parent for this checker correction: `82153dbc2fb46c48e85f7f88f2466c5845a4c152`.
-- AP-mode LAN source `b735ea8` has exact XY-C1 L3 PASS: run `44552799621` on `908fee5` passed Build XY-C1, TRX verification and artifact upload.
-- Exact `82153dbc` AI docs `44554201629` and WAN route `44554200970` PASS. Process fail-closed `44554200782` failed at a duplicate second assertion (line 3059) in `scripts/check_process_lifecycle_integration.py` that still expected the previous compact stop_lan return. The first copy at line 2128 already expects `monitor_resume_status`; this commit updates the remaining copy only.
-- Re-run exact Process lifecycle and AI docs on the new SHA. No physical-router L4.
+- Baseline parent for the new DHCP callback ancillary-diagnostics slice: `a1bbc3f87e892882abde51688f88b1cfe982f9b6`.
+- Exact `a1bbc3f` AI handoff `44554950244` and Process fail-closed `44554950348` PASS; both duplicated AP LAN teardown contracts are closed.
+- New source change captures/logs failed watchdog and Internet-monitor notifications in `udhcpc_lan_bound()` after the lease transaction is committed. These optional notifications remain non-fatal to BusyBox's lease callback to avoid an internal DHCP lease diverging from the network's already-committed address/route/resolver/NVRAM state. Regression pins that policy and checker ordering.
+- AP LAN source L3: exact XY-C1 `44552799621` on `908fee5` passed Build, TRX verification and artifact upload. ZeroTier L3: `a834edb` / `44544667515`. This new DHCP slice changes firmware source and requires exact-head XY-C1 review before claiming L3. Physical-router L4 NOT VERIFIED.
 
 ## CI trigger governance — current policy
 
