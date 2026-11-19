@@ -1436,6 +1436,7 @@ launch_viptv_wan(void)
 	/* case3: CPU Internet tagged: y, CPU IPTV tagged: y (different VID) */
 	/* case4: CPU Internet tagged: n, CPU IPTV tagged: y (different VID) */
 	/* case5: CPU Internet tagged: y, CPU IPTV tagged: n */
+	/* VLAN interface for IPTV */
 	snprintf(viptv_ifname, sizeof(viptv_ifname), "%s.%d", ifname_wan_cpu, vlan_vid[1]);
 
 	/* Remove a no-longer-used VLAN and its stale publication before replacement. */
