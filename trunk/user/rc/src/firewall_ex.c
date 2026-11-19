@@ -2751,6 +2751,15 @@ ipt_nat_default(void)
 
 	is_nat_enabled = nvram_match("wan_nat_x", "1");
 
+	/* Never publish a baseline NAT table derived from a malformed LAN mask. */
+	if (is_nat_enabled &&
+	    firewall_ipv4_address_is_safe(nvram_safe_get("lan_ipaddr")) &&
+	    !firewall_ipv4_netmask_is_safe(nvram_safe_get("lan_netmask"))) {
+		logmessage(LOGNAME, "Invalid LAN IPv4 netmask for default NAT; refusing restore");
+		errno = EINVAL;
+		return EINVAL;
+	}
+
 	if (!(fp=firewall_open_rule_file(ipt_file, "IPv4 default NAT")))
 		return -1;
 
@@ -2799,6 +2808,7 @@ start_firewall_ex_locked(void)
 	char wan_if[16], man_if[16], lan_if[16];
 	const char *man_if_value, *wan_if_value;
 	char wan_ip[16], man_ip[16], lan_ip[16], lan_net[24] = {0};
+	const char *lan_netmask;
 	const char *opt_iptables_script = "/opt/bin/update_iptables.sh";
 	const char *int_iptables_script = SCRIPT_POST_FIREWALL;
 #if defined (APP_SHADOWSOCKS)
@@ -2877,7 +2887,13 @@ start_firewall_ex_locked(void)
 	snprintf(man_ip, sizeof(man_ip), "%s", nvram_safe_get("wanx_ipaddr"));
 	snprintf(wan_ip, sizeof(wan_ip), "%s", get_wan_unit_value(unit, "ipaddr"));
 
-	ip2class(lan_ip, nvram_safe_get("lan_netmask"), lan_net, sizeof(lan_net));
+	lan_netmask = nvram_safe_get("lan_netmask");
+	if (!firewall_ipv4_netmask_is_safe(lan_netmask)) {
+		logmessage(LOGNAME, "Invalid LAN IPv4 netmask for firewall; refusing rebuild");
+		errno = EINVAL;
+		return EINVAL;
+	}
+	ip2class(lan_ip, lan_netmask, lan_net, sizeof(lan_net));
 
 	wan_proto = get_wan_proto(unit);
 	i_tcp_mss = is_need_tcp_mss_wan(unit, wan_proto, man_if);

@@ -1,3 +1,12 @@
+## 2026-11-19 — Reject malformed LAN netmasks before firewall subnet derivation
+
+- `ip2class()` counts set bits instead of validating an IPv4 netmask. A non-contiguous mask such as `255.0.255.0` was silently converted to an incorrect prefix, while malformed text could be interpreted as `/32`; NAT-loopback and later firewall rules could therefore target the wrong LAN subnet.
+- Added strict dotted-IPv4 and contiguous-prefix validation. `start_firewall_ex_locked()` now refuses to rebuild before deriving `lan_net`; `ipt_nat_default()` also refuses to replace the baseline NAT table when an active LAN address has an invalid mask.
+- Extended the existing GNU89 firewall filter-policy regression and firewall workflow source-order contract. The isolated policy logic passed local `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` tests for valid prefixes, zero, non-contiguous, malformed and injected values. Exact-head Actions and XY-C1 results for the integrated change are pending.
+- Exact parent SHA: `39c3db7ba0c4c1ec396a00b619e2c4c69993cc56`. No target MIPS build or physical-router behavior is claimed.
+
+---
+
 ## 2026-11-19 — Repair the service-wait EINTR regression fixture
 
 - Exact job logs for `437c7b2` showed that NFS run `44633888395` and Samba run `44633888489` both stopped compiling `tests/service_wait_policy.c`: the seconds-sleep storm test referenced an undeclared `fixture_sleep` and incorrectly reused the nanosleep fixture type.

@@ -29,6 +29,21 @@ main(void)
 	assert(!firewall_ipv4_address_is_safe("192.168.1"));
 	assert(!firewall_ipv4_address_is_safe("192.168.1.1\rCOMMIT"));
 
+	/* test_ipv4_netmask_contiguity: reject invalid and non-contiguous subnet masks. */
+	assert(firewall_ipv4_netmask_is_safe("255.255.255.0"));
+	assert(firewall_ipv4_netmask_is_safe("255.255.0.0"));
+	assert(firewall_ipv4_netmask_is_safe("255.0.0.0"));
+	assert(firewall_ipv4_netmask_is_safe("128.0.0.0"));
+	assert(firewall_ipv4_netmask_is_safe("255.255.255.254"));
+	assert(firewall_ipv4_netmask_is_safe("255.255.255.255"));
+	assert(!firewall_ipv4_netmask_is_safe(NULL));
+	assert(!firewall_ipv4_netmask_is_safe(""));
+	assert(!firewall_ipv4_netmask_is_safe("0.0.0.0"));
+	assert(!firewall_ipv4_netmask_is_safe("255.0.255.0"));
+	assert(!firewall_ipv4_netmask_is_safe("255.255.255.1"));
+	assert(!firewall_ipv4_netmask_is_safe("255.255.255.256"));
+	assert(!firewall_ipv4_netmask_is_safe("255.255.255.0\nCOMMIT"));
+
 	/* Interface strings are written as raw iptables-restore tokens. */
 	assert(firewall_interface_name_is_safe("br0"));
 	assert(firewall_interface_name_is_safe("eth2.2"));

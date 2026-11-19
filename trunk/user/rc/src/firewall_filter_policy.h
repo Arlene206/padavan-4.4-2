@@ -2,6 +2,7 @@
 #define PADAVAN_FIREWALL_FILTER_POLICY_H
 
 #include <arpa/inet.h>
+#include <stdint.h>
 #include <string.h>
 #include "firewall_ppp_interface_policy.h"
 
@@ -12,6 +13,25 @@ firewall_ipv4_address_is_safe(const char *value)
 	struct in_addr address;
 
 	return value && inet_pton(AF_INET, value, &address) == 1;
+}
+
+/*
+ * A LAN netmask must be a nonzero, contiguous IPv4 prefix. ip2class()
+ * derives a CIDR length by counting set bits, which otherwise misreads
+ * non-contiguous masks and treats malformed strings as /32.
+ */
+static int
+firewall_ipv4_netmask_is_safe(const char *value)
+{
+	struct in_addr mask;
+	uint32_t host_mask;
+
+	if (!value || inet_pton(AF_INET, value, &mask) != 1)
+		return 0;
+
+	host_mask = ntohl(mask.s_addr);
+	return host_mask != 0U &&
+	       (host_mask | (host_mask - 1U)) == UINT32_MAX;
 }
 
 /* Interface names become bare -i/-o tokens in iptables-restore files.
