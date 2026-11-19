@@ -1,6 +1,6 @@
 # 2026-11-19 continuation checkpoint — strict WAN gateway ARP reply identity
 
-## Cross-session execution mandate
+## Execution policy
 
 Continue main-only implementation across conversations. Recover the exact live source and CI state once, then resume the concrete engineering task. Do not repeat completed audits, create status-only commits, or stop at planning.
 
