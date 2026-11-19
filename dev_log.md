@@ -1,3 +1,11 @@
+## 2026-11-19 — Align ZeroTier cleanup-state source contract with conditional state save
+
+- Exact ZeroTier run `44521726781` on `841b2e83926b4407a5e2c9a624921b5d633b4fd6` passed the complete shell lifecycle regression; the source checker then failed at its stop-order contract.
+- The checker required the literal `if ! zerotier_firewall_state_save; then`, but the implementation correctly saves only when a valid interface identity is available: `if [ -n "$zt0" ] && ! zerotier_firewall_state_save; then`. The source contract now pins that conditional form and still enforces state-save-before-kill-before-firewall-cleanup-before-route-cleanup.
+- This is a stale checker assertion, not a source-order defect. Exact-head ZeroTier/Process/XY validation remains pending. RStats source SHA `3523bb9` has already passed both exact RStats host run `44519760957` and XY-C1 Build/TRX/artifact run `44519760903`.
+
+---
+
 ## 2026-11-19 — Close the remaining ZeroTier checker string literal
 
 - Exact ZeroTier run `44521351924` on `714a4eaa2f645887ff6a199562c06fbb3d76f73a` passed the shell lifecycle regression but failed when Python parsed `scripts/check_zerotier_lifecycle.py`: line 223 still lacked the closing double quote before `in test`.

@@ -144,8 +144,8 @@ require(del_rules_body.count('zerotier_delete_firewall_rule') == 5 and
 require('if ! del_rules; then' in rules_section and
         rules_section.index('if ! del_rules; then') < rules_section.index('zerotier_add_firewall_rule -A INPUT'),
         "new firewall rules must not publish when stale-rule cleanup is unverified")
-require('if ! zerotier_firewall_state_save; then' in stop_body and
-        stop_body.index('if ! zerotier_firewall_state_save; then') < stop_body.index('if ! kill_z; then') <
+require('if [ -n "$zt0" ] && ! zerotier_firewall_state_save; then' in stop_body and
+        stop_body.index('if [ -n "$zt0" ] && ! zerotier_firewall_state_save; then') < stop_body.index('if ! kill_z; then') <
         stop_body.index('if ! del_rules; then') < stop_body.index('if ! zero_route "del"; then'),
         "stop must persist cleanup identity first and preserve config/routes until checked firewall deletion succeeds")
 
