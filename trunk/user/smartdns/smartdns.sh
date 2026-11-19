@@ -17,11 +17,16 @@ if [ ! -r "$smartdns_dnsmasq_config_lib" ]; then
     exit 1
 fi
 . "$smartdns_dnsmasq_config_lib"
+smartdns_config_file_lib="/usr/bin/smartdns_config_file.sh"
+if [ ! -r "$smartdns_config_file_lib" ]; then
+    echo "SmartDNS atomic config helper is missing: $smartdns_config_file_lib" >&2
+    exit 1
+fi
+. "$smartdns_config_file_lib"
 storage_Path="/etc/storage"
 smartdns_Bin="/usr/bin/smartdns"
 smartdns_Ini="$storage_Path/smartdns_conf.ini"
 smartdns_Conf="$storage_Path/smartdns.conf"
-smartdns_tmp_Conf="$storage_Path/smartdns_tmp.conf"
 smartdns_address_Conf="$storage_Path/smartdns_address.conf"
 smartdns_blacklist_Conf="$storage_Path/smartdns_blacklist-ip.conf"
 smartdns_whitelist_Conf="$storage_Path/smartdns_whitelist-ip.conf"
@@ -703,14 +708,54 @@ Start_smartdns () {
     args=""
     logger -t "SmartDNS" "SmartDNS 创建配置文件..."
     ipset -N smartdns hash:net >/dev/null
-    Get_sdns_conf
-    grep -v '^#' $smartdns_address_Conf | grep -v "^$" >> "$smartdns_tmp_Conf"
-    grep -v '^#' $smartdns_blacklist_Conf | grep -v "^$" >> "$smartdns_tmp_Conf"
-    grep -v '^#' $smartdns_whitelist_Conf | grep -v "^$" >> "$smartdns_tmp_Conf"
-    grep -v '^#' $smartdns_custom_Conf | grep -v "^$" >> "$smartdns_tmp_Conf"
-    sed -i '/my.router/d' "$smartdns_tmp_Conf"
-    echo "domain-rules " "/my.router/ -c none -a $IPS4 -d no" >> "$smartdns_tmp_Conf"
-    awk '!x[$0]++' "$smartdns_tmp_Conf" > "$smartdns_Conf"
+    smartdns_tmp_Conf=$(mktemp "${smartdns_Conf}.input.XXXXXX") || {
+        logger -t "SmartDNS" "无法创建 SmartDNS 配置 staging 文件"
+        return 1
+    }
+    if Get_sdns_conf; then
+        :
+    else
+        smartdns_config_status=$?
+        rm -f "$smartdns_tmp_Conf"
+        logger -t "SmartDNS" "SmartDNS 配置生成失败 (status=$smartdns_config_status)"
+        return "$smartdns_config_status"
+    fi
+    grep -v '^#' "$smartdns_address_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
+    grep -v '^#' "$smartdns_blacklist_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
+    grep -v '^#' "$smartdns_whitelist_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
+    grep -v '^#' "$smartdns_custom_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
+    if sed -i '/my.router/d' "$smartdns_tmp_Conf"; then
+        :
+    else
+        smartdns_config_status=$?
+        rm -f "$smartdns_tmp_Conf"
+        logger -t "SmartDNS" "SmartDNS 配置规范化失败 (status=$smartdns_config_status)"
+        return "$smartdns_config_status"
+    fi
+    if echo "domain-rules " "/my.router/ -c none -a $IPS4 -d no" >> "$smartdns_tmp_Conf"; then
+        :
+    else
+        smartdns_config_status=$?
+        rm -f "$smartdns_tmp_Conf"
+        logger -t "SmartDNS" "SmartDNS 配置写入失败 (status=$smartdns_config_status)"
+        return "$smartdns_config_status"
+    fi
+    if smartdns_config_publish_deduplicated "$smartdns_tmp_Conf" "$smartdns_Conf"; then
+        :
+    else
+        smartdns_config_status=$?
+        rm -f "$smartdns_tmp_Conf"
+        logger -t "SmartDNS" "SmartDNS 配置原子发布失败 (status=$smartdns_config_status)"
+        nvram set sdns_enable=0
+        sdns_enable=0
+        Stop_smartdns
+        smartdns_cleanup_status=$?
+        if [ "$smartdns_cleanup_status" -ne 0 ]; then
+            logger -t "SmartDNS" "配置发布失败后的 DNSMasq 回滚未完成 (status=$smartdns_cleanup_status)"
+            return "$smartdns_cleanup_status"
+        fi
+        return "$smartdns_config_status"
+    fi
     rm -f "$smartdns_tmp_Conf"
     if [ "$sdns_coredump" = "1" ] ; then
         args="$args -S"

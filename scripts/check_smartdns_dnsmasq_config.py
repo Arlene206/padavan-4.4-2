@@ -120,6 +120,8 @@ for token in ("managed-block publication is atomic and preserves same-valued use
 paths = (
     "trunk/user/smartdns/smartdns.sh",
     "trunk/user/smartdns/smartdns_dnsmasq_config.sh",
+    "trunk/user/smartdns/smartdns_config_file.sh",
+    "trunk/user/smartdns/tests/smartdns_config_file.sh",
     "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",
     "trunk/user/smartdns/Makefile",
     "trunk/user/scripts/files/usr/bin/autostart.sh",
@@ -134,4 +136,26 @@ for path in paths:
 assert "trunk/user/smartdns/**" in xy
 assert "dnsmasq_config_preservation.sh" in workflow
 assert "check_smartdns_dnsmasq_config.py" in workflow
-print("SmartDNS saved DNSMasq state and marked-block contract: PASS")
+config_file = (root / "trunk/user/smartdns/smartdns_config_file.sh").read_text()
+config_file_test = (root / "trunk/user/smartdns/tests/smartdns_config_file.sh").read_text()
+config_publish = body(config_file, "smartdns_config_publish_deduplicated")
+for token in ('[ ! -f "$_smartdns_source" ]',
+              '[ -L "$_smartdns_destination" ]',
+              'mktemp "${_smartdns_destination}.tmp.XXXXXX"',
+              'awk \'!seen[$0]++\' "$_smartdns_source" > "$_smartdns_stage"',
+              'chmod 0644 "$_smartdns_stage"',
+              'mv -f "$_smartdns_stage" "$_smartdns_destination"'):
+    assert token in config_publish, token
+assert '. "$smartdns_config_file_lib"' in smartdns
+assert 'smartdns_config_file_lib="/usr/bin/smartdns_config_file.sh"' in smartdns
+assert 'smartdns_tmp_Conf=$(mktemp "${smartdns_Conf}.input.XXXXXX")' in start
+assert 'smartdns_config_publish_deduplicated "$smartdns_tmp_Conf" "$smartdns_Conf"' in start
+assert 'awk \'!x[$0]++\' "$smartdns_tmp_Conf" > "$smartdns_Conf"' not in start
+assert 'Stop_smartdns' in start and '配置发布失败后的 DNSMasq 回滚未完成' in start
+assert '$(INSTALL_BIN) ./smartdns_config_file.sh $(ROMFSDIR)/usr/bin/smartdns_config_file.sh' in makefile
+for token in ("generator failure preserves last-good config",
+              "rename failure preserves last-good config",
+              "symlink, special-file and missing-source targets fail closed",
+              "SmartDNS atomic configuration publication regression: PASS"):
+    assert token in config_file_test, token
+print("SmartDNS saved DNSMasq state, marked-block and atomic SmartDNS-config publication contracts: PASS")

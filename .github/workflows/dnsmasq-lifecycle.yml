@@ -44,6 +44,8 @@ on:
       - "trunk/user/rc/src/rc_notify_batch_policy.h"
       - "trunk/user/smartdns/smartdns.sh"
       - "trunk/user/smartdns/smartdns_dnsmasq_config.sh"
+      - "trunk/user/smartdns/smartdns_config_file.sh"
+      - "trunk/user/smartdns/tests/smartdns_config_file.sh"
       - "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh"
       - "trunk/user/smartdns/Makefile"
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
@@ -90,6 +92,8 @@ on:
       - ".github/workflows/inadyn-lifecycle-stability.yml"
       - "trunk/user/smartdns/smartdns.sh"
       - "trunk/user/smartdns/smartdns_dnsmasq_config.sh"
+      - "trunk/user/smartdns/smartdns_config_file.sh"
+      - "trunk/user/smartdns/tests/smartdns_config_file.sh"
       - "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh"
       - "trunk/user/smartdns/Makefile"
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
@@ -108,8 +112,11 @@ jobs:
         run: |
           set -eu
           sh -n trunk/user/smartdns/smartdns_dnsmasq_config.sh
+          sh -n trunk/user/smartdns/smartdns_config_file.sh
           sh -n trunk/user/smartdns/tests/dnsmasq_config_preservation.sh
+          sh -n trunk/user/smartdns/tests/smartdns_config_file.sh
           sh trunk/user/smartdns/tests/dnsmasq_config_preservation.sh
+          sh trunk/user/smartdns/tests/smartdns_config_file.sh
           python3 scripts/check_smartdns_dnsmasq_config.py
       - name: Compile and run DNSMasq staged-file cleanup regression
         run: |
