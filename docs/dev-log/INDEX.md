@@ -24,6 +24,7 @@
 | `docs/dev-log/2026/11/part-015.md` | 100 | 2026-11-17 — AliDDNS WAN IPv6 source correction → 2026-11-17 — Align HTTPD's duplicate storage check with tri-state hotplug topology | 111870 | `f3f0f8caa4ebe40e7500ad7f29a38b3cae2e7167` |
 | `docs/dev-log/2026/11/part-016.md` | 100 | 2026-11-17 — Restore process workflow pull_request YAML nesting → 2026-11-17 — Stop MSD Lite during WAN teardown | 105054 | `21834b5077a752e54020339944937c5e0887c411` |
 | `docs/dev-log/2026/11/part-017.md` | 101 | 2026-11-17 — Keep the common WAN checker out of redundant XY-C1 trigger fan-out → 2026-11-19 — Reject the remaining IANA-reserved IPv6 GUA ranges in AliDDNS | 121900 | `b05af15814dcbc355a8d13dcff0762ea874567f4` |
+| `docs/dev-log/2026/11/part-018.md` | 101 | 2026-11-19 — Serialize Inadyn stop/start and configuration notifications → 2026-11-19 09:20 EST — Correct the committed AI handoff checkpoint contract | 123512 | `7c69f94c23df8035a0d8d3cdf357c54bc80c2be8` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
@@ -85,3 +86,5 @@
 - **Rolling-window continuation:** 100 oldest complete records evicted when root `dev_log.md` contained 120 records at parent main `6330828fca8a4d6f091e07e468732f40991e0909` are preserved verbatim, oldest first, in `part-016.md`; pre-rotation root blob: `046bd6f0898aa233527607e0b6f23b83a48ed91c`. Root retains the newest 20 pre-existing complete records before the next entry is added.
 
 - **Rolling-window catch-up:** 101 oldest complete records evicted from root dev_log.md at parent main 1f0f765cc24d9db43823af5bfdaffe10bacdd2d1 are preserved verbatim, oldest first, in part-017.md; pre-rotation root blob: b1ae258460fce3239fdddde39848c2ab8f06549d. Root had reached 121 records (one beyond the 120-record threshold), so this catch-up batch removes one additional oldest record to restore exactly the newest 20. No record was rewritten or discarded.
+
+- **Rolling-window catch-up:** 101 oldest complete records evicted from root `dev_log.md` at parent main `f4fbd093e934fda5304aa796cba30d59eb29b3a4` are preserved verbatim, oldest first, in `part-018.md`; pre-rotation root blob: `9525b05ab8d82a37f5108c603d06614d06adb11a`. Root retains the newest 20 pre-existing records plus the new documentation milestone.
