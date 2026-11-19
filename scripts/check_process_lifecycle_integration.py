@@ -856,10 +856,15 @@ assert "if (stop_status != 0)" in modem_remove
 assert modem_remove.index("return stop_status;") < modem_remove.index("set_usb_modem_dev_wan(0, 0)")
 assert "return 0;" in modem_remove
 
-usb_remove = usb_services.split("void\nsafe_remove_usb_device(int port, const char *dev_name)", 1)[1].split("\n}\n", 1)[0]
+usb_remove = usb_services.split("int\nsafe_remove_usb_device(int port, const char *dev_name)", 1)[1].split("\n}\n", 1)[0]
+assert "storage_hotplug_parse_decimal_token(dev_name, 1, INT_MAX" in usb_remove
+assert "if (!has_modem_port || !get_usb_modem_dev_wan(0, modem_devnum))" in usb_remove
 assert "modem_remove_status = safe_remove_usb_modem();" in usb_remove
-assert "if (modem_remove_status == 0)" in usb_remove
-assert usb_remove.index("if (modem_remove_status == 0)") < usb_remove.index("try_wan_reconnect(0, 0)")
+assert "if (modem_remove_status != 0)" in usb_remove
+assert usb_remove.index("if (modem_remove_status != 0)") < usb_remove.index("return -1;")
+assert usb_remove.index("return -1;") < usb_remove.index("try_wan_reconnect(0, 0)")
+assert "return safe_remove_stor_device(port, port, dev_name, 1);" in usb_remove
+assert "return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, NULL, 1);" in usb_remove
 assert "skipping WAN reconnect after incomplete USB modem removal" in usb_remove
 
 usbnet_stop_pos = wan_stop.index("stop_status = stop_wan_usbnet();")
