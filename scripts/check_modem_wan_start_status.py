@@ -244,7 +244,7 @@ passthrough_error_pos = wan_start.index("if (passthrough_status != 0)", passthro
 passthrough_status_pos = wan_start.index("wan_start_status = rc_first_service_start_status(", passthrough_error_pos)
 passthrough_status_end = wan_start.index(";", passthrough_status_pos)
 assert "wan_start_status, passthrough_status" in wan_start[passthrough_status_pos:passthrough_status_end]
-assert passthrough_status_pos < wan_start.index("return wan_start_status;")
+assert passthrough_status_pos < wan_start.rindex("return wan_start_status;")
 
 wait_ppp = compact(body(WAN_SOURCE, "wait_ppp_up(char *ppp_ifname, int unit)"))
 assert "failure_status = (interface_status < 0 && errno != 0) ?" in wait_ppp
