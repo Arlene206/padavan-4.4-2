@@ -43,6 +43,9 @@
 #include "ppp_wan_ipup_policy.h"
 #include <process_inventory.h>
 #include "xl2tpd_start_policy.h"
+#if defined (APP_RPL2TP)
+#include "l2tp_config_file.h"
+#endif
 
 #define PPP_WAN_SESSION_STATE_FILE "/tmp/ppp/wan-session.state"
 #define PPP_WAN_SESSION_LOCK_ATTEMPTS 500
@@ -505,29 +508,21 @@ safe_start_xl2tpd(void)
 }
 
 #if defined (APP_RPL2TP)
+struct rpl2tp_config_values {
+	const char *options;
+	const char *peer;
+};
+
 static int
-start_rpl2tp(int unit)
+rpl2tp_config_write(FILE *fp, void *opaque)
 {
-	FILE *fp;
-	char options[64], peer[256];
-	int status, saved_errno;
-	const char *l2tp_conf = "/etc/l2tp/l2tp.conf";
+	const struct rpl2tp_config_values *config =
+		(const struct rpl2tp_config_values *)opaque;
 
-	if (ppp_config_line_value_copy(get_wan_ppp_peer(unit), peer, sizeof(peer)) != 0) {
-		saved_errno = errno ? errno : EINVAL;
-		logmessage(LOGNAME, "refusing unsafe or oversized rp-l2tp peer (errno=%d)", saved_errno);
-		errno = saved_errno;
+	if (!fp || !config || !config->options || !config->peer) {
+		errno = EINVAL;
 		return -1;
 	}
-
-	mkdir_if_none("/etc/l2tp", "777");
-	snprintf(options, sizeof(options), "/tmp/ppp/options.wan%d", unit);
-
-	if (!(fp = fopen(l2tp_conf, "w"))) {
-		perror(l2tp_conf);
-		return -1;
-	}
-
 	if (fprintf(fp,
 		"# automatically generated\n"
 		"global\n"
@@ -544,38 +539,46 @@ start_rpl2tp(int unit)
 		"route_rdgw 1\n"
 		"hide-avps no\n\n"
 		"section cmd\n\n",
-		options, peer) < 0) {
-		saved_errno = errno ? errno : EIO;
-		(void)fclose(fp);
-		(void)unlink(l2tp_conf);
-		logmessage(LOGNAME, "cannot write rp-l2tp configuration (errno=%d)", saved_errno);
-		errno = saved_errno;
+		config->options, config->peer) < 0) {
+		if (!errno)
+			errno = EIO;
 		return -1;
 	}
-	if (fflush(fp) != 0 || ferror(fp)) {
-		saved_errno = errno ? errno : EIO;
-		(void)fclose(fp);
-		(void)unlink(l2tp_conf);
-		logmessage(LOGNAME, "cannot flush rp-l2tp configuration (errno=%d)", saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-	if (fclose(fp) != 0) {
-		saved_errno = errno ? errno : EIO;
-		(void)unlink(l2tp_conf);
-		logmessage(LOGNAME, "cannot close rp-l2tp configuration (errno=%d)", saved_errno);
-		errno = saved_errno;
-		return -1;
-	}
-	if (chmod(l2tp_conf, 0644) != 0) {
-		saved_errno = errno ? errno : EIO;
-		(void)unlink(l2tp_conf);
-		logmessage(LOGNAME, "cannot set rp-l2tp configuration permissions (errno=%d)", saved_errno);
+	return 0;
+}
+
+static int
+start_rpl2tp(int unit)
+{
+	struct rpl2tp_config_values config;
+	char options[64], peer[256];
+	int status, saved_errno, length;
+
+	if (ppp_config_line_value_copy(get_wan_ppp_peer(unit), peer, sizeof(peer)) != 0) {
+		saved_errno = errno ? errno : EINVAL;
+		logmessage(LOGNAME, "refusing unsafe or oversized rp-l2tp peer (errno=%d)", saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
 
-	/* Launch rp-l2tp; do not request a session after a failed daemon start. */
+	length = snprintf(options, sizeof(options), "/tmp/ppp/options.wan%d", unit);
+	if (length < 0 || (size_t)length >= sizeof(options)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	config.options = options;
+	config.peer = peer;
+	if (l2tp_config_file_publish("/etc/l2tp", "l2tp.conf",
+				     rpl2tp_config_write, &config) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot safely publish rp-l2tp configuration (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+
+	/* Launch rp-l2tp only after the complete config is atomically published. */
 	status = eval("/usr/sbin/l2tpd");
 	if (status != 0) {
 		logmessage(LOGNAME, "rp-l2tp daemon launch failed (status=%d)", status);
@@ -601,7 +604,6 @@ start_rpl2tp(int unit)
 	}
 	return status;
 }
-
 #endif
 
 char *

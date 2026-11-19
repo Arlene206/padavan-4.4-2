@@ -56,7 +56,30 @@ require("int vpn_start_status = start_vpn_server();" in boot_services and
 net_ppp=read("trunk/user/rc/src/net_ppp.c")
 xl2tpd_policy=read("trunk/user/rc/src/xl2tpd_start_policy.h")
 xl2tpd_test=read("trunk/user/rc/src/tests/xl2tpd_start_policy.c")
+l2tp_config_file=read("trunk/user/rc/src/l2tp_config_file.h")
+l2tp_config_file_test=read("trunk/user/rc/src/tests/l2tp_config_file.c")
 mwan=read("trunk/user/pppoe/mwan.sh")
+
+rpl2tp_start=body(net_ppp,"static int\nstart_rpl2tp(int unit)")
+require('#include "l2tp_config_file.h"' in net_ppp and
+        'l2tp_config_file_publish("/etc/l2tp", "l2tp.conf"' in rpl2tp_start and
+        "rpl2tp_config_write" in rpl2tp_start and
+        "mkdir_if_none(" not in rpl2tp_start and
+        "fopen(" not in rpl2tp_start and
+        "chmod(" not in rpl2tp_start,
+        "rp-l2tp must use the no-follow atomic configuration publisher")
+for token in ("O_DIRECTORY", "O_NOFOLLOW", "fstat(fd, &st)",
+              "st.st_uid != geteuid()", "fchmod(fd, safe_mode)",
+              "st.st_ino != path_st.st_ino", "mkstemp(temporary_path)",
+              "st.st_nlink != 1", "rename(temporary_path, target_path)",
+              "unlink(temporary_path)"):
+    require(token in l2tp_config_file,f"rp-l2tp config helper missing safety invariant {token}")
+for token in ("test_symlink_directory_is_rejected",
+              "test_file_symlink_is_replaced_without_touching_target",
+              "test_failed_publish_preserves_existing_file_and_cleans_temp",
+              "umask(0000)", "ENOSPC", "(st.st_mode & 0777) == 0644"):
+    require(token in l2tp_config_file_test,f"rp-l2tp config regression missing {token}")
+
 net_wan=read("trunk/user/rc/src/net_wan.c")
 vpn_client=read("trunk/user/rc/src/vpn_client.c")
 makefile=read("trunk/user/rc/src/Makefile")
@@ -620,7 +643,9 @@ require("openvpn_process_stop_result(PROCESS_PRESENCE_RUNNING, 0) == -1" in open
         "OpenVPN RUNNING state must not satisfy stop postcondition")
 
 xy_workflow=read(".github/workflows/xy-c1-firmware-validation.yml")
-for path in ("trunk/user/rc/src/vpn_openvpn.c",
+for path in ("trunk/user/rc/src/l2tp_config_file.h",
+             "trunk/user/rc/src/tests/l2tp_config_file.c",
+             "trunk/user/rc/src/vpn_openvpn.c",
              "trunk/user/rc/src/openvpn_process_stop_policy.h"):
     require(xy_workflow.count('      - "{}"'.format(path)) == 1,
             f"XY-C1 firmware workflow must rebuild OpenVPN source dependency: {path}")
@@ -685,6 +710,16 @@ require("int reapply_vpn_server(void);" in rc_header and
         "VPN reapply/OpenVPN restart declarations must expose status")
 require(rc.count("action_result = rc_notify_merge_action_result(action_result, reapply_vpn_server());") == 2,
         "WINS and VPN reapply notifications must merge the reapply status")
+
+for path in ("trunk/user/rc/src/l2tp_config_file.h",
+             "trunk/user/rc/src/tests/l2tp_config_file.c"):
+    push_paths, pull_paths = workflow.split("  pull_request:", 1)
+    require(push_paths.count(path) == 1 and pull_paths.count(path) == 1,
+            f"VPN workflow must watch rp-L2TP config dependency exactly once: {path}")
+require("l2tp-config-file" in workflow and
+        "tests/l2tp_config_file.c" in workflow,
+        "VPN workflow does not compile and run rp-L2TP config regression")
+
 print("VPN server lifecycle, identity-bound OpenVPN stop and callback source contract: PASS")
 
 # The bcrelay presence policy and its shared scanner are VPN callback dependencies.

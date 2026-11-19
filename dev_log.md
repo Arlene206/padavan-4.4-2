@@ -1,3 +1,11 @@
+## 2026-11-19 — Secure rp-L2TP configuration publication
+
+- Confirmed a privileged file-write boundary defect in APP_RPL2TP: PID 1 explicitly sets umask(0000); start_rpl2tp() used unchecked mkdir_if_none("/etc/l2tp", "777") and fopen("/etc/l2tp/l2tp.conf", "w"). The directory helper follows an existing symlink directory and does not repair permissive existing modes; the leaf open follows symlinks. A world-writable /etc/l2tp therefore let an unprivileged process redirect a root write through l2tp.conf.
+- Replaced this path with an effective-UID-owned, no-follow directory check and permission hardening. Config writes now use a unique same-directory temporary file, checked stream flush/fsync/close, mode 0644 and atomic rename. Existing destination symlinks are replaced rather than followed; staging failures preserve the last-good config.
+- Added GNU89 filesystem coverage for permissive umask, 0777 directory repair, symlinked directory refusal, symlinked leaf replacement without touching its target, failed-writer rollback and temporary cleanup. Added the new helper/test to VPN exact-head Actions and XY-C1 production-input triggers.
+- Exact-head VPN, AI-docs and XY-C1 results must be checked against the new main SHA after push. No target build or physical-router result is claimed.
+
+---
 ## 2026-11-19 — Correct firewall netmask contract and restore handoff checkpoint heading
 
 - Firewall Startup run `44638506108` on `098a9d4` failed at its embedded source assertion because it still expected `ipv4_netmask_is_contiguous()` to be defined in `firewall_filter_policy.h`. The helper was correctly extracted into `ipv4_netmask_policy.h`; the firewall header includes it and the existing GNU89 regression calls it. Updated the checker to verify that actual include/definition relationship.
