@@ -1,3 +1,14 @@
+## 2026-11-19 — Verify ZeroTier static-route deletion and preserve identity on cleanup failure
+
+- Parent main SHA: `f873c65531a1a20f9a3f4bdce14b4c4df026f86b`.
+- `zero_route del` previously suppressed each `ip route del` result with `|| true`; `stop_zero()` then removed the ZeroTier identity/configuration without confirming that configured static routes were gone.
+- Match the exact destination, gateway and interface in `ip route show`; treat a verified absent route as an idempotent success, propagate inspection/deletion/parser errors, and query again after a successful delete to verify absence. Continue attempting later configured routes while returning an aggregate failure.
+- `stop_zero()` now retains persistent identity/configuration and returns failure when any route state is unknown or cleanup remains incomplete. Failed startup route rollback logs unconfirmed cleanup.
+- Add shell regressions for already-absent routes, failed delete, failed route inventory query, delete-success-with-route-still-present and partial route-add rollback; extend the source contract to pin exact-tuple matching and the configuration-removal gate.
+- No local shell test ran because this environment could not resolve github.com for a checkout. Exact-head ZeroTier/Process/AI docs and XY-C1 Actions remain pending; no L3 or L4 result is claimed for this slice.
+
+---
+
 ## 2026-11-19 — Align storage partition regression push and pull-request filters
 
 - Parent main SHA: `379fd897be61a52ee215d768fbb6c745febb087f`.

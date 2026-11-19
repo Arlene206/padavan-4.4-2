@@ -83,6 +83,7 @@ rules_section = script.split("rules() {", 1)[1].split("\ndel_rules() {", 1)[0]
 firewall_helper_body = function_body(script, "zerotier_add_firewall_rule()")
 cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 1)[0]
 static_route_body = function_body(script, "zero_route()")
+route_match_body = function_body(script, "zero_route_entry_matches()")
 
 process_state_body = function_body(script, "zerotier_process_state()")
 require('while [ "$zerotier_wait" -lt 5 ]; do' in wait_body and
@@ -115,8 +116,10 @@ require('if [ -z "${zt0:-}" ]; then' in stop_body and
         "stop must capture the ZeroTier interface before daemon shutdown removes it")
 require('if ! kill_z; then' in stop_body and
         stop_body.index('if ! kill_z; then') < stop_body.index('del_rules') <
-        stop_body.index('zero_route "del"') < stop_body.index('rm -rf "$config_path"'),
-        "failed stop must preserve firewall/routing state and persistent identity/config")
+        stop_body.index('if ! zero_route "del"; then') <
+        stop_body.index('rm -rf "$config_path"') and
+        'return 1' in stop_body[stop_body.index('if ! zero_route "del"; then'):stop_body.index('rm -rf "$config_path"')],
+        "failed daemon or route cleanup must preserve persistent identity/config")
 require(not re.search(r'\bkill\s+-9\s+"?\$zerotier_process', script),
         "stale numeric PID must never be force-signalled")
 require('$(pidof zerotier-one)' not in script,
@@ -182,6 +185,16 @@ require('if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then' in sta
         'return 1' in static_route_body and
         '静态路由安装失败' in static_route_body,
         "static-route add errors must propagate instead of being discarded")
+require('ip route show "$zero_ip"' in static_route_body and
+        'ip route del "$zero_ip" via "$zero_route" dev "$zt0"' in static_route_body and
+        'route_match_status' in static_route_body and
+        '静态路由删除失败' in static_route_body and
+        '静态路由删除后仍然存在' in static_route_body,
+        "static-route cleanup must inspect the exact tuple, propagate delete failure and verify absence")
+require('$1 == destination' in route_match_body and
+        'via == gateway && dev == interface' in route_match_body,
+        "static-route cleanup must match the exact destination, gateway and interface tuple")
+
 require('zerotier_kernel_route_segment "$zt0"' in cleanup_section,
         "firewall cleanup must use the same token-based route parser")
 
@@ -218,7 +231,9 @@ require('record_service_stop_status(&stop_status, "ZeroTier", stop_zerotier())' 
 for token in ['graceful', '-9-exits', 'stuck', 'start_zero', 'stop_zero',
               'identity.secret', 'numeric-kill.log', 'five one-second polls',
               'interface readiness', 'kernel route', 'single-space',
-              'configured static route add failed', 'zero_route:add']:
+              'configured static route add failed', 'zero_route:add',
+              'route cleanup failure', 'unreadable static route inventory',
+              'route that remained after a successful delete command']:
     require(token in test, f"regression coverage missing {token}")
 require("grep -cE '(^| )-A '" in test,
         "static-route rollback regression must count filter and NAT appends whose -A token occurs at different columns")

@@ -211,7 +211,9 @@ rules() {
 		if ! zero_route "add"; then
 			logger -t "zerotier" "ZeroTier静态路由安装失败，回滚网络规则"
 			del_rules
-			zero_route "del"
+			if ! zero_route "del"; then
+				logger -t "zerotier" "静态路由回滚未完全确认"
+			fi
 			return 1
 		fi
 	fi
@@ -234,6 +236,25 @@ del_rules() {
 	iptables -t nat -D POSTROUTING -s $ip_segment -j MASQUERADE 2>/dev/null
 }
 
+
+zero_route_entry_matches() {
+	awk -v destination="$1" -v gateway="$2" -v interface="$3" '
+		$1 == destination {
+			via = ""
+			dev = ""
+			for (i = 2; i < NF; i++) {
+				if ($i == "via")
+					via = $(i + 1)
+				else if ($i == "dev")
+					dev = $(i + 1)
+			}
+			if (via == gateway && dev == interface)
+				found = 1
+		}
+		END { exit found ? 0 : 1 }
+	'
+}
+
 zero_route() {
 	rulesnum="$(nvram get zero_staticnum_x)"
 	case "$1" in
@@ -247,6 +268,7 @@ zero_route() {
 			return 1
 			;;
 	esac
+	route_status=0
 	for i in $(seq 1 "$rulesnum")
 	do
 		j=$((i - 1))
@@ -256,31 +278,72 @@ zero_route() {
 		case "$route_enable" in
 			""|0) continue ;;
 			*[!0-9]*)
+				logger -t "zerotier" "静态路由启用标志无效: $j"
 				if [ "$1" = "add" ]; then
-					logger -t "zerotier" "静态路由启用标志无效: $j"
 					return 1
 				fi
+				route_status=1
 				continue
 				;;
 		esac
 		if [ "$route_enable" -eq 0 ]; then
 			continue
 		fi
-		if [ "$1" = "add" ]; then
-			if [ -z "$zero_ip" ] || [ -z "$zero_route" ] || [ -z "$zt0" ]; then
-				logger -t "zerotier" "静态路由配置不完整: $j"
+		if [ -z "$zero_ip" ] || [ -z "$zero_route" ] || [ -z "$zt0" ]; then
+			logger -t "zerotier" "静态路由配置不完整: $j"
+			if [ "$1" = "add" ]; then
 				return 1
 			fi
+			route_status=1
+			continue
+		fi
+		if [ "$1" = "add" ]; then
 			if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then
 				logger -t "zerotier" "静态路由安装失败: $zero_ip via $zero_route"
 				return 1
 			fi
 			echo "$zt0"
+			continue
+		fi
+
+		# Treat an already-absent route as an idempotent success, but do not
+		# discard inspection or deletion failures: stop must retain identity
+		# until every configured route is confirmed absent.
+		if ! route_output="$(ip route show "$zero_ip" 2>/dev/null)"; then
+			logger -t "zerotier" "无法检查静态路由: $zero_ip"
+			route_status=1
+			continue
+		fi
+		if printf '%s\n' "$route_output" | zero_route_entry_matches "$zero_ip" "$zero_route" "$zt0"; then
+			if ! ip route del "$zero_ip" via "$zero_route" dev "$zt0" >/dev/null 2>&1; then
+				logger -t "zerotier" "静态路由删除失败: $zero_ip via $zero_route"
+				route_status=1
+				continue
+			fi
+			route_output="$(ip route show "$zero_ip" 2>/dev/null)" || {
+				logger -t "zerotier" "无法确认静态路由已删除: $zero_ip"
+				route_status=1
+				continue
+			}
+			if printf '%s\n' "$route_output" | zero_route_entry_matches "$zero_ip" "$zero_route" "$zt0"; then
+				logger -t "zerotier" "静态路由删除后仍然存在: $zero_ip via $zero_route"
+				route_status=1
+			else
+				route_match_status=$?
+				if [ "$route_match_status" -ne 1 ]; then
+					logger -t "zerotier" "无法解析静态路由删除后的状态: $zero_ip"
+					route_status=1
+				fi
+			fi
 		else
-			ip route del "$zero_ip" via "$zero_route" dev "$zt0" >/dev/null 2>&1 || true
+			route_match_status=$?
+			if [ "$route_match_status" -ne 1 ]; then
+				logger -t "zerotier" "无法解析静态路由状态: $zero_ip"
+				route_status=1
+			fi
 		fi
 	done
-	return 0
+	return "$route_status"
 }
 
 start_zero() {
@@ -419,7 +482,10 @@ stop_zero() {
 		return 1
 	fi
 	del_rules
-	zero_route "del"
+	if ! zero_route "del"; then
+		logger -t "zerotier" "无法确认ZeroTier静态路由已清理，保留持久身份与配置"
+		return 1
+	fi
 	rm -rf "$config_path"
 }
 

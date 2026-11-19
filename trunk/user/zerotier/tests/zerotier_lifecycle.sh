@@ -20,6 +20,11 @@ TEST_STATIC_ROUTE_ENABLE=0
 TEST_STATIC_ROUTE_IP=192.0.2.0/24
 TEST_STATIC_ROUTE_GATEWAY=192.0.2.1
 TEST_ROUTE_ADD_STATUS=0
+TEST_ROUTE_PRESENT=0
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
+TEST_ROUTE_ADD_PARTIAL=0
 : > "$TEST_IFCONFIG_COUNT"
 : > "$TEST_ROUTE_COUNT"
 export TEST_STATE TEST_KILL_LOG TEST_SLEEP_LOG TEST_ACTION_LOG TEST_TMP
@@ -135,11 +140,25 @@ ifconfig() {
 ip() {
 	if [ "$1" = route ] && [ "${2:-}" = add ]; then
 		echo "zero_route:add" >> "$TEST_ACTION_LOG"
+		if [ "$TEST_ROUTE_ADD_STATUS" -eq 0 ] || [ "$TEST_ROUTE_ADD_PARTIAL" -eq 1 ]; then
+			TEST_ROUTE_PRESENT=1
+		fi
 		return "$TEST_ROUTE_ADD_STATUS"
+	fi
+	if [ "$1" = route ] && [ "${2:-}" = show ]; then
+		[ "$TEST_ROUTE_SHOW_STATUS" -eq 0 ] || return "$TEST_ROUTE_SHOW_STATUS"
+		if [ "$TEST_ROUTE_PRESENT" -eq 1 ] && [ "${3:-}" = "$TEST_STATIC_ROUTE_IP" ]; then
+			printf '%s\n' "$TEST_STATIC_ROUTE_IP via $TEST_STATIC_ROUTE_GATEWAY dev ztunit"
+		fi
+		return 0
 	fi
 	if [ "$1" = route ] && [ "${2:-}" = del ]; then
 		[ "$7" = ztunit ] || fail "static route cleanup lost the saved interface after daemon exit"
 		echo "zero_route:del" >> "$TEST_ACTION_LOG"
+		[ "$TEST_ROUTE_DEL_STATUS" -eq 0 ] || return "$TEST_ROUTE_DEL_STATUS"
+		if [ "$TEST_ROUTE_DELETE_PERSISTS" -eq 0 ]; then
+			TEST_ROUTE_PRESENT=0
+		fi
 		return 0
 	fi
 	[ "$1" = route ] || return 0
@@ -327,15 +346,93 @@ TEST_PIDOF_MODE=""
 : > "$TEST_ACTION_LOG"
 echo running > "$TEST_STATE"
 TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_PRESENT=1
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
 TEST_MODE=graceful
 if ! stop_zero; then
 	fail "stop failed after a confirmed graceful daemon exit"
 fi
 [ ! -e "$TEST_CONFIG" ] || fail "successful stop did not complete the existing config cleanup"
 [ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\nzero_route:del\nrm:-rf %s' "$TEST_CONFIG")" ] || fail "successful cleanup did not run after daemon absence"
+# An already-absent configured route is an idempotent success.
+TEST_STATIC_ROUTE_COUNT=1
+TEST_STATIC_ROUTE_ENABLE=1
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_PRESENT=0
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
+: > "$TEST_ACTION_LOG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if ! stop_zero; then
+	fail "stop rejected a configured route that was already absent"
+fi
+[ ! -e "$TEST_CONFIG" ] || fail "stop retained config after confirming the route was already absent"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "stop issued a redundant delete for an absent route"
+fi
+
+# Route cleanup failure, an unreadable route inventory and a false-success
+# delete must all preserve the ZeroTier identity for a later recovery attempt.
+TEST_ROUTE_PRESENT=1
+TEST_ROUTE_DEL_STATUS=1
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
+: > "$TEST_ACTION_LOG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted a failed static route deletion"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "failed route deletion removed the persistent identity"
+grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG" || fail "route deletion failure fixture never attempted deletion"
+if grep -Fqx -- "rm:-rf $TEST_CONFIG" "$TEST_ACTION_LOG"; then
+	fail "stop removed persistent configuration after route deletion failed"
+fi
+[ "$TEST_ROUTE_PRESENT" -eq 1 ] || fail "failed route deletion unexpectedly cleared the route fixture"
+
+: > "$TEST_ACTION_LOG"
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_SHOW_STATUS=1
+echo running > "$TEST_STATE"
+if stop_zero; then
+	fail "stop accepted an unreadable static route inventory"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "unreadable route inventory removed the persistent identity"
+if grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG"; then
+	fail "stop attempted a route deletion without a readable pre-delete inventory"
+fi
+if grep -Fqx -- "rm:-rf $TEST_CONFIG" "$TEST_ACTION_LOG"; then
+	fail "stop removed persistent configuration with route state unknown"
+fi
+
+: > "$TEST_ACTION_LOG"
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=1
+echo running > "$TEST_STATE"
+if stop_zero; then
+	fail "stop accepted a route that remained after a successful delete command"
+fi
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "post-delete route verification failure removed the persistent identity"
+grep -Fqx -- "zero_route:del" "$TEST_ACTION_LOG" || fail "post-delete verification fixture never attempted deletion"
+if grep -Fqx -- "rm:-rf $TEST_CONFIG" "$TEST_ACTION_LOG"; then
+	fail "stop removed persistent configuration while the route remained"
+fi
+
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_IFCONFIG_MODE=none
+TEST_ROUTE_PRESENT=0
+TEST_ROUTE_SHOW_STATUS=0
+TEST_ROUTE_DEL_STATUS=0
+TEST_ROUTE_DELETE_PERSISTS=0
 
 [ ! -s "$TEST_TMP/numeric-kill.log" ] || fail "a stale numeric PID was signalled"
 
@@ -424,6 +521,8 @@ TEST_NAT_ENABLE=1
 TEST_STATIC_ROUTE_COUNT=1
 TEST_STATIC_ROUTE_ENABLE=1
 TEST_ROUTE_ADD_STATUS=1
+TEST_ROUTE_ADD_PARTIAL=1
+TEST_ROUTE_PRESENT=0
 if rules; then
 	fail "rules reported success after a configured static route add failed"
 fi
@@ -433,6 +532,8 @@ grep -Fqx -- "zero_route:add" "$TEST_ACTION_LOG" || fail "static route failure f
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_ROUTE_ADD_STATUS=0
+TEST_ROUTE_ADD_PARTIAL=0
+TEST_ROUTE_PRESENT=0
 TEST_NAT_ENABLE=0
 TEST_ROUTE_MODE=none
 
