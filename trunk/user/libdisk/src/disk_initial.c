@@ -570,20 +570,30 @@ static int
 has_dev_mountpoint(const char *mount_path)
 {
 	FILE *fp;
-	int ret;
-	char line[512], devname[32], mpname[256];
+	int ret, saved_errno, close_status, close_errno;
+	char line[512], devname[64], mpname[256];
+	char filesystem[512], mount_options[512];
 
-	if (!mount_path || !*mount_path)
-		return 0;
+	if (!mount_path || !*mount_path) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	fp = fopen(PROC_MOUNTS_FILE, "r");
 	if (!fp)
-		return 0;
+		return -1;
 
 	ret = 0;
+	saved_errno = 0;
 	while (fgets(line, sizeof(line), fp)) {
-		if (sscanf(line, "%31s %255s", devname, mpname) != 2)
-			continue;
+		if (storage_inventory_parse_mount_line_full(
+			line, devname, sizeof(devname), mpname, sizeof(mpname),
+			filesystem, sizeof(filesystem), mount_options,
+			sizeof(mount_options)) != 0) {
+			saved_errno = errno ? errno : EIO;
+			ret = -1;
+			break;
+		}
 
 		if (strncmp(devname, "/dev/sd", 7) == 0) {
 			if (strcmp(mpname, mount_path) == 0) {
@@ -600,8 +610,21 @@ has_dev_mountpoint(const char *mount_path)
 		}
 #endif
 	}
+	if (ret == 0 && ferror(fp)) {
+		saved_errno = errno ? errno : EIO;
+		ret = -1;
+	}
 
-	fclose(fp);
+	errno = 0;
+	close_status = fclose(fp);
+	close_errno = errno;
+	if (close_status != 0) {
+		if (saved_errno == 0)
+			saved_errno = close_errno ? close_errno : EIO;
+		ret = -1;
+	}
+	if (ret < 0)
+		errno = saved_errno ? saved_errno : EIO;
 
 	return ret;
 }
@@ -663,18 +686,21 @@ is_usb_storage_mounted(void)
 int
 get_mount_path(const char *const pool, char **mount_path)
 {
-	int len;
+	int len, mount_status;
 	char *tmppath;
 	const unsigned char *p;
 
-	if (!pool || !*pool || !mount_path || !strcmp(pool, ".") || !strcmp(pool, ".."))
+	if (!mount_path)
 		return -1;
+	*mount_path = NULL;
+	if (!pool || !*pool || !strcmp(pool, ".") || !strcmp(pool, "..")) {
+		errno = EINVAL;
+		return -1;
+	}
 	for (p = (const unsigned char *)pool; *p; ++p) {
 		if (*p < 32 || *p == 127 || *p == '/')
 			return -1;
 	}
-	*mount_path = NULL;
-
 	len = strlen(POOL_MOUNT_ROOT)+strlen("/")+strlen(pool);
 
 	tmppath = (char *)malloc(len+1);
@@ -683,8 +709,11 @@ get_mount_path(const char *const pool, char **mount_path)
 
 	sprintf(tmppath, "%s/%s", POOL_MOUNT_ROOT, pool);
 
-	if (!has_dev_mountpoint(tmppath)) {
+	mount_status = has_dev_mountpoint(tmppath);
+	if (mount_status != 1) {
 		free(tmppath);
+		if (mount_status == 0)
+			errno = ENOENT;
 		return -1;
 	}
 
