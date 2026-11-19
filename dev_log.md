@@ -1,3 +1,11 @@
+## 2026-11-19 — Repair ZeroTier lifecycle checker Python quoting
+
+- Parent main SHA: `34b5de90d7c7aa48cd30d8a258762b02beffbfcf`. Exact ZeroTier run `44520810453` passed the full shell lifecycle regression, then failed when Python started the source/RC contract checker: line 223 had an unterminated single-quoted string.
+- The checker also used an invalid leading-space substring for the new NAT rollback assertion. Correct both contracts: use a double-quoted outer Python literal for the grep-count pattern and require the exact shell assertion `grep -Fqx -- "-t nat -D POSTROUTING -o ztunit -j MASQUERADE" "$TEST_IPTABLES_LOG"`.
+- This repair changes only the checker and handoff/log records. On 34b5, AI docs `44520810464`, Process inventory `44520810591`, and WAN route `44520810470` PASS; XY-C1 `44520810589` is host-only (Build/TRX/artifact skipped). New exact-head Actions are required; no L3/L4 claim.
+
+---
+
 ## 2026-11-19 — Align ZeroTier NAT append rollback assertion with table-qualified CLI
 
 - Exact ZeroTier lifecycle run `44520354130` on `4d015c02459d94b6d904cfe7dd0e381bb3f5cfa8` progressed through the retry-state tests and failed in the later NAT append rollback case.

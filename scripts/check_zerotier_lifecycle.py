@@ -220,7 +220,7 @@ require('if ! zero_route "add"; then' in rules_section and
         'del_rules' in rules_section and
         'zero_route "del"' in rules_section,
         "a failed static-route add must roll back the published firewall/route state")
-require('grep -cE \'(^-D |^-t nat -D )\' in test,
+require("grep -cE '(^-D |^-t nat -D )' in test,
         "firewall regression must count both filter and table-qualified NAT deletes")
 require('running-only' in test and
         'firewall cleanup lost the interface after daemon exit' in test and
@@ -291,7 +291,7 @@ for token in ['graceful', '-9-exits', 'stuck', 'start_zero', 'stop_zero',
               'failed static route deletion', 'unreadable static route inventory',
               'route that remained after a successful delete command']:
     require(token in test, f"regression coverage missing {token}")
-require('" -t nat -D POSTROUTING -o ztunit -j MASQUERADE"' in test,
+require('grep -Fqx -- "-t nat -D POSTROUTING -o ztunit -j MASQUERADE" "$TEST_IPTABLES_LOG"' in test,
         "NAT append rollback must assert the table-qualified deletion command")
 require("grep -cE '(^| )-A '" in test,
         "static-route rollback regression must count filter and NAT appends whose -A token occurs at different columns")

@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; development branch `main`.
-- Parent baseline for the active ZeroTier regression correction: `3523bb9f27ba33065731abcd946ae11726d04470`. The source line includes the checked ZeroTier firewall teardown/checkpoint, the NAT table-order correction, and the current RStats NULL-safe system-time policy.
+- Parent baseline for this ZeroTier source-contract repair: `34b5de90d7c7aa48cd30d8a258762b02beffbfcf`. The active source line includes checked ZeroTier firewall teardown and private retry checkpoint, correct NAT table ordering, and RStats NULL-safe system-time handling.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout is available in this connector-only environment. Exact GitHub Actions are the host/target validation source.
 
@@ -119,10 +119,10 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Verification boundary
 
-- Active parent main SHA: `3523bb9f27ba33065731abcd946ae11726d04470`.
-- On that exact SHA, AI handoff docs `44519760866`, RStats stability `44519760957`, and HTTPD security `44519760897` PASS. Process fail-closed `44519761195`, Process inventory `44519760869`, NVRAM audit `44519761011`, and XY-C1 `44519760903` were IN_PROGRESS at the last inspection.
-- The latest ZeroTier lifecycle run is `44519285718` on `cc450246de3e9f0a3d568021c0cac6636ece290f`; it failed only at the retry fixture's saved-NAT assertion. The first cleanup had already successfully deleted that NAT rule while preserving the injected failing INPUT rule, so the later retry correctly performs an exact `iptables -t nat -C` absence check rather than another `-D`. This commit changes the regression to assert that command.
-- The same-SHA XY-C1 run on cc450 was host-only: Build XY-C1, TRX verification and artifact upload were SKIPPED. No L3 result is claimed for this active ZeroTier slice. Physical-router L4 remains NOT VERIFIED.
+- Active parent main SHA: `34b5de90d7c7aa48cd30d8a258762b02beffbfcf`.
+- Exact 34b5 ZeroTier run `44520810453`: shell lifecycle regression PASS; Python source/RC checker FAIL because the previous checker commit introduced an unterminated Python string at line 223. The shell run covered the table-qualified NAT append rollback and saved-state retry assertions.
+- On exact 34b5, AI docs `44520810464`, Process inventory `44520810591`, and WAN route `44520810470` PASS. XY-C1 `44520810589` completed host validation, but Build XY-C1, TRX verification and artifact upload were SKIPPED; no L3 claim.
+- This commit repairs the checker quoting and checks the exact table-qualified `iptables -t nat -D POSTROUTING -o ztunit` rollback assertion. Its exact-head ZeroTier/source contracts and downstream Actions remain to be checked. Physical-router L4 remains NOT VERIFIED.
 
 ## Retained historical verification details
 
@@ -133,16 +133,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Resume on `main` only. Parent baseline for this NAT rollback assertion correction: `4d015c02459d94b6d904cfe7dd0e381bb3f5cfa8`. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified; PR #1 remains closed/unmerged.
-- ZeroTier production cleanup/checkpoint is in `151d7574c0197139c61a7b6a7e4d9a5883a21f99`; b1 `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` corrected `iptables -t nat -C/-D` ordering; cc450 corrected the all-rules deletion counter.
-- Exact ZeroTier run `44520354130` on `4d015c02459d94b6d904cfe7dd0e381bb3f5cfa8` reached the NAT-append rollback test and failed only at its stale log assertion: the production helper correctly issued `iptables -t nat -D`, while the fixture still expected `-D` without the table selector. The preceding fake-firewall state assertion had already confirmed rollback removed the published NAT rule. This commit updates that test expectation and pins the table-qualified form in the static checker; no production behavior changes.
-- Preserve completed SkipDBv2, WAN sysfs counter, Inadyn, ZeroConf callback, and SmartDNS work. Continue an independent P1/P2 reliability/security defect once this ZeroTier correction passes; do not repeat completed audits.
+- Resume on `main` only. Parent baseline for this checker repair: `34b5de90d7c7aa48cd30d8a258762b02beffbfcf`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified; PR #1 remains closed/unmerged.
+- ZeroTier production cleanup/checkpoint is in `151d7574c0197139c61a7b6a7e4d9a5883a21f99`; b1 `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` corrected nat table/action ordering. The exact shell lifecycle test now passes on 34b5, including the idempotent saved-NAT check and the nat append rollback.
+- Exact ZeroTier run `44520810453` on 34b5 failed only at Python checker startup: line 223 contained an unterminated single-quoted string in the grep-count assertion. The same checker also had a malformed substring for the nat rollback command; this commit changes the Python delimiter to a double-quoted outer literal and asserts the exact shell grep command. No production source or test behavior changes.
+- Preserve completed SkipDBv2, WAN sysfs counter, Inadyn, ZeroConf callback, SmartDNS, and other logged source work. After exact ZeroTier contracts pass, continue an independent P1/P2 integrated userland defect; do not re-audit completed areas.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle run for the NAT-rollback log assertion correction; confirm shell regression, source/RC contract and WAN-up notification steps.
-2. Inspect the exact same-SHA XY-C1 Build, TRX verification and artifact upload. Host-only/skip results are not L3; claim L3 only when all three complete successfully on one SHA.
-3. After ZeroTier passes, continue an independent P1/P2 userland stability/security issue with a production-linked regression. Keep the backup immutable and use one complete-tree commit with non-forced exact-parent CAS.
+1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle run for this Python checker syntax/contract repair; confirm shell regression, source/RC contracts and WAN-up notification steps.
+2. Inspect same-SHA XY-C1 Build, TRX verification and artifact upload separately. The previous 34b5 result was host-only with the three target steps skipped.
+3. Continue a separate P1/P2 userland reliability/security fix with production-linked regression and one atomic complete-tree commit. Keep the frozen backup untouched and update main only with non-forced exact-parent CAS.
 
 ## Mandatory handoff checkpoint
 
