@@ -95,7 +95,9 @@
    - Autostart production SHA `51596e1acf6b4842b80e1246911aac59e9dd2baf`: Process lifecycle `44386912755`, DNSMasq `44386912932`, AI docs `44386912783`, Process inventory `44386913112`, HTTPD `44386912691`, XY-C1 `44386912939` all PASS; exact Build/TRX/artifact completed (L3). Static-contract repair SHA `e0e24637fcb2901bef453812747a5f2e7b74f864` passed AI docs/Process inventory but failed AliDDNS/FRP checks due to stale parser/read expectations; correction SHA `d8b5e9206024ba45208d95fbb1ff4dc5d73d0b4d` passed AliDDNS `44388958868`, FRP `44388958846` and AI docs `44388958941`.
 
    - CI repair: ZeroTier lifecycle `44027996550` and Process lifecycle `44027996499` passed on `d2a41360`; the WAN route workflow had zero jobs due malformed pull_request path placement. The path-filter entries were moved inside `on.pull_request.paths` without altering production code. Continue after the exact-SHA rerun.
-3. **P1 — Extend lifecycle and rollback coverage across independent services.** Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.
+3. **P1 — Extend lifecycle and rollback coverage across independent services.**
+   - ZeroTier static-route add status: production failure propagation and firewall/route rollback are in `67a45de`; its exact-host run `44474852372` exposed a strict-nounset fixture omission (`zt0` was not seeded because `start_instance()` is stubbed). This follow-up repairs and statically guards the test fixture before closing that slice.
+ Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.
 4. **P2 — Continue storage/configuration boundary hardening.** Inspect other privileged writers for predictable temp names, symlink substitution, unchecked file operations, and unsafe config interpolation; add host regressions where practical.
 5. **P2 — Keep handoff state current.** Update `SESSION_HANDOFF.md`, this roadmap, and `dev_log.md` after material commits; do not duplicate verified work.
 

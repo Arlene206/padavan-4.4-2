@@ -1,3 +1,12 @@
+## 2026-11-19 — Seed the ZeroTier interface in the strict-nounset lifecycle fixture
+
+- Parent main SHA: `67a45de88cb4776cf464164a9d3784e8555e0546`; the fixture-only repair is based on current main `83b726a87e5948d38afee7885e050d82d2d03452`.
+- Exact ZeroTier workflow `44474852372` failed at stop cleanup with `zt0: parameter not set`. The fixture sources production functions with `set -u`, but its stubbed `start_instance()` does not run `rules()`/interface discovery to seed the global interface variable.
+- Seed `zt0=ztunit` to model the interface state that a successful production start establishes, and add a source-contract assertion so future fixture edits cannot silently remove it. This is a test-only correction; production route/firewall code is unchanged.
+- On parent SHA 67a: WAN route `44474852328`, process inventory `44474852420`, and AI docs `44474852357` PASS; ZeroTier `44474852372` FAIL due to this fixture setup issue; XY-C1 `44474852399` was IN_PROGRESS at last poll. Exact rerun pending after this commit.
+
+---
+
 ## 2026-11-19 — Propagate ZeroTier static-route installation failures
 
 - Parent main SHA: `3ffb25f6357535965f095eba2bfd45a813c96db8`.

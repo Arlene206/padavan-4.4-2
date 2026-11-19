@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — propagate ZeroTier static-route add failures
+# 2026-11-19 continuation checkpoint — repair ZeroTier route-test fixture
 
 # Cross-session execution mandate
 
@@ -32,24 +32,28 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - `3ffb25f6357535965f095eba2bfd45a813c96db8` wraps all five ZeroTier INPUT/FORWARD/NAT rule appends with a checked publisher. A rejected append now logs, rolls back the partial rule set and returns nonzero; regression injects second-filter and second-NAT failures and proves no later append occurs.
 - Exact ZeroTier `44473915670`, process inventory `44473915585), AI docs `44473915620` PASS on 3ff; XY-C1 `44473915674` remained in progress. This SHA is the parent for the current static-route fix.
 
-## Active task — ZeroTier static-route add status
+## Completed prior slice — ZeroTier static-route add status
 
-- `zero_route()` previously ignored `ip route add` failures and `rules()` ignored the helper result. NAT-enabled ZeroTier could therefore report ready while configured LAN routes were absent.
-- Route count and enable flags are now validated, route operands are quoted, and add failure returns nonzero. The caller rolls back the already-published firewall rules and attempts route cleanup before failing startup.
-- The shell regression now exercises production `zero_route()` with mocked NVRAM/ip commands, injects a failed static-route add after all five firewall rules, and verifies rollback. Exact-head ZeroTier, process-inventory, AI-docs and XY-C1 checks are pending for this follow-up.
+- Commit `67a45de88cb4776cf464164a9d3784e8555e0546` validates static-route count/enable values, quotes route operands, returns nonzero on `ip route add` failure, and rolls back the already-published firewall and route state.
+- Exact WAN-route `44474852328`, process inventory `44474852420` and AI docs `44474852357` PASS. The exact-head ZeroTier run `44474852372` failed in the shell fixture before route assertions because the test's stubbed `start_instance()` never seeded `zt0`, while strict `set -u` made stop cleanup reference it. XY-C1 `44474852399` was IN_PROGRESS at last poll.
+
+## Active task — repair ZeroTier route-test fixture
+
+- The lifecycle test sources production functions under `set -u`, but replaces `start_instance()` with a no-op stub. That stub bypasses the normal interface-discovery path that assigns `zt0`; a later stop-cleanup case with configured static routes therefore aborts with `zt0: parameter not set`.
+- Seed `zt0=ztunit` in the fixture to model the interface state established by successful startup, and assert that contract in `check_zerotier_lifecycle.py`. Production ZeroTier logic is unchanged in this test-only repair.
+- Exact-head ZeroTier, AI docs, process inventory and XY-C1 checks are pending after this commit. No local or physical-router test is claimed.
 
 ## Verification boundary
 
 - RStats L1/L2/L3 passed as recorded above; L4 not verified.
 - Radio status/policy checks are green on the exact SHAs above; XY-C1 build confirmation was still outstanding on the radio parent SHAs at the last poll.
-- ZeroTier firewall fix is L2 PASS on 3ff. Static-route add propagation is committed with an injected host regression; exact-head Actions remain pending. No local checkout, MIPS firmware result or L4 router test is claimed.
+- ZeroTier firewall publication fix is committed on `3ffb25f6357535965f095eba2bfd45a813c96db8`; static-route add production fix is on `67a45de88cb4776cf464164a9d3784e8555e0546`. The exact 67a ZeroTier shell run `44474852372` failed from the unseeded fixture variable described above; this follow-up only repairs the fixture, with exact rerun pending. Parent XY-C1 `44474852399` was IN_PROGRESS at last poll. No MIPS firmware or L4 router result is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head ZeroTier lifecycle, process inventory, AI docs, XY-C1 Build/TRX/artifact and NVRAM runs for the static-route fix.
-2. Require the production-shell route-add failure injection, firewall rollback checks and source contracts to PASS; diagnose any failure without weakening tests.
-3. Close parent XY-C1 `44473915674` (firewall commit) and `44473205687` (radio CLI commit) by exact SHA; do not inherit those results to descendants.
-4. Continue whole-userland stability/security review after CI status is settled. If the route fix passes, review whether ZeroTier stop reports incomplete route cleanup; that was intentionally not changed here.
+1. Inspect exact-head ZeroTier, process inventory, AI docs and XY-C1 runs for this fixture-only repair. Confirm the route-add failure injection and all existing lifecycle cases reach the test's final PASS line.
+2. Require XY-C1 Build, TRX verification and artifact upload before claiming L3 for the ZeroTier production-source SHA `67a45de88cb4776cf464164a9d3784e8555e0546`.
+3. Then continue the independent whole-device SD/MMC hotplug inventory hardening: `storage_partition_probe.h` ignores malformed/truncated `/proc/partitions` rows and stops scanning at the first partition match; add strict parser and GNU89 CI coverage.
 
 ## Mandatory handoff checkpoint
 

@@ -20,6 +20,9 @@ TEST_STATIC_ROUTE_ENABLE=0
 TEST_STATIC_ROUTE_IP=192.0.2.0/24
 TEST_STATIC_ROUTE_GATEWAY=192.0.2.1
 TEST_ROUTE_ADD_STATUS=0
+# start_instance is stubbed in this fixture; seed the interface state
+# that production rules() establishes before stop cleanup removes routes.
+zt0=ztunit
 : > "$TEST_IFCONFIG_COUNT"
 : > "$TEST_ROUTE_COUNT"
 export TEST_STATE TEST_KILL_LOG TEST_SLEEP_LOG TEST_ACTION_LOG TEST_TMP

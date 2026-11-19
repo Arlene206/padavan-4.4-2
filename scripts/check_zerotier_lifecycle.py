@@ -168,6 +168,8 @@ require('if ! zero_route "add"; then' in rules_section and
         'del_rules' in rules_section and
         'zero_route "del"' in rules_section,
         "a failed static-route add must roll back the published firewall/route state")
+require('zt0=ztunit' in test,
+        "strict-nounset lifecycle fixture must seed the interface state normally established by rules()")
 require('if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then' in static_route_body and
         'return 1' in static_route_body and
         '静态路由安装失败' in static_route_body,
