@@ -3,6 +3,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "inadyn_daemon_policy.h"
 
@@ -93,12 +94,14 @@ test_config_preflight_requires_all_live_identities(void)
 	snapshot.count = 2;
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = 2;
 	assert(inadyn_validate_snapshot(&snapshot, fake_validate, &fake) == 0);
 	assert(fake.next_state == 2);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = unknown;
 	fake.state_count = 2;
 	fake.validation_error = EACCES;
@@ -134,6 +137,7 @@ test_identity_bound_hup_signal(void)
 	snapshot.count = 2;
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = 4;
 	assert(inadyn_signal_snapshot(&snapshot, SIGHUP, fake_validate,
@@ -144,6 +148,7 @@ test_identity_bound_hup_signal(void)
 	       fake.signalled_signals[1] == SIGHUP);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = unknown_preflight;
 	fake.state_count = 2;
 	fake.validation_error = EACCES;
@@ -153,6 +158,7 @@ test_identity_bound_hup_signal(void)
 	assert(errno == EACCES && fake.signal_count == 0);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = unknown_revalidate;
 	fake.state_count = 4;
 	fake.validation_error = EPERM;
@@ -162,6 +168,7 @@ test_identity_bound_hup_signal(void)
 	assert(errno == EPERM && fake.signal_count == 1);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = 4;
 	fake.signal_error = ESRCH;
@@ -170,6 +177,7 @@ test_identity_bound_hup_signal(void)
 	assert(fake.signal_count == 0);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = 4;
 	fake.signal_error = EPERM;
@@ -203,6 +211,7 @@ test_identity_bound_usr1_signal(void)
 	snapshot.count = 1;
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = sizeof(live) / sizeof(live[0]);
 	assert(inadyn_signal_snapshot(&snapshot, SIGUSR1, fake_validate,
@@ -212,6 +221,7 @@ test_identity_bound_usr1_signal(void)
 	assert(fake.signalled_signals[0] == SIGUSR1);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.states = unknown;
 	fake.state_count = sizeof(unknown) / sizeof(unknown[0]);
 	fake.validation_error = EACCES;
@@ -256,10 +266,14 @@ struct fake_cache {
 	int mkdir_errno;
 	int lstat_status;
 	int lstat_errno;
+	int chmod_status;
+	int chmod_errno;
 	mode_t path_mode;
+	uid_t path_uid;
 	int clear_calls;
 	int mkdir_calls;
 	int lstat_calls;
+	int chmod_calls;
 };
 
 static int
@@ -280,7 +294,7 @@ fake_cache_mkdir(void *context, const char *path, mode_t mode)
 	struct fake_cache *fake = (struct fake_cache *)context;
 
 	assert(strcmp(path, "/tmp/inadyn") == 0);
-	assert(mode == 0777);
+	assert(mode == 0700);
 	fake->mkdir_calls++;
 	if (fake->mkdir_status != 0)
 		errno = fake->mkdir_errno;
@@ -300,6 +314,23 @@ fake_cache_lstat(void *context, const char *path, struct stat *st)
 		return fake->lstat_status;
 	}
 	st->st_mode = fake->path_mode;
+	st->st_uid = fake->path_uid;
+	return 0;
+}
+
+static int
+fake_cache_chmod(void *context, const char *path, mode_t mode)
+{
+	struct fake_cache *fake = (struct fake_cache *)context;
+
+	assert(strcmp(path, "/tmp/inadyn") == 0);
+	assert(mode == 0700);
+	fake->chmod_calls++;
+	if (fake->chmod_status != 0) {
+		errno = fake->chmod_errno;
+		return fake->chmod_status;
+	}
+	fake->path_mode = (fake->path_mode & S_IFMT) | mode;
 	return 0;
 }
 
@@ -315,72 +346,105 @@ test_cache_prepare_status(void)
 	assert(inadyn_cache_command_status(256, 0) == EIO);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.path_mode = S_IFDIR | 0700;
 	assert(inadyn_prepare_cache_directory(1, "/tmp/inadyn",
-		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat,
+		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod,
 		&fake) == 0);
 	assert(fake.clear_calls == 1 && fake.mkdir_calls == 1 &&
 	       fake.lstat_calls == 1);
+	assert(fake.chmod_calls == 0);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.clear_status = EIO;
 	status = inadyn_prepare_cache_directory(1, "/tmp/inadyn",
-		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat,
+		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod,
 		&fake);
 	assert(status == EIO && errno == EIO);
 	assert(fake.clear_calls == 1 && fake.mkdir_calls == 0 &&
 	       fake.lstat_calls == 0);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.clear_status = -1;
 	fake.clear_errno = EACCES;
 	status = inadyn_prepare_cache_directory(1, "/tmp/inadyn",
-		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat,
+		fake_cache_clear, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod,
 		&fake);
 	assert(status == EACCES);
 	assert(fake.mkdir_calls == 0 && fake.lstat_calls == 0);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.mkdir_status = -1;
 	fake.mkdir_errno = EACCES;
 	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
-		NULL, fake_cache_mkdir, fake_cache_lstat, &fake);
+		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake);
 	assert(status == EACCES);
 	assert(fake.clear_calls == 0 && fake.mkdir_calls == 1 &&
 	       fake.lstat_calls == 0);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.mkdir_status = -1;
 	fake.mkdir_errno = EEXIST;
 	fake.path_mode = S_IFDIR | 0700;
 	assert(inadyn_prepare_cache_directory(0, "/tmp/inadyn",
-		NULL, fake_cache_mkdir, fake_cache_lstat, &fake) == 0);
+		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake) == 0);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.mkdir_status = -1;
 	fake.mkdir_errno = EEXIST;
 	fake.path_mode = S_IFREG | 0600;
 	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
-		NULL, fake_cache_mkdir, fake_cache_lstat, &fake);
+		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake);
 	assert(status == ENOTDIR);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.path_mode = S_IFLNK | 0777;
 	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
-		NULL, fake_cache_mkdir, fake_cache_lstat, &fake);
+		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake);
 	assert(status == ENOTDIR);
 
 	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
 	fake.path_mode = S_IFDIR | 0700;
 	fake.lstat_status = -1;
 	fake.lstat_errno = EIO;
 	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
-		NULL, fake_cache_mkdir, fake_cache_lstat, &fake);
+		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake);
 	assert(status == EIO);
+
+ 
+	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
+	fake.path_mode = S_IFDIR | 0777;
+	assert(inadyn_prepare_cache_directory(0, "/tmp/inadyn",
+		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake) == 0);
+	assert(fake.chmod_calls == 1 && fake.path_mode == (S_IFDIR | 0700));
+
+	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = geteuid();
+	fake.path_mode = S_IFDIR | 0777;
+	fake.chmod_status = -1;
+	fake.chmod_errno = EACCES;
+	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
+		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake);
+	assert(status == EACCES && fake.chmod_calls == 1);
+
+	memset(&fake, 0, sizeof(fake));
+	fake.path_uid = (uid_t)(geteuid() + 1);
+	fake.path_mode = S_IFDIR | 0700;
+	status = inadyn_prepare_cache_directory(0, "/tmp/inadyn",
+		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake);
+	assert(status == EPERM && fake.chmod_calls == 0);
 
 	errno = 0;
 	assert(inadyn_prepare_cache_directory(1, "/tmp/inadyn", NULL,
-		fake_cache_mkdir, fake_cache_lstat, &fake) == EINVAL);
+		fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake) == EINVAL);
 	assert(errno == EINVAL);
 }
 

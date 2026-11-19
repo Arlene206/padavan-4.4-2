@@ -102,6 +102,8 @@ typedef int (*inadyn_cache_mkdir_fn)(void *context, const char *path,
 				     mode_t mode);
 typedef int (*inadyn_cache_lstat_fn)(void *context, const char *path,
 				     struct stat *st);
+typedef int (*inadyn_cache_chmod_fn)(void *context, const char *path,
+				     mode_t mode);
 
 /*
  * A requested cache reset is mandatory. EEXIST from mkdir is accepted only
@@ -113,13 +115,14 @@ inadyn_prepare_cache_directory(int clear_cache, const char *path,
 			       inadyn_cache_clear_fn clear_fn,
 			       inadyn_cache_mkdir_fn mkdir_fn,
 			       inadyn_cache_lstat_fn lstat_fn,
+			       inadyn_cache_chmod_fn chmod_fn,
 			       void *context)
 {
 	struct stat st;
 	int result;
 	int saved_errno;
 
-	if (!path || !*path || !mkdir_fn || !lstat_fn ||
+	if (!path || !*path || !mkdir_fn || !lstat_fn || !chmod_fn ||
 	    (clear_cache && !clear_fn)) {
 		errno = EINVAL;
 		return EINVAL;
@@ -140,7 +143,7 @@ inadyn_prepare_cache_directory(int clear_cache, const char *path,
 	}
 
 	errno = 0;
-	result = mkdir_fn(context, path, 0777);
+	result = mkdir_fn(context, path, 0700);
 	saved_errno = errno;
 	if (result != 0 &&
 	    !(result == -1 && saved_errno == EEXIST)) {
@@ -166,6 +169,42 @@ inadyn_prepare_cache_directory(int clear_cache, const char *path,
 	if (!S_ISDIR(st.st_mode)) {
 		errno = ENOTDIR;
 		return ENOTDIR;
+	}
+	if (st.st_uid != geteuid()) {
+		errno = EPERM;
+		return EPERM;
+	}
+
+	/* The cache is used by a root daemon. Never accept a shared writable dir. */
+	if ((st.st_mode & 0777) != 0700) {
+		errno = 0;
+		result = chmod_fn(context, path, 0700);
+		saved_errno = errno;
+		if (result != 0) {
+			if (result < 0) {
+				errno = saved_errno > 0 ? saved_errno : EIO;
+				return errno;
+			}
+			errno = result;
+			return result;
+		}
+
+		errno = 0;
+		result = lstat_fn(context, path, &st);
+		saved_errno = errno;
+		if (result != 0) {
+			if (result < 0) {
+				errno = saved_errno > 0 ? saved_errno : EIO;
+				return errno;
+			}
+			errno = result;
+			return result;
+		}
+		if (!S_ISDIR(st.st_mode) || st.st_uid != geteuid() ||
+		    (st.st_mode & 0777) != 0700) {
+			errno = EPERM;
+			return EPERM;
+		}
 	}
 
 	return 0;

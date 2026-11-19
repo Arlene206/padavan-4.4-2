@@ -2551,6 +2551,13 @@ inadyn_cache_lstat_cb(void *context, const char *path, struct stat *st)
 	return lstat(path, st);
 }
 
+static int
+inadyn_cache_chmod_cb(void *context, const char *path, mode_t mode)
+{
+	(void)context;
+	return chmod(path, mode);
+}
+
 /*
  * Cache/config preparation can fail after the old Inadyn daemon has been
  * stopped. The config writer is atomic, so these pre-launch failures leave
@@ -2559,7 +2566,7 @@ inadyn_cache_lstat_cb(void *context, const char *path, struct stat *st)
 static int
 inadyn_restore_previous_instance(int previous_running)
 {
-	struct stat config_stat;
+	struct stat config_stat, cache_stat;
 	enum process_presence state;
 	enum inadyn_restore_action action;
 	int scan_error = 0, status, verbose_idx, launch_status;
@@ -2598,6 +2605,22 @@ inadyn_restore_previous_instance(int previous_running)
 		return EPERM;
 	}
 
+
+	if (lstat(DDNS_CACHE_DIR, &cache_stat) != 0) {
+		status = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot restore previous Inadyn daemon: cache directory is unavailable (errno=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
+	if (!S_ISDIR(cache_stat.st_mode) || cache_stat.st_uid != geteuid() ||
+	    (cache_stat.st_mode & 0777) != 0700) {
+		errno = !S_ISDIR(cache_stat.st_mode) ? ENOTDIR : EPERM;
+		logmessage(LOGNAME,
+			   "cannot restore previous Inadyn daemon: cache path is not a private owned directory");
+		return errno;
+	}
 	verbose_idx = nvram_safe_get_int("ddns_verbose", 0, 0, 2);
 	startup_delay = (!is_ntpc_updated()) ? "30" : "3";
 	launch_status = eval("/bin/inadyn",
@@ -2666,7 +2689,8 @@ start_ddns_locked(int clear_cache)
 
 	cache_status = inadyn_prepare_cache_directory(
 		clear_cache, DDNS_CACHE_DIR, inadyn_cache_clear_cb,
-		inadyn_cache_mkdir_cb, inadyn_cache_lstat_cb, NULL);
+		inadyn_cache_mkdir_cb, inadyn_cache_lstat_cb,
+		inadyn_cache_chmod_cb, NULL);
 	if (cache_status != 0) {
 		saved_status = cache_status > 0 ? cache_status : (errno ? errno : EIO);
 		logmessage(LOGNAME,

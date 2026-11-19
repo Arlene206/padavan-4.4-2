@@ -111,6 +111,10 @@ assert "lstat(DDNS_CONF_FILE, &config_stat)" in restore
 assert "S_ISREG(config_stat.st_mode)" in restore
 assert "config_stat.st_uid != geteuid()" in restore
 assert "config_stat.st_nlink != 1" in restore
+assert "lstat(DDNS_CACHE_DIR, &cache_stat)" in restore
+assert "S_ISDIR(cache_stat.st_mode)" in restore
+assert "cache_stat.st_uid != geteuid()" in restore
+assert "cache_stat.st_mode & 0777" in restore
 assert "(config_stat.st_mode & 077) != 0" in restore
 assert 'eval("/bin/inadyn"' in restore
 assert "inadyn_confirm_started(launch_status)" in restore
@@ -126,11 +130,16 @@ assert start.index("inadyn_prepare_cache_directory(") < start.index("write_inady
 assert start.index("write_inadyn_conf(DDNS_CONF_FILE)") < start.index('eval("/bin/inadyn"')
 assert "cache_status != 0" in start
 assert "inadyn_cache_clear_cb" in source and "inadyn_cache_lstat_cb" in source
+assert "inadyn_cache_chmod_cb" in source
+assert "inadyn_cache_chmod_cb, NULL" in source
 assert 'doSystem("rm -rf %s", path)' in source
 assert "inadyn_cache_command_status(command_status, errno)" in source
 assert "inadyn_prepare_cache_directory" in policy
 assert "command_status == -1 && command_errno > 0" in policy
 assert "S_ISDIR(st.st_mode)" in policy
+assert "st.st_uid != geteuid()" in policy
+assert "chmod_fn(context, path, 0700)" in policy
+assert "st.st_mode & 0777" in policy
 assert "test_cache_prepare_status" in test
 assert "doSystem(\"rm -rf %s\", DDNS_CACHE_DIR)" not in start
 assert "mkdir(DDNS_CACHE_DIR, 0777)" not in start
