@@ -400,4 +400,58 @@ storage_ejected_swap_device_name(const char *swap_path, char *device,
 	return 1;
 }
 
+/*
+ * Match an absolute swap-file path to a mountpoint by component boundary
+ * rather than byte prefix. Reject dot components instead of normalizing so
+ * lexical matching cannot associate a path that escapes the removable mount.
+ */
+static int
+storage_ejected_path_has_normal_components(const char *path)
+{
+	const char *component, *end;
+
+	if (!path || path[0] != '/')
+		return 0;
+
+	component = path + 1;
+	while (*component) {
+		while (*component == '/')
+			component++;
+		if (!*component)
+			break;
+		end = component;
+		while (*end && *end != '/')
+			end++;
+		if ((end - component == 1 && component[0] == '.') ||
+		    (end - component == 2 && component[0] == '.' &&
+		     component[1] == '.'))
+			return 0;
+		component = end;
+	}
+	return 1;
+}
+
+static int
+storage_ejected_swap_path_is_on_mount(const char *swap_path,
+				      const char *mountpoint)
+{
+	size_t mount_length;
+
+	if (!storage_ejected_path_has_normal_components(swap_path) ||
+	    !storage_ejected_path_has_normal_components(mountpoint))
+		return 0;
+
+	mount_length = strlen(mountpoint);
+	while (mount_length > 1 && mountpoint[mount_length - 1] == '/')
+		mount_length--;
+
+	if (mount_length == 1 && mountpoint[0] == '/')
+		return swap_path[1] != '\0';
+
+	return strlen(swap_path) > mount_length &&
+	       strncmp(swap_path, mountpoint, mount_length) == 0 &&
+	       swap_path[mount_length] == '/' &&
+	       swap_path[mount_length + 1] != '\0';
+}
+
 #endif /* PADAVAN_STORAGE_EJECTED_INVENTORY_POLICY_H */

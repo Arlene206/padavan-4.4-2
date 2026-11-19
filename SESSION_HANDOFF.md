@@ -119,11 +119,11 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Verification boundary
 
-- Current main source/checkpoint SHA: `d6acda494876c87e413939689ed3cd058b7f7fa6`.
-- Exact-head ZeroTier lifecycle Action `44522534088` PASS on d6acda: shell bounded lifecycle regression, Python lifecycle and RC integration contracts, and WAN-up launch-status wiring all PASS. The companion AI handoff documentation Action `44522534108` also PASS.
-- RStats source SHA `3523bb9f27ba33065731abcd946ae11726d04470`: host regression/source contracts `44519760957` PASS; exact same-SHA XY-C1 `44519760903` Build, TRX verification and artifact upload all PASS (L3 VERIFIED).
-- ZeroTier current source behavior has host L2 evidence on d6acda; no same-source XY-C1 Build/TRX/artifact evidence or physical-router L4 evidence is recorded for its production changes. Do not claim L3/L4 for ZeroTier.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
+- Parent main SHA for the swap-file safe-eject fix: `9e71646ab80473493a9f0caddc763cb624ca3c81`.
+- ZeroTier host L2: exact run `44522534088` PASS on `d6acda494876c87e413939689ed3cd058b7f7fa6`; companion AI-doc run `44522534108` PASS. ZeroTier same-source firmware L3 and physical L4 remain unverified.
+- RStats source SHA `3523bb9f27ba33065731abcd946ae11726d04470`: host run `44519760957` and same-SHA XY-C1 `44519760903` Build/TRX/artifact all PASS (L3 VERIFIED).
+- This commit addresses physical-eject swap-file handling in `services_stor.c` and adds GNU89 policy + source-contract regressions. Exact-head storage-hotplug Actions and same-SHA XY-C1 validation are pending; no storage L2/L3/L4 claim is made.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Retained historical verification details
 
@@ -134,22 +134,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- ## Active task
+- Continue on `main` only. Parent for this production fix: `9e71646ab80473493a9f0caddc763cb624ca3c81`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` is immutable. PR #1 remains closed/unmerged.
+- Fixed a concrete physical-unplug gap: active swap files on removable mountpoints were discarded because staging accepted only raw `/dev/sd*` and `/dev/mmcblk*` swap entries. The stale mount stayed busy because cleanup never invoked `swapoff()` for the file. The new code stages absolute non-`/dev` swap paths, matches them to stale removable mountpoints with component and traversal guards, and disables each affected swap file before unmount.
+- Added GNU89 host policy cases and production source-contract assertions. Exact storage-hotplug CI is pending; no local test claim and no storage L2/L3/L4 claim yet.
+- ZeroTier L2 is verified on d6acda by `44522534088`; RStats L3 is verified on `3523bb9` by host `44519760957` and same-SHA XY-C1 `44519760903`.
 
-- Continue on `main` only. Current parent `d6acda494876c87e413939689ed3cd058b7f7fa6`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
-- ZeroTier firewall cleanup/checkpoint work and NAT table argument ordering are implemented; exact-host L2 regression and source/RC integration contract are green on d6acda (run `44522534088`). AI handoff doc contract `44522534108` also PASS. Keep ZeroTier L3/L4 unclaimed until a same-source firmware validation / physical router run exists.
-- RStats NULL-safe `localtime()` source commit `3523bb9f27ba33065731abcd946ae11726d04470` has host PASS and same-SHA XY-C1 Build/TRX/artifact PASS; L3 verified for that slice.
-- Current independent review focus: storage/USB hotplug safe-remove and raw swap-only cleanup. Existing inventory parsers and caller gates look fail-closed; no new defect or source change has been established yet. Continue only from a concrete production-path defect and add a focused regression.
-tion for the next GPT
+## Exact first action for the next GPT
 
-1. Inspect the exact-head Zer## Exact first action for the next GPT
-
-1. Continue the storage/USB hotplug review from `services_stor.c`, specifically safe-remove and physical-unplug raw swap-only paths; validate any suspected issue against `scripts/check_storage_safe_remove.py` and the GNU89/ASan/UBSan + BusyBox-ash workflow before editing.
-2. Preserve completed L2 ZeroTier evidence on `d6acda494876c87e413939689ed3cd058b7f7fa6` (run `44522534088`) and RStats L3 evidence on `3523bb9f27ba33065731abcd946ae11726d04470` (host `44519760957`, XY-C1 Build/TRX/artifact `44519760903`).
-3. For any new defect, modify production source + regression in one complete Git tree/commit, push with `force=false` and exact-parent CAS, then inspect Actions for that exact SHA. Do not touch the frozen backup or repeat completed audits.
- session MUST inspect live main, current product-source SHA, relevant exact-head Actions, verification boundary, and next concrete action.
-
-The checkpoint is mandatory; a document edit is conditional. Update only when these facts materially change; leave an accurate handoff untouched.
+1. Check the exact-head storage-hotplug Action for this swap-file eject fix. Inspect GNU89/ASan/UBSan tests, BusyBox ash and the full safe-remove source contract; fix an actual failure on the next SHA.
+2. Check same-SHA XY-C1 Build, TRX verification and artifact upload separately; claim storage L3 only if all three pass.
+3. If green, continue another independent cross-userland P1/P2 stability/security task. Use complete-tree atomic commits and non-forced exact-parent CAS; never modify the frozen backup.
 
 ## Development invariants
 

@@ -215,6 +215,22 @@ ejected = body(
     storage,
     "umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)",
 )
+ejected_swap_stage = body(storage, "storage_stage_ejected_swaps(")
+require(
+    'char path[256];' in storage
+    and 'strcpy(entry->path, swap_path);' in ejected_swap_stage
+    and 'strncmp(swap_path, "/dev/", 5) == 0' in ejected_swap_stage
+    and 'storage_ejected_swap_file_is_on_ejected_mount' in storage
+    and 'storage_ejected_swap_path_is_on_mount(swap_path, mount->mountpoint)' in storage
+    and "swapoff(swap_entry->path)" in storage,
+    "physical eject must retain absolute swap-file paths and disable them when backed by an ejected mount",
+)
+require(
+    'storage_ejected_swap_path_is_on_mount(\n\t\t"/media/usb/swapfile", "/media/usb")' in ejected_policy_test
+    and '"/media/usb2/swapfile", "/media/usb"' in ejected_policy_test
+    and '"/media/usb/../internal/swapfile", "/media/usb"' in ejected_policy_test,
+    "swap-file path matching must enforce mount-component boundaries and reject traversal",
+)
 ejected_inventory = ejected.index("storage_stage_ejected_partitions(&partitions)")
 ejected_scan = ejected.index("has_ejected_mounts = 1;")
 ejected_stop = ejected.index("stop_stor_apps()")

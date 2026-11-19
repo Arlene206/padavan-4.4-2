@@ -1,3 +1,12 @@
+## 2026-11-19 — Disable swap files on physically ejected storage before unmount
+
+- Confirmed a physical-unplug cleanup gap in `umount_ejected_locked()`: `storage_stage_ejected_swaps()` discarded every `/proc/swaps` entry for which `storage_ejected_swap_device_name()` returned 0, including swap files such as `/media/usb/swapfile`. When the backing USB partition disappeared from `/proc/partitions`, the stale mount was detected but the active swap file was never passed to `swapoff()`; unmount remained busy and repeated eject retries could not release the device.
+- The production path now stages absolute non-`/dev` swap paths alongside raw removable block swaps, associates them with stale removable mountpoints using strict component-boundary matching, and calls `swapoff(path)` before unmount. Internal swap files and non-removable `/dev` nodes are not selected.
+- GNU89 regression adds normal/deep mount matches, root mount, prefix-collision rejection, exact-mount rejection, relative-path rejection, and `..` traversal rejection. The Python source-contract checker links the policy and tests to the physical-eject implementation.
+- No local toolchain is available in this connector-only session. Exact-head storage-hotplug GNU89/ASan/UBSan and BusyBox ash checks plus same-SHA XY-C1 Build/TRX/artifact are pending; no storage L2/L3 claim yet.
+
+---
+
 ## 2026-11-19 — Close ZeroTier lifecycle L2 verification on d6acda
 
 - Exact-head ZeroTier Action `44522534088` completed PASS on `d6acda494876c87e413939689ed3cd058b7f7fa6`: bounded shell stop/start/readiness/firewall/static-route regression, Python lifecycle and RC integration source contracts, and WAN-up launch-status wiring all passed.

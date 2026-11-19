@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <sys/mount.h>
+#include <sys/swap.h>
 #include <net/ethernet.h>
 
 #include <dev_info.h>
@@ -2742,6 +2743,7 @@ free_storage_ejected_partitions(struct storage_ejected_partition_entry *entry)
 
 
 struct storage_ejected_swap_entry {
+	char path[256];
 	char device[32];
 	struct storage_ejected_swap_entry *next;
 };
@@ -2796,7 +2798,14 @@ storage_stage_ejected_swaps(struct storage_ejected_swap_entry **staged)
 			parse_error = 1;
 			break;
 		}
-		if (parse_status == 0)
+		/*
+		 * Keep absolute swap-file paths too. A swap file under a removable
+		 * mount is otherwise invisible to raw-device matching and keeps the
+		 * stale mount busy forever after physical unplug. Non-removable
+		 * /dev nodes and relative paths are not safe to associate by path.
+		 */
+		if (parse_status == 0 &&
+		    (swap_path[0] != '/' || strncmp(swap_path, "/dev/", 5) == 0))
 			continue;
 
 		entry = (struct storage_ejected_swap_entry *)malloc(sizeof(*entry));
@@ -2804,7 +2813,11 @@ storage_stage_ejected_swaps(struct storage_ejected_swap_entry **staged)
 			parse_error = 1;
 			break;
 		}
-		strcpy(entry->device, device);
+		strcpy(entry->path, swap_path);
+		if (parse_status == 1)
+			strcpy(entry->device, device);
+		else
+			entry->device[0] = '\0';
 		entry->next = NULL;
 		if (tail)
 			tail->next = entry;
@@ -2895,6 +2908,23 @@ storage_ejected_partition_is_active(const char *device,
 		return 0;
 	for (entry = entries; entry; entry = entry->next) {
 		if (strcmp(entry->device, device) == 0)
+			return 1;
+	}
+	return 0;
+}
+
+static int
+storage_ejected_swap_file_is_on_ejected_mount(
+	const char *swap_path,
+	const struct storage_ejected_mount_entry *mounts,
+	const struct storage_ejected_partition_entry *partitions)
+{
+	const struct storage_ejected_mount_entry *mount;
+
+	for (mount = mounts; mount; mount = mount->next) {
+		if (!storage_ejected_partition_is_active(mount->device + 5,
+							 partitions) &&
+		    storage_ejected_swap_path_is_on_mount(swap_path, mount->mountpoint))
 			return 1;
 	}
 	return 0;
@@ -3016,7 +3046,13 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	}
 	has_ejected_swaps = 0;
 	for (swap_entry = swaps; swap_entry; swap_entry = swap_entry->next) {
-		if (!storage_ejected_partition_is_active(swap_entry->device, partitions)) {
+		if (swap_entry->device[0]) {
+			if (!storage_ejected_partition_is_active(swap_entry->device, partitions)) {
+				has_ejected_swaps = 1;
+				break;
+			}
+		} else if (storage_ejected_swap_file_is_on_ejected_mount(
+				   swap_entry->path, head, partitions)) {
 			has_ejected_swaps = 1;
 			break;
 		}
@@ -3036,13 +3072,20 @@ umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)
 	swapoff_status = 0;
 	saved_errno = 0;
 	for (swap_entry = swaps; swap_entry; swap_entry = swap_entry->next) {
-		if (storage_ejected_partition_is_active(swap_entry->device, partitions))
-			continue;
-		swap_status = try_device_swapoff(swap_entry->device);
+		if (swap_entry->device[0]) {
+			if (storage_ejected_partition_is_active(swap_entry->device, partitions))
+				continue;
+			swap_status = try_device_swapoff(swap_entry->device);
+		} else {
+			if (!storage_ejected_swap_file_is_on_ejected_mount(
+				    swap_entry->path, head, partitions))
+				continue;
+			swap_status = swapoff(swap_entry->path);
+		}
 		if (swap_status != 0) {
 			saved_errno = errno ? errno : EIO;
 			logmessage("Storage", "refusing ejected-device cleanup because swapoff failed for %s (status %d, errno %d)",
-				   swap_entry->device, swap_status, saved_errno);
+				   swap_entry->path, swap_status, saved_errno);
 			swapoff_status = -1;
 		}
 	}

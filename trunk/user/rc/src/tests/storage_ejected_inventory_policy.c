@@ -177,6 +177,21 @@ main(void)
 	assert(strcmp(swap_device, "mmcblk0p2") == 0);
 	assert(storage_ejected_swap_device_name("/mnt/opt/swapfile", swap_device,
 		sizeof(swap_device)) == 0);
+	assert(storage_ejected_swap_path_is_on_mount(
+		"/media/usb/swapfile", "/media/usb"));
+	assert(storage_ejected_swap_path_is_on_mount(
+		"/media/usb/deep/dir/swapfile", "/media/usb/"));
+	assert(storage_ejected_swap_path_is_on_mount("/swapfile", "/"));
+	assert(!storage_ejected_swap_path_is_on_mount(
+		"/media/usb2/swapfile", "/media/usb"));
+	assert(!storage_ejected_swap_path_is_on_mount(
+		"/media/usb", "/media/usb"));
+	assert(!storage_ejected_swap_path_is_on_mount(
+		"/media/usb/../internal/swapfile", "/media/usb"));
+	assert(!storage_ejected_swap_path_is_on_mount(
+		"media/usb/swapfile", "/media/usb"));
+	assert(!storage_ejected_swap_path_is_on_mount(NULL, "/media/usb"));
+	assert(!storage_ejected_swap_path_is_on_mount("/media/usb/swapfile", NULL));
 	assert(storage_ejected_swap_device_name("/dev/sda/evil", swap_device,
 		sizeof(swap_device)) == -1);
 	assert(storage_ejected_swap_device_name("/dev/sd1", swap_device,
