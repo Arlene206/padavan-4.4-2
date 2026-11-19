@@ -3362,11 +3362,12 @@ optional_start_contracts = (
 )
 for signature, guard in optional_start_contracts:
     body = c_function_body(services_source, signature)
-    start = body.index(guard)
-    branch_end = body.index("\\n", start)
-    disabled_branch = body[start:branch_end + 1]
-    assert "return 0;" in disabled_branch, signature + " disabled path must be success"
-    assert "return 1;" not in disabled_branch, signature + " disabled path leaked nonzero status"
+    assert re.search(re.escape(guard) + r"\\s*return 0;", body), (
+        signature + " disabled path must be success"
+    )
+    assert not re.search(re.escape(guard) + r"\\s*return 1;", body), (
+        signature + " disabled path leaked nonzero status"
+    )
 boot_services = c_function_body(services_source, "start_services_once(int is_ap_mode)")
 for call in ("start_infosvr()", "start_lltd()", "start_rstats()"):
     assert call in boot_services, "missing optional daemon startup: " + call
