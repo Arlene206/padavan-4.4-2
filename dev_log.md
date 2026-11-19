@@ -1,3 +1,13 @@
+## 2026-11-19 — Correct WAN source-check normalization and handoff checkpoint contract
+
+- Parent main SHA: `18a73adeea90de2935a07cad347e1f214a76966c`.
+- The exact-head USB modem, Process and XY-C1 failures traced to the new source checker comparing whitespace-normalized C text against unnormalized expected strings. Host GNU89/ASan/UBSan policy tests themselves passed. Correct the expected normalized expressions; production behavior is unchanged.
+- The AI handoff checker found that the refreshed `SESSION_HANDOFF.md` omitted the mandatory checkpoint heading/sentence and required section names. Restore the machine-checked governance contract and retain the exact prior-SHA failure evidence and next action.
+- Exact parent WAN route run `44443755126` passed. USB modem `44443755296`, Process lifecycle `44443755214`, and XY-C1 `44443755078` failed on the source-checker assertion; AI docs `44443755298` failed only on the missing handoff governance text. All are stale evidence for the parent SHA and must be rerun on the correction commit.
+- No source runtime change or workflow expansion is made in this correction. New exact-head checker and AI docs reruns are required; Build/TRX/artifact status must be checked separately.
+
+---
+
 ## 2026-11-19 — Preserve the first WAN error across fail-fast preflights
 
 - Parent main SHA: `8e0763554388cf4dfcbc985c0712a991b3bb3c14`.

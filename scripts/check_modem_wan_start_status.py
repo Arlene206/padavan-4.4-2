@@ -188,7 +188,7 @@ callback_failure_start = wan_start.index("if (create_cb_links() != 0)")
 callback_failure_end = wan_start.index("vlan_result = config_vinet_wan();", callback_failure_start)
 callback_failure = wan_start[callback_failure_start:callback_failure_end]
 assert "callback_status = errno ? errno : EIO;" in callback_failure
-assert "wan_start_status = rc_first_service_start_status(wan_start_status, callback_status);" in callback_failure
+assert "wan_start_status=rc_first_service_start_status(wan_start_status,callback_status);" in callback_failure
 assert "return wan_start_status;" in callback_failure
 assert "return errno ? errno : EIO;" not in callback_failure
 
@@ -201,9 +201,9 @@ for setup_call, next_call, diagnostic in (
     setup_start = wan_start.index(setup_call)
     setup_end = wan_start.index(next_call, setup_start + len(setup_call))
     setup_failure = wan_start[setup_start:setup_end]
-    aggregate = "wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);"
+    aggregate = "wan_start_status=rc_first_service_start_status(wan_start_status,vlan_result);"
     assert aggregate in setup_failure, diagnostic + " must be merged before abort"
-    assert setup_failure.index(aggregate) < setup_failure.index("cleanup_status = remove_cb_links();")
+    assert setup_failure.index(aggregate) < setup_failure.index("cleanup_status=remove_cb_links();")
     assert "return wan_start_status;" in setup_failure
     assert "return vlan_result;" not in setup_failure
 
