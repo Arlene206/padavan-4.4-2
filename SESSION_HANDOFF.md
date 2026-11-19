@@ -20,9 +20,10 @@
 - Exact HTTPD 44448464312 and AI docs 44448464415 passed on parent 5fa04bc. No exact-head Switch CLI run yet covered the SIP/DIP argument paths.
 - The latest concurrent source commit 19b1259 addresses wireless hardware NAT registration errors; its exact-SHA XY-C1 Build and NVRAM boundary Actions must be checked before any L3 claim.
 
+- Exact Switch CLI run 44450415160 on f3d4e79 failed in the initial static contract because function_body('dip_add(...)') matched the earlier acl_dip_add symbol. The production functions already contain their local count guards; the checker now uses fully qualified void dip_add/dip_del/sip_add/sip_del signatures. The ASan/UBSan parser test step was skipped until this contract passes. AI docs 44450415070 and Process inventory 44450414996 passed; NVRAM boundary 44450415009 passed. XY-C1 run 44450415016 was still pending at last poll.
 ## Active next task
 
-Fetch live main, inspect this commit's Switch CLI and AI-doc exact-SHA Actions, then continue a P1 defect outside the completed WAN/LAN DHCP and switch CLI input-preflight slices.
+Fetch live main, inspect the Switch CLI and AI-doc exact-SHA Actions after the fully qualified helper signature correction, confirm XY-C1 Build/TRX/artifact outcome, then continue a P1 defect outside the completed WAN/LAN DHCP and switch CLI input-preflight slices.
 ## Active task
 
 The initial switch fix rejects truncated ACL commands and returns `EXIT_FAILURE` for invalid usage. Further argument review found three more missing-arity paths:

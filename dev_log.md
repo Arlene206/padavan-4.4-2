@@ -1,3 +1,12 @@
+## 2026-11-19 — Correct SIP/DIP source-checker symbol lookup
+
+- Parent main SHA: f3d4e793064bd97bcc105e9102406df318f29ec9.
+- Exact Switch CLI run 44450415160 failed before the GNU89 parser test because the inline checker looked up dip_add(...) as a substring and matched acl_dip_add(...) first. The production functions already include their local count guards; the checker now uses fully qualified void dip_add/dip_del/sip_add/sip_del signatures.
+- AI handoff documentation run 44450415070 and Process inventory 44450414996 passed on f3d4e79; NVRAM boundary 44450415009 passed. XY-C1 run 44450415016 was still in progress at last poll.
+- This follow-up changes only the source contract and handoff evidence. The skipped ASan/UBSan switch parser executable must run on the new exact SHA.
+
+---
+
 ## 2026-11-19 — Guard SIP/DIP switch inputs before MMIO
 
 - Parent main SHA: 19b125963c38efd5c2dda0e24fb574b40a07bf83. Source review found no local argc checks in dip_add, dip_del, sip_add or sip_del; top-level dispatch only guaranteed argv[2].
