@@ -1,3 +1,12 @@
+## 2026-11-19 — Restore exact atomic-main wording required by handoff validator
+
+- Parent main SHA: `fea88d3f18d7aac9c46dda14fd2c0fc2cc2180bd`.
+- Exact-head AI handoff run `44467726364` failed only because the mandatory handoff checker requires the literal phrase `one atomic main commit`; the current handoff stated the same intent as “one atomic commit” without the word “main”.
+- Restore the validator-required wording in the cross-session mandate. No workflow/test coverage or source behavior changes.
+- The exact WAN route checker correction on this parent passed run `44467726365`. On product source SHA `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6`, WAN DHCP, process, firewall, wireless and other relevant checks passed; exact XY-C1 build was still pending at last checkpoint.
+
+---
+
 ## 2026-11-19 — Normalize VLAN rollback contract whitespace after first exact-head failure
 
 - Parent main SHA: `2ff30969d5e326d64fe2ca1857e31b97fbfe90b6`.
