@@ -19,6 +19,27 @@ main(void)
 						 sizeof(mountpoint)) == 0);
 	assert(strcmp(device, "/dev/sda1") == 0);
 	assert(strcmp(mountpoint, "/media/usb") == 0);
+	assert(storage_ejected_parse_mount_line(
+		"/dev/sda1 /media/USB\\040Disk ext4 rw 0 0\n",
+		device, sizeof(device), mountpoint, sizeof(mountpoint)) == 0);
+	assert(strcmp(mountpoint, "/media/USB Disk") == 0);
+	assert(storage_ejected_parse_mount_line(
+		"/dev/sda1 /media/USB\\134Disk ext4 rw 0 0\n",
+		device, sizeof(device), mountpoint, sizeof(mountpoint)) == 0);
+	assert(strcmp(mountpoint, "/media/USB\\Disk") == 0);
+	assert(storage_ejected_parse_mount_line(
+		"/dev/sda1 /media/USB\\011Disk ext4 rw 0 0\n",
+		device, sizeof(device), mountpoint, sizeof(mountpoint)) == 0);
+	assert(strcmp(mountpoint, "/media/USB\tDisk") == 0);
+	assert(storage_ejected_parse_mount_line(
+		"/dev/sda1 /media/USB\\04Disk ext4 rw 0 0\n",
+		device, sizeof(device), mountpoint, sizeof(mountpoint)) != 0);
+	assert(storage_ejected_parse_mount_line(
+		"/dev/sda1 /media/USB\\000Disk ext4 rw 0 0\n",
+		device, sizeof(device), mountpoint, sizeof(mountpoint)) != 0);
+	assert(storage_ejected_parse_mount_line(
+		"/dev/sda1 /media/USB\\040Disk ext4 rw 0 0\n",
+		device, sizeof(device), mountpoint, 8) != 0);
 	assert(storage_ejected_parse_mount_line("/dev/sda1\n", device,
 						 sizeof(device), mountpoint,
 						 sizeof(mountpoint)) != 0);

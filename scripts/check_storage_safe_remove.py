@@ -195,6 +195,22 @@ require("storage_stage_unmount_mounts(&mounts)" in count and
 # A physical unplug notification is delivered after /proc/partitions no
 # longer lists the device. Stop dependent daemons before unmounting stale
 # paths, then restore them only when other storage mounts remain.
+ejected_mount_parser = body(ejected_policy, "storage_ejected_parse_mount_line(")
+require("three-digit octal escapes" in ejected_policy and
+        "decoded > 255U" in ejected_policy and "decoded == 0" in ejected_policy and
+        "output_length + 1 >= token_size" in ejected_policy,
+        "ejected-device mount and swap inventory must decode escaped paths with strict bounds")
+require(r"/media/USB\\040Disk" in ejected_policy_test and
+        r"/media/USB\\134Disk" in ejected_policy_test and
+        r"/media/USB\\011Disk" in ejected_policy_test and
+        r"/media/USB\\000Disk" in ejected_policy_test and
+        'strcmp(mountpoint, "/media/USB Disk")' in ejected_policy_test and
+        r'strcmp(mountpoint, "/media/USB\\Disk")' in ejected_policy_test and
+        r'strcmp(mountpoint, "/media/USB\tDisk")' in ejected_policy_test,
+        "ejected inventory tests must cover decoded space/backslash/tab and invalid escaped bytes")
+require("storage_ejected_next_token" in ejected_mount_parser,
+        "ejected mount parser must use the octal-decoding token reader")
+
 ejected = body(
     storage,
     "umount_ejected_locked(int storage_apps_stopped, int restart_storage_apps)",

@@ -19,36 +19,64 @@ storage_ejected_line_is_complete(const char *line)
 }
 
 /* Return 1 for a token, 0 at end of line, and -1 for an invalid/long token. */
+/*
+ * /proc/mounts and /proc/swaps encode whitespace and backslashes as
+ * three-digit octal escapes (for example, a space is \\040). Decode these
+ * fields before using their paths with umount/swapoff or Optware hooks.
+ */
 static int
 storage_ejected_next_token(const char **cursor, char *token, size_t token_size)
 {
-	const char *start;
-	const char *p;
-	size_t length;
+	const unsigned char *p, *end;
+	size_t output_length;
 
 	if (!cursor || !*cursor || !token || token_size == 0)
 		return -1;
 
-	p = *cursor;
+	p = (const unsigned char *)*cursor;
 	while (*p == ' ' || *p == '\t' || *p == '\r')
 		p++;
 
 	if (*p == '\0' || *p == '\n') {
-		*cursor = p;
+		*cursor = (const char *)p;
 		return 0;
 	}
 
-	start = p;
-	while (*p && *p != ' ' && *p != '\t' && *p != '\r' && *p != '\n')
-		p++;
+	end = p;
+	while (*end && *end != ' ' && *end != '\t' &&
+	       *end != '\r' && *end != '\n')
+		end++;
 
-	length = (size_t)(p - start);
-	if (length == 0 || length >= token_size)
-		return -1;
+	output_length = 0;
+	token[0] = '\0';
+	while (p < end) {
+		unsigned int decoded;
 
-	memcpy(token, start, length);
-	token[length] = '\0';
-	*cursor = p;
+		if (*p == '\\') {
+			if ((size_t)(end - p) < 4 ||
+			    p[1] < '0' || p[1] > '7' ||
+			    p[2] < '0' || p[2] > '7' ||
+			    p[3] < '0' || p[3] > '7')
+				return -1;
+			decoded = (unsigned int)(p[1] - '0') * 64U +
+				  (unsigned int)(p[2] - '0') * 8U +
+				  (unsigned int)(p[3] - '0');
+			if (decoded == 0 || decoded > 255U)
+				return -1;
+			p += 4;
+		} else {
+			decoded = *p++;
+		}
+
+		if (output_length + 1 >= token_size) {
+			token[0] = '\0';
+			return -1;
+		}
+		token[output_length++] = (char)decoded;
+	}
+
+	token[output_length] = '\0';
+	*cursor = (const char *)end;
 	return 1;
 }
 
