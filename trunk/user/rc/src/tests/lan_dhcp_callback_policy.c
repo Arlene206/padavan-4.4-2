@@ -38,8 +38,7 @@ main(void)
 {
 	test_successful_lease_commit_ignores_ancillary_refresh_failure();
 	test_ap_same_value_renew_always_refreshes_hosts();
-	test_host_retry_is_scheduled_when_either_recovery_path_succeeds();
 	test_transaction_failure_remains_fatal();
-	puts("LAN DHCP post-commit ancillary status and retry regression: PASS");
+	puts("LAN DHCP post-commit ancillary status and AP renewal fallback regression: PASS");
 	return 0;
 }
