@@ -1,11 +1,46 @@
 #include <assert.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <unistd.h>
 
 #include "storage_optware_start_policy.h"
+
+static void
+test_result_pipe_descriptors_are_nonblocking_and_cloexec(void)
+{
+	int descriptors[2], flags;
+
+	assert(pipe(descriptors) == 0);
+	assert(storage_optware_configure_result_pipe(descriptors[0],
+						     descriptors[1]) == 0);
+
+	flags = fcntl(descriptors[0], F_GETFL, 0);
+	assert(flags >= 0 && (flags & O_NONBLOCK) != 0);
+	flags = fcntl(descriptors[0], F_GETFD);
+	assert(flags >= 0 && (flags & FD_CLOEXEC) != 0);
+	flags = fcntl(descriptors[1], F_GETFD);
+	assert(flags >= 0 && (flags & FD_CLOEXEC) != 0);
+
+	assert(close(descriptors[0]) == 0);
+	assert(close(descriptors[1]) == 0);
+}
+
+static void
+test_result_pipe_configuration_rejects_invalid_descriptors(void)
+{
+	int descriptors[2];
+
+	assert(pipe(descriptors) == 0);
+	assert(storage_optware_configure_result_pipe(-1, descriptors[1]) == -1);
+	assert(close(descriptors[0]) == 0);
+	assert(close(descriptors[1]) == 0);
+}
 
 int
 main(void)
 {
+	test_result_pipe_descriptors_are_nonblocking_and_cloexec();
+	test_result_pipe_configuration_rejects_invalid_descriptors();
 	assert(storage_optware_start_decode_result(-1, 0) ==
 	       STORAGE_OPTWARE_START_CHILD_RUNNING);
 	assert(storage_optware_start_decode_result(1, 0) ==

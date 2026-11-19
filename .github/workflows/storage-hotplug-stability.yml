@@ -846,8 +846,15 @@ jobs:
           assert "storage_optware_start_decode_result" in child_reader
           child_launcher = function_body(storage, "storage_optware_start_async(void)")
           assert "storage_optware_result_fd >= 0" in child_launcher
-          assert "pipe(pipe_fd)" in child_launcher and "O_NONBLOCK" in child_launcher
-          assert "FD_CLOEXEC" in child_launcher
+          assert "pipe(pipe_fd)" in child_launcher
+          assert "storage_optware_configure_result_pipe(pipe_fd[0], pipe_fd[1])" in child_launcher
+          assert child_launcher.index("storage_optware_configure_result_pipe(") < child_launcher.index("fork()")
+          pipe_policy = optware_policy[optware_policy.index("storage_optware_configure_result_pipe("):]
+          assert "fcntl(read_fd, F_SETFD, flags | FD_CLOEXEC)" in pipe_policy
+          assert "fcntl(write_fd, F_SETFD, flags | FD_CLOEXEC)" in pipe_policy
+          assert "O_NONBLOCK" in pipe_policy
+          assert "test_result_pipe_descriptors_are_nonblocking_and_cloexec" in optware_policy_test
+          assert "test_result_pipe_configuration_rejects_invalid_descriptors" in optware_policy_test
           assert "child = fork();" in child_launcher
           assert 'system("/usr/bin/opt-start.sh")' in child_launcher
           assert "WIFEXITED(command_status)" in child_launcher

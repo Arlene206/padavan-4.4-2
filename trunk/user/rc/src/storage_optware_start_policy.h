@@ -1,6 +1,33 @@
 #ifndef PADAVAN_STORAGE_OPTWARE_START_POLICY_H
 #define PADAVAN_STORAGE_OPTWARE_START_POLICY_H
 
+#include <fcntl.h>
+
+/*
+ * PID 1 keeps the read end until the worker reports completion. Mark both
+ * descriptors close-on-exec so subsequent daemon launches cannot leak the
+ * result channel into unrelated long-lived processes.
+ */
+static inline int
+storage_optware_configure_result_pipe(int read_fd, int write_fd)
+{
+	int flags;
+
+	flags = fcntl(read_fd, F_GETFL, 0);
+	if (flags < 0 || fcntl(read_fd, F_SETFL, flags | O_NONBLOCK) != 0)
+		return -1;
+
+	flags = fcntl(read_fd, F_GETFD);
+	if (flags < 0 || fcntl(read_fd, F_SETFD, flags | FD_CLOEXEC) != 0)
+		return -1;
+
+	flags = fcntl(write_fd, F_GETFD);
+	if (flags < 0 || fcntl(write_fd, F_SETFD, flags | FD_CLOEXEC) != 0)
+		return -1;
+
+	return 0;
+}
+
 enum storage_optware_start_child_result {
 	STORAGE_OPTWARE_START_CHILD_FAILURE = -1,
 	STORAGE_OPTWARE_START_CHILD_RUNNING = 0,

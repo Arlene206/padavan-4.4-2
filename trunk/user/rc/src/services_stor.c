@@ -3566,7 +3566,7 @@ storage_optware_start_result_read(void)
 static int
 storage_optware_start_async(void)
 {
-	int pipe_fd[2], flags, command_status;
+	int pipe_fd[2], command_status;
 	unsigned char child_result;
 	ssize_t written;
 	pid_t child;
@@ -3580,11 +3580,7 @@ storage_optware_start_async(void)
 		return -1;
 	}
 
-	flags = fcntl(pipe_fd[0], F_GETFL, 0);
-	if (flags < 0 || fcntl(pipe_fd[0], F_SETFL, flags | O_NONBLOCK) != 0)
-		goto failed;
-	flags = fcntl(pipe_fd[1], F_GETFD);
-	if (flags < 0 || fcntl(pipe_fd[1], F_SETFD, flags | FD_CLOEXEC) != 0)
+	if (storage_optware_configure_result_pipe(pipe_fd[0], pipe_fd[1]) != 0)
 		goto failed;
 
 	child = fork();
