@@ -112,7 +112,7 @@ static void test_new_file_modes_follow_umask(const char *directory)
   assert(rstats_file_creation_mode() == 0640);
 
   ops_init(&ops);
-  last_temp[0] = '\\0';
+  last_temp[0] = '\0';
   assert(rstats_file_write_atomic_with_ops(raw_path, "raw", 3, &ops) == 0);
   assert(stat(raw_path, &st) == 0 && (st.st_mode & 0777) == 0640);
 
