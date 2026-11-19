@@ -893,7 +893,7 @@ print("Configured NAT helper/accelerator errors reach WAN status without blockin
 
 # Core firewall rebuilding must report validation, transaction and cleanup
 # failures; restart must still attempt UPnP refresh and preserve the first error.
-firewall_rebuild = compact(body(FIREWALL_SOURCE, "start_firewall_ex(void)"))
+firewall_rebuild = compact(body(FIREWALL_SOURCE, "start_firewall_ex_locked(void)"))
 assert "firewall_restore_transaction_prepare_reset(" in firewall_rebuild
 assert "firewall_restore_transaction_status(&firewall_core_restore_transaction)" in firewall_rebuild
 assert "firewall_restore_transaction_finish(" in firewall_rebuild
@@ -910,6 +910,13 @@ assert forwarding_disable.count("rc_first_service_start_status") == 2
 assert 'forward_status = firewall_disable_forwarding("Core firewall rollback");' in firewall_rebuild
 assert 'forward_status = firewall_disable_forwarding("Adbyby firewall rollback");' in firewall_rebuild
 assert not re.search(r"\breturn\s*;", firewall_rebuild)
+firewall_entry = compact(body(FIREWALL_SOURCE, "start_firewall_ex(void)"))
+assert "firewall_lifecycle_lock_acquire()" in firewall_entry
+assert "status = start_firewall_ex_locked();" in firewall_entry
+assert "firewall_lifecycle_lock_release(lock_fd)" in firewall_entry
+assert firewall_entry.index("firewall_lifecycle_lock_acquire()") < firewall_entry.index("status = start_firewall_ex_locked();") < firewall_entry.index("firewall_lifecycle_lock_release(lock_fd)")
+assert "if (lock_fd < 0)" in firewall_entry
+assert "errno = saved_errno;" in firewall_entry
 assert "int start_firewall_ex(void);" in HEADER
 
 firewall_restart = compact(body(NET_SOURCE, "restart_firewall(void)"))

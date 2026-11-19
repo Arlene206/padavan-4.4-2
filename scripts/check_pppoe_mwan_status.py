@@ -120,10 +120,15 @@ require(
 
 # The firewall rebuild also invokes this detector before WAN protocol clients
 # are launched. Its command result must not disappear at this third call site.
-firewall_reconcile = function_body(FIREWALL, "start_firewall_ex(void)")
+firewall_reconcile = function_body(FIREWALL, "start_firewall_ex_locked(void)")
 mwan_gate = 'if (nvram_match("pppoemwan_enable", "1"))'
 mwan_call = 'hook_error = firewall_log_command_failure("PPPoE-MWAN detection",'
 mwan_merge = "status = rc_first_service_start_status(status, hook_error);"
+firewall_entry = function_body(FIREWALL, "start_firewall_ex(void)")
+firewall_lock = firewall_entry.index("firewall_lifecycle_lock_acquire()")
+firewall_worker = firewall_entry.index("status = start_firewall_ex_locked();")
+firewall_unlock = firewall_entry.index("firewall_lifecycle_lock_release(lock_fd)")
+require(firewall_lock < firewall_worker < firewall_unlock, "firewall rebuild must serialize the entire worker transaction")
 mwan_call_pos = firewall_reconcile.find(mwan_call)
 mwan_merge_pos = firewall_reconcile.find(mwan_merge, mwan_call_pos)
 require(
