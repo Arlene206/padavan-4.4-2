@@ -10,12 +10,11 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Live main before this source-contract follow-up: `908fee5e350717c881ffda0c69d81f005f7e04c7`.
+- Live main before this duplicate-contract repair: `82153dbc2fb46c48e85f7f88f2466c5845a4c152`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
-- Exact `908fee5` Actions: WAN route `44552799897` failed at a new assertion expecting `return rc_first_service_start_status(status, monitor_resume_status)` in the AP DHCP-preflight branch; that branch intentionally preserves its guaranteed nonzero primary `return status;`. Process fail-closed `44552799701` failed because its compact teardown assertion did not yet include the final bridge-path `monitor_resume_status` accumulator. This follow-up updates both contracts and retains the log checks.
-- Exact `908fee5` passes: HTTPD `44552800096`, DNSMasq `44552799756`, NVRAM `44552799727`, Wireless `44552799518`, WAN DHCP callbacks `44552799472`, AI docs `44552799400`, detect_internet `44552799384`, watchdog `44552799369`, Process inventory `44552799345`, Firewall `44552799340`, detect_link `44552799320`. XY-C1 `44552799621` was still in progress at last poll; it includes the AP LAN production change and must be checked for Build/TRX/artifact.
-- AP LAN production change remains in `b735ea82c111be67854b4dae33ba3a5a64fe2416`: both failed teardown recoveries capture/log detect_internet resume status; first-error policy preserves the original DHCP stop or bridge-down error. No behavior assertions are removed.
-- ZeroTier L3 remains verified on `a834edbad9ba5a168768a882c766607065fb7708` by exact XY-C1 run `44544667515`. No physical-router L4 or local checkout/toolchain.
+- AP-mode LAN teardown source `b735ea82c111be67854b4dae33ba3a5a64fe2416` captures/logs both Internet-monitor resume failures while preserving the original DHCP stop/bridge-down failure. Exact XY-C1 run `44552799621` on `908fee5` passed Build XY-C1, TRX verification and artifact upload (L3 for the AP LAN source).
+- Exact `82153dbc` results: AI docs `44554201629` PASS; WAN route `44554200970` PASS. Process fail-closed `44554200782` failed only because a second duplicated contract in `scripts/check_process_lifecycle_integration.py` (line 3059) still expected the old LAN teardown aggregate without `monitor_resume_status`; the earlier copy of the same contract already passed after its update. This commit updates the remaining duplicate.
+- ZeroTier previous product SHA `a834edbad9ba5a168768a882c766607065fb7708` remains L3-verified on XY-C1 `44544667515`. No physical-router L4 or local checkout/toolchain.
 
 ## Latest active source slices — 2026-11-19
 
@@ -150,16 +149,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Continue on `main` only; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
-- AP-mode `stop_lan()` now reports (logs) both failed detect_internet resume attempts after failed DHCP identity teardown or bridge-down recovery. It preserves the earlier teardown status and includes the secondary resume status in the final bridge cleanup aggregate. Runtime regression is in `service_start_status.c`; source integration checks span WAN route and Process fail-closed workflows.
-- This commit repairs two stale contracts on `908fee5`: WAN route's preflight expectation is primary `return status;`, and Process lifecycle's compact final return now includes `monitor_resume_status`. All other exact-head host workflows listed above passed.
-- XY-C1 `44552799621` is the exact current production build in progress. No local tools or physical router; do not claim L4.
+- Continue on `main` only; keep backup `72f4f157a084f8184b9597ca5bf334b8080e5807` immutable.
+- The AP LAN monitor-resume source slice is L3 VERIFIED: exact XY-C1 run `44552799621` passed Build, TRX verification and artifact upload on `908fee5`, which includes production source commit `b735ea8`.
+- Remaining CI issue on `82153dbc` is a duplicate source-contract assertion in Process lifecycle checker, not a runtime/test compilation failure. The primary WAN route and docs Actions on that SHA passed. This commit updates the second copy; exact Process run is required.
+- No local build or physical-router L4 is claimed.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route and Process fail-closed actions for this commit. They must validate the primary return, both resume-result logs, and final first-status aggregation.
-2. Inspect XY-C1 run `44552799621` and record Build XY-C1, TRX verification, artifact upload independently.
-3. Continue with a new independent stability/security issue beyond the AP monitor-resume slice. Use a complete atomic main commit and inspect Actions by exact SHA.
+1. Verify exact-head Process fail-closed and AI handoff Actions for the next main SHA. Ensure both duplicated LAN teardown assertions expect the aggregate including `monitor_resume_status`.
+2. The AP LAN production source has Build/TRX/artifact L3 PASS on `44552799621`; retain that evidence and do not repeat the build unless production inputs change.
+3. Continue with a distinct stability/security bug outside this AP LAN teardown slice, using main-only atomic commits and exact-SHA Actions.
 
 ## Mandatory handoff checkpoint
 

@@ -1,8 +1,8 @@
 # 2026-11-19 source checkpoint
-- Main parent for this checker follow-up: `908fee5e350717c881ffda0c69d81f005f7e04c7`.
-- AP-mode LAN teardown source `b735ea8` captures/logs monitor-resume failures and preserves first-error ordering. On exact `908fee5`, WAN route `44552799897` failed because its new contract incorrectly expected the AP DHCP-preflight branch to return the resume status; it must return its already-nonzero original `status`. Process fail-closed `44552799701` failed because its compact aggregate assertion was not updated for the new final bridge-path `monitor_resume_status`. This commit updates both source contracts without weakening them.
-- Other `908fee5` workflows PASS: HTTPD `44552800096`, DNSMasq `44552799756`, NVRAM `44552799727`, Wireless `44552799518`, WAN DHCP callbacks `44552799472`, AI docs `44552799400`, detect_internet `44552799384`, watchdog `44552799369`, Process inventory `44552799345`, Firewall `44552799340`, detect_link `44552799320`. XY-C1 `44552799621` pending.
-- Check the two corrected exact-head workflows and XY-C1 Build/TRX/artifact before claiming current-main L3. ZeroTier previous L3 remains on `a834edb` / run `44544667515`; physical L4 NOT VERIFIED.
+- Parent for this checker correction: `82153dbc2fb46c48e85f7f88f2466c5845a4c152`.
+- AP-mode LAN source `b735ea8` has exact XY-C1 L3 PASS: run `44552799621` on `908fee5` passed Build XY-C1, TRX verification and artifact upload.
+- Exact `82153dbc` AI docs `44554201629` and WAN route `44554200970` PASS. Process fail-closed `44554200782` failed at a duplicate second assertion (line 3059) in `scripts/check_process_lifecycle_integration.py` that still expected the previous compact stop_lan return. The first copy at line 2128 already expects `monitor_resume_status`; this commit updates the remaining copy only.
+- Re-run exact Process lifecycle and AI docs on the new SHA. No physical-router L4.
 
 ## CI trigger governance — current policy
 
