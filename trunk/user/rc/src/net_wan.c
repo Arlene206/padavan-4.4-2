@@ -775,12 +775,11 @@ config_soft_bridge_wan(int br_id, int vid, int prio, const char *wan_ifname,
 	return config_soft_bridge_wan_internal(br_id, vid, prio, wan_ifname,
 					       wan_hwaddr, NULL);
 }
-
-static void
+static int
 rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 {
 	struct soft_bridge_wan_ownership *bridge = &entry->bridge;
-	int ret, bridge_flags, bridge_empty;
+	int ret, bridge_flags, bridge_empty, status = 0;
 	int wan_detached_safe, bwan_detached_safe;
 
 	wan_detached_safe = bridge_batch_membership_detached_safe(
@@ -794,57 +793,87 @@ rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 	if (bridge->bwan_port_added && !bwan_detached_safe) {
 		ret = br_add_del_if(bridge->bridge_name, bridge->bwan_ifname, 0);
 		bwan_detached_safe = (ret == 0);
-		if (ret != 0)
+		if (bwan_detached_safe)
+			bridge->bwan_port_detached_safe = 1;
+		if (ret != 0) {
+			status = route_status_accumulate(status, ret);
 			logmessage(LOGNAME, "LAN bridge batch rollback could not detach %s (status=%d)",
 				   bridge->bwan_ifname, ret);
+		}
 	}
 	if (bridge->wan_port_added && !wan_detached_safe) {
 		ret = br_add_del_if(bridge->bridge_name, bridge->wan_ifname, 0);
 		wan_detached_safe = (ret == 0);
-		if (ret != 0)
+		if (wan_detached_safe)
+			bridge->wan_port_detached_safe = 1;
+		if (ret != 0) {
+			status = route_status_accumulate(status, ret);
 			logmessage(LOGNAME, "LAN bridge batch rollback could not detach %s (status=%d)",
 				   bridge->wan_ifname, ret);
+		}
 	}
 
-	/* The WAN-side VLAN is created inside the bridge helper, after the
-	 * caller-side LAN VLAN; remove/restore them in the reverse order. */
+	/* Restore/remove VLANs only after their bridge membership is known safe. */
 	if (bridge->bwan_vlan_created) {
 		if (bwan_detached_safe) {
 			ret = remove_vlan_iface(bridge->bwan_ifname);
-			if (ret != 0)
+			if (ret != 0) {
+				status = route_status_accumulate(status, ret);
 				logmessage(LOGNAME, "LAN bridge batch rollback could not remove WAN-side VLAN %s (status=%d)",
 					   bridge->bwan_ifname, ret);
+			}
 		} else {
+			status = route_status_accumulate(status, EIO);
 			logmessage(LOGNAME, "LAN bridge batch rollback preserved VLAN %s because membership ownership is uncertain",
 				   bridge->bwan_ifname);
 		}
 	} else if (bridge->bwan_vlan_existed) {
-		ret = bridge->bwan_vlan_was_up ?
-			ifconfig(bridge->bwan_ifname, IFUP, "0.0.0.0", NULL) :
-			ifconfig(bridge->bwan_ifname, 0, NULL, NULL);
-		if (ret != 0)
-			logmessage(LOGNAME, "LAN bridge batch rollback could not restore VLAN %s state (status=%d)",
-				   bridge->bwan_ifname, ret);
+		if (bwan_detached_safe) {
+			ret = bridge->bwan_vlan_was_up ?
+				ifconfig(bridge->bwan_ifname, IFUP, "0.0.0.0", NULL) :
+				ifconfig(bridge->bwan_ifname, 0, NULL, NULL);
+			if (ret != 0) {
+				status = route_status_accumulate(status, ret);
+				logmessage(LOGNAME, "LAN bridge batch rollback could not restore VLAN %s state (status=%d)",
+					   bridge->bwan_ifname, ret);
+			}
+		} else {
+			status = route_status_accumulate(status, EIO);
+			logmessage(LOGNAME, "LAN bridge batch rollback preserved VLAN %s state because membership ownership is uncertain",
+				   bridge->bwan_ifname);
+		}
 	}
 
 	if (entry->port_vlan_created) {
 		if (wan_detached_safe) {
 			ret = remove_vlan_iface(entry->port_ifname);
-			if (ret != 0)
+			if (ret != 0) {
+				status = route_status_accumulate(status, ret);
 				logmessage(LOGNAME, "LAN bridge batch rollback could not remove VLAN %s (status=%d)",
 					   entry->port_ifname, ret);
+			}
 		} else {
+			status = route_status_accumulate(status, EIO);
 			logmessage(LOGNAME, "LAN bridge batch rollback preserved VLAN %s because membership ownership is uncertain",
 				   entry->port_ifname);
 		}
 	} else if (entry->port_vlan_existed) {
-		ret = entry->port_vlan_was_up ?
-			ifconfig(entry->port_ifname, IFUP, "0.0.0.0", NULL) :
-			ifconfig(entry->port_ifname, 0, NULL, NULL);
-		if (ret != 0)
-			logmessage(LOGNAME, "LAN bridge batch rollback could not restore VLAN %s state (status=%d)",
-				   entry->port_ifname, ret);
+		if (wan_detached_safe) {
+			ret = entry->port_vlan_was_up ?
+				ifconfig(entry->port_ifname, IFUP, "0.0.0.0", NULL) :
+				ifconfig(entry->port_ifname, 0, NULL, NULL);
+			if (ret != 0) {
+				status = route_status_accumulate(status, ret);
+				logmessage(LOGNAME, "LAN bridge batch rollback could not restore VLAN %s state (status=%d)",
+					   entry->port_ifname, ret);
+			}
+		} else {
+			status = route_status_accumulate(status, EIO);
+			logmessage(LOGNAME, "LAN bridge batch rollback preserved VLAN %s state because membership ownership is uncertain",
+				   entry->port_ifname);
+		}
 	}
+
 	if (bridge->bridge_name[0]) {
 		bridge_flags = get_interface_flags(bridge->bridge_name);
 		if (bridge->bridge_created) {
@@ -855,30 +884,68 @@ rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 					ret = ifconfig(bridge->bridge_name, 0, NULL, NULL);
 					if (ret == 0)
 						ret = br_add_del_bridge(bridge->bridge_name, 0);
-					if (ret != 0)
+					if (ret != 0) {
+						status = route_status_accumulate(status, ret);
 						logmessage(LOGNAME, "LAN bridge batch rollback could not remove bridge %s (status=%d)",
 							   bridge->bridge_name, ret);
+					}
 				} else {
 					ret = ifconfig(bridge->bridge_name, 0, NULL, NULL);
 					if (ret != 0)
-						logmessage(LOGNAME, "LAN bridge batch rollback could not keep bridge %s down (status=%d)",
-							   bridge->bridge_name, ret);
+						status = route_status_accumulate(status, ret);
+					if (bridge_empty < 0)
+						status = route_status_accumulate(status, errno ? errno : EIO);
+					else
+						status = route_status_accumulate(status, EBUSY);
 					logmessage(LOGNAME, "LAN bridge batch rollback preserved bridge %s because it is non-empty or its port inventory is unknown",
 						   bridge->bridge_name);
 				}
 			} else if (errno != ENODEV && errno != ENXIO) {
+				status = route_status_accumulate(status, errno ? errno : EIO);
 				logmessage(LOGNAME, "LAN bridge batch rollback could not inspect bridge %s",
 					   bridge->bridge_name);
 			}
 		} else if (bridge->bridge_existed) {
-			ret = bridge->bridge_was_up ?
-				ifconfig(bridge->bridge_name, IFUP, "0.0.0.0", NULL) :
-				ifconfig(bridge->bridge_name, 0, NULL, NULL);
-			if (ret != 0)
-				logmessage(LOGNAME, "LAN bridge batch rollback could not restore bridge %s state (status=%d)",
-					   bridge->bridge_name, ret);
+			if (wan_detached_safe && bwan_detached_safe) {
+				ret = bridge->bridge_was_up ?
+					ifconfig(bridge->bridge_name, IFUP, "0.0.0.0", NULL) :
+					ifconfig(bridge->bridge_name, 0, NULL, NULL);
+				if (ret != 0) {
+					status = route_status_accumulate(status, ret);
+					logmessage(LOGNAME, "LAN bridge batch rollback could not restore bridge %s state (status=%d)",
+						   bridge->bridge_name, ret);
+				}
+			} else {
+				ret = ifconfig(bridge->bridge_name, 0, NULL, NULL);
+				status = route_status_accumulate(status, EIO);
+				if (ret != 0)
+					status = route_status_accumulate(status, ret);
+				logmessage(LOGNAME, "LAN bridge batch rollback kept bridge %s down because membership ownership is uncertain",
+					   bridge->bridge_name);
+			}
 		}
 	}
+	return status;
+}
+
+static int
+rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)
+{
+	int status;
+	const char *recovery_ifname;
+
+	status = rollback_soft_bridge_other_entry(entry);
+	if (entry->bridge.bridge_name[0] &&
+	    (!entry->bridge.bridge_created || status != 0)) {
+		recovery_ifname = entry->bridge.bridge_name;
+	} else if (status != 0 || entry->port_vlan_existed) {
+		recovery_ifname = entry->port_ifname;
+	} else {
+		nvram_set_temp("viptv_ifname", "");
+		return status;
+	}
+	nvram_set_temp("viptv_ifname", recovery_ifname);
+	return status;
 }
 
 static int
@@ -970,8 +1037,12 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 
 rollback:
 	saved_errno = errno;
-	while (entry_count > 0)
-		rollback_soft_bridge_other_entry(&entries[--entry_count]);
+	while (entry_count > 0) {
+		int rollback_status = rollback_soft_bridge_other_entry(&entries[--entry_count]);
+		if (rollback_status != 0)
+			logmessage(LOGNAME, "additional WAN bridge batch rollback incomplete (status=%d)",
+				   rollback_status);
+	}
 	errno = saved_errno;
 	return ret;
 }
@@ -1282,15 +1353,16 @@ static const struct wan_viptv_static_ops wan_viptv_static_start_ops = {
 	wan_viptv_static_add_default_route,
 	wan_viptv_static_start_multicast
 };
-
 static int
 launch_viptv_wan(void)
 {
 	int vlan_vid[2], vlan_pri, pvid_wan = 0;
 	int need_pvid, ret;
 	int is_vlan_filter, viptv_mode;
+	int vlan_flags, saved_errno, rollback_status;
 	char viptv_ifname[24], *viptv_addr, *viptv_mask, *viptv_gate;
 	const char *viptv_iflast, *vinet_iflast, *wan_hwaddr;
+	struct soft_bridge_other_entry rollback_entry;
 #if defined (USE_SINGLE_MAC)
 	const char *ifname_wan_cpu = IFNAME_MAC;
 #else
@@ -1307,7 +1379,6 @@ launch_viptv_wan(void)
 		vlan_vid[1] = 0;
 		vlan_pri = 0;
 	}
-
 	need_pvid = (!is_vlan_vid_valid(vlan_vid[0]) ||
 		     !is_vlan_vid_valid(vlan_vid[1]));
 	if (need_pvid) {
@@ -1338,82 +1409,103 @@ launch_viptv_wan(void)
 		if (!is_vlan_vid_valid(configured_vid))
 			vlan_pri = 0;
 	}
-
 	vinet_iflast = get_wan_unit_value(0, "viflast");
 	viptv_iflast = nvram_safe_get("viptv_ifname");
 
 	if (vlan_vid[1] == vlan_vid[0]) {
 		/* case1: CPU Internet tagged: n, CPU IPTV tagged: n */
 		/* case2: CPU Internet tagged: y, CPU IPTV tagged: y (common VID) */
-		
 		if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast)) {
 			ret = remove_vlan_iface(viptv_iflast);
 			if (ret != 0)
 				return ret;
 		}
-		
 		viptv_ifname[0] = 0;
 		nvram_set_temp("viptv_ifname", viptv_ifname);
-		
 		return 0;
 	}
 
 	/* case3: CPU Internet tagged: y, CPU IPTV tagged: y (different VID) */
-	/* case4: CPU Internet tagged: n, CPU IPTV tagged: y */
+	/* case4: CPU Internet tagged: n, CPU IPTV tagged: y (different VID) */
 	/* case5: CPU Internet tagged: y, CPU IPTV tagged: n */
-
-	/* VLAN interface for IPTV */
 	snprintf(viptv_ifname, sizeof(viptv_ifname), "%s.%d", ifname_wan_cpu, vlan_vid[1]);
 
-	/* remove previous VLAN interface */
-	if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast) && strcmp(viptv_iflast, viptv_ifname)) {
+	/* Remove a no-longer-used VLAN and its stale publication before replacement. */
+	if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast) &&
+	    strcmp(viptv_iflast, viptv_ifname)) {
 		ret = remove_vlan_iface(viptv_iflast);
 		if (ret != 0)
 			return ret;
+		if (strchr(viptv_iflast, '.') != NULL)
+			nvram_set_temp("viptv_ifname", "");
 	}
 
 	wan_hwaddr = nvram_safe_get("wan_hwaddr");
-	ret = create_vlan_iface(ifname_wan_cpu, vlan_vid[1], vlan_pri, 1500, wan_hwaddr, 1);
+	memset(&rollback_entry, 0, sizeof(rollback_entry));
+	snprintf(rollback_entry.port_ifname, sizeof(rollback_entry.port_ifname),
+		 "%s", viptv_ifname);
+	vlan_flags = get_interface_flags(viptv_ifname);
+	if (vlan_flags < 0 && errno != ENODEV && errno != ENXIO)
+		return -1;
+	rollback_entry.port_vlan_existed = vlan_flags >= 0;
+	rollback_entry.port_vlan_was_up =
+		rollback_entry.port_vlan_existed && ((vlan_flags & IFF_UP) != 0);
+
+	ret = create_vlan_iface_tracked(ifname_wan_cpu, vlan_vid[1], vlan_pri,
+					1500, wan_hwaddr, 1,
+					&rollback_entry.port_vlan_created);
 	if (ret != 0) {
-		logmessage(LOGNAME, "IPTV VLAN creation failed for %s (status=%d)",
-			   viptv_ifname, ret);
+		saved_errno = errno;
+		rollback_status = rollback_viptv_vlan_setup(&rollback_entry);
+		if (rollback_status != 0)
+			logmessage(LOGNAME, "IPTV VLAN creation rollback incomplete (status=%d)",
+				   rollback_status);
+		errno = saved_errno;
 		return ret;
 	}
-
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
 	if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE) {
-		ret = config_soft_bridge_wan(1, vlan_vid[1], vlan_pri, viptv_ifname, wan_hwaddr);
+		ret = config_soft_bridge_wan_internal(1, vlan_vid[1], vlan_pri,
+						      viptv_ifname, wan_hwaddr,
+						      &rollback_entry.bridge);
 		if (ret != 0) {
-			logmessage(LOGNAME, "IPTV bridge brwan1 setup failed (status=%d)", ret);
+			saved_errno = errno;
+			rollback_status = rollback_viptv_vlan_setup(&rollback_entry);
+			if (rollback_status != 0)
+				logmessage(LOGNAME, "IPTV VLAN/bridge rollback incomplete (status=%d)",
+					   rollback_status);
+			errno = saved_errno;
 			return ret;
 		}
 		snprintf(viptv_ifname, sizeof(viptv_ifname), "%s%d", BRPREFIX_WAN, 1);
 	}
 #endif
-
 	ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);
-	if (ret != 0)
+	if (ret != 0) {
+		saved_errno = errno;
+		rollback_status = rollback_viptv_vlan_setup(&rollback_entry);
+		if (rollback_status != 0)
+			logmessage(LOGNAME, "IPTV interface setup rollback incomplete (status=%d)",
+				   rollback_status);
+		errno = saved_errno;
 		return ret;
+	}
 	nvram_set_temp("viptv_ifname", viptv_ifname);
 
 	viptv_mode = nvram_get_int("viptv_mode");
 	viptv_addr = nvram_safe_get("viptv_ipaddr");
 	viptv_mask = nvram_safe_get("viptv_netmask");
-
 	if (viptv_mode == 2) {
 		struct wan_viptv_static_start_context context;
-
 		if (!is_valid_ipv4(viptv_addr) || !is_valid_ipv4(viptv_mask)) {
 			logmessage(LOGNAME, "rejecting invalid static IPTV address or netmask");
 			return EINVAL;
 		}
-
 		viptv_gate = nvram_safe_get("viptv_gateway");
 		context.ifname = viptv_ifname;
 		context.ipaddr = viptv_addr;
 		context.netmask = viptv_mask;
 		context.gateway = viptv_gate;
-
 		ret = wan_viptv_static_start(is_valid_ipv4(viptv_gate),
 					     &wan_viptv_static_start_ops, &context);
 		if (ret != 0)
@@ -1427,7 +1519,6 @@ launch_viptv_wan(void)
 	} else {
 		ret = start_udhcpc_viptv(viptv_ifname);
 	}
-
 	return ret;
 }
 

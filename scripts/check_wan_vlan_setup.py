@@ -192,15 +192,19 @@ require("int\nconfig_soft_bridges_other(" in wan and
         "return ret;" in soft_other,
         "additional LAN bridge setup must track and reverse the current batch")
 other_rollback = body(wan, "rollback_soft_bridge_other_entry(")
-require("bridge_batch_membership_detached_safe(" in other_rollback and
+require("static int\nrollback_soft_bridge_other_entry(" in wan and
+        "bridge_batch_membership_detached_safe(" in other_rollback and
         "br_add_del_if(" in other_rollback and
         "bridge_batch_can_remove_created_bridge(" in other_rollback and
         "br_bridge_is_empty(" in other_rollback and
         "if (entry->port_vlan_created)" in other_rollback and
         "if (bridge->bwan_vlan_created)" in other_rollback and
         "bridge->bridge_existed" in other_rollback and
+        "return status;" in other_rollback and
+        "if (bwan_detached_safe)" in other_rollback and
+        "if (wan_detached_safe)" in other_rollback and
         "br_del_all_ifs(" not in other_rollback,
-        "batch rollback must detach owned ports, restore reused state and remove only owned empty objects")
+        "batch rollback must report cleanup status and never restore reused VLAN/bridge state while membership is uncertain")
 detach_bwan_pos = other_rollback.index("if (bridge->bwan_port_added")
 detach_wan_pos = other_rollback.index("if (bridge->wan_port_added")
 remove_bwan_vlan_pos = other_rollback.index("if (bridge->bwan_vlan_created)")
@@ -231,20 +235,34 @@ require("ret = create_vlan_iface(" in vinet and
 require(vinet.index("ret = create_vlan_iface(") < vinet.index('set_wan_unit_value(0, "viflast"'),
         "last-good WAN VLAN name must not be published before VLAN creation")
 viptv = body(wan, "launch_viptv_wan(void)")
-iptv_start = viptv.index("/* VLAN interface for IPTV */")
-iptv_setup = viptv[iptv_start:]
-bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan(")
+iptv_start = iptv.index("/* VLAN interface for IPTV */")
+iptv_setup = iptv[iptv_start:]
+snapshot_pos = iptv_setup.index("vlan_flags = get_interface_flags(viptv_ifname);")
+create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
+bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
 rp_filter_pos = iptv_setup.index('ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);')
-publish_pos = iptv_setup.index('nvram_set_temp("viptv_ifname", viptv_ifname);')
-require(iptv_setup.index("ret = create_vlan_iface(") < bridge_pos < rp_filter_pos < publish_pos,
-        "IPTV VLAN, bridge and rp_filter setup must complete before publishing its interface")
-for operation in ("ret = create_vlan_iface(", "ret = config_soft_bridge_wan(",
+publish_pos = iptv_setup.rindex('nvram_set_temp("viptv_ifname", viptv_ifname);')
+require(snapshot_pos < create_pos < bridge_pos < rp_filter_pos < publish_pos,
+        "IPTV startup must snapshot VLAN ownership, create/bridge transactionally, set rp_filter, then publish")
+for operation in ("ret = create_vlan_iface_tracked(",
+                  "ret = config_soft_bridge_wan_internal(",
                   'ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);'):
     operation_pos = iptv_setup.index(operation)
     error_gate = iptv_setup.index("if (ret != 0)", operation_pos)
-    error_return = iptv_setup.index("return ret;", error_gate)
-    require(operation_pos < error_gate < error_return < publish_pos,
-            f"IPTV setup must abort before interface publication after {operation}")
+    rollback_call = iptv_setup.index("rollback_status = rollback_viptv_vlan_setup(&rollback_entry);",
+                                     error_gate)
+    error_return = iptv_setup.index("return ret;", rollback_call)
+    require(operation_pos < error_gate < rollback_call < error_return < publish_pos,
+            f"IPTV setup must transactionally roll back before returning after {operation}")
+viptv_rollback = body(wan, "rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)")
+require("rollback_soft_bridge_other_entry(entry);" in viptv_rollback and
+        'nvram_set_temp("viptv_ifname", recovery_ifname);' in viptv_rollback and
+        'nvram_set_temp("viptv_ifname", "");' in viptv_rollback,
+        "IPTV rollback must retain recovery identity when cleanup is incomplete and clear deleted VLAN state")
+old_vlan_cleanup = iptv.index("ret = remove_vlan_iface(viptv_iflast);")
+old_vlan_clear = iptv.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)
+require(old_vlan_cleanup < old_vlan_clear < snapshot_pos,
+        "removed prior IPTV VLAN publication must be cleared before configuring its replacement")
 restart = body(wan, "full_restart_wan(void)")
 lan_bridge_call = restart.index("status = config_soft_bridge_lan();")
 lan_bridge_gate = restart.index("if (status != 0)", lan_bridge_call)
