@@ -1712,7 +1712,8 @@ static int
 lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 					  const char *lease_domain)
 {
-	int hosts_status, saved_errno, queue_errno;
+	int hosts_status, saved_errno, retry_errno;
+	int marker_status, notification_status, schedule_status;
 
 	errno = 0;
 	hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);
@@ -1727,15 +1728,50 @@ lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 		   "LAN lease applied but hostname files could not be published (status=%d)",
 		   hosts_status);
 	if (get_ap_mode()) {
-		/* Preserve a retry across same-value RENEW callbacks as well as the
-		 * immediate PID 1 notification. */
-		nvram_set_int_temp("lan_hosts_retry", "1");
-		if (notify_rc_status(RCN_RESTART_DHCPD) != 0) {
-			queue_errno = errno ? errno : EIO;
+		/*
+		 * Two independent recovery paths exist: the retry bit makes a later
+		 * same-value RENEW retry, while the PID 1 event retries immediately.
+		 * Check and retry each failed publication once so a transient NVRAM
+		 * or queue error cannot silently discard the only recovery path.
+		 */
+		marker_status = nvram_set_int_temp("lan_hosts_retry", "1");
+		if (marker_status != 0) {
+			retry_errno = errno ? errno : EIO;
 			logmessage("DHCP LAN Client",
-				   "cannot queue AP hostname-file recovery (errno=%d)",
-				   queue_errno);
+				   "cannot persist AP hostname-file retry marker (errno=%d); retrying",
+				   retry_errno);
+			errno = 0;
+			marker_status = nvram_set_int_temp("lan_hosts_retry", "1");
+			if (marker_status != 0) {
+				retry_errno = errno ? errno : EIO;
+				logmessage("DHCP LAN Client",
+					   "AP hostname-file retry marker remains unavailable (errno=%d)",
+					   retry_errno);
+			}
 		}
+
+		notification_status = notify_rc_status(RCN_RESTART_DHCPD);
+		if (notification_status != 0) {
+			retry_errno = errno ? errno : EIO;
+			logmessage("DHCP LAN Client",
+				   "cannot queue AP hostname-file recovery (errno=%d); retrying",
+				   retry_errno);
+			errno = 0;
+			notification_status = notify_rc_status(RCN_RESTART_DHCPD);
+			if (notification_status != 0) {
+				retry_errno = errno ? errno : EIO;
+				logmessage("DHCP LAN Client",
+					   "AP hostname-file recovery remains unqueued (errno=%d)",
+					   retry_errno);
+			}
+		}
+
+		schedule_status = lan_dhcp_retry_schedule_status(
+			marker_status, notification_status);
+		if (schedule_status != 0)
+			logmessage("DHCP LAN Client",
+				   "no AP hostname-file recovery retry could be scheduled (marker_status=%d, notification_status=%d)",
+				   marker_status, notification_status);
 	}
 
 	errno = saved_errno;

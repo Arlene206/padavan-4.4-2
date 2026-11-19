@@ -156,9 +156,21 @@ assert iappd_start < iappd_failure < iappd_log < networkmap_gate < networkmap_st
 assert bound.count('system("/usr/bin/iappd.sh restart")') == 1
 assert bound.count("restart_networkmap()") == 1
 assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in callback_test
-assert 'nvram_set_int_temp("lan_hosts_retry", "1")' in publish
-assert "notify_rc_status(RCN_RESTART_DHCPD)" in publish
-assert "cannot queue AP hostname-file recovery" in publish
+assert publish.count('nvram_set_int_temp("lan_hosts_retry", "1")') == 2
+assert publish.count("notify_rc_status(RCN_RESTART_DHCPD)") == 2
+assert "marker_status = nvram_set_int_temp" in publish
+assert "notification_status = notify_rc_status(RCN_RESTART_DHCPD);" in publish
+assert "marker_status = 0" not in publish
+assert "notification_status = 0" not in publish
+assert "lan_dhcp_retry_schedule_status(" in publish
+assert "no AP hostname-file recovery retry could be scheduled" in publish
+assert "retrying" in publish
+assert "AP hostname-file retry marker remains unavailable" in publish
+assert "AP hostname-file recovery remains unqueued" in publish
+assert "lan_dhcp_retry_schedule_status(int marker_status, int notification_status)" in callback_policy
+assert "lan_dhcp_retry_schedule_status(EIO, 0) == 0" in callback_test
+assert "lan_dhcp_retry_schedule_status(0, ENOSPC) == 0" in callback_test
+assert "lan_dhcp_retry_schedule_status(EIO, ENOSPC) == EIO" in callback_test
 assert publish.index('nvram_set_int_temp("lan_hosts_retry", "1")') < publish.index("notify_rc_status(RCN_RESTART_DHCPD)")
 assert 'nvram_set_int_temp("lan_hosts_retry", "0")' in update_ap
 assert update_ap.index("if (status == 0)") < update_ap.index('nvram_set_int_temp("lan_hosts_retry", "0")')

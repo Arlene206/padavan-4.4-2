@@ -26,6 +26,16 @@ test_hosts_refresh_retries_only_a_pending_same_value_renew(void)
 }
 
 static void
+test_host_retry_is_scheduled_when_either_recovery_path_succeeds(void)
+{
+	assert(lan_dhcp_retry_schedule_status(0, 0) == 0);
+	assert(lan_dhcp_retry_schedule_status(EIO, 0) == 0);
+	assert(lan_dhcp_retry_schedule_status(0, ENOSPC) == 0);
+	assert(lan_dhcp_retry_schedule_status(EIO, ENOSPC) == EIO);
+	assert(lan_dhcp_retry_schedule_status(ETIMEDOUT, ECHILD) == ETIMEDOUT);
+}
+
+static void
 test_transaction_failure_remains_fatal(void)
 {
 	assert(lan_dhcp_bound_callback_status(EIO, 0) == EIO);
@@ -37,6 +47,7 @@ main(void)
 {
 	test_successful_lease_commit_ignores_ancillary_refresh_failure();
 	test_hosts_refresh_retries_only_a_pending_same_value_renew();
+	test_host_retry_is_scheduled_when_either_recovery_path_succeeds();
 	test_transaction_failure_remains_fatal();
 	puts("LAN DHCP post-commit ancillary status and retry regression: PASS");
 	return 0;

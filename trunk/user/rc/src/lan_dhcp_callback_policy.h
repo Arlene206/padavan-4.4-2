@@ -18,6 +18,19 @@ lan_dhcp_hosts_refresh_required(int lease_changed, int is_renew,
 }
 
 
+/*
+ * Host-file publication is post-commit: either a persistent same-value
+ * renewal marker or an immediate PID 1 notification is sufficient to retry.
+ * Return an error only when both independent recovery paths failed.
+ */
+static inline int
+lan_dhcp_retry_schedule_status(int marker_status, int notification_status)
+{
+	if (marker_status == 0 || notification_status == 0)
+		return 0;
+	return marker_status != 0 ? marker_status : notification_status;
+}
+
 static inline int
 lan_dhcp_bound_callback_status(int transaction_status, int ancillary_status)
 {
