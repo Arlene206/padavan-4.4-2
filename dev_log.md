@@ -1,3 +1,14 @@
+## 2026-11-19 — Add missing switch mirror and TrTCM argument guards
+
+- Parent main SHA: `bef7889d16ca08912d126c3cf97c2fb8c1d04f2c`.
+- Further source review after ACL argc fix found `set_mirror_to()` and `set_mirror_from()` read argv[3]/argv[4] with no minimum count, while the `acl_dip_trtcm()` guard allowed argc 6 even though the implementation reads argv[6] through argv[9].
+- Add argc 4, argc 5 and argc 10 fail-closed guards respectively, using the now-nonzero `usage()` routine before any argument dereference.
+- Extend existing Switch CLI workflow source assertions for all three helpers; reuse existing workflow and unchanged push/PR path filters.
+- Initial ACL/usage fix Switch CLI run `44445815633` passed on prior SHA `4f2ae0b`; this expanded contract needs exact-head verification. XY-C1 L3 and physical switch L4 remain unverified.
+- No local tests or MIPS build performed.
+
+---
+
 ## 2026-11-19 — Check the final WAN return after fail-fast exits
 
 - Parent main SHA: `4f2ae0b46f16b60230888d6422fc9c3c505b90ef`.

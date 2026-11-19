@@ -474,6 +474,9 @@ void acl_dip_trtcm(int argc, char *argv[])
 	unsigned int i, j, value, ip_value;
 	unsigned int CIR, CBS, PIR, PBS;
 
+	if (argc < 10)
+		usage(argv[0]);
+
 	if (argc < 6) {
 		printf("insufficient arguments!\n");
 		return;
@@ -1599,6 +1602,9 @@ void set_mirror_to(int argc, char *argv[])
 	unsigned int value;
         int idx;
 
+	if (argc < 4)
+		usage(argv[0]);
+
 	idx = strtoul(argv[3], NULL, 0);
 	if (idx < 0 || MAX_PORT < idx) {
 		printf("wrong port member, should be within 0~%d\n", MAX_PORT);
@@ -1617,6 +1623,9 @@ void set_mirror_from(int argc, char *argv[])
 {
 	unsigned int offset, value;
         int idx, mirror;
+
+	if (argc < 5)
+		usage(argv[0]);
 
 	idx = strtoul(argv[3], NULL, 0);
 	mirror = strtoul(argv[4], NULL, 0);

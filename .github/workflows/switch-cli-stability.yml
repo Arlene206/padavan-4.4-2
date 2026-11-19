@@ -80,7 +80,30 @@ jobs:
           assert "if (argc < 4)" in acl_dispatch
           assert "if (argc < 3)" not in acl_dispatch
           assert acl_dispatch.index("if (argc < 4)") < acl_dispatch.index("argv[3]")
-          print("switch_gsw invalid usage and truncated ACL commands fail safely: PASS")
+
+          def function_body(signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError(f"unterminated function: {signature}")
+
+          for signature, guard, first_arg in (
+              ("set_mirror_to(int argc, char *argv[])", "if (argc < 4)", "argv[3]"),
+              ("set_mirror_from(int argc, char *argv[])", "if (argc < 5)", "argv[3]"),
+              ("acl_dip_trtcm(int argc, char *argv[])", "if (argc < 10)", "argv[4]"),
+          ):
+              body = function_body(signature)
+              assert guard in body, signature
+              assert body.index(guard) < body.index(first_arg), signature
+              assert "usage(argv[0]);" in body[:body.index(first_arg)], signature
+          print("switch_gsw invalid usage and truncated ACL/mirror/TrTCM commands fail safely: PASS")
           PY
 
       - name: Compile and verify strict switch IPv4 argument parsing
