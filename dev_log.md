@@ -1,3 +1,12 @@
+## 2026-11-19 — Correct the UNKNOWN guest rollback source contract
+
+- Exact Wireless radio run `44592415803` on production source `ef421978331ade679241c5bc1c10dbb6350d4004` compiled and passed the radio-state policy, bridge-membership policy, and guest-isolation policy binary with GNU89/Werror/ASan/UBSan. The Python checker then failed at line 161 because it required the old early-return-on-UNKNOWN pattern in both rollback callbacks.
+- The new fail-closed down callback intentionally requests interface-down after an UNKNOWN flags probe, then relies on a separate probe in `wireless_guest_rollback_verify_down()`; only that verifier should keep the old UNKNOWN early-return assertion. Updated the source checker to distinguish the two contracts. Exact-head rerun pending.
+- On the same source SHA, AI docs `44592415781`, watchdog `44592415729`, iNIC signal `44592415628`, and Process inventory `44592415914` passed; Process, NVRAM, HTTPD and XY-C1 remained in progress at the last poll.
+- This commit changes only checker and handoff/roadmap/log documentation; no production C. No L4 router verification is claimed.
+
+---
+
 ## 2026-11-19 — Fail closed when guest ebtables isolation setup is incomplete
 
 - Source review found that `restart_guest_lan_isolation()` propagated module, flush and rule-add failures but left pre-existing guest AP interfaces up and bridged. The guest control callers only rolled back interfaces started by the current request, so toggling/rebuilding isolation could leave a configured guest AP connected without its required LAN isolation.

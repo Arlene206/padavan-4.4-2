@@ -155,11 +155,13 @@ verify_down = function_body(wifi, "wireless_guest_rollback_verify_down(void *con
 assert "wireless_guest_rollback_should_request_down(status, is_up)" in bring_down
 assert "if (!wif_control_success(rollback->ifname_ap, 0))" in bring_down
 assert "return status != 0 ? status : -EIO;" in bring_down
+assert "wireless_guest_interface_state_checked(rollback->ifname_ap," in bring_down
+assert "wireless_guest_rollback_should_request_down(status, is_up)" in bring_down
+assert "if (!wif_control_success(rollback->ifname_ap, 0))" in bring_down
 assert "wireless_guest_interface_state_checked(rollback->ifname_ap," in verify_down
-for callback in (bring_down, verify_down):
-    assert "wireless_guest_interface_state_checked(rollback->ifname_ap," in callback
-    assert "if (status != 0)" in callback
-    assert "is_interface_up(" not in callback
+assert "if (status != 0)" in verify_down
+assert "is_interface_up(" not in bring_down
+assert "is_interface_up(" not in verify_down
 
 checked_state = function_body(wifi, "wireless_guest_interface_state_checked(const char *ifname, int *is_up)")
 assert "errno = 0;" in checked_state

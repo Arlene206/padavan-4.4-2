@@ -11,12 +11,13 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Live main at checkpoint parent: `981857e60def0d4237253a3c0b061b85111ebbf5` (`test(wan): normalize route source contract whitespace`).
-- The WAN off-subnet gateway /32 lifecycle correction is closed for this slice. Exact-head WAN route Action `44586115401` and AI handoff documentation Action `44586115612` both completed SUCCESS on `981857e60def0d4237253a3c0b061b85111ebbf5`; the whitespace-only source checker correction passed without changing production C.
-- The product-source SHA `29fa24741613095593a03f4e602f1d77636a21e0` passed XY-C1 run `44585450325`: input detector, production-input check, Build XY-C1, TRX verification and artifact upload all completed SUCCESS. The descendant `981857e60def0d4237253a3c0b061b85111ebbf5` changed only workflow assertions and documentation, not product source.
-- The independent Wireless radio baseline on `29fa...` passed Action `44585450126`; this session adds a new production wireless fail-closed correction, so exact-head Wireless and XY-C1 validation must be rerun on the resulting commit.
+- Live main at checkpoint parent: `ef421978331ade679241c5bc1c10dbb6350d4004` (`fix(wireless): fail closed on guest isolation setup errors`).
+- WAN route checker correction is closed: WAN route `44586115401` and AI handoff documentation `44586115612` completed SUCCESS on `981857e60def0d4237253a3c0b061b85111ebbf5`.
+- The guest ebtables fail-closed production change is on `ef421978331ade679241c5bc1c10dbb6350d4004`. Its exact-head Wireless radio Action `44592415803` compiled and passed the three GNU89 policy binaries, including the guest-isolation ASan/UBSan regression, then failed in `scripts/check_guest_lan_isolation_status.py` at line 161. The checker still expected the old `if (status != 0) return status` path in the down callback; the new implementation intentionally attempts interface-down even after an UNKNOWN flags probe and verifies the result separately. The correction in this follow-up distinguishes the new down-callback contract from the unchanged verification-callback UNKNOWN gate.
+- On exact SHA `ef421978331ade679241c5bc1c10dbb6350d4004`, AI docs `44592415781`, watchdog `44592415729`, iNIC signal `44592415628`, and Process inventory `44592415914` completed SUCCESS; Process lifecycle regression `44592415657`, NVRAM `44592415639`, HTTPD security `44592415698`, and XY-C1 `44592415620` were still in progress at the last poll. Recheck exact-head outcomes.
+- Earlier product SHA `29fa24741613095593a03f4e602f1d77636a21e0` passed XY-C1 `44585450325` through input detector, Build XY-C1, TRX and artifact upload, but the current wireless product-source change requires its own exact-head L3 validation.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never touch it. PR #1 remains closed and unmerged; do not revive or re-audit.
-- No local repository checkout or MIPS toolchain is available in this connector-only environment. Physical router / radio L4 remains NOT VERIFIED.
+- No local repository checkout or MIPS toolchain is available in this connector-only environment. Physical radio/ebtables L4 remains NOT VERIFIED.
 
 ## Closed prior task — DHCPv6 startup cleanup errno
 
@@ -24,24 +25,25 @@ Continue main-only implementation across conversations. Recover the exact live s
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task — fail closed on incomplete guest ebtables isolation
+## Active task — repair the stale UNKNOWN guest-rollback checker assertion
 
-- Main parent SHA: `981857e60def0d4237253a3c0b061b85111ebbf5`.
-- Confirmed defect: `restart_guest_lan_isolation()` recorded missing/unknown `ebtable_filter`, failed `ebtables -F/-X`, and individual rule-add failures, but returned an error while leaving already-running, bridged AP guest interfaces active. `control_guest_wl/rt()` only rolled back a guest AP created by the current request (`rollback_candidate`), so a pre-existing guest AP could remain connected without its configured LAN isolation.
-- This commit makes AP-mode ebtables intent independent of a potentially UNKNOWN interface-flags probe, tracks new failures during module/flush/chain/rule setup, and on any such failure brings down, detaches and independently verifies every configured ebtables-isolated guest AP, including pre-existing guests. RT3352 MII uses the existing iNIC interface/VLAN mapping. Rollback now still issues a down request after an UNKNOWN initial flags probe and relies on its separate postcondition check.
-- New GNU89 policy cases cover UNKNOWN-triggered down requests and the rule that only a newly failed setup with an enabled guest-isolation mask requires AP rollback. The Wireless workflow already covers the source, policy test and checker; exact-head L2 and XY-C1 L3 are pending.
-- The preceding WAN route checker task is closed: exact-head WAN route `44586115401` and AI docs `44586115612` both PASS on `981857e60def0d4237253a3c0b061b85111ebbf5`. XY-C1 Build/TRX/artifact completed SUCCESS for the unmodified product source `29fa...` in run `44585450325`; do not repeat that earlier run as evidence for this new wireless source change.
+- Main parent SHA: `ef421978331ade679241c5bc1c10dbb6350d4004`.
+- The production fail-closed fix is already committed: AP-mode ebtables intent is preserved when link-state inspection is UNKNOWN; module/flush/chain/rule setup failures take every configured ebtables guest AP offline, detach its bridge port and verify DOWN, including pre-existing guests. The rollback down callback now attempts down on UNKNOWN rather than returning before the safety action.
+- Exact Wireless run `44592415803` on this source SHA compiled and passed the radio policy, bridge-membership policy, and guest-isolation GNU89/Werror/ASan/UBSan binaries. It failed only because the Python source checker still required `if (status != 0)` inside both rollback callbacks; that assumption is valid for the postcondition verifier but no longer for the down-request callback. This follow-up removes that stale assertion and verifies each callback's distinct contract.
+- Exact-head AI docs `44592415781`, watchdog `44592415729`, iNIC signal `44592415628`, and Process inventory `44592415914` passed on `ef421978331ade679241c5bc1c10dbb6350d4004`. Recheck the remaining exact-head runs and rerun Wireless after the checker correction.
+- XY-C1 run `44592415620` was still in progress on production source `ef421978331ade679241c5bc1c10dbb6350d4004`; confirm detector, Build, TRX and artifact for L3. A checker-only descendant does not change production firmware inputs.
+
 ## Verification boundary
 
-- L1: source review confirmed a fail-open case for pre-existing AP guest interfaces on ebtables setup failure; the current slice now attempts AP down + bridge detach + separate down-state verification.
-- L2: GNU89/Werror/ASan/UBSan policy regression and production-source checker are wired into the existing Wireless radio workflow; exact-head execution pending.
-- L3: current wireless production-source SHA requires exact-head XY-C1 detector, Build XY-C1, TRX and artifact verification; pending.
+- L1: source review confirms the pre-existing-guest exposure on ebtables setup failure and the new down/detach/verify remediation.
+- L2: all three C policy binaries passed on `ef421978331ade679241c5bc1c10dbb6350d4004`; the first exact-head Python source checker failed on a stale callback assertion at line 161. Checker correction is committed in this follow-up; exact Wireless rerun pending.
+- L3: XY-C1 `44592415620` on `ef421978331ade679241c5bc1c10dbb6350d4004` was in progress at last poll; exact production-input detector, Build XY-C1, TRX and artifact outcome pending.
 - L4: AP/STA radio transitions, ebtables behavior, RT3352 MII/iNIC VLAN variants and physical-router runtime remain NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Inspect exact-head Actions for this commit by exact `head_sha`: Wireless radio regression, AI handoff docs, Process lifecycle if triggered, and XY-C1 Firmware Validation.
-2. On a Wireless failure, fix the first failing source/test contract without weakening the fail-closed AP down/detach/verify behavior; if XY-C1 fails, diagnose the actual compile/build step before claiming L3.
-3. After the slice validates, continue with a separate P1 stability/security defect outside this guest-wireless and prior WAN/USB work.
+1. Inspect exact-head Actions for the checker-correction SHA; confirm Wireless radio regression, AI handoff docs, Process lifecycle if triggered, and XY-C1 Firmware Validation by exact `head_sha`.
+2. If the Wireless checker still fails, fix its stale assertion without reverting the UNKNOWN-state down request or weakening the fail-closed AP down/detach/verify behavior. Diagnose an XY-C1 error from the actual failed build step.
+3. After L2/L3 close, continue with a separate P1 stability/security defect outside the guest-wireless and prior WAN/USB slices.
 
 ## Mandatory handoff checkpoint
 
