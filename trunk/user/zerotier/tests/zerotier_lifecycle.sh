@@ -531,7 +531,10 @@ fi
 [ ! -e "$TEST_CONFIG/.firewall-state" ] || fail "successful stale-state replay retained its checkpoint"
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "successful stale-state replay left old firewall rules"
 [ "$TEST_ROUTE_PRESENT" -eq 0 ] || fail "successful stale-state replay left the old configured route"
-[ "$(grep -c '^start
+[ "$(grep -c '^start$' "$TEST_ACTION_LOG")" = 1 ] || fail "replacement daemon did not start exactly once after cleanup"
+
+# NAT-enabled shutdown must fail before signalling the daemon if its connected
+# route cannot be captured for source-NAT firewall cleanup.
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_NAT_ENABLE=1
