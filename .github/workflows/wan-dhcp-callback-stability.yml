@@ -231,6 +231,17 @@ jobs:
               signature = "static int" + chr(10) + name + "("
               assert signature in source, f"expected one private int definition: {name}"
           assert '#include "dhcp_wan_interface_policy.h"' in source
+          interface_test = (rc / "tests/dhcp_wan_interface_policy.c").read_text()
+          assert "dhcp_wan_interface_name_is_valid" in policy
+          assert "test_dhcp_entrypoint_rejects_missing_interface_environment" in interface_test
+          for signature, interface_name in (
+              ("udhcpc_main(int argc, char **argv)", "wan_ifname"),
+              ("udhcpc_viptv_main(int argc, char **argv)", "man_ifname"),
+              ("zcip_main(int argc, char **argv)", "man_ifname"),
+          ):
+              entrypoint = body(source, signature)
+              assert "dhcp_wan_interface_name_is_valid(" + interface_name + ")" in entrypoint
+              assert "strlen(" + interface_name + ")" not in entrypoint
           callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in viptv_bound

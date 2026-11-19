@@ -51,6 +51,14 @@ static const struct dhcp_wan_interface_ops fake_ops = {
 };
 
 static void
+test_dhcp_entrypoint_rejects_missing_interface_environment(void)
+{
+	assert(!dhcp_wan_interface_name_is_valid(NULL));
+	assert(!dhcp_wan_interface_name_is_valid(""));
+	assert(dhcp_wan_interface_name_is_valid("eth0"));
+	assert(dhcp_wan_interface_name_is_valid("eth3.35"));
+}
+static void
 test_successful_change(void)
 {
 	struct fake_interface fake = { 0, 0, 0, "", 0 };
@@ -323,6 +331,7 @@ test_route_transition_skips_unrequested_operations(void)
 int
 main(void)
 {
+	test_dhcp_entrypoint_rejects_missing_interface_environment();
 	test_successful_change();
 	test_successful_renew_without_clear();
 	test_failed_clear_restores_old_address();

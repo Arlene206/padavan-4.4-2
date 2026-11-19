@@ -3,6 +3,13 @@
 
 #include "dhcp_lease_policy.h"
 
+/* safe_getenv() may return NULL; never pass it to strlen() unguarded. */
+static inline int
+dhcp_wan_interface_name_is_valid(const char *ifname)
+{
+	return ifname != NULL && ifname[0] != '\0';
+}
+
 struct dhcp_wan_interface_ops {
 	int (*clear_address)(void *context);
 	int (*set_address)(void *context, const char *ipaddr, const char *netmask);

@@ -5131,7 +5131,7 @@ udhcpc_main(int argc, char **argv)
 	int ret = 0;
 	char *wan_ifname = safe_getenv("interface");
 
-	if (argc<2 || !argv[1] || strlen(wan_ifname) < 1)
+	if (argc < 2 || !argv[1] || !dhcp_wan_interface_name_is_valid(wan_ifname))
 		return EINVAL;
 
 	umask(0000);
@@ -5241,7 +5241,7 @@ udhcpc_viptv_main(int argc, char **argv)
 	int ret = 0;
 	char *man_ifname = safe_getenv("interface");
 
-	if (argc<2 || !argv[1] || strlen(man_ifname) < 1)
+	if (argc < 2 || !argv[1] || !dhcp_wan_interface_name_is_valid(man_ifname))
 		return EINVAL;
 	umask(0000);
 	if (!strcmp(argv[1], "deconfig"))
@@ -5263,7 +5263,7 @@ zcip_main(int argc, char **argv)
 	int ret = 0;
 	char *man_ifname = safe_getenv("interface");
 
-	if (argc<2 || !argv[1] || strlen(man_ifname) < 1)
+	if (argc < 2 || !argv[1] || !dhcp_wan_interface_name_is_valid(man_ifname))
 		return EINVAL;
 
 	umask(0000);
