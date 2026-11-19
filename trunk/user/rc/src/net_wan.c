@@ -2889,8 +2889,17 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 	char word[100];
 
 	logmessage(LOGNAME, "%s %s (%s)", "MAN", "down", man_ifname);
-	/* DHCP loss is already committed; monitor pause is advisory here. */
-	(void)notify_pause_detect_internet();
+	/*
+	 * DHCP loss is already committed, so a monitor-pause failure must not
+	 * prevent route/interface cleanup. Retain it as the callback's first
+	 * error while continuing the idempotent teardown sequence.
+	 */
+	route_status = notify_pause_detect_internet();
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME,
+			   "Internet monitor pause incomplete during MAN teardown (status=%d)",
+			   route_status);
 	man_gate = nvram_safe_get("wanx_gateway");
 	man_addr = nvram_safe_get("wanx_ipaddr");
 	man_mask = nvram_safe_get("wanx_netmask");
@@ -3214,8 +3223,16 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 #endif
 
 	logmessage(LOGNAME, "%s %s (%s)", "WAN", "down", wan_ifname);
-	/* The DHCP/PPP down callback is already in flight; pause is advisory. */
-	(void)notify_pause_detect_internet();
+	/*
+	 * The DHCP/PPP down callback is already in flight. Complete teardown even
+	 * when pause fails, but do not discard the notification error.
+	 */
+	route_status = notify_pause_detect_internet();
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME,
+			   "Internet monitor pause incomplete during WAN teardown (status=%d)",
+			   route_status);
 
 	/* deferred stop static VPN client (prevent rebuild resolv.conf) */
 	nvram_set_temp("vpnc_dns_t", "");

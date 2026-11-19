@@ -1079,5 +1079,26 @@ jobs:
                        "test_eexist_race_accepts_only_exact_link"):
               assert case in callback_test, case
           assert "PPP callback link ownership policy: PASS" in callback_test
+          # DHCP down events are already committed: failed monitor pause is
+          # retained as the first callback error while teardown still proceeds.
+          man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+          wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+          for name, teardown, first_cleanup in (
+              ("MAN", man_down, 'man_gate = nvram_safe_get("wanx_gateway")'),
+              ("WAN", wan_down, 'nvram_set_temp("vpnc_dns_t", "")'),
+          ):
+              pause_at = teardown.index("route_status = notify_pause_detect_internet();")
+              merge_at = teardown.index(
+                  "status = route_status_accumulate(status, route_status);", pause_at
+              )
+              first_cleanup_at = teardown.index(first_cleanup, pause_at)
+              assert pause_at < merge_at < first_cleanup_at, name
+              assert "if (route_status != 0)" in teardown[merge_at:first_cleanup_at], name
+              assert "return status;" in teardown, name
+              assert "(void)notify_pause_detect_internet();" not in teardown, name
+              assert "DHCP loss is already committed" in teardown or name == "WAN"
+          assert "test_dhcp_down_monitor_pause_failure_is_reported_and_cleanup_continues" in (
+              (rc / "tests/route_status_policy.c").read_text()
+          )
           print("WAN route result propagation and cleanup ordering contracts: PASS")
           PY
