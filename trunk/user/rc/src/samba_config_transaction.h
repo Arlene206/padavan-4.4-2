@@ -9,11 +9,73 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define SAMBA_CONFIG_TRANSACTION_DIRECTORY "/etc/samba/.config-transaction"
+#define SAMBA_CONFIG_BASE_DIRECTORY "/etc/samba"
+#define SAMBA_CONFIG_TRANSACTION_DIRECTORY SAMBA_CONFIG_BASE_DIRECTORY "/.config-transaction"
 #define SAMBA_CONFIG_TRANSACTION_LOCK_FILE "/var/run/samba-config.lock"
-#define SAMBA_CONFIG_TRANSACTION_PASSDB "/etc/samba/smbpasswd"
+#define SAMBA_CONFIG_TRANSACTION_PASSDB SAMBA_CONFIG_BASE_DIRECTORY "/smbpasswd"
 #define SAMBA_CONFIG_TRANSACTION_CONFIG "/etc/smb.conf"
 #define SAMBA_CONFIG_TRANSACTION_PATH_MAX 512
+
+/*
+ * The parent also contains the Samba passdb and the crash-recovery journal.
+ * It must be owned by this effective user and never writable by group/other.
+ * Open the directory itself (not a symlink) and harden it through the fd.
+ */
+static inline int
+samba_config_transaction_prepare_parent_directory(const char *directory)
+{
+	struct stat st;
+	mode_t safe_mode;
+	int fd, flags = O_RDONLY;
+	int saved_errno;
+
+	if (!directory || !*directory) {
+		errno = EINVAL;
+		return -1;
+	}
+#if !defined(O_DIRECTORY) || !defined(O_NOFOLLOW)
+	errno = ENOTSUP;
+	return -1;
+#else
+	flags |= O_DIRECTORY | O_NOFOLLOW;
+#endif
+	if (mkdir(directory, 0755) != 0 && errno != EEXIST)
+		return -1;
+
+	fd = open(directory, flags);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, &st) != 0)
+		goto failed;
+	if (!S_ISDIR(st.st_mode) || st.st_uid != geteuid()) {
+		errno = EACCES;
+		goto failed;
+	}
+
+	/* Preserve read/execute access while removing all group/other writes. */
+	safe_mode = (st.st_mode & 0555) | 0700;
+	if ((st.st_mode & 07777) != safe_mode) {
+		if (fchmod(fd, safe_mode) != 0)
+			goto failed;
+		if (fstat(fd, &st) != 0)
+			goto failed;
+		if (!S_ISDIR(st.st_mode) || st.st_uid != geteuid() ||
+		    (st.st_mode & 07777) != safe_mode) {
+			errno = EACCES;
+			goto failed;
+		}
+	}
+	if (close(fd) != 0)
+		return -1;
+	errno = 0;
+	return 0;
+
+failed:
+	saved_errno = errno ? errno : EIO;
+	close(fd);
+	errno = saved_errno;
+	return -1;
+}
 
 /* The kernel releases this process-scoped lock if the writer exits. */
 static inline int

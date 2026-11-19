@@ -1,3 +1,11 @@
+## 2026-11-19 — Harden Samba passdb and recovery parent-directory permissions
+
+- Source review found `start_wins()` used `mkdir_if_none("/etc/samba", "777")`. PID 1 runs with a permissive umask, so a missing directory could become world-writable. The helper also accepts an existing path without validating its type, owner or mode. This directory parents `smbpasswd` and the root-only `.config-transaction` journal; group/other write access lets local users replace or remove passdb/recovery entries despite the child transaction directory's 0700 mode.
+- Replaced the blind mkdir with descriptor-based parent preparation: create as 0755 even under umask 0000; open with `O_DIRECTORY|O_NOFOLLOW`; require effective-UID ownership; remove group/other write bits while preserving safe read/execute access; revalidate the opened directory after permission repair. Symlinks, non-directories and foreign-owned paths fail closed before WINS recovery/publication.
+- Added GNU89 ASan/UBSan regression for permissive umask, legacy 0777 repair, preservation of restrictive 0711 mode, and file/symlink rejection. XY-C1 workflow watches the header/test and runs this regression plus a production caller-order contract. Exact-head regression and XY-C1 Build/TRX/artifact are pending; no local test or device result is claimed.
+
+---
+
 ## 2026-11-19 — Correct the UNKNOWN guest rollback source contract
 
 - Exact Wireless radio run `44592415803` on production source `ef421978331ade679241c5bc1c10dbb6350d4004` compiled and passed the radio-state policy, bridge-membership policy, and guest-isolation policy binary with GNU89/Werror/ASan/UBSan. The Python checker then failed at line 161 because it required the old early-return-on-UNKNOWN pattern in both rollback callbacks.

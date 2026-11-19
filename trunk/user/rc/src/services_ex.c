@@ -1433,6 +1433,15 @@ start_wins(void)
 		goto out;
 	}
 
+	if (samba_config_transaction_prepare_parent_directory(
+		SAMBA_CONFIG_BASE_DIRECTORY) != 0) {
+		scan_error = errno ? errno : EIO;
+		errno = scan_error;
+		logmessage("Samba Server",
+			   "unsafe or unavailable Samba state directory; refusing WINS startup (errno %d)",
+			   scan_error);
+		goto out;
+	}
 	if (samba_config_transaction_recover(
 		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
 		SAMBA_CONFIG_TRANSACTION_PASSDB,
@@ -1442,7 +1451,6 @@ start_wins(void)
 		goto out;
 	}
 
-	mkdir_if_none("/etc/samba", "777");
 	staged_path[0] = '\0';
 	if (samba_config_file_open(SAMBA_CONF, staged_path,
 				   sizeof(staged_path), &fp) != 0 ||

@@ -49,9 +49,56 @@ make_path(char *path, size_t size, const char *directory, const char *leaf)
 	assert(length > 0 && (size_t)length < size);
 }
 
+static void
+test_parent_directory_permissions(void)
+{
+	char root[] = "/tmp/samba-config-parent.XXXXXX";
+	char directory[256], regular_file[256], link_path[256];
+	struct stat st;
+	mode_t old_umask;
+
+	assert(mkdtemp(root) != NULL);
+	make_path(directory, sizeof(directory), root, "samba");
+	make_path(regular_file, sizeof(regular_file), root, "not-a-directory");
+	make_path(link_path, sizeof(link_path), root, "directory-link");
+
+	/* PID 1 uses a permissive umask; new state parents must still be 0755. */
+	old_umask = umask(0000);
+	assert(samba_config_transaction_prepare_parent_directory(directory) == 0);
+	umask(old_umask);
+	assert(lstat(directory, &st) == 0);
+	assert(S_ISDIR(st.st_mode));
+	assert(st.st_uid == geteuid());
+	assert((st.st_mode & 07777) == 0755);
+
+	/* Repair an existing legacy 0777 directory without broadening access. */
+	assert(chmod(directory, 0777) == 0);
+	assert(samba_config_transaction_prepare_parent_directory(directory) == 0);
+	assert(lstat(directory, &st) == 0);
+	assert((st.st_mode & 07777) == 0755);
+
+	/* Preserve a pre-existing safe, more restrictive access mode. */
+	assert(chmod(directory, 0711) == 0);
+	assert(samba_config_transaction_prepare_parent_directory(directory) == 0);
+	assert(lstat(directory, &st) == 0);
+	assert((st.st_mode & 07777) == 0711);
+
+	write_text(regular_file, "not a directory\n", 0600);
+	assert(samba_config_transaction_prepare_parent_directory(regular_file) == -1);
+	assert(symlink(directory, link_path) == 0);
+	assert(samba_config_transaction_prepare_parent_directory(link_path) == -1);
+
+	assert(unlink(link_path) == 0);
+	assert(unlink(regular_file) == 0);
+	assert(rmdir(directory) == 0);
+	assert(rmdir(root) == 0);
+}
+
 int
 main(void)
 {
+	test_parent_directory_permissions();
+
 	char root[] = "/tmp/samba-config-transaction.XXXXXX";
 	char lock_path[256], transaction_dir[256], passdb[256], config[256];
 	char passdb_next[256], config_next[256], passdb_link[256];

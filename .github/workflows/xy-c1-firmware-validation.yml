@@ -230,6 +230,8 @@ on:
       - "scripts/check_storage_safe_remove.py"
       - "trunk/user/rc/src/samba_process_policy.h"
       - "trunk/user/rc/src/samba_daemon_policy.h"
+      - "trunk/user/rc/src/samba_config_transaction.h"
+      - "trunk/user/rc/src/tests/samba_config_transaction.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
@@ -311,6 +313,32 @@ jobs:
 
       - name: Verify Samba shared-header staging contract
         run: python3 scripts/check_samba_shared_header.py
+
+      - name: Compile and run Samba parent-directory security regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/samba_config_transaction.c \
+            -o /tmp/samba-config-transaction-regression
+          /tmp/samba-config-transaction-regression
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/rc/src/services_ex.c").read_text()
+          header = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
+          start = source.index("start_wins(void)")
+          end = source.index("reload_nmbd(void)", start)
+          wins = source[start:end]
+          prepare = wins.index(
+              "samba_config_transaction_prepare_parent_directory(\n\t\tSAMBA_CONFIG_BASE_DIRECTORY)"
+          )
+          recover = wins.index("samba_config_transaction_recover(")
+          assert prepare < recover
+          assert 'mkdir_if_none("/etc/samba", "777")' not in source
+          assert 'SAMBA_CONFIG_BASE_DIRECTORY "/.config-transaction"' in header
+          assert "O_DIRECTORY | O_NOFOLLOW" in header
+          print("Samba parent-directory call-site contract: PASS")
+          PY
 
       - name: Verify DHCPv6 DUID staged-header contract
         run: python3 scripts/check_dhcp6c_duid_header_staging.py
