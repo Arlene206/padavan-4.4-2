@@ -610,7 +610,11 @@ has_dev_mountpoint(const char *mount_path)
 		}
 #endif
 	}
-	if (ret == 0 && ferror(fp)) {
+	/*
+	 * A match is provisional until EOF: a later read error means the
+	 * mount inventory is incomplete and cannot authorize pool startup.
+	 */
+	if (ret >= 0 && ferror(fp)) {
 		saved_errno = errno ? errno : EIO;
 		ret = -1;
 	}
