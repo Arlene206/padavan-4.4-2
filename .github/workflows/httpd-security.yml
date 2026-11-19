@@ -2992,7 +2992,7 @@ jobs:
           assert range_body.index("try_device_swapoff(") < swap_gate < disk_unmount
           assert "free_storage_unmount_mounts(mounts)" in range_body
 
-          start = source.index("void\nsafe_remove_stor_device(")
+          start = source.index("int\nsafe_remove_stor_device(")
           end = source.index("\nint\nsafe_remove_all_stor_devices", start)
           safe_body = source[start:end]
           assert safe_body.count("umount_stor_path_range(") == 1
