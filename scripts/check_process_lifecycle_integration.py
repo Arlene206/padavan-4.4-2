@@ -1200,7 +1200,10 @@ for band, block in (("5GHz", restart_wifi_wl), ("2.4GHz", restart_wifi_rt)):
     assert "iappd_restart_status);" in block
     assert block.count('system("/usr/bin/iappd.sh restart")') == 1
     assert block.index("int iappd_restart_status = system(") < block.index("if (iappd_restart_status != 0)")
-    assert block.index("if (iappd_restart_status != 0)") < block.index("wireless_radio_restart_status(") < block.index("return isolation_status;")
+    iappd_failure = block.index("if (iappd_restart_status != 0)")
+    iappd_merge = block.index("isolation_status = wireless_radio_restart_status(", iappd_failure)
+    return_status = block.index("return isolation_status;", iappd_merge)
+    assert iappd_failure < iappd_merge < return_status
 radio_policy_test = (root / "trunk/user/rc/src/tests/wireless_radio_policy.c").read_text()
 radio_policy_header = (root / "trunk/user/rc/src/wireless_radio_policy.h").read_text()
 assert "wireless_radio_restart_status(int previous_status, int operation_status)" in radio_policy_header

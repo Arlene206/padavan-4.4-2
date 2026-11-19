@@ -1,3 +1,12 @@
+## 2026-11-19 — Align storage, HTTPD, wireless and handoff CI contracts
+
+- Exact b4b46 checker runs: Wireless radio `44627098078` PASS; Process lifecycle `44627098093` failed because the contract searched the first radio-status merge, which is the earlier APCLI WAN result, rather than the later IAPP wait-status merge. The source correctly merges IAPP failure after its own status check; the checker now searches from that failure branch.
+- Storage `44627098102` and HTTPD `44627098106` failed because their embedded source contracts still searched for legacy `notify_rc()` calls after the SD/MMC source switched to checked `queue_storage_hotplug_notification()`. Updated both ordering/target assertions.
+- AI handoff docs `44627098108` failed because the handoff's mandatory checkpoint statement was shortened during a prior edit; restored the exact governance statement required by the protocol checker.
+- Product SHA `3488f129babe376bccf27e132776c45910614dd7` passed XY-C1 Build, TRX verification and artifact upload (`44625809599`). This follow-up contains checker/docs only; exact-head reruns pending.
+
+---
+
 ## 2026-11-19 — Repair APCLI path variable and storage completion contracts
 
 - Parent main SHA: `3488f129babe376bccf27e132776c45910614dd7`. Wireless `44625501907` and Process `44625501771` on `f2e8147` passed the compiled wireless/bridge policy regressions and APCLI source checks, then failed only because the checker read `rc / "tests/wireless_radio_policy.c"` while the script defines `RC`. Corrected the typo.

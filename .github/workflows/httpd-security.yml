@@ -3105,7 +3105,8 @@ jobs:
               end = hotplug.index("\n}", start) + 2
               body = hotplug[start:end]
               assert "report_device_swapoff(device_name)" in body
-              assert body.index("report_device_swapoff(device_name)") < body.index('notify_rc("on_unplug_mass_storage")')
+              assert 'queue_storage_hotplug_notification(device_name, "on_unplug_mass_storage")' in body
+              assert body.index("report_device_swapoff(device_name)") < body.index('queue_storage_hotplug_notification(device_name, "on_unplug_mass_storage")')
           assert "0 = already inactive or disabled successfully" in libdisk_header
           assert "storage_swap_inventory_result" in helper
           assert "STORAGE_SWAP_UNKNOWN" in test and "/dev/sda10" in test

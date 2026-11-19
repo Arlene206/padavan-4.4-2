@@ -999,8 +999,8 @@ jobs:
               unlock = body.index("out_unlock:")
               assert operation_lock < remove_branch < mount_call < unlock
               unplug = body[remove_branch:body.index("goto out_unlock;", remove_branch)]
-              assert unplug.index("swapoff_status = report_device_swapoff(device_name)") < unplug.index("notify_rc(")
-              assert 'notify_rc("on_unplug_mass_storage")' in unplug
+              assert unplug.index("swapoff_status = report_device_swapoff(device_name)") < unplug.index("queue_storage_hotplug_notification(device_name, ")
+              assert 'queue_storage_hotplug_notification(device_name, "on_unplug_mass_storage")' in unplug
               assert 'char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };' in body
               assert 'mount_status = _eval(mount_argv, NULL, 0, NULL);' in body
               assert 'if (mount_status == 0)' in body
