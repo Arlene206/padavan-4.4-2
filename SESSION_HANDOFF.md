@@ -12,6 +12,13 @@
 - Exact-head on `bef7889`: USB modem `44446007111` and AI docs `44446007055` passed; Process `44446007056` and Firewall `44446007049` were still in progress at last poll. No XY-C1 run was listed for that docs/checker-only SHA.
 - WAN production changes retain first chronological failure across USB NDIS/RAS and callback-link/VLAN/APCLI-WISP preflight failure paths.
 
+## Latest switch MAC-table input hardening
+
+- Parent main: `f172f15c04d90e79d3135151589f1ae66fdd7f38`. Earlier SIP/DIP hardening is on `f3d4e793064bd97bcc105e9102406df318f29ec9`; Switch CLI `44450829755` and AI docs `44450829634` PASS, including ASan/UBSan parser tests.
+- New audit found `table_add()`/`table_del()` accept partially parsed MAC and numeric tokens via unchecked `strtoul`. `table_add()` also stages ATA1/ATA2 before validating port-map, VID, age and EG-tag inputs.
+- This slice adds strict host-testable MAC, base-0 bounded unsigned, and seven/eight-character port-map parsers. All arguments are checked before the first MMIO write; documented filter default remains `0x7f`.
+- Exact XY-C1 `44451550350` on ancestor `88cf59e` was still building at last poll; no same-SHA Build/TRX/artifact proof for this later SHA yet.
+
 ## Latest switch CLI robustness slice
 
 - Main parent for this slice: 19b125963c38efd5c2dda0e24fb574b40a07bf83. The main and frozen backup refs were checked before preparing the atomic tree.

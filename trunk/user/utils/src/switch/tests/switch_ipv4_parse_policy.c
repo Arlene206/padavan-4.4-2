@@ -95,6 +95,62 @@ test_invalid_portmaps(void)
 	assert(switch_parse_portmap("00000000", 0) != 0);
 }
 
+static void
+test_mac_parser(void)
+{
+    unsigned int high = 0, low = 0;
+    assert(switch_parse_mac_address("001122aAbBcC", &high, &low) == 0);
+    assert(high == 0x001122aaU && low == 0xbbccU);
+    assert(switch_parse_mac_address("FFFFFFFFFFFF", &high, &low) == 0);
+    assert(high == 0xffffffffU && low == 0xffffU);
+
+    high = 0x12345678U;
+    low = 0x87654321U;
+    assert(switch_parse_mac_address(0, &high, &low) != 0);
+    assert(switch_parse_mac_address("", &high, &low) != 0);
+    assert(switch_parse_mac_address("0011223344556", &high, &low) != 0);
+    assert(switch_parse_mac_address("00112233445", &high, &low) != 0);
+    assert(switch_parse_mac_address("00112233445g", &high, &low) != 0);
+    assert(switch_parse_mac_address("001122-34455", &high, &low) != 0);
+    assert(high == 0x12345678U && low == 0x87654321U);
+    assert(switch_parse_mac_address("001122334455", 0, 0) != 0);
+}
+
+static void
+test_uint_range_parser(void)
+{
+    unsigned int value = 0x12345678U;
+    assert(switch_parse_uint_range("0", 0U, 4095U, &value) == 0 && value == 0U);
+    assert(switch_parse_uint_range("4095", 0U, 4095U, &value) == 0 && value == 4095U);
+    assert(switch_parse_uint_range("0xfff", 0U, 4095U, &value) == 0 && value == 4095U);
+    assert(switch_parse_uint_range("0377", 1U, 255U, &value) == 0 && value == 255U);
+    assert(switch_parse_uint_range("1", 1U, 255U, &value) == 0 && value == 1U);
+    assert(switch_parse_uint_range(0, 0U, 4095U, &value) != 0);
+    assert(switch_parse_uint_range("", 0U, 4095U, &value) != 0);
+    assert(switch_parse_uint_range("-1", 0U, 4095U, &value) != 0);
+    assert(switch_parse_uint_range("+1", 0U, 4095U, &value) != 0);
+    assert(switch_parse_uint_range("4096", 0U, 4095U, &value) != 0);
+    assert(switch_parse_uint_range("256", 1U, 255U, &value) != 0);
+    assert(switch_parse_uint_range("8", 0U, 7U, &value) != 0);
+    assert(switch_parse_uint_range("09", 0U, 255U, &value) != 0);
+    assert(switch_parse_uint_range("1junk", 0U, 255U, &value) != 0);
+    assert(switch_parse_uint_range(" 1", 0U, 255U, &value) != 0);
+    assert(switch_parse_uint_range("999999999999999999999999999999", 0U, 4095U, &value) != 0);
+}
+
+static void
+test_table_portmap_parser(void)
+{
+    unsigned int map = 0x12345678U;
+    assert(switch_parse_table_portmap("1111111", &map) == 0 && map == 0x7fU);
+    assert(switch_parse_table_portmap("0000000", &map) == 0 && map == 0U);
+    assert(switch_parse_table_portmap("11111110", &map) == 0 && map == 0x7fU);
+    assert(switch_parse_table_portmap("11111111", &map) == 0 && map == 0x7fU);
+    assert(switch_parse_table_portmap("1111111x", &map) != 0 && map == 0x7fU);
+    assert(switch_parse_table_portmap("111111", &map) != 0 && map == 0x7fU);
+    assert(switch_parse_table_portmap("111111111", &map) != 0 && map == 0x7fU);
+}
+
 int
 main(void)
 {
@@ -103,6 +159,9 @@ main(void)
 	test_null_output_is_rejected();
 	test_valid_portmaps();
 	test_invalid_portmaps();
-	puts("switch IPv4 and port-map parser policy: PASS");
+    test_mac_parser();
+    test_uint_range_parser();
+    test_table_portmap_parser();
+    puts("switch IPv4/MAC/numeric/port-map parser policy: PASS");
 	return 0;
 }

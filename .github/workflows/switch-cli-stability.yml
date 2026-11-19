@@ -150,9 +150,31 @@ jobs:
           assert "switch_parse_portmap" in Path(
               "trunk/user/utils/src/switch/switch_ipv4_parse_policy.h"
           ).read_text()
-          assert "test_invalid_portmaps" in Path(
-              "trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c"
-          ).read_text()
+          tests = Path("trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c").read_text()
+          policy = Path("trunk/user/utils/src/switch/switch_ipv4_parse_policy.h").read_text()
+          assert "test_invalid_portmaps" in tests
+          assert "test_mac_parser" in tests
+          assert "test_uint_range_parser" in tests
+          assert "test_table_portmap_parser" in tests
+          assert "switch_parse_mac_address" in policy
+          assert "switch_parse_uint_range" in policy
+          assert "switch_parse_table_portmap" in policy
+
+          table_add = source.split("void table_add(int argc, char *argv[])", 1)[1].split("void table_del", 1)[0]
+          first_add_write = table_add.index("reg_write(")
+          for expression in ("switch_parse_mac_address(argv[2]", "switch_parse_table_portmap(argv[3]",
+                            "switch_parse_uint_range(argv[4]", "switch_parse_uint_range(argv[5]",
+                            "switch_parse_uint_range(argv[6]"):
+              assert table_add.index(expression) < first_add_write
+          assert "argc < 3 || argc > 7" in table_add
+          assert "strtoul(" not in table_add
+
+          table_del = source.split("void table_del(int argc, char *argv[])", 1)[1].split("void table_dump", 1)[0]
+          first_del_write = table_del.index("reg_write(")
+          assert table_del.index("switch_parse_mac_address(argv[2]") < first_del_write
+          assert table_del.index("switch_parse_uint_range(argv[3], 0U, 7U") < first_del_write
+          assert "argc < 3 || argc > 4" in table_del
+          assert "strtoul(" not in table_del
 
           filters = workflow.split("jobs:", 1)[0]
           push, pull_request = filters.split("  pull_request:", 1)

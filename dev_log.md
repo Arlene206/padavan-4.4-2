@@ -1,3 +1,13 @@
+## 2026-11-19 — Strict MAC-table parsing and pre-MMIO validation
+
+- Parent main: `f172f15c04d90e79d3135151589f1ae66fdd7f38`.
+- `table_add()`/`table_del()` used `strtoul` without end-pointer validation, allowing malformed MAC/numeric suffixes to parse partially. `table_add()` also wrote ATA1/ATA2 before validating later arguments.
+- Add strict host-testable MAC, base-0 bounded unsigned and seven/eight-character portmap parsers with success/failure and output-preservation cases. Validate argc and every field before first `reg_write()`; preserve register packing and filter default.
+- Update existing Switch CLI ASan/UBSan policy test and static contract; existing path filters already cover touched paths. No local MIPS build/hardware test is claimed.
+- XY-C1 `44451550350` was still building its ancestor SHA; require an identical SHA Build + TRX + artifact for L3.
+
+---
+
 ## 2026-11-19 — Correct SIP/DIP source-checker symbol lookup
 
 - Parent main SHA: f3d4e793064bd97bcc105e9102406df318f29ec9.

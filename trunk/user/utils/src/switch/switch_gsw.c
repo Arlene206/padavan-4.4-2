@@ -1437,144 +1437,80 @@ void table_dump(void)
 
 void table_add(int argc, char *argv[])
 {
-	unsigned int i, j, value, is_filter, is_mymac;
-	char tmpstr[9];
+    unsigned int mac_high, mac_low, portmap, vid = 0;
+    unsigned int age = 255, eg_tag = 0, value;
+    unsigned int is_filter, is_mymac;
 
-	is_filter = (argv[1][0] == 'f')? 1 : 0;
-	is_mymac = (argv[1][0] == 'm')? 1 : 0;
-	if (!argv[2] || strlen(argv[2]) != 12) {
-		printf("MAC address format error, should be of length 12\n");
-		return;
-	}
-	strncpy(tmpstr, argv[2], 8);
-	tmpstr[8] = '\0';
-	value = strtoul(tmpstr, NULL, 16);
-	reg_write(REG_ESW_WT_MAC_ATA1, value);
-//	printf("REG_ESW_WT_MAC_ATA1 is 0x%x\n\r",value);
+    if (argc < 3 || argc > 7)
+        usage(argv[0]);
+    is_filter = (argv[1][0] == 'f') ? 1U : 0U;
+    is_mymac = (argv[1][0] == 'm') ? 1U : 0U;
 
-	strncpy(tmpstr, argv[2]+8, 4);
-	tmpstr[4] = '\0';
+    if (switch_parse_mac_address(argv[2], &mac_high, &mac_low) != 0)
+        usage(argv[0]);
+    if (argc > 3) {
+        if (switch_parse_table_portmap(argv[3], &portmap) != 0)
+            usage(argv[0]);
+    } else if (is_filter) {
+        portmap = 0x7fU;
+    } else {
+        usage(argv[0]);
+    }
+    if (argc > 4 &&
+        switch_parse_uint_range(argv[4], 0U, 4095U, &vid) != 0)
+        usage(argv[0]);
+    if (argc > 5 &&
+        switch_parse_uint_range(argv[5], 1U, 255U, &age) != 0)
+        usage(argv[0]);
+    if (argc > 6 &&
+        switch_parse_uint_range(argv[6], 0U, 7U, &eg_tag) != 0)
+        usage(argv[0]);
 
-	value = strtoul(tmpstr, NULL, 16);
-	value = (value << 16);
-	value |= (1 << 15);//IVL=1
-	
-	if (argc > 4) {
-		j = strtoul(argv[4], NULL, 0);
-		if (j < 0 || 4095 < j) {
-			printf("wrong vid range, should be within 0~4095\n");
-			return;
-		}
-		value |= j; //vid
-	}
-	
-	reg_write(REG_ESW_WT_MAC_ATA2, value);
-//	printf("REG_ESW_WT_MAC_ATA2 is 0x%x\n\r",value);
+    /* Validate every argument before staging any table register. */
+    reg_write(REG_ESW_WT_MAC_ATA1, mac_high);
+    value = (mac_low << 16) | (1U << 15) | vid;
+    reg_write(REG_ESW_WT_MAC_ATA2, value);
+    value = portmap << 4;
+    if (argc > 5)
+        value |= (age << 24) | (0x1U << 2);
+    else
+        value |= (0xffU << 24) | (0x3U << 2);
+    if (argc > 6)
+        value |= eg_tag << 13;
+    if (is_filter)
+        value |= 7U << 20;
+    if (is_mymac)
+        value |= 1U << 23;
 
-	if (!argv[3] || strlen(argv[3]) != 8) {
-		if (is_filter)
-			argv[3] = "1111111";
-		else {
-			printf("portmap format error, should be of length 7\n");
-			return;
-		}
-	}
-	j = 0;
-	for (i = 0; i < 7; i++) {
-		if (argv[3][i] != '0' && argv[3][i] != '1') {
-			printf("portmap format error, should be of combination of 0 or 1\n");
-			return;
-		}
-		j += (argv[3][i] - '0') * (1 << i);
-	}
-	value = j << 4; //w_port_map
-
-	if (argc > 5) {
-		j = strtoul(argv[5], NULL, 0);
-		if (j < 1 || 255 < j) {
-			printf("wrong age range, should be within 1~255\n");
-			return;
-		}
-		value |= (j << 24); //w_age_field
-		value |= (0x1<< 2); //dynamic
-	}
-	else{
-		value |= (0xff << 24); //w_age_field
-		value |= (0x3<< 2); //static
-	}
-
-
-	if (argc > 6) {
-		j = strtoul(argv[6], NULL, 0);
-		if (j < 0 || 7 < j) {
-			printf("wrong eg-tag range, should be within 0~7\n");
-			return;
-		}
-		value |= (j << 13); //EG_TAG
-	}
-
-
-	if (is_filter)
-		value |= (7 << 20); //sa_filter
-
-	if (is_mymac)
-		value |= (1 << 23); 
-
-
-	reg_write(REG_ESW_WT_MAC_ATWD, value);
-	
-	usleep(5000);
-	reg_read(REG_ESW_WT_MAC_ATWD, &value);
-	printf("REG_ESW_WT_MAC_ATWD is 0x%x\n\r",value);
-
-	value = 0x8001;  //w_mac_cmd
-	reg_write(REG_ESW_WT_MAC_ATC, value);
-
-	usleep(1000);
-
-	wait_mac_atc();
+    reg_write(REG_ESW_WT_MAC_ATWD, value);
+    usleep(5000);
+    reg_read(REG_ESW_WT_MAC_ATWD, &value);
+    printf("REG_ESW_WT_MAC_ATWD is 0x%x\n\r", value);
+    value = 0x8001;
+    reg_write(REG_ESW_WT_MAC_ATC, value);
+    usleep(1000);
+    wait_mac_atc();
 }
 
 void table_del(int argc, char *argv[])
 {
-	int j, value;
-	char tmpstr[9];
+    unsigned int mac_high, mac_low, fid = 0, value;
 
-	if (!argv[2] || strlen(argv[2]) != 12) {
-		printf("MAC address format error, should be of length 12\n");
-		return;
-	}
-	strncpy(tmpstr, argv[2], 8);
-	tmpstr[8] = '\0';
-	value = strtoul(tmpstr, NULL, 16);
-	reg_write(REG_ESW_WT_MAC_ATA1, value);
+    if (argc < 3 || argc > 4)
+        usage(argv[0]);
+    if (switch_parse_mac_address(argv[2], &mac_high, &mac_low) != 0)
+        usage(argv[0]);
+    if (argc > 3 &&
+        switch_parse_uint_range(argv[3], 0U, 7U, &fid) != 0)
+        usage(argv[0]);
 
-	strncpy(tmpstr, argv[2]+8, 4);
-	tmpstr[4] = '\0';
-	value = strtoul(tmpstr, NULL, 16);
-	value = (value << 16);
-	
-	if (argc > 3) {
-		j = strtoul(argv[3], NULL, 0);
-		if (j < 0 || 7 < j) {
-			printf("wrong fid range, should be within 0~7\n");
-			return;
-		}
-		value |= (j << 12); //fid
-	}
-	
-	//printf("write REG_ESW_WT_MAC_AT2  0x%x\n\r",value);
-
-	reg_write(REG_ESW_WT_MAC_ATA2, value);
-
-
-	value = 0; //STATUS=0, delete mac
-	reg_write(REG_ESW_WT_MAC_ATWD, value);
-
-        value = 0x8001;  //w_mac_cmd
-	reg_write(REG_ESW_WT_MAC_ATC, value);
-
-	wait_mac_atc();
+    /* Validate all arguments before staging the deletion. */
+    reg_write(REG_ESW_WT_MAC_ATA1, mac_high);
+    value = (mac_low << 16) | (fid << 12);
+    reg_write(REG_ESW_WT_MAC_ATA2, value);
+    reg_write(REG_ESW_WT_MAC_ATWD, 0U);
+    reg_write(REG_ESW_WT_MAC_ATC, 0x8001U);
+    wait_mac_atc();
 }
 
 
