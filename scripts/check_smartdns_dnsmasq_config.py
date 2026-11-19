@@ -162,7 +162,7 @@ rollback = body(smartdns, "smartdns_start_config_rollback")
 assert "nvram set sdns_enable=0" in rollback
 assert "Stop_smartdns" in rollback
 assert "DNSMasq 回滚未完成" in rollback
-assert start.count("smartdns_start_config_rollback") == 5
+assert start.count("smartdns_start_config_rollback") == 6
 # DNSMasq must successfully reload the resolver config before SmartDNS is
 # stopped, and a failed reload must preserve the daemon and saved retry state.
 stop_compact = " ".join(stop.split())
@@ -172,4 +172,11 @@ assert 'return "$dnsmasq_restart_status"' in stop
 assert 'preserving running daemon and saved state' in stop
 assert 'dnsmasq_restart_status=$?' in start
 assert 'smartdns_start_config_rollback "$dnsmasq_restart_status"' in start
+restore_previous = body(smartdns, "smartdns_restore_previous_instance")
+assert "[ \"${smartdns_previous_running:-0}\" = 1 ] || return 0" in restore_previous
+assert 'smartdns_process_state' in restore_previous
+assert '"$smartdns_Bin" -f -c "$smartdns_Conf" "${args:-}"' in restore_previous
+assert 'smartdns_previous_running=1' in start
+assert start.count("smartdns_restore_previous_instance") == 3
+assert 'smartdns_restore_previous_instance || :' in rollback
 print("SmartDNS saved DNSMasq state, marked-block and atomic SmartDNS-config publication contracts: PASS")

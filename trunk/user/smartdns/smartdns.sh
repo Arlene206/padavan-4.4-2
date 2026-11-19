@@ -645,6 +645,32 @@ Change_iptable () {
     fi
 }
 
+smartdns_restore_previous_instance()
+{
+    [ "${smartdns_previous_running:-0}" = 1 ] || return 0
+    smartdns_process_state
+    _smartdns_restore_state=$?
+    case "$_smartdns_restore_state" in
+        0) return 0 ;;
+        1) ;;
+        *) return 2 ;;
+    esac
+    if [ -L "$smartdns_Conf" ] || [ ! -f "$smartdns_Conf" ] || [ ! -r "$smartdns_Conf" ]; then
+        logger -t "SmartDNS" "原 SmartDNS 配置不可安全读取，无法恢复旧进程"
+        return 1
+    fi
+    "$smartdns_Bin" -f -c "$smartdns_Conf" "${args:-}" >/dev/null 2>&1 &
+    sleep 1
+    smartdns_process_state
+    _smartdns_restore_state=$?
+    if [ "$_smartdns_restore_state" -eq 0 ]; then
+        logger -t "SmartDNS" "已恢复原 SmartDNS 进程以维持 DNSMasq 当前上游"
+        return 0
+    fi
+    logger -t "SmartDNS" "无法恢复原 SmartDNS 进程 (status=$_smartdns_restore_state)"
+    return 1
+}
+
 smartdns_start_config_rollback()
 {
     _smartdns_failure_status=$1
@@ -663,6 +689,7 @@ smartdns_start_config_rollback()
     _smartdns_cleanup_status=$?
     if [ "$_smartdns_cleanup_status" -ne 0 ]; then
         logger -t "SmartDNS" "配置生成失败后的 DNSMasq 回滚未完成 (status=$_smartdns_cleanup_status)"
+        smartdns_restore_previous_instance || :
         return "$_smartdns_cleanup_status"
     fi
     if [ "$_smartdns_nvram_status" -ne 0 ]; then
@@ -672,12 +699,14 @@ smartdns_start_config_rollback()
 }
 
 Start_smartdns () {
+    smartdns_previous_running=0
     # Do not modify DNS, firewall or persisted state until the old daemon is
     # positively classified and, when running, confirmed stopped.
     smartdns_process_state
     smartdns_state=$?
     case "$smartdns_state" in
         0)
+            smartdns_previous_running=1
             smartdns_stop_process
             stop_status=$?
             if [ "$stop_status" -ne 0 ]; then
@@ -685,7 +714,7 @@ Start_smartdns () {
                 return "$stop_status"
             fi
             ;;
-        1) ;;
+        1) smartdns_previous_running=0 ;;
         *)
             logger -t "SmartDNS" "Cannot determine SmartDNS process state; startup aborted"
             return 2
@@ -698,6 +727,7 @@ Start_smartdns () {
         else
             smartdns_cleanup_status=$?
             logger -t "SmartDNS" "Previous DNSMasq resolver state could not be removed (status=$smartdns_cleanup_status)"
+            smartdns_restore_previous_instance || :
             return "$smartdns_cleanup_status"
         fi
     fi
@@ -714,6 +744,7 @@ Start_smartdns () {
     else
         smartdns_ini_status=$?
         logger -t "SmartDNS" "Could not atomically publish resolver state (status=$smartdns_ini_status)"
+        smartdns_restore_previous_instance || :
         return "$smartdns_ini_status"
     fi
     if Change_dnsmasq start; then
@@ -721,6 +752,7 @@ Start_smartdns () {
     else
         smartdns_dnsmasq_status=$?
         logger -t "SmartDNS" "Could not publish DNSMasq resolver directives (status=$smartdns_dnsmasq_status)"
+        smartdns_restore_previous_instance || :
         return "$smartdns_dnsmasq_status"
     fi
     if [ "$sdns_redirect" = 0 ] ; then
