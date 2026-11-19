@@ -1,3 +1,13 @@
+## 2026-11-19 — Guard SIP/DIP switch inputs before MMIO
+
+- Parent main SHA: 19b125963c38efd5c2dda0e24fb574b40a07bf83. Source review found no local argc checks in dip_add, dip_del, sip_add or sip_del; top-level dispatch only guaranteed argv[2].
+- Add local required-count checks (DIP add 5, DIP delete 4, SIP add 6, SIP delete 5) before argv dereferences.
+- SIP/DIP add previously wrote switch registers before validating port-map format. Add a reusable host-testable eight-character binary parser (retaining the existing mapping of ports 0–6) and parse the full address and port map before the first reg_write().
+- Extend the existing IPv4 parser test executable with valid/invalid port-map cases and output-preservation assertions; extend existing Switch CLI static integration checks. Keep path filters unchanged.
+- Exact-head Switch CLI and AI-doc checks are required after this commit; no local MIPS build or hardware result is claimed.
+
+---
+
 ## 2026-11-19 — Align HTTPD DHCP contract with transactional LAN lease state and recovery
 
 - Parent main SHA: `7edb5d58b4ba61e1c68deab9aa1601f90c5339d0`; previous HTTPD exact run `44447312302` failed in `Verify DHCP lease input and renewal reconciliation`, after the GNU89 DHCP policy binary printed `DHCP lease input policy regression: OK`.

@@ -12,6 +12,17 @@
 - Exact-head on `bef7889`: USB modem `44446007111` and AI docs `44446007055` passed; Process `44446007056` and Firewall `44446007049` were still in progress at last poll. No XY-C1 run was listed for that docs/checker-only SHA.
 - WAN production changes retain first chronological failure across USB NDIS/RAS and callback-link/VLAN/APCLI-WISP preflight failure paths.
 
+## Latest switch CLI robustness slice
+
+- Main parent for this slice: 19b125963c38efd5c2dda0e24fb574b40a07bf83. The main and frozen backup refs were checked before preparing the atomic tree.
+- Source review found four command helpers that relied on top-level dispatch but lacked local argument-count guards: dip_add (argc >= 5), dip_del (argc >= 4), sip_add (argc >= 6) and sip_del (argc >= 5). Truncated invocations could pass a missing argv entry into the parser.
+- The add helpers also wrote switch registers before validating port-map input, leaving partial switch-table state for malformed input. This slice adds local guards, a pure eight-character binary port-map parser preserving the existing seven-port register mapping, malformed-input tests, and validates all input before the first MMIO write.
+- Exact HTTPD 44448464312 and AI docs 44448464415 passed on parent 5fa04bc. No exact-head Switch CLI run yet covered the SIP/DIP argument paths.
+- The latest concurrent source commit 19b1259 addresses wireless hardware NAT registration errors; its exact-SHA XY-C1 Build and NVRAM boundary Actions must be checked before any L3 claim.
+
+## Active next task
+
+Fetch live main, inspect this commit's Switch CLI and AI-doc exact-SHA Actions, then continue a P1 defect outside the completed WAN/LAN DHCP and switch CLI input-preflight slices.
 ## Active task
 
 The initial switch fix rejects truncated ACL commands and returns `EXIT_FAILURE` for invalid usage. Further argument review found three more missing-arity paths:

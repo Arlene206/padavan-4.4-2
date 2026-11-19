@@ -68,6 +68,20 @@ parse_ipv4_argument(const char *text)
 	return address;
 }
 
+static unsigned int
+parse_portmap_argument(const char *text)
+{
+	unsigned int portmap;
+
+	if (switch_parse_portmap(text, &portmap) != 0) {
+		fprintf(stderr, "switch: invalid port map: %.64s\n",
+			text ? text : "(null)");
+		switch_fini();
+		exit(EXIT_FAILURE);
+	}
+	return portmap;
+}
+
 void usage(char *cmd)
 {
 #if RT_SWITCH_HELP
@@ -1209,45 +1223,26 @@ void dip_dump(void)
 
 void dip_add(int argc, char *argv[])
 {
-	unsigned int i, j, value;
+	unsigned int value, portmap;
+
+	if (argc < 5)
+		usage(argv[0]);
 
 	value = parse_ipv4_argument(argv[3]);
-	
+	portmap = parse_portmap_argument(argv[4]);
+
+	/* Validate the full command before the first switch register write. */
 	reg_write(REG_ESW_WT_MAC_ATA1, value);
-//	printf("REG_ESW_WT_MAC_ATA1 is 0x%x\n\r",value);
-
-	value = 0;
-#if 0
-	reg_write(REG_ESW_WT_MAC_ATA2, value);
-//	printf("REG_ESW_WT_MAC_ATA2 is 0x%x\n\r",value);
-#endif
-	if (!argv[4] || strlen(argv[4]) != 8) {
-			printf("portmap format error, should be of length 7\n");
-			return;
-	}
-	j = 0;
-	for (i = 0; i < 7; i++) {
-		if (argv[4][i] != '0' && argv[4][i] != '1') {
-			printf("portmap format error, should be of combination of 0 or 1\n");
-			return;
-		}
-		j += (argv[4][i] - '0') * (1 << i);
-	}
-	value = j << 4; //w_port_map
-	value |= (0x3<< 2); //static
-
-
+	value = (portmap << 4) | (0x3U << 2);
 	reg_write(REG_ESW_WT_MAC_ATWD, value);
-	
+
 	usleep(5000);
 	reg_read(REG_ESW_WT_MAC_ATWD, &value);
-	printf("REG_ESW_WT_MAC_ATWD is 0x%x\n\r",value);
+	printf("REG_ESW_WT_MAC_ATWD is 0x%x\n\r", value);
 
-	value = 0x8011;  //single w_dip_cmd
+	value = 0x8011;  /* single w_dip_cmd */
 	reg_write(REG_ESW_WT_MAC_ATC, value);
-
 	usleep(1000);
-
 	wait_mac_atc();
 }
 
@@ -1255,6 +1250,9 @@ void dip_add(int argc, char *argv[])
 void dip_del(int argc, char *argv[])
 {
 	unsigned int value;
+
+	if (argc < 4)
+		usage(argv[0]);
 
 	value = parse_ipv4_argument(argv[3]);
 
@@ -1326,31 +1324,21 @@ void sip_dump(void)
 
 void sip_add(int argc, char *argv[])
 {
-	unsigned int i, j, value, sip_value, dip_value;
+	unsigned int value, sip_value, dip_value, portmap;
 
-	/* Validate both addresses before the first switch register write. */
+	if (argc < 6)
+		usage(argv[0]);
+
+	/* Validate the full command before the first switch register write. */
 	sip_value = parse_ipv4_argument(argv[3]);
 	dip_value = parse_ipv4_argument(argv[4]);
+	portmap = parse_portmap_argument(argv[5]);
 
 	value = sip_value;
 	reg_write(REG_ESW_WT_MAC_ATA2, value);
 	value = dip_value;
 	reg_write(REG_ESW_WT_MAC_ATA1, value);
-
-	if (!argv[5] || strlen(argv[5]) != 8) {
-		printf("portmap format error, should be of length 7\n");
-		return;
-	}
-	j = 0;
-	for (i = 0; i < 7; i++) {
-		if (argv[5][i] != '0' && argv[5][i] != '1') {
-			printf("portmap format error, should be of combination of 0 or 1\n");
-			return;
-		}
-		j += (argv[5][i] - '0') * (1 << i);
-	}
-	value = j << 4; /* w_port_map */
-	value |= (0x3 << 2); /* static */
+	value = (portmap << 4) | (0x3U << 2); /* static port map */
 
 	reg_write(REG_ESW_WT_MAC_ATWD, value);
 	usleep(5000);
@@ -1363,9 +1351,13 @@ void sip_add(int argc, char *argv[])
 	wait_mac_atc();
 }
 
+
 void sip_del(int argc, char *argv[])
 {
 	unsigned int value, sip_value, dip_value;
+
+	if (argc < 5)
+		usage(argv[0]);
 
 	/* Validate both addresses before mutating the switch table. */
 	sip_value = parse_ipv4_argument(argv[3]);
