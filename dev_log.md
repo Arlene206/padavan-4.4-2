@@ -1,3 +1,14 @@
+## 2026-11-19 — Preserve the first WAN error across fail-fast preflights
+
+- Parent main SHA: `8e0763554388cf4dfcbc985c0712a991b3bb3c14`.
+- Follow-up review found three remaining `start_wan()` early exits bypassing `wan_start_status`: PPP callback-link preparation returned errno directly; WAN VLAN and AP-client WISP configuration returned their own later status. Any earlier TCP/conntrack/IGMP/monitor failure could be hidden by one of these later aborts.
+- Capture callback errno before logging (EIO fallback), merge the callback, VLAN and WISP failures chronologically, and return the accumulated first error while retaining existing rollback and fail-fast behavior.
+- Add GNU89 policy regression `test_early_wan_abort_preserves_first_error()` and strengthen `check_modem_wan_start_status.py` to require all three aggregate-before-return branches and prohibit direct-return regressions. Existing USB modem/WAN/Process/XY-C1 paths already cover the changed product/test/checker sources; no workflow or path filter was broadened.
+- Prior exact parent USB modem `44442187961`, Process `44442187890`, WAN route `44442187838`, and AI docs `44442187852` passed. Parent XY-C1 `44442187996` was still building (job `135285479772`) at last poll; it does not validate this follow-up SHA.
+- Local host tests and MIPS build NOT RUN in this GitHub-connector-only session; exact-head regression/Process/WAN/AI reruns and XY-C1 Build/TRX/artifact remain required. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Preserve chronological first error across all WAN startup paths
 
 - Parent main SHA: `25de09a671c77fb2633f98c4eab34c28cd21bd22`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.

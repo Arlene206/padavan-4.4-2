@@ -147,6 +147,30 @@ test_first_wan_error_survives_usb_modem_and_later_wan_failures(void)
 }
 
 static void
+test_early_wan_abort_preserves_first_error(void)
+{
+	int status;
+
+	/* Callback storage failure must not overwrite an earlier WAN sysctl error. */
+	status = rc_first_service_start_status(0, ENOMEM);
+	status = rc_first_service_start_status(status, EACCES);
+	assert(status == ENOMEM);
+	assert(rc_first_service_start_status(0, EACCES) == EACCES);
+
+	/* VLAN configuration abort follows the same chronological rule. */
+	status = rc_first_service_start_status(0, ENOMEM);
+	status = rc_first_service_start_status(status, EIO);
+	assert(status == ENOMEM);
+	assert(rc_first_service_start_status(0, EIO) == EIO);
+
+	/* AP-client migration failure must retain the earliest startup error too. */
+	status = rc_first_service_start_status(0, ENOMEM);
+	status = rc_first_service_start_status(status, ENETDOWN);
+	assert(status == ENOMEM);
+	assert(rc_first_service_start_status(0, ENETDOWN) == ENETDOWN);
+}
+
+static void
 test_ras_physical_setup_error_survives_ras_launch(void)
 {
 	int status = 0;
@@ -308,6 +332,7 @@ main(void)
 	test_ndis_required_control_success_allows_dhcp();
 	test_first_modem_error_survives_best_effort_followup();
 	test_first_wan_error_survives_usb_modem_and_later_wan_failures();
+	test_early_wan_abort_preserves_first_error();
 	test_ras_physical_setup_error_survives_ras_launch();
 	test_manual_pppoe_physical_setup_failure_is_reported_without_blocking_pppd();
 	test_physical_wan_ifup_failure_survives_cleanup();

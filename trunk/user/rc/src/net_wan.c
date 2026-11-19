@@ -1711,6 +1711,7 @@ start_wan(void)
 	int unit, wan_proto, wan_mtu;
 	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
 	int cleanup_status;
+	int callback_status;
 	int static_address_clear_status;
 	int wan_start_status = 0, wan_up_status, sysctl_status;
 	int tcp_syncookies_enabled = 0;
@@ -1734,18 +1735,23 @@ start_wan(void)
 
 	/* Secure PPP callback/peer storage before publishing callback links. */
 	if (create_cb_links() != 0) {
+		callback_status = errno ? errno : EIO;
+		wan_start_status = rc_first_service_start_status(
+			wan_start_status, callback_status);
 		logmessage(LOGNAME, "aborting WAN startup: PPP callback/peer directory setup failed (errno=%d)",
-			   errno ? errno : EIO);
-		return errno ? errno : EIO;
+			   callback_status);
+		return wan_start_status;
 	}
 
 	vlan_result = config_vinet_wan();
 	if (vlan_result != 0) {
+		wan_start_status = rc_first_service_start_status(
+			wan_start_status, vlan_result);
 		logmessage(LOGNAME, "aborting WAN startup: WAN VLAN configuration failed (%d)", vlan_result);
 		cleanup_status = remove_cb_links();
 		if (cleanup_status != 0)
 			logmessage(LOGNAME, "WAN startup callback cleanup incomplete (status=%d)", cleanup_status);
-		return vlan_result;
+		return wan_start_status;
 	}
 
 	/*
@@ -1755,12 +1761,14 @@ start_wan(void)
 	 */
 	vlan_result = config_apcli_wisp();
 	if (vlan_result != 0) {
+		wan_start_status = rc_first_service_start_status(
+			wan_start_status, vlan_result);
 		logmessage(LOGNAME, "aborting WAN startup: AP-client WISP migration failed (status=%d)",
 			   vlan_result);
 		cleanup_status = remove_cb_links();
 		if (cleanup_status != 0)
 			logmessage(LOGNAME, "WAN startup callback cleanup incomplete (status=%d)", cleanup_status);
-		return vlan_result;
+		return wan_start_status;
 	}
 
 	vlan_result = launch_viptv_wan();

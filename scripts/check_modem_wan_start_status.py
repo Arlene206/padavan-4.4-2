@@ -183,6 +183,31 @@ assert re.search(r"if\s*\(ipv6_status\s*!=\s*0\)\s*\{[^}]*return\s+ipv6_status\s
 wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
 assert "modem_start_status" not in wan_start
 assert "return wan_start_status;" in wan_start
+
+callback_failure_start = wan_start.index("if (create_cb_links() != 0)")
+callback_failure_end = wan_start.index("vlan_result = config_vinet_wan();", callback_failure_start)
+callback_failure = wan_start[callback_failure_start:callback_failure_end]
+assert "callback_status = errno ? errno : EIO;" in callback_failure
+assert "wan_start_status = rc_first_service_start_status(wan_start_status, callback_status);" in callback_failure
+assert "return wan_start_status;" in callback_failure
+assert "return errno ? errno : EIO;" not in callback_failure
+
+for setup_call, next_call, diagnostic in (
+    ("vlan_result = config_vinet_wan();", "vlan_result = config_apcli_wisp();",
+     "WAN VLAN configuration failed"),
+    ("vlan_result = config_apcli_wisp();", "vlan_result = launch_viptv_wan();",
+     "AP-client WISP migration failed"),
+):
+    setup_start = wan_start.index(setup_call)
+    setup_end = wan_start.index(next_call, setup_start + len(setup_call))
+    setup_failure = wan_start[setup_start:setup_end]
+    aggregate = "wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);"
+    assert aggregate in setup_failure, diagnostic + " must be merged before abort"
+    assert setup_failure.index(aggregate) < setup_failure.index("cleanup_status = remove_cb_links();")
+    assert "return wan_start_status;" in setup_failure
+    assert "return vlan_result;" not in setup_failure
+
+assert "test_early_wan_abort_preserves_first_error();" in WAN_TEST
 assert "wan_up_status = wan_up(wan_ifname, unit, 1);" in wan_start
 assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*wan_up_status\s*\)\s*;", wan_start)
 interface_failure_start = wan_start.index("if (interface_status != 0)")
