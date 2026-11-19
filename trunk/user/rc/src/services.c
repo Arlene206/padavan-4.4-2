@@ -1329,13 +1329,8 @@ int start_smartdns(void){
 }
 
 int restart_smartdns(void){
-	int stop_status = stop_smartdns();
-
-	if (stop_status != 0) {
-		logmessage(LOGNAME, "smartdns restart aborted because stop failed");
-		return stop_status;
-	}
-	return start_smartdns();
+	/* The shell lifecycle lock must cover the complete restart transaction. */
+	return eval("/usr/bin/smartdns.sh","restart");
 }
 #endif
 

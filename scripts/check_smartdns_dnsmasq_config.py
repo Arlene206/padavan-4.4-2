@@ -121,6 +121,9 @@ paths = (
     "trunk/user/smartdns/smartdns.sh",
     "trunk/user/smartdns/smartdns_dnsmasq_config.sh",
     "trunk/user/smartdns/smartdns_config_file.sh",
+    "trunk/user/smartdns/smartdns_lifecycle_lock.sh",
+    "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh",
+    "trunk/user/rc/src/services.c",
     "trunk/user/smartdns/tests/smartdns_config_file.sh",
     "trunk/user/smartdns/tests/dnsmasq_config_preservation.sh",
     "trunk/user/smartdns/Makefile",
@@ -179,4 +182,27 @@ assert '"$smartdns_Bin" -f -c "$smartdns_Conf" "${args:-}"' in restore_previous
 assert 'smartdns_previous_running=1' in start
 assert start.count("smartdns_restore_previous_instance") == 3
 assert 'smartdns_restore_previous_instance || :' in rollback
-print("SmartDNS saved DNSMasq state, marked-block and atomic SmartDNS-config publication contracts: PASS")
+lifecycle_lock = (root / "trunk/user/smartdns/smartdns_lifecycle_lock.sh").read_text()
+lifecycle_lock_test = (root / "trunk/user/smartdns/tests/smartdns_lifecycle_lock.sh").read_text()
+lock_acquire = body(lifecycle_lock, "smartdns_lifecycle_lock_acquire")
+lock_release = body(lifecycle_lock, "smartdns_lifecycle_lock_release")
+assert 'mkdir -m 0700 "$_smartdns_lock_path"' in lock_acquire
+assert 'kill -0 "$_smartdns_lock_owner"' in lock_acquire
+assert 'mv "$_smartdns_lock_path" "$_smartdns_stale_path"' in lock_acquire
+assert '$_smartdns_lock_owner" = "$"' in lock_release
+assert 'smartdns_lifecycle_lock_lib="/usr/bin/smartdns_lifecycle_lock.sh"' in smartdns
+assert '. "$smartdns_lifecycle_lock_lib"' in smartdns
+assert 'if smartdns_lifecycle_lock_acquire; then' in smartdns
+assert "trap 'smartdns_lifecycle_lock_release" in smartdns
+assert 'Another lifecycle operation is active or its lock is unsafe' in smartdns
+for token in ("exclusive acquire, owner validation and release",
+              "live-owner exclusion and dead-owner reclamation",
+              "malformed owner and symlink locks fail closed",
+              "SmartDNS lifecycle lock regression: PASS"):
+    assert token in lifecycle_lock_test, token
+services = (root / "trunk/user/rc/src/services.c").read_text()
+restart_wrapper = body(services, "restart_smartdns(void)")
+assert 'eval("/usr/bin/smartdns.sh","restart")' in restart_wrapper
+assert "stop_smartdns()" not in restart_wrapper
+assert 'if [ "$sdns_enable" != "1" ]; then' in smartdns
+print("SmartDNS saved DNSMasq state, atomic config and serialized lifecycle contracts: PASS")

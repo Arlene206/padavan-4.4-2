@@ -23,6 +23,12 @@ if [ ! -r "$smartdns_config_file_lib" ]; then
     exit 1
 fi
 . "$smartdns_config_file_lib"
+smartdns_lifecycle_lock_lib="/usr/bin/smartdns_lifecycle_lock.sh"
+if [ ! -r "$smartdns_lifecycle_lock_lib" ]; then
+    echo "SmartDNS lifecycle lock helper is missing: $smartdns_lifecycle_lock_lib" >&2
+    exit 1
+fi
+. "$smartdns_lifecycle_lock_lib"
 storage_Path="/etc/storage"
 smartdns_Bin="/usr/bin/smartdns"
 smartdns_Ini="$storage_Path/smartdns_conf.ini"
@@ -955,6 +961,15 @@ Main () {
         echo 3 > /proc/sys/vm/drop_caches
         ;;
     restart)
+        if [ "$sdns_enable" != "1" ]; then
+            Stop_smartdns
+            restart_status=$?
+            if [ "$restart_status" -ne 0 ]; then
+                logger -t "SmartDNS" "SmartDNS disabled restart cleanup failed (status=$restart_status)"
+                return "$restart_status"
+            fi
+            return 0
+        fi
         if [ "$(nvram get adbyby_enable)" = "1" ] ; then
             [ "$(nvram get adbyby_add)" = "1" ] && hosts_type="SmartDNS"
             [ "$(nvram get adbyby_add)" = "0" ] && hosts_type="DNSmasq"
@@ -981,6 +996,17 @@ Main () {
     esac
 }
 
+
+if smartdns_lifecycle_lock_acquire; then
+    :
+else
+    logger -t "SmartDNS" "Another lifecycle operation is active or its lock is unsafe"
+    exit 1
+fi
+trap 'smartdns_lifecycle_lock_release >/dev/null 2>&1 || :' EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 if Read_ini; then
     Main
