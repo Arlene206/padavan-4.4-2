@@ -753,22 +753,17 @@ jobs:
                                "wan_viptv_static_start(")
           assert "if (viptv_mode == 2)" in static_start
           static_mode = static_start.index("if (viptv_mode == 2)")
-static_validation = static_start.index("if (!is_valid_ipv4(viptv_addr_setting)")
-static_address_copy = static_start.index("strcpy(viptv_addr, viptv_addr_setting);")
-static_mask_copy = static_start.index("strcpy(viptv_mask, viptv_mask_setting);")
-static_gateway_copy = static_start.index("strcpy(viptv_gate, viptv_gate_setting);")
-old_vlan_cleanup = static_start.index("/* Remove a no-longer-used VLAN")
-static_call = static_start.index("wan_viptv_static_start(")
-assert static_mode < static_validation < static_address_copy < static_mask_copy < static_gateway_copy < old_vlan_cleanup < static_call
-assert "return EINVAL;" in static_start[static_validation:static_address_copy]
-assert "strlen(viptv_addr_setting) >= sizeof(viptv_addr)" in static_start
-assert "strlen(viptv_mask_setting) >= sizeof(viptv_mask)" in static_start
-assert "strlen(viptv_gate_setting) >= sizeof(viptv_gate)" in static_start
-assert "return ret;" in static_start[static_call:]
+          static_validation = static_start.index("if (!is_valid_ipv4(viptv_addr_setting)", static_mode)
+          static_address_copy = static_start.index("strcpy(viptv_addr, viptv_addr_setting);")
+          static_mask_copy = static_start.index("strcpy(viptv_mask, viptv_mask_setting);")
+          static_gateway_copy = static_start.index("strcpy(viptv_gate, viptv_gate_setting);")
           old_vlan_cleanup = static_start.index("/* Remove a no-longer-used VLAN")
           static_call = static_start.index("wan_viptv_static_start(")
-          assert invalid_static < old_vlan_cleanup < static_call
-          assert "return EINVAL;" in static_start[invalid_static:old_vlan_cleanup]
+          assert static_mode < static_validation < static_address_copy < static_mask_copy < static_gateway_copy < old_vlan_cleanup < static_call
+          assert "return EINVAL;" in static_start[static_validation:static_address_copy]
+          assert "strlen(viptv_addr_setting) >= sizeof(viptv_addr)" in static_start
+          assert "strlen(viptv_mask_setting) >= sizeof(viptv_mask)" in static_start
+          assert "strlen(viptv_gate_setting) >= sizeof(viptv_gate)" in static_start
           assert "return ret;" in static_start[static_call:]
           assert "wan_viptv_static_start(is_valid_ipv4(viptv_gate)," in static_start
           assert "IPTV VLAN or service setup incomplete" in source
