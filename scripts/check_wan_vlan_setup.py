@@ -240,13 +240,15 @@ viptv = body(wan, "launch_viptv_wan(void)")
 iptv_start = viptv.index("/* VLAN interface for IPTV */")
 iptv_setup = viptv[iptv_start:]
 static_mode_pos = viptv.index('viptv_mode = nvram_get_int("viptv_mode");')
-static_addr_pos = viptv.index('viptv_addr = nvram_safe_get("viptv_ipaddr");')
-static_mask_pos = viptv.index('viptv_mask = nvram_safe_get("viptv_netmask");')
-static_validation_pos = viptv.index("if (viptv_mode == 2 &&")
+static_addr_pos = viptv.index('viptv_addr_setting = nvram_safe_get("viptv_ipaddr");')
+static_mask_pos = viptv.index('viptv_mask_setting = nvram_safe_get("viptv_netmask");')
+static_validation_pos = viptv.index("if (viptv_mode == 2)")
+static_copy_pos = viptv.index("strcpy(viptv_addr, viptv_addr_setting);")
+static_gateway_copy_pos = viptv.index("strcpy(viptv_gate, viptv_gate_setting);")
 old_vlan_removal_pos = viptv.index("/* Remove a no-longer-used VLAN", static_validation_pos)
 require(static_mode_pos < static_addr_pos < static_mask_pos < static_validation_pos <
-        old_vlan_removal_pos,
-        "static IPTV input validation must precede old VLAN teardown or replacement")
+        static_copy_pos < static_gateway_copy_pos < old_vlan_removal_pos,
+        "static IPTV inputs must be validated and copied before old VLAN teardown or replacement")
 snapshot_pos = iptv_setup.index("vlan_flags = get_interface_flags(viptv_ifname);")
 create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
 bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
@@ -279,8 +281,17 @@ require("#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)" in viptv
         'nvram_set_temp("viptv_ifname", recovery_ifname);' in viptv_rollback and
         'nvram_set_temp("viptv_ifname", "");' in viptv_rollback and
         "entry->bridge.bridge_existed" in viptv_rollback and
-        "get_interface_flags(entry->bridge.bridge_name)" in viptv_rollback,
+        "get_interface_flags(entry->bridge.bridge_name)" in viptv_rollback and
+        "Boards without GMAC2 bridge support" in viptv_rollback,
         "IPTV rollback must compile on GMAC2 and VLAN-only boards and retain only surviving recovery interfaces")
+require("char viptv_ifname[24], viptv_addr[16], viptv_mask[16], viptv_gate[16];" in viptv and
+        "strcpy(viptv_addr, viptv_addr_setting);" in viptv and
+        "strcpy(viptv_mask, viptv_mask_setting);" in viptv and
+        "strcpy(viptv_gate, viptv_gate_setting);" in viptv and
+        "viptv_addr = nvram_safe_get" not in viptv and
+        "viptv_mask = nvram_safe_get" not in viptv and
+        "viptv_gate = nvram_safe_get" not in viptv,
+        "static IPTV callbacks must use bounded local copies, not borrowed NVRAM pointers")
 snapshot_absolute = iptv_start + snapshot_pos
 old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
 old_vlan_clear = iptv_setup.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)

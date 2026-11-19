@@ -1386,8 +1386,9 @@ launch_viptv_wan(void)
 	int need_pvid, ret;
 	int is_vlan_filter, viptv_mode;
 	int vlan_flags, saved_errno, rollback_status;
-	char viptv_ifname[24], *viptv_addr, *viptv_mask, *viptv_gate;
+	char viptv_ifname[24], viptv_addr[16], viptv_mask[16], viptv_gate[16];
 	const char *viptv_iflast, *vinet_iflast, *wan_hwaddr;
+	const char *viptv_addr_setting, *viptv_mask_setting, *viptv_gate_setting;
 	struct soft_bridge_other_entry rollback_entry;
 #if defined (USE_SINGLE_MAC)
 	const char *ifname_wan_cpu = IFNAME_MAC;
@@ -1455,12 +1456,29 @@ launch_viptv_wan(void)
 	/* case4: CPU Internet tagged: n, CPU IPTV tagged: y (different VID) */
 	/* case5: CPU Internet tagged: y, CPU IPTV tagged: n */
 	viptv_mode = nvram_get_int("viptv_mode");
-	viptv_addr = nvram_safe_get("viptv_ipaddr");
-	viptv_mask = nvram_safe_get("viptv_netmask");
-	if (viptv_mode == 2 &&
-	    (!is_valid_ipv4(viptv_addr) || !is_valid_ipv4(viptv_mask))) {
-		logmessage(LOGNAME, "rejecting invalid static IPTV address or netmask");
-		return EINVAL;
+	viptv_addr_setting = nvram_safe_get("viptv_ipaddr");
+	viptv_mask_setting = nvram_safe_get("viptv_netmask");
+	viptv_gate[0] = 0;
+	if (viptv_mode == 2) {
+		/* Snapshot NVRAM-backed strings before any temporary value is changed. */
+		if (!is_valid_ipv4(viptv_addr_setting) ||
+		    !is_valid_ipv4(viptv_mask_setting) ||
+		    strlen(viptv_addr_setting) >= sizeof(viptv_addr) ||
+		    strlen(viptv_mask_setting) >= sizeof(viptv_mask)) {
+			logmessage(LOGNAME, "rejecting invalid static IPTV address or netmask");
+			return EINVAL;
+		}
+		strcpy(viptv_addr, viptv_addr_setting);
+		strcpy(viptv_mask, viptv_mask_setting);
+
+		viptv_gate_setting = nvram_safe_get("viptv_gateway");
+		if (is_valid_ipv4(viptv_gate_setting)) {
+			if (strlen(viptv_gate_setting) >= sizeof(viptv_gate)) {
+				logmessage(LOGNAME, "rejecting oversized static IPTV gateway");
+				return EINVAL;
+			}
+			strcpy(viptv_gate, viptv_gate_setting);
+		}
 	}
 
 	/* VLAN interface for IPTV */
@@ -1531,7 +1549,6 @@ launch_viptv_wan(void)
 
 	if (viptv_mode == 2) {
 		struct wan_viptv_static_start_context context;
-		viptv_gate = nvram_safe_get("viptv_gateway");
 		context.ifname = viptv_ifname;
 		context.ipaddr = viptv_addr;
 		context.netmask = viptv_mask;
