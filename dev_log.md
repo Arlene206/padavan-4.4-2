@@ -1,3 +1,12 @@
+## 2026-11-19 — Fix WAN restoration checker variable
+
+- WAN DHCP callback run `44635983525` on source SHA `8987975` reached the new fail-closed restoration assertions but failed with `NameError: wan is not defined`; the workflow's source buffer is named `source`.
+- Corrected the checker to parse `restore_wan_after_firewall_failure()` from `source`. The assertions still require delegation to the original physical-WAN restore and interface shutdown if firewall recovery fails.
+- HTTPD security `44635983452` and AI docs `44635983515` already PASS on `8987975`. Exact rerun of WAN callback remains pending.
+- Concurrent MTD flash fix `e5bd15b` has exact-head Process/AI/NVRAM/XY-C1 runs pending at last poll.
+
+---
+
 ## 2026-11-19 — Bound EINTR retries in MTD flash I/O
 
 - `flash_mtd.c` had unbounded retry loops around raw `read(2)` and `write(2)`. A persistent signal storm during flash partition I/O could spin indefinitely.

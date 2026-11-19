@@ -11,32 +11,28 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current main parent for the MTD flash-I/O slice: `89879756a4e2741bbde4aa0460c346039c542e6c` (`ci: align firewall and WAN safety contracts`).
-- Exact parent firewall source SHA `342631b4efb09b4877dd944d74f03d20da7b4164`: firewall-startup policy `44635384398` PASS; HTTPD `44635384245` and WAN DHCP callback `44635384375` failed stale checker assertions now repaired in `8987975`. NVRAM `44635384340` and XY-C1 `44635384278` were pending at last poll; exact Build/TRX/artifact not yet confirmed.
-- Exact source SHA `ba47b5f`: Process umbrella, AI docs, GPIO, detect_link, HTTPD, Process inventory, VPN, crond, watchdog and NVRAM PASS; XY-C1 `44634242726` remained IN_PROGRESS when last inspected.
-- Exact source SHA `39c3db7`: Process umbrella, Process inventory, AI docs, NFS, Samba, WAN route and Wireless PASS; NVRAM `44634616501` was IN_PROGRESS at last poll.
-- Shared procfs/PID-file I/O fix on `ba47b5f` reuses the common bounded wrappers. Earlier procfs source SHA `53dda2c` passed XY-C1 Build/TRX/artifact `44632416166`.
+- Current main parent for this WAN checker correction: `e5bd15b2c13c33f46564d2a04863db41e7898ca7` (`fix(shared): bound MTD flash I/O EINTR retries`).
+- Exact `8987975` runs: AI docs `44635983515` PASS; HTTPD security `44635983452` PASS after the prior count fix; WAN DHCP callback `44635983525` failed only because the new checker referenced undefined Python variable `wan` instead of its existing source text variable `source`. This follow-up fixes that checker typo; source safety helper itself is present and its restoration/fail-closed assertions remain.
+- Exact `342631b`: firewall-startup policy `44635384398` and NVRAM audit `44635384340` PASS; XY-C1 `44635384278` remained IN_PROGRESS at last poll.
+- Current production source SHA `e5bd15b2c13c33f46564d2a04863db41e7898ca7` adds bounded EINTR handling to MTD flash read/write. Exact XY-C1 `44636408751`, Process umbrella `44636409282`, Process inventory `44636408664`, NVRAM `44636408634` and AI docs `44636408628` were IN_PROGRESS at last poll.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains archival at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No physical-router result.
 
 ## Active task
 
-- Confirmed unbounded `EINTR` loops in shared `flash_mtd.c`: `read_safe()` and `write_safe()` retried raw `read(2)`/`write(2)` indefinitely. Repeated signals during flash partition operations could spin instead of returning an error.
-- Reused `process_io_retry_policy.h` bounded wrappers for each syscall. Outer full-buffer loops still advance on positive short I/O, reads still return a short count at EOF, zero-progress writes still fail with EIO, and retry exhaustion propagates EINTR.
-- Process lifecycle CI now checks both MTD callsites and watches `flash_mtd.c` on push and pull_request. XY-C1 also watches this production file, ensuring source changes trigger firmware validation.
-- No local compile or target/router test is claimed.
+- Checker-only follow-up: the WAN DHCP workflow was validating the stronger `restore_wan_after_firewall_failure()` helper but passed the nonexistent variable `wan` to the source-body parser. The workflow already stores the source in `source`; this change corrects the reference without weakening the restoration/fail-closed assertions.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Process lifecycle, Process inventory, AI-doc, NVRAM and XY-C1 runs for the MTD retry fix.
-2. On FAIL, inspect exact job logs and fix only demonstrated source/build problems; preserve short-I/O semantics and bounded EINTR failure. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on one source SHA.
-3. Continue an independently evidenced cross-userland stability/security issue; do not reopen fixed lock, wait, procfs or PID-file retry paths without new evidence.
+1. Verify WAN DHCP callback rerun after the checker variable correction; also poll the exact e5 MTD Process, Process inventory, NVRAM, AI-doc and XY-C1 workflows.
+2. For any source build failure, inspect exact job logs and repair it without weakening the eight-retry MTD I/O policy. XY-C1 L3 requires Build, TRX verification and artifact upload all PASS on one source SHA.
+3. Continue with a new independently evidenced cross-userland stability/security defect after validation.
 
 ## Verification boundary
 
-- L1: MTD flash `read_safe()`/`write_safe()` now use the shared eight-consecutive-EINTR-bounded wrappers; short read/EOF and short-write semantics remain intact.
-- L2: Process lifecycle source contract pins both MTD callsites; common callback regression is covered by Process PID-file test targets. Exact-head Actions remain pending.
-- L3: XY-C1 watches `flash_mtd.c`; Build/TRX/artifact for the new source SHA remains pending.
-- L4: MIPS/uClibc MTD behavior under signal storms and physical-router firmware operations remain NOT VERIFIED.
+- WAN restoration source: production helper uses the original physical-WAN restoration routine and forces the physical interface down if the fallback firewall recovery fails. The previous workflow failure was a Python `NameError` in the added checker variable reference; this correction uses the defined `source` variable.
+- MTD flash source SHA `e5bd15b`: Process/AI/NVRAM/XY-C1 exact-head runs are pending. No L2/L3 result has yet been claimed for this MTD change.
+- Exact `342631b` NVRAM and firewall-startup checks PASS; its XY-C1 run remained pending.
+- No local compile or physical-router L4 result is claimed.
 
 ## Mandatory handoff checkpoint
 
