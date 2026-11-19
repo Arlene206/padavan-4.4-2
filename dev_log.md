@@ -1,3 +1,13 @@
+## 2026-11-19 — Propagate RT3352 iNIC health-monitor startup failures
+
+- Parent main SHA: `82ac332f84dbe8f454ad63247d4db53acac30c23`.
+- `trunk/user/rc/src/net_wifi.c::start_wifi_ap_rt()` under `USE_RT3352_MII` logged a failed `start_inicd()` but never merged the failure into `all_started`, so the radio restart could return success with its enabled health monitor missing. The corresponding stop path already treats stopping iNICD as a prerequisite before PHY isolation.
+- Capture and report the monitor launch status and merge it into the existing sticky radio startup result. Preserve the deliberate no-op when `inic_disable=1`. Added a status-policy regression and a source contract for the NVRAM gate, launch, log, aggregation and final return order.
+- The parent iNIC signal workflow `44427595739`, Process inventory `44427595469`, AI docs `44427595502`, and NVRAM audit `44427595602` passed exact parent SHA. Parent XY-C1 run `44427595460` was IN_PROGRESS at last poll; the IAPP production-source XY run `44427295060` was also IN_PROGRESS. No exact L3 evidence is claimed until final Build/TRX/artifact steps pass.
+- Local tests and MIPS build NOT RUN (connector-only environment). Exact-head Wireless radio/Process/AI and XY-C1 Build/TRX/artifact checks are required; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Fail closed when iNIC auxiliary signal dispositions cannot be installed
 
 - Parent main SHA: `007a38b34c5c7b8127f31a2aeb427e08833cdf67`.

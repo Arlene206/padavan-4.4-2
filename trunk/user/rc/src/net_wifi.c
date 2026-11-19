@@ -897,9 +897,16 @@ start_wifi_ap_rt(int radio_on)
 			wireless_bridge_membership_record(&all_started, IFNAME_INIC_GUEST_VLAN, 1);
 	}
 
-	// start iNIC_mii checking daemon
-	if (nvram_get_int("inic_disable") != 1 && start_inicd() != 0)
-		logmessage(LOGNAME, "failed to start iNIC health monitor");
+	// The radio restart is incomplete if its enabled health monitor cannot start.
+	if (nvram_get_int("inic_disable") != 1) {
+		int inicd_start_status = start_inicd();
+
+		if (inicd_start_status != 0)
+			logmessage(LOGNAME, "failed to start iNIC health monitor (status=%d)",
+				   inicd_start_status);
+		all_started = wireless_radio_startup_status(
+			all_started, wireless_radio_status_success(inicd_start_status));
+	}
 #else
 	// check Radio enabled and check not WDS only, not ApCli only
 	if (radio_on && i_mode_x != 1 && i_mode_x != 3)

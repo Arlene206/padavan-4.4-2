@@ -246,6 +246,32 @@ jobs:
                           f"{name}: failed interface-up may still reach {effect}"
                       )
 
+          # On RT3352 MII, the iNIC health monitor is part of radio readiness.
+          # Preserve its launch error rather than logging and returning success.
+          inic_ap_start = function_body(source, "start_wifi_ap_rt(int radio_on)")
+          monitor_gate = 'if (nvram_get_int("inic_disable") != 1) {'
+          monitor_launch = "int inicd_start_status = start_inicd();"
+          monitor_log = 'logmessage(LOGNAME, "failed to start iNIC health monitor (status=%d)",'
+          monitor_merge = "all_started = wireless_radio_startup_status("
+          monitor_success = "wireless_radio_status_success(inicd_start_status)"
+          monitor_result = "return wireless_radio_startup_result(all_started);"
+          assert monitor_gate in inic_ap_start
+          assert monitor_launch in inic_ap_start
+          assert monitor_log in inic_ap_start
+          assert monitor_merge in inic_ap_start
+          assert monitor_success in inic_ap_start
+          gate_at = inic_ap_start.index(monitor_gate)
+          launch_at = inic_ap_start.index(monitor_launch, gate_at)
+          log_at = inic_ap_start.index(monitor_log, launch_at)
+          merge_at = inic_ap_start.index(monitor_merge, log_at)
+          success_at = inic_ap_start.index(monitor_success, merge_at)
+          result_at = inic_ap_start.index(monitor_result)
+          assert gate_at < launch_at < log_at < merge_at < success_at < result_at
+          assert "start_inicd()" not in inic_ap_start[:gate_at]
+          assert "test_inic_monitor_launch_failure_is_sticky" in (
+              (rc / "tests/wireless_radio_policy.c").read_text()
+          )
+
           for name in ("start_wifi_apcli_wl", "start_wifi_apcli_rt"):
               body = function_body(source, name + "(int radio_on)")
               for mode in (3, 1):

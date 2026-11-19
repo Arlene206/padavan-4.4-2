@@ -1,8 +1,8 @@
-# 2026-11-19 continuation checkpoint — Ralink IAPP radio inventory fail-closed
+# 2026-11-19 continuation checkpoint — iNIC health monitor startup result propagation
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Latest parent SHA for this iNIC signal slice: `007a38b34c5c7b8127f31a2aeb427e08833cdf67`. IAPP radio inventory fail-closed source and test fixture corrections are in `0c7648e` + `d06c6a3` + `007a38b`; exact-head IAPP (`44427295051`), Process inventory (`44427294988`) and AI docs (`44427294975`) PASS, while Process fail-closed (`44427295029`) and XY-C1 (`44427295060`) were in progress at last poll. Frozen backup remains unchanged.
+- Repository: `Arlene206/padavan-4.4-2`; active development remains on `main`. Current parent SHA: `82ac332f84dbe8f454ad63247d4db53acac30c23`. IAPP radio inventory fail-closed source SHA `007a38b34c5c7b8127f31a2aeb427e08833cdf67` has exact L2 IAPP (`44427295051`), Process (`44427295029`), Process inventory (`44427294988`) and AI docs (`44427294975`) PASS; exact XY-C1 `44427295060` remains IN_PROGRESS at last poll. iNIC auxiliary signal-disposition fix SHA `82ac332f84dbe8f454ad63247d4db53acac30c23` has iNIC (`44427595739`), Process inventory (`44427595469`), AI docs (`44427595502`) and NVRAM (`44427595602`) PASS; exact XY-C1 `44427595460` remains IN_PROGRESS. No L3 claim until exact-source Build/TRX/artifact all complete.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,25 +77,27 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Fail closed if iNIC cannot install the signal dispositions required by its event loop.
+Propagate RT3352 iNIC health-monitor launch failures through wireless startup/restart status.
 
-- L1 found `inicd_main()` installed SIGALRM/SIGTERM handlers with checked return values, but discarded the result from setting SIGPIPE, SIGHUP, SIGUSR1 and SIGUSR2 to SIG_IGN. On failure, the daemon would continue startup with the default disposition for one or more signals it intended to ignore.
-- THIS SOURCE SLICE checks all four `sigaction()` calls before `daemon()`. A failure now preserves errno (EIO fallback if needed), restores the original signal mask, logs and returns without PID-file publication or timer startup. The `inicd_signal_action_error()` helper is covered by GNU89/Werror/ASan/UBSan regression; `scripts/check_inicd_signals.py` enforces all four calls, ordering and rollback.
-- Parent IAPP source SHA `007a38b34c5c7b8127f31a2aeb427e08833cdf67`: IAPP lifecycle `44427295051`, Process inventory `44427294988`, and AI docs `44427294975` PASS. Process fail-closed `44427295029` and XY-C1 `44427295060` were still IN_PROGRESS; confirm their eventual exact-head conclusions and inspect XY Build/TRX/artifact individually.
-- No local C test or MIPS build was run in this connector-only session. Exact-head iNIC signal, Process and XY-C1 Build/TRX/artifact validation is pending for this source change. Physical-router L4 NOT VERIFIED.
+- `start_wifi_ap_rt()` under `USE_RT3352_MII` previously called `start_inicd()`, logged a nonzero return, then discarded it. The function later returned `wireless_radio_startup_result(all_started)`, which could still report success even though the enabled health monitor was absent. The matching stop path treats successful iNIC monitor shutdown as a prerequisite before PHY isolation, so the launch side must not hide its failure.
+- THIS source change keeps the existing `inic_disable != 1` gate, captures the exact launch status, logs it, and folds success/failure into the sticky `all_started` state. When the monitor is disabled, the launch is still skipped and startup behavior is unchanged.
+- Added a wireless policy regression demonstrating a failed iNIC monitor launch remains sticky after later successful work; extended the existing wireless source contract to require gate → launch → log → aggregation → final result ordering. Existing wireless-radio workflow already path-filters the changed source/test for push and pull_request.
+- Previous iNIC signal setup source `82ac332f84dbe8f454ad63247d4db53acac30c23` exact L2 iNIC run `44427595739`, Process inventory `44427595469`, AI docs `44427595502`, and NVRAM `44427595602` PASS. Its XY-C1 run `44427595460` was still in progress; exact Build/TRX/artifact must be checked.
+- Previous IAPP production source `007a38b34c5c7b8127f31a2aeb427e08833cdf67`: IAPP lifecycle `44427295051`, Process fail-closed `44427295029`, Process inventory `44427294988`, AI docs `44427294975` all PASS; XY-C1 `44427295060` still in progress at last poll.
+- No local C test or MIPS build was run in this connector-only session. This RT3352 MII callsite is conditionally compiled; exact-head wireless radio, Process integration, AI docs, and exact-source XY-C1 Build/TRX/artifact checks are required. Physical-router L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: PASS — ignored auxiliary signal-disposition setup no longer fails silently before daemonization.
-- L2: Pending exact-head iNIC signal workflow, Process integration/inventory, and AI docs.
+- L1: PASS — the iNIC health monitor's enabled launch result now contributes to the wireless startup result; disabled monitor remains a deliberate no-op.
+- L2: Pending exact-head wireless-radio host and source-contract workflow, plus Process/AI docs integration checks.
 - L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload.
-- L4: Runtime behavior with injected sigaction failures and real iNIC hardware remains NOT VERIFIED.
+- L4: RT3352 MII PHY reset/monitor runtime and physical-router behavior remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head iNIC signal, Process regression/inventory, AI docs and XY-C1 runs for this commit. Verify XY Build/TRX/artifact are complete on the exact source SHA.
-2. Read the logs for any failure. Do not relax the source contract or treat a host-only run as target firmware verification.
-3. Continue another independent P1 across the Padavan userland once this signal setup is closed; do not revisit completed IAPP, AP-LAN, WAN SIGTERM or storage slices. Preserve the frozen backup.
+1. Fetch live `main`; inspect exact-head Wireless radio, Process regression/inventory, AI docs and XY-C1 runs for this commit. Confirm Build, TRX and artifact individually.
+2. Fix any exact workflow failure from its job log without weakening the status aggregation test; preserve the `inic_disable` no-op behavior.
+3. Continue another independent P1 userland reliability fix after exact-source L2/L3; do not re-audit IAPP inventory or iNIC signal setup. Keep the frozen backup unchanged.
 
 ## Mandatory handoff checkpoint
 

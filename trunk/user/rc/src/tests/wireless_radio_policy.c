@@ -102,6 +102,22 @@ test_apcli_forced_reenable_failure_is_reported(void)
 	return status != -EIO;
 }
 
+static int
+test_inic_monitor_launch_failure_is_sticky(void)
+{
+	int all_started = 1;
+
+	all_started = wireless_radio_startup_status(
+		all_started, wireless_radio_status_success(-EIO));
+	if (all_started)
+		return 1;
+
+	/* A later successful interface must not erase the monitor failure. */
+	all_started = wireless_radio_startup_status(
+		all_started, wireless_radio_status_success(0));
+	return all_started;
+}
+
 int
 main(void)
 {
@@ -113,7 +129,8 @@ main(void)
 	    test_incomplete_startup_is_reported() ||
 	    test_restart_failure_wait_status_is_normalized_and_sticky() ||
 	    test_apcli_autoconnect_failure_is_reported() ||
-	    test_apcli_forced_reenable_failure_is_reported()) {
+	    test_apcli_forced_reenable_failure_is_reported() ||
+	    test_inic_monitor_launch_failure_is_sticky()) {
 		fprintf(stderr, "Wireless interface status policy: FAIL\n");
 		return 1;
 	}
