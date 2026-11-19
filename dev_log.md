@@ -1,3 +1,12 @@
+## 2026-11-19 — Narrow Process raw-syscall negative assertions
+
+- Exact d7 Process umbrella `44636788168` failed at the source-contract step because substring `read(fd, ...)` also appears inside `process_io_read(fd, ...)`; same issue for write. All earlier procfs/PID-file checks ran before that assertion.
+- Narrowed negative checks to the exact assignment prefix `ssize_t ret = read(...)` / `write(...)`, while retaining positive assertions requiring the bounded process_io wrappers. No production source changed.
+- On d7, Process inventory `44636788355`, RStats `44636788530`, AI docs `44636788278`, and HTTPD security `44636788170` PASS. NVRAM `44636788042` and XY-C1 `44636788140` were still in progress at last poll.
+- This checker repair awaits exact-head Process/AI/NVRAM/XY-C1 results. No local compile or router L4 is claimed.
+
+---
+
 ## 2026-11-19 — Bound EINTR retries in RStats persistence
 
 - Source review found unbounded EINTR retry loops in RStats exact reads, atomic writes, fsync and history-file open. A signal storm could indefinitely hold the stats daemon inside persistence I/O.

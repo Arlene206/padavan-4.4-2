@@ -11,28 +11,28 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current main before this source slice: `5c557db717ec173ef151fb6e473e44a676924234` (`fix(shared): bound MTD flash I/O EINTR retries`). The MTD production change bounds flash partition read/write retries and updated Process/XY-C1 path triggers; exact-head CI is in progress.
-- The preceding exact parent `342631b4efb09b4877dd944d74f03d20da7b4164` passed Process inventory `44635384252`, Firewall Startup `44635384398`, FULLCONENAT `44635384256`, WAN route `44635384253`, NVRAM `44635384340`, and AI docs `44635384260`. Its HTTPD `44635384245` and WAN DHCP `44635384375` failed only in embedded source-contract assertions; logs confirmed no C compile or policy-binary failure. The current parent commit adds those checker corrections.
-- RStats persistence still contains unbounded EINTR loops in exact-read, atomic-write, fsync and history-file open; this slice adds a shared bounded policy and deterministic regression tests. Frozen backup remains archival and untouched.
+- Current parent for this checker repair: `d7e61e0bc0cfaf2f6680763a29ed5d321d185a71` (`fix(rstats): bound interrupted persistence I/O`).
+- Exact d7 SHA: Process inventory `44636788355` PASS; RStats `44636788530` PASS; AI docs `44636788278` PASS; HTTPD security `44636788170` PASS. NVRAM `44636788042` and XY-C1 `44636788140` were IN_PROGRESS at last poll.
+- Process umbrella `44636788168` failed only at the embedded MTD source-contract negative check: it searched for substring `read(fd, ...)`, which also matched inside the intended wrapper call `process_io_read(fd, ...)`. This follow-up narrows the assertion to the full raw syscall assignment. Production MTD code is unchanged.
+- RStats persistence now bounds EINTR on open/read/write/fsync while preserving last-good atomic publication; its exact regression passed on d7.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains archival at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 closed/unmerged. No physical-router result.
 
 ## Active task
 
-- RStats persistence previously retried `EINTR` indefinitely in `rstats_file_read_exact_with()`, `rstats_file_write_atomic_with_ops()`, `rstats_file_fsync_retry()` and the `f_read()` open path. Repeated signals could stall the stats daemon while loading or publishing history.
-- Added an eight-consecutive-interruption ceiling and callback-based bounded `open(O_RDONLY)`. Positive read/write progress resets the retry streak; EOF, partial-read and non-EINTR error semantics remain unchanged. Atomic publication retains the prior target if retries exhaust.
-- Added GNU89 callback coverage for open/read/write/fsync recovery, retry exhaustion, progress reset, EOF and EIO propagation. RStats workflow assertions now require the bounded helper in production callsites. This source slice awaits exact-head CI and firmware verification.
+- Checker-only repair: the Process workflow used a substring negative assertion `"read(fd...)" not in read_body`, which incorrectly matched the wrapper name `process_io_read(fd...)`. It now checks the complete raw syscall assignment `ssize_t ret = read(...)`; same correction for write. Positive assertions still require both bounded wrappers.
+- No production source behavior changes in this commit.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head RStats workflow, Process umbrella and AI docs for this source commit; read and correct any causal job failure without weakening the tests.
-2. Check parent `5c557db717ec173ef151fb6e473e44a676924234` XY-C1 run `44636408751` through Build, TRX verification and artifact upload. This RStats production-source slice needs its own same-SHA XY-C1 Build/TRX/artifact result.
-3. Resolve the separate HTTPD/WAN-DHCP source-contract failures inherited from `342631b` if they remain after the `8987975` checker repair, then continue the next independent stability/security fix.
+1. Verify Process umbrella rerun and AI-doc/NVRAM/XY-C1 exact-head outcomes after this checker correction.
+2. On any new source/build failure, inspect the exact run/job log; preserve bounded I/O retry behavior, positive short-I/O progress, EOF semantics and atomic last-good publication. XY-C1 L3 requires Build, TRX verification and artifact upload PASS on the same SHA.
+3. Continue the next independently evidenced cross-userland reliability/security issue; avoid repeating closed lock/wait/procfs/PID-file/MTD and RStats fixes without new evidence.
 
 ## Verification boundary
 
-- L1: RStats history file open, exact-read, atomic-write and fsync now stop after eight consecutive EINTR results. Successful read/write progress resets the interruption streak; fail-closed errors preserve EINTR and old published data.
-- L2: callback tests cover open/read/write/fsync recovery, retry exhaustion, read/write progress resets, EOF and EIO preservation. Exact-head Actions pending for this source SHA.
-- L3: parent `5c557db717ec173ef151fb6e473e44a676924234` XY-C1 run `44636408751` was pending at last check. The new RStats source change needs Build/TRX/artifact all PASS on its exact source SHA.
-- L4: MIPS/uClibc signal storms, storage-fault behavior on router and physical-router results remain NOT VERIFIED.
+- d7 Process umbrella failed only due false-positive raw-syscall substring matching; corrected by checking the full assignment form. Process inventory, RStats, AI docs and HTTPD Actions PASS.
+- d7 NVRAM and XY-C1 were pending; exact XY-C1 Build/TRX/artifact not yet confirmed.
+- L4 target MIPS/uClibc and physical-router behavior remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
