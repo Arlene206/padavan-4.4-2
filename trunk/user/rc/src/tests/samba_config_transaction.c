@@ -62,26 +62,26 @@ test_parent_directory_permissions(void)
 	make_path(regular_file, sizeof(regular_file), root, "not-a-directory");
 	make_path(link_path, sizeof(link_path), root, "directory-link");
 
-	/* PID 1 uses a permissive umask; new state parents must still be 0755. */
+	/* PID 1 uses a permissive umask; private state parents must still be 0700. */
 	old_umask = umask(0000);
 	assert(samba_config_transaction_prepare_parent_directory(directory) == 0);
 	umask(old_umask);
 	assert(lstat(directory, &st) == 0);
 	assert(S_ISDIR(st.st_mode));
 	assert(st.st_uid == geteuid());
-	assert((st.st_mode & 07777) == 0755);
+	assert((st.st_mode & 07777) == 0700);
 
 	/* Repair an existing legacy 0777 directory without broadening access. */
 	assert(chmod(directory, 0777) == 0);
 	assert(samba_config_transaction_prepare_parent_directory(directory) == 0);
 	assert(lstat(directory, &st) == 0);
-	assert((st.st_mode & 07777) == 0755);
+	assert((st.st_mode & 07777) == 0700);
 
-	/* Preserve a pre-existing safe, more restrictive access mode. */
+	/* Remove even execute-only access to private passdb/recovery state. */
 	assert(chmod(directory, 0711) == 0);
 	assert(samba_config_transaction_prepare_parent_directory(directory) == 0);
 	assert(lstat(directory, &st) == 0);
-	assert((st.st_mode & 07777) == 0711);
+	assert((st.st_mode & 07777) == 0700);
 
 	write_text(regular_file, "not a directory\n", 0600);
 	assert(samba_config_transaction_prepare_parent_directory(regular_file) == -1);

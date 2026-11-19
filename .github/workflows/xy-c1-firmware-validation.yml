@@ -325,19 +325,37 @@ jobs:
           from pathlib import Path
 
           source = Path("trunk/user/rc/src/services_ex.c").read_text()
+          storage = Path("trunk/user/rc/src/services_stor.c").read_text()
           header = Path("trunk/user/rc/src/samba_config_transaction.h").read_text()
-          start = source.index("start_wins(void)")
-          end = source.index("reload_nmbd(void)", start)
-          wins = source[start:end]
-          prepare = wins.index(
-              "samba_config_transaction_prepare_parent_directory(\n\t\tSAMBA_CONFIG_BASE_DIRECTORY)"
-          )
-          recover = wins.index("samba_config_transaction_recover(")
-          assert prepare < recover
+
+          def function_body(text, signature):
+              start = text.index(signature)
+              brace = text.index("{", start)
+              depth = 0
+              for pos in range(brace, len(text)):
+                  if text[pos] == "{":
+                      depth += 1
+                  elif text[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return text[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          wins = function_body(source, "start_wins(void)")
+          run_samba = function_body(storage, "int run_samba(void)")
+          public_writer = function_body(storage, "write_smb_conf(void)")
+          for name, body in (("start_wins", wins),
+                             ("run_samba", run_samba),
+                             ("write_smb_conf", public_writer)):
+              prepare = body.index("samba_config_transaction_prepare_parent_directory(")
+              recover = body.index("samba_config_transaction_recover(")
+              assert prepare < recover, name + ": private parent must precede recovery"
           assert 'mkdir_if_none("/etc/samba", "777")' not in source
+          assert 'mkdir_if_none("/etc/samba", "777")' not in storage
           assert 'SAMBA_CONFIG_BASE_DIRECTORY "/.config-transaction"' in header
           assert "O_DIRECTORY | O_NOFOLLOW" in header
-          print("Samba parent-directory call-site contract: PASS")
+          assert "fchmod(fd, 0700)" in header
+          print("Samba private parent-directory call-site contract: PASS")
           PY
 
       - name: Verify DHCPv6 DUID staged-header contract

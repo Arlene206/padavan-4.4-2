@@ -1,3 +1,12 @@
+## 2026-11-19 — Secure every Samba transaction entry point and enforce private 0700 state
+
+- Review after `536f6f0e` found two additional ways into the same state journal/passdb: `run_samba()` and public `write_smb_conf()` in `services_stor.c`. The former still created `/etc/samba` with mode 0777 before a path-based chmod; the latter recovered the journal without securing its parent. Guarding only `start_wins()` was incomplete.
+- The parent-directory helper now enforces exact effective-UID-owned 0700 (not merely no group/other write), using an opened `O_DIRECTORY|O_NOFOLLOW` fd and post-`fchmod` verification. All three transaction entry points — `start_wins()`, `run_samba()`, and `write_smb_conf()` — prepare the parent before recovery. Removed the redundant path-based `samba_secure_private_samba_dir()` check and the remaining permissive `mkdir_if_none(..., "777")`.
+- The first commit's XY-C1 run `44593848957` failed only because its regression compile omitted `-I trunk/user/rc/src`; workflow-only commit `287aa1cb8105de24dc6683485087ccdbcb12f062` corrected it. Its exact XY-C1 run `44595726202` passed source/input detection; Build/TRX/artifact were skipped because the SHA contained workflow-only changes. Initial dedicated Samba run `44593849014` passed. New all-entrypoint checks and firmware build for this production-source change are pending.
+- No local build or physical-router result is claimed.
+
+---
+
 ## 2026-11-19 — Harden Samba passdb and recovery parent-directory permissions
 
 - Source review found `start_wins()` used `mkdir_if_none("/etc/samba", "777")`. PID 1 runs with a permissive umask, so a missing directory could become world-writable. The helper also accepts an existing path without validating its type, owner or mode. This directory parents `smbpasswd` and the root-only `.config-transaction` journal; group/other write access lets local users replace or remove passdb/recovery entries despite the child transaction directory's 0700 mode.

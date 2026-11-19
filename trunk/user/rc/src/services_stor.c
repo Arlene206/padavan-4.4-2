@@ -523,23 +523,6 @@ failed:
 	return -1;
 }
 
-static int
-samba_secure_private_samba_dir(void)
-{
-	struct stat st;
-
-	if (lstat("/etc/samba", &st) != 0 ||
-	    !S_ISDIR(st.st_mode) || st.st_uid != 0)
-		return -1;
-	if (chmod("/etc/samba", 0700) != 0 ||
-	    stat("/etc/samba", &st) != 0 ||
-	    !S_ISDIR(st.st_mode) || st.st_uid != 0 ||
-	    (st.st_mode & 0777) != 0700)
-		return -1;
-
-	return 0;
-}
-
 #if defined (APP_SMBD36)
 static int
 samba_prepare_private_passdb(char *staged_path, size_t staged_path_size)
@@ -931,6 +914,18 @@ write_smb_conf(void)
 		return -1;
 	}
 
+	if (samba_config_transaction_prepare_parent_directory(
+		SAMBA_CONFIG_BASE_DIRECTORY) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Samba Server",
+			   "unsafe or unavailable private Samba state directory; refusing config recovery (errno %d)",
+			   saved_errno);
+		if (samba_config_transaction_lock_release(lock_fd) != 0)
+			logmessage("Samba Server", "cannot release Samba config lock after directory validation failure");
+		errno = saved_errno;
+		return -1;
+	}
+
 	if (samba_config_transaction_recover(
 		SAMBA_CONFIG_TRANSACTION_DIRECTORY,
 		SAMBA_CONFIG_TRANSACTION_PASSDB,
@@ -1212,9 +1207,14 @@ int run_samba(void)
 		goto out;
 	}
 #endif
-	mkdir_if_none("/etc/samba", "777");
-	if (samba_secure_private_samba_dir() != 0) {
-		logmessage("Samba Server", "private Samba directory validation failed; service was not reloaded");
+	if (samba_config_transaction_prepare_parent_directory(
+		SAMBA_CONFIG_BASE_DIRECTORY) != 0) {
+		int directory_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "unsafe or unavailable private Samba state directory; service was not reloaded (errno %d)",
+			   directory_error);
+		errno = directory_error;
 		goto out;
 	}
 	if (samba_config_transaction_recover(

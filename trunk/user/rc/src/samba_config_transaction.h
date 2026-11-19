@@ -18,14 +18,13 @@
 
 /*
  * The parent also contains the Samba passdb and the crash-recovery journal.
- * It must be owned by this effective user and never writable by group/other.
+ * It must be owned by this effective user and have exact private mode 0700.
  * Open the directory itself (not a symlink) and harden it through the fd.
  */
 static inline int
 samba_config_transaction_prepare_parent_directory(const char *directory)
 {
 	struct stat st;
-	mode_t safe_mode;
 	int fd, flags = O_RDONLY;
 	int saved_errno;
 
@@ -52,15 +51,14 @@ samba_config_transaction_prepare_parent_directory(const char *directory)
 		goto failed;
 	}
 
-	/* Preserve read/execute access while removing all group/other writes. */
-	safe_mode = (st.st_mode & 0555) | 0700;
-	if ((st.st_mode & 07777) != safe_mode) {
-		if (fchmod(fd, safe_mode) != 0)
+	/* The directory contains private passdb and recovery state: 0700 only. */
+	if ((st.st_mode & 07777) != 0700) {
+		if (fchmod(fd, 0700) != 0)
 			goto failed;
 		if (fstat(fd, &st) != 0)
 			goto failed;
 		if (!S_ISDIR(st.st_mode) || st.st_uid != geteuid() ||
-		    (st.st_mode & 07777) != safe_mode) {
+		    (st.st_mode & 07777) != 0700) {
 			errno = EACCES;
 			goto failed;
 		}

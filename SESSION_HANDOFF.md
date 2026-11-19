@@ -11,9 +11,9 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Live main parent SHA: `8325b61ef1f4ee726e448eb81f5e4a41f44341e0`.
-- Wireless isolation checker correction commit `8325b61ef1f4ee726e448eb81f5e4a41f44341e0` fixed the stale assertion for UNKNOWN-state guest shutdown. Exact-head Wireless run `44592865932`, Process lifecycle regression `44592865823`, and AI docs `44592865722` all PASS.
-- Parent guest-isolation production source `ef421978331ade679241c5bc1c10dbb6350d4004`: Process inventory `44592415914`, AI docs `44592415781`, watchdog `44592415729`, iNIC `44592415628`, HTTPD security `44592415698` passed. NVRAM transaction audit `44592415639` passed. XY-C1 build `44592415620` was still IN_PROGRESS at last check; check it only for completion, do not repeat prior audits.
+- Live main parent SHA: `94736c388977ca77fa9cf3a41833093707e9d618`.
+- First Samba parent-directory fix `536f6f0e6c5a7835a38784d277c0d51eb692eca2` removed the WINS 0777 mkdir and added no-follow parent preparation. Dedicated Samba run `44593849014` SUCCESS. XY-C1 run `44593848957` failed only because its test compile omitted `-I trunk/user/rc/src`; workflow-only commit `287aa1cb8105de24dc6683485087ccdbcb12f062` corrected it. Exact XY-C1 run `44595726202` passed source/input detection; Build/TRX/artifact were skipped because it was workflow-only.
+- Wireless rollback checker commit `8325b61ef1f4ee726e448eb81f5e4a41f44341e0`: exact Wireless `44592865932`, Process lifecycle `44592865823`, and AI docs `44592865722` PASS.
 - Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it. PR #1 remains closed and unmerged.
 - No local repository checkout or MIPS toolchain is available in this connector-only environment. Physical router/runtime L4 remains NOT VERIFIED.
 
@@ -23,26 +23,26 @@ Continue main-only implementation across conversations. Recover the exact live s
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task — harden Samba state-directory permissions before WINS recovery
+## Active task — secure all Samba passdb and transaction entry points
 
-- Parent main SHA: `8325b61ef1f4ee726e448eb81f5e4a41f44341e0`.
-- `start_wins()` used `mkdir_if_none("/etc/samba", "777")`. PID 1 has a permissive umask, so a missing directory could be created world-writable; existing paths were accepted without type/owner/mode validation. This directory parents `smbpasswd` and the root-only `.config-transaction` journal, allowing local users to replace/remove passdb or recovery entries despite the child directory's 0700 mode.
-- The source fix adds descriptor-based preparation before recovery: `mkdir(...,0755)`, `O_DIRECTORY|O_NOFOLLOW`, effective-UID ownership validation, removal of group/other write bits on legacy directories, and post-`fchmod` validation. Invalid symlink/non-directory/foreign-owner paths fail closed.
-- GNU89 ASan/UBSan tests cover umask 0000 creation, repair from 0777 to 0755, preservation of 0711, and file/symlink rejection. XY-C1 workflow runs the regression and a production call-order contract. Exact-head tests and firmware Build/TRX/artifact are pending.
-- Prior wireless checker failure on `ef421` was corrected in `8325b61`; exact Wireless, Process and AI docs reruns PASS on `8325b61`.
+- Parent main SHA: `94736c388977ca77fa9cf3a41833093707e9d618`.
+- Review after the first guard found `run_samba()` still created `/etc/samba` as 0777 before path-based chmod, and public `write_smb_conf()` recovered the journal without securing its parent. All three paths touch the same passdb/config journal.
+- This follow-up enforces exact effective-UID-owned 0700 via an opened `O_DIRECTORY|O_NOFOLLOW` fd and post-`fchmod` verification. Guards precede recovery in `start_wins()`, `run_samba()`, and `write_smb_conf()`; the legacy path-based helper and remaining 0777 mkdir are removed.
+- Initial XY-C1 compile omitted `-I trunk/user/rc/src`; commit `287aa1c` corrected it and its detector passed (Build/TRX/artifact were skipped on workflow-only SHA). Initial Samba run `44593849014` PASS; exact all-entrypoint regression and product-source Build pending on this follow-up.
+- Wireless/Process/AI runs `44592865932`, `44592865823`, `44592865722` PASS on `8325b61`.
 
 ## Verification boundary
 
-- L1: source review confirms the insecure 0777 parent affected both the passdb and Samba transaction journal.
-- L2: new GNU89/Werror/ASan/UBSan permission regression and production WINS call-order contract pending on exact source SHA.
-- L3: exact-head XY-C1 input detector, Build, TRX verification and artifact upload pending for this Samba production-source change.
+- L1: all three transaction entry points identified; passdb/recovery parent must remain effective-UID-owned and exactly 0700.
+- L2: GNU89/Werror/ASan/UBSan strict-mode regression and three-callsite source contracts pending on this follow-up SHA.
+- L3: exact-head XY-C1 input detector, Build, TRX and artifact upload pending for this Samba production-source change.
 - L4: live Samba authentication, WINS browse/registration and physical-router runtime remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Query Actions by the exact current main `head_sha`; inspect the Samba permission regression and XY-C1 detector, Build, TRX and artifact results.
-2. Diagnose any first failing assertion or compiler error without weakening owner, no-follow or group/other write restrictions.
-3. After L2/L3 pass, continue with a separate P1 stability/security defect outside this Samba directory fix.
+1. Inspect Actions by exact main `head_sha`: Samba share configuration regression, XY-C1 Build/TRX/artifact, Process inventory and AI docs.
+2. Diagnose the first failing assertion/compiler output; maintain 0700 parent preparation before recovery in all three transaction entry points.
+3. After L2/L3 pass, continue with a separate P1 stability/security defect outside Samba transaction publication.
 
 ## Mandatory handoff checkpoint
 
