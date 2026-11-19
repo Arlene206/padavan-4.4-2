@@ -7,6 +7,7 @@ on:
       - "trunk/user/rc/src/rstats.c"
       - "trunk/user/rc/src/rstats_file_policy.h"
       - "trunk/user/rc/src/rstats_signal_policy.h"
+      - "trunk/user/rc/src/rstats_time_policy.h"
       - "trunk/user/rc/src/tests/rstats_policy_test.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
@@ -18,6 +19,7 @@ on:
       - "trunk/user/rc/src/rstats.c"
       - "trunk/user/rc/src/rstats_file_policy.h"
       - "trunk/user/rc/src/rstats_signal_policy.h"
+      - "trunk/user/rc/src/rstats_time_policy.h"
       - "trunk/user/rc/src/tests/rstats_policy_test.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
@@ -50,6 +52,7 @@ jobs:
           rstats = (src / "rstats.c").read_text()
           file_policy = (src / "rstats_file_policy.h").read_text()
           signal_policy = (src / "rstats_signal_policy.h").read_text()
+          time_policy = (src / "rstats_time_policy.h").read_text()
           test = (src / "tests/rstats_policy_test.c").read_text()
           dispatcher = (src / "rc.c").read_text()
           header = (src / "rc.h").read_text()
@@ -119,6 +122,13 @@ jobs:
                             "malloc(", "free("):
               assert forbidden not in handler, "unsafe signal-handler work: " + forbidden
 
+          time_valid = body(rstats, "is_system_time_valid(struct tm *tms)")
+          assert "rstats_time_has_valid_year(tms, SYS_START_YEAR)" in time_valid
+          assert "tms->tm_year" not in time_valid
+          assert "tms == NULL" in time_policy
+          assert "tms->tm_year > (start_year - 1900)" in time_policy
+          assert '"rstats_time_policy.h"' in rstats
+
           main = body(rstats, "rstats_main(int argc, char *argv[])")
           block = main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)")
           install = main.index("sigaction(SIGHUP, &sa, NULL)")
@@ -171,7 +181,8 @@ jobs:
                         "RSTATS_PENDING_HISTORY_EXPORT", "RSTATS_PENDING_TERMINATE",
                         "rstats_take_pending_events"):
               assert token in signal_policy
-          for token in ("test_mkstemp", "rstats_file_open_stream", "partial-data",
+          for token in ("test_null_safe_system_time_policy", "rstats_time_has_valid_year(NULL, 2020)",
+                        "test_mkstemp", "rstats_file_open_stream", "partial-data",
                         "test_exact_read_retries_eintr_and_short_reads",
                         "test_new_file_modes_follow_umask", "scripted_read",
                         "fail_fsync", "fail_close", "fail_rename", "/dev/full",
@@ -197,6 +208,7 @@ jobs:
               "trunk/user/rc/src/rstats.c",
               "trunk/user/rc/src/rstats_file_policy.h",
               "trunk/user/rc/src/rstats_signal_policy.h",
+              "trunk/user/rc/src/rstats_time_policy.h",
               "trunk/user/rc/src/tests/rstats_policy_test.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",

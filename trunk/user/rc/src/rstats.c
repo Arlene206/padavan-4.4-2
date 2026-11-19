@@ -39,6 +39,7 @@
 #include "switch.h"
 #include "rstats_file_policy.h"
 #include "rstats_signal_policy.h"
+#include "rstats_time_policy.h"
 
 #define SMIN		60
 #define SHOUR		(60 * 60)
@@ -436,8 +437,8 @@ static void save_history_json(long next_time)
 
 static int is_system_time_valid(struct tm *tms)
 {
-	/* system time is not changed since boot */
-	if (tms->tm_year <= (SYS_START_YEAR - 1900))
+	/* localtime() may return NULL for an unrepresentable time_t. */
+	if (!rstats_time_has_valid_year(tms, SYS_START_YEAR))
 		return 0;
 
 #if !defined (USE_RTC_HCTOSYS)

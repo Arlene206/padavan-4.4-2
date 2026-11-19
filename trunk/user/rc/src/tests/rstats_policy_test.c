@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include "rstats_file_policy.h"
 #include "rstats_signal_policy.h"
+#include "rstats_time_policy.h"
 
 static char last_temp[PATH_MAX];
 static int write_mode, write_calls;
@@ -197,7 +198,21 @@ static void test_exact_read_retries_eintr_and_short_reads(void)
   assert(errno == EOVERFLOW);
 }
 
+static void test_null_safe_system_time_policy(void) {
+  struct tm value;
+
+  assert(!rstats_time_has_valid_year(NULL, 2020));
+  memset(&value, 0, sizeof(value));
+  value.tm_year = 119; /* 2019 */
+  assert(!rstats_time_has_valid_year(&value, 2020));
+  value.tm_year = 120; /* 2020 is the configured boot-time boundary */
+  assert(!rstats_time_has_valid_year(&value, 2020));
+  value.tm_year = 121; /* a year beyond the boundary */
+  assert(rstats_time_has_valid_year(&value, 2020));
+}
+
 int main(void) {
+  test_null_safe_system_time_policy();
   test_exact_read_retries_eintr_and_short_reads();
   char dir[] = "/tmp/rstats-policy.XXXXXX";
   char target[128], victim[128], stage[128];
