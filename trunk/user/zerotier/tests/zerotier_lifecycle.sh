@@ -426,7 +426,7 @@ fi
 [ ! -e "$TEST_CONFIG" ] || fail "successful stop did not complete the existing config cleanup"
 [ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'zero_route:del\nrm:-rf %s' "$TEST_CONFIG")" ] || fail "successful cleanup did not run after daemon absence"
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "successful stop left stale firewall rules"
-[ "$(grep -c '^-D ' "$TEST_IPTABLES_LOG")" -eq 5 ] || fail "successful stop did not delete all five installed firewall rules"
+[ "$(grep -cE '(^-D |^-t nat -D )' "$TEST_IPTABLES_LOG")" -eq 5 ] || fail "successful stop did not delete all five installed firewall rules"
 TEST_EXPECT_SAVED_SEGMENT=0
 TEST_ROUTE_MODE=none
 

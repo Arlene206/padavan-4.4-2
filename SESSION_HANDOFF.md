@@ -134,16 +134,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Resume on `main` only. Parent for the NAT-order correction: `df07e01d45270d2945b4962b8fe17e2c4b26be12`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
-- ZeroTier firewall-cleanup and retry-state implementation is in `151d7574c0197139c61a7b6a7e4d9a5883a21f99`. Exact-head ZeroTier run `44516737287` failed; the set-`-x` trace localized the defect to NAT invocations ordered as `iptables -C -t nat`, which must be `iptables -t nat -C`. This commit normalizes table/action ordering and adds an assertion that retry deletes the exact saved NAT source rule after daemon/interface/route disappearance.
-- Prior exact-head c09 and df runs are not considered green; inspect the new commit's ZeroTier, AI-docs and XY-C1 runs independently. Do not claim L3 unless the same SHA's Build, TRX and artifact upload all pass.
-- Preserve completed SkipDBv2, WAN sysfs counter, Inadyn and ZeroConf callback work; the backup is immutable. After this bounded ZeroTier slice passes, continue with another independent stability/security defect across userland.
+- Resume on `main` only. Parent for this ZeroTier regression follow-up: `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
+- The production fix in b1 reorders NAT table selection before iptables check/delete. Exact-head ZeroTier run `44518868454` then failed only at the legacy test counter: its grep counted `-D` filter lines but omitted `-t nat -D` NAT lines. This commit corrects the fixture's accounting and retains the explicit retry assertion for the saved NAT segment.
+- Inspect the new exact-head ZeroTier run and the XY-C1 Build/TRX/artifact steps separately; b1's ZeroTier regression failed and its XY run was still pending. Do not claim L3 until a same-SHA Build, TRX verification and upload all pass.
+- Preserve completed SkipDBv2, WAN sysfs counter, Inadyn and ZeroConf callback work. After the ZeroTier checks pass, continue with a separate stability/security issue elsewhere in userland; keep backup immutable.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle run for this NAT-order correction. Diagnose any failing step; do not reuse c09/df failures as the new SHA's result.
-2. Inspect the exact same-SHA XY-C1 Build, TRX verification and artifact-upload steps separately. Claim L3 only when all three succeed.
-3. If ZeroTier and documentation checks pass, begin an independent P1/P2 userland reliability/security slice, with a production-linked regression and one complete-tree commit using `force=false` and exact-parent CAS. Keep the frozen backup untouched.
+1. Fetch the exact-head ZeroTier lifecycle Action for this test-count correction and inspect each step. If it passes, preserve the result; if it fails, fix the causal failure rather than re-running completed audits.
+2. Inspect the same-SHA XY-C1 Build, TRX and artifact-upload steps. Claim L3 only when all three succeed on that SHA.
+3. Continue with an independent P1/P2 userland stability/security fix and production-linked regression, using a single complete-tree commit and non-forced exact-parent CAS.
 
 ## Mandatory handoff checkpoint
 

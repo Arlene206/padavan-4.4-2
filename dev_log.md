@@ -1,9 +1,11 @@
-## 2026-11-19 — Correct ZeroTier NAT firewall table ordering and retry proof
+## 2026-11-19 — Complete ZeroTier NAT cleanup regression after table-order fix
 
-- Firewall cleanup/checkpoint implementation landed in source commit `151d7574c0197139c61a7b6a7e4d9a5883a21f99`; follow-up test commits `c09c9d2`, `ebe6d30` and diagnostic `df07e01` exposed a real iptables argument-order defect, not a source-segment parser failure.
-- Exact-head ZeroTier run `44516737287` failed at the first NAT rule check. Its shell trace showed calls emitted as `iptables -C -t nat POSTROUTING ...`; the fake parser (and the documented CLI form) require the table selector before the operation: `iptables -t nat -C POSTROUTING ...`. The command had therefore bypassed the NAT table and aborted cleanup before route-state validation.
-- This correction routes check/delete through a table-aware helper, validates supported table names, and ensures `-t <table>` precedes `-C/-D`. The regression restores normal `set -eu` and verifies the exact saved-source-NAT deletion command on a second stop after daemon, interface and kernel route are gone.
-- No local execution in the connector-only environment. Exact-head ZeroTier host regression, source contracts and firmware validation are pending; L3/L4 are not claimed for this correction.
+- The source correction at `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` now issues `iptables -t nat -C/-D` with the table option before the action. The exact-head ZeroTier run `44518868454` progressed past the former NAT-table parsing failure and reached the final all-rules-deleted assertion.
+- That assertion counted only log lines beginning `-D`, so it omitted the now-correct table-qualified NAT commands beginning `-t nat -D`. This follow-up counts both filter and NAT deletion forms; the separate retry check still demands the exact saved NAT source rule after daemon, interface and kernel route disappear.
+- No production behavior change in this test-only correction. Exact-head ZeroTier and XY-C1 Actions must be checked on its resulting SHA; no L3/L4 claim is carried forward.
+
+---
+
 
 ---
 

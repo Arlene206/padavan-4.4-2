@@ -220,6 +220,8 @@ require('if ! zero_route "add"; then' in rules_section and
         'del_rules' in rules_section and
         'zero_route "del"' in rules_section,
         "a failed static-route add must roll back the published firewall/route state")
+require('grep -cE \'(^-D |^-t nat -D )\' in test,
+        "firewall regression must count both filter and table-qualified NAT deletes")
 require('running-only' in test and
         'firewall cleanup lost the interface after daemon exit' in test and
         'static route cleanup lost the saved interface after daemon exit' in test and
