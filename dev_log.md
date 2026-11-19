@@ -1,3 +1,11 @@
+## 2026-11-19 — Align monitor-pause teardown source contracts
+
+- Exact-source detect-internet Action 44600896372 failed in its inline Python contract at line 134; WAN route Action 44600896744 failed at inline line 253. Both expected obsolete `(void)notify_pause_detect_internet()` calls and advisory-only behavior.
+- Source commit a7eae5a115dae74685e9130ff6d339b8202e5725 deliberately changed MAN/WAN teardown to aggregate the monitor pause result into the first error, emit a diagnostic, continue route/interface cleanup, and return the accumulated status. MAN only clears lease state when all cleanup succeeds. The workflow contracts now assert this ordering and status preservation; production code is unchanged.
+- Infosvr correction commit 2cdd33f556b925f130d5a05348bb6774fc88dea0 passed exact-head Infosvr packet/signal 44602137230 and AI handoff docs 44602137197. XY-C1, SkipDBv2 and NVRAM passed on product source 2e61e6b; Samba regression, detector, Build XY-C1, TRX and artifact all passed in 44600896324.
+- Exact reruns for detect-internet and WAN route are pending. No physical-router L4 result claimed.
+
+---
 ## 2026-11-19 — Repair the Infosvr checker after launcher-status normalization
 
 - Exact-head Infosvr Action 44600896016 on production SHA 2e61e6b4608d30127692f5d26e939bbce92f52fc passed packet, signal and daemon policy binaries under GNU89/Werror/ASan/UBSan and passed the packet/signal source checker.
