@@ -1,3 +1,13 @@
+## 2026-11-19 — Update WAN accumulator source-contract occurrence count
+
+- Parent main SHA: `cd85e8681b6ae88836a98eaca0e8d7569f8ada78`.
+- Exact `cd85` USB modem `44445137405`, Firewall `44445136993` and Process lifecycle `44445136954` all reached the final WAN checker and failed at the same hard-coded count of 19 `vlan_result` first-error merges.
+- The callback/VLAN/APCLI-WISP follow-up correctly introduced two additional aggregate merge sites, so the complete `start_wan()` body now contains 21 matching `vlan_result` merges. Update the test contract to 21; production source is unchanged.
+- Earlier GNU89/ASan/UBSan policy binaries in these jobs passed before the static checker failed. Exact-head USB/Firewall/Process and AI docs reruns remain required on the correction SHA; XY-C1 build stages must be verified on that same source SHA.
+- Hardware L4 NOT VERIFIED; no local build/test performed.
+
+---
+
 ## 2026-11-19 — Match WAN checker to compact whitespace representation
 
 - Parent main SHA: `1c368975b354e4b8e7277146f86891cf6cb34f55`.
