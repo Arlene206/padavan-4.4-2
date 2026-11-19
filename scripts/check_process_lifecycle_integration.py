@@ -3347,3 +3347,9 @@ assert "test_crond_positive_restart_error_reaches_boot_and_notification_status" 
 ).read_text()
 print("crond positive restart-status propagation and disabled no-op contract: PASS")
 
+crond_notify = rc_source.split(
+    "else if (strcmp(entry->d_name, RCN_RESTART_CROND) == 0)", 1
+)[1].split("else if", 1)[0]
+assert "action_result = rc_notify_merge_action_result(" in crond_notify
+assert "action_result, restart_crond()" in crond_notify
+

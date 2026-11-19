@@ -88,9 +88,11 @@ assert "errno = status;" not in wait_helper
 assert "return status;" not in wait_helper
 
 start = function_body(services, "start_crond(void)")
-assert 'if (nvram_invmatch("crond_enable", "1"))' in start
-assert "return 1;" in start
-assert start.index("return 1;") < start.index("launch_status = _eval(crond_argv")
+disabled = start.split('if (nvram_invmatch("crond_enable", "1"))', 1)[1].split(
+    "/* Do not spawn a second scheduler", 1
+)[0]
+assert "return 0;" in disabled
+assert "return 1;" not in disabled
 launch_failure = function_body(start, "if (launch_status != 0)")
 assert "return crond_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in launch_failure
 initial_wait = start.index(
@@ -172,19 +174,30 @@ assert "strcmp(bb_basename(p->argv0), procName) == 0" in pids
 assert "p->state[0] != 'Z'" in pids
 
 init_router = function_body(dispatcher, "init_router(void)")
-assert "if (restart_crond() < 0)" in init_router
-assert "crond restart after initial crontab update failed" in init_router
+crond_boot = init_router.split("if (init_crontab())", 1)[1].split(
+    "// system ready", 1
+)[0]
+assert "crond_status = restart_crond();" in crond_boot
+assert "if (crond_status != 0)" in crond_boot
+assert "boot_services_status = rc_first_service_start_status(" in crond_boot
+assert "crond restart after initial crontab update failed (status=%d)" in crond_boot
+assert init_router.index("if (init_crontab())") < init_router.index(
+    'one or more boot service startup operations failed'
+)
 
 crond_notify = dispatcher.split(
     "else if (strcmp(entry->d_name, RCN_RESTART_CROND) == 0)", 1
 )[1].split("else if", 1)[0]
-assert "action_result = restart_crond();" in crond_notify
+assert "action_result = rc_notify_merge_action_result(" in crond_notify
+assert "action_result, restart_crond()" in crond_notify
 
 time_notify = dispatcher.split(
     "else if (strcmp(entry->d_name, RCN_RESTART_TIME) == 0)", 1
 )[1].split("else if", 1)[0]
-assert "if (restart_crond() < 0)" in time_notify
-assert "action_result = -1;" in time_notify
+assert "crond_status = restart_crond();" in time_notify
+assert "if (crond_status != 0)" in time_notify
+assert "action_result, crond_status" in time_notify
+assert "if (restart_crond() < 0)" not in dispatcher
 assert "if (action_result < 0)" in dispatcher
 assert "completion marker retained" in dispatcher
 

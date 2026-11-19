@@ -1934,7 +1934,8 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_CROND) == 0)
 		{
-			action_result = restart_crond();
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_crond());
 		}
 		else if (strcmp(entry->d_name, RCN_REAPPLY_VPNSVR) == 0)
 		{
