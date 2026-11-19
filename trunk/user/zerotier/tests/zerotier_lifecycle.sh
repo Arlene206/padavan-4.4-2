@@ -771,7 +771,6 @@ fi
 [ ! -s "$TEST_IPTABLES_LOG" ] || fail "invalid NAT setting changed firewall rules"
 
 echo "ZeroTier bounded stop/start, readiness, firewall/static-route rollback and persistent-config preservation: PASS"
- "$TEST_ACTION_LOG")" = 1 ] || fail "replacement daemon did not start exactly once after cleanup"
 TEST_ASSERT_CLEAN_BEFORE_START=0
 TEST_EXPECT_SAVED_SEGMENT=0
 TEST_NAT_ENABLE=0

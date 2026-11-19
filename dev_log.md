@@ -1,3 +1,12 @@
+## 2026-11-19 — Remove orphaned ZeroTier regression fragment after assertion repair
+
+- Main parent: `5df5d3487b87fffc2c68d6637e5d994df8e724e5`. Exact ZeroTier push run `44545994030` passed the shell assertions and printed the regression PASS marker, then exited with `Syntax error: ")" unexpected` at line 774.
+- Inspection found a stale duplicate suffix ` "$TEST_ACTION_LOG")" = 1 ] ...` after the final echo. The intended exact start-count assertion is already present beside the successful stale-state replay test. THIS COMMIT removes only the orphan; no behavior assertion is deleted or weakened.
+- The immediately preceding ZeroTier run `44545284526` on `0b1e7877` exposed the replacement-start assertion issue now corrected in `5df5d348`. Process inventory `44545994027` and WAN route `44545994009` PASS on `5df5d348`.
+- Product source `a834edbad9ba5a168768a882c766607065fb7708` has exact XY-C1 Build/TRX/artifact PASS in run `44544667515` (L3). The current test-only XY run `44545994024` skipped those expensive stages. No local shell execution or physical-router L4 is claimed.
+
+---
+
 ## 2026-11-19 — Expose ZeroTier firewall-delete regression trace
 
 - Main parent: `deed12f04f7bd2030a99acf689295396b505111e`; the current source still includes the ZeroTier firewall cleanup implementation and the corrected `iptables -t nat -C/-D` ordering.

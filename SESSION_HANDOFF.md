@@ -10,11 +10,13 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Current repository state
 
-- Repository `Arlene206/padavan-4.4-2`; development remains on `main`. Current main SHA: `deed12f04f7bd2030a99acf689295396b505111e` (`fix(usb): propagate modem WAN reconnect failures`), parent `92a098912e648e0c00a03db8592c555a3cfb2aeb`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged.
-- USB modem reconnect status propagation is on main; exact Process inventory/fail-closed, USB WDM/NDIS, USB storage, NVRAM transaction and AI docs Actions pass on `deed12f04f7bd2030a99acf689295396b505111e`. XY-C1 run `44541196137` has completed its host gates and is building firmware; TRX and artifact steps are still pending. Do not claim current-source L3 until all three pass.
-- Prior product SHA `7fa39cbc3020b702ef294e97874962393b9392b8` passed XY-C1 Build/TRX/artifact for targeted USB storage; the later RPL2TP and USB modem reconnect production changes mean that older L3 result does not verify current main.
-- No local checkout/toolchain is available in this connector-only environment; use exact-SHA GitHub Actions and do not claim local execution.
+- Recovery fetched live `main` at `5df5d3487b87fffc2c68d6637e5d994df8e724e5` (`test(zerotier): repair replacement-start assertion`), parent `0b1e7877df28865e6177b4446e339ecb32bc5c17`. The older `deed12f04f7bd2030a99acf689295396b505111e` checkpoint was four commits behind.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 remains closed/unmerged; its valid changes were already ported to main and its historical head is not a development target.
+- Current ZeroTier product implementation is `a834edbad9ba5a168768a882c766607065fb7708` (`fix(zerotier): replay stale firewall state before restart`). Exact XY-C1 run `44544667515` passed Build XY-C1, TRX verification and artifact upload on that production-source SHA (L3). Subsequent `0b1e7877` and `5df5d348` commits are test-only.
+- Exact push checks on `5df5d348`: Process inventory `44545994027` PASS; WAN route status `44545994009` PASS; XY-C1 `44545994024` PASS for host validation with Build/TRX/artifact correctly skipped for this test-only commit. ZeroTier lifecycle `44545994030` FAIL: the shell regression reached and printed its final PASS marker, then `/bin/sh` reported a syntax error at line 774.
+- The preceding ZeroTier run `44545284526` on `0b1e7877` failed the exact replacement-daemon start-count assertion. Commit `5df5d348` repaired that assertion at its intended location, but a stale duplicate suffix remained after the final PASS marker. THIS COMMIT removes only that orphaned fragment; the assertions and failure gates remain intact.
+- Next action after this test repair: inspect the exact new-main ZeroTier and AI-handoff Actions; diagnose any newly exposed behavioral assertion without weakening it. If both pass, continue with the next ranked userland stability issue. Production L3 remains verified only for `a834edbad9ba5a168768a882c766607065fb7708`; no physical-router L4 is claimed.
+- No local checkout/toolchain is available in this connector-only environment; do not claim local shell execution.
 
 ## Latest active source slices — 2026-11-19
 
