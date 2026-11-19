@@ -438,28 +438,105 @@ openvpn_add_compress(FILE *fp, int compress_idx, int is_server_mode)
 		fprintf(fp, "push \"compress%s\"\n", alg_str);
 }
 
-static void
+static int
 openvpn_add_key(FILE *fp, const char *key_dir, const char *key_file, const char *key_sect)
 {
-	FILE *fpk;
-	int skip_head = 1;
+	FILE *fpk = NULL;
+	int fd = -1;
+	int skip_head = 1, seen_end = 0;
+	int saved_errno, path_len, secret_key;
 	char buff[MAX_FILE_LINE_SIZE] = {0};
+	struct stat st;
 
-	snprintf(buff, sizeof(buff), "%s/%s", key_dir , key_file);
-	fpk = fopen(buff, "r");
-	if (fpk) {
-		fprintf(fp, "<%s>\n", key_sect);
-		while (fgets(buff, sizeof(buff), fpk) != NULL) {
-			if (skip_head) {
-				if (!strstr(buff, "-----BEGIN "))
-					continue;
-				skip_head = 0;
-			}
-			fputs(buff, fp);
-		}
-		fprintf(fp, "</%s>\n", key_sect);
-		fclose(fpk);
+	if (!fp || !key_dir || !key_file || !key_sect) {
+		errno = EINVAL;
+		return -1;
 	}
+	path_len = snprintf(buff, sizeof(buff), "%s/%s", key_dir, key_file);
+	if (path_len < 0 || (size_t)path_len >= sizeof(buff)) {
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	fd = open(buff, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, &st) != 0)
+		goto failed;
+	if (!S_ISREG(st.st_mode) || st.st_uid != geteuid() || st.st_nlink != 1) {
+		errno = EPERM;
+		goto failed;
+	}
+	secret_key = (strcmp(key_sect, "key") == 0 ||
+		      strncmp(key_sect, "tls-", 4) == 0);
+	if (secret_key && (st.st_mode & 0077) != 0) {
+		errno = EPERM;
+		goto failed;
+	}
+	fpk = fdopen(fd, "r");
+	if (!fpk)
+		goto failed;
+	fd = -1;
+	if (fprintf(fp, "<%s>\n", key_sect) < 0)
+		goto failed;
+	while (fgets(buff, sizeof(buff), fpk) != NULL) {
+		if (skip_head) {
+			if (!strstr(buff, "-----BEGIN "))
+				continue;
+			skip_head = 0;
+		}
+		if (fputs(buff, fp) == EOF)
+			goto failed;
+		if (strstr(buff, "-----END "))
+			seen_end = 1;
+	}
+	if (ferror(fpk)) {
+		if (!errno)
+			errno = EIO;
+		goto failed;
+	}
+	if (skip_head || !seen_end) {
+		errno = EINVAL;
+		goto failed;
+	}
+	if (fprintf(fp, "</%s>\n", key_sect) < 0)
+		goto failed;
+	if (fclose(fpk) != 0) {
+		fpk = NULL;
+		if (!errno)
+			errno = EIO;
+		goto failed;
+	}
+	fpk = NULL;
+	return 0;
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (fpk)
+		(void)fclose(fpk);
+	else if (fd >= 0)
+		(void)close(fd);
+	errno = saved_errno;
+	return -1;
+}
+
+static int
+openvpn_export_remove_tempdir(const char *tmp_dir)
+{
+	int status, saved_errno;
+	if (!tmp_dir || !tmp_dir[0]) {
+		errno = EINVAL;
+		return -1;
+	}
+	errno = 0;
+	status = doSystem("rm -rf %s", tmp_dir);
+	if (status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(SERVER_LOG_NAME,
+			   "failed to remove private OpenVPN export staging directory (status=%d, errno=%d)",
+			   status, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	return 0;
 }
 
 static int
@@ -1585,31 +1662,30 @@ ovpn_client_script_main(int argc, char **argv)
 int
 ovpn_server_expcli_main(int argc, char **argv)
 {
-	FILE *fp;
+	FILE *fp = NULL;
 	int i, i_prot, i_atls, i_tcv2, days_valid;
+	int cert_status, keygen_status, env_set = 0, temp_dir_created = 0;
+	int saved_errno, path_len;
 	const char *p_prot, *wan_addr, *rsa_bits;
-	const char *tmp_ovpn_path = "/tmp/export_ovpn";
-	const char *tmp_ovpn_conf = "/tmp/client.ovpn";
+	char tmp_ovpn_path[] = "/tmp/export_ovpn.XXXXXX";
+	char tmp_ovpn_conf[] = "/tmp/client.ovpn";
+	char staged_ovpn_conf[128] = {0};
+	char tls_client_key_path[128];
 #if defined (USE_IPV6)
 	char addr6s[INET6_ADDRSTRLEN] = {0};
 #endif
-
 	if (argc < 2 || strlen(argv[1]) < 1) {
 		printf("Usage: %s common_name [rsa_bits/ec_name] [days_valid]\n", argv[0]);
 		return 1;
 	}
-
 	rsa_bits = "1024";
 	if (argc > 2)
 		rsa_bits = argv[2];
-
 	days_valid = 365;
 	if (argc > 3 && atoi(argv[3]) > 0)
 		days_valid = atoi(argv[3]);
-
 	i_atls = nvram_get_int("vpns_ov_atls");
 	i_tcv2 = nvram_get_int("vpns_ov_tcv2");
-
 	for (i=0; i<6; i++) {
 		if (!i_atls && (i == 4))
 			continue;
@@ -1620,21 +1696,42 @@ ovpn_server_expcli_main(int argc, char **argv)
 			return 1;
 		}
 	}
-
-	/* Generate client cert and key */
-	doSystem("rm -rf %s", tmp_ovpn_path);
-	setenv("CRT_PATH_CLI", tmp_ovpn_path, 1);
+	if (unlink(tmp_ovpn_conf) != 0 && errno != ENOENT) {
+		logmessage(SERVER_LOG_NAME,
+			   "cannot remove previous OpenVPN client export (errno=%d)", errno);
+		return 1;
+	}
+	if (!mkdtemp(tmp_ovpn_path)) {
+		logmessage(SERVER_LOG_NAME,
+			   "cannot create private OpenVPN export staging directory (errno=%d)",
+			   errno ? errno : EIO);
+		return 1;
+	}
+	temp_dir_created = 1;
+	if (setenv("CRT_PATH_CLI", tmp_ovpn_path, 1) != 0)
+		goto failed;
+	env_set = 1;
 	{
 		char days_arg[16];
 		char *cert_argv[] = {
 			"/usr/bin/openvpn-cert.sh", "client", "-n", argv[1],
-			"-b", rsa_bits, "-d", days_arg, NULL
+			"-b", (char *)rsa_bits, "-d", days_arg, NULL
 		};
 		snprintf(days_arg, sizeof(days_arg), "%d", days_valid);
-		_eval(cert_argv, NULL, 0, NULL);
+		errno = 0;
+		cert_status = _eval(cert_argv, NULL, 0, NULL);
 	}
-	unsetenv("CRT_PATH_CLI");
-
+	if (unsetenv("CRT_PATH_CLI") != 0)
+		goto failed;
+	env_set = 0;
+	if (cert_status != 0) {
+		if (!errno)
+			errno = EIO;
+		logmessage(SERVER_LOG_NAME,
+			   "OpenVPN client certificate generation failed (status=%d, errno=%d)",
+			   cert_status, errno);
+		goto failed;
+	}
 	i_prot = nvram_get_int("vpns_ov_prot");
 	if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)
 		i_prot &= 1;
@@ -1653,7 +1750,6 @@ ovpn_server_expcli_main(int argc, char **argv)
 		p_prot = "tcp4-client";
 	else
 		p_prot = "udp4";
-
 	wan_addr = get_ddns_fqdn();
 	if (!wan_addr) {
 #if defined (USE_IPV6)
@@ -1669,17 +1765,12 @@ ovpn_server_expcli_main(int argc, char **argv)
 				wan_addr = NULL;
 		}
 	}
-
 	if (!wan_addr)
 		wan_addr = "{wan_address}";
-
-	fp = fopen(tmp_ovpn_conf, "w+");
-	if (!fp) {
-		doSystem("rm -rf %s", tmp_ovpn_path);
-		printf("Error: unable to create file %s\n", tmp_ovpn_conf);
-		return 1;
-	}
-
+	fp = openvpn_config_file_open(tmp_ovpn_conf, staged_ovpn_conf,
+				       sizeof(staged_ovpn_conf));
+	if (!fp)
+		goto failed;
 	fprintf(fp, "client\n");
 	fprintf(fp, "dev %s\n", (nvram_get_int("vpns_ov_mode") == 1) ? "tun" : "tap");
 	fprintf(fp, "proto %s\n", p_prot);
@@ -1696,28 +1787,65 @@ ovpn_server_expcli_main(int argc, char **argv)
 	fprintf(fp, "verb %d\n", 3);
 	fprintf(fp, "mute %d\n", 10);
 	fprintf(fp, ";remote-cert-tls %s\n", "server");
-	openvpn_add_key(fp, SERVER_CERT_DIR, openvpn_server_keys[0], "ca");
-	openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[1], "cert");
-	openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[2], "key");
-
+	if (openvpn_add_key(fp, SERVER_CERT_DIR, openvpn_server_keys[0], "ca") != 0 ||
+	    openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[1], "cert") != 0 ||
+	    openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[2], "key") != 0)
+		goto failed;
 	if (i_atls == 1) {
-		openvpn_add_key(fp, SERVER_CERT_DIR, openvpn_server_keys[4], "tls-auth");
+		if (openvpn_add_key(fp, SERVER_CERT_DIR, openvpn_server_keys[4], "tls-auth") != 0)
+			goto failed;
 		fprintf(fp, "key-direction %d\n", 1);
 	} else if (i_atls == 2) {
-		openvpn_add_key(fp, SERVER_CERT_DIR, openvpn_server_keys[4], "tls-crypt");
+		if (openvpn_add_key(fp, SERVER_CERT_DIR, openvpn_server_keys[4], "tls-crypt") != 0)
+			goto failed;
 	}
-
 	if (i_tcv2) {
-		doSystem("/usr/sbin/openvpn --genkey tls-crypt-v2-client %s/%s --tls-crypt-v2 %s/stc2.key", tmp_ovpn_path, openvpn_client_keys[3], SERVER_CERT_DIR);
-		openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[3], "tls-crypt-v2");
+		errno = 0;
+		keygen_status = doSystem("%s --genkey tls-crypt-v2-client %s/%s --tls-crypt-v2 %s/stc2.key",
+					 OPENVPN_EXE, tmp_ovpn_path, openvpn_client_keys[3],
+					 SERVER_CERT_DIR);
+		if (keygen_status != 0) {
+			if (!errno)
+				errno = EIO;
+			logmessage(SERVER_LOG_NAME,
+				   "OpenVPN TLS-Crypt-v2 client key generation failed (status=%d, errno=%d)",
+				   keygen_status, errno);
+			goto failed;
+		}
+		path_len = snprintf(tls_client_key_path, sizeof(tls_client_key_path),
+				    "%s/%s", tmp_ovpn_path, openvpn_client_keys[3]);
+		if (path_len < 0 || (size_t)path_len >= sizeof(tls_client_key_path)) {
+			errno = ENAMETOOLONG;
+			goto failed;
+		}
+		if (chmod(tls_client_key_path, S_IRUSR | S_IWUSR) != 0)
+			goto failed;
+		if (openvpn_add_key(fp, tmp_ovpn_path,
+				    openvpn_client_keys[3], "tls-crypt-v2") != 0)
+			goto failed;
 	}
-
-	fclose(fp);
-
-	doSystem("rm -rf %s", tmp_ovpn_path);
-
-	doSystem("unix2dos %s", tmp_ovpn_conf);
-	chmod(tmp_ovpn_conf, 0600);
-
+	if (openvpn_export_remove_tempdir(tmp_ovpn_path) != 0)
+		goto failed;
+	temp_dir_created = 0;
+	if (openvpn_config_file_publish(&fp, staged_ovpn_conf,
+					tmp_ovpn_conf, 0600) != 0)
+		goto failed;
 	return 0;
+failed:
+	saved_errno = errno ? errno : EIO;
+	if (env_set && unsetenv("CRT_PATH_CLI") != 0)
+		logmessage(SERVER_LOG_NAME, "failed to clear OpenVPN certificate-generation environment");
+	if (fp) {
+		if (fclose(fp) != 0)
+			logmessage(SERVER_LOG_NAME, "failed to close staged OpenVPN client export");
+		fp = NULL;
+	}
+	if (staged_ovpn_conf[0] &&
+	    unlink(staged_ovpn_conf) != 0 && errno != ENOENT)
+		logmessage(SERVER_LOG_NAME, "failed to remove staged OpenVPN client export");
+	if (temp_dir_created)
+		(void)openvpn_export_remove_tempdir(tmp_ovpn_path);
+	errno = saved_errno;
+	logmessage(SERVER_LOG_NAME, "OpenVPN client export failed (errno=%d)", saved_errno);
+	return 1;
 }

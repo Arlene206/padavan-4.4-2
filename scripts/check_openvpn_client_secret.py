@@ -227,4 +227,48 @@ for path in paths:
     assert push.count(quoted) == 1, f"push path filter must contain exactly one {path}"
     assert pr.count(quoted) == 1, f"pull_request path filter must contain exactly one {path}"
 
-print("OpenVPN client credential source and workflow contracts: PASS")
+print("OpenVPN client credential source and workflow contracts: PASS")# Server-side export embeds a freshly generated client private key.
+# Use private atomic publication and fail closed for every key/generator error.
+export_key_reader = body(source, "static int\nopenvpn_add_key")
+ordered(export_key_reader, [
+    "open(buff, O_RDONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC)",
+    "fstat(fd, &st)",
+    "S_ISREG(st.st_mode)",
+    "st.st_uid != geteuid()",
+    "st.st_nlink != 1",
+    'fdopen(fd, "r")',
+    'strstr(buff, "-----BEGIN ")',
+    'strstr(buff, "-----END ")',
+    "ferror(fpk)",
+    "fclose(fpk)",
+], "OpenVPN embedded key validation")
+assert "secret_key = (strcmp(key_sect, \"key\") == 0" in export_key_reader
+assert "(st.st_mode & 0077) != 0" in export_key_reader
+assert "if (skip_head || !seen_end)" in export_key_reader
+export_fn = body(source, "int\novpn_server_expcli_main(int argc, char **argv)")
+ordered(export_fn, [
+    'char tmp_ovpn_path[] = "/tmp/export_ovpn.XXXXXX"',
+    "if (!mkdtemp(tmp_ovpn_path))",
+    'setenv("CRT_PATH_CLI", tmp_ovpn_path, 1)',
+    "cert_status = _eval(cert_argv, NULL, 0, NULL)",
+    'unsetenv("CRT_PATH_CLI")',
+    "if (cert_status != 0)",
+    "fp = openvpn_config_file_open(tmp_ovpn_conf, staged_ovpn_conf",
+    'openvpn_add_key(fp, SERVER_CERT_DIR, openvpn_server_keys[0], "ca")',
+    'openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[1], "cert")',
+    'openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[2], "key")',
+    "keygen_status = doSystem(",
+    "if (keygen_status != 0)",
+    "chmod(tls_client_key_path, S_IRUSR | S_IWUSR)",
+    'openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[3], "tls-crypt-v2")',
+    "openvpn_export_remove_tempdir(tmp_ovpn_path)",
+    "openvpn_config_file_publish(&fp, staged_ovpn_conf",
+], "private, fail-closed OpenVPN client export")
+assert 'fopen(tmp_ovpn_conf, "w+")' not in export_fn
+assert "unix2dos" not in export_fn
+assert "chmod(tmp_ovpn_conf" not in export_fn
+assert "if (env_set && unsetenv(" in export_fn
+assert "unlink(staged_ovpn_conf)" in export_fn
+assert "if (temp_dir_created)" in export_fn
+
+print("OpenVPN client credential and private export source/workflow contracts: PASS")

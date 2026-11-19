@@ -1,3 +1,13 @@
+## 2026-11-19 — Harden OpenVPN exported client credentials
+
+- ovpn_server_expcli_main() previously wrote embedded client private-key material to predictable /tmp/client.ovpn via fopen("w+"), ignored fclose() and chmod(0600) results, and returned success even if certificate/key generation or PEM input reads failed. A pre-existing symlink could be followed and a failed permission change could leave private credentials exposed.
+- Switched the output to the existing private staged/atomic OpenVPN config publisher (fsync, checked close, atomic rename, final 0600). Generated keys reside in a unique mkdtemp() 0700 directory. Key input now uses no-follow/nonblocking descriptors, regular-file ownership/link checks, restrictive modes for embedded secret sections, PEM BEGIN/END validation and read/close error checks. Certificate and TLS-Crypt-v2 key generation and temporary cleanup are checked. Removed the post-publish unix2dos/chmod rewrite; OpenVPN accepts LF.
+- Expanded scripts/check_openvpn_client_secret.py with exact source contracts. Existing openvpn-client-secret CI runs this checker and the ASan/UBSan atomic config publication regression; VPN server lifecycle and XY-C1 workflows also trigger from vpn_openvpn.c.
+- Parent main SHA 4148ac7315d4835b9818c555956d99b195bf4947 had all 13 Actions PASS, including XY-C1 44608598285 and AI docs 44608598296. New exact-head OpenVPN, VPN lifecycle, AI docs and XY-C1 runs remain pending until checked.
+- No physical-router or VPN client import result is claimed.
+
+---
+
 ## 2026-11-19 — Propagate create_file close failures and satisfy exact handoff contract
 
 - Exact-head DNSMasq lifecycle regression `44606578028`, HTTPD security `44606578001`, WAN DHCP `44606577590`, Process lifecycle inventory `44606578189`, WAN route `44606578101`, Inadyn `44606577502`, Samba `44606577607`, miniupnpd `44606578008` and Process inventory `44606578137` passed on `b1835ef0936517df7a39ef06dc242168251dd4fe`. XY-C1 `44606578070` and NVRAM `44606578018` were still running.

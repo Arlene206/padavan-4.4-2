@@ -5,42 +5,47 @@
 Continue main-only implementation across conversations. Recover the exact live source and CI state once, then resume the concrete engineering task. Use one atomic main commit per logical task. Do not repeat completed audits, create status-only commits, or stop at planning. Before context exhaustion, complete the safe slice and preserve its exact source/CI boundary.
 
 - One atomic main commit per logical task: create all blobs, one complete tree and one commit with the current main parent, then update main using a non-forced compare-and-swap with that exact SHA.
-- Verify push-triggered Actions by exact `head_sha`; a pending run does not block independent work, while a failed relevant run must be triaged before the slice is called validated.
+- Verify push-triggered Actions by exact head_sha; a pending run does not block independent work, while a failed relevant run must be triaged before the slice is called validated.
 - Preserve security, architecture, compatibility, existing test coverage, lifecycle identity checks, bounded waits and fail-closed UNKNOWN handling.
-- The frozen backup `backup/pre-plugin-overhaul-2026-11-14` is archival only and must never be modified or deleted. Development stays on main.
+- The frozen backup branch backup/pre-plugin-overhaul-2026-11-14 is archival only and must never be modified or deleted. Development stays on main.
 
 ## Current repository state
 
-- Main parent when this slice began: `dec2079fcbf9d45731dff1ce03b2765a23bd3a31` (`test(wan): align teardown contracts with status aggregation`).
-- Exact-head detect-internet `44603838266`, WAN route `44603838310`, and AI handoff docs `44603838305` all PASS on `dec2079fcbf9d45731dff1ce03b2765a23bd3a31`; the earlier monitor-pause checker failures are closed.
-- Product-source SHA `2e61e6b4608d30127692f5d26e939bbce92f52fc` passed XY-C1 build, TRX verification and artifact upload `44600896324`. SkipDBv2 `44600896667` and NVRAM audit `44600896559` also passed on that exact SHA. The intervening `2cdd33f` and `dec2079` commits were checker/documentation changes; this new services_ex.c source slice requires a fresh exact-head XY-C1 run.
-- Backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; frozen. PR #1 remains closed and unmerged.
-- No local checkout or MIPS toolchain is available through the current GitHub connector workflow. Physical-router/runtime L4 remains NOT VERIFIED.
+- Parent main SHA for this work sequence: 4148ac7315d4835b9818c555956d99b195bf4947 (fix(rc): propagate file creation close failures). This handoff is committed in the new main tree; resolve live main before another write.
+- All 13 exact-head Actions on 4148ac7315d4835b9818c555956d99b195bf4947 passed: DNSMasq 44608598453, process inventory/fail-closed 44608598436, HTTPD security 44608598480, XY-C1 firmware validation 44608598285, watchdog 44608598200, Crond 44608598209, AI handoff docs 44608598296, WAN route 44608598328, process lifecycle inventory 44608598245, WAN DHCP 44608598304, firewall startup 44608598224, USB hotplug 44608598233, NVRAM audit 44608598264.
+- Backup remains at 72f4f157a084f8184b9597ca5bf334b8080e5807 and frozen. PR #1 remains closed and unmerged.
+- No local MIPS toolchain or physical router is available. Host GNU89/ASan/UBSan policy tests are L2 only; XY-C1 Actions are L3; physical-device behavior is L4 NOT VERIFIED.
 
-## Closed recent task — WAN monitor-pause teardown status contracts
+## Closed recent task — DHCP teardown monitor-pause status
 
-- Production commit `a7eae5a115dae74685e9130ff6d339b8202e5725` captures and accumulates monitor-pause errors during MAN/WAN DHCP teardown while still completing cleanup.
-- Checker correction `dec2079fcbf9d45731dff1ce03b2765a23bd3a31` updates detect-internet and WAN route contracts. Exact detect-internet, WAN route and AI docs Actions listed above PASS. Do not repeat this slice.
+- Production commit a7eae5a115dae74685e9130ff6d339b8202e5725 captures and aggregates monitor-pause errors during MAN/WAN DHCP teardown while completing cleanup.
+- Checker correction dec2079fcbf9d45731dff1ce03b2765a23bd3a31 updated stale detect-internet and WAN route contracts. Do not revisit this closed slice.
 
-## Active task — fail closed when DNSMasq cannot prepare its resolver file
+## Closed recent task — DNSMasq resolver file and shared create_file status
 
-- Parent main SHA: `dec2079fcbf9d45731dff1ce03b2765a23bd3a31`.
-- In `prepare_dns_dhcpd()`, router mode previously ignored the nonzero return from `create_file(DNS_RESOLV_CONF)` even though the generated configuration points DNSMasq at that resolver file. If the file could not be created, startup could still publish the config and report a running DNSMasq process with no usable resolver input.
-- This slice normalizes the create status with the original errno (or EIO fallback), aborts preparation before config publication/daemon launch on failure, and adds a GNU89 ASan/UBSan policy regression plus source-order assertions. AP mode is unchanged.
-- The DNSMasq regression and XY-C1 firmware Build/TRX/artifact checks must be inspected by exact head SHA after push. Host policy success is L2 only; XY-C1 Build/TRX/artifact is L3; physical router behavior remains L4 NOT VERIFIED.
+- Commit b1835ef0936517df7a39ef06dc242168251dd4fe makes router-mode DNSMasq preparation fail closed if its configured resolver input cannot be created, preserving errno or falling back to EIO. AP mode is unchanged.
+- Commit 4148ac7315d4835b9818c555956d99b195bf4947 fixes shared create_file() to report both open and close errors. GNU89/Werror and ASan/UBSan policy tests cover the outcomes. The exact-head DNSMasq regression and broad Actions set above passed.
+- Do not repeat these source audits or fixes.
+
+## Active security slice — private, atomic OpenVPN client export
+
+- Parent main SHA: 4148ac7315d4835b9818c555956d99b195bf4947.
+- ovpn_server_expcli_main() previously wrote embedded client private-key material to predictable /tmp/client.ovpn using fopen("w+"), ignored fclose() and chmod(0600) results, and returned success even if certificate/key generation or PEM file reads failed. A pre-existing symlink could be followed and default file permissions could expose credentials.
+- The change uses openvpn_config_file_open/publish for owner-only staging, fsync/checked close, atomic rename and final mode 0600. Export key reads use O_NOFOLLOW/O_NONBLOCK/O_CLOEXEC, regular-file owner/link validation, restrictive mode for embedded secrets, PEM BEGIN/END checks and read/close status. Certificate and TLS-Crypt-v2 key generation are checked. The generated working directory is a unique mkdtemp() 0700 directory; cleanup is checked. The post-publication unix2dos/chmod path is removed because OpenVPN accepts LF.
+- Existing openvpn-client-secret Actions run the expanded source contract checker and the atomic config-file mode/symlink/failure regression. VPN server lifecycle and XY-C1 workflows also run for vpn_openvpn.c changes. Inspect exact-head results after the new commit.
 
 ## Exact first action for the next GPT
 
-1. Inspect the exact-head DNSMasq lifecycle regression, AI handoff docs and XY-C1 Actions for the current main SHA. Do not call this slice verified until the relevant jobs finish.
-2. Fix any failing source-contract/test issue without weakening the resolver-file failure gate or the existing DNSMasq transaction and process-postcondition checks.
-3. After this slice is validated, continue the P1 RC service-start result-propagation queue with a separate source defect; do not revisit the closed WAN monitor-pause or Infosvr slices.
+1. Resolve live main and inspect exact-head openvpn-client-secret, VPN server lifecycle stability, AI handoff documentation contract and XY-C1 Firmware Validation runs. Do not call the OpenVPN export slice validated until these exact-SHA runs finish.
+2. For any failed check/build, retrieve that run's logs and fix the real issue without weakening private staging, no-follow key reads, generated-key validation, mode 0600 or cleanup ordering.
+3. Then continue the next independently evidenced P1 reliability/security issue across Padavan userland. Do not reopen the closed DHCP, DNSMasq or create_file fixes.
 
 ## Verification boundary
 
-- L1: DNSMasq router-mode preparation now refuses to publish/start when its configured resolver input cannot be created; the shared `create_file()` helper also reports open and close failures instead of swallowing close errors.
-- L2: DNSMasq lifecycle run `44606578028` passed on exact parent `b1835ef0936517df7a39ef06dc242168251dd4fe`. The follow-up helper regression and corrected AI docs contracts require exact-head reruns on the next commit.
-- L3: XY-C1 run `44606578070` was IN_PROGRESS on `b1835ef0936517df7a39ef06dc242168251dd4fe` at last inspection; verify it and the new exact-head run. No local MIPS build result claimed.
-- L4: live router resolver failure/recovery and physical-device behavior remain NOT VERIFIED.
+- L1: a concrete OpenVPN private-key exposure and unchecked-generation path was identified and addressed in ovpn_server_expcli_main().
+- L2: exact-head OpenVPN export source contract and existing atomic config publication regression are required on the new commit; no new host/board result is claimed before Actions.
+- L3: XY-C1 run 44608598285 passed on parent 4148ac7315d4835b9818c555956d99b195bf4947; the new source commit requires fresh exact-head build verification.
+- L4: physical OpenVPN export permissions and imported client connection remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 
@@ -51,6 +56,6 @@ Every session must perform an end-of-session accuracy checkpoint before context 
 ## Development invariants
 
 - Main-only; never modify the frozen backup or resume PR #1.
-- One complete Git tree and one atomic commit per logical task; use `force=false` with the exact parent `expected_sha`.
+- One complete Git tree and one atomic commit per logical task; use force=false with the exact parent expected_sha.
 - Never force-push, rewrite history, publish partial commits, or weaken regression coverage.
 - Report exact SHA Actions and separate L1/L2/L3/L4. Host success is not firmware/hardware success.
