@@ -861,8 +861,9 @@ assert "storage_hotplug_parse_decimal_token(dev_name, 1, INT_MAX" in usb_remove
 assert "if (!has_modem_port || !get_usb_modem_dev_wan(0, modem_devnum))" in usb_remove
 assert "modem_remove_status = safe_remove_usb_modem();" in usb_remove
 assert "if (modem_remove_status != 0)" in usb_remove
-assert usb_remove.index("if (modem_remove_status != 0)") < usb_remove.index("return -1;")
-assert usb_remove.index("return -1;") < usb_remove.index("try_wan_reconnect(0, 0)")
+modem_failure_gate = usb_remove.index("if (modem_remove_status != 0)")
+modem_failure_return = usb_remove.index("return -1;", modem_failure_gate)
+assert modem_failure_gate < modem_failure_return < usb_remove.index("try_wan_reconnect(0, 0)")
 assert "return safe_remove_stor_device(port, port, dev_name, 1);" in usb_remove
 assert "return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, NULL, 1);" in usb_remove
 assert "skipping WAN reconnect after incomplete USB modem removal" in usb_remove
