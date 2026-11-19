@@ -98,6 +98,9 @@ services = read("trunk/user/rc/src/services.c")
 services_usb = read("trunk/user/rc/src/services_usb.c")
 usb_name_policy = read("trunk/user/rc/src/storage_hotplug_name_policy.h")
 usb_name_policy_test = read("trunk/user/rc/src/tests/storage_hotplug_name_policy.c")
+hotplug_stor = read("trunk/user/rc/src/hotplug_stor.c")
+notify_policy = read("trunk/user/rc/src/storage_hotplug_notify_policy.h")
+notify_policy_test = read("trunk/user/rc/src/tests/storage_hotplug_notify_policy.c")
 net = read("trunk/user/rc/src/net.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
@@ -1234,5 +1237,50 @@ for path in ("trunk/user/rc/src/storage_nfs_export_policy.h",
              "trunk/user/rc/src/tests/storage_nfs_export_policy.c"):
     require(workflow.count('"' + path + '"') == 2,
             "storage push/PR filters must include " + path)
+
+
+# SD/MMC hotplug handlers must not acknowledge work that PID 1 never queued.
+notify_helper = body(hotplug_stor, "static int\\nqueue_storage_hotplug_notification(")
+require("notify_rc_status(event_name)" in notify_helper and
+        "return status;" in notify_helper and
+        "errno = saved_errno;" in notify_helper and
+        "cannot queue %s notification" in notify_helper,
+        "mass-storage notifications must use the checked PID-1 queue API and preserve the failure")
+require("notify_rc(" not in hotplug_stor,
+        "mass-storage handlers must not discard notification status through the legacy void API")
+for signature in ("mdev_sd_main(int argc, char **argv)",
+                  "mdev_mmc_main(int argc, char **argv)"):
+    handler = body(hotplug_stor, signature)
+    require("int notification_status = 0;" in handler and
+            "storage_hotplug_completion_status(" in handler,
+            "mdev return status must include PID-1 notification failures: " + signature)
+    require(handler.count("queue_storage_hotplug_notification(device_name,") == 2 and
+            "notify_rc(" not in handler,
+            "both add/remove transitions must use checked notification in " + signature)
+    removal = handler.split("if (!get_hotplug_action(action))", 1)[1].split(
+        "goto out_unlock;", 1
+    )[0]
+    require("report_device_swapoff(device_name)" in removal and
+            removal.index("report_device_swapoff(device_name)") <
+            removal.index('queue_storage_hotplug_notification(device_name, "on_unplug_mass_storage")'),
+            "whole-device removal must attempt its PID-1 event after swapoff processing")
+    mount_success = handler.split("if (mount_status == 0)", 1)[1].split("else", 1)[0]
+    require('queue_storage_hotplug_notification(device_name, "on_hotplug_mass_storage")' in mount_success,
+            "successful automount must queue the add event before returning success")
+require("storage_hotplug_completion_status(0, -EIO) == 1" in notify_policy_test and
+        "storage_hotplug_completion_status(0, -EACCES) == 1" in notify_policy_test and
+        "storage_hotplug_completion_status(0, 0) == 0" in notify_policy_test,
+        "GNU89 regression must cover queued success and notification failures")
+require("static inline int\\nstorage_hotplug_completion_status(" in notify_policy,
+        "mdev notification completion policy is missing")
+for path in ("trunk/user/rc/src/storage_hotplug_notify_policy.h",
+             "trunk/user/rc/src/tests/storage_hotplug_notify_policy.c"):
+    require(workflow.count('"' + path + '"') == 2,
+            "storage push/PR filters must include " + path)
+    require(path in xy_workflow,
+            "XY-C1 firmware validation must watch notification dependency " + path)
+require("Compile and run storage hotplug notification failure regression" in workflow and
+        "storage_hotplug_notify_policy.c" in workflow,
+        "storage workflow must execute the notification regression")
 
 print("Storage eject inventory, mount-link errno, failure propagation and persistence gates: PASS")

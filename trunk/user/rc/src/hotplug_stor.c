@@ -34,6 +34,26 @@
 #include "storage_operation_lock.h"
 #include "storage_partition_probe.h"
 #include "storage_hotplug_name_policy.h"
+#include "storage_hotplug_notify_policy.h"
+
+static int
+queue_storage_hotplug_notification(const char *device_name, const char *event_name)
+{
+	int status, saved_errno;
+
+	errno = 0;
+	status = notify_rc_status(event_name);
+	if (status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("Storage", "cannot queue %s notification for %s (status %d, errno %d)",
+			   event_name, device_name ? device_name : "(unknown)",
+			   status, saved_errno);
+		errno = saved_errno;
+	}
+
+	return status;
+}
+
 
 static int
 report_device_swapoff(const char *device_name)
@@ -78,6 +98,7 @@ mdev_sd_main(int argc, char **argv)
 	int isLock, storage_lock;
 	int swapoff_status = 0;
 	int mount_status = 0;
+	int notification_status = 0;
 	int root_partition_status = 0;
 	int topology_status = 0;
 	int share_name_status;
@@ -113,7 +134,7 @@ mdev_sd_main(int argc, char **argv)
 		len = strlen(device_name);
 		if (len > 2 && device_name[0] == 's' && device_name[1] == 'd' &&
 		    (device_name[len - 1] < '0' || device_name[len - 1] > '9'))
-			notify_rc("on_unplug_mass_storage");
+			notification_status = queue_storage_hotplug_notification(device_name, "on_unplug_mass_storage");
 		
 		goto out_unlock;
 	}
@@ -169,7 +190,7 @@ mdev_sd_main(int argc, char **argv)
 		char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };
 		mount_status = _eval(mount_argv, NULL, 0, NULL);
 		if (mount_status == 0)
-			notify_rc("on_hotplug_mass_storage");
+			notification_status = queue_storage_hotplug_notification(device_name, "on_hotplug_mass_storage");
 		else
 			logmessage("Storage", "automount helper failed for %s (status %d)",
 				   device_name, mount_status);
@@ -179,7 +200,9 @@ out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return (swapoff_status == 0 && tune_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;
+	return storage_hotplug_completion_status(
+		(swapoff_status != 0 || tune_status != 0 || mount_status != 0 || topology_status != 0),
+		notification_status);
 }
 #endif
 
@@ -190,6 +213,7 @@ mdev_mmc_main(int argc, char **argv)
 	int isLock, storage_lock;
 	int swapoff_status = 0;
 	int mount_status = 0;
+	int notification_status = 0;
 	int root_partition_status = 0;
 	int topology_status = 0;
 	int share_name_status;
@@ -226,7 +250,7 @@ mdev_mmc_main(int argc, char **argv)
 		swapoff_status = report_device_swapoff(device_name);
 		if (strncmp(device_name, "mmcblk", 6) == 0 &&
 		    !strchr(device_name + 6, 'p'))
-			notify_rc("on_unplug_mass_storage");
+			notification_status = queue_storage_hotplug_notification(device_name, "on_unplug_mass_storage");
 		
 		goto out_unlock;
 	}
@@ -282,7 +306,7 @@ mdev_mmc_main(int argc, char **argv)
 		char *mount_argv[] = { "/sbin/automount.sh", device_name, share_name, NULL };
 		mount_status = _eval(mount_argv, NULL, 0, NULL);
 		if (mount_status == 0)
-			notify_rc("on_hotplug_mass_storage");
+			notification_status = queue_storage_hotplug_notification(device_name, "on_hotplug_mass_storage");
 		else
 			logmessage("Storage", "automount helper failed for %s (status %d)",
 				   device_name, mount_status);
@@ -292,6 +316,8 @@ out_unlock:
 	file_unlock(storage_lock);
 	file_unlock(isLock);
 
-	return (swapoff_status == 0 && mount_status == 0 && topology_status == 0) ? 0 : 1;
+	return storage_hotplug_completion_status(
+		(swapoff_status != 0 || mount_status != 0 || topology_status != 0),
+		notification_status);
 }
 #endif

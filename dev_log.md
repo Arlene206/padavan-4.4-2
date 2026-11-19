@@ -1,3 +1,11 @@
+## 2026-11-19 — Propagate SD/MMC mass-storage notification queue failures
+
+- `mdev_sd_main()` and `mdev_mmc_main()` used legacy void `notify_rc()` for whole-device unplug and successful automount. The shared notifier can fail to create secure PID 1 queue markers, but mdev discarded that failure and could return success while storage cleanup/startup was never scheduled.
+- Replaced both SD/MMC add/remove calls with checked `notify_rc_status()`, log and preserve queue errno, and include notification status in applet completion. Existing ordering remains: process swapoff before unplug notification and queue mount notification only after successful automount.
+- Added a GNU89/Werror/ASan/UBSan completion-policy regression and semantic checks for both applet paths, workflow invocation, and XY-C1 tracking. Local policy binary PASS. Exact-head storage Actions and XY-C1 Build/TRX/artifact pending; no physical-router L4 result claimed.
+
+---
+
 ## 2026-11-19 — Tighten APCLI call-count contract without rejecting the captured result
 
 - Parent main SHA: `ccf419d1dcff6aff70080d37c90be707dec9fe88`. Exact WAN route run `44625039862` PASS validates the ordinary PPP demand path now uses `restore_wan_after_firewall_failure()`; AI docs `44625039727` PASS. Wireless `44625039991` and Process `44625039798` passed the APCLI helper and two-band accumulator assertions, then failed because the checker's `... not in restart` test also matched the intended `int wan_status = check_apcli_wan(...);` declaration.
