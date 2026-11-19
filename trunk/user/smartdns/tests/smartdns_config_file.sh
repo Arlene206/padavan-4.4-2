@@ -54,4 +54,31 @@ mkdir "$T/directory-target"
 if smartdns_config_publish_deduplicated "$SRC" "$T/directory-target"; then fail "directory destination accepted"; fi
 if smartdns_config_publish_deduplicated "$T/missing-source" "$DST"; then fail "missing source accepted"; fi
 pass "symlink, special-file and missing-source targets fail closed"
+
+printf 'base-config\\n' > "$DST"
+printf '#comment\\n\\nplain-rule\\n  \\n' > "$T/extra.conf"
+smartdns_config_append_filtered "$T/extra.conf" "$DST" || fail "optional config append failed"
+[ "$(cat "$DST")" = "$(printf 'base-config\\nplain-rule\\n  ')" ] || fail "filtered append content mismatch"
+smartdns_config_append_filtered "$T/missing.conf" "$DST" || fail "missing optional config was not ignored"
+pass "optional config append filters comments and empty lines"
+
+cp "$DST" "$T/live-before-append-error"
+if smartdns_config_append_filtered "$T" "$DST"; then fail "directory source was accepted"; fi
+cmp -s "$DST" "$T/live-before-append-error" || fail "invalid source changed destination"
+mkdir "$T/append-bin"
+cat > "$T/append-bin/awk" <<'AWK_APPEND_FAIL'
+#!/bin/sh
+printf 'partial-rule\\n'
+exit 43
+AWK_APPEND_FAIL
+chmod 0700 "$T/append-bin/awk"
+old_path=$PATH
+PATH="$T/append-bin:$PATH"
+export PATH
+if smartdns_config_append_filtered "$T/extra.conf" "$DST"; then fail "append AWK failure was ignored"; else status=$?; fi
+PATH=$old_path
+export PATH
+[ "$status" -eq 43 ] || fail "append AWK failure status not propagated"
+cmp -s "$DST" "$T/live-before-append-error" || fail "failed append changed the active config"
+pass "append generator failure is propagated before publication"
 echo "SmartDNS atomic configuration publication regression: PASS"

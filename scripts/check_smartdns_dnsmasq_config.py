@@ -156,10 +156,17 @@ assert 'smartdns_config_publish_deduplicated "$smartdns_tmp_Conf" "$smartdns_Con
 assert 'awk \'!x[$0]++\' "$smartdns_tmp_Conf" > "$smartdns_Conf"' not in start
 assert "smartdns_start_config_rollback" in start
 assert '$(INSTALL_BIN) ./smartdns_config_file.sh $(ROMFSDIR)/usr/bin/smartdns_config_file.sh' in makefile
-for token in ("generator failure preserves last-good config",
+config_append = body(config_file, "smartdns_config_append_filtered")
+assert 'awk \'$0 !~ /^#/ && $0 != "" { print }\'' in config_append
+assert 'smartdns_config_append_filtered "$smartdns_source_conf" "$smartdns_tmp_Conf"' in start
+assert 'SmartDNS 自定义配置读取失败' in start
+assert 'grep -v \'^#\' "$smartdns_address_Conf"' not in start
+for token in ("optional config append filters comments and empty lines",
+              "append generator failure is propagated before publication",
+              "generator failure preserves last-good config",
               "rename failure preserves last-good config",
               "symlink, special-file and missing-source targets fail closed",
-              "SmartDNS atomic configuration publication regression: PASS"):
+              "SmartDNS atomic configuration publication regression: PASS")::
     assert token in config_file_test, token
 rollback = body(smartdns, "smartdns_start_config_rollback")
 assert "nvram set sdns_enable=0" in rollback

@@ -785,10 +785,16 @@ Start_smartdns () {
         smartdns_start_config_rollback "$smartdns_config_status"
         return $?
     fi
-    grep -v '^#' "$smartdns_address_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
-    grep -v '^#' "$smartdns_blacklist_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
-    grep -v '^#' "$smartdns_whitelist_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
-    grep -v '^#' "$smartdns_custom_Conf" | grep -v "^$" >> "$smartdns_tmp_Conf"
+    for smartdns_source_conf in "$smartdns_address_Conf" "$smartdns_blacklist_Conf" "$smartdns_whitelist_Conf" "$smartdns_custom_Conf"; do
+        if smartdns_config_append_filtered "$smartdns_source_conf" "$smartdns_tmp_Conf"; then
+            :
+        else
+            smartdns_config_status=$?
+            logger -t "SmartDNS" "SmartDNS 自定义配置读取失败 (file=$smartdns_source_conf, status=$smartdns_config_status)"
+            smartdns_start_config_rollback "$smartdns_config_status"
+            return $?
+        fi
+    done
     if sed -i '/my.router/d' "$smartdns_tmp_Conf"; then
         :
     else

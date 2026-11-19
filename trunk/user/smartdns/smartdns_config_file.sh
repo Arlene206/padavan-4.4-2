@@ -55,3 +55,23 @@ smartdns_config_publish_deduplicated()
 		return "$_smartdns_status"
 	fi
 }
+
+# Append non-comment, non-empty lines from an optional user config file.
+# Missing files are intentionally treated as empty, matching legacy behavior.
+smartdns_config_append_filtered()
+{
+	[ "$#" -eq 2 ] || return 2
+	_smartdns_append_source=$1
+	_smartdns_append_destination=$2
+	[ -n "$_smartdns_append_source" ] && [ -n "$_smartdns_append_destination" ] || return 2
+
+	if [ ! -e "$_smartdns_append_source" ] && [ ! -L "$_smartdns_append_source" ]; then
+		return 0
+	fi
+	[ -f "$_smartdns_append_source" ] && [ -r "$_smartdns_append_source" ] || return 1
+	[ -f "$_smartdns_append_destination" ] &&
+		[ ! -L "$_smartdns_append_destination" ] &&
+		[ -w "$_smartdns_append_destination" ] || return 1
+
+	awk '$0 !~ /^#/ && $0 != "" { print }' "$_smartdns_append_source" >> "$_smartdns_append_destination"
+}
