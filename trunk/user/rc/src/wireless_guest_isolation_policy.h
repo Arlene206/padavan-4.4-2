@@ -39,6 +39,40 @@ wireless_guest_isolation_status_result(const wireless_guest_isolation_status_t *
 }
 
 /*
+ * is_module_loaded_status() uses 1/0/-errno for loaded/absent/unknown.
+ * A module requested by an enabled isolation policy must be confirmed loaded.
+ */
+static inline int
+wireless_guest_isolation_module_presence_error(int module_status)
+{
+	if (module_status > 0)
+		return 0;
+	if (module_status == 0)
+		return ENODEV;
+	return -module_status;
+}
+
+enum {
+	WIRELESS_GUEST_EBTABLES_DISABLE_NONE = 0,
+	WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_ONLY = 1,
+	WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_AND_UNLOAD = 2
+};
+
+/*
+ * Unknown module state still permits a best-effort rules cleanup, but never
+ * permits unloading modules whose presence and ownership are unverified.
+ */
+static inline int
+wireless_guest_isolation_ebtables_disable_action(int module_status)
+{
+	if (module_status > 0)
+		return WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_AND_UNLOAD;
+	if (module_status == 0)
+		return WIRELESS_GUEST_EBTABLES_DISABLE_NONE;
+	return WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_ONLY;
+}
+
+/*
  * get_interface_flags() returns -1 when the kernel cannot report link flags.
  * Do not silently interpret that state as "interface down".
  */

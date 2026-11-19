@@ -201,10 +201,34 @@ test_null_status_is_fail_safe(void)
 	assert(wireless_guest_isolation_control_result(1, NULL) == -EIO);
 }
 
+static void
+test_ebtables_enable_requires_confirmed_module_presence(void)
+{
+	assert(wireless_guest_isolation_module_presence_error(1) == 0);
+	assert(wireless_guest_isolation_module_presence_error(0) == ENODEV);
+	assert(wireless_guest_isolation_module_presence_error(-EACCES) == EACCES);
+	assert(wireless_guest_isolation_module_presence_error(-EIO) == EIO);
+}
+
+static void
+test_ebtables_disable_preserves_unknown_module_state(void)
+{
+	assert(wireless_guest_isolation_ebtables_disable_action(1) ==
+	       WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_AND_UNLOAD);
+	assert(wireless_guest_isolation_ebtables_disable_action(0) ==
+	       WIRELESS_GUEST_EBTABLES_DISABLE_NONE);
+	assert(wireless_guest_isolation_ebtables_disable_action(-EACCES) ==
+	       WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_ONLY);
+	assert(wireless_guest_isolation_ebtables_disable_action(-EIO) ==
+	       WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_ONLY);
+}
+
 int
 main(void)
 {
 	test_empty_and_success_status();
+	test_ebtables_enable_requires_confirmed_module_presence();
+	test_ebtables_disable_preserves_unknown_module_state();
 	test_first_failure_and_independent_later_operations();
 	test_positive_system_wait_status_is_a_failure();
 	test_later_failures_do_not_replace_first_error();

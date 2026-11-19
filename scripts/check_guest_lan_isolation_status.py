@@ -82,6 +82,33 @@ for token in (
 ):
     assert token in isolation_body, token
 assert "if (cleanup_status == 0)" in isolation_body
+assert 'is_module_loaded("ebtables")' not in isolation_body
+assert '(void)module_smart_load("ebtable_filter", NULL);' in isolation_body
+enable_load_pos = isolation_body.index('(void)module_smart_load("ebtable_filter", NULL);')
+enable_probe_pos = isolation_body.index('ebtables_module_status = is_module_loaded_status("ebtable_filter");')
+enable_error_pos = isolation_body.index("wireless_guest_isolation_module_presence_error(ebtables_module_status)", enable_probe_pos)
+enable_record_pos = isolation_body.index('"load ebtables filter module"', enable_error_pos)
+enable_guard_pos = isolation_body.index("if (ebtables_module_error != 0)", enable_record_pos)
+enable_else_pos = isolation_body.index("} else {", enable_guard_pos)
+enable_flush_pos = isolation_body.index('doSystem("ebtables %s", "-F")', enable_else_pos)
+assert enable_load_pos < enable_probe_pos < enable_error_pos < enable_record_pos < enable_guard_pos < enable_else_pos < enable_flush_pos
+
+disable_probe_pos = isolation_body.index('ebtables_module_status = is_module_loaded_status("ebtables");')
+disable_action_pos = isolation_body.index("wireless_guest_isolation_ebtables_disable_action(ebtables_module_status)", disable_probe_pos)
+disable_guard_pos = isolation_body.index("if (ebtables_disable_action != WIRELESS_GUEST_EBTABLES_DISABLE_NONE)", disable_action_pos)
+disable_flush_pos = isolation_body.index('doSystem("ebtables %s", "-F")', disable_guard_pos)
+disable_cleanup_pos = isolation_body.index("if (cleanup_status == 0)", disable_flush_pos)
+unload_gate_pos = isolation_body.index(
+    "if (ebtables_disable_action == WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_AND_UNLOAD)",
+    disable_cleanup_pos)
+assert disable_probe_pos < disable_action_pos < disable_guard_pos < disable_flush_pos < disable_cleanup_pos < unload_gate_pos
+assert "WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_ONLY" in isolation_body
+assert "inspect ebtables module state before cleanup" in isolation_body
+assert "retaining ebtables modules because their loaded state is unknown" in isolation_body
+assert "test_ebtables_enable_requires_confirmed_module_presence" in regression
+assert "test_ebtables_disable_preserves_unknown_module_state" in regression
+assert "wireless_guest_isolation_module_presence_error" in policy
+assert "wireless_guest_isolation_ebtables_disable_action" in policy
 assert "return wireless_guest_isolation_status_result(&status);" in isolation_body
 assert isolation_body.count("wireless_guest_interface_state_checked(") == 3
 assert "is_interface_up(" not in isolation_body

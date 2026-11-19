@@ -1,3 +1,12 @@
+## 2026-11-19 — Preserve guest ebtables state when module probes are unknown
+
+- Selected a separate Wireless stability defect after the iNIC force-disable fix. `is_module_loaded()` converts the tri-state module probe's UNKNOWN/error result to false, so guest-isolation disable could skip stale ebtables cleanup yet return success. The enable path also trusted `module_smart_load()` even though its zero return means either already-loaded or load failure.
+- Guest-isolation enable now probes `ebtable_filter` after the load attempt and refuses to flush/install rules unless the module is confirmed present. Disable maps module state to three explicit actions: loaded = cleanup then unload; absent = no-op; unknown = record the probe error and attempt `-F`/`-X` cleanup without unloading modules.
+- Added GNU89 unit coverage for loaded/absent/negative-errno enable states and all three disable actions. Extended the production source checker to pin tri-state probe, error-recording, cleanup, and unload ordering. Exact-head Wireless/AI docs and XY-C1 validation are pending; no local compile or physical-router result is claimed.
+- Preceding iNIC force-disable exact-head Wireless radio run `44574370283` and AI docs run `44574368349` passed; Process lifecycle regression `44573883051` and NVRAM transaction audit `44573883023` passed. XY-C1 `44573883318` was still in progress on iNIC product-source SHA `3d86aebbef26086a4383489efc4470e35e91b9df` at the last poll.
+
+---
+
 ## 2026-11-19 — Correct iNIC disable source-contract matcher
 
 - Exact-head Wireless Action `44573883138` for source commit `3d86aebbef26086a4383489efc4470e35e91b9df` passed the GNU89 `-Wall -Wextra -Werror` policy regression, bridge policy regression, and guest isolation policy regression. Its Python production-source contract then failed because the newly added expected multiline call literal was over-escaped and therefore did not match the actual C statement.

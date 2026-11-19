@@ -1944,6 +1944,7 @@ restart_guest_lan_isolation(void)
 	int cleanup_status = 0;
 	int operation_status;
 	int state_status;
+	int ebtables_module_status, ebtables_module_error, ebtables_disable_action;
 	int interface_is_up = 0;
 	const char *rt_ifname_guest = IFNAME_2G_GUEST;
 	wireless_guest_isolation_status_t status;
@@ -2002,36 +2003,71 @@ restart_guest_lan_isolation(void)
 	if (is_ap_mode) {
 		if (is_need_ebtables) {
 			int i_need_dhcp = is_dhcpd_enabled(1);
-			operation_status = module_smart_load("ebtable_filter", NULL);
-			wireless_guest_isolation_record(&status, "load ebtables filter module", operation_status);
-			operation_status = doSystem("ebtables %s", "-F");
-			wireless_guest_isolation_record(&status, "flush ebtables rules before guest isolation", operation_status);
-			operation_status = doSystem("ebtables %s", "-X");
-			wireless_guest_isolation_record(&status, "delete ebtables user chains before guest isolation", operation_status);
-#if BOARD_HAS_5G_RADIO
-			if (is_need_ebtables & 0x10)
-				ebtables_filter_guest_ap(wl_ifname_guest, 1, i_need_dhcp, &status);
-#endif
-			if (is_need_ebtables & 0x01)
-				ebtables_filter_guest_ap(rt_ifname_guest, 0, i_need_dhcp, &status);
-		} else if (is_module_loaded("ebtables")) {
-			operation_status = doSystem("ebtables %s", "-F");
-			wireless_guest_isolation_record(&status, "flush ebtables rules while disabling guest isolation", operation_status);
-			cleanup_status = operation_status;
-			operation_status = doSystem("ebtables %s", "-X");
-			wireless_guest_isolation_record(&status, "delete ebtables user chains while disabling guest isolation", operation_status);
-			cleanup_status = cleanup_status != 0 ? cleanup_status : operation_status;
-			if (cleanup_status == 0) {
-				operation_status = module_smart_unload("ebt_ip", 0);
-				wireless_guest_isolation_record(&status, "unload ebt_ip after clearing guest isolation", operation_status);
-				operation_status = module_smart_unload("ebtable_filter", 0);
-				wireless_guest_isolation_record(&status, "unload ebtables filter after clearing guest isolation", operation_status);
-				operation_status = module_smart_unload("ebtables", 0);
-				wireless_guest_isolation_record(&status, "unload ebtables after clearing guest isolation", operation_status);
-			} else {
+
+			/*
+			 * module_smart_load() returns zero both when a module is already
+			 * present and when loading fails. Verify the postcondition before
+			 * flushing or publishing guest-isolation rules.
+			 */
+			(void)module_smart_load("ebtable_filter", NULL);
+			ebtables_module_status = is_module_loaded_status("ebtable_filter");
+			ebtables_module_error =
+				wireless_guest_isolation_module_presence_error(ebtables_module_status);
+			wireless_guest_isolation_record(&status, "load ebtables filter module",
+							ebtables_module_error);
+			if (ebtables_module_error != 0) {
 				logmessage(LOGNAME,
-					"retaining ebtables modules because rule cleanup was incomplete (status=%d)",
-					cleanup_status);
+					   "guest isolation rule setup aborted: ebtables filter module is not confirmed loaded (status=%d)",
+					   ebtables_module_error);
+			} else {
+				operation_status = doSystem("ebtables %s", "-F");
+				wireless_guest_isolation_record(&status, "flush ebtables rules before guest isolation", operation_status);
+				operation_status = doSystem("ebtables %s", "-X");
+				wireless_guest_isolation_record(&status, "delete ebtables user chains before guest isolation", operation_status);
+#if BOARD_HAS_5G_RADIO
+				if (is_need_ebtables & 0x10)
+					ebtables_filter_guest_ap(wl_ifname_guest, 1, i_need_dhcp, &status);
+#endif
+				if (is_need_ebtables & 0x01)
+					ebtables_filter_guest_ap(rt_ifname_guest, 0, i_need_dhcp, &status);
+			}
+		} else {
+			ebtables_module_status = is_module_loaded_status("ebtables");
+			ebtables_disable_action =
+				wireless_guest_isolation_ebtables_disable_action(ebtables_module_status);
+			if (ebtables_disable_action != WIRELESS_GUEST_EBTABLES_DISABLE_NONE) {
+				if (ebtables_disable_action == WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_ONLY) {
+					ebtables_module_error =
+						wireless_guest_isolation_module_presence_error(ebtables_module_status);
+					wireless_guest_isolation_record(&status,
+						"inspect ebtables module state before cleanup", ebtables_module_error);
+					logmessage(LOGNAME,
+						   "ebtables module state is unknown (status=%d); attempting rule cleanup without unloading modules",
+						   ebtables_module_error);
+				}
+				operation_status = doSystem("ebtables %s", "-F");
+				wireless_guest_isolation_record(&status, "flush ebtables rules while disabling guest isolation", operation_status);
+				cleanup_status = operation_status;
+				operation_status = doSystem("ebtables %s", "-X");
+				wireless_guest_isolation_record(&status, "delete ebtables user chains while disabling guest isolation", operation_status);
+				cleanup_status = cleanup_status != 0 ? cleanup_status : operation_status;
+				if (cleanup_status == 0) {
+					if (ebtables_disable_action == WIRELESS_GUEST_EBTABLES_DISABLE_CLEANUP_AND_UNLOAD) {
+						operation_status = module_smart_unload("ebt_ip", 0);
+						wireless_guest_isolation_record(&status, "unload ebt_ip after clearing guest isolation", operation_status);
+						operation_status = module_smart_unload("ebtable_filter", 0);
+						wireless_guest_isolation_record(&status, "unload ebtables filter after clearing guest isolation", operation_status);
+						operation_status = module_smart_unload("ebtables", 0);
+						wireless_guest_isolation_record(&status, "unload ebtables after clearing guest isolation", operation_status);
+					} else {
+						logmessage(LOGNAME,
+							   "retaining ebtables modules because their loaded state is unknown");
+					}
+				} else {
+					logmessage(LOGNAME,
+						   "retaining ebtables modules because rule cleanup was incomplete (status=%d)",
+						   cleanup_status);
+				}
 			}
 		}
 	}
