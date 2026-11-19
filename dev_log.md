@@ -1,3 +1,12 @@
+## 2026-11-19 — Align crond lifecycle contract with SCUT tri-state boot update
+
+- Exact-head Crond lifecycle run `44620322749` at source SHA `69430c238e26c0de0b9210a5d090512bb4570f50` passed its GNU89/Werror/ASan/UBSan C daemon policy test, then failed in `scripts/check_crond_lifecycle.py`: the checker still split `init_router()` at the removed `if (init_crontab())` callsite and raised IndexError.
+- The production change deliberately replaced the boolean-like caller with explicit status 0=unchanged, 1=appended, 2+=error. Updated the crond source contract to assert persistence gating, MTD-error aggregation before independent crond activation, crond restart error aggregation and the separate crontab failure branch. Production crond behavior and SCUT implementation are unchanged by this checker-only correction.
+- On `69430c...`, AI handoff docs `44620322445`, Process inventory `44620322214`, Firewall `44620322286`, vsftpd `44620322183`, PID-1 queue `44620322244`, ZeroTier `44620322876`, detect_internet `44620322573`, rstats `44620322742`, DNSMasq `44620322174`, detect_link `44620322410`, Wireless `44620322537`, NFS `44620322374` and iNIC `44620322401` PASS. XY-C1 `44620322487` and the Process umbrella were still pending at last query.
+- Re-run Crond and inspect exact-head Process + XY-C1 on the correction SHA. No physical-router L4 result claimed.
+
+---
+
 ## 2026-11-19 — Propagate SCUT crontab update failures into boot status
 
 - `check_crontab.sh` uses exit 1 for a successful new entry and 0 for an existing entry, but append failure silently fell through to exit 0 and grep I/O errors were treated as “not found”. `init_crontab()` ORed the raw encoded `system()` wait status; `init_router()` consequently treated every nonzero error as “changed”. It also logged but discarded MTD persistence failure.

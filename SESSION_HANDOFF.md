@@ -11,7 +11,10 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Parent main SHA for this source slice: `930dd7ed850ef59275cc340bc7c5a36bc7ebedc9`. Its tree is the base for this atomic change; resolve live main before another write.
+- Parent main SHA for this checker correction: `69430c238e26c0de0b9210a5d090512bb4570f50`; this correction changes the crond lifecycle source-contract assertion only.
+- Exact-head AI handoff documentation `44620322445` PASS; Process inventory `44620322214` PASS; Firewall `44620322286`, vsftpd `44620322183`, PID-1 queue `44620322244`, ZeroTier `44620322876`, detect_internet `44620322573`, rstats `44620322742`, DNSMasq `44620322174`, detect_link `44620322410`, Wireless radio `44620322537`, NFS `44620322374`, and iNIC `44620322401` PASS on `69430c...`.
+- Crond lifecycle `44620322749` FAILED after the GNU89/ASan/UBSan C regression passed because `check_crond_lifecycle.py` still expected the removed `if (init_crontab())` caller. This correction asserts tri-state crontab result, persistence gating, MTD error aggregation before crond restart, and separate cron-update error propagation. No production crond code was changed.
+- Process umbrella `44620322615` was queued and XY-C1 `44620322487` in progress at last query. Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - Exact-head AI handoff documentation run `44617795116` PASS on `930dd7ed850ef59275cc340bc7c5a36bc7ebedc9`; the preceding missing `## Active task` contract failure is closed.
 - OpenVPN credential staging run `44613650285` PASS on checker/docs descendant `f4fbd093e934fda5304aa796cba30d59eb29b3a4`; VPN server lifecycle `44613173654` PASS and XY-C1 Build/TRX/artifact `44613173721` PASS on the OpenVPN production source SHA `e01f70a766c4e628593e272192723f6add59ffca`.
 - The frozen backup branch was last confirmed at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged and remains legacy inventory only.
@@ -26,7 +29,7 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Exact first action for the next GPT
 
-1. Resolve live main and query Actions by exact `head_sha`. Inspect Process lifecycle regression, XY-C1 Build/TRX/artifact and AI handoff documentation contract for this source commit.
+1. Query live main and exact-head Actions for this checker correction. Ensure Crond lifecycle regression and AI handoff docs PASS; inspect new Process umbrella and XY-C1 Build/TRX/artifact conclusions on their exact SHA.
 2. Triage any failed job from its exact log. Do not weaken the 0/1/error contract or the fail-closed handling of grep/append/path failures. L3 remains pending until XY-C1 Build, TRX and artifact upload all pass on the same source SHA.
 3. Continue the P1 startup/teardown status-propagation queue after exact-head validation; do not repeat the already-closed OpenVPN, DNSMasq resolver, `create_file()` close-status, USB modem notifier, WAN monitor-pause, or reviewed `services_ex.c` call paths without new evidence.
 
