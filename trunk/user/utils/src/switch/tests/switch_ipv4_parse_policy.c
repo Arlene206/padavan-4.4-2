@@ -178,6 +178,36 @@ test_switch_command_numeric_boundaries(void)
 }
 
 static void
+test_decimal_range_parser(void)
+{
+    unsigned int value = 0x12345678U;
+
+    assert(switch_parse_decimal_range("0", 0U, 31U, &value) == 0 && value == 0U);
+    assert(switch_parse_decimal_range("00", 0U, 31U, &value) == 0 && value == 0U);
+    assert(switch_parse_decimal_range("031", 0U, 31U, &value) == 0 && value == 31U);
+    assert(switch_parse_decimal_range("00015", 0U, 4095U, &value) == 0 && value == 15U);
+    assert(switch_parse_decimal_range("4095", 0U, 0x7fffffffU, &value) == 0 &&
+           value == 4095U);
+    assert(switch_parse_decimal_range("2147483647", 0U, 0x7fffffffU, &value) == 0 &&
+           value == 0x7fffffffU);
+
+    value = 0x12345678U;
+    assert(switch_parse_decimal_range(NULL, 0U, 4095U, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_decimal_range("", 0U, 4095U, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_decimal_range("-1", 0U, 4095U, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_decimal_range("+1", 0U, 4095U, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_decimal_range("1junk", 0U, 4095U, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_decimal_range(" 1", 0U, 4095U, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_decimal_range("1 ", 0U, 4095U, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_decimal_range("4096", 0U, 4095U, &value) != 0 && value == 0x12345678U);
+    assert(switch_parse_decimal_range("2147483648", 0U, 0x7fffffffU, &value) != 0 &&
+           value == 0x12345678U);
+    assert(switch_parse_decimal_range("999999999999999999999999999999", 0U,
+                                      0x7fffffffU, &value) != 0 &&
+           value == 0x12345678U);
+}
+
+static void
 test_hex_range_parser(void)
 {
     unsigned int value = 0x12345678U;
@@ -233,7 +263,8 @@ main(void)
     test_uint_range_parser();
     test_table_portmap_parser();
     test_switch_command_numeric_boundaries();
+    test_decimal_range_parser();
     test_hex_range_parser();
-    puts("switch IPv4/MAC/numeric/port-map/hex parser policy: PASS");
+    puts("switch IPv4/MAC/numeric/port-map/decimal/hex parser policy: PASS");
 	return 0;
 }

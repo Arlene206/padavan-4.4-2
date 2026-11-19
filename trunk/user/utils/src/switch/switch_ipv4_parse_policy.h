@@ -155,6 +155,38 @@ switch_parse_uint_range(const char *text, unsigned int minimum,
     return 0;
 }
 
+/* Strict decimal parser; leading zeroes retain decimal CLI semantics. */ 
+static int
+switch_parse_decimal_range(const char *text, unsigned int minimum,
+                           unsigned int maximum, unsigned int *value)
+{
+    const unsigned char *p;
+    unsigned int digit, parsed = 0, digits = 0;
+
+    if (!text || !value || !*text || maximum < minimum ||
+        *text == '+' || *text == '-' || *text == ' ' || *text == '\t' ||
+        *text == '\n' || *text == '\r')
+        return -1;
+
+    p = (const unsigned char *)text;
+    while (*p) {
+        if (*p < '0' || *p > '9')
+            return -1;
+        digit = (unsigned int)(*p - '0');
+        if (digit > maximum || parsed > (maximum - digit) / 10U)
+            return -1;
+        parsed = parsed * 10U + digit;
+        ++digits;
+        ++p;
+    }
+
+    if (digits == 0U || parsed < minimum)
+        return -1;
+
+    *value = parsed;
+    return 0;
+}
+
 /* Strict hexadecimal parser with optional 0x prefix and bounded output. */
 static int
 switch_parse_hex_range(const char *text, unsigned int maximum,

@@ -300,6 +300,49 @@ jobs:
           assert "switch_parse_portmap(text, &portmap)" in source
           print("EtherType, L4 payload and source-port ACL inputs validate before MMIO writes: PASS")
           PY
+      - name: Validate PHY, VLAN dump and raw register numeric arguments
+        run: |
+          set -eu
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/utils/src/switch/switch_gsw.c").read_text()
+          policy = Path("trunk/user/utils/src/switch/switch_ipv4_parse_policy.h").read_text()
+          tests = Path("trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c").read_text()
+          main_start = source.index("int main(int argc, char *argv[])")
+          main = source[main_start:]
+
+          phy_start = main.index('else if (!strncmp(argv[1], "phy", 4))')
+          phy_end = main.index('else if (!strncmp(argv[1], "sip", 5))', phy_start)
+          phy = main[phy_start:phy_end]
+          assert "argc == 3" in phy and "argc == 2" in phy
+          assert "switch_parse_decimal_range(argv[2], 0U, 31U, &phy_addr)" in phy
+          assert "strtoul(" not in phy
+
+          vlan_start = main.index('else if (!strncmp(argv[1], "vlan", 5))')
+          vlan_end = main.index('else if (!strncmp(argv[1], "reg", 4))', vlan_start)
+          vlan = main[vlan_start:vlan_end]
+          assert "switch_parse_decimal_range(argv[3], 0U, 0x7fffffffU, &max_vid)" in vlan
+          assert "argc != 3" in vlan and "argc == 4" in vlan
+          assert "strtoul(" not in vlan
+
+          reg_start = main.index('else if (!strncmp(argv[1], "reg", 4))')
+          reg_end = main.index('else if (!strncmp(argv[1], "ingress-rate", 6))', reg_start)
+          reg = main[reg_start:reg_end]
+          for mode in ('"r"', '"w"', '"d"'):
+              assert "strcmp(argv[2], " + mode + ")" in reg
+          assert "switch_parse_hex_range(argv[3], 0x7fffffffU, &parsed)" in reg
+          assert "switch_parse_hex_range(argv[3], 0x7fffff03U, &parsed)" in reg
+          assert "switch_parse_hex_range(argv[4], 0xffffffffU, &parsed)" in reg
+          assert "strtoul(" not in reg
+          assert "off = (int)parsed;" in reg
+          assert "val = (int)parsed;" in reg
+
+          assert "switch_parse_decimal_range" in policy
+          assert "test_decimal_range_parser" in tests
+          assert "reg d" in source and "vlan dump" in source and "phy [phy_addr]" in source
+          print("PHY, VLAN dump and raw switch register commands reject incomplete numeric input: PASS")
+          PY
       - name: Compile and verify bounded switch table waits
         run: |
           set -eu

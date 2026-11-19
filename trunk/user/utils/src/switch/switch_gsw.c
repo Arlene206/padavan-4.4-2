@@ -1900,10 +1900,17 @@ int main(int argc, char *argv[])
 		table_del(argc, argv);
 	else if (!strncmp(argv[1], "phy", 4)) {
 		if (argc == 3) {
-			int phy_addr = strtoul(argv[2], NULL, 10);
-			phy_dump(phy_addr);
-		}else {
+			unsigned int phy_addr;
+
+			if (switch_parse_decimal_range(argv[2], 0U, 31U, &phy_addr) != 0) {
+				usage(argv[0]);
+				return EXIT_FAILURE;
+			}
+			phy_dump((int)phy_addr);
+		} else if (argc == 2) {
 			phy_dump(32); //dump all phy register
+		} else {
+			usage(argv[0]);
 		}
 	}
 	else if (!strncmp(argv[1], "sip", 5)) {
@@ -1990,10 +1997,18 @@ int main(int argc, char *argv[])
 #if RT_TABLE_MANIPULATE
 		if (!strncmp(argv[2], "dump", 5)) {
 #if defined (CONFIG_RALINK_MT7621) || defined (CONFIG_MT7530_GSW)
-			int max_vid = 15;
-			if (argc > 3)
-				max_vid = strtoul(argv[3], NULL, 10);
-			vlan_dump(max_vid);
+			unsigned int max_vid = 15U;
+
+			if (argc == 4) {
+				if (switch_parse_decimal_range(argv[3], 0U, 0x7fffffffU,
+							       &max_vid) != 0) {
+					usage(argv[0]);
+					return EXIT_FAILURE;
+				}
+			} else if (argc != 3) {
+				usage(argv[0]);
+			}
+			vlan_dump((int)max_vid);
 #else
 			vlan_dump();
 #endif
@@ -2005,35 +2020,50 @@ int main(int argc, char *argv[])
 			usage(argv[0]);
 	}
 	else if (!strncmp(argv[1], "reg", 4)) {
-		int i, j, off, val=0;
-		if (argc < 4)
-			usage(argv[0]);
-		if (argv[2][0] == 'r') {
-			off = strtoul(argv[3], NULL, 16);
+		int i, j, off, val = 0;
+		unsigned int parsed;
+
+		if (!strcmp(argv[2], "r")) {
+			if (argc != 4 ||
+			    switch_parse_hex_range(argv[3], 0x7fffffffU, &parsed) != 0) {
+				usage(argv[0]);
+				return EXIT_FAILURE;
+			}
+			off = (int)parsed;
 			reg_read(off, &val);
 			printf("switch reg read offset=%x, value=%x\n", off, val);
-		}
-		else if (argv[2][0] == 'w') {
-			if (argc != 5)
+		} else if (!strcmp(argv[2], "w")) {
+			if (argc != 5 ||
+			    switch_parse_hex_range(argv[3], 0x7fffffffU, &parsed) != 0) {
 				usage(argv[0]);
-			off = strtoul(argv[3], NULL, 16);
-			val = strtoul(argv[4], NULL, 16);
+				return EXIT_FAILURE;
+			}
+			off = (int)parsed;
+			if (switch_parse_hex_range(argv[4], 0xffffffffU, &parsed) != 0) {
+				usage(argv[0]);
+				return EXIT_FAILURE;
+			}
+			val = (int)parsed;
 			printf("switch reg write offset=%x, value=%x\n", off, val);
 			reg_write(off, val);
-		}
-		else if (argv[2][0] == 'd') {
-			off = strtoul(argv[3], NULL, 16);
-			for(i=0; i<16; i++) {
-				printf("0x%08x: ", off+0x10*i);
-				for(j=0; j<4; j++){
-					reg_read(off+i*0x10+j*0x4, &val);
+		} else if (!strcmp(argv[2], "d")) {
+			if (argc != 4 ||
+			    switch_parse_hex_range(argv[3], 0x7fffff03U, &parsed) != 0) {
+				usage(argv[0]);
+				return EXIT_FAILURE;
+			}
+			off = (int)parsed;
+			for (i = 0; i < 16; i++) {
+				printf("0x%08x: ", off + 0x10 * i);
+				for (j = 0; j < 4; j++) {
+					reg_read(off + i * 0x10 + j * 0x4, &val);
 					printf(" 0x%08x", val);
 				}
 				printf("\n");
 			}
-		}
-		else
+		} else {
 			usage(argv[0]);
+		}
 	}
 	else if (!strncmp(argv[1], "ingress-rate", 6)) {
 		unsigned int port, bandwidth = 0U;

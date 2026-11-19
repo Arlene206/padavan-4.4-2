@@ -54,12 +54,13 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - The exact HTTPD security run `44486117403` on 2a failed only in its duplicate storage host-regression compile because the corrected public include `disk_inventory_policy.h` was not found with only `-I trunk/user/rc/src`.
 - Commit `bc4e2c0ce204af2b3827fcaf6cbed17343139092` added `-I trunk/user/libdisk/src` to that standalone host compile and pinned the include path in the workflow contract. Exact HTTPD security `44487439944` and AI docs `44487439972` both PASS on bc4.
 
-## Active task — validate switch ACL inputs before MMIO writes
+## Completed slice — validate switch ACL inputs before MMIO writes
 
 - Production target is `trunk/user/utils/src/switch/switch_gsw.c`; its Makefile explicitly builds `SRC = switch_gsw.c`. Do not change the unrelated legacy RC switch implementation for this CLI task.
 - `acl_ethertype()`, `acl_l4_add()` and `acl_sp_add()` previously accepted partial numeric tokens through `strtoul(..., NULL, ...)`, silently ignored the eighth reserved port-map character, and returned success on missing arguments while allowing extra arguments.
 - Require exactly six arguments; parse EtherType and L4 payload as strict 16-bit hexadecimal and source port as strict base-0 16-bit input; validate all eight port-map characters through the existing `parse_portmap_argument()` path before any MMIO write. Keep the original ACL register programming sequence intact.
-- Add GNU89 `-Wall -Wextra -Werror` ASan/UBSan parser coverage for prefixes, valid bounds, signs, whitespace, partial input, overflow and unchanged output on failure; add a switch workflow source contract for all three commands. The exact-head Switch CLI run and any XY-C1 production build are pending after this commit.
+- Added GNU89 `-Wall -Wextra -Werror` ASan/UBSan parser coverage for prefixes, valid bounds, signs, whitespace, partial input, overflow and unchanged output on failure; the exact-source Switch CLI run `44488416113` passed on production SHA `752c880e995333ded4d93b4aa82186a537e40b34`. Process inventory `44488416467`, AI docs `44488415970`, and NVRAM audit `44488416220` also PASS on 752.
+- XY-C1 Firmware Validation `44488415852` for 752 is still in progress. Do not claim L3 until Build, TRX and artifact upload all succeed.
 
 ## Verification boundary
 
@@ -67,13 +68,20 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - ZeroTier static-route deletion: ZeroTier and AI docs PASS on d4 (`44483203855`, `44483203814`). NAT source-segment cleanup: ZeroTier `44484902778`, WAN route `44484902793`, Process inventory `44484902785` and AI docs `44484902809` all PASS on d82.
 - Exact 2a AI docs `44486117156`, Process inventory `44486117196`, storage hotplug `44486117414`, and NVRAM audit `44486117346` PASS. HTTPD security and AI docs on bc4 (`44487439944`, `44487439972`) PASS.
 - XY-C1 L3 is VERIFIED only on production SHA `255334d0dbd7e98a1a63dde528b0e3de59aef9c1` (`44476582849`). d82 XY-C1 `44484902954` failed before the 2a staged-header correction; no later production-source Build/TRX/artifact evidence is available yet. Physical router L4 remains NOT VERIFIED.
-- Switch ACL slice: exact-head Switch CLI regression and XY-C1 Build/TRX/artifact have not run on the new ACL source commit.
+- Switch ACL ACL-input slice: Switch CLI regression PASS on exact source SHA 752 (`44488416113`); Process `44488416467`, AI docs `44488415970` and NVRAM audit `44488416220` PASS. XY-C1 run `44488415852` remains in progress; firmware L3 not yet verified.
+
+## Active task — strict numeric boundaries for PHY, VLAN dump and raw register commands
+
+- A second scan of production `switch_gsw.c` found the last six permissive conversions: PHY address (base-10), VLAN dump maximum ID (base-10), and raw register read/write/dump offsets and write values (base-16). These use `strtoul(..., NULL, base)` without end-pointer or range checks.
+- Add a strict decimal parser preserving leading-zero decimal semantics; constrain PHY address to 0–31, VLAN max ID to signed-int range while retaining the existing 1–4095 clamp inside `vlan_dump()`, and raw register offsets/values to their int/uint32 representations. The register dump offset is additionally bounded so the final +0xfc read cannot overflow signed int.
+- Require exact argument counts and exact command tokens for `reg r/w/d`; reject malformed input before ioctl/MMIO. Add parser unit coverage and source contracts to Switch CLI workflow.
+- Exact source SHA `752c880e995333ded4d93b4aa82186a537e40b34`: Switch CLI `44488416113`, Process `44488416467`, AI docs `44488415970`, NVRAM audit `44488416220` PASS; XY-C1 `44488415852` still in progress at last poll.
 
 ## Exact first action for the next GPT
 
-1. Confirm live `main` is the latest switch ACL commit and inspect exact-head Switch CLI, AI handoff docs, HTTPD security and XY-C1 Firmware Validation. Confirm every run's `head_sha` matches; inspect failures/logs.
-2. Require parser policy GNU89 `-Wall -Wextra -Werror` ASan/UBSan and the three-command ACL source contract to pass. For any production-source XY-C1 run, require Build XY-C1, TRX verification and artifact upload before claiming L3.
-3. After this slice is verified, continue the next independent P1 reliability/security issue across Padavan userland; do not repeat the completed storage or ZeroTier host fixes.
+1. Check current `main` and exact XY-C1 `44488415852` Build/TRX/artifact job; inspect the result but continue the active strict numeric CLI slice while it remains pending.
+2. Require Switch CLI parser ASan/UBSan and source contracts to pass on the resulting exact SHA. Require Build XY-C1, TRX verification and firmware artifact upload before claiming L3.
+3. Then continue an independent P1 RC startup/lifecycle defect; do not repeat already completed ACL parsing or storage/ZeroTier fixes.
 
 ## Mandatory handoff checkpoint
 

@@ -1,3 +1,13 @@
+## 2026-11-19 — Strictly parse remaining PHY/VLAN/raw-register CLI numbers
+
+- Parent main SHA: `752c880e995333ded4d93b4aa82186a537e40b34`.
+- After strict ACL input gates passed Switch CLI workflow `44488416113`, a second scan found remaining `strtoul(..., NULL, base)` use in production `switch_gsw.c`: PHY address, VLAN dump maximum VID, raw register read/write/dump offsets and raw register write value.
+- Added a decimal-only bounded parser (preserves leading-zero decimal input); PHY addresses are 0–31, VLAN max preserves the existing internal 1–4095 clamp, register offsets are bounded to signed-int representation, register-write data to 32 bits, and dump start offset leaves room for the final +0xfc read. Exact `r/w/d` command tokens and argument counts are required.
+- Parser tests cover leading zeros, valid boundaries, signs, whitespace, partial tokens and decimal overflow. Switch workflow contract checks all command branches reject malformed input before ioctl/MMIO. Exact-head regression and XY-C1 build are pending after this commit.
+- ACL source SHA 752 Switch CLI `44488416113`, Process `44488416467`, AI docs `44488415970`, NVRAM audit `44488416220` PASS; XY-C1 `44488415852` still running at the last poll.
+
+---
+
 ## 2026-11-19 — Validate MT7621 ACL CLI values before switch MMIO writes
 
 - Parent main SHA: `bc4e2c0ce204af2b3827fcaf6cbed17343139092`.
