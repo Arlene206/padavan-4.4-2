@@ -1398,8 +1398,8 @@ assert not re.search(r'(?m)^\s*system\("modprobe xt_TPROXY"\);$', iappd_boot)
 print("IAPPD RC restart, TPROXY load and post-start test status propagation: PASS")
 
 optional_boot_calls = (
-    ("APP_SKIPDBV2", 'int skipdb_start_status = doSystem("/usr/sbin/skipd -d /etc/storage/db");',
-     "skipdb_start_status", "SkipDBv2 boot startup failed (wait status=%d)"),
+    ("APP_SKIPDBV2", "int skipdb_start_status = start_skipdbv2();",
+     "skipdb_start_status", "SkipDBv2 boot startup failed (status=%d)"),
     ("APP_SCUT", "int scut_start_status = start_scutclient();",
      "scut_start_status", "SCUT client boot startup failed (status=%d)"),
     ("APP_DNSFORWARDER", "int dnsforwarder_start_status = start_dnsforwarder();",
@@ -3250,7 +3250,7 @@ assert "start_skipdbv2()" in skipdb_boot
 assert "doSystem(\"/usr/sbin/skipd -d /etc/storage/db\")" not in skipdb_boot
 assert 'char *svcs[] = { "skipd", NULL };' in skipdb_stop
 assert "kill_services(svcs, 30, 0)" in skipdb_stop
-assert "SIGTERM" in skipdb_stop and "SIGKILL" not in skipdb_stop
+assert "kill_services(svcs, 30, 1)" not in skipdb_stop
 assert 'record_service_stop_status(&stop_status, "SkipDBv2", stop_skipdbv2())' in misc_stop
 assert misc_stop.index("kill_services(svcs, 4, 1)") < misc_stop.index("stop_skipdbv2()")
 assert "stop_misc()" in rc_source
