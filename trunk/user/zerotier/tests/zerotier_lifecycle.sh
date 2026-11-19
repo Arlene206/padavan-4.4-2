@@ -155,6 +155,9 @@ nvram() {
 
 iptables() {
 	printf '%s\n' "$*" >> "$TEST_IPTABLES_LOG"
+	if [ -n "${TEST_IPTABLES_FAIL_ON:-}" ] && [ "$*" = "$TEST_IPTABLES_FAIL_ON" ]; then
+		return 1
+	fi
 	return 0
 }
 
@@ -318,6 +321,42 @@ fi
 [ "$(wc -l < "$TEST_SLEEP_LOG" | tr -d ' ')" = 2 ] || fail "interface readiness did not poll the expected two seconds"
 grep -Fqx -- "-A INPUT -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "rules selected the wrong interface"
 
+# A rejected filter-rule append must fail and roll back earlier rules.
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_ACTION_LOG"
+TEST_IFCONFIG_MODE=ready
+TEST_NAT_ENABLE=0
+TEST_IPTABLES_FAIL_ON="-A FORWARD -i ztunit -o ztunit -j ACCEPT"
+if rules; then
+	fail "rules reported success after a filter rule append failed"
+fi
+grep -Fqx -- "-A INPUT -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "filter failure fixture did not install the first rule"
+grep -Fqx -- "$TEST_IPTABLES_FAIL_ON" "$TEST_IPTABLES_LOG" || fail "filter failure fixture did not reach the rejected rule"
+if grep -Fqx -- "-A FORWARD -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG"; then
+	fail "rules continued publishing after a filter append failed"
+fi
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\ndel_rules')" ] || fail "filter append failure did not roll back previously published rules"
+
+# NAT publication has the same failure gate after the filter rules and first
+# NAT rule have succeeded.
+: > "$TEST_SLEEP_LOG"
+: > "$TEST_IPTABLES_LOG"
+: > "$TEST_ACTION_LOG"
+TEST_ROUTE_MODE=ready
+TEST_NAT_ENABLE=1
+TEST_IPTABLES_FAIL_ON="-t nat -A POSTROUTING -s 10.147.17.0/24 -j MASQUERADE"
+if rules; then
+	fail "rules reported success after a NAT rule append failed"
+fi
+grep -Fqx -- "-A FORWARD -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "NAT failure fixture did not install filter rules"
+grep -Fqx -- "-t nat -A POSTROUTING -o ztunit -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "NAT failure fixture did not install the first NAT rule"
+grep -Fqx -- "$TEST_IPTABLES_FAIL_ON" "$TEST_IPTABLES_LOG" || fail "NAT failure fixture did not reach the rejected rule"
+[ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\ndel_rules')" ] || fail "NAT append failure did not roll back partially published rules"
+TEST_IPTABLES_FAIL_ON=""
+TEST_NAT_ENABLE=0
+TEST_ROUTE_MODE=none
+
 # Missing interface is bounded and must not publish partial firewall rules.
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_IPTABLES_LOG"
@@ -362,4 +401,4 @@ if rules; then
 fi
 [ ! -s "$TEST_IPTABLES_LOG" ] || fail "invalid NAT setting changed firewall rules"
 
-echo "ZeroTier bounded stop/start, readiness and persistent-config preservation: PASS"
+echo "ZeroTier bounded stop/start, readiness, firewall rollback and persistent-config preservation: PASS"

@@ -80,6 +80,7 @@ route_section = script.split("zerotier_kernel_route_segment() {", 1)[1].split("\
 interface_wait_body = function_body(script, "zerotier_wait_interface()")
 route_wait_body = function_body(script, "zerotier_wait_route()")
 rules_section = script.split("rules() {", 1)[1].split("\ndel_rules() {", 1)[0]
+firewall_helper_body = function_body(script, "zerotier_add_firewall_rule()")
 cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 1)[0]
 
 process_state_body = function_body(script, "zerotier_process_state()")
@@ -137,8 +138,23 @@ require('while :' in route_wait_body and
 require('zerotier_wait_interface' in rules_section and
         'zerotier_wait_route "$zt0"' in rules_section and
         rules_section.index('zerotier_wait_route "$zt0"') < rules_section.index('del_rules') <
-        rules_section.index('iptables -A INPUT'),
+        rules_section.index('zerotier_add_firewall_rule -A INPUT'),
         "firewall rules must be published only after interface and required route readiness")
+require('if iptables "$@"; then' in firewall_helper_body and
+        'del_rules' in firewall_helper_body and
+        'return 1' in firewall_helper_body,
+        "a failed firewall append must trigger rollback and a nonzero result")
+for required_rule in (
+    'zerotier_add_firewall_rule -A INPUT -i "$zt0" -j ACCEPT',
+    'zerotier_add_firewall_rule -A FORWARD -i "$zt0" -o "$zt0" -j ACCEPT',
+    'zerotier_add_firewall_rule -A FORWARD -i "$zt0" -j ACCEPT',
+    'zerotier_add_firewall_rule -t nat -A POSTROUTING -o "$zt0" -j MASQUERADE',
+    'zerotier_add_firewall_rule -t nat -A POSTROUTING -s "$ip_segment" -j MASQUERADE',
+):
+    require(required_rule in rules_section,
+            "every required INPUT/FORWARD/NAT append must use the checked firewall publisher")
+require(rules_section.count('zerotier_add_firewall_rule') == 5,
+        "the full three-filter/two-NAT firewall ruleset must use checked appends")
 require('case "$nat_enable" in' in rules_section and
         '[ "$nat_enable" = "1" ]' in rules_section,
         "NAT configuration must be handled without an unquoted numeric test")

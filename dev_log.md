@@ -1,3 +1,13 @@
+## 2026-11-19 — Fail closed when ZeroTier firewall rules cannot be installed
+
+- Parent main SHA: `a4f6176bd774ab0ea44ab9515a367e1b8aac41d6`.
+- Review found `rules()` ignored the exit status of all three INPUT/FORWARD and both NAT rule appends, then returned success. A router could therefore report ZeroTier as started while required interface firewall rules were missing.
+- Added a checked firewall publisher used for all five required appends. Any rejected append logs the failure, attempts removal of the full partially published ZeroTier rule set, and returns nonzero so the existing startup path reports failure and attempts daemon cleanup.
+- Extended the shell regression with injected failures on the second filter rule and second NAT rule; both cases require a nonzero result, prove later rules are not added, and verify rollback is attempted. The source-contract checker now requires every one of the five append paths to use the checked publisher.
+- Parent baseline ZeroTier workflow `44473205688`, wireless radio `44473205481`, process inventory `44473205503`, AI docs `44473205559` and PID-1 notification queue `44473205689` passed on `a4f6176bd774ab0ea44ab9515a367e1b8aac41d6`. Parent Process lifecycle regression `44473205836`, XY-C1 `44473205687` and NVRAM audit `44473205667` were still in progress at last poll. This ZeroTier source change is in the XY-C1 watched `trunk/user/zerotier/**` path; exact-head CI is pending. No local checkout or device test is claimed.
+
+---
+
 ## 2026-11-19 — Propagate radio control results from rc CLI applets
 
 - Parent main SHA: `1d1a839cab45ea4db21d2fec1ba74028baa44338`.

@@ -156,6 +156,19 @@ zerotier_wait_route() {
 	return 1
 }
 
+zerotier_add_firewall_rule() {
+	if iptables "$@"; then
+		return 0
+	fi
+
+	logger -t "zerotier" "防火墙规则安装失败: iptables $*"
+	# Remove every rule from this transaction; the rejected append may follow
+	# one or more successful appends, so cleanup must cover the whole set.
+	del_rules
+	return 1
+}
+
+
 rules() {
 	zt0="$(zerotier_wait_interface)" || {
 		logger -t "zerotier" "等待ZeroTier接口超时"
@@ -179,12 +192,22 @@ rules() {
 	fi
 	logger -t "zerotier" "zt interface $zt0 is started!"
 	del_rules
-	iptables -A INPUT -i "$zt0" -j ACCEPT
-	iptables -A FORWARD -i "$zt0" -o "$zt0" -j ACCEPT
-	iptables -A FORWARD -i "$zt0" -j ACCEPT
+	if ! zerotier_add_firewall_rule -A INPUT -i "$zt0" -j ACCEPT; then
+		return 1
+	fi
+	if ! zerotier_add_firewall_rule -A FORWARD -i "$zt0" -o "$zt0" -j ACCEPT; then
+		return 1
+	fi
+	if ! zerotier_add_firewall_rule -A FORWARD -i "$zt0" -j ACCEPT; then
+		return 1
+	fi
 	if [ "$nat_enable" = "1" ]; then
-		iptables -t nat -A POSTROUTING -o "$zt0" -j MASQUERADE
-		iptables -t nat -A POSTROUTING -s "$ip_segment" -j MASQUERADE
+		if ! zerotier_add_firewall_rule -t nat -A POSTROUTING -o "$zt0" -j MASQUERADE; then
+			return 1
+		fi
+		if ! zerotier_add_firewall_rule -t nat -A POSTROUTING -s "$ip_segment" -j MASQUERADE; then
+			return 1
+		fi
 		zero_route "add"
 	fi
 	return 0
