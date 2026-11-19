@@ -3319,3 +3319,31 @@ assert "test_nonforced_timeout_blocks_followup" in lifecycle_test
 assert "assert(context.kill_signals == 0);" in lifecycle_test
 print("SkipDBv2 detached startup postcondition and graceful persistence shutdown: PASS")
 
+# crond returns positive errno-style errors too. Disabled scheduling is a
+# successful no-op; restart failures must reach both boot and PID 1 callers.
+crond_start = c_function_body(services_source, "start_crond(void)")
+disabled_crond = crond_start.split('if (nvram_invmatch("crond_enable", "1"))', 1)[1].split(
+    "/* Do not spawn a second scheduler", 1
+)[0]
+assert "return 0;" in disabled_crond
+init_router = c_function_body(rc_source, "init_router(void)")
+crond_boot = init_router.split("if (init_crontab())", 1)[1].split("// system ready", 1)[0]
+assert "crond_status = restart_crond();" in crond_boot
+assert "if (crond_status != 0)" in crond_boot
+assert "boot_services_status = rc_first_service_start_status(" in crond_boot
+assert init_router.index("if (init_crontab())") < init_router.index(
+    'one or more boot service startup operations failed'
+)
+time_action = rc_source.split(
+    "else if (strcmp(entry->d_name, RCN_RESTART_TIME) == 0)", 1
+)[1].split("else if (strcmp(entry->d_name, RCN_RESTART_SYSCTL) == 0)", 1)[0]
+assert "crond_status = restart_crond();" in time_action
+assert "if (crond_status != 0)" in time_action
+assert "rc_notify_merge_action_result(" in time_action
+assert "action_result, crond_status" in time_action
+assert "if (restart_crond() < 0)" not in rc_source
+assert "test_crond_positive_restart_error_reaches_boot_and_notification_status" in (
+    root / "trunk/user/rc/src/tests/service_start_status.c"
+).read_text()
+print("crond positive restart-status propagation and disabled no-op contract: PASS")
+

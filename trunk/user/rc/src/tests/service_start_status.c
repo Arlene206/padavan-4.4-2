@@ -588,10 +588,32 @@ test_sysctl_pppoe_relay_failure_keeps_notification_pending(void)
 	assert(rc_notify_merge_action_result(0, 0) == 0);
 }
 
+static void
+test_crond_positive_restart_error_reaches_boot_and_notification_status(void)
+{
+	int boot_status = 0;
+	int action_result = 0;
+
+	/* crond startup returns errno-style positive failures as well as -1. */
+	boot_status = rc_first_service_start_status(boot_status, EIO);
+	action_result = rc_notify_merge_action_result(action_result, EIO);
+	assert(boot_status == EIO);
+	assert(action_result == -1);
+
+	/* The first boot error remains authoritative when crond also fails. */
+	boot_status = rc_first_service_start_status(ENETDOWN, EIO);
+	assert(boot_status == ENETDOWN);
+
+	/* Disabled/no-op crond restart is normalized to zero by start_crond(). */
+	assert(rc_first_service_start_status(0, 0) == 0);
+	assert(rc_notify_merge_action_result(0, 0) == 0);
+}
+
 int
 main(void)
 {
 	test_optional_daemon_start_preflight_is_idempotent_and_fail_closed();
+	test_crond_positive_restart_error_reaches_boot_and_notification_status();
 	assert(rc_first_service_start_status(0, 0) == 0);
 	assert(rc_first_service_start_status(0, -1) == -1);
 	assert(rc_first_service_start_status(0, 17) == 17);

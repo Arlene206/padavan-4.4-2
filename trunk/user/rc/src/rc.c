@@ -1213,19 +1213,26 @@ init_router(void)
 				   "initial MTD Optware worker launch failed; retry is scheduled (status=%d)",
 				   optware_start_status);
 	}
-	if (boot_services_status != 0)
-		logmessage(LOGNAME,
-			   "one or more boot service startup operations failed (first status=%d)",
-			   boot_services_status);
-
 	if (init_crontab()) {
+		int crond_status;
+
 		storage_save_status = write_storage_to_mtd();
 		if (storage_save_status != 0)
 			logmessage(LOGNAME, "initial crontab changed but MTD storage persistence failed (status=%d)",
 				   storage_save_status);
-		if (restart_crond() < 0)
-			logmessage(LOGNAME, "crond restart after initial crontab update failed");
+		crond_status = restart_crond();
+		if (crond_status != 0) {
+			boot_services_status = rc_first_service_start_status(
+				boot_services_status, crond_status);
+			logmessage(LOGNAME,
+				   "crond restart after initial crontab update failed (status=%d)",
+				   crond_status);
+		}
 	}
+	if (boot_services_status != 0)
+		logmessage(LOGNAME,
+			   "one or more boot service startup operations failed (first status=%d)",
+			   boot_services_status);
 	// system ready
 	nvram_set_int("ntp_ready", 0);
 	/* Install the firmware CA trust store before autostart can launch AliDDNS. */
@@ -2042,6 +2049,7 @@ handle_notifications(void)
 		else if (strcmp(entry->d_name, RCN_RESTART_TIME) == 0)
 		{
 			int logger_stop_status = stop_logger();
+			int crond_status;
 			if (logger_stop_status != 0) {
 				logmessage(LOGNAME, "time update could not restart logger because existing daemons did not stop (status=%d)",
 					   logger_stop_status);
@@ -2055,8 +2063,14 @@ handle_notifications(void)
 				logmessage(LOGNAME, "time update failed while starting replacement logger daemons");
 				action_result = -1;
 			}
-			if (restart_crond() < 0)
-				action_result = -1;
+			crond_status = restart_crond();
+			if (crond_status != 0) {
+				logmessage(LOGNAME,
+					   "time update failed while restarting crond (status=%d)",
+					   crond_status);
+				action_result = rc_notify_merge_action_result(
+					action_result, crond_status);
+			}
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SYSCTL) == 0)
 		{

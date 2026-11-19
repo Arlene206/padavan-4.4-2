@@ -384,7 +384,7 @@ start_crond(void)
 	enum process_presence presence;
 
 	if (nvram_invmatch("crond_enable", "1"))
-		return 1;
+		return 0;
 
 	/* Do not spawn a second scheduler when start is requested again. */
 	preflight_status = optional_daemon_start_status("crond", "crond");
