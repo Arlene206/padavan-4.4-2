@@ -148,7 +148,8 @@ require("read_disk_data_checked" in disk_header and "read_disk_data(void)" in di
 mount_reader = body(libdisk, "get_partition_mount_data(partition_info_t *part_info)")
 require("storage_inventory_parse_mount_line_full(" in mount_reader and
         "ferror(fp)" in mount_reader and "close_status = fclose(fp)" in mount_reader and
-        "if (ret < 0)" in mount_reader and "errno = saved_errno;" in mount_reader,
+        "if (ret < 0)" in mount_reader and
+        "errno = saved_errno ? saved_errno : EIO;" in mount_reader,
         "partition mount inspection must validate the entire procfs snapshot and close result")
 require("if (!fp)" in mount_reader and "return -1;" in mount_reader,
         "unreadable mount inventory must be UNKNOWN, never an empty mount list")

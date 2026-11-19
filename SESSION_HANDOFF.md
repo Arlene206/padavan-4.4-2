@@ -1,8 +1,8 @@
-# 2026-11-19 continuation checkpoint — VPN server callback hook status
+# 2026-11-19 continuation checkpoint — storage mount inventory verification
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; current parent main SHA `6e7e90efb393af3380f0b8607a53ecb8921ba306` adds the NFS wait-status correction after VPN route commit `521c25a387bc45041f4db1e7ca9b27318e7b0e5e`. Exact VPN-server lifecycle `44431781964`, WAN route status `44431782135`, Process lifecycle `44431782106`, Process inventory `44431782022`, and AI docs `44431782169` all PASS on 521c25a; XY-C1 `44431782312` Build was still in progress, TRX/artifact pending. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged.
+- Repository: `Arlene206/padavan-4.4-2`; current `main` parent SHA `35235da0cb4af66a8dedd96b7698948ec6b15687`. Backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` unchanged. VPN client/server route and callback hook fixes are committed in `835f48d`, `521c25a` and `63d20cd`; latest 63d exact VPN-server `44432264595`, WAN route `44432264560`, Process `44432264618`/`44432264602`, AI docs `44432264659`, Firewall `44432264710`, HTTPD security `44432264697`, and OpenVPN staging `44432264583` PASS; NVRAM `44432264610` needs final result. XY-C1 `44432264548` needs final Build/TRX/artifact check. Latest storage source `35235da` passes Process inventory `44432765047`, NVRAM `44432765261`, AI docs `44432765070`, HTTPD `44432765061`; storage hotplug `44432765082` failed only its overstrict errno literal check, corrected by this commit. XY-C1 `44432765098` was in progress.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,26 +77,26 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Propagate VPN server PPP callback custom up/down hook failures.
+Close exact-head verification of the USB mount-inventory fail-closed fix.
 
-- Production route fix is committed at `521c25a387bc45041f4db1e7ca9b27318e7b0e5e`: `vpns_route_to_remote_lan()` now returns status, treats only EEXIST add and ESRCH delete as idempotent, logs other failures, and both PPP callbacks fold route errors into `cleanup_failed`. Exact VPN-server lifecycle `44431781964`, WAN route-status `44431782135`, Process lifecycle `44431782106`, Process inventory `44431782022`, and AI docs `44431782169` all PASS on that SHA.
-- Exact XY-C1 run `44431782312` on the route source commit had Build in progress with TRX/artifact pending; poll and verify all three stages before marking L3.
-- THIS follow-up fixes another adjacent callback failure path: both up/down callbacks ran the configured `VPN_SERVER_UPDOWN_SCRIPT` through `_eval()` but discarded its exit status. It now records and logs hook failures, marks callback failure, and still runs later independent cleanup.
-- A sanitizer-backed route status test and the VPN-server lifecycle checker will require the hook result to be captured and propagated in both callback paths.
-- No local tests or MIPS build were run. The hook fix requires exact-head VPN-server/route-status/Process/AI and XY-C1 Build/TRX/artifact verification. Physical-router L4 NOT VERIFIED.
+- Source commit `35235da0cb4af66a8dedd96b7698948ec6b15687` hardens `get_partition_mount_data()`: it validates each parsed `/proc/mounts` record, checks stream read errors and `fclose()`, clears partially populated output on failure, and restores the captured errno with EIO fallback. Whole-disk inventory propagates failures rather than treating an unreadable mount snapshot as an unmounted disk.
+- Exact storage run `44432765082` failed at an inline checker assertion that expected the narrower `errno = saved_errno;` literal. The implementation correctly uses `errno = saved_errno ? saved_errno : EIO;`; this follow-up changes only the checker to require that explicit fallback.
+- On source parent `35235da`, Process inventory `44432765047`, NVRAM audit `44432765261`, AI docs `44432765070`, and HTTPD auth/security `44432765061` PASS. Storage hotplug needs an exact-head rerun after the checker correction.
+- XY-C1 run `44432765098` was still in progress at checkpoint; inspect Build XY-C1, TRX verification, and artifact upload individually. No L3 transfer from predecessor commits.
+- No local storage test or MIPS build was run. Physical USB hot-unplug L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- Route helper L1: PASS; exact L2 on the route-source SHA PASS for VPN server, WAN route policy, Process and AI docs.
-- Route-source L3: Pending XY-C1 `44431782312` Build/TRX/artifact final result.
-- Hook propagation L1: PASS by source implementation; exact-head L2/L3 pending.
-- Physical-router L4: NOT VERIFIED.
+- L1: PASS — incomplete or unreadable mount inventory remains UNKNOWN/failure rather than being interpreted as unmounted.
+- L2: Parent source Process/NVRAM/AI/HTTPD checks PASS; the storage checker had a too-narrow literal and requires exact-head rerun after correction.
+- L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload.
+- L4: Physical unplug/eject behavior on target hardware NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect exact-head VPN-server, WAN route-status, Process, AI docs and XY-C1 runs for this hook-status commit.
-2. Inspect Build, TRX verification and artifact upload individually for the parent route-source SHA and the new hook-source SHA.
-3. Continue an independent userland P1 reliability/security issue only after these exact-head checks; keep frozen backup unchanged.
+1. Poll exact-main storage hotplug and XY-C1 Actions for this checker-only correction; read any failing step log.
+2. Close storage L2 only after the full storage workflow passes. Close L3 only after Build XY-C1, TRX verification and artifact upload all pass on mount-inventory source SHA `35235da`.
+3. Then resume the next independent userland reliability issue; preserve the frozen backup and do not re-audit completed VPN/IAPP/iNIC fixes.
 
 ## Mandatory handoff checkpoint
 

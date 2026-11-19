@@ -1,3 +1,13 @@
+## 2026-11-19 — Match storage mount checker to explicit errno fallback
+
+- Parent main SHA: `35235da0cb4af66a8dedd96b7698948ec6b15687`.
+- Exact storage hotplug run `44432765082` passed the preceding full caller-graph/lock-order checks and then failed its new mount-inventory source contract. The implementation correctly preserves the original parser/read/close errno, substitutes EIO when no errno was set, and returns failure; the checker incorrectly required the narrower literal `errno = saved_errno;`.
+- Tighten the test to require the actual stronger implementation expression `errno = saved_errno ? saved_errno : EIO;`. No production storage behavior or failure gate is changed.
+- Parent exact checks: AI handoff `44432765070`, Process inventory `44432765047`, NVRAM transaction `44432765261`, and HTTPD auth/security `44432765061` PASS. XY-C1 `44432765098` remained IN_PROGRESS at this checkpoint; Build/TRX/artifact must be checked on the exact source SHA.
+- No local test or MIPS build was run. Exact-head storage hotplug and XY-C1 verification remain required.
+
+---
+
 ## 2026-11-19 — Preserve VPN server up/down hook failures
 
 - Parent main SHA: `6e7e90efb393af3380f0b8607a53ecb8921ba306` (concurrent NFS daemon wait-status fix).
