@@ -504,14 +504,15 @@ get_apcli_wisp_ifname(void)
 	return NULL;
 }
 
-static void
+static int
 check_apcli_wan(int is_5g, int radio_on)
 {
 	int man_id, wisp_id;
+	int status = 0;
 	char *man_ifname, *wisp_ifname;
 
 	if (get_ap_mode())
-		return;
+		return 0;
 
 	is_5g &= 1;
 
@@ -536,12 +537,18 @@ check_apcli_wan(int is_5g, int radio_on)
 	}
 
 	if (man_id != wisp_id) {
-		/* MAN interface changed, need full restart WAN */
-		full_restart_wan();
+		/* MAN interface changed, need full restart WAN. */
+		status = full_restart_wan();
 	} else if (radio_on && wisp_id == is_5g) {
-		/* MAN interface still ApCli, need restart WAN after acpli0 down/up */
-		try_wan_reconnect(1, 0);
+		/* MAN interface still uses APCLI; restart WAN after the radio cycle. */
+		status = try_wan_reconnect(1, 0);
 	}
+
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "WAN recovery after %s AP-client radio restart failed (status=%d)",
+			   is_5g ? "5GHz" : "2.4GHz", status);
+	return status;
 }
 
 static inline int
@@ -1319,7 +1326,11 @@ restart_wifi_wl(int radio_on, int need_reload_conf)
 #endif
 	}
 
-	check_apcli_wan(1, radio_on);
+	{
+		int wan_status = check_apcli_wan(1, radio_on);
+
+		isolation_status = wireless_radio_restart_status(isolation_status, wan_status);
+	}
 
 	if (radio_on) {
 		update_vga_clamp_wl(0);
@@ -1437,7 +1448,11 @@ restart_wifi_rt(int radio_on, int need_reload_conf)
 #endif
 	}
 
-	check_apcli_wan(0, radio_on);
+	{
+		int wan_status = check_apcli_wan(0, radio_on);
+
+		isolation_status = wireless_radio_restart_status(isolation_status, wan_status);
+	}
 
 	if (radio_on) {
 		update_vga_clamp_rt(0);

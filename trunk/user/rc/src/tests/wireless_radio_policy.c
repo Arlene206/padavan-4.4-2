@@ -113,6 +113,18 @@ test_apcli_forced_reenable_failure_is_reported(void)
 }
 
 static int
+test_apcli_wan_recovery_failure_is_reported(void)
+{
+	/* Both full WAN restart and AP-client reconnect failures are nonzero. */
+	if (wireless_radio_restart_status(0, EIO) != -EIO ||
+	    wireless_radio_restart_status(0, -ENETDOWN) != -EIO)
+		return 1;
+
+	/* A WAN failure must not replace an earlier guest-isolation failure. */
+	return wireless_radio_restart_status(-EACCES, EIO) != -EACCES;
+}
+
+static int
 test_inic_monitor_launch_failure_is_sticky(void)
 {
 	int all_started = 1;
@@ -182,6 +194,7 @@ main(void)
 	    test_restart_failure_wait_status_is_normalized_and_sticky() ||
 	    test_apcli_autoconnect_failure_is_reported() ||
 	    test_apcli_forced_reenable_failure_is_reported() ||
+	    test_apcli_wan_recovery_failure_is_reported() ||
 	    test_inic_monitor_launch_failure_is_sticky() ||
 	    test_inic_force_disable_interface_failure_is_sticky() ||
 	    test_radio_notification_noop_is_success_only_when_already_at_target() ||

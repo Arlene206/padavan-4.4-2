@@ -11,32 +11,32 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Parent main for THIS PPP recovery source fix: `52cd91c1c7f0d5c297b157a9ffb636844363f605`. It contains the SCUT EPERM/status-collision correction; exact-head Process umbrella `44622196808` and Process inventory `44622196753` PASS, AI docs `44622196858` PASS. NVRAM run `44622196798` was pending at checkpoint.
-- SCUT boot crontab correction at `69430c238e26c0de0b9210a5d090512bb4570f50` establishes 0=unchanged, 1=appended, 2+=script error; `system()`-level errno is negative so `EPERM=1` cannot be confused with successful append. Crond checker run `44621067912` PASS at `69d64f4...`; Process contract run `44621537460` PASS and AI docs `44621537441` PASS at `c2fe476...`.
-- XY-C1 run `44620322487` for the SCUT product source `69430c...` was still in progress on the last query. Its final Build, TRX verification and artifact upload must be checked before L3 can be called PASS.
-- OpenVPN credential staging run `44613650285` PASS on `f4fbd093e934fda5304aa796cba30d59eb29b3a4`; VPN server lifecycle `44613173654` PASS and XY-C1 Build/TRX/artifact `44613173721` PASS on OpenVPN product source `e01f70a766c4e628593e272192723f6add59ffca`.
-- Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify. PR #1 remains closed/unmerged. Root `dev_log.md` had 25 dated records before THIS COMMIT; the new record keeps it inside the 20–119 window.
+- Parent main SHA for this wireless restart result-propagation slice: `5878c9d11404d1bd4a329b59430a7c1279025dd4`. SCUT crontab tri-state source fix is in `69430c238e26c0de0b9210a5d090512bb4570f50`; crond checker correction is `69d64f4bd9b70a8f32083ac84e8ebca0c8a97d9f`; Process integration checker correction is `c2fe4764d6864ee3ebab43eeb21ce74f91a2578c`; SCUT errno sentinel correction is included in the parent.
+- Exact-head Process lifecycle umbrella `44622196753`, Process inventory `44622196808`, and AI handoff docs `44622196858` PASS on `52cd91c1c7f0d5c297b157a9ffb636844363f605`. NVRAM audit `44622196798` was IN_PROGRESS when this slice was prepared. Crond lifecycle `44621067912` and AI docs `44621067804` PASS on `69d64f4...`.
+- Exact parent `69430c...` XY-C1 run `44620322487` was still in progress at the last poll; inspect a new current-source XY-C1 Build/TRX/artifact run after this commit rather than treating that older build as current.
+- The frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and remains legacy inventory only.
+- OpenVPN credential staging run `44613650285` PASS on checker/docs descendant `f4fbd093e934fda5304aa796cba30d59eb29b3a4`; VPN server lifecycle `44613173654` PASS and XY-C1 Build/TRX/artifact `44613173721` PASS on OpenVPN product source `e01f70a766c4e628593e272192723f6add59ffca`.
+- Root `dev_log.md` contained 26 dated records before this entry; the new record remains well below the 120-record rotation threshold. Part-018 preserves the 101 complete records evicted in the earlier catch-up rotation.
+- No physical router result is available. Host regression/Actions are L2; exact XY-C1 Build/TRX/artifact is L3; device behavior is L4 NOT VERIFIED.
 
 ## Active task
 
-### Fail closed when PPP recovery cannot restore the physical WAN firewall
-
-- In `trunk/user/rc/src/net_wan.c`, `restore_wan_after_ppp_start_failure()` restores physical-WAN UPnP binding and rebuilds firewall rules, returning a failure if either step fails. The existing `restore_wan_after_firewall_failure()` wrapper takes the physical interface down if restoration fails and preserves the original recovery error.
-- Three normal PPP failure branches (PPTP/L2TP physical-interface setup, pppd launch, demand-PPP readiness) previously bypassed the fail-closed wrapper and called the lower-level helper directly. These paths could leave the physical WAN administratively up with incomplete UPnP/firewall recovery.
-- THIS COMMIT routes all three branches through the wrapper and extends `check_wan_firewall_status.py` to assert those exact callers cannot bypass the force-down path. No successful PPP startup or recovery behavior changes.
+- Newly confirmed P1 failure-propagation defect: `check_apcli_wan()` ran `full_restart_wan()` when MAN changed or `try_wan_reconnect(1, 0)` after the active WISP APCLI radio cycle, but it was declared `void` and discarded either nonzero WAN result. Both `restart_wifi_wl()` and `restart_wifi_rt()` therefore returned success when guest isolation and IAPP restart succeeded even though dependent WAN recovery failed.
+- THIS COMMIT makes the helper return and log WAN recovery status, then merges it into both radio restart accumulators without replacing an earlier guest-isolation error. The GNU89 policy test covers full-restart/reconnect failures and sticky first-error behavior; the Python source contract pins both bands and production callers.
+- The SCUT crontab tri-state source change and follow-up checker/sentinel fixes are complete. Exact-head Process lifecycle, Process inventory and AI docs checks PASS on parent `5878c9d11404d1bd4a329b59430a7c1279025dd4`; no local compilation was performed for this wireless slice in the GitHub-only workspace.
 
 ## Exact first action for the next GPT
 
-1. Query exact-head WAN route-status and XY-C1 Actions for THIS COMMIT. Inspect all step results and logs for failures; do not claim L3 until Build XY-C1, TRX verification and artifact upload pass on one exact product-source SHA.
-2. If those runs pass, continue the next independent P1 stability issue in the wider Padavan userland. Do not repeat SCUT crontab/Crond/Process checker, OpenVPN, DNSMasq resolver, `create_file()` close-status, USB modem notifier, WAN monitor-pause or the PPP recovery call graph already closed by this commit.
-3. Keep host L2, XY-C1 L3 and physical-router L4 separate. No physical-router WAN recovery validation is claimed.
+1. Query live `main` and exact-head Actions for THIS wireless result-propagation commit. Confirm Wireless radio and Process lifecycle, then inspect AI handoff docs, NVRAM and XY-C1 Build/TRX/artifact results on the same SHA.
+2. Triage any failed job from its exact log. Do not weaken first-error semantics or treat an APCLI WAN recovery failure as a successful radio restart.
+3. Continue the P1 cross-userland startup/teardown queue after validation; do not repeat the closed SCUT crontab, OpenVPN, DNSMasq resolver, `create_file()` close-status, USB modem notifier or WAN monitor-pause audits without new evidence.
 
 ## Verification boundary
 
-- L1: all three ordinary PPP failure callers now use fail-closed physical-WAN recovery.
-- L2: a source-semantic regression is added to the existing WAN firewall checker, already covered by the WAN route workflow. This session's local brace-aware caller assertions passed; exact-head WAN route Actions remain pending.
-- L3: XY-C1 Build/TRX/artifact for the current SCUT product source `69430c...` was pending at last query; current PPP source change needs its own exact-head firmware validation.
-- L4: forcing miniupnpd/firewall recovery failures on a physical XY-C1 and verifying the WAN interface remains down is NOT VERIFIED.
+- L1: source review confirms `check_apcli_wan()` now exposes failures from both `full_restart_wan()` and `try_wan_reconnect(1, 0)` to 2.4GHz/5GHz wireless restart results.
+- L2: GNU89 policy and source-contract regressions were added. They have NOT been executed locally in this GitHub-only workspace; query exact-head Wireless/Process Actions after push.
+- L3: exact-head XY-C1 Build, TRX verification and artifact upload must all pass on the same source SHA before firmware validation is claimed.
+- L4: physical APCLI/WISP reconnection and WAN recovery on a router remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

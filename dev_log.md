@@ -1,3 +1,11 @@
+## 2026-11-19 — Propagate AP-client WAN recovery failures through radio restart
+
+- Parent main SHA: `5878c9d11404d1bd4a329b59430a7c1279025dd4`. Static review found `check_apcli_wan()` discarded the return from `full_restart_wan()` when MAN changed and `try_wan_reconnect(1, 0)` after a WISP APCLI radio cycle. Its `void` signature hid both failures from `restart_wifi_wl()` and `restart_wifi_rt()`.
+- This change returns/logs the WAN recovery status and merges it into each radio restart's existing result without replacing an earlier guest-isolation failure. Added GNU89 policy cases for both WAN recovery failures and first-error retention, plus the source contract for both band-specific callsites.
+- Parent exact-head Process umbrella `44622196753`, Process inventory `44622196808` and AI docs `44622196858` PASS; NVRAM audit `44622196798` was pending at preparation time. Query new exact-head Wireless, Process, docs, NVRAM and XY-C1 checks after push. No local build or physical-router test is claimed.
+
+---
+
 ## 2026-11-19 — Fail closed on incomplete PPP physical-WAN firewall recovery
 
 - Parent main SHA: `52cd91c1c7f0d5c297b157a9ffb636844363f605`. Three normal PPP startup failures in `start_wan()` bypassed `restore_wan_after_firewall_failure()` and called the lower-level recovery helper directly. If miniupnpd did not stop or rebuilding the physical-WAN firewall failed, the paths could leave the physical interface administratively up.
