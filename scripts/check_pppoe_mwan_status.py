@@ -187,6 +187,9 @@ require(
     and "printf 'user %s\\n' \"$quoted_user\"" in MWAN
     and "printf 'password %s\\n' \"$quoted_pass\"" in MWAN
     and 'if /usr/sbin/pppd file "$options_file"; then :; else' in MWAN
+    and 'base_mac_suffix=$((0x${base_mac##*:}))' in MWAN
+    and 'mac_suffix_value=$(((mac_suffix_value + 1) % 256))' in MWAN
+    and '[ "$mac_suffix_value" -eq "$base_mac_suffix" ]' in MWAN
     and 'echo "user $userid' not in MWAN
     and "/tmp/ppp/options.wan0" not in MWAN,
     "multi-WAN must quote credentials, atomically publish private per-session files, and retain command failures",
@@ -194,6 +197,8 @@ require(
 require(
     "PPPoE-MWAN quotes PPP credentials without altering their value: PASS" in MWAN_TEST
     and "PPPoE-MWAN rejects line-injected PPP credentials before launch: PASS" in MWAN_TEST
+    and "PPPoE-MWAN avoids reusing a parent MAC suffix: PASS" in MWAN_TEST
+    and "PPPoE-MWAN preserves the virtual MAC sequence for an unused parent suffix: PASS" in MWAN_TEST
     and "PPPoE-MWAN preserves first PPPD launch failure after later success: PASS" in MWAN_TEST
     and "PPPoE-MWAN refuses symlink credential files: PASS" in MWAN_TEST,
     "multi-WAN regression must cover credential escaping/injection, partial launch and symlink paths",

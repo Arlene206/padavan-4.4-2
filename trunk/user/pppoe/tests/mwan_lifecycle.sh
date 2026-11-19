@@ -54,6 +54,7 @@ sed -e "s|/tmp/ppp|$OPTIONS|g" -e "s|/sys/class/net|$SYS_NET|g" -e "s|/usr/sbin/
 export PATH="$BIN:$PATH" LOG
 reset() {
   rm -f "$OPTIONS"/options.wan* "$OPTIONS"/.options.wan*
+  printf 'aa:bb:cc:dd:ee:ff\n' > "$SYS_NET/eth3/address"
   : > "$LOG"
   unset FAIL_NVRAM FAIL_IP_ADD FAIL_IFCONFIG FAIL_PPPD_FILE || true
   export TEST_SYNC=0 TEST_PPP_NUM=2 TEST_VLAN_ENABLE=0 TEST_VLAN_ID=35
@@ -71,6 +72,22 @@ grep -Fqx "user 'normal-user'" "$OPTIONS/options.wan0" || fail "username quoting
 grep -Fqx "password 'normal-pass'" "$OPTIONS/options.wan0" || fail "password quoting missing"
 [ "$(grep -c '^pppd file ' "$LOG")" -eq 2 ] || fail "expected two PPPD launches"
 echo 'PPPoE-MWAN writes private per-session option files: PASS'
+
+reset
+printf 'aa:bb:cc:dd:ee:11\n' > "$SYS_NET/eth3/address"
+run
+[ "$RC" -eq 0 ] || fail "parent-MAC collision avoidance status $RC"
+grep -Fqx 'ifconfig macvlan1 hw ether aa:bb:cc:dd:ee:12' "$LOG" || fail "first macvlan reused parent MAC"
+grep -Fqx 'ifconfig macvlan2 hw ether aa:bb:cc:dd:ee:13' "$LOG" || fail "second macvlan suffix was not kept unique"
+echo 'PPPoE-MWAN avoids reusing a parent MAC suffix: PASS'
+
+reset
+printf 'aa:bb:cc:dd:ee:10\n' > "$SYS_NET/eth3/address"
+run
+[ "$RC" -eq 0 ] || fail "reserved-suffix parent status $RC"
+grep -Fqx 'ifconfig macvlan1 hw ether aa:bb:cc:dd:ee:11' "$LOG" || fail "reserved parent suffix changed the base sequence"
+grep -Fqx 'ifconfig macvlan2 hw ether aa:bb:cc:dd:ee:12' "$LOG" || fail "reserved parent suffix caused duplicate allocation"
+echo 'PPPoE-MWAN preserves the virtual MAC sequence for an unused parent suffix: PASS'
 
 reset; export TEST_USER="edison'lab\wan" TEST_PASS="pass with\slash"; run
 [ "$RC" -eq 0 ] || fail "quoted credential status $RC"

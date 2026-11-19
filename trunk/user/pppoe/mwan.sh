@@ -136,6 +136,19 @@ if [ ! -d /tmp/ppp ] || [ -L /tmp/ppp ]; then
 	mwan_die 1 "private PPP options directory is unavailable"
 fi
 
+# Validate the parent address before creating interfaces. The generated
+# macvlan suffix sequence must never reuse the parent interface MAC.
+if base_mac="$(cat "/sys/class/net/$ethname/address")"; then :; else
+	mwan_rc=$?
+	mwan_die "$mwan_rc" "read MAC address for $ethname"
+fi
+case "$base_mac" in
+	[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]) ;;
+	*) mwan_die 2 "invalid base MAC address for $ethname" ;;
+esac
+base_mac_suffix=$((0x${base_mac##*:}))
+mac_suffix_value=16
+
 i=1
 while [ "$i" -le "$PPP_COUNT" ]; do
 	macvlan="macvlan$i"
@@ -147,23 +160,14 @@ while [ "$i" -le "$PPP_COUNT" ]; do
 		i=$((i + 1))
 		continue
 	fi
-	if base_mac="$(cat "/sys/class/net/$ethname/address")"; then :; else
-		mwan_rc=$?
-		mwan_fail "$mwan_rc" "read MAC address for $ethname"
-		i=$((i + 1))
-		continue
-	fi
-	case "$base_mac" in
-		[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]:[0-9a-fA-F][0-9a-fA-F]) ;;
-		*)
-			mwan_fail 2 "invalid base MAC address for $ethname"
-			i=$((i + 1))
-			continue
-			;;
-	esac
 	mac_prefix="${base_mac%:*}"
-	mac_suffix=$(printf '%02X' "$(((16 + i) % 256))") || {
-		mwan_fail 1 "cannot calculate MAC suffix for $macvlan"
+	mac_suffix_value=$(((mac_suffix_value + 1) % 256))
+	if [ "$mac_suffix_value" -eq "$base_mac_suffix" ]; then
+		mac_suffix_value=$(((mac_suffix_value + 1) % 256))
+	fi
+	mac_suffix=$(printf '%02X' "$mac_suffix_value") || {
+		mwan_rc=$?
+		mwan_fail "$mwan_rc" "cannot calculate MAC suffix for $macvlan"
 		i=$((i + 1))
 		continue
 	}
