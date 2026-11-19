@@ -81,6 +81,14 @@ assert "sigdelset(&wait_mask, SIGALRM)" in main
 assert "sigdelset(&wait_mask, SIGTERM)" in main
 assert "sigsuspend(&wait_mask)" in main
 assert "pause()" not in main
+ignore_actions = main.index("if (sigaction(SIGPIPE, &sa, NULL) < 0")
+daemon_start = main.index("if (daemon(0, 0) < 0)")
+assert ignore_actions < daemon_start
+for signum in ("SIGPIPE", "SIGHUP", "SIGUSR1", "SIGUSR2"):
+    assert f"sigaction({signum}, &sa, NULL)" in main[ignore_actions:daemon_start]
+assert "inicd_signal_action_error(-1, errno)" in main[ignore_actions:daemon_start]
+assert "(void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);" in main[ignore_actions:daemon_start]
+assert "Failed to install auxiliary signal dispositions" in main[ignore_actions:daemon_start]
 take = main.index("inicd_take_pending_events(&pending_events)")
 pending = main.index("sigpending(&pending_signals)")
 pending_stop = main.index("sigismember(&pending_signals, SIGTERM)")

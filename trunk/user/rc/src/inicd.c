@@ -78,6 +78,7 @@ inicd_main(int argc, char *argv[])
 	sigset_t managed_signals, previous_mask, wait_mask, pending_signals;
 	sig_atomic_t events;
 	int timer_status;
+	int saved_errno;
 	int exit_status = EXIT_SUCCESS;
 
 	(void)argc;
@@ -121,10 +122,16 @@ inicd_main(int argc, char *argv[])
 	memset(&sa, 0, sizeof(sa));
 	sa.sa_handler = SIG_IGN;
 	sigemptyset(&sa.sa_mask);
-	sigaction(SIGPIPE, &sa, NULL);
-	sigaction(SIGHUP, &sa, NULL);
-	sigaction(SIGUSR1, &sa, NULL);
-	sigaction(SIGUSR2, &sa, NULL);
+	if (sigaction(SIGPIPE, &sa, NULL) < 0 ||
+	    sigaction(SIGHUP, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR1, &sa, NULL) < 0 ||
+	    sigaction(SIGUSR2, &sa, NULL) < 0) {
+		saved_errno = inicd_signal_action_error(-1, errno);
+		(void)sigprocmask(SIG_SETMASK, &previous_mask, NULL);
+		logmessage("inicd", "Failed to install auxiliary signal dispositions: %s",
+			   strerror(saved_errno));
+		return saved_errno;
+	}
 
 	if (daemon(0, 0) < 0) {
 		int saved_errno = errno;

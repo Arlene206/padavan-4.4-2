@@ -2,7 +2,7 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Radio inventory fail-closed source is committed as `0c7648e03312f2923b343339209ce57cdb58f600`, with fixture-only test correction `d06c6a31212a42c5ec5afec99124010b80fcc2a4`. The corrected exact-head IAPP (`44426901415`), Process regression (`44426901495`), Process inventory (`44426901507`) and AI docs (`44426901440`) runs all PASS. XY-C1 workflow `44426901490` succeeded but skipped Build/TRX/artifact because the head only changed test/docs, so the IAPP production source still requires exact-source L3. Frozen backup remains unchanged.
+- Repository: `Arlene206/padavan-4.4-2`; development remains on `main`. Latest parent SHA for this iNIC signal slice: `007a38b34c5c7b8127f31a2aeb427e08833cdf67`. IAPP radio inventory fail-closed source and test fixture corrections are in `0c7648e` + `d06c6a3` + `007a38b`; exact-head IAPP (`44427295051`), Process inventory (`44427294988`) and AI docs (`44427294975`) PASS, while Process fail-closed (`44427295029`) and XY-C1 (`44427295060`) were in progress at last poll. Frozen backup remains unchanged.
 - Frozen archive branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it. PR #1 is closed/unmerged and is not a development path.
 - MentoHUST credential confidentiality is implemented on current main via `4f54d9f0b861091c884459bd178ab4b966439719`. Exact L2: legacy wrapper `44415470631` SUCCESS; AI handoff docs `44415470654` SUCCESS; process inventory `44415470822` SUCCESS; process/lifecycle fail-closed regression `44415470569` SUCCESS. These confirm shell syntax, secure config publication, and LF/CR injection rejection.
 - MentoHUST source SHA `4f54d9f0b861091c884459bd178ab4b966439719` is L3 VERIFIED: exact XY-C1 run `44415470536` completed Build XY-C1, TRX verification and artifact upload successfully.
@@ -77,26 +77,25 @@ The parser now rejects every duplicate mode or field flag and the host regressio
 
 ## Active task
 
-Complete exact-source validation for Ralink IAPP radio procfs inventory fail-closed handling.
+Fail closed if iNIC cannot install the signal dispositions required by its event loop.
 
-- Production change `0c7648e03312f2923b343339209ce57cdb58f600` distinguishes grep status 0 (radio marker found), 1 (successfully read but no marker), and >1 (procfs read error). A read error aborts before launch and firewall publication; the legacy `rax0` fallback is allowed only when both inventory files are readable and neither contains the preferred marker.
-- Initial IAPP run `44426426321` exposed a test fixture leak, corrected in test-only commit `d06c6a31212a42c5ec5afec99124010b80fcc2a4`. The corrected exact-head IAPP `44426901415`, Process fail-closed `44426901495`, Process inventory `44426901507`, and AI docs `44426901440` all PASS.
-- The corrected-head XY-C1 run `44426901490` completed but Build XY-C1, TRX verification and artifact upload were all SKIPPED because the correction changed only tests/docs. Do NOT claim L3 from it.
-- THIS SOURCE FOLLOW-UP suppresses the raw stderr from the two controlled `grep -q` inventory probes while preserving each command's exit status. The service still logs a concise actionable inventory error through `log_iapp()`; this prevents expected read failures from violating the Process integration stderr contract.
-- No local shell test or MIPS build was run in this connector-only session. Exact-head IAPP lifecycle, Process integration/inventory, AI docs and production Build/TRX/artifact must be checked for the new source SHA. Physical-router L4 remains NOT VERIFIED.
+- L1 found `inicd_main()` installed SIGALRM/SIGTERM handlers with checked return values, but discarded the result from setting SIGPIPE, SIGHUP, SIGUSR1 and SIGUSR2 to SIG_IGN. On failure, the daemon would continue startup with the default disposition for one or more signals it intended to ignore.
+- THIS SOURCE SLICE checks all four `sigaction()` calls before `daemon()`. A failure now preserves errno (EIO fallback if needed), restores the original signal mask, logs and returns without PID-file publication or timer startup. The `inicd_signal_action_error()` helper is covered by GNU89/Werror/ASan/UBSan regression; `scripts/check_inicd_signals.py` enforces all four calls, ordering and rollback.
+- Parent IAPP source SHA `007a38b34c5c7b8127f31a2aeb427e08833cdf67`: IAPP lifecycle `44427295051`, Process inventory `44427294988`, and AI docs `44427294975` PASS. Process fail-closed `44427295029` and XY-C1 `44427295060` were still IN_PROGRESS; confirm their eventual exact-head conclusions and inspect XY Build/TRX/artifact individually.
+- No local C test or MIPS build was run in this connector-only session. Exact-head iNIC signal, Process and XY-C1 Build/TRX/artifact validation is pending for this source change. Physical-router L4 NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: PASS — unknown procfs inventory no longer selects the fallback radio and cannot launch the daemon.
-- L2: The corrected regression parent `d06c6a3` passes IAPP, Process regression/inventory and AI docs. The stderr-suppression production follow-up requires fresh exact-head reruns.
-- L3: OPEN — no XY-C1 Build/TRX/artifact run has completed on a SHA containing the IAPP production change. Run `44426901490` is SKIPPED at those stages and is not evidence.
-- L4: Target BusyBox procfs error handling and physical-radio interface selection remain NOT VERIFIED.
+- L1: PASS — ignored auxiliary signal-disposition setup no longer fails silently before daemonization.
+- L2: Pending exact-head iNIC signal workflow, Process integration/inventory, and AI docs.
+- L3: Pending exact-source XY-C1 Build, TRX verification and artifact upload.
+- L4: Runtime behavior with injected sigaction failures and real iNIC hardware remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`; inspect the exact-head IAPP, Process regression/inventory, AI docs and XY-C1 runs for the stderr-suppression source commit. Check Build, TRX and artifact steps individually.
-2. If any checker fails, inspect the failing log and repair the real source/test contract. Do not weaken the stderr or fail-closed assertions.
-3. After exact-source L2/L3, continue the next independent P1 userland reliability task without repeating completed AP-LAN, WAN SIGTERM or storage work. Keep the frozen backup unchanged.
+1. Fetch live `main`; inspect exact-head iNIC signal, Process regression/inventory, AI docs and XY-C1 runs for this commit. Verify XY Build/TRX/artifact are complete on the exact source SHA.
+2. Read the logs for any failure. Do not relax the source contract or treat a host-only run as target firmware verification.
+3. Continue another independent P1 across the Padavan userland once this signal setup is closed; do not revisit completed IAPP, AP-LAN, WAN SIGTERM or storage slices. Preserve the frozen backup.
 
 ## Mandatory handoff checkpoint
 

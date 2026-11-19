@@ -1,3 +1,14 @@
+## 2026-11-19 — Fail closed when iNIC auxiliary signal dispositions cannot be installed
+
+- Parent main SHA: `007a38b34c5c7b8127f31a2aeb427e08833cdf67`.
+- L1 found `inicd_main()` checked installation of SIGALRM/SIGTERM handlers but ignored all four `sigaction()` results when setting SIGPIPE, SIGHUP, SIGUSR1 and SIGUSR2 to SIG_IGN. On a disposition-install failure, the daemon still launched with the affected signal's default behavior; e.g. an unexpected SIGHUP could terminate the monitor while the code believed it was ignored.
+- The daemon now checks the complete auxiliary disposition setup before `daemon()`; any failure captures errno (or EIO fallback), restores the caller's signal mask and returns without publishing the PID file or launching the monitor. The pure policy helper has GNU89 regression coverage, and the existing iNIC source contract asserts all four checked calls precede daemonization and that failure restores the mask.
+- Existing iNIC signal workflow already watches the production source, policy header, test and checker for both push and pull_request; no workflow was disabled or weakened.
+- Parent IAPP SHA `007a38b34c5c7b8127f31a2aeb427e08833cdf67`: standalone IAPP `44427295051`, Process inventory `44427294988`, AI docs `44427294975` PASS; Process lifecycle `44427295029` and XY-C1 `44427295060` were in progress at this checkpoint. Build/TRX/artifact for this parent are not yet confirmed.
+- No local C test or MIPS build was run in this connector-only session. Exact iNIC signal, Process, AI docs and XY-C1 Build/TRX/artifact checks for this source SHA are required. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Keep IAPP procfs diagnostics in the controlled service log
 
 - Parent main SHA: `d06c6a31212a42c5ec5afec99124010b80fcc2a4`.

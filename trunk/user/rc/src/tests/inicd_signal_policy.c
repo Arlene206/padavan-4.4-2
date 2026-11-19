@@ -47,10 +47,20 @@ test_null_event_storage(void)
 	return 0;
 }
 
+static int
+test_signal_action_error_policy(void)
+{
+	CHECK(inicd_signal_action_error(0, EIO) == 0);
+	CHECK(inicd_signal_action_error(-1, EACCES) == EACCES);
+	CHECK(inicd_signal_action_error(-1, 0) == EIO);
+	return 0;
+}
+
 int
 main(void)
 {
 	CHECK(test_signal_mapping() == 0);
+	CHECK(test_signal_action_error_policy() == 0);
 	CHECK(test_signal_coalescing_and_stop_precedence() == 0);
 	CHECK(test_null_event_storage() == 0);
 	puts("iNIC signal deferral policy: PASS");

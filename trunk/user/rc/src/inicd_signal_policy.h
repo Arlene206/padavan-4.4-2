@@ -1,10 +1,19 @@
 #ifndef INICD_SIGNAL_POLICY_H
 #define INICD_SIGNAL_POLICY_H
 
+#include <errno.h>
 #include <signal.h>
 
 #define INICD_EVENT_POLL 0x01
 #define INICD_EVENT_STOP 0x02
+
+static inline int
+inicd_signal_action_error(int action_status, int action_errno)
+{
+	if (action_status >= 0)
+		return 0;
+	return action_errno > 0 ? action_errno : EIO;
+}
 
 static inline sig_atomic_t
 inicd_event_for_signal(int signum)
