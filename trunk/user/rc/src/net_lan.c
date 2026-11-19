@@ -31,6 +31,7 @@
 #include <net/if.h>
 
 #include "rc.h"
+#include <nvram_linux.h>
 #include "dnsmasq_domain_policy.h"
 #include "dhcp_lease_policy.h"
 #include "lan_kernel_name_policy.h"
@@ -1743,6 +1744,97 @@ lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 
 
 static int
+lan_dhcp_nvram_transaction_set(void *opaque, const char *name,
+			       const char *value)
+{
+	struct nvram_transaction *transaction =
+		(struct nvram_transaction *)opaque;
+	int status;
+
+	errno = 0;
+	status = nvram_transaction_set(transaction, name, value, 1);
+	if (status < 0)
+		return errno ? errno : EIO;
+	return status;
+}
+
+static int
+lan_dhcp_nvram_restore_values(
+	const struct dhcp_lease_nvram_value *values, size_t count,
+	int *rollback_status)
+{
+	struct nvram_transaction transaction;
+	struct dhcp_lease_nvram_value restore[7];
+	int i, status, end_status, helper_rollback = 0;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (!values || count == 0 || count > sizeof(restore) / sizeof(restore[0])) {
+		if (rollback_status)
+			*rollback_status = EINVAL;
+		return EINVAL;
+	}
+	for (i = 0; i < (int)count; ++i) {
+		restore[i].name = values[i].name;
+		restore[i].value = values[i].previous_value;
+		restore[i].previous_value = values[i].value;
+	}
+
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0) {
+		status = errno ? errno : EIO;
+		if (rollback_status)
+			*rollback_status = status;
+		return status;
+	}
+	status = dhcp_lease_nvram_publish(restore, count,
+					  lan_dhcp_nvram_transaction_set,
+					  &transaction, &helper_rollback);
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (helper_rollback == 0)
+			helper_rollback = status != 0 ? status : end_status;
+	}
+	if (rollback_status)
+		*rollback_status = helper_rollback;
+	return status;
+}
+
+static int
+lan_dhcp_nvram_state_publish(const struct dhcp_lease_nvram_value *values,
+			     size_t count, int *rollback_status)
+{
+	struct nvram_transaction transaction;
+	int status, end_status;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno ? errno : EIO;
+	status = dhcp_lease_nvram_publish(values, count,
+					  lan_dhcp_nvram_transaction_set,
+					  &transaction, rollback_status);
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0) {
+			int restore_status, restore_detail = 0;
+
+			restore_status = lan_dhcp_nvram_restore_values(
+				values, count, &restore_detail);
+			if (rollback_status)
+				*rollback_status = restore_detail ? restore_detail :
+					restore_status;
+		} else if (rollback_status && *rollback_status == 0) {
+			*rollback_status = end_status;
+		}
+		if (status == 0)
+			status = end_status;
+	}
+	return status;
+}
+
+static int
 udhcpc_lan_bound(char *lan_ifname, int is_renew)
 {
 	char *value, *lease_ip, *lease_netmask, *lease_domain;
@@ -1750,11 +1842,16 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	char gateway_buf[INET_ADDRSTRLEN], lease_text[16];
 	char old_ipaddr[INET_ADDRSTRLEN], old_netmask[INET_ADDRSTRLEN];
 	char old_gateway[INET_ADDRSTRLEN], old_dns[256], old_domain[256];
+	char old_wins[256], old_lease[16];
 	unsigned int parsed_lease;
 	int is_changed, ip_changed, netmask_changed, gateway_changed;
-	int address_changed, apply_gateway, lease_dur = 0;
+	int address_changed, apply_address, clear_address, apply_gateway;
+	int lease_dur = 0;
 	int status, rollback_status = 0, hosts_status = 0;
+	int nvram_rollback_status = 0, network_rollback_status = 0;
+	int network_rollback_cleanup_status = 0, network_transaction_applied = 0;
 	int refresh_hosts;
+	struct dhcp_lease_nvram_value lease_state[7];
 	struct lan_dhcp_bound_context context;
 
 	if (!lan_ifname || !*lan_ifname)
@@ -1843,6 +1940,10 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 		nvram_safe_get("lan_dns_t"));
 	snprintf(old_domain, sizeof(old_domain), "%s",
 		nvram_safe_get("lan_domain_t"));
+	snprintf(old_wins, sizeof(old_wins), "%s",
+		nvram_safe_get("lan_wins_t"));
+	snprintf(old_lease, sizeof(old_lease), "%s",
+		nvram_safe_get("lan_lease_t"));
 
 	ip_changed = strcmp(old_ipaddr, lease_ip) != 0;
 	netmask_changed = strcmp(old_netmask, lease_netmask) != 0;
@@ -1851,21 +1952,44 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 	is_changed = address_changed || gateway_changed ||
 		strcmp(old_dns, lease_dns) != 0 ||
 		strcmp(old_domain, lease_domain) != 0;
+	apply_address = address_changed || !is_renew;
+	clear_address = ip_changed;
 	apply_gateway = gateway_changed || !is_renew;
+	lease_state[0].name = "lan_ipaddr_t";
+	lease_state[0].value = lease_ip;
+	lease_state[0].previous_value = old_ipaddr;
+	lease_state[1].name = "lan_netmask_t";
+	lease_state[1].value = lease_netmask;
+	lease_state[1].previous_value = old_netmask;
+	lease_state[2].name = "lan_gateway_t";
+	lease_state[2].value = gateway_buf;
+	lease_state[2].previous_value = old_gateway;
+	lease_state[3].name = "lan_dns_t";
+	lease_state[3].value = lease_dns;
+	lease_state[3].previous_value = old_dns;
+	lease_state[4].name = "lan_domain_t";
+	lease_state[4].value = lease_domain;
+	lease_state[4].previous_value = old_domain;
+	lease_state[5].name = "lan_wins_t";
+	lease_state[5].value = lease_wins;
+	lease_state[5].previous_value = old_wins;
+	lease_state[6].name = "lan_lease_t";
+	lease_state[6].value = lease_text;
+	lease_state[6].previous_value = old_lease;
 	refresh_hosts = lan_dhcp_hosts_refresh_required(
 		is_changed, is_renew,
 		get_ap_mode() && nvram_match("lan_hosts_retry", "1"));
 
-	if (is_changed || !is_renew) {
-		context.lan_ifname = lan_ifname;
-		context.lan_gateway = gateway_buf;
-		context.lan_domain = lease_domain;
-		context.lan_dns = lease_dns;
+	context.lan_ifname = lan_ifname;
+	context.lan_gateway = gateway_buf;
+	context.lan_domain = lease_domain;
+	context.lan_dns = lease_dns;
 
+	if (is_changed || !is_renew) {
 		status = dhcp_lease_bound_apply(
 			old_ipaddr, old_netmask, old_gateway,
 			lease_ip, lease_netmask, gateway_buf,
-			address_changed || !is_renew, ip_changed, apply_gateway,
+			apply_address, clear_address, apply_gateway,
 			&lan_dhcp_bound_ops, &context, &rollback_status);
 		if (status != 0) {
 			logmessage("DHCP LAN Client",
@@ -1877,17 +2001,45 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 					lan_ifname, rollback_status);
 			return status;
 		}
+		network_transaction_applied = 1;
 	}
 
-	/* Kernel routes, interface address and resolver publication are complete.
-	 * Only now expose the replacement lease to other RC callers. */
-	nvram_set_temp("lan_ipaddr_t", lease_ip);
-	nvram_set_temp("lan_netmask_t", lease_netmask);
-	nvram_set_temp("lan_gateway_t", gateway_buf);
-	nvram_set_temp("lan_dns_t", lease_dns);
-	nvram_set_temp("lan_domain_t", lease_domain);
-	nvram_set_temp("lan_wins_t", lease_wins);
-	nvram_set_temp("lan_lease_t", lease_text);
+	/* Publish the seven volatile lease tuples as one serialized operation.
+	 * A failed setter restores the failing key and earlier keys under the
+	 * NVRAM transaction lock. If publication fails, reverse the kernel and
+	 * resolver transition so BusyBox cannot accept a split lease. */
+	status = lan_dhcp_nvram_state_publish(
+		lease_state, sizeof(lease_state) / sizeof(lease_state[0]),
+		&nvram_rollback_status);
+	if (status != 0) {
+		logmessage("DHCP LAN Client",
+			   "cannot publish LAN DHCP lease state on %s (status=%d)",
+			   lan_ifname, status);
+		if (nvram_rollback_status != 0)
+			logmessage("DHCP LAN Client",
+				   "LAN DHCP NVRAM restoration incomplete on %s (status=%d)",
+				   lan_ifname, nvram_rollback_status);
+		if (network_transaction_applied) {
+			context.lan_gateway = old_gateway;
+			context.lan_domain = old_domain;
+			context.lan_dns = old_dns;
+			network_rollback_status = dhcp_lease_bound_apply(
+				lease_ip, lease_netmask, gateway_buf,
+				old_ipaddr, old_netmask, old_gateway,
+				apply_address, clear_address, apply_gateway,
+				&lan_dhcp_bound_ops, &context,
+				&network_rollback_cleanup_status);
+			if (network_rollback_status != 0)
+				logmessage("DHCP LAN Client",
+					   "LAN DHCP kernel/resolver rollback failed on %s (status=%d)",
+					   lan_ifname, network_rollback_status);
+			if (network_rollback_cleanup_status != 0)
+				logmessage("DHCP LAN Client",
+					   "LAN DHCP kernel/resolver rollback cleanup incomplete on %s (status=%d)",
+					   lan_ifname, network_rollback_cleanup_status);
+		}
+		return status;
+	}
 
 	if (refresh_hosts)
 		hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(

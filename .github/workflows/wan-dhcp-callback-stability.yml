@@ -1082,10 +1082,12 @@ jobs:
 
           lan_bound = body(lan_source, "udhcpc_lan_bound(char *lan_ifname, int is_renew)")
           assert "status = dhcp_lease_bound_apply(" in lan_bound
-          assert lan_bound.index("if (status != 0)") < lan_bound.index('nvram_set_temp("lan_ipaddr_t", lease_ip)')
+          assert "status = lan_dhcp_nvram_state_publish(" in lan_bound
+          assert lan_bound.index("status = dhcp_lease_bound_apply(") < lan_bound.index("status = lan_dhcp_nvram_state_publish(")
+          assert lan_bound.index("status = lan_dhcp_nvram_state_publish(") < lan_bound.index("hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(")
+          assert 'nvram_set_temp("lan_ipaddr_t", lease_ip)' not in lan_bound
           lan_publish = body(lan_source, "lan_dhcp_publish_hosts_and_schedule_retry(")
           assert "hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(" in lan_bound
-          assert lan_bound.index('nvram_set_temp("lan_ipaddr_t", lease_ip)') < lan_bound.index("hosts_status = lan_dhcp_publish_hosts_and_schedule_retry(")
           assert "hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);" in lan_publish
           assert "LAN lease applied but hostname files could not be published" in lan_publish
           assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in lan_bound

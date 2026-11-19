@@ -92,6 +92,54 @@ assert "if (refresh_hosts)" in bound
 assert "lan_dhcp_publish_hosts_and_schedule_retry(" in bound
 assert bound.index("if (refresh_hosts)") < bound.index("lan_dhcp_publish_hosts_and_schedule_retry(")
 assert "return lan_dhcp_bound_callback_status(0, hosts_status);" in bound
+
+# Publish all seven volatile DHCP lease tuples under the shared NVRAM lock.
+assert '#include <nvram_linux.h>' in lan
+nvram_setter = c_function_body(
+    lan, "lan_dhcp_nvram_transaction_set(void *opaque, const char *name, const char *value)"
+)
+assert "nvram_transaction_set(transaction, name, value, 1)" in nvram_setter
+assert "return errno ? errno : EIO;" in nvram_setter
+nvram_restore = c_function_body(lan, "lan_dhcp_nvram_restore_values(")
+assert "nvram_transaction_begin(&transaction)" in nvram_restore
+assert "dhcp_lease_nvram_publish(restore, count," in nvram_restore
+assert "restore[i].value = values[i].previous_value;" in nvram_restore
+assert "nvram_transaction_end(&transaction)" in nvram_restore
+nvram_publish = c_function_body(
+    lan, "lan_dhcp_nvram_state_publish(const struct dhcp_lease_nvram_value *values,"
+)
+assert "nvram_transaction_begin(&transaction)" in nvram_publish
+assert "dhcp_lease_nvram_publish(values, count," in nvram_publish
+assert "nvram_transaction_end(&transaction)" in nvram_publish
+assert "lan_dhcp_nvram_restore_values(" in nvram_publish
+assert "struct dhcp_lease_nvram_value" in policy
+assert "for (j = i + 1; j > 0; --j)" in policy
+assert "values[j - 1].previous_value" in policy
+for marker in (
+    "test_lan_dhcp_nvram_publish_compensates_partial_updates",
+    'assert(strcmp(fake.events, "ABCcba") == 0)',
+    "assert(rollback_status == EIO);",
+):
+    assert marker in test, marker
+nvram_state_call = bound.index("status = lan_dhcp_nvram_state_publish(")
+assert "network_transaction_applied = 1;" in bound[:nvram_state_call]
+assert 'lease_state[6].name = "lan_lease_t";' in bound
+for key in (
+    "lan_ipaddr_t", "lan_netmask_t", "lan_gateway_t", "lan_dns_t",
+    "lan_domain_t", "lan_wins_t", "lan_lease_t",
+):
+    assert key in bound
+nvram_failure = bound[nvram_state_call:]
+assert "if (status != 0)" in nvram_failure
+assert "dhcp_lease_bound_apply(" in nvram_failure
+assert "old_ipaddr, old_netmask, old_gateway" in nvram_failure
+assert "context.lan_gateway = old_gateway;" in nvram_failure
+assert "context.lan_domain = old_domain;" in nvram_failure
+assert "context.lan_dns = old_dns;" in nvram_failure
+assert "LAN DHCP NVRAM restoration incomplete" in nvram_failure
+assert "LAN DHCP kernel/resolver rollback failed" in nvram_failure
+assert nvram_failure.index("if (status != 0)") < nvram_failure.index("dhcp_lease_bound_apply(") < nvram_failure.index("return status;")
+assert 'nvram_set_temp("lan_ipaddr_t", lease_ip)' not in bound
 iappd_start = bound.index('int iappd_status = system("/usr/bin/iappd.sh restart");')
 iappd_failure = bound.index("if (iappd_status != 0)", iappd_start)
 iappd_log = bound.index("IAPP daemon restart after lease update failed", iappd_failure)

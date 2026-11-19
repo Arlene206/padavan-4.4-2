@@ -96,6 +96,129 @@ static const struct dhcp_lease_bound_ops dhcp_bound_fake_ops = {
 };
 
 
+struct dhcp_nvram_fake {
+	const char *names[3];
+	const char *old_values[3];
+	const char *new_values[3];
+	char current[3][16];
+	int fail_new_index;
+	int fail_new_status;
+	int fail_new_after_write;
+	int fail_restore_index;
+	int fail_restore_status;
+	char events[32];
+	size_t event_count;
+};
+
+static void
+dhcp_nvram_fake_event(struct dhcp_nvram_fake *fake, char event)
+{
+	if (fake->event_count + 1 < sizeof(fake->events)) {
+		fake->events[fake->event_count++] = event;
+		fake->events[fake->event_count] = '\0';
+	}
+}
+
+static int
+dhcp_nvram_fake_set(void *context, const char *name, const char *value)
+{
+	struct dhcp_nvram_fake *fake = (struct dhcp_nvram_fake *)context;
+	int i;
+
+	for (i = 0; i < 3; ++i) {
+		if (strcmp(name, fake->names[i]) != 0)
+			continue;
+		if (strcmp(value, fake->new_values[i]) == 0) {
+			dhcp_nvram_fake_event(fake, (char)('A' + i));
+			if (i == fake->fail_new_index) {
+				if (fake->fail_new_after_write)
+					snprintf(fake->current[i], sizeof(fake->current[i]),
+						 "%s", value);
+				return fake->fail_new_status;
+			}
+		} else if (strcmp(value, fake->old_values[i]) == 0) {
+			dhcp_nvram_fake_event(fake, (char)('a' + i));
+			if (i == fake->fail_restore_index)
+				return fake->fail_restore_status;
+		} else {
+			return EINVAL;
+		}
+		snprintf(fake->current[i], sizeof(fake->current[i]), "%s", value);
+		return 0;
+	}
+
+	return ENOENT;
+}
+
+static void
+test_lan_dhcp_nvram_publish_compensates_partial_updates(void)
+{
+	struct dhcp_nvram_fake fake;
+	struct dhcp_lease_nvram_value values[3];
+	int rollback_status, i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "lan_ipaddr_t";
+	fake.names[1] = "lan_netmask_t";
+	fake.names[2] = "lan_gateway_t";
+	fake.old_values[0] = "old-a";
+	fake.old_values[1] = "old-b";
+	fake.old_values[2] = "old-c";
+	fake.new_values[0] = "new-a";
+	fake.new_values[1] = "new-b";
+	fake.new_values[2] = "new-c";
+	values[0].name = fake.names[0];
+	values[1].name = fake.names[1];
+	values[2].name = fake.names[2];
+	values[0].value = fake.new_values[0];
+	values[1].value = fake.new_values[1];
+	values[2].value = fake.new_values[2];
+	values[0].previous_value = fake.old_values[0];
+	values[1].previous_value = fake.old_values[1];
+	values[2].previous_value = fake.old_values[2];
+	fake.fail_new_index = -1;
+	fake.fail_restore_index = -1;
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.old_values[i]);
+
+	assert(dhcp_lease_nvram_publish(values, 3, dhcp_nvram_fake_set,
+					&fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "ABC") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.new_values[i]) == 0);
+
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	fake.fail_new_index = 2;
+	fake.fail_new_status = ENOSPC;
+	fake.fail_new_after_write = 0;
+	assert(dhcp_lease_nvram_publish(values, 3, dhcp_nvram_fake_set,
+					&fake, &rollback_status) == ENOSPC);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "ABCcba") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
+
+	/* Simulate a successful ioctl followed by a close error, then a failed
+	 * restore of that just-written key. Earlier keys must still be restored. */
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	fake.fail_new_after_write = 1;
+	fake.fail_restore_index = 2;
+	fake.fail_restore_status = EIO;
+	assert(dhcp_lease_nvram_publish(values, 3, dhcp_nvram_fake_set,
+					&fake, &rollback_status) == ENOSPC);
+	assert(rollback_status == EIO);
+	assert(strcmp(fake.events, "ABCcba") == 0);
+	assert(strcmp(fake.current[0], "old-a") == 0);
+	assert(strcmp(fake.current[1], "old-b") == 0);
+	assert(strcmp(fake.current[2], "new-c") == 0);
+}
+
+/* A withdrawn IPTV lease stays deconfigured only when every required
+ * operation succeeds. */
 struct dhcp_viptv_deconfig_fake {
 	int clear_status;
 	int route_status;
@@ -380,6 +503,7 @@ main(void)
 	assert(strcmp(viptv_fake.events, "CRCRP") == 0);
 	assert(viptv_fake.published == 1);
 
+	test_lan_dhcp_nvram_publish_compensates_partial_updates();
 	puts("DHCP lease input policy regression: OK");
 	return 0;
 }

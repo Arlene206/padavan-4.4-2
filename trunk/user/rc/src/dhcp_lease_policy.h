@@ -295,6 +295,64 @@ rollback:
 	return status;
 }
 
+/*
+ * Publish related temporary NVRAM lease keys as one compensatable group.
+ * The caller owns the NVRAM transaction lock for the complete operation.
+ * Restore the failing key too: its ioctl may have succeeded even if close
+ * subsequently reported an error.
+ */
+struct dhcp_lease_nvram_value {
+	const char *name;
+	const char *value;
+	const char *previous_value;
+};
+
+typedef int (*dhcp_lease_nvram_set_operation)(void *context,
+					      const char *name,
+					      const char *value);
+
+static inline int
+dhcp_lease_nvram_publish(const struct dhcp_lease_nvram_value *values,
+			 size_t count,
+			 dhcp_lease_nvram_set_operation set_value,
+			 void *context, int *rollback_status)
+{
+	size_t i, j;
+	int status, rollback = 0;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (!values || count == 0 || !set_value)
+		return EINVAL;
+
+	/* Validate the complete group before changing the first tuple. */
+	for (i = 0; i < count; ++i) {
+		if (!values[i].name || !*values[i].name ||
+		    !values[i].value || !values[i].previous_value)
+			return EINVAL;
+	}
+
+	for (i = 0; i < count; ++i) {
+		status = set_value(context, values[i].name, values[i].value);
+		if (status == 0)
+			continue;
+
+		/* Include the failing key and attempt every prior restoration. */
+		for (j = i + 1; j > 0; --j) {
+			int restore_status = set_value(
+				context, values[j - 1].name,
+				values[j - 1].previous_value);
+			if (restore_status != 0 && rollback == 0)
+				rollback = restore_status;
+		}
+		if (rollback_status)
+			*rollback_status = rollback;
+		return status;
+	}
+
+	return 0;
+}
+
 /* Strict decimal parser: no signs, whitespace, suffixes or overflow. */
 static inline int
 dhcp_lease_decimal_is_valid(const char *value, unsigned int minimum,
