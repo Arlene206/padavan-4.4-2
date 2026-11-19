@@ -3125,7 +3125,10 @@ start_wait = c_function_body(
     rc_services, "service_start_probe_wait(const char *service_name")
 assert "service_wait_seconds(seconds)" in start_wait
 assert "errno > 0 ? errno : EIO" in start_wait
-assert "return status;" in start_wait
+assert "return service_wait_failure_status(status);" in start_wait
+wait_failure = c_function_body(service_wait, "service_wait_failure_status(int wait_errno)")
+assert "errno = wait_errno > 0 ? wait_errno : EIO;" in wait_failure
+assert "return -1;" in wait_failure
 for signature, service_name, initial, retry in (
     ("start_syslogd(void)", "syslogd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
     ("start_klogd(void)", "klogd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
