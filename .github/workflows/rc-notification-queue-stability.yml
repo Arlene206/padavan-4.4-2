@@ -213,8 +213,14 @@ jobs:
                   assert "return start_status;" in start_body
               else:
                   assert "return " + launcher + ";" in start_body
-              assert "return start_" + name + "();" in restart_body
-              assert "start_" + name + "();" not in restart_body.replace("return start_" + name + "();", "")
+              if name == "smartdns":
+                  # SmartDNS restart is one shell-locked operation, not a C stop/start pair.
+                  assert 'return eval("/usr/bin/smartdns.sh","restart");' in restart_body
+                  assert "stop_smartdns()" not in restart_body
+                  assert "return start_smartdns();" not in restart_body
+              else:
+                  assert "return start_" + name + "();" in restart_body
+                  assert "start_" + name + "();" not in restart_body.replace("return start_" + name + "();", "")
               assert "int start_" + name + "(void);" in rc_header
           for daemon, process in (
               ("scutclient", "bin_scutclient"),

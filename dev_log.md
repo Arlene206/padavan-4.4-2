@@ -1,3 +1,12 @@
+## 2026-11-19 — Align downstream lifecycle contracts with SmartDNS's locked restart wrapper
+
+- Parent main SHA: `03dc5a8f3a38561b8a33eb1a530d7a0da6dfc7ae`.
+- SmartDNS restart intentionally delegates the complete stop/reconfigure/start transaction to `/usr/bin/smartdns.sh restart`, where one shell lifecycle lock spans the operation. Two downstream consumers still required the generic C stop/status/start shape: PID 1 notification's static contract failed at its generic `return start_smartdns();` assertion (run `44507439447`), while the storage safe-remove checker failed at the matching `stop_status = stop_smartdns()` assertion (run `44508947435`). Their preceding C regression/caller-graph steps passed.
+- The PID 1 workflow now checks SmartDNS's exact locked-shell delegation separately while retaining generic restart assertions for other services. `scripts/check_storage_safe_remove.py` gets the same narrow SmartDNS case; all other service stop-result gates remain mandatory.
+- No production source change is included. A local checkout is unavailable; exact-head PID 1, USB storage and AI docs Actions are required to validate this source-contract milestone. Latest production-source XY-C1 L3 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Validate NVRAM WAN interface names at PPPoE config and process boundaries
 
 - Main sequence: `1ed9992e8af14913fdf2f030de70206b8140197a` (PPP options source/checker), `213546dfb420c350c3754eb9cb9b2b6d706dd350` (PPPoE relay argv and path-filter coverage), and `72fc0604832ff6fa3f3cfc7a152a0895b5e74896` (static checker boundary correction).

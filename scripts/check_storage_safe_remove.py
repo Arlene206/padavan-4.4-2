@@ -599,10 +599,18 @@ require("return status;" in frp_stop and 'eval("/usr/bin/frp.sh","stop")' in frp
 require("int stop_frp(void);" in rc_header,
         "RC header must expose checked FRP stop status")
 for name in ("scutclient", "mentohust", "ttyd", "ss", "ss_tunnel",
-             "vlmcsd", "iperf3", "sqm", "aldriver", "wireguard", "smartdns"):
+             "vlmcsd", "iperf3", "sqm", "aldriver", "wireguard"):
     restart_body = body(services, "int restart_" + name + "(void)")
     require("int stop_status = stop_" + name + "();" in restart_body and "return stop_status;" in restart_body and "start_" + name + "();" in restart_body,
             "manual stop/start wrapper must not launch after failed stop: " + name)
+
+# SmartDNS holds one shell-level lock across its entire restart transaction;
+# the C wrapper must not split that transaction into separate stop/start calls.
+smartdns_restart = body(services, "int restart_smartdns(void)")
+require('return eval("/usr/bin/smartdns.sh","restart");' in smartdns_restart and
+        "stop_smartdns()" not in smartdns_restart and
+        "return start_smartdns();" not in smartdns_restart,
+        "SmartDNS restart must delegate the full locked transaction to its shell wrapper")
 require(stop_all.count('record_service_stop_status(&stop_status, "WireGuard"') == 1,
         "stop_services must only stop WireGuard once")
 igmp_stop = body(net, "int\nstop_igmpproxy(char *wan_ifname)")
