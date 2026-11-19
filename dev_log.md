@@ -1,3 +1,13 @@
+## 2026-11-20 00:54:01 CST (UTC+8) — Validate complete WAN gateway ARP reply identity
+
+- Base main SHA: `f50387e29be43e9de4a1b55344390742a4252b53`. Product source changed in `trunk/user/rc/src/detect_wan.c` and `detect_wan_arp_result_policy.h`; regression changed in `trunk/user/rc/src/tests/detect_wan_arp_result_policy.c`; the focused `.github/workflows/detect-wan-arp-stability.yml` source contract now pins the complete matcher and tuple wiring.
+- `arpping_gateway()` previously treated a minimum-length frame as a gateway reply after checking only Ethernet EtherType, ARP opcode, target hardware address and sender IPv4 address. It did not verify Ethernet/IPv4 ARP types and address lengths, Ethernet source/destination, consistency of Ethernet-source and ARP-sender MACs, or the reply target IPv4 address. An unrelated or malformed frame could therefore be mistaken for a live gateway and suppress the intended DHCP recovery decision.
+- The new policy accepts only an Ethernet/IPv4 ARP reply addressed to the current local MAC/IP, whose Ethernet and ARP sender MACs agree and whose sender IPv4 address is the configured gateway. Sender and target IPv4 values are copied from potentially unaligned packed fields before comparison, avoiding unaligned integer access on MIPS.
+- Regression cases cover a valid unaligned reply and reject wrong EtherTypes/types/lengths/opcode, inconsistent or unrelated L2 addresses, a wrong gateway sender IP, a stale target IP, and missing pointers. Existing local socket-error/no-reply/DHCP-renewal policy coverage is retained.
+- No local checkout/toolchain is available; no local compiler or hardware result is claimed. Exact-head WAN ARP sanitizer/source-contract, Process source inventory, AI handoff docs, and XY-C1 Build/TRX/artifact Actions are pending inspection on THIS COMMIT. XY-C1 L3 and physical-router L4 are not assumed from prior SHAs; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Preserve the actual DHCPv6 startup-cleanup errno
 
 - Main parent: `3ae692ae9da8fe013c283b294ab6a66ee22a72f8`. The exact checker-only follow-up WAN DHCP callback `44561987026` and AI handoff docs `44561986982` both PASS, clearing the stale direct-`unsetenv()` assertion from the previous source-contract failure.

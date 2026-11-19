@@ -151,6 +151,7 @@ arpping_gateway(int ap_mode)
     struct sockaddr addr;
     struct ifreq ifr;
     struct arpMsg arp;
+    struct detect_wan_arp_reply arp_reply;
     struct timeval arp_timeout;
     long timeStart;
     const int one = 1;
@@ -250,20 +251,29 @@ arpping_gateway(int ap_mode)
             break;
         }
 
-        if (rcv_bytes >= 42 &&
-            arp.h_proto == htons(ETH_P_ARP) &&
-            arp.operation == htons(ARPOP_REPLY) &&
-            memcmp(arp.tHaddr, mac, 6) == 0 &&
-            detect_wan_arp_source_address_matches(arp.sInaddr, gateway_ip))
-        {
+        if (rcv_bytes >= 42) {
+            arp_reply.ethernet_protocol = arp.h_proto;
+            arp_reply.hardware_type = arp.htype;
+            arp_reply.protocol_type = arp.ptype;
+            arp_reply.hardware_length = arp.hlen;
+            arp_reply.protocol_length = arp.plen;
+            arp_reply.operation = arp.operation;
+            arp_reply.ethernet_source = arp.h_source;
+            arp_reply.ethernet_destination = arp.h_dest;
+            arp_reply.sender_hardware = arp.sHaddr;
+            arp_reply.sender_protocol = arp.sInaddr;
+            arp_reply.target_hardware = arp.tHaddr;
+            arp_reply.target_protocol = arp.tInaddr;
+            if (detect_wan_arp_reply_matches(&arp_reply, mac, gateway_ip, ip)) {
 #ifdef DEBUG
-            fprintf(stderr, "Valid arp reply from [%02X:%02X:%02X:%02X:%02X:%02X]\n",
-                    (unsigned char)arp.sHaddr[0], (unsigned char)arp.sHaddr[1],
-                    (unsigned char)arp.sHaddr[2], (unsigned char)arp.sHaddr[3],
-                    (unsigned char)arp.sHaddr[4], (unsigned char)arp.sHaddr[5]);
+                fprintf(stderr, "Valid arp reply from [%02X:%02X:%02X:%02X:%02X:%02X]\n",
+                        (unsigned char)arp.sHaddr[0], (unsigned char)arp.sHaddr[1],
+                        (unsigned char)arp.sHaddr[2], (unsigned char)arp.sHaddr[3],
+                        (unsigned char)arp.sHaddr[4], (unsigned char)arp.sHaddr[5]);
 #endif
-            rv = 1;
-            break;
+                rv = 1;
+                break;
+            }
         }
 
         if (uptime() - timeStart > MAX_ARP_WAIT)

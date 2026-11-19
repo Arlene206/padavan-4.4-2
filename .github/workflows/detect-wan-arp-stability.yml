@@ -137,9 +137,20 @@ jobs:
           assert "DETECT_WAN_ARP_PROBE_ERROR" in probe_policy
           assert "detect_wan_arp_probe_result" in probe_policy
           assert "detect_wan_arp_should_renew" in probe_policy
-          assert "detect_wan_arp_source_address_matches" in probe_policy
-          assert "memcpy(&source, source_address, sizeof(source));" in probe_policy
-          assert "test_unaligned_arp_source_address_matches_without_integer_pointer_access" in probe_test
+          assert "struct detect_wan_arp_reply" in probe_policy
+          assert "detect_wan_arp_reply_matches" in probe_policy
+          assert "reply->ethernet_protocol != htons(ETH_P_ARP)" in probe_policy
+          assert "reply->hardware_type != htons(ARPHRD_ETHER)" in probe_policy
+          assert "reply->protocol_type != htons(ETH_P_IP)" in probe_policy
+          assert "reply->hardware_length != 6 || reply->protocol_length != 4" in probe_policy
+          assert "reply->operation != htons(ARPOP_REPLY)" in probe_policy
+          assert "memcpy(&sender_address, reply->sender_protocol, sizeof(sender_address));" in probe_policy
+          assert "memcpy(&target_address, reply->target_protocol, sizeof(target_address));" in probe_policy
+          assert "memcmp(reply->ethernet_source, reply->sender_hardware, 6) == 0" in probe_policy
+          assert "memcmp(reply->ethernet_destination, local_hardware, 6) == 0" in probe_policy
+          assert "memcmp(reply->target_hardware, local_hardware, 6) == 0" in probe_policy
+          assert "test_arp_reply_requires_matching_l2_l3_tuple" in probe_test
+          assert "test_malformed_and_unrelated_arp_replies_are_rejected" in probe_test
           assert "test_probe_result_keeps_local_errors_distinct" in probe_test
           assert "test_dhcp_renew_requires_three_real_no_reply_probes" in probe_test
           arp_probe = body(detect, "arpping_gateway(int ap_mode)")
@@ -148,7 +159,11 @@ jobs:
           assert "probe_errno = errno ? errno : EIO;" in arp_probe
           assert "if (close(s) < 0 && probe_errno == 0)" in arp_probe
           assert "return detect_wan_arp_probe_result(rv, probe_errno);" in arp_probe
-          assert "detect_wan_arp_source_address_matches(arp.sInaddr, gateway_ip)" in arp_probe
+          assert "detect_wan_arp_reply_matches(&arp_reply, mac, gateway_ip, ip)" in arp_probe
+          assert "arp_reply.ethernet_source = arp.h_source;" in arp_probe
+          assert "arp_reply.ethernet_destination = arp.h_dest;" in arp_probe
+          assert "arp_reply.sender_hardware = arp.sHaddr;" in arp_probe
+          assert "arp_reply.target_protocol = arp.tInaddr;" in arp_probe
           assert "((uint32_t *) arp.sInaddr)" not in arp_probe
           assert "return 0;" not in arp_probe
           poll_body = body(detect, "poll_gateway(void)")
@@ -219,5 +234,5 @@ jobs:
               assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
           assert "Compile and run GNU89 signal deferral policy regression" in workflow
           assert "Compile and run GNU89 ARP probe local-error policy regression" in workflow
-          print("WAN gateway ARP probe error/renewal fail-closed contract: PASS")
+          print("WAN gateway ARP reply identity/error/renewal fail-closed contract: PASS")
           PY
