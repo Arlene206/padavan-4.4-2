@@ -139,6 +139,31 @@ test_uint_range_parser(void)
 }
 
 static void
+test_switch_command_numeric_boundaries(void)
+{
+    unsigned int value = 0xffffffffU;
+
+    /* Rate commands document ports 0..4. */
+    assert(switch_parse_uint_range("0", 0U, 4U, &value) == 0 && value == 0U);
+    assert(switch_parse_uint_range("4", 0U, 4U, &value) == 0 && value == 4U);
+    assert(switch_parse_uint_range("5", 0U, 4U, &value) != 0);
+    assert(switch_parse_uint_range("8", 0U, 4U, &value) != 0);
+    assert(switch_parse_uint_range("-1", 0U, 4U, &value) != 0);
+    assert(switch_parse_uint_range("4junk", 0U, 4U, &value) != 0);
+
+    /* Mirror/tag/PVID ports follow the hardware-specific MAX_PORT. */
+    assert(switch_parse_uint_range("6", 0U, 6U, &value) == 0 && value == 6U);
+    assert(switch_parse_uint_range("7", 0U, 6U, &value) != 0);
+    assert(switch_parse_uint_range("0x6", 0U, 6U, &value) == 0 && value == 6U);
+    assert(switch_parse_uint_range("0xffffffff", 0U, 6U, &value) != 0);
+
+    assert(switch_parse_uint_range("3", 0U, 3U, &value) == 0 && value == 3U);
+    assert(switch_parse_uint_range("4", 0U, 3U, &value) != 0);
+    assert(switch_parse_uint_range("4095", 0U, 4095U, &value) == 0);
+    assert(switch_parse_uint_range("4096", 0U, 4095U, &value) != 0);
+}
+
+static void
 test_table_portmap_parser(void)
 {
     unsigned int map = 0x12345678U;
@@ -162,6 +187,7 @@ main(void)
     test_mac_parser();
     test_uint_range_parser();
     test_table_portmap_parser();
+    test_switch_command_numeric_boundaries();
     puts("switch IPv4/MAC/numeric/port-map parser policy: PASS");
 	return 0;
 }

@@ -1528,16 +1528,11 @@ void table_clear(void)
 void set_mirror_to(int argc, char *argv[])
 {
 	unsigned int value;
-        int idx;
+        unsigned int idx;
 
-	if (argc < 4)
+	if (argc != 4 ||
+	    switch_parse_uint_range(argv[3], 0U, MAX_PORT, &idx) != 0)
 		usage(argv[0]);
-
-	idx = strtoul(argv[3], NULL, 0);
-	if (idx < 0 || MAX_PORT < idx) {
-		printf("wrong port member, should be within 0~%d\n", MAX_PORT);
-		return;
-	}
 
 	reg_read(REG_ESW_WT_MAC_MFC, &value);
 	value |= 0x1 << 3;
@@ -1550,23 +1545,12 @@ void set_mirror_to(int argc, char *argv[])
 void set_mirror_from(int argc, char *argv[])
 {
 	unsigned int offset, value;
-        int idx, mirror;
+        unsigned int idx, mirror;
 
-	if (argc < 5)
+	if (argc != 5 ||
+	    switch_parse_uint_range(argv[3], 0U, MAX_PORT, &idx) != 0 ||
+	    switch_parse_uint_range(argv[4], 0U, 3U, &mirror) != 0)
 		usage(argv[0]);
-
-	idx = strtoul(argv[3], NULL, 0);
-	mirror = strtoul(argv[4], NULL, 0);
-
-	if (idx < 0 || MAX_PORT < idx) {
-		printf("wrong port member, should be within 0~%d\n", MAX_PORT);
-		return;
-	}
-
-	if (mirror < 0 || 3 < mirror) {
-		printf("wrong mirror setting, should be within 0~3\n");
-		return;
-	}
 
 	offset = (0x2004 | (idx << 8));
 	reg_read(offset, &value);
@@ -2098,53 +2082,59 @@ int main(int argc, char *argv[])
 			usage(argv[0]);
 	}
 	else if (!strncmp(argv[1], "ingress-rate", 6)) {
-		int port, bw=0;
-		if (argc < 4)
-			usage(argv[0]);
-		port = strtoul(argv[3], NULL, 0) & 0x7;
-		if (argv[2][1] == 'n') {
-			if (argc != 5)
+		unsigned int port, bandwidth = 0U;
+		int bw = 0;
+
+		if (strcmp(argv[2], "on") == 0) {
+			if (argc != 5 ||
+			    switch_parse_uint_range(argv[3], 0U, 4U, &port) != 0 ||
+			    switch_parse_uint_range(argv[4], 0U, 2147483647U,
+						    &bandwidth) != 0)
 				usage(argv[0]);
-			bw = strtoul(argv[4], NULL, 0);
-			ingress_rate_set(1, port, bw);
-			printf("switch port=%d, bw=%d\n", port, bw);
-		}
-		else if (argv[2][1] == 'f') {
-			if (argc != 4)
+			bw = (int)bandwidth;
+			ingress_rate_set(1, (int)port, bw);
+			printf("switch port=%u, bw=%d\n", port, bw);
+		} else if (strcmp(argv[2], "off") == 0) {
+			if (argc != 4 ||
+			    switch_parse_uint_range(argv[3], 0U, 4U, &port) != 0)
 				usage(argv[0]);
-			ingress_rate_set(0, port, bw);
-			printf("switch port=%d ingress rate limit off\n", port);
-		}
-		else
+			ingress_rate_set(0, (int)port, 0);
+			printf("switch port=%u ingress rate limit off\n", port);
+		} else {
 			usage(argv[0]);
+		}
 	}
 	else if (!strncmp(argv[1], "egress-rate", 6)) {
-		int port, bw=0;
-		if (argc < 4)
-			usage(argv[0]);
-		port = strtoul(argv[3], NULL, 0) & 0x7;
-		if (argv[2][1] == 'n') {
-			if (argc != 5)
+		unsigned int port, bandwidth = 0U;
+		int bw = 0;
+
+		if (strcmp(argv[2], "on") == 0) {
+			if (argc != 5 ||
+			    switch_parse_uint_range(argv[3], 0U, 4U, &port) != 0 ||
+			    switch_parse_uint_range(argv[4], 0U, 2147483647U,
+						    &bandwidth) != 0)
 				usage(argv[0]);
-			bw = strtoul(argv[4], NULL, 0);
-			egress_rate_set(1, port, bw);
-			printf("switch port=%d, bw=%d\n", port, bw);
-		}
-		else if (argv[2][1] == 'f') {
-			if (argc != 4)
+			bw = (int)bandwidth;
+			egress_rate_set(1, (int)port, bw);
+			printf("switch port=%u, bw=%d\n", port, bw);
+		} else if (strcmp(argv[2], "off") == 0) {
+			if (argc != 4 ||
+			    switch_parse_uint_range(argv[3], 0U, 4U, &port) != 0)
 				usage(argv[0]);
-			egress_rate_set(0, port, bw);
-			printf("switch port=%d egress rate limit off\n", port);
-		}
-		else
+			egress_rate_set(0, (int)port, 0);
+			printf("switch port=%u egress rate limit off\n", port);
+		} else {
 			usage(argv[0]);
+		}
 	}
 	else if (!strncmp(argv[1], "tag", 4)) {
-		int offset=0, value=0, port=0;
-		if (argc < 4)
+		int offset=0, value=0;
+		unsigned int port;
+
+		if (argc != 4 ||
+		    switch_parse_uint_range(argv[3], 0U, MAX_PORT, &port) != 0)
 			usage(argv[0]);
-		port = strtoul(argv[3], NULL, 0) & 0x7;
-		offset = 0x2004 + port * 0x100;
+		offset = 0x2004 + (int)port * 0x100;
 		reg_read(offset, &value);
 		if (strcmp(argv[2], "on") == 0) {
 			value &= ~(0x30000000);
@@ -2172,12 +2162,14 @@ int main(int argc, char *argv[])
 			usage(argv[0]);
 	}
 	else if (!strncmp(argv[1], "pvid", 5)) {
-		int offset=0, value=0, port=0, pvid=0;
-		if (argc < 4)
+		int offset=0, value=0;
+		unsigned int port, pvid;
+
+		if (argc != 4 ||
+		    switch_parse_uint_range(argv[2], 0U, MAX_PORT, &port) != 0 ||
+		    switch_parse_uint_range(argv[3], 0U, 4095U, &pvid) != 0)
 			usage(argv[0]);
-		port = strtoul(argv[2], NULL, 0) & 0x7;
-		pvid = strtoul(argv[3], NULL, 0) & 0xfff;
-		offset = 0x2014 + port * 0x100;
+		offset = 0x2014 + (int)port * 0x100;
 		reg_read(offset, &value);
 		value &= 0xfffff000;
 		value |= pvid;
