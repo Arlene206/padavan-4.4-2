@@ -141,7 +141,21 @@ jobs:
               selector = main.index('strcmp(argv[2], "on")', start)
               assert subcommand < selector
           assert "argv[2][1]" not in main
+          meter = function_body("void acl_dip_meter(int argc, char *argv[])")
+          trtcm = function_body("void acl_dip_trtcm(int argc, char *argv[])")
+          for body, guard in ((meter, "argc != 7"), (trtcm, "argc != 10")):
+              assert guard in body
+              assert "parse_portmap_argument(argv[5])" in body
+              assert "parse_ipv4_argument(argv[4])" in body
+              assert "strtoul(" not in body
+              assert body.index("parse_portmap_argument(argv[5])") < body.index("reg_write(")
+              assert body.index("parse_ipv4_argument(argv[4])") < body.index("reg_write(")
+              assert body.index("parse_uint_range_argument(") < body.index("reg_write(")
+          assert "0x1fffc0U" in meter
+          assert "0x3fffc0U" in trtcm
+          assert "0xffffU" in trtcm
           print("switch command port indices and numeric selectors reject invalid or aliased inputs: PASS")
+          print("DIP meter/TrTCM fields are validated before the first MMIO write: PASS")
           print("switch_gsw invalid usage and truncated ACL/mirror/TrTCM/DIP/SIP commands fail safely: PASS")
           PY
 

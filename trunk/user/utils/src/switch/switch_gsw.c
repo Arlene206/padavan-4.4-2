@@ -82,6 +82,21 @@ parse_portmap_argument(const char *text)
 	return portmap;
 }
 
+static unsigned int
+parse_uint_range_argument(const char *text, unsigned int maximum,
+			  const char *field_name)
+{
+	unsigned int value;
+
+	if (switch_parse_uint_range(text, 0U, maximum, &value) != 0) {
+		fprintf(stderr, "switch: invalid %s: %.64s\n",
+			field_name, text ? text : "(null)");
+		switch_fini();
+		exit(EXIT_FAILURE);
+	}
+	return value;
+}
+
 void usage(char *cmd)
 {
 #if RT_SWITCH_HELP
@@ -383,27 +398,15 @@ ip_to_str (
 
 void acl_dip_meter(int argc, char *argv[])
 {
-	unsigned int i, j, value, ip_value, meter;
+	unsigned int j, value, ip_value, meter;
 
-	if (argc < 7) {
-		printf("insufficient arguments!\n");
-		return;
-	}
+	if (argc != 7)
+		usage(argv[0]);
 
-	if (!argv[5] || strlen(argv[5]) != 8) {
-		printf("portmap format error, should be of length 7\n");
-			return;
-	}
-	j = 0;
-	for (i = 0; i < 7; i++) {
-		if (argv[5][i] != '0' && argv[5][i] != '1') {
-			printf("portmap format error, should be of combination of 0 or 1\n");
-			return;
-		}
-		j += (argv[5][i] - '0') * (1 << i);
-	}
-
-
+	/* Validate every field before the first register write. */
+	j = parse_portmap_argument(argv[5]);
+	meter = parse_uint_range_argument(argv[6], 0x1fffc0U,
+					  "ACL meter rate");
 	ip_value = parse_ipv4_argument(argv[4]);
 	//set pattern
 	value = (ip_value >> 16);
@@ -464,7 +467,6 @@ void acl_dip_meter(int argc, char *argv[])
 	wait_vtcr();
 
 	//set action
-        meter = strtoul(argv[6], NULL, 0);
 	value = meter >> 6;//divide 64, rate limit
 	value |= 0x1 << 15; //enable rate control
 
@@ -485,30 +487,18 @@ void acl_dip_meter(int argc, char *argv[])
 
 void acl_dip_trtcm(int argc, char *argv[])
 {
-	unsigned int i, j, value, ip_value;
+	unsigned int j, value, ip_value;
 	unsigned int CIR, CBS, PIR, PBS;
 
-	if (argc < 10)
+	if (argc != 10)
 		usage(argv[0]);
 
-	if (argc < 6) {
-		printf("insufficient arguments!\n");
-		return;
-	}
-
-	if (!argv[5] || strlen(argv[5]) != 8) {
-		printf("portmap format error, should be of length 7\n");
-			return;
-	}
-	j = 0;
-	for (i = 0; i < 7; i++) {
-		if (argv[5][i] != '0' && argv[5][i] != '1') {
-			printf("portmap format error, should be of combination of 0 or 1\n");
-			return;
-		}
-		j += (argv[5][i] - '0') * (1 << i);
-	}
-
+	/* Rate/burst fields are packed into 16-bit hardware registers. */
+	j = parse_portmap_argument(argv[5]);
+	CIR = parse_uint_range_argument(argv[6], 0x3fffc0U, "CIR");
+	CBS = parse_uint_range_argument(argv[7], 0xffffU, "CBS");
+	PIR = parse_uint_range_argument(argv[8], 0x3fffc0U, "PIR");
+	PBS = parse_uint_range_argument(argv[9], 0xffffU, "PBS");
 	ip_value = parse_ipv4_argument(argv[4]);
 	//set pattern
 	value = (ip_value >> 16);
@@ -551,11 +541,6 @@ void acl_dip_trtcm(int argc, char *argv[])
 	wait_vtcr();
 
 	//set CBS PBS
-        CIR = strtoul(argv[6], NULL, 0);
-        CBS = strtoul(argv[7], NULL, 0);
-        PIR = strtoul(argv[8], NULL, 0);
-        PBS = strtoul(argv[9], NULL, 0);
-
 	value = CBS << 16; //bit16~31
 	value |= PBS; //bit0~15
 	//value |= 1;//valid

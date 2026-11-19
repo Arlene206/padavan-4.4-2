@@ -165,6 +165,16 @@ test_switch_command_numeric_boundaries(void)
     assert(switch_parse_uint_range("4095", 0U, 4095U, &value) == 0);
     assert(switch_parse_uint_range("4096", 0U, 4095U, &value) != 0);
     assert(switch_parse_uint_range("0x10junk", 0U, 4095U, &value) != 0);
+
+    /* The ACL meter field has 15 payload bits after the hardware /64 scale. */
+    assert(switch_parse_uint_range("0x1fffc0", 0U, 0x1fffc0U, &value) == 0);
+    assert(switch_parse_uint_range("0x200000", 0U, 0x1fffc0U, &value) != 0);
+
+    /* TrTCM rate values are /64-scaled 16-bit fields; bursts are 16-bit. */
+    assert(switch_parse_uint_range("0x3fffc0", 0U, 0x3fffc0U, &value) == 0);
+    assert(switch_parse_uint_range("0x400000", 0U, 0x3fffc0U, &value) != 0);
+    assert(switch_parse_uint_range("65535", 0U, 0xffffU, &value) == 0);
+    assert(switch_parse_uint_range("65536", 0U, 0xffffU, &value) != 0);
 }
 
 static void
