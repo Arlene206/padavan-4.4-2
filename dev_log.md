@@ -1,3 +1,13 @@
+## 2026-11-19 — Check the final WAN return after fail-fast exits
+
+- Parent main SHA: `4f2ae0b46f16b60230888d6422fc9c3c505b90ef`.
+- Exact `cc3f3d9` USB modem `44445491851`, Firewall `44445491599` and Process lifecycle `44445491797` all passed the corrected VLAN aggregate count but reached a further stale checker assumption: `wan_start.index("return wan_start_status;")` selected one of the newly required early abort returns.
+- Change only the ordering contract to compare `set_passthrough_pppoe(1)` with the final `rindex("return wan_start_status;")`. This aligns it with the existing final-return check earlier in the same script; no production behavior changes.
+- AI handoff docs on parent `cc3f3d9` run `44445491600` passed. Parent WAN source-check runs failed at the described assertion; current exact-head reruns still required.
+- No local tests or MIPS build performed. Router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Harden switch CLI invalid ACL invocation handling
 
 - Parent main SHA: `cc3f3d9d3c9261e394f87a20c93dd9874f870c79`.

@@ -377,7 +377,7 @@ assert ras_branch.index("if (wanx_status != 0)") < ras_wanx_match.start()
 eapol_start = wan_start.index("if (auth_status != 0)")
 eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
 assert "modem_start_status" not in wan_start
-assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.index("return wan_start_status;")
+assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.rindex("return wan_start_status;")
 
 l2tp_start_merge = compact(
     body(WAN_SOURCE, "merge_l2tp_server_start_status(int wan_status)")
