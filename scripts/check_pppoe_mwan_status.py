@@ -221,7 +221,7 @@ restore_errno = rpl2tp_start.index("errno = saved_errno;", cleanup_result)
 require(
     session_gate < cleanup_gate < cleanup_call < cleanup_result < restore_errno
     and "if (stop_status != 0)" in rpl2tp_start[cleanup_call:cleanup_result]
-    and '"rp-l2tp daemon rollback after session failure was incomplete"' in rpl2tp_start,
+    and "rp-l2tp daemon rollback after session failure was incomplete" in rpl2tp_start,
     "RPL2TP session-start failure must stop its newly launched l2tpd, report rollback errors and preserve the primary errno",
 )
 require(
