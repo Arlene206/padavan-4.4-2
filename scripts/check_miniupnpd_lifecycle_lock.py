@@ -34,6 +34,11 @@ assert "O_NOFOLLOW | O_CLOEXEC" in LOCK
 assert "st.st_nlink != 1" in LOCK
 assert "(st.st_mode & 077) != 0" in LOCK
 assert "F_SETLK" in LOCK and "errno = EBUSY" in LOCK
+assert "MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS 8U" in LOCK
+retry_policy = body(LOCK, "miniupnpd_lifecycle_lock_retry_interrupted(unsigned int *interruptions)")
+assert "if (!interruptions)" in retry_policy
+assert "*interruptions >= MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS" in retry_policy
+assert "++*interruptions;" in retry_policy
 wait_header = (RC / "service_wait_policy.h").read_text()
 wait_body = body(wait_header, "service_wait_seconds_with(unsigned int seconds")
 assert "while (seconds > 0)" in wait_body
@@ -41,9 +46,15 @@ assert "if (remaining > seconds)" in wait_body
 assert "seconds = remaining;" in wait_body
 assert '#include "service_wait_policy.h"' in LOCK
 lock_acquire = body(LOCK, "miniupnpd_lifecycle_lock_acquire_path(const char *path")
-assert "if (errno == EINTR)" in lock_acquire
-assert lock_acquire.index("if (errno == EINTR)") < lock_acquire.index("attempt++")
+assert "unsigned int interruptions = 0;" in lock_acquire
+assert "miniupnpd_lifecycle_lock_retry_interrupted(&interruptions)" in lock_acquire
+assert lock_acquire.index("if (errno == EINTR)") < lock_acquire.index(
+    "miniupnpd_lifecycle_lock_retry_interrupted(&interruptions)"
+) < lock_acquire.index("attempt++")
+assert "interruptions = 0;" in lock_acquire
 assert "service_wait_seconds(1)" in lock_acquire
+lock_release = body(LOCK, "miniupnpd_lifecycle_lock_release(int fd)")
+assert "miniupnpd_lifecycle_lock_retry_interrupted(&interruptions)" in lock_release
 start_wait = body(SERVICES, "service_start_wait_one_second(const char *service_name")
 assert "service_wait_seconds(1)" in start_wait
 mini_confirm = body(SERVICES, "miniupnpd_confirm_started(int launch_status)")
@@ -58,6 +69,8 @@ for signature, label in (
     assert label in confirm
     assert "sleep(1)" not in confirm
 test_source = (RC / "tests/miniupnpd_lifecycle_lock.c").read_text()
+assert "test_interrupted_lock_retries_are_bounded" in test_source
+assert "MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS" in test_source
 assert "fixture.remaining[0] = 3" in test_source
 assert "fixture.requested[2] == 1" in test_source
 assert "test_interrupted_service_wait_retries_remaining_time" in test_source

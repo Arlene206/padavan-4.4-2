@@ -57,6 +57,25 @@ test_exclusive_process_lock(void)
 }
 
 static int
+test_interrupted_lock_retries_are_bounded(void)
+{
+	unsigned int interruptions = 0;
+	unsigned int i;
+
+	for (i = 0; i < MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS; i++)
+		assert(miniupnpd_lifecycle_lock_retry_interrupted(&interruptions) == 0);
+	assert(interruptions == MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS);
+	errno = 0;
+	assert(miniupnpd_lifecycle_lock_retry_interrupted(&interruptions) == -1);
+	assert(errno == EINTR);
+
+	errno = 0;
+	assert(miniupnpd_lifecycle_lock_retry_interrupted(NULL) == -1);
+	assert(errno == EINVAL);
+	return 0;
+}
+
+static int
 test_invalid_paths_are_rejected(void)
 {
 	errno = 0;
@@ -117,8 +136,9 @@ int
 main(void)
 {
 	assert(test_exclusive_process_lock() == 0);
+	assert(test_interrupted_lock_retries_are_bounded() == 0);
 	assert(test_invalid_paths_are_rejected() == 0);
 	assert(test_interrupted_service_wait_retries_remaining_time() == 0);
-	puts("MiniUPnP lock and detached service waits preserve remaining time across EINTR: PASS");
+	puts("MiniUPnP lock contention and EINTR retries are bounded; detached waits preserve remaining time: PASS");
 	return 0;
 }

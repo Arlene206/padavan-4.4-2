@@ -1,3 +1,12 @@
+## 2026-11-19 — Bound MiniUPnP lifecycle-lock EINTR retries
+
+- Source review found lock acquisition and release both retry `fcntl(F_SETLK)` indefinitely on `EINTR`; the configured wait only limits EACCES/EAGAIN contention.
+- Added an eight-retry cap. Acquisition resets the retry count after non-`EINTR` results so ordinary contention still uses its existing timeout; release closes the lock descriptor after bounded unlock attempts.
+- Extended GNU89 lock regression coverage for retry success, exhausted EINTR and invalid arguments; updated the semantic checker to pin bounded handling in both paths. Added the production header to the XY-C1 push path filter so a header-only production change triggers the build.
+- On b4, Wireless `44627098078` PASS; Process `44627098093`, Storage `44627098102`, HTTPD `44627098106` and AI docs `44627098108` failed stale contracts repaired in `9fd21db`; reruns on 9fd remain unverified. Product SHA `3488f12` passed XY-C1 Build/TRX/artifact (`44625809599`). No local compile or physical-router result is claimed.
+
+---
+
 ## 2026-11-19 — Align storage, HTTPD, wireless and handoff CI contracts
 
 - Exact b4b46 checker runs: Wireless radio `44627098078` PASS; Process lifecycle `44627098093` failed because the contract searched the first radio-status merge, which is the earlier APCLI WAN result, rather than the later IAPP wait-status merge. The source correctly merges IAPP failure after its own status check; the checker now searches from that failure branch.

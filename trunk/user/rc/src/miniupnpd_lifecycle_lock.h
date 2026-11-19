@@ -11,6 +11,23 @@
 
 #define MINIUPNPD_LIFECYCLE_LOCK_FILE "/tmp/.miniupnpd.lifecycle.lock"
 #define MINIUPNPD_LIFECYCLE_LOCK_WAIT_SECONDS 10
+#define MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS 8U
+
+/* Bound repeated signal interruptions separately from ordinary lock contention. */
+static inline int
+miniupnpd_lifecycle_lock_retry_interrupted(unsigned int *interruptions)
+{
+	if (!interruptions) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (*interruptions >= MINIUPNPD_LIFECYCLE_LOCK_MAX_INTERRUPTS) {
+		errno = EINTR;
+		return -1;
+	}
+	++*interruptions;
+	return 0;
+}
 
 /* Keep this inode stable: unlinking a locked file can split lock participants. */
 static inline int
@@ -19,6 +36,7 @@ miniupnpd_lifecycle_lock_acquire_path(const char *path,
 {
 	int fd, saved_errno;
 	unsigned int attempt = 0;
+	unsigned int interruptions = 0;
 	struct stat st;
 	struct flock lock;
 
@@ -47,9 +65,13 @@ miniupnpd_lifecycle_lock_acquire_path(const char *path,
 	for (;;) {
 		if (fcntl(fd, F_SETLK, &lock) == 0)
 			return fd;
-		/* EINTR is a transient syscall interruption, not lock contention. */
-		if (errno == EINTR)
-			continue;
+		/* Retry transient EINTR, but never let a signal storm spin forever. */
+		if (errno == EINTR) {
+			if (miniupnpd_lifecycle_lock_retry_interrupted(&interruptions) == 0)
+				continue;
+			goto failed;
+		}
+		interruptions = 0;
 		if (errno != EACCES && errno != EAGAIN)
 			goto failed;
 		if (attempt++ >= wait_seconds) {
@@ -78,6 +100,7 @@ static inline int
 miniupnpd_lifecycle_lock_release(int fd)
 {
 	int saved_errno = 0;
+	unsigned int interruptions = 0;
 	struct flock lock;
 
 	if (fd < 0) {
@@ -89,7 +112,8 @@ miniupnpd_lifecycle_lock_release(int fd)
 	lock.l_start = 0;
 	lock.l_len = 0;
 	while (fcntl(fd, F_SETLK, &lock) != 0) {
-		if (errno == EINTR)
+		if (errno == EINTR &&
+		    miniupnpd_lifecycle_lock_retry_interrupted(&interruptions) == 0)
 			continue;
 		saved_errno = errno ? errno : EIO;
 		break;
