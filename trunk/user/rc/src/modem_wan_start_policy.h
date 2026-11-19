@@ -19,6 +19,13 @@ modem_ndis_control_failed(int control_required, int control_status)
 	return control_required && control_status != 0;
 }
 
+/* Remove a credential-bearing RAS peer file when its pppd launch fails. */
+static inline int
+modem_wan_ras_peer_cleanup_required(int launch_status)
+{
+	return launch_status != 0;
+}
+
 /* Preserve the first failed transition; DHCP status matters only afterward. */
 static inline int
 modem_wan_start_status(int migration_status, int dhcp_status)

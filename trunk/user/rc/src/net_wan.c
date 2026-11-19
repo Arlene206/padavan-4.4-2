@@ -2067,9 +2067,22 @@ start_wan(void)
 				vlan_result = launch_wan_modem_ras(unit);
 				wan_start_status = rc_first_service_start_status(
 					wan_start_status, vlan_result);
-				if (vlan_result != 0)
+				if (vlan_result != 0) {
 					logmessage(LOGNAME, "USB modem RAS startup incomplete (status=%d)",
 						   vlan_result);
+					/*
+					 * RAS launch failure leaves no usable PPP client. Restore the
+					 * physical WAN binding and firewall before returning to callers.
+					 * If recovery itself fails, the helper keeps the interface down.
+					 */
+					vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
+					if (vlan_result != 0)
+						logmessage(LOGNAME,
+							   "WAN recovery after USB modem RAS launch failure incomplete (status=%d)",
+							   vlan_result);
+				}
 			}
 		}
 		else

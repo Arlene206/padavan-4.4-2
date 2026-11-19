@@ -70,6 +70,7 @@ def compact(source: str) -> str:
 
 ras_credential_writer = compact(body(USB_SOURCE, "write_pppd_ras_credential("))
 ras_conf_writer = compact(body(USB_SOURCE, "write_pppd_ras_conf("))
+ras_launch = compact(body(USB_SOURCE, "launch_wan_modem_ras(int unit)"))
 assert '#include "ppp_option_value_policy.h"' in USB_SOURCE
 assert "ppp_option_value_escape(value, encoded, encoded_size)" in ras_credential_writer
 assert "fprintf(fp, \"%s '%s'\\n\", option, encoded)" in ras_credential_writer
@@ -78,6 +79,15 @@ assert 'write_pppd_ras_credential(fp, "password", pass, tmp, sizeof(tmp))' in ra
 assert "safe_pppd_line(user" not in ras_conf_writer
 assert "safe_pppd_line(pass" not in ras_conf_writer
 assert "goto invalid_credential;" in ras_conf_writer
+assert "errno = 0; launch_status = eval(\"/usr/sbin/pppd\", \"call\", call_file);" in ras_launch
+assert "if (!modem_wan_ras_peer_cleanup_required(launch_status)) return launch_status;" in ras_launch
+assert "saved_errno = errno;" in ras_launch
+assert "unlink(call_path)" in ras_launch
+assert "errno = saved_errno; return launch_status;" in ras_launch
+assert "return launch_status;" in ras_launch
+assert "modem_wan_ras_peer_cleanup_required" in POLICY_SOURCE
+assert "return launch_status != 0;" in POLICY_SOURCE
+assert "test_ras_peer_file_cleanup_only_after_failed_launch" in WAN_TEST
 assert 'ppp_option_value_escape("name\\tvalue"' in PPP_VALUE_POLICY_TEST
 assert "ppp_option_escape_internal(value, out, out_size, 0)" in PPP_VALUE_POLICY_SOURCE
 
@@ -356,8 +366,9 @@ assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[dhcp_po
 
 aggregate_pattern = r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*vlan_result\s*\)\s*;"
 aggregate_matches = list(re.finditer(aggregate_pattern, wan_start))
-assert len(aggregate_matches) == 21
-# The RAS firewall rebuild and failed-rebuild restoration each contribute status.
+assert len(aggregate_matches) == 22
+# The RAS firewall rebuild, failed-rebuild recovery, and PPP launch recovery
+# each contribute status.
 ras_launch_start = wan_start.index("char *ppp_ifname = IFNAME_RAS;")
 ras_launch_end = wan_start.index("vlan_result = launch_wan_modem_ras(unit);", ras_launch_start)
 ras_branch = wan_start[ras_launch_start:ras_launch_end]
@@ -374,6 +385,19 @@ ras_wanx_pattern = r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s
 ras_wanx_match = re.search(ras_wanx_pattern, ras_branch)
 assert ras_wanx_match, "RAS physical WAN setup failure must reach modem startup status"
 assert ras_branch.index("if (wanx_status != 0)") < ras_wanx_match.start()
+ras_launch_call = "vlan_result = launch_wan_modem_ras(unit);"
+ras_launch_pos = wan_start.index(ras_launch_call)
+ras_launch_failure_pos = wan_start.index("if (vlan_result != 0)", ras_launch_pos)
+ras_restore_call = "vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);"
+ras_restore_pos = wan_start.index(ras_restore_call, ras_launch_failure_pos)
+assert re.search(aggregate_pattern, wan_start[ras_launch_pos:ras_launch_failure_pos]), (
+    "RAS PPP launch failure must be recorded before rollback status replaces vlan_result"
+)
+assert ras_restore_pos > ras_launch_failure_pos
+assert re.search(aggregate_pattern, wan_start[ras_restore_pos:]), (
+    "RAS rollback/recovery result must also reach WAN startup status"
+)
+assert wan_start.index("WAN recovery after USB modem RAS launch failure incomplete", ras_restore_pos) > ras_restore_pos
 eapol_start = wan_start.index("if (auth_status != 0)")
 eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
 assert "modem_start_status" not in wan_start

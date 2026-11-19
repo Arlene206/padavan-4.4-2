@@ -989,7 +989,7 @@ launch_wan_modem_ras(int unit)
 	char node_name[16] = {0};
 	char call_file[16];
 	char call_path[32];
-	int saved_errno;
+	int saved_errno, launch_status;
 
 	snprintf(call_file, sizeof(call_file), "modem.wan%d", unit);
 	snprintf(call_path, sizeof(call_path), "%s/%s", PPP_PEERS_DIR, call_file);
@@ -1007,7 +1007,23 @@ launch_wan_modem_ras(int unit)
 	if (get_modem_node_ras(node_name, NULL)) {
 		if (write_pppd_ras_conf(call_path, node_name, unit)) {
 			logmessage(LOGNAME, "select RAS modem interface %s to pppd", node_name);
-			return eval("/usr/sbin/pppd", "call", call_file);
+			errno = 0;
+			launch_status = eval("/usr/sbin/pppd", "call", call_file);
+			if (!modem_wan_ras_peer_cleanup_required(launch_status))
+				return launch_status;
+
+			/*
+			 * The peer file contains modem credentials. A failed pppd launch
+			 * must not leave those credentials available to a later call.
+			 * Preserve the original launch errno/status across best-effort unlink.
+			 */
+			saved_errno = errno;
+			if (unlink(call_path) != 0 && errno != ENOENT)
+				logmessage(LOGNAME,
+					   "cannot remove failed USB modem RAS peer file (status=%d, errno=%d)",
+					   launch_status, errno);
+			errno = saved_errno;
+			return launch_status;
 		}
 	}
 

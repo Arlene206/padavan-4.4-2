@@ -27,6 +27,14 @@ test_dhcp_launch_result_is_returned_after_migration(void)
 }
 
 static void
+test_ras_peer_file_cleanup_only_after_failed_launch(void)
+{
+	assert(!modem_wan_ras_peer_cleanup_required(0));
+	assert(modem_wan_ras_peer_cleanup_required(1));
+	assert(modem_wan_ras_peer_cleanup_required(-1));
+}
+
+static void
 test_ndis_interface_bringup_failure_skips_network_start(void)
 {
 	int interface_status = EIO;
@@ -325,6 +333,7 @@ main(void)
 {
 	test_miniupnp_migration_failure_blocks_dhcp();
 	test_dhcp_launch_result_is_returned_after_migration();
+	test_ras_peer_file_cleanup_only_after_failed_launch();
 	test_ndis_interface_bringup_failure_skips_network_start();
 	test_ndis_firewall_failure_reaches_startup_result();
 	test_ndis_optional_control_path_does_not_block_dhcp();
