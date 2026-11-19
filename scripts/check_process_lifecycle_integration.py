@@ -3362,10 +3362,10 @@ optional_start_contracts = (
 )
 for signature, guard in optional_start_contracts:
     body = c_function_body(services_source, signature)
-    assert re.search(re.escape(guard) + r"\\s*return 0;", body), (
+    assert re.search(re.escape(guard) + r"\s*return 0;", body), (
         signature + " disabled path must be success"
     )
-    assert not re.search(re.escape(guard) + r"\\s*return 1;", body), (
+    assert not re.search(re.escape(guard) + r"\s*return 1;", body), (
         signature + " disabled path leaked nonzero status"
     )
 boot_services = c_function_body(services_source, "start_services_once(int is_ap_mode)")
