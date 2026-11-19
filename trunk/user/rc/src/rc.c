@@ -1638,13 +1638,15 @@ handle_notifications(void)
 #if defined(APP_FTPD)
 		else if (strcmp(entry->d_name, RCN_RESTART_FTPD) == 0)
 		{
-			action_result = restart_ftpd();
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_ftpd());
 		}
 #endif
 #if defined(APP_SMBD)
 		else if (strcmp(entry->d_name, RCN_RESTART_SMBD) == 0)
 		{
-			action_result = restart_smbd();
+			action_result = rc_notify_merge_action_result(
+				action_result, restart_smbd());
 		}
 #endif
 #if defined(APP_NFSD)
