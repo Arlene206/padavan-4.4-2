@@ -7,6 +7,7 @@ on:
       - ".github/workflows/xy-c1-firmware-validation.yml"
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
+      - "scripts/check_crontab_startup_status.py"
       - "scripts/check_firmware_update_notification.py"
       - "scripts/check_guest_lan_isolation_status.py"
       - "scripts/check_miniupnpd_lifecycle_lock.py"
@@ -77,6 +78,7 @@ on:
       - "trunk/user/rc/src/rstats.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/crontab_update_status.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/services_ex.c"
@@ -105,6 +107,7 @@ on:
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/rc/src/tests/service_start_status.c"
+      - "trunk/user/rc/src/tests/crontab_update_status.c"
       - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/tests/sshd_daemon_policy.c"
       - "trunk/user/rc/src/tests/storage_rwfs_mount_policy.c"
@@ -138,6 +141,8 @@ on:
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
       - "trunk/user/scripts/tests/autostart_optional_start_status.sh"
       - "trunk/user/scripts/tests/dev_init_boot_policy.sh"
+      - "trunk/user/scripts/files/sbin/check_crontab.sh"
+      - "trunk/user/scripts/tests/check_crontab_status.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/scripts/process_lifecycle.sh"
@@ -173,6 +178,7 @@ on:
       - ".github/workflows/xy-c1-firmware-validation.yml"
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
+      - "scripts/check_crontab_startup_status.py"
       - "scripts/check_firmware_update_notification.py"
       - "scripts/check_guest_lan_isolation_status.py"
       - "scripts/check_miniupnpd_lifecycle_lock.py"
@@ -243,6 +249,7 @@ on:
       - "trunk/user/rc/src/rstats.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/crontab_update_status.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/services_ex.c"
@@ -271,6 +278,7 @@ on:
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/rc/src/tests/service_start_status.c"
+      - "trunk/user/rc/src/tests/crontab_update_status.c"
       - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/tests/sshd_daemon_policy.c"
       - "trunk/user/rc/src/tests/storage_rwfs_mount_policy.c"
@@ -304,6 +312,8 @@ on:
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
       - "trunk/user/scripts/tests/autostart_optional_start_status.sh"
       - "trunk/user/scripts/tests/dev_init_boot_policy.sh"
+      - "trunk/user/scripts/files/sbin/check_crontab.sh"
+      - "trunk/user/scripts/tests/check_crontab_status.sh"
       - "trunk/user/scutclient/scripts/scutclient.sh"
       - "trunk/user/shared/Makefile"
       - "trunk/user/shared/scripts/process_lifecycle.sh"
@@ -524,6 +534,18 @@ jobs:
         run: |
           sh trunk/user/scripts/tests/dev_init_boot_policy.sh
           python3 scripts/check_dev_init_boot.py
+      - name: Verify SCUT crontab update status and persistence
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/check_crontab.sh
+          sh -n trunk/user/scripts/tests/check_crontab_status.sh
+          sh trunk/user/scripts/tests/check_crontab_status.sh
+          python3 scripts/check_crontab_startup_status.py
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/crontab_update_status.c \
+            -o "$RUNNER_TEMP/crontab-update-status"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/crontab-update-status"
       - name: Compile and run LAN DHCP event-handler link regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

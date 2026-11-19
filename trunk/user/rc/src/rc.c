@@ -48,6 +48,7 @@
 #include "rc_nvram_policy.h"
 #include "storage_persistence_policy.h"
 #include "service_start_status.h"
+#include "crontab_update_status.h"
 #include "wireless_module_load_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
@@ -957,9 +958,15 @@ LED_CONTROL(int gpio_led, int flag)
 int
 init_crontab(void)
 {
-	int ret = 0; //no change
+	int ret = 0;
 #if defined (APP_SCUT)
-	ret |= system("/sbin/check_crontab.sh a/1 a a a a scutclient_watchcat.sh");
+	int command_status, command_errno, update_status;
+
+	errno = 0;
+	command_status = system("/sbin/check_crontab.sh a/1 a a a a scutclient_watchcat.sh");
+	command_errno = errno;
+	update_status = rc_crontab_update_status_from_wait(command_status, command_errno);
+	ret = rc_crontab_update_status_merge(ret, update_status);
 #endif
 	return ret;
 }
@@ -1213,20 +1220,33 @@ init_router(void)
 				   "initial MTD Optware worker launch failed; retry is scheduled (status=%d)",
 				   optware_start_status);
 	}
-	if (init_crontab()) {
-		int crond_status;
+	{
+		int crontab_status = init_crontab();
 
-		storage_save_status = write_storage_to_mtd();
-		if (storage_save_status != 0)
-			logmessage(LOGNAME, "initial crontab changed but MTD storage persistence failed (status=%d)",
-				   storage_save_status);
-		crond_status = restart_crond();
-		if (crond_status != 0) {
+		if (rc_crontab_update_requires_persistence(crontab_status)) {
+			int crond_status;
+
+			storage_save_status = write_storage_to_mtd();
+			if (storage_save_status != 0) {
+				boot_services_status = rc_first_service_start_status(
+					boot_services_status, storage_save_status);
+				logmessage(LOGNAME, "initial crontab changed but MTD storage persistence failed (status=%d)",
+					   storage_save_status);
+			}
+			/* Activate the in-memory crontab even if flash persistence failed. */
+			crond_status = restart_crond();
+			if (crond_status != 0) {
+				boot_services_status = rc_first_service_start_status(
+					boot_services_status, crond_status);
+				logmessage(LOGNAME,
+					   "crond restart after initial crontab update failed (status=%d)",
+					   crond_status);
+			}
+		} else if (crontab_status != 0) {
 			boot_services_status = rc_first_service_start_status(
-				boot_services_status, crond_status);
-			logmessage(LOGNAME,
-				   "crond restart after initial crontab update failed (status=%d)",
-				   crond_status);
+				boot_services_status, crontab_status);
+			logmessage(LOGNAME, "initial crontab update failed (status=%d)",
+				   crontab_status);
 		}
 	}
 	if (boot_services_status != 0)

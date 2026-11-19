@@ -1,3 +1,12 @@
+## 2026-11-19 — Propagate SCUT crontab update failures into boot status
+
+- `check_crontab.sh` uses exit 1 for a successful new entry and 0 for an existing entry, but append failure silently fell through to exit 0 and grep I/O errors were treated as “not found”. `init_crontab()` ORed the raw encoded `system()` wait status; `init_router()` consequently treated every nonzero error as “changed”. It also logged but discarded MTD persistence failure.
+- Added the explicit 0=unchanged, 1=added, 2+=error contract, symlink/non-regular path rejection, checked grep/append/directory results and restrictive creation umask. RC now decodes wait status, preserves `system()` errno, persists only after a real append, and aggregates script/MTD failures while still attempting crond activation.
+- Added GNU89/Werror/ASan/UBSan policy tests and isolated shell regressions for changed/no-op, bad arguments, missing storage, grep I/O, append target errors and symlink paths. Local C policy binary, shell syntax and shell regression all PASS. Exact-head Process lifecycle, AI docs and XY-C1 Build/TRX/artifact remain pending.
+- Parent main: `930dd7ed850ef59275cc340bc7c5a36bc7ebedc9`; its AI handoff documentation check `44617795116` PASS. No local MIPS build or physical-router L4 result is claimed.
+
+---
+
 ## 2026-11-20 05:09 CST (UTC+8) — Restore the AI handoff contract and catch up root log rotation
 
 - Parent main SHA: `f4fbd093e934fda5304aa796cba30d59eb29b3a4`. Exact-head OpenVPN client credential staging run `44613650285` PASS; VPN server lifecycle run `44613173654` PASS; XY-C1 run `44613173721` completed Build, TRX verification and artifact upload on the OpenVPN source SHA `e01f70a766c4e628593e272192723f6add59ffca` (L3).
