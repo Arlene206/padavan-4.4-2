@@ -204,6 +204,8 @@ on:
       - "trunk/user/rc/src/process_presence_start_policy.h"
       - "trunk/user/rc/src/tests/process_presence_start_policy.c"
       - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/storage_hotplug_name_policy.h"
+      - "trunk/user/rc/src/tests/storage_hotplug_name_policy.c"
       - "trunk/user/LPRng/src/src/common/lpd.c"
       - "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h"
       - "trunk/user/vsftpd/src/asus_ext.h"

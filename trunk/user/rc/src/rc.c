@@ -43,6 +43,7 @@
 #endif
 
 #include "rc.h"
+#include "storage_hotplug_name_policy.h"
 #include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
 #include "storage_persistence_policy.h"
@@ -2552,26 +2553,38 @@ main(int argc, char **argv)
 #if defined (USE_USB_SUPPORT)
 	else if (!strcmp(base, "ejusb")) {
 		int port = 0;
+		unsigned int parsed_port = 0;
 		char *devn = NULL;
-		if (argc > 1) {
-			if (strncmp(argv[1], "sd", 2) == 0)
-				devn = argv[1];
-			else {
-				port = atoi(argv[1]);
+
+		if (argc > 3)
+			ret = EINVAL;
+		else if (argc > 1) {
+			if (strncmp(argv[1], "sd", 2) == 0) {
+				if (argc > 2)
+					ret = EINVAL;
+				else
+					devn = argv[1];
+			} else if (storage_hotplug_parse_decimal_token(
+					   argv[1], 0, BOARD_NUM_USB_PORTS,
+					   &parsed_port) != 0) {
+				ret = EINVAL;
+			} else {
+				port = (int)parsed_port;
 				if (argc > 2)
 					devn = argv[2];
 			}
 		}
-		safe_remove_usb_device(port, devn);
+		if (ret == 0)
+			ret = safe_remove_usb_device(port, devn);
 	}
 	else if (!strcmp(base, "ejusb1")) {
 		char *devn = (argc > 1) ? argv[1] : NULL;
-		safe_remove_usb_device(1, devn);
+		ret = (argc > 2) ? EINVAL : safe_remove_usb_device(1, devn);
 	}
 #if (BOARD_NUM_USB_PORTS > 1)
 	else if (!strcmp(base, "ejusb2")) {
 		char *devn = (argc > 1) ? argv[1] : NULL;
-		safe_remove_usb_device(2, devn);
+		ret = (argc > 2) ? EINVAL : safe_remove_usb_device(2, devn);
 	}
 #endif
 #endif

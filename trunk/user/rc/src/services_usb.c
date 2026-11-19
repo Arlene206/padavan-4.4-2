@@ -21,6 +21,7 @@
 #include <signal.h>
 #include <unistd.h>
 #include <errno.h>
+#include <limits.h>
 #include <time.h>
 #include <dirent.h>
 #include <syslog.h>
@@ -45,53 +46,70 @@
 #include "service_start_status.h"
 #include "switch.h"
 #include "gpio_pins.h"
+#include "storage_hotplug_name_policy.h"
 
-void
+int
 safe_remove_usb_device(int port, const char *dev_name)
 {
+	unsigned int parsed_devnum;
 	int modem_devnum = 0;
 
-	if (dev_name && strncmp(dev_name, "sd", 2) != 0) {
-		modem_devnum = atoi(dev_name);
-		if (modem_devnum < 0)
-			modem_devnum = 0;
+	if (port < 0 || port > BOARD_NUM_USB_PORTS) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (port == 0) {
+		if (dev_name && strncmp(dev_name, "sd", 2) != 0) {
+			errno = EINVAL;
+			return -1;
+		}
+		return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, NULL, 1);
 	}
 
-	if (port >= 1 && port <= BOARD_NUM_USB_PORTS) {
-		if (modem_devnum) {
-			usb_info_t *usb_info, *follow_usb;
-			int has_modem_port = 0;
+	if (dev_name && strncmp(dev_name, "sd", 2) != 0) {
+		if (storage_hotplug_parse_decimal_token(dev_name, 1, INT_MAX,
+							&parsed_devnum) != 0) {
+			errno = EINVAL;
+			return -1;
+		}
+		modem_devnum = (int)parsed_devnum;
+	}
 
-			usb_info = get_usb_info();
-			for (follow_usb = usb_info; follow_usb != NULL; follow_usb = follow_usb->next) {
-				if ((follow_usb->port_root == port) &&
-				    (follow_usb->id_devnum == modem_devnum) &&
-				    (follow_usb->dev_type == DEVICE_TYPE_MODEM_TTY ||
-				     follow_usb->dev_type == DEVICE_TYPE_MODEM_ETH))
-					has_modem_port |= 1;
-			}
-			free_usb_info(usb_info);
+	if (modem_devnum) {
+		usb_info_t *usb_info, *follow_usb;
+		int has_modem_port = 0, modem_remove_status;
 
-			if (has_modem_port) {
-				if (get_usb_modem_dev_wan(0, modem_devnum)) {
-					int modem_remove_status;
+		usb_info = get_usb_info();
+		for (follow_usb = usb_info; follow_usb != NULL; follow_usb = follow_usb->next) {
+			if ((follow_usb->port_root == port) &&
+			    (follow_usb->id_devnum == modem_devnum) &&
+			    (follow_usb->dev_type == DEVICE_TYPE_MODEM_TTY ||
+			     follow_usb->dev_type == DEVICE_TYPE_MODEM_ETH))
+				has_modem_port = 1;
+		}
+		free_usb_info(usb_info);
 
-					modem_remove_status = safe_remove_usb_modem();
-					if (modem_remove_status == 0)
-						try_wan_reconnect(0, 0);
-					else
-						logmessage(LOGNAME,
-							   "skipping WAN reconnect after incomplete USB modem removal (status=%d)",
-							   modem_remove_status);
-				}
-			}
-		} else {
-			safe_remove_stor_device(port, port, dev_name, 1);
+		if (!has_modem_port || !get_usb_modem_dev_wan(0, modem_devnum)) {
+			errno = ENODEV;
+			return -1;
 		}
 
-	} else if (port == 0) {
-		safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, NULL, 1);
+		modem_remove_status = safe_remove_usb_modem();
+		if (modem_remove_status != 0) {
+			if (modem_remove_status > 0)
+				errno = modem_remove_status;
+			else if (!errno)
+				errno = EIO;
+			logmessage(LOGNAME,
+				   "skipping WAN reconnect after incomplete USB modem removal (status=%d)",
+				   modem_remove_status);
+			return -1;
+		}
+		try_wan_reconnect(0, 0);
+		return 0;
 	}
+
+	return safe_remove_stor_device(port, port, dev_name, 1);
 }
 
 /* Launch a detached daemon and report execve errors to the caller.  The

@@ -741,7 +741,7 @@ int stop_lpd(void);
 #endif
 int start_p910nd(char *devlp);
 int stop_p910nd(void);
-void safe_remove_usb_device(int port, const char *dev_name);
+int safe_remove_usb_device(int port, const char *dev_name);
 int restart_usb_printer_spoolers(void);
 int stop_usb_printer_spoolers(void);
 int try_start_usb_printer_spoolers(void);

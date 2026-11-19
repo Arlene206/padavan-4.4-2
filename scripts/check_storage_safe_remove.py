@@ -96,6 +96,8 @@ mount_link_policy = read("trunk/user/rc/src/storage_nfs_export_policy.h")
 mount_link_policy_test = read("trunk/user/rc/src/tests/storage_nfs_export_policy.c")
 services = read("trunk/user/rc/src/services.c")
 services_usb = read("trunk/user/rc/src/services_usb.c")
+usb_name_policy = read("trunk/user/rc/src/storage_hotplug_name_policy.h")
+usb_name_policy_test = read("trunk/user/rc/src/tests/storage_hotplug_name_policy.c")
 net = read("trunk/user/rc/src/net.c")
 rc = read("trunk/user/rc/src/rc.c")
 rc_header = read("trunk/user/rc/src/rc.h")
@@ -335,6 +337,31 @@ require(
     and "remaining_mounts >= 0" in ejected_policy
     and "(remaining_mounts == 0 || start_status == 0)" in ejected_policy,
     "targeted eject completion must require a known remaining-mount inventory and successful app restart",
+)
+usb_remove = body(services_usb, "int\nsafe_remove_usb_device(")
+usb_main = body(rc, "int\nmain(int argc, char **argv)")
+require(
+    "storage_hotplug_parse_decimal_token(dev_name, 1, INT_MAX" in usb_remove
+    and "return safe_remove_stor_device(port, port, dev_name, 1);" in usb_remove
+    and "return safe_remove_stor_device(1, BOARD_NUM_USB_PORTS, NULL, 1);" in usb_remove
+    and "if (!has_modem_port || !get_usb_modem_dev_wan(0, modem_devnum))" in usb_remove
+    and "int safe_remove_usb_device(int port, const char *dev_name);" in rc_header,
+    "USB eject must reject malformed or absent modem targets and propagate storage/modem removal outcomes",
+)
+require(
+    "storage_hotplug_parse_decimal_token(" in usb_main
+    and "0, BOARD_NUM_USB_PORTS," in usb_main
+    and "ret = safe_remove_usb_device(port, devn);" in usb_main
+    and "ret = (argc > 2) ? EINVAL : safe_remove_usb_device(1, devn);" in usb_main
+    and "ret = (argc > 2) ? EINVAL : safe_remove_usb_device(2, devn);" in usb_main,
+    "USB eject applets must validate complete port arguments and return safe-remove status",
+)
+require(
+    "if (digit > maximum || value > (maximum - digit) / 10)" in usb_name_policy
+    and "storage_hotplug_parse_decimal_token" in usb_name_policy_test
+    and 'storage_hotplug_parse_decimal_token("1x", 0, 2, &value)' in usb_name_policy_test
+    and 'storage_hotplug_parse_decimal_token("4294967296", 0, 4294967295U, &value)' in usb_name_policy_test,
+    "USB eject numeric parser must reject suffixes and overflow without modifying the result",
 )
 require(
     "umount_ejected_locked(1, 0)" in targeted_eject
@@ -768,6 +795,8 @@ for path in ("trunk/user/libdisk/src/disk_initial.c",
              "trunk/user/libdisk/src/disk_initial.h",
              "trunk/user/libdisk/src/disk_inventory_policy.h",
              "trunk/user/libdisk/src/storage_swap_policy.h",
+             "trunk/user/rc/src/storage_hotplug_name_policy.h",
+             "trunk/user/rc/src/tests/storage_hotplug_name_policy.c",
              "trunk/user/rc/src/storage_service_stop_policy.h",
              "trunk/user/rc/src/storage_optware_start_policy.h",
              "trunk/user/rc/src/optional_daemon_policy.h"):
