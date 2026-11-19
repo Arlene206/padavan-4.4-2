@@ -72,6 +72,7 @@ assert "#define CROND_START_RETRY_WAIT_SECONDS 1" in policy
 assert "#define CROND_START_PROBE_ATTEMPTS 4" in policy
 assert '#include <process_inventory.h>' in policy
 assert "if (process_presence == PROCESS_PRESENCE_RUNNING)" in policy
+assert "return wait_status == 0 ? 0 : -1;" in policy
 assert "return -1;" in policy
 assert "return stop_status == 0;" in policy
 
@@ -84,12 +85,23 @@ assert "return 1;" in start
 assert start.index("return 1;") < start.index("launch_status = _eval(crond_argv")
 launch_failure = function_body(start, "if (launch_status != 0)")
 assert "return crond_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in launch_failure
-assert start.index("launch_status = _eval(crond_argv") < start.index(
+initial_wait = start.index(
     'service_start_probe_wait("crond", CROND_START_INITIAL_WAIT_SECONDS)'
-) < start.index("crond_process_presence(&scan_error)")
+)
+initial_wait_failure = start.index("if (status != 0)", initial_wait)
+initial_wait_return = start.index(
+    "return crond_start_probe_wait_status(status);", initial_wait_failure
+)
+assert start.index("launch_status = _eval(crond_argv") < initial_wait < initial_wait_failure < initial_wait_return < start.index("crond_process_presence(&scan_error)")
 assert "attempt < CROND_START_PROBE_ATTEMPTS" in start
 assert "attempt + 1 < CROND_START_PROBE_ATTEMPTS" in start
-assert 'service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS)' in start
+retry_wait = start.index(
+    'service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS)'
+)
+retry_wait_failure = start.index("if (status != 0)", retry_wait)
+assert retry_wait_failure < start.index(
+    "return crond_start_probe_wait_status(status);", retry_wait_failure
+)
 presence_helper = function_body(services, "crond_process_presence(int *scan_error)")
 assert 'process_inventory_scan("crond", &snapshot)' in presence_helper
 assert "*scan_error = snapshot.error;" in presence_helper
@@ -156,18 +168,19 @@ assert "strcmp(bb_basename(p->argv0), procName) == 0" in pids
 assert "p->state[0] != 'Z'" in pids
 
 init_router = function_body(dispatcher, "init_router(void)")
-assert "if (restart_crond() < 0)" in init_router
+assert "if (restart_crond() != 0)" in init_router
 assert "crond restart after initial crontab update failed" in init_router
 
 crond_notify = dispatcher.split(
     "else if (strcmp(entry->d_name, RCN_RESTART_CROND) == 0)", 1
 )[1].split("else if", 1)[0]
-assert "action_result = restart_crond();" in crond_notify
+assert "rc_notify_merge_action_result(" in crond_notify
+assert "restart_crond()" in crond_notify
 
 time_notify = dispatcher.split(
     "else if (strcmp(entry->d_name, RCN_RESTART_TIME) == 0)", 1
 )[1].split("else if", 1)[0]
-assert "if (restart_crond() < 0)" in time_notify
+assert "if (restart_crond() != 0)" in time_notify
 assert "action_result = -1;" in time_notify
 assert "if (action_result < 0)" in dispatcher
 assert "completion marker retained" in dispatcher
@@ -175,6 +188,7 @@ assert "completion marker retained" in dispatcher
 for marker in (
     "test_launcher_failure_is_not_hidden",
     "test_detached_child_must_be_present",
+    "test_probe_wait_errors_use_rc_failure_convention",
     "test_restart_waits_for_complete_stop",
     "crond daemon startup and restart policy: PASS",
 ):

@@ -414,7 +414,7 @@ start_crond(void)
 
 	status = service_start_probe_wait("crond", CROND_START_INITIAL_WAIT_SECONDS);
 	if (status != 0)
-		return status;
+		return crond_start_probe_wait_status(status);
 	status = -1;
 	for (attempt = 0; attempt < CROND_START_PROBE_ATTEMPTS; attempt++) {
 		presence = crond_process_presence(&scan_error);
@@ -431,7 +431,7 @@ start_crond(void)
 		if (attempt + 1 < CROND_START_PROBE_ATTEMPTS) {
 			status = service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS);
 			if (status != 0)
-				return status;
+				return crond_start_probe_wait_status(status);
 		}
 	}
 
