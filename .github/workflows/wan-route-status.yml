@@ -832,7 +832,7 @@ jobs:
           demand_status = demand_start.index("wan_start_status = rc_first_service_start_status(", demand_start_error)
           demand_status_end = demand_start.index(";", demand_status)
           assert "wan_start_status, vlan_result" in demand_start[demand_status:demand_status_end]
-          demand_fallback = demand_start.index("restore_wan_after_ppp_start_failure(unit, wan_ifname);", demand_status)
+          demand_fallback = demand_start.index("restore_wan_after_firewall_failure(unit, wan_ifname);", demand_status)
           demand_continue = demand_start.index("continue;", demand_fallback)
           assert demand_start_gate < demand_start_error < demand_status < demand_fallback < demand_continue
           demand_restore = body(wan, "restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)")

@@ -1,3 +1,10 @@
+## 2026-11-19 — Align APCLI and PPP caller contracts with production control flow
+
+- Parent main SHA: `b50ce7d86e43e60f0885f1d849a4f0dd690cffc8`. The HTTPD PPP credential/security regression `44624238578` and AI docs `44624238537` PASS. WAN route `44624238559` then exposed one remaining inline demand-PPP assertion expecting the direct lower-level recovery call; it now requires the fail-closed wrapper.
+- Wireless `44624238741` and Process lifecycle `44624238561` failed after the newline parsing fix because the APCLI checker expected `check_apcli_wan()` embedded in the accumulator call. Production intentionally captures `wan_status` first, then merges it with `wireless_radio_restart_status()` to preserve the first failure. The checker now verifies that real two-step flow for both bands.
+- XY-C1 host-side contracts passed on `44624238619`, including the WAN firewall contract, but the workflow reported host-only validation and skipped Build XY-C1, TRX verification and artifact upload because this commit changed only checker files. L3 remains NOT VERIFIED. Current exact-head checker reruns are pending; no physical router test is claimed.
+
+---
 ## 2026-11-19 — Propagate AP-client WAN recovery failures through radio restart
 
 - Parent main SHA: `5878c9d11404d1bd4a329b59430a7c1279025dd4`. Static review found `check_apcli_wan()` discarded the return from `full_restart_wan()` when MAN changed and `try_wan_reconnect(1, 0)` after a WISP APCLI radio cycle. Its `void` signature hid both failures from `restart_wifi_wl()` and `restart_wifi_rt()`.

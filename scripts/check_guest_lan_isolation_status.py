@@ -320,8 +320,8 @@ for signature, band in (
     restart = function_body(wifi, signature)
     compact = " ".join(restart.split())
     expected = (
-        "isolation_status = wireless_radio_restart_status("
-        f" isolation_status, check_apcli_wan({band}, radio_on));"
+        f"int wan_status = check_apcli_wan({band}, radio_on); "
+        "isolation_status = wireless_radio_restart_status(isolation_status, wan_status);"
     )
     assert expected in compact, expected
     assert f"check_apcli_wan({band}, radio_on);" not in restart
