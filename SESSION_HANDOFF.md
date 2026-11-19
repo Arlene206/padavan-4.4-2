@@ -11,31 +11,32 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Current parent for the bounded procfs read slice: `53dda2c844e18cfb879abc3bf4b96bb50d46fd2d` (`fix(shared): bound procfs read EINTR retries`).
-- Exact SHA `53dda2c`: Process inventory `44632416173`, detect_link signal `44632416162`, GPIO lifecycle `44632416043`, DNSMasq `44632416164`, VPN server `44632416149` and crond `44632417092` PASS. Process umbrella `44632416363`, NVRAM audit `44632416256` and XY-C1 `44632416166` were still running at checkpoint.
-- AI docs run `44632416060` failed because `process_io_retry_policy.h` was added only to the push filter of `process-lifecycle-regression.yml`; the mandatory checker compares push and pull_request path sets. This follow-up adds the helper path to pull_request too; no production source changes.
-- Previous lock-wait fix `d57cce1`: AI docs, HTTPD, Process inventory, Inadyn, DNSMasq, Process regression, VPN, MiniUPnP config and NVRAM all PASS; XY-C1 `44631856549` was still running at last poll.
+- Current parent for the shared wait-loop hardening slice: `16b755661ec1a33cd255dec10d4bac389816a8b3` (`ci(process): align retry policy trigger paths`).
+- The procfs bounded-read source SHA `53dda2c844e18cfb879abc3bf4b96bb50d46fd2d` passed Process inventory `44632416173`, detect_link `44632416162`, GPIO `44632416043`, DNSMasq `44632416164`, VPN `44632416149`, crond `44632417092` and NVRAM `44632416256`. Process umbrella `44632416363` and AI docs `44632416060` initially failed only because Process workflow push/PR path filters differed; workflow/doc follow-up `16b7556` reruns AI docs `44632968248` and Process regression `44632969368` PASS.
+- Exact XY-C1 `44632416166` for production source SHA `53dda2c` remained IN_PROGRESS at last poll; Build/TRX/artifact not yet confirmed. The previous shared-helper source SHA `213a077` passed XY-C1 `44631039226` (Build, TRX verification and artifact upload).
+- Previous service-lock fixes: e736 MiniUPnP EINTR cap; 213 shared eight-retry EINTR policy across MiniUPnP/Inadyn/DNSMasq/VPN release; d57 full one-second acquire wait across EINTR for Inadyn/DNSMasq/VPN.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; archival only. PR #1 remains closed/unmerged.
-- No physical-router result is available. Host Actions are L2; XY-C1 Build/TRX/artifact on one exact source SHA is L3; device behavior is L4 NOT VERIFIED.
+- No physical-router result is available. Host Actions are L2; XY-C1 Build/TRX/artifact on one exact production SHA is L3; device behavior is L4 NOT VERIFIED.
 
 ## Active task
 
-- Source fix on `53dda2c`: `proc_default_read_file()` now caps consecutive `read(2)` EINTR retries at eight for both normal procfs reads and its overflow probe. Unit regression checks the bound and exhaustion errno.
-- The first AI-doc run exposed a workflow-only defect: Process lifecycle push and pull_request filters no longer matched after adding the new production helper path. This follow-up restores parity by adding `process_io_retry_policy.h` to both trigger path sets.
-- No change to procfs source or retry policy is required for this CI correction.
+- Confirmed a remaining signal-storm reliability gap in shared `service_wait_policy.h`: `service_wait_seconds_with()` retried the unslept integer remainder forever, and `service_wait_timespec_with()` retried every nanosleep EINTR without a limit. Repeated immediate signals could keep lifecycle/startup callers trapped inside a wait.
+- This slice adds a common eight-consecutive-EINTR ceiling to both wrappers. Normal remainder retries and invalid/error handling are preserved; exhaustion returns `-1/EINTR` so callers fail closed instead of hanging.
+- The GNU89 wait-policy regression adds repeated-EINTR exhaustion cases for both `sleep()` and `nanosleep()`. Existing Process workflow compiles this test under `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined`; XY-C1 already watches the shared policy header.
+- No local compilation or physical-router result is claimed for this source slice.
 
 ## Exact first action for the next GPT
 
-1. Verify AI docs rerun after trigger-path parity correction, then inspect exact SHA 53dda2c Process umbrella, NVRAM and XY-C1 outcomes.
-2. If Process scanner regression fails, inspect its GNU89/ASan/UBSan or source-contract job logs; preserve the bounded retry behavior and UNKNOWN-on-I/O-error semantics. XY-C1 L3 requires Build, TRX verification and artifact upload on exact 53dda2c source SHA.
-3. Continue with an independently evidenced cross-userland stability/security fix; avoid reopening bounded service-lock and procfs-read loops without new evidence.
+1. Fetch live main and inspect exact-head Process lifecycle, service-wait regression, AI-doc, NVRAM and XY-C1 Actions for this change.
+2. On FAIL, inspect job logs and correct the demonstrated issue while retaining both eight-interruption ceilings and exact remaining-time handling. XY-C1 L3 requires Build, TRX verification and artifact upload all SUCCESS on the same source SHA.
+3. Continue another independently evidenced cross-userland stability/security issue; do not reopen the fixed MiniUPnP/service lock EINTR, acquisition wait, or procfs read loops without new evidence.
 
 ## Verification boundary
 
-- L1: shared procfs reader uses eight-retry EINTR limits for both normal and overflow-probe reads; exhaustion fails closed.
-- L2: Process inventory source/test run `44632416173` PASS; Process regression `44632416363` and NVRAM `44632416256` were in progress at checkpoint. AI docs failed only on workflow push/PR path parity and this commit fixes it.
-- L3: XY-C1 `44632416166` was in progress for exact source SHA 53dda2c; Build/TRX/artifact conclusion remains pending.
-- L4: target procfs signal-load behavior and physical-router service supervision remain NOT VERIFIED.
+- L1: shared seconds/nanosleep wait loops now fail with EINTR after eight consecutive interrupted calls; the remaining-time contract is preserved before exhaustion.
+- L2: GNU89 Process wait-policy regression adds bounded storm cases; exact-head Process/AI/NVRAM Actions are pending.
+- L3: XY-C1 already watches `service_wait_policy.h`; same-SHA Build/TRX/artifact remains pending.
+- L4: target signal timing and physical-router service behavior remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

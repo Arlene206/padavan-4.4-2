@@ -1,3 +1,12 @@
+## 2026-11-19 — Bound repeated EINTR in shared service waits
+
+- Shared `service_wait_seconds_with()` and `service_wait_timespec_with()` could retry interruption indefinitely. Under repeated immediate signals, integer-second `sleep()` can return the same remainder and keep PID 1/lifecycle callers stuck.
+- Added a common eight-consecutive-interruption limit to both wait wrappers. Exact remaining-time retries continue normally; the ninth interruption returns `-1/EINTR` rather than an unbounded loop.
+- Extended the GNU89 wait-policy regression for repeated `sleep()` and `nanosleep()` interruptions while retaining remainder, malformed-time and errno tests. Existing Process workflow runs this test; XY-C1 watches the shared header.
+- The procfs read fix SHA `53dda2c` passed Process inventory, detect-link, GPIO, DNSMasq, VPN, crond and NVRAM; AI docs/Process umbrella initially failed only on workflow filter parity and passed on `16b7556` follow-up. XY-C1 `44632416166` remained in progress at last poll.
+
+---
+
 ## 2026-11-19 — Restore Process workflow push/PR path parity
 
 - Exact source SHA `53dda2c844e18cfb879abc3bf4b96bb50d46fd2d` passed Process inventory `44632416173`, detect_link `44632416162`, GPIO `44632416043`, DNSMasq `44632416164`, VPN `44632416149` and crond `44632417092`.

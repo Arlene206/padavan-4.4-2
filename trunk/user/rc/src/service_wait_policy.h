@@ -6,9 +6,12 @@
 #include <time.h>
 #include <unistd.h>
 
+#define SERVICE_WAIT_MAX_INTERRUPTS 8U
+
 /*
  * sleep() returns the unslept remainder after EINTR. Retry that remainder so
  * signal delivery cannot turn a configured wait into a burst of early probes.
+ * A persistent signal storm must still not pin PID 1 in an unbounded loop.
  */
 typedef unsigned int (*service_wait_sleep_fn)(unsigned int seconds,
 					      void *context);
@@ -24,6 +27,8 @@ static inline int
 service_wait_seconds_with(unsigned int seconds,
 			  service_wait_sleep_fn sleep_fn, void *context)
 {
+	unsigned int interruptions = 0;
+
 	if (!sleep_fn) {
 		errno = EINVAL;
 		return -1;
@@ -34,6 +39,13 @@ service_wait_seconds_with(unsigned int seconds,
 		if (remaining > seconds) {
 			errno = EIO;
 			return -1;
+		}
+		if (remaining > 0) {
+			if (interruptions >= SERVICE_WAIT_MAX_INTERRUPTS) {
+				errno = EINTR;
+				return -1;
+			}
+			++interruptions;
 		}
 		seconds = remaining;
 	}
@@ -78,6 +90,8 @@ static inline int
 service_wait_timespec_with(struct timespec requested,
 			   service_wait_nanosleep_fn sleep_fn, void *context)
 {
+	unsigned int interruptions = 0;
+
 	if (!sleep_fn || requested.tv_sec < 0 || requested.tv_nsec < 0 ||
 	    requested.tv_nsec >= 1000000000L) {
 		errno = EINVAL;
@@ -103,6 +117,15 @@ service_wait_timespec_with(struct timespec requested,
 			errno = EIO;
 			return -1;
 		}
+		if (remaining.tv_sec == 0 && remaining.tv_nsec == 0) {
+			requested = remaining;
+			continue;
+		}
+		if (interruptions >= SERVICE_WAIT_MAX_INTERRUPTS) {
+			errno = EINTR;
+			return -1;
+		}
+		++interruptions;
 		requested = remaining;
 	}
 	return 0;
