@@ -43,6 +43,7 @@ class FirmwareInputPathTests(unittest.TestCase):
     def test_production_sources_and_configuration_require_build(self):
         paths = [
             "trunk/user/rc/src/init.c",
+            "trunk/user/rc/src/detect_wan_arp_result_policy.h",
             "trunk/user/httpd/src/httpd.c",
             "trunk/user/shared/scripts/process_lifecycle.sh",
             "trunk/linux-4.4.x/net/ipv4/tcp.c",

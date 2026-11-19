@@ -31,6 +31,7 @@
 #include "process_pidfile.h"
 #include "detect_wan_arp_socket_policy.h"
 #include "detect_wan_signal_policy.h"
+#include "detect_wan_arp_result_policy.h"
 #include "detect_wan_udhcpc_policy.h"
 
 //#define DEBUG		1
@@ -140,188 +141,202 @@ chk_udhcpc(int ap_mode)
 static int
 arpping_gateway(int ap_mode)
 {
-	in_addr_t gateway_ip;
-	in_addr_t ip;
-	uint8_t mac[6];
-	char wanmac[18];
-	char tmp[3];
-	char *ifname;
-	int s, i, rv, rcv_bytes;
-	struct sockaddr addr;
-	struct ifreq ifr;
-	struct arpMsg arp;
-	struct timeval arp_timeout;
-	long timeStart;
-	const int one = 1;
+    in_addr_t gateway_ip;
+    in_addr_t ip;
+    uint8_t mac[6];
+    char wanmac[18];
+    char tmp[3];
+    char *ifname;
+    int s, i, rv, rcv_bytes, probe_errno = 0;
+    struct sockaddr addr;
+    struct ifreq ifr;
+    struct arpMsg arp;
+    struct timeval arp_timeout;
+    long timeStart;
+    const int one = 1;
 
-	if (dw_stopping)
-		return 0;
+    if (dw_stopping)
+        return DETECT_WAN_ARP_PROBE_NO_REPLY;
 
-	if (!ap_mode)
-	{
-		ip = get_wan_ip4(1);
-		gateway_ip = inet_addr_safe(get_wan_unit_value(0, "gateway"));
-		snprintf(wanmac, sizeof(wanmac), "%s", get_wan_unit_value(0, "hwaddr"));	// WAN MAC address
-	}
-	else
-	{
-		ip = get_lan_ip4();
-		gateway_ip = inet_addr_safe(nvram_safe_get("lan_gateway_t"));
-		snprintf(wanmac, sizeof(wanmac), "%s", nvram_safe_get("lan_hwaddr"));	// br0 MAC address
-	}
+    if (!ap_mode)
+    {
+        ip = get_wan_ip4(1);
+        gateway_ip = inet_addr_safe(get_wan_unit_value(0, "gateway"));
+        snprintf(wanmac, sizeof(wanmac), "%s", get_wan_unit_value(0, "hwaddr"));
+    }
+    else
+    {
+        ip = get_lan_ip4();
+        gateway_ip = inet_addr_safe(nvram_safe_get("lan_gateway_t"));
+        snprintf(wanmac, sizeof(wanmac), "%s", nvram_safe_get("lan_hwaddr"));
+    }
 
-	if (gateway_ip == INADDR_ANY || ip == INADDR_ANY || gateway_ip == ip)
-	{
-		return 1;
-	}
+    if (gateway_ip == INADDR_ANY || ip == INADDR_ANY || gateway_ip == ip)
+        return DETECT_WAN_ARP_PROBE_REPLY;
 
-	wanmac[17]=0;
-	for(i=0; i<6; i++)
-	{
-		strncpy(tmp, wanmac+i*3, 2);
-		tmp[2]=0;
-		mac[i]=strtol(tmp, NULL, 16);
-	}
+    wanmac[17] = 0;
+    for (i = 0; i < 6; i++)
+    {
+        strncpy(tmp, wanmac + i * 3, 2);
+        tmp[2] = 0;
+        mac[i] = strtol(tmp, NULL, 16);
+    }
 
-	s = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
-	if (s < 0) {
-		perror("socket:");
-		return 0;
-	}
-	
-	if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) < 0) {
-		perror("setsockopt:");
-		close(s);
-		return 0;
-	}
+    s = socket(PF_PACKET, SOCK_PACKET, htons(ETH_P_ARP));
+    if (s < 0)
+        return detect_wan_arp_probe_result(0, errno ? errno : EIO);
 
-	/* send arp request */
-	memset(&arp, 0, sizeof(arp));
-	memset(arp.h_dest, 0xFF, 6);			/* MAC DA (Broadcast) */
-	memcpy(arp.h_source, mac, 6);			/* MAC SA */
-	arp.h_proto = htons(ETH_P_ARP);			/* protocol type (Ethernet) */
-	arp.htype = htons(ARPHRD_ETHER);		/* hardware type */
-	arp.ptype = htons(ETH_P_IP);			/* protocol type (ARP message) */
-	arp.hlen = 6;					/* hardware address length */
-	arp.plen = 4;					/* protocol address length */
-	arp.operation = htons(ARPOP_REQUEST);		/* ARP op code */
-	memcpy(arp.sInaddr, &ip, sizeof(ip));		/* source IP address */
-	memcpy(arp.sHaddr, mac, 6);			/* source hardware address */
-	memcpy(arp.tInaddr, &gateway_ip, sizeof(gateway_ip));	/* target IP address */
+    if (setsockopt(s, SOL_SOCKET, SO_BROADCAST, &one, sizeof(one)) < 0) {
+        probe_errno = errno ? errno : EIO;
+        (void)close(s);
+        return detect_wan_arp_probe_result(0, probe_errno);
+    }
 
-	memset(&addr, 0, sizeof(addr));
-	memset(&ifr, 0, sizeof(ifr));
-	if (!ap_mode)
-		ifname = get_man_ifname(0);
-	else
-		ifname = IFNAME_BR;
+    memset(&arp, 0, sizeof(arp));
+    memset(arp.h_dest, 0xFF, 6);
+    memcpy(arp.h_source, mac, 6);
+    arp.h_proto = htons(ETH_P_ARP);
+    arp.htype = htons(ARPHRD_ETHER);
+    arp.ptype = htons(ETH_P_IP);
+    arp.hlen = 6;
+    arp.plen = 4;
+    arp.operation = htons(ARPOP_REQUEST);
+    memcpy(arp.sInaddr, &ip, sizeof(ip));
+    memcpy(arp.sHaddr, mac, 6);
+    memcpy(arp.tInaddr, &gateway_ip, sizeof(gateway_ip));
 
-	strncpy(addr.sa_data, ifname, sizeof(addr.sa_data));
-	strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
-	arp_timeout.tv_sec = 1;
-	arp_timeout.tv_usec = 0;
-	if (detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt) < 0) {
-		perror("setsockopt:");
-		close(s);
-		return 0;
-	}
+    memset(&addr, 0, sizeof(addr));
+    memset(&ifr, 0, sizeof(ifr));
+    if (!ap_mode)
+        ifname = get_man_ifname(0);
+    else
+        ifname = IFNAME_BR;
+    strncpy(addr.sa_data, ifname, sizeof(addr.sa_data));
+    strncpy(ifr.ifr_name, ifname, IFNAMSIZ);
 
-	if (sendto(s, &arp, sizeof(arp), 0, &addr, sizeof(addr)) < 0)
-	{
-		close(s);
-		
-		perror("sendto:");
-		
-		detect_wan_wait(1);
-		return 0;
-	}
+    arp_timeout.tv_sec = 1;
+    arp_timeout.tv_usec = 0;
+    if (detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt) < 0) {
+        probe_errno = errno ? errno : EIO;
+        (void)close(s);
+        return detect_wan_arp_probe_result(0, probe_errno);
+    }
 
-	/* wait arp reply; socket preparation installed a finite timeout above. */
-	rv = 0;
-	timeStart = uptime();
-	for(;;)
-	{
-		if (dw_stopping)
-			break;
-		rcv_bytes = recvfrom(s, &arp, sizeof(arp), 0, NULL, NULL);
-		if (dw_stopping)
-			break;
-		if (rcv_bytes < 0 && errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK)
-			break;
-		
-		if (rcv_bytes >= 42 &&
-		    arp.h_proto == htons(ETH_P_ARP) &&
-		    arp.operation == htons(ARPOP_REPLY) &&
-		    memcmp(arp.tHaddr, mac, 6) == 0 &&
-		    *((uint32_t *) arp.sInaddr) == gateway_ip) 
-		{
+    if (sendto(s, &arp, sizeof(arp), 0, &addr, sizeof(addr)) < 0) {
+        probe_errno = errno ? errno : EIO;
+        (void)close(s);
+        return detect_wan_arp_probe_result(0, probe_errno);
+    }
+
+    /* A finite receive timeout separates silence from hard socket errors. */
+    rv = 0;
+    timeStart = uptime();
+    for (;;)
+    {
+        if (dw_stopping)
+            break;
+        rcv_bytes = recvfrom(s, &arp, sizeof(arp), 0, NULL, NULL);
+        if (dw_stopping)
+            break;
+        if (rcv_bytes < 0) {
+            if (errno == EINTR)
+                continue;
+            if (errno == EAGAIN || errno == EWOULDBLOCK) {
+                if (uptime() - timeStart > MAX_ARP_WAIT)
+                    break;
+                continue;
+            }
+            probe_errno = errno ? errno : EIO;
+            break;
+        }
+
+        if (rcv_bytes >= 42 &&
+            arp.h_proto == htons(ETH_P_ARP) &&
+            arp.operation == htons(ARPOP_REPLY) &&
+            memcmp(arp.tHaddr, mac, 6) == 0 &&
+            *((uint32_t *) arp.sInaddr) == gateway_ip)
+        {
 #ifdef DEBUG
-				fprintf(stderr, "Valid arp reply from [%02X:%02X:%02X:%02X:%02X:%02X]\n",
-					(unsigned char)arp.sHaddr[0],
-					(unsigned char)arp.sHaddr[1],
-					(unsigned char)arp.sHaddr[2],
-					(unsigned char)arp.sHaddr[3],
-					(unsigned char)arp.sHaddr[4],
-					(unsigned char)arp.sHaddr[5]);
+            fprintf(stderr, "Valid arp reply from [%02X:%02X:%02X:%02X:%02X:%02X]\n",
+                    (unsigned char)arp.sHaddr[0], (unsigned char)arp.sHaddr[1],
+                    (unsigned char)arp.sHaddr[2], (unsigned char)arp.sHaddr[3],
+                    (unsigned char)arp.sHaddr[4], (unsigned char)arp.sHaddr[5]);
 #endif
-			rv = 1;
-			break;
-		}
-		
-		if (uptime() - timeStart > MAX_ARP_WAIT)
-			break;
-	}
-	
-	close(s);
+            rv = 1;
+            break;
+        }
 
-	return rv;
+        if (uptime() - timeStart > MAX_ARP_WAIT)
+            break;
+    }
+
+    if (close(s) < 0 && probe_errno == 0)
+        probe_errno = errno ? errno : EIO;
+    return detect_wan_arp_probe_result(rv, probe_errno);
 }
 
 static int
 poll_gateway(void)
 {
-	int count, renew_status;
-	int ap_mode = get_ap_mode();
+    int count, probe_count, probe_status, probe_error, link_up, renew_status;
+    int ap_mode = get_ap_mode();
 
-	while (!dw_stopping)
-	{
-		count = 0;
-		
-		while (count < MAX_ARP_RETRY && !dw_stopping)
-		{
-			if (!ap_mode && !get_wan_ether_link_cached())
-			{
-				count++;
-				sleep(2);
-			}
-			else if (arpping_gateway(ap_mode))
-			{
-				break;
-			}
-			else
-			{
+    while (!dw_stopping)
+    {
+        count = 0;
+        probe_count = 0;
+        probe_error = 0;
+
+        while (count < MAX_ARP_RETRY && !dw_stopping)
+        {
+            if (!ap_mode && !get_wan_ether_link_cached())
+            {
+                count++;
+                sleep(2);
+            }
+            else
+            {
+                probe_status = arpping_gateway(ap_mode);
+                probe_count++;
+                if (probe_status == DETECT_WAN_ARP_PROBE_REPLY)
+                    break;
+                if (probe_status == DETECT_WAN_ARP_PROBE_ERROR) {
+                    if (probe_error == 0) {
+                        probe_error = errno > 0 ? errno : EIO;
+                        logmessage("detect_wan",
+                                   "gateway ARP probe failed locally (errno=%d); suppressing DHCP renew",
+                                   probe_error);
+                    }
+                }
+                else
+                {
 #ifdef DEBUG
-				fprintf(stderr, "[detect_wan] no response from gateway\n");
+                    fprintf(stderr, "[detect_wan] no response from gateway\n");
 #endif
-				count++;
-			}
-		}
-		
-		if (dw_stopping)
-			break;
-		if ((count >= MAX_ARP_RETRY) && (ap_mode || get_wan_ether_link_cached()))
-		{
-			renew_status = chk_udhcpc(ap_mode);
-			if (dw_stopping)
-				break;
-			if (renew_status != 0)
-				return -1;
-		}
-		
-		detect_wan_wait(20);
-	}
+                }
+                count++;
+            }
+        }
 
-	return 0;
+        if (dw_stopping)
+            break;
+
+        link_up = ap_mode ? 1 : get_wan_ether_link_cached();
+        if (detect_wan_arp_should_renew(count >= MAX_ARP_RETRY,
+                                        probe_count, MAX_ARP_RETRY,
+                                        ap_mode, link_up, probe_error))
+        {
+            renew_status = chk_udhcpc(ap_mode);
+            if (dw_stopping)
+                break;
+            if (renew_status != 0)
+                return -1;
+        }
+
+        detect_wan_wait(20);
+    }
+
+    return 0;
 }
 
 static void
