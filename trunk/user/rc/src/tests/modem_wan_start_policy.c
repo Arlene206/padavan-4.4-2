@@ -289,6 +289,17 @@ test_static_ipoe_upnp_reload_failure_reaches_start_status(void)
 }
 
 static void
+test_unplug_ifdown_failure_is_distinguished_from_removed_interface(void)
+{
+	assert(modem_wan_unplug_interface_down_result(0, -1, ENODEV, ENODEV) == 0);
+	assert(modem_wan_unplug_interface_down_result(EBUSY, 0, 0, ENODEV) == EBUSY);
+	assert(modem_wan_unplug_interface_down_result(-1, 1, 0, ENODEV) == -1);
+	assert(modem_wan_unplug_interface_down_result(EIO, -1, ENODEV, ENODEV) == 0);
+	assert(modem_wan_unplug_interface_down_result(EIO, -1, EACCES, ENODEV) == EACCES);
+	assert(modem_wan_unplug_interface_down_result(EIO, -1, 0, ENODEV) == EIO);
+}
+
+static void
 test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events(void)
 {
 	unsigned int retry_mask;
@@ -350,6 +361,7 @@ main(void)
 	test_wan_adjunct_service_failures_reach_start_status();
 	test_static_ipoe_upnp_reload_failure_reaches_start_status();
 	test_modem_hotplug_retry_mask_preserves_failed_and_coalesced_events();
+	test_unplug_ifdown_failure_is_distinguished_from_removed_interface();
 	test_static_wan_address_and_netmask_validation();
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;

@@ -24,26 +24,26 @@ Continue main-only implementation across conversations. Recover the exact live s
 - The committed helper in trunk/user/rc/src/dhcp6c_callback_generation_policy.h now ignores stale errno after successful launch, uses cleanup errno (or EIO fallback), preserves a real launch error as primary, and is covered by GNU89 callback-generation regression plus the WAN DHCP source contract.
 - Exact WAN DHCP and current XY-C1 Build/TRX/artifact plus HTTPD, Process, NVRAM, WAN route and AI docs are all PASS on f50387e29be43e9de4a1b55344390742a4252b53; do not repeat this task.
 
-## Active task — fail closed on guest ebtables module-state uncertainty
+## Active task — preserve NDIS interface-down failures during USB removal
 
-- Parent main SHA for this source slice: `f33ecd5a495f78e140acb40567fccd2c6ff714b5`. Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
-- Closed preceding iNIC force-disable status fix: product source `3d86aebbef26086a4383489efc4470e35e91b9df` now includes the failed `rai0` down result in the sticky return status while continuing bridge detach, PHY isolation, RGMII disable and reset. Exact-head Wireless radio regression/source contract `44574370283` PASS on checker-follow-up SHA `f33ecd5a495f78e140acb40567fccd2c6ff714b5`; Process lifecycle regression `44573883051` and NVRAM audit `44573883023` PASS on product SHA `3d86aebbef26086a4383489efc4470e35e91b9df`; AI handoff docs `44574368349` PASS on `f33ecd5a495f78e140acb40567fccd2c6ff714b5`. XY-C1 run `44573883318` remains IN_PROGRESS on product SHA `3d86aebbef26086a4383489efc4470e35e91b9df`; detector and all pre-build host gates passed, while Build/TRX/artifact were still running at the last poll.
-- Source gap: `restart_guest_lan_isolation()` uses `is_module_loaded("ebtables")`, collapsing the tri-state module probe's UNKNOWN/error result into false and silently skipping disable cleanup; enable also records `module_smart_load("ebtable_filter")` as successful even though that API returns zero both when already-loaded and when loading fails.
-- THIS COMMIT requires a confirmed post-load module state before flushing or installing guest-isolation rules. During disable, a confirmed loaded state permits cleanup and subsequent unload; confirmed absence is a no-op; UNKNOWN records the probe error, still attempts best-effort `-F`/`-X` cleanup, but never unloads modules whose state cannot be trusted. New host policy tests cover module presence errno mapping and all three disable actions; the production checker verifies that probing, error recording, cleanup and unload gates remain ordered. Exact-head Wireless L2 and XY-C1 L3 are pending for THIS COMMIT.
-- No local repository checkout/MIPS toolchain or physical router is available in this connector-only environment. L4 physical behavior remains NOT VERIFIED.
+- Parent main SHA for this source slice: `f0406397927cc648c7fd70c1961fb3aba1fd1243`. Frozen backup remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`; never modify it.
+- Previous guest ebtables module-state fix: exact-head Wireless radio regression/source contract `44576171024` PASS; AI docs `44576170956`, NVRAM `44576171017`, Process fail-closed `44576171294`, Process inventory `44576170689`, HTTPD security `44576170606`, iNIC signal `44576171003`, and watchdog signal `44576171120` all PASS on exact source SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243`. XY-C1 run `44576170960` remained IN_PROGRESS at last poll. The preceding iNIC source run `44573883318` later completed PASS (Build XY-C1, TRX verification and artifact upload) on its exact product SHA `3d86aebbef26086a4383489efc4470e35e91b9df`.
+- Source gap: `mdev_net_main()` discarded `ifconfig(device_name, 0, "0.0.0.0", NULL)` on USB NDIS removal. The physical interface may already have disappeared (expected ENODEV), but a failed down operation on an extant interface or an UNKNOWN interface-state probe must not be reported as successful removal.
+- THIS COMMIT records the `ifconfig()` result, re-probes interface flags only on failure, treats a confirmed ENODEV as the normal physical-unplug race, preserves the ifconfig failure when the interface still exists, and returns failure when the fresh state probe is UNKNOWN. It still notifies the WAN owner after best-effort cleanup failure. GNU89 regression covers existing, removed, and UNKNOWN states; the USB-modem workflow source contract pins operation order. Exact-head USB L2 and XY-C1 L3 are pending.
+- No local checkout/MIPS toolchain or physical modem/router is available here. Hardware L4 is NOT VERIFIED.
 
 ## Verification boundary
 
-- L1 source review: guest ebtables enable/disable transitions now preserve module UNKNOWN and never publish requested isolation rules without confirming `ebtable_filter` is loaded.
-- L2 host regression: pending exact-head Wireless radio workflow, including GNU89 `-Wall -Wextra -Werror`, ASan/UBSan guest policy binary and `scripts/check_guest_lan_isolation_status.py` source contract. The prior iNIC Wireless source contract passed on `44574370283`.
-- L3 target build: prior iNIC source SHA `3d86aebbef26086a4383489efc4470e35e91b9df` still awaits the in-progress XY-C1 Build/TRX/artifact run `44573883318`; this new `net_wifi.c` product-source change requires its own exact-head detector, Build XY-C1, TRX and artifact verification. Parent firmware evidence is not carried forward.
-- L4 live guest AP/RT3352 MII hardware behavior: NOT VERIFIED.
+- L1 source review: USB NDIS remove no longer drops an extant-interface shutdown failure or an uninspectable link-state error; expected physical removal remains a no-op.
+- L2 host regression: pending exact-head USB modem identity workflow, including GNU89 `-Wall -Wextra -Werror`/ASan/UBSan modem WAN policy binary and hotplug source integration contract. Previous ebtables Wireless L2 passed on exact SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243`.
+- L3 target build: guest ebtables product-source SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243` still awaits XY-C1 run `44576170960`; this new `hotplug_usb.c` product source change requires its own exact-head detector, Build XY-C1, TRX verification and artifact upload.
+- L4 live USB NDIS unplug/replug and WAN recovery on target hardware: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Wireless radio and AI handoff Actions for the guest ebtables tri-state source commit. Confirm all GNU89 policy binaries, sanitizer run and production source checker.
-2. Poll XY-C1 run `44573883318` for the iNIC source SHA `3d86aebbef26086a4383489efc4470e35e91b9df`, then inspect the new exact-head XY-C1 run separately: production-input detector, Build XY-C1, TRX verification and artifact upload.
-3. If any relevant check fails, inspect the first causal job/log and repair it without weakening fail-closed UNKNOWN handling, best-effort cleanup, or the no-unload-on-UNKNOWN rule. After closing this slice, pick the next high-priority unfinished P1 from a different subsystem.
+1. Inspect exact-head USB modem identity and AI docs Actions for this NDIS unplug status commit. Confirm the new unplug-state GNU89 regression and source ordering contract, while preserving the WDM/TTY/NDIS identity tests.
+2. Poll XY-C1 run `44576170960` for the guest ebtables product-source SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243`, then inspect the new exact-head XY-C1 workflow for detector, Build XY-C1, TRX and artifact.
+3. On failure, inspect the first causal log and fix without treating UNKNOWN as absence or suppressing physical unplug notification. After closing this slice, continue with the next independent P1 item.
 
 ## Mandatory handoff checkpoint
 

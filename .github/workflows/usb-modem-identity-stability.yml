@@ -153,6 +153,21 @@ jobs:
           assert "sleep(1)" in resolve[resolve.index("DEVICE_TYPE_MODEM_WDM"):]
 
           net = body(hotplug, "int mdev_net_main(")
+          net_remove_start = net.index("if(!get_hotplug_action(action)){")
+          net_remove_end = net.index("goto out_unlock;", net_remove_start)
+          net_remove = net[net_remove_start:net_remove_end]
+          assert "interface_down_status = ifconfig(device_name, 0, \"0.0.0.0\", NULL);" in net_remove
+          assert "interface_flags = get_interface_flags(device_name);" in net_remove
+          assert "modem_wan_unplug_interface_down_result(" in net_remove
+          assert "metadata_status = metadata_status != 0 ? metadata_status : 1;" in net_remove
+          assert net_remove.index("ifconfig(device_name, 0, \"0.0.0.0\", NULL)") < net_remove.index("get_interface_flags(device_name)") < net_remove.index("modem_wan_unplug_interface_down_result(")
+          assert net_remove.index("metadata_status = metadata_status != 0 ? metadata_status : 1;") < net_remove.index('notify_rc("on_unplug_usb_modem")')
+          assert "Always notify the WAN owner" in net_remove
+          assert '#include "modem_wan_start_policy.h"' in hotplug
+          assert "test_unplug_ifdown_failure_is_distinguished_from_removed_interface" in (
+              (rc / "tests/modem_wan_start_policy.c").read_text()
+          )
+          net = body(hotplug, "int mdev_net_main(")
           assert "data_len >= 0 && data_len < (int)sizeof(node_data)" in net
           assert net.index("modem_node_usb_identity_is_valid") < net.index("modem_node_file_publish_identity(")
           assert "publish_status = modem_node_file_publish_identity(" in net

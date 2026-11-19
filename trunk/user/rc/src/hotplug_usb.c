@@ -34,6 +34,7 @@
 #include "modem_node_file.h"
 #include "modem_sr_status_policy.h"
 #include "modem_sg_module_policy.h"
+#include "modem_wan_start_policy.h"
 
 static char *
 _basename(char *name)
@@ -262,6 +263,8 @@ int
 mdev_wdm_main(int argc, char **argv)
 {
 	int isLock, devnum, data_len, publish_status, metadata_status = 0;
+	int interface_down_status, interface_down_errno;
+	int interface_flags, interface_error, interface_cleanup_status;
 	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -368,8 +371,30 @@ int mdev_net_main(int argc, char **argv)
 			metadata_status = 1;
 		}
 
-		ifconfig(device_name, 0, "0.0.0.0", NULL);
+		errno = 0;
+		interface_down_status = ifconfig(device_name, 0, "0.0.0.0", NULL);
+		interface_down_errno = errno;
+		if (interface_down_status != 0) {
+			errno = 0;
+			interface_flags = get_interface_flags(device_name);
+			interface_error = interface_flags < 0 ? errno : 0;
+			interface_cleanup_status = modem_wan_unplug_interface_down_result(
+				interface_down_status, interface_flags, interface_error, ENODEV);
+			if (interface_cleanup_status != 0) {
+				if (interface_flags >= 0) {
+					errno = interface_down_status > 0 ? interface_down_status :
+						(interface_down_errno > 0 ? interface_down_errno : EIO);
+				} else {
+					errno = interface_error > 0 ? interface_error : EIO;
+				}
+				logmessage("USB",
+					   "NDIS interface shutdown incomplete for %s (ifconfig=%d, probe=%d, errno=%d)",
+					   device_name, interface_down_status, interface_flags, errno);
+				metadata_status = metadata_status != 0 ? metadata_status : 1;
+			}
+		}
 
+		/* Always notify the WAN owner even when best-effort interface cleanup fails. */
 		if (get_usb_modem_wan(0))
 			notify_rc("on_unplug_usb_modem");
 

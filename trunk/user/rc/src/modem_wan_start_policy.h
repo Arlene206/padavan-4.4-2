@@ -1,6 +1,8 @@
 #ifndef RC_MODEM_WAN_START_POLICY_H
 #define RC_MODEM_WAN_START_POLICY_H
 
+#include <errno.h>
+
 /* Do not migrate the active WAN interface while miniupnpd is still bound. */
 static inline int
 modem_wan_start_migration_succeeded(int migration_status)
@@ -24,6 +26,25 @@ static inline int
 modem_wan_ras_peer_cleanup_required(int launch_status)
 {
 	return launch_status != 0;
+}
+
+/*
+ * USB removal races network-device teardown. ENODEV from a fresh flags probe
+ * means the interface has already disappeared; an extant or uninspectable
+ * interface must not hide a failed ifconfig-down operation.
+ */
+static inline int
+modem_wan_unplug_interface_down_result(int ifconfig_status,
+				       int interface_flags, int interface_error,
+				       int absent_error)
+{
+	if (ifconfig_status == 0)
+		return 0;
+	if (interface_flags >= 0)
+		return ifconfig_status;
+	if (interface_error == absent_error)
+		return 0;
+	return interface_error > 0 ? interface_error : EIO;
 }
 
 /* Preserve the first failed transition; DHCP status matters only afterward. */

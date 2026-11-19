@@ -1,3 +1,12 @@
+## 2026-11-19 — Preserve NDIS ifconfig-down failures on USB removal
+
+- `mdev_net_main()` discarded the result of `ifconfig(device_name, 0, "0.0.0.0", NULL)` on NDIS removal. A vanished USB interface is an expected ENODEV race, but a failed down operation on an interface that still exists was being reported as success; state-probe failures were also hidden.
+- The remove path now captures ifconfig status and probes interface flags only on failure. Confirmed ENODEV is treated as already removed; an extant interface preserves the original ifconfig failure, while UNKNOWN preserves the probe error and fails closed. WAN-owner notification is still attempted after cleanup failure.
+- Added GNU89 policy cases for successful down, extant-interface failure, physical-removal ENODEV, and UNKNOWN probes. Extended the USB modem identity workflow contract to verify status handling precedes but does not suppress WAN notification. Exact-head USB L2/XY-C1 L3 pending; no local compile or hardware test is claimed.
+- The preceding guest ebtables source SHA `f0406397927cc648c7fd70c1961fb3aba1fd1243` passed Wireless `44576171024`, AI docs `44576170956`, NVRAM `44576171017`, Process fail-closed `44576171294`, inventory `44576170689`, HTTPD `44576170606`, iNIC signal `44576171003`, and watchdog signal `44576171120`; XY-C1 `44576170960` remained in progress at checkpoint.
+
+---
+
 ## 2026-11-19 — Preserve guest ebtables state when module probes are unknown
 
 - Selected a separate Wireless stability defect after the iNIC force-disable fix. `is_module_loaded()` converts the tri-state module probe's UNKNOWN/error result to false, so guest-isolation disable could skip stale ebtables cleanup yet return success. The enable path also trusted `module_smart_load()` even though its zero return means either already-loaded or load failure.
