@@ -1,3 +1,31 @@
+## 2026-11-19 — Validate NVRAM WAN interface names at PPPoE config and process boundaries
+
+- Main sequence: `1ed9992e8af14913fdf2f030de70206b8140197a` (PPP options source/checker), `213546dfb420c350c3754eb9cb9b2b6d706dd350` (PPPoE relay argv and path-filter coverage), and `72fc0604832ff6fa3f3cfc7a152a0895b5e74896` (static checker boundary correction).
+- `launch_wan_pppd_locked()` previously formatted raw `get_man_ifname(unit)` into a line-oriented `pppd` options file as `nic-%s`. A newline/control token could create additional privileged PPP options. The launcher now validates and bounds the name before session invalidation or file publication and writes only the local validated token.
+- `set_passthrough_pppoe()` now validates the management interface before passing it as one argument to `pppoe-relay`. The WAN interface policy checker covers both process/config callsites; the focused workflow watches `net.c` in push and pull-request events.
+- WAN callback `44500974469` passed on `1ed9992`. Run `44501588287` on `213546` failed only because the static checker searched for a literal escaped-newline function boundary; the ASan/UBSan interface-policy binary passed. Commit `72fc060` corrected that delimiter; exact WAN callback `44501725249` passed.
+- On `213546`, NVRAM `44501588395`, AI docs `44501588399`, HTTPD `44501588392`, Process inventory `44501588327`, Process fail-closed `44501588361`, Firewall `44501588307`, WAN route `44501588455` and USB storage `44501588302` passed. XY-C1 `44501588862` was still building; no L3 claim for that SHA.
+
+---
+
+## 2026-11-19 — Bound NVRAM WAN interface names before fixed-size copies
+
+- Source commit: `a6cf1fd26584614fe9212cd7be55f4a2f05cb3c0`; checker follow-up: `9f2367b578d376593d4a32d2849cba97708961a7`.
+- Replaced `strcpy(wan_ifname, ifname)` in `get_wan_ifname()` with an errno-style bounded token copy and propagated its return through miniupnpd, Inadyn and firewall startup. The separate Inadyn management-interface `strcpy()` path is also removed.
+- The helper rejects null/empty, overlong, whitespace/control and config-token metacharacters, clears a valid destination on failure, and copies only after validation. Regression covers maximum `IFNAMSIZ` boundaries, overflow, invalid bytes and invalid destinations; it is compiled under GNU89 `-Wall -Wextra -Werror` plus ASan/UBSan.
+- Exact WAN callback `44499846484` passed on `9f2367b`. Exact XY-C1 run `44499578824` on production SHA `a6cf1fd` completed Build, TRX verification and artifact upload.
+
+---
+
+## 2026-11-19 — Restore eventual AP DHCP hostname-file recovery
+
+- Source commit: `aeec47de88127b46a722ee426549349f3e54de73`; stale test-invocation correction: `f9d54df535c24e09ee9d7781003c180d38f896cf`.
+- Found that an AP DHCP lease could commit while `create_hosts_lan()` failed, and both the volatile `lan_hosts_retry` marker write and immediate PID 1 notification enqueue could fail. In that case no durable later retry was guaranteed.
+- Every AP-mode DHCP RENEW now refreshes host files even when the lease address/domain are unchanged, supplying a periodic recovery path; immediate notification retry is retained. This preserves the intentionally non-fatal post-commit lease behavior.
+- Exact WAN callback `44496707114` passed after removing the obsolete retry-status helper invocation from the policy test.
+
+---
+
 ## 2026-11-19 — Clean up failed USB RAS PPP launches and restore physical WAN
 
 - Parent main SHA: `eb379476c57a11da1f8c05af92bd60a53b7902cf`.

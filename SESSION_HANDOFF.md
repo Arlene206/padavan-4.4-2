@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — USB RAS PPP cleanup and WAN rollback
+# 2026-11-19 continuation checkpoint — AP DHCP, WAN interface bounds and PPPoE safety
 
 # Cross-session execution mandate
 
@@ -11,7 +11,7 @@ Continue main-only implementation across conversations. Do not repeat completed 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; branch `main`.
-- Current production-source main SHA: `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc` (RAS PPP failure cleanup/rollback; parent `eb379476c57a11da1f8c05af92bd60a53b7902cf`).
+- Current main SHA: `72fc0604832ff6fa3f3cfc7a152a0895b5e74896` (PPPoE interface-name validation and corrected exact-source checker; parent `213546dfb420c350c3754eb9cb9b2b6d706dd350`).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`; PR #1 remains closed/unmerged.
 - No local checkout was available: `git clone` could not resolve github.com in this environment. Exact GitHub Actions are the validation source.
 
@@ -75,14 +75,46 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - The exact-source checker verifies cleanup ordering, errno/status preservation and rollback/error aggregation.
 - On production SHA `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc`, USB modem workflow `44490980473` and WAN route workflow `44490980282` passed all steps. Process fail-closed `44490980113`, Process inventory `44490980140` and NVRAM audit `44490980245` also passed. XY-C1 `44490980325` was still building at the last poll; TRX verification and artifact upload were pending, so no L3 claim is made.
 
+## Completed slice — recover AP DHCP host publication on later renewals
+
+- `aeec47de88127b46a722ee426549349f3e54de73` changed AP-mode same-value DHCP RENEW handling so every later renewal retries `create_hosts_lan()`; this is the durable fallback when both the volatile retry marker and immediate PID 1 notification queue fail. Removed the obsolete `lan_hosts_retry` state and retained the immediate notification retry.
+- `f9d54df535c24e09ee9d7781003c180d38f896cf` removed a stale invocation of the deleted retry-status helper from the policy test. Exact WAN DHCP callback regression `44496707114` passed on that follow-up SHA.
+- The committed DHCP lease remains successful when ancillary hostname publication fails; the change repairs eventual host-file consistency without rolling back the lease.
+
+## Completed slice — bound NVRAM WAN interface-name copies
+
+- `a6cf1fd26584614fe9212cd7be55f4a2f05cb3c0` added `wan_ifname_copy()` to reject empty, overlong and unsafe interface tokens before copying into fixed-size buffers. `get_wan_ifname()` now returns status; miniupnpd, Inadyn and firewall consumers check it, and Inadyn's direct management-interface `strcpy()` was removed.
+- `9f2367b578d376593d4a32d2849cba97708961a7` normalized a line-wrapped source assertion without weakening the contract. Exact WAN callback regression `44499846484` passed. XY-C1 run `44499578824` on `a6cf1fd` completed Build XY-C1, TRX verification and artifact upload successfully (L3 for that SHA).
+
+## Completed slice — validate PPPoE interface names before config parsing and relay launch
+
+- `1ed9992e8af14913fdf2f030de70206b8140197a` validates the NVRAM-managed interface with `wan_ifname_copy()` before PPP session generation changes or options-file publication. The generated `nic-*` option now uses only the bounded local copy, preventing an interface value containing a newline or parser metacharacter from creating additional privileged `pppd` options.
+- `213546dfb420c350c3754eb9cb9b2b6d706dd350` applies the same bounded validation before passing the management interface as an argv value to `pppoe-relay`; the focused WAN workflow's push and pull-request path filters now include `net.c`.
+- The first exact `213546` WAN run `44501588287` exposed a checker-only delimiter bug after its ASan/UBSan interface-copy test had passed. `72fc0604832ff6fa3f3cfc7a152a0895b5e74896` corrected the checker function-boundary literal; exact WAN regression `44501725249` now passes on current main.
+
 ## Verification boundary
+
+- AP DHCP renewal recovery: exact WAN callback regression `44496707114` PASS on `f9d54df535c24e09ee9d7781003c180d38f896cf`.
+- WAN interface-name bounds: exact WAN callback regression `44499846484` PASS on `9f2367b578d376593d4a32d2849cba97708961a7`. The same source SHA's XY-C1 workflow `44499578824` completed Build, TRX and artifact-upload steps successfully.
+- PPPoE config and relay validation: exact WAN callback `44501725249` PASS on current main `72fc0604832ff6fa3f3cfc7a152a0895b5e74896`. The earlier `44501588287` failure on `213546` was only the static checker's escaped-newline boundary; the underlying ASan/UBSan bounds test passed and the corrected exact-SHA rerun is green.
+- On `213546dfb420c350c3754eb9cb9b2b6d706dd350`, NVRAM audit `44501588395`, AI docs `44501588399`, HTTPD auth/security `44501588392`, Process inventory `44501588327`, Process fail-closed `44501588361`, Firewall startup `44501588307`, WAN route `44501588455` and USB storage `44501588302` all PASS.
+- XY-C1 run `44501588862` on production SHA `213546dfb420c350c3754eb9cb9b2b6d706dd350` remains IN_PROGRESS at Build; TRX and artifact upload are pending. The older `44500974346` run on `1ed9992` is also in progress. Do not claim L3 for either until Build, TRX and upload complete. Physical-router L4 remains NOT VERIFIED.
+
+## Retained historical verification details
 
 - ACL input parsing: Switch CLI, Process, AI docs and NVRAM audit PASS on exact production SHA 752 (`44488416113`, `44488416467`, `44488415970`, `44488416220`). XY-C1 `44488415852` is completed PASS on 752; confirm its Build/TRX/artifact step results before claiming L3.
 - Follow-up PHY/VLAN/raw-register numeric parsing: production changes are on exact SHA 3d. GNU89/Werror ASan/UBSan parser compilation and runtime tests PASS; prior switch contracts and ACL contract PASS. Switch CLI `44490029309` failed only its new source contract because it did not normalize the C line-wrapped decimal parser call. This commit corrects the checker without weakening assertions.
 - On 3d, Process inventory `44490029325` and AI docs `44490029437` PASS; XY-C1 `44490029298` and NVRAM audit `44490029411` were still pending at the last poll.
 - Storage partition inventory: host L2 PASS on f873 and staged include/duplicate HTTPD host checks PASS on 2a/bc4; corrected production header still requires a fresh exact-source Build/TRX/artifact run. ZeroTier lifecycle verifications are recorded above. Physical switch/router L4 NOT VERIFIED.
 
-## Active task — verify XY-C1 and inspect AP DHCP retry-state failure handling
+## Active task
+
+- Current main is `72fc0604832ff6fa3f3cfc7a152a0895b5e74896`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807` and must remain untouched. PR #1 remains closed/unmerged.
+- Three source slices are now committed and checked: AP DHCP host refresh recovery, bounded NVRAM WAN interface copies, and PPPoE configuration/argv validation. Do not repeat these reviews or revert their tests.
+- First finish the pending exact-source XY-C1 run `44501588862` on `213546dfb420c350c3754eb9cb9b2b6d706dd350`; if it remains pending, work independently.
+- Next audit `get_ifstats_counter()` in `trunk/user/shared/src/netutils.c`: trace the only RC callsite in `net_wan.c::wan_up_internal()`, check path-component validation and `snprintf()` truncation behavior, then add a regression/fix only if attacker-controlled input can produce a meaningful file-read or reliability fault. Do not assume a vulnerability from the missing guard alone.
+- Continue searching for other NVRAM-derived interface values reaching config files, process argv or fixed-size network structures. Keep source fixes, tests and CI path filters in the same atomic slice.
+
 
 - The PHY/VLAN/raw-register parser source-contract failure on SHA 3d was a whitespace-format assertion, not a production-code failure. The whitespace-normalized contract correction is on `eb379476c57a11da1f8c05af92bd60a53b7902cf`; Switch CLI run `44490557134` and AI handoff docs run `44490556946` both PASS on that exact SHA.
 - The current production-source SHA is `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc`. Its USB modem and WAN route host regressions, Process inventory/fail-closed checks and NVRAM transaction audit all PASS. XY-C1 run `44490980325` is still in progress at Build; TRX and artifact steps have not yet completed.
@@ -90,9 +122,10 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Exact first action for the next GPT
 
-1. Inspect XY-C1 run `44490980325` on exact source SHA `3ae9fd9a7318ef3945c72d3ab313b9c0126927bc`, including Build, TRX and artifact-upload step results. Do not wait if it remains pending.
-2. Continue the AP DHCP retry-state task by tracing the return contract of `nvram_set_int_temp()`, the retry marker and PID-1 queue failure path. Add a regression and source fix only if the current code can demonstrably lose the retry.
-3. Do not repeat the completed RAS peer cleanup/rollback or switch numeric parser work.
+1. Inspect XY-C1 run `44501588862` on exact production SHA `213546dfb420c350c3754eb9cb9b2b6d706dd350` and record Build, TRX and artifact-upload results. If it remains in progress, continue another independent task.
+2. Trace `get_ifstats_counter()` and its WAN callback caller; determine whether its interface-derived sysfs path is fully bounded and path-safe. Add tests and hardening only for a demonstrated defect.
+3. Preserve the backup SHA `72f4f157a084f8184b9597ca5bf334b8080e5807`; create complete trees and non-forced expected-SHA main updates for every atomic commit.
+
 
 ## Mandatory handoff checkpoint
 
