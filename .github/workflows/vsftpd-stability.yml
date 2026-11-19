@@ -514,7 +514,7 @@ jobs:
           assert "int run_ftp(void);" in ftp_proto
           assert "int restart_ftpd(void);" in ftp_proto
           assert "action_result = rc_notify_merge_action_result(" in rc
-assert "action_result, restart_ftpd());" in rc
+          assert "action_result, restart_ftpd());" in rc
           assert "ret = restart_ftpd();" in rc
           assert "ret = stop_ftp();" in rc
           assert "int ftp_status = restart_ftpd();" in rc
