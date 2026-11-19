@@ -25,6 +25,7 @@ TEST_ROUTE_SHOW_STATUS=0
 TEST_ROUTE_DEL_STATUS=0
 TEST_ROUTE_DELETE_PERSISTS=0
 TEST_ROUTE_ADD_PARTIAL=0
+TEST_EXPECT_SAVED_SEGMENT=0
 : > "$TEST_IFCONFIG_COUNT"
 : > "$TEST_ROUTE_COUNT"
 export TEST_STATE TEST_KILL_LOG TEST_SLEEP_LOG TEST_ACTION_LOG TEST_TMP
@@ -97,6 +98,9 @@ del_rules() {
 		zt0="$(zerotier_interface_name)"
 	fi
 	[ "$zt0" = ztunit ] || fail "firewall cleanup lost the interface after daemon exit"
+	if [ "$TEST_EXPECT_SAVED_SEGMENT" -eq 1 ]; then
+		[ "$ip_segment" = "10.147.17.0/24" ] || fail "firewall cleanup lost the pre-stop NAT source segment"
+	fi
 	echo del_rules >> "$TEST_ACTION_LOG"
 	return 0
 }
@@ -176,6 +180,11 @@ ip() {
 				printf '%s\n' \
 					"10.9.0.0/24 dev ztother proto kernel scope link" \
 					"10.147.17.0/24 dev ztunit proto kernel scope link"
+			fi
+			;;
+		daemon-only)
+			if [ "$(cat "$TEST_STATE")" = running ]; then
+				printf '%s\n' "10.147.17.0/24 dev ztunit proto kernel scope link"
 			fi
 			;;
 		*)
@@ -346,16 +355,45 @@ TEST_PIDOF_MODE=""
 : > "$TEST_ACTION_LOG"
 echo running > "$TEST_STATE"
 TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=daemon-only
 TEST_ROUTE_PRESENT=1
 TEST_ROUTE_SHOW_STATUS=0
 TEST_ROUTE_DEL_STATUS=0
 TEST_ROUTE_DELETE_PERSISTS=0
+TEST_NAT_ENABLE=1
+TEST_EXPECT_SAVED_SEGMENT=1
+ip_segment=""
 TEST_MODE=graceful
 if ! stop_zero; then
 	fail "stop failed after a confirmed graceful daemon exit"
 fi
 [ ! -e "$TEST_CONFIG" ] || fail "successful stop did not complete the existing config cleanup"
 [ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'del_rules\nzero_route:del\nrm:-rf %s' "$TEST_CONFIG")" ] || fail "successful cleanup did not run after daemon absence"
+TEST_EXPECT_SAVED_SEGMENT=0
+TEST_ROUTE_MODE=none
+
+# NAT-enabled shutdown must fail before signalling the daemon if its connected
+# route cannot be captured for source-NAT firewall cleanup.
+TEST_STATIC_ROUTE_COUNT=0
+TEST_STATIC_ROUTE_ENABLE=0
+TEST_NAT_ENABLE=1
+TEST_IFCONFIG_MODE=running-only
+TEST_ROUTE_MODE=none
+: > "$TEST_KILL_LOG"
+: > "$TEST_ACTION_LOG"
+mkdir -p "$TEST_CONFIG"
+echo identity > "$TEST_CONFIG/identity.secret"
+echo running > "$TEST_STATE"
+TEST_MODE=graceful
+if stop_zero; then
+	fail "stop accepted NAT-enabled shutdown without a connected route segment"
+fi
+[ "$(cat "$TEST_STATE")" = running ] || fail "missing NAT route stopped the daemon before cleanup could be guaranteed"
+[ ! -s "$TEST_KILL_LOG" ] || fail "missing NAT route still signalled the daemon"
+[ ! -s "$TEST_ACTION_LOG" ] || fail "missing NAT route changed firewall or persistent configuration"
+[ -f "$TEST_CONFIG/identity.secret" ] || fail "missing NAT route removed the persistent identity"
+TEST_NAT_ENABLE=0
+
 # An already-absent configured route is an idempotent success.
 TEST_STATIC_ROUTE_COUNT=1
 TEST_STATIC_ROUTE_ENABLE=1
@@ -429,6 +467,8 @@ fi
 TEST_STATIC_ROUTE_COUNT=0
 TEST_STATIC_ROUTE_ENABLE=0
 TEST_IFCONFIG_MODE=none
+TEST_ROUTE_MODE=none
+TEST_EXPECT_SAVED_SEGMENT=0
 TEST_ROUTE_PRESENT=0
 TEST_ROUTE_SHOW_STATUS=0
 TEST_ROUTE_DEL_STATUS=0

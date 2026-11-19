@@ -82,6 +82,7 @@ route_wait_body = function_body(script, "zerotier_wait_route()")
 rules_section = script.split("rules() {", 1)[1].split("\ndel_rules() {", 1)[0]
 firewall_helper_body = function_body(script, "zerotier_add_firewall_rule()")
 cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 1)[0]
+del_rules_body = function_body(script, "del_rules()")
 static_route_body = function_body(script, "zero_route()")
 route_match_body = function_body(script, "zero_route_entry_matches()")
 
@@ -112,8 +113,16 @@ require('if ! kill_z; then' in start_body and
         start_body.index('if ! kill_z; then') < start_body.index("start_instance 'zerotier'"),
         "start must not launch a new daemon unless the previous daemon is absent")
 require('if [ -z "${zt0:-}" ]; then' in stop_body and
-        stop_body.index('zt0="$(zerotier_interface_name)"') < stop_body.index('if ! kill_z; then'),
-        "stop must capture the ZeroTier interface before daemon shutdown removes it")
+        stop_body.index('zt0="$(zerotier_interface_name)"') <
+        stop_body.index('ip_segment="$(zerotier_kernel_route_segment "$zt0")"') <
+        stop_body.index('if ! kill_z; then'),
+        "stop must capture both the ZeroTier interface and NAT source segment before daemon shutdown")
+require('if [ -z "${ip_segment:-}" ]; then' in del_rules_body and
+        'ip_segment="$(zerotier_kernel_route_segment "$zt0")"' in del_rules_body,
+        "firewall cleanup must reuse a pre-captured NAT source segment after the daemon route disappears")
+require('[ "$(nvram get zerotier_nat)" = "1" ] && [ -z "$ip_segment" ]' in stop_body and
+        'return 1' in stop_body,
+        "NAT-enabled stop must fail before daemon termination when its cleanup route cannot be captured")
 require('if ! kill_z; then' in stop_body and
         stop_body.index('if ! kill_z; then') < stop_body.index('del_rules') <
         stop_body.index('if ! zero_route "del"; then') <
@@ -176,8 +185,11 @@ require('if ! zero_route "add"; then' in rules_section and
         "a failed static-route add must roll back the published firewall/route state")
 require('running-only' in test and
         'firewall cleanup lost the interface after daemon exit' in test and
-        'static route cleanup lost the saved interface after daemon exit' in test,
-        "stop regression must model interface disappearance and verify saved interface cleanup")
+        'static route cleanup lost the saved interface after daemon exit' in test and
+        'daemon-only)' in test and
+        'firewall cleanup lost the pre-stop NAT source segment' in test and
+        'stop accepted NAT-enabled shutdown without a connected route segment' in test,
+        "stop regression must model disappearance of both the interface and kernel NAT source route")
 missing_nat_route_case = test.split("# Missing NAT route is bounded", 1)[1].split("# Malformed NVRAM NAT state", 1)[0]
 require("TEST_NAT_ENABLE=1" in missing_nat_route_case,
         "missing-kernel-route regression must explicitly enable NAT before expecting route readiness to fail")

@@ -1,3 +1,13 @@
+## 2026-11-19 — Preserve ZeroTier NAT source segment across daemon shutdown
+
+- Parent main SHA: `d4f540583704b4cb2299d0fcf7a4fd61acd7f599`.
+- Review of `stop_zero()` after the interface-retention fix found that `del_rules()` re-queries the kernel connected route only after `kill_z()`. The ZeroTier daemon removes its `zt0` route with the interface, so the source-NAT POSTROUTING rule could be left behind with an empty `-s` operand.
+- Capture the connected route segment before stopping the daemon, reuse it in `del_rules()`, and fail before process termination when NAT is enabled but the source segment cannot be captured. The test fixture exposes the connected route only while the daemon is running and requires firewall cleanup to use the saved segment after shutdown.
+- Add static source contracts for capture order, saved-value reuse and the fail-closed NAT gate.
+- Exact ZeroTier `44483203855` and AI docs `44483203814` PASS on d4. Process inventory `44482870006` and WAN route `44482869891` PASS on d45. XY-C1 `44482869903` on d45 was still in progress at last check. The new descendant's relevant Actions and firmware validation are pending; no L3/L4 claim for the new source SHA.
+
+---
+
 ## 2026-11-19 — Repair ZeroTier source-contract marker and required handoff heading
 
 - Parent main SHA: `d45cb7634cef62c5581ad5364a54ac4ba2b7927d`.

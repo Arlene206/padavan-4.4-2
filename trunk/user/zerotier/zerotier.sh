@@ -225,7 +225,9 @@ del_rules() {
 	if [ -z "${zt0:-}" ]; then
 		zt0="$(zerotier_interface_name)"
 	fi
-	ip_segment="$(zerotier_kernel_route_segment "$zt0")"
+	if [ -z "${ip_segment:-}" ]; then
+		ip_segment="$(zerotier_kernel_route_segment "$zt0")"
+	fi
 #	iptables -D FORWARD -i $zt0 -j ACCEPT 2>/dev/null
 #	iptables -D FORWARD -o $zt0 -j ACCEPT 2>/dev/null
 #	iptables -D FORWARD -i $zt0 -o $zt0 -j ACCEPT
@@ -473,6 +475,13 @@ stop_zero() {
 	# and static-route cleanup must use the original interface name.
 	if [ -z "${zt0:-}" ]; then
 		zt0="$(zerotier_interface_name)"
+	fi
+	# The source-NAT rule is keyed by the connected network, not only zt0.
+	# Capture it before killing zerotier-one removes the kernel route.
+	ip_segment="$(zerotier_kernel_route_segment "$zt0")"
+	if [ "$(nvram get zerotier_nat)" = "1" ] && [ -z "$ip_segment" ]; then
+		logger -t "zerotier" "无法在停止前读取ZeroTier内核路由，保留守护进程与网络配置"
+		return 1
 	fi
 
 	# Keep the persistent identity/configuration and live network state intact
