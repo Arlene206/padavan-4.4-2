@@ -324,7 +324,7 @@ for signature, band in (
         "isolation_status = wireless_radio_restart_status(isolation_status, wan_status);"
     )
     assert expected in compact, expected
-    assert f"check_apcli_wan({band}, radio_on);" not in restart
+    assert restart.count(f"check_apcli_wan({band}, radio_on)") == 1
 assert "test_apcli_wan_recovery_failure_is_reported" in (
     rc / "tests/wireless_radio_policy.c"
 ).read_text()

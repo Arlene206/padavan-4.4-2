@@ -1,3 +1,10 @@
+## 2026-11-19 — Tighten APCLI call-count contract without rejecting the captured result
+
+- Parent main SHA: `ccf419d1dcff6aff70080d37c90be707dec9fe88`. Exact WAN route run `44625039862` PASS validates the ordinary PPP demand path now uses `restore_wan_after_firewall_failure()`; AI docs `44625039727` PASS. Wireless `44625039991` and Process `44625039798` passed the APCLI helper and two-band accumulator assertions, then failed because the checker's `... not in restart` test also matched the intended `int wan_status = check_apcli_wan(...);` declaration.
+- Replaced that substring ban with an exact single-invocation assertion. The preceding expected contract still requires the result to be captured into `wan_status` and merged into the existing sticky error accumulator.
+- This is test-only; no product source changed. Exact Wireless/Process/docs reruns pending. XY-C1 `44624238619` passed host contracts but skipped Build, TRX and artifact upload; L3 remains NOT VERIFIED.
+
+---
 ## 2026-11-19 — Align APCLI and PPP caller contracts with production control flow
 
 - Parent main SHA: `b50ce7d86e43e60f0885f1d849a4f0dd690cffc8`. The HTTPD PPP credential/security regression `44624238578` and AI docs `44624238537` PASS. WAN route `44624238559` then exposed one remaining inline demand-PPP assertion expecting the direct lower-level recovery call; it now requires the fail-closed wrapper.
