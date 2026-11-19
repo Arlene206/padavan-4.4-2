@@ -151,7 +151,7 @@ assert 'smartdns_config_file_lib="/usr/bin/smartdns_config_file.sh"' in smartdns
 assert 'smartdns_tmp_Conf=$(mktemp "${smartdns_Conf}.input.XXXXXX")' in start
 assert 'smartdns_config_publish_deduplicated "$smartdns_tmp_Conf" "$smartdns_Conf"' in start
 assert 'awk \'!x[$0]++\' "$smartdns_tmp_Conf" > "$smartdns_Conf"' not in start
-assert 'Stop_smartdns' in start and '配置发布失败后的 DNSMasq 回滚未完成' in start
+assert "smartdns_start_config_rollback" in start
 assert '$(INSTALL_BIN) ./smartdns_config_file.sh $(ROMFSDIR)/usr/bin/smartdns_config_file.sh' in makefile
 for token in ("generator failure preserves last-good config",
               "rename failure preserves last-good config",
