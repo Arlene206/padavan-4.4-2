@@ -84,6 +84,7 @@ firewall_helper_body = function_body(script, "zerotier_add_firewall_rule()")
 cleanup_section = script.split("del_rules() {", 1)[1].split("\nzero_route() {", 1)[0]
 del_rules_body = function_body(script, "del_rules()")
 delete_rule_body = function_body(script, "zerotier_delete_firewall_rule()")
+rule_action_body = function_body(script, "zerotier_firewall_rule_action()")
 state_save_body = function_body(script, "zerotier_firewall_state_save()")
 state_load_body = function_body(script, "zerotier_firewall_state_load()")
 static_route_body = function_body(script, "zero_route()")
@@ -117,10 +118,13 @@ require('if ! kill_z; then' in start_body and
         "start must not launch a new daemon unless the previous daemon is absent")
 
 require("ZEROTIER_RULE_DELETE_LIMIT=32" in script and
-        'iptables -C "$@"' in delete_rule_body and
-        'iptables -D "$@"' in delete_rule_body and
-        'zerotier_rule_delete_count' in delete_rule_body,
-        "firewall deletion must check rule presence and bound duplicate cleanup")
+        'zerotier_rule_delete_count' in delete_rule_body and
+        'zerotier_firewall_rule_action -C "$zerotier_rule_table" "$@"' in delete_rule_body and
+        'zerotier_firewall_rule_action -D "$zerotier_rule_table" "$@"' in delete_rule_body and
+        'case "$zerotier_rule_table" in' in delete_rule_body and
+        'iptables -t "$zerotier_firewall_action_table" "$zerotier_firewall_action" "$@"' in rule_action_body and
+        'iptables "$zerotier_firewall_action" "$@"' in rule_action_body,
+        "firewall deletion must check rule presence, bound duplicates and put the table selector before -C/-D")
 require('1) return 0' in delete_rule_body and
         'zerotier_rule_check_status' in delete_rule_body and
         'return 1' in delete_rule_body,
@@ -224,6 +228,8 @@ require('running-only' in test and
         'stop accepted iptables deletion failure' in test and
         'firewall deletion failure did not persist retry state' in test and
         'stop could not retry firewall cleanup from saved state after daemon exit' in test and
+        'retry did not use the saved NAT source segment' in test and
+        '"-t nat -D POSTROUTING -s 10.147.17.0/24 -j MASQUERADE"' in test and
         'stop accepted NAT-enabled shutdown without a connected route segment' in test,
         "stop regression must model disappearance of both the interface and kernel NAT source route")
 missing_nat_route_case = test.split("# Missing NAT route is bounded", 1)[1].split("# Malformed NVRAM NAT state", 1)[0]

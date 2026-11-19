@@ -1,11 +1,12 @@
-## 2026-11-19 — Make ZeroTier firewall cleanup fail closed and retryable
+## 2026-11-19 — Correct ZeroTier NAT firewall table ordering and retry proof
 
-- Parent main SHA: `3fb41944a5e5fb88684bcd013d9b6b246fd130af`.
-- Found a reliability gap in `trunk/user/zerotier/zerotier.sh`: `del_rules()` sent five unchecked iptables deletions, so `stop_zero()` could delete persistent identity/configuration while stale INPUT/FORWARD/NAT rules remained.
-- Add bounded check-before-delete using the repository's iptables 1.8.7 (`-C` available): status 1 means absent; other command failures propagate. Up to 32 duplicate copies are drained; all applicable cleanup operations are attempted and aggregated. Startup refuses to publish new rules if stale-rule cleanup is unverified.
-- Before daemon shutdown, write the interface and optional NAT source segment atomically into a mode-0600 checkpoint under the persistent ZeroTier config directory. If firewall cleanup fails after process exit, keep the checkpoint and identity; the next stop can load the validated values and retry without the vanished interface or kernel route. Persistent config is removed only after checked firewall and static-route cleanup.
-- Extend the shell regression with a stateful iptables fake, injected deletion failure, independent-rule cleanup assertions, persistent-state checks and a successful retry after daemon/interface disappearance. Update source contracts for bounded deletion, status classification, safe checkpoint and stop ordering.
-- No local shell execution was possible in the connector-only environment. Exact-head ZeroTier Action is pending; current-source XY-C1 L3 is not claimed.
+- Firewall cleanup/checkpoint implementation landed in source commit `151d7574c0197139c61a7b6a7e4d9a5883a21f99`; follow-up test commits `c09c9d2`, `ebe6d30` and diagnostic `df07e01` exposed a real iptables argument-order defect, not a source-segment parser failure.
+- Exact-head ZeroTier run `44516737287` failed at the first NAT rule check. Its shell trace showed calls emitted as `iptables -C -t nat POSTROUTING ...`; the fake parser (and the documented CLI form) require the table selector before the operation: `iptables -t nat -C POSTROUTING ...`. The command had therefore bypassed the NAT table and aborted cleanup before route-state validation.
+- This correction routes check/delete through a table-aware helper, validates supported table names, and ensures `-t <table>` precedes `-C/-D`. The regression restores normal `set -eu` and verifies the exact saved-source-NAT deletion command on a second stop after daemon, interface and kernel route are gone.
+- No local execution in the connector-only environment. Exact-head ZeroTier host regression, source contracts and firmware validation are pending; L3/L4 are not claimed for this correction.
+
+---
+
 
 ---
 

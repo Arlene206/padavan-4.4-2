@@ -158,14 +158,44 @@ zerotier_wait_route() {
 	return 1
 }
 
+# Keep the table selector before the iptables operation. iptables accepts
+# "-t nat -C CHAIN ..."; placing -t after -C is not parsed as the nat table.
+zerotier_firewall_rule_action() {
+	[ "$#" -ge 2 ] || return 2
+	zerotier_firewall_action="$1"
+	zerotier_firewall_action_table="$2"
+	shift 2
+	case "$zerotier_firewall_action" in
+		-C|-D) ;;
+		*) return 2 ;;
+	esac
+	if [ -n "$zerotier_firewall_action_table" ]; then
+		iptables -t "$zerotier_firewall_action_table" "$zerotier_firewall_action" "$@"
+	else
+		iptables "$zerotier_firewall_action" "$@"
+	fi
+}
+
 # iptables 1.8.7 supports -C. Treat only exit status 1 as "absent";
 # command/xtables failures must not be mistaken for completed cleanup.
 ZEROTIER_RULE_DELETE_LIMIT=32
 zerotier_delete_firewall_rule() {
+	zerotier_rule_table=""
+	if [ "${1:-}" = "-t" ]; then
+		[ "$#" -ge 4 ] || return 1
+		zerotier_rule_table="$2"
+		case "$zerotier_rule_table" in
+			filter|nat|mangle|raw|security) ;;
+			*) return 1 ;;
+		esac
+		shift 2
+	fi
+	[ "$#" -ge 1 ] || return 1
+
 	zerotier_rule_delete_count=0
 	while [ "$zerotier_rule_delete_count" -lt "$ZEROTIER_RULE_DELETE_LIMIT" ]; do
-		if iptables -C "$@" >/dev/null 2>&1; then
-			if ! iptables -D "$@" >/dev/null 2>&1; then
+		if zerotier_firewall_rule_action -C "$zerotier_rule_table" "$@" >/dev/null 2>&1; then
+			if ! zerotier_firewall_rule_action -D "$zerotier_rule_table" "$@" >/dev/null 2>&1; then
 				logger -t "zerotier" "防火墙规则删除失败: iptables -D $*"
 				return 1
 			fi
@@ -183,7 +213,7 @@ zerotier_delete_firewall_rule() {
 	done
 
 	# Bound duplicate cleanup. Refuse to claim success if more copies remain.
-	if iptables -C "$@" >/dev/null 2>&1; then
+	if zerotier_firewall_rule_action -C "$zerotier_rule_table" "$@" >/dev/null 2>&1; then
 		logger -t "zerotier" "防火墙规则重复数量超过清理上限: $*"
 		return 1
 	else

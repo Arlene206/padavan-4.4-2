@@ -1,5 +1,5 @@
 #!/bin/sh
-set -eux
+set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 SCRIPT="$ROOT/trunk/user/zerotier/zerotier.sh"
@@ -470,12 +470,14 @@ TEST_ROUTE_MODE=none
 zt0=""
 ip_segment=""
 : > "$TEST_ACTION_LOG"
+: > "$TEST_IPTABLES_LOG"
 if ! stop_zero; then
 	fail "stop could not retry firewall cleanup from saved state after daemon exit"
 fi
 [ ! -e "$TEST_CONFIG" ] || fail "successful retry retained persistent config"
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "successful retry left a firewall rule"
 grep -Fqx -- "-D INPUT -i ztunit -j ACCEPT" "$TEST_IPTABLES_LOG" || fail "retry did not use saved ZeroTier interface identity"
+grep -Fqx -- "-t nat -D POSTROUTING -s 10.147.17.0/24 -j MASQUERADE" "$TEST_IPTABLES_LOG" || fail "retry did not use the saved NAT source segment"
 
 # NAT-enabled shutdown must fail before signalling the daemon if its connected
 # route cannot be captured for source-NAT firewall cleanup.

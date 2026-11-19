@@ -134,18 +134,16 @@ Continue main-only implementation across conversations. Do not repeat completed 
 
 ## Active task
 
-- Resume on `main` only. Parent for this ZeroTier firewall-cleanup slice: `3fb41944a5e5fb88684bcd013d9b6b246fd130af`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
-- New ZeroTier firewall cleanup slice in THIS COMMIT: checked `iptables -C/-D`, bounded duplicate deletion, failure aggregation, a private atomic interface/NAT-segment checkpoint and retry after daemon exit. Its shell regression injects a deletion failure, checks identity retention and verifies a retry with the interface/route gone. Exact-head CI must validate it; do not infer L3 from older host-only runs.
-- Recently completed source slices to preserve (do not re-audit): SkipDBv2 detached startup/graceful shutdown (`69e5907`); WAN sysfs counter path confinement (`2a49073`); Inadyn pre-launch recovery and private cache permissions (`01e965e`, `1f6ec97`, `03dc5a8`); ZeroConf IPTV NULL-safe interface environment (`b7cfce1`); preceding PPPoE/WAN interface bounds, AP DHCP host-file retry and RAS launch rollback changes.
-- SmartDNS source work includes atomic config publication, failed-prepare rollback, restoration of the previous daemon on failed replacement start, verified DNSMasq reload before teardown, one shell lock across start/stop/restart and fail-closed custom-config append errors.
-- Exact b7 Actions are green except XY-C1, which is still building. See Verification boundary for the full run IDs. No L4 device validation is available in this environment.
-- Continue with a different integrated userland subsystem; pending XY-C1 is not a gate on independent work. When its run completes, inspect Build, TRX and artifact upload individually and record only the evidence actually present.
+- Resume on `main` only. Parent for the NAT-order correction: `df07e01d45270d2945b4962b8fe17e2c4b26be12`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and must not be modified. PR #1 remains closed/unmerged.
+- ZeroTier firewall-cleanup and retry-state implementation is in `151d7574c0197139c61a7b6a7e4d9a5883a21f99`. Exact-head ZeroTier run `44516737287` failed; the set-`-x` trace localized the defect to NAT invocations ordered as `iptables -C -t nat`, which must be `iptables -t nat -C`. This commit normalizes table/action ordering and adds an assertion that retry deletes the exact saved NAT source rule after daemon/interface/route disappearance.
+- Prior exact-head c09 and df runs are not considered green; inspect the new commit's ZeroTier, AI-docs and XY-C1 runs independently. Do not claim L3 unless the same SHA's Build, TRX and artifact upload all pass.
+- Preserve completed SkipDBv2, WAN sysfs counter, Inadyn and ZeroConf callback work; the backup is immutable. After this bounded ZeroTier slice passes, continue with another independent stability/security defect across userland.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, inspect the exact-head ZeroTier lifecycle Action from THIS COMMIT, and inspect the current-source XY-C1 Build/TRX/artifact steps. Treat host-only or older-SHA runs as distinct evidence.
-2. Preserve the already-passing WAN/Process/HTTPD/Firewall/ZeroTier integrations; do not re-audit completed Inadyn, SkipDBv2, sysfs-counter or SmartDNS work absent new failures.
-3. Continue with an independent P1/P2 userland reliability/security defect after recording exact-head status. Keep the backup immutable and use one complete-tree commit with non-forced exact-parent CAS.
+1. Fetch live `main` and inspect the exact-head ZeroTier lifecycle run for this NAT-order correction. Diagnose any failing step; do not reuse c09/df failures as the new SHA's result.
+2. Inspect the exact same-SHA XY-C1 Build, TRX verification and artifact-upload steps separately. Claim L3 only when all three succeed.
+3. If ZeroTier and documentation checks pass, begin an independent P1/P2 userland reliability/security slice, with a production-linked regression and one complete-tree commit using `force=false` and exact-parent CAS. Keep the frozen backup untouched.
 
 ## Mandatory handoff checkpoint
 
