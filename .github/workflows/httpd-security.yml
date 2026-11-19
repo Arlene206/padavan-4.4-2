@@ -825,7 +825,11 @@ jobs:
           assert "previous configuration rollback is incomplete" in restore
           assert "continue_after_error" in policy and "errno = primary_error;" in policy
           assert "include_temp == 2 && !t->val_tmp" in exporter and "return -EOVERFLOW;" in exporter
-          assert "nvr->is_temp < 0 || nvr->is_temp > 2" in ioctl_get
+          assert "request.is_temp < 0 || request.is_temp > 2" in ioctl_get
+          assert "copy_from_user(&request, nvr, sizeof(request))" in ioctl_get
+          assert "copy_to_user(request.value, value, len)" in ioctl_get
+          assert "nvram_user_store_length(nvr, len)" in ioctl_get
+          assert "nvr->" not in ioctl_get
           assert getter.index("ioctl(nvram_fd, NVRAM_IOCTL_GET, &nvr)") < getter.index("close(nvram_fd)")
           assert "saved_errno = errno;" in getter and "ret = -1;" in getter
           assert "2=volatile tuples only" in api

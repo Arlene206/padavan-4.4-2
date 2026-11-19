@@ -455,7 +455,7 @@ def run() -> int:
         for function_name, function_body in (("user_nvram_set", set_body), ("user_nvram_get", get_body)):
             if "copy_from_user(&request, nvr, sizeof(request))" not in function_body:
                 failures.append(f"{function_name} does not snapshot its ioctl request with copy_from_user")
-            if re.search(r"\\bnvr\\s*->", function_body):
+            if "nvr->" in function_body or re.search(r"\bnvr\s+->", function_body):
                 failures.append(f"{function_name} directly dereferences its __user request pointer")
         if "put_user(length, &nvr->len_value)" not in store_length_body:
             failures.append("NVRAM ioctl result length is not written through put_user")
