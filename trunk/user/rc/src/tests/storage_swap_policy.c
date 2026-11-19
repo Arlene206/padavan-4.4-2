@@ -63,27 +63,27 @@ main(void)
 			filesystem, sizeof(filesystem), options, sizeof(options)) == 0);
 		assert(strcmp(options, "ro") == 0);
 		assert(storage_inventory_parse_mount_line_full(
-			"/dev/mapper/volume\\040one /media/USB\\040Disk ext4 rw 0 0\\n",
+			"/dev/mapper/volume\\040one /media/USB\\040Disk ext4 rw 0 0\n",
 			device, sizeof(device), mountpoint, sizeof(mountpoint),
 			filesystem, sizeof(filesystem), options, sizeof(options)) == 0);
 		assert(strcmp(device, "/dev/mapper/volume one") == 0);
 		assert(strcmp(mountpoint, "/media/USB Disk") == 0);
 		assert(storage_inventory_parse_mount_line_full(
-			"/dev/mapper/volume\\134one /media/USB\\011Disk ext4 rw 0 0\\n",
+			"/dev/mapper/volume\\134one /media/USB\\011Disk ext4 rw 0 0\n",
 			device, sizeof(device), mountpoint, sizeof(mountpoint),
 			filesystem, sizeof(filesystem), options, sizeof(options)) == 0);
 		assert(strcmp(device, "/dev/mapper/volume\\one") == 0);
-		assert(strcmp(mountpoint, "/media/USB\\tDisk") == 0);
+		assert(strcmp(mountpoint, "/media/USB\tDisk") == 0);
 		assert(storage_inventory_parse_mount_line_full(
-			"/dev/sda1 /media/USB\\040Disk ext4 rw 0 0\\n",
+			"/dev/sda1 /media/USB\\040Disk ext4 rw 0 0\n",
 			device, sizeof(device), mountpoint, 8,
 			filesystem, sizeof(filesystem), options, sizeof(options)) != 0);
 		assert(storage_inventory_parse_mount_line_full(
-			"/dev/sda1 /media/USB\\04Disk ext4 rw 0 0\\n",
+			"/dev/sda1 /media/USB\\04Disk ext4 rw 0 0\n",
 			device, sizeof(device), mountpoint, sizeof(mountpoint),
 			filesystem, sizeof(filesystem), options, sizeof(options)) != 0);
 		assert(storage_inventory_parse_mount_line_full(
-			"/dev/sda1 /media/USB\\000Disk ext4 rw 0 0\\n",
+			"/dev/sda1 /media/USB\\000Disk ext4 rw 0 0\n",
 			device, sizeof(device), mountpoint, sizeof(mountpoint),
 			filesystem, sizeof(filesystem), options, sizeof(options)) != 0);
 		assert(storage_inventory_parse_mount_line_full(
