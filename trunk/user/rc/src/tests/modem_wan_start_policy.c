@@ -127,6 +127,26 @@ test_first_modem_error_survives_best_effort_followup(void)
 }
 
 static void
+test_first_wan_error_survives_usb_modem_and_later_wan_failures(void)
+{
+	int status = 0;
+
+	/* A preflight/NAT error must survive a later USB modem and passthrough failure. */
+	status = rc_first_service_start_status(status, ENOMEM);
+	status = rc_first_service_start_status(status, EBUSY);  /* NDIS/RAS startup */
+	status = rc_first_service_start_status(status, EIO);    /* later modem action */
+	status = rc_first_service_start_status(status, EACCES); /* final WAN adjunct */
+	assert(status == ENOMEM);
+
+	/* Without an earlier WAN error, the first modem error remains authoritative. */
+	status = 0;
+	status = rc_first_service_start_status(status, EBUSY);  /* RAS firewall */
+	status = rc_first_service_start_status(status, EIO);    /* RAS client launch */
+	status = rc_first_service_start_status(status, EINVAL); /* passthrough */
+	assert(status == EBUSY);
+}
+
+static void
 test_ras_physical_setup_error_survives_ras_launch(void)
 {
 	int status = 0;
@@ -287,6 +307,7 @@ main(void)
 	test_ndis_required_control_failure_blocks_dhcp();
 	test_ndis_required_control_success_allows_dhcp();
 	test_first_modem_error_survives_best_effort_followup();
+	test_first_wan_error_survives_usb_modem_and_later_wan_failures();
 	test_ras_physical_setup_error_survives_ras_launch();
 	test_manual_pppoe_physical_setup_failure_is_reported_without_blocking_pppd();
 	test_physical_wan_ifup_failure_survives_cleanup();

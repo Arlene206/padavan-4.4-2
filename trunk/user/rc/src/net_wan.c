@@ -1712,7 +1712,6 @@ start_wan(void)
 	int vlan_result, mtu_status, interface_status, interface_cleanup_status;
 	int cleanup_status;
 	int static_address_clear_status;
-	int modem_start_status = 0;
 	int wan_start_status = 0, wan_up_status, sysctl_status;
 	int tcp_syncookies_enabled = 0;
 	int tcp_syncookies_status = 0;
@@ -1860,8 +1859,8 @@ start_wan(void)
 			if (nvram_get_int("modem_type") == 3)
 			{
 				vlan_result = launch_wan_usbnet(unit);
-				modem_start_status = rc_first_service_start_status(
-					modem_start_status, vlan_result);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
 				if (vlan_result != 0)
 					logmessage(LOGNAME, "USB modem WAN startup incomplete (status=%d)",
 						   vlan_result);
@@ -1874,8 +1873,8 @@ start_wan(void)
 				if (vlan_result != 0) {
 					logmessage(LOGNAME, "aborting WAN startup for unit %d: miniupnpd did not stop before interface migration (status=%d)",
 						   unit, vlan_result);
-					modem_start_status = rc_first_service_start_status(
-						modem_start_status, vlan_result);
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
 					continue;
 				}
 				set_wan_unit_value(unit, "proto_t", "RAS Modem");
@@ -1895,8 +1894,8 @@ start_wan(void)
 					else if (i_pppoe && i_pppoe_man == 2)
 						wanx_status = launch_wanx(wan_ifname, unit, 0, 1);
 										if (wanx_status != 0) {
-						modem_start_status = rc_first_service_start_status(
-							modem_start_status, wanx_status);
+						wan_start_status = rc_first_service_start_status(
+							wan_start_status, wanx_status);
 						logmessage(LOGNAME, "WAN physical interface setup incomplete on %s (status=%d)",
 							wan_ifname, wanx_status);
 					}
@@ -1904,8 +1903,8 @@ start_wan(void)
 				
 				/* Rebuild required firewall policy before exposing the RAS client. */
 				vlan_result = start_firewall_ex();
-				modem_start_status = rc_first_service_start_status(
-					modem_start_status, vlan_result);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
 				if (vlan_result != 0)
 					logmessage(LOGNAME, "USB modem RAS firewall startup incomplete (status=%d)",
 						   vlan_result);
@@ -1913,14 +1912,14 @@ start_wan(void)
 					logmessage(LOGNAME, "aborting USB modem RAS startup for unit %d because the firewall rebuild failed (status=%d)",
 						   unit, vlan_result);
 					vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
-					modem_start_status = rc_first_service_start_status(
-						modem_start_status, vlan_result);
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
 					continue;
 				}
 				
 				vlan_result = launch_wan_modem_ras(unit);
-				modem_start_status = rc_first_service_start_status(
-					modem_start_status, vlan_result);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
 				if (vlan_result != 0)
 					logmessage(LOGNAME, "USB modem RAS startup incomplete (status=%d)",
 						   vlan_result);
@@ -2243,7 +2242,7 @@ start_wan(void)
 		}
 	}
 
-	return rc_first_service_start_status(modem_start_status, wan_start_status);
+	return wan_start_status;
 }
 
 static int

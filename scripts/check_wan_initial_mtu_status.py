@@ -112,7 +112,7 @@ require(
 require("int wan_mtu =" not in static,
         "static path must use the same configured MTU value as the initial decision")
 require(
-    "return rc_first_service_start_status(modem_start_status, wan_start_status);" in start_wan,
+    "return wan_start_status;" in start_wan,
     "start_wan must return the accumulated physical MTU failure",
 )
 

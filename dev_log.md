@@ -1,3 +1,13 @@
+## 2026-11-19 — Preserve chronological first error across all WAN startup paths
+
+- Parent main SHA: `25de09a671c77fb2633f98c4eab34c28cd21bd22`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains unchanged.
+- L1 found a result-order defect in `start_wan()`: early/global failures were held in `wan_start_status`, USB NDIS/RAS outcomes in `modem_start_status`, and the final merge always put the modem accumulator first. A later modem error could mask an earlier NAT/sysctl/WAN error.
+- Remove the split accumulator, merge USB NDIS/RAS failures into `wan_start_status` at their execution points, and return the single chronological result. Existing best-effort startup control flow remains unchanged.
+- Add `test_first_wan_error_survives_usb_modem_and_later_wan_failures()` to the GNU89 policy suite. Update modem-WAN, WAN-firewall and initial-MTU source contracts; existing workflow path filters cover these files, so no new workflow or broad trigger is introduced.
+- Parent exact-head WAN gateway ARP `44440477965` and AI docs `44440477700` PASS. No local test or MIPS build was run here. USB modem, Process, WAN-route, AI docs and XY-C1 Build/TRX/artifact runs for this new commit remain pending; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Fail closed when detect_wan cannot publish its PID identity
 
 - Parent main SHA: `9e7882b2354e57a4408f099b73d054b3a6635b2c` (includes concurrent storage mount decoding and regression fixture corrections).

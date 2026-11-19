@@ -148,6 +148,7 @@ for marker in (
     assert marker in WAN_TEST
 assert "int modem_ndis_control_failed(int control_required" not in POLICY_SOURCE
 assert "return control_required && control_status != 0;" in POLICY_SOURCE
+assert "test_first_wan_error_survives_usb_modem_and_later_wan_failures();" in WAN_TEST
 
 vinet_setup = compact(body(WAN_SOURCE, "config_vinet_wan(void)"))
 parent_ipv6_call = vinet_setup.index("ret = control_if_ipv6(ifname_wan_cpu, 0);")
@@ -180,7 +181,8 @@ assert re.search(r"if\s*\(ipv6_status\s*!=\s*0\)\s*\{[^}]*return\s+ipv6_status\s
 )
 
 wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
-assert "int modem_start_status = 0;" in wan_start
+assert "modem_start_status" not in wan_start
+assert "return wan_start_status;" in wan_start
 assert "wan_up_status = wan_up(wan_ifname, unit, 1);" in wan_start
 assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*wan_up_status\s*\)\s*;", wan_start)
 interface_failure_start = wan_start.index("if (interface_status != 0)")
@@ -195,7 +197,7 @@ assert interface_failure.index(interface_error_record.group(0)) < interface_fail
     "interface_cleanup_status = ifconfig("
 ), "best-effort interface cleanup must not replace the original IFUP failure"
 assert "continue;" in interface_failure
-assert "return rc_first_service_start_status(modem_start_status, wan_start_status);" in wan_start
+assert "return wan_start_status;" in wan_start
 assert re.search(r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*ipv6_status\s*\)\s*;", wan_start)
 assert "vlan_result = launch_wan_usbnet(unit);" in wan_start
 assert "vlan_result = launch_wan_modem_ras(unit);" in wan_start
@@ -217,7 +219,7 @@ passthrough_error_pos = wan_start.index("if (passthrough_status != 0)", passthro
 passthrough_status_pos = wan_start.index("wan_start_status = rc_first_service_start_status(", passthrough_error_pos)
 passthrough_status_end = wan_start.index(";", passthrough_status_pos)
 assert "wan_start_status, passthrough_status" in wan_start[passthrough_status_pos:passthrough_status_end]
-assert passthrough_status_pos < wan_start.index("return rc_first_service_start_status(modem_start_status, wan_start_status);")
+assert passthrough_status_pos < wan_start.index("return wan_start_status;")
 
 wait_ppp = compact(body(WAN_SOURCE, "wait_ppp_up(char *ppp_ifname, int unit)"))
 assert "failure_status = (interface_status < 0 && errno != 0) ?" in wait_ppp
@@ -268,7 +270,7 @@ assert "WAN physical interface setup incomplete" in ppp_branch[wanx_error_pos:wa
 assert "test_manual_pppoe_physical_setup_failure_is_reported_without_blocking_pppd" in WAN_TEST
 assert ppp_branch.index("vlan_result = launch_wan_pppd(unit, wan_proto);", wanx_abort_pos) > wanx_abort_pos
 
-ipoe_end = wan_start.index("return rc_first_service_start_status(modem_start_status, wan_start_status);", ipoe_branch_start)
+ipoe_end = wan_start.index("return wan_start_status;", ipoe_branch_start)
 ipoe_branch = wan_start[ipoe_branch_start:ipoe_end]
 upnp_reload_call = "wan_upnp_status = update_upnp();"
 assert upnp_reload_call in ipoe_branch
@@ -327,9 +329,9 @@ dhcp_pos = ipoe_branch.index("if (dhcp_status != 0)")
 dhcp_end = ipoe_branch.index('set_wan_unit_value_int(unit, "err", wan_err);', dhcp_pos)
 assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[dhcp_pos:dhcp_end]
 
-aggregate_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*vlan_result\s*\)\s*;"
+aggregate_pattern = r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*vlan_result\s*\)\s*;"
 aggregate_matches = list(re.finditer(aggregate_pattern, wan_start))
-assert len(aggregate_matches) == 5
+assert len(aggregate_matches) == 19
 # The RAS firewall rebuild and failed-rebuild restoration each contribute status.
 ras_launch_start = wan_start.index("char *ppp_ifname = IFNAME_RAS;")
 ras_launch_end = wan_start.index("vlan_result = launch_wan_modem_ras(unit);", ras_launch_start)
@@ -343,14 +345,14 @@ assert re.search(aggregate_pattern, wan_start[ras_migration_start:]), "RAS migra
 ras_launch_start = wan_start.index("char *ppp_ifname = IFNAME_RAS;")
 ras_launch_end = wan_start.index("vlan_result = launch_wan_modem_ras(unit);", ras_launch_start)
 ras_branch = wan_start[ras_launch_start:ras_launch_end]
-ras_wanx_pattern = r"modem_start_status\s*=\s*rc_first_service_start_status\s*\(\s*modem_start_status\s*,\s*wanx_status\s*\)\s*;"
+ras_wanx_pattern = r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*wanx_status\s*\)\s*;"
 ras_wanx_match = re.search(ras_wanx_pattern, ras_branch)
 assert ras_wanx_match, "RAS physical WAN setup failure must reach modem startup status"
 assert ras_branch.index("if (wanx_status != 0)") < ras_wanx_match.start()
 eapol_start = wan_start.index("if (auth_status != 0)")
 eapol_end = wan_start.index("/* We are done configuration */", eapol_start)
-assert "modem_start_status" not in wan_start[eapol_start:eapol_end]
-assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.index("return rc_first_service_start_status(modem_start_status, wan_start_status);")
+assert "modem_start_status" not in wan_start
+assert wan_start.index("set_passthrough_pppoe(1)") < wan_start.index("return wan_start_status;")
 
 l2tp_start_merge = compact(
     body(WAN_SOURCE, "merge_l2tp_server_start_status(int wan_status)")

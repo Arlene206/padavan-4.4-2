@@ -152,8 +152,8 @@ for index, position in enumerate(firewall_sites):
         cursor = found + len(marker)
 
     if index == 0:
-        require("modem_start_status = rc_first_service_start_status(" in follow,
-                "USB RAS firewall failure must reach modem_start_status")
+        require("wan_start_status = rc_first_service_start_status(" in follow,
+                "USB RAS firewall failure must reach shared WAN first-error status")
     else:
         require("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);" in follow,
                 "PPP/IPoE firewall failure must reach wan_start_status")
@@ -235,8 +235,10 @@ for position in recovery_sites:
     require("wan_start_status = rc_first_service_start_status(wan_start_status, vlan_result);" in follow,
             "PPP recovery failure must be aggregated before continuing")
 
-require("return rc_first_service_start_status(modem_start_status, wan_start_status);" in start,
-        "start_wan() must return the first modem/WAN error")
+require("modem_start_status" not in start,
+        "start_wan() must use one chronological first-error accumulator")
+require("return wan_start_status;" in start,
+        "start_wan() must return the chronological first WAN error")
 bare_calls = [line for line in wan.splitlines() if line.strip() == "start_firewall_ex();"]
 require(not bare_calls, "no firewall rebuild result may be discarded")
 require(len(positions(wan, "start_firewall_ex()")) == 4,
