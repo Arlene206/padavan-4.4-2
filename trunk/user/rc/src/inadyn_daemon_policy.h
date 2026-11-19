@@ -5,6 +5,7 @@
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <unistd.h>
 #include <process_inventory.h>
 
 enum inadyn_daemon_action {

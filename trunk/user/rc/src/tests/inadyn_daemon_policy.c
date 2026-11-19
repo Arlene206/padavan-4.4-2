@@ -94,14 +94,12 @@ test_config_preflight_requires_all_live_identities(void)
 	snapshot.count = 2;
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = 2;
 	assert(inadyn_validate_snapshot(&snapshot, fake_validate, &fake) == 0);
 	assert(fake.next_state == 2);
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = unknown;
 	fake.state_count = 2;
 	fake.validation_error = EACCES;
@@ -137,7 +135,6 @@ test_identity_bound_hup_signal(void)
 	snapshot.count = 2;
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = 4;
 	assert(inadyn_signal_snapshot(&snapshot, SIGHUP, fake_validate,
@@ -148,7 +145,6 @@ test_identity_bound_hup_signal(void)
 	       fake.signalled_signals[1] == SIGHUP);
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = unknown_preflight;
 	fake.state_count = 2;
 	fake.validation_error = EACCES;
@@ -158,7 +154,6 @@ test_identity_bound_hup_signal(void)
 	assert(errno == EACCES && fake.signal_count == 0);
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = unknown_revalidate;
 	fake.state_count = 4;
 	fake.validation_error = EPERM;
@@ -168,7 +163,6 @@ test_identity_bound_hup_signal(void)
 	assert(errno == EPERM && fake.signal_count == 1);
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = 4;
 	fake.signal_error = ESRCH;
@@ -177,7 +171,6 @@ test_identity_bound_hup_signal(void)
 	assert(fake.signal_count == 0);
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = 4;
 	fake.signal_error = EPERM;
@@ -211,7 +204,6 @@ test_identity_bound_usr1_signal(void)
 	snapshot.count = 1;
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = live;
 	fake.state_count = sizeof(live) / sizeof(live[0]);
 	assert(inadyn_signal_snapshot(&snapshot, SIGUSR1, fake_validate,
@@ -221,7 +213,6 @@ test_identity_bound_usr1_signal(void)
 	assert(fake.signalled_signals[0] == SIGUSR1);
 
 	memset(&fake, 0, sizeof(fake));
-	fake.path_uid = geteuid();
 	fake.states = unknown;
 	fake.state_count = sizeof(unknown) / sizeof(unknown[0]);
 	fake.validation_error = EACCES;
@@ -418,7 +409,7 @@ test_cache_prepare_status(void)
 		NULL, fake_cache_mkdir, fake_cache_lstat, fake_cache_chmod, &fake);
 	assert(status == EIO);
 
- 
+
 	memset(&fake, 0, sizeof(fake));
 	fake.path_uid = geteuid();
 	fake.path_mode = S_IFDIR | 0777;
