@@ -440,6 +440,7 @@ TEST_ROUTE_MODE=none
 : > "$TEST_SLEEP_LOG"
 : > "$TEST_IPTABLES_LOG"
 echo 0 > "$TEST_ROUTE_COUNT"
+TEST_NAT_ENABLE=1
 TEST_ROUTE_MODE=none
 if rules; then
 	fail "rules succeeded without a ZeroTier kernel route while NAT was enabled"

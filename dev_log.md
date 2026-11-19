@@ -1,3 +1,12 @@
+## 2026-11-19 — Explicitly enable NAT in ZeroTier missing-route regression
+
+- Parent main SHA: `255334d0dbd7e98a1a63dde528b0e3de59aef9c1`.
+- Exact ZeroTier run `44476582735` passed interface-preserving stop cleanup and route-add rollback, then failed because the “Missing NAT route” test inherited `TEST_NAT_ENABLE=0` from the previous case. The production `rules()` path correctly skipped kernel-route readiness when NAT was disabled.
+- Explicitly enable `TEST_NAT_ENABLE=1` inside the missing-route case while retaining `TEST_ROUTE_MODE=none`; add a scoped Python source-contract assertion to protect the fixture.
+- On parent 255: WAN route `44476582757`, AI docs `44476582739` and Process inventory `44476582787` PASS; ZeroTier `44476582735` exposed the fixture omission; XY-C1 `44476582849` remained IN_PROGRESS. Exact rerun pending.
+
+---
+
 ## 2026-11-19 — Capture ZeroTier interface before stopping its daemon
 
 - Parent main SHA: `f65813735c6f817338006777e81645b2015bc215`.

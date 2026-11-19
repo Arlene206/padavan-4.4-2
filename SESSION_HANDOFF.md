@@ -34,23 +34,27 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - `67a45de88cb4776cf464164a9d3784e8555e0546`: validate static-route config, quote operands, propagate `ip route add` failure and roll back firewall/routes. WAN route `44474852328`, Process inventory `44474852420), AI docs `44474852357` PASS; ZeroTier `44474852372` failed in the strict-nounset stop fixture.
 - `b2d3b94b4414d0dee4ba423791a9ad91ba175893` and `f65813735c6f817338006777e81645b2015bc215` are test-only corrections (seeded fixture interface and corrected grep count). XY-C1 `44475877010` passed on b2d; exact ZeroTier rerun for current tests was still pending when this handoff was written.
 
-## Active task — retain interface identity while stopping ZeroTier
+## Completed prior slice — retain interface identity while stopping ZeroTier
 
-- `stop_zero()` previously killed the daemon before discovering its virtual interface; the interface may disappear with the daemon, leaving firewall and static-route cleanup without the old device name.
-- The production fix captures the interface name before daemon termination. The fixture no longer seeds `zt0`: it exposes `ztunit` only while the daemon is running, then removes it and verifies both firewall and static-route cleanup retain the saved token.
-- Exact-head ZeroTier, Process lifecycle, AI docs, NVRAM and XY-C1 Build/TRX/artifact checks are pending for this correction. No MIPS build or physical-router test claimed.
+- Commit `255334d0dbd7e98a1a63dde528b0e3de59aef9c1` captures `zt0` before `kill_z()`; `del_rules()` also tolerates an unset variable in a fresh shell. The fixture makes `ztunit` disappear as soon as the daemon exits and requires firewall/static-route cleanup to use the saved interface.
+- Exact ZeroTier `44476582735` failed later in the independent “Missing NAT route” regression because that case inherited `TEST_NAT_ENABLE=0` from the prior fixture; production correctly skipped NAT route readiness. WAN route `44476582757`, AI docs `44476582739` and Process inventory `44476582787` PASS. XY-C1 `44476582849` was IN_PROGRESS.
+
+## Active task — explicitly enable NAT in the missing-kernel-route regression
+
+- Set `TEST_NAT_ENABLE=1` inside the “Missing NAT route” test before invoking `rules()`, while retaining `TEST_ROUTE_MODE=none`.
+- Pin this fixture precondition in `check_zerotier_lifecycle.py`. This is test-only; production route/firewall code is unchanged.
+- Exact-head ZeroTier, AI docs, Process lifecycle, NVRAM and XY-C1 validation pending after this correction.
 
 ## Verification boundary
 
 - RStats and radio host/policy checks passed on their exact SHAs; RStats L3 proven on SHA 5e11 only.
-- ZeroTier firewall publication L2 passed on 3ff. Static-route add fix exists on 67a; current interface-preservation correction requires exact-head checks. No L4 result.
+- ZeroTier firewall publication L2 passed on 3ff. Static-route add fix is on 67a; stop-interface-preservation correction is on 255. Exact 255 ZeroTier `44476582735` fails only because the missing-NAT fixture omitted its required `TEST_NAT_ENABLE=1`; WAN route `44476582757`, AI docs `44476582739` and Process inventory `44476582787` PASS. XY-C1 `44476582849` remained IN_PROGRESS; no L4 router result.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head ZeroTier lifecycle, Process lifecycle, AI docs, NVRAM and XY-C1 runs for this interface-capture fix.
-2. Require route-add failure injection, partial firewall rollback and post-daemon interface-preserving cleanup to PASS; repair any failure without weakening coverage.
-3. Close parent 67a XY-C1 `44474852399`, firewall parent 3ff XY-C1 `44473915674`, and radio parent a4f XY-C1 `44473205687` by exact SHA.
-4. Next ZeroTier follow-up: `zero_route del` suppresses individual deletion failures; stop should surface incomplete route/firewall cleanup and avoid deleting persistent identity when cleanup is uncertain. Then resume SD/MMC partition parser hardening from the prior roadmap.
+1. Verify this missing-NAT fixture correction by exact-head ZeroTier and source-contract Actions; require the 30-poll missing-route timeout and final PASS summary.
+2. Inspect XY-C1 `44476582849` for production SHA 255 and require Build/TRX/artifact before L3.
+3. Continue SD/MMC partition inventory hardening: strict complete-line `/proc/partitions` parsing is needed because malformed/truncated records can currently be ignored and the scan stops after the first match.
 
 ## Mandatory handoff checkpoint
 

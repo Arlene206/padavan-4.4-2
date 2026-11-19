@@ -79,6 +79,9 @@
 
 ## Priority queue
 
+- ZeroTier stop interface capture `255334d0`: exact test run `44476582735` found its missing-NAT case failed to set `TEST_NAT_ENABLE=1`; this test-only correction pins that setup.
+
+
 1. **P0 — Verify exact-SHA CI after each source/handoff commit.** Resolve any FAIL at the corresponding SHA; treat runs without a conclusion as PENDING and work on independent tasks.
 
    - Product-source SHA `a0cb9aad4844f7d044ce79efad6c417857c95972`: VPN, Firewall, DNSMasq, HTTPD, Process inventory, Process lifecycle, NVRAM boundary and XY-C1 all PASS (`44260005390`, `44260005246`, `44260005238`, `44260005241`, `44260005245`, `44260005256`, `44260005237`, `44260005493`); XY-C1 Build, TRX verification and artifact upload are complete on that exact source SHA. Docs-only SHA `6330828fca8a4d6f091e07e468732f40991e0909` AI handoff check `44260635743` failed because the root log reached 120 records; this commit archives the oldest 100 complete records losslessly and reruns the contract.

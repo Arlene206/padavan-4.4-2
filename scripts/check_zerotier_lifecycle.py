@@ -175,6 +175,9 @@ require('running-only' in test and
         'firewall cleanup lost the interface after daemon exit' in test and
         'static route cleanup lost the saved interface after daemon exit' in test,
         "stop regression must model interface disappearance and verify saved interface cleanup")
+missing_nat_route_case = test.split("# Missing NAT route is bounded", 1)[1].split("# Malformed NVRAM NAT state", 1)[0]
+require("TEST_NAT_ENABLE=1" in missing_nat_route_case,
+        "missing-kernel-route regression must explicitly enable NAT before expecting route readiness to fail")
 require('if ! ip route add "$zero_ip" via "$zero_route" dev "$zt0"; then' in static_route_body and
         'return 1' in static_route_body and
         '静态路由安装失败' in static_route_body,
