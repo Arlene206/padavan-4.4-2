@@ -27,7 +27,8 @@ assert "ret = get_wan_ifname(wan_ifname);" in services
 assert "miniupnpd start aborted: invalid WAN interface name" in services
 assert "config.wan_ifname = wan_ifname;" in services
 assert "interface_status = get_wan_ifname(wan_ifname);" in services
-assert "wan_ifname_copy(wan_ifname, sizeof(wan_ifname), management_ifname)" in services
+services_compact = " ".join(services.split())
+assert "wan_ifname_copy(wan_ifname, sizeof(wan_ifname), management_ifname)" in services_compact
 assert "strcpy(wan_ifname, get_man_ifname(0))" not in services
 assert services.count("if (interface_status != 0)") >= 2
 
