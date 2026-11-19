@@ -55,10 +55,10 @@ if smartdns_config_publish_deduplicated "$SRC" "$T/directory-target"; then fail 
 if smartdns_config_publish_deduplicated "$T/missing-source" "$DST"; then fail "missing source accepted"; fi
 pass "symlink, special-file and missing-source targets fail closed"
 
-printf 'base-config\\n' > "$DST"
-printf '#comment\\n\\nplain-rule\\n  \\n' > "$T/extra.conf"
+printf '%s\n' 'base-config' > "$DST"
+printf '%s\n' '#comment' '' 'plain-rule' '  ' > "$T/extra.conf"
 smartdns_config_append_filtered "$T/extra.conf" "$DST" || fail "optional config append failed"
-[ "$(cat "$DST")" = "$(printf 'base-config\\nplain-rule\\n  ')" ] || fail "filtered append content mismatch"
+[ "$(cat "$DST")" = "$(printf '%s\n' 'base-config' 'plain-rule' '  ')" ] || fail "filtered append content mismatch"
 smartdns_config_append_filtered "$T/missing.conf" "$DST" || fail "missing optional config was not ignored"
 pass "optional config append filters comments and empty lines"
 
@@ -68,7 +68,7 @@ cmp -s "$DST" "$T/live-before-append-error" || fail "invalid source changed dest
 mkdir "$T/append-bin"
 cat > "$T/append-bin/awk" <<'AWK_APPEND_FAIL'
 #!/bin/sh
-printf 'partial-rule\\n'
+printf '%s\n' 'partial-rule'
 exit 43
 AWK_APPEND_FAIL
 chmod 0700 "$T/append-bin/awk"

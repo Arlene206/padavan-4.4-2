@@ -166,7 +166,7 @@ for token in ("optional config append filters comments and empty lines",
               "generator failure preserves last-good config",
               "rename failure preserves last-good config",
               "symlink, special-file and missing-source targets fail closed",
-              "SmartDNS atomic configuration publication regression: PASS")::
+              "SmartDNS atomic configuration publication regression: PASS"):
     assert token in config_file_test, token
 rollback = body(smartdns, "smartdns_start_config_rollback")
 assert "nvram set sdns_enable=0" in rollback
