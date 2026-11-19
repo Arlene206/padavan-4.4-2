@@ -324,6 +324,7 @@ on:
       - "trunk/user/shared/src/pids_presence_policy.h"
       - "trunk/user/shared/src/process_inventory.c"
       - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_io_retry_policy.h"
       - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/shared/src/process_pidfile_record.h"

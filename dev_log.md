@@ -1,3 +1,11 @@
+## 2026-11-19 — Restore Process workflow push/PR path parity
+
+- Exact source SHA `53dda2c844e18cfb879abc3bf4b96bb50d46fd2d` passed Process inventory `44632416173`, detect_link `44632416162`, GPIO `44632416043`, DNSMasq `44632416164`, VPN `44632416149` and crond `44632417092`.
+- AI-doc check `44632416060` failed because the new shared process-I/O helper was watched by the Process workflow push filter but not its pull_request filter. Restored trigger parity in this workflow-only follow-up; no production source behavior changed.
+- Process umbrella `44632416363`, NVRAM `44632416256` and XY-C1 `44632416166` were in progress at last query. XY-C1 L3 remains unclaimed pending Build/TRX/artifact exact-head success.
+
+---
+
 ## 2026-11-19 — Bound EINTR retries in shared procfs reads
 
 - `proc_default_read_file()` had unbounded `read(2)` EINTR loops in both the normal file read and the one-byte overflow probe. Repeated signal interruptions could keep process-inventory scans stuck indefinitely.
