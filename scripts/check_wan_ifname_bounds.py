@@ -51,7 +51,7 @@ assert 'fprintf(fp, "nic-%s\\n", get_man_ifname(unit));' not in ppp_launch
 
 assert '#include "wan_ifname_policy.h"' in network
 relay_start = network.index("set_passthrough_pppoe(int is_on)")
-relay_end = network.index("\\n}\\n", relay_start)
+relay_end = network.index("\n}\n", relay_start)
 relay = network[relay_start:relay_end]
 relay_compact = " ".join(relay.split())
 assert "wan_ifname_copy(relay_ifname, sizeof(relay_ifname), get_man_ifname(0))" in relay_compact
