@@ -37,7 +37,7 @@
 #include "modem_wan_start_policy.h"
 
 static int
-notify_modem_hotplug_event(const char *event_name, const char *device_name)
+notify_usb_hotplug_event(const char *event_name, const char *device_name)
 {
 	int status = notify_rc_status(event_name);
 	int saved_errno;
@@ -45,7 +45,7 @@ notify_modem_hotplug_event(const char *event_name, const char *device_name)
 	if (status != 0) {
 		saved_errno = errno > 0 ? errno : EIO;
 		logmessage("USB",
-			   "failed to queue modem hotplug event %s for %s (status=%d, errno=%d)",
+			   "failed to queue USB hotplug event %s for %s (status=%d, errno=%d)",
 			   event_name, device_name, status, saved_errno);
 		errno = saved_errno;
 	}
@@ -96,7 +96,7 @@ usb_port_module_used(const char *mod_usb)
 
 int mdev_lp_main(int argc, char **argv)
 {
-	int isLock;
+	int isLock, notification_status;
 	char *device_name, *action;
 
 	if (argc != 3){
@@ -122,19 +122,18 @@ int mdev_lp_main(int argc, char **argv)
 
 	// If remove the device?
 	if (!get_hotplug_action(action)){
-		notify_rc("on_unplug_usb_printer");
-		
+		notification_status = notify_usb_hotplug_event("on_unplug_usb_printer", device_name);
 		goto out_unlock;
 	}
 
-	notify_rc("on_hotplug_usb_printer");
+	notification_status = notify_usb_hotplug_event("on_hotplug_usb_printer", device_name);
 
 	usb_dbg("(%s): Success!\n", device_name);
 
 out_unlock:
 	file_unlock(isLock);
 
-	return 0;
+	return notification_status == 0 ? 0 : 1;
 }
 
 int mdev_sg_main(int argc, char **argv)
@@ -279,8 +278,6 @@ int
 mdev_wdm_main(int argc, char **argv)
 {
 	int isLock, devnum, data_len, publish_status, metadata_status = 0;
-	int interface_down_status, interface_down_errno;
-	int interface_flags, interface_error, interface_cleanup_status;
 	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -360,6 +357,8 @@ out_unlock:
 int mdev_net_main(int argc, char **argv)
 {
 	int isLock, devnum, data_len, publish_status, metadata_status = 0;
+	int interface_down_status, interface_down_errno;
+	int interface_flags, interface_error, interface_cleanup_status;
 	char usb_port_id[64], node_data[128];
 	char *device_name, *action;
 
@@ -414,7 +413,7 @@ int mdev_net_main(int argc, char **argv)
 		if (get_usb_modem_wan(0))
 			metadata_status = modem_wan_hotplug_notification_result(
 				metadata_status,
-				notify_modem_hotplug_event("on_unplug_usb_modem", device_name));
+				notify_usb_hotplug_event("on_unplug_usb_modem", device_name));
 
 		goto out_unlock;
 	}
@@ -459,7 +458,7 @@ int mdev_net_main(int argc, char **argv)
 	if (nvram_invmatch("modem_prio", "0") && nvram_match("modem_rule", "1") && nvram_match("modem_type", "3"))
 		metadata_status = modem_wan_hotplug_notification_result(
 			metadata_status,
-			notify_modem_hotplug_event("on_hotplug_usb_modem", device_name));
+			notify_usb_hotplug_event("on_hotplug_usb_modem", device_name));
 
 	usb_dbg("(%s): Success!\n", device_name);
 
@@ -502,7 +501,7 @@ int mdev_tty_main(int argc, char **argv)
 		if (get_usb_modem_wan(0))
 			metadata_status = modem_wan_hotplug_notification_result(
 				metadata_status,
-				notify_modem_hotplug_event("on_unplug_usb_modem", device_name));
+				notify_usb_hotplug_event("on_unplug_usb_modem", device_name));
 		
 		usb_dbg("(%s): Remove the modem node\n", device_name);
 		
@@ -560,7 +559,7 @@ int mdev_tty_main(int argc, char **argv)
 	if (nvram_invmatch("modem_prio", "0") && nvram_match("modem_rule", "1") && nvram_invmatch("modem_type", "3"))
 		metadata_status = modem_wan_hotplug_notification_result(
 			metadata_status,
-			notify_modem_hotplug_event("on_hotplug_usb_modem", device_name));
+			notify_usb_hotplug_event("on_hotplug_usb_modem", device_name));
 
 	usb_dbg("(%s): Success!\n", device_name);
 

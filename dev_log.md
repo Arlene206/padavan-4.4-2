@@ -1,3 +1,12 @@
+## 2026-11-19 — Correct NDIS local scope and check all USB queue notifications
+
+- Follow-up exact-head XY-C1 runs 44578459810 and 44580744748 failed at Build XY-C1 because interface_down_status, interface_down_errno, interface_flags, interface_error and interface_cleanup_status had been declared in mdev_wdm_main() rather than mdev_net_main(). Moved the locals to the NDIS handler; the first compiler diagnostics are recorded in SESSION_HANDOFF.md.
+- The USB workflow checker-only repair 4c331818077d8b9ddfdb5998e35e9c8e0b0add6f passed exact-head USB run 44582391137 and AI docs 44582391240. This commit carries that corrected contract forward and adds the missing printer-handler checks.
+- Replaced the two remaining void notify_rc() printer calls with the same errno-logging checked queue helper used by modem NDIS/TTY. The printer hotplug command now returns nonzero if the queue markers were not accepted. All USB hotplug events are checked; exact-head USB and XY-C1 reruns pending.
+- No local build or physical USB device validation is claimed.
+
+---
+
 ## 2026-11-20 — Align USB hotplug checker with checked PID-1 notifier
 
 - Base main SHA: `0f719780b4d1b1d38b0300855b8424d74d033e20`. Exact-head USB push run [44580744698](https://github.com/Arlene206/padavan-4.4-2/actions/runs/44580744698) failed in the WDM/NDIS source-contract step after all five GNU89, -Wall/-Wextra/-Werror, ASan/UBSan policy binaries passed. The assertion still required the removed `notify_rc("on_unplug_usb_modem")` call even though the production handler now uses the checked `notify_modem_hotplug_event(...)` helper.

@@ -152,6 +152,12 @@ jobs:
           assert "realpath(device_path, resolved_path)" in resolve
           assert "sleep(1)" in resolve[resolve.index("DEVICE_TYPE_MODEM_WDM"):]
 
+          printer = body(hotplug, "int mdev_lp_main(")
+          assert 'notify_usb_hotplug_event("on_unplug_usb_printer", device_name)' in printer
+          assert 'notify_usb_hotplug_event("on_hotplug_usb_printer", device_name)' in printer
+          assert "notify_rc(" not in printer
+          assert "return notification_status == 0 ? 0 : 1;" in printer
+
           net = body(hotplug, "int mdev_net_main(")
           net_remove_start = net.index("if(!get_hotplug_action(action)){")
           net_remove_end = net.index("goto out_unlock;", net_remove_start)
@@ -161,13 +167,13 @@ jobs:
           assert "modem_wan_unplug_interface_down_result(" in net_remove
           assert "metadata_status = metadata_status != 0 ? metadata_status : 1;" in net_remove
           assert net_remove.index("ifconfig(device_name, 0, \"0.0.0.0\", NULL)") < net_remove.index("get_interface_flags(device_name)") < net_remove.index("modem_wan_unplug_interface_down_result(")
-          assert net_remove.index("metadata_status = metadata_status != 0 ? metadata_status : 1;") < net_remove.index('notify_modem_hotplug_event("on_unplug_usb_modem", device_name)')
+          assert net_remove.index("modem_wan_unplug_interface_down_result(") < net_remove.index('notify_usb_hotplug_event("on_unplug_usb_modem", device_name)')
           assert "Always notify the WAN owner" in net_remove
-          assert "notify_modem_hotplug_event(\"on_unplug_usb_modem\", device_name)" in net_remove
+          assert "notify_usb_hotplug_event(\"on_unplug_usb_modem\", device_name)" in net_remove
           assert "modem_wan_hotplug_notification_result(" in net_remove
           net_plug_start = net.index('if (nvram_invmatch("modem_prio", "0")')
           net_plug = net[net_plug_start:]
-          assert "notify_modem_hotplug_event(\"on_hotplug_usb_modem\", device_name)" in net_plug
+          assert "notify_usb_hotplug_event(\"on_hotplug_usb_modem\", device_name)" in net_plug
           assert "modem_wan_hotplug_notification_result(" in net_plug
           assert "notify_rc(" not in net
           assert '#include "modem_wan_start_policy.h"' in hotplug
@@ -185,7 +191,7 @@ jobs:
           assert "metadata_status = 1;" in net
           assert "return metadata_status;" in net
           assert net.count("modem_node_file_remove(MODEM_NODE_DIR, device_name) != 0") == 3
-          modem_notify = body(hotplug, "static int\nnotify_modem_hotplug_event(")
+          modem_notify = body(hotplug, "static int\nnotify_usb_hotplug_event(")
           assert "notify_rc_status(event_name)" in modem_notify
           assert "errno > 0 ? errno : EIO" in modem_notify
           assert "modem_wan_hotplug_notification_result" in (
@@ -197,12 +203,12 @@ jobs:
           tty_remove_start = tty.index("if(!get_hotplug_action(action)){")
           tty_remove_end = tty.index("goto out_unlock;", tty_remove_start)
           tty_remove = tty[tty_remove_start:tty_remove_end]
-          assert "notify_modem_hotplug_event(\"on_unplug_usb_modem\", device_name)" in tty_remove
+          assert "notify_usb_hotplug_event(\"on_unplug_usb_modem\", device_name)" in tty_remove
           assert "modem_wan_hotplug_notification_result(" in tty_remove
           assert "notify_rc(" not in tty
           tty_plug_start = tty.index('if (nvram_invmatch("modem_prio", "0")')
           tty_plug = tty[tty_plug_start:]
-          assert "notify_modem_hotplug_event(\"on_hotplug_usb_modem\", device_name)" in tty_plug
+          assert "notify_usb_hotplug_event(\"on_hotplug_usb_modem\", device_name)" in tty_plug
           assert "modem_wan_hotplug_notification_result(" in tty_plug
 
           tty = body(hotplug, "int mdev_tty_main(")
