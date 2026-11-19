@@ -65,14 +65,22 @@ jobs:
               assert lines[index + 1].strip() == "close(esw_fd);"
               assert lines[index + 2].strip() == "exit(EXIT_FAILURE);"
 
-          # Operational errors fail the process; ordinary usage/help remains 0.
-          # One socket failure + seven ioctl failures + the bounded table-wait
-          # failure handler must all return a failing process status.
-          # One socket, seven ioctl, one bounded-wait and one IPv4-parse failure.
-          assert source.count("exit(EXIT_FAILURE);") == 10
-          assert source.count("exit(0);") == 1
-          assert "switch_fini();\n\texit(0);" in source
-          print("switch_gsw operational socket/ioctl failures return failure status: OK")
+          # Operational failures, malformed arguments and unknown commands fail closed.
+          # One socket + seven ioctl + bounded wait + IPv4 parse + usage failure.
+          assert source.count("exit(EXIT_FAILURE);") == 11
+          assert source.count("exit(0);") == 0
+          usage = source.split("void usage(char *cmd)", 1)[1].split("\n}", 1)[0]
+          assert "switch_fini();" in usage
+          assert "exit(EXIT_FAILURE);" in usage
+          assert "exit(0);" not in usage
+
+          acl_dispatch = source.split(
+              'else if (!strncmp(argv[1], "acl", 4)) {', 1
+          )[1].split("\n\t}\n#endif", 1)[0]
+          assert "if (argc < 4)" in acl_dispatch
+          assert "if (argc < 3)" not in acl_dispatch
+          assert acl_dispatch.index("if (argc < 4)") < acl_dispatch.index("argv[3]")
+          print("switch_gsw invalid usage and truncated ACL commands fail safely: PASS")
           PY
 
       - name: Compile and verify strict switch IPv4 argument parsing

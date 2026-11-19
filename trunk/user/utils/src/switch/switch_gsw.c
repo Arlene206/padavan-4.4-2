@@ -126,7 +126,7 @@ void usage(char *cmd)
 #endif
 #endif
 	switch_fini();
-	exit(0);
+	exit(EXIT_FAILURE);
 }
 
 #if defined (CONFIG_RALINK_MT7621) || defined (CONFIG_MT7530_GSW)
@@ -2071,7 +2071,7 @@ int main(int argc, char *argv[])
 	}
 
 	else if (!strncmp(argv[1], "acl", 4)) {
-		if (argc < 3)
+		if (argc < 4)
 			usage(argv[0]);
 		if (!strncmp(argv[2], "dip", 4)){
 			if (!strncmp(argv[3], "add", 4))

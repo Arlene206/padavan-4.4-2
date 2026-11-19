@@ -1,3 +1,14 @@
+## 2026-11-19 — Harden switch CLI invalid ACL invocation handling
+
+- Parent main SHA: `cc3f3d9d3c9261e394f87a20c93dd9874f870c79`.
+- L1 found ACL invocations such as `switch acl dip` (argc 3) passed the old argc guard and dereferenced missing `argv[3]`, risking a NULL-pointer crash. ACL dispatch now requires at least four arguments before subcommand access.
+- The shared `usage()` handler returned status 0 for malformed/unknown commands; it now closes the descriptor and exits `EXIT_FAILURE`, so callers can detect invalid syntax.
+- Extend the existing Switch CLI workflow source contract to require the nonzero usage exit and guard-before-`argv[3]` ordering. Reuse existing path filters; no workflow or trigger expansion.
+- Exact-head Switch CLI Actions and XY-C1 Build/TRX/artifact checks are pending. WAN count correction USB/Firewall/Process/AI docs Actions on its parent are also pending.
+- No local C test/build or hardware run performed; switch hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Update WAN accumulator source-contract occurrence count
 
 - Parent main SHA: `cd85e8681b6ae88836a98eaca0e8d7569f8ada78`.
