@@ -1449,16 +1449,6 @@ launch_viptv_wan(void)
 	/* VLAN interface for IPTV */
 	snprintf(viptv_ifname, sizeof(viptv_ifname), "%s.%d", ifname_wan_cpu, vlan_vid[1]);
 
-	/* Remove a no-longer-used VLAN and its stale publication before replacement. */
-	if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast) &&
-	    strcmp(viptv_iflast, viptv_ifname)) {
-		ret = remove_vlan_iface(viptv_iflast);
-		if (ret != 0)
-			return ret;
-		if (strchr(viptv_iflast, '.') != NULL)
-			nvram_set_temp("viptv_ifname", "");
-	}
-
 	wan_hwaddr = nvram_safe_get("wan_hwaddr");
 	memset(&rollback_entry, 0, sizeof(rollback_entry));
 	snprintf(rollback_entry.port_ifname, sizeof(rollback_entry.port_ifname),
@@ -1469,6 +1459,17 @@ launch_viptv_wan(void)
 	rollback_entry.port_vlan_existed = vlan_flags >= 0;
 	rollback_entry.port_vlan_was_up =
 		rollback_entry.port_vlan_existed && ((vlan_flags & IFF_UP) != 0);
+
+
+	/* Remove a no-longer-used VLAN and its stale publication before replacement. */
+	if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast) &&
+	    strcmp(viptv_iflast, viptv_ifname)) {
+		ret = remove_vlan_iface(viptv_iflast);
+		if (ret != 0)
+			return ret;
+		if (strchr(viptv_iflast, '.') != NULL)
+			nvram_set_temp("viptv_ifname", "");
+	}
 
 	ret = create_vlan_iface_tracked(ifname_wan_cpu, vlan_vid[1], vlan_pri,
 					1500, wan_hwaddr, 1,

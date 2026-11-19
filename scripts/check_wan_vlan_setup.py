@@ -252,7 +252,7 @@ create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
 bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
 rp_filter_pos = iptv_setup.index('ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);')
 publish_pos = iptv_setup.rindex('nvram_set_temp("viptv_ifname", viptv_ifname);')
-require(snapshot_pos < create_pos < bridge_pos < rp_filter_pos < publish_pos,
+require(snapshot_pos < old_vlan_cleanup < old_vlan_clear < create_pos < bridge_pos < rp_filter_pos < publish_pos,
         "IPTV startup must snapshot VLAN ownership, create/bridge transactionally, set rp_filter, then publish")
 for operation in ("ret = create_vlan_iface_tracked(",
                   "ret = config_soft_bridge_wan_internal(",
@@ -272,10 +272,10 @@ require("rollback_soft_bridge_other_entry(entry);" in viptv_rollback and
         "get_interface_flags(entry->bridge.bridge_name)" in viptv_rollback,
         "IPTV rollback must retain only a surviving bridge/VLAN recovery identity and clear deleted VLAN state")
 snapshot_absolute = iptv_start + snapshot_pos
-old_vlan_cleanup = viptv.index("ret = remove_vlan_iface(viptv_iflast);")
-old_vlan_clear = viptv.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)
-require(old_vlan_cleanup < old_vlan_clear < snapshot_absolute,
-        "removed prior IPTV VLAN publication must be cleared before configuring its replacement")
+old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
+old_vlan_clear = iptv_setup.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)
+require(snapshot_pos < old_vlan_cleanup < old_vlan_clear < create_pos,
+        "snapshot the replacement VLAN before removing the prior interface and clearing its publication")
 restart = body(wan, "full_restart_wan(void)")
 lan_bridge_call = restart.index("status = config_soft_bridge_lan();")
 lan_bridge_gate = restart.index("if (status != 0)", lan_bridge_call)
