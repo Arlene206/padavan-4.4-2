@@ -116,7 +116,8 @@ jobs:
           poll_body = body(detect, "poll_gateway(void)")
           assert "while (!dw_stopping)" in poll_body
           assert "while (count < MAX_ARP_RETRY && !dw_stopping)" in poll_body
-          assert poll_body.index("if (dw_stopping)\n\t\t\tbreak;") < poll_body.index("chk_udhcpc(ap_mode)")
+          renew_call = poll_body.index("renew_status = chk_udhcpc(ap_mode);")
+          assert poll_body.rfind("if (dw_stopping)", 0, renew_call) >= 0
           assert "detect_wan_wait(20);" in poll_body
           monitor_main = body(detect, "detect_wan_main(int argc, char *argv[])")
           assert "sigaction(SIGTERM, &sa, NULL) < 0" in monitor_main
@@ -153,17 +154,7 @@ jobs:
           renew_call = poll_body.index("renew_status = chk_udhcpc(ap_mode);")
           assert renew_gate < renew_call
           assert "probe_count, MAX_ARP_RETRY" in poll_body
-          probe = body(detect, "arpping_gateway(int ap_mode)")
-          setup = probe.index("detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt)")
-          send = probe.index("sendto(", setup)
-          receive = probe.index("recvfrom(", send)
-          assert probe.index("arp_timeout.tv_sec = 1;") < setup < send < receive
-          setup_failure = probe[setup:send]
-          assert "perror(\"setsockopt:\");" in setup_failure
-          assert "close(s);" in setup_failure and "return 0;" in setup_failure
-          assert setup_failure.index("close(s);") < setup_failure.index("return 0;")
-          assert "setsockopt(s, SOL_SOCKET, SO_BINDTODEVICE" not in probe
-          assert "setsockopt(s, SOL_SOCKET, SO_RCVTIMEO" not in probe
+          assert "detect_wan_arp_socket_prepare(s, &ifr, &arp_timeout, setsockopt)" in arp_probe
 
           prepare = body(policy, "detect_wan_arp_socket_prepare(")
           bind_step = prepare.index("SO_BINDTODEVICE")
@@ -191,11 +182,10 @@ jobs:
           assert "case SO_RCVTIMEO:" in setsock
           assert "sock_set_timeout(&sk->sk_rcvtimeo, optval, optlen);" in setsock
 
-          # Confirm the monitor is the DHCP-only WAN gateway checker wired into RC.
           poll = body(detect, "poll_gateway(void)")
-          failed_probe = poll.index("else if (arpping_gateway(ap_mode))")
-          retry_end = poll.index("if ((count >= MAX_ARP_RETRY)", failed_probe)
-          assert "count++;" in poll[failed_probe:retry_end]
+          assert "detect_wan_arp_should_renew(" in poll
+          assert "probe_count, MAX_ARP_RETRY" in poll
+          assert "probe_status == DETECT_WAN_ARP_PROBE_ERROR" in poll
           assert 'nvram_match("gw_arp_ping", "1")' in wan
           assert 'eval("detect_wan");' in wan
           assert '"detect_wan"' in body(services, "stop_misc(void)")
@@ -223,5 +213,6 @@ jobs:
               assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
               assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
           assert "Compile and run GNU89 signal deferral policy regression" in workflow
+          assert "Compile and run GNU89 ARP probe local-error policy regression" in workflow
           print("WAN gateway ARP probe error/renewal fail-closed contract: PASS")
           PY
