@@ -163,9 +163,11 @@ require("storage_inventory_parse_mount_line_full" in swap_policy and
 require("three-digit octal escapes" in swap_policy and
         "decoded > 255U" in swap_policy and "decoded == 0" in swap_policy,
         "procfs mount/swap paths must decode octal escapes and reject invalid path bytes")
-require('"/media/USB\\\\040Disk"' in swap_policy_test and
-        '"/media/USB\\\\011Disk"' in swap_policy_test and
-        '"/media/USB\\\\000Disk"' in swap_policy_test,
+require(r"/media/USB\\040Disk" in swap_policy_test and
+        r"/media/USB\\011Disk" in swap_policy_test and
+        r"/media/USB\\000Disk" in swap_policy_test and
+        'strcmp(mountpoint, "/media/USB Disk")' in swap_policy_test and
+        r'strcmp(mountpoint, "/media/USB\\tDisk")' in swap_policy_test,
         "procfs path decoding regression must cover spaces, tabs, buffer bounds and NUL escapes")
 require("rw,relatime" in swap_policy_test and '"ro"' in swap_policy_test and
         "storage_inventory_parse_mount_line_full" in swap_policy_test,
