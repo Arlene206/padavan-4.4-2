@@ -446,7 +446,15 @@ jobs:
           stop_lan_compact = "".join(stop_lan_body.split())
           assert "route_status = clear_if_route4(IFNAME_BR);" in stop_lan_body
           assert "ipv6_status = clear_lan_addr6();" in stop_lan_body
-          assert "returnrc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),ipv6_status),status);" in stop_lan_compact
+          assert "monitor_resume_status = notify_run_detect_internet(2);" in stop_lan_body
+          assert stop_lan_body.count("monitor_resume_status = notify_run_detect_internet(2);") == 1
+          assert "return rc_first_service_start_status(status, monitor_resume_status);" in stop_lan_body
+          assert "Internet monitor resume failed after aborted AP DHCP teardown" in stop_lan_body
+          assert "int monitor_resume_status = 0;" in stop_lan_body
+          assert "Internet monitor resume failed after AP bridge teardown failure" in stop_lan_body
+          assert "(void)notify_run_detect_internet(2)" not in stop_lan_body
+          assert "test_ap_lan_monitor_resume_failure_preserves_primary_teardown_status" in service_start_test
+          assert "returnrc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),ipv6_status),status),monitor_resume_status);" in stop_lan_compact
           route_flush_at = stop_lan_compact.index("route_status=clear_if_route4(IFNAME_BR);")
           ipv6_cleanup_at = stop_lan_compact.index("ipv6_status=clear_lan_addr6();")
           bridge_down_at = stop_lan_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
@@ -464,6 +472,7 @@ jobs:
           assert "void reload_lan_addr6(void);" not in header
           lan_start = body(net_lan, "start_lan(int is_ap_mode, int do_wait)")
           service_start_policy = (rc / "service_start_status.h").read_text()
+          service_start_test = (rc / "tests/service_start_status.c").read_text()
           assert "operation_status = reload_lan_addr6();" in lan_start
           assert "start_status = rc_first_service_start_status(start_status, operation_status);" in lan_start
           phy_wait_guard = lan_start.index("if (do_wait)")

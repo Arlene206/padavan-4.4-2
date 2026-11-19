@@ -1081,7 +1081,7 @@ stop_lan(int is_ap_mode)
 	if (is_ap_mode) {
 		char *svcs[] = { "detect_wan", NULL };
 		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
-		int status, pause_status;
+		int status, pause_status, monitor_resume_status;
 
 		pause_status = notify_pause_detect_internet();
 		if (pause_status != 0) {
@@ -1096,11 +1096,15 @@ stop_lan(int is_ap_mode)
 		if (status != 0) {
 			/* The old AP network is still live; undo the pause because the
 			 * fail-closed DHCP preflight aborted before touching the bridge. */
-			(void)notify_run_detect_internet(2);
+			monitor_resume_status = notify_run_detect_internet(2);
+			if (monitor_resume_status != 0)
+				logmessage(LOGNAME,
+					   "Internet monitor resume failed after aborted AP DHCP teardown (status=%d)",
+					   monitor_resume_status);
 			logmessage(LOGNAME,
 				   "refusing LAN teardown while DHCP client identity remains active or unknown (status=%d)",
 				   status);
-			return status;
+			return rc_first_service_start_status(status, monitor_resume_status);
 		}
 	} else {
 		char *lan_ip = nvram_safe_get("lan_ipaddr_t");
@@ -1128,12 +1132,21 @@ stop_lan(int is_ap_mode)
 	/* Bring down LAN interface */
 	{
 		int status = ifconfig(IFNAME_BR, 0, NULL, NULL);
-		if (status != 0 && is_ap_mode)
-			(void)notify_run_detect_internet(2);
+		int monitor_resume_status = 0;
+
+		if (status != 0 && is_ap_mode) {
+			monitor_resume_status = notify_run_detect_internet(2);
+			if (monitor_resume_status != 0)
+				logmessage(LOGNAME,
+					   "Internet monitor resume failed after AP bridge teardown failure (status=%d)",
+					   monitor_resume_status);
+		}
 		return rc_first_service_start_status(
 			rc_first_service_start_status(
-				rc_first_service_start_status(conntrack_status, route_status), ipv6_status),
-			status);
+				rc_first_service_start_status(
+					rc_first_service_start_status(conntrack_status, route_status), ipv6_status),
+				status),
+			monitor_resume_status);
 	}
 }
 

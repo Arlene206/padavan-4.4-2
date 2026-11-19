@@ -521,6 +521,25 @@ test_bridge_parameters_are_both_attempted_and_first_error_survives(void)
 
 
 static void
+test_ap_lan_monitor_resume_failure_preserves_primary_teardown_status(void)
+{
+	int status;
+	int monitor_resume_status = EIO;
+
+	/* A DHCP preflight failure remains primary when monitor resume also fails. */
+	status = rc_first_service_start_status(EBUSY, monitor_resume_status);
+	assert(status == EBUSY);
+
+	/* A bridge-down failure remains primary when monitor resume also fails. */
+	status = rc_first_service_start_status(EACCES, monitor_resume_status);
+	assert(status == EACCES);
+
+	/* With no earlier failure, a monitor-resume error is still reportable. */
+	status = rc_first_service_start_status(0, monitor_resume_status);
+	assert(status == EIO);
+}
+
+static void
 test_ap_lan_dhcp_start_depends_on_phy_wait_not_monitor(void)
 {
 	int phy_wait_status = ETIMEDOUT;
@@ -593,6 +612,7 @@ main(void)
 	test_usb_printer_launchers_preserve_first_failure_and_continue();
 	test_usb_printer_optional_hook_failure_is_reported_and_core_launches_continue();
 	test_bridge_parameters_are_both_attempted_and_first_error_survives();
+	test_ap_lan_monitor_resume_failure_preserves_primary_teardown_status();
 	test_ap_lan_dhcp_start_depends_on_phy_wait_not_monitor();
 	test_sysctl_pppoe_relay_failure_keeps_notification_pending();
 	test_storage_app_startup_preserves_first_failure_and_continues();
