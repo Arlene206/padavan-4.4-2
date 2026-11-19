@@ -11,40 +11,26 @@ Continue main-only implementation across conversations. Recover the exact live s
 
 ## Current repository state
 
-- Parent main SHA for this work sequence: 4148ac7315d4835b9818c555956d99b195bf4947 (fix(rc): propagate file creation close failures). This handoff is committed in the new main tree; resolve live main before another write.
-- All 13 exact-head Actions on 4148ac7315d4835b9818c555956d99b195bf4947 passed: DNSMasq 44608598453, process inventory/fail-closed 44608598436, HTTPD security 44608598480, XY-C1 firmware validation 44608598285, watchdog 44608598200, Crond 44608598209, AI handoff docs 44608598296, WAN route 44608598328, process lifecycle inventory 44608598245, WAN DHCP 44608598304, firewall startup 44608598224, USB hotplug 44608598233, NVRAM audit 44608598264.
-- Backup remains at 72f4f157a084f8184b9597ca5bf334b8080e5807 and frozen. PR #1 remains closed and unmerged.
-- No local MIPS toolchain or physical router is available. Host GNU89/ASan/UBSan policy tests are L2 only; XY-C1 Actions are L3; physical-device behavior is L4 NOT VERIFIED.
+- Parent main SHA for this checker correction: e01f70a766c4e628593e272192723f6add59ffca. The live main for future writes must be resolved again.
+- Exact-head on the parent: VPN server lifecycle 44613173654 PASS; OpenVPN client credential staging 44613173756 FAIL only in the newly added source assertion because the tls-crypt-v2 key call spans two lines and the checker expected one line. Its four compiled policy regressions passed. AI handoff, HTTPD, process inventory, NVRAM and XY-C1 were still in progress at the first status query.
+- Parent's source implementation introduced private atomic export publication, no-follow key reads, generated-key error checks and owner-only staging; do not revert those controls.
 
-## Closed recent task — DHCP teardown monitor-pause status
+## Active verification correction — multiline OpenVPN key assertion
 
-- Production commit a7eae5a115dae74685e9130ff6d339b8202e5725 captures and aggregates monitor-pause errors during MAN/WAN DHCP teardown while completing cleanup.
-- Checker correction dec2079fcbf9d45731dff1ce03b2765a23bd3a31 updated stale detect-internet and WAN route contracts. Do not revisit this closed slice.
-
-## Closed recent task — DNSMasq resolver file and shared create_file status
-
-- Commit b1835ef0936517df7a39ef06dc242168251dd4fe makes router-mode DNSMasq preparation fail closed if its configured resolver input cannot be created, preserving errno or falling back to EIO. AP mode is unchanged.
-- Commit 4148ac7315d4835b9818c555956d99b195bf4947 fixes shared create_file() to report both open and close errors. GNU89/Werror and ASan/UBSan policy tests cover the outcomes. The exact-head DNSMasq regression and broad Actions set above passed.
-- Do not repeat these source audits or fixes.
-
-## Active security slice — private, atomic OpenVPN client export
-
-- Parent main SHA: 4148ac7315d4835b9818c555956d99b195bf4947.
-- ovpn_server_expcli_main() previously wrote embedded client private-key material to predictable /tmp/client.ovpn using fopen("w+"), ignored fclose() and chmod(0600) results, and returned success even if certificate/key generation or PEM file reads failed. A pre-existing symlink could be followed and default file permissions could expose credentials.
-- The change uses openvpn_config_file_open/publish for owner-only staging, fsync/checked close, atomic rename and final mode 0600. Export key reads use O_NOFOLLOW/O_NONBLOCK/O_CLOEXEC, regular-file owner/link validation, restrictive mode for embedded secrets, PEM BEGIN/END checks and read/close status. Certificate and TLS-Crypt-v2 key generation are checked. The generated working directory is a unique mkdtemp() 0700 directory; cleanup is checked. The post-publication unix2dos/chmod path is removed because OpenVPN accepts LF.
-- Existing openvpn-client-secret Actions run the expanded source contract checker and the atomic config-file mode/symlink/failure regression. VPN server lifecycle and XY-C1 workflows also run for vpn_openvpn.c changes. Inspect exact-head results after the new commit.
+- The exact-head OpenVPN job log pinpoints the checker mismatch: all four host compiled tests passed, previous source/workflow contracts passed, then the checker failed to find a one-line spelling of the tls-crypt-v2 call. The production call is split over two C lines; only the textual assertion needs correction. No source defect was reported by this failure.
+- The correction asserts the unique second-line argument after the preceding chmod and before temporary directory cleanup.
 
 ## Exact first action for the next GPT
 
-1. Resolve live main and inspect exact-head openvpn-client-secret, VPN server lifecycle stability, AI handoff documentation contract and XY-C1 Firmware Validation runs. Do not call the OpenVPN export slice validated until these exact-SHA runs finish.
-2. For any failed check/build, retrieve that run's logs and fix the real issue without weakening private staging, no-follow key reads, generated-key validation, mode 0600 or cleanup ordering.
-3. Then continue the next independently evidenced P1 reliability/security issue across Padavan userland. Do not reopen the closed DHCP, DNSMasq or create_file fixes.
+1. Check exact-head OpenVPN client credential staging, VPN server lifecycle, AI handoff docs and XY-C1 Actions for the corrected checker commit.
+2. If the contract passes, continue reviewing the next independently evidenced P1 stability/security defect; if not, inspect the exact failing line/log and repair the contract without weakening the secure export.
+3. Keep the OpenVPN source changes until exact-head XY-C1 and VPN workflow compile gates pass. Hardware OpenVPN behavior remains NOT VERIFIED.
 
 ## Verification boundary
 
-- L1: a concrete OpenVPN private-key exposure and unchecked-generation path was identified and addressed in ovpn_server_expcli_main().
-- L2: exact-head OpenVPN export source contract and existing atomic config publication regression are required on the new commit; no new host/board result is claimed before Actions.
-- L3: XY-C1 run 44608598285 passed on parent 4148ac7315d4835b9818c555956d99b195bf4947; the new source commit requires fresh exact-head build verification.
+- L1: source hardening committed at e01f70a766c4e628593e272192723f6add59ffca.
+- L2: host tests for client secret file, config atomic publication, VPN lease snapshot and lease lock all PASS in run 44613173756. The newly added source assertion failed because of multiline formatting; correction is the only changed checker behavior.
+- L3: exact-head XY-C1 run status was IN_PROGRESS at initial inspection; no new firmware pass claim yet.
 - L4: physical OpenVPN export permissions and imported client connection remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint

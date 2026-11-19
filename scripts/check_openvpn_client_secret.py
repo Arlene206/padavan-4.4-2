@@ -260,7 +260,7 @@ ordered(export_fn, [
     "keygen_status = doSystem(",
     "if (keygen_status != 0)",
     "chmod(tls_client_key_path, S_IRUSR | S_IWUSR)",
-    'openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[3], "tls-crypt-v2")',
+    'openvpn_client_keys[3], "tls-crypt-v2") != 0',
     "openvpn_export_remove_tempdir(tmp_ovpn_path)",
     "openvpn_config_file_publish(&fp, staged_ovpn_conf",
 ], "private, fail-closed OpenVPN client export")

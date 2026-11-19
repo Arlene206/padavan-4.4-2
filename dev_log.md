@@ -1,3 +1,11 @@
+## 2026-11-19 — Correct OpenVPN export contract formatting check
+
+- The OpenVPN credential workflow at exact SHA e01f70a766c4e628593e272192723f6add59ffca completed its four GNU89/ASan/UBSan policy tests successfully, then failed the new source contract because the TLS-Crypt-v2 key call spans two source lines while the assertion expected a single line. The VPN server lifecycle workflow passed. This is a test-checker formatting mismatch; no source failure was indicated.
+- Corrected the contract to check the second-line key argument in order after chmod and before cleanup. Kept all source security checks unchanged.
+- The exact-head AI docs, XY-C1, HTTPD, process and NVRAM runs were still in progress at the last query.
+
+---
+
 ## 2026-11-19 — Harden OpenVPN exported client credentials
 
 - ovpn_server_expcli_main() previously wrote embedded client private-key material to predictable /tmp/client.ovpn via fopen("w+"), ignored fclose() and chmod(0600) results, and returned success even if certificate/key generation or PEM input reads failed. A pre-existing symlink could be followed and a failed permission change could leave private credentials exposed.
