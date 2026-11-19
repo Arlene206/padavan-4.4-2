@@ -40,6 +40,7 @@
 #include "gpio_pins.h"
 #include "pid1_signal_policy.h"
 #include "init_mdev_config_file.h"
+#include "init_mdev_retry_policy.h"
 #include "nvram_device_node_policy.h"
 #include "tun_device_node_policy.h"
 
@@ -648,6 +649,8 @@ init_main_loop(void)
 	int router_ready;
 	int nvram_node_result;
 	int dev_init_status;
+	int mdev_status;
+	init_mdev_retry_state_t mdev_retry_state = { 0 };
 	int i;
 	sigset_t wait_mask, original_mask;
 
@@ -667,8 +670,19 @@ init_main_loop(void)
 	nvram_node_result = init_nodes();
 	if (nvram_node_result != 0)
 		logmessage(LOGNAME, "NVRAM device is unavailable or unsafe; router startup remains in recovery mode");
-	if (init_mdev() != 0)
-		logmessage(LOGNAME, "mdev initialization failed; hotplug handling may be unavailable");
+	mdev_status = init_mdev();
+	init_mdev_retry_state_begin(&mdev_retry_state, dev_init_status,
+				    mdev_status);
+	if (mdev_status != 0) {
+		if (init_mdev_retry_state_is_pending(&mdev_retry_state))
+			logmessage(LOGNAME,
+				   "mdev initialization failed (status=%d); deferred retry scheduled",
+				   mdev_status);
+		else
+			logmessage(LOGNAME,
+				   "mdev initialization failed (status=%d); hotplug handling may be unavailable",
+				   mdev_status);
+	}
 	init_sysctl();
 
 	/* Setup console */
@@ -688,6 +702,10 @@ init_main_loop(void)
 
 	/* Setup signal handlers */
 	init_signals();
+
+	/* Schedule retry only after SIGALRM handler installation. */
+	if (init_mdev_retry_state_is_pending(&mdev_retry_state))
+		alarm(INIT_MDEV_RETRY_DELAY_SECONDS);
 
 	/* block SIGUSR1 during init_router() */
 	control_signal(SIGUSR1, SIG_BLOCK);
@@ -749,6 +767,23 @@ init_main_loop(void)
 		/* Handle SIGALRM signal */
 		if (signal_state.alarm_pending) {
 			signal_state.alarm_pending = 0;
+			if (init_mdev_retry_state_is_pending(&mdev_retry_state)) {
+				/*
+				 * dev_init.sh already completed mdev -s. Retry only
+				 * policy/handler publication; do not replay coldplug adds.
+				 */
+				mdev_status = init_mdev();
+				if (init_mdev_retry_state_record_result(&mdev_retry_state,
+								mdev_status)) {
+					logmessage(LOGNAME,
+						   "deferred mdev initialization failed (status=%d); retrying",
+						   mdev_status);
+					alarm(INIT_MDEV_RETRY_DELAY_SECONDS);
+				} else {
+					logmessage(LOGNAME,
+						   "mdev kernel hotplug handler restored by deferred retry");
+				}
+			}
 #if defined (USE_NAND_FLASH)
 			if (router_ready && retry_rwfs_optware() != 0)
 				alarm(5);

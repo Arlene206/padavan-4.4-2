@@ -5,6 +5,8 @@ on:
     paths:
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/init_mdev_config_file.h"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
       - "trunk/user/rc/src/tests/init_mdev_config_file.c"
       - "trunk/user/rc/src/tun_device_node_policy.h"
       - "trunk/user/rc/src/tests/tun_device_node_policy.c"
@@ -13,6 +15,8 @@ on:
     paths:
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/init_mdev_config_file.h"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
       - "trunk/user/rc/src/tests/init_mdev_config_file.c"
       - "trunk/user/rc/src/tun_device_node_policy.h"
       - "trunk/user/rc/src/tests/tun_device_node_policy.c"
@@ -32,6 +36,14 @@ jobs:
             trunk/user/rc/src/tests/init_mdev_config_file.c \
             -o /tmp/init_mdev_config_file
           ASAN_OPTIONS=detect_leaks=1 /tmp/init_mdev_config_file
+      - name: Build and run deferred mdev retry policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/init_mdev_retry_policy.c \
+            -o /tmp/init_mdev_retry_policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/init_mdev_retry_policy
       - name: Build and run OpenVPN TUN device-node policy regression
         run: |
           set -eu
@@ -47,6 +59,8 @@ jobs:
           init = Path("trunk/user/rc/src/init.c").read_text()
           helper = Path("trunk/user/rc/src/init_mdev_config_file.h").read_text()
           test = Path("trunk/user/rc/src/tests/init_mdev_config_file.c").read_text()
+          retry_policy = Path("trunk/user/rc/src/init_mdev_retry_policy.h").read_text()
+          retry_test = Path("trunk/user/rc/src/tests/init_mdev_retry_policy.c").read_text()
           tun = Path("trunk/user/rc/src/tun_device_node_policy.h").read_text()
           tun_test = Path("trunk/user/rc/src/tests/tun_device_node_policy.c").read_text()
           workflow = Path(".github/workflows/init-mdev-security.yml").read_text()
@@ -100,8 +114,19 @@ jobs:
                         "S_IFCHR | 0600"):
               assert token in tun_test, token
           assert "OpenVPN TUN device node initialization failed" in nodes
-          assert "if (init_mdev() != 0)" in main_loop
-          assert "mdev initialization failed; hotplug handling may be unavailable" in main_loop
+          assert '#include "init_mdev_retry_policy.h"' in init
+          assert "mdev_status = init_mdev();" in main_loop
+          assert "init_mdev_retry_state_begin(&mdev_retry_state, dev_init_status" in main_loop
+          assert "init_mdev_retry_state_is_pending(&mdev_retry_state)" in main_loop
+          assert "init_mdev_retry_state_record_result(&mdev_retry_state" in main_loop
+          assert main_loop.count("alarm(INIT_MDEV_RETRY_DELAY_SECONDS)") == 2
+          assert main_loop.index("init_signals();") < main_loop.index("alarm(INIT_MDEV_RETRY_DELAY_SECONDS)")
+          alarm_block = main_loop[main_loop.index("if (signal_state.alarm_pending)"):]
+          assert alarm_block.index("init_mdev_retry_state_record_result") < alarm_block.index("on_deferred_hotplug_dev")
+          assert "dev_init.sh already completed mdev -s" in alarm_block
+          assert "dev_init_status == 0 && mdev_init_status != 0" in retry_policy
+          assert "if (mdev_init_status == 0)" in retry_policy
+          assert "deferred mdev hotplug recovery policy: PASS" in retry_test
 
           for token in ("mkstemp(", "fchmod(fd, 0644)", 'fdopen(fd, "w")',
                         "ferror(fp)", "fflush(fp)", "INIT_MDEV_CONFIG_FSYNC(fileno(fp))",
@@ -118,7 +143,9 @@ jobs:
           paths = (
               "trunk/user/rc/src/init.c",
               "trunk/user/rc/src/init_mdev_config_file.h",
+              "trunk/user/rc/src/init_mdev_retry_policy.h",
               "trunk/user/rc/src/tests/init_mdev_config_file.c",
+              "trunk/user/rc/src/tests/init_mdev_retry_policy.c",
               ".github/workflows/init-mdev-security.yml",
           )
           push = workflow.split("  push:\n    paths:\n", 1)[1].split(

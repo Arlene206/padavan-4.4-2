@@ -240,6 +240,7 @@ on:
       - "scripts/check_samba_shared_header.py"
       - "scripts/check_dhcp6c_duid_header_staging.py"
       - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
       - "trunk/user/rc/src/tun_device_node_policy.h"
       - "trunk/user/rc/src/tests/tun_device_node_policy.c"
       - ".github/workflows/init-mdev-security.yml"
