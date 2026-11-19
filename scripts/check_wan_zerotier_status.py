@@ -7,6 +7,9 @@ ROOT = Path(__file__).resolve().parents[1]
 RC = ROOT / "trunk/user/rc/src"
 WAN = (RC / "net_wan.c").read_text()
 SERVICES = (RC / "services.c").read_text()
+ZEROTIER_SCRIPT = (ROOT / "trunk/user/zerotier/zerotier.sh").read_text()
+ZEROTIER_TEST = (ROOT / "trunk/user/zerotier/tests/zerotier_lifecycle.sh").read_text()
+XY_WORKFLOW = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 HEADER = (RC / "rc.h").read_text()
 TEST = (ROOT / "trunk/user/zerotier/tests/zerotier_lifecycle.sh").read_text()
 WORKFLOW = (ROOT / ".github/workflows/zerotier-lifecycle.yml").read_text()
@@ -107,4 +110,40 @@ for workflow, label in ((WORKFLOW, "ZeroTier"), (WAN_WORKFLOW, "WAN route")):
     require("python3 scripts/check_wan_zerotier_status.py" in workflow,
             label + " workflow does not run the caller contract")
 
-print("Configured ZeroTier startup failure propagation into WAN-up: PASS")
+start_zero = body(ZEROTIER_SCRIPT, "start_zero()")
+replay = body(ZEROTIER_SCRIPT, "zerotier_replay_firewall_state()")
+rules = body(ZEROTIER_SCRIPT, "rules()")
+append = body(ZEROTIER_SCRIPT, "zerotier_add_firewall_rule()")
+require(
+    start_zero.index("kill_z") < start_zero.index("zerotier_replay_firewall_state")
+    < start_zero.index("start_instance"),
+    "stale firewall/route cleanup must complete after old-daemon shutdown and before replacement launch",
+)
+require(
+    "zerotier_firewall_state_load" in replay
+    and 'zt0="$zt_state_saved_interface"' in replay
+    and 'ip_segment="$zt_state_saved_segment"' in replay
+    and "if ! del_rules;" in replay
+    and 'if ! zero_route "del";' in replay
+    and "zerotier_firewall_state_clear" in replay,
+    "stale network replay must use saved interface/segment and clear state only after firewall and route cleanup",
+)
+require(
+    rules.index("zerotier_firewall_state_save") < rules.index("zerotier_add_firewall_rule"),
+    "successful ZeroTier rule publication must persist a cleanup checkpoint before appending rules",
+)
+require(
+    "elif ! zerotier_firewall_state_clear" in append,
+    "failed rule append may clear its checkpoint only after complete firewall rollback",
+)
+require(
+    "TEST_ASSERT_CLEAN_BEFORE_START=1" in ZEROTIER_TEST
+    and "replacement daemon started despite incomplete stale firewall cleanup" in ZEROTIER_TEST
+    and "successful stale-state replay left old firewall rules" in ZEROTIER_TEST
+    and "successful stale-state replay left the old configured route" in ZEROTIER_TEST,
+    "shell regression must block replacement startup on failed replay and verify successful retry",
+)
+require('"trunk/user/zerotier/**"' in XY_WORKFLOW,
+        "XY-C1 must rebuild when ZeroTier production or lifecycle test inputs change")
+
+print("Configured ZeroTier startup failure propagation into WAN-up and stale-state replay: PASS")

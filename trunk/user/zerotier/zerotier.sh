@@ -254,6 +254,7 @@ zerotier_firewall_state_save() {
 }
 
 zerotier_firewall_state_load() {
+	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
 	zt_state_file="$config_path/.firewall-state"
 	[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ] || return 1
 	{
@@ -276,6 +277,47 @@ zerotier_firewall_state_load() {
 	return 0
 }
 
+# Clear only a regular, non-symlink checkpoint after cleanup has been verified.
+zerotier_firewall_state_clear() {
+	[ -d "$config_path" ] && [ ! -L "$config_path" ] || return 1
+	zt_state_file="$config_path/.firewall-state"
+	if [ -e "$zt_state_file" ] || [ -L "$zt_state_file" ]; then
+		[ -f "$zt_state_file" ] && [ ! -L "$zt_state_file" ] || return 1
+		rm -f "$zt_state_file" || return 1
+	fi
+	return 0
+}
+
+# Replay the old interface/segment before a replacement daemon may publish
+# any new network state. Failed cleanup leaves the checkpoint for the next try.
+zerotier_replay_firewall_state() {
+	zt_state_file="$config_path/.firewall-state"
+	if [ ! -e "$zt_state_file" ] && [ ! -L "$zt_state_file" ]; then
+		return 0
+	fi
+	if ! zerotier_firewall_state_load; then
+		logger -t "zerotier" "防火墙清理状态无效，拒绝启动替代守护进程"
+		return 1
+	fi
+	zt0="$zt_state_saved_interface"
+	ip_segment="$zt_state_saved_segment"
+	if ! del_rules; then
+		logger -t "zerotier" "旧ZeroTier防火墙规则清理失败，保留恢复状态"
+		return 1
+	fi
+	if ! zero_route "del"; then
+		logger -t "zerotier" "旧ZeroTier静态路由清理失败，保留恢复状态"
+		return 1
+	fi
+	if ! zerotier_firewall_state_clear; then
+		logger -t "zerotier" "旧ZeroTier清理状态无法移除，拒绝启动替代守护进程"
+		return 1
+	fi
+	zt0=""
+	ip_segment=""
+	return 0
+}
+
 zerotier_add_firewall_rule() {
 	if iptables "$@"; then
 		return 0
@@ -286,6 +328,8 @@ zerotier_add_firewall_rule() {
 	# one or more successful appends, so cleanup must cover the whole set.
 	if ! del_rules; then
 		logger -t "zerotier" "防火墙规则安装失败后回滚不完整"
+	elif ! zerotier_firewall_state_clear; then
+		logger -t "zerotier" "防火墙规则回滚后恢复状态无法移除"
 	fi
 	return 1
 }
@@ -313,8 +357,12 @@ rules() {
 		}
 	fi
 	logger -t "zerotier" "zt interface $zt0 is started!"
+	if ! zerotier_firewall_state_save; then
+		logger -t "zerotier" "无法持久化ZeroTier网络清理状态，拒绝发布防火墙规则"
+		return 1
+	fi
 	if ! del_rules; then
-		logger -t "zerotier" "旧防火墙规则清理未完成，拒绝发布新规则"
+		logger -t "zerotier" "旧防火墙规则清理未完成，保留恢复状态并拒绝发布新规则"
 		return 1
 	fi
 	if ! zerotier_add_firewall_rule -A INPUT -i "$zt0" -j ACCEPT; then
@@ -334,12 +382,19 @@ rules() {
 			return 1
 		fi
 		if ! zero_route "add"; then
+			zerotier_rollback_status=0
 			logger -t "zerotier" "ZeroTier静态路由安装失败，回滚网络规则"
 			if ! del_rules; then
 				logger -t "zerotier" "静态路由安装失败后防火墙回滚不完整"
+				zerotier_rollback_status=1
 			fi
 			if ! zero_route "del"; then
 				logger -t "zerotier" "静态路由回滚未完全确认"
+				zerotier_rollback_status=1
+			fi
+			if [ "$zerotier_rollback_status" -eq 0 ] &&
+			   ! zerotier_firewall_state_clear; then
+				logger -t "zerotier" "静态路由失败回滚后恢复状态无法移除"
 			fi
 			return 1
 		fi
@@ -498,6 +553,10 @@ start_zero() {
 	logger -t "zerotier" "正在启动zerotier"
 	if ! kill_z; then
 		logger -t "zerotier" "旧进程未能确认退出，取消启动"
+		return 1
+	fi
+	if ! zerotier_replay_firewall_state; then
+		logger -t "zerotier" "旧网络状态尚未清理，取消新守护进程启动"
 		return 1
 	fi
 	start_instance 'zerotier'
