@@ -1,3 +1,14 @@
+## 2026-11-19 — Reject incomplete SD/MMC partition inventories before whole-disk mount
+
+- Parent main SHA: `7cc78f44fc11aa3698ae1231ea3e1399360bcb38`.
+- Whole-disk SD/MMC hotplug uses `storage_disk_has_partitions()` to decide whether mounting the base device is safe. Its old `sscanf` loop silently skipped malformed/overlong records and stopped at the first child partition, so malformed tail data could be hidden.
+- Reuse `disk_inventory_policy.h` to require a complete newline-terminated procfs record, one exact header, strict unsigned decimal major/minor/block fields, and exactly one device token. Treat malformed/duplicate/missing header, truncated/overlong row, read error or incomplete tail as UNKNOWN (-1), which already blocks whole-disk mount.
+- Continue scanning to EOF after a child is found; a malformed later row still invalidates the inventory. Add GNU89 ASan/UBSan regression for malformed, truncated, overlong, duplicate header, and malformed-after-match cases, plus workflow source-contract/filter coverage.
+- Exact ZeroTier handoff correction SHA `7cc78f44fc11aa3698ae1231ea3e1399360bcb38`: ZeroTier `44477056786`, Process inventory `44477056791`, WAN route `44477056811`, AI docs `44477056873`, XY-C1 host job `44477057022` PASS. Build/TRX/artifact skipped on 7cc due to no firmware production input changes; exact 255 XY-C1 `44476582849` was still IN_PROGRESS when last checked.
+- No local checkout or physical-router test available/performed; exact-head storage Actions are pending for this commit.
+
+---
+
 ## 2026-11-19 — Explicitly enable NAT in ZeroTier missing-route regression
 
 - Parent main SHA: `255334d0dbd7e98a1a63dde528b0e3de59aef9c1`.

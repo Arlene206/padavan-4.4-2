@@ -1,4 +1,4 @@
-# 2026-11-19 continuation checkpoint — capture ZeroTier interface before daemon stop
+# 2026-11-19 continuation checkpoint — strict SD/MMC partition inventory parsing
 
 # Cross-session execution mandate
 
@@ -39,22 +39,28 @@ Continue main-only implementation across conversations. Do not repeat completed 
 - Commit `255334d0dbd7e98a1a63dde528b0e3de59aef9c1` captures `zt0` before `kill_z()`; `del_rules()` also tolerates an unset variable in a fresh shell. The fixture makes `ztunit` disappear as soon as the daemon exits and requires firewall/static-route cleanup to use the saved interface.
 - Exact ZeroTier `44476582735` failed later in the independent “Missing NAT route” regression because that case inherited `TEST_NAT_ENABLE=0` from the prior fixture; production correctly skipped NAT route readiness. WAN route `44476582757`, AI docs `44476582739` and Process inventory `44476582787` PASS. XY-C1 `44476582849` was IN_PROGRESS.
 
-## Active task — explicitly enable NAT in the missing-kernel-route regression
+## Completed slice — ZeroTier missing-route fixture
 
-- Set `TEST_NAT_ENABLE=1` inside the “Missing NAT route” test before invoking `rules()`, while retaining `TEST_ROUTE_MODE=none`.
-- Pin this fixture precondition in `check_zerotier_lifecycle.py`. This is test-only; production route/firewall code is unchanged.
-- Exact-head ZeroTier, AI docs, Process lifecycle, NVRAM and XY-C1 validation pending after this correction.
+- Commit `7cc78f44fc11aa3698ae1231ea3e1399360bcb38` explicitly restores `TEST_NAT_ENABLE=1` in the missing-kernel-route case and pins it in the source contract.
+- Exact-head ZeroTier `44477056786`, Process inventory `44477056791`, WAN route `44477056811`, AI docs `44477056873`, and XY-C1 workflow `44477057022` all concluded SUCCESS. The XY-C1 job skipped Build XY-C1, TRX verification and artifact upload because firmware production inputs were unchanged; it is host-only validation, not L3 evidence.
+- The parent production-source XY-C1 run `44476582849` was still IN_PROGRESS at last check; inspect its exact SHA status later rather than wait.
+
+## Active task — fail closed on malformed or truncated SD/MMC partition inventory
+
+- `storage_partition_probe.h` previously used permissive `sscanf`, ignored malformed and truncated lines, and broke after the first child partition. A later bad row could therefore be hidden and the parser could report an incomplete inventory as safe.
+- Reuse `disk_inventory_policy.h` strict complete-line/header/decimal parser, require the single procfs header, reject malformed rows and EOF/read errors, and scan through EOF even after the first matching partition.
+- Add GNU89 ASan/UBSan C regression for malformed, truncated, overlong, duplicate-header and post-match malformed rows; include it in storage workflow filters and embedded source-contract checks.
 
 ## Verification boundary
 
 - RStats and radio host/policy checks passed on their exact SHAs; RStats L3 proven on SHA 5e11 only.
-- ZeroTier firewall publication L2 passed on 3ff. Static-route add fix is on 67a; stop-interface-preservation correction is on 255. Exact 255 ZeroTier `44476582735` fails only because the missing-NAT fixture omitted its required `TEST_NAT_ENABLE=1`; WAN route `44476582757`, AI docs `44476582739` and Process inventory `44476582787` PASS. XY-C1 `44476582849` remained IN_PROGRESS; no L4 router result.
+- ZeroTier firewall publication, static-route add failure propagation/rollback, stop-time interface retention and the missing-NAT fixture are on main (3ff, 67a, 255, 7cc). Exact 7cc ZeroTier `44477056786`, Process inventory `44477056791`, WAN route `44477056811`, AI docs `44477056873`, XY-C1 host job `44477057022` PASS. XY-C1 Build/TRX/artifact were skipped because product inputs were unchanged; the exact 255 product-source build `44476582849` was IN_PROGRESS at the last check. No L4 router result.
 
 ## Exact first action for the next GPT
 
-1. Verify this missing-NAT fixture correction by exact-head ZeroTier and source-contract Actions; require the 30-poll missing-route timeout and final PASS summary.
-2. Inspect XY-C1 `44476582849` for production SHA 255 and require Build/TRX/artifact before L3.
-3. Continue SD/MMC partition inventory hardening: strict complete-line `/proc/partitions` parsing is needed because malformed/truncated records can currently be ignored and the scan stops after the first match.
+1. Inspect exact-head storage hotplug workflow after the strict parser change; require GNU89 -Werror plus ASan/UBSan unit tests and the embedded caller/source contract to PASS.
+2. Confirm no malformed or truncated `/proc/partitions` result can return “no partitions”; keep the whole-disk mount caller fail-closed.
+3. Check whether XY-C1 `44476582849` finished on exact production SHA 255; require Build/TRX/artifact before claiming L3. Then continue the next security/stability slice around ZeroTier route deletion cleanup status or the broader process/device inventory.
 
 ## Mandatory handoff checkpoint
 

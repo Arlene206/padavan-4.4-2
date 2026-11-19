@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "../../libdisk/src/disk_inventory_policy.h"
 
 /*
  * Return 1 when a disk has at least one child partition, 0 when no child
@@ -40,45 +41,72 @@ storage_disk_name_is_valid(const char *disk_name, int is_mmc)
 }
 
 static int
-storage_disk_has_partitions(FILE *proc_partitions, const char *disk_name,
-			    int is_mmc)
+storage_partition_name_is_child(const char *partition_name,
+                                const char *disk_name, int is_mmc)
 {
-	char line[128], partition_name[64];
 	const char *suffix;
 	size_t disk_name_len;
+
+	disk_name_len = strlen(disk_name);
+	if (strncmp(partition_name, disk_name, disk_name_len) != 0)
+		return 0;
+
+	suffix = partition_name + disk_name_len;
+	if (is_mmc) {
+		if (*suffix++ != 'p')
+			return 0;
+	}
+	if (!*suffix)
+		return 0;
+
+	while (*suffix >= '0' && *suffix <= '9')
+		suffix++;
+	return *suffix == '\0';
+}
+
+static int
+storage_disk_has_partitions(FILE *proc_partitions, const char *disk_name,
+                            int is_mmc)
+{
+	char line[128], partition_name[64];
+	unsigned int major_number, minor_number;
 	unsigned long long disk_size;
-	int major_number, minor_number, found = 0;
+	int found = 0, header_seen = 0, parse_status;
 
 	if (!proc_partitions || !storage_disk_name_is_valid(disk_name, is_mmc))
 		return -1;
 
-	disk_name_len = strlen(disk_name);
+	/*
+	 * /proc/partitions is a safety boundary: malformed, partial or truncated
+	 * inventory must never be interpreted as an empty disk. Read to EOF even
+	 * after finding a child so a bad trailing record cannot authorize a
+	 * whole-disk mount.
+	 */
 	while (fgets(line, sizeof(line), proc_partitions)) {
-		if (sscanf(line, " %d %d %llu %63[^\n \t]",
-			   &major_number, &minor_number, &disk_size,
-			   partition_name) != 4)
+		if (!disk_inventory_line_is_complete(line))
+			return -1;
+		if (disk_inventory_line_is_blank(line))
 			continue;
 
-		if (strncmp(partition_name, disk_name, disk_name_len) != 0)
+		if (!header_seen) {
+			if (disk_inventory_parse_header_line(line) != 0)
+				return -1;
+			header_seen = 1;
 			continue;
-
-		suffix = partition_name + disk_name_len;
-		if (is_mmc) {
-			if (*suffix++ != 'p')
-				continue;
 		}
 
-		if (!*suffix)
-			continue;
-		while (*suffix >= '0' && *suffix <= '9')
-			suffix++;
-		if (!*suffix) {
+		parse_status = disk_inventory_parse_partition_line(
+			line, &major_number, &minor_number, &disk_size,
+			partition_name, sizeof(partition_name));
+		if (parse_status != 1)
+			return -1;
+
+		if (storage_partition_name_is_child(partition_name, disk_name,
+						    is_mmc))
 			found = 1;
-			break;
-		}
 	}
 
-	if (ferror(proc_partitions))
+	if (ferror(proc_partitions) || !header_seen)
 		return -1;
 
 	return found;

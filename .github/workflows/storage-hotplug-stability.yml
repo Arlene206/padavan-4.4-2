@@ -33,6 +33,7 @@ on:
       - "trunk/user/rc/src/tests/storage_hotplug_name_policy.c"
       - "trunk/user/rc/src/storage_operation_lock.h"
       - "trunk/user/rc/src/storage_partition_probe.h"
+      - "trunk/user/rc/src/tests/storage_partition_probe.c"
       - "trunk/user/libdisk/src/disk_initial.c"
       - "trunk/user/libdisk/src/disk_initial.h"
       - "trunk/user/libdisk/src/disk_inventory_policy.h"
@@ -164,6 +165,14 @@ jobs:
             trunk/user/rc/src/tests/storage_hotplug_name_policy.c \
             -o /tmp/storage-hotplug-name-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/storage-hotplug-name-policy
+      - name: Compile and run strict storage partition inventory regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_partition_probe.c \
+            -o /tmp/storage-partition-probe
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/storage-partition-probe
       - name: Verify HDD tuning failures are aggregated without skipping later devices
         run: |
           set -eu
@@ -992,6 +1001,23 @@ jobs:
           assert "fclose(procpt) != 0 && result == 0" in check_root
           assert "storage_disk_name_is_valid" in probe
           assert "storage_disk_has_partitions" in probe
+          assert '#include "../../libdisk/src/disk_inventory_policy.h"' in probe
+          assert "disk_inventory_line_is_complete(line)" in probe
+          assert "disk_inventory_line_is_blank(line)" in probe
+          assert "disk_inventory_parse_header_line(line)" in probe
+          assert "disk_inventory_parse_partition_line(" in probe
+          assert "if (ferror(proc_partitions) || !header_seen)" in probe
+          assert "storage_partition_name_is_child" in probe
+          assert "sscanf(" not in probe and "break;" not in probe
+          partition_probe_test = (rc_dir / "tests/storage_partition_probe.c").read_text()
+          for marker in (
+              "test_malformed_inventory_fails_closed",
+              "test_truncated_inventory_fails_closed",
+              "test_scans_past_first_matching_partition",
+              "overlong[180]",
+              "not-a-proc-partitions-row",
+          ):
+              assert marker in partition_probe_test
           assert '#include "disk_inventory_policy.h"' in libdisk
           assert "disk_inventory_parse_header_line(line)" in libdisk
           assert "disk_inventory_parse_partition_line(" in libdisk
@@ -1243,6 +1269,7 @@ jobs:
               "trunk/user/rc/src/tests/storage_hotplug_name_policy.c",
               "trunk/user/rc/src/storage_operation_lock.h",
               "trunk/user/rc/src/storage_partition_probe.h",
+              "trunk/user/rc/src/tests/storage_partition_probe.c",
               "trunk/user/libdisk/src/disk_initial.c",
               "trunk/user/libdisk/src/disk_inventory_policy.h",
               "trunk/user/libdisk/src/tests/disk_inventory_policy.c",
