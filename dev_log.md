@@ -1,3 +1,12 @@
+## 2026-11-19 — Close ZeroTier lifecycle L2 verification on d6acda
+
+- Exact-head ZeroTier Action `44522534088` completed PASS on `d6acda494876c87e413939689ed3cd058b7f7fa6`: bounded shell stop/start/readiness/firewall/static-route regression, Python lifecycle and RC integration source contracts, and WAN-up launch-status wiring all passed.
+- Exact-head AI handoff documentation Action `44522534108` also PASS. This closes the prior checker-only failures; no pending ZeroTier contract repair remains.
+- Treat this as host L2 evidence only. The ZeroTier product slice still lacks same-source XY-C1 Build/TRX/artifact validation and physical-router L4 evidence. RStats is independently L3 verified on source SHA `3523bb9f27ba33065731abcd946ae11726d04470` with host `44519760957` and same-SHA XY-C1 `44519760903` Build, TRX and artifact all PASS.
+- Next review slice: storage/USB hotplug safe-remove and raw swap-only cleanup. Existing inventory parsing and fail-closed gates were inspected; no new source defect has yet been confirmed.
+
+---
+
 ## 2026-11-19 — Match ZeroTier interface and route cleanup guard contracts to POSIX shell
 
 - Exact ZeroTier run `44522100399` on `500ba4a4f1bd45b19f3c08c3dcaab0333562e0d8` passed the shell lifecycle regression and passed the preceding stop-state ordering contract after the prior correction.
