@@ -12,6 +12,13 @@
 - Exact-head on `bef7889`: USB modem `44446007111` and AI docs `44446007055` passed; Process `44446007056` and Firewall `44446007049` were still in progress at last poll. No XY-C1 run was listed for that docs/checker-only SHA.
 - WAN production changes retain first chronological failure across USB NDIS/RAS and callback-link/VLAN/APCLI-WISP preflight failure paths.
 
+## 2026-11-19 exact-head switch CLI follow-up
+
+- Parent SHA: `3fc43cb557382c5f4e1a8790bf7c88fe753ee049`. The MAC-table parser binary passed its ASan/UBSan run on `42478d29`: `switch IPv4/MAC/numeric/port-map parser policy: PASS`.
+- Switch CLI run `44453388456` failed only in the subsequent static source contract at line 55. The contract sliced `table_del()` through `void table_dump`, but `table_dump` is defined before `table_add/table_del`; the slice therefore included later helpers containing unrelated `strtoul` calls. It now ends at the actual next function `table_clear()`. No source/test failure was reported before this static assertion.
+- The same-parent XY-C1 run `44453387921` stopped in `scripts/check_modem_wan_start_status.py` because its firewall restore checker expects a function call absent from the current implementation. Inspect that assertion and real reset routine next; do not weaken it without understanding the intended invariant.
+- Exact-main source SHA has advanced through concurrent commits; never attribute old exact-head results to new main. XY-C1 L3 remains unverified.
+
 ## Latest switch MAC-table input hardening
 
 - Parent main: `f172f15c04d90e79d3135151589f1ae66fdd7f38`. Earlier SIP/DIP hardening is on `f3d4e793064bd97bcc105e9102406df318f29ec9`; Switch CLI `44450829755` and AI docs `44450829634` PASS, including ASan/UBSan parser tests.

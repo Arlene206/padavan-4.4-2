@@ -1,3 +1,12 @@
+## 2026-11-19 — Correct the table_del static checker slice
+
+- Parent main SHA: `3fc43cb557382c5f4e1a8790bf7c88fe753ee049`.
+- Exact Switch CLI run `44453388456` on `42478d29` ran the expanded policy binary successfully: `switch IPv4/MAC/numeric/port-map parser policy: PASS`. Its subsequent static check failed at line 55 because `table_del` was sliced until `void table_dump`, a function declared earlier in the file. The slice included later functions (and their unrelated `strtoul` calls). Stop the slice at the actual next function, `void table_clear`.
+- The same-parent XY-C1 workflow `44453387921` failed in `check_modem_wan_start_status.py` on a firewall-reset source contract. Investigate the production reset path and intended helper before changing the assertion.
+- Checker/handoff-only correction; keep workflow path filters unchanged. XY-C1 L3 remains unverified.
+
+---
+
 ## 2026-11-19 — Strict MAC-table parsing and pre-MMIO validation
 
 - Parent main: `f172f15c04d90e79d3135151589f1ae66fdd7f38`.
