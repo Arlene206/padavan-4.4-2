@@ -1,3 +1,12 @@
+## 2026-11-20 — Keep early-boot sysctl failures visible to PID 1
+
+- Parent main SHA: `6f59f340868cd43c458f7a6b7fc676e7d6b0db04`.
+- Source review found `init_sysctl()` discarded seven integer-returning operations: five kernel/network/memory `fput_int()` writes, IPv4 `rp_filter`, and IPv6 global-disable sysctls. A failed write silently left boot-time kernel/network policy incomplete.
+- THIS COMMIT logs each failed operation while continuing independent writes, preserves the first failure, and merges it into READY/DEGRADED router readiness without masking fatal prerequisites. The GNU89 result-policy regression covers failed writes and fatal-state preservation; the Process boot source contract pins production ordering.
+- Parent `6f59f34`: all 12 exact-head push Actions PASS; XY-C1 run `44661978626` completed Build/TRX/artifact upload (artifact `14596327119`). These L3 results apply only to the parent SHA. Exact-head Process/AI docs/XY-C1 checks for THIS COMMIT are pending; L3/L4 for this source change remain unverified.
+
+---
+
 ## 2026-11-20 — Check Inadyn default-provider NVRAM repair status
 
 - Parent main SHA: `4e618ff3f5467c691edc4aeb7fea46fea46caebd`.

@@ -12,27 +12,30 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Parent main before this follow-up: `4e618ff3f5467c691edc4aeb7fea46fea46caebd`.
+- Parent `main` before this slice: `6f59f340868cd43c458f7a6b7fc676e7d6b0db04`.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
-- On `4e618ff`, DNSMasq lifecycle `44661329441`, WAN route `44661329346`, Process inventory `44661329295`, WAN DHCP callback `44661329340`, HTTPD auth/security `44661329359`, miniupnpd config `44661329261`, AI handoff docs `44661329167`, Samba `44661329573`, Inadyn lifecycle `44661329414`, NVRAM transaction audit `44661329493`, and Process umbrella `44661329176` PASS.
-- XY-C1 `44661329180` remains IN PROGRESS at last poll. Current-source L3 is NOT VERIFIED until its Build, TRX and artifact all pass. Physical-router L4 remains NOT VERIFIED.
+- All 12 push Actions on exact parent `6f59f34` passed, including Process lifecycle/inventory, AI handoff docs, Inadyn, DNSMasq, WAN route, HTTPD, Samba and NVRAM checks.
+- XY-C1 `44661978626` on `6f59f340868cd43c458f7a6b7fc676e7d6b0db04`: Build XY-C1, TRX verification and artifact upload all SUCCESS. Artifact `14596327119` is present and not expired. This L3 evidence applies to the parent SHA only.
+- Historical PR #1 is CLOSED/UNMERGED. Its CA trust-store bootstrap and AliDDNS HMAC helper/tests/workflow integration are already present on current `main`; no remaining core PR implementation needs porting.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-- The prior commit `4e618ff` made the two corrected DHCP pool NVRAM writes rollback-aware and fail-closed; exact-head DNSMasq regression `44661329441` PASSed.
-- This follow-up addresses the remaining unchecked `nvram_set()` call in `write_inadyn_conf()`: when an invalid DDNS provider alias is repaired to the default Inadyn provider, its persistence result was ignored. Configuration generation could still succeed while the bad value remained persistent. The writer now aborts and preserves errno when fallback-provider normalization fails.
+- This slice fixes PID 1 early-boot status loss in `init.c::init_sysctl()`. Previously five integer kernel writes, IPv4 `rp_filter`, and the IPv6 global-disable operation discarded their results.
+- The new code logs every failed operation while continuing independent settings, preserves the first failure, and merges it into router readiness as DEGRADED. Fatal router prerequisites remain FATAL; PID 1 recovery/event handling is not disabled by an optional sysctl failure.
+- The result-policy regression covers successful, positive/negative failure, already-degraded, fatal and unknown states. `scripts/check_dev_init_boot.py` pins production call ordering; the existing Process workflow already runs the GNU89/ASan/UBSan test and source contract.
 
 ## Verification boundary
 
-- L1: `nvram_set()` is an integer-returning shared API; the remaining unchecked call in `services_ex.c` was the fallback-provider write in `write_inadyn_conf()`.
-- This commit changes production source and the DNSMasq workflow's existing inline Inadyn source contract. Exact-head workflow results are pending.
-- L3 remains unverified until Build XY-C1, TRX verification and artifact upload all pass for one matching SHA. L4 remains NOT VERIFIED.
+- L1 source review: PASS for the seven integer-returning operations captured by this slice. The legacy `set_tcp_tweaks()` and `set_libc_gai()` helpers are void and still hide internal write failures; they are explicitly the next task, not claimed fixed here.
+- Exact-head Process lifecycle/inventory, AI handoff docs and XY-C1 Actions for THIS COMMIT must be fetched by its exact `head_sha`; parent SHA results must not be reused.
+- Current-source L3 is NOT VERIFIED until Build XY-C1, TRX verification and artifact upload all pass on one matching SHA. L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check this commit's DNSMasq lifecycle, Inadyn lifecycle, AI handoff, Process umbrella and XY-C1 Actions by exact `head_sha`. Diagnose FAIL; require same-SHA Build XY-C1, TRX and artifact upload before claiming L3.
-2. Continue surveying the Padavan userland for concrete dropped service/cleanup statuses beyond `services_ex.c`, with a reproducer or source contract for each real defect.
-3. Keep the frozen backup untouched and maintain separate L1/L2/L3/L4 evidence.
+1. Resolve live `main` HEAD and inspect Actions runs whose `head_sha` exactly matches it; diagnose any FAIL from job logs.
+2. Require same-SHA Process GNU89/ASan/UBSan test, `check_dev_init_boot.py`, AI docs contract, XY-C1 Build, TRX verification and artifact upload before closing L2/L3.
+3. Continue the next concrete PID 1/network sysctl slice: inspect `net.c::set_tcp_tweaks()` and `set_libc_gai()`, both currently void and discarding `fput_int`/stdio/unlink errors; trace all callers in `init.c` and `net6.c` before changing signatures. Preserve best-effort startup and merge failures into first-status accumulators.
 
 ## Mandatory handoff checkpoint
 

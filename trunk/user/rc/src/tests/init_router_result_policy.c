@@ -20,5 +20,22 @@ main(void)
 	assert(init_router_status_is_degraded(INIT_ROUTER_RESULT_DEGRADED));
 	assert(!init_router_status_is_degraded(INIT_ROUTER_RESULT_FATAL));
 	assert(!init_router_status_is_degraded(2));
+
+	/* Early sysctl failures degrade READY but never mask a fatal prerequisite. */
+	assert(init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_READY, 0) ==
+	       INIT_ROUTER_RESULT_READY);
+	assert(init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_READY, EIO) ==
+	       INIT_ROUTER_RESULT_DEGRADED);
+	assert(init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_READY, -EIO) ==
+	       INIT_ROUTER_RESULT_DEGRADED);
+	assert(init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_DEGRADED, 0) ==
+	       INIT_ROUTER_RESULT_DEGRADED);
+	assert(init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_DEGRADED, EIO) ==
+	       INIT_ROUTER_RESULT_DEGRADED);
+	assert(init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_FATAL, 0) ==
+	       INIT_ROUTER_RESULT_FATAL);
+	assert(init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_FATAL, EIO) ==
+	       INIT_ROUTER_RESULT_FATAL);
+	assert(init_router_result_merge_sysctl_status(2, EIO) == 2);
 	return 0;
 }

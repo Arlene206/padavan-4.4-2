@@ -75,6 +75,8 @@ assert script.rstrip().endswith("exit 0")
 assert script.index("/etc/storage/start_script.sh") < script.rindex("exit 0")
 
 loop = c_function(init, "init_main_loop(void)")
+sysctl = c_function(init, "init_sysctl(void)")
+sysctl_recorder = c_function(init, "init_sysctl_record_status(")
 router = c_function(rc, "init_router(void)")
 assert 'dev_init_status = system("dev_init.sh")' in loop
 assert 'dev_init_status = system("dev_init.sh -l")' in loop
@@ -83,7 +85,24 @@ assert "router_ready = (dev_init_status == 0 && nvram_node_result == 0 && init_r
 assert "router_init_status = INIT_ROUTER_RESULT_FATAL;" in loop
 assert "if (dev_init_status == 0 && nvram_node_result == 0)" in loop
 assert "router_init_status = init_router();" in loop
-assert loop.index("router_init_status = init_router();") < loop.index("router_ready =")
+assert "sysctl_status = init_sysctl();" in loop
+assert "init_router_result_merge_sysctl_status" in loop
+assert loop.index("router_init_status = init_router();") < loop.index("init_router_result_merge_sysctl_status")
+assert loop.index("init_router_result_merge_sysctl_status") < loop.index("router_ready =")
+assert "return first_status;" in sysctl
+assert "early boot sysctl initialization failed" in sysctl_recorder
+assert "if (first_status == 0)" in sysctl_recorder
+for setting in (
+    "/proc/sys/kernel/panic",
+    "/proc/sys/net/core/rmem_max",
+    "/proc/sys/net/core/wmem_max",
+    "net.ipv4.conf.all.rp_filter",
+    "/proc/sys/vm/min_free_kbytes",
+    "/proc/sys/vm/overcommit_memory",
+):
+    assert setting in sysctl, "missing checked early sysctl: " + setting
+assert "status = control_if_ipv6_all(0);" in sysctl
+assert "init_router_result_merge_sysctl_status" in result_policy
 assert "else if (init_router_status_is_degraded(router_init_status))" in loop
 assert "PID 1 event handling remains enabled" in loop
 assert loop.count("router_init_status = init_router();") == 1
@@ -109,7 +128,7 @@ assert "copyscripts_ca_status=1" in copyscripts
 assert 'exit "$copyscripts_ca_status"' in copyscripts
 assert "autostart_status" in router and "started_script_status" in router
 assert "init_router_status_is_ready" in result_policy and "init_router_status_is_degraded" in result_policy
-for token in ("init_router_result_from_boot_status(0)", "init_router_result_from_boot_status(EIO)", "init_router_result_from_boot_status(-EINTR)", "init_router_status_is_ready(INIT_ROUTER_RESULT_DEGRADED)", "!init_router_status_is_ready(INIT_ROUTER_RESULT_FATAL)", "init_router_status_is_degraded(INIT_ROUTER_RESULT_DEGRADED)"):
+for token in ("init_router_result_from_boot_status(0)", "init_router_result_from_boot_status(EIO)", "init_router_result_from_boot_status(-EINTR)", "init_router_status_is_ready(INIT_ROUTER_RESULT_DEGRADED)", "!init_router_status_is_ready(INIT_ROUTER_RESULT_FATAL)", "init_router_status_is_degraded(INIT_ROUTER_RESULT_DEGRADED)", "init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_READY, EIO)", "init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_FATAL, EIO)"):
     assert token in result_test, "missing router result regression: " + token
 assert loop.index("dev_init_status = system") < loop.index("init_router()")
 assert '#include "init_mdev_retry_policy.h"' in init

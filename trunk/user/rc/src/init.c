@@ -619,26 +619,51 @@ init_mdev(void)
 
 	return 0;
 }
-static void
+static int
+init_sysctl_record_status(int first_status, const char *setting, int status)
+{
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "early boot sysctl initialization failed for %s (status=%d)",
+			   setting, status);
+		if (first_status == 0)
+			first_status = status;
+	}
+	return first_status;
+}
+
+static int
 init_sysctl(void)
 {
-	fput_int("/proc/sys/kernel/panic", 1);
+	int first_status = 0;
+	int status;
 
-	fput_int("/proc/sys/net/core/rmem_max", KERNEL_NET_CORE_RMEM);
-	fput_int("/proc/sys/net/core/wmem_max", KERNEL_NET_CORE_WMEM);
+	status = fput_int("/proc/sys/kernel/panic", 1);
+	first_status = init_sysctl_record_status(first_status, "/proc/sys/kernel/panic", status);
 
-	set_interface_conf_int("ipv4", "all", "rp_filter", 0); // new logic for new kernels
+	status = fput_int("/proc/sys/net/core/rmem_max", KERNEL_NET_CORE_RMEM);
+	first_status = init_sysctl_record_status(first_status, "/proc/sys/net/core/rmem_max", status);
+	status = fput_int("/proc/sys/net/core/wmem_max", KERNEL_NET_CORE_WMEM);
+	first_status = init_sysctl_record_status(first_status, "/proc/sys/net/core/wmem_max", status);
 
-	fput_int("/proc/sys/vm/min_free_kbytes", KERNEL_MIN_FREE_KBYTES);
-	fput_int("/proc/sys/vm/overcommit_memory", 0);
+	status = set_interface_conf_int("ipv4", "all", "rp_filter", 0);
+	first_status = init_sysctl_record_status(first_status, "net.ipv4.conf.all.rp_filter", status);
 
+	status = fput_int("/proc/sys/vm/min_free_kbytes", KERNEL_MIN_FREE_KBYTES);
+	first_status = init_sysctl_record_status(first_status, "/proc/sys/vm/min_free_kbytes", status);
+	status = fput_int("/proc/sys/vm/overcommit_memory", 0);
+	first_status = init_sysctl_record_status(first_status, "/proc/sys/vm/overcommit_memory", status);
+
+	/* Legacy void helpers do not expose the status of their internal writes. */
 	set_tcp_tweaks();
 
 #if defined (USE_IPV6)
-	control_if_ipv6_all(0);
+	status = control_if_ipv6_all(0);
+	first_status = init_sysctl_record_status(first_status, "net.ipv6.conf.{default,all}.disable_ipv6", status);
 #else
 	set_libc_gai(1);
 #endif
+	return first_status;
 }
 
 /* Main loop */
@@ -651,6 +676,7 @@ init_main_loop(void)
 	int router_init_status = INIT_ROUTER_RESULT_FATAL;
 	int nvram_node_result;
 	int dev_init_status;
+	int sysctl_status;
 	int mdev_status;
 	init_mdev_retry_state_t mdev_retry_state = { 0 };
 	int i;
@@ -685,7 +711,7 @@ init_main_loop(void)
 				   "mdev initialization failed (status=%d); hotplug handling may be unavailable",
 				   mdev_status);
 	}
-	init_sysctl();
+	sysctl_status = init_sysctl();
 
 	/* Setup console */
 	if (init_console())
@@ -718,6 +744,8 @@ init_main_loop(void)
 	/* Required host prerequisites gate router init; service errors are degraded, not fatal. */
 	if (dev_init_status == 0 && nvram_node_result == 0)
 		router_init_status = init_router();
+	router_init_status = init_router_result_merge_sysctl_status(
+		router_init_status, sysctl_status);
 	router_ready = (dev_init_status == 0 &&
 		       nvram_node_result == 0 &&
 		       init_router_status_is_ready(router_init_status));
