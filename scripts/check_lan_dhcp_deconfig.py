@@ -316,8 +316,8 @@ assert "nvram_set_temp(" not in zcip_deconfig
 for marker in (
     "test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple",
     "viptv_fake.publish_status = ENOSPC",
-    "assert transaction_status == ENOSPC;",
-    'assert strcmp(viptv_fake.events, "CRPCRP") == 0;',
+    "assert(transaction_status == ENOSPC);",
+    'assert(strcmp(viptv_fake.events, "CRPCRP") == 0);',
 ):
     assert marker in test, marker
 
