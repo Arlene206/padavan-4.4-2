@@ -19,6 +19,17 @@ test_multiline_allocator_preserves_format_and_blocks_ipparam(void)
 
 	escaped = NULL;
 	assert(ppp_option_text_escape_alloc(
+		"option 'quoted'\\value", &escaped) == 0);
+	assert(strcmp(escaped, "option \\'quoted\\'\\\\value") == 0);
+	free(escaped);
+
+	escaped = NULL;
+	assert(ppp_option_text_escape_alloc("bad\rline", &escaped) == -1);
+	assert(errno == EINVAL);
+	assert(escaped == NULL);
+
+	escaped = NULL;
+	assert(ppp_option_text_escape_alloc(
 		"debug\nipparam=attacker", &escaped) == -1);
 	assert(errno == EPERM);
 	assert(escaped == NULL);

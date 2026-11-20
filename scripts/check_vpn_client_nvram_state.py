@@ -103,7 +103,7 @@ assert "nvram_set_temp(\"vpnc_dns_t\", \"\")" not in start
 assert "nvram_set_temp(\"vpnc_dom_t\", \"\")" not in start
 assert "nvram_set_int_temp(\"vpnc_state_t\", 0)" not in start
 
-setter = body(vpn, "static int\nvpn_client_nvram_set_temp_status(")
+setter = body(vpn, "int\nvpn_client_nvram_set_temp_status(")
 ordered(setter, [
     "api_result = nvram_set_temp(name, value);",
     "saved_errno = errno;",

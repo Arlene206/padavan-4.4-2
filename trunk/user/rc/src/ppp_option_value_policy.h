@@ -130,7 +130,7 @@ ppp_option_text_escape(const char *value, char *out, size_t out_size)
  * Escape NVRAM-backed multiline text without a fixed-size truncation.
  * Every input byte may require an escape prefix, so allocate the worst case.
  */
-static int
+static inline int
 ppp_option_text_escape_alloc(const char *value, char **out)
 {
 	size_t length, capacity;
