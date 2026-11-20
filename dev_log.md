@@ -1,3 +1,12 @@
+## 2026-11-20 — Repair ZeroTier source checker and canonical handoff sections
+
+- Parent main SHA: `272c51644cdecef17d0a6b0891ce56014e93daa1`.
+- Exact ZeroTier run `44659893584`: shell lifecycle regression PASSed, then the Python source contract raised `TypeError: require() missing 1 required positional argument: 'message'` because the recovery-snapshot assertion was accidentally emitted as a string instead of a boolean expression. Corrected the assertion; the recovery snapshot content and mode checks remain mandatory.
+- Exact AI docs run `44659893698` failed because the handoff lacked the validator's canonical `## Active task`, `## Verification boundary`, and `## Exact first action for the next GPT` sections. Restored those sections and kept exact run/failure status in the handoff.
+- Process inventory `44659893624` and WAN route `44659893564` PASS on the parent. XY-C1 `44659893579` was IN PROGRESS at last poll. Exact-head Actions for this correction are pending; current-source L3 and physical-router L4 are NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Retain ZeroTier planet NVRAM recovery snapshot after commit failure
 
 - Parent main SHA: `ab6c532b1211ac5ed676537002edef6a231ebcc7`.

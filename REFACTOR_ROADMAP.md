@@ -1,9 +1,8 @@
 # 2026-11-20 active checkpoint
 
-- Parent main before this follow-up: `ab6c532b1211ac5ed676537002edef6a231ebcc7`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- ZeroTier, Process inventory, WAN route and AI docs on `ab6c532`: Actions `44659276399`, `44659276281`, `44659276230`, `44659276308` all PASS. XY-C1 `44659276259` is IN PROGRESS; the uploaded-planet and cleanup source changes do not yet have same-SHA L3 evidence.
-- Earlier production SHA `bffe074d853e9083d299d3ce07dd96d827a6d681` is L3 verified by XY-C1 `44656543236`, but predates later ZeroTier source updates. Physical-router L4 remains NOT VERIFIED.
-
+- Parent main before this CI correction: `272c51644cdecef17d0a6b0891ce56014e93daa1`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- On `272c516`: Process inventory `44659893624` and WAN route `44659893564` PASS; ZeroTier `44659893584` shell regression PASSed but its Python checker failed on a malformed assertion; AI docs `44659893698` failed required handoff headings. Both are corrected in this follow-up. XY-C1 `44659893579` was IN PROGRESS at last poll.
+- Current-source L3 is NOT VERIFIED. Older production SHA `bffe074d853e9083d299d3ce07dd96d827a6d681` has separate L3 via XY-C1 `44656543236`, but predates the uploaded-planet and rollback-recovery changes. Physical-router L4 remains NOT VERIFIED.
 ## CI trigger governance — current policy
 
 - CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
@@ -83,6 +82,8 @@
 - ZeroTier planet checker wording fix: exact shell regression completed PASS on `1977137`; source contract alone failed because its expected diagnostic reversed the actual test message's two words. The checker now matches `planet symlink referent was modified`; no source/test behavior changed. WAN route and Process inventory passed; exact ZeroTier rerun and XY-C1 build verification pending.
 
 - Uploaded ZeroTier planet import: replaced direct `cp -f`/unconditional upload deletion and ignored NVRAM status with a private staged writer plus hard-link rollback. Symlink/nonregular input is refused; disk and NVRAM updates now roll back together on persistence failure, empty uploads remove both values, and upload deletion follows success only. Exact-host regressions cover success, empty file, symlink source, failed NVRAM commit and rename failure. Exact Actions pending.
+
+- Uploaded planet rollback-recovery follow-up: previous NVRAM value is retained in a private mode-0600 snapshot, and the transaction directory is preserved if the compensating NVRAM commit fails. The regression checks the snapshot content and permissions. Exact-head checker rerun pending.
 
 - Uploaded planet rollback-recovery follow-up: capture the previous NVRAM value in a private mode-0600 snapshot and retain the transaction directory if the compensating NVRAM commit fails. Parent `ab6c532` ZeroTier lifecycle run `44659276399` PASS; matching-source XY-C1 Build/TRX/artifact pending.
 

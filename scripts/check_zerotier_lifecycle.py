@@ -178,7 +178,7 @@ require('mktemp -d "$config_path/.planet-import.XXXXXX"' in planet_import_body a
         'nvram set zerotier_planet="$zt_planet_old_value"' in planet_import_body and
         'planet.nvram.previous' in planet_import_body and
         'printf \'%s\' "$zt_planet_old_value" > "$zt_planet_import_dir/planet.nvram.previous"' in planet_import_body and
-        "        'zt_planet_preserve_backup=1' in planet_import_body,"
+        'zt_planet_preserve_backup=1' in planet_import_body,
         "uploaded planet import must retain old file/NVRAM state on failure")
 require('if ! zerotier_import_planet_file "$PLANET"; then' in start_instance_body and
         'if [ -L "$PLANET" ]' in start_instance_body and
