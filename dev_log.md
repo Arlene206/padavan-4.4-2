@@ -1,3 +1,49 @@
+## 2026-11-20 — Handoff checkpoint at `03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3`
+
+- Reconciled current main and the frozen backup branch; updated `SESSION_HANDOFF.md` with the exact SHAs and current Actions state.
+- Latest main runs:
+```
+44711346041 HTTPD Authentication and Security Regression: completed/success (03041282c97b)
+44711345873 Process lifecycle inventory - 03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3: completed/success (03041282c97b)
+44711345905 WAN route operation status regression: completed/failure (03041282c97b)
+44711345981 AI handoff documentation contract: completed/success (03041282c97b)
+44711345959 WAN DHCP callback state stability regression: completed/failure (03041282c97b)
+44711345889 XY-C1 Firmware Validation: completed/failure (03041282c97b)
+44711345856 NVRAM transaction boundary audit: completed/success (03041282c97b)
+44711193886 HTTPD Authentication and Security Regression: completed/success (2a6b5b3f0f77)
+44711193581 USB modem WDM/NDIS physical identity stability: completed/failure (2a6b5b3f0f77)
+44711193928 watchdog signal lifecycle stability regression: completed/success (2a6b5b3f0f77)
+44711193723 WAN interface teardown stability regression: completed/success (2a6b5b3f0f77)
+44711193691 ZeroTier lifecycle stability regression: completed/success (2a6b5b3f0f77)
+44711193566 detect_internet signal lifecycle stability regression: completed/success (2a6b5b3f0f77)
+44711193811 VPN server lifecycle stability regression: completed/success (2a6b5b3f0f77)
+44711193706 miniupnpd atomic configuration publication regression: completed/success (2a6b5b3f0f77)
+44711193792 detect_link signal lifecycle stability regression: completed/success (2a6b5b3f0f77)
+```
+- DNS source SHA `03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3` runs:
+```
+44711346041 HTTPD Authentication and Security Regression: completed/success (03041282c97b)
+44711345873 Process lifecycle inventory - 03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3: completed/success (03041282c97b)
+44711345905 WAN route operation status regression: completed/failure (03041282c97b)
+44711345981 AI handoff documentation contract: completed/success (03041282c97b)
+44711345959 WAN DHCP callback state stability regression: completed/failure (03041282c97b)
+44711345889 XY-C1 Firmware Validation: completed/failure (03041282c97b)
+44711345856 NVRAM transaction boundary audit: completed/success (03041282c97b)
+```
+- Earlier IPv6 identity SHA `5e03588c33965328b8c33880504413a915cc47de` runs:
+```
+44709969998 XY-C1 Firmware Validation: completed/failure (5e03588c3396)
+44709970019 NVRAM transaction boundary audit: completed/success (5e03588c3396)
+44709970196 WAN DHCP callback state stability regression: completed/failure (5e03588c3396)
+44709970368 HTTPD Authentication and Security Regression: completed/success (5e03588c3396)
+44709970075 AI handoff documentation contract: completed/success (5e03588c3396)
+44709970223 Process lifecycle inventory - 5e03588c33965328b8c33880504413a915cc47de: completed/success (5e03588c3396)
+44709970108 WAN route operation status regression: completed/failure (5e03588c3396)
+```
+- No L3 firmware or L4 hardware claim is made unless exact build/TRX/artifact or physical-device evidence is present in the corresponding run.
+
+---
+
 ## 2026-11-20 — Propagate DHCPv6 DNS metadata publication failures
 
 - Parent main SHA: `2a6b5b3f0f77720aee236eaea17d63cd0a6ee568`. Found another unchecked critical NVRAM write in `store_wan_dns6()`: it returned `1` after calling the legacy void setter, even if NVRAM rejected a new DNS list or DHCPv6 DNS withdrawal. The callback could therefore report success while resolver metadata remained stale.

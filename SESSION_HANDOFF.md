@@ -1,3 +1,79 @@
+# 2026-11-20 continuation checkpoint
+
+This checkpoint supersedes older SHA/CI summaries below. Do not repeat the completed startup audit.
+
+## Git state
+- `main`: `03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3` — fix(wan6): propagate DHCPv6 DNS metadata write failures
+- `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only recovery point; do not rewrite it).
+- All changes in this session were committed as complete Git trees. Main updates used expected-SHA and non-force ref updates; no force push was used.
+
+## Implemented source slices
+- `793bc85f44e75e64ad4ff74d3b53e6b4bc4e8afb`: recover static LAN routes when WAN restart aborts on switch MAC-table cleanup failure.
+- `a97cbb5382eb3675eddfff39ecc58e244fa44866`: restore static LAN routes after a partial interface/global route-flush failure.
+- `c26207d9cb5a6aa93169ff207799e5bdeca51c4f`: synchronize duplicate shared WAN route-recovery source contracts.
+- `a033d8e862681f0e90e29e6a3ac4364ba32ae995` and `462e3c811f4abd68583af11df51fbf66ebb8971e`: make USB NDIS WAN identity publication fail closed; add rollback and checked error-state publication, then fix the formatting-sensitive checker and explicit test include.
+- `5e03588c33965328b8c33880504413a915cc47de`: require checked IPv6 active-interface identity on SIT/native WAN startup and checked teardown metadata clearing; add sanitizer policy tests.
+- `6a5f2be3e590ecca6712a60b61612bf82e537b5d`: correct the native IPv6 rollback checker order.
+- `c0c2ff55628dab5fdceb78695202c58a1a044bfe`: align the WAN route workflow's duplicate IPv6 teardown contract with checked metadata clearing.
+- `03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3`: propagate DHCPv6 DNS metadata publication failures from `store_wan_dns6()`; no-change updates remain no-ops, successful changes return 1 only after checked NVRAM commit, and failed writes set errno/return -1. Five GNU89 policy regression cases were added for changed, unchanged, withdrawal, write failure and invalid writer handling.
+- The build-time customization utility transaction work and its Python failure-injection tests are in earlier commits in this conversation history; see the leading `dev_log.md` entries.
+
+## Verification state at checkpoint
+GitHub Actions are the available build/test environment; no local checkout or MIPS toolchain was available in this ChatGPT runtime. Do not claim local compile or physical-router validation.
+
+### Latest main push runs
+```
+44711346041 HTTPD Authentication and Security Regression: completed/success (03041282c97b)
+44711345873 Process lifecycle inventory - 03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3: completed/success (03041282c97b)
+44711345905 WAN route operation status regression: completed/failure (03041282c97b)
+44711345981 AI handoff documentation contract: completed/success (03041282c97b)
+44711345959 WAN DHCP callback state stability regression: completed/failure (03041282c97b)
+44711345889 XY-C1 Firmware Validation: completed/failure (03041282c97b)
+44711345856 NVRAM transaction boundary audit: completed/success (03041282c97b)
+44711193886 HTTPD Authentication and Security Regression: completed/success (2a6b5b3f0f77)
+44711193581 USB modem WDM/NDIS physical identity stability: completed/failure (2a6b5b3f0f77)
+44711193928 watchdog signal lifecycle stability regression: completed/success (2a6b5b3f0f77)
+44711193723 WAN interface teardown stability regression: completed/success (2a6b5b3f0f77)
+44711193691 ZeroTier lifecycle stability regression: completed/success (2a6b5b3f0f77)
+44711193566 detect_internet signal lifecycle stability regression: completed/success (2a6b5b3f0f77)
+44711193811 VPN server lifecycle stability regression: completed/success (2a6b5b3f0f77)
+44711193706 miniupnpd atomic configuration publication regression: completed/success (2a6b5b3f0f77)
+44711193792 detect_link signal lifecycle stability regression: completed/success (2a6b5b3f0f77)
+```
+
+### DHCPv6 DNS source commit (03041282)
+```
+44711346041 HTTPD Authentication and Security Regression: completed/success (03041282c97b)
+44711345873 Process lifecycle inventory - 03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3: completed/success (03041282c97b)
+44711345905 WAN route operation status regression: completed/failure (03041282c97b)
+44711345981 AI handoff documentation contract: completed/success (03041282c97b)
+44711345959 WAN DHCP callback state stability regression: completed/failure (03041282c97b)
+44711345889 XY-C1 Firmware Validation: completed/failure (03041282c97b)
+44711345856 NVRAM transaction boundary audit: completed/success (03041282c97b)
+```
+
+### Earlier IPv6 identity source commit (5e03588)
+```
+44709969998 XY-C1 Firmware Validation: completed/failure (5e03588c3396)
+44709970019 NVRAM transaction boundary audit: completed/success (5e03588c3396)
+44709970196 WAN DHCP callback state stability regression: completed/failure (5e03588c3396)
+44709970368 HTTPD Authentication and Security Regression: completed/success (5e03588c3396)
+44709970075 AI handoff documentation contract: completed/success (5e03588c3396)
+44709970223 Process lifecycle inventory - 5e03588c33965328b8c33880504413a915cc47de: completed/success (5e03588c3396)
+44709970108 WAN route operation status regression: completed/failure (5e03588c3396)
+```
+
+A workflow only proves the stage shown in its exact-head run. For XY-C1, require the same product-source SHA to pass **Build XY-C1**, **Verify TRX output**, and **artifact upload** before claiming firmware L3. A workflow skipped because a commit changed only checkers/docs is not firmware evidence. L4 physical-router behavior is unverified.
+
+## First task for the next continuation
+1. Inspect any failed or still-pending exact-head Actions runs above, beginning with the DHCPv6 DNS policy/source checker and WAN route duplicate contract; fetch failed job logs and fix the concrete first failure rather than weakening checks.
+2. Verify the XY-C1 MIPS build, TRX validation and artifact upload on the latest product-source SHA that includes the IPv6/DNS changes. If that run was skipped or predates the DNS source commit, ensure a firmware validation run is actually triggered on a product-source SHA.
+3. After CI is green, audit the remaining `set_wan_unit_value()`/`set_wan_unit_value_int()` call sites in `trunk/user/rc/src/net_wan6.c`; only convert sites where caller/error semantics can safely propagate the checked setter result. Keep each correction atomic with regression coverage.
+
+Continue from the current main SHA above; do not redo the already documented LAN-route or NDIS/IPv6 source audits. Keep logging exact SHA and run IDs in `dev_log.md` and update this handoff only when a real state transition occurs.
+
+---
+
 # Cross-session execution mandate
 
 ## Execution policy
