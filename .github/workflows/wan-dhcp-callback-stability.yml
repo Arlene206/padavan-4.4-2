@@ -318,7 +318,7 @@ jobs:
           ):
               assert marker not in wan_dhcp_renew
           publisher_start = source.index("wan_dhcp_nvram_state_publish(", source.index("zcip_viptv_bound("))
-renew_publisher = body(source[publisher_start:], "wan_dhcp_nvram_state_publish(")
+          renew_publisher = body(source[publisher_start:], "wan_dhcp_nvram_state_publish(")
           assert "dhcp_lease_nvram_publish(" in renew_publisher
           assert "wan_dhcp_nvram_restore_values(" in renew_publisher
           assert "nvram_transaction_begin(&transaction)" in renew_publisher
@@ -367,8 +367,8 @@ renew_publisher = body(source[publisher_start:], "wan_dhcp_nvram_state_publish("
 
           viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
           assert "dhcp_wan_interface_apply(" in viptv_bound
-          assert 'snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("manv_ipaddr"))' in viptv_bound
-          assert 'snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("manv_netmask"))' in viptv_bound
+          assert 'snprintf(old_ip, sizeof(old_ip), "%s", previous_text[0])' in viptv_bound
+          assert 'snprintf(old_mask, sizeof(old_mask), "%s", previous_text[1])' in viptv_bound
           assert "interface_status = wan_dhcp_interface_clear(&interface_context)" in viptv_bound
           assert "failed to clear conflicting IPTV DHCP address" in viptv_bound
           assert "failed to apply IPTV DHCP address" in viptv_bound
