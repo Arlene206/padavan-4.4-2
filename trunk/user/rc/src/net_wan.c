@@ -6350,12 +6350,14 @@ manv_route_deconfig(char *man_ifname)
 	if (!old_gateway_value)
 		old_gateway_value = "";
 	if (!dhcp_lease_text_fits_buffer(old_gateway_value, sizeof(old_gateway))) {
+		old_gateway[0] = '\0';
+		route_status = ENAMETOOLONG;
 		logmessage(LOGNAME,
 			   "IPTV DHCP deconfig rejected oversized prior gateway snapshot on %s",
 			   man_ifname);
-		return ENAMETOOLONG;
+	} else {
+		snprintf(old_gateway, sizeof(old_gateway), "%s", old_gateway_value);
 	}
-	snprintf(old_gateway, sizeof(old_gateway), "%s", old_gateway_value);
 	route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
 	route_status = route_status_accumulate(route_status, route_result);
 	if (route_result != 0)
