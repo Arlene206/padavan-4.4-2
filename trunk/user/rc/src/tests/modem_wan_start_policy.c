@@ -350,6 +350,116 @@ test_static_wan_address_and_netmask_validation(void)
 	assert(!dhcp_lease_netmask_is_valid("0.0.0.0"));
 }
 
+
+struct fake_ndis_identity_writer {
+	int fail_call;
+	int failure_status;
+	int cleanup_fail_call;
+	int cleanup_failure_status;
+	unsigned int calls;
+	char names[4][16];
+	char values[4][32];
+};
+
+static int
+fake_ndis_identity_set(void *opaque, const char *param_name, const char *value)
+{
+	struct fake_ndis_identity_writer *fake =
+		(struct fake_ndis_identity_writer *)opaque;
+	unsigned int index = fake->calls++;
+
+	assert(index < 4);
+	snprintf(fake->names[index], sizeof(fake->names[index]), "%s", param_name);
+	snprintf(fake->values[index], sizeof(fake->values[index]), "%s", value);
+	if ((int)index == fake->fail_call)
+		return fake->failure_status;
+	if ((int)index == fake->cleanup_fail_call)
+		return fake->cleanup_failure_status;
+	return 0;
+}
+
+static void
+test_ndis_identity_is_published_before_interface_activation(void)
+{
+	struct fake_ndis_identity_writer fake;
+	int rollback_status = -1;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_call = -1;
+	fake.cleanup_fail_call = -1;
+	assert(modem_wan_publish_ndis_identity(
+		fake_ndis_identity_set, &fake, "wwan0", &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(fake.calls == 2);
+	assert(strcmp(fake.names[0], "proto_t") == 0);
+	assert(strcmp(fake.values[0], "NDIS Modem") == 0);
+	assert(strcmp(fake.names[1], "ifname_t") == 0);
+	assert(strcmp(fake.values[1], "wwan0") == 0);
+}
+
+static void
+test_ndis_identity_failure_clears_both_fields_and_preserves_primary_error(void)
+{
+	struct fake_ndis_identity_writer fake;
+	int rollback_status = 0;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_call = 1; /* ifname_t publication */
+	fake.failure_status = EIO;
+	fake.cleanup_fail_call = 2; /* ifname_t clear */
+	fake.cleanup_failure_status = EPERM;
+
+	assert(modem_wan_publish_ndis_identity(
+		fake_ndis_identity_set, &fake, "wwan0", &rollback_status) == EIO);
+	assert(rollback_status == EPERM);
+	assert(fake.calls == 4);
+	assert(strcmp(fake.names[0], "proto_t") == 0);
+	assert(strcmp(fake.names[1], "ifname_t") == 0);
+	assert(strcmp(fake.names[2], "ifname_t") == 0);
+	assert(strcmp(fake.values[2], "") == 0);
+	assert(strcmp(fake.names[3], "proto_t") == 0);
+	assert(strcmp(fake.values[3], "") == 0);
+}
+
+static void
+test_ndis_identity_first_write_failure_still_clears_stale_fields(void)
+{
+	struct fake_ndis_identity_writer fake;
+	int rollback_status = -1;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_call = 0;
+	fake.failure_status = ENOSPC;
+	fake.cleanup_fail_call = -1;
+
+	assert(modem_wan_publish_ndis_identity(
+		fake_ndis_identity_set, &fake, "wwan0", &rollback_status) == ENOSPC);
+	assert(rollback_status == 0);
+	assert(fake.calls == 3);
+	assert(strcmp(fake.names[1], "ifname_t") == 0);
+	assert(strcmp(fake.values[1], "") == 0);
+	assert(strcmp(fake.names[2], "proto_t") == 0);
+	assert(strcmp(fake.values[2], "") == 0);
+}
+
+static void
+test_ndis_identity_rejects_invalid_arguments_before_writes(void)
+{
+	struct fake_ndis_identity_writer fake;
+	int rollback_status = -1;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_call = -1;
+	assert(modem_wan_publish_ndis_identity(
+		NULL, &fake, "wwan0", &rollback_status) == EINVAL);
+	assert(modem_wan_publish_ndis_identity(
+		fake_ndis_identity_set, &fake, NULL, &rollback_status) == EINVAL);
+	assert(modem_wan_publish_ndis_identity(
+		fake_ndis_identity_set, &fake, "", &rollback_status) == EINVAL);
+	assert(rollback_status == 0);
+	assert(fake.calls == 0);
+}
+
 int
 main(void)
 {
@@ -357,6 +467,10 @@ main(void)
 	test_dhcp_launch_result_is_returned_after_migration();
 	test_ras_peer_file_cleanup_only_after_failed_launch();
 	test_ndis_interface_bringup_failure_skips_network_start();
+	test_ndis_identity_is_published_before_interface_activation();
+	test_ndis_identity_failure_clears_both_fields_and_preserves_primary_error();
+	test_ndis_identity_first_write_failure_still_clears_stale_fields();
+	test_ndis_identity_rejects_invalid_arguments_before_writes();
 	test_ndis_firewall_failure_reaches_startup_result();
 	test_ndis_optional_control_path_does_not_block_dhcp();
 	test_ndis_required_control_failure_blocks_dhcp();

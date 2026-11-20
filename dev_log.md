@@ -1,3 +1,13 @@
+## 2026-11-20 — Fail closed when NDIS WAN identity cannot be published
+
+- Parent main SHA: `c26207d9cb5a6aa93169ff207799e5bdeca51c4f`. Found a real state-integrity gap in `launch_wan_usbnet()`: the NDIS protocol label and active `ifname_t` were written through legacy void setters, their NVRAM errors were discarded, and interface/firewall/control/DHCP startup proceeded as if the active WAN identity had been committed. Error-flag writes on migration, IFUP, control-session and DHCP branches were also unchecked.
+- Exposed the existing checked WAN NVRAM setters/error-state publisher through `rc.h` and made string-key/value validation explicit. Added a GNU89 policy that publishes `proto_t` and `ifname_t` before IFUP; any failed write triggers reverse-order best-effort clearing of both fields while preserving the primary publication error and reporting rollback status separately.
+- NDIS startup now aborts before IFUP, firewall, control or DHCP when identity publication fails. Migration/IFUP/control/DHCP error-state writes use the checked publisher, and the operation's first failure remains authoritative while a failed error-state update is still surfaced when no earlier failure exists.
+- Added four regression cases for successful identity publication order, second-write failure with rollback failure, first-write failure cleanup and invalid arguments. Updated the USB modem semantic checker to pin the fail-closed order, checked error reporting, exported checked setter ABI and rollback tests. No ABI changes to legacy void APIs; new checked entry points are additive.
+- No local checkout/compiler is available. Exact-head GNU89/ASan/UBSan USB modem workflow and XY-C1 MIPS/TRX/artifact pipeline are required to verify this source change.
+
+---
+
 ## 2026-11-20 — Align shared WAN route-flush source contracts with recovery behavior
 
 - Parent main SHA: `a97cbb5382eb3675eddfff39ecc58e244fa44866`. The exact-head WAN route regression for `a97cbb5` passed all GNU89/ASan/UBSan policy binaries and the updated firewall-specific semantic checker.

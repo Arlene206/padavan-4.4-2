@@ -1034,12 +1034,25 @@ launch_wan_modem_ras(int unit)
 	return 1;
 }
 
+static int
+usb_modem_wan_identity_set_value(void *context, const char *param_name,
+				 const char *value)
+{
+	int *unit = (int *)context;
+
+	if (!unit)
+		return EINVAL;
+	return set_wan_unit_value_status(*unit, param_name, value);
+}
+
+
 int
 launch_wan_usbnet(int unit)
 {
 	int modem_devnum = 0;
 	int migration_status, interface_status, firewall_status, control_status;
 	int control_required = 0, dhcp_status, startup_status;
+	int identity_status, identity_rollback_status, error_status, result_status;
 	char ndis_ifname[16] = {0};
 
 	if (get_modem_ndis_ifname(ndis_ifname, &modem_devnum) &&
@@ -1048,22 +1061,36 @@ launch_wan_usbnet(int unit)
 
 		migration_status = check_upnp_wanif_changed(ndis_ifname);
 		if (migration_status != 0) {
-			set_wan_unit_value_int(unit, "err", 1);
+			error_status = set_wan_unit_error_status(unit, 1);
 			logmessage(LOGNAME,
 				   "aborting USB modem WAN startup: miniupnpd did not stop before interface migration (status=%d)",
 				   migration_status);
-			return modem_wan_start_status(migration_status, 0);
+			return modem_wan_start_status(migration_status, error_status);
 		}
 
-		set_wan_unit_value(unit, "proto_t", "NDIS Modem");
-		set_wan_unit_value(unit, "ifname_t", ndis_ifname);
+		identity_status = modem_wan_publish_ndis_identity(
+			usb_modem_wan_identity_set_value, &unit, ndis_ifname,
+			&identity_rollback_status);
+		if (identity_status != 0) {
+			error_status = set_wan_unit_error_status(unit, 1);
+			if (identity_rollback_status != 0)
+				logmessage(LOGNAME,
+					   "USB modem WAN identity rollback incomplete for unit %d (status=%d)",
+					   unit, identity_rollback_status);
+			logmessage(LOGNAME,
+				   "aborting USB modem WAN startup: cannot publish NDIS protocol/interface identity (status=%d)",
+				   identity_status);
+			return modem_wan_start_status(identity_status, error_status);
+		}
+
 		interface_status = doSystem("ifconfig %s mtu %d up %s", ndis_ifname, ndis_mtu, "0.0.0.0");
 		if (interface_status != 0) {
-			set_wan_unit_value_int(unit, "err", 1);
+			error_status = set_wan_unit_error_status(unit, 1);
 			logmessage(LOGNAME,
 				   "USB modem WAN interface %s bring-up failed (status=%d)",
 				   ndis_ifname, interface_status);
-			return modem_wan_start_status(migration_status, interface_status);
+			result_status = modem_wan_start_status(migration_status, interface_status);
+			return modem_wan_start_status(result_status, error_status);
 		}
 		firewall_status = start_firewall_ex();
 		if (firewall_status != 0)
@@ -1075,26 +1102,32 @@ launch_wan_usbnet(int unit)
 		control_status = ndis_control_network(ndis_ifname, modem_devnum, 1,
 						     &control_required);
 		if (modem_ndis_control_failed(control_required, control_status)) {
-			set_wan_unit_value_int(unit, "err", 1);
+			error_status = set_wan_unit_error_status(unit, 1);
 			logmessage(LOGNAME,
 				   "USB modem control-session startup failed on %s (status=%d)",
 				   ndis_ifname, control_status);
-			return modem_wan_start_status(startup_status, control_status);
+			result_status = modem_wan_start_status(startup_status, control_status);
+			return modem_wan_start_status(result_status, error_status);
 		}
 		if (control_required)
 			sleep(1);
 
 		dhcp_status = start_udhcpc_wan(ndis_ifname, unit, 0);
-		set_wan_unit_value_int(unit, "err", dhcp_status != 0);
+		error_status = set_wan_unit_error_status(unit, dhcp_status != 0);
 		if (dhcp_status != 0)
 			logmessage(LOGNAME,
 				   "USB modem WAN DHCP client launch failed on %s (status=%d)",
 				   ndis_ifname, dhcp_status);
-		return modem_wan_start_status(startup_status, dhcp_status);
+		result_status = modem_wan_start_status(startup_status, dhcp_status);
+		return modem_wan_start_status(result_status, error_status);
 	}
 
-	set_wan_unit_value(unit, "ifname_t", "");
-	set_wan_unit_value_int(unit, "err", 1);
+	identity_status = set_wan_unit_value_status(unit, "ifname_t", "");
+	error_status = set_wan_unit_error_status(unit, 1);
+	if (identity_status != 0)
+		logmessage(LOGNAME,
+			   "cannot clear unavailable USB modem WAN interface identity for unit %d (status=%d)",
+			   unit, identity_status);
 	logmessage(LOGNAME, "USB modem WAN startup failed: selected NDIS interface is unavailable");
 	return -1;
 }

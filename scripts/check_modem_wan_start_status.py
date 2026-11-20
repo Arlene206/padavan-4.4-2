@@ -93,19 +93,26 @@ assert "ppp_option_escape_internal(value, out, out_size, 0)" in PPP_VALUE_POLICY
 
 ndis = compact(body(USB_SOURCE, "launch_wan_usbnet(int unit)"))
 migration = "migration_status = check_upnp_wanif_changed(ndis_ifname);"
-assert migration in ndis
-assert ndis.index(migration) < ndis.index('set_wan_unit_value(unit, "proto_t"')
-assert "if (migration_status != 0)" in ndis
-migration_failure = ndis.index("return modem_wan_start_status(migration_status, 0);")
+identity_publish = "identity_status = modem_wan_publish_ndis_identity("
+identity_gate = "if (identity_status != 0)"
+interface_setup = 'interface_status = doSystem("ifconfig %s mtu %d up %s", ndis_ifname, ndis_mtu, "0.0.0.0");'
 dhcp_launch = "dhcp_status = start_udhcpc_wan(ndis_ifname, unit, 0);"
-assert migration_failure < ndis.index(dhcp_launch)
+assert migration in ndis and identity_publish in ndis
+assert ndis.index(migration) < ndis.index(identity_publish) < ndis.index(identity_gate) < ndis.index(interface_setup) < ndis.index(dhcp_launch)
+assert "return modem_wan_start_status(migration_status, error_status);" in ndis
+assert "return modem_wan_start_status(identity_status, error_status);" in ndis
+assert "modem_wan_publish_ndis_identity(usb_modem_wan_identity_set_value, &unit, ndis_ifname, &identity_rollback_status);" in ndis
+assert "USB modem WAN identity rollback incomplete" in ndis
+assert "cannot publish NDIS protocol/interface identity" in ndis
 firewall_capture = "firewall_status = start_firewall_ex();"
 assert firewall_capture in ndis
 assert "startup_status = modem_wan_start_status(migration_status, firewall_status);" in ndis
-assert "return modem_wan_start_status(startup_status, control_status);" in ndis
-assert "return modem_wan_start_status(startup_status, dhcp_status);" in ndis
+assert "return modem_wan_start_status(result_status, error_status);" in ndis
 assert "USB modem WAN firewall startup incomplete" in ndis
-assert 'set_wan_unit_value_int(unit, "err", dhcp_status != 0);' in ndis
+assert 'set_wan_unit_value_int(unit, "err"' not in ndis
+assert "set_wan_unit_error_status(unit, dhcp_status != 0);" in ndis
+
+control = compact(body(USB_SOURCE, "ndis_control_network(char *ndis_ifname"))
 
 control = compact(body(USB_SOURCE, "ndis_control_network(char *ndis_ifname"))
 assert "*control_required = 0;" in control
@@ -123,27 +130,34 @@ for driver, operation in (
     assert branch_start >= 0 and "*control_required = 1;" in control[branch_start:call_pos]
 assert "return mbim_control_network(control_node_wdm, is_start);" in control
 
-interface_setup = 'interface_status = doSystem("ifconfig %s mtu %d up %s", ndis_ifname, ndis_mtu, "0.0.0.0");'
 assert interface_setup in ndis, "NDIS interface MTU/UP command status must be captured"
 interface_failure_pos = ndis.index("if (interface_status != 0)")
 firewall_start_pos = ndis.index(firewall_capture)
 control_start_pos = ndis.index("control_status = ndis_control_network(ndis_ifname, modem_devnum, 1")
 control_failure_pos = ndis.index("if (modem_ndis_control_failed(control_required, control_status))", control_start_pos)
 dhcp_start_pos = ndis.index(dhcp_launch)
-assert interface_setup.index("interface_status") < interface_failure_pos < firewall_start_pos
+assert ndis.index(identity_gate) < interface_failure_pos < firewall_start_pos
 assert interface_failure_pos < firewall_start_pos < control_start_pos < control_failure_pos < dhcp_start_pos
 assert ndis.index("startup_status = modem_wan_start_status(migration_status, firewall_status);") < control_start_pos
 interface_failure = ndis[interface_failure_pos:firewall_start_pos]
-assert 'set_wan_unit_value_int(unit, "err", 1);' in interface_failure
-assert "return modem_wan_start_status(migration_status, interface_status);" in interface_failure
+assert "set_wan_unit_error_status(unit, 1);" in interface_failure
+assert "return modem_wan_start_status(result_status, error_status);" in interface_failure
 assert "logmessage(LOGNAME" in interface_failure
 
 control_failure = ndis[control_failure_pos:dhcp_start_pos]
-assert 'set_wan_unit_value_int(unit, "err", 1);' in control_failure
+assert "set_wan_unit_error_status(unit, 1);" in control_failure
 assert "USB modem control-session startup failed" in control_failure
-assert "return modem_wan_start_status(startup_status, control_status);" in control_failure
+assert "return modem_wan_start_status(result_status, error_status);" in control_failure
 assert "if (control_required)" in ndis[control_failure_pos:dhcp_start_pos]
 assert "modem_ndis_control_failed(control_required, control_status)" in ndis
+assert "modem_wan_publish_ndis_identity" in POLICY_SOURCE
+assert "test_ndis_identity_failure_clears_both_fields_and_preserves_primary_error" in WAN_TEST
+assert "test_ndis_identity_failure_clears_both_fields_and_preserves_primary_error();" in WAN_TEST
+assert "int set_wan_unit_value_status(int unit" in HEADER
+assert "int set_wan_unit_value_int_status(int unit" in HEADER
+assert "int set_wan_unit_error_status(int unit" in HEADER
+assert "if (unit < 0 || !param_name || !param_name[0] || !value)" in WAN_SOURCE
+assert "set_wan_unit_error_status(unit, dhcp_status != 0);" in ndis
 
 ndis_stop = compact(body(USB_SOURCE, "stop_wan_usbnet(void)"))
 assert "ndis_control_network(ndis_ifname, modem_devnum, 0, &control_required)" in ndis_stop

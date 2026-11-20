@@ -81,11 +81,14 @@ get_wan_unit_value_int(int unit, const char* param_name)
 	return nvram_get_int(wanN_param);
 }
 
-static int
+int
 set_wan_unit_value_status(int unit, const char *param_name, const char *value)
 {
 	char wanN_param[64];
 	int path_len, api_result, saved_errno;
+
+	if (unit < 0 || !param_name || !param_name[0] || !value)
+		return EINVAL;
 
 	path_len = snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s", unit,
 			    param_name);
@@ -101,7 +104,7 @@ set_wan_unit_value_status(int unit, const char *param_name, const char *value)
 }
 
 
-static int
+int
 set_wan_unit_value_int_status(int unit, const char *param_name, int value)
 {
 	char value_text[16];
@@ -253,7 +256,7 @@ wan_man_gateway_snapshot(char *gateway, size_t gateway_size,
 }
 
 
-static int
+int
 set_wan_unit_error_status(int unit, int error)
 {
 	int status;
