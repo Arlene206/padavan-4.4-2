@@ -121,6 +121,22 @@ wan_nvram_int_temp_status(const char *param_name, int value)
 	return rc_wan_nvram_write_status(api_result, saved_errno);
 }
 
+static int
+wan_nvram_int_status(const char *param_name, int value)
+{
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0])
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_set_int(param_name, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+
+
 
 int
 set_wan_unit_value_int_status(int unit, const char *param_name, int value)
@@ -4669,7 +4685,7 @@ notify_on_internet_state_changed(int has_internet, long elapsed)
 			if (get_modem_devnum()) {
 				int priority_status;
 
-				priority_status = wan_nvram_int_temp_status(
+				priority_status = wan_nvram_int_status(
 					"modem_prio", (get_usb_modem_wan(0)) ? 0 : 1);
 				if (priority_status != 0) {
 					logmessage(LOGNAME,

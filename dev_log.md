@@ -1,3 +1,9 @@
+## 2026-11-20 — Preserve modem-priority NVRAM persistence semantics while checking the write
+
+- Parent SHA: `d6241fe7630a8df996127c7b295e69a675656641`. Review after the first passing source-contract run found that the initial checked implementation had used the volatile `nvram_set_int_temp()` helper, changing the prior call’s `nvram_set_int()` persistence semantics.
+- Added a status-preserving persistent integer helper and switched the modem reconnect priority publication back to `nvram_set_int()` semantics. The reconnect still fails closed when the write fails; only the previously ignored status is changed. The WAN source contract now enforces the persistent setter and errno propagation.
+- Exact WAN-route/Process and XY-C1 Build/TRX/artifact reruns required.
+
 ## 2026-11-20 — Match split-line modem-priority source assertion
 
 - Parent SHA: `34235bef7131e72d1d006df5678a4729138501e8`. Static source assertion was checked against the actual C body before commit and exposed that the function call’s parameter is on the following line; the prior Python checker expected a space-normalized one-line prefix and would fail before reaching the runtime regression.

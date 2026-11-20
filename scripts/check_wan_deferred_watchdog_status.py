@@ -60,7 +60,7 @@ def require(condition, message):
 
 
 notification = body(WAN, "notify_on_internet_state_changed(int has_internet, long elapsed)")
-priority_write = "priority_status = wan_nvram_int_temp_status("
+priority_write = "priority_status = wan_nvram_int_status("
 priority_key = '"modem_prio",'
 priority_gate = "if (priority_status != 0)"
 priority_log = "cannot publish modem priority before automatic WAN reconnect"
@@ -73,15 +73,15 @@ queue_pos = notification.index(priority_queue, log_pos)
 require(write_pos < key_pos < gate_pos < log_pos < queue_pos,
         "automatic USB-WAN reconnect must be gated on checked modem-priority publication")
 require("nvram_set_int(\"modem_prio\"" not in notification,
-        "modem reconnect priority must not use the unchecked persistent NVRAM setter")
+        "modem reconnect priority must not use the unchecked direct NVRAM setter")
 require("break;" in notification[gate_pos:queue_pos],
         "failed modem-priority publication must skip the automatic reconnect enqueue")
 
-priority_helper = body(WAN, "wan_nvram_int_temp_status(const char *param_name, int value)")
-require("api_result = nvram_set_int_temp(param_name, value);" in priority_helper
+priority_helper = body(WAN, "wan_nvram_int_status(const char *param_name, int value)")
+require("api_result = nvram_set_int(param_name, value);" in priority_helper
         and "saved_errno = errno;" in priority_helper
         and "rc_wan_nvram_write_status(api_result, saved_errno)" in priority_helper,
-        "modem-priority writes must preserve the NVRAM API status/errno")
+        "persistent modem-priority writes must preserve the original setter semantics and API errno")
 
 reconnect = body(WAN, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
 require(
