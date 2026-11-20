@@ -134,6 +134,9 @@ from pathlib import Path as _WatchdogPath
 _ntp_root = _WatchdogPath(__file__).resolve().parents[1]
 _ntp_rc = _ntp_root / "trunk/user/rc/src"
 _ntp_watchdog = (_ntp_rc / "watchdog.c").read_text()
+_ntp_dispatcher = (_ntp_rc / "rc.c").read_text()
+_ntp_router_policy = (_ntp_rc / "init_router_result_policy.h").read_text()
+_ntp_router_test = (_ntp_rc / "tests/init_router_result_policy.c").read_text()
 _ntp_policy = (_ntp_rc / "watchdog_ntp_policy.h").read_text()
 _ntp_test = (_ntp_rc / "tests/watchdog_ntp_policy.c").read_text()
 assert "watchdog_ntp_step_has_offset" in _ntp_policy
@@ -147,3 +150,19 @@ assert "ntpc_ready_handler();" in _ntp_watchdog
 assert _ntp_watchdog.rindex("ntpc_ready_handler();") < _ntp_watchdog.rindex("svc_timecheck();")
 assert "ntp_ready_publish_error != status" in _ntp_watchdog
 assert "NTP readiness persistence recovered" in _ntp_watchdog
+
+# Boot must invalidate the previous boot's persistent NTP-ready flag and
+# temporary NTP-step counter before watchdog or user autostart can trust time.
+_ntp_init_router = function_body(_ntp_dispatcher, "init_router(void)")
+_counter_reset = _ntp_init_router.index('ntpc_counter_reset_status = nvram_set_temp("ntpc_counter", "0000000000");')
+_ready_reset = _ntp_init_router.index('ntp_ready_reset_status = nvram_set_int("ntp_ready", 0);')
+_reset_gate = _ntp_init_router.index("if (!init_router_ntp_state_reset_succeeded(")
+_ready_section = _ntp_init_router.index("// system ready")
+_autostart = _ntp_init_router.index('system("/usr/bin/copyscripts.sh")')
+assert _counter_reset < _ready_reset < _reset_gate < _ready_section < _autostart
+assert "return INIT_ROUTER_RESULT_FATAL;" in _ntp_init_router[_reset_gate:_ready_section]
+assert "init_router_ntp_state_reset_succeeded" in _ntp_router_policy
+assert "init_router_ntp_state_reset_succeeded" in _ntp_router_test
+assert _ntp_dispatcher.count('nvram_set_int("ntp_ready", 0)') == 1
+assert "#endif /* PADAVAN_INIT_ROUTER_RESULT_POLICY_H */" in _ntp_router_policy
+

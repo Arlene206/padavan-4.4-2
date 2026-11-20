@@ -1,3 +1,10 @@
+## 2026-11-20 — Fail closed when boot cannot invalidate stale NTP readiness
+
+- Parent main SHA: `c9b931f0a17bb6673dd94bf7ad51c4c8ba6d7a75`.
+- `init_router()` cleared temporary `ntpc_counter` without checking it, then reset persistent `ntp_ready=0` much later and also ignored that write. If either write failed, an old `ntp_ready=1` (and possibly stale counter) could make watchdog time-based scheduling trust the previous boot's clock state.
+- Both freshness signals are now reset and checked together before router services, watchdog work, or user/autostart scripts proceed. Any failure returns the existing fatal router-init result. The persistent-vs-temporary semantics of the two keys are preserved.
+- Fixed the misplaced include-guard terminator in `init_router_result_policy.h`, added GNU89 policy tests, and extended the watchdog lifecycle source contract/workflow. Exact watchdog/XY-C1 Build/TRX/artifact/Process Actions required; physical L4 NOT VERIFIED.
+
 ## 2026-11-20 — Align HTTPD marker helper contract with its checked NVRAM wrapper
 
 - Parent main SHA: `1356dfd010bfc851336e2c5ab1f5b03abfd8119a`.

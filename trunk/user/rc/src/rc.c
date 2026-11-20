@@ -692,7 +692,20 @@ nvram_convert_misc_values(void)
 	if (nvram_wlan_get_int(0, "stream_rx") > BOARD_NUM_ANT_2G_RX)
 		nvram_wlan_set_int(0, "stream_rx", BOARD_NUM_ANT_2G_RX);
 
-	nvram_set_temp("ntpc_counter", "0000000000");
+	/*
+	 * ntpc_counter and ntp_ready jointly identify a successful NTP step
+	 * during this boot. A stale persistent ntp_ready=1 must never survive a
+	 * failed counter/readiness reset and authorize time-based watchdog work.
+	 */
+	ntpc_counter_reset_status = nvram_set_temp("ntpc_counter", "0000000000");
+	ntp_ready_reset_status = nvram_set_int("ntp_ready", 0);
+	if (!init_router_ntp_state_reset_succeeded(ntpc_counter_reset_status,
+						   ntp_ready_reset_status)) {
+		logmessage(LOGNAME,
+			   "Router initialization stopped: cannot reset per-boot NTP readiness state (ntpc_counter=%d, ntp_ready=%d)",
+			   ntpc_counter_reset_status, ntp_ready_reset_status);
+		return INIT_ROUTER_RESULT_FATAL;
+	}
 	nvram_set_temp("login_timestamp", "0000000000");
 
 	nvram_set_int_temp("networkmap_fullscan", 0);
@@ -1188,6 +1201,7 @@ init_router(void)
 	int legacy_migration_changed = 0;
 	int ipv6_disable_required = 0;
 	int ipv6_init_status = 0;
+	int ntpc_counter_reset_status, ntp_ready_reset_status;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
@@ -1479,7 +1493,6 @@ init_router(void)
 		}
 	}
 	// system ready
-	nvram_set_int("ntp_ready", 0);
 	/* Install the firmware CA trust store before autostart can launch AliDDNS. */
 	{
 		int copyscripts_status = system("/usr/bin/copyscripts.sh");

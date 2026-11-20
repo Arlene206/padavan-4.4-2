@@ -37,5 +37,11 @@ main(void)
 	assert(init_router_result_merge_sysctl_status(INIT_ROUTER_RESULT_FATAL, EIO) ==
 	       INIT_ROUTER_RESULT_FATAL);
 	assert(init_router_result_merge_sysctl_status(2, EIO) == 2);
+
+	/* Stale NTP state cannot survive if either per-boot reset failed. */
+	assert(init_router_ntp_state_reset_succeeded(0, 0));
+	assert(!init_router_ntp_state_reset_succeeded(EIO, 0));
+	assert(!init_router_ntp_state_reset_succeeded(0, EIO));
+	assert(!init_router_ntp_state_reset_succeeded(-1, -1));
 	return 0;
 }

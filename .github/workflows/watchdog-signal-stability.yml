@@ -19,6 +19,8 @@ on:
       - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/tests/watchdog_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init_router_result_policy.h"
+      - "trunk/user/rc/src/tests/init_router_result_policy.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/service_wait_policy.h"
@@ -47,6 +49,8 @@ on:
       - "trunk/user/rc/src/watchdog_signal_policy.h"
       - "trunk/user/rc/src/tests/watchdog_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init_router_result_policy.h"
+      - "trunk/user/rc/src/tests/init_router_result_policy.c"
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/service_wait_policy.h"
@@ -87,6 +91,11 @@ jobs:
             trunk/user/rc/src/tests/service_lifecycle_policy.c \
             -o /tmp/service-lifecycle-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/service-lifecycle-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/init_router_result_policy.c \
+            -o /tmp/init-router-result-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/init-router-result-policy
       - name: Compile and run CPU watchdog module restart postcondition regression
         run: |
           set -eu
@@ -286,6 +295,8 @@ jobs:
               "trunk/user/rc/src/watchdog_signal_policy.h",
               "trunk/user/rc/src/tests/watchdog_signal_policy.c",
               "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/init_router_result_policy.h",
+              "trunk/user/rc/src/tests/init_router_result_policy.c",
               "trunk/user/rc/src/net_lan.c",
               "trunk/user/rc/src/net_wan.c",
               "trunk/user/rc/src/rc.h",

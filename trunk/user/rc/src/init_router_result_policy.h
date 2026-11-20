@@ -31,8 +31,6 @@ init_router_status_is_degraded(int status)
 	return status == INIT_ROUTER_RESULT_DEGRADED;
 }
 
-#endif
-
 /*
  * Early sysctl errors degrade a running router but must not mask fatal gates.
  * Preserve unknown router states rather than promoting them to READY.
@@ -47,3 +45,16 @@ init_router_result_merge_sysctl_status(int router_status, int sysctl_status)
 		return INIT_ROUTER_RESULT_DEGRADED;
 	return INIT_ROUTER_RESULT_READY;
 }
+
+/*
+ * Scheduled watchdog actions may trust ntp_ready only after this boot's
+ * temporary NTP-step counter and persistent readiness flag were both reset.
+ */
+static inline int
+init_router_ntp_state_reset_succeeded(int ntpc_counter_status,
+                                      int ntp_ready_status)
+{
+	return ntpc_counter_status == 0 && ntp_ready_status == 0;
+}
+
+#endif /* PADAVAN_INIT_ROUTER_RESULT_POLICY_H */
