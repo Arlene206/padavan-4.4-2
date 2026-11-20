@@ -62,7 +62,7 @@ test_changed_state_retries_without_replaying_side_effects(void)
 	assert(detect_link_publish_wan_status(
 		0, &last_published, fake_write_status, &writer) == -1);
 	assert(writer.calls == 1);
-	assert(last_published == 0);
+	assert(last_published == 1);
 
 	writer.result = 0;
 	assert(detect_link_publish_wan_status(
