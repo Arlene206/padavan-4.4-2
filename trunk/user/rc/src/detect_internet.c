@@ -634,7 +634,8 @@ detect_internet_main(int argc, char *argv[])
 		 * select without racing a newer control request against resume.
 		 */
 		if ((events & DI_PENDING_TIMER) &&
-		    control != DI_CONTROL_RESUME && !di_pause_received) {
+		    control != DI_CONTROL_RESUME &&
+		    (!di_pause_received || di_status_nvram_error != 0)) {
 			if (sigprocmask(SIG_SETMASK, &run_mask, NULL) < 0) {
 				saved_errno = errno;
 				di_alarmtimer(0);

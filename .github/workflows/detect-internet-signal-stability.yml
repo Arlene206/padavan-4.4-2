@@ -129,7 +129,8 @@ jobs:
           reblock = main.index("sigprocmask(SIG_BLOCK, &managed_signals, NULL)", timer_dispatch)
           assert terminate < pause < resume < timer_condition < unmask < timer_dispatch < reblock
           assert main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)") < terminate
-          assert "control != DI_CONTROL_RESUME && !di_pause_received" in main
+          assert "control != DI_CONTROL_RESUME &&" in main
+          assert "(!di_pause_received || di_status_nvram_error != 0)" in main
 
           timer = body(detect, "di_on_timer(void)")
           connect = timer.index("di_connect_to_host(")
