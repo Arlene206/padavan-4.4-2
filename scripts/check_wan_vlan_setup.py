@@ -270,8 +270,23 @@ require("ret = create_vlan_iface(" in vinet and
         "ret = config_soft_bridge_wan(" in vinet and
         "return ret;" in vinet,
         "primary WAN VLAN/bridge failures must abort config_vinet_wan")
-require(vinet.index("ret = create_vlan_iface(") < vinet.index('set_wan_unit_value(0, "viflast"'),
-        "last-good WAN VLAN name must not be published before VLAN creation")
+viflast_publish = vinet.index('ret = set_wan_unit_value_status(0, "viflast", vlan_iflast);')
+viflast_gate = vinet.index("if (ret != 0)", viflast_publish)
+create_vlan = vinet.index("ret = create_vlan_iface(", viflast_gate)
+require(vinet.index("ret = remove_vlan_iface(vinet_iflast);") < viflast_publish <
+        viflast_gate < create_vlan,
+        "WAN VLAN cleanup identity must be checked and recorded after old VLAN removal but before creating its replacement")
+ifname_publish = vinet.index('ret = set_wan_unit_value_status(0, "ifname", vinet_ifname);')
+ifname_gate = vinet.index("if (ret != 0)", ifname_publish)
+require(create_vlan < ifname_publish < ifname_gate < vinet.index("return 0;", ifname_gate) and
+        'set_wan_unit_value(0, "ifname", vinet_ifname)' not in vinet,
+        "WAN activation interface identity must be checked after VLAN/bridge/IPv6 setup and before returning success")
+wisp = body(wan, "config_apcli_wisp(void)")
+wisp_publish = wisp.index('publication_status = set_wan_unit_value_status(0, "ifname", wisp_ifname);')
+wisp_gate = wisp.index("if (publication_status != 0)", wisp_publish)
+require(wisp_publish < wisp_gate < wisp.index("return 0;", wisp_gate) and
+        'set_wan_unit_value(0, "ifname", wisp_ifname)' not in wisp,
+        "AP-client WISP migration must fail closed when its active interface identity cannot be published")
 viptv = body(wan, "launch_viptv_wan(void)")
 iptv_start = viptv.index("/* VLAN interface for IPTV */")
 iptv_setup = viptv[iptv_start:]

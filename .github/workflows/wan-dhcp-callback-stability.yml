@@ -1153,7 +1153,8 @@ jobs:
           assert "unable to clear or shut down previous WAN interface %s; refusing WISP migration (status=%d)" in apcli_wisp
           assert "return down_status;" in apcli_wisp
           assert "return 0;" in apcli_wisp
-          assert apcli_wisp.index("if (address_status != 0)") < apcli_wisp.index("set_wan_unit_value(0, \"ifname\", wisp_ifname);")
+          assert apcli_wisp.index("if (address_status != 0)") < apcli_wisp.index('publication_status = set_wan_unit_value_status(0, "ifname", wisp_ifname);')
+          assert apcli_wisp.index('publication_status = set_wan_unit_value_status(0, "ifname", wisp_ifname);') < apcli_wisp.index("if (publication_status != 0)")
           apcli_call = "vlan_result = config_apcli_wisp();"
           apcli_error = 'logmessage(LOGNAME, "aborting WAN startup: AP-client WISP migration failed (status=%d)",'
           assert apcli_call in wan_start and apcli_error in wan_start

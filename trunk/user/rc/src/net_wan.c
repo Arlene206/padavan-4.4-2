@@ -1394,7 +1394,7 @@ config_vinet_wan(void)
 	int vlan_vid[2], vlan_pri, pvid_wan;
 	int is_vlan_filter, is_vlan_ifname;
 	int need_pvid, pvid_result = 0, ret;
-	char vinet_ifname[24];
+	char vinet_ifname[24], vlan_iflast[24];
 	const char *vinet_iflast, *wan_hwaddr;
 #if defined (USE_SINGLE_MAC)
 	const char *ifname_wan_cpu = IFNAME_MAC;
@@ -1500,6 +1500,23 @@ config_vinet_wan(void)
 		}
 	}
 
+	/*
+	 * Publish the cleanup identity before creating/replacing the VLAN. If a
+	 * later bridge or IPv6 step fails, the next restart can still find and
+	 * remove this interface. A failed NVRAM write must abort before creation.
+	 */
+	vlan_iflast[0] = '\\0';
+	if (is_vlan_ifname)
+		snprintf(vlan_iflast, sizeof(vlan_iflast), "%s.%d",
+			 ifname_wan_cpu, vlan_vid[0]);
+	ret = set_wan_unit_value_status(0, "viflast", vlan_iflast);
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot publish WAN VLAN cleanup identity %s (status=%d)",
+			   vlan_iflast, ret);
+		return ret;
+	}
+
 	/* create VLAN interface for INET */
 	if (is_vlan_ifname) {
 #if defined (USE_IPV6)
@@ -1536,14 +1553,6 @@ config_vinet_wan(void)
 	}
 #endif
 
-	if (is_vlan_ifname) {
-		char vlan_iflast[24];
-
-		snprintf(vlan_iflast, sizeof(vlan_iflast), "%s.%d", ifname_wan_cpu, vlan_vid[0]);
-		set_wan_unit_value(0, "viflast", vlan_iflast);
-	} else {
-		set_wan_unit_value(0, "viflast", "");
-	}
 
 #if defined (USE_IPV6)
 	if (get_ipv6_type() != IPV6_DISABLED) {
@@ -1555,14 +1564,20 @@ config_vinet_wan(void)
 		}
 	}
 #endif
-	set_wan_unit_value(0, "ifname", vinet_ifname);
+	ret = set_wan_unit_value_status(0, "ifname", vinet_ifname);
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot publish active WAN interface %s (status=%d)",
+			   vinet_ifname, ret);
+		return ret;
+	}
 	return 0;
 }
 
 static int
 config_apcli_wisp(void)
 {
-	int unit = 0;
+	int unit = 0, publication_status;
 	char *man_ifname;
 	char *wisp_ifname = get_apcli_wisp_ifname();
 
@@ -1611,7 +1626,13 @@ config_apcli_wisp(void)
 		}
 	}
 #endif
-	set_wan_unit_value(0, "ifname", wisp_ifname);
+	publication_status = set_wan_unit_value_status(0, "ifname", wisp_ifname);
+	if (publication_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot publish AP-client WAN interface %s (status=%d)",
+			   wisp_ifname, publication_status);
+		return publication_status;
+	}
 	return 0;
 }
 
