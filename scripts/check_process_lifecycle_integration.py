@@ -945,7 +945,7 @@ for stop_status, start_call in (
     stop_call = lan_restart_transaction.index(stop_status + " = stop_")
     restore_gate = lan_restart_transaction.index("rc_service_restart_after_stop(" + stop_status + ")")
     restore = lan_restart_transaction.index(start_call, restore_gate)
-    assert lan_first_other_stop <= stop_call < lan_dhcp_failure
+    assert lan_vpn_abort < stop_call < lan_dhcp_failure
     assert lan_vpn_restore < restore_gate < restore
 print("LAN restart VPN fail-closed stop and rollback integration: PASS")
 

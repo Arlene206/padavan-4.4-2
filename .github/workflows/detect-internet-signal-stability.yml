@@ -261,7 +261,7 @@ jobs:
           assert flash.index("if (stop_services(0) != 0)") < flash.index('doSystem("%s %d", script_name, 0)')
 
           lan_stop = body(lan, "stop_lan(int is_ap_mode)")
-                    lan_stop_call = lan_stop.index("ap_dhcp_stop_status = stop_udhcpc_lan();")
+          lan_stop_call = lan_stop.index("ap_dhcp_stop_status = stop_udhcpc_lan();")
           preflight_failure = lan_stop.index("if (status != 0)", lan_stop_call)
           preflight_resume = lan_stop.index("notify_run_detect_internet(2)", preflight_failure)
           preflight_return = lan_stop.index("return status;", preflight_failure)

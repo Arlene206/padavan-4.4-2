@@ -468,7 +468,7 @@ jobs:
           assert "route_status = clear_if_route4(IFNAME_BR);" in stop_lan_body
           assert "ipv6_status = clear_lan_addr6();" in stop_lan_body
           assert "monitor_resume_status = notify_run_detect_internet(2);" in stop_lan_body
-                    assert stop_lan_body.count("monitor_resume_status = notify_run_detect_internet(2);") == 1
+          assert stop_lan_body.count("monitor_resume_status = notify_run_detect_internet(2);") == 1
           resume_log = stop_lan_body.index("Internet monitor resume failed after aborted AP DHCP stop")
           primary_return = stop_lan_body.index("return status;", resume_log)
           assert primary_return > resume_log

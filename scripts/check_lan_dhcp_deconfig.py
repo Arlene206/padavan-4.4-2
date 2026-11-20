@@ -420,9 +420,10 @@ for status_name, start_call in (
     ("networkmap_stop_status", "start_networkmap(1)"),
 ):
     stop_call = lan_restart.index(status_name + " = stop_")
-    restore_gate = abort_path.index("rc_service_restart_after_stop(" + status_name + ")")
-    restore_call = abort_path.index(start_call, restore_gate)
-    assert stop_call < stop_lan < abort_start < vpn_restore < restore_gate < restore_call
+    restore_gate = lan_restart.index("rc_service_restart_after_stop(" + status_name + ")")
+    restore_call = lan_restart.index(start_call, restore_gate)
+    vpn_restore = lan_restart.index("restore VPN after aborted LAN restart")
+    assert lan_vpn_stop < stop_call < stop_lan < abort_start < vpn_restore < restore_gate < restore_call
     assert restore_call < abort_path.index("return restart_status;", restore_call)
 assert lock_release < vpn_restore
 assert "static inline int\\nrc_service_restart_after_stop(int stop_status)" in service_policy
