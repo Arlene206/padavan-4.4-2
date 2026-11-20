@@ -500,6 +500,20 @@ nvram_transaction_getall(struct nvram_transaction *transaction,
 }
 
 int
+nvram_transaction_get(struct nvram_transaction *transaction,
+		      const char *name, char **value)
+{
+	if (!name || !value) {
+		errno = EINVAL;
+		return -1;
+	}
+	*value = NULL;
+	if (!nvram_transaction_valid(transaction))
+		return -1;
+	return nvram_get_checked_unlocked(name, value);
+}
+
+int
 nvram_transaction_set(struct nvram_transaction *transaction,
 		      const char *name, const char *value, int is_temp)
 {

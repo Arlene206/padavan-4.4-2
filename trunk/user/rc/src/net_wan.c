@@ -6016,29 +6016,50 @@ static int
 wan_dhcp_nvram_publish_values(const char *const *names,
 			      const char *const *new_values, size_t count)
 {
+	struct nvram_transaction transaction;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	char previous_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char *previous_value;
 	size_t i, snapshot_count = 0;
-	int status, rollback_status = 0;
+	int status = 0, read_status, end_status;
+	int rollback_status = 0, recovery_status, recovery_detail = 0;
+	int publish_attempted = 0;
 
 	if (!names || !new_values || count == 0 ||
 	    count > WAN_DHCP_BOUND_SNAPSHOT_COUNT)
 		return EINVAL;
-
-	/* Copy the complete prior tuple before publishing its first field. */
 	for (i = 0; i < count; ++i) {
 		if (!names[i] || !names[i][0] || !new_values[i])
 			return EINVAL;
-		previous_value = nvram_safe_get((char *)names[i]);
-		if (!previous_value)
+	}
+
+	/*
+	 * Read the prior tuple and publish/compensate it under the same exclusive
+	 * lease. Separate nvram_safe_get() calls could snapshot different writers'
+	 * states, then restore stale values over a newer committed lease.
+	 */
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno ? errno : EIO;
+
+	for (i = 0; i < count; ++i) {
+		previous_value = NULL;
+		errno = 0;
+		read_status = nvram_transaction_get(
+			&transaction, names[i], &previous_value);
+		if (read_status < 0) {
+			status = errno ? errno : EIO;
+			break;
+		}
+		if (read_status == 0 || !previous_value)
 			previous_value = "";
 		if (!dhcp_lease_text_fits_buffer(
 			    previous_value, sizeof(previous_values[i]))) {
 			logmessage(LOGNAME,
 				   "IPTV deconfig rejected oversized prior NVRAM field %s",
 				   names[i]);
-			return ENAMETOOLONG;
+			status = ENAMETOOLONG;
+			break;
 		}
 		snprintf(previous_values[i], sizeof(previous_values[i]), "%s",
 			 previous_value);
@@ -6046,11 +6067,33 @@ wan_dhcp_nvram_publish_values(const char *const *names,
 			snapshot_values, &snapshot_count, names[i], new_values[i],
 			previous_values[i]);
 		if (status != 0)
-			return status;
+			break;
 	}
 
-	status = wan_dhcp_nvram_state_publish(snapshot_values, snapshot_count,
-					      &rollback_status);
+	if (status == 0) {
+		publish_attempted = 1;
+		status = dhcp_lease_nvram_publish(
+			snapshot_values, snapshot_count,
+			wan_dhcp_nvram_transaction_set, &transaction,
+			&rollback_status);
+	}
+
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+		else if (rollback_status == 0)
+			rollback_status = end_status;
+	}
+
+	if (publish_attempted && status != 0) {
+		/* Retry the entire prior tuple under a fresh exclusive lease. */
+		recovery_status = wan_dhcp_nvram_restore_values(
+			snapshot_values, snapshot_count, &recovery_detail);
+		rollback_status = recovery_status != 0 ?
+			(recovery_detail != 0 ? recovery_detail : recovery_status) : 0;
+	}
 	if (status != 0)
 		logmessage(LOGNAME,
 			   "IPTV deconfig NVRAM snapshot publication failed (status=%d, rollback=%d)",

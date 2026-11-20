@@ -297,10 +297,20 @@ for key in ("manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"):
 assert "nvram_set_temp(" not in manv_route
 
 publish_helper = c_function_body(wan, "wan_dhcp_nvram_publish_values(")
-assert "nvram_safe_get((char *)names[i])" in publish_helper
+assert "nvram_transaction_begin(&transaction)" in publish_helper
+assert "nvram_transaction_get(" in publish_helper
+assert "nvram_transaction_set" not in publish_helper
+assert "dhcp_lease_nvram_publish(" in publish_helper
+assert "nvram_transaction_end(&transaction)" in publish_helper
+assert "wan_dhcp_nvram_restore_values(" in publish_helper
 assert "dhcp_lease_text_fits_buffer(" in publish_helper
 assert "wan_dhcp_bound_snapshot_add(" in publish_helper
-assert "wan_dhcp_nvram_state_publish(" in publish_helper
+assert "nvram_safe_get((char *)names[i])" not in publish_helper
+snapshot_begin = publish_helper.index("nvram_transaction_begin(&transaction)")
+snapshot_get = publish_helper.index("nvram_transaction_get(")
+snapshot_publish = publish_helper.index("dhcp_lease_nvram_publish(")
+snapshot_end = publish_helper.index("nvram_transaction_end(&transaction)")
+assert snapshot_begin < snapshot_get < snapshot_publish < snapshot_end
 publish_empty = c_function_body(
     wan, "udhcpc_viptv_deconfig_publish_empty_address(void *opaque)"
 )
