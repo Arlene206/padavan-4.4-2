@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check infosvr packet bounds and SIGTERM signal-lifecycle contracts."""
+"""Check infosvr packet bounds, command dispatch and SIGTERM lifecycle contracts."""
 from pathlib import Path
 import re
 
@@ -88,8 +88,10 @@ base_guard = processor.index("infosvr_packet_length_valid((size_t)packet_len, si
 service_read = processor.index("hdr->ServiceID")
 assert base_guard < service_read
 extended_guard = processor.index("offsetof(IBOX_COMM_PKT_HDR_EX, Password)")
-mac_read = processor.index("hdr->MacAddress")
-assert service_read < extended_guard < mac_read
+assert service_read < extended_guard < supported_guard
+assert "hdr->MacAddress" not in processor
+assert "get_hwaddr(ifname, hwaddr" not in processor
+assert "get_hwaddr(ifname, info->MacAddress" in processor
 assert "packet_len < 0" in processor
 
 main = function_body(source, "main(int argc, char *argv[])")
@@ -180,6 +182,7 @@ paths = (
     "trunk/user/infosvr/src/asus.c",
     "trunk/user/infosvr/src/infosvr_packet_policy.h",
     "trunk/user/infosvr/src/tests/infosvr_packet_policy.c",
+    "trunk/user/infosvr/src/tests/infosvr_dispatch_test.c",
     "trunk/user/infosvr/src/infosvr_signal_policy.h",
     "trunk/user/infosvr/src/tests/infosvr_signal_policy.c",
     "trunk/user/shared/src/include/ibox.h",
