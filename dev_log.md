@@ -1,3 +1,13 @@
+## 2026-11-20 — Escape C trigraphs in customized firmware defaults
+
+- Parent main SHA: b8828568389b344795a761d923f1f09ff70147bc.
+- The custom-build workflow accepts printable ASCII root passwords/Wi-Fi PSKs and serializes them into C string literals. c_string() escaped quotes and backslashes but did not escape question marks. A credential containing a C trigraph such as ??/ makes GCC emit -Wtrigraphs diagnostics with the generated source line, potentially exposing the credential in build logs and altering preprocessing on toolchains that enable trigraph conversion.
+- Updated c_string() to encode each question mark as the standard C escape \?. Added a regression for all nine C trigraphs and compiled the resulting literal with GNU89 -Wall -Wextra -Werror.
+- The prior public-release customization leak is closed on parent b8828568389b344795a761d923f1f09ff70147bc: Custom firmware defaults transaction run 44717413779 PASS; AI handoff docs run 44717413917 PASS. Product source f0c20ff has same-SHA XY-C1 Build/TRX/artifact PASS (run 44715584790, artifact 14620685104).
+- This is build-time serialization only. Exact-head regression and AI docs Actions for this commit are pending; no new firmware L3/L4 claim applies.
+
+---
+
 ## 2026-11-20 — Redact custom firmware credentials from public release notes
 
 - Parent main SHA: `f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9`.

@@ -5,7 +5,9 @@ import errno
 import importlib.util
 import json
 import os
+import shutil
 import stat
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -195,6 +197,38 @@ class AtomicCustomizationTests(unittest.TestCase):
         self.assertNotIn("signpassword", release_step)
         self.assertNotIn("wifi2gpsk", release_step)
         self.assertNotIn("wifi5gpsk", release_step)
+
+
+    def test_c_string_escapes_all_trigraphs_before_preprocessing(self):
+        trigraphs = ("??=", "??/", "??'", "??(", "??)", "??!", "??<", "??>", "??-")
+        value = "credential-" + "-".join(trigraphs)
+        literal = apply_customization.c_string(value)
+
+        for trigraph in trigraphs:
+            self.assertNotIn(trigraph, literal)
+
+        compiler = shutil.which("cc")
+        if compiler is None:
+            self.skipTest("host C compiler is unavailable")
+
+        source = (
+            "static const char customization[] = " + literal + ";\n"
+            "int main(void) { return customization[0] != 'c'; }\n"
+        )
+        with tempfile.TemporaryDirectory(prefix="customization-trigraph-") as directory:
+            source_path = Path(directory) / "trigraph.c"
+            object_path = Path(directory) / "trigraph.o"
+            source_path.write_text(source, encoding="utf-8")
+            result = subprocess.run(
+                [
+                    compiler, "-std=gnu89", "-Wall", "-Wextra", "-Werror",
+                    "-c", str(source_path), "-o", str(object_path),
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        self.assertEqual(0, result.returncode, result.stderr)
 
 
 if __name__ == "__main__":

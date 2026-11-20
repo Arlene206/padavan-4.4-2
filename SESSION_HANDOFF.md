@@ -1,33 +1,32 @@
 # 2026-11-20 continuation checkpoint
 
-This checkpoint supersedes the older summaries below. Continue from live `main`; do not repeat completed audits.
+This checkpoint supersedes older summaries below. Continue from live main; do not repeat completed audits.
 
 ## Git state
-- Parent main SHA for this slice: `f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Main-only atomic commits. Build one complete tree, one commit, and update with `force=false` plus exact `expected_sha`; never force-push. PR #1 remains closed/not merged.
+- Parent main SHA for this slice: b8828568389b344795a761d923f1f09ff70147bc.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
+- Main-only atomic commits; build one complete Git tree per logical task and update with force=false plus exact expected_sha. Never force-push. PR #1 remains closed/not merged.
 
-## Verified parent source and CI
-- `f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9` includes transactional DHCPv4 6rd option-212 publication/rollback and the previous IPv6 runtime-reset propagation.
-- All 38 non-XY push workflows queried for this exact SHA completed SUCCESS, including WAN DHCP callback `44715584925`, WAN route `44715585112`, AI handoff docs `44715584940`, NVRAM transaction boundary `44715585200`, and process/lifecycle/security checks. XY-C1 run `44715584790` was still IN_PROGRESS at the last parent-SHA query; do not infer Build/TRX/artifact completion.
-- The earlier `00cc18c9` and `e8ef10b` results are SHA-specific and do not validate another commit.
+## Verified preceding slices
+- Product-source SHA f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 passed WAN DHCP, WAN route, AI docs, NVRAM and the full XY-C1 firmware build. Exact XY-C1 run 44715584790, job 136218008537, passed Build XY-C1, Verify TRX output and artifact upload (artifact 14620685104, 12,690,665 bytes). This L3 applies to f0 source only.
+- Workflow-only SHA b8828568389b344795a761d923f1f09ff70147bc passed Custom firmware defaults transaction regression 44717413779 and AI handoff documentation 44717413917. Its regression confirmed the public release body does not expand the customization JSON.
+- The preceding f0 DHCPv4 6rd option-212 change groups the 6rd tuple with compensation and rolls WAN activation back if publication fails. IPv6 runtime-reset status propagation is also present. Do not repeat either audit.
 
 ## Current implementation slice — this commit
-- Found a public credential leak in `.github/workflows/custom.yml`: the GitHub Release body expanded the complete `inputs.customization` JSON. That object includes `signpassword` and Wi-Fi PSKs, so values entered for a custom firmware build were copied into public release notes.
-- The Release body now records only that customization was applied and explicitly withholds sensitive values. It no longer expands the JSON input.
-- Added `test_release_notes_never_publish_customization_json` to the existing Python customization transaction suite. It inspects the actual softprops release step and rejects raw customization interpolation or password/PSK field names.
-- Added `.github/workflows/custom.yml` to both push and pull-request path filters of `.github/workflows/customization-transaction.yml`, so changing the public release boundary runs this regression.
-- This slice changes workflow/test files only; it does not modify firmware production sources or alter the product binary.
+- Custom builds accept printable ASCII signpassword and Wi-Fi PSKs and write them into generated C defaults. The previous c_string() escaped quotes and backslashes but left question marks unchanged. Inputs containing C trigraphs such as ??/ can trigger GCC -Wtrigraphs diagnostics, which echo the generated source line and can expose credential text in build logs; toolchains enabling trigraph conversion may also alter preprocessing.
+- c_string() now serializes every question mark as the standard C escape \?, preventing any adjacent ?? sequence from reaching the preprocessor.
+- Added a Python regression covering all nine C trigraphs. It compiles the generated literal with the host compiler under GNU89, -Wall -Wextra -Werror; it skips only if no host C compiler is installed.
+- This is a build-time customization safety fix; firmware runtime behavior and target product inputs are unchanged.
 
 ## Exact first actions for the next continuation
-1. Check the exact-head `Custom firmware defaults transaction regression` for this commit; the job must run the whole unittest suite and the new Release-body contract. Diagnose logs for any failure.
-2. Re-fetch the exact-head XY-C1 record only to document whether the workflow skipped because no firmware source changed; do not claim L3 from a workflow-only commit.
-3. Continue the P1 queue with a new source-confirmed stability/security defect. The first two WAN queue items (full-restart LAN-route recovery and fail-closed `ifname_t` publication) were already present in source and their exact-parent WAN route / DHCP Actions passed; do not reimplement them.
-4. Keep the DHCP 6rd transactional helper and account temp-file hardening as completed work; do not repeat their audits.
+1. Verify the exact-head Custom firmware defaults transaction regression runs the complete unittest suite, including the GNU89 trigraph compilation test. Inspect logs if it fails.
+2. Verify the AI handoff documentation contract for this commit; root roadmap, handoff and newest-first log were updated in the same atomic commit.
+3. Continue with a new P1 stability/security defect in a different subsystem. Do not revisit completed WAN full-restart recovery, checked ifname_t publication, DHCP 6rd rollback, or public Release-note redaction.
 
 ## Verification boundary
-- Parent `f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9`: all 38 non-XY push Actions PASS; XY-C1 `44715584790` was IN_PROGRESS at last check.
-- This commit: exact-head Actions are PENDING at creation. The new Python unittest is the required L2 gate. No new firmware Build/TRX/artifact or physical-router L4 evidence is claimed.
+- Product-source SHA f0c20ff: L3 VERIFIED by same-SHA XY-C1 Build/TRX/artifact run 44715584790.
+- Workflow-only SHA b8828568389b344795a761d923f1f09ff70147bc: Custom transaction and AI handoff Actions both PASS.
+- This commit's exact-head Actions are PENDING at creation. It changes build-time configuration serialization/tests only; no new firmware L3/L4 claim is needed.
 
 ## Mandatory handoff checkpoint
 Update exact main SHA, exact workflow status and the next actionable issue when materially changed. Avoid no-op documentation commits.

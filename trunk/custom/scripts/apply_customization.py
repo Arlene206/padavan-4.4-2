@@ -23,7 +23,8 @@ def fail(message):
 
 
 def c_string(value):
-    return '"' + value.replace("\\", "\\\\").replace('"', '\\"') + '"'
+    # Escape '?' so user input cannot form a C trigraph before tokenization.
+    return '"' + value.replace("\\", "\\\\").replace('"', '\\"').replace("?", "\\?") + '"'
 
 
 def validate_text(key, value):
