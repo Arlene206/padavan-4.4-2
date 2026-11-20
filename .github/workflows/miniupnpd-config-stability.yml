@@ -209,6 +209,12 @@ jobs:
           assert "inet_ntop(AF_INET6, (struct in6_addr *) p" not in pinhole_verify
           assert "inet_ntop(AF_INET6, (struct in6_addr *) p, int_ip" not in pinhole_verify
           assert "miniupnpd_soap_parse_int(leaseTime, &ltime)" in add_pinhole
+          assert "int err, resolved = 0;" in add_pinhole
+          assert "p->ai_addr" in add_pinhole and "struct sockaddr_in6" in add_pinhole
+          assert "if (!inet_ntop(AF_INET6," in add_pinhole
+          assert "if (resolved)" in add_pinhole
+          assert "AddPinhole: '%s' has no usable IPv6 address" in add_pinhole
+          assert 'SoapError(h, 402, "Invalid Args");' in add_pinhole
           assert "atoi(" not in add_pinhole and "strtol(" not in add_pinhole
           assert update_pinhole.count("miniupnpd_soap_parse_int(") == 2
           assert "atoi(" not in update_pinhole

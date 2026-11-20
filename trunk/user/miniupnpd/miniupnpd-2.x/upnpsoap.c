@@ -1758,42 +1758,50 @@ AddPinhole(struct upnphttp * h, const char * action, const char * ns)
 		while(isspace(rem_host[0]))
 			rem_host++;
 	}
-	/* rem_host should be converted to literal ipv6 : */
-	if(rem_host && (rem_host[0] != '\0') && (rem_host[0] != '*'))
+	/* Resolve a restrictive remote source to a literal IPv6 address. */
+	if (rem_host && rem_host[0] != '\0' && rem_host[0] != '*')
 	{
 		struct addrinfo *ai, *p;
 		struct addrinfo hints;
-		int err;
-		memset(&hints, 0, sizeof(struct addrinfo));
+		int err, resolved = 0;
+
+		memset(&hints, 0, sizeof(hints));
 		hints.ai_family = AF_INET6;
-		/*hints.ai_flags = */
-		/* hints.ai_protocol = proto; */
 		err = getaddrinfo(rem_host, rem_port, &hints, &ai);
-		if(err == 0)
+		if (err == 0)
 		{
-			/* take the 1st IPv6 address */
-			for(p = ai; p; p = p->ai_next)
+			for (p = ai; p; p = p->ai_next)
 			{
-				if(p->ai_family == AF_INET6)
-				{
-					inet_ntop(AF_INET6,
-					          &(((struct sockaddr_in6 *)p->ai_addr)->sin6_addr),
-					          rem_ip, sizeof(rem_ip));
-					syslog(LOG_INFO, "resolved '%s' to '%s'", rem_host, rem_ip);
-					rem_host = rem_ip;
-					break;
-				}
+				if (p->ai_family != AF_INET6 || !p->ai_addr ||
+				    p->ai_addrlen < sizeof(struct sockaddr_in6))
+					continue;
+				if (!inet_ntop(AF_INET6,
+					       &(((struct sockaddr_in6 *)p->ai_addr)->sin6_addr),
+					       rem_ip, sizeof(rem_ip)))
+					continue;
+				resolved = 1;
+				break;
 			}
 			freeaddrinfo(ai);
+			if (resolved)
+			{
+				syslog(LOG_INFO, "resolved '%s' to '%s'", rem_host, rem_ip);
+				rem_host = rem_ip;
+			}
+			else
+			{
+				syslog(LOG_WARNING, "AddPinhole: '%s' has no usable IPv6 address",
+				       rem_host);
+				SoapError(h, 402, "Invalid Args");
+				goto clear_and_exit;
+			}
 		}
 		else
 		{
-			syslog(LOG_WARNING, "AddPinhole : getaddrinfo(%s) : %s",
+			syslog(LOG_WARNING, "AddPinhole: getaddrinfo(%s): %s",
 			       rem_host, gai_strerror(err));
-#if 0
 			SoapError(h, 402, "Invalid Args");
 			goto clear_and_exit;
-#endif
 		}
 	}
 
