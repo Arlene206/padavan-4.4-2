@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 /* NVRAM APIs use 0/-1 and report the concrete failure through errno. */
@@ -94,6 +95,83 @@ rc_wan_nvram_copy_value(rc_wan_nvram_get_fn get_value, void *context,
 	return 0;
 }
 
+
+
+typedef int (*rc_wan_nvram_get_owned_fn)(void *context,
+					 const char *param_name,
+					 char **value, int *present);
+typedef int (*rc_wan_nvram_set_default_fn)(void *context,
+					   const char *param_name,
+					   const char *value);
+
+/*
+ * Seed one WAN default only when its unit-specific override is truly absent.
+ * Get callbacks return an owned value (or NULL when absent) and an errno-style
+ * status. This avoids lossy nvram_get() and protects cache-backed values until
+ * the setter consumes them.
+ */
+static inline int
+rc_wan_nvram_copy_missing_default(rc_wan_nvram_get_owned_fn get_owned,
+				  rc_wan_nvram_set_default_fn set_default,
+				  void *context, const char *target_name,
+				  const char *source_name,
+				  const char *fallback)
+{
+	char *target_value = NULL;
+	char *source_value = NULL;
+	const char *value;
+	int present = 0;
+	int status;
+
+	if (!get_owned || !set_default || !target_name || !target_name[0] ||
+	    !source_name || !source_name[0])
+		return EINVAL;
+
+	status = get_owned(context, target_name, &target_value, &present);
+	if (status != 0)
+		goto done;
+	if (present != 0 && present != 1) {
+		status = EIO;
+		goto done;
+	}
+	if (present == 1) {
+		status = target_value ? 0 : EIO;
+		goto done;
+	}
+	if (target_value) {
+		status = EIO;
+		goto done;
+	}
+
+	present = 0;
+	status = get_owned(context, source_name, &source_value, &present);
+	if (status != 0)
+		goto done;
+	if (present != 0 && present != 1) {
+		status = EIO;
+		goto done;
+	}
+	if (present == 1) {
+		if (!source_value) {
+			status = EIO;
+			goto done;
+		}
+		value = source_value;
+	} else {
+		if (source_value) {
+			status = EIO;
+			goto done;
+		}
+		value = fallback ? fallback : "";
+	}
+
+	status = set_default(context, target_name, value);
+
+done:
+	free(target_value);
+	free(source_value);
+	return status;
+}
 
 typedef int (*rc_wan_nvram_transaction_fn)(void *context);
 

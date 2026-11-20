@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "wan_nvram_status_policy.h"
@@ -122,6 +123,182 @@ test_unexpected_nonzero_result_is_not_success(void)
 	assert(rc_wan_nvram_write_status(1, 0) == EIO);
 }
 
+
+
+struct fake_missing_default {
+	const char *target_name;
+	const char *target_value;
+	const char *source_name;
+	const char *source_value;
+	int fail_read_at;
+	int read_failure;
+	int write_failure;
+	unsigned int read_calls;
+	unsigned int write_calls;
+	char written_name[32];
+	char written_value[64];
+};
+
+static int
+fake_get_owned(void *opaque, const char *param_name,
+	       char **value, int *present)
+{
+	struct fake_missing_default *fake =
+		(struct fake_missing_default *)opaque;
+	const char *stored = NULL;
+	unsigned int index = fake->read_calls++;
+
+	assert(index < 4);
+	*value = NULL;
+	*present = 0;
+	if ((int)index == fake->fail_read_at)
+		return fake->read_failure ? fake->read_failure : EIO;
+
+	if (strcmp(param_name, fake->target_name) == 0)
+		stored = fake->target_value;
+	else if (strcmp(param_name, fake->source_name) == 0)
+		stored = fake->source_value;
+	else
+		return ENOENT;
+
+	if (!stored)
+		return 0;
+	*value = (char *)malloc(strlen(stored) + 1);
+	if (!*value)
+		return ENOMEM;
+	memcpy(*value, stored, strlen(stored) + 1);
+	*present = 1;
+	return 0;
+}
+
+static int
+fake_set_default(void *opaque, const char *param_name, const char *value)
+{
+	struct fake_missing_default *fake =
+		(struct fake_missing_default *)opaque;
+
+	fake->write_calls++;
+	snprintf(fake->written_name, sizeof(fake->written_name), "%s", param_name);
+	snprintf(fake->written_value, sizeof(fake->written_value), "%s", value);
+	return fake->write_failure;
+}
+
+static void
+init_fake_missing_default(struct fake_missing_default *fake)
+{
+	memset(fake, 0, sizeof(*fake));
+	fake->target_name = "wan0_proto";
+	fake->source_name = "wan_proto";
+	fake->fail_read_at = -1;
+}
+
+static void
+test_wan0_default_copy_preserves_empty_existing_override(void)
+{
+	struct fake_missing_default fake;
+
+	init_fake_missing_default(&fake);
+	fake.target_value = "";
+	fake.source_value = "dhcp";
+	assert(rc_wan_nvram_copy_missing_default(
+		fake_get_owned, fake_set_default, &fake,
+		fake.target_name, fake.source_name, "static") == 0);
+	assert(fake.read_calls == 1);
+	assert(fake.write_calls == 0);
+}
+
+static void
+test_wan0_default_copy_uses_checked_source_value(void)
+{
+	struct fake_missing_default fake;
+
+	init_fake_missing_default(&fake);
+	fake.source_value = "pppoe";
+	assert(rc_wan_nvram_copy_missing_default(
+		fake_get_owned, fake_set_default, &fake,
+		fake.target_name, fake.source_name, "static") == 0);
+	assert(fake.read_calls == 2);
+	assert(fake.write_calls == 1);
+	assert(strcmp(fake.written_name, "wan0_proto") == 0);
+	assert(strcmp(fake.written_value, "pppoe") == 0);
+}
+
+static void
+test_wan0_default_copy_uses_factory_fallback_when_source_is_absent(void)
+{
+	struct fake_missing_default fake;
+
+	init_fake_missing_default(&fake);
+	assert(rc_wan_nvram_copy_missing_default(
+		fake_get_owned, fake_set_default, &fake,
+		fake.target_name, fake.source_name, "static") == 0);
+	assert(fake.read_calls == 2);
+	assert(fake.write_calls == 1);
+	assert(strcmp(fake.written_value, "static") == 0);
+}
+
+static void
+test_wan0_default_copy_stops_on_target_read_error(void)
+{
+	struct fake_missing_default fake;
+
+	init_fake_missing_default(&fake);
+	fake.fail_read_at = 0;
+	fake.read_failure = EBUSY;
+	assert(rc_wan_nvram_copy_missing_default(
+		fake_get_owned, fake_set_default, &fake,
+		fake.target_name, fake.source_name, "static") == EBUSY);
+	assert(fake.read_calls == 1);
+	assert(fake.write_calls == 0);
+}
+
+static void
+test_wan0_default_copy_stops_on_source_read_error(void)
+{
+	struct fake_missing_default fake;
+
+	init_fake_missing_default(&fake);
+	fake.fail_read_at = 1;
+	fake.read_failure = EIO;
+	assert(rc_wan_nvram_copy_missing_default(
+		fake_get_owned, fake_set_default, &fake,
+		fake.target_name, fake.source_name, "static") == EIO);
+	assert(fake.read_calls == 2);
+	assert(fake.write_calls == 0);
+}
+
+static void
+test_wan0_default_copy_propagates_write_error(void)
+{
+	struct fake_missing_default fake;
+
+	init_fake_missing_default(&fake);
+	fake.write_failure = ENOSPC;
+	assert(rc_wan_nvram_copy_missing_default(
+		fake_get_owned, fake_set_default, &fake,
+		fake.target_name, fake.source_name, "static") == ENOSPC);
+	assert(fake.read_calls == 2);
+	assert(fake.write_calls == 1);
+}
+
+static void
+test_wan0_default_copy_rejects_invalid_arguments(void)
+{
+	struct fake_missing_default fake;
+
+	init_fake_missing_default(&fake);
+	assert(rc_wan_nvram_copy_missing_default(
+		NULL, fake_set_default, &fake,
+		fake.target_name, fake.source_name, "static") == EINVAL);
+	assert(rc_wan_nvram_copy_missing_default(
+		fake_get_owned, NULL, &fake,
+		fake.target_name, fake.source_name, "static") == EINVAL);
+	assert(rc_wan_nvram_copy_missing_default(
+		fake_get_owned, fake_set_default, &fake,
+		"", fake.source_name, "static") == EINVAL);
+	assert(fake.read_calls == 0);
+	assert(fake.write_calls == 0);
+}
 
 struct fake_value_copy {
 	int fail_at;
@@ -815,6 +992,13 @@ main(void)
 	test_required_value_sequence_success();
 	test_required_value_sequence_stops_at_first_error();
 	test_wan0_boot_values_stop_at_each_nvram_failure();
+	test_wan0_default_copy_preserves_empty_existing_override();
+	test_wan0_default_copy_uses_checked_source_value();
+	test_wan0_default_copy_uses_factory_fallback_when_source_is_absent();
+	test_wan0_default_copy_stops_on_target_read_error();
+	test_wan0_default_copy_stops_on_source_read_error();
+	test_wan0_default_copy_propagates_write_error();
+	test_wan0_default_copy_rejects_invalid_arguments();
 	test_required_value_sequence_rejects_invalid_values();
 	test_wan6_reset_config_preserves_identity_when_required_write_fails();
 	test_wan6_reset_config_clears_identity_only_after_all_values_succeed();

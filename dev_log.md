@@ -1,3 +1,15 @@
+## 2026-11-20 — Distinguish absent WAN0 defaults from NVRAM read failures
+
+- Parent main SHA: 36519699b833ac0582b7f54f3d9d52b80bfb7245.
+- The fail-closed WAN0 initializer still used legacy nvram_get() for the target override and shared default key. That wrapper maps backend/read/close errors to NULL, making an I/O failure indistinguishable from an absent key and potentially replacing a configured WAN0 override with a factory default.
+- Confirmed the checked API tri-state contract and that the kernel single-key snapshot reads the live tuple table (including temporary values). The returned pointer is shared cache storage, so the new getter immediately duplicates it before any subsequent NVRAM call.
+- Added rc_wan_nvram_copy_missing_default(): it preserves an existing empty target override, checks source only when target is absent, uses router_defaults fallback only when the shared source key is genuinely absent, and propagates all read/write errors.
+- set_wan0_vars() now uses nvram_get_checked() owned-value callbacks; legacy nvram_get() calls are removed from this initialization path. Failures propagate through the existing fatal PID1 gate.
+- Added seven injected cases covering empty override, normal source copy, missing-source fallback, target/source read errors, setter error and invalid arguments. The existing Process workflow compiles/runs this policy under GNU89, -Werror, ASan and UBSan.
+- Parent CI: exact 365 Process 44719246958, HTTPD 44719247010 and AI docs 44719246942 PASS. Product-source 05e2 XY-C1 run 44718942242 remained IN_PROGRESS at last poll; no L3 claim. This commit's exact-head Actions pending at creation.
+
+---
+
 ## 2026-11-20 — Update PID1 fatal-gate CI contracts for WAN0 NVRAM failure
 
 - Parent main SHA: 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45.

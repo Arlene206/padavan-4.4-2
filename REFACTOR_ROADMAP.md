@@ -1,14 +1,15 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Product source f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 is L3 VERIFIED: XY-C1 run 44715584790 passed Build XY-C1, TRX verification and artifact upload 14620685104.
-- f2bae37918b42648fd4d8ff6be95fdc372bf1472 passed all-nine-trigraph Custom transaction run 44718064716 and AI docs run 44718065095.
-- WAN0 initialization is fail-closed in product-source commit 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45; first-pass Process lifecycle run 44718942446 and HTTPD security run 44718942454 exposed stale source assertions that pinned fatal-exit count at four. Both are updated here to expect the new fifth fatal gate and explicitly check it precedes GPIO initialization. No runtime defect was reported by those runs; NVRAM policy subtests before the assertions passed.
-- Exact-head Process/HTTPD rerun plus same-source XY-C1 Build/TRX/artifact evidence must be checked separately.
+- Parent main SHA: 36519699b833ac0582b7f54f3d9d52b80bfb7245; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 is L3 VERIFIED on exact XY-C1 run 44715584790 (Build, TRX and artifact 14620685104).
+- Workflow/source-contract SHA 36519699b833ac0582b7f54f3d9d52b80bfb7245 passed exact Process/lifecycle 44719246958, HTTPD security 44719247010 and AI docs 44719246942.
+- WAN0 initial write-failure handling is closed. A remaining checked-read hole was found: legacy nvram_get() conflated absent values and backend/read/close errors while seeding per-unit WAN defaults. This slice switches target/source lookups to nvram_get_checked(), copies cache-backed values before subsequent NVRAM operations, preserves present empty overrides and aborts on read failures. Seven injected cases join the existing WAN NVRAM regression.
+- Exact 05e2 XY-C1 run 44718942242 remained IN_PROGRESS at last poll; no same-SHA Build/TRX/artifact claim yet.
 
 ## Priority queue
-- CLOSED: WAN full-restart static LAN route recovery; checked ifname_t publication and physical-WAN recovery; DHCPv4 6rd transactional publication; custom release credential redaction; C trigraph serialization; WAN0 boot NVRAM fail-closed.
-- NEXT: continue independent P1 RC/service startup and lifecycle failures from source-confirmed paths.
-- P2: inspect other privileged configuration/release surfaces for credential-bearing diagnostics and unsafe interpolation.
+- CLOSED: WAN full-restart static LAN route recovery; checked ifname_t publication; DHCPv4 6rd transactional publication; custom release credential redaction and trigraph escaping.
+- CLOSED: WAN0 runtime-write status propagation/fatal PID1 gate; exact 365 Process, HTTPD and AI docs verification PASS.
+- ACTIVE: finish checked-read counterpart for WAN0 default-copy initialization, then exact Process/XY-C1 checks.
+- NEXT: another source-confirmed P1 RC/service initialization or lifecycle error path, without repeating these fixes.
 
 
 ## Whole-repository module status

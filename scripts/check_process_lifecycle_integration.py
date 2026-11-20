@@ -3431,9 +3431,19 @@ print("optional infosvr/LLTD/rstats disabled-start status aggregation: PASS")
 # WAN0 defaults/runtime identity must be checked before PID 1 permits boot
 # services to start. A single failed write is fatal instead of leaving a
 # partially initialized wan0_ tuple while initialization reports success.
+wan0_get = c_function_body(rc_source, "rc_wan0_nvram_get_owned(")
+assert "nvram_get_checked(param_name, &cached_value)" in wan0_get
+assert "rc_wan_nvram_read_status(api_result, saved_errno)" in wan0_get
+assert "malloc(strlen(cached_value) + 1)" in wan0_get
+assert "memcpy(*value, cached_value, strlen(cached_value) + 1)" in wan0_get
+wan0_set_default = c_function_body(rc_source, "rc_wan0_nvram_set_default(")
+assert "nvram_set_temp(param_name, value)" in wan0_set_default
+assert "rc_wan_nvram_write_status(api_result, saved_errno)" in wan0_set_default
 wan0_init = c_function_body(rc_source, "set_wan0_vars(void)")
-assert "api_result = nvram_set_temp(tmp, value);" in wan0_init
-assert "rc_wan_nvram_write_status(api_result, saved_errno)" in wan0_init
+assert "rc_wan_nvram_copy_missing_default(" in wan0_init
+assert "rc_wan0_nvram_get_owned" in wan0_init
+assert "rc_wan0_nvram_set_default" in wan0_init
+assert "nvram_get(" not in wan0_init
 assert "if (status != 0)" in wan0_init
 assert "return status;" in wan0_init
 assert "rc_wan_nvram_set_required_values(" in wan0_init
@@ -3458,6 +3468,18 @@ assert router_init.index("nvram_setup_status = nvram_convert_misc_values();") < 
 wan_nvram_test = (root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 assert "test_wan0_boot_values_stop_at_each_nvram_failure" in wan_nvram_test
 assert "test_wan0_boot_values_stop_at_each_nvram_failure();" in wan_nvram_test
+for case in (
+    "test_wan0_default_copy_preserves_empty_existing_override",
+    "test_wan0_default_copy_uses_checked_source_value",
+    "test_wan0_default_copy_uses_factory_fallback_when_source_is_absent",
+    "test_wan0_default_copy_stops_on_target_read_error",
+    "test_wan0_default_copy_stops_on_source_read_error",
+    "test_wan0_default_copy_propagates_write_error",
+    "test_wan0_default_copy_rejects_invalid_arguments",
+):
+    assert case in wan_nvram_test
+    assert case + "();" in wan_nvram_test
+assert "rc_wan_nvram_copy_missing_default" in policy_header
 assert '"trunk/user/rc/src/tests/wan_nvram_status_policy.c"' in process_workflow
 assert "Compile and run WAN0 NVRAM initialization failure regression" in process_workflow
 print("WAN0 NVRAM defaults/runtime identity fail-closed boot gate: PASS")

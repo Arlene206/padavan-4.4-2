@@ -335,6 +335,52 @@ init_gpio_leds_buttons(void)
 }
 
 static int
+rc_wan0_nvram_get_owned(void *context, const char *param_name,
+			char **value, int *present)
+{
+	char *cached_value = NULL;
+	int api_result, saved_errno, status;
+
+	(void)context;
+	if (!param_name || !value || !present)
+		return EINVAL;
+	*value = NULL;
+	*present = 0;
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &cached_value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+	if (api_result == 0)
+		return 0;
+	if (api_result != 1 || !cached_value)
+		return EIO;
+
+	/* nvram_get_checked() returns shared cache storage; keep an owned copy. */
+	*value = (char *)malloc(strlen(cached_value) + 1);
+	if (!*value)
+		return ENOMEM;
+	memcpy(*value, cached_value, strlen(cached_value) + 1);
+	*present = 1;
+	return 0;
+}
+
+static int
+rc_wan0_nvram_set_default(void *context, const char *param_name,
+			  const char *value)
+{
+	int api_result, saved_errno;
+
+	(void)context;
+	errno = 0;
+	api_result = nvram_set_temp(param_name, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+static int
 set_wan0_runtime_value_status(void *context, const char *param_name,
 			      const char *value)
 {
@@ -363,9 +409,8 @@ set_wan0_vars(void)
 		{ "ifname_t", "" }
 	};
 	struct nvram_pair *np;
-	char *value;
 	char tmp[100], prefix[16];
-	int api_result, saved_errno, status;
+	int status;
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", 0);
 
@@ -373,17 +418,10 @@ set_wan0_vars(void)
 	for (np = router_defaults; np->name; np++) {
 		if (strncmp(np->name, "wan_", 4) != 0)
 			continue;
-		if (nvram_get(strcat_r(prefix, &np->name[4], tmp)))
-			continue;
-
-		value = nvram_get(np->name);
-		if (!value)
-			value = np->value ? np->value : "";
-
-		errno = 0;
-		api_result = nvram_set_temp(tmp, value);
-		saved_errno = errno;
-		status = rc_wan_nvram_write_status(api_result, saved_errno);
+		status = rc_wan_nvram_copy_missing_default(
+			rc_wan0_nvram_get_owned, rc_wan0_nvram_set_default,
+			NULL, strcat_r(prefix, &np->name[4], tmp),
+			np->name, np->value);
 		if (status != 0) {
 			logmessage(LOGNAME,
 				   "cannot initialize WAN0 default %s (status=%d)",
