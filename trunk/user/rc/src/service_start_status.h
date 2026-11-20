@@ -15,6 +15,13 @@ rc_service_restart_after_stop(int stop_status)
 	return stop_status == 0;
 }
 
+/* Rebuild AP LAN only after the old client was conclusively stopped. */
+static inline int
+rc_lan_ap_teardown_recovery_required(int dhcp_stop_status, int cleanup_status)
+{
+	return dhcp_stop_status == 0 && cleanup_status != 0;
+}
+
 /* A queued storage event is acknowledged only after required starts pass. */
 static inline int
 rc_service_start_event_is_complete(int start_status)

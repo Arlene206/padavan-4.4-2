@@ -620,11 +620,22 @@ test_lan_restart_rollback_only_restarts_confirmed_stops(void)
 		assert(!rc_service_restart_after_stop(failures[i]));
 }
 
+static void
+test_ap_lan_teardown_rollback_requires_confirmed_dhcp_stop(void)
+{
+	assert(!rc_lan_ap_teardown_recovery_required(EIO, EIO));
+	assert(!rc_lan_ap_teardown_recovery_required(EBUSY, 0));
+	assert(!rc_lan_ap_teardown_recovery_required(0, 0));
+	assert(rc_lan_ap_teardown_recovery_required(0, EIO));
+	assert(rc_lan_ap_teardown_recovery_required(0, ETIMEDOUT));
+}
+
 int
 main(void)
 {
 	test_optional_daemon_start_preflight_is_idempotent_and_fail_closed();
 	test_lan_restart_rollback_only_restarts_confirmed_stops();
+	test_ap_lan_teardown_rollback_requires_confirmed_dhcp_stop();
 	test_crond_positive_restart_error_reaches_boot_and_notification_status();
 	assert(rc_first_service_start_status(0, 0) == 0);
 	assert(rc_first_service_start_status(0, -1) == -1);

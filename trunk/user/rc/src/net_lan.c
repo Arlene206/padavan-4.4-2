@@ -1215,10 +1215,39 @@ start_lan(int is_ap_mode, int do_wait)
 	return start_status;
 }
 
+static int
+lan_ap_teardown_abort_restore(int original_status, const char *reason)
+{
+	int restore_status, resume_status = 0;
+
+	/*
+	 * stop_lan() has already released the AP DHCP client. Re-run the normal
+	 * AP bring-up path so a failed teardown cannot leave the still-configured
+	 * LAN bridge without its DHCP client or monitor.
+	 */
+	logmessage(LOGNAME, "restoring AP LAN after aborted teardown (%s, status=%d)",
+		   reason, original_status);
+	restore_status = start_lan(1, 1);
+	if (restore_status != 0) {
+		logmessage(LOGNAME, "AP LAN rollback incomplete after %s (status=%d)",
+			   reason, restore_status);
+		/* start_lan() may fail before reaching its monitor notification. */
+		resume_status = notify_run_detect_internet(2);
+		if (resume_status != 0)
+			logmessage(LOGNAME, "AP Internet monitor resume after rollback failed (status=%d)",
+				   resume_status);
+	}
+
+	return rc_first_service_start_status(
+		rc_first_service_start_status(original_status, restore_status),
+		resume_status);
+}
+
 int
 stop_lan(int is_ap_mode)
 {
 	int conntrack_status = 0, route_status = 0, ipv6_status = 0;
+	int ap_dhcp_stop_status = -1;
 	if (is_ap_mode) {
 		char *svcs[] = { "detect_wan", NULL };
 		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
@@ -1231,19 +1260,28 @@ stop_lan(int is_ap_mode)
 				   pause_status);
 			return pause_status;
 		}
-		status = stop_udhcpc_lan();
+		ap_dhcp_stop_status = stop_udhcpc_lan();
+		status = ap_dhcp_stop_status;
 		if (status == 0)
 			status = kill_services(svcs, 3, 1);
 		if (status != 0) {
-			/* The old AP network is still live; undo the pause because the
-			 * fail-closed DHCP preflight aborted before touching the bridge. */
-			monitor_resume_status = notify_run_detect_internet(2);
-			if (monitor_resume_status != 0)
-				logmessage(LOGNAME,
-					   "Internet monitor resume failed after aborted AP DHCP teardown (status=%d)",
-					   monitor_resume_status);
+			if (rc_lan_ap_teardown_recovery_required(
+				    ap_dhcp_stop_status, status)) {
+				status = lan_ap_teardown_abort_restore(status,
+							       "WAN detector stop");
+			} else {
+				/* DHCP stop failed or the client identity is unknown.
+				 * Do not launch a second client; just resume detection. */
+				monitor_resume_status = notify_run_detect_internet(2);
+				if (monitor_resume_status != 0)
+					logmessage(LOGNAME,
+						   "Internet monitor resume failed after aborted AP DHCP stop (status=%d)",
+						   monitor_resume_status);
+				status = rc_first_service_start_status(status,
+								       monitor_resume_status);
+			}
 			logmessage(LOGNAME,
-				   "refusing LAN teardown while DHCP client identity remains active or unknown (status=%d)",
+				   "refusing LAN teardown because AP DHCP/monitor preflight was incomplete (status=%d)",
 				   status);
 			return status;
 		}
@@ -1272,22 +1310,20 @@ stop_lan(int is_ap_mode)
 
 	/* Bring down LAN interface */
 	{
-		int status = ifconfig(IFNAME_BR, 0, NULL, NULL);
-		int monitor_resume_status = 0;
-
-		if (status != 0 && is_ap_mode) {
-			monitor_resume_status = notify_run_detect_internet(2);
-			if (monitor_resume_status != 0)
-				logmessage(LOGNAME,
-					   "Internet monitor resume failed after AP bridge teardown failure (status=%d)",
-					   monitor_resume_status);
-		}
-		return rc_first_service_start_status(
+		int bridge_status = ifconfig(IFNAME_BR, 0, NULL, NULL);
+		int teardown_status = rc_first_service_start_status(
 			rc_first_service_start_status(
-				rc_first_service_start_status(
-					rc_first_service_start_status(conntrack_status, route_status), ipv6_status),
-				status),
-			monitor_resume_status);
+				rc_first_service_start_status(conntrack_status, route_status),
+				ipv6_status),
+			bridge_status);
+
+		if (is_ap_mode && rc_lan_ap_teardown_recovery_required(
+				    ap_dhcp_stop_status,
+				    rc_first_service_start_status(ipv6_status,
+								  bridge_status)))
+			teardown_status = lan_ap_teardown_abort_restore(
+				teardown_status, "IPv6/bridge cleanup");
+		return teardown_status;
 	}
 }
 
