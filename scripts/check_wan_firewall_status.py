@@ -727,7 +727,7 @@ for marker in (
     'values[2].value = context->ifname;',
     'values[3].value = context->remote_ip;',
     'values[4].value = context->dns;',
-    "rc_wan_nvram_set_all_values(",
+    "dhcp_lease_nvram_publish(",
     "ppp_wan_ipup_set_nvram_value_status",
     "values[i].previous_value = previous_text[i];",
     "dhcp_lease_nvram_restore(",

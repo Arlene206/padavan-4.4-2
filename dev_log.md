@@ -1,3 +1,11 @@
+## 2026-11-20 — Align WAN/PPP and DHCP-renew source contracts with shared transactions
+
+- Parent main SHA: `2c19a2172400fb3b775168c499f1148bb3c6b5a6`; production implementation under validation: `10b57237ced5487a0d17e0bb09425ea96973a78e`.
+- WAN route `44689432208` and XY-C1 `44689432315` on `5e7d8cf`, plus XY-C1 `44689620163` on `b5146272`, failed in `scripts/check_wan_firewall_status.py` because its PPP snapshot marker expected `rc_wan_nvram_set_all_values()`. Production `ppp_wan_ipup_publish_address()` correctly calls `dhcp_lease_nvram_publish()` inside the NVRAM transaction and retries `dhcp_lease_nvram_restore()` under a fresh transaction; checker now matches that code.
+- HTTPD `44689024189` on source `10b5723` failed because its embedded contract required removed comment text `dnsmasq domain-specific server routing too`. It now verifies DNS/domain changes set `resolver_changed`, and publication failure is checked before the resolver-refresh gate/call.
+- WAN DHCP callback `44689620059` passed on `b5146272`; NVRAM boundary `44689024044` and injected GNU89/Werror/ASan/UBSan attempt-all/full-rollback regression passed on production source `10b5723`. AI docs `44689831389` passed on parent `2c19a2172400fb3b775168c499f1148bb3c6b5a6`.
+- Validator/workflow/handoff change only; no production C changed in this slice. The XY-C1 attempts stopped before detector/MIPS build/TRX/artifact due to the stale source-check assertion; L3/L4 remain NOT VERIFIED.
+
 ## 2026-11-20 — Restore mandatory handoff status and next-action headings
 
 - Parent main SHA: `b5146272dd0149586fb5bb27d5aa43d85f2bb1fd`.

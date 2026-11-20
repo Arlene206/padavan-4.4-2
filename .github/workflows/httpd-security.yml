@@ -2632,8 +2632,12 @@ jobs:
           assert "dhcp_lease_router_is_changed(" in tv_router
           assert "value ? trim_r(value) : NULL" in tv_router
           assert "if (value)" not in tv_router
-          assert "dnsmasq domain-specific server routing too" in renew
-          assert 'refresh_resolvconf_nonfatal("WAN DHCP renewal", 0);' in renew
+          assert 'if (strcmp(old_domain, lease_domain) != 0)' in renew
+          assert "resolver_changed = 1;" in renew
+          resolver_publish_failure = renew.index("if (nvram_status != 0)")
+          resolver_refresh_gate = renew.index("if (resolver_changed)")
+          resolver_refresh_call = renew.index('refresh_resolvconf_nonfatal("WAN DHCP renewal", 0);')
+          assert resolver_publish_failure < resolver_refresh_gate < resolver_refresh_call
           assert "int\ndel_dhcp_routes_by_prefix" in wan
           assert "int  del_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric);" in header
 

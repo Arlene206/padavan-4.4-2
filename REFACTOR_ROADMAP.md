@@ -1,6 +1,6 @@
 # 2026-11-20 active checkpoint
-
-- Main parent for current DHCP lease validator repair: `9cadbbd9c116db4b8c0cc3d4f8e312800575f173`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- Main parent for WAN/PPP source-contract follow-up: `2c19a2172400fb3b775168c499f1148bb3c6b5a6`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- Production source `10b5723` implements transaction-backed WAN DHCP renewal and PPP ip-up snapshots. WAN DHCP callback `44689620059` and NVRAM boundary `44689024044` passed; AI handoff docs `44689831389` passed on the current parent. WAN route/XY-C1 still exposed a stale PPP publisher marker, and HTTPD exposed a removed comment-only marker; both source contracts are corrected here. Same-production-SHA MIPS build/TRX/artifact and L3/L4 remain NOT VERIFIED.
 - Source SHA 10b5723 passed the injected GNU89 DHCP lease policy executable. The LAN full-vector rollback checker and MAN teardown checked-writer contract are now corrected; exact-head WAN DHCP callback passed on b514627. AI handoff run 44689620108 exposed missing required headings, restored in this commit. XY-C1 44689620163 was pending; same-SHA build/TRX/artifact and L3/L4 remain unverified.
 - WAN route inline pause-order contracts now look for the checked temporary `set_nvram_value_status("vpnc_dns_t", "")` call in both ordering assertions; the removed unchecked `nvram_set_temp()` marker is no longer expected.
 - WAN-down resolver snapshot hardening in this slice: `vpnc_dns_t` and conditional `wanN_dns` clears now use errno-aware setters, preserve first-error teardown status, and still allow subsequent cleanup/resolver refresh.
