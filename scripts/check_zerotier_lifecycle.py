@@ -130,13 +130,28 @@ require('if [ -L "$config_path" ]' in config_dir_body and
         'chmod 700 "$zt_network_dir"' in config_dir_body,
         "ZeroTier configuration directories must reject symlinks and be private")
 require('mktemp -d "$config_path/.identity.XXXXXX"' in identity_body and
-        "trap 'rm -rf \"$zt_identity_tmp_dir\"' EXIT" in identity_body and
+        'trap \'zerotier_identity_cleanup "$?"\' EXIT' in identity_body and
         '"$PROGIDT" generate "$zt_identity_secret_tmp" "$zt_identity_public_tmp"' in identity_body and
         '"$PROGIDT" getpublic "$zt_identity_secret_tmp"' in identity_body and
-        'chmod 600 "$zt_identity_secret_tmp" "$zt_identity_public_tmp"' in identity_body and
+        'ln "$config_path/identity.secret" "$zt_identity_secret_backup"' in identity_body and
+        'ln "$config_path/identity.public" "$zt_identity_public_backup"' in identity_body and
         'mv -f "$zt_identity_public_tmp" "$config_path/identity.public"' in identity_body and
-        'mv -f "$zt_identity_secret_tmp" "$config_path/identity.secret"' in identity_body,
-        "identity material must be staged privately and atomically published")
+        'mv -f "$zt_identity_secret_tmp" "$config_path/identity.secret"' in identity_body and
+        'zt_identity_secret_had_original' in identity_body and
+        'zt_identity_public_had_original' in identity_body and
+        'zt_identity_preserve_backup=1' in identity_body and
+        'rm -rf "$zt_identity_tmp_dir"' in identity_body,
+        "identity pair publication must retain hard-link recovery points and roll back partial renames");
+require(identity_body.index('mv -f "$zt_identity_secret_tmp" "$config_path/identity.secret"') <
+        identity_body.index('nvram set zerotier_secret="$secret"') <
+        identity_body.index('nvram commit') <
+        identity_body.index('zt_identity_transaction_active=0'),
+        "new identity secret must be persisted only after both files are published");
+require('2|3) return 1' in test and
+        'identity.public.previous' in test and
+        'NVRAM commit failure was reported as success' in test and
+        'NVRAM set failure was reported as success' in test,
+        "identity rollback regression must cover second rename, failed recovery, and NVRAM failures")
 require('if [ -L "$zt_identity_dest" ]' in identity_body and
         'nvram set zerotier_secret="$secret"' in identity_body and
         'nvram commit' in identity_body,
@@ -160,7 +175,9 @@ for token in ['config directory was not restricted to mode 700',
               'generated identity secret was not mode 600',
               'stored identity preparation failed',
               'failed identity staging replaced the prior secret',
-              'identity publisher followed a symlink destination']:
+              'identity publisher followed a symlink destination',
+              'second identity-file publication failure was reported as success',
+              'incomplete identity rollback was reported as success']:
     require(token in test, f"private ZeroTier writer regression missing {token}")
 
 

@@ -43,10 +43,56 @@ zerotier_prepare_identity() {
 		umask 077
 		[ -d "$config_path" ] && [ ! -L "$config_path" ] || exit 1
 		zt_identity_tmp_dir="$(mktemp -d "$config_path/.identity.XXXXXX")" || exit 1
-		trap 'rm -rf "$zt_identity_tmp_dir"' EXIT
-		trap 'exit 1' HUP INT TERM
 		zt_identity_secret_tmp="$zt_identity_tmp_dir/identity.secret"
 		zt_identity_public_tmp="$zt_identity_tmp_dir/identity.public"
+		zt_identity_secret_backup="$zt_identity_tmp_dir/identity.secret.previous"
+		zt_identity_public_backup="$zt_identity_tmp_dir/identity.public.previous"
+		zt_identity_original_secret="$secret"
+		zt_identity_secret_had_original=0
+		zt_identity_public_had_original=0
+		zt_identity_transaction_active=1
+		zt_identity_preserve_backup=0
+
+		# Recover either half of a partially published pair before discarding
+		# the private staging directory. A missing original is restored by unlink.
+		zerotier_identity_cleanup() {
+			zt_identity_exit_status="$1"
+			zt_identity_rollback_status=0
+			if [ "$zt_identity_transaction_active" = "1" ]; then
+				if [ ! -e "$zt_identity_secret_tmp" ]; then
+					if [ "$zt_identity_secret_had_original" = "1" ]; then
+						mv -f "$zt_identity_secret_backup" "$config_path/identity.secret" ||
+							zt_identity_rollback_status=1
+					else
+						rm -f "$config_path/identity.secret" ||
+							zt_identity_rollback_status=1
+					fi
+				fi
+				if [ ! -e "$zt_identity_public_tmp" ]; then
+					if [ "$zt_identity_public_had_original" = "1" ]; then
+						mv -f "$zt_identity_public_backup" "$config_path/identity.public" ||
+							zt_identity_rollback_status=1
+					else
+						rm -f "$config_path/identity.public" ||
+							zt_identity_rollback_status=1
+					fi
+				fi
+			fi
+
+			if [ "$zt_identity_rollback_status" != "0" ]; then
+				zt_identity_preserve_backup=1
+				logger -t "zerotier" "身份文件回滚未完成；保留私有恢复目录: $zt_identity_tmp_dir"
+			fi
+			if [ "$zt_identity_preserve_backup" != "1" ]; then
+				if ! rm -rf "$zt_identity_tmp_dir"; then
+					logger -t "zerotier" "身份暂存目录清理失败，请检查: $zt_identity_tmp_dir"
+					zt_identity_exit_status=1
+				fi
+			fi
+			return "$zt_identity_exit_status"
+		}
+		trap 'zerotier_identity_cleanup "$?"' EXIT
+		trap 'exit 1' HUP INT TERM
 
 		if [ -z "$secret" ]; then
 			logger -t "zerotier" "设备密匙为空,正在生成密匙,请稍后..."
@@ -60,10 +106,6 @@ zerotier_prepare_identity() {
 			fi
 			secret="$(cat "$zt_identity_secret_tmp")" || exit 1
 			[ -n "$secret" ] || exit 1
-			if ! nvram set zerotier_secret="$secret" || ! nvram commit; then
-				logger -t "zerotier" "ZeroTier身份密匙持久化失败"
-				exit 1
-			fi
 		else
 			logger -t "zerotier" "找到密匙,正在写入文件,请稍后..."
 			if ! printf '%s\n' "$secret" > "$zt_identity_secret_tmp"; then
@@ -87,6 +129,23 @@ zerotier_prepare_identity() {
 				exit 1
 			fi
 		done
+
+		# Retain same-filesystem hard links to both old files before changing
+		# either destination. If links are unavailable, fail closed pre-publish.
+		if [ -e "$config_path/identity.secret" ]; then
+			if ! ln "$config_path/identity.secret" "$zt_identity_secret_backup"; then
+				logger -t "zerotier" "无法备份原有身份密匙"
+				exit 1
+			fi
+			zt_identity_secret_had_original=1
+		fi
+		if [ -e "$config_path/identity.public" ]; then
+			if ! ln "$config_path/identity.public" "$zt_identity_public_backup"; then
+				logger -t "zerotier" "无法备份原有身份公钥"
+				exit 1
+			fi
+			zt_identity_public_had_original=1
+		fi
 		if ! chmod 600 "$zt_identity_secret_tmp" "$zt_identity_public_tmp"; then
 			logger -t "zerotier" "无法限制ZeroTier身份文件权限"
 			exit 1
@@ -99,6 +158,29 @@ zerotier_prepare_identity() {
 			logger -t "zerotier" "无法发布ZeroTier密匙文件"
 			exit 1
 		fi
+
+		# Persist a newly generated secret only after both files are published.
+		# On NVRAM failure, restore the original value and roll the file pair back.
+		if [ -z "$zt_identity_original_secret" ]; then
+			if ! nvram set zerotier_secret="$secret"; then
+				logger -t "zerotier" "ZeroTier身份密匙写入NVRAM失败"
+				if ! nvram set zerotier_secret="$zt_identity_original_secret" ||
+				   ! nvram commit; then
+					logger -t "zerotier" "ZeroTier NVRAM身份值回滚失败"
+				fi
+				exit 1
+			fi
+			if ! nvram commit; then
+				logger -t "zerotier" "ZeroTier身份密匙持久化失败"
+				if ! nvram set zerotier_secret="$zt_identity_original_secret" ||
+				   ! nvram commit; then
+					logger -t "zerotier" "ZeroTier NVRAM身份值回滚失败"
+				fi
+				exit 1
+			fi
+		fi
+
+		zt_identity_transaction_active=0
 		exit 0
 	)
 }

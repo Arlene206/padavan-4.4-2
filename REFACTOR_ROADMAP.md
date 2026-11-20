@@ -73,6 +73,8 @@
 
 - Account replacement regression depth: a review of the missing-original case found its metadata had not been reset with the cleared backup path, causing early argument validation rather than the intended rollback. The fixture now covers the missing-original deletion path and a failed third (shadow) rename after passwd/group publication, asserting reverse-order restoration and no backup-link leaks. Exact Process validation pending.
 
+- ZeroTier identity publication follow-up: found a second-rename failure/signal window that could leave `identity.public` from a new identity paired with the old `identity.secret`. The writer now keeps hard-link recovery points, rolls back partial file publication on EXIT, retains a private recovery directory when rollback fails, and persists newly generated NVRAM identity only after both file renames. Added injected second-rename, rollback-failure/manual-recovery, and NVRAM-failure regression cases; exact-head Actions pending.
+
 ## Priority queue
 
 - SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).

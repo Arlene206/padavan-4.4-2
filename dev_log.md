@@ -1,3 +1,14 @@
+## 2026-11-19 — Make ZeroTier identity publication rollback-capable
+
+- Parent SHA: `b6150ea46a084510a3c56f91646ea9ada905e72a`.
+- A follow-up review found `zerotier_prepare_identity()` still renamed `identity.public` before `identity.secret` without a recovery path. If the second rename failed or a signal arrived between them, the persisted identity pair could be mismatched. Newly generated secrets were also committed to NVRAM before either file was published.
+- The helper now retains same-filesystem hard-link backups of existing identity files in its mode-0700 staging directory, tracks which outputs were published, restores or removes destinations in reverse order on failure/EXIT, and preserves the private recovery directory if restoration fails. New NVRAM identity state is written/committed only after both files publish; failed set/commit restores the previous volatile value and rolls back the files.
+- Extended the ZeroTier host lifecycle regression with injected second-rename failure, injected rollback failure plus manual recovery-link restoration, and NVRAM set/commit failure rollback tests. The source contract now checks backup/rollback and persistence ordering.
+- Host execution was not available in this environment; exact-head ZeroTier regression, Process inventory and XY-C1 validation are pending. No L3/L4 claim for this follow-up.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Assert the missing-original rollback actually executes
 
 - Parent SHA: `1e09d066d315b36fbd0010eea96bdf68e96e1333`.

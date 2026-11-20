@@ -5,6 +5,11 @@ ROOT=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
 SCRIPT="$ROOT/trunk/user/zerotier/zerotier.sh"
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/zerotier-lifecycle.XXXXXX")
 TEST_STATE="$TEST_TMP/process.state"
+TEST_NVRAM_SECRET_STATE="$TEST_TMP/nvram-secret.state"
+: > "$TEST_NVRAM_SECRET_STATE"
+TEST_NVRAM_SET_FAIL=0
+TEST_NVRAM_COMMIT_FAIL=0
+export TEST_NVRAM_SECRET_STATE TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
 TEST_KILL_LOG="$TEST_TMP/killall.log"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_ACTION_LOG="$TEST_TMP/actions.log"
@@ -194,15 +199,29 @@ ip() {
 }
 
 nvram() {
-	if [ "$1" = get ]; then
-		case "$2" in
-			zerotier_nat) printf '%s\n' "$TEST_NAT_ENABLE" ;;
-			zero_staticnum_x) printf '%s\n' "$TEST_STATIC_ROUTE_COUNT" ;;
-			zero_enable_x0) printf '%s\n' "$TEST_STATIC_ROUTE_ENABLE" ;;
-			zero_ip_x0) printf '%s\n' "$TEST_STATIC_ROUTE_IP" ;;
-			zero_route_x0) printf '%s\n' "$TEST_STATIC_ROUTE_GATEWAY" ;;
-		esac
-	fi
+	case "$1" in
+		get)
+			case "$2" in
+				zerotier_secret) cat "$TEST_NVRAM_SECRET_STATE" ;;
+				zerotier_nat) printf '%s\n' "$TEST_NAT_ENABLE" ;;
+				zero_staticnum_x) printf '%s\n' "$TEST_STATIC_ROUTE_COUNT" ;;
+				zero_enable_x0) printf '%s\n' "$TEST_STATIC_ROUTE_ENABLE" ;;
+				zero_ip_x0) printf '%s\n' "$TEST_STATIC_ROUTE_IP" ;;
+				zero_route_x0) printf '%s\n' "$TEST_STATIC_ROUTE_GATEWAY" ;;
+			esac
+			;;
+		set)
+			case "$2" in
+				zerotier_secret=*)
+					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
+					printf '%s' "${2#zerotier_secret=}" > "$TEST_NVRAM_SECRET_STATE"
+					;;
+			esac
+			;;
+		commit)
+			[ "${TEST_NVRAM_COMMIT_FAIL:-0}" != 1 ] || return 1
+			;;
+	esac
 	return 0
 }
 
@@ -447,7 +466,11 @@ case "$1" in
 	getpublic)
 		[ "${TEST_IDTOOL_FAIL_PUBLIC:-0}" -eq 0 ] || exit 1
 		[ -s "$2" ] || exit 1
-		printf '%s\n' derived-public
+		case "$(cat "$2")" in
+			stored-secret) printf '%s\n' derived-public ;;
+			replacement-secret) printf '%s\n' replacement-public ;;
+			*) printf '%s\n' unexpected-public ;;
+		esac
 		;;
 	*)
 		exit 2
@@ -482,6 +505,85 @@ fi
 [ "$(cat "$TEST_CONFIG/identity.public")" = derived-public ] || fail "failed identity staging replaced the prior public key"
 TEST_IDTOOL_FAIL_PUBLIC=0
 export TEST_IDTOOL_FAIL_PUBLIC
+secret="stored-secret"
+
+# If the second file rename fails, the first rename must be rolled back.
+ZT_IDENTITY_MV_CALLS=0
+mv() {
+	ZT_IDENTITY_MV_CALLS=$((ZT_IDENTITY_MV_CALLS + 1))
+	[ "$ZT_IDENTITY_MV_CALLS" -ne 2 ] || return 1
+	command mv "$@"
+}
+secret="replacement-secret"
+if zerotier_prepare_identity; then
+	fail "second identity-file publication failure was reported as success"
+fi
+unset -f mv
+[ "$(cat "$TEST_CONFIG/identity.secret")" = stored-secret ] || fail "second rename failure changed the old identity secret"
+[ "$(cat "$TEST_CONFIG/identity.public")" = derived-public ] || fail "second rename failure did not restore the old public key"
+set -- "$TEST_CONFIG"/.identity.*
+[ ! -e "$1" ] || fail "successful identity rollback retained a staging directory"
+secret="stored-secret"
+
+# A failed restoration must retain the old public key in the private recovery
+# directory instead of deleting the only recoverable copy.
+ZT_IDENTITY_MV_CALLS=0
+mv() {
+	ZT_IDENTITY_MV_CALLS=$((ZT_IDENTITY_MV_CALLS + 1))
+	case "$ZT_IDENTITY_MV_CALLS" in
+		2|3) return 1 ;;
+	esac
+	command mv "$@"
+}
+secret="replacement-secret"
+if zerotier_prepare_identity; then
+	fail "incomplete identity rollback was reported as success"
+fi
+unset -f mv
+[ "$(cat "$TEST_CONFIG/identity.secret")" = stored-secret ] || fail "failed rollback changed the old identity secret"
+[ "$(cat "$TEST_CONFIG/identity.public")" = replacement-public ] || fail "rollback-failure fixture did not leave the new public key"
+set -- "$TEST_CONFIG"/.identity.*
+ZT_IDENTITY_RECOVERY_DIR="$1"
+[ -d "$ZT_IDENTITY_RECOVERY_DIR" ] || fail "failed identity rollback removed its recovery directory"
+[ "$(stat -c '%a' "$ZT_IDENTITY_RECOVERY_DIR")" = 700 ] || fail "identity recovery directory is not private"
+[ "$(cat "$ZT_IDENTITY_RECOVERY_DIR/identity.public.previous")" = derived-public ] || fail "old public-key recovery link is missing or changed"
+command mv "$ZT_IDENTITY_RECOVERY_DIR/identity.public.previous" "$TEST_CONFIG/identity.public" ||
+	fail "manual identity recovery could not restore the old public key"
+[ "$(cat "$TEST_CONFIG/identity.public")" = derived-public ] || fail "manual identity recovery restored the wrong public key"
+ /bin/rm -rf "$ZT_IDENTITY_RECOVERY_DIR"
+secret="stored-secret"
+
+# If NVRAM persistence fails after publishing both files, the file pair and
+# the volatile NVRAM value must return to their previous empty state.
+/bin/rm -f "$TEST_CONFIG/identity.secret" "$TEST_CONFIG/identity.public"
+: > "$TEST_NVRAM_SECRET_STATE"
+TEST_NVRAM_COMMIT_FAIL=1
+export TEST_NVRAM_COMMIT_FAIL
+secret=""
+if zerotier_prepare_identity; then
+	fail "NVRAM commit failure was reported as success"
+fi
+TEST_NVRAM_COMMIT_FAIL=0
+export TEST_NVRAM_COMMIT_FAIL
+[ ! -e "$TEST_CONFIG/identity.secret" ] || fail "NVRAM failure rollback left a secret file"
+[ ! -e "$TEST_CONFIG/identity.public" ] || fail "NVRAM failure rollback left a public-key file"
+[ ! -s "$TEST_NVRAM_SECRET_STATE" ] || fail "NVRAM failure rollback retained the uncommitted secret"
+secret="stored-secret"
+
+# A failed NVRAM set must also roll back both newly published files.
+/bin/rm -f "$TEST_CONFIG/identity.secret" "$TEST_CONFIG/identity.public"
+: > "$TEST_NVRAM_SECRET_STATE"
+TEST_NVRAM_SET_FAIL=1
+export TEST_NVRAM_SET_FAIL
+secret=""
+if zerotier_prepare_identity; then
+	fail "NVRAM set failure was reported as success"
+fi
+TEST_NVRAM_SET_FAIL=0
+export TEST_NVRAM_SET_FAIL
+[ ! -e "$TEST_CONFIG/identity.secret" ] || fail "NVRAM set failure rollback left a secret file"
+[ ! -e "$TEST_CONFIG/identity.public" ] || fail "NVRAM set failure rollback left a public-key file"
+[ ! -s "$TEST_NVRAM_SECRET_STATE" ] || fail "NVRAM set failure changed the original NVRAM value"
 secret="stored-secret"
 
 /bin/rm -f "$TEST_CONFIG/identity.secret"
