@@ -109,7 +109,7 @@ reset_fixture()
 	rm -f "$tmp_dir/etc/exports" "$tmp_dir/var/lib/nfs/etab" \
 		"$tmp_dir/var/lib/nfs/rmtab" "$tmp_dir/var/lib/nfs/xtab"
 	: > "$COMMAND_LOG"
-	: > "$MOUNTS_FILE"
+	printf 'rootfs / rootfs rw 0 0\n' > "$MOUNTS_FILE"
 	printf 'nodev\tnfsd\n' > "$tmp_dir/proc/filesystems"
 	mkdir -p "$PROC_ROOT/self"
 	printf 'nfsd-regression\n' > "$PROC_ROOT/self/comm"
@@ -185,6 +185,26 @@ assert_failed "$status" "NFS start with non-proc directory at proc root"
 assert_no_command rpcbind
 assert_no_command mount
 assert_no_command exportfs
+
+# An empty mount table or malformed unrelated row is UNKNOWN, not ABSENT.
+reset_fixture
+: > "$MOUNTS_FILE"
+status=$(run_command "" "" start)
+assert_failed "$status" "NFS start with empty mount inventory"
+assert_no_command mount
+assert_no_command umount
+
+reset_fixture
+printf 'malformed mount row\n' >> "$MOUNTS_FILE"
+mounts_before=$(cat "$MOUNTS_FILE")
+status=$(run_command "" "" start)
+assert_failed "$status" "NFS start with malformed unrelated mount row"
+assert_no_command mount
+assert_no_command umount
+[ "$(cat "$MOUNTS_FILE")" = "$mounts_before" ] || {
+	echo "NFS start modified an incomplete mount inventory" >&2
+	exit 1
+}
 
 # Missing or incomplete procfs inventories are UNKNOWN, not ABSENT.
 reset_fixture
@@ -284,7 +304,7 @@ status=$(run_command mount "" start)
 assert_failed "$status" "nfsd control filesystem mount failure"
 assert_command mount
 assert_command exportfs
-[ ! -s "$MOUNTS_FILE" ] && [ ! -f "$tmp_dir/var/lib/nfs/etab" ] || {
+! grep -Eq ' (nfsd|rpc_pipefs) ' "$MOUNTS_FILE" && [ ! -f "$tmp_dir/var/lib/nfs/etab" ] || {
 	echo "failed NFS control mount left startup state after successful cleanup" >&2
 	exit 1
 }
@@ -295,7 +315,7 @@ status=$(run_command mount "" start)
 assert_failed "$status" "rpc_pipefs mount failure"
 assert_command mount
 assert_command exportfs
-[ ! -s "$MOUNTS_FILE" ] || {
+! grep -Eq ' (nfsd|rpc_pipefs) ' "$MOUNTS_FILE" || {
 	echo "NFS control filesystem remained mounted after rpc_pipefs startup failure" >&2
 	exit 1
 }
@@ -334,7 +354,7 @@ assert_command rpc.mountd
 	echo "nfsd process survived rpc.mountd startup rollback" >&2
 	exit 1
 }
-[ ! -s "$MOUNTS_FILE" ] || {
+! grep -Eq ' (nfsd|rpc_pipefs) ' "$MOUNTS_FILE" || {
 	echo "NFS pseudo-filesystems remained mounted after rpc.mountd startup rollback" >&2
 	exit 1
 }
@@ -565,7 +585,7 @@ status=$(run_command "" "" stop)
 	echo "successful NFS stop left a server daemon running" >&2
 	exit 1
 }
-[ ! -s "$MOUNTS_FILE" ] || {
+! grep -Eq ' (nfsd|rpc_pipefs) ' "$MOUNTS_FILE" || {
 	echo "successful NFS stop left pseudo-filesystems mounted" >&2
 	exit 1
 }

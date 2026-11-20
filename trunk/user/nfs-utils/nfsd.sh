@@ -10,16 +10,29 @@ func_mount_status()
 	expected_filesystem="$2"
 	expected_source="$3"
 
+	# /proc/mounts is complete only when every record is a well-formed
+	# six-field mount row. An unrelated truncated row must not make a target
+	# mount look absent and authorize mount, unmount or export-state cleanup.
 	mount_result=$(awk -v mountpoint="$expected_mountpoint" \
 		-v filesystem="$expected_filesystem" \
 		-v expected_source="$expected_source" '
-		$2 == mountpoint {
-			entry_count++
-			if ($1 == expected_source && $3 == filesystem)
-				expected_count++
+		{
+			record_count++
+			if (NF != 6 || $1 == "" || $2 == "" || $3 == "" ||
+			    $4 == "" || $5 !~ /^[0-9]+$/ || $6 !~ /^[0-9]+$/) {
+				inventory_invalid = 1
+				next
+			}
+			if ($2 == mountpoint) {
+				entry_count++
+				if ($1 == expected_source && $3 == filesystem)
+					expected_count++
+			}
 		}
 		END {
-			if (entry_count == 0)
+			if (inventory_invalid || record_count == 0)
+				print "invalid"
+			else if (entry_count == 0)
 				print "absent"
 			else if (entry_count == 1 && expected_count == 1)
 				print "present"
