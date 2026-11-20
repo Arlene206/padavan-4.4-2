@@ -1,3 +1,15 @@
+## 2026-11-20 — Exact-source and Actions handoff checkpoint
+
+- Checkpoint parent main SHA: bb4a1910acd73c2ae9433d66971bdcd4313d4f23; latest product-source commit touching iptcrdr.c: 0b5eef8bd00fd6e732449bcf241949df84b4f40c; latest errno-runner path commit: c492d33b10baf96d8a971c4adc6773b3df5808f3.
+- Frozen backup branch SHA: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
+- Exact-head main Actions: MiniUPnP 44810270387:completed/failure; errno harness step completed/success; AI docs 44810270268:completed/failure; Process inventory not observed; NVRAM not observed.
+- Product-source XY-C1 run for 0b5eef8bd00fd6e732449bcf241949df84b4f40c: 44809783977:in_progress/pending; steps: Build XY-C1=in_progress/pending; Verify TRX output=pending/pending; Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9=pending/pending. L3 is verified only if Build, TRX and artifact upload all passed on this source SHA.
+
+- The latest working tree includes IPTC helper errno injection under both legacy and IPTABLES_143 handle conventions, syslog.h in the C harness, first-error capture policy in the production transaction, and source contracts that disallow direct primary/secondary errno overwrites.
+- Current product L3 and physical-router L4 are not claimed unless their respective exact-source gates pass.
+
+---
+
 ## 2026-11-20 — Reject unguarded primary/secondary errno overwrites
 
 - Parent main SHA: c492d33b10baf96d8a971c4adc6773b3df5808f3.
