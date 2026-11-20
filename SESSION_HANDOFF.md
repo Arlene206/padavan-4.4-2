@@ -3,36 +3,38 @@
 This checkpoint supersedes older summaries below. Continue from live main; do not repeat completed audits.
 
 ## Git state
-- Parent main SHA for this slice: b8828568389b344795a761d923f1f09ff70147bc.
+- Parent main SHA for this slice: f2bae37918b42648fd4d8ff6be95fdc372bf1472.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
-- Main-only atomic commits; build one complete Git tree per logical task and update with force=false plus exact expected_sha. Never force-push. PR #1 remains closed/not merged.
+- Main-only atomic commits; one complete tree/commit per logical task, updated with force=false and exact expected_sha. Never force-push. PR #1 is closed/not merged.
 
 ## Verified preceding slices
-- Product-source SHA f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 passed WAN DHCP, WAN route, AI docs, NVRAM and the full XY-C1 firmware build. Exact XY-C1 run 44715584790, job 136218008537, passed Build XY-C1, Verify TRX output and artifact upload (artifact 14620685104, 12,690,665 bytes). This L3 applies to f0 source only.
-- Workflow-only SHA b8828568389b344795a761d923f1f09ff70147bc passed Custom firmware defaults transaction regression 44717413779 and AI handoff documentation 44717413917. Its regression confirmed the public release body does not expand the customization JSON.
-- The preceding f0 DHCPv4 6rd option-212 change groups the 6rd tuple with compensation and rolls WAN activation back if publication fails. IPv6 runtime-reset status propagation is also present. Do not repeat either audit.
+- Product-source SHA f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 passed WAN DHCP, WAN route, AI docs, NVRAM and full XY-C1 Build/TRX/artifact. XY-C1 run 44715584790, job 136218008537, artifact 14620685104 (12,690,665 bytes). L3 applies to f0 only.
+- Workflow-only parent b8828568389b344795a761d923f1f09ff70147bc passed Custom firmware defaults transaction regression 44717413779 and AI handoff documentation contract 44717413917.
+- f2bae37918b42648fd4d8ff6be95fdc372bf1472 passed exact-head Custom firmware defaults transaction regression 44718064716 and AI handoff docs 44718065095. The new all-nine C-trigraph serialization test was included in the full customization regression; local GNU89 -Wall -Wextra -Werror compilation also passed.
+- DHCPv4 6rd option-212 transactional rollback and IPv6 reset status propagation remain verified on their production-source SHA. Do not repeat.
 
 ## Current implementation slice — this commit
-- Custom builds accept printable ASCII signpassword and Wi-Fi PSKs and write them into generated C defaults. The previous c_string() escaped quotes and backslashes but left question marks unchanged. Inputs containing C trigraphs such as ??/ can trigger GCC -Wtrigraphs diagnostics, which echo the generated source line and can expose credential text in build logs; toolchains enabling trigraph conversion may also alter preprocessing.
-- c_string() now serializes every question mark as the standard C escape \?, preventing any adjacent ?? sequence from reaching the preprocessor.
-- Added a Python regression covering all nine C trigraphs. It compiles the generated literal with the host compiler under GNU89, -Wall -Wextra -Werror; it skips only if no host C compiler is installed.
-- This is a build-time customization safety fix; firmware runtime behavior and target product inputs are unchanged.
+- Found a boot-critical fail-open gap in rc.c: set_wan0_vars() copied missing WAN defaults with unchecked nvram_set_temp() calls and then wrote wan0_unit, wan0_primary and wan0_ifname through unchecked void setters. The code also seeded uptime/dltime/byte counters and cleared ifname_t without checking any result.
+- nvram_convert_misc_values() discarded the initializer result because it returned void; init_router() proceeded into GPIO setup, NVRAM commit and service startup even if WAN0 configuration/identity publication was incomplete.
+- set_wan0_vars() now checks each default-copy write and all eight required WAN0 identity/runtime fields. It returns the first errno-style failure. The five formerly separate runtime writes now share the checked required-value sequence.
+- nvram_convert_misc_values() propagates the result; init_router() returns INIT_ROUTER_RESULT_FATAL before starting services when WAN0 setup fails.
+- Added an eight-position injected failure matrix for the exact WAN0 identity/runtime value sequence. The existing NVRAM status policy is compiled in the process-lifecycle workflow; its source contract asserts checked copy writes and the fatal PID1 boot gate.
 
 ## Exact first actions for the next continuation
-1. Verify the exact-head Custom firmware defaults transaction regression runs the complete unittest suite, including the GNU89 trigraph compilation test. Inspect logs if it fails.
-2. Verify the AI handoff documentation contract for this commit; root roadmap, handoff and newest-first log were updated in the same atomic commit.
-3. Continue with a new P1 stability/security defect in a different subsystem. Do not revisit completed WAN full-restart recovery, checked ifname_t publication, DHCP 6rd rollback, or public Release-note redaction.
+1. Check exact-head Process inventory and lifecycle fail-closed regression for this commit; the new eight-position WAN0 NVRAM failure matrix and source contract must pass.
+2. Check the exact-head XY-C1 firmware validation run because rc.c production source changed; claim L3 only after Build XY-C1, TRX verification and artifact upload all pass on this exact SHA.
+3. Inspect and fix any genuine failure in those Actions. Then continue a different P1 source-confirmed RC/service initialization or lifecycle defect; do not revisit the closed WAN/6rd and custom-build items above.
 
 ## Verification boundary
-- Product-source SHA f0c20ff: L3 VERIFIED by same-SHA XY-C1 Build/TRX/artifact run 44715584790.
-- Workflow-only SHA b8828568389b344795a761d923f1f09ff70147bc: Custom transaction and AI handoff Actions both PASS.
-- This commit's exact-head Actions are PENDING at creation. It changes build-time configuration serialization/tests only; no new firmware L3/L4 claim is needed.
+- f0c20ff product-source SHA: L3 VERIFIED by run 44715584790 and artifact 14620685104.
+- f2bae379 workflow/source-serialization SHA: exact customization and AI docs Actions PASS.
+- This current commit's host regressions, exact Process/XY-C1 Actions, and same-SHA L3 are PENDING at creation. Physical-router L4 is NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
-Update exact main SHA, exact workflow status and the next actionable issue when materially changed. Avoid no-op documentation commits.
+Update the exact active SHA, exact Actions and next task only when materially changed. No no-op documentation commits.
 
 ## Evidence discipline
-Keep host regressions, exact-SHA Actions, MIPS Build/TRX/artifact and physical-router behavior separate. CI does not prove L4.
+Keep host regressions, exact-SHA Actions, MIPS Build/TRX/artifact and physical-router results separate. CI does not prove L4.
 
 ---
 

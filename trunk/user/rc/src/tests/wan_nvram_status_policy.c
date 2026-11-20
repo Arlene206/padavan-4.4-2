@@ -187,6 +187,39 @@ test_required_value_sequence_stops_at_first_error(void)
 }
 
 static void
+test_wan0_boot_values_stop_at_each_nvram_failure(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "unit", "0" },
+		{ "primary", "1" },
+		{ "ifname", "eth0" },
+		{ "uptime", "0000000000" },
+		{ "dltime", "0000000000" },
+		{ "bytes_rx", "00000000000000000000" },
+		{ "bytes_tx", "00000000000000000000" },
+		{ "ifname_t", "" }
+	};
+	struct fake_value_copy fake;
+	unsigned int fail_at, i;
+
+	for (fail_at = 0; fail_at < sizeof(values) / sizeof(values[0]); ++fail_at) {
+		memset(&fake, 0, sizeof(fake));
+		fake.fail_at = (int)fail_at;
+		fake.failure_status = EACCES;
+		assert(rc_wan_nvram_set_required_values(
+			values, (unsigned int)(sizeof(values) / sizeof(values[0])),
+			fake_set_value, &fake) == EACCES);
+		assert(fake.calls == fail_at + 1);
+		for (i = 0; i <= fail_at; ++i) {
+			assert(strcmp(fake.copied_names[i], values[i].param_name) == 0);
+			assert(strcmp(fake.copied_values[i], values[i].value) == 0);
+		}
+		if (fail_at + 1 < sizeof(values) / sizeof(values[0]))
+			assert(fake.copied_names[fail_at + 1][0] == '\0');
+	}
+}
+
+static void
 test_required_value_sequence_rejects_invalid_values(void)
 {
 	static const struct rc_wan_nvram_value empty_name[] = {
@@ -781,6 +814,7 @@ main(void)
 	test_unexpected_nonzero_result_is_not_success();
 	test_required_value_sequence_success();
 	test_required_value_sequence_stops_at_first_error();
+	test_wan0_boot_values_stop_at_each_nvram_failure();
 	test_required_value_sequence_rejects_invalid_values();
 	test_wan6_reset_config_preserves_identity_when_required_write_fails();
 	test_wan6_reset_config_clears_identity_only_after_all_values_succeed();

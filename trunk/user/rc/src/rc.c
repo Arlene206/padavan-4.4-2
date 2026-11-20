@@ -46,6 +46,7 @@
 #include "storage_hotplug_name_policy.h"
 #include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
+#include "wan_nvram_status_policy.h"
 #include "storage_persistence_policy.h"
 #include "service_start_status.h"
 #include "crontab_update_status.h"
@@ -333,28 +334,73 @@ init_gpio_leds_buttons(void)
 	LED_CONTROL(LED_PWR, LED_ON);
 }
 
-static void
+static int
+set_wan0_runtime_value_status(void *context, const char *param_name,
+			      const char *value)
+{
+	int status;
+
+	(void)context;
+	status = set_wan_unit_value_status(0, param_name, value);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot initialize WAN0 runtime field %s (status=%d)",
+			   param_name ? param_name : "(null)", status);
+	return status;
+}
+
+static int
 set_wan0_vars(void)
 {
+	static const struct rc_wan_nvram_value runtime_values[] = {
+		{ "unit", "0" },
+		{ "primary", "1" },
+		{ "ifname", IFNAME_WAN },
+		{ "uptime", "0000000000" },
+		{ "dltime", "0000000000" },
+		{ "bytes_rx", "00000000000000000000" },
+		{ "bytes_tx", "00000000000000000000" },
+		{ "ifname_t", "" }
+	};
 	struct nvram_pair *np;
-	char *v;
+	char *value;
 	char tmp[100], prefix[16];
+	int api_result, saved_errno, status;
 
 	snprintf(prefix, sizeof(prefix), "wan%d_", 0);
 
-	/* Write through to wan0_ variable set */
+	/* Preserve existing WAN0 overrides, but never ignore a failed copy. */
 	for (np = router_defaults; np->name; np++) {
-		if (!strncmp(np->name, "wan_", 4)) {
-			if (nvram_get(strcat_r(prefix, &np->name[4], tmp)))
-				continue;
-			v = nvram_get(np->name);
-			nvram_set_temp(tmp, v ? v : np->value);
+		if (strncmp(np->name, "wan_", 4) != 0)
+			continue;
+		if (nvram_get(strcat_r(prefix, &np->name[4], tmp)))
+			continue;
+
+		value = nvram_get(np->name);
+		if (!value)
+			value = np->value ? np->value : "";
+
+		errno = 0;
+		api_result = nvram_set_temp(tmp, value);
+		saved_errno = errno;
+		status = rc_wan_nvram_write_status(api_result, saved_errno);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "cannot initialize WAN0 default %s (status=%d)",
+				   tmp, status);
+			return status;
 		}
 	}
 
-	set_wan_unit_value_int(0, "unit", 0);
-	set_wan_unit_value_int(0, "primary", 1);
-	set_wan_unit_value(0, "ifname", IFNAME_WAN);
+	/*
+	 * WAN identity and callback state are required before any network service
+	 * can start. The tested required-value helper stops at the first failed
+	 * write, preserving its errno-style status for init_router().
+	 */
+	return rc_wan_nvram_set_required_values(
+		runtime_values,
+		(unsigned int)(sizeof(runtime_values) / sizeof(runtime_values[0])),
+		set_wan0_runtime_value_status, NULL);
 }
 
 static void
@@ -421,11 +467,11 @@ nvram_convert_old_params(void)
 	nvram_unset("wl_mcastrate");
 }
 
-static void
+static int
 nvram_convert_misc_values(void)
 {
 	char buff[64];
-	int sw_mode;
+	int sw_mode, status;
 
 	/* check router mode */
 	sw_mode = nvram_get_int("sw_mode");
@@ -533,13 +579,10 @@ nvram_convert_misc_values(void)
 	nvram_set_temp(RSTATS_NVKEY_24, (sw_mode != 3) ? IFDESC_WAN : IFDESC_LAN);
 	nvram_set_temp(RSTATS_NVKEY_DM, IFDESC_WAN);
 
-	/* setup wan0 variables */
-	set_wan0_vars();
-	set_wan_unit_value(0, "uptime", "0000000000");
-	set_wan_unit_value(0, "dltime", "0000000000");
-	set_wan_unit_value(0, "bytes_rx", "00000000000000000000");
-	set_wan_unit_value(0, "bytes_tx", "00000000000000000000");
-	set_wan_unit_value(0, "ifname_t", "");
+	/* Do not continue boot with a partially published WAN0 configuration. */
+	status = set_wan0_vars();
+	if (status != 0)
+		return status;
 	set_usb_modem_dev_wan(0, 0);
 	reset_wan_vars();
 
@@ -548,6 +591,7 @@ nvram_convert_misc_values(void)
 	reset_lan_temp();
 
 	time_zone_x_mapping();
+	return 0;
 }
 
 int
@@ -980,6 +1024,7 @@ init_router(void)
 	int boot_modules_status, boot_services_status;
 	int rwfs_mount_status;
 	int switch_vlan_status = 0;
+	int nvram_setup_status;
 	int ipv6_disable_required = 0;
 	int ipv6_init_status = 0;
 
@@ -1000,7 +1045,13 @@ init_router(void)
 
 	get_eeprom_params();
 
-	nvram_convert_misc_values();
+	nvram_setup_status = nvram_convert_misc_values();
+	if (nvram_setup_status != 0) {
+		logmessage(LOGNAME,
+			   "Router initialization stopped: WAN0 NVRAM setup failed (status=%d)",
+			   nvram_setup_status);
+		return INIT_ROUTER_RESULT_FATAL;
+	}
 
 	init_gpio_leds_buttons();
 

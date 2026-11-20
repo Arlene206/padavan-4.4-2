@@ -1,3 +1,14 @@
+## 2026-11-20 — Fail closed when WAN0 boot NVRAM initialization fails
+
+- Parent main SHA: f2bae37918b42648fd4d8ff6be95fdc372bf1472.
+- set_wan0_vars() copied missing router_defaults WAN keys and wrote the unit/primary/ifname fields with unchecked NVRAM setters. The enclosing nvram_convert_misc_values() returned void, and init_router() continued despite an incomplete WAN0 configuration/runtime identity tuple.
+- Checked each WAN default copy with rc_wan_nvram_write_status(). Migrated unit, primary, ifname, uptime, dltime, bytes_rx, bytes_tx and ifname_t to the existing required-value policy with a status-returning callback.
+- nvram_convert_misc_values() now returns the first WAN0 setup error, and init_router() stops with INIT_ROUTER_RESULT_FATAL before GPIO setup, NVRAM commit and service startup.
+- Added an injected regression that fails each of the eight WAN0 required writes in turn and verifies later writes do not run. Added Process workflow path filters, ASan/UBSan compile/run, and a source contract for the checked copy and PID1 fatal gate.
+- f2bae379 exact Custom firmware defaults regression 44718064716 and AI docs run 44718065095 both PASS. This commit's Process/XY-C1 Actions and same-SHA L3 are pending at creation; physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Escape C trigraphs in customized firmware defaults
 
 - Parent main SHA: b8828568389b344795a761d923f1f09ff70147bc.

@@ -1,16 +1,17 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: b8828568389b344795a761d923f1f09ff70147bc; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Product source SHA f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 is L3 VERIFIED: exact XY-C1 run 44715584790 passed Build XY-C1, TRX verification and artifact upload 14620685104.
-- Workflow-only SHA b8828568389b344795a761d923f1f09ff70147bc: Custom firmware defaults transaction 44717413779 and AI handoff docs 44717413917 both PASS. The public Release body no longer emits raw customization JSON, which contains signpassword and Wi-Fi PSKs.
-- ACTIVE: c_string() must escape C trigraph introducers in user-controlled configuration strings. A generated credential containing ??/ can provoke -Wtrigraphs diagnostics that echo the source line into build logs. This slice emits \? escapes and adds an all-nine-trigraph GNU89/-Werror regression.
-- Build-time configuration only; no production firmware inputs changed.
+- Parent main SHA: f2bae37918b42648fd4d8ff6be95fdc372bf1472; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- Product source f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 is L3 VERIFIED: XY-C1 run 44715584790 passed Build XY-C1, TRX verification and artifact upload 14620685104.
+- f2bae37918b42648fd4d8ff6be95fdc372bf1472 passed exact-head Custom firmware transaction run 44718064716 and AI handoff docs run 44718065095, including the full all-nine-trigraph serialization regression.
+- ACTIVE: rc.c ignored failures while initializing wan0_ defaults, unit/primary/ifname identity and runtime counters; init_router continued service startup. This slice checks every WAN0 NVRAM write, returns first error through nvram_convert_misc_values(), and makes init_router fatal before GPIO/services on incomplete WAN0 state. It adds an eight-position failure-injection test and Process workflow/source-contract coverage.
+- Production C source changed; same-SHA XY-C1 Build/TRX/artifact is required for L3.
 
 ## Priority queue
-- CLOSED: full WAN restart restores static LAN routes after route-flush, MAC-table and protocol-reset errors; recovery keeps the primary failure and aborts activation. Exact parent WAN route regression is green.
-- CLOSED: ifname_t publication is checked before PPP fallback and RAS/PPP/IPoE activation, with physical-WAN recovery on failure; exact parent WAN DHCP callback Actions are green.
-- CLOSED: DHCPv4 6rd option 212 publication snapshots/compensates all three runtime values and fails the WAN DHCP callback closed on error; product-source SHA f0c20ff passed WAN callback and XY-C1 Build/TRX/artifact.
-- CLOSED: raw customization JSON is no longer placed in the public GitHub Release body; exact b8828568389b344795a761d923f1f09ff70147bc customization transaction regression passed.
-- NEXT: continue P1 RC/service startup-result propagation and independent lifecycle defects from source-confirmed failure paths; avoid re-auditing closed items.
+- CLOSED: full WAN restart restores static LAN routes after route-flush, MAC-table and protocol-reset errors, preserving first error and aborting activation.
+- CLOSED: ifname_t publication is checked before PPP fallback and RAS/PPP/IPoE activation, with physical-WAN recovery on failure.
+- CLOSED: DHCPv4 6rd option 212 uses transactional publication/compensation; same product-source SHA f0c20ff passed WAN callback and XY-C1 Build/TRX/artifact.
+- CLOSED: public GitHub Release body no longer emits raw custom firmware credential JSON; exact b882 customization regression passed.
+- CLOSED: custom C-string serialization escapes C trigraphs; exact f2 customization and AI docs Actions passed.
+- NEXT: continue P1 RC/service initialization failure propagation from distinct source-confirmed paths; do not re-audit these closed defects.
 - P2: inspect other privileged configuration/release surfaces for credential-bearing diagnostics and unsafe interpolation.
 
 

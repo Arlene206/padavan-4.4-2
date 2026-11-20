@@ -3426,3 +3426,38 @@ for call in ("start_infosvr()", "start_lltd()", "start_rstats()"):
     assert call in boot_services, "missing optional daemon startup: " + call
 print("optional infosvr/LLTD/rstats disabled-start status aggregation: PASS")
 
+
+
+# WAN0 defaults/runtime identity must be checked before PID 1 permits boot
+# services to start. A single failed write is fatal instead of leaving a
+# partially initialized wan0_ tuple while initialization reports success.
+wan0_init = c_function_body(rc_source, "set_wan0_vars(void)")
+assert "api_result = nvram_set_temp(tmp, value);" in wan0_init
+assert "rc_wan_nvram_write_status(api_result, saved_errno)" in wan0_init
+assert "if (status != 0)" in wan0_init
+assert "return status;" in wan0_init
+assert "rc_wan_nvram_set_required_values(" in wan0_init
+for field in (
+    '"unit"', '"primary"', '"ifname"', '"uptime"', '"dltime"',
+    '"bytes_rx"', '"bytes_tx"', '"ifname_t"',
+):
+    assert field in wan0_init, "WAN0 initialization field missing: " + field
+
+misc_init = c_function_body(rc_source, "nvram_convert_misc_values(void)")
+assert "status = set_wan0_vars();" in misc_init
+assert misc_init.index("status = set_wan0_vars();") < misc_init.index("set_usb_modem_dev_wan(0, 0);")
+assert "if (status != 0) return status;" in re.sub(r"\s+", " ", misc_init)
+
+router_init = c_function_body(rc_source, "init_router(void)")
+assert "nvram_setup_status = nvram_convert_misc_values();" in router_init
+assert "if (nvram_setup_status != 0)" in router_init
+failure_gate = router_init.split("if (nvram_setup_status != 0)", 1)[1].split("init_gpio_leds_buttons();", 1)[0]
+assert "return INIT_ROUTER_RESULT_FATAL;" in failure_gate
+assert router_init.index("nvram_setup_status = nvram_convert_misc_values();") < router_init.index("init_gpio_leds_buttons();")
+
+wan_nvram_test = (root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+assert "test_wan0_boot_values_stop_at_each_nvram_failure" in wan_nvram_test
+assert "test_wan0_boot_values_stop_at_each_nvram_failure();" in wan_nvram_test
+assert '"trunk/user/rc/src/tests/wan_nvram_status_policy.c"' in process_workflow
+assert "Compile and run WAN0 NVRAM initialization failure regression" in process_workflow
+print("WAN0 NVRAM defaults/runtime identity fail-closed boot gate: PASS")
