@@ -32,6 +32,7 @@
 #include "rc.h"
 #include "route_status_policy.h"
 #include "wan6_teardown_policy.h"
+#include "wan6_identity_policy.h"
 #include <dhcp6c_duid_file_policy.h>
 #include "dhcp6c_config_file.h"
 #include "wan6_dns_policy.h"
@@ -596,6 +597,21 @@ int stop_sit_tunnel(void)
 	return 0;
 }
 
+static int
+wan6_identity_set_value(void *context, int unit,
+			const char *param_name, const char *value)
+{
+	(void)context;
+	return set_wan_unit_value_status(unit, param_name, value);
+}
+
+static int
+wan6_identity_stop_sit(void *context)
+{
+	(void)context;
+	return stop_sit_tunnel();
+}
+
 #define WAN6_NATIVE_CHECK(operation, description) do { \
 	status = (operation); \
 	if (status != 0) { \
@@ -609,6 +625,7 @@ int wan6_up(char *wan_ifname, int unit)
 	int ipv6_type, allow_ra, status, operation_status;
 	int routes_touched, addresses_touched, radv_touched;
 	int autoconf_touched, privacy_touched, dhcp6_start_attempted;
+	int identity_publish_failed, rollback_status;
 	char *wan_addr6, *wan_gate6, *wan_addr4, *wan_gate4;
 	char addr6_text[INET6_ADDRSTRLEN + 5];
 	char gate6_text[INET6_ADDRSTRLEN];
@@ -653,7 +670,19 @@ int wan6_up(char *wan_ifname, int unit)
 				   wan_ifname, status);
 			return status;
 		}
-		set_wan_unit_value(unit, "ifname6", IFNAME_SIT);
+		status = wan6_publish_sit_identity(
+			wan6_identity_set_value, wan6_identity_stop_sit, NULL,
+			unit, IFNAME_SIT, &operation_status);
+		if (status != 0) {
+			if (operation_status != 0)
+				logmessage("WAN IPv6",
+					   "SIT interface identity rollback was incomplete (status=%d)",
+					   operation_status);
+			logmessage("WAN IPv6",
+				   "SIT startup aborted because the active IPv6 interface identity could not be published (status=%d)",
+				   status);
+			return status;
+		}
 		return 0;
 	}
 
@@ -670,6 +699,8 @@ int wan6_up(char *wan_ifname, int unit)
 	autoconf_touched = 0;
 	privacy_touched = 0;
 	dhcp6_start_attempted = 0;
+	identity_publish_failed = 0;
+	rollback_status = 0;
 
 	if (ipv6_type == IPV6_NATIVE_STATIC) {
 		wan_addr6 = get_wan_unit_value(unit, "addr6");
@@ -744,7 +775,12 @@ int wan6_up(char *wan_ifname, int unit)
 		goto native_failed;
 	}
 
-	set_wan_unit_value(unit, "ifname6", wan_ifname);
+	status = set_wan_unit_value_status(unit, "ifname6", wan_ifname);
+	if (status != 0) {
+		identity_publish_failed = 1;
+		failure = "publish native IPv6 WAN interface identity";
+		goto native_failed;
+	}
 	return 0;
 
 native_failed:
@@ -756,38 +792,58 @@ native_failed:
 			return operation_status;
 		}
 	}
+	if (identity_publish_failed) {
+		if (rollback_status == 0) {
+			operation_status = wan6_clear_runtime_metadata(
+				wan6_identity_set_value, NULL, unit, 0);
+			if (operation_status != 0)
+				logmessage("WAN IPv6",
+					   "failed to clear native IPv6 interface identity after startup rollback (status=%d)",
+					   operation_status);
+		} else {
+			logmessage("WAN IPv6",
+				   "retaining native IPv6 interface identity because kernel rollback was incomplete (status=%d)",
+				   rollback_status);
+		}
+	}
 	if (radv_touched) {
 		operation_status = control_if_ipv6_radv(wan_ifname, 0);
+		rollback_status = route_status_accumulate(rollback_status, operation_status);
 		if (operation_status != 0)
 			logmessage("WAN IPv6", "failed to roll back router advertisement setting (status=%d)",
 				   operation_status);
 	}
 	if (autoconf_touched) {
 		operation_status = control_if_ipv6_autoconf(wan_ifname, 0);
+		rollback_status = route_status_accumulate(rollback_status, operation_status);
 		if (operation_status != 0)
 			logmessage("WAN IPv6", "failed to roll back autoconfiguration setting (status=%d)",
 				   operation_status);
 	}
 	if (privacy_touched) {
 		operation_status = control_if_ipv6_privacy(wan_ifname, 0);
+		rollback_status = route_status_accumulate(rollback_status, operation_status);
 		if (operation_status != 0)
 			logmessage("WAN IPv6", "failed to roll back privacy setting (status=%d)",
 				   operation_status);
 	}
 	if (routes_touched) {
 		operation_status = clear_if_route6(wan_ifname);
+		rollback_status = route_status_accumulate(rollback_status, operation_status);
 		if (operation_status != 0)
 			logmessage("WAN IPv6", "failed to clear partially configured routes (status=%d)",
 				   operation_status);
 	}
 	if (routes_touched || addresses_touched) {
 		operation_status = clear_if_neigh6(wan_ifname);
+		rollback_status = route_status_accumulate(rollback_status, operation_status);
 		if (operation_status != 0)
 			logmessage("WAN IPv6", "failed to clear partially configured neighbours (status=%d)",
 				   operation_status);
 	}
 	if (addresses_touched) {
 		operation_status = clear_if_addr6(wan_ifname);
+		rollback_status = route_status_accumulate(rollback_status, operation_status);
 		if (operation_status != 0)
 			logmessage("WAN IPv6", "failed to clear partially configured addresses (status=%d)",
 				   operation_status);
@@ -801,7 +857,7 @@ native_failed:
 int wan6_down(char *wan_ifname, int unit)
 {
 	int ipv6_type, stop_status, status, operation_status;
-	int previous_if_exists, sit_if_exists, ipv6_sit;
+	int clear_status, previous_if_exists, sit_if_exists, ipv6_sit;
 	char *previous_ifname, *wan6_ifname;
 
 	stop_status = stop_dhcp6c();
@@ -825,9 +881,13 @@ int wan6_down(char *wan_ifname, int unit)
 		/* A vanished PPP/device interface has already lost its kernel routes
 		 * and addresses. Do not turn an ordinary disabled-WAN stop into a
 		 * failure by issuing IPv6 flushes against a nonexistent interface. */
-		set_wan_unit_value(unit, "dns6", "");
-		set_wan_unit_value(unit, "ifname6", "");
-		return 0;
+		clear_status = wan6_clear_runtime_metadata(
+			wan6_identity_set_value, NULL, unit, 1);
+		if (clear_status != 0)
+			logmessage("WAN IPv6",
+				   "failed to clear metadata after IPv6 interface disappearance (status=%d)",
+				   clear_status);
+		return clear_status;
 	}
 
 	status = 0;
@@ -895,12 +955,17 @@ int wan6_down(char *wan_ifname, int unit)
 			   operation_status);
 
 	if (status == 0) {
-		set_wan_unit_value(unit, "dns6", "");
-		set_wan_unit_value(unit, "ifname6", "");
-	} else {
-		logmessage("WAN IPv6", "retaining IPv6 DNS state after incomplete teardown (status=%d)",
-			   status);
+		operation_status = wan6_clear_runtime_metadata(
+			wan6_identity_set_value, NULL, unit, 1);
+		status = route_status_accumulate(status, operation_status);
+		if (operation_status != 0)
+			logmessage("WAN IPv6",
+				   "failed to clear IPv6 metadata after teardown (status=%d)",
+				   operation_status);
 	}
+	if (status != 0)
+		logmessage("WAN IPv6", "retaining IPv6 metadata after incomplete teardown (status=%d)",
+			   status);
 
 	return status;
 }

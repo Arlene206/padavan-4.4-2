@@ -1,3 +1,13 @@
+## 2026-11-20 — Make IPv6 WAN interface identity publication fail closed
+
+- Parent main SHA: `47e66a0620ab143b5f5751f5de440d377bb12a00`. In `wan6_up()`, SIT and native IPv6 paths wrote `ifname6` through the legacy void NVRAM setter and then reported success without checking whether the runtime interface identity was committed. A failed write could leave an active IPv6 configuration without a teardown handle.
+- SIT startup now uses a tested identity transaction: if the write fails, it removes the new tunnel; after successful removal it clears any partially published identity. If tunnel removal fails, it retains metadata and reports rollback failure separately while preserving the original write error.
+- Native IPv6 startup uses the checked setter. A failed identity commit enters the existing failure/rollback path; after DHCPv6 is confirmed stopped, the attempted identity is cleared only when kernel/address/route rollback succeeded. If rollback is incomplete, the interface identity is retained for later teardown/recovery. The existing DHCPv6 stop safety gate remains in force.
+- Both IPv6 teardown branches now check metadata writes. The vanished-interface path attempts both `dns6` and `ifname6` clears and returns the first error. Normal teardown does the same only after network cleanup succeeds; metadata-write failures are returned instead of reporting a successful stop.
+- Added a testable identity policy plus seven GNU89/ASan/UBSan cases for successful SIT identity commit, tunnel rollback, rollback failure, metadata-clear failure, first-error aggregation, selective DNS retention and invalid arguments. Extended the checker and WAN DHCP callback workflow. XY-C1 watches `net_wan6.c`; its exact-head MIPS/TRX/artifact run will provide the target verification.
+
+---
+
 ## 2026-11-20 — Fix PID 1 optional-device helper declaration after XY-C1 compile caught it
 
 - Parent main SHA: `03f7d64c53a8156c563fcd9c5eba4d118aaa4b2b`. Process lifecycle run `44708880390` passed its exact-source host regressions; PID 1 mdev security `44709299228` and HTTPD security `44709436383` passed their checker follow-ups.
