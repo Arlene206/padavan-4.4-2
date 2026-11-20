@@ -63,6 +63,9 @@ on:
       - "trunk/user/httpd/src/httpd_watchdog_stop_policy.h"
       - "trunk/user/httpd/src/aidisk.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "scripts/check_modem_wan_start_status.py"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/apcli_wait_policy.h"
       - "trunk/user/rc/src/hotplug_stor.c"
       - "trunk/user/rc/src/storage_hotplug_notify_policy.h"
@@ -490,6 +493,11 @@ jobs:
             trunk/user/rc/src/tests/modem_wan_start_policy.c \
             -o "$RUNNER_TEMP/modem-wan-start-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/modem-wan-start-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_nvram_status_policy.c \
+            -o "$RUNNER_TEMP/wan-nvram-status-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wan-nvram-status-policy"
           python3 scripts/check_modem_wan_start_status.py
       - name: Compile and run IPv6 global cleanup result propagation regression
         run: |
