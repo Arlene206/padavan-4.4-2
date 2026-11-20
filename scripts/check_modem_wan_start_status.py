@@ -500,7 +500,14 @@ route_gate_pos = full_restart_routes.index("if (route_flush_status != 0)")
 assert route_apply_pos < route_apply_end < route_gate_pos < full_restart_routes.index("phy_clear_mac_table()")
 assert "route_ifnames, 2, clear_if_route4, flush_route_caches);" in full_restart_routes
 assert "interface routes or the global route cache could not be flushed" in full_restart_routes
-assert "return route_flush_status;" in full_restart_routes
+route_restore_pos = full_restart_routes.index(
+    "status = rc_wan_restore_lan_routes_after_failed_step(", route_gate_pos)
+route_restore_check = full_restart_routes.index(
+    "if (static_lan_route_status != 0)", route_restore_pos)
+route_restore_return = full_restart_routes.index("return status;", route_restore_check)
+assert route_gate_pos < route_restore_pos < route_restore_check < route_restore_return < full_restart_routes.index("phy_clear_mac_table()")
+assert "static LAN route restoration also failed after interface route flush error" in full_restart_routes[route_restore_check:route_restore_return]
+assert "test_failed_route_flush_restores_lan_routes_and_preserves_first_error" in ROUTE_FLUSH_POLICY_TEST
 for call, diagnostic in (
     ("stop_wan()", "services did not stop (status=%d)"),
     ("disassembly_bridges_wan()", "WAN bridge teardown failed (status=%d)"),

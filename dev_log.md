@@ -1,3 +1,12 @@
+## 2026-11-20 — Align shared WAN route-flush source contracts with recovery behavior
+
+- Parent main SHA: `a97cbb5382eb3675eddfff39ecc58e244fa44866`. The exact-head WAN route regression for `a97cbb5` passed all GNU89/ASan/UBSan policy binaries and the updated firewall-specific semantic checker.
+- Four unrelated suites (USB modem, process lifecycle, HTTPD security, and firewall startup) each stopped in the shared `scripts/check_modem_wan_start_status.py` at its obsolete assertion `return route_flush_status;`. The new production path correctly runs LAN route recovery and returns the preserved first error via `status`. HTTPD security has a duplicate inline assertion with the same stale expectation.
+- Updated both contracts to require route-recovery callback ordering, secondary failure logging, and the registered ENOSPC regression. The failing test binaries and earlier checker steps had passed; no production code change is made in this checker-alignment commit.
+- Exact-head results on `a97cbb5`: WAN route `44706848289` PASS; AI docs `44706848364` PASS; the four suites above FAIL only at the duplicated stale checker expectation; XY-C1 `44706848129` and NVRAM boundary `44706848481` were still in progress at last poll.
+
+---
+
 ## 2026-11-20 — Recover LAN routes after partial interface/global route-flush failure
 
 - Parent main SHA: `793bc85f44e75e64ad4ff74d3b53e6b4bc4e8afb`. Follow-up inspection of `clear_if_route4()` confirmed that `ip route flush dev IF scope global` is an independently failing command and the shared helper deliberately attempts both MAN and bridge flushes plus the global cache flush. Any of those commands can report failure after another command already removed bridge static routes.
