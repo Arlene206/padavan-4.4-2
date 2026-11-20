@@ -1590,6 +1590,10 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 	/* Set default route to gateway if specified. */
 	if (is_valid_ipv4(gateway_ip)) {
 		int route_status = route_add(lan_ifname, 0, "0.0.0.0", gateway_ip, "0.0.0.0");
+
+		/* A prior attempt may have installed the route before resolver
+		 * publication failed. Treat an identical existing route as ready. */
+		route_status = route_status_idempotent_add(route_status);
 		if (route_status != 0)
 			logmessage(LOGNAME, "manual LAN gateway route setup failed (status=%d)",
 				   route_status);

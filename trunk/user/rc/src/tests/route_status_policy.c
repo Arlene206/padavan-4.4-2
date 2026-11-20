@@ -190,6 +190,25 @@ test_wan_gateway_host_route_cleanup_matches_setup_conditions(void)
 	assert(route_status_idempotent_delete(EIO) == EIO);
 }
 
+static void
+test_manual_lan_gateway_route_retry_after_resolver_failure(void)
+{
+	int first_attempt_status;
+	int retry_route_status;
+	int retry_status;
+
+	first_attempt_status = route_status_accumulate(
+		route_status_idempotent_add(0), EIO);
+	retry_route_status = route_status_idempotent_add(EEXIST);
+	retry_status = route_status_accumulate(retry_route_status, 0);
+
+	assert(first_attempt_status == EIO);
+	assert(retry_route_status == 0);
+	assert(retry_status == 0);
+	assert(route_status_idempotent_add(EACCES) == EACCES);
+	assert(route_status_idempotent_add(EIO) == EIO);
+}
+
 int
 main(void)
 {
@@ -201,6 +220,7 @@ main(void)
 	test_dhcp_down_monitor_pause_failure_is_reported_and_cleanup_continues();
 	test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_continues();
 	test_static_ipoe_teardown_clear_failure_forces_interface_down();
+	test_manual_lan_gateway_route_retry_after_resolver_failure();
 	test_vpn_route_idempotence_does_not_hide_real_failures();
 	test_vpn_server_remote_route_failure_survives_later_callback_work();
 	test_vpn_server_custom_hook_failure_is_not_hidden();
