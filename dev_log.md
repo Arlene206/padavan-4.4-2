@@ -1,3 +1,13 @@
+## 2026-11-20 — Wire the CPU watchdog restart policy regression into Actions
+
+- Parent main SHA: ee610712cc0c776c450c93cded990c8f8db64acd.
+- Review of `watchdog-signal-stability.yml` showed it compiled signal deferral, NTP and service-lifecycle regressions, but did not compile/run the existing `watchdog_cpu_restart_policy.c` test or watch its header/test paths.
+- Added GNU89/`-Wall -Wextra -Werror` with ASan/UBSan compile/run, integration contracts for `start_watchdog_cpu()`/`restart_watchdog_cpu()`, policy behavior and regression-case markers, plus push/PR path filters for the policy header and test.
+- The XY-C1 workflow already watches `services.c` and `watchdog_cpu_restart_policy.h`; the ongoing product-source build on SHA `885f212` includes the production watchdog policy code.
+- New exact-head watchdog/AI docs Actions pending. The regression source had not previously run in the dedicated watchdog workflow, so no prior result is claimed.
+
+---
+
 ## 2026-11-20 — Repair daemon detachment source-contract checker quoting
 
 - Parent main SHA: 885f212b6065ef15276f7d4f6189b02c75fbbc7c.

@@ -2,23 +2,29 @@
 
 This live checkpoint supersedes older summaries. Continue from current main; do not repeat startup recovery or completed FTP FIFO/APPE and RADIUS zeroization slices.
 
-## Git state
+## Git / exact-SHA verification
 
-- Parent main for MiniUPnP CI syntax repair: 885f212b6065ef15276f7d4f6189b02c75fbbc7c; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- On source SHA `10b54df775dd8ecd80bb16a3d71928418c7e8c06`: MiniUPnP focused Action `44737236506`, Process inventory `44737236665`, AI docs `44737236428`, NVRAM audit `44737236575` PASS. XY-C1 `44737236650` was in Build XY-C1 at last check; TRX/artifact not yet confirmed.
-- Daemon detach failure fix `885f212b6065ef15276f7d4f6189b02c75fbbc7c`: AI docs `44737808764` PASS; focused MiniUPnP Action `44737808024` FAILED in its Python source-contract heredoc because an assertion string was incorrectly escaped (syntax error before evaluating assertions); no C test failed. Process inventory, NVRAM and XY-C1 runs were in progress.
-- Follow-up fixes only that Python assertion literal; the GNU89/ASan/UBSan PID host test itself passed on 885. Same-SHA reruns pending for this repair commit.
+- Parent main for watchdog CPU test wiring: ee610712cc0c776c450c93cded990c8f8db64acd; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- MiniUPnP singleton/PID/daemon-detachment source SHA `885f212b6065ef15276f7d4f6189b02c75fbbc7c`: AI docs `44737808764`, Process inventory `44737808070`, Process fail-closed `44737807940`, NVRAM `44737807973` PASS. MiniUPnP source-contract Action `44737808024` failed only on an escaped Python literal; repair SHA `ee610712cc0c776c450c93cded990c8f8db64acd` reran it PASS as `44737963653`. XY-C1 `44737807972` was in Build XY-C1 at last inspection; TRX and artifact pending.
+- On the prior source SHA `10b54df775dd8ecd80bb16a3d71928418c7e8c06`, MiniUPnP `44737236506`, Process inventory `44737236665`, AI docs `44737236428`, NVRAM `44737236575` PASS; XY-C1 `44737236650` remained in progress.
+- Main uses direct expected-SHA commits, no force-push. Backup remains untouched.
 
-## Active engineering
+## Active tasks
 
-- MiniUPnP now has lifetime singleton lock, strict fail-closed PID validation and atomic umask-preserving PID publication. The default generated `USE_DAEMON` branch also exits nonzero if BSD `daemon()` detachment fails instead of continuing foreground.
-- XY-C1 trigger paths include `miniupnpd.c`; detector test ensures it is classified as production input.
-- Exact same-SHA firmware Build/TRX/artifact for latest source still must be verified. Physical L4 remains NOT VERIFIED.
+### MiniUPnP
+- Lifetime singleton sidecar lock; strict no-follow PID validation; bounded reads and exact PID parser; atomic full-write/fsync/rename PID publication with umask preservation; default BSD `daemon()` failure now returns nonzero rather than continuing foreground.
+- Exact source code is under XY-C1 validation on SHA 885. Require Build, TRX verification and artifact upload all pass before L3. Physical L4 remains NOT VERIFIED.
+
+### CPU watchdog verification gap
+- Existing `watchdog_cpu_restart_policy.h` and its regression source were not included in `.github/workflows/watchdog-signal-stability.yml`: the workflow tested signal/NTP/service lifecycle but did not compile the CPU watchdog module restart postcondition test.
+- This slice wires its GNU89/`-Werror`/ASan/UBSan compile/run step, verifies the services.c integration and policy-test cases, and adds both header/test to push and PR path filters.
+- XY-C1 already tracks `services.c` and `watchdog_cpu_restart_policy.h`, so the production watchdog code on SHA 885 is included in its ongoing build.
 
 ## Exact first actions
 
-1. Inspect this commit's MiniUPnP Action and XY-C1 detector/build. Repair only causal failures; require Build/TRX/artifact all pass on same SHA.
-2. Continue one independent userland reliability/security slice while Actions are pending; do not repeat completed audits.
+1. Inspect this commit's watchdog CPU regression and AI handoff Actions; repair causal failures only.
+2. Inspect XY-C1 run `44737807972` on source SHA 885; require Build XY-C1, TRX verification and artifact upload all pass.
+3. Continue independent stability/security work while Actions remain pending. No physical L4 claim without hardware validation.
 
 
 ---

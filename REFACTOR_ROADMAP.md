@@ -1,9 +1,9 @@
 # 2026-11-20 active checkpoint
 
-- Parent main for MiniUPnP CI syntax correction: 885f212b6065ef15276f7d4f6189b02c75fbbc7c; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- MiniUPnP atomic PID publication, singleton lock, strict PID validation and default BSD daemon() failure exit are implemented. PID regressions passed in workflow 885; focused MiniUPnP action then failed before assertion execution due only to malformed Python quote escaping. This commit repairs that checker line.
-- On prior exact source SHA 10b54, MiniUPnP, Process, AI docs and NVRAM checks passed; XY-C1 run had reached Build. The new exact SHA needs focused rerun and complete same-SHA Build/TRX/artifact.
-- Physical device L4 remains NOT VERIFIED.
+- Parent main for CPU watchdog regression workflow wiring: ee610712cc0c776c450c93cded990c8f8db64acd; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- MiniUPnP singleton/PID/daemon-detachment source SHA `885f212`: Process, Process fail-closed, NVRAM and AI docs PASS; focused MiniUPnP source checker fixed and PASS on workflow-only SHA `ee61071`. XY-C1 source build on 885 remains in progress; TRX/artifact not yet verified.
+- Found CPU watchdog module restart regression source was not compiled/run by its dedicated workflow despite an existing policy header/test. Added GNU89/`-Werror`/ASan/UBSan run, services.c integration contract and push/PR path filters. XY-C1 already covers the relevant production `services.c` and policy header.
+- Physical L4 remains NOT VERIFIED.
 
 
 ## Whole-repository module status
