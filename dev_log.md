@@ -1,3 +1,13 @@
+## 2026-11-20 — Align WAN route and modem contracts with checked identity pairs
+
+- Parent main SHA: 786fb0ab4f2ffbec808eb7c67279c6959b5db2db.
+- Exact WAN route run `44725040341` failed because the contract still counted three direct `ifname_t` setters after the callsites were moved into `rc_wan_nvram_publish_runtime_identity()`. Updated it to require exactly three pair publishers and preserve immediate failure aggregation, physical-WAN recovery and pre-firewall abort.
+- Exact Process fail-closed run `44725040303` failed because `check_modem_wan_start_status.py` still located the old unchecked `proto_t` setter and separate `ifname_t` setter. Updated its ordered call markers and retained the two-error first-failure aggregation check.
+- On the same exact SHA, WAN DHCP `44725040281`, AI docs `44725040258`, and Process lifecycle inventory `44725040116` passed. XY-C1 `44725040370` was in progress at the last poll.
+- Checker-only change; exact-head reruns and same-SHA L3 remain pending.
+
+---
+
 ## 2026-11-20 — Correct WAN identity regression literal and roadmap dashboard heading
 
 - Parent main SHA: 1ba05070a5e33103c62bca466f70531b8fe2fb6e.

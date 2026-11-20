@@ -1,7 +1,15 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 1ba05070a5e33103c62bca466f70531b8fe2fb6e; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- The checked WAN runtime identity slice is present on main: USB RAS, PPP and IPoE now publish `proto_t` before `ifname_t` through the status-checked pair helper; all three failure paths fail closed.
-- Exact `1ba0507` Actions exposed two validation-only defects: the new WAN NVRAM regression used a multi-character `'\\0'` literal and must use the C null character `'\0'`; the roadmap checkpoint lost the required `## Whole-repository module status` heading. THIS COMMIT corrects both.
+- Parent main SHA: 786fb0ab4f2ffbec808eb7c67279c6959b5db2db; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Checked WAN runtime identity pair publication is implemented and covered by GNU89/Werror/ASan/UBSan host tests. The three USB RAS, PPP and IPoE startup paths now use the same checked pair helper and retain physical-WAN recovery.
+- Exact `786fb0a`: WAN DHCP `44725040281`, AI docs `44725040258` and Process lifecycle inventory `44725040116` PASS; WAN route `44725040341` and Process fail-closed `44725040303` exposed stale checker assumptions about the removed direct writes. XY-C1 `44725040370` remained in progress at last poll.
+- THIS COMMIT aligns both remaining source contracts with the checked pair helper. No production behavior changes.
+
+## Priority queue
+- CLOSED: WAN0/LAN boot NVRAM snapshots, WAN reset propagation/ABI and prior WAN route recovery; do not re-audit.
+- ACTIVE: verify the source-contract follow-up and same-SHA XY-C1 Build/TRX/artifact.
+- NEXT: continue remaining critical NVRAM publication and independent service/lifecycle defects across userland.
+
+## Whole-repository module status` heading. THIS COMMIT corrects both.
 - Exact WAN route `44724624287`, WAN DHCP `44724624228`, and Process fail-closed `44724624179` failed at the same new test compilation error. AI docs `44724623863` failed on the missing roadmap dashboard heading. Process inventory `44724624195` passed. Exact XY-C1 `44724624114` was in progress at last poll.
 
 ## Priority queue

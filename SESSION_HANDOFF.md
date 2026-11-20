@@ -3,32 +3,31 @@
 This checkpoint supersedes older summaries below. Continue from live main; do not repeat closed audits.
 
 ## Git state
-- Parent main SHA for this validation repair: 1ba05070a5e33103c62bca466f70531b8fe2fb6e.
+- Parent main SHA for this source-contract follow-up: 786fb0ab4f2ffbec808eb7c67279c6959b5db2db.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Main-only atomic commits, exact expected-SHA update with `force=false`; no force-push.
+- Main-only atomic commits; update refs with exact expected SHA and `force=false`; no force-push.
 
-## Verified implementation state
-- The WAN runtime identity pair publisher and three checked startup callers are present; the prior tree-integrity correction restored `rc.c`, `rc.h` and the Process source checker from `9230dacb`.
-- Exact `1ba0507` WAN route `44724624287`, WAN DHCP `44724624228`, Process fail-closed `44724624179` failed on the two-backslash C null literal in the new policy regression. Process lifecycle inventory `44724624195` passed.
-- Exact AI docs `44724623863` failed because the previous roadmap update dropped the mandatory `## Whole-repository module status` heading. Exact XY-C1 `44724624114` was still in progress at last poll.
-- The child below fixes the C literal and restores the dashboard heading; these are test/documentation corrections, not production behavior changes.
+## Current implementation state
+- Checked runtime WAN identity publication is implemented for USB RAS, PPP and IPoE: `proto_t` is checked before `ifname_t`; failures trigger physical-WAN restoration before skipping activation.
+- `786fb0a` policy test compilation and AI docs passed; exact WAN DHCP callback `44725040281` passed and Process lifecycle inventory `44725040116` passed.
+- Exact WAN route `44725040341` failed because its checker still expected three direct `set_wan_unit_value_status(..., "ifname_t", ...)` calls; those now correctly reside inside the pair publisher. Process fail-closed `44725040303` failed because the modem checker expected the previous unchecked `proto_t` write plus standalone interface write. Both are stale source contracts, not compiler/test failures.
+- Exact XY-C1 `44725040370` and NVRAM transaction run `44725040274` were in progress at last poll. This follow-up updates both affected source contracts to assert the new pair helper and its recovery/status behavior.
 
 ## Current implementation slice — THIS COMMIT
-- Change the assertion to use the single-backslash C null character constant `'\0'`, so GNU89/Werror accepts the policy test and the no-follow-up-write assertion remains valid.
-- Restore the roadmap’s current module-status dashboard heading without removing or reorganizing its existing module inventory.
-- Re-run the affected exact-SHA host/source contracts and firmware validation. No L3 claim until Build, TRX verification and artifact upload succeed on one SHA.
+- Update WAN route source checks to require three checked identity-pair calls and validate immediate first-error aggregation, physical WAN restoration and branch abort before firewall rebuild.
+- Update modem WAN startup status checks to assert the same ordered identity-pair call markers and preserve the two-failure first-error aggregation.
+- No production C code changes in this checker-only slice.
 
 ## Exact first actions for the next continuation
-1. Verify this commit's WAN route, WAN DHCP, Process fail-closed, Process inventory and AI docs Actions.
-2. Inspect WAN NVRAM policy test output and WAN caller source-contract output; fix any true source/assertion defect.
-3. Verify same-SHA XY-C1 Build, TRX and artifact upload; previous failed/pending SHAs do not provide L3 evidence.
-4. Continue independent P1 checked NVRAM publication audit or another cross-userland service defect while XY remains pending.
+1. Verify exact-head WAN route, Process fail-closed, AI docs, WAN DHCP, and XY-C1 Actions.
+2. Confirm WAN route and modem checkers accept only the checked pair helper, still require first-error aggregation and physical path recovery.
+3. Verify same-SHA XY-C1 Build, TRX and artifact upload; keep L3 distinct from host test PASS.
+4. Continue independent P1 checked NVRAM/service publication work while any exact-head XY build is pending.
 
 ## Verification boundary
-- `9230dacb`: focused Process, WAN route and AI docs PASS; XY was pending.
-- `818ff7b`: WAN DHCP and AI docs failed (null literal and missing dashboard heading); its tree omission was repaired in `1ba0507`.
-- `1ba0507`: Process inventory PASS; WAN route, WAN DHCP and Process fail-closed failed on the C literal; AI docs failed on the missing roadmap heading; XY-C1 was in progress at last poll.
-- THIS COMMIT: exact-head Actions pending at creation.
+- `1ba0507`: Process lifecycle inventory PASS; WAN route, WAN DHCP and Process fail-closed failed on the two-backslash test constant; AI docs failed on the missing roadmap dashboard header; XY-C1 did not pass the host gate.
+- `786fb0a`: policy test, AI docs, WAN DHCP and Process lifecycle inventory PASS; WAN route and Process fail-closed failed on stale direct-write source assertions; XY-C1 was IN_PROGRESS at last poll.
+- THIS COMMIT: exact-head checks pending at creation.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Evidence discipline

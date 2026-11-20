@@ -419,32 +419,31 @@ aggregate_matches = list(re.finditer(aggregate_pattern, wan_start))
 # Five checked WAN error-state publications also feed the first-error result.
 assert len(aggregate_matches) == 35
 
-# Each of the three active-interface publication failures retains two results:
-# the failed NVRAM write and the physical-WAN recovery attempt.
-for protocol_marker, interface_name, diagnostic in (
-    ('set_wan_unit_value(unit, "proto_t", "RAS Modem")',
-     "ppp_ifname", "cannot publish active WAN interface"),
-    ('set_wan_unit_value(unit, "proto_t", proto_desc)',
-     "ppp_ifname", "cannot publish active WAN interface"),
-    ('set_wan_unit_value(unit, "proto_t", "IPoE")',
-     "wan_ifname", "cannot publish active WAN interface"),
+# Each checked protocol/interface pair publication failure retains both
+# results: the failed NVRAM write and the physical-WAN recovery attempt.
+normalized_wan_start = " ".join(wan_start.split())
+for identity_marker, diagnostic in (
+    ('vlan_result = rc_wan_nvram_publish_runtime_identity( set_wan_unit_value_status_callback, &unit, "RAS Modem", ppp_ifname);',
+     "cannot publish active WAN interface"),
+    ('vlan_result = rc_wan_nvram_publish_runtime_identity( set_wan_unit_value_status_callback, &unit, proto_desc, ppp_ifname);',
+     "cannot publish active WAN interface"),
+    ('vlan_result = rc_wan_nvram_publish_runtime_identity( set_wan_unit_value_status_callback, &unit, "IPoE", wan_ifname);',
+     "cannot publish active WAN interface"),
 ):
-    protocol_start = wan_start.index(protocol_marker)
-    publish_marker = (
-        'vlan_result = set_wan_unit_value_status(unit, "ifname_t", '
-        + interface_name + ');'
+    identity_at = normalized_wan_start.index(identity_marker)
+    failure_at = normalized_wan_start.index(
+        "if (vlan_result != 0)", identity_at + len(identity_marker)
     )
-    publish_at = wan_start.index(publish_marker, protocol_start)
-    failure_at = wan_start.index("if (vlan_result != 0)", publish_at)
-    restore_at = wan_start.index(
+    restore_at = normalized_wan_start.index(
         "vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);",
         failure_at,
     )
-    continue_at = wan_start.index("continue;", restore_at)
-    failure_path = wan_start[failure_at:continue_at]
+    continue_at = normalized_wan_start.index("continue;", restore_at)
+    failure_path = normalized_wan_start[failure_at:continue_at]
     assert len(re.findall(aggregate_pattern, failure_path)) == 2
     assert diagnostic in failure_path
-    assert publish_at < failure_at < restore_at < continue_at
+    assert identity_at < failure_at < restore_at < continue_at
+
 
 # The RAS firewall rebuild, failed-rebuild recovery, and PPP launch recovery
 # each contribute status.
