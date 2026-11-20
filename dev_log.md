@@ -1,3 +1,11 @@
+## 2026-11-20 — Make MiniUPnP lease declaration guard match actual source bytes
+
+- Parent main SHA: 0d9719e7960f83d26a2df931902f61bee5b94bfe; checker-only correction to the declaration repair in 7065465d000b0bc17763b51c61533cebba243f62.
+- Exact-head MiniUPnP run #44799072749 on 7065465d000b0bc17763b51c61533cebba243f62 FAILED at the new declaration assertion. The job log showed doubled backslashes in the raw regex, so it matched a literal backslash+n instead of a line break. The production duplicate-static fix itself is intact.
+- Replaced the fragile regular expression with an explicit source-prefix contract: lease_file_remove() must be preceded by one static int line and must not be preceded by two consecutive copies. Added positive/negative fixture checks locally.
+- Exact XY-C1 run #44799072655 on 7065465d000b0bc17763b51c61533cebba243f62 was still running at last check and contains the actual MiniUPnP production source correction; L3 remains PENDING until Build/TRX/artifact finish. The full production translation unit was not compiled locally.
+- Independent infosvr run #44799216221 FAILED in its dispatch test at an invalid expectation that the extended response MacAddress field remain zero; that field overlaps the start of the legacy response payload. Correct that test separately. Physical L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Correct duplicated MiniUPnP lease cleanup declaration
 
 - Parent main SHA: `b90cdf4f6cd8ce0725bdee19dc7b605c0163a775`. Production source, its source-contract regression, this log entry and the materially corrected handoff are committed together in THIS COMMIT.
