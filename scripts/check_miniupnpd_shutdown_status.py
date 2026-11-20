@@ -40,7 +40,10 @@ assert "if(errno == EINTR) continue;" in select_block
 assert "exit_status = 1;" in select_block
 assert "goto shutdown;" in select_block
 assert "return 1;" not in select_block, "fatal select failure still bypasses common teardown"
-assert select_block.index("exit_status = 1;") < select_block.index("goto shutdown;")
+fatal_branch = select_block[
+    select_block.index('syslog(LOG_ERR, "Failed to select open sockets. EXITING")') :
+]
+assert fatal_branch.index("exit_status = 1;") < fatal_branch.index("goto shutdown;")
 
 assert main.count("int exit_status = 0;") == 1
 shutdown_at = main.index("shutdown:")
