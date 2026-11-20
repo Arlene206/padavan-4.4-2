@@ -37,6 +37,8 @@
 #include <process_inventory.h>
 #include "openvpn_process_stop_policy.h"
 #include "vpn_server_restart_policy.h"
+#include "route_status_policy.h"
+#include "vpn_client_nvram_policy.h"
 
 #define OPENVPN_EXE		"/usr/sbin/openvpn"
 #define COMMON_TEMP_DIR		"/tmp/openvpn"
@@ -1357,17 +1359,18 @@ call_client_script(const char *script_name, const char *arg)
 		unsetenv(env_pppd[i]);
 }
 
-static void
+static int
 on_client_ifup(void)
 {
 #define ENV_SCAN_MAX 20
 	int i, i_dns = 0, i_wins = 0, i_dom = 0, vpnc_pdns;
-	char buf[256], foption[32], fvalue[128], *value;
+	int status = 0, write_status, dns_status;
+	char buf[256], foption[32], fvalue[128], domain[128], *value;
+	struct vpn_client_nvram_value values[2];
+	unsigned int value_count = 0;
 
-	nvram_set_int_temp("vpnc_state_t", 1);
-
+	domain[0] = '\0';
 	vpnc_pdns = nvram_get_int("vpnc_pdns");
-
 	buf[0] = 0;
 	for (i = 0; i < ENV_SCAN_MAX; i++) {
 		snprintf(foption, sizeof(foption), "foreign_option_%d", i);
@@ -1394,7 +1397,7 @@ on_client_ifup(void)
 				i_dom++;
 				if (i_dom == 1) {
 					if (vpnc_pdns > 0)
-						nvram_set_temp("vpnc_dom_t", fvalue);
+						snprintf(domain, sizeof(domain), "%s", fvalue);
 					setenv("DOMAIN", fvalue, 1);
 				}
 			}
@@ -1403,9 +1406,28 @@ on_client_ifup(void)
 			break;
 	}
 
-	nvram_set_temp("vpnc_dns_t", buf);
-	if (strlen(buf) > 0)
+	values[value_count].name = "vpnc_state_t";
+	values[value_count++].value = "1";
+	if (vpnc_pdns > 0 && domain[0] != '\0') {
+		values[value_count].name = "vpnc_dom_t";
+		values[value_count++].value = domain;
+	}
+	write_status = vpn_client_nvram_set_all_values(
+		values, value_count, vpn_client_nvram_set_temp_status, NULL);
+	status = route_status_accumulate(status, write_status);
+	if (write_status != 0)
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot publish OpenVPN client up/domain state (status=%d)",
+			   write_status);
+
+	dns_status = vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", buf);
+	status = route_status_accumulate(status, dns_status);
+	if (dns_status == 0)
 		refresh_resolvconf_nonfatal("OpenVPN client DNS update", 0);
+	else
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot publish OpenVPN client DNS snapshot (status=%d)",
+			   dns_status);
 
 	call_client_script(VPN_CLIENT_UPDOWN_SCRIPT, "up");
 
@@ -1419,16 +1441,28 @@ on_client_ifup(void)
 		unsetenv("DNS2");
 	if (i_dns > 0)
 		unsetenv("DNS1");
+
+	return status;
 }
 
-static void
+static int
 on_client_ifdown(void)
 {
-	nvram_set_int_temp("vpnc_state_t", 0);
+	int status, dns_status;
 
-	restore_dns_from_vpnc();
+	status = vpn_client_nvram_set_temp_status(NULL, "vpnc_state_t", "0");
+	if (status != 0)
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot clear OpenVPN client up state (status=%d)", status);
+	dns_status = restore_dns_from_vpnc();
+	status = route_status_accumulate(status, dns_status);
+	if (dns_status != 0)
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot restore DNS after OpenVPN client disconnect (status=%d)",
+			   dns_status);
 
 	call_client_script(VPN_CLIENT_UPDOWN_SCRIPT, "down");
+	return status;
 }
 
 int
@@ -1648,13 +1682,9 @@ ovpn_client_script_main(int argc, char **argv)
 	umask(0000);
 
 	if (strcmp(script_type, "up") == 0)
-	{
-		on_client_ifup();
-	}
+		return on_client_ifup();
 	else if (strcmp(script_type, "down") == 0)
-	{
-		on_client_ifdown();
-	}
+		return on_client_ifdown();
 
 	return 0;
 }

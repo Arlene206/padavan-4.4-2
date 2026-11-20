@@ -9,6 +9,7 @@ struct fake_nvram {
     unsigned int calls;
     int fail_at;
     int failure_status;
+    int statuses[3];
     char names[3][32];
     char values[3][8];
 };
@@ -22,6 +23,8 @@ fake_set(void *opaque, const char *name, const char *value)
     assert(call < 3);
     snprintf(fake->names[call], sizeof(fake->names[call]), "%s", name);
     snprintf(fake->values[call], sizeof(fake->values[call]), "%s", value);
+    if (fake->statuses[call] != 0)
+        return fake->statuses[call];
     return ((int)call == fake->fail_at) ? fake->failure_status : 0;
 }
 
@@ -50,6 +53,27 @@ test_cache_backed_text_is_copied_without_truncation(void)
     assert(vpn_client_nvram_copy_text("peer", NULL, sizeof(destination)) ==
            EINVAL);
     assert(vpn_client_nvram_copy_text("peer", destination, 0) == EINVAL);
+}
+
+static void
+test_independent_runtime_writes_attempt_all_and_keep_first_error(void)
+{
+    struct fake_nvram fake;
+    const struct vpn_client_nvram_value values[] = {
+        { "vpnc_state_t", "1" },
+        { "vpnc_dom_t", "example.test" },
+        { "vpnc_dns_t", "1.1.1.1" }
+    };
+
+    reset_fake(&fake);
+    fake.statuses[0] = EACCES;
+    fake.statuses[1] = ENOSPC;
+    assert(vpn_client_nvram_set_all_values(values, 3, fake_set, &fake) ==
+           EACCES);
+    assert(fake.calls == 3);
+    assert(strcmp(fake.names[0], "vpnc_state_t") == 0);
+    assert(strcmp(fake.names[1], "vpnc_dom_t") == 0);
+    assert(strcmp(fake.names[2], "vpnc_dns_t") == 0);
 }
 
 static void
@@ -121,6 +145,7 @@ int
 main(void)
 {
     test_cache_backed_text_is_copied_without_truncation();
+    test_independent_runtime_writes_attempt_all_and_keep_first_error();
     test_write_status_preserves_errno();
     test_read_status_distinguishes_absence_from_failure();
     test_runtime_clear_publishes_dns_domain_and_state_in_order();

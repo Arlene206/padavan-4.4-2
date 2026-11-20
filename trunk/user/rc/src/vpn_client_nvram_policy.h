@@ -75,6 +75,30 @@ vpn_client_nvram_set_required_values(
     return 0;
 }
 
+/* Attempt all independent writes and preserve the first failure. */
+static inline int
+vpn_client_nvram_set_all_values(const struct vpn_client_nvram_value *values,
+                                unsigned int count,
+                                vpn_client_nvram_set_fn set_value,
+                                void *context)
+{
+    unsigned int i;
+    int status, first_status = 0;
+
+    if ((!values && count != 0) || !set_value)
+        return EINVAL;
+    for (i = 0; i < count; ++i) {
+        if (!values[i].name || !values[i].name[0] || !values[i].value)
+            return EINVAL;
+    }
+    for (i = 0; i < count; ++i) {
+        status = set_value(context, values[i].name, values[i].value);
+        if (first_status == 0 && status != 0)
+            first_status = status;
+    }
+    return first_status;
+}
+
 static inline int
 vpn_client_nvram_clear_runtime_state(vpn_client_nvram_set_fn set_value,
                                      void *context)

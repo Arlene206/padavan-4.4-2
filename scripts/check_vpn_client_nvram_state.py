@@ -65,6 +65,7 @@ vpn = (ROOT / "trunk/user/rc/src/vpn_client.c").read_text()
 header = (ROOT / "trunk/user/rc/src/vpn_client_nvram_policy.h").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/vpn_client_nvram_policy.c").read_text()
 rc_header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
+openvpn = (ROOT / "trunk/user/rc/src/vpn_openvpn.c").read_text()
 
 assert '#include "vpn_client_nvram_policy.h"' in vpn
 assert "int restore_dns_from_vpnc(void);" in rc_header
@@ -163,4 +164,28 @@ for token in (
 ):
     assert token in header
 
+openvpn_up = body(openvpn, "static int\non_client_ifup(void)")
+openvpn_down = body(openvpn, "static int\non_client_ifdown(void)")
+openvpn_entry = body(openvpn, "int\novpn_client_script_main(int argc, char **argv)")
+ordered(openvpn_up, [
+    "vpn_client_nvram_set_all_values(",
+    'vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", buf)',
+    "if (dns_status == 0)",
+    'refresh_resolvconf_nonfatal("OpenVPN client DNS update", 0);',
+    'call_client_script(VPN_CLIENT_UPDOWN_SCRIPT, "up");',
+    "return status;"
+], "OpenVPN client up NVRAM status")
+ordered(openvpn_down, [
+    'vpn_client_nvram_set_temp_status(NULL, "vpnc_state_t", "0")',
+    "dns_status = restore_dns_from_vpnc();",
+    "status = route_status_accumulate(status, dns_status);",
+    'call_client_script(VPN_CLIENT_UPDOWN_SCRIPT, "down");',
+    "return status;"
+], "OpenVPN client down NVRAM status")
+assert "return on_client_ifup();" in openvpn_entry
+assert "return on_client_ifdown();" in openvpn_entry
+assert "nvram_set_int_temp(" not in openvpn_up + openvpn_down
+assert "nvram_set_temp(" not in openvpn_up + openvpn_down
+assert "int vpn_client_nvram_set_temp_status(void *context" in rc_header
+assert "vpn_client_nvram_set_all_values" in header
 print("VPN client runtime NVRAM/DNS fail-closed source contract: PASS")

@@ -88,7 +88,7 @@ get_xl2tpd_vpnc_active(void)
 		 nvram_match("l2tp_cli_t", "1"));
 }
 
-static int
+int
 vpn_client_nvram_set_temp_status(void *context, const char *name,
 				 const char *value)
 {

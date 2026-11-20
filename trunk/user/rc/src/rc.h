@@ -422,6 +422,8 @@ int stop_vpn_client(void);
 int stop_vpn_client_under_lifecycle_lock(void);
 int restart_vpn_client(void);
 int restore_dns_from_vpnc(void);
+int vpn_client_nvram_set_temp_status(void *context, const char *name,
+                                     const char *value);
 int ipup_vpnc_main(int argc, char **argv);
 int ipdown_vpnc_main(int argc, char **argv);
 
