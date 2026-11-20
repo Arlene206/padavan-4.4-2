@@ -11,6 +11,8 @@ kernel_policy = (root / "trunk/user/rc/src/lan_kernel_name_policy.h").read_text(
 kernel_test = (root / "trunk/user/rc/src/tests/lan_kernel_name_policy.c").read_text()
 callback_policy = (root / "trunk/user/rc/src/lan_dhcp_callback_policy.h").read_text()
 callback_test = (root / "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c").read_text()
+nvram_snapshot_policy = (root / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
+nvram_snapshot_test = (root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 busybox = (root / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
 workflow = (root / ".github/workflows/wan-dhcp-callback-stability.yml").read_text()
 xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
@@ -48,18 +50,43 @@ for marker in (
 ):
     assert marker in test, marker
 
+snapshot_helper = c_function_body(lan, "lan_dhcp_deconfig_snapshot(")
+assert "rc_wan_nvram_copy_snapshot(" in snapshot_helper
+assert "lan_dhcp_snapshot_begin" in snapshot_helper
+assert "lan_dhcp_snapshot_get" in snapshot_helper
+assert "lan_dhcp_snapshot_end" in snapshot_helper
+for key in ("lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_domain"):
+    assert '"' + key + '"' in snapshot_helper
+snapshot_policy_body = c_function_body(
+    nvram_snapshot_policy, "rc_wan_nvram_copy_snapshot("
+)
+assert "rc_wan_nvram_copy_value(" in snapshot_policy_body
+assert "end_transaction(context)" in snapshot_policy_body
+assert "fields[i].destination[0] = '\\0';" in snapshot_policy_body
+for marker in (
+    "test_transactional_snapshot_copies_coherent_tuple",
+    "test_transactional_snapshot_releases_lock_and_discards_partial_tuple",
+    "test_transactional_snapshot_end_failure_invalidates_values",
+):
+    assert marker in nvram_snapshot_test
+
 start = lan.index("lan_down_auto(char *lan_ifname)")
 end = lan.index("return 0;", start)
 cleanup = lan[start:end]
+snapshot_call = cleanup.index("snapshot_status = lan_dhcp_deconfig_snapshot(")
+snapshot_failure = cleanup.index("if (snapshot_status != 0)", snapshot_call)
+route_delete = cleanup.index("route_status = route_del(", snapshot_failure)
+static_restore = cleanup.index("ifconfig_status = ifconfig(lan_ifname, IFUP, lan_addr, lan_mask);")
 status_update = cleanup.index("status = dhcp_lease_deconfig_status(route_status, ifconfig_status,")
 ready = cleanup.index("if (dhcp_lease_deconfig_address_ready(route_status, ifconfig_status))", status_update)
-restore = cleanup.index('hosts_status = create_hosts_lan(nvram_safe_get("lan_ipaddr"),', ready)
-domain = cleanup.index('nvram_safe_get("lan_domain")', restore)
-hosts_error = cleanup.index("if (hosts_status != 0)", domain)
+restore = cleanup.index("hosts_status = create_hosts_lan(lan_addr, lan_domain);", ready)
+hosts_error = cleanup.index("if (hosts_status != 0)", restore)
 preserve = cleanup.index("if (status == 0)", hosts_error)
 failure = cleanup.index("if (status != 0)", preserve)
-assert status_update < ready < restore < domain < hosts_error < preserve < failure
+assert snapshot_call < snapshot_failure < route_delete < static_restore < status_update < ready < restore < hosts_error < preserve < failure
 assert "status = hosts_status;" in cleanup[preserve:failure]
+for key in ("lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_domain"):
+    assert 'nvram_safe_get("' + key + '")' not in cleanup
 assert "failed to restore static LAN hostname/hosts during deconfig" in cleanup
 
 for effect in (

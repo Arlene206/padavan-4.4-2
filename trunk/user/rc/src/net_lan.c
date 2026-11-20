@@ -36,6 +36,7 @@
 #include "dhcp_lease_policy.h"
 #include "lan_kernel_name_policy.h"
 #include "lan_dhcp_callback_policy.h"
+#include "wan_nvram_status_policy.h"
 #include "service_wait_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
@@ -1581,13 +1582,89 @@ static const struct dhcp_lease_bound_ops lan_dhcp_bound_ops = {
 
 
 static int
+lan_dhcp_snapshot_begin(void *opaque)
+{
+	if (!opaque) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_begin((struct nvram_transaction *)opaque);
+}
+
+
+static int
+lan_dhcp_snapshot_get(void *opaque, const char *name, char **value)
+{
+	if (!opaque) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get((struct nvram_transaction *)opaque, name, value);
+}
+
+
+static int
+lan_dhcp_snapshot_end(void *opaque)
+{
+	if (!opaque) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_end((struct nvram_transaction *)opaque);
+}
+
+
+static int
+lan_dhcp_deconfig_snapshot(char *gateway, size_t gateway_size,
+			   char *lan_addr, size_t lan_addr_size,
+			   char *lan_mask, size_t lan_mask_size,
+			   char *lan_domain, size_t lan_domain_size)
+{
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[4];
+
+	fields[0].param_name = "lan_gateway_t";
+	fields[0].destination = gateway;
+	fields[0].destination_size = gateway_size;
+	fields[1].param_name = "lan_ipaddr";
+	fields[1].destination = lan_addr;
+	fields[1].destination_size = lan_addr_size;
+	fields[2].param_name = "lan_netmask";
+	fields[2].destination = lan_mask;
+	fields[2].destination_size = lan_mask_size;
+	fields[3].param_name = "lan_domain";
+	fields[3].destination = lan_domain;
+	fields[3].destination_size = lan_domain_size;
+
+	return rc_wan_nvram_copy_snapshot(
+		fields, 4, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
+		lan_dhcp_snapshot_end, &transaction);
+}
+
+
+static int
 lan_down_auto(char *lan_ifname)
 {
 	FILE *fp;
-	char *lan_gateway = nvram_safe_get("lan_gateway_t");
+	char lan_gateway[16], lan_addr[16], lan_mask[16], lan_domain[256];
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
-	int route_status = 0, ifconfig_status, resolver_status = 0;
+	int snapshot_status, route_status = 0, ifconfig_status, resolver_status = 0;
 	int lock, status, hosts_status = 0;
+
+	/*
+	 * Restore one coherent view of the DHCP gateway and static LAN settings.
+	 * NVRAM reads use a rotating cache, so snapshot helper copies every field
+	 * before the next read and invalidates the tuple on any read/unlock error.
+	 */
+	snapshot_status = lan_dhcp_deconfig_snapshot(
+		lan_gateway, sizeof(lan_gateway), lan_addr, sizeof(lan_addr),
+		lan_mask, sizeof(lan_mask), lan_domain, sizeof(lan_domain));
+	if (snapshot_status != 0) {
+		logmessage("DHCP LAN Client",
+			   "cannot snapshot LAN deconfig settings on %s (status=%d); retaining lease state",
+			   lan_ifname, snapshot_status);
+		return snapshot_status;
+	}
 
 	/*
 	 * Remove the recorded DHCP default route before replacing the interface
@@ -1606,9 +1683,7 @@ lan_down_auto(char *lan_ifname)
 		}
 	}
 
-	ifconfig_status = ifconfig(lan_ifname, IFUP,
-				   nvram_safe_get("lan_ipaddr"),
-				   nvram_safe_get("lan_netmask"));
+	ifconfig_status = ifconfig(lan_ifname, IFUP, lan_addr, lan_mask);
 	status = dhcp_lease_deconfig_status(route_status, ifconfig_status, 0);
 	if (status != 0) {
 		logmessage("DHCP LAN Client",
@@ -1650,8 +1725,7 @@ lan_down_auto(char *lan_ifname)
 	 * restore those files even if resolver cleanup needs another retry.
 	 */
 	if (dhcp_lease_deconfig_address_ready(route_status, ifconfig_status)) {
-		hosts_status = create_hosts_lan(nvram_safe_get("lan_ipaddr"),
-						nvram_safe_get("lan_domain"));
+		hosts_status = create_hosts_lan(lan_addr, lan_domain);
 		if (hosts_status != 0) {
 			logmessage("DHCP LAN Client",
 				   "failed to restore static LAN hostname/hosts during deconfig (status=%d)",
