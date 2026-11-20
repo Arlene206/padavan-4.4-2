@@ -1,32 +1,34 @@
 # 2026-11-20 continuation checkpoint
 
-This live checkpoint supersedes older summaries. Continue from current main; avoid repeating completed WAN mirror/runtime-identity, Samba mode, Ralink RADIUS and NTP-readiness work.
+This live checkpoint supersedes older summaries. Continue from current main and do not repeat completed startup recovery, WAN snapshot, FTP FIFO/APPE, or RADIUS zeroization work.
 
 ## Git state
 
-- APPE implementation commit: `8ded66573ba530efd6c66763981e136dc7a1097a`; parent `821c133887352c069067688f442cd5300bd619b2`.
-- The prior FIFO rejection commit `5c7fa81094c2e31ed58d0e8381201ca769db7a2c` has exact VSFTPD, Process, AI-doc and NVRAM checks PASS; its XY-C1 run was pending last time it was checked.
-- New APPE exact-head workflow: run `44734275928` was in progress at the source-contract stage; the inline contract needs whitespace normalization for a helper call split across source lines. This commit repairs the assertion without weakening the expected argument sequence.
-- RADIUS teardown zeroization commit `821c133887352c069067688f442cd5300bd619b2` retained on main. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Current parent main SHA: `573d215607c8e8a4b7e22048c2bbdd633a3a2d5f`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Exact FIFO-rejection SHA `5c7fa81094c2e31ed58d0e8381201ca769db7a2c`: VSFTPD, Process inventory, AI docs and NVRAM Actions PASS; same-SHA XY-C1 Build/TRX/artifact PASS.
+- APPE product-source SHA `8ded66573ba530efd6c66763981e136dc7a1097a`: initial VSFTPD source-contract run failed on multiline whitespace; correction SHA `573d215607c8e8a4b7e22048c2bbdd633a3a2d5f` passes VSFTPD `44734430382` and AI docs `44734430469`. APPE exact-source XY-C1 run `44734275996` was still IN_PROGRESS at last poll.
+- RADIUS secret-zeroization source SHA `821c133887352c069067688f442cd5300bd619b2`: Process inventory, Process lifecycle and AI docs PASS; NVRAM audit was cancelled; XY-C1 run `44734074955` was IN_PROGRESS at last poll.
+- The latest main head was checked identical to `main` before beginning this MiniUPnP slice. Do not touch the frozen backup.
 
-## Active FTP work
+## Active MiniUPnP work
 
-- `5c7fa8`: rejects existing STOR FIFO/special-file targets with descriptor fstat and an active-reader FIFO test; exact VSFTPD run `44733281243` PASS.
-- `8ded665`: passes `is_append` through upload open and sets `O_APPEND` for APPE. A two-descriptor test seeks both fds to offset zero before writes and expects `baseAB`. STOR/STOU behavior is unchanged.
-- The current follow-up only normalizes whitespace in the Python source contract; the assertion still requires append mode to flow from `is_append` through `asus_open_upload_path()` to `ftp_acl_path_open_upload_entry()`.
+- Confirmed reliability defect in `trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c::writepidfile()`: direct open did not truncate a longer previous PID, `write()` short/error results were not propagated, and the old path could expose a partially replaced PID after interruption or storage failure.
+- New helper `miniupnpd_pidfile_policy.h` stages the PID beside its destination with `mkstemp()`, applies the prior writer's intended 0644 mode, completes short writes and bounded EINTR retries, syncs and checks close, then atomically renames. A failed publish preserves the previous complete PID file; replacing a symlink destination does not follow its target.
+- GNU89 host regression exercises shorter replacement, interrupted/one-byte writes, bounded signal storms, ENOSPC and zero-write failure, temp cleanup, and symlink-target preservation. Standalone `-Wall -Wextra -Werror -fsanitize=address,undefined` execution PASS locally.
+- The same logical slice updates MiniUPnP's Makefile dependency, both push/PR path filters, workflow host test and source contract. Exact-head Actions and same-source XY-C1 are pending until this commit is pushed.
 
 ## Exact first actions
 
-1. Check `8ded665` VSFTPD job outcome and rerun this source-contract-only correction's exact run. Fix any compiler or regression failure from the job logs.
-2. Check exact-source XY-C1 Build/TRX/artifact runs for `5c7fa8`, `8ded665`, and current main; only claim L3 when all three firmware steps pass for one SHA.
-3. Continue an independent userland stability/security fix while relevant Actions are pending; do not poll pending jobs repeatedly.
-4. Physical router and live FTP interoperability L4 remain NOT VERIFIED.
+1. Inspect the exact new MiniUPnP stability Action and AI handoff check; repair only causal failures without weakening assertions.
+2. Verify XY-C1 on the new product-source SHA through detector, MIPS build, TRX verification and artifact upload. FIFO SHA 5c is L3-verified; APPE 8ded and RADIUS 821 were still pending at last poll.
+3. Continue a different userland stability/security candidate while relevant Actions are pending. Do not poll repeatedly or re-audit closed FTP/RADIUS work.
+4. Physical router L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- FIFO fix `5c7fa8`: host source regression PASS; current-source XY-C1 was IN_PROGRESS at last inspection.
-- APPE fix `8ded665`: host regression and exact build/workflow pending.
-- Keep host L2, exact-head Actions, exact-source firmware L3 and physical-device L4 separate.
+- Host test PASS on the standalone new PID policy/helper with GNU89, warnings-as-errors, ASan and UBSan.
+- New MiniUPnP exact-head workflow and XY-C1 result: PENDING until their runs complete on the resulting commit SHA.
+- Keep host L2, exact-head Actions, same-source firmware/TRX L3 and device L4 separate.
 
 
 ---

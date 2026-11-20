@@ -1,3 +1,13 @@
+## 2026-11-20 — Publish MiniUPnP PID files atomically and reject incomplete writes
+
+- Parent main SHA: `573d215607c8e8a4b7e22048c2bbdd633a3a2d5f`.
+- Confirmed `writepidfile()` opened `/var/run/miniupnpd.pid` without truncating previous contents, checked only negative `write()` results, ignored short writes and returned success even when PID content was not fully persisted. A shorter new PID could retain stale trailing digits; interruption or storage failure could leave a partial PID that later blocks service startup.
+- Added `miniupnpd_pidfile_policy.h`: stage in the destination directory with `mkstemp()`, apply the prior writer's intended 0644 mode, loop until every byte is written, bound repeated EINTR, sync and check close, then publish with one atomic `rename()`. Failed staging leaves the previous complete PID file untouched; an existing symlink destination is replaced as a directory entry, not followed.
+- `writepidfile()` now validates PID text and propagates formatting/publication failure. The MiniUPnP object dependency, host regression, source contract and symmetric push/pull_request path filters are updated together.
+- Standalone GNU89 `-Wall -Wextra -Werror` ASan/UBSan regression PASS: shorter replacement, EINTR plus one-byte writes, bounded EINTR storm, ENOSPC/zero-write failure, temporary cleanup and symlink-target preservation. Exact-head MiniUPnP/AI docs Actions and XY-C1 Build/TRX/artifact are PENDING on the new SHA; no L3/L4 claim.
+
+---
+
 ## 2026-11-20 — Normalize APPE source-contract argument whitespace
 
 - Parent main SHA: `8ded66573ba530efd6c66763981e136dc7a1097a`; APPE code/test implementation is `8ded66573ba530efd6c66763981e136dc7a1097a`.

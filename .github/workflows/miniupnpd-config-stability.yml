@@ -18,6 +18,9 @@ on:
       - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
       - "scripts/check_miniupnpd_lifecycle_lock.py"
@@ -26,6 +29,8 @@ on:
       - ".github/workflows/miniupnpd-config-stability.yml"
       - "trunk/user/rc/src/services_ex.c"
       - "trunk/user/rc/src/ipv4_netmask_policy.h"
+      - "trunk/user/rc/src/tests/upnp_restart_policy.c"
+      - "trunk/user/rc/src/upnp_restart_policy.h"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/rc.h"
@@ -35,6 +40,9 @@ on:
       - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
       - "scripts/check_miniupnpd_lifecycle_lock.py"
@@ -61,6 +69,13 @@ jobs:
             trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c \
             -o /tmp/miniupnpd_daemon_policy
           /tmp/miniupnpd_daemon_policy
+      - name: Compile and run atomic MiniUPnP PID-file publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c \
+            -o /tmp/miniupnpd_pidfile_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_pidfile_policy_test
       - name: Verify UPnP writer error propagation and daemon start gate
         run: |
           python3 - <<'PY'
@@ -74,6 +89,9 @@ jobs:
           daemon_test = Path("trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c").read_text()
           daemon_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c").read_text()
           daemonizer = Path("trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c").read_text()
+          pid_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h").read_text()
+          pid_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c").read_text()
+          miniupnpd_makefile = Path("trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux").read_text()
           workflow = Path(".github/workflows/miniupnpd-config-stability.yml").read_text()
           wan = Path("trunk/user/rc/src/net_wan.c").read_text()
           declarations = Path("trunk/user/rc/src/rc.h").read_text()
@@ -215,6 +233,31 @@ jobs:
           assert "UPnP update incomplete after WAN startup" in start_wan
           assert "pid = daemonize();" in daemon_source
           assert "daemon(0, 0)" in daemon_source
+          pidfile_body = function_body(daemonizer, "writepidfile(const char * fname, int pid)")
+          assert '#include "miniupnpd_pidfile_policy.h"' in daemonizer
+          assert "miniupnpd_pidfile_publish(fname, pidstring," in pidfile_body
+          assert "(size_t)pidstringlen" in pidfile_body
+          assert "Unable to publish pidfile" in pidfile_body
+          assert "write(pidfile" not in pidfile_body
+          for token in (
+              'static const char suffix[] = ".tmp.XXXXXX"',
+              "mkstemp(temporary_path)", "fchmod(fd, 0644)",
+              "miniupnpd_pidfile_write_all_with", "MINIUPNPD_PIDFILE_MAX_INTERRUPTS",
+              "fsync(fd)", "rename(temporary_path, path)",
+              "unlink(temporary_path)", "errno = EIO;",
+          ):
+              assert token in pid_policy, token
+          for token in (
+              "test_short_write_and_eintr_retry", "test_repeated_eintr_is_bounded",
+              "test_failed_write_preserves_previous_pid", "test_zero_write_fails_without_replacing",
+              "test_symlink_destination_is_replaced_without_following",
+              "miniupnpd atomic PID-file publication and full-write regression: PASS",
+          ):
+              assert token in pid_test, token
+          assert "daemonize.o: daemonize.h config.h miniupnpd_pidfile_policy.h" in miniupnpd_makefile
+          assert "miniupnpd_pidfile_policy_test.c" in workflow
+          assert "ASAN_OPTIONS=detect_leaks=1" in workflow
+
           daemon_child = daemonizer.split("/* child process */", 1)[1].split("/* parent process */", 1)[0]
           daemon_parent = daemonizer.split("/* parent process */", 1)[1]
           assert "return pid;" in daemon_child
@@ -255,6 +298,12 @@ jobs:
               "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",
+              "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h",
+              "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c",
+              "trunk/user/rc/src/service_wait_policy.h",
+              "trunk/user/rc/src/upnp_restart_policy.h",
+              "trunk/user/rc/src/tests/upnp_restart_policy.c",
           ):
               assert push_filters.count(path) == 1
               assert pr_filters.count(path) == 1

@@ -188,7 +188,7 @@ upnpredirect.o: macros.h config.h upnpredirect.h upnpglobalvars.h
 upnpredirect.o: upnppermissions.h miniupnpdtypes.h upnpevents.h portinuse.h
 upnpredirect.o: netfilter/iptcrdr.h commonrdr.h
 getifaddr.o: config.h getifaddr.h
-daemonize.o: daemonize.h config.h
+daemonize.o: daemonize.h config.h miniupnpd_pidfile_policy.h
 upnpglobalvars.o: config.h upnpglobalvars.h upnppermissions.h
 upnpglobalvars.o: miniupnpdtypes.h upnpdescstrings.h
 options.o: config.h options.h upnppermissions.h upnpglobalvars.h

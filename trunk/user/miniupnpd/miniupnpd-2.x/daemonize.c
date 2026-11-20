@@ -17,6 +17,7 @@
 
 #include "daemonize.h"
 #include "config.h"
+#include "miniupnpd_pidfile_policy.h"
 
 #ifndef USE_DAEMON
 
@@ -65,32 +66,30 @@ writepidfile(const char * fname, int pid)
 {
 	char pidstring[16];
 	int pidstringlen;
-	int pidfile;
+	int saved_errno;
 
-	if(!fname || (strlen(fname) == 0))
-		return -1;
-
-	if( (pidfile = open(fname, O_WRONLY|O_CREAT, 0644)) < 0)
-	{
-		syslog(LOG_ERR, "Unable to open pidfile for writing %s: %m", fname);
+	if (!fname || fname[0] == '\0' || pid <= 0) {
+		errno = EINVAL;
 		return -1;
 	}
 
 	pidstringlen = snprintf(pidstring, sizeof(pidstring), "%d\n", pid);
-	if(pidstringlen <= 0)
-	{
-		syslog(LOG_ERR,
-			"Unable to write to pidfile %s: snprintf(): FAILED", fname);
-		close(pidfile);
+	if (pidstringlen <= 0 || (size_t)pidstringlen >= sizeof(pidstring)) {
+		saved_errno = errno ? errno : EOVERFLOW;
+		errno = saved_errno;
+		syslog(LOG_ERR, "Unable to format pidfile %s: %m", fname);
+		errno = saved_errno;
 		return -1;
 	}
-	else
-	{
-		if(write(pidfile, pidstring, pidstringlen) < 0)
-			syslog(LOG_ERR, "Unable to write to pidfile %s: %m", fname);
-	}
 
-	close(pidfile);
+	if (miniupnpd_pidfile_publish(fname, pidstring,
+	                             (size_t)pidstringlen) != 0) {
+		saved_errno = errno ? errno : EIO;
+		errno = saved_errno;
+		syslog(LOG_ERR, "Unable to publish pidfile %s: %m", fname);
+		errno = saved_errno;
+		return -1;
+	}
 
 	return 0;
 }
