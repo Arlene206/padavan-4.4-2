@@ -1,3 +1,11 @@
+## 2026-11-20 — Check WAN-down VPN and indexed DNS snapshot clears
+
+- Parent `main` SHA: `b68158c3ee405bcdc3270db0e6adfd9de91828e5`.
+- Found two unchecked temporary NVRAM writes in `wan_down_internal()`: the global `vpnc_dns_t` resolver marker was unconditionally cleared before the optional VPN-client stop, and the indexed `wanN_dns` snapshot was conditionally cleared before `refresh_resolvconf_nonfatal()`. Either failed write was invisible to the callback return status.
+- Both clears now use the existing errno-aware NVRAM status setters and accumulate the first failure into WAN teardown status while continuing independent VPN stop, route/interface cleanup and resolver refresh. The existing demand-PPP preservation condition for indexed DNS is unchanged; resolver rebuild remains nonfatal.
+- Added a route-status regression for two independent resolver-clear failures with later teardown steps still attempted, and extended the WAN source contract to pin both checked writes, their error aggregation/logging, the original conditional and resolver-refresh ordering.
+- Exact-head WAN DHCP/route/HTTPD and XY-C1 validation is required; no firmware L3 or physical-router L4 claim is made here.
+
 ## 2026-11-20 — Align PPP ip-up Actions with checked five-field snapshot publication
 
 - Parent `main` SHA: `b4ab85764446ab133873f9d931d411ef25e7761e`.

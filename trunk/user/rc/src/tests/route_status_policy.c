@@ -93,6 +93,22 @@ test_dhcp_down_monitor_pause_failure_is_reported_and_cleanup_continues(void)
 	assert(attempts == sizeof(teardown_steps) / sizeof(teardown_steps[0]));
 }
 
+
+static void
+test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_continues(void)
+{
+	/* VPN DNS clear fails, VPN stop succeeds, WAN DNS clear fails,
+	 * and resolver refresh still runs: retain the first error and attempt all.
+	 */
+	const int teardown_steps[] = { EACCES, 0, ENOSPC, 0 };
+	size_t attempts = 0;
+
+	assert(apply_results(teardown_steps,
+			     sizeof(teardown_steps) / sizeof(teardown_steps[0]),
+			     &attempts) == EACCES);
+	assert(attempts == sizeof(teardown_steps) / sizeof(teardown_steps[0]));
+}
+
 static void
 test_static_ipoe_teardown_clear_failure_forces_interface_down(void)
 {
@@ -183,6 +199,7 @@ main(void)
 	test_wan_vpn_start_notification_failure_is_reported_without_skipping_later_actions();
 	test_wan_vpn_stop_notification_failure_is_reported_without_skipping_later_cleanup();
 	test_dhcp_down_monitor_pause_failure_is_reported_and_cleanup_continues();
+	test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_continues();
 	test_static_ipoe_teardown_clear_failure_forces_interface_down();
 	test_vpn_route_idempotence_does_not_hide_real_failures();
 	test_vpn_server_remote_route_failure_survives_later_callback_work();

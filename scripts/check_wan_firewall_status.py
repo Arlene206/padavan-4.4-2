@@ -71,6 +71,9 @@ def positions(source, marker):
 
 
 wan = (RC / "net_wan.c").read_text()
+
+wan_route_test = (RC / "tests/route_status_policy.c").read_text()
+
 net_core = (RC / "net.c").read_text()
 ppp = (RC / "net_ppp.c").read_text()
 ppp_ipup_policy = (RC / "ppp_wan_ipup_policy.h").read_text()
@@ -741,4 +744,32 @@ for case in (
     require(case in ppp_ipup_test and case + "();" in ppp_ipup_test,
             "PPP ip-up publication rollback regression missing: " + case)
 
+
+wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+vpn_dns_clear = 'route_status = set_nvram_value_status("vpnc_dns_t", "");'
+vpn_dns_at = wan_down.index(vpn_dns_clear)
+vpn_dns_next = wan_down.index("if (!is_static)", vpn_dns_at)
+vpn_dns_block = wan_down[vpn_dns_at:vpn_dns_next]
+require("status = route_status_accumulate(status, route_status);" in vpn_dns_block and
+        "failed to clear VPN resolver snapshot during WAN teardown" in vpn_dns_block,
+        "WAN teardown must report a failed VPN resolver-marker clear without skipping later cleanup")
+wan_dns_guard = wan_down.index('strlen(nvram_safe_get("wanx_dns")) > 6)')
+wan_dns_clear = 'route_status = set_wan_unit_value_status(unit, "dns", "");'
+wan_dns_at = wan_down.index(wan_dns_clear, wan_dns_guard)
+wan_dns_refresh = wan_down.index('refresh_resolvconf_nonfatal("WAN down", 0);', wan_dns_at)
+wan_dns_if = wan_down.rindex("if (wan_proto", 0, wan_dns_guard + 1)
+wan_dns_block = wan_down[wan_dns_if:wan_dns_refresh]
+require("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC" in wan_dns_block and
+        "status = route_status_accumulate(status, route_status);" in wan_dns_block and
+        "failed to clear indexed WAN DNS snapshot" in wan_dns_block,
+        "conditional indexed WAN DNS clear must be checked and included in teardown status")
+require(wan_dns_at < wan_dns_refresh and
+        "refresh_resolvconf_nonfatal(\"WAN down\", 0);" in wan_dns_block,
+        "resolver refresh must still run after a failed DNS snapshot clear")
+require('nvram_set_temp("vpnc_dns_t", "")' not in wan_down and
+        'set_wan_unit_value(unit, "dns", "")' not in wan_down,
+        "unchecked VPN/WAN resolver snapshot clears remain")
+require("test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_continues" in wan_route_test and
+        "test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_continues();" in wan_route_test,
+        "WAN resolver snapshot cleanup failure regression is missing")
 print("WAN firewall rebuild fail-closed protocol gates and PPP recovery: PASS")

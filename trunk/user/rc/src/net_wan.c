@@ -3560,8 +3560,13 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 			   "Internet monitor pause incomplete during WAN teardown (status=%d)",
 			   route_status);
 
-	/* deferred stop static VPN client (prevent rebuild resolv.conf) */
-	nvram_set_temp("vpnc_dns_t", "");
+	/* Clear the temporary VPN resolver marker before the resolver rebuild. */
+	route_status = set_nvram_value_status("vpnc_dns_t", "");
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(LOGNAME,
+			   "failed to clear VPN resolver snapshot during WAN teardown (status=%d)",
+			   route_status);
 	if (!is_static) {
 		route_status = notify_rc_status("stop_vpn_client");
 		status = route_status_accumulate(status, route_status);
@@ -3651,10 +3656,16 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 		logmessage(LOGNAME, "failed to delete static WAN routes on %s (error=%d)",
 			   wan_ifname, route_status);
 
-	/* leave as is if no dns servers left for demand to work */
+	/* Preserve the demand-PPP DNS snapshot only when no MAN DNS remains. */
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP ||
-	    strlen(nvram_safe_get("wanx_dns")) > 6)
-		set_wan_unit_value(unit, "dns", "");
+	    strlen(nvram_safe_get("wanx_dns")) > 6) {
+		route_status = set_wan_unit_value_status(unit, "dns", "");
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME,
+				   "failed to clear indexed WAN DNS snapshot on %s (status=%d)",
+				   wan_ifname, route_status);
+	}
 
 	/* Resolver refresh failure must not block WAN teardown/cleanup. */
 	refresh_resolvconf_nonfatal("WAN down", 0);
