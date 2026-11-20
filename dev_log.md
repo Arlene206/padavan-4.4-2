@@ -1,3 +1,12 @@
+## 2026-11-20 — Make the OpenVPN domain source assertion Python-safe
+
+- Parent main SHA: `30dec22ecde555e6d6617a15e1820d13ea15bb68`.
+- VPN server lifecycle Action #44766269853 was exercising the corrected DNS branch checks when a later OpenVPN source assertion exposed another escaping defect in the checker: nested backslashes before double quotes made its Python expression invalid/incorrect.
+- Rewrote the expected domain-publication fragment using `chr(34)` for the two C string-literal quotes. This keeps the required literal `'\\0'` intact without nested quote escaping; no production source changed.
+- Exact-head VPN and AI Actions will validate this follow-up.
+
+---
+
 ## 2026-11-20 — Match the quoted OpenVPN domain empty-string literal in CI
 
 - Parent main SHA: `3dc44ff3378c9b29f6ec73076bc85015877f6b33`.
