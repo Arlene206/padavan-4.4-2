@@ -2630,10 +2630,10 @@ jobs:
           renew = wan[renew_start:renew_end]
           assert "dhcp_wan_route_setup_retry_required" in renew
           assert 'wan_nvram_int_temp_status(strcat_r(prefix, "route_err", tmp), route_setup_status)' in bound
-assert 'wan_nvram_int_temp_status(strcat_r(prefix, "err", tmp), i_err)' in bound
-assert "callback_status = route_status_accumulate(callback_status, publish_status);" in bound
-assert "return callback_status;" in bound
-assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' not in bound
+          assert 'wan_nvram_int_temp_status(strcat_r(prefix, "err", tmp), i_err)' in bound
+          assert "callback_status = route_status_accumulate(callback_status, publish_status);" in bound
+          assert "return callback_status;" in bound
+          assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' not in bound
           assert renew.count("dhcp_lease_route_text_is_safe(value)") >= 6
           wan_router_start = renew.index('value = getenv("router");')
           wan_router_end = renew.index('value = getenv("ip");', wan_router_start)
