@@ -506,6 +506,21 @@ require('set_wan_unit_param(unit, "auth_mode")' not in reset and
         'set_wan_unit_param(unit, "auth_user")' not in reset and
         'set_wan_unit_param(unit, "auth_pass")' not in reset,
         "legacy unchecked EAPOL authentication copies must be removed")
+
+dhcp_params_start = reset.index('dhcp_ppp_params[] = {')
+dhcp_params_end = reset.index("};", dhcp_params_start)
+dhcp_params = reset[dhcp_params_start:dhcp_params_end]
+cursor = 0
+for marker in ('"dnsenable_x"', '"vci"', '"hostname"'):
+    position = dhcp_params.find(marker, cursor)
+    require(position >= 0, f"critical DHCP/PPP option missing or out of order: {marker}")
+    cursor = position + len(marker)
+require("rc_wan_nvram_set_required_params(\n\t\tdhcp_ppp_params," in reset and
+        'reset_failure_context = "WAN DHCP/DNS client options";' in reset,
+        "DHCP hostname, VCI and DNS mode snapshot must use checked fail-fast writes")
+for marker in ('"dnsenable_x"', '"vci"', '"hostname"'):
+    require(f'set_wan_unit_param(unit, {marker})' not in reset,
+            f"unchecked DHCP/PPP parameter copy remains: {marker}")
 param_list_start = wan.index("static_ipoe_params[] = {")
 param_list_end = wan.index("};", param_list_start)
 param_list = wan[param_list_start:param_list_end]

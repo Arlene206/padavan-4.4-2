@@ -1,3 +1,12 @@
+## 2026-11-20 — Check DHCP client and PPP DNS negotiation snapshots
+
+- Parent main SHA: `077a917ef22e4d5516289264e60b6c4b6e5607f1`.
+- Source review showed `dnsenable_x` directly controls MAN DNS host routes and pppd `usepeerdns`; `vci` is passed as udhcpc's DHCP vendor-class option; `hostname` is passed to udhcpc as its client hostname. Previously all three were copied into the indexed WAN snapshot through unchecked setters.
+- Added a checked required tuple for these three configuration inputs. Any write failure now latches WAN reset failure and prevents protocol activation, avoiding stale DNS behavior or DHCP identity/option reuse.
+- Extended the WAN source contract to require exact field coverage, order and failure context. Exact-head CI is pending; no device/L3 claim.
+
+---
+
 ## 2026-11-20 — Check MAN route snapshot clears and EAPOL authentication staging
 
 - Parent main SHA: `8e203b34bf1375ac5fd944fb46cbf46d2013bac2`.

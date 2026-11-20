@@ -255,6 +255,9 @@ reset_wan_vars_status(void)
 	int unit, wan_proto, proto_status;
 	char mac_buf[24], *man_addr, *man_mask, *man_gate, *man_mtu;
 	const char *reset_failure_context = NULL;
+	static const char *const dhcp_ppp_params[] = {
+		"dnsenable_x", "vci", "hostname"
+	};
 	static const char *const auth_params[] = {
 		"auth_mode", "auth_user", "auth_pass"
 	};
@@ -295,9 +298,15 @@ reset_wan_vars_status(void)
 			   proto_status);
 		return proto_status;
 	}
-	set_wan_unit_param(unit, "dnsenable_x");
-	set_wan_unit_param(unit, "vci");
-	set_wan_unit_param(unit, "hostname");
+	proto_status = rc_wan_nvram_set_required_params(
+		dhcp_ppp_params,
+		(unsigned int)(sizeof(dhcp_ppp_params) / sizeof(dhcp_ppp_params[0])),
+		set_wan_unit_param_status_callback, &unit);
+	if (proto_status != 0) {
+		reset_failure_context = "WAN DHCP/DNS client options";
+		goto reset_failed;
+	}
+
 	proto_status = rc_wan_nvram_set_required_params(
 		auth_params, (unsigned int)(sizeof(auth_params) / sizeof(auth_params[0])),
 		set_wan_unit_param_status_callback, &unit);

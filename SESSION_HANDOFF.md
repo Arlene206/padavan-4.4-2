@@ -12,31 +12,30 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Live main before this global MAN/authentication snapshot slice: `8e203b34bf1375ac5fd944fb46cbf46d2013bac2`.
+- Live main before this DHCP option snapshot slice: `077a917ef22e4d5516289264e60b6c4b6e5607f1`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- WAN protocol/static-LAN recovery and checked static-IPoE/PPP endpoint+credential snapshots are on main (parent `8e203b34bf1375ac5fd944fb46cbf46d2013bac2`).
-- Exact `8e203b34bf1375ac5fd944fb46cbf46d2013bac2` checks: WAN route `136104091829`, HTTPD `136104092903`, handoff `136104092136`, Process `136104093582`, inventory `136104093045`, Firewall `136104093085`, USB `136104092508`, VPN `136104092436`, teardown `136104092593`, ZeroTier `136104092467`, wireless `136104092617`, dnsmasq `136104092317`, miniupnpd `136104093259`, watchdog `136104092229`, WAN DHCP `136104091737`, and detection checks all PASS. NVRAM boundary `136104092206` and XY-C1 `136104093608` were still in progress at last poll.
+- WAN protocol/static-LAN restore, static IPoE/PPP endpoint+credential snapshot checks, checked MAN/IPTV route clears/publication and EAPOL auth staging are committed on main.
+- Exact `077a917ef22e4d5516289264e60b6c4b6e5607f1` Actions: handoff `136105910007`, WAN route `136105910004`, NVRAM `136105909660`, HTTPD `136105910813`, Process `136105910056`, inventory `136105910595`, Firewall `136105909706`, XY-C1 `136105912457`, and other checks were pending/in progress at last poll; one retrievable completed run was detect-link `136105910096` PASS.
 - Same-SHA XY-C1 L3 is not established; physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-- Static IPoE and PPP endpoint/credential snapshot writes are checked and fail closed. The remaining route-critical gap was unchecked clearing of global `wanx_*` and IPTV `manv_*` route/lease state in `reset_man_vars()`; stale gateways/routes could survive a failed NVRAM clear.
-- This slice introduces private `reset_man_vars_status()` with first-error checked clears for all existing WAN MAN and virtual-IPTV snapshot keys, preserving the public void wrapper. `reset_wan_vars_status()` calls the status helper and blocks activation on any failed clear. Global MAN IP/netmask/gateway publications are checked as well.
-- EAPOL `auth_mode`, `auth_user` and `auth_pass` now use a required checked tuple before WAN startup, so stale authentication mode or credentials cannot be silently reused.
-- Regression coverage is extended in the existing WAN source checker; the generic first-error injected policy tests already compile in the WAN route workflow under GNU89/`-Werror`/ASan/UBSan.
-- Next candidate: review `dnsenable_x`, PPPoE `vci` and `hostname` only if source use shows stale values affect routing/negotiation/security; avoid broad telemetry conversion.
+- The WAN reset now checks global MAN/virtual IPTV route-state clearing, global WAN route endpoint publication, EAPOL auth mode and credentials, static IPoE address/netmask/gateway/MTU, manual PPP endpoints, PPP credentials, peer and negotiation options.
+- Additional source audit confirmed `dnsenable_x` controls both MAN DNS route installation and pppd `usepeerdns`; `vci` is passed as the DHCP client vendor-class option; and `hostname` is sent to udhcpc as its client hostname. These are configuration inputs, not optional telemetry.
+- This slice moves all three into a required checked tuple; a failed snapshot now aborts before WAN activation instead of reusing stale DNS/VCI/hostname settings.
+- Next candidate: inspect the final WAN hardware-address snapshot (`wan_hwaddr` and indexed `hwaddr`) for route/interface identity impact, then continue across userland rather than endlessly expanding this one reset function.
 
 ## Verification boundary
 
-- Parent `8e203b34bf1375ac5fd944fb46cbf46d2013bac2` WAN route and all completed regression checks listed above passed; NVRAM-boundary and XY-C1 were in progress at last poll.
-- Checked MAN/IPTV clears, global WAN endpoint publications and EAPOL auth tuple need exact-head WAN route/NVRAM and full CI verification.
+- Parent `077a917ef22e4d5516289264e60b6c4b6e5607f1` MAN/authentication snapshot exact-head Actions were queued/in progress at last poll; see current SHA runs before relying on that implementation.
+- The DHCP/DNS/hostname checked tuple and source assertions await exact-head WAN route/NVRAM and full regression verification.
 - Same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload must all pass before L3; no physical-router L4 test is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA WAN route/NVRAM, handoff, HTTPD, Process and XY-C1 Actions for the MAN/authentication snapshot changes; diagnose any failure from its job log.
-2. Confirm same-SHA XY-C1 production detector, MIPS Build, TRX verification and artifact upload before claiming L3.
-3. Review the remaining initial WAN copies `dnsenable_x`, `vci`, `hostname` for direct route/negotiation/security impact; only convert fields with an evidenced stale-state failure mode, preserving public ABI.
+1. Fetch live main and inspect exact-SHA WAN route/NVRAM, handoff, HTTPD, Process and XY-C1 Actions for the DHCP/PPP option tuple and preceding MAN/auth changes; diagnose failures from exact job logs.
+2. Require the same-SHA XY-C1 production detector, MIPS Build, TRX verification and artifact upload before claiming L3.
+3. Inspect the WAN hardware-address copies (`wan_hwaddr`, indexed `hwaddr`) and only gate reset on them if a failed write demonstrably affects interface identity or routing. Keep the public void wrappers intact.
 
 ## Mandatory handoff checkpoint
 
