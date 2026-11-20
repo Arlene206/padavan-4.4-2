@@ -77,4 +77,34 @@ rc_wan_nvram_set_required_values(const struct rc_wan_nvram_value *values,
 	return 0;
 }
 
+
+/*
+ * Clear independent runtime fields even after one write fails. Teardown must
+ * still discard every stale route/DNS field while reporting the first error.
+ */
+static inline int
+rc_wan_nvram_set_all_values(const struct rc_wan_nvram_value *values,
+			    unsigned int count,
+			    rc_wan_nvram_value_set_fn set_value,
+			    void *context)
+{
+	unsigned int i;
+	int status, first_status = 0;
+
+	if ((!values && count != 0) || !set_value)
+		return EINVAL;
+	for (i = 0; i < count; ++i) {
+		if (!values[i].param_name || !values[i].param_name[0] ||
+		    !values[i].value)
+			return EINVAL;
+	}
+	for (i = 0; i < count; ++i) {
+		status = set_value(context, values[i].param_name, values[i].value);
+		if (first_status == 0 && status != 0)
+			first_status = status;
+	}
+	return first_status;
+}
+
+
 #endif /* PADAVAN_WAN_NVRAM_STATUS_POLICY_H */

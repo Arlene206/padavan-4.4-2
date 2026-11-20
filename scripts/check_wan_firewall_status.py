@@ -594,4 +594,48 @@ for param in ('"ipaddr"', '"netmask"', '"gateway"', '"mtu"'):
     require(position >= 0, f"static IPoE required parameter missing/out of order: {param}")
     param_cursor = position + len(param)
 
+
+man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+clear_runtime = man_down.index("clear_runtime_values[] = {")
+clear_runtime_end = man_down.index("};", clear_runtime)
+clear_runtime_text = man_down[clear_runtime:clear_runtime_end]
+for marker in ('{ "wanx_gateway", "" }', '{ "wanx_dns", "" }',
+               '{ "wanx_domain", "" }', '{ "wanx_routes", "" }',
+               '{ "wanx_routes_ms", "" }', '{ "wanx_routes_rfc", "" }'):
+    require(marker in clear_runtime_text,
+            f"MAN runtime snapshot clear missing: {marker}")
+clear_address = man_down.index("clear_address_values[] = {")
+clear_address_end = man_down.index("};", clear_address)
+require('{ "wanx_ipaddr", "0.0.0.0" }' in man_down[clear_address:clear_address_end],
+        "DHCP deconfig must retain its conditional MAN IP snapshot clear")
+require("if (clear_dhcp_address)" in man_down and
+        "rc_wan_nvram_set_all_values(" in man_down and
+        "set_nvram_snapshot_value_status" in man_down,
+snapshot_writer = body(wan, "set_nvram_snapshot_value_status(void *context, const char *param_name,")
+require("nvram_set_temp(param_name, value)" in snapshot_writer and
+        "rc_wan_nvram_write_status(api_result, saved_errno)" in snapshot_writer,
+        "MAN runtime snapshot clears must retain temporary NVRAM semantics and report errno")
+        "MAN teardown snapshot clears must use the checked attempt-all writer")
+require(man_down.index("if (status == 0)") < man_down.index("route_status = rc_wan_nvram_set_all_values(", man_down.index("/* Attempt every independent clear")) and
+        man_down.index("MAN runtime DNS/route snapshot clear incomplete") <
+        man_down.index('refresh_resolvconf_nonfatal("MAN down", 0)'),
+        "MAN snapshot is cleared only after route teardown and before post-teardown notifications")
+for marker in (
+    'nvram_set_temp("wanx_ipaddr", "0.0.0.0")',
+    'nvram_set_temp("wanx_gateway", "")',
+    'nvram_set_temp("wanx_dns", "")',
+    'nvram_set_temp("wanx_routes", "")',
+):
+    require(marker not in man_down,
+            "unchecked MAN teardown NVRAM snapshot write remains: " + marker)
+require("test_all_value_sequence_attempts_every_write_and_preserves_first_error" in nvram_policy_test and
+        "test_all_value_sequence_validates_before_writing" in nvram_policy_test,
+        "MAN teardown attempt-all helper must have injected host regressions")
+udhcpc_deconfig = body(wan, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")
+require("cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address);" in udhcpc_deconfig and
+        "return route_status_accumulate(" in udhcpc_deconfig and
+        "cleanup_status);" in udhcpc_deconfig,
+        "MAN deconfig must return the snapshot-clear failure to its caller")
+
+
 print("WAN firewall rebuild fail-closed protocol gates and PPP recovery: PASS")

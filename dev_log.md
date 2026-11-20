@@ -1,3 +1,11 @@
+## 2026-11-20 — Attempt every MAN teardown snapshot clear and preserve the first error
+
+- Parent `main` SHA: `885e71f9b3d7eeab9a2b39fc7602c11880450fec`.
+- Confirmed `man_down_internal()` cleared `wanx_ipaddr/gateway/dns/domain/routes/routes_ms/routes_rfc` through unchecked `nvram_set_temp()` calls after route removal. A failed clear was invisible to the DHCP deconfig callback, which otherwise already propagates `man_down_internal()`'s status.
+- Added an attempt-all NVRAM value policy: validate the complete operation list before any writes, attempt every independent clear, and return the first write failure. MAN teardown uses checked `nvram_set_temp()` writes (not flash-persistent `nvram_set()`) for the global gateway/DNS/domain/route snapshot and conditionally clears the DHCP address exactly as before. A failed clear joins the teardown result; unrelated later cleanup still proceeds.
+- Added GNU89-injectable regressions for all writes being attempted, first-error preservation and invalid-input no-side-effects. Extended the WAN source contract to pin the MAN clear inventory, route-teardown ordering, conditional IP clear, unchecked-write removal and DHCP callback status propagation.
+- Local standalone policy regression and exact-head WAN Actions are the required verification; no firmware or hardware result is claimed here.
+
 ## 2026-11-20 — Fail closed when clearing indexed WAN runtime snapshots
 
 - Parent `main` SHA: `d59dc2bdea3307eac78fba6c6aabd7bdac7caf85`.

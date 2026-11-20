@@ -1,6 +1,7 @@
 # 2026-11-20 active checkpoint
 
-- Main parent for the current WAN runtime-snapshot hardening slice: `d59dc2bdea3307eac78fba6c6aabd7bdac7caf85`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- Main parent for the current MAN teardown snapshot hardening slice: `885e71f9b3d7eeab9a2b39fc7602c11880450fec`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- MAN teardown snapshot hardening in this slice: `man_down_internal()` now attempts every checked temporary `wanx_gateway/dns/domain/routes/routes_ms/routes_rfc` clear, conditionally checks temporary `wanx_ipaddr`, and propagates the first failure through the DHCP deconfig callback. The attempt-all policy has injected host regressions; exact-head WAN route Actions remain the production contract.
 - WAN runtime snapshot hardening in this slice: indexed `dns/wins/lease/domain/routes/routes_ms/routes_rfc/err` clears and non-static `ipaddr/netmask/gateway/mtu` clears now use checked, ordered NVRAM writes; any failure latches reset status and blocks WAN activation. The injected policy regression passes locally under GNU89/ASan/UBSan; exact-head WAN source-contract and XY-C1 L3 checks are pending.
 
 - WAN protocol staging b376e2c checks configured wan_proto before reading wanN_proto while preserving the public void reset ABI. HTTPD contract repair da3081e passed its exact HTTPD run 44678385087 on 0b6bccb.

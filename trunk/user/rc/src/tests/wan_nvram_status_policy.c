@@ -181,6 +181,43 @@ test_required_value_sequence_rejects_invalid_values(void)
 	assert(fake.calls == 0);
 }
 
+
+static void
+test_all_value_sequence_attempts_every_write_and_preserves_first_error(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "wanx_gateway", "" }, { "wanx_dns", "" },
+		{ "wanx_routes", "" }, { "wanx_routes_ms", "" }
+	};
+	struct fake_value_copy fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 1;
+	fake.failure_status = EACCES;
+	assert(rc_wan_nvram_set_all_values(
+		values, 4, fake_set_value, &fake) == EACCES);
+	assert(fake.calls == 4);
+	assert(strcmp(fake.copied_names[0], "wanx_gateway") == 0);
+	assert(strcmp(fake.copied_names[1], "wanx_dns") == 0);
+	assert(strcmp(fake.copied_names[2], "wanx_routes") == 0);
+	assert(strcmp(fake.copied_names[3], "wanx_routes_ms") == 0);
+	assert(strcmp(fake.copied_values[0], "") == 0);
+}
+
+static void
+test_all_value_sequence_validates_before_writing(void)
+{
+	static const struct rc_wan_nvram_value invalid[] = {
+		{ "wanx_gateway", "" }, { "", "value" }
+	};
+	struct fake_value_copy fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(rc_wan_nvram_set_all_values(
+		invalid, 2, fake_set_value, &fake) == EINVAL);
+	assert(fake.calls == 0);
+}
+
 int
 main(void)
 {
@@ -194,5 +231,7 @@ main(void)
 	test_required_value_sequence_success();
 	test_required_value_sequence_stops_at_first_error();
 	test_required_value_sequence_rejects_invalid_values();
+	test_all_value_sequence_attempts_every_write_and_preserves_first_error();
+	test_all_value_sequence_validates_before_writing();
 	return 0;
 }

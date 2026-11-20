@@ -237,6 +237,20 @@ set_nvram_named_value_status(void *context, const char *name)
 	return set_nvram_value_status(name, value);
 }
 
+
+static int
+set_nvram_snapshot_value_status(void *context, const char *param_name,
+				const char *value)
+{
+	int api_result, saved_errno;
+
+	(void)context;
+	errno = 0;
+	api_result = nvram_set_temp(param_name, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
 static int
 reset_man_vars_status(void)
 {
@@ -3147,6 +3161,16 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 	char *next, *man_gate, *man_addr, *man_mask, *man_dns;
 	char word[100];
 
+	static const struct rc_wan_nvram_value clear_address_values[] = {
+		{ "wanx_ipaddr", "0.0.0.0" }
+	};
+	static const struct rc_wan_nvram_value clear_runtime_values[] = {
+		{ "wanx_gateway", "" }, { "wanx_dns", "" },
+		{ "wanx_domain", "" }, { "wanx_routes", "" },
+		{ "wanx_routes_ms", "" }, { "wanx_routes_rfc", "" }
+	};
+
+
 	logmessage(LOGNAME, "%s %s (%s)", "MAN", "down", man_ifname);
 	/*
 	 * DHCP loss is already committed, so a monitor-pause failure must not
@@ -3206,14 +3230,29 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 		logmessage(LOGNAME, "failed to delete static MAN routes on %s (error=%d)", man_ifname, route_status);
 
 	if (status == 0) {
-		if (clear_dhcp_address)
-			nvram_set_temp("wanx_ipaddr", "0.0.0.0");
-		nvram_set_temp("wanx_gateway", "");
-		nvram_set_temp("wanx_dns", "");
-		nvram_set_temp("wanx_domain", "");
-		nvram_set_temp("wanx_routes", "");
-		nvram_set_temp("wanx_routes_ms", "");
-		nvram_set_temp("wanx_routes_rfc", "");
+		if (clear_dhcp_address) {
+			route_status = rc_wan_nvram_set_all_values(
+				clear_address_values,
+				(unsigned int)(sizeof(clear_address_values) /
+					       sizeof(clear_address_values[0])),
+				set_nvram_snapshot_value_status, NULL);
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME,
+					   "failed to clear MAN DHCP address snapshot (status=%d)",
+					   route_status);
+		}
+		/* Attempt every independent clear even if the address write failed. */
+		route_status = rc_wan_nvram_set_all_values(
+			clear_runtime_values,
+			(unsigned int)(sizeof(clear_runtime_values) /
+				       sizeof(clear_runtime_values[0])),
+			set_nvram_snapshot_value_status, NULL);
+		status = route_status_accumulate(status, route_status);
+		if (route_status != 0)
+			logmessage(LOGNAME,
+				   "MAN runtime DNS/route snapshot clear incomplete (status=%d)",
+				   route_status);
 	} else {
 		logmessage(LOGNAME, "MAN route teardown incomplete on %s (error=%d); preserving lease and route inventory", man_ifname, status);
 	}
