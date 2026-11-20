@@ -106,6 +106,21 @@ set_wan_unit_value_status(int unit, const char *param_name, const char *value)
 }
 
 
+static int
+wan_nvram_int_temp_status(const char *param_name, int value)
+{
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0])
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_set_int_temp(param_name, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+
 int
 set_wan_unit_value_int_status(int unit, const char *param_name, int value)
 {
@@ -2328,6 +2343,7 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 			launch_status = start_zcip_wan(man_ifname);
 	} else {
 		int man_err = 0, gateway_route_status = 0, route_status, address_status, mtu_status;
+		int publish_status;
 		
 		if (!dhcp_lease_ipv4_is_valid(man_addr) ||
 		    !dhcp_lease_netmask_is_valid(man_mask)) {
@@ -2372,7 +2388,12 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 			}
 		}
 		
-		nvram_set_int_temp("wanx_err", man_err);
+		publish_status = wan_nvram_int_temp_status("wanx_err", man_err);
+		launch_status = route_status_accumulate(launch_status, publish_status);
+		if (publish_status != 0)
+			logmessage(LOGNAME,
+				   "cannot publish static WAN error state (status=%d)",
+				   publish_status);
 	}
 
 #if defined (USE_IPV6)
@@ -5623,7 +5644,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
 	int key_length, snapshot_status, snapshot_rollback_status;
-	int snapshot_abort_status;
+	int snapshot_abort_status, callback_status, publish_status;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
@@ -5976,10 +5997,24 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 				   udhcpc_state, wan_ifname, route_setup_status);
 	}
 
-	nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status);
-	nvram_set_int_temp(strcat_r(prefix, "err", tmp), i_err);
+	callback_status = route_setup_status;
+	publish_status = wan_nvram_int_temp_status(
+		strcat_r(prefix, "route_err", tmp), route_setup_status);
+	callback_status = route_status_accumulate(callback_status, publish_status);
+	if (publish_status != 0)
+		logmessage(log_prefix,
+			   "cannot publish DHCP route retry state on %s (status=%d)",
+			   wan_ifname, publish_status);
 
-	return route_setup_status;
+	publish_status = wan_nvram_int_temp_status(
+		strcat_r(prefix, "err", tmp), i_err);
+	callback_status = route_status_accumulate(callback_status, publish_status);
+	if (publish_status != 0)
+		logmessage(log_prefix,
+			   "cannot publish DHCP lease error state on %s (status=%d)",
+			   wan_ifname, publish_status);
+
+	return callback_status;
 
 snapshot_publication_failed:
 	logmessage(log_prefix,
@@ -6018,6 +6053,7 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int route_cleanup_status, route_rollback_status, multicast_status = 0;
 	int snapshot_status, snapshot_rollback_status, snapshot_abort_status;
+	int callback_status, publish_status;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_VIPTV_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
@@ -6274,9 +6310,22 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	}
 
 	/* Keep route retry state independent from the IPTV proxy lifecycle. */
-	nvram_set_int_temp("manv_route_err", route_setup_status);
-	nvram_set_int_temp("manv_err", i_err);
-	return route_status_accumulate(route_setup_status, multicast_status);
+	callback_status = route_status_accumulate(route_setup_status, multicast_status);
+	publish_status = wan_nvram_int_temp_status("manv_route_err", route_setup_status);
+	callback_status = route_status_accumulate(callback_status, publish_status);
+	if (publish_status != 0)
+		logmessage(log_prefix,
+			   "cannot publish IPTV route retry state (status=%d)",
+			   publish_status);
+
+	publish_status = wan_nvram_int_temp_status("manv_err", i_err);
+	callback_status = route_status_accumulate(callback_status, publish_status);
+	if (publish_status != 0)
+		logmessage(log_prefix,
+			   "cannot publish IPTV lease error state (status=%d)",
+			   publish_status);
+
+	return callback_status;
 
 snapshot_publication_failed:
 	logmessage(log_prefix,

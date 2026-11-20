@@ -291,6 +291,9 @@ jobs:
               entrypoint = body(source, signature)
               assert "dhcp_wan_interface_name_is_valid(" + interface_name + ")" in entrypoint
               assert "strlen(" + interface_name + ")" not in entrypoint
+          static_wan = body(source, "start_wan_internal(char *man_ifname")
+          assert 'wan_nvram_int_temp_status("wanx_err", man_err)' in static_wan
+          assert "launch_status = route_status_accumulate(launch_status, publish_status);" in static_wan
           callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in viptv_bound
@@ -331,8 +334,14 @@ jobs:
           man_route_setup = callback.index("route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL)")
           assert gateway_state < wan_route_setup
           assert "accepted but route setup is incomplete" in callback
-          assert "return route_setup_status;" in callback
-          assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' in callback
+          callback_status_publish = callback.index("callback_status = route_setup_status;")
+          route_err_publish = callback.index("wan_nvram_int_temp_status(")
+          assert route_err_publish > callback_status_publish
+          assert 'strcat_r(prefix, "route_err", tmp)' in callback
+          assert 'strcat_r(prefix, "err", tmp)' in callback
+          assert "callback_status = route_status_accumulate(callback_status, publish_status);" in callback
+          assert "return callback_status;" in callback
+          assert "nvram_set_int_temp(" not in callback
           wan_dhcp_renew = body(source, "udhcpc_renew(char *wan_ifname)")
           assert "dhcp_wan_route_setup_retry_required" in wan_dhcp_renew
           assert wan_dhcp_renew.index("dhcp_wan_route_setup_retry_required") < wan_dhcp_renew.index('value = getenv("subnet")')
@@ -433,8 +442,11 @@ jobs:
           assert "route_result = route_add(man_ifname, 10" in viptv_bound
           assert viptv_bound.count("route_setup_status = route_status_accumulate(route_setup_status, route_result);") == 2
           assert "accepted but route setup is incomplete" in viptv_bound
-          assert "return route_status_accumulate(route_setup_status, multicast_status);" in viptv_bound
-          assert 'nvram_set_int_temp("manv_route_err", route_setup_status)' in viptv_bound
+          assert "callback_status = route_status_accumulate(route_setup_status, multicast_status);" in viptv_bound
+          assert 'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in viptv_bound
+          assert 'wan_nvram_int_temp_status("manv_err", i_err)' in viptv_bound
+          assert "return callback_status;" in viptv_bound
+          assert "nvram_set_int_temp(" not in viptv_bound
           viptv_renew = body(source, "udhcpc_viptv_renew(char *man_ifname)")
           assert "dhcp_wan_route_setup_retry_required" in viptv_renew
           assert viptv_renew.index("dhcp_wan_route_setup_retry_required") < viptv_renew.index('value = getenv("subnet")')
