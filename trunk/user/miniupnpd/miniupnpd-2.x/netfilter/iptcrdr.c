@@ -921,161 +921,164 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 		nat_scan_completed, nat_rule_found, nat_delete_status,
 		filter_delete_status, nat_rollback_attempted, rollback_status);
 
-	/*delete PEER rule*/
-	h = iptc_init("nat");
-	if(h)
-	{
-		i = 0;
-		/* we must find the right index for the filter rule */
-#ifdef IPTABLES_143
-		for(e = iptc_first_rule(miniupnpd_nat_postrouting_chain, h);
-		    e;
-			e = iptc_next_rule(e, h), i++)
-#else
-		for(e = iptc_first_rule(miniupnpd_nat_postrouting_chain, &h);
-		    e;
-			e = iptc_next_rule(e, &h), i++)
-#endif
-		{
-			if(proto==e->ip.proto)
+		if (miniupnpd_peer_redirect_cleanup_allowed(primary_mapping_removed)) {
+		/*delete PEER rule*/
+			h = iptc_init("nat");
+			if(h)
 			{
-				target = (void *)e + e->target_offset;
-				mr = (const struct ip_nat_multi_range *)&target->data[0];
-				syslog(LOG_DEBUG, "postrouting rule #%u: %s %s %hu",
-				       i, target->u.user.name, inet_ntoa(e->ip.src), ntohs(mr->range[0].min.all));
-				/* target->u.user.name SNAT / MASQUERADE */
-				if (eport != ntohs(mr->range[0].min.all)) {
-					continue;
-				}
-				iaddr = e->ip.src.s_addr;
-				match = (const struct ipt_entry_match *)&e->elems;
-				if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
-				{
-					const struct ipt_tcp * info;
-					info = (const struct ipt_tcp *)match->data;
-					iport = info->spts[0];
-				}
-				else
-				{
-					const struct ipt_udp * info;
-					info = (const struct ipt_udp *)match->data;
-					iport = info->dpts[0];
-				}
-
-				peer_index = i;
-				peer_entry_len = sizeof(struct ipt_entry) +
-				                 match->u.match_size + target->u.target_size;
-				peer_backup = malloc(peer_entry_len);
-				if (!peer_backup) {
-					failure_errno = errno ? errno : ENOMEM;
-					syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot peer SNAT rule");
-					errno = failure_errno;
-					r2 = -1;
-					break;
-				}
-				memcpy(peer_backup, e, peer_entry_len);
-				index = i;
-				peer_rule_found = 1;
-				syslog(LOG_INFO, "Trying to delete peer rule at index %u", index);
-				r2 = delete_rule_and_commit(index, h, miniupnpd_nat_postrouting_chain, "delete_peer_rule");
-				h = NULL;
-				peer_delete_status = r2;
-				break;
-			}
-		}
-	}
-	else
-	{
-		syslog(LOG_ERR, "%s() : iptc_init(nat) failed while removing peer rule : %s",
-		       "delete_redirect_and_filter_rules", iptc_strerror(errno));
-		r2 = -1;
-	}
-
-	if(h)
-#ifdef IPTABLES_143
-		iptc_free(h);
-#else
-		iptc_free(&h);
-#endif
-	/*delete DSCP rule*/
-	if(peer_rule_found && r2 == 0)
-	{
-		h = iptc_init("mangle");
-		if(h)
-		{
-			i = 0;
-			index = -1;
-		/* we must find the right index for the filter rule */
-#ifdef IPTABLES_143
-		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
-		    e;
-			e = iptc_next_rule(e, h), i++)
-#else
-		for(e = iptc_first_rule(miniupnpd_nat_chain, &h);
-		    e;
-			e = iptc_next_rule(e, &h), i++)
-#endif
-		{
-			if(proto==e->ip.proto)
-			{
-				match = (const struct ipt_entry_match *)&e->elems;
-				/*syslog(LOG_DEBUG, "filter rule #%u: %s %s",
-				       i, match->u.user.name, inet_ntoa(e->ip.dst));*/
-				if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
-				{
-					const struct ipt_tcp * info;
-					info = (const struct ipt_tcp *)match->data;
-					if(iport != info->spts[0])
-						continue;
-				}
-				else
-				{
-					const struct ipt_udp * info;
-					info = (const struct ipt_udp *)match->data;
-					if(iport != info->spts[0])
-						continue;
-				}
-				if(iaddr != e->ip.src.s_addr)
-					continue;
-				index = i;
-				syslog(LOG_INFO, "Trying to delete dscp rule at index %u", index);
-				r2 = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_dscp_rule");
-				h = NULL;
-				break;
-			}
-		}
-		if (h)
+				i = 0;
+				/* we must find the right index for the filter rule */
 		#ifdef IPTABLES_143
-			iptc_free(h);
+				for(e = iptc_first_rule(miniupnpd_nat_postrouting_chain, h);
+				    e;
+					e = iptc_next_rule(e, h), i++)
 		#else
-			iptc_free(&h);
+				for(e = iptc_first_rule(miniupnpd_nat_postrouting_chain, &h);
+				    e;
+					e = iptc_next_rule(e, &h), i++)
 		#endif
-		}
-		else
-		{
-			syslog(LOG_ERR, "%s() : iptc_init(mangle) failed : %s",
-			       "delete_redirect_and_filter_rules", iptc_strerror(errno));
-			r2 = -1;
-		}
+				{
+					if(proto==e->ip.proto)
+					{
+						target = (void *)e + e->target_offset;
+						mr = (const struct ip_nat_multi_range *)&target->data[0];
+						syslog(LOG_DEBUG, "postrouting rule #%u: %s %s %hu",
+						       i, target->u.user.name, inet_ntoa(e->ip.src), ntohs(mr->range[0].min.all));
+						/* target->u.user.name SNAT / MASQUERADE */
+						if (eport != ntohs(mr->range[0].min.all)) {
+							continue;
+						}
+						iaddr = e->ip.src.s_addr;
+						match = (const struct ipt_entry_match *)&e->elems;
+						if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
+						{
+							const struct ipt_tcp * info;
+							info = (const struct ipt_tcp *)match->data;
+							iport = info->spts[0];
+						}
+						else
+						{
+							const struct ipt_udp * info;
+							info = (const struct ipt_udp *)match->data;
+							iport = info->dpts[0];
+						}
+		
+						peer_index = i;
+						peer_entry_len = sizeof(struct ipt_entry) +
+						                 match->u.match_size + target->u.target_size;
+						peer_backup = malloc(peer_entry_len);
+						if (!peer_backup) {
+							failure_errno = errno ? errno : ENOMEM;
+							syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot peer SNAT rule");
+							errno = failure_errno;
+							r2 = -1;
+							break;
+						}
+						memcpy(peer_backup, e, peer_entry_len);
+						index = i;
+						peer_rule_found = 1;
+						syslog(LOG_INFO, "Trying to delete peer rule at index %u", index);
+						r2 = delete_rule_and_commit(index, h, miniupnpd_nat_postrouting_chain, "delete_peer_rule");
+						h = NULL;
+						peer_delete_status = r2;
+						break;
+					}
+				}
+			}
+			else
+			{
+				syslog(LOG_ERR, "%s() : iptc_init(nat) failed while removing peer rule : %s",
+				       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+				r2 = -1;
+			}
+		
+			if(h)
+		#ifdef IPTABLES_143
+				iptc_free(h);
+		#else
+				iptc_free(&h);
+		#endif
+			/*delete DSCP rule*/
+			if(peer_rule_found && r2 == 0)
+			{
+				h = iptc_init("mangle");
+				if(h)
+				{
+					i = 0;
+					index = -1;
+				/* we must find the right index for the filter rule */
+		#ifdef IPTABLES_143
+				for(e = iptc_first_rule(miniupnpd_nat_chain, h);
+				    e;
+					e = iptc_next_rule(e, h), i++)
+		#else
+				for(e = iptc_first_rule(miniupnpd_nat_chain, &h);
+				    e;
+					e = iptc_next_rule(e, &h), i++)
+		#endif
+				{
+					if(proto==e->ip.proto)
+					{
+						match = (const struct ipt_entry_match *)&e->elems;
+						/*syslog(LOG_DEBUG, "filter rule #%u: %s %s",
+						       i, match->u.user.name, inet_ntoa(e->ip.dst));*/
+						if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
+						{
+							const struct ipt_tcp * info;
+							info = (const struct ipt_tcp *)match->data;
+							if(iport != info->spts[0])
+								continue;
+						}
+						else
+						{
+							const struct ipt_udp * info;
+							info = (const struct ipt_udp *)match->data;
+							if(iport != info->spts[0])
+								continue;
+						}
+						if(iaddr != e->ip.src.s_addr)
+							continue;
+						index = i;
+						syslog(LOG_INFO, "Trying to delete dscp rule at index %u", index);
+						r2 = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_dscp_rule");
+						h = NULL;
+						break;
+					}
+				}
+				if (h)
+				#ifdef IPTABLES_143
+					iptc_free(h);
+				#else
+					iptc_free(&h);
+				#endif
+				}
+				else
+				{
+					syslog(LOG_ERR, "%s() : iptc_init(mangle) failed : %s",
+					       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+					r2 = -1;
+				}
+			}
+		
+		
+			if (miniupnpd_peer_delete_rollback_required(peer_delete_status, r2)) {
+				failure_errno = errno ? errno : EIO;
+				rollback_status = insert_rule_and_commit(
+					peer_index, peer_backup, "nat", miniupnpd_nat_postrouting_chain,
+					"delete_redirect_and_filter_rules");
+				if (rollback_status != 0) {
+					syslog(LOG_ERR,
+					       "failed to restore peer SNAT rule after DSCP deletion failure (port=%hu proto=%d status=%d)",
+					       eport, proto, rollback_status);
+				}
+				r2 = miniupnpd_peer_delete_failure_result(r2, rollback_status);
+				errno = failure_errno;
+			}
+			free(peer_backup);
+			peer_backup = NULL;
+		
+		
 	}
-
-
-	if (miniupnpd_peer_delete_rollback_required(peer_delete_status, r2)) {
-		failure_errno = errno ? errno : EIO;
-		rollback_status = insert_rule_and_commit(
-			peer_index, peer_backup, "nat", miniupnpd_nat_postrouting_chain,
-			"delete_redirect_and_filter_rules");
-		if (rollback_status != 0) {
-			syslog(LOG_ERR,
-			       "failed to restore peer SNAT rule after DSCP deletion failure (port=%hu proto=%d status=%d)",
-			       eport, proto, rollback_status);
-		}
-		r2 = miniupnpd_peer_delete_failure_result(r2, rollback_status);
-		errno = failure_errno;
-	}
-	free(peer_backup);
-	peer_backup = NULL;
-
 	cleanup_status = miniupnpd_merge_cleanup_status(r, r2);
 	cleanup_status = miniupnpd_finalize_redirect_cleanup(
 		cleanup_status, primary_mapping_removed, del_redirect_desc,

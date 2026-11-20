@@ -1,3 +1,14 @@
+## 2026-11-20 — Keep peer SNAT/DSCP when primary redirect deletion fails
+
+- Parent main SHA: 7d9b12c46927b2fbb3aba6ea0346de0cc1b7d0a1.
+- Review of delete_redirect_and_filter_rules_ex() found a state inconsistency: after primary NAT deletion failed, or filter deletion failed and NAT rollback succeeded, the function still proceeded to delete the peer SNAT rule and DSCP rule. That could leave the still-present primary DNAT/filter mapping without its supporting hairpin/peer rules. It also attempted secondary NAT/mangle operations after a missing/failed primary-chain scan.
+- Gate the complete peer SNAT + DSCP + peer rollback transaction on miniupnpd_peer_redirect_cleanup_allowed(primary_mapping_removed). A primary failure now preserves all peer state and first-error/errno; when the primary mapping is confirmed gone (including an initial no-match scan), independent peer cleanup still runs and its errors remain aggregated.
+- Added GNU89 policy regression for the allow/deny decision and extended scripts/check_miniupnpd_iptcrdr_peer_delete.py plus the workflow's inline source contract to require the entire secondary transaction, including both tables and peer rollback, to sit inside the gate.
+- Previous main 7d9b12c exact-head MiniUPnP/AI/Process/NVRAM/XY Actions are queued/in progress at last poll. This source fix triggers fresh exact-head workflows and an XY-C1 production build. Firmware L3 remains NOT VERIFIED; physical-router L4 remains NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Test primary redirect metadata cleanup through the production policy
 
 - Parent main SHA: e085c6fb89a2906d234c27248d4daebf232e4fcc.

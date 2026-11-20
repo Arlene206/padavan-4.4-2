@@ -325,6 +325,7 @@ jobs:
           assert "#include \"../miniupnpd_redirect_cleanup_policy.h\"" in ipt_source
           assert "int r = 0, r2 = 0;" in cleanup_backend
           assert "peer_rule_found = 0" in cleanup_backend
+          assert "miniupnpd_peer_redirect_cleanup_allowed(primary_mapping_removed)" in cleanup_backend
           assert "miniupnpd_merge_cleanup_status(r, r2)" in cleanup_backend
           assert "miniupnpd_primary_redirect_removed(" in cleanup_backend
           assert "miniupnpd_finalize_redirect_cleanup(" in cleanup_backend

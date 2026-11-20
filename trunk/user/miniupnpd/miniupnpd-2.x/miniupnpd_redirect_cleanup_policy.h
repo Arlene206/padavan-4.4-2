@@ -52,4 +52,13 @@ miniupnpd_finalize_redirect_cleanup(
 	return aggregate_status;
 }
 
+
+/* Never tear down peer SNAT/DSCP while the primary DNAT/filter mapping
+ * is still present or its deletion state could not be established. */
+static inline int
+miniupnpd_peer_redirect_cleanup_allowed(int primary_mapping_removed)
+{
+	return primary_mapping_removed != 0;
+}
+
 #endif /* MINIUPNPD_REDIRECT_CLEANUP_POLICY_H */

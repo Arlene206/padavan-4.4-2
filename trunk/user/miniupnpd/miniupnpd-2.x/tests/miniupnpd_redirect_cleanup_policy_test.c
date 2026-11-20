@@ -71,12 +71,21 @@ test_metadata_cleanup_tracks_primary_mapping_and_preserves_status(void)
 	assert(metadata_cleanup_calls == 0);
 }
 
+
+static void
+test_peer_cleanup_requires_primary_mapping_removal(void)
+{
+	assert(miniupnpd_peer_redirect_cleanup_allowed(0) == 0);
+	assert(miniupnpd_peer_redirect_cleanup_allowed(1) == 1);
+}
+
 int
 main(void)
 {
 	test_cleanup_status_preserves_each_failure();
 	test_primary_redirect_removal_is_independent_of_peer_cleanup();
 	test_metadata_cleanup_tracks_primary_mapping_and_preserves_status();
+	test_peer_cleanup_requires_primary_mapping_removal();
 	puts("MiniUPnP redirect cleanup status policy: PASS");
 	return 0;
 }

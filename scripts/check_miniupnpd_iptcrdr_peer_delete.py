@@ -57,6 +57,23 @@ assert "miniupnpd_peer_delete_failure_result(r2, rollback_status)" in delete[rol
 assert "errno = failure_errno;" in delete[rollback_gate:]
 assert delete.index("free(peer_backup)", rollback_gate) > restore
 
+peer_guard = delete.index(
+    "if (miniupnpd_peer_redirect_cleanup_allowed(primary_mapping_removed)) {"
+)
+peer_comment = delete.index("/*delete PEER rule*/", peer_guard)
+peer_scope_end = delete.index(
+    "} cleanup_status = miniupnpd_merge_cleanup_status(r, r2);", peer_comment
+)
+peer_scope = delete[peer_guard:peer_scope_end]
+assert peer_guard < peer_comment < peer_scope_end
+for marker in (
+    'iptc_init("nat")',
+    'iptc_init("mangle")',
+    "miniupnpd_peer_delete_rollback_required",
+    "free(peer_backup)",
+):
+    assert marker in peer_scope, marker
+
 assert "iptc_insert_entry(chain, entry, index, h)" in helper
 assert "iptc_insert_entry(chain, entry, index, &h)" in helper
 assert "peer_backup_failed" not in delete
