@@ -523,7 +523,7 @@ assert_failed "$status" "NFS stop with surviving daemons"
 	echo "NFS stop discarded export recovery state while daemons survived" >&2
 	exit 1
 }
-[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 2 ] || {
+[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 3 ] || {
 	echo "NFS stop detached pseudo-filesystems while daemons survived" >&2
 	exit 1
 }
@@ -546,7 +546,7 @@ assert_failed "$status" "NFS stop with rpc_pipefs unmount failure"
 	echo "NFS stop discarded etab after unmount failure" >&2
 	exit 1
 }
-[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 2 ] || {
+[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 3 ] || {
 	echo "NFS stop changed mount state after injected unmount failure" >&2
 	exit 1
 }
@@ -570,7 +570,7 @@ assert_failed "$status" "NFS stop with export withdrawal failure"
 	echo "NFS stop removed etab after export withdrawal failure" >&2
 	exit 1
 }
-[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 2 ] || {
+[ "$(wc -l < "$MOUNTS_FILE" | tr -d ' ')" -eq 3 ] || {
 	echo "NFS stop detached pseudo-filesystems after export withdrawal failure" >&2
 	exit 1
 }
