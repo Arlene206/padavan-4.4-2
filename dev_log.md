@@ -1,3 +1,13 @@
+## 2026-11-20 — Publish DHCP 6rd lease options as a compensatable tuple
+
+- Parent main SHA: `00cc18c9d51a9a8254d44366795c06140bee0b17`. `store_ip6rd_from_dhcp()` ignored three independent `nvram_set_temp()` errors for `addr6`, `6rd_size` and `6rd_relay`. An ioctl/close failure after an applied write could leave a mixed 6rd tuple, while WAN DHCP callback continued to route/start services using the partially updated state.
+- Add `store_ip6rd_from_dhcp_status()` and keep the legacy void wrapper. Read and copy all three prior values under one NVRAM transaction lock, then use existing `dhcp_lease_nvram_publish()` to attempt/compensate the entire tuple in reverse order. If write or transaction-close fails, retry restoring all prior values under a fresh lock and return the original error; log an incomplete rollback. Invalid/absent optional DHCP option data remains the existing no-op behavior.
+- The WAN DHCP bound callback now treats a 6rd publication failure as a snapshot publication failure and enters its existing DHCP address/route rollback path before WAN activation. Added a 6rd-specific regression case simulating a setter error after the write was applied and verifying complete old-tuple restoration. The existing callback/XY workflows already watch all changed files.
+- Exact parent-SHA `00cc18c9d51a9a8254d44366795c06140bee0b17` had 40 successful Actions, including WAN callback `44714046971`, WAN route `44714046939`, AI handoff `44714047367`, NVRAM boundary `44714046370`, Process inventory `44714046948` and fail-closed `44714046997`. XY-C1 run `44714046405` was still IN_PROGRESS at last check; it is not yet L3 evidence.
+- Previous source SHA `e8ef10b371372e7bfe17d552ea44150258296743` did complete XY-C1 Build, TRX verification and artifact upload in run `44712394978` / job `136207077488` (artifact `14618531515`). That L3 evidence does not apply to this new 6rd slice. Current slice exact-head Actions will be checked after commit.
+
+---
+
 ## 2026-11-20 — Propagate failures while resetting the IPv6 WAN runtime snapshot
 
 - Parent main SHA: `e8ef10b371372e7bfe17d552ea44150258296743`. A concrete failure path was found in `reset_wan_vars_status()`: it called the legacy void `reset_wan6_vars()` and then returned success, so failed IPv6 NVRAM writes could be silently followed by WAN activation. `build_dns6_var()` also discarded the DNS setter result. The reset code retained cache-backed `nvram_safe_get()` pointers across subsequent reads/writes, risking a mixed or stale gateway/DNS snapshot on cache invalidation.

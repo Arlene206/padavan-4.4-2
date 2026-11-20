@@ -21,6 +21,8 @@ def body(source, signature):
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "trunk/user/rc/src/net_wan6.c").read_text()
 wan_source = (ROOT / "trunk/user/rc/src/net_wan.c").read_text()
+lease_policy = (ROOT / "trunk/user/rc/src/dhcp_lease_policy.h").read_text()
+lease_policy_test = (ROOT / "trunk/user/rc/src/tests/dhcp_lease_policy.c").read_text()
 policy = (ROOT / "trunk/user/rc/src/wan6_dns_policy.h").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/wan6_dns_policy.c").read_text()
 identity_policy = (ROOT / "trunk/user/rc/src/wan6_identity_policy.h").read_text()
@@ -95,6 +97,30 @@ for case in (
     "test_wan6_reset_config_clears_identity_only_after_all_values_succeed",
 ):
     assert case in (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+
+# DHCPv4 option 212 (6rd) is one transactional runtime tuple. A failed
+# write must not leave a mixed address/mask/relay tuple for later IPv6 startup.
+assert '#include "dhcp_lease_policy.h"' in source
+assert "int store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix);" in header
+assert "void store_ip6rd_from_dhcp(const char *env_value, const char *prefix);" in header
+sixrd_publish = body(source, "static int\nwan6_publish_6rd_snapshot(")
+assert "nvram_transaction_begin(&transaction)" in sixrd_publish
+assert "nvram_transaction_get(" in sixrd_publish
+assert "rc_wan_nvram_copy_text(" in sixrd_publish
+assert "dhcp_lease_nvram_publish(" in sixrd_publish
+assert "wan6_restore_6rd_values(" in sixrd_publish
+sixrd_restore = body(source, "static int\nwan6_restore_6rd_values(")
+assert "dhcp_lease_nvram_restore(" in sixrd_restore
+sixrd_store = body(source, "int\nstore_ip6rd_from_dhcp_status(")
+assert "wan6_publish_6rd_snapshot(" in sixrd_store
+assert "status != 0" in sixrd_store
+wan_bound = body(wan_source, "static int\nudhcpc_bound(")
+sixrd_call = wan_bound.index("snapshot_status = store_ip6rd_from_dhcp_status(value, prefix);")
+sixrd_abort = wan_bound.index("goto snapshot_publication_failed;", sixrd_call)
+assert sixrd_call < sixrd_abort
+assert "test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple" in lease_policy_test
+assert "test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple();" in lease_policy_test
+assert "dhcp_lease_nvram_publish" in lease_policy
 
 # BusyBox omits new_* variables when the option is absent from a Reply.
 script_env = busybox[

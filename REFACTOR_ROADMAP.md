@@ -1,9 +1,8 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA for the checked IPv6 runtime-reset work: `e8ef10b371372e7bfe17d552ea44150258296743`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Native IPv6 startup now retains `ifname6` until all rollback actions finish. The next reliability gap was in the WAN reset transaction: the status-aware reset caller ignored IPv6 reset failures, DNS reset writes were unchecked, and cache-backed gateway/DNS strings were consumed across NVRAM operations. The current slice adds a checked reset API while preserving the legacy void interface, copies values into bounded buffers, writes `ifname6` last, and stops WAN activation on any required IPv6 staging/DNS failure.
-- New policy regressions cover reset write failure before identity clearing and successful clearing only after the complete required tuple. Callback workflow paths now include the touched WAN source/header and NVRAM policy tests.
-- Parent exact-SHA `e8ef10b371372e7bfe17d552ea44150258296743`: WAN callback `44712394929`, WAN route `44712395177`, AI handoff `44712394830`, NVRAM `44712394796`, Process `44712394846` and `44712394821`, HTTPD `44712394800`, firewall `44712394853`, USB modem `44712394963` PASS; XY-C1 `44712394978` pending at last check.
-- The current reset slice is awaiting exact-SHA validation. No same-source MIPS build + TRX + artifact evidence is established; L3 and physical-router L4 remain NOT VERIFIED.
+- Parent main SHA for DHCP 6rd transactional publication: `00cc18c9d51a9a8254d44366795c06140bee0b17`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- The previous `00cc18c` IPv6 runtime-reset propagation slice had 40 exact-SHA PASS Actions; XY-C1 run `44714046405` remained in progress. The predecessor `e8ef10b` has same-SHA XY-C1 Build/TRX/artifact PASS (run `44712394978`, artifact `14618531515`); do not transfer this L3 evidence.
+- A 6rd consistency defect was found: the DHCP option parser discarded three `nvram_set_temp()` return statuses, permitting a mixed address/prefix-size/relay tuple after partial NVRAM failure. The current slice uses one locked snapshot, compensated group publication, fresh-lock recovery after error, and propagates failure into the existing DHCP address/route rollback path. Legacy void API remains for compatibility; a specific partial-write rollback regression was added.
+- Current 6rd slice has no exact-head CI result until commit. L3 requires Build XY-C1 + TRX verification + artifact upload on this same production-source SHA; physical hardware L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 

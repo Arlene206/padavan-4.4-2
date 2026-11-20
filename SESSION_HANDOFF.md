@@ -1,40 +1,36 @@
 # 2026-11-20 continuation checkpoint
 
-This checkpoint supersedes the older SHA/CI summaries below. Continue from live main; do not repeat completed audits.
+This checkpoint supersedes older SHA/CI summaries below. Continue from live main; do not repeat completed audits.
 
 ## Git state
-- Current parent main SHA for the IPv6 runtime-reset propagation slice: `e8ef10b371372e7bfe17d552ea44150258296743`.
+- Parent main SHA for the DHCP 6rd transactional publication slice: `00cc18c9d51a9a8254d44366795c06140bee0b17`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Main-only atomic commits; one complete Git tree per logical task; use `force=false` and exact `expected_sha`. Never force-push.
-- Legacy PR #1 remains CLOSED / NOT MERGED. Do not use its branch.
+- Main-only, atomic commits; one complete Git tree per logical task; use `force=false` and exact `expected_sha`. Never force-push. Legacy PR #1 remains closed/not merged.
 
-## Completed parent source slice
-- `e8ef10b371372e7bfe17d552ea44150258296743` fixes native IPv6 startup rollback ordering. The checked `ifname6` recovery identity is retained until all radv/autoconf/privacy/route/neighbour/address rollback steps have been attempted; on incomplete rollback it remains available to teardown.
-- Added policy tests for retained identity on rollback failure, clear after successful rollback, and failed identity-clear reporting.
-- Parent exact-SHA host and source Actions PASS: WAN route `44712395177`, WAN callback `44712394929`, AI handoff `44712394830`, NVRAM boundary `44712394796`, Process inventory `44712394846`, Process fail-closed `44712394821`, HTTPD `44712394800`, Firewall `44712394853`, USB modem identity `44712394963`.
-- Parent XY-C1 run `44712394978`, job `136207077488`, completed SUCCESS on that exact SHA. It ran `make XY-C1 TOOLCHAIN=mipsel-linux-musl`, verified a non-empty TRX and `file` identified a 13 MB U-Boot legacy uImage / XY-C1 / Linux-MIPS image, then uploaded artifact `XY-C1-firmware-e8ef10b371372e7bfe17d552ea44150258296743.zip` (artifact ID `14618531515`, SHA256 `b3ab4ead7771c828dc678ed70ad173ea4f0671c07fb5dab4aae5ddbb10b5b9b6`). This is L3 evidence for e8ef10b only; do not transfer it to the new reset slice.
+## Completed immediately preceding slice
+- `00cc18c9d51a9a8254d44366795c06140bee0b17` propagates IPv6 runtime-reset NVRAM errors into WAN startup abort, copies cache-backed settings before writes, clears `ifname6` last, and checks static DNS publication. The exact SHA has 40 successful Actions; representative records: WAN callback `44714046971`, WAN route `44714046939`, AI handoff `44714047367`, NVRAM boundary `44714046370`, Process inventory `44714046948`, Process fail-closed `44714046997`. XY-C1 run `44714046405` was IN_PROGRESS at last check.
+- Prior `e8ef10b371372e7bfe17d552ea44150258296743` completed same-SHA XY-C1 `make XY-C1 TOOLCHAIN=mipsel-linux-musl`, TRX verification and artifact upload in run `44712394978`, job `136207077488` (artifact ID `14618531515`). This L3 evidence is only for e8ef10b, not 00cc18c or this new slice.
 
-## Current implementation slice (parent e8ef10b371372e7bfe17d552ea44150258296743)
-- Fixed a fail-open defect: `reset_wan_vars_status()` previously called the void `reset_wan6_vars()` and ignored any IPv6 NVRAM write failures, then continued WAN startup. The old static-DNS builder also discarded the DNS setter result.
-- Introduce status-returning `reset_wan6_vars_status()` while keeping the legacy void wrapper/prototype intact. Bounded-copy cache-backed IPv6 address/gateway/6rd/DNS settings before NVRAM writes; use the existing checked NVRAM policy; clear `ifname6` only after all required reset fields have been published. The WAN reset caller now aborts on IPv6 staging failure. `wan6_up()` also stops if configured DNS state cannot be published.
-- Regression tests simulate required-value write failure before identity clearing and successful identity clear only after the complete reset tuple.
-- The IPv6 checker validates the new status API, copied cache values, write order, fail-closed WAN caller and DNS startup gate. WAN callback path filters include the touched NVRAM status-policy header/test.
+## Current implementation
+- `store_ip6rd_from_dhcp()` previously ignored each of its three temporary NVRAM setter results, so an applied write followed by an ioctl/close error could leave `addr6`, `6rd_size` and `6rd_relay` inconsistent while DHCP callback continued.
+- New `store_ip6rd_from_dhcp_status()` API snapshots the previous 6rd tuple under one NVRAM transaction, publishes through the existing compensatable `dhcp_lease_nvram_publish()`, restores the entire old tuple after any write/transaction-close failure (retrying under a fresh transaction), and preserves the legacy `store_ip6rd_from_dhcp()` void wrapper.
+- The WAN DHCP bound callback calls `store_ip6rd_from_dhcp_status()` and enters its existing IPv4 snapshot/address/route rollback path when 6rd publication fails, so it does not continue WAN activation on a failed tuple.
+- Added a GNU89-policy regression case for an error reported after the middle setter has applied, asserting all three prior values are restored in reverse order. Existing callback and XY-C1 path filters cover these files.
 
 ## First task for the next continuation
-1. Fetch live main and inspect exact-SHA Actions for the reset-slice commit: WAN DHCP callback, WAN route status, AI handoff documentation, NVRAM transaction and XY-C1 firmware validation. Diagnose causal logs for any failure. Parent e8 CI above is not evidence for the new SHA.
-2. Confirm sanitizer policy tests and source contracts execute on the exact new SHA. Confirm XY-C1 Build, TRX verification and artifact upload all pass on that same production-source SHA before recording L3.
-3. Once this slice is green, inspect remaining unchecked `nvram_set_temp()` calls in `store_ip6rd_from_dhcp()`; make 6rd lease-option publication fail-closed/consistent if caller and retry semantics permit, with write-failure/rollback tests. Otherwise choose a concrete P1 stability/security bug outside WAN.
+1. Fetch live main and check exact-SHA WAN DHCP callback, WAN route, AI handoff, NVRAM policy and XY-C1 Actions for this slice. Retrieve causal job logs for any failure; parent results are not evidence for the new SHA.
+2. Confirm host sanitizer tests/source contracts pass, then confirm XY-C1 Build, TRX verification and artifact upload on the same new production-source SHA before claiming L3.
+3. Continue with a concrete P1 stability/security defect outside the now-checked IPv6 WAN reset/6rd path; do not repeat completed audits.
 
 ## Verification boundary
-- Parent e8ef10b: L3 Build/TRX/artifact PASS on one exact SHA; source/host checks listed above PASS.
-- Current reset slice: no exact-head Actions yet. Do not transfer parent results.
-- No physical-router L4 claim; hardware behavior remains unverified.
+- 00cc18c has 40 PASS Actions and XY-C1 still pending at last check. e8ef10b has same-SHA L3 Build/TRX/artifact PASS.
+- New 6rd source slice has no exact-head Actions until its commit exists. No hardware L4 claim is made.
 
 ## Mandatory handoff checkpoint
-Update exact main SHA, next action and exact-SHA CI state before context exhaustion when materially changed. Do not make no-op documentation commits.
+Update exact main SHA, first next task and exact-SHA CI status before context exhaustion. No no-op handoff commits.
 
 ## Evidence discipline
-Keep GNU89 host tests, source contracts, exact-head Actions, MIPS build/TRX/artifact evidence and physical-router behavior separate. CI does not prove L4.
+Keep host sanitizer tests, source contracts, exact-SHA Actions, MIPS build/TRX/artifact evidence and physical-router behavior separate. CI does not prove L4.
 
 ---
 

@@ -34,6 +34,7 @@
 #include "wan6_teardown_policy.h"
 #include "wan6_identity_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "dhcp_lease_policy.h"
 #include <dhcp6c_duid_file_policy.h>
 #include "dhcp6c_config_file.h"
 #include "wan6_dns_policy.h"
@@ -294,55 +295,217 @@ int is_wan_ipv6_if_ppp(void)
 	return 0;
 }
 
-void store_ip6rd_from_dhcp(const char *env_value, const char *prefix)
+#define WAN6_6RD_SNAPSHOT_COUNT 3
+#define WAN6_6RD_SNAPSHOT_VALUE_MAX 128
+
+static int
+wan6_dhcp_nvram_transaction_set(void *context, const char *name,
+				const char *value)
 {
-	int i;
+	struct nvram_transaction *transaction =
+		(struct nvram_transaction *)context;
+	int result, saved_errno;
+
+	if (!transaction || !name || !value)
+		return EINVAL;
+	errno = 0;
+	result = nvram_transaction_set(transaction, name, (char *)value, 1);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(result, saved_errno);
+}
+
+static int
+wan6_restore_6rd_values(const struct dhcp_lease_nvram_value *values,
+			int *rollback_status)
+{
+	struct nvram_transaction transaction;
+	int status, end_status, restore_status = 0;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0) {
+		status = errno ? errno : EIO;
+		if (rollback_status)
+			*rollback_status = status;
+		return status;
+	}
+
+	status = dhcp_lease_nvram_restore(
+		values, WAN6_6RD_SNAPSHOT_COUNT,
+		wan6_dhcp_nvram_transaction_set, &transaction, &restore_status);
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+		if (restore_status == 0)
+			restore_status = end_status;
+	}
+	if (rollback_status)
+		*rollback_status = restore_status;
+	return status;
+}
+
+/*
+ * Snapshot and publish all DHCP-provided 6rd fields under one NVRAM lock.
+ * If any setter or the transaction close fails, restore the complete old
+ * tuple under a fresh lock before returning the original publication error.
+ */
+static int
+wan6_publish_6rd_snapshot(const char *prefix, const char *addr6,
+			  const char *size4, const char *relay4,
+			  int *rollback_status)
+{
+	static const char *const suffixes[WAN6_6RD_SNAPSHOT_COUNT] = {
+		"addr6", "6rd_size", "6rd_relay"
+	};
+	const char *new_values[WAN6_6RD_SNAPSHOT_COUNT];
+	char names[WAN6_6RD_SNAPSHOT_COUNT][64];
+	char previous_values[WAN6_6RD_SNAPSHOT_COUNT]
+		[WAN6_6RD_SNAPSHOT_VALUE_MAX];
+	struct dhcp_lease_nvram_value values[WAN6_6RD_SNAPSHOT_COUNT];
+	struct nvram_transaction transaction;
+	char *previous_value;
+	size_t i;
+	int length, read_result, saved_errno;
+	int status = 0, end_status, publish_attempted = 0;
+	int transaction_rollback_status = 0;
+	int recovery_status, recovery_detail = 0;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (!prefix || !prefix[0] || !addr6 || !size4 || !relay4)
+		return EINVAL;
+
+	new_values[0] = addr6;
+	new_values[1] = size4;
+	new_values[2] = relay4;
+	for (i = 0; i < WAN6_6RD_SNAPSHOT_COUNT; ++i) {
+		length = snprintf(names[i], sizeof(names[i]), "%s%s",
+				  prefix, suffixes[i]);
+		if (length < 0)
+			return errno ? errno : EIO;
+		if ((size_t)length >= sizeof(names[i]))
+			return ENAMETOOLONG;
+		values[i].name = names[i];
+		values[i].value = new_values[i];
+		values[i].previous_value = previous_values[i];
+	}
+
+	/* Avoid restoring values read from a different concurrent DHCP writer. */
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno ? errno : EIO;
+
+	for (i = 0; i < WAN6_6RD_SNAPSHOT_COUNT; ++i) {
+		previous_value = NULL;
+		errno = 0;
+		read_result = nvram_transaction_get(
+			&transaction, names[i], &previous_value);
+		saved_errno = errno;
+		status = rc_wan_nvram_read_status(read_result, saved_errno);
+		if (status != 0)
+			break;
+		if (read_result == 0 || !previous_value)
+			previous_value = "";
+		status = rc_wan_nvram_copy_text(
+			previous_value, previous_values[i],
+			sizeof(previous_values[i]));
+		if (status != 0)
+			break;
+	}
+
+	if (status == 0) {
+		publish_attempted = 1;
+		status = dhcp_lease_nvram_publish(
+			values, WAN6_6RD_SNAPSHOT_COUNT,
+			wan6_dhcp_nvram_transaction_set, &transaction,
+			&transaction_rollback_status);
+	}
+
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+		else if (transaction_rollback_status == 0)
+			transaction_rollback_status = end_status;
+	}
+
+	if (publish_attempted && status != 0) {
+		recovery_status = wan6_restore_6rd_values(values, &recovery_detail);
+		transaction_rollback_status = recovery_status != 0 ?
+			(recovery_detail != 0 ? recovery_detail : recovery_status) : 0;
+	}
+	if (rollback_status)
+		*rollback_status = transaction_rollback_status;
+	return status;
+}
+
+int
+store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix)
+{
+	int i, written;
 	long ipv4_mask_len, ipv6_prefix_len;
-	char tmp[100];
 	char ip6rd[64];
-	char addr6[INET6_ADDRSTRLEN];
+	char addr6[INET6_ADDRSTRLEN + 5];
 	char *value, *values[4], *end;
 	struct in6_addr prefix6;
+	int status, rollback_status = 0;
 
-	// "32 128 FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF:FFFF 255.255.255.255 "
-
-	if (nvram_match("ip6_6rd_dhcp", "0") || !env_value || !prefix)
-		return;
+	/* Keep malformed or absent optional options as a no-op, as before. */
+	if (nvram_match("ip6_6rd_dhcp", "0") || !env_value || !prefix || !*prefix)
+		return 0;
 	if (strlen(env_value) >= sizeof(ip6rd))
-		return;
+		return 0;
 
 	snprintf(ip6rd, sizeof(ip6rd), "%s", env_value);
 	value = ip6rd;
 	for (i = 0; i < 4; i++) {
 		values[i] = strtok_r(i == 0 ? value : NULL, " \t\r\n", &value);
 		if (!values[i])
-			return;
+			return 0;
 	}
 	if (strtok_r(NULL, " \t\r\n", &value))
-		return;
+		return 0;
 
 	for (end = values[0]; *end; end++)
 		if (*end < '0' || *end > '9')
-			return;
+			return 0;
 	ipv4_mask_len = strtol(values[0], &end, 10);
 	if (*end || ipv4_mask_len < 0 || ipv4_mask_len > 32)
-		return;
+		return 0;
 
 	for (end = values[1]; *end; end++)
 		if (*end < '0' || *end > '9')
-			return;
+			return 0;
 	ipv6_prefix_len = strtol(values[1], &end, 10);
 	if (*end || ipv6_prefix_len < 0 || ipv6_prefix_len > 128)
-		return;
+		return 0;
 
 	if (inet_pton(AF_INET6, values[2], &prefix6) != 1 ||
 	    !is_valid_ipv4(values[3]))
-		return;
+		return 0;
 
-	snprintf(addr6, sizeof(addr6), "%s/%ld", values[2], ipv6_prefix_len);
-	nvram_set_temp(strcat_r(prefix, "addr6", tmp), addr6);
-	nvram_set_temp(strcat_r(prefix, "6rd_size", tmp), values[0]);
-	nvram_set_temp(strcat_r(prefix, "6rd_relay", tmp), values[3]);
+	written = snprintf(addr6, sizeof(addr6), "%s/%ld",
+			   values[2], ipv6_prefix_len);
+	if (written < 0 || (size_t)written >= sizeof(addr6))
+		return ENAMETOOLONG;
+
+	status = wan6_publish_6rd_snapshot(
+		prefix, addr6, values[0], values[3], &rollback_status);
+	if (status != 0)
+		logmessage("WAN IPv6",
+			   "failed to publish DHCP 6rd configuration (status=%d, rollback=%d)",
+			   status, rollback_status);
+	return status;
+}
+
+void
+store_ip6rd_from_dhcp(const char *env_value, const char *prefix)
+{
+	(void)store_ip6rd_from_dhcp_status(env_value, prefix);
 }
 
 static int

@@ -5870,8 +5870,11 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 
 #if defined (USE_IPV6)
 	value = getenv("ip6rd");
-	if (value)
-		store_ip6rd_from_dhcp(value, prefix);
+	if (value) {
+		snapshot_status = store_ip6rd_from_dhcp_status(value, prefix);
+		if (snapshot_status != 0)
+			goto snapshot_publication_failed;
+	}
 #endif
 
 	if (!i_err) {

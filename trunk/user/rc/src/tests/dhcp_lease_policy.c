@@ -318,6 +318,46 @@ struct dhcp_viptv_deconfig_fake {
 };
 
 static void
+test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple(void)
+{
+	struct dhcp_nvram_fake fake;
+	struct dhcp_lease_nvram_value values[3];
+	int rollback_status, i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan0_addr6";
+	fake.names[1] = "wan0_6rd_size";
+	fake.names[2] = "wan0_6rd_relay";
+	fake.old_values[0] = "2001:db8:1::/64";
+	fake.old_values[1] = "24";
+	fake.old_values[2] = "192.0.2.1";
+	fake.new_values[0] = "2001:db8:2::/64";
+	fake.new_values[1] = "32";
+	fake.new_values[2] = "198.51.100.1";
+	fake.fail_new_index = 1;
+	fake.fail_new_status = ENOSPC;
+	fake.fail_new_after_write = 1;
+	fake.fail_restore_index = -1;
+
+	for (i = 0; i < 3; ++i) {
+		values[i].name = fake.names[i];
+		values[i].value = fake.new_values[i];
+		values[i].previous_value = fake.old_values[i];
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.old_values[i]);
+	}
+
+	/* A failed close may still have applied; compensate all fields in reverse. */
+	assert(dhcp_lease_nvram_publish(values, 3, dhcp_nvram_fake_set,
+					&fake, &rollback_status) == ENOSPC);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "ABCcba") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
+}
+
+
+static void
 dhcp_viptv_deconfig_event(struct dhcp_viptv_deconfig_fake *fake, char event)
 {
 	if (fake->event_count + 1 < sizeof(fake->events)) {
@@ -833,6 +873,7 @@ main(void)
 	test_dhcp_viptv_deconfig_metadata_clear_rolls_back_as_one_tuple();
 	test_lan_dhcp_nvram_publish_compensates_partial_updates();
 	test_dhcp_lease_nvram_publish_attempts_all_and_restores_all();
+	test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple();
 	test_dhcp_lease_text_fits_buffer();
 	test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple();
 	puts("DHCP lease input policy regression: OK");
