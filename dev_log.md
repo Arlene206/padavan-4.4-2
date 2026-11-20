@@ -1,3 +1,9 @@
+## 2026-11-20 — Align modem/firewall source checks with HTTPD status writers
+
+- Parent main SHA: `1ac1d7e9aa823c6344bdde223b33015eaa05ad3b`.
+- Exact-head XY-C1 and firewall startup jobs were stopping in `check_modem_wan_start_status.py`: the checker still required direct `nvram_set_int_temp("httpd_started", ...)` writes after HTTPD had been migrated to the checked `httpd_started_state_publish_status()` wrapper and persistent port writes to `httpd_nvram_set_int_status()`.
+- Updated the shared modem/firewall source contract to assert checked port normalization, stale-state clearing before launch, checked running-state publication, and failure handling in the firewall-error branch. The prior direct NVRAM setter is explicitly forbidden in that start path.
+
 ## 2026-11-20 — Include MiniUPnP netfilter production changes in XY-C1 build triggers
 
 - Parent main SHA: `01f56e97c65d45fe998be26c69569208a92f7670`.

@@ -791,12 +791,21 @@ assert "httpd_firewall_failure_requires_stop(firewall_status, presence)" in http
 assert "firewall_stop_status = stop_httpd_locked();" in httpd_start
 assert "firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);" in httpd_start
 assert "if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)" in httpd_start
-assert 'nvram_set_int_temp("httpd_started", 0)' in httpd_start
-assert 'nvram_set_int_temp("httpd_started", 1)' in httpd_start
+assert 'httpd_nvram_set_int_status("http_lanport", http_port, 0)' in httpd_start
+assert 'httpd_nvram_set_int_status("https_lport", https_port, 0)' in httpd_start
+assert "httpd_started_state_publish_status(0)" in httpd_start
+assert "httpd_started_state_publish_status(1)" in httpd_start
+assert 'nvram_set_int_temp("httpd_started"' not in httpd_start
+assert httpd_start.index("httpd_process_presence(&scan_error)") < httpd_start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
+assert httpd_start.index('httpd_started_state_publish_status(0)') < httpd_start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
 assert "errno = firewall_errno;" in httpd_start
 assert "return firewall_status;" in httpd_start
 httpd_firewall_start = httpd_start.index("firewall_status = restart_firewall();")
 httpd_firewall = httpd_start[httpd_firewall_start:]
+assert "status = httpd_started_state_publish_status(1);" in httpd_firewall
+assert "if (status != 0)" in httpd_firewall
+assert "cannot publish HTTPD possibly-running state after firewall failure" in httpd_firewall
+assert 'nvram_set_int_temp("httpd_started"' not in httpd_firewall
 httpd_firewall_order = (
     httpd_firewall.index("firewall_status = restart_firewall();"),
     httpd_firewall.index("firewall_errno = errno > 0 ?"),
@@ -804,8 +813,8 @@ httpd_firewall_order = (
     httpd_firewall.index("firewall_stop_status = stop_httpd_locked();"),
     httpd_firewall.index("firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);"),
     httpd_firewall.index("if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)"),
-    httpd_firewall.index('nvram_set_int_temp("httpd_started", 0)'),
-    httpd_firewall.index('nvram_set_int_temp("httpd_started", 1)'),
+    httpd_firewall.index("status = httpd_started_state_publish_status(1);"),
+    httpd_firewall.index("if (status != 0)"),
     httpd_firewall.index("errno = firewall_errno;"),
     httpd_firewall.index("return firewall_status;"),
 )
