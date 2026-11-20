@@ -905,7 +905,7 @@ jobs:
           assert "int erase_nvram(void);" in rc_header
           node_policy = Path("trunk/user/rc/src/nvram_device_node_policy.h").read_text()
           node_setup = body(init, "init_nvram_node(void)")
-          node_init = body(init, "init_nodes(void)")
+          node_init = body(init, "init_nodes(int *optional_status)")
           assert "NVRAM_DEVICE_NODE_MODE 0600" in node_policy
           assert "nvram_device_node_is_secure(&st, nvram_device)" in node_setup
           assert "lstat(NVRAM_DEVICE_NODE_PATH, &st)" in node_setup

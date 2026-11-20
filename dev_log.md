@@ -1,3 +1,11 @@
+## 2026-11-20 — Fix HTTPD umbrella source contract for optional boot-node initialization
+
+- Parent main SHA: `d8f3b8b81ae678958bb108a5774c52800ca0973e`. Process lifecycle validation passed on `75b3d0097558e685cf243047a8d77df77ee93f3d`; the PID 1 mdev checker follow-up is queued separately.
+- The HTTPD umbrella run `44708880123` on `75b3d0097558e685cf243047a8d77df77ee93f3d` completed its C regression and the preceding NVRAM checks, then stopped at the RC NVRAM restore source contract because its local extractor still requested `init_nodes(void)`. The production function now accepts an optional-status output pointer; NVRAM's checked result and fatal boot gate are unchanged.
+- Updated the one stale signature expectation. No production behavior changed; the exact-head HTTPD rerun is pending.
+
+---
+
 ## 2026-11-20 — Align PID 1 device-node security regression with optional boot-node validation
 
 - Parent main SHA: `75b3d0097558e685cf243047a8d77df77ee93f3d`. The Process lifecycle suite on `75b3d0097558e685cf243047a8d77df77ee93f3d` passed, including the new GNU89/ASan/UBSan optional device-node policy regression and the revised PID 1 boot source checker.
