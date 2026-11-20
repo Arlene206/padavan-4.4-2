@@ -1588,6 +1588,65 @@ static const struct wan_viptv_ifname_ops wan_viptv_ifname_publish_ops = {
 };
 
 
+struct wan_viptv_old_vlan_context {
+	const char *ifname;
+};
+
+static int
+wan_viptv_old_vlan_clear_identity(void *opaque)
+{
+	int status;
+
+	(void)opaque;
+	status = wan_viptv_ifname_publish_status("");
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot clear old IPTV VLAN recovery identity (status=%d); old VLAN retained",
+			   status);
+	return status;
+}
+
+static int
+wan_viptv_old_vlan_remove(void *opaque)
+{
+	struct wan_viptv_old_vlan_context *context =
+		(struct wan_viptv_old_vlan_context *)opaque;
+	int status;
+
+	if (!context || !context->ifname || !context->ifname[0])
+		return EINVAL;
+	status = remove_vlan_iface(context->ifname);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "old IPTV VLAN removal failed for %s (status=%d); recovery identity will be restored",
+			   context->ifname, status);
+	return status;
+}
+
+static int
+wan_viptv_old_vlan_restore_identity(void *opaque)
+{
+	struct wan_viptv_old_vlan_context *context =
+		(struct wan_viptv_old_vlan_context *)opaque;
+	int status;
+
+	if (!context || !context->ifname || !context->ifname[0])
+		return EINVAL;
+	status = wan_viptv_ifname_publish_status(context->ifname);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot restore old IPTV VLAN recovery identity for %s (status=%d)",
+			   context->ifname, status);
+	return status;
+}
+
+static const struct wan_viptv_old_vlan_ops wan_viptv_old_vlan_ops = {
+	wan_viptv_old_vlan_clear_identity,
+	wan_viptv_old_vlan_remove,
+	wan_viptv_old_vlan_restore_identity
+};
+
+
 static int
 config_vinet_wan(void)
 {
@@ -1949,6 +2008,8 @@ launch_viptv_wan(void)
 	const char *viptv_addr_setting, *viptv_mask_setting, *viptv_gate_setting;
 	struct soft_bridge_other_entry rollback_entry;
 	struct wan_viptv_ifname_publish_context ifname_context;
+	struct wan_viptv_old_vlan_context old_vlan_context;
+	char old_vlan_ifname[24];
 #if defined (USE_SINGLE_MAC)
 	const char *ifname_wan_cpu = IFNAME_MAC;
 #else
@@ -2059,20 +2120,23 @@ launch_viptv_wan(void)
 		rollback_entry.port_vlan_existed && ((vlan_flags & IFF_UP) != 0);
 
 
-	/* Remove a no-longer-used VLAN and its stale publication before replacement. */
+	/* Remove a no-longer-used VLAN without losing its recovery handle. */
 	if (*viptv_iflast && strcmp(viptv_iflast, vinet_iflast) &&
 	    strcmp(viptv_iflast, viptv_ifname)) {
-		ret = remove_vlan_iface(viptv_iflast);
-		if (ret != 0)
-			return ret;
 		if (strchr(viptv_iflast, '.') != NULL) {
-			ret = wan_viptv_ifname_publish_status("");
-			if (ret != 0) {
-				logmessage(LOGNAME,
-					   "failed to clear stale IPTV VLAN interface identity (status=%d)",
-					   ret);
+			if (strlen(viptv_iflast) >= sizeof(old_vlan_ifname))
+				return ENAMETOOLONG;
+			snprintf(old_vlan_ifname, sizeof(old_vlan_ifname), "%s",
+				 viptv_iflast);
+			old_vlan_context.ifname = old_vlan_ifname;
+			ret = wan_viptv_ifname_remove_old_vlan(
+				&wan_viptv_old_vlan_ops, &old_vlan_context);
+			if (ret != 0)
 				return ret;
-			}
+		} else {
+			ret = remove_vlan_iface(viptv_iflast);
+			if (ret != 0)
+				return ret;
 		}
 	}
 

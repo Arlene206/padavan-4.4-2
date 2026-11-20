@@ -79,5 +79,38 @@ wan_viptv_ifname_publish_or_rollback(
 	return route_status_accumulate(status, rollback_status);
 }
 
+/*
+ * Retiring an old IPTV VLAN must not destroy its only recovery handle before
+ * the interface is actually removed. Clear the identity first; if VLAN
+ * removal fails, restore the original identity so a later teardown can retry.
+ */
+struct wan_viptv_old_vlan_ops {
+	int (*clear_identity)(void *context);
+	int (*remove_vlan)(void *context);
+	int (*restore_identity)(void *context);
+};
+
+static inline int
+wan_viptv_ifname_remove_old_vlan(
+	const struct wan_viptv_old_vlan_ops *ops, void *context)
+{
+	int status, restore_status;
+
+	if (!ops || !ops->clear_identity || !ops->remove_vlan ||
+	    !ops->restore_identity)
+		return EINVAL;
+
+	status = ops->clear_identity(context);
+	if (status != 0)
+		return status;
+
+	status = ops->remove_vlan(context);
+	if (status == 0)
+		return 0;
+
+	restore_status = ops->restore_identity(context);
+	return route_status_accumulate(status, restore_status);
+}
+
 
 #endif /* WAN_VIPTV_STATIC_POLICY_H */

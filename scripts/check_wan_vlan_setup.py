@@ -369,10 +369,16 @@ for case in ("test_ifname_publish_success_keeps_vlan_and_skips_rollback",
             "IPTV interface identity policy regression missing " + case)
 
 snapshot_absolute = iptv_start + snapshot_pos
-old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
-old_vlan_clear = iptv_setup.index('ret = wan_viptv_ifname_publish_status("");', old_vlan_cleanup)
-require(snapshot_pos < old_vlan_cleanup < old_vlan_clear < create_pos,
-        "snapshot the replacement VLAN before removing the prior interface and committing its checked identity clear")
+old_vlan_branch = iptv_setup.index("/* Remove a no-longer-used VLAN")
+old_vlan_replace = iptv_setup.index("ret = wan_viptv_ifname_remove_old_vlan(", old_vlan_branch)
+old_vlan_plain_remove = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);", old_vlan_branch)
+old_vlan_policy = body(viptv_policy, "wan_viptv_ifname_remove_old_vlan(")
+require(snapshot_pos < old_vlan_branch < old_vlan_replace < old_vlan_plain_remove < create_pos,
+        "snapshot replacement VLAN before retiring the old VLAN identity and removing its interface")
+require(old_vlan_policy.index("ops->clear_identity(context)") <
+        old_vlan_policy.index("ops->remove_vlan(context)") <
+        old_vlan_policy.index("ops->restore_identity(context)"),
+        "old IPTV VLAN removal must clear identity first and restore it if interface removal fails")
 restart = body(wan, "full_restart_wan(void)")
 lan_bridge_call = restart.index("status = config_soft_bridge_lan();")
 lan_bridge_gate = restart.index("if (status != 0)", lan_bridge_call)
@@ -398,6 +404,13 @@ require("python3 scripts/check_wan_vlan_setup.py" in workflow,
         "WAN workflow must execute the VLAN/bridge source contract")
 
 viptv_test = (rc / "tests/wan_viptv_static_policy.c").read_text()
+for case in ("test_old_vlan_metadata_is_cleared_before_vlan_removal",
+             "test_old_vlan_clear_failure_preserves_vlan_and_skips_removal",
+             "test_old_vlan_remove_failure_restores_recovery_identity",
+             "test_old_vlan_restore_failure_preserves_remove_error",
+             "test_old_vlan_transition_rejects_incomplete_callbacks"):
+    require(case in viptv_test and case + "();" in viptv_test,
+            "old IPTV VLAN replacement regression missing " + case)
 static_multicast = body(wan, "wan_viptv_static_start_multicast(void *opaque)")
 require(("static int" + chr(10) + "wan_viptv_static_start_multicast") in wan and
         "return start_igmpproxy(context->ifname);" in static_multicast,

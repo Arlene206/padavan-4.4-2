@@ -312,6 +312,118 @@ test_ifname_publish_policy_rejects_incomplete_callbacks(void)
 }
 
 
+struct fake_old_vlan_replace {
+	int clear_status;
+	int remove_status;
+	int restore_status;
+	char events[8];
+};
+
+static void
+record_old_vlan_event(struct fake_old_vlan_replace *fake, char event)
+{
+	size_t length = strlen(fake->events);
+
+	assert(length + 1 < sizeof(fake->events));
+	fake->events[length] = event;
+	fake->events[length + 1] = '\0';
+}
+
+static int
+fake_old_vlan_clear(void *opaque)
+{
+	struct fake_old_vlan_replace *fake =
+		(struct fake_old_vlan_replace *)opaque;
+
+	record_old_vlan_event(fake, 'C');
+	return fake->clear_status;
+}
+
+static int
+fake_old_vlan_remove(void *opaque)
+{
+	struct fake_old_vlan_replace *fake =
+		(struct fake_old_vlan_replace *)opaque;
+
+	record_old_vlan_event(fake, 'R');
+	return fake->remove_status;
+}
+
+static int
+fake_old_vlan_restore(void *opaque)
+{
+	struct fake_old_vlan_replace *fake =
+		(struct fake_old_vlan_replace *)opaque;
+
+	record_old_vlan_event(fake, 'S');
+	return fake->restore_status;
+}
+
+static const struct wan_viptv_old_vlan_ops fake_old_vlan_ops = {
+	fake_old_vlan_clear,
+	fake_old_vlan_remove,
+	fake_old_vlan_restore
+};
+
+static void
+test_old_vlan_metadata_is_cleared_before_vlan_removal(void)
+{
+	struct fake_old_vlan_replace fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan_viptv_ifname_remove_old_vlan(&fake_old_vlan_ops, &fake) == 0);
+	assert(strcmp(fake.events, "CR") == 0);
+}
+
+static void
+test_old_vlan_clear_failure_preserves_vlan_and_skips_removal(void)
+{
+	struct fake_old_vlan_replace fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.clear_status = ENOSPC;
+	assert(wan_viptv_ifname_remove_old_vlan(&fake_old_vlan_ops, &fake) == ENOSPC);
+	assert(strcmp(fake.events, "C") == 0);
+}
+
+static void
+test_old_vlan_remove_failure_restores_recovery_identity(void)
+{
+	struct fake_old_vlan_replace fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.remove_status = EBUSY;
+	assert(wan_viptv_ifname_remove_old_vlan(&fake_old_vlan_ops, &fake) == EBUSY);
+	assert(strcmp(fake.events, "CRS") == 0);
+}
+
+static void
+test_old_vlan_restore_failure_preserves_remove_error(void)
+{
+	struct fake_old_vlan_replace fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.remove_status = EBUSY;
+	fake.restore_status = ENOSPC;
+	assert(wan_viptv_ifname_remove_old_vlan(&fake_old_vlan_ops, &fake) == EBUSY);
+	assert(strcmp(fake.events, "CRS") == 0);
+}
+
+static void
+test_old_vlan_transition_rejects_incomplete_callbacks(void)
+{
+	struct fake_old_vlan_replace fake;
+	struct wan_viptv_old_vlan_ops missing_restore = {
+		fake_old_vlan_clear, fake_old_vlan_remove, NULL
+	};
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan_viptv_ifname_remove_old_vlan(NULL, &fake) == EINVAL);
+	assert(wan_viptv_ifname_remove_old_vlan(&missing_restore, &fake) == EINVAL);
+	assert(fake.events[0] == '\0');
+}
+
+
 int
 main(void)
 {
@@ -328,6 +440,11 @@ main(void)
 	test_ifname_publish_failure_rolls_back_vlan_and_preserves_primary_error();
 	test_ifname_rollback_failure_does_not_mask_publish_error();
 	test_ifname_publish_policy_rejects_incomplete_callbacks();
-	puts("Static IPTV startup and identity status regression: PASS");
+	test_old_vlan_metadata_is_cleared_before_vlan_removal();
+	test_old_vlan_clear_failure_preserves_vlan_and_skips_removal();
+	test_old_vlan_remove_failure_restores_recovery_identity();
+	test_old_vlan_restore_failure_preserves_remove_error();
+	test_old_vlan_transition_rejects_incomplete_callbacks();
+	puts("Static IPTV startup, identity and replacement regression: PASS");
 	return 0;
 }

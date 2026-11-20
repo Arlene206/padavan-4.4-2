@@ -1,3 +1,13 @@
+## 2026-11-20 — Preserve IPTV VLAN recovery identity during old-VLAN removal
+
+- Parent main SHA: `e28b6a456d136e50b401886825658c2698a509b3`; re-applied on top of concurrent checker fix `e28b6a456d136e50b401886825658c2698a509b3` without overwriting its loader/source-check changes.
+- Found an unsafe ordering in `launch_viptv_wan()`: for a stale interface named as a VLAN, it removed the old VLAN first and only then cleared `viptv_ifname`. If the NVRAM clear failed, the persistent recovery handle still pointed at an already-removed interface. Clearing first also requires compensation if the subsequent VLAN-removal ioctl fails.
+- Added a transaction policy: clear the old recovery identity first; only then remove the old VLAN; if removal fails, restore the original identity so a later stop/reconfigure can retry. The old interface name is copied into a bounded local buffer before the NVRAM write (which may invalidate NVRAM-backed string storage). If the clear fails, the VLAN is left intact. Non-VLAN bridge/interface cleanup retains its prior branch behavior.
+- Added failure-injection coverage for clear-before-remove ordering, clear failure skipping removal, remove failure restoring the recovery identity, restore failure preserving the primary remove error, and incomplete callback tables. Source contract now pins the transactional order and all registered tests.
+- Parent `aa4021a190906132b3f73d68b1d76a4efb516526`: 19 exact-head runs completed; 17 passed and two source-contract failures were diagnosed (WAN route `44703962457` guard adjacency; HTTPD `44703962244` stale `return 0` check), fixed in `72eda3e6aa96a745811655a96b5dd36a0eec770d`. Exact `72eda3e` HTTPD `44704349353` and AI docs `44704349395` passed; WAN route `44704349402` failed due checker `NameError: policy` and a stale old clear expectation, fixed concurrently in `e28b6a456d136e50b401886825658c2698a509b3`; its exact WAN route rerun `44704616742` and AI docs `44704616750` passed. XY-C1 source run `44703962127` was still in progress at last poll, after 32 pre-build checks and entry into the MIPS build step; final build/TRX/artifact outcome not yet established. This commit changes C and must trigger fresh XY-C1 validation. No local checkout/compiler was available.
+
+---
+
 ## 2026-11-20 — Fix remaining WAN IPTV checker dependency and checked-clear assertion
 
 - Parent main SHA: `72eda3e6aa96a745811655a96b5dd36a0eec770d`. This follows the exact-head checker repair in `72eda3e6aa96a745811655a96b5dd36a0eec770d`.
