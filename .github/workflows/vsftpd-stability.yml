@@ -214,7 +214,8 @@ jobs:
           upload_entry = function_body(acl_path_policy, "ftp_acl_path_open_upload_entry(")
           resolve_upload = function_body(acl_path_policy, "ftp_acl_path_resolve_write_entry(")
           assert "file_fd = ftp_acl_path_open_upload_entry(" in upload_open
-          assert "exclusive, append, (mode_t)mode" in upload_open
+          normalized_upload_open = " ".join(upload_open.split())
+          assert "exclusive, append, (mode_t)mode" in normalized_upload_open
           assert "if (append)" in upload_entry
           assert "flags |= O_APPEND;" in upload_entry
           assert "O_CREAT | O_EXCL" in upload_entry

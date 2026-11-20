@@ -4,28 +4,28 @@ This live checkpoint supersedes older summaries. Continue from current main; avo
 
 ## Git state
 
-- Parent main SHA for APPE append fix: `821c133887352c069067688f442cd5300bd619b2`.
-- FTP existing-STOR non-regular target fix: `5c7fa81094c2e31ed58d0e8381201ca769db7a2c`; exact VSFTPD stability `44733281243` PASS, AI docs `44733281199` PASS, Process inventory `44733281193` PASS, NVRAM boundary `44733281201` PASS. XY-C1 `44733281232` was IN_PROGRESS at last poll.
-- New RADIUS secret zeroization main commit: `821c133887352c069067688f442cd5300bd619b2`; its Process/AI/NVRAM/XY Actions were still in progress at last poll.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` read-only. Main-only full-tree commits, expected-SHA non-force ref update, no force-push.
+- APPE implementation commit: `8ded66573ba530efd6c66763981e136dc7a1097a`; parent `821c133887352c069067688f442cd5300bd619b2`.
+- The prior FIFO rejection commit `5c7fa81094c2e31ed58d0e8381201ca769db7a2c` has exact VSFTPD, Process, AI-doc and NVRAM checks PASS; its XY-C1 run was pending last time it was checked.
+- New APPE exact-head workflow: run `44734275928` was in progress at the source-contract stage; the inline contract needs whitespace normalization for a helper call split across source lines. This commit repairs the assertion without weakening the expected argument sequence.
+- RADIUS teardown zeroization commit `821c133887352c069067688f442cd5300bd619b2` retained on main. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` stays read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-## Active FTP APPE fix
+## Active FTP work
 
-- Existing APPE path previously sought once to EOF but did not set `O_APPEND`. With configurable `lock_upload_files=NO`, independent sessions could seek to the same old EOF and a later write overwrite earlier appended data.
-- Current slice passes `is_append` through `handle_upload_common()` → `asus_open_upload_path()` → descriptor-relative helper; APPE opens existing and newly created targets with `O_APPEND`. STOR/STOU behavior is unchanged.
-- GNU89 host regression models two APPE descriptors seeking to offset zero before writes and expects final bytes `baseAB`; VSFTPD checker pins end-to-end flag propagation.
+- `5c7fa8`: rejects existing STOR FIFO/special-file targets with descriptor fstat and an active-reader FIFO test; exact VSFTPD run `44733281243` PASS.
+- `8ded665`: passes `is_append` through upload open and sets `O_APPEND` for APPE. A two-descriptor test seeks both fds to offset zero before writes and expects `baseAB`. STOR/STOU behavior is unchanged.
+- The current follow-up only normalizes whitespace in the Python source contract; the assertion still requires append mode to flow from `is_append` through `asus_open_upload_path()` to `ftp_acl_path_open_upload_entry()`.
 
 ## Exact first actions
 
-1. Verify this APPE commit's exact-head `vsftpd-stability.yml` run; inspect compile/source-contract results.
-2. Verify same-SHA XY-C1 Build XY-C1, TRX and artifact upload. Parent `5c7fa8` XY-C1 `44733281232` was pending at last poll; it does not apply to this new source change.
-3. If runs are pending, continue another independent P1 userland defect instead of polling repeatedly.
+1. Check `8ded665` VSFTPD job outcome and rerun this source-contract-only correction's exact run. Fix any compiler or regression failure from the job logs.
+2. Check exact-source XY-C1 Build/TRX/artifact runs for `5c7fa8`, `8ded665`, and current main; only claim L3 when all three firmware steps pass for one SHA.
+3. Continue an independent userland stability/security fix while relevant Actions are pending; do not poll pending jobs repeatedly.
 4. Physical router and live FTP interoperability L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- `5c7fa8`: FTP existing-STOR FIFO protection, Process, AI docs and NVRAM boundary PASS; XY-C1 pending at last poll.
-- This APPE slice has no L2/L3 claim until exact-head regression and same-source XY-C1 Build/TRX/artifact succeed.
+- FIFO fix `5c7fa8`: host source regression PASS; current-source XY-C1 was IN_PROGRESS at last inspection.
+- APPE fix `8ded665`: host regression and exact build/workflow pending.
 - Keep host L2, exact-head Actions, exact-source firmware L3 and physical-device L4 separate.
 
 

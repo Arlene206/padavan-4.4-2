@@ -1,3 +1,12 @@
+## 2026-11-20 — Normalize APPE source-contract argument whitespace
+
+- Parent main SHA: `8ded66573ba530efd6c66763981e136dc7a1097a`; APPE code/test implementation is `8ded66573ba530efd6c66763981e136dc7a1097a`.
+- Exact VSFTPD run `44734275928` reached the Python source-contract stage after compilation was underway. The new API call correctly split `exclusive, append,` and `(mode_t)mode` across lines, while the checker expected one contiguous source substring.
+- Normalize the extracted function body whitespace before asserting the argument sequence. The test still checks the exact `exclusive, append, (mode_t)mode` order; no production source or regression behavior is relaxed.
+- Exact `8ded665` VSFTPD and XY-C1 outcomes were still pending at the time this checker correction was prepared.
+
+---
+
 ## 2026-11-20 — Preserve APPE append semantics across independent FTP sessions
 
 - Parent main SHA: `821c133887352c069067688f442cd5300bd619b2`; existing-STOR FIFO/special-file rejection commit `5c7fa81094c2e31ed58d0e8381201ca769db7a2c` has exact VSFTPD stability run `44733281243` SUCCESS. Its AI docs `44733281199`, Process inventory `44733281193`, and NVRAM boundary `44733281201` also PASS. Same-SHA XY-C1 run `44733281232` was IN_PROGRESS at last poll.
