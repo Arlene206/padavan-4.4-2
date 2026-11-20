@@ -1,7 +1,7 @@
 # 2026-11-20 active checkpoint
 
 - Main parent for current DHCP lease validator repair: `9cadbbd9c116db4b8c0cc3d4f8e312800575f173`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
-- Source SHA 10b5723 passed the injected GNU89 DHCP lease policy executable; WAN DHCP callback exposed a stale LAN prefix-rollback assertion, while WAN route/XY-C1 exposed a stale MAN teardown helper assertion. These validators now match full-vector rollback and the existing checked MAN writer. AI docs passed on 9cadbbd. Exact-SHA reruns and NVRAM boundary are the next gate; L3/L4 remain NOT VERIFIED.
+- Source SHA 10b5723 passed the injected GNU89 DHCP lease policy executable. The LAN full-vector rollback checker and MAN teardown checked-writer contract are now corrected; exact-head WAN DHCP callback passed on b514627. AI handoff run 44689620108 exposed missing required headings, restored in this commit. XY-C1 44689620163 was pending; same-SHA build/TRX/artifact and L3/L4 remain unverified.
 - WAN route inline pause-order contracts now look for the checked temporary `set_nvram_value_status("vpnc_dns_t", "")` call in both ordering assertions; the removed unchecked `nvram_set_temp()` marker is no longer expected.
 - WAN-down resolver snapshot hardening in this slice: `vpnc_dns_t` and conditional `wanN_dns` clears now use errno-aware setters, preserve first-error teardown status, and still allow subsequent cleanup/resolver refresh.
 - PPP ip-up Actions contract alignment in this slice: the WAN DHCP checks now assert the checked five-field volatile snapshot, rollback, and fail-closed route ordering; HTTPD callback-lock ordering now guards the policy mutation entry.

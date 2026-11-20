@@ -1,3 +1,12 @@
+## 2026-11-20 — Restore mandatory handoff status and next-action headings
+
+- Parent main SHA: `b5146272dd0149586fb5bb27d5aa43d85f2bb1fd`.
+- Exact-head AI handoff validation run `44689620108` failed with a concrete validator message: `SESSION_HANDOFF.md` was missing required sections `## Verification boundary` and `## Exact first action for the next GPT`. This was a handoff-structure defect, not a source/test failure; both sections are restored with current CI evidence and a specific next source task.
+- Exact-head WAN DHCP callback run `44689620059` passed on this parent. NVRAM boundary run `44689024044` and the injected GNU89/ASan/UBSan attempt-all/full-rollback policy executable passed on production source SHA `10b5723`.
+- XY-C1 run `44689620163` was still in progress at the last poll. Its outcome determines whether the current production slice reaches detector/MIPS build/TRX/artifact verification; no L3 result is claimed.
+- The WAN route/XY-C1 stale MAN teardown contract was corrected to assert the checked `rc_wan_nvram_set_all_values()` path. The latest WAN DHCP callback PASS demonstrates that the LAN rollback checker no longer stops this workflow.
+- Local tests remain NOT RUN because this execution environment has no local repository checkout. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Remove invalid test-source variable from LAN policy checker
 
 - Parent main: `5e7d8cf074fcaf7bb392dd50373dfd435e518176`. The LAN deconfiguration checker was updated alongside the new shared DHCP rollback semantics, but the added test-name assertion referenced a `test` variable that this standalone checker does not define. Removed that redundant assertion; the WAN DHCP callback workflow independently checks the test function and invocation in `tests/dhcp_lease_policy.c`.
