@@ -46,7 +46,7 @@ assert delete.count("nat_scan_completed = 1;") == 1
 scan_guard = delete.index("if(!iptc_is_chain(miniupnpd_nat_chain, h))")
 scan_loop = delete.index("for(e = iptc_first_rule(miniupnpd_nat_chain", scan_guard)
 scan_complete = delete.index("nat_scan_completed = 1;", scan_loop)
-scan_loop_close = delete.index("\\n\\t\\t}\\n\\t\\tnat_scan_completed = 1;", scan_loop)
+scan_loop_close = delete.index("} nat_scan_completed = 1;", scan_loop)
 peer_cleanup = delete.index("/*delete PEER rule*/", scan_loop)
 assert scan_guard < scan_loop < scan_loop_close < scan_complete < peer_cleanup
 assert "r = -1;" in delete[scan_guard:scan_complete]

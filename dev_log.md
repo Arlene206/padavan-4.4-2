@@ -1,3 +1,13 @@
+## 2026-11-20 — Repair NAT scan source contract and restore handoff invariant
+
+- Parent main SHA: ce8daa92ec5a57bcef2d8a662be32c00c6b369c1.
+- Exact-head MiniUPnP run #44804291730 on product SHA 30af417ed8d7665e5da0f630e79b38bbb9f92296 passed the compiled cleanup-policy test and preceding allocation/ownership/capacity/update/description tests, then failed in check_miniupnpd_iptcrdr_delete.py. The checker normalizes function whitespace before inspecting it but searched for a literal escaped-newline sequence; changed the match to the normalized loop-close marker immediately before nat_scan_completed.
+- Exact-head AI docs #44804291590 on the same SHA failed because the live SESSION_HANDOFF.md had lost the exact required phrase "one atomic main commit". Restored the cross-session invariant explicitly, preserving the main-only/non-forced expected-SHA workflow.
+- The injected production-caller test fixture is repaired in ce8daa92ec5a57bcef2d8a662be32c00c6b369c1: C source now includes function signature and actual newline separators. Its exact-head run is triggered by this new commit and must validate it.
+- Product source SHA 30af417ed8d7665e5da0f630e79b38bbb9f92296 moves the NAT scan completion marker after the NAT loop. Exact-SHA XY-C1 #44804291706 was still in progress at last poll; the earlier source 35e run #44803257077 was also not terminal at previous observation. Firmware L3 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Repair the injected delete caller C fixture
 
 - Parent main SHA: 30af417ed8d7665e5da0f630e79b38bbb9f92296.
