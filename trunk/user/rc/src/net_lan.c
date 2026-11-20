@@ -1951,7 +1951,7 @@ lan_down_auto(char *lan_ifname)
 		return metadata_status;
 	}
 
-	/* Cleanup is now committed; monitor pause is advisory. */
+	/* Once the lease cleanup is committed, monitor pause is advisory. */
 	(void)notify_pause_detect_internet();
 
 #if defined(APP_SMBD)
