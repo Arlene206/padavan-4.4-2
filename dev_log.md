@@ -1,3 +1,10 @@
+## 2026-11-20 — Gate static MAN routes on the refreshed gateway snapshot
+
+- Parent `main` SHA: `64e751a36d1b3cac83c605f390a8aea3b4d77624`.
+- Traced `wan_up_internal()` into `add_static_man_routes()` and `control_static_routes()`: a route with no valid explicit gateway falls back to global `wanx_gateway`. The WAN-up path previously ignored the result of `nvram_set_temp("wanx_gateway", ...)`, so a failed snapshot write could make an ostensibly new WAN-up path install a route using the previous MAN gateway.
+- WAN-up now uses the checked temporary NVRAM writer, preserves the first error in its return status, and skips the dependent static MAN route batch when the refreshed gateway cannot be published. Independent WAN route, DHCP, firewall and service attempts continue.
+- Extended the WAN source contract to pin the actual `net.c` fallback dependency, checked volatile write and fail-closed route gate. Exact-head WAN route Actions will execute the contract; this change makes no firmware/hardware claim.
+
 ## 2026-11-20 — Attempt every MAN teardown snapshot clear and preserve the first error
 
 - Parent `main` SHA: `885e71f9b3d7eeab9a2b39fc7602c11880450fec`.

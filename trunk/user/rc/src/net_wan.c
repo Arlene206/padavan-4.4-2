@@ -3353,14 +3353,22 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		logmessage(LOGNAME, "failed to add static WAN routes on %s (error=%d)",
 			   wan_ifname, route_status);
 
-	/* Add static MAN routes (for IPoE) */
+	/* Publish the global MAN gateway before static routes use it as a fallback. */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
-		nvram_set_temp("wanx_gateway", (wan_gate) ? wan_gate : "0.0.0.0");
-		route_status = add_static_man_routes(wan_ifname);
+		route_status = set_nvram_snapshot_value_status(
+			NULL, "wanx_gateway", (wan_gate) ? wan_gate : "0.0.0.0");
 		status = route_status_accumulate(status, route_status);
-		if (route_status != 0)
-			logmessage(LOGNAME, "failed to add static MAN routes on %s (error=%d)",
-				   wan_ifname, route_status);
+		if (route_status != 0) {
+			logmessage(LOGNAME,
+				   "failed to publish MAN gateway snapshot; skipping dependent static MAN routes (status=%d)",
+				   route_status);
+		} else {
+			route_status = add_static_man_routes(wan_ifname);
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME, "failed to add static MAN routes on %s (error=%d)",
+					   wan_ifname, route_status);
+		}
 	}
 
 	/* Add dynamic routes supplied via DHCP (for NDIS or IPoE Auto) */

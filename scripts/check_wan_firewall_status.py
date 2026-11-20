@@ -71,6 +71,7 @@ def positions(source, marker):
 
 
 wan = (RC / "net_wan.c").read_text()
+net_core = (RC / "net.c").read_text()
 header = (RC / "rc.h").read_text()
 policy = (RC / "service_start_status.h").read_text()
 policy_test = (RC / "tests/service_start_status.c").read_text()
@@ -637,5 +638,25 @@ require("cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address)
         "cleanup_status);" in udhcpc_deconfig,
         "MAN deconfig must return the snapshot-clear failure to its caller")
 
+
+
+wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+gateway_publish = 'route_status = set_nvram_snapshot_value_status(\n\t\t\tNULL, "wanx_gateway",'
+gateway_gate = 'if (route_status != 0)'
+require(gateway_publish in wan_up and gateway_gate in wan_up,
+        "IPoE WAN-up must check the volatile MAN gateway snapshot write")
+gateway_publish_at = wan_up.index(gateway_publish)
+gateway_gate_at = wan_up.index(gateway_gate, gateway_publish_at)
+skip_log_at = wan_up.index("skipping dependent static MAN routes", gateway_gate_at)
+dependent_route_at = wan_up.index("route_status = add_static_man_routes(wan_ifname);", gateway_gate_at)
+require(gateway_publish_at < gateway_gate_at < skip_log_at < dependent_route_at and
+        "status = route_status_accumulate(status, route_status);" in
+        wan_up[gateway_publish_at:dependent_route_at],
+        "failed gateway publication must be reported and block dependent static route creation")
+require("nvram_set_temp(\"wanx_gateway\"" not in wan_up,
+        "unchecked MAN gateway snapshot publication remains in WAN-up")
+require('gateway = nvram_safe_get("wanx_gateway");' in net_core and
+        "if (!is_valid_ipv4(gateway))" in net_core,
+        "static-route implementation must continue to identify the global MAN gateway fallback dependency")
 
 print("WAN firewall rebuild fail-closed protocol gates and PPP recovery: PASS")
