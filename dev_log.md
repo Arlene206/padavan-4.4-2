@@ -1,3 +1,14 @@
+## 2026-11-19 — Harden privileged ZeroTier identity and network join writers
+
+- Parent SHA: `df94216f2418bfb3a099aa55f847d7438a9e1f09`.
+- Confirmed root-owned path traversal in `add_join()`: NVRAM-sourced `zerotier_id` was expanded unquoted into `touch $config_path/networks.d/$1.conf`. Identity keys were also written directly to persistent paths without enforcing private permissions or refusing symlink destinations; confidentiality depended on inherited umask.
+- Added strict optional 16-hex-digit network-ID validation, quoted/contained join-file creation and symlink-leaf refusal. Startup now prepares config and networks.d directories as mode 0700, rejects symlink/non-directory paths, and stages identity outputs in a private same-filesystem directory before chmod-0600 and atomic per-file publication. The launcher sets umask 077 and aborts on preparation failures.
+- Extended the shell lifecycle regression for permissive umask, directory/file modes, symlinked config paths, path traversal, malformed IDs, symlink leaves, generated/stored identity, failed public-key derivation and preservation of existing identity files. The Python source contract now asserts the production writer invariants.
+- Local execution of these host regressions was unavailable in this environment. Exact-head ZeroTier lifecycle and XY-C1 Build/TRX/artifact Actions are the authoritative pending validation. No L3/L4 claim is made here.
+- Exact-head CI: PENDING at commit creation. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Secure Unix password staging and propagate boot provisioning failures
 
 - Parent SHA: `ae7874833c6cb870162222f415124d1db4e63dda`.

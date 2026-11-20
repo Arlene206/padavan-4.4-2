@@ -75,6 +75,9 @@ kill_body = function_body(script, "kill_z()")
 start_body = function_body(script, "start_zero()")
 stop_body = function_body(script, "stop_zero()")
 start_instance_body = function_body(script, "start_instance()")
+config_dir_body = function_body(script, "zerotier_prepare_config_directory()")
+identity_body = function_body(script, "zerotier_prepare_identity()")
+add_join_body = function_body(script, "add_join()")
 interface_body = function_body(script, "zerotier_interface_name()")
 route_section = script.split("zerotier_kernel_route_segment() {", 1)[1].split("\nzerotier_wait_interface() {", 1)[0]
 interface_wait_body = function_body(script, "zerotier_wait_interface()")
@@ -116,6 +119,50 @@ require('return 1' not in kill_body or 'zerotier_wait_stopped' in kill_body,
 require('if ! kill_z; then' in start_body and
         start_body.index('if ! kill_z; then') < start_body.index("start_instance 'zerotier'"),
         "start must not launch a new daemon unless the previous daemon is absent")
+
+# Root-owned config writers must not inherit a permissive umask or trust
+# NVRAM path components and persistent symlink destinations.
+require("umask 077" in script[:300],
+        "ZeroTier must not inherit a permissive launcher umask")
+require('if [ -L "$config_path" ]' in config_dir_body and
+        'chmod 700 "$config_path"' in config_dir_body and
+        'if [ -L "$zt_network_dir" ]' in config_dir_body and
+        'chmod 700 "$zt_network_dir"' in config_dir_body,
+        "ZeroTier configuration directories must reject symlinks and be private")
+require('mktemp -d "$config_path/.identity.XXXXXX"' in identity_body and
+        "trap 'rm -rf \"$zt_identity_tmp_dir\"' EXIT" in identity_body and
+        '"$PROGIDT" generate "$zt_identity_secret_tmp" "$zt_identity_public_tmp"' in identity_body and
+        '"$PROGIDT" getpublic "$zt_identity_secret_tmp"' in identity_body and
+        'chmod 600 "$zt_identity_secret_tmp" "$zt_identity_public_tmp"' in identity_body and
+        'mv -f "$zt_identity_public_tmp" "$config_path/identity.public"' in identity_body and
+        'mv -f "$zt_identity_secret_tmp" "$config_path/identity.secret"' in identity_body,
+        "identity material must be staged privately and atomically published")
+require('if [ -L "$zt_identity_dest" ]' in identity_body and
+        'nvram set zerotier_secret="$secret"' in identity_body and
+        'nvram commit' in identity_body,
+        "identity publication must reject symlink destinations and persist generated secrets")
+require('[ -n "$zt_network_id" ] || return 0' in add_join_body and
+        '*[!0123456789abcdefABCDEF]*' in add_join_body and
+        '"${#zt_network_id}" -ne 16' in add_join_body and
+        'touch "$zt_network_file"' in add_join_body and
+        'chmod 600 "$zt_network_file"' in add_join_body and
+        'if [ -L "$zt_network_file" ]' in add_join_body,
+        "network join writer must validate 16 hex digits and refuse path/symlink abuse")
+require('if ! zerotier_prepare_config_directory; then' in start_instance_body and
+        'if ! zerotier_prepare_identity; then' in start_instance_body and
+        'zt_network_id="$(nvram get zerotier_id)"' in start_instance_body and
+        'add_join "$zt_network_id"' in start_instance_body,
+        "startup must fail closed on unsafe config/identity/network preparation")
+for token in ['config directory was not restricted to mode 700',
+              'config preparation followed a networks.d symlink',
+              'path-traversal network ID',
+              'network join writer followed a symlink leaf',
+              'generated identity secret was not mode 600',
+              'stored identity preparation failed',
+              'failed identity staging replaced the prior secret',
+              'identity publisher followed a symlink destination']:
+    require(token in test, f"private ZeroTier writer regression missing {token}")
+
 
 require("ZEROTIER_RULE_DELETE_LIMIT=32" in script and
         'zerotier_rule_delete_count' in delete_rule_body and

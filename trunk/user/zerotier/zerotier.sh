@@ -1,6 +1,9 @@
 #!/bin/sh
 #20200426 chongshengB
 #20210410 xumng123
+
+# Keep persistent identity and derived network configuration private.
+umask 077
 PROG=/usr/bin/zerotier-one
 PROGCLI=/usr/bin/zerotier-cli
 PROGIDT=/usr/bin/zerotier-idtool
@@ -9,6 +12,97 @@ PLANET="/etc/storage/planet"
 ZT_READY_TIMEOUT=30
 zt0=""
 ip_segment=""
+zerotier_prepare_config_directory() {
+	if [ -L "$config_path" ] ||
+	   { [ -e "$config_path" ] && [ ! -d "$config_path" ]; }; then
+		logger -t "zerotier" "ZeroTier配置路径不是安全目录"
+		return 1
+	fi
+	if ! mkdir -p "$config_path" || ! chmod 700 "$config_path"; then
+		logger -t "zerotier" "无法创建/保护ZeroTier配置目录"
+		return 1
+	fi
+
+	zt_network_dir="$config_path/networks.d"
+	if [ -L "$zt_network_dir" ] ||
+	   { [ -e "$zt_network_dir" ] && [ ! -d "$zt_network_dir" ]; }; then
+		logger -t "zerotier" "ZeroTier networks.d 路径不是安全目录"
+		return 1
+	fi
+	if ! mkdir -p "$zt_network_dir" || ! chmod 700 "$zt_network_dir"; then
+		logger -t "zerotier" "无法创建/保护ZeroTier networks.d目录"
+		return 1
+	fi
+	return 0
+}
+
+# Generate/derive identity material privately, then publish each verified file
+# with a same-filesystem rename so neither destination is written in-place.
+zerotier_prepare_identity() {
+	(
+		umask 077
+		[ -d "$config_path" ] && [ ! -L "$config_path" ] || exit 1
+		zt_identity_tmp_dir="$(mktemp -d "$config_path/.identity.XXXXXX")" || exit 1
+		trap 'rm -rf "$zt_identity_tmp_dir"' EXIT
+		trap 'exit 1' HUP INT TERM
+		zt_identity_secret_tmp="$zt_identity_tmp_dir/identity.secret"
+		zt_identity_public_tmp="$zt_identity_tmp_dir/identity.public"
+
+		if [ -z "$secret" ]; then
+			logger -t "zerotier" "设备密匙为空,正在生成密匙,请稍后..."
+			if ! "$PROGIDT" generate "$zt_identity_secret_tmp" "$zt_identity_public_tmp" >/dev/null; then
+				logger -t "zerotier" "ZeroTier身份密匙生成失败"
+				exit 1
+			fi
+			if [ ! -s "$zt_identity_secret_tmp" ] || [ ! -s "$zt_identity_public_tmp" ]; then
+				logger -t "zerotier" "ZeroTier身份生成结果不完整"
+				exit 1
+			fi
+			secret="$(cat "$zt_identity_secret_tmp")" || exit 1
+			[ -n "$secret" ] || exit 1
+			if ! nvram set zerotier_secret="$secret" || ! nvram commit; then
+				logger -t "zerotier" "ZeroTier身份密匙持久化失败"
+				exit 1
+			fi
+		else
+			logger -t "zerotier" "找到密匙,正在写入文件,请稍后..."
+			if ! printf '%s\n' "$secret" > "$zt_identity_secret_tmp"; then
+				exit 1
+			fi
+			if ! "$PROGIDT" getpublic "$zt_identity_secret_tmp" > "$zt_identity_public_tmp"; then
+				logger -t "zerotier" "ZeroTier公钥派生失败"
+				exit 1
+			fi
+		fi
+
+		if [ ! -s "$zt_identity_secret_tmp" ] || [ ! -s "$zt_identity_public_tmp" ]; then
+			logger -t "zerotier" "ZeroTier身份文件为空"
+			exit 1
+		fi
+		for zt_identity_name in identity.secret identity.public; do
+			zt_identity_dest="$config_path/$zt_identity_name"
+			if [ -L "$zt_identity_dest" ] ||
+			   { [ -e "$zt_identity_dest" ] && [ ! -f "$zt_identity_dest" ]; }; then
+				logger -t "zerotier" "拒绝替换非普通身份文件: $zt_identity_name"
+				exit 1
+			fi
+		done
+		if ! chmod 600 "$zt_identity_secret_tmp" "$zt_identity_public_tmp"; then
+			logger -t "zerotier" "无法限制ZeroTier身份文件权限"
+			exit 1
+		fi
+		if ! mv -f "$zt_identity_public_tmp" "$config_path/identity.public"; then
+			logger -t "zerotier" "无法发布ZeroTier公钥文件"
+			exit 1
+		fi
+		if ! mv -f "$zt_identity_secret_tmp" "$config_path/identity.secret"; then
+			logger -t "zerotier" "无法发布ZeroTier密匙文件"
+			exit 1
+		fi
+		exit 0
+	)
+}
+
 start_instance() {
 	cfg="$1"
 	echo $cfg
@@ -19,30 +113,18 @@ start_instance() {
 	enablemoonserv="$(nvram get zerotiermoon_enable)"
 	planet="$(nvram get zerotier_planet)"
 	
-	if [ ! -d "$config_path" ]; then
-		mkdir -p $config_path
+	if ! zerotier_prepare_config_directory; then
+		logger -t "zerotier" "无法安全准备ZeroTier配置目录"
+		return 1
 	fi
-	mkdir -p $config_path/networks.d
+	if ! zerotier_prepare_identity; then
+		logger -t "zerotier" "ZeroTier身份文件准备失败"
+		return 1
+	fi
 	if [ -n "$port" ]; then
 		args="$args -p$port"
 	fi
-	if [ -z "$secret" ]; then
-		logger -t "zerotier" "设备密匙为空,正在生成密匙,请稍后..."
-		sf="$config_path/identity.secret"
-		pf="$config_path/identity.public"
-		$PROGIDT generate "$sf" "$pf"  >/dev/null
-		[ $? -ne 0 ] && return 1
-		secret="$(cat $sf)"
-		#rm "$sf"
-		nvram set zerotier_secret="$secret"
-		nvram commit
-	fi
-	if [ -n "$secret" ]; then
-		logger -t "zerotier" "找到密匙,正在写入文件,请稍后..."
-		echo "$secret" >$config_path/identity.secret
-		$PROGIDT getpublic $config_path/identity.secret >$config_path/identity.public
-		#rm -f $config_path/identity.public
-	fi
+
 	
 	if [ -n "$planet" ]; then
 		logger -t "zerotier" "找到planet,正在写入文件,请稍后..."
@@ -67,7 +149,11 @@ start_instance() {
 		fi
 	fi
 
-	add_join $(nvram get zerotier_id)
+	zt_network_id="$(nvram get zerotier_id)"
+	if ! add_join "$zt_network_id"; then
+		logger -t "zerotier" "无效的ZeroTier网络ID或无法创建加入文件"
+		return 1
+	fi
 
 	$PROG $args $config_path >/dev/null 2>&1 &
 
@@ -97,7 +183,34 @@ start_instance() {
 }
 
 add_join() {
-		touch $config_path/networks.d/$1.conf
+	zt_network_id="$1"
+	[ -n "$zt_network_id" ] || return 0
+	case "$zt_network_id" in
+		*[!0123456789abcdefABCDEF]*)
+			logger -t "zerotier" "ZeroTier网络ID必须为16位十六进制"
+			return 1
+			;;
+	esac
+	if [ "${#zt_network_id}" -ne 16 ]; then
+		logger -t "zerotier" "ZeroTier网络ID必须为16位十六进制"
+		return 1
+	fi
+	zt_network_dir="$config_path/networks.d"
+	if [ ! -d "$zt_network_dir" ] || [ -L "$zt_network_dir" ]; then
+		logger -t "zerotier" "ZeroTier networks.d目录不可用"
+		return 1
+	fi
+	zt_network_file="$zt_network_dir/$zt_network_id.conf"
+	if [ -L "$zt_network_file" ] ||
+	   { [ -e "$zt_network_file" ] && [ ! -f "$zt_network_file" ]; }; then
+		logger -t "zerotier" "拒绝跟随非普通ZeroTier加入文件"
+		return 1
+	fi
+	if ! touch "$zt_network_file" || ! chmod 600 "$zt_network_file"; then
+		logger -t "zerotier" "无法创建/保护ZeroTier加入文件"
+		return 1
+	fi
+	return 0
 }
 
 

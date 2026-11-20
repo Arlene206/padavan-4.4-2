@@ -383,6 +383,118 @@ TEST_START_INSTANCE_STATUS=0
 TEST_CONFIG="$TEST_TMP/config"
 config_path="$TEST_CONFIG"
 mkdir -p "$TEST_CONFIG"
+
+# Private configuration/identity writer regression: prove that a permissive
+# inherited umask and attacker-controlled persistent paths cannot redirect
+# privileged writes or expose the identity key.
+chmod 755 "$TEST_CONFIG"
+zerotier_prepare_config_directory || fail "config-directory preparation failed"
+[ "$(stat -c '%a' "$TEST_CONFIG")" = 700 ] || fail "config directory was not restricted to mode 700"
+[ "$(stat -c '%a' "$TEST_CONFIG/networks.d")" = 700 ] || fail "networks.d directory was not restricted to mode 700"
+
+mkdir -p "$TEST_TMP/config-target"
+chmod 755 "$TEST_TMP/config-target"
+ln -s "$TEST_TMP/config-target" "$TEST_TMP/config-link"
+saved_config_path="$config_path"
+config_path="$TEST_TMP/config-link"
+if zerotier_prepare_config_directory; then
+	fail "config-directory preparation followed a symlink"
+fi
+[ "$(stat -c '%a' "$TEST_TMP/config-target")" = 755 ] || fail "symlink target permissions were changed"
+config_path="$saved_config_path"
+
+/bin/mv "$config_path/networks.d" "$TEST_TMP/networks.d.saved"
+mkdir -p "$TEST_TMP/networks-target"
+ln -s "$TEST_TMP/networks-target" "$config_path/networks.d"
+if zerotier_prepare_config_directory; then
+	fail "config preparation followed a networks.d symlink"
+fi
+[ ! -e "$TEST_TMP/networks-target/created" ] || fail "networks.d symlink target was modified"
+/bin/rm "$config_path/networks.d"
+/bin/mv "$TEST_TMP/networks.d.saved" "$config_path/networks.d"
+
+add_join "" || fail "an empty optional network ID should be a no-op"
+[ ! -e "$config_path/networks.d/.conf" ] || fail "empty network ID created a .conf file"
+valid_network_id=0123456789abcdef
+add_join "$valid_network_id" || fail "valid 16-digit network ID was rejected"
+valid_network_file="$config_path/networks.d/$valid_network_id.conf"
+[ -f "$valid_network_file" ] || fail "valid network ID file was not created"
+[ "$(stat -c '%a' "$valid_network_file")" = 600 ] || fail "network join file was not private"
+for invalid_network_id in ../../escaped 0123456789ABCDEG 1234; do
+	if add_join "$invalid_network_id"; then
+		fail "invalid network ID was accepted: $invalid_network_id"
+	fi
+done
+[ ! -e "$TEST_TMP/escaped.conf" ] || fail "path-traversal network ID created a file outside networks.d"
+
+/bin/rm -f "$valid_network_file"
+printf '%s\n' join-sentinel > "$TEST_TMP/join-sentinel"
+ln -s "$TEST_TMP/join-sentinel" "$valid_network_file"
+if add_join "$valid_network_id"; then
+	fail "network join writer followed a symlink leaf"
+fi
+[ "$(cat "$TEST_TMP/join-sentinel")" = join-sentinel ] || fail "network join symlink target was modified"
+/bin/rm -f "$valid_network_file"
+
+cat > "$TEST_TMP/idtool" <<'EOF'
+#!/bin/sh
+set -eu
+case "$1" in
+	generate)
+		printf '%s\n' generated-secret > "$2"
+		printf '%s\n' generated-public > "$3"
+		;;
+	getpublic)
+		[ "${TEST_IDTOOL_FAIL_PUBLIC:-0}" -eq 0 ] || exit 1
+		[ -s "$2" ] || exit 1
+		printf '%s\n' derived-public
+		;;
+	*)
+		exit 2
+		;;
+esac
+EOF
+chmod 700 "$TEST_TMP/idtool"
+PROGIDT="$TEST_TMP/idtool"
+saved_umask=$(umask)
+umask 000
+secret=""
+zerotier_prepare_identity || fail "generated identity preparation failed"
+[ "$(cat "$TEST_CONFIG/identity.secret")" = generated-secret ] || fail "generated identity secret mismatch"
+[ "$(cat "$TEST_CONFIG/identity.public")" = generated-public ] || fail "generated identity public key mismatch"
+[ "$(stat -c '%a' "$TEST_CONFIG/identity.secret")" = 600 ] || fail "generated identity secret was not mode 600"
+[ "$(stat -c '%a' "$TEST_CONFIG/identity.public")" = 600 ] || fail "generated identity public key was not mode 600"
+
+secret="stored-secret"
+zerotier_prepare_identity || fail "stored identity preparation failed"
+[ "$(cat "$TEST_CONFIG/identity.secret")" = stored-secret ] || fail "stored identity secret mismatch"
+[ "$(cat "$TEST_CONFIG/identity.public")" = derived-public ] || fail "stored identity public key mismatch"
+[ "$(stat -c '%a' "$TEST_CONFIG/identity.secret")" = 600 ] || fail "stored identity secret was not mode 600"
+[ "$(stat -c '%a' "$TEST_CONFIG/identity.public")" = 600 ] || fail "stored identity public key was not mode 600"
+
+TEST_IDTOOL_FAIL_PUBLIC=1
+export TEST_IDTOOL_FAIL_PUBLIC
+secret="replacement-secret"
+if zerotier_prepare_identity; then
+	fail "failed public-key derivation was accepted"
+fi
+[ "$(cat "$TEST_CONFIG/identity.secret")" = stored-secret ] || fail "failed identity staging replaced the prior secret"
+[ "$(cat "$TEST_CONFIG/identity.public")" = derived-public ] || fail "failed identity staging replaced the prior public key"
+TEST_IDTOOL_FAIL_PUBLIC=0
+export TEST_IDTOOL_FAIL_PUBLIC
+secret="stored-secret"
+
+/bin/rm -f "$TEST_CONFIG/identity.secret"
+printf '%s\n' identity-sentinel > "$TEST_TMP/identity-sentinel"
+ln -s "$TEST_TMP/identity-sentinel" "$TEST_CONFIG/identity.secret"
+if zerotier_prepare_identity; then
+	fail "identity publisher followed a symlink destination"
+fi
+[ "$(cat "$TEST_TMP/identity-sentinel")" = identity-sentinel ] || fail "identity symlink target was modified"
+/bin/rm -f "$TEST_CONFIG/identity.secret"
+zerotier_prepare_identity || fail "identity recovery after symlink removal failed"
+umask "$saved_umask"
+
 echo identity > "$TEST_CONFIG/identity.secret"
 TEST_STATIC_ROUTE_COUNT=1
 TEST_STATIC_ROUTE_ENABLE=1

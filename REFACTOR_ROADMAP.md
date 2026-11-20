@@ -1,11 +1,7 @@
 # 2026-11-19 source checkpoint
-- Checker-only DHCPv6 correction `3ae692ae9da8fe013c283b294ab6a66ee22a72f8`: WAN DHCP callback `44561987026` and AI docs `44561986982` PASS on that exact SHA.
-- New P2 errno-reporting defect fixed in the current DHCPv6 source slice: errno after successful `eval()` is unspecified; cleanup failure now selects its own errno while preserving a real launch failure. Exact current-source WAN DHCP and XY-C1 Build/TRX/artifact verification must be checked separately.
-- Main parent for DHCPv6 environment cleanup: `7c0481f8f390db2e1f26351679fb2cb98bdfb021`.
-- Exact `ef12b80` WAN DHCP `44555817409`, AI docs `44555817614`, Process fail-closed `44555817648`, Process inventory `44555817491`, HTTPD `44555817414`, Firewall `44555817528`, watchdog `44555817550`, Wireless `44555817380`, detect_internet `44555817312`, DNSMasq `44555817270`, detect_link `44555817238`, WAN route `44555817205` PASS. NVRAM `44555817580` and XY-C1 `44555817271` pending at last poll.
-- DHCPv6 lock-release diagnostic commit `7c0481f8`: exact Actions were running at last poll; check these before handoff.
-- New production issue: Boolean-OR unsetenv cleanup in `start_dhcp6c()` skipped the generation-variable unset whenever the interface-variable unset failed. The injectable helper attempts both independently, restores first errno and is covered by C regression and WAN DHCP source integration contract.
-- AP LAN L3 remains `908fee5` / XY-C1 `44552799621`; DHCP callback diagnostic source `ef12b80` pending its XY run. Physical L4 NOT VERIFIED.
+- Main baseline before this ZeroTier writer slice: `df94216f2418bfb3a099aa55f847d7438a9e1f09`. Frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched.
+- Wireless boot configuration publication failure propagation is committed as production SHA `9f565b124635a0c3d0686636b4dc0313a5f3a298`; XY-C1 run `44648971016` PASS included detector, Build XY-C1, TRX verification and artifact upload. Checker-only main follow-up `ae7874833c6cb870162222f415124d1db4e63dda` has Process run `44649240357` and AI docs run `44649240209` PASS.
+- No physical-router L4 evidence. This ZeroTier writer slice changes firmware production input; exact-head ZeroTier and XY-C1 validation must be checked after commit.
 
 ## CI trigger governance — current policy
 
@@ -111,6 +107,8 @@
 
    - ZeroTier firewall teardown uses checked `iptables -C/-D`, bounded duplicate draining, first-error aggregation and a private interface/NAT-segment checkpoint for retries after daemon exit (`151d757`, NAT table-order correction `b1b621`). Historical run `44518868454` failed at the successful-stop five-delete count after fake firewall state was emptied. This test follow-up now requires each of the three filter and two NAT delete commands individually, while retaining the empty-state and exactly-five count postconditions; exact-head ZeroTier rerun is pending.
  Preserve process-identity checks, bounded waits, fail-closed UNKNOWN handling, and rollback semantics; prioritize network/service availability and privilege boundaries.
+   - New ZeroTier privileged-writer defect fixed in this source slice: `add_join()` previously used the NVRAM network ID as an unquoted path component (path traversal), while identity keys were directly redirected without private-mode or symlink protections. The join writer now accepts only optional 16-hex-digit IDs; config directories are mode 0700, identity files are staged and published mode 0600, and unsafe paths fail closed. Host regression and source contract were extended; exact-head ZeroTier L2 and XY-C1 Build/TRX/artifact are pending.
+
 4. **P2 — Continue storage/configuration boundary hardening.** Inspect other privileged writers for predictable temp names, symlink substitution, unchecked file operations, and unsafe config interpolation; add host regressions where practical.
    - Strict SD/MMC partition inventory parser L2 PASS on f873 (`44480440427`); staged public-header correction is covered by storage hotplug `44486117414` on 2a and the duplicate HTTPD compile fix by HTTPD `44487439944` on bc4. Current corrected storage target still needs a fresh XY-C1 Build/TRX/artifact run; d82 failure predates the include fix.
 5. **P2 — Keep handoff state current.** Update `SESSION_HANDOFF.md`, this roadmap, and `dev_log.md` after material commits; do not duplicate verified work.
