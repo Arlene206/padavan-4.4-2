@@ -1,3 +1,11 @@
+## 2026-11-20 — Align shared DHCP policy and MAN teardown validators with current writers
+
+- Parent main SHA: 9cadbbd9c116db4b8c0cc3d4f8e312800575f173; production implementation under validation: `10b57237ced5487a0d17e0bb09425ea96973a78e`.
+- Exact-source WAN DHCP callback run `44689024028`, job `136130112379`, compiled and passed the GNU89/ASan/UBSan DHCP lease policy executable, including the new attempt-all/full-rollback regression. It then failed in `scripts/check_lan_dhcp_deconfig.py` because the checker still required prefix-only rollback loop `for (j = i + 1; j > 0; --j)`. The shared publisher now restores every tuple entry with `for (j = count; j > 0; --j)`; the validator now checks full-vector rollback plus the new regression.
+- Exact-source WAN route run `44689024130`, job `136130113076`, and XY-C1 run `44689024255`, job `136130113735`, failed in `scripts/check_wan_firewall_status.py` because its MAN teardown check incorrectly expected `dhcp_lease_nvram_publish()`. MAN teardown correctly uses the checked all-fields `rc_wan_nvram_set_all_values()` helper and its errno-aware writer; this commit fixes the assertion only.
+- Exact-doc SHA `9cadbbd9c116db4b8c0cc3d4f8e312800575f173` AI handoff validation passed (`44689130545`).
+- NVRAM boundary run `44689024044` was still in progress at checkpoint. XY-C1 had not reached MIPS build/TRX/artifact steps because the shared source checker stopped first. L3/L4 are NOT VERIFIED.
+
 ## 2026-11-20 — Publish DHCP renewal options and PPP runtime tuple through shared rollback policy
 
 - Policy/test commit: `6c0ba561b93e9e4c6ee647718a251d7e4173d727`. The shared `dhcp_lease_nvram_publish()` validates the full vector, attempts every candidate setter despite individual failures, preserves the first write error, and restores the complete previous tuple in reverse order. An injected regression covers invalid-tail validation before writes, a first-key error after applying its value, attempt-all behavior and full restoration.

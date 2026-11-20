@@ -117,7 +117,10 @@ assert "dhcp_lease_nvram_publish(values, count," in nvram_publish
 assert "nvram_transaction_end(&transaction)" in nvram_publish
 assert "lan_dhcp_nvram_restore_values(" in nvram_publish
 assert "struct dhcp_lease_nvram_value" in policy
-assert "for (j = i + 1; j > 0; --j)" in policy
+assert "for (i = 0; i < count; ++i)" in policy
+assert "for (j = count; j > 0; --j)" in policy
+assert "values[j - 1].previous_value" in policy
+assert "test_dhcp_lease_nvram_publish_attempts_all_and_restores_all" in test
 assert "values[j - 1].previous_value" in policy
 for marker in (
     "test_lan_dhcp_nvram_publish_compensates_partial_updates",

@@ -634,7 +634,7 @@ clear_address_end = man_down.index("};", clear_address)
 require('{ "wanx_ipaddr", "0.0.0.0" }' in man_down[clear_address:clear_address_end],
         "DHCP deconfig must retain its conditional MAN IP snapshot clear")
 require("if (clear_dhcp_address)" in man_down and
-        "dhcp_lease_nvram_publish(" in man_down and
+        "route_status = rc_wan_nvram_set_all_values(" in man_down and
         "set_nvram_snapshot_value_status" in man_down,
         "MAN teardown snapshot clears must use the checked attempt-all writer")
 snapshot_writer = body(wan, "set_nvram_snapshot_value_status(void *context, const char *param_name,")
