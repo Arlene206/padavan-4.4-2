@@ -45,3 +45,32 @@ Fetch live main and inspect exact-head MiniUPnP and XY-C1 push runs for THIS COM
 - Keep `dev_log.md` newest-first. Archive only when the 120-record rotation threshold is reached, retaining the newest 20 records.
 - Update the roadmap only when module priority/status/evidence changes materially; do not copy it into history on routine updates.
 - Host regressions, exact-source firmware L3 and physical hardware L4 are separate verification levels.
+
+
+## 2026-11-20 autonomous continuation checkpoint
+
+- Current `main`: `35e319a57af04e113fc9a3ccaa31628764ce4cfd`.
+- Backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; unchanged by this session).
+- Current commit: fix(miniupnpd): scope primary deletion scan state.
+- This continuation's implementation commits include:
+  - `8f88445490dd8df6b600743ec0ff7716707df115`: MiniUPnP primary DNAT/filter deletion state is reported separately from secondary peer SNAT/DSCP cleanup; lease and description metadata are removed once the primary mapping is gone, even if peer cleanup reports an error. The legacy delete API remains as a wrapper.
+  - `64d76a2c98a4fb0ed98f8aba899a71c44750f407`: adjusted the IPTC handle-ownership checker to inspect the new status-aware function body.
+  - The immediately preceding checker correction was committed as `616b02a8b441038ac67db94fa106df1831c178dd` (multi-line lease-file replacement check).
+- Regression coverage added for incomplete NAT scans, absent primary rules, NAT/filter delete errors, successful NAT restoration, and failed restoration. The MiniUPnP workflow source-contract checks and XY-C1 path filters were updated with the affected headers, tests, and caller.
+- Exact-SHA CI status at checkpoint:
+- nvram-transaction-boundary: in_progress
+- inventory: completed/success
+- validate-handoff-records: completed/success
+- Cross-build XY-C1 firmware: in_progress
+- miniupnpd-config-regression: completed/failure
+- NVRAM transaction boundary audit (#44803257169): in_progress
+- XY-C1 Firmware Validation (#44803257077): in_progress
+- AI handoff documentation contract (#44803257093): completed/success
+- Process lifecycle inventory - 35e319a57af04e113fc9a3ccaa31628764ce4cfd (#44803257124): completed/success
+- miniupnpd atomic configuration publication regression (#44803257122): completed/failure
+- Do not infer XY-C1 firmware build success from older commits. Confirm this checkpoint SHA's own workflow and artifact steps before recording a PASS.
+
+### First task for the next continuation
+1. Resolve any non-PASS check on the exact current `main` SHA above from its job log; do not re-audit already completed handoff/build work.
+2. Confirm the new primary-removal regression compiles and passes under the MiniUPnP workflow, and verify the exact-SHA XY-C1 build/TRX/artifact result.
+3. Continue to the next independent stability/security defect in another Padavan userland component; keep the same source → test → atomic commit → exact-SHA Actions loop.

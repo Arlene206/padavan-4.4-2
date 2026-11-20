@@ -454,3 +454,23 @@
 
 ---
 
+
+
+## 2026-11-20 — MiniUPnP primary mapping deletion state
+
+- Added `delete_redirect_and_filter_rules_ex(..., int *primary_removed)` while preserving `delete_redirect_and_filter_rules()` as a compatibility wrapper.
+- Distinguish a completed NAT scan with no matching DNAT mapping, a successfully removed NAT/filter pair, a successful NAT restoration after filter failure, and a failed restoration. An incomplete NAT scan or failed NAT deletion keeps the lease state.
+- The UPnP caller now removes description/lease metadata based on primary mapping state, not aggregate status that can also reflect peer SNAT/DSCP cleanup. Aggregate error reporting for secondary cleanup is preserved.
+- Added policy regression cases for all primary-state branches; updated the IPTC delete checker and workflow path/source-contract checks.
+- Checker follow-up: `616b02a8b441038ac67db94fa106df1831c178dd` fixes the multi-line lease replacement assertion; `64d76a2c98a4fb0ed98f8aba899a71c44750f407` updates the handle-ownership checker to the new function signature.
+- Checkpoint HEAD: `35e319a57af04e113fc9a3ccaa31628764ce4cfd`. Exact-SHA Actions status:
+- nvram-transaction-boundary: in_progress
+- inventory: completed/success
+- validate-handoff-records: completed/success
+- Cross-build XY-C1 firmware: in_progress
+- miniupnpd-config-regression: completed/failure
+- NVRAM transaction boundary audit (#44803257169): in_progress
+- XY-C1 Firmware Validation (#44803257077): in_progress
+- AI handoff documentation contract (#44803257093): completed/success
+- Process lifecycle inventory - 35e319a57af04e113fc9a3ccaa31628764ce4cfd (#44803257124): completed/success
+- miniupnpd atomic configuration publication regression (#44803257122): completed/failure
