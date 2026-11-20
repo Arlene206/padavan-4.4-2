@@ -174,11 +174,8 @@ for token in (
     "test_invalid_sequence_does_not_write",
 ):
     assert token in test and token + "();" in test
-for token in (
-    "test_multiline_allocator_preserves_format_and_blocks_ipparam",
-    "ppp_option_text_escape_alloc",
-):
-    assert token in ppp_policy and token in ppp_test
+assert "test_multiline_allocator_preserves_format_and_blocks_ipparam" in ppp_test
+assert "ppp_option_text_escape_alloc" in ppp_policy and "ppp_option_text_escape_alloc" in ppp_test
 for token in (
     "vpn_client_nvram_write_status",
     "vpn_client_nvram_read_status",
