@@ -305,7 +305,25 @@ for case in (
             "WAN route recovery must have a registered injected regression: " + case)
 
 full_restart = body(wan, "full_restart_wan(void)")
+route_flush_at = full_restart.index("route_flush_status = rc_wan_route_flush_and_cache_apply(")
+route_flush_gate = full_restart.index("if (route_flush_status != 0)", route_flush_at)
+route_flush_restore = full_restart.index(
+    "status = rc_wan_restore_lan_routes_after_failed_step(", route_flush_gate)
+route_flush_restore_check = full_restart.index(
+    "if (static_lan_route_status != 0)", route_flush_restore)
+route_flush_abort = full_restart.index("return status;", route_flush_restore_check)
 mac_clear_at = full_restart.index("status = phy_clear_mac_table();")
+require(route_flush_at < route_flush_gate < route_flush_restore <
+        route_flush_restore_check < route_flush_abort < mac_clear_at,
+        "a partial interface/global route flush failure must restore LAN static routes before aborting WAN restart")
+require("static LAN route restoration also failed after interface route flush error" in
+        full_restart[route_flush_restore_check:route_flush_abort] and
+        "aborting full WAN restart because interface routes or the global route cache could not be flushed" in
+        full_restart[route_flush_restore_check:route_flush_abort],
+        "route-flush and secondary recovery failures must both be logged")
+require("test_failed_route_flush_restores_lan_routes_and_preserves_first_error" in route_policy_test and
+        "test_failed_route_flush_restores_lan_routes_and_preserves_first_error();" in route_policy_test,
+        "partial route-flush recovery must have a registered injected regression")
 mac_clear_gate = full_restart.index("if (status != 0)", mac_clear_at)
 mac_route_restore = full_restart.index(
     "status = rc_wan_restore_lan_routes_after_failed_step(", mac_clear_gate)

@@ -4278,9 +4278,16 @@ full_restart_wan(void)
 	route_flush_status = rc_wan_route_flush_and_cache_apply(
 		route_ifnames, 2, clear_if_route4, flush_route_caches);
 	if (route_flush_status != 0) {
+		status = rc_wan_restore_lan_routes_after_failed_step(
+			route_flush_status, IFNAME_BR, add_static_lan_routes,
+			&static_lan_route_status);
+		if (static_lan_route_status != 0)
+			logmessage(LOGNAME,
+				   "static LAN route restoration also failed after interface route flush error (status=%d)",
+				   static_lan_route_status);
 		logmessage(LOGNAME, "aborting full WAN restart because interface routes or the global route cache could not be flushed (status=%d)",
-			   route_flush_status);
-		return route_flush_status;
+			   status);
+		return status;
 	}
 	status = phy_clear_mac_table();
 	if (status != 0) {

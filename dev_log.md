@@ -1,3 +1,12 @@
+## 2026-11-20 — Recover LAN routes after partial interface/global route-flush failure
+
+- Parent main SHA: `793bc85f44e75e64ad4ff74d3b53e6b4bc4e8afb`. Follow-up inspection of `clear_if_route4()` confirmed that `ip route flush dev IF scope global` is an independently failing command and the shared helper deliberately attempts both MAN and bridge flushes plus the global cache flush. Any of those commands can report failure after another command already removed bridge static routes.
+- `full_restart_wan()` previously returned immediately on the aggregate flush status, leaving no attempt to restore the static LAN routes. This can strand LAN reachability even though WAN restart correctly aborts. The recovery now uses the generic first-error helper before return; `add_static_lan_routes()` uses idempotent EEXIST handling, so retrying the bridge route inventory is safe.
+- Added an explicit ENOSPC route-flush regression for successful restoration and secondary restoration failure, with the original flush error preserved. Extended the WAN semantic checker to require recovery/logging before the PHY clear or any restart continuation.
+- The immediately preceding PHY-clear recovery slice and this follow-up share the exact WAN route workflow; the first slice passed GNU89/ASan/UBSan policy binaries and the full WAN source checker on `793bc85`. This follow-up requires its own exact-head rerun.
+
+---
+
 ## 2026-11-20 — Restore LAN static routes when switch MAC-table cleanup aborts WAN restart
 
 - Parent main SHA: `2fb6879b0088fbd2d399b05865215e33f00d8d60`. Confirmed an uncovered failure path in `full_restart_wan()`: after both WAN and bridge routes plus the global route cache are successfully flushed, `phy_clear_mac_table()` can fail and return immediately. Unlike the later WAN protocol-reset failure branch, this early abort did not restore the static LAN routes removed by the preceding flush.
