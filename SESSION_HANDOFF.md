@@ -3,34 +3,36 @@
 This checkpoint supersedes older summaries below. Continue from live main; do not repeat closed audits.
 
 ## Git state
-- Parent main SHA for this tree-integrity repair: 818ff7b555c5620e39a3fde1fc7d2715beab2c8b.
+- Parent main SHA for this validation repair: 1ba05070a5e33103c62bca466f70531b8fe2fb6e.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Main-only atomic commits; exact expected-SHA update with `force=false`; no force-push.
+- Main-only atomic commits, exact expected-SHA update with `force=false`; no force-push.
 
 ## Verified implementation state
-- `9230dacb` restored the WAN reset ABI: private checked implementation, public legacy void wrapper, read-only status accessor consumed by PID 1.
-- `818ff7b` contains the checked `proto_t` + `ifname_t` runtime-identity publisher, its regression cases, three startup callsite conversions, and the WAN firewall checker correction.
-- Tree verification caught that `818ff7b` was constructed from an older tree base and therefore omitted three unrelated-but-required `9230dacb` updates: `rc.c`, `rc.h`, and `scripts/check_process_lifecycle_integration.py`. THIS COMMIT restores those exact parent-state blobs without changing the new runtime-identity slice. No history rewrite or force-push was used.
-- `818ff7b` exact Actions were queued at repair time: WAN DHCP callback `44724488527`, iNIC `44724488648`, AI docs `44724488434`. These results belong to `818ff7b`, not this repair child.
+- The WAN runtime identity pair publisher and three checked startup callers are present; the prior tree-integrity correction restored `rc.c`, `rc.h` and the Process source checker from `9230dacb`.
+- Exact `1ba0507` WAN route `44724624287`, WAN DHCP `44724624228`, Process fail-closed `44724624179` failed on the two-backslash C null literal in the new policy regression. Process lifecycle inventory `44724624195` passed.
+- Exact AI docs `44724623863` failed because the previous roadmap update dropped the mandatory `## Whole-repository module status` heading. Exact XY-C1 `44724624114` was still in progress at last poll.
+- The child below fixes the C literal and restores the dashboard heading; these are test/documentation corrections, not production behavior changes.
 
 ## Current implementation slice — THIS COMMIT
-- Restore the exact `9230dacb` versions of the three omitted paths while retaining the runtime-identity source/test/checker files and documentation from `818ff7b`.
-- This is a repository-tree integrity correction; it adds no new production behavior beyond the preceding checked runtime-identity slice.
+- Change the assertion to use the single-backslash C null character constant `'\0'`, so GNU89/Werror accepts the policy test and the no-follow-up-write assertion remains valid.
+- Restore the roadmap’s current module-status dashboard heading without removing or reorganizing its existing module inventory.
+- Re-run the affected exact-SHA host/source contracts and firmware validation. No L3 claim until Build, TRX verification and artifact upload succeed on one SHA.
 
 ## Exact first actions for the next continuation
-1. Verify this repair commit's exact-head Process inventory, WAN route, AI docs, and XY-C1 Actions. The three restored files must be present at this SHA.
-2. Verify that the WAN protocol/interface policy regression executes under GNU89, `-Werror`, ASan and UBSan; inspect the source contract's three caller branches.
-3. Verify same-SHA XY-C1 Build, TRX and artifact upload for the current source tree. Do not attribute a child's evidence to `818ff7b`.
-4. Continue the remaining P1 checked NVRAM publication audit only after the current tree is verified; keep unrelated userland coverage moving if XY remains pending.
+1. Verify this commit's WAN route, WAN DHCP, Process fail-closed, Process inventory and AI docs Actions.
+2. Inspect WAN NVRAM policy test output and WAN caller source-contract output; fix any true source/assertion defect.
+3. Verify same-SHA XY-C1 Build, TRX and artifact upload; previous failed/pending SHAs do not provide L3 evidence.
+4. Continue independent P1 checked NVRAM publication audit or another cross-userland service defect while XY remains pending.
 
 ## Verification boundary
-- `9230dacb`: focused Process, WAN route and AI docs PASS; XY-C1 `44723639449` was in progress at last poll.
-- `818ff7b`: its exact Actions `44724488527`, `44724488648`, `44724488434` were queued; tree omitted the three restored files and its validation cannot establish the repaired tree.
-- THIS COMMIT: exact-head checks and same-SHA L3 are pending at creation.
+- `9230dacb`: focused Process, WAN route and AI docs PASS; XY was pending.
+- `818ff7b`: WAN DHCP and AI docs failed (null literal and missing dashboard heading); its tree omission was repaired in `1ba0507`.
+- `1ba0507`: Process inventory PASS; WAN route, WAN DHCP and Process fail-closed failed on the C literal; AI docs failed on the missing roadmap heading; XY-C1 was in progress at last poll.
+- THIS COMMIT: exact-head Actions pending at creation.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Evidence discipline
-Keep L1 source review, L2 host regression, exact-SHA Actions, L3 MIPS Build/TRX/artifact, and physical-router L4 separate. Never infer hardware verification from CI.
+Keep L1 source review, L2 host regression, exact-SHA Actions, L3 MIPS Build/TRX/artifact and physical-router L4 separate.
 
 
 ---

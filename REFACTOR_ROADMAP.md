@@ -1,14 +1,15 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 9230dacb50d48f003649dfb06e15a3e63d99f15f; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- ABI-safe WAN reset status is restored on main; focused Process, WAN route and AI-docs checks passed on `9230dac`; exact XY-C1 `44723639449` was pending at last poll.
-- THIS COMMIT adds checked WAN runtime identity publication for USB RAS, PPP and IPoE: required `proto_t` first, then `ifname_t`; failed publication uses physical-WAN recovery and prevents protocol activation.
+- Parent main SHA: 1ba05070a5e33103c62bca466f70531b8fe2fb6e; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The checked WAN runtime identity slice is present on main: USB RAS, PPP and IPoE now publish `proto_t` before `ifname_t` through the status-checked pair helper; all three failure paths fail closed.
+- Exact `1ba0507` Actions exposed two validation-only defects: the new WAN NVRAM regression used a multi-character `'\\0'` literal and must use the C null character `'\0'`; the roadmap checkpoint lost the required `## Whole-repository module status` heading. THIS COMMIT corrects both.
+- Exact WAN route `44724624287`, WAN DHCP `44724624228`, and Process fail-closed `44724624179` failed at the same new test compilation error. AI docs `44724623863` failed on the missing roadmap dashboard heading. Process inventory `44724624195` passed. Exact XY-C1 `44724624114` was in progress at last poll.
 
 ## Priority queue
-- CLOSED: WAN0/LAN boot NVRAM snapshots, WAN reset failure propagation and ABI correction, WAN route/DHCP cleanup, and custom credential hardening. Do not repeat these audits.
-- ACTIVE: verify exact-SHA WAN-route/Process/AI-docs Actions and XY-C1 Build/TRX/artifact for the current runtime-identity source slice.
-- NEXT: continue the remaining source-confirmed P1 NVRAM publication audit outside these three runtime WAN identity callsites; rotate across broader userland service and lifecycle boundaries.
+- CLOSED: WAN0/LAN boot NVRAM snapshots, WAN reset propagation/ABI and WAN route recovery; do not repeat these audits.
+- ACTIVE: rerun the corrected GNU89/Werror/ASan/UBSan policy test, WAN route/Process/AI-docs contracts and exact-SHA XY-C1 build.
+- NEXT: continue remaining checked NVRAM publication and independent userland service/lifecycle defects after the current slice is validated.
 
-
+## Whole-repository module status
 
 - WAN route startup/teardown status aggregation includes optional post-WAN hooks, DDNS result, VPN-client start enqueue (`816146a`) and VPN-client stop enqueue (`21b5da97`); the exact `21b5da97` WAN route regression `44205041253` PASSes, and XY-C1 build for this new source change is pending.
 ### P1 process inventory / service lifecycle — tri-state foundation L2 VERIFIED; strict PID identity migration extended through PPPD/udhcpc/INICD and VPN/WAN/LAN/USB stop gates; xl2tpd and crond UNKNOWN start gates migrated; product-source L3 VERIFIED on be7fd XY-C1 build/TRX/artifact; SSH detached-child startup postcondition and UNKNOWN restart preflight; XUPnPD detached-child readiness; and SCUT/MentoHUST bounded RUNNING postconditions after background launch are implemented. This SCUT/MentoHUST slice awaits exact-head Process/XY-C1 verification.

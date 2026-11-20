@@ -421,7 +421,7 @@ test_runtime_identity_publication_checks_both_writes(void)
 		assert(fake.calls == fail_at + 1);
 		assert(strcmp(fake.copied_names[0], "proto_t") == 0);
 		if (fail_at == 0)
-			assert(fake.copied_names[1][0] == '\\0');
+			assert(fake.copied_names[1][0] == '\0');
 		else {
 			assert(strcmp(fake.copied_names[1], "ifname_t") == 0);
 			assert(strcmp(fake.copied_values[1], "eth2") == 0);

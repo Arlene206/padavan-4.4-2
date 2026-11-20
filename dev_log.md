@@ -1,3 +1,12 @@
+## 2026-11-20 — Correct WAN identity regression literal and roadmap dashboard heading
+
+- Parent main SHA: 1ba05070a5e33103c62bca466f70531b8fe2fb6e.
+- WAN route `44724624287`, WAN DHCP `44724624228` and Process fail-closed `44724624179` on this exact SHA stopped because the new test compared against a two-backslash multi-character constant under `-Werror=multichar`. Replaced it with the single-backslash C null character constant; the test still verifies that the second write was not attempted after protocol publication fails.
+- AI docs `44724623863` failed because the active roadmap checkpoint update accidentally removed the required `## Whole-repository module status` dashboard heading. Restored the heading ahead of the unchanged module inventory.
+- Process lifecycle inventory `44724624195` passed. XY-C1 `44724624114` was still in progress at the last poll. This commit requires fresh exact-SHA results; no L3/L4 claim.
+
+---
+
 ## 2026-11-20 — Restore omitted parent-tree integration blobs
 
 - Parent main SHA: 818ff7b555c5620e39a3fde1fc7d2715beab2c8b.
