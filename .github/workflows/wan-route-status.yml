@@ -604,12 +604,12 @@ jobs:
           assert "return operation_status == EEXIST ? 0 : operation_status;" in idempotent_add
           ap_stop = body(net_lan, "stop_lan(int is_ap_mode)")
           ap_gateway_snapshot = ap_stop.index('nvram_safe_get("lan_gateway_t")')
-          ap_gateway_delete = ap_stop.index('route_del(IFNAME_BR, 0, "0.0.0.0", ap_gateway, "0.0.0.0")')
-          ap_gateway_normalize = ap_stop.index("route_status_idempotent_delete(", ap_gateway_delete)
+          ap_gateway_normalize = ap_stop.index("route_status_idempotent_delete(", ap_gateway_snapshot)
+          ap_gateway_delete = ap_stop.index('route_del(IFNAME_BR, 0, "0.0.0.0", ap_gateway, "0.0.0.0")', ap_gateway_normalize)
           ap_gateway_failure = ap_stop.index("if (route_status != 0)", ap_gateway_normalize)
           ap_gateway_rollback = ap_stop.index('lan_ap_teardown_abort_restore(', ap_gateway_failure)
           ap_bridge_down = ap_stop.index("ifconfig(IFNAME_BR, 0, NULL, NULL)")
-          assert ap_gateway_snapshot < ap_gateway_delete < ap_gateway_normalize < ap_gateway_failure < ap_gateway_rollback < ap_bridge_down
+          assert ap_gateway_snapshot < ap_gateway_normalize < ap_gateway_delete < ap_gateway_failure < ap_gateway_rollback < ap_bridge_down
           assert "test_ap_gateway_route_cleanup_accepts_absent_route_only" in route_status_test
           manual_lan = body(net_lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
           manual_route_add = manual_lan.index('route_add(lan_ifname, 0, "0.0.0.0", gateway_ip, "0.0.0.0")')
