@@ -1,22 +1,26 @@
 # 2026-11-20 continuation checkpoint
 
-This live checkpoint supersedes older summaries. Continue from current main; do not repeat startup recovery or completed FTP FIFO/APPE and RADIUS zeroization slices.
+This live checkpoint supersedes older summaries. Continue from current main; do not repeat startup recovery or completed FTP FIFO/APPE and RADIUS zeroization work.
 
 ## Git state
 
-- Current parent main SHA for the XY-C1 trigger follow-up: `2ede97f6206c320ce2aedff90b331fc85116a01a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- MiniUPnP atomic PID publication first commit `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`: focused workflow failed at test include path; follow-up `2ede97f6206c320ce2aedff90b331fc85116a01a` then passed MiniUPnP Action `44735740997`, Process inventory `44735741005`, AI docs `44735740931`. NVRAM audit `44735740926` was still pending at last check.
-- Local MiniUPnP GNU89/`-Werror`/ASan/UBSan regression passes, including umask 0027 => PID mode 0640.
-- Important firmware CI gap found: XY-C1 workflow's path allowlist omitted MiniUPnP daemonize.c, PID helper header and Makefile. The build input detector conservatively treats them as production inputs, but no workflow would auto-run on their source-only changes. This follow-up adds all three to the XY-C1 trigger and its detector regression.
-- Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Parent main for this MiniUPnP singleton/PID validation slice: 5778580685e496a4e3f170a91186675a3410f6c7; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- MiniUPnP atomic PID publication plus umask preservation: focused MiniUPnP Action 44735740997, Process lifecycle 44735741005, AI docs 44735740931 PASS on 2ede97f6206c320ce2aedff90b331fc85116a01a; NVRAM 44735740926 was pending at last inspection.
+- XY-C1 path-trigger correction 5778580685e496a4e3f170a91186675a3410f6c7: XY-C1 workflow 44736102620, AI docs 44736102306, Process inventory 44736102392 PASS; firmware Build/TRX/artifact were skipped because only workflow/test/docs files changed.
+- XY-C1 workflow now watches MiniUPnP daemonize.c, PID helper header and package Makefile; its detector test asserts these are production inputs.
 
-## Active verification
+## Active MiniUPnP singleton hardening
 
-1. Check the new exact-SHA XY-C1 run and ensure detector says firmware inputs changed, then Build XY-C1, Verify TRX output and upload artifact all complete on that SHA.
-2. Inspect exact MiniUPnP Action, AI docs, Process and NVRAM runs for the current SHA; fix only causal failures.
-3. Continue a separate userland stability/security slice while pending builds run; no repeated polling.
-4. Physical router L4 remains NOT VERIFIED.
+- New defect confirmed: checkforrunning() did one unchecked read and parsed with atol(); missing/error/corrupt PID files were often treated as absence, FIFOs could block, malformed suffixes could parse as valid PIDs, and simultaneous starts could both pass the check-then-write window.
+- New implementation acquires a stable sidecar .lock inode with O_NOFOLLOW/O_CLOEXEC and an exclusive nonblocking fcntl write lock held for process lifetime. The PID file itself must be regular, singly linked and euid-owned; reads have capped EINTR retries and PID text must be positive decimal digits plus one newline. ENOENT is a first-start state, ESRCH is stale, the current PID is treated as stale reuse, and lock conflict returns already-running.
+- Host regression adds cross-process lock exclusion/release, symlink/FIFO lock refusal, short reads/EINTR storm, strict PID parser, alongside atomic PID publication and umask 0027 => mode 0640. Local GNU89/-Werror/ASan/UBSan regression PASS.
+- Exact MiniUPnP and XY-C1 Actions must verify this product-source SHA. No MIPS/uClibc TRX or physical L4 claim yet.
 
+## Exact next actions
+
+1. Inspect exact-head MiniUPnP/Process/AI/NVRAM and XY-C1 runs. Ensure detector classifies the daemon/helper source as production input and Build, TRX and artifact upload execute on the same SHA.
+2. Repair only causal failures without weakening contracts.
+3. Continue a separate userland reliability/security fix while pending Actions run. Physical L4 remains NOT VERIFIED.
 
 
 ---

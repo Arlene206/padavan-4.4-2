@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <sys/wait.h>
 #include "miniupnpd_pidfile_policy.h"
 
 struct write_fixture {
@@ -173,6 +174,149 @@ test_invalid_arguments(void)
 	assert(miniupnpd_pidfile_publish("/tmp/unused", NULL, 2) == -1);
 	assert(errno == EINVAL);
 }
+struct read_fixture {
+	const char *contents;
+	size_t length;
+	size_t offset;
+	size_t max_chunk;
+	unsigned int interruptions;
+	unsigned int calls;
+};
+static ssize_t
+fixture_read(int fd, void *buffer, size_t length, void *opaque)
+{
+	struct read_fixture *fixture = (struct read_fixture *)opaque;
+	size_t amount;
+	(void)fd;
+	++fixture->calls;
+	if (fixture->interruptions > 0) {
+		--fixture->interruptions;
+		errno = EINTR;
+		return -1;
+	}
+	if (fixture->offset == fixture->length)
+		return 0;
+	amount = fixture->length - fixture->offset;
+	if (amount > length)
+		amount = length;
+	if (fixture->max_chunk > 0 && amount > fixture->max_chunk)
+		amount = fixture->max_chunk;
+	memcpy(buffer, fixture->contents + fixture->offset, amount);
+	fixture->offset += amount;
+	return (ssize_t)amount;
+}
+static void
+test_pidfile_read_short_and_eintr(void)
+{
+	struct read_fixture fixture;
+	char buffer[64];
+	size_t length = 0;
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.contents = "42\n";
+	fixture.length = 3;
+	fixture.max_chunk = 1;
+	fixture.interruptions = 1;
+	assert(miniupnpd_pidfile_read_all_with(1, buffer, sizeof(buffer), &length,
+	                                       fixture_read, &fixture) == 0);
+	assert(fixture.calls == 5);
+	assert(length == 3 && strcmp(buffer, "42\n") == 0);
+}
+static void
+test_pidfile_read_eintr_storm_is_bounded(void)
+{
+	struct read_fixture fixture;
+	char buffer[64];
+	size_t length = 0;
+	memset(&fixture, 0, sizeof(fixture));
+	fixture.contents = "42\n";
+	fixture.length = 3;
+	fixture.interruptions = MINIUPNPD_PIDFILE_MAX_INTERRUPTS + 1U;
+	errno = 0;
+	assert(miniupnpd_pidfile_read_all_with(1, buffer, sizeof(buffer), &length,
+	                                       fixture_read, &fixture) == -1);
+	assert(errno == EINTR);
+	assert(fixture.calls == MINIUPNPD_PIDFILE_MAX_INTERRUPTS + 1U);
+}
+static void
+test_pidfile_pid_parser(void)
+{
+	pid_t pid = 0;
+	assert(miniupnpd_pidfile_parse_pid("12345\n", 6, &pid) == 0);
+	assert(pid == (pid_t)12345);
+	assert(miniupnpd_pidfile_parse_pid("123x\n", 5, &pid) == -1);
+	assert(errno == EINVAL);
+	assert(miniupnpd_pidfile_parse_pid("-1\n", 3, &pid) == -1);
+	assert(errno == EINVAL);
+	assert(miniupnpd_pidfile_parse_pid("0\n", 2, &pid) == -1);
+	assert(errno == ERANGE);
+	assert(miniupnpd_pidfile_parse_pid("1", 1, &pid) == -1);
+	assert(errno == EINVAL);
+	assert(miniupnpd_pidfile_parse_pid("999999999999999999999999999999\n", 31, &pid) == -1);
+	assert(errno == ERANGE);
+	assert(miniupnpd_pidfile_parse_pid(NULL, 2, &pid) == -1);
+	assert(errno == EINVAL);
+}
+static void
+test_pidfile_instance_lock_excludes_other_processes(const char *path)
+{
+	int lock_fd;
+	pid_t child;
+	int status;
+	struct stat st;
+	char lock_path[256];
+	lock_fd = miniupnpd_pidfile_lock_acquire(path);
+	assert(lock_fd >= 0);
+	assert(snprintf(lock_path, sizeof(lock_path), "%s.lock", path) > 0);
+	assert(stat(lock_path, &st) == 0);
+	assert(S_ISREG(st.st_mode));
+	assert(st.st_uid == geteuid());
+	assert((st.st_mode & 0777) == 0600);
+	child = fork();
+	assert(child >= 0);
+	if (child == 0) {
+		int contender = miniupnpd_pidfile_lock_acquire(path);
+		if (contender >= 0)
+			_exit(1);
+		_exit(errno == EBUSY ? 0 : 2);
+	}
+	assert(waitpid(child, &status, 0) == child);
+	assert(WIFEXITED(status) && WEXITSTATUS(status) == 0);
+	assert(close(lock_fd) == 0);
+	lock_fd = miniupnpd_pidfile_lock_acquire(path);
+	assert(lock_fd >= 0);
+	assert(close(lock_fd) == 0);
+}
+static void
+test_pidfile_instance_lock_rejects_symlink(const char *directory)
+{
+	char path[256], lock_path[256], target[256];
+	int fd;
+	assert(snprintf(path, sizeof(path), "%s/symlink-pid", directory) > 0);
+	assert(snprintf(lock_path, sizeof(lock_path), "%s.lock", path) > 0);
+	assert(snprintf(target, sizeof(target), "%s/symlink-target", directory) > 0);
+	fd = open(target, O_WRONLY | O_CREAT | O_EXCL, 0600);
+	assert(fd >= 0);
+	assert(close(fd) == 0);
+	assert(symlink(target, lock_path) == 0);
+	errno = 0;
+	assert(miniupnpd_pidfile_lock_acquire(path) == -1);
+	assert(errno == ELOOP);
+	assert(unlink(lock_path) == 0);
+	assert(unlink(target) == 0);
+}
+static void
+test_pidfile_instance_lock_rejects_fifo(const char *directory)
+{
+	char path[256], lock_path[256];
+	assert(snprintf(path, sizeof(path), "%s/fifo-pid", directory) > 0);
+	assert(snprintf(lock_path, sizeof(lock_path), "%s.lock", path) > 0);
+	assert(mkfifo(lock_path, 0600) == 0);
+	errno = 0;
+	assert(miniupnpd_pidfile_lock_acquire(path) == -1);
+	assert(errno == EPERM);
+	assert(unlink(lock_path) == 0);
+}
+
 int
 main(void)
 {
@@ -191,10 +335,19 @@ main(void)
 	test_zero_write_fails_without_replacing(path);
 	test_symlink_destination_is_replaced_without_following(directory);
 	test_invalid_arguments();
+	test_pidfile_read_short_and_eintr();
+	test_pidfile_read_eintr_storm_is_bounded();
+	test_pidfile_pid_parser();
+	test_pidfile_instance_lock_excludes_other_processes(path);
+	test_pidfile_instance_lock_rejects_symlink(directory);
+	test_pidfile_instance_lock_rejects_fifo(directory);
 	assert(unlink(path) == 0);
 	{
 		char link_path[256];
 		char target_path[256];
+		char instance_lock_path[256];
+		assert(snprintf(instance_lock_path, sizeof(instance_lock_path), "%s.lock", path) > 0);
+		assert(unlink(instance_lock_path) == 0);
 		assert(snprintf(link_path, sizeof(link_path), "%s/pid-link", directory) > 0);
 		assert(snprintf(target_path, sizeof(target_path), "%s/target", directory) > 0);
 		assert(unlink(link_path) == 0);

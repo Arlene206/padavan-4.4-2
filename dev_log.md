@@ -1,3 +1,14 @@
+## 2026-11-20 — Serialize MiniUPnP singleton startup and fail closed on invalid PID state
+
+- Parent main SHA: 5778580685e496a4e3f170a91186675a3410f6c7.
+- Confirmed checkforrunning() treated every open failure as “no daemon”, did one unchecked read and parsed with atol(); a FIFO PID path could block, malformed/trailing text could be accepted, and simultaneous starts could both pass the check before either wrote its PID.
+- Added stable sidecar .lock inode, opened O_NOFOLLOW/O_CLOEXEC, checked as regular, singly linked, euid-owned and private, then exclusively F_SETLK-locked and held in a static process-lifetime descriptor. The lock is deliberately never unlinked, so its inode stays stable.
+- PID-file validation now rejects symlinks/nonregular/hardlinked/foreign-owned files, reads boundedly with capped EINTR retries, requires exact positive decimal PID followed by newline, treats only ENOENT as initial absence and ESRCH as stale state, and ignores a stale PID equal to the newly reused current PID.
+- Regression adds forked contender exclusion/release, lock symlink/FIFO rejection, short/interrupted read, bounded EINTR storm, malformed/overflow/zero PID cases. Prior atomic publication, short-write, ENOSPC, symlink and umask regressions remain.
+- Standalone GNU89/-Wall -Wextra -Werror/ASan/UBSan suite PASS. Exact-head MiniUPnP/Process/AI/NVRAM and XY-C1 Build/TRX/artifact remain pending on new source SHA.
+
+---
+
 ## 2026-11-20 — Trigger XY-C1 build for MiniUPnP daemon/PID-file inputs
 
 - Parent main SHA: `2ede97f6206c320ce2aedff90b331fc85116a01a`.

@@ -234,6 +234,15 @@ jobs:
           assert "UPnP update incomplete after WAN startup" in start_wan
           assert "pid = daemonize();" in daemon_source
           assert "daemon(0, 0)" in daemon_source
+          pidcheck_body = function_body(daemonizer, "checkforrunning(const char * fname)")
+          assert "miniupnpd_pidfile_lock_acquire(fname)" in pidcheck_body
+          assert "O_RDONLY | O_NOFOLLOW | O_NONBLOCK" in pidcheck_body
+          assert "S_ISREG(st.st_mode)" in pidcheck_body
+          assert "miniupnpd_pidfile_read_all_with" in pidcheck_body
+          assert "miniupnpd_pidfile_parse_pid" in pidcheck_body
+          assert "pid == getpid()" in pidcheck_body
+          assert "saved_errno == ESRCH" in pidcheck_body
+          assert "miniupnpd_pidfile_instance_lock_fd = lock_fd" in daemonizer
           pidfile_body = function_body(daemonizer, "writepidfile(const char * fname, int pid)")
           assert '#include "miniupnpd_pidfile_policy.h"' in daemonizer
           assert "miniupnpd_pidfile_publish(fname, pidstring," in pidfile_body
@@ -246,6 +255,9 @@ jobs:
               "(mode_t)(0644 & ~old_umask)", "miniupnpd_pidfile_write_all_with", "MINIUPNPD_PIDFILE_MAX_INTERRUPTS",
               "fsync(fd)", "rename(temporary_path, path)",
               "unlink(temporary_path)", "errno = EIO;",
+              "miniupnpd_pidfile_read_all_with", "miniupnpd_pidfile_parse_pid",
+              "miniupnpd_pidfile_lock_acquire", "F_SETLK", "errno = EBUSY",
+              "O_NOFOLLOW | O_CLOEXEC", "st.st_nlink != 1",
           ):
               assert token in pid_policy, token
           for token in (
@@ -253,6 +265,9 @@ jobs:
               "(st.st_mode & 0777) == 0640", "test_repeated_eintr_is_bounded",
               "test_failed_write_preserves_previous_pid", "test_zero_write_fails_without_replacing",
               "test_symlink_destination_is_replaced_without_following",
+              "test_pidfile_read_short_and_eintr", "test_pidfile_read_eintr_storm_is_bounded",
+              "test_pidfile_pid_parser", "test_pidfile_instance_lock_excludes_other_processes",
+              "test_pidfile_instance_lock_rejects_symlink", "test_pidfile_instance_lock_rejects_fifo",
               "miniupnpd atomic PID-file publication and full-write regression: PASS",
           ):
               assert token in pid_test, token
