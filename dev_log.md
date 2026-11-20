@@ -1,3 +1,14 @@
+## 2026-11-20 — Fail closed on deferred WAN reconnect NVRAM errors
+
+- Parent main SHA: `743f0158ff728358efc2026ef37e3ef094984560`; last verified product-source baseline: `7210c3a3a46093c633b56c8975ab2cd946b2e1bb`.
+- `watchdog.c:inet_handler()` fires a PID 1 reconnect notification once `deferred_wanup_t` reaches its deadline. `stop_wan_ppp_locked()` and `stop_wan_locked()` previously cleared that deadline with unchecked `nvram_set_int_temp()`; a failed clear left a delayed-reconnect intent behind a manual disconnect/teardown. `try_wan_reconnect()` also ignored deadline publication failure and could return success without scheduling the requested reconnect, while `deferred_wan_connect()` ignored failure to clear the fired deadline before WAN activation.
+- Added a shared deferred-reconnect policy and checked NVRAM publisher. Teardown now aborts before stopping VPN/PPP services if cancellation cannot be committed; deferred startup propagates clear failures before modem selection or WAN activation; delayed reconnect scheduling reports setter errors before claiming success.
+- The schedule policy rejects negative values, zero/negative delays and deadlines outside the positive signed-int range consumed by `nvram_get_int()`; it checks overflow before addition. GNU89 regression covers clear/schedule success, injected ENOSPC/EIO, invalid arguments, integer-width overflow and deadline overflow. The WAN teardown workflow runs it with ASan/UBSan and enforces production call ordering and both push/PR trigger filters.
+- Parent product-source SHA `7210c3a3a46093c633b56c8975ab2cd946b2e1bb` has exact XY-C1 run `44729001694` SUCCESS: Build XY-C1, TRX verification and artifact upload all passed; artifact `14625343431`, SHA256 `1312137c206644da15a8cb5db9f1507d63d3edc51f530d61eac453ed0fae6bf9`. NTP readiness source SHA `c10f4fd6be13a4dc915f397ccc3292d92509e689` has watchdog run `44731160914` PASS, Process inventory `44731160912`, fail-closed `44731160915`, DNSMasq `44731160963`, HTTPD lifecycle/security `44731160953`/`44731160941`, and NVRAM boundary `44731161012` PASS; XY-C1 `44731160909` was still pending at last poll. These results validate only the parent baselines, not this reconnect slice.
+- The new exact-head WAN teardown regression, Process integration, AI documentation and XY-C1 firmware verification must be checked on this slice after commit. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Retry failed NTP readiness persistence
 
 - Source commit: c10f4fd6be13a4dc915f397ccc3292d92509e689; documentation parent main: c10f4fd6be13a4dc915f397ccc3292d92509e689.

@@ -1,35 +1,42 @@
 # 2026-11-20 continuation checkpoint
 
-This checkpoint supersedes older summaries below. Continue from live main; do not repeat closed audits.
+This live checkpoint supersedes older summaries below. Resume from current main; do not repeat closed WAN mirror, WAN runtime-identity, Samba directory-permission, Ralink identifier-boundary or NTP-readiness audits.
 
 ## Git state
-- Main SHA before this checkpoint: c10f4fd6be13a4dc915f397ccc3292d92509e689.
-- NTP readiness source commit: c10f4fd6be13a4dc915f397ccc3292d92509e689.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
-- Main-only atomic commits, expected-SHA updates with `force=false`; no force-push.
 
-## Current source work — NTP readiness persistence
-- `ntpc_updated_main()` now treats a non-empty `offset` as proof of an actual clock step before incrementing the temporary `ntpc_counter`; it checks and returns the persistent `ntp_ready` write result.
-- A failed `ntp_ready` write is retried by the watchdog's fixed timer whenever a recorded NTP step exists. The retry is independent of WAN reachability and is executed before time-dependent service checks; error/recovery logging is transition-throttled.
-- Added GNU89-compatible policy tests for absent/empty offsets and readiness retry gating; extended the source contract to protect ordering and ensure readiness recovery is processed before schedule checks.
-- Exact-main watchdog Action: PASS (run 44731160914).
-- Exact-main XY-C1 Action: PENDING (run 44731160909). Build/TRX/artifact step evidence: [{"name":"Build XY-C1","conclusion":null},{"name":"Verify TRX output","conclusion":null},{"name":"Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9","conclusion":null}].
-- L3 is not claimed unless one exact SHA completes Build XY-C1, TRX verification and artifact upload successfully.
+- Main SHA immediately before this atomic source slice: `743f0158ff728358efc2026ef37e3ef094984560`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Main-only development; one complete Git tree/commit, non-forced expected-SHA update, no force-push.
 
-## First actions for next continuation
-1. Inspect exact-main watchdog Action 44731160914 and repair any source-contract or regression failure.
-2. Complete XY-C1 run 44731160909 for exact main c10f4fd6be13a4dc915f397ccc3292d92509e689; all Build/TRX/artifact steps must PASS on that SHA.
-3. If XY-C1 is pending, continue an independent service/lifecycle defect; do not wait.
-4. Keep physical-router L4 unverified unless tested on hardware.
+## Verified parent state
+
+- Detect-internet and Ralink 802.1X work is present in product baseline `7210c3a3a46093c633b56c8975ab2cd946b2e1bb`; exact XY-C1 run `44729001694` passed detector/input checks, Build XY-C1, TRX verification and artifact upload. Artifact `14625343431`, SHA256 `1312137c206644da15a8cb5db9f1507d63d3edc51f530d61eac453ed0fae6bf9`. This is L3 evidence for that product-source SHA only.
+- NTP-readiness source commit `c10f4fd6be13a4dc915f397ccc3292d92509e689`: watchdog run `44731160914` PASS; Process inventory `44731160912`, Process fail-closed `44731160915`, DNSMasq `44731160963`, HTTPD lifecycle/security `44731160953`/`44731160941`, NVRAM transaction boundary `44731161012` PASS. Same-SHA XY-C1 run `44731160909` was IN_PROGRESS at last poll. Do not claim NTP L3 until its same-SHA Build/TRX/artifact all pass.
+- The exact-head AI documentation contract for current docs main `743f0158` was running when this slice began; check current main's documentation Action after commit.
+- Physical XY-C1 router L4 remains NOT VERIFIED.
+
+## Active engineering slice in this commit
+
+A concrete missed failure-propagation path exists in deferred WAN reconnect state:
+
+- `watchdog.c:inet_handler()` checks whether `deferred_wanup_t` is positive and due, then notifies PID 1 to run `deferred_wan_connect`.
+- `stop_wan_ppp_locked()` and `stop_wan_locked()` cleared that key with unchecked `nvram_set_int_temp()`. A failed write could leave an old delayed reconnect armed after manual disconnect/teardown.
+- `try_wan_reconnect()` ignored schedule-publication failure, and `deferred_wan_connect()` ignored failure to clear the fired deadline before WAN activation.
+- This slice adds a checked NVRAM publisher, a positive signed-int deadline policy with guarded addition (matching watchdog's `nvram_get_int()` domain), and GNU89/ASan/UBSan failure-injection tests. Teardown fails closed before killing VPN/PPP services if the timer cannot be cancelled; deferred startup/scheduling propagate their NVRAM errors.
+
+## Exact first actions for the next continuation
+
+1. Fetch live main and inspect exact-head Actions for this commit: WAN teardown stability (new regression/source-order contract), Process lifecycle inventory/fail-closed, AI handoff documentation and XY-C1 Firmware Validation. Fix causal failures from the exact run/job logs; if a run stays pending, continue an independent P1 issue.
+2. Confirm the WAN deferred-reconnect regression passes GNU89 `-Wall -Wextra -Werror` with ASan/UBSan and verify both teardown clear gates, the delayed-deadline write gate and the deferred callback clear gate in the production source contract.
+3. L3 for this new slice requires Build XY-C1, TRX verification and artifact upload on one exact production-source SHA. Do not reuse the parent `7210c3a3` artifact as evidence for this `net_wan.c` change. L4 still requires physical-device validation.
+4. After this bounded WAN reliability correction is validated, resume the broader cross-userland P1 stability/security queue. Do not repeat detect_link/detect_internet mirror, WAN runtime-identity, Samba mode, Ralink name/NAS-ID or NTP-readiness audits.
 
 ## Verification boundary
-- Prior detect_link `link_wan` mirror fix: detect-link and Process checks PASS; exact-SHA XY-C1 Build/TRX/artifact PASS on `dc43d3d8`.
-- Prior detect_internet `link_internet` mirror fix: exact detector and AI-docs checks PASS on `327b83d6`; same-source XY-C1 was still pending at last known poll on `7210c3a3`.
-- NTP readiness source slice: exact-main watchdog=PASS; XY-C1=PENDING. No L3 claim unless the three product steps are all PASS on the same SHA.
-- Physical-router L4 remains NOT VERIFIED.
 
-## Evidence discipline
-Keep L1 source review, L2 host regression, exact-SHA Actions, L3 MIPS Build/TRX/artifact and physical-router L4 distinct.
+- Parent product-source SHA `7210c3a3a46093c633b56c8975ab2cd946b2e1bb`: exact same-SHA XY-C1 Build/TRX/artifact PASS (run `44729001694`, artifact `14625343431`).
+- NTP-readiness SHA `c10f4fd6be13a4dc915f397ccc3292d92509e689`: watchdog/Process/HTTPD/DNSMasq/NVRAM checks PASS; XY-C1 pending at last poll.
+- This deferred-reconnect source/test slice is not validated until exact-head Actions close. No L3/L4 claim is made for it at commit creation.
+- Keep host L2, exact-head Actions, exact-source MIPS/TRX/artifact L3 and physical-router L4 separate.
 
 
 ---

@@ -8,6 +8,8 @@ on:
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/usb_modem.c"
       - "trunk/user/rc/src/wan_teardown_policy.h"
+      - "trunk/user/rc/src/wan_deferred_reconnect_policy.h"
+      - "trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c"
       - "trunk/user/rc/src/lan_addr6_reload_policy.h"
       - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
       - "trunk/user/rc/src/tests/wan_teardown_policy.c"
@@ -35,6 +37,11 @@ jobs:
             trunk/user/rc/src/tests/wan_teardown_policy.c \
             -o /tmp/wan-teardown-policy
           /tmp/wan-teardown-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c \
+            -o /tmp/wan-deferred-reconnect-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-deferred-reconnect-policy
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/rc/src \
             trunk/user/rc/src/tests/lan_addr6_reload_policy.c \
@@ -158,6 +165,49 @@ jobs:
           assert "Internet monitor resume failed after aborted WAN PPP teardown" in ppp_stop
           assert "return wan_teardown_abort_status(stop_status, resume_status);" in ppp_stop
 
+          deferred_policy = (rc / "wan_deferred_reconnect_policy.h").read_text()
+          deferred_test = (rc / "tests/wan_deferred_reconnect_policy.c").read_text()
+          assert '#include "wan_deferred_reconnect_policy.h"' in source
+          assert "wan_deferred_reconnect_clear" in deferred_policy
+          assert "wan_deferred_reconnect_schedule" in deferred_policy
+          assert "test_clear_preserves_nvram_failure" in deferred_test
+          assert "test_schedule_propagates_nvram_failure" in deferred_test
+          assert "test_schedule_rejects_invalid_and_overflowing_deadlines" in deferred_test
+
+          publisher = function_body(source, "wan_deferred_reconnect_publish_nvram(")
+          assert "set_nvram_value_status(name, value_text)" in publisher
+          assert "value > INT_MAX" in publisher
+          clear_helper = function_body(source, "clear_deferred_wan_reconnect_status(")
+          assert "wan_deferred_reconnect_clear(" in clear_helper
+          schedule_helper = function_body(source, "schedule_deferred_wan_reconnect_status(")
+          assert "wan_deferred_reconnect_schedule(" in schedule_helper
+
+          clear_call = "stop_status = clear_deferred_wan_reconnect_status();"
+          clear_log = "deferred reconnect cancellation failed (status=%d)"
+          assert ppp_stop.index(clear_call) < ppp_stop.index(clear_log) < ppp_stop.index(
+              "stop_status = stop_vpn_client_under_lifecycle_lock();")
+          assert ppp_stop.index(clear_call) < ppp_stop.index(
+              "stop_status = stop_vpn_client_under_lifecycle_lock();") < ppp_stop.index(
+              "stop_status = kill_services(svcs_ppp, 6, 1);")
+          assert stop.index(clear_call) < stop.index(clear_log) < stop.index(
+              "wan_proto = get_wan_proto(unit);") < stop.index(
+              "stop_status = stop_vpn_client_under_lifecycle_lock();")
+
+          reconnect = function_body(source, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
+          schedule_call = "status = schedule_deferred_wan_reconnect_status("
+          watchdog_start = "status = start_watchdog();"
+          assert schedule_call in reconnect and watchdog_start in reconnect
+          assert reconnect.index(schedule_call) < reconnect.index("cannot publish deferred WAN reconnect deadline") < reconnect.index(
+              "return status;") < reconnect.index(watchdog_start)
+
+          deferred = function_body(source, "deferred_wan_connect(void)")
+          script_guard = "if (check_if_file_exist(SCRIPT_UDHCPC_WAN))"
+          deferred_clear = "status = clear_deferred_wan_reconnect_status();"
+          assert deferred.index(script_guard) < deferred.index(deferred_clear)
+          assert deferred.index(deferred_clear) < deferred.index("cannot clear deferred WAN reconnect deadline before startup") < deferred.index(
+              "select_usb_modem_to_wan();") < deferred.index("status = start_wan();")
+          assert 'nvram_set_int_temp("deferred_wanup_t"' not in source
+
           assert "int pause_status, eapol_stop_status, kabinet_stop_status, resume_status;" in stop
           assert "resume_status = notify_run_detect_internet(2);" in stop
           assert "Internet monitor resume failed after aborted WAN teardown" in stop
@@ -182,6 +232,8 @@ jobs:
               "trunk/user/rc/src/usb_modem.c",
               "trunk/user/rc/src/wan_teardown_policy.h",
               "trunk/user/rc/src/tests/wan_teardown_policy.c",
+              "trunk/user/rc/src/wan_deferred_reconnect_policy.h",
+              "trunk/user/rc/src/tests/wan_deferred_reconnect_policy.c",
           )
           filters = workflow.split("jobs:", 1)[0]
           push_filters, pr_filters = filters.split("  pull_request:", 1)

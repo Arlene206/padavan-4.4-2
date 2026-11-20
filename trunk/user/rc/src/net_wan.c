@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <limits.h>
 #include <syslog.h>
 #include <ctype.h>
 #include <string.h>
@@ -53,6 +54,7 @@
 #include "dnsmasq_domain_policy.h"
 #include "wan_resolver_refresh_policy.h"
 #include "wan_teardown_policy.h"
+#include "wan_deferred_reconnect_policy.h"
 #include "dhcp_lease_policy.h"
 #include "dhcp_wan_interface_policy.h"
 #include "wan_ifname_policy.h"
@@ -407,6 +409,45 @@ set_nvram_value_status(const char *name, const char *value)
 	saved_errno = errno;
 	return rc_wan_nvram_write_status(api_result, saved_errno);
 }
+
+static int
+wan_deferred_reconnect_publish_nvram(void *context, const char *name,
+                                     long value)
+{
+	char value_text[16];
+	int length;
+
+	(void)context;
+	if (!name || !name[0] || value < 0)
+		return EINVAL;
+	if (value > INT_MAX)
+		return EOVERFLOW;
+
+	length = snprintf(value_text, sizeof(value_text), "%ld", value);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(value_text))
+		return EOVERFLOW;
+
+	return set_nvram_value_status(name, value_text);
+}
+
+
+static int
+clear_deferred_wan_reconnect_status(void)
+{
+	return wan_deferred_reconnect_clear(
+		wan_deferred_reconnect_publish_nvram, NULL);
+}
+
+
+static int
+schedule_deferred_wan_reconnect_status(long now, long delay)
+{
+	return wan_deferred_reconnect_schedule(
+		now, delay, wan_deferred_reconnect_publish_nvram, NULL);
+}
+
 
 static int
 set_nvram_persistent_value_status(const char *name, const char *value)
@@ -3204,7 +3245,13 @@ stop_wan_ppp_locked(void)
 			   stop_status);
 		goto abort_resume_detect;
 	}
-	nvram_set_int_temp("deferred_wanup_t", 0);
+	stop_status = clear_deferred_wan_reconnect_status();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN teardown because deferred reconnect cancellation failed (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
 	stop_status = stop_vpn_client_under_lifecycle_lock();
 	if (stop_status != 0) {
 		logmessage(LOGNAME,
@@ -3298,7 +3345,13 @@ stop_wan_locked(void)
 			   stop_status);
 		goto abort_resume_detect;
 	}
-	nvram_set_int_temp("deferred_wanup_t", 0);
+	stop_status = clear_deferred_wan_reconnect_status();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing WAN teardown because deferred reconnect cancellation failed (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
 	wan_proto = get_wan_proto(unit);
 	man_ifname = get_man_ifname(unit);
 	usbnet_ifname = NULL;
@@ -4413,10 +4466,14 @@ try_wan_reconnect(int try_use_modem, long pause_in_seconds)
 		return status;
 	}
 	if (pause_in_seconds > 0) {
-		long deferred_up_time = uptime() + pause_in_seconds;
-		if (deferred_up_time == 0)
-			deferred_up_time++;
-		nvram_set_int_temp("deferred_wanup_t", deferred_up_time);
+		status = schedule_deferred_wan_reconnect_status(
+			uptime(), pause_in_seconds);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "cannot publish deferred WAN reconnect deadline (status=%d)",
+				   status);
+			return status;
+		}
 		status = start_watchdog();
 		if (status != 0) {
 			/*
@@ -4444,7 +4501,13 @@ deferred_wan_connect(void)
 	int status;
 	if (check_if_file_exist(SCRIPT_UDHCPC_WAN))
 		return 0;
-	nvram_set_int_temp("deferred_wanup_t", 0);
+	status = clear_deferred_wan_reconnect_status();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot clear deferred WAN reconnect deadline before startup (status=%d)",
+			   status);
+		return status;
+	}
 	select_usb_modem_to_wan();
 	notify_reset_detect_link();
 	status = start_wan();
