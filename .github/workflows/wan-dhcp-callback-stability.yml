@@ -335,8 +335,8 @@ jobs:
           assert "dhcp_wan_route_setup_retry_required(int route_setup_status)" in route_policy
           assert "dhcp_wan_bound_retry_required(int lease_error, int route_setup_status," in route_policy
           assert "test_lease_error_forces_renew_rebind" in route_retry_test
-          assert "dhcp_wan_bound_retry_required(EADDRINUSE, 0)" in route_retry_test
-          assert "dhcp_wan_bound_retry_required(0, EIO)" in route_retry_test
+          assert "dhcp_wan_bound_retry_required(EADDRINUSE, 0, 0)" in route_retry_test
+          assert "dhcp_wan_bound_retry_required(0, EIO, 0)" in route_retry_test
           assert "dhcp_wan_bound_retry_required(0, 0, EIO)" in route_retry_test
           assert "add_dhcp_routes_by_prefix" in restore_routes
           assert "route_context.restore_host_route = remove_old_host_route;" in callback
@@ -349,7 +349,7 @@ jobs:
           man_route_setup = callback.index("route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL)")
           assert gateway_state < wan_route_setup
           assert "accepted but route setup is incomplete" in callback
-          callback_status_publish = callback.index("callback_status = route_setup_status;")
+          callback_status_publish = callback.index("callback_status = route_status_accumulate(route_setup_status, mtu_status);")
           route_err_publish = callback.index("wan_nvram_int_temp_status(")
           assert route_err_publish > callback_status_publish
           assert 'strcat_r(prefix, "route_err", tmp)' in callback
@@ -359,7 +359,7 @@ jobs:
           assert "return callback_status;" in callback
           assert "nvram_set_int_temp(" not in callback
           wan_dhcp_renew = body(source, "udhcpc_renew(char *wan_ifname)")
-          assert "dhcp_wan_bound_retry_required(lease_error, route_error)" in wan_dhcp_renew
+          assert "dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error)" in wan_dhcp_renew
           assert 'nvram_get_int(strcat_r(prefix, "err", tmp))' in wan_dhcp_renew
           assert 'nvram_get_int(strcat_r(prefix, "route_err", tmp))' in wan_dhcp_renew
           assert 'nvram_get_int(strcat_r(prefix, "mtu_err", tmp))' in wan_dhcp_renew
@@ -469,7 +469,7 @@ jobs:
           assert "return callback_status;" in viptv_bound
           assert "nvram_set_int_temp(" not in viptv_bound
           viptv_renew = body(source, "udhcpc_viptv_renew(char *man_ifname)")
-          assert "dhcp_wan_bound_retry_required(lease_error, route_error)" in viptv_renew
+          assert "dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error)" in viptv_renew
           assert 'nvram_get_int(strcat_r(prefix, "err", tmp))' in viptv_renew
           assert 'nvram_get_int(strcat_r(prefix, "route_err", tmp))' in viptv_renew
           assert 'nvram_get_int(strcat_r(prefix, "mtu_err", tmp))' in viptv_renew
