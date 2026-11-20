@@ -258,6 +258,9 @@ jobs:
           assert '#include "dhcp_wan_interface_policy.h"' in source
           interface_test = (rc / "tests/dhcp_wan_interface_policy.c").read_text()
           assert "dhcp_wan_interface_name_is_valid" in policy
+          restore_previous = body(policy, "dhcp_wan_interface_restore_previous(")
+          assert "ops->set_address(context, old_ipaddr, old_netmask)" in restore_previous
+          assert "ops->clear_address(context)" in restore_previous
           assert "test_dhcp_entrypoint_rejects_missing_interface_environment" in interface_test
           assert "test_restore_previous_valid_address" in interface_test
           assert "test_restore_previous_first_lease_clears_interface" in interface_test
@@ -465,7 +468,6 @@ jobs:
           assert zcip_bound.index("dhcp_wan_interface_apply(") < zcip_snapshot < zcip_bound.index("man_up_internal(")
           assert "WAN_ZCIP_SNAPSHOT_COUNT" in zcip_bound
           assert "dhcp_wan_interface_restore_previous(" in zcip_bound
-          assert "wan_dhcp_interface_clear(&interface_context)" in zcip_bound
           assert "failed to restore previous ZeroConf WAN address" in zcip_bound
           for marker in (
               'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
@@ -487,7 +489,6 @@ jobs:
           assert zcip_viptv_bound.index("dhcp_wan_interface_apply(") < zcip_viptv_snapshot < zcip_viptv_bound.index("start_igmpproxy(man_ifname)")
           assert "WAN_ZCIP_VIPTV_SNAPSHOT_COUNT" in zcip_viptv_bound
           assert "dhcp_wan_interface_restore_previous(" in zcip_viptv_bound
-          assert "wan_dhcp_interface_clear(&interface_context)" in zcip_viptv_bound
           for marker in (
               'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
               'nvram_set_temp(strcat_r(prefix, "gateway", tmp), "")',
