@@ -75,6 +75,8 @@ jobs:
           stop = body(services, "static int\nstop_httpd_locked(void)")
           stop_entry = body(services, "stop_httpd(void)")
           restart = body(services, "restart_httpd(void)")
+          nvram_writer = body(services, "httpd_nvram_set_int_status(const char *param_name, int value, int temporary)")
+          started_writer = body(services, "httpd_started_state_publish_status(int started)")
 
           assert 'process_inventory_scan("httpd", &snapshot)' in probe
           assert "snapshot.error" in probe and "process_snapshot_release(&snapshot)" in probe
@@ -84,8 +86,15 @@ jobs:
           assert "pids(\"httpd\")" not in start
           assert start.index("httpd_process_presence(&scan_error)") < start.index("nvram_set_int(\"http_lanport\"")
           assert start.index("httpd_process_presence(&scan_error)") < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
-          assert 'nvram_set_int_temp("httpd_started", 0)' in start
-          assert start.index('nvram_set_int_temp("httpd_started", 0)') < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          assert 'httpd_nvram_set_int_status("http_lanport", http_port, 0)' in start
+          assert 'httpd_nvram_set_int_status("https_lport", https_port, 0)' in start
+          assert start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)') < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          assert 'httpd_started_state_publish_status(0)' in start
+          assert start.index('httpd_started_state_publish_status(0)') < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          assert "httpd_nvram_write_status(api_result, saved_errno)" in nvram_writer
+          assert "nvram_set_int_temp(param_name, value)" in nvram_writer
+          assert "nvram_set_int(param_name, value)" in nvram_writer
+          assert "httpd_nvram_write_status" in started_writer
           assert "launch_status = _eval(httpd_argv, NULL, 0, NULL);" in start
           assert "return httpd_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in start
           assert "httpd_start_postcondition(launch_status, presence)" in start
@@ -93,7 +102,7 @@ jobs:
           assert "scan_error ? scan_error : EIO" in start
           assert "HTTPD_START_PROBE_ATTEMPTS" in start
           probe_loop = start.index("status = -1;")
-          started_publish = start.index('nvram_set_int_temp("httpd_started", 1)', probe_loop)
+          started_publish = start.index("status = httpd_started_state_publish_status(1)", probe_loop)
           status_failure = start.index("if (status != 0)", probe_loop)
           assert status_failure < started_publish
           assert start.index("return status;", status_failure) < started_publish
@@ -106,7 +115,10 @@ jobs:
 
           assert "kill_services(svcs, 3, 1)" in stop
           assert stop.index("kill_services(svcs, 3, 1)") < stop.index("httpd_stop_policy_publish_stopped")
-          assert stop.index("httpd_stop_policy_publish_stopped") < stop.index('nvram_set_int_temp("httpd_started", 0)')
+          stop_publish = stop.index("publish_status = httpd_started_state_publish_status(0)")
+          assert stop.index("httpd_stop_policy_publish_stopped") < stop_publish
+          assert "if (publish_status != 0)" in stop[stop_publish:]
+          assert "return publish_status;" in stop[stop_publish:]
           assert "return stop_status;" in stop
           assert "httpd_lifecycle_lock_acquire_status" in stop_entry
           assert "stop_httpd_locked()" in stop_entry
@@ -151,6 +163,9 @@ jobs:
               assert '"' + path + '"' in pr
 
           assert "httpd_firewall_failure_requires_stop" in policy
+          assert "httpd_nvram_write_status" in policy
+          assert "httpd_nvram_write_status" in test
+          assert "test_nvram_write_status_preserves_backend_failure();" in test
           assert "httpd_firewall_failure_requires_stop" in test
           assert "test_firewall_failure_requires_listener_shutdown();" in test
           firewall_call = start.index("firewall_status = restart_firewall();")
@@ -160,8 +175,9 @@ jobs:
           firewall_absent = start.index("if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)")
           firewall_return = start.index("return firewall_status;", firewall_call)
           assert firewall_call < firewall_gate < firewall_stop < firewall_scan < firewall_absent < firewall_return
-          assert 'nvram_set_int_temp("httpd_started", 0)' in start[firewall_absent:firewall_return]
-          assert 'nvram_set_int_temp("httpd_started", 1)' in start[firewall_absent:firewall_return]
+          assert "httpd_started_state_publish_status(1)" in start[firewall_absent:firewall_return]
+          assert 'nvram_set_int_temp("httpd_started"' not in start
+          assert "rollback_status = stop_httpd_locked();" in start[started_publish:]
           assert "firewall_errno = errno > 0 ? errno :" in start
           assert "errno = 0;" in start
           print("HTTPD daemon startup, state publication, stop-before-start and path-filter source contracts: PASS")

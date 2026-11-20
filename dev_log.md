@@ -1,3 +1,9 @@
+## 2026-11-20 — Align HTTPD lifecycle source checks with checked NVRAM publication
+
+- Parent main SHA: `c90407da0280365bdd41a17061b5b4d960bd4bce`.
+- The HTTPD production slice now uses `httpd_nvram_set_int_status()` and `httpd_started_state_publish_status()` instead of direct unchecked NVRAM setters. Updated the lifecycle Action's embedded source contract to check persistent and temporary setter semantics, errno propagation, fail-closed port normalization, pre-launch stale-state clearing, post-start rollback, and checked stop/firewall marker publication.
+- Exact HTTPD daemon lifecycle, XY-C1 Build/TRX/artifact and Process lifecycle runs on this workflow/source SHA remain required; physical L4 NOT VERIFIED.
+
 ## 2026-11-20 — Make HTTPD configuration and lifecycle-state NVRAM writes fail closed
 
 - Parent main SHA: `12d3351f3deb024aa1a835aec9a30883225066f2`.
