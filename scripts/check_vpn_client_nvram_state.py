@@ -91,7 +91,7 @@ for token in (
 assert "vpnc_user_line);" in start and "vpnc_pass_line);" in start
 assert "vpnc_pppd_options);" in start
 assert 'fprintf(fp, "%s\\n", nvram_safe_get("vpnc_pppd"));' not in start
-assert start.count("free(vpnc_pppd_options);") == 3
+assert start.count("free(vpnc_pppd_options);") == 4
 assert "pptp_server" in start
 ordered(start, [
     "saved_errno = vpn_client_nvram_clear_runtime_state(",
