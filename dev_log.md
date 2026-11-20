@@ -1,3 +1,12 @@
+## 2026-11-20 — Restore omitted parent-tree integration blobs
+
+- Parent main SHA: 818ff7b555c5620e39a3fde1fc7d2715beab2c8b.
+- Post-commit tree review found that the preceding runtime-identity commit used the 6bc tree as its base while parenting its commit to 9230. Three 9230 changes were consequently absent from its resulting tree: the PID 1 status-accessor integration in `rc.c`, its declaration in `rc.h`, and the corresponding Process source contract.
+- This child restores those exact three blob versions from 9230 on top of the runtime-identity tree. It preserves the new NVRAM policy, regression, WAN callers, checker and docs; it does not rewrite history or force-update main.
+- The previous commit's three exact Actions were queued (WAN DHCP callback `44724488527`, iNIC `44724488648`, AI docs `44724488434`). The repair child requires its own exact-SHA verification. No L3/L4 claim.
+
+---
+
 ## 2026-11-20 — Check WAN runtime protocol/interface identity writes
 
 - Parent main SHA: 9230dacb50d48f003649dfb06e15a3e63d99f15f.

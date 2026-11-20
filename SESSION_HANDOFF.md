@@ -3,30 +3,30 @@
 This checkpoint supersedes older summaries below. Continue from live main; do not repeat closed audits.
 
 ## Git state
-- Parent main SHA for this implementation slice: 9230dacb50d48f003649dfb06e15a3e63d99f15f.
+- Parent main SHA for this tree-integrity repair: 818ff7b555c5620e39a3fde1fc7d2715beab2c8b.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Main-only atomic commits; exact expected-SHA update with `force=false`; no force-push. PR #1 remains closed/not merged.
+- Main-only atomic commits; exact expected-SHA update with `force=false`; no force-push.
 
-## Verified preceding work
-- ABI-safe WAN reset restoration is on main at `9230dacb50d48f003649dfb06e15a3e63d99f15f`: private `reset_wan_vars_status()`, legacy public void wrapper, read-only status accessor used by PID 1.
-- Exact Actions for `9230dac`: Process inventory `44723639455`, WAN teardown `44723639430`, WAN route `44723639601`, AI docs `44723639591` and other completed workflows PASS; exact XY-C1 `44723639449` was still IN_PROGRESS at last poll. No L3 claim yet.
-- Previous regression: `72c29998` failed because it exported an internal helper and violated the ABI; the subsequent `9230dac` restores the intended ABI and passed its focused WAN/Process/Docs checks.
+## Verified implementation state
+- `9230dacb` restored the WAN reset ABI: private checked implementation, public legacy void wrapper, read-only status accessor consumed by PID 1.
+- `818ff7b` contains the checked `proto_t` + `ifname_t` runtime-identity publisher, its regression cases, three startup callsite conversions, and the WAN firewall checker correction.
+- Tree verification caught that `818ff7b` was constructed from an older tree base and therefore omitted three unrelated-but-required `9230dacb` updates: `rc.c`, `rc.h`, and `scripts/check_process_lifecycle_integration.py`. THIS COMMIT restores those exact parent-state blobs without changing the new runtime-identity slice. No history rewrite or force-push was used.
+- `818ff7b` exact Actions were queued at repair time: WAN DHCP callback `44724488527`, iNIC `44724488648`, AI docs `44724488434`. These results belong to `818ff7b`, not this repair child.
 
 ## Current implementation slice — THIS COMMIT
-- Added a fail-fast publisher for the two-field runtime WAN identity: `proto_t` is checked before `ifname_t`; an error stops the second write and is returned to the caller.
-- Replaced three unchecked `proto_t` writes in USB RAS, PPP and IPoE startup paths. Each branch now routes a failed protocol/interface identity publication through the established physical-WAN recovery gate before skipping client activation.
-- Added GNU89 policy regression cases for success, protocol-write failure, interface-write failure and invalid inputs; extended the WAN source contract to protect call ordering and all three callers.
-- Also repaired the WAN checker’s stale WAN-reset ABI expectation: the legacy void wrapper remains public, while the reset implementation remains private and PID 1 uses the public status accessor.
+- Restore the exact `9230dacb` versions of the three omitted paths while retaining the runtime-identity source/test/checker files and documentation from `818ff7b`.
+- This is a repository-tree integrity correction; it adds no new production behavior beyond the preceding checked runtime-identity slice.
 
 ## Exact first actions for the next continuation
-1. Verify this commit’s exact WAN-route, Process and AI-docs Actions; inspect any failure logs rather than carrying forward previous SHA results.
-2. Verify exact same-SHA XY-C1 Build, TRX verification and artifact upload; earlier SHA `9230dac` remains separate evidence.
-3. If XY-C1 is pending, continue another independent P1 source-confirmed service/lifecycle issue rather than waiting.
-4. Inspect the three runtime identity failure-injection cases and maintain GNU89/MIPS/uClibc compatibility; do not re-audit WAN0/LAN boot snapshots or WAN reset propagation.
+1. Verify this repair commit's exact-head Process inventory, WAN route, AI docs, and XY-C1 Actions. The three restored files must be present at this SHA.
+2. Verify that the WAN protocol/interface policy regression executes under GNU89, `-Werror`, ASan and UBSan; inspect the source contract's three caller branches.
+3. Verify same-SHA XY-C1 Build, TRX and artifact upload for the current source tree. Do not attribute a child's evidence to `818ff7b`.
+4. Continue the remaining P1 checked NVRAM publication audit only after the current tree is verified; keep unrelated userland coverage moving if XY remains pending.
 
 ## Verification boundary
-- `9230dac`: focused Process, WAN-route and AI-docs PASS; same-SHA XY-C1 `44723639449` was IN_PROGRESS at checkpoint.
-- THIS COMMIT: test/source contracts and same-SHA XY-C1 are pending at creation.
+- `9230dacb`: focused Process, WAN route and AI docs PASS; XY-C1 `44723639449` was in progress at last poll.
+- `818ff7b`: its exact Actions `44724488527`, `44724488648`, `44724488434` were queued; tree omitted the three restored files and its validation cannot establish the repaired tree.
+- THIS COMMIT: exact-head checks and same-SHA L3 are pending at creation.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Evidence discipline
