@@ -48,3 +48,43 @@ Every session MUST inspect the live repository state. Update this handoff only w
 ## Evidence discipline
 
 Keep host/source regressions, exact-head Actions, MIPS build/TRX and physical-device evidence separate. A same-production-SHA detector, MIPS build, TRX verification and artifact upload are required for L3. Never infer L4 from CI.
+
+
+## Session handoff — 2026-11-19
+
+### Repository state
+- `main` before this handoff update: `02285d690401d1a27d90354f9243b82b4ca8d2ee`.
+- Backup branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (checked; not modified).
+- Exact-SHA Actions for the pre-handoff `main` head:
+- WAN DHCP callback state stability regression: completed/success (run 44703168138)
+- AI handoff documentation contract: completed/success (run 44703168044)
+
+### Completed implementation in this work period
+- `7485455e53de44887907218c9ee22990974d11bf` — updated LAN DHCP/MANv deconfig source contracts, including five-key atomic metadata publication and route cleanup boundaries.
+- `6b40725ac83447fec99ec79e0b6dfc79eefce83f` — follow-on source-contract correction for the multiline MANv default-route call.
+- `e34572aed4510b50a3e1d171b5b44940c95e68ec` — WAN teardown statistics-clear status handling.
+- `ea976ca3a553f238d202d84be0b89022efed062b` — LAN DHCP deconfig now snapshots `lan_gateway_t`, `lan_ipaddr`, `lan_netmask`, and `lan_domain` in one exclusive NVRAM transaction. It copies each rotating-cache value before the next read; a read, truncation, lock, or unlock error invalidates the tuple and returns before route/interface/hosts changes. The interface and hosts restoration consume the same snapshot.
+
+### Regression and CI coverage
+- Updated `scripts/check_lan_dhcp_deconfig.py` to assert the four-key snapshot mapping, lock/read/unlock/invalidate policy, cleanup order, and absence of unlocked reads in the LAN deconfig path.
+- Extended `.github/workflows/wan-dhcp-callback-stability.yml` to compile/run `tests/wan_nvram_status_policy.c` with `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer` and `ASAN_OPTIONS=detect_leaks=1` before the LAN deconfig source checker.
+- The common NVRAM snapshot regression covers cache-slot overwrite, missing fields, read failures, oversized values, begin/unlock failures, and invalid arguments. Do not claim a PASS unless the matching exact-SHA Actions run is completed successfully.
+
+### First task for the next session
+1. Fetch current `main` and inspect only commits after this handoff. Poll exact-SHA Actions for the implementation commit above and the new handoff commit; resolve any failing LAN callback or XY-C1 build check. If a run is still pending, continue an independent stability/security fix rather than waiting.
+2. Continue whole-userland implementation from a concrete defect; do not repeat startup recovery or re-audit the completed MANv, static WAN/MAN, or LAN snapshot work.
+3. Keep changes atomic and update this file after the next safe slice.
+
+### Recent main history observed at handoff
+- 02285d690401 test(wan): align static IPTV callback source contract
+- ea98cd8cdf5d test(lan): skip prototypes in C source checker
+- 3ca051d4590e fix(wan): fail closed on static IPTV snapshot errors
+- ea976ca3a553 fix(lan): restore DHCP state from one NVRAM snapshot
+- e34572aed451 fix(wan): check statistics clears during teardown
+- 6b40725ac834 test(wan): scope IPTV deconfig assertions to route helper
+- 7485455e53de test(dhcp): update MANv deconfig contract for atomic snapshots
+- dc061deb6441 ci(wan): fix route snapshot contract indentation
+- cd62df466da9 fix(wan): publish IPTV deconfig metadata atomically
+- 86e30d782ba8 test(wan): align route and signal contracts with NVRAM snapshot
+- 73abb6125238 test(wan): exercise transactional NVRAM tuple snapshots
+- 0d929bab7711 test(wan): normalize MAN snapshot declaration assertions

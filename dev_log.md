@@ -235,3 +235,10 @@
 
 ---
 
+
+
+## 2026-11-19 — Transactional LAN DHCP deconfig snapshot
+
+- Added a coherent NVRAM snapshot to `lan_down_auto()` for the old DHCP gateway and the static LAN IPv4/domain tuple. Route deletion, interface restoration, and hosts restoration now use the same copied values.
+- Snapshot failure returns before side effects and preserves DHCP lease metadata for retry. Regression coverage uses the existing checked NVRAM snapshot policy test under GNU89, `-Werror`, ASan, and UBSan in the WAN DHCP callback workflow.
+- Implementation commit: `ea976ca3a553f238d202d84be0b89022efed062b`. Exact-SHA Actions state is recorded in `SESSION_HANDOFF.md`; no CI result is assumed from a pending run.
