@@ -1,3 +1,10 @@
+## 2026-11-20 — Rebuild the MiniUPnP lease checker around the shared rewrite primitive
+
+- Parent main SHA: 9d3d8760f8111d0c0eda5244365470a110325336. The checker in 9d3d8760f8111d0c0eda5244365470a110325336 still contained stale assertions tied to the removed lease_file_remove() implementation and referenced rewrite_entry before assignment. Replaced it with a consistent function inventory covering append rollback, staged rewrite/fsync/rename, exact-key policy tests, update rollback, and delete cleanup ordering.
+- The rewrite helper now has one static int declaration; the checker also rejects the prior duplicate form.
+- Exact-head Actions for 9d3 are new/pending at this checkpoint. The host stream transformation tests passed on ec42 before its old checker failed. This checker correction must pass on its own SHA.
+- Physical router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Correct MiniUPnP rewrite-helper declaration and source contract
 
 - Parent main SHA: ec42fa99a15d617e181fe366324b8a18a7ff37ba. Exact-head MiniUPnP run #44800659014 on ec42fa99a15d617e181fe366324b8a18a7ff37ba passed the new GNU89 ASan/UBSan stream policy tests but failed the source checker because it still expected lease-key matching inside lease_file_remove(), which now delegates to the common rewrite helper.
