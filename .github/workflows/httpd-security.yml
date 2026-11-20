@@ -5286,7 +5286,8 @@ jobs:
           assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in stop_ppp
           assert "stop_status = kill_services(svcs_ppp, 6, 1);" in stop_ppp
           assert "int pause_status, stop_status = 0, resume_status;" in stop_ppp
-          ppp_kill_failure = stop_ppp.split("stop_status = kill_services(svcs_ppp, 6, 1);", 1)[1].split("clear_wan_state();", 1)[0]
+          clear_state_call = stop_ppp.index("stop_status = clear_wan_state_status();")
+ppp_kill_failure = stop_ppp[stop_ppp.index("stop_status = kill_services(svcs_ppp, 6, 1);"):clear_state_call]
           assert "if (stop_status != 0)" in ppp_kill_failure
           assert "goto abort_resume_detect;" in ppp_kill_failure
           assert "return wan_teardown_abort_status(stop_status, resume_status);" in stop_ppp
@@ -5303,7 +5304,7 @@ jobs:
               callback_fence = stop_body.index("invalidate_wan_ppp_callback_session()")
               assert pause_call < pause_gate < pause_return < callback_fence
           assert "if (ipv6_status != 0)" in stop_wan
-          assert stop_wan.index("if (ipv6_status != 0)") < stop_wan.index("clear_wan_state();")
+          assert stop_wan.index("if (ipv6_status != 0)") < stop_wan.index("clear_wan_state_status();")
           callback_fence = stop_wan.index("refusing WAN interface teardown while DHCPv6 callback fencing is incomplete")
           wan_release = stop_wan.index('process_pidfile_signal(udhcpc_pidfiles[0], "udhcpc", SIGUSR2)')
           viptv_release = stop_wan.index('process_pidfile_signal(udhcpc_pidfiles[1], "udhcpc", SIGUSR2)')
@@ -5312,7 +5313,11 @@ jobs:
           interface_teardown = stop_wan.index("wan_teardown_ifdown_interfaces(")
           assert callback_fence < wan_release < viptv_release < wan_dhcp_stop < wan_daemon_stop < interface_teardown
           assert "if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)" in stop_wan
-          assert stop_wan.index("if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)") < stop_wan.index("clear_wan_state();")
+          assert stop_wan.index("if (stop_status != 0 || ifdown_status != 0 || callback_cleanup_status != 0)") < stop_wan.index("clear_wan_state_status();")
+          clear_state = stop_wan.index("stop_status = clear_wan_state_status();")
+          clear_failure = stop_wan.index("if (stop_status != 0)", clear_state)
+          assert clear_state < clear_failure < stop_wan.index("control_wan_led_isp_state(0, 0);")
+          assert "goto abort_resume_detect;" in stop_wan[clear_failure:]
           assert stop_wan.index("invalidate_wan_ppp_callback_session()") < stop_wan.index("kill_services(svcs_ppp, 6, 1)")
           assert "stop_status = stop_vpn_client_under_lifecycle_lock();" in stop_ppp
           assert "stop_status = invalidate_wan_ppp_callback_session();" in stop_wan
