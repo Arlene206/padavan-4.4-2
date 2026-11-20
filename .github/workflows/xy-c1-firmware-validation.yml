@@ -140,6 +140,7 @@ on:
       - "trunk/user/utils/src/switch/tests/switch_ipv4_parse_policy.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init_router_result_policy.h"
       - "trunk/user/rc/src/wireless_module_load_policy.h"
       - "scripts/check_rc_boot_module_loads.py"
       - "trunk/user/rc/src/tests/wireless_module_load_policy.c"

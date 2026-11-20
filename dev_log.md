@@ -1,3 +1,12 @@
+## 2026-11-19 — Align PID 1 degraded-startup CI contracts
+
+- Exact-head Process run `44642485690` on `9ad1570`: the new GNU89/Werror/ASan/UBSan result-policy binary passed and the existing `dev_init.sh` shell regression passed; the Python integration checker then failed because its generic C parser still used the `init` buffer for brace scanning and return slicing when asked to parse `rc.c`. Corrected every parser read to use the supplied source buffer.
+- Exact-head HTTPD run `44642485613` exposed two stale assertions from the former binary startup contract: it required `return -1;` in `init_router()` and `router_ready = ... init_router() == 0` in PID 1. Updated the contract to require four FATAL exits, the boot-service status mapping, the READY classifier and the degraded event-handling branch.
+- Added `init_router_result_policy.h` to HTTPD push/PR path filters and XY-C1 push inputs so header-only changes trigger the relevant source and firmware checks. No product-source behavior changed in this CI follow-up.
+- AI docs run `44642485702` PASS on `9ad1570`. XY-C1 run `44642485538` for `9ad1570` was still at Build XY-C1 when last checked; exact-head re-query is required for L3.
+
+---
+
 ## 2026-11-19 — Preserve PID 1 readiness while propagating degraded boot status
 
 - `init_router()` aggregated module/service failures in `boot_services_status` but returned success unconditionally, hiding partial startup failure from PID 1. Added distinct FATAL/READY/DEGRADED outcomes: the four mandatory NVRAM/configuration aborts remain fatal; accumulated boot-service errors now return DEGRADED.

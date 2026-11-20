@@ -16,6 +16,7 @@ on:
       - "trunk/user/rc/src/lan_kernel_name_policy.h"
       - "trunk/user/rc/src/tests/lan_kernel_name_policy.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init_router_result_policy.h"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
@@ -282,6 +283,7 @@ on:
       - "trunk/user/rc/src/lan_dhcp_callback_policy.h"
       - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
       - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/init_router_result_policy.h"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/dnsmasq_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/dnsmasq_lifecycle_lock.c"
@@ -890,7 +892,10 @@ jobs:
           assert "if (nvram_need_commit < 0)" in router_init
           assert "rc_nvram_commit_if_needed" in router_init
           assert router_init.index("rc_nvram_commit_if_needed") < router_init.index("mount_rwfs_partition")
-          assert "return -1;" in router_init
+          assert router_init.count("return INIT_ROUTER_RESULT_FATAL;") == 4
+          assert "return init_router_result_from_boot_status(boot_services_status);" in router_init
+          assert '#include "init_router_result_policy.h"' in rc
+          assert '#include "init_router_result_policy.h"' in init
           assert "rc_nvram_erase_and_commit" in erase
           reset_branch = main.split('if (!strcmp(base, "reset_to_defaults"))', 1)[1].split(
               'else if (!strcmp(base, "run_telnetd"))', 1
@@ -908,7 +913,10 @@ jobs:
           assert "nvram_result = init_nvram_node();" in node_init
           assert "return nvram_result;" in node_init
           main_loop_compact = "".join(main_loop.split())
-          assert "router_ready=(dev_init_status==0&&nvram_node_result==0&&init_router()==0);" in main_loop_compact
+          assert "router_init_status=INIT_ROUTER_RESULT_FATAL;" in main_loop_compact
+          assert "if(dev_init_status==0&&nvram_node_result==0)router_init_status=init_router();" in main_loop_compact
+          assert "router_ready=(dev_init_status==0&&nvram_node_result==0&&init_router_status_is_ready(router_init_status));" in main_loop_compact
+          assert "elseif(init_router_status_is_degraded(router_init_status))" in main_loop_compact
           assert "if (router_ready)\n\t\t\t\thandle_notifications();" in main_loop
           assert "if (router_ready)\n\t\t\t\ton_deferred_hotplug_dev();" in main_loop
           assert "rc_nvram_policy_read" in policy

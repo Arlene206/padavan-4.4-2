@@ -11,29 +11,29 @@ Continue main-only implementation across conversations. Restore exact live sourc
 
 ## Current repository state
 
-- Parent for the PID 1 degraded-readiness slice: `b35b6a7aaa2b5018c8c5dac85b2aa81bb6074c35`. Current-main VPN lifecycle regression `44640556013` and AI handoff documentation contract `44640556098` both PASS on that exact SHA.
-- rp-L2TP configuration publication hardening is implemented in `2b646cccdcb24da5d447586893a500fdcf3cfe48`; its GNU89 ASan/UBSan filesystem regression passed. Exact XY-C1 run `44639411601` completed successfully on that exact product SHA: Build XY-C1, TRX verification and artifact upload all PASS; artifact `14584429568` (12,678,233 bytes; SHA-256 `db6fc9199ef0798b75ec8c3d3bc98bc9becee50c07474b6e1fbada14d9df4bc8`).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is archival and untouched. Develop on main only.
-- The prior VPN checker path-filter regression on `40eb3ad8bde1b728c449d907208886fa751f8f55` is corrected; current-main exact VPN and AI docs checks pass. No physical-router L4 result is available.
+- PID 1 degraded-readiness implementation is committed on main as `9ad1570aa0bc8a9e1c5ff26a85266d53043c526a`. Its GNU89 ASan/UBSan policy binary and existing `dev_init.sh` shell regression both passed in the Process job; the job then failed in the new Python source contract because its C-function parser still indexed `init.c` when extracting `rc.c`.
+- Exact-head Process run `44642485690` therefore failed only at that parser; HTTPD run `44642485613` failed at stale source assertions expecting the old `return -1` and `init_router() == 0` contracts. The follow-up changes align both contracts with FATAL/READY/DEGRADED results and ensure the policy header itself triggers HTTPD/XY-C1 validation.
+- AI handoff docs run `44642485702` PASS on `9ad1570`. XY-C1 firmware run `44642485538` was still building at the last checkpoint; Build/TRX/artifact status must be re-queried by exact source SHA.
+- Earlier rp-L2TP product SHA `2b646cccdcb24da5d447586893a500fdcf3cfe48` passed XY-C1 Build, TRX verification and artifact upload in run `44639411601`; artifact `14584429568`. This does not replace the build of the PID 1 source change.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, archival and untouched.
 
 ## Active task
 
-- P1 boot-result defect: `init_router()` already aggregated hardware/module and service startup failures in `boot_services_status`, but its final `return 0` discarded that result. PID 1 therefore could not distinguish complete startup from a router with degraded services.
-- This slice introduces explicit `FATAL`, `READY`, and `DEGRADED` results. The four existing mandatory NVRAM/configuration aborts remain fatal; a nonzero accumulated boot-service status becomes degraded, while zero remains ready.
-- PID 1 now treats READY and DEGRADED as router-ready, retaining signal notifications and deferred hotplug handling after partial service startup. Mandatory `dev_init.sh`/NVRAM prerequisites and fatal `init_router()` failures still keep router event handling disabled and preserve console recovery.
-- Added GNU89 policy regression coverage and extended the PID 1 source/workflow contract. Local GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy binary passed. Exact-head Process, AI docs and XY-C1 Actions for this new source commit must be checked after publication.
+- The P1 PID 1 boot-result slice is implemented: `init_router()` reports FATAL for the four mandatory NVRAM/configuration aborts, READY for a clean boot and DEGRADED for accumulated module/service failures. PID 1 keeps notification/deferred-hotplug processing enabled for READY and DEGRADED; mandatory `dev_init.sh`/NVRAM failures and FATAL remain in console recovery.
+- The GNU89/Werror/ASan/UBSan policy binary passed on `9ad1570`; the first Process and HTTPD CI attempts exposed two stale source-contract problems, not a C regression failure. This follow-up fixes the generic C-function parser in `check_dev_init_boot.py`, updates HTTPD's boot-state assertions, and adds the policy header to the HTTPD and XY-C1 workflow path filters. No production C behavior changes in this follow-up.
+- Exact-head Process, HTTPD and AI docs reruns are pending; XY-C1 Build/TRX/artifact for production-source SHA `9ad1570` must be checked separately.
 
 ## Exact first action for the next GPT
 
-1. Query exact-head Process lifecycle, AI handoff docs and XY-C1 results for the PID 1 result-policy commit. XY-C1 L3 is complete only when Build, TRX verification and artifact upload all pass on that same source SHA.
-2. Repair only demonstrated checker/build failures; keep READY/DEGRADED event handling enabled and mandatory prerequisite failures fatal.
-3. Continue the open P1 RC startup-result propagation queue at the next unclosed caller in `start_services_once()`/WAN service dispatch; do not repeat the closed void-wrapper caller audit or completed rp-L2TP/netmask/MTD slices.
+1. Query exact-head Process lifecycle, HTTPD security and AI handoff docs results for the CI-contract follow-up; inspect the precise failed step if either source contract still fails.
+2. Re-query XY-C1 run `44642485538` for production-source SHA `9ad1570`; report L3 only if Build, TRX verification and artifact upload all pass on that exact SHA.
+3. Continue the open P1 RC startup-result propagation queue at the next unclosed `start_services_once()`/WAN service caller; do not repeat the closed void-wrapper audit or completed rp-L2TP/netmask/MTD slices.
 
 ## Verification boundary
 
-- L1: router startup result now distinguishes fatal prerequisite failure, fully ready, and degraded boot-service status; the PID 1 readiness classifier admits only READY/DEGRADED.
-- L2: local GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy regression passed. Exact-head Process source integration and AI docs Actions are pending for this commit.
-- L3: prior rp-L2TP product SHA `2b646cc` passed XY-C1 Build/TRX/artifact, but the current `rc.c`/`init.c` source change requires its own exact-head XY-C1 Build/TRX/artifact pass.
+- L1: PID 1 now distinguishes fatal prerequisite failure, fully READY and DEGRADED service startup; only READY/DEGRADED enable the router event loop.
+- L2: local and CI GNU89/Werror/ASan/UBSan policy regression PASS on `9ad1570`; existing shell test PASS. Process source checker failed from its wrong C-function buffer reference, and HTTPD failed from stale pre-three-state assertions; corrected contracts await exact-head reruns.
+- L3: XY-C1 run `44642485538` for `9ad1570` was IN_PROGRESS at the last check (Build step running); TRX/artifact are not yet claimed.
 - L4: target MIPS/uClibc runtime and physical-router startup/recovery behavior remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint

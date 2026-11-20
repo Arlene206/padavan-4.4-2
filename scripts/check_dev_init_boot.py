@@ -31,15 +31,15 @@ def shell_function(name):
 
 def c_function(source, signature):
     start = source.index(signature)
-    brace = init.index("{", start)
+    brace = source.index("{", start)
     depth = 0
-    for index in range(brace, len(init)):
-        if init[index] == "{":
+    for index in range(brace, len(source)):
+        if source[index] == "{":
             depth += 1
-        elif init[index] == "}":
+        elif source[index] == "}":
             depth -= 1
             if depth == 0:
-                return init[start:index + 1]
+                return source[start:index + 1]
     raise AssertionError("unterminated C function: " + signature)
 
 
