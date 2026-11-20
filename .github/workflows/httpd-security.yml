@@ -1295,7 +1295,7 @@ jobs:
           assert "pvid_wan < 0 || !is_vlan_vid_valid(pvid_wan)" in launch_iptv
           assert launch_iptv.index("return ret;") < launch_iptv.index("snprintf(viptv_ifname")
           assert "switch_status_resolve_vlan_vid" in launch_iptv
-          assert "return 0;" in launch_iptv
+          assert "return ret;" in launch_iptv
 
           start_wan = body(net_wan, "start_wan(void)")
           callback_setup = start_wan.index("if (create_cb_links() != 0)")

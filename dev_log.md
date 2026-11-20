@@ -1,3 +1,12 @@
+## 2026-11-20 — Align IPTV VLAN checks with checked identity writer and status return
+
+- Parent main SHA: `aa4021a190906132b3f73d68b1d76a4efb516526`. Contract-only update to the WAN VLAN checker, the HTTPD embedded source contract, and this log.
+- Exact-head WAN route run `44703962457` on `aa4021a190906132b3f73d68b1d76a4efb516526` failed because the checker required the GMAC bridge batch's closing `#endif` to be immediately adjacent to `rollback_viptv_vlan_setup()`. The checked `wan_viptv_ifname_publish_status()` helper now correctly sits between those two definitions; the contract now verifies the guard closes before the status writer and rollback adapter, preserving the board-configuration ordering check.
+- Exact-head HTTPD regression run `44703962244` failed in a copied source-contract block at `assert "return 0;" in launch_iptv`. `launch_viptv_wan()` now correctly returns the actual status for same-VLAN, static, DHCP and ZeroConf paths; the stale contract is changed to require `return ret;`, not a swallowed success.
+- In the same HTTPD job the earlier NVRAM profile sanitizer, restore rollback and switch status/link-refresh checks passed; the job failed only at the final WAN launch source assertion. Fresh exact-head runs will validate both contract updates. The current C source commit is `aa4021a190906132b3f73d68b1d76a4efb516526`; XY-C1 build validation for that source SHA remains pending/needs direct confirmation.
+
+---
+
 ## 2026-11-20 — Fail closed when IPTV VLAN recovery identity cannot be persisted
 
 - Parent main SHA: `9f9f35f4f354e27520ce543261ab40fa15f56bc2`. Updated `net_wan.c`, the WAN IPTV policy and injected regression, the VLAN source checker, and this log.
