@@ -155,6 +155,108 @@ test_lease_append_rolls_back_partial_write(void)
 	assert(unlink(path) == 0);
 }
 
+
+static void
+read_stream(FILE *stream, char *buffer, size_t capacity)
+{
+	size_t length;
+
+	assert(stream != NULL);
+	assert(capacity > 0);
+	assert(fflush(stream) == 0);
+	rewind(stream);
+	length = fread(buffer, 1, capacity - 1, stream);
+	assert(!ferror(stream));
+	buffer[length] = '\0';
+}
+
+static void
+test_atomic_rewrite_replaces_all_matching_keys(void)
+{
+	static const char input[] =
+		"TCP:1234:192.168.1.2:80:10:old-one\n"
+		"UDP:1234:192.168.1.3:81:20:udp\n"
+		"TCP:12345:192.168.1.4:82:30:longer-port\n"
+		"TCP:1234:192.168.1.5:83:40:old-two\n";
+	static const char replacement[] =
+		"TCP:1234:192.168.1.9:8080:99:new-record\n";
+	static const char expected[] =
+		"UDP:1234:192.168.1.3:81:20:udp\n"
+		"TCP:12345:192.168.1.4:82:30:longer-port\n"
+		"TCP:1234:192.168.1.9:8080:99:new-record\n";
+	FILE *source;
+	FILE *destination;
+	char output[512];
+
+	source = tmpfile();
+	destination = tmpfile();
+	assert(source != NULL && destination != NULL);
+	assert(fwrite(input, 1, sizeof(input) - 1, source) == sizeof(input) - 1);
+	rewind(source);
+	assert(miniupnpd_lease_file_rewrite(
+		source, destination, "TCP:1234", 8,
+		replacement, sizeof(replacement) - 1) == 0);
+	read_stream(destination, output, sizeof(output));
+	assert(strcmp(output, expected) == 0);
+	assert(fclose(source) == 0);
+	assert(fclose(destination) == 0);
+}
+
+static void
+test_atomic_rewrite_remove_preserves_other_keys(void)
+{
+	static const char input[] =
+		"TCP:1234:192.168.1.2:80:10:camera\n"
+		"UDP:1234:192.168.1.3:81:20:other\n";
+	FILE *source;
+	FILE *destination;
+	char output[256];
+
+	source = tmpfile();
+	destination = tmpfile();
+	assert(source != NULL && destination != NULL);
+	assert(fwrite(input, 1, sizeof(input) - 1, source) == sizeof(input) - 1);
+	rewind(source);
+	assert(miniupnpd_lease_file_rewrite(
+		source, destination, "TCP:1234", 8, NULL, 0) == 0);
+	read_stream(destination, output, sizeof(output));
+	assert(strcmp(output, "UDP:1234:192.168.1.3:81:20:other\n") == 0);
+	assert(fclose(source) == 0);
+	assert(fclose(destination) == 0);
+}
+
+static void
+test_atomic_rewrite_creates_missing_file_content(void)
+{
+	static const char replacement[] =
+		"UDP:4321:192.168.1.7:443:0:router\n";
+	FILE *destination;
+	char output[128];
+
+	destination = tmpfile();
+	assert(destination != NULL);
+	assert(miniupnpd_lease_file_rewrite(
+		NULL, destination, "UDP:4321", 8,
+		replacement, sizeof(replacement) - 1) == 0);
+	read_stream(destination, output, sizeof(output));
+	assert(strcmp(output, replacement) == 0);
+	assert(fclose(destination) == 0);
+}
+
+static void
+test_atomic_rewrite_rejects_invalid_arguments(void)
+{
+	FILE *destination;
+
+	destination = tmpfile();
+	assert(destination != NULL);
+	errno = 0;
+	assert(miniupnpd_lease_file_rewrite(
+		NULL, destination, NULL, 0, NULL, 0) == -1);
+	assert(errno == EINVAL);
+	assert(fclose(destination) == 0);
+}
+
 int
 main(void)
 {
@@ -162,6 +264,10 @@ main(void)
 	test_description_is_bounded();
 	test_invalid_output_buffer();
 	test_exact_record_key_matching();
+	test_atomic_rewrite_replaces_all_matching_keys();
+	test_atomic_rewrite_remove_preserves_other_keys();
+	test_atomic_rewrite_creates_missing_file_content();
+	test_atomic_rewrite_rejects_invalid_arguments();
 	test_lease_append_rolls_back_partial_write();
 	puts("MiniUPnP lease-file record serialization policy: PASS");
 	return 0;

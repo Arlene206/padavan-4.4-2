@@ -1,3 +1,11 @@
+## 2026-11-20 — Atomically replace MiniUPnP lease records on mapping updates
+
+- Parent main SHA: 3f28c8fd9cebb2cccf28b9926a1422d3bbfed427. This commit makes lease-file update a single atomic rewrite and compensates the live firewall/metadata update if persistence publication fails.
+- Existing update path committed NAT/filter or redirect metadata first, then removed the old lease line in one rename and appended the replacement separately. If append failed after removal, the old on-disk record was already lost; if either persistence step failed, the live firewall could remain updated while AddPortMapping returned failure.
+- Added a stream-level lease rewrite policy that filters every exact protocol/port record, preserves unrelated entries, and appends at most one replacement. Production writes the transformed stream to a same-directory mkstemp file, flushes/fsyncs/closes it, and atomically renames it; a missing lease file can be created by replacement. The remove helper now uses the same rewrite primitive.
+- Existing mapping update now retrieves the old description and timestamp with the prior internal port. It atomically replaces the lease record instead of remove+append. On failure, it restores the prior firewall port or prior description/timestamp when the port is unchanged; rollback failures are logged without masking the original persistence errno.
+- GNU89 host tests cover replacement of duplicate exact-key records, preservation of adjacent longer-port/other-protocol records, deletion, missing-file creation and invalid arguments. The source checker verifies the fsync/rename and rollback ordering. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Align infosvr dispatch contracts with supported-opcode response layout
 
 - Parent main SHA: c4e6b53c0b5a78ae841118a960bb1f137b162623; fixes the exact-head infosvr regression failure reported by run #44799414652 on 0d9719e7960f83d26a2df931902f61bee5b94bfe.

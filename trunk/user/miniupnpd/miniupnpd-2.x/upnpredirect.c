@@ -152,22 +152,26 @@ lease_file_add(unsigned short eport,
 }
 
 static int
-lease_file_remove(unsigned short eport, int proto)
+static int
+lease_file_rewrite_entry(unsigned short eport, int proto,
+                         const char *replacement, size_t replacement_length)
 {
 	FILE *fd = NULL;
 	FILE *fdt = NULL;
 	int tmp = -1;
 	int status = 0;
+	int tmp_created = 0;
 	size_t path_length;
-	size_t buf_size;
-	char buf[512];
 	char key[32];
 	char tmpfilename[128];
 	int key_length;
-	int saved_errno;
 
 	if (lease_file == NULL)
 		return 0;
+	if (replacement == NULL && replacement_length != 0) {
+		errno = EINVAL;
+		return -1;
+	}
 
 	path_length = strlen(lease_file);
 	if (path_length > sizeof(tmpfilename) - 7) {
@@ -178,29 +182,30 @@ lease_file_remove(unsigned short eport, int proto)
 	memcpy(tmpfilename, lease_file, path_length + 1);
 	memcpy(tmpfilename + path_length, "XXXXXX", 7);
 
+	key_length = snprintf(key, sizeof(key), "%s:%u",
+	                      proto_itoa(proto), eport);
+	if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+		errno = EINVAL;
+		return -1;
+	}
+
 	fd = fopen(lease_file, "r");
-	if (fd == NULL) {
-		if (errno == ENOENT)
-			return 0;
-		saved_errno = errno ? errno : EIO;
+	if (fd == NULL && errno != ENOENT) {
+		int saved_errno = errno ? errno : EIO;
 		syslog(LOG_ERR, "could not read lease file %s: %s",
 		       lease_file, strerror(saved_errno));
 		errno = saved_errno;
 		return -1;
 	}
-
-	key_length = snprintf(key, sizeof(key), "%s:%u",
-	                      proto_itoa(proto), eport);
-	if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
-		status = EINVAL;
-		goto cleanup;
-	}
+	if (fd == NULL && replacement == NULL)
+		return 0;
 
 	tmp = mkstemp(tmpfilename);
 	if (tmp < 0) {
 		status = errno ? errno : EIO;
 		goto cleanup;
 	}
+	tmp_created = 1;
 	if (fchmod(tmp, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) < 0) {
 		status = errno ? errno : EIO;
 		goto cleanup;
@@ -212,47 +217,41 @@ lease_file_remove(unsigned short eport, int proto)
 	}
 	tmp = -1; /* fdopen() owns the descriptor from here. */
 
-	while (fgets(buf, sizeof(buf), fd) != NULL) {
-		buf_size = strlen(buf);
-		if (!miniupnpd_lease_record_key_matches(
-			    buf, buf_size, key, (size_t)key_length)) {
-			errno = 0;
-			if (fwrite(buf, 1, buf_size, fdt) != buf_size) {
-				status = errno ? errno : EIO;
-				break;
-			}
-		}
-	}
-	if (status == 0 && ferror(fd))
+	if (miniupnpd_lease_file_rewrite(
+		    fd, fdt, key, (size_t)key_length,
+		    replacement, replacement_length) < 0) {
 		status = errno ? errno : EIO;
-
-	if (fdt != NULL) {
-		if (status == 0) {
-			errno = 0;
-			if (fflush(fdt) != 0)
-				status = errno ? errno : EIO;
-		}
-		if (status == 0) {
-			errno = 0;
-			if (fsync(fileno(fdt)) < 0)
-				status = errno ? errno : EIO;
-		}
-		errno = 0;
-		if (fclose(fdt) != 0 && status == 0)
-			status = errno ? errno : EIO;
-		fdt = NULL;
+		goto cleanup;
 	}
+
 	if (fd != NULL) {
 		errno = 0;
-		if (fclose(fd) != 0 && status == 0)
+		if (fclose(fd) != 0) {
 			status = errno ? errno : EIO;
+			fd = NULL;
+			goto cleanup;
+		}
 		fd = NULL;
 	}
+	errno = 0;
+	if (fflush(fdt) != 0)
+		status = errno ? errno : EIO;
+	if (status == 0) {
+		errno = 0;
+		if (fsync(fileno(fdt)) < 0)
+			status = errno ? errno : EIO;
+	}
+	errno = 0;
+	if (fclose(fdt) != 0 && status == 0)
+		status = errno ? errno : EIO;
+	fdt = NULL;
 
 	if (status == 0) {
 		errno = 0;
 		if (rename(tmpfilename, lease_file) < 0)
 			status = errno ? errno : EIO;
+		else
+			tmp_created = 0;
 	}
 
 cleanup:
@@ -263,15 +262,38 @@ cleanup:
 	if (tmp >= 0)
 		(void)close(tmp);
 	if (status != 0) {
-		if (remove(tmpfilename) < 0 && errno != ENOENT)
+		if (tmp_created && remove(tmpfilename) < 0 && errno != ENOENT)
 			syslog(LOG_WARNING, "could not remove temporary lease file %s",
 			       tmpfilename);
-		syslog(LOG_ERR, "could not remove lease record %s: %s",
+		syslog(LOG_ERR, "could not rewrite lease record %s: %s",
 		       key, strerror(status));
 		errno = status;
 		return -1;
 	}
 	return 0;
+}
+
+static int
+lease_file_remove(unsigned short eport, int proto)
+{
+	return lease_file_rewrite_entry(eport, proto, NULL, 0);
+}
+
+static int
+lease_file_replace(unsigned short eport, const char *iaddr,
+                   unsigned short iport, int proto,
+                   const char *desc, unsigned int timestamp)
+{
+	char record[128];
+	int record_length;
+
+	record_length = miniupnpd_lease_record_format(
+		record, sizeof(record), proto_itoa(proto), eport,
+		iaddr, iport, timestamp, desc);
+	if (record_length < 0)
+		return -1;
+	return lease_file_rewrite_entry(eport, proto, record,
+	                                (size_t)record_length);
 }
 
 /* reload_from_lease_file()
@@ -407,6 +429,10 @@ upnp_redirect(const char * rhost, unsigned short eport,
 	unsigned short iport_old;
 	struct in_addr address;
 	unsigned int timestamp;
+#ifdef ENABLE_LEASEFILE
+	char desc_old[128];
+	unsigned int timestamp_old;
+#endif
 
 	proto = proto_atoi(protocol);
 	if(inet_aton(iaddr, &address) <= 0) {
@@ -453,9 +479,20 @@ upnp_redirect(const char * rhost, unsigned short eport,
 	 */
 	rhost_old[0] = '\0';
 	r = get_redirect_rule(ext_if_name, eport, proto,
-	                      iaddr_old, sizeof(iaddr_old), &iport_old, 0, 0,
+	                      iaddr_old, sizeof(iaddr_old), &iport_old,
+#ifdef ENABLE_LEASEFILE
+	                      desc_old, sizeof(desc_old),
+#else
+	                      0, 0,
+#endif
 	                      rhost_old, sizeof(rhost_old),
 	                      &timestamp, 0, 0);
+#ifdef ENABLE_LEASEFILE
+	if (r == 0) {
+		desc_old[sizeof(desc_old) - 1] = '\0';
+		timestamp_old = timestamp;
+	}
+#endif
 	if(r == 0) {
 		if(strcmp(iaddr, iaddr_old)==0 &&
 		   ((rhost == NULL && rhost_old[0]=='\0') ||
@@ -470,19 +507,27 @@ upnp_redirect(const char * rhost, unsigned short eport,
 				r = update_portmapping_desc_timestamp(ext_if_name, eport, proto, desc, timestamp);
 			}
 #ifdef ENABLE_LEASEFILE
-			if (r == 0) {
-				int lease_status = lease_file_remove(eport, proto);
-				if (lease_status == 0)
-					lease_status = lease_file_add(eport, iaddr, iport,
-					                             proto, desc, timestamp);
-				if (lease_status < 0) {
-					int saved_errno = errno ? errno : EIO;
+			if (r == 0 && lease_file_replace(
+				    eport, iaddr, iport, proto, desc, timestamp) < 0) {
+				int saved_errno = errno ? errno : EIO;
+				int rollback_status;
+
+				syslog(LOG_ERR,
+				       "could not atomically persist updated UPnP lease for port %hu/%d",
+				       eport, proto);
+				if (iport != iport_old)
+					rollback_status = update_portmapping(
+						ext_if_name, eport, proto, iport_old,
+						desc_old, timestamp_old);
+				else
+					rollback_status = update_portmapping_desc_timestamp(
+						ext_if_name, eport, proto, desc_old, timestamp_old);
+				if (rollback_status != 0)
 					syslog(LOG_ERR,
-					       "could not persist updated UPnP lease for port %hu/%d",
-					       eport, proto);
-					errno = saved_errno;
-					return -1;
-				}
+					       "failed to restore UPnP mapping after lease replacement failure (port=%hu proto=%d status=%d)",
+					       eport, proto, rollback_status);
+				errno = saved_errno;
+				return -1;
 			}
 #endif /* ENABLE_LEASEFILE */
 			return r;

@@ -97,11 +97,32 @@ assert "lease_file_add(eport, iaddr, iport, proto, desc, timestamp) < 0" in add
 assert add.index("lease_file_add(") < add.index("add_filter_rule2(")
 assert "_upnp_delete_redir(eport, proto)" in add
 
-assert "lease_file_remove(eport, proto)" in update
-assert "lease_file_add(eport, iaddr, iport," in update
-assert update.index("lease_file_remove(eport, proto)") < update.index(
-    "lease_file_add(eport, iaddr, iport,"
+rewrite_entry = function_body(
+    SOURCE,
+    "lease_file_rewrite_entry(unsigned short eport, int proto,"
 )
-assert "lease_status < 0" in update
+replace = function_body(
+    SOURCE,
+    "lease_file_replace(unsigned short eport, const char *iaddr,"
+)
+assert "miniupnpd_lease_file_rewrite(" in rewrite_entry
+for marker in ("mkstemp(tmpfilename)", "fchmod(tmp", "fflush(fdt)",
+               "fsync(fileno(fdt))", "rename(tmpfilename, lease_file)"):
+    assert marker in rewrite_entry, marker
+assert "miniupnpd_lease_file_rewrite(FILE *source, FILE *destination," in POLICY
+for marker in ("test_atomic_rewrite_replaces_all_matching_keys",
+               "test_atomic_rewrite_remove_preserves_other_keys",
+               "test_atomic_rewrite_creates_missing_file_content"):
+    assert marker in TEST, marker
+assert "lease_file_replace(eport, iaddr, iport, proto, desc, timestamp)" in update
+assert "desc_old, sizeof(desc_old)" in update
+assert "timestamp_old = timestamp" in update
+assert update.index("update_portmapping(ext_if_name, eport, proto, iport") < update.index(
+    "lease_file_replace(eport, iaddr, iport, proto, desc, timestamp)"
+)
+assert "update_portmapping(\n\t\t\t\t\t\text_if_name, eport, proto, iport_old" in update
+assert "update_portmapping_desc_timestamp(" in update
+assert "lease_file_remove(eport, proto)" not in update
+assert "lease_file_add(eport, iaddr, iport," not in update
 
 print("MiniUPnP lease-file deletion and persistence failure contract: PASS")

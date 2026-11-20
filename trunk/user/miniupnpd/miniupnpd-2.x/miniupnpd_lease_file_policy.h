@@ -133,4 +133,50 @@ rollback:
 	return -1;
 }
 
+
+/* Rewrite one lease key as a single record while preserving all other entries.
+ * The caller writes to a temporary file and publishes it with rename(). */
+static inline int
+miniupnpd_lease_file_rewrite(FILE *source, FILE *destination,
+                             const char *key, size_t key_length,
+                             const char *replacement,
+                             size_t replacement_length)
+{
+	char record[512];
+	size_t record_length;
+
+	if (!destination || !key || key_length == 0 ||
+	    (!replacement && replacement_length != 0)) {
+		errno = EINVAL;
+		return -1;
+	}
+	while (source && fgets(record, sizeof(record), source) != NULL) {
+		record_length = strlen(record);
+		if (!miniupnpd_lease_record_key_matches(
+			    record, record_length, key, key_length)) {
+			errno = 0;
+			if (fwrite(record, 1, record_length, destination) != record_length) {
+				if (errno == 0)
+					errno = EIO;
+				return -1;
+			}
+		}
+	}
+	if (source && ferror(source)) {
+		if (errno == 0)
+			errno = EIO;
+		return -1;
+	}
+	if (replacement_length != 0) {
+		errno = 0;
+		if (fwrite(replacement, 1, replacement_length, destination) !=
+		    replacement_length) {
+			if (errno == 0)
+				errno = EIO;
+			return -1;
+		}
+	}
+	return 0;
+}
+
 #endif /* MINIUPNPD_LEASE_FILE_POLICY_H */
