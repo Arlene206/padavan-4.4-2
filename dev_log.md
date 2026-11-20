@@ -1,3 +1,12 @@
+## 2026-11-20 — Correct VPN DNS cleanup checker branch matching
+
+- Parent main SHA: `d83eb501bd09fd56f2662e08ded2c434069f8bf1`.
+- The first checker update corrected the stale NVRAM getter condition, and its exact-head VPN run #44765563839 still failed because the newly added resolver-branch assertion matched a literal backslash-n instead of the actual newline/tab sequence in the Python-extracted C body.
+- Reworked that check to construct the expected branch text with `chr(10)` and tab characters; it still requires resolver refresh to be the `else` branch after the DNS snapshot clear status check.
+- This is a second checker-only correction. The VPN C policy regression and other compiled steps passed in both runs; no product source changed.
+
+---
+
 ## 2026-11-20 — Align VPN DNS cleanup source contract with checked getter semantics
 
 - Parent main SHA: `acc1a3d1025f8826af2ea4ebfe524fb09b5609c4`.

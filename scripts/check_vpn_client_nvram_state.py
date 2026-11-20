@@ -119,8 +119,9 @@ ordered(restore, [
     "else if (api_result == 1 && vpnc_dns[0] != '\\0')",
     "status = vpn_client_nvram_set_temp_status(NULL, \"vpnc_dns_t\", \"\");",
     "if (status != 0)",
-    "else\\n\\t\\t\\trefresh_resolvconf_nonfatal(\"VPN client DNS removal\", 0);"
+    "refresh_resolvconf_nonfatal(\"VPN client DNS removal\", 0);"
 ], "VPN DNS cleanup")
+assert ("else" + chr(10) + "\t\t\trefresh_resolvconf_nonfatal(\"VPN client DNS removal\", 0);") in restore
 assert "nvram_safe_get(\"vpnc_dns_t\")" not in restore
 
 l2tp_start = start.index('vpn_client_nvram_set_temp_status(\n\t\t\tNULL, "l2tp_cli_t", "1")')
