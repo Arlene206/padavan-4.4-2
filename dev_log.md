@@ -1,3 +1,10 @@
+## 2026-11-20 — Restore mandatory handoff checkpoint preamble after documentation edit
+
+- Parent main SHA: `de521606d8b1ccfabbb67cb0e2e006ec8bbc5939`.
+- Exact-head MiniUPnP #44795187554 passed the redirect metadata allocator regression and source-order contract. The AI handoff check #44795187315 failed only because the prior handoff rewrite accidentally removed the required `# Cross-session execution mandate` and `## Mandatory handoff checkpoint` preamble.
+- Restored the full handoff from its parent revision, then updated only current state, active task, verification boundary and first next action. Kept the mandatory checkpoint instruction intact; did not change or weaken the validator.
+- AI handoff exact-head rerun required. XY-C1 #44795187275 and NVRAM #44795187414 were pending at last poll. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Make redirect lease metadata allocation transactional
 
 - Parent main SHA: `22a47cebeb8c09a51e6eb40919a4f0bca05d7875`.
