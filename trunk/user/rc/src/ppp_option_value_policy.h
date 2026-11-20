@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdlib.h>
 #include <string.h>
 
 /*
@@ -124,6 +125,47 @@ ppp_option_text_escape(const char *value, char *out, size_t out_size)
 	return ppp_option_escape_internal(value, out, out_size, 1);
 }
 
+
+/*
+ * Escape NVRAM-backed multiline text without a fixed-size truncation.
+ * Every input byte may require an escape prefix, so allocate the worst case.
+ */
+static int
+ppp_option_text_escape_alloc(const char *value, char **out)
+{
+	size_t length, capacity;
+	char *buffer;
+	int saved_errno;
+
+	if (!out) {
+		errno = EINVAL;
+		return -1;
+	}
+	*out = NULL;
+	if (!value) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	length = strlen(value);
+	if (length > ((size_t)-1 - 1U) / 2U) {
+		errno = EOVERFLOW;
+		return -1;
+	}
+	capacity = length * 2U + 1U;
+	buffer = (char *)malloc(capacity);
+	if (!buffer)
+		return -1;
+	if (ppp_option_text_escape(value, buffer, capacity) != 0) {
+		saved_errno = errno ? errno : EINVAL;
+		free(buffer);
+		errno = saved_errno;
+		return -1;
+	}
+
+	*out = buffer;
+	return 0;
+}
 
 /*
  * Copy one unquoted scalar into line-oriented L2TP config syntax.

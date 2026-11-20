@@ -33,6 +33,7 @@
 #include "vpn_client_nvram_policy.h"
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
+#include "ppp_option_value_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 
 #define VPNC_LOG_NAME		"VPN client"
@@ -111,7 +112,8 @@ start_vpn_client_locked(void)
 	FILE *fp;
 	int i_type, i_mppe, i_auth, xl2tpd_status, saved_errno, cleanup_status;
 	char vpnc_peer_copy[256], vpnc_peer_line[256];
-	char *vpnc_peer, *vpnc_opt, tmp[256];
+	char vpnc_user_line[256], vpnc_pass_line[256];
+	char *vpnc_peer, *vpnc_opt, *vpnc_pppd_options = NULL;
 
 	if (nvram_invmatch("vpnc_enable", "1") || get_ap_mode())
 		return 1;
@@ -128,12 +130,11 @@ start_vpn_client_locked(void)
 		errno = saved_errno;
 		return -1;
 	}
-	vpnc_peer = safe_pppd_line(vpnc_peer_copy, vpnc_peer_line,
-				   sizeof(vpnc_peer_line));
-	if (!vpnc_peer) {
+	if (ppp_option_value_escape(vpnc_peer_copy, vpnc_peer_line,
+				    sizeof(vpnc_peer_line)) != 0) {
 		saved_errno = errno ? errno : EINVAL;
 		logmessage(VPNC_LOG_NAME,
-			   "refusing VPN client startup: peer cannot be safely encoded (errno=%d)",
+			   "refusing VPN client startup: peer contains invalid scalar data (errno=%d)",
 			   saved_errno);
 		errno = saved_errno;
 		return -1;
@@ -170,18 +171,40 @@ start_vpn_client_locked(void)
 	i_auth = nvram_get_int("vpnc_auth");
 	i_mppe = nvram_get_int("vpnc_mppe");
 
+	/*
+	 * Validate grammar-specific NVRAM values before opening/truncating the
+	 * private PPP options file. Scalar fields reject line breaks; custom
+	 * options preserve LF/TAB but cannot override RC-owned ipparam.
+	 */
+	if (ppp_option_value_escape(nvram_safe_get("vpnc_user"),
+				    vpnc_user_line, sizeof(vpnc_user_line)) != 0 ||
+	    ppp_option_value_escape(nvram_safe_get("vpnc_pass"),
+				    vpnc_pass_line, sizeof(vpnc_pass_line)) != 0 ||
+	    ppp_option_text_escape_alloc(nvram_safe_get("vpnc_pppd"),
+					  &vpnc_pppd_options) != 0) {
+		saved_errno = errno ? errno : EINVAL;
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client startup: PPP option value failed validation (errno=%d)",
+			   saved_errno);
+		free(vpnc_pppd_options);
+		vpnc_pppd_options = NULL;
+		errno = saved_errno;
+		return -1;
+	}
+
 	/* Credential-bearing options must be private before truncation. */
 	fp = ppp_options_file_open(vpnc_opt);
 	if (!fp) {
 		saved_errno = errno ? errno : EIO;
+		free(vpnc_pppd_options);
 		logmessage(VPNC_LOG_NAME, "cannot safely open private PPP options (errno=%d)", saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
 
 	fprintf(fp, "noauth\n");
-	fprintf(fp, "user '%s'\n", safe_pppd_line(nvram_safe_get("vpnc_user"), tmp, sizeof(tmp)));
-	fprintf(fp, "password '%s'\n", safe_pppd_line(nvram_safe_get("vpnc_pass"), tmp, sizeof(tmp)));
+	fprintf(fp, "user '%s'\n", vpnc_user_line);
+	fprintf(fp, "password '%s'\n", vpnc_pass_line);
 	fprintf(fp, "refuse-eap\n");
 
 	if (i_auth == 1) {
@@ -264,15 +287,18 @@ start_vpn_client_locked(void)
 	fprintf(fp, "minunit %d\n", VPNC_PPP_UNIT);
 	fprintf(fp, "ktune\n");
 
-	/* user specific options */
-	fprintf(fp, "%s\n", nvram_safe_get("vpnc_pppd"));
+	/* Custom options were checked and escaped before file truncation. */
+	fprintf(fp, "%s\n", vpnc_pppd_options);
 
 	if (ppp_options_file_finish(fp, vpnc_opt) != 0) {
 		saved_errno = errno ? errno : EIO;
+		free(vpnc_pppd_options);
 		logmessage(VPNC_LOG_NAME, "cannot flush or close private PPP options (errno=%d)", saved_errno);
 		errno = saved_errno;
 		return -1;
 	}
+	free(vpnc_pppd_options);
+	vpnc_pppd_options = NULL;
 
 	if (i_type == 1)
 	{

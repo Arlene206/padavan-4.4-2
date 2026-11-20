@@ -63,6 +63,8 @@ def ordered(source, tokens, label):
 
 vpn = (ROOT / "trunk/user/rc/src/vpn_client.c").read_text()
 header = (ROOT / "trunk/user/rc/src/vpn_client_nvram_policy.h").read_text()
+ppp_policy = (ROOT / "trunk/user/rc/src/ppp_option_value_policy.h").read_text()
+ppp_test = (ROOT / "trunk/user/rc/src/tests/ppp_option_value_policy.c").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/vpn_client_nvram_policy.c").read_text()
 rc_header = (ROOT / "trunk/user/rc/src/rc.h").read_text()
 openvpn = (ROOT / "trunk/user/rc/src/vpn_openvpn.c").read_text()
@@ -73,7 +75,23 @@ assert "void restore_dns_from_vpnc(void);" not in rc_header
 
 start = body(vpn, "static int\nstart_vpn_client_locked(void)")
 assert "vpn_client_nvram_copy_text(" in start
-assert "safe_pppd_line(vpnc_peer_copy, vpnc_peer_line," in start
+assert "ppp_option_value_escape(vpnc_peer_copy, vpnc_peer_line," in start
+assert 'ppp_option_value_escape(nvram_safe_get("vpnc_user")' in start
+assert 'ppp_option_value_escape(nvram_safe_get("vpnc_pass")' in start
+assert 'ppp_option_text_escape_alloc(nvram_safe_get("vpnc_pppd")' in start
+assert "safe_pppd_line(" not in start
+file_open = start.index("fp = ppp_options_file_open(vpnc_opt);")
+for token in (
+    "ppp_option_value_escape(vpnc_peer_copy",
+    'ppp_option_value_escape(nvram_safe_get("vpnc_user")',
+    'ppp_option_value_escape(nvram_safe_get("vpnc_pass")',
+    'ppp_option_text_escape_alloc(nvram_safe_get("vpnc_pppd")',
+):
+    assert start.index(token) < file_open, token
+assert "vpnc_user_line);" in start and "vpnc_pass_line);" in start
+assert "vpnc_pppd_options);" in start
+assert 'fprintf(fp, "%s\\n", nvram_safe_get("vpnc_pppd"));' not in start
+assert start.count("free(vpnc_pppd_options);") == 3
 assert "pptp_server" in start
 ordered(start, [
     "saved_errno = vpn_client_nvram_clear_runtime_state(",
@@ -156,6 +174,11 @@ for token in (
     "test_invalid_sequence_does_not_write",
 ):
     assert token in test and token + "();" in test
+for token in (
+    "test_multiline_allocator_preserves_format_and_blocks_ipparam",
+    "ppp_option_text_escape_alloc",
+):
+    assert token in ppp_policy and token in ppp_test
 for token in (
     "vpn_client_nvram_write_status",
     "vpn_client_nvram_read_status",

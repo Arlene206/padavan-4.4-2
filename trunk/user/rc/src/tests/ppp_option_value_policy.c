@@ -1,9 +1,34 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 #include "ppp_option_value_policy.h"
+
+
+static void
+test_multiline_allocator_preserves_format_and_blocks_ipparam(void)
+{
+	char *escaped = NULL;
+
+	assert(ppp_option_text_escape_alloc(
+		"debug\nlogfile /tmp/a\tfoo", &escaped) == 0);
+	assert(strcmp(escaped, "debug\nlogfile /tmp/a\tfoo") == 0);
+	free(escaped);
+
+	escaped = NULL;
+	assert(ppp_option_text_escape_alloc(
+		"debug\nipparam=attacker", &escaped) == -1);
+	assert(errno == EPERM);
+	assert(escaped == NULL);
+
+	assert(ppp_option_text_escape_alloc(NULL, &escaped) == -1);
+	assert(errno == EINVAL);
+	assert(escaped == NULL);
+	assert(ppp_option_text_escape_alloc("debug", NULL) == -1);
+	assert(errno == EINVAL);
+}
 
 int
 main(void)
@@ -14,6 +39,7 @@ main(void)
 	char long_value[301];
 	char expanded[11];
 
+	test_multiline_allocator_preserves_format_and_blocks_ipparam();
 	assert(ppp_option_value_escape("user'\\name", out, sizeof(out)) == 0);
 	assert(strcmp(out, "user\\'\\\\name") == 0);
 
