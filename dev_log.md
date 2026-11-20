@@ -1,3 +1,12 @@
+## 2026-11-20 — Fix MiniUPnP lease write errno source contract
+
+- Parent main SHA: `3bdb1d9f68767aeea29ce14bc93959426ee382e4`.
+- Exact-head MiniUPnP regression #44743068543 on `ee9428dcaedd7530695ddfeedcac7a326448a705` compiled and passed every C policy/sanitizer binary, then failed its Python source contract at the lease writer. The checker compared the first `errno = 0;` (inside the mutually exclusive record-format error branch) against `fwrite()`, so it did not test the reset on the normal write path.
+- Corrected the contract to select the nearest errno reset before the write call; the final-close ordering assertion was already corrected by parent commit `3bdb1d9f`. Verified the write and close reset positions against current `upnpredirect.c`.
+- Parent exact-SHA MiniUPnP regression #44743367478 and AI handoff #44743367373 PASS. The failed #44743068543 run is on the preceding SHA and is not a current-head failure. New exact-head Actions are pending; no L3 claim.
+
+---
+
 ## 2026-11-20 — Escape untrusted UPnP mapping output before SOAP XML serialization
 
 - Parent main SHA: a6897a11e4e19c6342f5a267ec28212467a5f443.

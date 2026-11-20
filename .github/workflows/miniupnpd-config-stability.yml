@@ -206,7 +206,9 @@ jobs:
           assert "fwrite(record, 1, (size_t)record_length, fd)" in lease_add
           assert "fclose(fd)" in lease_add
           assert '#include <errno.h>' in redirect_source
-          assert lease_add.index("errno = 0;") < lease_add.index("fwrite(")
+          write_call = lease_add.index("fwrite(")
+          write_errno_reset = lease_add.rindex("errno = 0;", 0, write_call)
+          assert write_errno_reset < write_call
           assert lease_add.rindex("errno = 0;") < lease_add.rindex("fclose(fd)")
           assert "fprintf(fd" not in lease_add
           for marker in (
