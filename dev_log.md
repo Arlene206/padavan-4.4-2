@@ -1,3 +1,11 @@
+## 2026-11-20 — Validate optional PID 1 device nodes and propagate boot degradation
+
+- Parent main SHA: `462e3c811f4abd68583af11df51fbf66ebb8971e`. In `init_nodes()`, the `/dev/hwnat0` and `/dev/crypto` `mknod()` return values were discarded, and `EEXIST` was accepted without checking that the path was the expected character device. The OpenVPN TUN failure was logged but not merged into the PID 1 READY/DEGRADED decision.
+- Added a shared boot-device identity policy and regression for character type, major/minor, root ownership, link count and safe permissions. Creation errors are retained; an existing path is accepted only after `lstat()` and full identity validation. Optional HW-NAT, MTK crypto and OpenVPN TUN failures now keep the first error and mark router startup DEGRADED; the separate NVRAM-device prerequisite remains fatal.
+- Added the policy binary to the exact-head Process lifecycle workflow and extended the PID 1 boot source contract. The existing XY-C1 workflow already watches `init.c`, so this production edit also triggers firmware validation. Exact-head Process and XY-C1 Actions are pending after this source commit; no local firmware build or router test is claimed.
+
+---
+
 ## 2026-11-20 — Fix NDIS identity checker formatting anchor and strict-C test include
 
 - Parent main SHA: `a033d8e862681f0e90e29e6a3ac4364ba32ae995`. The USB modem exact-head run `44708363419` compiled and passed all five pre-existing GNU89/ASan/UBSan C regressions, passed the WDM/NDIS semantic workflow block and module-reload checker, then failed at one new checker assertion that expected no whitespace after a multiline function's opening parenthesis. The generated source is correct; the structural check was too formatting-sensitive.

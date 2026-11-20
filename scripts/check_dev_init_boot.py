@@ -20,6 +20,8 @@ copyscripts = (root / "trunk/user/scripts/files/usr/bin/copyscripts.sh").read_te
 workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
 retry_policy = (root / "trunk/user/rc/src/init_mdev_retry_policy.h").read_text()
 retry_test = (root / "trunk/user/rc/src/tests/init_mdev_retry_policy.c").read_text()
+boot_device_policy = (root / "trunk/user/rc/src/boot_device_node_policy.h").read_text()
+boot_device_test = (root / "trunk/user/rc/src/tests/boot_device_node_policy.c").read_text()
 shell_test = (root / "trunk/user/scripts/tests/dev_init_boot_policy.sh").read_text()
 
 
@@ -81,11 +83,40 @@ assert "mdev -s || exit 1" in normalized
 assert script.rstrip().endswith("exit 0")
 assert script.index("/etc/storage/start_script.sh") < script.rindex("exit 0")
 
+nodes = c_function(init, "init_nodes(int *optional_status)")
+node_prepare = c_function(init, "init_optional_device_node(const char *path, dev_t device)")
+node_recorder = c_function(init, "init_nodes_record_optional_status(int first_status, const char *path,")
 loop = c_function(init, "init_main_loop(void)")
 sysctl = c_function(init, "init_sysctl(void)")
 sysctl_recorder = c_function(init, "init_sysctl_record_status(")
 router = c_function(rc, "init_router(void)")
-assert 'dev_init_status = system("dev_init.sh")' in loop
+assert '#include "boot_device_node_policy.h"' in init
+assert "mknod(path, S_IFCHR | RC_BOOT_DEVICE_NODE_MODE, device)" in node_prepare
+assert "errno != EEXIST" in node_prepare
+assert "lstat(path, &st)" in node_prepare
+assert "rc_boot_device_node_is_secure(&st, device)" in node_prepare
+assert "return -EPERM;" in node_prepare
+assert "mknod(\"/dev/hwnat0\"" not in nodes and "mknod(\"/dev/crypto\"" not in nodes
+assert "init_optional_device_node(\"/dev/hwnat0\"" in nodes
+assert "init_optional_device_node(\"/dev/crypto\"" in nodes
+assert "init_openvpn_tun_node()" in nodes
+assert "init_nodes_record_optional_status" in nodes
+assert "return nvram_result;" in nodes
+assert "optional boot device" in node_recorder
+assert "if (first_status == 0)" in node_recorder
+assert 'nvram_node_result = init_nodes(&optional_node_status);' in loop
+assert "if (sysctl_status == 0) sysctl_status = optional_node_status;" in " ".join(loop.split())
+assert loop.index("sysctl_status = init_sysctl();") < loop.index("sysctl_status = optional_node_status;") < loop.index("router_init_status = init_router();")
+assert "rc_boot_device_node_is_secure" in boot_device_policy
+for token in ("S_ISCHR", "st_rdev != expected_device", "st_nlink != 1",
+              "(mode & 0600) != 0600", "(mode & 0111) != 0",
+              "(mode & 07000) != 0"):
+    assert token in boot_device_policy, "missing optional device-node policy: " + token
+for token in ("rc_boot_device_node_is_secure(&st, expected)",
+              "makedev(220, 0)", "makedev(220, 1)",
+              "st.st_uid = 1000", "st.st_gid = 1000",
+              "st.st_nlink = 2", "rc_boot_device_node_is_secure(NULL"):
+    assert token in boot_device_test, "missing optional node policy regression: " + token
 assert 'dev_init_status = system("dev_init.sh -l")' in loop
 assert "if (dev_init_status != 0)" in loop
 assert "router_ready = (dev_init_status == 0 && nvram_node_result == 0 && init_router_status_is_ready(router_init_status))" in " ".join(loop.split())
@@ -183,6 +214,11 @@ for token in ("-EIO", "-EAGAIN", "INIT_MDEV_RETRY_DELAY_SECONDS == 5",
               "PID 1 deferred mdev hotplug recovery policy: PASS"):
     assert token in retry_test
 assert "init_mdev_retry_policy.h" in workflow
+push_paths, pull_request_section = workflow.split("  pull_request:", 1)
+pull_paths = pull_request_section.split("\njobs:", 1)[0]
+for path in ("trunk/user/rc/src/boot_device_node_policy.h",
+             "trunk/user/rc/src/tests/boot_device_node_policy.c"):
+    assert push_paths.count(path) == 1 and pull_paths.count(path) == 1
 push_paths, pull_request_section = workflow.split("  pull_request:", 1)
 pull_paths = pull_request_section.split("\njobs:", 1)[0]
 for path in ("trunk/user/rc/src/init_router_result_policy.h",

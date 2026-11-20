@@ -44,6 +44,7 @@
 #include "init_mdev_retry_policy.h"
 #include "nvram_device_node_policy.h"
 #include "tun_device_node_policy.h"
+#include "boot_device_node_policy.h"
 
 #define CONSOLE_TERMINAL	"vt100"
 #define INIT_HOME_PATH		"/home/root"
@@ -531,26 +532,82 @@ init_openvpn_tun_node(void)
 }
 
 static int
-init_nodes(void)
+#if defined(USE_HW_NAT) || defined(USE_MTK_AES)
+static int
+init_optional_device_node(const char *path, dev_t device)
+{
+	struct stat st;
+	int saved_errno;
+
+	if (!path || path[0] != '/')
+		return -EINVAL;
+
+	if (mknod(path, S_IFCHR | RC_BOOT_DEVICE_NODE_MODE, device) != 0 &&
+	    errno != EEXIST) {
+		saved_errno = errno ? errno : EIO;
+		return -saved_errno;
+	}
+
+	/* EEXIST is safe only when the existing path is the exact device. */
+	if (lstat(path, &st) != 0) {
+		saved_errno = errno ? errno : EIO;
+		return -saved_errno;
+	}
+	if (!rc_boot_device_node_is_secure(&st, device))
+		return -EPERM;
+
+	return 0;
+}
+#endif
+
+#if defined(USE_HW_NAT) || defined(USE_MTK_AES) || defined(APP_OPENVPN)
+static int
+init_nodes_record_optional_status(int first_status, const char *path,
+				  int status)
+{
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "optional boot device %s is unavailable or unsafe (status=%d); dependent feature may be unavailable",
+			   path, status);
+		if (first_status == 0)
+			first_status = status;
+	}
+	return first_status;
+}
+#endif
+
+static int
+init_nodes(int *optional_status)
 {
 	int nvram_result;
+	int first_optional_status = 0;
 
 	nvram_result = init_nvram_node();
 #if defined (USE_HW_NAT)
-	mknod("/dev/hwnat0", S_IFCHR | 0666, makedev(220, 0));
+	{
+		int status = init_optional_device_node("/dev/hwnat0",
+						      makedev(220, 0));
+		first_optional_status = init_nodes_record_optional_status(
+			first_optional_status, "/dev/hwnat0", status);
+	}
 #endif
 #if defined (USE_MTK_AES)
-	mknod("/dev/crypto", S_IFCHR | 0666, makedev(10, 60));
+	{
+		int status = init_optional_device_node("/dev/crypto",
+						      makedev(10, 60));
+		first_optional_status = init_nodes_record_optional_status(
+			first_optional_status, "/dev/crypto", status);
+	}
 #endif
 #if defined (APP_OPENVPN)
 	{
 		int tun_status = init_openvpn_tun_node();
-		if (tun_status != 0)
-			logmessage(LOGNAME,
-				   "OpenVPN TUN device node initialization failed (status=%d)",
-				   tun_status);
+		first_optional_status = init_nodes_record_optional_status(
+			first_optional_status, TUN_DEVICE_NODE_PATH, tun_status);
 	}
 #endif
+	if (optional_status)
+		*optional_status = first_optional_status;
 
 	return nvram_result;
 }
@@ -676,6 +733,7 @@ init_main_loop(void)
 	int router_ready;
 	int router_init_status = INIT_ROUTER_RESULT_FATAL;
 	int nvram_node_result;
+	int optional_node_status = 0;
 	int dev_init_status;
 	int sysctl_status;
 	int mdev_status;
@@ -696,7 +754,7 @@ init_main_loop(void)
 		logmessage(LOGNAME,
 			   "required device/filesystem initialization failed (system status=%d); router startup disabled",
 			   dev_init_status);
-	nvram_node_result = init_nodes();
+	nvram_node_result = init_nodes(&optional_node_status);
 	if (nvram_node_result != 0)
 		logmessage(LOGNAME, "NVRAM device is unavailable or unsafe; router startup remains in recovery mode");
 	mdev_status = init_mdev();
@@ -713,6 +771,9 @@ init_main_loop(void)
 				   mdev_status);
 	}
 	sysctl_status = init_sysctl();
+	/* Optional accelerator/TUN failures degrade boot, but NVRAM remains fatal. */
+	if (sysctl_status == 0)
+		sysctl_status = optional_node_status;
 
 	/* Setup console */
 	if (init_console())
