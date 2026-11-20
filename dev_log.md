@@ -1,3 +1,10 @@
+## 2026-11-20 — Roll back NAT when the corresponding filter update fails
+
+- Parent main SHA: f5807d72e7b0e240660650432a9af846f61e94c7.
+- Confirmed a cross-table consistency defect in update_portmapping(): NAT was committed with the new internal port before filter-table open/chain lookup/rule allocation/commit; every later failure returned without restoring NAT. DNAT and forwarding ACCEPT rules could therefore target different internal ports.
+- Retained the changed NAT entry and original port through the filter operation, used a distinct filter-entry copy, and routed post-NAT filter failures through a compensating NAT commit at the saved NAT index. A failed rollback is logged while the original failure status/errno remains authoritative.
+- Added GNU89 rollback-decision/error-priority tests and a source contract checking post-NAT failure routes and the restore call. Wired the test/checker into MiniUPnP and XY-C1 path filters.
+- Capacity regression #44791232803 on c5e4169 passed. This transaction fix needs exact-head MiniUPnP verification; XY-C1 #44791232838 was still building at last poll. Physical-router L4 remains NOT VERIFIED.
 ## 2026-11-20 — Fix Python escape handling in the IPTC ownership checker
 
 - Parent main SHA: `7faa238fe5df2605e4805a04187c866f9691528f`.

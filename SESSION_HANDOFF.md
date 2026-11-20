@@ -16,33 +16,35 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Parent `main` for this atomic slice: `c5e41697bfeb593223a8c7c46b9e1e972fdc7be9`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
-- MiniUPnP allocation-safety source fix `2ffb8479a33ad55a4138b3384a31510f5b7c534e` passed exact-head MiniUPnP run `44789878471` on `8dbb0963cb6b816bf13cf13726f5de0ce3c867fb`, including the GNU89 ASan/UBSan allocation-cleanup test and normalized source contract.
-- XY-C1 Firmware Validation `44790573472` was IN_PROGRESS on parent SHA `c5e41697bfeb593223a8c7c46b9e1e972fdc7be9` at this checkpoint; Build/TRX/artifact completion must be inspected on the new source SHA before claiming L3.
-- Confirmed additional IPTC lifetime defect: the initial NAT deletion path did not clear its caller-side handle after `delete_rule_and_commit()` freed it. The filter, peer NAT and DSCP call sites already clear their local copies. This slice fixes the missing ownership marker and adds an exact four-callsite source contract.
-- MIPS/uClibc target runtime and physical-router L4 remain NOT VERIFIED.
+- Current main before this NAT/filter transaction slice: f5807d72e7b0e240660650432a9af846f61e94c7; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Port-mapping enumeration heap-overflow fix is committed as c5e41697bfeb593223a8c7c46b9e1e972fdc7be9. Exact-head MiniUPnP regression #44791232803 PASS, including the 4096-entry capacity-growth sanitizer test and new source contract.
+- Exact-head XY-C1 run #44791232838 on c5e4169 was IN_PROGRESS at last poll; Build XY-C1 had not started and TRX/artifact remained pending. Do not claim L3.
+- Confirmed a cross-table partial-transaction defect in update_portmapping(): NAT is committed with the new internal port before filter-table open/chain lookup/rule allocation/commit. Any later filter failure returned immediately, leaving the DNAT and forwarding ACCEPT rules with different internal ports.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Close the MiniUPnP IPTC handle double-free path and continue the netfilter transaction audit:
+Make update_portmapping() fail transactionally across NAT and filter tables:
 
-- `delete_rule_and_commit()` consumes and releases its `IPTC_HANDLE` on every result. The initial NAT deletion branch previously retained its stale local handle and could call `iptc_free()` again after deletion or commit failure.
-- Clear the local handle immediately after the helper call, matching the already-correct filter, peer-NAT and DSCP paths.
-- The focused Python source contract checks all four call sites and verifies that the helper closes the handle for both IPTABLES API variants. MiniUPnP push/PR path filters include the checker.
-- After exact-head validation, continue with the partially committed NAT/MASQUERADE and cross-table rule installation paths. Do not repeat the completed DHCP leasefail/NAK/release or AP restore audit.
+- Retain the changed NAT entry and its original internal port until the corresponding filter update commits.
+- Use a separate filter-entry buffer. If filter open, chain lookup, matching rule, buffer allocation or filter commit fails after NAT commit, restore the NAT entry to its original port at the saved NAT index.
+- Preserve the primary failure status/errno if compensating rollback also fails, and emit a clear rollback diagnostic.
+- Add GNU89 ASan/UBSan policy regression tests and a source contract requiring all post-NAT filter failure paths to reach the rollback.
+
+After exact-head MiniUPnP and XY-C1 validation, continue the netfilter rule update/delete transaction audit. Do not repeat the completed capacity/allocation fixes.
 
 ## Verification boundary
 
-- MiniUPnP allocation-safety baseline `2ffb847`: exact-head host sanitizer/source-contract workflow PASS on `8dbb096` (`44789878471`).
-- IPTC deletion ownership source fix and four-callsite contract are included in this atomic slice; exact-head MiniUPnP and AI documentation checks must pass.
-- XY-C1 run `44790573472` on parent `c5e41697bfeb593223a8c7c46b9e1e972fdc7be9` was still running at the last check. This change touches `iptcrdr.c`, which is in the XY-C1 path filters; the new exact-head Build, TRX and artifact upload are required for L3.
+- Port-mapping enumeration capacity fix c5e4169: exact-head MiniUPnP #44791232803 PASS; the C regression stored and verified 4096 entries after multiple capacity doublings under ASan/UBSan, and its source contract passed.
+- XY-C1 #44791232838 on c5e4169 was IN_PROGRESS; Build, TRX and artifact had not yet completed.
+- This commit adds a rollback policy regression/source contract; exact-head MiniUPnP Action must pass. XY-C1 triggers on iptcrdr.c and new policy/test paths; exact-source firmware Build/TRX/artifact remain mandatory for L3.
 - Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, confirm the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, then inspect exact-head MiniUPnP, AI handoff and XY-C1 Actions for this commit. Require Build, TRX verification and artifact upload before claiming L3.
-2. If those checks pass, continue the netfilter partial-install audit at `add_redirect_rule2()`: establish the cleanup/rollback behavior when DNAT succeeds but optional MASQUERADE fails, without deleting unrelated peer/filter rules.
-3. Keep MIPS/uClibc runtime and physical-router L4 explicitly unverified until tested on target hardware.
+1. Fetch live main, verify frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807, and check exact-head MiniUPnP rollback policy/source-contract Actions.
+2. Inspect XY-C1 Build, TRX verification and artifact upload for the exact source SHA; diagnose the first causal failure from its logs.
+3. Continue auditing MiniUPnP NAT/filter rule updates and deletes for partial commits and stale state. Physical-router L4 remains unverified.
 
 ## Handoff maintenance
 

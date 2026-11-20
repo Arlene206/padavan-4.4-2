@@ -64,6 +64,7 @@
 #include "iptcrdr.h"
 #include "iptcrdr_allocation_policy.h"
 #include "iptcrdr_capacity_policy.h"
+#include "iptcrdr_update_policy.h"
 #include "../upnpglobalvars.h"
 #include "../miniupnpd_redirect_cleanup_policy.h"
 
@@ -1727,12 +1728,17 @@ update_portmapping(const char * ifname, unsigned short eport, int proto,
                    unsigned int timestamp)
 {
 	int r = 0;
+	int nat_status = -1;
+	int rollback_status;
+	int failure_errno;
+	unsigned nat_index = 0;
 	int found = 0;
 	unsigned index = 0;
 	unsigned i = 0;
 	IPTC_HANDLE h;
 	const struct ipt_entry * e;
 	struct ipt_entry * new_e = NULL;
+	struct ipt_entry *filter_e = NULL;
 	size_t entry_len;
 	const struct ipt_entry_target * target;
 	struct ip_nat_multi_range * mr;
@@ -1816,23 +1822,27 @@ update_portmapping(const char * ifname, unsigned short eport, int proto,
 	mr = (struct ip_nat_multi_range *)&target->data[0];
 	mr->range[0].min.all = mr->range[0].max.all = htons(iport);
 	/* first update the nat rule */
-	r = update_rule_and_commit("nat", miniupnpd_nat_chain, index, new_e);
-	free(new_e); new_e = NULL;
-	if(r < 0)
+	nat_index = index;
+	r = update_rule_and_commit("nat", miniupnpd_nat_chain, nat_index, new_e);
+	if (r < 0) {
+		free(new_e);
+		new_e = NULL;
 		return r;
+	}
+	nat_status = r;
 
-	/* update filter rule */
+	/* update filter rule; any failure must roll back the NAT rule */
 	h = iptc_init("filter");
-	if(!h)
-	{
+	if (!h) {
 		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
 		       "update_portmapping", iptc_strerror(errno));
-		return -1;
+		r = -1;
+		goto rollback_nat;
 	}
 	i = 0; found = 0;
-	if(!iptc_is_chain(miniupnpd_forward_chain, h))
-	{
+	if (!iptc_is_chain(miniupnpd_forward_chain, h)) {
 		syslog(LOG_ERR, "chain %s not found", miniupnpd_forward_chain);
+		r = -1;
 	}
 	else
 	{
@@ -1870,13 +1880,13 @@ update_portmapping(const char * ifname, unsigned short eport, int proto,
 			index = i;
 			found = 1;
 			entry_len = sizeof(struct ipt_entry) + match->u.match_size + target->u.target_size;
-			new_e = malloc(entry_len);
-			if(new_e == NULL) {
+			filter_e = malloc(entry_len);
+			if (filter_e == NULL) {
 				syslog(LOG_ERR, "%s: malloc(%u) error",
-				       "update_portmapping", (unsigned)entry_len);
+				       "update_portmapping filter", (unsigned)entry_len);
 				r = -1;
 			} else {
-				memcpy(new_e, e, entry_len);
+				memcpy(filter_e, e, entry_len);
 			}
 			break;
 		}
@@ -1886,29 +1896,52 @@ update_portmapping(const char * ifname, unsigned short eport, int proto,
 #else
 	iptc_free(&h);
 #endif
-	if(!found || r < 0)
-		return -1;
+	if (!found || r < 0) {
+		if (r == 0)
+			r = -1;
+		goto rollback_nat;
+	}
 
 	syslog(LOG_INFO, "Trying to update filter rule at index %u", index);
-	match = (struct ipt_entry_match *)&new_e->elems;
-	if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
-	{
-		struct ipt_tcp * info;
+	match = (const struct ipt_entry_match *)&filter_e->elems;
+	if (0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN)) {
+		struct ipt_tcp *info;
 		info = (struct ipt_tcp *)match->data;
 		info->dpts[0] = info->dpts[1] = iport;
-	}
-	else
-	{
-		struct ipt_udp * info;
+	} else {
+		struct ipt_udp *info;
 		info = (struct ipt_udp *)match->data;
 		info->dpts[0] = info->dpts[1] = iport;
 	}
-	r = update_rule_and_commit("filter", miniupnpd_forward_chain, index, new_e);
-	free(new_e); new_e = NULL;
-	if(r < 0)
-		return r;
+	r = update_rule_and_commit("filter", miniupnpd_forward_chain, index, filter_e);
+	if (miniupnpd_portmapping_rollback_required(nat_status, r))
+		goto rollback_nat;
 
+	free(filter_e);
+	filter_e = NULL;
+	free(new_e);
+	new_e = NULL;
 	return update_portmapping_desc_timestamp(ifname, eport, proto, desc, timestamp);
+
+rollback_nat:
+	failure_errno = errno ? errno : EIO;
+	if (miniupnpd_portmapping_rollback_required(nat_status, r)) {
+		target = (void *)new_e + new_e->target_offset;
+		mr = (struct ip_nat_multi_range *)&target->data[0];
+		mr->range[0].min.all = mr->range[0].max.all = htons(old_iport);
+		rollback_status = update_rule_and_commit(
+			"nat", miniupnpd_nat_chain, nat_index, new_e);
+		if (rollback_status != 0) {
+			syslog(LOG_ERR,
+			       "failed to roll back NAT port mapping after filter update failure (port=%hu proto=%d status=%d)",
+			       eport, proto, rollback_status);
+		}
+		r = miniupnpd_portmapping_failure_result(r, rollback_status);
+	}
+	free(filter_e);
+	free(new_e);
+	errno = failure_errno;
+	return r;
 }
 
 /* ================================ */
