@@ -127,3 +127,23 @@ for path in paths:
     assert pr_filters.count(quoted) == 1, "pull_request path count: " + path
 
 print("Watchdog NTP stop-before-start and lifecycle call-path contracts: PASS")
+
+
+# NTP step completion and persistent readiness publication must fail closed.
+from pathlib import Path as _WatchdogPath
+_ntp_root = _WatchdogPath(__file__).resolve().parents[1]
+_ntp_rc = _ntp_root / "trunk/user/rc/src"
+_ntp_watchdog = (_ntp_rc / "watchdog.c").read_text()
+_ntp_policy = (_ntp_rc / "watchdog_ntp_policy.h").read_text()
+_ntp_test = (_ntp_rc / "tests/watchdog_ntp_policy.c").read_text()
+assert "watchdog_ntp_step_has_offset" in _ntp_policy
+assert "watchdog_ntp_ready_retry_required" in _ntp_policy
+assert "test_ntp_step_requires_nonempty_offset" in _ntp_test
+assert "test_ntp_ready_publication_retries_only_after_a_real_step" in _ntp_test
+assert _ntp_watchdog.index("if (!watchdog_ntp_step_has_offset(offset))") < _ntp_watchdog.index('counter_status = nvram_set_int_temp("ntpc_counter"')
+assert _ntp_watchdog.index('counter_status = nvram_set_int_temp("ntpc_counter"') < _ntp_watchdog.index('ready_status = nvram_set_int("ntp_ready", 1)')
+assert "return ready_status;" in _ntp_watchdog
+assert "ntpc_ready_handler();" in _ntp_watchdog
+assert _ntp_watchdog.rindex("ntpc_ready_handler();") < _ntp_watchdog.rindex("svc_timecheck();")
+assert "ntp_ready_publish_error != status" in _ntp_watchdog
+assert "NTP readiness persistence recovered" in _ntp_watchdog

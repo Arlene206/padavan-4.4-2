@@ -33,4 +33,19 @@ watchdog_time_notification_error(int signal_status, int signal_errno,
 	return EIO;
 }
 
+
+/* Do not treat an empty/missing offset as proof of a completed time step. */
+static inline int
+watchdog_ntp_step_has_offset(const char *offset)
+{
+	return offset && offset[0] != '\0';
+}
+
+/* A recorded step with ntp_ready still clear requires another persistence try. */
+static inline int
+watchdog_ntp_ready_retry_required(int ntpc_counter, int ntp_ready)
+{
+	return ntpc_counter > 0 && ntp_ready != 1;
+}
+
 #endif /* WATCHDOG_NTP_POLICY_H */

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
 
@@ -42,9 +43,32 @@ test_time_notification_result_precedence(void)
 	return 0;
 }
 
+
+static void
+test_ntp_step_requires_nonempty_offset(void)
+{
+	assert(!watchdog_ntp_step_has_offset((const char *)0));
+	assert(!watchdog_ntp_step_has_offset(""));
+	assert(watchdog_ntp_step_has_offset("0.125"));
+	assert(watchdog_ntp_step_has_offset("-3.5"));
+}
+
+static void
+test_ntp_ready_publication_retries_only_after_a_real_step(void)
+{
+	assert(!watchdog_ntp_ready_retry_required(0, 0));
+	assert(!watchdog_ntp_ready_retry_required(-1, 0));
+	assert(watchdog_ntp_ready_retry_required(1, 0));
+	assert(!watchdog_ntp_ready_retry_required(1, 1));
+	assert(watchdog_ntp_ready_retry_required(4, 2));
+}
+
 int
 main(void)
 {
+	test_ntp_step_requires_nonempty_offset();
+	test_ntp_ready_publication_retries_only_after_a_real_step();
+
 	CHECK(test_successful_stop_allows_refresh() == 0);
 	CHECK(test_incomplete_stop_blocks_refresh() == 0);
 	CHECK(test_time_notification_result_precedence() == 0);

@@ -62,6 +62,7 @@ static int svcStatus[ACTIVEITEMS] = {-1, -1, -1, -1};
 static int ntpc_timer = -1;
 static int ntpc_server_idx = 0;
 static int ntpc_tries = 0;
+static int ntp_ready_publish_error = 0;
 
 static int httpd_missing = 0;
 static int dnsmasq_missing = 0;
@@ -238,6 +239,28 @@ ntpc_handler(void)
 			refresh_ntp();
 	}
 }
+
+static void
+ntpc_ready_handler(void)
+{
+	int ntpc_counter, ntp_ready, status;
+
+	ntpc_counter = nvram_get_int("ntpc_counter");
+	ntp_ready = nvram_get_int("ntp_ready");
+	if (!watchdog_ntp_ready_retry_required(ntpc_counter, ntp_ready))
+		return;
+
+	status = nvram_set_int("ntp_ready", 1);
+	if (status != 0) {
+		if (ntp_ready_publish_error != status)
+			logmessage("NTP Client",
+				   "cannot persist NTP readiness (status=%d)", status);
+	} else if (ntp_ready_publish_error != 0) {
+		logmessage("NTP Client", "NTP readiness persistence recovered");
+	}
+	ntp_ready_publish_error = status;
+}
+
 
 static void
 inet_handler(int is_ap_mode)
@@ -555,7 +578,7 @@ int
 ntpc_updated_main(int argc, char *argv[])
 {
 	char *offset;
-	int ntpc_counter;
+	int ntpc_counter, counter_status, ready_status;
 
 	if (argc < 2)
 		return -1;
@@ -563,21 +586,30 @@ ntpc_updated_main(int argc, char *argv[])
 	if (strcmp(argv[1], "step") != 0)
 		return 0;
 
-	ntpc_counter = nvram_get_int("ntpc_counter");
-	nvram_set_int_temp("ntpc_counter", ntpc_counter + 1);
-
 	offset = getenv("offset");
-	if (offset) {
-#if defined (USE_RTC_HCTOSYS)
-		/* update current system time to RTC chip */
-		system("hwclock -w");
-#endif
-		logmessage("NTP Client", "System time changed, offset: %ss", offset);
-		sleep(5);
-		nvram_set_int("ntp_ready", 1);
-	}
+	if (!watchdog_ntp_step_has_offset(offset))
+		return 0;
 
-	return 0;
+	ntpc_counter = nvram_get_int("ntpc_counter");
+	counter_status = nvram_set_int_temp("ntpc_counter", ntpc_counter + 1);
+	if (counter_status != 0)
+		logmessage("NTP Client",
+			   "cannot record NTP step counter (status=%d)",
+			   counter_status);
+
+#if defined (USE_RTC_HCTOSYS)
+	/* update current system time to RTC chip */
+	system("hwclock -w");
+#endif
+	logmessage("NTP Client", "System time changed, offset: %ss", offset);
+	sleep(5);
+	ready_status = nvram_set_int("ntp_ready", 1);
+	if (ready_status != 0)
+		logmessage("NTP Client",
+			   "cannot persist NTP readiness (status=%d)",
+			   ready_status);
+
+	return ready_status;
 }
 
 int
@@ -616,6 +648,9 @@ watchdog_on_timer(void)
 	if (wd_pending_events & WD_PENDING_TERMINATE)
 		return;
 	is_ap_mode = get_ap_mode();
+
+	/* Retry readiness persistence even while WAN connectivity is down. */
+	ntpc_ready_handler();
 
 	/* check for time-dependent services */
 	svc_timecheck();
