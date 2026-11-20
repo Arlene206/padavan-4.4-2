@@ -394,7 +394,7 @@ require("return start_igmpproxy(man_ifname);" in iptv_zcip,
 iptv_zcip_down = body(wan, "zcip_viptv_deconfig(char *man_ifname)")
 normalized_iptv_zcip_down = " ".join(iptv_zcip_down.split())
 require("multicast_status = stop_igmpproxy(man_ifname);" in iptv_zcip_down and
-        "return route_status_accumulate( route_status_accumulate(interface_status, route_status), multicast_status);" in normalized_iptv_zcip_down,
+        "return route_status_accumulate( route_status_accumulate( route_status_accumulate(interface_status, route_status), metadata_status), multicast_status);" in normalized_iptv_zcip_down,
         "ZeroConf IPTV deconfig must return proxy stop failure")
 for path in ("trunk/user/rc/src/wan_viptv_static_policy.h",
              "trunk/user/rc/src/tests/wan_viptv_static_policy.c"):

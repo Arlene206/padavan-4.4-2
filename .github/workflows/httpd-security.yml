@@ -5287,7 +5287,7 @@ jobs:
           assert "stop_status = kill_services(svcs_ppp, 6, 1);" in stop_ppp
           assert "int pause_status, stop_status = 0, resume_status;" in stop_ppp
           clear_state_call = stop_ppp.index("stop_status = clear_wan_state_status();")
-ppp_kill_failure = stop_ppp[stop_ppp.index("stop_status = kill_services(svcs_ppp, 6, 1);"):clear_state_call]
+          ppp_kill_failure = stop_ppp[stop_ppp.index("stop_status = kill_services(svcs_ppp, 6, 1);"):clear_state_call]
           assert "if (stop_status != 0)" in ppp_kill_failure
           assert "goto abort_resume_detect;" in ppp_kill_failure
           assert "return wan_teardown_abort_status(stop_status, resume_status);" in stop_ppp
