@@ -1,3 +1,10 @@
+## 2026-11-20 — Align HTTPD marker helper contract with its checked NVRAM wrapper
+
+- Parent main SHA: `1356dfd010bfc851336e2c5ab1f5b03abfd8119a`.
+- Exact-head HTTPD Action `44788533266` on `1356dfd010bfc851336e2c5ab1f5b03abfd8119a` again passed the GNU89 daemon-policy binary but failed the integration contract at its assertion for `httpd_nvram_write_status` inside `httpd_started_state_publish_status()`. The latter correctly delegates through `httpd_nvram_set_int_status("httpd_started", started, 1)`; only the source assertion was looking at the wrong abstraction layer.
+- Updated the contract to assert that exact delegation. The lower-level writer contract still verifies persistent and temporary backend writes plus errno normalization.
+- Exact-head HTTPD rerun required; no production code or firmware source changed.
+
 ## 2026-11-20 — Correct HTTPD port-normalization source-check ordering
 
 - Parent SHA: `18b14734be53ff7e53a974a6216d4a4294282cf0`. The HTTPD daemon workflow exposed one stale assertion still looking for a direct `nvram_set_int("http_lanport", ...)` call after the new checked wrapper was introduced; the source had correctly moved that write into `httpd_nvram_set_int_status()`.

@@ -94,7 +94,7 @@ jobs:
           assert "httpd_nvram_write_status(api_result, saved_errno)" in nvram_writer
           assert "nvram_set_int_temp(param_name, value)" in nvram_writer
           assert "nvram_set_int(param_name, value)" in nvram_writer
-          assert "httpd_nvram_write_status" in started_writer
+          assert 'httpd_nvram_set_int_status("httpd_started", started, 1)' in started_writer
           assert "launch_status = _eval(httpd_argv, NULL, 0, NULL);" in start
           assert "return httpd_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in start
           assert "httpd_start_postcondition(launch_status, presence)" in start
