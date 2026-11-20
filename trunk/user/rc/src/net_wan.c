@@ -4909,6 +4909,38 @@ static const struct dhcp_wan_route_transition_ops wan_dhcp_route_transition_ops 
 	wan_dhcp_restore_old_routes
 };
 
+enum {
+	WAN_DHCP_BOUND_IPADDR = 0,
+	WAN_DHCP_BOUND_NETMASK,
+	WAN_DHCP_BOUND_DNS,
+	WAN_DHCP_BOUND_WINS,
+	WAN_DHCP_BOUND_MTU,
+	WAN_DHCP_BOUND_ROUTES,
+	WAN_DHCP_BOUND_ROUTES_MS,
+	WAN_DHCP_BOUND_ROUTES_RFC,
+	WAN_DHCP_BOUND_DOMAIN,
+	WAN_DHCP_BOUND_LEASE,
+	WAN_DHCP_BOUND_GATEWAY,
+	WAN_DHCP_BOUND_SNAPSHOT_COUNT
+};
+
+#define WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX 2049
+#define WAN_DHCP_BOUND_SNAPSHOT_KEY_MAX 32
+
+static const char *const wan_dhcp_bound_snapshot_params[] = {
+	"ipaddr", "netmask", "dns", "wins", "mtu", "routes",
+	"routes_ms", "routes_rfc", "domain", "lease", "gateway"
+};
+
+enum {
+	WAN_DHCP_VIPTV_SNAPSHOT_COUNT = 7
+};
+
+static const char *const wan_dhcp_viptv_snapshot_params[] = {
+	"manv_ipaddr", "manv_netmask", "manv_gateway", "manv_routes",
+	"manv_routes_ms", "manv_routes_rfc", "manv_mtu"
+};
+
 static int
 wan_dhcp_nvram_state_publish(
 	const struct dhcp_lease_nvram_value *values, size_t count,
@@ -5316,13 +5348,18 @@ static int
 udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 {
 	char *value, *lan_ip, *lan_nm, *ip, *nm, *gw, *rt, *rt_ms, *rt_rfc;
-	char log_prefix[32], *udhcpc_state;
+	char log_prefix[32], *udhcpc_state, *previous_value;
 	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
+	char previous_text[WAN_DHCP_VIPTV_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
+	char mtu_text[16];
 	unsigned int parsed_value;
+	size_t i, snapshot_count;
 	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int route_cleanup_status, route_rollback_status, multicast_status = 0;
+	int snapshot_status, snapshot_rollback_status, snapshot_abort_status;
+	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_VIPTV_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
 
@@ -5339,10 +5376,27 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 		return EINVAL;
 	}
 
-	/* Keep the previous lease identity until its route set is removed. */
-	snprintf(old_gateway, sizeof(old_gateway), "%s", nvram_safe_get("manv_gateway"));
-	snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("manv_ipaddr"));
-	snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("manv_netmask"));
+	/*
+	 * Preserve every published IPTV field before touching the interface or
+	 * route table. Route text is bounded to the full DHCP option size so an
+	 * unsuccessful publication can restore the exact old lease tuple.
+	 */
+	for (i = 0; i < WAN_DHCP_VIPTV_SNAPSHOT_COUNT; ++i) {
+		previous_value = nvram_safe_get((char *)wan_dhcp_viptv_snapshot_params[i]);
+		if (!previous_value)
+			previous_value = "";
+		if (strlen(previous_value) >= sizeof(previous_text[i])) {
+			logmessage(log_prefix,
+				   "%s (%s) rejected oversized previous IPTV snapshot field %s",
+				   udhcpc_state, man_ifname, wan_dhcp_viptv_snapshot_params[i]);
+			return ENAMETOOLONG;
+		}
+		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
+			 previous_value);
+	}
+	snprintf(old_gateway, sizeof(old_gateway), "%s", previous_text[2]);
+	snprintf(old_ip, sizeof(old_ip), "%s", previous_text[0]);
+	snprintf(old_mask, sizeof(old_mask), "%s", previous_text[1]);
 	interface_context.ifname = man_ifname;
 	is_changed = strcmp(old_ip, ip) != 0;
 
@@ -5464,14 +5518,56 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 		return route_cleanup_status;
 	}
 
-	nvram_set_temp("manv_ipaddr", ip);
-	nvram_set_temp("manv_netmask", nm);
-	nvram_set_temp("manv_gateway", gw);
-	nvram_set_temp("manv_routes", rt);
-	nvram_set_temp("manv_routes_ms", rt_ms);
-	nvram_set_temp("manv_routes_rfc", rt_rfc);
-	if (mtu_seen)
-		nvram_set_int_temp("manv_mtu", dhcp_mtu);
+	/*
+	 * Publish the new IPTV lease as one checked NVRAM tuple. If a setter or
+	 * transaction close fails, restore the old tuple and then restore its
+	 * address/routes before allowing udhcpc to retry.
+	 */
+	snapshot_count = 0;
+	snapshot_rollback_status = 0;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, wan_dhcp_viptv_snapshot_params[0],
+		ip, previous_text[0]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, wan_dhcp_viptv_snapshot_params[1],
+		nm, previous_text[1]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, wan_dhcp_viptv_snapshot_params[2],
+		gw, previous_text[2]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, wan_dhcp_viptv_snapshot_params[3],
+		rt, previous_text[3]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, wan_dhcp_viptv_snapshot_params[4],
+		rt_ms, previous_text[4]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, wan_dhcp_viptv_snapshot_params[5],
+		rt_rfc, previous_text[5]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	if (mtu_seen) {
+		snprintf(mtu_text, sizeof(mtu_text), "%d", dhcp_mtu);
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count,
+			wan_dhcp_viptv_snapshot_params[6], mtu_text,
+			previous_text[6]);
+		if (snapshot_status != 0)
+			goto snapshot_publication_failed;
+	}
+	snapshot_status = wan_dhcp_nvram_state_publish(
+		snapshot_values, snapshot_count, &snapshot_rollback_status);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	route_setup_status = 0;
 	mtu_status = 0;
@@ -5516,6 +5612,26 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	nvram_set_int_temp("manv_route_err", route_setup_status);
 	nvram_set_int_temp("manv_err", i_err);
 	return route_status_accumulate(route_setup_status, multicast_status);
+
+snapshot_publication_failed:
+	logmessage(log_prefix,
+		   "%s (%s) cannot publish complete IPTV DHCP snapshot (status=%d)",
+		   udhcpc_state, man_ifname, snapshot_status);
+	if (snapshot_rollback_status != 0) {
+		logmessage(log_prefix,
+			   "IPTV DHCP snapshot restoration incomplete on %s (status=%d); not replaying possibly mixed route inventory",
+			   man_ifname, snapshot_rollback_status);
+		route_context.remove_dhcp_routes = 0;
+	}
+	route_rollback_status = 0;
+	snapshot_abort_status = dhcp_wan_route_transition_abort_snapshot(
+		snapshot_status, &wan_dhcp_route_transition_ops, &route_context,
+		&route_rollback_status);
+	if (route_rollback_status != 0)
+		logmessage(log_prefix,
+			   "failed to restore previous IPTV address/routes on %s after snapshot error (status=%d)",
+			   man_ifname, route_rollback_status);
+	return snapshot_abort_status;
 }
 
 static int
@@ -5601,29 +5717,6 @@ zcip_viptv_bound(char *man_ifname)
 	nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
 	return start_igmpproxy(man_ifname);
 }
-
-enum {
-	WAN_DHCP_BOUND_IPADDR = 0,
-	WAN_DHCP_BOUND_NETMASK,
-	WAN_DHCP_BOUND_DNS,
-	WAN_DHCP_BOUND_WINS,
-	WAN_DHCP_BOUND_MTU,
-	WAN_DHCP_BOUND_ROUTES,
-	WAN_DHCP_BOUND_ROUTES_MS,
-	WAN_DHCP_BOUND_ROUTES_RFC,
-	WAN_DHCP_BOUND_DOMAIN,
-	WAN_DHCP_BOUND_LEASE,
-	WAN_DHCP_BOUND_GATEWAY,
-	WAN_DHCP_BOUND_SNAPSHOT_COUNT
-};
-
-#define WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX 2049
-#define WAN_DHCP_BOUND_SNAPSHOT_KEY_MAX 32
-
-static const char *const wan_dhcp_bound_snapshot_params[] = {
-	"ipaddr", "netmask", "dns", "wins", "mtu", "routes",
-	"routes_ms", "routes_rfc", "domain", "lease", "gateway"
-};
 
 static int
 wan_dhcp_nvram_transaction_set(void *opaque, const char *name,

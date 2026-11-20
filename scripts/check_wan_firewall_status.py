@@ -117,6 +117,27 @@ for marker in (
     require(marker not in wan_bound,
             "unchecked DHCP bound snapshot field write remains: " + marker)
 
+wan_viptv_bound = body(wan, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
+require("wan_dhcp_nvram_state_publish(" in wan_viptv_bound and
+        "WAN_DHCP_VIPTV_SNAPSHOT_COUNT" in wan_viptv_bound and
+        "dhcp_wan_route_transition_abort_snapshot(" in wan_viptv_bound,
+        "IPTV DHCP bound must publish a complete rollback-capable lease snapshot")
+require(wan_viptv_bound.index("dhcp_wan_route_transition_apply(") <
+        wan_viptv_bound.index("wan_dhcp_nvram_state_publish(") <
+        wan_viptv_bound.index("if (!i_err)"),
+        "IPTV DHCP lease snapshot must commit after route cleanup and before route setup")
+for marker in (
+    'nvram_set_temp("manv_ipaddr", ip)',
+    'nvram_set_temp("manv_netmask", nm)',
+    'nvram_set_temp("manv_gateway", gw)',
+    'nvram_set_temp("manv_routes", rt)',
+    'nvram_set_temp("manv_routes_ms", rt_ms)',
+    'nvram_set_temp("manv_routes_rfc", rt_rfc)',
+    'nvram_set_int_temp("manv_mtu", dhcp_mtu)',
+):
+    require(marker not in wan_viptv_bound,
+            "unchecked IPTV DHCP snapshot field write remains: " + marker)
+
 wan_route_test = (RC / "tests/route_status_policy.c").read_text()
 
 net_core = (RC / "net.c").read_text()

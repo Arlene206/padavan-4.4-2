@@ -373,9 +373,22 @@ jobs:
           assert "failed to apply IPTV DHCP address" in viptv_bound
           assert "failed to restore previous IPTV DHCP address" in viptv_bound
           route_transition = viptv_bound.index("dhcp_wan_route_transition_apply(")
-          assert viptv_bound.index("dhcp_wan_interface_apply(") < route_transition < viptv_bound.index('nvram_set_temp("manv_ipaddr", ip)')
+          snapshot_publish = viptv_bound.index("wan_dhcp_nvram_state_publish(")
+          assert viptv_bound.index("dhcp_wan_interface_apply(") < route_transition < snapshot_publish
           assert 'route_context.prefix = "manv_"' in viptv_bound
           assert "route_rollback_status" in viptv_bound
+          assert "dhcp_wan_route_transition_abort_snapshot(" in viptv_bound
+          assert snapshot_publish < viptv_bound.index("if (!i_err)")
+          for marker in (
+              'nvram_set_temp("manv_ipaddr", ip)',
+              'nvram_set_temp("manv_netmask", nm)',
+              'nvram_set_temp("manv_gateway", gw)',
+              'nvram_set_temp("manv_routes", rt)',
+              'nvram_set_temp("manv_routes_ms", rt_ms)',
+              'nvram_set_temp("manv_routes_rfc", rt_rfc)',
+              'nvram_set_int_temp("manv_mtu", dhcp_mtu)',
+          ):
+              assert marker not in viptv_bound
           assert "preserving previous lease and route inventory" in viptv_bound
           assert "failed to restore previous IPTV route inventory" in viptv_bound
           assert "return route_cleanup_status;" in viptv_bound
