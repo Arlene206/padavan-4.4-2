@@ -1382,6 +1382,31 @@ int restart_frp(void){
 }
 #endif
 
+static int
+httpd_nvram_set_int_status(const char *param_name, int value, int temporary)
+{
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0] ||
+	    (temporary != 0 && temporary != 1))
+		return EINVAL;
+
+	errno = 0;
+	if (temporary)
+		api_result = nvram_set_int_temp(param_name, value);
+	else
+		api_result = nvram_set_int(param_name, value);
+	saved_errno = errno;
+	return httpd_nvram_write_status(api_result, saved_errno);
+}
+
+static int
+httpd_started_state_publish_status(int started)
+{
+	return httpd_nvram_set_int_status("httpd_started", started, 1);
+}
+
+
 static enum process_presence
 httpd_process_presence(int *scan_error)
 {
@@ -1429,7 +1454,13 @@ start_httpd_locked(int restart_fw)
 	if (!httpd_start_can_launch(presence)) {
 		status = httpd_start_precondition_status(presence);
 		if (presence == PROCESS_PRESENCE_RUNNING) {
-			nvram_set_int_temp("httpd_started", 1);
+			status = httpd_started_state_publish_status(1);
+			if (status != 0) {
+				logmessage(LOGNAME,
+					   "cannot publish HTTPD running state (status=%d)",
+					   status);
+				return status;
+			}
 			logmessage(LOGNAME, "HTTPD is already running; refusing duplicate launch");
 		} else {
 			logmessage(LOGNAME,
@@ -1449,7 +1480,13 @@ start_httpd_locked(int restart_fw)
 		http_port = nvram_get_int("http_lanport");
 		if (http_port < 80 || http_port > 65535) {
 			http_port = 80;
-			nvram_set_int("http_lanport", http_port);
+			status = httpd_nvram_set_int_status("http_lanport", http_port, 0);
+			if (status != 0) {
+				logmessage(LOGNAME,
+					   "cannot persist normalized HTTP port (status=%d)",
+					   status);
+				return status;
+			}
 		}
 
 		sprintf(http_port_s, "%d", http_port);
@@ -1465,7 +1502,13 @@ start_httpd_locked(int restart_fw)
 		int https_port = nvram_get_int("https_lport");
 		if (https_port < 81 || https_port > 65535 || https_port == http_port) {
 			https_port = 443;
-			nvram_set_int("https_lport", https_port);
+			status = httpd_nvram_set_int_status("https_lport", https_port, 0);
+			if (status != 0) {
+				logmessage(LOGNAME,
+					   "cannot persist normalized HTTPS port (status=%d)",
+					   status);
+				return status;
+			}
 		}
 
 		sprintf(https_port_s, "%d", https_port);
@@ -1478,7 +1521,13 @@ start_httpd_locked(int restart_fw)
 #endif
 
 	/* Clear stale state only after the earlier complete scan confirmed ABSENT. */
-	nvram_set_int_temp("httpd_started", 0);
+	status = httpd_started_state_publish_status(0);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot clear stale HTTPD state before launch (status=%d)",
+			   status);
+		return status;
+	}
 
 	launch_status = _eval(httpd_argv, NULL, 0, NULL);
 	if (launch_status != 0) {
@@ -1518,7 +1567,17 @@ start_httpd_locked(int restart_fw)
 		return status;
 	}
 
-	nvram_set_int_temp("httpd_started", 1);
+	status = httpd_started_state_publish_status(1);
+	if (status != 0) {
+		int rollback_status;
+
+		rollback_status = stop_httpd_locked();
+		logmessage(LOGNAME,
+			   "cannot publish HTTPD running state; attempted listener rollback (publish_status=%d, stop_status=%d)",
+			   status, rollback_status);
+		errno = status;
+		return status;
+	}
 
 	if (restart_fw && restart_fw_need && nvram_match("fw_enable_x", "1")) {
 		errno = 0;
@@ -1530,12 +1589,15 @@ start_httpd_locked(int restart_fw)
 				firewall_stop_status = stop_httpd_locked();
 				firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);
 				if (firewall_stop_state == PROCESS_PRESENCE_ABSENT) {
-					nvram_set_int_temp("httpd_started", 0);
 					logmessage(LOGNAME,
 						   "HTTPD listener confirmed stopped after firewall refresh failure (stop_status=%d)",
 						   firewall_stop_status);
 				} else {
-					nvram_set_int_temp("httpd_started", 1);
+					status = httpd_started_state_publish_status(1);
+					if (status != 0)
+						logmessage(LOGNAME,
+							   "cannot publish HTTPD possibly-running state after firewall failure (status=%d)",
+							   status);
 					logmessage(LOGNAME,
 						   "HTTPD listener may remain active after firewall refresh failure (stop_status=%d, state=%d, scan_error=%d)",
 						   firewall_stop_status, firewall_stop_state,
@@ -1598,6 +1660,7 @@ stop_httpd_locked(void)
 {
 	char* svcs[] = { "httpd", NULL };
 	int stop_status = kill_services(svcs, 3, 1);
+	int publish_status;
 
 	if (!httpd_stop_policy_publish_stopped(stop_status)) {
 		logmessage(LOGNAME, "HTTPD did not stop cleanly; retaining service state (status=%d)",
@@ -1605,7 +1668,13 @@ stop_httpd_locked(void)
 		return stop_status;
 	}
 
-	nvram_set_int_temp("httpd_started", 0);
+	publish_status = httpd_started_state_publish_status(0);
+	if (publish_status != 0) {
+		logmessage(LOGNAME,
+			   "HTTPD stopped but failed to publish stopped state (status=%d)",
+			   publish_status);
+		return publish_status;
+	}
 	return 0;
 }
 

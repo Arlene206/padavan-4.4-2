@@ -56,6 +56,15 @@ httpd_restart_can_start(int stop_status)
 	return stop_status == 0;
 }
 
+/* NVRAM writers report 0/-1; retain the backend errno on every failed write. */
+static inline int
+httpd_nvram_write_status(int api_result, int saved_errno)
+{
+	if (api_result == 0)
+		return 0;
+	return saved_errno > 0 ? saved_errno : EIO;
+}
+
 /* A failed firewall refresh cannot leave a possibly active public HTTP listener. */
 static inline int
 httpd_firewall_failure_requires_stop(int firewall_status,

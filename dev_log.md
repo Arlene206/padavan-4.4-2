@@ -1,3 +1,10 @@
+## 2026-11-20 — Make HTTPD configuration and lifecycle-state NVRAM writes fail closed
+
+- Parent main SHA: `12d3351f3deb024aa1a835aec9a30883225066f2`.
+- `start_httpd_locked()` previously ignored failures while persisting normalized HTTP/HTTPS ports and while clearing/publishing the `httpd_started` runtime marker. A daemon could bind a fallback port while persistent configuration/firewall state remained stale, or a confirmed running/stopped process could be represented incorrectly.
+- Added one status-preserving NVRAM integer writer for persistent configuration and temporary state. Port normalization now aborts before launch if its persistent write fails; marker writes before start and after confirmed start/stop are checked. If running-state publication fails after the listener is confirmed live, startup attempts a stop rollback and returns the publication error. Stop now propagates marker-publication failures after confirmed process exit.
+- Firewall-error recovery uses the same checked marker publication and no longer performs a redundant ignored stopped-state write. Added backend errno normalization regression and strengthened the HTTPD source-contract workflow. Exact HTTPD, XY-C1 Build/TRX/artifact and Process lifecycle Actions required; physical L4 NOT VERIFIED.
+
 ## 2026-11-20 — Propagate LAN bridge reload-marker NVRAM failures
 
 - Parent main SHA: `b9be4009afd514e2d56c160d777b9d7ad1e487c1`.

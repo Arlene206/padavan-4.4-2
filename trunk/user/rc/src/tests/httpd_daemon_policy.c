@@ -49,6 +49,15 @@ static void test_firewall_failure_requires_listener_shutdown(void)
 	assert(httpd_firewall_failure_requires_stop(1, (enum process_presence)99));
 }
 
+static void test_nvram_write_status_preserves_backend_failure(void)
+{
+	assert(httpd_nvram_write_status(0, 0) == 0);
+	assert(httpd_nvram_write_status(0, ENOSPC) == 0);
+	assert(httpd_nvram_write_status(-1, ENOSPC) == ENOSPC);
+	assert(httpd_nvram_write_status(-1, 0) == EIO);
+	assert(httpd_nvram_write_status(1, EACCES) == EACCES);
+}
+
 static void test_restart_requires_confirmed_exit(void)
 {
 	assert(httpd_restart_can_start(0));
@@ -64,6 +73,7 @@ int main(void)
 	test_detached_child_must_be_confirmed_running();
 	test_stop_state_requires_confirmed_exit();
 	test_restart_requires_confirmed_exit();
+	test_nvram_write_status_preserves_backend_failure();
 	test_firewall_failure_requires_listener_shutdown();
 	puts("HTTPD daemon startup, duplicate-launch, stop-state and restart policy: PASS");
 	return 0;
