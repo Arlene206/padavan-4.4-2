@@ -91,6 +91,21 @@ miniupnpd_soap_parse_nonzero_port(const char *text, unsigned short *port_out)
 	return 0;
 }
 
+#define MINIUPNPD_SOAP_MAX_LEASE_DURATION 604800U
+
+/*
+ * IGD v2 limits a mapping lease to one week. Zero requests an infinite
+ * lease, which must be represented by the protocol maximum instead.
+ */
+static inline unsigned int
+miniupnpd_soap_normalize_lease_duration(unsigned int lease_duration)
+{
+	if (lease_duration == 0 ||
+	    lease_duration > MINIUPNPD_SOAP_MAX_LEASE_DURATION)
+		return MINIUPNPD_SOAP_MAX_LEASE_DURATION;
+	return lease_duration;
+}
+
 static inline int
 miniupnpd_soap_parse_protocol_number(const char *text, int *protocol_out)
 {

@@ -204,7 +204,10 @@ jobs:
           assert add_any.count("miniupnpd_soap_parse_int(") == 1
           assert add_any.index("miniupnpd_soap_parse_int(") < add_any.index("upnp_redirect(")
           assert add_any.index("miniupnpd_soap_parse_port(") < add_any.index("upnp_redirect(")
-          assert "if (leaseduration == 0)" in add_any and "leaseduration = 604800;" in add_any
+          assert "miniupnpd_soap_normalize_lease_duration(leaseduration)" in add_port
+          assert "miniupnpd_soap_normalize_lease_duration(" in add_any
+          assert "MINIUPNPD_SOAP_MAX_LEASE_DURATION 604800U" in soap_policy
+          assert "test_lease_duration_normalization" in soap_test
           assert get_specific.count("miniupnpd_soap_parse_port(") == 1
           assert delete_port.count("miniupnpd_soap_parse_port(") == 1
           assert delete_range.count("miniupnpd_soap_parse_port(") == 2

@@ -68,6 +68,22 @@ test_nonzero_port_validation(void)
 }
 
 static void
+test_lease_duration_normalization(void)
+{
+	assert(miniupnpd_soap_normalize_lease_duration(0U) ==
+	       MINIUPNPD_SOAP_MAX_LEASE_DURATION);
+	assert(miniupnpd_soap_normalize_lease_duration(1U) == 1U);
+	assert(miniupnpd_soap_normalize_lease_duration(
+		MINIUPNPD_SOAP_MAX_LEASE_DURATION) ==
+	       MINIUPNPD_SOAP_MAX_LEASE_DURATION);
+	assert(miniupnpd_soap_normalize_lease_duration(
+		MINIUPNPD_SOAP_MAX_LEASE_DURATION + 1U) ==
+	       MINIUPNPD_SOAP_MAX_LEASE_DURATION);
+	assert(miniupnpd_soap_normalize_lease_duration(UINT_MAX) ==
+	       MINIUPNPD_SOAP_MAX_LEASE_DURATION);
+}
+
+static void
 test_protocol_tokens(void)
 {
 	assert(miniupnpd_soap_protocol_valid("TCP"));
@@ -167,6 +183,7 @@ main(void)
 {
 	test_port_boundaries();
 	test_nonzero_port_validation();
+	test_lease_duration_normalization();
 	test_protocol_tokens();
 	test_nonnegative_int_boundaries();
 	test_protocol_number_boundaries();

@@ -517,8 +517,7 @@ AddPortMapping(struct upnphttp * h, const char * action, const char * ns)
 	 * If a control point uses the value 0 to indicate an infinite lease
 	 * time mapping, it is REQUIRED that gateway uses the maximum value
 	 * instead (e.g. 604800 seconds) */
-	if(leaseduration == 0 || leaseduration > 604800)
-		leaseduration = 604800;
+	leaseduration = miniupnpd_soap_normalize_lease_duration(leaseduration);
 #endif
 
 	syslog(LOG_INFO, "%s: ext port %hu to %s:%hu protocol %s for: %s leaseduration=%u rhost=%s",
@@ -622,9 +621,8 @@ AddAnyPortMapping(struct upnphttp * h, const char * action, const char * ns)
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
-	leaseduration = (unsigned int)leaseduration_value;
-	if (leaseduration == 0)
-		leaseduration = 604800;
+	leaseduration = miniupnpd_soap_normalize_lease_duration(
+		(unsigned int)leaseduration_value);
 
 	if (miniupnpd_soap_parse_port(ext_port, &eport) != 0 ||
 	    miniupnpd_soap_parse_nonzero_port(int_port, &iport) != 0 || iport == 0)
