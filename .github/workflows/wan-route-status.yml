@@ -406,8 +406,8 @@ jobs:
           wan = (rc / "net_wan.c").read_text()
           callback_policy = (rc / "ppp_callback_link_policy.h").read_text()
           callback_test = (rc / "tests/ppp_callback_link_policy.c").read_text()
-        nvram_snapshot_policy = (rc / "wan_nvram_status_policy.h").read_text()
-        nvram_snapshot_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
+          nvram_snapshot_policy = (rc / "wan_nvram_status_policy.h").read_text()
+          nvram_snapshot_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
           notify_api_source = Path("trunk/user/shared/src/notify_rc.c").read_text()
           notify_api_header = Path("trunk/user/shared/src/notify_rc.h").read_text()
           ppp = (rc / "net_ppp.c").read_text()
@@ -661,7 +661,6 @@ jobs:
           snapshot_keys = ("wanx_gateway", "wanx_ipaddr", "wanx_netmask", "wanx_dns")
           snapshot_positions = [snapshot_helper.index('"' + key + '"') for key in snapshot_keys]
           assert snapshot_positions == sorted(snapshot_positions)
-          assert "fields, 4," in snapshot_helper
           assert "fields, 4," in snapshot_helper
           copy_snapshot = body(nvram_snapshot_policy, "rc_wan_nvram_copy_snapshot(")
           assert "rc_wan_nvram_copy_value(" in copy_snapshot
