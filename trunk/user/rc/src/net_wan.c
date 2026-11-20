@@ -4941,6 +4941,29 @@ static const char *const wan_dhcp_viptv_snapshot_params[] = {
 	"manv_routes_ms", "manv_routes_rfc", "manv_mtu"
 };
 
+enum {
+	WAN_ZCIP_SNAPSHOT_NETMASK = 0,
+	WAN_ZCIP_SNAPSHOT_GATEWAY,
+	WAN_ZCIP_SNAPSHOT_DNS,
+	WAN_ZCIP_SNAPSHOT_IPADDR,
+	WAN_ZCIP_SNAPSHOT_COUNT
+};
+
+static const char *const wan_zcip_snapshot_params[] = {
+	"wanx_netmask", "wanx_gateway", "wanx_dns", "wanx_ipaddr"
+};
+
+enum {
+	WAN_ZCIP_VIPTV_SNAPSHOT_NETMASK = 0,
+	WAN_ZCIP_VIPTV_SNAPSHOT_GATEWAY,
+	WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR,
+	WAN_ZCIP_VIPTV_SNAPSHOT_COUNT
+};
+
+static const char *const wan_zcip_viptv_snapshot_params[] = {
+	"manv_netmask", "manv_gateway", "manv_ipaddr"
+};
+
 static int
 wan_dhcp_nvram_state_publish(
 	const struct dhcp_lease_nvram_value *values, size_t count,
@@ -5637,11 +5660,14 @@ snapshot_publication_failed:
 static int
 zcip_bound(char *man_ifname)
 {
-	char *value, *ip;
-	char tmp[100], prefix[16];
+	char *value, *ip, *previous_value;
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
+	char previous_text[WAN_ZCIP_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char *zeroconf_mask = "255.255.0.0";
+	size_t i, snapshot_count;
 	int unit, interface_status, rollback_status, route_setup_status;
+	int snapshot_status, snapshot_rollback_status, interface_rollback_status;
+	struct dhcp_lease_nvram_value snapshot_values[WAN_ZCIP_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 
 	value = getenv("ip");
@@ -5654,8 +5680,26 @@ zcip_bound(char *man_ifname)
 		logmessage(LOGNAME, "ZeroConf rejected invalid address on %s", man_ifname);
 		return EINVAL;
 	}
-	snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("wanx_ipaddr"));
-	snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("wanx_netmask"));
+
+	/* Capture every field before the new link address can become visible. */
+	for (i = 0; i < WAN_ZCIP_SNAPSHOT_COUNT; ++i) {
+		previous_value = nvram_safe_get((char *)wan_zcip_snapshot_params[i]);
+		if (!previous_value)
+			previous_value = "";
+		if (strlen(previous_value) >= sizeof(previous_text[i])) {
+			logmessage(LOGNAME,
+				   "ZeroConf rejected oversized previous WAN snapshot field %s",
+				   wan_zcip_snapshot_params[i]);
+			return ENAMETOOLONG;
+		}
+		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
+			 previous_value);
+	}
+	snprintf(old_ip, sizeof(old_ip), "%s",
+		 previous_text[WAN_ZCIP_SNAPSHOT_IPADDR]);
+	snprintf(old_mask, sizeof(old_mask), "%s",
+		 previous_text[WAN_ZCIP_SNAPSHOT_NETMASK]);
+
 	interface_context.ifname = man_ifname;
 	interface_status = dhcp_wan_interface_apply(old_ip, old_mask, ip, zeroconf_mask, 1,
 		&wan_dhcp_interface_ops, &interface_context, &rollback_status);
@@ -5666,11 +5710,50 @@ zcip_bound(char *man_ifname)
 		return interface_status;
 	}
 
-	strcpy(prefix, "wanx_");
-	nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask);
-	nvram_set_temp(strcat_r(prefix, "gateway", tmp), "");
-	nvram_set_temp(strcat_r(prefix, "dns", tmp), "");
-	nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
+	/*
+	 * Commit the address, empty gateway/DNS and mask together. If the NVRAM
+	 * transaction fails, restore the previous interface address before the
+	 * MAN route setup can observe a mixed lease.
+	 */
+	snapshot_count = 0;
+	snapshot_rollback_status = 0;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, wan_zcip_snapshot_params[WAN_ZCIP_SNAPSHOT_NETMASK],
+		zeroconf_mask, previous_text[WAN_ZCIP_SNAPSHOT_NETMASK]);
+	if (snapshot_status == 0)
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count, wan_zcip_snapshot_params[WAN_ZCIP_SNAPSHOT_GATEWAY],
+			"", previous_text[WAN_ZCIP_SNAPSHOT_GATEWAY]);
+	if (snapshot_status == 0)
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count, wan_zcip_snapshot_params[WAN_ZCIP_SNAPSHOT_DNS],
+			"", previous_text[WAN_ZCIP_SNAPSHOT_DNS]);
+	if (snapshot_status == 0)
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count, wan_zcip_snapshot_params[WAN_ZCIP_SNAPSHOT_IPADDR],
+			ip, previous_text[WAN_ZCIP_SNAPSHOT_IPADDR]);
+	if (snapshot_status == 0)
+		snapshot_status = wan_dhcp_nvram_state_publish(
+			snapshot_values, snapshot_count, &snapshot_rollback_status);
+	if (snapshot_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot publish complete ZeroConf WAN snapshot on %s (status=%d)",
+			   man_ifname, snapshot_status);
+		interface_rollback_status = 0;
+		interface_status = dhcp_wan_interface_apply(
+			ip, zeroconf_mask, old_ip, old_mask, 1,
+			&wan_dhcp_interface_ops, &interface_context,
+			&interface_rollback_status);
+		if (interface_status != 0 || interface_rollback_status != 0)
+			logmessage(LOGNAME,
+				   "failed to restore previous ZeroConf WAN address on %s (status=%d rollback=%d)",
+				   man_ifname, interface_status, interface_rollback_status);
+		if (snapshot_rollback_status != 0)
+			logmessage(LOGNAME,
+				   "ZeroConf WAN NVRAM snapshot restoration incomplete on %s (status=%d)",
+				   man_ifname, snapshot_rollback_status);
+		return snapshot_status;
+	}
 
 	unit = get_wan_unit(man_ifname);
 	route_setup_status = man_up_internal(man_ifname, unit, 0, NULL);
@@ -5682,11 +5765,14 @@ zcip_bound(char *man_ifname)
 static int
 zcip_viptv_bound(char *man_ifname)
 {
-	char *value, *ip;
-	char tmp[100], prefix[16];
+	char *value, *ip, *previous_value;
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
+	char previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char *zeroconf_mask = "255.255.0.0";
+	size_t i, snapshot_count;
 	int interface_status, rollback_status;
+	int snapshot_status, snapshot_rollback_status, interface_rollback_status;
+	struct dhcp_lease_nvram_value snapshot_values[WAN_ZCIP_VIPTV_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 
 	value = getenv("ip");
@@ -5699,8 +5785,25 @@ zcip_viptv_bound(char *man_ifname)
 		logmessage(LOGNAME, "ZeroConf IPTV rejected invalid address on %s", man_ifname);
 		return EINVAL;
 	}
-	snprintf(old_ip, sizeof(old_ip), "%s", nvram_safe_get("manv_ipaddr"));
-	snprintf(old_mask, sizeof(old_mask), "%s", nvram_safe_get("manv_netmask"));
+
+	for (i = 0; i < WAN_ZCIP_VIPTV_SNAPSHOT_COUNT; ++i) {
+		previous_value = nvram_safe_get((char *)wan_zcip_viptv_snapshot_params[i]);
+		if (!previous_value)
+			previous_value = "";
+		if (strlen(previous_value) >= sizeof(previous_text[i])) {
+			logmessage(LOGNAME,
+				   "ZeroConf IPTV rejected oversized previous snapshot field %s",
+				   wan_zcip_viptv_snapshot_params[i]);
+			return ENAMETOOLONG;
+		}
+		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
+			 previous_value);
+	}
+	snprintf(old_ip, sizeof(old_ip), "%s",
+		 previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR]);
+	snprintf(old_mask, sizeof(old_mask), "%s",
+		 previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_NETMASK]);
+
 	interface_context.ifname = man_ifname;
 	interface_status = dhcp_wan_interface_apply(old_ip, old_mask, ip, zeroconf_mask, 1,
 		&wan_dhcp_interface_ops, &interface_context, &rollback_status);
@@ -5711,10 +5814,41 @@ zcip_viptv_bound(char *man_ifname)
 		return interface_status;
 	}
 
-	strcpy(prefix, "manv_");
-	nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask);
-	nvram_set_temp(strcat_r(prefix, "gateway", tmp), "");
-	nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip);
+	snapshot_count = 0;
+	snapshot_rollback_status = 0;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, wan_zcip_viptv_snapshot_params[WAN_ZCIP_VIPTV_SNAPSHOT_NETMASK],
+		zeroconf_mask, previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_NETMASK]);
+	if (snapshot_status == 0)
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count, wan_zcip_viptv_snapshot_params[WAN_ZCIP_VIPTV_SNAPSHOT_GATEWAY],
+			"", previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_GATEWAY]);
+	if (snapshot_status == 0)
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count, wan_zcip_viptv_snapshot_params[WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR],
+			ip, previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR]);
+	if (snapshot_status == 0)
+		snapshot_status = wan_dhcp_nvram_state_publish(
+			snapshot_values, snapshot_count, &snapshot_rollback_status);
+	if (snapshot_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot publish complete ZeroConf IPTV snapshot on %s (status=%d)",
+			   man_ifname, snapshot_status);
+		interface_rollback_status = 0;
+		interface_status = dhcp_wan_interface_apply(
+			ip, zeroconf_mask, old_ip, old_mask, 1,
+			&wan_dhcp_interface_ops, &interface_context,
+			&interface_rollback_status);
+		if (interface_status != 0 || interface_rollback_status != 0)
+			logmessage(LOGNAME,
+				   "failed to restore previous ZeroConf IPTV address on %s (status=%d rollback=%d)",
+				   man_ifname, interface_status, interface_rollback_status);
+		if (snapshot_rollback_status != 0)
+			logmessage(LOGNAME,
+				   "ZeroConf IPTV NVRAM snapshot restoration incomplete on %s (status=%d)",
+				   man_ifname, snapshot_rollback_status);
+		return snapshot_status;
+	}
 	return start_igmpproxy(man_ifname);
 }
 

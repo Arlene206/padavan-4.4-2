@@ -139,6 +139,37 @@ for marker in (
     require(marker not in wan_viptv_bound,
             "unchecked IPTV DHCP snapshot field write remains: " + marker)
 
+zcip = body(wan, "zcip_bound(char *man_ifname)")
+require("wan_dhcp_nvram_state_publish(" in zcip and
+        "WAN_ZCIP_SNAPSHOT_COUNT" in zcip,
+        "ZeroConf WAN must publish its runtime lease as one NVRAM snapshot")
+require(zcip.index("dhcp_wan_interface_apply(") <
+        zcip.index("wan_dhcp_nvram_state_publish(") <
+        zcip.index("man_up_internal("),
+        "ZeroConf WAN must commit the snapshot before route setup")
+for marker in (
+    'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
+    'nvram_set_temp(strcat_r(prefix, "gateway", tmp), "")',
+    'nvram_set_temp(strcat_r(prefix, "dns", tmp), "")',
+    'nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip)',
+):
+    require(marker not in zcip, "unchecked ZeroConf WAN snapshot write remains: " + marker)
+
+zcip_viptv = body(wan, "zcip_viptv_bound(char *man_ifname)")
+require("wan_dhcp_nvram_state_publish(" in zcip_viptv and
+        "WAN_ZCIP_VIPTV_SNAPSHOT_COUNT" in zcip_viptv,
+        "ZeroConf IPTV must publish its runtime lease as one NVRAM snapshot")
+require(zcip_viptv.index("dhcp_wan_interface_apply(") <
+        zcip_viptv.index("wan_dhcp_nvram_state_publish(") <
+        zcip_viptv.index("start_igmpproxy("),
+        "ZeroConf IPTV must commit the snapshot before proxy startup")
+for marker in (
+    'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
+    'nvram_set_temp(strcat_r(prefix, "gateway", tmp), "")',
+    'nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip)',
+):
+    require(marker not in zcip_viptv, "unchecked ZeroConf IPTV snapshot write remains: " + marker)
+
 wan_route_test = (RC / "tests/route_status_policy.c").read_text()
 
 net_core = (RC / "net.c").read_text()
