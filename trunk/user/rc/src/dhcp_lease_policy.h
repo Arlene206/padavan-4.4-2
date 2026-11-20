@@ -454,7 +454,7 @@ dhcp_lease_route_text_is_safe(const char *value)
  * either operation fails. Keep lease identity until both are complete so
  * BusyBox can retry DECONFIG_PENDING without resurrecting a revoked address. */
 typedef int (*dhcp_lease_viptv_deconfig_operation)(void *context);
-typedef void (*dhcp_lease_viptv_deconfig_publish_operation)(void *context);
+typedef int (*dhcp_lease_viptv_deconfig_publish_operation)(void *context);
 
 struct dhcp_lease_viptv_deconfig_ops {
 	dhcp_lease_viptv_deconfig_operation clear_address;
@@ -479,8 +479,7 @@ dhcp_lease_viptv_deconfig_apply(
 	if (status != 0)
 		return status;
 
-	ops->publish_empty_address(context);
-	return 0;
+	return ops->publish_empty_address(context);
 }
 
 #endif /* PADAVAN_DHCP_LEASE_POLICY_H */

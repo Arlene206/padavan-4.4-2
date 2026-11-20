@@ -281,4 +281,39 @@ assert "return saved_errno;" in host_body
 assert "sethostname(lan_hname" not in host_body
 assert "setdomainname(lan_dname" not in host_body
 
-print("LAN DHCP deconfig static host restoration and retry contract: PASS")
+
+# IPTV route inventory and deconfig metadata are committed as checked NVRAM
+# snapshots, and publisher failures propagate to BusyBox's callback retry.
+manv_route = c_function_body(wan, "manv_route_deconfig(char *man_ifname)")
+assert "wan_dhcp_nvram_publish_values(" in manv_route
+assert "route_status == 0" in manv_route
+for key in ("manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"):
+    assert '"' + key + '"' in manv_route
+assert "nvram_set_temp(" not in manv_route
+
+publish_helper = c_function_body(wan, "wan_dhcp_nvram_publish_values(")
+assert "nvram_safe_get((char *)names[i])" in publish_helper
+assert "dhcp_lease_text_fits_buffer(" in publish_helper
+assert "wan_dhcp_bound_snapshot_add(" in publish_helper
+assert "wan_dhcp_nvram_state_publish(" in publish_helper
+publish_empty = c_function_body(
+    wan, "udhcpc_viptv_deconfig_publish_empty_address(void *opaque)"
+)
+assert "return wan_dhcp_nvram_publish_values(names, values, 1);" in publish_empty
+viptv_policy = policy[policy.index("typedef int (*dhcp_lease_viptv_deconfig_operation)"):
+                      policy.index("#endif /* PADAVAN_DHCP_LEASE_POLICY_H */")]
+assert "typedef int (*dhcp_lease_viptv_deconfig_publish_operation)" in viptv_policy
+assert "return ops->publish_empty_address(context);" in viptv_policy
+zcip_deconfig = c_function_body(wan, "zcip_viptv_deconfig(char *man_ifname)")
+assert "wan_dhcp_nvram_publish_values(" in zcip_deconfig
+assert "metadata_status" in zcip_deconfig
+assert "nvram_set_temp(" not in zcip_deconfig
+for marker in (
+    "test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple",
+    "viptv_fake.publish_status = ENOSPC",
+    "assert transaction_status == ENOSPC;",
+    'assert strcmp(viptv_fake.events, "CRPCRP") == 0;',
+):
+    assert marker in test, marker
+
+print("LAN DHCP and IPTV deconfig transactional retry contract: PASS")
