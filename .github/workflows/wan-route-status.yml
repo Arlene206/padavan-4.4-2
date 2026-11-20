@@ -1129,7 +1129,7 @@ jobs:
           man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
           for name, teardown, first_cleanup in (
-              ("MAN", man_down, 'man_gate = nvram_safe_get("wanx_gateway")'),
+              ("MAN", man_down, "snapshot_status = wan_man_gateway_snapshot("),
               ("WAN", wan_down, 'route_status = set_nvram_value_status("vpnc_dns_t", "")'),
           ):
               pause_at = teardown.index("route_status = notify_pause_detect_internet();")
