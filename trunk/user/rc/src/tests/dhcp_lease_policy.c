@@ -259,6 +259,53 @@ test_lan_dhcp_nvram_publish_compensates_partial_updates(void)
 		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
 }
 
+static void
+test_dhcp_lease_nvram_publish_attempts_all_and_restores_all(void)
+{
+	struct dhcp_nvram_fake fake;
+	struct dhcp_lease_nvram_value values[3];
+	int rollback_status, i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan0_dns";
+	fake.names[1] = "wan0_domain";
+	fake.names[2] = "wan0_wins";
+	fake.old_values[0] = "old-dns";
+	fake.old_values[1] = "old-domain";
+	fake.old_values[2] = "old-wins";
+	fake.new_values[0] = "new-dns";
+	fake.new_values[1] = "new-domain";
+	fake.new_values[2] = "new-wins";
+	fake.fail_new_index = -1;
+	fake.fail_restore_index = -1;
+	for (i = 0; i < 3; ++i) {
+		values[i].name = fake.names[i];
+		values[i].value = fake.new_values[i];
+		values[i].previous_value = fake.old_values[i];
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.old_values[i]);
+	}
+
+	/* Reject a malformed tail entry before any setter is called. */
+	values[2].name = NULL;
+	assert(dhcp_lease_nvram_publish(values, 3, dhcp_nvram_fake_set,
+					&fake, &rollback_status) == EINVAL);
+	assert(fake.event_count == 0);
+	values[2].name = fake.names[2];
+
+	/* A first-field error after write must still attempt later fields and
+	 * restore the entire previous tuple in reverse order. */
+	fake.fail_new_index = 0;
+	fake.fail_new_status = ENOSPC;
+	fake.fail_new_after_write = 1;
+	assert(dhcp_lease_nvram_publish(values, 3, dhcp_nvram_fake_set,
+					&fake, &rollback_status) == ENOSPC);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "ABCcba") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
+}
+
 /* A withdrawn IPTV lease stays deconfigured only when every required
  * operation succeeds. */
 struct dhcp_viptv_deconfig_fake {
@@ -546,6 +593,7 @@ main(void)
 	assert(viptv_fake.published == 1);
 
 	test_lan_dhcp_nvram_publish_compensates_partial_updates();
+	test_dhcp_lease_nvram_publish_attempts_all_and_restores_all();
 	puts("DHCP lease input policy regression: OK");
 	return 0;
 }

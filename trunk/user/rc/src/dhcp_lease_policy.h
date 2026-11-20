@@ -318,39 +318,38 @@ dhcp_lease_nvram_publish(const struct dhcp_lease_nvram_value *values,
 			 void *context, int *rollback_status)
 {
 	size_t i, j;
-	int status, rollback = 0;
+	int status, first_status = 0, rollback = 0;
 
 	if (rollback_status)
 		*rollback_status = 0;
 	if (!values || count == 0 || !set_value)
 		return EINVAL;
-
-	/* Validate the complete group before changing the first tuple. */
+	/* Validate the complete vector before changing the first value. */
 	for (i = 0; i < count; ++i) {
 		if (!values[i].name || !*values[i].name ||
 		    !values[i].value || !values[i].previous_value)
 			return EINVAL;
 	}
 
+	/* A failed close/ioctl may still have applied; attempt every candidate. */
 	for (i = 0; i < count; ++i) {
 		status = set_value(context, values[i].name, values[i].value);
-		if (status == 0)
-			continue;
-
-		/* Include the failing key and attempt every prior restoration. */
-		for (j = i + 1; j > 0; --j) {
-			int restore_status = set_value(
-				context, values[j - 1].name,
-				values[j - 1].previous_value);
-			if (restore_status != 0 && rollback == 0)
-				rollback = restore_status;
-		}
-		if (rollback_status)
-			*rollback_status = rollback;
-		return status;
+		if (status != 0 && first_status == 0)
+			first_status = status;
 	}
+	if (first_status == 0)
+		return 0;
 
-	return 0;
+	/* Restore the whole last-known-good tuple, including later fields. */
+	for (j = count; j > 0; --j) {
+		status = set_value(context, values[j - 1].name,
+				   values[j - 1].previous_value);
+		if (status != 0 && rollback == 0)
+			rollback = status;
+	}
+	if (rollback_status)
+		*rollback_status = rollback;
+	return first_status;
 }
 
 /*
