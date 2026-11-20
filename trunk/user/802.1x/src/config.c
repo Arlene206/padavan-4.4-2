@@ -565,7 +565,15 @@ static void Config_free_radius(struct hostapd_radius_server *servers, int num_se
 
     for (i = 0; i < num_servers; i++)
     {
-        free(servers[i].shared_secret);
+        if (servers[i].shared_secret)
+        {
+            /* The driver-key copier allocates shared_secret_len + 1 bytes. */
+            auth_startup_clear_secret(servers[i].shared_secret,
+                                      servers[i].shared_secret_len + 1);
+            free(servers[i].shared_secret);
+            servers[i].shared_secret = NULL;
+            servers[i].shared_secret_len = 0;
+        }
     }
     free(servers);
 }

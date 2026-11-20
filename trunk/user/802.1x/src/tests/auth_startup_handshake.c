@@ -161,6 +161,28 @@ test_driver_interface_name_copy_is_bounded(void)
 }
 
 static void
+test_radius_secret_clear_is_not_optimized_away(void)
+{
+	unsigned char secret[] = {
+		's', 'e', 'c', 'r', 'e', 't', '\0', 'x'
+	};
+	size_t i;
+
+	auth_startup_clear_secret(secret, 7);
+	for (i = 0; i < 7; i++)
+		assert(secret[i] == 0);
+	assert(secret[7] == 'x');
+
+	auth_startup_clear_secret(secret, sizeof(secret));
+	for (i = 0; i < sizeof(secret); i++)
+		assert(secret[i] == 0);
+
+	/* A NULL allocation is a normal no-op during partial cleanup. */
+	auth_startup_clear_secret(NULL, sizeof(secret));
+	auth_startup_clear_secret(secret, 0);
+}
+
+static void
 test_driver_radius_fields_are_bounded(void)
 {
 	unsigned char key[64];
@@ -307,6 +329,7 @@ test_invalid_arguments_are_rejected(void)
 int
 main(void)
 {
+	test_radius_secret_clear_is_not_optimized_away();
 	test_driver_radius_fields_are_bounded();
 	test_driver_interface_name_copy_is_bounded();
 	test_interface_name_formatting_is_bounded();

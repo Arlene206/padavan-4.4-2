@@ -1,3 +1,13 @@
+## 2026-11-20 — Zeroize Ralink 802.1X RADIUS secrets before freeing
+
+- Parent main SHA: 5c7fa81094c2e31ed58d0e8381201ca769db7a2c.
+- `Config_free_radius()` released each dynamically allocated RADIUS shared secret with plain `free()`, leaving credential bytes in reusable heap memory after configuration teardown. The two driver-import paths now allocate exactly `shared_secret_len + 1` bytes, so the cleanup boundary has an exact wipe length.
+- Add a volatile-byte zeroization helper and wipe the complete allocation, including its terminator, before freeing; clear the pointer and stored length after release. NULL/zero-length cleanup remains harmless for partial configuration teardown.
+- Add GNU89 sanitizer regression coverage that verifies every byte is zeroed while bytes outside the requested span remain untouched. Extend the Process source contract to prove wiping happens before `free()`.
+- Exact-head Process/AI and XY-C1 Build/TRX/artifact validation still required; no physical-router L4 claim.
+
+---
+
 ## 2026-11-20 — Reject FIFO and special-file targets for existing FTP STOR
 
 - Parent main SHA: `107b57abb1374ff57b275dba2c78a0c5069dabf0`. Current exact-main Actions at checkpoint: Process inventory `44732688655` PASS, Process fail-closed `44732688588` PASS, AI docs `44732688571` PASS; XY-C1 `44732688670` and NVRAM boundary `44732688631` were IN_PROGRESS. WAN teardown exact rerun on `be32768262941acab4bebf9d747db381ec4a93b2` passed `44732616912`; WAN route contract passed on `505b26f` (`44732377886`). Same-SHA XY source L3 is not established until Build/TRX/artifact all pass together.

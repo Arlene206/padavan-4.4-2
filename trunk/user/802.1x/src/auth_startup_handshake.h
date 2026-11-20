@@ -88,6 +88,21 @@ auth_startup_copy_interface_name(char *name, size_t name_size,
 
 
 
+/*
+ * Preserve RADIUS credentials only while their owning configuration is
+ * alive. Volatile stores prevent the compiler from deleting the wipe.
+ */
+static inline void
+auth_startup_clear_secret(void *secret, size_t secret_size)
+{
+	volatile unsigned char *cursor = (volatile unsigned char *)secret;
+
+	if (!cursor)
+		return;
+	while (secret_size-- > 0)
+		*cursor++ = 0;
+}
+
 static inline int
 auth_startup_validate_driver_count(size_t count, size_t capacity)
 {
