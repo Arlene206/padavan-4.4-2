@@ -267,7 +267,7 @@ jobs:
             - Nano: ${{ inputs.nanoversion }}
             - CPU OC: ${{ inputs.cpufreq }} (${{ inputs.mt7621_oc }})
             - Plugins: ${{ inputs.plugins }}
-            - Custom: ${{ inputs.customization }}
+            - Customization: applied (sensitive values withheld)
           files: trunk/output/*.trx
 
       - uses: Mattraks/delete-workflow-runs@b3018382ca039b53d238908238bd35d1fb14f8ee # v2.1.0

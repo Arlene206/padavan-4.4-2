@@ -179,5 +179,23 @@ class AtomicCustomizationTests(unittest.TestCase):
                          self.defaults.read_text(encoding="utf-8"))
 
 
+    def test_release_notes_never_publish_customization_json(self):
+        workflow_path = Path(__file__).resolve().parents[4] / ".github/workflows/custom.yml"
+        workflow = workflow_path.read_text(encoding="utf-8")
+        marker = "      - uses: softprops/action-gh-release"
+        self.assertIn(marker, workflow)
+        release_step = workflow.split(marker, 1)[1].split(
+            "\n      - uses: Mattraks/delete-workflow-runs", 1
+        )[0]
+
+        self.assertIn(
+            "- Customization: applied (sensitive values withheld)", release_step
+        )
+        self.assertNotIn("${{ inputs.customization }}", release_step)
+        self.assertNotIn("signpassword", release_step)
+        self.assertNotIn("wifi2gpsk", release_step)
+        self.assertNotIn("wifi5gpsk", release_step)
+
+
 if __name__ == "__main__":
     unittest.main()

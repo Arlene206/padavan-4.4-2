@@ -1,3 +1,13 @@
+## 2026-11-20 — Redact custom firmware credentials from public release notes
+
+- Parent main SHA: `f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9`.
+- Found that `.github/workflows/custom.yml` expanded the entire `inputs.customization` JSON into the public GitHub Release body. The JSON accepts `signpassword` and Wi-Fi PSKs, so a custom firmware Release could disclose root and wireless credentials.
+- Replaced the raw value with a non-sensitive “customization applied” marker. Added a Python regression that reads the actual `softprops/action-gh-release` block and asserts the raw JSON and password/PSK fields never appear there.
+- Added `.github/workflows/custom.yml` to both path filters in `.github/workflows/customization-transaction.yml`, ensuring the release-note security regression runs on future workflow edits.
+- This workflow/test-only slice does not change production firmware inputs. Exact-head customization workflow result is pending at commit creation; no new XY-C1 L3 result is applicable.
+
+---
+
 ## 2026-11-20 — Publish DHCP 6rd lease options as a compensatable tuple
 
 - Parent main SHA: `00cc18c9d51a9a8254d44366795c06140bee0b17`. `store_ip6rd_from_dhcp()` ignored three independent `nvram_set_temp()` errors for `addr6`, `6rd_size` and `6rd_relay`. An ioctl/close failure after an applied write could leave a mixed 6rd tuple, while WAN DHCP callback continued to route/start services using the partially updated state.

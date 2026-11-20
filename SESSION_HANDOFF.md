@@ -1,36 +1,39 @@
 # 2026-11-20 continuation checkpoint
 
-This checkpoint supersedes older SHA/CI summaries below. Continue from live main; do not repeat completed audits.
+This checkpoint supersedes the older summaries below. Continue from live `main`; do not repeat completed audits.
 
 ## Git state
-- Parent main SHA for the DHCP 6rd transactional publication slice: `00cc18c9d51a9a8254d44366795c06140bee0b17`.
+- Parent main SHA for this slice: `f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Main-only, atomic commits; one complete Git tree per logical task; use `force=false` and exact `expected_sha`. Never force-push. Legacy PR #1 remains closed/not merged.
+- Main-only atomic commits. Build one complete tree, one commit, and update with `force=false` plus exact `expected_sha`; never force-push. PR #1 remains closed/not merged.
 
-## Completed immediately preceding slice
-- `00cc18c9d51a9a8254d44366795c06140bee0b17` propagates IPv6 runtime-reset NVRAM errors into WAN startup abort, copies cache-backed settings before writes, clears `ifname6` last, and checks static DNS publication. The exact SHA has 40 successful Actions; representative records: WAN callback `44714046971`, WAN route `44714046939`, AI handoff `44714047367`, NVRAM boundary `44714046370`, Process inventory `44714046948`, Process fail-closed `44714046997`. XY-C1 run `44714046405` was IN_PROGRESS at last check.
-- Prior `e8ef10b371372e7bfe17d552ea44150258296743` completed same-SHA XY-C1 `make XY-C1 TOOLCHAIN=mipsel-linux-musl`, TRX verification and artifact upload in run `44712394978`, job `136207077488` (artifact ID `14618531515`). This L3 evidence is only for e8ef10b, not 00cc18c or this new slice.
+## Verified parent source and CI
+- `f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9` includes transactional DHCPv4 6rd option-212 publication/rollback and the previous IPv6 runtime-reset propagation.
+- All 38 non-XY push workflows queried for this exact SHA completed SUCCESS, including WAN DHCP callback `44715584925`, WAN route `44715585112`, AI handoff docs `44715584940`, NVRAM transaction boundary `44715585200`, and process/lifecycle/security checks. XY-C1 run `44715584790` was still IN_PROGRESS at the last parent-SHA query; do not infer Build/TRX/artifact completion.
+- The earlier `00cc18c9` and `e8ef10b` results are SHA-specific and do not validate another commit.
 
-## Current implementation
-- `store_ip6rd_from_dhcp()` previously ignored each of its three temporary NVRAM setter results, so an applied write followed by an ioctl/close error could leave `addr6`, `6rd_size` and `6rd_relay` inconsistent while DHCP callback continued.
-- New `store_ip6rd_from_dhcp_status()` API snapshots the previous 6rd tuple under one NVRAM transaction, publishes through the existing compensatable `dhcp_lease_nvram_publish()`, restores the entire old tuple after any write/transaction-close failure (retrying under a fresh transaction), and preserves the legacy `store_ip6rd_from_dhcp()` void wrapper.
-- The WAN DHCP bound callback calls `store_ip6rd_from_dhcp_status()` and enters its existing IPv4 snapshot/address/route rollback path when 6rd publication fails, so it does not continue WAN activation on a failed tuple.
-- Added a GNU89-policy regression case for an error reported after the middle setter has applied, asserting all three prior values are restored in reverse order. Existing callback and XY-C1 path filters cover these files.
+## Current implementation slice — this commit
+- Found a public credential leak in `.github/workflows/custom.yml`: the GitHub Release body expanded the complete `inputs.customization` JSON. That object includes `signpassword` and Wi-Fi PSKs, so values entered for a custom firmware build were copied into public release notes.
+- The Release body now records only that customization was applied and explicitly withholds sensitive values. It no longer expands the JSON input.
+- Added `test_release_notes_never_publish_customization_json` to the existing Python customization transaction suite. It inspects the actual softprops release step and rejects raw customization interpolation or password/PSK field names.
+- Added `.github/workflows/custom.yml` to both push and pull-request path filters of `.github/workflows/customization-transaction.yml`, so changing the public release boundary runs this regression.
+- This slice changes workflow/test files only; it does not modify firmware production sources or alter the product binary.
 
-## First task for the next continuation
-1. Fetch live main and check exact-SHA WAN DHCP callback, WAN route, AI handoff, NVRAM policy and XY-C1 Actions for this slice. Retrieve causal job logs for any failure; parent results are not evidence for the new SHA.
-2. Confirm host sanitizer tests/source contracts pass, then confirm XY-C1 Build, TRX verification and artifact upload on the same new production-source SHA before claiming L3.
-3. Continue with a concrete P1 stability/security defect outside the now-checked IPv6 WAN reset/6rd path; do not repeat completed audits.
+## Exact first actions for the next continuation
+1. Check the exact-head `Custom firmware defaults transaction regression` for this commit; the job must run the whole unittest suite and the new Release-body contract. Diagnose logs for any failure.
+2. Re-fetch the exact-head XY-C1 record only to document whether the workflow skipped because no firmware source changed; do not claim L3 from a workflow-only commit.
+3. Continue the P1 queue with a new source-confirmed stability/security defect. The first two WAN queue items (full-restart LAN-route recovery and fail-closed `ifname_t` publication) were already present in source and their exact-parent WAN route / DHCP Actions passed; do not reimplement them.
+4. Keep the DHCP 6rd transactional helper and account temp-file hardening as completed work; do not repeat their audits.
 
 ## Verification boundary
-- 00cc18c has 40 PASS Actions and XY-C1 still pending at last check. e8ef10b has same-SHA L3 Build/TRX/artifact PASS.
-- New 6rd source slice has no exact-head Actions until its commit exists. No hardware L4 claim is made.
+- Parent `f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9`: all 38 non-XY push Actions PASS; XY-C1 `44715584790` was IN_PROGRESS at last check.
+- This commit: exact-head Actions are PENDING at creation. The new Python unittest is the required L2 gate. No new firmware Build/TRX/artifact or physical-router L4 evidence is claimed.
 
 ## Mandatory handoff checkpoint
-Update exact main SHA, first next task and exact-SHA CI status before context exhaustion. No no-op handoff commits.
+Update exact main SHA, exact workflow status and the next actionable issue when materially changed. Avoid no-op documentation commits.
 
 ## Evidence discipline
-Keep host sanitizer tests, source contracts, exact-SHA Actions, MIPS build/TRX/artifact evidence and physical-router behavior separate. CI does not prove L4.
+Keep host regressions, exact-SHA Actions, MIPS Build/TRX/artifact and physical-router behavior separate. CI does not prove L4.
 
 ---
 

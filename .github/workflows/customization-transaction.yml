@@ -6,11 +6,13 @@ on:
       - main
     paths:
       - ".github/workflows/customization-transaction.yml"
+      - ".github/workflows/custom.yml"
       - "trunk/custom/scripts/apply_customization.py"
       - "trunk/custom/scripts/tests/test_apply_customization.py"
   pull_request:
     paths:
       - ".github/workflows/customization-transaction.yml"
+      - ".github/workflows/custom.yml"
       - "trunk/custom/scripts/apply_customization.py"
       - "trunk/custom/scripts/tests/test_apply_customization.py"
 
