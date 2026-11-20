@@ -354,7 +354,7 @@ assert '"wan%d_%s",unit,wan_mask_suffix' in snapshot_helper
 launch_wanx = "".join(body(WAN_SOURCE, "launch_wanx(").split())
 man_snapshot_call = 'snapshot_status=wan_static_ipv4_snapshot(unit,"man_ipaddr","man_netmask",'
 assert man_snapshot_call in launch_wanx
-assert "char man_addr_storage[16],man_mask_storage[16],lan_addr[16],lan_mask[16];" in launch_wanx
+assert "charman_addr_storage[16],man_mask_storage[16],lan_addr[16],lan_mask[16];" in launch_wanx
 assert "if(snapshot_status!=0)" in launch_wanx
 assert launch_wanx.index(man_snapshot_call) < launch_wanx.index("if(snapshot_status!=0)") < launch_wanx.index("if(!is_valid_ipv4(man_addr))")
 assert "get_wan_unit_value(unit,\"man_ipaddr\")" not in launch_wanx
