@@ -48,6 +48,7 @@ replace = function_body(
 delete = function_body(SOURCE, "_upnp_delete_redir(unsigned short eport, int proto)")
 redirect_internal = function_body(SOURCE, "upnp_redirect_internal(const char * rhost")
 update = function_body(SOURCE, "upnp_redirect(const char * rhost")
+update = " ".join(update.split())
 
 # Appending a new mapping is rolled back to its original EOF on a partial write.
 assert "miniupnpd_lease_append_transaction(" in lease_add
