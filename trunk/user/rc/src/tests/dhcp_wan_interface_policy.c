@@ -264,6 +264,39 @@ test_dhcp_optional_mtu_failure_does_not_request_route_retry(void)
 }
 
 static void
+test_snapshot_failure_restores_old_address_and_routes(void)
+{
+	struct fake_route_transition fake = { 0, 0, 0, 0, 0, "", 0 };
+	int rollback_status = -1;
+
+	assert(dhcp_wan_route_transition_abort_snapshot(ENOSPC,
+		&fake_route_transition_ops, &fake, &rollback_status) == ENOSPC);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "AR") == 0);
+
+	fake.events[0] = '\0';
+	fake.event_count = 0;
+	fake.restore_address_status = EACCES;
+	fake.restore_routes_status = EPERM;
+	assert(dhcp_wan_route_transition_abort_snapshot(ENOSPC,
+		&fake_route_transition_ops, &fake, &rollback_status) == ENOSPC);
+	assert(rollback_status == EACCES);
+	assert(strcmp(fake.events, "AR") == 0);
+}
+
+static void
+test_snapshot_success_does_not_restore_network(void)
+{
+	struct fake_route_transition fake = { 0, 0, 0, 0, 0, "", 0 };
+	int rollback_status = -1;
+
+	assert(dhcp_wan_route_transition_abort_snapshot(0,
+		&fake_route_transition_ops, &fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(fake.event_count == 0);
+}
+
+static void
 test_route_transition_success(void)
 {
 	struct fake_route_transition fake = { 0, 0, 0, 0, 0, "", 0 };
@@ -343,6 +376,8 @@ main(void)
 	test_invalid_input_has_no_side_effects();
 	test_route_setup_failure_requires_retry();
 	test_dhcp_optional_mtu_failure_does_not_request_route_retry();
+	test_snapshot_failure_restores_old_address_and_routes();
+	test_snapshot_success_does_not_restore_network();
 	test_route_transition_success();
 	test_route_transition_ignores_missing_old_routes();
 	test_route_transition_rolls_back_all_after_delete_errors();

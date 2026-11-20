@@ -15,6 +15,51 @@ struct dhcp_wan_route_transition_ops {
 };
 
 /*
+ * Restore the old interface address and its route inventory. Both independent
+ * recovery operations are attempted and the first error is retained.
+ */
+static inline int
+dhcp_wan_route_transition_restore_old(
+	const struct dhcp_wan_route_transition_ops *ops, void *context,
+	int *rollback_status)
+{
+	int status = 0, operation_status;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (!ops || !ops->restore_old_address || !ops->restore_old_routes)
+		return EINVAL;
+
+	operation_status = ops->restore_old_address(context);
+	if (operation_status != 0)
+		status = operation_status;
+	operation_status = ops->restore_old_routes(context);
+	if (operation_status != 0 && status == 0)
+		status = operation_status;
+	if (rollback_status)
+		*rollback_status = status;
+	return status;
+}
+
+/*
+ * Abort a lease transition after its NVRAM snapshot failed. Keep the snapshot
+ * error primary while attempting both network rollback operations.
+ */
+static inline int
+dhcp_wan_route_transition_abort_snapshot(
+	int snapshot_status, const struct dhcp_wan_route_transition_ops *ops,
+	void *context, int *rollback_status)
+{
+	if (rollback_status)
+		*rollback_status = 0;
+	if (snapshot_status == 0)
+		return 0;
+	(void)dhcp_wan_route_transition_restore_old(ops, context,
+						    rollback_status);
+	return snapshot_status;
+}
+
+/*
  * Remove the previous lease's route inventory before publishing a replacement.
  * Every requested delete is attempted. A failed delete causes the old address
  * and route inventory to be restored; rollback attempts are never short-cut.
@@ -59,12 +104,8 @@ dhcp_wan_route_transition_apply(int remove_host_route,
 		return 0;
 
 	/* Restore both parts of the old lease even if the first rollback fails. */
-	operation_status = ops->restore_old_address(context);
-	if (operation_status != 0)
-		rollback = operation_status;
-	operation_status = ops->restore_old_routes(context);
-	if (operation_status != 0 && !rollback)
-		rollback = operation_status;
+	rollback = dhcp_wan_route_transition_restore_old(
+		ops, context, rollback_status);
 	if (rollback_status)
 		*rollback_status = rollback;
 

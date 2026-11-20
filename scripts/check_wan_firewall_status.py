@@ -90,6 +90,33 @@ for marker in (
     require(marker not in wan_renew,
             "unchecked DHCP renewal option write remains: " + marker)
 
+wan_bound = body(wan, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
+require("wan_dhcp_nvram_state_publish(" in wan_bound and
+        "snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT]" in wan_bound and
+        "previous_text[WAN_DHCP_BOUND_SNAPSHOT_COUNT]" in wan_bound,
+        "WAN DHCP bound must stage the complete address-change lease tuple")
+require(wan_bound.index("wan_dhcp_nvram_state_publish(") <
+        wan_bound.index("if (!i_err)") and
+        "dhcp_wan_route_transition_abort_snapshot(" in wan_bound,
+        "DHCP route setup must wait for snapshot publication and roll back on failure")
+require("foreach(route, routes_rfc_parse, value)" in wan_bound and
+        "lease_routes_rfc" in wan_bound,
+        "DHCP default-gateway discovery must consume the staged classless-route value")
+for marker in (
+    'nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), lease_ip)',
+    'nvram_set_temp(strcat_r(prefix, "netmask", tmp), lease_netmask)',
+    'nvram_set_temp(strcat_r(prefix, "dns", tmp), lease_dns)',
+    'nvram_set_temp(strcat_r(prefix, "wins", tmp), lease_wins)',
+    'nvram_set_temp(strcat_r(prefix, "routes", tmp), route_value)',
+    'nvram_set_temp(strcat_r(prefix, "routes_ms", tmp), route_value)',
+    'nvram_set_temp(strcat_r(prefix, "routes_rfc", tmp), route_value)',
+    'nvram_set_temp(strcat_r(prefix, "domain", tmp), lease_domain)',
+    'nvram_set_int_temp(strcat_r(prefix, "lease", tmp), lease_dur)',
+    'nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf)',
+):
+    require(marker not in wan_bound,
+            "unchecked DHCP bound snapshot field write remains: " + marker)
+
 wan_route_test = (RC / "tests/route_status_policy.c").read_text()
 
 net_core = (RC / "net.c").read_text()

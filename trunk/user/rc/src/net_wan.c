@@ -4917,13 +4917,22 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char *lease_ip, *lease_netmask, *lease_dns, *lease_wins, *lease_domain;
-	char *route_value;
+	char *lease_routes, *lease_routes_ms, *lease_routes_rfc, *route_value;
+	char *previous_value;
+	char bound_names[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_KEY_MAX];
+	char previous_text[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
+	char routes_rfc_parse[WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
+	char mtu_text[16], lease_text[16];
 	unsigned int parsed_value;
+	size_t i, snapshot_count;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
 	int wan_proto, modem_unit_id, route_result, route_metric;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
+	int key_length, snapshot_status, snapshot_rollback_status;
+	int snapshot_abort_status;
+	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
 
@@ -4958,13 +4967,36 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		return EINVAL;
 	}
 
-	/* Snapshot old values before replacing the lease. */
+	/*
+	 * Capture the complete previous lease before changing the interface or
+	 * deleting routes. Route options can be 2048 bytes; refuse an oversized
+	 * old value rather than risk a truncated rollback snapshot.
+	 */
+	for (i = 0; i < WAN_DHCP_BOUND_SNAPSHOT_COUNT; ++i) {
+		key_length = snprintf(bound_names[i], sizeof(bound_names[i]),
+				      "%s%s", prefix,
+				      wan_dhcp_bound_snapshot_params[i]);
+		if (key_length < 0 ||
+		    (size_t)key_length >= sizeof(bound_names[i]))
+			return ENAMETOOLONG;
+		previous_value = nvram_safe_get(bound_names[i]);
+		if (!previous_value)
+			previous_value = "";
+		if (strlen(previous_value) >= sizeof(previous_text[i])) {
+			logmessage(log_prefix,
+				   "%s (%s) rejected oversized previous DHCP snapshot field %s",
+				   udhcpc_state, wan_ifname, wan_dhcp_bound_snapshot_params[i]);
+			return ENAMETOOLONG;
+		}
+		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
+			 previous_value);
+	}
 	snprintf(old_gateway, sizeof(old_gateway), "%s",
-		nvram_safe_get(strcat_r(prefix, "gateway", tmp)));
+	 previous_text[WAN_DHCP_BOUND_GATEWAY]);
 	snprintf(old_ip, sizeof(old_ip), "%s",
-		nvram_safe_get(strcat_r(prefix, "ipaddr", tmp)));
+	 previous_text[WAN_DHCP_BOUND_IPADDR]);
 	snprintf(old_mask, sizeof(old_mask), "%s",
-		nvram_safe_get(strcat_r(prefix, "netmask", tmp)));
+	 previous_text[WAN_DHCP_BOUND_NETMASK]);
 	wan_proto = get_wan_proto(unit);
 	modem_unit_id = is_ifunit_modem(wan_ifname, unit);
 	route_metric = is_man ? 2 : 1;
@@ -5047,10 +5079,22 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	lease_dur = 0;
 	has_gateway = 0;
 	dhcp_mtu = 0;
+	snapshot_count = 0;
+	snapshot_rollback_status = 0;
 	gateway_buf[0] = '\0';
 
-	nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), lease_ip);
-	nvram_set_temp(strcat_r(prefix, "netmask", tmp), lease_netmask);
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count,
+		bound_names[WAN_DHCP_BOUND_IPADDR], lease_ip,
+		previous_text[WAN_DHCP_BOUND_IPADDR]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count,
+		bound_names[WAN_DHCP_BOUND_NETMASK], lease_netmask,
+		previous_text[WAN_DHCP_BOUND_NETMASK]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	value = getenv("router");
 	if (value) {
@@ -5068,7 +5112,11 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		logmessage(log_prefix, "ignoring invalid DHCP DNS list on %s", wan_ifname);
 		lease_dns = "";
 	}
-	nvram_set_temp(strcat_r(prefix, "dns", tmp), lease_dns);
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, bound_names[WAN_DHCP_BOUND_DNS],
+		lease_dns, previous_text[WAN_DHCP_BOUND_DNS]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	value = getenv("wins");
 	lease_wins = value ? trim_r(value) : "";
@@ -5076,7 +5124,11 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		logmessage(log_prefix, "ignoring invalid DHCP WINS list on %s", wan_ifname);
 		lease_wins = "";
 	}
-	nvram_set_temp(strcat_r(prefix, "wins", tmp), lease_wins);
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, bound_names[WAN_DHCP_BOUND_WINS],
+		lease_wins, previous_text[WAN_DHCP_BOUND_WINS]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	value = getenv("mtu");
 	if (value) {
@@ -5087,7 +5139,13 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		} else {
 			dhcp_mtu = (int)parsed_value;
 		}
-		nvram_set_int_temp(strcat_r(prefix, "mtu", tmp), dhcp_mtu);
+		snprintf(mtu_text, sizeof(mtu_text), "%d", dhcp_mtu);
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count,
+			bound_names[WAN_DHCP_BOUND_MTU], mtu_text,
+			previous_text[WAN_DHCP_BOUND_MTU]);
+		if (snapshot_status != 0)
+			goto snapshot_publication_failed;
 	}
 
 	route_value = safe_getenv("routes");
@@ -5095,21 +5153,39 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		logmessage(log_prefix, "ignoring invalid DHCP route option on %s", wan_ifname);
 		route_value = "";
 	}
-	nvram_set_temp(strcat_r(prefix, "routes", tmp), route_value);
+	lease_routes = route_value;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count,
+		bound_names[WAN_DHCP_BOUND_ROUTES], lease_routes,
+		previous_text[WAN_DHCP_BOUND_ROUTES]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	route_value = safe_getenv("msstaticroutes");
 	if (!dhcp_lease_route_text_is_safe(route_value)) {
 		logmessage(log_prefix, "ignoring invalid DHCP Microsoft route option on %s", wan_ifname);
 		route_value = "";
 	}
-	nvram_set_temp(strcat_r(prefix, "routes_ms", tmp), route_value);
+	lease_routes_ms = route_value;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count,
+		bound_names[WAN_DHCP_BOUND_ROUTES_MS], lease_routes_ms,
+		previous_text[WAN_DHCP_BOUND_ROUTES_MS]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	route_value = safe_getenv("staticroutes");
 	if (!dhcp_lease_route_text_is_safe(route_value)) {
 		logmessage(log_prefix, "ignoring invalid DHCP classless route option on %s", wan_ifname);
 		route_value = "";
 	}
-	nvram_set_temp(strcat_r(prefix, "routes_rfc", tmp), route_value);
+	lease_routes_rfc = route_value;
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count,
+		bound_names[WAN_DHCP_BOUND_ROUTES_RFC], lease_routes_rfc,
+		previous_text[WAN_DHCP_BOUND_ROUTES_RFC]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	value = getenv("domain");
 	lease_domain = value ? trim_r(value) : "";
@@ -5117,7 +5193,11 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		logmessage(log_prefix, "ignoring invalid DHCP domain on %s", wan_ifname);
 		lease_domain = "";
 	}
-	nvram_set_temp(strcat_r(prefix, "domain", tmp), lease_domain);
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count, bound_names[WAN_DHCP_BOUND_DOMAIN],
+		lease_domain, previous_text[WAN_DHCP_BOUND_DOMAIN]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
 
 	value = getenv("lease");
 	if (value) {
@@ -5128,17 +5208,19 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		} else {
 			lease_dur = (int)parsed_value;
 		}
-		nvram_set_int_temp(strcat_r(prefix, "lease", tmp), lease_dur);
+		snprintf(lease_text, sizeof(lease_text), "%d", lease_dur);
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count,
+			bound_names[WAN_DHCP_BOUND_LEASE], lease_text,
+			previous_text[WAN_DHCP_BOUND_LEASE]);
+		if (snapshot_status != 0)
+			goto snapshot_publication_failed;
 	}
 
-#if defined (USE_IPV6)
-	value = getenv("ip6rd");
-	if (value)
-		store_ip6rd_from_dhcp(value, prefix);
-#endif
-
 	if (!has_gateway) {
-		foreach(route, nvram_safe_get(strcat_r(prefix, "routes_rfc", tmp)), value) {
+		snprintf(routes_rfc_parse, sizeof(routes_rfc_parse), "%s",
+			 lease_routes_rfc);
+		foreach(route, routes_rfc_parse, value) {
 			if (has_gateway) {
 				snprintf(gateway_buf, sizeof(gateway_buf), "%s", route);
 				break;
@@ -5146,7 +5228,29 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 				has_gateway = !strcmp(route, "0.0.0.0/0");
 		}
 	}
-	nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf);
+	snapshot_status = wan_dhcp_bound_snapshot_add(
+		snapshot_values, &snapshot_count,
+		bound_names[WAN_DHCP_BOUND_GATEWAY], gateway_buf,
+		previous_text[WAN_DHCP_BOUND_GATEWAY]);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+
+	/*
+	 * Do not expose a mixed lease tuple after the old route inventory has
+	 * been removed. On any failed setter/close, restore the complete old
+	 * NVRAM tuple under a fresh transaction, then restore the old address
+	 * and routes before returning the original publication error.
+	 */
+	snapshot_status = wan_dhcp_nvram_state_publish(
+		snapshot_values, snapshot_count, &snapshot_rollback_status);
+	if (snapshot_status != 0)
+		goto snapshot_publication_failed;
+
+#if defined (USE_IPV6)
+	value = getenv("ip6rd");
+	if (value)
+		store_ip6rd_from_dhcp(value, prefix);
+#endif
 
 	if (!i_err) {
 		if (wan_dhcp_mtu_is_supported(dhcp_mtu)) {
@@ -5175,6 +5279,27 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	nvram_set_int_temp(strcat_r(prefix, "err", tmp), i_err);
 
 	return route_setup_status;
+
+snapshot_publication_failed:
+	logmessage(log_prefix,
+		   "%s (%s) cannot publish complete DHCP lease snapshot (status=%d)",
+		   udhcpc_state, wan_ifname, snapshot_status);
+	if (snapshot_rollback_status != 0) {
+		logmessage(log_prefix,
+			   "DHCP lease snapshot restoration incomplete on %s (status=%d); not replaying the possibly mixed DHCP route inventory",
+			   wan_ifname, snapshot_rollback_status);
+		/* The old address/default route are still independently recoverable. */
+		route_context.remove_dhcp_routes = 0;
+	}
+	route_rollback_status = 0;
+	snapshot_abort_status = dhcp_wan_route_transition_abort_snapshot(
+		snapshot_status, &wan_dhcp_route_transition_ops, &route_context,
+		&route_rollback_status);
+	if (route_rollback_status != 0)
+		logmessage(log_prefix,
+			   "failed to restore previous DHCP address/routes on %s after snapshot error (status=%d)",
+			   wan_ifname, route_rollback_status);
+	return snapshot_abort_status;
 }
 
 static int
@@ -5467,6 +5592,29 @@ zcip_viptv_bound(char *man_ifname)
 	return start_igmpproxy(man_ifname);
 }
 
+enum {
+	WAN_DHCP_BOUND_IPADDR = 0,
+	WAN_DHCP_BOUND_NETMASK,
+	WAN_DHCP_BOUND_DNS,
+	WAN_DHCP_BOUND_WINS,
+	WAN_DHCP_BOUND_MTU,
+	WAN_DHCP_BOUND_ROUTES,
+	WAN_DHCP_BOUND_ROUTES_MS,
+	WAN_DHCP_BOUND_ROUTES_RFC,
+	WAN_DHCP_BOUND_DOMAIN,
+	WAN_DHCP_BOUND_LEASE,
+	WAN_DHCP_BOUND_GATEWAY,
+	WAN_DHCP_BOUND_SNAPSHOT_COUNT
+};
+
+#define WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX 2049
+#define WAN_DHCP_BOUND_SNAPSHOT_KEY_MAX 32
+
+static const char *const wan_dhcp_bound_snapshot_params[] = {
+	"ipaddr", "netmask", "dns", "wins", "mtu", "routes",
+	"routes_ms", "routes_rfc", "domain", "lease", "gateway"
+};
+
 static int
 wan_dhcp_nvram_transaction_set(void *opaque, const char *name,
 			       const char *value)
@@ -5494,7 +5642,7 @@ wan_dhcp_nvram_restore_values(
 
 	if (rollback_status)
 		*rollback_status = 0;
-	if (!values || count == 0 || count > 4)
+	if (!values || count == 0 || count > WAN_DHCP_BOUND_SNAPSHOT_COUNT)
 		return EINVAL;
 	errno = 0;
 	if (nvram_transaction_begin(&transaction) != 0) {
@@ -5527,7 +5675,7 @@ wan_dhcp_nvram_state_publish(
 
 	if (rollback_status)
 		*rollback_status = 0;
-	if (!values || count == 0 || count > 4)
+	if (!values || count == 0 || count > WAN_DHCP_BOUND_SNAPSHOT_COUNT)
 		return EINVAL;
 	errno = 0;
 	if (nvram_transaction_begin(&transaction) != 0)
@@ -5553,6 +5701,22 @@ wan_dhcp_nvram_state_publish(
 				 recovery_status) : 0;
 	}
 	return status;
+}
+
+static int
+wan_dhcp_bound_snapshot_add(struct dhcp_lease_nvram_value *values,
+			    size_t *count, const char *name,
+			    const char *value, const char *previous_value)
+{
+	if (!values || !count || *count >= WAN_DHCP_BOUND_SNAPSHOT_COUNT ||
+	    !name || !name[0] || !value || !previous_value)
+		return EINVAL;
+
+	values[*count].name = name;
+	values[*count].value = value;
+	values[*count].previous_value = previous_value;
+	++*count;
+	return 0;
 }
 
 static int
