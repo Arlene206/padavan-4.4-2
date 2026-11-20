@@ -1,3 +1,12 @@
+## 2026-11-19 — Align NVRAM fail-closed audit with three-state PID 1 readiness
+
+- Exact-head NVRAM audit `44644448560` on `61cbc6b` passed the NVRAM lock, snapshot, ioctl and device-node policy tests, then failed its source assertion because it still required `router_ready = dev_init_status == 0 && nvram_node_result == 0 && init_router() == 0`.
+- The production three-state design deliberately calls `init_router()` only when both mandatory prerequisites pass, and separately accepts READY/DEGRADED from `init_router_status_is_ready()`; the mandatory `nvram_node_result == 0` condition still gates readiness. The checker now asserts the explicit call guard, FATAL initial state, and final READY/DEGRADED classifier.
+- This is a checker-only correction; no NVRAM or PID 1 production code changed. Exact-head NVRAM rerun is pending.
+- Parent SHA: `5ebdf7977d3abf53ca5f3514b76f8a59b64af294`.
+
+---
+
 ## 2026-11-19 — Repair three stale startup/storage CI contracts
 
 - Exact-head Process run `44644448788` on `61cbc6b` passed the PID 1 policy binary, `dev_init` shell regression, and new `copyscripts_ca_status.sh` regression; its source checker then failed because it compared space-normalized C to an unnormalized function-call expression. Updated the assertion to remove whitespace from both sides.

@@ -344,8 +344,10 @@ def run() -> int:
         if "nvram_result=init_nvram_node()" not in init_nodes_body or "returnnvram_result;" not in init_nodes_body:
             failures.append("init_nodes does not propagate an NVRAM device setup failure")
         main_body = re.sub(r"\s+", "", extract_function(init_source, "init_main_loop"))
-        if "router_ready=(dev_init_status==0&&nvram_node_result==0&&init_router()==0);" not in main_body:
-            failures.append("PID 1 does not block router startup when the NVRAM device is unsafe")
+        if ("router_init_status=INIT_ROUTER_RESULT_FATAL;" not in main_body or
+                "if(dev_init_status==0&&nvram_node_result==0)router_init_status=init_router();" not in main_body or
+                "router_ready=(dev_init_status==0&&nvram_node_result==0&&init_router_status_is_ready(router_init_status));" not in main_body):
+            failures.append("PID 1 must fail closed for an unsafe NVRAM device while allowing only READY/DEGRADED router results")
     except ValueError as error:
         failures.append(str(error))
 
