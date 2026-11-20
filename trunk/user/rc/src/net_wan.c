@@ -518,7 +518,7 @@ reset_man_vars(void)
 
 static int wan_vars_reset_status;
 
-static int
+int
 reset_wan_vars_status(void)
 {
 	int unit, wan_proto, proto_status;

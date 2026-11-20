@@ -3457,6 +3457,12 @@ misc_init = c_function_body(rc_source, "nvram_convert_misc_values(void)")
 assert "status = set_wan0_vars();" in misc_init
 assert misc_init.index("status = set_wan0_vars();") < misc_init.index("set_usb_modem_dev_wan(0, 0);")
 assert "if (status != 0) return status;" in re.sub(r"\s+", " ", misc_init)
+net_wan_source = (root / "trunk/user/rc/src/net_wan.c").read_text()
+assert not re.search(r"static\\s+int\\s+reset_wan_vars_status\\s*\\(", net_wan_source)
+wan_reset_definition = c_function_body(net_wan_source, "reset_wan_vars_status(void)")
+assert "return proto_status;" in wan_reset_definition
+assert "int reset_wan_vars_status(void);" in rc_header
+
 wan_reset_at = misc_init.index("status = reset_wan_vars_status();")
 wan_reset_gate = misc_init.split(
     "if (status != 0)", 1

@@ -1,43 +1,41 @@
 # 2026-11-20 continuation checkpoint
 
-This checkpoint supersedes older summaries below. Resume from live main and do not repeat completed audits.
+This checkpoint supersedes older summaries below. Resume from live main; do not repeat completed audits.
 
 ## Git state
-- Parent main SHA for this slice: f196902a3768f90c6cb60a0a40abe978661396f5.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only, immutable).
-- Main-only atomic commits; expected-SHA non-forforced ref update; never force-push. PR #1 remains closed/not merged.
-- Previous checked-read source SHA `abc46fda36f6f11479374fe123de35bf84d51cb0` has now completed XY-C1 run `44720306486` SUCCESS; the earlier handoff's pending state is resolved.
+- Parent main SHA for this fix: 99054c2e152aa28bde06fa1790abb46294038cae.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not update).
+- Main-only atomic commits with `force=false` and exact `expected_sha`; never force-push. PR #1 remains closed/not merged.
 
 ## Verified preceding work
-- Product-source SHA `05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45` is L3 VERIFIED: same-SHA XY-C1 run `44718942242` passed Build XY-C1, TRX verification and artifact upload `14621980301` (12,690,602 bytes).
-- CI repair `36519699b833ac0582b7f54f3d9d52b80bfb7245`: exact Process `44719246958`, HTTPD security `44719247010`, AI docs `44719246942` PASS.
-- Checked-read source `abc46fda36f6f11479374fe123de35bf84d51cb0`: seven-case NVRAM policy regression passed; checker variable NameError fixed by `6ebd91e9`; exact Process `44720687519` and AI docs `44720687419` PASS; exact XY-C1 `44720306486` now SUCCESS.
-- WAN reset propagation source `f196902a3768f90c6cb60a0a40abe978661396f5`: exact Process inventory/lifecycle, firewall startup and other relevant push checks PASS; 35/36 total runs complete success. Exact XY-C1 run `44721008402` was still in progress at last observation.
+- Product-source SHA `05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45` is L3 VERIFIED on exact XY-C1 run `44718942242`, including Build, TRX and artifact `14621980301` (12,690,602 bytes).
+- Checked-read source `abc46fda36f6f11479374fe123de35bf84d51cb0`: exact XY-C1 run `44720306486` completed SUCCESS; its Process regression and AI docs had passed.
+- WAN reset status propagation was added in `f196902a3768f90c6cb60a0a40abe978661396f5`. Its exact host checks passed, but exact XY-C1 run `44721008402` FAILED at RC link: `rc.c` referenced `reset_wan_vars_status` while `net_wan.c` still gave that definition internal `static` linkage. Build XY-C1 failed at link; TRX and artifact steps were skipped. Do not claim L3 for f196902.
+- LAN checked boot identity/default/runtime work is on main at `99054c2e152aa28bde06fa1790abb46294038cae`. Exact run inventory was 39 runs: 20 in progress and 19 queued at last observation; Process `44722781752` and XY-C1 `44722781476` were both in progress. That SHA still inherited the WAN symbol-link error until this fix.
 
 ## Current implementation slice — THIS COMMIT
-- Found LAN boot reset functions silently ignored NVRAM errors: `reset_lan_vars()` wrote `lan_hwaddr` without checking the source read or write, while `reset_lan_temp()` ignored errors from persistent address defaults and all five temporary LAN runtime fields.
-- Added `reset_lan_vars_status()` and `reset_lan_temp_status()` using checked reads, bounded copies to protect against shared NVRAM cache invalidation/truncation, and ordered error-returning writes. Legacy void wrappers remain for compatibility.
-- `nvram_convert_misc_values()` now checks both LAN reset statuses and returns immediately on failure before timezone setup; the existing PID 1 fatal NVRAM gate prevents GPIO and service initialization.
-- Added five-field failure-injection coverage to the existing GNU89 NVRAM status policy regression and Process integration assertions for checked read/write and boot gates.
-- Runtime LAN restart still uses the legacy wrapper; preserve that as a separate follow-up only if source evidence justifies a dedicated recovery gate. This slice specifically closes initial boot publication.
+- Fix the exact production link failure: `reset_wan_vars_status()` is now externally visible from `net_wan.c`, with a public declaration in `rc.h` for the PID 1 caller in `rc.c`.
+- Process integration checks require the public prototype and reject a static definition.
+- No runtime behavior change beyond making the already-required status API linkable.
 
 ## Exact first actions for the next continuation
-1. Verify exact-head Process regression, including compilation/execution of the extended NVRAM failure-injection test and the new source assertions.
-2. Verify same-SHA XY-C1 Build, TRX verification and artifact upload because `rc.c` and `net_lan.c` changed. Do not claim L3 without all three on this exact production SHA.
-3. Check the preceding `f196902` XY-C1 run `44721008402`; do not transfer its result to this new product-source commit.
-4. Continue another independent P1 RC/service startup or lifecycle failure path. Do not re-audit WAN0 checked read/write, WAN reset propagation, this LAN boot snapshot, DHCP 6rd rollback, WAN route recovery or custom credential hardening.
+1. Verify this commit's exact Process regression and AI documentation contract.
+2. Verify this commit's exact-SHA XY-C1 Build, TRX verification and artifact upload. The link error must be gone; no L3 claim without all three successful steps on this commit.
+3. Separately check `99054c2e` exact Process run `44722781752` and XY-C1 run `44722781476`; don't attribute any run's result to this fix SHA.
+4. Once build is green, continue an independent source-confirmed P1 RC/service lifecycle defect. Avoid repeating WAN0 checked read/write, WAN reset status propagation, LAN initial boot publication, DHCP 6rd rollback, WAN route recovery or custom credential hardening.
 
 ## Verification boundary
-- Earlier product source `05e2cb`: L3 VERIFIED on its own exact SHA.
-- `abc46fda`: seven-case policy test/Process correction PASS; exact XY-C1 run `44720306486` completed SUCCESS.
-- `f196902`: exact host/source Actions 35/35 completed PASS; XY-C1 run `44721008402` pending at last observation.
-- THIS COMMIT: Actions and same-SHA L3 PENDING at creation; physical-router L4 NOT VERIFIED.
+- `05e2cb`: L3 VERIFIED on its own exact SHA.
+- `abc46fda`: exact XY-C1 run `44720306486` completed SUCCESS.
+- `f196902`: XY-C1 failed at RC link due undefined external WAN reset status; TRX/upload skipped.
+- `99054c2e`: exact runs were pending at last poll; inherited same link issue.
+- THIS COMMIT: exact Actions and same-SHA L3 pending at creation. Physical-router L4 NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
-Update exact main SHA, exact-head Actions, active task and verification boundary only when materially changed. Do not create no-op SHA/status refresh commits.
+Update exact main SHA, exact-head Actions, active task and validation boundary only when materially changed; avoid no-op SHA/status refresh commits.
 
 ## Evidence discipline
-Keep L1 source review, L2 host regression, exact-SHA push Actions, L3 MIPS Build/TRX/artifact and physical-router L4 separate. Never infer L3/L4 from host regressions.
+Keep L1 source checks, L2 host regression, exact-SHA push Actions, L3 MIPS Build/TRX/artifact and physical-router L4 distinct. Never infer L3/L4 from host regressions.
 
 
 ---

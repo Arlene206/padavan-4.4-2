@@ -1,3 +1,13 @@
+## 2026-11-20 — Export checked WAN reset status to the PID 1 caller
+
+- Parent main SHA: 99054c2e152aa28bde06fa1790abb46294038cae.
+- Exact XY-C1 run `44721008402` for `f196902a3768f90c6cb60a0a40abe978661396f5` failed at the final RC link. All preceding compile steps passed, but `rc.c` had an undefined reference to `reset_wan_vars_status`: the implementation in `net_wan.c` was still declared `static`, so the new PID 1 boot gate could not link across translation units. TRX verification and artifact upload were skipped; this SHA is NOT L3 verified.
+- Removed internal linkage from the checked WAN reset function and declared the status API in `rc.h`. The Process source contract now rejects a static definition and requires the public prototype.
+- The LAN checked MAC/default/runtime boot gate from `99054c2e` remains in this parent; this separate atomic commit repairs the prerequisite WAN symbol linkage so the production image can link.
+- At last poll, `99054c2e` had 39 exact push Actions queued/in progress (Process `44722781752` running; XY-C1 `44722781476` running). The current fix SHA's exact Actions and same-SHA MIPS Build/TRX/artifact checks are pending. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Fail closed on LAN startup NVRAM publication
 
 - Parent main SHA: f196902a3768f90c6cb60a0a40abe978661396f5.
