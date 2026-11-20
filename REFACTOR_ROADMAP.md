@@ -1,7 +1,9 @@
-# 2026-11-19 source checkpoint
-- Main baseline before this ZeroTier regression follow-up: `4c90601aa7e367ce959f78cce712b73441357dce`. The source fix is `bfe634281151753e906f01cdf5b743f3ee250f79`; frozen archive `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, untouched.
-- Wireless boot configuration publication failure propagation is committed as production SHA `9f565b124635a0c3d0686636b4dc0313a5f3a298`; XY-C1 run `44648971016` PASS included detector, Build XY-C1, TRX verification and artifact upload. Checker-only main follow-up `ae7874833c6cb870162222f415124d1db4e63dda` has Process run `44649240357` and AI docs run `44649240209` PASS.
-- No physical-router L4 evidence. This ZeroTier writer slice changes firmware production input; exact-head ZeroTier and XY-C1 validation must be checked after commit.
+# 2026-11-20 active checkpoint
+
+- Current main: `bf53b1c08fa068fed5e06ef11098e523be032dcf`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest production source `bffe074d853e9083d299d3ce07dd96d827a6d681`: ZeroTier lifecycle `44656543332` PASS and WAN route operation status `44656543283` PASS. XY-C1 `44656543236` input detector PASS; Build/TRX/artifact were IN_PROGRESS at last poll. AI docs `44656543369` failed only on mandatory handoff checkpoint wording, fixed in this follow-up.
+- Process inventory/lifecycle and NVRAM audit on parent `b6150ea` all PASS. Account security/three-file transaction production SHA `740c82cee671e5bcc133289d9126f75afd654ec3` has L3 from XY-C1 `44654005725`, including Build, TRX and artifact upload.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## CI trigger governance — current policy
 

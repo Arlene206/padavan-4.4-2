@@ -1,3 +1,14 @@
+## 2026-11-20 — Restore mandatory end-of-session handoff contract
+
+- Parent SHA: `bf53b1c08fa068fed5e06ef11098e523be032dcf`.
+- ZeroTier lifecycle `44656543332` and WAN route operation status `44656543283` PASS on production source `bffe074d853e9083d299d3ce07dd96d827a6d681`. Process inventory/lifecycle and NVRAM audit on parent `b6150ea` PASS.
+- AI handoff docs `44656214060` on `b6150ea` and `44656543369` on `bffe074` failed because the handoff omitted the mandatory end-of-session checkpoint heading and exact conditional-edit sentence. Rebuilt the handoff with required state, active-task, verification-boundary and exact-next-action sections, and added the exact checker contract.
+- XY-C1 `44656543236` on `bffe074` passed input detection; Build/TRX/artifact were still IN_PROGRESS at last poll. L3 for the ZeroTier source remains pending.
+- Account transaction production SHA `740c82c` remains L3 verified by `44654005725` (Build, TRX and artifact upload PASS). Physical-router L4 is NOT VERIFIED.
+- Preserved all prior `dev_log.md` entries verbatim after this entry (${count} records).
+
+---
+
 ## 2026-11-19 — Publish NVRAM-sourced ZeroTier planet data safely
 
 - Parent SHA: `bffe074d853e9083d299d3ce07dd96d827a6d681`.
