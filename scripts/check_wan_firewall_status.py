@@ -109,6 +109,34 @@ for marker in (
     require(marker in restore, f"PPP physical-WAN recovery must preserve {marker}")
 
 start = body(wan, "start_wan(void)")
+
+# The firewall consumes wanN_ifname_t directly. Never rebuild rules or launch a
+# client while that publication is stale: restore the physical WAN and abort
+# the current protocol branch when any of the three protocol paths cannot set it.
+for marker, expected_count in (
+    ('vlan_result = set_wan_unit_value_status(unit, "ifname_t", ppp_ifname);', 2),
+    ('vlan_result = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);', 1),
+):
+    publications = positions(start, marker)
+    require(len(publications) == expected_count,
+            f"checked active-WAN publication count mismatch for {marker}")
+    for position in publications:
+        gate = "if (vlan_result != 0)"
+        gate_at = start.find(gate, position + len(marker))
+        require(gate_at >= 0,
+                "failed active-WAN publication must be checked immediately")
+        failure = body(start[gate_at:], gate)
+        for required in (
+            "wan_start_status = rc_first_service_start_status(",
+            "restore_wan_after_firewall_failure(unit, wan_ifname);",
+            "continue;",
+        ):
+            require(required in failure,
+                    f"failed active-WAN publication must abort and restore: {required}")
+        next_firewall = start.find("vlan_result = start_firewall_ex();", position)
+        require(next_firewall < 0 or gate_at < next_firewall,
+                "active-WAN publication failure must be handled before firewall rebuild")
+
 firewall_marker = "vlan_result = start_firewall_ex();"
 firewall_sites = positions(start, firewall_marker)
 require(len(firewall_sites) == 3,

@@ -1,3 +1,13 @@
+## 2026-11-20 12:48 CST — Gate WAN firewall/client startup on checked active-interface publication
+
+- Parent main SHA: `0d04cabd439f6f965ef78195821043b82b471d7e`. Review confirmed `firewall_ex.c::start_firewall_ex()` directly consumes `wanN_ifname_t` when selecting the interface used to build WAN firewall rules. A stale but valid interface name can therefore make a firewall rebuild look successful after a failed NVRAM update.
+- `start_wan()` had three unchecked active-interface assignments through the public void setter: USB RAS modem (`ppp0`/RAS path), ordinary PPPoE/PPTP/L2TP (`ppp0`) and IPoE (physical WAN). Each was followed by firewall generation and/or protocol activation.
+- Replaced only those three failure-sensitive writes with `set_wan_unit_value_status()`. On failure the path aggregates the exact positive errno, logs, invokes existing physical-WAN restoration (which itself has checked publication and fail-closed interface-down behavior), retains the first error, and aborts the current protocol path before proceeding.
+- Extended `scripts/check_wan_firewall_status.py` to require exactly two checked PPP/RAS writes and one checked IPoE write plus fail-closed recovery/continue ordering. Existing WAN workflow already compiles/runs the NVRAM errno policy regression and executes this checker; no test or workflow coverage was removed.
+- Previous evidence: checker-contract commit `0d04cab` WAN route/HTTPD/miniupnpd/AI docs all PASS on exact SHA (runs `44675647123`, `44675647093`, `44675647150`, `44675647174`). Parent production baseline `68571af` had XY-C1 detector, Build, TRX and artifact upload all PASS in run `44674653396`; L3 applies only to that SHA. New startup source slice needs its own exact-head Actions and XY-C1 validation. Physical L4 is NOT VERIFIED.
+
+---
+
 ## 2026-11-20 12:36 CST — Align WAN recovery source contracts with checked NVRAM publication
 
 - Base main SHA: `68571af7f68f820569400543e80ee7f9e7a3f148`. The WAN NVRAM publication regression compiled and passed in exact-head WAN route run `44674653374` step 7; the DDNS semantic checker passed step 25. Process regression `44674653449`, inventory `44674653556`, AI docs `44674653419`, Firewall Startup Stability `44674653529`, and NVRAM transaction audit `44674653621` also passed on the same SHA.

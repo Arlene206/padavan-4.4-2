@@ -2052,7 +2052,17 @@ start_wan(void)
 					continue;
 				}
 				set_wan_unit_value(unit, "proto_t", "RAS Modem");
-				set_wan_unit_value(unit, "ifname_t", ppp_ifname);
+				vlan_result = set_wan_unit_value_status(unit, "ifname_t", ppp_ifname);
+				if (vlan_result != 0) {
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
+					logmessage(LOGNAME, "aborting USB modem RAS startup for unit %d: cannot publish active WAN interface %s (status=%d)",
+						   unit, ppp_ifname, vlan_result);
+					vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
+					continue;
+				}
 				
 				if (wan_proto == IPV4_WAN_PROTO_PPPOE ||
 				    wan_proto == IPV4_WAN_PROTO_PPTP ||
@@ -2137,7 +2147,17 @@ start_wan(void)
 				continue;
 			}
 			set_wan_unit_value(unit, "proto_t", proto_desc);
-			set_wan_unit_value(unit, "ifname_t", ppp_ifname);
+			vlan_result = set_wan_unit_value_status(unit, "ifname_t", ppp_ifname);
+			if (vlan_result != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				logmessage(LOGNAME, "aborting WAN PPP startup for unit %d: cannot publish active WAN interface %s (status=%d)",
+					   unit, ppp_ifname, vlan_result);
+				vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				continue;
+			}
 			
 			i_pppoe = (wan_proto == IPV4_WAN_PROTO_PPPOE) ? 1 : 0;
 			i_pppoe_man = get_wan_unit_value_int(unit, "pppoe_man");
@@ -2230,7 +2250,17 @@ start_wan(void)
 				continue;
 			}
 			set_wan_unit_value(unit, "proto_t", "IPoE");
-			set_wan_unit_value(unit, "ifname_t", wan_ifname);
+			vlan_result = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);
+			if (vlan_result != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				logmessage(LOGNAME, "aborting IPoE WAN startup for unit %d: cannot publish active WAN interface %s (status=%d)",
+					   unit, wan_ifname, vlan_result);
+				vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				continue;
+			}
 			
 			/* Do not publish static/DHCP WAN state until WISP association is ready. */
 			if (is_man_wisp(wan_ifname)) {
