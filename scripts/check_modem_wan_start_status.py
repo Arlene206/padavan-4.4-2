@@ -345,8 +345,8 @@ assert invalid_config in static_config and snapshot_call < static_config.index(i
     "static WAN IPoE must take a checked coherent NVRAM snapshot before validating or configuring addresses"
 )
 snapshot_helper = compact(body(WAN_SOURCE, "wan_static_ipv4_snapshot("))
-assert "const char *wan_addr_suffix" in snapshot_helper
-assert "const char *wan_mask_suffix" in snapshot_helper
+assert "constchar*wan_addr_suffix" in snapshot_helper
+assert "constchar*wan_mask_suffix" in snapshot_helper
 assert '"wan%d_%s",unit,wan_addr_suffix' in snapshot_helper
 assert '"wan%d_%s",unit,wan_mask_suffix' in snapshot_helper
 launch_wanx = compact(body(WAN_SOURCE, "launch_wanx("))
