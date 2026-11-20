@@ -171,7 +171,7 @@ assert re.search(r"if\s*\(ret\s*!=\s*0\)\s*\{[^}]*return\s+ret\s*;", parent_ipv6
     "WAN VLAN creation must stop when required IPv6 disable on the parent fails"
 )
 
-vinet_publish = vinet_setup.index('set_wan_unit_value(0, "ifname", vinet_ifname);')
+vinet_publish = vinet_setup.index('ret = set_wan_unit_value_status(0, "ifname", vinet_ifname);')
 vinet_enable_call = vinet_setup.index("ret = control_if_ipv6(vinet_ifname, 1);")
 vinet_enable_guard = vinet_setup.rfind("if (get_ipv6_type() != IPV6_DISABLED)", 0, vinet_enable_call)
 vinet_enable = vinet_setup[vinet_enable_guard:vinet_publish]
@@ -179,15 +179,25 @@ assert vinet_enable_guard >= 0
 assert re.search(r"if\s*\(ret\s*!=\s*0\)\s*\{[^}]*return\s+ret\s*;", vinet_enable), (
     "WAN interface publication must wait for successful IPv6 enable"
 )
+vinet_publish_gate = vinet_setup.index("if (ret != 0)", vinet_publish)
+vinet_publish_failure = vinet_setup[vinet_publish_gate:vinet_setup.index("return 0;", vinet_publish_gate)]
+assert "return ret;" in vinet_publish_failure, (
+    "WAN startup must fail closed when active interface identity publication fails"
+)
 
 wisp_setup = compact(body(WAN_SOURCE, "config_apcli_wisp(void)"))
-wisp_publish = wisp_setup.index('set_wan_unit_value(0, "ifname", wisp_ifname);')
+wisp_publish = wisp_setup.index('publication_status = set_wan_unit_value_status(0, "ifname", wisp_ifname);')
 wisp_enable_call = wisp_setup.index("int ipv6_status = control_if_ipv6(wisp_ifname, 1);")
 wisp_enable_guard = wisp_setup.rfind("if (get_ipv6_type() != IPV6_DISABLED)", 0, wisp_enable_call)
 wisp_enable = wisp_setup[wisp_enable_guard:wisp_publish]
 assert wisp_enable_guard >= 0
 assert re.search(r"if\s*\(ipv6_status\s*!=\s*0\)\s*\{[^}]*return\s+ipv6_status\s*;", wisp_enable), (
     "AP-client WAN publication must wait for successful IPv6 enable"
+)
+wisp_publish_gate = wisp_setup.index("if (publication_status != 0)", wisp_publish)
+wisp_publish_failure = wisp_setup[wisp_publish_gate:wisp_setup.index("return 0;", wisp_publish_gate)]
+assert "return publication_status;" in wisp_publish_failure, (
+    "AP-client WISP startup must fail closed when active interface identity publication fails"
 )
 
 wan_start = compact(body(WAN_SOURCE, "start_wan(void)"))
