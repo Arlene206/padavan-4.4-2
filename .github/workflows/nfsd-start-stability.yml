@@ -98,6 +98,9 @@ jobs:
           assert "refusing to unmount conflicting or unreadable mount state" in unmount
           assert 'umount "$mountpoint" 2>/dev/null || return 1' in unmount
           process_presence = function_body(script, "func_process_presence()")
+          assert '[ -d "$proc_root" ] && [ -r "$proc_root" ] || return 2' in process_presence
+          assert 'read -r process_comm < "$proc_root/self/comm"' in process_presence
+          assert '[ -n "$process_comm" ] || return 2' in process_presence
           assert 'for process_dir in "$proc_root"/[0-9]*;' in process_presence
           assert 'read -r process_comm < "$process_dir/comm"' in process_presence
           assert '[ -n "$process_comm" ] || return 2' in process_presence

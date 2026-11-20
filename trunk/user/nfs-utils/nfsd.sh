@@ -78,6 +78,12 @@ func_process_presence()
 	local process_dir process_comm
 
 	[ -d "$proc_root" ] && [ -r "$proc_root" ] || return 2
+	# An accessible ordinary directory at the /proc mountpoint is not a
+	# complete process inventory. Require the procfs self descriptor.
+	if ! IFS= read -r process_comm < "$proc_root/self/comm"; then
+		return 2
+	fi
+	[ -n "$process_comm" ] || return 2
 	for process_dir in "$proc_root"/[0-9]*; do
 		[ -d "$process_dir" ] || continue
 		if ! IFS= read -r process_comm < "$process_dir/comm"; then

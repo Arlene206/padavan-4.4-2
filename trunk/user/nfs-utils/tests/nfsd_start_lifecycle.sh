@@ -111,6 +111,8 @@ reset_fixture()
 	: > "$COMMAND_LOG"
 	: > "$MOUNTS_FILE"
 	printf 'nodev\tnfsd\n' > "$tmp_dir/proc/filesystems"
+	mkdir -p "$PROC_ROOT/self"
+	printf 'nfsd-regression\n' > "$PROC_ROOT/self/comm"
 	: > "$tmp_dir/proc/fs/nfsd/max_block_size"
 }
 
@@ -174,6 +176,15 @@ assert_failed()
 		exit 1
 	}
 }
+
+# An accessible empty directory is not a valid procfs inventory.
+reset_fixture
+mkdir -p "$tmp_dir/empty-proc"
+status=$(NFSD_PROC_ROOT="$tmp_dir/empty-proc" run_command "" "" start)
+assert_failed "$status" "NFS start with non-proc directory at proc root"
+assert_no_command rpcbind
+assert_no_command mount
+assert_no_command exportfs
 
 # Missing or incomplete procfs inventories are UNKNOWN, not ABSENT.
 reset_fixture
