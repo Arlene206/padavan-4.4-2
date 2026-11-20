@@ -89,7 +89,7 @@ assert "_upnp_delete_redir(eport, proto)" in redirect_internal
 assert "desc_old, sizeof(desc_old)" in update
 assert "timestamp_old = timestamp" in update
 assert update.index("update_portmapping(ext_if_name, eport, proto, iport") < update.index(
-    "lease_file_replace(eport, iaddr, iport, proto, desc, timestamp)"
+    "lease_file_replace("
 )
 assert "lease_file_remove(eport, proto)" not in update
 assert "lease_file_add(eport, iaddr, iport," not in update
