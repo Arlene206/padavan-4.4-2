@@ -110,15 +110,33 @@ start_vpn_client_locked(void)
 {
 	FILE *fp;
 	int i_type, i_mppe, i_auth, xl2tpd_status, saved_errno;
+	char vpnc_peer_copy[256], vpnc_peer_line[256];
 	char *vpnc_peer, *vpnc_opt, tmp[256];
 
 	if (nvram_invmatch("vpnc_enable", "1") || get_ap_mode())
 		return 1;
 
 	vpnc_peer = nvram_safe_get("vpnc_peer");
-	if (strlen(vpnc_peer) < 1) {
-		logmessage(VPNC_LOG_NAME, "Unable to start - remote server host is not defined!");
-		return 1;
+	saved_errno = vpn_client_nvram_copy_text(
+		vpnc_peer, vpnc_peer_copy, sizeof(vpnc_peer_copy));
+	if (saved_errno != 0 || vpnc_peer_copy[0] == '\0') {
+		if (saved_errno == 0)
+			saved_errno = EINVAL;
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client startup: peer is empty or oversized (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	vpnc_peer = safe_pppd_line(vpnc_peer_copy, vpnc_peer_line,
+				   sizeof(vpnc_peer_line));
+	if (!vpnc_peer) {
+		saved_errno = errno ? errno : EINVAL;
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client startup: peer cannot be safely encoded (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
 	}
 
 	saved_errno = vpn_client_nvram_clear_runtime_state(
@@ -187,7 +205,7 @@ start_vpn_client_locked(void)
 
 	if (i_type != 1) {
 		fprintf(fp, "plugin pptp.so\n");
-		fprintf(fp, "pptp_server '%s'\n", vpnc_peer);
+		fprintf(fp, "pptp_server '%s'\n", vpnc_peer_line);
 		fprintf(fp, "route_rdgw %d\n", (nvram_match("vpnc_dgw", "1")) ? 2 : 0);
 		fprintf(fp, "persist\n");
 		fprintf(fp, "linkname %s\n", VPNC_PPP_LINK_NAME);

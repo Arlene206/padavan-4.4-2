@@ -71,6 +71,9 @@ assert "int restore_dns_from_vpnc(void);" in rc_header
 assert "void restore_dns_from_vpnc(void);" not in rc_header
 
 start = body(vpn, "static int\nstart_vpn_client_locked(void)")
+assert "vpn_client_nvram_copy_text(" in start
+assert "safe_pppd_line(vpnc_peer_copy, vpnc_peer_line," in start
+assert "pptp_server" in start
 ordered(start, [
     "saved_errno = vpn_client_nvram_clear_runtime_state(",
     "if (saved_errno != 0)",
@@ -129,6 +132,7 @@ ordered(ipdown, [
 ], "VPN down callback NVRAM status")
 
 for token in (
+    "test_cache_backed_text_is_copied_without_truncation",
     "test_write_status_preserves_errno",
     "test_read_status_distinguishes_absence_from_failure",
     "test_runtime_clear_publishes_dns_domain_and_state_in_order",
@@ -140,6 +144,7 @@ for token in (
     "vpn_client_nvram_write_status",
     "vpn_client_nvram_read_status",
     "vpn_client_nvram_clear_runtime_state",
+    "vpn_client_nvram_copy_text",
 ):
     assert token in header
 

@@ -34,6 +34,25 @@ reset_fake(struct fake_nvram *fake)
 }
 
 static void
+test_cache_backed_text_is_copied_without_truncation(void)
+{
+    char destination[8];
+
+    assert(vpn_client_nvram_copy_text("peer.example", destination,
+                                      sizeof(destination)) == ENAMETOOLONG);
+    assert(destination[0] == '\0');
+    assert(vpn_client_nvram_copy_text("peer", destination,
+                                      sizeof(destination)) == 0);
+    assert(strcmp(destination, "peer") == 0);
+    assert(vpn_client_nvram_copy_text(NULL, destination,
+                                      sizeof(destination)) == 0);
+    assert(destination[0] == '\0');
+    assert(vpn_client_nvram_copy_text("peer", NULL, sizeof(destination)) ==
+           EINVAL);
+    assert(vpn_client_nvram_copy_text("peer", destination, 0) == EINVAL);
+}
+
+static void
 test_write_status_preserves_errno(void)
 {
     assert(vpn_client_nvram_write_status(0, 0) == 0);
@@ -101,6 +120,7 @@ test_invalid_sequence_does_not_write(void)
 int
 main(void)
 {
+    test_cache_backed_text_is_copied_without_truncation();
     test_write_status_preserves_errno();
     test_read_status_distinguishes_absence_from_failure();
     test_runtime_clear_publishes_dns_domain_and_state_in_order();

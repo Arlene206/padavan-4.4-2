@@ -2,6 +2,8 @@
 #define VPN_CLIENT_NVRAM_POLICY_H
 
 #include <errno.h>
+#include <stddef.h>
+#include <string.h>
 
 static inline int
 vpn_client_nvram_write_status(int api_result, int saved_errno)
@@ -21,6 +23,26 @@ vpn_client_nvram_read_status(int api_result, int saved_errno,
     if (api_result < 0)
         return saved_errno > 0 ? saved_errno : EIO;
     return EIO;
+}
+
+/* NVRAM getter results are cache-backed; copy before subsequent reads. */
+static inline int
+vpn_client_nvram_copy_text(const char *source, char *destination,
+                           size_t destination_size)
+{
+    size_t length;
+
+    if (!destination || destination_size == 0)
+        return EINVAL;
+    if (!source)
+        source = "";
+    length = strlen(source);
+    if (length >= destination_size) {
+        destination[0] = '\0';
+        return ENAMETOOLONG;
+    }
+    memmove(destination, source, length + 1);
+    return 0;
 }
 
 typedef int (*vpn_client_nvram_set_fn)(void *context, const char *name,
