@@ -1,3 +1,13 @@
+## 2026-11-20 — Fix remaining WAN IPTV checker dependency and checked-clear assertion
+
+- Parent main SHA: `72eda3e6aa96a745811655a96b5dd36a0eec770d`. This follows the exact-head checker repair in `72eda3e6aa96a745811655a96b5dd36a0eec770d`.
+- WAN route run `44704349402` on `72eda3e` compiled and passed all C policy regressions, then failed in `scripts/check_wan_vlan_setup.py` with `NameError: name 'policy' is not defined`. The source contract had been extended to inspect `wan_viptv_static_policy.h` but had not loaded that file; the loader is now explicit and shared by the static-start and VLAN-identity assertions.
+- The same checker still contained a second stale direct-write assertion for clearing `viptv_ifname`. Replace it with an ordering check for `wan_viptv_ifname_publish_status("")`, consistent with the checked clear already pinned earlier in the script.
+- On exact SHA `72eda3e`, HTTPD security `44704349353` and AI handoff docs `44704349395` passed; WAN route `44704349402` is the sole identified failed rerun. The previous source-producing `aa4021a` NVRAM transaction audit passed (`44703962341`); its XY-C1 Build/TRX/artifact job `44703962127` was still compiling at last poll. No L3 claim until all three firmware stages succeed on the same product-source SHA.
+- The fix is checker-only: no C test, production assertion or compatibility gate is relaxed. Exact-head WAN route and AI docs reruns are required after this commit.
+
+---
+
 ## 2026-11-20 — Align IPTV VLAN checks with checked identity writer and status return
 
 - Parent main SHA: `aa4021a190906132b3f73d68b1d76a4efb516526`. Contract-only update to the WAN VLAN checker, the HTTPD embedded source contract, and this log.

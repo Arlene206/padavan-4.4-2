@@ -37,6 +37,7 @@ netutils = (shared / "netutils.c").read_text()
 netutils_header = (shared / "netutils.h").read_text()
 vlan_policy = (rc / "vlan_interface_policy.h").read_text()
 vlan_test = (rc / "tests/vlan_interface_policy.c").read_text()
+viptv_policy = (rc / "wan_viptv_static_policy.h").read_text()
 workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 
 require('#include "vlan_interface_policy.h"' in net,
@@ -352,7 +353,7 @@ ifname_publish = body(wan, "wan_viptv_ifname_publish_status(const char *ifname)"
 require('nvram_set_temp("viptv_ifname", ifname)' in ifname_publish and
         "rc_wan_nvram_write_status(api_result, saved_errno)" in ifname_publish,
         "IPTV recovery interface identity must use the checked NVRAM write status")
-ifname_publish_policy = body(policy, "wan_viptv_ifname_publish_or_rollback(")
+ifname_publish_policy = body(viptv_policy, "wan_viptv_ifname_publish_or_rollback(")
 require("status = ops->publish(context);" in ifname_publish_policy and
         "rollback_status = ops->rollback_vlan(context);" in ifname_publish_policy and
         "return route_status_accumulate(status, rollback_status);" in ifname_publish_policy,
@@ -369,9 +370,9 @@ for case in ("test_ifname_publish_success_keeps_vlan_and_skips_rollback",
 
 snapshot_absolute = iptv_start + snapshot_pos
 old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
-old_vlan_clear = iptv_setup.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)
+old_vlan_clear = iptv_setup.index('ret = wan_viptv_ifname_publish_status("");', old_vlan_cleanup)
 require(snapshot_pos < old_vlan_cleanup < old_vlan_clear < create_pos,
-        "snapshot the replacement VLAN before removing the prior interface and clearing its publication")
+        "snapshot the replacement VLAN before removing the prior interface and committing its checked identity clear")
 restart = body(wan, "full_restart_wan(void)")
 lan_bridge_call = restart.index("status = config_soft_bridge_lan();")
 lan_bridge_gate = restart.index("if (status != 0)", lan_bridge_call)
@@ -396,7 +397,6 @@ for path in ("trunk/user/shared/src/netutils.c",
 require("python3 scripts/check_wan_vlan_setup.py" in workflow,
         "WAN workflow must execute the VLAN/bridge source contract")
 
-viptv_policy = (rc / "wan_viptv_static_policy.h").read_text()
 viptv_test = (rc / "tests/wan_viptv_static_policy.c").read_text()
 static_multicast = body(wan, "wan_viptv_static_start_multicast(void *opaque)")
 require(("static int" + chr(10) + "wan_viptv_static_start_multicast") in wan and
