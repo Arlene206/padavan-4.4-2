@@ -1,3 +1,11 @@
+## 2026-11-20 — Align WAN route callback contract with MTU retry state
+
+- Parent main SHA: `125c64c1b38f9290500904bc5de73fcfb0ed3e83`.
+- WAN route exact-head run `#44761848737` failed because the embedded source contract still expected the pre-MTU expression `callback_status = route_setup_status;`. The DHCP callback now aggregates route and MTU status before publishing retry metadata.
+- Updated that assertion to the production aggregation expression. This is a checker-only repair; no product source changed.
+
+---
+
 ## 2026-11-20 — Align WAN renewal source contracts with lease/route/MTU retries
 
 - Parent main SHA: `533de8ffee96d62ac4c2a82fe7a31bd7cdaa0ccc`.
