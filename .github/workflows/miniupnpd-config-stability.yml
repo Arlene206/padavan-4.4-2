@@ -17,6 +17,7 @@ on:
       - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
       - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
+      - "scripts/check_miniupnpd_shutdown_status.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h"
@@ -71,6 +72,7 @@ on:
       - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
       - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
+      - "scripts/check_miniupnpd_shutdown_status.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h"
@@ -702,6 +704,7 @@ jobs:
               "trunk/user/rc/src/miniupnpd_daemon_policy.h",
               "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c",
+              "scripts/check_miniupnpd_shutdown_status.py",
               "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",
               "trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c",
@@ -724,3 +727,4 @@ jobs:
           print("miniupnpd config publication, daemon startup/stop gates and WAN migration contracts: PASS")
           PY
           python3 scripts/check_miniupnpd_lifecycle_lock.py
+          python3 scripts/check_miniupnpd_shutdown_status.py

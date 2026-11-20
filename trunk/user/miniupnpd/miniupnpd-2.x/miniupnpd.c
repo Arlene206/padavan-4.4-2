@@ -1779,6 +1779,7 @@ int
 main(int argc, char * * argv)
 {
 	int i;
+	int exit_status = 0;
 	int shttpl = -1;	/* socket for HTTP */
 #if defined(V6SOCKETS_ARE_V6ONLY) && defined(ENABLE_IPV6)
 	int shttpl_v4 = -1;	/* socket for HTTP (ipv4 only) */
@@ -2311,7 +2312,8 @@ main(int argc, char * * argv)
 			if(errno == EINTR) continue; /* interrupted by a signal, start again */
 			syslog(LOG_ERR, "select(all): %m");
 			syslog(LOG_ERR, "Failed to select open sockets. EXITING");
-			return 1;	/* very serious cause of error */
+			exit_status = 1;
+			goto shutdown;
 		}
 		i = try_sendto(&writeset);
 		if(i < 0) {
@@ -2679,6 +2681,6 @@ shutdown:
 	freeoptions();
 #endif
 
-	return 0;
+	return exit_status;
 }
 
