@@ -916,6 +916,22 @@ jobs:
           demand_fallback = demand_start.index("restore_wan_after_firewall_failure(unit, wan_ifname);", demand_status)
           demand_continue = demand_start.index("continue;", demand_fallback)
           assert demand_start_gate < demand_start_error < demand_status < demand_fallback < demand_continue
+          # Legacy WAN unit setters must not bypass checked NVRAM APIs.
+          legacy_value_setter = body(wan, "set_wan_unit_value(int unit")
+          assert "set_wan_unit_value_status(unit, param_name, value)" in legacy_value_setter
+          assert "cannot publish WAN unit value" in legacy_value_setter
+          assert "nvram_set_temp(" not in legacy_value_setter
+
+          legacy_integer_setter = body(wan, "set_wan_unit_value_int(int unit")
+          assert "set_wan_unit_value_int_status(unit, param_name, value)" in legacy_integer_setter
+          assert "cannot publish WAN unit integer" in legacy_integer_setter
+          assert "nvram_set_int_temp(" not in legacy_integer_setter
+
+          legacy_param_setter = body(wan, "set_wan_unit_param(int unit")
+          assert "set_wan_unit_param_status(unit, param_name)" in legacy_param_setter
+          assert "cannot copy WAN unit parameter" in legacy_param_setter
+          assert "nvram_set_temp(" not in legacy_param_setter
+
           demand_restore = body(wan, "restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)")
           demand_publish = demand_restore.index('nvram_status = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);')
           demand_publish_check = demand_restore.index("if (nvram_status != 0)", demand_publish)

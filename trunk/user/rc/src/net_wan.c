@@ -355,30 +355,37 @@ set_wan_unit_param_status_callback(void *context, const char *param_name)
 void
 set_wan_unit_value(int unit, const char* param_name, const char* value)
 {
-	char wanN_param[64];
+	int status;
 
-	snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s", unit, param_name);
-	nvram_set_temp(wanN_param, value);
+	status = set_wan_unit_value_status(unit, param_name, value);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot publish WAN unit value %s for unit %d (status=%d)",
+			   param_name ? param_name : "(null)", unit, status);
 }
 
 void
 set_wan_unit_value_int(int unit, const char* param_name, int value)
 {
-	char wanN_param[64];
+	int status;
 
-	snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s", unit, param_name);
-	nvram_set_int_temp(wanN_param, value);
+	status = set_wan_unit_value_int_status(unit, param_name, value);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot publish WAN unit integer %s for unit %d (status=%d)",
+			   param_name ? param_name : "(null)", unit, status);
 }
 
 void
 set_wan_unit_param(int unit, const char* param_name)
 {
-	char wan_param[64], wanN_param[64];
+	int status;
 
-	snprintf(wan_param, sizeof(wan_param), "wan_%s", param_name);
-	snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s", unit, param_name);
-
-	nvram_set_temp(wanN_param, nvram_safe_get(wan_param));
+	status = set_wan_unit_param_status(unit, param_name);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot copy WAN unit parameter %s for unit %d (status=%d)",
+			   param_name ? param_name : "(null)", unit, status);
 }
 
 
