@@ -914,7 +914,8 @@ assert "start_lan(1, 1)" in lan_ap_restore
 assert "notify_run_detect_internet(2)" in lan_ap_restore
 assert "if (restore_status != 0)" in lan_ap_restore
 assert "if (is_ap_mode && rc_lan_ap_teardown_recovery_required(" in lan_stop_transaction
-assert "lan_ap_teardown_abort_restore(teardown_status," in lan_stop_transaction
+lan_stop_compact = "".join(lan_stop_transaction.split())
+assert "teardown_status=lan_ap_teardown_abort_restore(teardown_status," in lan_stop_compact
 lan_dhcp_stop = net_lan_dhcp.split("stop_udhcpc_lan(void)", 1)[1].split("\n}\n", 1)[0]
 lan_release = lan_dhcp_stop.index('process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)')
 lan_identity_gate = lan_dhcp_stop.index("errno != ENOENT && errno != ESRCH")
