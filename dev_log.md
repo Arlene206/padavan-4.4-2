@@ -1,3 +1,14 @@
+## 2026-11-20 — Fail closed on LAN startup NVRAM publication
+
+- Parent main SHA: f196902a3768f90c6cb60a0a40abe978661396f5.
+- `reset_lan_temp()` silently ignored failures while defaulting persistent LAN IP/netmask and publishing the temporary LAN IP, netmask, gateway, domain and DNS snapshot. `reset_lan_vars()` also ignored failure to publish `lan_hwaddr`.
+- Added checked NVRAM read/write callbacks and status-returning LAN reset operations. The IP/netmask and hardware MAC are copied from checked NVRAM reads into bounded stable buffers before writes; the five runtime fields are published in fail-fast order. Legacy void wrappers remain for existing callers.
+- `nvram_convert_misc_values()` now returns a LAN MAC/default/runtime write failure before timezone setup and before PID 1 can enter GPIO/service startup. Added a five-field failure-injection regression and Process integration assertions.
+- L1 source integration and GNU89 host regression are delegated to exact-head Process Actions run. The parent SHA `f196902a` had 35/36 push workflows PASS; its exact XY-C1 Build/TRX/artifact run `44721008402` was pending. The previous checked-read source SHA `abc46fda` XY-C1 run `44720306486` subsequently completed SUCCESS.
+- Product source changed. This commit's exact Actions and same-SHA MIPS build/TRX/artifact verification are pending; hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Propagate WAN reset failure through router boot
 
 - Parent main SHA: 6ebd91e9e14ab120de4e1f9db70e7cdda2d47d17.

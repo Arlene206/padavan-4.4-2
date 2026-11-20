@@ -3463,7 +3463,53 @@ wan_reset_gate = misc_init.split(
 )[1].split("reset_lan_vars();", 1)[0]
 assert "return status;" in wan_reset_gate
 assert "reset_wan_vars();" not in misc_init
-assert wan_reset_at < misc_init.index("reset_lan_vars();")
+assert wan_reset_at < misc_init.index("reset_lan_vars_status();")
+
+# LAN boot identity and runtime snapshot are checked operations. The cached
+# MAC/address strings are copied before a write can invalidate NVRAM storage.
+lan_get = c_function_body(net_lan_notification, "lan_nvram_get_checked(")
+assert "nvram_get_checked(param_name, value)" in lan_get
+lan_set = c_function_body(net_lan_notification, "lan_nvram_set_value_status(")
+assert "nvram_set_temp(param_name, value)" in lan_set
+assert "nvram_set(param_name, value)" in lan_set
+assert "rc_wan_nvram_write_status(api_result, saved_errno)" in lan_set
+lan_mac_reset = c_function_body(net_lan_notification, "reset_lan_vars_status(void)")
+assert '"il0macaddr"' in lan_mac_reset
+assert "rc_wan_nvram_copy_value(lan_nvram_get_checked" in lan_mac_reset
+assert '"lan_hwaddr"' in lan_mac_reset
+assert "rc_wan_nvram_set_required_values(" in lan_mac_reset
+lan_temp_reset = c_function_body(net_lan_notification, "reset_lan_temp_status(void)")
+for key in ('"lan_ipaddr"', '"lan_netmask"'):
+    assert key in lan_temp_reset
+assert lan_temp_reset.count("rc_wan_nvram_copy_value(lan_nvram_get_checked") == 2
+for key in (
+    '"lan_ipaddr_t"', '"lan_netmask_t"', '"lan_gateway_t"',
+    '"lan_domain_t"', '"lan_dns_t"',
+):
+    assert key in lan_temp_reset
+assert "rc_wan_nvram_set_required_values(" in lan_temp_reset
+assert "if (status != 0)" in lan_temp_reset
+
+lan_mac_at = misc_init.index("status = reset_lan_vars_status();")
+lan_mac_gate = misc_init[lan_mac_at:].split("if (status != 0)", 1)[1].split(
+    "status = reset_lan_temp_status();", 1
+)[0]
+assert "return status;" in lan_mac_gate
+lan_temp_at = misc_init.index("status = reset_lan_temp_status();")
+lan_temp_gate = misc_init[lan_temp_at:].split("if (status != 0)", 1)[1].split(
+    "time_zone_x_mapping();", 1
+)[0]
+assert "return status;" in lan_temp_gate
+assert lan_mac_at < lan_temp_at < misc_init.index("time_zone_x_mapping();")
+assert "int reset_lan_vars_status(void);" in rc_header
+assert "int reset_lan_temp_status(void);" in rc_header
+
+lan_nvram_test = (root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+assert "test_lan_boot_runtime_snapshot_stops_at_each_failed_write" in lan_nvram_test
+assert "test_lan_boot_runtime_snapshot_stops_at_each_failed_write();" in lan_nvram_test
+assert '"trunk/user/rc/src/tests/wan_nvram_status_policy.c"' in process_workflow
+assert "Compile and run WAN0 NVRAM initialization failure regression" in process_workflow
+print("LAN MAC/default/runtime NVRAM fail-closed boot gate: PASS")
 
 router_init = c_function_body(rc_source, "init_router(void)")
 assert "nvram_setup_status = nvram_convert_misc_values();" in router_init

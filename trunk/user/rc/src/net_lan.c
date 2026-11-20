@@ -810,27 +810,161 @@ update_ether_leds(void)
 #endif
 }
 
+struct lan_nvram_set_context {
+	int temporary;
+};
+
+static int
+lan_nvram_get_checked(void *context, const char *param_name, char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
+static int
+lan_nvram_set_value_status(void *context, const char *param_name,
+			   const char *value)
+{
+	const struct lan_nvram_set_context *set_context =
+		(const struct lan_nvram_set_context *)context;
+	int api_result, saved_errno;
+
+	errno = 0;
+	if (set_context && set_context->temporary)
+		api_result = nvram_set_temp(param_name, value);
+	else
+		api_result = nvram_set(param_name, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+int
+reset_lan_temp_status(void)
+{
+	char lan_ipaddr[16], lan_netmask[16];
+	struct rc_wan_nvram_value persistent_values[2];
+	struct rc_wan_nvram_value runtime_values[5];
+	const struct lan_nvram_set_context persistent_context = { 0 };
+	const struct lan_nvram_set_context temporary_context = { 1 };
+	unsigned int persistent_count = 0;
+	int status;
+
+	status = rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL,
+					 "lan_ipaddr", lan_ipaddr,
+					 sizeof(lan_ipaddr));
+	if (status != 0)
+		goto failed;
+	status = rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL,
+					 "lan_netmask", lan_netmask,
+					 sizeof(lan_netmask));
+	if (status != 0)
+		goto failed;
+
+	/*
+	 * Preserve the legacy defaulting rules, but never continue with a
+	 * partially written persistent address/mask pair.
+	 */
+	if (!lan_ipaddr[0]) {
+		status = rc_wan_nvram_copy_text(DEF_LAN_ADDR, lan_ipaddr,
+					       sizeof(lan_ipaddr));
+		if (status != 0)
+			goto failed;
+		status = rc_wan_nvram_copy_text(DEF_LAN_MASK, lan_netmask,
+					       sizeof(lan_netmask));
+		if (status != 0)
+			goto failed;
+		persistent_values[persistent_count].param_name = "lan_ipaddr";
+		persistent_values[persistent_count++].value = lan_ipaddr;
+		persistent_values[persistent_count].param_name = "lan_netmask";
+		persistent_values[persistent_count++].value = lan_netmask;
+	} else if (!lan_netmask[0]) {
+		status = rc_wan_nvram_copy_text(DEF_LAN_MASK, lan_netmask,
+					       sizeof(lan_netmask));
+		if (status != 0)
+			goto failed;
+		persistent_values[persistent_count].param_name = "lan_netmask";
+		persistent_values[persistent_count++].value = lan_netmask;
+	}
+
+	if (persistent_count != 0) {
+		status = rc_wan_nvram_set_required_values(
+			persistent_values, persistent_count,
+			lan_nvram_set_value_status, (void *)&persistent_context);
+		if (status != 0)
+			goto failed;
+	}
+
+	runtime_values[0].param_name = "lan_ipaddr_t";
+	runtime_values[0].value = lan_ipaddr;
+	runtime_values[1].param_name = "lan_netmask_t";
+	runtime_values[1].value = lan_netmask;
+	runtime_values[2].param_name = "lan_gateway_t";
+	runtime_values[2].value = "";
+	runtime_values[3].param_name = "lan_domain_t";
+	runtime_values[3].value = "";
+	runtime_values[4].param_name = "lan_dns_t";
+	runtime_values[4].value = "";
+
+	status = rc_wan_nvram_set_required_values(
+		runtime_values, 5, lan_nvram_set_value_status,
+		(void *)&temporary_context);
+	if (status != 0)
+		goto failed;
+	return 0;
+
+failed:
+	if (status <= 0)
+		status = EIO;
+	errno = status;
+	logmessage(LOGNAME,
+		   "cannot initialize required LAN address/runtime NVRAM state (status=%d)",
+		   status);
+	return status;
+}
+
+int
+reset_lan_vars_status(void)
+{
+	char lan_hwaddr[24];
+	struct rc_wan_nvram_value value;
+	const struct lan_nvram_set_context persistent_context = { 0 };
+	int status;
+
+	status = rc_wan_nvram_copy_value(lan_nvram_get_checked, NULL,
+					 "il0macaddr", lan_hwaddr,
+					 sizeof(lan_hwaddr));
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot read required LAN hardware address (status=%d)",
+			   status);
+		return status;
+	}
+
+	value.param_name = "lan_hwaddr";
+	value.value = lan_hwaddr;
+	status = rc_wan_nvram_set_required_values(
+		&value, 1, lan_nvram_set_value_status,
+		(void *)&persistent_context);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "cannot publish required LAN hardware address (status=%d)",
+			   status);
+	}
+	return status;
+}
+
 void
 reset_lan_temp(void)
 {
-	if (nvram_match("lan_ipaddr", "")) {
-		nvram_set("lan_ipaddr", DEF_LAN_ADDR);
-		nvram_set("lan_netmask", DEF_LAN_MASK);
-	} else if (nvram_match("lan_netmask", "")) {
-		nvram_set("lan_netmask", DEF_LAN_MASK);
-	}
-
-	nvram_set_temp("lan_ipaddr_t", nvram_safe_get("lan_ipaddr"));
-	nvram_set_temp("lan_netmask_t", nvram_safe_get("lan_netmask"));
-	nvram_set_temp("lan_gateway_t", "");
-	nvram_set_temp("lan_domain_t", "");
-	nvram_set_temp("lan_dns_t", "");
+	(void)reset_lan_temp_status();
 }
 
 void
 reset_lan_vars(void)
 {
-	nvram_set("lan_hwaddr", nvram_safe_get("il0macaddr"));
+	(void)reset_lan_vars_status();
 }
 
 static int

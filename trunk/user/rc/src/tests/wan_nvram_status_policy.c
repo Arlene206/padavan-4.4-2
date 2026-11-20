@@ -975,6 +975,48 @@ test_transactional_snapshot_validates_before_opening_lock(void)
 					  &fake) == EINVAL);
 }
 
+static void
+test_lan_boot_runtime_snapshot_stops_at_each_failed_write(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "lan_ipaddr_t", "192.168.1.1" },
+		{ "lan_netmask_t", "255.255.255.0" },
+		{ "lan_gateway_t", "" },
+		{ "lan_domain_t", "" },
+		{ "lan_dns_t", "" }
+	};
+	struct fake_value_copy fake;
+	unsigned int fail_at, i;
+	const unsigned int count =
+		(unsigned int)(sizeof(values) / sizeof(values[0]));
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_set_required_values(
+		values, count, fake_set_value, &fake) == 0);
+	assert(fake.calls == count);
+	for (i = 0; i < count; ++i) {
+		assert(strcmp(fake.copied_names[i], values[i].param_name) == 0);
+		assert(strcmp(fake.copied_values[i], values[i].value) == 0);
+	}
+
+	for (fail_at = 0; fail_at < count; ++fail_at) {
+		memset(&fake, 0, sizeof(fake));
+		fake.fail_at = (int)fail_at;
+		fake.failure_status = ENOSPC;
+		assert(rc_wan_nvram_set_required_values(
+			values, count, fake_set_value, &fake) == ENOSPC);
+		assert(fake.calls == fail_at + 1);
+		for (i = 0; i <= fail_at; ++i) {
+			assert(strcmp(fake.copied_names[i], values[i].param_name) == 0);
+			assert(strcmp(fake.copied_values[i], values[i].value) == 0);
+		}
+		if (fail_at + 1 < count)
+			assert(fake.copied_names[fail_at + 1][0] == '\0');
+	}
+}
+
+
 int
 main(void)
 {
@@ -992,6 +1034,7 @@ main(void)
 	test_required_value_sequence_success();
 	test_required_value_sequence_stops_at_first_error();
 	test_wan0_boot_values_stop_at_each_nvram_failure();
+	test_lan_boot_runtime_snapshot_stops_at_each_failed_write();
 	test_wan0_default_copy_preserves_empty_existing_override();
 	test_wan0_default_copy_uses_checked_source_value();
 	test_wan0_default_copy_uses_factory_fallback_when_source_is_absent();

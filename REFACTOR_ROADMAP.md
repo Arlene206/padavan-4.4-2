@@ -1,15 +1,15 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 6ebd91e9e14ab120de4e1f9db70e7cdda2d47d17; frozen backup branch remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Product source 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45 is L3 VERIFIED: same-SHA XY-C1 run 44718942242 passed Build XY-C1, TRX verification and artifact upload 14621980301 (12,690,602 bytes).
-- Exact 365 Process 44719246958, HTTPD 44719247010, AI docs 44719246942 PASS; exact 6ebd Process 44720687519 and AI docs 44720687419 PASS.
-- WAN0 checked-read policy implementation abc46fda: seven-case NVRAM policy regression passed; initial source-check failed only because of a checker variable NameError, repaired by 6ebd. Its exact XY-C1 run 44720306486 still pending at last poll.
-- This slice closes a separate boot gap: nvram_convert_misc_values() had called reset_wan_vars() and ignored the checked reset_wan_vars_status() result. Boot now returns the first WAN reset error through the existing fatal PID1 gate, before LAN reset or service initialization.
+- Parent main SHA: f196902a3768f90c6cb60a0a40abe978661396f5; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- WAN0 checked-read SHA `abc46fda36f6f11479374fe123de35bf84d51cb0`: exact XY-C1 run `44720306486` subsequently completed SUCCESS; prior pending note is closed.
+- WAN reset failure propagation in `nvram_convert_misc_values()` is source commit `f196902a3768f90c6cb60a0a40abe978661396f5`; exact Process/firewall and broad host Actions passed, while exact XY-C1 run `44721008402` was pending.
+- THIS COMMIT closes a separate LAN boot gap: checked LAN hardware-MAC read/publication plus persistent IP/netmask default and temporary IP/netmask/gateway/domain/DNS publication; any required NVRAM error aborts router initialization before GPIO/services.
+- Added five-case-position failure injection for the LAN runtime tuple plus source integration contracts. Exact-head Actions and same-SHA XY-C1 L3 are pending.
 
 ## Priority queue
-- CLOSED: WAN0 default/runtime write+read errors fail closed; WAN reset result now propagated by this slice (exact-head verification pending).
-- CLOSED: WAN route recovery, ifname_t publication, DHCPv4 6rd transactional publication, custom Release credential redaction and trigraph-safe C serialization.
-- NEXT: continue an independent source-confirmed RC/service lifecycle failure path; avoid repeating the closed WAN0/WAN reset and custom credential tasks.
-- Keep current product-source exact-SHA XY-C1 evidence distinct for each commit.
+- CLOSED: WAN route recovery and status aggregation, ifname_t publication, DHCPv4 6rd transactional publication, custom Release credential redaction/trigraph-safe C serialization, WAN0 checked initialization/read policy, and WAN reset error propagation through PID 1.
+- CLOSED: initial LAN boot MAC/default/runtime snapshot now has checked reads/writes and a fatal boot gate (pending exact-head verification for this commit).
+- NEXT: continue a distinct source-confirmed P1 RC/service startup or lifecycle defect outside the recently closed WAN/LAN boot gates. Keep cross-userland rotation visible; do not remain indefinitely in rc.c/net_lan.c.
+- Keep exact-source XY-C1 Build/TRX/artifact evidence separate for every production-source SHA.
 
 
 ## Whole-repository module status

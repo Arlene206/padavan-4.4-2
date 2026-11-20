@@ -634,9 +634,13 @@ nvram_convert_misc_values(void)
 		return status;
 	}
 
-	/* setup lan variables */
-	reset_lan_vars();
-	reset_lan_temp();
+	/* Setup LAN identity and runtime address state before any service starts. */
+	status = reset_lan_vars_status();
+	if (status != 0)
+		return status;
+	status = reset_lan_temp_status();
+	if (status != 0)
+		return status;
 
 	time_zone_x_mapping();
 	return 0;
