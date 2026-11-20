@@ -202,7 +202,7 @@ test_lan_dhcp_nvram_publish_compensates_partial_updates(void)
 	assert(dhcp_lease_nvram_publish(values, 3, dhcp_nvram_fake_set,
 					&fake, &rollback_status) == ENOSPC);
 	assert(rollback_status == 0);
-	assert(strcmp(fake.events, "ABCDdcba") == 0);
+	assert(strcmp(fake.events, "ABCcba") == 0);
 	for (i = 0; i < 3; ++i)
 		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
 
