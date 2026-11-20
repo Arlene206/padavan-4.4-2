@@ -1,3 +1,10 @@
+## 2026-11-20 — Align PPP ip-up Actions with checked five-field snapshot publication
+
+- Parent `main` SHA: `b4ab85764446ab133873f9d931d411ef25e7761e`.
+- Exact-head WAN DHCP and HTTPD Actions on `b4ab85764446ab133873f9d931d411ef25e7761e` failed only in embedded source contracts left over from the earlier callback shape. WAN DHCP still expected the publisher to call unchecked per-field setters and expected `ipup_main()` to perform identity/gateway writes after the policy call; HTTPD used the old identity setter as the first callback side effect.
+- Updated the WAN DHCP contract to check the five-field temporary NVRAM snapshot, attempt-all publish + rollback, NVRAM return/errno handling, interface rollback, and no `wan_up()` before the checked policy succeeds. The HTTPD callback-lock contract now treats the policy entry as the first guarded mutation. Regression coverage is strengthened, not removed.
+- The production PPP source is unchanged in this test-contract repair. Re-run the exact new SHA before marking these checks PASS; XY-C1 and NVRAM transaction Actions from the prior SHA were still pending at the last poll.
+
 ## 2026-11-20 — Publish PPP ip-up runtime state as a checked, rollback-capable snapshot
 
 - Parent `main` SHA: `e4ffdf7e5f3fc201355f359325b637532e824cdc`.

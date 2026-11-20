@@ -1,6 +1,7 @@
 # 2026-11-20 active checkpoint
 
-- Main parent for the current checked PPP ip-up snapshot publication slice: `e4ffdf7e5f3fc201355f359325b637532e824cdc`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- Main parent for the current PPP ip-up Actions contract alignment: `b4ab85764446ab133873f9d931d411ef25e7761e`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- PPP ip-up Actions contract alignment in this slice: the WAN DHCP checks now assert the checked five-field volatile snapshot, rollback, and fail-closed route ordering; HTTPD callback-lock ordering now guards the policy mutation entry.
 - PPP ip-up checked snapshot publication in this slice: `ipaddr/netmask/ifname_t/gateway/dns` are published via checked volatile NVRAM writes, previous values are restored on partial failure, the PPP interface is taken down, and WAN route setup is withheld.
 - MAN teardown workflow-anchor correction in this slice: the WAN route, DHCP callback and HTTPD contracts now use the exact production comment for the checked attempt-all NVRAM clear batch.
 - PPP demand runtime-snapshot hardening in this slice: `wait_ppp_up()` refreshes `ipaddr/netmask/gateway` with checked temporary writes, clears unavailable local/peer fields and blocks route preinstallation on snapshot failure.

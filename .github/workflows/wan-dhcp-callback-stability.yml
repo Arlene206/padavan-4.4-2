@@ -601,20 +601,41 @@ jobs:
           assert "if (status != 0)\n\t\treturn status;" in ipup_apply
           ipup_set = body(ppp_source, "ppp_wan_ipup_set_interface_address(")
           ipup_publish = body(ppp_source, "ppp_wan_ipup_publish_address(")
+          ipup_writer = body(ppp_source, "ppp_wan_ipup_set_nvram_value_status(")
+          ipup_clear = body(ppp_source, "ppp_wan_ipup_clear_interface_address(")
           assert "return ifconfig(context->ifname, IFUP" in ipup_set
-          assert 'set_wan_unit_value(context->unit, "ipaddr"' in ipup_publish
-          assert 'set_wan_unit_value(context->unit, "netmask"' in ipup_publish
+          assert 'param_names[] = {\n\t\t"ipaddr", "netmask", "ifname_t", "gateway", "dns"' in ipup_publish
+          for field in (
+              "values[0].value = ipaddr;",
+              "values[1].value = netmask;",
+              "values[2].value = context->ifname;",
+              "values[3].value = context->remote_ip;",
+              "values[4].value = context->dns;",
+          ):
+              assert field in ipup_publish
+          assert "rc_wan_nvram_set_all_values(" in ipup_publish
+          assert "previous_values[i].value = previous_text[i];" in ipup_publish
+          assert "rc_wan_nvram_set_all_values(\n\t\tprevious_values, 5" in ipup_publish
+          assert "nvram_set_temp(wan_param, value)" in ipup_writer
+          assert "rc_wan_nvram_write_status(api_result, saved_errno)" in ipup_writer
+          assert "ifconfig(context->ifname, 0, NULL, NULL)" in ipup_clear
           ipup = body(ppp_source, "ipup_main(int argc, char **argv)")
           assert 'local_ip = getenv("IPLOCAL");' in ipup
           assert 'remote_ip = getenv("IPREMOTE");' in ipup
           assert 'if ((value = getenv("IPLOCAL")))' not in ipup
           assert 'if ((value = getenv("IPREMOTE")))' not in ipup
           assert "ppp_wan_ipup_apply_address(\n\t\tlocal_ip, remote_ip, ppp_mask" in ipup
+          assert "interface_context.remote_ip = remote_ip;" in ipup
+          assert "interface_context.dns = buf;" in ipup
           ipup_configure = ipup.index("ppp_wan_ipup_apply_address(")
-          ipup_identity = ipup.index('set_wan_unit_value(unit, "ifname_t", ppp_ifname)')
-          ipup_gateway = ipup.index('set_wan_unit_value(unit, "gateway", remote_ip)')
           ipup_routes = ipup.index("route_status = wan_up(ppp_ifname, unit, 0)")
-          assert ipup_configure < ipup_identity < ipup_gateway < ipup_routes
+          assert ipup_configure < ipup_routes
+          for field in (
+              'set_wan_unit_value(unit, "ifname_t", ppp_ifname)',
+              'set_wan_unit_value(unit, "gateway", remote_ip)',
+              'set_wan_unit_value(unit, "dns", buf)',
+          ):
+              assert field not in ipup
           assert "!remote_ip || !*remote_ip" in ipup_apply
           wan_up_wrapper = body(source, "wan_up(char *wan_ifname, int unit, int is_static)")
           assert "int status = wan_up_internal(wan_ifname, unit, is_static);" in wan_up_wrapper
@@ -633,6 +654,8 @@ jobs:
           for case in (
               "test_success_applies_before_publishing",
               "test_interface_failure_preserves_published_state",
+              "test_publication_failure_rolls_back_interface_and_preserves_primary_error",
+              "test_rollback_failure_does_not_hide_publication_error",
               "test_missing_ipcp_addresses_are_rejected",
               "test_invalid_ipcp_values_have_no_side_effects",
               "test_route_setup_error_is_returned_after_unlock",

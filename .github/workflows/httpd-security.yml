@@ -2258,7 +2258,7 @@ jobs:
           assert "argv[6] = ipparam;" in ipv6cp
 
           for callback, first_effect in (
-              ("ipup_main(int argc, char **argv)", 'set_wan_unit_value(unit, "ifname_t"'),
+              ("ipup_main(int argc, char **argv)", "ppp_wan_ipup_apply_address("),
               ("ipdown_main(int argc, char **argv)", "wan_down(ppp_ifname, unit, 0);"),
               ("ipv6up_main(int argc, char **argv)", "wan6_up(ppp_ifname, unit);"),
               ("ipv6down_main(int argc, char **argv)", "wan6_down(ppp_ifname, unit);"),
