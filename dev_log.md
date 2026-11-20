@@ -1,3 +1,8 @@
+## 2026-11-20 — Correct HTTPD port-normalization source-check ordering
+
+- Parent SHA: `18b14734be53ff7e53a974a6216d4a4294282cf0`. The HTTPD daemon workflow exposed one stale assertion still looking for a direct `nvram_set_int("http_lanport", ...)` call after the new checked wrapper was introduced; the source had correctly moved that write into `httpd_nvram_set_int_status()`.
+- Updated the source contract to verify that process-presence scanning precedes the checked normalization writer. The same workflow commit also already asserts setter persistence semantics and lifecycle marker rollback.
+
 ## 2026-11-20 — Align HTTPD lifecycle source checks with checked NVRAM publication
 
 - Parent main SHA: `c90407da0280365bdd41a17061b5b4d960bd4bce`.

@@ -84,7 +84,7 @@ jobs:
           assert "httpd_start_can_launch(presence)" in start
           assert "httpd_start_precondition_status(presence)" in start
           assert "pids(\"httpd\")" not in start
-          assert start.index("httpd_process_presence(&scan_error)") < start.index("nvram_set_int(\"http_lanport\"")
+          assert start.index("httpd_process_presence(&scan_error)") < start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
           assert start.index("httpd_process_presence(&scan_error)") < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
           assert 'httpd_nvram_set_int_status("http_lanport", http_port, 0)' in start
           assert 'httpd_nvram_set_int_status("https_lport", https_port, 0)' in start
