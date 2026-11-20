@@ -713,6 +713,7 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 		if(h)
 		{
 			r = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_redirect_rule");
+			h = NULL; /* delete_rule_and_commit() consumes and frees the handle. */
 		}
 		else
 		{

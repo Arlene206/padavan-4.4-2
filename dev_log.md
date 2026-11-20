@@ -1,3 +1,10 @@
+## 2026-11-20 — Clear IPTC handle ownership after the initial NAT deletion
+
+- Parent main SHA: `c5e41697bfeb593223a8c7c46b9e1e972fdc7be9`.
+- `delete_rule_and_commit()` always releases the supplied `IPTC_HANDLE`, whether deletion/commit succeeds or fails. The initial NAT deletion caller left its local `h` non-NULL; on failure the later `if(h) iptc_free(...)` path could free the already-consumed handle again. The filter, peer-NAT and DSCP call sites already clear their local handle.
+- Set `h = NULL` immediately after the initial NAT helper call. Added a focused source contract that requires all four call sites to mark the handle consumed and confirms both IPTABLES API free variants remain covered. Wired it into the MiniUPnP push/PR workflow filters and job.
+- Exact-head MiniUPnP checks and XY-C1 Build/TRX/artifact verification for this source SHA are required. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Fix MiniUPnP port-mapping enumeration capacity overflow
 
 - Parent main SHA: 2ce64bd716a56fc3dafee0ab022de9f55e29c10e.
