@@ -1,3 +1,10 @@
+## 2026-11-20 — Place NTP reset locals in the actual NVRAM conversion function
+
+- Parent SHA: `efebf98af5380a7edf6b3161a4aed822d522e9d0`.
+- The first scope correction still removed the newly inserted declaration rather than the later `init_router()` declaration because the same text occurred twice. Exact-head watchdog job `136475249794` caught this with its source contract after the policy binaries passed.
+- Corrected the placement with function-specific context: both NTP reset status locals now belong to `nvram_convert_misc_values()`, where the two writes and fatal-return gate execute; `init_router()` no longer owns unused locals. This restores GNU89 compilation and keeps the caller's pre-autostart fatal propagation unchanged.
+- The NTP source checker now verifies the declaration in the same function as the writes. Exact-head watchdog/XY-C1 firmware build and TRX validation are still required.
+
 ## 2026-11-20 — Align modem/firewall source checks with HTTPD status writers
 
 - Parent main SHA: `1ac1d7e9aa823c6344bdde223b33015eaa05ad3b`.

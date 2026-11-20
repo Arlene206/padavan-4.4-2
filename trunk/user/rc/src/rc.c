@@ -613,6 +613,7 @@ nvram_convert_misc_values(void)
 	char buff[64];
 	char *sw_mode_value = NULL;
 	int sw_mode, status, api_result, saved_errno;
+	int ntpc_counter_reset_status, ntp_ready_reset_status;
 
 	/* A failed read must not be mistaken for an absent/invalid mode. */
 	errno = 0;
@@ -1201,7 +1202,6 @@ init_router(void)
 	int legacy_migration_changed = 0;
 	int ipv6_disable_required = 0;
 	int ipv6_init_status = 0;
-	int ntpc_counter_reset_status, ntp_ready_reset_status;
 
 #if defined (USE_RTL8367)
 	rtl8367_node();
