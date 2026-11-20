@@ -4,6 +4,8 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <unistd.h>
 #include <string.h>
 
 #define MINIUPNPD_LEASE_RECORD_DESCRIPTION_MAX 63
@@ -66,6 +68,69 @@ miniupnpd_lease_record_key_matches(const char *record, size_t record_length,
 		return 0;
 	return memcmp(record, key, key_length) == 0 &&
 	       record[key_length] == ':';
+}
+
+typedef off_t (*miniupnpd_lease_seek_fn)(int, off_t, int);
+typedef ssize_t (*miniupnpd_lease_write_fn)(int, const void *, size_t);
+typedef int (*miniupnpd_lease_truncate_fn)(int, off_t);
+typedef int (*miniupnpd_lease_sync_fn)(int);
+
+struct miniupnpd_lease_append_ops {
+	miniupnpd_lease_seek_fn seek;
+	miniupnpd_lease_write_fn write;
+	miniupnpd_lease_truncate_fn truncate;
+	miniupnpd_lease_sync_fn sync;
+};
+
+/* Append a complete record or restore the previous EOF on any write/sync error. */
+static inline int
+miniupnpd_lease_append_transaction(
+	int fd, const char *record, size_t record_length,
+	const struct miniupnpd_lease_append_ops *ops, int *rollback_failed)
+{
+	off_t original_size;
+	size_t offset = 0;
+	int saved_errno;
+
+	if (rollback_failed)
+		*rollback_failed = 0;
+	if (fd < 0 || (!record && record_length != 0) || !ops ||
+	    !ops->seek || !ops->write || !ops->truncate || !ops->sync) {
+		errno = EINVAL;
+		return -1;
+	}
+	original_size = ops->seek(fd, 0, SEEK_END);
+	if (original_size < 0)
+		return -1;
+
+	while (offset < record_length) {
+		ssize_t written = ops->write(fd, record + offset,
+		                             record_length - offset);
+		if (written < 0) {
+			if (errno == EINTR)
+				continue;
+			goto rollback;
+		}
+		if (written == 0 || (size_t)written > record_length - offset) {
+			errno = EIO;
+			goto rollback;
+		}
+		offset += (size_t)written;
+	}
+	if (ops->sync(fd) == 0)
+		return 0;
+
+rollback:
+	saved_errno = errno ? errno : EIO;
+	if (ops->truncate(fd, original_size) < 0) {
+		if (rollback_failed)
+			*rollback_failed = 1;
+	} else if (ops->sync(fd) < 0) {
+		if (rollback_failed)
+			*rollback_failed = 1;
+	}
+	errno = saved_errno;
+	return -1;
 }
 
 #endif /* MINIUPNPD_LEASE_FILE_POLICY_H */

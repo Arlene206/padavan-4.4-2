@@ -1,6 +1,8 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 
 #include "miniupnpd_lease_file_policy.h"
@@ -90,6 +92,69 @@ test_exact_record_key_matching(void)
 	assert(miniupnpd_lease_record_key_matches(NULL, 0, key, strlen(key)) == 0);
 }
 
+static int simulated_write_calls;
+
+static ssize_t
+partial_then_enospc_write(int fd, const void *buffer, size_t length)
+{
+	if (simulated_write_calls++ == 0 && length > 3)
+		return write(fd, buffer, 3);
+	errno = ENOSPC;
+	return -1;
+}
+
+static void
+test_lease_append_rolls_back_partial_write(void)
+{
+	char path[] = "/tmp/miniupnpd-lease-append-XXXXXX";
+	const char original[] = "old-record\n";
+	const char appended[] = "new-record\n";
+	char actual[64];
+	struct miniupnpd_lease_append_ops failing_ops = {
+		lseek, partial_then_enospc_write, ftruncate, fsync
+	};
+	struct miniupnpd_lease_append_ops working_ops = {
+		lseek, write, ftruncate, fsync
+	};
+	int fd;
+	int rollback_failed = 0;
+	ssize_t length;
+
+	fd = mkstemp(path);
+	assert(fd >= 0);
+	assert(write(fd, original, sizeof(original) - 1) ==
+	       (ssize_t)(sizeof(original) - 1));
+
+	simulated_write_calls = 0;
+	errno = 0;
+	assert(miniupnpd_lease_append_transaction(
+		fd, appended, sizeof(appended) - 1, &failing_ops,
+		&rollback_failed) == -1);
+	assert(errno == ENOSPC);
+	assert(rollback_failed == 0);
+
+	assert(lseek(fd, 0, SEEK_SET) == 0);
+	length = read(fd, actual, sizeof(actual));
+	assert(length == (ssize_t)(sizeof(original) - 1));
+	assert(memcmp(actual, original, sizeof(original) - 1) == 0);
+
+	rollback_failed = 0;
+	assert(miniupnpd_lease_append_transaction(
+		fd, appended, sizeof(appended) - 1, &working_ops,
+		&rollback_failed) == 0);
+	assert(rollback_failed == 0);
+	assert(lseek(fd, 0, SEEK_SET) == 0);
+	length = read(fd, actual, sizeof(actual));
+	assert(length == (ssize_t)((sizeof(original) - 1) +
+	                            (sizeof(appended) - 1)));
+	assert(memcmp(actual, original, sizeof(original) - 1) == 0);
+	assert(memcmp(actual + sizeof(original) - 1, appended,
+	              sizeof(appended) - 1) == 0);
+
+	assert(close(fd) == 0);
+	assert(unlink(path) == 0);
+}
+
 int
 main(void)
 {
@@ -97,6 +162,7 @@ main(void)
 	test_description_is_bounded();
 	test_invalid_output_buffer();
 	test_exact_record_key_matching();
+	test_lease_append_rolls_back_partial_write();
 	puts("MiniUPnP lease-file record serialization policy: PASS");
 	return 0;
 }

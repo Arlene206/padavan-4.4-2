@@ -40,12 +40,28 @@ def function_body(source, signature):
         raise AssertionError("unterminated function: " + signature)
 
 
+add = function_body(SOURCE, "lease_file_add(unsigned short eport,")
 remove = function_body(SOURCE, "lease_file_remove(unsigned short eport, int proto)")
 delete = function_body(SOURCE, "_upnp_delete_redir(unsigned short eport, int proto)")
 add = function_body(SOURCE, "upnp_redirect_internal(const char * rhost")
 update = function_body(SOURCE, "upnp_redirect(const char * rhost")
 
 assert "miniupnpd_lease_record_key_matches(" in remove
+assert "miniupnpd_lease_append_transaction(" in add
+assert "O_WRONLY | O_APPEND | O_CREAT" in add
+assert "fwrite(" not in add
+for marker in (
+    "ops->truncate(fd, original_size)",
+    "ops->sync(fd)",
+    "errno = saved_errno",
+):
+    assert marker in POLICY, marker
+for marker in (
+    "test_lease_append_rolls_back_partial_write",
+    "partial_then_enospc_write",
+    "rollback_failed == 0",
+):
+    assert marker in TEST, marker
 assert "errno == ENOENT" in remove
 for marker in (
     "ferror(fd)",

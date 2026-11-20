@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 #include "macros.h"
 #include "config.h"
@@ -100,39 +101,52 @@ lease_file_add(unsigned short eport,
                const char * desc,
                unsigned int timestamp)
 {
-	FILE * fd;
+	int fd;
 	char record[128];
 	int record_length;
-	int status = 0;
+	int rollback_failed = 0;
+	int saved_errno;
+	struct miniupnpd_lease_append_ops append_ops = {
+		lseek, write, ftruncate, fsync
+	};
 
-	if (lease_file == NULL) return 0;
+	if (lease_file == NULL)
+		return 0;
 
-	fd = fopen(lease_file, "a");
-	if (fd == NULL) {
-		syslog(LOG_ERR, "could not open lease file: %s", lease_file);
+	record_length = miniupnpd_lease_record_format(
+		record, sizeof(record), proto_itoa(proto), eport,
+		iaddr, iport, timestamp, desc);
+	if (record_length < 0)
+		return -1;
+
+	fd = open(lease_file, O_WRONLY | O_APPEND | O_CREAT, 0666);
+	if (fd < 0) {
+		syslog(LOG_ERR, "could not open lease file %s: %s",
+		       lease_file, strerror(errno));
 		return -1;
 	}
 
-	record_length = miniupnpd_lease_record_format(record, sizeof(record),
-	                                               proto_itoa(proto), eport,
-	                                               iaddr, iport, timestamp,
-	                                               desc);
-	if (record_length < 0) {
-		status = errno ? errno : EIO;
-		errno = 0;
-		(void)fclose(fd);
-		errno = status;
+	if (miniupnpd_lease_append_transaction(
+		    fd, record, (size_t)record_length, &append_ops,
+		    &rollback_failed) < 0) {
+		saved_errno = errno ? errno : EIO;
+		if (rollback_failed) {
+			syslog(LOG_CRIT,
+			       "could not roll back partial lease-file append for %s",
+			       lease_file);
+		} else {
+			syslog(LOG_ERR, "could not persist lease record in %s: %s",
+			       lease_file, strerror(saved_errno));
+		}
+		(void)close(fd);
+		errno = saved_errno;
 		return -1;
 	}
-	errno = 0;
-	if (fwrite(record, 1, (size_t)record_length, fd) != (size_t)record_length)
-		status = errno ? errno : EIO;
-	errno = 0;
-	if (fclose(fd) != 0 && status == 0)
-		status = errno ? errno : EIO;
-	if (status != 0) {
-		errno = status;
-		return -1;
+
+	/* fsync() above establishes durability; a close error cannot undo it. */
+	if (close(fd) < 0) {
+		syslog(LOG_WARNING, "close lease file %s failed after successful fsync: %s",
+		       lease_file, strerror(errno));
 	}
 	return 0;
 }
