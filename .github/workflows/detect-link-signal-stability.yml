@@ -29,6 +29,8 @@ on:
       - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/rc/src/detect_link_signal_policy.h"
+      - "trunk/user/rc/src/detect_link_nvram_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
