@@ -264,7 +264,8 @@ cleanup:
 /* reload_from_lease_file()
  * read lease_file and add the rules contained
  */
-int reload_from_lease_file()
+int
+reload_from_lease_file()
 {
 	FILE * fd;
 	char * p;
@@ -278,6 +279,7 @@ int reload_from_lease_file()
 	time_t current_time;
 	char line[128];
 	int r;
+	int saved_errno;
 
 	if(!lease_file) return -1;
 	fd = fopen( lease_file, "r");
@@ -286,7 +288,15 @@ int reload_from_lease_file()
 		return -1;
 	}
 	if(unlink(lease_file) < 0) {
-		syslog(LOG_WARNING, "could not unlink file %s : %m", lease_file);
+		saved_errno = errno ? errno : EIO;
+		if (saved_errno != ENOENT) {
+			syslog(LOG_ERR,
+			       "could not unlink lease file %s before replay: %s",
+			       lease_file, strerror(saved_errno));
+			(void)fclose(fd);
+			errno = saved_errno;
+			return -1;
+		}
 	}
 
 	current_time = time(NULL);
