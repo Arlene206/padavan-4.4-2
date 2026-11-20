@@ -191,8 +191,9 @@ jobs:
           man_pause_call = man_down.index("route_status = notify_pause_detect_internet();")
           man_pause_accumulate = man_down.index("status = route_status_accumulate(status, route_status);", man_pause_call)
           man_pause_log = man_down.index("Internet monitor pause incomplete during MAN teardown", man_pause_accumulate)
-          man_lease_read = man_down.index('man_gate = nvram_safe_get("wanx_gateway");')
-          assert man_pause_call < man_pause_accumulate < man_pause_log < man_lease_read
+          man_lease_read = man_down.index("snapshot_status = wan_man_gateway_snapshot(")
+          man_snapshot_gate = man_down.index("if (snapshot_status != 0)", man_lease_read)
+          assert man_pause_call < man_pause_accumulate < man_pause_log < man_lease_read < man_snapshot_gate
           assert "if (status == 0)" in man_down
           assert "return status;" in man_down
           assert "(void)notify_pause_detect_internet();" not in man_down

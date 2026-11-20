@@ -406,6 +406,8 @@ jobs:
           wan = (rc / "net_wan.c").read_text()
           callback_policy = (rc / "ppp_callback_link_policy.h").read_text()
           callback_test = (rc / "tests/ppp_callback_link_policy.c").read_text()
+        nvram_snapshot_policy = (rc / "wan_nvram_status_policy.h").read_text()
+        nvram_snapshot_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
           notify_api_source = Path("trunk/user/shared/src/notify_rc.c").read_text()
           notify_api_header = Path("trunk/user/shared/src/notify_rc.h").read_text()
           ppp = (rc / "net_ppp.c").read_text()
@@ -660,9 +662,14 @@ jobs:
           snapshot_positions = [snapshot_helper.index('"' + key + '"') for key in snapshot_keys]
           assert snapshot_positions == sorted(snapshot_positions)
           assert "fields, 4," in snapshot_helper
-          assert "if (status != 0)" in snapshot_helper
-          assert "gateway[0] = '\\0';" in snapshot_helper
-          assert "dns_servers[0] = '\\0';" in snapshot_helper
+          assert "fields, 4," in snapshot_helper
+          copy_snapshot = body(nvram_snapshot_policy, "rc_wan_nvram_copy_snapshot(")
+          assert "rc_wan_nvram_copy_value(" in copy_snapshot
+          assert "end_transaction(context)" in copy_snapshot
+          assert "if (status != 0)" in copy_snapshot
+          assert "fields[i].destination[0] = '\\0';" in copy_snapshot
+          assert "test_transactional_snapshot_releases_lock_and_discards_partial_tuple" in nvram_snapshot_test
+          assert "test_transactional_snapshot_end_failure_invalidates_values" in nvram_snapshot_test
           assert 'nvram_safe_get("wanx_gateway")' not in man_down
           snapshot_call = man_down.index("snapshot_status = wan_man_gateway_snapshot(")
           snapshot_gate = man_down.index("if (snapshot_status != 0)", snapshot_call)
