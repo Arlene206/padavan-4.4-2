@@ -119,6 +119,14 @@ test_invalid_output_arguments(void)
 	assert(errno == EINVAL);
 }
 
+static void
+test_required_text_presence(void)
+{
+	assert(!miniupnpd_soap_required_text_present(NULL));
+	assert(miniupnpd_soap_required_text_present(""));
+	assert(miniupnpd_soap_required_text_present("port mapping"));
+}
+
 int
 main(void)
 {
@@ -126,6 +134,7 @@ main(void)
 	test_nonzero_port_validation();
 	test_protocol_tokens();
 	test_nonnegative_int_boundaries();
+	test_required_text_presence();
 	test_invalid_output_arguments();
 	puts("MiniUPnP SOAP unsigned input policy: PASS");
 	return 0;

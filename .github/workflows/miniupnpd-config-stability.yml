@@ -165,6 +165,8 @@ jobs:
           delete_port = function_body(soap_source, "DeletePortMapping(struct upnphttp * h")
           delete_range = function_body(soap_source, "DeletePortMappingRange(struct upnphttp * h")
           get_list = function_body(soap_source, "GetListOfPortMappings(struct upnphttp * h")
+          assert "miniupnpd_soap_required_text_present(desc)" in add_port
+          assert "miniupnpd_soap_required_text_present(desc)" in add_any
           assert add_port.count("miniupnpd_soap_parse_port(") == 1
           assert add_port.count("miniupnpd_soap_parse_nonzero_port(") == 1
           assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in add_port
@@ -196,6 +198,7 @@ jobs:
               "test_nonzero_port_validation",
               "miniupnpd_soap_parse_nonzero_port",
               "test_nonnegative_int_boundaries",
+              "test_required_text_presence",
               "test_invalid_output_arguments",
               'expect_port_error("65536", ERANGE)',
               'expect_int_error(overflow, ERANGE)',

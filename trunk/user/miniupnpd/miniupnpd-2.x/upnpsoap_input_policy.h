@@ -107,6 +107,13 @@ miniupnpd_soap_ascii_equal_ci(const char *left, const char *right)
 	return *left == '\0' && *right == '\0';
 }
 
+/* Required SOAP string arguments must exist; empty description remains valid. */
+static inline int
+miniupnpd_soap_required_text_present(const char *text)
+{
+	return text != NULL;
+}
+
 static inline int
 miniupnpd_soap_protocol_valid(const char *protocol)
 {
