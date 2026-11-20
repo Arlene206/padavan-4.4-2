@@ -2052,10 +2052,14 @@ for lan_index in range(lan_brace, len(lan_source)):
 else:
     raise AssertionError("unterminated full_restart_lan()")
 for contract in (
-    'lan_restart_record_status(&restart_status, "stop logger", stop_logger())',
-    'lan_restart_record_status(&restart_status, "stop LLTD", stop_lltd())',
-    'lan_restart_record_status(&restart_status, "stop infosvr", stop_infosvr())',
-    'lan_restart_record_status(&restart_status, "stop networkmap", stop_networkmap())',
+    'logger_stop_status = stop_logger();'',
+    'lan_restart_record_status(&restart_status, "stop logger", logger_stop_status)',
+    'lltd_stop_status = stop_lltd();'',
+    'lan_restart_record_status(&restart_status, "stop LLTD", lltd_stop_status)',
+    'infosvr_stop_status = stop_infosvr();'',
+    'lan_restart_record_status(&restart_status, "stop infosvr", infosvr_stop_status)',
+    'networkmap_stop_status = stop_networkmap();'',
+    'lan_restart_record_status(&restart_status, "stop networkmap", networkmap_stop_status)',
     'lan_restart_record_status(&restart_status, "stop miniupnpd", stop_upnp())',
     'lan_restart_record_status(&restart_status, "stop DNSMasq", dnsmasq_status)',
     'lan_restart_record_status(&restart_status, "stop LAN services", lan_status)',
@@ -3018,10 +3022,14 @@ for lan_index in range(lan_brace, len(lan_source)):
 else:
     raise AssertionError("unterminated full_restart_lan()")
 for contract in (
-    'lan_restart_record_status(&restart_status, "stop logger", stop_logger())',
-    'lan_restart_record_status(&restart_status, "stop LLTD", stop_lltd())',
-    'lan_restart_record_status(&restart_status, "stop infosvr", stop_infosvr())',
-    'lan_restart_record_status(&restart_status, "stop networkmap", stop_networkmap())',
+    'logger_stop_status = stop_logger();'',
+    'lan_restart_record_status(&restart_status, "stop logger", logger_stop_status)',
+    'lltd_stop_status = stop_lltd();'',
+    'lan_restart_record_status(&restart_status, "stop LLTD", lltd_stop_status)',
+    'infosvr_stop_status = stop_infosvr();'',
+    'lan_restart_record_status(&restart_status, "stop infosvr", infosvr_stop_status)',
+    'networkmap_stop_status = stop_networkmap();'',
+    'lan_restart_record_status(&restart_status, "stop networkmap", networkmap_stop_status)',
     'lan_restart_record_status(&restart_status, "stop miniupnpd", stop_upnp())',
     'lan_restart_record_status(&restart_status, "stop DNSMasq", dnsmasq_status)',
     'lan_restart_record_status(&restart_status, "stop LAN services", lan_status)',
