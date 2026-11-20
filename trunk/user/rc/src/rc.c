@@ -1049,7 +1049,15 @@ init_router(void)
 			   "Router initialization continuing with one or more unavailable hardware modules (first status=%d)",
 			   boot_modules_status);
 
-	recreate_passwd_unix(1);
+{
+		int passwd_status = recreate_passwd_unix(1);
+
+		if (passwd_status != 0)
+			logmessage(LOGNAME, "Unix account database/password provisioning failed (status=%d)",
+				   passwd_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, passwd_status);
+	}
 
 	set_timezone();
 	set_pagecache_reclaim();

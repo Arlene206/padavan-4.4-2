@@ -11,44 +11,42 @@ Continue main-only implementation across conversations. Restore exact live sourc
 
 ## Current repository state
 
-- PID 1 degraded-readiness implementation is committed on main as `9ad1570aa0bc8a9e1c5ff26a85266d53043c526a`. Its GNU89 ASan/UBSan policy binary and existing `dev_init.sh` shell regression passed in the Process job; the subsequent first-attempt Python source contract failed on the C-function parser buffer reference.
-- CI-contract follow-up `e8fb566f3a122f75c4f648543c2a7aa516b00316` corrected that parser and the HTTPD three-state boot-result source assertions. Exact-head Process `44643316833`, HTTPD `44643316983` and AI handoff docs `44643316847` all PASS on this SHA.
-- XY-C1 firmware run `44643316929` on the e8 checker/workflow SHA remained IN_PROGRESS at the last query. The prior production-source SHA `9ad1570` XY run `44642485538` was also still IN_PROGRESS; re-query exact source SHA before reporting L3.
-- Earlier rp-L2TP product SHA `2b646cccdcb24da5d447586893a500fdcf3cfe48` passed XY-C1 Build/TRX/artifact in `44639411601`; artifact `14584429568`. This does not verify the newer PID 1 source.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, archival and untouched.
+- Main baseline before the secure account-provisioning slice: `ae7874833c6cb870162222f415124d1db4e63dda`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; archival and untouched.
+- Wireless bridge config result propagation is committed. Process `44649240357` and AI handoff docs `44649240209` PASS on `ae7874833c6cb870162222f415124d1db4e63dda`. Production source `9f565b124635a0c3d0686636b4dc0313a5f3a298` passed XY-C1 run `44648971016`, including Build, TRX verification and artifact upload (L3 for that exact SHA).
+- Physical-router L4 is NOT VERIFIED.
 
 ## Active task
 
-- P1 RC startup-result propagation: `init_router()` carries bridge initialization failures into the PID 1 READY/DEGRADED decision; `init_bridge()` had one remaining caller-side gap.
-- Confirmed defect: `gen_ralink_config_2g/5g()` returns `-1` when atomic wireless configuration publication fails, but six calls in `init_bridge()` discarded those results (four compile-time preparation branches and two post-start configuration restores). The radio-restart path already treats generation failure as fatal to that restart.
-- This source slice captures and records every preparation/restore result in `rc_bridge_init_status_t`, preserving first failure while continuing independent bridge setup. The bridge host regression pins failure propagation; the Process workflow source contract checks every callsite and compiles the policy test under GNU89 + ASan/UBSan.
-- Main baseline: `bd36a1c9da40c6f58aa810f1f1d38f70b06cf50d`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and is untouched.
+- P1 RC startup-result propagation: all six ignored `gen_ralink_config_2g/5g()` results inside `init_bridge()` now feed `rc_bridge_init_status_t` and PID 1 DEGRADED readiness.
+- Confirmed security defect: privileged password update used predictable `/tmp/tmpchpw` with `fopen("w")`; a pre-created symlink under world-writable `/tmp` could redirect the root credential write. The helper, `recreate_passwd_unix()` and `init_router()` also discarded provisioning errors.
+- This slice uses exclusive mode-0600 `mkstemp()` staging, validates username/password fields, stages passwd/group/shadow file contents before rename, keeps root locked until `chpasswd` succeeds, and propagates account bootstrap status into PID 1.
+- Main parent for this slice: `ae7874833c6cb870162222f415124d1db4e63dda`. The frozen backup remains untouched.
 
 ## Exact first action for the next GPT
 
-1. Query exact-head Process lifecycle, AI handoff docs and XY-C1 Validation for the wireless-configuration-result commit. Check the complete job logs and confirm Build XY-C1, TRX verification and artifact upload actually ran (not merely that the workflow succeeded).
-2. Repair any real exact-SHA regression without weakening the config-publication result assertions; if any run is pending, proceed with independent P1 work.
-3. Continue the next confirmed RC boot/service caller that discards a required configuration or launch result. Preserve GNU89/MIPS/uClibc compatibility and existing fail-closed/rollback invariants.
+1. Query exact-head Process lifecycle, AI handoff docs and XY-C1 validation for the secure account-provisioning commit. Inspect source contract, temp-file policy regression, and Build/TRX/artifact steps individually.
+2. Repair any demonstrated exact-SHA failure without weakening private-file mode, exclusive creation, credential field validation, root lock-on-failure, or PID 1 error propagation.
+3. Review paired passwd/group replacement rollback under an injected second-rename failure; verify the old live files can be restored and no staging files leak.
 
 ## Active task
 
-- Latest parent at task start: `bd36a1c9da40c6f58aa810f1f1d38f70b06cf50d`. Main-only development; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Implemented in this slice: all six `gen_ralink_config_2g/5g()` calls inside `init_bridge()` now store their return value in `operation_status` and immediately record the operation in `bridge_status`. A failed atomic wireless config publish now makes bridge initialization return failure and feeds PID 1's existing DEGRADED status path; independent bridge startup steps still run.
-- Added a GNU89-compatible bridge status regression for config-generation failure and a Process workflow source contract that verifies every textual callsite is captured and recorded. Added the regression source to Process and XY-C1 path filters.
-- Local host command passed on the extracted policy/test: `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer .../bridge_init_policy.c`, then `ASAN_OPTIONS=detect_leaks=1 bridge-init-policy` (PASS).
-- Exact-head Actions for the new commit must be queried after push. The previous production-source L3 evidence is only for `61cbc6b842fdaaafc3f2fcab269bb11292fa8514` / run `44644448761`; the checker-only `d246ddf` XY run `44646517924` succeeded with Build/TRX/artifact steps SKIPPED because no firmware input changed. A new production-source build is required for this wireless source change.
+- Latest parent at task start: `ae7874833c6cb870162222f415124d1db4e63dda`. Main-only; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged.
+- Completed preceding wireless slice: Process `44649240357` and AI docs `44649240209` PASS on `ae787483`; production-source XY-C1 `44648971016` PASS on `9f565b1`, including Build, TRX and artifact upload (L3 for that SHA).
+- This source/test slice removes the predictable password-staging symlink vulnerability and propagates account database/password provisioning failure into PID 1. Root remains locked until `chpasswd` succeeds.
+- Paired passwd/group rename rollback is the next explicit fault-injection candidate. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Check Process, AI handoff docs and XY-C1 exact-head Actions for the current `main` SHA; inspect Build XY-C1, TRX verification and artifact upload individually.
-2. Continue cross-userland RC stability fixes from the remaining P1 caller-result gaps. Do not re-audit closed SCUT/CA, SD/MMC queue, NVRAM gate, or ZeroTier teardown slices without a new failing case.
-3. Record exact L2/L3 evidence separately. No physical-router L4 validation is established.
+1. Check exact-head Process lifecycle, AI docs and XY-C1 Actions for current main. Inspect Build XY-C1, TRX validation and artifact upload individually.
+2. Continue with injected-failure coverage for paired passwd/group rename rollback, then resume independent P1 stability/security defects.
+3. Keep L1/L2/L3/L4 evidence separate; successful cross-build does not establish physical-router behavior.
 
 ## Verification boundary
 
 - L1: PID 1 distinguishes FATAL/READY/DEGRADED and continues event processing after degraded service boot. Late CA preparation, persistent user-script and autostart launcher failures are now included in the boot aggregate.
 - L2: PID 1 policy binary and `dev_init` shell regression passed on `9ad1570`; the new CA status shell regression passed on `61cbc6`. Exact-head Process, AliDDNS and Storage jobs initially failed only at three stale source-contract assertions; their corrections are in this checker follow-up. HTTPD, AI docs and all other completed current-head regression runs were PASS.
-- L3: XY-C1 `44644448761` on `61cbc6` was IN_PROGRESS at last poll; no Build/TRX/artifact result is claimed until all three exact-head steps succeed.
+- L3: Production source `9f565b124635a0c3d0686636b4dc0313a5f3a298` passed XY-C1 `44648971016`, including input detection, Build XY-C1, TRX verification and artifact upload. Evidence applies only to that SHA; physical-router L4 remains NOT VERIFIED.
 - L4: target MIPS/uClibc runtime and physical-router boot/recovery behavior remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint

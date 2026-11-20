@@ -166,6 +166,9 @@ on:
       - "trunk/user/shared/src/netutils.c"
       - "trunk/user/shared/src/tests/net_ifstats_policy.c"
       - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/passwd_temp_file_policy.h"
+      - "trunk/user/shared/src/tests/passwd_temp_file_policy.c"
       - "trunk/user/shared/src/tests/pids_presence_policy.c"
       - "trunk/user/shared/src/tests/process_inventory.c"
       - "trunk/user/shared/src/tests/process_pidfile.c"
@@ -344,6 +347,9 @@ on:
       - "trunk/user/shared/src/netutils.c"
       - "trunk/user/shared/src/tests/net_ifstats_policy.c"
       - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/passwd_temp_file_policy.h"
+      - "trunk/user/shared/src/tests/passwd_temp_file_policy.c"
       - "trunk/user/shared/src/tests/pids_presence_policy.c"
       - "trunk/user/shared/src/tests/process_inventory.c"
       - "trunk/user/shared/src/tests/process_pidfile.c"
@@ -636,11 +642,101 @@ jobs:
             trunk/user/rc/src/tests/bridge_init_policy.c \
             -o "$RUNNER_TEMP/bridge-init-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/bridge-init-policy"
+          cc -D_GNU_SOURCE -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/passwd_temp_file_policy.c \
+            -o "$RUNNER_TEMP/passwd-temp-file-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/passwd-temp-file-policy"
           cc -std=gnu89 -Wall -Wextra -Werror \
             -I trunk/user/shared/src \
             trunk/user/shared/src/tests/bridge_membership_policy.c \
             -o "$RUNNER_TEMP/bridge-membership-policy"
           "$RUNNER_TEMP/bridge-membership-policy"
+      - name: Verify Unix account bootstrap status and private password staging
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          shared = Path("trunk/user/shared/src/shutils.c").read_text()
+          header = Path("trunk/user/shared/src/passwd_temp_file_policy.h").read_text()
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          test = Path("trunk/user/shared/src/tests/passwd_temp_file_policy.c").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              quote = None
+              escaped = False
+              line_comment = False
+              block_comment = False
+              position = opening
+              while position < len(source):
+                  char = source[position]
+                  following = source[position + 1] if position + 1 < len(source) else ""
+                  if line_comment:
+                      if char == "\n":
+                          line_comment = False
+                      position += 1
+                      continue
+                  if block_comment:
+                      if char == "*" and following == "/":
+                          block_comment = False
+                          position += 2
+                      else:
+                          position += 1
+                      continue
+                  if quote:
+                      if escaped:
+                          escaped = False
+                      elif char == "\\":
+                          escaped = True
+                      elif char == quote:
+                          quote = None
+                      position += 1
+                      continue
+                  if char == "/" and following == "/":
+                      line_comment = True
+                      position += 2
+                      continue
+                  if char == "/" and following == "*":
+                      block_comment = True
+                      position += 2
+                      continue
+                  if char in ('"', "'"):
+                      quote = char
+                  elif char == "{":
+                      depth += 1
+                  elif char == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+                  position += 1
+              raise AssertionError("incomplete function: " + signature)
+
+          change = function_body(shared, "change_passwd_unix(")
+          recreate = function_body(shared, "recreate_passwd_unix(")
+          init = function_body(rc, "init_router(void)")
+          assert "mkstemp(path_template)" in header and "fchmod(fd, mode)" in header
+          assert 'char tmpfile[] = "/tmp/.tmpchpw.XXXXXX";' in change
+          assert "passwd_temp_file_open(tmpfile, 0600)" in change
+          assert "/tmp/tmpchpw" not in shared
+          assert "router_account_name_is_valid(user)" in change
+          assert "strchr(pass, '\\n')" in change
+          assert "strchr(pass, '\\r')" in change
+          assert "strchr(pass, ':')" in change
+          assert "passwd_temp_stream_finish(fp)" in change
+          assert "system(cmdbuf)" in change
+          assert "passwd_temp_file_open(passwd_temp, 0644)" in recreate
+          assert 'rename(passwd_temp, "/etc/passwd")' in recreate
+          assert 'rename(group_temp, "/etc/group")' in recreate
+          assert 'fprintf(fp1, "%s:!:' in recreate
+          assert "password_status = change_passwd_unix(" in recreate
+          assert "int passwd_status = recreate_passwd_unix(1);" in init
+          assert "boot_services_status, passwd_status);" in init
+          assert "test_temp_file_is_exclusive_and_private();" in test
+          print("Unix account bootstrap status and private temporary file contract: PASS")
+          PY
       - name: Compile and run bridge multicast setup status regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

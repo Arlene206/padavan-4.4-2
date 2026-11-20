@@ -44,6 +44,7 @@
 #include "nvram_linux.h"
 #include "shutils.h"
 #include "file_write_status.h"
+#include "passwd_temp_file_policy.h"
 
 /* Activate 64-bit file support on Linux/32bit plus others */
 #define _FILE_OFFSET_BITS 64
@@ -202,106 +203,194 @@ void time_zone_x_mapping()
 	}
 }
 
-void change_passwd_unix(char *user, char *pass)
+static int
+passwd_temp_stream_finish(FILE *stream)
 {
-	FILE *fp;
-	char cmdbuf[64];
-	char *tmpfile = "/tmp/tmpchpw";
-
-	if (!user || !*user)
-		user = SYS_USER_ROOT;
-
-	if (!pass)
-		pass = DEF_ROOT_PASSWORD;
-
-	fp=fopen(tmpfile, "w");
-	if (fp) {
-		fprintf(fp, "%s:%s\n", user, pass);
-		fclose(fp);
-	}
-
-	sprintf(cmdbuf, "/usr/sbin/chpasswd -m < %s", tmpfile);
-	system(cmdbuf);
-	sprintf(cmdbuf, "rm -f %s", tmpfile);
-	system(cmdbuf);
-
-	chmod("/etc/shadow", 0640);
+	int status = 0;
+	if (!stream) { errno = EINVAL; return EINVAL; }
+	if (fflush(stream) != 0) status = errno ? errno : EIO;
+	else if (ferror(stream)) status = errno ? errno : EIO;
+	if (status == 0 && fsync(fileno(stream)) != 0) status = errno ? errno : EIO;
+	if (fclose(stream) != 0 && status == 0) status = errno ? errno : EIO;
+	if (status != 0) errno = status;
+	return status;
 }
 
-void recreate_passwd_unix(int force_create)
+int
+change_passwd_unix(char *user, char *pass)
 {
-	FILE *fp1, *fp2;
-	int i, j, uid, sh_num, duplicate;
+	FILE *fp = NULL;
+	char tmpfile[] = "/tmp/.tmpchpw.XXXXXX";
+	char cmdbuf[128];
+	int fd = -1, status = 0, write_status = 0;
+	int command_status, command_length;
+
+	if (!user || !*user) user = SYS_USER_ROOT;
+	if (!pass) pass = DEF_ROOT_PASSWORD;
+	if (!router_account_name_is_valid(user) ||
+	    strchr(pass, '\n') || strchr(pass, '\r') || strchr(pass, ':')) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	fd = passwd_temp_file_open(tmpfile, 0600);
+	if (fd < 0) return errno ? errno : EIO;
+	fp = fdopen(fd, "w");
+	if (!fp) {
+		status = errno ? errno : EIO;
+		(void)close(fd);
+		fd = -1;
+		goto cleanup;
+	}
+	fd = -1;
+	if (fprintf(fp, "%s:%s\n", user, pass) < 0)
+		write_status = errno ? errno : EIO;
+	status = passwd_temp_stream_finish(fp);
+	fp = NULL;
+	if (write_status != 0) status = write_status;
+	if (status != 0) goto cleanup;
+
+	command_length = snprintf(cmdbuf, sizeof(cmdbuf),
+				  "/usr/sbin/chpasswd -m < '%s'", tmpfile);
+	if (command_length < 0 || (size_t)command_length >= sizeof(cmdbuf)) {
+		status = ENAMETOOLONG;
+		goto cleanup;
+	}
+	errno = 0;
+	command_status = system(cmdbuf);
+	if (command_status == -1) status = errno ? errno : EIO;
+	else if (command_status != 0) status = command_status;
+
+cleanup:
+	if (fp) (void)fclose(fp);
+	if (fd >= 0) (void)close(fd);
+	if (unlink(tmpfile) != 0 && status == 0) status = errno ? errno : EIO;
+	if (chmod("/etc/shadow", 0640) != 0 && status == 0) status = errno ? errno : EIO;
+	if (status != 0) errno = status;
+	return status;
+}
+
+int
+recreate_passwd_unix(int force_create)
+{
+	FILE *fp1 = NULL, *fp2 = NULL;
+	int passwd_fd = -1, group_fd = -1, shadow_fd = -1;
+	int i, j, uid, sh_num, duplicate, status = 0, file_status, password_status;
 	char tmp[32], previous[32], *rootnm, *usernm;
+	char passwd_temp[] = "/etc/.passwd.XXXXXX";
+	char group_temp[] = "/etc/.group.XXXXXX";
+	char shadow_temp[] = "/etc/.shadow.XXXXXX";
 
 	rootnm = nvram_safe_get("http_username");
-	if (strlen(rootnm) < 1)
-		rootnm = SYS_USER_ROOT;
+	if (strlen(rootnm) < 1) rootnm = SYS_USER_ROOT;
+	if (!router_account_name_is_valid(rootnm)) { errno = EINVAL; return EINVAL; }
 
-	fp1 = fopen("/etc/passwd", "w");
-	fp2 = fopen("/etc/group", "w");
-	if (fp1 && fp2) {
-		fprintf(fp1, "%s:x:%d:%d::%s:%s\n", rootnm, 0, 0, SYS_HOME_PATH_ROOT, SYS_SHELL);
-		fprintf(fp1, "%s:x:%d:%d::%s:%s\n", SYS_USER_NOBODY, 99, 99, "/media", "/bin/false");
-		fprintf(fp1, "%s:x:%d:%d::%s:%s\n", "sshd", 100, 99, "/var/empty", "/bin/false");
-		fprintf(fp2, "%s:x:%d:%s\n", SYS_GROUP_ROOT, 0, rootnm);
-		fprintf(fp2, "%s:x:%d:\n", SYS_GROUP_NOGROUP, 99);
-		
-		uid = 1000;
-		sh_num = nvram_safe_get_int("acc_num", 0, 0, 100);
-		for (i=0; i<sh_num; i++) {
-			snprintf(tmp, sizeof(tmp), "acc_username%d", i);
-			usernm = nvram_safe_get(tmp);
+	passwd_fd = passwd_temp_file_open(passwd_temp, 0644);
+	if (passwd_fd < 0) { status = errno ? errno : EIO; goto cleanup; }
+	group_fd = passwd_temp_file_open(group_temp, 0644);
+	if (group_fd < 0) { status = errno ? errno : EIO; goto cleanup; }
+	fp1 = fdopen(passwd_fd, "w");
+	if (!fp1) { status = errno ? errno : EIO; goto cleanup; }
+	passwd_fd = -1;
+	fp2 = fdopen(group_fd, "w");
+	if (!fp2) { status = errno ? errno : EIO; goto cleanup; }
+	group_fd = -1;
 
-			/*
-			 * NVRAM may contain stale/imported values that bypass libdisk's
-			 * account API. Never interpolate malformed or reserved identities
-			 * into the privileged passwd/group databases.
-			 */
-			if (!router_account_name_is_valid(usernm) ||
-			    router_account_name_is_reserved(usernm, rootnm) ||
-			    !strcmp(usernm, "anonymous"))
-				continue;
-
-			duplicate = 0;
-			for (j = 0; j < i; ++j) {
-				snprintf(previous, sizeof(previous), "acc_username%d", j);
-				if (!strcmp(usernm, nvram_safe_get(previous))) {
-					duplicate = 1;
-					break;
-				}
-			}
-			if (duplicate)
-				continue;
-
-			fprintf(fp1, "%s:x:%d:%d:::\n", usernm, uid, uid);
-			fprintf(fp2, "%s:x:%d:\n", usernm, uid);
-			uid++;
-		}
+	if (fprintf(fp1, "%s:x:%d:%d::%s:%s\n", rootnm, 0, 0,
+		    SYS_HOME_PATH_ROOT, SYS_SHELL) < 0 ||
+	    fprintf(fp1, "%s:x:%d:%d::%s:%s\n", SYS_USER_NOBODY, 99, 99,
+		    "/media", "/bin/false") < 0 ||
+	    fprintf(fp1, "%s:x:%d:%d::%s:%s\n", "sshd", 100, 99,
+		    "/var/empty", "/bin/false") < 0 ||
+	    fprintf(fp2, "%s:x:%d:%s\n", SYS_GROUP_ROOT, 0, rootnm) < 0 ||
+	    fprintf(fp2, "%s:x:%d:\n", SYS_GROUP_NOGROUP, 99) < 0) {
+		status = errno ? errno : EIO;
+		goto cleanup;
 	}
 
-	if (fp1)
-		fclose(fp1);
-	if (fp2)
-		fclose(fp2);
+	uid = 1000;
+	sh_num = nvram_safe_get_int("acc_num", 0, 0, 100);
+	for (i = 0; i < sh_num; i++) {
+		snprintf(tmp, sizeof(tmp), "acc_username%d", i);
+		usernm = nvram_safe_get(tmp);
+		if (!router_account_name_is_valid(usernm) ||
+		    router_account_name_is_reserved(usernm, rootnm) ||
+		    !strcmp(usernm, "anonymous"))
+			continue;
+		duplicate = 0;
+		for (j = 0; j < i; ++j) {
+			snprintf(previous, sizeof(previous), "acc_username%d", j);
+			if (!strcmp(usernm, nvram_safe_get(previous))) {
+				duplicate = 1;
+				break;
+			}
+		}
+		if (duplicate) continue;
+		if (fprintf(fp1, "%s:x:%d:%d:::\n", usernm, uid, uid) < 0 ||
+		    fprintf(fp2, "%s:x:%d:\n", usernm, uid) < 0) {
+			status = errno ? errno : EIO;
+			goto cleanup;
+		}
+		uid++;
+	}
 
-	chmod("/etc/passwd", 0644);
-	chmod("/etc/group", 0644);
+	file_status = passwd_temp_stream_finish(fp1);
+	fp1 = NULL;
+	if (file_status != 0) { status = file_status; goto cleanup; }
+	file_status = passwd_temp_stream_finish(fp2);
+	fp2 = NULL;
+	if (file_status != 0) { status = file_status; goto cleanup; }
 
 	if (force_create) {
-		fp1 = fopen("/etc/shadow", "w");
-		if (fp1) {
-			fprintf(fp1, "%s:%s:%d:0:99999:7:::\n", rootnm, "", 16000);
-			fprintf(fp1, "%s:%s:%d:0:99999:7:::\n", SYS_USER_NOBODY, "*", 16000);
-			fprintf(fp1, "%s:%s:%d:0:99999:7:::\n", "sshd", "*", 16000);
-			
-			fclose(fp1);
+		shadow_fd = passwd_temp_file_open(shadow_temp, 0640);
+		if (shadow_fd < 0) { status = errno ? errno : EIO; goto cleanup; }
+		fp1 = fdopen(shadow_fd, "w");
+		if (!fp1) { status = errno ? errno : EIO; goto cleanup; }
+		shadow_fd = -1;
+		if (fprintf(fp1, "%s:!:%d:0:99999:7:::\n", rootnm, 16000) < 0 ||
+		    fprintf(fp1, "%s:%s:%d:0:99999:7:::\n",
+			    SYS_USER_NOBODY, "*", 16000) < 0 ||
+		    fprintf(fp1, "%s:%s:%d:0:99999:7:::\n",
+			    "sshd", "*", 16000) < 0) {
+			status = errno ? errno : EIO;
+			goto cleanup;
 		}
-		
-		chmod("/etc/shadow", 0640);
-		
-		change_passwd_unix(rootnm, nvram_safe_get("http_passwd"));
+		file_status = passwd_temp_stream_finish(fp1);
+		fp1 = NULL;
+		if (file_status != 0) { status = file_status; goto cleanup; }
 	}
+
+	if (rename(passwd_temp, "/etc/passwd") != 0) {
+		status = errno ? errno : EIO;
+		goto cleanup;
+	}
+	passwd_temp[0] = '\0';
+	if (rename(group_temp, "/etc/group") != 0) {
+		status = errno ? errno : EIO;
+		goto cleanup;
+	}
+	group_temp[0] = '\0';
+	if (force_create) {
+		if (rename(shadow_temp, "/etc/shadow") != 0) {
+			status = errno ? errno : EIO;
+			goto cleanup;
+		}
+		shadow_temp[0] = '\0';
+		password_status = change_passwd_unix(rootnm, nvram_safe_get("http_passwd"));
+		if (password_status != 0) status = password_status;
+	}
+
+cleanup:
+	if (fp1) (void)fclose(fp1);
+	if (fp2) (void)fclose(fp2);
+	if (passwd_fd >= 0) (void)close(passwd_fd);
+	if (group_fd >= 0) (void)close(group_fd);
+	if (shadow_fd >= 0) (void)close(shadow_fd);
+	if (passwd_temp[0]) (void)unlink(passwd_temp);
+	if (group_temp[0]) (void)unlink(group_temp);
+	if (shadow_temp[0]) (void)unlink(shadow_temp);
+	if (status != 0) errno = status;
+	return status;
 }
 
 int
