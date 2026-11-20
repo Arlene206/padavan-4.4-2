@@ -29,6 +29,7 @@
 #include "rc.h"
 #include "switch.h"
 #include "switch_status_policy.h"
+#include "switch_cli_parse_policy.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 // MIB COUNTERS
@@ -619,18 +620,16 @@ int mtk_esw_main(int argc, char **argv)
 {
 	unsigned int cmd, par = 0, arg = 0;
 
-	if (argc < 2)
+	if (argc < 2 || argc > 4)
 		return show_usage(argv[0]);
 
-	if (!isdigit(argv[1][0]))
+	if (switch_cli_parse_uint(argv[1], 0, &cmd) != 0)
 		return show_usage(argv[0]);
 
-	cmd = atoi(argv[1]);
-
-	if (argc > 2)
-		arg = get_param_int_hex(argv[2]);
-	if (argc > 3)
-		par = get_param_int_hex(argv[3]);
+	if (argc > 2 && switch_cli_parse_uint(argv[2], 1, &arg) != 0)
+		return show_usage(argv[0]);
+	if (argc > 3 && switch_cli_parse_uint(argv[3], 1, &par) != 0)
+		return show_usage(argv[0]);
 
 	switch (cmd)
 	{

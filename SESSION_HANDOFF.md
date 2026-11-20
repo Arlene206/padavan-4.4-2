@@ -18,6 +18,14 @@ The source slice on this commit makes RT3352 MII TxPower a required radio-enable
 - Process inventory: completed/success (#44746584108)
 Physical router verification remains NOT VERIFIED. Firmware L3 is claimed only if this same product-source SHA has detector, Build XY-C1, TRX and artifact-upload success.
 
+## Current continuation task — strict RC switch CLI numeric parsing
+
+- Current main before this source slice: `9f2b19c2dac08dc1fb03d0da1e282a549d3c8594` (this parent commit only refreshed the RT3352 verification checkpoint; source SHA remains `bc0d9316777baa125e2ba22ef776d9ea812e3dd4`).
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not move or modify it.
+- At `bc0d9316`, Wireless #44746584209, AI docs #44746584183, NVRAM #44746584217, Process regression #44746584355, Process inventory #44746584108, watchdog #44746584223, iNIC signal #44746584178 and HTTPD security #44746584119 passed. XY-C1 #44746584073 was still in progress. AI docs #44747215425 passed on docs-only SHA `9f2b19c2`.
+- Active source defect: RC RTL8367 and MTK switch front-ends accepted malformed/overflowing CLI numeric values through `atoi()` and `get_param_int_hex()`. This slice adds strict checked parsing, GNU89 regression and Switch CLI/XY-C1 path coverage.
+- Local GNU89/Werror/ASan/UBSan parser regression passed. New exact-SHA Actions are pending until the atomic source commit is pushed.
+
 ## Current repository state
 
 - Current main before this RT3352 TxPower status slice: `31de47640faed47555e830d86cd69f7228887d7e`; the boot-state isolation production source was introduced in `d250aff4e337f5c919e11c44cf5a1e8e5c1cb5a8`.
@@ -25,22 +33,24 @@ Physical router verification remains NOT VERIFIED. Firmware L3 is claimed only i
 - Source implementation commit `9e9d643d` and follow-up test/docs SHA `9075dc63` passed Wireless #44744845103, AI handoff #44744844991 and Process inventory #44744845149; NVRAM #44744845007 passed on `9075dc63`.
 - Boot-state isolation follow-up `d250aff4` changed the policy to assert isolation before RadioOn; its six-event rollback test count was corrected on `31de4764`. Wireless #44746039419, AI #44746039183 and Process inventory #44746039325 passed on `31de4764`; NVRAM #44746039252 was in progress. Product-source XY-C1 #44745705732 on `d250aff4` remained in progress; NVRAM #44745706021 passed.
 
+## Previous MII follow-up context
+
 ## Active task
 
-- Follow-up review found enable assumed the RTL8367 iNIC port was already isolated before powering the radio. This is unsafe after boot or an out-of-band switch-state change. This commit explicitly isolates first, only then enables the driver, and unisolates only after startup/TxPower setup; a failed initial isolation sends best-effort radio-off and publishes no state.
-- After this test correction, inspect Wireless and AI exact-head reruns; check NVRAM #44745706021 and XY-C1 #44745705732 on `d250aff4`. The XY-C1 run is required to establish L3 for the isolation-before-power production source; do not transfer results across later product-source SHAs.
-- Continue an independent P1 slice while any exact-head jobs remain pending.
+- `rtl8367_main()` and `mtk_esw_main()` used `isdigit()+atoi()` for command selectors and `get_param_int_hex()` for operands. Their conversions omitted end-pointer and overflow checks, allowing malformed or partially valid tokens (for example `10junk` and `0x1z`) to be coerced; extra operands were ignored.
+- This slice adds a shared unsigned parser: decimal-only command selector, decimal or explicit `0x` operands, rejection of signs/whitespace/trailing junk/overflow, and an argc upper bound. It adds a standalone GNU89 regression plus exact-head Switch CLI and XY-C1 path filters for both production front-ends.
+- Local test passed with `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined`. Push this complete nine-file tree as one atomic main commit, then inspect exact-SHA Switch CLI, XY-C1, AI, Process and NVRAM runs. Never overwrite later concurrent main commits; use expected-SHA CAS.
 
 ## Verification boundary
 
-- Wireless regression passed on `31de4764` after the six-event expectation correction; AI handoff and Process inventory also passed. This slice adds a required TxPower-success gate and regression; its exact-head compile/test is pending.
-- XY-C1 #44745705732 for product source `d250aff4` remained in progress at last check; NVRAM #44745706021 passed there. This production-source change requires its own exact-SHA XY-C1 run. Physical-router L4 remains NOT VERIFIED.
+- Host parser regression PASS; no target MIPS build, XY-C1 L3 for the new production-source SHA, or physical switch/router L4 is claimed yet.
+- XY-C1 L3 requires detector, Build XY-C1, TRX verification and artifact upload all successful on this exact source SHA. Results on `9e9d643d`, `d250aff4`, or `bc0d9316` are not transferable to a later source SHA.
 
 ## Exact first action for the next GPT
 
-1. Inspect Wireless and AI docs exact-head Actions for this TxPower failure gate; confirm rollback does not unisolate or publish state.
-2. Inspect NVRAM #44746039252 and the new same-SHA XY-C1 detector/build/TRX/artifact; do not transfer L3 from `d250aff4`.
-3. Continue an independent stability/security fix while pending checks run.
+1. Inspect live main and latest exact-SHA Switch CLI, XY-C1, AI docs, Process and NVRAM Actions after the parser commit.
+2. Diagnose failures from their logs. If checks are pending, move to another independent P1 source fix.
+3. Confirm detector/build/TRX/artifact all pass on the exact parser production SHA before claiming firmware L3. Physical router/switch L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

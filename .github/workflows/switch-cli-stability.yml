@@ -15,6 +15,10 @@ on:
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - ".github/workflows/switch-cli-stability.yml"
+      - "trunk/user/rc/src/switch_rtl8367.c"
+      - "trunk/user/rc/src/switch_mtk_esw.c"
+      - "trunk/user/rc/src/switch_cli_parse_policy.h"
+      - "trunk/user/rc/src/tests/switch_cli_parse_policy.c"
   pull_request:
     paths:
       - "trunk/user/utils/src/switch/switch_gsw.c"
@@ -29,6 +33,10 @@ on:
       - "trunk/user/utils/src/switch/tests/mii_mgr_cli.c"
       - "trunk/linux-4.4.x/drivers/net/ethernet/raeth/raether.c"
       - ".github/workflows/switch-cli-stability.yml"
+      - "trunk/user/rc/src/switch_rtl8367.c"
+      - "trunk/user/rc/src/switch_mtk_esw.c"
+      - "trunk/user/rc/src/switch_cli_parse_policy.h"
+      - "trunk/user/rc/src/tests/switch_cli_parse_policy.c"
   workflow_dispatch:
 
 jobs:
@@ -516,3 +524,53 @@ jobs:
             -fno-omit-frame-pointer "$SWITCH_DIR/tests/mii_mgr_cli.c" \
             -o /tmp/mii_mgr_cli
           ASAN_OPTIONS=detect_leaks=1 /tmp/mii_mgr_cli
+
+      - name: Validate strict numeric parsing in RC switch front-ends
+        run: |
+          set -eu
+          RC_DIR=trunk/user/rc/src
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I "$RC_DIR" \
+            "$RC_DIR/tests/switch_cli_parse_policy.c" \
+            -o /tmp/rc-switch-cli-parse
+          ASAN_OPTIONS=detect_leaks=1 /tmp/rc-switch-cli-parse
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          policy = (rc / "switch_cli_parse_policy.h").read_text()
+          test = (rc / "tests/switch_cli_parse_policy.c").read_text()
+          workflow = Path(".github/workflows/switch-cli-stability.yml").read_text()
+
+          assert "UINT_MAX" in policy and "return ERANGE;" in policy
+          assert "return EINVAL;" in policy
+          assert "parsed > (UINT_MAX - digit) / base" in policy
+          assert "test_malformed_values_are_rejected_without_output_changes" in test
+          assert "test_overflow_is_rejected_without_output_changes" in test
+
+          for path, signature in (
+              ("switch_rtl8367.c", "rtl8367_main(int argc, char **argv)"),
+              ("switch_mtk_esw.c", "mtk_esw_main(int argc, char **argv)"),
+          ):
+              source = (rc / path).read_text()
+              assert '#include "switch_cli_parse_policy.h"' in source
+              main = source.split(signature, 1)[1]
+              assert "argc < 2 || argc > 4" in main
+              assert "switch_cli_parse_uint(argv[1], 0, &cmd)" in main
+              assert "switch_cli_parse_uint(argv[2], 1, &arg)" in main
+              assert "switch_cli_parse_uint(argv[3], 1, &par)" in main
+              assert "atoi(argv[1])" not in main
+              assert "get_param_int_hex(argv[" not in main
+
+          filters = workflow.split("jobs:", 1)[0]
+          push, pull_request = filters.split("  pull_request:", 1)
+          for path in (
+              "trunk/user/rc/src/switch_rtl8367.c",
+              "trunk/user/rc/src/switch_mtk_esw.c",
+              "trunk/user/rc/src/switch_cli_parse_policy.h",
+              "trunk/user/rc/src/tests/switch_cli_parse_policy.c",
+          ):
+              assert push.count('"' + path + '"') == 1, path
+              assert pull_request.count('"' + path + '"') == 1, path
+          print("RC RTL8367/MTK switch commands reject malformed, partial and overflowing numeric input: PASS")
+          PY

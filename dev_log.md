@@ -1,3 +1,13 @@
+## 2026-11-20 — Strictly parse numeric arguments in RC switch front-ends
+
+- Parent main SHA: `9f2b19c2dac08dc1fb03d0da1e282a549d3c8594` (its parent source SHA is `bc0d9316777baa125e2ba22ef776d9ea812e3dd4`; intervening commit refreshed documentation only).
+- Defect: `rtl8367_main()` and `mtk_esw_main()` used `atoi()` for command IDs and `get_param_int_hex()` for operands without checking complete-token consumption or overflow. Malformed numeric input could silently become a different ioctl command/argument, and extra operands were ignored.
+- Added `switch_cli_parse_policy.h`: strict unsigned decimal for command selectors, decimal or explicit `0x` hexadecimal operands; rejects signs, whitespace, trailing data and overflow without changing the output value. Both front-ends now reject argc above four and parse every provided operand before ioctl dispatch.
+- Added `tests/switch_cli_parse_policy.c`; local `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined` run passed. The Switch CLI workflow compiles/runs the test and checks source wiring; XY-C1 production-input filters include both front-ends and the policy header/test.
+- New exact-SHA Switch CLI/XY-C1 Actions pending; no MIPS firmware L3 or physical switch/router L4 claim.
+
+---
+
 ## 2026-11-20 — Exact-head checkpoint bc0d9316777baa125e2ba22ef776d9ea812e3dd4
 
 - Wireless: completed/success (#44746584209)
