@@ -185,6 +185,52 @@ zerotier_prepare_identity() {
 	)
 }
 
+# Decode the NVRAM planet payload to a private same-directory stage and
+# replace the live planet only after the decoder and file checks succeed.
+zerotier_publish_planet_base64() {
+	(
+		umask 077
+		zt_planet_target="$config_path/planet"
+		if [ -L "$zt_planet_target" ] ||
+		   { [ -e "$zt_planet_target" ] && [ ! -f "$zt_planet_target" ]; }; then
+			logger -t "zerotier" "自定义planet目标不是安全普通文件"
+			exit 1
+		fi
+		zt_planet_tmp="$(mktemp "$config_path/.planet.XXXXXX")" || exit 1
+		zerotier_planet_cleanup() {
+			if [ -n "$zt_planet_tmp" ]; then
+				rm -f "$zt_planet_tmp"
+			fi
+			return 0
+		}
+		trap 'zerotier_planet_cleanup' EXIT
+		trap 'exit 1' HUP INT TERM
+		if ! printf '%s' "$1" | base64 -d > "$zt_planet_tmp"; then
+			logger -t "zerotier" "NVRAM中的planet数据不是有效base64"
+			exit 1
+		fi
+		if [ ! -s "$zt_planet_tmp" ]; then
+			logger -t "zerotier" "解码后的planet文件为空"
+			exit 1
+		fi
+		if [ -L "$zt_planet_target" ] ||
+		   { [ -e "$zt_planet_target" ] && [ ! -f "$zt_planet_target" ]; }; then
+			logger -t "zerotier" "拒绝替换非普通planet目标"
+			exit 1
+		fi
+		if ! chmod 600 "$zt_planet_tmp"; then
+			logger -t "zerotier" "无法限制planet文件权限"
+			exit 1
+		fi
+		if ! mv -f "$zt_planet_tmp" "$zt_planet_target"; then
+			logger -t "zerotier" "planet文件原子发布失败"
+			exit 1
+		fi
+		zt_planet_tmp=""
+		exit 0
+	)
+}
+
 start_instance() {
 	cfg="$1"
 	echo $cfg
@@ -209,9 +255,11 @@ start_instance() {
 
 	
 	if [ -n "$planet" ]; then
-		logger -t "zerotier" "找到planet,正在写入文件,请稍后..."
-		echo "$planet" >$config_path/planet.tmp
-		base64 -d $config_path/planet.tmp >$config_path/planet
+		logger -t "zerotier" "找到planet,正在安全写入文件,请稍后..."
+		if ! zerotier_publish_planet_base64 "$planet"; then
+			logger -t "zerotier" "planet文件写入失败，取消本次启动"
+			return 1
+		fi
 	fi
 	
 	if [ -f "$PLANET" ]; then

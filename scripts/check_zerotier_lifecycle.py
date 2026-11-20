@@ -74,6 +74,7 @@ wait_body = function_body(script, "zerotier_wait_stopped()")
 kill_body = function_body(script, "kill_z()")
 start_body = function_body(script, "start_zero()")
 stop_body = function_body(script, "stop_zero()")
+planet_body = function_body(script, "zerotier_publish_planet_base64()")
 start_instance_body = function_body(script, "start_instance()")
 config_dir_body = function_body(script, "zerotier_prepare_config_directory()")
 identity_body = function_body(script, "zerotier_prepare_identity()")
@@ -163,6 +164,19 @@ require('[ -n "$zt_network_id" ] || return 0' in add_join_body and
         'chmod 600 "$zt_network_file"' in add_join_body and
         'if [ -L "$zt_network_file" ]' in add_join_body,
         "network join writer must validate 16 hex digits and refuse path/symlink abuse")
+require('mktemp "$config_path/.planet.XXXXXX"' in planet_body and
+        'printf \'%s\' "$1" | base64 -d > "$zt_planet_tmp"' in planet_body and
+        'chmod 600 "$zt_planet_tmp"' in planet_body and
+        'mv -f "$zt_planet_tmp" "$zt_planet_target"' in planet_body and
+        '[ -L "$zt_planet_target" ]' in planet_body and
+        'if ! zerotier_publish_planet_base64 "$planet"; then' in start_instance_body and
+        'echo "$planet" >$config_path/planet.tmp' not in start_instance_body,
+        "NVRAM planet payload must be validated and privately staged before atomic publication")
+for marker in ("valid NVRAM planet payload was not published",
+               "invalid planet payload damaged the last-good file",
+               "symlink planet referent was modified",
+               "directory planet destination was accepted"):
+    require(marker in test, f"planet publication regression omits {marker}")
 require('if ! zerotier_prepare_config_directory; then' in start_instance_body and
         'if ! zerotier_prepare_identity; then' in start_instance_body and
         'zt_network_id="$(nvram get zerotier_id)"' in start_instance_body and

@@ -1,3 +1,14 @@
+## 2026-11-19 — Publish NVRAM-sourced ZeroTier planet data safely
+
+- Parent SHA: `bffe074d853e9083d299d3ce07dd96d827a6d681`.
+- Found the NVRAM planet path still redirected decoded data straight into `$config_path/planet` after first truncating a predictable `planet.tmp`; decoder status was ignored, output was not private-mode enforced, and a symlink/non-regular destination could be followed by the privileged shell redirection.
+- Added a same-directory `mktemp` publisher with umask 077, base64 decode-status and nonempty-output validation, symlink/non-regular destination refusal, mode 0600, and final rename. Startup now fails closed if a configured NVRAM planet payload cannot be safely published; the previous good planet remains intact on decode or rename failure.
+- Added host lifecycle coverage for valid payload contents/mode, malformed base64 preserving the previous file and removing its stage, symlink referent protection, and non-regular directory targets. The Python source contract verifies the production helper and caller.
+- The uploaded `/etc/storage/planet` import path is still a separate follow-up; this slice does not claim it has been hardened. Exact-head ZeroTier, Process inventory and XY-C1 Actions are pending.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Make ZeroTier identity publication rollback-capable
 
 - Parent SHA: `b6150ea46a084510a3c56f91646ea9ada905e72a`.
