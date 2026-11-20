@@ -57,6 +57,7 @@ source = read("trunk/user/infosvr/src/infosvr.c")
 asus = read("trunk/user/infosvr/src/asus.c")
 policy = read("trunk/user/infosvr/src/infosvr_packet_policy.h")
 test = read("trunk/user/infosvr/src/tests/infosvr_packet_policy.c")
+dispatch_test = read("trunk/user/infosvr/src/tests/infosvr_dispatch_test.c")
 signal_policy = read("trunk/user/infosvr/src/infosvr_signal_policy.h")
 signal_test = read("trunk/user/infosvr/src/tests/infosvr_signal_policy.c")
 ibox = read("trunk/user/shared/src/include/ibox.h")
@@ -77,6 +78,12 @@ assert "return (res == size);" not in reader
 processor = function_body(
     source, "process_packet(int fd, void *packet, int packet_len, char *ifname)"
 )
+assert "hdr->OpCode == hdr_res->OpCode" not in processor
+supported_guard = processor.index("if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr->OpCode != NET_CMD_ID_GETINFO_MANU)")
+response_reset = processor.index("memset(packet_res, 0, sizeof(packet_res))")
+response_header = processor.index("hdr_res->ServiceID =")
+assert supported_guard < response_reset < response_header
+assert "only the implemented read-only opcodes" in processor
 base_guard = processor.index("infosvr_packet_length_valid((size_t)packet_len, sizeof(IBOX_COMM_PKT_HDR))")
 service_read = processor.index("hdr->ServiceID")
 assert base_guard < service_read
@@ -184,4 +191,9 @@ for path in paths:
     assert push.count(item) == 1, "push path filter: " + path
     assert pull.count(item) == 1, "pull_request path filter: " + path
 
-print("infosvr packet bounds and SIGTERM signal-lifecycle source contracts: PASS")
+assert "NET_CMD_ID_SETINFO" in dispatch_test
+assert "duplicate unsupported command" in dispatch_test
+assert "response->Info == 0" in dispatch_test
+assert "infosvr rejects duplicate unsupported opcodes and clears cached replies: PASS" in dispatch_test
+
+print("infosvr packet bounds, opcode dispatch and SIGTERM signal-lifecycle source contracts: PASS")

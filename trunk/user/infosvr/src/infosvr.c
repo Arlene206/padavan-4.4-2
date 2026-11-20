@@ -155,24 +155,15 @@ void *process_packet(int fd, void *packet, int packet_len, char *ifname)
 					 offsetof(IBOX_COMM_PKT_HDR_EX, Password)))
 		return NULL;
 
-	if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr->OpCode != NET_CMD_ID_GETINFO_MANU &&
-	    hdr->OpCode == hdr_res->OpCode &&
-	    hdr->Info == hdr_res->Info)
-		return hdr_res;
+	/* Only the implemented read-only opcodes are allowed to produce replies. */
+	if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr->OpCode != NET_CMD_ID_GETINFO_MANU)
+		return NULL;
 
+	/* This response buffer is reused; clear every field before building a reply. */
+	memset(packet_res, 0, sizeof(packet_res));
 	hdr_res->ServiceID = NET_SERVICE_ID_IBOX_INFO;
 	hdr_res->PacketType = NET_PACKET_TYPE_RES;
 	hdr_res->OpCode = hdr->OpCode;
-
-	if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr->OpCode != NET_CMD_ID_GETINFO_MANU) {
-		unsigned char hwaddr[6];
-		if (!get_hwaddr(ifname, hwaddr, sizeof(hwaddr)))
-			return NULL;
-		if (memcmp(hdr->MacAddress, hwaddr, sizeof(hdr_res->MacAddress)) == 0)
-			return NULL;
-		hdr_res->Info = hdr->Info;
-		memcpy(hdr_res->MacAddress, hdr->MacAddress, sizeof(hdr_res->MacAddress));
-	}
 
 	switch (hdr->OpCode) {
 	case NET_CMD_ID_GETINFO:

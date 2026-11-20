@@ -16,6 +16,7 @@ on:
       - "trunk/user/infosvr/src/asus.c"
       - "trunk/user/infosvr/src/infosvr_packet_policy.h"
       - "trunk/user/infosvr/src/tests/infosvr_packet_policy.c"
+      - "trunk/user/infosvr/src/tests/infosvr_dispatch_test.c"
       - "trunk/user/infosvr/src/infosvr_signal_policy.h"
       - "trunk/user/infosvr/src/tests/infosvr_signal_policy.c"
       - "trunk/user/shared/src/include/ibox.h"
@@ -34,6 +35,7 @@ on:
       - "trunk/user/infosvr/src/asus.c"
       - "trunk/user/infosvr/src/infosvr_packet_policy.h"
       - "trunk/user/infosvr/src/tests/infosvr_packet_policy.c"
+      - "trunk/user/infosvr/src/tests/infosvr_dispatch_test.c"
       - "trunk/user/infosvr/src/infosvr_signal_policy.h"
       - "trunk/user/infosvr/src/tests/infosvr_signal_policy.c"
       - "trunk/user/shared/src/include/ibox.h"
@@ -58,6 +60,11 @@ jobs:
             trunk/user/infosvr/src/tests/infosvr_packet_policy.c \
             -o /tmp/infosvr-packet-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/infosvr-packet-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -Wno-unused-parameter -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/infosvr/src -I trunk/user/shared/src/include \
+            trunk/user/infosvr/src/tests/infosvr_dispatch_test.c \
+            -o /tmp/infosvr-dispatch-test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/infosvr-dispatch-test
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
             -I trunk/user/infosvr/src \
             trunk/user/infosvr/src/tests/infosvr_signal_policy.c \
