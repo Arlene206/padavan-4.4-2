@@ -1,3 +1,10 @@
+## 2026-11-20 — Clear PPP demand address snapshots before preinstalling routes
+
+- Parent `main` SHA: `dff6f88a90d503332e27a01bea38b5e81140fb9a`.
+- `wait_ppp_up()` previously wrote `wanN_ipaddr/netmask/gateway` through unchecked setters and skipped tuple updates when address/peer ioctls failed. Demand PPP may be administratively present before IPCP; stale values from a previous session could survive and later be read by WAN route/NAT/service setup.
+- The demand path now stages the complete three-field tuple through the existing checked NVRAM sequence helper. It clears the local address/netmask when no local address exists, clears the peer when no P-t-P endpoint exists, and aborts before route preinstallation on any NVRAM write failure. No public ABI changes.
+- The WAN source contract pins tuple ordering, unavailable-address clearing, checked write result propagation and route-preinstallation ordering. Existing injected helper tests cover ordered writes and first-error handling; exact-SHA WAN and XY-C1 Actions remain the production verification gate.
+
 ## 2026-11-20 — Repair MAN teardown source contracts after checked-clear refactor
 
 - Parent `main` SHA: `84cc52a9602c769cbdb4bb0519e056841dabb508`.

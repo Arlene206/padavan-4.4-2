@@ -659,4 +659,37 @@ require('gateway = nvram_safe_get("wanx_gateway");' in net_core and
         "if (!is_valid_ipv4(gateway))" in net_core,
         "static-route implementation must continue to identify the global MAN gateway fallback dependency")
 
+
+wait_ppp = body(wan, "wait_ppp_up(char *ppp_ifname, int unit)")
+ppp_snapshot = wait_ppp.index('ppp_snapshot_values[0].param_name = "ipaddr";')
+snapshot_markers = (
+    "ppp_snapshot_values[0].value = ppp_addr;",
+    'ppp_snapshot_values[1].param_name = "netmask";',
+    "ppp_snapshot_values[1].value = ppp_mask;",
+    'ppp_snapshot_values[2].param_name = "gateway";',
+    "ppp_snapshot_values[2].value = ppp_gate;",
+)
+cursor = ppp_snapshot
+for marker in snapshot_markers:
+    position = wait_ppp.find(marker, cursor)
+    require(position >= 0, "PPP demand snapshot fields missing/out of order: " + marker)
+    cursor = position + len(marker)
+require("SIOCGIFADDR" in wait_ppp and "SIOCGIFDSTADDR" in wait_ppp and
+        'snprintf(ppp_addr, sizeof(ppp_addr), "%s", "0.0.0.0");' in wait_ppp and
+        "ppp_gate[0] =" in wait_ppp,
+        "PPP demand startup must clear unavailable local/peer tuple fields rather than retain old values")
+require("rc_wan_nvram_set_required_values(\n\t\tppp_snapshot_values, 3, set_wan_unit_value_status_callback, &unit)" in wait_ppp and
+        "if (route_status != 0)" in wait_ppp and
+        "return route_status;" in wait_ppp,
+        "PPP demand route setup must stop when a runtime address snapshot write fails")
+require(wait_ppp.index("rc_wan_nvram_set_required_values(") <
+        wait_ppp.index("route_status = preset_wan_ppp_routes(ppp_ifname, unit);"),
+        "PPP demand routes must only be preset after the complete address tuple is published")
+for marker in (
+    'set_wan_unit_value(unit, "ipaddr", inet_ntoa(sin_addr(&ifr.ifr_addr)))',
+    'set_wan_unit_value(unit, "netmask", "255.255.255.255")',
+    'set_wan_unit_value(unit, "gateway", ppp_gate)',
+):
+    require(marker not in wait_ppp, "unchecked PPP runtime address copy remains: " + marker)
+
 print("WAN firewall rebuild fail-closed protocol gates and PPP recovery: PASS")

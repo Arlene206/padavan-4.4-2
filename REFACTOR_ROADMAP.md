@@ -1,6 +1,7 @@
 # 2026-11-20 active checkpoint
 
-- Main parent for the current MAN teardown CI-contract repair: `84cc52a9602c769cbdb4bb0519e056841dabb508`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- Main parent for the current PPP demand runtime-snapshot hardening slice: `dff6f88a90d503332e27a01bea38b5e81140fb9a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- PPP demand runtime-snapshot hardening in this slice: `wait_ppp_up()` refreshes `ipaddr/netmask/gateway` with checked temporary writes, clears unavailable local/peer fields and blocks route preinstallation on snapshot failure.
 - MAN teardown CI-contract repair in this slice: corrected the WAN route source checker syntax and aligned the existing DHCP callback and HTTPD embedded route-order assertions with the checked temporary snapshot clears.
 - WAN-up MAN gateway publication hardening in this slice: the global `wanx_gateway` write now uses the checked temporary setter, and `add_static_man_routes()` is withheld when its fallback gateway snapshot cannot be published. The exact `net.c` fallback dependency is pinned by the WAN source contract.
 - MAN teardown snapshot hardening in this slice: `man_down_internal()` now attempts every checked temporary `wanx_gateway/dns/domain/routes/routes_ms/routes_rfc` clear, conditionally checks temporary `wanx_ipaddr`, and propagates the first failure through the DHCP deconfig callback. The attempt-all policy has injected host regressions; exact-head WAN route Actions remain the production contract.

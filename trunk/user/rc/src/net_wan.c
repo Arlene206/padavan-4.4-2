@@ -1913,7 +1913,9 @@ wait_ppp_up(char *ppp_ifname, int unit)
 	int timeout, sockfd, route_status;
 	int interface_status, failure_status, socket_status;
 	struct ifreq ifr;
-	char *ppp_gate;
+	struct rc_wan_nvram_value ppp_snapshot_values[3];
+	const char *ppp_mask;
+	char ppp_addr[16], ppp_gate[16];
 
 	/* Wait for pppX to be created */
 	timeout = 5;
@@ -1942,22 +1944,40 @@ wait_ppp_up(char *ppp_ifname, int unit)
 		return socket_status;
 	}
 
-	/* Store temporary IP address */
-	ppp_gate = "";
+	/* Refresh the full PPP runtime tuple; never leave a previous session's fields. */
+	ppp_addr[0] = '\0';
+	ppp_gate[0] = '\0';
+	ppp_mask = "0.0.0.0";
 	strncpy(ifr.ifr_name, ppp_ifname, IFNAMSIZ);
-	if (ioctl(sockfd, SIOCGIFADDR, &ifr) == 0)
-	{
-		set_wan_unit_value(unit, "ipaddr", inet_ntoa(sin_addr(&ifr.ifr_addr)));
-		set_wan_unit_value(unit, "netmask", "255.255.255.255");
-		
-		/* Store temporary P-t-P address */
+	if (ioctl(sockfd, SIOCGIFADDR, &ifr) == 0) {
+		snprintf(ppp_addr, sizeof(ppp_addr), "%s",
+			 inet_ntoa(sin_addr(&ifr.ifr_addr)));
+		ppp_mask = "255.255.255.255";
+
+		/* Store the temporary point-to-point peer when one is available. */
 		if (ioctl(sockfd, SIOCGIFDSTADDR, &ifr) == 0)
-		{
-			ppp_gate = inet_ntoa(sin_addr(&ifr.ifr_dstaddr));
-			set_wan_unit_value(unit, "gateway", ppp_gate);
-		}
+			snprintf(ppp_gate, sizeof(ppp_gate), "%s",
+				 inet_ntoa(sin_addr(&ifr.ifr_dstaddr)));
+	} else {
+		/* Demand PPP can exist before IPCP; clear any prior local/peer tuple. */
+		snprintf(ppp_addr, sizeof(ppp_addr), "%s", "0.0.0.0");
 	}
+
+	ppp_snapshot_values[0].param_name = "ipaddr";
+	ppp_snapshot_values[0].value = ppp_addr;
+	ppp_snapshot_values[1].param_name = "netmask";
+	ppp_snapshot_values[1].value = ppp_mask;
+	ppp_snapshot_values[2].param_name = "gateway";
+	ppp_snapshot_values[2].value = ppp_gate;
+	route_status = rc_wan_nvram_set_required_values(
+		ppp_snapshot_values, 3, set_wan_unit_value_status_callback, &unit);
 	close(sockfd);
+	if (route_status != 0) {
+		logmessage(LOGNAME,
+			   "failed to publish complete PPP runtime address snapshot on %s (status=%d)",
+			   ppp_ifname, route_status);
+		return route_status;
+	}
 
 	/* Preset routes so that traffic can be sent to proper pppx even before the link is brought up. */
 	route_status = preset_wan_ppp_routes(ppp_ifname, unit);
