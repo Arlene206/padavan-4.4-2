@@ -622,7 +622,8 @@ asus_open_existing_path(struct vsf_session* p_sess, int perm,
 int
 asus_open_upload_path(struct vsf_session* p_sess,
                       const struct mystr* p_path_str, int exclusive,
-                      unsigned int mode, int* p_parent_fd, char* p_leaf,
+                      int append, unsigned int mode, int* p_parent_fd,
+                      char* p_leaf,
                       unsigned int leaf_size, int* p_cleanup_allowed)
 {
   char resolved_parent[PATH_MAX];
@@ -663,7 +664,8 @@ asus_open_upload_path(struct vsf_session* p_sess,
     return -1;
   }
   file_fd = ftp_acl_path_open_upload_entry(parent_fd, p_leaf,
-                                                   exclusive, (mode_t)mode,
+                                                   exclusive, append,
+                                                   (mode_t)mode,
                                                    p_cleanup_allowed);
   if (file_fd < 0) {
     saved_errno = errno;

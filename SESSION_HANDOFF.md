@@ -1,33 +1,32 @@
 # 2026-11-20 continuation checkpoint
 
-This live checkpoint supersedes older summaries. Continue from current main; do not repeat completed WAN mirror/runtime-identity, Samba mode, Ralink RADIUS bounds or NTP-readiness work.
+This live checkpoint supersedes older summaries. Continue from current main; avoid repeating completed WAN mirror/runtime-identity, Samba mode, Ralink RADIUS and NTP-readiness work.
 
 ## Git state
 
-- Main parent for the current FTP STOR slice: `107b57abb1374ff57b275dba2c78a0c5069dabf0`.
-- Deferred WAN reconnect correction: `ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6`; exact WAN route `505b26f` PASS and exact WAN teardown on PR-filter follow-up `be327682` PASS (`44732616912`). Process inventory/fail-closed and NVRAM boundary checks passed on product-source parent `8ce56358`; AI docs passed on `107b57`. Do not reuse earlier XY-C1 artifacts for changed source SHAs.
-- Main RADIUS hardening preserved through `cd300104`, `8ce56358`, and newline-escape correction `107b57abb1374ff57b275dba2c78a0c5069dabf0`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` read-only. Atomic main-only trees/commits, expected-SHA CAS with force=false; no force-push.
+- Parent main SHA for APPE append fix: `821c133887352c069067688f442cd5300bd619b2`.
+- FTP existing-STOR non-regular target fix: `5c7fa81094c2e31ed58d0e8381201ca769db7a2c`; exact VSFTPD stability `44733281243` PASS, AI docs `44733281199` PASS, Process inventory `44733281193` PASS, NVRAM boundary `44733281201` PASS. XY-C1 `44733281232` was IN_PROGRESS at last poll.
+- New RADIUS secret zeroization main commit: `821c133887352c069067688f442cd5300bd619b2`; its Process/AI/NVRAM/XY Actions were still in progress at last poll.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` read-only. Main-only full-tree commits, expected-SHA non-force ref update, no force-push.
 
-## Active FTP stability fix
+## Active FTP APPE fix
 
-- Found that existing STOR targets were reopened with `O_WRONLY|O_NONBLOCK|O_NOFOLLOW` but the opened descriptor was not fstat-checked. This admitted an existing FIFO when a reader was present, unlike the regular-file-only RETR/SIZE and ACL-config read paths.
-- Current slice adds fstat on the opened descriptor, rejects non-regular targets with `EINVAL`, preserves fstat errors, and adds a FIFO regression with a nonblocking active reader. The VSFTPD workflow source contract checks open→fstat→S_ISREG ordering and the regression.
-- Exact-host VSFTPD policy/source-contract result for this slice and exact-source XY-C1 Build/TRX/artifact have not yet run at checkpoint creation.
-- Exact main parent `107b57`: Process inventory `44732688655`, Process fail-closed `44732688588`, and AI docs `44732688571` PASS; NVRAM boundary `44732688631` and XY-C1 `44732688670` were IN_PROGRESS at last poll.
+- Existing APPE path previously sought once to EOF but did not set `O_APPEND`. With configurable `lock_upload_files=NO`, independent sessions could seek to the same old EOF and a later write overwrite earlier appended data.
+- Current slice passes `is_append` through `handle_upload_common()` → `asus_open_upload_path()` → descriptor-relative helper; APPE opens existing and newly created targets with `O_APPEND`. STOR/STOU behavior is unchanged.
+- GNU89 host regression models two APPE descriptors seeking to offset zero before writes and expects final bytes `baseAB`; VSFTPD checker pins end-to-end flag propagation.
 
 ## Exact first actions
 
-1. Verify the exact-head `vsftpd-stability.yml` run for this commit. Fix causal failures from logs; the FIFO test should run with an active reader and confirm type rejection.
-2. Check XY-C1 `44732688670` for source `107b57`; verify Build, TRX and artifact upload are all successful on that same SHA before claiming L3.
-3. Continue an independent cross-userland P1 stability/security defect while Actions are pending. Avoid repeating closed WAN, Ralink and Samba reviews.
-4. Physical router/FTP L4 remains NOT VERIFIED.
+1. Verify this APPE commit's exact-head `vsftpd-stability.yml` run; inspect compile/source-contract results.
+2. Verify same-SHA XY-C1 Build XY-C1, TRX and artifact upload. Parent `5c7fa8` XY-C1 `44733281232` was pending at last poll; it does not apply to this new source change.
+3. If runs are pending, continue another independent P1 userland defect instead of polling repeatedly.
+4. Physical router and live FTP interoperability L4 remain NOT VERIFIED.
 
 ## Verification boundary
 
-- Deferred WAN source `ab02b36`: GNU89/Werror/ASan/UBSan C policies passed on the first exact workflow run; source contracts repaired. Exact WAN route check passed on `505b26f`; exact WAN teardown rerun on `be327682` passed.
-- FTP STOR FIFO protection in this new slice is not L2/L3 verified until exact-head host regression and source-triggered XY-C1 Build/TRX/artifact complete.
-- Keep host L2, exact-head Actions, exact-source MIPS/TRX/artifact L3 and physical-device L4 distinct.
+- `5c7fa8`: FTP existing-STOR FIFO protection, Process, AI docs and NVRAM boundary PASS; XY-C1 pending at last poll.
+- This APPE slice has no L2/L3 claim until exact-head regression and same-source XY-C1 Build/TRX/artifact succeed.
+- Keep host L2, exact-head Actions, exact-source firmware L3 and physical-device L4 separate.
 
 
 ---

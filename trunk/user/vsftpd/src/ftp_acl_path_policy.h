@@ -544,7 +544,7 @@ ftp_acl_path_resolve_write_entry(const char *path, char *resolved_parent,
  */
 static int
 ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
-                               mode_t mode, int *cleanup_allowed)
+                               int append, mode_t mode, int *cleanup_allowed)
 {
   struct stat opened;
   int file_fd;
@@ -560,6 +560,8 @@ ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
 
   *cleanup_allowed = 0;
   flags = O_WRONLY | O_NONBLOCK | O_NOFOLLOW | O_CLOEXEC;
+  if (append)
+    flags |= O_APPEND;
   if (exclusive) {
     file_fd = openat(dir_fd, leaf,
                      flags | O_CREAT | O_EXCL | O_APPEND, mode);

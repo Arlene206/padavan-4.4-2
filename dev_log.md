@@ -1,3 +1,13 @@
+## 2026-11-20 — Preserve APPE append semantics across independent FTP sessions
+
+- Parent main SHA: `821c133887352c069067688f442cd5300bd619b2`; existing-STOR FIFO/special-file rejection commit `5c7fa81094c2e31ed58d0e8381201ca769db7a2c` has exact VSFTPD stability run `44733281243` SUCCESS. Its AI docs `44733281199`, Process inventory `44733281193`, and NVRAM boundary `44733281201` also PASS. Same-SHA XY-C1 run `44733281232` was IN_PROGRESS at last poll.
+- APPE opened targets without `O_APPEND`, then performed one `lseek(SEEK_END)` before transfer. With configurable `lock_upload_files=NO`, two sessions can seek to the same old EOF and the later write overwrites bytes appended by the first session. The default advisory lock is not a semantic substitute because it is configurable.
+- Threaded an explicit append flag through `handle_upload_common()` → `asus_open_upload_path()` → `ftp_acl_path_open_upload_entry()`. APPE now opens existing and newly created targets with `O_APPEND`; STOR/STOU preserve their prior truncate/exclusive behavior.
+- Added a two-descriptor regression: both simulated APPE sessions seek to offset zero before either write, then append distinct bytes; final content must be `baseAB`. The VSFTPD source contract requires `is_append` to reach `O_APPEND` end-to-end.
+- Parent FIFO source-contract host regression passed. This APPE slice requires exact-head VSFTPD Actions and same-SHA XY-C1 Build/TRX/artifact. Physical FTP device L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Zeroize Ralink 802.1X RADIUS secrets before freeing
 
 - Parent main SHA: 5c7fa81094c2e31ed58d0e8381201ca769db7a2c.

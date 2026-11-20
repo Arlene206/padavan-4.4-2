@@ -38,7 +38,7 @@ int asus_open_existing_path(struct vsf_session* p_sess, int perm,
                              int* p_permission_denied);
 int asus_open_upload_path(struct vsf_session* p_sess,
                           const struct mystr* p_path_str, int exclusive,
-                          unsigned int mode, int* p_parent_fd,
+                          int append, unsigned int mode, int* p_parent_fd,
                           char* p_leaf, unsigned int leaf_size,
                           int* p_cleanup_allowed);
 int asus_cleanup_failed_upload(int parent_fd, const char* leaf, int file_fd);

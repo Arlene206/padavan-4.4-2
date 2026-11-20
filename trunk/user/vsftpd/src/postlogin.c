@@ -1082,13 +1082,15 @@ handle_upload_common(struct vsf_session* p_sess, int is_append, int is_unique)
   if (is_unique || (p_sess->is_anonymous && !tunable_anon_other_write_enable))
   {
     new_file_fd = asus_open_upload_path(
-      p_sess, p_filename, 1, tunable_file_open_mode, &upload_parent_fd,
+      p_sess, p_filename, 1, is_append, tunable_file_open_mode,
+      &upload_parent_fd,
       upload_leaf, sizeof(upload_leaf), &cleanup_allowed);
   }
   else
   {
     new_file_fd = asus_open_upload_path(
-      p_sess, p_filename, 0, tunable_file_open_mode, &upload_parent_fd,
+      p_sess, p_filename, 0, is_append, tunable_file_open_mode,
+      &upload_parent_fd,
       upload_leaf, sizeof(upload_leaf), &cleanup_allowed);
     if (!is_append && offset == 0)
     {

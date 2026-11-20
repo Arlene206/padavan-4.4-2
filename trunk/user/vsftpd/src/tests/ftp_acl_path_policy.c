@@ -69,6 +69,7 @@ main(void)
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
   int upload_dir_fd, upload_fd, existing_upload_fd;
   int upload_fifo_reader_fd;
+  int append_fd_a, append_fd_b;
   int duplicate_cleanup_allowed;
   int existing_dir_fd, existing_file_fd, remove_parent_fd;
   int child_parent_fd, child_dir_fd;
@@ -570,7 +571,7 @@ main(void)
   cleanup_allowed = 1;
   errno = 0;
   upload_fd = ftp_acl_path_open_upload_entry(
-      upload_dir_fd, "failed-upload-fifo", 0, 0600,
+      upload_dir_fd, "failed-upload-fifo", 0, 0, 0600,
       &cleanup_allowed);
   if (upload_fd >= 0 || errno != EINVAL || cleanup_allowed) {
     if (upload_fd >= 0)
@@ -593,7 +594,7 @@ main(void)
 
   cleanup_allowed = 1;
   upload_fd = ftp_acl_path_open_upload_entry(
-      upload_dir_fd, "failed-existing-upload.txt", 0, 0600,
+      upload_dir_fd, "failed-existing-upload.txt", 0, 0, 0600,
       &cleanup_allowed);
   if (upload_fd < 0 || cleanup_allowed) {
     fprintf(stderr, "existing STOR target became cleanup-eligible\n");
@@ -617,8 +618,52 @@ main(void)
     return 1;
   }
 
+  existing_upload_fd = openat(upload_dir_fd, "appe-target.txt",
+                               O_CREAT | O_EXCL | O_WRONLY | O_CLOEXEC,
+                               0600);
+  if (existing_upload_fd < 0 ||
+      write(existing_upload_fd, "base", 4) != 4 ||
+      close(existing_upload_fd) != 0) {
+    perror("prepare APPE concurrency fixture");
+    return 1;
+  }
+  append_fd_a = ftp_acl_path_open_upload_entry(
+      upload_dir_fd, "appe-target.txt", 0, 1, 0600, &cleanup_allowed);
+  if (append_fd_a < 0 || cleanup_allowed) {
+    fprintf(stderr, "first APPE session could not open existing target\n");
+    return 1;
+  }
+  append_fd_b = ftp_acl_path_open_upload_entry(
+      upload_dir_fd, "appe-target.txt", 0, 1, 0600, &cleanup_allowed);
+  if (append_fd_b < 0 || cleanup_allowed) {
+    fprintf(stderr, "second APPE session could not open existing target\n");
+    return 1;
+  }
+  if (lseek(append_fd_a, 0, SEEK_SET) != 0 ||
+      lseek(append_fd_b, 0, SEEK_SET) != 0 ||
+      write(append_fd_a, "A", 1) != 1 ||
+      write(append_fd_b, "B", 1) != 1 ||
+      close(append_fd_a) != 0 || close(append_fd_b) != 0) {
+    perror("exercise independent APPE file offsets");
+    return 1;
+  }
+  existing_upload_fd = openat(upload_dir_fd, "appe-target.txt",
+                              O_RDONLY | O_CLOEXEC);
+  read_length = existing_upload_fd < 0 ? -1 :
+      read(existing_upload_fd, readback, sizeof(readback));
+  if (existing_upload_fd < 0 || read_length != 6 ||
+      memcmp(readback, "baseAB", 6) != 0 ||
+      close(existing_upload_fd) != 0) {
+    fprintf(stderr, "concurrent APPE sessions overwrote appended data\n");
+    return 1;
+  }
+  if (unlinkat(upload_dir_fd, "appe-target.txt", 0) != 0) {
+    perror("clean APPE concurrency fixture");
+    return 1;
+  }
+
   upload_fd = ftp_acl_path_open_upload_entry(
-      upload_dir_fd, "failed-new-upload.txt", 0, 0600, &cleanup_allowed);
+      upload_dir_fd, "failed-new-upload.txt", 0, 0, 0600, &cleanup_allowed);
   if (upload_fd < 0 || !cleanup_allowed ||
       write(upload_fd, "partial", 7) != 7 ||
       ftp_acl_path_unlink_opened_entry(upload_dir_fd,
@@ -634,11 +679,10 @@ main(void)
   }
 
   upload_fd = ftp_acl_path_open_upload_entry(
-      upload_dir_fd, "failed-unique-upload.txt", 1, 0600, &cleanup_allowed);
+      upload_dir_fd, "failed-unique-upload.txt", 1, 0, 0600, &cleanup_allowed);
   duplicate_cleanup_allowed = 1;
   if (upload_fd < 0 || !cleanup_allowed ||
-      ftp_acl_path_open_upload_entry(upload_dir_fd, "failed-unique-upload.txt",
-          1, 0600, &duplicate_cleanup_allowed) >= 0 ||
+      ftp_acl_path_open_upload_entry(upload_dir_fd, "failed-unique-upload.txt", 1, 0, 0600, &duplicate_cleanup_allowed) >= 0 ||
       duplicate_cleanup_allowed ||
       ftp_acl_path_unlink_opened_entry(upload_dir_fd,
           "failed-unique-upload.txt", upload_fd) != 0 ||
