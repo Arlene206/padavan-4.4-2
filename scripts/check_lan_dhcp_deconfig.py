@@ -429,7 +429,8 @@ for status_name, start_call in (
     assert lan_vpn_stop < stop_call < stop_lan < abort_start < vpn_restore < restore_gate < restore_call
     assert restore_call < abort_return
 assert dns_restore < lock_release < vpn_restore
-assert "static inline int\\nrc_service_restart_after_stop(int stop_status)" in service_policy
+assert "rc_service_restart_after_stop(int stop_status)" in service_policy
+assert "return stop_status == 0;" in service_policy
 assert "test_lan_restart_rollback_only_restarts_confirmed_stops" in service_test
 
 router_restart = c_function_body(lan, "full_restart_lan(void)")
