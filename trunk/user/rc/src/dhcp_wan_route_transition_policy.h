@@ -121,10 +121,12 @@ dhcp_wan_route_setup_retry_required(int route_setup_status)
 /* Retry the complete lease application after address/lease failure as well
  * as route failure, even if the DHCP server renews an unchanged tuple. */
 static inline int
-dhcp_wan_bound_retry_required(int lease_error, int route_setup_status)
+dhcp_wan_bound_retry_required(int lease_error, int route_setup_status,
+			      int mtu_setup_status)
 {
 	return lease_error != 0 ||
-		dhcp_wan_route_setup_retry_required(route_setup_status);
+		dhcp_wan_route_setup_retry_required(route_setup_status) ||
+		mtu_setup_status != 0;
 }
 
 #endif /* DHCP_WAN_ROUTE_TRANSITION_POLICY_H */

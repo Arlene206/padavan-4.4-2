@@ -5997,7 +5997,15 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 				   udhcpc_state, wan_ifname, route_setup_status);
 	}
 
-	callback_status = route_setup_status;
+	callback_status = route_status_accumulate(route_setup_status, mtu_status);
+	publish_status = wan_nvram_int_temp_status(
+		strcat_r(prefix, "mtu_err", tmp), mtu_status);
+	callback_status = route_status_accumulate(callback_status, publish_status);
+	if (publish_status != 0)
+		logmessage(log_prefix,
+			   "cannot publish DHCP MTU retry state on %s (status=%d)",
+			   wan_ifname, publish_status);
+
 	publish_status = wan_nvram_int_temp_status(
 		strcat_r(prefix, "route_err", tmp), route_setup_status);
 	callback_status = route_status_accumulate(callback_status, publish_status);
@@ -6311,6 +6319,14 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 
 	/* Keep route retry state independent from the IPTV proxy lifecycle. */
 	callback_status = route_status_accumulate(route_setup_status, multicast_status);
+	callback_status = route_status_accumulate(callback_status, mtu_status);
+	publish_status = wan_nvram_int_temp_status("manv_mtu_err", mtu_status);
+	callback_status = route_status_accumulate(callback_status, publish_status);
+	if (publish_status != 0)
+		logmessage(log_prefix,
+			   "cannot publish IPTV MTU retry state (status=%d)",
+			   publish_status);
+
 	publish_status = wan_nvram_int_temp_status("manv_route_err", route_setup_status);
 	callback_status = route_status_accumulate(callback_status, publish_status);
 	if (publish_status != 0)
@@ -6755,7 +6771,7 @@ udhcpc_renew(char *wan_ifname)
 	size_t renew_count = 0;
 	int unit, is_man, resolver_changed = 0;
 	int nvram_status, rollback_status = 0;
-	int lease_error, route_error;
+	int lease_error, route_error, mtu_error;
 	struct dhcp_lease_nvram_value renew_values[4];
 
 	unit = get_wan_unit(wan_ifname);
@@ -6771,10 +6787,11 @@ udhcpc_renew(char *wan_ifname)
 
 	lease_error = nvram_get_int(strcat_r(prefix, "err", tmp));
 	route_error = nvram_get_int(strcat_r(prefix, "route_err", tmp));
-	if (dhcp_wan_bound_retry_required(lease_error, route_error)) {
+	mtu_error = nvram_get_int(strcat_r(prefix, "mtu_err", tmp));
+	if (dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error)) {
 		logmessage(log_prefix,
-			   "retrying DHCP lease/address/route application on %s (lease_error=%d, route_error=%d)",
-			   wan_ifname, lease_error, route_error);
+			   "retrying DHCP lease/address/route/MTU application on %s (lease_error=%d, route_error=%d, mtu_error=%d)",
+			   wan_ifname, lease_error, route_error, mtu_error);
 		return udhcpc_bound(wan_ifname, 1);
 	}
 	value = getenv("subnet");
@@ -6909,16 +6926,17 @@ udhcpc_viptv_renew(char *man_ifname)
 	char *value;
 	char tmp[100], prefix[16], gateway_buf[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
-	int lease_error, route_error;
+	int lease_error, route_error, mtu_error;
 
 	strcpy(prefix, "manv_");
 
 	lease_error = nvram_get_int(strcat_r(prefix, "err", tmp));
 	route_error = nvram_get_int(strcat_r(prefix, "route_err", tmp));
-	if (dhcp_wan_bound_retry_required(lease_error, route_error)) {
+	mtu_error = nvram_get_int(strcat_r(prefix, "mtu_err", tmp));
+	if (dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error)) {
 		logmessage(LOGNAME,
-			   "retrying IPTV lease/address/route application on %s (lease_error=%d, route_error=%d)",
-			   man_ifname, lease_error, route_error);
+			   "retrying IPTV lease/address/route/MTU application on %s (lease_error=%d, route_error=%d, mtu_error=%d)",
+			   man_ifname, lease_error, route_error, mtu_error);
 		return udhcpc_viptv_bound(man_ifname, 1);
 	}
 
