@@ -13,7 +13,7 @@ typedef int (*rc_router_mode_nvram_set_fn)(void *context,
 static inline int
 rc_router_mode_parse(const char *value)
 {
-    if (!value || value[1] != '\0')
+    if (!value || value[0] == '\0' || value[1] != '\0')
         return 0;
 
     switch (value[0]) {
