@@ -107,10 +107,18 @@ wireless_inic_radio_transition(int is_on, const wireless_inic_radio_ops_t *ops,
 		return -EINVAL;
 
 	if (is_on) {
+		/*
+		 * Do not assume the switch retained its previous state across boot or
+		 * an out-of-band change. Establish isolation before enabling the radio.
+		 */
+		isolation_status = ops->set_isolation(context, 1);
+		if (isolation_status != 0) {
+			(void)ops->set_power(context, 0);
+			return isolation_status;
+		}
 		power_status = ops->set_power(context, 1);
 		if (power_status != 0) {
-			/* A failing driver command may have changed hardware partially. */
-			(void)ops->set_isolation(context, 1);
+			/* The failed command may have changed radio hardware partially. */
 			(void)ops->set_power(context, 0);
 			return power_status;
 		}

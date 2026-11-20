@@ -185,11 +185,15 @@ jobs:
                         "ops->set_power(context, 0)",
                         "ops->publish(context, !!is_on)"):
               assert token in notification_policy
+          radio_transition = function_body(notification_policy, "wireless_inic_radio_transition(int is_on")
+          assert radio_transition.index("ops->set_isolation(context, 1)") < radio_transition.index("ops->set_power(context, 1)")
+          assert radio_transition.index("ops->set_power(context, 1)") < radio_transition.index("ops->set_isolation(context, 0)")
           for token in ("test_inic_radio_enable_orders_power_before_unisolation_and_publication",
                         "test_inic_radio_disable_isolates_before_power_off_and_publication",
                         "test_inic_radio_power_on_failure_rolls_back_without_publishing",
                         "test_inic_radio_unisolation_failure_rolls_back_and_preserves_cause",
-                        "test_inic_radio_isolation_failure_still_powers_off_without_publishing"):
+                        "test_inic_radio_isolation_failure_still_powers_off_without_publishing",
+                        "test_inic_radio_initial_isolation_failure_prevents_power_on"):
               assert token in notification_test
           for token in ("was_on", "requested_on", "change_reported",
                         "change_reported == 1 ? 0 : -EIO"):

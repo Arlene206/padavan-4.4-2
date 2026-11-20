@@ -1,3 +1,13 @@
+## 2026-11-20 — Establish iNIC isolation before enabling RT3352 MII radio
+
+- Parent main SHA: `9075dc6385307f5df83ce9d13039462648395583`.
+- Follow-up review found a boot/out-of-band state gap: enable assumed the RTL8367 iNIC port was already isolated and turned on radio power before checking switch state. A stale/unexpected unisolated port could expose the newly enabled radio during the transition.
+- Enable now explicitly asserts switch isolation first; any initial-isolation error aborts enable, performs best-effort RadioOn=0, preserves the isolation error and does not publish state. Only then does it enable the driver, apply TxPower and unisolate. Existing power-on/unisolation rollback remains.
+- Extended GNU89 regression coverage with initial-isolation failure and event-order assertions. Strengthened the Wireless source contract to require isolation-before-power-before-unisolation.
+- Parent exact-SHA Wireless #44744845103, AI handoff #44744844991 and Process inventory #44744845149 passed on `9075dc6385307f5df83ce9d13039462648395583`; NVRAM #44744845007 was pending. Product-source XY-C1 #44744529158 on `9e9d643d` was still running. New exact-head regression pending; no MIPS L3 or hardware L4 claim.
+
+---
+
 ## 2026-11-20 — Move RT3352 MII policy regressions to file scope and restore handoff checkpoint contract
 
 - Parent main SHA: `9e9d643dd8c3a78d135c8dae908857f8b90c0276`.

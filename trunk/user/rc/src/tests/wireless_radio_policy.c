@@ -233,10 +233,10 @@ static int inic_radio_events_equal(const inic_radio_test_context_t *c,
 static int test_inic_radio_enable_orders_power_before_unisolation_and_publication(void)
 {
 	inic_radio_test_context_t c = { 0 };
-	const int e[] = { INIC_EVENT_RADIO_ON, INIC_EVENT_PREPARE_ON,
-		INIC_EVENT_UNISOLATE, INIC_EVENT_PUBLISH_ON };
+	const int e[] = { INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_ON,
+		INIC_EVENT_PREPARE_ON, INIC_EVENT_UNISOLATE, INIC_EVENT_PUBLISH_ON };
 	if (wireless_inic_radio_transition(1, &inic_radio_test_ops, &c) != 0) return 1;
-	return !inic_radio_events_equal(&c, e, 4) || c.publish_count != 1 || c.published_state != 1;
+	return !inic_radio_events_equal(&c, e, 5) || c.publish_count != 1 || c.published_state != 1;
 }
 static int test_inic_radio_disable_isolates_before_power_off_and_publication(void)
 {
@@ -248,7 +248,7 @@ static int test_inic_radio_disable_isolates_before_power_off_and_publication(voi
 static int test_inic_radio_power_on_failure_rolls_back_without_publishing(void)
 {
 	inic_radio_test_context_t c = { 0 };
-	const int e[] = { INIC_EVENT_RADIO_ON, INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_OFF };
+	const int e[] = { INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_ON, INIC_EVENT_RADIO_OFF };
 	c.radio_on_status = EIO;
 	return wireless_inic_radio_transition(1, &inic_radio_test_ops, &c) != EIO ||
 	       !inic_radio_events_equal(&c, e, 3) || c.publish_count != 0;
@@ -256,8 +256,9 @@ static int test_inic_radio_power_on_failure_rolls_back_without_publishing(void)
 static int test_inic_radio_unisolation_failure_rolls_back_and_preserves_cause(void)
 {
 	inic_radio_test_context_t c = { 0 };
-	const int e[] = { INIC_EVENT_RADIO_ON, INIC_EVENT_PREPARE_ON,
-		INIC_EVENT_UNISOLATE, INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_OFF };
+	const int e[] = { INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_ON,
+		INIC_EVENT_PREPARE_ON, INIC_EVENT_UNISOLATE,
+		INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_OFF };
 	c.unisolate_status = EACCES;
 	return wireless_inic_radio_transition(1, &inic_radio_test_ops, &c) != EACCES ||
 	       !inic_radio_events_equal(&c, e, 5) || c.publish_count != 0;
@@ -278,6 +279,15 @@ static int test_inic_radio_power_off_failure_does_not_publish(void)
 	return wireless_inic_radio_transition(0, &inic_radio_test_ops, &c) != EBUSY ||
 	       !inic_radio_events_equal(&c, e, 2) || c.publish_count != 0;
 }
+static int test_inic_radio_initial_isolation_failure_prevents_power_on(void)
+{
+	inic_radio_test_context_t c = { 0 };
+	const int e[] = { INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_OFF };
+	c.isolate_status = EACCES;
+	return wireless_inic_radio_transition(1, &inic_radio_test_ops, &c) != EACCES ||
+	       !inic_radio_events_equal(&c, e, 2) || c.publish_count != 0;
+}
+
 static int test_inic_radio_policy_rejects_incomplete_operations(void)
 {
 	return wireless_inic_radio_transition(1, NULL, NULL) != -EINVAL;
@@ -308,6 +318,7 @@ main(void)
 	    test_inic_radio_unisolation_failure_rolls_back_and_preserves_cause() ||
 	    test_inic_radio_isolation_failure_still_powers_off_without_publishing() ||
 	    test_inic_radio_power_off_failure_does_not_publish() ||
+	    test_inic_radio_initial_isolation_failure_prevents_power_on() ||
 	    test_inic_radio_policy_rejects_incomplete_operations()) {
 		fprintf(stderr, "Wireless interface status policy: FAIL\n");
 		return 1;

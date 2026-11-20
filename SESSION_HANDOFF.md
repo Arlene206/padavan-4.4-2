@@ -9,28 +9,28 @@
 
 ## Current repository state
 
-- Parent main SHA for this CI-correction slice: `9e9d643dd8c3a78d135c8dae908857f8b90c0276`.
+- Current main before this follow-up slice: `9075dc6385307f5df83ce9d13039462648395583`; its RT3352 source parent is `9e9d643dd8c3a78d135c8dae908857f8b90c0276`.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Source implementation commit `9e9d643dd8c3a78d135c8dae908857f8b90c0276` adds RT3352 MII radio/isolation transaction handling. Its exact-head Process, Process-inventory, HTTPD security, watchdog and iNIC signal checks passed; Wireless and AI handoff checks failed, while XY-C1 and NVRAM were pending.
-- Wireless failure #44744529117: the new MII policy helper/test definitions were accidentally inserted inside `main()`, causing GNU89 “invalid storage class” errors. This commit moves the definitions to file scope; the calls remain in `main()`.
-- AI handoff failure #44744529015: the shortened checkpoint omitted mandatory handoff-checkpoint wording and required section headings. This checkpoint restores all required structure.
+- Source implementation commit `9e9d643dd8c3a78d135c8dae908857f8b90c0276` adds RT3352 MII radio/isolation transaction handling. On follow-up test/documentation SHA `9075dc6385307f5df83ce9d13039462648395583`, Wireless #44744845103, AI handoff #44744844991 and Process inventory #44744845149 passed; NVRAM #44744845007 was still running.
+- On `9e9d643d`, Process inventory/regression, HTTPD security, watchdog and iNIC signal checks passed; Wireless #44744529117 and AI #44744529015 failures were fixed by moving MII helpers to file scope and restoring mandatory handoff structure. XY-C1 #44744529158 remained in progress at last query.
 
 ## Active task
 
-- Re-run the exact-head Wireless radio-state and AI handoff documentation Actions after this correction. Check same-SHA XY-C1 detector/build/TRX/artifact and NVRAM results for `9e9d643d`; target L3 must not be inferred from earlier SHAs.
-- If any corrected test fails, use the failing job log to repair it. Continue an independent P1 stability/security slice while checks are pending.
+- Follow-up review found enable assumed the RTL8367 iNIC port was already isolated before powering the radio. This is unsafe after boot or an out-of-band switch-state change. This commit explicitly isolates first, only then enables the driver, and unisolates only after startup/TxPower setup; a failed initial isolation sends best-effort radio-off and publishes no state.
+- After this commit, inspect Wireless and AI exact-head checks, plus NVRAM #44744845007 and XY-C1 #44744529158. The latter is for product-source SHA `9e9d643d`; do not transfer L3 to later production source changes.
+- Continue an independent P1 slice while any exact-head jobs remain pending.
 
 ## Verification boundary
 
-- The standalone transition-policy harness passed GNU89, `-Wall -Wextra -Werror`, ASan and UBSan.
-- The actual repository Wireless CI compile on `9e9d643d` failed before test execution because the helper functions were nested in `main()`; the file-scope correction is pending CI.
-- XY-C1 #44744529158 was still running at last check; no MIPS firmware L3 or physical-device L4 claim. Physical-router L4 remains NOT VERIFIED.
+- The original host transition-policy harness passed GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. The actual repository Wireless source/policy regression and AI documentation contract both pass on `9075dc6385307f5df83ce9d13039462648395583`.
+- This follow-up adds an additional initial-isolation-failure scenario and strengthens the enable sequence; its exact-head compile/regression is pending.
+- XY-C1 #44744529158 was still running for product-source SHA `9e9d643d`; no L3 claim until detector/build/TRX/artifact pass on that exact source SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect Actions for the live main SHA, especially Wireless radio-state and AI handoff; verify corrected C policy tests actually execute.
-2. Inspect XY-C1 #44744529158 and NVRAM #44744528984 for `9e9d643d`; record detector/build/TRX/artifact results only for that exact source SHA.
-3. Once exact-head checks are closed, continue the next independent userland stability/security fix. Do not restart completed audits.
+1. Inspect Wireless and AI docs exact-head Actions for this follow-up; confirm the new initial-isolation test compiles and executes.
+2. Inspect still-pending NVRAM #44744845007 on `9075dc` and XY-C1 #44744529158 on product source `9e9d643d`; capture detector/build/TRX/artifact results without SHA transfer.
+3. Continue the next independent userland stability/security fix; do not repeat closed audits.
 
 ## Mandatory handoff checkpoint
 
