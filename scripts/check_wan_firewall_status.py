@@ -764,9 +764,8 @@ require("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC" in wan_dns_block and
         "failed to clear indexed WAN DNS snapshot" in wan_dns_block,
         "conditional indexed WAN DNS clear must be checked and included in teardown status")
 require(wan_dns_at < wan_dns_refresh and
-        wan_down[wan_dns_at:].startswith(
-            '\n\t}\n\n\t/* Resolver refresh failure must not block WAN teardown/cleanup. */\n\t'
-            'refresh_resolvconf_nonfatal("WAN down", 0);'),
+        '\n\t}\n\n\t/* Resolver refresh failure must not block WAN teardown/cleanup. */\n\t'
+        'refresh_resolvconf_nonfatal("WAN down", 0);' in wan_down[wan_dns_at:],
         "resolver refresh must still run after a failed DNS snapshot clear")
 require('nvram_set_temp("vpnc_dns_t", "")' not in wan_down and
         'set_wan_unit_value(unit, "dns", "")' not in wan_down,

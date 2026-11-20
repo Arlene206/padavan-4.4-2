@@ -1,3 +1,11 @@
+## 2026-11-20 — Correct the WAN resolver refresh assertion and handoff contract
+
+- Parent main SHA: 971372f4a8a662eeda42e3d7b80ec6f9be6e3de2.
+- Exact-SHA detect-internet run 44686752941 passed after its checked VPN resolver marker contract was updated. NVRAM boundary run 44686157053 also passed on the preceding product source.
+- WAN route run 44686752930 and XY-C1 run 44686753007 still failed at the new WAN resolver-refresh assertion. The previous repair used startswith() on a string slice that begins at the setter assignment; that made the expected closing brace impossible at offset zero. Corrected it to require the close-of-conditional + unconditional refresh sequence as a substring after the checked setter. Production C remains unchanged.
+- AI handoff run 44686752989 flagged two exact protocol phrases omitted while rewriting SESSION_HANDOFF.md. Restore the required "one atomic main commit" and "Before context exhaustion" contract wording without changing the execution rules.
+- No same-SHA MIPS build/TRX/artifact result exists yet: XY-C1 stopped at the source contract. Current-source L3 and physical-router L4 remain NOT VERIFIED. The next exact-head WAN route, XY-C1 and AI docs runs are the verification gate.
+
 ## 2026-11-20 — Repair WAN resolver teardown source-contract boundaries
 
 - Parent main SHA: 21e567affba4e992476aa7dc16c30be7fa6d4500; the product-source change under test is fix(wan): report resolver snapshot clear failures on teardown.
