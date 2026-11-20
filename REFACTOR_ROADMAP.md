@@ -1,8 +1,8 @@
 # 2026-11-20 active checkpoint
 
-- Current main: `940cad61cf1171f713b3e37890334c9702f5f399`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Current main before this repair: `cc9d48f7ca5e1ecc39b99c1c0b7ca1218898f883`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
 - Active: MiniUPnP SOAP input hardening — port values, NewLeaseDuration and GetListOfPortMappings count. Require exact-head focused tests and same-source XY-C1 Build/TRX/artifact.
-- Exact-head Actions: AI handoff documentation contract #44738607273: completed/success; watchdog signal lifecycle stability regression #44738607355: completed/failure.
+- Exact-head Actions on 940: AI handoff docs #44738607273 PASS; watchdog regression #44738607355 failed only in its final Python integration checker. Signal, NTP/lifecycle and new CPU policy binaries all PASS. This repair fixes the incorrect policy API string and adds missing CPU policy header/test paths to both event filters.
 - Closed and do not repeat: WAN deferred reconnect, RADIUS validation/secret ownership, Samba permissions, NTP readiness, FTP FIFO/APPE, MiniUPnP PID publication.
 - Next: fix actual exact-SHA test failures from logs, verify same-source firmware artifact, then continue an independent P1 userland stability/security fix. Hardware L4 remains NOT VERIFIED.
 

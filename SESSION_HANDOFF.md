@@ -2,14 +2,14 @@
 
 ## Git state
 
-- Current `main`: `940cad61cf1171f713b3e37890334c9702f5f399`.
+- Current `main` before this repair: `cc9d48f7ca5e1ecc39b99c1c0b7ca1218898f883`.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move).
 - Recent main commits: `940cad61cf11` test(watchdog): run CPU module restart regression; `ee610712cc0c` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e4` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8` fix(miniupnpd): publish PID files atomically; `573d215607c8` test(vsftpd): normalize APPE source contract whitespace; `8ded66573ba5` fix(vsftpd): append concurrent APPE uploads atomically; `821c13388735` security(802.1x): zeroize RADIUS secrets on teardown.
 - Recent MiniUPnP task commits: `ee610712cc0c776c450c93cded990c8f8db64acd` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065ef15276f7d4f6189b02c75fbbc7c` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd8ecd80bb16a3d71928418c7e8c06` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e496a4e3f170a91186675a3410f6c7` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c320ce2aedff90b331fc85116a01a` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3` fix(miniupnpd): publish PID files atomically.
 
 ## Current exact-SHA Actions
 
-AI handoff documentation contract #44738607273: completed/success; watchdog signal lifecycle stability regression #44738607355: completed/failure
+AI handoff documentation contract #44738607273: completed/success; watchdog signal lifecycle stability regression #44738607355: completed/failure. Its three native C regression binaries (signal, NTP/lifecycle, CPU module restart) all PASS; the final integration checker failed on an incorrect assertion (`module_smart_load(module_name, NULL)` expected inside the injected CPU policy) and missing actual push/PR path entries. This commit corrects the policy contract and both filters.
 
 No action is marked PASS unless the result above reports a completed success for the same SHA. No firmware L3 claim unless detector/input checks, XY-C1 build, TRX verification and artifact upload all pass on one identical product-source SHA.
 
@@ -22,7 +22,7 @@ No action is marked PASS unless the result above reports a completed success for
 
 ## Exact first actions
 
-1. Verify current exact-head MiniUPnP SOAP lease/input regression and any other failing exact-SHA workflows. Fix causal failures from their logs; do not relax production assertions.
+1. Verify this CPU watchdog checker/filter repair on its exact SHA; the regression binary itself already passed on 940. Then resume the active MiniUPnP SOAP lease/input validation task. Fix causal failures from logs; do not relax production assertions.
 2. Verify XY-C1 for the exact current product-source SHA. Require the firmware detector/input stage, Build XY-C1, TRX verification and artifact upload to all succeed on that same SHA; do not reuse earlier artifacts.
 3. While CI is pending, continue a separate, independent P1 stability/security issue elsewhere in Padavan userland.
 4. Physical router, WAN failover and UPnP live interoperability L4 remain NOT VERIFIED.

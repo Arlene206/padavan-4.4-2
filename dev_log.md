@@ -1,3 +1,12 @@
+## 2026-11-20 — Repair watchdog CPU policy contract and event triggers
+
+- Parent main SHA: cc9d48f7ca5e1ecc39b99c1c0b7ca1218898f883.
+- Watchdog workflow 44738607355: signal, NTP/service lifecycle and new CPU module restart regression binaries all passed. The final checker failed because it expected `module_smart_load(module_name, NULL)` inside the injected policy header; the real policy calls `ops->load(module_name, NULL)`, while `services.c` owns the concrete module_smart_load adapter. The source contract now checks the actual interface and ordering.
+- The policy header/test had been inserted into the Python expected-path tuple but not YAML `push.paths`/`pull_request.paths`. Both are now added exactly once to both event filters; the existing loop enforces these entries.
+- Active MiniUPnP SOAP validation remains the next product-source task from the current handoff. No production code modified in this workflow repair.
+
+---
+
 ## 2026-11-20 — Current-main handoff and exact-SHA CI checkpoint
 
 - Current main: `940cad61cf1171f713b3e37890334c9702f5f399`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
