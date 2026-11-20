@@ -63,6 +63,8 @@ def ordered(source, tokens, label):
 
 vpn = (ROOT / "trunk/user/rc/src/vpn_client.c").read_text()
 header = (ROOT / "trunk/user/rc/src/vpn_client_nvram_policy.h").read_text()
+assert "api_result == 0 && !value_present" in header
+assert "api_result == 1 && value_present" in header
 ppp_policy = (ROOT / "trunk/user/rc/src/ppp_option_value_policy.h").read_text()
 ppp_test = (ROOT / "trunk/user/rc/src/tests/ppp_option_value_policy.c").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/vpn_client_nvram_policy.c").read_text()
@@ -114,10 +116,10 @@ ordered(restore, [
     "api_result = nvram_get_checked(\"vpnc_dns_t\", &vpnc_dns);",
     "status = vpn_client_nvram_read_status(",
     "if (status != 0)",
-    "if (api_result == 0 || vpnc_dns[0] == '\\0')",
+    "else if (api_result == 1 && vpnc_dns[0] != '\\0')",
     "status = vpn_client_nvram_set_temp_status(NULL, \"vpnc_dns_t\", \"\");",
     "if (status != 0)",
-    "refresh_resolvconf_nonfatal(\"VPN client DNS removal\", 0);"
+    "else\\n\\t\\t\\trefresh_resolvconf_nonfatal(\"VPN client DNS removal\", 0);"
 ], "VPN DNS cleanup")
 assert "nvram_safe_get(\"vpnc_dns_t\")" not in restore
 

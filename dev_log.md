@@ -1,3 +1,12 @@
+## 2026-11-20 — Align VPN DNS cleanup source contract with checked getter semantics
+
+- Parent main SHA: `acc1a3d1025f8826af2ea4ebfe524fb09b5609c4`.
+- VPN server lifecycle Action #44763108307 passed all seven compiled C regression steps, then failed in `scripts/check_vpn_client_nvram_state.py`: the checker still expected the old getter condition `api_result == 0 || vpnc_dns[0] == '\\0'`.
+- The checked-getter policy defines return 1 plus a present value as “present”, and return 0 plus an absent value as “not present”. Production cleanup correctly clears the DNS snapshot only for a successful present, non-empty value, then rebuilds resolver state only after the clear succeeds.
+- Updated the source contract to assert both helper semantics and the production non-empty/present guard, including that resolver refresh is only on the successful-clear branch. This is a checker-only correction; no production source changed.
+
+---
+
 ## 2026-11-20 — Normalize IPv6 pinhole wildcards and stage firewall registry updates
 
 - Parent main SHA: `71cfd2831e0c6d959638d82243306bb680d23053`.
