@@ -310,7 +310,10 @@ assert_command exportfs
 }
 
 reset_fixture
-printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" > "$MOUNTS_FILE"
+# Keep the ordinary root mount row in the synthetic /proc/mounts inventory.
+# Cleanup of the last NFS mount must not turn the fixture into an impossible
+# empty mount table, which the production fail-closed parser correctly rejects.
+printf 'nfsd %s nfsd rw 0 0\n' "$tmp_dir/proc/fs/nfsd" >> "$MOUNTS_FILE"
 status=$(run_command mount "" start)
 assert_failed "$status" "rpc_pipefs mount failure"
 assert_command mount
