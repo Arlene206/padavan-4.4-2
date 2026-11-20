@@ -74,6 +74,16 @@ test_metadata_cleanup_tracks_primary_mapping_and_preserves_status(void)
 
 
 
+
+static void
+test_cleanup_failure_errno_preserves_primary_precedence(void)
+{
+	assert(miniupnpd_select_cleanup_failure_errno(-1, EACCES, ENOSPC) == EACCES);
+	assert(miniupnpd_select_cleanup_failure_errno(0, EACCES, ENOSPC) == ENOSPC);
+	assert(miniupnpd_select_cleanup_failure_errno(-1, 0, ENOSPC) == EIO);
+	assert(miniupnpd_select_cleanup_failure_errno(0, 0, 0) == EIO);
+}
+
 static void
 test_cleanup_helpers_restore_original_errno(void)
 {
@@ -105,6 +115,7 @@ main(void)
 	test_metadata_cleanup_tracks_primary_mapping_and_preserves_status();
 	test_peer_cleanup_requires_primary_mapping_removal();
 	test_cleanup_helpers_restore_original_errno();
+	test_cleanup_failure_errno_preserves_primary_precedence();
 	puts("MiniUPnP redirect cleanup status policy: PASS");
 	return 0;
 }

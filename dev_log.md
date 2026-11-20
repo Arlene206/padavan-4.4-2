@@ -1,3 +1,14 @@
+## 2026-11-20 — Preserve first errno across primary and peer IPTC cleanup
+
+- Parent main SHA: 5b9fcaa09b621e880517232b24a0f35f9b296827.
+- The previous commit added errno preservation inside the delete/insert handle helpers. A second review found the enclosing delete transaction could still lose errors at NAT/filter/SNAT/mangle iptc_init failures because syslog/iptc_strerror run before the errno is saved. Later independent peer cleanup could also overwrite the primary failure errno before the aggregate status returned.
+- Capture primary and secondary operation errno separately at the failure site, before logging. Keep ENOENT for a missing primary NAT chain, restore direct NAT-init failures and snapshot failures, preserve filter-init errno through NAT rollback, and preserve peer NAT/mangle-init errno through peer rollback. The final return now restores the primary failure errno first, or the secondary errno only when primary cleanup succeeded.
+- Added miniupnpd_select_cleanup_failure_errno() with policy tests for primary precedence, secondary fallback and EIO fallback; strengthened the standalone delete checker and duplicate inline workflow contract to pin the final restoration path.
+- Parent 5b9fcaa09b621e880517232b24a0f35f9b296827: MiniUPnP #44807130506 PASS, AI #44807130434 PASS, Process #44807130342 PASS; NVRAM #44807130385 and XY-C1 #44807130410 were in progress at last poll. This source change requires a fresh exact-head test/build.
+- Resulting commit: THIS COMMIT. L3 for this source SHA NOT VERIFIED; L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Preserve IPTC operation errno across handle cleanup
 
 - Parent main SHA: d7a937541226425de4254d90498c35f3c5859994.

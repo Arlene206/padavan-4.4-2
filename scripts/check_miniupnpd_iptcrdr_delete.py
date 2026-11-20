@@ -69,6 +69,14 @@ delete_wrapper = function_body(
     UPNP_REDIRECT,
     "_upnp_delete_redir(unsigned short eport, int proto)"
 )
+assert "primary_failure_errno" in delete
+assert "secondary_failure_errno" in delete
+assert "primary_failure_errno = ENOENT" in delete
+assert "miniupnpd_select_cleanup_failure_errno(" in delete
+assert "miniupnpd_restore_errno_on_failure(cleanup_status, failure_errno)" in delete
+assert "return miniupnpd_restore_errno_on_failure(-1, failure_errno)" in delete
+assert "secondary_failure_errno = errno" in delete
+
 policy = " ".join(POLICY.split())
 
 assert helper.index('h = iptc_init(table)') < helper.index("iptc_insert_entry(chain, entry, index, h)")

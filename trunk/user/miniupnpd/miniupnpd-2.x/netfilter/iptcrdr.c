@@ -461,6 +461,7 @@ get_redirect_rule_by_index(int index,
 	}
 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
 	{
+		primary_failure_errno = ENOENT;
 		syslog(LOG_ERR, "chain %s not found", miniupnpd_nat_chain);
 		r = -1;
 	}
@@ -730,6 +731,8 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 	int nat_delete_status = -1;
 	int rollback_status = 0;
 	int failure_errno;
+	int primary_failure_errno = 0;
+	int secondary_failure_errno = 0;
 	int nat_backup_failed = 0;
 	int peer_delete_status = -1;
 	unsigned nat_index = 0;
@@ -754,9 +757,10 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 	h = iptc_init("nat");
 	if(!h)
 	{
+		failure_errno = errno;
 		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
-		       "delete_redirect_and_filter_rules", iptc_strerror(errno));
-		return -1;
+		       "delete_redirect_and_filter_rules", iptc_strerror(failure_errno));
+		return miniupnpd_restore_errno_on_failure(-1, failure_errno);
 	}
 	/* First step : find the right nat rule */
 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
@@ -806,6 +810,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 				nat_backup = malloc(nat_entry_len);
 				if (!nat_backup) {
 					failure_errno = errno ? errno : ENOMEM;
+					primary_failure_errno = failure_errno;
 					syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot NAT rule");
 					errno = failure_errno;
 					nat_backup_failed = 1;
@@ -827,7 +832,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 		iptc_free(&h);
 #endif
 	if (nat_backup_failed)
-		return r;
+		return miniupnpd_restore_errno_on_failure(r, primary_failure_errno);
 	if(nat_rule_found)
 	{
 		syslog(LOG_INFO, "Trying to delete nat rule at index %u", index);
@@ -841,11 +846,15 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 		}
 		else
 		{
+			failure_errno = errno;
+			primary_failure_errno = failure_errno;
 			syslog(LOG_ERR, "%s() : iptc_init(nat) failed : %s",
-			       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+			       "delete_redirect_and_filter_rules", iptc_strerror(failure_errno));
 			r = -1;
 		}
 		nat_delete_status = r;
+		if (nat_delete_status != 0 && primary_failure_errno == 0)
+			primary_failure_errno = errno ? errno : EIO;
 		if(r == 0)
 		{
 			h = iptc_init("filter");
@@ -894,8 +903,10 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 			}
 			else
 			{
+				failure_errno = errno;
+				primary_failure_errno = failure_errno;
 				syslog(LOG_ERR, "%s() : iptc_init(filter) failed : %s",
-				       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+				       "delete_redirect_and_filter_rules", iptc_strerror(failure_errno));
 				r = -1;
 			}
 		}
@@ -906,6 +917,8 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 			iptc_free(&h);
 #endif
 		filter_delete_status = r;
+		if (r != 0 && primary_failure_errno == 0)
+			primary_failure_errno = errno ? errno : EIO;
 		if (miniupnpd_nat_delete_rollback_required(nat_delete_status, r)) {
 			nat_rollback_attempted = 1;
 			failure_errno = errno ? errno : EIO;
@@ -976,6 +989,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 						peer_backup = malloc(peer_entry_len);
 						if (!peer_backup) {
 							failure_errno = errno ? errno : ENOMEM;
+							secondary_failure_errno = failure_errno;
 							syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot peer SNAT rule");
 							errno = failure_errno;
 							r2 = -1;
@@ -994,8 +1008,9 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 			}
 			else
 			{
+				secondary_failure_errno = errno;
 				syslog(LOG_ERR, "%s() : iptc_init(nat) failed while removing peer rule : %s",
-				       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+				       "delete_redirect_and_filter_rules", iptc_strerror(secondary_failure_errno));
 				r2 = -1;
 			}
 		
@@ -1061,8 +1076,10 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 				}
 				else
 				{
+					secondary_failure_errno = errno;
 					syslog(LOG_ERR, "%s() : iptc_init(mangle) failed : %s",
-					       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+					       "delete_redirect_and_filter_rules", iptc_strerror(secondary_failure_errno));
+					errno = secondary_failure_errno;
 					r2 = -1;
 				}
 			}
@@ -1081,6 +1098,8 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 				r2 = miniupnpd_peer_delete_failure_result(r2, rollback_status);
 				errno = failure_errno;
 			}
+			if (r2 != 0 && secondary_failure_errno == 0)
+				secondary_failure_errno = errno ? errno : EIO;
 			free(peer_backup);
 			peer_backup = NULL;
 		
@@ -1092,7 +1111,9 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 		eport, proto);
 	if (primary_removed)
 		*primary_removed = primary_mapping_removed;
-	return cleanup_status;
+	failure_errno = miniupnpd_select_cleanup_failure_errno(
+		r, primary_failure_errno, secondary_failure_errno);
+	return miniupnpd_restore_errno_on_failure(cleanup_status, failure_errno);
 }
 
 /* ==================================== */

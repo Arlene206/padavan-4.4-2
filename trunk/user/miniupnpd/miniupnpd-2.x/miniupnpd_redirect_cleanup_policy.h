@@ -74,4 +74,16 @@ miniupnpd_restore_errno_on_failure(int status, int saved_errno)
 	return status;
 }
 
+
+/* Primary failure wins; otherwise return the secondary cleanup error. */
+static inline int
+miniupnpd_select_cleanup_failure_errno(int primary_status,
+                                       int primary_errno,
+                                       int secondary_errno)
+{
+	if (primary_status != 0)
+		return primary_errno != 0 ? primary_errno : EIO;
+	return secondary_errno != 0 ? secondary_errno : EIO;
+}
+
 #endif /* MINIUPNPD_REDIRECT_CLEANUP_POLICY_H */
