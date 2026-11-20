@@ -16,33 +16,33 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Current main before this peer-SNAT transaction slice: b7a803dcc95ae88566ffe01ff8fd8ea4c5cefd33; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- NAT/filter redirect-delete compensation fix is `b7a803dcc95ae88566ffe01ff8fd8ea4c5cefd33`. Exact-head MiniUPnP #44793663690 PASS, including the new GNU89 policy regression and source contract for NAT snapshot/restore. The existing allocation, capacity and update-rollback checks also passed.
-- XY-C1 did not run a firmware build for these MiniUPnP-only changes; the prior run #44792212585 was host-only with Build/TRX/artifact SKIPPED. No L3 claim.
-- New confirmed peer-side transaction gap: peer SNAT in nat POSTROUTING was committed for deletion before its paired DSCP rule in mangle. Mangle table initialization or matched DSCP delete/commit failure left an orphan DSCP rule; retry could no longer discover it because the peer SNAT lookup had already disappeared.
+- Parent `main` for the peer-SNAT handle-order correction: `721857934de255342b4cdb66e08155aacc65acc2`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- NAT/filter update rollback `bfc1c166` / checker correction `ea745da6`: MiniUPnP #44792212170 PASS; AI #44792212195 PASS; XY-C1 #44791960769 on source SHA bfc1c16 PASS for Build, TRX and artifact upload.
+- NAT/filter delete compensation `b7a803d`: MiniUPnP #44793663690 PASS; AI #44793663716 PASS; process inventory/regression #44793663655/#44793663596 PASS.
+- Peer SNAT/DSCP compensation `721857934`: new exact-head MiniUPnP #44794249501 FAILED only the ownership source contract because `peer_delete_status = r2` was placed between the consuming helper call and `h = NULL`; correction is in this slice. XY-C1 #44794249117 and NVRAM #44794250260 were pending at last poll.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Make peer SNAT and DSCP deletion transactional:
+Finish exact ownership ordering for the peer SNAT deletion helper:
 
-- Snapshot the complete peer SNAT rule and original POSTROUTING index before deleting it; if allocation fails, do not mutate either table.
-- If peer SNAT deletion succeeds but mangle initialization or a matched DSCP delete/commit fails, restore the saved SNAT rule through the existing IPTC insert/commit helper.
-- Do not restore SNAT if no matching DSCP rule exists; preserve primary DSCP-side status/errno if compensation fails.
-- Extend the GNU89 ASan/UBSan policy test and add a source contract for snapshot, commit ordering, restoration chain/index, and both IPTABLES_143 ABI forms.
+- `delete_rule_and_commit()` consumes and frees the by-value `IPTC_HANDLE`.
+- Set the caller's `h = NULL` immediately after the peer SNAT helper call; only then copy the scalar result into `peer_delete_status`.
+- Keep the regression contract strict across every delete helper call site. Do not weaken the test to accommodate an ownership gap.
 
-After exact-head MiniUPnP validation, continue the HTTPD/service lifecycle and MiniUPnP redirect teardown audit; do not repeat completed NAT/filter deletion or update-rollback work.
+After the MiniUPnP rerun passes, continue with the independently confirmed redirect-description/finite-lease metadata OOM defect: stage descriptor allocation before NAT updates and publish only after success.
 
 ## Verification boundary
 
-- NAT/filter deletion compensation `b7a803d`: exact-head MiniUPnP #44793663690 PASS, including sanitizer policy binary and source contract. Prior XY-C1 #44792212585 was host-only, with firmware Build/TRX/artifact SKIPPED; L3 remains NOT verified.
-- This peer SNAT/DSCP compensation commit adds another policy regression and source contract; exact-head MiniUPnP Action required after push. Physical hardware L4: NOT VERIFIED.
+- NAT/filter deletion compensation #44793663690 and peer workflow predecessor checks passed before the peer SNAT extension.
+- Peer extension MiniUPnP #44794249501: FAILED at step 9, `Verify MiniUPnP IPTC delete-handle ownership`; all earlier test binaries and allocation source checks passed. Root cause and one-line source-order correction are recorded above.
+- Exact-head MiniUPnP rerun required after this fix. XY-C1 #44794249117 and NVRAM #44794250260 were PENDING at last poll. Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and verify frozen backup stays at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Check exact-head MiniUPnP peer SNAT/DSCP sanitizer and source-contract steps; inspect the first causal log on any failure.
-3. Continue HTTPD/service lifecycle and redirect teardown auditing. Keep host-only XY-C1 checks separate from firmware L3; physical-router L4 remains unverified.
+1. Inspect exact-head MiniUPnP Actions for this peer handle-order correction; require the ownership checker and all preceding ASan/UBSan regressions to pass.
+2. Check XY-C1 Build/TRX/artifact and NVRAM audit for their exact SHAs; report host-only/firmware levels accurately.
+3. Start the redirect metadata allocation/OOM slice. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
 ## Handoff maintenance
 

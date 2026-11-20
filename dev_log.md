@@ -1,3 +1,10 @@
+## 2026-11-20 — Clear consumed peer IPTC handle before recording delete status
+
+- Parent main SHA: `721857934de255342b4cdb66e08155aacc65acc2`.
+- Exact-head MiniUPnP #44794249501 passed all earlier sanitizer and source checks but failed the IPTC ownership contract at the new peer SNAT deletion call: the code recorded `peer_delete_status` before clearing the by-value handle consumed by `delete_rule_and_commit()`.
+- Moved the local `h = NULL` immediately after the helper call, then copied the independent result status. This keeps handle lifetime explicit and satisfies the existing all-callsite invariant without weakening the checker.
+- Exact-head MiniUPnP rerun required. XY-C1 #44794249117 is still pending Build/TRX/artifact at last poll. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Restore peer SNAT when its paired DSCP deletion fails
 
 - Parent main SHA: b7a803dcc95ae88566ffe01ff8fd8ea4c5cefd33.

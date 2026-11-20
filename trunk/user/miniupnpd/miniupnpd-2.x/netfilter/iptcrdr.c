@@ -928,8 +928,8 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 				peer_rule_found = 1;
 				syslog(LOG_INFO, "Trying to delete peer rule at index %u", index);
 				r2 = delete_rule_and_commit(index, h, miniupnpd_nat_postrouting_chain, "delete_peer_rule");
-				peer_delete_status = r2;
 				h = NULL;
+				peer_delete_status = r2;
 				break;
 			}
 		}
