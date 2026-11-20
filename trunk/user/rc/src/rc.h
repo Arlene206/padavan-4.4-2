@@ -421,7 +421,7 @@ int stop_vpn_client(void);
 /* Caller must hold vpn_server_lifecycle_lock; avoids nested F_SETLK unlock. */
 int stop_vpn_client_under_lifecycle_lock(void);
 int restart_vpn_client(void);
-void restore_dns_from_vpnc(void);
+int restore_dns_from_vpnc(void);
 int ipup_vpnc_main(int argc, char **argv);
 int ipdown_vpnc_main(int argc, char **argv);
 

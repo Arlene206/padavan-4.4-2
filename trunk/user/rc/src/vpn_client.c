@@ -30,6 +30,7 @@
 #include <process_inventory.h>
 #include "process_presence_start_policy.h"
 #include "vpn_client_restart_policy.h"
+#include "vpn_client_nvram_policy.h"
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
 #include "vpn_server_lifecycle_lock.h"
@@ -88,6 +89,23 @@ get_xl2tpd_vpnc_active(void)
 }
 
 static int
+vpn_client_nvram_set_temp_status(void *context, const char *name,
+				 const char *value)
+{
+	int api_result, saved_errno, status;
+
+	(void)context;
+	errno = 0;
+	api_result = nvram_set_temp(name, value);
+	saved_errno = errno;
+	status = vpn_client_nvram_write_status(api_result, saved_errno);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+
+static int
 start_vpn_client_locked(void)
 {
 	FILE *fp;
@@ -103,9 +121,15 @@ start_vpn_client_locked(void)
 		return 1;
 	}
 
-	nvram_set_temp("vpnc_dns_t", "");
-	nvram_set_temp("vpnc_dom_t", "");
-	nvram_set_int_temp("vpnc_state_t", 0);
+	saved_errno = vpn_client_nvram_clear_runtime_state(
+		vpn_client_nvram_set_temp_status, NULL);
+	if (saved_errno != 0) {
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client startup: cannot clear stale runtime DNS/state (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	i_type = nvram_get_int("vpnc_type");
 #if defined(APP_OPENVPN)
@@ -467,11 +491,19 @@ restart_vpn_client_locked(void)
 		return stop_status;
 	}
 
-	restore_dns_from_vpnc();
-	sleep(1);
-	start_status = start_vpn_client_locked();
-	if (start_status != 0)
-		saved_errno = errno ? errno : EIO;
+	restore_status = restore_dns_from_vpnc();
+	if (restore_status != 0) {
+		start_status = restore_status;
+		saved_errno = restore_status;
+		logmessage(VPNC_LOG_NAME,
+			   "refusing VPN client restart because the previous DNS snapshot could not be cleared (status=%d)",
+			   restore_status);
+	} else {
+		sleep(1);
+		start_status = start_vpn_client_locked();
+		if (start_status != 0)
+			saved_errno = errno ? errno : EIO;
+	}
 	firewall_status = restart_firewall();
 	if (start_status == 0 && firewall_status != 0) {
 		start_status = firewall_status;
@@ -521,15 +553,38 @@ restart_vpn_client(void)
 	return result;
 }
 
-void
+int
 restore_dns_from_vpnc(void)
 {
-	char *vpnc_dns = nvram_safe_get("vpnc_dns_t");
+	char *vpnc_dns = NULL;
+	int api_result, saved_errno, status;
 
-	if (*vpnc_dns) {
-		nvram_set_temp("vpnc_dns_t", "");
-		refresh_resolvconf_nonfatal("VPN client DNS removal", 0);
+	errno = 0;
+	api_result = nvram_get_checked("vpnc_dns_t", &vpnc_dns);
+	saved_errno = errno;
+	status = vpn_client_nvram_read_status(api_result, saved_errno,
+					     vpnc_dns != NULL);
+	if (status != 0) {
+		logmessage(VPNC_LOG_NAME,
+			   "cannot read VPN DNS snapshot for resolver cleanup (status=%d)",
+			   status);
+		errno = status;
+		return status;
 	}
+	if (api_result == 0 || vpnc_dns[0] == '\0')
+		return 0;
+
+	status = vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", "");
+	if (status != 0) {
+		logmessage(VPNC_LOG_NAME,
+			   "cannot clear VPN DNS snapshot before resolver rebuild (status=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
+
+	refresh_resolvconf_nonfatal("VPN client DNS removal", 0);
+	return 0;
 }
 
 static int
@@ -615,7 +670,13 @@ ipup_vpnc_main(int argc, char **argv)
 
 	set_vpn_balancing(ifname, 0);
 
-	nvram_set_int_temp("vpnc_state_t", 1);
+	route_status = vpn_client_nvram_set_temp_status(
+		NULL, "vpnc_state_t", "1");
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(VPNC_LOG_NAME,
+			   "cannot publish VPN client up state (status=%d)",
+			   route_status);
 
 	buf[0] = 0;
 	if (nvram_get_int("vpnc_pdns") > 0) {
@@ -631,9 +692,15 @@ ipup_vpnc_main(int argc, char **argv)
 		}
 	}
 
-	nvram_set_temp("vpnc_dns_t", buf);
-	if (strlen(buf) > 0)
+	route_status = vpn_client_nvram_set_temp_status(
+		NULL, "vpnc_dns_t", buf);
+	status = route_status_accumulate(status, route_status);
+	if (route_status == 0)
 		refresh_resolvconf_nonfatal("VPN client DNS update", 0);
+	else
+		logmessage(VPNC_LOG_NAME,
+			   "cannot publish VPN client DNS snapshot (status=%d)",
+			   route_status);
 
 	if (check_if_file_exist(script_name)) {
 		route_status = doSystem("%s %s", script_name, "up");
@@ -660,9 +727,16 @@ ipdown_vpnc_main(int argc, char **argv)
 	route_status = vpnc_route_to_remote_lan(ifname, gw, 0);
 	status = route_status_accumulate(status, route_status);
 
-	nvram_set_int_temp("vpnc_state_t", 0);
+	route_status = vpn_client_nvram_set_temp_status(
+		NULL, "vpnc_state_t", "0");
+	status = route_status_accumulate(status, route_status);
+	if (route_status != 0)
+		logmessage(VPNC_LOG_NAME,
+			   "cannot clear VPN client up state (status=%d)",
+			   route_status);
 
-	restore_dns_from_vpnc();
+	route_status = restore_dns_from_vpnc();
+	status = route_status_accumulate(status, route_status);
 
 	if (check_if_file_exist(script_name)) {
 		route_status = doSystem("%s %s", script_name, "down");
