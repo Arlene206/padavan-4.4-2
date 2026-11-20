@@ -5314,12 +5314,20 @@ jobs:
           stop_wan_call = full_restart.index("status = stop_wan();")
           stop_wan_gate = full_restart.index("if (status != 0)", stop_wan_call)
           stop_wan_return = full_restart.index("return status;", stop_wan_gate)
-          stop_wan_reset = full_restart.index("reset_wan_vars();")
+          protocol_reset = full_restart.index("status = reset_wan_vars_status();")
+          protocol_reset_gate = full_restart.index("if (status != 0)", protocol_reset)
+          protocol_reset_return = full_restart.index("return status;", protocol_reset_gate)
           assert "services did not stop (status=%d)" in full_restart
-          assert stop_wan_call < stop_wan_gate < stop_wan_return < stop_wan_reset
+          assert stop_wan_call < stop_wan_gate < stop_wan_return < protocol_reset < protocol_reset_gate < protocol_reset_return
+          assert "configured WAN protocol staging failed" in full_restart[protocol_reset_gate:protocol_reset_return]
           assert "status = stop_wan();" in reconnect
           assert "if (status != 0)" in reconnect
-          assert reconnect.index("status = stop_wan();") < reconnect.index("if (status != 0)") < reconnect.index("reset_wan_vars();")
+          reconnect_reset = reconnect.index("status = reset_wan_vars_status();")
+          reconnect_reset_gate = reconnect.index("if (status != 0)", reconnect_reset)
+          reconnect_reset_return = reconnect.index("return status;", reconnect_reset_gate)
+          reconnect_defer = reconnect.index("if (pause_in_seconds > 0)", reconnect_reset)
+          assert reconnect.index("status = stop_wan();") < reconnect.index("if (status != 0)") < reconnect_reset < reconnect_reset_gate < reconnect_reset_return < reconnect_defer
+          assert "configured WAN protocol staging failed" in reconnect[reconnect_reset_gate:reconnect_reset_return]
           assert "status = stop_wan_ppp();" in manual_disconnect
           assert "status = stop_wan();" in manual_disconnect
           assert "if (status != 0)" in manual_disconnect

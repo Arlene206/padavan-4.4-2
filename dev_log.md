@@ -1,3 +1,13 @@
+## 2026-11-20 — Align HTTPD WAN-stop contract with status-aware protocol reset
+
+- Parent SHA: `b376e2c2e90c5b2d49edceab6c875b47f29dc27c`.
+- Exact HTTPD run `44677505315` failed at embedded source-contract line 83 because it expected `reset_wan_vars();` in full restart/reconnect. Production code intentionally uses `status = reset_wan_vars_status();` and returns on failure, preserving the legacy public void wrapper elsewhere.
+- Updated the HTTPD embedded contract to validate status-returning reset, failure return, and reconnect abort before deferred scheduling. No C code or tests were weakened.
+- On `b376e2c`, Process `44677505519`, Process inventory `44677505291`, AI `44677505499`, NVRAM boundary `44677505416`, WAN route `44677505399`, and other listed independent workflows passed; XY-C1 `44677505398` remained IN_PROGRESS. This HTTPD checker fix awaits exact-head CI.
+- Next production issue: restore static LAN routes if a WAN protocol reset error aborts full restart after route flush.
+
+---
+
 ## 2026-11-20 13:02 CST — Gate WAN reset on checked configured-protocol staging
 
 - Parent main SHA: `616f06e9ba246c47419672693666431fac5deb8f`. Confirmed `get_wan_proto(unit)` reads `wanN_proto` in `trunk/user/shared/src/netutils.c`; `reset_wan_vars()` previously copied configured `wan_proto` into this key through the unchecked void setter, then immediately used it to choose PPP/IPoE setup. A failed write could silently retain the previous protocol and select the wrong WAN activation path.

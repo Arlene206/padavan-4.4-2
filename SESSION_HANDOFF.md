@@ -2,48 +2,43 @@
 
 ## Execution policy
 
-Continue main-only implementation across conversations. Recover the repository once, then resume the exact active task; avoid repeated audits, planning-only stops and status-only commits.
+Continue main-only implementation across conversations. Recover the repository once, then resume exact active work; avoid repeated audits and planning-only stops.
 
-- Each logical task ends in one atomic main commit. For multi-file changes create all blobs, one complete Git tree and one commit parented to live `main`, then update `main` with `force=false` and exact `expected_sha`.
-- Never create/use development branches or PRs, force-push, amend published commits, or modify the frozen backup.
-- Check Actions by exact `head_sha`. Diagnose FAIL from causal logs; while checks are PENDING, continue independent work.
-- Preserve GNU89, MIPS/uClibc, BusyBox/Linux 4.4 compatibility, fail-closed behavior, process identity checks, bounded operations and meaningful regression coverage.
-- Do not ask the user what to do next. Before context exhaustion, finish the current safe slice and leave an accurate next action.
+- Each logical task ends in one atomic commit on `main`. Create all changed blobs and one complete tree, parent one commit to live `main`, then update with `force=false` and exact `expected_sha`.
+- Never force-push, amend published commits, develop on branches/PRs, or modify the frozen backup.
+- Check Actions by exact `head_sha`; diagnose failures from causal logs, and work on independent tasks while checks are pending.
+- Preserve GNU89, MIPS/uClibc, BusyBox/Linux 4.4 compatibility, fail-closed behavior, and meaningful regressions. Do not ask what to do next.
 
 ## Current repository state
 
-- Main before this protocol staging correction: `616f06e9ba246c47419672693666431fac5deb8f`.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
-- WAN active-interface product commit `822f88b` gates RAS/PPP/IPoE firewall/client startup on checked `wanN_ifname_t` writes. Its WAN route regression passed; three shared workflows initially failed only on the stale 22-versus-28 first-error aggregate count. Checker repair commit `616f06e` expects 28 and explicitly verifies all three new paths. On exact `616f06e`, Firewall Startup `44676888660`, USB modem identity `44676888577` and AI docs `44676888701` PASS; Process regression `44676888646` was IN_PROGRESS at last check.
-- The original WAN recovery fix `68571af` has L3 VERIFIED: XY-C1 run `44674653396` passed production detector, MIPS build, TRX and artifact upload on that exact source SHA. Do not generalize that result to newer source commits. Physical-router L4 remains NOT VERIFIED.
-- No exact-head XY-C1/Build/TRX/artifact result for `822f88b` is established yet; its first XY-C1 run stopped before build because the shared startup checker had the stale aggregate-count assertion.
+- Main before this HTTPD test-contract repair: `b376e2c2e90c5b2d49edceab6c875b47f29dc27c`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Protocol staging commit `b376e2c` checks `wan_proto` publication before protocol selection through private `reset_wan_vars_status()`; public void `reset_wan_vars()` ABI remains unchanged. Startup latches and rejects failed staging; full restart/reconnect return the status.
+- On exact `b376e2c`: Process `44677505519`, Process inventory `44677505291`, AI docs `44677505499`, NVRAM boundary `44677505416`, and the listed WAN/USB/Firewall/watchdog/wireless/VPN/ZeroTier/DHCP/dnsmasq/miniupnpd checks passed. HTTPD `44677505315` failed only in its embedded Python source assertion at line 83: it still searched for `reset_wan_vars();` in full restart and reconnect, while the new status-aware caller correctly invokes `reset_wan_vars_status()`. The stale contract is repaired here.
+- XY-C1 `44677505398` is still IN_PROGRESS at last poll. No L3 claim for `b376e2c` yet; L4 remains NOT VERIFIED.
+- Earlier product SHA `68571af` has L3 PASS, but it predates the RAS/PPP/IPoE publication gates and protocol-staging hardening.
 
-## Active task completed in this slice
+## Completed in this slice
 
-- Confirmed `get_wan_proto(int unit)` in `trunk/user/shared/src/netutils.c` reads `wanN_proto`; `reset_wan_vars()` copied configured `wan_proto` into this key using unchecked void `set_wan_unit_param()`, then immediately used it to choose PPP/IPoE setup. If the NVRAM write failed, a stale prior protocol could route the restart down the wrong WAN branch.
-- Added checked staging via `set_wan_unit_value_status(unit, "proto", nvram_safe_get("wan_proto"))`. On failure the errno-normalized status is logged, latched and returned before `get_wan_proto()`.
-- Preserved the public `void reset_wan_vars(void)` ABI with a wrapper. The boot path's legacy caller is covered by the private latch; `start_wan()` aborts before sysctl/VLAN/firewall/network side effects if the staged protocol failed. Full restart and reconnect use the status implementation directly and return the failure immediately.
-- Extended `scripts/check_wan_firewall_status.py` to pin stage-before-read, failure latch/return, the legacy wrapper, and fail-closed gates in boot/start/restart/reconnect paths. Existing GNU89/Werror/ASan/UBSan WAN NVRAM status test covers errno normalization; the WAN route workflow already runs this checker.
-- Exact-head verification for THIS commit is pending. No production-source L3 or physical L4 claim is made for this change.
+- Updated HTTPD's embedded WAN-stop/source checker to verify the private status-returning reset function and its failure gate in full restart and reconnect, including that reconnect aborts before scheduling deferred work. It no longer expects the obsolete direct void-reset call.
+- This is a test-contract-only correction; no C source behavior changed.
 
 ## Verification boundary
 
-- On exact checker head `616f06e`, Firewall Startup run `44676888660`, USB modem identity run `44676888577`, and AI docs run `44676888701` PASS. Process lifecycle regression run `44676888646` was still IN_PROGRESS at last poll.
-- No local full-repository build is available. Do not claim a MIPS build or host binary pass for the new protocol-reset source change until exact Actions report it.
-- L3 requires the production-input detector, Build XY-C1, TRX verification and artifact upload all PASS on one identical source SHA. L4 remains NOT VERIFIED.
+- HTTPD contract correction has not yet run on exact head.
+- XY-C1 and NVRAM runs on `b376e2c` are still tracked by exact SHA. NVRAM `44677505416` PASS; XY-C1 `44677505398` PENDING.
+- No physical-router L4 test.
 
-## Exact first action for the next GPT
+## Exact first action for next GPT
 
-1. Fetch live `main` and inspect exact-head WAN route, Firewall Startup, Process regression/inventory, USB modem identity, AI docs and NVRAM transaction Actions for THIS protocol-reset commit; diagnose any first causal log.
-2. Require same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload before claiming L3 for this source change.
-3. Continue the critical reset/NVRAM staging audit from `reset_wan_vars_status()`: inspect only failure-sensitive `set_wan_unit_param()` copies for static IP/netmask/gateway/MTU and PPP options that later drive `ifconfig`, routes, authentication and daemon launch. Preserve optional telemetry and void ABI; fix the next proven callsite with first-error propagation and an injected/source regression.
+1. Fetch live `main`; inspect exact-head HTTPD, Process, WAN route, USB modem, Firewall, NVRAM and XY-C1 Actions for this HTTPD contract repair. Verify the embedded checks pass.
+2. If protocol staging fails during `full_restart_wan()`, restore static LAN routes before returning: route flush occurs before `reset_wan_vars_status()`, but the current failure path returns before `add_static_lan_routes(IFNAME_BR)`. Verify the required recovery ordering, aggregate any route restore error while preserving the original protocol-staging error, and add a regression/source contract. Preserve public reset ABI.
+3. Continue focused NVRAM publication audit only on settings whose failure can change network mode, routes, interface state or credentials. No bulk conversion of optional metadata/telemetry.
 
-## Mandatory handoff checkpoint
+## Mandatory checkpoint
 
-The checkpoint is mandatory; a document edit is conditional.
-
-Every session MUST inspect the live repository state before ending. Update this handoff only when resumable facts, validation state, blocker or first action materially change. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
+Inspect the live repository before ending each session. Update handoff only when resumable facts or the next action materially change. Otherwise make no documentation-only commit.
 
 ## Evidence discipline
 
-Keep L1 source review, L2 host/Actions, L3 MIPS build/TRX and L4 physical-device evidence separate. A skipped host step is not PASS, a successful cross-build does not establish router runtime behavior, and every claim must name the exact source SHA and run.
+Keep host/source, cross-build/TRX, and physical-device evidence separate. Only exact-SHA passing detector, build, TRX and artifact upload establish L3. A cross-build does not establish L4.

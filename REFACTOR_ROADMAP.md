@@ -1,9 +1,10 @@
 # 2026-11-20 active checkpoint
 
-- Main before WAN protocol-reset staging correction: `616f06e9ba246c47419672693666431fac5deb8f`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
-- PPP recovery source commit `68571af` has L3 VERIFIED: exact XY-C1 run `44674653396` passed production detector, MIPS Build, TRX verification and artifact upload. This result applies only to `68571af`.
-- WAN startup active-interface commit `822f88b` checked all RAS/PPP/IPoE `ifname_t` updates before firewall or protocol activation. Checker repair `616f06e` sets the 28 expected aggregate merges and verifies the three failure paths; Firewall Startup `44676888660`, USB modem `44676888577` and AI docs `44676888701` PASS; Process regression `44676888646` pending.
-- New `reset_wan_vars_status()` gate ensures failed staging of configured `wan_proto` cannot fall through to stale `wanN_proto` selection. Exact-head host/CI and same-SHA XY-C1 L3 remain pending; physical L4 is NOT VERIFIED.
+- `b376e2c2e90c5b2d49edceab6c875b47f29dc27c` implements checked WAN protocol staging and preserves the public void reset ABI. Process `44677505519`, inventory `44677505291`, AI docs `44677505499`, NVRAM boundary `44677505416`, WAN route `44677505399`, USB modem `44677505465`, Firewall Startup `44677505362`, watchdog `44677505504`, wireless `44677505287`, VPN `44677505502`, ZeroTier `44677505505`, WAN DHCP `44677505407`, WAN teardown `44677505480`, dnsmasq `44677505471`, miniupnpd `44677505472`, Detect WAN ARP `44677505438`, Detect link `44677505468`, Detect internet `44677505382` PASS.
+- HTTPD `44677505315` failed at its embedded checker line 83 because the old direct `reset_wan_vars();` expectation no longer matched the status-aware private caller. This is corrected in the current workflow contract. XY-C1 `44677505398` was IN_PROGRESS at last poll; no L3 current-source claim. L4 remains NOT VERIFIED.
+- Next source safety item: on protocol-staging failure in `full_restart_wan()`, restore static LAN routes after the preceding WAN/bridge route flush before returning.
+
+
 
 - CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
 - Keep common RC paths in a workflow only when its invoked tests/checkers consume or assert that production integration. Current AdGuardHome, Inadyn, NFS, WAN route, and USB modem suites inspect relevant shared RC call paths/declarations; their shared-path fan-out is intentional, not automatically unrelated.
