@@ -1,3 +1,12 @@
+## 2026-11-20 — Preserve MiniUPnP PID-file umask and fix host-test include path
+
+- Parent main SHA: `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`; source implementation is `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`.
+- Exact MiniUPnP Action `44735307616` compiled and passed config-publication and daemon-lifecycle binaries, then failed compiling the new nested PID policy test because its quoted header is one directory above the test source. Added the package directory to the test's `-I` path.
+- Code review found unconditional `fchmod(fd, 0644)` bypassed the daemon's established umask 0027 and changed the PID file from legacy effective 0640 to 0644. The helper now reads/restores umask and applies `0644 & ~old_umask`; regression asserts 0640 under umask 0027.
+- Standalone GNU89/`-Wall -Wextra -Werror`/ASan/UBSan regression PASS after both changes. Exact-head Actions and XY-C1 on the resulting source SHA remain pending.
+
+---
+
 ## 2026-11-20 — Publish MiniUPnP PID files atomically and reject incomplete writes
 
 - Parent main SHA: `573d215607c8e8a4b7e22048c2bbdd633a3a2d5f`.

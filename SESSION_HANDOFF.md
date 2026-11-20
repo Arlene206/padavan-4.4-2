@@ -1,34 +1,34 @@
 # 2026-11-20 continuation checkpoint
 
-This live checkpoint supersedes older summaries. Continue from current main and do not repeat completed startup recovery, WAN snapshot, FTP FIFO/APPE, or RADIUS zeroization work.
+This live checkpoint supersedes older summaries. Continue from current main; do not repeat startup recovery or completed FTP FIFO/APPE and RADIUS zeroization slices.
 
 ## Git state
 
-- Current parent main SHA: `573d215607c8e8a4b7e22048c2bbdd633a3a2d5f`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Exact FIFO-rejection SHA `5c7fa81094c2e31ed58d0e8381201ca769db7a2c`: VSFTPD, Process inventory, AI docs and NVRAM Actions PASS; same-SHA XY-C1 Build/TRX/artifact PASS.
-- APPE product-source SHA `8ded66573ba530efd6c66763981e136dc7a1097a`: initial VSFTPD source-contract run failed on multiline whitespace; correction SHA `573d215607c8e8a4b7e22048c2bbdd633a3a2d5f` passes VSFTPD `44734430382` and AI docs `44734430469`. APPE exact-source XY-C1 run `44734275996` was still IN_PROGRESS at last poll.
-- RADIUS secret-zeroization source SHA `821c133887352c069067688f442cd5300bd619b2`: Process inventory, Process lifecycle and AI docs PASS; NVRAM audit was cancelled; XY-C1 run `44734074955` was IN_PROGRESS at last poll.
-- The latest main head was checked identical to `main` before beginning this MiniUPnP slice. Do not touch the frozen backup.
+- Current main parent for this follow-up: `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- FIFO rejection commit `5c7fa81094c2e31ed58d0e8381201ca769db7a2c`: VSFTPD, Process inventory, AI docs, NVRAM and same-SHA XY-C1 Build/TRX/artifact PASS.
+- APPE source commit `8ded66573ba530efd6c66763981e136dc7a1097a`: initial VSFTPD checker failed on split-line whitespace; checker correction `573d215607c8e8a4b7e22048c2bbdd633a3a2d5f` has VSFTPD `44734430382` and AI docs `44734430469` PASS. APPE XY-C1 run `44734275996` was still in progress at last inspection.
+- RADIUS zeroization source `821c133887352c069067688f442cd5300bd619b2`: Process inventory/lifecycle and AI docs PASS; NVRAM audit cancelled; XY-C1 `44734074955` was in progress at last inspection.
+- MiniUPnP PID atomic-publication commit `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`: Process inventory `44735307358` and AI docs `44735307459` PASS; NVRAM audit `44735307405` PENDING. MiniUPnP Action `44735307616` failed because the nested test compile lacked its package include path. Follow-up fixes the include path and preserves umask compatibility.
 
-## Active MiniUPnP work
+## Active MiniUPnP follow-up
 
-- Confirmed reliability defect in `trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c::writepidfile()`: direct open did not truncate a longer previous PID, `write()` short/error results were not propagated, and the old path could expose a partially replaced PID after interruption or storage failure.
-- New helper `miniupnpd_pidfile_policy.h` stages the PID beside its destination with `mkstemp()`, applies the prior writer's intended 0644 mode, completes short writes and bounded EINTR retries, syncs and checks close, then atomically renames. A failed publish preserves the previous complete PID file; replacing a symlink destination does not follow its target.
-- GNU89 host regression exercises shorter replacement, interrupted/one-byte writes, bounded signal storms, ENOSPC and zero-write failure, temp cleanup, and symlink-target preservation. Standalone `-Wall -Wextra -Werror -fsanitize=address,undefined` execution PASS locally.
-- The same logical slice updates MiniUPnP's Makefile dependency, both push/PR path filters, workflow host test and source contract. Exact-head Actions and same-source XY-C1 are pending until this commit is pushed.
+- Exact Action failure: step 5 could not find `miniupnpd_pidfile_policy.h` from the nested tests directory. Compile now adds `-Itrunk/user/miniupnpd/miniupnpd-2.x`.
+- Source review found `fchmod(fd, 0644)` bypassed process umask (legacy `open(..., 0644)` respected it; daemonize normally sets 0027). Publisher now reads/restores umask and applies `0644 & ~old_umask`. Regression pins 0640 under umask 0027.
+- Standalone GNU89/`-Wall -Wextra -Werror`/ASan/UBSan regression PASS after both fixes.
+- Exact-head MiniUPnP/AI docs/NVRAM and same-source XY-C1 checks are pending on this follow-up SHA.
 
 ## Exact first actions
 
-1. Inspect the exact new MiniUPnP stability Action and AI handoff check; repair only causal failures without weakening assertions.
-2. Verify XY-C1 on the new product-source SHA through detector, MIPS build, TRX verification and artifact upload. FIFO SHA 5c is L3-verified; APPE 8ded and RADIUS 821 were still pending at last poll.
-3. Continue a different userland stability/security candidate while relevant Actions are pending. Do not poll repeatedly or re-audit closed FTP/RADIUS work.
-4. Physical router L4 remains NOT VERIFIED.
+1. Inspect exact MiniUPnP rerun; repair only causal compiler/source-contract failures.
+2. Verify XY-C1 current product SHA through detector, MIPS build, TRX verification and artifact upload.
+3. Continue a separate stability/security slice while PENDING Actions are running; avoid repeated polls.
+4. Physical device L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- Host test PASS on the standalone new PID policy/helper with GNU89, warnings-as-errors, ASan and UBSan.
-- New MiniUPnP exact-head workflow and XY-C1 result: PENDING until their runs complete on the resulting commit SHA.
-- Keep host L2, exact-head Actions, same-source firmware/TRX L3 and device L4 separate.
+- MiniUPnP host policy regression: PASS locally with umask-preservation assertion.
+- Previous MiniUPnP exact Action: FAIL at nested test compile due missing include path; new SHA must rerun.
+- No current-source L3/L4 claim until exact same-source checks complete.
 
 
 ---

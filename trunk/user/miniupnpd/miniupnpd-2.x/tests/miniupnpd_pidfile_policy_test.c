@@ -89,16 +89,19 @@ test_short_write_and_eintr_retry(const char *path)
 {
 	struct write_fixture fixture;
 	struct stat st;
+	mode_t old_umask;
 	memset(&fixture, 0, sizeof(fixture));
 	fixture.fail_after = (size_t)-1;
 	fixture.max_chunk = 1;
 	fixture.interruptions = 1;
+	old_umask = umask(0027);
 	assert(miniupnpd_pidfile_publish_with(path, "42\n", 3,
 	                                      fixture_write, &fixture) == 0);
+	(void)umask(old_umask);
 	assert(fixture.calls == 4);
 	read_exact_file(path, "42\n");
 	assert(stat(path, &st) == 0);
-	assert((st.st_mode & 0777) == 0644);
+	assert((st.st_mode & 0777) == 0640);
 }
 static void
 test_repeated_eintr_is_bounded(const char *path, const char *directory)

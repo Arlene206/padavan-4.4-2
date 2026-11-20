@@ -81,6 +81,7 @@ miniupnpd_pidfile_publish_with(const char *path, const void *contents,
 	size_t path_length;
 	int fd = -1;
 	int saved_errno;
+	mode_t old_umask;
 	if (!path || path[0] == '\0' || !contents || length == 0 || !write_fn) {
 		errno = EINVAL;
 		return -1;
@@ -100,7 +101,10 @@ miniupnpd_pidfile_publish_with(const char *path, const void *contents,
 	fd = mkstemp(temporary_path);
 	if (fd < 0)
 		goto failed;
-	if (fchmod(fd, 0644) != 0)
+	/* Match open(..., 0644)'s umask-filtered mode; mkstemp starts at 0600. */
+	old_umask = umask(0);
+	(void)umask(old_umask);
+	if (fchmod(fd, (mode_t)(0644 & ~old_umask)) != 0)
 		goto failed;
 	if (miniupnpd_pidfile_write_all_with(fd, contents, length,
 	                                     write_fn, context) != 0)
