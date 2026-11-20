@@ -223,6 +223,95 @@ test_invalid_arguments_fail_before_side_effects(void)
 	assert(fake.events[0] == '\0');
 }
 
+struct fake_ifname_publish {
+	int publish_status;
+	int rollback_status;
+	char events[8];
+};
+
+static void
+record_ifname_event(struct fake_ifname_publish *fake, char event)
+{
+	size_t length = strlen(fake->events);
+
+	assert(length + 1 < sizeof(fake->events));
+	fake->events[length] = event;
+	fake->events[length + 1] = '\0';
+}
+
+static int
+fake_ifname_publish(void *opaque)
+{
+	struct fake_ifname_publish *fake =
+		(struct fake_ifname_publish *)opaque;
+
+	record_ifname_event(fake, 'P');
+	return fake->publish_status;
+}
+
+static int
+fake_ifname_rollback(void *opaque)
+{
+	struct fake_ifname_publish *fake =
+		(struct fake_ifname_publish *)opaque;
+
+	record_ifname_event(fake, 'R');
+	return fake->rollback_status;
+}
+
+static const struct wan_viptv_ifname_ops fake_ifname_ops = {
+	fake_ifname_publish,
+	fake_ifname_rollback
+};
+
+static void
+test_ifname_publish_success_keeps_vlan_and_skips_rollback(void)
+{
+	struct fake_ifname_publish fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan_viptv_ifname_publish_or_rollback(&fake_ifname_ops, &fake) == 0);
+	assert(strcmp(fake.events, "P") == 0);
+}
+
+static void
+test_ifname_publish_failure_rolls_back_vlan_and_preserves_primary_error(void)
+{
+	struct fake_ifname_publish fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.publish_status = ENOSPC;
+	assert(wan_viptv_ifname_publish_or_rollback(&fake_ifname_ops, &fake) == ENOSPC);
+	assert(strcmp(fake.events, "PR") == 0);
+}
+
+static void
+test_ifname_rollback_failure_does_not_mask_publish_error(void)
+{
+	struct fake_ifname_publish fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.publish_status = ENOSPC;
+	fake.rollback_status = EIO;
+	assert(wan_viptv_ifname_publish_or_rollback(&fake_ifname_ops, &fake) == ENOSPC);
+	assert(strcmp(fake.events, "PR") == 0);
+}
+
+static void
+test_ifname_publish_policy_rejects_incomplete_callbacks(void)
+{
+	struct fake_ifname_publish fake;
+	struct wan_viptv_ifname_ops missing_rollback = {
+		fake_ifname_publish, NULL
+	};
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan_viptv_ifname_publish_or_rollback(NULL, &fake) == EINVAL);
+	assert(wan_viptv_ifname_publish_or_rollback(&missing_rollback, &fake) == EINVAL);
+	assert(fake.events[0] == '\0');
+}
+
+
 int
 main(void)
 {
@@ -235,6 +324,10 @@ main(void)
 	test_first_route_error_is_preserved_when_multicast_also_fails();
 	test_missing_gateway_skips_default_route();
 	test_invalid_arguments_fail_before_side_effects();
-	puts("Static IPTV startup status regression: PASS");
+	test_ifname_publish_success_keeps_vlan_and_skips_rollback();
+	test_ifname_publish_failure_rolls_back_vlan_and_preserves_primary_error();
+	test_ifname_rollback_failure_does_not_mask_publish_error();
+	test_ifname_publish_policy_rejects_incomplete_callbacks();
+	puts("Static IPTV startup and identity status regression: PASS");
 	return 0;
 }

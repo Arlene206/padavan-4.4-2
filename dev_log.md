@@ -1,3 +1,13 @@
+## 2026-11-20 — Fail closed when IPTV VLAN recovery identity cannot be persisted
+
+- Parent main SHA: `9f9f35f4f354e27520ce543261ab40fa15f56bc2`. Updated `net_wan.c`, the WAN IPTV policy and injected regression, the VLAN source checker, and this log.
+- Found an unchecked critical state write in `launch_viptv_wan()`: after creating and configuring a new VLAN (and optional bridge), it ignored `nvram_set_temp("viptv_ifname", ...)`. That setting is the recovery handle used by later teardown; a failed write could leave an active VLAN/service which a later stop/reconfigure cycle cannot identify. The same recovery metadata writes inside `rollback_viptv_vlan_setup()` were also unchecked.
+- Added a checked writer using `rc_wan_nvram_write_status()`. The active interface identity is now committed through a policy that invokes the existing ownership-aware VLAN/bridge rollback if publication fails and preserves the original NVRAM error if rollback also fails. Rollback's own recovery-identity update is checked and accumulated into its status. Same-VLAN and stale-identity clear paths also report failures rather than silently continuing.
+- Added injected regressions for success/no rollback, failed publication triggering rollback, rollback failure preserving the primary error, and invalid callback tables. Updated source checks to pin the active metadata commit and rollback behavior.
+- On exact SHA `02285d690401d1a27d90354f9243b82b4ca8d2ee`, WAN DHCP callback and AI handoff Actions passed. The source-producing ancestor `3ca051d4590ef6a81f8c52074e262e4e4254c7f1` had NVRAM boundary audit PASS, and its XY-C1 MIPS cross-build was still running at last poll; the host-only firmware-validation run for documentation/checker-only SHA `ea98cd8` skipped the MIPS build as expected. The new C change needs fresh exact-head firmware/route checks. No local checkout/compiler was available.
+
+---
+
 ## 2026-11-20 — Align WAN callback embedded static IPTV contract with transactional publisher
 
 - Parent main SHA: `ea98cd8cdf5dd8d84585bef9a83a292dbc716d59`. Exact-head callback run `44702965265` on `ea98cd8cdf5dd8d84585bef9a83a292dbc716d59` passed its GNU89/ASan/UBSan lease and snapshot host binaries, but the embedded workflow contract then raised `ValueError: substring not found` while requesting the removed `wan_viptv_static_publish_address()` and `wan_viptv_static_publish_gateway()` callbacks.

@@ -51,4 +51,33 @@ wan_viptv_static_start(int has_gateway,
 	return route_status_accumulate(status, multicast_status);
 }
 
+/*
+ * The VLAN interface name is the recovery handle used by later WAN teardown.
+ * Never leave a newly created VLAN active when its recovery identity cannot
+ * be published; run the existing ownership-aware rollback and retain the
+ * original publication error.
+ */
+struct wan_viptv_ifname_ops {
+	int (*publish)(void *context);
+	int (*rollback_vlan)(void *context);
+};
+
+static inline int
+wan_viptv_ifname_publish_or_rollback(
+	const struct wan_viptv_ifname_ops *ops, void *context)
+{
+	int status, rollback_status;
+
+	if (!ops || !ops->publish || !ops->rollback_vlan)
+		return EINVAL;
+
+	status = ops->publish(context);
+	if (status == 0)
+		return 0;
+
+	rollback_status = ops->rollback_vlan(context);
+	return route_status_accumulate(status, rollback_status);
+}
+
+
 #endif /* WAN_VIPTV_STATIC_POLICY_H */

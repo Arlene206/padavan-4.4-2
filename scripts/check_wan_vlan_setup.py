@@ -305,10 +305,10 @@ create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
 bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
 rp_filter_pos = iptv_setup.index('ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);')
 old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
-old_vlan_clear = iptv_setup.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)
-publish_pos = iptv_setup.rindex('nvram_set_temp("viptv_ifname", viptv_ifname);')
+old_vlan_clear = iptv_setup.index('ret = wan_viptv_ifname_publish_status("");', old_vlan_cleanup)
+publish_pos = iptv_setup.index("ret = wan_viptv_ifname_publish_or_rollback(", rp_filter_pos)
 require(snapshot_pos < old_vlan_cleanup < old_vlan_clear < create_pos < bridge_pos < rp_filter_pos < publish_pos,
-        "IPTV startup must snapshot VLAN ownership, clean old VLAN state, create/bridge transactionally, set rp_filter, then publish")
+        "IPTV startup must snapshot VLAN ownership, clear stale identity, create/bridge transactionally, set rp_filter, then commit the active identity")
 for operation in ("ret = create_vlan_iface_tracked(",
                   "ret = config_soft_bridge_wan_internal(",
                   'ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);'):
@@ -331,8 +331,8 @@ require("#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)" in viptv
         "rollback_soft_bridge_other_entry(entry);" in viptv_rollback and
         "entry->port_vlan_created" in viptv_rollback and
         "remove_vlan_iface(entry->port_ifname)" in viptv_rollback and
-        'nvram_set_temp("viptv_ifname", recovery_ifname);' in viptv_rollback and
-        'nvram_set_temp("viptv_ifname", "");' in viptv_rollback and
+        "wan_viptv_ifname_publish_status(" in viptv_rollback and
+        "failed to publish IPTV VLAN recovery interface identity" in viptv_rollback and
         "entry->bridge.bridge_existed" in viptv_rollback and
         "get_interface_flags(entry->bridge.bridge_name)" in viptv_rollback and
         "Boards without GMAC2 bridge support" in viptv_rollback,
@@ -345,6 +345,26 @@ require("char viptv_ifname[24], viptv_addr[16], viptv_mask[16], viptv_gate[16];"
         "viptv_mask = nvram_safe_get" not in viptv and
         "viptv_gate = nvram_safe_get" not in viptv,
         "static IPTV callbacks must use bounded local copies, not borrowed NVRAM pointers")
+
+ifname_publish = body(wan, "wan_viptv_ifname_publish_status(const char *ifname)")
+require('nvram_set_temp("viptv_ifname", ifname)' in ifname_publish and
+        "rc_wan_nvram_write_status(api_result, saved_errno)" in ifname_publish,
+        "IPTV recovery interface identity must use the checked NVRAM write status")
+ifname_publish_policy = body(policy, "wan_viptv_ifname_publish_or_rollback(")
+require("status = ops->publish(context);" in ifname_publish_policy and
+        "rollback_status = ops->rollback_vlan(context);" in ifname_publish_policy and
+        "return route_status_accumulate(status, rollback_status);" in ifname_publish_policy,
+        "IPTV interface identity publication failure must trigger VLAN rollback")
+require("wan_viptv_ifname_publish_or_rollback(" in iptv_setup and
+        "VLAN rollback attempted" in iptv_setup,
+        "new IPTV VLAN must be rolled back if its recovery identity cannot be committed")
+for case in ("test_ifname_publish_success_keeps_vlan_and_skips_rollback",
+             "test_ifname_publish_failure_rolls_back_vlan_and_preserves_primary_error",
+             "test_ifname_rollback_failure_does_not_mask_publish_error",
+             "test_ifname_publish_policy_rejects_incomplete_callbacks"):
+    require(case in (rc / "tests/wan_viptv_static_policy.c").read_text(),
+            "IPTV interface identity policy regression missing " + case)
+
 snapshot_absolute = iptv_start + snapshot_pos
 old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
 old_vlan_clear = iptv_setup.index('nvram_set_temp("viptv_ifname", "");', old_vlan_cleanup)

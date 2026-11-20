@@ -1493,6 +1493,21 @@ rollback:
 #endif
 
 static int
+wan_viptv_ifname_publish_status(const char *ifname)
+{
+	int api_result, saved_errno;
+
+	if (!ifname)
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_set_temp("viptv_ifname", ifname);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+
+static int
 rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)
 {
 	int status = 0, ret = 0;
@@ -1529,12 +1544,49 @@ rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)
 		recovery_ifname = entry->port_ifname;
 #endif
 
-	if (recovery_ifname)
-		nvram_set_temp("viptv_ifname", recovery_ifname);
-	else
-		nvram_set_temp("viptv_ifname", "");
+	ret = wan_viptv_ifname_publish_status(
+		recovery_ifname ? recovery_ifname : "");
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "failed to publish IPTV VLAN recovery interface identity (status=%d)",
+			   ret);
+		status = route_status_accumulate(status, ret);
+	}
 	return status;
 }
+
+struct wan_viptv_ifname_publish_context {
+	const char *ifname;
+	struct soft_bridge_other_entry *rollback_entry;
+};
+
+static int
+wan_viptv_ifname_publish_callback(void *opaque)
+{
+	struct wan_viptv_ifname_publish_context *context =
+		(struct wan_viptv_ifname_publish_context *)opaque;
+
+	if (!context || !context->ifname)
+		return EINVAL;
+	return wan_viptv_ifname_publish_status(context->ifname);
+}
+
+static int
+wan_viptv_ifname_rollback_callback(void *opaque)
+{
+	struct wan_viptv_ifname_publish_context *context =
+		(struct wan_viptv_ifname_publish_context *)opaque;
+
+	if (!context || !context->rollback_entry)
+		return EINVAL;
+	return rollback_viptv_vlan_setup(context->rollback_entry);
+}
+
+static const struct wan_viptv_ifname_ops wan_viptv_ifname_publish_ops = {
+	wan_viptv_ifname_publish_callback,
+	wan_viptv_ifname_rollback_callback
+};
+
 
 static int
 config_vinet_wan(void)
@@ -1896,6 +1948,7 @@ launch_viptv_wan(void)
 	const char *viptv_iflast, *vinet_iflast, *wan_hwaddr;
 	const char *viptv_addr_setting, *viptv_mask_setting, *viptv_gate_setting;
 	struct soft_bridge_other_entry rollback_entry;
+	struct wan_viptv_ifname_publish_context ifname_context;
 #if defined (USE_SINGLE_MAC)
 	const char *ifname_wan_cpu = IFNAME_MAC;
 #else
@@ -1954,8 +2007,12 @@ launch_viptv_wan(void)
 				return ret;
 		}
 		viptv_ifname[0] = 0;
-		nvram_set_temp("viptv_ifname", viptv_ifname);
-		return 0;
+		ret = wan_viptv_ifname_publish_status(viptv_ifname);
+		if (ret != 0)
+			logmessage(LOGNAME,
+				   "failed to clear IPTV VLAN interface identity (status=%d)",
+				   ret);
+		return ret;
 	}
 
 	/* case3: CPU Internet tagged: y, CPU IPTV tagged: y (different VID) */
@@ -2008,8 +2065,15 @@ launch_viptv_wan(void)
 		ret = remove_vlan_iface(viptv_iflast);
 		if (ret != 0)
 			return ret;
-		if (strchr(viptv_iflast, '.') != NULL)
-			nvram_set_temp("viptv_ifname", "");
+		if (strchr(viptv_iflast, '.') != NULL) {
+			ret = wan_viptv_ifname_publish_status("");
+			if (ret != 0) {
+				logmessage(LOGNAME,
+					   "failed to clear stale IPTV VLAN interface identity (status=%d)",
+					   ret);
+				return ret;
+			}
+		}
 	}
 
 	ret = create_vlan_iface_tracked(ifname_wan_cpu, vlan_vid[1], vlan_pri,
@@ -2051,7 +2115,16 @@ launch_viptv_wan(void)
 		errno = saved_errno;
 		return ret;
 	}
-	nvram_set_temp("viptv_ifname", viptv_ifname);
+	ifname_context.ifname = viptv_ifname;
+	ifname_context.rollback_entry = &rollback_entry;
+	ret = wan_viptv_ifname_publish_or_rollback(
+		&wan_viptv_ifname_publish_ops, &ifname_context);
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot publish IPTV VLAN interface identity on %s; VLAN rollback attempted (status=%d)",
+			   viptv_ifname, ret);
+		return ret;
+	}
 
 	if (viptv_mode == 2) {
 		struct wan_viptv_static_start_context context;
