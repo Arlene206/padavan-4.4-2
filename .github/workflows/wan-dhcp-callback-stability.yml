@@ -428,7 +428,8 @@ jobs:
           assert "if (!dhcp_lease_route_delete_is_ok(route_result))" in viptv_deconfig
           assert "route_status = route_status_accumulate(route_status, route_result);" in viptv_deconfig
           assert viptv_deconfig.index("if (!dhcp_lease_route_delete_is_ok(route_result))") < viptv_deconfig.index("route_status = route_status_accumulate(route_status, route_result);", viptv_deconfig.index("route_result = route_del(man_ifname, 10"))
-          assert viptv_deconfig.index("if (route_status == 0)") < viptv_deconfig.index('nvram_set_temp("manv_gateway", "")')
+          route_inventory_publish = viptv_deconfig.index("wan_dhcp_nvram_publish_values(")
+assert viptv_deconfig.index("if (route_status == 0)") < route_inventory_publish
           assert "preserving route inventory" in viptv_deconfig
           viptv_dhcp_deconfig = body(source, "udhcpc_viptv_deconfig(char *man_ifname)")
           assert "dhcp_lease_viptv_deconfig_apply(&ops, &context)" in viptv_dhcp_deconfig
