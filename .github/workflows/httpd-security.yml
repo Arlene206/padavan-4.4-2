@@ -2633,7 +2633,10 @@ jobs:
           assert 'wan_nvram_int_temp_status(strcat_r(prefix, "err", tmp), i_err)' in bound
           assert "callback_status = route_status_accumulate(callback_status, publish_status);" in bound
           assert "return callback_status;" in bound
-          assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' not in bound
+          assert 'wan_nvram_int_temp_status(strcat_r(prefix, "route_err", tmp), route_setup_status)' in bound
+          assert 'wan_nvram_int_temp_status(strcat_r(prefix, "err", tmp), i_err)' in bound
+          assert "callback_status = route_status_accumulate(callback_status, publish_status);" in bound
+          assert "return callback_status;" in bound
           assert renew.count("dhcp_lease_route_text_is_safe(value)") >= 6
           wan_router_start = renew.index('value = getenv("router");')
           wan_router_end = renew.index('value = getenv("ip");', wan_router_start)
@@ -2646,7 +2649,10 @@ jobs:
           tv_renew_end = wan.index("udhcpc_leasefail(", tv_renew_start)
           tv_renew = wan[tv_renew_start:tv_renew_end]
           assert "dhcp_wan_route_setup_retry_required" in tv_renew
-          assert 'nvram_set_int_temp("manv_route_err", route_setup_status)' in tv_bound
+          assert 'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in tv_bound
+          assert 'wan_nvram_int_temp_status("manv_err", i_err)' in tv_bound
+          assert "callback_status = route_status_accumulate(callback_status, publish_status);" in tv_bound
+          assert "return callback_status;" in tv_bound
           tv_router_start = tv_renew.index('value = getenv("router");')
           tv_router_end = tv_renew.index('value = getenv("ip");', tv_router_start)
           tv_router = tv_renew[tv_router_start:tv_router_end]
