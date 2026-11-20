@@ -96,6 +96,17 @@ router = c_function(rc, "init_router(void)")
 router_mode_setup = c_function(rc, "nvram_convert_misc_values(void)")
 assert '#include "router_mode_nvram_policy.h"' in rc
 assert "rc_router_mode_nvram_configure" in router_mode_policy
+assert "api_result = nvram_get_checked(\"sw_mode\", &sw_mode_value);" in router_mode_setup
+assert "status = rc_router_mode_nvram_read_status(" in router_mode_setup
+assert "sw_mode = (api_result == 1) ? atoi(sw_mode_value) : 0;" in router_mode_setup
+read_call = router_mode_setup.index("api_result = nvram_get_checked(")
+read_status = router_mode_setup.index("status = rc_router_mode_nvram_read_status(", read_call)
+read_error = router_mode_setup.index("if (status != 0)", read_status)
+read_return = router_mode_setup.index("return status;", read_error)
+mode_call = router_mode_setup.index("status = rc_router_mode_nvram_configure(")
+assert read_call < read_status < read_error < read_return < mode_call
+assert "test_checked_read_status_distinguishes_absence_from_backend_failure" in router_mode_test
+assert "test_checked_read_status_distinguishes_absence_from_backend_failure();" in router_mode_test
 mode_call = router_mode_setup.index("status = rc_router_mode_nvram_configure(")
 mode_error = router_mode_setup.index("if (status != 0)", mode_call)
 mode_return = router_mode_setup.index("return status;", mode_error)

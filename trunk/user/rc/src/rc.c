@@ -510,10 +510,25 @@ static int
 nvram_convert_misc_values(void)
 {
 	char buff[64];
-	int sw_mode, status;
+	char *sw_mode_value = NULL;
+	int sw_mode, status, api_result, saved_errno;
+
+	/* A failed read must not be mistaken for an absent/invalid mode. */
+	errno = 0;
+	api_result = nvram_get_checked("sw_mode", &sw_mode_value);
+	saved_errno = errno;
+	status = rc_router_mode_nvram_read_status(
+		api_result, saved_errno, sw_mode_value != NULL);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "router mode NVRAM read failed (status=%d)", status);
+		return status;
+	}
+
+	/* Missing or invalid values retain the historical gateway fallback. */
+	sw_mode = (api_result == 1) ? atoi(sw_mode_value) : 0;
 
 	/* Publish a complete router-mode policy before any dependent boot setup. */
-	sw_mode = nvram_get_int("sw_mode");
 	status = rc_router_mode_nvram_configure(
 		sw_mode, rc_nvram_policy_set, NULL, &sw_mode);
 	if (status != 0) {

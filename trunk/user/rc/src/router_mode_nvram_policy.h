@@ -8,6 +8,21 @@ typedef int (*rc_router_mode_nvram_set_fn)(void *context,
                                            const char *name,
                                            const char *value);
 
+/* Distinguish a missing key from an NVRAM backend read failure. */
+static inline int
+rc_router_mode_nvram_read_status(int api_result, int saved_errno,
+                                 int value_present)
+{
+    if ((api_result == 0 && !value_present) ||
+        (api_result == 1 && value_present))
+        return 0;
+
+    if (api_result < 0)
+        return saved_errno > 0 ? saved_errno : EIO;
+
+    return EIO;
+}
+
 /*
  * Normalize an unknown router mode to gateway mode, then publish every
  * NVRAM value that defines the effective mode before dependent boot setup.

@@ -127,6 +127,18 @@ test_each_required_write_failure_aborts_the_sequence(void)
 }
 
 static void
+test_checked_read_status_distinguishes_absence_from_backend_failure(void)
+{
+    assert(rc_router_mode_nvram_read_status(0, 0, 0) == 0);
+    assert(rc_router_mode_nvram_read_status(1, 0, 1) == 0);
+    assert(rc_router_mode_nvram_read_status(-1, EACCES, 0) == EACCES);
+    assert(rc_router_mode_nvram_read_status(-1, 0, 0) == EIO);
+    assert(rc_router_mode_nvram_read_status(1, 0, 0) == EIO);
+    assert(rc_router_mode_nvram_read_status(0, 0, 1) == EIO);
+    assert(rc_router_mode_nvram_read_status(2, 0, 1) == EIO);
+}
+
+static void
 test_invalid_arguments_do_not_write_nvram(void)
 {
     struct fake_nvram fake;
@@ -148,6 +160,7 @@ main(void)
     test_access_point_mode_only_publishes_bridged_route();
     test_unknown_mode_is_published_as_gateway_before_dependent_values();
     test_each_required_write_failure_aborts_the_sequence();
+    test_checked_read_status_distinguishes_absence_from_backend_failure();
     test_invalid_arguments_do_not_write_nvram();
     puts("Router-mode NVRAM publication regression: PASS");
     return 0;
