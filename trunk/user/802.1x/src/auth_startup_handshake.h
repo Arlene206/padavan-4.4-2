@@ -5,6 +5,7 @@
 #include <stddef.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -83,6 +84,43 @@ auth_startup_copy_interface_name(char *name, size_t name_size,
 	memcpy(name, source, source_length);
 	name[source_length] = '\0';
 	return 0;
+}
+
+
+
+static inline int
+auth_startup_validate_driver_count(size_t count, size_t capacity)
+{
+	if (count > capacity) {
+		errno = EINVAL;
+		return -1;
+	}
+	return 0;
+}
+
+/*
+ * Driver RADIUS secrets are length-delimited bytes, not C strings.
+ * Copy the checked payload and add a terminator for legacy consumers.
+ */
+static inline unsigned char *
+auth_startup_copy_radius_secret(const unsigned char *source,
+                                size_t source_size, size_t source_length)
+{
+	unsigned char *copy;
+
+	if (!source || source_size == 0 || source_length == 0 ||
+	    source_length > source_size || source_length == (size_t)-1) {
+		errno = EINVAL;
+		return NULL;
+	}
+	copy = (unsigned char *)malloc(source_length + 1);
+	if (!copy) {
+		errno = ENOMEM;
+		return NULL;
+	}
+	memcpy(copy, source, source_length);
+	copy[source_length] = '\0';
+	return copy;
 }
 
 

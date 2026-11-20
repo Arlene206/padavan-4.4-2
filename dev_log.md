@@ -1,3 +1,13 @@
+## 2026-11-20 — Bound Ralink 802.1X RADIUS server and secret fields
+
+- Parent main SHA: ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6.
+- The driver configuration ioctl also exposed two unchecked bounds: `radius_srv_num` indexes a fixed two-entry server array, and `radius_key_len` describes a fixed 64-byte secret. The old loop trusted the count, while `strdup()` scanned for an unrelated NUL and debug logging printed the shared secret.
+- Validate each server count against the actual array capacity. Copy RADIUS keys by their checked byte length into an allocated, explicitly terminated buffer; reject lengths beyond the source field, propagate allocation failure, and preserve the exact protocol length.
+- Remove credential contents from debug logs; retain only configured state and key length. Add GNU89 regressions for server-count boundaries, a full-width 64-byte non-NUL key, invalid lengths, and terminator placement.
+- Exact-head Process/AI and XY-C1 build/TRX/artifact checks required. L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Fail closed on deferred WAN reconnect NVRAM errors
 
 - Parent main SHA: `743f0158ff728358efc2026ef37e3ef094984560`; last verified product-source baseline: `7210c3a3a46093c633b56c8975ab2cd946b2e1bb`.

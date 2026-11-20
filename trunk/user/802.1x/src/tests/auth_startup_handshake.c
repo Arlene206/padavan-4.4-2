@@ -161,6 +161,47 @@ test_driver_interface_name_copy_is_bounded(void)
 }
 
 static void
+test_driver_radius_fields_are_bounded(void)
+{
+	unsigned char key[64];
+	unsigned char *copy;
+	const unsigned char short_key[] = { 's', 'e', 'c', 'r', 'e', 't' };
+
+	assert(auth_startup_validate_driver_count(0, 2) == 0);
+	assert(auth_startup_validate_driver_count(2, 2) == 0);
+	assert(auth_startup_validate_driver_count(3, 2) == -1);
+	assert(errno == EINVAL);
+
+	memset(key, 0x5a, sizeof(key));
+	copy = auth_startup_copy_radius_secret(short_key,
+					       sizeof(short_key),
+					       sizeof(short_key));
+	assert(copy != NULL);
+	assert(memcmp(copy, short_key, sizeof(short_key)) == 0);
+	assert(copy[sizeof(short_key)] == '\0');
+	free(copy);
+
+	copy = auth_startup_copy_radius_secret(key, sizeof(key), sizeof(key));
+	assert(copy != NULL);
+	assert(memcmp(copy, key, sizeof(key)) == 0);
+	assert(copy[sizeof(key)] == '\0');
+	free(copy);
+
+	copy = auth_startup_copy_radius_secret(key, sizeof(key), sizeof(key) + 1);
+	assert(copy == NULL);
+	assert(errno == EINVAL);
+	copy = auth_startup_copy_radius_secret(key, 2, sizeof(short_key));
+	assert(copy == NULL);
+	assert(errno == EINVAL);
+	copy = auth_startup_copy_radius_secret(key, sizeof(key), 0);
+	assert(copy == NULL);
+	assert(errno == EINVAL);
+	copy = auth_startup_copy_radius_secret(NULL, sizeof(key), sizeof(key));
+	assert(copy == NULL);
+	assert(errno == EINVAL);
+}
+
+static void
 test_real_pipe_round_trip(void)
 {
 	int pipe_fds[2];
@@ -266,6 +307,7 @@ test_invalid_arguments_are_rejected(void)
 int
 main(void)
 {
+	test_driver_radius_fields_are_bounded();
 	test_driver_interface_name_copy_is_bounded();
 	test_interface_name_formatting_is_bounded();
 	test_real_pipe_round_trip();

@@ -1072,6 +1072,13 @@ jobs:
           assert "memcpy(conf->eap_if_name" not in auth_config_query
           assert "memcpy(conf->preauth_if_name" not in auth_config_query
           assert "test_driver_interface_name_copy_is_bounded" in auth_regression
+
+          assert "auth_startup_validate_driver_count(" in auth_config_query
+          assert "sizeof(pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info) /" in auth_config_query
+          assert auth_config_query.count("auth_startup_copy_radius_secret(") == 2
+          assert "strdup((const char *)pDot1xCmmConf" not in auth_config_query
+          assert "RADIUS key configured" in auth_config_query
+          assert "test_driver_radius_fields_are_bounded" in auth_regression
           auth_main = body(auth_daemon, "main(int argc, char *argv[])")
           auth_ready = body(auth_daemon, "wait_for_authenticator_ready(")
           assert "pipe(startup_pipe)" in auth_main
