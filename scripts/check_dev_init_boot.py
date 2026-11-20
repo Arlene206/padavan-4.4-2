@@ -180,7 +180,13 @@ assert "if (router_ready)" in loop and "on_deferred_hotplug_dev();" in loop
 assert '#include "init_router_result_policy.h"' in init
 assert '#include "init_router_result_policy.h"' in rc
 assert "return init_router_result_from_boot_status(boot_services_status);" in router
-assert router.count("return INIT_ROUTER_RESULT_FATAL;") == 4
+assert router.count("return INIT_ROUTER_RESULT_FATAL;") == 5
+assert "nvram_setup_status = nvram_convert_misc_values();" in router
+wan0_setup_gate = router.split(
+    "if (nvram_setup_status != 0)", 1
+)[1].split("init_gpio_leds_buttons();", 1)[0]
+assert "WAN0 NVRAM setup failed" in wan0_setup_gate
+assert "return INIT_ROUTER_RESULT_FATAL;" in wan0_setup_gate
 assert "return -1;" not in router
 router_compact = "".join(router.split())
 assert 'int copyscripts_status = system("/usr/bin/copyscripts.sh");' in router

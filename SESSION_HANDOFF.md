@@ -3,38 +3,37 @@
 This checkpoint supersedes older summaries below. Continue from live main; do not repeat completed audits.
 
 ## Git state
-- Parent main SHA for this slice: f2bae37918b42648fd4d8ff6be95fdc372bf1472.
+- Parent main SHA for this slice: 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
-- Main-only atomic commits; one complete tree/commit per logical task, updated with force=false and exact expected_sha. Never force-push. PR #1 is closed/not merged.
+- Main-only atomic commits; complete tree/commit per task; update main with force=false and exact expected_sha. Never force-push. PR #1 remains closed/not merged.
 
-## Verified preceding slices
-- Product-source SHA f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 passed WAN DHCP, WAN route, AI docs, NVRAM and full XY-C1 Build/TRX/artifact. XY-C1 run 44715584790, job 136218008537, artifact 14620685104 (12,690,665 bytes). L3 applies to f0 only.
-- Workflow-only parent b8828568389b344795a761d923f1f09ff70147bc passed Custom firmware defaults transaction regression 44717413779 and AI handoff documentation contract 44717413917.
-- f2bae37918b42648fd4d8ff6be95fdc372bf1472 passed exact-head Custom firmware defaults transaction regression 44718064716 and AI handoff docs 44718065095. The new all-nine C-trigraph serialization test was included in the full customization regression; local GNU89 -Wall -Wextra -Werror compilation also passed.
-- DHCPv4 6rd option-212 transactional rollback and IPv6 reset status propagation remain verified on their production-source SHA. Do not repeat.
+## Verified preceding work
+- Product source f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 passed WAN DHCP, WAN route, AI docs, NVRAM and XY-C1 Build/TRX/artifact; XY run 44715584790, artifact 14620685104. L3 is for f0 only.
+- f2bae37918b42648fd4d8ff6be95fdc372bf1472 passed Custom firmware defaults regression 44718064716 and AI handoff docs 44718065095.
+- Commit 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45 implemented checked WAN0 boot initialization. Its Process lifecycle run 44718942446 and HTTPD security run 44718942454 failed only because their independent PID1/RC contracts hardcoded four INIT_ROUTER_RESULT_FATAL returns; the new intentional pre-service WAN0 fatal gate makes the correct count five. The log confirms preceding NVRAM policy tests passed; these are stale test assertions, not a runtime/compiler failure.
+- Other Actions on 05e2 are still running/queued, including XY-C1 run 44718942242; do not transfer their results to a different SHA.
 
 ## Current implementation slice — this commit
-- Found a boot-critical fail-open gap in rc.c: set_wan0_vars() copied missing WAN defaults with unchecked nvram_set_temp() calls and then wrote wan0_unit, wan0_primary and wan0_ifname through unchecked void setters. The code also seeded uptime/dltime/byte counters and cleared ifname_t without checking any result.
-- nvram_convert_misc_values() discarded the initializer result because it returned void; init_router() proceeded into GPIO setup, NVRAM commit and service startup even if WAN0 configuration/identity publication was incomplete.
-- set_wan0_vars() now checks each default-copy write and all eight required WAN0 identity/runtime fields. It returns the first errno-style failure. The five formerly separate runtime writes now share the checked required-value sequence.
-- nvram_convert_misc_values() propagates the result; init_router() returns INIT_ROUTER_RESULT_FATAL before starting services when WAN0 setup fails.
-- Added an eight-position injected failure matrix for the exact WAN0 identity/runtime value sequence. The existing NVRAM status policy is compiled in the process-lifecycle workflow; its source contract asserts checked copy writes and the fatal PID1 boot gate.
+- Corrected the two independent CI source contracts: scripts/check_dev_init_boot.py and the inline RC NVRAM check in .github/workflows/httpd-security.yml now expect five fatal exits and explicitly validate that WAN0 NVRAM setup failure stops init_router before GPIO/service initialization.
+- The product change remains the preceding commit: checked WAN0 defaults/runtime identity writes, status propagation through nvram_convert_misc_values(), and a fatal PID1 boot gate.
+- No further production source changes in this CI correction.
 
 ## Exact first actions for the next continuation
-1. Check exact-head Process inventory and lifecycle fail-closed regression for this commit; the new eight-position WAN0 NVRAM failure matrix and source contract must pass.
-2. Check the exact-head XY-C1 firmware validation run because rc.c production source changed; claim L3 only after Build XY-C1, TRX verification and artifact upload all pass on this exact SHA.
-3. Inspect and fix any genuine failure in those Actions. Then continue a different P1 source-confirmed RC/service initialization or lifecycle defect; do not revisit the closed WAN/6rd and custom-build items above.
+1. Verify exact-head Process lifecycle, HTTPD security and AI-handoff Actions for this commit. Both stale count assertions must pass and the WAN0 source contracts must execute.
+2. Verify exact-head XY-C1 Build, TRX and artifact for production-source commit 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45; this CI-only correction itself does not change the production image inputs.
+3. Continue a distinct P1 RC/service initialization or lifecycle defect after the checks pass; do not re-audit the WAN0 path already closed by the previous production commit.
 
 ## Verification boundary
-- f0c20ff product-source SHA: L3 VERIFIED by run 44715584790 and artifact 14620685104.
-- f2bae379 workflow/source-serialization SHA: exact customization and AI docs Actions PASS.
-- This current commit's host regressions, exact Process/XY-C1 Actions, and same-SHA L3 are PENDING at creation. Physical-router L4 is NOT VERIFIED.
+- f0c20ff product source: L3 VERIFIED.
+- f2bae379 all-nine-trigraph Custom transaction and AI handoff Actions: PASS.
+- 05e2cb Process lifecycle and HTTPD security runs FAILED due stale fatal-count contracts (four expected vs five actual); this commit updates those checks. Other 05e2 exact-head Actions remain independently pending.
+- This commit's exact Actions are PENDING at creation. Physical-router L4 remains NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
-Update the exact active SHA, exact Actions and next task only when materially changed. No no-op documentation commits.
+Update exact main SHA and results when the current Actions settle; avoid no-op documentation commits.
 
 ## Evidence discipline
-Keep host regressions, exact-SHA Actions, MIPS Build/TRX/artifact and physical-router results separate. CI does not prove L4.
+Separate host regressions, exact-SHA Actions, MIPS Build/TRX/artifact and physical-router behavior.
 
 ---
 

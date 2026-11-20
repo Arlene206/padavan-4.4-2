@@ -1,3 +1,12 @@
+## 2026-11-20 — Update PID1 fatal-gate CI contracts for WAN0 NVRAM failure
+
+- Parent main SHA: 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45.
+- The new WAN0 fail-closed initializer added a fifth intentional INIT_ROUTER_RESULT_FATAL exit before GPIO/service initialization. Exact-parent Process lifecycle run 44718942446 and HTTPD security run 44718942454 both failed because independent checks in scripts/check_dev_init_boot.py and the HTTPD workflow inline script hardcoded the previous count of four.
+- Updated both checks to expect five fatal exits and explicitly assert the WAN0 setup failure gate returns fatal before init_gpio_leds_buttons(). This corrects the verification contract; the implementation change itself was already committed and the earlier NVRAM test steps passed.
+- Rerun of Process/HTTPD on this CI-only correction and exact-source XY-C1 status are pending; no L3 claim is made for this workflow/checker commit.
+
+---
+
 ## 2026-11-20 — Fail closed when WAN0 boot NVRAM initialization fails
 
 - Parent main SHA: f2bae37918b42648fd4d8ff6be95fdc372bf1472.
