@@ -348,10 +348,10 @@ snapshot_start = WAN_SOURCE.index("wan_static_ipv4_snapshot(")
 snapshot_signature = WAN_SOURCE[snapshot_start:WAN_SOURCE.index("{", snapshot_start)]
 assert "const char *wan_addr_suffix" in snapshot_signature
 assert "const char *wan_mask_suffix" in snapshot_signature
-snapshot_helper = compact(body(WAN_SOURCE, "wan_static_ipv4_snapshot("))
+snapshot_helper = "".join(body(WAN_SOURCE, "wan_static_ipv4_snapshot(").split())
 assert '"wan%d_%s",unit,wan_addr_suffix' in snapshot_helper
 assert '"wan%d_%s",unit,wan_mask_suffix' in snapshot_helper
-launch_wanx = compact(body(WAN_SOURCE, "launch_wanx("))
+launch_wanx = "".join(body(WAN_SOURCE, "launch_wanx(").split())
 man_snapshot_call = 'snapshot_status=wan_static_ipv4_snapshot(unit,"man_ipaddr","man_netmask",'
 assert man_snapshot_call in launch_wanx
 assert "char man_addr_storage[16],man_mask_storage[16],lan_addr[16],lan_mask[16];" in launch_wanx

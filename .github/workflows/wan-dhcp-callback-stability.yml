@@ -1249,7 +1249,7 @@ jobs:
           launch_wanx = "".join(body(source, "launch_wanx(").split())
           assert 'snapshot_status=wan_static_ipv4_snapshot(unit,"man_ipaddr","man_netmask",' in launch_wanx
           assert "charman_addr_storage[16],man_mask_storage[16],lan_addr[16],lan_mask[16];" in launch_wanx
-          assert "if (snapshot_status != 0)" in launch_wanx
+          assert "if(snapshot_status!=0)" in launch_wanx
           assert "get_wan_unit_value(unit, \"man_ipaddr\")" not in launch_wanx
           assert "get_wan_unit_value(unit, \"man_netmask\")" not in launch_wanx
           assert 'nvram_safe_get("lan_ipaddr")' not in launch_wanx

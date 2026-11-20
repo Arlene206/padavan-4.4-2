@@ -1,3 +1,12 @@
+## 2026-11-20 — Normalize WAN snapshot helper and MAN launcher source contracts
+
+- Parent main SHA: `45d049e256afa4d4378bfb10e92b289a605a64a7`. This commit contains only source-contract corrections in `scripts/check_modem_wan_start_status.py`, `.github/workflows/wan-dhcp-callback-stability.yml`, and this chronological record; product C is unchanged by this commit.
+- The static IPv4 snapshot helper's signature was separated from its body in the checker, but the helper/caller body assertions still mixed `compact()` (which retains single spaces) with no-space expected text. In the embedded WAN callback contract, `launch_wanx` is fully whitespace-stripped but its status-gate assertion still expected spaced text.
+- Use consistent whitespace removal for both helper and MAN launcher bodies; keep signature checks on the actual signature slice and align the embedded predicate with its already-normalized body. No tests or checks were removed or weakened.
+- Exact-head source-contract failures on `3fd870de`: WAN callback run `44699162824` failed at embedded line 1060; USB modem `44699162814`, Firewall `44699162872`, and Process lifecycle `44699162719` failed at the standalone helper assertion. The earlier `6ff4b9e7` failures `44698925841` and `44698925800` stopped at the signature-in-body check. The new source head `8e0e0386` triggered independent WAN-route/MAN-gateway validation runs; exact-head Actions on `8e0e0386` and its workflow-contract follow-up `45d049e2` were pending at this edit. Fresh CI is required on this commit; no local checkout was available.
+
+---
+
 ## 2026-11-20 — Rotate the root development log and refresh the verification checkpoint
 
 - Parent main SHA: `7f04d46a955ec4358388b4b3fe7f9d23fc59bb49`.
