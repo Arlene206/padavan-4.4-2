@@ -1,3 +1,14 @@
+## 2026-11-20 — Align MiniUPnP workflow contract with transactional lease append
+
+- Parent main SHA: `b12d6c4abb2b95f901098425229eb736243335a2`.
+- Exact-head MiniUPnP run #44803257122 on `35e319a57af04e113fc9a3ccaa31628764ce4cfd` passed all 25 preceding compile/regression/source-contract steps, including cleanup-policy ASan/UBSan tests, IPTC ownership, NAT/filter and peer SNAT/DSCP compensation, lease serialization, lease cleanup and replay checks. It failed only at the final embedded writer/start-gate source contract, which still required direct `fwrite(record, ...)` and `fclose(fd)` calls inside `lease_file_add()`.
+- The current writer deliberately delegates to `miniupnpd_lease_append_transaction()`, which handles short writes, EINTR, sync and rollback-to-original-EOF. The dedicated lease checker and compiled regression already exercised that helper; only the duplicate inline workflow assertions were stale. Replaced them with checks for transaction delegation, no direct stdio write, close/errno handling, rollback operations and partial-write ENOSPC tests, while retaining description-boundary checks.
+- The source-side scan-state relocation is covered in commit `35e319a57af04e113fc9a3ccaa31628764ce4cfd`. Its exact-source XY-C1 run #44803257077 was still running at last poll; parent `8f88445490dd8df6b600743ec0ff7716707df115` failed target compilation because the scan marker was placed in the wrong function. This is corrected in 35e, but same-SHA Build/TRX/artifact evidence is still required.
+- PR #1's security-related AliDDNS content is already present on current main: the stdin-only OpenSSL 3 HMAC helper and test, the CA archive/bootstrap failure tests, synchronous `copyscripts.sh` execution and startup-status propagation all exist. The PR versions of the helper, its test and CA test are byte-identical to main; its script/workflow/checker variants are older. No PR cherry-pick is needed.
+- Resulting commit: THIS COMMIT. Firmware L3 and physical-router L4 remain NOT VERIFIED until exact-source gates pass.
+
+---
+
 ## 2026-11-20 — Bind MiniUPnP scan state to the delete transaction
 
 - Parent main SHA: `64d76a2c98a4fb0ed98f8aba899a71c44750f407`.

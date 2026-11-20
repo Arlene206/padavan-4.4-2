@@ -467,14 +467,26 @@ jobs:
           assert '#include "miniupnpd_lease_file_policy.h"' in redirect_source
           lease_add = function_body(redirect_source, "lease_file_add(unsigned short eport")
           assert "miniupnpd_lease_record_format(" in lease_add
-          assert "fwrite(record, 1, (size_t)record_length, fd)" in lease_add
-          assert "fclose(fd)" in lease_add
+          assert "miniupnpd_lease_append_transaction(" in lease_add
+          assert "fwrite(" not in lease_add
+          assert "close(fd)" in lease_add
+          assert "errno = saved_errno;" in lease_add
           assert '#include <errno.h>' in redirect_source
-          write_call = lease_add.index("fwrite(")
-          write_errno_reset = lease_add.rindex("errno = 0;", 0, write_call)
-          assert write_errno_reset < write_call
-          assert lease_add.rindex("errno = 0;") < lease_add.rindex("fclose(fd)")
           assert "fprintf(fd" not in lease_add
+          for marker in (
+              "ops->truncate(fd, original_size)",
+              "ops->sync(fd)",
+              "rollback_failed",
+          ):
+              assert marker in lease_policy, marker
+          for marker in (
+              "test_lease_append_rolls_back_partial_write",
+              "partial_then_enospc_write",
+              "rollback_failed == 0",
+              "MiniUPnP lease-file record serialization policy: PASS",
+          ):
+              assert marker in lease_test, marker
+          assert "miniupnpd_lease_file_policy_test.c" in workflow
           for marker in (
               "MINIUPNPD_LEASE_RECORD_DESCRIPTION_MAX 63",
               "ch == '\\r' || ch == '\\n'",
@@ -486,10 +498,8 @@ jobs:
               "test_description_is_bounded",
               "test_invalid_output_buffer",
               "camera\\nTCP:9999",
-              "MiniUPnP lease-file record serialization policy: PASS",
           ):
               assert marker in lease_test, marker
-          assert "miniupnpd_lease_file_policy_test.c" in workflow
 
           assert '#include "upnpsoap_xml_policy.h"' in soap_source
           get_specific_xml = function_body(soap_source, "GetSpecificPortMappingEntry(struct upnphttp * h")
