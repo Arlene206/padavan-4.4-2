@@ -1,3 +1,13 @@
+## 2026-11-19 — Fix missing-original rollback fixture cleanup
+
+- Parent SHA: `740c82cee671e5bcc133289d9126f75afd654ec3`.
+- Process lifecycle run `44654002485` on `740c82c` reached the new password transaction regression and failed only in `fixture_cleanup()`: the missing-original test reused a backup path that `fixture_init()` had already populated with a hard link, then the helper correctly cleared the path when the source file was absent. The fixture lost the pathname of its old backup link, leaving the temporary directory non-empty.
+- The test now explicitly removes the fixture's original backup and allocates a fresh unused `XXXXXX` backup template before removing the source file. Production transaction code is unchanged.
+- Exact rerun required for Process lifecycle and HTTPD checker failures discovered on `740c82c`; inspect HTTPD failure separately because it is outside the account transaction source path. XY-C1 Build/TRX/artifact on `740c82c` was still in progress.
+- Host test result: not yet re-run locally; exact Actions regression is pending. No physical-router L4 evidence.
+
+---
+
 ## 2026-11-19 — Roll back partial Unix account database publication
 
 - Parent SHA: `4d97400bd600b8503082bc749d577e8beee10963`.

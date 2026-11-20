@@ -237,6 +237,11 @@ test_missing_original_is_removed_on_rollback(void)
 	int rollback_failed = 0, had_original;
 
 	fixture_init(&fixture);
+	/* Drop fixture_init's original hard link before simulating a missing file. */
+	assert(unlink(fixture.backup_passwd) == 0);
+	fixture.backup_passwd[0] = '\0';
+	assert(snprintf(fixture.backup_passwd, sizeof(fixture.backup_passwd),
+			"%s/.passwd-missing.XXXXXX", fixture.directory) > 0);
 	assert(unlink(fixture.live_passwd) == 0);
 	assert(passwd_temp_file_backup_create(fixture.live_passwd,
 		fixture.backup_passwd, &had_original) == 0);
