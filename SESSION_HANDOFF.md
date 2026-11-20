@@ -35,6 +35,21 @@ Continue main-only implementation across conversations. Restore exact live sourc
 2. Continue the broad RC startup-result propagation P1 queue at the next independent caller defect; CA-preparation/RC caller, SD/MMC notification status, and NVRAM PID1 gate audits are closed.
 3. Require fresh exact-source XY-C1 Build/TRX/artifact for any subsequent production-source change; `61cbc6b` L3 evidence does not transfer to later source commits.
 
+## Active task
+
+- Latest main before this task: `d246ddf7a04fa8a678c95cf08f7292968e467e8c`. The frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, archival and untouched.
+- PID 1 degraded-readiness and late boot-result propagation are implemented. `init_router()` captures the CA/configuration preparation, persistent user startup-script launcher, and optional-service `autostart.sh` wait statuses into the first-error boot accumulator. CA failure regressions cover valid/corrupt archive, missing readable bundle and uncreatable destination.
+- Storage notification failure now propagates through the checked PID 1 queue API; `storage_hotplug_completion_status()` requires both storage operations and queued notification to succeed. The adjacent source checker newline parsers are repaired.
+- NVRAM readiness remains fail-closed: PID 1 calls `init_router()` only after required device initialization and safe NVRAM node creation, and accepts only READY/DEGRADED. NVRAM run `44645672301` PASS.
+- Exact source SHA `61cbc6b842fdaaafc3f2fcab269bb11292fa8514` passed XY-C1 run `44644448761`, including input detection, Build XY-C1, TRX verification and artifact upload (L3 for that SHA). Current parent SHA `d246ddf7a04fa8a678c95cf08f7292968e467e8c` also passed XY-C1 `44646517924`, Storage `44646517796` and AI handoff docs `44646517944`. No physical-router L4 is claimed.
+- Current P1 focus: close the historical ZeroTier firewall teardown regression. Older run `44518868454` on `b1b621253ddb1bd2f3dc3f9d3cd2c5b39f98285d` failed only at the normal-stop test's count of five firewall delete commands. The test already requires the fake firewall state to be empty and prints its trace on count mismatch. This slice adds an exact assertion for each of the three filter and two NAT deletion commands while preserving the empty-state and exactly-five count checks. This is test-only; the ZeroTier production script is unchanged. Exact-head ZeroTier and XY-C1 results are pending until triggered by this commit.
+
+## Exact first action for the next GPT
+
+1. Query exact-head ZeroTier lifecycle, AI docs and XY-C1 runs for this test commit. On failure, inspect the precise job log and repair only the demonstrated missing command or stale assertion; do not weaken the empty firewall-state, per-rule, or exact-count checks.
+2. Once ZeroTier teardown regression passes, continue P1 lifecycle/rollback work on a distinct service; preserve process identity, bounded waits, fail-closed UNKNOWN and rollback semantics.
+3. Require exact-source XY-C1 detector, Build XY-C1, TRX verification and artifact upload for every subsequent production-source SHA. Current `d246ddf` L3 does not establish physical-router L4.
+
 ## Verification boundary
 
 - L1: PID 1 distinguishes FATAL/READY/DEGRADED and continues event processing after degraded service boot. Late CA preparation, persistent user-script and autostart launcher failures are now included in the boot aggregate.

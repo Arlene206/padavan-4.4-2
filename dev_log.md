@@ -1,3 +1,11 @@
+## 2026-11-19 — Pin each ZeroTier firewall deletion in the stop regression
+
+- Historical ZeroTier lifecycle run `44518868454` on `b1b621` failed at the normal-stop assertion that counted exactly five firewall delete commands. The fake firewall-state empty assertion was already present, so this test-only follow-up now checks the exact three filter deletes and two table-qualified NAT deletes individually.
+- The existing exact-five delete count and empty firewall-state checks remain in place; per-rule failure prints the full command trace and remaining state. No ZeroTier production source changed.
+- Current parent SHA: `d246ddf7a04fa8a678c95cf08f7292968e467e8c`. Exact-head ZeroTier lifecycle, AI handoff docs and XY-C1 validation are pending for this test commit.
+
+---
+
 ## 2026-11-19 — Correct storage policy-header newline parser
 
 - Storage run `44646265074` on `49ed539` passed the full caller graph and then failed `check_storage_safe_remove.py` at the check for `storage_hotplug_completion_status()`. The helper header is formatted as `static inline int` followed by a real newline; the checker again searched for a literal backslash-n because its source string contained `\\n` rather than `\n`.

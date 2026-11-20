@@ -433,6 +433,21 @@ fi
 [ ! -e "$TEST_CONFIG" ] || fail "successful stop did not complete the existing config cleanup"
 [ "$(cat "$TEST_ACTION_LOG")" = "$(printf 'zero_route:del\nrm:-rf %s' "$TEST_CONFIG")" ] || fail "successful cleanup did not run after daemon absence"
 [ ! -s "$TEST_IPTABLES_STATE_FILE" ] || fail "successful stop left stale firewall rules"
+for deleted_rule in \
+	"-D INPUT -i ztunit -j ACCEPT" \
+	"-D FORWARD -i ztunit -o ztunit -j ACCEPT" \
+	"-D FORWARD -i ztunit -j ACCEPT" \
+	"-t nat -D POSTROUTING -o ztunit -j MASQUERADE" \
+	"-t nat -D POSTROUTING -s 10.147.17.0/24 -j MASQUERADE"
+do
+	if ! grep -Fqx -- "$deleted_rule" "$TEST_IPTABLES_LOG"; then
+		echo "ZeroTier iptables cleanup trace (missing delete: $deleted_rule):" >&2
+		nl -ba "$TEST_IPTABLES_LOG" >&2
+		echo "Remaining fake firewall state:" >&2
+		cat "$TEST_IPTABLES_STATE_FILE" >&2
+		fail "successful stop omitted a required filter/NAT deletion"
+	fi
+done
 deleted_firewall_rule_count=$(grep -cE '(^-D |^-t nat -D )' "$TEST_IPTABLES_LOG" || true)
 if [ "$deleted_firewall_rule_count" -ne 5 ]; then
 	echo "ZeroTier iptables cleanup trace (expected five delete commands, found $deleted_firewall_rule_count):" >&2
