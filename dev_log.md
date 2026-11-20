@@ -1,3 +1,13 @@
+## 2026-11-19 — Make wireless boot source contract whitespace-normalized
+
+- Parent SHA: `9f565b124635a0c3d0686636b4dc0313a5f3a298`.
+- Before the exact-head Process source-contract step completed, a manual Python syntax check caught the initial capture string's over-escaped tabs/newlines and quote sequence. The workflow assertion now checks a whitespace-normalized C body, avoiding brittle newline/tab escaping while still requiring each of the six generator callsites to be assigned and recorded.
+- The policy regression binary had already passed on the parent. No production C or policy semantics changed in this follow-up.
+- The parent Process run `44648970780` was still in progress at last poll; XY-C1 `44648971016` was also in progress with Build/TRX/artifact steps pending. Fresh exact-head runs are required for this checker correction.
+- Production-source L3 evidence remains limited to `61cbc6b842fdaaafc3f2fcab269bb11292fa8514`; no physical-router L4 claim.
+
+---
+
 ## 2026-11-19 — Preserve wireless configuration publication failures during boot
 
 - Parent SHA: `bd36a1c9da40c6f58aa810f1f1d38f70b06cf50d`.

@@ -1049,8 +1049,8 @@ jobs:
           ):
               call_count = init_bridge.count(call)
               assert call_count > 0, call
-              capture = "\\t\\toperation_status = " + call + ";\\n\\t\\trc_bridge_init_record(&bridge_status, \\"" + operation + "\\", operation_status);"
-              assert init_bridge.count(capture) == call_count, (call, operation)
+              capture = 'operation_status = ' + call + '; rc_bridge_init_record(&bridge_status, "' + operation + '", operation_status);'
+              assert bridge_compact.count(capture) == call_count, (call, operation)
           assert "test_wireless_config_generation_failure_reaches_bridge_status();" in bridge_init_regression
           assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
 
