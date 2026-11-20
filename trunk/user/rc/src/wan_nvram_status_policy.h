@@ -42,4 +42,39 @@ rc_wan_nvram_set_required_params(const char *const *param_names,
 	return 0;
 }
 
+
+struct rc_wan_nvram_value {
+	const char *param_name;
+	const char *value;
+};
+
+typedef int (*rc_wan_nvram_value_set_fn)(void *context,
+					 const char *param_name,
+					 const char *value);
+
+/* Clear or seed a required runtime snapshot in order, stopping at first error. */
+static inline int
+rc_wan_nvram_set_required_values(const struct rc_wan_nvram_value *values,
+				 unsigned int count,
+				 rc_wan_nvram_value_set_fn set_value,
+				 void *context)
+{
+	unsigned int i;
+	int status;
+
+	if ((!values && count != 0) || !set_value)
+		return EINVAL;
+
+	for (i = 0; i < count; ++i) {
+		if (!values[i].param_name || !values[i].param_name[0] ||
+		    !values[i].value)
+			return EINVAL;
+		status = set_value(context, values[i].param_name, values[i].value);
+		if (status != 0)
+			return status;
+	}
+
+	return 0;
+}
+
 #endif /* PADAVAN_WAN_NVRAM_STATUS_POLICY_H */

@@ -1,3 +1,11 @@
+## 2026-11-20 — Fail closed when clearing indexed WAN runtime snapshots
+
+- Parent `main` SHA: `d59dc2bdea3307eac78fba6c6aabd7bdac7caf85`.
+- Confirmed reset gap in `reset_wan_vars_status()`: the indexed WAN DNS, WINS, lease, domain, DHCP route lists and error snapshot were cleared through void setters. The non-static branch also zeroed the indexed IP address, netmask, gateway and MTU through unchecked setters. A failed NVRAM write could preserve a previous WAN's resolver/route/address state while reset continued toward protocol selection and activation.
+- Added an injected ordered value-write policy and checked indexed setter callback. Every required clear now stops at the first error, latches `wan_vars_reset_status`, logs the affected snapshot class and aborts reset before WAN activation. The public `void reset_wan_vars(void)` ABI remains unchanged.
+- Added policy regressions for ordered success, first-error short-circuiting, invalid field names and null values; the WAN source contract now verifies all eight runtime clears and all four non-static address clears are checked and fail closed. Existing WAN workflow path filters already cover every changed source/helper/test/checker file.
+- Local isolated policy regression: GNU89, `-Wall -Wextra -Werror`, ASan and UBSan PASS. Full repository source-contract workflow and exact-head XY-C1 build/TRX/artifact status remain pending; no L3 firmware or L4 hardware claim is made.
+
 ## 2026-11-20 — Make WAN interface MAC snapshot writes fail closed
 
 - Parent main SHA: `e487695db417478a5879b99da8d18871c3363d62`.

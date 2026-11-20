@@ -96,6 +96,91 @@ test_unexpected_nonzero_result_is_not_success(void)
 	assert(rc_wan_nvram_write_status(1, 0) == EIO);
 }
 
+
+struct fake_value_copy {
+	int fail_at;
+	int failure_status;
+	unsigned int calls;
+	char copied_names[8][16];
+	char copied_values[8][32];
+};
+
+static int
+fake_set_value(void *opaque, const char *param_name, const char *value)
+{
+	struct fake_value_copy *fake = (struct fake_value_copy *)opaque;
+	unsigned int index = fake->calls++;
+
+	assert(index < 8);
+	snprintf(fake->copied_names[index], sizeof(fake->copied_names[index]),
+		 "%s", param_name);
+	snprintf(fake->copied_values[index], sizeof(fake->copied_values[index]),
+		 "%s", value);
+	if ((int)index == fake->fail_at)
+		return fake->failure_status;
+	return 0;
+}
+
+static void
+test_required_value_sequence_success(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "dns", "" }, { "routes", "" }, { "err", "0" }
+	};
+	struct fake_value_copy fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_set_required_values(
+		values, 3, fake_set_value, &fake) == 0);
+	assert(fake.calls == 3);
+	assert(strcmp(fake.copied_names[0], "dns") == 0);
+	assert(strcmp(fake.copied_values[0], "") == 0);
+	assert(strcmp(fake.copied_names[1], "routes") == 0);
+	assert(strcmp(fake.copied_names[2], "err") == 0);
+	assert(strcmp(fake.copied_values[2], "0") == 0);
+}
+
+static void
+test_required_value_sequence_stops_at_first_error(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "dns", "" }, { "routes", "" }, { "err", "0" }
+	};
+	struct fake_value_copy fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 1;
+	fake.failure_status = EACCES;
+	assert(rc_wan_nvram_set_required_values(
+		values, 3, fake_set_value, &fake) == EACCES);
+	assert(fake.calls == 2);
+	assert(strcmp(fake.copied_names[0], "dns") == 0);
+	assert(strcmp(fake.copied_names[1], "routes") == 0);
+	assert(fake.copied_names[2][0] == '\0');
+}
+
+static void
+test_required_value_sequence_rejects_invalid_values(void)
+{
+	static const struct rc_wan_nvram_value empty_name[] = {
+		{ "", "value" }
+	};
+	static const struct rc_wan_nvram_value null_value[] = {
+		{ "dns", NULL }
+	};
+	struct fake_value_copy fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(rc_wan_nvram_set_required_values(
+		NULL, 1, fake_set_value, &fake) == EINVAL);
+	assert(rc_wan_nvram_set_required_values(
+		empty_name, 1, fake_set_value, &fake) == EINVAL);
+	assert(rc_wan_nvram_set_required_values(
+		null_value, 1, fake_set_value, &fake) == EINVAL);
+	assert(fake.calls == 0);
+}
+
 int
 main(void)
 {
@@ -106,5 +191,8 @@ main(void)
 	test_failure_preserves_errno();
 	test_failure_without_errno_falls_back_to_eio();
 	test_unexpected_nonzero_result_is_not_success();
+	test_required_value_sequence_success();
+	test_required_value_sequence_stops_at_first_error();
+	test_required_value_sequence_rejects_invalid_values();
 	return 0;
 }

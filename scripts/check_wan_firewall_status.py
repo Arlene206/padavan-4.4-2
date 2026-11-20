@@ -458,6 +458,54 @@ require('reset_failure_context = "PPP authentication credentials";' in reset and
         'reset_failure_context = "PPP peer and negotiation options";' in reset,
         "PPP credential/options failures must latch reset status with a diagnostic context")
 
+
+runtime_clear = reset.index("runtime_clear_values[] = {")
+runtime_clear_end = reset.index("};", runtime_clear)
+runtime_clear_text = reset[runtime_clear:runtime_clear_end]
+runtime_clear_expected = (
+    '{ "dns", "" }', '{ "wins", "" }', '{ "lease", "" }',
+    '{ "domain", "" }', '{ "routes", "" }', '{ "routes_ms", "" }',
+    '{ "routes_rfc", "" }', '{ "err", "0" }',
+)
+cursor = 0
+for marker in runtime_clear_expected:
+    position = runtime_clear_text.find(marker, cursor)
+    require(position >= 0, f"runtime WAN snapshot clear missing/out of order: {marker}")
+    cursor = position + len(marker)
+require("rc_wan_nvram_set_required_values(\n\t\truntime_clear_values," in reset and
+        'reset_failure_context = "WAN runtime DNS and route snapshot";' in reset and
+        "goto reset_failed;" in reset,
+        "WAN DNS/lease/domain/route snapshot clears must be checked before protocol selection")
+for marker in (
+    'set_wan_unit_value(unit, "dns", "")',
+    'set_wan_unit_value(unit, "routes", "")',
+    'set_wan_unit_value_int(unit, "err", 0)',
+):
+    require(marker not in reset, f"unchecked runtime snapshot clear remains: {marker}")
+
+nonstatic_clear = reset.index("nonstatic_address_clear_values[] = {")
+nonstatic_clear_end = reset.index("};", nonstatic_clear)
+nonstatic_clear_text = reset[nonstatic_clear:nonstatic_clear_end]
+for marker in ('{ "ipaddr", "0.0.0.0" }', '{ "netmask", "0.0.0.0" }',
+               '{ "gateway", "0.0.0.0" }', '{ "mtu", "" }'):
+    require(marker in nonstatic_clear_text,
+            f"non-static WAN address snapshot clear missing: {marker}")
+require("rc_wan_nvram_set_required_values(\n\t\t\tnonstatic_address_clear_values," in reset and
+        'reset_failure_context = "non-static WAN address snapshot";' in reset and
+        "goto reset_failed;" in reset,
+        "non-static WAN address snapshot clear failures must abort reset before activation")
+require("set_wan_unit_value_status(*unit, param_name, value)" in wan,
+        "runtime snapshot writes must use the checked indexed NVRAM setter")
+
+for marker in ("test_required_value_sequence_success",
+               "test_required_value_sequence_stops_at_first_error",
+               "test_required_value_sequence_rejects_invalid_values"):
+    require(marker in nvram_policy_test,
+            "required runtime-value policy regression missing: " + marker)
+require("rc_wan_nvram_set_required_values" in nvram_policy_test and
+        "fake_set_value" in nvram_policy_test,
+        "runtime NVRAM value policy must be exercised through an injected writer")
+
 man_reset = body(wan, "reset_man_vars_status(void)")
 empty_man_keys = (
     '"wanx_ipaddr"', '"wanx_netmask"', '"wanx_gateway"', '"wanx_dns"',

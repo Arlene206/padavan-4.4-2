@@ -157,6 +157,18 @@ set_wan_unit_param(int unit, const char* param_name)
 	nvram_set_temp(wanN_param, nvram_safe_get(wan_param));
 }
 
+
+static int
+set_wan_unit_value_status_callback(void *context, const char *param_name,
+				   const char *value)
+{
+	int *unit = (int *)context;
+
+	if (!unit)
+		return EINVAL;
+	return set_wan_unit_value_status(*unit, param_name, value);
+}
+
 static void
 control_wan_led_isp_state(int is_wan_up, int is_modem_unit)
 {
@@ -287,6 +299,16 @@ reset_wan_vars_status(void)
 		"l2tp_mtu", "l2tp_mru", "ppp_peer", "ppp_auth", "ppp_mppe",
 		"ppp_lcp", "ppp_alcp", "ppp_pppd"
 	};
+	static const struct rc_wan_nvram_value runtime_clear_values[] = {
+		{ "dns", "" }, { "wins", "" }, { "lease", "" },
+		{ "domain", "" }, { "routes", "" }, { "routes_ms", "" },
+		{ "routes_rfc", "" }, { "err", "0" }
+	};
+	static const struct rc_wan_nvram_value nonstatic_address_clear_values[] = {
+		{ "ipaddr", "0.0.0.0" }, { "netmask", "0.0.0.0" },
+		{ "gateway", "0.0.0.0" }, { "mtu", "" }
+	};
+
 
 	wan_vars_reset_status = 0;
 	unit = 0;
@@ -329,14 +351,16 @@ reset_wan_vars_status(void)
 		goto reset_failed;
 	}
 
-	set_wan_unit_value(unit, "dns", "");
-	set_wan_unit_value(unit, "wins", "");
-	set_wan_unit_value(unit, "lease", "");
-	set_wan_unit_value(unit, "domain", "");
-	set_wan_unit_value(unit, "routes", "");
-	set_wan_unit_value(unit, "routes_ms", "");
-	set_wan_unit_value(unit, "routes_rfc", "");
-	set_wan_unit_value_int(unit, "err", 0);
+
+	proto_status = rc_wan_nvram_set_required_values(
+		runtime_clear_values,
+		(unsigned int)(sizeof(runtime_clear_values) / sizeof(runtime_clear_values[0])),
+		set_wan_unit_value_status_callback, &unit);
+	if (proto_status != 0) {
+		reset_failure_context = "WAN runtime DNS and route snapshot";
+		goto reset_failed;
+	}
+
 
 	wan_proto = get_wan_proto(unit);
 
@@ -351,10 +375,17 @@ reset_wan_vars_status(void)
 			goto reset_failed;
 		}
 	} else {
-		set_wan_unit_value(unit, "ipaddr", "0.0.0.0");
-		set_wan_unit_value(unit, "netmask", "0.0.0.0");
-		set_wan_unit_value(unit, "gateway", "0.0.0.0");
-		set_wan_unit_value(unit, "mtu", "");
+
+		proto_status = rc_wan_nvram_set_required_values(
+			nonstatic_address_clear_values,
+			(unsigned int)(sizeof(nonstatic_address_clear_values) /
+				       sizeof(nonstatic_address_clear_values[0])),
+			set_wan_unit_value_status_callback, &unit);
+		if (proto_status != 0) {
+			reset_failure_context = "non-static WAN address snapshot";
+			goto reset_failed;
+		}
+
 	}
 
 	man_addr = "0.0.0.0";
