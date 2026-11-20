@@ -1,3 +1,12 @@
+## 2026-11-20 — Repair PID 1 GAI checker callback signature
+
+- Parent main SHA: `24dfe60f26ebdc89dd98ddbd62728acc853d1d20`.
+- Exact Process run `44673235684` failed at `check_dev_init_boot.py`: the checker requested `write_libc_gai_precedence(void)` and `unlink_libc_gai_override(void)`, but both production callbacks correctly declare `void *context`. The GAI unit test was skipped by the early source-check failure.
+- This commit updates only the semantic checker signatures; production source behavior is unchanged. Exact-head Process rerun is pending. The focused GAI GNU89/Werror/ASan/UBSan policy test passed locally.
+- Next source slice: prevent PPP-start firewall recovery from using stale WAN interface NVRAM state when its attempted physical-interface publication fails.
+
+---
+
 ## 2026-11-20 — Propagate libc address-selection file errors
 
 - Parent main SHA: `e387b92c16c83c3621e78e16dcdbd10707d7a2d5`.

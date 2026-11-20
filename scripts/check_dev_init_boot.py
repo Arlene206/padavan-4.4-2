@@ -122,8 +122,8 @@ for setting in ("tcp_fin_timeout", "tcp_keepalive_intvl", "tcp_keepalive_probes"
 assert "test_failures_do_not_skip_later_tweaks_and_preserve_first_error" in tcp_test
 assert "assert(writer.calls == RC_TCP_TWEAK_COUNT);" in tcp_test
 assert "int set_libc_gai(int ipv4_first);" in rc_header
-gai_writer = c_function(net, "write_libc_gai_precedence(void)")
-gai_remover = c_function(net, "unlink_libc_gai_override(void)")
+gai_writer = c_function(net, "write_libc_gai_precedence(void *context)")
+gai_remover = c_function(net, "unlink_libc_gai_override(void *context)")
 gai_function = c_function(net, "set_libc_gai(int ipv4_first)")
 assert 'fput_string("/etc/gai.conf", "precedence ipv4\\n")' in gai_writer
 assert 'unlink("/etc/gai.conf")' in gai_remover
