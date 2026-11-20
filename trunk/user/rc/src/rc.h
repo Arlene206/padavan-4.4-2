@@ -382,7 +382,7 @@ int is_wan_addr6_static(void);
 int is_wan_ipv6_type_sit(void);
 int is_wan_ipv6_if_ppp(void);
 int  store_wan_dns6(char *dns6_new);
-void reset_wan6_vars(void);
+int reset_wan6_vars(void);
 int reset_wan6_vars_status(void);
 int store_ip6rd_from_dhcp_status(const char *env_value, const char *prefix);
 void store_ip6rd_from_dhcp(const char *env_value, const char *prefix);

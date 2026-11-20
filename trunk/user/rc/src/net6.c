@@ -272,7 +272,13 @@ full_restart_ipv6(int ipv6_type_old)
 				   operation_status);
 		restart_status = rc_first_service_start_status(restart_status,
 								operation_status);
-		reset_wan6_vars();
+		operation_status = reset_wan6_vars();
+		if (operation_status != 0)
+			logmessage(LOGNAME,
+				   "IPv6 disable could not clear WAN address state (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
 		operation_status = control_if_ipv6_all(0);
 		if (operation_status != 0)
 			logmessage(LOGNAME, "IPv6 disable could not apply global sysctls (status=%d)", operation_status);

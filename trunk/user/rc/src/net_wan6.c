@@ -225,7 +225,7 @@ int reset_wan6_vars_status(void)
 		reset_values, 6, wan6_set_runtime_value_status, NULL);
 }
 
-void
+int
 reset_wan6_vars(void)
 {
 	int status = reset_wan6_vars_status();
@@ -234,6 +234,7 @@ reset_wan6_vars(void)
 		logmessage("WAN IPv6",
 			   "failed to reset IPv6 runtime configuration (status=%d)",
 			   status);
+	return status;
 }
 
 int is_wan_addr6_static(void)
