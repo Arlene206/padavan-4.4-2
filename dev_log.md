@@ -1,3 +1,8 @@
+## 2026-11-20 — Correct DHCP readiness source-check formatting assertion
+
+- Parent source SHA: `dc0e09f7924f415a4bdcfbae4fda07d888994a4b`; exact-head WAN-DHCP run `44785621612` FAILED only at the newly-added Python source assertion: `process_presence_start_postcondition()` is split across two C lines, and the checker’s whitespace-compacted expected text omitted the remaining space before `launch_status`.
+- All earlier GNU89 `-Wall -Wextra -Werror` builds and the DHCP lease policy sanitizer binary passed in that run. This is a checker expectation correction, not a production C change; exact-head WAN-DHCP, Process, and XY-C1 reruns required.
+
 ## 2026-11-20 — Share detached DHCP child-readiness verification across LAN, WAN and IPTV
 
 - Parent main SHA: `881f42a4d5173ac4de45299f6361cf65d00c6df8`.

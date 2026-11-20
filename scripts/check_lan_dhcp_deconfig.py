@@ -143,7 +143,7 @@ assert "udhcpc_start_and_verify(dhcp_argv, pidfile, wan_ifname, log_prefix)" in 
 assert 'udhcpc_start_and_verify(dhcp_argv, "/var/run/udhcpc_viptv.pid"' in compact(viptv_dhcp_start)
 udhcpc_helper = c_function_body(udhcpc_start_header, "udhcpc_start_and_verify(")
 assert 'process_pidfile_read_identity(pidfile, "udhcpc", &identity)' in compact(udhcpc_helper)
-assert "process_presence_start_postcondition(launch_status, presence)" in compact(udhcpc_helper)
+assert "process_presence_start_postcondition( launch_status, presence)" in compact(udhcpc_helper)
 assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in udhcpc_helper
 assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in udhcpc_helper
 assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in udhcpc_helper
