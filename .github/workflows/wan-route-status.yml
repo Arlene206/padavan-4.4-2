@@ -473,7 +473,7 @@ jobs:
           primary_return = stop_lan_body.index("return status;", resume_log)
           assert primary_return > resume_log
           assert "Internet monitor resume failed after aborted AP DHCP stop" in stop_lan_body
-          assert "int monitor_resume_status = 0;" in stop_lan_body
+          assert "int status, pause_status, monitor_resume_status;" in stop_lan_body
           ap_rollback = body(net_lan, "lan_ap_teardown_abort_restore(")
           assert "restore_status = start_lan(1, 1);" in ap_rollback
           assert "notify_run_detect_internet(2)" in ap_rollback

@@ -410,9 +410,11 @@ abort_start = lan_restart.index("if (lan_status != 0)")
 abort_end = lan_restart.index("reset_lan_vars();", abort_start)
 abort_path = lan_restart[abort_start:abort_end]
 stop_lan = lan_restart.index("lan_status = stop_lan(is_ap_mode);")
-dns_restore = abort_path.index("start_dns_dhcpd_locked(is_ap_mode)")
-lock_release = abort_path.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)")
-vpn_restore = abort_path.index("restore VPN after aborted LAN restart")
+lan_vpn_stop = lan_restart.index("vpn_status = stop_vpn_server()")
+dns_restore = lan_restart.index("start_dns_dhcpd_locked(is_ap_mode)", abort_start)
+lock_release = lan_restart.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)", abort_start)
+vpn_restore = lan_restart.index("restore VPN after aborted LAN restart", abort_start)
+abort_return = lan_restart.index("return restart_status;", abort_start)
 for status_name, start_call in (
     ("logger_stop_status", "start_logger(0)"),
     ("lltd_stop_status", "start_lltd()"),
@@ -424,8 +426,8 @@ for status_name, start_call in (
     restore_call = lan_restart.index(start_call, restore_gate)
     vpn_restore = lan_restart.index("restore VPN after aborted LAN restart")
     assert lan_vpn_stop < stop_call < stop_lan < abort_start < vpn_restore < restore_gate < restore_call
-    assert restore_call < abort_path.index("return restart_status;", restore_call)
-assert lock_release < vpn_restore
+    assert restore_call < abort_return
+assert dns_restore < lock_release < vpn_restore
 assert "static inline int\\nrc_service_restart_after_stop(int stop_status)" in service_policy
 assert "test_lan_restart_rollback_only_restarts_confirmed_stops" in service_test
 
