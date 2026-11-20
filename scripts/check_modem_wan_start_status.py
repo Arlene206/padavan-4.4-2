@@ -344,9 +344,11 @@ invalid_config = "if (!dhcp_lease_ipv4_is_valid(wan_addr) || !dhcp_lease_netmask
 assert invalid_config in static_config and snapshot_call < static_config.index(invalid_config), (
     "static WAN IPoE must take a checked coherent NVRAM snapshot before validating or configuring addresses"
 )
+snapshot_start = WAN_SOURCE.index("wan_static_ipv4_snapshot(")
+snapshot_signature = WAN_SOURCE[snapshot_start:WAN_SOURCE.index("{", snapshot_start)]
+assert "const char *wan_addr_suffix" in snapshot_signature
+assert "const char *wan_mask_suffix" in snapshot_signature
 snapshot_helper = compact(body(WAN_SOURCE, "wan_static_ipv4_snapshot("))
-assert "constchar*wan_addr_suffix" in snapshot_helper
-assert "constchar*wan_mask_suffix" in snapshot_helper
 assert '"wan%d_%s",unit,wan_addr_suffix' in snapshot_helper
 assert '"wan%d_%s",unit,wan_mask_suffix' in snapshot_helper
 launch_wanx = compact(body(WAN_SOURCE, "launch_wanx("))

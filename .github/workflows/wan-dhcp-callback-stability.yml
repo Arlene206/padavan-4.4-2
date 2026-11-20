@@ -1238,9 +1238,11 @@ jobs:
           assert address_failure in ipoe_static_config
           assert "snapshot_status = wan_static_ipv4_snapshot(" in ipoe_static_config
           assert "if (snapshot_status != 0)" in ipoe_static_config
+          snapshot_start = source.index("wan_static_ipv4_snapshot(")
+          snapshot_signature = source[snapshot_start:source.index("{", snapshot_start)]
+          assert "const char *wan_addr_suffix" in snapshot_signature
+          assert "const char *wan_mask_suffix" in snapshot_signature
           snapshot_helper = "".join(body(source, "wan_static_ipv4_snapshot(").split())
-          assert "constchar*wan_addr_suffix" in snapshot_helper
-          assert "constchar*wan_mask_suffix" in snapshot_helper
           assert '"wan%d_%s",unit,wan_addr_suffix' in snapshot_helper
           assert '"wan%d_%s",unit,wan_mask_suffix' in snapshot_helper
           assert "snapshot_status = wan_static_ipv4_snapshot(" in ipoe_static_config
