@@ -27,6 +27,7 @@
 
 #include "rc.h"
 #include "detect_internet_signal_policy.h"
+#include "detect_internet_nvram_policy.h"
 #include "process_presence_start_policy.h"
 #include "detect_internet_notification_policy.h"
 #include <process_inventory.h>
@@ -43,6 +44,8 @@ static int                   di_host_next;
 static int                   di_host_total;
 static int                   di_poll_mode;
 static int                   di_status;
+static int                   di_status_nvram_old = -1;
+static int                   di_status_nvram_error = 0;
 static int                   di_is_ap_mode;
 static long                  di_time_last_activity;
 static long                  di_time_last_state;
@@ -142,6 +145,37 @@ done_exit:
 	return ret;
 }
 
+static int
+di_write_nvram_status(void *context, int status)
+{
+	(void)context;
+	return nvram_set_int_temp("link_internet", status);
+}
+
+
+static int
+di_publish_nvram_status(int status)
+{
+	int result;
+
+	result = detect_internet_publish_status(
+		status, &di_status_nvram_old, di_write_nvram_status, NULL);
+	if (result != 0) {
+		if (di_status_nvram_error != result)
+			logmessage("detect_internet",
+				   "cannot publish Internet connectivity state (status=%d)",
+				   result);
+		di_status_nvram_error = result;
+	} else {
+		if (di_status_nvram_error != 0)
+			logmessage("detect_internet",
+				   "Internet connectivity NVRAM publication recovered");
+		di_status_nvram_error = 0;
+	}
+	return result;
+}
+
+
 static void
 di_reset_state(void)
 {
@@ -157,7 +191,7 @@ di_reset_state(void)
 	di_time_diff_state = 0;
 
 	di_status = DI_STATUS_INIT;
-	nvram_set_int_temp("link_internet", DI_STATUS_INIT);
+	di_publish_nvram_status(DI_STATUS_INIT);
 }
 
 static void
@@ -218,8 +252,19 @@ static void
 di_on_timer(void)
 {
 	int i, link_error, link_internet, has_unchecked;
+	int publish_status;
 	long now;
 	unsigned long period_next;
+
+	/* A paused monitor only retries its externally visible down state. */
+	if (di_pause_received) {
+		publish_status = di_publish_nvram_status(0);
+		di_alarmtimer(publish_status != 0 ? 1 : 0);
+		return;
+	}
+
+	/* Retry a failed mirror even when connectivity itself did not change. */
+	publish_status = di_publish_nvram_status(di_status);
 
 	/* A paused/stopping monitor must not publish a late probe result. */
 	if (di_pause_received)
@@ -228,8 +273,10 @@ di_on_timer(void)
 	/* check last user activity */
 	if (di_poll_mode == 0) {
 		if ((unsigned long)(uptime() - di_time_last_activity) > 60) {
-			/* relax poll timer */
-			if (!di_pause_received && di_itv.it_value.tv_sec != 60)
+			/* relax probe cadence, but keep retrying a failed NVRAM mirror */
+			if (publish_status != 0)
+				di_alarmtimer(1);
+			else if (!di_pause_received && di_itv.it_value.tv_sec != 60)
 				di_alarmtimer(60);
 			return;
 		}
@@ -287,8 +334,7 @@ di_on_timer(void)
 	if (link_internet != DI_STATUS_INIT && di_status != link_internet) {
 		di_status = link_internet;
 		di_time_diff_state = now - di_time_last_state;
-		
-		nvram_set_int_temp("link_internet", link_internet);
+		publish_status = di_publish_nvram_status(link_internet);
 		
 		if (nvram_get_int("front_led_wan") == 3){
 			LED_CONTROL(LED_WAN, (link_internet) ? LED_ON : LED_OFF);
@@ -307,8 +353,12 @@ di_on_timer(void)
 		di_time_last_state = now;
 	}
 
-	if (!di_pause_received && di_itv.it_value.tv_sec != period_next)
-		di_alarmtimer(period_next);
+	if (!di_pause_received) {
+		unsigned long next_period = publish_status != 0 ? 1 : period_next;
+
+		if (di_itv.it_value.tv_sec != next_period)
+			di_alarmtimer(next_period);
+	}
 }
 
 static void
@@ -332,9 +382,13 @@ di_on_sigusr1(void)
 static void
 di_on_sigusr2(void)
 {
+	int status;
+
 	di_pause_received = 1;
 	di_alarmtimer(0);
-	nvram_set_int_temp("link_internet", 0);
+	status = di_publish_nvram_status(0);
+	if (status != 0)
+		di_alarmtimer(1);
 }
 
 static void

@@ -225,6 +225,8 @@ on:
       - "trunk/user/rc/src/detect_wan_signal_policy.h"
       - "trunk/user/rc/src/detect_wan_udhcpc_policy.h"
       - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_internet_nvram_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_nvram_policy.c"
       - "trunk/user/rc/src/detect_internet_notification_policy.h"
       - "trunk/user/rc/src/detect_link.c"
       - "trunk/user/rc/src/process_presence_start_policy.h"
@@ -559,6 +561,11 @@ jobs:
             trunk/user/rc/src/tests/detect_link_nvram_policy.c \
             -o /tmp/detect-link-nvram-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-nvram-policy
+      - name: Compile and run Internet status NVRAM retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -I trunk/user/rc/src trunk/user/rc/src/tests/detect_internet_nvram_policy.c -o /tmp/detect-internet-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-nvram-policy
       - name: Test XY-C1 firmware input detector
         run: python3 scripts/tests/test_xy_c1_firmware_inputs.py
 

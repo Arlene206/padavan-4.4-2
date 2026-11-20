@@ -6,6 +6,8 @@ on:
       - ".github/workflows/detect-internet-signal-stability.yml"
       - "trunk/user/rc/src/detect_internet.c"
       - "trunk/user/rc/src/detect_internet_signal_policy.h"
+      - "trunk/user/rc/src/detect_internet_nvram_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_nvram_policy.c"
       - "trunk/user/rc/src/detect_internet_notification_policy.h"
       - "trunk/user/rc/src/tests/detect_internet_signal_policy.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -19,6 +21,8 @@ on:
       - ".github/workflows/detect-internet-signal-stability.yml"
       - "trunk/user/rc/src/detect_internet.c"
       - "trunk/user/rc/src/detect_internet_signal_policy.h"
+      - "trunk/user/rc/src/detect_internet_nvram_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_nvram_policy.c"
       - "trunk/user/rc/src/detect_internet_notification_policy.h"
       - "trunk/user/rc/src/tests/detect_internet_signal_policy.c"
       - "trunk/user/rc/src/net_wan.c"
@@ -44,6 +48,11 @@ jobs:
             trunk/user/rc/src/tests/detect_internet_signal_policy.c \
             -o /tmp/detect-internet-signal-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-signal-policy
+      - name: Compile and run Internet status NVRAM retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -I trunk/user/rc/src trunk/user/rc/src/tests/detect_internet_nvram_policy.c -o /tmp/detect-internet-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-nvram-policy
       - name: Verify normal-context dispatch, wakeup safety and service wiring
         run: |
           python3 - <<'PY'
@@ -76,6 +85,26 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           assert '#include "detect_internet_signal_policy.h"' in detect
+          assert '#include "detect_internet_nvram_policy.h"' in detect
+          nvram_policy = (rc / "detect_internet_nvram_policy.h").read_text()
+          nvram_test = (rc / "tests/detect_internet_nvram_policy.c").read_text()
+          assert "detect_internet_publish_status(" in nvram_policy
+          assert "di_status_nvram_old" in detect
+          publisher = body(detect, "di_publish_nvram_status(int status)")
+          writer = body(detect, "di_write_nvram_status(void *context, int status)")
+          assert 'nvram_set_int_temp("link_internet", status)' in writer
+          assert "di_status_nvram_error != result" in publisher
+          assert "Internet connectivity NVRAM publication recovered" in publisher
+          reset_state = body(detect, "di_reset_state(void)")
+          assert "di_publish_nvram_status(DI_STATUS_INIT);" in reset_state
+          pause_state = body(detect, "di_on_sigusr2(void)")
+          assert "status = di_publish_nvram_status(0);" in pause_state
+          assert "if (status != 0)" in pause_state and "di_alarmtimer(1);" in pause_state
+          for marker in ("test_failed_unknown_state_publication_is_retried",
+                         "test_changed_connectivity_state_keeps_previous_cache_on_failure",
+                         "test_invalid_policy_arguments_fail_closed"):
+              assert marker in nvram_test and marker + "();" in nvram_test
+          assert "detect_internet NVRAM mirror retry policy: PASS" in nvram_test
           handler = body(detect, "catch_sig_detect_internet(int sig)")
           assert "detect_internet_record_signal(&di_pending_events, &di_pending_control" in handler
           for forbidden in ("di_on_timer(", "di_update_last_activity(", "di_on_sigusr1(",
@@ -105,7 +134,11 @@ jobs:
           timer = body(detect, "di_on_timer(void)")
           connect = timer.index("di_connect_to_host(")
           pause_fence = timer.index("if (di_pause_received)", connect)
-          publish = timer.index('nvram_set_int_temp("link_internet", link_internet)')
+          publish = timer.index("di_publish_nvram_status(link_internet)")
+          assert timer.index("di_publish_nvram_status(di_status);") < connect
+          assert "di_publish_nvram_status(0)" in timer
+          assert "if (publish_status != 0)" in timer
+          assert 'nvram_set_int_temp("link_internet"' not in timer
           assert pause_fence < publish
           assert "notify_on_internet_state_changed(" in timer
           assert '#include "detect_internet_notification_policy.h"' in wan
@@ -253,6 +286,8 @@ jobs:
               ".github/workflows/detect-internet-signal-stability.yml",
               "trunk/user/rc/src/detect_internet.c",
               "trunk/user/rc/src/detect_internet_signal_policy.h",
+              "trunk/user/rc/src/detect_internet_nvram_policy.h",
+              "trunk/user/rc/src/tests/detect_internet_nvram_policy.c",
               "trunk/user/rc/src/detect_internet_notification_policy.h",
               "trunk/user/rc/src/tests/detect_internet_signal_policy.c",
               "trunk/user/rc/src/net_wan.c",
