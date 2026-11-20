@@ -322,6 +322,7 @@ jobs:
           assert "failed to roll back partially installed UPnP mapping" in filter_failure
           cleanup_header = Path("trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.h").read_text()
           cleanup_backend = function_body(ipt_source, "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)")
+          cleanup_backend_flat = " ".join(cleanup_backend.split())
           delete_helper = function_body(ipt_source, "delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,")
           insert_helper = function_body(ipt_source, "insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,")
           for cleanup_helper in (delete_helper, insert_helper):
@@ -339,7 +340,7 @@ jobs:
           assert "miniupnpd_finalize_redirect_cleanup(" in cleanup_backend
           assert "del_redirect_desc" in cleanup_backend
           assert "primary_failure_errno" in cleanup_backend
-          assert "if (nat_backup_failed) return miniupnpd_restore_errno_on_failure(r, primary_failure_errno)" in cleanup_backend
+          assert "if (nat_backup_failed) return miniupnpd_restore_errno_on_failure(r, primary_failure_errno)" in cleanup_backend_flat
           assert "secondary_failure_errno" in cleanup_backend
           assert "miniupnpd_select_cleanup_failure_errno(" in cleanup_backend
           assert "miniupnpd_restore_errno_on_failure(cleanup_status, failure_errno)" in cleanup_backend

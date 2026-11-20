@@ -1,3 +1,14 @@
+## 2026-11-20 — Normalize the inline NAT snapshot errno contract
+
+- Parent main SHA: 4e8bbf9be606d4a9280767146ccaae53bdbaea66.
+- The MiniUPnP atomic-configuration workflow #44808194708 reached its final writer/start-gate contract and failed at the newly added NAT snapshot errno assertion. The production return is split across two lines, while the inline Python check compared a single raw line. The standalone checker already normalizes function whitespace and correctly accepts this control flow.
+- Added a normalized cleanup_backend_flat view in the workflow and moved only this assertion to the normalized source. The required control-flow expression remains identical; this is a checker formatting correction, not a weakened condition.
+- The preceding compiled policy tests, including errno snapshot/restore and primary/secondary precedence, passed in the same workflow before the inline source contract failed.
+- Exact-head MiniUPnP #44808194708 is therefore FAIL due only to this raw-whitespace mismatch. Fresh MiniUPnP/AI/Process/NVRAM/XY checks will run on the corrected commit. Firmware L3 and physical-router L4 remain NOT VERIFIED for the new source.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Align NAT snapshot failure contract with errno restoration
 
 - Parent main SHA: 5ca967f2dd9da9ee20408dde1b413cfaeac9265c.
