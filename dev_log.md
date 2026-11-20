@@ -1,3 +1,12 @@
+## 2026-11-20 — Align WAN renewal source contracts with lease/route/MTU retries
+
+- Parent main SHA: `533de8ffee96d62ac4c2a82fe7a31bd7cdaa0ccc`.
+- The new retry policy now triggers a full DHCP bound re-entry for any retained lease/address, route, or advertised-MTU setup error. The WAN-route and HTTPD source contracts still searched for the older route-only helper, so they failed despite the production retry path being present.
+- Updated both checkers to require the three-state helper and verify that WAN/IPTV renewal reads each corresponding NVRAM retry marker before parsing the changed lease tuple. No production source changed in this CI repair.
+- Exact-head WAN-route, HTTPD and XY-C1 evidence must be checked separately; previous failures on `5c2cbb39` are not transferable.
+
+---
+
 ## 2026-11-20 — Reject zero internal ports in MiniUPnP mapping requests
 
 - Parent main SHA: cd6734bf52ef0bcf7429ee0b7f8978fc361660f3.

@@ -242,7 +242,7 @@ require(
 )
 
 wan_renew = body(WAN, "udhcpc_renew(char *wan_ifname)")
-wan_renew_retry = wan_renew.index("dhcp_wan_route_setup_retry_required(")
+wan_renew_retry = wan_renew.index("dhcp_wan_bound_retry_required(")
 wan_retry_bound = wan_renew.index("return udhcpc_bound(wan_ifname, 1);", wan_renew_retry)
 wan_renew_mtu = wan_renew.index('value = getenv("mtu");', wan_retry_bound)
 wan_mtu_change_bound = wan_renew.index(
@@ -250,7 +250,7 @@ wan_mtu_change_bound = wan_renew.index(
 )
 require(
     wan_renew_retry < wan_retry_bound < wan_renew_mtu < wan_mtu_change_bound,
-    "WAN renew must retry route failures and re-enter bound after a DHCP MTU change",
+    "WAN renew must retry lease/address/route/MTU failures and re-enter bound after a DHCP MTU change",
 )
 
 viptv_bound = body(WAN, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
@@ -291,7 +291,7 @@ require(
 )
 
 viptv_renew = body(WAN, "udhcpc_viptv_renew(char *man_ifname)")
-tv_retry = viptv_renew.index("dhcp_wan_route_setup_retry_required(")
+tv_retry = viptv_renew.index("dhcp_wan_bound_retry_required(")
 tv_retry_bound = viptv_renew.index(
     "return udhcpc_viptv_bound(man_ifname, 1);", tv_retry
 )
@@ -301,7 +301,7 @@ tv_mtu_change_bound = viptv_renew.index(
 )
 require(
     tv_retry < tv_retry_bound < tv_renew_mtu < tv_mtu_change_bound,
-    "IPTV renew must retry route failures and re-enter bound after a DHCP MTU change",
+    "IPTV renew must retry lease/address/route/MTU failures and re-enter bound after a DHCP MTU change",
 )
 
 dhcp_mtu_policy = body(POLICY, "wan_dhcp_mtu_is_supported(")
