@@ -4,48 +4,35 @@
 
 Continue main-only implementation across conversations. Recover the repository once, then resume the exact active task; avoid repeated audits, planning-only stops and status-only commits.
 
-- Complete one logical task per atomic commit: each task ends in one atomic main commit. For multi-file tasks create all blobs, one complete Git tree, one commit parented to live `main`, then update `main` with `force=false` and exact `expected_sha`.
+- Each logical task ends in one atomic main commit. For multi-file changes create all blobs, one complete Git tree and one commit parented to live `main`, then update `main` with `force=false` and exact `expected_sha`.
 - Never create/use development branches or PRs, force-push, amend published commits, or modify the frozen backup.
-- Check Actions by exact `head_sha`. Diagnose FAIL from logs; while any check is PENDING, continue independent work.
-- Preserve GNU89, MIPS/uClibc, BusyBox/Linux 4.4 compatibility, fail-closed behavior, process identity checks, bounded operations and regression coverage.
+- Check Actions by exact `head_sha`. Diagnose FAIL from causal logs; while checks are PENDING, continue independent work.
+- Preserve GNU89, MIPS/uClibc, BusyBox/Linux 4.4 compatibility, fail-closed behavior, process identity checks, bounded operations and meaningful regression coverage.
 - Do not ask the user what to do next. Before context exhaustion, finish the current safe slice and leave an accurate next action.
 
 ## Current repository state
 
-- Main at this checkpoint: `bf53b1c08fa068fed5e06ef11098e523be032dcf`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; archival and untouched.
-- Latest production commit: `bffe074d853e9083d299d3ce07dd96d827a6d681`, parent `b6150ea46a084510a3c56f91646ea9ada905e72a`. It fixes ZeroTier identity-file partial publication with rollback.
-- Latest account database production source is `740c82cee671e5bcc133289d9126f75afd654ec3`; descendants `775ef93`, `590bc8a`, `1e09d06`, `b6150ea` strengthen rollback regression/source contracts without changing production C.
+- Parent main before this follow-up: `ab6c532b1211ac5ed676537002edef6a231ebcc7`.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
+- On parent `ab6c532`: ZeroTier lifecycle `44659276399`, Process inventory `44659276281`, WAN route `44659276230`, and AI handoff docs `44659276308` PASS. XY-C1 `44659276259` is IN PROGRESS; do not claim L3 until Build, TRX and artifact upload pass on one exact production-source SHA.
+- Earlier production SHA `bffe074d853e9083d299d3ce07dd96d827a6d681` had L3 via XY-C1 `44656543236`, but that run predates the uploaded-planet import and staging cleanup changes. It does not establish L3 for current source. Physical-router L4 remains NOT VERIFIED.
 
-## Active task
+## Active engineering work
 
-- Verify exact-head XY-C1 for ZeroTier production source `bffe074`; do not report L3 until Build XY-C1, TRX verification and artifact upload all pass.
-- Restore the mandatory handoff checkpoint contract for the AI documentation checker. Runs `44656214060` on `b6150ea` and `44656543369` on `bffe074` both failed only because the handoff omitted the required end-of-session checkpoint heading and exact sentence. This document update adds the requirement.
-- After verification, continue P1 service-result propagation in `trunk/user/rc/src/services_ex.c`. Trace a specific nonzero return discarded by a direct caller into the resulting service/boot state; add a focused executable regression or source contract before changing code. Do not revisit completed wireless bridge, USB modem reconnect, account staging/rollback, or unused-wrapper audits without a new failing case.
+- Uploaded ZeroTier planet import privately stages the upload and attempts coordinated disk/NVRAM rollback. Review found that a failed forward `nvram commit` followed by a failed compensating commit left the old NVRAM value only in shell memory. The EXIT trap could restore the file and delete its transaction directory while persistent NVRAM state remained uncertain. THIS COMMIT stores the old value in mode-0600 `planet.nvram.previous` and retains the transaction directory on NVRAM rollback failure. The fault-injection regression verifies the snapshot and retained directory.
+- The parent `ab6c532` also fixed the EXIT-trap registration gap after staging-directory creation and added failed-NVRAM-read coverage; exact-head ZeroTier lifecycle `44659276399` PASS.
 
-## Verification boundary
+## Exact first actions for the next GPT
 
-Exact-head checks observed:
-- On parent `b6150ea46a084510a3c56f91646ea9ada905e72a`: Process lifecycle `44656213985` PASS; Process inventory `44656214119` PASS; NVRAM transaction boundary `44656214084` PASS.
-- On production source `bffe074d853e9083d299d3ce07dd96d827a6d681`: ZeroTier lifecycle `44656543332` PASS; WAN route operation status `44656543283` PASS.
-- AI handoff docs `44656214060` (`b6150ea`) and `44656543369` (`bffe074`) FAIL for the missing handoff checkpoint wording. This commit adds the exact required contract; rerun the validator.
-- XY-C1 `44656543236` on `bffe074`: input detector PASS; Build XY-C1, TRX verification and artifact upload were IN_PROGRESS at last poll. No L3 claim for this ZeroTier source until all three succeed.
-- Production-source L3 for account security/transaction SHA `740c82cee671e5bcc133289d9126f75afd654ec3`: XY-C1 run `44654005725` passed input detection, Build XY-C1, TRX verification and artifact upload.
-- XY-C1 run `44656213993` on `b6150ea` skipped Build/TRX/artifact because that descendant changed only rollback tests. Do not count it as a production build.
-- Physical-router L4 runtime/boot validation remains NOT VERIFIED.
-
-## Exact first action for the next GPT
-
-1. Check the AI handoff documentation workflow on this commit. The previous exact failure was `current handoff does not require an end-of-session accuracy checkpoint`; preserve the required heading and exact conditional-edit sentence below.
-2. Poll XY-C1 `44656543236` on `bffe074`. Claim L3 only after Build XY-C1, TRX verification and artifact upload all pass.
-3. Continue the concrete service-result investigation in `services_ex.c`: establish the helper's error contract and direct callers, then write a regression for the dropped status before making a bounded source change.
-4. Keep backup untouched and maintain distinct L1/L2/L3/L4 evidence.
+1. Check ZeroTier lifecycle, Process inventory, WAN route, AI docs and XY-C1 for THIS COMMIT by exact `head_sha`. Diagnose any failure; claim L3 only when the matching SHA's Build XY-C1, TRX and artifact upload all pass.
+2. Resume P1 RC result propagation in `trunk/user/rc/src/services_ex.c`. The direct `nvram_set("dhcp_start", ...)` / `nvram_set("dhcp_end", ...)` pair in `prepare_dns_dhcpd()` ignores both integer return values declared in `trunk/user/shared/src/nvram_linux.h`. Preserve both original values, update them as one rollback-capable pair and abort DNSMasq preparation if either write or rollback fails. Extend the existing DHCP-range host regression and inline DNSMasq source contract before changing the call site.
+3. Preserve the frozen backup and maintain separate L1/L2/L3/L4 evidence.
 
 ## Mandatory handoff checkpoint
 
 The checkpoint is mandatory; a document edit is conditional.
 
-Every session MUST inspect the live repository state before ending. Update this handoff only when resumable facts or the first action materially change. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
+Every session MUST inspect the live repository state before ending. Update this handoff only when resumable facts, validation state, blocker or first action materially change. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit.
 
 ## Evidence discipline
 

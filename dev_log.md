@@ -1,3 +1,12 @@
+## 2026-11-20 — Retain ZeroTier planet NVRAM recovery snapshot after commit failure
+
+- Parent main SHA: `ab6c532b1211ac5ed676537002edef6a231ebcc7`.
+- Review of the uploaded-planet transaction found that if its forward `nvram commit` and compensating restore `nvram commit` both failed, the old NVRAM value existed only in shell memory. The EXIT cleanup could restore the disk file and delete the transaction directory, leaving persistent NVRAM state uncertain without a recovery value.
+- Added a private mode-0600 `planet.nvram.previous` snapshot before mutation. When NVRAM rollback fails, the importer now retains its private transaction directory even if disk rollback succeeds. Host regression verifies the retained old-value snapshot and its permissions after injected forward/rollback commit failures.
+- Parent `ab6c532` has ZeroTier `44659276399`, Process inventory `44659276281`, WAN route `44659276230`, and AI docs `44659276308` PASS; XY-C1 `44659276259` was IN PROGRESS. Exact-head Actions for THIS COMMIT are pending; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Clean ZeroTier planet staging when NVRAM read fails
 
 - Parent SHA: `49fc7e9df2405e75b0553e160f2635e992ae3943`.

@@ -290,6 +290,12 @@ zerotier_import_planet_file() {
 
 		# Register cleanup before the first fallible operation after mktemp.
 		zt_planet_old_value="$(nvram get zerotier_planet)" || exit 1
+		# Preserve the old NVRAM value for recovery if both flash commits fail.
+		if ! printf '%s' "$zt_planet_old_value" > "$zt_planet_import_dir/planet.nvram.previous" ||
+		   ! chmod 600 "$zt_planet_import_dir/planet.nvram.previous"; then
+			logger -t "zerotier" "无法保存原有planet NVRAM恢复值"
+			exit 1
+		fi
 		if [ -e "$zt_planet_target" ]; then
 			if ! ln "$zt_planet_target" "$zt_planet_backup"; then
 				logger -t "zerotier" "无法保留原有planet文件"
@@ -339,7 +345,10 @@ zerotier_import_planet_file() {
 			logger -t "zerotier" "上传的planet配置持久化失败"
 			if ! nvram set zerotier_planet="$zt_planet_old_value" ||
 			   ! nvram commit; then
-				logger -t "zerotier" "planet NVRAM值回滚失败"
+				# The flash value is uncertain. Keep the NVRAM snapshot and file
+				# recovery link even if the EXIT trap restores the file.
+				zt_planet_preserve_backup=1
+				logger -t "zerotier" "planet NVRAM值回滚失败；保留私有恢复目录: $zt_planet_import_dir"
 			fi
 			exit 1
 		fi

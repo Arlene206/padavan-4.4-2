@@ -719,8 +719,16 @@ export TEST_NVRAM_COMMIT_FAIL
 	fail "failed planet NVRAM commit did not restore the previous file"
 [ "$(cat "$TEST_NVRAM_PLANET_STATE")" = "old-planet-state" ] ||
 	fail "failed planet NVRAM commit did not restore the old value"
+set -- "$TEST_CONFIG"/.planet-import.*
+[ -d "$1" ] || fail "failed planet NVRAM rollback lost its recovery directory"
+[ "$(cat "$1/planet.nvram.previous")" = "old-planet-state" ] ||
+	fail "failed planet NVRAM rollback did not retain its old-value recovery snapshot"
+[ "$(stat -c '%a' "$1/planet.nvram.previous")" = 600 ] ||
+	fail "planet NVRAM recovery snapshot was not private"
+recovery_dir="$1"
 [ -f "$TEST_TMP/planet-upload" ] ||
 	fail "failed planet import deleted the upload before commit"
+rm -rf "$recovery_dir"
 
 # Fail the first publish rename and prove no destination or NVRAM mutation.
 mv() {
