@@ -1,3 +1,12 @@
+## 2026-11-20 — Remove duplicate Ralink authenticator workflow path filters
+
+- Parent main SHA: 1f129cad823186909583b9fa2a1edd8754fd84e7.
+- The Ralink 802.1X readiness handshake GNU89 regression passed on this exact SHA, but Process lifecycle run `44727530981` failed at the final workflow-integrity guard because the newly added header and test paths were each listed twice in both push and pull-request filters. AI handoff validation `44727531002` independently rejected the same duplicate path entries.
+- Remove only the redundant copies; retain one trigger entry for the production helper and one for its regression test in each event filter. No source/test assertions are weakened.
+- Exact-head Process, AI-docs and XY-C1 validation are required for the repaired tree. The earlier XY-C1 run had entered the actual Build step; no L3 claim until Build, TRX and artifact upload all pass on one SHA.
+
+---
+
 ## 2026-11-20 — Confirm Ralink 802.1X child readiness before reporting launch success
 
 - Parent main SHA: dc43d3d8fcfeaf8e730ec6f6d77170bbcd056d91.
