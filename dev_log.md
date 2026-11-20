@@ -1,3 +1,8 @@
+## 2026-11-20 — Match split-line modem-priority source assertion
+
+- Parent SHA: `34235bef7131e72d1d006df5678a4729138501e8`. Static source assertion was checked against the actual C body before commit and exposed that the function call’s parameter is on the following line; the prior Python checker expected a space-normalized one-line prefix and would fail before reaching the runtime regression.
+- Changed the checker to find the function-call prefix and the quoted `modem_prio` argument independently, preserving explicit ordering through failure gate/log and reconnect enqueue. No production code change in this follow-up; rerun the exact WAN-route source workflow.
+
 ## 2026-11-20 — Gate automatic USB-WAN reconnect on modem-priority publication
 
 - Parent main SHA: `9a5506133875a00f31de8a96a4948b9f0befd93b`.

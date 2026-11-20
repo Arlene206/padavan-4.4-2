@@ -60,15 +60,17 @@ def require(condition, message):
 
 
 notification = body(WAN, "notify_on_internet_state_changed(int has_internet, long elapsed)")
-priority_write = 'priority_status = wan_nvram_int_temp_status( "modem_prio",'
+priority_write = "priority_status = wan_nvram_int_temp_status("
+priority_key = '"modem_prio",'
 priority_gate = "if (priority_status != 0)"
 priority_log = "cannot publish modem priority before automatic WAN reconnect"
 priority_queue = 'queue_internet_lost_action("auto_wan_reconnect",'
 write_pos = notification.index(priority_write)
-gate_pos = notification.index(priority_gate, write_pos)
+key_pos = notification.index(priority_key, write_pos)
+gate_pos = notification.index(priority_gate, key_pos)
 log_pos = notification.index(priority_log, gate_pos)
 queue_pos = notification.index(priority_queue, log_pos)
-require(write_pos < gate_pos < log_pos < queue_pos,
+require(write_pos < key_pos < gate_pos < log_pos < queue_pos,
         "automatic USB-WAN reconnect must be gated on checked modem-priority publication")
 require("nvram_set_int(\"modem_prio\"" not in notification,
         "modem reconnect priority must not use the unchecked persistent NVRAM setter")
