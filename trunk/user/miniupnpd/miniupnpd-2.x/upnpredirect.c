@@ -693,14 +693,17 @@ get_upnp_rules_state_list(int max_rules_number_target)
 	struct rule_state * list = 0;
 	struct rule_state * * p;
 	int i = 0;
+	int allocation_failed = 0;
 	time_t current_time;
 
 	/*ifname[0] = '\0';*/
-	tmp = malloc(sizeof(struct rule_state));
-	if(!tmp)
-		return 0;
-	current_time = time(NULL);
 	nextruletoclean_timestamp = 0;
+	tmp = malloc(sizeof(struct rule_state));
+	if(!tmp) {
+		syslog(LOG_ERR, "could not allocate UPnP rule snapshot; skipping cleanup");
+		return 0;
+	}
+	current_time = time(NULL);
 	while(get_redirect_rule_by_index(i, /*ifname*/0, &tmp->eport, 0, 0,
 	                              &iport, &proto, 0, 0, 0,0, &timestamp,
 								  &tmp->packets, &tmp->bytes) >= 0)
@@ -721,36 +724,54 @@ get_upnp_rules_state_list(int max_rules_number_target)
 		/* prepare next iteration */
 		i++;
 		tmp = malloc(sizeof(struct rule_state));
-		if(!tmp)
+		if(!tmp) {
+			allocation_failed = 1;
 			break;
+		}
 	}
 #ifdef PCP_PEER
-	i=0;
-	while(get_peer_rule_by_index(i, /*ifname*/0, &tmp->eport, 0, 0,
+	/* The NAT scan may have exhausted memory; never dereference NULL here. */
+	if (!allocation_failed) {
+		i=0;
+		while(get_peer_rule_by_index(i, /*ifname*/0, &tmp->eport, 0, 0,
 		                              &iport, &proto, 0, 0, 0,0,0, &timestamp,
 									  &tmp->packets, &tmp->bytes) >= 0)
-	{
-		tmp->to_remove = 0;
-		if(timestamp > 0) {
-			/* need to remove this port mapping ? */
-			if(timestamp <= (unsigned int)current_time)
-				tmp->to_remove = 1;
-			else if((nextruletoclean_timestamp <= (unsigned int)current_time)
-				   || (timestamp < nextruletoclean_timestamp))
-				nextruletoclean_timestamp = timestamp;
+		{
+			tmp->to_remove = 0;
+			if(timestamp > 0) {
+				/* need to remove this port mapping ? */
+				if(timestamp <= (unsigned int)current_time)
+					tmp->to_remove = 1;
+				else if((nextruletoclean_timestamp <= (unsigned int)current_time)
+					   || (timestamp < nextruletoclean_timestamp))
+					nextruletoclean_timestamp = timestamp;
+			}
+			tmp->proto = (short)proto;
+			/* add tmp to list */
+			tmp->next = list;
+			list = tmp;
+			/* prepare next iteration */
+			i++;
+			tmp = malloc(sizeof(struct rule_state));
+			if(!tmp) {
+				allocation_failed = 1;
+				break;
+			}
 		}
-		tmp->proto = (short)proto;
-		/* add tmp to list */
-		tmp->next = list;
-		list = tmp;
-		/* prepare next iteration */
-		i++;
-		tmp = malloc(sizeof(struct rule_state));
-		if(!tmp)
-			break;
 	}
 #endif
 	free(tmp);
+	if (allocation_failed) {
+		/* An incomplete snapshot must never drive expiry/deletion decisions. */
+		syslog(LOG_ERR, "could not complete UPnP rule snapshot; skipping cleanup");
+		nextruletoclean_timestamp = 0;
+		while (list) {
+			tmp = list;
+			list = tmp->next;
+			free(tmp);
+		}
+		return 0;
+	}
 	/* remove the redirections that need to be removed */
 	for(p = &list, tmp = list; tmp; tmp = *p)
 	{
