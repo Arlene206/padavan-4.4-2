@@ -58,6 +58,7 @@ class FirmwareInputPathTests(unittest.TestCase):
     def test_miniupnpd_pidfile_sources_trigger_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         paths = (
+            "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c",
             "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c",
             "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h",
             "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",

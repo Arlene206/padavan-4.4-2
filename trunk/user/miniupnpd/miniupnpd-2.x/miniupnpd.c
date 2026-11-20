@@ -1584,8 +1584,16 @@ init(int argc, char * * argv, struct runtime_vars * v)
 	else
 	{
 #ifdef USE_DAEMON
-		if(daemon(0, 0)<0) {
-			perror("daemon()");
+		{
+			int daemon_errno;
+
+			if (daemon(0, 0) < 0) {
+				daemon_errno = errno ? errno : EIO;
+				errno = daemon_errno;
+				perror("daemon()");
+				errno = daemon_errno;
+				return 1;
+			}
 		}
 		pid = getpid();
 #else

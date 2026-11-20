@@ -1,3 +1,13 @@
+## 2026-11-20 — Fail closed when MiniUPnP daemon detachment fails
+
+- Parent main SHA: 10b54df775dd8ecd80bb16a3d71928418c7e8c06.
+- Verified `genconfig.sh` unconditionally emits `#define USE_DAEMON`. In that default branch, a failed BSD `daemon(0, 0)` only called `perror()` and continued in foreground, then initialized UPnP/NAT-PMP and could return success as a supposed detached service.
+- The branch now saves and restores errno around `perror()` and returns failure before assigning `pid = getpid()` or continuing startup.
+- MiniUPnP stability workflow now asserts the failure return and errno preservation. XY-C1 push path filter and detector unit test now include `miniupnpd.c`; this matters because the prior path set had not scheduled XY-C1 when only this product source changes.
+- Parent SHA `10b54df` already has focused MiniUPnP host regression/source contract PASS, Process inventory PASS and AI docs PASS; NVRAM and XY-C1 were pending, and the latter had advanced into Build. Exact-head reruns on this new source SHA are pending.
+
+---
+
 ## 2026-11-20 — Serialize MiniUPnP singleton startup and fail closed on invalid PID state
 
 - Parent main SHA: 5778580685e496a4e3f170a91186675a3410f6c7.
