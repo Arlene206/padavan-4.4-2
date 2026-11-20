@@ -1240,7 +1240,7 @@ for path in ("trunk/user/rc/src/storage_nfs_export_policy.h",
 
 
 # SD/MMC hotplug handlers must not acknowledge work that PID 1 never queued.
-notify_helper = body(hotplug_stor, "static int\\nqueue_storage_hotplug_notification(")
+notify_helper = body(hotplug_stor, "static int\nqueue_storage_hotplug_notification(")
 require("notify_rc_status(event_name)" in notify_helper and
         "return status;" in notify_helper and
         "errno = saved_errno;" in notify_helper and

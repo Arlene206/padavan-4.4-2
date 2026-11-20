@@ -1,3 +1,12 @@
+## 2026-11-19 — Fix storage checker newline parsing and close exact-SHA evidence
+
+- Storage run `44645869851` on `479516c` passed the storage caller-graph assertions, then exposed a checker parsing typo: `check_storage_safe_remove.py` searched for the two-character sequence `\\n` instead of a real newline in the signature of `queue_storage_hotplug_notification()`. The production helper and queue-status semantics are correct; fixed only the checker signature.
+- NVRAM audit `44645672301` on `133ccb9` PASS. The PID1 prerequisite gate and three-state READY/DEGRADED contract now have exact source coverage.
+- XY-C1 run `44644448761` on production source SHA `61cbc6b842fdaaafc3f2fcab269bb11292fa8514` PASS: input detector, Build XY-C1, TRX verification and artifact upload all completed successfully. This establishes L3 for this exact source SHA; no physical-router L4 claim.
+- Current parent: `479516c632f00bd737deec633c40b582202e7370`.
+
+---
+
 ## 2026-11-19 — Assert PID 1 storage notification queue integration
 
 - Storage hotplug rerun `44645368071` on `5ebdf79` passed the policy binary tests and operation-error assertions, then failed one remaining assertion requiring `notify_rc("on_hotplug_mass_storage")` in each mdev function.
