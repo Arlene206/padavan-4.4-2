@@ -759,7 +759,6 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 	}
 	else
 	{
-		nat_scan_completed = 1;
 #ifdef IPTABLES_143
 		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
 		    e;
@@ -812,6 +811,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 				break;
 			}
 		}
+		nat_scan_completed = 1;
 	}
 	if(h)
 #ifdef IPTABLES_143

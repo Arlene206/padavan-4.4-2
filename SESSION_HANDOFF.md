@@ -14,29 +14,30 @@ The checkpoint is mandatory; a document edit is conditional. At session end, ins
 
 ## Repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; parent `main` for this slice: `72b914095e14c099f60d6ac8f20150b4ca5d29e9`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Product source fix `35e319a57af04e113fc9a3ccaa31628764ce4cfd` moves the NAT-scan-completion marker into `delete_redirect_and_filter_rules_ex()`, makes a missing NAT chain fail, and adds the new cleanup policy header to `netfilter/iptcrdr.o` dependencies. Parent XY run #44803257077 was still building at last poll.
-- Workflow-only commit `72b914095e14c099f60d6ac8f20150b4ca5d29e9` corrected an inline source contract still demanding direct stdio writes inside `lease_file_add()`, although production now uses the transactional append helper. MiniUPnP #44803703734 PASS and AI handoff #44803703663 PASS on 72b.
-- Prior MiniUPnP regressions on source 35: all policy, rollback, ownership, peer SNAT/DSCP, SOAP, pinhole, lease serialization, lease cleanup/replay steps passed; the only failure was the duplicate embedded stdio assertion, now corrected by 72b.
-- Prior source 8f884 had an XY build error from misplaced `nat_scan_completed`; fixed in 35e. Exact-source XY Build/TRX/artifact is still not verified until run #44803257077 completes.
+- Repository Arlene206/padavan-4.4-2; live main parent: cbe06d311a01a6da73891df2c7a5587e03f312fc. Frozen backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, unchanged.
+- Primary redirect deletion separates the main NAT/filter transaction from optional peer-SNAT/DSCP cleanup. Missing NAT chain fails closed; lease and description cleanup follow primary state rather than the merged auxiliary result.
+- Exact-head MiniUPnP #44803703734 on 72b914095e14c099f60d6ac8f20150b4ca5d29e9 PASS after updating the writer contract to transactional append semantics.
+- Review found the pass-validating source contract accepted nat_scan_completed set before the NAT loop. THIS COMMIT moves it after loop termination and updates the checker to enforce loop-close-before-completion, so only an inspected chain can prove a primary rule is absent.
+- Parent XY-C1 #44803257077 on product source 35e319a57af04e113fc9a3ccaa31628764ce4cfd was still in Build XY-C1 at last poll; it does not validate this correction. Process inventory #44803257124, AI handoff #44803257093 and NVRAM audit #44803257169 all passed on 35e.
+- Physical-router L4 and separate MIPS/uClibc runtime remain NOT VERIFIED.
 
 ## Active task
 
-1. Validate the new injected production-caller regression in this commit's MiniUPnP Action. It compiles the actual extracted `_upnp_delete_redir()` body with injected firewall and lease backends under GNU89, Werror, ASan and UBSan.
-2. Check XY-C1 run #44803257077 on source SHA 35e. Count L3 only when Build XY-C1, TRX verification and artifact upload all ran and passed on that SHA.
-3. The new test should prove that a peer/DSCP aggregate failure does not suppress lease cleanup when primary DNAT/filter removal succeeded, while lease removal failure still propagates errno. Diagnose and fix any test or workflow failure without weakening the contract.
-4. Once this integration test passes, continue with injected low-level backend coverage or a separate concrete stability/security defect across Padavan userland. Do not repeat completed audits.
+1. Verify this commit's exact-head MiniUPnP regression and post-loop NAT scan source contract.
+2. Verify exact-head XY-C1 Build, TRX validation and artifact upload.
+3. Add injected primary-delete state tests for missing NAT chain, no matching rule, NAT/filter delete errors and optional peer/DSCP failures.
+4. Continue a separate whole-userland reliability/security defect while Actions are pending; do not repeat completed audits.
 
 ## Exact verification boundary
 
-- Parent `72b914095e14c099f60d6ac8f20150b4ca5d29e9`: MiniUPnP #44803703734 PASS; AI handoff #44803703663 PASS.
-- Product source SHA 35e: NVRAM audit #44803257169 PASS; Process inventory #44803257124 PASS; AI handoff #44803257093 PASS; MiniUPnP #44803257122 failed only at the stale inline transactional lease-writer contract (all preceding tests passed; corrected in 72b); XY-C1 #44803257077 was still in progress at last poll.
-- Host verification and firmware L3 are separate. Firmware L3 remains NOT VERIFIED until the same-source Build, TRX and artifact steps pass. Physical-router L4 remains NOT VERIFIED.
+- Parent 72b MiniUPnP #44803703734 PASS; this commit changes production iptcrdr.c and its source checker.
+- Parent XY source SHA 35e has #44803257077 still in progress at Build XY-C1 in the last poll. It does not validate the post-loop correction.
+- Process inventory #44803257124 PASS; AI handoff #44803257093 PASS; NVRAM audit #44803257169 PASS.
+- No physical-router L4 or standalone MIPS/uClibc runtime has been performed.
 
 ## Exact first action for the next GPT
 
-Fetch live `main`, then inspect this commit's MiniUPnP and AI handoff Actions. The integration test must compile the extracted production caller and pass every injected backend case. Separately poll XY-C1 #44803257077 on source 35e and inspect actual Build/TRX/artifact step conclusions. Continue fixing source/test failures before moving to another userland issue.
+Fetch live main and inspect exact-head MiniUPnP and XY-C1 runs triggered by this commit. Confirm nat_scan_completed occurs after the actual NAT loop close and before auxiliary cleanup. If the regression or build fails, diagnose the earliest causal source or assertion. Continue injected delete-state testing or another whole-userland reliability/security defect while unrelated Actions are pending.
 
 ## Handoff maintenance
 

@@ -1,3 +1,10 @@
+## 2026-11-20 — Mark NAT scan complete after iteration
+
+- Parent main SHA: cbe06d311a01a6da73891df2c7a5587e03f312fc. Exact-head MiniUPnP workflow #44803703734 passed after the inline append contract was updated to the fd-based transaction helper. A semantic review then found that the source contract accepted nat_scan_completed before the NAT rule loop.
+- A scan cannot be complete before iteration. Moved the marker to immediately after the NAT loop terminates, preserving fail-closed behavior if the NAT chain is missing. Now an absent matching rule is treated as already removed only after the chain has actually been enumerated.
+- Updated the source checker to enforce chain validation → rule iteration → loop close → completion marker → optional peer cleanup.
+- Production source changed; new exact-head MiniUPnP and XY-C1 Build/TRX/artifact runs are required.
+
 ## 2026-11-20 — Exercise production UPnP delete caller with injected backends
 
 - Parent main SHA: `72b914095e14c099f60d6ac8f20150b4ca5d29e9`; MiniUPnP host regression #44803703734 and AI handoff validation #44803703663 both completed SUCCESS on this exact SHA.
