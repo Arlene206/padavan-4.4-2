@@ -942,34 +942,35 @@ jobs:
 
           set_address = body(source,
                              "wan_viptv_static_configure_address(void *opaque)")
-          publish_address = body(source,
-                                 "wan_viptv_static_publish_address(void *opaque)")
-          publish_gateway = body(source,
-                                 "wan_viptv_static_publish_gateway(void *opaque)")
+          publish_snapshot = body(source,
+                                  "wan_viptv_static_publish_snapshot(void *opaque)")
+          clear_address = body(source,
+                               "wan_viptv_static_clear_address(void *opaque)")
           add_route = body(source,
                            "wan_viptv_static_add_default_route(void *opaque)")
           start_multicast = body(source,
                                  "wan_viptv_static_start_multicast(void *opaque)")
           assert "ifconfig(context->ifname, IFUP, context->ipaddr, context->netmask)" in set_address
-          assert 'nvram_set_temp("manv_ipaddr", context->ipaddr)' in publish_address
-          assert 'nvram_set_temp("manv_netmask", context->netmask)' in publish_address
-          assert 'nvram_set_temp("manv_gateway"' in publish_gateway
+          for key in ("manv_ipaddr", "manv_netmask", "manv_gateway"):
+              assert '"' + key + '"' in publish_snapshot
+          assert "wan_dhcp_nvram_publish_values(names, values, 3)" in publish_snapshot
+          assert 'ifconfig(context->ifname, IFUP, "0.0.0.0", NULL)' in clear_address
           assert 'route_add(context->ifname, 10, "0.0.0.0"' in add_route
           assert "start_igmpproxy(context->ifname)" in start_multicast
-          assert static_policy.index("ops->configure_address(context)") < static_policy.index("ops->publish_address(context)")
-          assert static_policy.index("ops->publish_address(context)") < static_policy.index("ops->publish_gateway(context)")
-          assert static_policy.index("ops->publish_gateway(context)") < static_policy.index("ops->add_default_route(context)")
+          assert static_policy.index("ops->configure_address(context)") < static_policy.index("ops->publish_snapshot(context)")
+          assert static_policy.index("ops->publish_snapshot(context)") < static_policy.index("ops->clear_address(context)") < static_policy.index("ops->add_default_route(context)")
           assert static_policy.index("ops->add_default_route(context)") < static_policy.index("ops->start_multicast(context)")
-          assert "if (status != 0)\n\t\treturn status;" in static_policy
           static_test = (rc / "tests/wan_viptv_static_policy.c").read_text()
           for case in (
               "test_address_failure_does_not_publish_or_start_services",
-              "test_successful_start_orders_address_state_route_and_multicast",
+              "test_snapshot_failure_clears_address_and_skips_routes_and_multicast",
+              "test_snapshot_failure_preserves_primary_error_when_address_clear_fails",
+              "test_successful_start_orders_snapshot_before_route_and_multicast",
               "test_route_failure_is_reported_after_recovery_state_publication",
               "test_missing_gateway_skips_default_route",
               "test_invalid_arguments_fail_before_side_effects",
           ):
-              assert case in static_test
+              assert case in static_test and case + "();" in static_test
 
           paths = (
               ".github/workflows/wan-dhcp-callback-stability.yml",

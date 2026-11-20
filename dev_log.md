@@ -1,3 +1,12 @@
+## 2026-11-20 — Align WAN callback embedded static IPTV contract with transactional publisher
+
+- Parent main SHA: `ea98cd8cdf5dd8d84585bef9a83a292dbc716d59`. Exact-head callback run `44702965265` on `ea98cd8cdf5dd8d84585bef9a83a292dbc716d59` passed its GNU89/ASan/UBSan lease and snapshot host binaries, but the embedded workflow contract then raised `ValueError: substring not found` while requesting the removed `wan_viptv_static_publish_address()` and `wan_viptv_static_publish_gateway()` callbacks.
+- The static IPTV production policy now uses `wan_viptv_static_publish_snapshot()` and `wan_viptv_static_clear_address()`. Updated the embedded callback workflow to assert the compensatable three-key snapshot, address clear, route/multicast order and the new failure-path regressions rather than the retired void callbacks. No production checks or test coverage were removed.
+- The previous exact-head run `44702791487` on `3ca051d4590ef6a81f8c52074e262e4e4254c7f1` had failed earlier in the standalone LAN checker because its C body extractor matched the static IPTV helper's forward declaration instead of its later definition; commit `ea98cd8cdf5dd8d84585bef9a83a292dbc716d59` corrects that prototype skip. The new callback workflow rerun will confirm both corrections together.
+- Exact-head AI handoff validation `44702965262` on `ea98cd8` passed; XY-C1 run `44702965328` was in progress and had entered the MIPS cross-build stage. The earlier source SHA `3ca051d` had broad completed host passes; WAN callback was the only identified failure at this point. No local build was performed.
+
+---
+
 ## 2026-11-20 — Skip forward declarations in LAN DHCP C source checker
 
 - Parent main SHA: `3ca051d4590ef6a81f8c52074e262e4e4254c7f1`. Exact-head WAN DHCP callback run `44702791487` on `3ca051d4590ef6a81f8c52074e262e4e4254c7f1` compiled and passed both DHCP lease and WAN NVRAM snapshot sanitizer binaries, then failed in `scripts/check_lan_dhcp_deconfig.py` at line 333.
