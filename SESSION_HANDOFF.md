@@ -20,11 +20,9 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Active task
 
-Complete the checker-only repair for the checked WAN-down resolver snapshot clear:
-
-1. WAN route run 44686752930 and XY-C1 run 44686753007 failed because the first corrected resolver assertion used startswith() at a slice beginning with the setter assignment; it therefore could not match the later closing conditional. The assertion now checks that the close-of-conditional and unconditional resolver refresh sequence occurs later in wan_down_internal().
-2. AI handoff run 44686752989 required exact phrases "one atomic main commit" and "Before context exhaustion"; both are now preserved in this handoff.
-3. Detect-internet run 44686752941 passed on the previous checker commit. No production C is changed in this correction. Fetch live main for its exact commit SHA and inspect reruns; no PASS is claimed before Actions complete.
+1. Verify exact-SHA Actions for the current WAN route inline-contract correction. WAN route run `44687093770` had passed the shared checker but failed two later source assertions that still expected the removed unchecked VPN resolver setter; both now use the checked setter. AI handoff run `44687093751` passed. XY-C1 run `44687093783` was still in progress at last poll; verify the same-SHA MIPS build, TRX and artifact upload before claiming L3.
+2. Continue the independent DHCP renewal runtime snapshot task: use a shared validate-all/attempt-all/restore-on-failure NVRAM policy for changed DNS/domain/WINS/lease values, reuse it in PPP ip-up, and add injected GNU89 regressions plus source-contract checks. Keep work moving while Actions are pending.
+3. Keep physical-router L4 marked NOT VERIFIED unless actual device testing is recorded.
 
 ## Verification boundary at parent 971372f4a8a662eeda42e3d7b80ec6f9be6e3de2
 
