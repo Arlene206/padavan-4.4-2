@@ -466,9 +466,13 @@ for signature, operation, description in (
             f"{description} must preserve IGMP proxy status")
 iptv_dhcp = body(wan, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
 require("multicast_status = start_igmpproxy(man_ifname);" in iptv_dhcp and
-        "return route_status_accumulate(route_setup_status, multicast_status);" in iptv_dhcp and
-        'nvram_set_int_temp("manv_route_err", route_setup_status);' in iptv_dhcp,
-        "IPTV DHCP must return proxy failure without polluting route retry state")
+        "callback_status = route_status_accumulate(route_setup_status, multicast_status);" in iptv_dhcp and
+        'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in iptv_dhcp and
+        'wan_nvram_int_temp_status("manv_err", i_err)' in iptv_dhcp and
+        "callback_status = route_status_accumulate(callback_status, publish_status);" in iptv_dhcp and
+        "return callback_status;" in iptv_dhcp and
+        "nvram_set_int_temp(" not in iptv_dhcp,
+        "IPTV DHCP must return proxy and NVRAM status while keeping route retry state independent")
 iptv_zcip = body(wan, "zcip_viptv_bound(char *man_ifname)")
 require("return start_igmpproxy(man_ifname);" in iptv_zcip,
         "ZeroConf IPTV bound must return proxy startup status")
