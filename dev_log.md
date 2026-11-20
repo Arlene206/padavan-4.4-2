@@ -1,3 +1,12 @@
+## 2026-11-19 — Correct storage policy-header newline parser
+
+- Storage run `44646265074` on `49ed539` passed the full caller graph and then failed `check_storage_safe_remove.py` at the check for `storage_hotplug_completion_status()`. The helper header is formatted as `static inline int` followed by a real newline; the checker again searched for a literal backslash-n because its source string contained `\\n` rather than `\n`.
+- Corrected the adjacent policy-header needle. The prior helper-function parser is already fixed; no production behavior or policy assertions are weakened.
+- NVRAM three-state readiness audit `44645672301` PASS on `133ccb9`. Product-source XY-C1 `44644448761` PASS on exact SHA `61cbc6b842fdaaafc3f2fcab269bb11292fa8514`, including firmware build, TRX verification and artifact upload (L3 for that SHA).
+- Parent SHA: `49ed53969e6e14055c7f278f9545c8661a70a7b7`.
+
+---
+
 ## 2026-11-19 — Fix storage checker newline parsing and close exact-SHA evidence
 
 - Storage run `44645869851` on `479516c` passed the storage caller-graph assertions, then exposed a checker parsing typo: `check_storage_safe_remove.py` searched for the two-character sequence `\\n` instead of a real newline in the signature of `queue_storage_hotplug_notification()`. The production helper and queue-status semantics are correct; fixed only the checker signature.

@@ -26,14 +26,14 @@ Continue main-only implementation across conversations. Restore exact live sourc
 - On `61cbc6`, HTTPD `44644448461`, AI handoff docs `44644448860`, WAN route `44644448877` and other completed subsystem regressions are PASS; Process `44644448788`, AliDDNS `44644448746` and Storage `44644448682` are the three identified contract failures. XY-C1 `44644448761` and NVRAM `44644448560` were IN_PROGRESS at last poll.
 - Checker repair commit `5ebdf7977d3abf53ca5f3514b76f8a59b64af294`: exact-head Process `44645368007` and AliDDNS `44645368089` PASS. Storage `44645368071` exposed a stale direct-`notify_rc()` assertion, corrected on `479516c` to the actual checked queue API.
 - NVRAM audit `44645672301` on `133ccb9ed03ebd2812ba76b3cb5e0eb175582d56` PASS, including lock/snapshot/ioctl/device-node and the explicit PID1 FATAL prerequisite / READY-DEGRADED status source contract. AI docs `44645672267` also PASS.
-- Storage rerun `44645869851` on `479516c` passed the broad caller graph and queue-status contracts, then failed only because `check_storage_safe_remove.py` searched for literal backslash-n instead of a real newline when locating the checked queue helper. This commit fixes the parser needle.
-- Production-source XY-C1 `44644448761` on exact source SHA `61cbc6b842fdaaafc3f2fcab269bb11292fa8514` completed SUCCESS: detector, Build XY-C1, TRX verification and artifact upload all PASS. L3 is VERIFIED for this source SHA; it does not imply physical-router L4. Checker-only commits after it do not change the built production source.
+- Storage rerun `44645869851` on `479516c` passed the broad caller graph, then exposed a literal-backslash-n parser bug in the helper signature. The first repair (`49ed539`) corrected that queue-helper needle; exact Storage rerun `44646265074` then passed the caller graph and failed the next adjacent policy-header needle for the same double-escaped-newline reason. This commit corrects the policy-header needle too; no production C change is involved.
+- NVRAM `44645672301` on `133ccb9` PASS. Production-source XY-C1 `44644448761` on exact source SHA `61cbc6b842fdaaafc3f2fcab269bb11292fa8514` SUCCESS: detector, Build XY-C1, TRX verification and artifact upload all PASS. L3 is VERIFIED only for this exact production source SHA; it does not imply physical-router L4.
 
 ## Exact first action for the next GPT
 
-1. Validate the storage parser fix on its exact-head rerun; NVRAM `44645672301` and XY-C1 Build/TRX/artifact `44644448761` are now PASS on their stated SHAs.
-2. Continue the broad RC startup-result propagation P1 queue at the next independent caller defect; do not repeat the closed CA-preparation/RC caller or SD/MMC queued-notification fixes.
-3. Require a fresh exact-source XY-C1 run for any subsequent production-source change; current `61cbc6b` L3 evidence does not transfer to later source commits.
+1. Query exact-head Storage rerun for the second literal-newline parser correction; the prior Storage run `44646265074` failed only on the policy-header function signature parser.
+2. Continue the broad RC startup-result propagation P1 queue at the next independent caller defect; CA-preparation/RC caller, SD/MMC notification status, and NVRAM PID1 gate audits are closed.
+3. Require fresh exact-source XY-C1 Build/TRX/artifact for any subsequent production-source change; `61cbc6b` L3 evidence does not transfer to later source commits.
 
 ## Verification boundary
 

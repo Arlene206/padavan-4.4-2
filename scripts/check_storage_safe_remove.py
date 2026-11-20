@@ -1271,7 +1271,7 @@ require("storage_hotplug_completion_status(0, -EIO) == 1" in notify_policy_test 
         "storage_hotplug_completion_status(0, -EACCES) == 1" in notify_policy_test and
         "storage_hotplug_completion_status(0, 0) == 0" in notify_policy_test,
         "GNU89 regression must cover queued success and notification failures")
-require("static inline int\\nstorage_hotplug_completion_status(" in notify_policy,
+require("static inline int\nstorage_hotplug_completion_status(" in notify_policy,
         "mdev notification completion policy is missing")
 for path in ("trunk/user/rc/src/storage_hotplug_notify_policy.h",
              "trunk/user/rc/src/tests/storage_hotplug_notify_policy.c"):
