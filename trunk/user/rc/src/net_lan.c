@@ -1204,8 +1204,14 @@ start_lan(int is_ap_mode, int do_wait)
 				   operation_status);
 		start_status = rc_first_service_start_status(start_status, operation_status);
 
-		/* fill XXX_t fields */
-		update_lan_status(0);
+		/* Publish all runtime identity fields as one rollback-capable tuple. */
+		metadata_status = update_lan_status(0);
+		if (metadata_status != 0)
+			logmessage(LOGNAME,
+				   "LAN runtime metadata refresh failed (status=%d)",
+				   metadata_status);
+		start_status = rc_first_service_start_status(
+			start_status, metadata_status);
 	}
 
 #if defined (USE_IPV6)
@@ -1258,13 +1264,14 @@ stop_lan(int is_ap_mode)
 	int ap_dhcp_stop_status = -1;
 	char ap_gateway[16] = "";
 	if (is_ap_mode) {
+		char *svcs[] = { "detect_wan", NULL };
+		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
+		int status, pause_status, monitor_resume_status;
+
 		/* Save the installed AP default-route identity before the DHCP
 		 * deconfig callback can update its temporary NVRAM metadata. */
 		snprintf(ap_gateway, sizeof(ap_gateway), "%s",
 			 nvram_safe_get("lan_gateway_t"));
-		char *svcs[] = { "detect_wan", NULL };
-		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
-		int status, pause_status, monitor_resume_status;
 
 		pause_status = notify_pause_detect_internet();
 		if (pause_status != 0) {
@@ -1684,8 +1691,13 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 		logmessage(LOGNAME, "LAN watchdog time notification incomplete (status=%d)", notify_status);
 	status = rc_first_service_start_status(status, notify_status);
 
-	/* fill XXX_t fields */
-	update_lan_status(0);
+	/* Publish all four runtime identity fields transactionally. */
+	metadata_status = update_lan_status(0);
+	if (metadata_status != 0)
+		logmessage(LOGNAME,
+			   "manual LAN runtime metadata publication failed (status=%d)",
+			   metadata_status);
+	status = rc_first_service_start_status(status, metadata_status);
 	return status;
 }
 
