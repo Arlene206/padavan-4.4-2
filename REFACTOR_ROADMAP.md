@@ -7,6 +7,7 @@
 - Manual WAN endpoint values and PPP credentials, peer, authentication, encryption and negotiation options now use checked writes; an incomplete snapshot latches reset status and prevents PPP activation. The production source-order contract awaits exact-head CI.
 - MAN/virtual IPTV route snapshot clears, global MAN endpoint publications and EAPOL `auth_mode/auth_user/auth_pass` now use checked writes; any failure blocks WAN activation. Exact-head source contract and workflow validation pending.
 - `dnsenable_x`, DHCP VCI and hostname snapshots now use checked first-error writes because they directly affect DNS routes, pppd DNS negotiation and DHCP client identity/options.
+- Global persistent `wan_hwaddr` and indexed `hwaddr` are now checked before WAN VLAN/soft-bridge configuration; failed MAC publication blocks activation.
 - AI docs run 44678384983 failed on the missing required literal one atomic main commit; this patch restores it and the required Active task heading.
 - Current same-SHA XY-C1 L3 is NOT VERIFIED. Physical router L4 remains NOT VERIFIED.
 

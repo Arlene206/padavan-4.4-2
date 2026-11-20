@@ -1,3 +1,12 @@
+## 2026-11-20 — Make WAN interface MAC snapshot writes fail closed
+
+- Parent main SHA: `e487695db417478a5879b99da8d18871c3363d62`.
+- The reset path selected `wan_hwaddr_x` or the `il1macaddr` fallback, but ignored failures from persistent `nvram_set("wan_hwaddr", ...)` and indexed `set_wan_unit_param(unit, "hwaddr")`. Later WAN VLAN and soft-bridge setup uses the global MAC for VLAN/interface `set_interface_hwaddr` operations.
+- Added status-returning checks for the global persistent MAC and indexed per-WAN MAC snapshot. A failed write now latches the first reset error and prevents later interface/VLAN activation. Existing public void setter ABI is untouched.
+- Extended the WAN source contract to require both writes and the fail-closed gate. Exact-head verification is pending; no firmware/L3 or hardware result is claimed.
+
+---
+
 ## 2026-11-20 — Anchor WAN protocol checker to the protocol publication gate
 
 - Parent main SHA: `eac0f17e12e394ede94e56dc4d432770256f9009`.

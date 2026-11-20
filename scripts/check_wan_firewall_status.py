@@ -510,6 +510,19 @@ require('set_wan_unit_param(unit, "auth_mode")' not in reset and
         'set_wan_unit_param(unit, "auth_pass")' not in reset,
         "legacy unchecked EAPOL authentication copies must be removed")
 
+mac_start = reset.index("wan_hwaddr = (strlen(mac_buf)")
+mac_end = reset.index("#if defined (USE_IPV6)", mac_start)
+mac_snapshot = reset[mac_start:mac_end]
+require('set_nvram_persistent_value_status("wan_hwaddr", wan_hwaddr)' in mac_snapshot and
+        'set_wan_unit_value_status(unit, "hwaddr", wan_hwaddr)' in mac_snapshot,
+        "global and indexed WAN interface MAC snapshots must both use checked NVRAM writes")
+require('reset_failure_context = "WAN interface hardware address";' in mac_snapshot and
+        "goto reset_failed;" in mac_snapshot,
+        "WAN hardware address staging failure must abort before interface/VLAN activation")
+require('nvram_set("wan_hwaddr", mac_buf)' not in reset and
+        'set_wan_unit_param(unit, "hwaddr")' not in reset,
+        "legacy unchecked WAN MAC copies must be removed")
+
 dhcp_params_start = reset.index('dhcp_ppp_params[] = {')
 dhcp_params_end = reset.index("};", dhcp_params_start)
 dhcp_params = reset[dhcp_params_start:dhcp_params_end]

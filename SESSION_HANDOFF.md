@@ -12,29 +12,29 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Live main before this WAN checker correction: `eac0f17e12e394ede94e56dc4d432770256f9009`.
+- Live main before WAN MAC snapshot validation: `e487695db417478a5879b99da8d18871c3363d62`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Production WAN reset now checks global MAN/virtual IPTV state clears, global route endpoint writes, EAPOL auth mode/credentials and DHCP DNS/VCI/hostname tuples, in addition to static-IPoE and PPP endpoint/options.
-- Exact parent `077a917` WAN route job `136105910004` failed only at the final static source checker. All preceding GNU89/`-Werror`/ASan/UBSan policy executables shown in that job passed. The checker used the first `if (proto_status != 0)` in the entire reset body, which now belongs to the new MAN clear gate before protocol publication; the protocol-order assertion must anchor its failure search after `proto_write`. This commit makes that fix.
-- Exact `eac0f17` Actions were queued/in progress at last poll; recheck after this checker correction. Same-SHA XY-C1 L3 is NOT VERIFIED; physical-router L4 remains NOT VERIFIED.
+- WAN route checker order fix commit `e487695db417478a5879b99da8d18871c3363d62`: exact WAN-route `136106824574` PASS; handoff validator `136106824953` PASS. XY-C1 run `136106825395` remained in progress at last poll.
+- Source parent `e487695db417478a5879b99da8d18871c3363d62` includes checked MAN/IPTV reset/route state, EAPOL credentials and DNS/VCI/hostname tuples; its exact WAN route run still needed rerun after the checker correction. No same-SHA L3 claim.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-- The WAN protocol source checker now anchors the protocol-publication failure gate after the protocol write itself, so earlier independent checked-reset gates cannot be mistaken for the protocol write's error condition.
-- Production code on parent `eac0f17e12e394ede94e56dc4d432770256f9009` additionally checks `dnsenable_x`, DHCP VCI and hostname before WAN startup; these directly influence MAN DNS routes, pppd DNS negotiation and udhcpc identity/options.
-- Next source task remains a focused inspection of `wan_hwaddr` and indexed `hwaddr`: determine whether a failed NVRAM write can leave stale interface identity/MAC and gate WAN startup if so. Avoid changing unrelated keys.
+- The remaining WAN reset identity gap was `wan_hwaddr`: the configured MAC was written through unchecked persistent `nvram_set()`, then copied to indexed `hwaddr` through the void setter. These values are consumed by WAN VLAN/soft-bridge setup (`set_interface_hwaddr`, tracked VLAN creation), so a failed write could configure an interface using a stale MAC.
+- This slice checks both the global persistent MAC update and indexed per-WAN copy, preserving the configured-MAC/fallback selection. Any write failure latches reset status and stops before later interface/VLAN activation.
+- Next, move beyond this WAN reset queue after CI verifies this change: inspect the most serious cross-userland process/service lifecycle or security defect in the current source tree, rather than continuing low-value config-key conversions.
 
 ## Verification boundary
 
-- Parent `077a917` WAN route check failed only at the final source contract due the checker indexing an earlier unrelated status gate; all earlier regression executable commands passed. Exact run URL/job: `136105910004`.
-- The subsequent parent `eac0f17e12e394ede94e56dc4d432770256f9009` added the DNS/VCI/hostname tuple; its host CI was still queued/in progress at last poll. This checker correction and its re-run await exact-head status.
-- Same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload must all pass before L3. No physical-router L4 test is claimed.
+- `e487695` exact WAN-route and handoff checks passed. Its XY-C1 cross-build was still in progress at last poll; no detector/build/TRX/artifact L3 claim.
+- WAN MAC checked-write changes and the expanded source contract await exact-head WAN route/NVRAM and firmware CI.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and check exact-SHA WAN route, NVRAM boundary, AI handoff, HTTPD, Process and XY-C1 runs for this checker fix.
-2. If WAN route passes, inspect and verify the MAN/authentication/DHCP option source assertions on the exact parent source; diagnose any further checker or compile failure from its log.
-3. Confirm same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload. Then inspect `wan_hwaddr`/indexed `hwaddr` for real interface-identity impact.
+1. Fetch live main and inspect exact-SHA WAN route, NVRAM boundary, handoff and XY-C1 build/verification/artifact steps for this MAC snapshot change.
+2. Diagnose any production compile or source-contract failure from the exact job log; do not claim L3 until detector, MIPS build, TRX and artifact upload pass on the same SHA.
+3. Once the WAN queue is green, switch to a separate high-impact service/process/security bug across Padavan userland.
 
 ## Mandatory handoff checkpoint
 

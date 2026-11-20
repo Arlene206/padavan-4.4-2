@@ -203,6 +203,19 @@ set_nvram_value_status(const char *name, const char *value)
 }
 
 static int
+set_nvram_persistent_value_status(const char *name, const char *value)
+{
+	int api_result, saved_errno;
+
+	if (!name || !name[0] || !value)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_set(name, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+static int
 set_nvram_named_value_status(void *context, const char *name)
 {
 	const char *value = (const char *)context;
@@ -254,6 +267,7 @@ reset_wan_vars_status(void)
 {
 	int unit, wan_proto, proto_status;
 	char mac_buf[24], *man_addr, *man_mask, *man_gate, *man_mtu;
+	const char *wan_hwaddr;
 	const char *reset_failure_context = NULL;
 	static const char *const dhcp_ppp_params[] = {
 		"dnsenable_x", "vci", "hostname"
@@ -418,12 +432,15 @@ reset_wan_vars_status(void)
 
 	mac_buf[0] = 0;
 	mac_conv("wan_hwaddr_x", -1, mac_buf);
-	if (strlen(mac_buf) == 17)
-		nvram_set("wan_hwaddr", mac_buf);
-	else
-		nvram_set("wan_hwaddr", nvram_safe_get("il1macaddr"));
-
-	set_wan_unit_param(unit, "hwaddr");
+	wan_hwaddr = (strlen(mac_buf) == 17) ?
+		mac_buf : nvram_safe_get("il1macaddr");
+	proto_status = set_nvram_persistent_value_status("wan_hwaddr", wan_hwaddr);
+	if (proto_status == 0)
+		proto_status = set_wan_unit_value_status(unit, "hwaddr", wan_hwaddr);
+	if (proto_status != 0) {
+		reset_failure_context = "WAN interface hardware address";
+		goto reset_failed;
+	}
 
 #if defined (USE_IPV6)
 	reset_wan6_vars();
