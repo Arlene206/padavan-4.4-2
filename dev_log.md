@@ -1,3 +1,10 @@
+## 2026-11-20 — Correct MiniUPnP rewrite-helper declaration and source contract
+
+- Parent main SHA: ec42fa99a15d617e181fe366324b8a18a7ff37ba. Exact-head MiniUPnP run #44800659014 on ec42fa99a15d617e181fe366324b8a18a7ff37ba passed the new GNU89 ASan/UBSan stream policy tests but failed the source checker because it still expected lease-key matching inside lease_file_remove(), which now delegates to the common rewrite helper.
+- While correcting that contract, source inspection caught a duplicate static int left at the rewrite helper definition by the mechanical function replacement. Removed the extra specifier before the production compile can reach it; the checker now guards this declaration shape and checks exact-key filtering in the shared helper rather than the wrapper.
+- The atomic rewrite regression itself passed in Actions: replacement of multiple matching keys, preservation of adjacent keys, removal and missing-source replacement. The prior failure was the stale checker assertion; the duplicate specifier is a separate source syntax defect found in review and fixed here.
+- Exact-head XY-C1 run #44800659212 on the pre-fix ec42fa99a15d617e181fe366324b8a18a7ff37ba was in progress at last check. Its compile result cannot validate the corrected source. Physical router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Atomically replace MiniUPnP lease records on mapping updates
 
 - Parent main SHA: 3f28c8fd9cebb2cccf28b9926a1422d3bbfed427. This commit makes lease-file update a single atomic rewrite and compensates the live firewall/metadata update if persistence publication fails.

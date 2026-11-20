@@ -152,7 +152,6 @@ lease_file_add(unsigned short eport,
 }
 
 static int
-static int
 lease_file_rewrite_entry(unsigned short eport, int proto,
                          const char *replacement, size_t replacement_length)
 {

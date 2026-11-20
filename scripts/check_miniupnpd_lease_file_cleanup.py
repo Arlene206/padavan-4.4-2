@@ -46,7 +46,8 @@ delete = function_body(SOURCE, "_upnp_delete_redir(unsigned short eport, int pro
 add = function_body(SOURCE, "upnp_redirect_internal(const char * rhost")
 update = function_body(SOURCE, "upnp_redirect(const char * rhost")
 
-assert "miniupnpd_lease_record_key_matches(" in remove
+assert "lease_file_rewrite_entry(eport, proto, NULL, 0)" in remove
+assert "miniupnpd_lease_record_key_matches(" in rewrite_entry
 assert "miniupnpd_lease_append_transaction(" in add
 assert "O_WRONLY | O_APPEND | O_CREAT" in add
 assert "fwrite(" not in add
@@ -101,6 +102,7 @@ rewrite_entry = function_body(
     SOURCE,
     "lease_file_rewrite_entry(unsigned short eport, int proto,"
 )
+assert "static int\nstatic int\nlease_file_rewrite_entry" not in SOURCE
 replace = function_body(
     SOURCE,
     "lease_file_replace(unsigned short eport, const char *iaddr,"
