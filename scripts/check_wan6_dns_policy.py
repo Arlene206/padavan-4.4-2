@@ -66,8 +66,11 @@ assert "return callback_status;" in source
 # configuration text is copied before any NVRAM write, and ifname6 is cleared last.
 assert '#include "wan_nvram_status_policy.h"' in source
 assert "int reset_wan6_vars_status(void);" in header
-assert "void reset_wan6_vars(void);" in header
+assert "int reset_wan6_vars(void);" in header
 assert "int reset_wan6_vars_status(void)" in source
+reset_wrapper = body(source, "int reset_wan6_vars(void)")
+assert "status = reset_wan6_vars_status();" in reset_wrapper
+assert "return status;" in reset_wrapper
 reset_v6 = body(source, "int reset_wan6_vars_status(void)")
 reset_fields = (
     'reset_values[0].param_name = "addr6";',
