@@ -16,11 +16,11 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Current main before this checker-only correction: `2ffb8479a33ad55a4138b3384a31510f5b7c534e`. The preceding atomic source commit `2ffb8479a33ad55a4138b3384a31510f5b7c534e` added fail-safe allocation checks to MiniUPnP iptables rule construction.
+- Current main before this CI-trigger correction: `01f56e97c65d45fe998be26c69569208a92f7670`; MiniUPnP allocation-safety source fix is `2ffb8479a33ad55a4138b3384a31510f5b7c534e`, followed by checker normalization `8dbb0963cb6b816bf13cf13726f5de0ce3c867fb`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; unchanged).
-- On exact SHA `2ffb847`, MiniUPnP Action #44789544201 compiled and passed all existing policy tests and the new GNU89 ASan/UBSan allocation-cleanup test; its source-contract step failed because the checker expected a multiline cleanup call as a contiguous string. No C sanitizer or compile failure occurred.
-- AI handoff documentation #44789543996 and Process lifecycle #44789544079 passed on `2ffb847`; NVRAM transaction #44789543972 was still running at last poll.
-- This source-checker correction normalizes function whitespace before asserting cleanup arguments; it does not weaken guard ordering or change production code.
+- Exact-head MiniUPnP regression #44789878471 on `8dbb096`: PASS, including the GNU89 ASan/UBSan allocation cleanup test and the whitespace-normalized source contract. AI handoff documentation #44789878451: PASS.
+- Process lifecycle #44789544079 and NVRAM transaction #44789543972 on `2ffb847`: PASS.
+- XY-C1 Firmware Validation did not run on `2ffb847` or `8dbb096`: its push path filters omitted the newly changed `iptcrdr.c` production file and its allocation-policy header. This commit adds those paths (and keeps the workflow's self-trigger) so the next exact-head push runs the XY-C1 Build/TRX/artifact L3 gate.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
@@ -36,16 +36,16 @@ After exact-head MiniUPnP and XY-C1 validation, continue reviewing remaining net
 
 ## Verification boundary
 
-- Product source fix: `2ffb8479a33ad55a4138b3384a31510f5b7c534e`; entry/match/target/realloc failures release owned components and preserve errno.
-- L2 sanitizer test on `2ffb847`: GNU89 `-Wall -Wextra -Werror` with ASan/UBSan and leak detection PASS.
-- L2 source-contract step: FAILED only on multiline whitespace matching in the new checker; exact-head rerun required after whitespace normalization.
-- AI handoff documentation #44789543996 and Process lifecycle #44789544079 PASS. XY-C1 L3 Build/TRX/artifact for the source SHA is not yet confirmed. Physical hardware L4: NOT VERIFIED.
+- MiniUPnP allocation fix `2ffb847`: exact-head MiniUPnP L2 initially failed only on checker whitespace; checker-only correction `8dbb096` passed the complete MiniUPnP Action #44789878471, including all policy binaries and source contracts.
+- AI handoff #44789878451, Process lifecycle #44789544079, and NVRAM transaction #44789543972 passed.
+- XY-C1 L3 did not trigger because its path list omitted the new netfilter source/header. The current commit adds these paths; check the newly triggered exact-head Build, TRX verification and artifact upload before claiming L3.
+- Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and confirm frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Check the exact-head MiniUPnP rerun after the whitespace-normalized source checker, then inspect XY-C1 Build/TRX/artifact and remaining exact-head Actions. Diagnose causal failures from logs.
-3. If MiniUPnP source contract passes, continue the netfilter rule installation/deletion and partial-commit audit. Keep physical-router L4 unverified.
+1. Fetch live `main`, verify the backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, and check the exact-head XY-C1 run triggered by the new `iptcrdr.c`/header paths (Build, TRX and artifact upload).
+2. Check any remaining Actions on the new SHA and diagnose first causal failures from their logs.
+3. Continue MiniUPnP netfilter rule installation/deletion and partial-commit auditing; choose a confirmed P1 fault, implement regression coverage and commit atomically. Physical-router L4 remains unverified.
 
 ## Handoff maintenance
 

@@ -315,6 +315,8 @@ on:
       - "trunk/user/scripts/files/sbin/dev_init.sh"
       - "trunk/user/scripts/files/usr/bin/autostart.sh"
       - ".github/workflows/xy-c1-firmware-validation.yml"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_allocation_policy.h"
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
   workflow_dispatch:

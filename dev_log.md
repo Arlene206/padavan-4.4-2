@@ -1,3 +1,10 @@
+## 2026-11-20 — Include MiniUPnP netfilter production changes in XY-C1 build triggers
+
+- Parent main SHA: `01f56e97c65d45fe998be26c69569208a92f7670`.
+- Exact-head MiniUPnP allocation regression #44789878471 passed all steps on `8dbb0963cb6b816bf13cf13726f5de0ce3c867fb`, including the new ASan/UBSan cleanup binary and source contract. AI handoff #44789878451 also passed. Process lifecycle #44789544079 and NVRAM transaction #44789543972 passed on the previous production-source SHA `2ffb847`.
+- The XY-C1 workflow's push path list did not include `netfilter/iptcrdr.c` or the new allocation-policy header, so no XY-C1 run had been scheduled for this firmware source change.
+- Added both production paths to the XY-C1 trigger list. The workflow already watches its own YAML, so the current push triggers a fresh exact-head firmware build; Build, TRX verification and artifact upload remain the L3 acceptance criteria.
+
 ## 2026-11-20 — Correct boot NTP-reset local scope and call-path contract
 
 - Parent main SHA: `8dbb0963cb6b816bf13cf13726f5de0ce3c867fb`.
