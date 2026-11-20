@@ -90,6 +90,10 @@ jobs:
           nvram_test = (rc / "tests/detect_internet_nvram_policy.c").read_text()
           assert "detect_internet_publish_status(" in nvram_policy
           assert "di_status_nvram_old" in detect
+          assert "di_status_nvram_target = status;" in publisher
+          assert "status = di_publish_nvram_status(DI_STATUS_INIT);" in reset_state
+          assert "if (status != 0 && di_pause_received)" in reset_state
+          assert "di_publish_nvram_status(di_status_nvram_target)" in timer
           publisher = body(detect, "di_publish_nvram_status(int status)")
           writer = body(detect, "di_write_nvram_status(void *context, int status)")
           assert 'nvram_set_int_temp("link_internet", status)' in writer

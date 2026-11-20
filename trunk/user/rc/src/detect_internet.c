@@ -45,6 +45,7 @@ static int                   di_host_total;
 static int                   di_poll_mode;
 static int                   di_status;
 static int                   di_status_nvram_old = -1;
+static int                   di_status_nvram_target = DI_STATUS_INIT;
 static int                   di_status_nvram_error = 0;
 static int                   di_is_ap_mode;
 static long                  di_time_last_activity;
@@ -158,6 +159,7 @@ di_publish_nvram_status(int status)
 {
 	int result;
 
+	di_status_nvram_target = status;
 	result = detect_internet_publish_status(
 		status, &di_status_nvram_old, di_write_nvram_status, NULL);
 	if (result != 0) {
@@ -179,7 +181,7 @@ di_publish_nvram_status(int status)
 static void
 di_reset_state(void)
 {
-	int i;
+	int i, status;
 
 	for (i = 0; i < DI_MAX_HOSTS; i++)
 		di_host_ok[i] = DI_STATUS_INIT;
@@ -191,7 +193,9 @@ di_reset_state(void)
 	di_time_diff_state = 0;
 
 	di_status = DI_STATUS_INIT;
-	di_publish_nvram_status(DI_STATUS_INIT);
+	status = di_publish_nvram_status(DI_STATUS_INIT);
+	if (status != 0 && di_pause_received)
+		di_alarmtimer(1);
 }
 
 static void
@@ -258,7 +262,7 @@ di_on_timer(void)
 
 	/* A paused monitor only retries its externally visible down state. */
 	if (di_pause_received) {
-		publish_status = di_publish_nvram_status(0);
+		publish_status = di_publish_nvram_status(di_status_nvram_target);
 		di_alarmtimer(publish_status != 0 ? 1 : 0);
 		return;
 	}
