@@ -466,7 +466,6 @@ get_redirect_rule_by_index(int index,
 	}
 	else
 	{
-		nat_scan_completed = 1;
 #ifdef IPTABLES_143
 		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
 		    e;
@@ -756,9 +755,11 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
 	{
 		syslog(LOG_ERR, "chain %s not found", miniupnpd_nat_chain);
+		r = -1;
 	}
 	else
 	{
+		nat_scan_completed = 1;
 #ifdef IPTABLES_143
 		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
 		    e;

@@ -222,7 +222,7 @@ linux/ifacewatcher.o: upnppermissions.h natpmp.h
 linux/getroute.o: getroute.h upnputils.h
 netfilter/iptcrdr.o: macros.h config.h netfilter/iptcrdr.h commonrdr.h
 netfilter/iptcrdr.o: config.h upnpglobalvars.h upnppermissions.h
-netfilter/iptcrdr.o: miniupnpdtypes.h netfilter/miniupnpd_redirect_desc_policy.h
+netfilter/iptcrdr.o: miniupnpdtypes.h netfilter/miniupnpd_redirect_desc_policy.h miniupnpd_redirect_cleanup_policy.h
 netfilter/iptpinhole.o: config.h netfilter/iptpinhole.h upnpglobalvars.h
 netfilter/iptpinhole.o: upnppermissions.h config.h miniupnpdtypes.h
 netfilter/iptpinhole.o: miniupnpd_pinhole_policy.h

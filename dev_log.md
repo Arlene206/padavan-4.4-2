@@ -1,3 +1,14 @@
+## 2026-11-20 — Bind MiniUPnP scan state to the delete transaction
+
+- Parent main SHA: `64d76a2c98a4fb0ed98f8aba899a71c44750f407`.
+- The latest MiniUPnP run #44802827202 on `64d76a2c98a4fb0ed98f8aba899a71c44750f407` passed the IPTC handle-ownership checker after its function target was corrected, then failed at the peer SNAT/DSCP checker: it still extracted the legacy one-line compatibility wrapper instead of `delete_redirect_and_filter_rules_ex()`. The checker now inspects the status-aware implementation.
+- Reviewing the new deletion-state implementation exposed a production defect before target compilation: `nat_scan_completed = 1` had been inserted into `get_redirect_rule_by_index()`, where the name was not in scope, while the local flag in `delete_redirect_and_filter_rules_ex()` was never set. The result was an undeclared identifier at compile time and, if hidden by a declaration, a false-negative primary-removal result. Moved the assignment into the verified NAT-chain branch and mark a missing NAT chain as an error.
+- Strengthened the deletion source contract to require the scan marker exclusively inside the delete transaction, after the chain check and before enumeration. Added the new cleanup-policy header to the `iptcrdr.o` Makefile prerequisites so incremental builds cannot retain an object built against an older policy header.
+- Exact-source XY-C1 run #44802582897 for the parent product source `8f88445490dd8df6b600743ec0ff7716707df115` was still in progress at the last poll. The new production change requires its own Build XY-C1, TRX and artifact validation on THIS COMMIT. MIPS/uClibc L3 and physical-router L4 remain NOT VERIFIED.
+- Resulting commit: THIS COMMIT. No frozen-backup branch changes.
+
+---
+
 ## 2026-11-20 — Rebuild the MiniUPnP lease checker around the shared rewrite primitive
 
 - Parent main SHA: 9d3d8760f8111d0c0eda5244365470a110325336. The checker in 9d3d8760f8111d0c0eda5244365470a110325336 still contained stale assertions tied to the removed lease_file_remove() implementation and referenced rewrite_entry before assignment. Replaced it with a consistent function inventory covering append rollback, staged rewrite/fsync/rename, exact-key policy tests, update rollback, and delete cleanup ordering.

@@ -40,6 +40,14 @@ delete = function_body(
     SOURCE,
     "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)"
 )
+lookup = function_body(SOURCE, "get_redirect_rule_by_index(")
+assert "nat_scan_completed" not in lookup
+assert delete.count("nat_scan_completed = 1;") == 1
+scan_guard = delete.index("if(!iptc_is_chain(miniupnpd_nat_chain, h))")
+scan_complete = delete.index("nat_scan_completed = 1;")
+scan_loop = delete.index("for(e = iptc_first_rule(miniupnpd_nat_chain", scan_complete)
+assert scan_guard < scan_complete < scan_loop
+assert "r = -1;" in delete[scan_guard:scan_complete]
 legacy_delete = function_body(
     SOURCE,
     "delete_redirect_and_filter_rules(unsigned short eport, int proto)"

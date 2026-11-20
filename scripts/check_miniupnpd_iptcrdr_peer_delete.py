@@ -35,7 +35,7 @@ helper = function_body(
 )
 delete = function_body(
     SOURCE,
-    "delete_redirect_and_filter_rules(unsigned short eport, int proto)"
+    "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)"
 )
 policy = " ".join(POLICY.split())
 
