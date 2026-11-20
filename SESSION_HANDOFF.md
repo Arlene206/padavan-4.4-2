@@ -1,30 +1,45 @@
 # 2026-11-20 continuation checkpoint
 
-This live checkpoint supersedes older summaries. Continue from current main; do not repeat startup recovery or completed FTP FIFO/APPE and RADIUS zeroization slices.
+## Git state
 
-## Git / exact-SHA verification
+- Current `main`: `940cad61cf1171f713b3e37890334c9702f5f399`.
+- Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move).
+- Recent main commits: `940cad61cf11` test(watchdog): run CPU module restart regression; `ee610712cc0c` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e4` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8` fix(miniupnpd): publish PID files atomically; `573d215607c8` test(vsftpd): normalize APPE source contract whitespace; `8ded66573ba5` fix(vsftpd): append concurrent APPE uploads atomically; `821c13388735` security(802.1x): zeroize RADIUS secrets on teardown.
+- Recent MiniUPnP task commits: `ee610712cc0c776c450c93cded990c8f8db64acd` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065ef15276f7d4f6189b02c75fbbc7c` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd8ecd80bb16a3d71928418c7e8c06` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e496a4e3f170a91186675a3410f6c7` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c320ce2aedff90b331fc85116a01a` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3` fix(miniupnpd): publish PID files atomically.
 
-- Parent main for watchdog CPU test wiring: ee610712cc0c776c450c93cded990c8f8db64acd; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- MiniUPnP singleton/PID/daemon-detachment source SHA `885f212b6065ef15276f7d4f6189b02c75fbbc7c`: AI docs `44737808764`, Process inventory `44737808070`, Process fail-closed `44737807940`, NVRAM `44737807973` PASS. MiniUPnP source-contract Action `44737808024` failed only on an escaped Python literal; repair SHA `ee610712cc0c776c450c93cded990c8f8db64acd` reran it PASS as `44737963653`. XY-C1 `44737807972` was in Build XY-C1 at last inspection; TRX and artifact pending.
-- On the prior source SHA `10b54df775dd8ecd80bb16a3d71928418c7e8c06`, MiniUPnP `44737236506`, Process inventory `44737236665`, AI docs `44737236428`, NVRAM `44737236575` PASS; XY-C1 `44737236650` remained in progress.
-- Main uses direct expected-SHA commits, no force-push. Backup remains untouched.
+## Current exact-SHA Actions
 
-## Active tasks
+AI handoff documentation contract #44738607273: completed/success; watchdog signal lifecycle stability regression #44738607355: completed/failure
 
-### MiniUPnP
-- Lifetime singleton sidecar lock; strict no-follow PID validation; bounded reads and exact PID parser; atomic full-write/fsync/rename PID publication with umask preservation; default BSD `daemon()` failure now returns nonzero rather than continuing foreground.
-- Exact source code is under XY-C1 validation on SHA 885. Require Build, TRX verification and artifact upload all pass before L3. Physical L4 remains NOT VERIFIED.
+No action is marked PASS unless the result above reports a completed success for the same SHA. No firmware L3 claim unless detector/input checks, XY-C1 build, TRX verification and artifact upload all pass on one identical product-source SHA.
 
-### CPU watchdog verification gap
-- Existing `watchdog_cpu_restart_policy.h` and its regression source were not included in `.github/workflows/watchdog-signal-stability.yml`: the workflow tested signal/NTP/service lifecycle but did not compile the CPU watchdog module restart postcondition test.
-- This slice wires its GNU89/`-Werror`/ASan/UBSan compile/run step, verifies the services.c integration and policy-test cases, and adds both header/test to push and PR path filters.
-- XY-C1 already tracks `services.c` and `watchdog_cpu_restart_policy.h`, so the production watchdog code on SHA 885 is included in its ongoing build.
+## Active work — MiniUPnP SOAP request validation
+
+- Port arguments in WANIPConnection handlers must be validated before unsigned-short conversion; reject values above 65535 and non-decimal junk.
+- NewLeaseDuration in AddPortMapping/AddAnyPortMapping must be validated before signed redirect API conversion; preserve zero=infinite and reject negative/junk/overflow or values beyond INT_MAX.
+- GetListOfPortMappings count must be validated before signed-int conversion; preserve zero and reject values above INT_MAX and junk.
+- Focused regression uses GNU89, -Werror, ASan and UBSan. Current exact-head focused Action state is listed above. If a run fails, inspect its job logs and patch only the causal source-contract/test issue.
 
 ## Exact first actions
 
-1. Inspect this commit's watchdog CPU regression and AI handoff Actions; repair causal failures only.
-2. Inspect XY-C1 run `44737807972` on source SHA 885; require Build XY-C1, TRX verification and artifact upload all pass.
-3. Continue independent stability/security work while Actions remain pending. No physical L4 claim without hardware validation.
+1. Verify current exact-head MiniUPnP SOAP lease/input regression and any other failing exact-SHA workflows. Fix causal failures from their logs; do not relax production assertions.
+2. Verify XY-C1 for the exact current product-source SHA. Require the firmware detector/input stage, Build XY-C1, TRX verification and artifact upload to all succeed on that same SHA; do not reuse earlier artifacts.
+3. While CI is pending, continue a separate, independent P1 stability/security issue elsewhere in Padavan userland.
+4. Physical router, WAN failover and UPnP live interoperability L4 remain NOT VERIFIED.
+
+## Closed slices — do not re-audit without new evidence
+
+- WAN deferred reconnect marker publication/clear, overflow protection and failure propagation.
+- Ralink 802.1X RADIUS count bounds, per-BSS/global secret ownership and teardown zeroization.
+- Samba private-state permissions.
+- NTP readiness persistence.
+- FTP existing-STOR FIFO/special-file rejection and APPE `O_APPEND` concurrency.
+- MiniUPnP PID-file atomic publication/umask preservation.
+
+## Verification boundaries
+
+- Host L2, exact-SHA Actions, exact-source MIPS/TRX/artifact L3 and physical-device L4 are separate.
+- Older successful build artifacts are valid only for their source SHA. Do not transfer status across commits.
 
 
 ---

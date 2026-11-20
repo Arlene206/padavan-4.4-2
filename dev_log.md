@@ -1,3 +1,12 @@
+## 2026-11-20 — Current-main handoff and exact-SHA CI checkpoint
+
+- Current main: `940cad61cf1171f713b3e37890334c9702f5f399`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Recent MiniUPnP commits: ee610712cc0c776c450c93cded990c8f8db64acd (ci(miniupnpd): fix daemon failure checker quoting); 885f212b6065ef15276f7d4f6189b02c75fbbc7c (fix(miniupnpd): abort on daemon detachment failure); 10b54df775dd8ecd80bb16a3d71928418c7e8c06 (fix(miniupnpd): serialize daemon startup and validate pidfile); 5778580685e496a4e3f170a91186675a3410f6c7 (ci(xy-c1): build on miniupnpd pidfile changes); 2ede97f6206c320ce2aedff90b331fc85116a01a (fix(miniupnpd): preserve pidfile umask and test build); 12e4a6f0d8a8c57cffeee70424b59dce8afb05b3 (fix(miniupnpd): publish PID files atomically).
+- Exact-head Actions: AI handoff documentation contract #44738607273: completed/success; watchdog signal lifecycle stability regression #44738607355: completed/failure.
+- This handoff records CI state without converting pending/running checks into PASS. Immediate next task is exact-head MiniUPnP regression/firmware verification, then independent userland P1 work while Actions run.
+
+---
+
 ## 2026-11-20 — Wire the CPU watchdog restart policy regression into Actions
 
 - Parent main SHA: ee610712cc0c776c450c93cded990c8f8db64acd.

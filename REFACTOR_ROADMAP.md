@@ -1,10 +1,10 @@
 # 2026-11-20 active checkpoint
 
-- Parent main for CPU watchdog regression workflow wiring: ee610712cc0c776c450c93cded990c8f8db64acd; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- MiniUPnP singleton/PID/daemon-detachment source SHA `885f212`: Process, Process fail-closed, NVRAM and AI docs PASS; focused MiniUPnP source checker fixed and PASS on workflow-only SHA `ee61071`. XY-C1 source build on 885 remains in progress; TRX/artifact not yet verified.
-- Found CPU watchdog module restart regression source was not compiled/run by its dedicated workflow despite an existing policy header/test. Added GNU89/`-Werror`/ASan/UBSan run, services.c integration contract and push/PR path filters. XY-C1 already covers the relevant production `services.c` and policy header.
-- Physical L4 remains NOT VERIFIED.
-
+- Current main: `940cad61cf1171f713b3e37890334c9702f5f399`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Active: MiniUPnP SOAP input hardening — port values, NewLeaseDuration and GetListOfPortMappings count. Require exact-head focused tests and same-source XY-C1 Build/TRX/artifact.
+- Exact-head Actions: AI handoff documentation contract #44738607273: completed/success; watchdog signal lifecycle stability regression #44738607355: completed/failure.
+- Closed and do not repeat: WAN deferred reconnect, RADIUS validation/secret ownership, Samba permissions, NTP readiness, FTP FIFO/APPE, MiniUPnP PID publication.
+- Next: fix actual exact-SHA test failures from logs, verify same-source firmware artifact, then continue an independent P1 userland stability/security fix. Hardware L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 
