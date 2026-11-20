@@ -1,3 +1,14 @@
+## 2026-11-20 — Add injected WAN route restoration regression and repair handoff literals
+
+- Parent main SHA: 0b6bccb9c0bc7324bf22083b66a4ad31625dd4dc.
+- Strengthened the static-LAN recovery introduced on 0b6bccb: the route repair callback is now exercised through a small first-error policy that retries only after protocol-reset failure, retains the original reset error, and exposes the restoration result separately for logging.
+- Registered injected regression cases for successful restore, failed restore with original-error preservation, successful reset with no callback, and missing callback fail-closed behavior. Existing WAN workflow compiles wan_route_flush_policy.c with GNU89, -Werror, ASan and UBSan.
+- Extended check_wan_firewall_status.py to require policy/test registration, route-repair-before-return order and no WAN reactivation after reset failure.
+- AI docs run 44678384983 on parent failed because handoff lacked the required literal "one atomic main commit"; also restored exact ## Active task and Before context exhaustion wording. HTTPD run 44678385087 on 0b6bccb passed. NVRAM boundary 44678384900 and XY-C1 44678385066 were pending at last poll.
+- Current exact-head validation pending; no current-source L3 or physical L4 claim.
+
+---
+
 ## 2026-11-20 — Restore static LAN routes when WAN protocol staging aborts restart
 
 - Parent main SHA: `da3081e5c2ae97ef65640cff0ed48931dda2ce7f`.

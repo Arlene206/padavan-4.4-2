@@ -74,6 +74,8 @@ wan = (RC / "net_wan.c").read_text()
 header = (RC / "rc.h").read_text()
 policy = (RC / "service_start_status.h").read_text()
 policy_test = (RC / "tests/service_start_status.c").read_text()
+route_policy = (RC / "wan_route_flush_policy.h").read_text()
+route_policy_test = (RC / "tests/wan_route_flush_policy.c").read_text()
 require("rc_wan_firewall_start_allows_protocol" in policy,
         "WAN protocol start policy must require a successful firewall rebuild")
 require("test_wan_firewall_failure_blocks_protocol_launch" in policy_test and
@@ -141,30 +143,38 @@ sysctl_start = start.index("sysctl_status = set_tcp_syncookies(")
 require(reset_gate in start and start.index(reset_gate) < sysctl_start and
         "return wan_start_status;" in body(start[start.index(reset_gate):], reset_gate),
         "WAN startup must stop before any setup side effect when protocol staging failed")
+restore_policy = body(route_policy, "rc_wan_restore_lan_routes_after_failed_reset(")
+for marker in (
+    "if (reset_status == 0)",
+    "route_status = restore(lan_ifname);",
+    "if (restore_status)",
+    "return rc_first_service_start_status(reset_status, route_status);",
+):
+    require(marker in restore_policy,
+            f"failed protocol reset route-recovery policy must preserve {marker}")
+require("test_failed_reset_restores_lan_routes_and_preserves_first_error" in route_policy_test and
+        "test_failed_reset_restores_lan_routes_and_preserves_first_error();" in route_policy_test,
+        "WAN reset route recovery must have a registered injected regression")
+
 full_restart = body(wan, "full_restart_wan(void)")
-reset_proto_at = full_restart.index("status = reset_wan_vars_status();")
-reset_proto_gate = full_restart.index("if (status != 0)", reset_proto_at)
-lan_restore = full_restart.index(
-    "static_lan_route_status = add_static_lan_routes(IFNAME_BR);",
-    reset_proto_gate,
-)
-lan_restore_failure = full_restart.index("if (static_lan_route_status != 0)", lan_restore)
-lan_restore_merge = full_restart.index(
-    "status = rc_first_service_start_status(status,",
-    lan_restore_failure,
-)
-reset_abort = full_restart.index("return status;", lan_restore_merge)
+reset_proto_at = full_restart.index("reset_status = reset_wan_vars_status();")
+reset_proto_gate = full_restart.index("if (reset_status != 0)", reset_proto_at)
+lan_restore = full_restart.index("status = rc_wan_restore_lan_routes_after_failed_reset(", reset_proto_gate)
+lan_restore_check = full_restart.index("if (static_lan_route_status != 0)", lan_restore)
+reset_abort = full_restart.index("return status;", lan_restore_check)
 normal_lan_restore = full_restart.index("status = add_static_lan_routes(IFNAME_BR);", reset_abort)
 wan_reactivation = full_restart.index("select_usb_modem_to_wan();", reset_abort)
 require(
-    reset_proto_at < reset_proto_gate < lan_restore < lan_restore_failure <
-    lan_restore_merge < reset_abort < normal_lan_restore < wan_reactivation,
+    reset_proto_at < reset_proto_gate < lan_restore < lan_restore_check <
+    reset_abort < normal_lan_restore < wan_reactivation,
     "protocol staging failure must restore static LAN routes, preserve first error and abort WAN restart",
 )
 require(
     "static LAN route restoration also failed after WAN protocol staging error" in
-    full_restart[lan_restore_failure:reset_abort],
-    "failed recovery route restoration must be logged",
+    full_restart[lan_restore_check:reset_abort] and
+    "aborting full WAN restart because configured WAN protocol staging failed" in
+    full_restart[lan_restore_check:reset_abort],
+    "failed route restoration and primary reset error must both be logged",
 )
 reconnect = body(wan, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
 require("status = reset_wan_vars_status();" in reconnect and

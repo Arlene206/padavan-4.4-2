@@ -3503,9 +3503,10 @@ int
 full_restart_wan(void)
 {
 	int status;
+	int reset_status;
+	int static_lan_route_status;
 	int switch_vlan_status;
 	int route_flush_status;
-	int static_lan_route_status;
 	char *route_ifnames[2];
 
 	if (get_ap_mode())
@@ -3532,19 +3533,18 @@ full_restart_wan(void)
 		return status;
 	}
 	update_router_mode();
-	status = reset_wan_vars_status();
-	if (status != 0) {
-		static_lan_route_status = add_static_lan_routes(IFNAME_BR);
-		if (static_lan_route_status != 0) {
+	reset_status = reset_wan_vars_status();
+	if (reset_status != 0) {
+		status = rc_wan_restore_lan_routes_after_failed_reset(
+			reset_status, IFNAME_BR, add_static_lan_routes,
+			&static_lan_route_status);
+		if (static_lan_route_status != 0)
 			logmessage(LOGNAME,
 				   "static LAN route restoration also failed after WAN protocol staging error (status=%d)",
 				   static_lan_route_status);
-			status = rc_first_service_start_status(status,
-							       static_lan_route_status);
-		}
 		logmessage(LOGNAME,
 			   "aborting full WAN restart because configured WAN protocol staging failed (status=%d)",
-			   status);
+			   reset_status);
 		return status;
 	}
 	status = add_static_lan_routes(IFNAME_BR);

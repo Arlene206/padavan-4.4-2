@@ -1,11 +1,13 @@
 # 2026-11-20 active checkpoint
 
-- `b376e2c2e90c5b2d49edceab6c875b47f29dc27c` implements checked WAN protocol staging while preserving the public void reset ABI. Its HTTPD source contract was corrected in `da3081e`; exact HTTPD `44677916869` PASS.
-- AI docs `44677916863` failed because current handoff checkpoint wording did not match the protocol-required exact text. This source-safety update also restores the required phrases and updates handoff/roadmap evidence.
-- WAN protocol staging failure occurs after WAN/bridge route flush. Previously, the error path returned before restoring static LAN routes. THIS SOURCE SLICE restores `add_static_lan_routes(IFNAME_BR)` before aborting and preserves the original protocol error if recovery also fails.
-- NVRAM boundary `44677505416` PASS; XY-C1 `44677505398` on `b376e2c` was IN_PROGRESS at last poll. Current-source L3 remains unverified; physical L4 remains NOT VERIFIED.
+- Main before injected route-recovery regression: 0b6bccb9c0bc7324bf22083b66a4ad31625dd4dc; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and read-only.
+- WAN protocol staging b376e2c checks configured wan_proto before reading wanN_proto while preserving the public void reset ABI. HTTPD contract repair da3081e passed its exact HTTPD run 44678385087 on 0b6bccb.
+- Static LAN route restoration now has a unit-testable callback policy: retry after failed protocol reset, preserve the primary reset error, and expose/log route repair failure. Injected sanitizer regression and exact source contract are pending.
+- AI docs run 44678384983 failed on the missing required literal one atomic main commit; this patch restores it and the required Active task heading.
+- Current same-SHA XY-C1 L3 is NOT VERIFIED. Physical router L4 remains NOT VERIFIED.
 
-
+- CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
+- Keep common RC paths in a workflow only when its invoked tests/checkers consume or assert that production integration. Shared-path fan-out is intentional where suites inspect shared RC integration.
 
 - CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
 - Keep common RC paths in a workflow only when its invoked tests/checkers consume or assert that production integration. Current AdGuardHome, Inadyn, NFS, WAN route, and USB modem suites inspect relevant shared RC call paths/declarations; their shared-path fan-out is intentional, not automatically unrelated.

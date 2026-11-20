@@ -48,4 +48,34 @@ rc_wan_route_flush_and_cache_apply(char *const *ifnames, unsigned int count,
 	return rc_first_service_start_status(first_status, cache_status);
 }
 
+/*
+ * A failed WAN reset happens after the restart path has flushed routes from
+ * the WAN interface and LAN bridge. Restore the LAN static routes before
+ * aborting the restart, but preserve the reset failure as the primary error.
+ */
+typedef int (*rc_wan_static_route_restore_fn)(char *lan_ifname);
+
+static inline int
+rc_wan_restore_lan_routes_after_failed_reset(
+	int reset_status, char *lan_ifname,
+	rc_wan_static_route_restore_fn restore, int *restore_status)
+{
+	int route_status;
+
+	if (restore_status)
+		*restore_status = 0;
+	if (reset_status == 0)
+		return 0;
+
+	if (!lan_ifname || !lan_ifname[0] || !restore)
+		route_status = EINVAL;
+	else
+		route_status = restore(lan_ifname);
+
+	if (restore_status)
+		*restore_status = route_status;
+
+	return rc_first_service_start_status(reset_status, route_status);
+}
+
 #endif /* RC_WAN_ROUTE_FLUSH_POLICY_H */
