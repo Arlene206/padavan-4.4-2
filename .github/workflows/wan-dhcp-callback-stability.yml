@@ -480,8 +480,9 @@ jobs:
 
           zcip_viptv_bound = body(source, "zcip_viptv_bound(char *man_ifname)")
           assert zcip_viptv_bound.index('value = getenv("ip")') < zcip_viptv_bound.index("dhcp_lease_ipv4_is_valid(ip)") < zcip_viptv_bound.index("dhcp_wan_interface_apply(")
-          assert 'snprintf(old_ip, sizeof(old_ip), "%s", previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR])' in zcip_viptv_bound
-          assert 'snprintf(old_mask, sizeof(old_mask), "%s", previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_NETMASK])' in zcip_viptv_bound
+          zcip_viptv_normalized = " ".join(zcip_viptv_bound.split())
+          assert 'snprintf(old_ip, sizeof(old_ip), "%s", previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR])' in zcip_viptv_normalized
+          assert 'snprintf(old_mask, sizeof(old_mask), "%s", previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_NETMASK])' in zcip_viptv_normalized
           zcip_viptv_snapshot = zcip_viptv_bound.index("wan_dhcp_nvram_state_publish(")
           assert zcip_viptv_bound.index("dhcp_wan_interface_apply(") < zcip_viptv_snapshot < zcip_viptv_bound.index("start_igmpproxy(man_ifname)")
           assert "WAN_ZCIP_VIPTV_SNAPSHOT_COUNT" in zcip_viptv_bound

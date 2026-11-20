@@ -189,19 +189,6 @@ control_wan_led_isp_state(int is_wan_up, int is_modem_unit)
 	}
 }
 
-static void
-clear_wan_state(void)
-{
-	set_wan_unit_value_int(0, "err", 0);
-	set_wan_unit_value_int(0, "uptime", 0);
-	set_wan_unit_value_int(0, "dltime", 0);
-	set_wan_unit_value_int(0, "bytes_rx", 0);
-	set_wan_unit_value_int(0, "bytes_tx", 0);
-	nvram_set_int_temp("l2tp_wan_t", 0);
-	nvram_set_temp("vpnc_dns_t", "");
-	nvram_set_temp("vpnc_dom_t", "");
-}
-
 static int
 set_nvram_value_status(const char *name, const char *value)
 {
@@ -250,6 +237,42 @@ set_nvram_snapshot_value_status(void *context, const char *param_name,
 	api_result = nvram_set_temp(param_name, value);
 	saved_errno = errno;
 	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+
+static int
+clear_wan_state_status(void)
+{
+	static const struct rc_wan_nvram_value stats_clear_values[] = {
+		{ "err", "0" }, { "uptime", "0" }, { "dltime", "0" },
+		{ "bytes_rx", "0" }, { "bytes_tx", "0" }
+	};
+	static const struct rc_wan_nvram_value vpn_runtime_clear_values[] = {
+		{ "l2tp_wan_t", "0" }, { "vpnc_dns_t", "" },
+		{ "vpnc_dom_t", "" }
+	};
+	int unit = 0, stats_status, runtime_status;
+
+	/* Statistics are best-effort; do not let a counter block link teardown. */
+	stats_status = rc_wan_nvram_set_all_values(
+		stats_clear_values,
+		(unsigned int)(sizeof(stats_clear_values) / sizeof(stats_clear_values[0])),
+		set_wan_unit_value_status_callback, &unit);
+	if (stats_status != 0)
+		logmessage(LOGNAME,
+			   "WAN statistics snapshot clear incomplete (status=%d)",
+			   stats_status);
+
+	/* These control DNS and the shared L2TP client/server lifecycle. */
+	runtime_status = rc_wan_nvram_set_all_values(
+		vpn_runtime_clear_values,
+		(unsigned int)(sizeof(vpn_runtime_clear_values) / sizeof(vpn_runtime_clear_values[0])),
+		set_nvram_snapshot_value_status, NULL);
+	if (runtime_status != 0)
+		logmessage(LOGNAME,
+			   "WAN/VPN runtime state clear incomplete (status=%d)",
+			   runtime_status);
+	return runtime_status;
 }
 
 static int
@@ -328,7 +351,11 @@ reset_wan_vars_status(void)
 	wan_vars_reset_status = 0;
 	unit = 0;
 
-	clear_wan_state();
+	proto_status = clear_wan_state_status();
+	if (proto_status != 0) {
+		reset_failure_context = "WAN/VPN runtime state";
+		goto reset_failed;
+	}
 	proto_status = reset_man_vars_status();
 	if (proto_status != 0) {
 		reset_failure_context = "MAN/virtual IPTV route snapshot";
@@ -2742,7 +2769,13 @@ stop_wan_ppp_locked(void)
 			   stop_status);
 		goto abort_resume_detect;
 	}
-	clear_wan_state();
+	stop_status = clear_wan_state_status();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "aborting WAN PPP teardown because VPN runtime state clear failed (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
 	control_wan_led_isp_state(0, 0);
 	return 0;
 
@@ -2934,7 +2967,13 @@ stop_wan_locked(void)
 		goto abort_resume_detect;
 	}
 #endif
-	clear_wan_state();
+	stop_status = clear_wan_state_status();
+	if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "aborting WAN teardown because VPN runtime state clear failed (status=%d)",
+			   stop_status);
+		goto abort_resume_detect;
+	}
 	control_wan_led_isp_state(0, 0);
 	return 0;
 

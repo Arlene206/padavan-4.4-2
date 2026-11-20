@@ -204,6 +204,53 @@ test_all_value_sequence_attempts_every_write_and_preserves_first_error(void)
 	assert(strcmp(fake.copied_values[0], "") == 0);
 }
 
+
+static void
+test_wan_statistics_clear_attempts_every_counter(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "err", "0" }, { "uptime", "0" }, { "dltime", "0" },
+		{ "bytes_rx", "0" }, { "bytes_tx", "0" }
+	};
+	struct fake_value_copy fake;
+	unsigned int i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 2;
+	fake.failure_status = ENOSPC;
+	assert(rc_wan_nvram_set_all_values(values, 5, fake_set_value, &fake) == ENOSPC);
+	assert(fake.calls == 5);
+	assert(strcmp(fake.copied_names[0], "err") == 0);
+	assert(strcmp(fake.copied_names[1], "uptime") == 0);
+	assert(strcmp(fake.copied_names[2], "dltime") == 0);
+	assert(strcmp(fake.copied_names[3], "bytes_rx") == 0);
+	assert(strcmp(fake.copied_names[4], "bytes_tx") == 0);
+	for (i = 0; i < 5; ++i)
+		assert(strcmp(fake.copied_values[i], "0") == 0);
+}
+
+static void
+test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "l2tp_wan_t", "0" }, { "vpnc_dns_t", "" },
+		{ "vpnc_dom_t", "" }
+	};
+	struct fake_value_copy fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.failure_status = EIO;
+	assert(rc_wan_nvram_set_all_values(values, 3, fake_set_value, &fake) == EIO);
+	assert(fake.calls == 3);
+	assert(strcmp(fake.copied_names[0], "l2tp_wan_t") == 0);
+	assert(strcmp(fake.copied_names[1], "vpnc_dns_t") == 0);
+	assert(strcmp(fake.copied_names[2], "vpnc_dom_t") == 0);
+	assert(strcmp(fake.copied_values[0], "0") == 0);
+	assert(strcmp(fake.copied_values[1], "") == 0);
+	assert(strcmp(fake.copied_values[2], "") == 0);
+}
+
 static void
 test_all_value_sequence_validates_before_writing(void)
 {
@@ -232,6 +279,8 @@ main(void)
 	test_required_value_sequence_stops_at_first_error();
 	test_required_value_sequence_rejects_invalid_values();
 	test_all_value_sequence_attempts_every_write_and_preserves_first_error();
+	test_wan_statistics_clear_attempts_every_counter();
+	test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error();
 	test_all_value_sequence_validates_before_writing();
 	return 0;
 }

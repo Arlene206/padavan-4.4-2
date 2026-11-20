@@ -899,4 +899,46 @@ require('nvram_set_temp("vpnc_dns_t", "")' not in wan_down and
 require("test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_continues" in wan_route_test and
         "test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_continues();" in wan_route_test,
         "WAN resolver snapshot cleanup failure regression is missing")
-print("WAN firewall rebuild fail-closed protocol gates and PPP recovery: PASS")
+
+clear_state = body(wan, "clear_wan_state_status(void)")
+for marker in (
+    '{ "err", "0" }', '{ "uptime", "0" }', '{ "dltime", "0" }',
+    '{ "bytes_rx", "0" }', '{ "bytes_tx", "0" }',
+):
+    require(marker in clear_state, "WAN statistics clear is missing " + marker)
+for marker in (
+    '{ "l2tp_wan_t", "0" }', '{ "vpnc_dns_t", "" }',
+    '{ "vpnc_dom_t", "" }',
+):
+    require(marker in clear_state, "WAN/VPN control-state clear is missing " + marker)
+require(clear_state.count("rc_wan_nvram_set_all_values(") == 2 and
+        "set_wan_unit_value_status_callback" in clear_state and
+        "set_nvram_snapshot_value_status" in clear_state,
+        "WAN state clear must use checked attempt-all NVRAM writers")
+require("if (stats_status != 0)" in clear_state and
+        "WAN statistics snapshot clear incomplete" in clear_state and
+        "return runtime_status;" in clear_state,
+        "statistics clear must remain best-effort while VPN state errors propagate")
+require("test_wan_statistics_clear_attempts_every_counter" in nvram_policy_test and
+        "test_wan_statistics_clear_attempts_every_counter();" in nvram_policy_test and
+        "test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error" in nvram_policy_test and
+        "test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error();" in nvram_policy_test,
+        "WAN statistics/VPN runtime state clear needs registered attempt-all regressions")
+reset_state = body(wan, "reset_wan_vars_status(void)")
+require("proto_status = clear_wan_state_status();" in reset_state and
+        reset_state.index("proto_status = clear_wan_state_status();") <
+        reset_state.index("proto_status = reset_man_vars_status();") and
+        'reset_failure_context = "WAN/VPN runtime state";' in reset_state,
+        "WAN reset must stop before staging protocol settings if runtime markers cannot be cleared")
+for signature, label in (
+    ("stop_wan_ppp_locked(void)", "WAN PPP"),
+    ("stop_wan_locked(void)", "WAN"),
+):
+    teardown = body(wan, signature)
+    marker = "stop_status = clear_wan_state_status();"
+    require(marker in teardown and
+            "if (stop_status != 0)" in teardown[teardown.index(marker):] and
+            "goto abort_resume_detect;" in teardown[teardown.index(marker):],
+            label + " teardown must return failure instead of reporting success after an incomplete runtime-state clear")
+
+print("WAN firewall rebuild fail-closed protocol gates, PPP recovery and runtime-state clear: PASS")
