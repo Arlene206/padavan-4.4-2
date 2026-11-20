@@ -344,6 +344,21 @@ invalid_config = "if (!dhcp_lease_ipv4_is_valid(wan_addr) || !dhcp_lease_netmask
 assert invalid_config in static_config and snapshot_call < static_config.index(invalid_config), (
     "static WAN IPoE must take a checked coherent NVRAM snapshot before validating or configuring addresses"
 )
+snapshot_helper = compact(body(WAN_SOURCE, "wan_static_ipv4_snapshot("))
+assert "const char *wan_addr_suffix" in snapshot_helper
+assert "const char *wan_mask_suffix" in snapshot_helper
+assert '"wan%d_%s",unit,wan_addr_suffix' in snapshot_helper
+assert '"wan%d_%s",unit,wan_mask_suffix' in snapshot_helper
+launch_wanx = compact(body(WAN_SOURCE, "launch_wanx("))
+man_snapshot_call = 'snapshot_status=wan_static_ipv4_snapshot(unit,"man_ipaddr","man_netmask",'
+assert man_snapshot_call in launch_wanx
+assert "char man_addr_storage[16],man_mask_storage[16],lan_addr[16],lan_mask[16];" in launch_wanx
+assert "if(snapshot_status!=0)" in launch_wanx
+assert launch_wanx.index(man_snapshot_call) < launch_wanx.index("if(snapshot_status!=0)") < launch_wanx.index("if(!is_valid_ipv4(man_addr))")
+assert "get_wan_unit_value(unit,\"man_ipaddr\")" not in launch_wanx
+assert "get_wan_unit_value(unit,\"man_netmask\")" not in launch_wanx
+assert "nvram_safe_get(\"lan_ipaddr\")" not in launch_wanx
+assert "nvram_safe_get(\"lan_netmask\")" not in launch_wanx
 invalid_config_start = static_config.index(invalid_config)
 subnet_conflict_start = static_config.index("else if (is_same_subnet2(wan_addr, lan_addr, wan_mask, lan_mask))")
 assert invalid_config_start < subnet_conflict_start

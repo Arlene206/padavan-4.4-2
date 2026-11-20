@@ -136,7 +136,9 @@ wan_nvram_transaction_get_callback(void *context, const char *param_name,
 
 
 static int
-wan_static_ipv4_snapshot(int unit, char *wan_addr, size_t wan_addr_size,
+wan_static_ipv4_snapshot(int unit, const char *wan_addr_suffix,
+			 const char *wan_mask_suffix,
+			 char *wan_addr, size_t wan_addr_size,
 			 char *wan_mask, size_t wan_mask_size,
 			 char *lan_addr, size_t lan_addr_size,
 			 char *lan_mask, size_t lan_mask_size)
@@ -145,16 +147,20 @@ wan_static_ipv4_snapshot(int unit, char *wan_addr, size_t wan_addr_size,
 	char wan_addr_key[64], wan_mask_key[64];
 	int length, status = 0, end_status;
 
-	if (!wan_addr || !wan_addr_size || !wan_mask || !wan_mask_size ||
+	if (!wan_addr_suffix || !wan_addr_suffix[0] ||
+	    !wan_mask_suffix || !wan_mask_suffix[0] ||
+	    !wan_addr || !wan_addr_size || !wan_mask || !wan_mask_size ||
 	    !lan_addr || !lan_addr_size || !lan_mask || !lan_mask_size)
 		return EINVAL;
 
-	length = snprintf(wan_addr_key, sizeof(wan_addr_key), "wan%d_ipaddr", unit);
+	length = snprintf(wan_addr_key, sizeof(wan_addr_key), "wan%d_%s",
+			 unit, wan_addr_suffix);
 	if (length < 0)
 		return errno ? errno : EIO;
 	if ((size_t)length >= sizeof(wan_addr_key))
 		return ENAMETOOLONG;
-	length = snprintf(wan_mask_key, sizeof(wan_mask_key), "wan%d_netmask", unit);
+	length = snprintf(wan_mask_key, sizeof(wan_mask_key), "wan%d_%s",
+			 unit, wan_mask_suffix);
 	if (length < 0)
 		return errno ? errno : EIO;
 	if ((size_t)length >= sizeof(wan_mask_key))
@@ -1996,8 +2002,21 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 {
 	int launch_status = 0;
 	int man_mtu = get_wan_unit_value_int(unit, "man_mtu");
-	char *man_addr = get_wan_unit_value(unit, "man_ipaddr");
-	char *man_mask = get_wan_unit_value(unit, "man_netmask");
+	int snapshot_status;
+	char man_addr_storage[16], man_mask_storage[16], lan_addr[16], lan_mask[16];
+	char *man_addr = man_addr_storage, *man_mask = man_mask_storage;
+
+	snapshot_status = wan_static_ipv4_snapshot(
+		unit, "man_ipaddr", "man_netmask",
+		man_addr_storage, sizeof(man_addr_storage),
+		man_mask_storage, sizeof(man_mask_storage),
+		lan_addr, sizeof(lan_addr), lan_mask, sizeof(lan_mask));
+	if (snapshot_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot snapshot MAN/LAN IPv4 configuration on %s (status=%d)",
+			   man_ifname, snapshot_status);
+		return snapshot_status;
+	}
 
 	if (!is_valid_ipv4(man_addr))
 		man_addr = "0.0.0.0";
@@ -2034,8 +2053,6 @@ launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)
 			launch_status = start_zcip_wan(man_ifname);
 	} else {
 		int man_err = 0, gateway_route_status = 0, route_status, address_status, mtu_status;
-		char *lan_addr = nvram_safe_get("lan_ipaddr");
-		char *lan_mask = nvram_safe_get("lan_netmask");
 		
 		if (!dhcp_lease_ipv4_is_valid(man_addr) ||
 		    !dhcp_lease_netmask_is_valid(man_mask)) {
@@ -2728,7 +2745,8 @@ start_wan(void)
 				char wan_addr[16], wan_mask[16], lan_addr[16], lan_mask[16];
 
 				snapshot_status = wan_static_ipv4_snapshot(
-					unit, wan_addr, sizeof(wan_addr), wan_mask, sizeof(wan_mask),
+					unit, "ipaddr", "netmask",
+					wan_addr, sizeof(wan_addr), wan_mask, sizeof(wan_mask),
 					lan_addr, sizeof(lan_addr), lan_mask, sizeof(lan_mask));
 				if (snapshot_status != 0) {
 					wan_err = 1;
