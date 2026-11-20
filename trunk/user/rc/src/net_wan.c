@@ -5739,15 +5739,16 @@ zcip_bound(char *man_ifname)
 		logmessage(LOGNAME,
 			   "cannot publish complete ZeroConf WAN snapshot on %s (status=%d)",
 			   man_ifname, snapshot_status);
-		interface_rollback_status = 0;
-		interface_status = dhcp_wan_interface_apply(
-			ip, zeroconf_mask, old_ip, old_mask, 1,
-			&wan_dhcp_interface_ops, &interface_context,
-			&interface_rollback_status);
-		if (interface_status != 0 || interface_rollback_status != 0)
+		if (dhcp_lease_ipv4_is_valid(old_ip) &&
+		    dhcp_lease_netmask_is_valid(old_mask))
+			interface_rollback_status = wan_dhcp_interface_set(
+				&interface_context, old_ip, old_mask);
+		else
+			interface_rollback_status = wan_dhcp_interface_clear(&interface_context);
+		if (interface_rollback_status != 0)
 			logmessage(LOGNAME,
-				   "failed to restore previous ZeroConf WAN address on %s (status=%d rollback=%d)",
-				   man_ifname, interface_status, interface_rollback_status);
+				   "failed to restore previous ZeroConf WAN address on %s (error=%d)",
+				   man_ifname, interface_rollback_status);
 		if (snapshot_rollback_status != 0)
 			logmessage(LOGNAME,
 				   "ZeroConf WAN NVRAM snapshot restoration incomplete on %s (status=%d)",
@@ -5834,15 +5835,16 @@ zcip_viptv_bound(char *man_ifname)
 		logmessage(LOGNAME,
 			   "cannot publish complete ZeroConf IPTV snapshot on %s (status=%d)",
 			   man_ifname, snapshot_status);
-		interface_rollback_status = 0;
-		interface_status = dhcp_wan_interface_apply(
-			ip, zeroconf_mask, old_ip, old_mask, 1,
-			&wan_dhcp_interface_ops, &interface_context,
-			&interface_rollback_status);
-		if (interface_status != 0 || interface_rollback_status != 0)
+		if (dhcp_lease_ipv4_is_valid(old_ip) &&
+		    dhcp_lease_netmask_is_valid(old_mask))
+			interface_rollback_status = wan_dhcp_interface_set(
+				&interface_context, old_ip, old_mask);
+		else
+			interface_rollback_status = wan_dhcp_interface_clear(&interface_context);
+		if (interface_rollback_status != 0)
 			logmessage(LOGNAME,
-				   "failed to restore previous ZeroConf IPTV address on %s (status=%d rollback=%d)",
-				   man_ifname, interface_status, interface_rollback_status);
+				   "failed to restore previous ZeroConf IPTV address on %s (error=%d)",
+				   man_ifname, interface_rollback_status);
 		if (snapshot_rollback_status != 0)
 			logmessage(LOGNAME,
 				   "ZeroConf IPTV NVRAM snapshot restoration incomplete on %s (status=%d)",

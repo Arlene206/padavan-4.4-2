@@ -317,7 +317,8 @@ jobs:
               'nvram_set_int_temp(strcat_r(prefix, "lease", tmp), (int)parsed_value)',
           ):
               assert marker not in wan_dhcp_renew
-          publisher_start = source.index("wan_dhcp_nvram_state_publish(", source.index("zcip_viptv_bound("))
+          publisher_anchor = source.index("static int\nwan_dhcp_nvram_restore_values(")
+          publisher_start = source.index("static int\nwan_dhcp_nvram_state_publish(", publisher_anchor)
           renew_publisher = body(source[publisher_start:], "wan_dhcp_nvram_state_publish(")
           assert "dhcp_lease_nvram_publish(" in renew_publisher
           assert "wan_dhcp_nvram_restore_values(" in renew_publisher
@@ -448,6 +449,8 @@ jobs:
           zcip_snapshot = zcip_bound.index("wan_dhcp_nvram_state_publish(")
           assert zcip_bound.index("dhcp_wan_interface_apply(") < zcip_snapshot < zcip_bound.index("man_up_internal(")
           assert "WAN_ZCIP_SNAPSHOT_COUNT" in zcip_bound
+          assert "wan_dhcp_interface_set(&interface_context, old_ip, old_mask)" in zcip_bound
+          assert "wan_dhcp_interface_clear(&interface_context)" in zcip_bound
           assert "failed to restore previous ZeroConf WAN address" in zcip_bound
           for marker in (
               'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
@@ -467,6 +470,8 @@ jobs:
           zcip_viptv_snapshot = zcip_viptv_bound.index("wan_dhcp_nvram_state_publish(")
           assert zcip_viptv_bound.index("dhcp_wan_interface_apply(") < zcip_viptv_snapshot < zcip_viptv_bound.index("start_igmpproxy(man_ifname)")
           assert "WAN_ZCIP_VIPTV_SNAPSHOT_COUNT" in zcip_viptv_bound
+          assert "wan_dhcp_interface_set(&interface_context, old_ip, old_mask)" in zcip_viptv_bound
+          assert "wan_dhcp_interface_clear(&interface_context)" in zcip_viptv_bound
           for marker in (
               'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
               'nvram_set_temp(strcat_r(prefix, "gateway", tmp), "")',

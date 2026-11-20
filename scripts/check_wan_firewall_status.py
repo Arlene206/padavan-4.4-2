@@ -76,7 +76,8 @@ require("wan_dhcp_nvram_state_publish(" in wan_renew and
         "struct dhcp_lease_nvram_value renew_values[4];" in wan_renew and
         "return nvram_status;" in wan_renew,
         "WAN DHCP renewal fields must be checked as one runtime snapshot")
-publisher_start = wan.index("wan_dhcp_nvram_state_publish(", wan.index("zcip_viptv_bound("))
+publisher_anchor = wan.index("static int\nwan_dhcp_nvram_restore_values(")
+publisher_start = wan.index("static int\nwan_dhcp_nvram_state_publish(", publisher_anchor)
 wan_renew_publisher = body(wan[publisher_start:], "wan_dhcp_nvram_state_publish(")
 require("dhcp_lease_nvram_publish(" in wan_renew_publisher and
         "wan_dhcp_nvram_restore_values(" in wan_renew_publisher and
@@ -147,6 +148,9 @@ require(zcip.index("dhcp_wan_interface_apply(") <
         zcip.index("wan_dhcp_nvram_state_publish(") <
         zcip.index("man_up_internal("),
         "ZeroConf WAN must commit the snapshot before route setup")
+require("wan_dhcp_interface_set(&interface_context, old_ip, old_mask)" in zcip and
+        "wan_dhcp_interface_clear(&interface_context)" in zcip,
+        "ZeroConf WAN snapshot failure must restore a valid old address or clear a first lease")
 for marker in (
     'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
     'nvram_set_temp(strcat_r(prefix, "gateway", tmp), "")',
@@ -163,6 +167,9 @@ require(zcip_viptv.index("dhcp_wan_interface_apply(") <
         zcip_viptv.index("wan_dhcp_nvram_state_publish(") <
         zcip_viptv.index("start_igmpproxy("),
         "ZeroConf IPTV must commit the snapshot before proxy startup")
+require("wan_dhcp_interface_set(&interface_context, old_ip, old_mask)" in zcip_viptv and
+        "wan_dhcp_interface_clear(&interface_context)" in zcip_viptv,
+        "ZeroConf IPTV snapshot failure must restore a valid old address or clear a first lease")
 for marker in (
     'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
     'nvram_set_temp(strcat_r(prefix, "gateway", tmp), "")',
