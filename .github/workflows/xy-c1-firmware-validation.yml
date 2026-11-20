@@ -182,6 +182,8 @@ on:
       - "trunk/user/infosvr/src/infosvr.h"
       - "trunk/user/infosvr/src/infosvr_packet_policy.h"
       - "trunk/user/infosvr/src/infosvr_signal_policy.h"
+      - "trunk/user/infosvr/src/infosvr_interface_policy.h"
+      - "trunk/user/infosvr/src/tests/infosvr_interface_policy.c"
       - "trunk/user/infosvr/src/tests/infosvr_packet_policy.c"
       - "trunk/user/infosvr/src/tests/infosvr_dispatch_test.c"
       - "trunk/user/infosvr/src/tests/infosvr_signal_policy.c"

@@ -18,6 +18,8 @@ on:
       - "trunk/user/infosvr/src/tests/infosvr_packet_policy.c"
       - "trunk/user/infosvr/src/tests/infosvr_dispatch_test.c"
       - "trunk/user/infosvr/src/infosvr_signal_policy.h"
+      - "trunk/user/infosvr/src/infosvr_interface_policy.h"
+      - "trunk/user/infosvr/src/tests/infosvr_interface_policy.c"
       - "trunk/user/infosvr/src/tests/infosvr_signal_policy.c"
       - "trunk/user/shared/src/include/ibox.h"
   pull_request:
@@ -37,6 +39,8 @@ on:
       - "trunk/user/infosvr/src/tests/infosvr_packet_policy.c"
       - "trunk/user/infosvr/src/tests/infosvr_dispatch_test.c"
       - "trunk/user/infosvr/src/infosvr_signal_policy.h"
+      - "trunk/user/infosvr/src/infosvr_interface_policy.h"
+      - "trunk/user/infosvr/src/tests/infosvr_interface_policy.c"
       - "trunk/user/infosvr/src/tests/infosvr_signal_policy.c"
       - "trunk/user/shared/src/include/ibox.h"
 
@@ -70,6 +74,11 @@ jobs:
             trunk/user/infosvr/src/tests/infosvr_signal_policy.c \
             -o /tmp/infosvr-signal-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/infosvr-signal-policy
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/infosvr/src \
+            trunk/user/infosvr/src/tests/infosvr_interface_policy.c \
+            -o /tmp/infosvr-interface-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/infosvr-interface-policy
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
             -I trunk/user/rc/src -I trunk/user/shared/src \
             trunk/user/rc/src/tests/infosvr_daemon_policy.c \

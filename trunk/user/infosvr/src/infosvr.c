@@ -34,6 +34,7 @@
 #include "infosvr.h"
 #include "infosvr_packet_policy.h"
 #include "infosvr_signal_policy.h"
+#include "infosvr_interface_policy.h"
 
 #define SRV_ADDR INADDR_ANY
 #define CLN_ADDR INADDR_BROADCAST
@@ -48,13 +49,16 @@ int open_socket4(char *ifname)
 	struct sockaddr_in addr;
 	struct ifreq ifr;
 	struct timeval receive_timeout;
-	int fd;
+	int fd = -1;
+
+	memset(&ifr, 0, sizeof(ifr));
+	if (infosvr_interface_name_copy(
+		    ifr.ifr_name, sizeof(ifr.ifr_name), ifname) < 0)
+		return -1;
 
 	if ((fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
 		goto error;
 
-	memset(&ifr, 0, sizeof(ifr));
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	if (setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, (char *)&ifr, sizeof(ifr)) < 0)
 		goto error;
 

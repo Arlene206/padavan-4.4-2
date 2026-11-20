@@ -59,6 +59,8 @@ policy = read("trunk/user/infosvr/src/infosvr_packet_policy.h")
 test = read("trunk/user/infosvr/src/tests/infosvr_packet_policy.c")
 dispatch_test = read("trunk/user/infosvr/src/tests/infosvr_dispatch_test.c")
 signal_policy = read("trunk/user/infosvr/src/infosvr_signal_policy.h")
+interface_policy = read("trunk/user/infosvr/src/infosvr_interface_policy.h")
+interface_test = read("trunk/user/infosvr/src/tests/infosvr_interface_policy.c")
 signal_test = read("trunk/user/infosvr/src/tests/infosvr_signal_policy.c")
 ibox = read("trunk/user/shared/src/include/ibox.h")
 workflow = read(".github/workflows/infosvr-packet-stability.yml")
@@ -83,7 +85,7 @@ supported_guard = processor.index("if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr-
 response_reset = processor.index("memset(packet_res, 0, sizeof(packet_res))")
 response_header = processor.index("hdr_res->ServiceID =")
 assert supported_guard < response_reset < response_header
-assert "only the implemented read-only opcodes" in processor
+assert "only the implemented read-only opcodes" in processor.lower()
 base_guard = processor.index("infosvr_packet_length_valid((size_t)packet_len, sizeof(IBOX_COMM_PKT_HDR))")
 service_read = processor.index("hdr->ServiceID")
 assert base_guard < service_read
@@ -110,6 +112,23 @@ assert "res_cleanup" not in signal_handler
 assert "exit(" not in signal_handler
 
 socket_open = function_body(source, "open_socket4(char *ifname)")
+assert "infosvr_interface_name_copy(" in socket_open
+assert socket_open.index("infosvr_interface_name_copy(") < socket_open.index("socket(AF_INET")
+assert "strncpy(ifr.ifr_name" not in socket_open
+for token in (
+    "length >= capacity",
+    "errno = ENAMETOOLONG",
+    "memcpy(destination, source, length + 1)",
+):
+    assert token in interface_policy, token
+for token in (
+    "1234567890123456",
+    "errno == ENAMETOOLONG",
+    "NULL) == -1",
+    "infosvr interface-name bounded copy policy: PASS",
+):
+    assert token in interface_test, token
+
 assert "SO_RCVTIMEO" in socket_open
 assert "SO_SNDTIMEO" in socket_open
 assert "receive_timeout.tv_sec = INFOSVR_SOCKET_TIMEOUT_SECONDS" in socket_open
