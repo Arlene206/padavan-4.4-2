@@ -85,6 +85,8 @@
 
 - Uploaded ZeroTier planet import: replaced direct `cp -f`/unconditional upload deletion and ignored NVRAM status with a private staged writer plus hard-link rollback. Symlink/nonregular input is refused; disk and NVRAM updates now roll back together on persistence failure, empty uploads remove both values, and upload deletion follows success only. Exact-host regressions cover success, empty file, symlink source, failed NVRAM commit and rename failure. Exact Actions pending.
 
+- Uploaded planet transaction cleanup follow-up: found an EXIT-trap registration gap if the pre-read of the previous NVRAM value failed after `.planet-import.*` creation. Cleanup now registers before the first fallible read, and rollback is gated on explicit publish/delete pending state; added NVRAM-get fault injection, preserving old file/NVRAM and upload, and checking no stage directory leaks. Exact-head verification pending.
+
 ## Priority queue
 
 - SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).

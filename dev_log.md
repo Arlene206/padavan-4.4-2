@@ -1,3 +1,13 @@
+## 2026-11-19 — Clean ZeroTier planet staging when NVRAM read fails
+
+- Parent SHA: `49fc7e9df2405e75b0553e160f2635e992ae3943`.
+- Follow-up review of the transactional uploaded-planet importer found that it created a private `.planet-import.*` directory and read the previous NVRAM value before installing its EXIT cleanup trap. If `nvram get zerotier_planet` failed, the function exited with a stranded staging directory even though no destination had been modified.
+- Moved cleanup/trap registration immediately after staging-directory setup and before that fallible read. Rollback is now gated by an explicit publish/delete-pending flag rather than absence of the stage file, so pre-publication validation failures only clean staging and never roll back untouched destination state.
+- Extended the host fake-NVRAM interface with a read-failure injection and a regression asserting the old file/NVRAM values and uploaded source remain unchanged and no private import directory leaks. Source contract checks trap-before-read and explicit transaction-state gating.
+- Exact-head ZeroTier/Process/WAN/XY-C1 Actions pending after this follow-up. No physical-router L4 evidence.
+
+---
+
 ## 2026-11-19 — Make uploaded ZeroTier planet import transactional
 
 - Parent SHA: `3f5ea027a066ae131524c75fd20ac78a4fa320d8`.

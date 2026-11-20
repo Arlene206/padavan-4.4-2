@@ -9,9 +9,10 @@ TEST_NVRAM_SECRET_STATE="$TEST_TMP/nvram-secret.state"
 TEST_NVRAM_PLANET_STATE="$TEST_TMP/nvram-planet.state"
 : > "$TEST_NVRAM_SECRET_STATE"
 : > "$TEST_NVRAM_PLANET_STATE"
+TEST_NVRAM_GET_FAIL=0
 TEST_NVRAM_SET_FAIL=0
 TEST_NVRAM_COMMIT_FAIL=0
-export TEST_NVRAM_SECRET_STATE TEST_NVRAM_PLANET_STATE TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
+export TEST_NVRAM_SECRET_STATE TEST_NVRAM_PLANET_STATE TEST_NVRAM_GET_FAIL TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
 TEST_KILL_LOG="$TEST_TMP/killall.log"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_ACTION_LOG="$TEST_TMP/actions.log"
@@ -205,7 +206,10 @@ nvram() {
 		get)
 			case "$2" in
 				zerotier_secret) cat "$TEST_NVRAM_SECRET_STATE" ;;
-				zerotier_planet) cat "$TEST_NVRAM_PLANET_STATE" ;;
+				zerotier_planet)
+					[ "${TEST_NVRAM_GET_FAIL:-0}" != 1 ] || return 1
+					cat "$TEST_NVRAM_PLANET_STATE"
+					;;
 				zerotier_nat) printf '%s\n' "$TEST_NAT_ENABLE" ;;
 				zero_staticnum_x) printf '%s\n' "$TEST_STATIC_ROUTE_COUNT" ;;
 				zero_enable_x0) printf '%s\n' "$TEST_STATIC_ROUTE_ENABLE" ;;
@@ -641,6 +645,26 @@ rmdir "$TEST_CONFIG/planet"
 printf 'planet-reset\n' > "$TEST_CONFIG/planet"
 
 /bin/rm -f "$TEST_CONFIG/planet"
+
+# A failure reading the previous NVRAM value must still clean the stage.
+printf 'old-planet-state' > "$TEST_NVRAM_PLANET_STATE"
+printf 'prior-planet-file\n' > "$TEST_CONFIG/planet"
+printf 'upload-before-read-failure\n' > "$TEST_TMP/planet-upload"
+TEST_NVRAM_GET_FAIL=1
+export TEST_NVRAM_GET_FAIL
+if zerotier_import_planet_file "$TEST_TMP/planet-upload"; then
+	fail "planet import accepted a failed old-value read"
+fi
+TEST_NVRAM_GET_FAIL=0
+export TEST_NVRAM_GET_FAIL
+[ "$(cat "$TEST_CONFIG/planet")" = "prior-planet-file" ] ||
+	fail "failed NVRAM read changed the persistent planet"
+[ "$(cat "$TEST_NVRAM_PLANET_STATE")" = "old-planet-state" ] ||
+	fail "failed NVRAM read changed the existing NVRAM value"
+[ -f "$TEST_TMP/planet-upload" ] ||
+	fail "failed NVRAM read deleted the upload"
+set -- "$TEST_CONFIG"/.planet-import.*
+[ ! -e "$1" ] || fail "failed NVRAM read leaked the private import directory"
 
 # Uploaded planet imports validate both source and destination, stage the file
 # privately, and keep the NVRAM copy synchronized with rollback on failure.

@@ -251,25 +251,17 @@ zerotier_import_planet_file() {
 		zt_planet_stage="$zt_planet_import_dir/planet.new"
 		zt_planet_backup="$zt_planet_import_dir/planet.previous"
 		zt_planet_encoded="$zt_planet_import_dir/planet.base64"
-		zt_planet_old_value="$(nvram get zerotier_planet)" || exit 1
+		zt_planet_old_value=""
 		zt_planet_had_original=0
 		zt_planet_delete_pending=0
 		zt_planet_transaction_active=1
 		zt_planet_preserve_backup=0
 
-		if [ -e "$zt_planet_target" ]; then
-			if ! ln "$zt_planet_target" "$zt_planet_backup"; then
-				logger -t "zerotier" "无法保留原有planet文件"
-				exit 1
-			fi
-			zt_planet_had_original=1
-		fi
-
 		zerotier_planet_import_cleanup() {
 			zt_planet_exit_status="$1"
 			zt_planet_rollback_status=0
 			if [ "$zt_planet_transaction_active" = "1" ] &&
-			   { [ "$zt_planet_delete_pending" = "1" ] || [ ! -e "$zt_planet_stage" ]; }; then
+			   [ "$zt_planet_delete_pending" = "1" ]; then
 				if [ "$zt_planet_had_original" = "1" ]; then
 					if [ -e "$zt_planet_backup" ]; then
 						mv -f "$zt_planet_backup" "$zt_planet_target" ||
@@ -296,6 +288,16 @@ zerotier_import_planet_file() {
 		trap 'zerotier_planet_import_cleanup "$?"' EXIT
 		trap 'exit 1' HUP INT TERM
 
+		# Register cleanup before the first fallible operation after mktemp.
+		zt_planet_old_value="$(nvram get zerotier_planet)" || exit 1
+		if [ -e "$zt_planet_target" ]; then
+			if ! ln "$zt_planet_target" "$zt_planet_backup"; then
+				logger -t "zerotier" "无法保留原有planet文件"
+				exit 1
+			fi
+			zt_planet_had_original=1
+		fi
+
 		if [ -s "$zt_planet_source" ]; then
 			if ! base64 "$zt_planet_source" > "$zt_planet_encoded"; then
 				logger -t "zerotier" "无法编码上传的planet文件"
@@ -316,6 +318,7 @@ zerotier_import_planet_file() {
 				logger -t "zerotier" "拒绝替换非普通planet目标"
 				exit 1
 			fi
+			zt_planet_delete_pending=1
 			if ! mv -f "$zt_planet_stage" "$zt_planet_target"; then
 				logger -t "zerotier" "上传的planet文件发布失败"
 				exit 1

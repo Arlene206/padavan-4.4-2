@@ -166,6 +166,10 @@ require('[ -n "$zt_network_id" ] || return 0' in add_join_body and
         'if [ -L "$zt_network_file" ]' in add_join_body,
         "network join writer must validate 16 hex digits and refuse path/symlink abuse")
 require('mktemp -d "$config_path/.planet-import.XXXXXX"' in planet_import_body and
+        planet_import_body.index("trap 'zerotier_planet_import_cleanup") <
+        planet_import_body.index('zt_planet_old_value="$(nvram get zerotier_planet)"') and
+        'if [ "$zt_planet_transaction_active" = "1" ] &&' in planet_import_body and
+        '[ "$zt_planet_delete_pending" = "1" ]; then' in planet_import_body and
         '[ -L "$zt_planet_source" ] || [ ! -f "$zt_planet_source" ]' in planet_import_body and
         'ln "$zt_planet_target" "$zt_planet_backup"' in planet_import_body and
         'mv -f "$zt_planet_stage" "$zt_planet_target"' in planet_import_body and
@@ -183,7 +187,8 @@ for marker in ("uploaded planet contents were not published",
                "empty planet import left stale NVRAM data",
                "symlink upload referent was modified",
                "failed planet NVRAM commit did not restore the previous file",
-               "failed planet publish changed NVRAM"):
+               "failed planet publish changed NVRAM",
+               "failed NVRAM read leaked the private import directory"):
     require(marker in test, f"uploaded planet import regression omits {marker}")
 require('mktemp "$config_path/.planet.XXXXXX"' in planet_body and
         'printf \'%s\' "$1" | base64 -d > "$zt_planet_tmp"' in planet_body and
