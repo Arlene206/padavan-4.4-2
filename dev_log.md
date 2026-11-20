@@ -1,3 +1,10 @@
+## 2026-11-20 — Share detached DHCP child-readiness verification across LAN, WAN and IPTV
+
+- Parent main SHA: `881f42a4d5173ac4de45299f6361cf65d00c6df8`.
+- The LAN-specific postcondition is consolidated into `udhcpc_start_readiness.h` and applied to all three RC DHCP launchers: LAN `-d`, WAN `-d/-b`, and IPTV `-d`. BusyBox backgrounds both paths before publishing the PID/start_time record, so launcher exit alone cannot establish that the DHCP client survived.
+- The shared helper waits within the existing four-probe policy and validates the exact `udhcpc` PID/start_time identity recorded at each interface-specific PID file. UNKNOWN inventory, wait errors, launcher failures, and missing-child timeout propagate to callers. The source contract asserts all three call sites and the BusyBox fork-before-PIDfile ordering.
+- Exact-head WAN-DHCP, Process lifecycle and XY-C1 Build/TRX/artifact validation required. Physical L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Verify the detached LAN udhcpc child before accepting startup
 
 - Parent main SHA: `e91c3a18c0dd676c4d4d7cd7b552b30792aaf655`.

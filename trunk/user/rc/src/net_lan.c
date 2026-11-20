@@ -41,6 +41,7 @@
 #include "service_wait_policy.h"
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
+#include "udhcpc_start_readiness.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "switch.h"
@@ -2658,75 +2659,9 @@ start_udhcpc_lan(char *lan_ifname)
 		"-H", lan_hostname,
 		NULL
 	};
-	struct process_identity identity;
-	enum process_presence presence;
-	int launch_status, postcondition_status, wait_status;
-	int attempt;
 
-	logmessage("DHCP LAN Client", "starting on %s ...", lan_ifname);
-	launch_status = _eval(dhcp_argv, NULL, 0, NULL);
-	if (launch_status != 0)
-		return launch_status;
-
-	/*
-	 * udhcpc's -d daemonizes before publishing its PID/start_time record.
-	 * _eval() only observes the short-lived launcher, so success is not a
-	 * startup postcondition. Require the exact PID-file identity to be live
-	 * before reporting that the AP LAN DHCP client started.
-	 */
-	wait_status = service_wait_seconds(
-		PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
-	if (wait_status != 0) {
-		wait_status = errno > 0 ? errno : EIO;
-		logmessage("DHCP LAN Client",
-			   "initial DHCP child readiness wait failed on %s (status=%d)",
-			   lan_ifname, wait_status);
-		errno = wait_status;
-		return wait_status;
-	}
-
-	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS;
-	     ++attempt) {
-		presence = process_pidfile_read_identity(
-			"/var/run/udhcpc_lan.pid", "udhcpc", &identity);
-		postcondition_status = process_presence_start_postcondition(
-			launch_status, presence);
-		if (postcondition_status == 0)
-			return 0;
-		if (presence == PROCESS_PRESENCE_UNKNOWN) {
-			postcondition_status = errno > 0 ? errno : EIO;
-			logmessage("DHCP LAN Client",
-				   "cannot verify DHCP child identity on %s (status=%d)",
-				   lan_ifname, postcondition_status);
-			errno = postcondition_status;
-			return postcondition_status;
-		}
-		if (presence != PROCESS_PRESENCE_ABSENT) {
-			logmessage("DHCP LAN Client",
-				   "unexpected DHCP child process state on %s",
-				   lan_ifname);
-			errno = EIO;
-			return EIO;
-		}
-		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
-			wait_status = service_wait_seconds(
-				PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
-			if (wait_status != 0) {
-				wait_status = errno > 0 ? errno : EIO;
-				logmessage("DHCP LAN Client",
-					   "DHCP child readiness retry wait failed on %s (status=%d)",
-					   lan_ifname, wait_status);
-				errno = wait_status;
-				return wait_status;
-			}
-		}
-	}
-
-	errno = ETIMEDOUT;
-	logmessage("DHCP LAN Client",
-		   "DHCP child did not publish a live PID identity on %s (status=%d)",
-		   lan_ifname, ETIMEDOUT);
-	return ETIMEDOUT;
+	return udhcpc_start_and_verify(dhcp_argv, "/var/run/udhcpc_lan.pid",
+				       lan_ifname, "DHCP LAN Client");
 }
 
 int

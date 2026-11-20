@@ -43,6 +43,7 @@
 #include <process_inventory.h>
 #include <process_pidfile.h>
 #include "process_presence_start_policy.h"
+#include "udhcpc_start_readiness.h"
 #include "ppp_options_file.h"
 #include "ppp_callback_link_policy.h"
 #include "vpn_server_lifecycle_lock.h"
@@ -7339,9 +7340,7 @@ int start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)
 
 	is_man = is_ifunit_man(wan_ifname, unit);
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", (is_man) ? "MAN" : "WAN");
-	logmessage(log_prefix, "starting on %s ...", wan_ifname);
-
-	return _eval(dhcp_argv, NULL, 0, NULL);
+	return udhcpc_start_and_verify(dhcp_argv, pidfile, wan_ifname, log_prefix);
 }
 
 int start_udhcpc_viptv(char *man_ifname)
@@ -7376,9 +7375,9 @@ int start_udhcpc_viptv(char *man_ifname)
 	}
 
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", "IPTV");
-	logmessage(log_prefix, "starting on %s ...", man_ifname);
-
-	return _eval(dhcp_argv, NULL, 0, NULL);
+	return udhcpc_start_and_verify(dhcp_argv,
+				       "/var/run/udhcpc_viptv.pid",
+				       man_ifname, log_prefix);
 }
 
 int start_zcip_wan(char *wan_ifname)

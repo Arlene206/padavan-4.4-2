@@ -12,6 +12,7 @@ kernel_policy = (root / "trunk/user/rc/src/lan_kernel_name_policy.h").read_text(
 kernel_test = (root / "trunk/user/rc/src/tests/lan_kernel_name_policy.c").read_text()
 callback_policy = (root / "trunk/user/rc/src/lan_dhcp_callback_policy.h").read_text()
 callback_test = (root / "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c").read_text()
+udhcpc_start_header = (root / "trunk/user/rc/src/udhcpc_start_readiness.h").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
 nvram_snapshot_policy = (root / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 nvram_snapshot_test = (root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
@@ -132,20 +133,26 @@ deconfig = lan[deconfig_start:deconfig_end]
 assert "status = lan_down_auto(lan_ifname);" in deconfig
 assert "return status;" in deconfig
 
-# udhcpc -d backgrounds before publishing its identity PID file.  Do not
-# treat the detached launcher exit as proof that the DHCP child survived.
+# Detached udhcpc clients must publish a live PID/start_time identity after
+# their own backgrounding fork; the short-lived _eval() parent is insufficient.
 lan_dhcp_start = c_function_body(lan, "start_udhcpc_lan(char *lan_ifname)")
-assert '#include <process_pidfile.h>' in lan
-assert '#include "process_presence_start_policy.h"' in lan
-assert "launch_status = _eval(dhcp_argv, NULL, 0, NULL);" in lan_dhcp_start
-assert "if (launch_status != 0)" in lan_dhcp_start
-assert 'process_pidfile_read_identity( "/var/run/udhcpc_lan.pid", "udhcpc", &identity)' in compact(lan_dhcp_start)
-assert "process_presence_start_postcondition( launch_status, presence)" in compact(lan_dhcp_start)
-assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in lan_dhcp_start
-assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in lan_dhcp_start
-assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in lan_dhcp_start
-assert "presence == PROCESS_PRESENCE_UNKNOWN" in lan_dhcp_start
-assert "return ETIMEDOUT;" in lan_dhcp_start
+wan_dhcp_start = c_function_body(wan, "start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)")
+viptv_dhcp_start = c_function_body(wan, "start_udhcpc_viptv(char *man_ifname)")
+assert 'udhcpc_start_and_verify(dhcp_argv, "/var/run/udhcpc_lan.pid"' in compact(lan_dhcp_start)
+assert "udhcpc_start_and_verify(dhcp_argv, pidfile, wan_ifname, log_prefix)" in compact(wan_dhcp_start)
+assert 'udhcpc_start_and_verify(dhcp_argv, "/var/run/udhcpc_viptv.pid"' in compact(viptv_dhcp_start)
+udhcpc_helper = c_function_body(udhcpc_start_header, "udhcpc_start_and_verify(")
+assert 'process_pidfile_read_identity(pidfile, "udhcpc", &identity)' in compact(udhcpc_helper)
+assert "process_presence_start_postcondition(launch_status, presence)" in compact(udhcpc_helper)
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in udhcpc_helper
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in udhcpc_helper
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in udhcpc_helper
+assert "presence == PROCESS_PRESENCE_UNKNOWN" in udhcpc_helper
+assert "return ETIMEDOUT;" in udhcpc_helper
+background = busybox.index("if (!(opt & OPT_f) && (opt & OPT_d) )")
+pidfile_publish = busybox.index("if (write_udhcpc_pidfile(client_config.pidfile) != 0)")
+assert background < pidfile_publish
+assert "bb_daemonize(0);" in busybox[background:pidfile_publish]
 leasefail = c_function_body(lan, "udhcpc_lan_leasefail(char *lan_ifname)")
 assert 'no DHCP lease available on %s; udhcpc will retry acquisition' in leasefail
 assert "return 0;" in leasefail
