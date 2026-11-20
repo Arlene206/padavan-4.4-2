@@ -1,3 +1,12 @@
+## 2026-11-20 — Align HTTPD reset-failure contract with injected LAN route recovery
+
+- Parent main SHA: `48e61b68f3f4578b21a2e44a2d0df0dac944a01e`.
+- Exact HTTPD job `136097661907` failed at embedded assertion line 88 because the production recovery refactor renamed the reset result to `reset_status` and moved LAN route restoration through `rc_wan_restore_lan_routes_after_failed_reset()`. The old checker searched for the prior `status`-based failure gate and therefore selected the wrong condition.
+- Updated the HTTPD source contract to assert the actual reset-status gate, injected LAN route restoration call, restore-before-return ordering, and both protocol/secondary-route diagnostics. No production behavior or test coverage is weakened.
+- On the parent SHA, WAN route and AI handoff checks passed; HTTPD is being rerun by this correction. XY-C1 and NVRAM-boundary were pending, so no same-SHA L3 claim is made.
+
+---
+
 ## 2026-11-20 — Add injected WAN route restoration regression and repair handoff literals
 
 - Parent main SHA: 0b6bccb9c0bc7324bf22083b66a4ad31625dd4dc.

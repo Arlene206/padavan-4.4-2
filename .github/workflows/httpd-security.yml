@@ -5314,12 +5314,15 @@ jobs:
           stop_wan_call = full_restart.index("status = stop_wan();")
           stop_wan_gate = full_restart.index("if (status != 0)", stop_wan_call)
           stop_wan_return = full_restart.index("return status;", stop_wan_gate)
-          protocol_reset = full_restart.index("status = reset_wan_vars_status();")
-          protocol_reset_gate = full_restart.index("if (status != 0)", protocol_reset)
+          protocol_reset = full_restart.index("reset_status = reset_wan_vars_status();")
+          protocol_reset_gate = full_restart.index("if (reset_status != 0)", protocol_reset)
+          route_restore = full_restart.index("rc_wan_restore_lan_routes_after_failed_reset(", protocol_reset_gate)
           protocol_reset_return = full_restart.index("return status;", protocol_reset_gate)
           assert "services did not stop (status=%d)" in full_restart
-          assert stop_wan_call < stop_wan_gate < stop_wan_return < protocol_reset < protocol_reset_gate < protocol_reset_return
-          assert "configured WAN protocol staging failed" in full_restart[protocol_reset_gate:protocol_reset_return]
+          assert stop_wan_call < stop_wan_gate < stop_wan_return < protocol_reset < protocol_reset_gate < route_restore < protocol_reset_return
+          reset_failure = full_restart[protocol_reset_gate:protocol_reset_return]
+          assert "configured WAN protocol staging failed" in reset_failure
+          assert "static LAN route restoration also failed" in reset_failure
           assert "status = stop_wan();" in reconnect
           assert "if (status != 0)" in reconnect
           reconnect_reset = reconnect.index("status = reset_wan_vars_status();")
