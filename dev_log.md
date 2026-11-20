@@ -1,3 +1,13 @@
+## 2026-11-20 — Keep the missing-chain errno in the delete transaction
+
+- Parent main SHA: e3578d8b09eb5555aa726726184d21eafa25dbb8.
+- Exact-head MiniUPnP #44807553369 failed at the standalone delete source contract after the compiled policy/ASan regressions passed. The assertion correctly exposed that the ENOENT assignment had been inserted into the earlier get_redirect_rule_by_index() helper rather than delete_redirect_and_filter_rules_ex(); the former had no primary_failure_errno local, creating a target compile error. Moved the assignment to the owning delete transaction and removed the undeclared reference from the lookup helper.
+- This is a genuine source-scope correction, not a relaxed checker. The standalone contract remains unchanged and must now pass against the corrected function body.
+- Exact-head AI #44807553503 PASS and Process #44807553198 PASS on e357. XY-C1 #44807553718 and NVRAM #44807553409 were still running at the last poll; their result does not include this correction. The new commit requires its own exact-head MiniUPnP and XY-C1 verification.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Preserve first errno across primary and peer IPTC cleanup
 
 - Parent main SHA: 5b9fcaa09b621e880517232b24a0f35f9b296827.

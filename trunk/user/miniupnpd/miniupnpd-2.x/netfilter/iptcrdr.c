@@ -461,7 +461,6 @@ get_redirect_rule_by_index(int index,
 	}
 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
 	{
-		primary_failure_errno = ENOENT;
 		syslog(LOG_ERR, "chain %s not found", miniupnpd_nat_chain);
 		r = -1;
 	}
@@ -765,6 +764,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 	/* First step : find the right nat rule */
 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
 	{
+		primary_failure_errno = ENOENT;
 		syslog(LOG_ERR, "chain %s not found", miniupnpd_nat_chain);
 		r = -1;
 	}
