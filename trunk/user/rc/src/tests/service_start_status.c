@@ -609,10 +609,22 @@ test_crond_positive_restart_error_reaches_boot_and_notification_status(void)
 	assert(rc_notify_merge_action_result(0, 0) == 0);
 }
 
+static void
+test_lan_restart_rollback_only_restarts_confirmed_stops(void)
+{
+	const int failures[] = { -1, EIO, EBUSY, ETIMEDOUT };
+	int i;
+
+	assert(rc_service_restart_after_stop(0));
+	for (i = 0; i < (int)(sizeof(failures) / sizeof(failures[0])); i++)
+		assert(!rc_service_restart_after_stop(failures[i]));
+}
+
 int
 main(void)
 {
 	test_optional_daemon_start_preflight_is_idempotent_and_fail_closed();
+	test_lan_restart_rollback_only_restarts_confirmed_stops();
 	test_crond_positive_restart_error_reaches_boot_and_notification_status();
 	assert(rc_first_service_start_status(0, 0) == 0);
 	assert(rc_first_service_start_status(0, -1) == -1);

@@ -1307,6 +1307,8 @@ full_restart_lan(void)
 	int dnsmasq_lock, dnsmasq_lock_errno, release_status;
 	int dnsmasq_status, dnsmasq_start_status, vpn_status;
 	int lan_start_status, wait_status;
+	int logger_stop_status = 0, lltd_stop_status;
+	int infosvr_stop_status, networkmap_stop_status;
 	int restart_status = 0;
 
 	is_ap_mode = get_ap_mode();
@@ -1342,11 +1344,16 @@ full_restart_lan(void)
 
 	/* Record every status-bearing stop; continue safe teardown and preserve
 	 * the first error for PID 1's incomplete-notification accounting. */
-	if (log_remote)
-		lan_restart_record_status(&restart_status, "stop logger", stop_logger());
-	lan_restart_record_status(&restart_status, "stop LLTD", stop_lltd());
-	lan_restart_record_status(&restart_status, "stop infosvr", stop_infosvr());
-	lan_restart_record_status(&restart_status, "stop networkmap", stop_networkmap());
+	if (log_remote) {
+		logger_stop_status = stop_logger();
+		lan_restart_record_status(&restart_status, "stop logger", logger_stop_status);
+	}
+	lltd_stop_status = stop_lltd();
+	lan_restart_record_status(&restart_status, "stop LLTD", lltd_stop_status);
+	infosvr_stop_status = stop_infosvr();
+	lan_restart_record_status(&restart_status, "stop infosvr", infosvr_stop_status);
+	networkmap_stop_status = stop_networkmap();
+	lan_restart_record_status(&restart_status, "stop networkmap", networkmap_stop_status);
 	lan_restart_record_status(&restart_status, "stop miniupnpd", stop_upnp());
 	/* Preserve DNSMasq status for its start gate and aggregate it separately. */
 	dnsmasq_status = stop_dns_dhcpd_locked();
@@ -1374,6 +1381,22 @@ full_restart_lan(void)
 		 * the DNSMasq lock so firewall/DNS callbacks cannot invert lock order. */
 		lan_restart_record_status(&restart_status, "restore VPN after aborted LAN restart",
 					  restart_vpn_server());
+
+		/* The early-abort path must restore every ancillary daemon already
+		 * stopped above. Start helpers are idempotent and fail closed on an
+		 * unknown process inventory; only confirmed stops are restarted. */
+		if (log_remote && rc_service_restart_after_stop(logger_stop_status))
+			lan_restart_record_status(&restart_status, "restore logger after aborted LAN restart",
+						  start_logger(0));
+		if (rc_service_restart_after_stop(lltd_stop_status))
+			lan_restart_record_status(&restart_status, "restore LLTD after aborted LAN restart",
+						  start_lltd());
+		if (rc_service_restart_after_stop(infosvr_stop_status))
+			lan_restart_record_status(&restart_status, "restore infosvr after aborted LAN restart",
+						  start_infosvr());
+		if (rc_service_restart_after_stop(networkmap_stop_status))
+			lan_restart_record_status(&restart_status, "restore networkmap after aborted LAN restart",
+						  start_networkmap(1));
 		return restart_status;
 	}
 

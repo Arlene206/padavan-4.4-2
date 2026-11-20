@@ -8,6 +8,13 @@ rc_first_service_start_status(int first_status, int next_status)
 	return first_status != 0 ? first_status : next_status;
 }
 
+/* Only recreate daemons whose previous stop completed successfully. */
+static inline int
+rc_service_restart_after_stop(int stop_status)
+{
+	return stop_status == 0;
+}
+
 /* A queued storage event is acknowledged only after required starts pass. */
 static inline int
 rc_service_start_event_is_complete(int start_status)

@@ -402,4 +402,30 @@ for marker in (
 ):
     assert marker in test, marker
 
+
+service_policy = (root / "trunk/user/rc/src/service_start_status.h").read_text()
+service_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
+lan_restart = c_function_body(lan, "full_restart_lan(void)")
+abort_start = lan_restart.index("if (lan_status != 0)")
+abort_end = lan_restart.index("reset_lan_vars();", abort_start)
+abort_path = lan_restart[abort_start:abort_end]
+stop_lan = abort_path.index("lan_status = stop_lan(is_ap_mode);")
+dns_restore = abort_path.index("start_dns_dhcpd_locked(is_ap_mode)")
+lock_release = abort_path.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)")
+vpn_restore = abort_path.index("restore VPN after aborted LAN restart")
+for status_name, start_call in (
+    ("logger_stop_status", "start_logger(0)"),
+    ("lltd_stop_status", "start_lltd()"),
+    ("infosvr_stop_status", "start_infosvr()"),
+    ("networkmap_stop_status", "start_networkmap(1)"),
+):
+    stop_call = abort_path.index(status_name + " = stop_")
+    restore_gate = abort_path.index("rc_service_restart_after_stop(" + status_name + ")")
+    restore_call = abort_path.index(start_call, restore_gate)
+    assert stop_call < stop_lan < vpn_restore < restore_gate < restore_call
+    assert restore_call < abort_path.index("return restart_status;", restore_call)
+assert lock_release < vpn_restore
+assert "static inline int\\nrc_service_restart_after_stop(int stop_status)" in service_policy
+assert "test_lan_restart_rollback_only_restarts_confirmed_stops" in service_test
+
 print("LAN DHCP and IPTV deconfig transactional retry contract: PASS")
