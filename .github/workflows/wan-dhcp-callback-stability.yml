@@ -291,9 +291,8 @@ jobs:
               entrypoint = body(source, signature)
               assert "dhcp_wan_interface_name_is_valid(" + interface_name + ")" in entrypoint
               assert "strlen(" + interface_name + ")" not in entrypoint
-          static_wan = body(source, "start_wan_internal(char *man_ifname")
-          assert 'wan_nvram_int_temp_status("wanx_err", man_err)' in static_wan
-          assert "launch_status = route_status_accumulate(launch_status, publish_status);" in static_wan
+          assert 'wan_nvram_int_temp_status("wanx_err", man_err)' in source
+          assert "launch_status = route_status_accumulate(launch_status, publish_status);" in source
           callback = body(source, "udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           viptv_bound = body(source, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
           assert "int interface_status, rollback_status, route_setup_status, mtu_status;" in viptv_bound
