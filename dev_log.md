@@ -1,3 +1,12 @@
+## 2026-11-20 — Restore NAT mapping when the paired filter deletion fails
+
+- Parent main SHA: ea745da6e423a778a65c0aba6ce85424e6a642a3.
+- Confirmed a deletion-side cross-table inconsistency in `delete_redirect_and_filter_rules()`: NAT deletion was committed first; filter initialization or matched filter delete/commit failure could leave an orphan forwarding ACCEPT rule, and a retry could no longer identify its NAT entry.
+- Added a pre-delete copy of the full NAT rule and saved chain index. Snapshot allocation failure aborts before firewall mutation. If the later filter operation fails after NAT deletion, a new IPTC insert/commit helper restores the saved NAT rule at its original index.
+- Compensation is skipped when no corresponding filter rule exists. Primary filter-side error/errno is preserved if NAT restoration also fails; compensation failure is logged. Both IPTABLES_143 and legacy handle-pointer signatures are supported.
+- Extended the GNU89 ASan/UBSan policy regression for delete rollback decisions and error precedence; added a source contract for snapshot/rollback ordering and ABI variants; wired checks into MiniUPnP and XY-C1 workflows.
+- Parent exact-head MiniUPnP #44792212170 and AI handoff #44792212195 passed. XY-C1 #44792212585 was host-only: Build/TRX/artifact SKIPPED; no firmware L3. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Fix whitespace handling in NAT/filter rollback source contract
 
 - Parent main SHA: bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad.

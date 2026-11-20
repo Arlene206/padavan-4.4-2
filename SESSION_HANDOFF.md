@@ -16,36 +16,36 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Current main before this checker-only correction: bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Port-mapping enumeration capacity fix c5e4169 passed exact-head MiniUPnP #44791232803, including the 4096-entry ASan/UBSan test and source contract.
-- NAT/filter rollback source slice is bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad. Exact-head MiniUPnP #44791960712 compiled and passed all policy binaries, allocation/capacity sanitizer tests and source contracts, but the new rollback checker failed because the rollback call is split across lines after the opening parenthesis.
-- XY-C1 run #44791960769 on bfc1c16 was IN_PROGRESS; Build XY-C1 had not started at last poll. TRX and artifact were pending.
-- The checker correction will accept normalized C whitespace without loosening the rollback index, original-port restore or failure-status assertions.
+- Current main before this deletion-transaction slice: ea745da6e423a778a65c0aba6ce85424e6a642a3; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Port-mapping enumeration capacity fix `c5e41697bfeb593223a8c7c46b9e1e972fdc7be9`: exact-head MiniUPnP #44791232803 PASS, including 4096-entry ASan/UBSan growth test.
+- NAT/filter update rollback fix `bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad`, checker correction `ea745da6e423a778a65c0aba6ce85424e6a642a3`: MiniUPnP #44792212170 PASS; AI handoff docs #44792212195 PASS.
+- XY-C1 #44792212585 on `ea745da` completed host-only. The firmware-input detector found no eligible firmware build inputs, so Build XY-C1, TRX verification and artifact upload were SKIPPED. This is not firmware L3.
+- Confirmed deletion-side cross-table inconsistency in `delete_redirect_and_filter_rules()`: NAT deletion commits before filter-table open/removal. Filter init or matched filter delete/commit failure leaves an orphan ACCEPT rule; retry may no longer find the NAT rule used to identify it.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Make update_portmapping() fail transactionally across NAT and filter tables:
+Make `delete_redirect_and_filter_rules()` transactional across NAT and filter tables:
 
-- Retain the changed NAT entry and its original internal port until the corresponding filter update commits.
-- Use a separate filter-entry buffer. If filter open, chain lookup, matching rule, buffer allocation or filter commit fails after NAT commit, restore the NAT entry to its original port at the saved NAT index.
-- Preserve the primary failure status/errno if compensating rollback also fails, and emit a clear rollback diagnostic.
-- Add GNU89 ASan/UBSan policy regression tests and a source contract requiring all post-NAT filter failure paths to reach the rollback.
+- Snapshot the complete NAT rule and its 0-based chain index before mutation; if snapshot allocation fails, abort before deleting anything.
+- If NAT deletion commits but filter initialization or a matched filter-rule delete/commit fails, reinsert the saved NAT rule at its original index and commit.
+- Do not restore NAT when the paired filter rule is genuinely absent; preserve the primary filter-side status/errno if restoration also fails.
+- Cover rollback decisions/error precedence in the GNU89 ASan/UBSan policy test and add a source contract for snapshot-before-delete, insert/commit, both IPTABLES_143 handle signatures and failure routing.
 
-After exact-head MiniUPnP and XY-C1 validation, continue the netfilter rule update/delete transaction audit. Do not repeat the completed capacity/allocation fixes.
+After exact-head MiniUPnP verification, continue the peer SNAT/DSCP multi-rule deletion cleanup audit. Do not repeat completed allocation, capacity or update-rollback slices.
 
 ## Verification boundary
 
-- Port-mapping capacity c5e4169: exact-head MiniUPnP #44791232803 PASS, including ASan/UBSan and source contract.
-- NAT/filter rollback C policy binary on bfc1c16: PASS. All existing MiniUPnP regressions, allocation guards and capacity tests also PASS.
-- New rollback source contract on #44791960712: FAILED only on a whitespace-sensitive lookup of the wrapped rollback commit call; checker-only correction included in this commit. Exact-head MiniUPnP rerun required.
-- XY-C1 #44791960769 on bfc1c16 was IN_PROGRESS before Build; TRX/artifact not yet verified. Physical hardware L4: NOT VERIFIED.
+- Exact-head MiniUPnP #44792212170 on `ea745da6e423a778a65c0aba6ce85424e6a642a3`: PASS, including GNU89 ASan/UBSan allocation/capacity/update-rollback tests and source contracts.
+- AI handoff docs #44792212195 on the same SHA: PASS.
+- XY-C1 #44792212585 on `ea745da`: host-only success; Build XY-C1, TRX and artifact were SKIPPED because no eligible production firmware inputs were detected. Do not claim L3.
+- New NAT/filter delete compensation binary/source contract require exact-head MiniUPnP Actions after push. Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; verify backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-2. Check exact-head MiniUPnP rerun after rollback checker whitespace correction. Inspect XY-C1 Build, TRX and artifact steps on the corresponding production-source SHA.
-3. Continue MiniUPnP NAT/filter transaction audit, especially compensating rollback failures and other two-table rule mutations. Keep physical-router L4 unverified.
+1. Fetch live main; verify frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+2. Check exact-head MiniUPnP delete-compensation regression and source contract; diagnose first causal failure from logs. Keep XY-C1 host-only distinct from L3.
+3. Continue auditing peer SNAT/DSCP multi-rule deletion cleanup and retry semantics. Physical-router L4 remains unverified.
 
 ## Handoff maintenance
 

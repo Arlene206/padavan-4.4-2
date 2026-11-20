@@ -15,4 +15,18 @@ miniupnpd_portmapping_failure_result(int update_status, int rollback_status)
 	return update_status != 0 ? update_status : rollback_status;
 }
 
+/* A committed NAT deletion is compensated when the filter deletion fails. */
+static inline int
+miniupnpd_nat_delete_rollback_required(int nat_status, int filter_status)
+{
+	return nat_status == 0 && filter_status != 0;
+}
+
+/* Keep the filter-side failure if restoring NAT also fails. */
+static inline int
+miniupnpd_nat_delete_failure_result(int filter_status, int rollback_status)
+{
+	return filter_status != 0 ? filter_status : rollback_status;
+}
+
 #endif

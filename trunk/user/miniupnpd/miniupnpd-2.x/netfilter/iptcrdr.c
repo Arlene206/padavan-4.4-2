@@ -627,6 +627,50 @@ delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
 	return r;
 }
 
+/* insert_rule_and_commit(): restore a previously deleted rule. */
+static int
+insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,
+                       const char *table, const char *chain,
+                       const char *logcaller)
+{
+	IPTC_HANDLE h;
+	int r = 0;
+
+	h = iptc_init(table);
+	if (!h) {
+		syslog(LOG_ERR, "%s() : iptc_init(%s) failed : %s",
+		       logcaller, table, iptc_strerror(errno));
+		return -1;
+	}
+#ifdef IPTABLES_143
+	if (!iptc_insert_entry(chain, entry, index, h))
+#else
+	if (!iptc_insert_entry(chain, entry, index, &h))
+#endif
+	{
+		syslog(LOG_ERR, "%s() : iptc_insert_entry(): %s",
+		       logcaller, iptc_strerror(errno));
+		r = -1;
+	}
+#ifdef IPTABLES_143
+	else if (!iptc_commit(h))
+#else
+	else if (!iptc_commit(&h))
+#endif
+	{
+		syslog(LOG_ERR, "%s() : iptc_commit() while restoring rule: %s",
+		       logcaller, iptc_strerror(errno));
+		r = -1;
+	}
+	if (h)
+#ifdef IPTABLES_143
+		iptc_free(h);
+#else
+		iptc_free(&h);
+#endif
+	return r;
+}
+
 /* delete_redirect_and_filter_rules()
  */
 int
@@ -635,6 +679,13 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	int r = 0, r2 = 0;
 	int nat_rule_found = 0, peer_rule_found = 0;
 	int cleanup_status;
+	int nat_delete_status = -1;
+	int rollback_status;
+	int failure_errno;
+	int nat_backup_failed = 0;
+	unsigned nat_index = 0;
+	size_t nat_entry_len;
+	struct ipt_entry *nat_backup = NULL;
 	unsigned index = 0;
 	unsigned i = 0;
 	IPTC_HANDLE h;
@@ -693,6 +744,19 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 				mr = (const struct ip_nat_multi_range *)&target->data[0];
 				iaddr = mr->range[0].min_ip;
 				iport = ntohs(mr->range[0].min.all);
+				nat_index = i;
+				nat_entry_len = sizeof(struct ipt_entry) +
+				                match->u.match_size + target->u.target_size;
+				nat_backup = malloc(nat_entry_len);
+				if (!nat_backup) {
+					failure_errno = errno ? errno : ENOMEM;
+					syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot NAT rule");
+					errno = failure_errno;
+					nat_backup_failed = 1;
+					r = -1;
+					break;
+				}
+				memcpy(nat_backup, e, nat_entry_len);
 				r = 0;
 				nat_rule_found = 1;
 				break;
@@ -705,6 +769,8 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 #else
 		iptc_free(&h);
 #endif
+	if (nat_backup_failed)
+		return r;
 	if(nat_rule_found)
 	{
 		syslog(LOG_INFO, "Trying to delete nat rule at index %u", index);
@@ -722,6 +788,7 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 			       "delete_redirect_and_filter_rules", iptc_strerror(errno));
 			r = -1;
 		}
+		nat_delete_status = r;
 		if(r == 0)
 		{
 			h = iptc_init("filter");
@@ -781,6 +848,21 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 #else
 			iptc_free(&h);
 #endif
+		if (miniupnpd_nat_delete_rollback_required(nat_delete_status, r)) {
+			failure_errno = errno ? errno : EIO;
+			rollback_status = insert_rule_and_commit(
+				nat_index, nat_backup, "nat", miniupnpd_nat_chain,
+				"delete_redirect_and_filter_rules");
+			if (rollback_status != 0) {
+				syslog(LOG_ERR,
+				       "failed to restore NAT rule after filter deletion failure (port=%hu proto=%d status=%d)",
+				       eport, proto, rollback_status);
+			}
+			r = miniupnpd_nat_delete_failure_result(r, rollback_status);
+			errno = failure_errno;
+		}
+		free(nat_backup);
+		nat_backup = NULL;
 	}
 
 	/*delete PEER rule*/
