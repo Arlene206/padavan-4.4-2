@@ -76,7 +76,8 @@ require("wan_dhcp_nvram_state_publish(" in wan_renew and
         "struct dhcp_lease_nvram_value renew_values[4];" in wan_renew and
         "return nvram_status;" in wan_renew,
         "WAN DHCP renewal fields must be checked as one runtime snapshot")
-wan_renew_publisher = body(wan, "static int\\nwan_dhcp_nvram_state_publish(\\n\\tconst struct dhcp_lease_nvram_value *values, size_t count,\\n\\tint *rollback_status)\\n{")
+publisher_start = wan.index("wan_dhcp_nvram_state_publish(", wan.index("zcip_viptv_bound("))
+wan_renew_publisher = body(wan[publisher_start:], "wan_dhcp_nvram_state_publish(")
 require("dhcp_lease_nvram_publish(" in wan_renew_publisher and
         "wan_dhcp_nvram_restore_values(" in wan_renew_publisher and
         "nvram_transaction_begin(&transaction)" in wan_renew_publisher,
