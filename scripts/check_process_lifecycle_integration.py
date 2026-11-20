@@ -776,7 +776,9 @@ wan_down = net_wan.split("wan_down_internal(char *wan_ifname, int unit, int is_s
 )[0]
 assert "auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);" in wan_start
 wan_eapol_failure = wan_start.split("if (auth_status != 0)", 1)[1].split("/* We are done configuration */", 1)[0]
-assert "set_wan_unit_value_int(unit, \"err\", 1)" in wan_eapol_failure
+wan_eapol_compact = "".join(wan_eapol_failure.split())
+assert "vlan_result=set_wan_unit_error_status(unit,1);" in wan_eapol_compact
+assert "wan_start_status=rc_first_service_start_status(wan_start_status,vlan_result);" in wan_eapol_compact
 assert 'ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL)' in wan_eapol_failure
 assert "continue;" in wan_eapol_failure
 assert wan_start.index("if (auth_status != 0)") < wan_start.index("start_udhcpc_wan(wan_ifname, unit, 0)")
