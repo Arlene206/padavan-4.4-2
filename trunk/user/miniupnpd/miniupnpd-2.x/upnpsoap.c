@@ -1923,7 +1923,7 @@ UpdatePinhole(struct upnphttp * h, const char * action, const char * ns)
 static void
 GetOutboundPinholeTimeout(struct upnphttp * h, const char * action, const char * ns)
 {
-	int r;
+	int r, proto;
 
 	static const char resp[] =
 		"<u:%sResponse "
@@ -1936,7 +1936,6 @@ GetOutboundPinholeTimeout(struct upnphttp * h, const char * action, const char *
 	struct NameValueParserData data;
 	char * int_ip, * int_port, * rem_host, * rem_port, * protocol;
 	int opt=0;
-	/*int proto=0;*/
 	unsigned short iport, rport;
 
 	if (GETFLAG(IPV6FCFWDISABLEDMASK))

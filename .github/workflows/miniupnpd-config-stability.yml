@@ -204,6 +204,7 @@ jobs:
               assert "atoi(" not in pinhole_uid_action
           assert "miniupnpd_soap_parse_port(rem_port, &rport)" in outbound_pinhole
           assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in outbound_pinhole
+          assert "int r, proto;" in outbound_pinhole
           assert "miniupnpd_soap_parse_protocol_number(protocol, &proto)" in outbound_pinhole
           assert "atoi(" not in outbound_pinhole
           for marker in (
