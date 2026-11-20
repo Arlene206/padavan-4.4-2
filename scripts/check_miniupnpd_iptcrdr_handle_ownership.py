@@ -52,7 +52,7 @@ def function_body(signature):
 
 delete_helper = function_body("delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,")
 delete_rules = function_body(
-    "delete_redirect_and_filter_rules(unsigned short eport, int proto)"
+    "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)"
 )
 
 # The helper closes its by-value handle on every result. Each caller must
