@@ -1248,7 +1248,12 @@ stop_lan(int is_ap_mode)
 {
 	int conntrack_status = 0, route_status = 0, ipv6_status = 0;
 	int ap_dhcp_stop_status = -1;
+	char ap_gateway[16] = "";
 	if (is_ap_mode) {
+		/* Save the installed AP default-route identity before the DHCP
+		 * deconfig callback can update its temporary NVRAM metadata. */
+		snprintf(ap_gateway, sizeof(ap_gateway), "%s",
+			 nvram_safe_get("lan_gateway_t"));
 		char *svcs[] = { "detect_wan", NULL };
 		const char *pidfiles[] = { "/var/run/udhcpc_lan.pid", NULL };
 		int status, pause_status, monitor_resume_status;
@@ -1284,6 +1289,24 @@ stop_lan(int is_ap_mode)
 				   "refusing LAN teardown because AP DHCP/monitor preflight was incomplete (status=%d)",
 				   status);
 			return status;
+		}
+
+		/*
+		 * AP manual mode installs a default route through lan_gateway.
+		 * Remove the last active gateway before a restart can add a new one.
+		 * DHCP deconfig may already have removed it, so ESRCH is harmless.
+		 */
+		if (is_valid_ipv4(ap_gateway)) {
+			route_status = route_status_idempotent_delete(
+				route_del(IFNAME_BR, 0, "0.0.0.0", ap_gateway, "0.0.0.0"));
+			if (route_status != 0) {
+				logmessage(LOGNAME,
+					   "AP default gateway route cleanup failed (status=%d); restoring LAN",
+					   route_status);
+				status = lan_ap_teardown_abort_restore(
+					route_status, "gateway route cleanup");
+				return status;
+			}
 		}
 	} else {
 		char *lan_ip = nvram_safe_get("lan_ipaddr_t");
