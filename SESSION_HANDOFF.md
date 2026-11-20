@@ -12,31 +12,28 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Live main at start of this slice: `48e61b68f3f4578b21a2e44a2d0df0dac944a01e`.
+- Live main before this static-IPoE write-safety slice: `20f9a599a4d057b89e0b7d7edba31cea19c3b549`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Protocol staging commit `b376e2c` checks configured `wan_proto` before `get_wan_proto()`, preserves the public void `reset_wan_vars()` ABI, and blocks startup/restart/reconnect after a failed snapshot.
-- Static-LAN route recovery is implemented through `rc_wan_restore_lan_routes_after_failed_reset()`; it attempts the restore before aborting, retains the protocol-reset error as primary, and surfaces a secondary restore error. WAN route workflow `136097663143` PASS.
-- Exact `48e61b68f3f4578b21a2e44a2d0df0dac944a01e` results: AI handoff/records `136097660956` PASS; inventory `136097662843` PASS; WAN route `136097663143` PASS; HTTPD `136097661907` FAIL at embedded source assertion line 88 because the checker still looked for the old `status` reset variable after the implementation switched to `reset_status` and added the recovery policy; this slice corrects that contract. Process `136097661505`, ZeroTier `136097661454`, NVRAM `136097661666`, and XY-C1 `136097661278` were in progress at last poll. Other completed relevant WAN/Firewall/USB/teardown/VPN/watchdog/wireless/DNSMasq/detection checks passed.
-- Same-SHA XY-C1 L3 is not established on this source yet; physical-router L4 remains NOT VERIFIED.
+- WAN protocol staging checks the configured protocol copy before reading the indexed protocol; static-LAN route restoration after staging failure is implemented through an injected, first-error policy with GNU89 sanitizer tests.
+- The HTTPD source contract was updated for the injected route-recovery refactor in commit `20f9a599a4d057b89e0b7d7edba31cea19c3b549`; its exact-head HTTPD and handoff-doc checks were still running at the last poll.
+- The prior exact-head AI-doc failure on `48e61b6` was resolved: the current handoff contains the required literal `one atomic main commit` and `## Active task
 
-## Active task
-
-- A WAN protocol snapshot failure can occur after WAN/bridge route flush, so returning immediately could leave the configured static LAN routes removed. Main now uses an injected recovery policy and test cases to verify restoration, first-error precedence, no restoration after successful reset, and fail-closed behavior when the restoration callback is missing.
-- The exact-head HTTPD source contract failed because it expected the pre-refactor local `status` variable. The production source now uses `reset_status` and routes recovery through `rc_wan_restore_lan_routes_after_failed_reset()`; the checker is updated to require that actual ordering and both failure diagnostics.
-- Next production slice remains a focused checked-publication pass on `reset_wan_vars_status()`: static IPoE IP/netmask/gateway/MTU first, then assess only manual PPP endpoint and authentication/options copies whose failure can alter routing or credentials. Keep public void ABI and first-error behavior.
+- Critical finding: static-IPoE reset copied `wan_ipaddr`, `wan_netmask`, `wan_gateway` and `wan_mtu` into the indexed WAN snapshot using the unchecked void setter. A transient NVRAM write error could therefore leave a stale last-known-good address or gateway, yet reset could proceed toward WAN activation.
+- This slice adds a status-returning parameter-copy helper and a tested, fail-fast ordered-copy policy. Static IPoE reset now latches any one of the four write failures in `wan_vars_reset_status` and returns before activation; the legacy void setter ABI is untouched.
+- The policy test covers successful ordering, stopping at the first injected failure, and invalid arguments. The existing WAN route workflow compiles it with GNU89, `-Werror`, ASan and UBSan; the source checker pins the production call path.
+- Next candidate after validation: check only manual PPP endpoint and credential/negotiation copies where stale values can affect routes or authentication; avoid converting optional telemetry/metadata.
 
 ## Verification boundary
 
-- HTTPD source-contract correction awaits exact-head rerun.
-- AI handoff, WAN route policy/test, and the independent completed checks on parent `48e61b68f3f4578b21a2e44a2d0df0dac944a01e` passed; Process, ZeroTier, NVRAM-boundary and XY-C1 remained pending at last poll.
-- XY-C1 requires production-input detection, MIPS Build, TRX verification and artifact upload all passing on the same source SHA before L3 can be claimed.
-- No physical-router L4 test is claimed.
+- Static-IPoE fail-fast source and injected policy regression await exact-head WAN route/NVRAM Actions.
+- HTTPD status-aware recovery contract correction from parent `20f9a599a4d057b89e0b7d7edba31cea19c3b549` awaits its exact-head HTTPD and AI-doc reruns.
+- Same-SHA XY-C1 production detector, MIPS Build, TRX verification and artifact upload are required before L3; no physical-router L4 test is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and check exact-head HTTPD, AI handoff, WAN route, NVRAM, Process, ZeroTier and XY-C1 Actions for this contract repair; diagnose any remaining failure from its job log.
-2. Require same-SHA XY-C1 production detector, Build, TRX verification and artifact upload before claiming L3.
-3. Continue the bounded checked-publication audit in `reset_wan_vars_status()`, starting with static IPoE address/netmask/gateway/MTU. Preserve the public void reset ABI and stop protocol activation on any critical write failure.
+1. Fetch live main; check exact-head WAN route/NVRAM regression and HTTPD/handoff-contract Actions for the static-IPoE slice and preceding contract repair. Diagnose any FAIL from its exact job log.
+2. Check the same-SHA XY-C1 production detector, MIPS Build, TRX verification and artifact upload. Do not claim L3 from a parent SHA.
+3. Continue the bounded WAN reset audit with manual PPP physical endpoint and PPP credentials/options only where a failed copy can change routing or authentication. Preserve fail-closed startup and the public void reset ABI.
 
 ## Mandatory handoff checkpoint
 

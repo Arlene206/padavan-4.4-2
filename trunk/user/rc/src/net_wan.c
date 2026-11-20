@@ -99,6 +99,35 @@ set_wan_unit_value_status(int unit, const char *param_name, const char *value)
 	return rc_wan_nvram_write_status(api_result, saved_errno);
 }
 
+static int
+set_wan_unit_param_status(int unit, const char *param_name)
+{
+	char wan_param[64];
+	int path_len;
+
+	if (!param_name || !param_name[0])
+		return EINVAL;
+
+	path_len = snprintf(wan_param, sizeof(wan_param), "wan_%s", param_name);
+	if (path_len < 0)
+		return errno ? errno : EIO;
+	if ((size_t)path_len >= sizeof(wan_param))
+		return ENAMETOOLONG;
+
+	return set_wan_unit_value_status(unit, param_name,
+					 nvram_safe_get(wan_param));
+}
+
+static int
+set_wan_unit_param_status_callback(void *context, const char *param_name)
+{
+	int *unit = (int *)context;
+
+	if (!unit)
+		return EINVAL;
+	return set_wan_unit_param_status(*unit, param_name);
+}
+
 void
 set_wan_unit_value(int unit, const char* param_name, const char* value)
 {
@@ -192,6 +221,9 @@ reset_wan_vars_status(void)
 {
 	int unit, wan_proto, proto_status;
 	char mac_buf[24], *man_addr, *man_mask, *man_gate, *man_mtu;
+	static const char *const static_ipoe_params[] = {
+		"ipaddr", "netmask", "gateway", "mtu"
+	};
 
 	wan_vars_reset_status = 0;
 	unit = 0;
@@ -232,10 +264,19 @@ reset_wan_vars_status(void)
 	wan_proto = get_wan_proto(unit);
 
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
-		set_wan_unit_param(unit, "ipaddr");
-		set_wan_unit_param(unit, "netmask");
-		set_wan_unit_param(unit, "gateway");
-		set_wan_unit_param(unit, "mtu");
+		proto_status = rc_wan_nvram_set_required_params(
+			static_ipoe_params,
+			(unsigned int)(sizeof(static_ipoe_params) /
+				       sizeof(static_ipoe_params[0])),
+			set_wan_unit_param_status_callback, &unit);
+		if (proto_status != 0) {
+			wan_vars_reset_status = proto_status;
+			errno = proto_status;
+			logmessage(LOGNAME,
+				   "cannot stage static IPoE address settings before activation (status=%d)",
+				   proto_status);
+			return proto_status;
+		}
 	} else {
 		set_wan_unit_value(unit, "ipaddr", "0.0.0.0");
 		set_wan_unit_value(unit, "netmask", "0.0.0.0");

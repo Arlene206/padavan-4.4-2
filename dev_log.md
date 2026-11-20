@@ -1,3 +1,13 @@
+## 2026-11-20 — Fail closed on static IPoE WAN configuration snapshot write errors
+
+- Parent main SHA: `20f9a599a4d057b89e0b7d7edba31cea19c3b549`.
+- Static IPoE reset previously copied the configured IP address, netmask, gateway and MTU into the indexed WAN snapshot through unchecked `set_wan_unit_param()`. If one NVRAM write failed, reset could continue with a mixture of fresh and stale address/routing state.
+- Added a status-returning source-to-indexed-parameter copy helper and an ordered required-parameter policy. The static IPoE reset path now stops at the first failed copy, records `wan_vars_reset_status`, and returns before protocol activation. Existing public void setter ABI and other protocols remain unchanged.
+- Added injected GNU89 regression cases for ordered success, first-error short-circuit and invalid-argument rejection. Extended the existing WAN source checker to enforce the production integration and failure gate. The WAN route workflow already compiles the policy test with `-Werror`, ASan and UBSan.
+- Exact-head verification is pending; this entry does not claim device behavior or L3.
+
+---
+
 ## 2026-11-20 — Align HTTPD reset-failure contract with injected LAN route recovery
 
 - Parent main SHA: `48e61b68f3f4578b21a2e44a2d0df0dac944a01e`.

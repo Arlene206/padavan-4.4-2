@@ -76,6 +76,8 @@ policy = (RC / "service_start_status.h").read_text()
 policy_test = (RC / "tests/service_start_status.c").read_text()
 route_policy = (RC / "wan_route_flush_policy.h").read_text()
 route_policy_test = (RC / "tests/wan_route_flush_policy.c").read_text()
+nvram_policy = (RC / "wan_nvram_status_policy.h").read_text()
+nvram_policy_test = (RC / "tests/wan_nvram_status_policy.c").read_text()
 require("rc_wan_firewall_start_allows_protocol" in policy,
         "WAN protocol start policy must require a successful firewall rebuild")
 require("test_wan_firewall_failure_blocks_protocol_launch" in policy_test and
@@ -370,4 +372,47 @@ bare_calls = [line for line in wan.splitlines() if line.strip() == "start_firewa
 require(not bare_calls, "no firewall rebuild result may be discarded")
 require(len(positions(wan, "start_firewall_ex()")) == 4,
         "the contract must cover all four current firewall rebuild sites")
+
+# Static IPoE must not be activated with stale address/routing settings when
+# any required per-WAN NVRAM copy fails.
+required_param_policy = body(nvram_policy, "rc_wan_nvram_set_required_params(")
+require("if ((!param_names && count != 0) || !set_param)" in required_param_policy,
+        "required WAN parameter copy policy must reject invalid callbacks/arrays")
+require("if (status != 0)" in required_param_policy and "return status;" in required_param_policy,
+        "required WAN parameter copies must stop and return the first write error")
+for case in (
+    "test_successful_required_param_sequence",
+    "test_required_param_sequence_stops_at_first_error",
+    "test_invalid_required_param_arguments_fail_closed",
+):
+    require(case in nvram_policy_test and case + "();" in body(nvram_policy_test, "main(void)"),
+            f"required WAN parameter copy regression is missing or unregistered: {case}")
+
+param_copy = body(wan, "set_wan_unit_param_status(int unit, const char *param_name)")
+require('snprintf(wan_param, sizeof(wan_param), "wan_%s", param_name)' in param_copy,
+        "checked WAN parameter copy must read the unindexed source key")
+require("return set_wan_unit_value_status(unit, param_name," in param_copy and
+        "nvram_safe_get(wan_param)" in param_copy,
+        "checked WAN parameter copy must propagate the per-WAN NVRAM setter status")
+param_callback = body(wan, "set_wan_unit_param_status_callback(")
+require("return set_wan_unit_param_status(*unit, param_name);" in param_callback,
+        "static IPoE copy callback must propagate the checked NVRAM write status")
+reset = body(wan, "reset_wan_vars_status(void)")
+static_ipoe = body(reset, "if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)")
+require("rc_wan_nvram_set_required_params(" in static_ipoe and
+        "set_wan_unit_param_status_callback" in static_ipoe,
+        "static IPoE reset must use the checked required-parameter policy")
+require("if (proto_status != 0)" in static_ipoe and
+        "wan_vars_reset_status = proto_status;" in static_ipoe and
+        "return proto_status;" in static_ipoe,
+        "static IPoE copy failure must latch reset status and abort activation")
+param_list_start = wan.index("static_ipoe_params[] = {")
+param_list_end = wan.index("};", param_list_start)
+param_list = wan[param_list_start:param_list_end]
+param_cursor = 0
+for param in ('"ipaddr"', '"netmask"', '"gateway"', '"mtu"'):
+    position = param_list.find(param, param_cursor)
+    require(position >= 0, f"static IPoE required parameter missing/out of order: {param}")
+    param_cursor = position + len(param)
+
 print("WAN firewall rebuild fail-closed protocol gates and PPP recovery: PASS")

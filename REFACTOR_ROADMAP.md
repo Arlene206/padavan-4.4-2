@@ -3,6 +3,7 @@
 - Main before injected route-recovery regression: 0b6bccb9c0bc7324bf22083b66a4ad31625dd4dc; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and read-only.
 - WAN protocol staging b376e2c checks configured wan_proto before reading wanN_proto while preserving the public void reset ABI. HTTPD contract repair da3081e passed its exact HTTPD run 44678385087 on 0b6bccb.
 - Static LAN route restoration now has a unit-testable callback policy: retry after failed protocol reset, preserve the primary reset error, and expose/log route repair failure. Injected sanitizer regression and exact source contract are pending.
+- Static IPoE address/netmask/gateway/MTU copies now use a checked first-error sequence; any write failure latches reset status and blocks activation. The injected policy test and source integration contract are queued in the existing WAN route workflow.
 - AI docs run 44678384983 failed on the missing required literal one atomic main commit; this patch restores it and the required Active task heading.
 - Current same-SHA XY-C1 L3 is NOT VERIFIED. Physical router L4 remains NOT VERIFIED.
 
