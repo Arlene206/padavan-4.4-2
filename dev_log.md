@@ -1,3 +1,9 @@
+## 2026-11-20 — Remove invalid test-source variable from LAN policy checker
+
+- Parent main: `5e7d8cf074fcaf7bb392dd50373dfd435e518176`. The LAN deconfiguration checker was updated alongside the new shared DHCP rollback semantics, but the added test-name assertion referenced a `test` variable that this standalone checker does not define. Removed that redundant assertion; the WAN DHCP callback workflow independently checks the test function and invocation in `tests/dhcp_lease_policy.c`.
+- The checker continues to require validate-all, attempt-all and reverse full-vector restoration (`for (j = count; j > 0; --j)`). This is a validator correction only; no production source change.
+- Next exact-SHA Actions: WAN DHCP callback, WAN route, XY-C1, AI docs and NVRAM boundary must be polled. No new PASS is claimed. The production source SHA remains `10b57237ced5487a0d17e0bb09425ea96973a78e`; XY-C1 L3/TRX/artifact and physical L4 remain NOT VERIFIED.
+
 ## 2026-11-20 — Align shared DHCP policy and MAN teardown validators with current writers
 
 - Parent main SHA: 9cadbbd9c116db4b8c0cc3d4f8e312800575f173; production implementation under validation: `10b57237ced5487a0d17e0bb09425ea96973a78e`.
