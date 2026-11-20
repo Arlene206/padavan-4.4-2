@@ -16,34 +16,35 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Parent `main` SHA immediately before this atomic source slice: `a6a0175208fcbd073d1bbdb424de501a5885cf4b`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; preservation branch must remain unchanged).
-- Exact-head push Actions on parent `a6a01752`: VPN server lifecycle #44766404316 PASS; AI handoff documentation #44766404187 PASS.
-- The prior MiniUPnP IPv6 wildcard/UID/resource-lifecycle slice is implemented. On product-source SHA `84199a2fe17d774b8bcdba0a1918e7fa10a33160`, MiniUPnP regression #44762854186 and XY-C1 firmware validation #44762854295 passed. This does not validate the new counter-default source change.
-- Local GNU89/`-Wall -Wextra -Werror` ASan/UBSan policy regression for this slice passed. New exact-head MiniUPnP and XY-C1 runs are required after this commit.
-- Do not infer hardware validation from host CI or firmware automation. Physical-router L4 remains NOT VERIFIED.
+- Parent `main` SHA immediately before this atomic LAN DHCP slice: `9d8a9036cdd350a3a45971d8cd5d766d5ec93762`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; unchanged).
+- Previous exact-head push checks on `9d8a9036`: MiniUPnP #44768112680 PASS; Process inventory #44768112861 PASS; NVRAM boundary #44768112614 PASS; AI handoff docs #44768112993 PASS. XY-C1 #44768112587 was IN_PROGRESS at last check; do not claim L3 until its Build/TRX/artifact gates finish.
+- The preceding counter-default slice is implemented and its MiniUPnP regression passed on `9d8a9036`; it is separate from this LAN DHCP change.
+- This slice changes the post-commit networkmap refresh condition for address-changing LAN DHCP renewals. Local GNU89/`-Wall -Wextra -Werror` ASan/UBSan policy regression passed; exact-head WAN-DHCP and XY-C1 checks are pending.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-The pinhole wildcard/UID/allocation/resource-lifecycle task recorded in the previous checkpoint has been implemented. This commit fixes a follow-on reliability defect in `trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c`:
+Fix the stale networkmap inventory on LAN DHCP address-changing RENEW:
 
-- If a pinhole registry entry survives after its kernel rule disappears, `get_pinhole_info()` previously returned success without initializing packet/byte outputs. The caller could copy an uninitialized `packets_tmp` value and misreport the pinhole as working.
-- A shared null-safe counter initializer now sets requested counters to zero before querying netfilter; a matching rule overwrites those defaults. Regression tests cover both counters and optional NULL arguments, while the MiniUPnP workflow pins initialization-before-lookup ordering.
+- `udhcpc_lan_bound()` already detects IP/netmask changes and applies/commits the new lease, but it previously restarted networkmap only when `is_renew` was false. A changed RENEW can move the LAN subnet without triggering the scanner refresh.
+- The new `lan_dhcp_networkmap_refresh_required(address_changed, is_renew)` policy refreshes on initial BOUND and when the address/netmask changes during RENEW, while keeping unchanged RENEW quiet. The networkmap operation stays ancillary after the lease commit; its failure is logged without undoing a valid lease.
+- The source-contract checker and GNU89/ASan/UBSan unit test cover the condition. Root `dev_log.md` has been rotated to its 20-record window; oldest 100 records are archived in part-020.
 
-After exact-head CI verification, continue the repository-wide stability/security queue. Prioritize concrete unfinished high-impact WAN/service lifecycle issues in `REFACTOR_ROADMAP.md`; do not repeat the completed pinhole wildcard/UID audit.
+After verification, continue the LAN DHCP transition audit (leasefail/NAK/release and AP restore paths) or move to the next P1 WAN/service-lifecycle defect. Do not repeat the completed pinhole counter or wildcard fixes.
 
 ## Verification boundary
 
-- L2 host policy regression: GNU89, `-Wall -Wextra -Werror`, ASan and UBSan PASS locally.
-- Static source contract: added to `.github/workflows/miniupnpd-config-stability.yml`; exact-head result pending until the new `main` push completes.
-- XY-C1 detector already watches the production pinhole backend and policy header. Exact new-SHA Build XY-C1 / TRX / artifact result must still be checked; do not transfer the preceding `84199a2` result.
+- L2 policy regression: GNU89, `-Wall -Wextra -Werror`, ASan and UBSan PASS locally.
+- Static LAN DHCP callback contract is updated in `scripts/check_lan_dhcp_deconfig.py`; exact-head WAN-DHCP Action pending after push.
+- XY-C1 workflow watches the modified production `net_lan.c` and policy header. Build/TRX/artifact on the new source SHA must be checked; prior exact-source results do not transfer.
 - Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and confirm the frozen backup still equals `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Check push-triggered MiniUPnP and XY-C1 Actions whose `head_sha` exactly equals the new `main` commit. Diagnose any failure from its causal job log; a pending run must not block independent work.
-3. Once the slice is verified, resume the highest-priority unfinished WAN/service-lifecycle stability defect in the live roadmap. Keep source, regression and required integration changes in one atomic `main` commit.
+1. Fetch live `main` and verify the frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+2. Check WAN DHCP callback, XY-C1, NVRAM, Process and AI Actions whose `head_sha` exactly equals the new main SHA. Diagnose real failures; do not wait on pending runs before starting independent work.
+3. If the new callback and firmware checks pass, continue the remaining LAN DHCP leasefail/NAK/release and AP restore transition audit, then choose the next P1 WAN/service-lifecycle issue.
 
 ## Handoff maintenance
 

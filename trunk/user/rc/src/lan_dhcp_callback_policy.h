@@ -18,6 +18,13 @@ lan_dhcp_hosts_refresh_required(int lease_changed, int is_renew,
 	return lease_changed || !is_renew || is_ap_mode;
 }
 
+/* Re-scan on initial BOUND and whenever RENEW changes the LAN subnet. */
+static inline int
+lan_dhcp_networkmap_refresh_required(int address_changed, int is_renew)
+{
+	return address_changed || !is_renew;
+}
+
 static inline int
 lan_dhcp_bound_callback_status(int transaction_status, int ancillary_status)
 {

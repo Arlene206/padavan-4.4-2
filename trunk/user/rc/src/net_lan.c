@@ -2309,7 +2309,7 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 			udhcpc_lan_state, lease_ip, lease_netmask, gateway_buf, lease_dur);
 	}
 
-	if (!is_renew) {
+	if (lan_dhcp_networkmap_refresh_required(address_changed, is_renew)) {
 		int networkmap_status = restart_networkmap();
 
 		if (networkmap_status != 0)

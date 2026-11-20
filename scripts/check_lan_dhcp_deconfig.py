@@ -187,7 +187,10 @@ assert 'nvram_set_temp("lan_ipaddr_t", lease_ip)' not in bound
 iappd_start = bound.index('int iappd_status = system("/usr/bin/iappd.sh restart");')
 iappd_failure = bound.index("if (iappd_status != 0)", iappd_start)
 iappd_log = bound.index("IAPP daemon restart after lease update failed", iappd_failure)
-networkmap_gate = bound.index("if (!is_renew)", iappd_log)
+networkmap_gate = bound.index(
+    "if (lan_dhcp_networkmap_refresh_required(address_changed, is_renew))",
+    iappd_log,
+)
 networkmap_start = bound.index("int networkmap_status = restart_networkmap();", networkmap_gate)
 networkmap_failure = bound.index("if (networkmap_status != 0)", networkmap_start)
 networkmap_log = bound.index("networkmap refresh after lease update failed", networkmap_failure)
@@ -195,6 +198,11 @@ callback_return = bound.index("return lan_dhcp_bound_callback_status(0, hosts_st
 assert iappd_start < iappd_failure < iappd_log < networkmap_gate < networkmap_start < networkmap_failure < networkmap_log < callback_return
 assert bound.count('system("/usr/bin/iappd.sh restart")') == 1
 assert bound.count("restart_networkmap()") == 1
+assert "lan_dhcp_networkmap_refresh_required(address_changed, is_renew)" in bound
+assert "lan_dhcp_networkmap_refresh_required(int address_changed, int is_renew)" in callback_policy
+assert "test_networkmap_refreshes_changed_address_renewals" in callback_test
+assert "lan_dhcp_networkmap_refresh_required(1, 1) == 1" in callback_test
+assert "lan_dhcp_networkmap_refresh_required(0, 1) == 0" in callback_test
 assert "test_successful_lease_commit_ignores_ancillary_refresh_failure" in callback_test
 assert publish.count("notify_rc_status(RCN_RESTART_DHCPD)") == 2
 assert "notification_status = notify_rc_status(RCN_RESTART_DHCPD);" in publish
