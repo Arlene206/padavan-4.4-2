@@ -69,4 +69,30 @@ miniupnpd_soap_parse_int(const char *text, int *value_out)
 	return 0;
 }
 
+
+static inline int
+miniupnpd_soap_ascii_equal_ci(const char *left, const char *right)
+{
+	while (*left && *right) {
+		unsigned char a = (unsigned char)*left++;
+		unsigned char b = (unsigned char)*right++;
+
+		if (a >= 'a' && a <= 'z')
+			a = (unsigned char)(a - 'a' + 'A');
+		if (b >= 'a' && b <= 'z')
+			b = (unsigned char)(b - 'a' + 'A');
+		if (a != b)
+			return 0;
+	}
+	return *left == '\0' && *right == '\0';
+}
+
+static inline int
+miniupnpd_soap_protocol_valid(const char *protocol)
+{
+	return protocol &&
+	       (miniupnpd_soap_ascii_equal_ci(protocol, "TCP") ||
+	        miniupnpd_soap_ascii_equal_ci(protocol, "UDP"));
+}
+
 #endif /* MINIUPNPD_SOAP_INPUT_POLICY_H */

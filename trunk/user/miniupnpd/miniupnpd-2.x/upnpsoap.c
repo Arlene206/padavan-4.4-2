@@ -32,6 +32,7 @@
 #include "getconnstatus.h"
 #include "upnpurns.h"
 #include "upnpsoap_input_policy.h"
+#include "upnpsoap_xml_policy.h"
 
 /* utility function */
 static int is_numeric(const char * s)
@@ -471,7 +472,7 @@ AddPortMapping(struct upnphttp * h, const char * action, const char * ns)
 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
 	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
 
-	if (!int_port || !ext_port || !protocol)
+	if (!int_port || !ext_port || !miniupnpd_soap_protocol_valid(protocol))
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -604,7 +605,8 @@ AddAnyPortMapping(struct upnphttp * h, const char * action, const char * ns)
 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
 	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
 
-	if (!int_ip || !ext_port || !int_port)
+	if (!int_ip || !ext_port || !int_port ||
+	    !miniupnpd_soap_protocol_valid(protocol))
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -730,6 +732,8 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action, const char
 	unsigned short eport, iport;
 	char int_ip[32];
 	char desc[64];
+	char escaped_int_ip[sizeof(int_ip) * 6 + 1];
+	char escaped_desc[sizeof(desc) * 6 + 1];
 	unsigned int leaseduration = 0;
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
@@ -742,6 +746,12 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action, const char
 #else
 	if(!ext_port || !protocol)
 #endif
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
+	if (!miniupnpd_soap_protocol_valid(protocol))
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -785,11 +795,24 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action, const char
 		       action,
 		       r_host ? r_host : "NULL", ext_port, protocol, int_ip,
 		       (unsigned int)iport, desc);
-		bodylen = snprintf(body, sizeof(body), resp,
-				action, ns/*SERVICE_TYPE_WANIPC*/,
-				(unsigned int)iport, int_ip, desc, leaseduration,
-				action);
-		BuildSendAndCloseSoapResp(h, body, bodylen);
+		if (miniupnpd_soap_xml_escape(escaped_int_ip,
+		                              sizeof(escaped_int_ip), int_ip) != 0 ||
+		    miniupnpd_soap_xml_escape(escaped_desc, sizeof(escaped_desc),
+		                              desc) != 0)
+		{
+			SoapError(h, 501, "ActionFailed");
+		}
+		else
+		{
+			bodylen = snprintf(body, sizeof(body), resp,
+			                    action, ns/*SERVICE_TYPE_WANIPC*/,
+			                    (unsigned int)iport, escaped_int_ip,
+			                    escaped_desc, leaseduration, action);
+			if (bodylen < 0 || (size_t)bodylen >= sizeof(body))
+				SoapError(h, 501, "ActionFailed");
+			else
+				BuildSendAndCloseSoapResp(h, body, bodylen);
+		}
 	}
 
 	ClearNameValueList(&data);
@@ -830,6 +853,12 @@ DeletePortMapping(struct upnphttp * h, const char * action, const char * ns)
 #else
 	if(!ext_port || !protocol)
 #endif /* UPNP_STRICT */
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
+	if (!miniupnpd_soap_protocol_valid(protocol))
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -929,7 +958,7 @@ DeletePortMappingRange(struct upnphttp * h, const char * action, const char * ns
 	endport_s = GetValueFromNameValueList(&data, "NewEndPort");
 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
 	/*manage = atoi(GetValueFromNameValueList(&data, "NewManage"));*/
-	if (protocol == NULL ||
+	if (!miniupnpd_soap_protocol_valid(protocol) ||
 	    miniupnpd_soap_parse_port(startport_s, &startport) != 0 ||
 	    miniupnpd_soap_parse_port(endport_s, &endport) != 0)
 	{
@@ -995,13 +1024,16 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action, const char 
 		"<NewLeaseDuration>%u</NewLeaseDuration>"
 		"</u:%sResponse>";
 
-	long int index = 0;
+	int index = 0;
 	unsigned short eport, iport;
 	const char * m_index;
-	char * endptr;
 	char protocol[8], iaddr[32];
 	char desc[64];
 	char rhost[40];
+	char escaped_protocol[sizeof(protocol) * 6 + 1];
+	char escaped_iaddr[sizeof(iaddr) * 6 + 1];
+	char escaped_desc[sizeof(desc) * 6 + 1];
+	char escaped_rhost[sizeof(rhost) * 6 + 1];
 	unsigned int leaseduration = 0;
 	struct NameValueParserData data;
 
@@ -1014,24 +1046,14 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action, const char 
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
-	errno = 0;	/* To distinguish success/failure after call */
-	index = strtol(m_index, &endptr, 10);
-	if((errno == ERANGE && (index == LONG_MAX || index == LONG_MIN))
-	   || (errno != 0 && index == 0) || (m_index == endptr))
+	if (miniupnpd_soap_parse_int(m_index, &index) != 0)
 	{
-		/* should condition (*endptr != '\0') be also an error ? */
-		if(m_index == endptr)
-			syslog(LOG_WARNING, "%s: no digits were found in <%s>",
-			       "GetGenericPortMappingEntry", "NewPortMappingIndex");
-		else
-			syslog(LOG_WARNING, "%s: strtol('%s'): %m",
-			       "GetGenericPortMappingEntry", m_index);
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
 		return;
 	}
 
-	syslog(LOG_INFO, "%s: index=%d", action, (int)index);
+	syslog(LOG_INFO, "%s: index=%d", action, index);
 
 	rhost[0] = '\0';
 	r = upnp_get_redirection_infos_by_index((int)index, &eport, protocol, &iport,
@@ -1048,11 +1070,30 @@ GetGenericPortMappingEntry(struct upnphttp * h, const char * action, const char 
 	{
 		int bodylen;
 		char body[2048];
-		bodylen = snprintf(body, sizeof(body), resp,
-			action, ns, /*SERVICE_TYPE_WANIPC,*/ rhost,
-			(unsigned int)eport, protocol, (unsigned int)iport, iaddr, desc,
-		    leaseduration, action);
-		BuildSendAndCloseSoapResp(h, body, bodylen);
+
+		if (miniupnpd_soap_xml_escape(escaped_rhost,
+		                              sizeof(escaped_rhost), rhost) != 0 ||
+		    miniupnpd_soap_xml_escape(escaped_protocol,
+		                              sizeof(escaped_protocol), protocol) != 0 ||
+		    miniupnpd_soap_xml_escape(escaped_iaddr,
+		                              sizeof(escaped_iaddr), iaddr) != 0 ||
+		    miniupnpd_soap_xml_escape(escaped_desc,
+		                              sizeof(escaped_desc), desc) != 0)
+		{
+			SoapError(h, 501, "ActionFailed");
+		}
+		else
+		{
+			bodylen = snprintf(body, sizeof(body), resp,
+			            action, ns, /*SERVICE_TYPE_WANIPC,*/ escaped_rhost,
+			            (unsigned int)eport, escaped_protocol,
+			            (unsigned int)iport, escaped_iaddr, escaped_desc,
+			            leaseduration, action);
+			if (bodylen < 0 || (size_t)bodylen >= sizeof(body))
+				SoapError(h, 501, "ActionFailed");
+			else
+				BuildSendAndCloseSoapResp(h, body, bodylen);
+		}
 	}
 
 	ClearNameValueList(&data);
@@ -1093,12 +1134,17 @@ GetListOfPortMappings(struct upnphttp * h, const char * action, const char * ns)
 	char * body;
 	size_t bodyalloc;
 	int bodylen;
+	int entry_length;
 
 	int r = -1;
 	unsigned short iport;
 	char int_ip[32];
 	char desc[64];
 	char rhost[64];
+	char escaped_int_ip[sizeof(int_ip) * 6 + 1];
+	char escaped_desc[sizeof(desc) * 6 + 1];
+	char escaped_rhost[sizeof(rhost) * 6 + 1];
+	char escaped_protocol[256];
 	unsigned int leaseduration = 0;
 
 	struct NameValueParserData data;
@@ -1117,7 +1163,7 @@ GetListOfPortMappings(struct upnphttp * h, const char * action, const char * ns)
 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
 	/*manage_s = GetValueFromNameValueList(&data, "NewManage");*/
 	number_s = GetValueFromNameValueList(&data, "NewNumberOfPorts");
-	if (protocol == NULL ||
+	if (!miniupnpd_soap_protocol_valid(protocol) ||
 	    miniupnpd_soap_parse_port(startport_s, &startport) != 0 ||
 	    miniupnpd_soap_parse_port(endport_s, &endport) != 0 ||
 	    miniupnpd_soap_parse_int(number_s, &number) != 0)
@@ -1179,8 +1225,8 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 	/* loop through port mappings */
 	for(i = 0; number > 0 && i < list_size; i++)
 	{
-		/* have a margin of 1024 bytes to store the new entry */
-		if((unsigned int)bodylen + 1024 > bodyalloc)
+		/* Reserve enough room for worst-case XML entity expansion. */
+		if ((size_t)bodylen + 2048 > bodyalloc)
 		{
 			char * body_sav = body;
 			bodyalloc += 4096;
@@ -1201,11 +1247,37 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 		                               desc, sizeof(desc),
 		                               rhost, sizeof(rhost),
 		                               &leaseduration);
-		if(r == 0)
+		if (r == 0)
 		{
-			bodylen += snprintf(body+bodylen, bodyalloc-bodylen, entry,
-			                    rhost, port_list[i], protocol,
-			                    iport, int_ip, desc, leaseduration);
+			if (miniupnpd_soap_xml_escape(escaped_rhost,
+			                              sizeof(escaped_rhost), rhost) != 0 ||
+			    miniupnpd_soap_xml_escape(escaped_protocol,
+			                              sizeof(escaped_protocol), protocol) != 0 ||
+			    miniupnpd_soap_xml_escape(escaped_int_ip,
+			                              sizeof(escaped_int_ip), int_ip) != 0 ||
+			    miniupnpd_soap_xml_escape(escaped_desc,
+			                              sizeof(escaped_desc), desc) != 0)
+			{
+				ClearNameValueList(&data);
+				SoapError(h, 501, "ActionFailed");
+				free(port_list);
+				free(body);
+				return;
+			}
+			entry_length = snprintf(body + bodylen, bodyalloc - (size_t)bodylen,
+			                        entry, escaped_rhost, port_list[i],
+			                        escaped_protocol, iport, escaped_int_ip,
+			                        escaped_desc, leaseduration);
+			if (entry_length < 0 ||
+			    (size_t)entry_length >= bodyalloc - (size_t)bodylen)
+			{
+				ClearNameValueList(&data);
+				SoapError(h, 501, "ActionFailed");
+				free(port_list);
+				free(body);
+				return;
+			}
+			bodylen += entry_length;
 			number--;
 		}
 	}
@@ -1228,8 +1300,20 @@ http://www.upnp.org/schemas/gw/WANIPConnection-v2.xsd">
 	}
 	memcpy(body+bodylen, list_end, sizeof(list_end));
 	bodylen += (sizeof(list_end) - 1);
-	bodylen += snprintf(body+bodylen, bodyalloc-bodylen, resp_end,
-	                    action);
+	{
+		int tail_length = snprintf(body + bodylen,
+		                           bodyalloc - (size_t)bodylen, resp_end,
+		                           action);
+		if (tail_length < 0 ||
+		    (size_t)tail_length >= bodyalloc - (size_t)bodylen)
+		{
+			ClearNameValueList(&data);
+			SoapError(h, 501, "ActionFailed");
+			free(body);
+			return;
+		}
+		bodylen += tail_length;
+	}
 	BuildSendAndCloseSoapResp(h, body, bodylen);
 	free(body);
 

@@ -61,6 +61,7 @@ class FirmwareInputPathTests(unittest.TestCase):
             "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c",
             "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c",
             "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h",
+            "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h",
             "trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c",
             "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h",
             "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c",

@@ -47,6 +47,20 @@ test_port_boundaries(void)
 }
 
 static void
+test_protocol_tokens(void)
+{
+	assert(miniupnpd_soap_protocol_valid("TCP"));
+	assert(miniupnpd_soap_protocol_valid("tcp"));
+	assert(miniupnpd_soap_protocol_valid("uDp"));
+	assert(miniupnpd_soap_protocol_valid("UDP"));
+	assert(!miniupnpd_soap_protocol_valid(NULL));
+	assert(!miniupnpd_soap_protocol_valid(""));
+	assert(!miniupnpd_soap_protocol_valid("TCPx"));
+	assert(!miniupnpd_soap_protocol_valid("TCP UDP"));
+	assert(!miniupnpd_soap_protocol_valid("<p>TCP</p>"));
+}
+
+static void
 test_nonnegative_int_boundaries(void)
 {
 	char maximum[64];
@@ -83,6 +97,7 @@ int
 main(void)
 {
 	test_port_boundaries();
+	test_protocol_tokens();
 	test_nonnegative_int_boundaries();
 	test_invalid_output_arguments();
 	puts("MiniUPnP SOAP unsigned input policy: PASS");

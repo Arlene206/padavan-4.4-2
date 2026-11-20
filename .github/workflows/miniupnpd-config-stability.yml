@@ -27,6 +27,8 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
       - "scripts/check_miniupnpd_lifecycle_lock.py"
@@ -55,6 +57,8 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
       - "scripts/check_miniupnpd_lifecycle_lock.py"
@@ -105,6 +109,14 @@ jobs:
             trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c \
             -o /tmp/miniupnpd_lease_file_policy_test
           ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_lease_file_policy_test
+      - name: Compile and run MiniUPnP SOAP XML escaping policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c \
+            -o /tmp/upnpsoap_xml_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/upnpsoap_xml_policy_test
       - name: Verify UPnP writer error propagation and daemon start gate
         run: |
           python3 - <<'PY'
@@ -123,6 +135,8 @@ jobs:
           soap_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c").read_text()
           soap_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h").read_text()
           soap_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c").read_text()
+          xml_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h").read_text()
+          xml_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c").read_text()
           redirect_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c").read_text()
           lease_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h").read_text()
           lease_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c").read_text()
@@ -207,6 +221,21 @@ jobs:
           ):
               assert marker in lease_test, marker
           assert "miniupnpd_lease_file_policy_test.c" in workflow
+
+          assert '#include "upnpsoap_xml_policy.h"' in soap_source
+          get_specific_xml = function_body(soap_source, "GetSpecificPortMappingEntry(struct upnphttp * h")
+          get_generic_xml = function_body(soap_source, "GetGenericPortMappingEntry(struct upnphttp * h")
+          get_list_xml = function_body(soap_source, "GetListOfPortMappings(struct upnphttp * h")
+          assert get_specific_xml.count("miniupnpd_soap_xml_escape(") == 2
+          assert get_generic_xml.count("miniupnpd_soap_xml_escape(") == 4
+          assert get_list_xml.count("miniupnpd_soap_xml_escape(") == 4
+          assert get_generic_xml.index("miniupnpd_soap_parse_int(m_index, &index)") < get_generic_xml.index("upnp_get_redirection_infos_by_index(")
+          assert "miniupnpd_soap_protocol_valid(protocol)" in soap_source
+          for marker in ("&amp;", "&lt;", "&gt;", "&quot;", "&apos;", "errno = ENOSPC"):
+              assert marker in xml_policy, marker
+          for marker in ("test_markup_escaping", "test_control_character_sanitization", "test_empty_and_invalid_inputs", "MiniUPnP SOAP XML text escaping policy: PASS"):
+              assert marker in xml_test, marker
+          assert "upnpsoap_xml_policy_test.c" in workflow
 
           writer = function_body(service, "miniupnpd_write_config(FILE *fp, void *opaque)")
           assert writer.count("if (fprintf(fp") == 2
@@ -425,6 +454,8 @@ jobs:
               "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h",
               "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h",
+              "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h",
               "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c",
               "trunk/user/rc/src/service_wait_policy.h",

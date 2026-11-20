@@ -178,7 +178,7 @@ upnpdescgen.o: miniupnpdtypes.h upnpdescstrings.h upnpurns.h getconnstatus.h
 upnpsoap.o: macros.h config.h upnpglobalvars.h upnppermissions.h
 upnpsoap.o: miniupnpdtypes.h upnphttp.h upnpsoap.h upnpreplyparse.h
 upnpsoap.o: upnpredirect.h upnppinhole.h getifaddr.h getifstats.h
-upnpsoap.o: getconnstatus.h upnpurns.h upnpsoap_input_policy.h
+upnpsoap.o: getconnstatus.h upnpurns.h upnpsoap_input_policy.h upnpsoap_xml_policy.h
 upnpreplyparse.o: upnpreplyparse.h minixml.h
 minixml.o: minixml.h
 portinuse.o: macros.h config.h upnpglobalvars.h upnppermissions.h
