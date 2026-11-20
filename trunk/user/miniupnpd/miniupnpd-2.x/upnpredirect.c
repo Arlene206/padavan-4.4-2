@@ -6,6 +6,7 @@
  * This software is subject to the conditions detailed
  * in the LICENCE file provided within the distribution */
 
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <syslog.h>
@@ -118,12 +119,15 @@ lease_file_add(unsigned short eport,
 	                                               desc);
 	if (record_length < 0) {
 		status = errno ? errno : EIO;
-		fclose(fd);
+		errno = 0;
+		(void)fclose(fd);
 		errno = status;
 		return -1;
 	}
+	errno = 0;
 	if (fwrite(record, 1, (size_t)record_length, fd) != (size_t)record_length)
 		status = errno ? errno : EIO;
+	errno = 0;
 	if (fclose(fd) != 0 && status == 0)
 		status = errno ? errno : EIO;
 	if (status != 0) {

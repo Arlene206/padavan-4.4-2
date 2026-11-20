@@ -53,6 +53,12 @@ test_protocol_tokens(void)
 	assert(miniupnpd_soap_protocol_valid("tcp"));
 	assert(miniupnpd_soap_protocol_valid("uDp"));
 	assert(miniupnpd_soap_protocol_valid("UDP"));
+#ifdef IPPROTO_UDPLITE
+	assert(miniupnpd_soap_protocol_valid("UDPLITE"));
+	assert(miniupnpd_soap_protocol_valid("udplite"));
+#else
+	assert(!miniupnpd_soap_protocol_valid("UDPLITE"));
+#endif
 	assert(!miniupnpd_soap_protocol_valid(NULL));
 	assert(!miniupnpd_soap_protocol_valid(""));
 	assert(!miniupnpd_soap_protocol_valid("TCPx"));

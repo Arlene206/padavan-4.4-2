@@ -3,6 +3,7 @@
 
 #include <errno.h>
 #include <limits.h>
+#include <netinet/in.h>
 
 /* Parse a non-empty unsigned decimal value with an explicit upper bound. */
 static inline int
@@ -92,7 +93,11 @@ miniupnpd_soap_protocol_valid(const char *protocol)
 {
 	return protocol &&
 	       (miniupnpd_soap_ascii_equal_ci(protocol, "TCP") ||
-	        miniupnpd_soap_ascii_equal_ci(protocol, "UDP"));
+	        miniupnpd_soap_ascii_equal_ci(protocol, "UDP")
+#ifdef IPPROTO_UDPLITE
+	        || miniupnpd_soap_ascii_equal_ci(protocol, "UDPLITE")
+#endif
+	       );
 }
 
 #endif /* MINIUPNPD_SOAP_INPUT_POLICY_H */
