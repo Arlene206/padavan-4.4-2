@@ -75,9 +75,11 @@
 
 ## Priority queue
 
-- Confirmed SD/MMC mass-storage event publication defect: mdev used legacy void `notify_rc()` for whole-device unplug and successful automount, silently discarding secure PID 1 queue-marker failures and potentially returning success without scheduling cleanup/startup. THIS COMMIT switches both applets to `notify_rc_status()`, logs/preserves errno, includes notification failure in return status, and adds GNU89 sanitizer policy/source/workflow regressions; exact-head storage Actions and XY-C1 Build/TRX/artifact pending.
+- SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).
 - ZeroTier stop interface capture `255334d0`: exact test run `44476582735` found its missing-NAT case failed to set `TEST_NAT_ENABLE=1`; this test-only correction pins that setup.
 
+
+- Confirmed `init_bridge()` boot-result loss: its six `gen_ralink_config_2g/5g()` callers previously discarded atomic wireless-configuration publication failures (`-1`). This slice captures and records all four compile-time preparation branches and both post-start restores in `rc_bridge_init_status_t`, adds a GNU89/ASan/UBSan regression, extends the Process source contract and workflow path filters, and requires exact-head Process + XY-C1 Build/TRX/artifact validation.
 
 1. **P0 — Verify exact-SHA CI after each source/handoff commit.** Resolve any FAIL at the corresponding SHA; treat runs without a conclusion as PENDING and work on independent tasks.
 

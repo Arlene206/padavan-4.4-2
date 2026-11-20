@@ -70,6 +70,7 @@ on:
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/tests/bridge_init_policy.c"
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wifi.c"
@@ -247,6 +248,7 @@ on:
       - "trunk/user/rc/src/net.c"
       - "trunk/user/rc/src/net6.c"
       - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/tests/bridge_init_policy.c"
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wifi.c"
@@ -1037,6 +1039,19 @@ jobs:
           rt_ap_record = 'rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", rt_ap_start_status);'
           assert init_bridge.index("rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);") < init_bridge.index(rt_ap_record)
           assert init_bridge.index(rt_ap_record) < init_bridge.index("operation_status = ifconfig(IFNAME_BR, IFUP, NULL, NULL);")
+          # Wireless config publication is required boot preparation too. These
+          # calls return -1 when the atomic file publish fails; none may be dropped.
+          for call, operation in (
+              ("gen_ralink_config_2g(1)", "prepare 2.4GHz wireless configuration"),
+              ("gen_ralink_config_5g(1)", "prepare 5GHz wireless configuration"),
+              ("gen_ralink_config_5g(0)", "restore 5GHz wireless configuration"),
+              ("gen_ralink_config_2g(0)", "restore 2.4GHz wireless configuration"),
+          ):
+              call_count = init_bridge.count(call)
+              assert call_count > 0, call
+              capture = "\\t\\toperation_status = " + call + ";\\n\\t\\trc_bridge_init_record(&bridge_status, \\"" + operation + "\\", operation_status);"
+              assert init_bridge.count(capture) == call_count, (call, operation)
+          assert "test_wireless_config_generation_failure_reaches_bridge_status();" in bridge_init_regression
           assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
 
           assert 'rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);' in init_bridge

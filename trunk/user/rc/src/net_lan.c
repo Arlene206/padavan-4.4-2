@@ -260,7 +260,8 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	if (!rt_radio_on || (rt_mode_x == 1 || rt_mode_x == 3))
 	{
 		/* workaround for create all pseudo interfaces and fix iNIC issue (common PLL config) */
-		gen_ralink_config_2g(1);
+		operation_status = gen_ralink_config_2g(1);
+		rc_bridge_init_record(&bridge_status, "prepare 2.4GHz wireless configuration", operation_status);
 		operation_status = ifconfig(IFNAME_2G_MAIN, IFUP, NULL, NULL);
 		rc_bridge_init_record(&bridge_status, "bring up 2.4GHz main interface for radio configuration", operation_status);
 	}
@@ -269,7 +270,8 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	if (!wl_radio_on || (wl_mode_x == 1 || wl_mode_x == 3))
 	{
 		/* workaround for create all pseudo interfaces */
-		gen_ralink_config_5g(1);
+		operation_status = gen_ralink_config_5g(1);
+		rc_bridge_init_record(&bridge_status, "prepare 5GHz wireless configuration", operation_status);
 		operation_status = ifconfig(IFNAME_5G_MAIN, IFUP, NULL, NULL);
 		rc_bridge_init_record(&bridge_status, "bring up 5GHz main interface for radio configuration", operation_status);
 	}
@@ -279,7 +281,8 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	if (!wl_radio_on || (wl_mode_x == 1 || wl_mode_x == 3))
 	{
 		/* workaround for create all pseudo interfaces and fix iNIC issue (common PLL config) */
-		gen_ralink_config_5g(1);
+		operation_status = gen_ralink_config_5g(1);
+		rc_bridge_init_record(&bridge_status, "prepare 5GHz wireless configuration", operation_status);
 		operation_status = ifconfig(IFNAME_5G_MAIN, IFUP, NULL, NULL);
 		rc_bridge_init_record(&bridge_status, "bring up 5GHz main interface for radio configuration", operation_status);
 	}
@@ -288,7 +291,8 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 	if (!rt_radio_on || (rt_mode_x == 1 || rt_mode_x == 3))
 	{
 		/* workaround for create all pseudo interfaces */
-		gen_ralink_config_2g(1);
+		operation_status = gen_ralink_config_2g(1);
+		rc_bridge_init_record(&bridge_status, "prepare 2.4GHz wireless configuration", operation_status);
 		operation_status = ifconfig(IFNAME_2G_MAIN, IFUP, NULL, NULL);
 		rc_bridge_init_record(&bridge_status, "bring up 2.4GHz main interface for radio configuration", operation_status);
 	}
@@ -447,7 +451,8 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 		usleep(500000);
 		operation_status = ifconfig(IFNAME_5G_MAIN, 0, NULL, NULL);
 		rc_bridge_init_record(&bridge_status, "restore 5GHz main interface down", operation_status);
-		gen_ralink_config_5g(0);
+		operation_status = gen_ralink_config_5g(0);
+		rc_bridge_init_record(&bridge_status, "restore 5GHz wireless configuration", operation_status);
 	}
 
 	if (wl_radio_on)
@@ -459,7 +464,8 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 		usleep(500000);
 		operation_status = ifconfig(IFNAME_2G_MAIN, 0, NULL, NULL);
 		rc_bridge_init_record(&bridge_status, "restore 2.4GHz main interface down", operation_status);
-		gen_ralink_config_2g(0);
+		operation_status = gen_ralink_config_2g(0);
+		rc_bridge_init_record(&bridge_status, "restore 2.4GHz wireless configuration", operation_status);
 	}
 
 	if (rt_radio_on)

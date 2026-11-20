@@ -1,3 +1,14 @@
+## 2026-11-19 — Preserve wireless configuration publication failures during boot
+
+- Parent SHA: `bd36a1c9da40c6f58aa810f1f1d38f70b06cf50d`.
+- Confirmed `init_bridge()` discarded six `gen_ralink_config_2g/5g()` return values. Those functions return `-1` when atomic config publication fails; wireless restart preflight already aborts on the same failure, but boot initialization had no result propagation.
+- Captured and recorded both radio-band config preparation branches and both post-start config restores in the bridge first-error accumulator. Independent bridge setup continues, but `init_bridge()` now reports any config publication failure to PID 1.
+- Extended `bridge_init_policy.c` with a failed wireless config generation case and added Process source-contract assertions for all callsites. Added the regression test to Process and XY-C1 workflow path filters.
+- Local GNU89 / `-Wall -Wextra -Werror` ASan+UBSan bridge policy regression passed. Exact-head Process/AI docs/XY-C1 Actions pending after commit; XY-C1 must execute Build, TRX verification and artifact upload on this production-source SHA.
+- L3 from `44644448761` is limited to the older production source `61cbc6b842fdaaafc3f2fcab269bb11292fa8514`; checker-only run `44646517924` skipped all production build steps. Physical router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Pin each ZeroTier firewall deletion in the stop regression
 
 - Historical ZeroTier lifecycle run `44518868454` on `b1b621` failed at the normal-stop assertion that counted exactly five firewall delete commands. The fake firewall-state empty assertion was already present, so this test-only follow-up now checks the exact three filter deletes and two table-qualified NAT deletes individually.
