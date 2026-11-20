@@ -261,7 +261,7 @@ static int test_inic_radio_unisolation_failure_rolls_back_and_preserves_cause(vo
 		INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_OFF };
 	c.unisolate_status = EACCES;
 	return wireless_inic_radio_transition(1, &inic_radio_test_ops, &c) != EACCES ||
-	       !inic_radio_events_equal(&c, e, 5) || c.publish_count != 0;
+	       !inic_radio_events_equal(&c, e, 6) || c.publish_count != 0;
 }
 static int test_inic_radio_isolation_failure_still_powers_off_without_publishing(void)
 {

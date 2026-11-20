@@ -1,3 +1,12 @@
+## 2026-11-20 — Correct RT3352 MII unisolation-rollback test event count
+
+- Parent main SHA: `d250aff4e337f5c919e11c44cf5a1e8e5c1cb5a8`.
+- Wireless run #44745705779 compiled the policy test successfully, then the C test binary returned FAIL. Inspection of the expected sequence showed the unisolation-failure rollback records six events (initial isolate, radio-on, TxPower preparation, unisolate attempt, rollback isolate, radio-off), while the assertion compared only five and therefore never checked the final radio-off rollback.
+- Corrected the expected event count to six. No production source change in this test-only correction.
+- On `d250aff4`, AI handoff #44745705703 and Process inventory #44745705762 passed; NVRAM #44745706021 and XY-C1 #44745705732 were still running. New exact-head Wireless/AI reruns pending; firmware L3 and physical L4 not claimed.
+
+---
+
 ## 2026-11-20 — Establish iNIC isolation before enabling RT3352 MII radio
 
 - Parent main SHA: `9075dc6385307f5df83ce9d13039462648395583`.

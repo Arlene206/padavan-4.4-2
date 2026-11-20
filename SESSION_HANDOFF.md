@@ -9,28 +9,27 @@
 
 ## Current repository state
 
-- Current main before this follow-up slice: `9075dc6385307f5df83ce9d13039462648395583`; its RT3352 source parent is `9e9d643dd8c3a78d135c8dae908857f8b90c0276`.
+- Current main before this test correction: `d250aff4e337f5c919e11c44cf5a1e8e5c1cb5a8`; the preceding RT3352 runtime source parent is `9e9d643dd8c3a78d135c8dae908857f8b90c0276`.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Source implementation commit `9e9d643dd8c3a78d135c8dae908857f8b90c0276` adds RT3352 MII radio/isolation transaction handling. On follow-up test/documentation SHA `9075dc6385307f5df83ce9d13039462648395583`, Wireless #44744845103, AI handoff #44744844991 and Process inventory #44744845149 passed; NVRAM #44744845007 was still running.
-- On `9e9d643d`, Process inventory/regression, HTTPD security, watchdog and iNIC signal checks passed; Wireless #44744529117 and AI #44744529015 failures were fixed by moving MII helpers to file scope and restoring mandatory handoff structure. XY-C1 #44744529158 remained in progress at last query.
+- Source implementation commit `9e9d643d` and follow-up test/docs SHA `9075dc63` passed Wireless #44744845103, AI handoff #44744844991 and Process inventory #44744845149; NVRAM #44744845007 passed on `9075dc63`.
+- Boot-state isolation follow-up `d250aff4` changed the policy to assert isolation before RadioOn. Its Wireless run #44745705779 compiled successfully but failed the C regression because the unisolation-rollback case expected five recorded events although its expected sequence contains six. This commit corrects that test count. AI handoff #44745705703 and Process inventory #44745705762 passed; NVRAM #44745706021 and XY-C1 #44745705732 were in progress at last observation.
 
 ## Active task
 
 - Follow-up review found enable assumed the RTL8367 iNIC port was already isolated before powering the radio. This is unsafe after boot or an out-of-band switch-state change. This commit explicitly isolates first, only then enables the driver, and unisolates only after startup/TxPower setup; a failed initial isolation sends best-effort radio-off and publishes no state.
-- After this commit, inspect Wireless and AI exact-head checks, plus NVRAM #44744845007 and XY-C1 #44744529158. The latter is for product-source SHA `9e9d643d`; do not transfer L3 to later production source changes.
+- After this test correction, inspect Wireless and AI exact-head reruns; check NVRAM #44745706021 and XY-C1 #44745705732 on `d250aff4`. The XY-C1 run is required to establish L3 for the isolation-before-power production source; do not transfer results across later product-source SHAs.
 - Continue an independent P1 slice while any exact-head jobs remain pending.
 
 ## Verification boundary
 
-- The original host transition-policy harness passed GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. The actual repository Wireless source/policy regression and AI documentation contract both pass on `9075dc6385307f5df83ce9d13039462648395583`.
-- This follow-up adds an additional initial-isolation-failure scenario and strengthens the enable sequence; its exact-head compile/regression is pending.
-- XY-C1 #44744529158 was still running for product-source SHA `9e9d643d`; no L3 claim until detector/build/TRX/artifact pass on that exact source SHA. Physical-router L4 remains NOT VERIFIED.
+- Wireless source/policy tests and AI documentation contract passed on `9075dc63`. On `d250aff4`, the test program compiled, but its execution failed only because the unisolation-failure event count was set to 5 instead of 6; the six expected events are isolate, radio-on, TxPower preparation, unisolate attempt, rollback isolate and radio-off. This commit corrects the count; exact-head rerun pending.
+- XY-C1 #44745705732 and NVRAM #44745706021 were still running for `d250aff4`; no L3 claim until detector/build/TRX/artifact all pass on the exact production-source SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect Wireless and AI docs exact-head Actions for this follow-up; confirm the new initial-isolation test compiles and executes.
-2. Inspect still-pending NVRAM #44744845007 on `9075dc` and XY-C1 #44744529158 on product source `9e9d643d`; capture detector/build/TRX/artifact results without SHA transfer.
-3. Continue the next independent userland stability/security fix; do not repeat closed audits.
+1. Inspect Wireless and AI docs exact-head Actions for this correction; ensure the full six-event rollback expectation passes.
+2. Inspect XY-C1 #44745705732 and NVRAM #44745706021 for `d250aff4`; record detector/build/TRX/artifact results only on that production-source SHA.
+3. Continue the next independent stability/security task; do not repeat closed audits.
 
 ## Mandatory handoff checkpoint
 
