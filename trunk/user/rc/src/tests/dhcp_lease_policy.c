@@ -389,7 +389,7 @@ dhcp_viptv_nvram_event(struct dhcp_viptv_nvram_fake *fake, char event)
 {
 	if (fake->event_count + 1 < sizeof(fake->events)) {
 		fake->events[fake->event_count++] = event;
-		fake->events[fake->event_count] = '\\0';
+		fake->events[fake->event_count] = '\0';
 	}
 }
 
@@ -471,7 +471,7 @@ test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple(void)
 	assert(rollback_status == EIO);
 	assert(strcmp(fake.events, "ABCcba") == 0);
 	assert(strcmp(fake.current[0], old_values[0]) == 0);
-	assert(strcmp(fake.current[1], "") == 0);
+	assert(strcmp(fake.current[1], old_values[1]) == 0);
 	assert(strcmp(fake.current[2], old_values[2]) == 0);
 	assert(strcmp(fake.current[3], old_values[3]) == 0);
 }

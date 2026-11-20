@@ -6394,7 +6394,6 @@ udhcpc_viptv_deconfig_delete_routes(void *opaque)
 	return manv_route_deconfig(context->ifname);
 }
 
-static void
 static int
 udhcpc_viptv_deconfig_publish_empty_address(void *opaque)
 {
