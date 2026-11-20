@@ -2421,8 +2421,8 @@ jobs:
           for payload in ("192.0.2.1;reboot", "255.0.255.0", "192.0.2.0/24\\nCOMMIT"):
               assert payload in test
 
-          bound_start = wan.index("udhcpc_bound(char *wan_ifname, int is_renew_mode)")
-          bound_end = wan.index("udhcpc_viptv_bound(", bound_start)
+          bound_start = wan.index("static int\\nudhcpc_bound(char *wan_ifname, int is_renew_mode)\\n{")
+          bound_end = wan.index("\\nstatic int\\nudhcpc_viptv_bound(char *man_ifname, int is_renew_mode)", bound_start)
           bound = wan[bound_start:bound_end]
           assert bound.index("dhcp_lease_ipv4_is_valid(lease_ip)") < bound.index("wan_dhcp_nvram_state_publish(")
           assert "WAN_DHCP_BOUND_SNAPSHOT_COUNT" in bound

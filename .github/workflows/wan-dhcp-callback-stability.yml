@@ -317,7 +317,7 @@ jobs:
               'nvram_set_int_temp(strcat_r(prefix, "lease", tmp), (int)parsed_value)',
           ):
               assert marker not in wan_dhcp_renew
-          renew_publisher = body(source, "wan_dhcp_nvram_state_publish(")
+          renew_publisher = body(source, "static int\\nwan_dhcp_nvram_state_publish(\\n\\tconst struct dhcp_lease_nvram_value *values, size_t count,\\n\\tint *rollback_status)\\n{")
           assert "dhcp_lease_nvram_publish(" in renew_publisher
           assert "wan_dhcp_nvram_restore_values(" in renew_publisher
           assert "nvram_transaction_begin(&transaction)" in renew_publisher
