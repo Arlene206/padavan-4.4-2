@@ -101,7 +101,9 @@ assert migration in ndis and identity_publish in ndis
 assert ndis.index(migration) < ndis.index(identity_publish) < ndis.index(identity_gate) < ndis.index(interface_setup) < ndis.index(dhcp_launch)
 assert "return modem_wan_start_status(migration_status, error_status);" in ndis
 assert "return modem_wan_start_status(identity_status, error_status);" in ndis
-assert "modem_wan_publish_ndis_identity(usb_modem_wan_identity_set_value, &unit, ndis_ifname, &identity_rollback_status);" in ndis
+assert "modem_wan_publish_ndis_identity(" in ndis
+assert "usb_modem_wan_identity_set_value, &unit, ndis_ifname," in ndis
+assert "&identity_rollback_status);" in ndis
 assert "USB modem WAN identity rollback incomplete" in ndis
 assert "cannot publish NDIS protocol/interface identity" in ndis
 firewall_capture = "firewall_status = start_firewall_ex();"

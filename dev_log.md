@@ -1,3 +1,11 @@
+## 2026-11-20 — Fix NDIS identity checker formatting anchor and strict-C test include
+
+- Parent main SHA: `a033d8e862681f0e90e29e6a3ac4364ba32ae995`. The USB modem exact-head run `44708363419` compiled and passed all five pre-existing GNU89/ASan/UBSan C regressions, passed the WDM/NDIS semantic workflow block and module-reload checker, then failed at one new checker assertion that expected no whitespace after a multiline function's opening parenthesis. The generated source is correct; the structural check was too formatting-sensitive.
+- The new four NDIS identity regression functions also use `memset()`/`strcmp()`; add their explicit `<string.h>` declaration to keep the `-Werror` GNU89 build portable.
+- This follow-up only adjusts the source checker and required standard header; rerun the exact-head USB workflow before treating the NDIS slice as verified.
+
+---
+
 ## 2026-11-20 — Fail closed when NDIS WAN identity cannot be published
 
 - Parent main SHA: `c26207d9cb5a6aa93169ff207799e5bdeca51c4f`. Found a real state-integrity gap in `launch_wan_usbnet()`: the NDIS protocol label and active `ifname_t` were written through legacy void setters, their NVRAM errors were discarded, and interface/firewall/control/DHCP startup proceeded as if the active WAN identity had been committed. Error-flag writes on migration, IFUP, control-session and DHCP branches were also unchecked.
