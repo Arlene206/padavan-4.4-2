@@ -85,4 +85,56 @@ wireless_radio_notification_result(int was_on, int requested_on,
 	return change_reported == 1 ? 0 : -EIO;
 }
 
+/*
+ * RT3352 MII radio state crosses a switch-isolation boundary. Do not publish
+ * state until the driver and switch both complete the requested transition.
+ */
+typedef struct wireless_inic_radio_ops {
+	int (*set_power)(void *context, int is_on);
+	int (*set_isolation)(void *context, int isolated);
+	void (*prepare_on)(void *context);
+	void (*publish)(void *context, int is_on);
+} wireless_inic_radio_ops_t;
+
+static inline int
+wireless_inic_radio_transition(int is_on, const wireless_inic_radio_ops_t *ops,
+			       void *context)
+{
+	int isolation_status;
+	int power_status;
+
+	if (!ops || !ops->set_power || !ops->set_isolation || !ops->publish)
+		return -EINVAL;
+
+	if (is_on) {
+		power_status = ops->set_power(context, 1);
+		if (power_status != 0) {
+			/* A failing driver command may have changed hardware partially. */
+			(void)ops->set_isolation(context, 1);
+			(void)ops->set_power(context, 0);
+			return power_status;
+		}
+		if (ops->prepare_on)
+			ops->prepare_on(context);
+		isolation_status = ops->set_isolation(context, 0);
+		if (isolation_status != 0) {
+			/* Best-effort fail-closed rollback; preserve the original cause. */
+			(void)ops->set_isolation(context, 1);
+			(void)ops->set_power(context, 0);
+			return isolation_status;
+		}
+	} else {
+		/* Still attempt radio-off when switch isolation itself fails. */
+		isolation_status = ops->set_isolation(context, 1);
+		power_status = ops->set_power(context, 0);
+		if (isolation_status != 0)
+			return isolation_status;
+		if (power_status != 0)
+			return power_status;
+	}
+
+	ops->publish(context, !!is_on);
+	return 0;
+}
+
 #endif /* WIRELESS_RADIO_POLICY_H */

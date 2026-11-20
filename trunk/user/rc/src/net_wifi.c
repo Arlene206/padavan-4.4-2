@@ -368,15 +368,86 @@ mlme_radio_wl_apply(int is_on)
 	return 1;
 }
 
+#if defined(USE_RT3352_MII)
+typedef struct wireless_inic_radio_context {
+	const char *ifname;
+} wireless_inic_radio_context_t;
+
+static int
+wireless_inic_radio_set_power(void *opaque, int is_on)
+{
+	wireless_inic_radio_context_t *context = (wireless_inic_radio_context_t *)opaque;
+	int status = doSystem("iwpriv %s set %s=%d", context->ifname, "RadioOn", !!is_on);
+
+	if (!wireless_radio_status_success(status))
+		logmessage(LOGNAME, "2.4GHz iNIC RadioOn=%d failed (status=%d)", !!is_on, status);
+	return status;
+}
+
+static int
+wireless_inic_radio_set_isolation(void *opaque, int isolated)
+{
+	int status = phy_isolate_inic((unsigned int)!!isolated);
+
+	(void)opaque;
+	if (status != 0)
+		logmessage(LOGNAME, "2.4GHz iNIC isolation=%d failed (status=%d)", !!isolated, status);
+	return status;
+}
+
+static void
+wireless_inic_radio_prepare_on(void *opaque)
+{
+	wireless_inic_radio_context_t *context = (wireless_inic_radio_context_t *)opaque;
+	int i_val = nvram_wlan_get_int(0, "TxPower");
+	int status = doSystem("iwpriv %s set %s=%d", context->ifname, "TxPower", i_val);
+
+	if (!wireless_radio_status_success(status))
+		logmessage(LOGNAME, "2.4GHz iNIC TxPower=%d update failed (status=%d)", i_val, status);
+}
+
+static void
+wireless_inic_radio_publish(void *opaque, int is_on)
+{
+	(void)opaque;
+	mlme_state_rt(is_on);
+	LED_CONTROL(LED_SW2G, is_on ? LED_ON : LED_OFF);
+}
+
+static const wireless_inic_radio_ops_t wireless_inic_radio_ops = {
+	wireless_inic_radio_set_power,
+	wireless_inic_radio_set_isolation,
+	wireless_inic_radio_prepare_on,
+	wireless_inic_radio_publish
+};
+#endif
+
 static int
 mlme_radio_rt_apply(int is_on)
 {
 	const char *wifname = find_wlan_if_up(0);
 	int ret;
+#if defined(USE_RT3352_MII)
+	wireless_inic_radio_context_t context;
+#endif
 
 	if (!wifname)
 		return 0;
 
+#if defined(USE_RT3352_MII)
+	/*
+	 * The iNIC switch port is a security boundary. Keep it isolated while
+	 * changing radio power and publish MLME/LED state only after the switch
+	 * confirms the requested isolation state.
+	 */
+	context.ifname = wifname;
+	ret = wireless_inic_radio_transition(is_on, &wireless_inic_radio_ops, &context);
+	if (ret != 0) {
+		logmessage(LOGNAME, "2.4GHz iNIC radio transition incomplete (requested=%d, status=%d)",
+			   !!is_on, ret);
+		return 0;
+	}
+#else
 	ret = doSystem("iwpriv %s set %s=%d", wifname, "RadioOn", (is_on) ? 1 : 0);
 	if (!wireless_radio_status_success(ret)) {
 		logmessage(LOGNAME, "2.4GHz RadioOn=%d failed (status %d)", (is_on) ? 1 : 0, ret);
@@ -385,15 +456,6 @@ mlme_radio_rt_apply(int is_on)
 
 	mlme_state_rt(is_on);
 	LED_CONTROL(LED_SW2G, (is_on) ? LED_ON : LED_OFF);
-
-#if defined(USE_RT3352_MII)
-	if (is_on) {
-		int i_val = nvram_wlan_get_int(0, "TxPower");
-		doSystem("iwpriv %s set %s=%d", wifname, "TxPower", i_val);
-	}
-
-	// isolation iNIC port from all LAN ports
-	phy_isolate_inic((is_on) ? 0 : 1);
 #endif
 	return 1;
 }

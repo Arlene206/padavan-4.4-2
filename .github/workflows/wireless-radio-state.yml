@@ -149,9 +149,26 @@ jobs:
 
           rt = function_body(source, "mlme_radio_rt_apply(int is_on)")
           assert "if (!wifname)" in rt
-          assert rt.index("if (!wifname)") < rt.index("return 0;") < rt.index("doSystem(")
-          assert rt.index("doSystem(") < rt.index("wireless_radio_status_success(ret)") < rt.index("mlme_state_rt(is_on)")
-          assert rt.index("mlme_state_rt(is_on)") < rt.index("LED_CONTROL(")
+          assert "wireless_inic_radio_transition(is_on, &wireless_inic_radio_ops, &context)" in rt
+          assert rt.index("if (!wifname)") < rt.index("wireless_inic_radio_transition(") < rt.index("return 1;")
+          mii_helpers = (
+              "wireless_inic_radio_set_power(void *opaque, int is_on)",
+              "wireless_inic_radio_set_isolation(void *opaque, int isolated)",
+              "wireless_inic_radio_prepare_on(void *opaque)",
+              "wireless_inic_radio_publish(void *opaque, int is_on)",
+          )
+          for signature in mii_helpers:
+              assert signature in source
+          set_power = function_body(source, mii_helpers[0])
+          assert 'doSystem("iwpriv %s set %s=%d", context->ifname, "RadioOn", !!is_on)' in set_power
+          assert "wireless_radio_status_success(status)" in set_power
+          set_isolation = function_body(source, mii_helpers[1])
+          assert "phy_isolate_inic((unsigned int)!!isolated)" in set_isolation
+          assert "if (status != 0)" in set_isolation
+          prepare_on = function_body(source, mii_helpers[2])
+          assert '"TxPower"' in prepare_on and "doSystem(" in prepare_on
+          publish = function_body(source, mii_helpers[3])
+          assert "mlme_state_rt(is_on);" in publish and "LED_CONTROL(" in publish
 
           for name, restart in (("control_radio_wl", "restart_wifi_wl"),
                                 ("control_radio_rt", "restart_wifi_rt")):
@@ -163,6 +180,17 @@ jobs:
 
           notification_policy = (rc / "wireless_radio_policy.h").read_text()
           notification_test = (rc / "tests/wireless_radio_policy.c").read_text()
+          for token in ("wireless_inic_radio_transition",
+                        "ops->set_isolation(context, 1)",
+                        "ops->set_power(context, 0)",
+                        "ops->publish(context, !!is_on)"):
+              assert token in notification_policy
+          for token in ("test_inic_radio_enable_orders_power_before_unisolation_and_publication",
+                        "test_inic_radio_disable_isolates_before_power_off_and_publication",
+                        "test_inic_radio_power_on_failure_rolls_back_without_publishing",
+                        "test_inic_radio_unisolation_failure_rolls_back_and_preserves_cause",
+                        "test_inic_radio_isolation_failure_still_powers_off_without_publishing"):
+              assert token in notification_test
           for token in ("was_on", "requested_on", "change_reported",
                         "change_reported == 1 ? 0 : -EIO"):
               assert token in notification_policy
