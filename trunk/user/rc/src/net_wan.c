@@ -6755,6 +6755,7 @@ udhcpc_renew(char *wan_ifname)
 	size_t renew_count = 0;
 	int unit, is_man, resolver_changed = 0;
 	int nvram_status, rollback_status = 0;
+	int lease_error, route_error;
 	struct dhcp_lease_nvram_value renew_values[4];
 
 	unit = get_wan_unit(wan_ifname);
@@ -6768,9 +6769,12 @@ udhcpc_renew(char *wan_ifname)
 	}
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", (is_man) ? "MAN" : "WAN");
 
-	if (dhcp_wan_route_setup_retry_required(
-		nvram_get_int(strcat_r(prefix, "route_err", tmp)))) {
-		logmessage(log_prefix, "retrying incomplete DHCP route setup on %s", wan_ifname);
+	lease_error = nvram_get_int(strcat_r(prefix, "err", tmp));
+	route_error = nvram_get_int(strcat_r(prefix, "route_err", tmp));
+	if (dhcp_wan_bound_retry_required(lease_error, route_error)) {
+		logmessage(log_prefix,
+			   "retrying DHCP lease/address/route application on %s (lease_error=%d, route_error=%d)",
+			   wan_ifname, lease_error, route_error);
 		return udhcpc_bound(wan_ifname, 1);
 	}
 	value = getenv("subnet");
@@ -6905,12 +6909,18 @@ udhcpc_viptv_renew(char *man_ifname)
 	char *value;
 	char tmp[100], prefix[16], gateway_buf[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
+	int lease_error, route_error;
 
 	strcpy(prefix, "manv_");
 
-	if (dhcp_wan_route_setup_retry_required(
-		nvram_get_int(strcat_r(prefix, "route_err", tmp))))
+	lease_error = nvram_get_int(strcat_r(prefix, "err", tmp));
+	route_error = nvram_get_int(strcat_r(prefix, "route_err", tmp));
+	if (dhcp_wan_bound_retry_required(lease_error, route_error)) {
+		logmessage(LOGNAME,
+			   "retrying IPTV lease/address/route application on %s (lease_error=%d, route_error=%d)",
+			   man_ifname, lease_error, route_error);
 		return udhcpc_viptv_bound(man_ifname, 1);
+	}
 
 	value = getenv("subnet");
 	if (value && nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))
