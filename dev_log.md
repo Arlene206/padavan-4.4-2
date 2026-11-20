@@ -1,3 +1,13 @@
+## 2026-11-20 — Bound Ralink 802.1X wireless interface-name formatting
+
+- Parent main SHA: e2d0a6f65a91c57f033b5b28e01e9a9904b28869.
+- `RT_ioctl()` used `sprintf(wrq.ifr_name, "%s%d", prefix_name, apidx)` with the fixed `IFNAMSIZ` array. An overlong `-i` prefix or multi-digit AP index could overwrite the stack-resident `struct iwreq`.
+- Added a shared formatter using the real destination capacity. Empty/invalid input returns `EINVAL`; truncated names are cleared and rejected with `ENAMETOOLONG`. Every RT ioctl now uses this checked path; valid interface names preserve the original formatting.
+- Added GNU89 regression coverage for ordinary names, the 15-character boundary, multi-digit indexes, overlong prefixes, undersized buffers and invalid arguments. The existing Process regression compiles this test with ASan/UBSan; its inline source contract now rejects the unbounded call.
+- Exact-head Process/AI docs and XY-C1 verification required; L3 requires Build, TRX and artifact upload on this same SHA. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Create Samba private state directory with restrictive permissions
 
 - Parent main SHA: c40acbe1e767de9bc1fed7b8f3001303670d3bdf.

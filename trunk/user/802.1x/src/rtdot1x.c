@@ -89,7 +89,10 @@ int RT_ioctl(
 	int ret = 1;
 	struct iwreq wrq;
 
-	sprintf(wrq.ifr_name, "%s%d", prefix_name, apidx);
+	if (auth_startup_format_interface_name(wrq.ifr_name,
+					       sizeof(wrq.ifr_name), prefix_name,
+					       (unsigned int)apidx) != 0)
+		return -1;
 
 	wrq.u.data.flags = flags;
 	wrq.u.data.length = data_len;

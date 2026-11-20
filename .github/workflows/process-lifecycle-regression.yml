@@ -1050,6 +1050,12 @@ jobs:
           assert "test_creation_error_does_not_attempt_readback" in script_link_regression
           assert "return start_status;" in start_lan
 
+          auth_ioctl = body(auth_daemon, "int RT_ioctl(")
+          assert "auth_startup_format_interface_name(wrq.ifr_name" in auth_ioctl
+          assert "sizeof(wrq.ifr_name)" in auth_ioctl
+          assert "sprintf(wrq.ifr_name" not in auth_ioctl
+          assert "test_interface_name_formatting_is_bounded" in auth_regression
+          assert "ENAMETOOLONG" in auth_handshake
           auth_main = body(auth_daemon, "main(int argc, char *argv[])")
           auth_ready = body(auth_daemon, "wait_for_authenticator_ready(")
           assert "pipe(startup_pipe)" in auth_main

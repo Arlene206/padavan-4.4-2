@@ -73,6 +73,40 @@ static const struct auth_startup_io_ops fake_ops = {
 };
 
 static void
+test_interface_name_formatting_is_bounded(void)
+{
+	char name[16];
+	const char max_prefix[] = "01234567890123";
+	const char too_long_prefix[] = "012345678901234";
+
+	assert(auth_startup_format_interface_name(name, sizeof(name),
+						  "ra", 0) == 0);
+	assert(strcmp(name, "ra0") == 0);
+	assert(auth_startup_format_interface_name(name, sizeof(name),
+						  max_prefix, 0) == 0);
+	assert(strlen(name) == sizeof(name) - 1);
+
+	assert(auth_startup_format_interface_name(name, sizeof(name),
+						  max_prefix, 10) == -1);
+	assert(errno == ENAMETOOLONG);
+	assert(name[0] == '\0');
+	assert(auth_startup_format_interface_name(name, sizeof(name),
+						  too_long_prefix, 0) == -1);
+	assert(errno == ENAMETOOLONG);
+	assert(name[0] == '\0');
+	assert(auth_startup_format_interface_name(name, 2, "ra", 0) == -1);
+	assert(errno == ENAMETOOLONG);
+	assert(auth_startup_format_interface_name(name, 0, "ra", 0) == -1);
+	assert(errno == EINVAL);
+	assert(auth_startup_format_interface_name(name, sizeof(name), "", 0) == -1);
+	assert(errno == EINVAL);
+	assert(auth_startup_format_interface_name(NULL, sizeof(name), "ra", 0) == -1);
+	assert(errno == EINVAL);
+	assert(auth_startup_format_interface_name(name, sizeof(name), NULL, 0) == -1);
+	assert(errno == EINVAL);
+}
+
+static void
 test_real_pipe_round_trip(void)
 {
 	int pipe_fds[2];
@@ -178,6 +212,7 @@ test_invalid_arguments_are_rejected(void)
 int
 main(void)
 {
+	test_interface_name_formatting_is_bounded();
 	test_real_pipe_round_trip();
 	test_child_failure_byte_is_not_success();
 	test_interrupted_io_retries_are_bounded_and_complete();

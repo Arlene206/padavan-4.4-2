@@ -3,10 +3,43 @@
 
 #include <errno.h>
 #include <stddef.h>
+#include <stdio.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #define AUTH_STARTUP_IO_MAX_INTERRUPTS 8U
+
+/*
+ * wireless extensions store interface names in IFNAMSIZ-byte fields.
+ * Callers supply a prefix and an AP index; never write a truncated or
+ * unterminated name into struct iwreq.
+ */
+static inline int
+auth_startup_format_interface_name(char *name, size_t name_size,
+                                   const char *prefix, unsigned int apidx)
+{
+	int length;
+
+	if (!name || name_size == 0 || !prefix || !*prefix) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	length = snprintf(name, name_size, "%s%u", prefix, apidx);
+	if (length < 0) {
+		name[0] = '\0';
+		errno = EIO;
+		return -1;
+	}
+	if ((size_t)length >= name_size) {
+		name[0] = '\0';
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+
+	return 0;
+}
+
 
 struct auth_startup_io_ops {
 	ssize_t (*read_bytes)(void *context, int fd, void *buffer,
