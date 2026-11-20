@@ -90,7 +90,7 @@ jobs:
           assert "record_count == 0" in mount_status
           assert "inventory_invalid" in mount_status
           assert "NF != 6" in mount_status
-          assert "invalid)" in mount_status
+          assert 'print "invalid"' in mount_status
           assert 'case "$mount_result" in' in mount_status
           mount = function_body(script, "func_mount_if_needed()")
           assert 'func_mount_status "$mountpoint" "$filesystem" "$source"' in mount
