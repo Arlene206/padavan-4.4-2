@@ -444,11 +444,12 @@ assert "restore LAN interface after aborted router-mode teardown" in router_abor
 
 ap_teardown = c_function_body(lan, "stop_lan(int is_ap_mode)")
 ap_restore = c_function_body(lan, "lan_ap_teardown_abort_restore(")
-assert "rc_lan_ap_teardown_recovery_required(ap_dhcp_stop_status, status)" in ap_teardown
+ap_teardown_compact = "".join(ap_teardown.split())
+assert "rc_lan_ap_teardown_recovery_required(ap_dhcp_stop_status,status)" in ap_teardown_compact
 assert "status = lan_ap_teardown_abort_restore(status," in ap_teardown
 assert "start_lan(1, 1)" in ap_restore
 assert "notify_run_detect_internet(2)" in ap_restore
-assert "rc_lan_ap_teardown_recovery_required(ap_dhcp_stop_status," in ap_teardown
+assert "rc_lan_ap_teardown_recovery_required(ap_dhcp_stop_status," in ap_teardown_compact
 assert "test_ap_lan_teardown_rollback_requires_confirmed_dhcp_stop" in service_test
 assert "dhcp_stop_status == 0 && cleanup_status != 0" in service_policy
 

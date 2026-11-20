@@ -480,7 +480,7 @@ jobs:
           assert "if (restore_status != 0)" in ap_rollback
           assert "Internet monitor resume after rollback failed" in ap_rollback
           assert "if (is_ap_mode && rc_lan_ap_teardown_recovery_required(" in stop_lan_body
-          assert "lan_ap_teardown_abort_restore(teardown_status," in stop_lan_body
+          assert "teardown_status=lan_ap_teardown_abort_restore(teardown_status," in stop_lan_compact
           assert "(void)notify_run_detect_internet(2)" not in stop_lan_body
           assert "test_ap_lan_monitor_resume_failure_preserves_primary_teardown_status" in service_start_test
           assert "returnteardown_status;" in stop_lan_compact
