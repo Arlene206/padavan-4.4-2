@@ -197,8 +197,12 @@ jobs:
           schedule_call = "status = schedule_deferred_wan_reconnect_status("
           watchdog_start = "status = start_watchdog();"
           assert schedule_call in reconnect and watchdog_start in reconnect
-          assert reconnect.index(schedule_call) < reconnect.index("cannot publish deferred WAN reconnect deadline") < reconnect.index(
-              "return status;") < reconnect.index(watchdog_start)
+          schedule_pos = reconnect.index(schedule_call)
+          schedule_gate = reconnect.index("if (status != 0)", schedule_pos)
+          schedule_error = reconnect.index("cannot publish deferred WAN reconnect deadline", schedule_gate)
+          schedule_return = reconnect.index("return status;", schedule_error)
+          watchdog_pos = reconnect.index(watchdog_start, schedule_return)
+          assert schedule_pos < schedule_gate < schedule_error < schedule_return < watchdog_pos
 
           deferred = function_body(source, "deferred_wan_connect(void)")
           script_guard = "if (check_if_file_exist(SCRIPT_UDHCPC_WAN))"

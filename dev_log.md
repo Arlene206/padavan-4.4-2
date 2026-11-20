@@ -1,3 +1,14 @@
+## 2026-11-20 — Align WAN reconnect source contracts with checked scheduling
+
+- Parent main SHA: `8ce56358d91e9fb937417a30751fb86cd8c71f0e`; this is a checker-only follow-up to source fix `ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6`. Subsequent main commits `cd300104a22cd1d9d33e2c3f9fef4e970204344a` and `8ce56358d91e9fb937417a30751fb86cd8c71f0e` independently hardened Ralink 802.1X RADIUS bounds and preserve the correct per-BSS/global secret ownership; those changes are retained.
+- Exact `ab02b36` WAN teardown run `44731843422` reached the inline source contract after all GNU89/Werror/ASan/UBSan C regressions had compiled and run. Its new order assertion mistakenly used the first `return status;` in all of `try_wan_reconnect()`, which belongs to an earlier stop/reset failure branch; it must find the return after the schedule-publication error gate.
+- Exact `ab02b36` WAN route run `44731843190` passed its compiled regression suite and existing source checks until `scripts/check_wan_deferred_watchdog_status.py` expected the removed unchecked `nvram_set_int_temp("deferred_wanup_t", deferred_up_time)` call. Update that contract to require checked deadline publication, its failure return, watchdog launch, watchdog failure return and only then reconnect success. Also assert that no direct deferred-marker setter remains and the policy enforces the `INT_MAX` domain.
+- This follow-up changes only the two affected source contracts and their durable checkpoint. It does not relax the code coverage: both scripts now assert branch-relative ordering and exact production checked-publication behavior.
+- Exact `ab02b36` checks already PASS: Process inventory `44731843155`, WAN DHCP callback `44731843164`, AI docs `44731843180`, ZeroTier `44731843498`, Wireless `44731843320`, watchdog signal `44731842896`, VPN lifecycle `44731843303`, HTTPD security `44731843263`, Firewall startup `44731843262`, DNSMasq `44731843255`, miniupnpd `44731843327`, detect-internet `44731843226`, detect-link `44731843192`, USB modem identity `44731843412`, and WAN ARP `44731843120`. WAN teardown `44731843422` and WAN route `44731843190` were checker failures described above; Process fail-closed `44731843287` and NVRAM boundary `44731843056` were cancelled. XY-C1 run `44731843051` remained in progress at last poll.
+- Current exact main `8ce56358d91e9fb937417a30751fb86cd8c71f0e`: AI docs `44732095055` PASS; Process inventory `44732095102`, Process fail-closed `44732095105`, NVRAM boundary `44732095026`, and XY-C1 `44732095014` were in progress at last poll. L3 for all changed product sources requires one exact-SHA Build, TRX and artifact upload. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Preserve per-BSS and global RADIUS secret destinations
 
 - Parent main SHA: cd300104a22cd1d9d33e2c3f9fef4e970204344a.

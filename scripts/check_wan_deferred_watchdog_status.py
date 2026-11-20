@@ -72,18 +72,41 @@ require("return launch_status;" in watchdog_start
 
 deferred_start = reconnect.index("if (pause_in_seconds > 0)")
 deferred = reconnect[deferred_start:]
-ordered = (
-    'nvram_set_int_temp("deferred_wanup_t", deferred_up_time);',
-    "status = start_watchdog();",
-    "if (status != 0)",
+schedule_call = "status = schedule_deferred_wan_reconnect_status("
+watchdog_call = "status = start_watchdog();"
+schedule_pos = deferred.index(schedule_call)
+schedule_gate = deferred.index("if (status != 0)", schedule_pos)
+schedule_error = deferred.index("cannot publish deferred WAN reconnect deadline", schedule_gate)
+schedule_return = deferred.index("return status;", schedule_error)
+watchdog_pos = deferred.index(watchdog_call, schedule_return)
+watchdog_gate = deferred.index("if (status != 0)", watchdog_pos)
+watchdog_error = deferred.index(
     "cannot schedule deferred WAN reconnect because watchdog startup failed",
-    "return status;",
-    'logmessage(LOGNAME, "WAN up delay: %lds.", pause_in_seconds);',
-    "return 0;",
+    watchdog_gate,
 )
-positions = [deferred.index(token) for token in ordered]
-require(positions == sorted(positions),
-        "publish deferred intent, start watchdog, report and return failures before success")
-require('nvram_set_int_temp("deferred_wanup_t", 0);' not in deferred,
-        "retain deferred intent so a later watchdog recovery can retry")
-print("Deferred WAN reconnect reports watchdog startup failure: PASS")
+watchdog_return = deferred.index("return status;", watchdog_error)
+success_log = deferred.index(
+    'logmessage(LOGNAME, "WAN up delay: %lds.", pause_in_seconds);',
+    watchdog_return,
+)
+success_return = deferred.index("return 0;", success_log)
+positions = (
+    schedule_pos,
+    schedule_gate,
+    schedule_error,
+    schedule_return,
+    watchdog_pos,
+    watchdog_gate,
+    watchdog_error,
+    watchdog_return,
+    success_log,
+    success_return,
+)
+require(positions == tuple(sorted(positions)),
+        "checked deadline publication and watchdog errors must precede reconnect success")
+require('nvram_set_int_temp("deferred_wanup_t"' not in WAN,
+        "deferred reconnect must use checked NVRAM publication")
+policy = (RC / "wan_deferred_reconnect_policy.h").read_text()
+require("wan_deferred_reconnect_schedule" in policy and "INT_MAX" in policy,
+        "deferred reconnect policy must enforce the watchdog integer deadline domain")
+print("Deferred WAN reconnect reports publication and watchdog failures: PASS")

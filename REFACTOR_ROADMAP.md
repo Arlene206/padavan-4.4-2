@@ -1,9 +1,10 @@
 # 2026-11-20 active checkpoint
-- Main before this documentation commit: c10f4fd6be13a4dc915f397ccc3292d92509e689; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
-- CLOSED SOURCE SLICES: WAN checked identity pair; detect_link `link_wan` mirror retry; detect_internet `link_internet` mirror retry.
-- ACTIVE: NTP readiness persistence retry. A non-empty offset is required before `ntpc_counter` advances; watchdog reattempts `ntp_ready=1` from its fixed timer even when WAN is down. Host policy/source contracts are included in the watchdog stability workflow.
-- Exact-main watchdog Action: PASS (#44731160914); exact-main XY-C1 product verification: PENDING (#44731160909). Same-SHA Build/TRX/artifact evidence must be checked before L3 closure.
-- NEXT: proceed to another independent userland stability/security issue while XY-C1 is pending; do not re-audit closed WAN/link mirror slices.
+
+- Live main parent for this checker repair: `8ce56358d91e9fb937417a30751fb86cd8c71f0e`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- CLOSED: checked WAN runtime identity and NVRAM mirror retry (`link_wan`, `link_internet`); Samba private-state mode; Ralink 802.1X interface/NAS/RADIUS bounds; NTP readiness persistence retry.
+- ACTIVE: deferred WAN reconnect marker/schedule error propagation, source commit `ab02b36`. The GNU89 ASan/UBSan C policy regression passed; exact WAN teardown and WAN route Actions exposed stale/order-bug checker expectations, now corrected in this commit.
+- Exact `ab02b36` unrelated regressions are mostly green; WAN teardown `44731843422` and WAN route `44731843190` failed only in source contracts, while XY-C1 `44731843051` was pending. Current main `8ce56358`: AI docs PASS; Process inventory/fail-closed, NVRAM boundary and XY-C1 were pending at last poll.
+- NEXT: validate the repaired exact-head WAN teardown/WAN route checks and exact-source XY-C1 Build/TRX/artifact; while CI is pending, continue an independent userland P1 reliability/security defect. Physical-device L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 
