@@ -88,7 +88,7 @@ snapshot = delete.index("nat_backup = malloc(nat_entry_len)")
 copy = delete.index("memcpy(nat_backup, e, nat_entry_len)", snapshot)
 nat_delete = delete.index("delete_rule_and_commit(index, h, miniupnpd_nat_chain")
 assert delete.index("nat_index = i") < snapshot < copy < nat_delete
-assert "if (nat_backup_failed) return r;" in delete
+assert "if (nat_backup_failed) return miniupnpd_restore_errno_on_failure(r, primary_failure_errno);" in delete
 
 nat_status = delete.index("nat_delete_status = r", nat_delete)
 filter_open = delete.index('h = iptc_init("filter")', nat_status)

@@ -339,6 +339,7 @@ jobs:
           assert "miniupnpd_finalize_redirect_cleanup(" in cleanup_backend
           assert "del_redirect_desc" in cleanup_backend
           assert "primary_failure_errno" in cleanup_backend
+          assert "if (nat_backup_failed) return miniupnpd_restore_errno_on_failure(r, primary_failure_errno)" in cleanup_backend
           assert "secondary_failure_errno" in cleanup_backend
           assert "miniupnpd_select_cleanup_failure_errno(" in cleanup_backend
           assert "miniupnpd_restore_errno_on_failure(cleanup_status, failure_errno)" in cleanup_backend

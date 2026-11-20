@@ -14,30 +14,30 @@ The checkpoint is mandatory; a document edit is conditional. At session end insp
 
 ## Current repository state
 
-- Repository Arlene206/padavan-4.4-2; parent for this source-scope correction: e3578d8b09eb5555aa726726184d21eafa25dbb8.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and read-only.
-- Product source 5b9fcaa09b621e880517232b24a0f35f9b296827 preserves errno across iptc_free() inside delete_rule_and_commit() and insert_rule_and_commit(). Its MiniUPnP #44807130506, AI #44807130434 and Process #44807130342 PASS; NVRAM #44807130385 PASS; XY #44807130410 was still building at the last poll.
-- Product source e3578d8b09eb5555aa726726184d21eafa25dbb8 additionally captures primary/secondary errors across the delete transaction and restores primary-first errno. Its MiniUPnP #44807553369 failed the source contract because the ENOENT marker was in get_redirect_rule_by_index() instead of delete_redirect_and_filter_rules_ex(). The correction in this commit moves it to the correct function and removes the undeclared reference.
-- Exact-head AI #44807553503 and Process #44807553198 PASS on e357. NVRAM #44807553409 and XY-C1 #44807553718 were still pending/in progress at last observation.
-- Earlier product source eccdab has exact-source XY-C1 L3 PASS (Build, TRX, artifact); this does not verify later commits. Firmware L3 for the current product source remains NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; parent for this checker repair: 5ca967f2dd9da9ee20408dde1b413cfaeac9265c.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- Product source e3578d8b09eb5555aa726726184d21eafa25dbb8 preserves primary/secondary errno but initially put the missing-chain ENOENT marker into get_redirect_rule_by_index(); 5ca967f2dd9da9ee20408dde1b413cfaeac9265c moved that marker into the owning delete transaction and removed the undeclared lookup reference.
+- Exact-head MiniUPnP #44807976684 on 5ca passed the compiled cleanup policy tests and preceding allocation/ownership/capacity/update/description checks, then failed only because the standalone checker still required the older raw return statement for NAT snapshot allocation failure.
+- The production path now correctly restores the captured primary failure errno via miniupnpd_restore_errno_on_failure(). This commit updates standalone and inline contracts to require the restored return path.
+- Parent 5ca AI #44807976939, Process #44807976713 and NVRAM #44807976901 were running at the last poll; XY-C1 #44807976845 queued. Exact-source L3 for this revision remains NOT VERIFIED.
+- Previous product source eccdab54081a0f28c072025a55e5e2f6a8159b88 has verified L3 (Build, TRX, artifact PASS); that does not validate later changes.
 
 ## Active task
 
-1. Inspect exact-head MiniUPnP, AI, Process and NVRAM Actions for THIS COMMIT. The unchanged delete source checker must now find ENOENT in the actual delete transaction. All C policy regressions must pass.
-2. Inspect exact-head XY-C1 for THIS COMMIT; count L3 only when Build XY-C1, Verify TRX output and artifact upload all complete SUCCESS on this same source SHA.
-3. If host tests pass, add an injected backend regression for failure errno clobbering in both IPTABLES_143 and legacy handle paths, then verify NAT/filter/peer first-error precedence.
-4. Continue source → regression → atomic commit → exact-SHA Actions; pending jobs do not block independent work.
+1. Validate this commit's exact-head MiniUPnP, AI, Process and NVRAM Actions. Confirm the new NAT snapshot errno assertion passes.
+2. Inspect the exact-head XY-C1 run and count L3 only when Build XY-C1, Verify TRX output and artifact upload all complete SUCCESS on the same source SHA.
+3. If the suite passes, add injected backend errno-clobber coverage for both IPTABLES_143 and legacy handle APIs, including delete, insert, init and rollback failures.
+4. Continue source → regression → atomic commit → exact-SHA Actions; PENDING workflows do not block independent tasks.
 
 ## Verification boundary
 
-- Parent e357: MiniUPnP #44807553369 FAIL at the standalone assertion requiring primary_failure_errno = ENOENT inside the extracted delete function; compiled policy tests before that step passed. AI #44807553503 PASS; Process #44807553198 PASS; NVRAM #44807553409 and XY-C1 #44807553718 were in progress at last poll.
-- Parent 5b: MiniUPnP #44807130506 PASS, AI #44807130434 PASS, Process #44807130342 PASS, NVRAM #44807130385 PASS. XY #44807130410 still needed an explicit Build/TRX/artifact result.
-- Product source eccdab has valid L3: Build PASS, TRX PASS, artifact upload PASS. Earlier 30af also has valid L3.
-- Current source commit changes product C and needs a fresh exact-source firmware build. Physical-router L4 remains NOT VERIFIED.
+- Parent 5ca MiniUPnP #44807976684 FAIL only at the stale NAT snapshot early-return assertion; all preceding compiled policy and source checks passed.
+- Parent 5ca AI #44807976939, Process #44807976713 and NVRAM #44807976901 were in progress; XY-C1 #44807976845 queued.
+- Earlier product source eccdab has exact-source L3 PASS (Build, TRX, artifact). Current product C commits require fresh XY-C1 verification. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live main and poll the new exact-head MiniUPnP, AI, Process, NVRAM and XY-C1 runs. Confirm the ENOENT marker belongs only to delete_redirect_and_filter_rules_ex(), and check the standalone delete checker and policy tests. Inspect the first causal log for any failure; require Build, TRX and artifact upload to pass on the identical current source SHA before reporting L3. Then continue fault-injected IPTC errno coverage.
+Fetch live main and inspect exact-head MiniUPnP, AI, Process, NVRAM and XY-C1 runs. Confirm the new early-return checker passes. Verify Build XY-C1, TRX and artifact upload individually for this exact source SHA. If any failure occurs, inspect the first causal log and fix the real contract/source mismatch without weakening coverage. Then add injected IPTC errno-clobber tests for both handle API variants.
 
 ## Handoff maintenance
 

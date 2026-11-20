@@ -1,3 +1,13 @@
+## 2026-11-20 — Align NAT snapshot failure contract with errno restoration
+
+- Parent main SHA: 5ca967f2dd9da9ee20408dde1b413cfaeac9265c.
+- Exact-head MiniUPnP #44807976684 on 5ca967f passed the compiled C policy/ASan regressions, allocation, ownership, capacity, update and description tests, then failed the standalone delete checker at a stale assertion requiring the old early return "if (nat_backup_failed) return r;".
+- Production now correctly returns through miniupnpd_restore_errno_on_failure(r, primary_failure_errno), so the original malloc/snapshot errno survives the early exit. Updated the standalone checker to require that path and added the same assertion to the workflow's duplicate inline contract. No production behavior or test expectation was weakened.
+- Exact-head AI #44807976939, Process #44807976713 and NVRAM #44807976901 on 5ca were still running at the last poll; XY-C1 #44807976845 was queued. The corrected contract commit requires fresh MiniUPnP and product Build/TRX/artifact checks.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Keep the missing-chain errno in the delete transaction
 
 - Parent main SHA: e3578d8b09eb5555aa726726184d21eafa25dbb8.
