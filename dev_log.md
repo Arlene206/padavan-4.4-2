@@ -1,3 +1,10 @@
+## 2026-11-20 — Fix whitespace handling in NAT/filter rollback source contract
+
+- Parent main SHA: bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad.
+- Exact-head MiniUPnP Action #44791960712 on bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad compiled and passed the new rollback policy binary and all prior allocation/capacity regressions. The source contract alone failed because the rollback update_rule_and_commit() call is line-wrapped immediately after its opening parenthesis.
+- Changed the checker to anchor on the function-call token and separately assert the NAT chain/index/entry arguments after it. The restore-before-commit ordering check remains enforced.
+- XY-C1 #44791960769 on bfc1c16 was still in progress before Build. No firmware L3 claim; physical-router L4 remains unverified.
+
 ## 2026-11-20 — Roll back NAT when the corresponding filter update fails
 
 - Parent main SHA: f5807d72e7b0e240660650432a9af846f61e94c7.

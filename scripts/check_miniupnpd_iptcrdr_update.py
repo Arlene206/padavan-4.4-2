@@ -61,10 +61,11 @@ assert "goto rollback_nat;" in body[rollback_check:rollback_check + 120]
 rollback = body.index("rollback_nat:")
 rollback_gate = body.index("miniupnpd_portmapping_rollback_required(nat_status, r)", rollback)
 restore = body.index("htons(old_iport)", rollback_gate)
-rollback_commit = body.index(
-    'update_rule_and_commit("nat", miniupnpd_nat_chain, nat_index, new_e)', rollback
+rollback_commit = body.index("update_rule_and_commit(", rollback)
+rollback_arguments = body.index(
+    '"nat", miniupnpd_nat_chain, nat_index, new_e)', rollback_commit
 )
-assert rollback_gate < restore < rollback_commit
+assert rollback_gate < restore < rollback_commit < rollback_arguments
 assert "miniupnpd_portmapping_failure_result(r, rollback_status)" in body[rollback:]
 assert "errno = failure_errno;" in body[rollback:]
 assert "free(filter_e);" in body[rollback:]

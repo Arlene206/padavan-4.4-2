@@ -16,10 +16,11 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Current main before this NAT/filter transaction slice: f5807d72e7b0e240660650432a9af846f61e94c7; frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
-- Port-mapping enumeration heap-overflow fix is committed as c5e41697bfeb593223a8c7c46b9e1e972fdc7be9. Exact-head MiniUPnP regression #44791232803 PASS, including the 4096-entry capacity-growth sanitizer test and new source contract.
-- Exact-head XY-C1 run #44791232838 on c5e4169 was IN_PROGRESS at last poll; Build XY-C1 had not started and TRX/artifact remained pending. Do not claim L3.
-- Confirmed a cross-table partial-transaction defect in update_portmapping(): NAT is committed with the new internal port before filter-table open/chain lookup/rule allocation/commit. Any later filter failure returned immediately, leaving the DNAT and forwarding ACCEPT rules with different internal ports.
+- Current main before this checker-only correction: bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807.
+- Port-mapping enumeration capacity fix c5e4169 passed exact-head MiniUPnP #44791232803, including the 4096-entry ASan/UBSan test and source contract.
+- NAT/filter rollback source slice is bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad. Exact-head MiniUPnP #44791960712 compiled and passed all policy binaries, allocation/capacity sanitizer tests and source contracts, but the new rollback checker failed because the rollback call is split across lines after the opening parenthesis.
+- XY-C1 run #44791960769 on bfc1c16 was IN_PROGRESS; Build XY-C1 had not started at last poll. TRX and artifact were pending.
+- The checker correction will accept normalized C whitespace without loosening the rollback index, original-port restore or failure-status assertions.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
@@ -35,16 +36,16 @@ After exact-head MiniUPnP and XY-C1 validation, continue the netfilter rule upda
 
 ## Verification boundary
 
-- Port-mapping enumeration capacity fix c5e4169: exact-head MiniUPnP #44791232803 PASS; the C regression stored and verified 4096 entries after multiple capacity doublings under ASan/UBSan, and its source contract passed.
-- XY-C1 #44791232838 on c5e4169 was IN_PROGRESS; Build, TRX and artifact had not yet completed.
-- This commit adds a rollback policy regression/source contract; exact-head MiniUPnP Action must pass. XY-C1 triggers on iptcrdr.c and new policy/test paths; exact-source firmware Build/TRX/artifact remain mandatory for L3.
-- Physical hardware L4: NOT VERIFIED.
+- Port-mapping capacity c5e4169: exact-head MiniUPnP #44791232803 PASS, including ASan/UBSan and source contract.
+- NAT/filter rollback C policy binary on bfc1c16: PASS. All existing MiniUPnP regressions, allocation guards and capacity tests also PASS.
+- New rollback source contract on #44791960712: FAILED only on a whitespace-sensitive lookup of the wrapped rollback commit call; checker-only correction included in this commit. Exact-head MiniUPnP rerun required.
+- XY-C1 #44791960769 on bfc1c16 was IN_PROGRESS before Build; TRX/artifact not yet verified. Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main, verify frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807, and check exact-head MiniUPnP rollback policy/source-contract Actions.
-2. Inspect XY-C1 Build, TRX verification and artifact upload for the exact source SHA; diagnose the first causal failure from its logs.
-3. Continue auditing MiniUPnP NAT/filter rule updates and deletes for partial commits and stale state. Physical-router L4 remains unverified.
+1. Fetch live main; verify backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+2. Check exact-head MiniUPnP rerun after rollback checker whitespace correction. Inspect XY-C1 Build, TRX and artifact steps on the corresponding production-source SHA.
+3. Continue MiniUPnP NAT/filter transaction audit, especially compensating rollback failures and other two-table rule mutations. Keep physical-router L4 unverified.
 
 ## Handoff maintenance
 
