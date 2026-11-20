@@ -1,3 +1,12 @@
+## 2026-11-20 — Move RT3352 MII policy regressions to file scope and restore handoff checkpoint contract
+
+- Parent main SHA: `9e9d643dd8c3a78d135c8dae908857f8b90c0276`.
+- Wireless radio-state run #44744529117 on `9e9d643dd8c3a78d135c8dae908857f8b90c0276` failed at GNU89 compilation: the added MII mock callbacks and test functions had been inserted inside `main()`, producing invalid storage-class errors. Moved the complete helper/test block to file scope while retaining the seven regression calls inside `main()`.
+- AI handoff check #44744529015 failed because the shortened SESSION_HANDOFF omitted the mandatory checkpoint language and four required state/task/verification/next-action sections. Restored the exact governance phrases and required headings without changing bootstrap/protocol rules.
+- On the source SHA, Process inventory #44744529131, Process regression #44744528956, HTTPD security #44744528974, watchdog #44744529024 and iNIC signal #44744528955 passed. XY-C1 #44744529158 and NVRAM #44744528984 were pending. Corrected Wireless/AI exact-head Actions and same-source L3 remain pending.
+
+---
+
 ## 2026-11-20 — Make RT3352 MII radio/isolation transitions transactional
 
 - Parent main SHA: `cb4cb1debdfc2b5ba3b773e2e5fbbb6b58449f96`.

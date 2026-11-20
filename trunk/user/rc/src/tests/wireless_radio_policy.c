@@ -181,9 +181,6 @@ test_radio_notification_failed_transitions_remain_pending(void)
 	       wireless_radio_notification_result(0, 1, 2) != -EIO;
 }
 
-int
-main(void)
-{
 enum inic_radio_test_event {
 	INIC_EVENT_RADIO_ON = 1, INIC_EVENT_RADIO_OFF, INIC_EVENT_PREPARE_ON,
 	INIC_EVENT_UNISOLATE, INIC_EVENT_ISOLATE, INIC_EVENT_PUBLISH_ON,
@@ -285,6 +282,10 @@ static int test_inic_radio_policy_rejects_incomplete_operations(void)
 {
 	return wireless_inic_radio_transition(1, NULL, NULL) != -EINVAL;
 }
+
+int
+main(void)
+{
 	if (test_success_is_published() ||
 	    test_interface_failures_are_not_published() ||
 	    test_interface_and_hw_nat_failures_preserve_first_error() ||
