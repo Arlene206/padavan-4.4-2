@@ -3251,6 +3251,7 @@ jobs:
           passdb_test = Path("trunk/user/rc/src/tests/samba_passdb_policy.c").read_text()
           passdb_patch = Path("trunk/user/samba36/patches/111-owrt_smbpasswd.patch").read_text()
           accounts = Path("trunk/user/shared/src/shutils.c").read_text()
+          accounts_compact = " ".join(accounts.split())
           config_policy = Path("trunk/user/rc/src/samba_config_value_policy.h").read_text()
           service_config = Path("trunk/user/rc/src/services_ex.c").read_text()
           share_test = Path("trunk/user/rc/src/tests/samba_share_policy.c").read_text()
@@ -3290,8 +3291,8 @@ jobs:
 
           # The selected non-root account exists in the firmware passwd
           # database and is locked out of interactive login.
-          assert 'SYS_USER_NOBODY, 99, 99, "/media", "/bin/false"' in accounts
-          assert 'SYS_USER_NOBODY, "*", 16000' in accounts
+          assert 'SYS_USER_NOBODY, 99, 99, "/media", "/bin/false"' in accounts_compact
+          assert 'SYS_USER_NOBODY, "*", 16000' in accounts_compact
 
           # Partition share output must follow path, section-name and comment guards.
           partition = source[source.index("if (i_smb_mode == 1) {"):
@@ -3324,8 +3325,8 @@ jobs:
           assert '#define SAMBA_GUEST_ACCOUNT "nobody"' in samba_policy
           assert 'fprintf(fp, "guest account = %s\\n", SAMBA_GUEST_ACCOUNT);' in guest_mode
           assert "http_username" not in guest_mode
-          assert 'SYS_USER_NOBODY, 99, 99, "/media", "/bin/false"' in accounts
-          assert 'SYS_USER_NOBODY, "*", 16000' in accounts
+          assert 'SYS_USER_NOBODY, 99, 99, "/media", "/bin/false"' in accounts_compact
+          assert 'SYS_USER_NOBODY, "*", 16000' in accounts_compact
           assert 'assert(strcmp(SAMBA_GUEST_ACCOUNT, "nobody") == 0);' in Path("trunk/user/rc/src/tests/samba_share_policy.c").read_text()
 
           account_guard = source.index("if (!samba_service_account_is_safe(nvram_safe_get(tmpuser)))")

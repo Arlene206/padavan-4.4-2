@@ -1,3 +1,13 @@
+## 2026-11-19 — Normalize C source contracts across wrapped function calls
+
+- Parent SHA: `775ef93a148b609050386ad0095fa5b0d94bb322`.
+- Process lifecycle run `44654418758` on `775ef93` successfully compiled and ran the new ASan/UBSan account replacement policy test (`Secure password temporary file and account replacement policy: PASS`), then failed its Python contract because the expected transaction call was line-wrapped in production C. The contract now normalizes C whitespace before comparing the call.
+- HTTPD security run `44654002532` on `740c82c` failed an existing Samba account source assertion because the locked UID-99 initializer expressions were split across C lines. The check now compares whitespace-normalized source; it retains both locked-account and UID 99 invariants.
+- No production source or runtime policy changed. Re-run Process and HTTPD on the exact follow-up SHA. XY-C1 run `44654005725` on `740c82c` had detected production input changes and was compiling XY-C1 at last poll; TRX and artifact upload were still pending.
+- Test evidence: account replacement policy binary PASS on `775ef93`; full Process/HTTPD exact-head reruns pending. Physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Fix missing-original rollback fixture cleanup
 
 - Parent SHA: `740c82cee671e5bcc133289d9126f75afd654ec3`.

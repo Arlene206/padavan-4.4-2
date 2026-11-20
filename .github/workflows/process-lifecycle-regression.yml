@@ -716,6 +716,7 @@ jobs:
 
           change = function_body(shared, "change_passwd_unix(")
           recreate = function_body(shared, "recreate_passwd_unix(")
+          recreate_compact = " ".join(recreate.split())
           init = function_body(rc, "init_router(void)")
           assert "mkstemp(path_template)" in header and "fchmod(fd, mode)" in header
           assert 'char tmpfile[] = "/tmp/.tmpchpw.XXXXXX";' in change
@@ -730,7 +731,7 @@ jobs:
           assert "passwd_temp_file_open(passwd_temp, 0644)" in recreate
           assert "passwd_temp_file_backup_create(\"/etc/passwd\"" in recreate
           assert "passwd_temp_file_backup_create(\"/etc/group\"" in recreate
-          assert "passwd_file_publish_transaction(file_updates, update_count, rename, unlink, &rollback_failed)" in recreate
+          assert "passwd_file_publish_transaction(file_updates, update_count, rename, unlink, &rollback_failed)" in recreate_compact
           assert "if (rollback_failed)" in recreate
           assert "passwd_backup[0]" in recreate and "group_backup[0]" in recreate
           assert "passwd_file_publish_transaction(" in header
