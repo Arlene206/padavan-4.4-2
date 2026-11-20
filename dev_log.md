@@ -1,3 +1,12 @@
+## 2026-11-20 — Include the syslog constants in the IPTC errno harness
+
+- Parent main SHA: 0b5eef8bd00fd6e732449bcf241949df84b4f40c.
+- Static review of the generated C fixture found its extracted production helpers call syslog(LOG_ERR, ...), but the harness preamble only declared the syslog mock and did not include syslog.h. Added the required header so LOG_ERR is defined while the fixture's mock still captures and deliberately clobbers errno.
+- This is a host-test harness correction only; production C is unchanged. The harness continues to compile both legacy and IPTABLES_143 signatures with GNU89/Werror/ASan/UBSan.
+- Frozen backup rechecked unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807. Exact-head CI must verify both variants after this correction; current-source firmware L3 remains unverified until same-SHA Build/TRX/artifact evidence is complete.
+
+---
+
 ## 2026-11-20 — Preserve the first error within primary and peer cleanup phases
 
 - Parent main SHA: b6c1519c69cedefba6483e51a810106f185bef1a.

@@ -70,6 +70,7 @@ PREAMBLE = r"""
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <syslog.h>
 #include <string.h>
 
 #include "miniupnpd_redirect_cleanup_policy.h"
