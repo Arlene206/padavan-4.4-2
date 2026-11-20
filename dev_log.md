@@ -1,3 +1,12 @@
+## 2026-11-20 — Restore static LAN routes when WAN protocol staging aborts restart
+
+- Parent main SHA: `da3081e5c2ae97ef65640cff0ed48931dda2ce7f`.
+- `full_restart_wan()` flushes both managed WAN and bridge routes before `reset_wan_vars_status()`. On a failed runtime `wan_proto` NVRAM snapshot, its prior early return skipped the later static-LAN-route restoration call. This could leave LAN static routes removed while WAN restart aborted.
+- The protocol-staging failure path now retries `add_static_lan_routes(IFNAME_BR)` before returning. It keeps the protocol status as the first error and logs/merges a secondary LAN route restoration failure; WAN activation does not resume.
+- Added source-order assertions in `check_wan_firewall_status.py`. Also restored the exact mandatory AI handoff checkpoint wording after AI docs run `44677916863` reported the mismatch. HTTPD contract repair `da3081e` run `44677916869` PASS. Fresh exact-head checks pending.
+
+---
+
 ## 2026-11-20 — Align HTTPD WAN-stop contract with status-aware protocol reset
 
 - Parent SHA: `b376e2c2e90c5b2d49edceab6c875b47f29dc27c`.

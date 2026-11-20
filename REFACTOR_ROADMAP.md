@@ -1,8 +1,9 @@
 # 2026-11-20 active checkpoint
 
-- `b376e2c2e90c5b2d49edceab6c875b47f29dc27c` implements checked WAN protocol staging and preserves the public void reset ABI. Process `44677505519`, inventory `44677505291`, AI docs `44677505499`, NVRAM boundary `44677505416`, WAN route `44677505399`, USB modem `44677505465`, Firewall Startup `44677505362`, watchdog `44677505504`, wireless `44677505287`, VPN `44677505502`, ZeroTier `44677505505`, WAN DHCP `44677505407`, WAN teardown `44677505480`, dnsmasq `44677505471`, miniupnpd `44677505472`, Detect WAN ARP `44677505438`, Detect link `44677505468`, Detect internet `44677505382` PASS.
-- HTTPD `44677505315` failed at its embedded checker line 83 because the old direct `reset_wan_vars();` expectation no longer matched the status-aware private caller. This is corrected in the current workflow contract. XY-C1 `44677505398` was IN_PROGRESS at last poll; no L3 current-source claim. L4 remains NOT VERIFIED.
-- Next source safety item: on protocol-staging failure in `full_restart_wan()`, restore static LAN routes after the preceding WAN/bridge route flush before returning.
+- `b376e2c2e90c5b2d49edceab6c875b47f29dc27c` implements checked WAN protocol staging while preserving the public void reset ABI. Its HTTPD source contract was corrected in `da3081e`; exact HTTPD `44677916869` PASS.
+- AI docs `44677916863` failed because current handoff checkpoint wording did not match the protocol-required exact text. This source-safety update also restores the required phrases and updates handoff/roadmap evidence.
+- WAN protocol staging failure occurs after WAN/bridge route flush. Previously, the error path returned before restoring static LAN routes. THIS SOURCE SLICE restores `add_static_lan_routes(IFNAME_BR)` before aborting and preserves the original protocol error if recovery also fails.
+- NVRAM boundary `44677505416` PASS; XY-C1 `44677505398` on `b376e2c` was IN_PROGRESS at last poll. Current-source L3 remains unverified; physical L4 remains NOT VERIFIED.
 
 
 
@@ -97,6 +98,8 @@
 - Uploaded planet transaction cleanup follow-up: found an EXIT-trap registration gap if the pre-read of the previous NVRAM value failed after `.planet-import.*` creation. Cleanup now registers before the first fallible read, and rollback is gated on explicit publish/delete pending state; added NVRAM-get fault injection, preserving old file/NVRAM and upload, and checking no stage directory leaks. Exact-head verification pending.
 
 ## Priority queue
+
+- Full WAN restart restores static LAN routes if the checked runtime WAN-protocol snapshot fails after the earlier route flush. A route-recovery failure is logged and merged without masking the primary protocol-staging error; WAN activation remains aborted. Semantic checker coverage requires retry-before-return and first-error ordering. Exact-head checks pending.
 
 - WAN `ifname_t` publication is fail-closed during PPP-start fallback and before initial RAS/PPP/IPoE activation. The checked writer records errno; failed publication attempts physical-WAN recovery and prevents the failed protocol from continuing. Existing NVRAM helper GNU89/Werror/ASan/UBSan regression passed. The three new failure paths add six first-error merges, so the shared WAN startup checker now expects 28 (not 22) and explicitly verifies RAS/PPP/IPoE recovery+abort ordering; exact-head reruns pending.
 

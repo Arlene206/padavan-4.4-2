@@ -142,11 +142,30 @@ require(reset_gate in start and start.index(reset_gate) < sysctl_start and
         "return wan_start_status;" in body(start[start.index(reset_gate):], reset_gate),
         "WAN startup must stop before any setup side effect when protocol staging failed")
 full_restart = body(wan, "full_restart_wan(void)")
-require("status = reset_wan_vars_status();" in full_restart and
-        full_restart.index("status = reset_wan_vars_status();") <
-        full_restart.index("status = add_static_lan_routes(IFNAME_BR);") and
-        "if (status != 0)" in full_restart,
-        "full WAN restart must propagate protocol staging failure")
+reset_proto_at = full_restart.index("status = reset_wan_vars_status();")
+reset_proto_gate = full_restart.index("if (status != 0)", reset_proto_at)
+lan_restore = full_restart.index(
+    "static_lan_route_status = add_static_lan_routes(IFNAME_BR);",
+    reset_proto_gate,
+)
+lan_restore_failure = full_restart.index("if (static_lan_route_status != 0)", lan_restore)
+lan_restore_merge = full_restart.index(
+    "status = rc_first_service_start_status(status,",
+    lan_restore_failure,
+)
+reset_abort = full_restart.index("return status;", lan_restore_merge)
+normal_lan_restore = full_restart.index("status = add_static_lan_routes(IFNAME_BR);", reset_abort)
+wan_reactivation = full_restart.index("select_usb_modem_to_wan();", reset_abort)
+require(
+    reset_proto_at < reset_proto_gate < lan_restore < lan_restore_failure <
+    lan_restore_merge < reset_abort < normal_lan_restore < wan_reactivation,
+    "protocol staging failure must restore static LAN routes, preserve first error and abort WAN restart",
+)
+require(
+    "static LAN route restoration also failed after WAN protocol staging error" in
+    full_restart[lan_restore_failure:reset_abort],
+    "failed recovery route restoration must be logged",
+)
 reconnect = body(wan, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
 require("status = reset_wan_vars_status();" in reconnect and
         reconnect.index("status = reset_wan_vars_status();") <
