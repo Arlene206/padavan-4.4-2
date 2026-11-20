@@ -47,11 +47,14 @@ struct passwd_transaction_fixture {
 	char directory[256];
 	char staged_passwd[320];
 	char staged_group[320];
+	char staged_shadow[320];
 	char live_passwd[320];
 	char live_group[320];
+	char live_shadow[320];
 	char backup_passwd[320];
 	char backup_group[320];
-	passwd_file_update_t updates[2];
+	char backup_shadow[320];
+	passwd_file_update_t updates[3];
 };
 
 static void
@@ -77,16 +80,27 @@ fixture_init(struct passwd_transaction_fixture *fixture)
 			"%s/.passwd.backup.XXXXXX", fixture->directory) > 0);
 	assert(snprintf(fixture->backup_group, sizeof(fixture->backup_group),
 			"%s/.group.backup.XXXXXX", fixture->directory) > 0);
+	assert(snprintf(fixture->staged_shadow, sizeof(fixture->staged_shadow),
+			"%s/shadow.new", fixture->directory) > 0);
+	assert(snprintf(fixture->live_shadow, sizeof(fixture->live_shadow),
+			"%s/shadow", fixture->directory) > 0);
+	assert(snprintf(fixture->backup_shadow, sizeof(fixture->backup_shadow),
+			"%s/.shadow.backup.XXXXXX", fixture->directory) > 0);
 
 	write_text_file(fixture->live_passwd, "old-passwd\n");
 	write_text_file(fixture->live_group, "old-group\n");
+	write_text_file(fixture->live_shadow, "old-shadow\n");
 	write_text_file(fixture->staged_passwd, "new-passwd\n");
 	write_text_file(fixture->staged_group, "new-group\n");
+	write_text_file(fixture->staged_shadow, "new-shadow\n");
 	assert(passwd_temp_file_backup_create(fixture->live_passwd,
 		fixture->backup_passwd, &had_original) == 0);
 	assert(had_original == 1);
 	assert(passwd_temp_file_backup_create(fixture->live_group,
 		fixture->backup_group, &had_original) == 0);
+	assert(had_original == 1);
+	assert(passwd_temp_file_backup_create(fixture->live_shadow,
+		fixture->backup_shadow, &had_original) == 0);
 	assert(had_original == 1);
 
 	fixture->updates[0].staged_path = fixture->staged_passwd;
@@ -97,6 +111,10 @@ fixture_init(struct passwd_transaction_fixture *fixture)
 	fixture->updates[1].destination_path = fixture->live_group;
 	fixture->updates[1].backup_path = fixture->backup_group;
 	fixture->updates[1].had_original = 1;
+	fixture->updates[2].staged_path = fixture->staged_shadow;
+	fixture->updates[2].destination_path = fixture->live_shadow;
+	fixture->updates[2].backup_path = fixture->backup_shadow;
+	fixture->updates[2].had_original = 1;
 }
 
 static void
@@ -106,10 +124,14 @@ fixture_cleanup(struct passwd_transaction_fixture *fixture)
 		(void)unlink(fixture->backup_passwd);
 	if (fixture->backup_group[0])
 		(void)unlink(fixture->backup_group);
+	if (fixture->backup_shadow[0])
+		(void)unlink(fixture->backup_shadow);
 	(void)unlink(fixture->staged_passwd);
 	(void)unlink(fixture->staged_group);
+	(void)unlink(fixture->staged_shadow);
 	(void)unlink(fixture->live_passwd);
 	(void)unlink(fixture->live_group);
+	(void)unlink(fixture->live_shadow);
 	assert(rmdir(fixture->directory) == 0);
 }
 
@@ -231,6 +253,33 @@ test_failed_rollback_preserves_recovery_link(void)
 }
 
 static void
+test_third_rename_failure_restores_passwd_and_group(void)
+{
+	struct passwd_transaction_fixture fixture;
+	int rollback_failed = 0;
+
+	fixture_init(&fixture);
+	rename_calls = 0;
+	fail_rename_first = 3;
+	fail_rename_second = 0;
+	errno = 0;
+	assert(passwd_file_publish_transaction(fixture.updates, 3,
+		injected_rename, unlink, &rollback_failed) == -1);
+	assert(errno == EIO);
+	assert(rollback_failed == 0);
+	assert_text_file(fixture.live_passwd, "old-passwd\n");
+	assert_text_file(fixture.live_group, "old-group\n");
+	assert_text_file(fixture.live_shadow, "old-shadow\n");
+	assert(fixture.backup_passwd[0] == '\0');
+	assert(fixture.backup_group[0] == '\0');
+	assert(fixture.backup_shadow[0] == '\0');
+	assert(access(fixture.staged_passwd, F_OK) != 0);
+	assert(access(fixture.staged_group, F_OK) != 0);
+	assert(access(fixture.staged_shadow, F_OK) == 0);
+	fixture_cleanup(&fixture);
+}
+
+static void
 test_missing_original_is_removed_on_rollback(void)
 {
 	struct passwd_transaction_fixture fixture;
@@ -247,6 +296,7 @@ test_missing_original_is_removed_on_rollback(void)
 		fixture.backup_passwd, &had_original) == 0);
 	assert(had_original == 0);
 	assert(fixture.backup_passwd[0] == '\0');
+	fixture.updates[0].had_original = had_original;
 	rename_calls = 0;
 	fail_rename_first = 2;
 	fail_rename_second = 0;
@@ -267,6 +317,7 @@ main(void)
 	test_publish_success_removes_backups();
 	test_second_rename_failure_restores_first_file();
 	test_failed_rollback_preserves_recovery_link();
+	test_third_rename_failure_restores_passwd_and_group();
 	test_missing_original_is_removed_on_rollback();
 	puts("Secure password temporary file and account replacement policy: PASS");
 	return 0;

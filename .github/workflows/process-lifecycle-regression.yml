@@ -745,6 +745,8 @@ jobs:
           assert "test_second_rename_failure_restores_first_file();" in test
           assert "test_failed_rollback_preserves_recovery_link();" in test
           assert "test_missing_original_is_removed_on_rollback();" in test
+          assert "fixture.updates[0].had_original = had_original;" in test
+          assert "test_third_rename_failure_restores_passwd_and_group();" in test
           print("Unix account bootstrap status and private temporary file contract: PASS")
           PY
       - name: Compile and run bridge multicast setup status regression

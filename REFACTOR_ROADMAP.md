@@ -71,6 +71,8 @@
 
 - CI source-contract formatting follow-up: Process `44654418758` on `775ef93` passed the GNU89 ASan/UBSan account transaction host test but exposed a line-wrapped transaction call in its whitespace-sensitive Python assertion; HTTPD `44654002532` on `740c82c` similarly exposed line-wrapped locked UID-99 account initializers. Both workflow contracts now normalize whitespace without weakening required tokens/order. Exact-head Process and HTTPD reruns pending; XY-C1 `44654005725` on `740c82c` still building at last poll.
 
+- Account replacement regression depth: a review of the missing-original case found its metadata had not been reset with the cleared backup path, causing early argument validation rather than the intended rollback. The fixture now covers the missing-original deletion path and a failed third (shadow) rename after passwd/group publication, asserting reverse-order restoration and no backup-link leaks. Exact Process validation pending.
+
 ## Priority queue
 
 - SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).

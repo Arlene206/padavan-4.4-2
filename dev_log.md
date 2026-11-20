@@ -1,3 +1,12 @@
+## 2026-11-19 — Exercise three-file account database rollback
+
+- Parent SHA: `590bc8a415bad29c51a0431dac2a0e1a5b515585`.
+- Exact Process test binary passed on the source/test contract follow-up, but review found the missing-original case was rejected during argument validation: the fixture cleared its backup path but did not update the corresponding `had_original` metadata. The test now synchronizes that metadata so it actually exercises rollback after the first staged file has been published.
+- Extended the fixture to include `/etc/shadow` and added injected third-rename failure coverage. The regression now verifies passwd and group are restored in reverse order, shadow stays unchanged, recovery links are consumed, and only the not-yet-published shadow staging file remains for caller cleanup.
+- Exact-head Process regression is pending after this test-only follow-up. No production behavior changed. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Normalize C source contracts across wrapped function calls
 
 - Parent SHA: `775ef93a148b609050386ad0095fa5b0d94bb322`.
