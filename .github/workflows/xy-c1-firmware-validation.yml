@@ -599,7 +599,7 @@ jobs:
           header = (rc / "rc.h").read_text()
           tests = (rc / "tests/wan6_identity_policy.c").read_text()
 
-          wrapper = wan6.split("int reset_wan6_vars(void)", 1)[1].split("int is_wan_addr6_static", 1)[0]
+          wrapper = wan6.split("reset_wan6_vars(void)", 1)[1]
           assert "status = reset_wan6_vars_status();" in wrapper
           assert "return status;" in wrapper
           assert "int reset_wan6_vars(void);" in header
