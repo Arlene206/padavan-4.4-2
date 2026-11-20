@@ -381,13 +381,31 @@ require(("static int" + chr(10) + "wan_viptv_static_start_multicast") in wan and
         "return start_igmpproxy(context->ifname);" in static_multicast,
         "static IPTV must return its IGMP proxy startup result")
 static_start = body(viptv_policy, "wan_viptv_static_start(")
-require("int (*start_multicast)(void *context);" in viptv_policy and
-        "multicast_status = ops->start_multicast(context);" in static_start and
+static_publish = body(wan, "wan_viptv_static_publish_snapshot(void *opaque)")
+static_clear = body(wan, "wan_viptv_static_clear_address(void *opaque)")
+require("int (*publish_snapshot)(void *context);" in viptv_policy and
+        "int (*clear_address)(void *context);" in viptv_policy and
+        "status = ops->publish_snapshot(context);" in static_start and
+        "rollback_status = ops->clear_address(context);" in static_start and
+        static_start.index("ops->publish_snapshot(context)") <
+        static_start.index("ops->clear_address(context)") <
+        static_start.index("ops->add_default_route(context)"),
+        "static IPTV must clear its configured address and stop route/multicast startup after publication failure")
+for key in ("manv_ipaddr", "manv_netmask", "manv_gateway"):
+    require('"' + key + '"' in static_publish,
+            "static IPTV snapshot is missing " + key)
+require("wan_dhcp_nvram_publish_values(names, values, 3)" in static_publish and
+        'ifconfig(context->ifname, IFUP, "0.0.0.0", NULL)' in static_clear,
+        "static IPTV address/mask/gateway publication must be compensatable and have address cleanup")
+require("multicast_status = ops->start_multicast(context);" in static_start and
         "return route_status_accumulate(status, multicast_status);" in static_start,
         "static IPTV policy must aggregate proxy status and still run multicast after route failure")
-for test_name in ("test_multicast_failure_is_returned_without_gateway",
+for test_name in ("test_snapshot_failure_clears_address_and_skips_routes_and_multicast",
+                  "test_snapshot_failure_preserves_primary_error_when_address_clear_fails",
+                  "test_multicast_failure_is_returned_without_gateway",
                   "test_first_route_error_is_preserved_when_multicast_also_fails"):
-    require(test_name in viptv_test, f"static IPTV regression missing {test_name}")
+    require(test_name in viptv_test and test_name + "();" in viptv_test,
+            f"static IPTV regression missing {test_name}")
 for signature, operation, description in (
     ("man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)", "start_igmpproxy(man_ifname)", "MAN startup"),
     ("man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)", "stop_igmpproxy(man_ifname)", "MAN teardown"),

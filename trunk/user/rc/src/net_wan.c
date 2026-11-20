@@ -1807,33 +1807,56 @@ struct wan_viptv_static_start_context {
 	char *gateway;
 };
 
+static int wan_dhcp_nvram_publish_values(const char *const *names,
+					 const char *const *new_values,
+					 size_t count);
+
 static int
 wan_viptv_static_configure_address(void *opaque)
 {
 	struct wan_viptv_static_start_context *context =
 		(struct wan_viptv_static_start_context *)opaque;
 
+	if (!context || !context->ifname || !context->ipaddr || !context->netmask)
+		return EINVAL;
 	return ifconfig(context->ifname, IFUP, context->ipaddr, context->netmask);
 }
 
-static void
-wan_viptv_static_publish_address(void *opaque)
+static int
+wan_viptv_static_publish_snapshot(void *opaque)
 {
+	static const char *const names[] = {
+		"manv_ipaddr", "manv_netmask", "manv_gateway"
+	};
 	struct wan_viptv_static_start_context *context =
 		(struct wan_viptv_static_start_context *)opaque;
+	const char *values[3];
 
-	nvram_set_temp("manv_ipaddr", context->ipaddr);
-	nvram_set_temp("manv_netmask", context->netmask);
+	if (!context || !context->ipaddr || !context->netmask)
+		return EINVAL;
+	values[0] = context->ipaddr;
+	values[1] = context->netmask;
+	values[2] = (context->gateway && is_valid_ipv4(context->gateway)) ?
+		context->gateway : "";
+
+	return wan_dhcp_nvram_publish_values(names, values, 3);
 }
 
-static void
-wan_viptv_static_publish_gateway(void *opaque)
+static int
+wan_viptv_static_clear_address(void *opaque)
 {
 	struct wan_viptv_static_start_context *context =
 		(struct wan_viptv_static_start_context *)opaque;
+	int status;
 
-	nvram_set_temp("manv_gateway",
-		       is_valid_ipv4(context->gateway) ? context->gateway : "");
+	if (!context || !context->ifname)
+		return EINVAL;
+	status = ifconfig(context->ifname, IFUP, "0.0.0.0", NULL);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "failed to clear static IPTV address on %s after NVRAM publication failure (status=%d)",
+			   context->ifname, status);
+	return status;
 }
 
 static int
@@ -1857,8 +1880,8 @@ wan_viptv_static_start_multicast(void *opaque)
 
 static const struct wan_viptv_static_ops wan_viptv_static_start_ops = {
 	wan_viptv_static_configure_address,
-	wan_viptv_static_publish_address,
-	wan_viptv_static_publish_gateway,
+	wan_viptv_static_publish_snapshot,
+	wan_viptv_static_clear_address,
 	wan_viptv_static_add_default_route,
 	wan_viptv_static_start_multicast
 };
@@ -6402,7 +6425,7 @@ wan_dhcp_nvram_publish_values(const char *const *names,
 	}
 	if (status != 0)
 		logmessage(LOGNAME,
-			   "IPTV deconfig NVRAM snapshot publication failed (status=%d, rollback=%d)",
+			   "IPTV NVRAM snapshot publication failed (status=%d, rollback=%d)",
 			   status, rollback_status);
 	return status;
 }

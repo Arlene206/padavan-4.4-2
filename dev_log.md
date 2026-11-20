@@ -1,3 +1,13 @@
+## 2026-11-20 — Fail closed on static IPTV NVRAM publication errors
+
+- Parent main SHA: `ea976ca3a553f238d202d84be0b89022efed062b`. Updated the static IPTV startup policy, production callbacks, injected regressions, the VLAN/bridge source contract, and this log. Parent main also contains a concurrent LAN DHCP coherent-snapshot fix; that change is preserved.
+- Static IPTV startup previously accepted `void` address/gateway publication callbacks. Those callbacks performed unchecked temporary NVRAM writes to `manv_ipaddr`, `manv_netmask`, and `manv_gateway`, after which the policy could install a default route and start IGMP proxy even if the recovery snapshot was partial or missing.
+- Replaced those writes with one compensatable three-key tuple using the existing transaction/rollback publisher. The policy now requires an error-returning publisher and address-clear callback; if publication fails, it clears the just-configured interface address and stops before route/multicast startup. The original publication error remains primary if address cleanup also fails.
+- Added injected coverage for publication failure, address cleanup, cleanup failure preserving the primary error, and no route/multicast side effects after failed snapshot. Existing successful, route-failure, missing-gateway, and multicast-failure ordering cases remain.
+- On ancestor `e34572aed4510b50a3e1d171b5b44940c95e68ec`, 19 exact-head Actions were queued, including XY-C1 and NVRAM audit. Concurrent LAN fix `ea976ca3a553f238d202d84be0b89022efed062b` has since advanced main; its exact-head XY-C1 firmware and NVRAM audit were in progress when rebasing this candidate. No local checkout/compiler is available in this execution environment; exact-head Actions remain authoritative.
+
+---
+
 ## 2026-11-20 — Check WAN-down statistics NVRAM writes without gating teardown
 
 - Parent main SHA: `6b40725ac83447fec99ec79e0b6dfc79eefce83f`. This slice updates `net_wan.c`, its injected NVRAM policy regression, the existing WAN firewall/source contract, and this log.
