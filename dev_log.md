@@ -1,3 +1,13 @@
+## 2026-11-19 — Isolate ZeroTier identity-staging test cleanup from lifecycle assertions
+
+- Parent SHA: `4c90601aa7e367ce959f78cce712b73441357dce`.
+- Exact ZeroTier run `44652711847` on `bfe6342` reached the existing failed-stop gate and failed because the new identity helper's `EXIT` cleanup uses the test's `rm` double, which intentionally logs `rm -rf` actions. The production stop path itself did not mutate firewall/routes/config; the fixture had not reset its action log after the newly added identity writer cases.
+- The regression now clears that test-double log before entering the existing stop-failure scenarios. No production code or lifecycle assertions were changed.
+- Exact-head ZeroTier rerun, AI handoff docs check and XY-C1 Build/TRX/artifact validation are pending. The earlier exact-head Process inventory and WAN route runs on `bfe6342` passed (`44652711855`, `44652711813`); the AI docs run failed only because a concurrent history-restore commit had not yet reached its workflow checkout, then `44652852687` passed on `4c90601`.
+- No L3/L4 claim for the ZeroTier writer change until its exact-source XY-C1 Build, TRX verification and artifact upload complete.
+
+---
+
 ## 2026-11-19 — Harden privileged ZeroTier identity and network join writers
 
 - Parent SHA: `df94216f2418bfb3a099aa55f847d7438a9e1f09`.

@@ -495,6 +495,8 @@ fi
 zerotier_prepare_identity || fail "identity recovery after symlink removal failed"
 umask "$saved_umask"
 
+# The rm test double logs staging-directory cleanup; isolate later lifecycle assertions.
+: > "$TEST_ACTION_LOG"
 echo identity > "$TEST_CONFIG/identity.secret"
 TEST_STATIC_ROUTE_COUNT=1
 TEST_STATIC_ROUTE_ENABLE=1
