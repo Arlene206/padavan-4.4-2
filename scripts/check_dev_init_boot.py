@@ -15,6 +15,8 @@ gai_test = (root / "trunk/user/rc/src/tests/libc_gai_policy.c").read_text()
 rc = (root / "trunk/user/rc/src/rc.c").read_text()
 router_mode_policy = (root / "trunk/user/rc/src/router_mode_nvram_policy.h").read_text()
 router_mode_test = (root / "trunk/user/rc/src/tests/router_mode_nvram_policy.c").read_text()
+legacy_migration_policy = (root / "trunk/user/rc/src/rc_nvram_legacy_migration_policy.h").read_text()
+legacy_migration_test = (root / "trunk/user/rc/src/tests/rc_nvram_legacy_migration_policy.c").read_text()
 result_policy = (root / "trunk/user/rc/src/init_router_result_policy.h").read_text()
 result_test = (root / "trunk/user/rc/src/tests/init_router_result_policy.c").read_text()
 script = (root / "trunk/user/scripts/files/sbin/dev_init.sh").read_text()
@@ -127,6 +129,25 @@ for case in (
     "test_invalid_arguments_do_not_write_nvram",
 ):
     assert case in router_mode_test and case + "();" in router_mode_test
+legacy_migration = c_function(rc, "nvram_convert_old_params(int *changed)")
+assert '#include "rc_nvram_legacy_migration_policy.h"' in rc
+assert "rc_nvram_legacy_publish_then_unset" in rc
+assert "nvram_migrate_legacy_front_leds(changed)" in legacy_migration
+for source_key, target_key in (("pppoe_dhcp_route", "wan_pppoe_man"), ("mr_ttl_fix", "wan_ttl_fix"), ("wan_heartbeat_x", "wan_ppp_peer"), ("wan_3g_pin", "modem_pin")):
+    assert '"' + source_key + '"' in legacy_migration and '"' + target_key + '"' in legacy_migration
+assert "test_first_write_failure_keeps_source" in legacy_migration_test
+assert "test_later_write_failure_keeps_source" in legacy_migration_test
+assert "test_unset_failure_is_reported" in legacy_migration_test
+assert "status != 0" in legacy_migration_policy
+migration_call = router.index("nvram_convert_old_params(&legacy_migration_changed)")
+defaults_call = router.index("nvram_need_commit = nvram_restore_defaults();")
+assert migration_call < defaults_call
+assert "legacy_migration_status != 0" in router[migration_call:defaults_call]
+assert "INIT_ROUTER_RESULT_FATAL" in router[migration_call:defaults_call]
+commit_flag = router.index("if (legacy_migration_changed)")
+assert commit_flag < router.index("get_eeprom_params();")
+assert "nvram_need_commit = 1;" in router[commit_flag:commit_flag + 100]
+
 assert '#include "boot_device_node_policy.h"' in init
 assert "mknod(path, S_IFCHR | RC_BOOT_DEVICE_NODE_MODE, device)" in node_prepare
 assert "errno != EEXIST" in node_prepare

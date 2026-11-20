@@ -162,6 +162,8 @@ on:
       - "trunk/user/rc/src/service_lifecycle_policy.h"
       - "trunk/user/rc/src/router_mode_nvram_policy.h"
       - "trunk/user/rc/src/tests/router_mode_nvram_policy.c"
+      - "trunk/user/rc/src/rc_nvram_legacy_migration_policy.h"
+      - "trunk/user/rc/src/tests/rc_nvram_legacy_migration_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
       - "trunk/user/rc/src/init_router_result_policy.h"

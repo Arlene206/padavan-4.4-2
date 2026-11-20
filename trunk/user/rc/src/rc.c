@@ -48,6 +48,7 @@
 #include "rc_nvram_policy.h"
 #include "wan_nvram_status_policy.h"
 #include "router_mode_nvram_policy.h"
+#include "rc_nvram_legacy_migration_policy.h"
 #include "storage_persistence_policy.h"
 #include "service_start_status.h"
 #include "crontab_update_status.h"
@@ -442,68 +443,168 @@ set_wan0_vars(void)
 		set_wan0_runtime_value_status, NULL);
 }
 
-static void
-nvram_convert_old_params(void)
+static int
+nvram_legacy_set(void *context, const char *name, const char *value)
 {
-	char *test_value;
+	(void)context;
+	return nvram_set(name, value);
+}
+static int
+nvram_legacy_unset(void *context, const char *name)
+{
+	(void)context;
+	return nvram_unset(name);
+}
+static const struct rc_nvram_legacy_migration_ops nvram_legacy_migration_ops = {
+	nvram_legacy_set, nvram_legacy_unset
+};
 
-	/* convert old params */
-	test_value = nvram_get("front_leds");
-	if (test_value) {
-		int front_leds = atoi(test_value);
-		if (front_leds > 2)
-			nvram_set_int("front_led_all", 0);
-		if (front_leds == 4 || front_leds == 2)
-			nvram_set_int("front_led_pwr", 0);
-		nvram_unset("front_leds");
+/* Return 0 when absent, 1 when present, or a negative errno on read failure. */
+static int
+nvram_legacy_get_copy(const char *name, char **value)
+{
+	char *stored_value = NULL;
+	int result;
+	if (!value)
+		return -EINVAL;
+	*value = NULL;
+	result = rc_nvram_policy_read(&rc_nvram_ops, NULL, name, &stored_value);
+	if (result < 0)
+		return -EIO;
+	if (result == 0)
+		return 0;
+	if (!stored_value)
+		return -EIO;
+	*value = strdup(stored_value);
+	return *value ? 1 : -ENOMEM;
+}
+static int
+nvram_legacy_publish_and_unset(const char *source_key,
+	const struct rc_nvram_legacy_migration_write *writes,
+	unsigned int write_count, int *changed)
+{
+	return rc_nvram_legacy_publish_then_unset(
+		&nvram_legacy_migration_ops, NULL, source_key, writes, write_count, changed);
+}
+static int
+nvram_migrate_legacy_setting(const char *source_key, const char *target_key,
+	const char *fixed_value, int positive_only, int *changed)
+{
+	struct rc_nvram_legacy_migration_write write;
+	char *source_value = NULL, *target_value = NULL;
+	const char *publish_value;
+	unsigned int write_count = 0;
+	int result, status;
+
+	result = nvram_legacy_get_copy(source_key, &source_value);
+	if (result <= 0)
+		return result < 0 ? -result : 0;
+	publish_value = fixed_value ? fixed_value : source_value;
+	if (source_value[0] && (!positive_only || atoi(source_value) > 0)) {
+		result = nvram_legacy_get_copy(target_key, &target_value);
+		if (result < 0) {
+			status = -result;
+			goto done;
+		}
+		if (result == 0 || !target_value[0]) {
+			write.name = target_key;
+			write.value = publish_value;
+			write_count = 1;
+		}
 	}
-
-	test_value = nvram_get("pppoe_dhcp_route");
-	if (test_value) {
-		if (strlen(test_value) > 0 && strlen(nvram_safe_get("wan_pppoe_man")) == 0)
-			nvram_set("wan_pppoe_man", test_value);
-		nvram_unset("pppoe_dhcp_route");
+	status = nvram_legacy_publish_and_unset(
+		source_key, write_count ? &write : NULL, write_count, changed);
+done:
+	free(source_value);
+	free(target_value);
+	return status;
+}
+static int
+nvram_migrate_legacy_front_leds(int *changed)
+{
+	struct rc_nvram_legacy_migration_write writes[2];
+	char *source_value = NULL;
+	unsigned int write_count = 0;
+	int result, front_leds, status;
+	result = nvram_legacy_get_copy("front_leds", &source_value);
+	if (result <= 0)
+		return result < 0 ? -result : 0;
+	front_leds = atoi(source_value);
+	if (front_leds > 2) {
+		writes[write_count].name = "front_led_all";
+		writes[write_count++].value = "0";
 	}
-
-	test_value = nvram_get("mr_ttl_fix");
-	if (test_value) {
-		if (atoi(test_value) > 0 && strlen(nvram_safe_get("wan_ttl_fix")) == 0)
-			nvram_set_int("wan_ttl_fix", 2);
-		nvram_unset("mr_ttl_fix");
+	if (front_leds == 4 || front_leds == 2) {
+		writes[write_count].name = "front_led_pwr";
+		writes[write_count++].value = "0";
 	}
-
-	test_value = nvram_get("wan_heartbeat_x");
-	if (test_value) {
-		if (strlen(test_value) > 0 && strlen(nvram_safe_get("wan_ppp_peer")) == 0)
-			nvram_set("wan_ppp_peer", test_value);
-		nvram_unset("wan_heartbeat_x");
+	status = nvram_legacy_publish_and_unset(
+		"front_leds", write_count ? writes : NULL, write_count, changed);
+	free(source_value);
+	return status;
+}
+static void
+nvram_cleanup_obsolete_legacy_key(const char *name, int *changed)
+{
+	char *value = NULL;
+	int found, status;
+	found = nvram_legacy_get_copy(name, &value);
+	free(value);
+	if (found <= 0) {
+		if (found < 0)
+			logmessage(LOGNAME, "Unable to inspect obsolete NVRAM key %s (status=%d)",
+				   name, -found);
+		return;
 	}
-	nvram_unset("wan0_heartbeat_x");
-
-	test_value = nvram_get("wan_3g_pin");
-	if (test_value) {
-		if (strlen(test_value) > 0 && strlen(nvram_safe_get("modem_pin")) == 0)
-			nvram_set("modem_pin", test_value);
-		nvram_unset("wan_3g_pin");
-	}
-	nvram_unset("wan0_3g_pin");
-
-	/* remove old unused params */
-	nvram_unset("lan_route");
-	nvram_unset("wan0_route");
-	nvram_unset("wan_route");
-	nvram_unset("wan_dns_t");
-	nvram_unset("wan_proto_t");
-	nvram_unset("wan_ipaddr_t");
-	nvram_unset("wan_netmask_t");
-	nvram_unset("wan_gateway_t");
-	nvram_unset("wan_ifname_t");
-	nvram_unset("wan_status_t");
-	nvram_unset("wan_subnet_t");
-	nvram_unset("lan_subnet_t");
-	nvram_unset("link_lan");
-	nvram_unset("rt_mcastrate");
-	nvram_unset("wl_mcastrate");
+	status = nvram_legacy_unset(NULL, name);
+	if (status == 0)
+		*changed = 1;
+	else
+		logmessage(LOGNAME, "Unable to remove obsolete NVRAM key %s (status=%d)",
+			   name, status);
+}
+static int
+nvram_convert_old_params(int *changed)
+{
+	static const char *const obsolete_keys[] = {
+		"wan0_heartbeat_x", "wan0_3g_pin", "lan_route", "wan0_route",
+		"wan_route", "wan_dns_t", "wan_proto_t", "wan_ipaddr_t",
+		"wan_netmask_t", "wan_gateway_t", "wan_ifname_t", "wan_status_t",
+		"wan_subnet_t", "lan_subnet_t", "link_lan", "rt_mcastrate",
+		"wl_mcastrate"
+	};
+	unsigned int i;
+	int status;
+	if (!changed)
+		return EINVAL;
+	*changed = 0;
+	status = nvram_migrate_legacy_front_leds(changed);
+	if (status != 0)
+		goto failed;
+	status = nvram_migrate_legacy_setting("pppoe_dhcp_route",
+		"wan_pppoe_man", NULL, 0, changed);
+	if (status != 0)
+		goto failed;
+	status = nvram_migrate_legacy_setting("mr_ttl_fix", "wan_ttl_fix",
+		"2", 1, changed);
+	if (status != 0)
+		goto failed;
+	status = nvram_migrate_legacy_setting("wan_heartbeat_x",
+		"wan_ppp_peer", NULL, 0, changed);
+	if (status != 0)
+		goto failed;
+	status = nvram_migrate_legacy_setting("wan_3g_pin", "modem_pin",
+		NULL, 0, changed);
+	if (status != 0)
+		goto failed;
+	for (i = 0; i < sizeof(obsolete_keys) / sizeof(obsolete_keys[0]); ++i)
+		nvram_cleanup_obsolete_legacy_key(obsolete_keys[i], changed);
+	return 0;
+failed:
+	logmessage(LOGNAME,
+		   "Router initialization stopped: legacy NVRAM migration failed (status=%d); original keys are retained",
+		   status);
+	return status;
 }
 
 static int
@@ -1083,7 +1184,8 @@ init_router(void)
 	int boot_modules_status, boot_services_status;
 	int rwfs_mount_status;
 	int switch_vlan_status = 0;
-	int nvram_setup_status;
+	int nvram_setup_status, legacy_migration_status;
+	int legacy_migration_changed = 0;
 	int ipv6_disable_required = 0;
 	int ipv6_init_status = 0;
 
@@ -1094,13 +1196,21 @@ init_router(void)
 	mtk_esw_node();
 #endif
 
-	nvram_convert_old_params();
+	legacy_migration_status = nvram_convert_old_params(&legacy_migration_changed);
+	if (legacy_migration_status != 0) {
+		logmessage(LOGNAME,
+			   "Router initialization stopped: legacy NVRAM migration is incomplete (status=%d)",
+			   legacy_migration_status);
+		return INIT_ROUTER_RESULT_FATAL;
+	}
 
 	nvram_need_commit = nvram_restore_defaults();
 	if (nvram_need_commit < 0) {
 		logmessage(LOGNAME, "Router initialization stopped: NVRAM defaults are not trustworthy");
 		return INIT_ROUTER_RESULT_FATAL;
 	}
+	if (legacy_migration_changed)
+		nvram_need_commit = 1;
 
 	get_eeprom_params();
 
