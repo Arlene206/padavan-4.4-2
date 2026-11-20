@@ -62,6 +62,7 @@
 #include "../macros.h"
 #include "../config.h"
 #include "iptcrdr.h"
+#include "iptcrdr_allocation_policy.h"
 #include "../upnpglobalvars.h"
 #include "../miniupnpd_redirect_cleanup_policy.h"
 
@@ -919,9 +920,17 @@ get_tcp_match(unsigned short dport, unsigned short sport)
 	struct ipt_entry_match *match;
 	struct ipt_tcp * tcpinfo;
 	size_t size;
+	int saved_errno;
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_match))
 	       + IPT_ALIGN(sizeof(struct ipt_tcp));
 	match = calloc(1, size);
+	if (!match) {
+		saved_errno = errno ? errno : ENOMEM;
+		syslog(LOG_ERR, "%s: calloc(%lu) error", "get_tcp_match",
+		       (unsigned long)size);
+		errno = saved_errno;
+		return NULL;
+	}
 	match->u.match_size = size;
 	strncpy(match->u.user.name, "tcp", sizeof(match->u.user.name));
 	tcpinfo = (struct ipt_tcp *)match->data;
@@ -948,9 +957,17 @@ get_udp_match(unsigned short dport, unsigned short sport)
 	struct ipt_entry_match *match;
 	struct ipt_udp * udpinfo;
 	size_t size;
+	int saved_errno;
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_match))
 	       + IPT_ALIGN(sizeof(struct ipt_udp));
 	match = calloc(1, size);
+	if (!match) {
+		saved_errno = errno ? errno : ENOMEM;
+		syslog(LOG_ERR, "%s: calloc(%lu) error", "get_udp_match",
+		       (unsigned long)size);
+		errno = saved_errno;
+		return NULL;
+	}
 	match->u.match_size = size;
 	strncpy(match->u.user.name, "udp", sizeof(match->u.user.name));
 	udpinfo = (struct ipt_udp *)match->data;
@@ -979,9 +996,17 @@ get_dnat_target(const char * daddr, unsigned short dport)
 	struct ip_nat_range * range;
 	size_t size;
 
+	int saved_errno;
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
 	       + IPT_ALIGN(sizeof(struct ip_nat_multi_range));
 	target = calloc(1, size);
+	if (!target) {
+		saved_errno = errno ? errno : ENOMEM;
+		syslog(LOG_ERR, "%s: calloc(%lu) error", "get_dnat_target",
+		       (unsigned long)size);
+		errno = saved_errno;
+		return NULL;
+	}
 	target->u.target_size = size;
 	strncpy(target->u.user.name, "DNAT", sizeof(target->u.user.name));
 	/* one ip_nat_range already included in ip_nat_multi_range */
@@ -1003,9 +1028,17 @@ get_snat_target(const char * saddr, unsigned short sport)
 	struct ip_nat_range * range;
 	size_t size;
 
+	int saved_errno;
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
 	       + IPT_ALIGN(sizeof(struct ip_nat_multi_range));
 	target = calloc(1, size);
+	if (!target) {
+		saved_errno = errno ? errno : ENOMEM;
+		syslog(LOG_ERR, "%s: calloc(%lu) error", "get_snat_target",
+		       (unsigned long)size);
+		errno = saved_errno;
+		return NULL;
+	}
 	target->u.target_size = size;
 	strncpy(target->u.user.name, "SNAT", sizeof(target->u.user.name));
 	/* one ip_nat_range already included in ip_nat_multi_range */
@@ -1026,9 +1059,17 @@ get_dscp_target(unsigned char dscp)
 	struct xt_DSCP_info * di;
 	size_t size;
 
+	int saved_errno;
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
 	       + IPT_ALIGN(sizeof(struct xt_DSCP_info));
 	target = calloc(1, size);
+	if (!target) {
+		saved_errno = errno ? errno : ENOMEM;
+		syslog(LOG_ERR, "%s: calloc(%lu) error", "get_dscp_target",
+		       (unsigned long)size);
+		errno = saved_errno;
+		return NULL;
+	}
 	target->u.target_size = size;
 	strncpy(target->u.user.name, "DSCP", sizeof(target->u.user.name));
 	/* one ip_nat_range already included in ip_nat_multi_range */
@@ -1046,9 +1087,17 @@ get_masquerade_target(unsigned short port)
 	struct ip_nat_range * range;
 	size_t size;
 
+	int saved_errno;
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
 	       + IPT_ALIGN(sizeof(struct ip_nat_multi_range));
 	target = calloc(1, size);
+	if (!target) {
+		saved_errno = errno ? errno : ENOMEM;
+		syslog(LOG_ERR, "%s: calloc(%lu) error", "get_masquerade_target",
+		       (unsigned long)size);
+		errno = saved_errno;
+		return NULL;
+	}
 	target->u.target_size = size;
 	strncpy(target->u.user.name, "MASQUERADE", sizeof(target->u.user.name));
 	/* one ip_nat_range already included in ip_nat_multi_range */
@@ -1147,31 +1196,30 @@ addnatrule(int proto, unsigned short eport,
 	struct ipt_entry_target *target = NULL;
 
 	e = calloc(1, sizeof(struct ipt_entry));
-	if(!e) {
-		syslog(LOG_ERR, "%s: calloc(%d) error", "addnatrule",
-		       (int)sizeof(struct ipt_entry));
-		return -1;
-	}
+	if (!e)
+		return miniupnpd_iptcrdr_allocation_failure(
+			NULL, NULL, NULL, "addnatrule", "rule entry");
 	e->ip.proto = proto;
 	if(proto == IPPROTO_TCP) {
 		match = get_tcp_match(eport, 0);
 	} else {
 		match = get_udp_match(eport, 0);
 	}
+	if (!match)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, NULL, NULL, "addnatrule", "protocol match");
 	e->nfcache = NFC_IP_DST_PT;
 	target = get_dnat_target(iaddr, iport);
+	if (!target)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, NULL, "addnatrule", "DNAT target");
 	e->nfcache |= NFC_UNKNOWN;
 	tmp = realloc(e, sizeof(struct ipt_entry)
 	               + match->u.match_size
 				   + target->u.target_size);
-	if(!tmp) {
-		syslog(LOG_ERR, "%s: realloc(%d) error", "addnatrule",
-		       (int)(sizeof(struct ipt_entry) + match->u.match_size + target->u.target_size));
-		free(e);
-		free(match);
-		free(target);
-		return -1;
-	}
+	if (!tmp)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, target, "addnatrule", "rule buffer");
 	e = tmp;
 	memcpy(e->elems, match, match->u.match_size);
 	memcpy(e->elems + match->u.match_size, target, target->u.target_size);
@@ -1217,31 +1265,30 @@ addmasqueraderule(int proto,
 	struct ipt_entry_target *target = NULL;
 
 	e = calloc(1, sizeof(struct ipt_entry));
-	if(!e) {
-		syslog(LOG_ERR, "%s: calloc(%d) error", "addmasqueraderule",
-		       (int)sizeof(struct ipt_entry));
-		return -1;
-	}
+	if (!e)
+		return miniupnpd_iptcrdr_allocation_failure(
+			NULL, NULL, NULL, "addmasqueraderule", "rule entry");
 	e->ip.proto = proto;
 	if(proto == IPPROTO_TCP) {
 		match = get_tcp_match(0, iport);
 	} else {
 		match = get_udp_match(0, iport);
 	}
+	if (!match)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, NULL, NULL, "addmasqueraderule", "protocol match");
 	e->nfcache = NFC_IP_DST_PT;
 	target = get_masquerade_target(eport);
+	if (!target)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, NULL, "addmasqueraderule", "MASQUERADE target");
 	e->nfcache |= NFC_UNKNOWN;
 	tmp = realloc(e, sizeof(struct ipt_entry)
 	               + match->u.match_size
 				   + target->u.target_size);
-	if(!tmp) {
-		syslog(LOG_ERR, "%s: realloc(%d) error", "addmasqueraderule",
-		       (int)(sizeof(struct ipt_entry) + match->u.match_size + target->u.target_size));
-		free(e);
-		free(match);
-		free(target);
-		return -1;
-	}
+	if (!tmp)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, target, "addmasqueraderule", "rule buffer");
 	e = tmp;
 	memcpy(e->elems, match, match->u.match_size);
 	memcpy(e->elems + match->u.match_size, target, target->u.target_size);
@@ -1296,11 +1343,9 @@ addpeernatrule(int proto,
 	struct ipt_entry_target *target = NULL;
 
 	e = calloc(1, sizeof(struct ipt_entry));
-	if(!e) {
-		syslog(LOG_ERR, "%s: calloc(%d) error", "addpeernatrule",
-		       (int)sizeof(struct ipt_entry));
-		return -1;
-	}
+	if (!e)
+		return miniupnpd_iptcrdr_allocation_failure(
+			NULL, NULL, NULL, "addpeernatrule", "rule entry");
 	e->ip.proto = proto;
 	/* TODO: Fill port matches and SNAT */
 	if(proto == IPPROTO_TCP) {
@@ -1308,20 +1353,21 @@ addpeernatrule(int proto,
 	} else {
 		match = get_udp_match(rport, iport);
 	}
+	if (!match)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, NULL, NULL, "addpeernatrule", "protocol match");
 	e->nfcache = NFC_IP_DST_PT | NFC_IP_SRC_PT;
 	target = get_snat_target(eaddr, eport);
+	if (!target)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, NULL, "addpeernatrule", "SNAT target");
 	e->nfcache |= NFC_UNKNOWN;
 	tmp = realloc(e, sizeof(struct ipt_entry)
 	               + match->u.match_size
 				   + target->u.target_size);
-	if(!tmp) {
-		syslog(LOG_ERR, "%s: realloc(%d) error", "addpeernatrule",
-		       (int)(sizeof(struct ipt_entry) + match->u.match_size + target->u.target_size));
-		free(e);
-		free(match);
-		free(target);
-		return -1;
-	}
+	if (!tmp)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, target, "addpeernatrule", "rule buffer");
 	e = tmp;
 	memcpy(e->elems, match, match->u.match_size);
 	memcpy(e->elems + match->u.match_size, target, target->u.target_size);
@@ -1367,11 +1413,9 @@ addpeerdscprule(int proto, unsigned char dscp,
 	struct ipt_entry_target *target = NULL;
 
 	e = calloc(1, sizeof(struct ipt_entry));
-	if(!e) {
-		syslog(LOG_ERR, "%s: calloc(%d) error", "addpeerdscprule",
-		       (int)sizeof(struct ipt_entry));
-		return -1;
-	}
+	if (!e)
+		return miniupnpd_iptcrdr_allocation_failure(
+			NULL, NULL, NULL, "addpeerdscprule", "rule entry");
 	e->ip.proto = proto;
 	/* TODO: Fill port matches and SNAT */
 	if(proto == IPPROTO_TCP) {
@@ -1379,20 +1423,21 @@ addpeerdscprule(int proto, unsigned char dscp,
 	} else {
 		match = get_udp_match(rport, iport);
 	}
+	if (!match)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, NULL, NULL, "addpeerdscprule", "protocol match");
 	e->nfcache = NFC_IP_DST_PT | NFC_IP_SRC_PT;
 	target = get_dscp_target(dscp);
+	if (!target)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, NULL, "addpeerdscprule", "DSCP target");
 	e->nfcache |= NFC_UNKNOWN;
 	tmp = realloc(e, sizeof(struct ipt_entry)
 	               + match->u.match_size
 				   + target->u.target_size);
-	if(!tmp) {
-		syslog(LOG_ERR, "%s: realloc(%d) error", "addpeerdscprule",
-		       (int)(sizeof(struct ipt_entry) + match->u.match_size + target->u.target_size));
-		free(e);
-		free(match);
-		free(target);
-		return -1;
-	}
+	if (!tmp)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, target, "addpeerdscprule", "rule buffer");
 	e = tmp;
 	memcpy(e->elems, match, match->u.match_size);
 	memcpy(e->elems + match->u.match_size, target, target->u.target_size);
@@ -1430,9 +1475,17 @@ get_accept_target(void)
 {
 	struct ipt_entry_target * target = NULL;
 	size_t size;
+	int saved_errno;
 	size =   IPT_ALIGN(sizeof(struct ipt_entry_target))
 	       + IPT_ALIGN(sizeof(int));
 	target = calloc(1, size);
+	if (!target) {
+		saved_errno = errno ? errno : ENOMEM;
+		syslog(LOG_ERR, "%s: calloc(%lu) error", "get_accept_target",
+		       (unsigned long)size);
+		errno = saved_errno;
+		return NULL;
+	}
 	target->u.user.target_size = size;
 	strncpy(target->u.user.name, "ACCEPT", sizeof(target->u.user.name));
 	return target;
@@ -1451,33 +1504,32 @@ add_filter_rule(int proto, const char * rhost,
 	struct ipt_entry_target *target = NULL;
 
 	e = calloc(1, sizeof(struct ipt_entry));
-	if(!e) {
-		syslog(LOG_ERR, "%s: calloc(%d) error", "add_filter_rule",
-		       (int)sizeof(struct ipt_entry));
-		return -1;
-	}
+	if (!e)
+		return miniupnpd_iptcrdr_allocation_failure(
+			NULL, NULL, NULL, "add_filter_rule", "rule entry");
 	e->ip.proto = proto;
 	if(proto == IPPROTO_TCP) {
 		match = get_tcp_match(iport,0);
 	} else {
 		match = get_udp_match(iport,0);
 	}
+	if (!match)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, NULL, NULL, "add_filter_rule", "protocol match");
 	e->nfcache = NFC_IP_DST_PT;
 	e->ip.dst.s_addr = inet_addr(iaddr);
 	e->ip.dmsk.s_addr = INADDR_NONE;
 	target = get_accept_target();
+	if (!target)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, NULL, "add_filter_rule", "ACCEPT target");
 	e->nfcache |= NFC_UNKNOWN;
 	tmp = realloc(e, sizeof(struct ipt_entry)
 	               + match->u.match_size
 				   + target->u.target_size);
-	if(!tmp) {
-		syslog(LOG_ERR, "%s: realloc(%d) error", "add_filter_rule",
-		       (int)(sizeof(struct ipt_entry) + match->u.match_size + target->u.target_size));
-		free(e);
-		free(match);
-		free(target);
-		return -1;
-	}
+	if (!tmp)
+		return miniupnpd_iptcrdr_allocation_failure(
+			e, match, target, "add_filter_rule", "rule buffer");
 	e = tmp;
 	memcpy(e->elems, match, match->u.match_size);
 	memcpy(e->elems + match->u.match_size, target, target->u.target_size);

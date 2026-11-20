@@ -1,3 +1,10 @@
+## 2026-11-20 — Fail safely when MiniUPnP iptables rule components cannot be allocated
+
+- Parent main SHA: `f06fb00373149abe1afc6fcb06c9a0b6f9bd5510`.
+- Confirmed an OOM crash path in `netfilter/iptcrdr.c`: TCP/UDP match factories and DNAT/SNAT/DSCP/MASQUERADE/ACCEPT target factories dereferenced unchecked `calloc()` results. Five rule builders also consumed potentially NULL components and leaked earlier allocations on partial failure.
+- Added guards to all seven factories and all five builders. Entry, match, target and final rule-buffer failures release all previously allocated components, preserve allocator errno (defaulting to ENOMEM), and return before iptc append/commit.
+- Added GNU89 ASan/UBSan cleanup/errno regression coverage and a Python source contract for every factory and builder. Both production and check/test paths are included in MiniUPnP push/PR workflow filters.
+- No full local firmware checkout is available in this session; the exact-head workflow is the sanitizer/source-contract gate. XY-C1 L3 and physical-router L4 remain pending/not verified.
 ## 2026-11-20 — Fail closed when boot cannot invalidate stale NTP readiness
 
 - Parent main SHA: `c9b931f0a17bb6673dd94bf7ad51c4c8ba6d7a75`.
