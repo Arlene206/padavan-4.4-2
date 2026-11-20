@@ -468,16 +468,22 @@ jobs:
           assert "route_status = clear_if_route4(IFNAME_BR);" in stop_lan_body
           assert "ipv6_status = clear_lan_addr6();" in stop_lan_body
           assert "monitor_resume_status = notify_run_detect_internet(2);" in stop_lan_body
-          assert stop_lan_body.count("monitor_resume_status = notify_run_detect_internet(2);") == 2
-          resume_log = stop_lan_body.index("Internet monitor resume failed after aborted AP DHCP teardown")
+                    assert stop_lan_body.count("monitor_resume_status = notify_run_detect_internet(2);") == 1
+          resume_log = stop_lan_body.index("Internet monitor resume failed after aborted AP DHCP stop")
           primary_return = stop_lan_body.index("return status;", resume_log)
           assert primary_return > resume_log
-          assert "Internet monitor resume failed after aborted AP DHCP teardown" in stop_lan_body
+          assert "Internet monitor resume failed after aborted AP DHCP stop" in stop_lan_body
           assert "int monitor_resume_status = 0;" in stop_lan_body
-          assert "Internet monitor resume failed after AP bridge teardown failure" in stop_lan_body
+          ap_rollback = body(net_lan, "lan_ap_teardown_abort_restore(")
+          assert "restore_status = start_lan(1, 1);" in ap_rollback
+          assert "notify_run_detect_internet(2)" in ap_rollback
+          assert "if (restore_status != 0)" in ap_rollback
+          assert "Internet monitor resume after rollback failed" in ap_rollback
+          assert "if (is_ap_mode && rc_lan_ap_teardown_recovery_required(" in stop_lan_body
+          assert "lan_ap_teardown_abort_restore(teardown_status," in stop_lan_body
           assert "(void)notify_run_detect_internet(2)" not in stop_lan_body
           assert "test_ap_lan_monitor_resume_failure_preserves_primary_teardown_status" in service_start_test
-          assert "returnrc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(rc_first_service_start_status(conntrack_status,route_status),ipv6_status),status),monitor_resume_status);" in stop_lan_compact
+          assert "returnteardown_status;" in stop_lan_compact
           route_flush_at = stop_lan_compact.index("route_status=clear_if_route4(IFNAME_BR);")
           ipv6_cleanup_at = stop_lan_compact.index("ipv6_status=clear_lan_addr6();")
           bridge_down_at = stop_lan_compact.index("ifconfig(IFNAME_BR,0,NULL,NULL);")
@@ -1172,5 +1178,5 @@ jobs:
           assert "test_dhcp_down_monitor_pause_failure_is_reported_and_cleanup_continues" in (
               (rc / "tests/route_status_policy.c").read_text()
           )
-          print("WAN route result propagation and cleanup ordering contracts: PASS")
+          print("WAN route result propagation, LAN rollback and cleanup ordering contracts: PASS")
           PY

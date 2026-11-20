@@ -928,13 +928,25 @@ lan_restart_transaction = net_lan_dhcp.split("int\nfull_restart_lan(void)", 1)[1
 lan_vpn_stop = lan_restart_transaction.index("vpn_status = stop_vpn_server()")
 lan_vpn_failure = lan_restart_transaction.index("if (vpn_status != 0)", lan_vpn_stop)
 lan_vpn_abort = lan_restart_transaction.index("return vpn_status;", lan_vpn_failure)
-lan_first_other_stop = lan_restart_transaction.index('lan_restart_record_status(&restart_status, "stop LLTD", stop_lltd())')
+lan_first_other_stop = lan_restart_transaction.index("lltd_stop_status = stop_lltd();")
 assert lan_vpn_stop < lan_vpn_failure < lan_vpn_abort < lan_first_other_stop
 assert lan_restart_transaction.count("stop_vpn_server();") == 1
 lan_dhcp_failure = lan_restart_transaction.index("if (lan_status != 0)")
+lan_router_restore = lan_restart_transaction.index("start_lan(0, 1)", lan_dhcp_failure)
 lan_dns_unlock = lan_restart_transaction.index("dnsmasq_lifecycle_lock_release(dnsmasq_lock)", lan_dhcp_failure)
 lan_vpn_restore = lan_restart_transaction.index('lan_restart_record_status(&restart_status, "restore VPN after aborted LAN restart",', lan_dns_unlock)
-assert lan_dhcp_failure < lan_dns_unlock < lan_vpn_restore
+assert lan_dhcp_failure < lan_router_restore < lan_dns_unlock < lan_vpn_restore
+for stop_status, start_call in (
+    ("logger_stop_status", "start_logger(0)"),
+    ("lltd_stop_status", "start_lltd()"),
+    ("infosvr_stop_status", "start_infosvr()"),
+    ("networkmap_stop_status", "start_networkmap(1)"),
+):
+    stop_call = lan_restart_transaction.index(stop_status + " = stop_")
+    restore_gate = lan_restart_transaction.index("rc_service_restart_after_stop(" + stop_status + ")")
+    restore = lan_restart_transaction.index(start_call, restore_gate)
+    assert lan_first_other_stop <= stop_call < lan_dhcp_failure
+    assert lan_vpn_restore < restore_gate < restore
 print("LAN restart VPN fail-closed stop and rollback integration: PASS")
 
 wan_stop_transaction = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\n}\n", 1)[0]
