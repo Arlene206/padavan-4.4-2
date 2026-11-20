@@ -3,34 +3,33 @@
 This checkpoint supersedes older summaries below. Continue from live main; do not repeat closed audits.
 
 ## Git state
-- Parent main SHA for this checkpoint: 327b83d651b690c55626ac3c2bbd7ef6dcfd16ec.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Main-only atomic commits, exact expected-SHA update with `force=false`; no force-push. PR #1 remains closed/not merged.
-- Latest external main work in this checkpoint includes the Samba private-state permission correction and Ralink 802.1X bounded interface-name formatting. Preserve and build from current main.
+- Main SHA before this checkpoint: c10f4fd6be13a4dc915f397ccc3292d92509e689.
+- NTP readiness source commit: c10f4fd6be13a4dc915f397ccc3292d92509e689.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
+- Main-only atomic commits, expected-SHA updates with `force=false`; no force-push.
 
-## Verified implementation in this continuation
-- WAN runtime identity: checked `proto_t` then `ifname_t` publication is in USB RAS, PPP and IPoE startup; any failed NVRAM write restores physical WAN and blocks activation. The stale source contracts were updated to assert the checked pair helper.
-- WAN link mirror: `detect_link.c` now maintains a distinct last-successful cache for `link_wan`, retries failed temporary NVRAM writes on the next poll, and rate-limits error/recovery logging. Exact detect-link regression and source contract passed on `dc43d3d8`; Process inventory passed. Same-SHA XY-C1 `44727273673` passed Build XY-C1, TRX verification and artifact upload. This is L3 evidence for the dc43 product source tree.
-- Internet connectivity mirror: `detect_internet.c` now maintains a distinct successful-publication cache for `link_internet`; reset, transition and pause writes go through the checked publisher. Unsuccessful writes retain the old cache and retry at one-second cadence without replaying state-transition side effects. Paused retry ticks are dispatched only while an NVRAM error remains; the desired status is kept separately so a failed initial paused `DI_STATUS_INIT` write is retried as INIT, while explicit pause still publishes zero. Error logs are transition-throttled and recovery is logged.
-- Added GNU89, `-Wall -Wextra -Werror`, ASan/UBSan policy tests for initial/changed status retry, cache preservation and invalid arguments. Exact detect-internet regression `44729054343` and AI handoff documentation check `44729054197` passed on current `327b83d6`.
-- The first two detect-internet source-contract runs (`44728739057`, `44728819718`) failed on an obsolete assertion expecting direct publish-zero in the timer after desired-state handling was centralized. Workflow-only correction is in `327b83d6`; its exact detector run passed.
-- Exact XY-C1 for detect-internet production source: `44728739064` on source SHA `0716df86` was still building at checkpoint; later parent SHA `7210c3a3` also has the complete detect-internet source and its XY-C1 run `44729001694` was building. Build/TRX/artifact evidence for detect-internet is therefore still pending. Do not reuse dc43's L3 result for detect-internet.
-- On `a083268c`, Process lifecycle inventory `44728176692`, Process fail-closed regression `44728176691`, NVRAM transaction boundary audit `44728176671`, detect-internet regression `44728176547`, and AI docs `44728176806` passed; its XY-C1 run `44728176648` remained active at last poll.
+## Current source work — NTP readiness persistence
+- `ntpc_updated_main()` now treats a non-empty `offset` as proof of an actual clock step before incrementing the temporary `ntpc_counter`; it checks and returns the persistent `ntp_ready` write result.
+- A failed `ntp_ready` write is retried by the watchdog's fixed timer whenever a recorded NTP step exists. The retry is independent of WAN reachability and is executed before time-dependent service checks; error/recovery logging is transition-throttled.
+- Added GNU89-compatible policy tests for absent/empty offsets and readiness retry gating; extended the source contract to protect ordering and ensure readiness recovery is processed before schedule checks.
+- Exact-main watchdog Action: PASS (run 44731160914).
+- Exact-main XY-C1 Action: PENDING (run 44731160909). Build/TRX/artifact step evidence: [{"name":"Build XY-C1","conclusion":null},{"name":"Verify TRX output","conclusion":null},{"name":"Run actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9","conclusion":null}].
+- L3 is not claimed unless one exact SHA completes Build XY-C1, TRX verification and artifact upload successfully.
 
-## Current first actions
-1. Poll XY-C1 run `44729001694` for exact SHA `7210c3a3`: require Build XY-C1, Verify TRX output and artifact upload all SUCCESS. If it fails, inspect the exact MIPS compiler/build log and repair.
-2. Confirm Process inventory/fail-closed and remaining exact Actions for `7210c3a3`; the preceding exact-head detector and docs checks on `327b83d6` are PASS.
-3. Once same-source Build/TRX/artifact are complete, mark detect-internet L3 for the exact product-source SHA actually built. Physical-router L4 remains NOT VERIFIED.
-4. Continue the next independent P1 userland stability/security issue. Do not repeat closed WAN mirror/identity audits.
+## First actions for next continuation
+1. Inspect exact-main watchdog Action 44731160914 and repair any source-contract or regression failure.
+2. Complete XY-C1 run 44731160909 for exact main c10f4fd6be13a4dc915f397ccc3292d92509e689; all Build/TRX/artifact steps must PASS on that SHA.
+3. If XY-C1 is pending, continue an independent service/lifecycle defect; do not wait.
+4. Keep physical-router L4 unverified unless tested on hardware.
 
 ## Verification boundary
-- `dc43d3d8`: detect_link and Process checks PASS; same-SHA XY-C1 Build, TRX and artifact upload PASS.
-- `327b83d6`: detect_internet regression PASS; AI handoff docs PASS.
-- `7210c3a3`: XY-C1 Build in progress at checkpoint; TRX/artifact pending. Same-SHA Process/other jobs need final polling.
-- Detect-internet exact-SHA L3 is NOT YET VERIFIED. Physical-router L4 remains NOT VERIFIED.
+- Prior detect_link `link_wan` mirror fix: detect-link and Process checks PASS; exact-SHA XY-C1 Build/TRX/artifact PASS on `dc43d3d8`.
+- Prior detect_internet `link_internet` mirror fix: exact detector and AI-docs checks PASS on `327b83d6`; same-source XY-C1 was still pending at last known poll on `7210c3a3`.
+- NTP readiness source slice: exact-main watchdog=PASS; XY-C1=PENDING. No L3 claim unless the three product steps are all PASS on the same SHA.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Evidence discipline
-Keep L1 source review, L2 host regression, exact-SHA Actions, L3 MIPS Build/TRX/artifact and physical-router L4 distinct. A source-equivalent child or another SHA must not be presented as exact-SHA evidence.
+Keep L1 source review, L2 host regression, exact-SHA Actions, L3 MIPS Build/TRX/artifact and physical-router L4 distinct.
 
 
 ---

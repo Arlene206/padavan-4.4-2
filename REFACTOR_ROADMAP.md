@@ -1,14 +1,9 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 327b83d651b690c55626ac3c2bbd7ef6dcfd16ec; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- CLOSED SOURCE SLICES: WAN checked runtime identity publication; detect_link `link_wan` NVRAM mirror retry/recovery (exact detect-link and Process tests PASS; exact-SHA dc43 XY-C1 Build/TRX/artifact PASS).
-- ACTIVE SOURCE SLICE: detect_internet `link_internet` NVRAM mirror retry. Exact detector and AI-docs checks PASS on `327b83d6`; GNU89/Werror/ASan/UBSan regression covers failed INIT/changed-state writes, retry, previous-cache preservation and invalid arguments. Paused timer retry is gated by outstanding publication error and retries the remembered target state.
-- PRODUCT VERIFICATION: detect-internet source SHA `0716df86` XY-C1 run `44728739064` was building; later source-equivalent product parent `7210c3a3` XY-C1 run `44729001694` was also building. No detect-internet L3 claim until Build, TRX and artifact upload all pass on a single exact SHA.
-- Latest external code changes include Samba private directory creation with restrictive permissions and bounded Ralink 802.1X interface-name formatting. Keep their exact-SHA CI evidence separate.
-
-## Priority queue
-- CLOSED: WAN0/LAN boot NVRAM snapshots, WAN reset status/ABI, WAN runtime identity pair publication, WAN route recovery and detect_link `link_wan` mirror retry. Do not repeat these audits.
-- ACTIVE: finish exact-SHA XY-C1 Build/TRX/artifact verification for `7210c3a3`; poll the same SHA's Process and related Actions.
-- NEXT: continue the broader userland P1 stability/security rotation after the current build result is known; avoid repeating completed service/NVRAM audits.
+- Main before this documentation commit: c10f4fd6be13a4dc915f397ccc3292d92509e689; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only.
+- CLOSED SOURCE SLICES: WAN checked identity pair; detect_link `link_wan` mirror retry; detect_internet `link_internet` mirror retry.
+- ACTIVE: NTP readiness persistence retry. A non-empty offset is required before `ntpc_counter` advances; watchdog reattempts `ntp_ready=1` from its fixed timer even when WAN is down. Host policy/source contracts are included in the watchdog stability workflow.
+- Exact-main watchdog Action: PASS (#44731160914); exact-main XY-C1 product verification: PENDING (#44731160909). Same-SHA Build/TRX/artifact evidence must be checked before L3 closure.
+- NEXT: proceed to another independent userland stability/security issue while XY-C1 is pending; do not re-audit closed WAN/link mirror slices.
 
 ## Whole-repository module status
 

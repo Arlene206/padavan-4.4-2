@@ -1,3 +1,14 @@
+## 2026-11-20 — Retry failed NTP readiness persistence
+
+- Source commit: c10f4fd6be13a4dc915f397ccc3292d92509e689; documentation parent main: c10f4fd6be13a4dc915f397ccc3292d92509e689.
+- `ntpc_updated_main()` previously incremented temporary `ntpc_counter` before checking whether the callback supplied an offset, then ignored the result of the persistent `nvram_set_int("ntp_ready", 1)` write. A transient readiness write failure could leave time-dependent services gated until the next NTP step.
+- Now require a non-empty offset before counting a completed step, check/report both NVRAM writes, and retry `ntp_ready=1` from the watchdog timer whenever `ntpc_counter>0` while readiness remains clear. The retry is independent of WAN state and runs before `svc_timecheck()`.
+- Added GNU89 policy cases for null/empty offsets and readiness retry conditions, plus source-contract assertions for the update ordering, retry, rate-limited error log and recovery log.
+- Exact-main watchdog CI: PASS (run 44731160914); XY-C1: PENDING (run 44731160909). Product Build/TRX/artifact remain unverified until exact-SHA steps are all green.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Bound Ralink 802.1X driver-supplied interface and NAS identifiers
 
 - Parent main SHA: 80d8e6af6d2ba358ea29f0cfc067c8c8536ed3b8.
