@@ -37,8 +37,11 @@ assert "dns6_len = dns6_new ? strlen(dns6_new) : 0;" in source
 assert "if (dns6_len >= sizeof(dns6s))" in source
 assert "if (dns6_len)\n\t\tmemcpy(dns6s, dns6_new, dns6_len);" in source
 assert 'dns6_new = getenv("new_domain_name_servers");' in source
-assert "callback_status = store_wan_dns6(dns6_new);" in source
-assert "if (callback_status > 0)" in source
+assert "dns_status = store_wan_dns6(dns6_new);" in source
+assert "if (dns_status > 0)" in source
+assert "else if (dns_status < 0)" in source
+assert "if (callback_status == 0)" in source
+assert "callback_status = dns_status;" in source
 
 # DHCPv6 DNS publication is successful only when the checked NVRAM setter succeeds.
 dns_store = body(source, "int store_wan_dns6(")
