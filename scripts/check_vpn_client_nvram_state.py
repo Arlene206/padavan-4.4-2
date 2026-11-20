@@ -205,7 +205,7 @@ openvpn_up_compact = " ".join(openvpn_up.split())
 domain_publish = openvpn_up.index('values[value_count].name = "vpnc_dom_t";')
 state_publish = openvpn_up.index('values[value_count].name = "vpnc_state_t";')
 assert domain_publish < state_publish < openvpn_up.index("vpn_client_nvram_set_all_values(")
-assert 'values[value_count++].value = (vpnc_pdns > 0 && domain[0] != \\0) ? domain : "";' in openvpn_up_compact
+assert "values[value_count++].value = (vpnc_pdns > 0 && domain[0] != '\\0') ? domain : \\"\\";" in openvpn_up_compact
 ordered(openvpn_up, [
     "vpn_client_nvram_set_all_values(",
     'vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", buf)',

@@ -1,3 +1,12 @@
+## 2026-11-20 — Match the quoted OpenVPN domain empty-string literal in CI
+
+- Parent main SHA: `3dc44ff3378c9b29f6ec73076bc85015877f6b33`.
+- VPN server lifecycle Action #44765846007 passed all GNU89 C policy binaries, then the source contract reached the OpenVPN client-up check and failed because its expected token omitted the C single quotes around `'\\0'`.
+- Production `on_client_ifup()` correctly publishes the domain snapshot when policy permits it, otherwise publishes an empty value before the state-up marker. Updated the whitespace-normalized checker to assert the exact quoted C literal; production code and runtime behavior are unchanged.
+- Exact-head VPN and AI Actions required for this checker-only repair.
+
+---
+
 ## 2026-11-20 — Correct VPN DNS cleanup checker branch matching
 
 - Parent main SHA: `d83eb501bd09fd56f2662e08ded2c434069f8bf1`.
