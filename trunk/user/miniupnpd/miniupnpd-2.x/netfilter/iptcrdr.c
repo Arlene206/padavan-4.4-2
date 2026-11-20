@@ -684,7 +684,6 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	int failure_errno;
 	int nat_backup_failed = 0;
 	int peer_delete_status = -1;
-	int peer_backup_failed = 0;
 	unsigned nat_index = 0;
 	unsigned peer_index = 0;
 	size_t peer_entry_len;
@@ -919,7 +918,6 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 					failure_errno = errno ? errno : ENOMEM;
 					syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot peer SNAT rule");
 					errno = failure_errno;
-					peer_backup_failed = 1;
 					r2 = -1;
 					break;
 				}

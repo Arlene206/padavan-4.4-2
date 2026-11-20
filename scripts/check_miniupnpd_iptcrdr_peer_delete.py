@@ -59,6 +59,7 @@ assert delete.index("free(peer_backup)", rollback_gate) > restore
 
 assert "iptc_insert_entry(chain, entry, index, h)" in helper
 assert "iptc_insert_entry(chain, entry, index, &h)" in helper
+assert "peer_backup_failed" not in delete
 assert "return peer_status == 0 && dscp_status != 0;" in policy
 assert "return dscp_status != 0 ? dscp_status : rollback_status;" in policy
 print("MiniUPnP peer SNAT/DSCP compensation source contract: PASS")

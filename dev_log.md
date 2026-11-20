@@ -1,3 +1,9 @@
+## 2026-11-20 — Remove unused peer rollback flag before compile
+
+- Parent main SHA: `46d79504f70236b403ac3153ca155715d9c65bb0`.
+- The peer SNAT/DSCP rollback path already uses `peer_rule_found` and `peer_delete_status` to suppress the mangle phase when snapshot allocation fails. Its extra `peer_backup_failed` local was set but never read, which could trigger GCC's `-Wunused-but-set-variable` under firmware warning policies.
+- Removed the redundant declaration/assignment and added a source-contract assertion that the dead flag does not return.
+- Parent exact-head Actions: #44794517934 NVRAM transaction boundary audit queued/pending; #44794518071 AI handoff documentation contract in_progress/pending; #44794517908 XY-C1 Firmware Validation in_progress/pending; #44794518177 Process lifecycle inventory - 46d79504f70236b403ac3153ca155715d9c65bb0 in_progress/pending; #44794517972 miniupnpd atomic configuration publication regression in_progress/pending. Exact-head rerun required after this correction; XY-C1 Build/TRX/artifact remains unverified.
 ## 2026-11-20 — Clear consumed peer IPTC handle before recording delete status
 
 - Parent main SHA: `721857934de255342b4cdb66e08155aacc65acc2`.

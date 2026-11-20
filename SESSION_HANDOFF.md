@@ -16,10 +16,11 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Parent `main` for the peer-SNAT handle-order correction: `721857934de255342b4cdb66e08155aacc65acc2`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- NAT/filter update rollback `bfc1c166` / checker correction `ea745da6`: MiniUPnP #44792212170 PASS; AI #44792212195 PASS; XY-C1 #44791960769 on source SHA bfc1c16 PASS for Build, TRX and artifact upload.
-- NAT/filter delete compensation `b7a803d`: MiniUPnP #44793663690 PASS; AI #44793663716 PASS; process inventory/regression #44793663655/#44793663596 PASS.
-- Peer SNAT/DSCP compensation `721857934`: new exact-head MiniUPnP #44794249501 FAILED only the ownership source contract because `peer_delete_status = r2` was placed between the consuming helper call and `h = NULL`; correction is in this slice. XY-C1 #44794249117 and NVRAM #44794250260 were pending at last poll.
+- Current main before this warning-cleanup commit: `46d79504f70236b403ac3153ca155715d9c65bb0`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- NAT/filter redirect deletion compensation was implemented in `b7a803dcc95ae88566ffe01ff8fd8ea4c5cefd33`; exact-head MiniUPnP #44793663690 passed the delete-rollback policy test and source contract.
+- Peer SNAT/DSCP compensation was added in the current parent slice: it snapshots the peer SNAT rule before deletion and restores it if the subsequent mangle/DSCP operation fails. This follow-up removes a redundant local flag that was written but never read, avoiding a potential `-Wunused-but-set-variable` build warning.
+- Exact-head actions observed on current parent: #44794517934 NVRAM transaction boundary audit queued/pending; #44794518071 AI handoff documentation contract in_progress/pending; #44794517908 XY-C1 Firmware Validation in_progress/pending; #44794518177 Process lifecycle inventory - 46d79504f70236b403ac3153ca155715d9c65bb0 in_progress/pending; #44794517972 miniupnpd atomic configuration publication regression in_progress/pending.
+- Prior XY-C1 #44792212585 was host-only: Build/TRX/artifact were SKIPPED after no eligible firmware inputs were detected. No firmware L3 claim.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
@@ -34,15 +35,15 @@ After the MiniUPnP rerun passes, continue with the independently confirmed redir
 
 ## Verification boundary
 
-- NAT/filter deletion compensation #44793663690 and peer workflow predecessor checks passed before the peer SNAT extension.
-- Peer extension MiniUPnP #44794249501: FAILED at step 9, `Verify MiniUPnP IPTC delete-handle ownership`; all earlier test binaries and allocation source checks passed. Root cause and one-line source-order correction are recorded above.
-- Exact-head MiniUPnP rerun required after this fix. XY-C1 #44794249117 and NVRAM #44794250260 were PENDING at last poll. Physical hardware L4: NOT VERIFIED.
+- NAT/filter delete compensation `b7a803d`: exact-head MiniUPnP #44793663690 PASS, including sanitizer policy regression and source contract.
+- Peer SNAT/DSCP compensation and this unused-flag cleanup are covered by the exact-head MiniUPnP run on the current parent; confirm the run's final conclusion before declaring this slice verified.
+- XY-C1's latest completed check remained host-only, with Build XY-C1, TRX verification and artifact upload skipped. Firmware L3 is NOT verified. Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head MiniUPnP Actions for this peer handle-order correction; require the ownership checker and all preceding ASan/UBSan regressions to pass.
-2. Check XY-C1 Build/TRX/artifact and NVRAM audit for their exact SHAs; report host-only/firmware levels accurately.
-3. Start the redirect metadata allocation/OOM slice. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+1. Fetch live main and confirm the frozen backup SHA remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+2. Check exact-head MiniUPnP peer SNAT/DSCP regression and source-contract run after the warning cleanup; inspect any failed step's log.
+3. Continue the HTTPD/service lifecycle and UPnP teardown audit across userland. Keep host-only XY-C1 runs distinct from firmware L3; physical-router L4 remains unverified.
 
 ## Handoff maintenance
 
