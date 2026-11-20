@@ -1,10 +1,10 @@
 # 2026-11-20 active checkpoint
 
-- Current main before the Process checker-signature repair: `24dfe60f26ebdc89dd98ddbd62728acc853d1d20`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and is read-only.
-- TCP sysctl slice `e387b92`: Process `44672214134` and AI docs `44672214038` PASS; no same-source XY-C1 completion had been confirmed at the previous poll.
-- GAI source slice `24dfe60`: focused local GNU89/ASan/UBSan policy test PASS and AI docs `44673236138` PASS. Process `44673235684` FAILed because `check_dev_init_boot.py` expected a callback without `void *context`; GAI test was skipped after that source-checker failure. The exact failure is isolated to the checker signature. XY-C1 `44673236140` was IN_PROGRESS at last poll.
-- Early PID 1 now aggregates the base kernel/network/memory writes, all nine TCP tuning writes, and `/etc/gai.conf` file-operation status. Target-device runtime and L4 remain NOT VERIFIED.
-- Current checker correction and WAN NVRAM failure-prevention slice are both pending exact-head Actions; no new L3 claim is made here.
+- Parent `main` for this WAN recovery slice: `759a19abeff06bbfc6abcb1a13ee1263575a4945`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and is read-only.
+- PID 1 GAI checker repair commit `759a19a`: Process run `44674401664` and AI docs run `44674401794` were IN_PROGRESS at last poll. The earlier GAI Process failure `44673235684` was caused by an incorrect callback signature in the checker, now corrected; focused GAI unit policy binary passed locally.
+- TCP sysctl slice `e387b92`: Process `44672214134` and AI docs `44672214038` PASS; XY-C1 completion on that source was not confirmed.
+- WAN PPP-start recovery previously could rebuild a firewall after failing to publish the physical WAN interface name. This slice makes the NVRAM publication checked and fail-closed; its host regression passes locally, while exact-head Actions are pending.
+- Latest GAI-source XY-C1 `44673236140` was IN_PROGRESS at last poll. The current WAN source SHA requires its own detector/Build/TRX/artifact run before L3 can be claimed. L4 remains NOT VERIFIED.
 
 - CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
 - Keep common RC paths in a workflow only when its invoked tests/checkers consume or assert that production integration. Current AdGuardHome, Inadyn, NFS, WAN route, and USB modem suites inspect relevant shared RC call paths/declarations; their shared-path fan-out is intentional, not automatically unrelated.
@@ -91,6 +91,8 @@
 - Uploaded planet transaction cleanup follow-up: found an EXIT-trap registration gap if the pre-read of the previous NVRAM value failed after `.planet-import.*` creation. Cleanup now registers before the first fallible read, and rollback is gated on explicit publish/delete pending state; added NVRAM-get fault injection, preserving old file/NVRAM and upload, and checking no stage directory leaks. Exact-head verification pending.
 
 ## Priority queue
+
+- Confirmed WAN PPP-start recovery defect: the physical interface name publication was unchecked before `start_firewall_ex()`, allowing stale WAN NVRAM state to survive and firewall restore to report success. This slice adds errno-normalized checked NVRAM publication and prevents firewall rebuild unless `wanN_ifname_t` was successfully written; the outer failure path keeps the interface down. GNU89/Werror/ASan/UBSan policy test PASS locally; exact-head WAN/Process/AI and XY-C1 verification pending.
 
 - SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).
 - ZeroTier stop interface capture `255334d0`: exact test run `44476582735` found its missing-NAT case failed to set `TEST_NAT_ENABLE=1`; this test-only correction pins that setup.

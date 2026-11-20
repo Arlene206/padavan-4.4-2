@@ -28,6 +28,8 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/ppp_callback_link_policy.h"
       - "trunk/user/rc/src/tests/ppp_callback_link_policy.c"
       - "trunk/user/rc/src/apcli_wait_policy.h"
@@ -119,6 +121,8 @@ on:
       - "trunk/user/rc/src/conntrack_flush_policy.h"
       - "trunk/user/rc/src/tests/conntrack_flush_policy.c"
       - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
       - "trunk/user/rc/src/ppp_callback_link_policy.h"
       - "trunk/user/rc/src/tests/ppp_callback_link_policy.c"
       - "trunk/user/rc/src/apcli_wait_policy.h"
@@ -220,6 +224,14 @@ jobs:
             trunk/user/rc/src/tests/network_sysctl_policy.c \
             -o /tmp/network-sysctl-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/network-sysctl-policy
+      - name: Compile and run checked WAN interface publication policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_nvram_status_policy.c \
+            -o /tmp/wan-nvram-status-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/wan-nvram-status-policy
       - name: Compile and run Inadyn configured-WAN update policy regression
         run: |
           set -eu

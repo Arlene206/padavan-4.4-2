@@ -1,3 +1,13 @@
+## 2026-11-20 — Fail closed on WAN interface NVRAM publication during PPP recovery
+
+- Parent main SHA: `759a19abeff06bbfc6abcb1a13ee1263575a4945`.
+- `restore_wan_after_ppp_start_failure()` previously ignored failure from `set_wan_unit_value(unit, "ifname_t", wan_ifname)` and proceeded to rebuild the firewall. A failed NVRAM publication could leave stale PPP interface state while firewall restoration appeared successful.
+- Added a status-returning private setter for this failure-sensitive callsite, normalizing the NVRAM API's `0/-1` result plus errno (fallback EIO) and rejecting name truncation. Recovery now stops before firewall rebuild if publication fails, allowing the outer path to bring the physical WAN interface down. The legacy public void setter ABI and other callers are unchanged.
+- Added GNU89/Werror/ASan/UBSan tests and exact source/workflow contracts for errno handling, publication ordering and fail-closed ifdown. Focused policy test PASS locally; exact-head WAN/Process/AI/XY Actions pending.
+- Separate checker repair on parent GAI commit `24dfe60`: Process `44673235684` failed because the checker omitted the correct `void *context` callback parameters; checker-only correction commit `759a19a` is awaiting exact-head CI.
+
+---
+
 ## 2026-11-20 — Repair PID 1 GAI checker callback signature
 
 - Parent main SHA: `24dfe60f26ebdc89dd98ddbd62728acc853d1d20`.

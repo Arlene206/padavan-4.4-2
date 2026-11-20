@@ -45,6 +45,7 @@
 #include "ppp_callback_link_policy.h"
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
+#include "wan_nvram_status_policy.h"
 #include "detect_internet_notification_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
@@ -77,6 +78,25 @@ get_wan_unit_value_int(int unit, const char* param_name)
 
 	snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s", unit, param_name);
 	return nvram_get_int(wanN_param);
+}
+
+static int
+set_wan_unit_value_status(int unit, const char *param_name, const char *value)
+{
+	char wanN_param[64];
+	int path_len, api_result, saved_errno;
+
+	path_len = snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s", unit,
+			    param_name);
+	if (path_len < 0)
+		return errno ? errno : EIO;
+	if ((size_t)path_len >= sizeof(wanN_param))
+		return ENAMETOOLONG;
+
+	errno = 0;
+	api_result = nvram_set_temp(wanN_param, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
 }
 
 void
@@ -1754,7 +1774,7 @@ wait_ppp_up(char *ppp_ifname, int unit)
 static int
 restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)
 {
-	int upnp_status, firewall_status;
+	int upnp_status, firewall_status, nvram_status;
 
 	/* Restore the physical path while demand PPP is unavailable. A later
 	 * successful ip-up callback may switch the active WAN back to ppp0. */
@@ -1764,7 +1784,13 @@ restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)
 			   upnp_status);
 		return upnp_status;
 	}
-	set_wan_unit_value(unit, "ifname_t", wan_ifname);
+	nvram_status = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);
+	if (nvram_status != 0) {
+		errno = nvram_status;
+		logmessage(LOGNAME, "cannot publish physical WAN interface %s after PPP start failure (status=%d)",
+			   wan_ifname, nvram_status);
+		return nvram_status;
+	}
 	firewall_status = start_firewall_ex();
 	if (firewall_status != 0)
 		logmessage(LOGNAME, "cannot restore WAN firewall after PPP start failure (status=%d)",

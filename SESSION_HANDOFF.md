@@ -12,28 +12,30 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Parent `main` before the current source-checker repair: `24dfe60f26ebdc89dd98ddbd62728acc853d1d20`.
+- Parent `main` before this WAN fallback slice: `759a19abeff06bbfc6abcb1a13ee1263575a4945`.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
-- The TCP policy slice on `e387b92` passed Process `44672214134` and AI docs `44672214038`; its XY-C1 run was still in progress at last check.
-- The libc address-selection change on `24dfe60` has a focused local GNU89/Werror/ASan/UBSan policy test PASS and AI docs run `44673236138` PASS. Its Process run `44673235684` FAILed in `scripts/check_dev_init_boot.py` because the checker searched for a no-argument callback signature while the production callback correctly takes `void *context`. The GAI test step was skipped after this checker failure; XY-C1 `44673236140` was still in progress at last check. This is a checker-signature defect, not evidence of a product C failure.
-- Historical PR #1 is CLOSED/UNMERGED. CA trust-store bootstrap and AliDDNS HMAC implementation/tests are already present on `main`.
+- Checker repair commit `759a19a` updates the GAI callback declarations expected by `check_dev_init_boot.py`. Its exact-head Process run `44674401664` and AI docs run `44674401794` were IN_PROGRESS at last poll; no PASS is claimed.
+- The original GAI Process run `44673235684` failed only in the PID 1 semantic checker because it expected a callback without `void *context`; the GAI policy test was skipped after that early failure. The production callback signatures were correct. The focused GAI policy binary passed locally with GNU89/Werror/ASan/UBSan. GAI source commit `24dfe60` XY-C1 `44673236140` was still in progress at last poll.
+- TCP policy slice `e387b92` Process `44672214134` and AI docs `44672214038` passed. Its XY-C1 completion was not confirmed at last poll.
+- Historical PR #1 is CLOSED/UNMERGED; CA trust-store bootstrap and AliDDNS HMAC implementation/tests are already present on `main`.
 - Physical-router L4 remains NOT VERIFIED.
 
-## Active task
+## Active task completed in this slice
 
-Repair the PID 1 GAI source-checker signature. The production callback signatures include `void *context`; make the source checker match both callback declarations without weakening any test. Then re-run exact-head Process and docs checks. The GAI source code itself returns checked `fput_string()`/unlink status, treats unlink ENOENT as idempotent, and propagates status through PID 1 plus IPv6 init/restart.
+- Fixed a confirmed fail-closed gap in PPP-start firewall recovery. `restore_wan_after_ppp_start_failure()` previously ignored the return from publishing `wanN_ifname_t` via `set_wan_unit_value()`, then rebuilt the firewall even when the NVRAM write had failed. The firewall could therefore be rebuilt against stale PPP/physical interface state and incorrectly report a successful physical-WAN restoration.
+- Added a private status-returning setter for this sensitive callsite without changing the legacy public void setter ABI or other legacy callers. It clears/captures `errno`, normalizes NVRAM `0/-1` outcomes to positive errno (fallback EIO), and rejects truncation. Recovery now returns before firewall rebuild if interface publication fails; the existing outer recovery then attempts to keep the physical WAN interface down.
+- Added GNU89 unit coverage for success/stale errno, concrete errno propagation, missing errno fallback and unexpected nonzero API results. Extended the WAN route workflow (push + pull_request) and DDNS source contract to pin checked publication-before-firewall ordering and fail-closed ifdown behavior. The policy test passed locally under GNU89/Werror/ASan/UBSan.
 
 ## Verification boundary
 
-- The GAI focused host policy test passed locally, but the exact Process checker failed before reaching the GAI test on SHA `24dfe60`; no exact-head Process PASS can be claimed for that slice.
-- No same-SHA GAI L3 Build/TRX/artifact completion was confirmed at last poll. L4 remains NOT VERIFIED.
-- This checker correction has not yet been validated by Actions. No full firmware build was performed locally.
+- The WAN NVRAM fix has not yet been validated by exact-head Actions at this checkpoint. The checker repair's Process and AI docs runs were pending at last poll. No current-source XY-C1 Build/TRX/artifact PASS is claimed; no physical-router L4 test was performed.
+- No full firmware build was available locally. Host evidence is limited to the new WAN NVRAM policy binary and the prior focused GAI/TCP policy binaries.
 
 ## Exact first action for the next GPT
 
-1. Verify live `main` and exact-head Actions for the checker correction. Confirm Process step `Verify PID 1 required boot environment failure gates` and the GAI policy regression both PASS; inspect any first failure log rather than assuming.
-2. Confirm the GAI source commit's XY-C1 production-input detector, Build, TRX and artifact upload are complete on an exact source SHA before claiming L3.
-3. Continue the newly confirmed WAN fail-closed state-publication defect: `restore_wan_after_ppp_start_failure()` ignores failure from `set_wan_unit_value(unit, "ifname_t", wan_ifname)` before rebuilding the firewall. Propagate the NVRAM errno and abort firewall rebuild if the physical interface cannot be published; the existing caller must keep the interface down. Add a GNU89 injected status regression and extend the WAN route workflow/checker. Legacy setter ABI/callers should remain unchanged.
+1. Fetch live `main` and inspect exact-head Actions for this WAN NVRAM fix. Require WAN route policy + `check_wan_ddns_status.py`, Process, AI handoff docs and applicable workflow contracts to pass. Diagnose any failure from its exact job log.
+2. Recheck exact-head XY-C1 on the current production source: detector, Build XY-C1, TRX verification and artifact upload. Do not claim L3 from older source SHAs.
+3. Continue the next P1 RC state-publication audit: trace `set_wan_unit_value_int()`, `set_wan_unit_param()` and other NVRAM publication calls specifically where later firewall, interface, route or daemon state depends on the published value. Preserve ABI; only change the next proven failure-sensitive callsite and add an injected regression. Avoid converting all legacy telemetry writes speculatively.
 
 ## Mandatory handoff checkpoint
 
