@@ -1015,7 +1015,7 @@ jobs:
                   assert "(swapoff_status != 0 || mount_status != 0 || topology_status != 0)" in body
               assert "return storage_hotplug_completion_status(" in body
               assert "notification_status);" in body
-              assert 'notify_rc("on_hotplug_mass_storage")' in body
+              assert 'queue_storage_hotplug_notification(device_name, "on_hotplug_mass_storage")' in body
 
           check_root = function_body(hotplug, "check_root_partition(")
           assert check_root.index("storage_disk_name_is_valid") < check_root.index("fopen(PROC_PARTITIONS_FILE")

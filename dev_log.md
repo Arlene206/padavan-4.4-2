@@ -1,3 +1,12 @@
+## 2026-11-19 — Assert PID 1 storage notification queue integration
+
+- Storage hotplug rerun `44645368071` on `5ebdf79` passed the policy binary tests and operation-error assertions, then failed one remaining assertion requiring `notify_rc("on_hotplug_mass_storage")` in each mdev function.
+- The current caller deliberately uses `queue_storage_hotplug_notification(device_name, "on_hotplug_mass_storage")` and passes its returned status into `storage_hotplug_completion_status()`; this preserves failure propagation if PID 1 cannot accept the event. Updated the workflow source contract to match that real queue API rather than weakening the assertion.
+- NVRAM audit `44645672301` on `133ccb9` is IN_PROGRESS after updating the three-state PID 1 prerequisite/readiness contract; AI docs `44645672267` PASS. XY-C1 `44644448761` on product-source SHA `61cbc6b` remained in the Build XY-C1 step at last poll.
+- No production behavior changed in this workflow-only correction. Parent SHA: `133ccb9ed03ebd2812ba76b3cb5e0eb175582d56`.
+
+---
+
 ## 2026-11-19 — Align NVRAM fail-closed audit with three-state PID 1 readiness
 
 - Exact-head NVRAM audit `44644448560` on `61cbc6b` passed the NVRAM lock, snapshot, ioctl and device-node policy tests, then failed its source assertion because it still required `router_ready = dev_init_status == 0 && nvram_node_result == 0 && init_router() == 0`.
