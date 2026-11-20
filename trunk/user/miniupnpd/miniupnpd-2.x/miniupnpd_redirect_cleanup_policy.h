@@ -1,6 +1,8 @@
 #ifndef MINIUPNPD_REDIRECT_CLEANUP_POLICY_H
 #define MINIUPNPD_REDIRECT_CLEANUP_POLICY_H
 
+#include <errno.h>
+
 /* Preserve the first failure when independent cleanup stages are combined. */
 static inline int
 miniupnpd_merge_cleanup_status(int primary_status, int secondary_status)
@@ -59,6 +61,17 @@ static inline int
 miniupnpd_peer_redirect_cleanup_allowed(int primary_mapping_removed)
 {
 	return primary_mapping_removed != 0;
+}
+
+
+/* Cleanup helpers may alter errno while releasing a failed IPTC handle.
+ * Restore the operation's original error before returning to the caller. */
+static inline int
+miniupnpd_restore_errno_on_failure(int status, int saved_errno)
+{
+	if (status != 0)
+		errno = saved_errno != 0 ? saved_errno : EIO;
+	return status;
 }
 
 #endif /* MINIUPNPD_REDIRECT_CLEANUP_POLICY_H */

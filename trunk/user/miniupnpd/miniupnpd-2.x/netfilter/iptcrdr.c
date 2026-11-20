@@ -635,14 +635,16 @@ delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
                        const char * logcaller)
 {
 	int r = 0;
+	int failure_errno = 0;
 #ifdef IPTABLES_143
 	if(!iptc_delete_num_entry(miniupnpd_chain, index, h))
 #else
 	if(!iptc_delete_num_entry(miniupnpd_chain, index, &h))
 #endif
 	{
+		failure_errno = errno;
 		syslog(LOG_ERR, "%s() : iptc_delete_num_entry(): %s\n",
-	    	   logcaller, iptc_strerror(errno));
+	    	   logcaller, iptc_strerror(failure_errno));
 		r = -1;
 	}
 #ifdef IPTABLES_143
@@ -651,8 +653,9 @@ delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
 	else if(!iptc_commit(&h))
 #endif
 	{
+		failure_errno = errno;
 		syslog(LOG_ERR, "%s() : iptc_commit(): %s\n",
-	    	   logcaller, iptc_strerror(errno));
+	    	   logcaller, iptc_strerror(failure_errno));
 		r = -1;
 	}
 	if(h)
@@ -661,7 +664,7 @@ delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
 #else
 		iptc_free(&h);
 #endif
-	return r;
+	return miniupnpd_restore_errno_on_failure(r, failure_errno);
 }
 
 /* insert_rule_and_commit(): restore a previously deleted rule. */
@@ -672,12 +675,14 @@ insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,
 {
 	IPTC_HANDLE h;
 	int r = 0;
+	int failure_errno = 0;
 
 	h = iptc_init(table);
 	if (!h) {
+		failure_errno = errno;
 		syslog(LOG_ERR, "%s() : iptc_init(%s) failed : %s",
-		       logcaller, table, iptc_strerror(errno));
-		return -1;
+		       logcaller, table, iptc_strerror(failure_errno));
+		return miniupnpd_restore_errno_on_failure(-1, failure_errno);
 	}
 #ifdef IPTABLES_143
 	if (!iptc_insert_entry(chain, entry, index, h))
@@ -685,8 +690,9 @@ insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,
 	if (!iptc_insert_entry(chain, entry, index, &h))
 #endif
 	{
+		failure_errno = errno;
 		syslog(LOG_ERR, "%s() : iptc_insert_entry(): %s",
-		       logcaller, iptc_strerror(errno));
+		       logcaller, iptc_strerror(failure_errno));
 		r = -1;
 	}
 #ifdef IPTABLES_143
@@ -695,8 +701,9 @@ insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,
 	else if (!iptc_commit(&h))
 #endif
 	{
+		failure_errno = errno;
 		syslog(LOG_ERR, "%s() : iptc_commit() while restoring rule: %s",
-		       logcaller, iptc_strerror(errno));
+		       logcaller, iptc_strerror(failure_errno));
 		r = -1;
 	}
 	if (h)
@@ -705,7 +712,7 @@ insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,
 #else
 		iptc_free(&h);
 #endif
-	return r;
+	return miniupnpd_restore_errno_on_failure(r, failure_errno);
 }
 
 /* delete_redirect_and_filter_rules()

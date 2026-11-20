@@ -36,6 +36,17 @@ helper = function_body(
     SOURCE,
     "insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,"
 )
+delete_helper = function_body(
+    SOURCE,
+    "delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,"
+)
+for cleanup_helper in (helper, delete_helper):
+    assert "miniupnpd_restore_errno_on_failure(" in cleanup_helper
+    assert "failure_errno = errno" in cleanup_helper
+    assert cleanup_helper.index("iptc_free(") < cleanup_helper.rindex(
+        "miniupnpd_restore_errno_on_failure("
+    )
+assert "return miniupnpd_restore_errno_on_failure(-1, failure_errno);" in helper
 delete = function_body(
     SOURCE,
     "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)"

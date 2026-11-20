@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <errno.h>
 #include <stdio.h>
 #include "../miniupnpd_redirect_cleanup_policy.h"
 
@@ -72,6 +73,23 @@ test_metadata_cleanup_tracks_primary_mapping_and_preserves_status(void)
 }
 
 
+
+static void
+test_cleanup_helpers_restore_original_errno(void)
+{
+	errno = EBUSY;
+	assert(miniupnpd_restore_errno_on_failure(0, EACCES) == 0);
+	assert(errno == EBUSY);
+
+	errno = 0;
+	assert(miniupnpd_restore_errno_on_failure(-1, EACCES) == -1);
+	assert(errno == EACCES);
+
+	errno = 0;
+	assert(miniupnpd_restore_errno_on_failure(-1, 0) == -1);
+	assert(errno == EIO);
+}
+
 static void
 test_peer_cleanup_requires_primary_mapping_removal(void)
 {
@@ -86,6 +104,7 @@ main(void)
 	test_primary_redirect_removal_is_independent_of_peer_cleanup();
 	test_metadata_cleanup_tracks_primary_mapping_and_preserves_status();
 	test_peer_cleanup_requires_primary_mapping_removal();
+	test_cleanup_helpers_restore_original_errno();
 	puts("MiniUPnP redirect cleanup status policy: PASS");
 	return 0;
 }

@@ -1,3 +1,14 @@
+## 2026-11-20 — Preserve IPTC operation errno across handle cleanup
+
+- Parent main SHA: d7a937541226425de4254d90498c35f3c5859994.
+- Source review found that both delete_rule_and_commit() and insert_rule_and_commit() returned failure after calling iptc_free() without preserving errno. The logging path also called iptc_strerror(errno) before handle cleanup. Because those library, logging and cleanup calls are not required to preserve errno, callers could receive a stale error instead of the original delete, commit, insert or rollback failure.
+- Added miniupnpd_restore_errno_on_failure() to the shared GNU89 cleanup policy. Both mutators now snapshot errno immediately at the failing IPTC operation (and before logging), release the handle, then restore the original errno; a failure with errno unset deterministically reports EIO. The rollback helper also preserves errno when table initialization fails.
+- Added compiled policy regression for successful-status errno neutrality, original-error restoration and EIO fallback. Extended the standalone IPTC delete checker and duplicate inline workflow contract to require snapshot-before-logging and restore-after-free in both production mutators.
+- Parent SHA d7a937541226425de4254d90498c35f3c5859994: MiniUPnP #44805637861 PASS, AI #44805637957 PASS, Process #44805637806 PASS, NVRAM #44805637802 PASS. Product-source XY-C1 #44805637821 remained IN_PROGRESS at last poll (Build running; TRX/artifact pending); this commit changes production C and requires a fresh exact-head XY-C1 build.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Record exact-source XY-C1 L3 boundary
 
 - Parent main SHA: eccdab54081a0f28c072025a55e5e2f6a8159b88.

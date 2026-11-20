@@ -14,31 +14,30 @@ The checkpoint is mandatory; a document edit is conditional. At session end insp
 
 ## Current repository state
 
-- Repository Arlene206/padavan-4.4-2; parent for this evidence update: eccdab54081a0f28c072025a55e5e2f6a8159b88.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Product source SHA 30af417ed8d7665e5da0f630e79b38bbb9f92296 has complete XY-C1 L3 PASS: run #44804291706, Build XY-C1 PASS, TRX verification PASS, artifact upload PASS. This validates only source through 30af417.
-- Later product changes are not yet covered by that L3: 7d9b12c46927b2fbb3aba6ea0346de0cc1b7d0a1 adds the primary-metadata cleanup finalizer; current product source eccdab54081a0f28c072025a55e5e2f6a8159b88 gates peer SNAT/DSCP cleanup on confirmed primary redirect removal.
-- Exact-head MiniUPnP #44805637861 PASS, AI handoff #44805637957 PASS, process inventory #44805637806 PASS, and NVRAM transaction audit #44805637802 PASS on eccdab.
-- Exact-head XY-C1 #44805637821 on eccdab is still IN_PROGRESS: Build XY-C1 IN_PROGRESS; Verify TRX output and artifact upload PENDING. Do not claim L3 for eccdab until all three actual steps pass.
-- The peer-cleanup gate fixes a discovered state-corruption bug: the old code could delete peer SNAT/DSCP after primary NAT deletion failed, or after a successful NAT rollback following filter deletion failure, leaving an existing DNAT without supporting peer rules. The complete secondary transaction is now gated on primary_mapping_removed. Its C policy regression and source checker pass in the MiniUPnP workflow.
+- Repository Arlene206/padavan-4.4-2; parent for this IPTC errno preservation fix: d7a937541226425de4254d90498c35f3c5859994.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and read-only.
+- Product source eccdab54081a0f28c072025a55e5e2f6a8159b88 gates the entire peer SNAT/DSCP deletion and peer rollback transaction on confirmed primary DNAT/filter removal. Its exact-head MiniUPnP #44805637861, AI #44805637957, Process #44805637806 and NVRAM #44805637802 all PASS.
+- Exact-source XY-C1 #44805637821 on eccdab was still IN_PROGRESS at last observation: Build XY-C1 IN_PROGRESS; TRX verification and artifact upload PENDING. This product SHA has no L3 result until those exact steps pass.
+- Earlier source 30af417ed8d7665e5da0f630e79b38bbb9f92296 has valid L3: XY-C1 #44804291706 Build, TRX and artifact upload all PASS. This does not verify later production changes.
+- Newly identified error-propagation gap: delete_rule_and_commit() and insert_rule_and_commit() could lose the causal IPTC errno during syslog formatting or iptc_free(). This commit adds a shared errno-restoration policy, uses it after all handle cleanup, and adds compiled regression/source contracts.
 
 ## Active task
 
-1. Check exact-head XY-C1 run #44805637821 for eccdab. Count L3 only if Build XY-C1, Verify TRX output and artifact upload each complete SUCCESS on this exact SHA.
-2. If Build fails, inspect its earliest causal compiler/error line and make a targeted GNU89/MIPS/uClibc-safe source fix. If Build passes, confirm TRX and artifact steps individually.
-3. Then add fault-injected backend coverage for NAT init/delete failure, filter init/delete failure, successful/failed NAT restoration and missing/no-match primary chain; keep peer state unchanged whenever primary mapping remains.
-4. Continue source → regression → atomic commit → exact-SHA Actions. The already passing host, process and NVRAM jobs do not need repeated audits.
+1. Inspect exact-head MiniUPnP, AI, Process, NVRAM and XY-C1 Actions for THIS COMMIT. The cleanup errno unit test plus the two IPTC helper source contracts must pass.
+2. Count L3 only if Build XY-C1, Verify TRX output and artifact upload all complete SUCCESS for this exact product-source SHA.
+3. If exact-head tests pass, continue with fault-injected coverage for primary NAT/filter backend failure and rollback cases; focus next on preserving the original errno through delete_rule_and_commit() and insert_rule_and_commit() in all IPTABLES_143/non-143 branches, as well as NAT/filter initialization failures.
+4. Continue source → regression → atomic commit → exact-SHA Actions; pending unrelated work does not block independent fixes.
 
 ## Verification boundary
 
-- XY-C1 run #44804291706, exact source SHA 30af417: Build PASS, TRX PASS, artifact upload PASS. L3 verified for 30af417 only.
-- On exact source SHA eccdab: MiniUPnP #44805637861 PASS; AI handoff #44805637957 PASS; process inventory #44805637806 PASS; NVRAM audit #44805637802 PASS.
-- XY-C1 #44805637821 on eccdab: Build IN_PROGRESS, TRX PENDING, artifact PENDING at the last check. L3 for eccdab NOT VERIFIED.
-- Physical-router L4 remains NOT VERIFIED.
+- Parent eccdab: MiniUPnP PASS, AI handoff PASS, Process inventory PASS, NVRAM transaction audit PASS.
+- Parent eccdab XY-C1 #44805637821: Build IN_PROGRESS, TRX PENDING, artifact PENDING at last poll; not L3 yet.
+- Product source 30af: XY-C1 #44804291706 Build PASS, TRX PASS, artifact upload PASS; L3 verified for 30af only.
+- Current commit changes product C/header and requires its own exact-source XY-C1 build. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live main and inspect run #44805637821. Verify the actual Build XY-C1, TRX and artifact-upload conclusions for exact SHA eccdab. If a failure exists, inspect the first causal log line and fix it. If it passes, move to injected low-level backend coverage or another concrete userland stability/security bug without repeating the completed main/backup recovery or host audits.
+Fetch live main and inspect exact-head MiniUPnP/AI/Process/NVRAM/XY-C1 runs. Confirm the errno policy test and both source contracts pass. Verify Build XY-C1, TRX and artifact upload individually on the exact new source SHA. If a job fails, inspect its first causal log and repair the actual defect without weakening assertions. Then continue injected NAT/filter delete and rollback fault coverage.
 
 ## Handoff maintenance
 
