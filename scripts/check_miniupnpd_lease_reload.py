@@ -21,7 +21,7 @@ def function_body(source, signature):
     raise AssertionError("unterminated function: " + signature)
 
 
-replay = function_body(SOURCE, "int reload_from_lease_file()")
+replay = function_body(SOURCE, "reload_from_lease_file()")
 unlink_at = replay.index("if(unlink(lease_file) < 0)")
 error_test = replay.index("if (saved_errno != ENOENT)", unlink_at)
 close_at = replay.index("(void)fclose(fd)", error_test)
