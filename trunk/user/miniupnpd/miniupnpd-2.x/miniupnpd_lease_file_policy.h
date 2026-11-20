@@ -152,6 +152,12 @@ miniupnpd_lease_file_rewrite(FILE *source, FILE *destination,
 	}
 	while (source && fgets(record, sizeof(record), source) != NULL) {
 		record_length = strlen(record);
+		/* Never reinterpret a continuation chunk as a second lease record. */
+		if (record_length == sizeof(record) - 1 &&
+		    record[record_length - 1] != '\n') {
+			errno = EOVERFLOW;
+			return -1;
+		}
 		if (!miniupnpd_lease_record_key_matches(
 			    record, record_length, key, key_length)) {
 			errno = 0;

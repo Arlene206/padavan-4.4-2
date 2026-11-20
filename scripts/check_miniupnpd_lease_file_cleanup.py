@@ -69,7 +69,7 @@ for marker in ("mkstemp(tmpfilename)", "fchmod(tmp", "fclose(fd)",
                "fflush(fdt)", "fsync(fileno(fdt))",
                "rename(tmpfilename, lease_file)", "tmp_created"):
     assert marker in rewrite_entry, marker
-assert "errno == ENOENT" in rewrite_entry
+assert "fd == NULL && errno != ENOENT" in rewrite_entry
 assert "ferror(source)" in POLICY
 assert "miniupnpd_lease_file_rewrite(FILE *source, FILE *destination," in POLICY
 

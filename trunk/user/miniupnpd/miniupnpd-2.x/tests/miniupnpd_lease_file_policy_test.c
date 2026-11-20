@@ -257,6 +257,37 @@ test_atomic_rewrite_rejects_invalid_arguments(void)
 	assert(fclose(destination) == 0);
 }
 
+static void
+test_atomic_rewrite_rejects_overlong_records(void)
+{
+	FILE *source;
+	FILE *destination;
+	char record[700];
+	char output[32];
+	size_t length;
+
+	source = tmpfile();
+	destination = tmpfile();
+	assert(source != NULL && destination != NULL);
+	memcpy(record, "TCP:1234:", 9);
+	memset(record + 9, 'x', sizeof(record) - 10);
+	record[sizeof(record) - 1] = '\n';
+	assert(fwrite(record, 1, sizeof(record), source) == sizeof(record));
+	rewind(source);
+	errno = 0;
+	assert(miniupnpd_lease_file_rewrite(
+		source, destination, "TCP:1234", 8, NULL, 0) == -1);
+	assert(errno == EOVERFLOW);
+	assert(fflush(destination) == 0);
+	rewind(destination);
+	length = fread(output, 1, sizeof(output), destination);
+	assert(length == 0);
+	assert(!ferror(destination));
+	assert(fclose(source) == 0);
+	assert(fclose(destination) == 0);
+}
+
+
 int
 main(void)
 {
@@ -268,6 +299,7 @@ main(void)
 	test_atomic_rewrite_remove_preserves_other_keys();
 	test_atomic_rewrite_creates_missing_file_content();
 	test_atomic_rewrite_rejects_invalid_arguments();
+	test_atomic_rewrite_rejects_overlong_records();
 	test_lease_append_rolls_back_partial_write();
 	puts("MiniUPnP lease-file record serialization policy: PASS");
 	return 0;
