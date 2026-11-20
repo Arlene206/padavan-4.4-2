@@ -471,7 +471,8 @@ test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple(void)
 	assert(rollback_status == EIO);
 	assert(strcmp(fake.events, "ABCDdcba") == 0);
 	assert(strcmp(fake.current[0], old_values[0]) == 0);
-	assert(strcmp(fake.current[1], old_values[1]) == 0);
+	/* B's rollback failed, so its new empty value remains visible. */
+	assert(strcmp(fake.current[1], "") == 0);
 	assert(strcmp(fake.current[2], old_values[2]) == 0);
 	assert(strcmp(fake.current[3], old_values[3]) == 0);
 }
