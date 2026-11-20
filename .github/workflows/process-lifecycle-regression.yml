@@ -54,6 +54,8 @@ on:
       - "trunk/user/rc/src/igmpproxy_config_file.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/init_router_result_policy.h"
+      - "trunk/user/rc/src/tests/init_router_result_policy.c"
       - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
       - "trunk/user/rc/src/ipv6_global_conf_policy.h"
       - "trunk/user/rc/src/lan_addr6_reload_policy.h"
@@ -227,6 +229,8 @@ on:
       - "trunk/user/rc/src/igmpproxy_config_file.h"
       - "trunk/user/rc/src/init.c"
       - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/init_router_result_policy.h"
+      - "trunk/user/rc/src/tests/init_router_result_policy.c"
       - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
       - "trunk/user/rc/src/ipv6_global_conf_policy.h"
       - "trunk/user/rc/src/lan_addr6_reload_policy.h"
@@ -591,6 +595,12 @@ jobs:
           python3 scripts/check_modem_wan_start_status.py
       - name: Verify PID 1 required boot environment failure gates
         run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/init_router_result_policy.c \
+            -o "$RUNNER_TEMP/init-router-result-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/init-router-result-policy"
           sh trunk/user/scripts/tests/dev_init_boot_policy.sh
           python3 scripts/check_dev_init_boot.py
       - name: Verify SCUT crontab update status and persistence

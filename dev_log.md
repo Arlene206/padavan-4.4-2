@@ -1,3 +1,13 @@
+## 2026-11-19 — Preserve PID 1 readiness while propagating degraded boot status
+
+- `init_router()` aggregated module/service failures in `boot_services_status` but returned success unconditionally, hiding partial startup failure from PID 1. Added distinct FATAL/READY/DEGRADED outcomes: the four mandatory NVRAM/configuration aborts remain fatal; accumulated boot-service errors now return DEGRADED.
+- `init_main_loop()` keeps router events and deferred hotplug handling enabled for both READY and DEGRADED, and logs the degraded state. `dev_init.sh` and NVRAM node prerequisites still gate `init_router()`; fatal results retain console recovery behavior.
+- Added a GNU89/Werror policy regression for success, positive/negative error statuses, degraded readiness, fatal rejection and unknown-state rejection. Local command `cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I/tmp /tmp/init_router_result_policy.c -o /tmp/init-router-result-policy && ASAN_OPTIONS=detect_leaks=1 /tmp/init-router-result-policy` PASS. Process workflow also compiles/runs the regression and checks the production caller graph.
+- Parent exact-head VPN `44640556013` and AI docs `44640556098` PASS on `b35b6a7aaa2b5018c8c5dac85b2aa81bb6074c35`. Earlier rp-L2TP product SHA `2b646cccdcb24da5d447586893a500fdcf3cfe48` XY-C1 run `44639411601` passed Build, TRX verification and artifact upload (artifact `14584429568`). The current RC/PID 1 change still requires its own exact-head CI and firmware run.
+- This slice does not claim physical-router L4 verification.
+
+---
+
 ## 2026-11-19 — Scope VPN path-filter contract to pull_request.paths
 
 - Exact-head VPN run `44640170448` on `40eb3ad8` compiled and passed the VPN lifecycle lock, callback identity, xl2tpd start gate, rp-L2TP ASan/UBSan filesystem regression, shared lease lock and restart-status tests. It failed only in `check_vpn_server_lifecycle.py`: the checker counted the rp-L2TP regression source once in the PR trigger and again in the later compiler command.

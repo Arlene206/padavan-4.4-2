@@ -11,29 +11,30 @@ Continue main-only implementation across conversations. Restore exact live sourc
 
 ## Current repository state
 
-- Current main before this source-contract repair: `40eb3ad8bde1b728c449d907208886fa751f8f55`. Product-source commit `2b646cccdcb24da5d447586893a500fdcf3cfe48` added the rp-L2TP private atomic config writer; its GNU89 ASan/UBSan filesystem test passed on the original source run.
-- Checker follow-up `09dfc4be938591b9e9e99f15ce7992c124080d73` fixed the mode expectation and HTTPD checker; checker follow-up `40eb3ad8bde1b728c449d907208886fa751f8f55` fixed the second HTTPD source-body extraction mismatch. Exact-head HTTPD `44640170448` PASS.
-- Exact-head VPN run `44640170448` fails only at the source checker’s trigger-path count for `tests/l2tp_config_file.c`. The PR path filter contains the file exactly once; the checker incorrectly counts the later compiler command occurrence as a second path because it scans the entire remainder of the YAML. This commit narrows the scan to the pull_request paths block.
-- The original `2b646cc` XY-C1 run `44639411601` was pending at the last confirmed checkpoint. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Parent for the PID 1 degraded-readiness slice: `b35b6a7aaa2b5018c8c5dac85b2aa81bb6074c35`. Current-main VPN lifecycle regression `44640556013` and AI handoff documentation contract `44640556098` both PASS on that exact SHA.
+- rp-L2TP configuration publication hardening is implemented in `2b646cccdcb24da5d447586893a500fdcf3cfe48`; its GNU89 ASan/UBSan filesystem regression passed. Exact XY-C1 run `44639411601` completed successfully on that exact product SHA: Build XY-C1, TRX verification and artifact upload all PASS; artifact `14584429568` (12,678,233 bytes; SHA-256 `db6fc9199ef0798b75ec8c3d3bc98bc9becee50c07474b6e1fbada14d9df4bc8`).
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`; it is archival and untouched. Develop on main only.
+- The prior VPN checker path-filter regression on `40eb3ad8bde1b728c449d907208886fa751f8f55` is corrected; current-main exact VPN and AI docs checks pass. No physical-router L4 result is available.
 
 ## Active task
 
-- rp-L2TP root config publication is hardened by `l2tp_config_file.h`: it rejects symlinked/foreign-owned config directories, enforces non-writable directory mode despite PID 1’s `umask(0000)`, stages in the same directory and atomically renames, replacing a leaf symlink without following it. GNU89 ASan/UBSan filesystem regression passed in original source run `44639411367`.
-- Fixed the VPN source checker’s false positive: it previously counted every occurrence after the YAML `pull_request:` key, including the `cc ... tests/l2tp_config_file.c` command under jobs. It now restricts its count to the actual `pull_request.paths` section before `workflow_dispatch:`. No production code or test behavior changed.
-- No local MIPS build, target uClibc test, or physical-router behavior is claimed.
+- P1 boot-result defect: `init_router()` already aggregated hardware/module and service startup failures in `boot_services_status`, but its final `return 0` discarded that result. PID 1 therefore could not distinguish complete startup from a router with degraded services.
+- This slice introduces explicit `FATAL`, `READY`, and `DEGRADED` results. The four existing mandatory NVRAM/configuration aborts remain fatal; a nonzero accumulated boot-service status becomes degraded, while zero remains ready.
+- PID 1 now treats READY and DEGRADED as router-ready, retaining signal notifications and deferred hotplug handling after partial service startup. Mandatory `dev_init.sh`/NVRAM prerequisites and fatal `init_router()` failures still keep router event handling disabled and preserve console recovery.
+- Added GNU89 policy regression coverage and extended the PID 1 source/workflow contract. Local GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy binary passed. Exact-head Process, AI docs and XY-C1 Actions for this new source commit must be checked after publication.
 
 ## Exact first action for the next GPT
 
-1. Check this checker-only commit’s exact-head VPN lifecycle and AI handoff docs results. The VPN source contract must pass while continuing to require exactly one push and PR path entry for both the config header and regression file.
-2. Recheck the original product SHA `2b646cccdcb24da5d447586893a500fdcf3cfe48` XY-C1 run `44639411601`; checker-only commits do not replace same-source firmware verification.
-3. Continue the P1 RC startup-result propagation item: trace any remaining launch path whose real failure is discarded, preserving PID 1 fatal prerequisites and degraded notification behavior.
+1. Query exact-head Process lifecycle, AI handoff docs and XY-C1 results for the PID 1 result-policy commit. XY-C1 L3 is complete only when Build, TRX verification and artifact upload all pass on that same source SHA.
+2. Repair only demonstrated checker/build failures; keep READY/DEGRADED event handling enabled and mandatory prerequisite failures fatal.
+3. Continue the open P1 RC startup-result propagation queue at the next unclosed caller in `start_services_once()`/WAN service dispatch; do not repeat the closed void-wrapper caller audit or completed rp-L2TP/netmask/MTD slices.
 
 ## Verification boundary
 
-- L1: rp-L2TP config directory/leaf handling uses owner/mode/symlink validation and same-directory atomic publication; final config mode is 0644.
-- L2: original GNU89 ASan/UBSan filesystem regression passed on source run `44639411367`. VPN exact-head run `44640170448` failed only in a workflow path-count checker bug; this scoped checker correction awaits a fresh exact-head rerun. HTTPD exact-head run `44640170448` PASS.
-- L3: original product SHA `2b646cc` XY-C1 run `44639411601` was pending at last confirmed check; re-query its status. No checker-only SHA substitutes for that product-source result.
-- L4: target MIPS/uClibc behavior, concurrent WAN transitions and physical-router validation remain NOT VERIFIED.
+- L1: router startup result now distinguishes fatal prerequisite failure, fully ready, and degraded boot-service status; the PID 1 readiness classifier admits only READY/DEGRADED.
+- L2: local GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy regression passed. Exact-head Process source integration and AI docs Actions are pending for this commit.
+- L3: prior rp-L2TP product SHA `2b646cc` passed XY-C1 Build/TRX/artifact, but the current `rc.c`/`init.c` source change requires its own exact-head XY-C1 Build/TRX/artifact pass.
+- L4: target MIPS/uClibc runtime and physical-router startup/recovery behavior remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
 

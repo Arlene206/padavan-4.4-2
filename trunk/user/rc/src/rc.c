@@ -53,6 +53,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "rc_notify_batch_policy.h"
 #include "service_wait_policy.h"
+#include "init_router_result_policy.h"
 #include "wireless_radio_policy.h"
 #include "ddns_restart_policy.h"
 #if defined (USE_IPV6)
@@ -994,7 +995,7 @@ init_router(void)
 	nvram_need_commit = nvram_restore_defaults();
 	if (nvram_need_commit < 0) {
 		logmessage(LOGNAME, "Router initialization stopped: NVRAM defaults are not trustworthy");
-		return -1;
+		return INIT_ROUTER_RESULT_FATAL;
 	}
 
 	get_eeprom_params();
@@ -1005,19 +1006,19 @@ init_router(void)
 
 	if (rc_nvram_commit_if_needed(nvram_need_commit, &rc_nvram_ops, NULL) < 0) {
 		logmessage(LOGNAME, "Router initialization stopped: NVRAM defaults commit failed");
-		return -1;
+		return INIT_ROUTER_RESULT_FATAL;
 	}
 
 	rwfs_mount_status = mount_rwfs_partition();
 
 	if (gen_ralink_config_2g(0) < 0) {
 		logmessage(LOGNAME, "Router initialization stopped: failed to generate 2.4GHz wireless configuration");
-		return -1;
+		return INIT_ROUTER_RESULT_FATAL;
 	}
 #if BOARD_HAS_5G_RADIO
 	if (gen_ralink_config_5g(0) < 0) {
 		logmessage(LOGNAME, "Router initialization stopped: failed to generate 5GHz wireless configuration");
-		return -1;
+		return INIT_ROUTER_RESULT_FATAL;
 	}
 #endif
 	boot_modules_status = load_wireless_modules();
@@ -1273,7 +1274,7 @@ init_router(void)
 				   autostart_status);
 	}
 
-	return 0;
+	return init_router_result_from_boot_status(boot_services_status);
 }
 
 /*

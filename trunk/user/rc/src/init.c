@@ -37,6 +37,7 @@
 #include <sys/sysmacros.h>
 
 #include "rc.h"
+#include "init_router_result_policy.h"
 #include "gpio_pins.h"
 #include "pid1_signal_policy.h"
 #include "init_mdev_config_file.h"
@@ -647,6 +648,7 @@ init_main_loop(void)
 	pid_t shell_pid = 0;
 	int shutdown_handled = 0;
 	int router_ready;
+	int router_init_status = INIT_ROUTER_RESULT_FATAL;
 	int nvram_node_result;
 	int dev_init_status;
 	int mdev_status;
@@ -713,11 +715,17 @@ init_main_loop(void)
 	/* SIGUSR2 remains a reserved, currently no-op event signal. */
 	control_signal(SIGUSR2, SIG_BLOCK);
 
-	/* Router init and start; keep PID 1 in recovery mode on NVRAM failure. */
+	/* Required host prerequisites gate router init; service errors are degraded, not fatal. */
+	if (dev_init_status == 0 && nvram_node_result == 0)
+		router_init_status = init_router();
 	router_ready = (dev_init_status == 0 &&
-		       nvram_node_result == 0 && init_router() == 0);
+		       nvram_node_result == 0 &&
+		       init_router_status_is_ready(router_init_status));
 	if (!router_ready)
 		logmessage(LOGNAME, "Router startup failed; console recovery remains available");
+	else if (init_router_status_is_degraded(router_init_status))
+		logmessage(LOGNAME,
+			   "Router startup reached ready state with degraded service status; PID 1 event handling remains enabled");
 
 	/* unblock SIGUSR1 */
 	control_signal(SIGUSR1, SIG_UNBLOCK);
