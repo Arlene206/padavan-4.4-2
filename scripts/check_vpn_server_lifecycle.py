@@ -657,8 +657,19 @@ require("if (stop_openvpn_server() != 0)" in vpn_server_stop and
 vpn_client_stop=body(vpn_client,"static int\nstop_vpn_client_locked(void)")
 require("stop_status = stop_openvpn_client();" in vpn_client_stop and
         "if (stop_status != 0)" in vpn_client_stop and
-        vpn_client_stop.index("if (stop_status != 0)") < vpn_client_stop.index('nvram_set_int_temp("l2tp_cli_t", 0)'),
+        vpn_client_stop.index("if (stop_status != 0)") <
+        vpn_client_stop.index('vpn_client_nvram_set_temp_status(\n\t\tNULL, "l2tp_cli_t", "0")'),
         "VPN client NVRAM/script cleanup must wait for OpenVPN stop")
+ordered(vpn_client_stop, [
+    'vpn_client_nvram_set_temp_status(\n\t\tNULL, "l2tp_cli_t", "0")',
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
+    'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
+    "unlink(VPNC_PPP_UP_SCRIPT)",
+    "return cleanup_status;"
+], "VPN client checked NVRAM cleanup")
+require("nvram_set_int_temp(" not in vpn_client,
+        "VPN client must not retain unchecked temporary NVRAM setters")
 
 require('#include "vpn_server_lease_lock.h"' in openvpn,
         "OpenVPN callbacks do not include the shared lease lock")
