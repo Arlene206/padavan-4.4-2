@@ -47,6 +47,7 @@
 #include "firewall_startup_policy.h"
 #include "rc_nvram_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "router_mode_nvram_policy.h"
 #include "storage_persistence_policy.h"
 #include "service_start_status.h"
 #include "crontab_update_status.h"
@@ -511,24 +512,14 @@ nvram_convert_misc_values(void)
 	char buff[64];
 	int sw_mode, status;
 
-	/* check router mode */
+	/* Publish a complete router-mode policy before any dependent boot setup. */
 	sw_mode = nvram_get_int("sw_mode");
-	if (sw_mode == 1) {
-		/* Internet gateway mode */
-		nvram_set_int("wan_nat_x", 1);
-		nvram_set("wan_route_x", "IP_Routed");
-	} else if (sw_mode == 4) {
-		/* Pure router mode */
-		nvram_set_int("wan_nat_x", 0);
-		nvram_set("wan_route_x", "IP_Routed");
-	} else if (sw_mode == 3) {
-		/* AP mode (Ethernet convertor) */
-		nvram_set("wan_route_x", "IP_Bridged");
-	} else {
-		sw_mode = 1;
-		nvram_set_int("sw_mode", 1);
-		nvram_set_int("wan_nat_x", 1);
-		nvram_set("wan_route_x", "IP_Routed");
+	status = rc_router_mode_nvram_configure(
+		sw_mode, rc_nvram_policy_set, NULL, &sw_mode);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "router mode NVRAM publication failed (status=%d)", status);
+		return status;
 	}
 
 	if (sw_mode != 3)

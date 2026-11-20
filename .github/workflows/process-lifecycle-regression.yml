@@ -86,6 +86,8 @@ on:
       - "trunk/user/rc/src/pppoe_relay_policy.h"
       - "trunk/user/rc/src/process_presence_start_policy.h"
       - "trunk/user/802.1x/src/auth_startup_handshake.h"
+      - "trunk/user/rc/src/router_mode_nvram_policy.h"
+      - "trunk/user/rc/src/tests/router_mode_nvram_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
@@ -279,6 +281,8 @@ on:
       - "trunk/user/rc/src/pppoe_relay_policy.h"
       - "trunk/user/rc/src/process_presence_start_policy.h"
       - "trunk/user/802.1x/src/auth_startup_handshake.h"
+      - "trunk/user/rc/src/router_mode_nvram_policy.h"
+      - "trunk/user/rc/src/tests/router_mode_nvram_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
@@ -646,6 +650,11 @@ jobs:
       - name: Verify PID 1 required boot environment failure gates
         run: |
           set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/router_mode_nvram_policy.c \
+            -o "$RUNNER_TEMP/router-mode-nvram-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/router-mode-nvram-policy"
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
             -fno-omit-frame-pointer -I trunk/user/rc/src \
             trunk/user/rc/src/tests/init_router_result_policy.c \

@@ -13,6 +13,8 @@ tcp_test = (root / "trunk/user/rc/src/tests/tcp_tweaks_policy.c").read_text()
 gai_policy = (root / "trunk/user/rc/src/libc_gai_policy.h").read_text()
 gai_test = (root / "trunk/user/rc/src/tests/libc_gai_policy.c").read_text()
 rc = (root / "trunk/user/rc/src/rc.c").read_text()
+router_mode_policy = (root / "trunk/user/rc/src/router_mode_nvram_policy.h").read_text()
+router_mode_test = (root / "trunk/user/rc/src/tests/router_mode_nvram_policy.c").read_text()
 result_policy = (root / "trunk/user/rc/src/init_router_result_policy.h").read_text()
 result_test = (root / "trunk/user/rc/src/tests/init_router_result_policy.c").read_text()
 script = (root / "trunk/user/scripts/files/sbin/dev_init.sh").read_text()
@@ -90,6 +92,27 @@ loop = c_function(init, "init_main_loop(void)")
 sysctl = c_function(init, "init_sysctl(void)")
 sysctl_recorder = c_function(init, "init_sysctl_record_status(")
 router = c_function(rc, "init_router(void)")
+
+router_mode_setup = c_function(rc, "nvram_convert_misc_values(void)")
+assert '#include "router_mode_nvram_policy.h"' in rc
+assert "rc_router_mode_nvram_configure" in router_mode_policy
+mode_call = router_mode_setup.index("status = rc_router_mode_nvram_configure(")
+mode_error = router_mode_setup.index("if (status != 0)", mode_call)
+mode_return = router_mode_setup.index("return status;", mode_error)
+mode_led = router_mode_setup.index("LED_CONTROL", mode_call)
+assert mode_call < mode_error < mode_return < mode_led
+assert "nvram_set_int(\"wan_nat_x\"" not in router_mode_setup
+assert 'nvram_set("wan_route_x"' not in router_mode_setup
+assert 'nvram_set_int("sw_mode"' not in router_mode_setup
+for case in (
+    "test_gateway_mode_publishes_nat_and_route",
+    "test_router_mode_disables_nat_and_keeps_routed_path",
+    "test_access_point_mode_only_publishes_bridged_route",
+    "test_unknown_mode_is_published_as_gateway_before_dependent_values",
+    "test_each_required_write_failure_aborts_the_sequence",
+    "test_invalid_arguments_do_not_write_nvram",
+):
+    assert case in router_mode_test and case + "();" in router_mode_test
 assert '#include "boot_device_node_policy.h"' in init
 assert "mknod(path, S_IFCHR | RC_BOOT_DEVICE_NODE_MODE, device)" in node_prepare
 assert "errno != EEXIST" in node_prepare
