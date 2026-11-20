@@ -411,9 +411,10 @@ require("return set_wan_unit_value_status(unit, param_name, value_text);" in dem
         "PPP demand metadata must use the checked WAN NVRAM writer")
 demand_publish_at = start.index('vlan_result = set_wan_unit_value_int_status(\n\t\t\t\tunit, "pppoe_demand", i_demand);')
 demand_publish_failure = body(start[demand_publish_at:], "if (vlan_result != 0)")
+demand_publish_failure_normalized = " ".join(demand_publish_failure.split())
 require(demand_publish_at < start.index("vlan_result = launch_wan_pppd(unit, wan_proto);") and
-        "restore_wan_after_firewall_failure(unit, wan_ifname);" in demand_publish_failure and
-        "continue;" in demand_publish_failure,
+        "restore_wan_after_firewall_failure( unit, wan_ifname);" in demand_publish_failure_normalized and
+        "continue;" in demand_publish_failure_normalized,
         "pppd must not launch if the demand option cannot be published; physical WAN cleanup must run")
 require('set_wan_unit_value_int(unit, "pppoe_demand", i_demand);' not in start,
         "unchecked PPPoE demand publication remains before pppd launch")
