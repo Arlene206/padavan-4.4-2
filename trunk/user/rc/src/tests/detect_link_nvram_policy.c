@@ -53,7 +53,7 @@ static void
 test_changed_state_retries_without_replaying_side_effects(void)
 {
 	struct fake_writer writer;
-	int last_published = 0;
+	int last_published = 1;
 
 	writer.calls = 0;
 	writer.result = -1;
