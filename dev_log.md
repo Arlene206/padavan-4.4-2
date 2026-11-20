@@ -1,3 +1,10 @@
+## 2026-11-20 — Log LAN DHCP acquisition failures without disturbing lease state
+
+- Parent main SHA: `8e3c5143e5bcfd24e5b9886e7aa35df013adf463`.
+- BusyBox calls the LAN `leasefail` hook when initial discovery/request retries exhaust their current attempt window; there is no active lease to deconfigure, and the client itself schedules another acquisition attempt. The hook was a silent no-op, leaving AP/router logs without any indication why DHCP was not obtaining an address.
+- Added an explicit retry-status log while preserving its successful callback status. The source contract asserts that `leasefail` is observational only and must not run deconfig. The NAK callback remains log-only because BusyBox invokes the separate deconfig event after a valid NAK when an existing lease needs withdrawal; its contract now protects against duplicate teardown.
+- This is an observability fix, not a change to DHCP retry or lease semantics. Exact-head WAN-DHCP callback and XY-C1 validation are required. Physical L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Refresh networkmap after an address-changing LAN DHCP renewal
 
 - Parent main SHA: `9d8a9036cdd350a3a45971d8cd5d766d5ec93762`.

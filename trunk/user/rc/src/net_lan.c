@@ -2598,6 +2598,9 @@ udhcpc_lan_bound(char *lan_ifname, int is_renew)
 static int 
 udhcpc_lan_leasefail(char *lan_ifname)
 {
+	logmessage("DHCP LAN Client",
+		   "no DHCP lease available on %s; udhcpc will retry acquisition",
+		   lan_ifname);
 	return 0;
 }
 

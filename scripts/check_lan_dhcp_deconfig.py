@@ -131,6 +131,14 @@ deconfig_end = lan.index("udhcpc_lan_bound(", deconfig_start)
 deconfig = lan[deconfig_start:deconfig_end]
 assert "status = lan_down_auto(lan_ifname);" in deconfig
 assert "return status;" in deconfig
+leasefail = c_function_body(lan, "udhcpc_lan_leasefail(char *lan_ifname)")
+assert 'no DHCP lease available on %s; udhcpc will retry acquisition' in leasefail
+assert "return 0;" in leasefail
+assert "lan_down_auto(" not in leasefail
+nak_callback = c_function_body(lan, "udhcpc_lan_noack(char *lan_ifname)")
+assert 'Received NAK for %s' in nak_callback
+assert "lan_down_auto(" not in nak_callback
+assert "udhcpc_lan_deconfig(" not in nak_callback
 
 # Every later AP RENEW is a recovery opportunity, including after both the
 # volatile retry marker and the immediate PID 1 queue have failed.
