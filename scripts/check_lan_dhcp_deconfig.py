@@ -299,7 +299,8 @@ assert "nvram_set_temp(" not in manv_route
 publish_helper = c_function_body(wan, "wan_dhcp_nvram_publish_values(")
 assert "nvram_transaction_begin(&transaction)" in publish_helper
 assert "nvram_transaction_get(" in publish_helper
-assert "nvram_transaction_set" not in publish_helper
+assert "wan_dhcp_nvram_transaction_set, &transaction" in publish_helper
+assert "nvram_transaction_set(&transaction" not in publish_helper
 assert "dhcp_lease_nvram_publish(" in publish_helper
 assert "nvram_transaction_end(&transaction)" in publish_helper
 assert "wan_dhcp_nvram_restore_values(" in publish_helper
