@@ -647,7 +647,7 @@ jobs:
           assert "if (!dhcp_lease_route_delete_is_ok(route_status))" in dns_loop
           assert 'status = route_status_accumulate(status, route_status);' in dns_loop
           assert "static int\nman_down_internal(" in wan
-          assert "int status = 0, route_status;" in man_down
+          assert "int status = 0, route_status, snapshot_status;" in man_down
           man_pause = man_down.index("route_status = notify_pause_detect_internet();")
           man_pause_accumulate = man_down.index("status = route_status_accumulate(status, route_status);", man_pause)
           man_pause_log = man_down.index("Internet monitor pause incomplete during MAN teardown", man_pause_accumulate)
