@@ -1,3 +1,14 @@
+## 2026-11-20 — Check WAN-down statistics NVRAM writes without gating teardown
+
+- Parent main SHA: `6b40725ac83447fec99ec79e0b6dfc79eefce83f`. This slice updates `net_wan.c`, its injected NVRAM policy regression, the existing WAN firewall/source contract, and this log.
+- The legacy `wan_down_internal()` path still reset four WAN statistics with unchecked `nvram_set_int_temp()` wrappers even though the same module's checked NVRAM policy and status callback were already in use for runtime state. A failed write silently left stale uptime/traffic counters.
+- Replaced those four writes with the checked attempt-all policy. Each counter clear is attempted and the first error is logged with unit/status; because these counters are diagnostic rather than route/interface prerequisites, a failed statistics write does not block remaining teardown or turn a completed WAN stop into a false failure.
+- Added a GNU89-injectable regression where the first counter write fails with `ENOSPC` and all four ordered writes are still attempted. The source contract pins the production path to the checked writer and confirms the legacy unchecked calls are gone from `wan_down_internal()`.
+- The parent exact-head IPTV callback and HTTPD contract reruns were pending at checkpoint on `6b40725ac83447fec99ec79e0b6dfc79eefce83f`; XY-C1's prior production-source detector skipped the expensive MIPS build because the triggering SHA changed only workflow/checker inputs, so the IPTV production slice still needs a source-triggered L3 build. No local repository checkout/compiler was available here.
+- Exact-head Actions validation for this task is required after commit; L4 hardware behavior remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Narrow IPTV deconfig source-contract scopes
 
 - Parent main SHA: `7485455e53de44887907218c9ee22990974d11bf`. This contract-only commit updates the WAN DHCP callback and HTTPD workflow checks plus this log; production C and regression tests are unchanged.

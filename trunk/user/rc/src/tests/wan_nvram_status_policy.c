@@ -256,6 +256,31 @@ test_wan_statistics_clear_attempts_every_counter(void)
 }
 
 static void
+test_wan_deconfig_statistics_clear_attempts_every_counter(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "uptime", "0" }, { "dltime", "0" },
+		{ "bytes_rx", "0" }, { "bytes_tx", "0" }
+	};
+	struct fake_value_copy fake;
+	unsigned int i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.failure_status = ENOSPC;
+	assert(rc_wan_nvram_set_all_values(
+		values, 4, fake_set_value, &fake) == ENOSPC);
+	assert(fake.calls == 4);
+	assert(strcmp(fake.copied_names[0], "uptime") == 0);
+	assert(strcmp(fake.copied_names[1], "dltime") == 0);
+	assert(strcmp(fake.copied_names[2], "bytes_rx") == 0);
+	assert(strcmp(fake.copied_names[3], "bytes_tx") == 0);
+	for (i = 0; i < 4; ++i)
+		assert(strcmp(fake.copied_values[i], "0") == 0);
+}
+
+
+static void
 test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error(void)
 {
 	static const struct rc_wan_nvram_value values[] = {
@@ -672,6 +697,7 @@ main(void)
 	test_required_value_sequence_rejects_invalid_values();
 	test_all_value_sequence_attempts_every_write_and_preserves_first_error();
 	test_wan_statistics_clear_attempts_every_counter();
+	test_wan_deconfig_statistics_clear_attempts_every_counter();
 	test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error();
 	test_all_value_sequence_validates_before_writing();
 	test_checked_nvram_copy_survives_shared_cache_overwrite();

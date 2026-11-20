@@ -3870,11 +3870,16 @@ wan_up(char *wan_ifname, int unit, int is_static)
 static int
 wan_down_internal(char *wan_ifname, int unit, int is_static)
 {
+	static const struct rc_wan_nvram_value statistics_clear_values[] = {
+		{ "uptime", "0" }, { "dltime", "0" },
+		{ "bytes_rx", "0" }, { "bytes_tx", "0" }
+	};
 	char *wan_addr, *wan_gate, *wan_route_addr, *wan_mask;
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
 	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status, interface_cleanup_status;
+	int statistics_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
 #endif
@@ -4028,10 +4033,20 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 
 	control_wan_led_isp_state(0, 0);
 
-	set_wan_unit_value_int(unit, "uptime", 0);
-	set_wan_unit_value_int(unit, "dltime", 0);
-	set_wan_unit_value_int(unit, "bytes_rx", 0);
-	set_wan_unit_value_int(unit, "bytes_tx", 0);
+	/*
+	 * Statistics are diagnostic state, not a prerequisite for route or
+	 * interface teardown. Attempt every clear with errno reporting, but do
+	 * not let a stale counter prevent WAN-down completion.
+	 */
+	statistics_status = rc_wan_nvram_set_all_values(
+		statistics_clear_values,
+		(unsigned int)(sizeof(statistics_clear_values) /
+			       sizeof(statistics_clear_values[0])),
+		set_wan_unit_value_status_callback, &unit);
+	if (statistics_status != 0)
+		logmessage(LOGNAME,
+			   "WAN statistics snapshot clear incomplete for unit %d (status=%d); teardown continues",
+			   unit, statistics_status);
 
 	/* Call the optional post-WAN hook and preserve its exit status. */
 	if (check_if_file_exist(script_postw)) {

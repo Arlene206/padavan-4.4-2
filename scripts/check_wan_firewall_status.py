@@ -920,6 +920,24 @@ require("test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_c
         "test_wan_resolver_snapshot_clear_failures_are_reported_while_teardown_continues();" in wan_route_test,
         "WAN resolver snapshot cleanup failure regression is missing")
 
+wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+wan_down_stats = wan_down.index("statistics_clear_values[] = {")
+wan_down_stats_end = wan_down.index("};", wan_down_stats)
+for marker in ('{ "uptime", "0" }', '{ "dltime", "0" }',
+               '{ "bytes_rx", "0" }', '{ "bytes_tx", "0" }'):
+    require(marker in wan_down[wan_down_stats:wan_down_stats_end],
+            "WAN deconfig statistics clear is missing " + marker)
+require("rc_wan_nvram_set_all_values(" in wan_down and
+        "set_wan_unit_value_status_callback" in wan_down and
+        "statistics_status" in wan_down and
+        "WAN statistics snapshot clear incomplete" in wan_down,
+        "WAN deconfig must attempt every checked statistics clear and log failures")
+require("set_wan_unit_value_int(" not in wan_down,
+        "unchecked integer NVRAM writes remain in WAN deconfig")
+require("test_wan_deconfig_statistics_clear_attempts_every_counter" in nvram_policy_test and
+        "test_wan_deconfig_statistics_clear_attempts_every_counter();" in nvram_policy_test,
+        "WAN deconfig statistics clear must have a registered injected regression")
+
 clear_state = body(wan, "clear_wan_state_status(void)")
 for marker in (
     '{ "err", "0" }', '{ "uptime", "0" }', '{ "dltime", "0" }',
