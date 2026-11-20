@@ -67,12 +67,36 @@ test_invalid_output_buffer(void)
 	assert(errno == EINVAL);
 }
 
+static void
+test_exact_record_key_matching(void)
+{
+	const char *key = "TCP:1234";
+	const char *matching = "TCP:1234:192.168.1.2:80:0:camera\n";
+	const char *longer_port = "TCP:12345:192.168.1.2:80:0:camera\n";
+	const char *different_protocol = "UDP:1234:192.168.1.2:80:0:camera\n";
+	const char *missing_separator = "TCP:1234x:192.168.1.2:80:0:camera\n";
+	const char *short_record = "TCP:123";
+
+	assert(miniupnpd_lease_record_key_matches(
+		matching, strlen(matching), key, strlen(key)) == 1);
+	assert(miniupnpd_lease_record_key_matches(
+		longer_port, strlen(longer_port), key, strlen(key)) == 0);
+	assert(miniupnpd_lease_record_key_matches(
+		different_protocol, strlen(different_protocol), key, strlen(key)) == 0);
+	assert(miniupnpd_lease_record_key_matches(
+		missing_separator, strlen(missing_separator), key, strlen(key)) == 0);
+	assert(miniupnpd_lease_record_key_matches(
+		short_record, strlen(short_record), key, strlen(key)) == 0);
+	assert(miniupnpd_lease_record_key_matches(NULL, 0, key, strlen(key)) == 0);
+}
+
 int
 main(void)
 {
 	test_single_line_description();
 	test_description_is_bounded();
 	test_invalid_output_buffer();
-	puts("MiniUPnP lease-file record serialization policy: PASS");
+	test_exact_record_key_matching();
+	puts("MiniUPnP lease-file record serialization and key policy: PASS");
 	return 0;
 }

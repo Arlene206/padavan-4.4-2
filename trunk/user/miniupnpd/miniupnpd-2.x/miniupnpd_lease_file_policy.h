@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 
 #define MINIUPNPD_LEASE_RECORD_DESCRIPTION_MAX 63
 
@@ -53,6 +54,18 @@ miniupnpd_lease_record_format(char *buffer, size_t buffer_size,
 		return -1;
 	}
 	return length;
+}
+
+/* Match a protocol/port key only when the field separator follows the port.
+ * This prevents deleting TCP:12345 when removing TCP:1234. */
+static inline int
+miniupnpd_lease_record_key_matches(const char *record, size_t record_length,
+                                   const char *key, size_t key_length)
+{
+	if (!record || !key || key_length == 0 || record_length <= key_length)
+		return 0;
+	return memcmp(record, key, key_length) == 0 &&
+	       record[key_length] == ':';
 }
 
 #endif /* MINIUPNPD_LEASE_FILE_POLICY_H */

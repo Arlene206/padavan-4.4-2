@@ -138,61 +138,127 @@ lease_file_add(unsigned short eport,
 }
 
 static int
+static int
 lease_file_remove(unsigned short eport, int proto)
 {
-	FILE* fd, *fdt;
-	int tmp;
+	FILE *fd = NULL;
+	FILE *fdt = NULL;
+	int tmp = -1;
+	int status = 0;
+	size_t path_length;
+	size_t buf_size;
 	char buf[512];
-	char str[32];
+	char key[32];
 	char tmpfilename[128];
-	int str_size, buf_size;
+	int key_length;
+	int saved_errno;
 
+	if (lease_file == NULL)
+		return 0;
 
-	if (lease_file == NULL) return 0;
-
-	if (strlen( lease_file) + 7 > sizeof(tmpfilename)) {
+	path_length = strlen(lease_file);
+	if (path_length > sizeof(tmpfilename) - 7) {
+		errno = ENAMETOOLONG;
 		syslog(LOG_ERR, "Lease filename is too long");
 		return -1;
 	}
+	memcpy(tmpfilename, lease_file, path_length + 1);
+	memcpy(tmpfilename + path_length, "XXXXXX", 7);
 
-	strncpy( tmpfilename, lease_file, sizeof(tmpfilename) );
-	strncat( tmpfilename, "XXXXXX", sizeof(tmpfilename) - strlen(tmpfilename));
-
-	fd = fopen( lease_file, "r");
-	if (fd==NULL) {
-		return 0;
-	}
-
-	snprintf( str, sizeof(str), "%s:%u", proto_itoa(proto), eport);
-	str_size = strlen(str);
-
-	tmp = mkstemp(tmpfilename);
-	if (tmp==-1) {
-		fclose(fd);
-		syslog(LOG_ERR, "could not open temporary lease file");
+	fd = fopen(lease_file, "r");
+	if (fd == NULL) {
+		if (errno == ENOENT)
+			return 0;
+		saved_errno = errno ? errno : EIO;
+		syslog(LOG_ERR, "could not read lease file %s: %s",
+		       lease_file, strerror(saved_errno));
+		errno = saved_errno;
 		return -1;
 	}
-	fchmod(tmp, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-	fdt = fdopen(tmp, "a");
 
-	buf[sizeof(buf)-1] = 0;
-	while( fgets(buf, sizeof(buf)-1, fd) != NULL) {
+	key_length = snprintf(key, sizeof(key), "%s:%u",
+	                      proto_itoa(proto), eport);
+	if (key_length < 0 || (size_t)key_length >= sizeof(key)) {
+		status = EINVAL;
+		goto cleanup;
+	}
+
+	tmp = mkstemp(tmpfilename);
+	if (tmp < 0) {
+		status = errno ? errno : EIO;
+		goto cleanup;
+	}
+	if (fchmod(tmp, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH) < 0) {
+		status = errno ? errno : EIO;
+		goto cleanup;
+	}
+	fdt = fdopen(tmp, "w");
+	if (fdt == NULL) {
+		status = errno ? errno : EIO;
+		goto cleanup;
+	}
+	tmp = -1; /* fdopen() owns the descriptor from here. */
+
+	while (fgets(buf, sizeof(buf), fd) != NULL) {
 		buf_size = strlen(buf);
-
-		if (buf_size < str_size || strncmp(str, buf, str_size)!=0) {
-			fwrite(buf, buf_size, 1, fdt);
+		if (!miniupnpd_lease_record_key_matches(
+			    buf, buf_size, key, (size_t)key_length)) {
+			errno = 0;
+			if (fwrite(buf, 1, buf_size, fdt) != buf_size) {
+				status = errno ? errno : EIO;
+				break;
+			}
 		}
 	}
-	fclose(fdt);
-	fclose(fd);
+	if (status == 0 && ferror(fd))
+		status = errno ? errno : EIO;
 
-	if (rename(tmpfilename, lease_file) < 0) {
-		syslog(LOG_ERR, "could not rename temporary lease file to %s", lease_file);
-		remove(tmpfilename);
+	if (fdt != NULL) {
+		if (status == 0) {
+			errno = 0;
+			if (fflush(fdt) != 0)
+				status = errno ? errno : EIO;
+		}
+		if (status == 0) {
+			errno = 0;
+			if (fsync(fileno(fdt)) < 0)
+				status = errno ? errno : EIO;
+		}
+		errno = 0;
+		if (fclose(fdt) != 0 && status == 0)
+			status = errno ? errno : EIO;
+		fdt = NULL;
+	}
+	if (fd != NULL) {
+		errno = 0;
+		if (fclose(fd) != 0 && status == 0)
+			status = errno ? errno : EIO;
+		fd = NULL;
 	}
 
-	return 0;
+	if (status == 0) {
+		errno = 0;
+		if (rename(tmpfilename, lease_file) < 0)
+			status = errno ? errno : EIO;
+	}
 
+cleanup:
+	if (fdt != NULL)
+		(void)fclose(fdt);
+	if (fd != NULL)
+		(void)fclose(fd);
+	if (tmp >= 0)
+		(void)close(tmp);
+	if (status != 0) {
+		if (remove(tmpfilename) < 0 && errno != ENOENT)
+			syslog(LOG_WARNING, "could not remove temporary lease file %s",
+			       tmpfilename);
+		syslog(LOG_ERR, "could not remove lease record %s: %s",
+		       key, strerror(status));
+		errno = status;
+		return -1;
+	}
+	return 0;
 }
 
 /* reload_from_lease_file()
@@ -381,9 +447,19 @@ upnp_redirect(const char * rhost, unsigned short eport,
 				r = update_portmapping_desc_timestamp(ext_if_name, eport, proto, desc, timestamp);
 			}
 #ifdef ENABLE_LEASEFILE
-			if(r == 0) {
-				lease_file_remove(eport, proto);
-				lease_file_add(eport, iaddr, iport, proto, desc, timestamp);
+			if (r == 0) {
+				int lease_status = lease_file_remove(eport, proto);
+				if (lease_status == 0)
+					lease_status = lease_file_add(eport, iaddr, iport,
+					                             proto, desc, timestamp);
+				if (lease_status < 0) {
+					int saved_errno = errno ? errno : EIO;
+					syslog(LOG_ERR,
+					       "could not persist updated UPnP lease for port %hu/%d",
+					       eport, proto);
+					errno = saved_errno;
+					return -1;
+				}
 			}
 #endif /* ENABLE_LEASEFILE */
 			return r;
@@ -423,7 +499,19 @@ upnp_redirect_internal(const char * rhost, unsigned short eport,
 	}
 
 #ifdef ENABLE_LEASEFILE
-	lease_file_add( eport, iaddr, iport, proto, desc, timestamp);
+	if (lease_file_add(eport, iaddr, iport, proto, desc, timestamp) < 0) {
+		int saved_errno = errno ? errno : EIO;
+		syslog(LOG_ERR, "could not persist new UPnP lease for port %hu/%d",
+		       eport, proto);
+		rollback_status = _upnp_delete_redir(eport, proto);
+		if (rollback_status != 0) {
+			syslog(LOG_ERR,
+			       "failed to roll back UPnP mapping after lease-file write failure (port=%hu protocol=%d status=%d)",
+			       eport, proto, rollback_status);
+		}
+		errno = saved_errno;
+		return -1;
+	}
 #endif
 /*	syslog(LOG_INFO, "creating pass rule to %s:%hu protocol %s for: %s",
 		iaddr, iport, protocol, desc);*/
@@ -528,6 +616,10 @@ int
 _upnp_delete_redir(unsigned short eport, int proto)
 {
 	int r;
+#ifdef ENABLE_LEASEFILE
+	int lease_status = 0;
+	int lease_errno = 0;
+#endif
 #if defined(__linux__)
 	r = delete_redirect_and_filter_rules(eport, proto);
 #elif defined(USE_PF)
@@ -539,12 +631,24 @@ _upnp_delete_redir(unsigned short eport, int proto)
 	if (r == 0)
 	{
 #ifdef ENABLE_LEASEFILE
-		lease_file_remove(eport, proto);
+		if (lease_file_remove(eport, proto) < 0) {
+			lease_status = -1;
+			lease_errno = errno ? errno : EIO;
+			syslog(LOG_ERR,
+			       "firewall mapping %hu/%d deleted but lease-file cleanup failed",
+			       eport, proto);
+		}
 #endif
 #ifdef ENABLE_EVENTS
 		upnp_event_var_change_notify(EWanIPC);
 #endif
 	}
+#ifdef ENABLE_LEASEFILE
+	if (lease_status != 0) {
+		errno = lease_errno;
+		return -1;
+	}
+#endif
 	return r;
 }
 
