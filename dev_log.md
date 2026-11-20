@@ -1,3 +1,13 @@
+## 2026-11-19 — Repair three stale startup/storage CI contracts
+
+- Exact-head Process run `44644448788` on `61cbc6b` passed the PID 1 policy binary, `dev_init` shell regression, and new `copyscripts_ca_status.sh` regression; its source checker then failed because it compared space-normalized C to an unnormalized function-call expression. Updated the assertion to remove whitespace from both sides.
+- Exact-head AliDDNS run `44644448746` passed the HTTPS, IPv4/IPv6, lifecycle, CA archive and HMAC tests, then failed an obsolete contract requiring `if (system("copyscripts.sh") != 0)`. PID 1 now captures and aggregates `copyscripts_status`; the checker now asserts this exact boot-result path.
+- Exact-head Storage run `44644448682` passed the GNU89 sanitizer policy binaries, including notification publication. The embedded source contract expected the former inline return, while SD/MMC now use the separately tested `storage_hotplug_completion_status()`; updated the contract to retain assertions for operation errors and notification failures.
+- No production behavior changed in this checker follow-up. XY-C1 `44644448761` and NVRAM `44644448560` were IN_PROGRESS at the last poll; exact-head reruns are required for the three checker jobs and source SHA.
+- Current parent/source SHA: `61cbc6b842fdaaafc3f2fcab269bb11292fa8514`.
+
+---
+
 ## 2026-11-19 — Include late boot preparation and autostart failures in PID 1 status
 
 - Found a caller-side status loss after the earlier FATAL/READY/DEGRADED change: `init_router()` logged but discarded `copyscripts.sh`'s return status even though the script explicitly returns failure when CA trust-store installation fails. The wait statuses for `/etc/storage/started_script.sh &` and `/usr/bin/autostart.sh &` were also log-only, and the boot aggregate summary ran before those calls.

@@ -479,12 +479,16 @@ require('ddns_script_path="/etc/storage/ddns_script.sh"' in copy_scripts and
         "cp -rf /etc_ro/ddns_script.sh /etc/storage/" not in copy_scripts,
         "boot-time script seeding must refuse persistent DDNS symlinks")
 ca_install = function_body(copy_scripts, "install_ca_trust_store() {")
+rc_router = function_body(rc, "init_router(void)")
+rc_router_compact = "".join(rc_router.split())
 require('if ! tar -xzf "$copyscripts_cert_archive" -C "$copyscripts_cert_dir"; then' in ca_install and
         'if [ ! -r "$copyscripts_ca_bundle" ]; then' in ca_install and
         "copyscripts_ca_status=1" in copy_scripts and
         'exit "$copyscripts_ca_status"' in copy_scripts and
-        'if (system("/usr/bin/copyscripts.sh") != 0)' in rc,
-        "CA extraction must propagate tar and readable-bundle failures to the RC startup caller")
+        'int copyscripts_status = system("/usr/bin/copyscripts.sh");' in rc_router and
+        'boot_services_status = rc_first_service_start_status(' in rc_router and
+        "boot_services_status=rc_first_service_start_status(boot_services_status,copyscripts_status);" in rc_router_compact,
+        "CA extraction must propagate tar and readable-bundle failures into PID 1 boot readiness")
 require("curl -k" not in initconfig_body and "--no-check-certificate" not in initconfig_body and
         "http://" not in initconfig_body,
         "new persistent default script must not contain insecure public-IP sources")

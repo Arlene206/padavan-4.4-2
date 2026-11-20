@@ -22,19 +22,21 @@ Continue main-only implementation across conversations. Restore exact live sourc
 - P1 PID 1 startup-result propagation: `init_router()` maps the four mandatory NVRAM/configuration aborts to FATAL, clean service startup to READY and accumulated module/service failure to DEGRADED. PID 1 keeps notifications/deferred hotplug active for READY/DEGRADED only.
 - The next concrete caller-side defect is at the end of `init_router()`: it previously logged but discarded `copyscripts.sh`'s explicit CA trust-store failure status, and also discarded the wait/launch statuses for the persistent user script and firmware `autostart.sh`. The in-progress follow-up merges all three into `boot_services_status` and moves the aggregate diagnostic after these launch attempts. The background script statuses describe launcher/wait status only, not child-service readiness.
 - A shell regression exercises CA archive extraction success, corrupt archive, missing CA bundle and uncreatable destination; source contracts verify all three statuses reach the first-error boot aggregate. Local shell regression passed against the extracted production helper.
-- The follow-up is being prepared as one atomic source/test/checker/workflow/docs commit. Re-run exact-head Process, HTTPD, AI docs and XY-C1 on the resulting SHA; exact source Build/TRX/artifact is required for L3.
+- Source/test commit `61cbc6b842fdaaafc3f2fcab269bb11292fa8514` is on main. Its CA helper regression passed in the Process job, including corrupt archive, missing bundle and uncreatable destination cases. Exact-head Process `44644448788` then failed only because its checker normalized whitespace but expected a non-normalized call; AliDDNS `44644448746` retained the prior `system() != 0` expression; Storage `44644448682` expected the previous inline return rather than the new, separately tested `storage_hotplug_completion_status()` helper. This checker-only follow-up repairs those three contracts without weakening test coverage.
+- On `61cbc6`, HTTPD `44644448461`, AI handoff docs `44644448860`, WAN route `44644448877` and other completed subsystem regressions are PASS; Process `44644448788`, AliDDNS `44644448746` and Storage `44644448682` are the three identified contract failures. XY-C1 `44644448761` and NVRAM `44644448560` were IN_PROGRESS at last poll.
+- Re-run exact-head Process, AliDDNS and Storage after this checker repair. The same-source XY-C1 Build/TRX/artifact must be checked independently; do not claim L3 while `44644448761` is pending.
 
 ## Exact first action for the next GPT
 
-1. Query exact-head Process, HTTPD, AI docs and XY-C1 results for the caller-side boot-status commit; inspect and repair actual failed assertions.
-2. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload before claiming L3 for the PID 1/copyscripts source.
-3. Continue P1 service-start result propagation at a distinct caller after this `init_router()` tail; do not repeat the already-covered service wrapper audit or previously completed rp-L2TP/netmask/MTD slices.
+1. Query exact-head Process, AliDDNS and Storage reruns for the checker-contract repair; inspect only any remaining precise failing assertion.
+2. Re-query XY-C1 `44644448761` and NVRAM `44644448560` on `61cbc6`; require all Build/TRX/artifact steps to pass before recording L3.
+3. Continue the next distinct P1 stability defect only after the three demonstrated stale contracts are closed; preserve the new helper and regression coverage.
 
 ## Verification boundary
 
 - L1: PID 1 distinguishes FATAL/READY/DEGRADED and continues event processing after degraded service boot. Late CA preparation, persistent user-script and autostart launcher failures are now included in the boot aggregate.
-- L2: PID 1 GNU89/Werror/ASan/UBSan policy binary and dev_init shell regression passed on `9ad1570`; copyscripts CA helper host shell regression passed. Exact-head Process/HTTPD/AI docs all PASS on `e8fb566`; latest source/caller follow-up CI not yet run.
-- L3: e8 checker/workflow XY run `44643316929` and 9ad production-source XY run `44642485538` were IN_PROGRESS at last check. New copyscripts/RC source follow-up needs an exact-head XY Build/TRX/artifact run.
+- L2: PID 1 policy binary and `dev_init` shell regression passed on `9ad1570`; the new CA status shell regression passed on `61cbc6`. Exact-head Process, AliDDNS and Storage jobs initially failed only at three stale source-contract assertions; their corrections are in this checker follow-up. HTTPD, AI docs and all other completed current-head regression runs were PASS.
+- L3: XY-C1 `44644448761` on `61cbc6` was IN_PROGRESS at last poll; no Build/TRX/artifact result is claimed until all three exact-head steps succeed.
 - L4: target MIPS/uClibc runtime and physical-router boot/recovery behavior remain NOT VERIFIED.
 
 ## Mandatory handoff checkpoint

@@ -94,11 +94,11 @@ assert '#include "init_router_result_policy.h"' in rc
 assert "return init_router_result_from_boot_status(boot_services_status);" in router
 assert router.count("return INIT_ROUTER_RESULT_FATAL;") == 4
 assert "return -1;" not in router
-router_compact = " ".join(router.split())
+router_compact = "".join(router.split())
 assert 'int copyscripts_status = system("/usr/bin/copyscripts.sh");' in router
-assert "rc_first_service_start_status(boot_services_status, copyscripts_status)" in router_compact
-assert "rc_first_service_start_status(boot_services_status, started_script_status)" in router_compact
-assert "rc_first_service_start_status(boot_services_status, autostart_status)" in router_compact
+assert "rc_first_service_start_status(boot_services_status,copyscripts_status)" in router_compact
+assert "rc_first_service_start_status(boot_services_status,started_script_status)" in router_compact
+assert "rc_first_service_start_status(boot_services_status,autostart_status)" in router_compact
 assert router.index('system("/usr/bin/copyscripts.sh")') < router.index('system("/etc/storage/started_script.sh &")')
 assert router.index('system("/etc/storage/started_script.sh &")') < router.index('system("/usr/bin/autostart.sh &")')
 assert router.index('system("/usr/bin/autostart.sh &")') < router.index("one or more boot service startup operations failed")
