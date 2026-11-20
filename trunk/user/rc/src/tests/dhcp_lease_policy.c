@@ -453,7 +453,7 @@ test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple(void)
 	assert(dhcp_lease_nvram_publish(values, 4, dhcp_viptv_nvram_set,
 					&fake, &rollback_status) == ENOSPC);
 	assert(rollback_status == 0);
-	assert(strcmp(fake.events, "ABCcba") == 0);
+	assert(strcmp(fake.events, "ABCDdcba") == 0);
 	for (i = 0; i < 4; ++i)
 		assert(strcmp(fake.current[i], old_values[i]) == 0);
 
@@ -469,7 +469,7 @@ test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple(void)
 	assert(dhcp_lease_nvram_publish(values, 4, dhcp_viptv_nvram_set,
 					&fake, &rollback_status) == ENOSPC);
 	assert(rollback_status == EIO);
-	assert(strcmp(fake.events, "ABCcba") == 0);
+	assert(strcmp(fake.events, "ABCDdcba") == 0);
 	assert(strcmp(fake.current[0], old_values[0]) == 0);
 	assert(strcmp(fake.current[1], old_values[1]) == 0);
 	assert(strcmp(fake.current[2], old_values[2]) == 0);
