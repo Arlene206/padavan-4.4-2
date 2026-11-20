@@ -101,6 +101,7 @@ jobs:
           assert "detect_link_publish_wan_status(" in mirror
           assert "dl_status_wan_nvram_old" in mirror
           assert "dl_status_wan_nvram_error != status" in mirror
+          assert "WAN link state NVRAM publication recovered" in mirror
           assert 'nvram_set_int_temp("link_wan"' not in body(detect, "dl_handle_link_wan(void)")
           wan_handler = body(detect, "dl_handle_link_wan(void)")
           assert wan_handler.index("dl_publish_wan_nvram_status();") < wan_handler.index("if (dl_status_wan_old != dl_status_wan)")

@@ -115,6 +115,9 @@ dl_publish_wan_nvram_status(void)
 				   status);
 		dl_status_wan_nvram_error = status;
 	} else {
+		if (dl_status_wan_nvram_error != 0)
+			logmessage("detect_link",
+				   "WAN link state NVRAM publication recovered");
 		dl_status_wan_nvram_error = 0;
 	}
 }
