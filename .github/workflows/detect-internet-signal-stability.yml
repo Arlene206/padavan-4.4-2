@@ -90,17 +90,18 @@ jobs:
           nvram_test = (rc / "tests/detect_internet_nvram_policy.c").read_text()
           assert "detect_internet_publish_status(" in nvram_policy
           assert "di_status_nvram_old" in detect
-          assert "di_status_nvram_target = status;" in publisher
-          assert "status = di_publish_nvram_status(DI_STATUS_INIT);" in reset_state
-          assert "if (status != 0 && di_pause_received)" in reset_state
-          assert "di_publish_nvram_status(di_status_nvram_target)" in timer
+          assert "di_status_nvram_target" in detect
           publisher = body(detect, "di_publish_nvram_status(int status)")
           writer = body(detect, "di_write_nvram_status(void *context, int status)")
+          assert "di_status_nvram_target = status;" in publisher
           assert 'nvram_set_int_temp("link_internet", status)' in writer
           assert "di_status_nvram_error != result" in publisher
           assert "Internet connectivity NVRAM publication recovered" in publisher
           reset_state = body(detect, "di_reset_state(void)")
-          assert "di_publish_nvram_status(DI_STATUS_INIT);" in reset_state
+          assert "status = di_publish_nvram_status(DI_STATUS_INIT);" in reset_state
+          assert "if (status != 0 && di_pause_received)" in reset_state
+          timer_body = body(detect, "di_on_timer(void)")
+          assert "di_publish_nvram_status(di_status_nvram_target)" in timer_body
           pause_state = body(detect, "di_on_sigusr2(void)")
           assert "status = di_publish_nvram_status(0);" in pause_state
           assert "if (status != 0)" in pause_state and "di_alarmtimer(1);" in pause_state
