@@ -406,6 +406,18 @@ require("restore_wan_after_firewall_failure(unit, wan_ifname);" in ppp_physical_
 require("restore_wan_after_ppp_start_failure(unit, wan_ifname);" not in start,
         "start_wan must not bypass physical-WAN force-down on failed recovery")
 
+demand_publish = body(wan, "set_wan_unit_value_int_status(int unit, const char *param_name, int value)")
+require("return set_wan_unit_value_status(unit, param_name, value_text);" in demand_publish,
+        "PPP demand metadata must use the checked WAN NVRAM writer")
+demand_publish_at = start.index('vlan_result = set_wan_unit_value_int_status(\n\t\t\t\tunit, "pppoe_demand", i_demand);')
+demand_publish_failure = body(start[demand_publish_at:], "if (vlan_result != 0)")
+require(demand_publish_at < start.index("vlan_result = launch_wan_pppd(unit, wan_proto);") and
+        "restore_wan_after_firewall_failure(unit, wan_ifname);" in demand_publish_failure and
+        "continue;" in demand_publish_failure,
+        "pppd must not launch if the demand option cannot be published; physical WAN cleanup must run")
+require('set_wan_unit_value_int(unit, "pppoe_demand", i_demand);' not in start,
+        "unchecked PPPoE demand publication remains before pppd launch")
+
 pppd_launch_at = start.index("vlan_result = launch_wan_pppd(unit, wan_proto);")
 pppd_launch_failure = body(start[pppd_launch_at:], "if (vlan_result != 0)")
 require("restore_wan_after_firewall_failure(unit, wan_ifname);" in pppd_launch_failure,

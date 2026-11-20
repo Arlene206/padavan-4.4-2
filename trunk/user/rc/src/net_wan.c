@@ -100,6 +100,25 @@ set_wan_unit_value_status(int unit, const char *param_name, const char *value)
 	return rc_wan_nvram_write_status(api_result, saved_errno);
 }
 
+
+static int
+set_wan_unit_value_int_status(int unit, const char *param_name, int value)
+{
+	char value_text[16];
+	int length;
+
+	if (!param_name || !param_name[0])
+		return EINVAL;
+
+	length = snprintf(value_text, sizeof(value_text), "%d", value);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(value_text))
+		return EOVERFLOW;
+
+	return set_wan_unit_value_status(unit, param_name, value_text);
+}
+
 static int
 set_wan_unit_param_status(int unit, const char *param_name)
 {
@@ -2506,7 +2525,24 @@ start_wan(void)
 			if (i_demand)
 				i_demand = 1;
 			
-			set_wan_unit_value_int(unit, "pppoe_demand", i_demand);
+			/*
+			 * pppd's options generator reads this volatile value. Do not
+			 * launch with a stale demand setting if its publication fails.
+			 */
+			vlan_result = set_wan_unit_value_int_status(
+				unit, "pppoe_demand", i_demand);
+			if (vlan_result != 0) {
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				logmessage(LOGNAME,
+					   "aborting WAN PPP startup for unit %d: cannot publish PPPoE demand option (status=%d)",
+					   unit, vlan_result);
+				vlan_result = restore_wan_after_firewall_failure(
+					unit, wan_ifname);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
+				continue;
+			}
 			
 			/* Launch the PPP client only after the options file is finalized. */
 			vlan_result = launch_wan_pppd(unit, wan_proto);
