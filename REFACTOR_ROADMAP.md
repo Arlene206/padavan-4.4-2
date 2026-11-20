@@ -1,9 +1,11 @@
 # 2026-11-20 active checkpoint
 
-- Current source baseline before the WAN startup-publication correction: `0d04cabd439f6f965ef78195821043b82b471d7e`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and is read-only.
-- PPP recovery checked-interface source commit `68571af` has L3 VERIFIED: exact XY-C1 run `44674653396` passed production-input detection, Build, TRX verification and artifact upload. Do not generalize this L3 result to newer production sources.
-- Checked-source-contract follow-up `0d04cab`: WAN route `44675647123`, HTTPD security `44675647093`, miniupnpd config `44675647150`, and AI docs `44675647174` all PASS on exact SHA.
-- New startup active-interface publication gates require exact WAN route/Process/AI validation and a fresh XY-C1 build/TRX/artifact run; L4 remains NOT VERIFIED.
+- WAN active-interface product commit `822f88b10ce52e2ba735f4d51cac12d684a0853c` gates initial RAS, PPP and IPoE activation on successful `wanN_ifname_t` publication and invokes physical-WAN recovery on failure.
+- Exact-head independent contracts on `822f88b`: WAN route `44676321120`, Process inventory `44676321232`, AI docs `44676321121`, VPN `44676321034`, WAN teardown `44676321169`, wireless `44676320974`, ZeroTier `44676321181`, dnsmasq `44676320940`, WAN DHCP `44676320992`, miniupnpd `44676321033`, HTTPD `44676320960`, watchdog `44676321080`, Detect WAN ARP `44676320985`, Detect internet `44676320958`, and Detect link `44676321015` PASS.
+- Process regression `44676321052`, USB modem `44676321204`, and Firewall Startup `44676321094` failed only because `check_modem_wan_start_status.py` still expected 22 status aggregates; the three new fail-closed paths correctly add six, for 28 total. The checker repair explicitly validates the three branches and awaits exact-head reruns.
+- NVRAM boundary `44676320949` and XY-C1 `44676321180` were pending at last poll. L3 is NOT VERIFIED for `822f88b`; physical L4 remains NOT VERIFIED.
+
+
 
 - CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
 - Keep common RC paths in a workflow only when its invoked tests/checkers consume or assert that production integration. Current AdGuardHome, Inadyn, NFS, WAN route, and USB modem suites inspect relevant shared RC call paths/declarations; their shared-path fan-out is intentional, not automatically unrelated.
@@ -94,7 +96,7 @@
 
 ## Priority queue
 
-- Confirmed WAN PPP-start recovery defect: the physical interface name publication was unchecked before `start_firewall_ex()`, allowing stale WAN NVRAM state to survive and firewall restore to report success. This slice adds errno-normalized checked NVRAM publication and prevents firewall rebuild unless `wanN_ifname_t` was successfully written; the outer failure path keeps the interface down. GNU89/Werror/ASan/UBSan policy test PASS locally; exact-head WAN/Process/AI and XY-C1 verification pending.
+- WAN `ifname_t` publication is fail-closed during PPP-start fallback and before initial RAS/PPP/IPoE activation. The checked writer records errno; failed publication attempts physical-WAN recovery and prevents the failed protocol from continuing. Existing NVRAM helper GNU89/Werror/ASan/UBSan regression passed. The three new failure paths add six first-error merges, so the shared WAN startup checker now expects 28 (not 22) and explicitly verifies RAS/PPP/IPoE recovery+abort ordering; exact-head reruns pending.
 
 - SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).
 - ZeroTier stop interface capture `255334d0`: exact test run `44476582735` found its missing-NAT case failed to set `TEST_NAT_ENABLE=1`; this test-only correction pins that setup.

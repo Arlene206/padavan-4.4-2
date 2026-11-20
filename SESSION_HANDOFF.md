@@ -1,6 +1,7 @@
 # Cross-session execution mandate
 
 ## Execution policy
+
 Continue main-only implementation across conversations. Recover the repository once, then resume the exact active task; avoid repeated audits, planning-only stops and status-only commits.
 
 - Each logical task ends in one atomic main commit. For multi-file changes create all blobs, one complete Git tree and one commit parented to live `main`, then update `main` with `force=false` and exact `expected_sha`.
@@ -11,31 +12,31 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Current main before this WAN startup publication correction: `0d04cabd439f6f965ef78195821043b82b471d7e`.
+- Current main before this WAN source-contract repair: `822f88b10ce52e2ba735f4d51cac12d684a0853c`.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
-- Checker-contract repair commit `0d04cab`: WAN route, HTTPD security, miniupnpd config and AI handoff docs all PASS on exact SHA in runs `44675647123`, `44675647093`, `44675647150`, `44675647174`.
-- WAN PPP recovery production fix commit `68571af`: WAN NVRAM status regression + DDNS contract, Process regression/inventory, AI docs, firewall startup, NVRAM transaction audit all PASS. XY-C1 run `44674653396` PASS on that exact production SHA: detector, Build XY-C1, TRX verification and artifact upload all PASS in job `136083493218`. This establishes L3 for `68571af` only; physical-router L4 remains NOT VERIFIED.
-- The earlier source contracts were corrected without weakening assertions. No current-source firmware build has yet been run for the new startup-publication fix in this slice.
+- Product source SHA `68571af7f68f820569400543e80ee7f9e7a3f148`: Process regression/inventory, AI docs, Firewall Startup Stability, NVRAM transaction audit and WAN NVRAM/DDNS checks passed. Exact XY-C1 run `44674653396` passed detector, Build XY-C1, TRX verification and artifact upload (job `136083493218`). L3 is established for `68571af`, not later production code. Physical-router L4 remains NOT VERIFIED.
+- Checker/workflow head `0d04cab`: WAN route `44675647123`, HTTPD `44675647093`, miniupnpd `44675647150`, and AI docs `44675647174` passed.
+- WAN active-interface source commit `822f88b10ce52e2ba735f4d51cac12d684a0853c` adds fail-closed `wanN_ifname_t` publication to RAS, PPP and IPoE paths. WAN route `44676321120`, Process inventory `44676321232`, AI docs `44676321121`, VPN `44676321034`, WAN teardown `44676321169`, wireless `44676320974`, ZeroTier `44676321181`, dnsmasq `44676320940`, WAN DHCP `44676320992`, miniupnpd `44676321033`, HTTPD `44676320960`, watchdog `44676321080`, Detect WAN ARP `44676320985`, Detect internet `44676320958`, and Detect link `44676321015` all PASS.
+- Exact failures on `822f88b`: Process regression `44676321052`, USB modem `44676321204`, Firewall Startup Stability `44676321094`. All three reached `scripts/check_modem_wan_start_status.py:369`, whose exact aggregate count expected 22; the source correctly contains 28 after six new merges (failed publication + recovery status in each of three paths). Earlier relevant C/unit checks and WAN-specific firewall contracts passed before this stale assertion.
+- XY-C1 `44676321180` and NVRAM boundary `44676320949` were IN_PROGRESS at last poll. Do not claim L3 for `822f88b` yet.
 
 ## Active task completed in this slice
 
-- Confirmed a second failure-sensitive unchecked active-WAN identity publication defect in `start_wan()`. Three protocol branches assigned `wanN_ifname_t` using the legacy void setter and continued toward `start_firewall_ex()` or protocol launch without checking whether NVRAM accepted the interface name.
-- This is security/stability-relevant: `firewall_ex.c::start_firewall_ex()` directly reads `wanN_ifname_t` to select the WAN interface in firewall rules. If the update fails, a stale previous PPP/physical interface can still be a syntactically valid value, so firewall rebuild may succeed against the wrong WAN device.
-- Changed USB modem RAS, ordinary PPPoE/PPTP/L2TP and IPoE setup to use the existing private checked setter. On failure each path records the first WAN error, logs the interface and errno, invokes the existing fail-closed physical-WAN recovery wrapper, records recovery status without overwriting the first error, and `continue`s before firewall rebuild or client/protocol activation.
-- Extended `scripts/check_wan_firewall_status.py` to require exactly two checked PPP-interface publications and one checked IPoE publication, and require failure aggregation + physical-WAN recovery + branch abort before firewall rebuild. The existing GNU89/Werror/ASan/UBSan unit already covers `nvram_set_temp` result/errno normalization; the existing workflow runs this integration checker. No legacy public setter ABI changed.
-- Exact-head tests for THIS commit and a production-source XY-C1 run are pending. The preceding 0d04 workflow-contract commit passed its four exact-head Actions checks; the preceding 68571 production source passed L3 as above.
+- Fixed the shared startup-status source contract to expect 28 first-error merges rather than 22, matching the six deliberate result accumulations introduced by three active-WAN interface publication failure paths.
+- Added per-protocol assertions for RAS, PPP and IPoE. Each must capture the status-returning `ifname_t` write, aggregate its failure, invoke physical-WAN recovery, aggregate the recovery result, log the error and abort with `continue`.
+- No production source or compiled test was changed or weakened by this checker correction. Existing Process, USB modem and Firewall Startup workflows already run this shared checker.
 
 ## Verification boundary
 
-- Earlier L2 and L3 evidence is tied to the exact SHA listed above and must not be misattributed to this new product-source change.
-- No local repository checkout/full firmware build is available in this session. The new code uses existing GNU89-compatible syntax and helper APIs; the exact WAN route regression and current-source XY-C1 build/TRX/artifact must validate it.
-- No physical router test is claimed.
+- This checker-only repair has not yet been validated by exact-head Actions.
+- The exact `822f88b` Process regression, USB modem identity and Firewall Startup failures were all caused by the single outdated aggregate-count assertion. The other listed exact-head contracts passed as above.
+- XY-C1 `44676321180` and NVRAM boundary `44676320949` were pending at last poll. L3 for the new source SHA is NOT VERIFIED; no physical-router L4 test was performed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect Actions by exact `head_sha` for THIS checked-startup-publication commit. Require WAN route (including the NVRAM binary and extended `check_wan_firewall_status.py` integration contract), Process regression/inventory and AI docs to pass. Diagnose any first failure from its log.
-2. Require the XY-C1 detector, MIPS build, TRX verification and artifact upload to pass on one identical source SHA before claiming L3 for this fix.
-3. Continue the P1 NVRAM publication audit only where later firewall/interface/route/daemon behavior consumes the written value. Inspect `set_wan_unit_value_int()`, `set_wan_unit_param()` and direct `nvram_set*_temp()` calls narrowly; do not bulk-convert telemetry or unrelated UI state.
+1. Fetch live `main` and inspect exact-head Actions for this checker repair. Confirm Process regression, USB modem identity and Firewall Startup Stability now pass with the new per-branch assertions; inspect any remaining causal log.
+2. Check same-source NVRAM boundary and XY-C1. Require production-input detector, Build XY-C1, TRX verification and artifact upload on one identical SHA before claiming L3 for `822f88b`.
+3. Continue the P1 NVRAM publication audit only where firewall/interface/route/daemon behavior consumes the written value. Inspect `set_wan_unit_value_int()`, `set_wan_unit_param()` and direct `nvram_set*_temp()` calls narrowly; do not bulk-convert telemetry or unrelated UI state. Fix the next proven failure-sensitive callsite with an injected regression and source contract.
 
 ## Mandatory handoff checkpoint
 

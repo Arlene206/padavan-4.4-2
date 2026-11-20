@@ -1,3 +1,12 @@
+## 2026-11-20 — Correct WAN startup aggregate-count contract for new fail-closed gates
+
+- Parent main SHA: `822f88b10ce52e2ba735f4d51cac12d684a0853c`; its C changes add three checked active-interface publication gates for RAS, PPP and IPoE, and each failure path aggregates both the NVRAM error and physical-WAN recovery status.
+- Exact Process regression `44676321052`, USB modem identity `44676321204`, and Firewall Startup Stability `44676321094` failed at `check_modem_wan_start_status.py:369` because the shared checker still required 22 aggregate calls. The actual production source has 28 (six new expected merges); earlier unit and WAN firewall checks passed.
+- Updated the checker to require 28 and to pin each of the three failure paths: checked `ifname_t` publication, two first-error merges, diagnostic, physical-WAN recovery and branch abort. No product C or regression binary behavior was weakened.
+- Exact-head reruns are pending. XY-C1 `44676321180` and NVRAM boundary `44676320949` were also pending on parent `822f88b`; no L3 claim yet.
+
+---
+
 ## 2026-11-20 12:48 CST — Gate WAN firewall/client startup on checked active-interface publication
 
 - Parent main SHA: `0d04cabd439f6f965ef78195821043b82b471d7e`. Review confirmed `firewall_ex.c::start_firewall_ex()` directly consumes `wanN_ifname_t` when selecting the interface used to build WAN firewall rules. A stale but valid interface name can therefore make a firewall rebuild look successful after a failed NVRAM update.

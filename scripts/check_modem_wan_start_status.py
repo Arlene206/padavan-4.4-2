@@ -366,7 +366,35 @@ assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[dhcp_po
 
 aggregate_pattern = r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*vlan_result\s*\)\s*;"
 aggregate_matches = list(re.finditer(aggregate_pattern, wan_start))
-assert len(aggregate_matches) == 22
+assert len(aggregate_matches) == 28
+
+# Each of the three active-interface publication failures retains two results:
+# the failed NVRAM write and the physical-WAN recovery attempt.
+for protocol_marker, interface_name, diagnostic in (
+    ('set_wan_unit_value(unit, "proto_t", "RAS Modem")',
+     "ppp_ifname", "cannot publish active WAN interface"),
+    ('set_wan_unit_value(unit, "proto_t", proto_desc)',
+     "ppp_ifname", "cannot publish active WAN interface"),
+    ('set_wan_unit_value(unit, "proto_t", "IPoE")',
+     "wan_ifname", "cannot publish active WAN interface"),
+):
+    protocol_start = wan_start.index(protocol_marker)
+    publish_marker = (
+        'vlan_result = set_wan_unit_value_status(unit, "ifname_t", '
+        + interface_name + ');'
+    )
+    publish_at = wan_start.index(publish_marker, protocol_start)
+    failure_at = wan_start.index("if (vlan_result != 0)", publish_at)
+    restore_at = wan_start.index(
+        "vlan_result = restore_wan_after_firewall_failure(unit, wan_ifname);",
+        failure_at,
+    )
+    continue_at = wan_start.index("continue;", restore_at)
+    failure_path = wan_start[failure_at:continue_at]
+    assert len(re.findall(aggregate_pattern, failure_path)) == 2
+    assert diagnostic in failure_path
+    assert publish_at < failure_at < restore_at < continue_at
+
 # The RAS firewall rebuild, failed-rebuild recovery, and PPP launch recovery
 # each contribute status.
 ras_launch_start = wan_start.index("char *ppp_ifname = IFNAME_RAS;")
