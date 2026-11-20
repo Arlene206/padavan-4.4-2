@@ -2424,7 +2424,9 @@ jobs:
           bound_start = wan.index("udhcpc_bound(char *wan_ifname, int is_renew_mode)")
           bound_end = wan.index("udhcpc_viptv_bound(", bound_start)
           bound = wan[bound_start:bound_end]
-          assert bound.index("dhcp_lease_ipv4_is_valid(lease_ip)") < bound.index('nvram_set_temp(strcat_r(prefix, "ipaddr"')
+          assert bound.index("dhcp_lease_ipv4_is_valid(lease_ip)") < bound.index("wan_dhcp_nvram_state_publish(")
+          assert "WAN_DHCP_BOUND_SNAPSHOT_COUNT" in bound
+          assert "dhcp_wan_route_transition_abort_snapshot(" in bound
           assert "dhcp_lease_netmask_is_valid(lease_netmask)" in bound
           assert "dhcp_lease_ipv4_list_first" in bound
           assert "dhcp_lease_route_text_is_safe" in bound

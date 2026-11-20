@@ -4910,6 +4910,16 @@ static const struct dhcp_wan_route_transition_ops wan_dhcp_route_transition_ops 
 };
 
 static int
+wan_dhcp_nvram_state_publish(
+	const struct dhcp_lease_nvram_value *values, size_t count,
+	int *rollback_status);
+
+static int
+wan_dhcp_bound_snapshot_add(struct dhcp_lease_nvram_value *values,
+			    size_t *count, const char *name,
+			    const char *value, const char *previous_value);
+
+static int
 udhcpc_bound(char *wan_ifname, int is_renew_mode)
 {
 	char *value, *lan_ip, *lan_nm, *wan_ip, *wan_nm, *wan_gw;

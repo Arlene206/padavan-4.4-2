@@ -267,7 +267,7 @@ jobs:
           assert "mtu_status = set_interface_mtu(man_ifname, dhcp_mtu);" in viptv_bound
           apply = callback.index("dhcp_wan_interface_apply(")
           route_transition = callback.index("dhcp_wan_route_transition_apply(")
-          primary_state = callback.index('nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), lease_ip)')
+          primary_state = callback.index("wan_dhcp_nvram_state_publish(")
           assert apply < route_transition < primary_state
           assert "preserving previous lease and routes" in callback
           assert "failed to restore previous DHCP address" in callback
@@ -277,9 +277,11 @@ jobs:
           assert "failed to restore previous DHCP route inventory" in callback
           transition = body(route_policy, "dhcp_wan_route_transition_apply(")
           assert "dhcp_lease_route_delete_is_ok(operation_status)" in transition
-          assert "ops->restore_old_address(context)" in transition
-          assert "ops->restore_old_routes(context)" in transition
-          assert transition.index("ops->restore_old_address(context)") < transition.index("ops->restore_old_routes(context)")
+          assert "dhcp_wan_route_transition_restore_old(" in transition
+          restore_old = body(route_policy, "dhcp_wan_route_transition_restore_old(")
+          assert "ops->restore_old_address(context)" in restore_old
+          assert "ops->restore_old_routes(context)" in restore_old
+          assert restore_old.index("ops->restore_old_address(context)") < restore_old.index("ops->restore_old_routes(context)")
           delete_host = body(source, "wan_dhcp_delete_old_host_route(void *opaque)")
           assert "return route_del(context->interface_context->ifname" in delete_host
           restore_address = body(source, "wan_dhcp_restore_old_address(void *opaque)")
@@ -294,7 +296,7 @@ jobs:
           control_routes = body(source, "control_dhcp_routes(char *rt")
           assert control_routes.count("dhcp_lease_route_add_is_ok(route_status)") == 2
           assert control_routes.count("dhcp_lease_route_delete_is_ok(route_status)") == 2
-          gateway_state = callback.index('nvram_set_temp(strcat_r(prefix, "gateway", tmp), gateway_buf)')
+          gateway_state = callback.index("bound_names[WAN_DHCP_BOUND_GATEWAY], gateway_buf")
           wan_route_setup = callback.index("route_setup_status = wan_up_internal(wan_ifname, unit, 0)")
           man_route_setup = callback.index("route_setup_status = man_up_internal(wan_ifname, unit, 0, NULL)")
           assert gateway_state < wan_route_setup
