@@ -166,6 +166,25 @@ test_internal_client_validation(void)
 	assert(miniupnpd_pinhole_parse_internal_ipv6("2001:db8::1", NULL) == -1);
 }
 
+static void
+test_pinhole_counter_defaults(void)
+{
+	u_int64_t packets = 123;
+	u_int64_t bytes = 456;
+
+	miniupnpd_pinhole_reset_counters(&packets, &bytes);
+	assert(packets == 0);
+	assert(bytes == 0);
+
+	packets = 789;
+	miniupnpd_pinhole_reset_counters(&packets, NULL);
+	assert(packets == 0);
+	bytes = 987;
+	miniupnpd_pinhole_reset_counters(NULL, &bytes);
+	assert(bytes == 0);
+	miniupnpd_pinhole_reset_counters(NULL, NULL);
+}
+
 int
 main(void)
 {
@@ -176,6 +195,7 @@ main(void)
 	test_specific_remote_host();
 	test_invalid_remote_host();
 	test_internal_client_validation();
-	puts("MiniUPnP IPv6 pinhole policy: PASS");
+	test_pinhole_counter_defaults();
+	puts("MiniUPnP IPv6 pinhole and counter policy: PASS");
 	return 0;
 }

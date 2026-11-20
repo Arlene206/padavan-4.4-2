@@ -1,3 +1,12 @@
+## 2026-11-20 — Default MiniUPnP pinhole counters when the kernel rule is missing
+
+- Parent main SHA: `a6a0175208fcbd073d1bbdb424de501a5885cf4b`.
+- A live registry entry whose ip6tables rule had disappeared made `get_pinhole_info()` return success without assigning the requested packet/byte outputs. The public wrapper then copied an uninitialized packet count to SOAP callers; `CheckPinholeWorking` could report a false positive and `GetPinholePackets` could expose an indeterminate value.
+- Added a shared null-safe counter initializer and call it before the netfilter lookup. A found rule still overwrites the zero defaults; a missing rule deterministically reports zero counters. Added regressions for both outputs and each optional NULL pointer, and pinned the production ordering in MiniUPnP CI.
+- Local GNU89/`-Wall -Wextra -Werror` ASan/UBSan policy regression: PASS. Exact-head MiniUPnP and XY-C1 Actions must be checked on THIS COMMIT; L3/L4 for this source change are not yet verified.
+
+---
+
 ## 2026-11-20 — Make the OpenVPN domain source assertion Python-safe
 
 - Parent main SHA: `30dec22ecde555e6d6617a15e1820d13ea15bb68`.

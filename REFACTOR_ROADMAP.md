@@ -1,10 +1,10 @@
 ## Current checkpoint — 2026-11-20
 
-- Current main: `2cb3ee3d27446aca096b14f9ac0324110c0afa8b`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807` and is read-only.
-- Exact-head on main: MiniUPnP #44763259688 PASS; Process inventory #44763259657 PASS; NVRAM #44763259725 PASS; AI handoff docs #44763259666 FAIL (missing mandatory end-of-session checkpoint wording in SESSION_HANDOFF.md); XY-C1 #44763259637 pending.
-- Active stability slice: MiniUPnP IPv6 netfilter pinhole backend wildcard/UID/resource-lifecycle validation. Planned tests cover wildcard normalization, malformed address rejection, UID wrap/full behavior, pre-commit registry allocation, NULL allocation handling and ip6tc handle release.
-- The documentation failure is being corrected without weakening the checker. Exact-source XY-C1 Build/TRX/artifact remains the L3 gate; hardware L4 is NOT VERIFIED.
-
+- Parent `main` immediately before the current atomic source slice: `a6a0175208fcbd073d1bbdb424de501a5885cf4b`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- Exact-head push Actions on parent `a6a01752`: VPN server lifecycle #44766404316 PASS; AI handoff documentation #44766404187 PASS.
+- MiniUPnP IPv6 pinhole wildcard/UID/resource-lifecycle remediation is implemented, with GNU89/Werror/ASan/UBSan regression and source-contract coverage. Product-source SHA `84199a2fe17d774b8bcdba0a1918e7fa10a33160` passed MiniUPnP #44762854186 and XY-C1 #44762854295.
+- Current source slice prevents uninitialized packet/byte counters when a registered pinhole has no matching kernel firewall rule. Local L2 policy regression PASS; new exact-head MiniUPnP and XY-C1 checks are pending until this commit is pushed. Do not transfer prior L3 evidence to this SHA.
+- Exact-source XY-C1 Build/TRX/artifact is the L3 gate for this slice; physical hardware L4 remains NOT VERIFIED.
 
 ---
 

@@ -5,6 +5,7 @@
 #include <errno.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <sys/types.h>
 
 typedef int (*miniupnpd_pinhole_uid_used_fn)(unsigned short uid,
                                             void *context);
@@ -77,6 +78,16 @@ miniupnpd_pinhole_parse_internal_ipv6(const char *text,
 	}
 	*address_out = parsed;
 	return 0;
+}
+
+/* A registry entry may outlive its firewall rule; absent counters are zero. */
+static inline void
+miniupnpd_pinhole_reset_counters(u_int64_t *packets, u_int64_t *bytes)
+{
+	if (packets)
+		*packets = 0;
+	if (bytes)
+		*bytes = 0;
 }
 
 #endif /* MINIUPNPD_PINHOLE_POLICY_H */

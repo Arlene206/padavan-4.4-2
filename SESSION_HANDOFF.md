@@ -16,37 +16,34 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Current main at checkpoint: `2cb3ee3d27446aca096b14f9ac0324110c0afa8b` (`fix(miniupnpd): reject unresolved IPv6 pinhole sources`).
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not modify).
-- Exact-head Actions on `2cb3ee3d`: MiniUPnP #44763259688 PASS; Process inventory #44763259657 PASS; NVRAM #44763259725 PASS; AI handoff docs #44763259666 FAIL; XY-C1 #44763259637 PENDING.
-- AI handoff failure root cause: the current handoff had lost the mandatory end-of-session accuracy checkpoint wording. This documentation repair restores that contract; check the new exact-SHA AI run after the commit.
-- Parent source slice `84199a2f` added IPv6 pinhole SOAP validation; its MiniUPnP #44762854186 and AI docs #44762854261 passed. The later `2cb3ee3d` change rejects unresolved remote IPv6 source names.
-- Do not infer firmware L3 from host CI. Hardware L4 remains NOT VERIFIED.
+- Parent `main` SHA immediately before this atomic source slice: `a6a0175208fcbd073d1bbdb424de501a5885cf4b`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; preservation branch must remain unchanged).
+- Exact-head push Actions on parent `a6a01752`: VPN server lifecycle #44766404316 PASS; AI handoff documentation #44766404187 PASS.
+- The prior MiniUPnP IPv6 wildcard/UID/resource-lifecycle slice is implemented. On product-source SHA `84199a2fe17d774b8bcdba0a1918e7fa10a33160`, MiniUPnP regression #44762854186 and XY-C1 firmware validation #44762854295 passed. This does not validate the new counter-default source change.
+- Local GNU89/`-Wall -Wextra -Werror` ASan/UBSan policy regression for this slice passed. New exact-head MiniUPnP and XY-C1 runs are required after this commit.
+- Do not infer hardware validation from host CI or firmware automation. Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Continue stability/security work in the MiniUPnP IPv6 netfilter pinhole backend (`trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c`).
+The pinhole wildcard/UID/allocation/resource-lifecycle task recorded in the previous checkpoint has been implemented. This commit fixes a follow-on reliability defect in `trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c`:
 
-Confirmed review findings to address with a single focused implementation slice:
-- SOAP RemoteHost=`*` currently reaches the netfilter backend, where unchecked `inet_pton` leaves a zero source address but sets an all-ones mask; that creates ::/128 instead of the required wildcard ::/0.
-- `find_pinhole()` passes `*` through unchecked `inet_pton` into an uninitialized `struct in6_addr`, making duplicate pinhole lookup nondeterministic.
-- UID collision search wraps indefinitely if every nonzero 16-bit UID is occupied.
-- Match/target allocations are dereferenced without NULL checks; the successful `ip6tc_commit()` path leaks its libip6tc handle.
-- Registry bookkeeping is allocated after installing the kernel rule; allocation failure can leave an active but untracked firewall rule.
+- If a pinhole registry entry survives after its kernel rule disappears, `get_pinhole_info()` previously returned success without initializing packet/byte outputs. The caller could copy an uninitialized `packets_tmp` value and misreport the pinhole as working.
+- A shared null-safe counter initializer now sets requested counters to zero before querying netfilter; a matching rule overwrites those defaults. Regression tests cover both counters and optional NULL arguments, while the MiniUPnP workflow pins initialization-before-lookup ordering.
 
-Plan for this slice: add a shared tested IPv6/UID policy helper; normalize NULL/empty/`*` to a zero remote address with no source mask; reject invalid literal addresses; bound UID allocation; allocate the registry record before firewall mutation; check all allocation failures; release the ip6tc handle on success. Integrate the regression into MiniUPnP stability CI and include the production backend/header in XY-C1 firmware input detection.
+After exact-head CI verification, continue the repository-wide stability/security queue. Prioritize concrete unfinished high-impact WAN/service lifecycle issues in `REFACTOR_ROADMAP.md`; do not repeat the completed pinhole wildcard/UID audit.
 
 ## Verification boundary
 
-- L2 host regression and static source-contract checks: required for this slice.
-- L3 firmware validation: NOT VERIFIED on `2cb3ee3d`; require Build XY-C1, TRX verification and artifact upload to pass on the same product-source SHA.
-- L4 physical hardware validation: NOT VERIFIED.
+- L2 host policy regression: GNU89, `-Wall -Wextra -Werror`, ASan and UBSan PASS locally.
+- Static source contract: added to `.github/workflows/miniupnpd-config-stability.yml`; exact-head result pending until the new `main` push completes.
+- XY-C1 detector already watches the production pinhole backend and policy header. Exact new-SHA Build XY-C1 / TRX / artifact result must still be checked; do not transfer the preceding `84199a2` result.
+- Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and verify the backup SHA; inspect the new exact-head AI handoff run and XY-C1 run without waiting on pending work.
-2. Implement the MiniUPnP netfilter pinhole backend slice above against the live main tree, run the GNU89/Werror/ASan/UBSan regression and source-contract tests, and commit one atomic main tree.
-3. Check MiniUPnP, AI, Process/NVRAM as triggered, and XY-C1 Actions for that exact commit SHA; diagnose any FAIL from job logs.
+1. Fetch live `main` and confirm the frozen backup still equals `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+2. Check push-triggered MiniUPnP and XY-C1 Actions whose `head_sha` exactly equals the new `main` commit. Diagnose any failure from its causal job log; a pending run must not block independent work.
+3. Once the slice is verified, resume the highest-priority unfinished WAN/service-lifecycle stability defect in the live roadmap. Keep source, regression and required integration changes in one atomic `main` commit.
 
 ## Handoff maintenance
 

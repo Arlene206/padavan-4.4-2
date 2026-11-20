@@ -271,6 +271,7 @@ jobs:
           pinhole_append = function_body(pinhole_backend, "ip6tc_init_verify_append(const char * table")
           pinhole_match = function_body(pinhole_backend, "new_match(int proto")
           pinhole_target = function_body(pinhole_backend, "get_accept_target(void)")
+          pinhole_info = function_body(pinhole_backend, "get_pinhole_info(unsigned short uid")
           assert '#include "../miniupnpd_pinhole_policy.h"' in pinhole_backend
           assert "miniupnpd_pinhole_find_free_uid(next_uid, pinhole_uid_is_used" in pinhole_backend
           assert "miniupnpd_pinhole_parse_remote_ipv6(rem_host, &source_address" in pinhole_add
@@ -283,10 +284,15 @@ jobs:
           assert commit_call < pinhole_append.index("ip6tc_free(h);", commit_call) < pinhole_append.index("return 0;", commit_call)
           assert "if (!match)" in pinhole_match
           assert "if (!target)" in pinhole_target
+          assert "miniupnpd_pinhole_reset_counters(packets, bytes);" in pinhole_info
+          counter_init = pinhole_info.index("miniupnpd_pinhole_reset_counters(packets, bytes);")
+          assert counter_init < pinhole_info.index('h = ip6tc_init("filter");')
+          assert pinhole_info.index('h = ip6tc_init("filter");') < pinhole_info.index("ip6tc_first_rule(")
           for marker in (
               "miniupnpd_pinhole_find_free_uid",
               "miniupnpd_pinhole_parse_remote_ipv6",
               "miniupnpd_pinhole_parse_internal_ipv6",
+              "miniupnpd_pinhole_reset_counters",
               "candidate > 65535",
               "errno = ENOSPC",
           ):
@@ -299,7 +305,8 @@ jobs:
               "test_specific_remote_host",
               "test_invalid_remote_host",
               "test_internal_client_validation",
-              "MiniUPnP IPv6 pinhole policy: PASS",
+              "test_pinhole_counter_defaults",
+              "MiniUPnP IPv6 pinhole and counter policy: PASS",
           ):
               assert marker in pinhole_test, marker
           assert "iptpinhole_policy_test.c" in workflow

@@ -471,6 +471,8 @@ get_pinhole_info(unsigned short uid,
 	if (desc)
 		strncpy(desc, p->desc, desclen);
 	if(packets || bytes) {
+		/* A registry entry can outlive its firewall rule. */
+		miniupnpd_pinhole_reset_counters(packets, bytes);
 		/* theses informations need to be read from netfilter */
 		IP6TC_HANDLE h;
 		const struct ip6t_entry * e;
