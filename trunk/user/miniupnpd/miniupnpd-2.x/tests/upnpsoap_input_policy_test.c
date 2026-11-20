@@ -120,6 +120,26 @@ test_invalid_output_arguments(void)
 }
 
 static void
+test_protocol_number_boundaries(void)
+{
+	int protocol = -1;
+
+	assert(miniupnpd_soap_parse_protocol_number("6", &protocol) == 0 && protocol == 6);
+	assert(miniupnpd_soap_parse_protocol_number("17", &protocol) == 0 && protocol == 17);
+	assert(miniupnpd_soap_parse_protocol_number("65535", &protocol) == 0 && protocol == 65535);
+	errno = 0;
+	assert(miniupnpd_soap_parse_protocol_number("65536", &protocol) == -1 && errno == ERANGE);
+	errno = 0;
+	assert(miniupnpd_soap_parse_protocol_number("6junk", &protocol) == -1 && errno == EINVAL);
+	errno = 0;
+	assert(miniupnpd_soap_parse_protocol_number("-1", &protocol) == -1 && errno == EINVAL);
+	errno = 0;
+	assert(miniupnpd_soap_parse_protocol_number(NULL, &protocol) == -1 && errno == EINVAL);
+	errno = 0;
+	assert(miniupnpd_soap_parse_protocol_number("6", NULL) == -1 && errno == EINVAL);
+}
+
+static void
 test_required_text_presence(void)
 {
 	assert(!miniupnpd_soap_required_text_present(NULL));
@@ -134,6 +154,7 @@ main(void)
 	test_nonzero_port_validation();
 	test_protocol_tokens();
 	test_nonnegative_int_boundaries();
+	test_protocol_number_boundaries();
 	test_required_text_presence();
 	test_invalid_output_arguments();
 	puts("MiniUPnP SOAP unsigned input policy: PASS");

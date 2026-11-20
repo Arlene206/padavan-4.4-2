@@ -91,6 +91,21 @@ miniupnpd_soap_parse_nonzero_port(const char *text, unsigned short *port_out)
 }
 
 static inline int
+miniupnpd_soap_parse_protocol_number(const char *text, int *protocol_out)
+{
+	unsigned long value;
+
+	if (!protocol_out) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (miniupnpd_soap_parse_unsigned(text, 65535UL, &value) != 0)
+		return -1;
+	*protocol_out = (int)value;
+	return 0;
+}
+
+static inline int
 miniupnpd_soap_ascii_equal_ci(const char *left, const char *right)
 {
 	while (*left && *right) {

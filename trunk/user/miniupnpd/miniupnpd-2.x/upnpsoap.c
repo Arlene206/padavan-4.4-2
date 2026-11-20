@@ -1688,8 +1688,7 @@ AddPinhole(struct upnphttp * h, const char * action, const char * ns)
 	char * rem_host, * rem_port, * int_ip, * int_port, * protocol, * leaseTime;
 	int uid = 0;
 	unsigned short iport, rport;
-	int ltime;
-	long proto;
+	int ltime, proto;
 	char rem_ip[INET6_ADDRSTRLEN];
 
 	if(CheckStatus(h)==0)
@@ -1703,12 +1702,11 @@ AddPinhole(struct upnphttp * h, const char * action, const char * ns)
 	protocol = GetValueFromNameValueList(&data, "Protocol");
 	leaseTime = GetValueFromNameValueList(&data, "LeaseTime");
 
-	rport = (unsigned short)(rem_port ? atoi(rem_port) : 0);
-	iport = (unsigned short)(int_port ? atoi(int_port) : 0);
-	ltime = leaseTime ? atoi(leaseTime) : -1;
-	errno = 0;
-	proto = protocol ? strtol(protocol, NULL, 0) : -1;
-	if(errno != 0 || proto > 65535 || proto < 0)
+	rport = 0;
+	if ((rem_port && miniupnpd_soap_parse_port(rem_port, &rport) != 0) ||
+	    miniupnpd_soap_parse_port(int_port, &iport) != 0 ||
+	    miniupnpd_soap_parse_int(leaseTime, &ltime) != 0 ||
+	    miniupnpd_soap_parse_protocol_number(protocol, &proto) != 0)
 	{
 		SoapError(h, 402, "Invalid Args");
 		goto clear_and_exit;
@@ -1783,8 +1781,8 @@ AddPinhole(struct upnphttp * h, const char * action, const char * ns)
 		goto clear_and_exit;
 	}
 	if(proto != IPPROTO_UDP && proto != IPPROTO_TCP
-#ifdef IPPROTO_UDPITE
-	   && atoi(protocol) != IPPROTO_UDPLITE
+#ifdef IPPROTO_UDPLITE
+	   && proto != IPPROTO_UDPLITE
 #endif
 	  )
 	{
@@ -1870,8 +1868,12 @@ UpdatePinhole(struct upnphttp * h, const char * action, const char * ns)
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	uid_str = GetValueFromNameValueList(&data, "UniqueID");
 	leaseTime = GetValueFromNameValueList(&data, "NewLeaseTime");
-	uid = uid_str ? atoi(uid_str) : -1;
-	ltime = leaseTime ? atoi(leaseTime) : -1;
+	if (miniupnpd_soap_parse_int(uid_str, &uid) != 0 ||
+	    miniupnpd_soap_parse_int(leaseTime, &ltime) != 0) {
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
 	ClearNameValueList(&data);
 
 	if(uid < 0 || uid > 65535 || ltime <= 0 || ltime > 86400)
@@ -1950,11 +1952,16 @@ GetOutboundPinholeTimeout(struct upnphttp * h, const char * action, const char *
 	rem_port = GetValueFromNameValueList(&data, "RemotePort");
 	protocol = GetValueFromNameValueList(&data, "Protocol");
 
-	rport = (unsigned short)atoi(rem_port);
-	iport = (unsigned short)atoi(int_port);
-	/*proto = atoi(protocol);*/
+	if (!int_ip || !int_port || !rem_port || !protocol ||
+	    miniupnpd_soap_parse_port(rem_port, &rport) != 0 ||
+	    miniupnpd_soap_parse_nonzero_port(int_port, &iport) != 0 ||
+	    miniupnpd_soap_parse_protocol_number(protocol, &proto) != 0) {
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
 
-	syslog(LOG_INFO, "%s: retrieving timeout for outbound pinhole from [%s]:%hu to [%s]:%hu protocol %s", action, int_ip, iport,rem_host, rport, protocol);
+	syslog(LOG_INFO, "%s: retrieving timeout for outbound pinhole from [%s]:%hu to [%s]:%hu protocol %s", action, int_ip, iport, rem_host ? rem_host : "any", rport, protocol);
 
 	/* TODO */
 	r = -1;/*upnp_check_outbound_pinhole(proto, &opt);*/
@@ -2006,7 +2013,11 @@ DeletePinhole(struct upnphttp * h, const char * action, const char * ns)
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	uid_str = GetValueFromNameValueList(&data, "UniqueID");
-	uid = uid_str ? atoi(uid_str) : -1;
+	if (miniupnpd_soap_parse_int(uid_str, &uid) != 0) {
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
 	ClearNameValueList(&data);
 
 	if(uid < 0 || uid > 65535)
@@ -2076,7 +2087,11 @@ CheckPinholeWorking(struct upnphttp * h, const char * action, const char * ns)
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	uid_str = GetValueFromNameValueList(&data, "UniqueID");
-	uid = uid_str ? atoi(uid_str) : -1;
+	if (miniupnpd_soap_parse_int(uid_str, &uid) != 0) {
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
 	ClearNameValueList(&data);
 
 	if(uid < 0 || uid > 65535)
@@ -2138,7 +2153,11 @@ GetPinholePackets(struct upnphttp * h, const char * action, const char * ns)
 
 	ParseNameValue(h->req_buf + h->req_contentoff, h->req_contentlen, &data);
 	uid_str = GetValueFromNameValueList(&data, "UniqueID");
-	uid = uid_str ? atoi(uid_str) : -1;
+	if (miniupnpd_soap_parse_int(uid_str, &uid) != 0) {
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
 	ClearNameValueList(&data);
 
 	if(uid < 0 || uid > 65535)

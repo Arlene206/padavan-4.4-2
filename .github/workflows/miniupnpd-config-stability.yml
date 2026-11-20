@@ -165,6 +165,12 @@ jobs:
           delete_port = function_body(soap_source, "DeletePortMapping(struct upnphttp * h")
           delete_range = function_body(soap_source, "DeletePortMappingRange(struct upnphttp * h")
           get_list = function_body(soap_source, "GetListOfPortMappings(struct upnphttp * h")
+          add_pinhole = function_body(soap_source, "AddPinhole(struct upnphttp * h")
+          update_pinhole = function_body(soap_source, "UpdatePinhole(struct upnphttp * h")
+          delete_pinhole = function_body(soap_source, "DeletePinhole(struct upnphttp * h")
+          check_pinhole = function_body(soap_source, "CheckPinholeWorking(struct upnphttp * h")
+          get_pinhole_packets = function_body(soap_source, "GetPinholePackets(struct upnphttp * h")
+          outbound_pinhole = function_body(soap_source, "GetOutboundPinholeTimeout(struct upnphttp * h")
           assert "miniupnpd_soap_required_text_present(desc)" in add_port
           assert "miniupnpd_soap_required_text_present(desc)" in add_any
           assert add_port.count("miniupnpd_soap_parse_port(") == 1
@@ -187,6 +193,19 @@ jobs:
           assert get_list.count("miniupnpd_soap_parse_port(") == 2
           assert get_list.count("miniupnpd_soap_parse_int(") == 1
           assert "if (number == 0)" in get_list and "number = 1000;" in get_list
+          assert add_pinhole.count("miniupnpd_soap_parse_port(") == 2
+          assert "miniupnpd_soap_parse_protocol_number(protocol, &proto)" in add_pinhole
+          assert "miniupnpd_soap_parse_int(leaseTime, &ltime)" in add_pinhole
+          assert "atoi(" not in add_pinhole and "strtol(" not in add_pinhole
+          assert update_pinhole.count("miniupnpd_soap_parse_int(") == 2
+          assert "atoi(" not in update_pinhole
+          for pinhole_uid_action in (delete_pinhole, check_pinhole, get_pinhole_packets):
+              assert "miniupnpd_soap_parse_int(uid_str, &uid)" in pinhole_uid_action
+              assert "atoi(" not in pinhole_uid_action
+          assert "miniupnpd_soap_parse_port(rem_port, &rport)" in outbound_pinhole
+          assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in outbound_pinhole
+          assert "miniupnpd_soap_parse_protocol_number(protocol, &proto)" in outbound_pinhole
+          assert "atoi(" not in outbound_pinhole
           for marker in (
               "maximum - (unsigned long)digit",
               "(unsigned long)INT_MAX",
@@ -198,6 +217,8 @@ jobs:
               "test_nonzero_port_validation",
               "miniupnpd_soap_parse_nonzero_port",
               "test_nonnegative_int_boundaries",
+              "test_protocol_number_boundaries",
+              "miniupnpd_soap_parse_protocol_number",
               "test_required_text_presence",
               "test_invalid_output_arguments",
               'expect_port_error("65536", ERANGE)',
