@@ -1,3 +1,10 @@
+## 2026-11-20 — Normalize MiniUPnP allocation checker whitespace
+
+- Parent main SHA: `2ffb8479a33ad55a4138b3384a31510f5b7c534e`.
+- Exact-head MiniUPnP run `44789544201` on `2ffb8479a33ad55a4138b3384a31510f5b7c534e` passed the GNU89 ASan/UBSan allocation-cleanup binary and the existing configuration, daemon, PID-file and redirect-cleanup regressions. The source-contract checker alone failed at the entry-cleanup assertion because the C call spans multiple lines.
+- Normalized extracted function bodies before matching entry, match, target and realloc cleanup calls. Assertions still enforce each guard before first dereference and verify exact cleanup arguments.
+- No production C changed. Exact-head MiniUPnP rerun required; XY-C1 L3 not yet confirmed.
+
 ## 2026-11-20 — Fail safely when MiniUPnP iptables rule components cannot be allocated
 
 - Parent main SHA: `f06fb00373149abe1afc6fcb06c9a0b6f9bd5510`.

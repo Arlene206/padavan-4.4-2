@@ -45,7 +45,7 @@ factories = (
     ("get_accept_target(void)", "target"),
 )
 for signature, pointer in factories:
-    body = function_body(signature)
+    body = " ".join(function_body(signature).split())
     allocation = body.index(pointer + " = calloc(1, size);")
     guard = body.index("if (!" + pointer + ")", allocation)
     null_return = body.index("return NULL;", guard)
@@ -62,18 +62,18 @@ builders = (
     ("add_filter_rule(int proto,", "add_filter_rule", "get_accept_target", "ACCEPT target"),
 )
 for signature, caller, target_factory, target_name in builders:
-    body = function_body(signature)
+    body = " ".join(function_body(signature).split())
 
     entry_guard = body.index("if (!e)")
     entry_cleanup = body.index(
-        'miniupnpd_iptcrdr_allocation_failure(NULL, NULL, NULL, "' + caller + '", "rule entry")'
+        'miniupnpd_iptcrdr_allocation_failure( NULL, NULL, NULL, "' + caller + '", "rule entry")'
     )
     first_entry_use = body.index("e->ip.proto")
     assert entry_guard < entry_cleanup < first_entry_use, caller + " entry allocation"
 
     match_guard = body.index("if (!match)")
     match_cleanup = body.index(
-        'miniupnpd_iptcrdr_allocation_failure(e, NULL, NULL, "' + caller + '", "protocol match")'
+        'miniupnpd_iptcrdr_allocation_failure( e, NULL, NULL, "' + caller + '", "protocol match")'
     )
     match_deref = body.index("match->")
     assert match_guard < match_cleanup < match_deref, caller + " match allocation"
@@ -81,7 +81,7 @@ for signature, caller, target_factory, target_name in builders:
     target_call = body.index("target = " + target_factory + "(")
     target_guard = body.index("if (!target)", target_call)
     target_cleanup = body.index(
-        'miniupnpd_iptcrdr_allocation_failure(e, match, NULL, "' + caller + '", "' + target_name + '")',
+        'miniupnpd_iptcrdr_allocation_failure( e, match, NULL, "' + caller + '", "' + target_name + '")',
         target_call,
     )
     target_deref = body.index("target->", target_call)
@@ -90,7 +90,7 @@ for signature, caller, target_factory, target_name in builders:
     realloc_call = body.index("tmp = realloc(", target_call)
     realloc_guard = body.index("if (!tmp)", realloc_call)
     realloc_cleanup = body.index(
-        'miniupnpd_iptcrdr_allocation_failure(e, match, target, "' + caller + '", "rule buffer")',
+        'miniupnpd_iptcrdr_allocation_failure( e, match, target, "' + caller + '", "rule buffer")',
         realloc_guard,
     )
     assert realloc_call < realloc_guard < realloc_cleanup < body.index("e = tmp;", realloc_guard), caller + " realloc failure"
