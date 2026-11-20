@@ -1,15 +1,14 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 36519699b833ac0582b7f54f3d9d52b80bfb7245; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 is L3 VERIFIED on exact XY-C1 run 44715584790 (Build, TRX and artifact 14620685104).
-- Workflow/source-contract SHA 36519699b833ac0582b7f54f3d9d52b80bfb7245 passed exact Process/lifecycle 44719246958, HTTPD security 44719247010 and AI docs 44719246942.
-- WAN0 initial write-failure handling is closed. A remaining checked-read hole was found: legacy nvram_get() conflated absent values and backend/read/close errors while seeding per-unit WAN defaults. This slice switches target/source lookups to nvram_get_checked(), copies cache-backed values before subsequent NVRAM operations, preserves present empty overrides and aborts on read failures. Seven injected cases join the existing WAN NVRAM regression.
-- Exact 05e2 XY-C1 run 44718942242 remained IN_PROGRESS at last poll; no same-SHA Build/TRX/artifact claim yet.
+- Parent main SHA: abc46fda36f6f11479374fe123de35bf84d51cb0; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- Product SHA f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 is L3 VERIFIED on same-SHA XY-C1 Build/TRX/artifact run 44715584790.
+- Exact 365 Process 44719246958, HTTPD security 44719247010 and AI docs 44719246942 passed.
+- WAN0 checked-default-read parent abc46fda36f6f11479374fe123de35bf84d51cb0: the seven-case host policy regression compiled and ran successfully in Process workflow 44720306205. Its final Python checker step then failed only because newly-added assertion referred to undefined policy_header; the earlier C policy test and all other process steps passed. AI docs run 44720306191 passed; XY-C1 run 44720306486 still IN_PROGRESS at last poll.
+- This slice adds the missing header variable to the checker, preserving the runtime implementation unchanged.
 
 ## Priority queue
-- CLOSED: WAN full-restart static LAN route recovery; checked ifname_t publication; DHCPv4 6rd transactional publication; custom release credential redaction and trigraph escaping.
-- CLOSED: WAN0 runtime-write status propagation/fatal PID1 gate; exact 365 Process, HTTPD and AI docs verification PASS.
-- ACTIVE: finish checked-read counterpart for WAN0 default-copy initialization, then exact Process/XY-C1 checks.
-- NEXT: another source-confirmed P1 RC/service initialization or lifecycle error path, without repeating these fixes.
+- CLOSED: WAN route recovery, ifname_t publication, DHCPv4 6rd rollback, custom credential redaction/trigraph escaping, WAN0 checked write/init fail-closed.
+- ACTIVE: complete exact-head Process checker correction for WAN0 checked default-read and poll same-source XY-C1.
+- NEXT: inspect a distinct source-confirmed P1 RC/service lifecycle defect; do not repeat WAN0/6rd/custom hardening.
 
 
 ## Whole-repository module status

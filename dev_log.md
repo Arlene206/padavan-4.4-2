@@ -1,3 +1,12 @@
+## 2026-11-20 — Repair Process checker variable for WAN0 checked-read policy
+
+- Parent main SHA: abc46fda36f6f11479374fe123de35bf84d51cb0.
+- The new checked-read policy's seven-case GNU89/ASan/UBSan regression compiled and ran successfully in exact Process run 44720306205. The final integration checker failed because its new assertion referenced policy_header, a local name not defined in that script section.
+- Added an explicit wan_nvram_policy_header read next to the WAN0 test source and pointed the assertion at it. This is a checker-only repair; no runtime C or regression code changed.
+- Exact AI docs run 44720306191 PASS. Product-source XY-C1 run 44720306486 and NVRAM transaction run 44720306517 were IN_PROGRESS at last poll. No new L3 evidence claimed.
+
+---
+
 ## 2026-11-20 — Distinguish absent WAN0 defaults from NVRAM read failures
 
 - Parent main SHA: 36519699b833ac0582b7f54f3d9d52b80bfb7245.

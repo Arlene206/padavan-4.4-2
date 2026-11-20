@@ -3466,6 +3466,7 @@ assert "return INIT_ROUTER_RESULT_FATAL;" in failure_gate
 assert router_init.index("nvram_setup_status = nvram_convert_misc_values();") < router_init.index("init_gpio_leds_buttons();")
 
 wan_nvram_test = (root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+wan_nvram_policy_header = (root / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 assert "test_wan0_boot_values_stop_at_each_nvram_failure" in wan_nvram_test
 assert "test_wan0_boot_values_stop_at_each_nvram_failure();" in wan_nvram_test
 for case in (
@@ -3479,7 +3480,7 @@ for case in (
 ):
     assert case in wan_nvram_test
     assert case + "();" in wan_nvram_test
-assert "rc_wan_nvram_copy_missing_default" in policy_header
+assert "rc_wan_nvram_copy_missing_default" in wan_nvram_policy_header
 assert '"trunk/user/rc/src/tests/wan_nvram_status_policy.c"' in process_workflow
 assert "Compile and run WAN0 NVRAM initialization failure regression" in process_workflow
 print("WAN0 NVRAM defaults/runtime identity fail-closed boot gate: PASS")
