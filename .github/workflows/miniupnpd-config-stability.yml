@@ -347,6 +347,9 @@ jobs:
           assert "if (nat_backup_failed) return miniupnpd_restore_errno_on_failure(r, primary_failure_errno)" in cleanup_backend_flat
           assert "secondary_failure_errno" in cleanup_backend
           assert "miniupnpd_select_cleanup_failure_errno(" in cleanup_backend
+          assert "primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno," in cleanup_backend_flat
+          assert "secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno," in cleanup_backend_flat
+          assert "test_cleanup_phase_keeps_first_errno" in cleanup_test
           assert "miniupnpd_restore_errno_on_failure(cleanup_status, failure_errno)" in cleanup_backend
           assert "test_cleanup_failure_errno_preserves_primary_precedence" in cleanup_test
           assert "return r*r2;" not in cleanup_backend

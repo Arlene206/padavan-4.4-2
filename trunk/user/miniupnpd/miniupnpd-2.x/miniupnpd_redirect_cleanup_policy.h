@@ -86,4 +86,14 @@ miniupnpd_select_cleanup_failure_errno(int primary_status,
 	return secondary_errno != 0 ? secondary_errno : EIO;
 }
 
+
+/* Retain the first failure errno observed within one cleanup phase. */
+static inline int
+miniupnpd_record_first_failure_errno(int current_errno, int candidate_errno)
+{
+	if (current_errno != 0)
+		return current_errno;
+	return candidate_errno != 0 ? candidate_errno : EIO;
+}
+
 #endif /* MINIUPNPD_REDIRECT_CLEANUP_POLICY_H */

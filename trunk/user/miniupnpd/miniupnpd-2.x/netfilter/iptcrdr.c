@@ -764,7 +764,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 	/* First step : find the right nat rule */
 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
 	{
-		primary_failure_errno = ENOENT;
+		primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno, ENOENT);
 		syslog(LOG_ERR, "chain %s not found", miniupnpd_nat_chain);
 		r = -1;
 	}
@@ -810,7 +810,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 				nat_backup = malloc(nat_entry_len);
 				if (!nat_backup) {
 					failure_errno = errno ? errno : ENOMEM;
-					primary_failure_errno = failure_errno;
+					primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno, failure_errno);
 					syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot NAT rule");
 					errno = failure_errno;
 					nat_backup_failed = 1;
@@ -847,14 +847,14 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 		else
 		{
 			failure_errno = errno;
-			primary_failure_errno = failure_errno;
+			primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno, failure_errno);
 			syslog(LOG_ERR, "%s() : iptc_init(nat) failed : %s",
 			       "delete_redirect_and_filter_rules", iptc_strerror(failure_errno));
 			r = -1;
 		}
 		nat_delete_status = r;
 		if (nat_delete_status != 0 && primary_failure_errno == 0)
-			primary_failure_errno = errno ? errno : EIO;
+			primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno, errno);
 		if(r == 0)
 		{
 			h = iptc_init("filter");
@@ -904,7 +904,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 			else
 			{
 				failure_errno = errno;
-				primary_failure_errno = failure_errno;
+				primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno, failure_errno);
 				syslog(LOG_ERR, "%s() : iptc_init(filter) failed : %s",
 				       "delete_redirect_and_filter_rules", iptc_strerror(failure_errno));
 				r = -1;
@@ -918,7 +918,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 #endif
 		filter_delete_status = r;
 		if (r != 0 && primary_failure_errno == 0)
-			primary_failure_errno = errno ? errno : EIO;
+			primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno, errno);
 		if (miniupnpd_nat_delete_rollback_required(nat_delete_status, r)) {
 			nat_rollback_attempted = 1;
 			failure_errno = errno ? errno : EIO;
@@ -990,7 +990,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 						peer_backup = malloc(peer_entry_len);
 						if (!peer_backup) {
 							failure_errno = errno ? errno : ENOMEM;
-							secondary_failure_errno = failure_errno;
+							secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno, failure_errno);
 							syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot peer SNAT rule");
 							errno = failure_errno;
 							r2 = -1;
@@ -1009,7 +1009,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 			}
 			else
 			{
-				secondary_failure_errno = errno;
+				secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno, errno);
 				syslog(LOG_ERR, "%s() : iptc_init(nat) failed while removing peer rule : %s",
 				       "delete_redirect_and_filter_rules", iptc_strerror(secondary_failure_errno));
 				r2 = -1;
@@ -1077,7 +1077,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 				}
 				else
 				{
-					secondary_failure_errno = errno;
+					secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno, errno);
 					syslog(LOG_ERR, "%s() : iptc_init(mangle) failed : %s",
 					       "delete_redirect_and_filter_rules", iptc_strerror(secondary_failure_errno));
 					errno = secondary_failure_errno;
@@ -1100,7 +1100,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 				errno = failure_errno;
 			}
 			if (r2 != 0 && secondary_failure_errno == 0)
-				secondary_failure_errno = errno ? errno : EIO;
+				secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno, errno);
 			free(peer_backup);
 			peer_backup = NULL;
 		

@@ -1,3 +1,14 @@
+## 2026-11-20 — Preserve the first error within primary and peer cleanup phases
+
+- Parent main SHA: b6c1519c69cedefba6483e51a810106f185bef1a.
+- Source review found that the enclosing delete transaction captured primary and secondary errno, but later failures in the same phase could overwrite the earlier causal errno. In particular, a filter initialization failure could replace a prior NAT failure, and a later mangle-stage failure could replace a peer NAT-stage failure.
+- Added miniupnpd_record_first_failure_errno() and routed every primary/secondary error capture through it. The first observed errno is now retained within each phase; errno-less failures become EIO. The final selector still prefers the primary phase over the peer phase.
+- Added a compiled policy regression for first-error retention and strengthened standalone and inline source contracts to require both primary and secondary captures to use the helper.
+- Parent HEAD at patch construction: b6c1519c69cedefba6483e51a810106f185bef1a. Frozen backup confirmed unchanged at 72f4f157a084f8184b9597ca5bf334b8080e5807. The production helper errno injection matrix is in the preceding commit and is independently wired to both IPTABLES_143 and legacy API builds.
+- Resulting commit: THIS COMMIT. Exact-source firmware L3 remains NOT VERIFIED until Build XY-C1, TRX and artifact upload pass for this product SHA. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Inject errno-clobbering IPTC backends for both handle APIs
 
 - Parent main SHA: 4a7d3c3e3b1966d1574f703ffbfc498bce292542.
