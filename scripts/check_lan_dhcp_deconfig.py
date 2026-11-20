@@ -4,6 +4,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 lan = (root / "trunk/user/rc/src/net_lan.c").read_text()
+assert '#include "route_status_policy.h"' in lan
 wan = (root / "trunk/user/rc/src/net_wan.c").read_text()
 policy = (root / "trunk/user/rc/src/dhcp_lease_policy.h").read_text()
 test = (root / "trunk/user/rc/src/tests/dhcp_lease_policy.c").read_text()

@@ -37,6 +37,7 @@
 #include "lan_kernel_name_policy.h"
 #include "lan_dhcp_callback_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "route_status_policy.h"
 #include "service_wait_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
