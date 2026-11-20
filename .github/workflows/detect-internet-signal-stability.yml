@@ -142,7 +142,7 @@ jobs:
           pause_fence = timer.index("if (di_pause_received)", connect)
           publish = timer.index("di_publish_nvram_status(link_internet)")
           assert timer.index("di_publish_nvram_status(di_status);") < connect
-          assert "di_publish_nvram_status(0)" in timer
+          assert "di_publish_nvram_status(di_status_nvram_target)" in timer
           assert "if (publish_status != 0)" in timer
           assert 'nvram_set_int_temp("link_internet"' not in timer
           assert pause_fence < publish
