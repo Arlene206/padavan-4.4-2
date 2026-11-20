@@ -19,8 +19,19 @@ xy = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
 
 
 def c_function_body(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
+    # A static helper may have an earlier forward declaration. Skip that
+    # prototype instead of treating the next function's opening brace as its
+    # body, then extract the actual definition.
+    search_from = 0
+    while True:
+        start = source.index(signature, search_from)
+        opening = source.index("{", start)
+        terminator = source.find(";", start)
+        if terminator >= 0 and terminator < opening:
+            search_from = start + len(signature)
+            continue
+        break
+
     depth = 0
     for position in range(opening, len(source)):
         if source[position] == "{":

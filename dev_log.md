@@ -1,3 +1,13 @@
+## 2026-11-20 — Skip forward declarations in LAN DHCP C source checker
+
+- Parent main SHA: `3ca051d4590ef6a81f8c52074e262e4e4254c7f1`. Exact-head WAN DHCP callback run `44702791487` on `3ca051d4590ef6a81f8c52074e262e4e4254c7f1` compiled and passed both DHCP lease and WAN NVRAM snapshot sanitizer binaries, then failed in `scripts/check_lan_dhcp_deconfig.py` at line 333.
+- Cause: the checker’s `c_function_body()` selected the newly added forward declaration of `wan_dhcp_nvram_publish_values()` near the static IPTV callbacks, then treated the next function's opening brace as the prototype's body. It therefore never inspected the actual later definition containing `nvram_transaction_begin(&transaction)`.
+- The parser now skips a matching declaration when a semicolon occurs before the next opening brace, and then extracts the real definition. This preserves the transaction/rollback assertions rather than weakening them. The exact callback run must be repeated on the new SHA.
+- On `3ca051d4590ef6a81f8c52074e262e4e4254c7f1`, completed exact-head checks included WAN teardown, AI handoff, ZeroTier, process inventory, wireless, detect_link, DNSMasq, firewall, HTTPD, WAN route, ARP probe, USB modem and miniupnpd PASS. WAN callback was FAIL for the parser issue; XY-C1 MIPS build, NVRAM boundary audit, VPN/process lifecycle/watchdog/HTTPD, and detect_internet were still in progress at this poll. The firmware job had entered `Cross-build XY-C1 firmware`, so it was not skipped.
+- No local checkout/compiler was available; host binaries above are CI evidence only.
+
+---
+
 ## 2026-11-20 — Fail closed on static IPTV NVRAM publication errors
 
 - Parent main SHA: `ea976ca3a553f238d202d84be0b89022efed062b`. Updated the static IPTV startup policy, production callbacks, injected regressions, the VLAN/bridge source contract, and this log. Parent main also contains a concurrent LAN DHCP coherent-snapshot fix; that change is preserved.
