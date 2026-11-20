@@ -1,3 +1,10 @@
+## 2026-11-20 — Correct boot NTP-reset local scope and call-path contract
+
+- Parent main SHA: `8dbb0963cb6b816bf13cf13726f5de0ce3c867fb`.
+- Exact-head watchdog run `44789384547` exposed that the new reset assignments are in `nvram_convert_misc_values()` (the NVRAM setup phase called by `init_router()`), while the local status variables had mistakenly been declared in the later `init_router()` function. This was a real GNU89 compile defect; the XY-C1 pre-build regression stopped before firmware compilation.
+- Moved both status locals into `nvram_convert_misc_values()`, preserving the early dual reset and its fatal status propagation. Corrected the source contract to inspect the function that actually owns the writes and separately prove `init_router()` aborts before system-ready/autostart when NVRAM setup fails.
+- Physical-router L4 remains NOT VERIFIED; exact watchdog and XY-C1 Build/TRX/artifact reruns required.
+
 ## 2026-11-20 — Normalize MiniUPnP allocation checker whitespace
 
 - Parent main SHA: `2ffb8479a33ad55a4138b3384a31510f5b7c534e`.

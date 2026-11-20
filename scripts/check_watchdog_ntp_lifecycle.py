@@ -153,14 +153,21 @@ assert "NTP readiness persistence recovered" in _ntp_watchdog
 
 # Boot must invalidate the previous boot's persistent NTP-ready flag and
 # temporary NTP-step counter before watchdog or user autostart can trust time.
+_ntp_nvram_setup = function_body(_ntp_dispatcher, "nvram_convert_misc_values(void)")
 _ntp_init_router = function_body(_ntp_dispatcher, "init_router(void)")
-_counter_reset = _ntp_init_router.index('ntpc_counter_reset_status = nvram_set_temp("ntpc_counter", "0000000000");')
-_ready_reset = _ntp_init_router.index('ntp_ready_reset_status = nvram_set_int("ntp_ready", 0);')
-_reset_gate = _ntp_init_router.index("if (!init_router_ntp_state_reset_succeeded(")
+_counter_reset = _ntp_nvram_setup.index('ntpc_counter_reset_status = nvram_set_temp("ntpc_counter", "0000000000");')
+_ready_reset = _ntp_nvram_setup.index('ntp_ready_reset_status = nvram_set_int("ntp_ready", 0);')
+_reset_gate = _ntp_nvram_setup.index("if (!init_router_ntp_state_reset_succeeded(")
+assert _counter_reset < _ready_reset < _reset_gate
+assert "int ntpc_counter_reset_status, ntp_ready_reset_status;" in _ntp_nvram_setup
+assert "return INIT_ROUTER_RESULT_FATAL;" in _ntp_nvram_setup[_reset_gate:]
+# init_router propagates the NVRAM setup failure before boot services and autostart.
+_setup_call = _ntp_init_router.index("nvram_setup_status = nvram_convert_misc_values();")
+_setup_gate = _ntp_init_router.index("if (nvram_setup_status != 0)", _setup_call)
 _ready_section = _ntp_init_router.index("// system ready")
 _autostart = _ntp_init_router.index('system("/usr/bin/copyscripts.sh")')
-assert _counter_reset < _ready_reset < _reset_gate < _ready_section < _autostart
-assert "return INIT_ROUTER_RESULT_FATAL;" in _ntp_init_router[_reset_gate:_ready_section]
+assert _setup_call < _setup_gate < _ready_section < _autostart
+assert "return INIT_ROUTER_RESULT_FATAL;" in _ntp_init_router[_setup_gate:_ready_section]
 assert "init_router_ntp_state_reset_succeeded" in _ntp_router_policy
 assert "init_router_ntp_state_reset_succeeded" in _ntp_router_test
 assert _ntp_dispatcher.count('nvram_set_int("ntp_ready", 0)') == 1
