@@ -1,3 +1,4 @@
+#include <arpa/inet.h>
 #include <assert.h>
 #include <errno.h>
 #include <limits.h>
@@ -140,6 +141,20 @@ test_protocol_number_boundaries(void)
 }
 
 static void
+test_ipv6_peer_identity_comparison(void)
+{
+	struct in6_addr sender, equivalent, different;
+
+	assert(inet_pton(AF_INET6, "2001:db8::1", &sender) == 1);
+	assert(inet_pton(AF_INET6, "2001:0db8:0:0:0:0:0:1", &equivalent) == 1);
+	assert(inet_pton(AF_INET6, "2001:db8::2", &different) == 1);
+	assert(miniupnpd_soap_ipv6_peer_matches(&sender, &equivalent));
+	assert(!miniupnpd_soap_ipv6_peer_matches(&sender, &different));
+	assert(!miniupnpd_soap_ipv6_peer_matches(NULL, &sender));
+	assert(!miniupnpd_soap_ipv6_peer_matches(&sender, NULL));
+}
+
+static void
 test_required_text_presence(void)
 {
 	assert(!miniupnpd_soap_required_text_present(NULL));
@@ -155,6 +170,7 @@ main(void)
 	test_protocol_tokens();
 	test_nonnegative_int_boundaries();
 	test_protocol_number_boundaries();
+	test_ipv6_peer_identity_comparison();
 	test_required_text_presence();
 	test_invalid_output_arguments();
 	puts("MiniUPnP SOAP unsigned input policy: PASS");

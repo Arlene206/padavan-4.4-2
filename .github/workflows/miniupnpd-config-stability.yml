@@ -166,6 +166,7 @@ jobs:
           delete_range = function_body(soap_source, "DeletePortMappingRange(struct upnphttp * h")
           get_list = function_body(soap_source, "GetListOfPortMappings(struct upnphttp * h")
           add_pinhole = function_body(soap_source, "AddPinhole(struct upnphttp * h")
+          pinhole_verify = function_body(soap_source, "PinholeVerification(struct upnphttp * h")
           update_pinhole = function_body(soap_source, "UpdatePinhole(struct upnphttp * h")
           delete_pinhole = function_body(soap_source, "DeletePinhole(struct upnphttp * h")
           check_pinhole = function_body(soap_source, "CheckPinholeWorking(struct upnphttp * h")
@@ -195,6 +196,18 @@ jobs:
           assert "if (number == 0)" in get_list and "number = 1000;" in get_list
           assert add_pinhole.count("miniupnpd_soap_parse_port(") == 2
           assert "miniupnpd_soap_parse_protocol_number(protocol, &proto)" in add_pinhole
+          assert "char normalized_int_ip[INET6_ADDRSTRLEN];" in add_pinhole
+          assert "PinholeVerification(h, int_ip, iport, normalized_int_ip," in add_pinhole
+          assert "upnp_add_inboundpinhole(rem_host, rport, normalized_int_ip," in add_pinhole
+          assert "memset(&hints, 0, sizeof(hints));" in pinhole_verify
+          assert "hints.ai_family = AF_INET6;" in pinhole_verify
+          assert "p->ai_addr" in pinhole_verify and "peer->sin6_addr" in pinhole_verify
+          assert "freeaddrinfo(ai);" in pinhole_verify
+          assert "freeaddrinfo(p)" not in pinhole_verify
+          assert "miniupnpd_soap_ipv6_peer_matches(&h->clientaddr_v6, &result_ip)" in pinhole_verify
+          assert "inet_ntop(AF_INET6, &result_ip, normalized_ip," in pinhole_verify
+          assert "inet_ntop(AF_INET6, (struct in6_addr *) p" not in pinhole_verify
+          assert "inet_ntop(AF_INET6, (struct in6_addr *) p, int_ip" not in pinhole_verify
           assert "miniupnpd_soap_parse_int(leaseTime, &ltime)" in add_pinhole
           assert "atoi(" not in add_pinhole and "strtol(" not in add_pinhole
           assert update_pinhole.count("miniupnpd_soap_parse_int(") == 2
@@ -220,6 +233,8 @@ jobs:
               "test_nonnegative_int_boundaries",
               "test_protocol_number_boundaries",
               "miniupnpd_soap_parse_protocol_number",
+              "test_ipv6_peer_identity_comparison",
+              "miniupnpd_soap_ipv6_peer_matches",
               "test_required_text_presence",
               "test_invalid_output_arguments",
               'expect_port_error("65536", ERANGE)',

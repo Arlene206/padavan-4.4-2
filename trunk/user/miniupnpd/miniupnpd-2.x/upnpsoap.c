@@ -1610,62 +1610,83 @@ static int connecthostport(const char * host, unsigned short port, char * result
 
 /* Check the security policy right */
 static int
-PinholeVerification(struct upnphttp * h, char * int_ip, unsigned short int_port)
+PinholeVerification(struct upnphttp * h, const char * int_ip,
+                    unsigned short int_port, char * normalized_ip,
+                    size_t normalized_ip_size)
 {
-	int n;
-	char senderAddr[INET6_ADDRSTRLEN]="";
+	int n, found = 0;
+	char senderAddr[INET6_ADDRSTRLEN] = "";
 	struct addrinfo hints, *ai, *p;
+	struct sockaddr_in6 *peer;
 	struct in6_addr result_ip;
 
-	/* Pinhole InternalClient address must correspond to the action sender */
+	/* Do not write a 46-byte address into the parser-owned input string. */
+	if (!int_ip || !normalized_ip ||
+	    normalized_ip_size < INET6_ADDRSTRLEN) {
+		SoapError(h, 402, "Invalid Args");
+		return -1;
+	}
+
+	/* Pinhole InternalClient must correspond to the action sender. */
 	syslog(LOG_INFO, "Checking internal IP@ and port (Security policy purpose)");
 
-	hints.ai_socktype = SOCK_STREAM;
-	hints.ai_family = AF_UNSPEC;
+	if (inet_pton(AF_INET6, int_ip, &result_ip) != 1) {
+		memset(&hints, 0, sizeof(hints));
+		hints.ai_socktype = SOCK_STREAM;
+		hints.ai_family = AF_INET6;
 
-	/* if ip not valid assume hostname and convert */
-	if (inet_pton(AF_INET6, int_ip, &result_ip) <= 0)
-	{
 		n = getaddrinfo(int_ip, NULL, &hints, &ai);
-		if(!n && ai->ai_family == AF_INET6)
-		{
-			for(p = ai; p; p = p->ai_next)
-			{
-				inet_ntop(AF_INET6, (struct in6_addr *) p, int_ip, sizeof(struct in6_addr));
-				result_ip = *((struct in6_addr *) p);
-				/* TODO : deal with more than one ip per hostname */
-				break;
-			}
-		}
-		else
-		{
-			syslog(LOG_DEBUG, "Failed to convert hostname '%s' to ip address", int_ip);
+		if (n != 0) {
+			syslog(LOG_DEBUG, "Failed to convert hostname '%s' to IPv6: %s",
+			       int_ip, gai_strerror(n));
 			SoapError(h, 402, "Invalid Args");
 			return -1;
 		}
-        freeaddrinfo(p);
+
+		for (p = ai; p; p = p->ai_next) {
+			if (p->ai_family != AF_INET6 || !p->ai_addr ||
+			    p->ai_addrlen < sizeof(struct sockaddr_in6))
+				continue;
+			peer = (struct sockaddr_in6 *)p->ai_addr;
+			result_ip = peer->sin6_addr;
+			found = 1;
+			break;
+		}
+		freeaddrinfo(ai);
+		if (!found) {
+			syslog(LOG_DEBUG, "Hostname '%s' has no IPv6 address", int_ip);
+			SoapError(h, 402, "Invalid Args");
+			return -1;
+		}
 	}
 
-	if(inet_ntop(AF_INET6, &(h->clientaddr_v6), senderAddr, INET6_ADDRSTRLEN) == NULL)
-	{
-		syslog(LOG_ERR, "inet_ntop: %m");
+	if (!inet_ntop(AF_INET6, &result_ip, normalized_ip,
+	               normalized_ip_size)) {
+		syslog(LOG_ERR, "inet_ntop for internal pinhole client failed: %m");
+		SoapError(h, 402, "Invalid Args");
+		return -1;
 	}
+	if (!inet_ntop(AF_INET6, &h->clientaddr_v6, senderAddr,
+	               sizeof(senderAddr))) {
+		syslog(LOG_ERR, "inet_ntop for SOAP sender failed: %m");
+	}
+
 #ifdef DEBUG
-	printf("\tPinholeVerification:\n\t\tCompare sender @: %s\n\t\t  to intClient @: %s\n", senderAddr, int_ip);
+	printf("\tPinholeVerification:\n\t\tCompare sender @: %s\n\t\t  to intClient @: %s\n",
+	       senderAddr, normalized_ip);
 #endif
-	if(strcmp(senderAddr, int_ip) != 0)
-	if(h->clientaddr_v6.s6_addr != result_ip.s6_addr)
-	{
-		syslog(LOG_INFO, "Client %s tried to access pinhole for internal %s and is not authorized to do it",
-		       senderAddr, int_ip);
+	if (!miniupnpd_soap_ipv6_peer_matches(&h->clientaddr_v6, &result_ip)) {
+		syslog(LOG_INFO,
+		       "Client %s tried to access pinhole for internal %s and is not authorized to do it",
+		       senderAddr, normalized_ip);
 		SoapError(h, 606, "Action not authorized");
 		return 0;
 	}
 
-	/* Pinhole InternalPort must be greater than or equal to 1024 */
-	if (int_port < 1024)
-	{
-		syslog(LOG_INFO, "Client %s tried to access pinhole with port < 1024 and is not authorized to do it",
+	/* Pinhole InternalPort must be greater than or equal to 1024. */
+	if (int_port < 1024) {
+		syslog(LOG_INFO,
+		       "Client %s tried to access pinhole with port < 1024 and is not authorized to do it",
 		       senderAddr);
 		SoapError(h, 606, "Action not authorized");
 		return 0;
@@ -1690,6 +1711,7 @@ AddPinhole(struct upnphttp * h, const char * action, const char * ns)
 	unsigned short iport, rport;
 	int ltime, proto;
 	char rem_ip[INET6_ADDRSTRLEN];
+	char normalized_int_ip[INET6_ADDRSTRLEN];
 
 	if(CheckStatus(h)==0)
 		return;
@@ -1797,19 +1819,20 @@ AddPinhole(struct upnphttp * h, const char * action, const char * ns)
 		goto clear_and_exit;
 	}
 
-	if(PinholeVerification(h, int_ip, iport) <= 0)
+	if(PinholeVerification(h, int_ip, iport, normalized_int_ip,
+	                       sizeof(normalized_int_ip)) <= 0)
 		goto clear_and_exit;
 
 	syslog(LOG_INFO, "%s: (inbound) from [%s]:%hu to [%s]:%hu with proto %ld during %d sec",
 	       action, rem_host?rem_host:"any",
-	       rport, int_ip, iport,
+	       rport, normalized_int_ip, iport,
 	       proto, ltime);
 
 	/* In cases where the RemoteHost, RemotePort, InternalPort,
 	 * InternalClient and Protocol are the same than an existing pinhole,
 	 * but LeaseTime is different, the device MUST extend the existing
 	 * pinhole's lease time and return the UniqueID of the existing pinhole. */
-	r = upnp_add_inboundpinhole(rem_host, rport, int_ip, iport, proto, "IGD2 pinhole", ltime, &uid);
+	r = upnp_add_inboundpinhole(rem_host, rport, normalized_int_ip, iport, proto, "IGD2 pinhole", ltime, &uid);
 
 	switch(r)
 	{
@@ -1857,6 +1880,7 @@ UpdatePinhole(struct upnphttp * h, const char * action, const char * ns)
 	struct NameValueParserData data;
 	const char * uid_str, * leaseTime;
 	char iaddr[INET6_ADDRSTRLEN];
+	char normalized_iaddr[INET6_ADDRSTRLEN];
 	unsigned short iport;
 	int ltime;
 	int uid;
@@ -1891,7 +1915,8 @@ UpdatePinhole(struct upnphttp * h, const char * action, const char * ns)
 	                          NULL, NULL);
 	if (n >= 0)
 	{
-		if(PinholeVerification(h, iaddr, iport) <= 0)
+		if(PinholeVerification(h, iaddr, iport, normalized_iaddr,
+					 sizeof(normalized_iaddr)) <= 0)
 			return;
 	}
 	else if(n == -2)
@@ -2002,6 +2027,7 @@ DeletePinhole(struct upnphttp * h, const char * action, const char * ns)
 	struct NameValueParserData data;
 	const char * uid_str;
 	char iaddr[INET6_ADDRSTRLEN];
+	char normalized_iaddr[INET6_ADDRSTRLEN];
 	int proto;
 	unsigned short iport;
 	unsigned int leasetime;
@@ -2034,7 +2060,8 @@ DeletePinhole(struct upnphttp * h, const char * action, const char * ns)
 	                          &leasetime, NULL);
 	if (n >= 0)
 	{
-		if(PinholeVerification(h, iaddr, iport) <= 0)
+		if(PinholeVerification(h, iaddr, iport, normalized_iaddr,
+					 sizeof(normalized_iaddr)) <= 0)
 			return;
 	}
 	else if(n == -2)
@@ -2078,6 +2105,7 @@ CheckPinholeWorking(struct upnphttp * h, const char * action, const char * ns)
 	const char * uid_str;
 	int uid;
 	char iaddr[INET6_ADDRSTRLEN];
+	char normalized_iaddr[INET6_ADDRSTRLEN];
 	unsigned short iport;
 	unsigned int packets;
 
@@ -2109,7 +2137,8 @@ CheckPinholeWorking(struct upnphttp * h, const char * action, const char * ns)
 	                          NULL, &packets);
 	if (r >= 0)
 	{
-		if(PinholeVerification(h, iaddr, iport) <= 0)
+		if(PinholeVerification(h, iaddr, iport, normalized_iaddr,
+					 sizeof(normalized_iaddr)) <= 0)
 			return ;
 		if(packets == 0)
 		{
@@ -2141,6 +2170,7 @@ GetPinholePackets(struct upnphttp * h, const char * action, const char * ns)
 	const char * uid_str;
 	int n;
 	char iaddr[INET6_ADDRSTRLEN];
+	char normalized_iaddr[INET6_ADDRSTRLEN];
 	unsigned short iport;
 	unsigned int packets = 0;
 	int uid;
@@ -2174,7 +2204,8 @@ GetPinholePackets(struct upnphttp * h, const char * action, const char * ns)
 	                          &leasetime, &packets);
 	if (n >= 0)
 	{
-		if(PinholeVerification(h, iaddr, iport)<=0)
+		if(PinholeVerification(h, iaddr, iport, normalized_iaddr,
+					 sizeof(normalized_iaddr))<=0)
 			return ;
 	}
 #if 0

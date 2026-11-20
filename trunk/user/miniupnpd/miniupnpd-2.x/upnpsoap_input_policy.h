@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <netinet/in.h>
+#include <string.h>
 
 /* Parse a non-empty unsigned decimal value with an explicit upper bound. */
 static inline int
@@ -103,6 +104,14 @@ miniupnpd_soap_parse_protocol_number(const char *text, int *protocol_out)
 		return -1;
 	*protocol_out = (int)value;
 	return 0;
+}
+
+static inline int
+miniupnpd_soap_ipv6_peer_matches(const struct in6_addr *sender,
+                                 const struct in6_addr *internal)
+{
+	return sender != NULL && internal != NULL &&
+	       memcmp(sender, internal, sizeof(*sender)) == 0;
 }
 
 static inline int
