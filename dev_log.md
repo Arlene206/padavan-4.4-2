@@ -1,3 +1,12 @@
+## 2026-11-20 — Propagate libc address-selection file errors
+
+- Parent main SHA: `e387b92c16c83c3621e78e16dcdbd10707d7a2d5`.
+- `set_libc_gai()` previously discarded `fopen`, `fprintf`, `fclose` and `unlink` failures. It now uses the shared checked `fput_string()` path, returns write/remove status, and treats `ENOENT` on removal as idempotent success.
+- All known production callers now preserve the result: non-IPv6 PID 1 sysctl setup, IPv6 initialization, and both IPv6 restart branches. Added a GNU89 policy regression for write/removal errors and ENOENT; Process workflow path filters and PID 1 caller/source assertions were extended.
+- The focused policy test passed locally under GNU89/Werror/ASan/UBSan. Exact parent Process and AI docs Actions passed, but XY-C1 was still in progress; none of those parent checks validates this source slice. Exact-head GAI Actions and current-source L3 remain to be checked. Next priority: inspect remaining optional launch results in `net_wan.c::wan_up_internal()`.
+
+---
+
 ## 2026-11-20 — Propagate PID 1 TCP tuning sysctl failures
 
 - Parent main SHA: `a2ad2d27c24e5e060b28c6d8954f7e2674cf2429`.

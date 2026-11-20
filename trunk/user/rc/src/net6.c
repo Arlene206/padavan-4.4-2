@@ -46,9 +46,14 @@ int init_ipv6(void)
 {
 	int ipv6_type = get_ipv6_type();
 	int conf_status = control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1);
+	int gai_status;
+
 	if (conf_status != 0)
 		logmessage(LOGNAME, "IPv6 global sysctl initialization incomplete (status=%d)", conf_status);
-	set_libc_gai((ipv6_type == IPV6_DISABLED) ? 1 : 0);
+	gai_status = set_libc_gai((ipv6_type == IPV6_DISABLED) ? 1 : 0);
+	if (gai_status != 0)
+		logmessage(LOGNAME, "IPv6 address-selection policy initialization failed (status=%d)", gai_status);
+	conf_status = rc_first_service_start_status(conf_status, gai_status);
 	reset_lan6_vars();
 	return conf_status;
 }
@@ -261,7 +266,12 @@ full_restart_ipv6(int ipv6_type_old)
 		if (operation_status != 0)
 			logmessage(LOGNAME, "IPv6 disable could not apply global sysctls (status=%d)", operation_status);
 		restart_status = rc_first_service_start_status(restart_status, operation_status);
-		set_libc_gai(1);
+		operation_status = set_libc_gai(1);
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 disable could not apply address-selection policy (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
 		/* This no-notify refresh cannot recurse into restart_dns(). */
 		refresh_resolvconf_nonfatal_no_notify("IPv6 disabled", 0);
 		operation_status = reload_nat_modules();
@@ -290,7 +300,12 @@ full_restart_ipv6(int ipv6_type_old)
 									dnsmasq_lock_errno);
 		}
 	} else {
-		set_libc_gai(0);
+		operation_status = set_libc_gai(0);
+		if (operation_status != 0)
+			logmessage(LOGNAME, "IPv6 enable could not remove address-selection override (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
 		operation_status = control_if_ipv6_all(1);
 		if (operation_status != 0)
 			logmessage(LOGNAME, "IPv6 enable could not apply global sysctls (status=%d)", operation_status);

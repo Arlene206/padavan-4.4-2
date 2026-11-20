@@ -6,9 +6,12 @@ import re
 root = Path(__file__).resolve().parents[1]
 init = (root / "trunk/user/rc/src/init.c").read_text()
 net = (root / "trunk/user/rc/src/net.c").read_text()
+net6 = (root / "trunk/user/rc/src/net6.c").read_text()
 rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
 tcp_policy = (root / "trunk/user/rc/src/tcp_tweaks_policy.h").read_text()
 tcp_test = (root / "trunk/user/rc/src/tests/tcp_tweaks_policy.c").read_text()
+gai_policy = (root / "trunk/user/rc/src/libc_gai_policy.h").read_text()
+gai_test = (root / "trunk/user/rc/src/tests/libc_gai_policy.c").read_text()
 rc = (root / "trunk/user/rc/src/rc.c").read_text()
 result_policy = (root / "trunk/user/rc/src/init_router_result_policy.h").read_text()
 result_test = (root / "trunk/user/rc/src/tests/init_router_result_policy.c").read_text()
@@ -118,6 +121,25 @@ for setting in ("tcp_fin_timeout", "tcp_keepalive_intvl", "tcp_keepalive_probes"
     assert setting in tcp_policy
 assert "test_failures_do_not_skip_later_tweaks_and_preserve_first_error" in tcp_test
 assert "assert(writer.calls == RC_TCP_TWEAK_COUNT);" in tcp_test
+assert "int set_libc_gai(int ipv4_first);" in rc_header
+gai_writer = c_function(net, "write_libc_gai_precedence(void)")
+gai_remover = c_function(net, "unlink_libc_gai_override(void)")
+gai_function = c_function(net, "set_libc_gai(int ipv4_first)")
+assert 'fput_string("/etc/gai.conf", "precedence ipv4\\n")' in gai_writer
+assert 'unlink("/etc/gai.conf")' in gai_remover
+assert "return rc_libc_gai_apply(ipv4_first" not in gai_function
+assert "status = rc_libc_gai_apply(ipv4_first, write_libc_gai_precedence" in gai_function
+assert "status = set_libc_gai(1);" in sysctl
+assert 'init_sysctl_record_status(first_status, "/etc/gai.conf", status)' in sysctl
+ipv6_init = c_function(net6, "init_ipv6(void)")
+ipv6_restart = c_function(net6, "full_restart_ipv6(int ipv6_type_old)")
+assert "gai_status = set_libc_gai(" in ipv6_init
+assert "rc_first_service_start_status(conf_status, gai_status)" in ipv6_init
+assert "operation_status = set_libc_gai(1);" in ipv6_restart
+assert "operation_status = set_libc_gai(0);" in ipv6_restart
+assert ipv6_restart.count("rc_first_service_start_status(restart_status,") >= 2
+assert "test_disable_treats_missing_override_as_success" in gai_test
+assert "status == ENOENT ? 0 : status" in gai_policy
 assert "init_router_result_merge_sysctl_status" in result_policy
 assert "else if (init_router_status_is_degraded(router_init_status))" in loop
 assert "PID 1 event handling remains enabled" in loop
@@ -166,11 +188,14 @@ pull_paths = pull_request_section.split("\njobs:", 1)[0]
 for path in ("trunk/user/rc/src/init_router_result_policy.h",
              "trunk/user/rc/src/tests/init_router_result_policy.c",
              "trunk/user/rc/src/tcp_tweaks_policy.h",
-             "trunk/user/rc/src/tests/tcp_tweaks_policy.c"):
+             "trunk/user/rc/src/tests/tcp_tweaks_policy.c",
+             "trunk/user/rc/src/libc_gai_policy.h",
+             "trunk/user/rc/src/tests/libc_gai_policy.c"):
     assert push_paths.count(path) == 1 and pull_paths.count(path) == 1, (
         "Process workflow must watch router result policy exactly once: " + path)
 assert "init-router-result-policy" in workflow
 assert "tcp-tweaks-policy" in workflow
+assert "libc-gai-policy" in workflow
 assert "trunk/user/rc/src/tests/init_mdev_retry_policy.c" in workflow
 assert "mount_status=1" in shell_test and "chmod_status=1" in shell_test
 

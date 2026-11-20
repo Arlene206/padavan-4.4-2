@@ -12,28 +12,29 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Parent `main` before this slice: `a2ad2d27c24e5e060b28c6d8954f7e2674cf2429`.
+- Parent `main` before this slice: `e387b92c16c83c3621e78e16dcdbd10707d7a2d5`.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
-- All 11 push Actions on exact parent `a2ad2d27` passed. XY-C1 run `44669423813` completed the production-input detector, Build XY-C1, TRX verification and artifact upload successfully. This L3 evidence applies to the parent SHA only.
-- Historical PR #1 is CLOSED/UNMERGED. Its CA trust-store bootstrap and AliDDNS HMAC helper/tests/workflow integration are already present on current `main`; no remaining core PR implementation needs porting.
+- On exact parent `e387b92`, Process regression `44672214134` PASS (including TCP-tweak policy and PID 1 source contract), and AI handoff docs `44672214038` PASS. XY-C1 `44672214073` was still IN_PROGRESS at last poll; do not claim L3 for that parent.
+- Previous TCP source commit `e387b92`: all nine `set_tcp_tweaks()` writes are now attempted, logged and aggregated into `init_sysctl()`.
+- Historical PR #1 is CLOSED/UNMERGED. CA trust-store bootstrap and AliDDNS HMAC helper/tests/workflow integration are already on `main`.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task completed in this slice
 
-- Fixed PID 1 early-boot TCP sysctl status loss. `net.c::set_tcp_tweaks()` previously discarded all nine `fput_int()` results. It now runs a testable nine-setting operation table, attempts every independent write, logs each failed sysctl, and returns the first error.
-- `init.c::init_sysctl()` records that returned status through the existing first-error accumulator, so incomplete TCP tuning degrades READY startup while preserving FATAL prerequisite behavior and continuing other independent sysctl operations.
-- Added a GNU89 policy regression for the complete setting sequence, all-write continuation, first-error preservation and missing callback; the Process lifecycle workflow compiles/runs it with `-Wall -Wextra -Werror`, ASan and UBSan. The PID 1 source checker now verifies the production wiring and push/pull_request workflow coverage.
+- Fixed the remaining checked-error gap in `set_libc_gai()`. It now returns file-operation status: IPv4-first publication uses the existing `fput_string()` path (including write/flush/close error detection); override removal reports failures but treats `ENOENT` as idempotent success.
+- Updated the prototype and all known production callers. PID 1's non-IPv6 `init_sysctl()` path records the result; `net6.c::init_ipv6()` and both enable/disable paths of `full_restart_ipv6()` preserve first-error status while continuing independent operations.
+- Added a GNU89 regression for write failure, remove failure, ENOENT idempotence and missing callbacks; extended the Process workflow and PID 1 semantic source contract. The policy regression compiled and passed locally with `-std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined`.
 
 ## Verification boundary
 
-- Parent `a2ad2d27`: Process fail-closed regression `44669423805` PASS; Process inventory `44669423849` PASS; AI handoff docs `44669423800` PASS; XY-C1 Build/TRX/artifact run `44669423813` PASS. These checks validate the parent only, not this new TCP slice.
-- The new slice has not yet been validated by exact-head Actions at this checkpoint. No local checkout/build was available; do not claim local test execution. L3 is proven for the parent SHA only. L4 remains NOT VERIFIED.
+- Exact parent `e387b92`: Process `44672214134` PASS and AI docs `44672214038` PASS; XY-C1 `44672214073` was IN_PROGRESS at last poll. None of these runs validates the new `set_libc_gai()` change.
+- The GAI source slice is not yet verified by exact-head Actions at this checkpoint. No local full firmware build or physical-router test is claimed. L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect push Actions by exact `head_sha` for this TCP sysctl commit. Diagnose any FAIL from the first causal log; confirm the new TCP policy and PID 1 source contract passed.
-2. Require same-SHA XY-C1 production-input detector, Build XY-C1, TRX verification and artifact upload before claiming current-source L3.
-3. Continue the next identified PID 1/network sysctl defect: `net.c::set_libc_gai()` is still void and drops `fopen`, `fprintf`, `fclose` and `unlink` errors. Trace its callers before changing the signature: `init.c::init_sysctl()` (non-IPv6 build), `net6.c::init_ipv6()`, and both enable/disable branches of `net6.c::full_restart_ipv6()`. Convert it to return a stable status, treat ENOENT on disable as idempotent success, propagate status into existing first-error accumulators, and add regression/source/workflow coverage. Preserve best-effort startup and existing operation order.
+1. Fetch live `main` and inspect Actions by exact `head_sha` for this GAI slice. Confirm Process, AI docs and the new GNU89 GAI policy step. Require same-SHA XY-C1 production-input detector, Build XY-C1, TRX verification and artifact upload before claiming L3.
+2. Continue P1 RC startup-result propagation from the existing roadmap queue: inspect `net_wan.c::wan_up_internal()` after the Inadyn notification result fix, trace every remaining optional-launch/start-hook result and cleanup path, and fix the first concrete discarded failure with an injected regression and source-contract coverage. Do not redo the completed Inadyn fix or speculative void-wrapper audits.
+3. Keep the process lifecycle inventory and all unrelated queued checks moving while any CI remains PENDING.
 
 ## Mandatory handoff checkpoint
 

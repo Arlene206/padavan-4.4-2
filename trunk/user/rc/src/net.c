@@ -52,6 +52,7 @@
 #include "sfe_config_policy.h"
 #include "network_sysctl_policy.h"
 #include "tcp_tweaks_policy.h"
+#include "libc_gai_policy.h"
 #include "xupnpd_config_file.h"
 #include "xupnpd_daemon_policy.h"
 #include "detached_daemon_start_policy.h"
@@ -1797,17 +1798,35 @@ set_igmp_mld_version(void)
 #endif
 }
 
-void
+
+static int
+write_libc_gai_precedence(void *context)
+{
+	(void)context;
+	return fput_string("/etc/gai.conf", "precedence ipv4\n");
+}
+
+static int
+unlink_libc_gai_override(void *context)
+{
+	(void)context;
+	if (unlink("/etc/gai.conf") == 0)
+		return 0;
+	return errno ? errno : EIO;
+}
+
+int
 set_libc_gai(int ipv4_first)
 {
-	if (ipv4_first) {
-		FILE *fp = fopen("/etc/gai.conf", "w");
-		if (fp) {
-			fprintf(fp, "precedence %s\n", "ipv4");
-			fclose(fp);
-		}
-	} else {
-		unlink("/etc/gai.conf");
+	int status;
+
+	status = rc_libc_gai_apply(ipv4_first, write_libc_gai_precedence,
+				   unlink_libc_gai_override, NULL);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME, "failed to %s /etc/gai.conf (status=%d)",
+			   ipv4_first ? "write" : "remove", status);
 	}
+	return status;
 }
 

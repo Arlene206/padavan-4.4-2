@@ -661,7 +661,8 @@ init_sysctl(void)
 	status = control_if_ipv6_all(0);
 	first_status = init_sysctl_record_status(first_status, "net.ipv6.conf.{default,all}.disable_ipv6", status);
 #else
-	set_libc_gai(1);
+	status = set_libc_gai(1);
+	first_status = init_sysctl_record_status(first_status, "/etc/gai.conf", status);
 #endif
 	return first_status;
 }

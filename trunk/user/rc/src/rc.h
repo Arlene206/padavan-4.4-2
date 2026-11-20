@@ -232,7 +232,7 @@ int restart_firewall(void);
 int set_ipv4_forward(int is_on);
 int set_tcp_tweaks(void);
 int set_passthrough_pppoe(int is_on);
-void set_libc_gai(int ipv4_first);
+int set_libc_gai(int ipv4_first);
 
 /* net_lan.c */
 in_addr_t get_lan_ip4(void);
