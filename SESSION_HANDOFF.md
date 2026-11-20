@@ -3,37 +3,40 @@
 This checkpoint supersedes older summaries below. Continue from live main; do not repeat completed audits.
 
 ## Git state
-- Parent main SHA for this slice: abc46fda36f6f11479374fe123de35bf84d51cb0.
+- Parent main SHA for this slice: 6ebd91e9e14ab120de4e1f9db70e7cdda2d47d17.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only).
 - Main-only atomic commits; one complete tree per task, update with force=false and exact expected_sha. Never force-push. PR #1 remains closed/not merged.
 
 ## Verified preceding work
-- Product source f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 passed WAN DHCP, WAN route, AI docs, NVRAM and XY-C1 Build/TRX/artifact; run 44715584790, artifact 14620685104. L3 applies only to f0.
-- f2bae37918b42648fd4d8ff6be95fdc372bf1472 passed Custom firmware defaults regression 44718064716 and AI handoff docs 44718065095.
-- Product-source commit 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45 adds WAN0 checked writes and fatal PID1 gate. CI repair 36519699b833ac0582b7f54f3d9d52b80bfb7245 made Process 44719246958, HTTPD security 44719247010 and AI docs 44719246942 all PASS.
-- New checked-read implementation committed as abc46fda36f6f11479374fe123de35bf84d51cb0. Its Process run 44720306205 FAILED at the final integration checker with a Python NameError: policy_header was referenced without being defined. Crucially, the preceding new WAN0 policy compile/run step PASSED, and all other job steps passed. AI docs 44720306191 PASS. XY-C1 run 44720306486 and NVRAM transaction run 44720306517 were still IN_PROGRESS at last poll.
-- The 05e2 exact-source XY-C1 run 44718942242 also remained IN_PROGRESS at the last poll; no L3 claim.
+- Product source f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 passed same-SHA XY-C1 Build/TRX/artifact run 44715584790.
+- Product-source SHA 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45 is now L3 VERIFIED: exact XY-C1 run 44718942242 completed SUCCESS; job 136229380909 passed Build XY-C1, TRX verification and artifact upload. Artifact 14621980301, 12,690,602 bytes. This validates WAN0 initial checked-write/fatal boot gate only.
+- CI repair 36519699b833ac0582b7f54f3d9d52b80bfb7245: exact Process 44719246958, HTTPD security 44719247010 and AI docs 44719246942 all PASS.
+- Checked-read implementation SHA abc46fda36f6f11479374fe123de35bf84d51cb0: the new seven-case NVRAM policy test passed; its final checker initially failed due undefined policy_header. CI-only fix 6ebd91e9e14ab120de4e1f9db70e7cdda2d47d17 fixed this. Exact 6ebd Process 44720687519 and AI docs 44720687419 both PASS.
+- Product-source SHA abc46fda has XY-C1 run 44720306486 still IN_PROGRESS at last poll. It must independently pass Build/TRX/artifact for L3; do not copy 05e2's result to abc46fda.
 
-## Current CI correction — this commit
-- The Process source contract now explicitly reads wan_nvram_status_policy.h into wan_nvram_policy_header, then asserts the new helper is present. It no longer references an undefined local variable.
-- This is checker-only; the checked WAN0 default-read implementation and all seven policy tests remain unchanged.
+## Current implementation slice — this commit
+- Found another fail-open call in nvram_convert_misc_values(): after checking WAN0 defaults/runtime initialization, it called the legacy void reset_wan_vars() wrapper and discarded reset_wan_vars_status().
+- reset_wan_vars_status() already performs a checked fail-fast sequence for WAN protocol, DHCP/DNS options, credentials, route snapshots, IP settings, MAN routes, PPP settings, hardware address and IPv6 runtime fields. It records the first error. The void wrapper intentionally discards that status.
+- The boot path now calls reset_wan_vars_status() directly, logs the failure and returns it through nvram_convert_misc_values(). init_router() already maps any nonzero conversion status to INIT_ROUTER_RESULT_FATAL before GPIO and service startup.
+- Process integration contract checks that the status gate precedes LAN runtime reset and the legacy void wrapper is not used by this boot initializer.
 
 ## Exact first actions for the next continuation
-1. Verify exact-head Process lifecycle run for this checker correction. The full WAN0 test executable must continue passing, and the source checker must reach its PASS marker.
-2. Check exact-head AI handoff docs. Poll the product-source XY-C1 run 44720306486 (for abc46fda36f6f11479374fe123de35bf84d51cb0) and report L3 only if Build, TRX and upload succeed on that exact production SHA.
-3. Continue with a different source-confirmed P1 RC/service lifecycle issue after current checks; do not re-audit WAN0 or previously closed WAN/6rd/customization issues.
+1. Verify exact-head Process inventory/lifecycle regression and AI handoff docs for this commit. The source checker must confirm WAN reset failures prevent boot from continuing.
+2. Verify exact-head XY-C1 firmware validation because rc.c changed; same-SHA Build XY-C1, TRX verification and upload are required for L3.
+3. Check abc46fda XY-C1 run 44720306486; its checked-read change is separate product source from 05e2.
+4. Continue another distinct P1 RC/service startup or lifecycle defect only after the above checks; do not re-audit WAN0 checked writes/reads, WAN reset status propagation, DHCP 6rd rollback, WAN route recovery or custom credential hardening.
 
 ## Verification boundary
-- f0c20ff product source: L3 VERIFIED.
-- 36519699 exact Process, HTTPD and AI docs: PASS.
-- abc46fda36f6f11479374fe123de35bf84d51cb0 Process workflow: new 7-case WAN0 policy regression PASS; final source checker FAILED due the undefined local-name assertion. AI docs PASS; XY-C1/NVRAM transaction were pending.
-- This commit is checker-only; exact-head Actions pending at creation. Physical-router L4 NOT VERIFIED.
+- f0c20ff and 05e2cb product source: L3 VERIFIED on their respective same-SHA Build/TRX/artifact runs.
+- 365 Process/HTTPD/AI all PASS; 6ebd Process/AI all PASS.
+- abc46fda Process initial run 44720306205 failed only at undefined checker variable; its seven-case policy test passed. The 6ebd correction rerun passed. abc46fda XY-C1 44720306486 pending at last poll.
+- This commit's exact Actions and same-SHA L3 are PENDING at creation. Physical-router L4 is NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
-Update exact main SHA, Actions and next actionable task when materially changed; avoid no-op documentation commits.
+Update the exact main SHA, Actions and next active task when materially changed; avoid no-op docs commits.
 
 ## Evidence discipline
-Keep L1, L2 host tests, exact Actions, MIPS Build/TRX/artifact and physical-router evidence separate.
+Keep L1, L2 host tests, exact-SHA Actions, MIPS Build/TRX/artifact and physical-router evidence separate.
 
 ---
 

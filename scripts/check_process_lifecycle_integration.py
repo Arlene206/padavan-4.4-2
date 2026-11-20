@@ -3457,6 +3457,13 @@ misc_init = c_function_body(rc_source, "nvram_convert_misc_values(void)")
 assert "status = set_wan0_vars();" in misc_init
 assert misc_init.index("status = set_wan0_vars();") < misc_init.index("set_usb_modem_dev_wan(0, 0);")
 assert "if (status != 0) return status;" in re.sub(r"\s+", " ", misc_init)
+wan_reset_at = misc_init.index("status = reset_wan_vars_status();")
+wan_reset_gate = misc_init.split(
+    "if (status != 0)", 1
+)[1].split("reset_lan_vars();", 1)[0]
+assert "return status;" in wan_reset_gate
+assert "reset_wan_vars();" not in misc_init
+assert wan_reset_at < misc_init.index("reset_lan_vars();")
 
 router_init = c_function_body(rc_source, "init_router(void)")
 assert "nvram_setup_status = nvram_convert_misc_values();" in router_init

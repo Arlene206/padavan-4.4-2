@@ -1,14 +1,15 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: abc46fda36f6f11479374fe123de35bf84d51cb0; frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Product SHA f0c20ff9df0c81c70f9ac0fd767aa4881a00eec9 is L3 VERIFIED on same-SHA XY-C1 Build/TRX/artifact run 44715584790.
-- Exact 365 Process 44719246958, HTTPD security 44719247010 and AI docs 44719246942 passed.
-- WAN0 checked-default-read parent abc46fda36f6f11479374fe123de35bf84d51cb0: the seven-case host policy regression compiled and ran successfully in Process workflow 44720306205. Its final Python checker step then failed only because newly-added assertion referred to undefined policy_header; the earlier C policy test and all other process steps passed. AI docs run 44720306191 passed; XY-C1 run 44720306486 still IN_PROGRESS at last poll.
-- This slice adds the missing header variable to the checker, preserving the runtime implementation unchanged.
+- Parent main SHA: 6ebd91e9e14ab120de4e1f9db70e7cdda2d47d17; frozen backup branch remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- Product source 05e2cb3822c1c4f8ddb70bf7af8a28376fb48d45 is L3 VERIFIED: same-SHA XY-C1 run 44718942242 passed Build XY-C1, TRX verification and artifact upload 14621980301 (12,690,602 bytes).
+- Exact 365 Process 44719246958, HTTPD 44719247010, AI docs 44719246942 PASS; exact 6ebd Process 44720687519 and AI docs 44720687419 PASS.
+- WAN0 checked-read policy implementation abc46fda: seven-case NVRAM policy regression passed; initial source-check failed only because of a checker variable NameError, repaired by 6ebd. Its exact XY-C1 run 44720306486 still pending at last poll.
+- This slice closes a separate boot gap: nvram_convert_misc_values() had called reset_wan_vars() and ignored the checked reset_wan_vars_status() result. Boot now returns the first WAN reset error through the existing fatal PID1 gate, before LAN reset or service initialization.
 
 ## Priority queue
-- CLOSED: WAN route recovery, ifname_t publication, DHCPv4 6rd rollback, custom credential redaction/trigraph escaping, WAN0 checked write/init fail-closed.
-- ACTIVE: complete exact-head Process checker correction for WAN0 checked default-read and poll same-source XY-C1.
-- NEXT: inspect a distinct source-confirmed P1 RC/service lifecycle defect; do not repeat WAN0/6rd/custom hardening.
+- CLOSED: WAN0 default/runtime write+read errors fail closed; WAN reset result now propagated by this slice (exact-head verification pending).
+- CLOSED: WAN route recovery, ifname_t publication, DHCPv4 6rd transactional publication, custom Release credential redaction and trigraph-safe C serialization.
+- NEXT: continue an independent source-confirmed RC/service lifecycle failure path; avoid repeating the closed WAN0/WAN reset and custom credential tasks.
+- Keep current product-source exact-SHA XY-C1 evidence distinct for each commit.
 
 
 ## Whole-repository module status

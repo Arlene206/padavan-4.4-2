@@ -622,7 +622,17 @@ nvram_convert_misc_values(void)
 	if (status != 0)
 		return status;
 	set_usb_modem_dev_wan(0, 0);
-	reset_wan_vars();
+	/*
+	 * WAN reset stages the protocol, route, credentials and runtime address
+	 * tuple. Do not let PID 1 continue boot with a partially reset WAN.
+	 */
+	status = reset_wan_vars_status();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "Router initialization stopped: WAN reset failed (status=%d)",
+			   status);
+		return status;
+	}
 
 	/* setup lan variables */
 	reset_lan_vars();

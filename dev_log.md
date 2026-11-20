@@ -1,3 +1,14 @@
+## 2026-11-20 — Propagate WAN reset failure through router boot
+
+- Parent main SHA: 6ebd91e9e14ab120de4e1f9db70e7cdda2d47d17.
+- nvram_convert_misc_values() was already checking WAN0 defaults/runtime writes, but then called legacy void reset_wan_vars(), which discarded the error returned by reset_wan_vars_status(). That function checks a required sequence covering WAN protocol, DHCP/DNS options, authentication, routes, address state, PPP settings, hardware address and IPv6 runtime fields.
+- Replaced the void call with reset_wan_vars_status(), logs the first failure and returns it through nvram_convert_misc_values(). init_router() already stops on nonzero initialization status before GPIO/service startup.
+- Extended the Process lifecycle source contract to require the checked reset status gate, ensure it precedes LAN reset and reject use of the legacy void wrapper in this boot path.
+- Preceding product-source 05e2cb L3 is now verified: XY-C1 run 44718942242 passed Build, TRX and artifact upload (artifact 14621980301, 12,690,602 bytes). Exact 6ebd Process 44720687519 and AI docs 44720687419 PASS; abc46fda's 7-case policy tests passed but its checker initially failed from undefined variable, fixed by 6ebd. abc46fda XY run 44720306486 pending at last poll.
+- This commit changes rc.c production source; exact-head Process and XY-C1 checks are pending.
+
+---
+
 ## 2026-11-20 — Repair Process checker variable for WAN0 checked-read policy
 
 - Parent main SHA: abc46fda36f6f11479374fe123de35bf84d51cb0.
