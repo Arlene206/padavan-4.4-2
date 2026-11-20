@@ -282,18 +282,24 @@ assert "sethostname(lan_hname" not in host_body
 assert "setdomainname(lan_dname" not in host_body
 
 
-# IPTV route inventory and deconfig metadata are committed as checked NVRAM
-# snapshots, and publisher failures propagate to BusyBox's callback retry.
+# IPTV route teardown snapshots the gateway and all route inventories as
+# one checked tuple; lease metadata publication is a separate five-key commit.
 manv_route = c_function_body(wan, "manv_route_deconfig(char *man_ifname)")
-assert "dhcp_lease_text_fits_buffer(old_gateway_value, sizeof(old_gateway))" in manv_route
-assert "old_gateway[0] = '\\0';" in manv_route
-assert "route_status = ENAMETOOLONG;" in manv_route
-assert "return ENAMETOOLONG;" not in manv_route
-assert manv_route.index("dhcp_lease_text_fits_buffer(") < manv_route.index('del_dhcp_routes_by_prefix("manv_"')
-assert "wan_dhcp_nvram_publish_values(" in manv_route
-assert "route_status == 0" in manv_route
-for key in ("manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"):
-    assert '"' + key + '"' in manv_route
+assert "rc_wan_nvram_copy_snapshot(" in manv_route
+assert 'fields[0].param_name = "manv_gateway";' in manv_route
+assert 'fields[1].param_name = "manv_routes";' in manv_route
+assert 'fields[2].param_name = "manv_routes_rfc";' in manv_route
+assert 'fields[3].param_name = "manv_routes_ms";' in manv_route
+assert "route_storage[3][WAN_MAN_DHCP_ROUTE_SNAPSHOT_SIZE]" in manv_route
+snapshot_call = manv_route.index("route_status = rc_wan_nvram_copy_snapshot(")
+snapshot_failure = manv_route.index("if (route_status != 0)", snapshot_call)
+route_delete = manv_route.index("route_result = control_dhcp_routes(", snapshot_failure)
+assert snapshot_call < snapshot_failure < route_delete
+assert "return route_status;" in manv_route[snapshot_failure:route_delete]
+assert "route_result = route_del(" in manv_route
+assert "return route_status;" in manv_route
+assert "preserving lease metadata for retry" in manv_route
+assert "wan_dhcp_nvram_publish_values(" not in manv_route
 assert "nvram_set_temp(" not in manv_route
 
 publish_helper = c_function_body(wan, "wan_dhcp_nvram_publish_values(")
@@ -313,19 +319,25 @@ snapshot_publish = publish_helper.index("dhcp_lease_nvram_publish(")
 snapshot_end = publish_helper.index("nvram_transaction_end(&transaction)")
 assert snapshot_begin < snapshot_get < snapshot_publish < snapshot_end
 publish_empty = c_function_body(
-    wan, "udhcpc_viptv_deconfig_publish_empty_address(void *opaque)"
+    wan, "manv_viptv_deconfig_publish_empty_metadata(void *opaque)"
 )
-assert "return wan_dhcp_nvram_publish_values(names, values, 1);" in publish_empty
+assert "return wan_dhcp_nvram_publish_values(names, values, 5);" in publish_empty
+for key in ("manv_ipaddr", "manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"):
+    assert '"' + key + '"' in publish_empty
 viptv_policy = policy[policy.index("typedef int (*dhcp_lease_viptv_deconfig_operation)"):
                       policy.index("#endif /* PADAVAN_DHCP_LEASE_POLICY_H */")]
 assert "typedef int (*dhcp_lease_viptv_deconfig_publish_operation)" in viptv_policy
 assert "return ops->publish_empty_address(context);" in viptv_policy
 zcip_deconfig = c_function_body(wan, "zcip_viptv_deconfig(char *man_ifname)")
-assert "wan_dhcp_nvram_publish_values(" in zcip_deconfig
+assert "manv_route_deconfig(man_ifname)" in zcip_deconfig
+assert "manv_viptv_deconfig_publish_empty_metadata(NULL)" in zcip_deconfig
+assert "interface_status == 0 && route_status == 0" in zcip_deconfig
 assert "metadata_status" in zcip_deconfig
 assert "nvram_set_temp(" not in zcip_deconfig
 for marker in (
-    "test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple",
+    "test_dhcp_viptv_deconfig_metadata_clear_rolls_back_as_one_tuple",
+    'assert(strcmp(fake.events, "ABCDE") == 0);',
+    'assert(strcmp(fake.events, "ABCDEedcba") == 0);',
     "viptv_fake.publish_status = ENOSPC",
     "assert(transaction_status == ENOSPC);",
     'assert(strcmp(viptv_fake.events, "CRPCRP") == 0);',

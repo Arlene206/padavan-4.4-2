@@ -423,14 +423,17 @@ jobs:
           assert viptv_renew.index("dhcp_wan_route_setup_retry_required") < viptv_renew.index('value = getenv("subnet")')
 
           viptv_deconfig = body(source, "manv_route_deconfig(char *man_ifname)")
-          assert 'route_result = del_dhcp_routes_by_prefix("manv_"' in viptv_deconfig
-          assert 'route_result = route_del(man_ifname, 10' in viptv_deconfig
-          assert "if (!dhcp_lease_route_delete_is_ok(route_result))" in viptv_deconfig
-          assert "route_status = route_status_accumulate(route_status, route_result);" in viptv_deconfig
-          assert viptv_deconfig.index("if (!dhcp_lease_route_delete_is_ok(route_result))") < viptv_deconfig.index("route_status = route_status_accumulate(route_status, route_result);", viptv_deconfig.index("route_result = route_del(man_ifname, 10"))
-          route_inventory_publish = viptv_deconfig.index("wan_dhcp_nvram_publish_values(")
-          assert viptv_deconfig.index("if (route_status == 0)") < route_inventory_publish
-          assert "preserving route inventory" in viptv_deconfig
+          assert "rc_wan_nvram_copy_snapshot(" in viptv_deconfig
+          for key in ("manv_gateway", "manv_routes", "manv_routes_rfc", "manv_routes_ms"):
+              assert '"' + key + '"' in viptv_deconfig
+          snapshot_call = viptv_deconfig.index("route_status = rc_wan_nvram_copy_snapshot(")
+          snapshot_failure = viptv_deconfig.index("if (route_status != 0)", snapshot_call)
+          route_delete = viptv_deconfig.index("route_result = control_dhcp_routes(", snapshot_failure)
+          assert snapshot_call < snapshot_failure < route_delete
+          assert "return route_status;" in viptv_deconfig[snapshot_failure:route_delete]
+          assert "route_result = route_del(man_ifname, 10" in viptv_deconfig
+          assert "preserving lease metadata for retry" in viptv_deconfig
+          assert "wan_dhcp_nvram_publish_values(" not in viptv_deconfig
           viptv_dhcp_deconfig = body(source, "udhcpc_viptv_deconfig(char *man_ifname)")
           assert "dhcp_lease_viptv_deconfig_apply(&ops, &context)" in viptv_dhcp_deconfig
           assert "retaining lease metadata for retry" in viptv_dhcp_deconfig
@@ -440,10 +443,12 @@ jobs:
           assert "udhcpc_viptv_deconfig_restore_address" not in source
           clear_address = body(source, "udhcpc_viptv_deconfig_clear_address(void *opaque)")
           delete_routes = body(source, "udhcpc_viptv_deconfig_delete_routes(void *opaque)")
-          publish_address = body(source, "udhcpc_viptv_deconfig_publish_empty_address(void *opaque)")
+          publish_metadata = body(source, "manv_viptv_deconfig_publish_empty_metadata(void *opaque)")
           assert 'ifconfig(context->ifname, IFUP, "0.0.0.0", NULL)' in clear_address
           assert "return manv_route_deconfig(context->ifname);" in delete_routes
-          assert 'return wan_dhcp_nvram_publish_values(names, values, 1);' in publish_address
+          assert "wan_dhcp_nvram_publish_values(names, values, 5)" in publish_metadata
+          for key in ("manv_ipaddr", "manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"):
+              assert '"' + key + '"' in publish_metadata
           viptv_main = body(source, "udhcpc_viptv_main(int argc, char **argv)")
           assert "ret = udhcpc_viptv_deconfig(man_ifname)" in viptv_main
           assert "ret = manv_route_deconfig(man_ifname)" not in viptv_main
@@ -509,21 +514,22 @@ jobs:
               assert callback_body.index("dhcp_lease_text_fits_buffer(") < callback_body.index(copy_marker)
 
           manv_deconfig = body(source, "manv_route_deconfig(char *man_ifname)")
-          assert 'route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0)' in manv_deconfig
-          assert 'route_result = route_del(man_ifname, 10' in manv_deconfig
-          assert "if (!dhcp_lease_route_delete_is_ok(route_result))" in manv_deconfig
-          assert "route_status = route_status_accumulate(route_status, route_result);" in manv_deconfig
-          route_inventory_publish = manv_deconfig.index("wan_dhcp_nvram_publish_values(")
-          assert manv_deconfig.index("if (route_status == 0)") < route_inventory_publish
+          assert "rc_wan_nvram_copy_snapshot(" in manv_deconfig
           for marker in ('"manv_gateway"', '"manv_routes"', '"manv_routes_ms"', '"manv_routes_rfc"'):
               assert marker in manv_deconfig
-          assert "nvram_set_temp(" not in manv_deconfig
-          assert "preserving route inventory" in manv_deconfig
+          snapshot_call = manv_deconfig.index("route_status = rc_wan_nvram_copy_snapshot(")
+          snapshot_failure = manv_deconfig.index("if (route_status != 0)", snapshot_call)
+          route_delete = manv_deconfig.index("route_result = control_dhcp_routes(", snapshot_failure)
+          assert snapshot_call < snapshot_failure < route_delete
+          assert "return route_status;" in manv_deconfig[snapshot_failure:route_delete]
+          assert 'route_result = route_del(' in manv_deconfig
+          assert "wan_dhcp_nvram_publish_values(" not in manv_deconfig
+          assert "preserving lease metadata for retry" in manv_deconfig
 
           zcip_deconfig = body(source, "zcip_viptv_deconfig(char *man_ifname)")
           assert 'interface_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL)' in zcip_deconfig
           assert "route_status = manv_route_deconfig(man_ifname)" in zcip_deconfig
-          assert zcip_deconfig.index("interface_status == 0 && route_status == 0") < zcip_deconfig.index("metadata_status = wan_dhcp_nvram_publish_values(")
+          assert zcip_deconfig.index("interface_status == 0 && route_status == 0") < zcip_deconfig.index("metadata_status = manv_viptv_deconfig_publish_empty_metadata(NULL)")
           assert "metadata_status" in zcip_deconfig
           assert "nvram_set_temp(" not in zcip_deconfig
           assert "stop_igmpproxy(man_ifname)" in zcip_deconfig
