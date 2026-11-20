@@ -1,14 +1,14 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 99054c2e152aa28bde06fa1790abb46294038cae; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- WAN reset boot gate in `f196902a` exposed a link failure: `reset_wan_vars_status()` remained static in `net_wan.c` while PID 1 called it from `rc.c`. Exact XY-C1 run `44721008402` failed at link; TRX/artifact skipped.
-- LAN initial boot MAC/default/runtime publication was hardened in `99054c2e`; exact Process and XY-C1 checks were pending at last poll and inherited the same WAN symbol issue.
-- THIS COMMIT exports the checked WAN reset status API and declares it in `rc.h`. Exact-head Process and XY-C1 verification pending.
+- Parent main SHA: 72c299981fc7aeeb404c21232f38b8def41ff1db; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- `f196902a` exact XY-C1 `44721008402` failed at link because `reset_wan_vars_status()` had internal linkage.
+- `99054c2e` added checked LAN startup MAC/default/runtime publication; exact Process `44722781752` PASS, exact XY-C1 `44722781476` was pending at last poll.
+- `72c29998` exports the WAN reset status function and declares it publicly; exact Process `44723038026` running, XY-C1 `44723038042` queued at last poll.
+- THIS COMMIT repairs the Process checker's regex so it really rejects static linkage; no production source changes.
 
 ## Priority queue
-- CLOSED: WAN0 checked initialization/read policy, LAN initial boot MAC/default/runtime publication (verification pending for its exact source SHA), WAN route recovery, DHCPv4 6rd rollback, custom credential hardening.
-- ACTIVE: resolve and verify the WAN reset function linkage error, then require same-SHA XY-C1 Build/TRX/artifact.
-- NEXT: resume independent P1 RC/service lifecycle investigation after compile/link is restored; keep whole-userland coverage rotating and avoid re-auditing completed WAN0/LAN reset logic.
-- Maintain separate exact-SHA evidence for product source, host regressions and physical hardware.
+- CLOSED: WAN0 checked initialization/read policy, LAN initial boot MAC/default/runtime publication (exact Process PASS; same-SHA L3 pending), WAN route recovery, DHCPv4 6rd rollback and custom credential hardening.
+- ACTIVE: complete same-SHA XY-C1 Build/TRX/artifact validation after the WAN symbol export; keep all evidence SHA-specific.
+- NEXT: proceed to an independent source-confirmed P1 RC/service lifecycle defect. Rotate across the broader userland instead of endlessly auditing the recent WAN/LAN boot changes.
 
 
 ## Whole-repository module status

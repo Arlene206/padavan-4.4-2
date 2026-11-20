@@ -1,3 +1,12 @@
+## 2026-11-20 — Make WAN reset linkage regression assertion effective
+
+- Parent main SHA: 72c299981fc7aeeb404c21232f38b8def41ff1db.
+- Corrected an escaping mistake in the Process integration checker: the static-linkage regex previously searched for literal backslash characters rather than Python whitespace classes, so it could not detect a regression to `static int reset_wan_vars_status()`.
+- The assertion now uses a real whitespace regex and continues to require the public declaration plus the implementation body. This is a test-only correction; production source is unchanged.
+- Exact Process/XY-C1/AI Actions for parent `72c29998` were still in progress/queued at last poll; this test-only commit's exact Actions are pending.
+
+---
+
 ## 2026-11-20 — Export checked WAN reset status to the PID 1 caller
 
 - Parent main SHA: 99054c2e152aa28bde06fa1790abb46294038cae.
