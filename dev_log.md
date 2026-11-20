@@ -1,3 +1,15 @@
+## 2026-11-20 — Retry failed Internet connectivity NVRAM mirror publication
+
+- Parent main SHA: 7210c3a3a46093c633b56c8975ab2cd946b2e1bb; current documentation checkpoint child: 327b83d651b690c55626ac3c2bbd7ef6dcfd16ec.
+- Source review found three unchecked temporary writes of `link_internet`: reset to `DI_STATUS_INIT`, state-transition publication and explicit pause-to-zero. The event cache was advanced before the NVRAM write, so a failed write could leave the external mirror stale indefinitely.
+- Added a small callback policy that advances its cached value only after a successful NVRAM write. Reset, transition and pause now share the checked publisher; failed writes retry on the next timer tick with a one-second retry cadence while preserving one-shot state-transition side effects.
+- Added a separate desired-value field. When startup is paused and the initial INIT write fails, retry ticks publish INIT; after explicit pause they publish zero. The main event loop now admits paused timer ticks only while the NVRAM publication error latch is set; successful retry disables the timer again.
+- Added GNU89/`-Wall -Wextra -Werror`/ASan/UBSan regression and source contracts for failed initial/changed-state publication, retry, previous-cache preservation, invalid arguments, paused retry dispatch and recovery logging.
+- Exact detect-internet regression `44729054343` and AI docs `44729054197` PASS on `327b83d6`. Earlier detector failures `44728739057` and `44728819718` were stale checker expectations; corrected and re-run successfully.
+- Same-source XY-C1 Build/TRX/artifact remains pending: run `44729001694` on `7210c3a3` was building. Do not claim detect-internet L3 yet. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Bound Ralink 802.1X wireless interface-name formatting
 
 - Parent main SHA: e2d0a6f65a91c57f033b5b28e01e9a9904b28869.

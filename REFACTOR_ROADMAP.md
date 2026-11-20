@@ -1,23 +1,14 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: dc43d3d8fcfeaf8e730ec6f6d77170bbcd056d91; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- The f87 exact Actions all passed; XY Build/TRX/artifact skipped because its diff was checker/docs-only.
-- Later detect_link commits through `dc43d3d8` update WAN mirror retry/recovery; latest exact actions are pending at this checkpoint.
-- THIS COMMIT fixes Ralink 802.1X detached-daemon readiness: the parent previously returned zero before its worker finished setup. Worker now reports readiness after AP setup and driver PID registration; parent waits boundedly and kills/reaps a worker that never reports. Partial OOM/event-loop cleanup is guarded.
-- Added GNU89 pipe-handshake tests and source/CI trigger contracts. Same-SHA Process and XY-C1 Build/TRX/artifact pending.
+- Parent main SHA: 327b83d651b690c55626ac3c2bbd7ef6dcfd16ec; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- CLOSED SOURCE SLICES: WAN checked runtime identity publication; detect_link `link_wan` NVRAM mirror retry/recovery (exact detect-link and Process tests PASS; exact-SHA dc43 XY-C1 Build/TRX/artifact PASS).
+- ACTIVE SOURCE SLICE: detect_internet `link_internet` NVRAM mirror retry. Exact detector and AI-docs checks PASS on `327b83d6`; GNU89/Werror/ASan/UBSan regression covers failed INIT/changed-state writes, retry, previous-cache preservation and invalid arguments. Paused timer retry is gated by outstanding publication error and retries the remembered target state.
+- PRODUCT VERIFICATION: detect-internet source SHA `0716df86` XY-C1 run `44728739064` was building; later source-equivalent product parent `7210c3a3` XY-C1 run `44729001694` was also building. No detect-internet L3 claim until Build, TRX and artifact upload all pass on a single exact SHA.
+- Latest external code changes include Samba private directory creation with restrictive permissions and bounded Ralink 802.1X interface-name formatting. Keep their exact-SHA CI evidence separate.
 
 ## Priority queue
-- CLOSED: WAN0 checked NVRAM read policy, LAN boot MAC/default/runtime snapshot, WAN reset status/ABI and initial WAN runtime identity source contract work.
-- ACTIVE: verify Ralink 802.1X ready handshake and same-SHA XY-C1 product build.
-- NEXT: continue wider userland P1 stability/security rotation while CI runs; do not repeat the completed WAN mirror recovery slice.
-
-
-## Whole-repository module status` heading. THIS COMMIT corrects both.
-- Exact WAN route `44724624287`, WAN DHCP `44724624228`, and Process fail-closed `44724624179` failed at the same new test compilation error. AI docs `44724623863` failed on the missing roadmap dashboard heading. Process inventory `44724624195` passed. Exact XY-C1 `44724624114` was in progress at last poll.
-
-## Priority queue
-- CLOSED: WAN0/LAN boot NVRAM snapshots, WAN reset propagation/ABI and WAN route recovery; do not repeat these audits.
-- ACTIVE: rerun the corrected GNU89/Werror/ASan/UBSan policy test, WAN route/Process/AI-docs contracts and exact-SHA XY-C1 build.
-- NEXT: continue remaining checked NVRAM publication and independent userland service/lifecycle defects after the current slice is validated.
+- CLOSED: WAN0/LAN boot NVRAM snapshots, WAN reset status/ABI, WAN runtime identity pair publication, WAN route recovery and detect_link `link_wan` mirror retry. Do not repeat these audits.
+- ACTIVE: finish exact-SHA XY-C1 Build/TRX/artifact verification for `7210c3a3`; poll the same SHA's Process and related Actions.
+- NEXT: continue the broader userland P1 stability/security rotation after the current build result is known; avoid repeating completed service/NVRAM audits.
 
 ## Whole-repository module status
 

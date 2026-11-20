@@ -1,36 +1,36 @@
 # 2026-11-20 continuation checkpoint
 
-This checkpoint supersedes older summaries below. Resume from live main; do not repeat completed audits.
+This checkpoint supersedes older summaries below. Continue from live main; do not repeat closed audits.
 
 ## Git state
-- Parent main SHA for this source slice: dc43d3d8fcfeaf8e730ec6f6d77170bbcd056d91.
+- Parent main SHA for this checkpoint: 327b83d651b690c55626ac3c2bbd7ef6dcfd16ec.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Main-only atomic commits; expected-SHA update with `force=false`; no force-push. PR #1 remains closed/not merged.
+- Main-only atomic commits, exact expected-SHA update with `force=false`; no force-push. PR #1 remains closed/not merged.
+- Latest external main work in this checkpoint includes the Samba private-state permission correction and Ralink 802.1X bounded interface-name formatting. Preserve and build from current main.
 
-## Verified preceding work
-- Exact main `f87c06d5d7639558d18cef53e4746bfb799329e3`: six exact-head actions SUCCESS, including Process `44725345073`, WAN route `44725345197`, AI docs `44725345175`, Firewall Startup `44725345312`, USB modem `44725345224` and XY workflow `44725345260`.
-- The XY workflow on `f87c06d5` passed input detection but skipped Build/TRX/artifact because only checker/docs changed; not L3 evidence for prior WAN runtime identity source.
-- Subsequent commits `2434dd76` through `dc43d3d8` addressed detect_link WAN mirror retry/recovery and its test contracts. Verify the latest exact Actions before treating that slice as closed.
+## Verified implementation in this continuation
+- WAN runtime identity: checked `proto_t` then `ifname_t` publication is in USB RAS, PPP and IPoE startup; any failed NVRAM write restores physical WAN and blocks activation. The stale source contracts were updated to assert the checked pair helper.
+- WAN link mirror: `detect_link.c` now maintains a distinct last-successful cache for `link_wan`, retries failed temporary NVRAM writes on the next poll, and rate-limits error/recovery logging. Exact detect-link regression and source contract passed on `dc43d3d8`; Process inventory passed. Same-SHA XY-C1 `44727273673` passed Build XY-C1, TRX verification and artifact upload. This is L3 evidence for the dc43 product source tree.
+- Internet connectivity mirror: `detect_internet.c` now maintains a distinct successful-publication cache for `link_internet`; reset, transition and pause writes go through the checked publisher. Unsuccessful writes retain the old cache and retry at one-second cadence without replaying state-transition side effects. Paused retry ticks are dispatched only while an NVRAM error remains; the desired status is kept separately so a failed initial paused `DI_STATUS_INIT` write is retried as INIT, while explicit pause still publishes zero. Error logs are transition-throttled and recovery is logged.
+- Added GNU89, `-Wall -Wextra -Werror`, ASan/UBSan policy tests for initial/changed status retry, cache preservation and invalid arguments. Exact detect-internet regression `44729054343` and AI handoff documentation check `44729054197` passed on current `327b83d6`.
+- The first two detect-internet source-contract runs (`44728739057`, `44728819718`) failed on an obsolete assertion expecting direct publish-zero in the timer after desired-state handling was centralized. Workflow-only correction is in `327b83d6`; its exact detector run passed.
+- Exact XY-C1 for detect-internet production source: `44728739064` on source SHA `0716df86` was still building at checkpoint; later parent SHA `7210c3a3` also has the complete detect-internet source and its XY-C1 run `44729001694` was building. Build/TRX/artifact evidence for detect-internet is therefore still pending. Do not reuse dc43's L3 result for detect-internet.
+- On `a083268c`, Process lifecycle inventory `44728176692`, Process fail-closed regression `44728176691`, NVRAM transaction boundary audit `44728176671`, detect-internet regression `44728176547`, and AI docs `44728176806` passed; its XY-C1 run `44728176648` remained active at last poll.
 
-## Current implementation slice — THIS COMMIT
-- Ralink authenticator `rtdot1x.c` forked its worker and returned success immediately. Shared `eval()` waits only for that short-lived parent, so child failures in allocation, `Apd_init()` or `Apd_setup_interface()` were invisible to RC startup. Driver PID registration errors were ignored too.
-- Added a bounded pipe readiness handshake: the detached worker reports ready only after AP setup and successful driver PID registration; failed initialization cleans partial state then sends a failure byte. Parent polls for up to 15 seconds, treats EOF/timeout as failure, and kills/reaps a worker that never reports.
-- Hardened partial initialization: cleanup handles a NULL authenticator array after OOM and calls `eloop_destroy()` only after event-loop initialization.
-- Added injectable pipe I/O and GNU89 regression coverage for real pipe success, failure byte, EOF, I/O errors, bounded EINTR retries and invalid inputs; Process and XY workflows watch the production source/header/test.
-
-## Exact first actions for the next continuation
-1. Verify this SHA's GNU89/Werror/ASan/UBSan handshake regression and Process inline source contract.
-2. Verify exact-head Process Actions and same-SHA XY-C1 input detection, MIPS Build, TRX verification and artifact upload. L3 requires all three product steps on this exact SHA.
-3. If product build fails, inspect exact compiler/link logs for legacy MIPS/uClibc compatibility of `poll`, `pipe`, `waitpid`, and the helper header.
-4. Continue an independent P1 stability/security issue while unrelated Actions are pending; do not repeat completed WAN mirror recovery or WAN runtime identity checks.
+## Current first actions
+1. Poll XY-C1 run `44729001694` for exact SHA `7210c3a3`: require Build XY-C1, Verify TRX output and artifact upload all SUCCESS. If it fails, inspect the exact MIPS compiler/build log and repair.
+2. Confirm Process inventory/fail-closed and remaining exact Actions for `7210c3a3`; the preceding exact-head detector and docs checks on `327b83d6` are PASS.
+3. Once same-source Build/TRX/artifact are complete, mark detect-internet L3 for the exact product-source SHA actually built. Physical-router L4 remains NOT VERIFIED.
+4. Continue the next independent P1 userland stability/security issue. Do not repeat closed WAN mirror/identity audits.
 
 ## Verification boundary
-- `f87c06d5`: six Actions SUCCESS; XY detector SUCCESS but Build/TRX/artifact SKIPPED due checker/docs-only diff.
-- THIS COMMIT: exact-head Process and XY-C1 verification pending at creation; physical-router L4 NOT VERIFIED.
+- `dc43d3d8`: detect_link and Process checks PASS; same-SHA XY-C1 Build, TRX and artifact upload PASS.
+- `327b83d6`: detect_internet regression PASS; AI handoff docs PASS.
+- `7210c3a3`: XY-C1 Build in progress at checkpoint; TRX/artifact pending. Same-SHA Process/other jobs need final polling.
+- Detect-internet exact-SHA L3 is NOT YET VERIFIED. Physical-router L4 remains NOT VERIFIED.
 
 ## Evidence discipline
-Keep L1 source review, L2 host regression, exact-SHA Actions, L3 MIPS Build/TRX/artifact and physical-router L4 distinct.
-
+Keep L1 source review, L2 host regression, exact-SHA Actions, L3 MIPS Build/TRX/artifact and physical-router L4 distinct. A source-equivalent child or another SHA must not be presented as exact-SHA evidence.
 
 
 ---
