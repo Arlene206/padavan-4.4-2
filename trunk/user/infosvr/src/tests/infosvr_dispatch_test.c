@@ -97,7 +97,6 @@ main(void)
 {
 	static const unsigned char remote_mac_a[6] = {0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0x01};
 	static const unsigned char remote_mac_b[6] = {0x02, 0xaa, 0xbb, 0xcc, 0xdd, 0x02};
-	static const unsigned char zero_mac[6] = {0};
 	union packet_frame frame;
 	IBOX_COMM_PKT_RES_EX *response;
 	PKT_GET_INFO *info;
@@ -117,7 +116,7 @@ main(void)
 	assert(response->PacketType == NET_PACKET_TYPE_RES);
 	assert(response->OpCode == NET_CMD_ID_GETINFO);
 	assert(response->Info == 0);
-	assert(memcmp(response->MacAddress, zero_mac, sizeof(zero_mac)) == 0);
+	/* GETINFO has an 8-byte base header; bytes after it are payload, not an extended MAC. */
 
 	info = (PKT_GET_INFO *)((unsigned char *)response + sizeof(IBOX_COMM_PKT_RES));
 	assert(memcmp(info->MacAddress, local_mac, sizeof(local_mac)) == 0);
