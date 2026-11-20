@@ -1,3 +1,11 @@
+## 2026-11-20 — Align PID 1 device-node security regression with optional boot-node validation
+
+- Parent main SHA: `75b3d0097558e685cf243047a8d77df77ee93f3d`. The Process lifecycle suite on `75b3d0097558e685cf243047a8d77df77ee93f3d` passed, including the new GNU89/ASan/UBSan optional device-node policy regression and the revised PID 1 boot source checker.
+- The dedicated PID 1 mdev security run `44708880007` compiled and passed its three existing C policy tests, then failed in the inline source checker because it still searched for the old `init_nodes(void)` signature and the old standalone OpenVPN failure log. This was a stale test contract, not a C regression.
+- Updated the dedicated checker to validate `init_nodes(int *optional_status)`, the exact-device `lstat()`/identity gate, first optional error retention and boot-degraded handoff. Added the optional boot-node test to this workflow's push/PR filters and GNU89/ASan/UBSan run. The follow-up exact-head run is pending.
+
+---
+
 ## 2026-11-20 — Validate optional PID 1 device nodes and propagate boot degradation
 
 - Parent main SHA: `462e3c811f4abd68583af11df51fbf66ebb8971e`. In `init_nodes()`, the `/dev/hwnat0` and `/dev/crypto` `mknod()` return values were discarded, and `EEXIST` was accepted without checking that the path was the expected character device. The OpenVPN TUN failure was logged but not merged into the PID 1 READY/DEGRADED decision.
