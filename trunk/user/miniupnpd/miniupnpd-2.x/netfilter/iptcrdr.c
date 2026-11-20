@@ -462,9 +462,11 @@ get_redirect_rule_by_index(int index,
 	if(!iptc_is_chain(miniupnpd_nat_chain, h))
 	{
 		syslog(LOG_ERR, "chain %s not found", miniupnpd_nat_chain);
+		r = -1;
 	}
 	else
 	{
+		nat_scan_completed = 1;
 #ifdef IPTABLES_143
 		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
 		    e;
@@ -710,13 +712,17 @@ insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,
 /* delete_redirect_and_filter_rules()
  */
 int
-delete_redirect_and_filter_rules(unsigned short eport, int proto)
+delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)
 {
 	int r = 0, r2 = 0;
 	int nat_rule_found = 0, peer_rule_found = 0;
+	int nat_scan_completed = 0;
+	int filter_delete_status = -1;
+	int nat_rollback_attempted = 0;
+	int primary_mapping_removed = 0;
 	int cleanup_status;
 	int nat_delete_status = -1;
-	int rollback_status;
+	int rollback_status = 0;
 	int failure_errno;
 	int nat_backup_failed = 0;
 	int peer_delete_status = -1;
@@ -735,6 +741,9 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	const struct ipt_entry_match *match;
 	unsigned short iport = 0;
 	uint32_t iaddr = 0;
+
+	if (primary_removed)
+		*primary_removed = 0;
 
 	h = iptc_init("nat");
 	if(!h)
@@ -888,7 +897,9 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 #else
 			iptc_free(&h);
 #endif
+		filter_delete_status = r;
 		if (miniupnpd_nat_delete_rollback_required(nat_delete_status, r)) {
+			nat_rollback_attempted = 1;
 			failure_errno = errno ? errno : EIO;
 			rollback_status = insert_rule_and_commit(
 				nat_index, nat_backup, "nat", miniupnpd_nat_chain,
@@ -904,6 +915,10 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 		free(nat_backup);
 		nat_backup = NULL;
 	}
+
+	primary_mapping_removed = miniupnpd_primary_redirect_removed(
+		nat_scan_completed, nat_rule_found, nat_delete_status,
+		filter_delete_status, nat_rollback_attempted, rollback_status);
 
 	/*delete PEER rule*/
 	h = iptc_init("nat");
@@ -1061,8 +1076,10 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	peer_backup = NULL;
 
 	cleanup_status = miniupnpd_merge_cleanup_status(r, r2);
-	if (cleanup_status == 0)
+	if (primary_mapping_removed)
 		del_redirect_desc(eport, proto);
+	if (primary_removed)
+		*primary_removed = primary_mapping_removed;
 	return cleanup_status;
 }
 
@@ -2261,3 +2278,11 @@ list_redirect_rule(const char * ifname)
 	return 0;
 }
 #endif
+
+
+/* Keep the legacy API for existing callers that only need aggregate status. */
+int
+delete_redirect_and_filter_rules(unsigned short eport, int proto)
+{
+	return delete_redirect_and_filter_rules_ex(eport, proto, NULL);
+}

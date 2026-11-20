@@ -683,19 +683,22 @@ int
 _upnp_delete_redir(unsigned short eport, int proto)
 {
 	int r;
+	int primary_removed = 0;
 #ifdef ENABLE_LEASEFILE
 	int lease_status = 0;
 	int lease_errno = 0;
 #endif
 #if defined(__linux__)
-	r = delete_redirect_and_filter_rules(eport, proto);
+	r = delete_redirect_and_filter_rules_ex(eport, proto, &primary_removed);
 #elif defined(USE_PF)
 	r = delete_redirect_and_filter_rules(ext_if_name, eport, proto);
+	primary_removed = (r == 0);
 #else
 	r = delete_redirect_rule(ext_if_name, eport, proto);
 	delete_filter_rule(ext_if_name, eport, proto);
+	primary_removed = (r == 0);
 #endif
-	if (r == 0)
+	if (primary_removed)
 	{
 #ifdef ENABLE_LEASEFILE
 		if (lease_file_remove(eport, proto) < 0) {

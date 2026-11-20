@@ -6,6 +6,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c").read_text()
 POLICY = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_update_policy.h").read_text()
+CLEANUP_POLICY = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_redirect_cleanup_policy.h").read_text()
+UPNP_REDIRECT = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c").read_text()
+IPT_HEADER = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.h").read_text()
 
 
 def function_body(source, signature):
@@ -35,7 +38,15 @@ helper = function_body(
 )
 delete = function_body(
     SOURCE,
+    "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)"
+)
+legacy_delete = function_body(
+    SOURCE,
     "delete_redirect_and_filter_rules(unsigned short eport, int proto)"
+)
+delete_wrapper = function_body(
+    UPNP_REDIRECT,
+    "_upnp_delete_redir(unsigned short eport, int proto)"
 )
 policy = " ".join(POLICY.split())
 
@@ -67,4 +78,19 @@ assert delete.index("free(nat_backup)", rollback_gate) > restore
 assert "return nat_status == 0 && filter_status != 0;" in policy
 assert "return filter_status != 0 ? filter_status : rollback_status;" in policy
 
-print("MiniUPnP NAT/filter delete compensation source contract: PASS")
+# Persistent lease metadata follows primary DNAT/filter state, not peer cleanup.
+cleanup_policy = " ".join(CLEANUP_POLICY.split())
+assert "miniupnpd_primary_redirect_removed(" in cleanup_policy
+assert "nat_scan_completed" in delete
+assert "*primary_removed = 0" in delete
+assert "filter_delete_status = r" in delete
+assert "nat_rollback_attempted = 1" in delete
+assert "miniupnpd_primary_redirect_removed(" in delete
+assert "if (primary_mapping_removed)" in delete
+assert "delete_redirect_and_filter_rules_ex(eport, proto, NULL)" in legacy_delete
+assert "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto," in IPT_HEADER
+assert "delete_redirect_and_filter_rules_ex(eport, proto, &primary_removed)" in delete_wrapper
+assert "if (primary_removed)" in delete_wrapper
+assert 'if (r == 0)' not in delete_wrapper
+
+print("MiniUPnP NAT/filter delete compensation and lease-state contract: PASS")

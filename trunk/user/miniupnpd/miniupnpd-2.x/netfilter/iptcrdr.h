@@ -30,6 +30,10 @@ add_filter_rule2(const char * ifname,
                  int proto, const char * desc);
 
 int
+delete_redirect_and_filter_rules_ex(unsigned short eport, int proto,
+                                    int *primary_removed);
+
+int
 delete_redirect_and_filter_rules(unsigned short eport, int proto);
 
 int

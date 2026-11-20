@@ -33,6 +33,9 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_redirect_cleanup_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_cleanup_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_allocation_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_allocation_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_allocations.py"
@@ -313,16 +316,20 @@ jobs:
           assert "_upnp_delete_redir(eport, proto)" in filter_failure
           assert "rollback_status != 0" in filter_failure
           assert "failed to roll back partially installed UPnP mapping" in filter_failure
-          cleanup_backend = function_body(ipt_source, "delete_redirect_and_filter_rules(unsigned short eport, int proto)")
+          cleanup_header = Path("trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.h").read_text()
+          cleanup_backend = function_body(ipt_source, "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)")
           assert "#include \"../miniupnpd_redirect_cleanup_policy.h\"" in ipt_source
           assert "int r = 0, r2 = 0;" in cleanup_backend
           assert "peer_rule_found = 0" in cleanup_backend
           assert "miniupnpd_merge_cleanup_status(r, r2)" in cleanup_backend
+          assert "miniupnpd_primary_redirect_removed(" in cleanup_backend
+          assert "if (primary_mapping_removed)" in cleanup_backend
           assert "return r*r2;" not in cleanup_backend
-          assert "if (cleanup_status == 0)" in cleanup_backend
+          assert "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto," in cleanup_header
           delete_wrapper = function_body(redirect_source, "_upnp_delete_redir(unsigned short eport, int proto)")
-          assert "if (r == 0)" in delete_wrapper
-          assert delete_wrapper.index("if (r == 0)") < delete_wrapper.index("lease_file_remove")
+          assert "delete_redirect_and_filter_rules_ex(eport, proto, &primary_removed)" in delete_wrapper
+          assert "if (primary_removed)" in delete_wrapper
+          assert 'if (r == 0)' not in delete_wrapper
           assert "test_cleanup_status_preserves_each_failure" in cleanup_test
           assert "miniupnpd_soap_required_text_present(desc)" in add_port
           assert "miniupnpd_soap_required_text_present(desc)" in add_any
