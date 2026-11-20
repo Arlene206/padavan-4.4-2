@@ -191,6 +191,12 @@ jobs:
           outbound_pinhole = function_body(soap_source, "GetOutboundPinholeTimeout(struct upnphttp * h")
           assert "miniupnpd_soap_required_text_present(desc)" in add_port
           assert "miniupnpd_soap_required_text_present(desc)" in add_any
+          assert "!leaseduration_str" in add_port
+          assert "!leaseduration_str" in add_any
+          assert "if (miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)" in add_port
+          assert "if (miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)" in add_any
+          assert "if (leaseduration_str &&" not in add_port
+          assert "if (leaseduration_str &&" not in add_any
           assert add_port.count("miniupnpd_soap_parse_port(") == 1
           assert add_port.count("miniupnpd_soap_parse_nonzero_port(") == 1
           assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in add_port

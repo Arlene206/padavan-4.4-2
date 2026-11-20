@@ -472,7 +472,8 @@ AddPortMapping(struct upnphttp * h, const char * action, const char * ns)
 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
 	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
 
-	if (!int_port || !ext_port || !miniupnpd_soap_protocol_valid(protocol) ||
+	if (!int_port || !ext_port || !leaseduration_str ||
+	    !miniupnpd_soap_protocol_valid(protocol) ||
 	    !miniupnpd_soap_required_text_present(desc))
 	{
 		ClearNameValueList(&data);
@@ -500,8 +501,7 @@ AddPortMapping(struct upnphttp * h, const char * action, const char * ns)
 		return;
 	}
 
-	if (leaseduration_str &&
-	    miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)
+	if (miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -605,7 +605,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action, const char * ns)
 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
 	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
 
-	if (!int_ip || !ext_port || !int_port ||
+	if (!int_ip || !ext_port || !int_port || !leaseduration_str ||
 	    !miniupnpd_soap_protocol_valid(protocol) ||
 	    !miniupnpd_soap_required_text_present(desc))
 	{
@@ -614,8 +614,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action, const char * ns)
 		return;
 	}
 
-	if (leaseduration_str &&
-	    miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)
+	if (miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
