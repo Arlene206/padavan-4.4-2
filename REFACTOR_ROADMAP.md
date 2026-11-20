@@ -1,3 +1,14 @@
+## Current checkpoint — 2026-11-20
+
+- Parent main for the active VPN domain runtime snapshot fix: `84199a2fe17d774b8bcdba0a1918e7fa10a33160`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- WAN route callback status source-contract repair `2e3fffd9`: exact-head WAN route and AI handoff Actions passed.
+- HTTPD security and AI handoff checks passed on `c84d26a6`; these checker/document commits are not firmware L3 evidence.
+- Parent MiniUPnP IPv6 pinhole hardening `84199a2f`: MiniUPnP and AI handoff passed; Process, NVRAM and XY-C1 were pending at last check.
+- Active VPN fix clears stale domain runtime state on disconnect and when OpenVPN reconnects without DOMAIN. New exact-head VPN and XY-C1 Build/TRX/artifact checks required.
+
+---
+
 ## MiniUPnP SOAP input validation
 
 - Reject internal port 0 in AddPortMapping/AddAnyPortMapping using a non-zero bounded decimal parser; retain zero semantics for external port assignment where permitted. Host boundary regression and same-SHA XY-C1 verification required.

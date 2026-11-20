@@ -580,7 +580,7 @@ restart_vpn_client_locked(void)
 		start_status = restore_status;
 		saved_errno = restore_status;
 		logmessage(VPNC_LOG_NAME,
-			   "refusing VPN client restart because the previous DNS snapshot could not be cleared (status=%d)",
+			   "refusing VPN client restart because the previous DNS/domain snapshot could not be cleared (status=%d)",
 			   restore_status);
 	} else {
 		sleep(1);
@@ -641,7 +641,7 @@ int
 restore_dns_from_vpnc(void)
 {
 	char *vpnc_dns = NULL;
-	int api_result, saved_errno, status;
+	int api_result, saved_errno, status, domain_status;
 
 	errno = 0;
 	api_result = nvram_get_checked("vpnc_dns_t", &vpnc_dns);
@@ -652,23 +652,27 @@ restore_dns_from_vpnc(void)
 		logmessage(VPNC_LOG_NAME,
 			   "cannot read VPN DNS snapshot for resolver cleanup (status=%d)",
 			   status);
-		errno = status;
-		return status;
+	} else if (api_result == 1 && vpnc_dns[0] != '\0') {
+		status = vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", "");
+		if (status != 0)
+			logmessage(VPNC_LOG_NAME,
+				   "cannot clear VPN DNS snapshot before resolver rebuild (status=%d)",
+				   status);
+		else
+			refresh_resolvconf_nonfatal("VPN client DNS removal", 0);
 	}
-	if (api_result == 0 || vpnc_dns[0] == '\0')
-		return 0;
 
-	status = vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", "");
-	if (status != 0) {
+	/* Domain state is independent: attempt cleanup even after DNS errors. */
+	domain_status = vpn_client_nvram_clear_domain_snapshot(
+		vpn_client_nvram_set_temp_status, NULL);
+	if (domain_status != 0)
 		logmessage(VPNC_LOG_NAME,
-			   "cannot clear VPN DNS snapshot before resolver rebuild (status=%d)",
-			   status);
+			   "cannot clear VPN domain snapshot (status=%d)",
+			   domain_status);
+	status = route_status_accumulate(status, domain_status);
+	if (status != 0)
 		errno = status;
-		return status;
-	}
-
-	refresh_resolvconf_nonfatal("VPN client DNS removal", 0);
-	return 0;
+	return status;
 }
 
 static int

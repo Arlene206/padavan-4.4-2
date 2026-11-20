@@ -100,6 +100,19 @@ vpn_client_nvram_set_all_values(const struct vpn_client_nvram_value *values,
 }
 
 static inline int
+vpn_client_nvram_clear_domain_snapshot(vpn_client_nvram_set_fn set_value,
+                                       void *context)
+{
+    static const struct vpn_client_nvram_value values[] = {
+        { "vpnc_dom_t", "" }
+    };
+
+    return vpn_client_nvram_set_required_values(
+        values, (unsigned int)(sizeof(values) / sizeof(values[0])),
+        set_value, context);
+}
+
+static inline int
 vpn_client_nvram_clear_runtime_state(vpn_client_nvram_set_fn set_value,
                                      void *context)
 {

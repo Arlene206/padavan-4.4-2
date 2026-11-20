@@ -114,6 +114,25 @@ test_runtime_clear_publishes_dns_domain_and_state_in_order(void)
 }
 
 static void
+test_domain_snapshot_clear_publishes_empty_value_and_reports_failure(void)
+{
+    struct fake_nvram fake;
+
+    reset_fake(&fake);
+    assert(vpn_client_nvram_clear_domain_snapshot(fake_set, &fake) == 0);
+    assert(fake.calls == 1);
+    assert(strcmp(fake.names[0], "vpnc_dom_t") == 0);
+    assert(strcmp(fake.values[0], "") == 0);
+
+    reset_fake(&fake);
+    fake.fail_at = 0;
+    fake.failure_status = ENOSPC;
+    assert(vpn_client_nvram_clear_domain_snapshot(fake_set, &fake) ==
+           ENOSPC);
+    assert(fake.calls == 1);
+}
+
+static void
 test_runtime_clear_stops_at_first_failed_write(void)
 {
     struct fake_nvram fake;
@@ -149,6 +168,7 @@ main(void)
     test_write_status_preserves_errno();
     test_read_status_distinguishes_absence_from_failure();
     test_runtime_clear_publishes_dns_domain_and_state_in_order();
+    test_domain_snapshot_clear_publishes_empty_value_and_reports_failure();
     test_runtime_clear_stops_at_first_failed_write();
     test_invalid_sequence_does_not_write();
     puts("VPN client runtime NVRAM fail-closed policy regression: PASS");

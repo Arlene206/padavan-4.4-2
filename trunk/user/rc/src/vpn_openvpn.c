@@ -1406,12 +1406,11 @@ on_client_ifup(void)
 			break;
 	}
 
+	values[value_count].name = "vpnc_dom_t";
+	values[value_count++].value =
+		(vpnc_pdns > 0 && domain[0] != '\0') ? domain : "";
 	values[value_count].name = "vpnc_state_t";
 	values[value_count++].value = "1";
-	if (vpnc_pdns > 0 && domain[0] != '\0') {
-		values[value_count].name = "vpnc_dom_t";
-		values[value_count++].value = domain;
-	}
 	write_status = vpn_client_nvram_set_all_values(
 		values, value_count, vpn_client_nvram_set_temp_status, NULL);
 	status = route_status_accumulate(status, write_status);

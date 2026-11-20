@@ -1,3 +1,12 @@
+## 2026-11-20 — Clear stale VPN domain snapshots across client sessions
+
+- Parent main SHA: `84199a2fe17d774b8bcdba0a1918e7fa10a33160`.
+- Defect: `restore_dns_from_vpnc()` cleared the runtime DNS snapshot but left `vpnc_dom_t`; OpenVPN client-up wrote that key only when a non-empty DOMAIN option was supplied. A disconnect/reconnect without DOMAIN could retain a stale domain from the previous session.
+- Added checked domain-only cleanup and a regression. VPN cleanup attempts domain clearing even after DNS read/clear failure, preserves the first error, and rebuilds resolver state only after successfully clearing a non-empty DNS snapshot. OpenVPN client-up now publishes the current domain or an explicit empty value before the up-state marker.
+- GNU89/Werror/ASan/UBSan policy regression and `scripts/check_vpn_client_nvram_state.py` are wired into VPN stability CI. Exact-head VPN and XY-C1 results are required; no firmware L3/hardware L4 is claimed.
+
+---
+
 ## 2026-11-20 — Align WAN route callback contract with MTU retry state
 
 - Parent main SHA: `125c64c1b38f9290500904bc5de73fcfb0ed3e83`.

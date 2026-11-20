@@ -156,6 +156,16 @@ ordered(ipup, [
 ], "VPN up callback NVRAM status")
 assert 'if (strlen(buf) > 0)' not in ipup
 
+restore = body(vpn, "int\nrestore_dns_from_vpnc(void)")
+ordered(restore, [
+    "vpn_client_nvram_read_status(",
+    "if (status != 0)",
+    "vpn_client_nvram_clear_domain_snapshot(",
+    "status = route_status_accumulate(status, domain_status);",
+    "return status;"
+], "VPN DNS/domain snapshot cleanup")
+assert "vpn_client_nvram_clear_domain_snapshot" in header
+
 ipdown = body(vpn, "ipdown_vpnc_main(int argc, char **argv)")
 ordered(ipdown, [
     'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
@@ -171,6 +181,7 @@ for token in (
     "test_read_status_distinguishes_absence_from_failure",
     "test_runtime_clear_publishes_dns_domain_and_state_in_order",
     "test_runtime_clear_stops_at_first_failed_write",
+    "test_domain_snapshot_clear_publishes_empty_value_and_reports_failure",
     "test_invalid_sequence_does_not_write",
 ):
     assert token in test and token + "();" in test
@@ -187,6 +198,11 @@ for token in (
 openvpn_up = body(openvpn, "static int\non_client_ifup(void)")
 openvpn_down = body(openvpn, "static int\non_client_ifdown(void)")
 openvpn_entry = body(openvpn, "int\novpn_client_script_main(int argc, char **argv)")
+openvpn_up_compact = " ".join(openvpn_up.split())
+domain_publish = openvpn_up.index('values[value_count].name = "vpnc_dom_t";')
+state_publish = openvpn_up.index('values[value_count].name = "vpnc_state_t";')
+assert domain_publish < state_publish < openvpn_up.index("vpn_client_nvram_set_all_values(")
+assert 'values[value_count++].value = (vpnc_pdns > 0 && domain[0] != \\0) ? domain : "";' in openvpn_up_compact
 ordered(openvpn_up, [
     "vpn_client_nvram_set_all_values(",
     'vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", buf)',
