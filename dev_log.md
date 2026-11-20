@@ -1,3 +1,13 @@
+## 2026-11-20 — Retain native IPv6 identity until rollback is complete and repair exact-head contracts
+
+- Parent main SHA: `7c48e205c192eb093c735ddc4be69bc1453e3054`. A source-path review found native `wan6_up()` cleared `ifname6` immediately after a failed checked identity publication, before router-advertisement, autoconfiguration, privacy, route, neighbour and address rollback ran. Since `rollback_status` was still zero at that point, a later cleanup failure could strand kernel state without the interface identity needed to tear it down.
+- Move identity clearing after every independent rollback attempt. The new `wan6_clear_native_identity_after_rollback()` retains the recovery handle on any rollback error and clears it only when rollback fully succeeds; the primary startup failure remains the returned status. Add GNU89 regressions for incomplete rollback, successful clear and clear-write failure.
+- Repair exact-head stale CI contracts: DHCP callback checks now use checked WAN IPv6 metadata helpers and the tenth teardown status aggregate; the XY-C1 modem checker requires the same ten aggregates and enforces native rollback-before-identity-clear ordering; XY-C1 path filters include the identity policy/test; the post-WAN hook checker now anchors the actual source comment while retaining the existing execution/status/order assertions.
+- Parent SHA exact Actions `03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3`: HTTPD `44711346041` PASS, Process `44711345873` PASS, NVRAM boundary `44711345856` PASS, AI docs `44711345981` PASS. WAN callback `44711345959` failed at stale IPv6 teardown/identity text, WAN route `44711345905` failed at the renamed post-WAN hook comment (`check_wan_detect_wan_status.py:102`), XY-C1 `44711345889` failed at the obsolete nine-aggregate check (`check_modem_wan_start_status.py:648`) before MIPS compilation. Earlier route run `44710438005` on ancestor `c0c2ff5` passed; it does not cover the later DNS source slice.
+- No current-slice test or firmware result is claimed before the new exact-SHA Actions complete. L3 firmware and physical-router L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Handoff checkpoint at `03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3`
 
 - Reconciled current main and the frozen backup branch; updated `SESSION_HANDOFF.md` with the exact SHAs and current Actions state.

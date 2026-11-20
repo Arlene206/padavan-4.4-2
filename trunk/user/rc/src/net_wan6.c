@@ -805,20 +805,6 @@ native_failed:
 			return operation_status;
 		}
 	}
-	if (identity_publish_failed) {
-		if (rollback_status == 0) {
-			operation_status = wan6_clear_runtime_metadata(
-				wan6_identity_set_value, NULL, unit, 0);
-			if (operation_status != 0)
-				logmessage("WAN IPv6",
-					   "failed to clear native IPv6 interface identity after startup rollback (status=%d)",
-					   operation_status);
-		} else {
-			logmessage("WAN IPv6",
-				   "retaining native IPv6 interface identity because kernel rollback was incomplete (status=%d)",
-				   rollback_status);
-		}
-	}
 	if (radv_touched) {
 		operation_status = control_if_ipv6_radv(wan_ifname, 0);
 		rollback_status = route_status_accumulate(rollback_status, operation_status);
@@ -859,6 +845,18 @@ native_failed:
 		rollback_status = route_status_accumulate(rollback_status, operation_status);
 		if (operation_status != 0)
 			logmessage("WAN IPv6", "failed to clear partially configured addresses (status=%d)",
+				   operation_status);
+	}
+	if (identity_publish_failed) {
+		operation_status = wan6_clear_native_identity_after_rollback(
+			wan6_identity_set_value, NULL, unit, rollback_status);
+		if (rollback_status != 0)
+			logmessage("WAN IPv6",
+				   "retaining native IPv6 interface identity because kernel rollback was incomplete (status=%d)",
+				   rollback_status);
+		else if (operation_status != 0)
+			logmessage("WAN IPv6",
+				   "failed to clear native IPv6 interface identity after startup rollback (status=%d)",
 				   operation_status);
 	}
 	logmessage("WAN IPv6", "native startup failed at %s on %s (status=%d)",

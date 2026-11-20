@@ -94,6 +94,10 @@ assert "int set_wan_unit_value_status(int unit, const char *param_name, const ch
 for marker in (
     "wan6_publish_sit_identity",
     "wan6_clear_runtime_metadata",
+    "wan6_clear_native_identity_after_rollback",
+    "test_native_identity_is_retained_when_kernel_rollback_incomplete",
+    "test_native_identity_is_cleared_after_complete_kernel_rollback",
+    "test_native_identity_clear_failure_is_reported",
     "test_sit_identity_failure_removes_tunnel_and_clears_partial_identity",
     "test_sit_identity_failure_retains_state_when_tunnel_removal_fails",
     "test_metadata_clear_attempts_both_fields_and_preserves_first_error",
@@ -115,10 +119,23 @@ assert "identity_publish_failed = 1;" in wan6_up[native_gate:native_failed]
 assert 'failure = "publish native IPv6 WAN interface identity";' in wan6_up[native_gate:native_failed]
 client_stop_gate = wan6_up.index("if (dhcp6_start_attempted)", native_failed)
 client_stop_return = wan6_up.index("return operation_status;", client_stop_gate)
-rollback_gate = wan6_up.index("if (rollback_status == 0)", client_stop_return)
-identity_clear = wan6_up.index("wan6_clear_runtime_metadata(", rollback_gate)
-assert client_stop_gate < client_stop_return < rollback_gate < identity_clear
-assert "retaining native IPv6 interface identity because kernel rollback was incomplete" in wan6_up[rollback_gate:]
+rollback_steps = (
+    "if (radv_touched)",
+    "if (autoconf_touched)",
+    "if (privacy_touched)",
+    "if (routes_touched)",
+    "if (routes_touched || addresses_touched)",
+    "if (addresses_touched)",
+)
+rollback_positions = [wan6_up.index(step, client_stop_return) for step in rollback_steps]
+assert rollback_positions == sorted(rollback_positions)
+identity_gate = wan6_up.index("if (identity_publish_failed)", rollback_positions[-1])
+identity_clear = wan6_up.index("wan6_clear_native_identity_after_rollback(", identity_gate)
+assert client_stop_gate < client_stop_return < rollback_positions[-1] < identity_gate < identity_clear
+assert "if (rollback_status != 0)" in identity_policy
+assert 'return set_value(context, unit, "ifname6", "");' in identity_policy
+assert "retaining native IPv6 interface identity because kernel rollback was incomplete" in wan6_up[identity_gate:]
+assert "failed to clear native IPv6 interface identity after startup rollback" in wan6_up[identity_gate:]
 
 wan6_down = body(source, "int wan6_down(char *wan_ifname, int unit)")
 no_interface = wan6_down.index("if (!wan6_ifname)")

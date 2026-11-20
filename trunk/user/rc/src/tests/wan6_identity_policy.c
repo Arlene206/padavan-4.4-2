@@ -101,6 +101,44 @@ test_sit_identity_failure_reports_metadata_clear_failure(void)
 }
 
 static void
+test_native_identity_is_retained_when_kernel_rollback_incomplete(void)
+{
+	struct fake_identity_backend fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_clear_native_identity_after_rollback(
+		fake_set_value, &fake, 2, EBUSY) == EBUSY);
+	assert(fake.set_calls == 0);
+}
+
+static void
+test_native_identity_is_cleared_after_complete_kernel_rollback(void)
+{
+	struct fake_identity_backend fake;
+
+	memset(&fake, 0, sizeof(fake));
+	assert(wan6_clear_native_identity_after_rollback(
+		fake_set_value, &fake, 1, 0) == 0);
+	assert(fake.set_calls == 1);
+	assert(fake.unit[0] == 1);
+	assert(strcmp(fake.names[0], "ifname6") == 0);
+	assert(strcmp(fake.values[0], "") == 0);
+}
+
+static void
+test_native_identity_clear_failure_is_reported(void)
+{
+	struct fake_identity_backend fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.set_status[0] = ENOSPC;
+	assert(wan6_clear_native_identity_after_rollback(
+		fake_set_value, &fake, 1, 0) == ENOSPC);
+	assert(fake.set_calls == 1);
+	assert(strcmp(fake.names[0], "ifname6") == 0);
+}
+
+static void
 test_metadata_clear_attempts_both_fields_and_preserves_first_error(void)
 {
 	struct fake_identity_backend fake;
@@ -150,6 +188,9 @@ main(void)
 	test_sit_identity_failure_removes_tunnel_and_clears_partial_identity();
 	test_sit_identity_failure_retains_state_when_tunnel_removal_fails();
 	test_sit_identity_failure_reports_metadata_clear_failure();
+	test_native_identity_is_retained_when_kernel_rollback_incomplete();
+	test_native_identity_is_cleared_after_complete_kernel_rollback();
+	test_native_identity_clear_failure_is_reported();
 	test_metadata_clear_attempts_both_fields_and_preserves_first_error();
 	test_metadata_clear_can_preserve_dns_when_requested();
 	test_metadata_clear_rejects_invalid_arguments_before_side_effects();

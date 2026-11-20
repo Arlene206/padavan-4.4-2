@@ -39,6 +39,22 @@ wan6_publish_sit_identity(wan6_identity_set_value_fn set_value,
 	return status;
 }
 
+/*
+ * Preserve ifname6 as a recovery handle unless every native kernel rollback
+ * operation completed successfully.
+ */
+static inline int
+wan6_clear_native_identity_after_rollback(
+	wan6_identity_set_value_fn set_value, void *context, int unit,
+	int rollback_status)
+{
+	if (!set_value || unit < 0)
+		return EINVAL;
+	if (rollback_status != 0)
+		return rollback_status;
+	return set_value(context, unit, "ifname6", "");
+}
+
 /* Attempt both metadata clears and preserve the first failure. */
 static inline int
 wan6_clear_runtime_metadata(wan6_identity_set_value_fn set_value,

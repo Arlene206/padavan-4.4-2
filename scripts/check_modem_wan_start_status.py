@@ -640,12 +640,26 @@ native_route_cleanup = native_failed.index("operation_status = clear_if_route6(w
 native_neigh_cleanup = native_failed.index("operation_status = clear_if_neigh6(wan_ifname);")
 native_addr_cleanup = native_failed.index("operation_status = clear_if_addr6(wan_ifname);")
 assert native_route_cleanup < native_neigh_cleanup < native_addr_cleanup
+rollback_steps = (
+    "if (radv_touched)",
+    "if (autoconf_touched)",
+    "if (privacy_touched)",
+    "if (routes_touched)",
+    "if (routes_touched || addresses_touched)",
+    "if (addresses_touched)",
+)
+native_rollback_positions = [native_failed.index(step) for step in rollback_steps]
+native_identity_gate = native_failed.index("if (identity_publish_failed)")
+native_identity_clear = native_failed.index("wan6_clear_native_identity_after_rollback(", native_identity_gate)
+assert native_rollback_positions == sorted(native_rollback_positions)
+assert native_rollback_positions[-1] < native_identity_gate < native_identity_clear
 assert "operation_status = clear_if_neigh6(wan6_ifname);" in wan6_down
 wan_route_cleanup = wan6_down.index("operation_status = clear_if_route6(wan6_ifname);")
 wan_neigh_cleanup = wan6_down.index("operation_status = clear_if_neigh6(wan6_ifname);")
 wan_addr_cleanup = wan6_down.index("operation_status = clear_if_addr6(wan6_ifname);")
 assert wan_route_cleanup < wan_neigh_cleanup < wan_addr_cleanup
-assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 9
+# The tenth aggregate preserves checked IPv6 runtime-metadata clear failures.
+assert wan6_down.count("status = route_status_accumulate(status, operation_status);") == 10
 assert 'return eval("ip", "tunnel", "del", IFNAME_SIT);' in stop_sit
 
 for signature in (

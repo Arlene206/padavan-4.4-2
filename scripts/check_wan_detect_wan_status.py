@@ -99,7 +99,7 @@ require(
 )
 require("route_status);" in wan_up[unknown_diagnostic:launch_diagnostic],
         "UNKNOWN inventory must report its effective error")
-post_hook = wan_up.index("/* Call the optional post-WAN hook and preserve its exit status. */")
+post_hook = wan_up.index("/* Only invoke the optional hook with a complete, stable IPv4 snapshot. */")
 post_hook_guard = wan_up.index("if (check_if_file_exist(script_postw))", post_hook)
 post_hook_eval = wan_up.index(
     'route_status = eval(script_postw, "up", wan_ifname, wan_addr);',
