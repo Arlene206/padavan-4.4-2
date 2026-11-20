@@ -416,7 +416,7 @@ int Apd_init_sockets(rtapd *rtapd)
 						       rtapd->prefix_wlan_name,
 						       (unsigned int)i) != 0)
 		{
-			DBGPRINT(RT_DEBUG_ERROR, "invalid wireless interface name for SSID %d (errno=%d)\\n",
+			DBGPRINT(RT_DEBUG_ERROR, "invalid wireless interface name for SSID %d (errno=%d)\n",
 				 i, errno);
 			close(s);
 			return -1;

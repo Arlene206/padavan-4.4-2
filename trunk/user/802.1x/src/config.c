@@ -406,7 +406,7 @@ BOOLEAN Query_config_from_driver(int ioctl_sock, char *prefix_name, struct rtapd
 			if (nas_id_len > sizeof(conf->nasId[i]) ||
 			    nas_id_len > sizeof(pDot1xCmmConf->Dot1xBssInfo[i].nasId))
 			{
-				DBGPRINT(RT_DEBUG_ERROR, "invalid NAS-Identifier length %lu for %s%d\\n",
+				DBGPRINT(RT_DEBUG_ERROR, "invalid NAS-Identifier length %lu for %s%d\n",
 					 (unsigned long)nas_id_len, prefix_name, i);
 				free(buf);
 				return FALSE;
@@ -414,7 +414,7 @@ BOOLEAN Query_config_from_driver(int ioctl_sock, char *prefix_name, struct rtapd
 			memcpy(conf->nasId[i], pDot1xCmmConf->Dot1xBssInfo[i].nasId, nas_id_len);
 			conf->nasId_len[i] = (int)nas_id_len;
 		}
-		DBGPRINT(RT_DEBUG_TRACE, "NAS-Identifier: %.*s and len=%d for %s%d \\n",
+		DBGPRINT(RT_DEBUG_TRACE, "NAS-Identifier: %.*s and len=%d for %s%d \n",
 				 conf->nasId_len[i], conf->nasId[i], conf->nasId_len[i], prefix_name, i);
 		
 
@@ -428,7 +428,7 @@ BOOLEAN Query_config_from_driver(int ioctl_sock, char *prefix_name, struct rtapd
 				    sizeof(pDot1xCmmConf->EAPifname[i]),
 				    (size_t)pDot1xCmmConf->EAPifname_len[i]) != 0)
 			{
-				DBGPRINT(RT_DEBUG_ERROR, "invalid EAP interface name length for %s%d\\n",
+				DBGPRINT(RT_DEBUG_ERROR, "invalid EAP interface name length for %s%d\n",
 					 prefix_name, i);
 				free(buf);
 				return FALSE;
@@ -448,7 +448,7 @@ BOOLEAN Query_config_from_driver(int ioctl_sock, char *prefix_name, struct rtapd
 				    sizeof(pDot1xCmmConf->PreAuthifname[i]),
 				    (size_t)pDot1xCmmConf->PreAuthifname_len[i]) != 0)
 			{
-				DBGPRINT(RT_DEBUG_ERROR, "invalid pre-auth interface name length for %s%d\\n",
+				DBGPRINT(RT_DEBUG_ERROR, "invalid pre-auth interface name length for %s%d\n",
 					 prefix_name, i);
 				free(buf);
 				return FALSE;

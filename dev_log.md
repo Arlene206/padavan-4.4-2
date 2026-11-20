@@ -1,3 +1,12 @@
+## 2026-11-20 — Correct Ralink 802.1X diagnostic newline escapes
+
+- Parent main SHA: be32768262941acab4bebf9d747db381ec4a93b2.
+- Source review found five newly added diagnostics in the previous 802.1X hardening that used double-escaped `\\n`, printing a literal backslash-n instead of terminating the log line. Correct the NAS, EAP, pre-auth and BSS-interface diagnostic strings.
+- Extend the Process source contract to reject double-escaped newline sequences in both the driver-configuration and socket-setup functions. This is a diagnostic follow-up; bounds checks and RADIUS ownership are unchanged.
+- Exact-head Process, AI docs and XY-C1 checks still required for the complete 802.1X slice.
+
+---
+
 ## 2026-11-20 — Complete deferred WAN policy path filters for pull requests
 
 - Parent main SHA: `505b26f869c63261508e377360022e0fc0936707`. The WAN route correction from `505b26f869c63261508e377360022e0fc0936707` passed exact run `44732377886`; AI handoff docs passed `44732378051`.

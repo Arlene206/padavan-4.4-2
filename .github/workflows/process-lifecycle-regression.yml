@@ -1069,6 +1069,8 @@ jobs:
           assert auth_config_query.count("auth_startup_copy_interface_name(") == 2
           assert "nas_id_len > sizeof(conf->nasId[i])" in auth_config_query
           assert "NAS-Identifier: %.*s" in auth_config_query
+          assert r"\\n" not in auth_config_query
+          assert r"\\n" not in auth_socket_setup
           assert "memcpy(conf->eap_if_name" not in auth_config_query
           assert "memcpy(conf->preauth_if_name" not in auth_config_query
           assert "test_driver_interface_name_copy_is_bounded" in auth_regression
