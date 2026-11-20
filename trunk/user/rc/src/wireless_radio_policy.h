@@ -92,7 +92,7 @@ wireless_radio_notification_result(int was_on, int requested_on,
 typedef struct wireless_inic_radio_ops {
 	int (*set_power)(void *context, int is_on);
 	int (*set_isolation)(void *context, int isolated);
-	void (*prepare_on)(void *context);
+	int (*prepare_on)(void *context);
 	void (*publish)(void *context, int is_on);
 } wireless_inic_radio_ops_t;
 
@@ -102,6 +102,7 @@ wireless_inic_radio_transition(int is_on, const wireless_inic_radio_ops_t *ops,
 {
 	int isolation_status;
 	int power_status;
+	int prepare_status;
 
 	if (!ops || !ops->set_power || !ops->set_isolation || !ops->publish)
 		return -EINVAL;
@@ -122,8 +123,15 @@ wireless_inic_radio_transition(int is_on, const wireless_inic_radio_ops_t *ops,
 			(void)ops->set_power(context, 0);
 			return power_status;
 		}
-		if (ops->prepare_on)
-			ops->prepare_on(context);
+		if (ops->prepare_on) {
+			prepare_status = ops->prepare_on(context);
+			if (prepare_status != 0) {
+				/* Do not expose the radio when its configured power was rejected. */
+				(void)ops->set_isolation(context, 1);
+				(void)ops->set_power(context, 0);
+				return prepare_status;
+			}
+		}
 		isolation_status = ops->set_isolation(context, 0);
 		if (isolation_status != 0) {
 			/* Best-effort fail-closed rollback; preserve the original cause. */

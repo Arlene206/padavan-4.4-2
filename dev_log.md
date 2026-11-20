@@ -1,3 +1,12 @@
+## 2026-11-20 — Treat RT3352 MII TxPower failure as an enable-gate failure
+
+- Parent main SHA: `31de47640faed47555e830d86cd69f7228887d7e`.
+- Review found the MII enable transaction still ignored the `iwpriv ... TxPower` result. It could unisolate and publish an enabled radio even when the configured transmit-power value was rejected, leaving the driver at an unintended default.
+- The preparation callback now returns its command status. The policy keeps the port isolated, attempts RadioOn=0 and returns the original TxPower failure instead of unisolating/publishing. Added GNU89 regression coverage for rollback order and no publication.
+- Wireless #44746039419, AI handoff #44746039183 and Process inventory #44746039325 passed on `31de4764`; NVRAM #44746039252 was still running. On production source `d250aff4`, NVRAM #44745706021 passed and XY-C1 #44745705732 remained in progress. This changes production code and requires fresh same-SHA XY-C1 validation; no L3/L4 claim.
+
+---
+
 ## 2026-11-20 — Correct RT3352 MII unisolation-rollback test event count
 
 - Parent main SHA: `d250aff4e337f5c919e11c44cf5a1e8e5c1cb5a8`.

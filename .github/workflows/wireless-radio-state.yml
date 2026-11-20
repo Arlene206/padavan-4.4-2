@@ -167,6 +167,7 @@ jobs:
           assert "if (status != 0)" in set_isolation
           prepare_on = function_body(source, mii_helpers[2])
           assert '"TxPower"' in prepare_on and "doSystem(" in prepare_on
+          assert "return status;" in prepare_on
           publish = function_body(source, mii_helpers[3])
           assert "mlme_state_rt(is_on);" in publish and "LED_CONTROL(" in publish
 
@@ -193,7 +194,8 @@ jobs:
                         "test_inic_radio_power_on_failure_rolls_back_without_publishing",
                         "test_inic_radio_unisolation_failure_rolls_back_and_preserves_cause",
                         "test_inic_radio_isolation_failure_still_powers_off_without_publishing",
-                        "test_inic_radio_initial_isolation_failure_prevents_power_on"):
+                        "test_inic_radio_initial_isolation_failure_prevents_power_on",
+                        "test_inic_radio_txpower_failure_rolls_back_without_unisolation"):
               assert token in notification_test
           for token in ("was_on", "requested_on", "change_reported",
                         "change_reported == 1 ? 0 : -EIO"):

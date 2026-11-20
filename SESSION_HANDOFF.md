@@ -9,10 +9,10 @@
 
 ## Current repository state
 
-- Current main before this test correction: `d250aff4e337f5c919e11c44cf5a1e8e5c1cb5a8`; the preceding RT3352 runtime source parent is `9e9d643dd8c3a78d135c8dae908857f8b90c0276`.
+- Current main before this RT3352 TxPower status slice: `31de47640faed47555e830d86cd69f7228887d7e`; the boot-state isolation production source was introduced in `d250aff4e337f5c919e11c44cf5a1e8e5c1cb5a8`.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
 - Source implementation commit `9e9d643d` and follow-up test/docs SHA `9075dc63` passed Wireless #44744845103, AI handoff #44744844991 and Process inventory #44744845149; NVRAM #44744845007 passed on `9075dc63`.
-- Boot-state isolation follow-up `d250aff4` changed the policy to assert isolation before RadioOn. Its Wireless run #44745705779 compiled successfully but failed the C regression because the unisolation-rollback case expected five recorded events although its expected sequence contains six. This commit corrects that test count. AI handoff #44745705703 and Process inventory #44745705762 passed; NVRAM #44745706021 and XY-C1 #44745705732 were in progress at last observation.
+- Boot-state isolation follow-up `d250aff4` changed the policy to assert isolation before RadioOn; its six-event rollback test count was corrected on `31de4764`. Wireless #44746039419, AI #44746039183 and Process inventory #44746039325 passed on `31de4764`; NVRAM #44746039252 was in progress. Product-source XY-C1 #44745705732 on `d250aff4` remained in progress; NVRAM #44745706021 passed.
 
 ## Active task
 
@@ -22,14 +22,14 @@
 
 ## Verification boundary
 
-- Wireless source/policy tests and AI documentation contract passed on `9075dc63`. On `d250aff4`, the test program compiled, but its execution failed only because the unisolation-failure event count was set to 5 instead of 6; the six expected events are isolate, radio-on, TxPower preparation, unisolate attempt, rollback isolate and radio-off. This commit corrects the count; exact-head rerun pending.
-- XY-C1 #44745705732 and NVRAM #44745706021 were still running for `d250aff4`; no L3 claim until detector/build/TRX/artifact all pass on the exact production-source SHA. Physical-router L4 remains NOT VERIFIED.
+- Wireless regression passed on `31de4764` after the six-event expectation correction; AI handoff and Process inventory also passed. This slice adds a required TxPower-success gate and regression; its exact-head compile/test is pending.
+- XY-C1 #44745705732 for product source `d250aff4` remained in progress at last check; NVRAM #44745706021 passed there. This production-source change requires its own exact-SHA XY-C1 run. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Inspect Wireless and AI docs exact-head Actions for this correction; ensure the full six-event rollback expectation passes.
-2. Inspect XY-C1 #44745705732 and NVRAM #44745706021 for `d250aff4`; record detector/build/TRX/artifact results only on that production-source SHA.
-3. Continue the next independent stability/security task; do not repeat closed audits.
+1. Inspect Wireless and AI docs exact-head Actions for this TxPower failure gate; confirm rollback does not unisolate or publish state.
+2. Inspect NVRAM #44746039252 and the new same-SHA XY-C1 detector/build/TRX/artifact; do not transfer L3 from `d250aff4`.
+3. Continue an independent stability/security fix while pending checks run.
 
 ## Mandatory handoff checkpoint
 

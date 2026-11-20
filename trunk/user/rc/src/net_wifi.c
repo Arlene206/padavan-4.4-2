@@ -395,15 +395,18 @@ wireless_inic_radio_set_isolation(void *opaque, int isolated)
 	return status;
 }
 
-static void
+static int
 wireless_inic_radio_prepare_on(void *opaque)
 {
 	wireless_inic_radio_context_t *context = (wireless_inic_radio_context_t *)opaque;
 	int i_val = nvram_wlan_get_int(0, "TxPower");
 	int status = doSystem("iwpriv %s set %s=%d", context->ifname, "TxPower", i_val);
 
-	if (!wireless_radio_status_success(status))
+	if (!wireless_radio_status_success(status)) {
 		logmessage(LOGNAME, "2.4GHz iNIC TxPower=%d update failed (status=%d)", i_val, status);
+		return status;
+	}
+	return 0;
 }
 
 static void
