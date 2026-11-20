@@ -1,3 +1,16 @@
+## 2026-11-20 — Exact-head checkpoint bc0d9316777baa125e2ba22ef776d9ea812e3dd4
+
+- Wireless: completed/success (#44746584209)
+- AI handoff docs: completed/success (#44746584183)
+- XY-C1: in_progress (#44746584073)
+- NVRAM: completed/success (#44746584217)
+- Process regression: no exact-SHA run listed
+- Process inventory: completed/success (#44746584108)
+
+- Source tasks: required RT3352 MII TxPower failure propagation, rollback error reporting and single-shot MLME publication. No L4 claim.
+
+---
+
 ## 2026-11-20 — Treat RT3352 MII TxPower failure as an enable-gate failure
 
 - Parent main SHA: `31de47640faed47555e830d86cd69f7228887d7e`.

@@ -7,6 +7,17 @@
 - Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Add focused regressions and diagnose failed exact-SHA checks from their causal logs.
 - Before context exhaustion, finish the current safe slice, inspect exact-head Actions, and leave an accurate first action for the next GPT.
 
+### Latest exact-head implementation checkpoint — bc0d9316777baa125e2ba22ef776d9ea812e3dd4
+
+The source slice on this commit makes RT3352 MII TxPower a required radio-enable step, captures rollback errors separately, and prevents duplicate MLME publication. Exact-head Action snapshot:
+- Wireless: completed/success (#44746584209)
+- AI handoff docs: completed/success (#44746584183)
+- XY-C1: in_progress (#44746584073)
+- NVRAM: completed/success (#44746584217)
+- Process regression: no exact-SHA run listed
+- Process inventory: completed/success (#44746584108)
+Physical router verification remains NOT VERIFIED. Firmware L3 is claimed only if this same product-source SHA has detector, Build XY-C1, TRX and artifact-upload success.
+
 ## Current repository state
 
 - Current main before this RT3352 TxPower status slice: `31de47640faed47555e830d86cd69f7228887d7e`; the boot-state isolation production source was introduced in `d250aff4e337f5c919e11c44cf5a1e8e5c1cb5a8`.

@@ -1,3 +1,12 @@
+## Latest exact-head state — bc0d9316777baa125e2ba22ef776d9ea812e3dd4
+
+- Wireless: completed/success (#44746584209)
+- AI handoff docs: completed/success (#44746584183)
+- XY-C1: in_progress (#44746584073)
+- NVRAM: completed/success (#44746584217)
+- Process regression: no exact-SHA run listed
+- Process inventory: completed/success (#44746584108)
+
 # 2026-11-20 active checkpoint
 
 - Parent main before RT3352 TxPower failure handling: `31de47640faed47555e830d86cd69f7228887d7e`; frozen backup `72f4f157a084f8184b9597ca5bf334b8080e5807` remains read-only.
