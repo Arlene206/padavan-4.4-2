@@ -429,7 +429,7 @@ jobs:
           assert "route_status = route_status_accumulate(route_status, route_result);" in viptv_deconfig
           assert viptv_deconfig.index("if (!dhcp_lease_route_delete_is_ok(route_result))") < viptv_deconfig.index("route_status = route_status_accumulate(route_status, route_result);", viptv_deconfig.index("route_result = route_del(man_ifname, 10"))
           route_inventory_publish = viptv_deconfig.index("wan_dhcp_nvram_publish_values(")
-assert viptv_deconfig.index("if (route_status == 0)") < route_inventory_publish
+          assert viptv_deconfig.index("if (route_status == 0)") < route_inventory_publish
           assert "preserving route inventory" in viptv_deconfig
           viptv_dhcp_deconfig = body(source, "udhcpc_viptv_deconfig(char *man_ifname)")
           assert "dhcp_lease_viptv_deconfig_apply(&ops, &context)" in viptv_dhcp_deconfig
@@ -443,7 +443,7 @@ assert viptv_deconfig.index("if (route_status == 0)") < route_inventory_publish
           publish_address = body(source, "udhcpc_viptv_deconfig_publish_empty_address(void *opaque)")
           assert 'ifconfig(context->ifname, IFUP, "0.0.0.0", NULL)' in clear_address
           assert "return manv_route_deconfig(context->ifname);" in delete_routes
-          assert 'nvram_set_temp("manv_ipaddr", "0.0.0.0")' in publish_address
+          assert 'return wan_dhcp_nvram_publish_values(names, values, 1);' in publish_address
           viptv_main = body(source, "udhcpc_viptv_main(int argc, char **argv)")
           assert "ret = udhcpc_viptv_deconfig(man_ifname)" in viptv_main
           assert "ret = manv_route_deconfig(man_ifname)" not in viptv_main
@@ -513,15 +513,21 @@ assert viptv_deconfig.index("if (route_status == 0)") < route_inventory_publish
           assert 'route_result = route_del(man_ifname, 10' in manv_deconfig
           assert "if (!dhcp_lease_route_delete_is_ok(route_result))" in manv_deconfig
           assert "route_status = route_status_accumulate(route_status, route_result);" in manv_deconfig
-          assert manv_deconfig.index("if (route_status == 0)") < manv_deconfig.index('nvram_set_temp("manv_gateway", "")')
+          route_inventory_publish = manv_deconfig.index("wan_dhcp_nvram_publish_values(")
+          assert manv_deconfig.index("if (route_status == 0)") < route_inventory_publish
+          for marker in ('"manv_gateway"', '"manv_routes"', '"manv_routes_ms"', '"manv_routes_rfc"'):
+              assert marker in manv_deconfig
+          assert "nvram_set_temp(" not in manv_deconfig
           assert "preserving route inventory" in manv_deconfig
 
           zcip_deconfig = body(source, "zcip_viptv_deconfig(char *man_ifname)")
           assert 'interface_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL)' in zcip_deconfig
           assert "route_status = manv_route_deconfig(man_ifname)" in zcip_deconfig
-          assert zcip_deconfig.index("interface_status == 0 && route_status == 0") < zcip_deconfig.index('nvram_set_temp("manv_ipaddr", "0.0.0.0")')
+          assert zcip_deconfig.index("interface_status == 0 && route_status == 0") < zcip_deconfig.index("metadata_status = wan_dhcp_nvram_publish_values(")
+          assert "metadata_status" in zcip_deconfig
+          assert "nvram_set_temp(" not in zcip_deconfig
           assert "stop_igmpproxy(man_ifname)" in zcip_deconfig
-          assert "return route_status_accumulate( route_status_accumulate(interface_status, route_status), multicast_status);" in " ".join(zcip_deconfig.split())
+          assert "return route_status_accumulate( route_status_accumulate( route_status_accumulate(interface_status, route_status), metadata_status), multicast_status);" in " ".join(zcip_deconfig.split())
           assert 'ret = zcip_viptv_deconfig(man_ifname)' in body(source, "zcip_viptv_main(int argc, char **argv)")
 
           zcip_viptv_start = body(source, "start_zcip_viptv(char *man_ifname)")
