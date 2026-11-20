@@ -1,3 +1,10 @@
+## 2026-11-20 — Fix Python escape handling in the IPTC ownership checker
+
+- Parent main SHA: `7faa238fe5df2605e4805a04187c866f9691528f`.
+- Exact-head MiniUPnP run `44791361153` passed the existing configuration, daemon, PID-file, redirect-cleanup and GNU89 ASan/UBSan allocation tests, then failed in the new ownership checker before its assertions: the Python regex was over-escaped and raised `re.PatternError: missing ), unterminated subpattern`.
+- Removed the unnecessary regex dependency and now locate all four helper calls with bounded literal scanning; corrected the C string/comment parser's escape handling. This repairs only the regression checker, not the production C fix.
+- Exact-head MiniUPnP rerun and XY-C1 Build/TRX/artifact validation remain required. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Clear IPTC handle ownership after the initial NAT deletion
 
 - Parent main SHA: `c5e41697bfeb593223a8c7c46b9e1e972fdc7be9`.
