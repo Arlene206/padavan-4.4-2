@@ -1,3 +1,13 @@
+## 2026-11-20 — Fix detect_link signal-policy source-contract variable shadowing
+
+- Parent main SHA: 843aa5e68b62b62d6f3354de42dc487565bd0910.
+- The exact-head NVRAM mirror regression now compiles and passes under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan. The first fixture was corrected to begin from the opposite cached WAN status so it exercises a real changed-state write and retry.
+- Exact detect-link run `44726853240` on `982d559c0a535125f8b118a4d2db15dc25b82d11` then failed in the Python source contract: the added NVRAM policy file reused the existing `policy` variable, so subsequent `DL_PENDING_*` assertions accidentally inspected the NVRAM header instead of the signal-event header.
+- Rename that variable to `nvram_policy`; preserve the original signal-event assertions and the independent NVRAM publication assertion. The adjacent exact-head run `44726853239` was still running when checked. The host-gate workflow reached the NVRAM policy step and skipped the production-input detector/build because that earlier compile step failed, so L3 remains NOT VERIFIED.
+- THIS COMMIT: checker repair only; exact-head detect-link and AI-docs validation pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Align WAN route and modem contracts with checked identity pairs
 
 - Parent main SHA: 786fb0ab4f2ffbec808eb7c67279c6959b5db2db.

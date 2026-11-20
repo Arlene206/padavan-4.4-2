@@ -104,9 +104,9 @@ jobs:
           assert 'nvram_set_int_temp("link_wan"' not in body(detect, "dl_handle_link_wan(void)")
           wan_handler = body(detect, "dl_handle_link_wan(void)")
           assert wan_handler.index("dl_publish_wan_nvram_status();") < wan_handler.index("if (dl_status_wan_old != dl_status_wan)")
-          policy = (rc / "detect_link_nvram_policy.h").read_text()
+          nvram_policy = (rc / "detect_link_nvram_policy.h").read_text()
           mirror_test = (rc / "tests/detect_link_nvram_policy.c").read_text()
-          assert "if (result == 0)" in policy and "*last_published = status;" in policy
+          assert "if (result == 0)" in nvram_policy and "*last_published = status;" in nvram_policy
           for marker in ("test_failed_publication_is_retried",
                          "test_changed_state_retries_without_replaying_side_effects",
                          "test_invalid_policy_arguments_fail_closed"):
