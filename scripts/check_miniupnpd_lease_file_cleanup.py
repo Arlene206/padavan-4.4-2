@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
 """Guard exact lease-key deletion and fail-closed lease-file persistence cleanup."""
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c").read_text()
 POLICY = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h").read_text()
 TEST = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c").read_text()
+
+assert re.search(
+    r"(?m)(?<!static int\\n)^static int\\nlease_file_remove\\s*\\(",
+    SOURCE,
+), "lease_file_remove must have exactly one static int declaration"
 
 
 def function_body(source, signature):

@@ -1,3 +1,12 @@
+## 2026-11-20 — Correct duplicated MiniUPnP lease cleanup declaration
+
+- Parent main SHA: `b90cdf4f6cd8ce0725bdee19dc7b605c0163a775`. Production source, its source-contract regression, this log entry and the materially corrected handoff are committed together in THIS COMMIT.
+- Source review found two consecutive `static int` specifiers before `lease_file_remove()`, introduced in the lease-file persistence hardening. GCC rejects this declaration, so an XY-C1 firmware compilation would fail even though the earlier MiniUPnP host workflow did not compile the full production translation unit.
+- Removed the redundant specifier. Extended `scripts/check_miniupnpd_lease_file_cleanup.py` with an anchored declaration-shape check that accepts the valid GNU89 definition and rejects the duplicated form.
+- Local focused checks: the malformed two-`static` declaration fails under `gcc -std=gnu89 -Wall -Wextra -Werror -fsyntax-only`; the corrected declaration compiles. The new guard's positive and negative Python fixtures pass. The complete production translation unit was not compiled locally.
+- Exact-head parent evidence: MiniUPnP #44798143654 PASS and XY-C1 #44798143782 PASS on `545d8ca3ddbe85e95271ed5e21a3990e81f2bc76`; the XY-C1 job completed Build, TRX verification and artifact upload. Those results predate the later infosvr commit `d1e668dc294601fcc4ce5ecd45241aa470236409` and do not cover this fix. On `d1e668dc`, AI handoff #44798836961 PASS; infosvr #44798836931, Process #44798836880 and NVRAM #44798836998 were in progress at last check.
+- XY-C1 path filters do not currently include `trunk/user/infosvr/src/infosvr.c`, although that production file changed on `d1e668dc`; add this missing firmware-validation trigger as the next independent CI-governance slice. MiniUPnP/XY-C1 reruns are required on THIS COMMIT. Physical hardware L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Restore mandatory handoff checkpoint preamble after documentation edit
 
 - Parent main SHA: `de521606d8b1ccfabbb67cb0e2e006ec8bbc5939`.

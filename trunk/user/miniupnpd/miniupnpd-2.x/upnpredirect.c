@@ -138,7 +138,6 @@ lease_file_add(unsigned short eport,
 }
 
 static int
-static int
 lease_file_remove(unsigned short eport, int proto)
 {
 	FILE *fd = NULL;
