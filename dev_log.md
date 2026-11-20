@@ -1,3 +1,13 @@
+## 2026-11-19 — Make uploaded ZeroTier planet import transactional
+
+- Parent SHA: `3f5ea027a066ae131524c75fd20ac78a4fa320d8`.
+- The remaining `/etc/storage/planet` path accepted symlink input via `[ -f ]`, copied directly over the persistent file, removed the upload before checking NVRAM updates, and ignored the `nvram set/commit` results. A failed import could therefore lose the upload or leave disk/NVRAM versions divergent.
+- Added `zerotier_import_planet_file()`: reject symlink/non-regular source and target paths, stage a private mode-0600 copy, retain a same-filesystem hard-link recovery point, and update NVRAM only after file publication. Failed NVRAM persistence rolls the old NVRAM value and file back; rollback failure keeps its private recovery directory. An empty upload clears both file and NVRAM transactionally; the upload is removed only after success.
+- Startup gives an uploaded file priority over the older NVRAM payload and now fails closed on unsafe/failed imports. Regression coverage includes success, empty removal, symlink source, NVRAM commit failure rollback, and publish rename failure. Source contract asserts the transaction/call-site.
+- Exact-head ZeroTier, Process inventory and XY-C1 Actions pending; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Align ZeroTier planet regression source-check token
 
 - Parent SHA: `19771377efa44e7fc7406ab467ec25ce790c820b`.

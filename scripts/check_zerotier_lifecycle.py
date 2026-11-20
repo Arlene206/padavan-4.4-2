@@ -75,6 +75,7 @@ kill_body = function_body(script, "kill_z()")
 start_body = function_body(script, "start_zero()")
 stop_body = function_body(script, "stop_zero()")
 planet_body = function_body(script, "zerotier_publish_planet_base64()")
+planet_import_body = function_body(script, "zerotier_import_planet_file()")
 start_instance_body = function_body(script, "start_instance()")
 config_dir_body = function_body(script, "zerotier_prepare_config_directory()")
 identity_body = function_body(script, "zerotier_prepare_identity()")
@@ -164,6 +165,26 @@ require('[ -n "$zt_network_id" ] || return 0' in add_join_body and
         'chmod 600 "$zt_network_file"' in add_join_body and
         'if [ -L "$zt_network_file" ]' in add_join_body,
         "network join writer must validate 16 hex digits and refuse path/symlink abuse")
+require('mktemp -d "$config_path/.planet-import.XXXXXX"' in planet_import_body and
+        '[ -L "$zt_planet_source" ] || [ ! -f "$zt_planet_source" ]' in planet_import_body and
+        'ln "$zt_planet_target" "$zt_planet_backup"' in planet_import_body and
+        'mv -f "$zt_planet_stage" "$zt_planet_target"' in planet_import_body and
+        'zt_planet_delete_pending=1' in planet_import_body and
+        'nvram set zerotier_planet="$zt_planet_new_value"' in planet_import_body and
+        'nvram set zerotier_planet="$zt_planet_old_value"' in planet_import_body and
+        'zt_planet_preserve_backup=1' in planet_import_body,
+        "uploaded planet import must retain old file/NVRAM state on failure")
+require('if ! zerotier_import_planet_file "$PLANET"; then' in start_instance_body and
+        'if [ -L "$PLANET" ]' in start_instance_body and
+        'cp -f $PLANET $config_path/planet' not in start_instance_body and
+        'nvram commit' not in start_instance_body,
+        "uploaded planet import must reject unsafe input and use rollback-capable writer")
+for marker in ("uploaded planet contents were not published",
+               "empty planet import left stale NVRAM data",
+               "symlink upload referent was modified",
+               "failed planet NVRAM commit did not restore the previous file",
+               "failed planet publish changed NVRAM"):
+    require(marker in test, f"uploaded planet import regression omits {marker}")
 require('mktemp "$config_path/.planet.XXXXXX"' in planet_body and
         'printf \'%s\' "$1" | base64 -d > "$zt_planet_tmp"' in planet_body and
         'chmod 600 "$zt_planet_tmp"' in planet_body and

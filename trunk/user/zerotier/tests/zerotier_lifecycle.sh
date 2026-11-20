@@ -6,10 +6,12 @@ SCRIPT="$ROOT/trunk/user/zerotier/zerotier.sh"
 TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/zerotier-lifecycle.XXXXXX")
 TEST_STATE="$TEST_TMP/process.state"
 TEST_NVRAM_SECRET_STATE="$TEST_TMP/nvram-secret.state"
+TEST_NVRAM_PLANET_STATE="$TEST_TMP/nvram-planet.state"
 : > "$TEST_NVRAM_SECRET_STATE"
+: > "$TEST_NVRAM_PLANET_STATE"
 TEST_NVRAM_SET_FAIL=0
 TEST_NVRAM_COMMIT_FAIL=0
-export TEST_NVRAM_SECRET_STATE TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
+export TEST_NVRAM_SECRET_STATE TEST_NVRAM_PLANET_STATE TEST_NVRAM_SET_FAIL TEST_NVRAM_COMMIT_FAIL
 TEST_KILL_LOG="$TEST_TMP/killall.log"
 TEST_SLEEP_LOG="$TEST_TMP/sleep.log"
 TEST_ACTION_LOG="$TEST_TMP/actions.log"
@@ -203,6 +205,7 @@ nvram() {
 		get)
 			case "$2" in
 				zerotier_secret) cat "$TEST_NVRAM_SECRET_STATE" ;;
+				zerotier_planet) cat "$TEST_NVRAM_PLANET_STATE" ;;
 				zerotier_nat) printf '%s\n' "$TEST_NAT_ENABLE" ;;
 				zero_staticnum_x) printf '%s\n' "$TEST_STATIC_ROUTE_COUNT" ;;
 				zero_enable_x0) printf '%s\n' "$TEST_STATIC_ROUTE_ENABLE" ;;
@@ -215,6 +218,10 @@ nvram() {
 				zerotier_secret=*)
 					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
 					printf '%s' "${2#zerotier_secret=}" > "$TEST_NVRAM_SECRET_STATE"
+					;;
+				zerotier_planet=*)
+					[ "${TEST_NVRAM_SET_FAIL:-0}" != 1 ] || return 1
+					printf '%s' "${2#zerotier_planet=}" > "$TEST_NVRAM_PLANET_STATE"
 					;;
 			esac
 			;;
@@ -634,6 +641,80 @@ rmdir "$TEST_CONFIG/planet"
 printf 'planet-reset\n' > "$TEST_CONFIG/planet"
 
 /bin/rm -f "$TEST_CONFIG/planet"
+
+# Uploaded planet imports validate both source and destination, stage the file
+# privately, and keep the NVRAM copy synchronized with rollback on failure.
+printf 'old-planet-state' > "$TEST_NVRAM_PLANET_STATE"
+printf 'prior-planet-file\n' > "$TEST_CONFIG/planet"
+printf 'uploaded-planet-data\n' > "$TEST_TMP/planet-upload"
+expected_planet_nvram="$(base64 "$TEST_TMP/planet-upload")"
+zerotier_import_planet_file "$TEST_TMP/planet-upload" ||
+	fail "valid uploaded planet import failed"
+[ "$(cat "$TEST_CONFIG/planet")" = "uploaded-planet-data" ] ||
+	fail "uploaded planet contents were not published"
+[ "$(stat -c '%a' "$TEST_CONFIG/planet")" = 600 ] ||
+	fail "uploaded planet target was not mode 600"
+[ "$(cat "$TEST_NVRAM_PLANET_STATE")" = "$expected_planet_nvram" ] ||
+	fail "uploaded planet NVRAM encoding mismatch"
+[ ! -e "$TEST_TMP/planet-upload" ] ||
+	fail "successfully imported planet upload was not removed"
+
+# Empty uploads clear both the disk file and the NVRAM value.
+: > "$TEST_TMP/planet-upload-empty"
+zerotier_import_planet_file "$TEST_TMP/planet-upload-empty" ||
+	fail "empty uploaded planet did not clear configuration"
+[ ! -e "$TEST_CONFIG/planet" ] || fail "empty planet import left the old file"
+[ ! -s "$TEST_NVRAM_PLANET_STATE" ] || fail "empty planet import left stale NVRAM data"
+[ ! -e "$TEST_TMP/planet-upload-empty" ] || fail "empty planet upload was not removed"
+
+# Symlink upload inputs are rejected without reading or deleting their targets.
+printf 'untouched-upload-target\n' > "$TEST_TMP/planet-upload-sentinel"
+ln -s "$TEST_TMP/planet-upload-sentinel" "$TEST_TMP/planet-upload-link"
+printf 'old-planet-state' > "$TEST_NVRAM_PLANET_STATE"
+printf 'prior-planet-file\n' > "$TEST_CONFIG/planet"
+if zerotier_import_planet_file "$TEST_TMP/planet-upload-link"; then
+	fail "symlink uploaded planet source was accepted"
+fi
+[ "$(cat "$TEST_TMP/planet-upload-sentinel")" = "untouched-upload-target" ] ||
+	fail "symlink upload referent was modified"
+[ "$(cat "$TEST_CONFIG/planet")" = "prior-planet-file" ] ||
+	fail "rejected symlink upload changed the target planet"
+[ "$(cat "$TEST_NVRAM_PLANET_STATE")" = "old-planet-state" ] ||
+	fail "rejected symlink upload changed NVRAM"
+
+# A failed NVRAM commit after the disk rename restores the old file and value.
+printf 'new-planet-after-failure\n' > "$TEST_TMP/planet-upload"
+TEST_NVRAM_COMMIT_FAIL=1
+export TEST_NVRAM_COMMIT_FAIL
+if zerotier_import_planet_file "$TEST_TMP/planet-upload"; then
+	fail "uploaded planet NVRAM commit failure was accepted"
+fi
+TEST_NVRAM_COMMIT_FAIL=0
+export TEST_NVRAM_COMMIT_FAIL
+[ "$(cat "$TEST_CONFIG/planet")" = "prior-planet-file" ] ||
+	fail "failed planet NVRAM commit did not restore the previous file"
+[ "$(cat "$TEST_NVRAM_PLANET_STATE")" = "old-planet-state" ] ||
+	fail "failed planet NVRAM commit did not restore the old value"
+[ -f "$TEST_TMP/planet-upload" ] ||
+	fail "failed planet import deleted the upload before commit"
+
+# Fail the first publish rename and prove no destination or NVRAM mutation.
+mv() {
+	case "$*" in
+		*".planet-import."*"planet.new"*) return 1 ;;
+	esac
+	command mv "$@"
+}
+if zerotier_import_planet_file "$TEST_TMP/planet-upload"; then
+	fail "planet publish rename failure was accepted"
+fi
+unset -f mv
+[ "$(cat "$TEST_CONFIG/planet")" = "prior-planet-file" ] ||
+	fail "failed planet publish changed the prior file"
+[ "$(cat "$TEST_NVRAM_PLANET_STATE")" = "old-planet-state" ] ||
+	fail "failed planet publish changed NVRAM"
+[ -f "$TEST_TMP/planet-upload" ] ||
+	fail "failed planet publish deleted its upload"
 
 umask "$saved_umask"
 

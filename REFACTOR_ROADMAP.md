@@ -83,6 +83,8 @@
 
 - ZeroTier planet checker wording fix: exact shell regression completed PASS on `1977137`; source contract alone failed because its expected diagnostic reversed the actual test message's two words. The checker now matches `planet symlink referent was modified`; no source/test behavior changed. WAN route and Process inventory passed; exact ZeroTier rerun and XY-C1 build verification pending.
 
+- Uploaded ZeroTier planet import: replaced direct `cp -f`/unconditional upload deletion and ignored NVRAM status with a private staged writer plus hard-link rollback. Symlink/nonregular input is refused; disk and NVRAM updates now roll back together on persistence failure, empty uploads remove both values, and upload deletion follows success only. Exact-host regressions cover success, empty file, symlink source, failed NVRAM commit and rename failure. Exact Actions pending.
+
 ## Priority queue
 
 - SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).

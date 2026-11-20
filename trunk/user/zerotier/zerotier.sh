@@ -231,6 +231,124 @@ zerotier_publish_planet_base64() {
 	)
 }
 
+# Import an uploaded planet file with a rollback point for the persistent
+# file and NVRAM value. Empty uploads explicitly remove the configured planet.
+zerotier_import_planet_file() {
+	(
+		umask 077
+		zt_planet_source="$1"
+		zt_planet_target="$config_path/planet"
+		if [ -L "$zt_planet_source" ] || [ ! -f "$zt_planet_source" ]; then
+			logger -t "zerotier" "上传的planet必须是普通文件，且不能是符号链接"
+			exit 1
+		fi
+		if [ -L "$zt_planet_target" ] ||
+		   { [ -e "$zt_planet_target" ] && [ ! -f "$zt_planet_target" ]; }; then
+			logger -t "zerotier" "持久planet目标不是安全普通文件"
+			exit 1
+		fi
+		zt_planet_import_dir="$(mktemp -d "$config_path/.planet-import.XXXXXX")" || exit 1
+		zt_planet_stage="$zt_planet_import_dir/planet.new"
+		zt_planet_backup="$zt_planet_import_dir/planet.previous"
+		zt_planet_encoded="$zt_planet_import_dir/planet.base64"
+		zt_planet_old_value="$(nvram get zerotier_planet)" || exit 1
+		zt_planet_had_original=0
+		zt_planet_delete_pending=0
+		zt_planet_transaction_active=1
+		zt_planet_preserve_backup=0
+
+		if [ -e "$zt_planet_target" ]; then
+			if ! ln "$zt_planet_target" "$zt_planet_backup"; then
+				logger -t "zerotier" "无法保留原有planet文件"
+				exit 1
+			fi
+			zt_planet_had_original=1
+		fi
+
+		zerotier_planet_import_cleanup() {
+			zt_planet_exit_status="$1"
+			zt_planet_rollback_status=0
+			if [ "$zt_planet_transaction_active" = "1" ] &&
+			   { [ "$zt_planet_delete_pending" = "1" ] || [ ! -e "$zt_planet_stage" ]; }; then
+				if [ "$zt_planet_had_original" = "1" ]; then
+					if [ -e "$zt_planet_backup" ]; then
+						mv -f "$zt_planet_backup" "$zt_planet_target" ||
+							zt_planet_rollback_status=1
+					else
+						zt_planet_rollback_status=1
+					fi
+				else
+					rm -f "$zt_planet_target" || zt_planet_rollback_status=1
+				fi
+			fi
+			if [ "$zt_planet_rollback_status" != "0" ]; then
+				zt_planet_preserve_backup=1
+				logger -t "zerotier" "planet文件回滚未完成；保留私有恢复目录: $zt_planet_import_dir"
+			fi
+			if [ "$zt_planet_preserve_backup" != "1" ]; then
+				if ! rm -rf "$zt_planet_import_dir"; then
+					logger -t "zerotier" "planet恢复目录清理失败，请检查: $zt_planet_import_dir"
+					zt_planet_exit_status=1
+				fi
+			fi
+			return "$zt_planet_exit_status"
+		}
+		trap 'zerotier_planet_import_cleanup "$?"' EXIT
+		trap 'exit 1' HUP INT TERM
+
+		if [ -s "$zt_planet_source" ]; then
+			if ! base64 "$zt_planet_source" > "$zt_planet_encoded"; then
+				logger -t "zerotier" "无法编码上传的planet文件"
+				exit 1
+			fi
+			if [ ! -s "$zt_planet_encoded" ] ||
+			   ! cp "$zt_planet_source" "$zt_planet_stage" ||
+			   [ ! -s "$zt_planet_stage" ]; then
+				logger -t "zerotier" "无法暂存上传的planet文件"
+				exit 1
+			fi
+			if ! chmod 600 "$zt_planet_stage"; then
+				logger -t "zerotier" "无法限制planet暂存文件权限"
+				exit 1
+			fi
+			if [ -L "$zt_planet_target" ] ||
+			   { [ -e "$zt_planet_target" ] && [ ! -f "$zt_planet_target" ]; }; then
+				logger -t "zerotier" "拒绝替换非普通planet目标"
+				exit 1
+			fi
+			if ! mv -f "$zt_planet_stage" "$zt_planet_target"; then
+				logger -t "zerotier" "上传的planet文件发布失败"
+				exit 1
+			fi
+			zt_planet_new_value="$(cat "$zt_planet_encoded")" || exit 1
+		else
+			zt_planet_delete_pending=1
+			if ! rm -f "$zt_planet_target"; then
+				logger -t "zerotier" "无法删除旧planet文件"
+				exit 1
+			fi
+			zt_planet_new_value=""
+		fi
+
+		# Keep NVRAM and the file in sync; a failed set/commit restores both.
+		if ! nvram set zerotier_planet="$zt_planet_new_value" ||
+		   ! nvram commit; then
+			logger -t "zerotier" "上传的planet配置持久化失败"
+			if ! nvram set zerotier_planet="$zt_planet_old_value" ||
+			   ! nvram commit; then
+				logger -t "zerotier" "planet NVRAM值回滚失败"
+			fi
+			exit 1
+		fi
+
+		zt_planet_transaction_active=0
+		if ! rm -f "$zt_planet_source"; then
+			logger -t "zerotier" "planet已导入，但无法删除上传暂存文件: $zt_planet_source"
+		fi
+		exit 0
+	)
+}
+
 start_instance() {
 	cfg="$1"
 	echo $cfg
@@ -254,28 +372,22 @@ start_instance() {
 	fi
 
 	
-	if [ -n "$planet" ]; then
-		logger -t "zerotier" "找到planet,正在安全写入文件,请稍后..."
+	if [ -L "$PLANET" ] ||
+	   { [ -e "$PLANET" ] && [ ! -f "$PLANET" ]; }; then
+		logger -t "zerotier" "上传的planet路径不是安全普通文件"
+		return 1
+	fi
+	if [ -f "$PLANET" ]; then
+		logger -t "zerotier" "检测到上传的planet文件，正在安全导入..."
+		if ! zerotier_import_planet_file "$PLANET"; then
+			logger -t "zerotier" "上传的planet导入失败，取消本次启动"
+			return 1
+		fi
+	elif [ -n "$planet" ]; then
+		logger -t "zerotier" "找到NVRAM planet,正在安全写入文件,请稍后..."
 		if ! zerotier_publish_planet_base64 "$planet"; then
 			logger -t "zerotier" "planet文件写入失败，取消本次启动"
 			return 1
-		fi
-	fi
-	
-	if [ -f "$PLANET" ]; then
-		if [ ! -s "$PLANET" ]; then
-			logger -t "zerotier" "自定义planet文件为空,删除..."
-			rm -f $config_path/planet
-			rm -f $PLANET
-			nvram set zerotier_planet=""
-			nvram commit
-		else
-			logger -t "zerotier" "自定义planet文件不为空,创建..."
-			planet="$(base64 $PLANET)"
-			cp -f $PLANET $config_path/planet
-			rm -f $PLANET
-			nvram set zerotier_planet="$planet"
-			nvram commit
 		fi
 	fi
 
