@@ -1,3 +1,10 @@
+## 2026-11-20 — Fix MiniUPnP port-mapping enumeration capacity overflow
+
+- Parent main SHA: 2ce64bd716a56fc3dafee0ab022de9f55e29c10e.
+- Confirmed a heap-buffer-overflow in get_portmappings_in_range(): at 128 matching NAT entries it called realloc(array, sizeof(unsigned short) * capacity) with unchanged capacity and never advanced the limit; the 129th match writes out of bounds.
+- Added bounded capacity doubling that rejects unsigned-int and size_t byte-count overflow. The caller reallocates to next_capacity, advances capacity only after success, and on overflow/OOM frees the array, clears the returned count and restores errno after logging.
+- Added a GNU89 ASan/UBSan regression that stores and verifies 4096 entries across multiple growth steps, plus a source contract rejecting the former fixed-size realloc. MiniUPnP and XY-C1 workflow filters include the policy/test/checker paths.
+- MiniUPnP allocation regression #44789878471 and AI handoff #44789878451 passed on 8dbb096; current-parent XY-C1 #44790573472 was in progress before this commit. No local full firmware build; exact-head Actions required. Physical-router L4 remains NOT VERIFIED.
 ## 2026-11-20 — Place NTP reset locals in the actual NVRAM conversion function
 
 - Parent SHA: `efebf98af5380a7edf6b3161a4aed822d522e9d0`.

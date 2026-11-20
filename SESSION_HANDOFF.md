@@ -16,36 +16,37 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Current main before this CI-trigger correction: `01f56e97c65d45fe998be26c69569208a92f7670`; MiniUPnP allocation-safety source fix is `2ffb8479a33ad55a4138b3384a31510f5b7c534e`, followed by checker normalization `8dbb0963cb6b816bf13cf13726f5de0ce3c867fb`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; unchanged).
-- Exact-head MiniUPnP regression #44789878471 on `8dbb096`: PASS, including the GNU89 ASan/UBSan allocation cleanup test and the whitespace-normalized source contract. AI handoff documentation #44789878451: PASS.
-- Process lifecycle #44789544079 and NVRAM transaction #44789543972 on `2ffb847`: PASS.
-- XY-C1 Firmware Validation did not run on `2ffb847` or `8dbb096`: its push path filters omitted the newly changed `iptcrdr.c` production file and its allocation-policy header. This commit adds those paths (and keeps the workflow's self-trigger) so the next exact-head push runs the XY-C1 Build/TRX/artifact L3 gate.
+- Current main before this dynamic-capacity source slice: 2ce64bd716a56fc3dafee0ab022de9f55e29c10e; branch inventory has only main and the frozen backup.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14: 72f4f157a084f8184b9597ca5bf334b8080e5807 (read-only; unchanged).
+- MiniUPnP allocation OOM fix 2ffb847 and checker normalization 8dbb096: exact-head MiniUPnP #44789878471 PASS (GNU89 ASan/UBSan cleanup regression and full source contract); AI handoff #44789878451 PASS.
+- XY-C1 #44790179844 on 1ac1d7e failed in a pre-build source checker at an obsolete direct httpd_started NVRAM assertion; Build/TRX/artifact were skipped. The assertion was aligned to status writers in efebf98. Current XY-C1 run #44790573472 on 2ce64bd716a56fc3dafee0ab022de9f55e29c10e was IN_PROGRESS at last poll.
+- Confirmed P1 memory-corruption defect in get_portmappings_in_range(): after 128 results it reallocates the same size and never increases capacity, so the next mapping writes beyond the allocated array.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Make MiniUPnP legacy iptables rule construction fail safely under memory pressure:
+Fix MiniUPnP port-mapping enumeration buffer growth:
 
-- Guard all seven `calloc()`-backed match/target factories before their first dereference; restore allocator errno after diagnostic logging.
-- Guard all five rule builders (DNAT, optional MASQUERADE, peer SNAT, peer DSCP and filter ACCEPT). An entry, match, target or final rule-buffer allocation failure must release all prior components, preserve errno and return before iptc append/commit.
-- Add GNU89 ASan/UBSan regression coverage for partial-component cleanup and errno preservation, plus a Python source contract for every factory and builder.
-- Extend MiniUPnP push/PR path filters and workflow steps so the production and new checks cannot silently skip verification.
+- Replace the no-op realloc-at-the-same-size branch in get_portmappings_in_range() with bounded capacity doubling.
+- Check unsigned-int capacity overflow and size_t byte-size overflow before realloc; update capacity only after realloc succeeds.
+- On overflow or realloc failure, free the array, reset *number, preserve errno and return the existing failure result.
+- Add a GNU89 ASan/UBSan regression that grows beyond 128 entries and verifies all stored ports, plus a source contract that prevents the original fixed-capacity realloc from returning.
+- Extend MiniUPnP and XY-C1 workflow triggers for the policy header/test/checker and add an exact-head sanitizer step.
 
-After exact-head MiniUPnP and XY-C1 validation, continue reviewing remaining netfilter rule installation/deletion transactions. Do not repeat the completed leasefail/NAK/release or AP restore audit.
+After validation, continue the MiniUPnP update_portmapping() NAT/filter two-table commit rollback audit; the first review indicates NAT can be committed before a later filter failure leaves mismatched port state.
 
 ## Verification boundary
 
-- MiniUPnP allocation fix `2ffb847`: exact-head MiniUPnP L2 initially failed only on checker whitespace; checker-only correction `8dbb096` passed the complete MiniUPnP Action #44789878471, including all policy binaries and source contracts.
-- AI handoff #44789878451, Process lifecycle #44789544079, and NVRAM transaction #44789543972 passed.
-- XY-C1 L3 did not trigger because its path list omitted the new netfilter source/header. The current commit adds these paths; check the newly triggered exact-head Build, TRX verification and artifact upload before claiming L3.
-- Physical hardware L4: NOT VERIFIED.
+- MiniUPnP rule-allocation fix 2ffb847 and checker normalization 8dbb096: exact-head MiniUPnP #44789878471 PASS, including all GNU89 policy binaries, ASan/UBSan allocation cleanup and Python source contract.
+- AI handoff #44789878451 PASS. Process lifecycle #44789544079 and NVRAM transaction #44789543972 PASS on earlier exact SHA 2ffb847.
+- XY-C1 #44790179844 on 1ac1d7e failed before Build because of an outdated HTTPD direct-NVRAM source assertion; efebf98 aligns that checker. XY-C1 #44790573472 on current parent 2ce64bd716a56fc3dafee0ab022de9f55e29c10e was still running at last check. Do not call L3 complete unless Build, TRX and artifact all pass.
+- New capacity regression/source checker are added in this commit and require exact-head MiniUPnP Actions after push. Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main`, verify the backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, and check the exact-head XY-C1 run triggered by the new `iptcrdr.c`/header paths (Build, TRX and artifact upload).
-2. Check any remaining Actions on the new SHA and diagnose first causal failures from their logs.
-3. Continue MiniUPnP netfilter rule installation/deletion and partial-commit auditing; choose a confirmed P1 fault, implement regression coverage and commit atomically. Physical-router L4 remains unverified.
+1. Fetch live main and verify the backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807.
+2. Check the exact-head MiniUPnP capacity regression and XY-C1 run for Build XY-C1, TRX verification and artifact upload. Diagnose first causal failures from logs.
+3. Continue the update_portmapping() NAT/filter two-table failure-rollback audit; confirm transaction semantics and add regression coverage before changing it. Physical-router L4 remains unverified.
 
 ## Handoff maintenance
 

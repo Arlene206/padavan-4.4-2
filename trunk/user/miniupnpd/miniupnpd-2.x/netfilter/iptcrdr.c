@@ -63,6 +63,7 @@
 #include "../config.h"
 #include "iptcrdr.h"
 #include "iptcrdr_allocation_policy.h"
+#include "iptcrdr_capacity_policy.h"
 #include "../upnpglobalvars.h"
 #include "../miniupnpd_redirect_cleanup_policy.h"
 
@@ -1617,21 +1618,39 @@ get_portmappings_in_range(unsigned short startport, unsigned short endport,
 				}
 				if(startport <= eport && eport <= endport)
 				{
-					if(*number >= capacity)
+					if (*number >= capacity)
 					{
-						unsigned short * tmp;
-						/* need to increase the capacity of the array */
-						tmp = realloc(array, sizeof(unsigned short)*capacity);
-						if(!tmp)
-						{
-							syslog(LOG_ERR, "get_portmappings_in_range() : realloc(%u) error",
-							       (unsigned)sizeof(unsigned short)*capacity);
+						unsigned short *tmp;
+						size_t next_capacity;
+						int saved_errno;
+
+						if (miniupnpd_portmapping_capacity_next(
+								capacity, &next_capacity) != 0) {
+							saved_errno = errno ? errno : EOVERFLOW;
+							syslog(LOG_ERR,
+							       "get_portmappings_in_range(): capacity overflow");
 							*number = 0;
 							free(array);
 							array = NULL;
+							errno = saved_errno;
+							break;
+						}
+
+						tmp = realloc(array,
+						              sizeof(unsigned short) * next_capacity);
+						if (!tmp) {
+							saved_errno = errno ? errno : ENOMEM;
+							syslog(LOG_ERR,
+							       "get_portmappings_in_range(): realloc(%lu) error",
+							       (unsigned long)(sizeof(unsigned short) * next_capacity));
+							*number = 0;
+							free(array);
+							array = NULL;
+							errno = saved_errno;
 							break;
 						}
 						array = tmp;
+						capacity = (unsigned int)next_capacity;
 					}
 					array[*number] = eport;
 					(*number)++;

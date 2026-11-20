@@ -32,6 +32,9 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_allocation_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_allocation_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_allocations.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_capacity_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_capacity.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h"
@@ -69,6 +72,9 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_allocation_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_allocation_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_allocations.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_capacity_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_capacity.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h"
@@ -124,6 +130,15 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 /tmp/iptcrdr_allocation_policy_test
       - name: Verify MiniUPnP iptables allocation guards
         run: python3 scripts/check_miniupnpd_iptcrdr_allocations.py
+      - name: Compile and run MiniUPnP port-mapping capacity regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c \
+            -o /tmp/iptcrdr_portmapping_capacity_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptcrdr_portmapping_capacity_test
+      - name: Verify MiniUPnP port-mapping capacity growth
+        run: python3 scripts/check_miniupnpd_iptcrdr_capacity.py
       - name: Compile and run MiniUPnP SOAP numeric input policy
         run: |
           set -eu
