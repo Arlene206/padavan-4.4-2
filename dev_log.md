@@ -1,3 +1,12 @@
+## 2026-11-20 — Anchor WAN protocol checker to the protocol publication gate
+
+- Parent main SHA: `eac0f17e12e394ede94e56dc4d432770256f9009`.
+- Exact WAN-route job `136105910004` on parent `077a917` reached all policy compile/run steps, including GNU89/`-Werror`/ASan/UBSan, then failed at the final Python source contract: "failed WAN protocol publication must latch and return before protocol selection".
+- The checker selected the first `if (proto_status != 0)` in the status-aware reset body. After adding checked MAN/virtual IPTV snapshot reset, this first failure gate occurs before the protocol-copy write and is unrelated to the protocol-copy contract. The checker now finds the protocol failure gate starting at the protocol-write position, preserving its intended order assertion rather than weakening it.
+- Production code was not changed in this corrective commit. Exact-head rerun is pending.
+
+---
+
 ## 2026-11-20 — Check DHCP client and PPP DNS negotiation snapshots
 
 - Parent main SHA: `077a917ef22e4d5516289264e60b6c4b6e5607f1`.

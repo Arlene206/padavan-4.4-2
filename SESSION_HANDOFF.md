@@ -12,30 +12,29 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Live main before this DHCP option snapshot slice: `077a917ef22e4d5516289264e60b6c4b6e5607f1`.
+- Live main before this WAN checker correction: `eac0f17e12e394ede94e56dc4d432770256f9009`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- WAN protocol/static-LAN restore, static IPoE/PPP endpoint+credential snapshot checks, checked MAN/IPTV route clears/publication and EAPOL auth staging are committed on main.
-- Exact `077a917ef22e4d5516289264e60b6c4b6e5607f1` Actions: handoff `136105910007`, WAN route `136105910004`, NVRAM `136105909660`, HTTPD `136105910813`, Process `136105910056`, inventory `136105910595`, Firewall `136105909706`, XY-C1 `136105912457`, and other checks were pending/in progress at last poll; one retrievable completed run was detect-link `136105910096` PASS.
-- Same-SHA XY-C1 L3 is not established; physical-router L4 remains NOT VERIFIED.
+- Production WAN reset now checks global MAN/virtual IPTV state clears, global route endpoint writes, EAPOL auth mode/credentials and DHCP DNS/VCI/hostname tuples, in addition to static-IPoE and PPP endpoint/options.
+- Exact parent `077a917` WAN route job `136105910004` failed only at the final static source checker. All preceding GNU89/`-Werror`/ASan/UBSan policy executables shown in that job passed. The checker used the first `if (proto_status != 0)` in the entire reset body, which now belongs to the new MAN clear gate before protocol publication; the protocol-order assertion must anchor its failure search after `proto_write`. This commit makes that fix.
+- Exact `eac0f17` Actions were queued/in progress at last poll; recheck after this checker correction. Same-SHA XY-C1 L3 is NOT VERIFIED; physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-- The WAN reset now checks global MAN/virtual IPTV route-state clearing, global WAN route endpoint publication, EAPOL auth mode and credentials, static IPoE address/netmask/gateway/MTU, manual PPP endpoints, PPP credentials, peer and negotiation options.
-- Additional source audit confirmed `dnsenable_x` controls both MAN DNS route installation and pppd `usepeerdns`; `vci` is passed as the DHCP client vendor-class option; and `hostname` is sent to udhcpc as its client hostname. These are configuration inputs, not optional telemetry.
-- This slice moves all three into a required checked tuple; a failed snapshot now aborts before WAN activation instead of reusing stale DNS/VCI/hostname settings.
-- Next candidate: inspect the final WAN hardware-address snapshot (`wan_hwaddr` and indexed `hwaddr`) for route/interface identity impact, then continue across userland rather than endlessly expanding this one reset function.
+- The WAN protocol source checker now anchors the protocol-publication failure gate after the protocol write itself, so earlier independent checked-reset gates cannot be mistaken for the protocol write's error condition.
+- Production code on parent `eac0f17e12e394ede94e56dc4d432770256f9009` additionally checks `dnsenable_x`, DHCP VCI and hostname before WAN startup; these directly influence MAN DNS routes, pppd DNS negotiation and udhcpc identity/options.
+- Next source task remains a focused inspection of `wan_hwaddr` and indexed `hwaddr`: determine whether a failed NVRAM write can leave stale interface identity/MAC and gate WAN startup if so. Avoid changing unrelated keys.
 
 ## Verification boundary
 
-- Parent `077a917ef22e4d5516289264e60b6c4b6e5607f1` MAN/authentication snapshot exact-head Actions were queued/in progress at last poll; see current SHA runs before relying on that implementation.
-- The DHCP/DNS/hostname checked tuple and source assertions await exact-head WAN route/NVRAM and full regression verification.
-- Same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload must all pass before L3; no physical-router L4 test is claimed.
+- Parent `077a917` WAN route check failed only at the final source contract due the checker indexing an earlier unrelated status gate; all earlier regression executable commands passed. Exact run URL/job: `136105910004`.
+- The subsequent parent `eac0f17e12e394ede94e56dc4d432770256f9009` added the DNS/VCI/hostname tuple; its host CI was still queued/in progress at last poll. This checker correction and its re-run await exact-head status.
+- Same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload must all pass before L3. No physical-router L4 test is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA WAN route/NVRAM, handoff, HTTPD, Process and XY-C1 Actions for the DHCP/PPP option tuple and preceding MAN/auth changes; diagnose failures from exact job logs.
-2. Require the same-SHA XY-C1 production detector, MIPS Build, TRX verification and artifact upload before claiming L3.
-3. Inspect the WAN hardware-address copies (`wan_hwaddr`, indexed `hwaddr`) and only gate reset on them if a failed write demonstrably affects interface identity or routing. Keep the public void wrappers intact.
+1. Fetch live main and check exact-SHA WAN route, NVRAM boundary, AI handoff, HTTPD, Process and XY-C1 runs for this checker fix.
+2. If WAN route passes, inspect and verify the MAN/authentication/DHCP option source assertions on the exact parent source; diagnose any further checker or compile failure from its log.
+3. Confirm same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload. Then inspect `wan_hwaddr`/indexed `hwaddr` for real interface-identity impact.
 
 ## Mandatory handoff checkpoint
 

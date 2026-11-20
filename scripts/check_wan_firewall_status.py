@@ -123,9 +123,12 @@ proto_failure = "if (proto_status != 0)"
 proto_read = "wan_proto = get_wan_proto(unit);"
 require(proto_write in reset and proto_failure in reset and proto_read in reset,
         "WAN reset must check the configured protocol copy before reading it")
-require(reset.index("wan_vars_reset_status = 0;") < reset.index(proto_write) <
-        reset.index(proto_failure) < reset.index("return proto_status;") <
-        reset.index(proto_read),
+proto_write_at = reset.index(proto_write)
+proto_failure_at = reset.index(proto_failure, proto_write_at)
+proto_return_at = reset.index("return proto_status;", proto_failure_at)
+proto_read_at = reset.index(proto_read)
+require(reset.index("wan_vars_reset_status = 0;") < proto_write_at <
+        proto_failure_at < proto_return_at < proto_read_at,
         "failed WAN protocol publication must latch and return before protocol selection")
 for marker in (
     "wan_vars_reset_status = proto_status;",
