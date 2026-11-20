@@ -276,7 +276,7 @@ void set_wan_unit_param(int unit, const char* param_name);
 void reset_wan_temp(void);
 void reset_man_vars(void);
 void reset_wan_vars(void);
-int reset_wan_vars_status(void);
+int get_wan_vars_reset_status(void);
 int  get_vlan_vid_wan(void);
 int  get_wan_bridge_mode(void);
 int  get_wan_bridge_iso_mode(int bridge_mode);

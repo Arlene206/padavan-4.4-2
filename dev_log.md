@@ -1,3 +1,13 @@
+## 2026-11-20 — Preserve WAN reset ABI while exposing PID 1 result
+
+- Parent main SHA: 6bc3495b402f8ad4818ce9ecbc58bfc57f34ae7a.
+- Exact XY-C1 run `44723038042` for `72c299981fc7aeeb404c21232f38b8def41ff1db` stopped before Build at the WAN firewall contract: exporting `reset_wan_vars_status()` violated the established public void `reset_wan_vars()` ABI and its intentionally private implementation.
+- Exact Process `44723038026` failed on a malformed regex; the escaping correction in `6bc3495b` was verified by exact Process `44723163334` and AI docs `44723163377`, both PASS.
+- Restored private linkage for `reset_wan_vars_status()`, kept the public void wrapper, and added the narrow read-only `get_wan_vars_reset_status()` accessor. PID 1 now calls the legacy wrapper and reads the failure latch; the internal helper is not exported.
+- Process and XY contracts now pin the ABI-safe design. Exact Actions and same-SHA MIPS Build/TRX/artifact for this production-source correction are pending; hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Make WAN reset linkage regression assertion effective
 
 - Parent main SHA: 72c299981fc7aeeb404c21232f38b8def41ff1db.

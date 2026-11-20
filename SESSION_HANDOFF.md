@@ -1,38 +1,43 @@
 # 2026-11-20 continuation checkpoint
 
-This checkpoint supersedes older summaries below. Continue from live main; do not repeat completed audits.
+This checkpoint supersedes older summaries below. Continue from live main and do not repeat closed audits.
 
 ## Git state
-- Parent main SHA for this checker correction: 72c299981fc7aeeb404c21232f38b8def41ff1db.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Main-only atomic commits, `force=false`, exact `expected_sha`; no force-push. PR #1 remains closed/not merged.
+- Parent main SHA for this slice: 6bc3495b402f8ad4818ce9ecbc58bfc57f34ae7a.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Main-only atomic commits, exact expected-SHA update with `force=false`; no force-push. PR #1 remains closed/not merged.
 
 ## Verified preceding work
-- `f196902a` WAN reset propagation had 35 other exact Actions pass but XY-C1 `44721008402` failed at link: the checked WAN reset function was static while PID 1 called it from `rc.c`.
-- `99054c2e` added checked LAN MAC/default/runtime startup writes and the fatal boot gate. Its exact Process run `44722781752` completed SUCCESS. Its exact XY-C1 run `44722781476` was still in progress at last poll.
-- `72c29998` exported `reset_wan_vars_status()` from `net_wan.c`, added the public `rc.h` prototype and source assertions. Its exact Process `44723038026` was running and XY-C1 `44723038042` queued at last poll.
-- A final test review found the static-linkage regex in that Process checker had one escaping layer too many; it searched a literal backslash-s instead of whitespace.
+- `05e2cb` is L3 VERIFIED on its own exact XY-C1 run `44718942242` (Build, TRX, artifact `14621980301`, 12,690,602 bytes).
+- `abc46fda` exact XY-C1 run `44720306486` completed SUCCESS.
+- `f196902` exact XY-C1 run `44721008402` failed at link because PID 1 referenced the private WAN reset helper across translation units.
+- `99054c2e` added checked LAN boot MAC/default/runtime writes. Exact Process `44722781752` PASS; exact XY-C1 `44722781476` was IN_PROGRESS at last poll.
+- `72c29998` incorrectly exported the internal WAN status helper. Exact XY firewall `44723038042` failed before Build because the existing checker protects the public void ABI; Process `44723038026` failed on an invalid regex.
+- `6bc3495b` repaired the regex; exact Process `44723163334` and AI docs `44723163377` PASS.
 
 ## Current implementation slice — THIS COMMIT
-- Test-only fix: make the Process checker detect an accidental return to static linkage of `reset_wan_vars_status()`. The corrected regex recognizes actual whitespace; public prototype and function-body assertions remain in place.
-- No production C behavior changes in this slice.
+- Restore the intended WAN reset ABI: `reset_wan_vars_status()` remains private in `net_wan.c`; public callers retain `void reset_wan_vars(void)`.
+- Add a narrow read-only `get_wan_vars_reset_status()` accessor for the file-local failure latch. PID 1 calls the legacy wrapper then checks this accessor before proceeding to LAN reset.
+- Update Process and XY source contracts to require the private helper, public void wrapper, accessor declaration/body and fatal PID 1 gate.
+- LAN checked boot reset remains in the same parent and is not altered.
 
 ## Exact first actions for the next continuation
-1. Verify this commit's exact Process workflow; confirm the checker assertion runs and remains green.
-2. Verify same-SHA XY-C1 Build, TRX and artifact upload for the production-source commit `72c29998`. This test-only child SHA must not be represented as that production-source SHA's L3 evidence.
-3. Poll `99054c2e` XY-C1 run `44722781476` and `72c29998` XY-C1 run `44723038042`; keep each result tied to its exact SHA.
-4. With link restored and relevant tests passing, continue one new source-confirmed P1 RC/service lifecycle issue; do not re-audit WAN0/LAN boot snapshots, WAN reset propagation, DHCP 6rd rollback, WAN route recovery or custom credential hardening.
+1. Verify exact-head Process and WAN firewall source contracts after the ABI-safe accessor.
+2. Verify the same-SHA XY-C1 Build, TRX verification and artifact upload for this production-source commit; no L3 claim without all three on this SHA.
+3. Poll `99054c2e` XY-C1 `44722781476`; its Process PASS belongs only to that SHA.
+4. Once the product build is green, continue one independent P1 service/lifecycle fault without re-auditing WAN0/LAN initial boot resets or WAN reset propagation.
 
 ## Verification boundary
-- `05e2cb`: L3 VERIFIED on its own exact SHA.
-- `abc46fda`: exact XY-C1 run `44720306486` SUCCESS.
-- `f196902`: XY-C1 failed at link due undefined external WAN reset symbol; TRX and artifact skipped.
-- `99054c2e`: exact Process PASS; XY-C1 pending at last observation.
-- `72c29998`: Process running and XY queued at last observation; production-source L3 still pending.
-- THIS COMMIT: checker-only; exact Actions pending at creation. Physical-router L4 NOT VERIFIED.
+- `05e2cb`: L3 VERIFIED, exact SHA only.
+- `abc46fda`: XY-C1 SUCCESS.
+- `f196902`: XY-C1 link failure.
+- `99054c2e`: Process PASS; XY-C1 pending at last poll.
+- `72c29998`: XY firewall ABI contract and Process checker failed; not L3.
+- `6bc3495b`: Process and AI docs PASS; test-only commit.
+- THIS COMMIT: exact Actions and same-SHA L3 pending at creation. Physical-router L4 NOT VERIFIED.
 
 ## Mandatory handoff checkpoint
-Update exact main SHA, exact-head Actions and next actionable task only when materially changed; do not create no-op refresh commits.
+Update exact main SHA, exact-head Actions and active task only when material state changes; no no-op refresh commits.
 
 ## Evidence discipline
 Keep L1 source checks, L2 host regression, exact-SHA push Actions, L3 MIPS Build/TRX/artifact and physical-router L4 distinct.

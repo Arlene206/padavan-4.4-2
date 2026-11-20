@@ -1,14 +1,15 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 72c299981fc7aeeb404c21232f38b8def41ff1db; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- `f196902a` exact XY-C1 `44721008402` failed at link because `reset_wan_vars_status()` had internal linkage.
-- `99054c2e` added checked LAN startup MAC/default/runtime publication; exact Process `44722781752` PASS, exact XY-C1 `44722781476` was pending at last poll.
-- `72c29998` exports the WAN reset status function and declares it publicly; exact Process `44723038026` running, XY-C1 `44723038042` queued at last poll.
-- THIS COMMIT repairs the Process checker's regex so it really rejects static linkage; no production source changes.
+- Parent main SHA: 6bc3495b402f8ad4818ce9ecbc58bfc57f34ae7a; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- `f196902` XY-C1 failed at link due cross-translation-unit use of private WAN reset helper.
+- `99054c2e` added checked LAN boot MAC/default/runtime publication; exact Process `44722781752` PASS, exact XY-C1 `44722781476` pending at last poll.
+- `72c29998` broke the intentional WAN reset ABI and failed its XY check; Process check failed due malformed regex.
+- `6bc3495b` fixed the regex; exact Process `44723163334` and AI docs `44723163377` PASS.
+- THIS COMMIT restores private WAN reset helper linkage and exposes only the read-only failure-latch accessor to PID 1.
 
 ## Priority queue
-- CLOSED: WAN0 checked initialization/read policy, LAN initial boot MAC/default/runtime publication (exact Process PASS; same-SHA L3 pending), WAN route recovery, DHCPv4 6rd rollback and custom credential hardening.
-- ACTIVE: complete same-SHA XY-C1 Build/TRX/artifact validation after the WAN symbol export; keep all evidence SHA-specific.
-- NEXT: proceed to an independent source-confirmed P1 RC/service lifecycle defect. Rotate across the broader userland instead of endlessly auditing the recent WAN/LAN boot changes.
+- CLOSED: WAN0 checked initialization/read policy, LAN initial boot MAC/default/runtime snapshot, WAN route/DHCP cleanup and credential tasks (exact-source production L3 for recent LAN commit still pending).
+- ACTIVE: verify the ABI-safe WAN reset accessor and exact-SHA XY-C1 Build/TRX/artifact.
+- NEXT: resume independent P1 service/lifecycle issue across the wider userland after a green product build.
 
 
 ## Whole-repository module status

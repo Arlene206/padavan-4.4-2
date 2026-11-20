@@ -518,7 +518,7 @@ reset_man_vars(void)
 
 static int wan_vars_reset_status;
 
-int
+static int
 reset_wan_vars_status(void)
 {
 	int unit, wan_proto, proto_status;
@@ -744,6 +744,16 @@ void
 reset_wan_vars(void)
 {
 	(void)reset_wan_vars_status();
+}
+
+/*
+ * PID 1 must observe the result of the legacy void reset entry point without
+ * exporting the internal reset implementation or changing its public ABI.
+ */
+int
+get_wan_vars_reset_status(void)
+{
+	return wan_vars_reset_status;
 }
 
 int

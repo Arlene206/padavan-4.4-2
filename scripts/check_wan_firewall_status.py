@@ -275,6 +275,10 @@ require("(void)reset_wan_vars_status();" in reset_wrapper,
 require("void reset_wan_vars(void);" in header and
         "int reset_wan_vars_status" not in header,
         "preserve public reset_wan_vars ABI")
+reset_getter = body(wan, "get_wan_vars_reset_status(void)")
+require("return wan_vars_reset_status;" in reset_getter and
+        "int get_wan_vars_reset_status(void);" in header,
+        "PID 1 status accessor must expose only the reset result latch")
 
 reset_gate = "if (wan_vars_reset_status != 0)"
 sysctl_start = start.index("sysctl_status = set_tcp_syncookies(")
