@@ -1,3 +1,12 @@
+## 2026-11-20 — Complete deferred WAN policy path filters for pull requests
+
+- Parent main SHA: `505b26f869c63261508e377360022e0fc0936707`. The WAN route correction from `505b26f869c63261508e377360022e0fc0936707` passed exact run `44732377886`; AI handoff docs passed `44732378051`.
+- Exact WAN teardown run `44732377859` passed the C policy binaries and the corrected schedule-order assertions, then failed its final path-filter contract: the two new deferred-reconnect policy/test paths existed in the push filter but not in the pull_request filter. The earlier update had replaced only the first textual occurrence; this follow-up adds and asserts exactly one entry in each filter.
+- No production source changed in this slice. Deferred reconnect production behavior remains in `ab02b36`; this is CI-trigger/contract completion only.
+- Product source `8ce56358d91e9fb937417a30751fb86cd8c71f0e`: Process inventory `44732095102`, fail-closed `44732095105`, and NVRAM boundary `44732095026` PASS; XY-C1 `44732095014` remained IN_PROGRESS at last poll. Same-SHA Build/TRX/artifact is still required for L3. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Align WAN reconnect source contracts with checked scheduling
 
 - Parent main SHA: `8ce56358d91e9fb937417a30751fb86cd8c71f0e`; this is a checker-only follow-up to source fix `ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6`. Subsequent main commits `cd300104a22cd1d9d33e2c3f9fef4e970204344a` and `8ce56358d91e9fb937417a30751fb86cd8c71f0e` independently hardened Ralink 802.1X RADIUS bounds and preserve the correct per-BSS/global secret ownership; those changes are retained.

@@ -1,35 +1,28 @@
 # 2026-11-20 continuation checkpoint
 
-This live checkpoint supersedes older summaries below. Continue from current main; avoid repeating the completed NVRAM/link-mirror, WAN runtime identity, Samba permissions, Ralink interface/NAS identifier bounds and NTP-readiness reviews.
+This live checkpoint supersedes older summaries. Resume on current main; do not repeat completed WAN mirror/runtime-identity, Samba mode, Ralink interface/NAS/RADIUS field-bound or NTP-readiness work.
 
 ## Git state
 
-- Parent main SHA for this checker repair: `8ce56358d91e9fb937417a30751fb86cd8c71f0e`.
-- Our WAN deferred-reconnect source fix: `ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6`.
-- Main subsequently advanced through independent Ralink 802.1X source commits `cd300104a22cd1d9d33e2c3f9fef4e970204344a` (RADIUS count/secret bounds) and `8ce56358d91e9fb937417a30751fb86cd8c71f0e` (correct per-BSS/global secret ownership). Preserve these main commits.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Main-only atomic commits, expected-SHA update with force=false, no force-push.
+- Parent main SHA for this path-filter correction: `505b26f869c63261508e377360022e0fc0936707`.
+- Deferred WAN reconnect production fix: `ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6`.
+- Main retained independent Ralink 802.1X RADIUS hardening commits `cd300104a22cd1d9d33e2c3f9fef4e970204344a` and `8ce56358d91e9fb937417a30751fb86cd8c71f0e`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Main-only, complete-tree atomic commits, CAS update with force=false, no force-push.
 
-## Active implementation — checked deferred WAN reconnect state
+## Deferred WAN reconnect — current validation
 
-- `watchdog.c:inet_handler()` uses `nvram_get_int("deferred_wanup_t")` as a positive signed-int deadline and triggers PID 1 when it expires.
-- `ab02b36` adds a checked publisher, deadline-overflow policy and GNU89/ASan/UBSan tests. WAN PPP/full teardown aborts before killing services if cancellation fails; delayed scheduling propagates NVRAM errors and checks overflow before arithmetic; deferred callback clears the fired marker before modem/WAN activation.
-- The C policy compile/run stage in WAN teardown run `44731843422` passed; the inline source contract then failed on a test assertion that selected an earlier unrelated `return status;`. WAN route run `44731843190` passed its compiled regression suite and other contracts, then failed because `scripts/check_wan_deferred_watchdog_status.py` still expected the removed unchecked direct setter. This commit repairs both contracts without weakening source checks.
-- Exact `ab02b36` tests already passing include Process inventory, WAN DHCP, AI docs, ZeroTier, Wireless, watchdog signal, VPN lifecycle, HTTPD security, firewall startup, DNSMasq, miniupnpd, detect-internet, detect-link, USB modem identity and WAN ARP; see the newest `dev_log.md` entry for run IDs. XY-C1 `44731843051` was still in progress at last poll.
-- Current parent `8ce56358` AI docs `44732095055` PASS; Process inventory `44732095102`, Process fail-closed `44732095105`, NVRAM boundary `44732095026` and XY-C1 `44732095014` were pending at last poll. Product-source L3 remains unclaimed until same-SHA Build/TRX/artifact all pass.
+- Source `ab02b36` adds checked `deferred_wanup_t` publication/clear, guarded positive signed-int deadline arithmetic, failure propagation from both teardown paths, and deferred-startup clear gating.
+- The regression C binaries compile and run under GNU89/Werror/ASan/UBSan. Exact source-contract failures were fixed incrementally from their job logs; coverage was not relaxed.
+- Exact checker-repair SHA `505b26f869c63261508e377360022e0fc0936707`: WAN route run `44732377886` PASS; AI docs `44732378051` PASS. WAN teardown `44732377859` then failed only because the new header/test path entries had been added to push filters but omitted from pull_request filters; this checkpoint corrects the missing two PR paths.
+- Product source at `8ce56358d91e9fb937417a30751fb86cd8c71f0e` has Process inventory `44732095102`, Process fail-closed `44732095105`, and NVRAM boundary `44732095026` PASS. Its XY-C1 run `44732095014` was IN_PROGRESS at last poll. L3 requires Build XY-C1, TRX verification and artifact upload on one exact product-source SHA.
+- Physical router L4 remains NOT VERIFIED.
 
 ## Exact first actions
 
-1. Verify the main head, then inspect exact-head reruns of WAN teardown and WAN route for this contract repair; fix any genuine failures using the job log.
-2. Check XY-C1 for source SHA `ab02b36` and the latest main product source. L3 needs Build XY-C1, Verify TRX output and artifact upload all SUCCESS on one exact source SHA. Do not reuse the earlier `7210c3a3` artifact for later source changes.
-3. Continue an independent cross-userland P1 stability/security defect while any Actions are pending. Do not repeat closed NTP/link mirror, WAN identity, Samba mode or Ralink buffer-bound reviews.
-4. Physical-router L4 is NOT VERIFIED.
-
-## Verification boundary
-
-- Detect-internet/link WAN and prior product baseline `7210c3a3`: exact XY-C1 Build/TRX/artifact PASS for that source SHA only (run `44729001694`, artifact `14625343431`).
-- NTP readiness `c10f4fd6`: watchdog and listed Process/HTTPD/DNSMasq/NVRAM checks PASS; exact XY-C1 was pending at last poll.
-- Deferred reconnect product source `ab02b36`: host policy binaries pass; the two source contracts are being repaired here; no L3 claim until exact-same-SHA Build/TRX/artifact succeeds.
-- Keep host L2, exact-head Actions, exact-source MIPS/TRX/artifact L3 and physical-router L4 separate.
+1. Check the exact-head WAN teardown rerun triggered by this path-filter change; fix only causal failures in its job log. WAN route source-contract validation already passed on `505b26f`.
+2. Check exact XY-C1 run `44732095014` for source SHA `8ce56358`; confirm Build, TRX and artifact upload all PASS before claiming L3.
+3. Continue an independent cross-userland P1 reliability/security fix while CI is pending. Do not repeat the closed audits listed above.
+4. Keep host L2, exact-head Actions, MIPS/TRX/artifact L3 and physical-router L4 separate.
 
 
 ---
