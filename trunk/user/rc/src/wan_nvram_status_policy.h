@@ -68,6 +68,73 @@ rc_wan_nvram_copy_value(rc_wan_nvram_get_fn get_value, void *context,
 }
 
 
+typedef int (*rc_wan_nvram_transaction_fn)(void *context);
+
+struct rc_wan_nvram_snapshot_field {
+	const char *param_name;
+	char *destination;
+	size_t destination_size;
+};
+
+/*
+ * Read a bounded configuration tuple while one transaction is held.
+ * Validate every field before opening the lock, copy each cache-backed value
+ * before the next read, release the lock after the first read error, and
+ * invalidate the whole tuple if either reading or closing fails.
+ */
+static inline int
+rc_wan_nvram_copy_snapshot(const struct rc_wan_nvram_snapshot_field *fields,
+			   unsigned int count,
+			   rc_wan_nvram_transaction_fn begin_transaction,
+			   rc_wan_nvram_get_fn get_value,
+			   rc_wan_nvram_transaction_fn end_transaction,
+			   void *context)
+{
+	unsigned int i;
+	int api_result, saved_errno, status, end_status;
+
+	if (!fields || count == 0 || !begin_transaction || !get_value ||
+	    !end_transaction)
+		return EINVAL;
+	for (i = 0; i < count; ++i) {
+		if (!fields[i].param_name || !fields[i].param_name[0] ||
+		    !fields[i].destination || fields[i].destination_size == 0)
+			return EINVAL;
+	}
+	for (i = 0; i < count; ++i)
+		fields[i].destination[0] = '\0';
+
+	errno = 0;
+	api_result = begin_transaction(context);
+	saved_errno = errno;
+	status = rc_wan_nvram_write_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+
+	status = 0;
+	for (i = 0; i < count; ++i) {
+		status = rc_wan_nvram_copy_value(
+			get_value, context, fields[i].param_name,
+			fields[i].destination, fields[i].destination_size);
+		if (status != 0)
+			break;
+	}
+
+	errno = 0;
+	api_result = end_transaction(context);
+	saved_errno = errno;
+	end_status = rc_wan_nvram_write_status(api_result, saved_errno);
+	if (status == 0)
+		status = end_status;
+
+	if (status != 0) {
+		for (i = 0; i < count; ++i)
+			fields[i].destination[0] = '\0';
+	}
+	return status;
+}
+
+
 typedef int (*rc_wan_nvram_param_set_fn)(void *context,
 					 const char *param_name);
 

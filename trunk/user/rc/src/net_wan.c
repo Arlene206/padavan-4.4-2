@@ -136,6 +136,28 @@ wan_nvram_transaction_get_callback(void *context, const char *param_name,
 
 
 static int
+wan_nvram_transaction_begin_callback(void *context)
+{
+	if (!context) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_begin((struct nvram_transaction *)context);
+}
+
+
+static int
+wan_nvram_transaction_end_callback(void *context)
+{
+	if (!context) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_end((struct nvram_transaction *)context);
+}
+
+
+static int
 wan_static_ipv4_snapshot(int unit, const char *wan_addr_suffix,
 			 const char *wan_mask_suffix,
 			 char *wan_addr, size_t wan_addr_size,
@@ -144,8 +166,9 @@ wan_static_ipv4_snapshot(int unit, const char *wan_addr_suffix,
 			 char *lan_mask, size_t lan_mask_size)
 {
 	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[4];
 	char wan_addr_key[64], wan_mask_key[64];
-	int length, status = 0, end_status;
+	int length;
 
 	if (!wan_addr_suffix || !wan_addr_suffix[0] ||
 	    !wan_mask_suffix || !wan_mask_suffix[0] ||
@@ -166,33 +189,23 @@ wan_static_ipv4_snapshot(int unit, const char *wan_addr_suffix,
 	if ((size_t)length >= sizeof(wan_mask_key))
 		return ENAMETOOLONG;
 
-	errno = 0;
-	if (nvram_transaction_begin(&transaction) != 0)
-		return errno ? errno : EIO;
+	fields[0].param_name = wan_addr_key;
+	fields[0].destination = wan_addr;
+	fields[0].destination_size = wan_addr_size;
+	fields[1].param_name = wan_mask_key;
+	fields[1].destination = wan_mask;
+	fields[1].destination_size = wan_mask_size;
+	fields[2].param_name = "lan_ipaddr";
+	fields[2].destination = lan_addr;
+	fields[2].destination_size = lan_addr_size;
+	fields[3].param_name = "lan_netmask";
+	fields[3].destination = lan_mask;
+	fields[3].destination_size = lan_mask_size;
 
-	status = rc_wan_nvram_copy_value(
-		wan_nvram_transaction_get_callback, &transaction, wan_addr_key,
-		wan_addr, wan_addr_size);
-	if (status == 0)
-		status = rc_wan_nvram_copy_value(
-			wan_nvram_transaction_get_callback, &transaction, wan_mask_key,
-			wan_mask, wan_mask_size);
-	if (status == 0)
-		status = rc_wan_nvram_copy_value(
-			wan_nvram_transaction_get_callback, &transaction, "lan_ipaddr",
-			lan_addr, lan_addr_size);
-	if (status == 0)
-		status = rc_wan_nvram_copy_value(
-			wan_nvram_transaction_get_callback, &transaction, "lan_netmask",
-			lan_mask, lan_mask_size);
-
-	errno = 0;
-	if (nvram_transaction_end(&transaction) != 0) {
-		end_status = errno ? errno : EIO;
-		if (status == 0)
-			status = end_status;
-	}
-	return status;
+	return rc_wan_nvram_copy_snapshot(
+		fields, 4, wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &transaction);
 }
 
 
@@ -205,7 +218,7 @@ wan_man_gateway_snapshot(char *gateway, size_t gateway_size,
 			 char *dns_servers, size_t dns_servers_size)
 {
 	struct nvram_transaction transaction;
-	int status = 0, end_status;
+	struct rc_wan_nvram_snapshot_field fields[4];
 
 	if (!gateway || !gateway_size || !wan_addr || !wan_addr_size ||
 	    !wan_mask || !wan_mask_size || !dns_servers || !dns_servers_size)
@@ -217,43 +230,26 @@ wan_man_gateway_snapshot(char *gateway, size_t gateway_size,
 	dns_servers[0] = '\0';
 
 	/*
-	 * Route setup and teardown must use one coherent lease tuple. Each
-	 * nvram_transaction_get() returns a pointer into the shared cache, so
-	 * copy it before the next read while the exclusive lease is held.
+	 * A failed read or transaction close invalidates the complete route
+	 * snapshot; callers must never act on a partially refreshed tuple.
 	 */
-	errno = 0;
-	if (nvram_transaction_begin(&transaction) != 0)
-		return errno ? errno : EIO;
+	fields[0].param_name = "wanx_gateway";
+	fields[0].destination = gateway;
+	fields[0].destination_size = gateway_size;
+	fields[1].param_name = "wanx_ipaddr";
+	fields[1].destination = wan_addr;
+	fields[1].destination_size = wan_addr_size;
+	fields[2].param_name = "wanx_netmask";
+	fields[2].destination = wan_mask;
+	fields[2].destination_size = wan_mask_size;
+	fields[3].param_name = "wanx_dns";
+	fields[3].destination = dns_servers;
+	fields[3].destination_size = dns_servers_size;
 
-	status = rc_wan_nvram_copy_value(
-		wan_nvram_transaction_get_callback, &transaction, "wanx_gateway",
-		gateway, gateway_size);
-	if (status == 0)
-		status = rc_wan_nvram_copy_value(
-			wan_nvram_transaction_get_callback, &transaction, "wanx_ipaddr",
-			wan_addr, wan_addr_size);
-	if (status == 0)
-		status = rc_wan_nvram_copy_value(
-			wan_nvram_transaction_get_callback, &transaction, "wanx_netmask",
-			wan_mask, wan_mask_size);
-	if (status == 0)
-		status = rc_wan_nvram_copy_value(
-			wan_nvram_transaction_get_callback, &transaction, "wanx_dns",
-			dns_servers, dns_servers_size);
-
-	errno = 0;
-	if (nvram_transaction_end(&transaction) != 0) {
-		end_status = errno ? errno : EIO;
-		if (status == 0)
-			status = end_status;
-	}
-	if (status != 0) {
-		gateway[0] = '\0';
-		wan_addr[0] = '\0';
-		wan_mask[0] = '\0';
-		dns_servers[0] = '\0';
-	}
-	return status;
+	return rc_wan_nvram_copy_snapshot(
+		fields, 4, wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &transaction);
 }
 
 

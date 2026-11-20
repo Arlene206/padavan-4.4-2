@@ -415,6 +415,244 @@ test_checked_nvram_copy_rejects_invalid_arguments(void)
 				       destination, 0) == EINVAL);
 }
 
+
+struct fake_nvram_transaction {
+	const char *names[4];
+	const char *values[4];
+	unsigned int read_calls;
+	unsigned int begin_calls;
+	unsigned int end_calls;
+	int begin_error;
+	int read_fail_at;
+	int missing_at;
+	int read_error;
+	int end_error;
+	char cache_slot[64];
+};
+
+static int
+fake_snapshot_begin(void *opaque)
+{
+	struct fake_nvram_transaction *fake =
+		(struct fake_nvram_transaction *)opaque;
+
+	++fake->begin_calls;
+	if (fake->begin_error != 0) {
+		errno = fake->begin_error;
+		return -1;
+	}
+	return 0;
+}
+
+static int
+fake_snapshot_get(void *opaque, const char *param_name, char **value)
+{
+	struct fake_nvram_transaction *fake =
+		(struct fake_nvram_transaction *)opaque;
+	unsigned int index = fake->read_calls++;
+
+	assert(index < 4);
+	assert(strcmp(param_name, fake->names[index]) == 0);
+	if ((int)index == fake->read_fail_at) {
+		*value = NULL;
+		errno = fake->read_error;
+		return -1;
+	}
+	if ((int)index == fake->missing_at) {
+		*value = NULL;
+		return 0;
+	}
+	snprintf(fake->cache_slot, sizeof(fake->cache_slot), "%s",
+		 fake->values[index]);
+	*value = fake->cache_slot;
+	return 1;
+}
+
+static int
+fake_snapshot_end(void *opaque)
+{
+	struct fake_nvram_transaction *fake =
+		(struct fake_nvram_transaction *)opaque;
+
+	++fake->end_calls;
+	if (fake->end_error != 0) {
+		errno = fake->end_error;
+		return -1;
+	}
+	return 0;
+}
+
+static void
+init_fake_snapshot(struct fake_nvram_transaction *fake,
+		   struct rc_wan_nvram_snapshot_field *fields,
+		   char destinations[4][64])
+{
+	memset(fake, 0, sizeof(*fake));
+	fake->names[0] = "wanx_gateway";
+	fake->names[1] = "wanx_ipaddr";
+	fake->names[2] = "wanx_netmask";
+	fake->names[3] = "wanx_dns";
+	fake->values[0] = "198.51.100.1";
+	fake->values[1] = "192.0.2.2";
+	fake->values[2] = "255.255.255.0";
+	fake->values[3] = "1.1.1.1 8.8.8.8";
+	fake->read_fail_at = -1;
+	fake->missing_at = -1;
+
+	fields[0].param_name = fake->names[0];
+	fields[0].destination = destinations[0];
+	fields[0].destination_size = sizeof(destinations[0]);
+	fields[1].param_name = fake->names[1];
+	fields[1].destination = destinations[1];
+	fields[1].destination_size = sizeof(destinations[1]);
+	fields[2].param_name = fake->names[2];
+	fields[2].destination = destinations[2];
+	fields[2].destination_size = sizeof(destinations[2]);
+	fields[3].param_name = fake->names[3];
+	fields[3].destination = destinations[3];
+	fields[3].destination_size = sizeof(destinations[3]);
+}
+
+static void
+test_transactional_snapshot_copies_coherent_tuple(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char destinations[4][64];
+
+	init_fake_snapshot(&fake, fields, destinations);
+	assert(rc_wan_nvram_copy_snapshot(fields, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == 0);
+	assert(fake.begin_calls == 1);
+	assert(fake.read_calls == 4);
+	assert(fake.end_calls == 1);
+	assert(strcmp(destinations[0], "198.51.100.1") == 0);
+	assert(strcmp(destinations[1], "192.0.2.2") == 0);
+	assert(strcmp(destinations[2], "255.255.255.0") == 0);
+	assert(strcmp(destinations[3], "1.1.1.1 8.8.8.8") == 0);
+}
+
+static void
+test_transactional_snapshot_treats_missing_key_as_empty(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char destinations[4][64];
+
+	init_fake_snapshot(&fake, fields, destinations);
+	fake.missing_at = 0;
+	assert(rc_wan_nvram_copy_snapshot(fields, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == 0);
+	assert(fake.begin_calls == 1);
+	assert(fake.read_calls == 4);
+	assert(fake.end_calls == 1);
+	assert(destinations[0][0] == '\0');
+	assert(strcmp(destinations[1], "192.0.2.2") == 0);
+}
+
+static void
+test_transactional_snapshot_releases_lock_and_discards_partial_tuple(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char destinations[4][64];
+	unsigned int i;
+
+	init_fake_snapshot(&fake, fields, destinations);
+	fake.read_fail_at = 2;
+	fake.read_error = EACCES;
+	assert(rc_wan_nvram_copy_snapshot(fields, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == EACCES);
+	assert(fake.begin_calls == 1);
+	assert(fake.read_calls == 3);
+	assert(fake.end_calls == 1);
+	for (i = 0; i < 4; ++i)
+		assert(destinations[i][0] == '\0');
+}
+
+static void
+test_transactional_snapshot_rejects_oversized_field_and_releases_lock(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char destinations[4][64];
+	unsigned int i;
+
+	init_fake_snapshot(&fake, fields, destinations);
+	fields[3].destination_size = 8;
+	assert(rc_wan_nvram_copy_snapshot(fields, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == ENAMETOOLONG);
+	assert(fake.read_calls == 4);
+	assert(fake.begin_calls == 1);
+	assert(fake.end_calls == 1);
+	for (i = 0; i < 4; ++i)
+		assert(destinations[i][0] == '\0');
+}
+
+static void
+test_transactional_snapshot_begin_failure_does_not_read_or_end(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char destinations[4][64];
+	unsigned int i;
+
+	init_fake_snapshot(&fake, fields, destinations);
+	fake.begin_error = EBUSY;
+	assert(rc_wan_nvram_copy_snapshot(fields, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == EBUSY);
+	assert(fake.begin_calls == 1);
+	assert(fake.read_calls == 0);
+	assert(fake.end_calls == 0);
+	for (i = 0; i < 4; ++i)
+		assert(destinations[i][0] == '\0');
+}
+
+static void
+test_transactional_snapshot_end_failure_invalidates_values(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char destinations[4][64];
+	unsigned int i;
+
+	init_fake_snapshot(&fake, fields, destinations);
+	fake.end_error = EIO;
+	assert(rc_wan_nvram_copy_snapshot(fields, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == EIO);
+	assert(fake.begin_calls == 1);
+	assert(fake.read_calls == 4);
+	assert(fake.end_calls == 1);
+	for (i = 0; i < 4; ++i)
+		assert(destinations[i][0] == '\0');
+}
+
+static void
+test_transactional_snapshot_validates_before_opening_lock(void)
+{
+	struct fake_nvram_transaction fake;
+	struct rc_wan_nvram_snapshot_field fields[4];
+	char destinations[4][64];
+
+	init_fake_snapshot(&fake, fields, destinations);
+	fields[1].destination_size = 0;
+	assert(rc_wan_nvram_copy_snapshot(fields, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == EINVAL);
+	assert(fake.begin_calls == 0);
+	assert(fake.read_calls == 0);
+	assert(fake.end_calls == 0);
+	assert(rc_wan_nvram_copy_snapshot(NULL, 4, fake_snapshot_begin,
+					  fake_snapshot_get, fake_snapshot_end,
+					  &fake) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -441,5 +679,12 @@ main(void)
 	test_checked_nvram_copy_preserves_backend_failure();
 	test_checked_nvram_copy_rejects_truncation();
 	test_checked_nvram_copy_rejects_invalid_arguments();
+	test_transactional_snapshot_copies_coherent_tuple();
+	test_transactional_snapshot_treats_missing_key_as_empty();
+	test_transactional_snapshot_releases_lock_and_discards_partial_tuple();
+	test_transactional_snapshot_rejects_oversized_field_and_releases_lock();
+	test_transactional_snapshot_begin_failure_does_not_read_or_end();
+	test_transactional_snapshot_end_failure_invalidates_values();
+	test_transactional_snapshot_validates_before_opening_lock();
 	return 0;
 }

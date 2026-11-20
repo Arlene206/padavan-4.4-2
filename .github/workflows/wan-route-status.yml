@@ -652,12 +652,14 @@ jobs:
           man_pause_accumulate = man_down.index("status = route_status_accumulate(status, route_status);", man_pause)
           man_pause_log = man_down.index("Internet monitor pause incomplete during MAN teardown", man_pause_accumulate)
           snapshot_helper = body(wan, "wan_man_gateway_snapshot(")
-          assert "nvram_transaction_begin(&transaction)" in snapshot_helper
-          assert snapshot_helper.count("rc_wan_nvram_copy_value(") == 4
+          assert "rc_wan_nvram_copy_snapshot(" in snapshot_helper
+          assert "wan_nvram_transaction_begin_callback" in snapshot_helper
+          assert "wan_nvram_transaction_get_callback" in snapshot_helper
+          assert "wan_nvram_transaction_end_callback" in snapshot_helper
           snapshot_keys = ("wanx_gateway", "wanx_ipaddr", "wanx_netmask", "wanx_dns")
           snapshot_positions = [snapshot_helper.index('"' + key + '"') for key in snapshot_keys]
           assert snapshot_positions == sorted(snapshot_positions)
-          assert "nvram_transaction_end(&transaction)" in snapshot_helper
+          assert "fields, 4," in snapshot_helper
           assert "if (status != 0)" in snapshot_helper
           assert "gateway[0] = '\\0';" in snapshot_helper
           assert "dns_servers[0] = '\\0';" in snapshot_helper
