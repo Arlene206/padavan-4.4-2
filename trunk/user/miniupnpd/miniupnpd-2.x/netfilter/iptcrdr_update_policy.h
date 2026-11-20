@@ -42,4 +42,12 @@ miniupnpd_peer_delete_failure_result(int dscp_status, int rollback_status)
 	return dscp_status != 0 ? dscp_status : rollback_status;
 }
 
+/* Peer SNAT and DSCP tuples identify the internal endpoint by source port. */
+static inline int
+miniupnpd_peer_internal_port_matches(unsigned short rule_source_port,
+                                     unsigned short internal_port)
+{
+	return rule_source_port == internal_port;
+}
+
 #endif

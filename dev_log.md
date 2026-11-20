@@ -1,3 +1,15 @@
+## 2026-11-20 — Match UDP peer DSCP cleanup on the internal source port
+
+- Parent main SHA: 062d09b646f294d09947c986aadcfc9e6619e6c9.
+- addpeernatrule() and addpeerdscprule() both build UDP tuples with get_udp_match(rport, iport); get_udp_match(dport, sport) stores the internal port in spts[0] and the remote port in dpts[0].
+- delete_redirect_and_filter_rules_ex() incorrectly copied UDP dpts[0] into iport before searching the mangle DSCP rule by spts[0]. Peer SNAT removal could therefore leave a stale UDP DSCP entry without reporting a failure.
+- Corrected UDP peer SNAT scan to read spts[0]; TCP/UDP DSCP comparisons use miniupnpd_peer_internal_port_matches(). Added GNU89 regression cases for internal-port match versus remote-port mismatch, and expanded the dedicated source checker to assert both rule writers, both cleanup branches and the unit test use consistent tuple semantics.
+- Parent 062d09b646f294d09947c986aadcfc9e6619e6c9: MiniUPnP #44808409986 PASS and AI #44808409401 PASS. Process #44807976713 and NVRAM #44807976901 PASS on source-equivalent parent 5ca. XY-C1 #44807976845 on 5ca was still Build IN_PROGRESS (TRX/artifact PENDING); L3 remains NOT VERIFIED for the current product source.
+- This change updates production netfilter code and requires new exact-head host and XY-C1 validation. Physical-router L4 remains NOT VERIFIED.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Normalize the inline NAT snapshot errno contract
 
 - Parent main SHA: 4e8bbf9be606d4a9280767146ccaae53bdbaea66.

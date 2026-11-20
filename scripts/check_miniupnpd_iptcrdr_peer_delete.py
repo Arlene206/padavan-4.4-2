@@ -38,6 +38,24 @@ delete = function_body(
     "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)"
 )
 policy = " ".join(POLICY.split())
+peer_nat_writer = function_body(SOURCE, "addpeernatrule(int proto,")
+peer_dscp_writer = function_body(SOURCE, "addpeerdscprule(int proto,")
+for writer in (peer_nat_writer, peer_dscp_writer):
+    assert "get_tcp_match(rport, iport)" in writer
+    assert "get_udp_match(rport, iport)" in writer
+
+peer_scan_start = delete.index(
+    "iptc_first_rule(miniupnpd_nat_postrouting_chain"
+)
+peer_scan_end = delete.index('h = iptc_init("mangle")', peer_scan_start)
+peer_scan = delete[peer_scan_start:peer_scan_end]
+assert peer_scan.count("iport = info->spts[0];") == 2
+assert "iport = info->dpts[0];" not in peer_scan
+assert delete.count(
+    "miniupnpd_peer_internal_port_matches(info->spts[0], iport)"
+) == 2
+assert "miniupnpd_peer_internal_port_matches(unsigned short rule_source_port" in policy
+assert "test_peer_dscp_matches_internal_source_port" in (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c").read_text()
 
 peer_snapshot = delete.index("peer_backup = malloc(peer_entry_len)")
 peer_copy = delete.index("memcpy(peer_backup, e, peer_entry_len)", peer_snapshot)

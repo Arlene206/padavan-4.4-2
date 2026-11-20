@@ -58,6 +58,19 @@ test_primary_failure_wins(void)
 	assert(miniupnpd_portmapping_failure_result(0, 0) == 0);
 }
 
+static void
+test_peer_dscp_matches_internal_source_port(void)
+{
+	unsigned short internal_port = 49152;
+	unsigned short remote_port = 443;
+
+	assert(miniupnpd_peer_internal_port_matches(internal_port,
+	                                            internal_port) == 1);
+	/* A remote destination port must not match the internal source port. */
+	assert(miniupnpd_peer_internal_port_matches(remote_port,
+	                                            internal_port) == 0);
+}
+
 int
 main(void)
 {
@@ -67,6 +80,7 @@ main(void)
 	test_peer_delete_rollback_decision();
 	test_dscp_failure_wins_over_failed_peer_restore();
 	test_primary_failure_wins();
+	test_peer_dscp_matches_internal_source_port();
 	puts("MiniUPnP NAT/filter update rollback policy: PASS");
 	return 0;
 }

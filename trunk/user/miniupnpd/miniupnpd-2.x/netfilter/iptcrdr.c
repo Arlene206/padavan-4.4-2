@@ -970,6 +970,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 						}
 						iaddr = e->ip.src.s_addr;
 						match = (const struct ipt_entry_match *)&e->elems;
+						/* get_tcp_match/get_udp_match put the internal endpoint in spts[0]. */
 						if(0 == strncmp(match->u.user.name, "tcp", IPT_FUNCTION_MAXNAMELEN))
 						{
 							const struct ipt_tcp * info;
@@ -980,7 +981,7 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 						{
 							const struct ipt_udp * info;
 							info = (const struct ipt_udp *)match->data;
-							iport = info->dpts[0];
+							iport = info->spts[0];
 						}
 		
 						peer_index = i;
@@ -1048,14 +1049,14 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 						{
 							const struct ipt_tcp * info;
 							info = (const struct ipt_tcp *)match->data;
-							if(iport != info->spts[0])
+							if (!miniupnpd_peer_internal_port_matches(info->spts[0], iport))
 								continue;
 						}
 						else
 						{
 							const struct ipt_udp * info;
 							info = (const struct ipt_udp *)match->data;
-							if(iport != info->spts[0])
+							if (!miniupnpd_peer_internal_port_matches(info->spts[0], iport))
 								continue;
 						}
 						if(iaddr != e->ip.src.s_addr)
