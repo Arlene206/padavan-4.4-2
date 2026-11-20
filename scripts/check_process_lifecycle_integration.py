@@ -904,12 +904,17 @@ print("USB modem stop-result propagation and WAN restart gate: PASS")
 
 lan_stop_transaction = net_lan_dhcp.split("int\nstop_lan(int is_ap_mode)", 1)[1].split("\n}\n", 1)[0]
 lan_pause = lan_stop_transaction.index("notify_pause_detect_internet()")
-lan_preflight = lan_stop_transaction.index("status = stop_udhcpc_lan();")
+lan_preflight = lan_stop_transaction.index("ap_dhcp_stop_status = stop_udhcpc_lan();")
 lan_preflight_failure = lan_stop_transaction.index("if (status != 0)", lan_preflight)
 lan_preflight_resume = lan_stop_transaction.index("notify_run_detect_internet(2)", lan_preflight_failure)
 lan_preflight_return = lan_stop_transaction.index("return status;", lan_preflight_failure)
 lan_ifdown = lan_stop_transaction.index("ifconfig(IFNAME_BR, 0, NULL, NULL)")
-lan_ifdown_resume = lan_stop_transaction.index("notify_run_detect_internet(2)", lan_ifdown)
+lan_ap_restore = net_lan_dhcp.split("lan_ap_teardown_abort_restore(", 1)[1].split("\n}\n", 1)[0]
+assert "start_lan(1, 1)" in lan_ap_restore
+assert "notify_run_detect_internet(2)" in lan_ap_restore
+assert "if (restore_status != 0)" in lan_ap_restore
+assert "if (is_ap_mode && rc_lan_ap_teardown_recovery_required(" in lan_stop_transaction
+assert "lan_ap_teardown_abort_restore(teardown_status," in lan_stop_transaction
 lan_dhcp_stop = net_lan_dhcp.split("stop_udhcpc_lan(void)", 1)[1].split("\n}\n", 1)[0]
 lan_release = lan_dhcp_stop.index('process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)')
 lan_identity_gate = lan_dhcp_stop.index("errno != ENOENT && errno != ESRCH")
@@ -920,8 +925,7 @@ assert "if (wait_status != 0)" in lan_dhcp_stop
 assert "refusing LAN DHCP stop: deconfig grace wait failed" in lan_dhcp_stop
 assert "usleep(300000)" not in lan_dhcp_stop
 assert lan_pause < lan_preflight < lan_preflight_failure < lan_preflight_resume < lan_preflight_return < lan_ifdown
-assert lan_ifdown < lan_ifdown_resume
-assert "if (status != 0 && is_ap_mode)" in lan_stop_transaction
+assert lan_preflight_failure < lan_preflight_resume < lan_preflight_return < lan_ifdown
 print("AP LAN detect_internet pause rollback on failed teardown: PASS")
 
 lan_restart_transaction = net_lan_dhcp.split("int\nfull_restart_lan(void)", 1)[1].split("\n}\n", 1)[0]

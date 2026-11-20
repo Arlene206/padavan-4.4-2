@@ -406,6 +406,7 @@ for marker in (
 service_policy = (root / "trunk/user/rc/src/service_start_status.h").read_text()
 service_test = (root / "trunk/user/rc/src/tests/service_start_status.c").read_text()
 lan_restart = c_function_body(lan, "full_restart_lan(void)")
+lan_vpn_stop = lan_restart.index("vpn_status = stop_vpn_server()")
 abort_start = lan_restart.index("if (lan_status != 0)")
 abort_end = lan_restart.index("reset_lan_vars();", abort_start)
 abort_path = lan_restart[abort_start:abort_end]
