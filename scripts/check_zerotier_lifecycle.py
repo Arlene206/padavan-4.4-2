@@ -174,7 +174,7 @@ require('mktemp "$config_path/.planet.XXXXXX"' in planet_body and
         "NVRAM planet payload must be validated and privately staged before atomic publication")
 for marker in ("valid NVRAM planet payload was not published",
                "invalid planet payload damaged the last-good file",
-               "symlink planet referent was modified",
+               "planet symlink referent was modified",
                "directory planet destination was accepted"):
     require(marker in test, f"planet publication regression omits {marker}")
 require('if ! zerotier_prepare_config_directory; then' in start_instance_body and

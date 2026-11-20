@@ -1,3 +1,13 @@
+## 2026-11-19 — Align ZeroTier planet regression source-check token
+
+- Parent SHA: `19771377efa44e7fc7406ab467ec25ce790c820b`.
+- Exact ZeroTier run `44657469525` on `1977137` executed the shell lifecycle regression to completion and printed its PASS marker. The Python source checker then failed only because its expected diagnostic reversed the two words in the actual test message (`symlink planet` versus `planet symlink`).
+- Corrected the source-check token to match the test's exact diagnostic; no production code or shell test changed.
+- WAN route run `44657469732` and Process inventory `44657469919` passed on `1977137`; AI handoff contract `44657469920` passed on `02fb275`. XY-C1 `44657469745` remained in progress at last poll.
+- Exact-head ZeroTier rerun and XY-C1 Build/TRX/artifact validation remain pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Move ZeroTier planet regression after fixture setup
 
 - Parent SHA: `02fb275e7b2664b6e4f4e3fe40e8dbe31f8b47b2`.

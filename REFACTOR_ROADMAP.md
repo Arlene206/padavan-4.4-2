@@ -81,6 +81,8 @@
 
 - ZeroTier planet host-regression placement correction: exact lifecycle run `44657068683` on `bf53b1c` stopped before exercising the helper because the new block preceded `TEST_CONFIG` initialization. The test block now runs beside the existing identity/config writers after fixture setup; production code and assertions are unchanged. Process inventory and WAN route passed on `bf53b1c`; exact ZeroTier/XY reruns pending.
 
+- ZeroTier planet checker wording fix: exact shell regression completed PASS on `1977137`; source contract alone failed because its expected diagnostic reversed the actual test message's two words. The checker now matches `planet symlink referent was modified`; no source/test behavior changed. WAN route and Process inventory passed; exact ZeroTier rerun and XY-C1 build verification pending.
+
 ## Priority queue
 
 - SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).
