@@ -23,6 +23,13 @@ dhcp_lease_ipv4_is_valid(const char *value)
 	       strcmp(value, "0.0.0.0") != 0;
 }
 
+/* Reject truncation of corrupt prior lease values into other IPv4 addresses. */
+static inline int
+dhcp_lease_text_fits_buffer(const char *value, size_t buffer_size)
+{
+	return value != NULL && buffer_size > 0 && strlen(value) < buffer_size;
+}
+
 /* RFC classless routes permit 0.0.0.0 only for the /0 default route. */
 static inline int
 dhcp_lease_route_destination_is_valid(const char *address,

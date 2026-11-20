@@ -14,8 +14,15 @@ def require(condition, message):
 
 
 def body(source, signature):
-    start = source.index(signature)
-    opening = source.index("{", start)
+    search_from = 0
+    while True:
+        start = source.index(signature, search_from)
+        opening = source.index("{", start)
+        terminator = source.find(";", start)
+        if terminator >= 0 and terminator < opening:
+            search_from = start + len(signature)
+            continue
+        break
     depth = 0
     state = "code"
     quote = ""
@@ -180,6 +187,16 @@ for marker in (
     'nvram_set_temp(strcat_r(prefix, "ipaddr", tmp), ip)',
 ):
     require(marker not in zcip_viptv, "unchecked ZeroConf IPTV snapshot write remains: " + marker)
+
+for callback_body, copy_marker in (
+    (wan_bound, "snprintf(old_gateway"),
+    (wan_viptv_bound, "snprintf(old_gateway"),
+    (zcip, "snprintf(old_ip"),
+    (zcip_viptv, "snprintf(old_ip"),
+):
+    require("dhcp_lease_text_fits_buffer(" in callback_body and
+            callback_body.index("dhcp_lease_text_fits_buffer(") < callback_body.index(copy_marker),
+            "DHCP/ZeroConf rollback addresses must be checked before fixed-buffer copies")
 
 wan_route_test = (RC / "tests/route_status_policy.c").read_text()
 

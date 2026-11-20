@@ -5056,6 +5056,12 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
 			 previous_value);
 	}
+	if (!dhcp_lease_text_fits_buffer(previous_text[WAN_DHCP_BOUND_GATEWAY], sizeof(old_gateway)) ||
+	    !dhcp_lease_text_fits_buffer(previous_text[WAN_DHCP_BOUND_IPADDR], sizeof(old_ip)) ||
+	    !dhcp_lease_text_fits_buffer(previous_text[WAN_DHCP_BOUND_NETMASK], sizeof(old_mask))) {
+		logmessage(log_prefix, "%s (%s) rejected oversized previous DHCP address snapshot", udhcpc_state, wan_ifname);
+		return ENAMETOOLONG;
+	}
 	snprintf(old_gateway, sizeof(old_gateway), "%s",
 	 previous_text[WAN_DHCP_BOUND_GATEWAY]);
 	snprintf(old_ip, sizeof(old_ip), "%s",
@@ -5417,6 +5423,12 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
 			 previous_value);
 	}
+	if (!dhcp_lease_text_fits_buffer(previous_text[2], sizeof(old_gateway)) ||
+	    !dhcp_lease_text_fits_buffer(previous_text[0], sizeof(old_ip)) ||
+	    !dhcp_lease_text_fits_buffer(previous_text[1], sizeof(old_mask))) {
+		logmessage(log_prefix, "%s (%s) rejected oversized previous IPTV address snapshot", udhcpc_state, man_ifname);
+		return ENAMETOOLONG;
+	}
 	snprintf(old_gateway, sizeof(old_gateway), "%s", previous_text[2]);
 	snprintf(old_ip, sizeof(old_ip), "%s", previous_text[0]);
 	snprintf(old_mask, sizeof(old_mask), "%s", previous_text[1]);
@@ -5695,6 +5707,11 @@ zcip_bound(char *man_ifname)
 		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
 			 previous_value);
 	}
+	if (!dhcp_lease_text_fits_buffer(previous_text[WAN_ZCIP_SNAPSHOT_IPADDR], sizeof(old_ip)) ||
+	    !dhcp_lease_text_fits_buffer(previous_text[WAN_ZCIP_SNAPSHOT_NETMASK], sizeof(old_mask))) {
+		logmessage(LOGNAME, "ZeroConf rejected oversized previous WAN address snapshot on %s", man_ifname);
+		return ENAMETOOLONG;
+	}
 	snprintf(old_ip, sizeof(old_ip), "%s",
 		 previous_text[WAN_ZCIP_SNAPSHOT_IPADDR]);
 	snprintf(old_mask, sizeof(old_mask), "%s",
@@ -5795,6 +5812,11 @@ zcip_viptv_bound(char *man_ifname)
 		}
 		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
 			 previous_value);
+	}
+	if (!dhcp_lease_text_fits_buffer(previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR], sizeof(old_ip)) ||
+	    !dhcp_lease_text_fits_buffer(previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_NETMASK], sizeof(old_mask))) {
+		logmessage(LOGNAME, "ZeroConf rejected oversized previous IPTV address snapshot on %s", man_ifname);
+		return ENAMETOOLONG;
 	}
 	snprintf(old_ip, sizeof(old_ip), "%s",
 		 previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR]);

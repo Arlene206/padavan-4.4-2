@@ -226,8 +226,15 @@ jobs:
           common_ex_source = Path("trunk/user/rc/src/common_ex.c").read_text()
 
           def body(text, signature):
-              start = text.index(signature)
-              brace = text.index("{", start)
+              search_from = 0
+              while True:
+                  start = text.index(signature, search_from)
+                  brace = text.index("{", start)
+                  terminator = text.find(";", start)
+                  if terminator >= 0 and terminator < brace:
+                      search_from = start + len(signature)
+                      continue
+                  break
               depth = 0
               for pos in range(brace, len(text)):
                   if text[pos] == "{":
@@ -328,6 +335,11 @@ jobs:
           assert "nvram_transaction_begin(&transaction)" in renew_publisher
           lease_policy = (rc / "dhcp_lease_policy.h").read_text()
           lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
+          assert "dhcp_lease_text_fits_buffer" in lease_policy
+          assert "test_dhcp_lease_text_fits_buffer" in lease_policy_test
+          assert "test_dhcp_lease_text_fits_buffer();" in lease_policy_test
+          assert "test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple" in lease_policy_test
+          assert "test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple();" in lease_policy_test
           publish_body = body(lease_policy, "dhcp_lease_nvram_publish(")
           assert "for (i = 0; i < count; ++i)" in publish_body
           assert "for (j = count; j > 0; --j)" in publish_body
@@ -482,6 +494,16 @@ jobs:
           ):
               assert marker not in zcip_viptv_bound
           assert "ifconfig(" not in zcip_viptv_bound
+
+
+          for callback_signature, copy_marker in (
+              ("udhcpc_bound(char *wan_ifname, int is_renew_mode)", "snprintf(old_gateway"),
+              ("udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)", "snprintf(old_gateway"),
+              ("zcip_bound(char *man_ifname)", "snprintf(old_ip"),
+              ("zcip_viptv_bound(char *man_ifname)", "snprintf(old_ip"),
+          ):
+              callback_body = body(source, callback_signature)
+              assert callback_body.index("dhcp_lease_text_fits_buffer(") < callback_body.index(copy_marker)
 
           manv_deconfig = body(source, "manv_route_deconfig(char *man_ifname)")
           assert 'route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0)' in manv_deconfig
