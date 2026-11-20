@@ -10,6 +10,8 @@ on:
       - "trunk/user/shared/src/process_pidfile.h"
       - "trunk/user/shared/src/process_pidfile.c"
       - "trunk/user/rc/src/detect_link_signal_policy.h"
+      - "trunk/user/rc/src/detect_link_nvram_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
@@ -52,6 +54,14 @@ jobs:
             trunk/user/rc/src/tests/detect_link_signal_policy.c \
             -o /tmp/detect-link-signal-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-signal-policy
+      - name: Compile and run WAN link NVRAM mirror retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_nvram_policy.c \
+            -o /tmp/detect-link-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-nvram-policy
       - name: Verify deferred dispatch, signal masks and caller wiring
         run: |
           python3 - <<'PY'
@@ -84,6 +94,22 @@ jobs:
               raise AssertionError("unterminated function: " + signature)
 
           assert '#include "detect_link_signal_policy.h"' in detect
+          assert '#include "detect_link_nvram_policy.h"' in detect
+          mirror = body(detect, "dl_publish_wan_nvram_status(void)")
+          assert "detect_link_publish_wan_status(" in mirror
+          assert "dl_status_wan_nvram_old" in mirror
+          assert "dl_status_wan_nvram_error != status" in mirror
+          assert 'nvram_set_int_temp("link_wan"' not in body(detect, "dl_handle_link_wan(void)")
+          wan_handler = body(detect, "dl_handle_link_wan(void)")
+          assert wan_handler.index("dl_publish_wan_nvram_status();") < wan_handler.index("if (dl_status_wan_old != dl_status_wan)")
+          policy = (rc / "detect_link_nvram_policy.h").read_text()
+          mirror_test = (rc / "tests/detect_link_nvram_policy.c").read_text()
+          assert "if (result == 0)" in policy and "*last_published = status;" in policy
+          for marker in ("test_failed_publication_is_retried",
+                         "test_changed_state_retries_without_replaying_side_effects",
+                         "test_invalid_policy_arguments_fail_closed"):
+              assert marker in mirror_test and marker + "();" in mirror_test
+          assert "detect_link WAN NVRAM mirror retry policy: PASS" in mirror_test
           handler = body(detect, "catch_sig_detect_link(int sig)")
           assert "detect_link_record_signal(&dl_pending_events, sig)" in handler
           for forbidden in ("dl_on_timer(", "dl_update_leds(", "dl_reset_state(",
@@ -157,6 +183,8 @@ jobs:
               "trunk/user/shared/src/process_inventory.c",
               "trunk/user/shared/src/process_inventory.h",
               "trunk/user/rc/src/detect_link_signal_policy.h",
+              "trunk/user/rc/src/detect_link_nvram_policy.h",
+              "trunk/user/rc/src/tests/detect_link_nvram_policy.c",
               "trunk/user/rc/src/tests/detect_link_signal_policy.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",

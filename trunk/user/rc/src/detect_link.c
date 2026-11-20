@@ -36,6 +36,7 @@
 #include "switch.h"
 #include "switch_status_policy.h"
 #include "detect_link_signal_policy.h"
+#include "detect_link_nvram_policy.h"
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
@@ -54,6 +55,8 @@ static volatile sig_atomic_t dl_pending_events = 0;
 
 static int dl_status_wan = 0;
 static int dl_status_wan_old = 0;
+static int dl_status_wan_nvram_old = -1;
+static int dl_status_wan_nvram_error = 0;
 static int dl_status_lan = 0;
 static int dl_status_lan_old = 0;
 static int dl_status_wisp = 0;
@@ -89,10 +92,40 @@ dl_reset_state(void)
 	dl_status_wisp_old = 0;
 }
 
+static int
+dl_write_wan_nvram_status(void *context, int status)
+{
+	(void)context;
+	return nvram_set_int_temp("link_wan", status);
+}
+
+
+static void
+dl_publish_wan_nvram_status(void)
+{
+	int status;
+
+	status = detect_link_publish_wan_status(
+		dl_status_wan, &dl_status_wan_nvram_old,
+		dl_write_wan_nvram_status, NULL);
+	if (status != 0) {
+		if (dl_status_wan_nvram_error != status)
+			logmessage("detect_link",
+				   "cannot publish WAN link state to NVRAM (status=%d)",
+				   status);
+		dl_status_wan_nvram_error = status;
+	} else {
+		dl_status_wan_nvram_error = 0;
+	}
+}
+
+
 static void
 dl_handle_link_wan(void)
 {
 	int front_led_x;
+
+	dl_publish_wan_nvram_status();
 
 	if (dl_status_wan_old != dl_status_wan) {
 		const char *script_postw = SCRIPT_POST_WAN;
@@ -103,7 +136,6 @@ dl_handle_link_wan(void)
 
 		dl_status_wan_old = dl_status_wan;
 		
-		nvram_set_int_temp("link_wan", (dl_status_wan) ? 1 : 0);
 
 		front_led_x = nvram_get_int("front_led_wan");
 		if (front_led_x == 1) {
