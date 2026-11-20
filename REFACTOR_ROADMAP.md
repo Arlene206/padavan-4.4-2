@@ -1,11 +1,10 @@
 ## Current checkpoint — 2026-11-20
 
-- Parent main for the active VPN domain runtime snapshot fix: `84199a2fe17d774b8bcdba0a1918e7fa10a33160`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- WAN route callback status source-contract repair `2e3fffd9`: exact-head WAN route and AI handoff Actions passed.
-- HTTPD security and AI handoff checks passed on `c84d26a6`; these checker/document commits are not firmware L3 evidence.
-- Parent MiniUPnP IPv6 pinhole hardening `84199a2f`: MiniUPnP and AI handoff passed; Process, NVRAM and XY-C1 were pending at last check.
-- Active VPN fix clears stale domain runtime state on disconnect and when OpenVPN reconnects without DOMAIN. New exact-head VPN and XY-C1 Build/TRX/artifact checks required.
+- Current main: `2cb3ee3d27446aca096b14f9ac0324110c0afa8b`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807` and is read-only.
+- Exact-head on main: MiniUPnP #44763259688 PASS; Process inventory #44763259657 PASS; NVRAM #44763259725 PASS; AI handoff docs #44763259666 FAIL (missing mandatory end-of-session checkpoint wording in SESSION_HANDOFF.md); XY-C1 #44763259637 pending.
+- Active stability slice: MiniUPnP IPv6 netfilter pinhole backend wildcard/UID/resource-lifecycle validation. Planned tests cover wildcard normalization, malformed address rejection, UID wrap/full behavior, pre-commit registry allocation, NULL allocation handling and ip6tc handle release.
+- The documentation failure is being corrected without weakening the checker. Exact-source XY-C1 Build/TRX/artifact remains the L3 gate; hardware L4 is NOT VERIFIED.
+
 
 ---
 

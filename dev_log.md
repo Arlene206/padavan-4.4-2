@@ -1,3 +1,11 @@
+## 2026-11-20 — Restore mandatory end-of-session handoff checkpoint contract
+
+- Parent main SHA: `2cb3ee3d27446aca096b14f9ac0324110c0afa8b`.
+- Exact-head AI handoff run #44763259666 failed because `SESSION_HANDOFF.md` no longer contained the required end-of-session checkpoint heading and the rule that the checkpoint is mandatory while a document edit is conditional.
+- Restored that explicit contract and synchronized the live checkpoint, exact-SHA Actions state, active MiniUPnP backend task and verification boundary. This is a documentation/CI repair only; no firmware L3 or hardware L4 claim.
+
+---
+
 ## 2026-11-20 — Clear stale VPN domain snapshots across client sessions
 
 - Parent main SHA: `84199a2fe17d774b8bcdba0a1918e7fa10a33160`.
