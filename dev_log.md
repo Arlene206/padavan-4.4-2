@@ -1,3 +1,13 @@
+## 2026-11-20 — Reject unguarded primary/secondary errno overwrites
+
+- Parent main SHA: c492d33b10baf96d8a971c4adc6773b3df5808f3.
+- Tightened the standalone and workflow-inline MiniUPnP source contracts: every assignment to primary_failure_errno or secondary_failure_errno inside delete_redirect_and_filter_rules_ex() must call miniupnpd_record_first_failure_errno(). This guards against a future later failure silently overwriting the first causal error even when the helper's presence and final selector remain intact.
+- The check filters only assignment statements, not the local variable declarations. It does not alter production behavior or relax any condition.
+- The production IPTC errno harness now includes syslog.h for LOG_ERR and exercises both API handle conventions; exact-head MiniUPnP CI remains the required proof for those compiled variants.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. Exact-source firmware L3 remains unverified until the current product SHA's Build, TRX and artifact gates pass.
+
+---
+
 ## 2026-11-20 — Include the syslog constants in the IPTC errno harness
 
 - Parent main SHA: 0b5eef8bd00fd6e732449bcf241949df84b4f40c.

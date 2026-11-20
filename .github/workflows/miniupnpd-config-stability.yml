@@ -349,6 +349,12 @@ jobs:
           assert "miniupnpd_select_cleanup_failure_errno(" in cleanup_backend
           assert "primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno," in cleanup_backend_flat
           assert "secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno," in cleanup_backend_flat
+          errno_capture_assignments = [
+              line.strip() for line in cleanup_backend.splitlines()
+              if line.lstrip().startswith(("primary_failure_errno =", "secondary_failure_errno ="))
+          ]
+          assert errno_capture_assignments
+          assert all("miniupnpd_record_first_failure_errno(" in line for line in errno_capture_assignments)
           assert "test_cleanup_phase_keeps_first_errno" in cleanup_test
           assert "miniupnpd_restore_errno_on_failure(cleanup_status, failure_errno)" in cleanup_backend
           assert "test_cleanup_failure_errno_preserves_primary_precedence" in cleanup_test
