@@ -1,3 +1,12 @@
+## 2026-11-20 — Create Samba private state directory with restrictive permissions
+
+- Parent main SHA: c40acbe1e767de9bc1fed7b8f3001303670d3bdf.
+- Found a transient exposure in `samba_config_transaction_prepare_parent_directory()`: it created the sensitive `/etc/samba` parent with mode 0755 and only later opened the directory and changed it to 0700. With PID 1's permissive umask, other local users could access the directory during that interval and race to plant passdb or transaction-journal entries.
+- Create new directories with mode 0700 from the initial `mkdir()`. Existing owner validation, `O_DIRECTORY | O_NOFOLLOW`, descriptor-based mode repair and post-`fchmod` verification remain unchanged for legacy directories. Extend the Samba source contract to require the restrictive creation mode and reject 0755.
+- Existing GNU89 regression already sets `umask(0000)` and exercises first creation plus repair of 0777/0711 directories. Exact-head Samba host regression/source contract and same-SHA XY-C1 build/TRX/artifact verification required; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Remove duplicate Ralink authenticator workflow path filters
 
 - Parent main SHA: 1f129cad823186909583b9fa2a1edd8754fd84e7.

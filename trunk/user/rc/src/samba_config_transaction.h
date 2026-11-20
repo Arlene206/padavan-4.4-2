@@ -38,7 +38,7 @@ samba_config_transaction_prepare_parent_directory(const char *directory)
 #else
 	flags |= O_DIRECTORY | O_NOFOLLOW;
 #endif
-	if (mkdir(directory, 0755) != 0 && errno != EEXIST)
+	if (mkdir(directory, 0700) != 0 && errno != EEXIST)
 		return -1;
 
 	fd = open(directory, flags);

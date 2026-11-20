@@ -218,6 +218,8 @@ jobs:
           assert "O_DIRECTORY | O_NOFOLLOW" in parent_directory
           assert "st.st_uid != geteuid()" in parent_directory
           assert "fchmod(fd, 0700)" in parent_directory
+          assert "mkdir(directory, 0700)" in parent_directory
+          assert "mkdir(directory, 0755)" not in parent_directory
           assert "test_parent_directory_permissions" in transaction_test
           cleanup_fn = function_body(transaction, "samba_config_transaction_cleanup(")
           assert cleanup_fn.index('"state"') < cleanup_fn.index('"passdb.old"')
