@@ -12,30 +12,31 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Live main before this PPP configuration-snapshot slice: `fb60034c4f8b46661c6c5ebe0531729fb1a793ef`.
+- Live main before this global MAN/authentication snapshot slice: `8e203b34bf1375ac5fd944fb46cbf46d2013bac2`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- WAN protocol staging and injected static-LAN restoration policy are on main. Static IPoE address/netmask/gateway/MTU snapshots now use checked first-error writes (commit `fb60034c4f8b46661c6c5ebe0531729fb1a793ef`).
-- Exact `fb60034` checks: WAN route `136101623558`, HTTPD `136101624255`, handoff/docs `136101623351`, Process `136101624226`, inventory `136101624068`, Firewall `136101622994`, USB identity `136101623245`, VPN `136101623880`, WAN teardown `136101623663`, watchdog `136101623018`, wireless `136101622947`, ZeroTier `136101623645`, WAN DHCP `136101622777`, detection, dnsmasq and miniupnpd checks all PASS. NVRAM boundary `136101623717` and XY-C1 `136101623979` were in progress at last poll.
-- Same-SHA XY-C1 L3 is not yet established; physical-router L4 remains NOT VERIFIED.
+- WAN protocol/static-LAN recovery and checked static-IPoE/PPP endpoint+credential snapshots are on main (parent `8e203b34bf1375ac5fd944fb46cbf46d2013bac2`).
+- Exact `8e203b34bf1375ac5fd944fb46cbf46d2013bac2` checks: WAN route `136104091829`, HTTPD `136104092903`, handoff `136104092136`, Process `136104093582`, inventory `136104093045`, Firewall `136104093085`, USB `136104092508`, VPN `136104092436`, teardown `136104092593`, ZeroTier `136104092467`, wireless `136104092617`, dnsmasq `136104092317`, miniupnpd `136104093259`, watchdog `136104092229`, WAN DHCP `136104091737`, and detection checks all PASS. NVRAM boundary `136104092206` and XY-C1 `136104093608` were still in progress at last poll.
+- Same-SHA XY-C1 L3 is not established; physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-- Static IPoE configuration now fails closed on an error copying address/netmask/gateway/MTU into the indexed WAN snapshot. The production policy and injected fail-fast regression are present in the WAN route workflow.
-- This slice closes a related PPP risk: manual physical endpoint fields and authentication/negotiation settings were still copied through unchecked setters. A partial write could leave a stale remote peer, username/password, authentication mode or MPPE setting while PPP startup continued.
-- Main now checks all four `man_*` values, the PPP username/password tuple, the PPP idle-time value, and the PPPoE/PPTP/L2TP negotiation/peer option tuple. Any failed write records reset status and aborts before WAN activation. The same tested ordered-copy policy is reused; the public void setter ABI is unchanged.
-- Next bounded candidate: check the global `wanx_*` manual endpoint snapshot clears/publications and remaining authentication-mode source copies. Avoid broad conversion of telemetry/options unrelated to route/authentication.
+- Static IPoE and PPP endpoint/credential snapshot writes are checked and fail closed. The remaining route-critical gap was unchecked clearing of global `wanx_*` and IPTV `manv_*` route/lease state in `reset_man_vars()`; stale gateways/routes could survive a failed NVRAM clear.
+- This slice introduces private `reset_man_vars_status()` with first-error checked clears for all existing WAN MAN and virtual-IPTV snapshot keys, preserving the public void wrapper. `reset_wan_vars_status()` calls the status helper and blocks activation on any failed clear. Global MAN IP/netmask/gateway publications are checked as well.
+- EAPOL `auth_mode`, `auth_user` and `auth_pass` now use a required checked tuple before WAN startup, so stale authentication mode or credentials cannot be silently reused.
+- Regression coverage is extended in the existing WAN source checker; the generic first-error injected policy tests already compile in the WAN route workflow under GNU89/`-Werror`/ASan/UBSan.
+- Next candidate: review `dnsenable_x`, PPPoE `vci` and `hostname` only if source use shows stale values affect routing/negotiation/security; avoid broad telemetry conversion.
 
 ## Verification boundary
 
-- The static-IPoE checked-copy commit `fb60034` passed the exact-head WAN route, HTTPD, handoff, Process and independent regression checks. NVRAM boundary and XY-C1 were pending at last poll.
-- PPP manual-endpoint and credentials/options fail-fast change awaits exact-head WAN route, NVRAM and full CI verification.
-- Same-SHA XY-C1 production detector, MIPS Build, TRX verification and artifact upload must all pass before claiming L3; no physical-router L4 test is claimed.
+- Parent `8e203b34bf1375ac5fd944fb46cbf46d2013bac2` WAN route and all completed regression checks listed above passed; NVRAM-boundary and XY-C1 were in progress at last poll.
+- Checked MAN/IPTV clears, global WAN endpoint publications and EAPOL auth tuple need exact-head WAN route/NVRAM and full CI verification.
+- Same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload must all pass before L3; no physical-router L4 test is claimed.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head WAN route/NVRAM, AI handoff, HTTPD, Process and XY-C1 Actions for the PPP snapshot change; diagnose any FAIL by exact job log.
-2. Require same-SHA XY-C1 production detector, MIPS Build, TRX verification and artifact upload before L3.
-3. Continue the narrow WAN snapshot audit on global `wanx_*` clear/publication and authentication-mode copies. Ensure a failed write cannot leave stale routes/authentication or allow protocol activation; preserve public ABI.
+1. Fetch live main and inspect exact-SHA WAN route/NVRAM, handoff, HTTPD, Process and XY-C1 Actions for the MAN/authentication snapshot changes; diagnose any failure from its job log.
+2. Confirm same-SHA XY-C1 production detector, MIPS Build, TRX verification and artifact upload before claiming L3.
+3. Review the remaining initial WAN copies `dnsenable_x`, `vci`, `hostname` for direct route/negotiation/security impact; only convert fields with an evidenced stale-state failure mode, preserving public ABI.
 
 ## Mandatory handoff checkpoint
 

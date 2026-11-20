@@ -5,6 +5,7 @@
 - Static LAN route restoration now has a unit-testable callback policy: retry after failed protocol reset, preserve the primary reset error, and expose/log route repair failure. Injected sanitizer regression and exact source contract are pending.
 - Static IPoE address/netmask/gateway/MTU copies now use a checked first-error sequence; any write failure latches reset status and blocks activation. The injected policy test and source integration contract are queued in the existing WAN route workflow.
 - Manual WAN endpoint values and PPP credentials, peer, authentication, encryption and negotiation options now use checked writes; an incomplete snapshot latches reset status and prevents PPP activation. The production source-order contract awaits exact-head CI.
+- MAN/virtual IPTV route snapshot clears, global MAN endpoint publications and EAPOL `auth_mode/auth_user/auth_pass` now use checked writes; any failure blocks WAN activation. Exact-head source contract and workflow validation pending.
 - AI docs run 44678384983 failed on the missing required literal one atomic main commit; this patch restores it and the required Active task heading.
 - Current same-SHA XY-C1 L3 is NOT VERIFIED. Physical router L4 remains NOT VERIFIED.
 

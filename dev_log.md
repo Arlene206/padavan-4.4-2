@@ -1,3 +1,13 @@
+## 2026-11-20 — Check MAN route snapshot clears and EAPOL authentication staging
+
+- Parent main SHA: `8e203b34bf1375ac5fd944fb46cbf46d2013bac2`.
+- `reset_man_vars()` cleared MAN/virtual IPTV lease, gateway and route inventory through unchecked NVRAM writes. A failed clear could retain stale `wanx_gateway` or `manv_gateway`/route inventory; global MAN endpoint republication was also unchecked.
+- Added private `reset_man_vars_status()` using ordered first-error writes for every prior clear while preserving the public void wrapper. The status-aware reset now aborts before activation if a clear fails. Global MAN endpoint publications are checked.
+- Replaced unchecked EAPOL `auth_mode/auth_user/auth_pass` copies with a required checked tuple. Stale authentication settings cannot be silently retained after a failed NVRAM write.
+- Extended the WAN source contract for key ordering, checked publication, EAPOL staging and fail-closed gating. Exact-head CI is pending; no hardware/L3 claim.
+
+---
+
 ## 2026-11-20 — Fail closed on manual PPP endpoints and authentication/negotiation snapshots
 
 - Parent main SHA: `fb60034c4f8b46661c6c5ebe0531729fb1a793ef`.

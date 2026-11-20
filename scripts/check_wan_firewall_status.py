@@ -454,6 +454,58 @@ require('set_wan_unit_param_status(unit, "pppoe_idletime")' in reset and
 require('reset_failure_context = "PPP authentication credentials";' in reset and
         'reset_failure_context = "PPP peer and negotiation options";' in reset,
         "PPP credential/options failures must latch reset status with a diagnostic context")
+
+man_reset = body(wan, "reset_man_vars_status(void)")
+empty_man_keys = (
+    '"wanx_ipaddr"', '"wanx_netmask"', '"wanx_gateway"', '"wanx_dns"',
+    '"wanx_lease"', '"wanx_domain"', '"wanx_mtu"', '"wanx_routes"',
+    '"wanx_routes_ms"', '"wanx_routes_rfc"',
+    '"manv_ipaddr"', '"manv_netmask"', '"manv_gateway"', '"manv_mtu"',
+    '"manv_routes"', '"manv_routes_ms"', '"manv_routes_rfc"',
+)
+zero_man_keys = ('"wanx_err"', '"manv_err"')
+for array_name, expected_keys in (("empty_params[] = {", empty_man_keys),
+                                  ("zero_params[] = {", zero_man_keys)):
+    start = man_reset.index(array_name)
+    end = man_reset.index("};", start)
+    values = man_reset[start:end]
+    cursor = 0
+    for marker in expected_keys:
+        position = values.find(marker, cursor)
+        require(position >= 0, f"MAN snapshot reset missing/out of order: {marker}")
+        cursor = position + len(marker)
+require("rc_wan_nvram_set_required_params(" in man_reset and
+        "set_nvram_named_value_status" in man_reset and "return status;" in man_reset,
+        "MAN/virtual IPTV clears must use checked first-error NVRAM writes")
+require("reset_man_vars_status();" in reset and
+        'reset_failure_context = "MAN/virtual IPTV route snapshot";' in reset and
+        "goto reset_failed;" in reset,
+        "WAN activation must stop if MAN route snapshot clearing fails")
+man_publish = reset.split('if (wan_proto == IPV4_WAN_PROTO_PPPOE ||', 1)[1].split("mac_buf[0] = 0;", 1)[0]
+for marker in (
+    'set_nvram_value_status("wanx_ipaddr", man_addr)',
+    'set_nvram_value_status("wanx_netmask", man_mask)',
+    'set_nvram_value_status("wanx_gateway", man_gate)',
+):
+    require(marker in man_publish, f"global MAN endpoint publication must check NVRAM write: {marker}")
+require('reset_failure_context = "global MAN route endpoint snapshot";' in man_publish and
+        "goto reset_failed;" in man_publish,
+        "global MAN route endpoint write failure must block protocol activation")
+auth_array = reset.index('auth_params[] = {')
+auth_end = reset.index("};", auth_array)
+auth_text = reset[auth_array:auth_end]
+cursor = 0
+for marker in ('"auth_mode"', '"auth_user"', '"auth_pass"'):
+    position = auth_text.find(marker, cursor)
+    require(position >= 0, f"EAPOL authentication field missing/out of order: {marker}")
+    cursor = position + len(marker)
+require("rc_wan_nvram_set_required_params(\n\t\tauth_params," in reset and
+        'reset_failure_context = "WAN authentication mode and credentials";' in reset,
+        "EAPOL mode/user/password must be copied with checked writes before WAN startup")
+require('set_wan_unit_param(unit, "auth_mode")' not in reset and
+        'set_wan_unit_param(unit, "auth_user")' not in reset and
+        'set_wan_unit_param(unit, "auth_pass")' not in reset,
+        "legacy unchecked EAPOL authentication copies must be removed")
 param_list_start = wan.index("static_ipoe_params[] = {")
 param_list_end = wan.index("};", param_list_start)
 param_list = wan[param_list_start:param_list_end]

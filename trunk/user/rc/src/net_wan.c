@@ -189,29 +189,62 @@ clear_wan_state(void)
 	nvram_set_temp("vpnc_dom_t", "");
 }
 
+static int
+set_nvram_value_status(const char *name, const char *value)
+{
+	int api_result, saved_errno;
+
+	if (!name || !name[0] || !value)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_set_temp(name, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+static int
+set_nvram_named_value_status(void *context, const char *name)
+{
+	const char *value = (const char *)context;
+
+	if (!value)
+		return EINVAL;
+	return set_nvram_value_status(name, value);
+}
+
+static int
+reset_man_vars_status(void)
+{
+	static const char *const empty_params[] = {
+		"wanx_ipaddr", "wanx_netmask", "wanx_gateway", "wanx_dns",
+		"wanx_lease", "wanx_domain", "wanx_mtu", "wanx_routes",
+		"wanx_routes_ms", "wanx_routes_rfc",
+		"manv_ipaddr", "manv_netmask", "manv_gateway", "manv_mtu",
+		"manv_routes", "manv_routes_ms", "manv_routes_rfc"
+	};
+	static const char *const zero_params[] = { "wanx_err", "manv_err" };
+	int status;
+
+	status = rc_wan_nvram_set_required_params(
+		empty_params, (unsigned int)(sizeof(empty_params) / sizeof(empty_params[0])),
+		set_nvram_named_value_status, "");
+	if (status != 0)
+		return status;
+
+	return rc_wan_nvram_set_required_params(
+		zero_params, (unsigned int)(sizeof(zero_params) / sizeof(zero_params[0])),
+		set_nvram_named_value_status, "0");
+}
+
 void
 reset_man_vars(void)
 {
-	nvram_set_temp("wanx_ipaddr", "");
-	nvram_set_temp("wanx_netmask", "");
-	nvram_set_temp("wanx_gateway", "");
-	nvram_set_temp("wanx_dns", "");
-	nvram_set_temp("wanx_lease", "");
-	nvram_set_temp("wanx_domain", "");
-	nvram_set_temp("wanx_mtu", "");
-	nvram_set_temp("wanx_routes", "");
-	nvram_set_temp("wanx_routes_ms", "");
-	nvram_set_temp("wanx_routes_rfc", "");
-	nvram_set_int_temp("wanx_err", 0);
+	int status = reset_man_vars_status();
 
-	nvram_set_temp("manv_ipaddr", "");
-	nvram_set_temp("manv_netmask", "");
-	nvram_set_temp("manv_gateway", "");
-	nvram_set_temp("manv_mtu", "");
-	nvram_set_temp("manv_routes", "");
-	nvram_set_temp("manv_routes_ms", "");
-	nvram_set_temp("manv_routes_rfc", "");
-	nvram_set_int_temp("manv_err", 0);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "MAN/virtual IPTV route snapshot clear incomplete (status=%d)",
+			   status);
 }
 
 static int wan_vars_reset_status;
@@ -222,6 +255,9 @@ reset_wan_vars_status(void)
 	int unit, wan_proto, proto_status;
 	char mac_buf[24], *man_addr, *man_mask, *man_gate, *man_mtu;
 	const char *reset_failure_context = NULL;
+	static const char *const auth_params[] = {
+		"auth_mode", "auth_user", "auth_pass"
+	};
 	static const char *const static_ipoe_params[] = {
 		"ipaddr", "netmask", "gateway", "mtu"
 	};
@@ -239,7 +275,11 @@ reset_wan_vars_status(void)
 	unit = 0;
 
 	clear_wan_state();
-	reset_man_vars();
+	proto_status = reset_man_vars_status();
+	if (proto_status != 0) {
+		reset_failure_context = "MAN/virtual IPTV route snapshot";
+		goto reset_failed;
+	}
 
 	/*
 	 * get_wan_proto() reads wanN_proto, so a failed copy from wan_proto
@@ -258,9 +298,13 @@ reset_wan_vars_status(void)
 	set_wan_unit_param(unit, "dnsenable_x");
 	set_wan_unit_param(unit, "vci");
 	set_wan_unit_param(unit, "hostname");
-	set_wan_unit_param(unit, "auth_mode");
-	set_wan_unit_param(unit, "auth_user");
-	set_wan_unit_param(unit, "auth_pass");
+	proto_status = rc_wan_nvram_set_required_params(
+		auth_params, (unsigned int)(sizeof(auth_params) / sizeof(auth_params[0])),
+		set_wan_unit_param_status_callback, &unit);
+	if (proto_status != 0) {
+		reset_failure_context = "WAN authentication mode and credentials";
+		goto reset_failed;
+	}
 
 	set_wan_unit_value(unit, "dns", "");
 	set_wan_unit_value(unit, "wins", "");
@@ -321,12 +365,16 @@ reset_wan_vars_status(void)
 	if (wan_proto == IPV4_WAN_PROTO_PPPOE ||
 	    wan_proto == IPV4_WAN_PROTO_PPTP ||
 	    wan_proto == IPV4_WAN_PROTO_L2TP) {
-		nvram_set_temp("wanx_ipaddr", man_addr);
-		if (is_valid_ipv4(man_addr) && is_valid_ipv4(man_mask))
-			nvram_set_temp("wanx_netmask", man_mask);
-		
-		if (is_valid_ipv4(man_gate))
-			nvram_set_temp("wanx_gateway", man_gate);
+		proto_status = set_nvram_value_status("wanx_ipaddr", man_addr);
+		if (proto_status == 0 && is_valid_ipv4(man_addr) &&
+		    is_valid_ipv4(man_mask))
+			proto_status = set_nvram_value_status("wanx_netmask", man_mask);
+		if (proto_status == 0 && is_valid_ipv4(man_gate))
+			proto_status = set_nvram_value_status("wanx_gateway", man_gate);
+		if (proto_status != 0) {
+			reset_failure_context = "global MAN route endpoint snapshot";
+			goto reset_failed;
+		}
 		
 		proto_status = rc_wan_nvram_set_required_params(
 			ppp_credential_params,
