@@ -133,12 +133,12 @@ class AtomicCustomizationTests(unittest.TestCase):
         defaults = self.root / "integration_defaults.h"
         dictionary = self.root / "integration_dict.cn"
         defaults.write_text(
-            '#define DEF_LAN_ADDR "192.168.2.1"\\n'
-            '#define DEF_LAN_DHCP_BEG "192.168.2.100"\\n'
-            '#define DEF_LAN_DHCP_END "192.168.2.244"\\n',
+            '#define DEF_LAN_ADDR "192.168.2.1"\n'
+            '#define DEF_LAN_DHCP_BEG "192.168.2.100"\n'
+            '#define DEF_LAN_DHCP_END "192.168.2.244"\n',
             encoding="utf-8",
         )
-        dictionary.write_text("lan=192.168.2.1\\n", encoding="utf-8")
+        dictionary.write_text("lan=192.168.2.1\n", encoding="utf-8")
 
         environment = {"CUSTOMIZATION_JSON": json.dumps({"lanip": "192.168.2.9"})}
         arguments = ["apply_customization.py", str(defaults), str(dictionary)]
@@ -150,14 +150,14 @@ class AtomicCustomizationTests(unittest.TestCase):
         self.assertIn('#define DEF_LAN_ADDR "192.168.2.9"', rendered)
         self.assertIn('#define DEF_LAN_DHCP_BEG "192.168.2.100"', rendered)
         self.assertIn('#define DEF_LAN_DHCP_END "192.168.2.244"', rendered)
-        self.assertEqual("lan=192.168.2.9\\n", dictionary.read_text(encoding="utf-8"))
+        self.assertEqual("lan=192.168.2.9\n", dictionary.read_text(encoding="utf-8"))
 
     def test_main_rejects_shared_header_and_dictionary_path(self):
         target = self.root / "same-input.h"
         original = (
-            '#define DEF_LAN_ADDR "192.168.2.1"\\n'
-            '#define DEF_LAN_DHCP_BEG "192.168.2.100"\\n'
-            '#define DEF_LAN_DHCP_END "192.168.2.244"\\n'
+            '#define DEF_LAN_ADDR "192.168.2.1"\n'
+            '#define DEF_LAN_DHCP_BEG "192.168.2.100"\n'
+            '#define DEF_LAN_DHCP_END "192.168.2.244"\n'
         )
         target.write_text(original, encoding="utf-8")
         environment = {"CUSTOMIZATION_JSON": json.dumps({"lanip": "192.168.2.9"})}

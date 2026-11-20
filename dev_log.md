@@ -1,3 +1,11 @@
+## 2026-11-20 — Correct integration fixture line endings after CI caught escaped literals
+
+- Parent main SHA: `42b65bc59418e3ff4b36a6d81db1c9f1d19e6134`. The eight-case customization workflow `44705796914` ran all six transaction-helper tests and the same-path fail-closed integration case successfully; the end-to-end LAN-IP fixture failed because its Python test source contained literal backslash-`n` sequences, so the fixture did not contain distinct `#define` lines. Production code did not fail.
+- Correct the two integration fixtures and the expected dictionary value to use actual newline escapes. The exact-head rerun will exercise the real CLI path against three separate macros and the language dictionary.
+- The prior exact-head six-test run `44705563908` was PASS. This is a test-fixture-only correction; no implementation changes.
+
+---
+
 ## 2026-11-20 — Cover the customization command-line transaction path
 
 - Parent main SHA: `c037a5685a7c4381d59de250436287e844f11db9`. The exact-head customization regression workflow `44705563908` passed all six low-level failure-injection cases: successful two-file replacement, rollback after the second rename fails, retained original snapshot if rollback itself fails, pre-publication staging failure, symlink rejection and duplicate path rejection.
