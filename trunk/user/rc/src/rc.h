@@ -230,7 +230,7 @@ void hw_vlan_tx_map(int idx, int vid);
 int reload_nat_modules(void);
 int restart_firewall(void);
 int set_ipv4_forward(int is_on);
-void set_tcp_tweaks(void);
+int set_tcp_tweaks(void);
 int set_passthrough_pppoe(int is_on);
 void set_libc_gai(int ipv4_first);
 

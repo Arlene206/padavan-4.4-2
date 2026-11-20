@@ -5,6 +5,10 @@ import re
 
 root = Path(__file__).resolve().parents[1]
 init = (root / "trunk/user/rc/src/init.c").read_text()
+net = (root / "trunk/user/rc/src/net.c").read_text()
+rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
+tcp_policy = (root / "trunk/user/rc/src/tcp_tweaks_policy.h").read_text()
+tcp_test = (root / "trunk/user/rc/src/tests/tcp_tweaks_policy.c").read_text()
 rc = (root / "trunk/user/rc/src/rc.c").read_text()
 result_policy = (root / "trunk/user/rc/src/init_router_result_policy.h").read_text()
 result_test = (root / "trunk/user/rc/src/tests/init_router_result_policy.c").read_text()
@@ -102,6 +106,18 @@ for setting in (
 ):
     assert setting in sysctl, "missing checked early sysctl: " + setting
 assert "status = control_if_ipv6_all(0);" in sysctl
+assert "status = set_tcp_tweaks();" in sysctl
+assert 'init_sysctl_record_status(first_status, "TCP performance sysctls", status)' in sysctl
+assert "int set_tcp_tweaks(void);" in rc_header
+assert '#include "tcp_tweaks_policy.h"' in net
+tcp_tweaks = c_function(net, "set_tcp_tweaks(void)")
+assert "return rc_tcp_tweaks_apply(write_tcp_tweak, NULL);" in tcp_tweaks
+for setting in ("tcp_fin_timeout", "tcp_keepalive_intvl", "tcp_keepalive_probes",
+                "tcp_keepalive_time", "tcp_retries2", "tcp_syn_retries",
+                "tcp_synack_retries", "tcp_tw_reuse", "tcp_rfc1337"):
+    assert setting in tcp_policy
+assert "test_failures_do_not_skip_later_tweaks_and_preserve_first_error" in tcp_test
+assert "assert(writer.calls == RC_TCP_TWEAK_COUNT);" in tcp_test
 assert "init_router_result_merge_sysctl_status" in result_policy
 assert "else if (init_router_status_is_degraded(router_init_status))" in loop
 assert "PID 1 event handling remains enabled" in loop
@@ -148,10 +164,13 @@ assert "init_mdev_retry_policy.h" in workflow
 push_paths, pull_request_section = workflow.split("  pull_request:", 1)
 pull_paths = pull_request_section.split("\njobs:", 1)[0]
 for path in ("trunk/user/rc/src/init_router_result_policy.h",
-             "trunk/user/rc/src/tests/init_router_result_policy.c"):
+             "trunk/user/rc/src/tests/init_router_result_policy.c",
+             "trunk/user/rc/src/tcp_tweaks_policy.h",
+             "trunk/user/rc/src/tests/tcp_tweaks_policy.c"):
     assert push_paths.count(path) == 1 and pull_paths.count(path) == 1, (
         "Process workflow must watch router result policy exactly once: " + path)
 assert "init-router-result-policy" in workflow
+assert "tcp-tweaks-policy" in workflow
 assert "trunk/user/rc/src/tests/init_mdev_retry_policy.c" in workflow
 assert "mount_status=1" in shell_test and "chmod_status=1" in shell_test
 

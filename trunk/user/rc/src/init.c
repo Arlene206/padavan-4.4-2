@@ -654,8 +654,8 @@ init_sysctl(void)
 	status = fput_int("/proc/sys/vm/overcommit_memory", 0);
 	first_status = init_sysctl_record_status(first_status, "/proc/sys/vm/overcommit_memory", status);
 
-	/* Legacy void helpers do not expose the status of their internal writes. */
-	set_tcp_tweaks();
+	status = set_tcp_tweaks();
+	first_status = init_sysctl_record_status(first_status, "TCP performance sysctls", status);
 
 #if defined (USE_IPV6)
 	status = control_if_ipv6_all(0);

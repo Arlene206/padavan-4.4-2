@@ -1,3 +1,12 @@
+## 2026-11-20 — Propagate PID 1 TCP tuning sysctl failures
+
+- Parent main SHA: `a2ad2d27c24e5e060b28c6d8954f7e2674cf2429`.
+- `set_tcp_tweaks()` previously discarded all nine IPv4 TCP sysctl write results. The new testable operation table preserves the legacy names/values, attempts every write after failures, logs each failure and returns the first nonzero status.
+- `init_sysctl()` now merges TCP tuning failure into the existing early-boot status accumulator. Added a GNU89/Werror/ASan/UBSan regression and extended the Process workflow's push/pull_request coverage plus PID 1 source contract.
+- Parent exact-head Process/AI docs and XY-C1 Build/TRX/artifact Actions passed; those results do not validate this new source change. No local checkout/build or physical-router L4 result is claimed. The next bounded task is to propagate the remaining `set_libc_gai()` file-operation failures through PID 1 and IPv6 callers.
+
+---
+
 ## 2026-11-20 — Keep early-boot sysctl failures visible to PID 1
 
 - Parent main SHA: `6f59f340868cd43c458f7a6b7fc676e7d6b0db04`.

@@ -51,6 +51,7 @@
 #include "hwnat_config_policy.h"
 #include "sfe_config_policy.h"
 #include "network_sysctl_policy.h"
+#include "tcp_tweaks_policy.h"
 #include "xupnpd_config_file.h"
 #include "xupnpd_daemon_policy.h"
 #include "detached_daemon_start_policy.h"
@@ -1610,41 +1611,36 @@ set_tcp_syncookies(int enabled, int *syncookies_status)
 	return status;
 }
 
-void
+
+static int
+write_tcp_tweak(void *context, const char *name, int value)
+{
+	char path[96];
+	int path_len;
+	int status;
+
+	(void)context;
+	path_len = snprintf(path, sizeof(path), "/proc/sys/net/ipv4/%s", name);
+	if (path_len < 0)
+		status = errno ? errno : EIO;
+	else if ((size_t)path_len >= sizeof(path))
+		status = ENAMETOOLONG;
+	else
+		status = fput_int(path, value);
+
+	if (status != 0) {
+		if (status > 0)
+			errno = status;
+		logmessage(LOGNAME, "failed to apply TCP sysctl %s=%d (status=%d)",
+			   name, value, status);
+	}
+	return status;
+}
+
+int
 set_tcp_tweaks(void)
 {
-	char tmp[64];
-
-	/* Tweak TCP IPv4 performance */
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_fin_timeout");
-	fput_int(tmp, 30);		// def: 60
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_keepalive_intvl");
-	fput_int(tmp, 30);		// def: 75
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_keepalive_probes");
-	fput_int(tmp, 5);		// def: 9
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_keepalive_time");
-	fput_int(tmp, 1800);		// def: 7200
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_retries2");
-	fput_int(tmp, 5);		// def: 15
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_syn_retries");
-	fput_int(tmp, 3);		// def: 5
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_synack_retries");
-	fput_int(tmp, 3);		// def: 5
-
-//	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_tw_recycle");
-//	fput_int(tmp, 1);		//def: 1
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_tw_reuse");
-	fput_int(tmp, 1);		//def: 1
-
-	sprintf(tmp, "/proc/sys/net/%s/%s", "ipv4", "tcp_rfc1337");
-	fput_int(tmp, 1);		//def: 1
+	return rc_tcp_tweaks_apply(write_tcp_tweak, NULL);
 }
 
 #define PPPOE_RELAY_START_WAIT_ATTEMPTS 4
