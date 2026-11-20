@@ -97,6 +97,6 @@ main(void)
 	test_description_is_bounded();
 	test_invalid_output_buffer();
 	test_exact_record_key_matching();
-	puts("MiniUPnP lease-file record serialization and key policy: PASS");
+	puts("MiniUPnP lease-file record serialization policy: PASS");
 	return 0;
 }
