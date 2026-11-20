@@ -33,4 +33,23 @@ miniupnpd_primary_redirect_removed(int nat_scan_completed,
 	return rollback_attempted && rollback_status != 0;
 }
 
+
+/* Keep in-memory redirect metadata aligned with primary mapping state while
+ * preserving the aggregate firewall status from independent cleanup stages. */
+typedef void (*miniupnpd_redirect_metadata_cleanup_fn)(unsigned short eport,
+                                                        int proto);
+
+static inline int
+miniupnpd_finalize_redirect_cleanup(
+	int aggregate_status,
+	int primary_mapping_removed,
+	miniupnpd_redirect_metadata_cleanup_fn cleanup,
+	unsigned short eport,
+	int proto)
+{
+	if (primary_mapping_removed && cleanup)
+		cleanup(eport, proto);
+	return aggregate_status;
+}
+
 #endif /* MINIUPNPD_REDIRECT_CLEANUP_POLICY_H */

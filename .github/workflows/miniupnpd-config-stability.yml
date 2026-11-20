@@ -327,7 +327,8 @@ jobs:
           assert "peer_rule_found = 0" in cleanup_backend
           assert "miniupnpd_merge_cleanup_status(r, r2)" in cleanup_backend
           assert "miniupnpd_primary_redirect_removed(" in cleanup_backend
-          assert "if (primary_mapping_removed)" in cleanup_backend
+          assert "miniupnpd_finalize_redirect_cleanup(" in cleanup_backend
+          assert "del_redirect_desc" in cleanup_backend
           assert "return r*r2;" not in cleanup_backend
           assert "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto," in cleanup_header
           delete_wrapper = function_body(redirect_source, "_upnp_delete_redir(unsigned short eport, int proto)")

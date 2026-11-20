@@ -1077,8 +1077,9 @@ delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primar
 	peer_backup = NULL;
 
 	cleanup_status = miniupnpd_merge_cleanup_status(r, r2);
-	if (primary_mapping_removed)
-		del_redirect_desc(eport, proto);
+	cleanup_status = miniupnpd_finalize_redirect_cleanup(
+		cleanup_status, primary_mapping_removed, del_redirect_desc,
+		eport, proto);
 	if (primary_removed)
 		*primary_removed = primary_mapping_removed;
 	return cleanup_status;

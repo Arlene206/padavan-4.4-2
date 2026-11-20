@@ -2,47 +2,45 @@
 
 ## Cross-session execution mandate
 
-- Continue development on main only. Every logical task MUST be one atomic main commit, with all blobs and one complete Git tree created before one commit and a non-forced expected-SHA update.
+- Continue development on main only. Every logical task MUST be one atomic main commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
 - Never amend, force-push, create development branches/PRs, or modify the frozen backup branch.
-- Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Implement real source fixes with focused regressions; never weaken checks to manufacture PASS.
+- Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Fix real defects and add focused regression tests; never weaken checks to obtain PASS.
 - A PENDING Action does not block independent work. Diagnose exact-SHA failures from the earliest causal log.
-- Before context exhaustion, finish a safe slice and leave the exact first action for the next GPT. Do not ask the user what to do next.
+- Before context exhaustion, complete a safe slice, commit it and leave an exact first action for the next GPT. Do not ask the user what to do next.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. At the end of every session, inspect live main, verify the frozen backup hash, and inspect relevant exact-SHA Actions. Update this document only when the task, source baseline, verification evidence or first next action materially changes. Do not create a no-op commit.
+The checkpoint is mandatory; a document edit is conditional. At session end inspect live main, verify frozen backup SHA, and inspect relevant exact-SHA Actions. Update this file only when task, source baseline, verification evidence or first next action materially changes. Do not create a no-op commit.
 
 ## Current repository state
 
-- Repository Arlene206/padavan-4.4-2; parent for this checker/handoff repair: ce8daa92ec5a57bcef2d8a662be32c00c6b369c1.
-- Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only and unchanged.
-- Production commit 30af417ed8d7665e5da0f630e79b38bbb9f92296 moved nat_scan_completed out of the pre-loop location and placed it after the complete NAT rule enumeration. Missing NAT chain remains a fail-closed state.
-- Workflow-only commit 72b914095e14c099f60d6ac8f20150b4ca5d29e9 passed MiniUPnP #44803703734 and AI handoff #44803703663; it corrected the duplicate inline lease-append contract to match the transactional append helper.
-- Exact-head MiniUPnP #44804291730 on 30af417 failed at check_miniupnpd_iptcrdr_delete.py. The checker normalizes whitespace but searched for escaped newlines; this repair matches the normalized loop-close marker before the completion assignment.
-- Exact-head AI handoff #44804291590 on 30af417 failed because the exact required phrase "one atomic main commit" was missing from the current handoff; this has been restored.
-- The production caller integration runner scripts/test_miniupnpd_redirect_delete_integration.py now extracts the actual _upnp_delete_redir() code, wraps its return type/signature, compiles it with injected firewall/lease callbacks and covers auxiliary cleanup failure, primary-state preservation and lease errno propagation. Its fixture fix is in ce8daa92ec5a57bcef2d8a662be32c00c6b369c1; this commit triggers the next exact-head result.
-- Exact-SHA XY-C1 #44804291706 for product SHA 30af417 was still in progress at last poll; L3 is not verified. The older XY run on 8f884 failed because the scan marker was undeclared in the lookup function; corrected by the source commits 35e and 30af.
+- Repository Arlene206/padavan-4.4-2; parent for this primary metadata cleanup test slice: e085c6fb89a2906d234c27248d4daebf232e4fcc.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and is read-only.
+- Product source 30af417ed8d7665e5da0f630e79b38bbb9f92296 moves nat_scan_completed after full NAT rule enumeration and has missing-chain fail-closed handling. Its exact-head process inventory #44804291620 and NVRAM audit #44804291862 passed. Its XY-C1 #44804291706 was still building at last observation.
+- Exact main e085c6fb89a2906d234c27248d4daebf232e4fcc MiniUPnP #44804604643 PASS; AI docs #44804604650 PASS. The injected production-caller regression passed, proving lease cleanup still occurs after secondary peer/DSCP failure when the primary mapping was removed.
+- This commit adds a testable finalizer for in-memory redirect description cleanup. It invokes del_redirect_desc only when the primary mapping is gone and always preserves aggregate firewall status, including secondary cleanup failures. The policy test exercises mocked callback invocation and arguments. Both standalone and inline source contracts are updated.
+- Exact XY-C1 #44804604713 on e085 completed SUCCESS but its Build XY-C1, TRX and artifact steps were all SKIPPED because e085 changed only tests/checkers/docs. This new commit changes production C and requires a fresh exact-source build.
 
 ## Active task
 
-1. Validate this commit's exact-head MiniUPnP and AI handoff workflows. The primary delete checker must enforce successful full enumeration before setting the scan-complete flag. The injected production caller test must compile under GNU89/Werror/ASan/UBSan and pass.
-2. Inspect XY-C1 #44804291706 for source SHA 30af, including Build XY-C1, TRX verification and artifact upload. Count L3 only if all three actually ran and passed on that same SHA.
-3. After this integration test passes, consider injected backend coverage of the lower-level NAT/filter deletion and rollback operation ordering, or move to a separate demonstrated stability/security defect elsewhere in the userland.
-4. Keep following source → test → atomic commit → exact-SHA Actions. Pending unrelated workflows do not block development.
+1. Inspect exact-head MiniUPnP and AI Actions for THIS COMMIT; the finalizer regression and both source contracts must pass.
+2. Inspect the new exact-head XY-C1 run for THIS COMMIT. Count L3 only if Build XY-C1, Verify TRX output and artifact upload all ran and passed on this exact source SHA.
+3. If green, continue injected lower-level primary NAT/filter backend coverage (NAT init/delete failure, filter init/delete failure, rollback success/failure, absent match), or move to a separate concrete userland reliability/security defect.
+4. Keep source → regression → atomic commit → exact-SHA Actions loops running while unrelated jobs are pending.
 
 ## Verification boundary
 
-- Parent 30af: MiniUPnP #44804291730 failed at the normalized scan-loop close assertion; all preceding compile/regression steps passed. AI handoff #44804291590 failed the exact atomic-commit wording assertion.
-- Parent cbe: MiniUPnP #44804109446 failed only in the injected fixture compile; generated code used literal backslash-n delimiters and omitted function signature. These fixture issues are fixed by ce8.
-- Parent 72b: MiniUPnP #44803703734 PASS and AI handoff #44803703663 PASS.
-- XY-C1 #44804291706 on source SHA 30af was still in progress at last poll. Firmware L3 and physical-router L4 remain NOT VERIFIED until their separate gates pass.
+- Parent e085: MiniUPnP #44804604643 PASS; AI docs #44804604650 PASS; injected _upnp_delete_redir caller step PASS. Exact XY #44804604713 overall SUCCESS but Build/TRX/artifact all SKIPPED, so no L3 from that SHA.
+- Product source 30af: process inventory #44804291620 PASS, NVRAM audit #44804291862 PASS. MiniUPnP and AI failures on that SHA were source-checker whitespace and handoff wording issues, fixed and verified on e085. XY #44804291706 was still in progress at last poll.
+- This commit changes netfilter/iptcrdr.c and the policy header and needs a new production-source firmware build.
+- MIPS/uClibc L3 and physical-router L4 remain NOT VERIFIED until their gates pass.
 
 ## Exact first action for the next GPT
 
-Fetch live main and inspect exact-head MiniUPnP and AI documentation runs for this commit. If the injection test fails, inspect its compiler/runtime output and correct the generated translation unit or mock contract. Poll XY-C1 #44804291706, and verify Build XY-C1, TRX validation and artifact upload step conclusions on exact source SHA 30af. Then continue independent implementation.
+Fetch live main and inspect this commit's exact-head MiniUPnP and AI runs. Verify the finalizer policy regression, production delete checker and injected caller test. Poll exact-head XY-C1, and confirm Build XY-C1, TRX validation and artifact upload individually. If any fail, inspect the earliest causal log and fix without weakening assertions. Then continue lower-level delete backend test coverage or another demonstrated userland defect.
 
 ## Handoff maintenance
 
-- Keep dev_log.md newest-first; archive only at the 120-record rotation threshold, retaining the newest 20 records.
-- Update REFACTOR_ROADMAP.md only when the module status, evidence or priority changes materially.
-- Keep host regressions, exact-source firmware L3 and physical hardware L4 as distinct evidence.
+- Keep dev_log.md newest-first; archive only at the 120-record threshold, retaining the newest 20.
+- Update REFACTOR_ROADMAP.md only when module status, evidence or priority materially changes.
+- Host regression, exact-source firmware L3 and physical hardware L4 are distinct verification levels.

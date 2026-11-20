@@ -96,7 +96,8 @@ assert "*primary_removed = 0" in delete
 assert "filter_delete_status = r" in delete
 assert "nat_rollback_attempted = 1" in delete
 assert "miniupnpd_primary_redirect_removed(" in delete
-assert "if (primary_mapping_removed)" in delete
+assert "miniupnpd_finalize_redirect_cleanup(" in delete
+assert "del_redirect_desc" in delete
 assert "delete_redirect_and_filter_rules_ex(eport, proto, NULL)" in legacy_delete
 assert "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto," in IPT_HEADER
 assert "delete_redirect_and_filter_rules_ex(eport, proto, &primary_removed)" in delete_wrapper

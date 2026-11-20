@@ -1,3 +1,14 @@
+## 2026-11-20 — Test primary redirect metadata cleanup through the production policy
+
+- Parent main SHA: e085c6fb89a2906d234c27248d4daebf232e4fcc.
+- Exact-head MiniUPnP #44804604643 and AI documentation #44804604650 both PASS on e085c6f. The injected _upnp_delete_redir caller regression passed under GNU89/Werror/ASan/UBSan.
+- Added miniupnpd_finalize_redirect_cleanup() to the shared cleanup policy and routed production del_redirect_desc() through it. Description metadata is now removed exactly when the primary NAT/filter mapping is confirmed gone, including a secondary peer SNAT/DSCP failure, while the aggregate firewall status is preserved. A mock callback regression covers primary removed/not removed, success/failure status, callback argument identity, exactly-once invocation and a NULL callback.
+- Updated both standalone and inline source contracts to require the tested production finalizer path; no coverage was weakened.
+- XY-C1 #44804291706 on product SHA 30af417 was still building at last observation; that earlier source did not contain this finalizer. Exact XY #44804604713 on e085 succeeded overall but skipped Build/TRX/artifact because e085 changed only tests/checker/docs. This production C change requires a fresh same-SHA Build XY-C1, TRX and artifact gate. Firmware L3 remains NOT VERIFIED.
+- Resulting commit: THIS COMMIT. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Repair NAT scan source contract and restore handoff invariant
 
 - Parent main SHA: ce8daa92ec5a57bcef2d8a662be32c00c6b369c1.
