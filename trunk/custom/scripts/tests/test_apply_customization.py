@@ -3,8 +3,10 @@
 
 import errno
 import importlib.util
+import json
 import os
 import stat
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -125,6 +127,46 @@ class AtomicCustomizationTests(unittest.TestCase):
             apply_customization.atomic_publish_text_files([(link, "replacement\n")])
         self.assertEqual('#define DEF_LAN_ADDR "192.168.2.1"\n',
                          self.defaults.read_text(encoding="utf-8"))
+
+
+    def test_main_updates_lan_ip_in_both_inputs(self):
+        defaults = self.root / "integration_defaults.h"
+        dictionary = self.root / "integration_dict.cn"
+        defaults.write_text(
+            '#define DEF_LAN_ADDR "192.168.2.1"\\n'
+            '#define DEF_LAN_DHCP_BEG "192.168.2.100"\\n'
+            '#define DEF_LAN_DHCP_END "192.168.2.244"\\n',
+            encoding="utf-8",
+        )
+        dictionary.write_text("lan=192.168.2.1\\n", encoding="utf-8")
+
+        environment = {"CUSTOMIZATION_JSON": json.dumps({"lanip": "192.168.2.9"})}
+        arguments = ["apply_customization.py", str(defaults), str(dictionary)]
+        with mock.patch.dict(os.environ, environment):
+            with mock.patch.object(sys, "argv", arguments):
+                apply_customization.main()
+
+        rendered = defaults.read_text(encoding="utf-8")
+        self.assertIn('#define DEF_LAN_ADDR "192.168.2.9"', rendered)
+        self.assertIn('#define DEF_LAN_DHCP_BEG "192.168.2.100"', rendered)
+        self.assertIn('#define DEF_LAN_DHCP_END "192.168.2.244"', rendered)
+        self.assertEqual("lan=192.168.2.9\\n", dictionary.read_text(encoding="utf-8"))
+
+    def test_main_rejects_shared_header_and_dictionary_path(self):
+        target = self.root / "same-input.h"
+        original = (
+            '#define DEF_LAN_ADDR "192.168.2.1"\\n'
+            '#define DEF_LAN_DHCP_BEG "192.168.2.100"\\n'
+            '#define DEF_LAN_DHCP_END "192.168.2.244"\\n'
+        )
+        target.write_text(original, encoding="utf-8")
+        environment = {"CUSTOMIZATION_JSON": json.dumps({"lanip": "192.168.2.9"})}
+        arguments = ["apply_customization.py", str(target), str(target)]
+        with mock.patch.dict(os.environ, environment):
+            with mock.patch.object(sys, "argv", arguments):
+                with self.assertRaises(SystemExit):
+                    apply_customization.main()
+        self.assertEqual(original, target.read_text(encoding="utf-8"))
 
     def test_duplicate_paths_are_rejected_before_publication(self):
         alias = self.root / "." / "defaults.h"

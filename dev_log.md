@@ -1,3 +1,11 @@
+## 2026-11-20 — Cover the customization command-line transaction path
+
+- Parent main SHA: `c037a5685a7c4381d59de250436287e844f11db9`. The exact-head customization regression workflow `44705563908` passed all six low-level failure-injection cases: successful two-file replacement, rollback after the second rename fails, retained original snapshot if rollback itself fails, pre-publication staging failure, symlink rejection and duplicate path rejection.
+- Added two end-to-end `main()` tests to exercise the actual `CUSTOMIZATION_JSON`/CLI path used by `setip.sh`: updating the three LAN macros together with the language dictionary, and rejecting a shared header/dictionary target without changing it. The same dedicated workflow discovers these tests automatically.
+- This closes the integration gap between the transaction helper and its production caller; no product C source changed.
+
+---
+
 ## 2026-11-20 — Stage and compensate multi-file firmware customization writes
 
 - Parent main SHA: `99b96ecf425e6986e4298b106a9e67f1545afd26`. Found a partial-update defect in `trunk/custom/scripts/apply_customization.py`: LAN-IP customization rewrote `defaults.h` in place, then rewrote the Chinese dictionary separately. A failure during the second write could leave the two build inputs inconsistent; either direct write could truncate its target before all new content was safely written.
