@@ -131,6 +131,21 @@ deconfig_end = lan.index("udhcpc_lan_bound(", deconfig_start)
 deconfig = lan[deconfig_start:deconfig_end]
 assert "status = lan_down_auto(lan_ifname);" in deconfig
 assert "return status;" in deconfig
+
+# udhcpc -d backgrounds before publishing its identity PID file.  Do not
+# treat the detached launcher exit as proof that the DHCP child survived.
+lan_dhcp_start = c_function_body(lan, "start_udhcpc_lan(char *lan_ifname)")
+assert '#include <process_pidfile.h>' in lan
+assert '#include "process_presence_start_policy.h"' in lan
+assert "launch_status = _eval(dhcp_argv, NULL, 0, NULL);" in lan_dhcp_start
+assert "if (launch_status != 0)" in lan_dhcp_start
+assert 'process_pidfile_read_identity( "/var/run/udhcpc_lan.pid", "udhcpc", &identity)' in compact(lan_dhcp_start)
+assert "process_presence_start_postcondition( launch_status, presence)" in compact(lan_dhcp_start)
+assert "PROCESS_PRESENCE_START_PROBE_ATTEMPTS" in lan_dhcp_start
+assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in lan_dhcp_start
+assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in lan_dhcp_start
+assert "presence == PROCESS_PRESENCE_UNKNOWN" in lan_dhcp_start
+assert "return ETIMEDOUT;" in lan_dhcp_start
 leasefail = c_function_body(lan, "udhcpc_lan_leasefail(char *lan_ifname)")
 assert 'no DHCP lease available on %s; udhcpc will retry acquisition' in leasefail
 assert "return 0;" in leasefail

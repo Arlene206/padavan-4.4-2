@@ -1,3 +1,10 @@
+## 2026-11-20 — Verify the detached LAN udhcpc child before accepting startup
+
+- Parent main SHA: `e91c3a18c0dd676c4d4d7cd7b552b30792aaf655`.
+- BusyBox `udhcpc -d` calls `bb_daemonize()` before writing `/var/run/udhcpc_lan.pid` with its PID/start_time identity. Consequently `_eval()` waits only for the short-lived daemonizing parent; a post-fork PID-file or signal-setup failure could make RC report success even though the AP DHCP child exited.
+- `start_udhcpc_lan()` now performs a bounded readiness probe using `process_pidfile_read_identity()` and the shared RUNNING/ABSENT/UNKNOWN policy. It accepts only the exact live PID/start_time identity, retries ABSENT for the shared four-probe window, and propagates UNKNOWN, interrupted-wait, timeout and launcher failures. No broad process-name-only match can satisfy the gate.
+- The WAN-DHCP source contract now asserts this startup postcondition. The shared process-presence policy binary already covers launcher failure, RUNNING success, ABSENT rejection and UNKNOWN rejection. Exact-head Process, WAN-DHCP and XY-C1 validation required; physical L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Log LAN DHCP acquisition failures without disturbing lease state
 
 - Parent main SHA: `8e3c5143e5bcfd24e5b9886e7aa35df013adf463`.
