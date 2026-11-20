@@ -531,7 +531,6 @@ init_openvpn_tun_node(void)
 	return 0;
 }
 
-static int
 #if defined(USE_HW_NAT) || defined(USE_MTK_AES)
 static int
 init_optional_device_node(const char *path, dev_t device)

@@ -1,3 +1,11 @@
+## 2026-11-20 — Fix PID 1 optional-device helper declaration after XY-C1 compile caught it
+
+- Parent main SHA: `03f7d64c53a8156c563fcd9c5eba4d118aaa4b2b`. Process lifecycle run `44708880390` passed its exact-source host regressions; PID 1 mdev security `44709299228` and HTTPD security `44709436383` passed their checker follow-ups.
+- The XY-C1 source build `44708879934` reached the RC target but failed compiling `init.c:536` with duplicate `static`. The function-body replacement had left the original `static int` prefix immediately before the new feature guard; the source contract and host binaries could not detect this invalid declaration boundary.
+- Removed the orphaned qualifier so the conditional helper declaration starts at file scope. This is a production source correction; exact-head MIPS build, TRX and artifact verification are required again. The failed build did not produce a valid firmware artifact.
+
+---
+
 ## 2026-11-20 — Fix HTTPD umbrella source contract for optional boot-node initialization
 
 - Parent main SHA: `d8f3b8b81ae678958bb108a5774c52800ca0973e`. Process lifecycle validation passed on `75b3d0097558e685cf243047a8d77df77ee93f3d`; the PID 1 mdev checker follow-up is queued separately.
