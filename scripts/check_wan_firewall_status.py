@@ -527,9 +527,16 @@ for case in (
 param_copy = body(wan, "set_wan_unit_param_status(int unit, const char *param_name)")
 require('snprintf(wan_param, sizeof(wan_param), "wan_%s", param_name)' in param_copy,
         "checked WAN parameter copy must read the unindexed source key")
-require("return set_wan_unit_value_status(unit, param_name," in param_copy and
-        "nvram_safe_get(wan_param)" in param_copy,
-        "checked WAN parameter copy must propagate the per-WAN NVRAM setter status")
+require("nvram_transaction_begin(&transaction)" in param_copy and
+        "nvram_transaction_get(&transaction, wan_param, &source_value)" in param_copy and
+        "nvram_transaction_set(" in param_copy and
+        '(read_result == 1) ? source_value : ""' in param_copy and
+        "nvram_transaction_end(&transaction)" in param_copy,
+        "checked WAN parameter copy must distinguish read errors from missing keys and publish atomically")
+require("rc_wan_nvram_read_status(read_result, saved_errno)" in param_copy,
+        "checked WAN parameter copy must propagate backend read failures")
+require("nvram_safe_get(wan_param)" not in param_copy,
+        "checked WAN parameter copy must not turn backend read errors into empty settings")
 param_callback = body(wan, "set_wan_unit_param_status_callback(")
 require("return set_wan_unit_param_status(*unit, param_name);" in param_callback,
         "static IPoE copy callback must propagate the checked NVRAM write status")

@@ -12,6 +12,18 @@ rc_wan_nvram_write_status(int api_result, int saved_errno)
 	return saved_errno > 0 ? saved_errno : EIO;
 }
 
+
+/* Checked NVRAM reads distinguish an absent key from a backend failure. */
+static int
+rc_wan_nvram_read_status(int api_result, int saved_errno)
+{
+	if (api_result == 0 || api_result == 1)
+		return 0;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	return EIO;
+}
+
 typedef int (*rc_wan_nvram_param_set_fn)(void *context,
 					 const char *param_name);
 

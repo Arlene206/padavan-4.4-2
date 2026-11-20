@@ -72,6 +72,32 @@ test_invalid_required_param_arguments_fail_closed(void)
 	assert(fake.calls == 0);
 }
 
+
+static void
+test_checked_read_accepts_present_and_absent_values(void)
+{
+	assert(rc_wan_nvram_read_status(1, EACCES) == 0);
+	assert(rc_wan_nvram_read_status(0, EIO) == 0);
+}
+
+static void
+test_checked_read_preserves_backend_error(void)
+{
+	assert(rc_wan_nvram_read_status(-1, EACCES) == EACCES);
+}
+
+static void
+test_checked_read_without_errno_falls_back_to_eio(void)
+{
+	assert(rc_wan_nvram_read_status(-1, 0) == EIO);
+}
+
+static void
+test_checked_read_rejects_unexpected_result(void)
+{
+	assert(rc_wan_nvram_read_status(2, 0) == EIO);
+}
+
 static void
 test_success_ignores_stale_errno(void)
 {
@@ -271,6 +297,10 @@ main(void)
 	test_successful_required_param_sequence();
 	test_required_param_sequence_stops_at_first_error();
 	test_invalid_required_param_arguments_fail_closed();
+	test_checked_read_accepts_present_and_absent_values();
+	test_checked_read_preserves_backend_error();
+	test_checked_read_without_errno_falls_back_to_eio();
+	test_checked_read_rejects_unexpected_result();
 	test_success_ignores_stale_errno();
 	test_failure_preserves_errno();
 	test_failure_without_errno_falls_back_to_eio();

@@ -103,8 +103,10 @@ set_wan_unit_value_status(int unit, const char *param_name, const char *value)
 static int
 set_wan_unit_param_status(int unit, const char *param_name)
 {
-	char wan_param[64];
-	int path_len;
+	struct nvram_transaction transaction;
+	char wan_param[64], wanN_param[64], *source_value = NULL;
+	int path_len, read_result, api_result, saved_errno;
+	int status = 0, end_status;
 
 	if (!param_name || !param_name[0])
 		return EINVAL;
@@ -115,8 +117,42 @@ set_wan_unit_param_status(int unit, const char *param_name)
 	if ((size_t)path_len >= sizeof(wan_param))
 		return ENAMETOOLONG;
 
-	return set_wan_unit_value_status(unit, param_name,
-					 nvram_safe_get(wan_param));
+	path_len = snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s",
+			    unit, param_name);
+	if (path_len < 0)
+		return errno ? errno : EIO;
+	if ((size_t)path_len >= sizeof(wanN_param))
+		return ENAMETOOLONG;
+
+	/* Read the shared setting and publish the WAN-unit copy under one lock. */
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno ? errno : EIO;
+
+	errno = 0;
+	read_result = nvram_transaction_get(&transaction, wan_param, &source_value);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_status(read_result, saved_errno);
+	if (status == 0 && read_result == 1 && !source_value)
+		status = EIO;
+
+	if (status == 0) {
+		errno = 0;
+		api_result = nvram_transaction_set(
+			&transaction, wanN_param,
+			(read_result == 1) ? source_value : "", 1);
+		saved_errno = errno;
+		status = rc_wan_nvram_write_status(api_result, saved_errno);
+	}
+
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+	}
+
+	return status;
 }
 
 static int
