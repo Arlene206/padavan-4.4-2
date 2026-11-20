@@ -305,11 +305,17 @@ snapshot_pos = iptv_setup.index("vlan_flags = get_interface_flags(viptv_ifname);
 create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
 bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
 rp_filter_pos = iptv_setup.index('ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);')
-old_vlan_cleanup = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);")
-old_vlan_clear = iptv_setup.index('ret = wan_viptv_ifname_publish_status("");', old_vlan_cleanup)
+old_vlan_branch = iptv_setup.index("/* Remove a no-longer-used VLAN")
+old_vlan_replace = iptv_setup.index("ret = wan_viptv_ifname_remove_old_vlan(", old_vlan_branch)
+old_vlan_plain_remove = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);", old_vlan_branch)
+old_vlan_policy = body(viptv_policy, "wan_viptv_ifname_remove_old_vlan(")
 publish_pos = iptv_setup.index("ret = wan_viptv_ifname_publish_or_rollback(", rp_filter_pos)
-require(snapshot_pos < old_vlan_cleanup < old_vlan_clear < create_pos < bridge_pos < rp_filter_pos < publish_pos,
-        "IPTV startup must snapshot VLAN ownership, clear stale identity, create/bridge transactionally, set rp_filter, then commit the active identity")
+require(snapshot_pos < old_vlan_branch < old_vlan_replace < old_vlan_plain_remove < create_pos < bridge_pos < rp_filter_pos < publish_pos,
+        "IPTV startup must snapshot replacement VLAN ownership, clear old VLAN identity before removal, then commit the new identity after setup")
+require(old_vlan_policy.index("ops->clear_identity(context)") <
+        old_vlan_policy.index("ops->remove_vlan(context)") <
+        old_vlan_policy.index("ops->restore_identity(context)"),
+        "old IPTV VLAN removal must restore its recovery identity if interface removal fails")
 for operation in ("ret = create_vlan_iface_tracked(",
                   "ret = config_soft_bridge_wan_internal(",
                   'ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);'):
@@ -404,6 +410,13 @@ require("python3 scripts/check_wan_vlan_setup.py" in workflow,
         "WAN workflow must execute the VLAN/bridge source contract")
 
 viptv_test = (rc / "tests/wan_viptv_static_policy.c").read_text()
+for case in ("test_old_vlan_metadata_is_cleared_before_vlan_removal",
+             "test_old_vlan_clear_failure_preserves_vlan_and_skips_removal",
+             "test_old_vlan_remove_failure_restores_recovery_identity",
+             "test_old_vlan_restore_failure_preserves_remove_error",
+             "test_old_vlan_transition_rejects_incomplete_callbacks"):
+    require(case in viptv_test and case + "();" in viptv_test,
+            "old IPTV VLAN replacement regression missing " + case)
 for case in ("test_old_vlan_metadata_is_cleared_before_vlan_removal",
              "test_old_vlan_clear_failure_preserves_vlan_and_skips_removal",
              "test_old_vlan_remove_failure_restores_recovery_identity",

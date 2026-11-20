@@ -1,3 +1,11 @@
+## 2026-11-20 — Pin the old IPTV VLAN clear/remove compensation policy in CI
+
+- Parent main SHA: `bb9d0ee5307911eeae81575f6ea916f54ef0e361`. This checker/log follow-up fixes the exact-head WAN route failure from the new VLAN transition commit; production C and policy tests remain unchanged in this checker-only slice.
+- Exact WAN route run `44704885931` on `bb9d0ee5307911eeae81575f6ea916f54ef0e361` compiled and passed the route-cleanup, NVRAM snapshot and static IPTV host policy regressions, then failed in `scripts/check_wan_vlan_setup.py` because the old contract still expected `wan_viptv_ifname_publish_status("")` after `remove_vlan_iface()`. The production path now calls the transactional old-VLAN helper, which clears identity first, removes the VLAN, and restores the identity if removal fails. Update the source contract to inspect that policy order and assert all five registered injected cases.
+- The exact source commit `bb9d0ee5` also triggered the XY-C1 firmware validation and broader WAN host workflows; final firmware status must be refreshed before any L3 PASS claim. No local compile/test was possible in this environment.
+
+---
+
 ## 2026-11-20 — Preserve IPTV VLAN recovery identity during old-VLAN removal
 
 - Parent main SHA: `e28b6a456d136e50b401886825658c2698a509b3`; re-applied on top of concurrent checker fix `e28b6a456d136e50b401886825658c2698a509b3` without overwriting its loader/source-check changes.
