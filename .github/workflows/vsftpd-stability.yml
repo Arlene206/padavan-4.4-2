@@ -214,12 +214,23 @@ jobs:
           assert "file_fd = ftp_acl_path_open_upload_entry(" in upload_open
           assert "O_CREAT | O_EXCL" in upload_entry
           assert "if (errno != EEXIST)" in upload_entry
-          assert "return openat(dir_fd, leaf, flags, mode);" in upload_entry
+          existing_upload_open = "file_fd = openat(dir_fd, leaf, flags, mode);"
+          existing_open_pos = upload_entry.index(existing_upload_open)
+          existing_fstat_pos = upload_entry.index("fstat(file_fd, &opened)", existing_open_pos)
+          existing_type_gate = upload_entry.index("!S_ISREG(opened.st_mode)", existing_fstat_pos)
+          existing_return = upload_entry.index("return file_fd;", existing_type_gate)
+          assert existing_open_pos < existing_fstat_pos < existing_type_gate < existing_return
+          assert "close(file_fd);" in upload_entry[existing_fstat_pos:existing_return]
+          assert "errno = EINVAL;" in upload_entry[existing_type_gate:existing_return]
           assert "*cleanup_allowed = 1;" in upload_entry
           assert "*cleanup_allowed = 1;" not in resolve_upload
           assert "failed-existing-upload.txt" in acl_path_test
           assert "failed STOR cleanup removed a pre-existing file" in acl_path_test
           assert "failed-new-upload.txt" in acl_path_test
+          assert 'mkfifoat(upload_dir_fd, "failed-upload-fifo", 0600)' in acl_path_test
+          assert 'O_RDONLY | O_NONBLOCK | O_CLOEXEC' in acl_path_test
+          assert "existing STOR FIFO was accepted as a regular upload target" in acl_path_test
+          assert "S_ISFIFO(st.st_mode)" in acl_path_test
           assert upload_open.index("ftp_acl_path_verify_directory_identity(resolved_parent, parent_fd)") < upload_open.index("ftp_acl_path_open_upload_entry(parent_fd, p_leaf")
           assert "stat(resolved_parent, &expected_parent)" not in upload_open
           assert "p_sess, p_filename, 1," in upload

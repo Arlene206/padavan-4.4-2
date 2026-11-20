@@ -1,3 +1,13 @@
+## 2026-11-20 — Reject FIFO and special-file targets for existing FTP STOR
+
+- Parent main SHA: `107b57abb1374ff57b275dba2c78a0c5069dabf0`. Current exact-main Actions at checkpoint: Process inventory `44732688655` PASS, Process fail-closed `44732688588` PASS, AI docs `44732688571` PASS; XY-C1 `44732688670` and NVRAM boundary `44732688631` were IN_PROGRESS. WAN teardown exact rerun on `be32768262941acab4bebf9d747db381ec4a93b2` passed `44732616912`; WAN route contract passed on `505b26f` (`44732377886`). Same-SHA XY source L3 is not established until Build/TRX/artifact all pass together.
+- FTP source review found an asymmetry: RETR/SIZE and ACL config reads reject non-regular descriptors, but the existing-file STOR branch in `ftp_acl_path_open_upload_entry()` reopened an existing leaf with `O_WRONLY|O_NONBLOCK|O_NOFOLLOW` and returned it without `fstat()`. A pre-existing FIFO with an active reader could therefore be accepted as a remote write destination; the upload code also does not reject non-regular descriptors after open.
+- The existing STOR branch now fstats the descriptor actually returned by openat(), rejects non-regular inodes with `EINVAL`, closes on both fstat and type failures, and preserves the fstat errno. New O_EXCL-created upload targets remain regular by construction and keep their cleanup eligibility semantics unchanged.
+- Added a FIFO regression with a nonblocking reader so the underlying O_WRONLY open itself succeeds; it asserts STOR helper rejects it, clears cleanup eligibility, and leaves the FIFO entry intact. VSFTPD workflow source contract requires the exact open→fstat→S_ISREG gate and the FIFO regression. Header/test already belong to both push and pull_request trigger paths.
+- Target MIPS/uClibc and live FTP compatibility remain to be checked by exact-head Actions and current-source XY-C1. FTP physical-device L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Correct Ralink 802.1X diagnostic newline escapes
 
 - Parent main SHA: be32768262941acab4bebf9d747db381ec4a93b2.

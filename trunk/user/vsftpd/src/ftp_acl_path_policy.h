@@ -546,8 +546,10 @@ static int
 ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
                                mode_t mode, int *cleanup_allowed)
 {
+  struct stat opened;
   int file_fd;
   int flags;
+  int saved_errno;
 
   if (dir_fd < 0 || !leaf || !*leaf || strchr(leaf, '/') ||
       strcmp(leaf, ".") == 0 || strcmp(leaf, "..") == 0 ||
@@ -579,7 +581,21 @@ ftp_acl_path_open_upload_entry(int dir_fd, const char *leaf, int exclusive,
   if (errno != EEXIST)
     return -1;
 
-  return openat(dir_fd, leaf, flags, mode);
+  file_fd = openat(dir_fd, leaf, flags, mode);
+  if (file_fd < 0)
+    return -1;
+  if (fstat(file_fd, &opened) != 0) {
+    saved_errno = errno;
+    close(file_fd);
+    errno = saved_errno;
+    return -1;
+  }
+  if (!S_ISREG(opened.st_mode)) {
+    close(file_fd);
+    errno = EINVAL;
+    return -1;
+  }
+  return file_fd;
 }
 
 /*

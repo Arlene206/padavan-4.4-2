@@ -68,6 +68,7 @@ main(void)
   char tiny[2];
   int cleanup_allowed, dir_fd, race_fd, rollback_fd, replacement_fd;
   int upload_dir_fd, upload_fd, existing_upload_fd;
+  int upload_fifo_reader_fd;
   int duplicate_cleanup_allowed;
   int existing_dir_fd, existing_file_fd, remove_parent_fd;
   int child_parent_fd, child_dir_fd;
@@ -556,6 +557,40 @@ main(void)
     perror("open failed-upload fixture directory");
     return 1;
   }
+  if (mkfifoat(upload_dir_fd, "failed-upload-fifo", 0600) != 0) {
+    perror("create existing STOR FIFO fixture");
+    return 1;
+  }
+  upload_fifo_reader_fd = openat(upload_dir_fd, "failed-upload-fifo",
+                                 O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+  if (upload_fifo_reader_fd < 0) {
+    perror("open existing STOR FIFO reader");
+    return 1;
+  }
+  cleanup_allowed = 1;
+  errno = 0;
+  upload_fd = ftp_acl_path_open_upload_entry(
+      upload_dir_fd, "failed-upload-fifo", 0, 0600,
+      &cleanup_allowed);
+  if (upload_fd >= 0 || errno != EINVAL || cleanup_allowed) {
+    if (upload_fd >= 0)
+      close(upload_fd);
+    close(upload_fifo_reader_fd);
+    fprintf(stderr, "existing STOR FIFO was accepted as a regular upload target\n");
+    return 1;
+  }
+  if (fstatat(upload_dir_fd, "failed-upload-fifo", &st,
+              AT_SYMLINK_NOFOLLOW) != 0 || !S_ISFIFO(st.st_mode)) {
+    close(upload_fifo_reader_fd);
+    fprintf(stderr, "rejected STOR FIFO was modified or replaced\n");
+    return 1;
+  }
+  if (close(upload_fifo_reader_fd) != 0 ||
+      unlinkat(upload_dir_fd, "failed-upload-fifo", 0) != 0) {
+    perror("clean existing STOR FIFO fixture");
+    return 1;
+  }
+
   cleanup_allowed = 1;
   upload_fd = ftp_acl_path_open_upload_entry(
       upload_dir_fd, "failed-existing-upload.txt", 0, 0600,

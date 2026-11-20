@@ -1,10 +1,10 @@
 # 2026-11-20 active checkpoint
 
-- Parent main SHA for this workflow-filter correction: `505b26f869c63261508e377360022e0fc0936707`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- CLOSED: WAN mirror/runtime-identity pair, Samba private-directory permission, Ralink 802.1X interface/NAS/RADIUS bounds, NTP readiness persistence.
-- ACTIVE: deferred WAN reconnect checked NVRAM state handling, source `ab02b36`. GNU89/Werror/ASan/UBSan C policy binaries passed; exact WAN route run `44732377886` PASS. WAN teardown `44732377859` exposed only missing PR path-filter entries, corrected in this commit.
-- Product source `8ce56358`: Process inventory, Process fail-closed and NVRAM boundary PASS; XY-C1 `44732095014` pending Build/TRX/artifact completion. Do not claim L3 before all three product steps pass on that SHA.
-- NEXT: verify the WAN teardown rerun and complete same-source XY-C1; while pending, continue an independent cross-userland P1 reliability/security issue. Physical-router L4 remains NOT VERIFIED.
+- Main parent for this FTP stability slice: `107b57abb1374ff57b275dba2c78a0c5069dabf0`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- CLOSED: WAN mirror/runtime identity, Samba private-directory mode, Ralink RADIUS/interface bounds, NTP readiness retry.
+- ACTIVE: FTP existing-STOR descriptor validation. Newly confirmed: an existing FIFO with an active reader could pass the upload open path because only `O_NOFOLLOW` was used; fix now rejects all non-regular opened descriptors and adds an active-reader FIFO test.
+- Parent `107b57`: Process inventory/fail-closed and AI docs PASS; NVRAM boundary and XY-C1 were pending at last poll. New FTP exact-head host validation and same-SHA XY-C1 L3 required.
+- NEXT: inspect exact VSFTPD regression/source-contract Actions; check exact product-source XY-C1 Build/TRX/artifact. Physical-device L4 remains NOT VERIFIED.
 
 ## Whole-repository module status
 

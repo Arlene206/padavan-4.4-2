@@ -1,28 +1,33 @@
 # 2026-11-20 continuation checkpoint
 
-This live checkpoint supersedes older summaries. Resume on current main; do not repeat completed WAN mirror/runtime-identity, Samba mode, Ralink interface/NAS/RADIUS field-bound or NTP-readiness work.
+This live checkpoint supersedes older summaries. Continue from current main; do not repeat completed WAN mirror/runtime-identity, Samba mode, Ralink RADIUS bounds or NTP-readiness work.
 
 ## Git state
 
-- Parent main SHA for this path-filter correction: `505b26f869c63261508e377360022e0fc0936707`.
-- Deferred WAN reconnect production fix: `ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6`.
-- Main retained independent Ralink 802.1X RADIUS hardening commits `cd300104a22cd1d9d33e2c3f9fef4e970204344a` and `8ce56358d91e9fb937417a30751fb86cd8c71f0e`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only). Main-only, complete-tree atomic commits, CAS update with force=false, no force-push.
+- Main parent for the current FTP STOR slice: `107b57abb1374ff57b275dba2c78a0c5069dabf0`.
+- Deferred WAN reconnect correction: `ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6`; exact WAN route `505b26f` PASS and exact WAN teardown on PR-filter follow-up `be327682` PASS (`44732616912`). Process inventory/fail-closed and NVRAM boundary checks passed on product-source parent `8ce56358`; AI docs passed on `107b57`. Do not reuse earlier XY-C1 artifacts for changed source SHAs.
+- Main RADIUS hardening preserved through `cd300104`, `8ce56358`, and newline-escape correction `107b57abb1374ff57b275dba2c78a0c5069dabf0`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` read-only. Atomic main-only trees/commits, expected-SHA CAS with force=false; no force-push.
 
-## Deferred WAN reconnect — current validation
+## Active FTP stability fix
 
-- Source `ab02b36` adds checked `deferred_wanup_t` publication/clear, guarded positive signed-int deadline arithmetic, failure propagation from both teardown paths, and deferred-startup clear gating.
-- The regression C binaries compile and run under GNU89/Werror/ASan/UBSan. Exact source-contract failures were fixed incrementally from their job logs; coverage was not relaxed.
-- Exact checker-repair SHA `505b26f869c63261508e377360022e0fc0936707`: WAN route run `44732377886` PASS; AI docs `44732378051` PASS. WAN teardown `44732377859` then failed only because the new header/test path entries had been added to push filters but omitted from pull_request filters; this checkpoint corrects the missing two PR paths.
-- Product source at `8ce56358d91e9fb937417a30751fb86cd8c71f0e` has Process inventory `44732095102`, Process fail-closed `44732095105`, and NVRAM boundary `44732095026` PASS. Its XY-C1 run `44732095014` was IN_PROGRESS at last poll. L3 requires Build XY-C1, TRX verification and artifact upload on one exact product-source SHA.
-- Physical router L4 remains NOT VERIFIED.
+- Found that existing STOR targets were reopened with `O_WRONLY|O_NONBLOCK|O_NOFOLLOW` but the opened descriptor was not fstat-checked. This admitted an existing FIFO when a reader was present, unlike the regular-file-only RETR/SIZE and ACL-config read paths.
+- Current slice adds fstat on the opened descriptor, rejects non-regular targets with `EINVAL`, preserves fstat errors, and adds a FIFO regression with a nonblocking active reader. The VSFTPD workflow source contract checks open→fstat→S_ISREG ordering and the regression.
+- Exact-host VSFTPD policy/source-contract result for this slice and exact-source XY-C1 Build/TRX/artifact have not yet run at checkpoint creation.
+- Exact main parent `107b57`: Process inventory `44732688655`, Process fail-closed `44732688588`, and AI docs `44732688571` PASS; NVRAM boundary `44732688631` and XY-C1 `44732688670` were IN_PROGRESS at last poll.
 
 ## Exact first actions
 
-1. Check the exact-head WAN teardown rerun triggered by this path-filter change; fix only causal failures in its job log. WAN route source-contract validation already passed on `505b26f`.
-2. Check exact XY-C1 run `44732095014` for source SHA `8ce56358`; confirm Build, TRX and artifact upload all PASS before claiming L3.
-3. Continue an independent cross-userland P1 reliability/security fix while CI is pending. Do not repeat the closed audits listed above.
-4. Keep host L2, exact-head Actions, MIPS/TRX/artifact L3 and physical-router L4 separate.
+1. Verify the exact-head `vsftpd-stability.yml` run for this commit. Fix causal failures from logs; the FIFO test should run with an active reader and confirm type rejection.
+2. Check XY-C1 `44732688670` for source `107b57`; verify Build, TRX and artifact upload are all successful on that same SHA before claiming L3.
+3. Continue an independent cross-userland P1 stability/security defect while Actions are pending. Avoid repeating closed WAN, Ralink and Samba reviews.
+4. Physical router/FTP L4 remains NOT VERIFIED.
+
+## Verification boundary
+
+- Deferred WAN source `ab02b36`: GNU89/Werror/ASan/UBSan C policies passed on the first exact workflow run; source contracts repaired. Exact WAN route check passed on `505b26f`; exact WAN teardown rerun on `be327682` passed.
+- FTP STOR FIFO protection in this new slice is not L2/L3 verified until exact-head host regression and source-triggered XY-C1 Build/TRX/artifact complete.
+- Keep host L2, exact-head Actions, exact-source MIPS/TRX/artifact L3 and physical-device L4 distinct.
 
 
 ---
