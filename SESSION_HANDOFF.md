@@ -12,31 +12,31 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Current main before this WAN source-contract repair: `822f88b10ce52e2ba735f4d51cac12d684a0853c`.
+- Main before this protocol staging correction: `616f06e9ba246c47419672693666431fac5deb8f`.
 - Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; read-only and untouched.
-- Product source SHA `68571af7f68f820569400543e80ee7f9e7a3f148`: Process regression/inventory, AI docs, Firewall Startup Stability, NVRAM transaction audit and WAN NVRAM/DDNS checks passed. Exact XY-C1 run `44674653396` passed detector, Build XY-C1, TRX verification and artifact upload (job `136083493218`). L3 is established for `68571af`, not later production code. Physical-router L4 remains NOT VERIFIED.
-- Checker/workflow head `0d04cab`: WAN route `44675647123`, HTTPD `44675647093`, miniupnpd `44675647150`, and AI docs `44675647174` passed.
-- WAN active-interface source commit `822f88b10ce52e2ba735f4d51cac12d684a0853c` adds fail-closed `wanN_ifname_t` publication to RAS, PPP and IPoE paths. WAN route `44676321120`, Process inventory `44676321232`, AI docs `44676321121`, VPN `44676321034`, WAN teardown `44676321169`, wireless `44676320974`, ZeroTier `44676321181`, dnsmasq `44676320940`, WAN DHCP `44676320992`, miniupnpd `44676321033`, HTTPD `44676320960`, watchdog `44676321080`, Detect WAN ARP `44676320985`, Detect internet `44676320958`, and Detect link `44676321015` all PASS.
-- Exact failures on `822f88b`: Process regression `44676321052`, USB modem `44676321204`, Firewall Startup Stability `44676321094`. All three reached `scripts/check_modem_wan_start_status.py:369`, whose exact aggregate count expected 22; the source correctly contains 28 after six new merges (failed publication + recovery status in each of three paths). Earlier relevant C/unit checks and WAN-specific firewall contracts passed before this stale assertion.
-- XY-C1 `44676321180` and NVRAM boundary `44676320949` were IN_PROGRESS at last poll. Do not claim L3 for `822f88b` yet.
+- WAN active-interface product commit `822f88b` gates RAS/PPP/IPoE firewall/client startup on checked `wanN_ifname_t` writes. Its WAN route regression passed; three shared workflows initially failed only on the stale 22-versus-28 first-error aggregate count. Checker repair commit `616f06e` expects 28 and explicitly verifies all three new paths. On exact `616f06e`, Firewall Startup `44676888660`, USB modem identity `44676888577` and AI docs `44676888701` PASS; Process regression `44676888646` was IN_PROGRESS at last check.
+- The original WAN recovery fix `68571af` has L3 VERIFIED: XY-C1 run `44674653396` passed production detector, MIPS build, TRX and artifact upload on that exact source SHA. Do not generalize that result to newer source commits. Physical-router L4 remains NOT VERIFIED.
+- No exact-head XY-C1/Build/TRX/artifact result for `822f88b` is established yet; its first XY-C1 run stopped before build because the shared startup checker had the stale aggregate-count assertion.
 
 ## Active task completed in this slice
 
-- Fixed the shared startup-status source contract to expect 28 first-error merges rather than 22, matching the six deliberate result accumulations introduced by three active-WAN interface publication failure paths.
-- Added per-protocol assertions for RAS, PPP and IPoE. Each must capture the status-returning `ifname_t` write, aggregate its failure, invoke physical-WAN recovery, aggregate the recovery result, log the error and abort with `continue`.
-- No production source or compiled test was changed or weakened by this checker correction. Existing Process, USB modem and Firewall Startup workflows already run this shared checker.
+- Confirmed `get_wan_proto(int unit)` in `trunk/user/shared/src/netutils.c` reads `wanN_proto`; `reset_wan_vars()` copied configured `wan_proto` into this key using unchecked void `set_wan_unit_param()`, then immediately used it to choose PPP/IPoE setup. If the NVRAM write failed, a stale prior protocol could route the restart down the wrong WAN branch.
+- Added checked staging via `set_wan_unit_value_status(unit, "proto", nvram_safe_get("wan_proto"))`. On failure the errno-normalized status is logged, latched and returned before `get_wan_proto()`.
+- Preserved the public `void reset_wan_vars(void)` ABI with a wrapper. The boot path's legacy caller is covered by the private latch; `start_wan()` aborts before sysctl/VLAN/firewall/network side effects if the staged protocol failed. Full restart and reconnect use the status implementation directly and return the failure immediately.
+- Extended `scripts/check_wan_firewall_status.py` to pin stage-before-read, failure latch/return, the legacy wrapper, and fail-closed gates in boot/start/restart/reconnect paths. Existing GNU89/Werror/ASan/UBSan WAN NVRAM status test covers errno normalization; the WAN route workflow already runs this checker.
+- Exact-head verification for THIS commit is pending. No production-source L3 or physical L4 claim is made for this change.
 
 ## Verification boundary
 
-- This checker-only repair has not yet been validated by exact-head Actions.
-- The exact `822f88b` Process regression, USB modem identity and Firewall Startup failures were all caused by the single outdated aggregate-count assertion. The other listed exact-head contracts passed as above.
-- XY-C1 `44676321180` and NVRAM boundary `44676320949` were pending at last poll. L3 for the new source SHA is NOT VERIFIED; no physical-router L4 test was performed.
+- On exact checker head `616f06e`, Firewall Startup run `44676888660`, USB modem identity run `44676888577`, and AI docs run `44676888701` PASS. Process lifecycle regression run `44676888646` was still IN_PROGRESS at last poll.
+- No local full-repository build is available. Do not claim a MIPS build or host binary pass for the new protocol-reset source change until exact Actions report it.
+- L3 requires the production-input detector, Build XY-C1, TRX verification and artifact upload all PASS on one identical source SHA. L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head Actions for this checker repair. Confirm Process regression, USB modem identity and Firewall Startup Stability now pass with the new per-branch assertions; inspect any remaining causal log.
-2. Check same-source NVRAM boundary and XY-C1. Require production-input detector, Build XY-C1, TRX verification and artifact upload on one identical SHA before claiming L3 for `822f88b`.
-3. Continue the P1 NVRAM publication audit only where firewall/interface/route/daemon behavior consumes the written value. Inspect `set_wan_unit_value_int()`, `set_wan_unit_param()` and direct `nvram_set*_temp()` calls narrowly; do not bulk-convert telemetry or unrelated UI state. Fix the next proven failure-sensitive callsite with an injected regression and source contract.
+1. Fetch live `main` and inspect exact-head WAN route, Firewall Startup, Process regression/inventory, USB modem identity, AI docs and NVRAM transaction Actions for THIS protocol-reset commit; diagnose any first causal log.
+2. Require same-SHA XY-C1 detector, MIPS Build, TRX verification and artifact upload before claiming L3 for this source change.
+3. Continue the critical reset/NVRAM staging audit from `reset_wan_vars_status()`: inspect only failure-sensitive `set_wan_unit_param()` copies for static IP/netmask/gateway/MTU and PPP options that later drive `ifconfig`, routes, authentication and daemon launch. Preserve optional telemetry and void ABI; fix the next proven callsite with first-error propagation and an injected/source regression.
 
 ## Mandatory handoff checkpoint
 

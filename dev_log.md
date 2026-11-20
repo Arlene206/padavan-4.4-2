@@ -1,3 +1,13 @@
+## 2026-11-20 13:02 CST — Gate WAN reset on checked configured-protocol staging
+
+- Parent main SHA: `616f06e9ba246c47419672693666431fac5deb8f`. Confirmed `get_wan_proto(unit)` reads `wanN_proto` in `trunk/user/shared/src/netutils.c`; `reset_wan_vars()` previously copied configured `wan_proto` into this key through the unchecked void setter, then immediately used it to choose PPP/IPoE setup. A failed write could silently retain the previous protocol and select the wrong WAN activation path.
+- Added checked staging via `set_wan_unit_value_status(unit, "proto", nvram_safe_get("wan_proto"))`. On failure the errno-normalized status is latched/logged and reset returns before `get_wan_proto()`.
+- Preserved public `void reset_wan_vars(void)` ABI as a wrapper. The boot path's legacy caller is covered by the private latch, and `start_wan()` refuses WAN side effects when the latch is set. Full restart and reconnect use the status implementation directly and return the reset error.
+- Extended `scripts/check_wan_firewall_status.py` to assert stage-before-read, failure latch/return, unchanged public ABI, and early fail-closed gates across boot/start/restart/reconnect. Existing WAN NVRAM errno unit test remains part of the workflow.
+- Checker repair `616f06e`: Firewall Startup `44676888660`, USB modem `44676888577`, AI docs `44676888701` PASS; Process regression `44676888646` was pending at last poll. This source correction needs its own exact-head Actions and XY-C1 L3; L4 is NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Correct WAN startup aggregate-count contract for new fail-closed gates
 
 - Parent main SHA: `822f88b10ce52e2ba735f4d51cac12d684a0853c`; its C changes add three checked active-interface publication gates for RAS, PPP and IPoE, and each failure path aggregates both the NVRAM error and physical-WAN recovery status.

@@ -185,18 +185,34 @@ reset_man_vars(void)
 	nvram_set_int_temp("manv_err", 0);
 }
 
-void
-reset_wan_vars(void)
+static int wan_vars_reset_status;
+
+static int
+reset_wan_vars_status(void)
 {
-	int unit, wan_proto;
+	int unit, wan_proto, proto_status;
 	char mac_buf[24], *man_addr, *man_mask, *man_gate, *man_mtu;
 
+	wan_vars_reset_status = 0;
 	unit = 0;
 
 	clear_wan_state();
 	reset_man_vars();
 
-	set_wan_unit_param(unit, "proto");
+	/*
+	 * get_wan_proto() reads wanN_proto, so a failed copy from wan_proto
+	 * must not leave a previous protocol selected for this WAN restart.
+	 */
+	proto_status = set_wan_unit_value_status(
+		unit, "proto", nvram_safe_get("wan_proto"));
+	if (proto_status != 0) {
+		wan_vars_reset_status = proto_status;
+		errno = proto_status;
+		logmessage(LOGNAME,
+			   "cannot stage configured WAN protocol before reset (status=%d)",
+			   proto_status);
+		return proto_status;
+	}
 	set_wan_unit_param(unit, "dnsenable_x");
 	set_wan_unit_param(unit, "vci");
 	set_wan_unit_param(unit, "hostname");
@@ -297,6 +313,13 @@ reset_wan_vars(void)
 #if defined (USE_IPV6)
 	reset_wan6_vars();
 #endif
+	return 0;
+}
+
+void
+reset_wan_vars(void)
+{
+	(void)reset_wan_vars_status();
 }
 
 int
@@ -1883,6 +1906,14 @@ start_wan(void)
 	int tcp_syncookies_enabled = 0;
 	int tcp_syncookies_status = 0;
 	char *wan_ifname;
+
+	if (wan_vars_reset_status != 0) {
+		wan_start_status = wan_vars_reset_status;
+		logmessage(LOGNAME,
+			   "aborting WAN startup because configured WAN protocol staging failed (status=%d)",
+			   wan_start_status);
+		return wan_start_status;
+	}
 
 	/* Apply explicit SYN-cookie protection before any WAN setup side effects. */
 	tcp_syncookies_enabled = nvram_get_int("fw_syn_cook") ? 1 : 0;
@@ -3500,7 +3531,13 @@ full_restart_wan(void)
 		return status;
 	}
 	update_router_mode();
-	reset_wan_vars();
+	status = reset_wan_vars_status();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "aborting full WAN restart because configured WAN protocol staging failed (status=%d)",
+			   status);
+		return status;
+	}
 	status = add_static_lan_routes(IFNAME_BR);
 	if (status != 0) {
 		logmessage(LOGNAME, "aborting full WAN restart because static LAN routes could not be restored (status=%d)",
@@ -3544,7 +3581,13 @@ try_wan_reconnect(int try_use_modem, long pause_in_seconds)
 		logmessage(LOGNAME, "aborting WAN reconnect because services did not stop (status=%d)", status);
 		return status;
 	}
-	reset_wan_vars();
+	status = reset_wan_vars_status();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "aborting WAN reconnect because configured WAN protocol staging failed (status=%d)",
+			   status);
+		return status;
+	}
 	if (pause_in_seconds > 0) {
 		long deferred_up_time = uptime() + pause_in_seconds;
 		if (deferred_up_time == 0)

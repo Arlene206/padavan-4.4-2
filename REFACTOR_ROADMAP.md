@@ -1,11 +1,12 @@
 # 2026-11-20 active checkpoint
 
-- WAN active-interface product commit `822f88b10ce52e2ba735f4d51cac12d684a0853c` gates initial RAS, PPP and IPoE activation on successful `wanN_ifname_t` publication and invokes physical-WAN recovery on failure.
-- Exact-head independent contracts on `822f88b`: WAN route `44676321120`, Process inventory `44676321232`, AI docs `44676321121`, VPN `44676321034`, WAN teardown `44676321169`, wireless `44676320974`, ZeroTier `44676321181`, dnsmasq `44676320940`, WAN DHCP `44676320992`, miniupnpd `44676321033`, HTTPD `44676320960`, watchdog `44676321080`, Detect WAN ARP `44676320985`, Detect internet `44676320958`, and Detect link `44676321015` PASS.
-- Process regression `44676321052`, USB modem `44676321204`, and Firewall Startup `44676321094` failed only because `check_modem_wan_start_status.py` still expected 22 status aggregates; the three new fail-closed paths correctly add six, for 28 total. The checker repair explicitly validates the three branches and awaits exact-head reruns.
-- NVRAM boundary `44676320949` and XY-C1 `44676321180` were pending at last poll. L3 is NOT VERIFIED for `822f88b`; physical L4 remains NOT VERIFIED.
+- Main before WAN protocol-reset staging correction: `616f06e9ba246c47419672693666431fac5deb8f`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- PPP recovery source commit `68571af` has L3 VERIFIED: exact XY-C1 run `44674653396` passed production detector, MIPS Build, TRX verification and artifact upload. This result applies only to `68571af`.
+- WAN startup active-interface commit `822f88b` checked all RAS/PPP/IPoE `ifname_t` updates before firewall or protocol activation. Checker repair `616f06e` sets the 28 expected aggregate merges and verifies the three failure paths; Firewall Startup `44676888660`, USB modem `44676888577` and AI docs `44676888701` PASS; Process regression `44676888646` pending.
+- New `reset_wan_vars_status()` gate ensures failed staging of configured `wan_proto` cannot fall through to stale `wanN_proto` selection. Exact-head host/CI and same-SHA XY-C1 L3 remain pending; physical L4 is NOT VERIFIED.
 
-
+- CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
+- Keep common RC paths in a workflow only when its invoked tests/checkers consume or assert that production integration. Current AdGuardHome, Inadyn, NFS, WAN route, and USB modem suites inspect relevant shared RC call paths/declarations; their shared-path fan-out is intentional, not automatically unrelated.
 
 - CI coverage is a stability/safety property, not a run-count target. Preserve fast independent tests and parallel execution; never delete, skip, serialize, or weaken meaningful regression coverage to reduce Actions.
 - Keep common RC paths in a workflow only when its invoked tests/checkers consume or assert that production integration. Current AdGuardHome, Inadyn, NFS, WAN route, and USB modem suites inspect relevant shared RC call paths/declarations; their shared-path fan-out is intentional, not automatically unrelated.

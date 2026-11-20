@@ -110,6 +110,50 @@ for marker in (
 
 start = body(wan, "start_wan(void)")
 
+# Protocol selection must never consume a stale wanN_proto after a failed
+# copy from the configured wan_proto key. Preserve the public void
+# reset_wan_vars() ABI, but retain a private failure latch for boot callers.
+reset = body(wan, "reset_wan_vars_status(void)")
+proto_write = 'proto_status = set_wan_unit_value_status(\n\t\tunit, "proto", nvram_safe_get("wan_proto"));'
+proto_failure = "if (proto_status != 0)"
+proto_read = "wan_proto = get_wan_proto(unit);"
+require(proto_write in reset and proto_failure in reset and proto_read in reset,
+        "WAN reset must check the configured protocol copy before reading it")
+require(reset.index("wan_vars_reset_status = 0;") < reset.index(proto_write) <
+        reset.index(proto_failure) < reset.index("return proto_status;") <
+        reset.index(proto_read),
+        "failed WAN protocol publication must latch and return before protocol selection")
+for marker in (
+    "wan_vars_reset_status = proto_status;",
+    "errno = proto_status;",
+    "cannot stage configured WAN protocol before reset",
+):
+    require(marker in reset, f"failed protocol staging must preserve diagnosis: {marker}")
+reset_wrapper = body(wan, "reset_wan_vars(void)")
+require("(void)reset_wan_vars_status();" in reset_wrapper,
+        "legacy void reset_wan_vars wrapper must delegate to status implementation")
+require("void reset_wan_vars(void);" in header and
+        "int reset_wan_vars_status" not in header,
+        "preserve public reset_wan_vars ABI")
+
+reset_gate = "if (wan_vars_reset_status != 0)"
+sysctl_start = start.index("sysctl_status = set_tcp_syncookies(")
+require(reset_gate in start and start.index(reset_gate) < sysctl_start and
+        "return wan_start_status;" in body(start[start.index(reset_gate):], reset_gate),
+        "WAN startup must stop before any setup side effect when protocol staging failed")
+full_restart = body(wan, "full_restart_wan(void)")
+require("status = reset_wan_vars_status();" in full_restart and
+        full_restart.index("status = reset_wan_vars_status();") <
+        full_restart.index("status = add_static_lan_routes(IFNAME_BR);") and
+        "if (status != 0)" in full_restart,
+        "full WAN restart must propagate protocol staging failure")
+reconnect = body(wan, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
+require("status = reset_wan_vars_status();" in reconnect and
+        reconnect.index("status = reset_wan_vars_status();") <
+        reconnect.index("if (pause_in_seconds > 0)") and
+        "if (status != 0)" in reconnect,
+        "WAN reconnect must propagate protocol staging failure")
+
 # The firewall consumes wanN_ifname_t directly. Never rebuild rules or launch a
 # client while that publication is stale: restore the physical WAN and abort
 # the current protocol branch when any of the three protocol paths cannot set it.
