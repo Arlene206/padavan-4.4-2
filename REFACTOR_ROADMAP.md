@@ -1,9 +1,9 @@
 # 2026-11-20 active checkpoint
 
-- Parent main for MiniUPnP daemon() failure fix: 10b54df775dd8ecd80bb16a3d71928418c7e8c06; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- MiniUPnP singleton lock, strict PID validation and atomic PID publication host/Actions PASS on `10b54df`; Process inventory and AI docs PASS; NVRAM and XY-C1 were pending, with XY already inside firmware Build.
-- Found generated default `USE_DAEMON` branch continued foreground after `daemon(0,0)` failure. It now preserves errno and exits nonzero before claiming startup success. The new source path is added to XY-C1 workflow and detector test.
-- Exact-head MiniUPnP/XY-C1 validation pending for the new commit; no current commit Build/TRX/L3 result or physical L4 claim yet.
+- Parent main for MiniUPnP CI syntax correction: 885f212b6065ef15276f7d4f6189b02c75fbbc7c; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- MiniUPnP atomic PID publication, singleton lock, strict PID validation and default BSD daemon() failure exit are implemented. PID regressions passed in workflow 885; focused MiniUPnP action then failed before assertion execution due only to malformed Python quote escaping. This commit repairs that checker line.
+- On prior exact source SHA 10b54, MiniUPnP, Process, AI docs and NVRAM checks passed; XY-C1 run had reached Build. The new exact SHA needs focused rerun and complete same-SHA Build/TRX/artifact.
+- Physical device L4 remains NOT VERIFIED.
 
 
 ## Whole-repository module status

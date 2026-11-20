@@ -1,25 +1,24 @@
 # 2026-11-20 continuation checkpoint
 
-This live checkpoint supersedes older summaries. Continue from current main; do not repeat startup recovery or previously completed FTP FIFO/APPE and RADIUS zeroization slices.
+This live checkpoint supersedes older summaries. Continue from current main; do not repeat startup recovery or completed FTP FIFO/APPE and RADIUS zeroization slices.
 
 ## Git state
 
-- Parent main for this MiniUPnP daemon-failure slice: 10b54df775dd8ecd80bb16a3d71928418c7e8c06; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- MiniUPnP singleton/PID implementation SHA `10b54df775dd8ecd80bb16a3d71928418c7e8c06`: focused MiniUPnP Action `44737236506` PASS (atomic config, daemon lifecycle, PID atomic/read/parser/lock regression and source contracts); Process inventory `44737236665` PASS; AI docs `44737236428` PASS. NVRAM `44737236575` and XY-C1 `44737236650` were still running at last check.
-- XY-C1 detector correctly classified 10b54 as production input and advanced into `Build XY-C1`; TRX and artifact upload not yet complete when last checked.
-- Main remains on the documented direct, expected-SHA, no-force commit path. Frozen backup unchanged.
+- Parent main for MiniUPnP CI syntax repair: 885f212b6065ef15276f7d4f6189b02c75fbbc7c; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- On source SHA `10b54df775dd8ecd80bb16a3d71928418c7e8c06`: MiniUPnP focused Action `44737236506`, Process inventory `44737236665`, AI docs `44737236428`, NVRAM audit `44737236575` PASS. XY-C1 `44737236650` was in Build XY-C1 at last check; TRX/artifact not yet confirmed.
+- Daemon detach failure fix `885f212b6065ef15276f7d4f6189b02c75fbbc7c`: AI docs `44737808764` PASS; focused MiniUPnP Action `44737808024` FAILED in its Python source-contract heredoc because an assertion string was incorrectly escaped (syntax error before evaluating assertions); no C test failed. Process inventory, NVRAM and XY-C1 runs were in progress.
+- Follow-up fixes only that Python assertion literal; the GNU89/ASan/UBSan PID host test itself passed on 885. Same-SHA reruns pending for this repair commit.
 
-## Active MiniUPnP daemon failure fix
+## Active engineering
 
-- Found another concrete reliability defect in the generated default build: `genconfig.sh` unconditionally emits `#define USE_DAEMON`, but `miniupnpd.c` logged `daemon(0,0)` failure with `perror()` and continued to run in foreground, then acquired the PID lock and reported success.
-- Changed this branch to preserve the original errno, log it with `perror()`, and return failure before assigning the child PID or initializing the service.
-- Added exact source-contract assertions to MiniUPnP Action, added `miniupnpd.c` to the XY-C1 source trigger, and extended detector regression to classify it as a firmware input. Exact-head Actions/XY-C1 pending for this commit.
+- MiniUPnP now has lifetime singleton lock, strict fail-closed PID validation and atomic umask-preserving PID publication. The default generated `USE_DAEMON` branch also exits nonzero if BSD `daemon()` detachment fails instead of continuing foreground.
+- XY-C1 trigger paths include `miniupnpd.c`; detector test ensures it is classified as production input.
+- Exact same-SHA firmware Build/TRX/artifact for latest source still must be verified. Physical L4 remains NOT VERIFIED.
 
 ## Exact first actions
 
-1. Inspect exact-SHA MiniUPnP, Process, AI/NVRAM and XY-C1 Actions; confirm new XY detector sees `miniupnpd.c` and Build/TRX/artifact execute on the same SHA.
-2. Fix only causal failures; continue a different userland reliability slice while Actions are pending.
-3. Do not claim physical router L4 without device validation.
+1. Inspect this commit's MiniUPnP Action and XY-C1 detector/build. Repair only causal failures; require Build/TRX/artifact all pass on same SHA.
+2. Continue one independent userland reliability/security slice while Actions are pending; do not repeat completed audits.
 
 
 ---

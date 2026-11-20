@@ -1,3 +1,12 @@
+## 2026-11-20 — Repair daemon detachment source-contract checker quoting
+
+- Parent main SHA: 885f212b6065ef15276f7d4f6189b02c75fbbc7c.
+- Exact MiniUPnP workflow run 44737808024 passed all C binaries, including the new PID-file atomic-write/read/strict-parse/cross-process-lock tests. It failed only when the source-contract Python heredoc parsed an assertion whose embedded double quote was incorrectly backslash-escaped twice.
+- Replaced that one assertion with a single-quoted Python literal containing the exact C token `perror("daemon()")`. No production source changed in this repair.
+- On parent 885, AI docs passed; Process, NVRAM and XY-C1 Actions were in progress. Exact-head reruns pending.
+
+---
+
 ## 2026-11-20 — Fail closed when MiniUPnP daemon detachment fails
 
 - Parent main SHA: 10b54df775dd8ecd80bb16a3d71928418c7e8c06.

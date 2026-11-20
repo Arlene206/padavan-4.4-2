@@ -234,7 +234,7 @@ jobs:
           assert "UPnP update incomplete after WAN startup" in start_wan
           assert "pid = daemonize();" in daemon_source
           daemonize_failure = daemon_source.split("if (daemon(0, 0) < 0)", 1)[1].split("pid = getpid();", 1)[0]
-          assert "perror(\\"daemon()\\")" in daemonize_failure
+          assert 'perror("daemon()")' in daemonize_failure
           assert "return 1;" in daemonize_failure
           assert "errno = daemon_errno;" in daemonize_failure
           assert daemon_source.index("return 1;", daemon_source.index("if (daemon(0, 0) < 0)")) < daemon_source.index("pid = getpid();", daemon_source.index("if (daemon(0, 0) < 0)"))
