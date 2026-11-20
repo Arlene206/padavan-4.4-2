@@ -102,6 +102,21 @@ ordered(restore, [
 ], "VPN DNS cleanup")
 assert "nvram_safe_get(\"vpnc_dns_t\")" not in restore
 
+l2tp_start = start.index('vpn_client_nvram_set_temp_status(\n\t\t\tNULL, "l2tp_cli_t", "1")')
+l2tp_gate = start.index("if (saved_errno != 0)", l2tp_start)
+l2tp_daemon = start.index("xl2tpd_status = safe_start_xl2tpd_locked()", l2tp_gate)
+assert l2tp_start < l2tp_gate < l2tp_daemon
+stop = body(vpn, "static int\nstop_vpn_client_locked(void)")
+ordered(stop, [
+    'vpn_client_nvram_set_temp_status(\n\t\tNULL, "l2tp_cli_t", "0")',
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
+    'vpn_client_nvram_set_temp_status(\n\t\tNULL, "vpnc_state_t", "0")',
+    "cleanup_status = route_status_accumulate(cleanup_status, route_status);",
+    "unlink(VPNC_PPP_UP_SCRIPT)",
+    "return cleanup_status;"
+], "VPN stop NVRAM cleanup")
+assert "nvram_set_int_temp(" not in vpn
+
 restart = body(vpn, "static int\nrestart_vpn_client_locked(void)")
 ordered(restart, [
     "restore_status = restore_dns_from_vpnc();",

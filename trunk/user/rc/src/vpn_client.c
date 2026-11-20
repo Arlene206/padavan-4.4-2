@@ -109,7 +109,7 @@ static int
 start_vpn_client_locked(void)
 {
 	FILE *fp;
-	int i_type, i_mppe, i_auth, xl2tpd_status, saved_errno;
+	int i_type, i_mppe, i_auth, xl2tpd_status, saved_errno, cleanup_status;
 	char vpnc_peer_copy[256], vpnc_peer_line[256];
 	char *vpnc_peer, *vpnc_opt, tmp[256];
 
@@ -276,12 +276,25 @@ start_vpn_client_locked(void)
 
 	if (i_type == 1)
 	{
-		nvram_set_int_temp("l2tp_cli_t", 1);
+		saved_errno = vpn_client_nvram_set_temp_status(
+			NULL, "l2tp_cli_t", "1");
+		if (saved_errno != 0) {
+			logmessage(VPNC_LOG_NAME,
+				   "refusing L2TP VPN client startup: cannot publish client ownership marker (status=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
 		xl2tpd_status = safe_start_xl2tpd_locked();
 		if (xl2tpd_status == 1) {
 			if (control_xl2tpd("c", "VPNC") != 0) {
 				saved_errno = errno ? errno : EIO;
-				nvram_set_int_temp("l2tp_cli_t", 0);
+				cleanup_status = vpn_client_nvram_set_temp_status(
+					NULL, "l2tp_cli_t", "0");
+				if (cleanup_status != 0)
+					logmessage(VPNC_LOG_NAME,
+						   "cannot roll back L2TP VPN client ownership marker (status=%d)",
+						   cleanup_status);
 				logmessage(VPNC_LOG_NAME,
 					   "cannot connect VPNC tunnel through xl2tpd control FIFO (errno=%d)",
 					   saved_errno);
@@ -290,7 +303,12 @@ start_vpn_client_locked(void)
 			}
 		} else if (xl2tpd_status < 0) {
 			saved_errno = errno ? errno : EIO;
-			nvram_set_int_temp("l2tp_cli_t", 0);
+			cleanup_status = vpn_client_nvram_set_temp_status(
+				NULL, "l2tp_cli_t", "0");
+			if (cleanup_status != 0)
+				logmessage(VPNC_LOG_NAME,
+					   "cannot roll back L2TP VPN client ownership marker (status=%d)",
+					   cleanup_status);
 			logmessage(VPNC_LOG_NAME, "cannot start or verify shared xl2tpd daemon (errno=%d)", saved_errno);
 			errno = saved_errno;
 			return -1;
@@ -298,8 +316,15 @@ start_vpn_client_locked(void)
 	}
 	else
 	{
-		nvram_set_int_temp("l2tp_cli_t", 0);
-		
+		saved_errno = vpn_client_nvram_set_temp_status(
+			NULL, "l2tp_cli_t", "0");
+		if (saved_errno != 0) {
+			logmessage(VPNC_LOG_NAME,
+				   "refusing PPP VPN client startup: cannot clear L2TP ownership marker (status=%d)",
+				   saved_errno);
+			errno = saved_errno;
+			return -1;
+		}
 		return eval("/usr/sbin/pppd", "file", vpnc_opt);
 	}
 
@@ -356,6 +381,7 @@ static int
 stop_vpn_client_locked(void)
 {
 	int stop_status, scan_error, control_status;
+	int cleanup_status = 0, route_status;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action action;
@@ -407,11 +433,25 @@ stop_vpn_client_locked(void)
 	}
 #endif
 
-	nvram_set_int_temp("l2tp_cli_t", 0);
-	nvram_set_int_temp("vpnc_state_t", 0);
+	route_status = vpn_client_nvram_set_temp_status(
+		NULL, "l2tp_cli_t", "0");
+	cleanup_status = route_status_accumulate(cleanup_status, route_status);
+	if (route_status != 0)
+		logmessage(VPNC_LOG_NAME,
+			   "cannot clear L2TP VPN client ownership marker after stop (status=%d)",
+			   route_status);
+
+	route_status = vpn_client_nvram_set_temp_status(
+		NULL, "vpnc_state_t", "0");
+	cleanup_status = route_status_accumulate(cleanup_status, route_status);
+	if (route_status != 0)
+		logmessage(VPNC_LOG_NAME,
+			   "cannot clear VPN client state after stop (status=%d)",
+			   route_status);
+
 	unlink(VPNC_PPP_UP_SCRIPT);
 	unlink(VPNC_PPP_DW_SCRIPT);
-	return 0;
+	return cleanup_status;
 }
 
 /*
