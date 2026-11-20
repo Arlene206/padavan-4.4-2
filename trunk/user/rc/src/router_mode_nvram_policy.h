@@ -13,19 +13,34 @@ typedef int (*rc_router_mode_nvram_set_fn)(void *context,
 static inline int
 rc_router_mode_parse(const char *value)
 {
-    if (!value || value[0] == '\0' || value[1] != '\0')
+    int mode;
+
+    if (!value)
         return 0;
 
+    /*
+     * Validate the first byte before looking at byte 1. In particular, an
+     * empty NVRAM value may be backed by a one-byte string literal in host
+     * tests; reading value[1] before excluding that case is out of bounds.
+     */
     switch (value[0]) {
     case '1':
-        return 1;
+        mode = 1;
+        break;
     case '3':
-        return 3;
+        mode = 3;
+        break;
     case '4':
-        return 4;
+        mode = 4;
+        break;
     default:
         return 0;
     }
+
+    if (value[1] != '\0')
+        return 0;
+
+    return mode;
 }
 
 static inline int
