@@ -2,68 +2,60 @@
 
 ## Execution policy
 
-Continue main-only implementation across conversations. Restore exact live source and CI state once, then resume concrete engineering tasks. Use one atomic main commit per logical task. Do not repeat completed audits, create status-only commits or stop at planning.
+Continue main-only implementation across conversations. Recover the live repository once, then resume the exact active task. Avoid repeated audits, planning-only stops and status-only commits.
 
-- Create all changed blobs, one complete Git tree and one commit with current main as parent; update main using non-forced compare-and-swap with that exact expected SHA.
-- Verify Actions by exact `head_sha`. Pending runs do not block independent work; inspect and repair real failures.
-- Preserve security, architecture, GNU89/MIPS/uClibc compatibility, regression coverage, lifecycle identity checks, bounded I/O and fail-closed UNKNOWN handling.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` is archival only; never alter it. Develop on main.
+- One logical task per atomic commit. For multi-file tasks create all blobs, one complete tree based on live main, one commit with live main as parent, then update `main` with `force=false` and exact `expected_sha`.
+- Never create/use development branches or PRs, force-push, amend published commits, or alter the frozen backup.
+- Check relevant Actions by exact `head_sha`; inspect failure logs, and do not wait idly for independent PENDING work.
+- Preserve GNU89, MIPS/uClibc, BusyBox/Linux 4.4 compatibility; retain fail-closed handling, lifecycle PID identity, bounded operations and meaningful regression coverage.
+- Frozen branch `backup/pre-plugin-overhaul-2026-11-14` is archival and must remain untouched.
 
-## Current repository state
+## Live checkpoint and baselines
 
-- Main baseline before the secure account-provisioning slice: `ae7874833c6cb870162222f415124d1db4e63dda`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`; archival and untouched.
-- Wireless bridge config result propagation is committed. Process `44649240357` and AI handoff docs `44649240209` PASS on `ae7874833c6cb870162222f415124d1db4e63dda`. Production source `9f565b124635a0c3d0686636b4dc0313a5f3a298` passed XY-C1 run `44648971016`, including Build, TRX verification and artifact upload (L3 for that exact SHA).
-- Physical-router L4 is NOT VERIFIED.
+- Parent main before this test follow-up: `1e09d066d315b36fbd0010eea96bdf68e96e1333`; always fetch the live head on takeover.
+- Product-source baseline: `740c82cee671e5bcc133289d9126f75afd654ec3` (secure password staging, boot-status propagation and rollback-capable passwd/group/shadow publication).
+- Descendants `775ef93`, `590bc8a` and `1e09d06` are regression, workflow-contract and project-record changes; they do not alter production C behavior.
+- Frozen backup tip: `72f4f157a084f8184b9597ca5bf334b8080e5807`. Branch inventory at last recovery showed `main` plus this protected backup only; no open PR was found.
 
-## Active task
+## Account database reliability — current state
 
-- P1 RC startup-result propagation: all six ignored `gen_ralink_config_2g/5g()` results inside `init_bridge()` now feed `rc_bridge_init_status_t` and PID 1 DEGRADED readiness.
-- Confirmed security defect: privileged password update used predictable `/tmp/tmpchpw` with `fopen("w")`; a pre-created symlink under world-writable `/tmp` could redirect the root credential write. The helper, `recreate_passwd_unix()` and `init_router()` also discarded provisioning errors.
-- This slice uses exclusive mode-0600 `mkstemp()` staging, validates username/password fields, stages passwd/group/shadow file contents before rename, keeps root locked until `chpasswd` succeeds, and propagates account bootstrap status into PID 1.
-- Main parent for this slice: `ae7874833c6cb870162222f415124d1db4e63dda`. The frozen backup remains untouched.
+Production code paths:
+- `trunk/user/shared/src/shutils.c`: password staging and account database generation; boot caller in `trunk/user/rc/src/init.c`.
+- `trunk/user/shared/src/passwd_temp_file_policy.h`: exclusive private staging, hard-link recovery points and rollback-capable multi-file publication.
+- Root remains locked until `chpasswd` succeeds; account provisioning errors propagate into PID 1 startup status.
 
-## Exact first action for the next GPT
+Regression coverage in `trunk/user/shared/src/tests/passwd_temp_file_policy.c`:
+- Successful multi-file publication and backup cleanup.
+- Injected second-rename failure with first-file restoration.
+- Failed rollback preserving a recovery hard link.
+- Injected third (shadow) rename failure with passwd/group restoration in reverse order.
+- Missing-original rollback: the fixture now clears the transaction's `had_original` flag and requires the injected second rename to fail with `EIO`, exactly two rename attempts, removal of the newly published passwd file, consumed passwd stage, preserved group stage, and unchanged original group data.
 
-1. Query exact-head Process lifecycle, AI handoff docs and XY-C1 validation for the secure account-provisioning commit. Inspect source contract, temp-file policy regression, and Build/TRX/artifact steps individually.
-2. Repair any demonstrated exact-SHA failure without weakening private-file mode, exclusive creation, credential field validation, root lock-on-failure, or PID 1 error propagation.
-3. Review paired passwd/group replacement rollback under an injected second-rename failure; verify the old live files can be restored and no staging files leak.
+THIS COMMIT changes only the test and handoff/history records; no production C behavior changed.
 
-## Active task
+## Exact-SHA validation
 
-- Latest parent at task start: `ae7874833c6cb870162222f415124d1db4e63dda`. Main-only; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains unchanged.
-- Completed preceding wireless slice: Process `44649240357` and AI docs `44649240209` PASS on `ae787483`; production-source XY-C1 `44648971016` PASS on `9f565b1`, including Build, TRX and artifact upload (L3 for that SHA).
-- This source/test slice removes the predictable password-staging symlink vulnerability and propagates account database/password provisioning failure into PID 1. Root remains locked until `chpasswd` succeeds.
-- Paired passwd/group rename rollback is the next explicit fault-injection candidate. Physical-router L4 remains NOT VERIFIED.
+On parent `1e09d06`:
+- Process lifecycle fail-closed regression `44655310242`: PASS, including “Verify Unix account bootstrap status and private password staging”.
+- Process inventory `44655310167`: PASS.
+- AI handoff documentation contract `44655310303`: PASS.
+- NVRAM transaction boundary audit `44655310399`: PASS.
+- XY-C1 `44655310544`: workflow PASS for host/build-input checks, but Build XY-C1, TRX verification and artifact upload were SKIPPED because no production firmware input changed. Do not count this as L3.
+- Earlier HTTPD security `44654997218` and Process lifecycle `44654997255` on `590bc8a`: PASS.
+- L3: XY-C1 run `44654005725` on unchanged production-source SHA `740c82c` completed Build XY-C1, TRX verification and artifact upload successfully.
+- L4 physical-router runtime/boot validation remains NOT VERIFIED.
+- Exact-head checks for THIS COMMIT are pending.
 
-## Exact first action for the next GPT
+## Exact first actions for the next GPT
 
-1. Check exact-head Process lifecycle, AI docs and XY-C1 Actions for current main. Inspect Build XY-C1, TRX validation and artifact upload individually.
-2. Continue with injected-failure coverage for paired passwd/group rename rollback, then resume independent P1 stability/security defects.
-3. Keep L1/L2/L3/L4 evidence separate; successful cross-build does not establish physical-router behavior.
+1. Fetch live main and inspect the exact-head Process lifecycle Actions for the strengthened missing-original rollback assertions. Verify the host binary completed successfully; repair any regression without loosening the `EIO`, rename-count, destination and stage postconditions.
+2. Confirm no new production-source changes have invalidated the L3 baseline. Do not treat the parent `1e09d06` host-only XY-C1 workflow as a firmware build.
+3. Resume P1 whole-userland reliability work: inspect remaining launch/stop result propagation in `trunk/user/rc/src/services_ex.c` and its direct callers. Trace a concrete ignored nonzero return to the resulting state/boot status, add focused failure-injection or source-contract coverage, and commit one bounded slice. Avoid repeating the completed `init_bridge()`, USB modem reconnect and account rollback changes.
 
-## Verification boundary
+## End-of-session checkpoint
 
-- L1: PID 1 distinguishes FATAL/READY/DEGRADED and continues event processing after degraded service boot. Late CA preparation, persistent user-script and autostart launcher failures are now included in the boot aggregate.
-- L2: PID 1 policy binary and `dev_init` shell regression passed on `9ad1570`; the new CA status shell regression passed on `61cbc6`. Exact-head Process, AliDDNS and Storage jobs initially failed only at three stale source-contract assertions; their corrections are in this checker follow-up. HTTPD, AI docs and all other completed current-head regression runs were PASS.
-- L3: Production source `9f565b124635a0c3d0686636b4dc0313a5f3a298` passed XY-C1 `44648971016`, including input detection, Build XY-C1, TRX verification and artifact upload. Evidence applies only to that SHA; physical-router L4 remains NOT VERIFIED.
-- L4: target MIPS/uClibc runtime and physical-router boot/recovery behavior remain NOT VERIFIED.
+Before stopping, compare live main, production-source baseline, exact-head tests and active task. Update this handoff only when its resumable facts materially change; do not chase a documentation-only SHA. Keep `dev_log.md` newest-first with 20–119 complete entries; archive 100 oldest entries together only at the 120-record or early size trigger.
 
-## Mandatory handoff checkpoint
+## Evidence discipline
 
-The checkpoint is mandatory; a document edit is conditional. Every session MUST perform a handoff checkpoint before ending. At session end, compare live main, production-source baseline, exact-head Actions, module state and the next task. A relevant exact-head Action changing from PENDING to PASS/FAIL is checkpoint information. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no commit; do not create a no-op commit.
-
-## Before context exhaustion
-
-- Finish the current safe source/test slice and commit it atomically before handoff; do not publish related multi-file changes as sequential partial commits.
-- Re-fetch live `main`, create one complete Git tree and one commit with that exact parent, then update main only with `force=false` and the exact parent as `expected_sha`. Never force-push.
-- Query relevant Actions by exact source SHA and record PASS/FAIL/PENDING with run IDs. Pending validation does not block independent work and must not be reported as complete.
-- Record the production-source baseline, test commands/results, exact CI state, unresolved limitations and the next concrete task. Distinguish host L2, firmware L3 and device L4 evidence.
-- Confirm all work is committed and remotely present before claiming it is preserved across conversations.
-
-## Development invariants
-
-- Main-only; never alter the frozen backup or develop on a legacy PR.
-- One complete tree and one atomic commit per logical task; `force=false`, exact parent `expected_sha`.
-- Never force-push, rewrite history, publish partial commits or weaken tests.
-- Keep L1/L2/L3/L4 distinct. Host tests are not firmware or hardware validation.
+Keep L1 source review, L2 host/Actions, L3 MIPS build/TRX and L4 physical-device evidence separate. Never present a skipped build as PASS or a successful XY-C1 build as proof of router runtime behavior. Confirm commits are remotely reachable before claiming preservation across conversations.

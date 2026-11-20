@@ -1,3 +1,13 @@
+## 2026-11-20 — Assert the missing-original rollback actually executes
+
+- Parent SHA: `1e09d066d315b36fbd0010eea96bdf68e96e1333`.
+- The prior fixture correction synchronized `had_original = 0`, and the new three-file test proved reverse-order passwd/group restoration after a shadow rename failure. One gap remained in the missing-original case: it still accepted any `-1`, so a future preflight rejection could pass without reaching the injected second rename.
+- Strengthened the case to require `errno == EIO`, exactly two injected rename attempts, the newly published passwd destination removed during rollback, its consumed staged file absent, the failed group stage preserved, and original group contents unchanged.
+- Test-only change; production account code is unchanged. Exact-head Process regression pending after commit. On parent `1e09d06`, Process lifecycle `44655310242`, Process inventory `44655310167`, AI handoff docs `44655310303`, and NVRAM boundary `44655310399` all PASS. XY-C1 `44655310544` passed host/pre-build validation but correctly skipped Build/TRX/artifact because no production firmware input changed. L3 remains evidenced by XY-C1 `44654005725` on production-source SHA `740c82c`, which passed Build, TRX verification and artifact upload.
+- Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-19 — Exercise three-file account database rollback
 
 - Parent SHA: `590bc8a415bad29c51a0431dac2a0e1a5b515585`.

@@ -300,10 +300,15 @@ test_missing_original_is_removed_on_rollback(void)
 	rename_calls = 0;
 	fail_rename_first = 2;
 	fail_rename_second = 0;
+	errno = 0;
 	assert(passwd_file_publish_transaction(fixture.updates, 2,
 		injected_rename, unlink, &rollback_failed) == -1);
+	assert(errno == EIO);
 	assert(rollback_failed == 0);
+	assert(rename_calls == 2);
 	assert(access(fixture.live_passwd, F_OK) != 0);
+	assert(access(fixture.staged_passwd, F_OK) != 0);
+	assert(access(fixture.staged_group, F_OK) == 0);
 	assert_text_file(fixture.live_group, "old-group\n");
 	fixture_cleanup(&fixture);
 }
