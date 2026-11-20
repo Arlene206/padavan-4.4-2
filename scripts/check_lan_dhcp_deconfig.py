@@ -150,9 +150,16 @@ assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in udhcpc_helper
 assert "presence == PROCESS_PRESENCE_UNKNOWN" in udhcpc_helper
 assert "return ETIMEDOUT;" in udhcpc_helper
 background = busybox.index("if (!(opt & OPT_f) && (opt & OPT_d) )")
-pidfile_publish = busybox.index("if (write_udhcpc_pidfile(client_config.pidfile) != 0)")
+pidfile_publish = busybox.index(
+    "if (write_udhcpc_pidfile(client_config.pidfile) != 0)", background
+)
 assert background < pidfile_publish
 assert "bb_daemonize(0);" in busybox[background:pidfile_publish]
+client_background = c_function_body(busybox, "client_background(void)")
+assert "bb_daemonize(0);" in client_background
+assert "write_udhcpc_pidfile(client_config.pidfile)" in client_background
+assert 'dhcp_argv[index++] = "-b";' in wan_dhcp_start
+assert 'dhcp_argv[index++] = "-d";' in wan_dhcp_start
 leasefail = c_function_body(lan, "udhcpc_lan_leasefail(char *lan_ifname)")
 assert 'no DHCP lease available on %s; udhcpc will retry acquisition' in leasefail
 assert "return 0;" in leasefail

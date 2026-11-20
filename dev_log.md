@@ -1,3 +1,8 @@
+## 2026-11-20 — Scope the BusyBox DHCP daemonization ordering assertion
+
+- Parent source SHA: `2150854923895688840e00a74d9510b07c2e65e5`; exact-head WAN-DHCP run `44785778326` failed only because the checker chose the first textual `write_udhcpc_pidfile()` occurrence inside the earlier `client_background()` definition instead of the main startup write after the `-d` fork branch.
+- The assertion now searches for the PID publication after the actual branch, checks that `client_background()` daemonizes before rewriting the PID identity, and confirms the WAN launcher exercises both `-d` and `-b` options. This is a checker-only correction; exact-head callback/Process/XY-C1 verification remains required.
+
 ## 2026-11-20 — Correct DHCP readiness source-check formatting assertion
 
 - Parent source SHA: `dc0e09f7924f415a4bdcfbae4fda07d888994a4b`; exact-head WAN-DHCP run `44785621612` FAILED only at the newly-added Python source assertion: `process_presence_start_postcondition()` is split across two C lines, and the checker’s whitespace-compacted expected text omitted the remaining space before `launch_status`.
