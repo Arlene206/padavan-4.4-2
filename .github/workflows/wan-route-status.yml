@@ -54,6 +54,8 @@ on:
       - "trunk/user/rc/src/tests/ipv6_cleanup_policy.c"
       - "trunk/user/rc/src/service_start_status.h"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_identity_policy.h"
+      - "trunk/user/rc/src/tests/wan6_identity_policy.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
@@ -147,6 +149,8 @@ on:
       - "trunk/user/rc/src/tests/ipv6_cleanup_policy.c"
       - "trunk/user/rc/src/service_start_status.h"
       - "trunk/user/rc/src/net_wan6.c"
+      - "trunk/user/rc/src/wan6_identity_policy.h"
+      - "trunk/user/rc/src/tests/wan6_identity_policy.c"
       - "trunk/user/rc/src/wan6_teardown_policy.h"
       - "trunk/user/rc/src/tests/wan6_teardown_policy.c"
       - "trunk/user/rc/src/wan_viptv_static_policy.h"
@@ -421,6 +425,8 @@ jobs:
           ipv6_cleanup_test = (rc / "tests/ipv6_cleanup_policy.c").read_text()
           wan6_policy = (rc / "wan6_teardown_policy.h").read_text()
           wan6_test = (rc / "tests/wan6_teardown_policy.c").read_text()
+          wan6_identity_policy = (rc / "wan6_identity_policy.h").read_text()
+          wan6_identity_test = (rc / "tests/wan6_identity_policy.c").read_text()
           header = (rc / "rc.h").read_text()
           conntrack_policy = (rc / "conntrack_flush_policy.h").read_text()
           conntrack_test = (rc / "tests/conntrack_flush_policy.c").read_text()
@@ -953,6 +959,8 @@ jobs:
               "trunk/user/rc/src/tests/ipv6_restart_policy.c",
               "trunk/user/rc/src/service_start_status.h",
               "trunk/user/rc/src/net_wan6.c",
+              "trunk/user/rc/src/wan6_identity_policy.h",
+              "trunk/user/rc/src/tests/wan6_identity_policy.c",
               "trunk/user/rc/src/service_wait_policy.h",
               "trunk/user/rc/src/tests/service_wait_policy.c",
               "trunk/user/rc/src/wan6_teardown_policy.h",
@@ -1077,8 +1085,10 @@ jobs:
           sit_stop_at = wan6_down.index("stop_sit_tunnel()")
           assert select_at < flush_at < neigh_at < addr_at < sit_stop_at
           assert "if (!wan6_ifname)" in wan6_down
-          assert 'set_wan_unit_value(unit, "dns6", "");' in wan6_down
-          assert 'set_wan_unit_value(unit, "ifname6", "");' in wan6_down
+          assert "wan6_clear_runtime_metadata(" in wan6_down
+          assert "return clear_status;" in wan6_down
+          assert "wan6_publish_sit_identity" in wan6_identity_policy
+          assert "test_sit_identity_failure_removes_tunnel_and_clears_partial_identity" in wan6_identity_test
           disabled_policy = body(wan6_policy, "wan6_teardown_select_ifname(")
           assert "if (previous_ifname && previous_ifname[0] && previous_if_exists)" in disabled_policy
           assert "if (ipv6_disabled)" in disabled_policy

@@ -1,3 +1,11 @@
+## 2026-11-20 — Align WAN route workflow's IPv6 teardown contract with checked metadata writes
+
+- Parent main SHA: `6a5f2be3e590ecca6712a60b61612bf82e537b5d`. WAN route operation-status run `44709970108` passed its GNU89/ASan/UBSan policy executables and reached the embedded source audit, then failed because it still required direct unchecked `set_wan_unit_value(..., "dns6"/"ifname6", "")` writes in `wan6_down()`.
+- The new code intentionally replaced those legacy writes with `wan6_clear_runtime_metadata()`, which checks both writes, attempts the second even if the first fails, and returns the first error. Updated the duplicate workflow contract and its path audit to require the new identity policy header/test. No production source assertion was weakened.
+- The exact-head WAN DHCP callback source-check rerun after the previous assertion correction is still pending; the XY-C1 run on the original product-source SHA also remains under observation.
+
+---
+
 ## 2026-11-20 — Correct IPv6 native rollback source-check ordering
 
 - Parent main SHA: `5e03588c33965328b8c33880504413a915cc47de`. The exact-head WAN DHCP callback workflow `44709970196` passed its pre-existing C policy binaries and stopped in the new IPv6 source checker because the assertion searched for `rollback_status == 0` after the `wan6_clear_runtime_metadata()` call, while production correctly tests the rollback status before entering that call.
