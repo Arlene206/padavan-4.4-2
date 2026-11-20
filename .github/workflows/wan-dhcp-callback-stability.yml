@@ -373,7 +373,7 @@ jobs:
           assert "for (j = count; j > 0; --j)" in publish_body
           assert "test_dhcp_lease_nvram_publish_attempts_all_and_restores_all" in lease_policy_test
           assert "test_dhcp_lease_nvram_publish_attempts_all_and_restores_all();" in lease_policy_test
-          assert man_route_setup < callback.index("nvram_set_int_temp(strcat_r(prefix, \"err\", tmp), i_err)")
+          assert man_route_setup < callback_status_publish
 
           apply_policy = body(policy, "dhcp_wan_interface_apply(")
           assert "ops->clear_address(context)" in apply_policy
@@ -1226,7 +1226,8 @@ jobs:
           assert "launch_status = route_status_accumulate(launch_status, route_status);" in wanx_static
           assert "launch_status = route_status_accumulate(launch_status, gateway_route_status);" in wanx_static
           assert "man_err = 1;" in wanx_static
-          assert 'nvram_set_int_temp("wanx_err", man_err);' in wanx_static
+          assert 'publish_status = wan_nvram_int_temp_status("wanx_err", man_err);' in wanx_static
+          assert "launch_status = route_status_accumulate(launch_status, publish_status);" in wanx_static
           assert 'address_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);' in apcli_wisp
           assert "if (address_status != 0)" in apcli_wisp
           assert 'logmessage(LOGNAME, "failed to clear previous WAN address on %s (status=%d)",' in apcli_wisp
