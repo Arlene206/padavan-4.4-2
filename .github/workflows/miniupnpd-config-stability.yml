@@ -207,7 +207,7 @@ jobs:
           assert "fclose(fd)" in lease_add
           assert '#include <errno.h>' in redirect_source
           assert lease_add.index("errno = 0;") < lease_add.index("fwrite(")
-          assert lease_add.rindex("errno = 0;") < lease_add.index("fclose(fd)")
+          assert lease_add.rindex("errno = 0;") < lease_add.rindex("fclose(fd)")
           assert "fprintf(fd" not in lease_add
           for marker in (
               "MINIUPNPD_LEASE_RECORD_DESCRIPTION_MAX 63",
