@@ -31,6 +31,7 @@
 #include <signal.h>
 
 #include "rc.h"
+#include <nvram_linux.h>
 #include "network_sysctl.h"
 #include "network_sysctl_policy.h"
 #include "service_start_status.h"
@@ -5467,16 +5468,109 @@ zcip_viptv_bound(char *man_ifname)
 }
 
 static int
+wan_dhcp_nvram_transaction_set(void *opaque, const char *name,
+			       const char *value)
+{
+	struct nvram_transaction *transaction =
+		(struct nvram_transaction *)opaque;
+	int result;
+
+	if (!transaction || !name || !value)
+		return EINVAL;
+	errno = 0;
+	result = nvram_transaction_set(transaction, name, (char *)value, 1);
+	if (result < 0)
+		return errno ? errno : EIO;
+	return result;
+}
+
+static int
+wan_dhcp_nvram_restore_values(
+	const struct dhcp_lease_nvram_value *values, size_t count,
+	int *rollback_status)
+{
+	struct nvram_transaction transaction;
+	int status, end_status;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (!values || count == 0 || count > 4)
+		return EINVAL;
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0) {
+		status = errno ? errno : EIO;
+		if (rollback_status)
+			*rollback_status = status;
+		return status;
+	}
+	status = dhcp_lease_nvram_restore(values, count,
+					  wan_dhcp_nvram_transaction_set,
+					  &transaction, rollback_status);
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+		if (rollback_status && *rollback_status == 0)
+			*rollback_status = end_status;
+	}
+	return status;
+}
+
+static int
+wan_dhcp_nvram_state_publish(
+	const struct dhcp_lease_nvram_value *values, size_t count,
+	int *rollback_status)
+{
+	struct nvram_transaction transaction;
+	int status, end_status, recovery_status, recovery_detail = 0;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (!values || count == 0 || count > 4)
+		return EINVAL;
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno ? errno : EIO;
+	status = dhcp_lease_nvram_publish(values, count,
+					  wan_dhcp_nvram_transaction_set,
+					  &transaction, rollback_status);
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+		else if (rollback_status && *rollback_status == 0)
+			*rollback_status = end_status;
+	}
+	if (status != 0) {
+		/* Retry the entire previous tuple while holding a fresh lock. */
+		recovery_status = wan_dhcp_nvram_restore_values(
+			values, count, &recovery_detail);
+		if (rollback_status)
+			*rollback_status = recovery_status != 0 ?
+				(recovery_detail != 0 ? recovery_detail :
+				 recovery_status) : 0;
+	}
+	return status;
+}
+
+static int
 udhcpc_renew(char *wan_ifname)
 {
-	char *param, *value, *lease_dns, *lease_wins, *lease_domain;
-	char tmp[100], prefix[16], log_prefix[32], gateway_buf[INET_ADDRSTRLEN];
+	char *value, *lease_dns, *lease_wins, *lease_domain;
+	char tmp[100], prefix[16], log_prefix[32];
+	char key_dns[32], key_domain[32], key_wins[32], key_lease[32];
+	char old_dns[256], old_domain[256], old_wins[256], old_lease[16];
+	char lease_text[16], gateway_buf[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
-	int unit, is_man, is_changed;
+	size_t renew_count = 0;
+	int unit, is_man, resolver_changed = 0;
+	int nvram_status, rollback_status = 0;
+	struct dhcp_lease_nvram_value renew_values[4];
 
 	unit = get_wan_unit(wan_ifname);
 	is_man = is_ifunit_man(wan_ifname, unit);
-
 	if (is_man) {
 		strcpy(prefix, "wanx_");
 	} else {
@@ -5484,7 +5578,6 @@ udhcpc_renew(char *wan_ifname)
 		snprintf(tmp, sizeof(tmp), "%ld", uptime());
 		set_wan_unit_value(unit, "dltime", tmp);
 	}
-
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", (is_man) ? "MAN" : "WAN");
 
 	if (dhcp_wan_route_setup_retry_required(
@@ -5492,41 +5585,35 @@ udhcpc_renew(char *wan_ifname)
 		logmessage(log_prefix, "retrying incomplete DHCP route setup on %s", wan_ifname);
 		return udhcpc_bound(wan_ifname, 1);
 	}
-
 	value = getenv("subnet");
 	if (!value || nvram_invmatch(strcat_r(prefix, "netmask", tmp), trim_r(value)))
 		return udhcpc_bound(wan_ifname, 1);
-
 	value = getenv("router");
 	if (dhcp_lease_router_is_changed(
 		nvram_safe_get(strcat_r(prefix, "gateway", tmp)),
 		value ? trim_r(value) : NULL,
 		gateway_buf, sizeof(gateway_buf)))
 		return udhcpc_bound(wan_ifname, 1);
-
 	value = getenv("ip");
 	if (!value || nvram_invmatch(strcat_r(prefix, "ipaddr", tmp), trim_r(value)))
 		return udhcpc_bound(wan_ifname, 1);
 
-	/* Changed route options must re-run WAN setup after removing the old routes. */
+	/* Changed route options must re-run WAN setup after removing old routes. */
 	value = safe_getenv("routes");
 	if (!dhcp_lease_route_text_is_safe(value))
 		value = "";
 	if (nvram_invmatch(strcat_r(prefix, "routes", tmp), value))
 		return udhcpc_bound(wan_ifname, 1);
-
 	value = safe_getenv("msstaticroutes");
 	if (!dhcp_lease_route_text_is_safe(value))
 		value = "";
 	if (nvram_invmatch(strcat_r(prefix, "routes_ms", tmp), value))
 		return udhcpc_bound(wan_ifname, 1);
-
 	value = safe_getenv("staticroutes");
 	if (!dhcp_lease_route_text_is_safe(value))
 		value = "";
 	if (nvram_invmatch(strcat_r(prefix, "routes_rfc", tmp), value))
 		return udhcpc_bound(wan_ifname, 1);
-
 	value = getenv("mtu");
 	if (value) {
 		value = trim_r(value);
@@ -5536,17 +5623,27 @@ udhcpc_renew(char *wan_ifname)
 			return udhcpc_bound(wan_ifname, 1);
 	}
 
-	is_changed = 0;
+	snprintf(key_dns, sizeof(key_dns), "%sdns", prefix);
+	snprintf(key_domain, sizeof(key_domain), "%sdomain", prefix);
+	snprintf(key_wins, sizeof(key_wins), "%swins", prefix);
+	snprintf(key_lease, sizeof(key_lease), "%slease", prefix);
+	snprintf(old_dns, sizeof(old_dns), "%s", nvram_safe_get(key_dns));
+	snprintf(old_domain, sizeof(old_domain), "%s", nvram_safe_get(key_domain));
+	snprintf(old_wins, sizeof(old_wins), "%s", nvram_safe_get(key_wins));
+	snprintf(old_lease, sizeof(old_lease), "%s", nvram_safe_get(key_lease));
+
 	value = getenv("dns");
 	lease_dns = value ? trim_r(value) : "";
 	if (!dhcp_lease_ipv4_list_is_valid(lease_dns, 255, 16, 1)) {
 		logmessage(log_prefix, "ignoring invalid DHCP DNS list on %s", wan_ifname);
 		lease_dns = "";
 	}
-	param = strcat_r(prefix, "dns", tmp);
-	if (nvram_invmatch(param, lease_dns)) {
-		nvram_set_temp(param, lease_dns);
-		is_changed = 1;
+	if (strcmp(old_dns, lease_dns) != 0) {
+		renew_values[renew_count].name = key_dns;
+		renew_values[renew_count].value = lease_dns;
+		renew_values[renew_count].previous_value = old_dns;
+		++renew_count;
+		resolver_changed = 1;
 	}
 
 	value = getenv("domain");
@@ -5555,11 +5652,12 @@ udhcpc_renew(char *wan_ifname)
 		logmessage(log_prefix, "ignoring invalid DHCP domain on %s", wan_ifname);
 		lease_domain = "";
 	}
-	param = strcat_r(prefix, "domain", tmp);
-	if (nvram_invmatch(param, lease_domain)) {
-		nvram_set_temp(param, lease_domain);
-		/* Refresh dnsmasq domain-specific server routing too. */
-		is_changed = 1;
+	if (strcmp(old_domain, lease_domain) != 0) {
+		renew_values[renew_count].name = key_domain;
+		renew_values[renew_count].value = lease_domain;
+		renew_values[renew_count].previous_value = old_domain;
+		++renew_count;
+		resolver_changed = 1;
 	}
 
 	value = getenv("wins");
@@ -5568,22 +5666,48 @@ udhcpc_renew(char *wan_ifname)
 		logmessage(log_prefix, "ignoring invalid DHCP WINS list on %s", wan_ifname);
 		lease_wins = "";
 	}
-	nvram_set_temp(strcat_r(prefix, "wins", tmp), lease_wins);
+	if (strcmp(old_wins, lease_wins) != 0) {
+		renew_values[renew_count].name = key_wins;
+		renew_values[renew_count].value = lease_wins;
+		renew_values[renew_count].previous_value = old_wins;
+		++renew_count;
+	}
 
+	snprintf(lease_text, sizeof(lease_text), "%s", old_lease);
 	value = getenv("lease");
 	if (value) {
 		value = trim_r(value);
-		if (dhcp_lease_decimal_is_valid(value, 0U, 2147483647U, &parsed_value))
-			nvram_set_int_temp(strcat_r(prefix, "lease", tmp), (int)parsed_value);
-		else
+		if (!dhcp_lease_decimal_is_valid(value, 0U, 2147483647U, &parsed_value)) {
 			logmessage(log_prefix, "ignoring invalid DHCP lease duration on %s", wan_ifname);
+		} else {
+			snprintf(lease_text, sizeof(lease_text), "%u", parsed_value);
+		}
+	}
+	if (strcmp(old_lease, lease_text) != 0) {
+		renew_values[renew_count].name = key_lease;
+		renew_values[renew_count].value = lease_text;
+		renew_values[renew_count].previous_value = old_lease;
+		++renew_count;
 	}
 
-	if (is_changed) {
+	if (renew_count != 0) {
+		nvram_status = wan_dhcp_nvram_state_publish(
+			renew_values, renew_count, &rollback_status);
+		if (nvram_status != 0) {
+			logmessage(log_prefix,
+				   "cannot publish complete DHCP renewal option snapshot on %s (status=%d)",
+				   wan_ifname, nvram_status);
+			if (rollback_status != 0)
+				logmessage(log_prefix,
+					   "DHCP renewal option restoration incomplete on %s (status=%d)",
+					   wan_ifname, rollback_status);
+			return nvram_status;
+		}
+	}
+	if (resolver_changed) {
 		logmessage(log_prefix, "renew (%s), DNS/domain configuration changed", wan_ifname);
 		refresh_resolvconf_nonfatal("WAN DHCP renewal", 0);
 	}
-
 	return 0;
 }
 

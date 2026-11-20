@@ -71,6 +71,24 @@ def positions(source, marker):
 
 
 wan = (RC / "net_wan.c").read_text()
+wan_renew = body(wan, "udhcpc_renew(char *wan_ifname)")
+require("wan_dhcp_nvram_state_publish(" in wan_renew and
+        "struct dhcp_lease_nvram_value renew_values[4];" in wan_renew and
+        "return nvram_status;" in wan_renew,
+        "WAN DHCP renewal fields must be checked as one runtime snapshot")
+wan_renew_publisher = body(wan, "wan_dhcp_nvram_state_publish(")
+require("dhcp_lease_nvram_publish(" in wan_renew_publisher and
+        "wan_dhcp_nvram_restore_values(" in wan_renew_publisher and
+        "nvram_transaction_begin(&transaction)" in wan_renew_publisher,
+        "WAN DHCP renewal snapshot needs transaction and full rollback")
+for marker in (
+    'nvram_set_temp(param, lease_dns)',
+    'nvram_set_temp(param, lease_domain)',
+    'nvram_set_temp(strcat_r(prefix, "wins", tmp), lease_wins)',
+    'nvram_set_int_temp(strcat_r(prefix, "lease", tmp), (int)parsed_value)',
+):
+    require(marker not in wan_renew,
+            "unchecked DHCP renewal option write remains: " + marker)
 
 wan_route_test = (RC / "tests/route_status_policy.c").read_text()
 
@@ -616,7 +634,7 @@ clear_address_end = man_down.index("};", clear_address)
 require('{ "wanx_ipaddr", "0.0.0.0" }' in man_down[clear_address:clear_address_end],
         "DHCP deconfig must retain its conditional MAN IP snapshot clear")
 require("if (clear_dhcp_address)" in man_down and
-        "rc_wan_nvram_set_all_values(" in man_down and
+        "dhcp_lease_nvram_publish(" in man_down and
         "set_nvram_snapshot_value_status" in man_down,
         "MAN teardown snapshot clears must use the checked attempt-all writer")
 snapshot_writer = body(wan, "set_nvram_snapshot_value_status(void *context, const char *param_name,")
@@ -711,13 +729,13 @@ for marker in (
     'values[4].value = context->dns;',
     "rc_wan_nvram_set_all_values(",
     "ppp_wan_ipup_set_nvram_value_status",
-    "previous_values[i].value = previous_text[i];",
-    "rc_wan_nvram_set_all_values(\n\t\tprevious_values, 5",
+    "values[i].previous_value = previous_text[i];",
+    "dhcp_lease_nvram_restore(",
 ):
     require(marker in ipup_publish, "PPP ip-up complete snapshot/restore missing: " + marker)
-require("nvram_set_temp(wan_param, value)" in ipup_writer and
-        "rc_wan_nvram_write_status(api_result, saved_errno)" in ipup_writer,
-        "PPP ip-up snapshot writer must check volatile NVRAM result and errno")
+require("nvram_transaction_set(context->transaction, wan_param" in ipup_writer and
+        "saved_errno ? saved_errno : EIO" in ipup_writer,
+        "PPP ip-up snapshot writer must check transaction result and errno")
 require("ifconfig(context->ifname, 0, NULL, NULL)" in ipup_clear,
         "PPP ip-up snapshot failure must take the configured interface down")
 ipup_policy_body = body(ppp_ipup_policy, "ppp_wan_ipup_apply_address(")

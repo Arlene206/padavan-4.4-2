@@ -304,6 +304,28 @@ jobs:
           wan_dhcp_renew = body(source, "udhcpc_renew(char *wan_ifname)")
           assert "dhcp_wan_route_setup_retry_required" in wan_dhcp_renew
           assert wan_dhcp_renew.index("dhcp_wan_route_setup_retry_required") < wan_dhcp_renew.index('value = getenv("subnet")')
+          assert "wan_dhcp_nvram_state_publish(" in wan_dhcp_renew
+          assert "struct dhcp_lease_nvram_value renew_values[4];" in wan_dhcp_renew
+          assert "if (renew_count != 0)" in wan_dhcp_renew
+          assert "return nvram_status;" in wan_dhcp_renew
+          for marker in (
+              'nvram_set_temp(param, lease_dns)',
+              'nvram_set_temp(param, lease_domain)',
+              'nvram_set_temp(strcat_r(prefix, "wins", tmp), lease_wins)',
+              'nvram_set_int_temp(strcat_r(prefix, "lease", tmp), (int)parsed_value)',
+          ):
+              assert marker not in wan_dhcp_renew
+          renew_publisher = body(source, "wan_dhcp_nvram_state_publish(")
+          assert "dhcp_lease_nvram_publish(" in renew_publisher
+          assert "wan_dhcp_nvram_restore_values(" in renew_publisher
+          assert "nvram_transaction_begin(&transaction)" in renew_publisher
+          lease_policy = (rc / "dhcp_lease_policy.h").read_text()
+          lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
+          publish_body = body(lease_policy, "dhcp_lease_nvram_publish(")
+          assert "for (i = 0; i < count; ++i)" in publish_body
+          assert "for (j = count; j > 0; --j)" in publish_body
+          assert "test_dhcp_lease_nvram_publish_attempts_all_and_restores_all" in lease_policy_test
+          assert "test_dhcp_lease_nvram_publish_attempts_all_and_restores_all();" in lease_policy_test
           assert man_route_setup < callback.index("nvram_set_int_temp(strcat_r(prefix, \"err\", tmp), i_err)")
 
           apply_policy = body(policy, "dhcp_wan_interface_apply(")
@@ -613,11 +635,13 @@ jobs:
               "values[4].value = context->dns;",
           ):
               assert field in ipup_publish
-          assert "rc_wan_nvram_set_all_values(" in ipup_publish
-          assert "previous_values[i].value = previous_text[i];" in ipup_publish
-          assert "rc_wan_nvram_set_all_values(\n\t\tprevious_values, 5" in ipup_publish
-          assert "nvram_set_temp(wan_param, value)" in ipup_writer
-          assert "rc_wan_nvram_write_status(api_result, saved_errno)" in ipup_writer
+          assert "dhcp_lease_nvram_publish(" in ipup_publish
+          assert "values[i].previous_value = previous_text[i];" in ipup_publish
+          assert "dhcp_lease_nvram_restore(" in ipup_publish
+          assert "nvram_transaction_begin(&transaction)" in ipup_publish
+          assert "nvram_transaction_set(context->transaction, wan_param" in ipup_writer
+          assert "if (api_result < 0)" in ipup_writer
+          assert "saved_errno ? saved_errno : EIO" in ipup_writer
           assert "ifconfig(context->ifname, 0, NULL, NULL)" in ipup_clear
           ipup = body(ppp_source, "ipup_main(int argc, char **argv)")
           assert 'local_ip = getenv("IPLOCAL");' in ipup
