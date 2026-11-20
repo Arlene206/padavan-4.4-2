@@ -1,3 +1,10 @@
+## 2026-11-20 — Propagate LAN bridge reload-marker NVRAM failures
+
+- Parent main SHA: `b9be4009afd514e2d56c160d777b9d7ad1e487c1`.
+- `init_bridge()` recorded failures from switch, bridge, wireless and guest-isolation operations, but silently ignored both final `reload_svc_wl` and `reload_svc_rt` NVRAM writes. A device-node/driver error could leave stale reload state while bridge initialization falsely returned success.
+- Both temporary NVRAM writes now feed the existing first-error/failure-count accumulator. The function continues the independent second write and returns the first failure, matching its existing aggregate-status contract. Added a GNU89 ASan/UBSan bridge-policy regression, a callsite source contract, and workflow trigger/compile coverage.
+- Exact-head WAN-DHCP, XY-C1 Build/TRX/artifact and Process lifecycle Actions are required. Physical router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Preserve modem-priority NVRAM persistence semantics while checking the write
 
 - Parent SHA: `d6241fe7630a8df996127c7b295e69a675656641`. Review after the first passing source-contract run found that the initial checked implementation had used the volatile `nvram_set_int_temp()` helper, changing the prior call’s `nvram_set_int()` persistence semantics.

@@ -491,8 +491,14 @@ init_bridge(int is_ap_mode, int *switch_vlan_status)
 			operation_status);
 	}
 
-	nvram_set_int_temp("reload_svc_wl", 0);
-	nvram_set_int_temp("reload_svc_rt", 0);
+	operation_status = nvram_set_int_temp("reload_svc_wl", 0);
+	rc_bridge_init_record(&bridge_status,
+			      "clear wireless service reload marker",
+			      operation_status);
+	operation_status = nvram_set_int_temp("reload_svc_rt", 0);
+	rc_bridge_init_record(&bridge_status,
+			      "clear router service reload marker",
+			      operation_status);
 
 	if (bridge_status.first_status != 0)
 		logmessage(LOGNAME,

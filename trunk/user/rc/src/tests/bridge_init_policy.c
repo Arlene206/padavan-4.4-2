@@ -78,6 +78,23 @@ test_wireless_config_generation_failure_reaches_bridge_status(void)
 }
 
 static void
+test_reload_marker_write_failures_are_reported_and_aggregated(void)
+{
+	rc_bridge_init_status_t status;
+
+	rc_bridge_init_status_reset(&status);
+	/* A failed NVRAM marker write must not be silently lost. */
+	rc_bridge_init_record(&status, "clear wireless service reload marker", -1);
+	/* Continue the independent marker write and retain the failure count. */
+	rc_bridge_init_record(&status, "clear router service reload marker", EIO);
+
+	assert(rc_bridge_init_result(&status) == -1);
+	assert(status.failure_count == 2);
+	assert(strcmp(status.first_operation,
+		      "clear wireless service reload marker") == 0);
+}
+
+static void
 test_bridge_add_idempotency_requires_confirmed_bridge(void)
 {
 	assert(rc_bridge_init_add_bridge_result(0, 0, -1) == 0);
@@ -98,6 +115,7 @@ main(void)
 	test_negative_first_status_is_preserved();
 	test_radio_setup_failures_are_recorded_without_stopping_later_operations();
 	test_wireless_config_generation_failure_reaches_bridge_status();
+	test_reload_marker_write_failures_are_reported_and_aggregated();
 	test_bridge_add_idempotency_requires_confirmed_bridge();
 	puts("RC bridge initialization status and idempotency policy: PASS");
 	return 0;

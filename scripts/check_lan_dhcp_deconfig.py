@@ -4,6 +4,8 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 lan = (root / "trunk/user/rc/src/net_lan.c").read_text()
+bridge_policy = (root / "trunk/user/rc/src/bridge_init_policy.h").read_text()
+bridge_test = (root / "trunk/user/rc/src/tests/bridge_init_policy.c").read_text()
 assert '#include "route_status_policy.h"' in lan
 wan = (root / "trunk/user/rc/src/net_wan.c").read_text()
 policy = (root / "trunk/user/rc/src/dhcp_lease_policy.h").read_text()
@@ -511,5 +513,19 @@ assert lan_start.count("metadata_status = update_lan_status(0)") == 2
 manual_start = c_function_body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
 assert "metadata_status = update_lan_status(0)" in manual_start
 assert "rc_first_service_start_status(status, metadata_status)" in manual_start
+
+bridge_init = c_function_body(lan, "init_bridge(int is_ap_mode, int *switch_vlan_status)")
+bridge_init_compact = compact(bridge_init)
+wireless_marker = 'operation_status = nvram_set_int_temp("reload_svc_wl", 0);'
+router_marker = 'operation_status = nvram_set_int_temp("reload_svc_rt", 0);'
+wireless_record = 'rc_bridge_init_record(&bridge_status, "clear wireless service reload marker", operation_status);'
+router_record = 'rc_bridge_init_record(&bridge_status, "clear router service reload marker", operation_status);'
+assert wireless_marker in bridge_init_compact and router_marker in bridge_init_compact
+assert wireless_record in bridge_init_compact and router_record in bridge_init_compact
+assert bridge_init_compact.index(wireless_marker) < bridge_init_compact.index(wireless_record)
+assert bridge_init_compact.index(router_marker) < bridge_init_compact.index(router_record)
+assert "return rc_bridge_init_result(&bridge_status);" in bridge_init
+assert "test_reload_marker_write_failures_are_reported_and_aggregated" in bridge_test
+assert "test_reload_marker_write_failures_are_reported_and_aggregated" in bridge_policy + bridge_test
 
 print("LAN DHCP and IPTV deconfig transactional retry contract: PASS")

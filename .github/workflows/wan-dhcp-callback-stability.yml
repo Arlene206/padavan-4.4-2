@@ -56,6 +56,8 @@ on:
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/lan_dhcp_callback_policy.h"
       - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
+      - "trunk/user/rc/src/bridge_init_policy.h"
+      - "trunk/user/rc/src/tests/bridge_init_policy.c"
   pull_request:
     paths:
       - "scripts/check_lan_dhcp_deconfig.py"
@@ -112,6 +114,8 @@ on:
       - "trunk/user/rc/src/net_lan.c"
       - "trunk/user/rc/src/lan_dhcp_callback_policy.h"
       - "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c"
+      - "trunk/user/rc/src/bridge_init_policy.h"
+      - "trunk/user/rc/src/tests/bridge_init_policy.c"
 jobs:
   wan-dhcp-callback:
     runs-on: ubuntu-latest
@@ -131,6 +135,14 @@ jobs:
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer -I trunk/user/rc/src trunk/user/rc/src/tests/wan_nvram_status_policy.c -o /tmp/wan-nvram-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/wan-nvram-status-policy
           python3 scripts/check_lan_dhcp_deconfig.py
+      - name: Compile and run LAN bridge initialization status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/bridge_init_policy.c \
+            -o /tmp/bridge-init-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/bridge-init-policy
       - name: Verify DHCPv6 automatic DNS withdrawal contract
         run: python3 scripts/check_wan6_dns_policy.py
       - name: Compile and run WAN DHCPv6 DNS withdrawal policy regression
