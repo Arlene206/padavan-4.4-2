@@ -217,10 +217,18 @@ wan_route_call = wan_bound.index(
     "route_setup_status = wan_up_internal(wan_ifname, unit, 0);", wan_mtu_log
 )
 wan_route_err = wan_bound.index(
-    'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status);',
+    'wan_nvram_int_temp_status(\n\t\tstrcat_r(prefix, "route_err", tmp), route_setup_status);',
     wan_route_call,
 )
-wan_return = wan_bound.index("return route_setup_status;", wan_route_err)
+wan_return = wan_bound.index("return callback_status;", wan_route_err)
+require(
+    'wan_nvram_int_temp_status(\n\t\tstrcat_r(prefix, "err", tmp), i_err);' in wan_bound,
+    "WAN DHCP lease error marker must use checked NVRAM publication",
+)
+require(
+    "callback_status = route_status_accumulate(callback_status, publish_status);" in wan_bound,
+    "WAN DHCP callback must preserve the first NVRAM publication failure",
+)
 require(
     wan_mtu_condition < wan_mtu_set < wan_mtu_log < wan_route_call
     < wan_route_err < wan_return,
@@ -255,11 +263,21 @@ tv_mtu_set = viptv_bound.index(
 tv_mtu_log = viptv_bound.index("MTU setup incomplete (status=%d)", tv_mtu_set)
 tv_routes = viptv_bound.index("route_result = add_dhcp_routes(", tv_mtu_log)
 tv_route_err = viptv_bound.index(
-    'nvram_set_int_temp("manv_route_err", route_setup_status);', tv_routes
+    'wan_nvram_int_temp_status("manv_route_err", route_setup_status);',
+    tv_routes,
 )
-tv_return = viptv_bound.index(
-    "return route_status_accumulate(route_setup_status, multicast_status);",
-    tv_route_err,
+tv_return = viptv_bound.index("return callback_status;", tv_route_err)
+require(
+    'wan_nvram_int_temp_status("manv_err", i_err);' in viptv_bound,
+    "IPTV DHCP lease error marker must use checked NVRAM publication",
+)
+require(
+    "callback_status = route_status_accumulate(route_setup_status, multicast_status);" in viptv_bound,
+    "IPTV DHCP callback must preserve multicast status separately from route retry state",
+)
+require(
+    "callback_status = route_status_accumulate(callback_status, publish_status);" in viptv_bound,
+    "IPTV DHCP callback must preserve the first NVRAM publication failure",
 )
 require(
     tv_mtu_condition < tv_mtu_set < tv_mtu_log < tv_routes < tv_route_err < tv_return,
