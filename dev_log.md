@@ -1,3 +1,11 @@
+## 2026-11-20 — Make redirect lease metadata allocation transactional
+
+- Parent main SHA: `22a47cebeb8c09a51e6eb40919a4f0bca05d7875`.
+- `add_redirect_desc()` silently ignored allocation failure after committing DNAT/SNAT, so a finite-lease mapping could lose its in-memory timestamp and fall back to timestamp 0 (infinite lifetime). `update_portmapping_desc_timestamp()` deleted the existing record before trying the replacement allocation and always reported success, so OOM could also erase the old description/expiry record.
+- Added checked size-overflow/allocation handling and split descriptor preparation from allocation-free publication. New NAT/peer mappings allocate metadata before firewall mutation; metadata-only updates allocate before replacing the old record; changed-port updates stage metadata before the NAT commit and publish only after filter commit.
+- Added a GNU89 ASan/UBSan allocator regression (success, injected ENOMEM, invalid allocator and size overflow), a source-order contract, Makefile header dependency and MiniUPnP/XY-C1 workflow coverage.
+- Local GNU89 `-Wall -Wextra -Werror` ASan/UBSan allocator test PASS. Exact-head MiniUPnP, AI handoff and XY-C1 Build/TRX/artifact checks are pending; physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Remove unused peer rollback flag before compile
 
 - Parent main SHA: `46d79504f70236b403ac3153ca155715d9c65bb0`.

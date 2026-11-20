@@ -65,6 +65,7 @@
 #include "iptcrdr_allocation_policy.h"
 #include "iptcrdr_capacity_policy.h"
 #include "iptcrdr_update_policy.h"
+#include "miniupnpd_redirect_desc_policy.h"
 #include "../upnpglobalvars.h"
 #include "../miniupnpd_redirect_cleanup_policy.h"
 
@@ -144,27 +145,32 @@ struct rdr_desc {
 /* pointer to the chained list where descriptions are stored */
 static struct rdr_desc * rdr_desc_list = 0;
 
-/* add a description to the list of redirection descriptions */
-static void
-add_redirect_desc(unsigned short eport, int proto,
-                  const char * desc, unsigned int timestamp)
+/* Allocate mapping metadata before touching the firewall tables. */
+static struct rdr_desc *
+prepare_redirect_desc(unsigned short eport, int proto,
+                      const char * desc, unsigned int timestamp)
 {
 	struct rdr_desc * p;
 	size_t l;
-	/* set a default description if none given */
+	int saved_errno;
+
 	if(!desc)
 		desc = "miniupnpd";
 	l = strlen(desc) + 1;
-	p = malloc(sizeof(struct rdr_desc) + l);
-	if(p)
+	p = miniupnpd_redirect_desc_allocate(sizeof(*p), l, malloc);
+	if(!p)
 	{
-		p->next = rdr_desc_list;
-		p->timestamp = timestamp;
-		p->eport = eport;
-		p->proto = (short)proto;
-		memcpy(p->str, desc, l);
-		rdr_desc_list = p;
+		saved_errno = errno ? errno : ENOMEM;
+		syslog(LOG_ERR, "prepare_redirect_desc(): allocation failed");
+		errno = saved_errno;
+		return NULL;
 	}
+	p->next = NULL;
+	p->timestamp = timestamp;
+	p->eport = eport;
+	p->proto = (short)proto;
+	memcpy(p->str, desc, l);
+	return p;
 }
 
 /* delete a description from the list */
@@ -188,6 +194,23 @@ del_redirect_desc(unsigned short eport, int proto)
 		last = p;
 		p = p->next;
 	}
+}
+
+/* Publication cannot fail after the matching firewall update commits. */
+static void
+publish_redirect_desc(struct rdr_desc * p)
+{
+	if(!p)
+		return;
+	p->next = rdr_desc_list;
+	rdr_desc_list = p;
+}
+
+static void
+replace_redirect_desc(unsigned short eport, int proto, struct rdr_desc * p)
+{
+	del_redirect_desc(eport, proto);
+	publish_redirect_desc(p);
 }
 
 /* go through the list to find the description */
@@ -223,11 +246,17 @@ add_redirect_rule2(const char * ifname,
 				   const char * desc, unsigned int timestamp)
 {
 	int r;
+	struct rdr_desc * desc_entry;
 	UNUSED(ifname);
+
+	desc_entry = prepare_redirect_desc(eport, proto, desc, timestamp);
+	if(!desc_entry)
+		return -1;
 
 	r = addnatrule(proto, eport, iaddr, iport, rhost);
 	if(r >= 0) {
-		add_redirect_desc(eport, proto, desc, timestamp);
+		publish_redirect_desc(desc_entry);
+		desc_entry = NULL;
 #ifdef ENABLE_PORT_TRIGGERING
 		/* http://www.netfilter.org/documentation/HOWTO/NAT-HOWTO-6.html#ss6.3
 		 * The default behavior is to alter the connection as little
@@ -243,6 +272,7 @@ add_redirect_rule2(const char * ifname,
 		}
 #endif /* ENABLE_PORT_TRIGGERING */
 	}
+	free(desc_entry);
 	return r;
 }
 
@@ -255,11 +285,18 @@ add_peer_redirect_rule2(const char * ifname,
                    const char * desc, unsigned int timestamp)
 {
 	int r;
+	struct rdr_desc * desc_entry;
 	UNUSED(ifname);
 
+	desc_entry = prepare_redirect_desc(eport, proto, desc, timestamp);
+	if(!desc_entry)
+		return -1;
 	r = addpeernatrule(proto, eaddr, eport, iaddr, iport, rhost, rport);
-	if(r >= 0)
-		add_redirect_desc(eport, proto, desc, timestamp);
+	if(r >= 0) {
+		publish_redirect_desc(desc_entry);
+		desc_entry = NULL;
+	}
+	free(desc_entry);
 	return r;
 }
 
@@ -276,8 +313,7 @@ add_peer_dscp_rule2(const char * ifname,
 	UNUSED(timestamp);
 
 	r = addpeerdscprule(proto, dscp, iaddr, iport, rhost, rport);
-/*	if(r >= 0)
-		add_redirect_desc(dscp, proto, desc, timestamp); */
+/* Peer DSCP rules do not own a redirect description record. */
 	return r;
 }
 
@@ -1790,9 +1826,13 @@ update_portmapping_desc_timestamp(const char * ifname,
                    unsigned short eport, int proto,
                    const char * desc, unsigned int timestamp)
 {
+	struct rdr_desc * desc_entry;
+
 	UNUSED(ifname);
-	del_redirect_desc(eport, proto);
-	add_redirect_desc(eport, proto, desc, timestamp);
+	desc_entry = prepare_redirect_desc(eport, proto, desc, timestamp);
+	if(!desc_entry)
+		return -1;
+	replace_redirect_desc(eport, proto, desc_entry);
 	return 0;
 }
 
@@ -1861,12 +1901,18 @@ update_portmapping(const char * ifname, unsigned short eport, int proto,
 	const struct ipt_entry_match *match;
 	uint32_t iaddr = 0;
 	unsigned short old_iport = 0;
+	struct rdr_desc * desc_entry;
+
+	desc_entry = prepare_redirect_desc(eport, proto, desc, timestamp);
+	if(!desc_entry)
+		return -1;
 
 	h = iptc_init("nat");
 	if(!h)
 	{
 		syslog(LOG_ERR, "%s() : iptc_init() failed : %s",
 		       "update_portmapping", iptc_strerror(errno));
+		free(desc_entry);
 		return -1;
 	}
 	/* First step : find the right nat rule */
@@ -1931,8 +1977,10 @@ update_portmapping(const char * ifname, unsigned short eport, int proto,
 #else
 	iptc_free(&h);
 #endif
-	if(!found || r < 0)
+	if(!found || r < 0) {
+		free(desc_entry);
 		return -1;
+	}
 	syslog(LOG_INFO, "Trying to update nat rule at index %u", index);
 	target = (void *)new_e + new_e->target_offset;
 	mr = (struct ip_nat_multi_range *)&target->data[0];
@@ -1943,6 +1991,7 @@ update_portmapping(const char * ifname, unsigned short eport, int proto,
 	if (r < 0) {
 		free(new_e);
 		new_e = NULL;
+		free(desc_entry);
 		return r;
 	}
 	nat_status = r;
@@ -2033,11 +2082,13 @@ update_portmapping(const char * ifname, unsigned short eport, int proto,
 	if (miniupnpd_portmapping_rollback_required(nat_status, r))
 		goto rollback_nat;
 
+	replace_redirect_desc(eport, proto, desc_entry);
+	desc_entry = NULL;
 	free(filter_e);
 	filter_e = NULL;
 	free(new_e);
 	new_e = NULL;
-	return update_portmapping_desc_timestamp(ifname, eport, proto, desc, timestamp);
+	return 0;
 
 rollback_nat:
 	failure_errno = errno ? errno : EIO;
@@ -2054,6 +2105,7 @@ rollback_nat:
 		}
 		r = miniupnpd_portmapping_failure_result(r, rollback_status);
 	}
+	free(desc_entry);
 	free(filter_e);
 	free(new_e);
 	errno = failure_errno;
