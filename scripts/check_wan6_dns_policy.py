@@ -68,7 +68,7 @@ assert '#include "wan_nvram_status_policy.h"' in source
 assert "int reset_wan6_vars_status(void);" in header
 assert "int reset_wan6_vars(void);" in header
 assert "int reset_wan6_vars_status(void)" in source
-reset_wrapper = body(source, "int\\nreset_wan6_vars(void)")
+reset_wrapper = body(source, "int" + chr(10) + "reset_wan6_vars(void)")
 assert "status = reset_wan6_vars_status();" in reset_wrapper
 assert "return status;" in reset_wrapper
 reset_v6 = body(source, "int reset_wan6_vars_status(void)")
