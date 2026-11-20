@@ -1,3 +1,13 @@
+## 2026-11-20 — Repair the injected delete caller C fixture
+
+- Parent main SHA: 30af417ed8d7665e5da0f630e79b38bbb9f92296.
+- Exact-head MiniUPnP run #44804109446 on the previous test commit failed at the new integration step. Its generated C had literal backslash-n separators and omitted the production function signature, so the compiler reported a stray backslash and an implicit declaration. No production source failure was involved.
+- Corrected the runner to emit actual newlines and prepend the function's int return type and signature around the extracted production body. Tightened escape handling in its C-aware brace parser.
+- Concurrent product commit 30af417ed8d7665e5da0f630e79b38bbb9f92296 also moved nat_scan_completed to after the NAT loop; its new exact-head build and source checks must be evaluated separately.
+- Firmware L3 remains NOT VERIFIED until the current source SHA's Build XY-C1, TRX and artifact steps pass.
+
+---
+
 ## 2026-11-20 — Mark NAT scan complete after iteration
 
 - Parent main SHA: cbe06d311a01a6da73891df2c7a5587e03f312fc. Exact-head MiniUPnP workflow #44803703734 passed after the inline append contract was updated to the fd-based transaction helper. A semantic review then found that the source contract accepted nat_scan_completed before the NAT rule loop.

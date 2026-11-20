@@ -39,7 +39,7 @@ def function_body(source: str, signature: str) -> str:
                 if depth == 0:
                     return source[brace:index + 1]
         elif state in ("string", "char"):
-            if char == "\\\\":
+            if char == "\\":
                 index += 1
             elif state == "string" and char == '"':
                 state = "code"
@@ -49,13 +49,13 @@ def function_body(source: str, signature: str) -> str:
             if char == "*" and next_char == "/":
                 state = "code"
                 index += 1
-        elif state == "line_comment" and char == "\\n":
+        elif state == "line_comment" and char == "\n":
             state = "code"
         index += 1
     raise AssertionError("unterminated function: " + signature)
 
 
-DELETE_CALLER = function_body(SOURCE, "_upnp_delete_redir(unsigned short eport, int proto)")
+DELETE_CALLER = "int\n" + "_upnp_delete_redir(unsigned short eport, int proto)\n" + function_body(SOURCE, "_upnp_delete_redir(unsigned short eport, int proto)")
 
 PREAMBLE = r"""
 #include <assert.h>
@@ -160,7 +160,7 @@ int main(void)
 
 
 def main() -> None:
-    source = PREAMBLE + "\\n" + DELETE_CALLER + "\\n" + TESTS
+    source = PREAMBLE + "\n" + DELETE_CALLER + "\n" + TESTS
     with tempfile.TemporaryDirectory(prefix="miniupnp-delete-integration-") as temp:
         c_path = Path(temp) / "delete_integration.c"
         binary_path = Path(temp) / "delete_integration"
