@@ -4,37 +4,40 @@
 
 Continue main-only implementation across conversations. Recover the repository once, then execute the next verified engineering task; do not repeat completed audits or spend sessions on planning alone.
 
-- One atomic main commit per logical slice. Create all changed blobs and one complete tree based on the live tree, parent the commit to the live SHA, and update with force=false plus exact expected_sha.
+- one atomic main commit per logical slice. Create all changed blobs and one complete tree based on live main, parent the commit to the live SHA, and update with force=false plus exact expected_sha.
 - Never force-push, amend published commits, develop on branches/PRs, or modify the frozen backup.
-- Match Actions to the exact head_sha. Diagnose failures from causal logs. A pending run is not a stop condition; work on independent tasks.
+- Match Actions to exact head_sha. Diagnose failures from causal logs. A pending run is not a stop condition; work on independent tasks.
 - Preserve GNU89, MIPS/uClibc, BusyBox/Linux 4.4 compatibility, fail-closed behavior, ABI/config compatibility and meaningful regressions.
 - Before context exhaustion, finish the current safe slice, verify the exact SHA and leave one precise next action.
 
 ## Current repository state
 
-- Parent main SHA for the current checker correction: 971372f4a8a662eeda42e3d7b80ec6f9be6e3de2.
-- The source change under validation is fix(wan): report resolver snapshot clear failures on teardown. In wan_down_internal(), the global vpnc_dns_t and conditional indexed wanN_dns snapshot clears use errno-aware setters, aggregate first-error status, and continue independent VPN stop, route/interface cleanup and resolver refresh.
-- The prior PPP ip-up source baseline b4ab85764446ab133873f9d931d411ef25e7761e publishes the five-field volatile ipaddr/netmask/ifname_t/gateway/dns tuple through checked NVRAM writes, restores the previous tuple on partial failure, removes the new interface address and blocks WAN route setup unless publication succeeds. Its stale WAN DHCP/HTTPD source contracts were repaired by b68158c3ee405bcdc3270db0e6adfd9de91828e5; those exact-head checks passed.
-- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only. Branch inventory contains only main and this backup.
-- Legacy PR #1 is CLOSED / NOT MERGED; its AliDDNS HMAC/CA bootstrap functionality is already present and evolved on main. Do not repeat the port audit.
+- Current production source SHA: `10b57237ced5487a0d17e0bb09425ea96973a78e`; documentation-only handoff commit follows it.
+- Policy/test foundation: `6c0ba561b93e9e4c6ee647718a251d7e4173d727` changes `dhcp_lease_nvram_publish()` to validate all entries, attempt every candidate write even after an individual error, and restore all previous values in reverse order while preserving the first write error.
+- WAN source: `udhcpc_renew()` publishes changed DNS/domain/WINS/lease as a serialized runtime snapshot. It retries restoration in a fresh transaction on any failed write or transaction-end result and returns the original publication error rather than reporting renewal success.
+- PPP source: `ipup_main()` uses the same shared policy for the five-field `ipaddr/netmask/ifname_t/gateway/dns` snapshot. It holds an NVRAM transaction during candidate writes, retries complete restoration under a fresh transaction and retains the existing interface rollback and route gate.
+- WAN DHCP callback and WAN firewall source contracts were updated; the injected GNU89 test verifies validation-before-mutation, attempt-all writes and full tuple restoration.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. Branch inventory last verified only `main` and this backup.
+- Legacy PR #1 is CLOSED / NOT MERGED; AliDDNS HMAC/CA bootstrap work is already present and evolved on main. Do not repeat that port audit.
 
 ## Active task
 
-1. Verify exact-SHA Actions for the current WAN route inline-contract correction. WAN route run `44687093770` had passed the shared checker but failed two later source assertions that still expected the removed unchecked VPN resolver setter; both now use the checked setter. AI handoff run `44687093751` passed. XY-C1 run `44687093783` was still in progress at last poll; verify the same-SHA MIPS build, TRX and artifact upload before claiming L3.
-2. Continue the independent DHCP renewal runtime snapshot task: use a shared validate-all/attempt-all/restore-on-failure NVRAM policy for changed DNS/domain/WINS/lease values, reuse it in PPP ip-up, and add injected GNU89 regressions plus source-contract checks. Keep work moving while Actions are pending.
-3. Keep physical-router L4 marked NOT VERIFIED unless actual device testing is recorded.
+1. Inspect exact-SHA Actions for production source `10b57237ced5487a0d17e0bb09425ea96973a78e`: WAN DHCP callback `44689024028`, WAN route `44689024130`, XY-C1 `44689024255`, AI handoff docs `44689024296`. Also poll NVRAM boundary `44689024044` and fix any failure from the failed step log.
+2. Confirm the injected `dhcp_lease_nvram_publish()` regression compiles/runs under GNU89, Werror, ASan and UBSan. Verify the updated WAN renew and PPP source-contract assertions.
+3. Claim L3 only if the same production-source SHA passes the input detector, MIPS build, TRX verification and artifact upload. Host-only CI does not establish L3; physical-router L4 remains NOT VERIFIED.
+4. Once the DHCP renewal/PPP slice is green, continue with the address-change `udhcpc_bound()` path, which still publishes several lease values individually and needs the same fail-closed snapshot treatment.
 
-## Verification boundary at parent 971372f4a8a662eeda42e3d7b80ec6f9be6e3de2
+## Verification boundary
 
-- PASS: detect-internet regression on previous checker SHA 971372f4a8a662eeda42e3d7b80ec6f9be6e3de2; NVRAM transaction boundary 44686157053 on product SHA 21e567affba4e992476aa7dc16c30be7fa6d4500.
-- FAIL, corrected in this commit: WAN route 44686752930; XY-C1 44686753007; AI handoff docs 44686752989.
-- XY-C1 stopped at the WAN source-contract step before the full MIPS build/TRX/artifact gate. Product L3 is NOT VERIFIED. Physical-router L4 is NOT VERIFIED.
+- Previous main SHA `79d8f0a7cc59be4e96ee827ff09fcad0576b3720`: WAN route PASS (`44687337571`); AI docs FAIL (`44687337698`) because the handoff had uppercase `One atomic main commit`. Corrected here using the exact lowercase validator phrase.
+- Production source SHA `10b57237ced5487a0d17e0bb09425ea96973a78e`: source Actions were in progress at the time of this handoff. No PASS/FAIL result is claimed for this SHA yet.
+- No local GNU89 suite was run because no local checkout is available. No same-SHA MIPS/TRX/artifact result is yet confirmed; L3 is NOT VERIFIED. Physical L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-SHA WAN route, XY-C1 and AI handoff Actions triggered by this correction. Also confirm detect-internet remains green.
-2. If a run fails, inspect the failed step log and correct the actual defect without weakening behavioral assertions. Claim L3 only after the current production-source SHA passes the detector, MIPS build, TRX verification and artifact upload on that same SHA.
-3. When this WAN resolver slice is green, resume a separate high-impact cross-userland service/process/security issue. Do not repeat the WAN DNS snapshot or PPP ip-up work. Inspect current callsites, implement a production fix plus focused GNU89/Werror regression, and keep independent work moving while Actions are pending.
+1. Fetch live main, then inspect exact-SHA results for the production source SHA above. Open failed job logs and repair the actual problem without weakening validation, attempt-all, rollback or route-gating assertions.
+2. If the new source slice passes, investigate `udhcpc_bound()` for unchecked/partial lease tuple publication; add a focused injected policy regression and atomic source fix.
+3. Do not wait on PENDING Actions when independent source work is possible. Record the exact commit/SHA and test status in the next handoff.
 
 ## Mandatory handoff checkpoint
 
@@ -44,4 +47,4 @@ Every session MUST inspect the live repository state. Update this handoff only w
 
 ## Evidence discipline
 
-Keep host/source regressions, exact-head Actions, MIPS build/TRX and physical-device evidence separate. Only a same-SHA detector, build, TRX verification and artifact upload establish L3; host tests do not. Never infer L4 from CI.
+Keep host/source regressions, exact-head Actions, MIPS build/TRX and physical-device evidence separate. A same-SHA detector, MIPS build, TRX verification and artifact upload are required for L3. Never infer L4 from CI.

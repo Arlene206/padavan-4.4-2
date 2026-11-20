@@ -1,3 +1,12 @@
+## 2026-11-20 — Publish DHCP renewal options and PPP runtime tuple through shared rollback policy
+
+- Policy/test commit: `6c0ba561b93e9e4c6ee647718a251d7e4173d727`. The shared `dhcp_lease_nvram_publish()` validates the full vector, attempts every candidate setter despite individual failures, preserves the first write error, and restores the complete previous tuple in reverse order. An injected regression covers invalid-tail validation before writes, a first-key error after applying its value, attempt-all behavior and full restoration.
+- Product/source-contract commit: `10b57237ced5487a0d17e0bb09425ea96973a78e`. WAN `udhcpc_renew()` now publishes changed DNS/domain/WINS/lease duration as one serialized NVRAM transaction. Withdrawn/invalid DNS/domain/WINS normalize to empty; absent/invalid lease duration preserves the old value. Resolver refresh occurs only after the DNS/domain snapshot succeeds.
+- PPP `ipup_main()` reuses the shared policy for `ipaddr/netmask/ifname_t/gateway/dns`, runs setters under one NVRAM transaction, retries full tuple restoration under a fresh lock after write or transaction-end failure, and retains the existing interface rollback/route gate.
+- Updated `scripts/check_wan_firewall_status.py` and the WAN DHCP callback workflow to pin the new renewal and PPP transaction semantics. The exact-source Actions on `10b5723` were in progress at handoff: WAN DHCP callback `44689024028`, WAN route `44689024130`, XY-C1 `44689024255`, AI docs `44689024296`; broader lifecycle and NVRAM checks were also still running.
+- Previous exact SHA `79d8f0a7cc59be4e96ee827ff09fcad0576b3720`: WAN route PASS (`44687337571`); AI docs FAIL (`44687337698`) only because the handoff used uppercase `One atomic main commit`. This handoff restores the required lowercase phrase.
+- No local checkout is available here; local GNU89/ASan/UBSan tests were NOT RUN. Do not claim L3 until same-source-SHA detector, MIPS build, TRX verification and artifact upload all pass. Physical-router L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Correct the WAN resolver refresh assertion and handoff contract
 
 - Parent main SHA: 971372f4a8a662eeda42e3d7b80ec6f9be6e3de2.
