@@ -378,7 +378,7 @@ for index, position in enumerate(firewall_sites):
             'firewall_cleanup_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);',
             "if (firewall_cleanup_status != 0)",
             "interface_cleanup_status = ifconfig(wan_ifname, 0, NULL, NULL);",
-            'set_wan_unit_value_int(unit, "err", 1);',
+            "set_wan_unit_error_status(unit, 1);",
             "continue;",
             "/* Start eapol authenticator */",
         ))
@@ -480,7 +480,7 @@ require("auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);" i
 eapol_order = (
     "wan_start_status = rc_first_service_start_status(",
     "wan_start_status, auth_status);",
-    'set_wan_unit_value_int(unit, "err", 1);',
+    "set_wan_unit_error_status(unit, 1);",
     "static_address_clear_status = 0;",
     'static_address_clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);',
     "if (rc_wan_static_ipoe_clear_failure_requires_ifdown(",

@@ -1207,10 +1207,10 @@ jobs:
           assert "if (dhcp_status != 0)" in wan_start
           assert "wan_err = 1;" in wan_start
           assert 'logmessage(LOGNAME, "WAN DHCP client launch failed on %s (status=%d)",' in wan_start
-          assert 'set_wan_unit_value_int(unit, "err", wan_err);' in wan_start
+          assert 'set_wan_unit_error_status(unit, wan_err);' in wan_start
           assert wan_start.index(ipoe_dhcp_launch) < wan_start.index("if (dhcp_status != 0)")
-          assert wan_start.index("if (dhcp_status != 0)") < wan_start.rindex('set_wan_unit_value_int(unit, "err", wan_err);')
-          assert wan_start.index('set_wan_unit_value_int(unit, "err", wan_err);') < wan_start.index("int ipv6_status = wan6_up(wan_ifname, unit);")
+          assert wan_start.index("if (dhcp_status != 0)") < wan_start.rindex('set_wan_unit_error_status(unit, wan_err);')
+          assert wan_start.index('set_wan_unit_error_status(unit, wan_err);') < wan_start.index("int ipv6_status = wan6_up(wan_ifname, unit);")
           assert "start_udhcpc_wan(wan_ifname, unit, 0);" not in wan_start.replace(ipoe_dhcp_launch, "")
           assert wan_start.count("WAN physical interface setup incomplete") == 2
           ipoe_static_begin = wan_start.index("/* Assign static IP address to i/f */")
@@ -1241,7 +1241,7 @@ jobs:
           assert address_clear in ipoe_static_config
           assert "failed to clear partially configured static WAN address on %s (status=%d)" in ipoe_static_config
           assert ipoe_static_config.index(address_apply) < ipoe_static_config.index(address_failure) < ipoe_static_config.index(address_clear)
-          assert ipoe_static_config.index(address_clear) < ipoe_static_config.index('set_wan_unit_value_int(unit, "err", wan_err);')
+          assert ipoe_static_config.index(address_clear) < ipoe_static_config.index('set_wan_unit_error_status(unit, wan_err);')
           static_finish = wan_start[wan_start.index("/* We are done configuration */"):]
           assert "if (!wan_err)" in static_finish
           assert static_finish.index("if (!wan_err)") < static_finish.index("wan_up(wan_ifname, unit, 1);") < static_finish.index("wan_upnp_status = update_upnp();")

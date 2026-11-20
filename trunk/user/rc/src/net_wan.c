@@ -120,6 +120,20 @@ set_wan_unit_value_int_status(int unit, const char *param_name, int value)
 }
 
 static int
+set_wan_unit_error_status(int unit, int error)
+{
+	int status;
+
+	status = set_wan_unit_value_int_status(unit, "err", error);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "cannot publish WAN error state for unit %d (value=%d, status=%d)",
+			   unit, error, status);
+	return status;
+}
+
+
+static int
 set_wan_unit_param_status(int unit, const char *param_name)
 {
 	struct nvram_transaction transaction;
@@ -2630,7 +2644,9 @@ start_wan(void)
 					logmessage(LOGNAME,
 						   "aborting IPoE WAN activation because AP-client interface %s did not associate (status=%d)",
 						   wan_ifname, vlan_result);
-					set_wan_unit_value_int(unit, "err", 1);
+					vlan_result = set_wan_unit_error_status(unit, 1);
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
 					continue;
 				}
 			}
@@ -2697,7 +2713,9 @@ start_wan(void)
 					}
 				}
 				
-				set_wan_unit_value_int(unit, "err", wan_err);
+				vlan_result = set_wan_unit_error_status(unit, wan_err);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
 			}
 			
 			/* Rebuild required firewall policy before EAPOL, DHCP or route activation. */
@@ -2725,7 +2743,9 @@ start_wan(void)
 						}
 					}
 				}
-				set_wan_unit_value_int(unit, "err", 1);
+				vlan_result = set_wan_unit_error_status(unit, 1);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
 				continue;
 			}
 			
@@ -2744,7 +2764,9 @@ start_wan(void)
 						wan_start_status, auth_status);
 					logmessage(LOGNAME, "WAN EAPOL authentication startup failed on %s (status=%d); skipping address/lease setup",
 						   wan_ifname, auth_status);
-					set_wan_unit_value_int(unit, "err", 1);
+					vlan_result = set_wan_unit_error_status(unit, 1);
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, vlan_result);
 					static_address_clear_status = 0;
 					if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)
 						static_address_clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);
@@ -2792,7 +2814,9 @@ start_wan(void)
 					logmessage(LOGNAME, "WAN DHCP client launch failed on %s (status=%d)",
 						   wan_ifname, dhcp_status);
 				}
-				set_wan_unit_value_int(unit, "err", wan_err);
+				vlan_result = set_wan_unit_error_status(unit, wan_err);
+				wan_start_status = rc_first_service_start_status(
+					wan_start_status, vlan_result);
 			}
 #if defined (USE_IPV6)
 			if (is_wan_ipv6_type_sit() == 0) {

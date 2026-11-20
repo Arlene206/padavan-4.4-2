@@ -333,7 +333,7 @@ migration_pos = ipoe_branch.index("vlan_result = check_upnp_wanif_changed(wan_if
 migration_end = ipoe_branch.index("continue;", migration_pos)
 assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[migration_pos:migration_end]
 static_config_start = ipoe_branch.index("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)")
-static_config_end = ipoe_branch.index('set_wan_unit_value_int(unit, "err", wan_err);', static_config_start)
+static_config_end = ipoe_branch.index('set_wan_unit_error_status(unit, wan_err);', static_config_start)
 static_config = compact(ipoe_branch[static_config_start:static_config_end])
 invalid_config = "if (!dhcp_lease_ipv4_is_valid(wan_addr) || !dhcp_lease_netmask_is_valid(wan_mask))"
 assert invalid_config in static_config, "static WAN IPoE must strictly validate address and netmask"
@@ -371,7 +371,7 @@ auth_pos = ipoe_branch.index("if (auth_status != 0)")
 auth_end = ipoe_branch.index("/* We are done configuration */", auth_pos)
 assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[auth_pos:auth_end]
 dhcp_pos = ipoe_branch.index("if (dhcp_status != 0)")
-dhcp_end = ipoe_branch.index('set_wan_unit_value_int(unit, "err", wan_err);', dhcp_pos)
+dhcp_end = ipoe_branch.index('set_wan_unit_error_status(unit, wan_err);', dhcp_pos)
 assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[dhcp_pos:dhcp_end]
 
 aggregate_pattern = r"wan_start_status\s*=\s*rc_first_service_start_status\s*\(\s*wan_start_status\s*,\s*vlan_result\s*\)\s*;"

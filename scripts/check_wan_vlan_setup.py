@@ -126,7 +126,7 @@ require("INT_MAX / 100" in fd and "return br_set_param_int(" in fd,
 
 wan_start = body(wan, "start_wan(void)")
 static_mtu_start = wan_start.index("if (wan_mtu >= 1300 && wan_mtu < 1500)")
-static_mtu_end = wan_start.index('set_wan_unit_value_int(unit, "err", wan_err);',
+static_mtu_end = wan_start.index('set_wan_unit_error_status(unit, wan_err);',
                                 static_mtu_start)
 static_mtu = wan_start[static_mtu_start:static_mtu_end]
 mtu_failure = static_mtu.index("if (mtu_status != 0)")
