@@ -1,3 +1,12 @@
+## 2026-11-20 — Narrow IPTV deconfig source-contract scopes
+
+- Parent main SHA: `7485455e53de44887907218c9ee22990974d11bf`. This contract-only commit updates the WAN DHCP callback and HTTPD workflow checks plus this log; production C and regression tests are unchanged.
+- Exact-head failures on `7485455e`: callback run `44701130333` reached line 242 after earlier tests, then failed because the source assertion required a single-line `route_del(man_ifname, 10...)` call while the implementation intentionally wraps the call over several lines. The assertion now checks the stable `route_result = route_del(` prefix.
+- HTTPD run `44701130327` failed at line 269 because its `manv_deconfig` text slice extended beyond the route function and included the shared five-key publisher callback; the contract incorrectly asserted that the publisher symbol was absent from that larger region. Narrow the slice to the end of `manv_route_deconfig()` before asserting separation.
+- XY-C1 firmware was in progress at the last exact-head poll; AI handoff and multiple unrelated regression workflows passed. Fresh exact-head checks are required after this commit.
+
+---
+
 ## 2026-11-20 — Make IPTV and ZeroConf lease teardown metadata atomic
 
 - Parent main SHA: `86e30d782ba87f81817b45dad91c1a85558c494c`. Updated `net_wan.c`, DHCP lease policy regression tests, the WAN DHCP callback source contract, the detect-internet source contract, and this log.

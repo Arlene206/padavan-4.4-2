@@ -2650,7 +2650,7 @@ jobs:
           assert "if (is_add && !nvram_match(\"dr_enable_x\", \"1\"))" in route_body
           assert "control_dhcp_routes(" in wan
           manv_deconfig_start = wan.index("manv_route_deconfig(char *man_ifname)")
-          manv_deconfig_end = wan.index("udhcpc_viptv_main(int argc, char **argv)", manv_deconfig_start)
+          manv_deconfig_end = wan.index("\nstruct udhcpc_viptv_deconfig_context", manv_deconfig_start)
           manv_deconfig = wan[manv_deconfig_start:manv_deconfig_end]
           assert "rc_wan_nvram_copy_snapshot(" in manv_deconfig
           assert 'fields[0].param_name = "manv_gateway";' in manv_deconfig

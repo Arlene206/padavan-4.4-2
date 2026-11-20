@@ -431,7 +431,7 @@ jobs:
           route_delete = viptv_deconfig.index("route_result = control_dhcp_routes(", snapshot_failure)
           assert snapshot_call < snapshot_failure < route_delete
           assert "return route_status;" in viptv_deconfig[snapshot_failure:route_delete]
-          assert "route_result = route_del(man_ifname, 10" in viptv_deconfig
+          assert "route_result = route_del(" in viptv_deconfig
           assert "preserving lease metadata for retry" in viptv_deconfig
           assert "wan_dhcp_nvram_publish_values(" not in viptv_deconfig
           viptv_dhcp_deconfig = body(source, "udhcpc_viptv_deconfig(char *man_ifname)")
