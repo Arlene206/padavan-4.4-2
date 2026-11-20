@@ -87,15 +87,41 @@ test_transaction_failure_remains_fatal(void)
 	assert(lan_dhcp_bound_callback_status(ENOSPC, EIO) == ENOSPC);
 }
 
+static void
+test_runtime_metadata_refresh_prepares_atomic_four_key_tuple(void)
+{
+	struct dhcp_lease_nvram_value values[LAN_DHCP_STATUS_METADATA_COUNT];
+
+	lan_dhcp_status_metadata_prepare(
+		values, "192.0.2.10", "255.255.255.0", "router.example",
+		"192.0.2.1", "198.51.100.10", "255.255.255.128",
+		"old.example", "198.51.100.1");
+
+	assert(LAN_DHCP_STATUS_METADATA_COUNT == 4);
+	assert(strcmp(values[0].name, "lan_ipaddr_t") == 0);
+	assert(strcmp(values[0].value, "192.0.2.10") == 0);
+	assert(strcmp(values[0].previous_value, "198.51.100.10") == 0);
+	assert(strcmp(values[1].name, "lan_netmask_t") == 0);
+	assert(strcmp(values[1].value, "255.255.255.0") == 0);
+	assert(strcmp(values[1].previous_value, "255.255.255.128") == 0);
+	assert(strcmp(values[2].name, "lan_domain_t") == 0);
+	assert(strcmp(values[2].value, "router.example") == 0);
+	assert(strcmp(values[2].previous_value, "old.example") == 0);
+	assert(strcmp(values[3].name, "lan_gateway_t") == 0);
+	assert(strcmp(values[3].value, "192.0.2.1") == 0);
+	assert(strcmp(values[3].previous_value, "198.51.100.1") == 0);
+}
+
 int
 main(void)
 {
 	test_deconfig_metadata_restores_static_values_and_clears_dhcp_options();
+	test_runtime_metadata_refresh_prepares_atomic_four_key_tuple();
 	test_successful_lease_commit_ignores_ancillary_refresh_failure();
 	test_watchdog_and_monitor_notification_failures_are_ancillary();
 	test_ap_same_value_renew_always_refreshes_hosts();
 	test_networkmap_refreshes_changed_address_renewals();
 	test_transaction_failure_remains_fatal();
-	puts("LAN DHCP deconfig metadata, networkmap and ancillary callback policy: PASS");
+	puts("LAN DHCP runtime/deconfig metadata, networkmap and ancillary callback policy: PASS");
 	return 0;
 }

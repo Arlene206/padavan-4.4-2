@@ -3,6 +3,31 @@
 
 #include "dhcp_lease_policy.h"
 
+/* Four runtime identity keys are published as one compensatable tuple. */
+#define LAN_DHCP_STATUS_METADATA_COUNT 4
+
+static inline void
+lan_dhcp_status_metadata_prepare(
+	struct dhcp_lease_nvram_value values[LAN_DHCP_STATUS_METADATA_COUNT],
+	const char *address, const char *netmask, const char *domain,
+	const char *gateway, const char *previous_address,
+	const char *previous_netmask, const char *previous_domain,
+	const char *previous_gateway)
+{
+	values[0].name = "lan_ipaddr_t";
+	values[0].value = address;
+	values[0].previous_value = previous_address;
+	values[1].name = "lan_netmask_t";
+	values[1].value = netmask;
+	values[1].previous_value = previous_netmask;
+	values[2].name = "lan_domain_t";
+	values[2].value = domain;
+	values[2].previous_value = previous_domain;
+	values[3].name = "lan_gateway_t";
+	values[3].value = gateway;
+	values[3].previous_value = previous_gateway;
+}
+
 /* The static LAN identity and DHCP-only options form one deconfig commit. */
 #define LAN_DHCP_DECONFIG_METADATA_COUNT 7
 

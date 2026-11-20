@@ -1101,6 +1101,7 @@ start_lan(int is_ap_mode, int do_wait)
 	int start_status = 0;
 	int operation_status;
 	int phy_wait_status = 0;
+	int metadata_status = 0;
 
 	lan_ipaddr = nvram_safe_get("lan_ipaddr");
 	lan_netmsk = nvram_safe_get("lan_netmask");
@@ -1141,7 +1142,13 @@ start_lan(int is_ap_mode, int do_wait)
 
 			if (operation_status == 0) {
 				/* early fill XXX_t fields */
-				update_lan_status(0);
+				metadata_status = update_lan_status(0);
+				if (metadata_status != 0)
+					logmessage(LOGNAME,
+						   "LAN runtime metadata refresh failed; refusing DHCP client launch (status=%d)",
+						   metadata_status);
+				start_status = rc_first_service_start_status(
+					start_status, metadata_status);
 
 				/* Complete the PHY link-settling interval despite signal interruptions. */
 				if (do_wait) {
@@ -1163,7 +1170,8 @@ start_lan(int is_ap_mode, int do_wait)
 				start_status = rc_first_service_start_status(start_status, operation_status);
 
 				/* A monitor notification failure must not bypass or suppress the PHY gate. */
-				if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status)) {
+				if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status) &&
+				    metadata_status == 0) {
 					/* start DHCP daemon only when its event handler is verified */
 					operation_status = start_udhcpc_lan(lan_ifname);
 					if (operation_status != 0)
@@ -1586,6 +1594,7 @@ lan_up_manual(char *lan_ifname, char *lan_dname)
 	int lock, saved_errno, notify_status;
 	int dns_count = 0;
 	int status = 0;
+	int metadata_status;
 	char *dns_ip, *gateway_ip;
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 
@@ -2060,26 +2069,111 @@ lan_down_auto(char *lan_ifname)
 	return 0;
 }
 
-void 
+struct lan_dhcp_runtime_snapshot {
+	char static_address[16];
+	char static_netmask[16];
+	char static_domain[256];
+	char dhcp_gateway[16];
+	char ap_gateway[16];
+	char previous_address[16];
+	char previous_netmask[16];
+	char previous_domain[256];
+	char previous_gateway[16];
+};
+
+static int
+lan_dhcp_runtime_snapshot_copy(struct lan_dhcp_runtime_snapshot *snapshot)
+{
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[9];
+
+	if (!snapshot) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	fields[0].param_name = "lan_ipaddr";
+	fields[0].destination = snapshot->static_address;
+	fields[0].destination_size = sizeof(snapshot->static_address);
+	fields[1].param_name = "lan_netmask";
+	fields[1].destination = snapshot->static_netmask;
+	fields[1].destination_size = sizeof(snapshot->static_netmask);
+	fields[2].param_name = "lan_domain";
+	fields[2].destination = snapshot->static_domain;
+	fields[2].destination_size = sizeof(snapshot->static_domain);
+	fields[3].param_name = "dhcp_gateway_x";
+	fields[3].destination = snapshot->dhcp_gateway;
+	fields[3].destination_size = sizeof(snapshot->dhcp_gateway);
+	fields[4].param_name = "lan_gateway";
+	fields[4].destination = snapshot->ap_gateway;
+	fields[4].destination_size = sizeof(snapshot->ap_gateway);
+	fields[5].param_name = "lan_ipaddr_t";
+	fields[5].destination = snapshot->previous_address;
+	fields[5].destination_size = sizeof(snapshot->previous_address);
+	fields[6].param_name = "lan_netmask_t";
+	fields[6].destination = snapshot->previous_netmask;
+	fields[6].destination_size = sizeof(snapshot->previous_netmask);
+	fields[7].param_name = "lan_domain_t";
+	fields[7].destination = snapshot->previous_domain;
+	fields[7].destination_size = sizeof(snapshot->previous_domain);
+	fields[8].param_name = "lan_gateway_t";
+	fields[8].destination = snapshot->previous_gateway;
+	fields[8].destination_size = sizeof(snapshot->previous_gateway);
+
+	return rc_wan_nvram_copy_snapshot(
+		fields, 9, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
+		lan_dhcp_snapshot_end, &transaction);
+}
+
+
+int
 update_lan_status(int is_auto)
 {
-	if (!is_auto) {
-		nvram_set_temp("lan_ipaddr_t", nvram_safe_get("lan_ipaddr"));
-		nvram_set_temp("lan_netmask_t", nvram_safe_get("lan_netmask"));
-		nvram_set_temp("lan_domain_t", nvram_safe_get("lan_domain"));
-		
-		if (!get_ap_mode()) {
-			if (is_dhcpd_enabled(0)) {
-				if (nvram_invmatch("dhcp_gateway_x", ""))
-					nvram_set_temp("lan_gateway_t", nvram_safe_get("dhcp_gateway_x"));
-				else
-					nvram_set_temp("lan_gateway_t", nvram_safe_get("lan_ipaddr"));
-			} else
-				nvram_set_temp("lan_gateway_t", nvram_safe_get("lan_ipaddr"));
-		}
-		else
-			nvram_set_temp("lan_gateway_t", nvram_safe_get("lan_gateway"));
+	struct lan_dhcp_runtime_snapshot snapshot;
+	struct dhcp_lease_nvram_value values[LAN_DHCP_STATUS_METADATA_COUNT];
+	const char *gateway;
+	int is_ap_mode, dhcpd_enabled;
+	int status, rollback_status = 0;
+
+	if (is_auto)
+		return 0;
+
+	is_ap_mode = get_ap_mode();
+	dhcpd_enabled = (!is_ap_mode && is_dhcpd_enabled(0));
+
+	status = lan_dhcp_runtime_snapshot_copy(&snapshot);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot snapshot LAN runtime metadata (status=%d)",
+			   status);
+		return status;
 	}
+
+	if (is_ap_mode)
+		gateway = snapshot.ap_gateway;
+	else if (dhcpd_enabled && snapshot.dhcp_gateway[0])
+		gateway = snapshot.dhcp_gateway;
+	else
+		gateway = snapshot.static_address;
+
+	lan_dhcp_status_metadata_prepare(
+		values, snapshot.static_address, snapshot.static_netmask,
+		snapshot.static_domain, gateway, snapshot.previous_address,
+		snapshot.previous_netmask, snapshot.previous_domain,
+		snapshot.previous_gateway);
+	status = lan_dhcp_nvram_state_publish(
+		values, LAN_DHCP_STATUS_METADATA_COUNT, &rollback_status);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot atomically publish LAN runtime metadata (status=%d)",
+			   status);
+		if (rollback_status != 0)
+			logmessage(LOGNAME,
+				   "LAN runtime metadata rollback incomplete (status=%d)",
+				   rollback_status);
+	}
+
+	return status;
 }
 
 static int

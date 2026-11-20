@@ -248,7 +248,7 @@ int update_hosts_ap(void);
 int start_lan(int is_ap_mode, int do_wait);
 int stop_lan(int is_ap_mode);
 int lan_up_manual(char *lan_ifname, char *lan_dname);
-void update_lan_status(int is_auto);
+int update_lan_status(int is_auto);
 int full_restart_lan(void);
 int init_loopback(void);
 int init_bridge(int is_ap_mode, int *switch_vlan_status);

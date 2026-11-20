@@ -11,6 +11,7 @@ kernel_policy = (root / "trunk/user/rc/src/lan_kernel_name_policy.h").read_text(
 kernel_test = (root / "trunk/user/rc/src/tests/lan_kernel_name_policy.c").read_text()
 callback_policy = (root / "trunk/user/rc/src/lan_dhcp_callback_policy.h").read_text()
 callback_test = (root / "trunk/user/rc/src/tests/lan_dhcp_callback_policy.c").read_text()
+rc_header = (root / "trunk/user/rc/src/rc.h").read_text()
 nvram_snapshot_policy = (root / "trunk/user/rc/src/wan_nvram_status_policy.h").read_text()
 nvram_snapshot_test = (root / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
 busybox = (root / "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c").read_text()
@@ -452,5 +453,25 @@ assert "notify_run_detect_internet(2)" in ap_restore
 assert "rc_lan_ap_teardown_recovery_required(ap_dhcp_stop_status," in ap_teardown_compact
 assert "test_ap_lan_teardown_rollback_requires_confirmed_dhcp_stop" in service_test
 assert "dhcp_stop_status == 0 && cleanup_status != 0" in service_policy
+
+runtime_snapshot = c_function_body(lan, "lan_dhcp_runtime_snapshot_copy(")
+runtime_update = c_function_body(lan, "update_lan_status(int is_auto)")
+assert "rc_wan_nvram_copy_snapshot(" in runtime_snapshot
+assert 'fields[8].param_name = "lan_gateway_t";' in runtime_snapshot
+assert "rc_wan_nvram_copy_snapshot(" in runtime_snapshot
+assert "lan_dhcp_nvram_state_publish(" in runtime_update
+assert "LAN_DHCP_STATUS_METADATA_COUNT" in runtime_update
+assert "nvram_set_temp(" not in runtime_update
+assert "int update_lan_status(int is_auto);" in rc_header
+assert "test_runtime_metadata_refresh_prepares_atomic_four_key_tuple" in callback_test
+lan_start = c_function_body(lan, "start_lan(int is_ap_mode, int do_wait)")
+metadata_update = lan_start.index("metadata_status = update_lan_status(0)")
+dhcp_launch = lan_start.index("start_udhcpc_lan(lan_ifname)")
+assert metadata_update < dhcp_launch
+assert "metadata_status == 0" in lan_start
+assert lan_start.count("metadata_status = update_lan_status(0)") == 2
+manual_start = c_function_body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
+assert "metadata_status = update_lan_status(0)" in manual_start
+assert "rc_first_service_start_status(status, metadata_status)" in manual_start
 
 print("LAN DHCP and IPTV deconfig transactional retry contract: PASS")
