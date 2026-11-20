@@ -1,3 +1,10 @@
+## 2026-11-20 — Repair MAN teardown source contracts after checked-clear refactor
+
+- Parent `main` SHA: `84cc52a9602c769cbdb4bb0519e056841dabb508`.
+- Exact-SHA Actions for `64e751a36d1b3cac83c605f390a8aea3b4d77624` reported failures in `wan-route-status`, `wan-dhcp-callback`, `httpd-security` and the XY-C1 workflow. The WAN route checker had a malformed Python `require()` expression; three workflows still asserted that removed direct `nvram_set_temp()` calls were present.
+- Corrected the checker syntax and synchronized the existing route, DHCP callback and HTTPD embedded source contracts with the attempt-all temporary NVRAM helper, while retaining route-before-clear ordering and the conditional DHCP address clear. No production source behavior is changed in this CI repair.
+- The next exact-SHA Actions run is the required verification; the preceding source task's standalone sanitizer smoke test passed, but its full source workflow had not yet passed.
+
 ## 2026-11-20 — Gate static MAN routes on the refreshed gateway snapshot
 
 - Parent `main` SHA: `64e751a36d1b3cac83c605f390a8aea3b4d77624`.

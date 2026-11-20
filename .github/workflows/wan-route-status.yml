@@ -662,9 +662,13 @@ jobs:
           assert "route_status = del_static_man_routes(" in man_down
           assert "return status;" in man_down
           assert man_down.index('del_dhcp_routes_by_prefix("wanx_"') < man_down.index("del_static_man_routes(")
-          assert man_down.index("del_static_man_routes(") < man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
-          assert man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255")') < man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
-          assert man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")') < man_down.index('nvram_set_temp("wanx_gateway", "")')
+          clear_address_call = man_down.index("route_status = rc_wan_nvram_set_all_values(")
+          independent_clear = man_down.index("/* Attempt every independent clear */")
+          clear_runtime_call = man_down.index("route_status = rc_wan_nvram_set_all_values(", independent_clear)
+          assert man_down.index("del_static_man_routes(") < clear_address_call < independent_clear < clear_runtime_call
+          assert man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255")') < clear_address_call
+          assert "if (clear_dhcp_address)" in man_down
+          assert "MAN runtime DNS/route snapshot clear incomplete" in man_down
           public_man_down = body(wan, "man_down(char *man_ifname, int unit)")
           assert "man_down_internal(man_ifname, unit, 0)" in public_man_down
           assert "MAN route teardown incomplete" in public_man_down

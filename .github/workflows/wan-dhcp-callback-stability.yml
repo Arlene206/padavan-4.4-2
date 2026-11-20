@@ -331,10 +331,12 @@ jobs:
 
           man_down = body(source, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           old_gateway_route = man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255")')
-          clear_old_address = man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
-          clear_other_state = man_down.index('nvram_set_temp("wanx_gateway", "")')
-          assert old_gateway_route < clear_old_address < clear_other_state
+          clear_address_call = man_down.index("route_status = rc_wan_nvram_set_all_values(")
+          independent_clear = man_down.index("/* Attempt every independent clear */")
+          clear_runtime_call = man_down.index("route_status = rc_wan_nvram_set_all_values(", independent_clear)
+          assert old_gateway_route < clear_address_call < independent_clear < clear_runtime_call
           assert "if (clear_dhcp_address)" in man_down
+          assert "clear_address_values[]" in man_down and "clear_runtime_values[]" in man_down
           public_man_down = body(source, "man_down(char *man_ifname, int unit)")
           assert "man_down_internal(man_ifname, unit, 0)" in public_man_down
 
@@ -390,9 +392,11 @@ jobs:
 
           man_down = body(source, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
           state_gate = man_down.index("if (status == 0)")
-          clear_address = man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
-          clear_gateway = man_down.index('nvram_set_temp("wanx_gateway", "")')
-          assert state_gate < clear_address < clear_gateway
+          clear_address_call = man_down.index("route_status = rc_wan_nvram_set_all_values(")
+          independent_clear = man_down.index("/* Attempt every independent clear */")
+          clear_runtime_call = man_down.index("route_status = rc_wan_nvram_set_all_values(", independent_clear)
+          assert state_gate < clear_address_call < independent_clear < clear_runtime_call
+          assert "MAN runtime DNS/route snapshot clear incomplete" in man_down
           assert "preserving lease and route inventory" in man_down
 
           man_deconfig = body(source, "udhcpc_deconfig(char *wan_ifname, int is_zcip)")

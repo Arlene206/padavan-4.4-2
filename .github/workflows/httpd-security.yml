@@ -2668,7 +2668,12 @@ jobs:
           assert 'route_del(man_ifname, 2, "0.0.0.0", man_gate, "0.0.0.0");' in man_down
           assert "del_static_man_routes(man_ifname);" in man_down
           assert 'route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");' in man_down
-          assert man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");') < man_down.index('nvram_set_temp("wanx_ipaddr", "0.0.0.0")')
+          clear_address_call = man_down.index("route_status = rc_wan_nvram_set_all_values(")
+          independent_clear = man_down.index("/* Attempt every independent clear */")
+          clear_runtime_call = man_down.index("route_status = rc_wan_nvram_set_all_values(", independent_clear)
+          assert man_down.index('route_del(man_ifname, 2, man_gate, NULL, "255.255.255.255");') < clear_address_call < independent_clear < clear_runtime_call
+          assert "if (clear_dhcp_address)" in man_down
+          assert "MAN runtime DNS/route snapshot clear incomplete" in man_down
           assert 'refresh_resolvconf_nonfatal("MAN down", 0);' in man_down
           assert 'route_status = queue_wan_firewall_restart("MAN down");' in man_down
           assert "status = route_status_accumulate(status, route_status);" in man_down

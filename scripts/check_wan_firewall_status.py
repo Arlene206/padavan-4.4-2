@@ -612,11 +612,11 @@ require('{ "wanx_ipaddr", "0.0.0.0" }' in man_down[clear_address:clear_address_e
 require("if (clear_dhcp_address)" in man_down and
         "rc_wan_nvram_set_all_values(" in man_down and
         "set_nvram_snapshot_value_status" in man_down,
+        "MAN teardown snapshot clears must use the checked attempt-all writer")
 snapshot_writer = body(wan, "set_nvram_snapshot_value_status(void *context, const char *param_name,")
 require("nvram_set_temp(param_name, value)" in snapshot_writer and
         "rc_wan_nvram_write_status(api_result, saved_errno)" in snapshot_writer,
         "MAN runtime snapshot clears must retain temporary NVRAM semantics and report errno")
-        "MAN teardown snapshot clears must use the checked attempt-all writer")
 require(man_down.index("if (status == 0)") < man_down.index("route_status = rc_wan_nvram_set_all_values(", man_down.index("/* Attempt every independent clear")) and
         man_down.index("MAN runtime DNS/route snapshot clear incomplete") <
         man_down.index('refresh_resolvconf_nonfatal("MAN down", 0)'),
