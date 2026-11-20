@@ -1,6 +1,7 @@
 # 2026-11-20 active checkpoint
 
-- Main parent for the current PPP demand runtime-snapshot hardening slice: `dff6f88a90d503332e27a01bea38b5e81140fb9a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- Main parent for the current MAN teardown workflow-anchor correction: `da06fe3916f3f643d833f738b5ab8652c4f4913f`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807` and read-only.
+- MAN teardown workflow-anchor correction in this slice: the WAN route, DHCP callback and HTTPD contracts now use the exact production comment for the checked attempt-all NVRAM clear batch.
 - PPP demand runtime-snapshot hardening in this slice: `wait_ppp_up()` refreshes `ipaddr/netmask/gateway` with checked temporary writes, clears unavailable local/peer fields and blocks route preinstallation on snapshot failure.
 - MAN teardown CI-contract repair in this slice: corrected the WAN route source checker syntax and aligned the existing DHCP callback and HTTPD embedded route-order assertions with the checked temporary snapshot clears.
 - WAN-up MAN gateway publication hardening in this slice: the global `wanx_gateway` write now uses the checked temporary setter, and `add_static_man_routes()` is withheld when its fallback gateway snapshot cannot be published. The exact `net.c` fallback dependency is pinned by the WAN source contract.

@@ -1,3 +1,9 @@
+## 2026-11-20 — Correct exact MAN teardown comment anchor in all source contracts
+
+- Parent `main` SHA: `da06fe3916f3f643d833f738b5ab8652c4f4913f`.
+- Exact-SHA Actions for `da06fe3916f3f643d833f738b5ab8652c4f4913f` reached 16 PASS, 3 FAIL and 1 PENDING. The failed WAN route, WAN DHCP callback and HTTPD embedded source-contract steps all raised `ValueError: substring not found` on the same test-only anchor: the test abbreviated the production comment `/* Attempt every independent clear even if the address write failed. */` to a shorter literal that does not exist in the C source.
+- Updated all three workflow assertions to use the exact source comment. The production source and its semantics are unchanged in this repair. Re-run these three exact-head workflow contracts and keep XY-C1 firmware validation pending until its own run completes.
+
 ## 2026-11-20 — Clear PPP demand address snapshots before preinstalling routes
 
 - Parent `main` SHA: `dff6f88a90d503332e27a01bea38b5e81140fb9a`.
