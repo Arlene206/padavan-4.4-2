@@ -78,8 +78,13 @@ failure_body = wan_start[failure:failure_end]
 failure_compact = "".join(failure_body.split())
 require("rc_first_service_start_status(wan_start_status,vlan_result)" in failure_compact,
         "IPoE timeout must reach the WAN startup result")
-require('set_wan_unit_value_int(unit,"err",1)' in failure_compact,
-        "IPoE timeout must mark the WAN unit in error")
+error_publish = 'vlan_result=set_wan_unit_error_status(unit,1);'
+require(error_publish in failure_compact,
+        "IPoE timeout must publish the WAN error marker through the checked writer")
+error_publish_pos = failure_compact.index(error_publish)
+error_publish_status = "wan_start_status=rc_first_service_start_status(wan_start_status,vlan_result);"
+require(error_publish_status in failure_compact[error_publish_pos:],
+        "failure to publish the WAN error marker must reach the WAN startup result")
 require("aborting IPoE WAN activation" in failure_body,
         "IPoE timeout must be diagnosed")
 require(failure_end < wan_start.index("ifconfig(wan_ifname, IFUP, wan_addr, wan_mask)"),
