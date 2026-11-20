@@ -403,9 +403,57 @@ require("rc_wan_nvram_set_required_params(" in static_ipoe and
         "set_wan_unit_param_status_callback" in static_ipoe,
         "static IPoE reset must use the checked required-parameter policy")
 require("if (proto_status != 0)" in static_ipoe and
-        "wan_vars_reset_status = proto_status;" in static_ipoe and
-        "return proto_status;" in static_ipoe,
-        "static IPoE copy failure must latch reset status and abort activation")
+        'reset_failure_context = "static IPoE address settings";' in static_ipoe and
+        "goto reset_failed;" in static_ipoe,
+        "static IPoE copy failure must abort the WAN reset")
+require("reset_failed:" in reset and "wan_vars_reset_status = proto_status;" in reset and
+        "return proto_status;" in reset,
+        "required WAN snapshot failure must latch reset status and block activation")
+
+manual_order = (
+    'set_wan_unit_value_status(unit, "man_ipaddr", man_addr)',
+    'set_wan_unit_value_status(unit, "man_netmask", man_mask)',
+    'set_wan_unit_value_status(unit, "man_gateway", man_gate)',
+    'set_wan_unit_value_status(unit, "man_mtu", man_mtu)',
+)
+manual_cursor = 0
+for marker in manual_order:
+    position = reset.find(marker, manual_cursor)
+    require(position >= 0, f"manual WAN endpoint write missing/out of order: {marker}")
+    manual_cursor = position + len(marker)
+require('reset_failure_context = "manual WAN endpoint settings";' in reset and
+        "goto reset_failed;" in reset[manual_cursor:],
+        "manual WAN endpoint write failure must abort the WAN reset")
+
+credential_params = ('"pppoe_username"', '"pppoe_passwd"')
+option_params = (
+    '"pppoe_txonly_x"', '"pppoe_service"', '"pppoe_ac"', '"pppoe_man"',
+    '"pppoe_mtu"', '"pppoe_mru"', '"pptp_mtu"', '"pptp_mru"',
+    '"l2tp_mtu"', '"l2tp_mru"', '"ppp_peer"', '"ppp_auth"', '"ppp_mppe"',
+    '"ppp_lcp"', '"ppp_alcp"', '"ppp_pppd"',
+)
+for array_name, expected in (
+    ("ppp_credential_params[] = {", credential_params),
+    ("ppp_option_params[] = {", option_params),
+):
+    array_start = wan.index(array_name)
+    array_end = wan.index("};", array_start)
+    array_text = wan[array_start:array_end]
+    cursor = 0
+    for marker in expected:
+        position = array_text.find(marker, cursor)
+        require(position >= 0, f"{array_name} missing or reorders required field {marker}")
+        cursor = position + len(marker)
+
+require("rc_wan_nvram_set_required_params(\n\t\t\tppp_credential_params," in reset and
+        "rc_wan_nvram_set_required_params(\n\t\t\tppp_option_params," in reset,
+        "PPP credential and negotiation option copies must use the checked sequence policy")
+require('set_wan_unit_param_status(unit, "pppoe_idletime")' in reset and
+        'set_wan_unit_value_status(\n\t\t\t\tunit, "pppoe_idletime", "0")' in reset,
+        "PPP idle-time snapshot must use checked NVRAM writes for both protocol branches")
+require('reset_failure_context = "PPP authentication credentials";' in reset and
+        'reset_failure_context = "PPP peer and negotiation options";' in reset,
+        "PPP credential/options failures must latch reset status with a diagnostic context")
 param_list_start = wan.index("static_ipoe_params[] = {")
 param_list_end = wan.index("};", param_list_start)
 param_list = wan[param_list_start:param_list_end]

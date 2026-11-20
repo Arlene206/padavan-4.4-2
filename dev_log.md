@@ -1,3 +1,12 @@
+## 2026-11-20 — Fail closed on manual PPP endpoints and authentication/negotiation snapshots
+
+- Parent main SHA: `fb60034c4f8b46661c6c5ebe0531729fb1a793ef`.
+- Follow-up audit found unchecked copies of `man_ipaddr`, `man_netmask`, `man_gateway` and `man_mtu`, plus PPP username/password, idle timeout, peer and authentication/encryption/negotiation options. These fields directly feed PPP peer selection, authentication and generated pppd options; a stale indexed snapshot could launch a session against the wrong endpoint or with old credentials/settings.
+- Replaced those copies with checked status-returning writes and the existing tested required-parameter sequence policy. The reset path retains the first NVRAM error, latches `wan_vars_reset_status`, and aborts before WAN activation. The legacy void setters remain unchanged for unrelated callers.
+- Extended the existing WAN source contract to pin ordered manual-endpoint writes, required PPP credentials/options, idle-time status checks and the common fail-closed return. Exact-head verification is pending; no device or L3 result is claimed.
+
+---
+
 ## 2026-11-20 — Fail closed on static IPoE WAN configuration snapshot write errors
 
 - Parent main SHA: `20f9a599a4d057b89e0b7d7edba31cea19c3b549`.

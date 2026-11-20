@@ -221,8 +221,18 @@ reset_wan_vars_status(void)
 {
 	int unit, wan_proto, proto_status;
 	char mac_buf[24], *man_addr, *man_mask, *man_gate, *man_mtu;
+	const char *reset_failure_context = NULL;
 	static const char *const static_ipoe_params[] = {
 		"ipaddr", "netmask", "gateway", "mtu"
+	};
+	static const char *const ppp_credential_params[] = {
+		"pppoe_username", "pppoe_passwd"
+	};
+	static const char *const ppp_option_params[] = {
+		"pppoe_txonly_x", "pppoe_service", "pppoe_ac", "pppoe_man",
+		"pppoe_mtu", "pppoe_mru", "pptp_mtu", "pptp_mru",
+		"l2tp_mtu", "l2tp_mru", "ppp_peer", "ppp_auth", "ppp_mppe",
+		"ppp_lcp", "ppp_alcp", "ppp_pppd"
 	};
 
 	wan_vars_reset_status = 0;
@@ -270,12 +280,8 @@ reset_wan_vars_status(void)
 				       sizeof(static_ipoe_params[0])),
 			set_wan_unit_param_status_callback, &unit);
 		if (proto_status != 0) {
-			wan_vars_reset_status = proto_status;
-			errno = proto_status;
-			logmessage(LOGNAME,
-				   "cannot stage static IPoE address settings before activation (status=%d)",
-				   proto_status);
-			return proto_status;
+			reset_failure_context = "static IPoE address settings";
+			goto reset_failed;
 		}
 	} else {
 		set_wan_unit_value(unit, "ipaddr", "0.0.0.0");
@@ -300,10 +306,17 @@ reset_wan_vars_status(void)
 		}
 	}
 
-	set_wan_unit_value(unit, "man_ipaddr", man_addr);
-	set_wan_unit_value(unit, "man_netmask", man_mask);
-	set_wan_unit_value(unit, "man_gateway", man_gate);
-	set_wan_unit_value(unit, "man_mtu", man_mtu);
+	proto_status = set_wan_unit_value_status(unit, "man_ipaddr", man_addr);
+	if (proto_status == 0)
+		proto_status = set_wan_unit_value_status(unit, "man_netmask", man_mask);
+	if (proto_status == 0)
+		proto_status = set_wan_unit_value_status(unit, "man_gateway", man_gate);
+	if (proto_status == 0)
+		proto_status = set_wan_unit_value_status(unit, "man_mtu", man_mtu);
+	if (proto_status != 0) {
+		reset_failure_context = "manual WAN endpoint settings";
+		goto reset_failed;
+	}
 
 	if (wan_proto == IPV4_WAN_PROTO_PPPOE ||
 	    wan_proto == IPV4_WAN_PROTO_PPTP ||
@@ -315,31 +328,35 @@ reset_wan_vars_status(void)
 		if (is_valid_ipv4(man_gate))
 			nvram_set_temp("wanx_gateway", man_gate);
 		
-		set_wan_unit_param(unit, "pppoe_username");
-		set_wan_unit_param(unit, "pppoe_passwd");
-		
+		proto_status = rc_wan_nvram_set_required_params(
+			ppp_credential_params,
+			(unsigned int)(sizeof(ppp_credential_params) /
+				       sizeof(ppp_credential_params[0])),
+			set_wan_unit_param_status_callback, &unit);
+		if (proto_status != 0) {
+			reset_failure_context = "PPP authentication credentials";
+			goto reset_failed;
+		}
+
 		if (wan_proto == IPV4_WAN_PROTO_PPPOE)
-			set_wan_unit_param(unit, "pppoe_idletime");
+			proto_status = set_wan_unit_param_status(unit, "pppoe_idletime");
 		else
-			set_wan_unit_value_int(unit, "pppoe_idletime", 0);
-		
-		set_wan_unit_param(unit, "pppoe_txonly_x");
-		set_wan_unit_param(unit, "pppoe_service");
-		set_wan_unit_param(unit, "pppoe_ac");
-		set_wan_unit_param(unit, "pppoe_man");
-		set_wan_unit_param(unit, "pppoe_mtu");
-		set_wan_unit_param(unit, "pppoe_mru");
-		set_wan_unit_param(unit, "pptp_mtu");
-		set_wan_unit_param(unit, "pptp_mru");
-		set_wan_unit_param(unit, "l2tp_mtu");
-		set_wan_unit_param(unit, "l2tp_mru");
-		
-		set_wan_unit_param(unit, "ppp_peer");
-		set_wan_unit_param(unit, "ppp_auth");
-		set_wan_unit_param(unit, "ppp_mppe");
-		set_wan_unit_param(unit, "ppp_lcp");
-		set_wan_unit_param(unit, "ppp_alcp");
-		set_wan_unit_param(unit, "ppp_pppd");
+			proto_status = set_wan_unit_value_status(
+				unit, "pppoe_idletime", "0");
+		if (proto_status != 0) {
+			reset_failure_context = "PPP idle-time setting";
+			goto reset_failed;
+		}
+
+		proto_status = rc_wan_nvram_set_required_params(
+			ppp_option_params,
+			(unsigned int)(sizeof(ppp_option_params) /
+				       sizeof(ppp_option_params[0])),
+			set_wan_unit_param_status_callback, &unit);
+		if (proto_status != 0) {
+			reset_failure_context = "PPP peer and negotiation options";
+			goto reset_failed;
+		}
 	}
 
 	mac_buf[0] = 0;
@@ -355,6 +372,15 @@ reset_wan_vars_status(void)
 	reset_wan6_vars();
 #endif
 	return 0;
+
+reset_failed:
+	wan_vars_reset_status = proto_status;
+	errno = proto_status;
+	logmessage(LOGNAME,
+		   "cannot stage %s before WAN activation (status=%d)",
+		   reset_failure_context ? reset_failure_context : "required WAN settings",
+		   proto_status);
+	return proto_status;
 }
 
 void
