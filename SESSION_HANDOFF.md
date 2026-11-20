@@ -14,28 +14,31 @@ The checkpoint is mandatory; a document edit is conditional. At session end insp
 
 ## Current repository state
 
-- Repository Arlene206/padavan-4.4-2; parent for this peer-cleanup state gate fix: 7d9b12c46927b2fbb3aba6ea0346de0cc1b7d0a1.
+- Repository Arlene206/padavan-4.4-2; parent for this evidence update: eccdab54081a0f28c072025a55e5e2f6a8159b88.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Prior commit 7d9b12c46927b2fbb3aba6ea0346de0cc1b7d0a1 added a testable primary-metadata cleanup finalizer. It invokes del_redirect_desc only when primary mapping is removed and preserves aggregate status. Its exact-head tests are queued at last observation.
-- Prior verified host baseline e085c6fb89a2906d234c27248d4daebf232e4fcc: MiniUPnP #44804604643 PASS, AI docs #44804604650 PASS, including the injected _upnp_delete_redir caller regression. e085 XY #44804604713 succeeded with product Build/TRX/artifact skipped (test/checker/docs-only).
-- New source review found that delete_redirect_and_filter_rules_ex() still removed the peer SNAT and DSCP rules even when primary DNAT/filter deletion had failed or NAT rollback had restored it. This risks breaking a still-live redirect. The current change wraps the entire peer delete + mangle + rollback sequence in a tested primary-mapping gate; the first primary error is kept and no secondary firewall mutation occurs on that failure.
+- Product source SHA 30af417ed8d7665e5da0f630e79b38bbb9f92296 has complete XY-C1 L3 PASS: run #44804291706, Build XY-C1 PASS, TRX verification PASS, artifact upload PASS. This validates only source through 30af417.
+- Later product changes are not yet covered by that L3: 7d9b12c46927b2fbb3aba6ea0346de0cc1b7d0a1 adds the primary-metadata cleanup finalizer; current product source eccdab54081a0f28c072025a55e5e2f6a8159b88 gates peer SNAT/DSCP cleanup on confirmed primary redirect removal.
+- Exact-head MiniUPnP #44805637861 PASS, AI handoff #44805637957 PASS, process inventory #44805637806 PASS, and NVRAM transaction audit #44805637802 PASS on eccdab.
+- Exact-head XY-C1 #44805637821 on eccdab is still IN_PROGRESS: Build XY-C1 IN_PROGRESS; Verify TRX output and artifact upload PENDING. Do not claim L3 for eccdab until all three actual steps pass.
+- The peer-cleanup gate fixes a discovered state-corruption bug: the old code could delete peer SNAT/DSCP after primary NAT deletion failed, or after a successful NAT rollback following filter deletion failure, leaving an existing DNAT without supporting peer rules. The complete secondary transaction is now gated on primary_mapping_removed. Its C policy regression and source checker pass in the MiniUPnP workflow.
 
 ## Active task
 
-1. Validate this commit's exact-head MiniUPnP, AI, Process and NVRAM Actions. The peer cleanup policy unit test, dedicated peer checker and duplicate workflow contract must all pass.
-2. Inspect exact-head XY-C1 and verify Build XY-C1, TRX and artifact upload on this same product source SHA; only then count L3.
-3. If verified, add fault-injected coverage for the lower NAT/filter backend deletion/rollback stages (NAT init/delete failure, filter init/delete failure, successful/failed restoration, no matching primary rule), or continue with another demonstrated userland stability/security defect.
-4. Keep source → test → atomic commit → exact-SHA Actions loop running; pending work does not block independent tasks.
+1. Check exact-head XY-C1 run #44805637821 for eccdab. Count L3 only if Build XY-C1, Verify TRX output and artifact upload each complete SUCCESS on this exact SHA.
+2. If Build fails, inspect its earliest causal compiler/error line and make a targeted GNU89/MIPS/uClibc-safe source fix. If Build passes, confirm TRX and artifact steps individually.
+3. Then add fault-injected backend coverage for NAT init/delete failure, filter init/delete failure, successful/failed NAT restoration and missing/no-match primary chain; keep peer state unchanged whenever primary mapping remains.
+4. Continue source → regression → atomic commit → exact-SHA Actions. The already passing host, process and NVRAM jobs do not need repeated audits.
 
 ## Verification boundary
 
-- Parent 7d9b12c: new exact-head Actions were queued at the last poll. The immediately preceding e085 source-freeze MiniUPnP and AI runs passed; e085 XY Build/TRX/artifact were skipped, so it provides no L3.
-- The concurrent product-source SHA 30af417 process inventory and NVRAM audit passed; its XY build was still in progress at the last observation. This current peer cleanup code change requires a fresh current-SHA XY-C1 Build/TRX/artifact.
-- Firmware L3 and physical-router L4 remain NOT VERIFIED until their separate exact gates pass.
+- XY-C1 run #44804291706, exact source SHA 30af417: Build PASS, TRX PASS, artifact upload PASS. L3 verified for 30af417 only.
+- On exact source SHA eccdab: MiniUPnP #44805637861 PASS; AI handoff #44805637957 PASS; process inventory #44805637806 PASS; NVRAM audit #44805637802 PASS.
+- XY-C1 #44805637821 on eccdab: Build IN_PROGRESS, TRX PENDING, artifact PENDING at the last check. L3 for eccdab NOT VERIFIED.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live main and inspect exact-head MiniUPnP, AI, Process, NVRAM and XY-C1 runs. Confirm peer SNAT/mangle/rollback are scoped under the primary-removal gate and the new GNU89 test passes. Confirm Build XY-C1, TRX validation and artifact upload individually on this exact SHA. Diagnose the earliest failure, then continue lower-level delete fault injection or another concrete userland defect.
+Fetch live main and inspect run #44805637821. Verify the actual Build XY-C1, TRX and artifact-upload conclusions for exact SHA eccdab. If a failure exists, inspect the first causal log line and fix it. If it passes, move to injected low-level backend coverage or another concrete userland stability/security bug without repeating the completed main/backup recovery or host audits.
 
 ## Handoff maintenance
 

@@ -1,3 +1,14 @@
+## 2026-11-20 — Record exact-source XY-C1 L3 boundary
+
+- Parent main SHA: eccdab54081a0f28c072025a55e5e2f6a8159b88.
+- XY-C1 run #44804291706 for product source SHA 30af417ed8d7665e5da0f630e79b38bbb9f92296 completed SUCCESS. The actual Build XY-C1, Verify TRX output and artifact-upload steps each completed SUCCESS. This is valid L3 evidence for source 30af417.
+- This evidence does not extend to later production changes: commit 7d9b12c added the primary-metadata finalizer, and current source commit eccdab54081a0f28c072025a55e5e2f6a8159b88 added the peer-cleanup gate. Exact-source XY-C1 run #44805637821 is still building on eccdab; Build XY-C1 is IN_PROGRESS, TRX and artifact upload are PENDING.
+- On exact SHA eccdab, MiniUPnP #44805637861 PASS, AI handoff #44805637957 PASS, process inventory #44805637806 PASS, and NVRAM transaction audit #44805637802 PASS.
+- Frozen backup remains 72f4f157a084f8184b9597ca5bf334b8080e5807. No production files changed in this evidence checkpoint.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Keep peer SNAT/DSCP when primary redirect deletion fails
 
 - Parent main SHA: 7d9b12c46927b2fbb3aba6ea0346de0cc1b7d0a1.
