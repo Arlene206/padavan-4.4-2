@@ -52,6 +52,7 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_update_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_delete.py"
+      - "scripts/test_miniupnpd_redirect_delete_integration.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_peer_delete.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h"
@@ -108,6 +109,7 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_update_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_delete.py"
+      - "scripts/test_miniupnpd_redirect_delete_integration.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_peer_delete.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h"
@@ -203,6 +205,8 @@ jobs:
           ASAN_OPTIONS=detect_leaks=1 /tmp/iptcrdr_update_policy_test
       - name: Verify MiniUPnP NAT/filter delete compensation
         run: python3 scripts/check_miniupnpd_iptcrdr_delete.py
+      - name: Compile and exercise the production redirect-delete caller with injected backends
+        run: python3 scripts/test_miniupnpd_redirect_delete_integration.py
       - name: Compile and run MiniUPnP peer SNAT/DSCP rollback regression
         run: |
           set -eu

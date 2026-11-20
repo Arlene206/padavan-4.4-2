@@ -1,3 +1,13 @@
+## 2026-11-20 — Exercise production UPnP delete caller with injected backends
+
+- Parent main SHA: `72b914095e14c099f60d6ac8f20150b4ca5d29e9`; MiniUPnP host regression #44803703734 and AI handoff validation #44803703663 both completed SUCCESS on this exact SHA.
+- Added `scripts/test_miniupnpd_redirect_delete_integration.py`, which extracts the actual `_upnp_delete_redir()` function from `upnpredirect.c`, compiles that production function under GNU89/Werror/ASan/UBSan, and injects firewall/lease backends. It exercises the central regression: aggregate peer/DSCP cleanup failure after primary DNAT/filter removal must still remove the lease while preserving the aggregate failure. It also checks preservation of leases when primary removal is false, successful no-op behavior, lease-file failure errno propagation, and exactly-once cleanup.
+- Wired the test into MiniUPnP push/PR path filters and runs. This is a host-only test change; the production source remains the 35e SHA.
+- XY-C1 run #44803257077 for source SHA `35e319a57af04e113fc9a3ccaa31628764ce4cfd` remained in progress at the latest poll, with the target build active and TRX/artifact pending. Do not infer L3 until those exact steps finish.
+- Resulting commit: THIS COMMIT. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Align MiniUPnP workflow contract with transactional lease append
 
 - Parent main SHA: `b12d6c4abb2b95f901098425229eb736243335a2`.
