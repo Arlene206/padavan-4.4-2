@@ -322,6 +322,8 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_update_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_delete.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_peer_delete.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_capacity_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c"
       - "scripts/check_miniupnpd_iptcrdr_capacity.py"

@@ -1,3 +1,12 @@
+## 2026-11-20 — Restore peer SNAT when its paired DSCP deletion fails
+
+- Parent main SHA: b7a803dcc95ae88566ffe01ff8fd8ea4c5cefd33.
+- Confirmed a second cross-table deletion inconsistency in `delete_redirect_and_filter_rules()`: peer SNAT in nat POSTROUTING was committed for deletion before the paired mangle DSCP removal. Mangle initialization or matched DSCP delete/commit failure left an orphan DSCP rule and a retry could no longer locate the peer entry.
+- Added a pre-delete copy of the complete peer SNAT entry and saved its original POSTROUTING index. After successful peer deletion, a failed mangle operation now reinserts and commits the saved SNAT rule at that index. Snapshot allocation failure aborts peer mutation.
+- Compensation is skipped when no matching DSCP rule exists; the primary DSCP failure/errno is retained if SNAT restoration fails, and restore failure is logged. The existing insert helper covers both IPTABLES_143 handle signatures.
+- Extended the GNU89 ASan/UBSan policy test and added a dedicated source contract. MiniUPnP and XY-C1 workflow triggers include the checker and regression paths.
+- The preceding NAT/filter deletion fix `b7a803d` passed exact-head MiniUPnP #44793663690. XY-C1 remains host-only for these userland paths; no firmware L3 or physical-router L4 claim.
+
 ## 2026-11-20 — Restore NAT mapping when the paired filter deletion fails
 
 - Parent main SHA: ea745da6e423a778a65c0aba6ce85424e6a642a3.

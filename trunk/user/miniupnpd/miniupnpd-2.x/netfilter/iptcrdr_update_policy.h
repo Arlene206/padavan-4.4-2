@@ -29,4 +29,17 @@ miniupnpd_nat_delete_failure_result(int filter_status, int rollback_status)
 	return filter_status != 0 ? filter_status : rollback_status;
 }
 
+/* Restore peer SNAT when a later mangle/DSCP deletion fails. */
+static inline int
+miniupnpd_peer_delete_rollback_required(int peer_status, int dscp_status)
+{
+	return peer_status == 0 && dscp_status != 0;
+}
+
+static inline int
+miniupnpd_peer_delete_failure_result(int dscp_status, int rollback_status)
+{
+	return dscp_status != 0 ? dscp_status : rollback_status;
+}
+
 #endif

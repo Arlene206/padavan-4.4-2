@@ -683,7 +683,12 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	int rollback_status;
 	int failure_errno;
 	int nat_backup_failed = 0;
+	int peer_delete_status = -1;
+	int peer_backup_failed = 0;
 	unsigned nat_index = 0;
+	unsigned peer_index = 0;
+	size_t peer_entry_len;
+	struct ipt_entry *peer_backup = NULL;
 	size_t nat_entry_len;
 	struct ipt_entry *nat_backup = NULL;
 	unsigned index = 0;
@@ -906,10 +911,24 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 					iport = info->dpts[0];
 				}
 
+				peer_index = i;
+				peer_entry_len = sizeof(struct ipt_entry) +
+				                 match->u.match_size + target->u.target_size;
+				peer_backup = malloc(peer_entry_len);
+				if (!peer_backup) {
+					failure_errno = errno ? errno : ENOMEM;
+					syslog(LOG_ERR, "delete_redirect_and_filter_rules(): unable to snapshot peer SNAT rule");
+					errno = failure_errno;
+					peer_backup_failed = 1;
+					r2 = -1;
+					break;
+				}
+				memcpy(peer_backup, e, peer_entry_len);
 				index = i;
 				peer_rule_found = 1;
 				syslog(LOG_INFO, "Trying to delete peer rule at index %u", index);
 				r2 = delete_rule_and_commit(index, h, miniupnpd_nat_postrouting_chain, "delete_peer_rule");
+				peer_delete_status = r2;
 				h = NULL;
 				break;
 			}
@@ -989,6 +1008,23 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 			r2 = -1;
 		}
 	}
+
+
+	if (miniupnpd_peer_delete_rollback_required(peer_delete_status, r2)) {
+		failure_errno = errno ? errno : EIO;
+		rollback_status = insert_rule_and_commit(
+			peer_index, peer_backup, "nat", miniupnpd_nat_postrouting_chain,
+			"delete_redirect_and_filter_rules");
+		if (rollback_status != 0) {
+			syslog(LOG_ERR,
+			       "failed to restore peer SNAT rule after DSCP deletion failure (port=%hu proto=%d status=%d)",
+			       eport, proto, rollback_status);
+		}
+		r2 = miniupnpd_peer_delete_failure_result(r2, rollback_status);
+		errno = failure_errno;
+	}
+	free(peer_backup);
+	peer_backup = NULL;
 
 	cleanup_status = miniupnpd_merge_cleanup_status(r, r2);
 	if (cleanup_status == 0)

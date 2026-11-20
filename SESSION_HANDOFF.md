@@ -16,36 +16,33 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Current main before this deletion-transaction slice: ea745da6e423a778a65c0aba6ce85424e6a642a3; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Port-mapping enumeration capacity fix `c5e41697bfeb593223a8c7c46b9e1e972fdc7be9`: exact-head MiniUPnP #44791232803 PASS, including 4096-entry ASan/UBSan growth test.
-- NAT/filter update rollback fix `bfc1c1663f9d3dc6cdb4349ba1b3601f175e27ad`, checker correction `ea745da6e423a778a65c0aba6ce85424e6a642a3`: MiniUPnP #44792212170 PASS; AI handoff docs #44792212195 PASS.
-- XY-C1 #44792212585 on `ea745da` completed host-only. The firmware-input detector found no eligible firmware build inputs, so Build XY-C1, TRX verification and artifact upload were SKIPPED. This is not firmware L3.
-- Confirmed deletion-side cross-table inconsistency in `delete_redirect_and_filter_rules()`: NAT deletion commits before filter-table open/removal. Filter init or matched filter delete/commit failure leaves an orphan ACCEPT rule; retry may no longer find the NAT rule used to identify it.
+- Current main before this peer-SNAT transaction slice: b7a803dcc95ae88566ffe01ff8fd8ea4c5cefd33; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- NAT/filter redirect-delete compensation fix is `b7a803dcc95ae88566ffe01ff8fd8ea4c5cefd33`. Exact-head MiniUPnP #44793663690 PASS, including the new GNU89 policy regression and source contract for NAT snapshot/restore. The existing allocation, capacity and update-rollback checks also passed.
+- XY-C1 did not run a firmware build for these MiniUPnP-only changes; the prior run #44792212585 was host-only with Build/TRX/artifact SKIPPED. No L3 claim.
+- New confirmed peer-side transaction gap: peer SNAT in nat POSTROUTING was committed for deletion before its paired DSCP rule in mangle. Mangle table initialization or matched DSCP delete/commit failure left an orphan DSCP rule; retry could no longer discover it because the peer SNAT lookup had already disappeared.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-Make `delete_redirect_and_filter_rules()` transactional across NAT and filter tables:
+Make peer SNAT and DSCP deletion transactional:
 
-- Snapshot the complete NAT rule and its 0-based chain index before mutation; if snapshot allocation fails, abort before deleting anything.
-- If NAT deletion commits but filter initialization or a matched filter-rule delete/commit fails, reinsert the saved NAT rule at its original index and commit.
-- Do not restore NAT when the paired filter rule is genuinely absent; preserve the primary filter-side status/errno if restoration also fails.
-- Cover rollback decisions/error precedence in the GNU89 ASan/UBSan policy test and add a source contract for snapshot-before-delete, insert/commit, both IPTABLES_143 handle signatures and failure routing.
+- Snapshot the complete peer SNAT rule and original POSTROUTING index before deleting it; if allocation fails, do not mutate either table.
+- If peer SNAT deletion succeeds but mangle initialization or a matched DSCP delete/commit fails, restore the saved SNAT rule through the existing IPTC insert/commit helper.
+- Do not restore SNAT if no matching DSCP rule exists; preserve primary DSCP-side status/errno if compensation fails.
+- Extend the GNU89 ASan/UBSan policy test and add a source contract for snapshot, commit ordering, restoration chain/index, and both IPTABLES_143 ABI forms.
 
-After exact-head MiniUPnP verification, continue the peer SNAT/DSCP multi-rule deletion cleanup audit. Do not repeat completed allocation, capacity or update-rollback slices.
+After exact-head MiniUPnP validation, continue the HTTPD/service lifecycle and MiniUPnP redirect teardown audit; do not repeat completed NAT/filter deletion or update-rollback work.
 
 ## Verification boundary
 
-- Exact-head MiniUPnP #44792212170 on `ea745da6e423a778a65c0aba6ce85424e6a642a3`: PASS, including GNU89 ASan/UBSan allocation/capacity/update-rollback tests and source contracts.
-- AI handoff docs #44792212195 on the same SHA: PASS.
-- XY-C1 #44792212585 on `ea745da`: host-only success; Build XY-C1, TRX and artifact were SKIPPED because no eligible production firmware inputs were detected. Do not claim L3.
-- New NAT/filter delete compensation binary/source contract require exact-head MiniUPnP Actions after push. Physical hardware L4: NOT VERIFIED.
+- NAT/filter deletion compensation `b7a803d`: exact-head MiniUPnP #44793663690 PASS, including sanitizer policy binary and source contract. Prior XY-C1 #44792212585 was host-only, with firmware Build/TRX/artifact SKIPPED; L3 remains NOT verified.
+- This peer SNAT/DSCP compensation commit adds another policy regression and source contract; exact-head MiniUPnP Action required after push. Physical hardware L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main; verify frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-2. Check exact-head MiniUPnP delete-compensation regression and source contract; diagnose first causal failure from logs. Keep XY-C1 host-only distinct from L3.
-3. Continue auditing peer SNAT/DSCP multi-rule deletion cleanup and retry semantics. Physical-router L4 remains unverified.
+1. Fetch live main and verify frozen backup stays at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+2. Check exact-head MiniUPnP peer SNAT/DSCP sanitizer and source-contract steps; inspect the first causal log on any failure.
+3. Continue HTTPD/service lifecycle and redirect teardown auditing. Keep host-only XY-C1 checks separate from firmware L3; physical-router L4 remains unverified.
 
 ## Handoff maintenance
 
