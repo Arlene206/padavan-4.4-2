@@ -1,3 +1,11 @@
+## 2026-11-20 — Correct IPv6 native rollback source-check ordering
+
+- Parent main SHA: `5e03588c33965328b8c33880504413a915cc47de`. The exact-head WAN DHCP callback workflow `44709970196` passed its pre-existing C policy binaries and stopped in the new IPv6 source checker because the assertion searched for `rollback_status == 0` after the `wan6_clear_runtime_metadata()` call, while production correctly tests the rollback status before entering that call.
+- Correct the checker to assert the actual order: DHCPv6 stop gate, rollback-status gate, then metadata clear. This changes no source behavior and does not loosen the retained-identity-on-incomplete-rollback contract.
+- The XY-C1 firmware build `44709969998` was still in progress at the last poll; exact TRX/artifact results remain pending.
+
+---
+
 ## 2026-11-20 — Make IPv6 WAN interface identity publication fail closed
 
 - Parent main SHA: `47e66a0620ab143b5f5751f5de440d377bb12a00`. In `wan6_up()`, SIT and native IPv6 paths wrote `ifname6` through the legacy void NVRAM setter and then reported success without checking whether the runtime interface identity was committed. A failed write could leave an active IPv6 configuration without a teardown handle.

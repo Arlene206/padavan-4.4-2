@@ -99,10 +99,10 @@ assert "identity_publish_failed = 1;" in wan6_up[native_gate:native_failed]
 assert 'failure = "publish native IPv6 WAN interface identity";' in wan6_up[native_gate:native_failed]
 client_stop_gate = wan6_up.index("if (dhcp6_start_attempted)", native_failed)
 client_stop_return = wan6_up.index("return operation_status;", client_stop_gate)
-identity_clear = wan6_up.index("wan6_clear_runtime_metadata(", client_stop_return)
-assert client_stop_gate < client_stop_return < identity_clear
-assert "rollback_status == 0" in wan6_up[identity_clear:]
-assert "retaining native IPv6 interface identity because kernel rollback was incomplete" in wan6_up[identity_clear:]
+rollback_gate = wan6_up.index("if (rollback_status == 0)", client_stop_return)
+identity_clear = wan6_up.index("wan6_clear_runtime_metadata(", rollback_gate)
+assert client_stop_gate < client_stop_return < rollback_gate < identity_clear
+assert "retaining native IPv6 interface identity because kernel rollback was incomplete" in wan6_up[rollback_gate:]
 
 wan6_down = body(source, "int wan6_down(char *wan_ifname, int unit)")
 no_interface = wan6_down.index("if (!wan6_ifname)")
