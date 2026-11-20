@@ -1,10 +1,9 @@
 # 2026-11-20 active checkpoint
 
-- Main parent for MiniUPnP PID publication follow-up: `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- CLOSED/host-verified: FTP existing-STOR FIFO rejection and APPE concurrent append semantics (APPE checker correction PASS); RADIUS shared-secret teardown zeroization implementation/checks.
-- MiniUPnP PID atomic writer first commit `12e4a6f`: Process inventory and AI docs PASS, NVRAM PENDING, focused workflow FAILED at missing include path in nested test compile. This follow-up adds the package include directory.
-- Compatibility follow-up: preserve the existing umask-filtered 0644 PID mode rather than granting 0644 unconditionally. Test verifies mode 0640 under umask 0027. Local GNU89/`-Werror`/ASan/UBSan test PASS.
-- Exact-head MiniUPnP Action and current-source XY-C1 Build/TRX/artifact are pending; physical L4 remains unverified.
+- Parent main SHA for MiniUPnP XY-C1 CI trigger follow-up: `2ede97f6206c320ce2aedff90b331fc85116a01a`; frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- MiniUPnP PID atomic publication and legacy umask preservation are implemented. Exact focused MiniUPnP, Process inventory and AI docs workflows PASS on `2ede97f`; NVRAM audit was pending.
+- Found and fixed a firmware verification gap: XY-C1 workflow allowlist did not include MiniUPnP's modified daemon source/helper/Makefile, so the build could be skipped despite product changes. Added paths to the workflow and detector regression; this change should force a same-source XY-C1 build on this commit.
+- Standalone PID policy regression PASS under GNU89/`-Werror`/ASan/UBSan; physical router L4 remains NOT VERIFIED.
 
 
 ## Whole-repository module status

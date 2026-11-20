@@ -1,3 +1,12 @@
+## 2026-11-20 — Trigger XY-C1 build for MiniUPnP daemon/PID-file inputs
+
+- Parent main SHA: `2ede97f6206c320ce2aedff90b331fc85116a01a`.
+- XY-C1 workflow path filters did not include MiniUPnP daemonize.c, the new PID publication helper header or its package Makefile, so the preceding MiniUPnP product-source commits did not schedule a cross-build even though the firmware-input detector would treat these paths as production inputs.
+- Added all three paths to the XY-C1 push filter and added a detector regression requiring each to be present and classified as a firmware input. The workflow already lists itself as a path trigger, so this contract update schedules the exact new head.
+- MiniUPnP host workflow, Process and AI docs passed on parent `2ede97f`; its NVRAM boundary audit was pending. Current-source XY-C1 Build/TRX/artifact has not yet run on that parent.
+
+---
+
 ## 2026-11-20 — Preserve MiniUPnP PID-file umask and fix host-test include path
 
 - Parent main SHA: `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`; source implementation is `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`.

@@ -4,31 +4,19 @@ This live checkpoint supersedes older summaries. Continue from current main; do 
 
 ## Git state
 
-- Current main parent for this follow-up: `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- FIFO rejection commit `5c7fa81094c2e31ed58d0e8381201ca769db7a2c`: VSFTPD, Process inventory, AI docs, NVRAM and same-SHA XY-C1 Build/TRX/artifact PASS.
-- APPE source commit `8ded66573ba530efd6c66763981e136dc7a1097a`: initial VSFTPD checker failed on split-line whitespace; checker correction `573d215607c8e8a4b7e22048c2bbdd633a3a2d5f` has VSFTPD `44734430382` and AI docs `44734430469` PASS. APPE XY-C1 run `44734275996` was still in progress at last inspection.
-- RADIUS zeroization source `821c133887352c069067688f442cd5300bd619b2`: Process inventory/lifecycle and AI docs PASS; NVRAM audit cancelled; XY-C1 `44734074955` was in progress at last inspection.
-- MiniUPnP PID atomic-publication commit `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`: Process inventory `44735307358` and AI docs `44735307459` PASS; NVRAM audit `44735307405` PENDING. MiniUPnP Action `44735307616` failed because the nested test compile lacked its package include path. Follow-up fixes the include path and preserves umask compatibility.
+- Current parent main SHA for the XY-C1 trigger follow-up: `2ede97f6206c320ce2aedff90b331fc85116a01a`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- MiniUPnP atomic PID publication first commit `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3`: focused workflow failed at test include path; follow-up `2ede97f6206c320ce2aedff90b331fc85116a01a` then passed MiniUPnP Action `44735740997`, Process inventory `44735741005`, AI docs `44735740931`. NVRAM audit `44735740926` was still pending at last check.
+- Local MiniUPnP GNU89/`-Werror`/ASan/UBSan regression passes, including umask 0027 => PID mode 0640.
+- Important firmware CI gap found: XY-C1 workflow's path allowlist omitted MiniUPnP daemonize.c, PID helper header and Makefile. The build input detector conservatively treats them as production inputs, but no workflow would auto-run on their source-only changes. This follow-up adds all three to the XY-C1 trigger and its detector regression.
+- Backup remains frozen at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 
-## Active MiniUPnP follow-up
+## Active verification
 
-- Exact Action failure: step 5 could not find `miniupnpd_pidfile_policy.h` from the nested tests directory. Compile now adds `-Itrunk/user/miniupnpd/miniupnpd-2.x`.
-- Source review found `fchmod(fd, 0644)` bypassed process umask (legacy `open(..., 0644)` respected it; daemonize normally sets 0027). Publisher now reads/restores umask and applies `0644 & ~old_umask`. Regression pins 0640 under umask 0027.
-- Standalone GNU89/`-Wall -Wextra -Werror`/ASan/UBSan regression PASS after both fixes.
-- Exact-head MiniUPnP/AI docs/NVRAM and same-source XY-C1 checks are pending on this follow-up SHA.
+1. Check the new exact-SHA XY-C1 run and ensure detector says firmware inputs changed, then Build XY-C1, Verify TRX output and upload artifact all complete on that SHA.
+2. Inspect exact MiniUPnP Action, AI docs, Process and NVRAM runs for the current SHA; fix only causal failures.
+3. Continue a separate userland stability/security slice while pending builds run; no repeated polling.
+4. Physical router L4 remains NOT VERIFIED.
 
-## Exact first actions
-
-1. Inspect exact MiniUPnP rerun; repair only causal compiler/source-contract failures.
-2. Verify XY-C1 current product SHA through detector, MIPS build, TRX verification and artifact upload.
-3. Continue a separate stability/security slice while PENDING Actions are running; avoid repeated polls.
-4. Physical device L4 remains NOT VERIFIED.
-
-## Verification boundary
-
-- MiniUPnP host policy regression: PASS locally with umask-preservation assertion.
-- Previous MiniUPnP exact Action: FAIL at nested test compile due missing include path; new SHA must rerun.
-- No current-source L3/L4 claim until exact same-source checks complete.
 
 
 ---
