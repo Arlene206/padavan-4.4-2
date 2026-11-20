@@ -317,6 +317,56 @@ test_all_value_sequence_validates_before_writing(void)
 }
 
 
+static void
+test_wan6_reset_config_preserves_identity_when_required_write_fails(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "addr6", "2001:db8::10/64" },
+		{ "gate6", "2001:db8::1" },
+		{ "6rd_relay", "192.0.2.1" },
+		{ "6rd_size", "32" },
+		{ "dns6", "2001:db8::53" },
+		{ "ifname6", "" }
+	};
+	struct fake_value_copy fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 4;
+	fake.failure_status = ENOSPC;
+	assert(rc_wan_nvram_set_required_values(
+		values, 6, fake_set_value, &fake) == ENOSPC);
+	assert(fake.calls == 5);
+	assert(strcmp(fake.copied_names[0], "addr6") == 0);
+	assert(strcmp(fake.copied_names[1], "gate6") == 0);
+	assert(strcmp(fake.copied_names[2], "6rd_relay") == 0);
+	assert(strcmp(fake.copied_names[3], "6rd_size") == 0);
+	assert(strcmp(fake.copied_names[4], "dns6") == 0);
+	assert(fake.copied_names[5][0] == '\0');
+}
+
+static void
+test_wan6_reset_config_clears_identity_only_after_all_values_succeed(void)
+{
+	static const struct rc_wan_nvram_value values[] = {
+		{ "addr6", "2001:db8::10/64" },
+		{ "gate6", "2001:db8::1" },
+		{ "6rd_relay", "192.0.2.1" },
+		{ "6rd_size", "32" },
+		{ "dns6", "2001:db8::53" },
+		{ "ifname6", "" }
+	};
+	struct fake_value_copy fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_set_required_values(
+		values, 6, fake_set_value, &fake) == 0);
+	assert(fake.calls == 6);
+	assert(strcmp(fake.copied_names[5], "ifname6") == 0);
+	assert(strcmp(fake.copied_values[5], "") == 0);
+}
+
+
 struct fake_nvram_reader {
 	const char *values[4];
 	unsigned int calls;
@@ -732,6 +782,8 @@ main(void)
 	test_required_value_sequence_success();
 	test_required_value_sequence_stops_at_first_error();
 	test_required_value_sequence_rejects_invalid_values();
+	test_wan6_reset_config_preserves_identity_when_required_write_fails();
+	test_wan6_reset_config_clears_identity_only_after_all_values_succeed();
 	test_all_value_sequence_attempts_every_write_and_preserves_first_error();
 	test_wan_statistics_clear_attempts_every_counter();
 	test_wan_deconfig_statistics_clear_attempts_every_counter();

@@ -33,6 +33,7 @@
 #include "route_status_policy.h"
 #include "wan6_teardown_policy.h"
 #include "wan6_identity_policy.h"
+#include "wan_nvram_status_policy.h"
 #include <dhcp6c_duid_file_policy.h>
 #include "dhcp6c_config_file.h"
 #include "wan6_dns_policy.h"
@@ -100,53 +101,138 @@ format_ipv6_literal(const char *input, char *output, size_t output_size,
 	return (written < 0 || (size_t)written >= output_size) ? -1 : 0;
 }
 
-void build_dns6_var(void)
+static int
+build_dns6_value(char *dns6s, size_t dns6_size)
 {
-	char dns6s[INET6_ADDRSTRLEN*3+4] = {0};
-	char *dnsnv[3];
+	char dnsnv[3][INET6_ADDRSTRLEN] = {{0}};
+	int status, written;
 
-	if (is_wan_dns6_static() == 1) {
-		dnsnv[0] = nvram_safe_get("ip6_dns1");
-		dnsnv[1] = nvram_safe_get("ip6_dns2");
-		dnsnv[2] = nvram_safe_get("ip6_dns3");
-		if (*dnsnv[0] || *dnsnv[1] || *dnsnv[2]) {
-			snprintf(dns6s, sizeof(dns6s), "%s %s %s", dnsnv[0], dnsnv[1], dnsnv[2]);
-			trim_r(dns6s);
-		}
+	if (!dns6s || dns6_size == 0)
+		return EINVAL;
+	dns6s[0] = '\0';
+	if (is_wan_dns6_static() != 1)
+		return 0;
+
+	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns1"),
+					dnsnv[0], sizeof(dnsnv[0]));
+	if (status != 0)
+		return status;
+	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns2"),
+					dnsnv[1], sizeof(dnsnv[1]));
+	if (status != 0)
+		return status;
+	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_dns3"),
+					dnsnv[2], sizeof(dnsnv[2]));
+	if (status != 0)
+		return status;
+
+	written = snprintf(dns6s, dns6_size, "%s %s %s",
+			   dnsnv[0], dnsnv[1], dnsnv[2]);
+	if (written < 0 || (size_t)written >= dns6_size) {
+		dns6s[0] = '\0';
+		return ENAMETOOLONG;
 	}
-
-	set_wan_unit_value(0, "dns6", dns6s);
+	trim_r(dns6s);
+	return 0;
 }
 
-void reset_wan6_vars(void)
+static int
+publish_dns6_var_status(void)
+{
+	char dns6s[INET6_ADDRSTRLEN * 3 + 4];
+	int status;
+
+	status = build_dns6_value(dns6s, sizeof(dns6s));
+	if (status != 0)
+		return status;
+	return set_wan_unit_value_status(0, "dns6", dns6s);
+}
+
+static int
+wan6_set_runtime_value_status(void *context, const char *param_name,
+			      const char *value)
+{
+	(void)context;
+	return set_wan_unit_value_status(0, param_name, value);
+}
+
+int reset_wan6_vars_status(void)
 {
 	struct in6_addr addr6;
 	char addr6s[INET6_ADDRSTRLEN + 5] = {0};
-	char *wan_addr6, *wan_gate6;
-	int wan_size6;
+	char wan_addr6[INET6_ADDRSTRLEN] = {0};
+	char wan_gate6[INET6_ADDRSTRLEN] = {0};
+	char relay6[INET6_ADDRSTRLEN] = {0};
+	char size6[INET6_ADDRSTRLEN] = {0};
+	char dns6s[INET6_ADDRSTRLEN * 3 + 4] = {0};
+	struct rc_wan_nvram_value reset_values[6];
+	int wan_size6 = 0;
+	int status;
 
-	wan_gate6 = "";
 	if (is_wan_addr6_static() == 1) {
-		wan_addr6 = nvram_safe_get("ip6_wan_addr");
+		status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_wan_addr"),
+					wan_addr6, sizeof(wan_addr6));
+		if (status != 0)
+			return status;
 		wan_size6 = nvram_get_int("ip6_wan_size");
-		wan_gate6 = nvram_safe_get("ip6_wan_gate");
+		status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_wan_gate"),
+					wan_gate6, sizeof(wan_gate6));
+		if (status != 0)
+			return status;
 		if (*wan_addr6 && wan_size6 >= 0 && wan_size6 <= 128) {
 			memset(&addr6, 0, sizeof(addr6));
 			if (ipv6_from_string(wan_addr6, &addr6) >= 0 &&
 			    inet_ntop(AF_INET6, &addr6, addr6s, INET6_ADDRSTRLEN) &&
 			    wan_size6 > 0 && wan_size6 < 128) {
-				snprintf(addr6s + strlen(addr6s), sizeof(addr6s) - strlen(addr6s), "/%d", wan_size6);
+				snprintf(addr6s + strlen(addr6s),
+					 sizeof(addr6s) - strlen(addr6s), "/%d", wan_size6);
 			}
 		}
 	}
 
-	set_wan_unit_value(0, "ifname6", "");
-	set_wan_unit_value(0, "addr6", addr6s);
-	set_wan_unit_value(0, "gate6", wan_gate6);
-	set_wan_unit_value(0, "6rd_relay", nvram_safe_get("ip6_6rd_relay"));
-	set_wan_unit_value(0, "6rd_size", nvram_safe_get("ip6_6rd_size"));
+	/* Copy cache-backed values before the first NVRAM write invalidates them. */
+	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_6rd_relay"),
+					relay6, sizeof(relay6));
+	if (status != 0)
+		return status;
+	status = rc_wan_nvram_copy_text(nvram_safe_get("ip6_6rd_size"),
+					size6, sizeof(size6));
+	if (status != 0)
+		return status;
+	status = build_dns6_value(dns6s, sizeof(dns6s));
+	if (status != 0)
+		return status;
 
-	build_dns6_var();
+	/*
+	 * Clear the old interface identity last. If any required configuration
+	 * field fails to publish, the prior ifname6 remains available to teardown.
+	 */
+	reset_values[0].param_name = "addr6";
+	reset_values[0].value = addr6s;
+	reset_values[1].param_name = "gate6";
+	reset_values[1].value = wan_gate6;
+	reset_values[2].param_name = "6rd_relay";
+	reset_values[2].value = relay6;
+	reset_values[3].param_name = "6rd_size";
+	reset_values[3].value = size6;
+	reset_values[4].param_name = "dns6";
+	reset_values[4].value = dns6s;
+	reset_values[5].param_name = "ifname6";
+	reset_values[5].value = "";
+
+	return rc_wan_nvram_set_required_values(
+		reset_values, 6, wan6_set_runtime_value_status, NULL);
+}
+
+void
+reset_wan6_vars(void)
+{
+	int status = reset_wan6_vars_status();
+
+	if (status != 0)
+		logmessage("WAN IPv6",
+			   "failed to reset IPv6 runtime configuration (status=%d)",
+			   status);
 }
 
 int is_wan_addr6_static(void)
@@ -659,7 +745,13 @@ int wan6_up(char *wan_ifname, int unit)
 	if (ipv6_type == IPV6_DISABLED)
 		return 0;
 
-	build_dns6_var();
+	status = publish_dns6_var_status();
+	if (status != 0) {
+		logmessage("WAN IPv6",
+			   "failed to publish configured DNS state before startup (status=%d)",
+			   status);
+		return status;
+	}
 
 	status = control_if_ipv6_dad(IFNAME_BR, 1);
 	if (status != 0) {

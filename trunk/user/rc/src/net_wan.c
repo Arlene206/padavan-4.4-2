@@ -722,7 +722,11 @@ reset_wan_vars_status(void)
 	}
 
 #if defined (USE_IPV6)
-	reset_wan6_vars();
+	proto_status = reset_wan6_vars_status();
+	if (proto_status != 0) {
+		reset_failure_context = "IPv6 WAN runtime snapshot";
+		goto reset_failed;
+	}
 #endif
 	return 0;
 

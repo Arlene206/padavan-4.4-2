@@ -1,41 +1,40 @@
 # 2026-11-20 continuation checkpoint
 
-This checkpoint supersedes earlier SHA/CI summaries below. Continue implementation from live main; do not repeat the startup audit.
+This checkpoint supersedes the older SHA/CI summaries below. Continue from live main; do not repeat completed audits.
 
 ## Git state
-- Parent main SHA for the current source/test/CI slice: `7c48e205c192eb093c735ddc4be69bc1453e3054`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not modify).
-- Preserve main-only development, one complete Git tree per atomic task, `force=false`, and exact `expected_sha`. Never force push.
-- Legacy PR #1 remains closed/not merged. No work on its branch.
+- Current parent main SHA for the IPv6 runtime-reset propagation slice: `e8ef10b371372e7bfe17d552ea44150258296743`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
+- Main-only atomic commits; one complete Git tree per logical task; use `force=false` and exact `expected_sha`. Never force-push.
+- Legacy PR #1 remains CLOSED / NOT MERGED. Do not use its branch.
 
-## Implemented in this continuation
-- Native IPv6 WAN startup retains `ifname6` until all independent rollback stages (radv, autoconfiguration, privacy, routes, neighbours, addresses) have completed. If any rollback step fails, the identity remains as a recovery handle; it is cleared only after complete rollback.
-- Added GNU89 policy tests for retention on rollback failure, clear after complete rollback, and reporting metadata-clear write failure.
-- Updated the IPv6 source checker, the WAN DHCP callback contract, and the XY-C1 modem checker. Updated XY-C1 input paths to trigger a real target build for changes to the identity policy header/test.
-- Repaired the WAN post-hook checker anchor to match the present production comment without reducing its guard, call, aggregation, failure-log or ordering assertions.
+## Completed parent source slice
+- `e8ef10b371372e7bfe17d552ea44150258296743` fixes native IPv6 startup rollback ordering. The checked `ifname6` recovery identity is retained until all radv/autoconf/privacy/route/neighbour/address rollback steps have been attempted; on incomplete rollback it remains available to teardown.
+- Added policy tests for retained identity on rollback failure, clear after successful rollback, and failed identity-clear reporting.
+- Parent exact-SHA host and source Actions PASS: WAN route `44712395177`, WAN callback `44712394929`, AI handoff `44712394830`, NVRAM boundary `44712394796`, Process inventory `44712394846`, Process fail-closed `44712394821`, HTTPD `44712394800`, Firewall `44712394853`, USB modem identity `44712394963`.
+- Parent XY-C1 run `44712394978`, job `136207077488`, completed SUCCESS on that exact SHA. It ran `make XY-C1 TOOLCHAIN=mipsel-linux-musl`, verified a non-empty TRX and `file` identified a 13 MB U-Boot legacy uImage / XY-C1 / Linux-MIPS image, then uploaded artifact `XY-C1-firmware-e8ef10b371372e7bfe17d552ea44150258296743.zip` (artifact ID `14618531515`, SHA256 `b3ab4ead7771c828dc678ed70ad173ea4f0671c07fb5dab4aae5ddbb10b5b9b6`). This is L3 evidence for e8ef10b only; do not transfer it to the new reset slice.
 
-## Exact parent-SHA CI evidence
-For `03041282c97b0a4d36e53ceefc8d2dc1e91fd2c3`:
-- HTTPD `44711346041`: PASS.
-- Process lifecycle inventory `44711345873`: PASS.
-- NVRAM transaction boundary `44711345856`: PASS.
-- AI handoff documentation `44711345981`: PASS.
-- WAN DHCP callback `44711345959`: FAIL — stale checked-metadata/teardown source assertions.
-- WAN route status `44711345905`: FAIL — `scripts/check_wan_detect_wan_status.py:102` required an old source comment.
-- XY-C1 firmware validation `44711345889`: FAIL before MIPS build — `scripts/check_modem_wan_start_status.py:648` required nine teardown aggregates; current source correctly has ten after checked metadata status propagation.
-
-No current-slice Action result is claimed before exact-head runs finish. No MIPS/TRX/artifact completion on the current production source SHA is established. Firmware L3 and hardware L4 remain NOT VERIFIED.
+## Current implementation slice (parent e8ef10b371372e7bfe17d552ea44150258296743)
+- Fixed a fail-open defect: `reset_wan_vars_status()` previously called the void `reset_wan6_vars()` and ignored any IPv6 NVRAM write failures, then continued WAN startup. The old static-DNS builder also discarded the DNS setter result.
+- Introduce status-returning `reset_wan6_vars_status()` while keeping the legacy void wrapper/prototype intact. Bounded-copy cache-backed IPv6 address/gateway/6rd/DNS settings before NVRAM writes; use the existing checked NVRAM policy; clear `ifname6` only after all required reset fields have been published. The WAN reset caller now aborts on IPv6 staging failure. `wan6_up()` also stops if configured DNS state cannot be published.
+- Regression tests simulate required-value write failure before identity clearing and successful identity clear only after the complete reset tuple.
+- The IPv6 checker validates the new status API, copied cache values, write order, fail-closed WAN caller and DNS startup gate. WAN callback path filters include the touched NVRAM status-policy header/test.
 
 ## First task for the next continuation
-1. Fetch live main, then inspect exact-head Actions for the current commit: WAN DHCP callback, WAN route status, XY-C1 firmware validation, AI handoff documentation and any NVRAM/Process jobs. Diagnose the first causal log failure, fix only the stale contract or real defect, and rerun.
-2. Ensure XY-C1 performs **Build XY-C1**, **Verify TRX output**, and **artifact upload** on the same production-source SHA before recording L3.
-3. Once this slice is green, continue a P1 stability/security defect in another userland subsystem. Avoid repeating the already-covered WAN IPv6 identity and MAN/LAN DHCP snapshot audits.
+1. Fetch live main and inspect exact-SHA Actions for the reset-slice commit: WAN DHCP callback, WAN route status, AI handoff documentation, NVRAM transaction and XY-C1 firmware validation. Diagnose causal logs for any failure. Parent e8 CI above is not evidence for the new SHA.
+2. Confirm sanitizer policy tests and source contracts execute on the exact new SHA. Confirm XY-C1 Build, TRX verification and artifact upload all pass on that same production-source SHA before recording L3.
+3. Once this slice is green, inspect remaining unchecked `nvram_set_temp()` calls in `store_ip6rd_from_dhcp()`; make 6rd lease-option publication fail-closed/consistent if caller and retry semantics permit, with write-failure/rollback tests. Otherwise choose a concrete P1 stability/security bug outside WAN.
+
+## Verification boundary
+- Parent e8ef10b: L3 Build/TRX/artifact PASS on one exact SHA; source/host checks listed above PASS.
+- Current reset slice: no exact-head Actions yet. Do not transfer parent results.
+- No physical-router L4 claim; hardware behavior remains unverified.
 
 ## Mandatory handoff checkpoint
-Update this file before context exhaustion whenever the resumable first task, exact SHA, or verification state changes. Do not create no-op handoff commits.
+Update exact main SHA, next action and exact-SHA CI state before context exhaustion when materially changed. Do not make no-op documentation commits.
 
 ## Evidence discipline
-Keep GNU89 host policy tests, source contracts, exact-SHA Actions, MIPS build/TRX/artifact evidence and physical-router behavior distinct. CI does not prove L4.
+Keep GNU89 host tests, source contracts, exact-head Actions, MIPS build/TRX/artifact evidence and physical-router behavior separate. CI does not prove L4.
 
 ---
 

@@ -20,6 +20,7 @@ def body(source, signature):
 
 ROOT = Path(__file__).resolve().parents[1]
 source = (ROOT / "trunk/user/rc/src/net_wan6.c").read_text()
+wan_source = (ROOT / "trunk/user/rc/src/net_wan.c").read_text()
 policy = (ROOT / "trunk/user/rc/src/wan6_dns_policy.h").read_text()
 test = (ROOT / "trunk/user/rc/src/tests/wan6_dns_policy.c").read_text()
 identity_policy = (ROOT / "trunk/user/rc/src/wan6_identity_policy.h").read_text()
@@ -56,6 +57,45 @@ assert "if (callback_status < 0)" in source
 assert "errno = saved_errno;" in source
 assert "return callback_status;" in source
 
+# Reset the checked IPv6 runtime snapshot before WAN activation. Cache-backed
+# configuration text is copied before any NVRAM write, and ifname6 is cleared last.
+assert '#include "wan_nvram_status_policy.h"' in source
+assert "int reset_wan6_vars_status(void);" in header
+assert "void reset_wan6_vars(void);" in header
+assert "int reset_wan6_vars_status(void)" in source
+reset_v6 = body(source, "int reset_wan6_vars_status(void)")
+reset_fields = (
+    'reset_values[0].param_name = "addr6";',
+    'reset_values[1].param_name = "gate6";',
+    'reset_values[2].param_name = "6rd_relay";',
+    'reset_values[3].param_name = "6rd_size";',
+    'reset_values[4].param_name = "dns6";',
+    'reset_values[5].param_name = "ifname6";',
+)
+reset_positions = [reset_v6.index(item) for item in reset_fields]
+assert reset_positions == sorted(reset_positions)
+for setting in ("ip6_wan_addr", "ip6_wan_gate", "ip6_6rd_relay", "ip6_6rd_size"):
+    assert f'rc_wan_nvram_copy_text(nvram_safe_get("{setting}")' in reset_v6
+dns_builder = body(source, "static int\nbuild_dns6_value(")
+for dns_key in ("ip6_dns1", "ip6_dns2", "ip6_dns3"):
+    assert f'nvram_safe_get("{dns_key}")' in dns_builder
+assert "rc_wan_nvram_copy_text" in dns_builder
+wan_reset = body(wan_source, "reset_wan_vars_status(void)")
+v6_reset_call = wan_reset.index("proto_status = reset_wan6_vars_status();")
+v6_failure = wan_reset.index('reset_failure_context = "IPv6 WAN runtime snapshot";', v6_reset_call)
+v6_abort = wan_reset.index("goto reset_failed;", v6_failure)
+assert v6_reset_call < v6_failure < v6_abort
+wan6_start = body(source, "int wan6_up(char *wan_ifname, int unit)")
+dns_publish = wan6_start.index("status = publish_dns6_var_status();")
+dns_failure = wan6_start.index("if (status != 0)", dns_publish)
+dns_return = wan6_start.index("return status;", dns_failure)
+assert dns_publish < dns_failure < dns_return
+for case in (
+    "test_wan6_reset_config_preserves_identity_when_required_write_fails",
+    "test_wan6_reset_config_clears_identity_only_after_all_values_succeed",
+):
+    assert case in (ROOT / "trunk/user/rc/src/tests/wan_nvram_status_policy.c").read_text()
+
 # BusyBox omits new_* variables when the option is absent from a Reply.
 script_env = busybox[
     busybox.index("static const envp_list_t client6_envp_list"):
@@ -81,6 +121,10 @@ for path in (
     "scripts/check_wan6_dns_policy.py",
     "trunk/user/rc/src/wan6_dns_policy.h",
     "trunk/user/rc/src/tests/wan6_dns_policy.c",
+    "trunk/user/rc/src/net_wan.c",
+    "trunk/user/rc/src/rc.h",
+    "trunk/user/rc/src/wan_nvram_status_policy.h",
+    "trunk/user/rc/src/tests/wan_nvram_status_policy.c",
 ):
     assert workflow.count(f'      - "{path}"') == 2, path
 
