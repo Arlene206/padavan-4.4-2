@@ -6,6 +6,15 @@
 #include <stddef.h>
 
 typedef int (*rc_lan_addr6_clear_fn)(void);
+
+/* NVRAM setters report failure through errno; never hide a failed publish. */
+static inline int
+rc_lan_addr6_nvram_write_status(int api_result, int saved_errno)
+{
+	if (api_result == 0)
+		return 0;
+	return saved_errno > 0 ? saved_errno : EIO;
+}
 typedef int (*rc_lan_addr6_add_fn)(void *context);
 
 /* Format address/prefix without overlapping input and output storage. */

@@ -120,6 +120,15 @@ test_ipv6_prefix_format_is_bounded_and_non_overlapping(void)
 					  output, 0) == -1);
 }
 
+static void
+test_nvram_write_status_propagates_backend_errors(void)
+{
+	assert(rc_lan_addr6_nvram_write_status(0, EACCES) == 0);
+	assert(rc_lan_addr6_nvram_write_status(-1, ENOSPC) == ENOSPC);
+	assert(rc_lan_addr6_nvram_write_status(-1, 0) == EIO);
+	assert(rc_lan_addr6_nvram_write_status(1, 0) == EIO);
+}
+
 int
 main(void)
 {
@@ -129,6 +138,7 @@ main(void)
 	test_empty_configuration_only_clears_existing_address();
 	test_clear_failure_is_reported_even_without_configured_address();
 	test_missing_callbacks_fail_closed();
-	puts("LAN IPv6 address reload sequencing and result propagation: PASS");
+	test_nvram_write_status_propagates_backend_errors();
+	puts("LAN IPv6 address reload and NVRAM publication status regression: PASS");
 	return 0;
 }

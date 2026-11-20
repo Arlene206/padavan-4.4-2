@@ -46,7 +46,7 @@ int init_ipv6(void)
 {
 	int ipv6_type = get_ipv6_type();
 	int conf_status = control_if_ipv6_all((ipv6_type == IPV6_DISABLED) ? 0 : 1);
-	int gai_status;
+	int gai_status, operation_status;
 
 	if (conf_status != 0)
 		logmessage(LOGNAME, "IPv6 global sysctl initialization incomplete (status=%d)", conf_status);
@@ -54,7 +54,12 @@ int init_ipv6(void)
 	if (gai_status != 0)
 		logmessage(LOGNAME, "IPv6 address-selection policy initialization failed (status=%d)", gai_status);
 	conf_status = rc_first_service_start_status(conf_status, gai_status);
-	reset_lan6_vars();
+	operation_status = reset_lan6_vars();
+	if (operation_status != 0)
+		logmessage(LOGNAME,
+			   "IPv6 initialization could not publish LAN address state (status=%d)",
+			   operation_status);
+	conf_status = rc_first_service_start_status(conf_status, operation_status);
 	return conf_status;
 }
 
@@ -260,7 +265,13 @@ full_restart_ipv6(int ipv6_type_old)
 		restart_status = rc_first_service_start_status(restart_status,
 								operation_status);
 
-		reset_lan6_vars();
+		operation_status = reset_lan6_vars();
+		if (operation_status != 0)
+			logmessage(LOGNAME,
+				   "IPv6 disable could not clear LAN address state (status=%d)",
+				   operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
 		reset_wan6_vars();
 		operation_status = control_if_ipv6_all(0);
 		if (operation_status != 0)
@@ -316,12 +327,22 @@ full_restart_ipv6(int ipv6_type_old)
 				   operation_status);
 		restart_status = rc_first_service_start_status(restart_status,
 								operation_status);
-		reset_lan6_vars();
-		operation_status = reload_lan_addr6();
+		operation_status = reset_lan6_vars();
 		if (operation_status != 0)
-			logmessage(LOGNAME, "IPv6 enable could not reload LAN address (status=%d)",
+			logmessage(LOGNAME,
+				   "IPv6 enable could not publish configured LAN address (status=%d)",
 				   operation_status);
-		restart_status = rc_first_service_start_status(restart_status, operation_status);
+		restart_status = rc_first_service_start_status(restart_status,
+								operation_status);
+		if (operation_status == 0) {
+			operation_status = reload_lan_addr6();
+			if (operation_status != 0)
+				logmessage(LOGNAME,
+					   "IPv6 enable could not reload LAN address (status=%d)",
+					   operation_status);
+			restart_status = rc_first_service_start_status(
+				restart_status, operation_status);
+		}
 
 		/*
 		 * Release before full_restart_wan(): WAN teardown owns the VPN lock and

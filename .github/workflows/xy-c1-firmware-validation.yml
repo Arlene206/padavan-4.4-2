@@ -548,6 +548,45 @@ jobs:
             trunk/user/rc/src/tests/lan_addr6_reload_policy.c \
             -o "$RUNNER_TEMP/lan-addr6-reload-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lan-addr6-reload-policy"
+      - name: Verify LAN IPv6 NVRAM publication failures propagate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          policy = (rc / "lan_addr6_reload_policy.h").read_text()
+          lan6 = (rc / "net_lan6.c").read_text()
+          net6 = (rc / "net6.c").read_text()
+          wan6 = (rc / "net_wan6.c").read_text()
+          header = (rc / "rc.h").read_text()
+          workflow = Path(".github/workflows/xy-c1-firmware-validation.yml").read_text()
+
+          assert "rc_lan_addr6_nvram_write_status" in policy
+          reset = lan6.split("int reset_lan6_vars(void)", 1)[1].split("int is_lan_radv_on", 1)[0]
+          assert "nvram_set_temp(\"lan_addr6\", addr6s)" in reset
+          assert "rc_lan_addr6_nvram_write_status(api_result, saved_errno)" in reset
+          assert "return status;" in reset
+          store = lan6.split("int store_lan_addr6(char *lan_addr6_new)", 1)[1].split("static int", 1)[0]
+          assert "rc_lan_addr6_nvram_write_status(api_result, saved_errno)" in store
+          assert "return -1;" in store
+
+          sit = wan6.split("int start_sit_tunnel(", 1)[1].split("#undef WAN6_SIT_CHECK", 1)[0]
+          assert "if (store_lan_addr6(lan_addr6s) < 0)" in sit
+          assert "failure = \"publish derived LAN IPv6 address\"" in sit
+          assert "clear_if_addr6(IFNAME_BR)" in sit
+          callback = wan6.split("int dhcp6c_main(", 1)[1].split("int start_dhcp6c(", 1)[0]
+          assert "if (store_lan_addr6(lan_addr6_new) < 0)" in callback
+          assert "callback_status = -1;" in callback
+          assert "if (callback_status == 0)" in callback
+
+          assert "int reset_lan6_vars(void);" in header
+          assert "operation_status = reset_lan6_vars();" in net6
+          assert "if (operation_status == 0)" in net6
+          filters = workflow.split("jobs:", 1)[0]
+          assert '"trunk/user/rc/src/net6.c"' in filters
+          assert '"trunk/user/rc/src/rc.h"' in filters
+          print("LAN IPv6 NVRAM publication failures reach startup, SIT rollback and DHCPv6 callback results: PASS")
+          PY
 
       - name: Verify WAN firewall result propagation
         run: python3 scripts/check_wan_firewall_status.py

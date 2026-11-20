@@ -35,8 +35,9 @@
 
 #if defined (USE_IPV6)
 
-void reset_lan6_vars(void)
+int reset_lan6_vars(void)
 {
+	int api_result, saved_errno, status;
 	struct in6_addr addr6;
 	char addr6_text[INET6_ADDRSTRLEN];
 	char addr6s[INET6_ADDRSTRLEN] = {0};
@@ -62,7 +63,17 @@ void reset_lan6_vars(void)
 		}
 	}
 
-	nvram_set_temp("lan_addr6", addr6s);
+	errno = 0;
+	api_result = nvram_set_temp("lan_addr6", addr6s);
+	saved_errno = errno;
+	status = rc_lan_addr6_nvram_write_status(api_result, saved_errno);
+	if (status != 0) {
+		errno = status;
+		logmessage("LAN IPv6",
+			   "cannot publish LAN address state to NVRAM (status=%d)",
+			   status);
+	}
+	return status;
 }
 
 int is_lan_radv_on(void)
@@ -131,16 +142,24 @@ int get_lan_dhcp6s_prefix_size(void)
 int store_lan_addr6(char *lan_addr6_new)
 {
 	char *lan_addr6_old;
+	int api_result, saved_errno, status;
 
-	if (!lan_addr6_new)
-		return 0;
-
-	if (!(*lan_addr6_new))
+	if (!lan_addr6_new || !lan_addr6_new[0])
 		return 0;
 
 	lan_addr6_old = nvram_safe_get("lan_addr6");
-	if (strcmp(lan_addr6_new, lan_addr6_old) != 0) {
-		nvram_set_temp("lan_addr6", lan_addr6_new);
+	if (strcmp(lan_addr6_new, lan_addr6_old ? lan_addr6_old : "") != 0) {
+		errno = 0;
+		api_result = nvram_set_temp("lan_addr6", lan_addr6_new);
+		saved_errno = errno;
+		status = rc_lan_addr6_nvram_write_status(api_result, saved_errno);
+		if (status != 0) {
+			errno = status;
+			logmessage("LAN IPv6",
+				   "cannot publish updated LAN address to NVRAM (status=%d)",
+				   status);
+			return -1;
+		}
 		return 1;
 	}
 

@@ -815,7 +815,16 @@ int start_sit_tunnel(int ipv6_type, char *wan_ifname, char *wan_addr4,
 		WAN6_SIT_CHECK(clear_if_addr6(IFNAME_BR),
 			       "clear previous LAN IPv6 address");
 		WAN6_SIT_CHECK(eval("ip", "-6", "addr", "add", lan_addr6s, "dev", IFNAME_BR), "add derived LAN IPv6 address");
-		store_lan_addr6(lan_addr6s);
+		if (store_lan_addr6(lan_addr6s) < 0) {
+			status = errno ? errno : EIO;
+			failure = "publish derived LAN IPv6 address";
+			cleanup_status = clear_if_addr6(IFNAME_BR);
+			if (cleanup_status != 0)
+				logmessage("WAN IPv6",
+					   "failed to remove derived LAN address after NVRAM publication failure (status=%d)",
+					   cleanup_status);
+			goto failed;
+		}
 	}
 
 	set_vpn_balancing(IFNAME_SIT, 0);
@@ -1240,6 +1249,7 @@ int dhcp6c_main(int argc, char **argv)
 {
 	int ipv6_type, dns6_auto, lan6_auto;
 	int callback_fd, unlock_status, callback_status = 0, saved_errno = 0;
+	int dns_status, dns_errno;
 	unsigned long generation;
 	char *dns6_new, *lan_addr6_new;
 	char addr6s[INET6_ADDRSTRLEN + 5];
@@ -1276,20 +1286,30 @@ int dhcp6c_main(int argc, char **argv)
 	lan6_auto = nvram_get_int("ip6_lan_auto");
 	if (lan6_auto) {
 		lan_addr6_new = get_ifaddr6(IFNAME_BR, 0, addr6s);
-		store_lan_addr6(lan_addr6_new);
+		if (store_lan_addr6(lan_addr6_new) < 0) {
+			saved_errno = errno ? errno : EIO;
+			callback_status = -1;
+			logmessage("DHCPv6 WAN Client",
+				   "cannot publish automatic LAN address state (errno=%d)",
+				   saved_errno);
+		}
 	}
 
 	dns6_auto = nvram_get_int("ip6_dns_auto");
 	if (dns6_auto) {
 		dns6_new = getenv("new_domain_name_servers");
-		callback_status = store_wan_dns6(dns6_new);
-		if (callback_status > 0)
+		dns_status = store_wan_dns6(dns6_new);
+		if (dns_status > 0)
 			refresh_resolvconf_nonfatal("DHCPv6 DNS update", 0);
-		else if (callback_status < 0) {
-			saved_errno = errno ? errno : EIO;
+		else if (dns_status < 0) {
+			dns_errno = errno ? errno : EIO;
+			if (callback_status == 0) {
+				callback_status = dns_status;
+				saved_errno = dns_errno;
+			}
 			logmessage("DHCPv6 WAN Client",
-				   "rejecting oversized DHCPv6 DNS server list (errno=%d)",
-				   saved_errno);
+				   "rejecting invalid DHCPv6 DNS server list (errno=%d)",
+				   dns_errno);
 		}
 	}
 
