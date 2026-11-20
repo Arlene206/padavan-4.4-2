@@ -196,6 +196,67 @@ wan_static_ipv4_snapshot(int unit, const char *wan_addr_suffix,
 }
 
 
+#define WAN_MAN_DNS_SNAPSHOT_MAX 512
+
+static int
+wan_man_gateway_snapshot(char *gateway, size_t gateway_size,
+			 char *wan_addr, size_t wan_addr_size,
+			 char *wan_mask, size_t wan_mask_size,
+			 char *dns_servers, size_t dns_servers_size)
+{
+	struct nvram_transaction transaction;
+	int status = 0, end_status;
+
+	if (!gateway || !gateway_size || !wan_addr || !wan_addr_size ||
+	    !wan_mask || !wan_mask_size || !dns_servers || !dns_servers_size)
+		return EINVAL;
+
+	gateway[0] = '\0';
+	wan_addr[0] = '\0';
+	wan_mask[0] = '\0';
+	dns_servers[0] = '\0';
+
+	/*
+	 * Route setup and teardown must use one coherent lease tuple. Each
+	 * nvram_transaction_get() returns a pointer into the shared cache, so
+	 * copy it before the next read while the exclusive lease is held.
+	 */
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno ? errno : EIO;
+
+	status = rc_wan_nvram_copy_value(
+		wan_nvram_transaction_get_callback, &transaction, "wanx_gateway",
+		gateway, gateway_size);
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			wan_nvram_transaction_get_callback, &transaction, "wanx_ipaddr",
+			wan_addr, wan_addr_size);
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			wan_nvram_transaction_get_callback, &transaction, "wanx_netmask",
+			wan_mask, wan_mask_size);
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			wan_nvram_transaction_get_callback, &transaction, "wanx_dns",
+			dns_servers, dns_servers_size);
+
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+	}
+	if (status != 0) {
+		gateway[0] = '\0';
+		wan_addr[0] = '\0';
+		wan_mask[0] = '\0';
+		dns_servers[0] = '\0';
+	}
+	return status;
+}
+
+
 static int
 set_wan_unit_error_status(int unit, int error)
 {
@@ -3292,24 +3353,35 @@ static int
 add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)
 {
 	int is_man_dns_auto, is_modem_active, wan_proto;
-	int status = 0, route_status;
-	char *next, *man_gate, *man_addr, *man_mask, *man_dns;
+	int status = 0, route_status, snapshot_status;
+	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
+	char man_dns_storage[WAN_MAN_DNS_SNAPSHOT_MAX];
+	char *next, *man_gate = man_gate_storage, *man_addr = man_addr_storage;
+	char *man_mask = man_mask_storage, *man_dns = man_dns_storage;
 	char word[100];
 
 	if (gateway_route_status)
 		*gateway_route_status = 0;
 
-	man_gate = nvram_safe_get("wanx_gateway");
+	snapshot_status = wan_man_gateway_snapshot(
+		man_gate_storage, sizeof(man_gate_storage),
+		man_addr_storage, sizeof(man_addr_storage),
+		man_mask_storage, sizeof(man_mask_storage),
+		man_dns_storage, sizeof(man_dns_storage));
+	if (snapshot_status != 0) {
+		if (gateway_route_status)
+			*gateway_route_status = snapshot_status;
+		logmessage(LOGNAME,
+			   "cannot snapshot MAN gateway/address/DNS state on %s (status=%d)",
+			   man_ifname, snapshot_status);
+		return snapshot_status;
+	}
 	if (!is_valid_ipv4(man_gate))
 		return 0;
 
 	wan_proto = get_wan_proto(unit);
 	is_modem_active = get_usb_modem_wan(unit);
 	is_man_dns_auto = (get_wan_unit_value_int(unit, "dnsenable_x") > 0) ? 1 : 0;
-
-	man_addr = nvram_safe_get("wanx_ipaddr");
-	man_mask = nvram_safe_get("wanx_netmask");
-	man_dns  = nvram_safe_get("wanx_dns");
 
 	/*
 	 * Do not blindly roll back successful additions after a later failure:
@@ -3430,8 +3502,11 @@ static int
 man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 {
 	int wan_proto, is_modem_active, is_man_dns_auto;
-	int status = 0, route_status;
-	char *next, *man_gate, *man_addr, *man_mask, *man_dns;
+	int status = 0, route_status, snapshot_status;
+	char man_gate_storage[16], man_addr_storage[16], man_mask_storage[16];
+	char man_dns_storage[WAN_MAN_DNS_SNAPSHOT_MAX];
+	char *next, *man_gate = man_gate_storage, *man_addr = man_addr_storage;
+	char *man_mask = man_mask_storage, *man_dns = man_dns_storage;
 	char word[100];
 
 	static const struct rc_wan_nvram_value clear_address_values[] = {
@@ -3456,10 +3531,17 @@ man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)
 		logmessage(LOGNAME,
 			   "Internet monitor pause incomplete during MAN teardown (status=%d)",
 			   route_status);
-	man_gate = nvram_safe_get("wanx_gateway");
-	man_addr = nvram_safe_get("wanx_ipaddr");
-	man_mask = nvram_safe_get("wanx_netmask");
-	man_dns = nvram_safe_get("wanx_dns");
+	snapshot_status = wan_man_gateway_snapshot(
+		man_gate_storage, sizeof(man_gate_storage),
+		man_addr_storage, sizeof(man_addr_storage),
+		man_mask_storage, sizeof(man_mask_storage),
+		man_dns_storage, sizeof(man_dns_storage));
+	if (snapshot_status != 0) {
+		status = route_status_accumulate(status, snapshot_status);
+		logmessage(LOGNAME,
+			   "cannot snapshot MAN gateway/address/DNS state during teardown on %s (status=%d)",
+			   man_ifname, snapshot_status);
+	}
 	wan_proto = get_wan_proto(unit);
 	is_modem_active = get_usb_modem_wan(unit);
 	is_man_dns_auto = (get_wan_unit_value_int(unit, "dnsenable_x") > 0) ? 1 : 0;

@@ -651,7 +651,21 @@ jobs:
           man_pause = man_down.index("route_status = notify_pause_detect_internet();")
           man_pause_accumulate = man_down.index("status = route_status_accumulate(status, route_status);", man_pause)
           man_pause_log = man_down.index("Internet monitor pause incomplete during MAN teardown", man_pause_accumulate)
-          assert man_pause < man_pause_accumulate < man_pause_log < man_down.index('man_gate = nvram_safe_get("wanx_gateway");')
+          snapshot_helper = body(wan, "wan_man_gateway_snapshot(")
+          assert "nvram_transaction_begin(&transaction)" in snapshot_helper
+          assert snapshot_helper.count("rc_wan_nvram_copy_value(") == 4
+          snapshot_keys = ("wanx_gateway", "wanx_ipaddr", "wanx_netmask", "wanx_dns")
+          snapshot_positions = [snapshot_helper.index('"' + key + '"') for key in snapshot_keys]
+          assert snapshot_positions == sorted(snapshot_positions)
+          assert "nvram_transaction_end(&transaction)" in snapshot_helper
+          assert "if (status != 0)" in snapshot_helper
+          assert "gateway[0] = '\\0';" in snapshot_helper
+          assert "dns_servers[0] = '\\0';" in snapshot_helper
+          assert 'nvram_safe_get("wanx_gateway")' not in man_down
+          snapshot_call = man_down.index("snapshot_status = wan_man_gateway_snapshot(")
+          snapshot_gate = man_down.index("if (snapshot_status != 0)", snapshot_call)
+          assert man_pause < man_pause_accumulate < man_pause_log < snapshot_call < snapshot_gate
+          assert man_down.index('route_status = del_dhcp_routes_by_prefix("wanx_"') > snapshot_gate
           assert "DHCP loss is already committed, so a monitor-pause failure must not" in man_down
           assert "if (status == 0)" in man_down and "return status;" in man_down
           assert "(void)notify_pause_detect_internet();" not in man_down
@@ -711,6 +725,12 @@ jobs:
 
           gateway_add = body(wan, "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)")
           assert "static int" + chr(10) + "add_man_gateway_routes(" in wan
+          gateway_snapshot_call = gateway_add.index("snapshot_status = wan_man_gateway_snapshot(")
+          gateway_snapshot_gate = gateway_add.index("if (snapshot_status != 0)", gateway_snapshot_call)
+          assert gateway_snapshot_call < gateway_snapshot_gate < gateway_add.index("route_status = route_add(")
+          assert "if (gateway_route_status)" in gateway_add[gateway_snapshot_gate:]
+          assert "*gateway_route_status = snapshot_status;" in gateway_add[gateway_snapshot_gate:]
+          assert 'nvram_safe_get("wanx_gateway")' not in gateway_add
           assert gateway_add.count("route_status = route_add(") == 3
           assert gateway_add.count("route_status_accumulate(status, route_status)") == 3
           assert gateway_add.count("route_add(") == 3
