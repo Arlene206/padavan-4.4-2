@@ -43,6 +43,7 @@
 #endif
 #ifdef ENABLE_LEASEFILE
 #include <sys/stat.h>
+#include "miniupnpd_lease_file_policy.h"
 #endif
 
 /* from <inttypes.h> */
@@ -99,20 +100,36 @@ lease_file_add(unsigned short eport,
                unsigned int timestamp)
 {
 	FILE * fd;
+	char record[128];
+	int record_length;
+	int status = 0;
 
 	if (lease_file == NULL) return 0;
 
-	fd = fopen( lease_file, "a");
-	if (fd==NULL) {
+	fd = fopen(lease_file, "a");
+	if (fd == NULL) {
 		syslog(LOG_ERR, "could not open lease file: %s", lease_file);
 		return -1;
 	}
 
-	fprintf(fd, "%s:%hu:%s:%hu:%u:%s\n",
-	        proto_itoa(proto), eport, iaddr, iport,
-	        timestamp, desc);
-	fclose(fd);
-
+	record_length = miniupnpd_lease_record_format(record, sizeof(record),
+	                                               proto_itoa(proto), eport,
+	                                               iaddr, iport, timestamp,
+	                                               desc);
+	if (record_length < 0) {
+		status = errno ? errno : EIO;
+		fclose(fd);
+		errno = status;
+		return -1;
+	}
+	if (fwrite(record, 1, (size_t)record_length, fd) != (size_t)record_length)
+		status = errno ? errno : EIO;
+	if (fclose(fd) != 0 && status == 0)
+		status = errno ? errno : EIO;
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
 	return 0;
 }
 

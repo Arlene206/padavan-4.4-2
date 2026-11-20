@@ -1,3 +1,13 @@
+## 2026-11-20 — Prevent MiniUPnP lease-file description record injection
+
+- Parent main SHA: 2d124f3dbf163982c3f6198baf8c176a035585ff.
+- Confirmed `lease_file_add()` wrote client-supplied `NewPortMappingDescription` verbatim into a colon-delimited, newline-separated lease file. `reload_from_lease_file()` reads each line as a mapping record, so embedded CR/LF could forge additional persistent rules; unbounded descriptions could also exceed the fixed 128-byte read buffer.
+- Added a bounded serializer that sanitizes CR/LF, caps the description to 63 bytes, and fails rather than emitting a record larger than the reload parser's buffer. Production lease writing now checks short writes and fclose errors, preserving the first errno.
+- Added GNU89/`-Werror`/ASan/UBSan coverage for line-injection payloads, overlong descriptions, exact one-line framing, undersized buffers and invalid arguments. Wired source contract, Makefile dependency, MiniUPnP workflow and XY-C1 production-input detector.
+- Prior SOAP numeric-input commit `2d124f3dbf163982c3f6198baf8c176a035585ff`: MiniUPnP #44740365744 and AI docs #44740365813 PASS; Process inventory #44740365812 PASS. XY-C1 #44740365797 was still in progress (no L3 claim). This lease-file slice is pending exact-head validation; no target L4 evidence.
+
+---
+
 ## 2026-11-20 — Reject malformed and out-of-range MiniUPnP WANIPConnection numeric inputs
 
 - Parent main SHA: 5b565e65f677f8f16b9a2012751e98510a40a536.

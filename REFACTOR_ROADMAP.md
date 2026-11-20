@@ -1,8 +1,8 @@
 # 2026-11-20 active checkpoint
 
 - Current main before SOAP numeric input hardening: `5b565e65f677f8f16b9a2012751e98510a40a536`; frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only).
-- Active: MiniUPnP SOAP numeric input hardening implemented for WANIPConnection port fields, lease duration and GetList count. Exact-head GNU89/ASan/UBSan/source contract and same-source XY-C1 Build/TRX/artifact pending.
-- Exact-head parent Actions on 5b565: watchdog regression #44739085422 PASS; AI handoff docs #44739085352 PASS. The SOAP policy/source-contract workflow and XY-C1 build are triggered by this slice.
+- Completed: SOAP numeric input hardening on `2d124f3d`; exact-head MiniUPnP host regression #44740365744 and AI docs #44740365813 PASS, same-SHA XY-C1 #44740365797 was still running. Active: lease-file record serialization hardening now rejects line injection and oversized records; exact-head tests and same-source XY-C1 pending.
+- Exact-head SOAP SHA `2d124f3d`: MiniUPnP source/regression #44740365744 PASS; AI docs #44740365813 PASS; Process inventory #44740365812 PASS. Process lifecycle and NVRAM audit still running. XY-C1 #44740365797 remained in progress, so L3 is not yet verified.
 - Closed and do not repeat: WAN deferred reconnect, RADIUS validation/secret ownership, Samba permissions, NTP readiness, FTP FIFO/APPE, MiniUPnP PID publication.
 - Next: fix actual exact-SHA test failures from logs, verify same-source firmware artifact, then continue an independent P1 userland stability/security fix. Hardware L4 remains NOT VERIFIED.
 
