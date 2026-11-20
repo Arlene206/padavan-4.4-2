@@ -1,0 +1,26 @@
+name: Custom firmware defaults transaction regression
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/customization-transaction.yml"
+      - "trunk/custom/scripts/apply_customization.py"
+      - "trunk/custom/scripts/tests/test_apply_customization.py"
+  pull_request:
+    paths:
+      - ".github/workflows/customization-transaction.yml"
+      - "trunk/custom/scripts/apply_customization.py"
+      - "trunk/custom/scripts/tests/test_apply_customization.py"
+
+permissions:
+  contents: read
+
+jobs:
+  customization-transaction:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test staged customization publication and rollback
+        run: python3 -m unittest discover -s trunk/custom/scripts/tests -p 'test_*.py' -v

@@ -1,3 +1,12 @@
+## 2026-11-20 — Stage and compensate multi-file firmware customization writes
+
+- Parent main SHA: `99b96ecf425e6986e4298b106a9e67f1545afd26`. Found a partial-update defect in `trunk/custom/scripts/apply_customization.py`: LAN-IP customization rewrote `defaults.h` in place, then rewrote the Chinese dictionary separately. A failure during the second write could leave the two build inputs inconsistent; either direct write could truncate its target before all new content was safely written.
+- Replaced direct writes with same-directory staged files, file fsync, preserved mode bits, and atomic per-file replacement. Both new inputs and private rollback snapshots are staged before the first rename. If a later rename or directory sync fails, previously published files are restored in reverse order; if restoration itself fails, the original snapshot is retained and its path is reported. Final-component symlinks and duplicate path aliases fail closed.
+- Added six failure-injection/unit cases for successful publication, second-rename rollback, rollback-snapshot retention, staging failure, symlink rejection and duplicate-path rejection. Added a dedicated path-filtered CI workflow for this build-time utility.
+- The compensating rollback handles reported I/O errors; as documented in code, separate filesystem renames are not globally crash-atomic as one operation. No firmware C source changed in this slice.
+
+---
+
 ## 2026-11-20 — Pin the old IPTV VLAN clear/remove compensation policy in CI
 
 - Parent main SHA: `bb9d0ee5307911eeae81575f6ea916f54ef0e361`. This checker/log follow-up fixes the exact-head WAN route failure from the new VLAN transition commit; production C and policy tests remain unchanged in this checker-only slice.
