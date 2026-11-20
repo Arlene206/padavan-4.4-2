@@ -66,8 +66,14 @@ assert "rc_wan_nvram_copy_snapshot(" in snapshot_helper
 assert "lan_dhcp_snapshot_begin" in snapshot_helper
 assert "lan_dhcp_snapshot_get" in snapshot_helper
 assert "lan_dhcp_snapshot_end" in snapshot_helper
-for key in ("lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_domain"):
+for key in (
+    "lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_gateway", "lan_domain",
+    "lan_ipaddr_t", "lan_netmask_t", "lan_domain_t", "lan_dns_t",
+    "lan_wins_t", "lan_lease_t",
+):
     assert '"' + key + '"' in snapshot_helper
+assert "struct rc_wan_nvram_snapshot_field fields[11];" in snapshot_helper
+assert 'fields[10].param_name = "lan_lease_t";' in snapshot_helper
 snapshot_policy_body = c_function_body(
     nvram_snapshot_policy, "rc_wan_nvram_copy_snapshot("
 )
@@ -87,10 +93,10 @@ cleanup = lan[start:end]
 snapshot_call = cleanup.index("snapshot_status = lan_dhcp_deconfig_snapshot(")
 snapshot_failure = cleanup.index("if (snapshot_status != 0)", snapshot_call)
 route_delete = cleanup.index("route_status = route_del(", snapshot_failure)
-static_restore = cleanup.index("ifconfig_status = ifconfig(lan_ifname, IFUP, lan_addr, lan_mask);")
+static_restore = cleanup.index("ifconfig_status = ifconfig(lan_ifname, IFUP,")
 status_update = cleanup.index("status = dhcp_lease_deconfig_status(route_status, ifconfig_status,")
 ready = cleanup.index("if (dhcp_lease_deconfig_address_ready(route_status, ifconfig_status))", status_update)
-restore = cleanup.index("hosts_status = create_hosts_lan(lan_addr, lan_domain);", ready)
+restore = cleanup.index("hosts_status = create_hosts_lan(snapshot.static_address,", ready)
 hosts_error = cleanup.index("if (hosts_status != 0)", restore)
 preserve = cleanup.index("if (status == 0)", hosts_error)
 failure = cleanup.index("if (status != 0)", preserve)
@@ -100,17 +106,23 @@ for key in ("lan_gateway_t", "lan_ipaddr", "lan_netmask", "lan_domain"):
     assert 'nvram_safe_get("' + key + '")' not in cleanup
 assert "failed to restore static LAN hostname/hosts during deconfig" in cleanup
 
-for effect in (
-    "notify_pause_detect_internet();",
-    "update_lan_status(0);",
-    'nvram_set_temp("lan_dns_t", "");',
-    'nvram_set_temp("lan_wins_t", "");',
-    'nvram_set_temp("lan_lease_t", "");',
-):
-    assert failure < cleanup.index(effect), effect
-update = cleanup.index("update_lan_status(0);")
+metadata_prepare = cleanup.index("lan_dhcp_deconfig_metadata_prepare(")
+metadata_publish = cleanup.index("metadata_status = lan_dhcp_nvram_state_publish(", metadata_prepare)
+metadata_failure = cleanup.index("if (metadata_status != 0)", metadata_publish)
+metadata_return = cleanup.index("return metadata_status;", metadata_failure)
+monitor_pause = cleanup.index("(void)notify_pause_detect_internet();", metadata_failure)
+assert failure < metadata_prepare < metadata_publish < metadata_failure < metadata_return < monitor_pause
+assert "LAN_DHCP_DECONFIG_METADATA_COUNT" in cleanup
+assert "snapshot.lease_gateway" in cleanup
+assert "metadata_rollback_status" in cleanup
+assert "LAN DHCP deconfig metadata rollback incomplete" in cleanup
+assert "update_lan_status(0);" not in cleanup
+assert "nvram_set_temp(" not in cleanup
 for key in ("lan_dns_t", "lan_wins_t", "lan_lease_t"):
-    assert update < cleanup.index('nvram_set_temp("' + key + '", "");')
+    assert 'nvram_set_temp("' + key + '", "")' not in cleanup
+assert "lan_dhcp_deconfig_metadata_prepare" in callback_policy
+assert '#include "dhcp_lease_policy.h"' in callback_policy
+assert "test_deconfig_metadata_restores_static_values_and_clears_dhcp_options" in callback_test
 
 deconfig_start = lan.index("udhcpc_lan_deconfig(char *lan_ifname)")
 deconfig_end = lan.index("udhcpc_lan_bound(", deconfig_start)

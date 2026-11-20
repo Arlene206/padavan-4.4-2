@@ -1748,51 +1748,97 @@ lan_dhcp_snapshot_end(void *opaque)
 }
 
 
+struct lan_dhcp_deconfig_state {
+	char lease_gateway[16];
+	char static_address[16];
+	char static_netmask[16];
+	char static_gateway[16];
+	char static_domain[256];
+	char previous_address[16];
+	char previous_netmask[16];
+	char previous_domain[256];
+	char previous_dns[256];
+	char previous_wins[256];
+	char previous_lease[16];
+};
+
 static int
-lan_dhcp_deconfig_snapshot(char *gateway, size_t gateway_size,
-			   char *lan_addr, size_t lan_addr_size,
-			   char *lan_mask, size_t lan_mask_size,
-			   char *lan_domain, size_t lan_domain_size)
+lan_dhcp_nvram_state_publish(const struct dhcp_lease_nvram_value *values,
+			     size_t count, int *rollback_status);
+
+
+static int
+lan_dhcp_deconfig_snapshot(struct lan_dhcp_deconfig_state *snapshot)
 {
 	struct nvram_transaction transaction;
-	struct rc_wan_nvram_snapshot_field fields[4];
+	struct rc_wan_nvram_snapshot_field fields[11];
 
+	if (!snapshot) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	/* Capture both the static configuration and the last committed lease
+	 * tuple under one NVRAM transaction. The old gateway is also the route
+	 * identity needed to remove the previous DHCP default route. */
 	fields[0].param_name = "lan_gateway_t";
-	fields[0].destination = gateway;
-	fields[0].destination_size = gateway_size;
+	fields[0].destination = snapshot->lease_gateway;
+	fields[0].destination_size = sizeof(snapshot->lease_gateway);
 	fields[1].param_name = "lan_ipaddr";
-	fields[1].destination = lan_addr;
-	fields[1].destination_size = lan_addr_size;
+	fields[1].destination = snapshot->static_address;
+	fields[1].destination_size = sizeof(snapshot->static_address);
 	fields[2].param_name = "lan_netmask";
-	fields[2].destination = lan_mask;
-	fields[2].destination_size = lan_mask_size;
-	fields[3].param_name = "lan_domain";
-	fields[3].destination = lan_domain;
-	fields[3].destination_size = lan_domain_size;
+	fields[2].destination = snapshot->static_netmask;
+	fields[2].destination_size = sizeof(snapshot->static_netmask);
+	fields[3].param_name = "lan_gateway";
+	fields[3].destination = snapshot->static_gateway;
+	fields[3].destination_size = sizeof(snapshot->static_gateway);
+	fields[4].param_name = "lan_domain";
+	fields[4].destination = snapshot->static_domain;
+	fields[4].destination_size = sizeof(snapshot->static_domain);
+	fields[5].param_name = "lan_ipaddr_t";
+	fields[5].destination = snapshot->previous_address;
+	fields[5].destination_size = sizeof(snapshot->previous_address);
+	fields[6].param_name = "lan_netmask_t";
+	fields[6].destination = snapshot->previous_netmask;
+	fields[6].destination_size = sizeof(snapshot->previous_netmask);
+	fields[7].param_name = "lan_domain_t";
+	fields[7].destination = snapshot->previous_domain;
+	fields[7].destination_size = sizeof(snapshot->previous_domain);
+	fields[8].param_name = "lan_dns_t";
+	fields[8].destination = snapshot->previous_dns;
+	fields[8].destination_size = sizeof(snapshot->previous_dns);
+	fields[9].param_name = "lan_wins_t";
+	fields[9].destination = snapshot->previous_wins;
+	fields[9].destination_size = sizeof(snapshot->previous_wins);
+	fields[10].param_name = "lan_lease_t";
+	fields[10].destination = snapshot->previous_lease;
+	fields[10].destination_size = sizeof(snapshot->previous_lease);
 
 	return rc_wan_nvram_copy_snapshot(
-		fields, 4, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
+		fields, 11, lan_dhcp_snapshot_begin, lan_dhcp_snapshot_get,
 		lan_dhcp_snapshot_end, &transaction);
 }
-
 
 static int
 lan_down_auto(char *lan_ifname)
 {
 	FILE *fp;
-	char lan_gateway[16], lan_addr[16], lan_mask[16], lan_domain[256];
+	struct lan_dhcp_deconfig_state snapshot;
+	struct dhcp_lease_nvram_value metadata[LAN_DHCP_DECONFIG_METADATA_COUNT];
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int snapshot_status, route_status = 0, ifconfig_status, resolver_status = 0;
 	int lock, status, hosts_status = 0;
+	int metadata_status, metadata_rollback_status = 0;
 
 	/*
-	 * Restore one coherent view of the DHCP gateway and static LAN settings.
-	 * NVRAM reads use a rotating cache, so snapshot helper copies every field
-	 * before the next read and invalidates the tuple on any read/unlock error.
+	 * Restore one coherent view of the DHCP gateway and static LAN settings,
+	 * while also retaining every old temporary metadata value for rollback.
+	 * NVRAM reads use a rotating cache, so the snapshot helper copies every
+	 * field before the next read and invalidates the tuple on any read/unlock
+	 * error.
 	 */
-	snapshot_status = lan_dhcp_deconfig_snapshot(
-		lan_gateway, sizeof(lan_gateway), lan_addr, sizeof(lan_addr),
-		lan_mask, sizeof(lan_mask), lan_domain, sizeof(lan_domain));
+	snapshot_status = lan_dhcp_deconfig_snapshot(&snapshot);
 	if (snapshot_status != 0) {
 		logmessage("DHCP LAN Client",
 			   "cannot snapshot LAN deconfig settings on %s (status=%d); retaining lease state",
@@ -1805,9 +1851,9 @@ lan_down_auto(char *lan_ifname)
 	 * address. A failed delete must keep the old lease fields intact so a
 	 * later callback still knows which route needs reconciliation.
 	 */
-	if (is_valid_ipv4(lan_gateway)) {
+	if (is_valid_ipv4(snapshot.lease_gateway)) {
 		route_status = route_del(lan_ifname, 0, "0.0.0.0",
-					 lan_gateway, "0.0.0.0");
+					 snapshot.lease_gateway, "0.0.0.0");
 		status = dhcp_lease_deconfig_status(route_status, 0, 0);
 		if (status != 0) {
 			logmessage("DHCP LAN Client",
@@ -1817,7 +1863,8 @@ lan_down_auto(char *lan_ifname)
 		}
 	}
 
-	ifconfig_status = ifconfig(lan_ifname, IFUP, lan_addr, lan_mask);
+	ifconfig_status = ifconfig(lan_ifname, IFUP,
+				   snapshot.static_address, snapshot.static_netmask);
 	status = dhcp_lease_deconfig_status(route_status, ifconfig_status, 0);
 	if (status != 0) {
 		logmessage("DHCP LAN Client",
@@ -1859,7 +1906,8 @@ lan_down_auto(char *lan_ifname)
 	 * restore those files even if resolver cleanup needs another retry.
 	 */
 	if (dhcp_lease_deconfig_address_ready(route_status, ifconfig_status)) {
-		hosts_status = create_hosts_lan(lan_addr, lan_domain);
+		hosts_status = create_hosts_lan(snapshot.static_address,
+						snapshot.static_domain);
 		if (hosts_status != 0) {
 			logmessage("DHCP LAN Client",
 				   "failed to restore static LAN hostname/hosts during deconfig (status=%d)",
@@ -1876,14 +1924,35 @@ lan_down_auto(char *lan_ifname)
 		return status;
 	}
 
-	/* Do not pause detection, overwrite the last DHCP gateway identity or
-	 * discard DHCP-only metadata until every required cleanup step succeeds.
-	 * Once the lease cleanup is committed, monitor pause is advisory. */
+	/*
+	 * Commit the static LAN identity and clear DHCP-only metadata as one
+	 * compensatable seven-key transaction. If any setter or transaction close
+	 * fails, restore the prior tuple and return an error so BusyBox retries
+	 * DECONFIG_PENDING instead of accepting a partially cleared lease.
+	 */
+	lan_dhcp_deconfig_metadata_prepare(
+		metadata, snapshot.static_address, snapshot.static_netmask,
+		snapshot.static_gateway, snapshot.static_domain,
+		snapshot.previous_address, snapshot.previous_netmask,
+		snapshot.lease_gateway, snapshot.previous_domain,
+		snapshot.previous_dns, snapshot.previous_wins,
+		snapshot.previous_lease);
+	metadata_status = lan_dhcp_nvram_state_publish(
+		metadata, LAN_DHCP_DECONFIG_METADATA_COUNT,
+		&metadata_rollback_status);
+	if (metadata_status != 0) {
+		logmessage("DHCP LAN Client",
+			   "failed to publish static LAN DHCP metadata on %s (status=%d); retaining callback for retry",
+			   lan_ifname, metadata_status);
+		if (metadata_rollback_status != 0)
+			logmessage("DHCP LAN Client",
+				   "LAN DHCP deconfig metadata rollback incomplete on %s (status=%d)",
+				   lan_ifname, metadata_rollback_status);
+		return metadata_status;
+	}
+
+	/* Cleanup is now committed; monitor pause is advisory. */
 	(void)notify_pause_detect_internet();
-	update_lan_status(0);
-	nvram_set_temp("lan_dns_t", "");
-	nvram_set_temp("lan_wins_t", "");
-	nvram_set_temp("lan_lease_t", "");
 
 #if defined(APP_SMBD)
 	/* update SMB fastpath owner address */

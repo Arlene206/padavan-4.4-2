@@ -5,6 +5,41 @@
 #include "lan_dhcp_callback_policy.h"
 
 static void
+test_deconfig_metadata_restores_static_values_and_clears_dhcp_options(void)
+{
+	struct dhcp_lease_nvram_value values[LAN_DHCP_DECONFIG_METADATA_COUNT];
+
+	lan_dhcp_deconfig_metadata_prepare(
+		values, "192.0.2.10", "255.255.255.0", "192.0.2.1",
+		"router.example", "198.51.100.10", "255.255.255.128",
+		"198.51.100.1", "lease.example", "203.0.113.53",
+		"203.0.113.54", "3600");
+
+	assert(LAN_DHCP_DECONFIG_METADATA_COUNT == 7);
+	assert(strcmp(values[0].name, "lan_ipaddr_t") == 0);
+	assert(strcmp(values[0].value, "192.0.2.10") == 0);
+	assert(strcmp(values[0].previous_value, "198.51.100.10") == 0);
+	assert(strcmp(values[1].name, "lan_netmask_t") == 0);
+	assert(strcmp(values[1].value, "255.255.255.0") == 0);
+	assert(strcmp(values[1].previous_value, "255.255.255.128") == 0);
+	assert(strcmp(values[2].name, "lan_gateway_t") == 0);
+	assert(strcmp(values[2].value, "192.0.2.1") == 0);
+	assert(strcmp(values[2].previous_value, "198.51.100.1") == 0);
+	assert(strcmp(values[3].name, "lan_domain_t") == 0);
+	assert(strcmp(values[3].value, "router.example") == 0);
+	assert(strcmp(values[3].previous_value, "lease.example") == 0);
+	assert(strcmp(values[4].name, "lan_dns_t") == 0);
+	assert(strcmp(values[4].value, "") == 0);
+	assert(strcmp(values[4].previous_value, "203.0.113.53") == 0);
+	assert(strcmp(values[5].name, "lan_wins_t") == 0);
+	assert(strcmp(values[5].value, "") == 0);
+	assert(strcmp(values[5].previous_value, "203.0.113.54") == 0);
+	assert(strcmp(values[6].name, "lan_lease_t") == 0);
+	assert(strcmp(values[6].value, "") == 0);
+	assert(strcmp(values[6].previous_value, "3600") == 0);
+}
+
+static void
 test_successful_lease_commit_ignores_ancillary_refresh_failure(void)
 {
 	const int ancillary_failures[] = { EIO, ENOSPC, ETIMEDOUT, ECHILD };
@@ -55,11 +90,12 @@ test_transaction_failure_remains_fatal(void)
 int
 main(void)
 {
+	test_deconfig_metadata_restores_static_values_and_clears_dhcp_options();
 	test_successful_lease_commit_ignores_ancillary_refresh_failure();
 	test_watchdog_and_monitor_notification_failures_are_ancillary();
 	test_ap_same_value_renew_always_refreshes_hosts();
 	test_networkmap_refreshes_changed_address_renewals();
 	test_transaction_failure_remains_fatal();
-	puts("LAN DHCP networkmap refresh and ancillary callback policy: PASS");
+	puts("LAN DHCP deconfig metadata, networkmap and ancillary callback policy: PASS");
 	return 0;
 }
