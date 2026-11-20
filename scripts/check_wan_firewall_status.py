@@ -72,6 +72,9 @@ def positions(source, marker):
 
 wan = (RC / "net_wan.c").read_text()
 net_core = (RC / "net.c").read_text()
+ppp = (RC / "net_ppp.c").read_text()
+ppp_ipup_policy = (RC / "ppp_wan_ipup_policy.h").read_text()
+ppp_ipup_test = (RC / "tests/ppp_wan_ipup_policy.c").read_text()
 header = (RC / "rc.h").read_text()
 policy = (RC / "service_start_status.h").read_text()
 policy_test = (RC / "tests/service_start_status.c").read_text()
@@ -691,5 +694,51 @@ for marker in (
     'set_wan_unit_value(unit, "gateway", ppp_gate)',
 ):
     require(marker not in wait_ppp, "unchecked PPP runtime address copy remains: " + marker)
+
+
+ipup_publish = body(ppp, "ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,")
+ipup_writer = body(ppp, "ppp_wan_ipup_set_nvram_value_status(void *opaque, const char *param_name,")
+ipup_clear = body(ppp, "ppp_wan_ipup_clear_interface_address(void *opaque)")
+for marker in (
+    'param_names[] = {\n\t\t"ipaddr", "netmask", "ifname_t", "gateway", "dns"',
+    'values[0].value = ipaddr;',
+    'values[1].value = netmask;',
+    'values[2].value = context->ifname;',
+    'values[3].value = context->remote_ip;',
+    'values[4].value = context->dns;',
+    "rc_wan_nvram_set_all_values(",
+    "ppp_wan_ipup_set_nvram_value_status",
+    "previous_values[i].value = previous_text[i];",
+    "rc_wan_nvram_set_all_values(\n\t\tprevious_values, 5",
+):
+    require(marker in ipup_publish, "PPP ip-up complete snapshot/restore missing: " + marker)
+require("nvram_set_temp(wan_param, value)" in ipup_writer and
+        "rc_wan_nvram_write_status(api_result, saved_errno)" in ipup_writer,
+        "PPP ip-up snapshot writer must check volatile NVRAM result and errno")
+require("ifconfig(context->ifname, 0, NULL, NULL)" in ipup_clear,
+        "PPP ip-up snapshot failure must take the configured interface down")
+ipup_policy_body = body(ppp_ipup_policy, "ppp_wan_ipup_apply_address(")
+require("status = ops->publish_address(context, ipaddr, netmask);" in ipup_policy_body and
+        "ops->clear_interface_address(context)" in ipup_policy_body and
+        "return status;" in ipup_policy_body,
+        "PPP ip-up publication failure must abort and roll back the interface")
+ipup = body(ppp, "ipup_main(int argc, char **argv)")
+require("interface_context.remote_ip = remote_ip;" in ipup and
+        "interface_context.dns = buf;" in ipup,
+        "PPP ip-up must stage gateway and DNS in the same runtime snapshot as its address")
+require(ipup.index("ppp_wan_ipup_apply_address(") < ipup.index("route_status = wan_up(ppp_ifname, unit, 0);"),
+        "PPP WAN-up routes must not run until the complete ip-up NVRAM snapshot succeeds")
+for marker in (
+    'set_wan_unit_value(unit, "ifname_t", ppp_ifname)',
+    'set_wan_unit_value(unit, "gateway", remote_ip)',
+    'set_wan_unit_value(unit, "dns", buf)',
+):
+    require(marker not in ipup, "unchecked PPP ip-up runtime NVRAM publication remains: " + marker)
+for case in (
+    "test_publication_failure_rolls_back_interface_and_preserves_primary_error",
+    "test_rollback_failure_does_not_hide_publication_error",
+):
+    require(case in ppp_ipup_test and case + "();" in ppp_ipup_test,
+            "PPP ip-up publication rollback regression missing: " + case)
 
 print("WAN firewall rebuild fail-closed protocol gates and PPP recovery: PASS")

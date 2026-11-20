@@ -41,6 +41,7 @@
 #include "ppp_callback_identity_policy.h"
 #include "ppp_callback_generation_policy.h"
 #include "ppp_wan_ipup_policy.h"
+#include "wan_nvram_status_policy.h"
 #include <process_inventory.h>
 #include "xl2tpd_start_policy.h"
 #if defined (APP_RPL2TP)
@@ -1083,6 +1084,8 @@ is_valid_wan_ppp_idx(int ifindex)
 struct ppp_wan_ipup_context {
 	char *ifname;
 	int unit;
+	char *remote_ip;
+	char *dns;
 };
 
 static int
@@ -1095,20 +1098,102 @@ ppp_wan_ipup_set_interface_address(void *opaque, const char *ipaddr,
 	return ifconfig(context->ifname, IFUP, (char *)ipaddr, (char *)netmask);
 }
 
-static void
-ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,
-			     const char *netmask)
+static int
+ppp_wan_ipup_set_nvram_value_status(void *opaque, const char *param_name,
+				    const char *value)
 {
 	struct ppp_wan_ipup_context *context =
 		(struct ppp_wan_ipup_context *)opaque;
+	char wan_param[64];
+	int length, api_result, saved_errno;
 
-	set_wan_unit_value(context->unit, "ipaddr", (char *)ipaddr);
-	set_wan_unit_value(context->unit, "netmask", (char *)netmask);
+	if (!context || !param_name || !param_name[0] || !value)
+		return EINVAL;
+	length = snprintf(wan_param, sizeof(wan_param), "wan%d_%s",
+			  context->unit, param_name);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(wan_param))
+		return ENAMETOOLONG;
+
+	errno = 0;
+	api_result = nvram_set_temp(wan_param, value);
+	saved_errno = errno;
+	return rc_wan_nvram_write_status(api_result, saved_errno);
+}
+
+static int
+ppp_wan_ipup_publish_address(void *opaque, const char *ipaddr,
+			     const char *netmask)
+{
+	static const char *const param_names[] = {
+		"ipaddr", "netmask", "ifname_t", "gateway", "dns"
+	};
+	struct ppp_wan_ipup_context *context =
+		(struct ppp_wan_ipup_context *)opaque;
+	struct rc_wan_nvram_value values[5], previous_values[5];
+	char previous_text[5][256];
+	unsigned int i;
+	int status, restore_status;
+
+	if (!context || !context->ifname || !context->ifname[0] ||
+	    !context->remote_ip || !context->dns)
+		return EINVAL;
+
+	values[0].param_name = param_names[0];
+	values[0].value = ipaddr;
+	values[1].param_name = param_names[1];
+	values[1].value = netmask;
+	values[2].param_name = param_names[2];
+	values[2].value = context->ifname;
+	values[3].param_name = param_names[3];
+	values[3].value = context->remote_ip;
+	values[4].param_name = param_names[4];
+	values[4].value = context->dns;
+
+	/* Preserve the last known-good tuple so a partial NVRAM failure can roll back. */
+	for (i = 0; i < 5; ++i) {
+		previous_values[i].param_name = param_names[i];
+		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
+			 get_wan_unit_value(context->unit, param_names[i]));
+		previous_values[i].value = previous_text[i];
+	}
+
+	status = rc_wan_nvram_set_all_values(
+		values, 5, ppp_wan_ipup_set_nvram_value_status, context);
+	if (status == 0)
+		return 0;
+
+	restore_status = rc_wan_nvram_set_all_values(
+		previous_values, 5, ppp_wan_ipup_set_nvram_value_status, context);
+	if (restore_status != 0)
+		logmessage(LOGNAME,
+			   "failed to restore previous PPP WAN NVRAM snapshot on unit %d after ip-up publication failure (publish=%d restore=%d)",
+			   context->unit, status, restore_status);
+	return status;
+}
+
+static int
+ppp_wan_ipup_clear_interface_address(void *opaque)
+{
+	struct ppp_wan_ipup_context *context =
+		(struct ppp_wan_ipup_context *)opaque;
+	int status;
+
+	if (!context || !context->ifname || !context->ifname[0])
+		return EINVAL;
+	status = ifconfig(context->ifname, 0, NULL, NULL);
+	if (status != 0)
+		logmessage(LOGNAME,
+			   "failed to take down PPP interface %s after ip-up snapshot publication failure (status=%d)",
+			   context->ifname, status);
+	return status;
 }
 
 static const struct ppp_wan_ipup_ops ppp_wan_ipup_ops = {
 	ppp_wan_ipup_set_interface_address,
-	ppp_wan_ipup_publish_address
+	ppp_wan_ipup_publish_address,
+	ppp_wan_ipup_clear_interface_address
 };
 
 int
@@ -1138,24 +1223,6 @@ ipup_main(int argc, char **argv)
 
 	local_ip = getenv("IPLOCAL");
 	remote_ip = getenv("IPREMOTE");
-	interface_context.ifname = ppp_ifname;
-	interface_context.unit = unit;
-	interface_status = ppp_wan_ipup_apply_address(
-		local_ip, remote_ip, ppp_mask, &ppp_wan_ipup_ops, &interface_context);
-	if (interface_status != 0) {
-		logmessage(LOGNAME,
-			   "refusing PPP ip-up state publication on %s without complete IPCP IPv4 addresses or after interface configuration failure (status=%d)",
-			   ppp_ifname, interface_status);
-		if (ppp_wan_session_state_unlock(callback_fd) != 0)
-			return -1;
-		return interface_status;
-	}
-
-	/* Publish the interface identity only after its address is applied. */
-	set_wan_unit_value(unit, "ifname_t", ppp_ifname);
-
-	set_wan_unit_value(unit, "gateway", remote_ip);
-
 	buf[0] = 0;
 	value = getenv("DNS1");
 	if (value)
@@ -1165,7 +1232,20 @@ ipup_main(int argc, char **argv)
 		int buf_len = strlen(buf);
 		snprintf(buf + buf_len, sizeof(buf) - buf_len, "%s%s", (buf_len) ? " " : "", value);
 	}
-	set_wan_unit_value(unit, "dns", buf);
+	interface_context.ifname = ppp_ifname;
+	interface_context.unit = unit;
+	interface_context.remote_ip = remote_ip;
+	interface_context.dns = buf;
+	interface_status = ppp_wan_ipup_apply_address(
+		local_ip, remote_ip, ppp_mask, &ppp_wan_ipup_ops, &interface_context);
+	if (interface_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing PPP ip-up state publication on %s because interface setup or the complete NVRAM snapshot failed (status=%d)",
+			   ppp_ifname, interface_status);
+		if (ppp_wan_session_state_unlock(callback_fd) != 0)
+			return -1;
+		return interface_status;
+	}
 
 	route_status = wan_up(ppp_ifname, unit, 0);
 

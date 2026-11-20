@@ -8,13 +8,15 @@
 struct ppp_wan_ipup_ops {
 	int (*set_interface_address)(void *context, const char *ipaddr,
 				     const char *netmask);
-	void (*publish_address)(void *context, const char *ipaddr,
+	int (*publish_address)(void *context, const char *ipaddr,
 			       const char *netmask);
+	int (*clear_interface_address)(void *context);
 };
 
 /*
- * Keep PPP lease publication behind the interface operation. A failed
- * ifconfig must not replace the last-known-good WAN address in NVRAM.
+ * Apply PPP interface configuration before publishing its runtime NVRAM
+ * tuple. Failed publication clears the new interface address and propagates
+ * the original NVRAM error so WAN routes are not created from mixed state.
  */
 static inline int
 ppp_wan_ipup_apply_address(const char *ipaddr, const char *remote_ip,
@@ -26,7 +28,8 @@ ppp_wan_ipup_apply_address(const char *ipaddr, const char *remote_ip,
 	if (!ipaddr || !*ipaddr || !dhcp_lease_ipv4_is_valid(ipaddr) ||
 	    !remote_ip || !*remote_ip || !dhcp_lease_ipv4_is_valid(remote_ip) ||
 	    !netmask || !*netmask || !dhcp_lease_netmask_is_valid(netmask) ||
-	    !ops || !ops->set_interface_address || !ops->publish_address) {
+	    !ops || !ops->set_interface_address || !ops->publish_address ||
+	    !ops->clear_interface_address) {
 		errno = EINVAL;
 		return EINVAL;
 	}
@@ -35,7 +38,15 @@ ppp_wan_ipup_apply_address(const char *ipaddr, const char *remote_ip,
 	if (status != 0)
 		return status;
 
-	ops->publish_address(context, ipaddr, netmask);
+	status = ops->publish_address(context, ipaddr, netmask);
+	if (status != 0) {
+		/*
+		 * The interface is live but its complete runtime NVRAM tuple could
+		 * not be committed. Remove the address before returning to pppd.
+		 */
+		(void)ops->clear_interface_address(context);
+		return status;
+	}
 	return 0;
 }
 

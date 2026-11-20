@@ -1,3 +1,10 @@
+## 2026-11-20 — Publish PPP ip-up runtime state as a checked, rollback-capable snapshot
+
+- Parent `main` SHA: `e4ffdf7e5f3fc201355f359325b637532e824cdc`.
+- `ipup_main()` applied IPCP addresses, but the address callback was `void` and silently ignored `wanN_ipaddr/netmask` NVRAM failures. The subsequent `ifname_t/gateway/dns` copies were also unchecked, after which WAN route setup proceeded with an incomplete or mixed snapshot.
+- Changed the callback contract to return status and expanded the production publication to five volatile fields: `ipaddr/netmask/ifname_t/gateway/dns`. The writer checks NVRAM return+errno, attempts the full tuple, snapshots the previous values and restores that tuple if any write fails. The policy then takes the newly configured PPP interface down and returns the original publication error; `wan_up()` cannot run unless the complete snapshot succeeds.
+- Added policy regressions for publish failure, interface rollback and preserving the primary error when rollback also fails. The WAN route source contract pins all five keys, attempt-all/restore semantics, volatile checked writes and the `wan_up()` gate. Exact-SHA WAN, DHCP and XY-C1 Actions are the production verification gate.
+
 ## 2026-11-20 — Correct exact MAN teardown comment anchor in all source contracts
 
 - Parent `main` SHA: `da06fe3916f3f643d833f738b5ab8652c4f4913f`.
