@@ -384,45 +384,6 @@ fi
 [ ! -s "$TEST_ACTION_LOG" ] || fail "start reached start_instance after an initial process inventory error"
 TEST_PIDOF_MODE=""
 
-# NVRAM planet writes must decode privately and replace the live file
-# only after successful validation; failed decoding and unsafe targets preserve
-# the previous file/referent.
-printf 'old-planet\n' > "$TEST_CONFIG/planet"
-zerotier_publish_planet_base64 'cGxhbmV0LWRhdGE=' ||
-	fail "valid NVRAM planet payload was rejected"
-[ "$(cat "$TEST_CONFIG/planet")" = "planet-data" ] ||
-	fail "valid NVRAM planet payload was not published"
-[ "$(stat -c '%a' "$TEST_CONFIG/planet")" = 600 ] ||
-	fail "published planet file was not private"
-
-printf 'last-good-planet\n' > "$TEST_CONFIG/planet"
-if zerotier_publish_planet_base64 'not base64 !!!'; then
-	fail "invalid NVRAM planet payload was accepted"
-fi
-[ "$(cat "$TEST_CONFIG/planet")" = "last-good-planet" ] ||
-	fail "invalid planet payload damaged the last-good file"
-set -- "$TEST_CONFIG"/.planet.*
-[ ! -e "$1" ] || fail "failed planet decode leaked a staging file"
-
-mkdir -p "$TEST_TMP/planet-target"
-printf 'untouched-planet-target\n' > "$TEST_TMP/planet-target/value"
-rm -f "$TEST_CONFIG/planet"
-ln -s "$TEST_TMP/planet-target/value" "$TEST_CONFIG/planet"
-if zerotier_publish_planet_base64 'cGxhbmV0LWRhdGE='; then
-	fail "symlink planet destination was accepted"
-fi
-[ "$(cat "$TEST_TMP/planet-target/value")" = "untouched-planet-target" ] ||
-	fail "planet symlink referent was modified"
-rm -f "$TEST_CONFIG/planet"
-mkdir "$TEST_CONFIG/planet"
-if zerotier_publish_planet_base64 'cGxhbmV0LWRhdGE='; then
-	fail "directory planet destination was accepted"
-fi
-rmdir "$TEST_CONFIG/planet"
-printf 'planet-reset\n' > "$TEST_CONFIG/planet"
-
-/bin/rm -f "$TEST_CONFIG/planet"
-
 # A configured launcher must preserve the start_instance failure status.
 : > "$TEST_ACTION_LOG"
 echo stopped > "$TEST_STATE"
@@ -634,6 +595,46 @@ fi
 [ "$(cat "$TEST_TMP/identity-sentinel")" = identity-sentinel ] || fail "identity symlink target was modified"
 /bin/rm -f "$TEST_CONFIG/identity.secret"
 zerotier_prepare_identity || fail "identity recovery after symlink removal failed"
+
+# NVRAM planet writes must decode privately and replace the live file
+# only after successful validation; failed decoding and unsafe targets preserve
+# the previous file/referent.
+printf 'old-planet\n' > "$TEST_CONFIG/planet"
+zerotier_publish_planet_base64 'cGxhbmV0LWRhdGE=' ||
+	fail "valid NVRAM planet payload was rejected"
+[ "$(cat "$TEST_CONFIG/planet")" = "planet-data" ] ||
+	fail "valid NVRAM planet payload was not published"
+[ "$(stat -c '%a' "$TEST_CONFIG/planet")" = 600 ] ||
+	fail "published planet file was not private"
+
+printf 'last-good-planet\n' > "$TEST_CONFIG/planet"
+if zerotier_publish_planet_base64 'not base64 !!!'; then
+	fail "invalid NVRAM planet payload was accepted"
+fi
+[ "$(cat "$TEST_CONFIG/planet")" = "last-good-planet" ] ||
+	fail "invalid planet payload damaged the last-good file"
+set -- "$TEST_CONFIG"/.planet.*
+[ ! -e "$1" ] || fail "failed planet decode leaked a staging file"
+
+mkdir -p "$TEST_TMP/planet-target"
+printf 'untouched-planet-target\n' > "$TEST_TMP/planet-target/value"
+rm -f "$TEST_CONFIG/planet"
+ln -s "$TEST_TMP/planet-target/value" "$TEST_CONFIG/planet"
+if zerotier_publish_planet_base64 'cGxhbmV0LWRhdGE='; then
+	fail "symlink planet destination was accepted"
+fi
+[ "$(cat "$TEST_TMP/planet-target/value")" = "untouched-planet-target" ] ||
+	fail "planet symlink referent was modified"
+rm -f "$TEST_CONFIG/planet"
+mkdir "$TEST_CONFIG/planet"
+if zerotier_publish_planet_base64 'cGxhbmV0LWRhdGE='; then
+	fail "directory planet destination was accepted"
+fi
+rmdir "$TEST_CONFIG/planet"
+printf 'planet-reset\n' > "$TEST_CONFIG/planet"
+
+/bin/rm -f "$TEST_CONFIG/planet"
+
 umask "$saved_umask"
 
 # The rm test double logs staging-directory cleanup; isolate later lifecycle assertions.

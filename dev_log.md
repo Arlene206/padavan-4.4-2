@@ -1,3 +1,13 @@
+## 2026-11-19 — Move ZeroTier planet regression after fixture setup
+
+- Parent SHA: `02fb275e7b2664b6e4f4e3fe40e8dbe31f8b47b2`.
+- Exact ZeroTier lifecycle run `44657068683` on `bf53b1c` failed at the newly added planet test with `TEST_CONFIG: parameter not set`. The test block had been inserted at an earlier launcher lifecycle anchor, before the test initialized its isolated `TEST_CONFIG` directory; the production helper was not reached.
+- Moved the planet payload tests beside the existing config/identity writer regressions, after `TEST_CONFIG` and `config_path` are initialized. No production code or test assertions were weakened.
+- The previous Process inventory `44657068800` and WAN route `44657068680` passed on `bf53b1c`. XY-C1 `44657068700` was still running at last poll; AI docs `44657209150` passed on the subsequent handoff-only main commit `02fb275`.
+- Exact-head ZeroTier and XY-C1 reruns are pending. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Restore mandatory end-of-session handoff contract
 
 - Parent SHA: `bf53b1c08fa068fed5e06ef11098e523be032dcf`.

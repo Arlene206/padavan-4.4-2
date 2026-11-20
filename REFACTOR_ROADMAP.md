@@ -79,6 +79,8 @@
 
 - ZeroTier NVRAM planet writer: replaced predictable `planet.tmp` redirection and unchecked `base64 -d` with a private same-directory stage, strict decode/nonempty checks, symlink/non-regular target refusal, mode 0600 and rename. Start now fails closed on invalid planet data. Host regression covers valid content/mode, malformed payload rollback, symlink referent and directory target; the separate uploaded `/etc/storage/planet` import remains open. Exact-head Actions pending.
 
+- ZeroTier planet host-regression placement correction: exact lifecycle run `44657068683` on `bf53b1c` stopped before exercising the helper because the new block preceded `TEST_CONFIG` initialization. The test block now runs beside the existing identity/config writers after fixture setup; production code and assertions are unchanged. Process inventory and WAN route passed on `bf53b1c`; exact ZeroTier/XY reruns pending.
+
 ## Priority queue
 
 - SD/MMC mass-storage event publication now uses checked `notify_rc_status()` and propagates PID 1 queue-marker failure. Exact-head Storage run `44646517796` PASS on `d246ddf`; XY-C1 run `44646517924` reported workflow success but skipped Build/TRX/artifact because the checker-only head changed no production firmware input. L3 remains verified only for production SHA `61cbc6b` (`44644448761`).
