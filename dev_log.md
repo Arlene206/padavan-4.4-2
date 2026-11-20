@@ -1,3 +1,11 @@
+## 2026-11-20 — Preserve per-BSS and global RADIUS secret destinations
+
+- Parent main SHA: cd300104a22cd1d9d33e2c3f9fef4e970204344a.
+- Post-edit source review caught an incomplete branch mapping in the preceding RADIUS hardening commit: the `MULTIPLE_RADIUS` path must assign the copied secret to `mbss_auth_server[i]`, while the single-server path assigns it to `auth_server`. The exact source-contract assertion also correctly rejects the still-present legacy `strdup` path.
+- Correct both blocks explicitly and strengthen the Process contract to require both destination assignments. The full two-branch regression remains pending until this exact SHA passes.
+
+---
+
 ## 2026-11-20 — Bound Ralink 802.1X RADIUS server and secret fields
 
 - Parent main SHA: ab02b36bc2cad3dc15f28bf950e347a0f93cf7b6.

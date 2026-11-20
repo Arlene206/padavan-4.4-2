@@ -232,22 +232,23 @@ BOOLEAN Query_config_from_driver(int ioctl_sock, char *prefix_name, struct rtapd
 					size_t radius_key_len =
 						(size_t)pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key_len;
 
-					conf->auth_server->shared_secret =
+					conf->mbss_auth_server[i]->shared_secret =
 						(u8 *)auth_startup_copy_radius_secret(
 							pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key,
 							sizeof(pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key),
 							radius_key_len);
-					if (conf->auth_server->shared_secret == NULL)
+					if (conf->mbss_auth_server[i]->shared_secret == NULL)
 					{
-						DBGPRINT(RT_DEBUG_ERROR, "invalid or unavailable RADIUS key length %lu (errno=%d)\n",
-							 (unsigned long)radius_key_len, errno);
+						DBGPRINT(RT_DEBUG_ERROR, "invalid or unavailable RADIUS key length %lu for %s%d (errno=%d)\n",
+							 (unsigned long)radius_key_len, prefix_name, i, errno);
 						free(buf);
 						return FALSE;
 					}
-					conf->auth_server->shared_secret_len = (int)radius_key_len;
+					conf->mbss_auth_server[i]->shared_secret_len = (int)radius_key_len;
 					radius_key_count++;
-					DBGPRINT(RT_DEBUG_TRACE, "(no.%d) RADIUS key configured, length: %lu\n",
-						 conf->num_auth_servers, (unsigned long)radius_key_len);
+					DBGPRINT(RT_DEBUG_TRACE, "(no.%d) RADIUS key configured, length: %lu for %s%d\n",
+						 conf->mbss_num_auth_servers[i], (unsigned long)radius_key_len,
+						 prefix_name, i);
 				}
 				else
 					DBGPRINT(RT_DEBUG_ERROR, "(no.%d) Radius key is invalid for %s%d\n", conf->mbss_num_auth_servers[i], prefix_name, i);
@@ -283,11 +284,25 @@ BOOLEAN Query_config_from_driver(int ioctl_sock, char *prefix_name, struct rtapd
 
 				if (pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key_len > 0)
 				{
+					size_t radius_key_len =
+						(size_t)pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key_len;
+
+					conf->auth_server->shared_secret =
+						(u8 *)auth_startup_copy_radius_secret(
+							pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key,
+							sizeof(pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key),
+							radius_key_len);
+					if (conf->auth_server->shared_secret == NULL)
+					{
+						DBGPRINT(RT_DEBUG_ERROR, "invalid or unavailable RADIUS key length %lu (errno=%d)\n",
+							 (unsigned long)radius_key_len, errno);
+						free(buf);
+						return FALSE;
+					}
+					conf->auth_server->shared_secret_len = (int)radius_key_len;
 					radius_key_count++;
-					conf->auth_server->shared_secret = (u8 *)strdup((const char *)pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key);            
-		        	conf->auth_server->shared_secret_len = pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info[idx].radius_key_len;
-					DBGPRINT(RT_DEBUG_TRACE,"(no.%d) Radius key: '%s', key_len: %d \n", conf->num_auth_servers, 
-					conf->auth_server->shared_secret, conf->auth_server->shared_secret_len);	
+					DBGPRINT(RT_DEBUG_TRACE, "(no.%d) RADIUS key configured, length: %lu\n",
+						 conf->num_auth_servers, (unsigned long)radius_key_len);
 				} 
 				else
 					DBGPRINT(RT_DEBUG_ERROR, "(no.%d) Radius key is invalid\n", conf->num_auth_servers);

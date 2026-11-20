@@ -1077,6 +1077,8 @@ jobs:
           assert "sizeof(pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info) /" in auth_config_query
           assert auth_config_query.count("auth_startup_copy_radius_secret(") == 2
           assert "strdup((const char *)pDot1xCmmConf" not in auth_config_query
+          assert "conf->mbss_auth_server[i]->shared_secret =" in auth_config_query
+          assert "conf->auth_server->shared_secret =" in auth_config_query
           assert "RADIUS key configured" in auth_config_query
           assert "test_driver_radius_fields_are_bounded" in auth_regression
           auth_main = body(auth_daemon, "main(int argc, char *argv[])")
