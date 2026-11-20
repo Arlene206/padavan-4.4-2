@@ -2579,7 +2579,7 @@ jobs:
           assert "test_domain_failure_is_reported_after_hostname_update" in kernel_name_test
 
           lan_down_start = lan.index("lan_down_auto(char *lan_ifname)")
-          lan_down_end = lan.index("void \nupdate_lan_status", lan_down_start)
+          lan_down_end = lan.index("struct lan_dhcp_runtime_snapshot", lan_down_start)
           lan_down = lan[lan_down_start:lan_down_end]
           deconfig_start = lan.index("udhcpc_lan_deconfig(char *lan_ifname)")
           deconfig_end = lan.index("udhcpc_lan_bound(", deconfig_start)

@@ -2113,13 +2113,15 @@ assert "int phy_wait_status = 0;" in ap_lan_start
 assert "phy_wait_status = service_wait_seconds(1);" in ap_lan_start
 assert "start_status = rc_first_service_start_status(start_status, phy_wait_status);" in ap_lan_start
 assert "operation_status = notify_run_detect_internet(60);" in ap_lan_start
-assert "if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status))" in ap_lan_start
+assert "if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status) &&" in ap_lan_start
+assert "metadata_status == 0" in ap_lan_start
+assert "metadata_status = update_lan_status(0)" in ap_lan_start
 monitor_notify_start = ap_lan_start.index("operation_status = notify_run_detect_internet(60);")
 assert "if (operation_status == 0)" not in ap_lan_start[monitor_notify_start:]
 assert ap_lan_start.index("phy_wait_status = service_wait_seconds(1);") < ap_lan_start.index(
     "start_status = rc_first_service_start_status(start_status, phy_wait_status);"
 ) < monitor_notify_start < ap_lan_start.index(
-    "if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status))"
+    "if (rc_lan_ap_dhcp_start_allowed_after_phy_wait(phy_wait_status) &&"
 )
 assert "rc_lan_ap_dhcp_start_allowed_after_phy_wait(int phy_wait_status)" in service_start_policy
 assert "test_ap_lan_dhcp_start_depends_on_phy_wait_not_monitor" in service_start_test
