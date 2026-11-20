@@ -1236,6 +1236,8 @@ jobs:
           address_clear = 'clear_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);'
           assert address_apply in ipoe_static_config
           assert address_failure in ipoe_static_config
+          assert "snapshot_status = wan_static_ipv4_snapshot(" in ipoe_static_config
+          assert "if (snapshot_status != 0)" in ipoe_static_config
           assert "wan_err = 1;" in ipoe_static_config
           assert 'logmessage(LOGNAME, "failed to configure static WAN address on %s (status=%d)",' in ipoe_static_config
           assert address_clear in ipoe_static_config

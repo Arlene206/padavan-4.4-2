@@ -119,6 +119,77 @@ set_wan_unit_value_int_status(int unit, const char *param_name, int value)
 	return set_wan_unit_value_status(unit, param_name, value_text);
 }
 
+
+static int
+wan_nvram_transaction_get_callback(void *context, const char *param_name,
+				   char **value)
+{
+	struct nvram_transaction *transaction =
+		(struct nvram_transaction *)context;
+
+	if (!transaction) {
+		errno = EINVAL;
+		return -1;
+	}
+	return nvram_transaction_get(transaction, param_name, value);
+}
+
+
+static int
+wan_static_ipv4_snapshot(int unit, char *wan_addr, size_t wan_addr_size,
+			 char *wan_mask, size_t wan_mask_size,
+			 char *lan_addr, size_t lan_addr_size,
+			 char *lan_mask, size_t lan_mask_size)
+{
+	struct nvram_transaction transaction;
+	char wan_addr_key[64], wan_mask_key[64];
+	int length, status = 0, end_status;
+
+	if (!wan_addr || !wan_addr_size || !wan_mask || !wan_mask_size ||
+	    !lan_addr || !lan_addr_size || !lan_mask || !lan_mask_size)
+		return EINVAL;
+
+	length = snprintf(wan_addr_key, sizeof(wan_addr_key), "wan%d_ipaddr", unit);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(wan_addr_key))
+		return ENAMETOOLONG;
+	length = snprintf(wan_mask_key, sizeof(wan_mask_key), "wan%d_netmask", unit);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(wan_mask_key))
+		return ENAMETOOLONG;
+
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno ? errno : EIO;
+
+	status = rc_wan_nvram_copy_value(
+		wan_nvram_transaction_get_callback, &transaction, wan_addr_key,
+		wan_addr, wan_addr_size);
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			wan_nvram_transaction_get_callback, &transaction, wan_mask_key,
+			wan_mask, wan_mask_size);
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			wan_nvram_transaction_get_callback, &transaction, "lan_ipaddr",
+			lan_addr, lan_addr_size);
+	if (status == 0)
+		status = rc_wan_nvram_copy_value(
+			wan_nvram_transaction_get_callback, &transaction, "lan_netmask",
+			lan_mask, lan_mask_size);
+
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+	}
+	return status;
+}
+
+
 static int
 set_wan_unit_error_status(int unit, int error)
 {
@@ -2653,14 +2724,21 @@ start_wan(void)
 			
 			/* Assign static IP address to i/f */
 			if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
-				int mtu_status, address_status, clear_status;
-				char *wan_addr = get_wan_unit_value(unit, "ipaddr");
-				char *wan_mask = get_wan_unit_value(unit, "netmask");
-				char *lan_addr = nvram_safe_get("lan_ipaddr");
-				char *lan_mask = nvram_safe_get("lan_netmask");
-				
-				if (!dhcp_lease_ipv4_is_valid(wan_addr) ||
-				    !dhcp_lease_netmask_is_valid(wan_mask)) {
+				int mtu_status, address_status, clear_status, snapshot_status;
+				char wan_addr[16], wan_mask[16], lan_addr[16], lan_mask[16];
+
+				snapshot_status = wan_static_ipv4_snapshot(
+					unit, wan_addr, sizeof(wan_addr), wan_mask, sizeof(wan_mask),
+					lan_addr, sizeof(lan_addr), lan_mask, sizeof(lan_mask));
+				if (snapshot_status != 0) {
+					wan_err = 1;
+					wan_start_status = rc_first_service_start_status(
+						wan_start_status, snapshot_status);
+					logmessage(LOGNAME,
+						   "cannot snapshot static WAN/LAN IPv4 configuration on %s (status=%d)",
+						   wan_ifname, snapshot_status);
+				} else if (!dhcp_lease_ipv4_is_valid(wan_addr) ||
+					   !dhcp_lease_netmask_is_valid(wan_mask)) {
 					wan_err = 1;
 					wan_start_status = rc_first_service_start_status(
 						wan_start_status, EINVAL);

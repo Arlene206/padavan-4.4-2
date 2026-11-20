@@ -2,6 +2,8 @@
 #define PADAVAN_WAN_NVRAM_STATUS_POLICY_H
 
 #include <errno.h>
+#include <stddef.h>
+#include <string.h>
 
 /* NVRAM APIs use 0/-1 and report the concrete failure through errno. */
 static int
@@ -23,6 +25,48 @@ rc_wan_nvram_read_status(int api_result, int saved_errno)
 		return saved_errno > 0 ? saved_errno : EIO;
 	return EIO;
 }
+
+typedef int (*rc_wan_nvram_get_fn)(void *context,
+					 const char *param_name,
+					 char **value);
+
+/*
+ * Copy one checked value before the next cache-backed NVRAM read. A missing
+ * key is an empty setting; a backend failure or truncation is never hidden.
+ * Callers that need a coherent tuple must hold a transaction around the reads.
+ */
+static inline int
+rc_wan_nvram_copy_value(rc_wan_nvram_get_fn get_value, void *context,
+			const char *param_name, char *destination,
+			size_t destination_size)
+{
+	char *source = NULL;
+	size_t length;
+	int read_result, saved_errno, status;
+
+	if (!get_value || !param_name || !param_name[0] ||
+	    !destination || destination_size == 0)
+		return EINVAL;
+	destination[0] = '\0';
+
+	errno = 0;
+	read_result = get_value(context, param_name, &source);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_status(read_result, saved_errno);
+	if (status != 0)
+		return status;
+	if (read_result == 0)
+		source = "";
+	else if (!source)
+		return EIO;
+
+	length = strlen(source);
+	if (length >= destination_size)
+		return ENAMETOOLONG;
+	memcpy(destination, source, length + 1);
+	return 0;
+}
+
 
 typedef int (*rc_wan_nvram_param_set_fn)(void *context,
 					 const char *param_name);

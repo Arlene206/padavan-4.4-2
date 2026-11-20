@@ -335,8 +335,15 @@ assert "wan_start_status = rc_first_service_start_status" in ipoe_branch[migrati
 static_config_start = ipoe_branch.index("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)")
 static_config_end = ipoe_branch.index('set_wan_unit_error_status(unit, wan_err);', static_config_start)
 static_config = compact(ipoe_branch[static_config_start:static_config_end])
+snapshot_call = static_config.index("snapshot_status = wan_static_ipv4_snapshot(")
+assert "char wan_addr[16], wan_mask[16], lan_addr[16], lan_mask[16];" in static_config
+assert "nvram_safe_get(" not in static_config and "get_wan_unit_value(" not in static_config
+assert "if (snapshot_status != 0)" in static_config
+assert static_config.index("wan_start_status, snapshot_status);") < static_config.index("if (!dhcp_lease_ipv4_is_valid(wan_addr)")
 invalid_config = "if (!dhcp_lease_ipv4_is_valid(wan_addr) || !dhcp_lease_netmask_is_valid(wan_mask))"
-assert invalid_config in static_config, "static WAN IPoE must strictly validate address and netmask"
+assert invalid_config in static_config and snapshot_call < static_config.index(invalid_config), (
+    "static WAN IPoE must take a checked coherent NVRAM snapshot before validating or configuring addresses"
+)
 invalid_config_start = static_config.index(invalid_config)
 subnet_conflict_start = static_config.index("else if (is_same_subnet2(wan_addr, lan_addr, wan_mask, lan_mask))")
 assert invalid_config_start < subnet_conflict_start

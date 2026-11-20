@@ -291,6 +291,130 @@ test_all_value_sequence_validates_before_writing(void)
 	assert(fake.calls == 0);
 }
 
+
+struct fake_nvram_reader {
+	const char *values[4];
+	unsigned int calls;
+	int fail_at;
+	int missing_at;
+	int failure_errno;
+	char cache_slot[32];
+};
+
+static int
+fake_nvram_get(void *opaque, const char *param_name, char **value)
+{
+	static const char *const names[] = {
+		"wan0_ipaddr", "wan0_netmask", "lan_ipaddr", "lan_netmask"
+	};
+	struct fake_nvram_reader *fake = (struct fake_nvram_reader *)opaque;
+	unsigned int index = fake->calls++;
+
+	assert(index < 4);
+	assert(strcmp(param_name, names[index]) == 0);
+	if ((int)index == fake->fail_at) {
+		*value = NULL;
+		errno = fake->failure_errno;
+		return -1;
+	}
+	if ((int)index == fake->missing_at) {
+		*value = NULL;
+		return 0;
+	}
+	snprintf(fake->cache_slot, sizeof(fake->cache_slot), "%s",
+		 fake->values[index]);
+	*value = fake->cache_slot;
+	return 1;
+}
+
+static void
+test_checked_nvram_copy_survives_shared_cache_overwrite(void)
+{
+	struct fake_nvram_reader fake;
+	char wan_addr[16], wan_mask[16], lan_addr[16], lan_mask[16];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.missing_at = -1;
+	fake.values[0] = "198.51.100.2";
+	fake.values[1] = "255.255.255.0";
+	fake.values[2] = "192.0.2.1";
+	fake.values[3] = "255.255.255.0";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "wan0_ipaddr",
+				       wan_addr, sizeof(wan_addr)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "wan0_netmask",
+				       wan_mask, sizeof(wan_mask)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "lan_ipaddr",
+				       lan_addr, sizeof(lan_addr)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "lan_netmask",
+				       lan_mask, sizeof(lan_mask)) == 0);
+	assert(fake.calls == 4);
+	assert(strcmp(wan_addr, "198.51.100.2") == 0);
+	assert(strcmp(wan_mask, "255.255.255.0") == 0);
+	assert(strcmp(lan_addr, "192.0.2.1") == 0);
+	assert(strcmp(lan_mask, "255.255.255.0") == 0);
+}
+
+static void
+test_checked_nvram_copy_treats_missing_key_as_empty(void)
+{
+	struct fake_nvram_reader fake;
+	char destination[16] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.missing_at = 0;
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "wan0_ipaddr",
+				       destination, sizeof(destination)) == 0);
+	assert(fake.calls == 1);
+	assert(destination[0] == '\0');
+}
+
+static void
+test_checked_nvram_copy_preserves_backend_failure(void)
+{
+	struct fake_nvram_reader fake;
+	char destination[16] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = 0;
+	fake.missing_at = -1;
+	fake.failure_errno = EACCES;
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "wan0_ipaddr",
+				       destination, sizeof(destination)) == EACCES);
+	assert(fake.calls == 1);
+	assert(destination[0] == '\0');
+}
+
+static void
+test_checked_nvram_copy_rejects_truncation(void)
+{
+	struct fake_nvram_reader fake;
+	char destination[8] = "stale";
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.missing_at = -1;
+	fake.values[0] = "192.0.2.123";
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake, "wan0_ipaddr",
+				       destination, sizeof(destination)) == ENAMETOOLONG);
+	assert(destination[0] == '\0');
+}
+
+static void
+test_checked_nvram_copy_rejects_invalid_arguments(void)
+{
+	char destination[8];
+
+	assert(rc_wan_nvram_copy_value(NULL, NULL, "wan0_ipaddr",
+				       destination, sizeof(destination)) == EINVAL);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, NULL, "wan0_ipaddr",
+				       NULL, sizeof(destination)) == EINVAL);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, NULL, "wan0_ipaddr",
+				       destination, 0) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -312,5 +436,10 @@ main(void)
 	test_wan_statistics_clear_attempts_every_counter();
 	test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error();
 	test_all_value_sequence_validates_before_writing();
+	test_checked_nvram_copy_survives_shared_cache_overwrite();
+	test_checked_nvram_copy_treats_missing_key_as_empty();
+	test_checked_nvram_copy_preserves_backend_failure();
+	test_checked_nvram_copy_rejects_truncation();
+	test_checked_nvram_copy_rejects_invalid_arguments();
 	return 0;
 }
