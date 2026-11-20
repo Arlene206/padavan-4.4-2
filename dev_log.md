@@ -1,3 +1,13 @@
+## 2026-11-20 — Reject malformed and out-of-range MiniUPnP WANIPConnection numeric inputs
+
+- Parent main SHA: 5b565e65f677f8f16b9a2012751e98510a40a536.
+- SOAP handlers used `atoi()` followed by `unsigned short` narrowing for WANIPConnection ports and range endpoints. Values such as `65536` could wrap; signs, whitespace, trailing junk and empty strings were not consistently rejected. Lease duration and list count also lacked signed-range validation before conversion.
+- Added a shared header-only decimal parser with overflow-safe bounds. Port inputs are limited to 0..65535 before narrowing; lease duration and listing count are limited to 0..INT_MAX. Existing wildcard/error behavior, zero lease defaults/cap and zero listing-count default remain intact.
+- Added GNU89/`-Wall -Wextra -Werror` ASan/UBSan policy coverage for boundaries, overflow, NULL/empty, signs, whitespace, junk and output preservation. Added source contracts, Makefile dependency and XY-C1 detector/path coverage for the production helper and SOAP source.
+- Exact-head MiniUPnP/AI docs Actions and XY-C1 detector/Build/TRX/artifact are pending on the resulting SHA. No local compiler or router run was available in this API-only session; no L3/L4 claim is made.
+
+---
+
 ## 2026-11-20 — Repair watchdog CPU policy contract and event triggers
 
 - Parent main SHA: cc9d48f7ca5e1ecc39b99c1c0b7ca1218898f883.

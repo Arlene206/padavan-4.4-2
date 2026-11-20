@@ -2,29 +2,29 @@
 
 ## Git state
 
-- Current `main` before this repair: `cc9d48f7ca5e1ecc39b99c1c0b7ca1218898f883`.
+- Current `main` before this SOAP hardening commit: `5b565e65f677f8f16b9a2012751e98510a40a536`.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move).
-- Recent main commits: `940cad61cf11` test(watchdog): run CPU module restart regression; `ee610712cc0c` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e4` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8` fix(miniupnpd): publish PID files atomically; `573d215607c8` test(vsftpd): normalize APPE source contract whitespace; `8ded66573ba5` fix(vsftpd): append concurrent APPE uploads atomically; `821c13388735` security(802.1x): zeroize RADIUS secrets on teardown.
+- Recent main commits: `5b565e65f677` ci(watchdog): correct CPU policy contract and triggers; `940cad61cf11` test(watchdog): run CPU module restart regression; `ee610712cc0c` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e4` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8` fix(miniupnpd): publish PID files atomically; `573d215607c8` test(vsftpd): normalize APPE source contract whitespace; `8ded66573ba5` fix(vsftpd): append concurrent APPE uploads atomically; `821c13388735` security(802.1x): zeroize RADIUS secrets on teardown.
 - Recent MiniUPnP task commits: `ee610712cc0c776c450c93cded990c8f8db64acd` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065ef15276f7d4f6189b02c75fbbc7c` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd8ecd80bb16a3d71928418c7e8c06` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e496a4e3f170a91186675a3410f6c7` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c320ce2aedff90b331fc85116a01a` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3` fix(miniupnpd): publish PID files atomically.
 
 ## Current exact-SHA Actions
 
-AI handoff documentation contract #44738607273: completed/success; watchdog signal lifecycle stability regression #44738607355: completed/failure. Its three native C regression binaries (signal, NTP/lifecycle, CPU module restart) all PASS; the final integration checker failed on an incorrect assertion (`module_smart_load(module_name, NULL)` expected inside the injected CPU policy) and missing actual push/PR path entries. This commit corrects the policy contract and both filters.
+On parent `5b565e65f677f8f16b9a2012751e98510a40a536`, watchdog signal lifecycle regression #44739085422: completed/success; AI handoff documentation contract #44739085352: completed/success. The SOAP numeric-input hardening below is the current product change; its host policy/source-contract Actions and same-SHA XY-C1 Build/TRX/artifact are pending until the new commit is pushed.
 
 No action is marked PASS unless the result above reports a completed success for the same SHA. No firmware L3 claim unless detector/input checks, XY-C1 build, TRX verification and artifact upload all pass on one identical product-source SHA.
 
-## Active work — MiniUPnP SOAP request validation
+## Active work — MiniUPnP SOAP numeric input hardening (implemented; exact-head validation pending)
 
-- Port arguments in WANIPConnection handlers must be validated before unsigned-short conversion; reject values above 65535 and non-decimal junk.
-- NewLeaseDuration in AddPortMapping/AddAnyPortMapping must be validated before signed redirect API conversion; preserve zero=infinite and reject negative/junk/overflow or values beyond INT_MAX.
-- GetListOfPortMappings count must be validated before signed-int conversion; preserve zero and reject values above INT_MAX and junk.
-- Focused regression uses GNU89, -Werror, ASan and UBSan. Current exact-head focused Action state is listed above. If a run fails, inspect its job logs and patch only the causal source-contract/test issue.
+- `AddPortMapping`, `AddAnyPortMapping`, `GetSpecificPortMappingEntry`, `DeletePortMapping`, `DeletePortMappingRange` and `GetListOfPortMappings` parse WANIPConnection port arguments as non-empty decimal values bounded to 0..65535 before narrowing to `unsigned short`.
+- `AddPortMapping` and `AddAnyPortMapping` validate `NewLeaseDuration` as 0..INT_MAX before conversion; existing zero-lease defaults and AddPortMapping IGD v2 cap remain unchanged.
+- `GetListOfPortMappings` validates `NewNumberOfPorts` as 0..INT_MAX before signed conversion and retains zero=>1000 default.
+- New GNU89/`-Werror`/ASan/UBSan regression covers boundaries, overflow, NULL/empty, signs, whitespace, trailing junk and unchanged outputs on failure. MiniUPnP source contracts, Makefile dependency and XY-C1 detector/path coverage include the new production helper and SOAP source.
 
 ## Exact first actions
 
-1. Verify this CPU watchdog checker/filter repair on its exact SHA; the regression binary itself already passed on 940. Then resume the active MiniUPnP SOAP lease/input validation task. Fix causal failures from logs; do not relax production assertions.
-2. Verify XY-C1 for the exact current product-source SHA. Require the firmware detector/input stage, Build XY-C1, TRX verification and artifact upload to all succeed on that same SHA; do not reuse earlier artifacts.
-3. While CI is pending, continue a separate, independent P1 stability/security issue elsewhere in Padavan userland.
+1. Verify the exact-head MiniUPnP SOAP policy binary and source-contract run; repair only causal failures without weakening parser tests.
+2. Verify XY-C1 on this exact product-source SHA: detector/input classification, Build XY-C1, TRX verification and artifact upload must all succeed before claiming L3.
+3. While those Actions are pending, continue an independent P1 stability/security fix elsewhere in Padavan userland.
 4. Physical router, WAN failover and UPnP live interoperability L4 remain NOT VERIFIED.
 
 ## Closed slices — do not re-audit without new evidence

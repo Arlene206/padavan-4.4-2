@@ -31,6 +31,7 @@
 #include "getifstats.h"
 #include "getconnstatus.h"
 #include "upnpurns.h"
+#include "upnpsoap_input_policy.h"
 
 /* utility function */
 static int is_numeric(const char * s)
@@ -380,6 +381,7 @@ AddPortMapping(struct upnphttp * h, const char * action, const char * ns)
 	char * int_ip, * int_port, * ext_port, * protocol, * desc;
 	char * leaseduration_str;
 	unsigned int leaseduration;
+	int leaseduration_value = 0;
 	char * r_host;
 	unsigned short iport, eport;
 
@@ -476,17 +478,34 @@ AddPortMapping(struct upnphttp * h, const char * action, const char * ns)
 		return;
 	}
 
-	eport = (unsigned short)atoi(ext_port);
-	iport = (unsigned short)atoi(int_port);
-
-	if (strcmp(ext_port, "*") == 0 || eport == 0)
+	if (strcmp(ext_port, "*") == 0)
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 716, "Wildcard not permited in ExtPort");
+		return;
+	}
+	if (miniupnpd_soap_parse_port(ext_port, &eport) != 0 ||
+	    miniupnpd_soap_parse_port(int_port, &iport) != 0)
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
+	if (eport == 0)
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 716, "Wildcard not permited in ExtPort");
 		return;
 	}
 
-	leaseduration = leaseduration_str ? atoi(leaseduration_str) : 0;
+	if (leaseduration_str &&
+	    miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
+	leaseduration = (unsigned int)leaseduration_value;
 #ifdef IGD_V2
 	/* PortMappingLeaseDuration can be either a value between 1 and
 	 * 604800 seconds or the zero value (for infinite lease time).
@@ -569,6 +588,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action, const char * ns)
 	unsigned short iport, eport;
 	const char * leaseduration_str;
 	unsigned int leaseduration;
+	int leaseduration_value = 0;
 
 	struct hostent *hp; /* getbyhostname() */
 	char ** ptr; /* getbyhostname() */
@@ -584,10 +604,6 @@ AddAnyPortMapping(struct upnphttp * h, const char * action, const char * ns)
 	desc = GetValueFromNameValueList(&data, "NewPortMappingDescription");
 	leaseduration_str = GetValueFromNameValueList(&data, "NewLeaseDuration");
 
-	leaseduration = leaseduration_str ? atoi(leaseduration_str) : 0;
-	if(leaseduration == 0)
-		leaseduration = 604800;
-
 	if (!int_ip || !ext_port || !int_port)
 	{
 		ClearNameValueList(&data);
@@ -595,9 +611,20 @@ AddAnyPortMapping(struct upnphttp * h, const char * action, const char * ns)
 		return;
 	}
 
-	eport = (unsigned short)atoi(ext_port);
-	iport = (unsigned short)atoi(int_port);
-	if(iport == 0 || !is_numeric(ext_port)) {
+	if (leaseduration_str &&
+	    miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)
+	{
+		ClearNameValueList(&data);
+		SoapError(h, 402, "Invalid Args");
+		return;
+	}
+	leaseduration = (unsigned int)leaseduration_value;
+	if (leaseduration == 0)
+		leaseduration = 604800;
+
+	if (miniupnpd_soap_parse_port(ext_port, &eport) != 0 ||
+	    miniupnpd_soap_parse_port(int_port, &iport) != 0 || iport == 0)
+	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
 		return;
@@ -731,8 +758,7 @@ GetSpecificPortMappingEntry(struct upnphttp * h, const char * action, const char
 #endif
 #endif
 
-	eport = (unsigned short)atoi(ext_port);
-	if(eport == 0)
+	if (miniupnpd_soap_parse_port(ext_port, &eport) != 0 || eport == 0)
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -820,8 +846,7 @@ DeletePortMapping(struct upnphttp * h, const char * action, const char * ns)
 #endif /* UPNP_STRICT */
 #endif /* SUPPORT_REMOTEHOST */
 
-	eport = (unsigned short)atoi(ext_port);
-	if(eport == 0)
+	if (miniupnpd_soap_parse_port(ext_port, &eport) != 0 || eport == 0)
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -904,14 +929,14 @@ DeletePortMappingRange(struct upnphttp * h, const char * action, const char * ns
 	endport_s = GetValueFromNameValueList(&data, "NewEndPort");
 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
 	/*manage = atoi(GetValueFromNameValueList(&data, "NewManage"));*/
-	if(startport_s == NULL || endport_s == NULL || protocol == NULL ||
-	   !is_numeric(startport_s) || !is_numeric(endport_s)) {
+	if (protocol == NULL ||
+	    miniupnpd_soap_parse_port(startport_s, &startport) != 0 ||
+	    miniupnpd_soap_parse_port(endport_s, &endport) != 0)
+	{
 		SoapError(h, 402, "Invalid Args");
 		ClearNameValueList(&data);
 		return;
 	}
-	startport = (unsigned short)atoi(startport_s);
-	endport = (unsigned short)atoi(endport_s);
 
 	/* possible errors :
 	   606 - Action not authorized
@@ -1092,19 +1117,18 @@ GetListOfPortMappings(struct upnphttp * h, const char * action, const char * ns)
 	protocol = GetValueFromNameValueList(&data, "NewProtocol");
 	/*manage_s = GetValueFromNameValueList(&data, "NewManage");*/
 	number_s = GetValueFromNameValueList(&data, "NewNumberOfPorts");
-	if(startport_s == NULL || endport_s == NULL || protocol == NULL ||
-	   number_s == NULL || !is_numeric(number_s) ||
-	   !is_numeric(startport_s) || !is_numeric(endport_s)) {
+	if (protocol == NULL ||
+	    miniupnpd_soap_parse_port(startport_s, &startport) != 0 ||
+	    miniupnpd_soap_parse_port(endport_s, &endport) != 0 ||
+	    miniupnpd_soap_parse_int(number_s, &number) != 0)
+	{
 		SoapError(h, 402, "Invalid Args");
 		ClearNameValueList(&data);
 		return;
 	}
-
-	startport = (unsigned short)atoi(startport_s);
-	endport = (unsigned short)atoi(endport_s);
 	/*manage = atoi(manage_s);*/
-	number = atoi(number_s);
-	if(number == 0) number = 1000;	/* return up to 1000 mappings by default */
+	if (number == 0)
+		number = 1000;	/* return up to 1000 mappings by default */
 
 	if(startport > endport)
 	{

@@ -21,6 +21,9 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
       - "scripts/check_miniupnpd_lifecycle_lock.py"
@@ -43,6 +46,9 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
       - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
       - "scripts/check_miniupnpd_lifecycle_lock.py"
@@ -77,6 +83,14 @@ jobs:
             trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c \
             -o /tmp/miniupnpd_pidfile_policy_test
           ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_pidfile_policy_test
+      - name: Compile and run MiniUPnP SOAP numeric input policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c \
+            -o /tmp/upnpsoap_input_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/upnpsoap_input_policy_test
       - name: Verify UPnP writer error propagation and daemon start gate
         run: |
           python3 - <<'PY'
@@ -92,6 +106,9 @@ jobs:
           daemonizer = Path("trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c").read_text()
           pid_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h").read_text()
           pid_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c").read_text()
+          soap_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c").read_text()
+          soap_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h").read_text()
+          soap_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c").read_text()
           miniupnpd_makefile = Path("trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux").read_text()
           workflow = Path(".github/workflows/miniupnpd-config-stability.yml").read_text()
           wan = Path("trunk/user/rc/src/net_wan.c").read_text()
@@ -109,6 +126,48 @@ jobs:
                       if depth == 0:
                           return source[start:index + 1]
               raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "upnpsoap_input_policy.h"' in soap_source
+          add_port = function_body(soap_source, "AddPortMapping(struct upnphttp * h")
+          add_any = function_body(soap_source, "AddAnyPortMapping(struct upnphttp * h")
+          get_specific = function_body(soap_source, "GetSpecificPortMappingEntry(struct upnphttp * h")
+          delete_port = function_body(soap_source, "DeletePortMapping(struct upnphttp * h")
+          delete_range = function_body(soap_source, "DeletePortMappingRange(struct upnphttp * h")
+          get_list = function_body(soap_source, "GetListOfPortMappings(struct upnphttp * h")
+          assert add_port.count("miniupnpd_soap_parse_port(") == 2
+          assert add_port.count("miniupnpd_soap_parse_int(") == 1
+          assert add_port.index("miniupnpd_soap_parse_port(") < add_port.index("upnp_redirect(")
+          assert add_port.index("miniupnpd_soap_parse_int(") < add_port.index("upnp_redirect(")
+          assert 'strcmp(ext_port, "*")' in add_port and "if (eport == 0)" in add_port
+          assert add_any.count("miniupnpd_soap_parse_port(") == 2
+          assert add_any.count("miniupnpd_soap_parse_int(") == 1
+          assert add_any.index("miniupnpd_soap_parse_int(") < add_any.index("upnp_redirect(")
+          assert add_any.index("miniupnpd_soap_parse_port(") < add_any.index("upnp_redirect(")
+          assert "if (leaseduration == 0)" in add_any and "leaseduration = 604800;" in add_any
+          assert get_specific.count("miniupnpd_soap_parse_port(") == 1
+          assert delete_port.count("miniupnpd_soap_parse_port(") == 1
+          assert delete_range.count("miniupnpd_soap_parse_port(") == 2
+          assert get_list.count("miniupnpd_soap_parse_port(") == 2
+          assert get_list.count("miniupnpd_soap_parse_int(") == 1
+          assert "if (number == 0)" in get_list and "number = 1000;" in get_list
+          for marker in (
+              "maximum - (unsigned long)digit",
+              "(unsigned long)INT_MAX",
+              "miniupnpd_soap_parse_unsigned(text, 65535UL, &value)",
+          ):
+              assert marker in soap_policy, marker
+          for marker in (
+              "test_port_boundaries",
+              "test_nonnegative_int_boundaries",
+              "test_invalid_output_arguments",
+              'expect_port_error("65536", ERANGE)',
+              'expect_int_error(overflow, ERANGE)',
+              'expect_port_error("+1", EINVAL)',
+              "MiniUPnP SOAP unsigned input policy: PASS",
+          ):
+              assert marker in soap_test, marker
+          assert "upnpsoap.o: getconnstatus.h upnpurns.h upnpsoap_input_policy.h" in miniupnpd_makefile
+          assert "upnpsoap_input_policy_test.c" in workflow
 
           writer = function_body(service, "miniupnpd_write_config(FILE *fp, void *opaque)")
           assert writer.count("if (fprintf(fp") == 2
@@ -321,6 +380,9 @@ jobs:
               "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",
+              "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h",
+              "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c",
               "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h",
               "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c",
               "trunk/user/rc/src/service_wait_policy.h",
