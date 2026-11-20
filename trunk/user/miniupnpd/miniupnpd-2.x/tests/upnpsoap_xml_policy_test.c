@@ -35,7 +35,7 @@ test_empty_and_invalid_inputs(void)
 	assert(strcmp(escaped, "") == 0);
 
 	errno = 0;
-	assert(miniupnpd_soap_xml_escape(escaped, sizeof(escaped), "&") == -1);
+	assert(miniupnpd_soap_xml_escape(escaped, 5, "&") == -1);
 	assert(errno == ENOSPC);
 	assert(escaped[0] == '\0');
 

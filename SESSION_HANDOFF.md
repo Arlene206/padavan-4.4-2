@@ -2,33 +2,37 @@
 
 ## Git state
 
-- Current `main` before lease-file description hardening: `2d124f3dbf163982c3f6198baf8c176a035585ff`.
+- Current `main` before XML response escaping work: `a6897a11e4e19c6342f5a267ec28212467a5f443`.
 - Frozen `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807` (read-only; do not move).
 - Recent main commits: `5b565e65f677` ci(watchdog): correct CPU policy contract and triggers; `940cad61cf11` test(watchdog): run CPU module restart regression; `ee610712cc0c` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e4` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8` fix(miniupnpd): publish PID files atomically; `573d215607c8` test(vsftpd): normalize APPE source contract whitespace; `8ded66573ba5` fix(vsftpd): append concurrent APPE uploads atomically; `821c13388735` security(802.1x): zeroize RADIUS secrets on teardown.
 - Recent MiniUPnP task commits: `ee610712cc0c776c450c93cded990c8f8db64acd` ci(miniupnpd): fix daemon failure checker quoting; `885f212b6065ef15276f7d4f6189b02c75fbbc7c` fix(miniupnpd): abort on daemon detachment failure; `10b54df775dd8ecd80bb16a3d71928418c7e8c06` fix(miniupnpd): serialize daemon startup and validate pidfile; `5778580685e496a4e3f170a91186675a3410f6c7` ci(xy-c1): build on miniupnpd pidfile changes; `2ede97f6206c320ce2aedff90b331fc85116a01a` fix(miniupnpd): preserve pidfile umask and test build; `12e4a6f0d8a8c57cffeee70424b59dce8afb05b3` fix(miniupnpd): publish PID files atomically.
 
 ## Current exact-SHA Actions
 
-On SOAP source SHA `2d124f3dbf163982c3f6198baf8c176a035585ff`, MiniUPnP regression #44740365744 and AI docs #44740365813 completed/success; Process inventory #44740365812 completed/success. Process lifecycle regression #44740365814, NVRAM boundary audit #44740365887 and XY-C1 build #44740365797 were still running at this checkpoint. SOAP GNU89/ASan/UBSan policy binary and full source contract passed.
+On `2d124f3dbf163982c3f6198baf8c176a035585ff`, MiniUPnP #44740365744, AI docs #44740365813, Process inventory #44740365812, Process regression #44740365814, NVRAM audit #44740365887 and XY-C1 #44740365797 all completed/success. XY-C1 detector, Build, TRX verification and artifact upload all passed on that identical SHA (L3 verified for that SHA). On `368f9fa103c21efcb0f4837fe3430bfc09e94ea6`, MiniUPnP #44741341713, AI docs #44741341833, Process regression #44741341564, Process inventory #44741341603 and NVRAM audit #44741341651 all completed/success; XY-C1 #44741341883 was still in progress at last check. On current XML/security SHA `a6897a11e4e19c6342f5a267ec28212467a5f443`, AI docs #44742412824 passed; MiniUPnP #44742412812 failed only in its new XML policy unit test because the test incorrectly expected `&` to overflow an 8-byte destination (the escaped entity plus NUL needs 6 bytes). The implementation was correct; the test is corrected to exercise a 5-byte destination. XY-C1 #44742412813, Process regression #44742412725 and NVRAM audit #44742412705 were still running at this checkpoint.
 
 No action is marked PASS unless the result above reports a completed success for the same SHA. No firmware L3 claim unless detector/input checks, XY-C1 build, TRX verification and artifact upload all pass on one identical product-source SHA.
 
-## Completed slice — MiniUPnP SOAP numeric input hardening (host Actions PASS; XY-C1 pending)
+## Completed slice — MiniUPnP SOAP numeric input hardening (all exact-head Actions PASS; XY-C1 L3 verified)
 
-- Commit `2d124f3dbf163982c3f6198baf8c176a035585ff` hardened WANIPConnection port, lease-duration and listing-count parsing. Exact-head MiniUPnP regression #44740365744 and AI docs #44740365813 PASS. Same-SHA XY-C1 Build/TRX/artifact run #44740365797 remained in progress; L3 not yet verified.
+- Commit `2d124f3dbf163982c3f6198baf8c176a035585ff` hardened WANIPConnection port, lease-duration and listing-count parsing. Exact-head MiniUPnP regression #44740365744 and AI docs #44740365813 PASS. Same-SHA XY-C1 #44740365797 passed detector, Build XY-C1, TRX verification and artifact upload; L3 is verified for `2d124f3d`.
 
-## Active work — MiniUPnP lease-file record serialization hardening (implemented; exact-head validation pending)
+## Completed slice — MiniUPnP lease-file record serialization hardening (host regression PASS; XY-C1 pending)
 
-- `AddPortMapping`, `AddAnyPortMapping`, `GetSpecificPortMappingEntry`, `DeletePortMapping`, `DeletePortMappingRange` and `GetListOfPortMappings` parse WANIPConnection port arguments as non-empty decimal values bounded to 0..65535 before narrowing to `unsigned short`.
-- `AddPortMapping` and `AddAnyPortMapping` validate `NewLeaseDuration` as 0..INT_MAX before conversion; existing zero-lease defaults and AddPortMapping IGD v2 cap remain unchanged.
-- `GetListOfPortMappings` validates `NewNumberOfPorts` as 0..INT_MAX before signed conversion and retains zero=>1000 default.
-- New GNU89/`-Werror`/ASan/UBSan regression covers boundaries, overflow, NULL/empty, signs, whitespace, trailing junk and unchanged outputs on failure. MiniUPnP source contracts, Makefile dependency and XY-C1 detector/path coverage include the new production helper and SOAP source.
+- Commit `368f9fa103c21efcb0f4837fe3430bfc09e94ea6` sanitizes lease-file descriptions, bounds record length and checks write/close status. MiniUPnP host regression #44741341713 PASS. Exact-SHA XY-C1 #44741341883 was still building; L3 not yet verified.
+
+## Active work — MiniUPnP SOAP response XML hardening (implementation committed; correcting one test expectation)
+
+- `GetSpecificPortMappingEntry`, `GetGenericPortMappingEntry` and `GetListOfPortMappings` now XML-escape stored descriptions, internal-client addresses, remote hosts and protocol labels before SOAP text-node or inner-XML serialization; CR/LF and forbidden C0 controls are sanitized, and output truncation is rejected.
+- `NewProtocol` inputs in Add/Delete/range/list handlers are now restricted to case-insensitive TCP/UDP tokens, preventing protocol-value markup injection and unknown-token fallback to TCP. `GetGenericPortMappingEntry` now validates `NewPortMappingIndex` as strict unsigned decimal 0..INT_MAX before narrowing.
+- Added GNU89/`-Werror`/ASan/UBSan XML-policy regression for entities, controls, empty/null and undersized-destination handling; strict protocol token checks share the numeric input suite. MiniUPnP source contracts and XY-C1 production input filter include the new helper.
+- Exact-head MiniUPnP job #44742412812 failed only because the test used `sizeof(escaped)==8` for `&`, which correctly fits as `&amp;\0`; fixed to pass capacity 5. Re-run exact-head MiniUPnP and XY-C1 workflows; inspect any further failures without relaxing behavior.
 
 ## Exact first actions
 
-1. Verify this exact-head lease-file serialization regression and source contract; repair only causal test/source issues.
-2. Continue polling SOAP SHA `2d124f3d` XY-C1 #44740365797. Build XY-C1, TRX verification and artifact upload must all pass on that same source SHA before claiming L3.
-3. While firmware Actions are pending, continue an independent P1 stability/security fix elsewhere in Padavan userland.
+1. Verify corrected XML-policy unit test and exact-head MiniUPnP source contract on the next commit; then inspect same-SHA XY-C1 detector/build/TRX/artifact.
+2. Recheck 368f XY-C1 #44741341883; the prior SOAP-numeric SHA 2d124f3d has fully passed L3.
+3. Continue source hardening in Padavan userland while independent Actions are pending. Physical router, WAN failover and live UPnP L4 remain unverified.
 4. Physical router, WAN failover and UPnP live interoperability L4 remain NOT VERIFIED.
 
 ## Closed slices — do not re-audit without new evidence

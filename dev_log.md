@@ -1,3 +1,13 @@
+## 2026-11-20 — Escape untrusted UPnP mapping output before SOAP XML serialization
+
+- Parent main SHA: a6897a11e4e19c6342f5a267ec28212467a5f443.
+- Hardened SOAP mapping responses: stored descriptions, remote hosts, internal-client addresses and protocol labels are XML-escaped in GetSpecific/GetGeneric and the inner PortMappingList XML; invalid XML C0 controls are replaced with spaces and bounded output is checked.
+- Restrict inbound WANIPConnection NewProtocol to case-insensitive TCP/UDP and parse NewPortMappingIndex as strict unsigned decimal 0..INT_MAX before conversion. This prevents arbitrary protocol strings being echoed into PortMappingList and closes the prior strtol trailing-junk/negative-index ambiguity.
+- Added a GNU89/ASan/UBSan XML escaping regression and source contracts. Exact-head AI docs #44742412824 PASS. MiniUPnP #44742412812 failed only because the test used an 8-byte buffer for &amp; (6 bytes including NUL), so the helper correctly succeeded; changed the test to supply 5 bytes. XY-C1 #44742412813 was still running.
+- Prior: SOAP numeric input SHA `2d124f3d` passed all exact-head Actions including XY-C1 Build/TRX/artifact; lease description serialization SHA `368f9fa` MiniUPnP host regression PASS, XY-C1 still in progress.
+
+---
+
 ## 2026-11-20 — Prevent MiniUPnP lease-file description record injection
 
 - Parent main SHA: 2d124f3dbf163982c3f6198baf8c176a035585ff.
