@@ -16,34 +16,36 @@ At the end of every session, inspect live main, verify that the frozen backup is
 
 ## Current repository state
 
-- Repository Arlene206/padavan-4.4-2; authorized branch main. Live main at recovery: 0d9719e7960f83d26a2df931902f61bee5b94bfe. Frozen archival branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807 and immutable.
-- Legacy PR #1 is closed/unmerged; all relevant AliDDNS CA bootstrap, HMAC stdin helper, tests and workflow payload is already on main.
-- MiniUPnP source fixes include OOM-safe rule snapshots, lease-key matching and persistence error reporting, NAT/filter rollback, IPTC ownership, metadata staging and shared fatal-event-loop teardown.
-- Commit 7065465d000b0bc17763b51c61533cebba243f62 removed a build-blocking duplicate static int specifier from upnpredirect.c::lease_file_remove(). Its initial declaration-contract assertion over-escaped the newline; exact-head MiniUPnP run #44799072749 FAILED at that checker assertion. THIS COMMIT replaces the regex with a byte-exact declaration-prefix check.
-- Exact-head XY-C1 run #44799072655 on 7065465d000b0bc17763b51c61533cebba243f62 was in progress at last check and is expected to provide Build/TRX/artifact evidence for the production source fix, including the cumulative infosvr production source. No L3 conclusion until the run finishes successfully.
-- The XY-C1 workflow path filters now include the infosvr production sources and host tests (added in b90cdf4f6cd8ce0725bdee19dc7b605c0163a775). The exact-head infosvr regression on 3358e551a0ca512324a00196a723bec9e33127d2 FAILED because its new test incorrectly asserted that the extended response MacAddress field is zero; the field overlaps the first six bytes of PKT_GET_INFO.PrinterInfo in the legacy payload layout. Correct the test against the actual protocol layout.
-- Main-only non-forced CAS remains mandatory. Hardware L4 remains NOT VERIFIED.
+- Repository Arlene206/padavan-4.4-2; development branch main. Live main at recovery: c4e6b53c0b5a78ae841118a960bb1f137b162623. Frozen branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- PR #1 is closed/unmerged; the applicable AliDDNS CA-bootstrap, stdin-only HMAC helper, regression and workflow changes are already present on main.
+- MiniUPnP source hardening now includes NAT/filter rollback, IPTC ownership cleanup, metadata/rule-state OOM handling, checked lease persistence and shared fatal event-loop teardown. The duplicate static int declaration in lease_file_remove() was corrected in 7065465d000b0bc17763b51c61533cebba243f62.
+- Commit 567d5426fc26e6cbfb6664ec197566afa403755c replaced a bad escaped-regex guard with a literal source-prefix check. The corrected exact-head MiniUPnP run is queued at #44799593220; earlier #44799072749 on 7065465 failed at the over-escaped regex, not in the C helper behavior.
+- Exact-head XY-C1 build #44799072655 on 7065465d000b0bc17763b51c61533cebba243f62 was still in progress at last poll; it is the relevant production-source Build/TRX/artifact validation.
+- The XY-C1 workflow push/pull filters now include infosvr production and host-test paths (b90cdf4f6cd8ce0725bdee19dc7b605c0163a775). The infosvr dispatch test's incorrect assumption about response->MacAddress was fixed in 0d9719e7960f83d26a2df931902f61bee5b94bfe. Exact-head infosvr run #44799414652 nevertheless failed next in scripts/check_infosvr_packets.py because the checker still encoded the old request-MAC comparison and case-sensitive comment text; this commit updates the source contract and asserts the documented base-header/payload alias.
+- On parent 0d9719e, XY-C1 #44799414860 succeeded but that commit only changed host tests; do not treat it as the target build for d1e668dc's infosvr production change. The relevant cumulative product-source build is #44799072655.
+- Physical-router L4 remains NOT VERIFIED. Preserve main-only atomic non-forforced ref updates and never touch the frozen backup.
 
 ## Active task
 
-1. Repair the infosvr regression at trunk/user/infosvr/src/tests/infosvr_dispatch_test.c: seed/reject duplicate unsupported opcode requests as intended, then assert the response layout correctly (the extended header MacAddress overlays the beginning of PrinterInfo because the payload starts at sizeof(IBOX_COMM_PKT_RES)). Do not change production protocol bytes unless a separate compatibility review proves a real defect. Rerun the exact infosvr Action.
-2. Inspect the result of XY-C1 #44799072655 on 7065465d000b0bc17763b51c61533cebba243f62; require the complete Build, TRX verification and artifact upload to pass. The old #44798143782 PASS on SHA 545d8ca3ddbe85e95271ed5e21a3990e81f2bc76 is only a baseline, not a substitute.
-3. Continue the MiniUPnP lease/firewall transaction audit in upnp_redirect() and _upnp_delete_redir(). Read callers and existing rollback helpers before changing ordering; add injectable GNU89 tests for all error edges.
-4. Continue cross-userland stability/security work, avoiding already completed NAT/filter, OOM snapshot, lease-key and IPTC ownership work.
+1. Verify the infosvr regression/source-contract rerun on THIS COMMIT. Its GNU89 ASan/UBSan host binaries had passed on parent 0d9719e; verify the new ABI alias assertion and corrected source checker now pass.
+2. Poll XY-C1 #44799072655 on 7065465d000b0bc17763b51c61533cebba243f62. Require Build XY-C1, TRX verification and artifact upload to all succeed before L3 closure. Diagnose a causal build error if present.
+3. Continue MiniUPnP lease/firewall transaction review in upnp_redirect() and _upnp_delete_redir(): determine whether live NAT mutations can be compensated when the persistent lease rewrite fails, and whether lease state can be restored if firewall deletion fails. Inspect every caller and rollback helper before changing order.
+4. Continue stability/security work across Padavan userland; do not repeat the already-covered IPTC/NAT-filter, lease-key, OOM-snapshot or shutdown fixes.
 
 ## Verification boundary
 
-- MiniUPnP correction commit 7065465d000b0bc17763b51c61533cebba243f62: production declaration corrected; initial exact-head MiniUPnP #44799072749 FAILED only at the malformed Python regex and has been diagnosed. THIS COMMIT corrects the checker implementation.
-- XY-C1 #44799072655 on SHA 7065465d000b0bc17763b51c61533cebba243f62 was IN_PROGRESS at last observation. No current-source L3 claim until Build, TRX verification and artifact upload all succeed.
-- Infosvr #44799216221 on 3358e551a0ca512324a00196a723bec9e33127d2 FAILED only at the new test's incorrect zero-MAC assertion; logs show preceding packet-policy ASan/UBSan test passed. A test-only correction is required and a new exact-head run must pass.
-- MIPS/uClibc runtime outside the full image and physical-router L4 remain NOT VERIFIED.
+- Local: duplicated static declaration is rejected by GCC GNU89/Werror; corrected single declaration compiles. The declaration guard was rewritten after Actions exposed the escaped-regex mismatch.
+- MiniUPnP #44799072749 failed on 7065465 at the malformed regex. The corrected source-prefix guard is in 567d5426; exact-head run #44799593220 must pass.
+- Infosvr #44799414652 failed on 0d9719e in scripts/check_infosvr_packets.py after its packet, dispatch, signal and daemon lifecycle C tests passed; the remaining stale checker assertions and response-layout test are corrected in THIS COMMIT.
+- XY-C1 #44799072655 on 7065465 was IN_PROGRESS at last poll. Older XY-C1 #44798143782 PASS on 545d8ca is only a baseline. Do not claim L3 until the relevant production-source SHA has full Build/TRX/artifact success.
+- Non-image MIPS/uClibc runtime and physical router L4 remain NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect the exact-head MiniUPnP rerun for THIS COMMIT; confirm the declaration assertion and all existing lease/persistence contracts pass.
-2. Fix the infosvr dispatch regression using the actual IBOX_COMM_PKT_RES_EX / IBOX_COMM_PKT_RES / PKT_GET_INFO layout, then rerun its host suite and exact-head Actions.
-3. Inspect XY-C1 #44799072655 for final Build/TRX/artifact results. If failed, diagnose its first causal error and repair on main.
-4. Review upnp_redirect() and _upnp_delete_redir() for consistency between live firewall state and persisted lease state on partial failure. Preserve GNU89/MIPS/uClibc compatibility and commit one logical fix at a time.
+1. Fetch current main and inspect this commit's exact-head infosvr run and MiniUPnP run. Resolve any remaining failure from its job logs, not by weakening assertions.
+2. Inspect the final conclusion and Build/TRX/artifact steps for XY-C1 #44799072655. If the build fails, take the first compiler or linker error and fix that production source slice on main.
+3. Audit upnp_redirect() and _upnp_delete_redir() lease persistence/firewall consistency over all error edges; include the nftables/iptables update/delete helper compensation behavior and add an injectable GNU89 host regression.
+4. Continue independent userland stability/security work while any unrelated Actions remain pending. Preserve atomic complete-tree CAS commits and keep physical L4 explicitly unverified.
 
 ## Handoff maintenance
 

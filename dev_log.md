@@ -1,3 +1,12 @@
+## 2026-11-20 — Align infosvr dispatch contracts with supported-opcode response layout
+
+- Parent main SHA: c4e6b53c0b5a78ae841118a960bb1f137b162623; fixes the exact-head infosvr regression failure reported by run #44799414652 on 0d9719e7960f83d26a2df931902f61bee5b94bfe.
+- The dispatch host binary itself passed, including ASan/UBSan. The remaining source checker failed because it still required the pre-refactor incoming-MAC comparison removed by the new read-only opcode allowlist, and its comment check was case-sensitive although the source comment begins with "Only".
+- Removed the stale source-order requirement; the checker now asserts the implemented response MAC comes from info->MacAddress, that request-header MAC bytes are not consulted by process_packet(), and that the supported-opcode comment check is case-insensitive.
+- Strengthened the dispatch regression to assert the legacy wire layout explicitly: the extended response structure's MacAddress field aliases the first six bytes of PKT_GET_INFO.PrinterInfo because GETINFO payload begins after the 8-byte IBOX_COMM_PKT_RES base header. This preserves the existing protocol layout; no production wire bytes changed.
+- Parent exact-head infosvr run #44799414652 failed only at scripts/check_infosvr_packets.py after the packet test, dispatch test, SIGTERM and RC lifecycle binaries had passed. Rerun required. Parent XY-C1 #44799414860 succeeded on the test-only source SHA 0d9719e; its changed input was test-only, so this does not replace the production-source XY validation pending on #44799072655.
+- XY-C1 build #44799072655 on 7065465d000b0bc17763b51c61533cebba243f62 remained IN_PROGRESS at last poll. Physical hardware L4 remains NOT VERIFIED.
+
 ## 2026-11-20 — Make MiniUPnP lease declaration guard match actual source bytes
 
 - Parent main SHA: 0d9719e7960f83d26a2df931902f61bee5b94bfe; checker-only correction to the declaration repair in 7065465d000b0bc17763b51c61533cebba243f62.

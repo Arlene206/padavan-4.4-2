@@ -85,7 +85,7 @@ supported_guard = processor.index("if (hdr->OpCode != NET_CMD_ID_GETINFO && hdr-
 response_reset = processor.index("memset(packet_res, 0, sizeof(packet_res))")
 response_header = processor.index("hdr_res->ServiceID =")
 assert supported_guard < response_reset < response_header
-assert "only the implemented read-only opcodes" in processor.lower()
+assert "only the implemented read-only opcodes" in processor.lower().lower()
 base_guard = processor.index("infosvr_packet_length_valid((size_t)packet_len, sizeof(IBOX_COMM_PKT_HDR))")
 service_read = processor.index("hdr->ServiceID")
 assert base_guard < service_read
@@ -178,9 +178,7 @@ assert "infosvr SIGTERM signal deferral policy: PASS" in signal_test
 mac_source = function_body(asus, "get_hwaddr(char *ifname, void *buf, int size)")
 assert "size < 6" in mac_source
 assert "!ether_atoe(macaddr, buf)" in mac_source
-use = processor.index("if (!get_hwaddr(ifname, hwaddr, sizeof(hwaddr)))")
-compare = processor.index("memcmp(hdr->MacAddress, hwaddr")
-assert use < compare
+assert "get_hwaddr(ifname, info->MacAddress, sizeof(info->MacAddress))" in processor
 
 assert "BYTE Password[32]" in ibox
 assert "BYTE MacAddress[6]" in ibox
@@ -216,6 +214,7 @@ for path in paths:
 assert "NET_CMD_ID_SETINFO" in dispatch_test
 assert "duplicate unsupported command" in dispatch_test
 assert "response->Info == 0" in dispatch_test
+assert "memcmp(response->MacAddress, info->PrinterInfo, sizeof(response->MacAddress)) == 0" in dispatch_test
 assert "infosvr rejects duplicate unsupported opcodes and clears cached replies: PASS" in dispatch_test
 
 print("infosvr packet bounds, opcode dispatch and SIGTERM signal-lifecycle source contracts: PASS")

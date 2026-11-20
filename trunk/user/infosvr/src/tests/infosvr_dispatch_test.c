@@ -119,6 +119,7 @@ main(void)
 	/* GETINFO has an 8-byte base header; bytes after it are payload, not an extended MAC. */
 
 	info = (PKT_GET_INFO *)((unsigned char *)response + sizeof(IBOX_COMM_PKT_RES));
+	assert(memcmp(response->MacAddress, info->PrinterInfo, sizeof(response->MacAddress)) == 0);
 	assert(memcmp(info->MacAddress, local_mac, sizeof(local_mac)) == 0);
 	assert(strcmp((char *)info->SSID, "ssid") == 0);
 
