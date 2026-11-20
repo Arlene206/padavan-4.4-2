@@ -1505,7 +1505,7 @@ config_vinet_wan(void)
 	 * later bridge or IPv6 step fails, the next restart can still find and
 	 * remove this interface. A failed NVRAM write must abort before creation.
 	 */
-	vlan_iflast[0] = '\\0';
+	vlan_iflast[0] = '\0';
 	if (is_vlan_ifname)
 		snprintf(vlan_iflast, sizeof(vlan_iflast), "%s.%d",
 			 ifname_wan_cpu, vlan_vid[0]);
