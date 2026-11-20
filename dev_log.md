@@ -1,3 +1,12 @@
+## 2026-11-20 — Repair WAN resolver teardown source-contract boundaries
+
+- Parent main SHA: 21e567affba4e992476aa7dc16c30be7fa6d4500; the product-source change under test is fix(wan): report resolver snapshot clear failures on teardown.
+- Exact-head run 44686156823 (XY-C1, job 136120854113) and run 44686157087 (WAN route, job 136120854818) passed the GNU89/ASan/UBSan route and IPv6 policy executables, then failed in the shared scripts/check_wan_firewall_status.py source contract. The assertion built wan_dns_block with an exclusive end at wan_dns_refresh, then incorrectly required the refresh call to be inside that preceding slice. The production wan_down_internal() call is unconditional and correctly follows the checked conditional DNS clear.
+- Exact-head detect-internet run 44686156914, job 136120854304, failed because the embedded contract still searched for the removed unchecked nvram_set_temp("vpnc_dns_t", ""); the current source uses set_nvram_value_status() and aggregates the error.
+- Corrected the WAN source contract to assert the closing conditional and the unconditional resolver refresh directly after the checked clear. Updated the detect-internet callback-order marker to the checked setter. No production C behavior was changed in this checker repair.
+- NVRAM transaction boundary run 44686157053 subsequently completed SUCCESS on the parent SHA. The XY-C1 job stopped at the WAN contract before the complete build/TRX/artifact gate; L3 is NOT VERIFIED. Physical-router L4 remains NOT VERIFIED. All corrected workflows must be checked again on the resulting exact SHA.
+- The parent SHA had 17 successful Actions and the three failures above; the AI docs, Process inventory, VPN server, WAN DHCP, watchdog, DNSMasq, HTTPD, miniupnpd, ZeroTier, wireless, firewall, detect-link, gateway-ARP, WAN teardown and USB modem regressions passed.
+
 ## 2026-11-20 — Check WAN-down VPN and indexed DNS snapshot clears
 
 - Parent `main` SHA: `b68158c3ee405bcdc3270db0e6adfd9de91828e5`.

@@ -183,7 +183,7 @@ jobs:
           wan_pause_call = wan_down.index("route_status = notify_pause_detect_internet();")
           wan_pause_accumulate = wan_down.index("status = route_status_accumulate(status, route_status);", wan_pause_call)
           wan_pause_log = wan_down.index("Internet monitor pause incomplete during WAN teardown", wan_pause_accumulate)
-          wan_state_mutation = wan_down.index('nvram_set_temp("vpnc_dns_t", "");')
+          wan_state_mutation = wan_down.index('route_status = set_nvram_value_status("vpnc_dns_t", "");')
           assert wan_pause_call < wan_pause_accumulate < wan_pause_log < wan_state_mutation
           assert "return status;" in wan_down
           assert "(void)notify_pause_detect_internet();" not in wan_down
