@@ -6669,54 +6669,76 @@ udhcpc_main(int argc, char **argv)
 	return ret;
 }
 
+#define WAN_MAN_DHCP_ROUTE_SNAPSHOT_SIZE 2049
+
 static int
 manv_route_deconfig(char *man_ifname)
 {
-	static const char *const clear_names[] = {
-		"manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"
-	};
-	static const char *const clear_values[] = { "", "", "", "" };
+	struct nvram_transaction transaction;
+	struct rc_wan_nvram_snapshot_field fields[4];
 	char old_gateway[INET_ADDRSTRLEN];
-	char *old_gateway_value;
-	int route_status = 0, route_result;
+	char route_storage[3][WAN_MAN_DHCP_ROUTE_SNAPSHOT_SIZE];
+	int route_status, route_result;
 
-	old_gateway_value = nvram_safe_get("manv_gateway");
-	if (!old_gateway_value)
-		old_gateway_value = "";
-	if (!dhcp_lease_text_fits_buffer(old_gateway_value, sizeof(old_gateway))) {
-		old_gateway[0] = '\0';
-		route_status = ENAMETOOLONG;
+	if (!man_ifname || !man_ifname[0])
+		return EINVAL;
+
+	/*
+	 * Snapshot the gateway and all three DHCP route inventories under one
+	 * NVRAM lease. Copy cache-backed values before the next read so renewal
+	 * cannot make route deletion operate on a mixed old/new tuple.
+	 */
+	fields[0].param_name = "manv_gateway";
+	fields[0].destination = old_gateway;
+	fields[0].destination_size = sizeof(old_gateway);
+	fields[1].param_name = "manv_routes";
+	fields[1].destination = route_storage[0];
+	fields[1].destination_size = sizeof(route_storage[0]);
+	fields[2].param_name = "manv_routes_rfc";
+	fields[2].destination = route_storage[1];
+	fields[2].destination_size = sizeof(route_storage[1]);
+	fields[3].param_name = "manv_routes_ms";
+	fields[3].destination = route_storage[2];
+	fields[3].destination_size = sizeof(route_storage[2]);
+
+	route_status = rc_wan_nvram_copy_snapshot(
+		fields, 4, wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &transaction);
+	if (route_status != 0) {
 		logmessage(LOGNAME,
-			   "IPTV DHCP deconfig rejected oversized prior gateway snapshot on %s",
-			   man_ifname);
-	} else {
-		snprintf(old_gateway, sizeof(old_gateway), "%s", old_gateway_value);
+			   "cannot snapshot IPTV DHCP route inventory on %s (status=%d); preserving lease metadata",
+			   man_ifname, route_status);
+		return route_status;
 	}
-	route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
-	route_status = route_status_accumulate(route_status, route_result);
+
+	route_result = control_dhcp_routes(
+		route_storage[0], route_storage[1], route_storage[2],
+		man_ifname, 0, 0);
+	route_status = route_status_accumulate(0, route_result);
 	if (route_result != 0)
-		logmessage(LOGNAME, "failed to delete IPTV DHCP routes on %s (error=%d)", man_ifname, route_result);
+		logmessage(LOGNAME,
+			   "failed to delete IPTV DHCP routes on %s (error=%d)",
+			   man_ifname, route_result);
+
 	if (dhcp_lease_ipv4_is_valid(old_gateway)) {
-		route_result = route_del(man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
+		route_result = route_del(
+			man_ifname, 10, "0.0.0.0", old_gateway, "0.0.0.0");
 		if (!dhcp_lease_route_delete_is_ok(route_result)) {
 			route_status = route_status_accumulate(route_status, route_result);
-			logmessage(LOGNAME, "failed to delete IPTV default route via %s (error=%d)", old_gateway, route_result);
+			logmessage(LOGNAME,
+				   "failed to delete IPTV default route via %s (error=%d)",
+				   old_gateway, route_result);
 		}
 	}
-	if (route_status == 0) {
-		route_result = wan_dhcp_nvram_publish_values(
-			clear_names, clear_values,
-			sizeof(clear_names) / sizeof(clear_names[0]));
-		route_status = route_status_accumulate(route_status, route_result);
-		if (route_result != 0)
-			logmessage(LOGNAME,
-				   "IPTV DHCP route inventory clear failed on %s (status=%d)",
-				   man_ifname, route_result);
-	} else {
-		logmessage(LOGNAME, "IPTV DHCP route teardown incomplete on %s (error=%d); preserving route inventory", man_ifname, route_status);
-	}
+
+	if (route_status != 0)
+		logmessage(LOGNAME,
+			   "IPTV DHCP route teardown incomplete on %s (error=%d); preserving lease metadata for retry",
+			   man_ifname, route_status);
 	return route_status;
 }
+
 
 struct udhcpc_viptv_deconfig_context {
 	char *ifname;
@@ -6741,13 +6763,16 @@ udhcpc_viptv_deconfig_delete_routes(void *opaque)
 }
 
 static int
-udhcpc_viptv_deconfig_publish_empty_address(void *opaque)
+manv_viptv_deconfig_publish_empty_metadata(void *opaque)
 {
-	static const char *const names[] = { "manv_ipaddr" };
-	static const char *const values[] = { "0.0.0.0" };
+	static const char *const names[] = {
+		"manv_ipaddr", "manv_gateway", "manv_routes",
+		"manv_routes_ms", "manv_routes_rfc"
+	};
+	static const char *const values[] = { "0.0.0.0", "", "", "", "" };
 
 	(void)opaque;
-	return wan_dhcp_nvram_publish_values(names, values, 1);
+	return wan_dhcp_nvram_publish_values(names, values, 5);
 }
 
 static int
@@ -6757,7 +6782,7 @@ udhcpc_viptv_deconfig(char *man_ifname)
 	static const struct dhcp_lease_viptv_deconfig_ops ops = {
 		udhcpc_viptv_deconfig_clear_address,
 		udhcpc_viptv_deconfig_delete_routes,
-		udhcpc_viptv_deconfig_publish_empty_address
+		manv_viptv_deconfig_publish_empty_metadata
 	};
 	int status, multicast_status;
 
@@ -6821,8 +6846,6 @@ zcip_main(int argc, char **argv)
 static int
 zcip_viptv_deconfig(char *man_ifname)
 {
-	static const char *const clear_names[] = { "manv_ipaddr" };
-	static const char *const clear_values[] = { "0.0.0.0" };
 	int interface_status, route_status, metadata_status = 0, multicast_status;
 
 	interface_status = ifconfig(man_ifname, IFUP, "0.0.0.0", NULL);
@@ -6830,14 +6853,13 @@ zcip_viptv_deconfig(char *man_ifname)
 		logmessage(LOGNAME, "failed to clear ZeroConf IPTV address on %s (error=%d)", man_ifname, interface_status);
 	route_status = manv_route_deconfig(man_ifname);
 	if (interface_status == 0 && route_status == 0) {
-		metadata_status = wan_dhcp_nvram_publish_values(
-			clear_names, clear_values, 1);
+		metadata_status = manv_viptv_deconfig_publish_empty_metadata(NULL);
 		if (metadata_status != 0)
 			logmessage(LOGNAME,
-				   "ZeroConf IPTV address metadata clear failed on %s (status=%d)",
+				   "ZeroConf IPTV lease metadata clear failed on %s (status=%d)",
 				   man_ifname, metadata_status);
 	} else {
-		logmessage(LOGNAME, "ZeroConf IPTV deconfig incomplete on %s (interface=%d route=%d); preserving address identity", man_ifname, interface_status, route_status);
+		logmessage(LOGNAME, "ZeroConf IPTV deconfig incomplete on %s (interface=%d route=%d); preserving lease identity", man_ifname, interface_status, route_status);
 	}
 	multicast_status = stop_igmpproxy(man_ifname);
 	if (multicast_status != 0)

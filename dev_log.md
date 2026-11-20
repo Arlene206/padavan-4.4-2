@@ -1,3 +1,14 @@
+## 2026-11-20 — Make IPTV and ZeroConf lease teardown metadata atomic
+
+- Parent main SHA: `86e30d782ba87f81817b45dad91c1a85558c494c`. Updated `net_wan.c`, DHCP lease policy regression tests, the WAN DHCP callback source contract, the detect-internet source contract, and this log.
+- IPTV MAN route teardown now reads the saved gateway and all three DHCP route inventories through one checked NVRAM snapshot, rejects oversized values, and performs route deletion without independently clearing NVRAM. This prevents route cleanup from using a mixed renewal tuple and avoids committing half of a deconfig metadata transition.
+- DHCP IPTV and ZeroConf-IPTV now share one five-key compensatable publication: `manv_ipaddr=0.0.0.0` plus `manv_gateway/manv_routes/manv_routes_ms/manv_routes_rfc` cleared together. Publication occurs only after interface and route teardown succeed; any metadata write error propagates to the callback return path so BusyBox can retry. Failed partial writes compensate the complete previous tuple under the existing transaction helper.
+- Expanded injected NVRAM policy coverage from four route fields to the full five-field lease tuple. Tests cover successful tuple publication, a write-that-mutates-then-fails with reverse-order full restore, and a restore failure that is reported while later compensating writes still run. Existing deconfig retry-order tests remain enabled.
+- Fixed a stale detect-internet workflow assertion that still expected direct `nvram_safe_get("wanx_gateway")` access after MAN gateway reads were centralized in `wan_man_gateway_snapshot()`. On parent SHA `73abb612`, detect-internet run `44700181923` failed solely at that stale source-contract substring (ValueError on line 145); watchdog, ZeroTier, wireless and AI handoff checks had passed. Fresh exact-head validation is required for all touched workflows and XY-C1 firmware.
+- Parent `73abb612` had WAN route, HTTPD, NVRAM, WAN callback, USB modem, process inventory and XY-C1 runs pending at last poll; wireless, watchdog, ZeroTier and AI handoff passed. No local checkout/compiler run was available in this session.
+
+---
+
 ## 2026-11-20 — Normalize WAN snapshot helper and MAN launcher source contracts
 
 - Parent main SHA: `45d049e256afa4d4378bfb10e92b289a605a64a7`. This commit contains only source-contract corrections in `scripts/check_modem_wan_start_status.py`, `.github/workflows/wan-dhcp-callback-stability.yml`, and this chronological record; product C is unchanged by this commit.

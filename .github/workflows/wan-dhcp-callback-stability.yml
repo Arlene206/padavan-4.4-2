@@ -1117,6 +1117,33 @@ jobs:
           assert viptv_start.index(zcip_launch) < dynamic_return
           assert viptv_start.index(dhcp_launch) < dynamic_return
 
+          # IPTV and ZeroConf teardown publish all lease identity fields as
+          # one compensatable NVRAM tuple, only after address/route cleanup.
+          manv_route_deconfig = body(source, "manv_route_deconfig(char *man_ifname)")
+          assert "rc_wan_nvram_copy_snapshot(" in manv_route_deconfig
+          assert 'fields[0].param_name = "manv_gateway";' in manv_route_deconfig
+          assert 'fields[1].param_name = "manv_routes";' in manv_route_deconfig
+          assert 'fields[2].param_name = "manv_routes_rfc";' in manv_route_deconfig
+          assert 'fields[3].param_name = "manv_routes_ms";' in manv_route_deconfig
+          assert "wan_dhcp_nvram_publish_values" not in manv_route_deconfig
+
+          viptv_metadata = body(source, "manv_viptv_deconfig_publish_empty_metadata(void *opaque)")
+          for key in ("manv_ipaddr", "manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"):
+              assert '"%s"' % key in viptv_metadata
+          assert "wan_dhcp_nvram_publish_values(names, values, 5)" in viptv_metadata
+
+          dhcp_viptv_deconfig = body(source, "udhcpc_viptv_deconfig(char *man_ifname)")
+          assert "manv_viptv_deconfig_publish_empty_metadata" in dhcp_viptv_deconfig
+          assert "dhcp_lease_viptv_deconfig_apply(&ops, &context)" in dhcp_viptv_deconfig
+          zcip_viptv_deconfig = body(source, "zcip_viptv_deconfig(char *man_ifname)")
+          zcip_metadata_gate = zcip_viptv_deconfig.index("if (interface_status == 0 && route_status == 0)")
+          zcip_metadata_publish = zcip_viptv_deconfig.index("manv_viptv_deconfig_publish_empty_metadata(NULL)")
+          assert zcip_metadata_gate < zcip_metadata_publish
+          deconfig_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
+          assert "test_dhcp_viptv_deconfig_metadata_clear_rolls_back_as_one_tuple" in deconfig_policy_test
+          assert 'strcmp(fake.events, "ABCDEedcba") == 0' in deconfig_policy_test
+          assert "dhcp_lease_viptv_deconfig_apply" in deconfig_policy_test
+
           wan_start = body(source, "start_wan(void)")
           apcli_wisp = body(source, "static int" + chr(10) + "config_apcli_wisp(void)")
           assert "static int man_up_internal(char *, int, int, int *);" in source

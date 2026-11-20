@@ -372,15 +372,15 @@ test_dhcp_lease_text_fits_buffer(void)
 
 
 struct dhcp_viptv_nvram_fake {
-	const char *names[4];
-	const char *old_values[4];
-	const char *new_values[4];
-	char current[4][48];
+	const char *names[5];
+	const char *old_values[5];
+	const char *new_values[5];
+	char current[5][48];
 	int fail_new_index;
 	int fail_restore_index;
 	int fail_restore_status;
 	int fail_new_after_write;
-	char events[24];
+	char events[32];
 	size_t event_count;
 };
 
@@ -399,7 +399,7 @@ dhcp_viptv_nvram_set(void *context, const char *name, const char *value)
 	struct dhcp_viptv_nvram_fake *fake = (struct dhcp_viptv_nvram_fake *)context;
 	size_t i;
 
-	for (i = 0; i < 4; ++i) {
+	for (i = 0; i < 5; ++i) {
 		if (strcmp(name, fake->names[i]) != 0)
 			continue;
 		if (strcmp(value, fake->new_values[i]) == 0) {
@@ -423,58 +423,74 @@ dhcp_viptv_nvram_set(void *context, const char *name, const char *value)
 }
 
 static void
-test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple(void)
+test_dhcp_viptv_deconfig_metadata_clear_rolls_back_as_one_tuple(void)
 {
-	static const char *const names[4] = {
-		"manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"
+	static const char *const names[5] = {
+		"manv_ipaddr", "manv_gateway", "manv_routes",
+		"manv_routes_ms", "manv_routes_rfc"
 	};
-	static const char *const old_values[4] = {
-		"192.0.2.1", "192.0.2.0/24 198.51.100.1",
+	static const char *const old_values[5] = {
+		"192.0.2.20", "192.0.2.1", "192.0.2.0/24 198.51.100.1",
 		"198.51.100.0/24 192.0.2.1", "203.0.113.0/24 192.0.2.1"
 	};
-	static const char *const empty_values[4] = { "", "", "", "" };
+	static const char *const clear_values[5] = {
+		"0.0.0.0", "", "", "", ""
+	};
 	struct dhcp_viptv_nvram_fake fake;
-	struct dhcp_lease_nvram_value values[4];
+	struct dhcp_lease_nvram_value values[5];
 	int rollback_status, i;
 
 	memset(&fake, 0, sizeof(fake));
-	fake.fail_new_index = 2;
-	fake.fail_new_after_write = 1;
+	fake.fail_new_index = -1;
 	fake.fail_restore_index = -1;
-	for (i = 0; i < 4; ++i) {
+	for (i = 0; i < 5; ++i) {
 		fake.names[i] = names[i];
 		fake.old_values[i] = old_values[i];
-		fake.new_values[i] = empty_values[i];
+		fake.new_values[i] = clear_values[i];
 		values[i].name = names[i];
-		values[i].value = empty_values[i];
+		values[i].value = clear_values[i];
 		values[i].previous_value = old_values[i];
 		snprintf(fake.current[i], sizeof(fake.current[i]), "%s", old_values[i]);
 	}
-	assert(dhcp_lease_nvram_publish(values, 4, dhcp_viptv_nvram_set,
-					&fake, &rollback_status) == ENOSPC);
-	assert(rollback_status == 0);
-	assert(strcmp(fake.events, "ABCDdcba") == 0);
-	for (i = 0; i < 4; ++i)
-		assert(strcmp(fake.current[i], old_values[i]) == 0);
 
-	/* A failed compensating setter must not stop restoration of later fields. */
+	/* All five lease fields become visible as one successful publication. */
+	assert(dhcp_lease_nvram_publish(values, 5, dhcp_viptv_nvram_set,
+					&fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "ABCDE") == 0);
+	for (i = 0; i < 5; ++i)
+		assert(strcmp(fake.current[i], clear_values[i]) == 0);
+
+	/* A partial write must restore the entire old tuple in reverse order. */
 	memset(fake.events, 0, sizeof(fake.events));
 	fake.event_count = 0;
 	fake.fail_new_index = 2;
 	fake.fail_new_after_write = 1;
+	for (i = 0; i < 5; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s", old_values[i]);
+	assert(dhcp_lease_nvram_publish(values, 5, dhcp_viptv_nvram_set,
+					&fake, &rollback_status) == ENOSPC);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "ABCDEedcba") == 0);
+	for (i = 0; i < 5; ++i)
+		assert(strcmp(fake.current[i], old_values[i]) == 0);
+
+	/* A failed compensating write is reported without skipping later fields. */
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
 	fake.fail_restore_index = 1;
 	fake.fail_restore_status = EIO;
-	for (i = 0; i < 4; ++i)
+	for (i = 0; i < 5; ++i)
 		snprintf(fake.current[i], sizeof(fake.current[i]), "%s", old_values[i]);
-	assert(dhcp_lease_nvram_publish(values, 4, dhcp_viptv_nvram_set,
+	assert(dhcp_lease_nvram_publish(values, 5, dhcp_viptv_nvram_set,
 					&fake, &rollback_status) == ENOSPC);
 	assert(rollback_status == EIO);
-	assert(strcmp(fake.events, "ABCDdcba") == 0);
+	assert(strcmp(fake.events, "ABCDEedcba") == 0);
 	assert(strcmp(fake.current[0], old_values[0]) == 0);
-	/* B's rollback failed, so its new empty value remains visible. */
-	assert(strcmp(fake.current[1], "") == 0);
+	assert(strcmp(fake.current[1], clear_values[1]) == 0);
 	assert(strcmp(fake.current[2], old_values[2]) == 0);
 	assert(strcmp(fake.current[3], old_values[3]) == 0);
+	assert(strcmp(fake.current[4], old_values[4]) == 0);
 }
 
 struct dhcp_nvram_tuple_fake {
@@ -814,7 +830,7 @@ main(void)
 	assert(strcmp(viptv_fake.events, "CRPCRP") == 0);
 	assert(viptv_fake.published == 2);
 
-	test_dhcp_viptv_route_inventory_clear_rolls_back_as_one_tuple();
+	test_dhcp_viptv_deconfig_metadata_clear_rolls_back_as_one_tuple();
 	test_lan_dhcp_nvram_publish_compensates_partial_updates();
 	test_dhcp_lease_nvram_publish_attempts_all_and_restores_all();
 	test_dhcp_lease_text_fits_buffer();
