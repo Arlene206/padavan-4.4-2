@@ -16,6 +16,26 @@ struct dhcp_wan_interface_ops {
 };
 
 /*
+ * Restore the previous interface state after a later lease-publication step
+ * fails. A first ZeroConf lease has no valid address to set, so it must clear
+ * the newly configured address instead of attempting to apply an empty value.
+ */
+static inline int
+dhcp_wan_interface_restore_previous(
+	const char *old_ipaddr, const char *old_netmask,
+	const struct dhcp_wan_interface_ops *ops, void *context)
+{
+	if (!ops || !ops->clear_address || !ops->set_address)
+		return EINVAL;
+
+	if (dhcp_lease_ipv4_is_valid(old_ipaddr) &&
+	    dhcp_lease_netmask_is_valid(old_netmask))
+		return ops->set_address(context, old_ipaddr, old_netmask);
+	return ops->clear_address(context);
+}
+
+
+/*
  * Configure a DHCP WAN address before the caller publishes lease state or
  * removes old routes. On any failed ioctl, best-effort restore the previous
  * address (or clear the interface when no previous lease was valid).

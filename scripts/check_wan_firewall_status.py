@@ -140,6 +140,12 @@ for marker in (
     require(marker not in wan_viptv_bound,
             "unchecked IPTV DHCP snapshot field write remains: " + marker)
 
+interface_test = (RC / "tests/dhcp_wan_interface_policy.c").read_text()
+require("test_restore_previous_valid_address" in interface_test and
+        "test_restore_previous_first_lease_clears_interface" in interface_test and
+        "test_restore_previous_propagates_ioctl_failure" in interface_test,
+        "ZeroConf snapshot rollback must cover existing and first-lease restoration")
+
 zcip = body(wan, "zcip_bound(char *man_ifname)")
 require("wan_dhcp_nvram_state_publish(" in zcip and
         "WAN_ZCIP_SNAPSHOT_COUNT" in zcip,
@@ -148,9 +154,7 @@ require(zcip.index("dhcp_wan_interface_apply(") <
         zcip.index("wan_dhcp_nvram_state_publish(") <
         zcip.index("man_up_internal("),
         "ZeroConf WAN must commit the snapshot before route setup")
-require("wan_dhcp_interface_set(" in zcip and
-        "&interface_context, old_ip, old_mask" in zcip and
-        "wan_dhcp_interface_clear(&interface_context)" in zcip,
+require("dhcp_wan_interface_restore_previous(" in zcip,
         "ZeroConf WAN snapshot failure must restore a valid old address or clear a first lease")
 for marker in (
     'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',
@@ -168,9 +172,7 @@ require(zcip_viptv.index("dhcp_wan_interface_apply(") <
         zcip_viptv.index("wan_dhcp_nvram_state_publish(") <
         zcip_viptv.index("start_igmpproxy("),
         "ZeroConf IPTV must commit the snapshot before proxy startup")
-require("wan_dhcp_interface_set(" in zcip_viptv and
-        "&interface_context, old_ip, old_mask" in zcip_viptv and
-        "wan_dhcp_interface_clear(&interface_context)" in zcip_viptv,
+require("dhcp_wan_interface_restore_previous(" in zcip_viptv,
         "ZeroConf IPTV snapshot failure must restore a valid old address or clear a first lease")
 for marker in (
     'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',

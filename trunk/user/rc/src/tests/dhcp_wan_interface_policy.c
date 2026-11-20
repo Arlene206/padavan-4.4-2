@@ -59,6 +59,46 @@ test_dhcp_entrypoint_rejects_missing_interface_environment(void)
 	assert(dhcp_wan_interface_name_is_valid("eth3.35"));
 }
 static void
+test_restore_previous_valid_address(void)
+{
+	struct fake_interface fake = { 0, 0, 0, "", 0 };
+
+	assert(dhcp_wan_interface_restore_previous(
+		"192.0.2.10", "255.255.255.0", &fake_ops, &fake) == 0);
+	assert(strcmp(fake.events, "O") == 0);
+}
+
+static void
+test_restore_previous_first_lease_clears_interface(void)
+{
+	struct fake_interface fake = { 0, 0, 0, "", 0 };
+
+	assert(dhcp_wan_interface_restore_previous(
+		"", "", &fake_ops, &fake) == 0);
+	assert(strcmp(fake.events, "C") == 0);
+}
+
+static void
+test_restore_previous_invalid_mask_clears_interface(void)
+{
+	struct fake_interface fake = { 0, 0, 0, "", 0 };
+
+	assert(dhcp_wan_interface_restore_previous(
+		"192.0.2.10", "255.0.255.0", &fake_ops, &fake) == 0);
+	assert(strcmp(fake.events, "C") == 0);
+}
+
+static void
+test_restore_previous_propagates_ioctl_failure(void)
+{
+	struct fake_interface fake = { 0, EACCES, 0, "", 0 };
+
+	assert(dhcp_wan_interface_restore_previous(
+		"192.0.2.10", "255.255.255.0", &fake_ops, &fake) == EACCES);
+	assert(strcmp(fake.events, "O") == 0);
+}
+
+static void
 test_successful_change(void)
 {
 	struct fake_interface fake = { 0, 0, 0, "", 0 };
@@ -365,6 +405,10 @@ int
 main(void)
 {
 	test_dhcp_entrypoint_rejects_missing_interface_environment();
+	test_restore_previous_valid_address();
+	test_restore_previous_first_lease_clears_interface();
+	test_restore_previous_invalid_mask_clears_interface();
+	test_restore_previous_propagates_ioctl_failure();
 	test_successful_change();
 	test_successful_renew_without_clear();
 	test_failed_clear_restores_old_address();

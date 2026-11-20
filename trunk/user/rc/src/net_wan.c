@@ -5739,12 +5739,8 @@ zcip_bound(char *man_ifname)
 		logmessage(LOGNAME,
 			   "cannot publish complete ZeroConf WAN snapshot on %s (status=%d)",
 			   man_ifname, snapshot_status);
-		if (dhcp_lease_ipv4_is_valid(old_ip) &&
-		    dhcp_lease_netmask_is_valid(old_mask))
-			interface_rollback_status = wan_dhcp_interface_set(
-				&interface_context, old_ip, old_mask);
-		else
-			interface_rollback_status = wan_dhcp_interface_clear(&interface_context);
+		interface_rollback_status = dhcp_wan_interface_restore_previous(
+			old_ip, old_mask, &wan_dhcp_interface_ops, &interface_context);
 		if (interface_rollback_status != 0)
 			logmessage(LOGNAME,
 				   "failed to restore previous ZeroConf WAN address on %s (error=%d)",
@@ -5835,12 +5831,8 @@ zcip_viptv_bound(char *man_ifname)
 		logmessage(LOGNAME,
 			   "cannot publish complete ZeroConf IPTV snapshot on %s (status=%d)",
 			   man_ifname, snapshot_status);
-		if (dhcp_lease_ipv4_is_valid(old_ip) &&
-		    dhcp_lease_netmask_is_valid(old_mask))
-			interface_rollback_status = wan_dhcp_interface_set(
-				&interface_context, old_ip, old_mask);
-		else
-			interface_rollback_status = wan_dhcp_interface_clear(&interface_context);
+		interface_rollback_status = dhcp_wan_interface_restore_previous(
+			old_ip, old_mask, &wan_dhcp_interface_ops, &interface_context);
 		if (interface_rollback_status != 0)
 			logmessage(LOGNAME,
 				   "failed to restore previous ZeroConf IPTV address on %s (error=%d)",
