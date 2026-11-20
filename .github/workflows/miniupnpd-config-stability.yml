@@ -205,9 +205,11 @@ jobs:
           assert "if (upnp_status != 0)" in restore
           restore_stop = restore.index("if (upnp_status != 0)")
           restore_stop_return = restore.index("return upnp_status;", restore_stop)
-          restore_publish = restore.index('set_wan_unit_value(unit, "ifname_t", wan_ifname)')
-          assert restore_stop < restore_stop_return < restore_publish
-          assert "firewall_status = start_firewall_ex();" in restore
+          restore_publish = restore.index('nvram_status = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);')
+          restore_publish_check = restore.index("if (nvram_status != 0)", restore_publish)
+          restore_publish_return = restore.index("return nvram_status;", restore_publish_check)
+          restore_firewall = restore.index("firewall_status = start_firewall_ex();")
+          assert restore_stop < restore_stop_return < restore_publish < restore_publish_check < restore_publish_return < restore_firewall
           assert "return firewall_status;" in restore
           assert "wan_upnp_status = update_upnp();" in start_wan
           assert "UPnP update incomplete after WAN startup" in start_wan

@@ -848,8 +848,11 @@ jobs:
           demand_continue = demand_start.index("continue;", demand_fallback)
           assert demand_start_gate < demand_start_error < demand_status < demand_fallback < demand_continue
           demand_restore = body(wan, "restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)")
-          assert 'set_wan_unit_value(unit, "ifname_t", wan_ifname);' in demand_restore
-          assert "start_firewall_ex();" in demand_restore
+          demand_publish = demand_restore.index('nvram_status = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);')
+          demand_publish_check = demand_restore.index("if (nvram_status != 0)", demand_publish)
+          demand_publish_return = demand_restore.index("return nvram_status;", demand_publish_check)
+          demand_firewall = demand_restore.index("firewall_status = start_firewall_ex();")
+          assert demand_publish < demand_publish_check < demand_publish_return < demand_firewall
           assert "kill_services(" not in demand_restore
           assert "successful ip-up callback may switch the active WAN back to ppp0." in wan
 

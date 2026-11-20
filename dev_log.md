@@ -1,3 +1,13 @@
+## 2026-11-20 12:36 CST — Align WAN recovery source contracts with checked NVRAM publication
+
+- Base main SHA: `68571af7f68f820569400543e80ee7f9e7a3f148`. The WAN NVRAM publication regression compiled and passed in exact-head WAN route run `44674653374` step 7; the DDNS semantic checker passed step 25. Process regression `44674653449`, inventory `44674653556`, AI docs `44674653419`, Firewall Startup Stability `44674653529`, and NVRAM transaction audit `44674653621` also passed on the same SHA.
+- Three remaining consumers exposed stale source contracts after `restore_wan_after_ppp_start_failure()` switched from the public void setter to `set_wan_unit_value_status()`: WAN route run `44674653374` step 36 expected the legacy setter; HTTPD security run `44674653437` step 19 did the same; miniupnpd config run `44674653555` step 5 expected the old setter. All three failed only at these obsolete assertions; their preceding compiled/unit tests passed.
+- Updated the WAN route, HTTPD security and miniupnpd config contracts to assert status-returning interface publication, explicit nonzero-status return, and strict publication-before-firewall ordering. Push and pull_request workflows are self-triggered; no checks were removed or weakened and no production C source changed.
+- Exact-head checks for THIS checker correction are pending. XY-C1 run `44674653396` (Build job `136083493218`) was IN_PROGRESS on base `68571af7f68f820569400543e80ee7f9e7a3f148`; no current-source L3 or physical L4 result is claimed.
+- Next: inspect exact-head reruns, then continue the P1 NVRAM publication audit at critical `set_wan_unit_value_int()` / `set_wan_unit_param()` callsites. Avoid broad telemetry conversion.
+
+---
+
 ## 2026-11-20 — Fail closed on WAN interface NVRAM publication during PPP recovery
 
 - Parent main SHA: `759a19abeff06bbfc6abcb1a13ee1263575a4945`.

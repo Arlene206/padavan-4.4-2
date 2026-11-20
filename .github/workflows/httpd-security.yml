@@ -2328,15 +2328,21 @@ jobs:
           for recovery in (
               "upnp_status = check_upnp_wanif_changed(wan_ifname);",
               "if (upnp_status != 0)",
-              'set_wan_unit_value(unit, "ifname_t", wan_ifname);',
+              'nvram_status = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);',
+              "if (nvram_status != 0)",
+              "return nvram_status;",
               "firewall_status = start_firewall_ex();",
               "return firewall_status;"
           ):
               assert recovery in rollback_body
           stop_gate = "if (upnp_status != 0)"
           stop_return = "return upnp_status;"
-          publish_active_wan = 'set_wan_unit_value(unit, "ifname_t", wan_ifname)'
+          publish_active_wan = 'nvram_status = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);'
           assert rollback_body.index(stop_gate) < rollback_body.index(stop_return) < rollback_body.index(publish_active_wan)
+          publish_check = rollback_body.index("if (nvram_status != 0)", rollback_body.index(publish_active_wan))
+          publish_return = rollback_body.index("return nvram_status;", publish_check)
+          firewall_rebuild = rollback_body.index("firewall_status = start_firewall_ex();")
+          assert rollback_body.index(publish_active_wan) < publish_check < publish_return < firewall_rebuild
           assert "miniupnpd did not stop" in rollback_body
           assert "restore_wan_after_firewall_failure(unit, wan_ifname);" in failure_path
           assert failure_path.index("restore_wan_after_firewall_failure(unit, wan_ifname);") < failure_path.index("continue;")
