@@ -285,6 +285,8 @@ assert "setdomainname(lan_dname" not in host_body
 # IPTV route inventory and deconfig metadata are committed as checked NVRAM
 # snapshots, and publisher failures propagate to BusyBox's callback retry.
 manv_route = c_function_body(wan, "manv_route_deconfig(char *man_ifname)")
+assert "dhcp_lease_text_fits_buffer(old_gateway_value, sizeof(old_gateway))" in manv_route
+assert manv_route.index("dhcp_lease_text_fits_buffer(") < manv_route.index('del_dhcp_routes_by_prefix("manv_"')
 assert "wan_dhcp_nvram_publish_values(" in manv_route
 assert "route_status == 0" in manv_route
 for key in ("manv_gateway", "manv_routes", "manv_routes_ms", "manv_routes_rfc"):

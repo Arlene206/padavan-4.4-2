@@ -6343,9 +6343,19 @@ manv_route_deconfig(char *man_ifname)
 	};
 	static const char *const clear_values[] = { "", "", "", "" };
 	char old_gateway[INET_ADDRSTRLEN];
+	char *old_gateway_value;
 	int route_status = 0, route_result;
 
-	snprintf(old_gateway, sizeof(old_gateway), "%s", nvram_safe_get("manv_gateway"));
+	old_gateway_value = nvram_safe_get("manv_gateway");
+	if (!old_gateway_value)
+		old_gateway_value = "";
+	if (!dhcp_lease_text_fits_buffer(old_gateway_value, sizeof(old_gateway))) {
+		logmessage(LOGNAME,
+			   "IPTV DHCP deconfig rejected oversized prior gateway snapshot on %s",
+			   man_ifname);
+		return ENAMETOOLONG;
+	}
+	snprintf(old_gateway, sizeof(old_gateway), "%s", old_gateway_value);
 	route_result = del_dhcp_routes_by_prefix("manv_", man_ifname, 0);
 	route_status = route_status_accumulate(route_status, route_result);
 	if (route_result != 0)
