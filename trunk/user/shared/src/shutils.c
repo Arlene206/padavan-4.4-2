@@ -276,10 +276,16 @@ recreate_passwd_unix(int force_create)
 	FILE *fp1 = NULL, *fp2 = NULL;
 	int passwd_fd = -1, group_fd = -1, shadow_fd = -1;
 	int i, j, uid, sh_num, duplicate, status = 0, file_status, password_status;
+	int update_count, rollback_failed = 0;
+	int passwd_had_original = 0, group_had_original = 0, shadow_had_original = 0;
 	char tmp[32], previous[32], *rootnm, *usernm;
 	char passwd_temp[] = "/etc/.passwd.XXXXXX";
 	char group_temp[] = "/etc/.group.XXXXXX";
 	char shadow_temp[] = "/etc/.shadow.XXXXXX";
+	char passwd_backup[] = "/etc/.passwd-backup.XXXXXX";
+	char group_backup[] = "/etc/.group-backup.XXXXXX";
+	char shadow_backup[] = "/etc/.shadow-backup.XXXXXX";
+	passwd_file_update_t file_updates[3];
 
 	rootnm = nvram_safe_get("http_username");
 	if (strlen(rootnm) < 1) rootnm = SYS_USER_ROOT;
@@ -360,21 +366,53 @@ recreate_passwd_unix(int force_create)
 		if (file_status != 0) { status = file_status; goto cleanup; }
 	}
 
-	if (rename(passwd_temp, "/etc/passwd") != 0) {
+	/*
+	 * Hold hard-link recovery points for every live file before the first
+	 * replacement. This allows a failed second/third rename to restore the
+	 * already-published files without losing the previous account database.
+	 */
+	if (passwd_temp_file_backup_create("/etc/passwd", passwd_backup,
+					  &passwd_had_original) != 0 ||
+	    passwd_temp_file_backup_create("/etc/group", group_backup,
+					  &group_had_original) != 0 ||
+	    (force_create &&
+	     passwd_temp_file_backup_create("/etc/shadow", shadow_backup,
+					    &shadow_had_original) != 0)) {
 		status = errno ? errno : EIO;
 		goto cleanup;
 	}
+
+	file_updates[0].staged_path = passwd_temp;
+	file_updates[0].destination_path = "/etc/passwd";
+	file_updates[0].backup_path = passwd_backup;
+	file_updates[0].had_original = passwd_had_original;
+	file_updates[1].staged_path = group_temp;
+	file_updates[1].destination_path = "/etc/group";
+	file_updates[1].backup_path = group_backup;
+	file_updates[1].had_original = group_had_original;
+	update_count = 2;
+	if (force_create) {
+		file_updates[2].staged_path = shadow_temp;
+		file_updates[2].destination_path = "/etc/shadow";
+		file_updates[2].backup_path = shadow_backup;
+		file_updates[2].had_original = shadow_had_original;
+		update_count = 3;
+	}
+	if (passwd_file_publish_transaction(file_updates, update_count,
+					    rename, unlink,
+					    &rollback_failed) != 0) {
+		status = errno ? errno : EIO;
+		if (rollback_failed) {
+			syslog(LOG_ERR,
+			       "account database rollback incomplete; recovery links retained: passwd=%s group=%s shadow=%s",
+			       passwd_backup, group_backup, shadow_backup);
+		}
+		goto cleanup;
+	}
+
 	passwd_temp[0] = '\0';
-	if (rename(group_temp, "/etc/group") != 0) {
-		status = errno ? errno : EIO;
-		goto cleanup;
-	}
 	group_temp[0] = '\0';
 	if (force_create) {
-		if (rename(shadow_temp, "/etc/shadow") != 0) {
-			status = errno ? errno : EIO;
-			goto cleanup;
-		}
 		shadow_temp[0] = '\0';
 		password_status = change_passwd_unix(rootnm, nvram_safe_get("http_passwd"));
 		if (password_status != 0) status = password_status;
@@ -389,6 +427,11 @@ cleanup:
 	if (passwd_temp[0]) (void)unlink(passwd_temp);
 	if (group_temp[0]) (void)unlink(group_temp);
 	if (shadow_temp[0]) (void)unlink(shadow_temp);
+	if (!rollback_failed) {
+		if (passwd_backup[0]) (void)unlink(passwd_backup);
+		if (group_backup[0]) (void)unlink(group_backup);
+		if (force_create && shadow_backup[0]) (void)unlink(shadow_backup);
+	}
 	if (status != 0) errno = status;
 	return status;
 }

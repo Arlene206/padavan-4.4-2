@@ -728,13 +728,22 @@ jobs:
           assert "passwd_temp_stream_finish(fp)" in change
           assert "system(cmdbuf)" in change
           assert "passwd_temp_file_open(passwd_temp, 0644)" in recreate
-          assert 'rename(passwd_temp, "/etc/passwd")' in recreate
-          assert 'rename(group_temp, "/etc/group")' in recreate
+          assert "passwd_temp_file_backup_create(\"/etc/passwd\"" in recreate
+          assert "passwd_temp_file_backup_create(\"/etc/group\"" in recreate
+          assert "passwd_file_publish_transaction(file_updates, update_count, rename, unlink, &rollback_failed)" in recreate
+          assert "if (rollback_failed)" in recreate
+          assert "passwd_backup[0]" in recreate and "group_backup[0]" in recreate
+          assert "passwd_file_publish_transaction(" in header
+          assert "link(source_path, backup_template)" in header
+          assert "rollback_failed" in header
           assert 'fprintf(fp1, "%s:!:' in recreate
           assert "password_status = change_passwd_unix(" in recreate
           assert "int passwd_status = recreate_passwd_unix(1);" in init
           assert "boot_services_status, passwd_status);" in init
           assert "test_temp_file_is_exclusive_and_private();" in test
+          assert "test_second_rename_failure_restores_first_file();" in test
+          assert "test_failed_rollback_preserves_recovery_link();" in test
+          assert "test_missing_original_is_removed_on_rollback();" in test
           print("Unix account bootstrap status and private temporary file contract: PASS")
           PY
       - name: Compile and run bridge multicast setup status regression

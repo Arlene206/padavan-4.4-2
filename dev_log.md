@@ -1,3 +1,13 @@
+## 2026-11-19 — Roll back partial Unix account database publication
+
+- Parent SHA: `4d97400bd600b8503082bc749d577e8beee10963`.
+- Followed the pending passwd/group rename fault-injection task. `recreate_passwd_unix()` staged complete files but published them with sequential `rename()` calls; if group or shadow publication failed after passwd (or passwd+group) had been replaced, the live account database could be left mixed with no recovery copy.
+- Added same-filesystem hard-link recovery points for the existing regular passwd/group/shadow files and a reusable publish transaction. A later rename failure restores already-published destinations in reverse order; when restoration itself fails, the specific recovery link is retained and logged for manual recovery. Missing originals are handled by unlinking newly created destinations during rollback.
+- Expanded the GNU89 ASan/UBSan policy regression with successful multi-file publication, injected second-rename failure, injected rollback failure/recovery-link retention, and missing-original rollback. Extended the Process workflow source contract to require the production caller and all rollback cases.
+- Exact-head Process/XY-C1 Actions are pending after this production-source change. The new header/test are already included in Process and XY-C1 path filters. No physical-router L4 evidence.
+
+---
+
 ## 2026-11-19 — Isolate ZeroTier identity-staging test cleanup from lifecycle assertions
 
 - Parent SHA: `4c90601aa7e367ce959f78cce712b73441357dce`.
