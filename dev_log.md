@@ -1,3 +1,13 @@
+## 2026-11-20 — Normalize IPv6 pinhole wildcards and stage firewall registry updates
+
+- Parent main SHA: `71cfd2831e0c6d959638d82243306bb680d23053`.
+- Defect: the netfilter backend treated RemoteHost="*" as an IPv6 parse failure but still installed an all-ones source mask, creating ::/128 instead of a wildcard. Duplicate lookup used the same invalid token against an uninitialized address. Invalid IPv6 arguments were not rejected at this backend boundary.
+- Added a shared IPv6 policy: NULL/empty/"*" consistently normalize to ::/0; malformed remote/internal values fail closed. UID allocation checks at most 65,535 values and returns ENOSPC instead of looping forever.
+- Allocate UID/bookkeeping before installing the kernel rule, then publish the preallocated registry record only after a successful firewall commit. Added NULL checks for match/target allocation and release the libip6tc handle on successful commit.
+- Added GNU89/Werror/ASan/UBSan host regression coverage and MiniUPnP source contracts; added production backend/header to XY-C1 firmware input filters and the Makefile dependency. Exact-head MiniUPnP and XY-C1 runs required after commit.
+
+---
+
 ## 2026-11-20 — Restore mandatory end-of-session handoff checkpoint contract
 
 - Parent main SHA: `2cb3ee3d27446aca096b14f9ac0324110c0afa8b`.

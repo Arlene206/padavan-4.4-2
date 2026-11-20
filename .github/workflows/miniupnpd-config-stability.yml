@@ -27,6 +27,9 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
@@ -57,6 +60,9 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c"
       - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c"
       - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
@@ -101,6 +107,14 @@ jobs:
             trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c \
             -o /tmp/upnpsoap_input_policy_test
           ASAN_OPTIONS=detect_leaks=1 /tmp/upnpsoap_input_policy_test
+      - name: Compile and run IPv6 pinhole allocation and address policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c \
+            -o /tmp/iptpinhole_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptpinhole_policy_test
       - name: Compile and run MiniUPnP lease-file record serialization regression
         run: |
           set -eu
@@ -135,6 +149,9 @@ jobs:
           soap_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c").read_text()
           soap_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h").read_text()
           soap_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c").read_text()
+          pinhole_backend = Path("trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c").read_text()
+          pinhole_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h").read_text()
+          pinhole_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c").read_text()
           xml_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h").read_text()
           xml_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c").read_text()
           redirect_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c").read_text()
@@ -249,6 +266,43 @@ jobs:
               "MiniUPnP SOAP unsigned input policy: PASS",
           ):
               assert marker in soap_test, marker
+          pinhole_add = function_body(pinhole_backend, "int add_pinhole(const char * ifname")
+          pinhole_find = function_body(pinhole_backend, "find_pinhole(const char * ifname")
+          pinhole_append = function_body(pinhole_backend, "ip6tc_init_verify_append(const char * table")
+          pinhole_match = function_body(pinhole_backend, "new_match(int proto")
+          pinhole_target = function_body(pinhole_backend, "get_accept_target(void)")
+          assert '#include "../miniupnpd_pinhole_policy.h"' in pinhole_backend
+          assert "miniupnpd_pinhole_find_free_uid(next_uid, pinhole_uid_is_used" in pinhole_backend
+          assert "miniupnpd_pinhole_parse_remote_ipv6(rem_host, &source_address" in pinhole_add
+          assert "miniupnpd_pinhole_parse_internal_ipv6(int_client" in pinhole_add
+          assert "if (!wildcard_source)" in pinhole_add
+          assert "miniupnpd_pinhole_parse_remote_ipv6(rem_host, &saddr" in pinhole_find
+          assert "miniupnpd_pinhole_parse_internal_ipv6(int_client, &daddr)" in pinhole_find
+          assert pinhole_add.index("prepare_pinhole_list_entry(") < pinhole_add.index("ip6tc_init_verify_append(") < pinhole_add.index("publish_pinhole_list_entry(")
+          commit_call = pinhole_append.index("ip6tc_commit(h)")
+          assert commit_call < pinhole_append.index("ip6tc_free(h);", commit_call) < pinhole_append.index("return 0;", commit_call)
+          assert "if (!match)" in pinhole_match
+          assert "if (!target)" in pinhole_target
+          for marker in (
+              "miniupnpd_pinhole_find_free_uid",
+              "miniupnpd_pinhole_parse_remote_ipv6",
+              "miniupnpd_pinhole_parse_internal_ipv6",
+              "candidate > 65535",
+              "errno = ENOSPC",
+          ):
+              assert marker in pinhole_policy, marker
+          for marker in (
+              "test_uid_selection",
+              "test_uid_wraparound",
+              "test_uid_space_exhausted",
+              "test_wildcard_remote_hosts",
+              "test_specific_remote_host",
+              "test_invalid_remote_host",
+              "test_internal_client_validation",
+              "MiniUPnP IPv6 pinhole policy: PASS",
+          ):
+              assert marker in pinhole_test, marker
+          assert "iptpinhole_policy_test.c" in workflow
           assert "upnpsoap.o: getconnstatus.h upnpurns.h upnpsoap_input_policy.h" in miniupnpd_makefile
           assert "upnpsoap_input_policy_test.c" in workflow
 
