@@ -1,3 +1,11 @@
+## 2026-11-20 — Snapshot WAN IPv4 metadata before NVRAM cache invalidation
+
+- Parent main SHA: `c0c2ff55628dab5fdceb78695202c58a1a044bfe`. The WAN-up callback fetched `ipaddr`, `netmask`, and `gateway` as cache-backed pointers; the subsequent checked `wanx_gateway` write could invalidate the shared NVRAM cache, but the optional post-WAN hook still dereferenced the old `wan_addr` pointer at function end. The three sequential reads also retained pointers across later NVRAM lookups.
+- Added a bounded alias-safe text-copy policy and regression for cache invalidation, exact IPv4-length values, missing values, overflow rejection, invalid destinations, and source/destination aliasing. WAN-up now copies each IPv4 field immediately after its getter, before the next read; malformed values are never truncated, invalid gateway snapshots cannot create gateway-dependent routes, and the post-WAN hook is skipped if its address snapshot is invalid.
+- Extended the WAN route source checker and duplicated embedded workflow contract. Existing WAN Actions compile/run the policy regression under GNU89, `-Werror`, ASan and UBSan. No MIPS firmware or router result is claimed yet.
+
+---
+
 ## 2026-11-20 — Align WAN route workflow's IPv6 teardown contract with checked metadata writes
 
 - Parent main SHA: `6a5f2be3e590ecca6712a60b61612bf82e537b5d`. WAN route operation-status run `44709970108` passed its GNU89/ASan/UBSan policy executables and reached the embedded source audit, then failed because it still required direct unchecked `set_wan_unit_value(..., "dns6"/"ifname6", "")` writes in `wan6_down()`.

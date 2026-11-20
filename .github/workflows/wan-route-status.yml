@@ -668,6 +668,9 @@ jobs:
           snapshot_positions = [snapshot_helper.index('"' + key + '"') for key in snapshot_keys]
           assert snapshot_positions == sorted(snapshot_positions)
           assert "fields, 4," in snapshot_helper
+          assert "rc_wan_nvram_copy_text(" in nvram_snapshot_policy
+          assert "memmove(destination, source, length + 1)" in nvram_snapshot_policy
+          assert "test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation" in nvram_snapshot_test
           copy_snapshot = body(nvram_snapshot_policy, "rc_wan_nvram_copy_snapshot(")
           assert "rc_wan_nvram_copy_value(" in copy_snapshot
           assert "end_transaction(context)" in copy_snapshot
@@ -802,7 +805,11 @@ jobs:
 
           wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
           assert "static int" + chr(10) + "wan_up_internal(" in wan
-          assert "gateway_valid = is_valid_ipv4(wan_gate);" in wan_up
+          assert "gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);" in wan_up
+          assert "rc_wan_nvram_copy_text" in wan_up
+          assert "wan_addr_status != 0" in wan_up
+          assert "skipping WAN post-up script" in wan_up
+          assert "if (wan_gate)" not in wan_up
           assert "ppp_index = ppp_ifindex(wan_ifname);" in wan_up
           assert "gateway_off_subnet = gateway_valid && ppp_index < 0 &&" in wan_up
           assert "route_status_wan_gateway_host_route_required(gateway_valid,ppp_index,gateway_off_subnet)" in "".join(wan_up.split())

@@ -836,6 +836,29 @@ require("cleanup_status = man_down_internal(wan_ifname, unit, reset_man_address)
 
 
 wan_up = body(wan, "wan_up_internal(char *wan_ifname, int unit, int is_static)")
+require("char wan_cnt[32], wan_addr[16], wan_mask[16], wan_gate[16];" in wan_up,
+        "WAN-up must retain IPv4 NVRAM metadata in local bounded buffers")
+for copy_statement in (
+    'wan_addr_status = rc_wan_nvram_copy_text( get_wan_unit_value(unit, "ipaddr"), wan_addr, sizeof(wan_addr));',
+    'wan_mask_status = rc_wan_nvram_copy_text( get_wan_unit_value(unit, "netmask"), wan_mask, sizeof(wan_mask));',
+    'wan_gate_status = rc_wan_nvram_copy_text( get_wan_unit_value(unit, "gateway"), wan_gate, sizeof(wan_gate));',
+):
+    require(copy_statement in " ".join(wan_up.split()),
+            "WAN-up must copy every rotating-cache address field before the next read: " + copy_statement)
+copy_positions = [wan_up.index('wan_addr_status = rc_wan_nvram_copy_text('),
+                  wan_up.index('wan_mask_status = rc_wan_nvram_copy_text('),
+                  wan_up.index('wan_gate_status = rc_wan_nvram_copy_text(')]
+require(copy_positions == sorted(copy_positions) and
+        wan_up.index("wan_gate_status = rc_wan_nvram_copy_text(") <
+        wan_up.index("route_status = set_nvram_snapshot_value_status("),
+        "WAN-up must snapshot all cache-backed IPv4 fields before NVRAM mutation")
+require("if (wan_addr_status != 0)" in wan_up and
+        "skipping WAN post-up script" in wan_up and
+        'eval(script_postw, "up", wan_ifname, wan_addr)' in wan_up,
+        "post-WAN hook must consume stable address storage and fail closed on invalid snapshots")
+require("if (wan_gate)" not in wan_up and
+        "if (gateway_valid)" in wan_up,
+        "WAN gateway decisions must use the validated snapshot status, not stale pointers")
 gateway_publish = 'route_status = set_nvram_snapshot_value_status(\n\t\t\tNULL, "wanx_gateway",'
 gateway_gate = 'if (route_status != 0)'
 require(gateway_publish in wan_up and gateway_gate in wan_up,

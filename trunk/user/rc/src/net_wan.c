@@ -3795,11 +3795,12 @@ man_down(char *man_ifname, int unit)
 static int
 wan_up_internal(char *wan_ifname, int unit, int is_static)
 {
-	char wan_cnt[32], *wan_addr, *wan_mask, *wan_gate;
+	char wan_cnt[32], wan_addr[16], wan_mask[16], wan_gate[16];
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
 	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status;
+	int wan_addr_status, wan_mask_status, wan_gate_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
 #endif
@@ -3820,15 +3821,33 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		set_wan_unit_value(unit, "bytes_tx", wan_cnt);
 	}
 
-	wan_addr = get_wan_unit_value(unit, "ipaddr");
-	wan_mask = get_wan_unit_value(unit, "netmask");
-	wan_gate = get_wan_unit_value(unit, "gateway");
+	/* Copy each rotating-cache value before the next NVRAM read. */
+	wan_addr_status = rc_wan_nvram_copy_text(
+		get_wan_unit_value(unit, "ipaddr"), wan_addr, sizeof(wan_addr));
+	if (wan_addr_status != 0) {
+		logmessage(LOGNAME, "failed to snapshot WAN IPv4 address (status=%d)",
+			   wan_addr_status);
+		status = route_status_accumulate(status, wan_addr_status);
+	}
+	wan_mask_status = rc_wan_nvram_copy_text(
+		get_wan_unit_value(unit, "netmask"), wan_mask, sizeof(wan_mask));
+	if (wan_mask_status != 0) {
+		logmessage(LOGNAME, "failed to snapshot WAN IPv4 netmask (status=%d)",
+			   wan_mask_status);
+		status = route_status_accumulate(status, wan_mask_status);
+	}
+	wan_gate_status = rc_wan_nvram_copy_text(
+		get_wan_unit_value(unit, "gateway"), wan_gate, sizeof(wan_gate));
+	if (wan_gate_status != 0) {
+		logmessage(LOGNAME, "failed to snapshot WAN IPv4 gateway (status=%d)",
+			   wan_gate_status);
+		status = route_status_accumulate(status, wan_gate_status);
+	}
 
-	gateway_valid = is_valid_ipv4(wan_gate);
-	if (!gateway_valid)
-		wan_gate = NULL;
+	gateway_valid = wan_gate_status == 0 && is_valid_ipv4(wan_gate);
 	ppp_index = ppp_ifindex(wan_ifname);
 	gateway_off_subnet = gateway_valid && ppp_index < 0 &&
+		wan_addr_status == 0 && wan_mask_status == 0 &&
 		!is_same_subnet(wan_gate, wan_addr, wan_mask);
 
 	/* Set the same off-subnet gateway host route that WAN teardown removes. */
@@ -3842,7 +3861,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	}
 
 	/* default route via default gateway */
-	if (wan_gate) {
+	if (gateway_valid) {
 		route_status = route_add(wan_ifname, 1, "0.0.0.0", wan_gate, "0.0.0.0");
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)
@@ -3854,7 +3873,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	/* hack: avoid routing cycles, when both peer and server has the same IP (for PPTP or L2TP) */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_PPTP || wan_proto == IPV4_WAN_PROTO_L2TP)) {
 		/* delete gateway route as it's no longer needed */
-		if (wan_gate)
+		if (gateway_valid)
 			route_del(wan_ifname, 0, wan_gate, "0.0.0.0", "255.255.255.255");
 	}
 #endif
@@ -3870,7 +3889,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	/* Publish the global MAN gateway before static routes use it as a fallback. */
 	if (!modem_unit_id && (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)) {
 		route_status = set_nvram_snapshot_value_status(
-			NULL, "wanx_gateway", (wan_gate) ? wan_gate : "0.0.0.0");
+			NULL, "wanx_gateway", gateway_valid ? wan_gate : "0.0.0.0");
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0) {
 			logmessage(LOGNAME,
@@ -3983,7 +4002,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		}
 	}
 
-	if (wan_gate)
+	if (gateway_valid)
 		control_wan_led_isp_state(1, modem_unit_id);
 
 	/* DI wakeup after 2 secs; retain launch/inventory/signal errors. */
@@ -3992,13 +4011,19 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	if (route_status != 0)
 		logmessage(LOGNAME, "WAN Internet monitor notification incomplete (status=%d)", route_status);
 
-	/* Call the optional post-WAN hook and preserve its exit status. */
+	/* Only invoke the optional hook with a complete, stable IPv4 snapshot. */
 	if (check_if_file_exist(script_postw)) {
-		route_status = eval(script_postw, "up", wan_ifname, wan_addr);
-		status = route_status_accumulate(status, route_status);
-		if (route_status != 0)
-			logmessage(LOGNAME, "WAN post-up script incomplete on %s (status=%d)",
-				   wan_ifname, route_status);
+		if (wan_addr_status != 0) {
+			logmessage(LOGNAME,
+				   "skipping WAN post-up script because the IPv4 address snapshot is invalid (status=%d)",
+				   wan_addr_status);
+		} else {
+			route_status = eval(script_postw, "up", wan_ifname, wan_addr);
+			status = route_status_accumulate(status, route_status);
+			if (route_status != 0)
+				logmessage(LOGNAME, "WAN post-up script incomplete on %s (status=%d)",
+					   wan_ifname, route_status);
+		}
 	}
 #if defined(APP_ZEROTIER)
 	if (nvram_match("zerotier_enable", "1")) {

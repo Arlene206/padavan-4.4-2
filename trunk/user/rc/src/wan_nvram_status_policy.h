@@ -31,6 +31,33 @@ typedef int (*rc_wan_nvram_get_fn)(void *context,
 					 char **value);
 
 /*
+ * Copy a cache-backed or caller-owned string into stable storage before an
+ * NVRAM write can invalidate the source. A missing value is an empty string;
+ * never truncate a value into a different network address or identifier.
+ */
+static inline int
+rc_wan_nvram_copy_text(const char *source, char *destination,
+		       size_t destination_size)
+{
+	size_t length;
+
+	if (!destination || destination_size == 0)
+		return EINVAL;
+	if (!source)
+		source = "";
+
+	length = strlen(source);
+	if (length >= destination_size) {
+		destination[0] = '\0';
+		return ENAMETOOLONG;
+	}
+
+	memmove(destination, source, length + 1);
+	return 0;
+}
+
+
+/*
  * Copy one checked value before the next cache-backed NVRAM read. A missing
  * key is an empty setting; a backend failure or truncation is never hidden.
  * Callers that need a coherent tuple must hold a transaction around the reads.

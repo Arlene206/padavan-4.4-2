@@ -382,6 +382,43 @@ test_checked_nvram_copy_survives_shared_cache_overwrite(void)
 }
 
 static void
+test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation(void)
+{
+	char cache_slot[32] = "198.51.100.27";
+	char destination[16] = "stale";
+
+	assert(rc_wan_nvram_copy_text(cache_slot, destination,
+				      sizeof(destination)) == 0);
+	assert(strcmp(destination, "198.51.100.27") == 0);
+
+	/* Model nvram_set_temp() invalidating the shared cache storage. */
+	memset(cache_slot, 'x', sizeof(cache_slot));
+	cache_slot[sizeof(cache_slot) - 1] = '\0';
+	assert(strcmp(destination, "198.51.100.27") == 0);
+
+	assert(rc_wan_nvram_copy_text("255.255.255.255", destination,
+				      sizeof(destination)) == 0);
+	assert(strcmp(destination, "255.255.255.255") == 0);
+	assert(rc_wan_nvram_copy_text(NULL, destination,
+				      sizeof(destination)) == 0);
+	assert(destination[0] == '\0');
+
+	strcpy(destination, "stale");
+	assert(rc_wan_nvram_copy_text("255.255.255.255x", destination,
+				      sizeof(destination)) == ENAMETOOLONG);
+	assert(destination[0] == '\0');
+	assert(rc_wan_nvram_copy_text("192.0.2.1", NULL, 16) == EINVAL);
+	assert(rc_wan_nvram_copy_text("192.0.2.1", destination, 0) == EINVAL);
+
+	/* The helper is also safe when source and destination are identical. */
+	strcpy(destination, "192.0.2.1");
+	assert(rc_wan_nvram_copy_text(destination, destination,
+				      sizeof(destination)) == 0);
+	assert(strcmp(destination, "192.0.2.1") == 0);
+}
+
+
+static void
 test_checked_nvram_copy_treats_missing_key_as_empty(void)
 {
 	struct fake_nvram_reader fake;
@@ -701,6 +738,7 @@ main(void)
 	test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error();
 	test_all_value_sequence_validates_before_writing();
 	test_checked_nvram_copy_survives_shared_cache_overwrite();
+	test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation();
 	test_checked_nvram_copy_treats_missing_key_as_empty();
 	test_checked_nvram_copy_preserves_backend_failure();
 	test_checked_nvram_copy_rejects_truncation();
