@@ -259,11 +259,19 @@ void store_ip6rd_from_dhcp(const char *env_value, const char *prefix)
 	nvram_set_temp(strcat_r(prefix, "6rd_relay", tmp), values[3]);
 }
 
+static int
+wan6_dns_set_status(void *context, const char *dns_value)
+{
+	(void)context;
+	return set_wan_unit_value_status(0, "dns6", dns_value);
+}
+
 int store_wan_dns6(char *dns6_new)
 {
 	char dns6s[INET6_ADDRSTRLEN*3+8] = {0};
 	char *dns6_old;
 	size_t dns6_len = dns6_new ? strlen(dns6_new) : 0;
+	int status;
 
 	/* A missing option means the server withdrew its automatic DNS list. */
 	if (dns6_len >= sizeof(dns6s)) {
@@ -275,12 +283,17 @@ int store_wan_dns6(char *dns6_new)
 	trim_r(dns6s);
 
 	dns6_old = get_wan_unit_value(0, "dns6");
-	if (wan6_dns_update_required(dns6_old, dns6s)) {
-		set_wan_unit_value(0, "dns6", dns6s);
-		return 1;
+	status = wan6_dns_store_if_changed(dns6_old, dns6s,
+					  wan6_dns_set_status, NULL);
+	if (status < 0) {
+		errno = -status;
+		logmessage("WAN IPv6",
+			   "failed to publish DHCPv6 DNS state (status=%d)",
+			   status);
+		return -1;
 	}
 
-	return 0;
+	return status;
 }
 
 char *get_wan_addr6_host(char *p_addr6s)

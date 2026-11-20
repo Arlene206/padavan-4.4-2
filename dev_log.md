@@ -1,3 +1,12 @@
+## 2026-11-20 — Propagate DHCPv6 DNS metadata publication failures
+
+- Parent main SHA: `2a6b5b3f0f77720aee236eaea17d63cd0a6ee568`. Found another unchecked critical NVRAM write in `store_wan_dns6()`: it returned `1` after calling the legacy void setter, even if NVRAM rejected a new DNS list or DHCPv6 DNS withdrawal. The callback could therefore report success while resolver metadata remained stale.
+- Added `wan6_dns_store_if_changed()`: it preserves the no-change path, reports a changed list only after the checked setter succeeds, and maps setter failures to negative errno-style results. The production callback sets `errno`, logs and returns `-1` on failure.
+- Added five GNU89 policy cases for successful changed-value publication, no-op unchanged values, withdrawal, NVRAM failure propagation and invalid writer. Extended the IPv6 semantic checker; its existing workflow already compiles this policy binary with ASan/UBSan.
+- This commit does not change DHCPv6 wire behavior or the existing DNS option parser; it only makes resolver-state publication fail closed.
+
+---
+
 ## 2026-11-20 — Snapshot WAN IPv4 metadata before NVRAM cache invalidation
 
 - Parent main SHA: `c0c2ff55628dab5fdceb78695202c58a1a044bfe`. The WAN-up callback fetched `ipaddr`, `netmask`, and `gateway` as cache-backed pointers; the subsequent checked `wanx_gateway` write could invalidate the shared NVRAM cache, but the optional post-WAN hook still dereferenced the old `wan_addr` pointer at function end. The three sequential reads also retained pointers across later NVRAM lookups.

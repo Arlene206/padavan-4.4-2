@@ -36,6 +36,22 @@ assert "if (dns6_len)\n\t\tmemcpy(dns6s, dns6_new, dns6_len);" in source
 assert 'dns6_new = getenv("new_domain_name_servers");' in source
 assert "callback_status = store_wan_dns6(dns6_new);" in source
 assert "if (callback_status > 0)" in source
+
+# DHCPv6 DNS publication is successful only when the checked NVRAM setter succeeds.
+dns_store = body(source, "int store_wan_dns6(")
+assert "wan6_dns_store_if_changed" in dns_store
+assert "wan6_dns_set_status" in dns_store
+assert "errno = -status;" in dns_store
+assert 'set_wan_unit_value(0, "dns6", dns6s);' not in dns_store
+assert 'set_wan_unit_value_status(0, "dns6", dns_value)' in source
+for case in (
+    "test_dns_store_publishes_changed_value",
+    "test_dns_store_skips_unchanged_value",
+    "test_dns_store_publishes_withdrawal",
+    "test_dns_store_propagates_nvram_failure",
+    "test_dns_store_rejects_missing_writer",
+):
+    assert case in test and case + "();" in test
 assert "if (callback_status < 0)" in source
 assert "errno = saved_errno;" in source
 assert "return callback_status;" in source
