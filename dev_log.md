@@ -1,3 +1,13 @@
+## 2026-11-20 — Propagate DHCP pool NVRAM write failures atomically
+
+- Parent main SHA: `6415d3efde51db293a1d8afd8ca8cbd1eec9bc1c`.
+- `prepare_dns_dhcpd()` previously discarded both integer results from `nvram_set("dhcp_start", ...)` and `nvram_set("dhcp_end", ...)` after correcting a pool that overlapped the router LAN address. A failed second write could leave mixed persistent values while DNSMasq continued using corrected local strings.
+- Added a callback-driven GNU89 policy helper that writes both values, restores both originals if either write fails, attempts both rollback operations, preserves the original errno after successful rollback, and reports EIO plus an explicit flag if rollback is incomplete. The production caller refuses DNSMasq preparation on any failed update.
+- Extended the DHCP-range host regression for success, first/second write failure and incomplete rollback; extended the DNSMasq inline source contract to enforce the production call site and regressions.
+- Parent `6415d3e`: ZeroTier lifecycle `44660670390` and AI docs `44660670309` PASS. Exact-head DNSMasq and XY-C1 checks for this production change are pending; L3/L4 remain unverified.
+
+---
+
 ## 2026-11-20 — Repair ZeroTier source checker and canonical handoff sections
 
 - Parent main SHA: `272c51644cdecef17d0a6b0891ce56014e93daa1`.

@@ -715,7 +715,31 @@ jobs:
           assert "assert(rename_fail_template[0] == '\\0');" in static_hosts_test
           assert "pool_status < 0" in prepare and "return EINVAL;" in prepare
           assert "pool_status > 0" in prepare
-          assert 'nvram_set("dhcp_start", dhcp_start)' in prepare
+          assert "dnsmasq_dhcp_range_store_nvram_pair" in range_policy
+          assert 'dnsmasq_dhcp_range_store_nvram_pair(old_dhcp_start, old_dhcp_end,' in prepare
+          assert "dhcp_start, dhcp_end, nvram_set," in prepare
+          assert "&pool_rollback_failed) != 0" in prepare
+          assert "cannot persist corrected DHCP pool; refusing DNSMasq preparation" in prepare
+          assert "DHCP pool NVRAM update failed and its rollback was incomplete" in prepare
+          assert 'nvram_set("dhcp_start", dhcp_start)' not in prepare
+          assert 'nvram_set("dhcp_end", dhcp_end)' not in prepare
+          for token in (
+              'set_value("dhcp_start", new_start)',
+              'set_value("dhcp_end", new_end)',
+              'set_value("dhcp_end", old_end)',
+              'set_value("dhcp_start", old_start)',
+              "rollback_failed",
+              "errno = rollback_status ? EIO : saved_errno",
+          ):
+              assert token in range_policy, token
+          for test_case in (
+              "test_nvram_pair_update_success",
+              "test_nvram_pair_second_write_rolls_back",
+              "test_nvram_pair_first_write_rolls_back",
+              "test_nvram_pair_reports_incomplete_rollback",
+          ):
+              assert test_case in range_test
+          assert 'nvram_set("dhcp_start", dhcp_start)' not in prepare
           assert "hostmask >= 3U" in range_policy
           assert "lan_ip >= pool_start && lan_ip <= pool_end" in range_policy
           for test_case in ("test_configured_pool_conflicts", "test_default_pool_excludes_router", "test_invalid_subnets_fail_closed"):

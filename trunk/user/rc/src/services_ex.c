@@ -656,10 +656,11 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 {
 	FILE *fp;
 	int i_verbose, i_dhcp_enable, is_dhcp_used, is_dns_used;
-	int saved_errno, validation_errno, pool_status;
+	int saved_errno, validation_errno, pool_status, pool_rollback_failed;
 	int resolv_create_status, resolv_status;
 	char config_path[] = "/etc/dnsmasq.conf.XXXXXX";
-	char dhcp_start[32], dhcp_end[32], dns_all[64], dnsv6[40];
+	char dhcp_start[32], dhcp_end[32], old_dhcp_start[32], old_dhcp_end[32];
+	char dns_all[64], dnsv6[40];
 	char *ipaddr, *netmask, *gw, *dns1, *dns2, *dns3, *wins, *domain, *dns6, *dns61;
 	const char *storage_dir = "/etc/storage/dnsmasq";
 
@@ -689,6 +690,8 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 	if (i_dhcp_enable) {
 		snprintf(dhcp_start, sizeof(dhcp_start), "%s", nvram_safe_get("dhcp_start"));
 		snprintf(dhcp_end, sizeof(dhcp_end), "%s", nvram_safe_get("dhcp_end"));
+		snprintf(old_dhcp_start, sizeof(old_dhcp_start), "%s", dhcp_start);
+		snprintf(old_dhcp_end, sizeof(old_dhcp_end), "%s", dhcp_end);
 		pool_status = chk_valid_subnet_pool(ipaddr, dhcp_start, dhcp_end, netmask);
 		if (pool_status < 0) {
 			logmessage(LOGNAME, "refusing DNSMasq DHCP configuration with invalid LAN IPv4 subnet");
@@ -696,8 +699,18 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			return EINVAL;
 		}
 		if (pool_status > 0) {
-			nvram_set("dhcp_start", dhcp_start);
-			nvram_set("dhcp_end", dhcp_end);
+			pool_rollback_failed = 0;
+			if (dnsmasq_dhcp_range_store_nvram_pair(old_dhcp_start, old_dhcp_end,
+							 dhcp_start, dhcp_end, nvram_set,
+							 &pool_rollback_failed) != 0) {
+				saved_errno = errno ? errno : EIO;
+					if (pool_rollback_failed)
+						logmessage(LOGNAME, "DHCP pool NVRAM update failed and its rollback was incomplete (errno=%d)", saved_errno);
+					else
+						logmessage(LOGNAME, "cannot persist corrected DHCP pool; refusing DNSMasq preparation (errno=%d)", saved_errno);
+					errno = saved_errno;
+					return saved_errno;
+			}
 			logmessage(LOGNAME, "adjusted DHCP pool to exclude the router LAN address");
 		}
 	}
