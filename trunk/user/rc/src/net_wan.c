@@ -4284,6 +4284,13 @@ full_restart_wan(void)
 	}
 	status = phy_clear_mac_table();
 	if (status != 0) {
+		status = rc_wan_restore_lan_routes_after_failed_step(
+			status, IFNAME_BR, add_static_lan_routes,
+			&static_lan_route_status);
+		if (static_lan_route_status != 0)
+			logmessage(LOGNAME,
+				   "static LAN route restoration also failed after switch MAC table clear error (status=%d)",
+				   static_lan_route_status);
 		logmessage(LOGNAME, "aborting full WAN restart because switch MAC table could not be cleared (status=%d)",
 			   status);
 		return status;

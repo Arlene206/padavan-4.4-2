@@ -1,3 +1,11 @@
+## 2026-11-20 — Restore LAN static routes when switch MAC-table cleanup aborts WAN restart
+
+- Parent main SHA: `2fb6879b0088fbd2d399b05865215e33f00d8d60`. Confirmed an uncovered failure path in `full_restart_wan()`: after both WAN and bridge routes plus the global route cache are successfully flushed, `phy_clear_mac_table()` can fail and return immediately. Unlike the later WAN protocol-reset failure branch, this early abort did not restore the static LAN routes removed by the preceding flush.
+- Generalized the existing first-error route-recovery policy into `rc_wan_restore_lan_routes_after_failed_step()`, retaining the reset-specific wrapper for compatibility. The MAC-table failure branch now attempts `add_static_lan_routes(IFNAME_BR)` before aborting, logs a secondary route-recovery error separately and preserves the original MAC-table status.
+- Extended the GNU89 policy regression for successful recovery, failed recovery/first-error preservation, zero-status no-op and invalid callback behavior. Updated the WAN semantic contract to require the MAC-clear recovery order and both failure logs. No target hardware or MIPS build is claimed by this host-source slice.
+
+---
+
 ## 2026-11-20 — Correct integration fixture line endings after CI caught escaped literals
 
 - Parent main SHA: `42b65bc59418e3ff4b36a6d81db1c9f1d19e6134`. The eight-case customization workflow `44705796914` ran all six transaction-helper tests and the same-path fail-closed integration case successfully; the end-to-end LAN-IP fixture failed because its Python test source contained literal backslash-`n` sequences, so the fixture did not contain distinct `#define` lines. Production code did not fail.

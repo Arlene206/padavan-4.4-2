@@ -167,6 +167,47 @@ test_failed_reset_restores_lan_routes_and_preserves_first_error(void)
 }
 
 static void
+test_failed_step_restores_lan_routes_and_preserves_first_error(void)
+{
+	int restore_status;
+	int status;
+
+	/* A successful route repair must not hide the original MAC-table error. */
+	reset_case(0, 0);
+	status = rc_wan_restore_lan_routes_after_failed_step(
+		EIO, "br0", mock_restore_static_lan_routes, &restore_status);
+	assert(status == EIO);
+	assert(restore_status == 0);
+	assert(mock_route_restore_calls == 1);
+	assert(strcmp(mock_route_restore_ifname, "br0") == 0);
+
+	/* A route repair failure is reported separately; the primary error wins. */
+	reset_case(0, 0);
+	mock_route_restore_status = EPERM;
+	status = rc_wan_restore_lan_routes_after_failed_step(
+		EIO, "br0", mock_restore_static_lan_routes, &restore_status);
+	assert(status == EIO);
+	assert(restore_status == EPERM);
+	assert(mock_route_restore_calls == 1);
+
+	/* A zero primary status never invokes the recovery callback. */
+	reset_case(0, 0);
+	status = rc_wan_restore_lan_routes_after_failed_step(
+		0, "br0", mock_restore_static_lan_routes, &restore_status);
+	assert(status == 0);
+	assert(restore_status == 0);
+	assert(mock_route_restore_calls == 0);
+
+	/* Invalid recovery metadata is reported without masking the primary. */
+	reset_case(0, 0);
+	status = rc_wan_restore_lan_routes_after_failed_step(
+		EIO, "br0", NULL, &restore_status);
+	assert(status == EIO);
+	assert(restore_status == EINVAL);
+	assert(mock_route_restore_calls == 0);
+}
+
+static void
 test_invalid_policy_arguments_fail_closed(void)
 {
 	char *ifnames[] = { "eth3" };
@@ -185,6 +226,7 @@ main(void)
 	test_invalid_interface_does_not_skip_other_cleanup();
 	test_global_cache_flush_is_attempted_and_errors_are_preserved();
 	test_failed_reset_restores_lan_routes_and_preserves_first_error();
+	test_failed_step_restores_lan_routes_and_preserves_first_error();
 	test_invalid_policy_arguments_fail_closed();
 	puts("WAN route flush attempt and first-error policy: PASS");
 	return 0;

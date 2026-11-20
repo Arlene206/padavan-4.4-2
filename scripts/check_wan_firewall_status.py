@@ -283,19 +283,44 @@ require(reset_gate in start and start.index(reset_gate) < sysctl_start and
         "WAN startup must stop before any setup side effect when protocol staging failed")
 restore_policy = body(route_policy, "rc_wan_restore_lan_routes_after_failed_reset(")
 for marker in (
-    "if (reset_status == 0)",
-    "route_status = restore(lan_ifname);",
-    "if (restore_status)",
-    "return rc_first_service_start_status(reset_status, route_status);",
+    "return rc_wan_restore_lan_routes_after_failed_step(",
+    "reset_status, lan_ifname, restore, restore_status",
 ):
     require(marker in restore_policy,
-            f"failed protocol reset route-recovery policy must preserve {marker}")
-require("test_failed_reset_restores_lan_routes_and_preserves_first_error" in route_policy_test and
-        "test_failed_reset_restores_lan_routes_and_preserves_first_error();" in route_policy_test,
-        "WAN reset route recovery must have a registered injected regression")
+            f"reset route-recovery compatibility wrapper must preserve {marker}")
+restore_step_policy = body(route_policy, "rc_wan_restore_lan_routes_after_failed_step(")
+for marker in (
+    "if (primary_status == 0)",
+    "route_status = restore(lan_ifname);",
+    "if (restore_status)",
+    "return rc_first_service_start_status(primary_status, route_status);",
+):
+    require(marker in restore_step_policy,
+            f"failed-step route-recovery policy must preserve {marker}")
+for case in (
+    "test_failed_reset_restores_lan_routes_and_preserves_first_error",
+    "test_failed_step_restores_lan_routes_and_preserves_first_error",
+):
+    require(case in route_policy_test and case + "();" in route_policy_test,
+            "WAN route recovery must have a registered injected regression: " + case)
 
 full_restart = body(wan, "full_restart_wan(void)")
+mac_clear_at = full_restart.index("status = phy_clear_mac_table();")
+mac_clear_gate = full_restart.index("if (status != 0)", mac_clear_at)
+mac_route_restore = full_restart.index(
+    "status = rc_wan_restore_lan_routes_after_failed_step(", mac_clear_gate)
+mac_route_restore_check = full_restart.index(
+    "if (static_lan_route_status != 0)", mac_route_restore)
+mac_abort = full_restart.index("return status;", mac_route_restore_check)
 reset_proto_at = full_restart.index("reset_status = reset_wan_vars_status();")
+require(mac_clear_at < mac_clear_gate < mac_route_restore <
+        mac_route_restore_check < mac_abort < reset_proto_at,
+        "a failed switch MAC-table clear after route flush must restore LAN static routes before aborting")
+require("static LAN route restoration also failed after switch MAC table clear error" in
+        full_restart[mac_route_restore_check:mac_abort] and
+        "aborting full WAN restart because switch MAC table could not be cleared" in
+        full_restart[mac_route_restore_check:mac_abort],
+        "MAC-table and route-restoration failures must both be logged without replacing the primary status")
 reset_proto_gate = full_restart.index("if (reset_status != 0)", reset_proto_at)
 lan_restore = full_restart.index("status = rc_wan_restore_lan_routes_after_failed_reset(", reset_proto_gate)
 lan_restore_check = full_restart.index("if (static_lan_route_status != 0)", lan_restore)
