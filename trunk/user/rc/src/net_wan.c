@@ -2728,8 +2728,9 @@ start_wan(void)
 						wan_start_status, vlan_result);
 					continue;
 				}
-				set_wan_unit_value(unit, "proto_t", "RAS Modem");
-				vlan_result = set_wan_unit_value_status(unit, "ifname_t", ppp_ifname);
+				vlan_result = rc_wan_nvram_publish_runtime_identity(
+					set_wan_unit_value_status_callback, &unit,
+					"RAS Modem", ppp_ifname);
 				if (vlan_result != 0) {
 					wan_start_status = rc_first_service_start_status(
 						wan_start_status, vlan_result);
@@ -2823,8 +2824,9 @@ start_wan(void)
 					   unit, vlan_result);
 				continue;
 			}
-			set_wan_unit_value(unit, "proto_t", proto_desc);
-			vlan_result = set_wan_unit_value_status(unit, "ifname_t", ppp_ifname);
+			vlan_result = rc_wan_nvram_publish_runtime_identity(
+				set_wan_unit_value_status_callback, &unit,
+				proto_desc, ppp_ifname);
 			if (vlan_result != 0) {
 				wan_start_status = rc_first_service_start_status(
 					wan_start_status, vlan_result);
@@ -2943,8 +2945,9 @@ start_wan(void)
 					   unit, vlan_result);
 				continue;
 			}
-			set_wan_unit_value(unit, "proto_t", "IPoE");
-			vlan_result = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);
+			vlan_result = rc_wan_nvram_publish_runtime_identity(
+				set_wan_unit_value_status_callback, &unit,
+				"IPoE", wan_ifname);
 			if (vlan_result != 0) {
 				wan_start_status = rc_first_service_start_status(
 					wan_start_status, vlan_result);

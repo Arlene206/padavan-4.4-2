@@ -1,3 +1,14 @@
+## 2026-11-20 — Check WAN runtime protocol/interface identity writes
+
+- Parent main SHA: 9230dacb50d48f003649dfb06e15a3e63d99f15f.
+- Found three unchecked `set_wan_unit_value(..., "proto_t", ...)` writes in `start_wan()`: USB RAS, ordinary PPP and IPoE. Each occurred immediately before the checked `ifname_t` publication, so a failed protocol marker write could leave stale runtime metadata while startup advanced.
+- Added `rc_wan_nvram_publish_runtime_identity()` as a checked, ordered pair publisher and replaced all three callsites. The caller retains the existing fail-closed physical-WAN recovery when either write fails.
+- Added policy coverage for successful publication, failure of the first or second write, and invalid arguments; extended source contracts to require all three branches and reject unchecked `proto_t` writes.
+- Fixed the stale WAN-reset contract in the same checker: the legacy void ABI is retained and the checked reset implementation remains private; PID 1 uses the public read-only status accessor.
+- Exact-head WAN-route, Process, AI-docs and XY-C1 verification for this slice is pending at commit creation. No L3/L4 claim.
+
+---
+
 ## 2026-11-20 — Preserve WAN reset ABI while exposing PID 1 result
 
 - Parent main SHA: 6bc3495b402f8ad4818ce9ecbc58bfc57f34ae7a.

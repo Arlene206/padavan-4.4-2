@@ -205,6 +205,7 @@ ppp = (RC / "net_ppp.c").read_text()
 ppp_ipup_policy = (RC / "ppp_wan_ipup_policy.h").read_text()
 ppp_ipup_test = (RC / "tests/ppp_wan_ipup_policy.c").read_text()
 header = (RC / "rc.h").read_text()
+wan_nvram_policy = (RC / "wan_nvram_status_policy.h").read_text()
 policy = (RC / "service_start_status.h").read_text()
 policy_test = (RC / "tests/service_start_status.c").read_text()
 route_policy = (RC / "wan_route_flush_policy.h").read_text()
@@ -248,8 +249,8 @@ for marker in (
 start = body(wan, "start_wan(void)")
 
 # Protocol selection must never consume a stale wanN_proto after a failed
-# copy from the configured wan_proto key. Preserve the public void
-# reset_wan_vars() ABI, but retain a private failure latch for boot callers.
+# copy from the configured wan_proto key. Keep reset_wan_vars() as the legacy
+# ABI and expose only the narrow read-only failure latch to PID 1.
 reset = body(wan, "reset_wan_vars_status(void)")
 proto_write = 'proto_status = set_wan_unit_value_status(\n\t\tunit, "proto", nvram_safe_get("wan_proto"));'
 proto_failure = "if (proto_status != 0)"
@@ -275,6 +276,40 @@ require("(void)reset_wan_vars_status();" in reset_wrapper,
 require("void reset_wan_vars(void);" in header and
         "int reset_wan_vars_status" not in header,
         "preserve public reset_wan_vars ABI")
+# WAN runtime protocol/interface identity is one checked, ordered operation.
+identity_publisher = body(
+    wan_nvram_policy, "rc_wan_nvram_publish_runtime_identity("
+)
+identity_publisher_normalized = " ".join(identity_publisher.split())
+require('"proto_t"' in identity_publisher_normalized and
+        '"ifname_t"' in identity_publisher_normalized and
+        identity_publisher_normalized.index('"proto_t"') <
+        identity_publisher_normalized.index('"ifname_t"') and
+        "rc_wan_nvram_set_required_values(" in identity_publisher_normalized,
+        "WAN runtime identity must publish checked protocol before interface")
+runtime_identity_markers = (
+    'rc_wan_nvram_publish_runtime_identity( set_wan_unit_value_status_callback, &unit, "RAS Modem", ppp_ifname);',
+    'rc_wan_nvram_publish_runtime_identity( set_wan_unit_value_status_callback, &unit, proto_desc, ppp_ifname);',
+    'rc_wan_nvram_publish_runtime_identity( set_wan_unit_value_status_callback, &unit, "IPoE", wan_ifname);',
+)
+start_normalized = " ".join(start.split())
+require(start_normalized.count("rc_wan_nvram_publish_runtime_identity(") == 3,
+        "USB RAS, PPP and IPoE must all publish a checked WAN identity pair")
+for marker in runtime_identity_markers:
+    require(marker in start_normalized,
+            "WAN runtime identity publisher missing for a protocol path")
+    call_at = start_normalized.index(marker)
+    call_tail = start_normalized[call_at + len(marker):]
+    require(call_tail.startswith(" if (vlan_result != 0)"),
+            "WAN runtime identity write failure must be handled immediately")
+    failure_body = body(start_normalized[call_at + len(marker):],
+                        "if (vlan_result != 0)")
+    require("restore_wan_after_firewall_failure(unit, wan_ifname);" in failure_body and
+            "continue;" in failure_body,
+            "WAN runtime identity failure must restore physical WAN before skipping activation")
+require('set_wan_unit_value(unit, "proto_t"' not in start,
+        "unchecked WAN runtime protocol publication remains")
+ 
 reset_getter = body(wan, "get_wan_vars_reset_status(void)")
 require("return wan_vars_reset_status;" in reset_getter and
         "int get_wan_vars_reset_status(void);" in header,

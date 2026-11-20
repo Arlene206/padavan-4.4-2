@@ -397,6 +397,52 @@ test_wan0_boot_values_stop_at_each_nvram_failure(void)
 }
 
 static void
+test_runtime_identity_publication_checks_both_writes(void)
+{
+	struct fake_value_copy fake;
+	unsigned int fail_at;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_publish_runtime_identity(
+		fake_set_value, &fake, "PPPoE", "ppp0") == 0);
+	assert(fake.calls == 2);
+	assert(strcmp(fake.copied_names[0], "proto_t") == 0);
+	assert(strcmp(fake.copied_values[0], "PPPoE") == 0);
+	assert(strcmp(fake.copied_names[1], "ifname_t") == 0);
+	assert(strcmp(fake.copied_values[1], "ppp0") == 0);
+
+	for (fail_at = 0; fail_at < 2; ++fail_at) {
+		memset(&fake, 0, sizeof(fake));
+		fake.fail_at = (int)fail_at;
+		fake.failure_status = ENOSPC;
+		assert(rc_wan_nvram_publish_runtime_identity(
+			fake_set_value, &fake, "IPoE", "eth2") == ENOSPC);
+		assert(fake.calls == fail_at + 1);
+		assert(strcmp(fake.copied_names[0], "proto_t") == 0);
+		if (fail_at == 0)
+			assert(fake.copied_names[1][0] == '\\0');
+		else {
+			assert(strcmp(fake.copied_names[1], "ifname_t") == 0);
+			assert(strcmp(fake.copied_values[1], "eth2") == 0);
+		}
+	}
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	assert(rc_wan_nvram_publish_runtime_identity(
+		fake_set_value, &fake, "", "ppp0") == EINVAL);
+	assert(fake.calls == 0);
+	assert(rc_wan_nvram_publish_runtime_identity(
+		fake_set_value, &fake, "PPPoE", "") == EINVAL);
+	assert(fake.calls == 0);
+	assert(rc_wan_nvram_publish_runtime_identity(
+		NULL, &fake, "PPPoE", "ppp0") == EINVAL);
+	assert(fake.calls == 0);
+}
+
+
+static void
 test_required_value_sequence_rejects_invalid_values(void)
 {
 	static const struct rc_wan_nvram_value empty_name[] = {
@@ -1043,6 +1089,7 @@ main(void)
 	test_wan0_default_copy_propagates_write_error();
 	test_wan0_default_copy_rejects_invalid_arguments();
 	test_required_value_sequence_rejects_invalid_values();
+	test_runtime_identity_publication_checks_both_writes();
 	test_wan6_reset_config_preserves_identity_when_required_write_fails();
 	test_wan6_reset_config_clears_identity_only_after_all_values_succeed();
 	test_all_value_sequence_attempts_every_write_and_preserves_first_error();

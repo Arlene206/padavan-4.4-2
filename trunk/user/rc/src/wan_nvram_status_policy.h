@@ -307,6 +307,34 @@ rc_wan_nvram_set_required_values(const struct rc_wan_nvram_value *values,
 
 
 /*
+ * Publish the protocol marker before the active interface identity. If the
+ * protocol write fails, do not publish an interface that would imply a usable
+ * WAN configuration with stale protocol metadata.
+ */
+static inline int
+rc_wan_nvram_publish_runtime_identity(rc_wan_nvram_value_set_fn set_value,
+				      void *context, const char *protocol,
+				      const char *ifname)
+{
+	static const char protocol_name[] = "proto_t";
+	static const char ifname_name[] = "ifname_t";
+	struct rc_wan_nvram_value values[2];
+
+	if (!set_value || !protocol || !protocol[0] || !ifname || !ifname[0])
+		return EINVAL;
+
+	values[0].param_name = protocol_name;
+	values[0].value = protocol;
+	values[1].param_name = ifname_name;
+	values[1].value = ifname;
+
+	return rc_wan_nvram_set_required_values(
+		values, (unsigned int)(sizeof(values) / sizeof(values[0])),
+		set_value, context);
+}
+
+
+/*
  * Clear independent runtime fields even after one write fails. Teardown must
  * still discard every stale route/DNS field while reporting the first error.
  */

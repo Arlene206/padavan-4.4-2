@@ -3458,21 +3458,18 @@ assert "status = set_wan0_vars();" in misc_init
 assert misc_init.index("status = set_wan0_vars();") < misc_init.index("set_usb_modem_dev_wan(0, 0);")
 assert "if (status != 0) return status;" in re.sub(r"\s+", " ", misc_init)
 net_wan_source = (root / "trunk/user/rc/src/net_wan.c").read_text()
+assert not re.search(r"static\s+int\s+reset_wan_vars_status\s*\(", net_wan_source)
 wan_reset_definition = c_function_body(net_wan_source, "reset_wan_vars_status(void)")
-assert "static int\nreset_wan_vars_status(void)" in net_wan_source
 assert "return proto_status;" in wan_reset_definition
-wan_reset_getter = c_function_body(net_wan_source, "get_wan_vars_reset_status(void)")
-assert "return wan_vars_reset_status;" in wan_reset_getter
-assert "int get_wan_vars_reset_status(void);" in rc_header
+assert "int reset_wan_vars_status(void);" in rc_header
 
-wan_reset_at = misc_init.index("reset_wan_vars();")
-wan_reset_status_at = misc_init.index("status = get_wan_vars_reset_status();")
-wan_reset_gate = misc_init[wan_reset_status_at:].split(
+wan_reset_at = misc_init.index("status = reset_wan_vars_status();")
+wan_reset_gate = misc_init.split(
     "if (status != 0)", 1
-)[1].split("/* Setup LAN identity", 1)[0]
+)[1].split("reset_lan_vars();", 1)[0]
 assert "return status;" in wan_reset_gate
-assert "reset_wan_vars_status();" not in misc_init
-assert wan_reset_at < wan_reset_status_at < misc_init.index("reset_lan_vars_status();")
+assert "reset_wan_vars();" not in misc_init
+assert wan_reset_at < misc_init.index("reset_lan_vars_status();")
 
 # LAN boot identity and runtime snapshot are checked operations. The cached
 # MAC/address strings are copied before a write can invalidate NVRAM storage.
