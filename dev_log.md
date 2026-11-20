@@ -1,3 +1,13 @@
+## 2026-11-19 — Include late boot preparation and autostart failures in PID 1 status
+
+- Found a caller-side status loss after the earlier FATAL/READY/DEGRADED change: `init_router()` logged but discarded `copyscripts.sh`'s return status even though the script explicitly returns failure when CA trust-store installation fails. The wait statuses for `/etc/storage/started_script.sh &` and `/usr/bin/autostart.sh &` were also log-only, and the boot aggregate summary ran before those calls.
+- The source follow-up adds all three statuses to `boot_services_status` using the first-error aggregator and moves the final aggregate log after the launch attempts. The two background command results represent shell launch/wait status, not successful child readiness; this distinction is preserved.
+- Added `copyscripts_ca_status.sh`: valid CA archive succeeds; invalid archive, missing CA bundle and uncreatable certificate directory fail; static checks ensure `copyscripts.sh` exits with its CA status. Local `sh -n` and shell regression passed (expected failure diagnostics are printed for negative cases).
+- Added the new test/script paths to Process push/PR triggers and the product script to XY-C1 inputs. Exact-head Process/HTTPD/AI docs and XY-C1 for the new source SHA remain pending.
+- Parent SHA `e8fb566f3a122f75c4f648543c2a7aa516b00316` has exact Process `44643316833`, HTTPD `44643316983`, AI docs `44643316847` PASS. XY-C1 `44643316929` was still in progress when recorded.
+
+---
+
 ## 2026-11-19 — Align PID 1 degraded-startup CI contracts
 
 - Exact-head Process run `44642485690` on `9ad1570`: the new GNU89/Werror/ASan/UBSan result-policy binary passed and the existing `dev_init.sh` shell regression passed; the Python integration checker then failed because its generic C parser still used the `init` buffer for brace scanning and return slicing when asked to parse `rc.c`. Corrected every parser read to use the supplied source buffer.

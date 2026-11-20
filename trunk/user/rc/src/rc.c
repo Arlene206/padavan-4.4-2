@@ -1250,21 +1250,27 @@ init_router(void)
 				   crontab_status);
 		}
 	}
-	if (boot_services_status != 0)
-		logmessage(LOGNAME,
-			   "one or more boot service startup operations failed (first status=%d)",
-			   boot_services_status);
 	// system ready
 	nvram_set_int("ntp_ready", 0);
 	/* Install the firmware CA trust store before autostart can launch AliDDNS. */
-	if (system("/usr/bin/copyscripts.sh") != 0)
-		logmessage(LOGNAME, "startup script/CA trust-store preparation failed");
+	{
+		int copyscripts_status = system("/usr/bin/copyscripts.sh");
+
+		if (copyscripts_status != 0)
+			logmessage(LOGNAME,
+				   "startup script/CA trust-store preparation failed (wait status=%d)",
+				   copyscripts_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, copyscripts_status);
+	}
 	if (check_if_file_exist("/etc/storage/started_script.sh")) {
 		int started_script_status = system("/etc/storage/started_script.sh &");
 
 		if (started_script_status != 0)
 			logmessage(LOGNAME, "persistent user startup script launch failed (wait status=%d)",
 				   started_script_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, started_script_status);
 	}
 	{
 		int autostart_status = system("/usr/bin/autostart.sh &");
@@ -1272,7 +1278,13 @@ init_router(void)
 		if (autostart_status != 0)
 			logmessage(LOGNAME, "firmware optional-service autostart launch failed (wait status=%d)",
 				   autostart_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, autostart_status);
 	}
+	if (boot_services_status != 0)
+		logmessage(LOGNAME,
+			   "one or more boot service startup operations failed (first status=%d)",
+			   boot_services_status);
 
 	return init_router_result_from_boot_status(boot_services_status);
 }

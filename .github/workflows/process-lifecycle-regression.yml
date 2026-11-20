@@ -7,6 +7,8 @@ on:
       - ".github/workflows/xy-c1-firmware-validation.yml"
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/scripts/tests/copyscripts_ca_status.sh"
       - "scripts/check_crontab_startup_status.py"
       - "scripts/check_firmware_update_notification.py"
       - "scripts/check_guest_lan_isolation_status.py"
@@ -182,6 +184,8 @@ on:
       - ".github/workflows/xy-c1-firmware-validation.yml"
       - "scripts/audit_process_lifecycle.py"
       - "scripts/check_dev_init_boot.py"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/scripts/tests/copyscripts_ca_status.sh"
       - "scripts/check_crontab_startup_status.py"
       - "scripts/check_firmware_update_notification.py"
       - "scripts/check_guest_lan_isolation_status.py"
@@ -602,6 +606,7 @@ jobs:
             -o "$RUNNER_TEMP/init-router-result-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/init-router-result-policy"
           sh trunk/user/scripts/tests/dev_init_boot_policy.sh
+          sh trunk/user/scripts/tests/copyscripts_ca_status.sh
           python3 scripts/check_dev_init_boot.py
       - name: Verify SCUT crontab update status and persistence
         run: |

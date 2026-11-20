@@ -9,6 +9,7 @@ rc = (root / "trunk/user/rc/src/rc.c").read_text()
 result_policy = (root / "trunk/user/rc/src/init_router_result_policy.h").read_text()
 result_test = (root / "trunk/user/rc/src/tests/init_router_result_policy.c").read_text()
 script = (root / "trunk/user/scripts/files/sbin/dev_init.sh").read_text()
+copyscripts = (root / "trunk/user/scripts/files/usr/bin/copyscripts.sh").read_text()
 workflow = (root / ".github/workflows/process-lifecycle-regression.yml").read_text()
 retry_policy = (root / "trunk/user/rc/src/init_mdev_retry_policy.h").read_text()
 retry_test = (root / "trunk/user/rc/src/tests/init_mdev_retry_policy.c").read_text()
@@ -93,6 +94,20 @@ assert '#include "init_router_result_policy.h"' in rc
 assert "return init_router_result_from_boot_status(boot_services_status);" in router
 assert router.count("return INIT_ROUTER_RESULT_FATAL;") == 4
 assert "return -1;" not in router
+router_compact = " ".join(router.split())
+assert 'int copyscripts_status = system("/usr/bin/copyscripts.sh");' in router
+assert "rc_first_service_start_status(boot_services_status, copyscripts_status)" in router_compact
+assert "rc_first_service_start_status(boot_services_status, started_script_status)" in router_compact
+assert "rc_first_service_start_status(boot_services_status, autostart_status)" in router_compact
+assert router.index('system("/usr/bin/copyscripts.sh")') < router.index('system("/etc/storage/started_script.sh &")')
+assert router.index('system("/etc/storage/started_script.sh &")') < router.index('system("/usr/bin/autostart.sh &")')
+assert router.index('system("/usr/bin/autostart.sh &")') < router.index("one or more boot service startup operations failed")
+assert router.index("one or more boot service startup operations failed") < router.index("return init_router_result_from_boot_status")
+assert "copyscripts_ca_status=0" in copyscripts
+assert "if ! install_ca_trust_store; then" in copyscripts
+assert "copyscripts_ca_status=1" in copyscripts
+assert 'exit "$copyscripts_ca_status"' in copyscripts
+assert "autostart_status" in router and "started_script_status" in router
 assert "init_router_status_is_ready" in result_policy and "init_router_status_is_degraded" in result_policy
 for token in ("init_router_result_from_boot_status(0)", "init_router_result_from_boot_status(EIO)", "init_router_result_from_boot_status(-EINTR)", "init_router_status_is_ready(INIT_ROUTER_RESULT_DEGRADED)", "!init_router_status_is_ready(INIT_ROUTER_RESULT_FATAL)", "init_router_status_is_degraded(INIT_ROUTER_RESULT_DEGRADED)"):
     assert token in result_test, "missing router result regression: " + token
