@@ -1,3 +1,12 @@
+## 2026-11-20 — Check Inadyn default-provider NVRAM repair status
+
+- Parent main SHA: `4e618ff3f5467c691edc4aeb7fea46fea46caebd`.
+- A focused `services_ex.c` review found one remaining unchecked `nvram_set()`: when `get_inadyn_system()` rejects an invalid `ddns_server_x` alias, `write_inadyn_conf()` selects the default provider and attempted to persist its alias without checking the result. It could report configuration success and launch DDNS while the invalid persistent provider remained.
+- The writer now captures the failure errno (falling back to EIO), logs the normalization error, and aborts before staging/publishing Inadyn config. The DNSMasq lifecycle workflow's existing Inadyn source contract requires this failure gate.
+- Parent `4e618ff`: DNSMasq `44661329441`, Inadyn `44661329414`, AI docs `44661329167`, Process inventory `44661329295`, WAN route `44661329346`, Process umbrella `44661329176`, and NVRAM transaction audit `44661329493` PASS. XY-C1 `44661329180` remained IN PROGRESS. Exact-head checks for this change pending; L3/L4 unverified.
+
+---
+
 ## 2026-11-20 — Propagate DHCP pool NVRAM write failures atomically
 
 - Parent main SHA: `6415d3efde51db293a1d8afd8ca8cbd1eec9bc1c`.

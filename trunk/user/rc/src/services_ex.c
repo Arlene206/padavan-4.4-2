@@ -2385,7 +2385,12 @@ write_inadyn_conf(const char *conf_file)
 	ddns1_svc = get_inadyn_system(nvram_safe_get("ddns_server_x"));
 	if (!ddns1_svc) {
 		ddns1_svc = inadyn_systems[0].system;
-		nvram_set("ddns_server_x", inadyn_systems[0].alias);
+		if (nvram_set("ddns_server_x", inadyn_systems[0].alias) != 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME, "cannot persist fallback Inadyn provider (errno=%d)", saved_errno);
+			errno = saved_errno;
+			return 0;
+		}
 	}
 
 	ddns1_hname[0] = nvram_safe_get("ddns_hostname_x");

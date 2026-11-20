@@ -283,6 +283,11 @@ jobs:
           assert "if (config) { return '}'; }" in parser_body
 
           writer = function_body(services, "write_inadyn_conf(const char *conf_file)")
+          provider_repair = writer.split('if (!ddns1_svc)', 1)[1].split('ddns1_hname[0]', 1)[0]
+          assert 'nvram_set("ddns_server_x", inadyn_systems[0].alias) != 0' in provider_repair
+          assert "cannot persist fallback Inadyn provider" in provider_repair
+          assert "errno = saved_errno;" in provider_repair
+          assert "return 0;" in provider_repair
           assert "inadyn_config_file_open(conf_file, staged_path, sizeof(staged_path))" in writer
           assert "inadyn_config_file_publish(fp, staged_path, conf_file)" in writer
           assert 'fopen(conf_file, "w")' not in writer
