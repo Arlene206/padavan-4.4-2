@@ -80,9 +80,13 @@ on:
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/802.1x/src/rtdot1x.c"
+      - "trunk/user/802.1x/src/auth_startup_handshake.h"
+      - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/pppoe_relay_policy.h"
       - "trunk/user/rc/src/process_presence_start_policy.h"
+      - "trunk/user/802.1x/src/auth_startup_handshake.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
@@ -117,6 +121,7 @@ on:
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/rc/src/tests/pppoe_relay_policy.c"
       - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/rc/src/tests/service_start_status.c"
@@ -269,9 +274,13 @@ on:
       - "trunk/user/rc/src/net_lan6.c"
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/802.1x/src/rtdot1x.c"
+      - "trunk/user/802.1x/src/auth_startup_handshake.h"
+      - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/pppoe_relay_policy.h"
       - "trunk/user/rc/src/process_presence_start_policy.h"
+      - "trunk/user/802.1x/src/auth_startup_handshake.h"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
@@ -306,6 +315,7 @@ on:
       - "trunk/user/rc/src/tests/msd_lite_config_file.c"
       - "trunk/user/rc/src/tests/pppoe_relay_policy.c"
       - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
       - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
       - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
       - "trunk/user/rc/src/tests/service_start_status.c"
@@ -584,6 +594,13 @@ jobs:
             trunk/user/rc/src/tests/process_presence_start_policy.c \
             -o "$RUNNER_TEMP/process-presence-start-policy"
           "$RUNNER_TEMP/process-presence-start-policy"
+      - name: Compile and run Ralink 802.1X child readiness handshake regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/802.1x/src \
+            trunk/user/802.1x/src/tests/auth_startup_handshake.c \
+            -o "$RUNNER_TEMP/auth-startup-handshake"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/auth-startup-handshake"
       - name: Compile and run SSH firewall fail-closed policy regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
@@ -984,6 +1001,9 @@ jobs:
           rc = Path("trunk/user/rc/src")
           lan = (rc / "net_lan.c").read_text()
           wifi = (rc / "net_wifi.c").read_text()
+          auth_daemon = Path("trunk/user/802.1x/src/rtdot1x.c").read_text()
+          auth_handshake = Path("trunk/user/802.1x/src/auth_startup_handshake.h").read_text()
+          auth_regression = Path("trunk/user/802.1x/src/tests/auth_startup_handshake.c").read_text()
           init = (rc / "rc.c").read_text()
           header = (rc / "rc.h").read_text()
           regression = (rc / "tests/service_start_status.c").read_text()
@@ -1033,6 +1053,26 @@ jobs:
           assert "test_existing_non_symlink_is_rejected" in script_link_regression
           assert "test_creation_error_does_not_attempt_readback" in script_link_regression
           assert "return start_status;" in start_lan
+
+          auth_main = body(auth_daemon, "main(int argc, char *argv[])")
+          auth_ready = body(auth_daemon, "wait_for_authenticator_ready(")
+          assert "pipe(startup_pipe)" in auth_main
+          assert "if (child_pid < 0)" in auth_main
+          assert "if (RT_ioctl(" in auth_main
+          assert auth_main.index("Apd_setup_interface(interfaces.rtapd[0])") < auth_main.index("RT_ioctl(")
+          assert auth_main.index("RT_ioctl(") < auth_main.index("auth_startup_write_result(startup_pipe[1], 0)")
+          assert "auth_startup_read_result(startup_fd, startup_result)" in auth_ready
+          assert "poll(&startup_poll, 1, 1000)" in auth_ready
+          assert "AUTH_STARTUP_READY_TIMEOUT_SECONDS" in auth_ready
+          assert "kill(child_pid, SIGKILL)" in auth_main
+          assert "waitpid(child_pid" in auth_main
+          assert "if (interfaces.rtapd)" in auth_main
+          assert "if (eloop_initialized)" in auth_main
+          assert "if (!startup_reported)" in auth_main
+          assert "AUTH_STARTUP_IO_MAX_INTERRUPTS" in auth_handshake
+          assert "test_real_pipe_round_trip" in auth_regression
+          assert "test_eof_is_not_a_ready_notification" in auth_regression
+          assert "test_interrupt_storm_is_bounded" in auth_regression
 
           manual = body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
           assert "return EINVAL;" in manual

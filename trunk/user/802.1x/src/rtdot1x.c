@@ -6,6 +6,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <sys/wait.h>
+#include <poll.h>
+#include <errno.h>
 #include <netinet/in.h>
 #include <string.h>
 #include <signal.h>
@@ -26,6 +29,7 @@
 #include "sta_info.h"
 #include "radius_client.h"
 #include "config.h"
+#include "auth_startup_handshake.h"
 
 struct hapd_interfaces {
 	int count;
@@ -605,6 +609,52 @@ void Handle_term(int sig, void *eloop_ctx, void *signal_ctx)
 	eloop_terminate();
 }
 
+#define AUTH_STARTUP_READY_TIMEOUT_SECONDS 15U
+#define AUTH_STARTUP_READY_MAX_INTERRUPTS 8U
+
+static int
+wait_for_authenticator_ready(int startup_fd, unsigned char *startup_result)
+{
+	struct pollfd startup_poll;
+	unsigned int waited_seconds = 0;
+	unsigned int interruptions = 0;
+
+	if (startup_fd < 0 || !startup_result) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	startup_poll.fd = startup_fd;
+	startup_poll.events = POLLIN | POLLHUP | POLLERR;
+	while (waited_seconds < AUTH_STARTUP_READY_TIMEOUT_SECONDS) {
+		int poll_status;
+
+		startup_poll.revents = 0;
+		poll_status = poll(&startup_poll, 1, 1000);
+		if (poll_status < 0) {
+			if (errno == EINTR &&
+			    interruptions < AUTH_STARTUP_READY_MAX_INTERRUPTS) {
+				++interruptions;
+				continue;
+			}
+			if (errno == 0)
+				errno = EIO;
+			return -1;
+		}
+		if (poll_status == 0) {
+			++waited_seconds;
+			continue;
+		}
+		if (startup_poll.revents & (POLLIN | POLLHUP | POLLERR))
+			return auth_startup_read_result(startup_fd, startup_result);
+		errno = EIO;
+		return -1;
+	}
+
+	errno = ETIMEDOUT;
+	return -1;
+}
+
 int main(int argc, char *argv[])
 {
 	struct hapd_interfaces interfaces;
@@ -612,6 +662,7 @@ int main(int argc, char *argv[])
 	int ret = 1, i;
 	int c;
 	pid_t auth_pid;
+	int startup_pipe[2];
 	char prefix_name[IFNAMSIZ+1] = {0};
 
 	for (;;)
@@ -655,24 +706,41 @@ int main(int argc, char *argv[])
 
 	printf("Ralink DOT1X daemon, version = '%s', prefix_name = '%s'\n", dot1x_version, prefix_name);
 
+	if (pipe(startup_pipe) != 0) {
+		perror("Ralink 802.1X startup pipe");
+		return 1;
+	}
+
 	child_pid = fork();
+	if (child_pid < 0) {
+		int fork_error = errno;
+		close(startup_pipe[0]);
+		close(startup_pipe[1]);
+		errno = fork_error;
+		perror("Ralink 802.1X fork");
+		return 1;
+	}
+
 	if (child_pid == 0)
 	{
+		int startup_reported = 0;
+		int eloop_initialized = 0;
+
+		close(startup_pipe[0]);
 		auth_pid = getpid();
 		DBGPRINT(RT_DEBUG_TRACE, "Porcess ID = %d\n", auth_pid);
-		
 		openlog(argv[0], 0, LOG_DAEMON);
-		
-		// set number of configuration file 1
+
 		interfaces.count = 1;
 		interfaces.rtapd = malloc(sizeof(rtapd *));
-		if (interfaces.rtapd == NULL)
-		{
+		if (interfaces.rtapd == NULL) {
 			DBGPRINT(RT_DEBUG_ERROR, "malloc failed\n");
-			exit(1);
+			goto out;
 		}
+		interfaces.rtapd[0] = NULL;
 
 		eloop_init(&interfaces);
+		eloop_initialized = 1;
 		eloop_register_signal(SIGINT, Handle_term, NULL);
 		eloop_register_signal(SIGTERM, Handle_term, NULL);
 		eloop_register_signal(SIGUSR1, Handle_usr1, NULL);
@@ -681,35 +749,72 @@ int main(int argc, char *argv[])
 		interfaces.rtapd[0] = Apd_init(prefix_name);
 		if (!interfaces.rtapd[0])
 			goto out;
-		
-		if (Apd_setup_interface(interfaces.rtapd[0]))
+		if (Apd_setup_interface(interfaces.rtapd[0]) != 0)
 			goto out;
-		
-		// Notify driver about PID
-		RT_ioctl(interfaces.rtapd[0]->ioctl_sock, RT_PRIV_IOCTL, (char *)&auth_pid, sizeof(int), prefix_name, 0, RT_SET_APD_PID | OID_GET_SET_TOGGLE);
-		
+
+		/* Register with the driver before publishing startup readiness. */
+		if (RT_ioctl(interfaces.rtapd[0]->ioctl_sock, RT_PRIV_IOCTL,
+			     (char *)&auth_pid, sizeof(int), prefix_name, 0,
+			     RT_SET_APD_PID | OID_GET_SET_TOGGLE) != 0)
+			goto out;
+		if (auth_startup_write_result(startup_pipe[1], 0) != 0)
+			goto out;
+		startup_reported = 1;
+		close(startup_pipe[1]);
+
 		eloop_run();
-		
 		Apd_free_stas(interfaces.rtapd[0]);
 		ret = 0;
 
 out:
-		for (i = 0; i < interfaces.count; i++)
-		{
-			if (!interfaces.rtapd[i])
-				continue;
-
-			Apd_cleanup(interfaces.rtapd[i]);
-			free(interfaces.rtapd[i]);
+		if (interfaces.rtapd) {
+			for (i = 0; i < interfaces.count; i++) {
+				if (!interfaces.rtapd[i])
+					continue;
+				Apd_cleanup(interfaces.rtapd[i]);
+				free(interfaces.rtapd[i]);
+			}
+			free(interfaces.rtapd);
 		}
-
-		free(interfaces.rtapd);
-		eloop_destroy();
+		if (eloop_initialized)
+			eloop_destroy();
+		if (!startup_reported) {
+			(void)auth_startup_write_result(startup_pipe[1], 1);
+			close(startup_pipe[1]);
+		}
 		closelog();
-		
 		return ret;
 	}
-	else
-		return 0;
+
+	/* The short-lived launcher succeeds only after the daemon child is ready. */
+	{
+		unsigned char startup_result = 1;
+		int startup_status;
+		int child_status;
+		pid_t waited;
+
+		close(startup_pipe[1]);
+		startup_status = wait_for_authenticator_ready(
+			startup_pipe[0], &startup_result);
+		close(startup_pipe[0]);
+		if (startup_status != 0) {
+			int startup_error = errno;
+			(void)kill(child_pid, SIGKILL);
+			do {
+				waited = waitpid(child_pid, &child_status, 0);
+			} while (waited < 0 && errno == EINTR);
+			errno = startup_error;
+			perror("Ralink 802.1X child readiness");
+			return 1;
+		}
+		if (startup_result != 0) {
+			do {
+				waited = waitpid(child_pid, &child_status, 0);
+			} while (waited < 0 && errno == EINTR);
+			return 1;
+		}
+	}
+
+	return 0;
 }
 

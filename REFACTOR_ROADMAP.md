@@ -1,13 +1,15 @@
 # 2026-11-20 active checkpoint
-- Parent main SHA: 786fb0ab4f2ffbec808eb7c67279c6959b5db2db; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- Checked WAN runtime identity pair publication is implemented and covered by GNU89/Werror/ASan/UBSan host tests. The three USB RAS, PPP and IPoE startup paths now use the same checked pair helper and retain physical-WAN recovery.
-- Exact `786fb0a`: WAN DHCP `44725040281`, AI docs `44725040258` and Process lifecycle inventory `44725040116` PASS; WAN route `44725040341` and Process fail-closed `44725040303` exposed stale checker assumptions about the removed direct writes. XY-C1 `44725040370` remained in progress at last poll.
-- THIS COMMIT aligns both remaining source contracts with the checked pair helper. No production behavior changes.
+- Parent main SHA: dc43d3d8fcfeaf8e730ec6f6d77170bbcd056d91; frozen backup remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- The f87 exact Actions all passed; XY Build/TRX/artifact skipped because its diff was checker/docs-only.
+- Later detect_link commits through `dc43d3d8` update WAN mirror retry/recovery; latest exact actions are pending at this checkpoint.
+- THIS COMMIT fixes Ralink 802.1X detached-daemon readiness: the parent previously returned zero before its worker finished setup. Worker now reports readiness after AP setup and driver PID registration; parent waits boundedly and kills/reaps a worker that never reports. Partial OOM/event-loop cleanup is guarded.
+- Added GNU89 pipe-handshake tests and source/CI trigger contracts. Same-SHA Process and XY-C1 Build/TRX/artifact pending.
 
 ## Priority queue
-- CLOSED: WAN0/LAN boot NVRAM snapshots, WAN reset propagation/ABI and prior WAN route recovery; do not re-audit.
-- ACTIVE: verify the source-contract follow-up and same-SHA XY-C1 Build/TRX/artifact.
-- NEXT: continue remaining critical NVRAM publication and independent service/lifecycle defects across userland.
+- CLOSED: WAN0 checked NVRAM read policy, LAN boot MAC/default/runtime snapshot, WAN reset status/ABI and initial WAN runtime identity source contract work.
+- ACTIVE: verify Ralink 802.1X ready handshake and same-SHA XY-C1 product build.
+- NEXT: continue wider userland P1 stability/security rotation while CI runs; do not repeat the completed WAN mirror recovery slice.
+
 
 ## Whole-repository module status` heading. THIS COMMIT corrects both.
 - Exact WAN route `44724624287`, WAN DHCP `44724624228`, and Process fail-closed `44724624179` failed at the same new test compilation error. AI docs `44724623863` failed on the missing roadmap dashboard heading. Process inventory `44724624195` passed. Exact XY-C1 `44724624114` was in progress at last poll.

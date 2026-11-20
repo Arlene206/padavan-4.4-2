@@ -966,6 +966,8 @@ xy_target_sources = (
     "trunk/user/rc/src/vpn_server.c",
     "trunk/user/rc/src/inicd.c",
     "trunk/user/rc/src/net_wifi.c",
+    "trunk/user/802.1x/src/rtdot1x.c",
+    "trunk/user/802.1x/src/auth_startup_handshake.h",
     "trunk/user/rc/src/detect_wan.c",
     "trunk/user/rc/src/detect_wan_udhcpc_policy.h",
     "trunk/user/shared/src/process_pidfile.c",

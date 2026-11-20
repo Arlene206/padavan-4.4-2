@@ -1,3 +1,14 @@
+## 2026-11-20 — Confirm Ralink 802.1X child readiness before reporting launch success
+
+- Parent main SHA: dc43d3d8fcfeaf8e730ec6f6d77170bbcd056d91.
+- Source evidence: `rtdot1x.c` forked its authenticator worker and returned zero from the parent immediately. Shared `eval()` waits only for that parent, so it reported success even if the detached child failed allocation, `Apd_init()` or `Apd_setup_interface()`. Driver PID ioctl errors were also ignored.
+- Added a bounded pipe readiness handshake: the worker reports ready only after AP setup and successful driver PID registration; failure paths clean partial state and send a failure byte. Parent polls for 15 seconds, treats EOF/timeout as failure, and kills/reaps a worker that never reports.
+- OOM cleanup now guards a NULL authenticator array and calls `eloop_destroy()` only after `eloop_init()`.
+- Added injectable pipe I/O and GNU89 regression tests for real pipe success, child failure byte, EOF, I/O errors, bounded EINTR retries and invalid arguments. Process/XY trigger filters now include production source, helper and regression test.
+- Exact-head Process and same-SHA XY-C1 Build/TRX/artifact are pending; physical-router L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Fix detect_link signal-policy source-contract variable shadowing
 
 - Parent main SHA: 843aa5e68b62b62d6f3354de42dc487565bd0910.
