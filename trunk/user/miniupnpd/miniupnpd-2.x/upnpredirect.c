@@ -413,6 +413,8 @@ upnp_redirect_internal(const char * rhost, unsigned short eport,
                        int proto, const char * desc,
                        unsigned int timestamp)
 {
+	int rollback_status;
+
 	/*syslog(LOG_INFO, "redirecting port %hu to %s:%hu protocol %s for: %s",
 		eport, iaddr, iport, protocol, desc);			*/
 	if(add_redirect_rule2(ext_if_name, rhost, eport, iaddr, iport, proto,
@@ -426,10 +428,13 @@ upnp_redirect_internal(const char * rhost, unsigned short eport,
 /*	syslog(LOG_INFO, "creating pass rule to %s:%hu protocol %s for: %s",
 		iaddr, iport, protocol, desc);*/
 	if(add_filter_rule2(ext_if_name, rhost, iaddr, eport, iport, proto, desc) < 0) {
-		/* clean up the redirect rule */
-#if !defined(__linux__)
-		delete_redirect_rule(ext_if_name, eport, proto);
-#endif
+		/* Roll back NAT, filter and lease-file state together. */
+		rollback_status = _upnp_delete_redir(eport, proto);
+		if (rollback_status != 0) {
+			syslog(LOG_ERR,
+			       "failed to roll back partially installed UPnP mapping on port %hu protocol %d (status=%d)",
+			       eport, proto, rollback_status);
+		}
 		return -1;
 	}
 	if(timestamp > 0) {

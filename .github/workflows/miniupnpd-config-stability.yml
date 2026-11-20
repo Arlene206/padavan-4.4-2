@@ -189,6 +189,11 @@ jobs:
           check_pinhole = function_body(soap_source, "CheckPinholeWorking(struct upnphttp * h")
           get_pinhole_packets = function_body(soap_source, "GetPinholePackets(struct upnphttp * h")
           outbound_pinhole = function_body(soap_source, "GetOutboundPinholeTimeout(struct upnphttp * h")
+          redirect_internal = function_body(redirect_source, "upnp_redirect_internal(const char * rhost")
+          filter_failure = redirect_internal.split("if(add_filter_rule2(", 1)[1].split("\n\t}", 1)[0]
+          assert "_upnp_delete_redir(eport, proto)" in filter_failure
+          assert "rollback_status != 0" in filter_failure
+          assert "failed to roll back partially installed UPnP mapping" in filter_failure
           assert "miniupnpd_soap_required_text_present(desc)" in add_port
           assert "miniupnpd_soap_required_text_present(desc)" in add_any
           assert "!leaseduration_str" in add_port
