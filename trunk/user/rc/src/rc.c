@@ -526,7 +526,7 @@ nvram_convert_misc_values(void)
 	}
 
 	/* Missing or invalid values retain the historical gateway fallback. */
-	sw_mode = (api_result == 1) ? atoi(sw_mode_value) : 0;
+	sw_mode = (api_result == 1) ? rc_router_mode_parse(sw_mode_value) : 0;
 
 	/* Publish a complete router-mode policy before any dependent boot setup. */
 	status = rc_router_mode_nvram_configure(

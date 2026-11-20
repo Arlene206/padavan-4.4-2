@@ -127,6 +127,20 @@ test_each_required_write_failure_aborts_the_sequence(void)
 }
 
 static void
+test_router_mode_parser_rejects_noncanonical_values(void)
+{
+    assert(rc_router_mode_parse("1") == 1);
+    assert(rc_router_mode_parse("3") == 3);
+    assert(rc_router_mode_parse("4") == 4);
+    assert(rc_router_mode_parse(NULL) == 0);
+    assert(rc_router_mode_parse("") == 0);
+    assert(rc_router_mode_parse("03") == 0);
+    assert(rc_router_mode_parse("3junk") == 0);
+    assert(rc_router_mode_parse(" 3") == 0);
+    assert(rc_router_mode_parse("+3") == 0);
+}
+
+static void
 test_checked_read_status_distinguishes_absence_from_backend_failure(void)
 {
     assert(rc_router_mode_nvram_read_status(0, 0, 0) == 0);
@@ -160,6 +174,7 @@ main(void)
     test_access_point_mode_only_publishes_bridged_route();
     test_unknown_mode_is_published_as_gateway_before_dependent_values();
     test_each_required_write_failure_aborts_the_sequence();
+    test_router_mode_parser_rejects_noncanonical_values();
     test_checked_read_status_distinguishes_absence_from_backend_failure();
     test_invalid_arguments_do_not_write_nvram();
     puts("Router-mode NVRAM publication regression: PASS");

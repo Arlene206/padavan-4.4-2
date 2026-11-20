@@ -9,6 +9,25 @@ typedef int (*rc_router_mode_nvram_set_fn)(void *context,
                                            const char *value);
 
 /* Distinguish a missing key from an NVRAM backend read failure. */
+/* Accept only canonical stored modes; malformed values fall back safely. */
+static inline int
+rc_router_mode_parse(const char *value)
+{
+    if (!value || value[1] != '\0')
+        return 0;
+
+    switch (value[0]) {
+    case '1':
+        return 1;
+    case '3':
+        return 3;
+    case '4':
+        return 4;
+    default:
+        return 0;
+    }
+}
+
 static inline int
 rc_router_mode_nvram_read_status(int api_result, int saved_errno,
                                  int value_present)
