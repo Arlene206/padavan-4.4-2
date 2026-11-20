@@ -63,6 +63,7 @@
 #include "../config.h"
 #include "iptcrdr.h"
 #include "../upnpglobalvars.h"
+#include "../miniupnpd_redirect_cleanup_policy.h"
 
 /* local functions declarations */
 static int
@@ -628,7 +629,9 @@ delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,
 int
 delete_redirect_and_filter_rules(unsigned short eport, int proto)
 {
-	int r = -1, r2 = -1;
+	int r = 0, r2 = 0;
+	int nat_rule_found = 0, peer_rule_found = 0;
+	int cleanup_status;
 	unsigned index = 0;
 	unsigned i = 0;
 	IPTC_HANDLE h;
@@ -688,6 +691,7 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 				iaddr = mr->range[0].min_ip;
 				iport = ntohs(mr->range[0].min.all);
 				r = 0;
+				nat_rule_found = 1;
 				break;
 			}
 		}
@@ -698,7 +702,7 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 #else
 		iptc_free(&h);
 #endif
-	if(r == 0)
+	if(nat_rule_found)
 	{
 		syslog(LOG_INFO, "Trying to delete nat rule at index %u", index);
 		/* Now delete both rules */
@@ -708,9 +712,18 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 		{
 			r = delete_rule_and_commit(index, h, miniupnpd_nat_chain, "delete_redirect_rule");
 		}
-		if((r == 0) && (h = iptc_init("filter")))
+		else
 		{
-			i = 0;
+			syslog(LOG_ERR, "%s() : iptc_init(nat) failed : %s",
+			       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+			r = -1;
+		}
+		if(r == 0)
+		{
+			h = iptc_init("filter");
+			if(h)
+			{
+				i = 0;
 			/* we must find the right index for the filter rule */
 #ifdef IPTABLES_143
 			for(e = iptc_first_rule(miniupnpd_forward_chain, h);
@@ -750,6 +763,13 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 					break;
 				}
 			}
+			}
+			else
+			{
+				syslog(LOG_ERR, "%s() : iptc_init(filter) failed : %s",
+				       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+				r = -1;
+			}
 		}
 		if(h)
 #ifdef IPTABLES_143
@@ -760,7 +780,8 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 	}
 
 	/*delete PEER rule*/
-	if((h = iptc_init("nat")))
+	h = iptc_init("nat");
+	if(h)
 	{
 		i = 0;
 		/* we must find the right index for the filter rule */
@@ -800,12 +821,19 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 				}
 
 				index = i;
+				peer_rule_found = 1;
 				syslog(LOG_INFO, "Trying to delete peer rule at index %u", index);
 				r2 = delete_rule_and_commit(index, h, miniupnpd_nat_postrouting_chain, "delete_peer_rule");
 				h = NULL;
 				break;
 			}
 		}
+	}
+	else
+	{
+		syslog(LOG_ERR, "%s() : iptc_init(nat) failed while removing peer rule : %s",
+		       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+		r2 = -1;
 	}
 
 	if(h)
@@ -815,10 +843,13 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 		iptc_free(&h);
 #endif
 	/*delete DSCP rule*/
-	if((r2==0)&&(h = iptc_init("mangle")))
+	if(peer_rule_found && r2 == 0)
 	{
-		i = 0;
-		index = -1;
+		h = iptc_init("mangle");
+		if(h)
+		{
+			i = 0;
+			index = -1;
 		/* we must find the right index for the filter rule */
 #ifdef IPTABLES_143
 		for(e = iptc_first_rule(miniupnpd_nat_chain, h);
@@ -858,16 +889,25 @@ delete_redirect_and_filter_rules(unsigned short eport, int proto)
 				break;
 			}
 		}
-	if (h)
-	#ifdef IPTABLES_143
-		iptc_free(h);
-	#else
-		iptc_free(&h);
-	#endif
+		if (h)
+		#ifdef IPTABLES_143
+			iptc_free(h);
+		#else
+			iptc_free(&h);
+		#endif
+		}
+		else
+		{
+			syslog(LOG_ERR, "%s() : iptc_init(mangle) failed : %s",
+			       "delete_redirect_and_filter_rules", iptc_strerror(errno));
+			r2 = -1;
+		}
 	}
 
-	del_redirect_desc(eport, proto);
-	return r*r2;
+	cleanup_status = miniupnpd_merge_cleanup_status(r, r2);
+	if (cleanup_status == 0)
+		del_redirect_desc(eport, proto);
+	return cleanup_status;
 }
 
 /* ==================================== */

@@ -536,13 +536,15 @@ _upnp_delete_redir(unsigned short eport, int proto)
 	r = delete_redirect_rule(ext_if_name, eport, proto);
 	delete_filter_rule(ext_if_name, eport, proto);
 #endif
+	if (r == 0)
+	{
 #ifdef ENABLE_LEASEFILE
-	lease_file_remove( eport, proto);
+		lease_file_remove(eport, proto);
 #endif
-
 #ifdef ENABLE_EVENTS
-	upnp_event_var_change_notify(EWanIPC);
+		upnp_event_var_change_notify(EWanIPC);
 #endif
+	}
 	return r;
 }
 

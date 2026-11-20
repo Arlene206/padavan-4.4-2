@@ -99,6 +99,14 @@ jobs:
             trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c \
             -o /tmp/miniupnpd_pidfile_policy_test
           ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_pidfile_policy_test
+      - name: Compile and run MiniUPnP redirect cleanup status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_cleanup_policy_test.c \
+            -o /tmp/miniupnpd_redirect_cleanup_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_redirect_cleanup_policy_test
       - name: Compile and run MiniUPnP SOAP numeric input policy
         run: |
           set -eu
@@ -155,6 +163,9 @@ jobs:
           xml_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h").read_text()
           xml_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c").read_text()
           redirect_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c").read_text()
+          ipt_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c").read_text()
+          cleanup_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_redirect_cleanup_policy.h").read_text()
+          cleanup_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_cleanup_policy_test.c").read_text()
           lease_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h").read_text()
           lease_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c").read_text()
           miniupnpd_makefile = Path("trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux").read_text()
@@ -194,6 +205,17 @@ jobs:
           assert "_upnp_delete_redir(eport, proto)" in filter_failure
           assert "rollback_status != 0" in filter_failure
           assert "failed to roll back partially installed UPnP mapping" in filter_failure
+          cleanup_backend = function_body(ipt_source, "delete_redirect_and_filter_rules(unsigned short eport, int proto)")
+          assert "#include \"../miniupnpd_redirect_cleanup_policy.h\"" in ipt_source
+          assert "int r = 0, r2 = 0;" in cleanup_backend
+          assert "peer_rule_found = 0" in cleanup_backend
+          assert "miniupnpd_merge_cleanup_status(r, r2)" in cleanup_backend
+          assert "return r*r2;" not in cleanup_backend
+          assert "if (cleanup_status == 0)" in cleanup_backend
+          delete_wrapper = function_body(redirect_source, "_upnp_delete_redir(unsigned short eport, int proto)")
+          assert "if (r == 0)" in delete_wrapper
+          assert delete_wrapper.index("if (r == 0)") < delete_wrapper.index("lease_file_remove")
+          assert "test_cleanup_status_preserves_each_failure" in cleanup_test
           assert "miniupnpd_soap_required_text_present(desc)" in add_port
           assert "miniupnpd_soap_required_text_present(desc)" in add_any
           assert "!leaseduration_str" in add_port
