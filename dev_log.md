@@ -1,3 +1,14 @@
+## 2026-11-20 — Inject errno-clobbering IPTC backends for both handle APIs
+
+- Parent main SHA: 4a7d3c3e3b1966d1574f703ffbfc498bce292542.
+- Added scripts/test_miniupnpd_iptc_errno.py. It extracts the actual production delete_rule_and_commit() and insert_rule_and_commit() definitions from netfilter/iptcrdr.c, compiles them under GNU89/Werror/ASan/UBSan, and executes the same failure matrix twice: legacy pointer-to-handle API and IPTABLES_143 by-value API.
+- The mock iptc_strerror(), syslog() and iptc_free() deliberately overwrite errno. Regressions cover delete operation ENOSPC, delete commit EROFS, missing backend errno -> EIO, insert table-init EACCES, insert operation EINVAL and insert/rollback commit EROFS. Each failure must retain its original errno after logging and handle cleanup.
+- Wired the runner into MiniUPnP push and pull-request path filters and the focused workflow. This adds executable backend coverage without modifying production code.
+- Parent 4a7d3c3e3b1966d1574f703ffbfc498bce292542 had MiniUPnP #44808660926, AI #44808661003, Process #44808661091, NVRAM #44808660908 and XY-C1 #44808661058 all in progress at last poll. The exact XY run must pass Build, TRX and artifact before L3 is claimed for source 4a.
+- Resulting commit: THIS COMMIT. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Match UDP peer DSCP cleanup on the internal source port
 
 - Parent main SHA: 062d09b646f294d09947c986aadcfc9e6619e6c9.

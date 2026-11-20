@@ -14,30 +14,30 @@ The checkpoint is mandatory; a document edit is conditional. At session end insp
 
 ## Current repository state
 
-- Repository Arlene206/padavan-4.4-2; parent main SHA for the UDP peer DSCP tuple fix: 062d09b646f294d09947c986aadcfc9e6619e6c9.
+- Repository Arlene206/padavan-4.4-2; parent for this injected IPTC errno regression slice: 4a7d3c3e3b1966d1574f703ffbfc498bce292542.
 - Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
-- Exact-head MiniUPnP #44808409986 and AI handoff #44808409401 PASS on docs/workflow contract commit 062d09b646f294d09947c986aadcfc9e6619e6c9. Parent-source Process inventory #44807976713 PASS and NVRAM audit #44807976901 PASS on 5ca967f2dd9da9ee20408dde1b413cfaeac9265c; the production code is unchanged by the later docs/workflow-only 4e/062 commits.
-- XY-C1 #44807976845 on 5ca was still running: Build XY-C1 IN_PROGRESS, TRX and artifact upload PENDING. XY run #44808194761 on 4e skipped the firmware steps. Therefore no L3 evidence covers the current production source; prior verified L3 is limited to 30af417 and eccdab.
-- Confirmed UDP peer-cleanup defect: addpeernatrule() and addpeerdscprule() call get_udp_match(rport, iport), placing internal iport in spts[0] and remote rport in dpts[0]. The peer SNAT scan incorrectly copied UDP dpts[0] into iport, then the DSCP scan compared spts[0], leaving an orphaned mangle entry after SNAT removal.
-- THIS COMMIT fixes extraction to spts[0], routes TCP/UDP DSCP port checks through a small GNU89 policy helper, adds an ASan/UBSan unit regression and extends the dedicated source checker to bind production writers, cleanup and tests.
+- Product-source commit 4a7d3c3e3b1966d1574f703ffbfc498bce292542 fixes a real UDP peer-cleanup tuple defect: get_udp_match(rport, iport) stores the internal endpoint in spts[0], but the peer SNAT scan used dpts[0] and could miss the matching mangle DSCP entry. Source now uses spts[0] and a shared GNU89 port-match policy; C regression and dedicated source checker cover the tuple contract.
+- On parent 4a, MiniUPnP #44808660926, AI #44808661003, Process #44808661091, NVRAM #44808660908 and XY-C1 #44808661058 were all in progress at the latest poll. XY L3 remains unverified until its Build, TRX and artifact steps pass on source 4a.
+- Earlier confirmed XY-C1 L3 exists for 30af417 and eccdab only; those do not validate later product changes.
+- This commit adds executable errno-clobber tests of the actual IPTC delete/insert helpers under both legacy and IPTABLES_143 handle APIs. Logging/string conversion/free mocks deliberately clobber errno.
 
 ## Active task
 
-1. Inspect exact-head MiniUPnP, AI, Process, NVRAM and XY-C1 Actions for THIS COMMIT. The new peer-port unit test and dedicated source checker must pass.
-2. Count L3 only when Build XY-C1, Verify TRX output and artifact upload all complete SUCCESS on this exact product-source SHA.
-3. After the UDP slice validates, continue injected backend failure coverage for NAT/filter init, delete, insert and rollback operations, checking errno and cross-table state for IPTABLES_143 and legacy handles.
-4. Continue source → regression → atomic commit → exact-SHA Actions. PENDING jobs do not block independent work.
+1. Check this commit's exact-head MiniUPnP, AI, Process, NVRAM and XY-C1 Actions. The new production-helper test must compile/run for both handle APIs under GNU89/Werror/ASan/UBSan.
+2. Count L3 only if Build XY-C1, Verify TRX output and artifact upload all complete SUCCESS on the exact same product-source SHA. If the parent 4a build finishes after the test-only commit, it still validates the unchanged product code 4a; confirm the exact run and actual steps.
+3. If both variants pass, extend injected coverage to transaction-level primary/secondary failure precedence and NAT/filter rollback state; otherwise diagnose the first causal compiler/test/source assertion.
+4. Continue source → regression → atomic commit → exact-SHA Actions, without repeating completed audits or waiting on unrelated jobs.
 
 ## Verification boundary
 
-- Parent 062d09b646f294d09947c986aadcfc9e6619e6c9: MiniUPnP #44808409986 PASS and AI #44808409401 PASS; Process #44807976713 and NVRAM #44807976901 PASS on parent 5ca (source unchanged through workflow/docs-only commits).
-- XY-C1 #44807976845 on 5ca: Build IN_PROGRESS, TRX PENDING, artifact upload PENDING at last poll. XY-C1 #44808194761 on 4e skipped the firmware steps. L3 for the current product source is NOT VERIFIED.
-- Earlier exact-source L3: 30af417 (#44804291706) and eccdab (#44805637821), each Build/TRX/artifact PASS. These results do not validate subsequent changes.
+- Parent 4a: exact-head MiniUPnP #44808660926, AI #44808661003, Process #44808661091, NVRAM #44808660908 and XY-C1 #44808661058 were in progress at last poll.
+- Source 4a includes the UDP internal-source-port correction. No L3 claim is made until Build XY-C1, Verify TRX output and artifact upload are each successful for that source.
+- Earlier source 30af417 and eccdab540 have separate exact-source L3 PASS; do not apply them to later SHAs.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live main and inspect this commit's exact-head MiniUPnP/AI/Process/NVRAM/XY-C1 runs. Confirm the UDP source-port regression and peer cleanup checker pass. Verify Build XY-C1, TRX and artifact upload individually on the same SHA. Then extend the injected IPTC backend test matrix without repeating finished CI/audits.
+Fetch live main and inspect exact-head MiniUPnP/AI/Process/NVRAM/XY Actions. Confirm the newly wired errno harness completes both legacy and IPTABLES_143 variants and all injected clobbering cases pass. Confirm the XY run for source 4a actually ran Build, TRX and artifact upload successfully; only then report L3. Continue lower-level transaction error/rollback regression work afterward.
 
 ## Handoff maintenance
 

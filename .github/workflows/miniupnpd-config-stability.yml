@@ -40,6 +40,7 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_allocation_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_allocations.py"
       - "scripts/check_miniupnpd_iptcrdr_handle_ownership.py"
+      - "scripts/test_miniupnpd_iptc_errno.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_capacity_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c"
       - "scripts/check_miniupnpd_iptcrdr_capacity.py"
@@ -97,6 +98,7 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_allocation_policy_test.c"
       - "scripts/check_miniupnpd_iptcrdr_allocations.py"
       - "scripts/check_miniupnpd_iptcrdr_handle_ownership.py"
+      - "scripts/test_miniupnpd_iptc_errno.py"
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_capacity_policy.h"
       - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c"
       - "scripts/check_miniupnpd_iptcrdr_capacity.py"
@@ -169,6 +171,8 @@ jobs:
         run: python3 scripts/check_miniupnpd_iptcrdr_allocations.py
       - name: Verify MiniUPnP IPTC delete-handle ownership
         run: python3 scripts/check_miniupnpd_iptcrdr_handle_ownership.py
+      - name: Compile production IPTC errno helpers with both handle APIs and injected clobbering
+        run: python3 scripts/test_miniupnpd_iptc_errno.py
       - name: Compile and run MiniUPnP port-mapping capacity regression
         run: |
           set -eu
