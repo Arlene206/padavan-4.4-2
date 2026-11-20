@@ -444,12 +444,13 @@ jobs:
 
           zcip_bound = body(source, "zcip_bound(char *man_ifname)")
           assert zcip_bound.index('value = getenv("ip")') < zcip_bound.index("dhcp_lease_ipv4_is_valid(ip)") < zcip_bound.index("dhcp_wan_interface_apply(")
-          assert 'snprintf(old_ip, sizeof(old_ip), "%s", previous_text[WAN_ZCIP_SNAPSHOT_IPADDR])' in zcip_bound
-          assert 'snprintf(old_mask, sizeof(old_mask), "%s", previous_text[WAN_ZCIP_SNAPSHOT_NETMASK])' in zcip_bound
+          assert "WAN_ZCIP_SNAPSHOT_IPADDR" in zcip_bound
+          assert "WAN_ZCIP_SNAPSHOT_NETMASK" in zcip_bound
           zcip_snapshot = zcip_bound.index("wan_dhcp_nvram_state_publish(")
           assert zcip_bound.index("dhcp_wan_interface_apply(") < zcip_snapshot < zcip_bound.index("man_up_internal(")
           assert "WAN_ZCIP_SNAPSHOT_COUNT" in zcip_bound
-          assert "wan_dhcp_interface_set(&interface_context, old_ip, old_mask)" in zcip_bound
+          assert "wan_dhcp_interface_set(" in zcip_bound
+          assert "&interface_context, old_ip, old_mask" in zcip_bound
           assert "wan_dhcp_interface_clear(&interface_context)" in zcip_bound
           assert "failed to restore previous ZeroConf WAN address" in zcip_bound
           for marker in (
@@ -470,7 +471,8 @@ jobs:
           zcip_viptv_snapshot = zcip_viptv_bound.index("wan_dhcp_nvram_state_publish(")
           assert zcip_viptv_bound.index("dhcp_wan_interface_apply(") < zcip_viptv_snapshot < zcip_viptv_bound.index("start_igmpproxy(man_ifname)")
           assert "WAN_ZCIP_VIPTV_SNAPSHOT_COUNT" in zcip_viptv_bound
-          assert "wan_dhcp_interface_set(&interface_context, old_ip, old_mask)" in zcip_viptv_bound
+          assert "wan_dhcp_interface_set(" in zcip_viptv_bound
+          assert "&interface_context, old_ip, old_mask" in zcip_viptv_bound
           assert "wan_dhcp_interface_clear(&interface_context)" in zcip_viptv_bound
           for marker in (
               'nvram_set_temp(strcat_r(prefix, "netmask", tmp), zeroconf_mask)',

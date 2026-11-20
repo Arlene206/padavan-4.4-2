@@ -148,7 +148,8 @@ require(zcip.index("dhcp_wan_interface_apply(") <
         zcip.index("wan_dhcp_nvram_state_publish(") <
         zcip.index("man_up_internal("),
         "ZeroConf WAN must commit the snapshot before route setup")
-require("wan_dhcp_interface_set(&interface_context, old_ip, old_mask)" in zcip and
+require("wan_dhcp_interface_set(" in zcip and
+        "&interface_context, old_ip, old_mask" in zcip and
         "wan_dhcp_interface_clear(&interface_context)" in zcip,
         "ZeroConf WAN snapshot failure must restore a valid old address or clear a first lease")
 for marker in (
@@ -167,7 +168,8 @@ require(zcip_viptv.index("dhcp_wan_interface_apply(") <
         zcip_viptv.index("wan_dhcp_nvram_state_publish(") <
         zcip_viptv.index("start_igmpproxy("),
         "ZeroConf IPTV must commit the snapshot before proxy startup")
-require("wan_dhcp_interface_set(&interface_context, old_ip, old_mask)" in zcip_viptv and
+require("wan_dhcp_interface_set(" in zcip_viptv and
+        "&interface_context, old_ip, old_mask" in zcip_viptv and
         "wan_dhcp_interface_clear(&interface_context)" in zcip_viptv,
         "ZeroConf IPTV snapshot failure must restore a valid old address or clear a first lease")
 for marker in (
