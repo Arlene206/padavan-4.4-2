@@ -428,4 +428,12 @@ assert lock_release < vpn_restore
 assert "static inline int\\nrc_service_restart_after_stop(int stop_status)" in service_policy
 assert "test_lan_restart_rollback_only_restarts_confirmed_stops" in service_test
 
+router_restart = c_function_body(lan, "full_restart_lan(void)")
+router_abort = router_restart[router_restart.index("if (lan_status != 0)"):]
+router_restore = router_abort.index("start_lan(0, 1)")
+router_dns_start = router_abort.index("start_dns_dhcpd_locked(is_ap_mode)")
+assert "if (!is_ap_mode)" in router_abort[:router_restore]
+assert router_restore < router_dns_start
+assert "restore LAN interface after aborted router-mode teardown" in router_abort
+
 print("LAN DHCP and IPTV deconfig transactional retry contract: PASS")

@@ -1363,6 +1363,18 @@ full_restart_lan(void)
 	if (lan_status != 0) {
 		logmessage(LOGNAME, "LAN restart aborted because previous LAN services did not stop (status=%d)",
 			   lan_status);
+		/*
+		 * stop_lan() can report a route, conntrack, IPv6 or bridge error
+		 * after it has already changed the router-mode interface state.
+		 * Since this restart is aborting, bring the old LAN configuration
+		 * back before restarting DNSMasq and returning to PID 1.
+		 * AP-mode rollback is handled inside stop_lan() because it must
+		 * preserve the DHCP client's stop/lease state.
+		 */
+		if (!is_ap_mode)
+			lan_restart_record_status(&restart_status,
+						  "restore LAN interface after aborted router-mode teardown",
+						  start_lan(0, 1));
 		if (dnsmasq_status == 0) {
 			dnsmasq_start_status = start_dns_dhcpd_locked(is_ap_mode);
 			lan_restart_record_status(&restart_status, "restore DNSMasq after aborted LAN restart",
