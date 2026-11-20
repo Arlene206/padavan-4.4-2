@@ -338,7 +338,7 @@ int Apd_init_sockets(rtapd *rtapd)
 		}
 		
 		memset(&ifr, 0, sizeof(ifr));
-		strcpy(ifr.ifr_name, rtapd->conf->preauth_if_name[i]);
+		memcpy(ifr.ifr_name, rtapd->conf->preauth_if_name[i], sizeof(ifr.ifr_name));
 		DBGPRINT(RT_DEBUG_TRACE,"Register pre-auth interface as (%s)\n", ifr.ifr_name);
 		
 		if (ioctl(rtapd->eth_sock[i], SIOCGIFINDEX, &ifr) != 0)
@@ -376,7 +376,7 @@ int Apd_init_sockets(rtapd *rtapd)
 		}
 		
 		memset(&ifr, 0, sizeof(ifr));
-		strcpy(ifr.ifr_name, rtapd->conf->eap_if_name[i]);
+		memcpy(ifr.ifr_name, rtapd->conf->eap_if_name[i], sizeof(ifr.ifr_name));
 		DBGPRINT(RT_DEBUG_TRACE,"Register EAP interface as (%s)\n", ifr.ifr_name);
 		
 		if (ioctl(rtapd->wlan_sock[i], SIOCGIFINDEX, &ifr) != 0)
@@ -411,8 +411,16 @@ int Apd_init_sockets(rtapd *rtapd)
 		}
 		
 		memset(&ifr, 0, sizeof(ifr));
-		sprintf(ifr.ifr_name, "%s%d",rtapd->prefix_wlan_name, i);
-		//sprintf(ifr.ifr_name, "ra%d", i);
+		if (auth_startup_format_interface_name(ifr.ifr_name,
+						       sizeof(ifr.ifr_name),
+						       rtapd->prefix_wlan_name,
+						       (unsigned int)i) != 0)
+		{
+			DBGPRINT(RT_DEBUG_ERROR, "invalid wireless interface name for SSID %d (errno=%d)\\n",
+				 i, errno);
+			close(s);
+			return -1;
+		}
 		
 		// Get MAC address
 		if (ioctl(s, SIOCGIFHWADDR, &ifr) != 0)

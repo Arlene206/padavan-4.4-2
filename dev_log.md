@@ -1,3 +1,14 @@
+## 2026-11-20 — Bound Ralink 802.1X driver-supplied interface and NAS identifiers
+
+- Parent main SHA: 80d8e6af6d2ba358ea29f0cfc067c8c8536ed3b8.
+- Follow-up review of the authenticator found fixed-buffer hazards: driver-provided `EAPifname_len` and `PreAuthifname_len` were copied unchecked into 16-byte arrays, related `ifreq.ifr_name` buffers used `strcpy`/`sprintf`, and the NAS Identifier length was copied unchecked into a 32-byte array then logged with an unbounded `%s`.
+- Added a bounded driver-name copier which validates source-field and destination capacity, accepts an optional trailing NUL, rejects embedded NULs and always terminates the destination. Reject oversized NAS-ID lengths before copying; use explicit precision for logging a full-width 32-byte identifier.
+- Replaced remaining interface-name string copies with fixed-size copies from validated, zero-terminated fields. The per-BSS interface uses the checked formatter and closes its socket on invalid input.
+- Added host regressions for raw and terminated names, the 15-character boundary, overlong/malformed input, source-length overflow, undersized buffers and invalid pointers. Process source contracts cover config and setup callsites. Added `config.c` to Process/XY path filters and XY production-input tests so a source change triggers same-SHA firmware validation.
+- Exact-head Process/AI docs and XY-C1 Build/TRX/artifact verification required. Physical-router L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-20 — Retry failed Internet connectivity NVRAM mirror publication
 
 - Parent main SHA: 7210c3a3a46093c633b56c8975ab2cd946b2e1bb; current documentation checkpoint child: 327b83d651b690c55626ac3c2bbd7ef6dcfd16ec.

@@ -107,6 +107,60 @@ test_interface_name_formatting_is_bounded(void)
 }
 
 static void
+test_driver_interface_name_copy_is_bounded(void)
+{
+	char name[16];
+	const char ordinary[] = { 'r', 'a', '0' };
+	const char terminated[] = { 'r', 'a', '0', '\0' };
+	const char maximum[] = "012345678901234";
+	const char too_long[] = {
+		'0', '1', '2', '3', '4', '5', '6', '7',
+		'8', '9', '0', '1', '2', '3', '4', '5'
+	};
+	const char embedded_nul[] = { 'r', '\0', 'a' };
+
+	assert(auth_startup_copy_interface_name(name, sizeof(name),
+						ordinary, sizeof(ordinary),
+						sizeof(ordinary)) == 0);
+	assert(strcmp(name, "ra0") == 0);
+	assert(auth_startup_copy_interface_name(name, sizeof(name),
+						terminated, sizeof(terminated),
+						sizeof(terminated)) == 0);
+	assert(strcmp(name, "ra0") == 0);
+	assert(auth_startup_copy_interface_name(name, sizeof(name),
+						maximum, sizeof(maximum) - 1,
+						sizeof(maximum) - 1) == 0);
+	assert(strlen(name) == sizeof(name) - 1);
+	assert(auth_startup_copy_interface_name(name, sizeof(name),
+						too_long, sizeof(too_long),
+						sizeof(too_long)) == -1);
+	assert(errno == ENAMETOOLONG);
+	assert(name[0] == '\0');
+	assert(auth_startup_copy_interface_name(name, sizeof(name),
+						ordinary, 2, sizeof(ordinary)) == -1);
+	assert(errno == EINVAL);
+	assert(name[0] == '\0');
+	assert(auth_startup_copy_interface_name(name, sizeof(name),
+						embedded_nul, sizeof(embedded_nul),
+						sizeof(embedded_nul)) == -1);
+	assert(errno == EINVAL);
+	assert(name[0] == '\0');
+	assert(auth_startup_copy_interface_name(name, sizeof(name),
+						ordinary, sizeof(ordinary), 0) == -1);
+	assert(errno == EINVAL);
+	assert(auth_startup_copy_interface_name(name, 2, ordinary,
+						sizeof(ordinary), sizeof(ordinary)) == -1);
+	assert(errno == ENAMETOOLONG);
+	assert(auth_startup_copy_interface_name(NULL, sizeof(name),
+						ordinary, sizeof(ordinary),
+						sizeof(ordinary)) == -1);
+	assert(errno == EINVAL);
+	assert(auth_startup_copy_interface_name(name, sizeof(name),
+						NULL, 0, 0) == -1);
+	assert(errno == EINVAL);
+}
+
+static void
 test_real_pipe_round_trip(void)
 {
 	int pipe_fds[2];
@@ -212,6 +266,7 @@ test_invalid_arguments_are_rejected(void)
 int
 main(void)
 {
+	test_driver_interface_name_copy_is_bounded();
 	test_interface_name_formatting_is_bounded();
 	test_real_pipe_round_trip();
 	test_child_failure_byte_is_not_success();

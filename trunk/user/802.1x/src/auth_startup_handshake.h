@@ -4,6 +4,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 
@@ -39,6 +40,51 @@ auth_startup_format_interface_name(char *name, size_t name_size,
 
 	return 0;
 }
+
+
+/*
+ * Copy a driver-provided interface name into a NUL-terminated IFNAMSIZ
+ * buffer. source_size bounds reads from the ioctl response; a final NUL
+ * included in source_length is accepted, but embedded NULs are rejected.
+ */
+static inline int
+auth_startup_copy_interface_name(char *name, size_t name_size,
+                                 const char *source, size_t source_size,
+                                 size_t source_length)
+{
+	if (!name || name_size == 0 || !source || source_size == 0) {
+		if (name && name_size != 0)
+			name[0] = '\0';
+		errno = EINVAL;
+		return -1;
+	}
+	if (source_length > source_size) {
+		name[0] = '\0';
+		errno = EINVAL;
+		return -1;
+	}
+	if (source_length > 0 && source[source_length - 1] == '\0')
+		--source_length;
+	if (source_length == 0) {
+		name[0] = '\0';
+		errno = EINVAL;
+		return -1;
+	}
+	if (source_length >= name_size) {
+		name[0] = '\0';
+		errno = ENAMETOOLONG;
+		return -1;
+	}
+	if (memchr(source, '\0', source_length) != NULL) {
+		name[0] = '\0';
+		errno = EINVAL;
+		return -1;
+	}
+	memcpy(name, source, source_length);
+	name[source_length] = '\0';
+	return 0;
+}
+
 
 
 struct auth_startup_io_ops {

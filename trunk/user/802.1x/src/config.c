@@ -14,6 +14,7 @@
 #include <linux/wireless.h>
 
 #include "rtdot1x.h"
+#include "auth_startup_handshake.h"
 #include "ieee802_1x.h"
 #include "md5.h"
 
@@ -359,31 +360,61 @@ BOOLEAN Query_config_from_driver(int ioctl_sock, char *prefix_name, struct rtapd
 		/* NAS Identifier */
 		if (pDot1xCmmConf->Dot1xBssInfo[i].nasId_len > 0)
 		{
-			memcpy(conf->nasId[i], pDot1xCmmConf->Dot1xBssInfo[i].nasId, pDot1xCmmConf->Dot1xBssInfo[i].nasId_len);
-			conf->nasId_len[i] = pDot1xCmmConf->Dot1xBssInfo[i].nasId_len;		
+			size_t nas_id_len = (size_t)pDot1xCmmConf->Dot1xBssInfo[i].nasId_len;
+
+			if (nas_id_len > sizeof(conf->nasId[i]) ||
+			    nas_id_len > sizeof(pDot1xCmmConf->Dot1xBssInfo[i].nasId))
+			{
+				DBGPRINT(RT_DEBUG_ERROR, "invalid NAS-Identifier length %lu for %s%d\\n",
+					 (unsigned long)nas_id_len, prefix_name, i);
+				free(buf);
+				return FALSE;
+			}
+			memcpy(conf->nasId[i], pDot1xCmmConf->Dot1xBssInfo[i].nasId, nas_id_len);
+			conf->nasId_len[i] = (int)nas_id_len;
 		}
-		DBGPRINT(RT_DEBUG_TRACE, "NAS-Identifier: %s and len=%d for %s%d \n", 
-									conf->nasId[i], conf->nasId_len[i], prefix_name, i);
+		DBGPRINT(RT_DEBUG_TRACE, "NAS-Identifier: %.*s and len=%d for %s%d \\n",
+				 conf->nasId_len[i], conf->nasId[i], conf->nasId_len[i], prefix_name, i);
 		
 
 		// EAPifname
 		if (pDot1xCmmConf->EAPifname_len[i] > 0)
 		{
-			memset(conf->eap_if_name[num_eap_if], 0, IFNAMSIZ);	
-			memcpy(conf->eap_if_name[num_eap_if], pDot1xCmmConf->EAPifname[i], pDot1xCmmConf->EAPifname_len[i]);	 
-			
-			DBGPRINT(RT_DEBUG_TRACE, "(no.%d) EAPifname: %s \n", num_eap_if + 1, conf->eap_if_name[num_eap_if]);
-			num_eap_if ++;
+			if (auth_startup_copy_interface_name(
+				    conf->eap_if_name[num_eap_if],
+				    sizeof(conf->eap_if_name[num_eap_if]),
+				    pDot1xCmmConf->EAPifname[i],
+				    sizeof(pDot1xCmmConf->EAPifname[i]),
+				    (size_t)pDot1xCmmConf->EAPifname_len[i]) != 0)
+			{
+				DBGPRINT(RT_DEBUG_ERROR, "invalid EAP interface name length for %s%d\\n",
+					 prefix_name, i);
+				free(buf);
+				return FALSE;
+			}
+			DBGPRINT(RT_DEBUG_TRACE, "(no.%d) EAPifname: %s \n",
+				 num_eap_if + 1, conf->eap_if_name[num_eap_if]);
+			num_eap_if++;
 		}
 
 		// PreAuthifname
 		if (pDot1xCmmConf->PreAuthifname_len[i] > 0)
 		{
-			memset(conf->preauth_if_name[num_preauth_if], 0, IFNAMSIZ);	
-			memcpy(conf->preauth_if_name[num_preauth_if], pDot1xCmmConf->PreAuthifname[i], pDot1xCmmConf->PreAuthifname_len[i]);	 
-
-			DBGPRINT(RT_DEBUG_TRACE,"(no.%d) PreAuthifname: %s \n", num_preauth_if + 1, conf->preauth_if_name[num_preauth_if]);
-			num_preauth_if ++;
+			if (auth_startup_copy_interface_name(
+				    conf->preauth_if_name[num_preauth_if],
+				    sizeof(conf->preauth_if_name[num_preauth_if]),
+				    pDot1xCmmConf->PreAuthifname[i],
+				    sizeof(pDot1xCmmConf->PreAuthifname[i]),
+				    (size_t)pDot1xCmmConf->PreAuthifname_len[i]) != 0)
+			{
+				DBGPRINT(RT_DEBUG_ERROR, "invalid pre-auth interface name length for %s%d\\n",
+					 prefix_name, i);
+				free(buf);
+				return FALSE;
+			}
+			DBGPRINT(RT_DEBUG_TRACE,"(no.%d) PreAuthifname: %s \n",
+				 num_preauth_if + 1, conf->preauth_if_name[num_preauth_if]);
+			num_preauth_if++;
 		}
 
 	}

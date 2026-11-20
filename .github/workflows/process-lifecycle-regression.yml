@@ -81,6 +81,7 @@ on:
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/802.1x/src/rtdot1x.c"
+      - "trunk/user/802.1x/src/config.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/pppoe_relay_policy.h"
       - "trunk/user/rc/src/process_presence_start_policy.h"
@@ -273,6 +274,7 @@ on:
       - "trunk/user/rc/src/net_wan.c"
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/802.1x/src/rtdot1x.c"
+      - "trunk/user/802.1x/src/config.c"
       - "trunk/user/rc/src/optional_daemon_policy.h"
       - "trunk/user/rc/src/pppoe_relay_policy.h"
       - "trunk/user/rc/src/process_presence_start_policy.h"
@@ -1000,6 +1002,7 @@ jobs:
           auth_daemon = Path("trunk/user/802.1x/src/rtdot1x.c").read_text()
           auth_handshake = Path("trunk/user/802.1x/src/auth_startup_handshake.h").read_text()
           auth_regression = Path("trunk/user/802.1x/src/tests/auth_startup_handshake.c").read_text()
+          auth_config = Path("trunk/user/802.1x/src/config.c").read_text()
           init = (rc / "rc.c").read_text()
           header = (rc / "rc.h").read_text()
           regression = (rc / "tests/service_start_status.c").read_text()
@@ -1056,6 +1059,19 @@ jobs:
           assert "sprintf(wrq.ifr_name" not in auth_ioctl
           assert "test_interface_name_formatting_is_bounded" in auth_regression
           assert "ENAMETOOLONG" in auth_handshake
+          auth_socket_setup = body(auth_daemon, "int Apd_init_sockets(rtapd *rtapd)")
+          auth_config_query = body(auth_config, "Query_config_from_driver(int ioctl_sock")
+          assert "auth_startup_format_interface_name(ifr.ifr_name" in auth_socket_setup
+          assert "strcpy(ifr.ifr_name" not in auth_socket_setup
+          assert "sprintf(ifr.ifr_name" not in auth_socket_setup
+          assert "memcpy(ifr.ifr_name" in auth_socket_setup
+          assert '#include "auth_startup_handshake.h"' in auth_config
+          assert auth_config_query.count("auth_startup_copy_interface_name(") == 2
+          assert "nas_id_len > sizeof(conf->nasId[i])" in auth_config_query
+          assert "NAS-Identifier: %.*s" in auth_config_query
+          assert "memcpy(conf->eap_if_name" not in auth_config_query
+          assert "memcpy(conf->preauth_if_name" not in auth_config_query
+          assert "test_driver_interface_name_copy_is_bounded" in auth_regression
           auth_main = body(auth_daemon, "main(int argc, char *argv[])")
           auth_ready = body(auth_daemon, "wait_for_authenticator_ready(")
           assert "pipe(startup_pipe)" in auth_main

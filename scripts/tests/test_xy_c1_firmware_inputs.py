@@ -49,6 +49,7 @@ class FirmwareInputPathTests(unittest.TestCase):
             "trunk/linux-4.4.x/net/ipv4/tcp.c",
             "trunk/configs/boards/XY-C1/kernel-4.4.x.config",
             "trunk/user/rc/Makefile",
+            "trunk/user/802.1x/src/config.c",
         ]
         for path in paths:
             with self.subTest(path=path):
