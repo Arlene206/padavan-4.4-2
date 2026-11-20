@@ -4667,7 +4667,16 @@ notify_on_internet_state_changed(int has_internet, long elapsed)
 #if defined (USE_USB_SUPPORT)
 		case 3:
 			if (get_modem_devnum()) {
-				nvram_set_int("modem_prio", (get_usb_modem_wan(0)) ? 0 : 1);
+				int priority_status;
+
+				priority_status = wan_nvram_int_temp_status(
+					"modem_prio", (get_usb_modem_wan(0)) ? 0 : 1);
+				if (priority_status != 0) {
+					logmessage(LOGNAME,
+						   "cannot publish modem priority before automatic WAN reconnect (status=%d)",
+						   priority_status);
+					break;
+				}
 				queue_internet_lost_action("auto_wan_reconnect",
 						   "automatic WAN reconnect");
 			}

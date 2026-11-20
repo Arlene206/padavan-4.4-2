@@ -1,3 +1,10 @@
+## 2026-11-20 — Gate automatic USB-WAN reconnect on modem-priority publication
+
+- Parent main SHA: `9a5506133875a00f31de8a96a4948b9f0befd93b`.
+- `notify_on_internet_state_changed()` previously ignored the return from `nvram_set_int("modem_prio", ...)` and enqueued automatic WAN reconnect even if the priority write failed. That could reconnect the wrong modem/WAN using stale selection state.
+- Replaced the unchecked persistent setter with the existing status-preserving volatile NVRAM helper `wan_nvram_int_temp_status()`. The reconnect notification is now skipped and the failure logged unless the priority was published successfully; unrelated user internet-state hook execution remains independent.
+- Added a source contract for write → error gate/log → enqueue ordering and for preserving API errno. Exact WAN-route/Process and XY-C1 Build/TRX/artifact validation required; physical L4 NOT VERIFIED.
+
 ## 2026-11-20 — Scope the BusyBox DHCP daemonization ordering assertion
 
 - Parent source SHA: `2150854923895688840e00a74d9510b07c2e65e5`; exact-head WAN-DHCP run `44785778326` failed only because the checker chose the first textual `write_udhcpc_pidfile()` occurrence inside the earlier `client_background()` definition instead of the main startup write after the `-d` fork branch.
