@@ -486,7 +486,7 @@ AddPortMapping(struct upnphttp * h, const char * action, const char * ns)
 		return;
 	}
 	if (miniupnpd_soap_parse_port(ext_port, &eport) != 0 ||
-	    miniupnpd_soap_parse_port(int_port, &iport) != 0)
+	    miniupnpd_soap_parse_nonzero_port(int_port, &iport) != 0)
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");
@@ -625,7 +625,7 @@ AddAnyPortMapping(struct upnphttp * h, const char * action, const char * ns)
 		leaseduration = 604800;
 
 	if (miniupnpd_soap_parse_port(ext_port, &eport) != 0 ||
-	    miniupnpd_soap_parse_port(int_port, &iport) != 0 || iport == 0)
+	    miniupnpd_soap_parse_nonzero_port(int_port, &iport) != 0 || iport == 0)
 	{
 		ClearNameValueList(&data);
 		SoapError(h, 402, "Invalid Args");

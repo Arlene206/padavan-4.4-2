@@ -1,3 +1,12 @@
+## 2026-11-20 — Reject zero internal ports in MiniUPnP mapping requests
+
+- Parent main SHA: cd6734bf52ef0bcf7429ee0b7f8978fc361660f3.
+- SOAP AddPortMapping accepted NewInternalPort=0 because it checked only the external port after decimal conversion. AddAnyPortMapping had a parallel parse-plus-zero check. Port zero is not a valid internal TCP/UDP endpoint.
+- Added `miniupnpd_soap_parse_nonzero_port()`, which validates into a temporary so failed parsing does not clobber the caller's output. Both mapping creation handlers use it; external-port zero semantics are unchanged.
+- Added boundary tests for 1, 65535, zero, NULL and 65536, plus source contracts proving validation occurs before redirect creation. Exact-head MiniUPnP and XY-C1 checks pending.
+
+---
+
 ## 2026-11-20 — Strictly parse numeric arguments in RC switch front-ends
 
 - Parent main SHA: `9f2b19c2dac08dc1fb03d0da1e282a549d3c8594` (its parent source SHA is `bc0d9316777baa125e2ba22ef776d9ea812e3dd4`; intervening commit refreshed documentation only).

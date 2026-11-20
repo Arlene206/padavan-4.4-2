@@ -26,6 +26,11 @@ Physical router verification remains NOT VERIFIED. Firmware L3 is claimed only i
 - Active source defect: RC RTL8367 and MTK switch front-ends accepted malformed/overflowing CLI numeric values through `atoi()` and `get_param_int_hex()`. This slice adds strict checked parsing, GNU89 regression and Switch CLI/XY-C1 path coverage.
 - Local GNU89/Werror/ASan/UBSan parser regression passed. New exact-SHA Actions are pending until the atomic source commit is pushed.
 
+### MiniUPnP internal-port validation follow-up — cd6734bf52ef0bcf7429ee0b7f8978fc361660f3
+
+- WANIPConnection AddPortMapping and AddAnyPortMapping now reject internal port 0 before narrowing/redirect creation. The generic decimal parser still accepts zero for fields where zero has separate protocol meaning; the new non-zero helper leaves the caller's output unchanged on failure.
+- Regression covers 1, 65535, zero, null and out-of-range input. Exact-head MiniUPnP and same-SHA XY-C1 verification remain required.
+
 ## Current repository state
 
 - Current main before this RT3352 TxPower status slice: `31de47640faed47555e830d86cd69f7228887d7e`; the boot-state isolation production source was introduced in `d250aff4e337f5c919e11c44cf5a1e8e5c1cb5a8`.

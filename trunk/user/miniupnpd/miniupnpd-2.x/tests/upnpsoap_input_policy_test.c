@@ -47,6 +47,26 @@ test_port_boundaries(void)
 }
 
 static void
+test_nonzero_port_validation(void)
+{
+	unsigned short port = 321;
+	int status;
+
+	assert(miniupnpd_soap_parse_nonzero_port("1", &port) == 0 && port == 1);
+	assert(miniupnpd_soap_parse_nonzero_port("65535", &port) == 0 && port == 65535);
+
+	errno = 0;
+	status = miniupnpd_soap_parse_nonzero_port("0", &port);
+	assert(status == -1 && errno == EINVAL && port == 65535);
+	errno = 0;
+	status = miniupnpd_soap_parse_nonzero_port(NULL, &port);
+	assert(status == -1 && errno == EINVAL && port == 65535);
+	errno = 0;
+	status = miniupnpd_soap_parse_nonzero_port("65536", &port);
+	assert(status == -1 && errno == ERANGE && port == 65535);
+}
+
+static void
 test_protocol_tokens(void)
 {
 	assert(miniupnpd_soap_protocol_valid("TCP"));
@@ -103,6 +123,7 @@ int
 main(void)
 {
 	test_port_boundaries();
+	test_nonzero_port_validation();
 	test_protocol_tokens();
 	test_nonnegative_int_boundaries();
 	test_invalid_output_arguments();

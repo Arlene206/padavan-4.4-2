@@ -165,12 +165,16 @@ jobs:
           delete_port = function_body(soap_source, "DeletePortMapping(struct upnphttp * h")
           delete_range = function_body(soap_source, "DeletePortMappingRange(struct upnphttp * h")
           get_list = function_body(soap_source, "GetListOfPortMappings(struct upnphttp * h")
-          assert add_port.count("miniupnpd_soap_parse_port(") == 2
+          assert add_port.count("miniupnpd_soap_parse_port(") == 1
+          assert add_port.count("miniupnpd_soap_parse_nonzero_port(") == 1
+          assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in add_port
           assert add_port.count("miniupnpd_soap_parse_int(") == 1
           assert add_port.index("miniupnpd_soap_parse_port(") < add_port.index("upnp_redirect(")
           assert add_port.index("miniupnpd_soap_parse_int(") < add_port.index("upnp_redirect(")
           assert 'strcmp(ext_port, "*")' in add_port and "if (eport == 0)" in add_port
-          assert add_any.count("miniupnpd_soap_parse_port(") == 2
+          assert add_any.count("miniupnpd_soap_parse_port(") == 1
+          assert add_any.count("miniupnpd_soap_parse_nonzero_port(") == 1
+          assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in add_any
           assert add_any.count("miniupnpd_soap_parse_int(") == 1
           assert add_any.index("miniupnpd_soap_parse_int(") < add_any.index("upnp_redirect(")
           assert add_any.index("miniupnpd_soap_parse_port(") < add_any.index("upnp_redirect(")
@@ -189,6 +193,8 @@ jobs:
               assert marker in soap_policy, marker
           for marker in (
               "test_port_boundaries",
+              "test_nonzero_port_validation",
+              "miniupnpd_soap_parse_nonzero_port",
               "test_nonnegative_int_boundaries",
               "test_invalid_output_arguments",
               'expect_port_error("65536", ERANGE)',

@@ -72,6 +72,25 @@ miniupnpd_soap_parse_int(const char *text, int *value_out)
 
 
 static inline int
+miniupnpd_soap_parse_nonzero_port(const char *text, unsigned short *port_out)
+{
+	unsigned short value;
+
+	if (!port_out) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (miniupnpd_soap_parse_port(text, &value) != 0)
+		return -1;
+	if (value == 0) {
+		errno = EINVAL;
+		return -1;
+	}
+	*port_out = value;
+	return 0;
+}
+
+static inline int
 miniupnpd_soap_ascii_equal_ci(const char *left, const char *right)
 {
 	while (*left && *right) {

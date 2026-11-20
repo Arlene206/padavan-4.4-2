@@ -1,3 +1,7 @@
+## MiniUPnP SOAP input validation
+
+- Reject internal port 0 in AddPortMapping/AddAnyPortMapping using a non-zero bounded decimal parser; retain zero semantics for external port assignment where permitted. Host boundary regression and same-SHA XY-C1 verification required.
+
 ## Latest exact-head state — bc0d9316777baa125e2ba22ef776d9ea812e3dd4 (source); 9f2b19c2dac08dc1fb03d0da1e282a549d3c8594 (docs-only)
 
 - Wireless: completed/success (#44746584209)
