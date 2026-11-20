@@ -12,30 +12,30 @@ Continue main-only implementation across conversations. Recover the repository o
 
 ## Current repository state
 
-- Live main parent for this validator follow-up: `2c19a2172400fb3b775168c499f1148bb3c6b5a6`.
-- Production implementation under validation: `10b57237ced5487a0d17e0bb09425ea96973a78e`. The shared `dhcp_lease_nvram_publish()` validates all values, attempts every candidate write despite an individual failure, preserves the first publication error, and restores the complete previous tuple in reverse order.
-- WAN `udhcpc_renew()` publishes changed DNS/domain/WINS/lease duration through one serialized NVRAM transaction; publication errors are returned, and resolver refresh is withheld until the full snapshot succeeds.
-- PPP ip-up publishes `ipaddr/netmask/ifname_t/gateway/dns` under a transaction, restores the tuple under a fresh transaction after failure, removes the interface address on failed publication, and gates WAN route setup on success.
-- The injected GNU89/Werror/ASan/UBSan attempt-all/full-rollback regression passed in WAN DHCP callback run `44689620059` on `b5146272dd0149586fb5bb27d5aa43d85f2bb1fd`. NVRAM transaction boundary run `44689024044` passed on source `10b5723`. AI handoff documentation run `44689831389` passed on current parent.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only; branch inventory last verified only main and this backup.
-- Legacy PR #1 is CLOSED / NOT MERGED; AliDDNS HMAC/CA-bootstrap work is already present and evolved on main. Do not repeat that port audit.
+- Live main SHA: ee8ef67dcd17b24ff79027e8dbbd66cb2f0dcbb1.
+- WAN DHCP (11-field), virtual-IPTV DHCP (7-field), ZeroConf WAN (4-field), and ZeroConf IPTV (3-field) bound callbacks use a shared serialized NVRAM snapshot publisher with previous-value rollback and network/interface compensation.
+- New source commit ee8ef67dcd17b24ff79027e8dbbd66cb2f0dcbb1 adds a length predicate for prior IP/netmask/gateway text before copying snapshot values into fixed INET_ADDRSTRLEN rollback buffers. This prevents a corrupt overlong value such as 255.255.255.255x from being truncated to a different valid address. The same guard is used in all four DHCP/ZeroConf callbacks.
+- The commit adds focused tests for empty/exact-fit/overlong-prefix/NULL/zero-capacity cases and an 11-field fake NVRAM write failure: all eleven writes must be attempted and all old fields restored in reverse order after an after-write ENOSPC.
+- Exact-SHA Actions on ee8ef67 were queued/in progress at last poll: WAN callback 44693084363, WAN route 44693084041, HTTPD 44693084106, AI handoff 44693084139, NVRAM boundary 44693084087, XY-C1 44693084076. No PASS/FAIL is claimed until each job completes.
+- Previous source-equivalent checks: WAN route 44692804478, HTTPD 44692804337, AI docs 44692804357 passed on 5e2c84586842bffc46238d491b042dc1b9ee4741; the WAN callback on that SHA failed on a ZeroConf source-body extraction assertion, corrected by the prototype/call-site-aware parser in ee8ef67.
+- Frozen backup backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only. Legacy PR #1 remains CLOSED / NOT MERGED; AliDDNS hardening is already on main.
 
 ## Active task
 
-1. Repair the remaining WAN/PPP source-checker mismatch: production `ppp_wan_ipup_publish_address()` uses `dhcp_lease_nvram_publish()` under an NVRAM transaction and `dhcp_lease_nvram_restore()` under a fresh transaction; the route checker incorrectly expected `rc_wan_nvram_set_all_values()`. The checker now asserts the actual shared publisher.
-2. Repair HTTPD's embedded DHCP-renew contract: its old marker was merely a removed source comment (`dnsmasq domain-specific server routing too`). The actual behavior marks DNS/domain changes via `resolver_changed`, returns on snapshot publication error, and only then refreshes resolver state. The workflow contract now checks that ordering.
-3. Inspect exact-SHA WAN route, HTTPD, WAN DHCP callback, AI handoff and XY-C1 runs for this correction. Correct causal failures without weakening transactional rollback or route gates.
-4. After those gates pass, inspect `udhcpc_bound()` for partial address-change lease tuple writes and add an injected regression plus fail-closed atomic source fix where a real defect remains.
+1. Inspect exact-SHA Actions for ee8ef67. Diagnose any failing checker or C test from the failed job log and preserve transaction/full-rollback assertions.
+2. Ensure the bounded-copy helper and 11-field rollback test compile and execute under GNU89/Werror/ASan/UBSan.
+3. XY-C1 must reach and pass the MIPS build, TRX verification and artifact upload on the same production SHA before L3 can be claimed. Earlier f20b907 detector run passed host checks but skipped build/TRX/artifact because it saw no production input changes; inspect the current detector logs and fix the path classifier only if it is demonstrably wrong.
+4. Once this boundary is green, continue another independent stability defect from the whole-repository governance ledger.
 
 ## Verification boundary
 
-- PASS: WAN DHCP callback `44689620059` on `b5146272dd0149586fb5bb27d5aa43d85f2bb1fd`; AI handoff docs `44689831389` on `2c19a2172400fb3b775168c499f1148bb3c6b5a6`; NVRAM boundary `44689024044` on production source `10b57237ced5487a0d17e0bb09425ea96973a78e`; injected attempt-all/full-rollback test within WAN DHCP callback passed under GNU89/Werror/ASan/UBSan.
-- FAIL, corrected in this source-contract follow-up: WAN route `44689432208` and XY-C1 `44689432315` on `5e7d8cf`, plus XY-C1 `44689620163` on `b5146272`; all failed on the stale PPP helper marker. HTTPD `44689024189` on `10b5723` failed on the removed comment-only renewal marker.
-- XY-C1 has not yet passed the same-production-SHA detector, MIPS build, TRX verification and artifact upload. L3 is NOT VERIFIED. Physical-router L4 is NOT VERIFIED.
+- PASS on 5e2c84586842bffc46238d491b042dc1b9ee4741: WAN route 44692804478, HTTPD 44692804337, AI docs 44692804357. WAN callback 44692804497 failed at a source-body assertion after the ZeroConf rollback helper was centralized; corrected parser selection and assertions are included in ee8ef67.
+- EXACT-SHA ee8ef67dcd17b24ff79027e8dbbd66cb2f0dcbb1: WAN callback 44693084363, WAN route 44693084041, HTTPD 44693084106, AI docs 44693084139, NVRAM boundary 44693084087, XY-C1 44693084076 were queued or in progress at last poll.
+- No same-source SHA has yet completed MIPS build + TRX verification + artifact upload after the WAN/IPTV/ZeroConf snapshot changes. L3 remains NOT VERIFIED. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch live main and inspect exact-head WAN route, HTTPD, WAN DHCP callback, AI docs and XY-C1 Actions for this correction. For each FAIL, open the failed job log and repair the real contract issue without weakening checked-write, attempt-all, full-tuple rollback, resolver-after-commit or WAN route-gating assertions. Once green, audit `udhcpc_bound()` for unchecked/partial address-change tuple publication and make the next production source slice independently testable and atomic. Claim L3 only when one production source SHA passes detector, MIPS build, TRX and artifact upload; keep L4 NOT VERIFIED without device evidence.
+Fetch live main and exact-SHA run statuses for ee8ef67. Open any failed job log, then repair only the causal source/test/contract defect. Confirm the two new policy tests really execute under GNU89/Werror/ASan/UBSan, and check each of the four callback pre-copy guards. Keep running independent tasks while Actions are pending. Do not claim L3 until the same SHA passes MIPS build, TRX verification and artifact upload; do not claim physical L4 without device evidence.
 
 ## Mandatory handoff checkpoint
 

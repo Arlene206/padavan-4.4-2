@@ -1,3 +1,11 @@
+## 2026-11-20 — Prevent truncated IPv4 rollback values across DHCP and ZeroConf callbacks
+
+- Parent main SHA: ee8ef67dcd17b24ff79027e8dbbd66cb2f0dcbb1; commit under verification: ee8ef67dcd17b24ff79027e8dbbd66cb2f0dcbb1.
+- Found a defensive rollback bug in all four bound callbacks: previous IP/netmask/gateway text was captured in larger snapshot storage then copied into INET_ADDRSTRLEN buffers without a fit check. An overlong corrupt string beginning with a valid IPv4 literal could be truncated to that different address and used for interface/route rollback. Added dhcp_lease_text_fits_buffer(); each callback now rejects an oversized old address before interface or route mutation.
+- Added helper tests for empty, exact-fit, valid-prefix-overflow, NULL and zero-capacity values. Added an 11-field injected NVRAM regression: a setter that writes then returns ENOSPC must not stop remaining writes, and all old tuple fields must be restored in reverse order.
+- Also made WAN callback and WAN route source-body extractors skip C prototypes/call sites so the publisher parser reaches the actual function implementation; this fixes the stale ZeroConf assertion exposed by 44692804497 on 5e2c845.
+- Exact-SHA Actions on ee8ef67 were queued/in progress at the last poll: WAN callback 44693084363, WAN route 44693084041, HTTPD 44693084106, AI docs 44693084139, NVRAM 44693084087, XY-C1 44693084076. No result claimed until completion.
+
 ## 2026-11-20 — Align WAN/PPP and DHCP-renew source contracts with shared transactions
 
 - Parent main SHA: `2c19a2172400fb3b775168c499f1148bb3c6b5a6`; production implementation under validation: `10b57237ced5487a0d17e0bb09425ea96973a78e`.
