@@ -1,3 +1,12 @@
+## 2026-11-21 — Assert the duplicate-Authorization auth gate in HTTPD session contract
+
+- Parent main SHA: `91ab0fb6ceaf0c2fa068cd9cad32f57422bfa438`.
+- Exact-head HTTPD security #44931678295 reached the final login activity-refresh contract and failed at Python line 1012: the checker still looked for `if (!auth_check(authorization))`. The production gate now rejects repeated Authorization fields with `if (authorization_header.duplicate || !auth_check(authorization))`; updated the checker to assert the actual branch and preserve the ordering check before refreshing login activity.
+- AI handoff #44931678330 and Process inventory #44931678314 passed on exact 91ab. VPN server lifecycle #44931678366 also passed. XY-C1 #44931678300 and NVRAM audit #44931678280 were still in progress at last poll.
+- HTTPD workflow source-contract only; no production source changed. The XY-C1 host-only run on parent 4e2 had its product Build/TRX/artifact steps skipped, so L3 for the current HTTPD source remains unverified until a product-source commit triggers a full exact-head build.
+
+---
+
 ## 2026-11-21 — Fail closed VPN server startup on unreadable enable/type configuration
 
 - Parent main SHA: `4e2e701f33d2be2c35004015d6625b718be67a7f`.

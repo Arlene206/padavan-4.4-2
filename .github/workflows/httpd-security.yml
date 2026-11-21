@@ -5092,7 +5092,7 @@ jobs:
           assert "login_last_activity, LOGIN_TIMEOUT)" in check
           assert "unsigned long)(now - last_activity)" in login_policy
           activity_refresh = request.index("login_last_activity = (unsigned long)uptime();")
-          auth_check = request.index("if (!auth_check(authorization))", auth_gate)
+          auth_check = request.index("if (authorization_header.duplicate || !auth_check(authorization))", auth_gate)
           assert auth_check < activity_refresh
           assert "else if (login_state == 3)" in request[auth_gate:activity_refresh]
           # SystemCmd is a root shell feature restricted by get_login_safe().
