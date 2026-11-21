@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Parent main SHA before the IPv4 NAT builder checked-policy slice: `27cee43d08d3a66c741b0ca61e1496d243e7bd80`. That parent fixes the second IPv4 `misc_ping_x` inverted read; this commit extends checked NVRAM policy to the separate NAT ruleset builder.
+- Parent main SHA before the IPv6 inverted-selector preflight: `3447846b0f81fb252f313cd6c7fe6c429645e673`. The IPv4 NAT builder checked VPN/UPnP/SSH/FTP selectors in this parent; this slice closes remaining inverted booleans in the IPv6 filter builder.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -25,20 +25,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv4 NAT builder `ipt_nat_rules()` duplicated unchecked NAT/VPN policy selection even after the filter builder was repaired. Backend failures could silently default `wan_nat_x`, VPN enable/type and `vpnc_sfw` to zero; unchecked `upnp_enable_x` could also publish UPnP chain jumps from an empty-as-enabled inverted match. NAT/DMZ VPN exception rules additionally reread OpenVPN mode/protocol/port values unchecked.
-- This slice reads WAN NAT and VPN server/client enable/type/policy selectors through checked readers before `firewall_open_rule_file()`. Server `vpns_vuse/actl` are checked only when NAT and the VPN server are enabled; OpenVPN server/client mode/protocol/port values are checked only for enabled type-2 endpoints where those values affect NAT/DMZ policy. Out-of-range OpenVPN port values retain the legacy 1194 fallback.
-- UPnP, SSH and FTP inverted enable gates in the NAT remap builder now use `firewall_read_not_zero_setting()`, preserving absent-key legacy semantics while propagating backend errors. DMZ exceptions reuse checked values rather than repeating unchecked reads. The firewall workflow source contract pins these gates before rule-file creation and rejects direct NVRAM getters.
+- The IPv6 filter builder `ip6t_filter_rules()` still used unchecked `nvram_invmatch(key, "0")` for `misc_ping_x` (INPUT, FORWARD ICMPv6 and traceroute), `sshd_enable`, `enable_ftp`, and `upnp_enable_x`. As in IPv4, a failed legacy NVRAM read returns an empty string and is treated as enabled, risking an exposed service/pinhole or extra firewall exception.
+- This slice resolves the inverted IPv6 selectors through `firewall_read_not_zero_setting()` before opening the IPv6 rule file, preserving the missing-key enabled default and aborting ruleset publication on backend/read/close errors. A single checked `misc_ping_x` snapshot now controls all three ICMPv6/traceroute rule sites; SSH/FTP reads remain compile-guarded.
+- The firewall workflow's existing GNU89/Werror/ASan/UBSan policy helper test exercises inverted-default/error semantics; its source-contract step now requires all four IPv6 checked gates to precede `firewall_open_rule_file()` and forbids remaining direct inverted reads in `ip6t_filter_rules()`.
 ## Verification boundary
 
-- XHCI source `692c260ecf9d49ab44b2baefcb4895d1a4190d7f`: Process inventory #44948258854 PASS; USB modem #44948258515 PASS; Firewall Startup #44948258642 PASS; WAN route #44948258490 PASS; AI docs #44948258596 PASS. Its Process integration #44948258619 initially failed only on wrapped-call checker; checker-only commit `a727f2e78a42fac20d2558dee63ac78673551c79` later passed Process inventory #44948463340 and AI docs #44948463272.
-- Firewall filter/VPN commit `bbd199ab0458296efacd741b473d0ef6d3853f93`: Firewall Startup #44948667798, Process inventory #44948667779 and AI docs #44948667780 PASS; XY-C1 #44948667816 was pending and NVRAM audit #44948667802 was canceled after pushes.
-- Inverted selector commit `fb8b82f4af18601e5745929fc0bc10d9b4bd8919`: Firewall Startup #44948845404 failed on the second IPv4 `misc_ping_x` inverted read; fix `27cee43d08d3a66c741b0ca61e1496d243e7bd80` passed Firewall Startup #44948947193 and AI docs #44948947163. XY-C1 #44948947161 and NVRAM #44948947164 remained in progress at last poll.
-- Current IPv4 NAT builder slice requires fresh exact-head Firewall Startup, Process, NVRAM and XY-C1 Build/TRX/artifact checks. No local build/test or hardware L4 claim.
+- IPv4 NAT selector source `3447846b0f81fb252f313cd6c7fe6c429645e673`: exact-head Actions were launched: Firewall Startup #44949286687, AI handoff #44949286648, Process inventory #44949286668, NVRAM audit #44949286631 and XY-C1 #44949291903 were IN_PROGRESS at last poll. Parent `27cee43d...` Firewall Startup #44948947193, WAN route #44948947181, WAN DHCP #44948947214, Process inventory #44948947321, HTTPD #44948947166, FULLCONENAT #44948947177 and AI docs #44948947163 all PASS.
+- The current IPv6 selector slice needs fresh exact-head Firewall Startup/Process/NVRAM/AI checks and XY-C1 Build/TRX/artifact for L3. No local build/test or hardware L4 claim.
 ## Exact first action for the next GPT
 
-1. Fetch exact current main and inspect the Firewall Startup run for this NAT-builder slice. The GNU89/ASan/UBSan NVRAM helper regression and new `ipt_nat_rules()` source contract must pass. Check Process/NVRAM and XY-C1; L3 requires Build, TRX verification and artifact upload on one source SHA.
-2. Review `ip6t_filter_rules()` for unchecked inverted `misc_ping_x`, SSH/FTP and UPnP gates. Its IPv4 counterparts are now checked; retain missing-key semantics and abort staging on backend errors.
-3. Continue auditing NAT/remote-admin listener ports only where malformed NVRAM changes WAN exposure. Preserve old range/default semantics and immutable backup.
+1. Fetch exact current main and inspect Firewall Startup on this IPv6 inverted-selector change. Require the C policy test and full IPv6 source contract to pass; inspect Process/NVRAM/AI checks and XY-C1 Build/TRX/artifact.
+2. Reconcile results on parent NAT builder SHA `3447846b0f81fb252f313cd6c7fe6c429645e673` separately; do not promote parent results to the IPv6 descendant.
+3. Continue reviewing `ip6t_filter_rules()`/`ipt_nat_rules()` numeric listener and service exposure reads only when they change WAN policy; maintain legacy defaults and range semantics.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

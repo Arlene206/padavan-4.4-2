@@ -439,6 +439,18 @@ jobs:
           assert 'nvram_get_int("vpnc_ov_prot")' not in nat_builder
           assert 'nvram_safe_get_int("vpns_ov_port"' not in nat_builder
           assert 'nvram_safe_get_int("vpnc_ov_port"' not in nat_builder
+          ipv6_filter = body(firewall_source, "ip6t_filter_rules(char *man_if")
+          ipv6_inverted = (
+              'firewall_read_not_zero_setting("misc_ping_x", &is_ping_enabled)',
+              'firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled)',
+              'firewall_read_not_zero_setting("enable_ftp", &is_ftp_enabled)',
+              'firewall_read_not_zero_setting("upnp_enable_x", &is_upnp_enabled)',
+          )
+          for gate in ipv6_inverted:
+              assert gate in ipv6_filter, gate
+              assert ipv6_filter.index(gate) < ipv6_filter.index("firewall_open_rule_file("), gate
+          for key in ("misc_ping_x", "sshd_enable", "enable_ftp", "upnp_enable_x"):
+              assert f'nvram_invmatch("{key}", "0")' not in ipv6_filter
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
               filter_builder = body(firewall_source, signature)
               mac_gate = "firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop)"

@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on IPv6 filter inverted enable selectors
+
+- Parent main SHA: `3447846b0f81fb252f313cd6c7fe6c429645e673`.
+- `ip6t_filter_rules()` still used unchecked inverted NVRAM reads for ping/ICMPv6, SSH enable, FTP enable and UPnP. A backend failure could be interpreted as enabled due to legacy empty-string comparison. The ping selector was read three times across INPUT, FORWARD and traceroute rules.
+- Added checked preflight reads before opening the IPv6 rules file. One `misc_ping_x` result is reused for all three rules; SSH/FTP remain behind their APP feature macros; UPnP is checked before pinhole-chain publication. Missing keys preserve the old `nvram_invmatch(..., "0")` semantics; backend failures abort staged rule generation.
+- Extended `firewall-startup-stability.yml` to require all checked selectors before `firewall_open_rule_file()` and reject the old inverted getters. Existing GNU89/Werror/ASan/UBSan helper regression covers inverted defaults and backend errors. No local test execution claimed.
+- Parent NAT commit `3447846b...` exact-head Firewall Startup #44949286687, AI #44949286648, Process #44949286668, NVRAM #44949286631 and XY-C1 #44949291903 were in progress at last poll. Current exact-head checks pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Check IPv4 NAT builder VPN and exposure selectors
 
 - Parent main SHA: `27cee43d08d3a66c741b0ca61e1496d243e7bd80`.

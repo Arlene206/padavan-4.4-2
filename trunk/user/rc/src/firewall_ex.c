@@ -2200,6 +2200,13 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	int ret, wport, lport;
 	int ipv6_type, is_fw_enabled, is_url_enabled, is_url_inverse, is_logaccept, is_logdrop;
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
+	int is_ping_enabled = 0, is_upnp_enabled = 0;
+#if defined (APP_SSHD)
+	int is_sshd_enabled = 1;
+#endif
+#if defined (APP_FTPD)
+	int is_ftp_enabled = 1;
+#endif
 	char ipt_file[] = "/tmp/ip6t_filter.XXXXXX";
 
 	ret = 0;
@@ -2223,6 +2230,26 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
 	if (ret != 0)
 		return ret;
+
+	/* Resolve inverted IPv6 filter selectors before opening the rule file. */
+	if (is_fw_enabled) {
+		ret = firewall_read_not_zero_setting("misc_ping_x", &is_ping_enabled);
+		if (ret != 0)
+			return ret;
+#if defined (APP_SSHD)
+		ret = firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled);
+		if (ret != 0)
+			return ret;
+#endif
+#if defined (APP_FTPD)
+		ret = firewall_read_not_zero_setting("enable_ftp", &is_ftp_enabled);
+		if (ret != 0)
+			return ret;
+#endif
+		ret = firewall_read_not_zero_setting("upnp_enable_x", &is_upnp_enabled);
+		if (ret != 0)
+			return ret;
+	}
 
 	is_logaccept = (strcmp(logaccept, IPT_CHAIN_NAME_LOG_ACCEPT) == 0) ? 1 : 0;
 	is_logdrop = (strcmp(logdrop, IPT_CHAIN_NAME_LOG_DROP) == 0) ? 1 : 0;
@@ -2266,7 +2293,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 		fprintf(fp, "-A %s -i %s -j %s\n", dtype, "lo", "ACCEPT");
 		
 		/* Accept ICMPv6 (ICMPv6 may be INVALID state!) */
-		if (nvram_invmatch("misc_ping_x", "0"))
+		if (is_ping_enabled)
 			fprintf(fp, "-A %s -p %d -j %s\n", dtype, 58, logaccept);
 		else
 			fprintf(fp, "-A %s -p %d ! --icmpv6-type %s -j %s\n", dtype, 58, "echo-request", logaccept);
@@ -2303,7 +2330,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 #if defined (APP_SSHD)
 		wport = nvram_get_int("sshd_wport");
 		lport = 22;
-		if (nvram_invmatch("sshd_enable", "0") && nvram_match("sshd_wopen", "1") && (wport == lport)) {
+		if (is_sshd_enabled && nvram_match("sshd_wopen", "1") && (wport == lport)) {
 			i_bfplimit_ref++;
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, IPT_CHAIN_NAME_BFP_LIMIT);
 		}
@@ -2311,7 +2338,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 #if defined (APP_FTPD)
 		wport = nvram_get_int("ftpd_wport");
 		lport = 21;
-		if (nvram_invmatch("enable_ftp", "0") && nvram_match("ftpd_wopen", "1") && (wport == lport))
+		if (is_ftp_enabled && nvram_match("ftpd_wopen", "1") && (wport == lport))
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 #endif
 		wport = nvram_get_int("udpxy_wport");
@@ -2369,7 +2396,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 		}
 		
 		/* Accept UDP ports 33434-33534 for traceroute */
-		if (nvram_invmatch("misc_ping_x", "0"))
+		if (is_ping_enabled)
 			fprintf(fp, "-A %s -p udp --dport %d:%d -j %s\n", dtype, 33434, 33534, logaccept);
 		
 		/* Drop all (only for log) */
@@ -2415,7 +2442,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 
 	if (is_fw_enabled) {
 		/* Pass ICMPv6 (ICMPv6 may be in INVALID state!) */
-		if (nvram_invmatch("misc_ping_x", "0"))
+		if (is_ping_enabled)
 			fprintf(fp, "-A %s -p %d -j %s\n", dtype, 58, logaccept);
 		else
 			fprintf(fp, "-A %s -p %d ! --icmpv6-type %s -j %s\n", dtype, 58, "echo-request", logaccept);
@@ -2438,7 +2465,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 		fprintf(fp, "-A %s -i %s -j %s\n", dtype, lan_if, "ACCEPT");
 		
 		/* Jump to IPv6 pinhole (IGDv2 IP6FC or PCP) */
-		if (nvram_invmatch("upnp_enable_x", "0"))
+		if (is_upnp_enabled)
 			fprintf(fp, "-A %s -j %s\n", dtype, MINIUPNPD_CHAIN_IP6_FORWARD);
 		
 		/* Drop all (only for log) */
