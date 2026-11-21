@@ -793,7 +793,7 @@ for signature, call in (
 ):
     assert f"return {call};" in compact(body(WAN_SOURCE, signature))
 
-pause_reconnect = compact(body(WAN_SOURCE, "auto_wan_reconnect_pause(void)"))
+pause_reconnect = "".join(compact(body(WAN_SOURCE, "auto_wan_reconnect_pause(void)")).split())
 pause_read = 'status=get_nvram_int_checked_status("di_recon_pause",&pause_seconds);'
 pause_gate = "if(status!=0){"
 pause_error = "aborting automatic WAN reconnect because delay configuration is unavailable"

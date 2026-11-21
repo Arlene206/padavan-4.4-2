@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct whitespace normalization in WAN caller contract
+
+- Parent main SHA: `1770074742e98f13155fab91703fc74ca975c248`.
+- The exact-head USB modem identity and Firewall checks on `9341a1ce8e47c74787c4db5426ecdd49eab0392f` failed at a new source-order assertion because `compact()` converts whitespace runs to one space rather than removing whitespace. The Process lifecycle regression stopped at the same source checker. No C policy binary or source behavior failed before this assertion.
+- The checker now removes whitespace from the compacted `auto_wan_reconnect_pause()` body before searching the ordered NVRAM-read, error-gate, early-return and reconnect fragments. The DNSMasq WINS fix was concurrently committed in `1770074742e98f13155fab91703fc74ca975c248`; exact-head DNSMasq workflow passed. This commit makes no production changes; affected XY-C1 / USB modem / Firewall / Process checks must rerun.
+- L3 remains NOT VERIFIED until XY-C1 Build, TRX and artifact pass on one exact product-source SHA.
+
+---
+
 ## 2026-11-21 — Fail closed on DNSMasq explicit DHCP WINS address reads
 
 - Parent main SHA: 9341a1ce8e47c74787c4db5426ecdd49eab0392f.

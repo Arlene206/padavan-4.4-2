@@ -7,34 +7,34 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only.
-- Main at the start of this slice: `8c79215790b8e56300d0c07201d62c90dfcd76e2`. FTP enable-state reads now fail closed in startup/restart; its exact-head vsftpd, Process inventory, NFS, firewall, Samba, HTTPD, USB modem and handoff checks passed. Process lifecycle passed; storage hotplug and the repository-wide NVRAM audit were still running, and XY-C1 was in Build.
-- The deferred WAN reconnect change is committed in `136db90e2f84513d9bf3da297802b708b0811b44`. Its first WAN-route run passed the GNU89/ASan/UBSan policy binaries and earlier source contracts but exposed one line-wrap-sensitive assertion in the new source checker; this checker-only commit normalizes whitespace. XY-C1 Build/TRX/artifact and the remaining independent checks for the source SHA are still pending.
-- The first XY-C1 pre-build pass on the same product-source SHA then exposed an older assertion in `check_modem_wan_start_status.py` that still expected the removed unchecked `nvram_get_int("di_recon_pause")` expression. This checker follow-up now pins the checked read, failure return and reconnect ordering; no production change is made in this correction.
+- Main at the start of this slice: `1770074742e98f13155fab91703fc74ca975c248`. The product-source changes now on main include the deferred WAN reconnect fail-closed NVRAM preflight (`136db90e2f84513d9bf3da297802b708b0811b44`) and the checked DHCP WINS address snapshot committed in `1770074742e98f13155fab91703fc74ca975c248`.
+- WAN route status and AI handoff documentation passed on `0097f377a1155be4ec09c2fe38334aa985c39b2b`; DNSMasq lifecycle passed on `1770074742e98f13155fab91703fc74ca975c248`. The XY-C1 / USB modem / Firewall / Process checks subsequently exposed one test-only mismatch in `check_modem_wan_start_status.py`: `compact()` preserves single spaces while its new assertion used no-space tokens. This correction strips whitespace from the extracted function before the order checks.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
+
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
 - Legacy PR #1 remains closed and unmerged; do not reopen or develop through its branch.
 - Protected reliability work includes checked optional-daemon settings, ttyd/SSH mode wrappers and detached-child probes, WAN DHCP compare-and-publish, stale-writer guarded recovery and validate-first reverse tuple construction for post-commit 6rd failure.
 
 ### Current source slice
 
-- Main at the start of this slice: 9341a1ce8e47c74787c4db5426ecdd49eab0392f.
-- The prior exact-head FTP, Samba, Process, DNSMasq and storage checker work is recorded in the previous dev_log entries. A deferred WAN reconnect NVRAM preflight was added in commit `136db90e2f84513d9bf3da297802b708b0811b44`; its checker corrections are also on main.
-- This slice addresses the remaining unchecked `dhcp_wins_x` NVRAM reads in `prepare_dns_dhcpd()`: explicit WINS address read errors could be mistaken for no explicit address and silently choose router-IP fallback.
-- New checked string parser, output-preservation tests and source-order contract are committed atomically here; exact-head DNSMasq and XY-C1 actions pending.
+- Deferred WAN reconnect fix: `136db90e2f84513d9bf3da297802b708b0811b44`. `auto_wan_reconnect_pause()` now uses checked `di_recon_pause` reading; backend/parse failure returns before any WAN stop/start while absent key retains zero-second compatibility.
+- DHCP WINS fix: `1770074742e98f13155fab91703fc74ca975c248`. `prepare_dns_dhcpd()` snapshots `dhcp_wins_x` using `nvram_get_checked()` before DHCP-pool repair/generated-file changes, aborts on backend/inconsistent/oversized results, and reuses the private bounded value for option 44. Exact-head DNSMasq regression passed on this SHA.
+- The WAN route workflow passed on `0097f377a1155be4ec09c2fe38334aa985c39b2b`. Earlier XY-C1/USB modem/Firewall/Process failures on `9341a1ce` all stopped at the new source-check whitespace assertion; the current checker-only correction is pending its exact-head reruns.
 
 
 ## Active task
 
-1. Inspect exact-head DNSMasq policy/source-contract Action for the checked `dhcp_wins_x` snapshot.
-2. Require same-source-SHA XY-C1 Build, TRX verification and artifact upload to PASS before marking L3.
-3. Continue the next independent whole-userland stability/security issue; do not re-audit completed FTP/Samba/storage fixes.
+1. Inspect exact-head XY-C1, USB modem identity, Firewall and Process lifecycle results after the checker whitespace fix; diagnose any new failures from their logs.
+2. Require Build XY-C1, TRX verification and artifact upload to PASS on one exact product-source SHA covering the WAN reconnect and DHCP WINS fixes. Do not mark L3 while any step is skipped or failed.
+3. Continue an independent whole-userland stability/security fix while unrelated CI is pending; don't re-audit completed FTP, storage, WAN source or DNSMasq changes.
 
 
 ## Verification boundary
 
-- L1: `dhcp_wins_x` is read through `nvram_get_checked()` before DHCP-pool or generated-file side effects; backend/inconsistent/oversized values abort preparation, absent key remains empty, and a private bounded snapshot is reused when writing option 44.
-- L2: New GNU89 string policy regressions and exact source-order contracts are part of this atomic commit; exact-head result pending.
-- L3: NOT VERIFIED until Build XY-C1, TRX verification and artifact upload PASS on one exact product-source SHA.
-- L4: Physical DHCP client lease/WINS behavior and live router operation NOT VERIFIED.
+- L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on enable/delay NVRAM read errors; DNSMasq explicit DHCP WINS reads are checked before staging and use a stable bounded snapshot.
+- L2: WAN route status passed on `0097f377...`; DNSMasq lifecycle, WAN route, handoff, Samba, Inadyn, HTTPD and MiniUPnP regressions passed on recent exact heads. The new WAN caller source-check correction and the affected dependent suites are pending reruns.
+- L3: NOT VERIFIED until Build XY-C1, TRX verification and artifact upload PASS on one exact product-source SHA. XY-C1 on `9341a1ce` stopped in a checker before compilation; the latest run on `1770074742e98f13155fab91703fc74ca975c248` was in progress at handoff.
+- L4: Physical router reconnect timing, DHCP/WINS lease behavior and runtime failover remain NOT VERIFIED.
 
 
 ## Workflow and preservation rules
@@ -55,5 +55,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main; inspect the exact-head DNSMasq string-policy/source-order regression and XY-C1 Build/TRX/artifact for this DHCP WINS snapshot. Then continue the next independent whole-userland stability issue.
-Fetch live main; inspect the exact-head WAN route status result for the checked delayed-reconnect NVRAM preflight and inspect XY-C1 Build/TRX/artifact for the FTP source SHA. Then continue an independent reliability/security defect outside the completed storage and FTP slices.
+Fetch live main; inspect the exact-head XY-C1 / USB modem identity / Firewall / Process runs for the corrected `check_modem_wan_start_status.py`. Then confirm XY-C1 Build + TRX + artifact on the same product-source SHA and continue an independent reliability/security issue.
