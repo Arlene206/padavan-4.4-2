@@ -2646,23 +2646,19 @@ jobs:
           renew_end = wan.index("udhcpc_viptv_renew(char *man_ifname)", renew_start)
           renew = wan[renew_start:renew_end]
           renew_compact = "".join(renew.split())
-          assert "dhcp_wan_bound_retry_decide(" in renew
-          for key, target in (
-              ("err", "lease_error"),
-              ("route_err", "route_error"),
-              ("mtu_err", "mtu_error"),
-          ):
-              assert (
-                  'get_nvram_int_checked_status(strcat_r(prefix,"'
-                  + key + '",tmp),&' + target + ');'
-              ) in renew_compact
-          assert "cannot verify previous DHCP retry state" in renew
+          assert "wan_dhcp_renew_state_snapshot(prefix,1,&previous_state);" in renew_compact
+          for field,target in (("lease_error","lease_error"),("route_error","route_error"),("mtu_error","mtu_error")):
+              assert ("rc_wan_nvram_parse_int_value(previous_state."+field+",&"+target+");") in renew_compact
           retry_decision = renew_compact.index("dhcp_wan_bound_retry_decide(")
-          retry_error_gate = renew_compact.index("if(nvram_status!=0)", retry_decision)
-          retry_gate = renew_compact.index("if(retry_required)", retry_error_gate)
-          retry_call = renew_compact.index("returnudhcpc_bound(", retry_gate)
+          retry_error_gate = renew_compact.index("if(nvram_status!=0)",retry_decision)
+          retry_gate = renew_compact.index("if(retry_required)",retry_error_gate)
+          retry_call = renew_compact.index("returnudhcpc_bound(",retry_gate)
           assert retry_decision < retry_error_gate < retry_gate < retry_call
-          assert 'get_nvram_int_checked_status(strcat_r(prefix,"mtu",tmp),&stored_mtu);' in renew_compact
+          assert "cannot snapshot previous DHCP lease state" in renew
+          assert "cannot verify previous DHCP retry state" in renew
+          assert "rc_wan_nvram_parse_int_value(previous_state.mtu,&stored_mtu);" in renew_compact
+          for forbidden in ("nvram_safe_get(","nvram_invmatch(","get_nvram_int_checked_status("):
+              assert forbidden not in renew
           assert 'nvram_get_int(strcat_r(prefix,"err",tmp))' not in renew_compact
           assert 'nvram_get_int(strcat_r(prefix,"route_err",tmp))' not in renew_compact
           assert 'nvram_get_int(strcat_r(prefix,"mtu_err",tmp))' not in renew_compact
@@ -2674,51 +2670,50 @@ jobs:
           assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' not in bound
           route_text_checks = renew.count("dhcp_lease_route_text_is_safe(value)")
           assert route_text_checks == 3
-          for route_option, stored_option in (
-              ("routes", "routes"),
-              ("msstaticroutes", "routes_ms"),
-              ("staticroutes", "routes_rfc"),
-          ):
+          for route_option,stored_option in (("routes","routes"),("msstaticroutes","routes_ms"),("staticroutes","routes_rfc")):
               read_position = renew.index('value = safe_getenv("' + route_option + '");')
-              validation_position = renew.index(
-                  "dhcp_lease_route_text_is_safe(value)", read_position
-              )
-              compare_position = renew.index(
-                  'nvram_invmatch(strcat_r(prefix, "' + stored_option + '", tmp), value)',
-                  validation_position,
-              )
+              validation_position = renew.index("dhcp_lease_route_text_is_safe(value)",read_position)
+              compare_position = renew.index("strcmp(previous_state."+stored_option+", value) != 0",validation_position)
               assert read_position < validation_position < compare_position
           wan_router_start = renew.index('value = getenv("router");')
-          wan_router_end = renew.index('value = getenv("ip");', wan_router_start)
+          wan_router_end = renew.index('value = getenv("ip");',wan_router_start)
           wan_router = renew[wan_router_start:wan_router_end]
           assert "dhcp_lease_router_is_changed(" in wan_router
+          assert "previous_state.gateway" in wan_router
           assert "value ? trim_r(value) : NULL" in wan_router
           assert "if (value)" not in wan_router
 
           tv_renew_start = wan.index("udhcpc_viptv_renew(char *man_ifname)")
-          tv_renew_end = wan.index("udhcpc_leasefail(", tv_renew_start)
+          tv_renew_end = wan.index("udhcpc_leasefail(",tv_renew_start)
           tv_renew = wan[tv_renew_start:tv_renew_end]
           tv_renew_compact = "".join(tv_renew.split())
-          assert "dhcp_wan_bound_retry_decide(" in tv_renew
-          for key, target in (
-              ("err", "lease_error"),
-              ("route_err", "route_error"),
-              ("mtu_err", "mtu_error"),
-          ):
-              assert (
-                  'get_nvram_int_checked_status(strcat_r(prefix,"'
-                  + key + '",tmp),&' + target + ');'
-              ) in tv_renew_compact
-          assert "cannot verify previous DHCP retry state" in tv_renew
+          assert "wan_dhcp_renew_state_snapshot(prefix,0,&previous_state);" in tv_renew_compact
+          for field,target in (("lease_error","lease_error"),("route_error","route_error"),("mtu_error","mtu_error")):
+              assert ("rc_wan_nvram_parse_int_value(previous_state."+field+",&"+target+");") in tv_renew_compact
           retry_decision = tv_renew_compact.index("dhcp_wan_bound_retry_decide(")
-          retry_error_gate = tv_renew_compact.index("if(nvram_status!=0)", retry_decision)
-          retry_gate = tv_renew_compact.index("if(retry_required)", retry_error_gate)
-          retry_call = tv_renew_compact.index("returnudhcpc_viptv_bound(", retry_gate)
+          retry_error_gate = tv_renew_compact.index("if(nvram_status!=0)",retry_decision)
+          retry_gate = tv_renew_compact.index("if(retry_required)",retry_error_gate)
+          retry_call = tv_renew_compact.index("returnudhcpc_viptv_bound(",retry_gate)
           assert retry_decision < retry_error_gate < retry_gate < retry_call
-          assert 'get_nvram_int_checked_status("manv_mtu",&stored_mtu);' in tv_renew_compact
+          assert "cannot snapshot previous IPTV DHCP lease state" in tv_renew
+          assert "cannot verify previous DHCP retry state" in tv_renew
+          assert "rc_wan_nvram_parse_int_value(previous_state.mtu,&stored_mtu);" in tv_renew_compact
+          for forbidden in ("nvram_safe_get(","nvram_invmatch(","get_nvram_int_checked_status("):
+              assert forbidden not in tv_renew
           assert 'nvram_get_int(strcat_r(prefix,"err",tmp))' not in tv_renew_compact
           assert 'nvram_get_int(strcat_r(prefix,"route_err",tmp))' not in tv_renew_compact
           assert 'nvram_get_int(strcat_r(prefix,"mtu_err",tmp))' not in tv_renew_compact
+          tv_bound_compact = " ".join(tv_bound.split())
+          assert 'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in tv_bound_compact
+          assert 'wan_nvram_int_temp_status("manv_err", i_err)' in tv_bound_compact
+          assert "callback_status = route_status_accumulate(callback_status, publish_status);" in tv_bound_compact
+          assert "return callback_status;" in tv_bound
+          tv_router_start = tv_renew.index('value = getenv("router");')
+          tv_router_end = tv_renew.index('value = getenv("ip");',tv_router_start)
+          tv_router = tv_renew[tv_router_start:tv_router_end]
+          assert "dhcp_lease_router_is_changed(" in tv_router
+          assert "previous_state.gateway" in tv_router
+          assert "value ? trim_r(value) : NULL" in tv_router
           tv_bound_compact = " ".join(tv_bound.split())
           assert 'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in tv_bound_compact
           assert 'wan_nvram_int_temp_status("manv_err", i_err)' in tv_bound_compact
