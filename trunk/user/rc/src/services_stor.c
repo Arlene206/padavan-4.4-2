@@ -63,6 +63,7 @@
 #include "ftp_daemon_policy.h"
 #include "storage_mount_inventory_policy.h"
 #include "storage_optware_start_policy.h"
+#include "storage_deferred_start_policy.h"
 #include "storage_ejected_inventory_policy.h"
 #include "storage_nfs_export_policy.h"
 #include "storage_service_stop_policy.h"
@@ -4239,8 +4240,9 @@ try_start_stor_apps(void)
 {
 	int storage_lock;
 	int mounted_devices;
-	int need_optware = 0;
+	int need_optware = 0, hotplug_value = 0;
 	int optware_status, optware_error;
+	int hotplug_status, hotplug_error;
 	int child_result;
 	int integrated_start_status = 0;
 
@@ -4272,6 +4274,17 @@ try_start_stor_apps(void)
 	 * otherwise the child completion can be discarded and startup stranded.
 	 */
 	if (mounted_devices > 0) {
+		hotplug_status = storage_read_integer_status(
+			"usb_hotplug_ms", 0, &hotplug_value);
+		if (hotplug_status != 0) {
+			hotplug_error = hotplug_status > 0 ? hotplug_status : EIO;
+			logmessage("Storage",
+				   "cannot read USB storage startup event; preserving pending state for retry (status=%d)",
+				   hotplug_error);
+			file_unlock(storage_lock);
+			errno = hotplug_error;
+			return -1;
+		}
 		optware_status = storage_read_integer_status(
 			"usb_opt_start", 0, &need_optware);
 		if (optware_status != 0) {
@@ -4304,7 +4317,7 @@ try_start_stor_apps(void)
 	 * The normal deferred alarm will retry it; only a successful start
 	 * acknowledges the event. Optware runs after the storage lock is released.
 	 */
-	if (nvram_match("usb_hotplug_ms", "1")) {
+	if (hotplug_value == 1) {
 		integrated_start_status = start_stor_apps();
 		if (rc_service_start_event_is_complete(integrated_start_status)) {
 			nvram_set_int_temp("usb_hotplug_ms", 0);
@@ -4352,33 +4365,63 @@ on_deferred_hotplug_dev(void)
 	int storage_start_result;
 #if defined (USE_STORAGE)
 	int storage_unplug_status;
+	int storage_unplug_value = 0, storage_hotplug_value = 0;
+	int storage_optware_value = 0, storage_unplug_pending = 0;
+	int storage_unplug_read_status, storage_hotplug_read_status;
+	int storage_optware_read_status, storage_dispatch_status;
+	int storage_dispatch_error, storage_should_start = 0;
 #endif
 
 #if defined (USE_STORAGE)
 	/*
-	 * Finish any stale physical-unplug mounts before trying to start
-	 * storage-backed daemons. Failed cleanup re-arms usb_unplug_ms.
+	 * Read event markers with status before acknowledging or dispatching them.
+	 * nvram_match() turns a backend error into a false marker and can lose the
+	 * only wakeup for a pending Optware/storage start.
 	 */
-	if (nvram_match("usb_unplug_ms", "1")) {
+	storage_unplug_read_status = storage_read_integer_status(
+		"usb_unplug_ms", 0, &storage_unplug_value);
+	if (storage_unplug_read_status != 0) {
+		storage_unplug_pending = 1;
+	} else if (storage_unplug_value == 1) {
 		nvram_set_int_temp("usb_unplug_ms", 0);
 		storage_unplug_status = umount_ejected();
-		if (storage_unplug_status != 0)
+		if (storage_unplug_status != 0) {
+			storage_unplug_pending = 1;
 			logmessage("Storage", "deferred physical-unplug cleanup retry failed (status=%d)",
 				   storage_unplug_status);
+		}
 	}
-#endif
 
-	if (
-#if defined (USE_STORAGE)
-	    !nvram_match("usb_unplug_ms", "1") &&
-#endif
-	    (nvram_match("usb_hotplug_ms", "1") ||
-	     nvram_match("usb_opt_start", "1") ||
-	     storage_optware_result_fd >= 0)) {
+	storage_hotplug_read_status = storage_read_integer_status(
+		"usb_hotplug_ms", 0, &storage_hotplug_value);
+	storage_optware_read_status = storage_read_integer_status(
+		"usb_opt_start", 0, &storage_optware_value);
+	storage_dispatch_status = storage_deferred_start_dispatch_status(
+		storage_unplug_read_status, storage_unplug_pending,
+		storage_hotplug_read_status, storage_hotplug_value == 1,
+		storage_optware_read_status, storage_optware_value == 1,
+		storage_optware_result_fd >= 0, &storage_should_start);
+	if (storage_dispatch_status != 0) {
+		storage_dispatch_error = storage_dispatch_status > 0 ?
+			storage_dispatch_status : EIO;
+		logmessage("Storage",
+			   "cannot read deferred storage event markers; preserving pending events for retry (status=%d)",
+			   storage_dispatch_error);
+		alarm(5);
+	} else if (storage_should_start) {
 		storage_start_result = try_start_stor_apps();
 		if (storage_start_result != 0)
 			alarm(5);
 	}
+#else
+	if (nvram_match("usb_hotplug_ms", "1") ||
+	    nvram_match("usb_opt_start", "1") ||
+	    storage_optware_result_fd >= 0) {
+		storage_start_result = try_start_stor_apps();
+		if (storage_start_result != 0)
+			alarm(5);
+	}
+#endif
 
 #if defined (USE_USB_SUPPORT)
 	if (nvram_match("usb_unplug_lp", "1"))

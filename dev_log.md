@@ -1,3 +1,14 @@
+## 2026-11-21 — Preserve storage hotplug wakeups on NVRAM marker read failures
+
+- Parent main SHA: `711269a797bc8fb06da5cf8e48b6bf449451eb46`.
+- The prior checked `usb_opt_start` change still had an unchecked outer dispatch gate: `on_deferred_hotplug_dev()` used `nvram_match("usb_hotplug_ms")` / `nvram_match("usb_opt_start")`. A transient read error could look like no event, so it skipped `try_start_stor_apps()`, left the marker pending without arming retry, and never reached its checked read. The locked inner startup path also used unchecked `nvram_match("usb_hotplug_ms")`.
+- THIS COMMIT checks unplug, hotplug and Optware markers before dispatch; read errors keep pending state and arm the five-second retry without consuming the child-result pipe. The inner path independently checks hotplug and Optware flags before reading the worker result; failure unlocks and returns error. Existing value-1 event matching, missing-key default 0, completed-unplug and async-child semantics are retained.
+- Added GNU89/ASan/UBSan policy regression for no event, each start trigger, pending child result, unplug suppression, all three marker read failures, negative-status normalization and null output. Storage workflow compiles/runs it and asserts read-before-dispatch/child-result ordering.
+- Exact 711 SHA: USB modem #44959196316 PASS and Firewall Startup #44959196327 PASS; Storage #44959059095 PASS, VSFTPD #44959059259 PASS, Samba #44959059221 PASS, HTTPD #44959059070 PASS, NFS #44959059105 PASS, NVRAM #44959059216 PASS. XY-C1 #44959196330 and Process #44959196360 were still running at last poll.
+- Next: inspect exact-head Storage/USB/Firewall/XY-C1 and Process Actions for this dispatch change; no L3/L4 claim until the exact source SHA passes XY-C1 Build, TRX and artifact upload.
+
+---
+
 ## 2026-11-21 — Normalize source whitespace before modem retry assertions
 
 - Parent main SHA: `b0696dce08423d7467b3fca461a0ef8d35230567`.

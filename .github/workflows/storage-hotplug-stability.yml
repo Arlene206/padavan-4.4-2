@@ -58,6 +58,8 @@ on:
       - "trunk/user/smartdns/**"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
+      - "trunk/user/rc/src/tests/storage_deferred_start_policy.c"
+      - "trunk/user/rc/src/storage_deferred_start_policy.h"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
@@ -134,6 +136,8 @@ on:
       - "trunk/user/smartdns/**"
       - "trunk/user/rc/src/storage_optware_start_policy.h"
       - "trunk/user/rc/src/tests/storage_optware_start_policy.c"
+      - "trunk/user/rc/src/tests/storage_deferred_start_policy.c"
+      - "trunk/user/rc/src/storage_deferred_start_policy.h"
       - "trunk/user/rc/src/storage_service_stop_policy.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
@@ -368,6 +372,14 @@ jobs:
             trunk/user/rc/src/tests/storage_nfs_export_policy.c \
             -o /tmp/storage-nfs-export-policy
           /tmp/storage-nfs-export-policy
+      - name: Compile and run checked deferred-storage dispatch policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_deferred_start_policy.c \
+            -o /tmp/storage-deferred-start-policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/storage-deferred-start-policy
       - name: Compile and run deferred Optware child-result regression
         run: |
           set -eu
@@ -882,16 +894,37 @@ jobs:
           assert "errno = optware_error;" in optware_read_failure
           assert "return -1;" in optware_read_failure
           assert "cannot read Optware startup request; preserving pending state for retry" in optware_read_failure
+          hotplug_read = 'storage_read_integer_status("usb_hotplug_ms",0,&hotplug_value)'
+          optware_read = 'storage_read_integer_status("usb_opt_start",0,&need_optware)'
+          assert hotplug_read in deferred_start_compact
+          assert optware_read in deferred_start_compact
+          assert 'nvram_match("usb_hotplug_ms","1")' not in deferred_start_compact
+          assert deferred_start_compact.index(hotplug_read) < deferred_start_compact.index(optware_read) < deferred_start_compact.index("child_result=storage_optware_start_result_read()")
+          storage_event = deferred_start[deferred_start.index("if (hotplug_value == 1)"): ]
+          assert "integrated_start_status = start_stor_apps();" in storage_event
+          assert "rc_service_start_event_is_complete(integrated_start_status)" in storage_event
+          deferred_callback = function_body(storage, "on_deferred_hotplug_dev(void)")
+          storage_callback_code = deferred_callback.split("#else", 1)[0]
+          storage_callback_compact = "".join(storage_callback_code.split())
+          assert 'storage_read_integer_status("usb_unplug_ms",0,&storage_unplug_value)' in storage_callback_compact
+          assert 'storage_read_integer_status("usb_hotplug_ms",0,&storage_hotplug_value)' in storage_callback_compact
+          assert 'storage_read_integer_status("usb_opt_start",0,&storage_optware_value)' in storage_callback_compact
+          assert "storage_deferred_start_dispatch_status(" in storage_callback_code
+          assert 'nvram_match("usb_unplug_ms","1")' not in storage_callback_compact
+          assert 'nvram_match("usb_hotplug_ms","1")' not in storage_callback_compact
+          assert 'nvram_match("usb_opt_start","1")' not in storage_callback_compact
+          assert "cannot read deferred storage event markers; preserving pending events for retry" in storage_callback_code
+          dispatch_policy = (rc_dir / "storage_deferred_start_policy.h").read_text()
+          dispatch_test = (rc_dir / "tests/storage_deferred_start_policy.c").read_text()
+          assert "storage_deferred_start_dispatch_status" in dispatch_policy
+          assert "test_each_marker_read_error_fails_closed" in dispatch_test
+          assert "test_each_pending_trigger_starts_services" in dispatch_test
           child_result_read = deferred_start.index("child_result = storage_optware_start_result_read();")
           worker_running_gate = deferred_start.index("if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING)")
           integrated_start = deferred_start.index("integrated_start_status = start_stor_apps();")
           assert child_result_read < worker_running_gate < integrated_start
           assert deferred_start.count("storage_optware_start_result_read()") == 1
           assert worker_running_gate < deferred_start.index("if (mounted_devices == 0)")
-          storage_event = deferred_start[deferred_start.index('if (nvram_match("usb_hotplug_ms", "1"))'):]
-          assert "integrated_start_status = start_stor_apps();" in storage_event
-          assert "rc_service_start_event_is_complete(integrated_start_status)" in storage_event
-          assert storage_event.index("rc_service_start_event_is_complete(integrated_start_status)") < storage_event.index('nvram_set_int_temp("usb_hotplug_ms", 0)')
           assert "preserving USB storage startup event for retry" in storage_event
           assert "return integrated_start_status;" in deferred_start
           assert "return rc_first_service_start_status(integrated_start_status, 1);" in deferred_start
