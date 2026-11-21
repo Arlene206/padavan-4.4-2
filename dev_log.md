@@ -1,3 +1,13 @@
+## 2026-11-21 — Align WAN callback source contract with restored 6rd abort flow
+
+- Parent main SHA: `6085986f64e65078c8116d7398c5fb62139ea00d`.
+- After removing the stale undeclared `ip6rd_status` accumulator (the compile error from the prior XY-C1 attempt), the WAN callback workflow still asserted that the removed variable was accumulated into the callback result. The exact-head WAN run therefore failed its static contract at that obsolete assertion.
+- Updated the contract to require the old, intended all-or-nothing 6rd failure path and forbid the stale accumulator. The callback still aborts through guarded lease-tuple restoration and route rollback.
+- Exact-head WAN callback #44913833976 failed only at this outdated source assertion; rerun on the new SHA is pending.
+- Next: check XY-C1 Build/TRX/artifact and the normalized ttyd lifecycle checker run.
+
+---
+
 ## 2026-11-21 — Make ttyd enable-reader checker whitespace-independent
 
 - Parent main SHA: `9a25b71fb74932dc27063432b2f342d9724d60e2`.
