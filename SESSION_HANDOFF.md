@@ -7,35 +7,31 @@
 - Keep root `dev_log.md` newest-first with 20–119 entries. Preserve `docs/dev-log/2026/11/part-021.md` and its index. No no-op commits or handoff snapshot archives.
 
 ## Mandatory handoff checkpoint
+The checkpoint is mandatory; a document edit is conditional. Compare live main with this record before every handoff. Record only material changes to the active task, validation boundary, blockers or exact first action.
 
-The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live repository state and compare it with this handoff: source baseline, active task, exact-head Actions, validation boundary, blockers and first action. If all remain accurate, conclude without a file change or commit. Record relevant exact-head Action changes when they alter validation gates.
+## Current repository baseline
+- Product-source baseline: `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`; live main before this checker repair: `474eec0dc8b19630c62b13713731c4a3976073ce`. The current changes are checker/workflow and continuity records only.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable. Legacy PR #1 remains closed/unmerged.
+- Router-mode production fix on `d9bffce5` uses checked transactional NVRAM reads/writes, preserves AP-mode/no-op and absent-key defaults, validates full decimal values, and gates WAN stop plus NETFILTER NAT/firewall reload before side effects. Dedicated router-mode regression #44904910387 PASS on `0398903`; AI docs #44905019105 PASS on `474eec0`.
+- XY-C1 #44904764739 on `d9bffce5` stopped before target build at the WAN caller source contract. Commit `474eec0` attempted whitespace-tolerant regex counting but used doubled backslashes in the raw expression, so the regex searched for literal backslashes. The same assertion then failed in four exact-head workflows on `474eec0`: USB modem #44905019162, Firewall Startup #44905019100, Process lifecycle #44905019098, and XY-C1 #44905019103. Policy tests and preceding WAN source contracts passed before the shared assertion failed. This commit uses the existing `compact(RC_SOURCE)` whitespace normalizer and retains exact count=2.
+- USB storage #44904764585 previously passed all policy binaries, BusyBox/ash Optware tests, storage inventory and prior teardown checks, then failed its last Python gate on stale NFS assumptions: it expected the start launcher inside `run_nfsd_locked()`. This commit replaces that obsolete assertion with checked config/error propagation, enabled-only start/reload export gates, and restart config-read-before-inventory/stop plus checked-value reuse.
+- NVRAM transaction audit #44904764756 PASS on source `d9bffce5`. Router-mode workflow #44904910387 PASS on `0398903`. HTTPD #44904764718 and NFS #44904764717 PASS on `d9bffce5`. Exact reruns from this checker repair are pending.
+- Previous XY-C1 #44903863658 fully passed Build XY-C1, TRX verification and artifact upload on product SHA `b284c28532f2913f4327b02ec59abaf97671be08` only. The later `d9bffce5` product update has not yet passed target build; the four XY stages skipped after source-contract failure. Do not claim current L3 from the older SHA.
+- MiniUPnP SOAP input validation remains ranked P1 in the roadmap: reject internal port zero in AddPortMapping/AddAnyPortMapping with bounded non-zero parsing while retaining permitted external-port-zero semantics.
 
-## Current repository state
-- Parent main before XY-C1 source-contract repair: `0398903bb6475668035313743f51a827cfe7f919`. Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
-- Router-mode production fix `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`: `update_router_mode()` now uses one checked NVRAM transaction, preserves AP mode and absent defaults, validates complete values, and publishes writes only after successful reads. Full WAN restart preflights before stop; NETFILTER NAT/firewall reload is gated on update success.
-- Router mode dedicated regression #44904910387 PASS on `0398903bb6475668035313743f51a827cfe7f919`: GNU89 `-Wall -Wextra -Werror` ASan/UBSan policy test and source wiring contract both succeeded.
-- XY-C1 #44904764739 on `d9bffce5` FAILED before firmware compile/build, in `scripts/check_modem_wan_start_status.py` assertion #1114: the source contract counted only a one-line call, while the legitimate NETFILTER failure guard reflowed one call. This commit makes the assertion whitespace-tolerant and retains exact count=2.
-- HTTPD #44904764718 and NFS #44904764717 PASS on `d9bffce5`. NVRAM audit #44904764756 and AI docs #44904764588 were still in progress/queued at last poll.
-- NFS checked-enable fix `ce227363` plus placement correction `b284c285`: NFS lifecycle #44903863601 PASS. HTTPD NFS wrapper checker correction `624dd246`: HTTPD #44904054203 and AI docs #44904054208 PASS on that SHA.
-- MiniUPnP checked service-policy fix `0b0df9fd`: lifecycle/docs and multiple process, Samba, HTTPD, WAN and DNSMasq source checks PASS on that SHA.
-- Historical XY-C1 #44902070311 passed Build/TRX/artifact on source `232e31d7` only. No newer product-source L3 claim yet. Physical router L4 NOT VERIFIED.
-- Legacy PR #1 is closed/unmerged; backup unchanged.
-
-## Active task
-1. Verify the whitespace-tolerant XY-C1 source contract on the current SHA, then inspect actual Build XY-C1, Verify TRX and artifact upload stages individually.
-2. Inspect NVRAM transaction audit and AI handoff docs for the same source SHA.
-3. Continue an independent P1 userland issue while actions are pending; fix exact-head failures at first causal log.
+## Active tasks
+1. Inspect exact-head USB storage, WAN source-check, Process, Firewall and XY-C1 runs from this contract repair. If any fails, read its first causal log line and correct the exact contract without dropping meaningful assertions.
+2. Once the corrected XY-C1 host source gate passes, continue to a real MiniUPnP internal-port validation source/test slice. Its production-source commit should trigger XY-C1's production-input detector and consolidate the full MIPS build/TRX/artifact check for both current router-mode source and MiniUPnP fix.
+3. Inspect Build XY-C1, TRX verification and artifact upload individually; claim L3 only if all three pass on one exact production-source SHA.
 
 ## Verification boundary
-- Router-mode dedicated policy/wiring workflow PASS on `0398903b`.
-- XY-C1 #44904764739 was a source-checker failure before cross-build, not a compiler failure. Its checker correction is committed, exact rerun pending.
-- HTTPD #44904764718 and NFS #44904764717 PASS on `d9bffce5`.
-- NVRAM audit #44904764756 and docs #44904764588 were pending at last poll.
-- No current-source full MIPS firmware, TRX, artifact or hardware L4 success claimed.
+- Router-mode GNU89/Werror/ASan/UBSan policy and source contract PASS on `0398903`; AI docs PASS on `474eec0`.
+- On `474eec0`, shared WAN source check fails in the overescaped checker regex; USB modem, Firewall, Process and XY jobs stop at that same assertion. Their prior policy/test stages passed; target firmware steps did not execute.
+- USB storage host policy/lifecycle stages passed before the stale NFS source assertion on `d9bffce5`; the new checker assertions await exact-head rerun.
+- NVRAM audit PASS on `d9bffce5`. The only fully proven later L3 cited here is old product SHA `b284c285`; no L3 for `d9bffce5`. Physical router L4 NOT VERIFIED.
+- No local checkout/runtime or local RC compile/sanitizer run was available in this session.
 
 ## Exact first action for the next GPT
-1. Fetch live main and exact-head XY-C1 result; verify the corrected checker and inspect Build, TRX and artifact job steps.
-2. Inspect exact-head NVRAM audit and AI docs.
-3. Fix any new failure at its root cause, then continue distinct P1 userland stability/security work.
+Fetch live main and inspect the exact-head USB storage, shared WAN source-check (USB modem/Firewall/Process/XY) and AI docs runs. If those source contracts pass, proceed immediately to the MiniUPnP internal-port validation production fix while any unrelated jobs remain pending. The MiniUPnP source commit should trigger the complete XY-C1 build for the combined current product state.
 
-Before context exhaustion, update this handoff only when active task, exact-head status, validation boundary or first action materially changes; no no-op commit.
+Update this handoff only when the active engineering item, exact-head validation state, verification boundary or next action materially changes.

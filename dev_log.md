@@ -1,3 +1,13 @@
+## 2026-11-21 — Correct shared WAN call normalization and NFS storage contract
+
+- Parent main SHA: `474eec0dc8b19630c62b13713731c4a3976073ce`; product-source baseline remains `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`.
+- Follow-up review proved the prior regex repair used double backslashes inside a raw pattern. It therefore searched for literal slash sequences, not line breaks/whitespace. USB modem #44905019162, Firewall #44905019100, Process #44905019098 and XY-C1 #44905019103 all stopped at this same shared assertion after their preceding policy tests passed. Replaced the regex with the checker's existing whitespace compactor and retained the exact two-call requirement.
+- USB storage #44904764585 had independently failed its final source contract after all preceding storage policy and BusyBox/ash lifecycle checks passed. The contract still placed the NFS launcher in `run_nfsd_locked()`; it now verifies the checked NVRAM reader, fail-closed start/reload wrappers, export-policy-before-launch implementations and restart read-before-inventory/stop sequence.
+- No product source, workflow trigger set or test execution was removed. Exact-head reruns pending. NVRAM audit #44904764756 PASS on `d9bffce5`; router-mode workflow #44904910387 PASS on `0398903`; AI docs #44905019105 PASS on `474eec0`. No current L3/L4 claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Normalize WAN notification source assertion for router-mode gate
 
 - Parent main SHA: `0398903bb6475668035313743f51a827cfe7f919`; XY-C1 validation #44904764739 on router-mode source SHA `d9bffce5` stopped before firmware cross-build, after earlier policy steps passed, because `check_modem_wan_start_status.py` expected a one-line NETFILTER call. The router-mode failure guard intentionally wraps `rc_notify_merge_action_result(...reload_nat_modules())` across lines.

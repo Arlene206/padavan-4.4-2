@@ -1502,15 +1502,42 @@ jobs:
               else:
                   assert "else if (mount_status < 0)" in restart_body
                   assert restart_body.index("else if (mount_status < 0)") > start_call
+          nfs_enabled_read = function_body(storage, "nfsd_enabled_config_read(int *enabled)")
+          nfs_start_impl = function_body(storage, "run_nfsd_enabled_locked(int enabled)")
           run_nfsd_locked = function_body(storage, "run_nfsd_locked(void)")
-          assert 'eval("/usr/bin/nfsd.sh", "start")' in run_nfsd_locked
+          config_read_call = "nfsd_enabled_config_read(&enabled)"
+          assert 'nvram_get_checked("nfsd_enable", &value)' in nfs_enabled_read
+          assert "storage_nfs_enabled_status(api_result, saved_errno" in nfs_enabled_read
+          assert config_read_call in run_nfsd_locked
+          assert run_nfsd_locked.index(config_read_call) < run_nfsd_locked.index("if (config_status != 0)")
+          assert "write_nfsd_exports()" not in run_nfsd_locked
+          assert "return -1;" in run_nfsd_locked
+          assert "run_nfsd_enabled_locked(enabled)" in run_nfsd_locked
+          assert 'nvram_invmatch("nfsd_enable", "1")' not in run_nfsd_locked
+          assert "if (!enabled)" in nfs_start_impl
+          assert "write_nfsd_exports()" in nfs_start_impl
+          assert "storage_nfs_export_may_start" in nfs_start_impl
+          assert nfs_start_impl.index("storage_nfs_export_may_start") < nfs_start_impl.index('eval("/usr/bin/nfsd.sh", "start")')
+          nfs_reload_impl = function_body(storage, "reload_nfsd_enabled_locked(int enabled)")
+          reload_nfsd_locked = function_body(storage, "reload_nfsd_locked(void)")
+          assert config_read_call in reload_nfsd_locked
+          assert "reload_nfsd_enabled_locked(enabled)" in reload_nfsd_locked
+          assert "write_nfsd_exports()" not in reload_nfsd_locked
+          assert "if (!enabled)" in nfs_reload_impl
+          assert "storage_nfs_export_may_start" in nfs_reload_impl
+          assert nfs_reload_impl.index("storage_nfs_export_may_start") < nfs_reload_impl.index('eval("/usr/bin/nfsd.sh", "reload")')
           start_apps = function_body(storage, "start_stor_apps(void)")
           assert "run_nfsd_locked()" in start_apps and "run_nfsd()" not in start_apps
           restart_nfsd = function_body(storage, "int restart_nfsd(void)")
-          assert restart_nfsd.index("storage_operation_lock_acquire(file_lock)") < restart_nfsd.index("count_stor_mountpoint()")
-          assert 'if (stop_nfsd_locked() != 0)' in restart_nfsd
-          assert restart_nfsd.index('if (stop_nfsd_locked() != 0)') < restart_nfsd.index('run_nfsd_locked()')
+          lock_acquire = restart_nfsd.index("storage_operation_lock_acquire(file_lock)")
+          config_read = restart_nfsd.index("nfsd_enabled_config_read(&nfsd_enabled)")
+          config_error = restart_nfsd.index("if (config_status != 0)", config_read)
+          mount_inventory = restart_nfsd.index("mount_count = count_stor_mountpoint()")
+          stop_call = restart_nfsd.index("if (stop_nfsd_locked() != 0)")
+          start_call = restart_nfsd.index("run_nfsd_enabled_locked(nfsd_enabled)")
+          assert lock_acquire < config_read < config_error < mount_inventory < stop_call < start_call
           assert "file_unlock(storage_lock)" in restart_nfsd
+          assert 'nvram_match("nfsd_enable", "1")' not in restart_nfsd
           # FTP and Samba public restarts must share the same cross-process
           # eject barrier used by mdev and safe removal, without nesting it
           # inside start_stor_apps()/stop_stor_apps() locked callers.
