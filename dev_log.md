@@ -1,3 +1,15 @@
+## 2026-11-21 — Keep DNSMasq resolver security options enabled across NVRAM read failures
+
+- Parent main SHA: `04b8537ac3810740e15ec901fe14594b7383d3df`.
+- Source review found `prepare_dns_dhcpd()` used unchecked `nvram_match()` for five router-mode resolver options, including `dhcp_stop_dns_rebind` (DNS rebinding protection) and `dhcp_proxy_dnssec` (DNSSEC proxying). Since the safe matcher maps backend errors to false, a transient read failure could silently publish a replacement config that drops an enabled security option.
+- Added a checked NVRAM policy helper which preserves exact legacy `nvram_match(..., "1")` behavior and absent-key defaults, but returns backend/invalid API errors without changing the output. `prepare_dns_dhcpd()` now reads all five options before DHCP pool writes, generated hosts, resolver-file creation or opening the replacement config. Any read error therefore leaves the last-known-good dnsmasq configuration unpublished.
+- Added GNU89/Werror/ASan/UBSan host regression cases for present true/false values, missing defaults, backend errors, inconsistent API results and output preservation. DNSMasq workflow runs the binary and verifies source gates; XY-C1 now watches the production policy header.
+- Host policy test compiled and passed locally. Full RC/MIPS build and router behavior remain exact-head CI/hardware validation items.
+- The exact WAN checker/handoff repair is commit `04b8537a`; its Actions were pending when this DNSMasq slice began. Exact-head DNSMasq/XY-C1 and WAN reruns will be checked after this commit.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Repair exact WAN protocol-copy checker and handoff wording
 
 - Parent main SHA: `b4bdfa7803678887021284b8876251043e723d85`.

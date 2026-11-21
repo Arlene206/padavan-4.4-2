@@ -45,6 +45,7 @@
 #include "inadyn_lifecycle_lock.h"
 #include "dnsmasq_lifecycle_lock.h"
 #include "dnsmasq_restart_policy.h"
+#include "dnsmasq_nvram_option_policy.h"
 #include "dnsmasq_reload_policy.h"
 #include "process_inventory.h"
 #include "inadyn_daemon_policy.h"
@@ -652,10 +653,39 @@ is_dhcpd_enabled(int is_ap_mode)
 }
 
 static int
+dnsmasq_read_boolean_option(const char *param_name, int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !enabled) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	/* Compare the checked-get cache value before making another NVRAM call. */
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = dnsmasq_nvram_option_status(api_result, saved_errno,
+					     value, 0, enabled);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read DNSMasq option '%s'; preserving last-known-good configuration (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
 prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 {
 	FILE *fp;
 	int i_verbose, i_dhcp_enable, is_dhcp_used, is_dns_used;
+	int dhcp_filter_aaaa_enabled = 0, dhcp_all_servers_enabled = 0;
+	int dhcp_strict_order_enabled = 0, dhcp_stop_dns_rebind_enabled = 0;
+	int dhcp_proxy_dnssec_enabled = 0, option_status;
 	int saved_errno, validation_errno, pool_status, pool_rollback_failed;
 	int resolv_create_status, resolv_status;
 	char config_path[] = "/etc/dnsmasq.conf.XXXXXX";
@@ -669,6 +699,34 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		return EINVAL;
 	}
 	*service_enabled = 0;
+
+	/*
+	 * Read every optional resolver policy before touching generated hosts,
+	 * resolver or dnsmasq configuration files. A failed NVRAM read must not
+	 * silently publish a configuration with security options omitted.
+	 */
+	if (!is_ap_mode) {
+		option_status = dnsmasq_read_boolean_option(
+			"dhcp_filter_aaaa", &dhcp_filter_aaaa_enabled);
+		if (option_status != 0)
+			return option_status;
+		option_status = dnsmasq_read_boolean_option(
+			"dhcp_all_servers", &dhcp_all_servers_enabled);
+		if (option_status != 0)
+			return option_status;
+		option_status = dnsmasq_read_boolean_option(
+			"dhcp_strict_order", &dhcp_strict_order_enabled);
+		if (option_status != 0)
+			return option_status;
+		option_status = dnsmasq_read_boolean_option(
+			"dhcp_stop_dns_rebind", &dhcp_stop_dns_rebind_enabled);
+		if (option_status != 0)
+			return option_status;
+		option_status = dnsmasq_read_boolean_option(
+			"dhcp_proxy_dnssec", &dhcp_proxy_dnssec_enabled);
+		if (option_status != 0)
+			return option_status;
+	}
 
 	i_dhcp_enable = is_dhcpd_enabled(is_ap_mode);
 	i_verbose = nvram_get_int("dhcp_verbose");
@@ -796,23 +854,23 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 		/* listen DNS queries from clients of VPN server */
 		fprintf(fp, "listen-address=%s\n", ipaddr);
 	}
-	if (!is_ap_mode && nvram_match("dhcp_filter_aaaa", "1")) {
+	if (!is_ap_mode && dhcp_filter_aaaa_enabled) {
 		/* Don't include IPv6 addresses in DNS answers */
 		fprintf(fp, "filter-AAAA\n");
 	}
-	if (!is_ap_mode && nvram_match("dhcp_all_servers", "1")) {
+	if (!is_ap_mode && dhcp_all_servers_enabled) {
 		/* DNS queries for all servers */
 		fprintf(fp, "all-servers\n");
 	}
-	if (!is_ap_mode && nvram_match("dhcp_strict_order", "1")) {
+	if (!is_ap_mode && dhcp_strict_order_enabled) {
 		/* Name servers strictly in the order listed */
 		fprintf(fp, "strict-order\n");
 	}
-	if (!is_ap_mode && nvram_match("dhcp_stop_dns_rebind", "1")) {
+	if (!is_ap_mode && dhcp_stop_dns_rebind_enabled) {
 		/* Stop DNS rebinding and Allows upstream 127.0.0.0/8 responses */
 		fprintf(fp, "rebind-localhost-ok\n" "stop-dns-rebind\n");
 	}
-	if (!is_ap_mode && nvram_match("dhcp_proxy_dnssec", "1")) {
+	if (!is_ap_mode && dhcp_proxy_dnssec_enabled) {
 		/* Proxy DNSSEC validation results from upstream nameservers */
 		fprintf(fp, "proxy-dnssec\n");
 	}

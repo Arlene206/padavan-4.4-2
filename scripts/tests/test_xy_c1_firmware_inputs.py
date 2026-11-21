@@ -88,6 +88,12 @@ class FirmwareInputPathTests(unittest.TestCase):
         self.assertIn('      - "' + path + '"', workflow)
         self.assertFalse(is_non_firmware_input(path))
 
+    def test_dnsmasq_option_policy_header_triggers_xy_c1_build(self):
+        workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+        path = "trunk/user/rc/src/dnsmasq_nvram_option_policy.h"
+        self.assertEqual(workflow.count('      - "' + path + '"'), 2)
+        self.assertFalse(is_non_firmware_input(path))
+
     def test_watchdog_checked_nvram_policy_triggers_xy_c1_build(self):
         workflow = (ROOT / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
         for path in (

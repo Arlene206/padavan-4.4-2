@@ -9,6 +9,9 @@ SERVICES = (RC / "services_ex.c").read_text()
 POLICY = (RC / "dnsmasq_restart_policy.h").read_text()
 TEST = (RC / "tests/dnsmasq_restart_policy.c").read_text()
 RC_H = (RC / "rc.h").read_text()
+DNSMASQ_OPTION_POLICY = (RC / "dnsmasq_nvram_option_policy.h").read_text()
+DNSMASQ_OPTION_TEST = (RC / "tests/dnsmasq_nvram_option_policy.c").read_text()
+DNSMASQ_WORKFLOW = (ROOT / ".github/workflows/dnsmasq-lifecycle.yml").read_text()
 
 
 def body(source: str, signature: str) -> str:
@@ -107,5 +110,57 @@ assert "dnsmasq_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN)" in TEST
 assert "dnsmasq_failed_start_may_leave_daemon((enum process_presence)7)" in TEST
 assert "int start_dns_dhcpd_locked(int is_ap_mode);" in RC_H
 assert "int stop_dns_dhcpd_locked(void);" in RC_H
+
+# Security-sensitive resolver options must be checked before any replacement
+# config or generated host input is staged.
+prepare = compact(body(
+    SERVICES,
+    "static int\\nprepare_dns_dhcpd(int is_ap_mode, int *service_enabled)",
+))
+option_reader = compact(body(
+    SERVICES,
+    "dnsmasq_read_boolean_option(const char *param_name, int *enabled)",
+))
+assert "nvram_get_checked(param_name, &value)" in option_reader
+assert "dnsmasq_nvram_option_status(api_result, saved_errno, value, 0, enabled)" in option_reader
+assert "preserving last-known-good configuration" in option_reader
+option_names = (
+    ("dhcp_filter_aaaa", "dhcp_filter_aaaa_enabled"),
+    ("dhcp_all_servers", "dhcp_all_servers_enabled"),
+    ("dhcp_strict_order", "dhcp_strict_order_enabled"),
+    ("dhcp_stop_dns_rebind", "dhcp_stop_dns_rebind_enabled"),
+    ("dhcp_proxy_dnssec", "dhcp_proxy_dnssec_enabled"),
+)
+gate_positions = []
+for option_name, local_name in option_names:
+    gate = 'dnsmasq_read_boolean_option("' + option_name + '", &' + local_name + ')'
+    assert gate in prepare, "missing checked option read: " + option_name
+    gate_positions.append(prepare.index(gate))
+assert gate_positions == sorted(gate_positions)
+first_option = min(gate_positions)
+for side_effect in (
+    "dnsmasq_dhcp_range_store_nvram_pair(",
+    "fill_static_ethers(ipaddr, netmask)",
+    "update_hosts_ap()",
+    "update_hosts_router(ipaddr)",
+    "create_file(DNS_RESOLV_CONF)",
+    "dnsmasq_file_open(config_path)",
+):
+    assert first_option < prepare.index(side_effect), side_effect
+for option_name, local_name in option_names:
+    assert 'nvram_match("' + option_name + '", "1")' not in prepare
+    assert "if (!is_ap_mode && " + local_name + ")" in prepare
+assert "api_result < 0" in DNSMASQ_OPTION_POLICY
+assert "api_result != 1 || !value" in DNSMASQ_OPTION_POLICY
+assert "test_backend_errors_preserve_errno_and_output" in DNSMASQ_OPTION_TEST
+assert "test_missing_keys_use_explicit_legacy_defaults" in DNSMASQ_OPTION_TEST
+for event in ("push", "pull_request"):
+    event_section = DNSMASQ_WORKFLOW.split("  " + event + ":", 1)[1]
+    end_marker = "  pull_request:" if event == "push" else "  workflow_dispatch:"
+    event_paths = event_section.split(end_marker, 1)[0]
+    assert event_paths.count('"trunk/user/rc/src/dnsmasq_nvram_option_policy.h"') == 1
+    assert event_paths.count('"trunk/user/rc/src/tests/dnsmasq_nvram_option_policy.c"') == 1
+assert "Compile and run DNSMasq checked option NVRAM regression" in DNSMASQ_WORKFLOW
+print("DNSMasq resolver option NVRAM fail-closed contract: PASS")
 
 print("DNSMasq failed-start rollback and lifecycle-lock contract: PASS")
