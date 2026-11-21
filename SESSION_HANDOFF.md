@@ -15,26 +15,27 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Main at the start of this slice: `af16c58c166b915e8847d1e30325ccea5bc78460`.
-- Deferred WAN reconnect delay read: `136db90e2f84513d9bf3da297802b708b0811b44`; checked `di_recon_pause` errors abort before WAN stop/start and the absent-key zero default is preserved.
-- DHCP WINS snapshot: `1770074742e98f13155fab91703fc74ca975c248`; the checked bounded `dhcp_wins_x` value is captured before config staging and reused for option 44; its exact-head DNSMasq regression passed.
-- WAN physical-link DHCP renew retry: `939e06459c5cb83b563758c30fc7371141e673f1`; exact-head detect-link signal regression and source contract passed.
-- USB modem selector: `af16c58c166b915e8847d1e30325ccea5bc78460`; `modem_prio` and `wan_src_phy` now use checked integer reads, and priority-2 modem selection aborts on an unknown Ethernet link rather than treating probe failure as link absence. Its GNU89/ASAN/UBSAN policy binary passed, but the first exact-head USB workflow run failed in the new source assertion because its expected checked-reader call did not normalize a multiline C expression. This commit corrects only that assertion; production source and test behavior are unchanged.
+- Main at the start of this slice: `956925458e646947d05930ab6ba00bf064f34482`; develop only on main; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains untouched.
+- Deferred WAN reconnect delay: `136db90e2f84513d9bf3da297802b708b0811b44`; checked `di_recon_pause` errors abort before WAN stop/start; absent-key zero default is preserved.
+- DHCP WINS snapshot: `1770074742e98f13155fab91703fc74ca975c248`; bounded checked `dhcp_wins_x` snapshot precedes DHCP config side effects.
+- Physical-link DHCP renew retry: `939e06459c5cb83b563758c30fc7371141e673f1`; detect-link GNU89/ASAN/UBSAN policy and source contract passed.
+- USB modem selector: `af16c58c166b915e8847d1e30325ccea5bc78460`; checked modem priority/Ethernet probe; USB workflow passed on checker descendant `772916f1f377917ba9c6262b7b421f61dc79e6b6`.
+- New WAN bridge slice: checked bridge mode/isolation reads gate LAN/WAN bridge topology and WAN VLAN setup; active additional-port VID/priority pairs are checked before port probes or bridge mutations. Readable out-of-range values retain historical fallback; backend/malformed errors abort with original status. Added integer-range policy tests and exact source-order assertions; exact-head CI pending.
 
 
 ## Active task
 
-1. Inspect exact-head USB modem identity, WAN route, Process and XY-C1 results after the whitespace-normalized selector assertion; resolve any remaining failures from their logs without weakening the contracts.
-2. Require XY-C1 Build, TRX verification and artifact upload to PASS on one exact product-source SHA containing the WAN reconnect, DHCP WINS, link-restoration retry and USB modem-selection fixes.
-3. Continue independent whole-userland stability/security work while CI is pending; do not re-audit completed FTP, storage or DNSMasq slices.
+1. Inspect exact-head WAN VLAN/bridge regression, USB modem, Process and Firewall results for the checked bridge-setting slice; diagnose concrete failures from logs without weakening contracts.
+2. Require XY-C1 Build, TRX verification and artifact upload to PASS on one exact product-source SHA covering WAN reconnect, DHCP WINS, link-restoration retry, modem selection and bridge-read fixes.
+3. Continue a separate whole-userland reliability/security defect while independent Actions are pending; do not repeat completed FTP/storage/DNSMasq work.
 
 
 ## Verification boundary
 
-- L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on relevant NVRAM read errors; DHCP WINS is checked before config staging; failed physical-link DHCP renew signals receive two bounded retries; modem selection aborts on unknown priority/Ethernet state without publishing a speculative transport.
-- L2: WAN route, DNSMasq and detect-link regressions passed on prior exact heads. On `af16c58c`, the new modem selector GNU89/ASAN/UBSAN policy binary passed; the USB workflow then failed at a whitespace-sensitive source assertion before its source contract completed. The assertion is corrected in this commit; exact-head rerun is pending.
-- L3: NOT VERIFIED until XY-C1 Build, TRX verification and artifact upload all PASS on the same exact product-source SHA. The XY-C1 Build associated with `af16c58c` was still in progress at this handoff update.
-- L4: Physical WAN reconnect, DHCP lease renewal, modem failover timing and router runtime remain NOT VERIFIED.
+- L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on relevant NVRAM errors; DHCP WINS uses a checked bounded snapshot; physical-link DHCP renew errors get two bounded retries; modem selection aborts on unknown priority/link state; WAN bridge mode, isolation and active additional-port VLAN settings abort before topology changes on read errors.
+- L2: WAN route, DNSMasq, detect-link, USB modem and HTTPD policy checks passed on prior exact heads. This WAN bridge range-policy regression and checked-read source contracts are pending on the current main SHA.
+- L3: NOT VERIFIED until XY-C1 Build, TRX verification and artifact upload all PASS on one exact product-source SHA.
+- L4: Physical WAN reconnect, DHCP renewal, modem failover, switch VLAN and bridge isolation behavior remain NOT VERIFIED on hardware.
 
 
 ## Workflow and preservation rules
@@ -55,4 +56,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main; inspect the exact-head USB modem workflow and WAN route / Process / XY-C1 checks for the normalized multiline selector assertion. Confirm the modem policy tests and source contract pass, then require Build + TRX + artifact on the same product-source SHA.
+Fetch live main; inspect exact-head WAN route regression for checked bridge mode/isolation/port VLAN reads and GNU89/ASAN/UBSAN integer-range cases. Check XY-C1 Build + TRX + artifact on the product-source SHA, then continue one independent reliability/security issue.

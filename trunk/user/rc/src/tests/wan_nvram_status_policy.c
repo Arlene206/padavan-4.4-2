@@ -126,6 +126,37 @@ test_unexpected_nonzero_result_is_not_success(void)
 
 
 static void
+test_checked_integer_range_preserves_valid_values_and_legacy_fallback(void)
+{
+	int normalized = 91;
+
+	assert(rc_wan_nvram_int_range_status(0, 0, 0, 7, 0, &normalized) == 0);
+	assert(normalized == 0);
+	assert(rc_wan_nvram_int_range_status(0, 7, 0, 7, 0, &normalized) == 0);
+	assert(normalized == 7);
+	assert(rc_wan_nvram_int_range_status(0, 8, 0, 7, 0, &normalized) == 0);
+	assert(normalized == 0);
+	assert(rc_wan_nvram_int_range_status(0, -1, 0, 2, 0, &normalized) == 0);
+	assert(normalized == 0);
+}
+
+static void
+test_checked_integer_range_preserves_read_errors_and_output(void)
+{
+	int normalized = 73;
+
+	assert(rc_wan_nvram_int_range_status(EACCES, 2, 0, 7, 0, &normalized) == EACCES);
+	assert(normalized == 73);
+	assert(rc_wan_nvram_int_range_status(EIO, 2, 0, 7, 0, &normalized) == EIO);
+	assert(normalized == 73);
+	assert(rc_wan_nvram_int_range_status(0, 2, 0, 7, 8, &normalized) == EINVAL);
+	assert(normalized == 73);
+	assert(rc_wan_nvram_int_range_status(0, 2, 7, 0, 0, &normalized) == EINVAL);
+	assert(normalized == 73);
+	assert(rc_wan_nvram_int_range_status(0, 2, 0, 7, 0, NULL) == EINVAL);
+}
+
+static void
 test_modem_transport_selection_fails_closed_on_read_error(void)
 {
 	int is_ndis = -1;
@@ -1354,6 +1385,8 @@ main(void)
 	test_checked_read_without_errno_falls_back_to_eio();
 	test_checked_read_rejects_unexpected_result();
 	test_modem_transport_selection_fails_closed_on_read_error();
+	test_checked_integer_range_preserves_valid_values_and_legacy_fallback();
+	test_checked_integer_range_preserves_read_errors_and_output();
 	test_checked_integer_read_preserves_missing_default();
 	test_checked_integer_read_accepts_complete_decimal_values();
 	test_checked_integer_read_rejects_malformed_and_overflow_values();

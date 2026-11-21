@@ -37,6 +37,8 @@ netutils = (shared / "netutils.c").read_text()
 netutils_header = (shared / "netutils.h").read_text()
 vlan_policy = (rc / "vlan_interface_policy.h").read_text()
 vlan_test = (rc / "tests/vlan_interface_policy.c").read_text()
+wan_nvram_policy = (rc / "wan_nvram_status_policy.h").read_text()
+wan_nvram_test = (rc / "tests/wan_nvram_status_policy.c").read_text()
 viptv_policy = (rc / "wan_viptv_static_policy.h").read_text()
 workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
 
@@ -138,6 +140,67 @@ address_gate = static_mtu.index("if (!wan_err) {")
 address_setup = static_mtu.index("address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);")
 require(mtu_failure < mtu_error_flag < mtu_status_merge < address_gate < address_setup,
         "failed configured static MTU must set WAN error, preserve first status, and block address/route startup")
+
+range_policy = body(wan_nvram_policy, "rc_wan_nvram_int_range_status(")
+require("if (read_status != 0)" in range_policy and "*normalized = value;" in range_policy,
+        "WAN checked range policy must preserve read errors and publish only validated output")
+for test_name in ("test_checked_integer_range_preserves_valid_values_and_legacy_fallback",
+                  "test_checked_integer_range_preserves_read_errors_and_output"):
+    require(test_name in wan_nvram_test and test_name + "();" in wan_nvram_test,
+            "WAN bridge range-policy test missing " + test_name)
+
+mode_reader = body(wan, "get_wan_bridge_mode_status(")
+mode_reader_compact = " ".join(mode_reader.split())
+require('get_nvram_int_checked_status("wan_stb_x", &configured_mode)' in mode_reader_compact and
+        "rc_wan_nvram_int_range_status(" in mode_reader,
+        "WAN bridge mode must use checked reads and retain the disabled fallback")
+iso_reader = body(wan, "get_wan_bridge_iso_mode_status(")
+iso_reader_compact = " ".join(iso_reader.split())
+require('get_nvram_int_checked_status("wan_stb_iso", &configured_isolation)' in iso_reader_compact and
+        "rc_wan_nvram_int_range_status(" in iso_reader,
+        "WAN bridge isolation must use checked reads and retain the no-isolation fallback")
+
+soft_lan = body(wan, "config_soft_bridge_lan(void)")
+mode_read_pos = soft_lan.index("get_wan_bridge_mode_status(&bridge_mode)")
+mode_error_return = soft_lan.index("return ret;", mode_read_pos)
+first_lan_probe = soft_lan.index("get_interface_flags(lan_ifname)")
+require(mode_read_pos < mode_error_return < first_lan_probe,
+        "LAN bridge mode read failures must abort before interface probes or topology changes")
+
+soft_wan = body(wan, "config_soft_bridge_wan_internal(")
+iso_read_pos = soft_wan.index("get_wan_bridge_iso_mode_status(&bwan_isolation)")
+iso_error_return = soft_wan.index("return ret;", iso_read_pos)
+first_wan_probe = soft_wan.index("get_interface_flags(br_ifname)")
+require(iso_read_pos < iso_error_return < first_wan_probe and
+        "if (bwan_isolation == SWAPI_WAN_BWAN_ISOLATION_BETWEEN)" in soft_wan and
+        'nvram_get_int("wan_stb_iso")' not in soft_wan,
+        "WAN bridge isolation read failures must abort before topology mutations")
+
+vinet = body(wan, "config_vinet_wan(void)")
+mode_read_pos = vinet.index("get_wan_bridge_mode_status(&bridge_mode)")
+mode_error_return = vinet.index("return ret;", mode_read_pos)
+first_vinet_read = vinet.index('nvram_match("vlan_filter", "1")')
+require(mode_read_pos < mode_error_return < first_vinet_read and
+        "if (bridge_mode != SWAPI_WAN_BRIDGE_DISABLE)" in vinet and
+        "get_wan_bridge_mode()" not in vinet,
+        "WAN VLAN setup must use one checked bridge-mode snapshot before configuration reads")
+
+other = body(wan, "config_soft_bridges_other(")
+port_reader = body(wan, "read_soft_bridge_port_vlan_config(")
+require('get_nvram_int_checked_status(param_name, &configured_vid)' in port_reader and
+        'get_nvram_int_checked_status(param_name, &configured_prio)' in port_reader,
+        "active additional bridge ports must check both VID and priority")
+first_port_probe = other.index("get_interface_flags(port_ifname)")
+for port in range(1, 5):
+    call = f"read_soft_bridge_port_vlan_config({port},"
+    if call in other:
+        read_pos = other.index(call)
+        read_return = other.index("return ret;", read_pos)
+        require(read_pos < read_return < first_port_probe,
+                f"LAN bridge port {port} VLAN read errors must abort before interface probes")
+require('nvram_get_int("vlan_vid_lan' not in other and
+        'nvram_get_int("vlan_pri_lan' not in other,
+        "additional WAN bridge ports must not collapse NVRAM errors into fallback values")
 
 soft_lan = body(wan, "config_soft_bridge_lan(void)")
 for marker in ("create_vlan_iface_tracked(", "br_add_del_if_tracked(",

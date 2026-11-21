@@ -89,6 +89,29 @@ rc_wan_nvram_read_int_status(int api_result, int saved_errno,
 }
 
 /*
+ * Normalize a successfully read integer setting to its supported domain.
+ * Read errors are returned unchanged; only readable out-of-range values use
+ * the caller's historical fallback.
+ */
+static inline int
+rc_wan_nvram_int_range_status(int read_status, int value,
+			      int minimum, int maximum, int fallback,
+			      int *normalized)
+{
+	if (!normalized || minimum > maximum ||
+	    fallback < minimum || fallback > maximum)
+		return EINVAL;
+	if (read_status != 0)
+		return read_status;
+
+	if (value < minimum || value > maximum)
+		value = fallback;
+	*normalized = value;
+	return 0;
+}
+
+
+/*
  * Transport selection affects both the PPP/NDIS stop path and interface
  * identity. Never map an NVRAM backend error to the legacy RAS default.
  */

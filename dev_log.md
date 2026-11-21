@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on WAN VLAN and bridge setting read errors
+
+- Parent main SHA: `956925458e646947d05930ab6ba00bf064f34482`.
+- LAN/WAN bridge setup previously used unchecked `nvram_get_int("wan_stb_x")` and `nvram_get_int("wan_stb_iso")`. Backend/parse failures became disabled-bridge/no-isolation defaults, allowing topology changes inconsistent with saved configuration. WAN VLAN setup also reread bridge mode after earlier interface work.
+- Added a checked integer-range policy that preserves backend/malformed-value errors while retaining disabled/no-isolation compatibility for readable out-of-range settings. LAN bridge setup, WAN bridge isolation and WAN VLAN setup now preflight and abort before interface probes or topology changes; WAN VLAN setup reuses one bridge-mode snapshot.
+- Active additional WAN bridge ports now read each `vlan_vid_lanN` / `vlan_pri_lanN` pair through checked access before port probes or bridge mutations. The helper publishes both local outputs only after both reads succeed; priority masking and invalid-VID PVID fallback remain unchanged.
+- Added GNU89 policy tests for boundaries, fallback, read-error/output preservation and invalid arguments, plus source-order contracts in `check_wan_vlan_setup.py`. Exact-head WAN route and XY-C1 Build/TRX/artifact checks are pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on HTTPD firewall-enable read errors
 
 - Parent main SHA: `130f1432d738f53ef4db77ed8f9219699714bcc2`.

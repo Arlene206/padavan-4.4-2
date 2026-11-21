@@ -1049,25 +1049,63 @@ get_vlan_vid_wan(void)
 	return vlan_vid;
 }
 
+static int
+get_wan_bridge_mode_status(int *bridge_mode)
+{
+	int configured_mode = 0;
+	int status;
+
+	if (!bridge_mode)
+		return EINVAL;
+	status = get_nvram_int_checked_status("wan_stb_x", &configured_mode);
+	return rc_wan_nvram_int_range_status(status, configured_mode, 0, 7,
+					     SWAPI_WAN_BRIDGE_DISABLE,
+					     bridge_mode);
+}
+
 int
 get_wan_bridge_mode(void)
 {
-	int bridge_mode = nvram_get_int("wan_stb_x");
+	int bridge_mode = SWAPI_WAN_BRIDGE_DISABLE;
+	int status;
 
-	if (bridge_mode < 0 || bridge_mode > 7)
-		bridge_mode = SWAPI_WAN_BRIDGE_DISABLE;
-
+	status = get_wan_bridge_mode_status(&bridge_mode);
+	if (status != 0) {
+		errno = status;
+		return SWAPI_WAN_BRIDGE_DISABLE;
+	}
 	return bridge_mode;
+}
+
+static int
+get_wan_bridge_iso_mode_status(int *bwan_isolation)
+{
+	int configured_isolation = 0;
+	int status;
+
+	if (!bwan_isolation)
+		return EINVAL;
+	status = get_nvram_int_checked_status("wan_stb_iso",
+					     &configured_isolation);
+	return rc_wan_nvram_int_range_status(status, configured_isolation,
+					     0, 2,
+					     SWAPI_WAN_BWAN_ISOLATION_NONE,
+					     bwan_isolation);
 }
 
 int
 get_wan_bridge_iso_mode(int bridge_mode)
 {
-	int bwan_isolation = nvram_get_int("wan_stb_iso");
+	int bwan_isolation = SWAPI_WAN_BWAN_ISOLATION_NONE;
+	int status;
 
-	if (bwan_isolation < 0 || bwan_isolation > 2 || bridge_mode == SWAPI_WAN_BRIDGE_DISABLE)
-		bwan_isolation = SWAPI_WAN_BWAN_ISOLATION_NONE;
-
+	if (bridge_mode == SWAPI_WAN_BRIDGE_DISABLE)
+		return SWAPI_WAN_BWAN_ISOLATION_NONE;
+	status = get_wan_bridge_iso_mode_status(&bwan_isolation);
+	if (status != 0) {
+		errno = status;
+		return SWAPI_WAN_BWAN_ISOLATION_NONE;
+	}
 	return bwan_isolation;
 }
 
@@ -1109,7 +1147,7 @@ config_soft_bridge_lan(void)
 	int igmp_snoop = nvram_get_int("ether_igmp");
 	int wired_m2u = nvram_get_int("ether_m2u");
 	int ret, saved_errno, cleanup_ret;
-	int bridge_enabled, vlan_flags, vlan_exists, vlan_was_up;
+	int bridge_mode, bridge_enabled, vlan_flags, vlan_exists, vlan_was_up;
 	int vlan_created = 0;
 	int physical_detached = 0, vlan_attached = 0;
 	int vlan_detached = 0, physical_attached = 0;
@@ -1119,7 +1157,15 @@ config_soft_bridge_lan(void)
 	int vlan_detached_safe = 0;
 
 	snprintf(lan_ifname, sizeof(lan_ifname), "%s.%d", IFNAME_MAC, 1);
-	bridge_enabled = get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE;
+	ret = get_wan_bridge_mode_status(&bridge_mode);
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN bridge mode before LAN topology changes (status=%d)",
+			   ret);
+		errno = ret;
+		return ret;
+	}
+	bridge_enabled = bridge_mode != SWAPI_WAN_BRIDGE_DISABLE;
 
 	/*
 	 * Snapshot the VLAN before changing it.  The tracked creator publishes
@@ -1325,6 +1371,18 @@ config_soft_bridge_wan_internal(int br_id, int vid, int prio, const char *wan_if
 	int vlan_created = 0, vlan_remove_safe = 1, vlan_restore_safe = 1;
 	int wan_attach_attempted = 0, wan_port_added = 0;
 	int bwan_attach_attempted = 0, bwan_port_added = 0;
+	int bwan_isolation = SWAPI_WAN_BWAN_ISOLATION_NONE;
+
+	if (br_id < 2) {
+		ret = get_wan_bridge_iso_mode_status(&bwan_isolation);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read WAN bridge isolation mode before topology changes (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+	}
 
 	memset(ownership, 0, sizeof(*ownership));
 	ownership->wan_port_detached_safe = 1;
@@ -1405,7 +1463,7 @@ config_soft_bridge_wan_internal(int br_id, int vid, int prio, const char *wan_if
 	if (ret != 0)
 		goto rollback;
 	if (br_id < 2) {
-		if (nvram_get_int("wan_stb_iso") == SWAPI_WAN_BWAN_ISOLATION_BETWEEN) {
+		if (bwan_isolation == SWAPI_WAN_BWAN_ISOLATION_BETWEEN) {
 			ret = brport_set_param_int(wan_ifname, "isolate_mode", 1);
 			if (ret != 0)
 				goto rollback;
@@ -1680,6 +1738,30 @@ rollback_soft_bridge_other_entry(struct soft_bridge_other_entry *entry)
 }
 
 static int
+read_soft_bridge_port_vlan_config(int port, int *vid, int *prio)
+{
+	char param_name[32];
+	int configured_vid = 0, configured_prio = 0;
+	int status;
+
+	if (port < 1 || port > 4 || !vid || !prio)
+		return EINVAL;
+	snprintf(param_name, sizeof(param_name), "vlan_vid_lan%d", port);
+	status = get_nvram_int_checked_status(param_name, &configured_vid);
+	if (status != 0)
+		return status;
+	snprintf(param_name, sizeof(param_name), "vlan_pri_lan%d", port);
+	status = get_nvram_int_checked_status(param_name, &configured_prio);
+	if (status != 0)
+		return status;
+
+	*vid = configured_vid;
+	*prio = configured_prio;
+	return 0;
+}
+
+
+static int
 config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char *wan_hwaddr, int bridge_mode)
 {
 	struct soft_bridge_other_entry entries[4];
@@ -1694,31 +1776,63 @@ config_soft_bridges_other(int vinet_vid, int viptv_vid, int pvid_wan, const char
 	case SWAPI_WAN_BRIDGE_LAN1:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2_LAN3:
-		port_vid[0] = nvram_get_int("vlan_vid_lan1");
-		port_pri[0] = nvram_get_int("vlan_pri_lan1") & 0x07;
+		ret = read_soft_bridge_port_vlan_config(1,
+						 &port_vid[0], &port_pri[0]);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read WAN bridge LAN1 VLAN settings (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+		port_pri[0] &= 0x07;
 		break;
 	}
 	switch (bridge_mode) {
 	case SWAPI_WAN_BRIDGE_LAN2:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2_LAN3:
-		port_vid[1] = nvram_get_int("vlan_vid_lan2");
-		port_pri[1] = nvram_get_int("vlan_pri_lan2") & 0x07;
+		ret = read_soft_bridge_port_vlan_config(2,
+						 &port_vid[1], &port_pri[1]);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read WAN bridge LAN2 VLAN settings (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+		port_pri[1] &= 0x07;
 		break;
 	}
 	switch (bridge_mode) {
 	case SWAPI_WAN_BRIDGE_LAN3:
 	case SWAPI_WAN_BRIDGE_LAN3_LAN4:
 	case SWAPI_WAN_BRIDGE_LAN1_LAN2_LAN3:
-		port_vid[2] = nvram_get_int("vlan_vid_lan3");
-		port_pri[2] = nvram_get_int("vlan_pri_lan3") & 0x07;
+		ret = read_soft_bridge_port_vlan_config(3,
+						 &port_vid[2], &port_pri[2]);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read WAN bridge LAN3 VLAN settings (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+		port_pri[2] &= 0x07;
 		break;
 	}
 	switch (bridge_mode) {
 	case SWAPI_WAN_BRIDGE_LAN4:
 	case SWAPI_WAN_BRIDGE_LAN3_LAN4:
-		port_vid[3] = nvram_get_int("vlan_vid_lan4");
-		port_pri[3] = nvram_get_int("vlan_pri_lan4") & 0x07;
+		ret = read_soft_bridge_port_vlan_config(4,
+						 &port_vid[3], &port_pri[3]);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read WAN bridge LAN4 VLAN settings (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+		port_pri[3] &= 0x07;
 		break;
 	}
 	for (i = 0; i < 4; i++) {
@@ -1948,7 +2062,18 @@ config_vinet_wan(void)
 	const char *ifname_wan_cpu = IFNAME_MAC2;
 #endif
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-	int bridge_mode = get_wan_bridge_mode();
+	int bridge_mode;
+#endif
+
+#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
+	ret = get_wan_bridge_mode_status(&bridge_mode);
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN bridge mode before WAN VLAN setup (status=%d)",
+			   ret);
+		errno = ret;
+		return ret;
+	}
 #endif
 
 	is_vlan_filter = (nvram_match("vlan_filter", "1")) ? 1 : 0;
@@ -2482,7 +2607,7 @@ launch_viptv_wan(void)
 		return ret;
 	}
 #if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)
-	if (get_wan_bridge_mode() != SWAPI_WAN_BRIDGE_DISABLE) {
+	if (bridge_mode != SWAPI_WAN_BRIDGE_DISABLE) {
 		ret = config_soft_bridge_wan_internal(1, vlan_vid[1], vlan_pri,
 						      viptv_ifname, wan_hwaddr,
 						      &rollback_entry.bridge);
