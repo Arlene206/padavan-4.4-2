@@ -2725,16 +2725,19 @@ jobs:
           assert "dhcp_lease_router_is_changed(" in tv_router
           assert "value ? trim_r(value) : NULL" in tv_router
           assert "if (value)" not in tv_router
-          for signature in (
-              "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)",
-              "zcip_bound(char *man_ifname)",
-              "zcip_viptv_bound(char *man_ifname)",
-          ):
-              callback = body(wan, signature)
+          tv_callback_start = wan.index("udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
+          tv_callback_end = wan.index("zcip_bound(", tv_callback_start)
+          tv_callback = wan[tv_callback_start:tv_callback_end]
+          zcip_wan_start = wan.index("zcip_bound(char *man_ifname)")
+          zcip_tv_start = wan.index("zcip_viptv_bound(char *man_ifname)", zcip_wan_start)
+          zcip_tv_end = wan.index("\nstatic int\n", zcip_tv_start)
+          zcip_wan_callback = wan[zcip_wan_start:zcip_tv_start]
+          zcip_tv_callback = wan[zcip_tv_start:zcip_tv_end]
+          for callback in (tv_callback, zcip_wan_callback, zcip_tv_callback):
               assert "char log_prefix[32];" in callback
               assert "const char *udhcpc_state;" in callback
-          assert 'udhcpc_state = "bound";' in body(wan, "zcip_bound(char *man_ifname)")
-          assert 'udhcpc_state = "bound";' in body(wan, "zcip_viptv_bound(char *man_ifname)")
+          assert 'udhcpc_state = "bound";' in zcip_wan_callback
+          assert 'udhcpc_state = "bound";' in zcip_tv_callback
           assert 'if (strcmp(previous_state.domain, lease_domain) != 0)' in renew
           assert 'if (strcmp(previous_state.dns, lease_dns) != 0)' in renew
           assert 'if (strcmp(previous_state.wins, lease_wins) != 0)' in renew
