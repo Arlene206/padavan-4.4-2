@@ -1149,8 +1149,8 @@ dl_notify = detect_link_source.split(
     "void\nnotify_reset_detect_link(void)", 1
 )[1].split("\n}\n", 1)[0]
 wan_gateway_start = net_wan.split(
-    "/* Start the gateway ARP checker only after a complete ABSENT scan. */", 1
-)[1].split("if (wan_gate)", 1)[0]
+    "A failed gateway-ARP enable read is not equivalent to a disabled setting:", 1
+)[1].split("if (gateway_valid)", 1)[0]
 for source in (detect_internet_source, detect_link_source, net_wan):
     assert '#include "process_presence_start_policy.h"' in source
     assert '#include <process_inventory.h>' in source

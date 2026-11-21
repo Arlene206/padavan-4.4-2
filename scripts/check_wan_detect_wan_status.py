@@ -69,10 +69,7 @@ gateway_scope = wan_up.rindex(
     "if (!modem_unit_id && wan_proto == IPV4_WAN_PROTO_IPOE_DHCP)"
 )
 gateway_read = wan_up.index(
-    'gateway_arp_status = get_nvram_match_checked_status("gw_arp_ping", "1", &gateway_arp_enabled);'
-    .replace(" ", ""),
-) if False else wan_up.index(
-    'gateway_arp_status = get_nvram_match_checked_status('
+    "gateway_arp_status = get_nvram_match_checked_status("
 )
 gateway_error = wan_up.index("if (gateway_arp_status != 0)", gateway_read)
 gateway_merge = wan_up.index(
@@ -155,7 +152,7 @@ vpn_call = wan_up.index('route_status = notify_rc_status("start_vpn_client");', 
 vpn_merge = wan_up.index("status = route_status_accumulate(status, route_status);", vpn_call)
 vpn_failure = wan_up.index("if (route_status != 0)", vpn_merge)
 vpn_log = wan_up.index("WAN VPN client start notification incomplete", vpn_failure)
-later_gateway = wan_up.index("/* Start the gateway ARP checker", vpn_log)
+later_gateway = wan_up.index("A failed gateway-ARP enable read", vpn_log)
 require(
     vpn_notify < vpn_call < vpn_merge < vpn_failure < vpn_log < later_gateway,
     "WAN deferred VPN-client notification failure must be preserved before subsequent checks",

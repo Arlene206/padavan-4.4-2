@@ -1,3 +1,13 @@
+## 2026-11-21 — Align gateway-ARP and process integration contracts
+
+- Parent main SHA: e1003f0cb6871aad9479a3757cb7c36368780578.
+- Exact-head WAN route #44925528581 failed in `check_wan_detect_wan_status.py` after its WAN DNS/ZeroTier/firewall checks passed: the VPN-notification ordering assertion still searched for the old gateway-ARP comment, which had been replaced by the checked-enable-read safety comment. Also simplified a dead conditional in the new gateway-ARP source assertion.
+- Exact-head gateway-ARP socket workflow #44925528501 failed only because its source contract still required the removed unchecked `nvram_match("gw_arp_ping", "1")`; it now asserts the checked exact-string reader is present and raw matching is absent.
+- Exact-head Process integration #44925528510 passed its prior compile/test/source contracts and then failed because it sliced WAN gateway startup using the removed old comment and next unrelated `if (wan_gate)` marker. It now slices from the new checked-read comment to the following `if (gateway_valid)` block boundary while retaining all process tri-state assertions.
+- These are stale regression-contract updates only; exact-head WAN route, gateway-ARP socket, Process integration and XY-C1 reruns are pending.
+
+---
+
 ## 2026-11-21 — Propagate gateway-ARP enable-state read failures
 
 - Parent main SHA: dc9a86c9f74a6b327d215bfdb26ac63420060e59.

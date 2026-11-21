@@ -206,7 +206,9 @@ jobs:
           assert "detect_wan_arp_should_renew(" in poll
           assert "probe_count, MAX_ARP_RETRY" in poll
           assert "probe_status == DETECT_WAN_ARP_PROBE_ERROR" in poll
-          assert 'nvram_match("gw_arp_ping", "1")' in wan
+          assert 'gateway_arp_status = get_nvram_match_checked_status(' in wan
+          assert '"gw_arp_ping", "1", &gateway_arp_enabled' in wan
+          assert 'nvram_match("gw_arp_ping", "1")' not in wan
           assert 'eval("detect_wan");' in wan
           assert '"detect_wan"' in body(services, "stop_misc(void)")
           assert any('"detect_wan"' in line and 'detect_wan_main' in line for line in dispatcher.splitlines())

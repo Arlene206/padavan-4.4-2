@@ -14,10 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Active task
 
-- Production source slices: checked PPPoE-MWAN exact-enable decisions in WAN-up/down; checked rstats/LLTD enable reads; and preserving indexed demand-PPP DNS when global MAN DNS cannot be read.
-- Current new fix: DHCP/no-modem gateway-ARP enable gating now uses the checked exact-string NVRAM reader. Missing/non-"1" keeps disabled behavior, backend failure is accumulated/logged, and process inventory/start status continues to be handled by the existing tri-state policy.
-- Regression: scripts/check_wan_detect_wan_status.py asserts checked gateway-ARP read/error/launch order; wan_nvram_status_policy.c already tests exact-string semantics and backend errors. Exact-head WAN route/XY-C1 checks pending.
-- First independent follow-up: continue auditing the WAN-up/down callbacks for remaining unchecked configuration reads that suppress required route/service work; avoid redoing the fixed PPPoE-MWAN, DNS and gateway-ARP gates.
+- Production slices: preserve indexed demand-PPP DNS on WAN teardown when global MAN DNS cannot be read; checked exact-string PPPoE-MWAN enable decisions in WAN-up/down; checked rstats/LLTD service enable reads; checked DHCP gateway-ARP enable state before process inventory/start.
+- Current task: align three integration contracts with the checked gateway-ARP refactor. WAN route checker follows the new gateway-read comment; detect-WAN ARP socket workflow asserts the checked matcher and forbids raw `nvram_match`; Process integration slices the new checker scope and preserves tri-state inventory assertions.
+- On exact SHA `e1003f0cb6871aad9479a3757cb7c36368780578`, AI handoff, WAN interface teardown, WAN DHCP callback, ZeroTier and several other workflow suites passed; WAN route #44925528581, gateway-ARP socket #44925528501 and Process integration #44925528510 failed at stale source-contract assertions only. Process lifecycle inventory #44925528547 passed. XY-C1 #44925528552 remained in progress at last poll; exact-head rerun after these checker updates is needed.
+- First production follow-up after these reruns: inspect remaining WAN-down gateway/address/netmask snapshot reads for unchecked NVRAM failures that can suppress route removal.
 
 ## Verification boundary
 
@@ -44,5 +44,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main and verify the frozen backup remains unchanged. Check exact-head WAN route, Process, ZeroTier and XY-C1 Build/TRX/artifact Actions for the latest checked WAN-event changes; inspect failures and repair. Then audit the remaining WAN-up/down configuration reads for another confirmed silent-skip/error-collapse path.
+Fetch live main and verify the frozen backup remains unchanged. Check exact-head WAN route, gateway-ARP socket, Process integration and XY-C1 Build/TRX/artifact runs for the checker alignment commit; inspect and repair any failures. Then audit WAN-down gateway/address/netmask NVRAM reads and add checked teardown status handling with policy regression tests if confirmed.
 
