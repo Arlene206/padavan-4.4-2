@@ -1,3 +1,12 @@
+## 2026-11-21 — Guard optional filter listener caches by feature macro
+
+- Parent main SHA: `8a7cf932879931c7df25708a9290dcc8eba2ed89`.
+- The listener-preflight slice declared HTTPS/SSH/FTP cached enable flags unconditionally although their reads/uses are compile-guarded by `SUPPORT_HTTPS`, `APP_SSHD` and `APP_FTPD`. This could generate unused-local warnings on board configurations that omit one of those optional services.
+- Moved each cache declaration under its matching feature macro in both IPv4 and IPv6 filter functions. The source behavior and guarded read/use paths are unchanged.
+- Exact-head Firewall Startup #44950485651, XY-C1 #44950485679 and the parallel HTTPD/NVRAM/Process/AI checks were in progress at last poll; the follow-up needs fresh exact-head validation.
+
+---
+
 ## 2026-11-21 — Check IPv4/IPv6 remote-listener filter selectors
 
 - Parent main SHA: `13a229e14833708e70f0da7d541fb4aee8396459`.

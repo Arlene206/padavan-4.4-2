@@ -1449,8 +1449,16 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 #endif
 	int i_vpns_enable, i_vpns_type, i_vpns_actl, i_http_proto, i_bfplimit_ref;
 	int i_vpnc_enable, i_vpnc_type, i_vpnc_sfw, i_mac_filter;
-	int is_misc_http_enabled = 0, is_https_wopen = 0;
-	int is_sshd_wopen = 0, is_ftpd_wopen = 0, is_udpxy_wopen = 0;
+	int is_misc_http_enabled = 0, is_udpxy_wopen = 0;
+#if defined (SUPPORT_HTTPS)
+	int is_https_wopen = 0;
+#endif
+#if defined (APP_SSHD)
+	int is_sshd_wopen = 0;
+#endif
+#if defined (APP_FTPD)
+	int is_ftpd_wopen = 0;
+#endif
 	int i_misc_httpport = 0, i_http_lanport = 0;
 	int i_udpxy_port = 0, i_udpxy_wport = 0;
 #if defined (SUPPORT_HTTPS)
@@ -2338,8 +2346,16 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
 	int is_ping_enabled = 0, is_upnp_enabled = 0;
 	int is_vpns_enabled = 0, i_vpns_type = 0;
-	int is_misc_http_enabled = 0, is_https_wopen = 0;
-	int is_sshd_wopen = 0, is_ftpd_wopen = 0, is_udpxy_wopen = 0;
+	int is_misc_http_enabled = 0, is_udpxy_wopen = 0;
+#if defined (SUPPORT_HTTPS)
+	int is_https_wopen = 0;
+#endif
+#if defined (APP_SSHD)
+	int is_sshd_wopen = 0;
+#endif
+#if defined (APP_FTPD)
+	int is_ftpd_wopen = 0;
+#endif
 	int i_misc_httpport = 0, i_http_lanport = 0;
 	int i_udpxy_port = 0, i_udpxy_wport = 0;
 #if defined (SUPPORT_HTTPS)

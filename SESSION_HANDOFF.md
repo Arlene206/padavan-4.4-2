@@ -25,19 +25,19 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv4 and IPv6 filter builders still re-read WAN-facing listener selectors with unchecked `nvram_get_int()` / `nvram_match()` after the NAT builder had been hardened. A transient read error could make an active listener's filter exception disagree with its NAT mapping or service config; HTTP/HTTPS could also compare zero ports and emit a meaningless `--dport 0` rule. Transmission/Aria primary and remote-open port rules likewise used separate unchecked reads.
-- This slice resolves the HTTP protocol, HTTP/HTTPS, SSH, FTP, UDPXY, Transmission and Aria enable flags and listener ports through checked NVRAM wrappers before opening either filter rule file. Feature guards and enabled-state conditions avoid reads for unsupported/inactive daemons; Transmission/Aria retain the existing 1024..65535 fallback defaults. Rule generation now reuses cached settings and does not perform a second unchecked read.
-- The Firewall Startup workflow pins every required checked flag/port before `firewall_open_rule_file()` for both filter builders and forbids the previous direct getters. The existing GNU89/Werror/ASan/UBSan NVRAM policy test covers strict parse, missing-key defaults and backend-error propagation.
+- Commit `8a7cf932879931c7df25708a9290dcc8eba2ed89` adds checked HTTP/HTTPS/SSH/FTP/UDPXY/Transmission/Aria listener preflight to both IPv4 and IPv6 filter builders before opening rule files. Rule bodies reuse cached values; workflow source assertions cover all flag/port reads.
+- This follow-up tightens local declaration guards: HTTPS-only, SSH-only and FTP-only enable caches now exist only under their corresponding feature macros, preventing unused-local warnings in board configurations where those optional services are not compiled. The preflight and rule uses were already macro-guarded.
+- Exact-head Firewall Startup/XY-C1 jobs for `8a7cf932...` are running; verify those before claiming the wider filter slice.
 ## Verification boundary
 
-- Current parent main before this filter-listener slice: `13a229e14833708e70f0da7d541fb4aee8396459`, which updates the HTTPD workflow's stale DMZ source-spelling assertion. Exact-head HTTPD and AI actions for that commit were newly queued/pending at last check.
-- OpenVPN source correction `6e67a918cf560634fa597fcdfd2ea35df96a78c3`: Firewall Startup #44950120695, AI docs #44950120745, Process inventory #44950120902, WAN route #44950120777, FULLCONENAT #44950120775 and WAN DHCP #44950120688 PASS. HTTPD #44950120693 failed only the obsolete DMZ source expression literal; corrected by parent commit `13a229...`. NVRAM #44950120698 and XY-C1 #44950120665 were still in progress at Build XY-C1.
-- Current IPv4/IPv6 listener-cache slice requires exact-head Firewall Startup/HTTPD/AI/NVRAM/Process runs. L3 needs Build XY-C1 + TRX verification + artifact upload all PASS on one source SHA. No local build/test or hardware L4 claim.
+- Parent `13a229e14833708e70f0da7d541fb4aee8396459`: HTTPD workflow DMZ syntax contract updated to the equivalent current NAT preflight spelling; its exact-head HTTPD/AI checks were pending at last poll.
+- Listener-preflight source commit `8a7cf932879931c7df25708a9290dcc8eba2ed89`: Firewall Startup #44950485651, HTTPD #44950485750, AI docs #44950485620, NVRAM #44950485650, Process inventory #44950485777, WAN route #44950485619, WAN DHCP #44950485629, FULLCONENAT #44950485662 and XY-C1 #44950485679 were in progress at last poll.
+- Current macro-guard cleanup requires its own exact-head checks. No local build/test or L3/L4 claim.
 ## Exact first action for the next GPT
 
-1. Query exact-head Firewall Startup, HTTPD, NVRAM, Process inventory and AI-doc checks for this IPv4/IPv6 listener preflight. Diagnose the first source/test failure rather than waiting; the checker now pins both builders' enabled flags and port values before file-open.
-2. Track XY-C1 Build, TRX and artifact upload on the same exact SHA. Re-query the earlier `6e67a918...` XY/NVRAM runs only as parent evidence.
-3. Continue auditing `include_vts_nat()`/IPv6 filter and remaining port-forward helpers for malformed numeric ranges, unchecked port reads and rule staging. Preserve old listener defaults and remote-open enable semantics.
+1. Query exact-head Firewall Startup and XY-C1 for the listener preflight plus macro-guard cleanup; inspect compile warnings/errors and source-contract failures. L3 needs Build, TRX and artifact upload on a single SHA.
+2. Continue reviewing `include_vts_nat()` and IPv6/NAT port-forward helper validation only after the filter preflight compiles and passes.
+3. Keep backup immutable and use atomic expected-SHA non-force updates.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.
