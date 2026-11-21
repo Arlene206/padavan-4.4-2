@@ -683,7 +683,9 @@ jobs:
           assert "url_status = include_webstr_filter(fp, i_url_count)" in ipv6_filter
           assert "if (url_status < 0)" in ipv6_filter
           assert "firewall_abort_core_restore_after_staging_failure();" in ipv6_filter
-          assert ipv6_filter.index("if (url_status < 0)") < ipv6_filter.index("firewall_abort_core_restore_after_staging_failure();") < ipv6_filter.index("firewall_finish_rule_file")
+          ipv6_url_pos = ipv6_filter.index("if (url_status < 0)")
+          ipv6_url_abort = ipv6_filter.index("firewall_abort_core_restore_after_staging_failure();", ipv6_url_pos)
+          assert ipv6_url_pos < ipv6_url_abort < ipv6_filter.index("firewall_finish_rule_file")
           assert ipv4_filter.index(lw_mode_gate) < ipv4_filter.index("firewall_open_rule_file(")
           assert ipv4_filter.index(lw_count_gate) < ipv4_filter.index("firewall_open_rule_file(")
           assert "include_lw_filter(fp, wan_if, logaccept, logdrop," in ipv4_filter
