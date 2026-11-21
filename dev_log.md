@@ -1,3 +1,14 @@
+## 2026-11-21 — Propagate checked DHCP enable reads through DNSMasq and Samba
+
+- Parent main SHA: `588b45378261e62ed73c9e2823a806e58b6be0cd`.
+- `is_dhcpd_enabled()` used unchecked `nvram_match()/nvram_invmatch()`, so an NVRAM backend read/close failure collapsed into “DHCP disabled”. `nvram_invmatch()` also returns false when the key is absent (`nvram_get()` is NULL); this missing-key behavior is explicitly preserved for `lan_proto_x`.
+- Added `dnsmasq_nvram_invmatch_status()` and checked reader `dnsmasq_read_invmatch_option()`, then introduced exported `is_dhcpd_enabled_status()`. Router mode reads `dhcp_enable_x`; AP mode first reads `lan_dhcpd_x` and, only when enabled, checked-reads `lan_proto_x`. All backend failures propagate as status and are logged as last-known-good preservation. The old `is_dhcpd_enabled()` symbol remains as an ABI-compatible fail-closed wrapper.
+- `prepare_dns_dhcpd()` now aborts on a DHCP-enable read error before generated hosts/resolver/config staging. `write_smb_conf_header()` resolves the same gate before writing the first smb.conf byte and fails rather than silently omitting the WINS server entry.
+- Added GNU89 policy regression coverage for inverse-match present values, the true absent-key behavior, explicit missing defaults, backend errors/errno fallback, inconsistent API tuples and invalid arguments. Extended the existing DNSMasq lifecycle source contract; its workflow already compiles the policy test with `-Wall -Wextra -Werror -fsanitize=address,undefined`.
+- No local cross compiler is available in this session; exact-head DNSMasq sanitizer/source-contract, XY-C1 Build/TRX/artifact and HTTPD follow-up Actions are required after commit.
+
+---
+
 ## 2026-11-21 — Assert the duplicate-Authorization auth gate in HTTPD session contract
 
 - Parent main SHA: `91ab0fb6ceaf0c2fa068cd9cad32f57422bfa438`.

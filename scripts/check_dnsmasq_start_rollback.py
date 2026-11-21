@@ -163,4 +163,59 @@ for event in ("push", "pull_request"):
 assert "Compile and run DNSMasq checked option NVRAM regression" in DNSMASQ_WORKFLOW
 print("DNSMasq resolver option NVRAM fail-closed contract: PASS")
 
+# DHCP enablement is a checked decision, not a raw nvram_match/invmatch boolean.
+invmatch_policy = compact(body(
+    DNSMASQ_OPTION_POLICY,
+    "dnsmasq_nvram_invmatch_status(",
+))
+assert "if (!matches || !match_value || (missing_matches != 0 && missing_matches != 1)) return EINVAL;" in invmatch_policy
+assert "if (api_result < 0) return saved_errno > 0 ? saved_errno : EIO;" in invmatch_policy
+assert "if (api_result == 0)" in invmatch_policy
+assert "*matches = strcmp(value, match_value) != 0;" in invmatch_policy
+invmatch_reader = compact(body(
+    SERVICES,
+    "dnsmasq_read_invmatch_option(const char *param_name, const char *match_value,",
+))
+assert "nvram_get_checked(param_name, &value)" in invmatch_reader
+assert "dnsmasq_nvram_invmatch_status(api_result, saved_errno, value, match_value, missing_matches, matches)" in invmatch_reader
+assert "preserving last-known-good configuration" in invmatch_reader
+
+dhcp_enable = compact(body(
+    SERVICES,
+    "int\nis_dhcpd_enabled_status(int is_ap_mode, int *enabled)",
+))
+assert 'dnsmasq_read_boolean_option("dhcp_enable_x", enabled)' in dhcp_enable
+assert 'dnsmasq_read_boolean_option("lan_dhcpd_x", &lan_dhcp_enabled)' in dhcp_enable
+assert 'dnsmasq_read_invmatch_option("lan_proto_x", "1", 0, &lan_proto_not_dhcp)' in dhcp_enable
+assert "if (!lan_dhcp_enabled) return 0;" in dhcp_enable
+assert "*enabled = lan_proto_not_dhcp;" in dhcp_enable
+legacy_dhcp_enable = compact(body(SERVICES, "int\nis_dhcpd_enabled(int is_ap_mode)"))
+assert "is_dhcpd_enabled_status(is_ap_mode, &enabled)" in legacy_dhcp_enable
+assert "nvram_match(" not in legacy_dhcp_enable and "nvram_invmatch(" not in legacy_dhcp_enable
+
+assert "int is_dhcpd_enabled_status(int is_ap_mode, int *enabled);" in RC_H
+assert "option_status = is_dhcpd_enabled_status(is_ap_mode, &i_dhcp_enable);" in prepare
+assert "if (option_status != 0) return option_status;" in prepare
+assert "is_dhcpd_enabled(is_ap_mode)" not in prepare
+assert prepare.index("is_dhcpd_enabled_status(") < prepare.index('dnsmasq_read_string_option("dhcp_wins_x"')
+assert prepare.index("is_dhcpd_enabled_status(") < prepare.index("fill_static_ethers(ipaddr, netmask)")
+
+smb_header = compact(body(SERVICES, "int\nwrite_smb_conf_header(FILE *fp)"))
+assert "if (!i_wins_enable) { dhcp_status = is_dhcpd_enabled_status(get_ap_mode(), &dhcp_enabled);" in smb_header
+assert "if (dhcp_status != 0)" in smb_header and "return -1;" in smb_header
+assert smb_header.index("is_dhcpd_enabled_status(get_ap_mode(), &dhcp_enabled)") < smb_header.index('fprintf(fp, "[global]\\n")')
+assert "else if (dhcp_enabled)" in smb_header
+assert "is_dhcpd_enabled(get_ap_mode())" not in smb_header
+
+assert "test_invmatch_preserves_nvram_invmatch_semantics" in DNSMASQ_OPTION_TEST
+assert "test_invmatch_backend_errors_preserve_output" in DNSMASQ_OPTION_TEST
+assert "test_invmatch_invalid_arguments_are_rejected" in DNSMASQ_OPTION_TEST
+for event in ("push", "pull_request"):
+    event_section = DNSMASQ_WORKFLOW.split("  " + event + ":", 1)[1]
+    end_marker = "  pull_request:" if event == "push" else "  workflow_dispatch:"
+    event_paths = event_section.split(end_marker, 1)[0]
+    assert event_paths.count('"trunk/user/rc/src/services_ex.c"') == 1
+    assert event_paths.count('"trunk/user/rc/src/rc.h"') == 1
+    assert event_paths.count('"scripts/check_dnsmasq_start_rollback.py"') == 1
+
 print("DNSMasq failed-start rollback and lifecycle-lock contract: PASS")

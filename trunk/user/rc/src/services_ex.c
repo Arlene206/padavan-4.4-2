@@ -646,15 +646,6 @@ dnsmasq_confirm_started(int launch_status)
 	return dnsmasq_start_policy_status(launch_status, presence);
 }
 
-int
-is_dhcpd_enabled(int is_ap_mode)
-{
-	if (!is_ap_mode)
-		return nvram_match("dhcp_enable_x", "1");
-	else
-		return nvram_match("lan_dhcpd_x", "1") && nvram_invmatch("lan_proto_x", "1");
-}
-
 static int
 dnsmasq_read_boolean_option(const char *param_name, int *enabled)
 {
@@ -736,6 +727,84 @@ dnsmasq_read_string_option(const char *param_name, const char *missing_value,
 }
 
 static int
+dnsmasq_read_invmatch_option(const char *param_name, const char *match_value,
+			     int missing_matches, int *matches)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !match_value || !matches ||
+	    (missing_matches != 0 && missing_matches != 1)) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = dnsmasq_nvram_invmatch_status(api_result, saved_errno,
+					       value, match_value,
+					       missing_matches, matches);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read DNSMasq inverse-match option '%s'; preserving last-known-good configuration (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
+int
+is_dhcpd_enabled_status(int is_ap_mode, int *enabled)
+{
+	int lan_dhcp_enabled = 0;
+	int lan_proto_not_dhcp = 0;
+	int status;
+
+	if (!enabled) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	*enabled = 0;
+
+	if (!is_ap_mode)
+		return dnsmasq_read_boolean_option("dhcp_enable_x", enabled);
+
+	status = dnsmasq_read_boolean_option("lan_dhcpd_x", &lan_dhcp_enabled);
+	if (status != 0)
+		return status;
+	if (!lan_dhcp_enabled)
+		return 0;
+
+	/*
+	 * Preserve nvram_invmatch() semantics: a missing lan_proto_x key is
+	 * false, just like nvram_get() returning NULL in the original helper.
+	 */
+	status = dnsmasq_read_invmatch_option("lan_proto_x", "1", 0,
+					      &lan_proto_not_dhcp);
+	if (status != 0)
+		return status;
+
+	*enabled = lan_proto_not_dhcp;
+	return 0;
+}
+
+/* Keep the original exported boolean entry point for ABI compatibility. */
+int
+is_dhcpd_enabled(int is_ap_mode)
+{
+	int enabled = 0;
+	int status;
+
+	status = is_dhcpd_enabled_status(is_ap_mode, &enabled);
+	if (status != 0) {
+		errno = status;
+		return 0;
+	}
+	return enabled;
+}
+
+static int
 prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 {
 	FILE *fp;
@@ -789,7 +858,9 @@ prepare_dns_dhcpd(int is_ap_mode, int *service_enabled)
 			return option_status;
 	}
 
-	i_dhcp_enable = is_dhcpd_enabled(is_ap_mode);
+	option_status = is_dhcpd_enabled_status(is_ap_mode, &i_dhcp_enable);
+	if (option_status != 0)
+		return option_status;
 	if (i_dhcp_enable) {
 		/* Snapshot the optional address; do not let a failed read masquerade
 		 * as an empty value and silently fall back to the router's own IP. */
@@ -1521,6 +1592,7 @@ int
 write_smb_conf_header(FILE *fp)
 {
 	int i_lmb, i_wins_enable;
+	int dhcp_enabled = 0, dhcp_status;
 	char *p_computer_name, *p_workgroup, *p_res_order;
 
 	if (!fp)
@@ -1536,6 +1608,17 @@ write_smb_conf_header(FILE *fp)
 			   read_error);
 		errno = read_error;
 		return -1;
+	}
+
+	if (!i_wins_enable) {
+		dhcp_status = is_dhcpd_enabled_status(get_ap_mode(), &dhcp_enabled);
+		if (dhcp_status != 0) {
+			logmessage("Samba Server",
+				   "cannot read DHCP enable state; refusing smb.conf header publication (errno %d)",
+				   dhcp_status);
+			errno = dhcp_status;
+			return -1;
+		}
 	}
 
 	i_lmb = nvram_get_int("st_samba_lmb");
@@ -1570,7 +1653,7 @@ write_smb_conf_header(FILE *fp)
 
 	if (i_wins_enable) {
 		fprintf(fp, "wins support = %s\n", "yes");
-	} else if (is_dhcpd_enabled(get_ap_mode())) {
+	} else if (dhcp_enabled) {
 		char *wins = nvram_safe_get("dhcp_wins_x");
 		if (is_valid_ipv4(wins)) {
 			fprintf(fp, "wins server = %s\n", wins);

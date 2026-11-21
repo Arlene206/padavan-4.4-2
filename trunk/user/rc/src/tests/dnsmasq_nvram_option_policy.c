@@ -19,6 +19,71 @@ test_present_values_keep_nvram_match_semantics(void)
 }
 
 static void
+test_invmatch_preserves_nvram_invmatch_semantics(void)
+{
+	int matches = -1;
+
+	assert(dnsmasq_nvram_invmatch_status(1, 0, "1", "1", 0,
+					     &matches) == 0);
+	assert(matches == 0);
+	assert(dnsmasq_nvram_invmatch_status(1, 0, "0", "1", 0,
+					     &matches) == 0);
+	assert(matches == 1);
+	assert(dnsmasq_nvram_invmatch_status(1, 0, "static", "1", 0,
+					     &matches) == 0);
+	assert(matches == 1);
+	assert(dnsmasq_nvram_invmatch_status(1, 0, "", "1", 0,
+					     &matches) == 0);
+	assert(matches == 1);
+
+	/* nvram_invmatch() is false for a missing key (NULL nvram_get value). */
+	assert(dnsmasq_nvram_invmatch_status(0, 0, NULL, "1", 0,
+					     &matches) == 0);
+	assert(matches == 0);
+	/* The policy helper keeps the missing-key default explicit for other callers. */
+	assert(dnsmasq_nvram_invmatch_status(0, 0, NULL, "1", 1,
+					     &matches) == 0);
+	assert(matches == 1);
+}
+
+static void
+test_invmatch_backend_errors_preserve_output(void)
+{
+	int matches = 17;
+
+	assert(dnsmasq_nvram_invmatch_status(-1, EACCES, NULL, "1", 0,
+					     &matches) == EACCES);
+	assert(matches == 17);
+	assert(dnsmasq_nvram_invmatch_status(-1, 0, NULL, "1", 0,
+					     &matches) == EIO);
+	assert(matches == 17);
+	assert(dnsmasq_nvram_invmatch_status(2, 0, "1", "1", 0,
+					     &matches) == EIO);
+	assert(matches == 17);
+	assert(dnsmasq_nvram_invmatch_status(0, 0, "unexpected", "1", 0,
+					     &matches) == EIO);
+	assert(matches == 17);
+	assert(dnsmasq_nvram_invmatch_status(1, 0, NULL, "1", 0,
+					     &matches) == EIO);
+	assert(matches == 17);
+}
+
+static void
+test_invmatch_invalid_arguments_are_rejected(void)
+{
+	int matches = 17;
+
+	assert(dnsmasq_nvram_invmatch_status(1, 0, "1", NULL, 0,
+					     &matches) == EINVAL);
+	assert(matches == 17);
+	assert(dnsmasq_nvram_invmatch_status(1, 0, "1", "1", 0,
+					     NULL) == EINVAL);
+	assert(dnsmasq_nvram_invmatch_status(0, 0, NULL, "1", 2,
+					     &matches) == EINVAL);
+	assert(matches == 17);
+}
+
+static void
 test_integer_boolean_preserves_nonzero_nvram_get_int_semantics(void)
 {
 	int enabled = 9;
@@ -125,6 +190,9 @@ int
 main(void)
 {
 	test_present_values_keep_nvram_match_semantics();
+	test_invmatch_preserves_nvram_invmatch_semantics();
+	test_invmatch_backend_errors_preserve_output();
+	test_invmatch_invalid_arguments_are_rejected();
 	test_integer_boolean_preserves_nonzero_nvram_get_int_semantics();
 	test_checked_string_option_and_output_preservation();
 	test_missing_keys_use_explicit_legacy_defaults();

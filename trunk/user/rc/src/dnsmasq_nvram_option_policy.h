@@ -34,6 +34,29 @@ dnsmasq_nvram_option_status(int api_result, int saved_errno,
 }
 
 static inline int
+dnsmasq_nvram_invmatch_status(int api_result, int saved_errno,
+			      const char *value, const char *match_value,
+			      int missing_matches, int *matches)
+{
+	if (!matches || !match_value ||
+	    (missing_matches != 0 && missing_matches != 1))
+		return EINVAL;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0) {
+		if (value)
+			return EIO;
+		*matches = missing_matches;
+		return 0;
+	}
+	if (api_result != 1 || !value)
+		return EIO;
+
+	*matches = strcmp(value, match_value) != 0;
+	return 0;
+}
+
+static inline int
 dnsmasq_nvram_integer_boolean_status(int api_result, int saved_errno,
 				     const char *value, int missing_enabled,
 				     int *enabled)

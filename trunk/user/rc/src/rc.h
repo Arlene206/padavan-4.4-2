@@ -651,6 +651,7 @@ int is_dns_dhcpd_run(void);
 /* 1=RUNNING, 0=ABSENT, -1=UNKNOWN; UNKNOWN sets errno and scan_error. */
 int dnsmasq_process_status(int *scan_error);
 int is_dhcpd_enabled(int is_ap_mode);
+int is_dhcpd_enabled_status(int is_ap_mode, int *enabled);
 int start_dns_dhcpd(int is_ap_mode);
 /* Caller must already hold dnsmasq_lifecycle_lock_acquire(). */
 int start_dns_dhcpd_locked(int is_ap_mode);

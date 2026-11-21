@@ -46,6 +46,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Re-run the HTTPD security workflow after the current auth-gate source-contract fix; inspect exact-head XY-C1 #44931678300 and NVRAM audit #44931678280 outcomes for SHA 91ab.
-2. Continue the DNSMasq configuration-read reliability task: replace raw `is_dhcpd_enabled()` reads with checked status reads in `prepare_dns_dhcpd()` and `write_smb_conf_header()`, preserving the historical absent `lan_proto_x` behavior and old exported boolean symbol. Add GNU89 ASan/UBSan policy tests and extend `scripts/check_dnsmasq_start_rollback.py`.
-3. Audit the remaining VPN server config reads in `gen_vpns_pppd_options()` and `start_vpn_server_locked()` (`vpns_auth`, `vpns_mppe`, `vpns_vuse`, `vpns_num_x`, `vpns_user_x*`, `vpns_pass_x*`, and pool/interface values) for backend failure modes. Do not reopen WAN route snapshot or duplicate-Authorization production logic.
+1. Inspect exact-head DNSMasq lifecycle, HTTPD security and XY-C1 Actions for the current checked DHCP-enable commit. Repair any failure from the exact job log; do not claim L3 unless Build, TRX verification and artifact upload all PASS on the same SHA.
+2. Audit remaining VPN server config reads in `gen_vpns_pppd_options()` and `start_vpn_server_locked()` (`vpns_auth`, `vpns_mppe`, `vpns_vuse`, `vpns_num_x`, `vpns_user_x*`, `vpns_pass_x*`, and pool/interface values) for backend failure modes and add checked copied reads only where they protect credential/pool publication. Do not reopen WAN route snapshot or duplicate-Authorization production logic.
