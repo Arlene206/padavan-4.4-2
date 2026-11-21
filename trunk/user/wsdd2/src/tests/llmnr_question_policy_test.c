@@ -22,6 +22,19 @@ make_question(uint8_t *packet, const uint8_t *labels, size_t labels_len,
 }
 
 static void
+test_hostname_is_always_terminated(void)
+{
+	char hostname[256];
+
+	memset(hostname, 'x', sizeof(hostname));
+	assert(llmnr_read_hostname(hostname, sizeof(hostname)) == 0);
+	assert(hostname[sizeof(hostname) - 1] == '\0');
+	assert(memchr(hostname, '\0', sizeof(hostname)) != NULL);
+	assert(llmnr_read_hostname(NULL, sizeof(hostname)) == -1);
+	assert(llmnr_read_hostname(hostname, 0) == -1);
+}
+
+static void
 test_valid_single_and_multi_label(void)
 {
 	uint8_t packet[300];
@@ -127,6 +140,7 @@ test_dns_name_and_output_bounds(void)
 int
 main(void)
 {
+	test_hostname_is_always_terminated();
 	uint8_t packet[300] = {0};
 	char name[256];
 	uint16_t qtype, qclass;

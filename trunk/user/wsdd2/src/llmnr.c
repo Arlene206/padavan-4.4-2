@@ -345,7 +345,7 @@ int llmnr_recv(struct endpoint *ep)
 				(struct sockaddr *)&sa, &slen);
 	char name[HOST_NAME_MAX + 1];
 
-	if (len > 0 && !gethostname(name, sizeof(name)-1)) {
+	if (len > 0 && !llmnr_read_hostname(name, sizeof(name))) {
 		buf[len] = '\0';
 		llmnr_send_response(ep, &sa, buf, len, name);
 	}

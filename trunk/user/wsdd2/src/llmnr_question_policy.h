@@ -4,6 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+#include <unistd.h>
 
 /* Parse one uncompressed DNS question without reading outside the datagram. */
 static inline int
@@ -56,6 +57,19 @@ llmnr_parse_question(const uint8_t *packet, size_t packet_len,
 	*qtype = (uint16_t)(((uint16_t)cursor[0] << 8) | cursor[1]);
 	*qclass = (uint16_t)(((uint16_t)cursor[2] << 8) | cursor[3]);
 	return 0;
+}
+
+/* gethostname() may omit NUL when the supplied buffer is exactly filled. */
+static inline int
+llmnr_read_hostname(char *name, size_t capacity)
+{
+	int status;
+
+	if (!name || capacity == 0)
+		return -1;
+	status = gethostname(name, capacity);
+	name[capacity - 1] = '\0';
+	return status;
 }
 
 #endif

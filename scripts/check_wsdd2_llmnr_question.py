@@ -17,6 +17,9 @@ def compact(text):
 
 assert '#include "llmnr_question_policy.h"' in SOURCE
 assert "if (inlen < 17)" in SOURCE
+assert "llmnr_read_hostname(name, sizeof(name))" in SOURCE
+assert "status = gethostname(name, capacity)" in POLICY
+assert "name[capacity - 1]" in POLICY
 assert "llmnr_parse_question(in, inlen, in_name, sizeof(in_name)," in compact(SOURCE)
 start = SOURCE.index("static int llmnr_send_response(")
 end = SOURCE.index("int llmnr_init(", start)
