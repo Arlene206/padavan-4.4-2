@@ -703,6 +703,30 @@ test_checked_nvram_copy_survives_shared_cache_overwrite(void)
 }
 
 static void
+test_wan_interface_names_survive_shared_cache_overwrite(void)
+{
+	struct fake_nvram_reader fake;
+	char man_ifname[16], wan_ifname[16];
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.missing_at = -1;
+	fake.values[0] = "br0";
+	fake.values[1] = "usbnet0";
+
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+				       "wan0_man_ifname", man_ifname,
+				       sizeof(man_ifname)) == 0);
+	assert(rc_wan_nvram_copy_value(fake_nvram_get, &fake,
+				       "wan0_ifname_t", wan_ifname,
+				       sizeof(wan_ifname)) == 0);
+	assert(fake.calls == 2);
+	assert(strcmp(man_ifname, "br0") == 0);
+	assert(strcmp(wan_ifname, "usbnet0") == 0);
+}
+
+
+static void
 test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation(void)
 {
 	char cache_slot[32] = "198.51.100.27";
@@ -1218,6 +1242,7 @@ main(void)
 	test_vpn_runtime_state_clear_attempts_every_key_and_preserves_first_error();
 	test_all_value_sequence_validates_before_writing();
 	test_checked_nvram_copy_survives_shared_cache_overwrite();
+	test_wan_interface_names_survive_shared_cache_overwrite();
 	test_bounded_text_copy_survives_source_invalidation_and_rejects_truncation();
 	test_checked_nvram_copy_treats_missing_key_as_empty();
 	test_checked_nvram_copy_preserves_backend_failure();

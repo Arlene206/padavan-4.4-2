@@ -77,6 +77,37 @@ get_wan_unit_value(int unit, const char* param_name)
 
 
 static int
+wan_nvram_checked_get_callback(void *context, const char *param_name,
+				char **value)
+{
+	(void)context;
+	return nvram_get_checked(param_name, value);
+}
+
+
+static int
+get_wan_unit_value_copy_status(int unit, const char *param_name,
+			       char *destination, size_t destination_size)
+{
+	char wanN_param[64];
+	int length;
+
+	if (unit < 0 || !param_name || !param_name[0] ||
+	    !destination || destination_size == 0)
+		return EINVAL;
+	length = snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s",
+			  unit, param_name);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(wanN_param))
+		return ENAMETOOLONG;
+	return rc_wan_nvram_copy_value(wan_nvram_checked_get_callback, NULL,
+				       wanN_param, destination,
+				       destination_size);
+}
+
+
+static int
 get_wan_unit_value_int_status(int unit, const char *param_name, int *value)
 {
 	char wanN_param[64];
@@ -5580,8 +5611,23 @@ get_wan_ifname(char wan_ifname[16])
 {
 	int unit = 0;
 	int status, is_usb_modem, is_ndis_modem = 0;
-	char *ifname = get_man_ifname(unit);
-	char *ifname_temp = get_wan_unit_value(unit, "ifname_t");
+	char man_ifname[16], ifname_temp[16];
+	char *man_ifname_value;
+	const char *ifname = man_ifname;
+
+	man_ifname_value = get_man_ifname(unit);
+	status = rc_wan_nvram_copy_text(man_ifname_value, man_ifname,
+					 sizeof(man_ifname));
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
+	status = get_wan_unit_value_copy_status(unit, "ifname_t",
+					       ifname_temp, sizeof(ifname_temp));
+	if (status != 0) {
+		errno = status;
+		return status;
+	}
 
 	is_usb_modem = get_usb_modem_wan(unit);
 	if (is_usb_modem) {
@@ -5623,13 +5669,23 @@ in_addr_t
 get_wan_ip4(int only_broadband_wan)
 {
 	int unit = 0;
-	char *ifname, *ifname_temp;
+	int status;
+	char man_ifname[16], ifname_temp[16];
+	char *man_ifname_value;
+	const char *ifname = man_ifname;
 
 	if (get_ap_mode())
 		return INADDR_ANY;
 
-	ifname = get_man_ifname(unit);
-	ifname_temp = get_wan_unit_value(unit, "ifname_t");
+	man_ifname_value = get_man_ifname(unit);
+	status = rc_wan_nvram_copy_text(man_ifname_value, man_ifname,
+					 sizeof(man_ifname));
+	if (status != 0)
+		return INADDR_ANY;
+	status = get_wan_unit_value_copy_status(unit, "ifname_t",
+					       ifname_temp, sizeof(ifname_temp));
+	if (status != 0)
+		return INADDR_ANY;
 
 	if (!only_broadband_wan && get_usb_modem_wan(unit)) {
 		ifname = ifname_temp;

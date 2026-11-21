@@ -1,3 +1,12 @@
+## 2026-11-21 — Preserve WAN interface names across cache-backed NVRAM reads
+
+- Parent main SHA: `f268eab8f685b67a59736ce716a9bf88e031f69c`.
+- Inspection of `nvram_linux.c` confirmed all `nvram_get_checked()` / `nvram_safe_get()` values point into a single static `nvr_cache` buffer reused on the next NVRAM read. `get_wan_ifname()` and `get_wan_ip4()` fetched the management interface and `wan0_ifname_t` into pointers, then called `get_usb_modem_wan()`, checked modem-type reads or WAN-protocol lookups before consuming them. The pointers therefore no longer represented their original interface names.
+- Both paths now copy the management interface immediately and fetch/copy the WAN temporary interface with a checked, bounded helper before any further NVRAM access. Backend errors / oversized values propagate from `get_wan_ifname()`; `get_wan_ip4()` returns `INADDR_ANY` instead of querying an unverified interface.
+- Added a regression proving both management and temporary interface strings remain distinct after the fake NVRAM backend overwrites its shared cache. Extended the WAN route static checker to require both safe-copy sequences.
+
+---
+
 ## 2026-11-21 — Snapshot USB modem RAS credentials before shared NVRAM cache reuse
 
 - Parent main SHA: `d8ff11c5c24230e88a7adc9464bb89d34eeb5036`.

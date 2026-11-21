@@ -383,6 +383,24 @@ require("status=get_wan_modem_is_ndis_status(&is_ndis_modem)" in wan_ifname and
         "if(status!=0)" in wan_ifname and "returnstatus" in wan_ifname,
         "WAN interface selection must propagate modem-type read errors")
 assert 'nvram_get_int("modem_type")' not in wan_ifname
+require("man_ifname_value=get_man_ifname(unit)" in wan_ifname and
+        "rc_wan_nvram_copy_text(man_ifname_value,man_ifname,sizeof(man_ifname))" in wan_ifname,
+        "management interface name must be copied before another NVRAM read")
+require("get_wan_unit_value_copy_status(unit,\"ifname_t\",ifname_temp,sizeof(ifname_temp))" in wan_ifname and
+        "is_usb_modem=get_usb_modem_wan(unit)" in wan_ifname,
+        "WAN temporary interface name must be checked and copied before modem selection")
+assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ifname
+
+wan_ip4 = "".join(body(source, "get_wan_ip4(int only_broadband_wan)").split())
+require("rc_wan_nvram_copy_text(man_ifname_value,man_ifname,sizeof(man_ifname))" in wan_ip4 and
+        "get_wan_unit_value_copy_status(unit,\"ifname_t\",ifname_temp,sizeof(ifname_temp))" in wan_ip4,
+        "WAN IP lookup must copy cache-backed interface names before later NVRAM reads")
+require("if(status!=0)returnINADDR_ANY" in wan_ip4 and
+        "if(!only_broadband_wan&&get_usb_modem_wan(unit))" in wan_ip4,
+        "WAN IP lookup must fail closed if interface identity cannot be copied")
+assert "char*ifname_temp=get_wan_unit_value(unit,\"ifname_t\")" not in wan_ip4
+require("test_wan_interface_names_survive_shared_cache_overwrite" in test,
+        "WAN interface-name cache overwrite regression missing")
 
 
 # The EAPOL read/start failure guard must close before the WAN protocol's
