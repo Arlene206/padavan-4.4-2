@@ -1191,7 +1191,13 @@ jobs:
           assert "action_result = rc_notify_merge_action_result(" in ipv6_case
           assert "action_result, ipv6_restart_status);" in ipv6_case
           assert "if (ipv6_restart_should_publish_type(ipv6_restart_status))" in ipv6_case
-          assert ipv6_case.index("full_restart_ipv6(") < ipv6_case.index("action_result = rc_notify_merge_action_result(") < ipv6_case.index("nvram_ipv6_type = get_ipv6_type();")
+          mode_read = ipv6_case.index("get_ap_mode_status(&is_ap_mode)")
+          mode_error = ipv6_case.index("if (ap_mode_status != 0)", mode_read)
+          mode_error_merge = ipv6_case.index("action_result, ap_mode_status)", mode_error)
+          restart_call = ipv6_case.index("full_restart_ipv6(")
+          restart_merge = ipv6_case.index("action_result, ipv6_restart_status);", restart_call)
+          runtime_publish = ipv6_case.index("nvram_ipv6_type = get_ipv6_type();")
+          assert mode_read < mode_error < mode_error_merge < restart_call < restart_merge < runtime_publish
           for marker in (
               "check_runtime_type(EBUSY, 0, 1, 0)",
               "check_runtime_type(EIO, 1, 0, 1)",
