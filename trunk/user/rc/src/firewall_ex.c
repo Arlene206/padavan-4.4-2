@@ -2605,7 +2605,8 @@ ipt_raw_rules(void)
 }
 
 #if defined (USE_IPV6)
-static intip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
+static int
+ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
                   char *logaccept, char *logdrop, int tcp_mss_need)
 {
 	FILE *fp;
@@ -3006,21 +3007,34 @@ static intip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	}
 
 	/* use url filter before accepting ESTABLISHED packets */
-	if (is_url_enabled && include_webstr_filter(fp) > 0) {
-		char mac_buf[24] = {0};
-		timematch[0] = 0;
-		if (timematch_conv(timematch, "url_date_x", "url_time_x")) {
-			mac_conv("url_mac_x", -1, mac_buf);
-			if (strlen(mac_buf) == 17) {
-				strcat(timematch, " -m mac");
-				if (is_url_inverse)
-					strcat(timematch, " !");
-				strcat(timematch, " --mac-source ");
-				strcat(timematch, mac_buf);
-			}
-			fprintf(fp, "-A %s -i %s%s -j %s\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_URL_LIST);
-			ret |= MODULE_WEBSTR_MASK;
+	if (is_url_enabled) {
+		int url_status = include_webstr_filter(fp, i_url_count);
+		if (url_status < 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "IPv6 filter: aborting incomplete URL-filter ruleset (errno=%d)",
+				   saved_errno);
+			(void)fclose(fp);
+			firewall_abort_core_restore_after_staging_failure();
+			firewall_rule_file_remove(ipt_file);
+			errno = saved_errno;
+			return -1;
 		}
+		if (url_status > 0) {
+			char mac_buf[24] = {0};
+			timematch[0] = 0;
+			if (timematch_conv(timematch, "url_date_x", "url_time_x")) {
+				mac_conv("url_mac_x", -1, mac_buf);
+				if (strlen(mac_buf) == 17) {
+					strcat(timematch, " -m mac");
+					if (is_url_inverse)
+						strcat(timematch, " !");
+					strcat(timematch, " --mac-source ");
+					strcat(timematch, mac_buf);
+				}
+				fprintf(fp, "-A %s -i %s%s -j %s\\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_URL_LIST);
+				ret |= MODULE_WEBSTR_MASK;
+			}
 		}
 	}
 

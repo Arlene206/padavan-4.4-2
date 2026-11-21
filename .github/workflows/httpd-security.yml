@@ -4014,7 +4014,10 @@ jobs:
           assert reader.index("fclose(fpls)") < reader.index("fprintf(fp") < reader.index("*lease_lock_fd = lock_fd")
           assert "vpn_server_lease_lock_release(lock_fd)" in reader
           assert "include_vpns_clients(fp, &vpn_lease_lock_fd) != 0" in filter
-          assert filter.index("include_vpns_clients(fp, &vpn_lease_lock_fd) != 0") < filter.index("firewall_abort_core_restore_after_staging_failure()") < filter.index("firewall_finish_rule_file")
+          vpn_clients_call = filter.index("include_vpns_clients(fp, &vpn_lease_lock_fd) != 0")
+          vpn_clients_abort = filter.index("firewall_abort_core_restore_after_staging_failure()", vpn_clients_call)
+          vpn_clients_finish = filter.index("firewall_finish_rule_file", vpn_clients_abort)
+          assert vpn_clients_call < vpn_clients_abort < vpn_clients_finish
           restore_apply = filter.index("firewall_apply_core_restore(")
           restore_remove = filter.index("firewall_rule_file_remove(ipt_file)", restore_apply)
           lock_release = filter.index("vpn_server_lease_lock_release(vpn_lease_lock_fd)", restore_remove)

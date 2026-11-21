@@ -1,3 +1,14 @@
+## 2026-11-21 — Restore checked IPv6 URL-filter staging
+
+- Parent main SHA: `4f59f6c72e1d35b323ee4c622bfdbf8f8be23da9`.
+- URL keyword loading had been converted to a bounded two-argument checked helper, but the IPv6 filter call site still used the old one-argument call and the IPv6 function declaration was accidentally joined as `static intip6t_filter_rules`. That left the IPv6 URL path outside the new fail-closed contract and broke the function symbol/compile contract.
+- Restored the `static int` / `ip6t_filter_rules()` declaration. The IPv6 builder now passes its preflighted 0..128 count, and on keyword read failure closes/removes its staged file, aborts the core restore transaction, preserves errno and returns failure before publication.
+- Strengthened Firewall Startup source contracts for the exact IPv6 symbol, bounded helper call and abort-before-finish ordering.
+- Parent 4f59f6c exact push runs: Firewall Startup #44952467207 and HTTPD #44952467237 failed in source contracts; NVRAM #44952467177, Process #44952467224, AI docs #44952467200, WAN DHCP #44952467197, FULLCONENAT #44952467198 and WAN route #44952467210 passed. XY-C1 #44952467208 remained in progress before Build/TRX/artifact. HTTPD's VPN source-order contract is corrected to scope the abort after the VPN include call.
+- No local compile/test or same-SHA L3 evidence; hardware L4 remains unverified.
+
+---
+
 ## 2026-11-21 — Bound URL filter entries and check keyword reads
 
 - Parent main SHA: `3566f46ad6d8521fb7283617c5044bb38521e3dc`.

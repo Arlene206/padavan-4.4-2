@@ -25,22 +25,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- Firewall listener, UDPXY, VTS and LWF checked-NVRAM preflight and validation slices are in the current main ancestry.
-- LWF per-entry protocol, flags, port/IP-range values and ICMP list now use checked NVRAM access; backend/API/close failures abort the staged IPv4 firewall transaction.
-- New review found `include_webstr_filter()` used unchecked `foreach_x("url_num_x")` despite the UI allowing at most 128 keywords, and read each keyword with `nvram_safe_get()`. A failed read could omit a deny rule. The URL count is now preflighted/cached in both IPv4 and IPv6 builders with a 0..128 bound; keyword reads are checked and read failures abort the corresponding staged transaction.
-- Exact-head Firewall Startup on parent `3566f46ad6d8521fb7283617c5044bb38521e3dc` was IN_PROGRESS at last query; NVRAM #44952192527, AI docs #44952192530, FULLCONENAT #44952192469, XY-C1 #44952192509, Process #44952192541, WAN DHCP #44952192483, HTTPD #44952192648 and WAN route #44952192537 were also in progress. Re-query before claiming validation.
+- Firewall IPv4 and IPv6 URL filters now share the bounded, checked keyword reader. A URL keyword backend/API/close error aborts the staged family-specific restore rather than publishing a partial policy.
+- Parent main SHA `4f59f6c72e1d35b323ee4c622bfdbf8f8be23da9` exposed an IPv6 integration defect: the helper signature had changed to require the cached entry count, but the IPv6 call still passed one argument; its function declaration had also become `static intip6t_filter_rules`. This atomic main checkpoint restores the proper symbol and adds the IPv6 checked-read abort path.
+- The same parent caused a stale HTTPD source-contract assertion: it compared the VPN lease abort against the first firewall abort globally, which now belongs to earlier URL/LWF staging. The contract now scopes the abort search to after the VPN lease include call; VPN lease regression itself passed.
+- Next engineering target after exact-head verification: audit Lightweight Filter schedule reads for fail-open NVRAM errors, then continue MAC-filter and static-route count/value review.
 
 ## Verification boundary
 
-- Parent SHA `3566f46ad6d8521fb7283617c5044bb38521e3dc`: all nine triggered Actions were IN_PROGRESS at last query (Firewall Startup #44952192432; NVRAM #44952192527; AI docs #44952192530; FULLCONENAT #44952192469; XY-C1 #44952192509; Process #44952192541; WAN DHCP #44952192483; HTTPD #44952192648; WAN route #44952192537). Firewall Startup had only started checkout. Do not infer CI results.
-- Previous exact-head `7494b0860d16d6cc9d4e9a812a22db29bd7aa1ac`: Firewall Startup #44951908711, Process #44951908748 and AI docs #44951908732 PASS; NVRAM #44951908715 was IN_PROGRESS.
-- No local C tests or firmware build are available. No L3 claim until Build XY-C1, TRX verification and artifact upload all PASS on one exact SHA; hardware L4 remains NOT VERIFIED.
+- Exact parent `4f59f6c72e1d35b323ee4c622bfdbf8f8be23da9` push Actions: Process inventory #44952467224 PASS; AI handoff #44952467200 PASS; WAN DHCP #44952467197 PASS; FULLCONENAT #44952467198 PASS; NVRAM audit #44952467177 PASS; WAN route #44952467210 PASS.
+- Firewall Startup #44952467207 failed at the IPv6 URL source contract (Python line 500): the IPv6 function still called the changed helper with the old arity and did not propagate the checked-read failure. The three preceding compiled firewall regression steps passed. The source integration and regression contract are corrected in this checkpoint.
+- HTTPD #44952467237 reached the VPN lease policy regression successfully, then failed because its source-order assertion selected earlier, unrelated URL/LWF abort calls. The checker now anchors the abort lookup after `include_vpns_clients()`.
+- XY-C1 #44952467208 was still in progress at last query; Build XY-C1, TRX verification and artifact upload had not started. No L3 claim. No local C test or firmware build was available in this Git-data-only workspace. Hardware L4 remains NOT VERIFIED.
+- The exact SHA for this checkpoint is the live main ref created by the commit containing this file; fetch `refs/heads/main` before any further work and validate only its push-event runs.
 
 ## Exact first action for the next GPT
 
-1. Fetch current `main` and exact-head Firewall Startup, NVRAM and all other triggered Actions for URL-filter count/keyword validation. Inspect first failing logs.
-2. Confirm the LWF field-read patch on ancestor `3566f46...` compiles and passes its checked-reader source contracts.
-3. Continue the audit of MAC filtering and static-route loops: verify UI entry caps, checked mode/count semantics and per-entry NVRAM read failures before changing them.
+1. Fetch live `main`; inspect exact-head Firewall Startup, HTTPD, NVRAM and XY-C1 Actions for this checkpoint. Diagnose any new failure from its first causal log; do not borrow results from parent SHA `4f59f6c...`.
+2. Confirm same-SHA XY-C1 Build, TRX and artifact-upload completion before assigning L3.
+3. Continue the checked LWF schedule audit: `timematch_conv()` currently uses unchecked `nvram_get()` for `filter_lw_date_x` and `filter_lw_time_x`, where backend failure can be mistaken for legacy defaults. Preserve missing-key defaults while aborting on actual read/close errors. Then audit MAC-filter and static-route loops.
 
 ## Workflow and preservation rules
 
