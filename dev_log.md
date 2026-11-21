@@ -1,3 +1,12 @@
+## 2026-11-21 — Make RAS modem-type checker whitespace independent
+
+- Parent main SHA: `912fbff13b652c09563159f3357a21732db35f4b`.
+- Exact-head USB modem run `#44894556779` and firewall startup run `#44894556782` both reached `scripts/check_modem_wan_start_status.py` and failed at the new `modem_type_parse` assertion. Production code has the intended checked read before peer-file open; the checker first normalized whitespace to single spaces, then expected a call with no space after the opening parenthesis.
+- Changed the source contract to compare a whitespace-free compacted function body, including the checked getter, strict parser arguments, saved errno/early return and read-before-open ordering. This is a test-only correction; the WAN NVRAM policy GNU89/ASan/UBSan regression had already passed in the USB workflow before the static step.
+- Firewall run's UPnP/firewall restart result policy also passed before this shared checker failed. Rerun USB modem and Firewall workflows on the new exact SHA.
+
+---
+
 ## 2026-11-21 — Fail closed on unreadable USB modem type while writing RAS peer config
 
 - Parent main SHA: `b107e60a4c30b838ab963d3dc8ccdabeb4fe62e8`.
