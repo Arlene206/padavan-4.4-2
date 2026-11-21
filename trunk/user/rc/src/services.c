@@ -37,6 +37,7 @@
 #include "service_wait_policy.h"
 
 static int optional_daemon_start_status(const char *service_name, const char *process_name);
+static int service_enabled_mode_status(const char *service_name, const char *nvram_key, int *enabled);
 static int stop_httpd_locked(void);
 static int optional_daemon_stop_status(const char *service_name, const char *process_name, int command_status);
 #include "sshd_daemon_policy.h"
@@ -999,12 +1000,12 @@ int stop_scutclient(void)
 					   eval("/usr/bin/scutclient.sh", "stop"));
 }
 
-int start_scutclient(void)
+static int
+start_scutclient_with_mode(int enabled)
 {
-	int mode = nvram_get_int("scutclient_enable");
 	int start_status;
 
-	if (mode != 1)
+	if (!enabled)
 		return 0;
 
 	start_status = optional_daemon_start_status("scutclient", "bin_scutclient");
@@ -1016,13 +1017,32 @@ int start_scutclient(void)
 	return eval("/usr/bin/scutclient.sh", "start");
 }
 
+int start_scutclient(void)
+{
+	int enabled = 0;
+	int config_status;
+
+	config_status = service_enabled_mode_status(
+		"SCUT client", "scutclient_enable", &enabled);
+	if (config_status != 0)
+		return config_status;
+	return start_scutclient_with_mode(enabled);
+}
+
 int restart_scutclient(void)
 {
-	int stop_status = stop_scutclient();
+	int enabled = 0;
+	int config_status, stop_status;
 
+	config_status = service_enabled_mode_status(
+		"SCUT client", "scutclient_enable", &enabled);
+	if (config_status != 0)
+		return config_status;
+
+	stop_status = stop_scutclient();
 	if (stop_status != 0)
 		return stop_status;
-	return start_scutclient();
+	return start_scutclient_with_mode(enabled);
 }
 #endif
 
@@ -1039,12 +1059,12 @@ int stop_mentohust(void)
 					   eval("/usr/bin/mentohust.sh", "stop"));
 }
 
-int start_mentohust(void)
+static int
+start_mentohust_with_mode(int enabled)
 {
-	int mode = nvram_get_int("mentohust_enable");
 	int start_status;
 
-	if (mode != 1)
+	if (!enabled)
 		return 0;
 
 	start_status = optional_daemon_start_status("mentohust", "bin_mentohust");
@@ -1056,13 +1076,32 @@ int start_mentohust(void)
 	return eval("/usr/bin/mentohust.sh", "start");
 }
 
+int start_mentohust(void)
+{
+	int enabled = 0;
+	int config_status;
+
+	config_status = service_enabled_mode_status(
+		"MentoHUST", "mentohust_enable", &enabled);
+	if (config_status != 0)
+		return config_status;
+	return start_mentohust_with_mode(enabled);
+}
+
 int restart_mentohust(void)
 {
-	int stop_status = stop_mentohust();
+	int enabled = 0;
+	int config_status, stop_status;
 
+	config_status = service_enabled_mode_status(
+		"MentoHUST", "mentohust_enable", &enabled);
+	if (config_status != 0)
+		return config_status;
+
+	stop_status = stop_mentohust();
 	if (stop_status != 0)
 		return stop_status;
-	return start_mentohust();
+	return start_mentohust_with_mode(enabled);
 }
 #endif
 

@@ -1,6 +1,20 @@
 #ifndef RC_SERVICE_START_STATUS_H
 #define RC_SERVICE_START_STATUS_H
 
+#include <errno.h>
+
+/* A failed enable-setting read must not be interpreted as a disabled service. */
+static inline int
+rc_service_enabled_mode_decide(int read_status, int configured_mode, int *enabled)
+{
+	if (!enabled)
+		return EINVAL;
+	if (read_status != 0)
+		return read_status;
+	*enabled = (configured_mode == 1);
+	return 0;
+}
+
 /* Keep the first nonzero boot-service status without skipping later starts. */
 static inline int
 rc_first_service_start_status(int first_status, int next_status)

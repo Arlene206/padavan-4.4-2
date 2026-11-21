@@ -9,6 +9,35 @@
 
 
 static void
+test_service_enable_mode_preserves_previous_state_on_read_error(void)
+{
+	const int errors[] = { -1, EACCES, EIO, ETIMEDOUT, ENOMEM };
+	int enabled;
+	int i;
+
+	enabled = 7;
+	assert(rc_service_enabled_mode_decide(0, 1, &enabled) == 0);
+	assert(enabled == 1);
+
+	enabled = 7;
+	assert(rc_service_enabled_mode_decide(0, 0, &enabled) == 0);
+	assert(enabled == 0);
+
+	/* Missing/empty settings keep the legacy disabled default. */
+	enabled = 7;
+	assert(rc_service_enabled_mode_decide(0, 0, &enabled) == 0);
+	assert(enabled == 0);
+
+	for (i = 0; i < (int)(sizeof(errors) / sizeof(errors[0])); ++i) {
+		enabled = 7;
+		assert(rc_service_enabled_mode_decide(errors[i], 1, &enabled) == errors[i]);
+		assert(enabled == 7);
+	}
+	assert(rc_service_enabled_mode_decide(0, 1, NULL) == EINVAL);
+}
+
+
+static void
 test_optional_daemon_start_preflight_is_idempotent_and_fail_closed(void)
 {
 	/* Only a complete ABSENT scan allows launch; RUNNING is a no-op and
@@ -633,6 +662,7 @@ test_ap_lan_teardown_rollback_requires_confirmed_dhcp_stop(void)
 int
 main(void)
 {
+	test_service_enable_mode_preserves_previous_state_on_read_error();
 	test_optional_daemon_start_preflight_is_idempotent_and_fail_closed();
 	test_lan_restart_rollback_only_restarts_confirmed_stops();
 	test_ap_lan_teardown_rollback_requires_confirmed_dhcp_stop();

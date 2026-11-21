@@ -315,6 +315,41 @@ exit "${MOCK_KILLALL_STATUS:-0}"
         assert "restart aborted" in log.read_text()
 
 
+def check_rc_optional_daemon_enable_reads():
+    services = RC_SERVICES_SOURCE.read_text()
+    reader = extract_c_function_body(
+        services, "service_enabled_mode_status(const char *service_name"
+    )
+    assert "nvram_get_checked(nvram_key, &value)" in reader
+    assert "rc_wan_nvram_read_int_status(" in reader
+    assert "rc_service_enabled_mode_decide(" in reader
+    assert "preserving existing daemon state" in reader
+
+    for name, key, stop_name, start_helper in (
+        ("scutclient", "scutclient_enable", "stop_scutclient()", "start_scutclient_with_mode(enabled)"),
+        ("mentohust", "mentohust_enable", "stop_mentohust()", "start_mentohust_with_mode(enabled)"),
+    ):
+        service_name = "SCUT client" if name == "scutclient" else "MentoHUST"
+        start_body = extract_c_function_body(services, "start_" + name + "(void)")
+        restart_body = extract_c_function_body(services, "restart_" + name + "(void)")
+        compact_start = "".join(start_body.split())
+        compact_restart = "".join(restart_body.split())
+        read_call = (
+            'service_enabled_mode_status("' + service_name + '","' + key + '",&enabled);'
+        )
+        assert read_call in compact_start
+        assert read_call in compact_restart
+        assert compact_start.index(read_call) < compact_start.index("if(config_status!=0)")
+        assert compact_start.index("if(config_status!=0)") < compact_start.index("return" + start_helper + ";")
+        assert compact_restart.index(read_call) < compact_restart.index("if(config_status!=0)")
+        assert compact_restart.index("if(config_status!=0)") < compact_restart.index(stop_name)
+        assert compact_restart.index(stop_name) < compact_restart.index("if(stop_status!=0)")
+        assert compact_restart.index("if(stop_status!=0)") < compact_restart.index("return" + start_helper + ";")
+        for token in ("nvram_get_int(", "nvram_safe_get("):
+            assert token not in start_body
+            assert token not in restart_body
+
+
 def check_scutclient():
     source = SCUT_SCRIPT.read_text()
     assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in source
@@ -1006,6 +1041,7 @@ if __name__ == "__main__":
     check_dns_forwarder_rc_shutdown_registration()
     check_ralink_iappd_rc_shutdown_registration()
     check_shared_process_lifecycle()
+    check_rc_optional_daemon_enable_reads()
     check_scutclient()
     check_vlmcsd()
     check_iperf3()
