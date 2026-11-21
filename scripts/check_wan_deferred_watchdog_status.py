@@ -139,8 +139,8 @@ require('nvram_set_int_temp("deferred_wanup_t"' not in WAN,
 policy = (RC / "wan_deferred_reconnect_policy.h").read_text()
 require("wan_deferred_reconnect_schedule" in policy and "INT_MAX" in policy,
         "deferred reconnect policy must enforce the watchdog integer deadline domain")
-pause_reader = body(WAN, "get_nvram_int_checked_status(const char *param_name, int *value)")
-require("rc_wan_nvram_read_int_status(api_result, saved_errno, stored_value, 0, value)" in pause_reader,
+pause_reader = "".join(body(WAN, "get_nvram_int_checked_status(const char *param_name, int *value)").split())
+require("rc_wan_nvram_read_int_status(api_result,saved_errno,stored_value,0,value)" in pause_reader,
         "deferred reconnect delay must retain the legacy missing-key zero default")
 
 pause = body(WAN, "auto_wan_reconnect_pause(void)")

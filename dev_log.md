@@ -1,3 +1,11 @@
+## 2026-11-21 — Normalize deferred WAN reconnect source-check formatting
+
+- Parent main SHA: `136db90e2f84513d9bf3da297802b708b0811b44`.
+- The first exact-head WAN route run for `136db90e2f84513d9bf3da297802b708b0811b44` passed all GNU89/ASan/UBSan policy tests and earlier WAN source contracts, then failed on a source checker assertion that compared a multiline C helper invocation as one unbroken string.
+- The checker now normalizes whitespace before matching the checked-reader call. No production source or test semantics changed; the WAN route workflow will rerun on this checker-only commit. The original source SHA's XY-C1 build is still the product-source validation target; L3 awaits its Build, TRX and artifact results.
+
+---
+
 ## 2026-11-21 — Abort deferred WAN reconnect when delay cannot be read
 
 - Parent main SHA: `8c79215790b8e56300d0c07201d62c90dfcd76e2`.

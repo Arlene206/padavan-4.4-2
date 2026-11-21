@@ -8,6 +8,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - Repository `Arlene206/padavan-4.4-2`; develop on `main` only.
 - Main at the start of this slice: `8c79215790b8e56300d0c07201d62c90dfcd76e2`. FTP enable-state reads now fail closed in startup/restart; its exact-head vsftpd, Process inventory, NFS, firewall, Samba, HTTPD, USB modem and handoff checks passed. Process lifecycle passed; storage hotplug and the repository-wide NVRAM audit were still running, and XY-C1 was in Build.
+- The deferred WAN reconnect change is committed in `136db90e2f84513d9bf3da297802b708b0811b44`. Its first WAN-route run passed the GNU89/ASan/UBSan policy binaries and earlier source contracts but exposed one line-wrap-sensitive assertion in the new source checker; this checker-only commit normalizes whitespace. XY-C1 Build/TRX/artifact and the remaining independent checks for the source SHA are still pending.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
 - Legacy PR #1 remains closed and unmerged; do not reopen or develop through its branch.
 - Protected reliability work includes checked optional-daemon settings, ttyd/SSH mode wrappers and detached-child probes, WAN DHCP compare-and-publish, stale-writer guarded recovery and validate-first reverse tuple construction for post-commit 6rd failure.
