@@ -258,7 +258,8 @@ EOF
 			return 1
 		fi
 		echo "[  OK  ]"
-		logger -t "$SVC_NAME" "daemon is started"
+		# Logging is best-effort: the daemon is already running and ready.
+		logger -t "$SVC_NAME" "daemon is started" >/dev/null 2>&1 || true
 		return 0
 	else
 		echo "[FAILED]"
