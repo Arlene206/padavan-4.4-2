@@ -135,6 +135,15 @@ httpd_nvram_write_status(int api_result, int saved_errno)
 	return saved_errno > 0 ? saved_errno : EIO;
 }
 
+/* Match the legacy short-circuit gate without collapsing NVRAM errors. */
+static inline int
+httpd_firewall_refresh_required(int restart_requested, int listener_requested,
+				int firewall_enabled)
+{
+	return restart_requested != 0 && listener_requested != 0 &&
+	       firewall_enabled != 0;
+}
+
 /* A failed firewall refresh cannot leave a possibly active public HTTP listener. */
 static inline int
 httpd_firewall_failure_requires_stop(int firewall_status,

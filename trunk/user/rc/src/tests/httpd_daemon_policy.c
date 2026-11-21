@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "firewall_nvram_match_policy.h"
 #include "httpd_daemon_policy.h"
 
 static void test_launcher_failure_is_preserved(void)
@@ -46,6 +47,35 @@ static void test_failed_start_rollback_keeps_possible_listener_published(void)
 	assert(httpd_failed_start_preserve_running_state(PROCESS_PRESENCE_RUNNING));
 	assert(httpd_failed_start_preserve_running_state(PROCESS_PRESENCE_UNKNOWN));
 	assert(httpd_failed_start_preserve_running_state((enum process_presence)99));
+}
+
+static void
+test_httpd_firewall_enable_read_preserves_exact_match_and_backend_errors(void)
+{
+	int matches = 99;
+
+	assert(firewall_nvram_match_status(1, 0, "1", "1", 0,
+					   &matches) == 0);
+	assert(matches == 1);
+	assert(firewall_nvram_match_status(1, 0, "01", "1", 0,
+					   &matches) == 0);
+	assert(matches == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0,
+					   &matches) == 0);
+	assert(matches == 0);
+	matches = 7;
+	assert(firewall_nvram_match_status(-1, EACCES, NULL, "1", 0,
+					   &matches) == EACCES);
+	assert(matches == 7);
+}
+
+static void
+test_httpd_firewall_refresh_gate_preserves_short_circuit_semantics(void)
+{
+	assert(httpd_firewall_refresh_required(1, 1, 1));
+	assert(!httpd_firewall_refresh_required(0, 1, 1));
+	assert(!httpd_firewall_refresh_required(1, 0, 1));
+	assert(!httpd_firewall_refresh_required(1, 1, 0));
 }
 
 static void test_firewall_failure_requires_listener_shutdown(void)
@@ -282,6 +312,8 @@ int main(void)
 	test_failed_start_rollback_keeps_possible_listener_published();
 	test_restart_requires_confirmed_exit();
 	test_nvram_write_status_preserves_backend_failure();
+	test_httpd_firewall_enable_read_preserves_exact_match_and_backend_errors();
+	test_httpd_firewall_refresh_gate_preserves_short_circuit_semantics();
 	test_firewall_failure_requires_listener_shutdown();
 	puts("HTTPD daemon startup, duplicate-launch, stop-state and restart policy: PASS");
 	return 0;

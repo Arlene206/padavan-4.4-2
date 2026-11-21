@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed on HTTPD firewall-enable read errors
+
+- Parent main SHA: `130f1432d738f53ef4db77ed8f9219699714bcc2`.
+- After checked listener settings were added, the post-launch firewall refresh decision still used unchecked `nvram_match("fw_enable_x", "1")`. A backend read error looked like a disabled firewall and could skip the firewall rebuild while leaving a listener exposed.
+- Read `fw_enable_x` through `nvram_get_checked()` + the existing exact-string `firewall_nvram_match_status()` policy before any listener-port normalization or daemon launch, but only under the previous `restart_fw && restart_fw_need` short-circuit conditions. Missing remains false; present values still require exact `"1"`; backend errors abort startup. Replaced the post-launch raw match with an explicit policy gate.
+- Added GNU89 tests for exact-string semantics, absent-key default, backend error/output preservation and all firewall-refresh gate combinations; both HTTPD lifecycle workflows assert the checked read precedes listener writes and the unchecked match is gone. Exact-head HTTPD security/lifecycle, Process and XY-C1 validation pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Update HTTPD retry rollback integration contract
 
 - Parent main SHA: `955c3130f9d9aa3d750da39ef3080a728eaaa070`.

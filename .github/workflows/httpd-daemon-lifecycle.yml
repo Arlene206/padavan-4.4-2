@@ -9,6 +9,7 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/httpd_daemon_policy.h"
+      - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/tests/httpd_daemon_policy.c"
       - ".github/workflows/httpd-daemon-lifecycle.yml"
   pull_request:
@@ -19,6 +20,7 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/httpd_daemon_policy.h"
+      - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/tests/httpd_daemon_policy.c"
       - ".github/workflows/httpd-daemon-lifecycle.yml"
   workflow_dispatch:
@@ -72,6 +74,7 @@ jobs:
           start = body(services, "start_httpd_locked(int restart_fw)")
           wait_recovery = body(services, "httpd_start_wait_failure_recover(int wait_status, const char *phase)")
           nvram_reader = body(services, "httpd_nvram_read_int_adapter(")
+          match_reader = body(services, "httpd_nvram_match_status(")
           start_entry = body(services, "start_httpd(int restart_fw)")
           probe = body(services, "httpd_process_presence(int *scan_error)")
           stop = body(services, "static int\nstop_httpd_locked(void)")
@@ -82,6 +85,15 @@ jobs:
 
           assert "httpd_nvram_read_int_status(param_name, missing_value, value)" in nvram_reader
           assert "httpd_start_config_read(httpd_nvram_read_int_adapter" in start
+          assert "nvram_get_checked(param_name, &text)" in match_reader
+          assert "firewall_nvram_match_status(api_result, saved_errno, text" in match_reader
+          assert "httpd_firewall_refresh_required(restart_fw, restart_fw_need, firewall_enabled)" in start
+          assert 'httpd_nvram_match_status("fw_enable_x", "1", 0' in start
+          assert start.index('httpd_nvram_match_status("fw_enable_x", "1", 0') < start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
+          assert 'nvram_match("fw_enable_x", "1")' not in start
+          assert "httpd_firewall_refresh_required" in policy
+          assert "test_httpd_firewall_enable_read_preserves_exact_match_and_backend_errors();" in test
+          assert "test_httpd_firewall_refresh_gate_preserves_short_circuit_semantics();" in test
           assert 'httpd_start_wait_failure_recover(status, "initial startup")' in start
           assert 'httpd_start_wait_failure_recover(status, "retry")' in start
           retry_wait = start[start.index('status = service_start_probe_wait("HTTPD", HTTPD_START_RETRY_WAIT_SECONDS);'):]
@@ -202,6 +214,7 @@ jobs:
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/httpd_daemon_policy.h",
               "trunk/user/rc/src/tests/httpd_daemon_policy.c",
+              "trunk/user/rc/src/firewall_nvram_match_policy.h",
               ".github/workflows/httpd-daemon-lifecycle.yml",
           )
           for path in triggers:

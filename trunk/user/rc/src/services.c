@@ -34,6 +34,7 @@
 #include "service_start_status.h"
 #include "watchdog_cpu_restart_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "firewall_nvram_match_policy.h"
 #include "service_wait_policy.h"
 
 static int optional_daemon_start_status(const char *service_name, const char *process_name);
@@ -1738,6 +1739,23 @@ httpd_nvram_read_int_adapter(void *context, const char *param_name,
 	return httpd_nvram_read_int_status(param_name, missing_value, value);
 }
 
+static int
+httpd_nvram_match_status(const char *param_name, const char *expected,
+			 int missing_match, int *matches)
+{
+	char *text = NULL;
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0] || !expected || !matches)
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &text);
+	saved_errno = errno;
+	return firewall_nvram_match_status(api_result, saved_errno, text,
+				   expected, missing_match, matches);
+}
+
 
 static int
 httpd_started_state_publish_status(int started)
@@ -1798,7 +1816,7 @@ static int
 start_httpd_locked(int restart_fw)
 {
 	struct httpd_start_config start_config;
-	int http_proto, argv_index, http_port, restart_fw_need;
+	int http_proto, argv_index, http_port, restart_fw_need, firewall_enabled = 0;
 	int launch_status, attempt, status, scan_error, firewall_status = 0;
 	int firewall_errno = 0;
 	int firewall_stop_status;
@@ -1860,6 +1878,21 @@ start_httpd_locked(int restart_fw)
 	}
 	http_proto = start_config.http_proto;
 	http_port = start_config.http_port;
+	restart_fw_need = 0;
+	if (http_proto == 0 || http_proto == 2)
+#if defined (SUPPORT_HTTPS)
+	if (http_proto == 1 || http_proto == 2)
+#endif
+	if (restart_fw && restart_fw_need) {
+		status = httpd_nvram_match_status("fw_enable_x", "1", 0,
+						 &firewall_enabled);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "cannot read firewall enable state; refusing HTTPD listener launch (status=%d)",
+				   status);
+			return status;
+		}
+	}
 
 	if (http_proto == 0 || http_proto == 2) {
 
@@ -1964,7 +1997,7 @@ start_httpd_locked(int restart_fw)
 		return status;
 	}
 
-	if (restart_fw && restart_fw_need && nvram_match("fw_enable_x", "1")) {
+	if (httpd_firewall_refresh_required(restart_fw, restart_fw_need, firewall_enabled)) {
 		errno = 0;
 		firewall_status = restart_firewall();
 		if (firewall_status != 0) {

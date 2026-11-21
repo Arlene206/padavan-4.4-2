@@ -203,6 +203,7 @@ on:
       - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
       - "trunk/user/rc/src/httpd_lifecycle_lock.h"
       - "trunk/user/rc/src/httpd_daemon_policy.h"
+      - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/tests/httpd_daemon_policy.c"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
@@ -471,6 +472,7 @@ on:
       - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
       - "trunk/user/rc/src/httpd_lifecycle_lock.h"
       - "trunk/user/rc/src/httpd_daemon_policy.h"
+      - "trunk/user/rc/src/firewall_nvram_match_policy.h"
       - "trunk/user/rc/src/tests/httpd_daemon_policy.c"
       - "trunk/user/rc/src/watchdog.c"
       - "trunk/user/rc/src/service_lifecycle_policy.h"
@@ -5575,8 +5577,14 @@ jobs:
           assert "nvram_get_checked(param_name, &text)" in httpd_config_reader
           assert "rc_wan_nvram_read_int_status(" in httpd_config_reader
           config_adapter = body(services, "httpd_nvram_read_int_adapter(")
+          match_reader = body(services, "httpd_nvram_match_status(")
           assert "httpd_nvram_read_int_status(param_name, missing_value, value)" in config_adapter
+          assert "nvram_get_checked(param_name, &text)" in match_reader
+          assert "firewall_nvram_match_status(api_result, saved_errno, text" in match_reader
           assert "httpd_start_config_read(httpd_nvram_read_int_adapter" in start_locked
+          assert 'httpd_nvram_match_status("fw_enable_x", "1", 0' in start_locked
+          assert "httpd_firewall_refresh_required(restart_fw, restart_fw_need, firewall_enabled)" in start_locked
+          assert 'nvram_match("fw_enable_x", "1")' not in start_locked
           assert 'httpd_nvram_read_int_status("http_proto", 0, &http_proto)' not in start_locked
           compact_start_locked = "".join(start_locked.split())
           config_read = compact_start_locked.index("httpd_start_config_read(httpd_nvram_read_int_adapter")
@@ -5599,6 +5607,7 @@ jobs:
                        "trunk/user/rc/src/httpd_lifecycle_lock.h",
                        "trunk/user/rc/src/tests/httpd_lifecycle_lock.c",
                        "trunk/user/rc/src/httpd_daemon_policy.h",
+                       "trunk/user/rc/src/firewall_nvram_match_policy.h",
                        "trunk/user/rc/src/tests/httpd_daemon_policy.c",
                        ".github/workflows/httpd-security.yml"):
               entry = '      - "' + path + '"'
