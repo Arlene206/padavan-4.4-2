@@ -897,11 +897,16 @@ jobs:
 
           assert '#include "route_status_policy.h"' in ppp
           preset = body(ppp, "preset_wan_ppp_routes(char *ppp_ifname, int unit)")
-          assert "int status = 0, route_status;" in preset
-          assert "route_status = route_add(ppp_ifname, 1," in preset
+          assert "int status = 0, route_status, primary = 0;" in preset
+          primary_read = preset.index('route_status = get_wan_unit_value_int_status(unit, "primary", &primary);')
+          primary_error = preset.index("if (route_status != 0)", primary_read)
+          primary_decision = preset.index("} else if (primary == 1)", primary_error)
+          default_route = preset.index("route_status = route_add(ppp_ifname, 1,", primary_decision)
+          assert primary_read < primary_error < primary_decision < default_route
+          assert "cannot read WAN primary-route setting" in preset
           assert "route_status = route_status_idempotent_add(route_status);" in preset
           assert "route_status = add_static_wan_routes(ppp_ifname);" in preset
-          assert preset.count("route_status_accumulate(status, route_status)") == 2
+          assert preset.count("route_status_accumulate(status, route_status)") == 3
           assert "return status;" in preset
           assert "int preset_wan_ppp_routes(char *ppp_ifname, int unit);" in header
           assert "void preset_wan_ppp_routes(char *ppp_ifname, int unit);" not in header
