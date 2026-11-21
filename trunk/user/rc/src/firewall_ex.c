@@ -720,14 +720,60 @@ proto_conv(const char *proto_name, int idx)
     return firewall_vts_protocol_name(value);
 }
 
+static int
+firewall_read_string_setting(const char *param_name, const char **value)
+{
+	char *checked_value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !value) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &checked_value);
+	saved_errno = errno;
+	status = firewall_nvram_read_status(api_result, saved_errno, checked_value);
+	if (status != 0) {
+		*value = NULL;
+		errno = status;
+		return status;
+	}
+
+	*value = (api_result == 0) ? "" : checked_value;
+	errno = 0;
+	return 0;
+}
+
+static int
+firewall_read_indexed_string_setting(const char *param_name, int idx,
+				     const char **value)
+{
+	char nvram_name[64];
+	int name_len;
+
+	if (!param_name || !param_name[0] || idx < 0 || !value) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	name_len = snprintf(nvram_name, sizeof(nvram_name), "%s%d", param_name, idx);
+	if (name_len < 0 || name_len >= (int)sizeof(nvram_name)) {
+		errno = ERANGE;
+		return ERANGE;
+	}
+
+	return firewall_read_string_setting(nvram_name, value);
+}
+
 static char *
 protoflag_conv(const char *proto_name, int idx, int isFlag)
 {
-	char *proto;
-	char itemname_arr[32];
+	const char *proto;
 
-	snprintf(itemname_arr, sizeof(itemname_arr), "%s%d", proto_name, idx);
-	proto = nvram_safe_get(itemname_arr);
+	if (firewall_read_indexed_string_setting(proto_name, idx, &proto) != 0)
+		return NULL;
 
 	g_buf_set("");
 
@@ -749,10 +795,11 @@ protoflag_conv(const char *proto_name, int idx, int isFlag)
 static char *
 portrange_conv(const char *port_name, int idx)
 {
-	char itemname_arr[32];
+	const char *value;
 
-	snprintf(itemname_arr, sizeof(itemname_arr), "%s%d", port_name, idx);
-	g_buf_set(nvram_safe_get(itemname_arr));
+	if (firewall_read_indexed_string_setting(port_name, idx, &value) != 0)
+		return NULL;
+	g_buf_set(value);
 
 	return (g_buf_alloc(g_buf));
 }
@@ -897,15 +944,14 @@ timematch_conv(char *mstr, const char *nv_date, const char *nv_time)
 static char *
 iprange_ex_conv(const char *ip_name, int idx)
 {
-	char *ip;
-	char itemname_arr[32];
+	const char *ip;
 	char startip[16];
 	struct in_addr addr;
 	size_t ip_len;
 	int i, j, mask, wildcard_seen, valid;
 
-	snprintf(itemname_arr, sizeof(itemname_arr), "%s%d", ip_name, idx);
-	ip = nvram_safe_get(itemname_arr);
+	if (firewall_read_indexed_string_setting(ip_name, idx, &ip) != 0)
+		return NULL;
 	g_buf_set("");
 
 	ip_len = strlen(ip);
@@ -1240,11 +1286,24 @@ include_webstr_filter(FILE *fp)
 }
 
 static int
+firewall_lw_filter_read_failure(const char *field, int entry)
+{
+	int status = errno ? errno : EIO;
+
+	logmessage(LOGNAME,
+		   "cannot read lightweight-filter %s for entry %d; refusing ruleset publication (errno=%d)",
+		   field, entry, status);
+	errno = status;
+	return -1;
+}
+
+static int
 include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop,
 			int num_entries, int lw_need_drop)
 {
 	int i, lw_items;
-	char icmp_ptr[64], *icmplist, *filterstr, *ftype;
+	char icmp_ptr[64], icmp_list[128], *icmplist, *filterstr, *ftype;
+	const char *icmp_value;
 	char *proto, *flag, *srcip, *srcport, *dstip, *dstport;
 	const char *dtype = IPT_CHAIN_NAME_LWF_LIST;
 
@@ -1259,8 +1318,12 @@ include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop,
 		g_buf_init();
 		
 		proto = protoflag_conv("filter_lw_proto_x", i, 0);
+		if (!proto)
+			return firewall_lw_filter_read_failure("protocol", i);
 		if (strcmp(proto, "other") == 0) {
 			proto = portrange_conv("filter_lw_protono_x", i);
+			if (!proto)
+				return firewall_lw_filter_read_failure("protocol number", i);
 			flag = "";
 			srcport = "";
 			dstport = "";
@@ -1268,8 +1331,14 @@ include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop,
 				continue;
 		} else {
 			flag = protoflag_conv("filter_lw_proto_x", i, 1);
+			if (!flag)
+				return firewall_lw_filter_read_failure("TCP flags", i);
 			srcport = portrange_conv("filter_lw_srcport_x", i);
+			if (!srcport)
+				return firewall_lw_filter_read_failure("source port", i);
 			dstport = portrange_conv("filter_lw_dstport_x", i);
+			if (!dstport)
+				return firewall_lw_filter_read_failure("destination port", i);
 			if (!firewall_tcp_flags_are_safe(flag) ||
 			    !firewall_port_range_is_safe(srcport, 1) ||
 			    !firewall_port_range_is_safe(dstport, 1))
@@ -1277,7 +1346,11 @@ include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop,
 		}
 		
 		srcip = iprange_ex_conv("filter_lw_srcip_x", i);
+		if (!srcip && errno)
+			return firewall_lw_filter_read_failure("source address", i);
 		dstip = iprange_ex_conv("filter_lw_dstip_x", i);
+		if (!dstip && errno)
+			return firewall_lw_filter_read_failure("destination address", i);
 		if (!srcip || !dstip) {
 			/* Preserve the deny-list's restrictive behavior; whitelist entries
 			 * with invalid ranges must never become unrestricted allow rules. */
@@ -1296,8 +1369,15 @@ include_lw_filter(FILE *fp, char *wan_if, char *logaccept, char *logdrop,
 		}
 	}
 
+	if (firewall_read_string_setting("filter_lw_icmp_x", &icmp_value) != 0)
+		return firewall_lw_filter_read_failure("ICMP list", -1);
+	if (strlen(icmp_value) >= sizeof(icmp_list)) {
+		errno = E2BIG;
+		return firewall_lw_filter_read_failure("ICMP list length", -1);
+	}
+	snprintf(icmp_list, sizeof(icmp_list), "%s", icmp_value);
 	icmp_ptr[0] = 0;
-	foreach(icmp_ptr, nvram_safe_get("filter_lw_icmp_x"), icmplist) {
+	foreach(icmp_ptr, icmp_list, icmplist) {
 		if (!firewall_icmp_type_is_safe(icmp_ptr))
 			continue;
 
@@ -1535,7 +1615,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	FILE *fp;
 	char timematch[160], *ftype, *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
-	int ret, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
+	int ret, lw_status, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_vts_enabled = 0, i_vts_count = 0;
 	int is_lw_need_drop = 0, i_lw_count = 0;
@@ -2126,10 +2206,23 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 
 	/* FILTER from LAN to WAN */
 	if (is_lwf_enabled &&
-	    timematch_conv(timematch, "filter_lw_date_x", "filter_lw_time_x") &&
-	    include_lw_filter(fp, wan_if, logaccept, logdrop,
-			      i_lw_count, is_lw_need_drop) > 0) {
-		fprintf(fp, "-A %s -i %s%s -j %s\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_LWF_LIST);
+	    timematch_conv(timematch, "filter_lw_date_x", "filter_lw_time_x")) {
+		lw_status = include_lw_filter(fp, wan_if, logaccept, logdrop,
+					      i_lw_count, is_lw_need_drop);
+		if (lw_status < 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "IPv4 filter: aborting incomplete Lightweight Filter ruleset (errno=%d)",
+				   saved_errno);
+			(void)fclose(fp);
+			firewall_abort_core_restore_after_staging_failure();
+			firewall_rule_file_remove(ipt_file);
+			errno = saved_errno;
+			return -1;
+		}
+		if (lw_status > 0)
+			fprintf(fp, "-A %s -i %s%s -j %s\n",
+				dtype, lan_if, timematch, IPT_CHAIN_NAME_LWF_LIST);
 	}
 
 	if (is_fw_enabled) {

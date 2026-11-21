@@ -1,3 +1,14 @@
+## 2026-11-21 — Fail closed on Lightweight Filter field-read errors
+
+- Parent main SHA: `7494b0860d16d6cc9d4e9a812a22db29bd7aa1ac`.
+- Follow-up inspection found LWF per-entry protocol, TCP flag, port and IP-range converters still called `nvram_safe_get()`; a NVRAM backend/close error therefore looked like an empty or default value. For a blacklist, a failed port/IP read could omit a configured DROP rule or broaden an empty wildcard; a protocol failure could default to TCP. The ICMP list was also read unchecked, allowing failed reads to omit blacklist drops.
+- Added checked string and indexed-string readers using `nvram_get_checked()` plus `firewall_nvram_read_status()`. Migrated LWF protocol flag, port-range and IP-range conversions, and the ICMP list. Missing keys retain legacy empty-string/default behavior; successfully read malformed values still take the prior validation/skip path.
+- LWF rule generation now returns an error immediately on checked-read failure. `ipt_filter_rules()` detects the negative result, closes the staged file, aborts the firewall restore transaction, removes the temporary file and returns without publishing a partial or broadened ruleset.
+- Extended Firewall Startup source contracts to require checked indexed reads, checked ICMP read and propagation into transaction abort. Existing policy/NVRAM regression tests cover the shared read-status and missing-key semantics; exact-head workflow must compile and run them.
+- Parent `7494b0860d16d6cc9d4e9a812a22db29bd7aa1ac`: Firewall Startup #44951908711 PASS; Process #44951908748 PASS; AI docs #44951908732 PASS; NVRAM #44951908715 still in progress. No local tests/build or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Correct LWF NVRAM test sentinel setup
 
 - Parent main SHA: `02389c723fbe0aa18474da899f85f483a6135064`.

@@ -616,6 +616,17 @@ jobs:
           assert "for (i = 0; i < num_entries; ++i)" in lw_filter_builder
           assert 'foreach_x("filter_lw_num_x")' not in lw_filter_builder
           assert 'nvram_match("filter_lw_default_x", "DROP")' not in lw_filter_builder
+          for signature in ("protoflag_conv(const char *proto_name",
+                            "portrange_conv(const char *port_name",
+                            "iprange_ex_conv(const char *ip_name"):
+              assert "firewall_read_indexed_string_setting(" in body(firewall_source, signature), signature
+          assert "firewall_read_string_setting(" in body(firewall_source, "firewall_read_indexed_string_setting(")
+          assert 'firewall_read_string_setting("filter_lw_icmp_x", &icmp_value)' in lw_filter_builder
+          assert 'nvram_safe_get("filter_lw_icmp_x")' not in lw_filter_builder
+          assert "return firewall_lw_filter_read_failure(" in lw_filter_builder
+          assert "lw_status = include_lw_filter(" in ipv4_filter
+          assert "if (lw_status < 0)" in ipv4_filter
+          assert "firewall_abort_core_restore_after_staging_failure();" in ipv4_filter
           lw_mode_gate = 'firewall_read_match_setting("filter_lw_default_x", "DROP", 0,'
           lw_count_gate = "firewall_read_lw_entry_count(&i_lw_count)"
           assert lw_mode_gate in ipv4_filter and lw_count_gate in ipv4_filter
