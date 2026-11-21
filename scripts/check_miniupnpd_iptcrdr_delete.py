@@ -71,7 +71,7 @@ delete_wrapper = function_body(
 )
 assert "primary_failure_errno" in delete
 assert "secondary_failure_errno" in delete
-assert "primary_failure_errno = ENOENT" in delete
+assert "primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno, ENOENT)" in delete
 assert "miniupnpd_select_cleanup_failure_errno(" in delete
 assert "primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno," in delete
 assert "secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno," in delete
@@ -86,7 +86,7 @@ assert all(
 )
 assert "miniupnpd_restore_errno_on_failure(cleanup_status, failure_errno)" in delete
 assert "return miniupnpd_restore_errno_on_failure(-1, failure_errno)" in delete
-assert "secondary_failure_errno = errno" in delete
+assert "secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno, errno)" in delete
 
 policy = " ".join(POLICY.split())
 

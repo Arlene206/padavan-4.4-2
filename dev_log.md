@@ -1,3 +1,12 @@
+## 2026-11-20 — Repair MiniUPnP delete checker and restore execution checkpoint wording
+
+- Exact-head AI handoff run #44810641058 on parent 5a5981318b1b15c6d1d16d4ddf9725206c0f5c3d failed because the handoff omitted the required "Before context exhaustion" rule and used a non-canonical current-state heading; both are restored in this checkpoint.
+- MiniUPnP run #44810270387 on bb4a1910acd73c2ae9433d66971bdcd4313d4f23 passed its GNU89/Werror/ASan/UBSan policy binaries, including both IPTC errno API variants, then failed at scripts/check_miniupnpd_iptcrdr_delete.py:74 because its ENOENT/secondary errno assertions expected direct assignments removed by the first-error helper refactor. Updated those assertions to require miniupnpd_record_first_failure_errno(); the helper/bypass contracts remain strict.
+- XY-C1 run #44809783977 passed Build XY-C1, TRX verification and artifact upload on product-source SHA 0b5eef8bd00fd6e732449bcf241949df84b4f40c; L3 is verified for that exact product tree. No physical-router L4 claim.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Exact-source and Actions handoff checkpoint
 
 - Checkpoint parent main SHA: bb4a1910acd73c2ae9433d66971bdcd4313d4f23; latest product-source commit touching iptcrdr.c: 0b5eef8bd00fd6e732449bcf241949df84b4f40c; latest errno-runner path commit: c492d33b10baf96d8a971c4adc6773b3df5808f3.
