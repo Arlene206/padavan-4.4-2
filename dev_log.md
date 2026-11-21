@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed WAN gateway host-route cleanup on invalid snapshot values
+
+- Parent main SHA: 285f00cc0b4918670afbeed98e6848de2c9b93d0.
+- Exact-head AI handoff #44927593523 passed; WAN route #44927593606 and Process inventory #44927593544 were still running when this source slice began. On 387591, infosvr and crond passed while WAN route and Process inventory failed at checker source assertions; both checker defects were corrected on 285f.
+- Review of wan_down_internal() found that successful NVRAM reads do not prove valid route inputs: an empty/malformed previous IPv4 address or a non-contiguous netmask could make is_same_subnet() return false and be mistaken for proof that the gateway /32 had been installed by WAN-up.
+- Added explicit host-address and contiguous-netmask validation before subnet classification. Invalid values accumulate EINVAL, are logged, and cannot authorize gateway /32 deletion. The policy helper independently requires both validity flags; GNU89 regression cases reject invalid-address and invalid-netmask snapshots. Default-route and independent teardown paths remain outside this gate.
+- Extended WAN route source contract to require validators before is_same_subnet(), and sanitizer-compiled policy tests to exercise malformed successful-read values. Exact-head WAN route, Process inventory and XY-C1 Build/TRX/artifact for the resulting SHA are pending.
+
+---
 ## 2026-11-21 — Correct remaining exact-head checker mismatches
 
 - Parent main SHA: 387591fe0a0bdc20507f8853e70d033ffa3661c4.

@@ -121,19 +121,29 @@ static void
 test_gateway_host_route_requires_a_complete_checked_snapshot(void)
 {
 	assert(wan_teardown_gateway_host_route_required(
-		0, 0, 0, 1, -1, 1) == 1);
+		0, 0, 0, 1, 1, 1, -1, 1) == 1);
 	assert(wan_teardown_gateway_host_route_required(
-		0, 0, 0, 1, -1, 0) == 0);
+		0, 0, 0, 1, 1, 1, -1, 0) == 0);
 	assert(wan_teardown_gateway_host_route_required(
-		0, 0, 0, 1, 2, 1) == 0);
+		0, 0, 0, 1, 1, 1, 2, 1) == 0);
 	assert(wan_teardown_gateway_host_route_required(
-		EIO, 0, 0, 1, -1, 1) == 0);
+		EIO, 0, 0, 1, 1, 1, -1, 1) == 0);
 	assert(wan_teardown_gateway_host_route_required(
-		0, EACCES, 0, 1, -1, 1) == 0);
+		0, EACCES, 0, 1, 1, 1, -1, 1) == 0);
 	assert(wan_teardown_gateway_host_route_required(
-		0, 0, EIO, 1, -1, 1) == 0);
+		0, 0, EIO, 1, 1, 1, -1, 1) == 0);
 	assert(wan_teardown_gateway_host_route_required(
-		0, 0, 0, 0, -1, 1) == 0);
+		0, 0, 0, 0, 1, 1, -1, 1) == 0);
+}
+
+static void
+test_gateway_host_route_rejects_invalid_address_and_netmask(void)
+{
+	/* A successful NVRAM read may still contain an unusable value. */
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, 0, 1, 0, 1, -1, 1) == 0);
+	assert(wan_teardown_gateway_host_route_required(
+		0, 0, 0, 1, 1, 0, -1, 1) == 0);
 }
 
 static void
@@ -197,6 +207,7 @@ main(void)
 	test_invalid_required_inputs_fail_without_side_effects();
 	test_status_update_handles_errno_and_ioctl_failures();
 test_gateway_host_route_requires_a_complete_checked_snapshot();
+	test_gateway_host_route_rejects_invalid_address_and_netmask();
 	test_abort_status_preserves_primary_and_reports_resume_failures();
 	test_ipoe_dns_snapshot_is_always_cleared();
 	test_ppp_dns_snapshot_is_cleared_only_when_man_dns_is_present();

@@ -4711,7 +4711,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	char wan_addr[16], wan_gate[16], wan_mask[16];
 	const char *script_postw = SCRIPT_POST_WAN;
 	int wan_proto, modem_unit_id;
-	int ppp_index, gateway_valid, gateway_off_subnet;
+	int ppp_index, gateway_valid, address_valid, netmask_valid, gateway_off_subnet;
 	int status = 0, route_status, interface_cleanup_status;
 	int auth_status, auth_mode;
 	int pppoemwan_status, pppoemwan_enabled;
@@ -4833,23 +4833,43 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 
 		ppp_index = ppp_ifindex(wan_ifname);
 		wan_mask_status = 0;
+		address_valid = 0;
+		netmask_valid = 0;
 		gateway_off_subnet = 0;
 		if (ppp_index < 0 && wan_addr_status == 0) {
-			wan_mask_status = get_wan_unit_value_copy_status(
-				unit, "netmask", wan_mask, sizeof(wan_mask));
-			if (wan_mask_status != 0) {
-				status = route_status_accumulate(status, wan_mask_status);
+			address_valid = dhcp_lease_ipv4_is_valid(wan_addr);
+			if (!address_valid) {
+				status = route_status_accumulate(status, EINVAL);
 				logmessage(LOGNAME,
-					   "cannot read WAN netmask snapshot during teardown on %s (status=%d)",
-					   wan_ifname, wan_mask_status);
+					   "invalid WAN IPv4 address snapshot during teardown on %s",
+					   wan_ifname);
 			} else {
-				gateway_off_subnet =
-					!is_same_subnet(wan_gate, wan_addr, wan_mask);
+				wan_mask_status = get_wan_unit_value_copy_status(
+					unit, "netmask", wan_mask, sizeof(wan_mask));
+				if (wan_mask_status != 0) {
+					status = route_status_accumulate(status, wan_mask_status);
+					logmessage(LOGNAME,
+						   "cannot read WAN netmask snapshot during teardown on %s (status=%d)",
+						   wan_ifname, wan_mask_status);
+				} else {
+					netmask_valid = dhcp_lease_netmask_is_valid(wan_mask);
+					if (!netmask_valid) {
+						wan_mask_status = EINVAL;
+						status = route_status_accumulate(status, EINVAL);
+						logmessage(LOGNAME,
+							   "invalid WAN netmask snapshot during teardown on %s",
+							   wan_ifname);
+					} else {
+						gateway_off_subnet =
+							!is_same_subnet(wan_gate, wan_addr, wan_mask);
+					}
+				}
 			}
 		}
 		if (wan_teardown_gateway_host_route_required(
 			    wan_gate_status, wan_addr_status, wan_mask_status,
-			    gateway_valid, ppp_index, gateway_off_subnet)) {
+			    gateway_valid, address_valid, netmask_valid,
+			    ppp_index, gateway_off_subnet)) {
 			route_status = route_del(wan_ifname, 1, wan_gate, NULL,
 						 "255.255.255.255");
 			route_status = route_status_idempotent_delete(route_status);

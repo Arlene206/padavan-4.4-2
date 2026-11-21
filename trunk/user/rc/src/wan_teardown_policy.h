@@ -39,11 +39,14 @@ wan_teardown_gateway_host_route_required(int gateway_read_status,
 					 int address_read_status,
 					 int netmask_read_status,
 					 int gateway_valid,
+					 int address_valid,
+					 int netmask_valid,
 					 int ppp_index,
 					 int gateway_off_subnet)
 {
 	return gateway_read_status == 0 && address_read_status == 0 &&
 		netmask_read_status == 0 && gateway_valid &&
+		address_valid && netmask_valid &&
 		ppp_index < 0 && gateway_off_subnet;
 }
 
