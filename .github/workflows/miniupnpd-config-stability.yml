@@ -1,0 +1,829 @@
+name: miniupnpd atomic configuration publication regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/miniupnpd-config-stability.yml"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/ipv4_netmask_policy.h"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/upnp_restart_policy.h"
+      - "trunk/user/rc/src/tests/upnp_restart_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/miniupnpd_config_file.h"
+      - "trunk/user/rc/src/tests/miniupnpd_config_file.c"
+      - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
+      - "scripts/check_miniupnpd_shutdown_status.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c"
+      - "scripts/check_miniupnpd_rule_state_oom.py"
+      - "scripts/check_miniupnpd_lease_file_cleanup.py"
+      - "scripts/check_miniupnpd_lease_reload.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_redirect_cleanup_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_cleanup_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_allocation_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_allocation_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_allocations.py"
+      - "scripts/check_miniupnpd_iptcrdr_handle_ownership.py"
+      - "scripts/test_miniupnpd_iptc_errno.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_capacity_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_capacity.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_update_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_update.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/miniupnpd_redirect_desc_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_desc_policy_test.c"
+      - "scripts/check_miniupnpd_redirect_desc.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_update_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_delete.py"
+      - "scripts/test_miniupnpd_redirect_delete_integration.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_peer_delete.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c"
+      - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
+      - "scripts/check_miniupnpd_lifecycle_lock.py"
+  pull_request:
+    paths:
+      - ".github/workflows/miniupnpd-config-stability.yml"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/ipv4_netmask_policy.h"
+      - "trunk/user/rc/src/tests/upnp_restart_policy.c"
+      - "trunk/user/rc/src/upnp_restart_policy.h"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/miniupnpd_config_file.h"
+      - "trunk/user/rc/src/tests/miniupnpd_config_file.c"
+      - "trunk/user/rc/src/miniupnpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c"
+      - "scripts/check_miniupnpd_shutdown_status.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c"
+      - "scripts/check_miniupnpd_rule_state_oom.py"
+      - "scripts/check_miniupnpd_lease_file_cleanup.py"
+      - "scripts/check_miniupnpd_lease_reload.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_allocation_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_allocation_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_allocations.py"
+      - "scripts/check_miniupnpd_iptcrdr_handle_ownership.py"
+      - "scripts/test_miniupnpd_iptc_errno.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_capacity_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_capacity.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_update_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_update.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/miniupnpd_redirect_desc_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_desc_policy_test.c"
+      - "scripts/check_miniupnpd_redirect_desc.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_update_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_delete.py"
+      - "scripts/test_miniupnpd_redirect_delete_integration.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c"
+      - "scripts/check_miniupnpd_iptcrdr_peer_delete.py"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h"
+      - "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c"
+      - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
+      - "scripts/check_miniupnpd_lifecycle_lock.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  miniupnpd-config-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and exercise atomic configuration publication
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/miniupnpd_config_file.c \
+            -o /tmp/miniupnpd_config_file
+          /tmp/miniupnpd_config_file
+      - name: Compile and run miniupnpd daemon lifecycle policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -Itrunk/user/rc/src -Itrunk/user/shared/src \
+            trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c \
+            -o /tmp/miniupnpd_daemon_policy
+          /tmp/miniupnpd_daemon_policy
+      - name: Compile and run atomic MiniUPnP PID-file publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c \
+            -o /tmp/miniupnpd_pidfile_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_pidfile_policy_test
+      - name: Compile and run MiniUPnP redirect cleanup status regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_cleanup_policy_test.c \
+            -o /tmp/miniupnpd_redirect_cleanup_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_redirect_cleanup_policy_test
+      - name: Compile and run MiniUPnP iptables allocation failure regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_allocation_policy_test.c \
+            -o /tmp/iptcrdr_allocation_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptcrdr_allocation_policy_test
+      - name: Verify MiniUPnP iptables allocation guards
+        run: python3 scripts/check_miniupnpd_iptcrdr_allocations.py
+      - name: Verify MiniUPnP IPTC delete-handle ownership
+        run: python3 scripts/check_miniupnpd_iptcrdr_handle_ownership.py
+      - name: Compile production IPTC errno helpers with both handle APIs and injected clobbering
+        run: python3 scripts/test_miniupnpd_iptc_errno.py
+      - name: Compile and run MiniUPnP port-mapping capacity regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_portmapping_capacity_test.c \
+            -o /tmp/iptcrdr_portmapping_capacity_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptcrdr_portmapping_capacity_test
+      - name: Verify MiniUPnP port-mapping capacity growth
+        run: python3 scripts/check_miniupnpd_iptcrdr_capacity.py
+      - name: Compile and run MiniUPnP NAT/filter update rollback regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c \
+            -o /tmp/iptcrdr_update_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptcrdr_update_policy_test
+      - name: Verify MiniUPnP NAT/filter update rollback
+        run: python3 scripts/check_miniupnpd_iptcrdr_update.py
+      - name: Compile and run MiniUPnP redirect metadata allocation policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_desc_policy_test.c \
+            -o /tmp/miniupnpd_redirect_desc_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_redirect_desc_policy_test
+      - name: Verify MiniUPnP redirect metadata allocation ordering
+        run: python3 scripts/check_miniupnpd_redirect_desc.py
+      - name: Compile and run MiniUPnP NAT/filter delete compensation regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c \
+            -o /tmp/iptcrdr_update_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptcrdr_update_policy_test
+      - name: Verify MiniUPnP NAT/filter delete compensation
+        run: python3 scripts/check_miniupnpd_iptcrdr_delete.py
+      - name: Compile and exercise the production redirect-delete caller with injected backends
+        run: python3 scripts/test_miniupnpd_redirect_delete_integration.py
+      - name: Compile and run MiniUPnP peer SNAT/DSCP rollback regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/iptcrdr_update_policy_test.c \
+            -o /tmp/iptcrdr_update_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptcrdr_update_policy_test
+      - name: Verify MiniUPnP peer SNAT/DSCP compensation
+        run: python3 scripts/check_miniupnpd_iptcrdr_peer_delete.py
+      - name: Compile and run MiniUPnP SOAP numeric input policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c \
+            -o /tmp/upnpsoap_input_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/upnpsoap_input_policy_test
+      - name: Compile and run IPv6 pinhole allocation and address policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c \
+            -o /tmp/iptpinhole_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/iptpinhole_policy_test
+      - name: Compile and run MiniUPnP lease-file record serialization regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c \
+            -o /tmp/miniupnpd_lease_file_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/miniupnpd_lease_file_policy_test
+      - name: Verify MiniUPnP lease-file deletion and persistence handling
+        run: python3 scripts/check_miniupnpd_lease_file_cleanup.py
+      - name: Verify MiniUPnP lease replay unlink-failure guard
+        run: python3 scripts/check_miniupnpd_lease_reload.py
+      - name: Verify MiniUPnP rule-snapshot allocation fail-closed behavior
+        run: python3 scripts/check_miniupnpd_rule_state_oom.py
+      - name: Compile and run MiniUPnP SOAP XML escaping policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/miniupnpd/miniupnpd-2.x \
+            trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c \
+            -o /tmp/upnpsoap_xml_policy_test
+          ASAN_OPTIONS=detect_leaks=1 /tmp/upnpsoap_xml_policy_test
+      - name: Verify UPnP writer error propagation and daemon start gate
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          service = Path("trunk/user/rc/src/services_ex.c").read_text()
+          netmask_policy = Path("trunk/user/rc/src/ipv4_netmask_policy.h").read_text()
+          helper = Path("trunk/user/rc/src/miniupnpd_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/miniupnpd_config_file.c").read_text()
+          policy = Path("trunk/user/rc/src/miniupnpd_daemon_policy.h").read_text()
+          daemon_test = Path("trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c").read_text()
+          daemon_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c").read_text()
+          daemonizer = Path("trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c").read_text()
+          pid_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h").read_text()
+          pid_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c").read_text()
+          soap_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c").read_text()
+          soap_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h").read_text()
+          soap_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c").read_text()
+          pinhole_backend = Path("trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptpinhole.c").read_text()
+          pinhole_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pinhole_policy.h").read_text()
+          pinhole_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/iptpinhole_policy_test.c").read_text()
+          xml_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h").read_text()
+          xml_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c").read_text()
+          redirect_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c").read_text()
+          ipt_source = Path("trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c").read_text()
+          cleanup_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_redirect_cleanup_policy.h").read_text()
+          cleanup_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_redirect_cleanup_policy_test.c").read_text()
+          lease_policy = Path("trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h").read_text()
+          lease_test = Path("trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c").read_text()
+          miniupnpd_makefile = Path("trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux").read_text()
+          workflow = Path(".github/workflows/miniupnpd-config-stability.yml").read_text()
+          wan = Path("trunk/user/rc/src/net_wan.c").read_text()
+          declarations = Path("trunk/user/rc/src/rc.h").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for index in range(brace, len(source)):
+                  if source[index] == "{":
+                      depth += 1
+                  elif source[index] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[start:index + 1]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "upnpsoap_input_policy.h"' in soap_source
+          add_port = function_body(soap_source, "AddPortMapping(struct upnphttp * h")
+          add_any = function_body(soap_source, "AddAnyPortMapping(struct upnphttp * h")
+          get_specific = function_body(soap_source, "GetSpecificPortMappingEntry(struct upnphttp * h")
+          delete_port = function_body(soap_source, "DeletePortMapping(struct upnphttp * h")
+          delete_range = function_body(soap_source, "DeletePortMappingRange(struct upnphttp * h")
+          get_list = function_body(soap_source, "GetListOfPortMappings(struct upnphttp * h")
+          add_pinhole = function_body(soap_source, "AddPinhole(struct upnphttp * h")
+          pinhole_verify = function_body(soap_source, "PinholeVerification(struct upnphttp * h")
+          update_pinhole = function_body(soap_source, "UpdatePinhole(struct upnphttp * h")
+          delete_pinhole = function_body(soap_source, "DeletePinhole(struct upnphttp * h")
+          check_pinhole = function_body(soap_source, "CheckPinholeWorking(struct upnphttp * h")
+          get_pinhole_packets = function_body(soap_source, "GetPinholePackets(struct upnphttp * h")
+          outbound_pinhole = function_body(soap_source, "GetOutboundPinholeTimeout(struct upnphttp * h")
+          redirect_internal = function_body(redirect_source, "upnp_redirect_internal(const char * rhost")
+          filter_failure = redirect_internal.split("if(add_filter_rule2(", 1)[1].split("\n\t}", 1)[0]
+          assert "_upnp_delete_redir(eport, proto)" in filter_failure
+          assert "rollback_status != 0" in filter_failure
+          assert "failed to roll back partially installed UPnP mapping" in filter_failure
+          cleanup_header = Path("trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.h").read_text()
+          cleanup_backend = function_body(ipt_source, "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto, int *primary_removed)")
+          cleanup_backend_flat = " ".join(cleanup_backend.split())
+          delete_helper = function_body(ipt_source, "delete_rule_and_commit(unsigned int index, IPTC_HANDLE h,")
+          insert_helper = function_body(ipt_source, "insert_rule_and_commit(unsigned int index, const struct ipt_entry *entry,")
+          for cleanup_helper in (delete_helper, insert_helper):
+              assert "miniupnpd_restore_errno_on_failure(" in cleanup_helper
+              assert "failure_errno = errno" in cleanup_helper
+              assert cleanup_helper.index("iptc_free(") < cleanup_helper.rindex("miniupnpd_restore_errno_on_failure(")
+          assert "return miniupnpd_restore_errno_on_failure(-1, failure_errno);" in insert_helper
+          assert "test_cleanup_helpers_restore_original_errno" in cleanup_test
+          assert "#include \"../miniupnpd_redirect_cleanup_policy.h\"" in ipt_source
+          assert "int r = 0, r2 = 0;" in cleanup_backend
+          assert "peer_rule_found = 0" in cleanup_backend
+          assert "miniupnpd_peer_redirect_cleanup_allowed(primary_mapping_removed)" in cleanup_backend
+          assert "miniupnpd_merge_cleanup_status(r, r2)" in cleanup_backend
+          assert "miniupnpd_primary_redirect_removed(" in cleanup_backend
+          assert "miniupnpd_finalize_redirect_cleanup(" in cleanup_backend
+          assert "del_redirect_desc" in cleanup_backend
+          assert "primary_failure_errno" in cleanup_backend
+          assert "if (nat_backup_failed) return miniupnpd_restore_errno_on_failure(r, primary_failure_errno)" in cleanup_backend_flat
+          assert "secondary_failure_errno" in cleanup_backend
+          assert "miniupnpd_select_cleanup_failure_errno(" in cleanup_backend
+          assert "primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno," in cleanup_backend_flat
+          assert "secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno," in cleanup_backend_flat
+          errno_capture_assignments = [
+              line.strip() for line in cleanup_backend.splitlines()
+              if line.lstrip().startswith(("primary_failure_errno =", "secondary_failure_errno ="))
+          ]
+          assert errno_capture_assignments
+          assert all("miniupnpd_record_first_failure_errno(" in line for line in errno_capture_assignments)
+          assert "test_cleanup_phase_keeps_first_errno" in cleanup_test
+          assert "miniupnpd_restore_errno_on_failure(cleanup_status, failure_errno)" in cleanup_backend
+          assert "test_cleanup_failure_errno_preserves_primary_precedence" in cleanup_test
+          assert "return r*r2;" not in cleanup_backend
+          assert "delete_redirect_and_filter_rules_ex(unsigned short eport, int proto," in cleanup_header
+          delete_wrapper = function_body(redirect_source, "_upnp_delete_redir(unsigned short eport, int proto)")
+          assert "delete_redirect_and_filter_rules_ex(eport, proto, &primary_removed)" in delete_wrapper
+          assert "if (primary_removed)" in delete_wrapper
+          assert 'if (r == 0)' not in delete_wrapper
+          assert "test_cleanup_status_preserves_each_failure" in cleanup_test
+          assert "miniupnpd_soap_required_text_present(desc)" in add_port
+          assert "miniupnpd_soap_required_text_present(desc)" in add_any
+          assert "!leaseduration_str" in add_port
+          assert "!leaseduration_str" in add_any
+          assert "if (miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)" in add_port
+          assert "if (miniupnpd_soap_parse_int(leaseduration_str, &leaseduration_value) != 0)" in add_any
+          assert "if (leaseduration_str &&" not in add_port
+          assert "if (leaseduration_str &&" not in add_any
+          assert add_port.count("miniupnpd_soap_parse_port(") == 1
+          assert add_port.count("miniupnpd_soap_parse_nonzero_port(") == 1
+          assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in add_port
+          assert add_port.count("miniupnpd_soap_parse_int(") == 1
+          assert add_port.index("miniupnpd_soap_parse_port(") < add_port.index("upnp_redirect(")
+          assert add_port.index("miniupnpd_soap_parse_int(") < add_port.index("upnp_redirect(")
+          assert 'strcmp(ext_port, "*")' in add_port and "if (eport == 0)" in add_port
+          assert add_any.count("miniupnpd_soap_parse_port(") == 1
+          assert add_any.count("miniupnpd_soap_parse_nonzero_port(") == 1
+          assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in add_any
+          assert add_any.count("miniupnpd_soap_parse_int(") == 1
+          assert add_any.index("miniupnpd_soap_parse_int(") < add_any.index("upnp_redirect(")
+          assert add_any.index("miniupnpd_soap_parse_port(") < add_any.index("upnp_redirect(")
+          assert "miniupnpd_soap_normalize_lease_duration(leaseduration)" in add_port
+          assert "miniupnpd_soap_normalize_lease_duration(" in add_any
+          assert "MINIUPNPD_SOAP_MAX_LEASE_DURATION 604800U" in soap_policy
+          assert "test_lease_duration_normalization" in soap_test
+          assert get_specific.count("miniupnpd_soap_parse_port(") == 1
+          assert delete_port.count("miniupnpd_soap_parse_port(") == 1
+          assert delete_range.count("miniupnpd_soap_parse_port(") == 2
+          assert get_list.count("miniupnpd_soap_parse_port(") == 2
+          assert get_list.count("miniupnpd_soap_parse_int(") == 1
+          assert "if (number == 0)" in get_list and "number = 1000;" in get_list
+          assert add_pinhole.count("miniupnpd_soap_parse_port(") == 2
+          assert "miniupnpd_soap_parse_protocol_number(protocol, &proto)" in add_pinhole
+          assert "char normalized_int_ip[INET6_ADDRSTRLEN];" in add_pinhole
+          assert "PinholeVerification(h, int_ip, iport, normalized_int_ip," in add_pinhole
+          assert "upnp_add_inboundpinhole(rem_host, rport, normalized_int_ip," in add_pinhole
+          assert "memset(&hints, 0, sizeof(hints));" in pinhole_verify
+          assert "hints.ai_family = AF_INET6;" in pinhole_verify
+          assert "p->ai_addr" in pinhole_verify and "peer->sin6_addr" in pinhole_verify
+          assert "freeaddrinfo(ai);" in pinhole_verify
+          assert "freeaddrinfo(p)" not in pinhole_verify
+          assert "miniupnpd_soap_ipv6_peer_matches(&h->clientaddr_v6, &result_ip)" in pinhole_verify
+          assert "inet_ntop(AF_INET6, &result_ip, normalized_ip," in pinhole_verify
+          assert "inet_ntop(AF_INET6, (struct in6_addr *) p" not in pinhole_verify
+          assert "inet_ntop(AF_INET6, (struct in6_addr *) p, int_ip" not in pinhole_verify
+          assert "miniupnpd_soap_parse_int(leaseTime, &ltime)" in add_pinhole
+          assert "int err, resolved = 0;" in add_pinhole
+          assert "p->ai_addr" in add_pinhole and "struct sockaddr_in6" in add_pinhole
+          assert "if (!inet_ntop(AF_INET6," in add_pinhole
+          assert "if (resolved)" in add_pinhole
+          assert "AddPinhole: '%s' has no usable IPv6 address" in add_pinhole
+          assert 'SoapError(h, 402, "Invalid Args");' in add_pinhole
+          assert "atoi(" not in add_pinhole and "strtol(" not in add_pinhole
+          assert update_pinhole.count("miniupnpd_soap_parse_int(") == 2
+          assert "atoi(" not in update_pinhole
+          for pinhole_uid_action in (delete_pinhole, check_pinhole, get_pinhole_packets):
+              assert "miniupnpd_soap_parse_int(uid_str, &uid)" in pinhole_uid_action
+              assert "atoi(" not in pinhole_uid_action
+          assert "miniupnpd_soap_parse_port(rem_port, &rport)" in outbound_pinhole
+          assert "miniupnpd_soap_parse_nonzero_port(int_port, &iport)" in outbound_pinhole
+          assert "int r, proto;" in outbound_pinhole
+          assert "miniupnpd_soap_parse_protocol_number(protocol, &proto)" in outbound_pinhole
+          assert "atoi(" not in outbound_pinhole
+          for marker in (
+              "maximum - (unsigned long)digit",
+              "(unsigned long)INT_MAX",
+              "miniupnpd_soap_parse_unsigned(text, 65535UL, &value)",
+          ):
+              assert marker in soap_policy, marker
+          for marker in (
+              "test_port_boundaries",
+              "test_nonzero_port_validation",
+              "miniupnpd_soap_parse_nonzero_port",
+              "test_nonnegative_int_boundaries",
+              "test_protocol_number_boundaries",
+              "miniupnpd_soap_parse_protocol_number",
+              "test_ipv6_peer_identity_comparison",
+              "miniupnpd_soap_ipv6_peer_matches",
+              "test_required_text_presence",
+              "test_invalid_output_arguments",
+              'expect_port_error("65536", ERANGE)',
+              'expect_int_error(overflow, ERANGE)',
+              'expect_port_error("+1", EINVAL)',
+              "MiniUPnP SOAP unsigned input policy: PASS",
+          ):
+              assert marker in soap_test, marker
+          pinhole_add = function_body(pinhole_backend, "int add_pinhole(const char * ifname")
+          pinhole_find = function_body(pinhole_backend, "find_pinhole(const char * ifname")
+          pinhole_append = function_body(pinhole_backend, "ip6tc_init_verify_append(const char * table")
+          pinhole_match = function_body(pinhole_backend, "new_match(int proto")
+          pinhole_target = function_body(pinhole_backend, "get_accept_target(void)")
+          pinhole_info = function_body(pinhole_backend, "get_pinhole_info(unsigned short uid")
+          assert '#include "../miniupnpd_pinhole_policy.h"' in pinhole_backend
+          assert "miniupnpd_pinhole_find_free_uid(next_uid, pinhole_uid_is_used" in pinhole_backend
+          assert "miniupnpd_pinhole_parse_remote_ipv6(rem_host, &source_address" in pinhole_add
+          assert "miniupnpd_pinhole_parse_internal_ipv6(int_client" in pinhole_add
+          assert "if (!wildcard_source)" in pinhole_add
+          assert "miniupnpd_pinhole_parse_remote_ipv6(rem_host, &saddr" in pinhole_find
+          assert "miniupnpd_pinhole_parse_internal_ipv6(int_client, &daddr)" in pinhole_find
+          assert pinhole_add.index("prepare_pinhole_list_entry(") < pinhole_add.index("ip6tc_init_verify_append(") < pinhole_add.index("publish_pinhole_list_entry(")
+          commit_call = pinhole_append.index("ip6tc_commit(h)")
+          assert commit_call < pinhole_append.index("ip6tc_free(h);", commit_call) < pinhole_append.index("return 0;", commit_call)
+          assert "if (!match)" in pinhole_match
+          assert "if (!target)" in pinhole_target
+          assert "miniupnpd_pinhole_reset_counters(packets, bytes);" in pinhole_info
+          counter_init = pinhole_info.index("miniupnpd_pinhole_reset_counters(packets, bytes);")
+          assert counter_init < pinhole_info.index('h = ip6tc_init("filter");')
+          assert pinhole_info.index('h = ip6tc_init("filter");') < pinhole_info.index("ip6tc_first_rule(")
+          for marker in (
+              "miniupnpd_pinhole_find_free_uid",
+              "miniupnpd_pinhole_parse_remote_ipv6",
+              "miniupnpd_pinhole_parse_internal_ipv6",
+              "miniupnpd_pinhole_reset_counters",
+              "candidate > 65535",
+              "errno = ENOSPC",
+          ):
+              assert marker in pinhole_policy, marker
+          for marker in (
+              "test_uid_selection",
+              "test_uid_wraparound",
+              "test_uid_space_exhausted",
+              "test_wildcard_remote_hosts",
+              "test_specific_remote_host",
+              "test_invalid_remote_host",
+              "test_internal_client_validation",
+              "test_pinhole_counter_defaults",
+              "MiniUPnP IPv6 pinhole and counter policy: PASS",
+          ):
+              assert marker in pinhole_test, marker
+          assert "iptpinhole_policy_test.c" in workflow
+          assert "upnpsoap.o: getconnstatus.h upnpurns.h upnpsoap_input_policy.h" in miniupnpd_makefile
+          assert "upnpsoap_input_policy_test.c" in workflow
+
+          assert '#include "miniupnpd_lease_file_policy.h"' in redirect_source
+          lease_add = function_body(redirect_source, "lease_file_add(unsigned short eport")
+          assert "miniupnpd_lease_record_format(" in lease_add
+          assert "miniupnpd_lease_append_transaction(" in lease_add
+          assert "fwrite(" not in lease_add
+          assert "close(fd)" in lease_add
+          assert "errno = saved_errno;" in lease_add
+          assert '#include <errno.h>' in redirect_source
+          assert "fprintf(fd" not in lease_add
+          for marker in (
+              "ops->truncate(fd, original_size)",
+              "ops->sync(fd)",
+              "rollback_failed",
+          ):
+              assert marker in lease_policy, marker
+          for marker in (
+              "test_lease_append_rolls_back_partial_write",
+              "partial_then_enospc_write",
+              "rollback_failed == 0",
+              "MiniUPnP lease-file record serialization policy: PASS",
+          ):
+              assert marker in lease_test, marker
+          assert "miniupnpd_lease_file_policy_test.c" in workflow
+          for marker in (
+              "MINIUPNPD_LEASE_RECORD_DESCRIPTION_MAX 63",
+              "ch == '\\r' || ch == '\\n'",
+              "(size_t)length >= buffer_size",
+          ):
+              assert marker in lease_policy, marker
+          for marker in (
+              "test_single_line_description",
+              "test_description_is_bounded",
+              "test_invalid_output_buffer",
+              "camera\\nTCP:9999",
+          ):
+              assert marker in lease_test, marker
+
+          assert '#include "upnpsoap_xml_policy.h"' in soap_source
+          get_specific_xml = function_body(soap_source, "GetSpecificPortMappingEntry(struct upnphttp * h")
+          get_generic_xml = function_body(soap_source, "GetGenericPortMappingEntry(struct upnphttp * h")
+          get_list_xml = function_body(soap_source, "GetListOfPortMappings(struct upnphttp * h")
+          assert get_specific_xml.count("miniupnpd_soap_xml_escape(") == 2
+          assert get_generic_xml.count("miniupnpd_soap_xml_escape(") == 4
+          assert get_list_xml.count("miniupnpd_soap_xml_escape(") == 4
+          assert get_generic_xml.index("miniupnpd_soap_parse_int(m_index, &index)") < get_generic_xml.index("upnp_get_redirection_infos_by_index(")
+          assert "miniupnpd_soap_protocol_valid(protocol)" in soap_source
+          for marker in ("&amp;", "&lt;", "&gt;", "&quot;", "&apos;", "errno = ENOSPC"):
+              assert marker in xml_policy, marker
+          for marker in ("test_markup_escaping", "test_control_character_sanitization", "test_empty_and_invalid_inputs", "MiniUPnP SOAP XML text escaping policy: PASS"):
+              assert marker in xml_test, marker
+          assert "upnpsoap_xml_policy_test.c" in workflow
+
+          writer = function_body(service, "miniupnpd_write_config(FILE *fp, void *opaque)")
+          assert writer.count("if (fprintf(fp") == 2
+          for token in (
+              "ext_ifname=%s", "listening_ip=%s", "enable_upnp=%s",
+              "enable_natpmp=%s", "secure_mode=%s", "lease_file=%s",
+              "allow %d-%d %s %d-%d", "deny 0-65535 0.0.0.0/0 0-65535",
+          ):
+              assert token in writer, token
+
+          start = function_body(service, "start_upnp_locked(void)")
+          lan_addr_read = start.index('lan_addr = nvram_safe_get("lan_ipaddr");')
+          lan_mask_read = start.index('lan_mask = nvram_safe_get("lan_netmask");', lan_addr_read)
+          mask_validate = start.index("ipv4_netmask_is_contiguous(lan_mask)", lan_mask_read)
+          subnet_derive = start.index("ip2class(lan_addr, lan_mask, lan_class", mask_validate)
+          assert lan_addr_read < lan_mask_read < mask_validate < subnet_derive
+          assert "invalid LAN IPv4 address or non-contiguous netmask" in start
+          assert "ipv4_netmask_is_contiguous" in netmask_policy
+          assert "ipv4_netmask_policy.h" in service
+          assert "miniupnpd_process_presence(&scan_error)" in start
+          assert "miniupnpd_start_allowed(state)" in start
+          assert "duplicate start skipped" in start
+          assert "miniupnpd_config_publish(\"/etc/miniupnpd.conf\"" in start
+          assert start.index("miniupnpd_config_publish") < start.index('eval("/usr/bin/miniupnpd")')
+          assert "if (ret != 0)" in start
+          assert "miniupnpd configuration publication failed" in start
+          assert 'fopen("/etc/miniupnpd.conf", "w")' not in start
+          assert "start_status = miniupnpd_confirm_started(launch_status);" in start
+          assert "errno = 0;" in start
+          assert "rollback_status = stop_upnp_locked();" in start
+          assert "rollback_presence = miniupnpd_process_presence(&rollback_scan_error)" in start
+          assert "miniupnpd_failed_start_may_leave_daemon(rollback_presence)" in start
+          assert "errno = start_errno;" in start
+          assert start.index("start_status = miniupnpd_confirm_started(launch_status);") < start.index("stop_upnp_locked()")
+          assert start.index("stop_upnp_locked()") < start.index("miniupnpd_process_presence(&rollback_scan_error)")
+          assert start.index("miniupnpd_process_presence(&rollback_scan_error)") < start.index("errno = start_errno;")
+          confirm = function_body(service, "miniupnpd_confirm_started(int launch_status)")
+          assert "MINIUPNPD_START_WAIT_ATTEMPTS" in confirm
+          assert "miniupnpd_process_presence(&scan_error)" in confirm
+          assert "state == PROCESS_PRESENCE_RUNNING" in confirm
+          assert "state == PROCESS_PRESENCE_UNKNOWN" in confirm
+          assert "PROCESS_PRESENCE_ABSENT" in confirm
+          assert "is_upnp_run()" not in confirm
+          assert 'service_start_wait_one_second("miniupnpd")' in confirm
+          assert confirm.count('service_start_wait_one_second("miniupnpd")') == 2
+          assert confirm.index('service_start_wait_one_second("miniupnpd")') < confirm.index("miniupnpd_process_presence(&scan_error)")
+          assert "sleep(1)" not in confirm
+          assert "miniupnpd_start_policy_status(launch_status, daemon_running)" in confirm
+          assert "return daemon_running ? 0 : ESRCH;" in policy
+          assert "miniupnpd_start_policy_status(0, 0) == ESRCH" in daemon_test
+          assert "miniupnpd_start_policy_status(EIO, 1) == EIO" in daemon_test
+          assert "miniupnpd_stop_policy_status(EIO, 0) == EIO" in daemon_test
+          assert "miniupnpd_stop_policy_status(0, 1) == EBUSY" in daemon_test
+          assert "miniupnpd_stop_policy_status(0, 0) == 0" in daemon_test
+          assert "miniupnpd daemon lifecycle policy: PASS" in daemon_test
+          assert "miniupnpd_test_presence_policy" in daemon_test
+          assert "miniupnpd_test_identity_bound_signal" in daemon_test
+          assert "miniupnpd_signal_snapshot" in policy
+
+          stop = function_body(service, "static int\nstop_upnp_locked(void)")
+          assert "kill_services(svcs, 3, 1)" in stop
+          assert "miniupnpd_process_presence(&scan_error)" in stop
+          assert "miniupnpd_presence_error(state, scan_error)" in stop
+          assert "miniupnpd_stop_policy_status(0," in stop
+          assert "state == PROCESS_PRESENCE_RUNNING" in stop
+          assert "return ret;" in stop
+          check_wan = function_body(service, "check_upnp_wanif_changed_locked(char *wan_ifname)")
+          assert "miniupnpd_process_presence(&scan_error)" in check_wan
+          assert "miniupnpd_presence_error(state, scan_error)" in check_wan
+          assert "PROCESS_PRESENCE_ABSENT" in check_wan
+          assert "return stop_upnp_locked();" in check_wan
+          assert "return 0;" in check_wan
+          update = function_body(service, "update_upnp_locked(void)")
+          update_compact = " ".join(update.split())
+          assert "return start_upnp_locked();" in update
+          assert "return stop_upnp_locked();" in update
+          assert "miniupnpd_action_for_presence(state)" in update
+          assert "miniupnpd_read_stop_policy(&should_stop)" in update
+          assert "miniupnpd_update_should_stop(" not in update
+          assert 'nvram_get_int("upnp_enable_x")' not in update
+          assert 'nvram_get_int("wan_nat_x")' not in update
+          assert "get_ap_mode()" not in update
+          assert update.index("miniupnpd_read_stop_policy(&should_stop)") < update.index("stop_upnp_locked()")
+          assert update.index("miniupnpd_read_stop_policy(&should_stop)") < update.index("miniupnpd_signal_snapshot(")
+          start = function_body(service, "start_upnp_locked(void)")
+          assert "miniupnpd_read_stop_policy(&should_stop)" in start
+          assert start.index("miniupnpd_read_stop_policy(&should_stop)") < start.index("miniupnpd_process_presence(")
+          assert 'nvram_get_int("upnp_enable_x")' not in start
+          assert 'nvram_get_int("wan_nat_x")' not in start
+          assert "get_ap_mode()" not in start
+          transaction_integer = function_body(service, "miniupnpd_read_transaction_int(")
+          assert "nvram_transaction_get(transaction, name, &value)" in transaction_integer
+          assert "miniupnpd_nvram_int_status(api_result, saved_errno" in transaction_integer
+          transaction_bridge = function_body(service, "miniupnpd_read_transaction_bridge(")
+          assert 'nvram_transaction_get(transaction, "wan_route_x", &value)' in transaction_bridge
+          assert "miniupnpd_nvram_bridge_status(api_result, saved_errno" in transaction_bridge
+          stop_policy = function_body(service, "miniupnpd_read_stop_policy(int *should_stop)")
+          assert "nvram_transaction_begin(&transaction)" in stop_policy
+          assert "nvram_transaction_end(&transaction)" in stop_policy
+          assert stop_policy.index("nvram_transaction_begin(&transaction)") < stop_policy.index("miniupnpd_read_transaction_int(")
+          assert stop_policy.index("miniupnpd_read_transaction_bridge(") < stop_policy.index("nvram_transaction_end(&transaction)")
+          assert "miniupnpd_update_status(0, upnp_enabled, 0, nat_enabled" in stop_policy
+          assert stop_policy.index("nvram_transaction_end(&transaction)") < stop_policy.index("*should_stop = local_should_stop")
+          assert "miniupnpd_nvram_int_status" in policy
+          assert "miniupnpd_nvram_bridge_status" in policy
+          assert "miniupnpd_update_status" in policy
+          for marker in (
+              "miniupnpd_test_checked_service_integer_reads",
+              "miniupnpd_test_checked_bridge_mode_reads",
+              "miniupnpd_test_checked_update_decision",
+              "miniupnpd_nvram_int_status(-1, EACCES, NULL, 0, &value)",
+              "miniupnpd_nvram_bridge_status(-1, EPERM, NULL, &bridged)",
+              "miniupnpd_update_status(EACCES, 1, 0, 1, 0, 0",
+          ):
+              assert marker in daemon_test, marker
+          for token in (
+              "miniupnpd_update_should_stop(1, 1, 0)",
+              "miniupnpd_update_should_stop(0, 1, 0)",
+              "miniupnpd_update_should_stop(1, 0, 0)",
+              "miniupnpd_update_should_stop(1, 1, 1)",
+          ):
+              assert token in daemon_test, token
+          assert "miniupnpd_signal_snapshot(&snapshot, SIGUSR1" in update
+          assert "killall" not in update
+          assert "process_snapshot_release(&snapshot)" in update
+          assert "PROCESS_PRESENCE_UNKNOWN" in policy
+          assert "if (result != 0)" in update and "return -1;" in update
+          restart = function_body(service, "int\nrestart_upnp(void)")
+          assert '#include "upnp_restart_policy.h"' in service
+          assert restart.index("miniupnpd_lifecycle_lock_acquire()") < restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)")
+          assert restart.index("rc_upnp_restart_run(stop_upnp_locked, restart_firewall)") < restart.index('miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart")')
+          assert "ret != 0" in restart
+          assert 'return miniupnpd_lifecycle_lock_finish(lock_fd, ret, "restart");' in restart
+          assert "return ret;" not in restart
+          assert "ret = stop_upnp();" not in restart
+          assert "return;" not in restart
+
+          lock_checker = Path("scripts/check_miniupnpd_lifecycle_lock.py").read_text()
+          assert "miniupnpd_lifecycle_lock_acquire()" in lock_checker
+          assert "miniupnpd_lifecycle_lock_finish(lock_fd, ret, \"restart\")" in lock_checker
+          assert "restart_upnp(void)" in lock_checker
+          assert "int stop_upnp(void);" in declarations
+          assert "int check_upnp_wanif_changed(char *wan_ifname);" in declarations
+          assert "int update_upnp(void);" in declarations
+          assert "int restart_upnp(void);" in declarations
+          assert "void restart_upnp(void);" not in declarations
+          start_wan = function_body(wan, "start_wan(void)")
+          assert start_wan.count("if (check_upnp_wanif_changed(ppp_ifname) != 0)") == 0
+          assert start_wan.count("vlan_result = check_upnp_wanif_changed(ppp_ifname);") == 2
+          assert "if (vlan_result != 0)" in start_wan
+          assert start_wan.count("if (check_upnp_wanif_changed(wan_ifname) != 0)") == 0
+          assert start_wan.count("vlan_result = check_upnp_wanif_changed(wan_ifname);") == 1
+          assert start_wan.count("if (vlan_result != 0)") >= 2
+          restore = function_body(wan, "restore_wan_after_ppp_start_failure(int unit, char *wan_ifname)")
+          assert "upnp_status = check_upnp_wanif_changed(wan_ifname);" in restore
+          assert "if (upnp_status != 0)" in restore
+          restore_stop = restore.index("if (upnp_status != 0)")
+          restore_stop_return = restore.index("return upnp_status;", restore_stop)
+          restore_publish = restore.index('nvram_status = set_wan_unit_value_status(unit, "ifname_t", wan_ifname);')
+          restore_publish_check = restore.index("if (nvram_status != 0)", restore_publish)
+          restore_publish_return = restore.index("return nvram_status;", restore_publish_check)
+          restore_firewall = restore.index("firewall_status = start_firewall_ex();")
+          assert restore_stop < restore_stop_return < restore_publish < restore_publish_check < restore_publish_return < restore_firewall
+          assert "return firewall_status;" in restore
+          assert "wan_upnp_status = update_upnp();" in start_wan
+          assert "UPnP update incomplete after WAN startup" in start_wan
+          assert "pid = daemonize();" in daemon_source
+          daemonize_failure = daemon_source.split("if (daemon(0, 0) < 0)", 1)[1].split("pid = getpid();", 1)[0]
+          assert 'perror("daemon()")' in daemonize_failure
+          assert "return 1;" in daemonize_failure
+          assert "errno = daemon_errno;" in daemonize_failure
+          assert daemon_source.index("return 1;", daemon_source.index("if (daemon(0, 0) < 0)")) < daemon_source.index("pid = getpid();", daemon_source.index("if (daemon(0, 0) < 0)"))
+          assert "daemon(0, 0)" in daemon_source
+          pidcheck_body = function_body(daemonizer, "checkforrunning(const char * fname)")
+          assert "miniupnpd_pidfile_lock_acquire(fname)" in pidcheck_body
+          assert "O_RDONLY | O_NOFOLLOW | O_NONBLOCK" in pidcheck_body
+          assert "S_ISREG(st.st_mode)" in pidcheck_body
+          assert "miniupnpd_pidfile_read_all_with" in pidcheck_body
+          assert "miniupnpd_pidfile_parse_pid" in pidcheck_body
+          assert "pid == getpid()" in pidcheck_body
+          assert "saved_errno == ESRCH" in pidcheck_body
+          assert "miniupnpd_pidfile_instance_lock_fd = lock_fd" in daemonizer
+          pidfile_body = function_body(daemonizer, "writepidfile(const char * fname, int pid)")
+          assert '#include "miniupnpd_pidfile_policy.h"' in daemonizer
+          assert "miniupnpd_pidfile_publish(fname, pidstring," in pidfile_body
+          assert "(size_t)pidstringlen" in pidfile_body
+          assert "Unable to publish pidfile" in pidfile_body
+          assert "write(pidfile" not in pidfile_body
+          for token in (
+              'static const char suffix[] = ".tmp.XXXXXX"',
+              "mkstemp(temporary_path)", "old_umask = umask(0)",
+              "(mode_t)(0644 & ~old_umask)", "miniupnpd_pidfile_write_all_with", "MINIUPNPD_PIDFILE_MAX_INTERRUPTS",
+              "fsync(fd)", "rename(temporary_path, path)",
+              "unlink(temporary_path)", "errno = EIO;",
+              "miniupnpd_pidfile_read_all_with", "miniupnpd_pidfile_parse_pid",
+              "miniupnpd_pidfile_lock_acquire", "F_SETLK", "errno = EBUSY",
+              "O_NOFOLLOW | O_CLOEXEC", "st.st_nlink != 1",
+          ):
+              assert token in pid_policy, token
+          for token in (
+              "test_short_write_and_eintr_retry", "old_umask = umask(0027)",
+              "(st.st_mode & 0777) == 0640", "test_repeated_eintr_is_bounded",
+              "test_failed_write_preserves_previous_pid", "test_zero_write_fails_without_replacing",
+              "test_symlink_destination_is_replaced_without_following",
+              "test_pidfile_read_short_and_eintr", "test_pidfile_read_eintr_storm_is_bounded",
+              "test_pidfile_pid_parser", "test_pidfile_instance_lock_excludes_other_processes",
+              "test_pidfile_instance_lock_rejects_symlink", "test_pidfile_instance_lock_rejects_fifo",
+              "miniupnpd atomic PID-file publication and full-write regression: PASS",
+          ):
+              assert token in pid_test, token
+          assert "daemonize.o: daemonize.h config.h miniupnpd_pidfile_policy.h" in miniupnpd_makefile
+          assert "miniupnpd_pidfile_policy_test.c" in workflow
+          assert "ASAN_OPTIONS=detect_leaks=1" in workflow
+
+          daemon_child = daemonizer.split("/* child process */", 1)[1].split("/* parent process */", 1)[0]
+          daemon_parent = daemonizer.split("/* parent process */", 1)[1]
+          assert "return pid;" in daemon_child
+          assert "exit(0);" in daemon_parent
+          main = function_body(daemon_source, "main(int argc, char * * argv)")
+          assert main.index("if(init(argc, argv, &v) != 0)") < main.index("OpenAndConfHTTPSocket")
+          assert "fclose(fp)" not in start
+
+          assert "mkstemp(temporary_path)" in helper
+          assert 'fdopen(fd, "w")' in helper
+          assert "fflush(stream)" in helper
+          assert "fsync(fileno(stream))" in helper
+          assert "fclose(stream)" in helper
+          assert "rename(temporary_path, path)" in helper
+          assert "unlink(temporary_path)" in helper
+          assert helper.index("fflush(stream)") < helper.index("rename(temporary_path, path)")
+          assert helper.index("fsync(fileno(stream))") < helper.index("rename(temporary_path, path)")
+
+          for token in (
+              "context.result = EIO;", '\"last-good\\n\"',
+              '\"complete-new-config\\n\"', "assert_only_target_remains",
+              "assert_two_targets_remain", "status == EISDIR",
+              '"directory-target"', "(st.st_mode & 0777) == 0600",
+          ):
+              assert token in test, token
+
+          push_filters = workflow.split("  push:", 1)[1].split("  pull_request:", 1)[0]
+          pr_filters = workflow.split("  pull_request:", 1)[1].split("  workflow_dispatch:", 1)[0]
+          for path in (
+              ".github/workflows/miniupnpd-config-stability.yml",
+              "trunk/user/rc/src/services_ex.c",
+              "trunk/user/rc/src/ipv4_netmask_policy.h",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/miniupnpd_config_file.h",
+              "trunk/user/rc/src/tests/miniupnpd_config_file.c",
+              "trunk/user/rc/src/miniupnpd_daemon_policy.h",
+              "trunk/user/rc/src/tests/miniupnpd_daemon_policy_test.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd.c",
+              "scripts/check_miniupnpd_shutdown_status.py",
+              "trunk/user/miniupnpd/miniupnpd-2.x/daemonize.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/Makefile.linux",
+              "trunk/user/miniupnpd/miniupnpd-2.x/upnpredirect.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_lease_file_policy.h",
+              "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_lease_file_policy_test.c",
+              "scripts/check_miniupnpd_lease_reload.py",
+              "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_input_policy.h",
+              "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_input_policy_test.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap_xml_policy.h",
+              "trunk/user/miniupnpd/miniupnpd-2.x/tests/upnpsoap_xml_policy_test.c",
+              "trunk/user/miniupnpd/miniupnpd-2.x/miniupnpd_pidfile_policy.h",
+              "trunk/user/miniupnpd/miniupnpd-2.x/tests/miniupnpd_pidfile_policy_test.c",
+              "trunk/user/rc/src/service_wait_policy.h",
+              "trunk/user/rc/src/upnp_restart_policy.h",
+              "trunk/user/rc/src/tests/upnp_restart_policy.c",
+          ):
+              assert push_filters.count(path) == 1
+              assert pr_filters.count(path) == 1
+
+          print("miniupnpd config publication, daemon startup/stop gates and WAN migration contracts: PASS")
+          PY
+          python3 scripts/check_miniupnpd_lifecycle_lock.py
+          python3 scripts/check_miniupnpd_shutdown_status.py

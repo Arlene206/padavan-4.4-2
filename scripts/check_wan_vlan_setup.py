@@ -1,0 +1,504 @@
+#!/usr/bin/env python3
+"""Static contract checks for WAN VLAN and bridge configuration error handling."""
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def require(condition, message):
+    if not condition:
+        print(f"WAN VLAN/bridge contract: FAIL: {message}", file=sys.stderr)
+        raise SystemExit(1)
+
+
+def body(source, signature):
+    start = source.index(signature)
+    brace = source.index("{", start)
+    depth = 0
+    for pos in range(brace, len(source)):
+        if source[pos] == "{":
+            depth += 1
+        elif source[pos] == "}":
+            depth -= 1
+            if depth == 0:
+                return source[brace + 1:pos]
+    raise AssertionError(f"unterminated function: {signature}")
+
+
+rc = ROOT / "trunk/user/rc/src"
+shared = ROOT / "trunk/user/shared/src"
+net = (rc / "net.c").read_text()
+wan = (rc / "net_wan.c").read_text()
+bridge_policy = (shared / "bridge_membership_policy.h").read_text()
+bridge_test = (shared / "tests/bridge_membership_policy.c").read_text()
+rc_header = (rc / "rc.h").read_text()
+netutils = (shared / "netutils.c").read_text()
+netutils_header = (shared / "netutils.h").read_text()
+vlan_policy = (rc / "vlan_interface_policy.h").read_text()
+vlan_test = (rc / "tests/vlan_interface_policy.c").read_text()
+viptv_policy = (rc / "wan_viptv_static_policy.h").read_text()
+workflow = (ROOT / ".github/workflows/wan-route-status.yml").read_text()
+
+require('#include "vlan_interface_policy.h"' in net,
+        "net.c must use the tested VLAN interface error policy")
+inspect_vlan = body(net, "inspect_vlan_iface(")
+require("get_interface_flags(vlan_ifname)" in inspect_vlan and
+        "vlan_interface_probe_result(flags, probe_errno, exists)" in inspect_vlan and
+        "errno = status;" in inspect_vlan,
+        "VLAN inspection must distinguish absence from probe errors and preserve errno")
+flags_reader = body(netutils, "get_interface_flags(const char *ifname)")
+require("saved_errno = errno;" in flags_reader and
+        "errno = saved_errno;" in flags_reader and
+        "close(sockfd);" in flags_reader,
+        "get_interface_flags() must preserve ioctl/copy errno across socket close")
+
+create_vlan = body(net, "create_vlan_iface_internal(")
+for marker in ("vconfig_add_if(", "vconfig_egress_map(", "set_interface_mtu(",
+               "set_interface_hwaddr(", "ifconfig(vlan_ifname, IFUP",
+               "ifconfig(vlan_ifname, 0", "vconfig_del_if(", "return ret;"):
+    require(marker in create_vlan, f"create_vlan_iface_internal() must propagate/rollback {marker}")
+require("if (created_out)\n\t\t*created_out = 0;" in create_vlan and
+        "if (created_out)\n\t\t*created_out = created;" in create_vlan and
+        "*created_out = 1;" in create_vlan and
+        "vlan_interface_retain_ownership(created, cleanup_status)" in create_vlan and
+        "vlan_interface_cleanup_status(cleanup_down_status, cleanup_delete_status)" in " ".join(create_vlan.split()),
+        "tracked VLAN creation must publish surviving ownership when self-rollback is incomplete")
+require("inspect_vlan_iface(vlan_ifname, &vlan_exists)" in create_vlan and
+        "is_interface_exist(vlan_ifname)" not in create_vlan,
+        "VLAN creation must fail closed on unknown interface state")
+require("int\ncreate_vlan_iface(" in net and
+        "int create_vlan_iface(" in rc_header and
+        "int create_vlan_iface_tracked(" in rc_header and
+        "create_vlan_iface_internal(" in body(net, "create_vlan_iface_tracked("),
+        "public and tracked VLAN creation declarations must return status")
+remove_vlan = body(net, "remove_vlan_iface(const char *vlan_ifname")
+require("ifconfig(vlan_ifname, 0" in remove_vlan and
+        "return vconfig_del_if(vlan_ifname);" in remove_vlan and
+        "int remove_vlan_iface(" in rc_header and
+        "inspect_vlan_iface(vlan_ifname, &vlan_exists)" in remove_vlan and
+        "is_interface_exist(vlan_ifname)" not in remove_vlan,
+        "remove_vlan_iface must distinguish absent interfaces from inspection errors and report detach/delete errors")
+for test_name in ("check_probe(0, 0, 0, 1)",
+                  "check_probe(-1, ENODEV, 0, 0)",
+                  "check_probe(-1, ENXIO, 0, 0)",
+                  "check_probe(-1, EPERM, EPERM, 0)",
+                  "check_probe(-1, 0, EIO, 0)",
+                  "vlan_interface_cleanup_status(EIO, EBUSY)",
+                  "vlan_interface_retain_ownership(1, EIO)",
+                  "vlan_interface_retain_ownership(0, EIO)"):
+    require(test_name in vlan_test, f"VLAN interface policy regression missing {test_name}")
+require("vlan-interface-policy" in workflow and
+        "tests/vlan_interface_policy.c" in workflow and
+        "ASAN_OPTIONS=detect_leaks=1 /tmp/vlan-interface-policy" in workflow,
+        "WAN workflow must compile and run VLAN interface sanitizer tests")
+
+for name in ("br_set_param_int", "br_set_stp", "br_set_fd",
+             "brport_set_param_int", "brport_set_m2u"):
+    require(f"int\n{name}(" in netutils and
+            f"extern int       {name}(" in netutils_header,
+            f"{name} must return the sysfs write status")
+require("return fput_int(bridge_path, value);" in body(netutils, "br_set_param_int("),
+        "bridge sysfs writes must propagate fput_int failure")
+require("return fput_int(brport_path, value);" in body(netutils, "brport_set_param_int("),
+        "bridge-port sysfs writes must propagate fput_int failure")
+bridge_internal = body(netutils, "br_add_del_if_internal(")
+require("*changed_out = 0;" in bridge_internal and
+        "bridge_membership_operation_changed(is_add, membership, ret)" in bridge_internal,
+        "tracked bridge operation must report only a membership change made by its ioctl")
+changed_pos = bridge_internal.index("*changed_out = bridge_membership_operation_changed")
+race_pos = bridge_internal.index("if (ret < 0 && bridge_membership_race_is_idempotent(")
+require(changed_pos < race_pos,
+        "a raced-to-idempotent bridge request must not claim ownership of the change")
+tracked_bridge = body(netutils, "br_add_del_if_tracked(")
+require("if (!changed_out)" in tracked_bridge and
+        "br_add_del_if_internal(" in tracked_bridge and
+        "extern int       br_add_del_if_tracked(" in netutils_header,
+        "tracked bridge membership API must validate and expose ownership")
+require("bridge_membership_operation_changed" in bridge_policy and
+        "expect_membership_change(" in bridge_test,
+        "bridge membership ownership policy must have regression coverage")
+m2u = body(netutils, "brport_set_m2u(")
+require(m2u.count("brport_set_param_int(") == 2 and "return status;" in m2u,
+        "multicast bridge-port configuration must report either sysfs failure")
+fd = body(netutils, "br_set_fd(")
+require("INT_MAX / 100" in fd and "return br_set_param_int(" in fd,
+        "bridge forward-delay conversion must reject integer overflow")
+
+wan_start = body(wan, "start_wan(void)")
+static_mtu_start = wan_start.index("if (wan_mtu >= 1300 && wan_mtu < 1500)")
+static_mtu_end = wan_start.index('set_wan_unit_error_status(unit, wan_err);',
+                                static_mtu_start)
+static_mtu = wan_start[static_mtu_start:static_mtu_end]
+mtu_failure = static_mtu.index("if (mtu_status != 0)")
+mtu_error_flag = static_mtu.index("wan_err = 1;", mtu_failure)
+mtu_status_merge = static_mtu.index("wan_start_status = rc_first_service_start_status(",
+                                    mtu_failure)
+address_gate = static_mtu.index("if (!wan_err) {")
+address_setup = static_mtu.index("address_status = ifconfig(wan_ifname, IFUP, wan_addr, wan_mask);")
+require(mtu_failure < mtu_error_flag < mtu_status_merge < address_gate < address_setup,
+        "failed configured static MTU must set WAN error, preserve first status, and block address/route startup")
+
+soft_lan = body(wan, "config_soft_bridge_lan(void)")
+for marker in ("create_vlan_iface_tracked(", "br_add_del_if_tracked(",
+               "remove_vlan_iface(", "brport_set_m2u(", "rollback:",
+               "bridge_rollback_can_remove_created_vlan(",
+               "bridge_rollback_can_restore_interface("):
+    require(marker in soft_lan, f"LAN bridge setup omits transactional rollback marker {marker}")
+soft_lan_rollback = soft_lan[soft_lan.index("rollback:"):]
+require("if (vlan_attached)" in soft_lan_rollback and
+        "if (physical_detached && vlan_state_safe)" in soft_lan_rollback and
+        "if (physical_attached)" in soft_lan_rollback and
+        "if (vlan_detached && physical_state_safe)" in soft_lan_rollback,
+        "LAN bridge rollback must reverse only memberships changed by this call")
+require("vlan_attach_ambiguous" in soft_lan_rollback and
+        "physical_attach_ambiguous" in soft_lan_rollback and
+        "errno = saved_errno;" in soft_lan_rollback and
+        "return ret;" in soft_lan_rollback,
+        "LAN bridge rollback must preserve ambiguous state and the original error")
+require("bridge_rollback_can_remove_created_vlan" in bridge_policy and
+        "bridge_rollback_can_restore_interface" in bridge_policy and
+        "bridge_rollback_can_remove_created_vlan" in bridge_test and
+        "bridge_rollback_can_restore_interface" in bridge_test,
+        "LAN bridge rollback ownership gates require host regression coverage")
+soft_wan = body(wan, "config_soft_bridge_wan_internal(")
+require('#include "bridge_membership_policy.h"' in wan and
+        "config_soft_bridge_wan_internal(" in wan and
+        "config_soft_bridge_wan(" in wan,
+        "WAN bridge transaction policy must be available to the RC batch coordinator")
+require("config_soft_bridge_wan_internal(br_id, vid, prio, wan_ifname," in wan and
+        "wan_hwaddr, NULL);" in wan,
+        "legacy WAN bridge callers must retain the compatibility wrapper")
+for marker in ("br_add_del_bridge(", "br_set_stp(", "br_set_fd(",
+               "br_set_param_int(", "set_interface_hwaddr(", "set_interface_mtu(",
+               "create_vlan_iface_tracked(", "br_add_del_if_tracked(", "brport_set_param_int(",
+               "ret = ifconfig(br_ifname, IFUP"):
+    require(marker in soft_wan, f"WAN bridge setup omits {marker}")
+for marker in ("ret = br_add_del_bridge(", "ret = br_set_stp(", "ret = br_set_fd(",
+               "ret = br_set_param_int(", "ret = set_interface_hwaddr(",
+               "ret = set_interface_mtu(", "ret = create_vlan_iface_tracked(",
+               "ret = br_add_del_if_tracked(", "ret = brport_set_param_int("):
+    require(marker in soft_wan, f"WAN bridge setup discards {marker}")
+require(soft_wan.count("if (ret != 0)") >= 10,
+        "WAN bridge setup does not fail closed on each setup stage")
+activation_pos = soft_wan.index('ret = ifconfig(br_ifname, IFUP, "0.0.0.0", NULL);')
+activation_gate = soft_wan.index("if (ret != 0)", activation_pos)
+require(activation_pos < activation_gate < soft_wan.index("goto rollback;", activation_gate),
+        "failed final bridge activation must enter rollback")
+rollback = soft_wan[soft_wan.index("rollback:"):]
+require("if (bwan_port_added)" in rollback and
+        "if (wan_port_added)" in rollback and
+        rollback.index("if (bwan_port_added)") < rollback.index("if (wan_port_added)"),
+        "owned bridge ports must roll back in reverse attachment order")
+require("if (bwan_attach_attempted && !bwan_port_added)" in rollback and
+        "vlan_remove_safe = 0;" in rollback and
+        "if (vlan_created)" in rollback and
+        "if (vlan_remove_safe)" in rollback,
+        "uncertain attachment ownership must prevent VLAN deletion")
+require("if (bridge_created)" in rollback and
+        "if (bridge_remove_safe &&" in rollback and
+        "bridge_batch_can_remove_created_bridge(bridge_created, bridge_empty)" in rollback and
+        "br_bridge_is_empty(br_ifname)" in rollback and
+        "br_add_del_bridge(br_ifname, 0)" in rollback,
+        "new bridge removal must be ownership-gated by an empty inventory")
+require("else if (bridge_was_up)" in rollback and
+        "ifconfig(br_ifname, IFUP" in rollback,
+        "pre-existing UP bridge must be restored on failed setup")
+require("saved_errno = errno;" in rollback and
+        "errno = saved_errno;\n\treturn ret;" in rollback,
+        "rollback must preserve the original setup failure")
+require("ownership->wan_port_added = wan_port_added" in soft_wan and
+        "ownership->bwan_port_added = bwan_port_added" in soft_wan and
+        "ownership->bridge_created = 1" in soft_wan and
+        "ownership->bwan_vlan_created = vlan_created" in soft_wan,
+        "WAN bridge setup must publish per-call bridge, VLAN and membership ownership")
+require("ownership->wan_port_detached_safe = 1" in rollback and
+        "ownership->bwan_port_detached_safe = 1" in rollback and
+        "bridge_batch_can_remove_created_bridge(bridge_created, bridge_empty)" in rollback,
+        "WAN bridge local rollback must report detached memberships and require an empty new bridge")
+
+soft_other = body(wan, "config_soft_bridges_other(")
+require("int\nconfig_soft_bridges_other(" in wan and
+        "struct soft_bridge_other_entry entries[4];" in soft_other and
+        "create_vlan_iface_tracked(" in soft_other and
+        "config_soft_bridge_wan_internal(" in soft_other and
+        "rollback:" in soft_other and
+        "while (entry_count > 0)" in soft_other and
+        "rollback_soft_bridge_other_entry(&entries[--entry_count])" in soft_other and
+        "errno = saved_errno;" in soft_other and
+        "return ret;" in soft_other,
+        "additional LAN bridge setup must track and reverse the current batch")
+other_rollback = body(wan, "rollback_soft_bridge_other_entry(")
+require("static int\nrollback_soft_bridge_other_entry(" in wan and
+        "bridge_batch_membership_detached_safe(" in other_rollback and
+        "br_add_del_if(" in other_rollback and
+        "bridge_batch_can_remove_created_bridge(" in other_rollback and
+        "br_bridge_is_empty(" in other_rollback and
+        "if (entry->port_vlan_created)" in other_rollback and
+        "if (bridge->bwan_vlan_created)" in other_rollback and
+        "bridge->bridge_existed" in other_rollback and
+        "return status;" in other_rollback and
+        "if (bwan_detached_safe)" in other_rollback and
+        "if (wan_detached_safe)" in other_rollback and
+        "bridge_empty_errno = bridge_empty < 0" in other_rollback and
+        "route_status_accumulate(status, bridge_empty_errno)" in other_rollback and
+        "br_del_all_ifs(" not in other_rollback,
+        "batch rollback must report cleanup status and never restore reused VLAN/bridge state while membership is uncertain")
+detach_bwan_pos = other_rollback.index("if (bridge->bwan_port_added")
+detach_wan_pos = other_rollback.index("if (bridge->wan_port_added")
+remove_bwan_vlan_pos = other_rollback.index("if (bridge->bwan_vlan_created)")
+remove_port_vlan_pos = other_rollback.index("if (entry->port_vlan_created)")
+remove_bridge_pos = other_rollback.index("if (bridge->bridge_name[0])")
+require(detach_bwan_pos < detach_wan_pos < remove_bwan_vlan_pos <
+        remove_port_vlan_pos < remove_bridge_pos,
+        "batch rollback must compensate ports and VLANs in reverse construction order")
+bridge_empty = body(netutils, "br_bridge_is_empty(")
+require("BRCTL_GET_PORT_LIST" in bridge_empty and
+        "bridge_port_list_is_empty(" in bridge_empty and
+        "return -1;" in bridge_empty and
+        "br_bridge_is_empty(const char *brname)" in netutils_header,
+        "bridge removal must use a complete fail-closed port inventory")
+require("bridge_port_list_is_empty" in bridge_policy and
+        "bridge_batch_membership_detached_safe" in bridge_policy and
+        "bridge_batch_can_remove_created_bridge" in bridge_policy and
+        "expect_port_list_empty(" in bridge_test and
+        "expect_batch_membership_safe(" in bridge_test and
+        "expect_batch_bridge_removal(" in bridge_test,
+        "batch rollback policies need empty/ownership/failure sanitizer regression coverage")
+vinet = body(wan, "config_vinet_wan(void)")
+require("ret = create_vlan_iface(" in vinet and
+        "ret = config_soft_bridges_other(" in vinet and
+        "ret = config_soft_bridge_wan(" in vinet and
+        "return ret;" in vinet,
+        "primary WAN VLAN/bridge failures must abort config_vinet_wan")
+viflast_publish = vinet.index('ret = set_wan_unit_value_status(0, "viflast", vlan_iflast);')
+viflast_gate = vinet.index("if (ret != 0)", viflast_publish)
+create_vlan = vinet.index("ret = create_vlan_iface(", viflast_gate)
+require(vinet.index("ret = remove_vlan_iface(vinet_iflast);") < viflast_publish <
+        viflast_gate < create_vlan,
+        "WAN VLAN cleanup identity must be checked and recorded after old VLAN removal but before creating its replacement")
+ifname_publish = vinet.index('ret = set_wan_unit_value_status(0, "ifname", vinet_ifname);')
+ifname_gate = vinet.index("if (ret != 0)", ifname_publish)
+require(create_vlan < ifname_publish < ifname_gate < vinet.index("return 0;", ifname_gate) and
+        'set_wan_unit_value(0, "ifname", vinet_ifname)' not in vinet,
+        "WAN activation interface identity must be checked after VLAN/bridge/IPv6 setup and before returning success")
+wisp = body(wan, "config_apcli_wisp(void)")
+wisp_publish = wisp.index('publication_status = set_wan_unit_value_status(0, "ifname", wisp_ifname);')
+wisp_gate = wisp.index("if (publication_status != 0)", wisp_publish)
+require(wisp_publish < wisp_gate < wisp.index("return 0;", wisp_gate) and
+        'set_wan_unit_value(0, "ifname", wisp_ifname)' not in wisp,
+        "AP-client WISP migration must fail closed when its active interface identity cannot be published")
+viptv = body(wan, "launch_viptv_wan(void)")
+iptv_start = viptv.index("/* VLAN interface for IPTV */")
+iptv_setup = viptv[iptv_start:]
+mode_read_pos = viptv.index('ret = get_nvram_int_checked_status("viptv_mode", &viptv_mode);')
+mode_error_gate_pos = viptv.index("if (ret != 0)", mode_read_pos)
+mode_error_return_pos = viptv.index("return ret;", mode_error_gate_pos)
+static_mode_gate_pos = viptv.index("if (viptv_mode == 2)", mode_error_return_pos)
+static_addr_read_pos = viptv.index('"viptv_ipaddr", viptv_addr_setting,', static_mode_gate_pos)
+static_mask_read_pos = viptv.index('"viptv_netmask",', static_addr_read_pos)
+static_pair_error_pos = viptv.index("if (ret != 0)", static_mask_read_pos)
+static_pair_return_pos = viptv.index("return ret;", static_pair_error_pos)
+static_validation_pos = viptv.index("if (!is_valid_ipv4(viptv_addr_setting)", static_pair_return_pos)
+static_addr_copy_pos = viptv.index("strcpy(viptv_addr, viptv_addr_setting);", static_validation_pos)
+static_mask_copy_pos = viptv.index("strcpy(viptv_mask, viptv_mask_setting);", static_addr_copy_pos)
+static_gateway_read_pos = viptv.index('"viptv_gateway", viptv_gate_setting,', static_mask_copy_pos)
+static_gateway_error_pos = viptv.index("if (ret != 0)", static_gateway_read_pos)
+static_gateway_return_pos = viptv.index("return ret;", static_gateway_error_pos)
+static_gateway_copy_pos = viptv.index("strcpy(viptv_gate, viptv_gate_setting);", static_gateway_return_pos)
+old_vlan_removal_pos = viptv.index("/* Remove a no-longer-used VLAN", static_gateway_copy_pos)
+require(mode_read_pos < mode_error_gate_pos < mode_error_return_pos <
+        static_mode_gate_pos < static_addr_read_pos < static_mask_read_pos <
+        static_pair_error_pos < static_pair_return_pos < static_validation_pos <
+        static_addr_copy_pos < static_mask_copy_pos < static_gateway_read_pos <
+        static_gateway_error_pos < static_gateway_return_pos <
+        static_gateway_copy_pos < old_vlan_removal_pos,
+        "static IPTV mode/address/mask/gateway must be checked, copied, validated and committed to local buffers before VLAN teardown")
+for key in ("viptv_ipaddr", "viptv_netmask", "viptv_gateway"):
+    assert f'nvram_safe_get("{key}")' not in viptv
+
+snapshot_pos = iptv_setup.index("vlan_flags = get_interface_flags(viptv_ifname);")
+create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
+bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
+rp_filter_pos = iptv_setup.index('ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);')
+old_vlan_branch = iptv_setup.index("/* Remove a no-longer-used VLAN")
+old_vlan_replace = iptv_setup.index("ret = wan_viptv_ifname_remove_old_vlan(", old_vlan_branch)
+old_vlan_plain_remove = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);", old_vlan_branch)
+old_vlan_policy = body(viptv_policy, "wan_viptv_ifname_remove_old_vlan(")
+publish_pos = iptv_setup.index("ret = wan_viptv_ifname_publish_or_rollback(", rp_filter_pos)
+require(snapshot_pos < old_vlan_branch < old_vlan_replace < old_vlan_plain_remove < create_pos < bridge_pos < rp_filter_pos < publish_pos,
+        "IPTV startup must snapshot replacement VLAN ownership, clear old VLAN identity before removal, then commit the new identity after setup")
+require(old_vlan_policy.index("ops->clear_identity(context)") <
+        old_vlan_policy.index("ops->remove_vlan(context)") <
+        old_vlan_policy.index("ops->restore_identity(context)"),
+        "old IPTV VLAN removal must restore its recovery identity if interface removal fails")
+for operation in ("ret = create_vlan_iface_tracked(",
+                  "ret = config_soft_bridge_wan_internal(",
+                  'ret = set_interface_conf_int("ipv4", viptv_ifname, "rp_filter", 0);'):
+    operation_pos = iptv_setup.index(operation)
+    error_gate = iptv_setup.index("if (ret != 0)", operation_pos)
+    rollback_call = iptv_setup.index("rollback_status = rollback_viptv_vlan_setup(&rollback_entry);",
+                                     error_gate)
+    error_return = iptv_setup.index("return ret;", rollback_call)
+    require(operation_pos < error_gate < rollback_call < error_return < publish_pos,
+            f"IPTV setup must transactionally roll back before returning after {operation}")
+ownership_struct_pos = wan.index("struct soft_bridge_wan_ownership {")
+other_entry_struct_pos = wan.index("struct soft_bridge_other_entry {")
+gmac_guard_pos = wan.index("#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)")
+require(ownership_struct_pos < other_entry_struct_pos < gmac_guard_pos,
+        "IPTV rollback ownership records must be declared for all board configurations")
+require("}\n#endif\n\nstatic int\nwan_viptv_ifname_publish_status" in wan and
+        wan.index("static int\nwan_viptv_ifname_publish_status") <
+        wan.index("static int\nrollback_viptv_vlan_setup"),
+        "GMAC-only bridge batch must close its preprocessor guard before checked IPTV identity publication and rollback adapters")
+viptv_rollback = body(wan, "rollback_viptv_vlan_setup(struct soft_bridge_other_entry *entry)")
+require("#if defined (USE_GMAC2_TO_GPHY) || defined (USE_GMAC2_TO_GSW)" in viptv_rollback and
+        "rollback_soft_bridge_other_entry(entry);" in viptv_rollback and
+        "entry->port_vlan_created" in viptv_rollback and
+        "remove_vlan_iface(entry->port_ifname)" in viptv_rollback and
+        "wan_viptv_ifname_publish_status(" in viptv_rollback and
+        "failed to publish IPTV VLAN recovery interface identity" in viptv_rollback and
+        "entry->bridge.bridge_existed" in viptv_rollback and
+        "get_interface_flags(entry->bridge.bridge_name)" in viptv_rollback and
+        "Boards without GMAC2 bridge support" in viptv_rollback,
+        "IPTV rollback must compile on GMAC2 and VLAN-only boards and retain only surviving recovery interfaces")
+require("char viptv_ifname[24], viptv_addr[16], viptv_mask[16], viptv_gate[16];" in viptv and
+        "strcpy(viptv_addr, viptv_addr_setting);" in viptv and
+        "strcpy(viptv_mask, viptv_mask_setting);" in viptv and
+        "strcpy(viptv_gate, viptv_gate_setting);" in viptv and
+        "viptv_addr = nvram_safe_get" not in viptv and
+        "viptv_mask = nvram_safe_get" not in viptv and
+        "viptv_gate = nvram_safe_get" not in viptv,
+        "static IPTV callbacks must use bounded local copies, not borrowed NVRAM pointers")
+
+ifname_publish = body(wan, "wan_viptv_ifname_publish_status(const char *ifname)")
+require('nvram_set_temp("viptv_ifname", ifname)' in ifname_publish and
+        "rc_wan_nvram_write_status(api_result, saved_errno)" in ifname_publish,
+        "IPTV recovery interface identity must use the checked NVRAM write status")
+ifname_publish_policy = body(viptv_policy, "wan_viptv_ifname_publish_or_rollback(")
+require("status = ops->publish(context);" in ifname_publish_policy and
+        "rollback_status = ops->rollback_vlan(context);" in ifname_publish_policy and
+        "return route_status_accumulate(status, rollback_status);" in ifname_publish_policy,
+        "IPTV interface identity publication failure must trigger VLAN rollback")
+require("wan_viptv_ifname_publish_or_rollback(" in iptv_setup and
+        "VLAN rollback attempted" in iptv_setup,
+        "new IPTV VLAN must be rolled back if its recovery identity cannot be committed")
+for case in ("test_ifname_publish_success_keeps_vlan_and_skips_rollback",
+             "test_ifname_publish_failure_rolls_back_vlan_and_preserves_primary_error",
+             "test_ifname_rollback_failure_does_not_mask_publish_error",
+             "test_ifname_publish_policy_rejects_incomplete_callbacks"):
+    require(case in (rc / "tests/wan_viptv_static_policy.c").read_text(),
+            "IPTV interface identity policy regression missing " + case)
+
+snapshot_absolute = iptv_start + snapshot_pos
+old_vlan_branch = iptv_setup.index("/* Remove a no-longer-used VLAN")
+old_vlan_replace = iptv_setup.index("ret = wan_viptv_ifname_remove_old_vlan(", old_vlan_branch)
+old_vlan_plain_remove = iptv_setup.index("ret = remove_vlan_iface(viptv_iflast);", old_vlan_branch)
+old_vlan_policy = body(viptv_policy, "wan_viptv_ifname_remove_old_vlan(")
+require(snapshot_pos < old_vlan_branch < old_vlan_replace < old_vlan_plain_remove < create_pos,
+        "snapshot replacement VLAN before retiring the old VLAN identity and removing its interface")
+require(old_vlan_policy.index("ops->clear_identity(context)") <
+        old_vlan_policy.index("ops->remove_vlan(context)") <
+        old_vlan_policy.index("ops->restore_identity(context)"),
+        "old IPTV VLAN removal must clear identity first and restore it if interface removal fails")
+restart = body(wan, "full_restart_wan(void)")
+lan_bridge_call = restart.index("status = config_soft_bridge_lan();")
+lan_bridge_gate = restart.index("if (status != 0)", lan_bridge_call)
+lan_bridge_log = restart.index("LAN bridge VLAN setup failed (status=%d)", lan_bridge_gate)
+lan_bridge_return = restart.index("return status;", lan_bridge_log)
+wan_restart = restart.index("status = start_wan();")
+require(lan_bridge_call < lan_bridge_gate < lan_bridge_log < lan_bridge_return < wan_restart,
+        "full WAN restart must preserve LAN-side VLAN bridge setup failure before WAN startup")
+
+push, pr = workflow.split("  pull_request:", 1)
+pr = pr.split("\njobs:", 1)[0]
+for path in ("trunk/user/shared/src/netutils.c",
+             "trunk/user/shared/src/netutils.h",
+             "trunk/user/rc/src/vlan_interface_policy.h",
+             "trunk/user/rc/src/tests/vlan_interface_policy.c",
+             "trunk/user/shared/src/bridge_membership_policy.h",
+             "trunk/user/shared/src/tests/bridge_membership_policy.c",
+             "trunk/user/rc/src/net_wan.c",
+             "scripts/check_wan_vlan_setup.py"):
+    require(push.count(f'"{path}"') == 1 and pr.count(f'"{path}"') == 1,
+            f"WAN workflow push/PR paths must include {path}")
+require("python3 scripts/check_wan_vlan_setup.py" in workflow,
+        "WAN workflow must execute the VLAN/bridge source contract")
+
+viptv_test = (rc / "tests/wan_viptv_static_policy.c").read_text()
+for case in ("test_old_vlan_metadata_is_cleared_before_vlan_removal",
+             "test_old_vlan_clear_failure_preserves_vlan_and_skips_removal",
+             "test_old_vlan_remove_failure_restores_recovery_identity",
+             "test_old_vlan_restore_failure_preserves_remove_error",
+             "test_old_vlan_transition_rejects_incomplete_callbacks"):
+    require(case in viptv_test and case + "();" in viptv_test,
+            "old IPTV VLAN replacement regression missing " + case)
+for case in ("test_old_vlan_metadata_is_cleared_before_vlan_removal",
+             "test_old_vlan_clear_failure_preserves_vlan_and_skips_removal",
+             "test_old_vlan_remove_failure_restores_recovery_identity",
+             "test_old_vlan_restore_failure_preserves_remove_error",
+             "test_old_vlan_transition_rejects_incomplete_callbacks"):
+    require(case in viptv_test and case + "();" in viptv_test,
+            "old IPTV VLAN replacement regression missing " + case)
+static_multicast = body(wan, "wan_viptv_static_start_multicast(void *opaque)")
+require(("static int" + chr(10) + "wan_viptv_static_start_multicast") in wan and
+        "return start_igmpproxy(context->ifname);" in static_multicast,
+        "static IPTV must return its IGMP proxy startup result")
+static_start = body(viptv_policy, "wan_viptv_static_start(")
+static_publish = body(wan, "wan_viptv_static_publish_snapshot(void *opaque)")
+static_clear = body(wan, "wan_viptv_static_clear_address(void *opaque)")
+require("int (*publish_snapshot)(void *context);" in viptv_policy and
+        "int (*clear_address)(void *context);" in viptv_policy and
+        "status = ops->publish_snapshot(context);" in static_start and
+        "rollback_status = ops->clear_address(context);" in static_start and
+        static_start.index("ops->publish_snapshot(context)") <
+        static_start.index("ops->clear_address(context)") <
+        static_start.index("ops->add_default_route(context)"),
+        "static IPTV must clear its configured address and stop route/multicast startup after publication failure")
+for key in ("manv_ipaddr", "manv_netmask", "manv_gateway"):
+    require('"' + key + '"' in static_publish,
+            "static IPTV snapshot is missing " + key)
+require("wan_dhcp_nvram_publish_values(names, values, 3)" in static_publish and
+        'ifconfig(context->ifname, IFUP, "0.0.0.0", NULL)' in static_clear,
+        "static IPTV address/mask/gateway publication must be compensatable and have address cleanup")
+require("multicast_status = ops->start_multicast(context);" in static_start and
+        "return route_status_accumulate(status, multicast_status);" in static_start,
+        "static IPTV policy must aggregate proxy status and still run multicast after route failure")
+for test_name in ("test_snapshot_failure_clears_address_and_skips_routes_and_multicast",
+                  "test_snapshot_failure_preserves_primary_error_when_address_clear_fails",
+                  "test_multicast_failure_is_returned_without_gateway",
+                  "test_first_route_error_is_preserved_when_multicast_also_fails"):
+    require(test_name in viptv_test and test_name + "();" in viptv_test,
+            f"static IPTV regression missing {test_name}")
+for signature, operation, description in (
+    ("man_up_internal(char *man_ifname, int unit, int is_static, int *gateway_route_status)", "start_igmpproxy(man_ifname)", "MAN startup"),
+    ("man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)", "stop_igmpproxy(man_ifname)", "MAN teardown"),
+    ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "start_igmpproxy(wan_ifname)", "WAN startup"),
+    ("wan_down_internal(char *wan_ifname, int unit, int is_static)", "stop_igmpproxy(wan_ifname)", "WAN teardown"),
+):
+    function = body(wan, signature)
+    require(f"route_status = {operation};" in function and
+            "status = route_status_accumulate(status, route_status);" in function,
+            f"{description} must preserve IGMP proxy status")
+iptv_dhcp = body(wan, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
+require("multicast_status = start_igmpproxy(man_ifname);" in iptv_dhcp and
+        "callback_status = route_status_accumulate(route_setup_status, multicast_status);" in iptv_dhcp and
+        'wan_nvram_int_temp_status("manv_route_err", route_setup_status)' in iptv_dhcp and
+        'wan_nvram_int_temp_status("manv_err", i_err)' in iptv_dhcp and
+        "callback_status = route_status_accumulate(callback_status, publish_status);" in iptv_dhcp and
+        "return callback_status;" in iptv_dhcp and
+        "nvram_set_int_temp(" not in iptv_dhcp,
+        "IPTV DHCP must return proxy and NVRAM status while keeping route retry state independent")
+iptv_zcip = body(wan, "zcip_viptv_bound(char *man_ifname)")
+require("return start_igmpproxy(man_ifname);" in iptv_zcip,
+        "ZeroConf IPTV bound must return proxy startup status")
+iptv_zcip_down = body(wan, "zcip_viptv_deconfig(char *man_ifname)")
+normalized_iptv_zcip_down = " ".join(iptv_zcip_down.split())
+require("multicast_status = stop_igmpproxy(man_ifname);" in iptv_zcip_down and
+        "return route_status_accumulate( route_status_accumulate( route_status_accumulate(interface_status, route_status), metadata_status), multicast_status);" in normalized_iptv_zcip_down,
+        "ZeroConf IPTV deconfig must return proxy stop failure")
+for path in ("trunk/user/rc/src/wan_viptv_static_policy.h",
+             "trunk/user/rc/src/tests/wan_viptv_static_policy.c"):
+    require(path in workflow, f"WAN workflow path missing {path}")
+
+print("WAN VLAN/bridge and IGMP proxy result-propagation contracts: PASS")

@@ -1,0 +1,43 @@
+name: iNIC signal lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/inicd-signal-stability.yml"
+      - "scripts/check_inicd_signals.py"
+      - "trunk/user/rc/src/inicd.c"
+      - "trunk/user/rc/src/inicd_signal_policy.h"
+      - "trunk/user/rc/src/tests/inicd_signal_policy.c"
+      - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+  pull_request:
+    paths:
+      - ".github/workflows/inicd-signal-stability.yml"
+      - "scripts/check_inicd_signals.py"
+      - "trunk/user/rc/src/inicd.c"
+      - "trunk/user/rc/src/inicd_signal_policy.h"
+      - "trunk/user/rc/src/tests/inicd_signal_policy.c"
+      - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/Makefile"
+      - "trunk/user/rc/Makefile"
+
+jobs:
+  inicd-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 iNIC signal deferral regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -Itrunk/user/rc/src \
+            trunk/user/rc/src/tests/inicd_signal_policy.c \
+            -o /tmp/inicd-signal-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/inicd-signal-policy
+      - name: Verify iNIC signal deferral and daemon lifecycle source contracts
+        run: python3 scripts/check_inicd_signals.py

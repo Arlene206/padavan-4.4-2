@@ -1,0 +1,28 @@
+name: OpenVPN certificate private-key permissions
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/openvpn-cert-key-permissions.yml"
+      - "trunk/user/openvpn/openvpn-cert.sh"
+      - "scripts/tests/openvpn_cert_key_permissions.sh"
+  pull_request:
+    paths:
+      - ".github/workflows/openvpn-cert-key-permissions.yml"
+      - "trunk/user/openvpn/openvpn-cert.sh"
+      - "scripts/tests/openvpn_cert_key_permissions.sh"
+
+permissions:
+  contents: read
+
+jobs:
+  private-key-permissions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate OpenVPN certificate script syntax
+        run: bash -n trunk/user/openvpn/openvpn-cert.sh
+      - name: Exercise private-key creation, repair and failure paths
+        run: bash scripts/tests/openvpn_cert_key_permissions.sh

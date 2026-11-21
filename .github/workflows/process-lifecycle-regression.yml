@@ -1,0 +1,1396 @@
+name: Process inventory and lifecycle fail-closed regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/process-lifecycle-regression.yml"
+      - ".github/workflows/xy-c1-firmware-validation.yml"
+      - "scripts/audit_process_lifecycle.py"
+      - "scripts/check_dev_init_boot.py"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/scripts/tests/copyscripts_ca_status.sh"
+      - "scripts/check_crontab_startup_status.py"
+      - "scripts/check_firmware_update_notification.py"
+      - "scripts/check_guest_lan_isolation_status.py"
+      - "scripts/check_miniupnpd_lifecycle_lock.py"
+      - "scripts/check_modem_wan_start_status.py"
+      - "scripts/check_optional_app_start_status.py"
+      - "scripts/check_process_lifecycle_integration.py"
+      - "scripts/check_rwfs_mount_integration.py"
+      - "scripts/check_smartdns_lifecycle.py"
+      - "scripts/check_sshd_firewall_status.py"
+      - "trunk/user/LPRng/src/src/common/lpd.c"
+      - "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h"
+      - "trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c"
+      - "trunk/user/adbyby/adbyby.sh"
+      - "trunk/user/adbyby/tests/adbyby_start_postcondition.sh"
+      - "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
+      - "trunk/user/busybox/Makefile"
+      - "trunk/user/busybox/busybox-1.24.x/networking/telnetd.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c"
+      - "trunk/user/busybox/busybox-1.24.x/sysklogd/klogd.c"
+      - "trunk/user/busybox/busybox-1.24.x/sysklogd/syslogd.c"
+      - "trunk/user/dropbear/Makefile"
+      - "trunk/user/dropbear/sshd.sh"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/iperf3/Makefile"
+      - "trunk/user/iperf3/iperf3.sh"
+      - "trunk/user/lldt/src/main.c"
+      - "trunk/user/lldt/src/osl-linux.c"
+      - "trunk/user/mentohust/scripts/mentohust.sh"
+      - "trunk/user/openssh/sshd.sh"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/main.c"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c"
+      - "trunk/user/ralinkiappd/iappd.sh"
+      - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
+      - "trunk/user/rc/src/auth.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/ddns_restart_policy.h"
+      - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/detect_wan_udhcpc_policy.h"
+      - "trunk/user/rc/src/firefly_config_file.h"
+      - "trunk/user/rc/src/hwnat_config_policy.h"
+      - "trunk/user/rc/src/igmpproxy_config_file.h"
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/boot_device_node_policy.h"
+      - "trunk/user/rc/src/tests/boot_device_node_policy.c"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/init_router_result_policy.h"
+      - "trunk/user/rc/src/tests/init_router_result_policy.c"
+      - "trunk/user/rc/src/tcp_tweaks_policy.h"
+      - "trunk/user/rc/src/tests/tcp_tweaks_policy.c"
+      - "trunk/user/rc/src/libc_gai_policy.h"
+      - "trunk/user/rc/src/tests/libc_gai_policy.c"
+      - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
+      - "trunk/user/rc/src/ipv6_global_conf_policy.h"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
+      - "trunk/user/rc/src/logger_start_policy.h"
+      - "trunk/user/rc/src/minidlna_config_file.h"
+      - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/miniupnpd_presentation_url.h"
+      - "trunk/user/rc/src/modem_wan_start_policy.h"
+      - "trunk/user/rc/src/msd_lite_config_file.h"
+      - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/tests/bridge_init_policy.c"
+      - "trunk/user/rc/src/net_lan6.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/802.1x/src/rtdot1x.c"
+      - "trunk/user/802.1x/src/config.c"
+      - "trunk/user/rc/src/optional_daemon_policy.h"
+      - "trunk/user/rc/src/pppoe_relay_policy.h"
+      - "trunk/user/rc/src/process_presence_start_policy.h"
+      - "trunk/user/802.1x/src/auth_startup_handshake.h"
+      - "trunk/user/rc/src/router_mode_nvram_policy.h"
+      - "trunk/user/rc/src/tests/router_mode_nvram_policy.c"
+      - "trunk/user/rc/src/rc_nvram_legacy_migration_policy.h"
+      - "trunk/user/rc/src/tests/rc_nvram_legacy_migration_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc_nvram_policy.h"
+      - "trunk/user/rc/src/tests/nvram_restore_policy.c"
+      - "trunk/user/shared/src/nvram_linux.c"
+      - "trunk/user/shared/src/nvram_linux.h"
+      - "trunk/user/rc/src/rc_notify_batch_policy.h"
+      - "trunk/user/rc/src/rstats.c"
+      - "trunk/user/rc/src/service_lifecycle_policy.h"
+      - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/crontab_update_status.h"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/inadyn_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/inadyn_lifecycle_lock.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/service_daemon_wait_policy.h"
+      - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/sshd_daemon_policy.h"
+      - "trunk/user/rc/src/storage_rwfs_mount_policy.h"
+      - "trunk/user/rc/src/tests/ddns_restart_policy.c"
+      - "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c"
+      - "trunk/user/rc/src/tests/file_write_status.c"
+      - "trunk/user/rc/src/tests/firefly_config_file.c"
+      - "trunk/user/rc/src/tests/hwnat_config_policy.c"
+      - "trunk/user/rc/src/tests/igmpproxy_config_file.c"
+      - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
+      - "trunk/user/rc/src/tests/logger_start_policy.c"
+      - "trunk/user/rc/src/tests/minidlna_config_file.c"
+      - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
+      - "trunk/user/rc/src/tests/miniupnpd_presentation_url.c"
+      - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
+      - "trunk/user/rc/src/tests/msd_lite_config_file.c"
+      - "trunk/user/rc/src/tests/pppoe_relay_policy.c"
+      - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/rc/src/detached_daemon_start_policy.h"
+      - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
+      - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
+      - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
+      - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "trunk/user/rc/src/tests/service_start_status.c"
+      - "trunk/user/rc/src/tests/crontab_update_status.c"
+      - "trunk/user/rc/src/tests/service_wait_policy.c"
+      - "trunk/user/rc/src/tests/sshd_daemon_policy.c"
+      - "trunk/user/rc/src/tests/storage_rwfs_mount_policy.c"
+      - "trunk/user/rc/src/tests/udhcpc_script_link_policy.c"
+      - "trunk/user/rc/src/tests/upnp_restart_policy.c"
+      - "trunk/user/rc/src/tests/vpn_server_restart_policy.c"
+      - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
+      - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
+      - "trunk/user/rc/src/tests/wireless_guest_isolation_policy.c"
+      - "trunk/user/rc/src/tests/wireless_module_load_policy.c"
+      - "trunk/user/rc/src/tests/xupnpd_config_file.c"
+      - "trunk/user/rc/src/udhcpc_script_link_policy.h"
+      - "trunk/user/rc/src/upnp_restart_policy.h"
+      - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/rc/src/vpn_client.c"
+      - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/rc/src/ppp_options_file.h"
+      - "trunk/user/rc/src/tests/ppp_options_file.c"
+      - "trunk/user/rc/src/ppp_option_value_policy.h"
+      - "trunk/user/rc/src/tests/ppp_option_value_policy.c"
+      - "scripts/check_vpn_credential_files.py"
+      - "trunk/user/rc/src/vpn_server_restart_policy.h"
+      - "trunk/user/rc/src/wan_mtu_setup_policy.h"
+      - "trunk/user/rc/src/wan_route_flush_policy.h"
+      - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+      - "trunk/user/rc/src/wireless_guest_isolation_policy.h"
+      - "trunk/user/rc/src/wireless_module_load_policy.h"
+      - "trunk/user/rc/src/xupnpd_config_file.h"
+      - "trunk/user/scripts/files/sbin/dev_init.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/scripts/tests/autostart_optional_start_status.sh"
+      - "trunk/user/scripts/tests/dev_init_boot_policy.sh"
+      - "trunk/user/scripts/files/sbin/check_crontab.sh"
+      - "trunk/user/scripts/tests/check_crontab_status.sh"
+      - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/shared/Makefile"
+      - "trunk/user/shared/scripts/process_lifecycle.sh"
+      - "trunk/user/shared/src/Makefile"
+      - "trunk/user/shared/src/file_write_status.h"
+      - "trunk/user/shared/src/pids.c"
+      - "trunk/user/shared/src/pids_presence_policy.h"
+      - "trunk/user/shared/src/process_inventory.c"
+      - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_io_retry_policy.h"
+      - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/shared/src/flash_mtd.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "trunk/user/shared/src/process_pidfile_record.h"
+      - "trunk/user/shared/src/net_ifstats_policy.h"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/tests/net_ifstats_policy.c"
+      - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/shutils_pidfile_policy.h"
+      - "trunk/user/shared/src/tests/shutils_pidfile_policy.c"
+      - "trunk/user/shared/src/passwd_temp_file_policy.h"
+      - "trunk/user/shared/src/tests/passwd_temp_file_policy.c"
+      - "trunk/user/shared/src/tests/pids_presence_policy.c"
+      - "trunk/user/shared/src/tests/process_inventory.c"
+      - "trunk/user/shared/src/tests/process_pidfile.c"
+      - "trunk/user/shared/src/tests/process_pidfile_record.c"
+      - "trunk/user/shared/tests/process_lifecycle.sh"
+      - "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
+      - "trunk/user/ttyd/ttyd.sh"
+      - "trunk/user/vlmcsd/vlmcsd.sh"
+      - "trunk/user/wireguard/wireguard.sh"
+      - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
+
+      # Keep AliDDNS-owned tests in their dedicated lifecycle workflow.
+      - "!trunk/user/aliddns/tests/**"
+  pull_request:
+    paths:
+      - ".github/workflows/process-lifecycle-regression.yml"
+      - ".github/workflows/xy-c1-firmware-validation.yml"
+      - "scripts/audit_process_lifecycle.py"
+      - "scripts/check_dev_init_boot.py"
+      - "trunk/user/scripts/files/usr/bin/copyscripts.sh"
+      - "trunk/user/scripts/tests/copyscripts_ca_status.sh"
+      - "scripts/check_crontab_startup_status.py"
+      - "scripts/check_firmware_update_notification.py"
+      - "scripts/check_guest_lan_isolation_status.py"
+      - "scripts/check_miniupnpd_lifecycle_lock.py"
+      - "scripts/check_modem_wan_start_status.py"
+      - "scripts/check_optional_app_start_status.py"
+      - "scripts/check_process_lifecycle_integration.py"
+      - "scripts/check_rwfs_mount_integration.py"
+      - "scripts/check_smartdns_lifecycle.py"
+      - "scripts/check_sshd_firewall_status.py"
+      - "trunk/user/LPRng/src/src/common/lpd.c"
+      - "trunk/user/LPRng/src/src/include/lpd_pidfile_policy.h"
+      - "trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c"
+      - "trunk/user/adbyby/adbyby.sh"
+      - "trunk/user/adbyby/tests/adbyby_start_postcondition.sh"
+      - "trunk/user/adbyby/tests/adbyby_stop_postcondition.sh"
+      - "trunk/user/busybox/Makefile"
+      - "trunk/user/busybox/busybox-1.24.x/networking/telnetd.c"
+      - "trunk/user/busybox/busybox-1.24.x/networking/udhcp/dhcpc.c"
+      - "trunk/user/busybox/busybox-1.24.x/sysklogd/klogd.c"
+      - "trunk/user/busybox/busybox-1.24.x/sysklogd/syslogd.c"
+      - "trunk/user/dropbear/Makefile"
+      - "trunk/user/dropbear/sshd.sh"
+      - "trunk/user/httpd/src/web_ex.c"
+      - "trunk/user/iperf3/Makefile"
+      - "trunk/user/iperf3/iperf3.sh"
+      - "trunk/user/lldt/src/main.c"
+      - "trunk/user/lldt/src/osl-linux.c"
+      - "trunk/user/mentohust/scripts/mentohust.sh"
+      - "trunk/user/openssh/sshd.sh"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/main.c"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/pppd_pidfile_policy.h"
+      - "trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c"
+      - "trunk/user/ralinkiappd/iappd.sh"
+      - "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
+      - "trunk/user/rc/src/auth.c"
+      - "trunk/user/rc/src/common_ex.c"
+      - "trunk/user/rc/src/ddns_restart_policy.h"
+      - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_link.c"
+      - "trunk/user/rc/src/detect_wan.c"
+      - "trunk/user/rc/src/detect_wan_udhcpc_policy.h"
+      - "trunk/user/rc/src/firefly_config_file.h"
+      - "trunk/user/rc/src/hwnat_config_policy.h"
+      - "trunk/user/rc/src/igmpproxy_config_file.h"
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/boot_device_node_policy.h"
+      - "trunk/user/rc/src/tests/boot_device_node_policy.c"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/init_router_result_policy.h"
+      - "trunk/user/rc/src/tests/init_router_result_policy.c"
+      - "trunk/user/rc/src/tcp_tweaks_policy.h"
+      - "trunk/user/rc/src/tests/tcp_tweaks_policy.c"
+      - "trunk/user/rc/src/libc_gai_policy.h"
+      - "trunk/user/rc/src/tests/libc_gai_policy.c"
+      - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
+      - "trunk/user/rc/src/ipv6_global_conf_policy.h"
+      - "trunk/user/rc/src/lan_addr6_reload_policy.h"
+      - "trunk/user/rc/src/logger_start_policy.h"
+      - "trunk/user/rc/src/minidlna_config_file.h"
+      - "trunk/user/rc/src/miniupnpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/miniupnpd_presentation_url.h"
+      - "trunk/user/rc/src/modem_wan_start_policy.h"
+      - "trunk/user/rc/src/msd_lite_config_file.h"
+      - "trunk/user/rc/src/net.c"
+      - "trunk/user/rc/src/net6.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/tests/bridge_init_policy.c"
+      - "trunk/user/rc/src/net_lan6.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_wifi.c"
+      - "trunk/user/802.1x/src/rtdot1x.c"
+      - "trunk/user/802.1x/src/config.c"
+      - "trunk/user/rc/src/optional_daemon_policy.h"
+      - "trunk/user/rc/src/pppoe_relay_policy.h"
+      - "trunk/user/rc/src/process_presence_start_policy.h"
+      - "trunk/user/802.1x/src/auth_startup_handshake.h"
+      - "trunk/user/rc/src/router_mode_nvram_policy.h"
+      - "trunk/user/rc/src/tests/router_mode_nvram_policy.c"
+      - "trunk/user/rc/src/rc_nvram_legacy_migration_policy.h"
+      - "trunk/user/rc/src/tests/rc_nvram_legacy_migration_policy.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/rc_nvram_policy.h"
+      - "trunk/user/rc/src/tests/nvram_restore_policy.c"
+      - "trunk/user/shared/src/nvram_linux.c"
+      - "trunk/user/shared/src/nvram_linux.h"
+      - "trunk/user/rc/src/rc_notify_batch_policy.h"
+      - "trunk/user/rc/src/rstats.c"
+      - "trunk/user/rc/src/service_lifecycle_policy.h"
+      - "trunk/user/rc/src/service_start_status.h"
+      - "trunk/user/rc/src/crontab_update_status.h"
+      - "trunk/user/rc/src/service_wait_policy.h"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/services_ex.c"
+      - "trunk/user/rc/src/inadyn_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/inadyn_lifecycle_lock.c"
+      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/service_daemon_wait_policy.h"
+      - "trunk/user/rc/src/services_usb.c"
+      - "trunk/user/rc/src/sshd_daemon_policy.h"
+      - "trunk/user/rc/src/storage_rwfs_mount_policy.h"
+      - "trunk/user/rc/src/tests/ddns_restart_policy.c"
+      - "trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c"
+      - "trunk/user/rc/src/tests/file_write_status.c"
+      - "trunk/user/rc/src/tests/firefly_config_file.c"
+      - "trunk/user/rc/src/tests/hwnat_config_policy.c"
+      - "trunk/user/rc/src/tests/igmpproxy_config_file.c"
+      - "trunk/user/rc/src/tests/ipv6_global_conf_policy.c"
+      - "trunk/user/rc/src/tests/lan_addr6_reload_policy.c"
+      - "trunk/user/rc/src/tests/logger_start_policy.c"
+      - "trunk/user/rc/src/tests/minidlna_config_file.c"
+      - "trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c"
+      - "trunk/user/rc/src/tests/miniupnpd_presentation_url.c"
+      - "trunk/user/rc/src/tests/modem_wan_start_policy.c"
+      - "trunk/user/rc/src/tests/msd_lite_config_file.c"
+      - "trunk/user/rc/src/tests/pppoe_relay_policy.c"
+      - "trunk/user/rc/src/tests/process_presence_start_policy.c"
+      - "trunk/user/rc/src/detached_daemon_start_policy.h"
+      - "trunk/user/rc/src/tests/detached_daemon_start_policy.c"
+      - "trunk/user/802.1x/src/tests/auth_startup_handshake.c"
+      - "trunk/user/rc/src/tests/rc_notify_batch_policy.c"
+      - "trunk/user/rc/src/tests/service_lifecycle_policy.c"
+      - "trunk/user/rc/src/tests/service_start_status.c"
+      - "trunk/user/rc/src/tests/crontab_update_status.c"
+      - "trunk/user/rc/src/tests/service_wait_policy.c"
+      - "trunk/user/rc/src/tests/sshd_daemon_policy.c"
+      - "trunk/user/rc/src/tests/storage_rwfs_mount_policy.c"
+      - "trunk/user/rc/src/tests/udhcpc_script_link_policy.c"
+      - "trunk/user/rc/src/tests/upnp_restart_policy.c"
+      - "trunk/user/rc/src/tests/vpn_server_restart_policy.c"
+      - "trunk/user/rc/src/tests/wan_route_flush_policy.c"
+      - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
+      - "trunk/user/rc/src/tests/wireless_guest_isolation_policy.c"
+      - "trunk/user/rc/src/tests/wireless_module_load_policy.c"
+      - "trunk/user/rc/src/tests/xupnpd_config_file.c"
+      - "trunk/user/rc/src/udhcpc_script_link_policy.h"
+      - "trunk/user/rc/src/upnp_restart_policy.h"
+      - "trunk/user/rc/src/usb_modem.c"
+      - "trunk/user/rc/src/vpn_client.c"
+      - "trunk/user/rc/src/vpn_server.c"
+      - "trunk/user/rc/src/ppp_options_file.h"
+      - "trunk/user/rc/src/tests/ppp_options_file.c"
+      - "trunk/user/rc/src/ppp_option_value_policy.h"
+      - "trunk/user/rc/src/tests/ppp_option_value_policy.c"
+      - "scripts/check_vpn_credential_files.py"
+      - "trunk/user/rc/src/vpn_server_restart_policy.h"
+      - "trunk/user/rc/src/wan_mtu_setup_policy.h"
+      - "trunk/user/rc/src/wan_route_flush_policy.h"
+      - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+      - "trunk/user/rc/src/wireless_guest_isolation_policy.h"
+      - "trunk/user/rc/src/wireless_module_load_policy.h"
+      - "trunk/user/rc/src/xupnpd_config_file.h"
+      - "trunk/user/scripts/files/sbin/dev_init.sh"
+      - "trunk/user/scripts/files/usr/bin/autostart.sh"
+      - "trunk/user/scripts/tests/autostart_optional_start_status.sh"
+      - "trunk/user/scripts/tests/dev_init_boot_policy.sh"
+      - "trunk/user/scripts/files/sbin/check_crontab.sh"
+      - "trunk/user/scripts/tests/check_crontab_status.sh"
+      - "trunk/user/scutclient/scripts/scutclient.sh"
+      - "trunk/user/shared/Makefile"
+      - "trunk/user/shared/scripts/process_lifecycle.sh"
+      - "trunk/user/shared/src/Makefile"
+      - "trunk/user/shared/src/file_write_status.h"
+      - "trunk/user/shared/src/pids.c"
+      - "trunk/user/shared/src/pids_presence_policy.h"
+      - "trunk/user/shared/src/process_inventory.c"
+      - "trunk/user/shared/src/process_inventory.h"
+      - "trunk/user/shared/src/process_io_retry_policy.h"
+      - "trunk/user/shared/src/process_pidfile.c"
+      - "trunk/user/shared/src/flash_mtd.c"
+      - "trunk/user/shared/src/process_pidfile.h"
+      - "trunk/user/shared/src/process_pidfile_record.h"
+      - "trunk/user/shared/src/net_ifstats_policy.h"
+      - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/tests/net_ifstats_policy.c"
+      - "trunk/user/shared/src/shutils.h"
+      - "trunk/user/shared/src/shutils.c"
+      - "trunk/user/shared/src/shutils_pidfile_policy.h"
+      - "trunk/user/shared/src/tests/shutils_pidfile_policy.c"
+      - "trunk/user/shared/src/passwd_temp_file_policy.h"
+      - "trunk/user/shared/src/tests/passwd_temp_file_policy.c"
+      - "trunk/user/shared/src/tests/pids_presence_policy.c"
+      - "trunk/user/shared/src/tests/process_inventory.c"
+      - "trunk/user/shared/src/tests/process_pidfile.c"
+      - "trunk/user/shared/src/tests/process_pidfile_record.c"
+      - "trunk/user/shared/tests/process_lifecycle.sh"
+      - "trunk/user/ttyd/tests/ttyd_lifecycle.sh"
+      - "trunk/user/ttyd/ttyd.sh"
+      - "trunk/user/vlmcsd/vlmcsd.sh"
+      - "trunk/user/wireguard/wireguard.sh"
+      - "trunk/user/wireguard/tests/wireguard_lifecycle.sh"
+
+      # Keep AliDDNS-owned tests in their dedicated lifecycle workflow.
+      - "!trunk/user/aliddns/tests/**"
+permissions:
+  contents: read
+
+concurrency:
+  group: process-lifecycle-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  process-lifecycle-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inventory all tracked process lifecycle consumers
+        run: |
+          python3 scripts/audit_process_lifecycle.py --self-test
+          python3 scripts/audit_process_lifecycle.py --repo-root . --revision HEAD --output-dir "$RUNNER_TEMP/process-lifecycle-inventory"
+          python3 - "$RUNNER_TEMP/process-lifecycle-inventory/process-lifecycle-inventory.json" <<'PY'
+          import json
+          import sys
+
+          report = json.load(open(sys.argv[1], encoding="utf-8"))
+          print("PROCESS LIFECYCLE INVENTORY:", report["revision"])
+          print("Coverage:", json.dumps(report["coverage"], sort_keys=True))
+          for symbol in ("pids", "is_dns_dhcpd_run", "dnsmasq_process_status",
+                          "kill_pidfile", "kill_pidfile_s"):
+              hits = report["api_symbols"][symbol]["hits"]
+              calls = [hit for hit in hits if hit["role"] == "call_or_macro"]
+              print(f"\n{symbol}: {len(hits)} lexical occurrences; {len(calls)} call candidates")
+              for hit in calls:
+                  print(f"  {hit['path']}:{hit['line']}: {hit['context']}")
+          commands = report["lifecycle_categories"]["process_commands"]["hits"]
+          killall = [hit for hit in commands if hit["token"] == "killall"]
+          print(f"\nkillall command candidates: {len(killall)}")
+          for hit in killall[:120]:
+              print(f"  {hit['path']}:{hit['line']}: {hit['context']}")
+          if len(killall) > 120:
+              print(f"  ... {len(killall) - 120} additional candidates in the full report")
+          PY
+      - name: Validate SmartDNS process-state and stop postconditions
+        run: |
+          set -eu
+          sh -n trunk/user/smartdns/smartdns.sh
+          sh -n trunk/user/smartdns/smartdns_process_lifecycle.sh
+          sh -n trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
+          sh trunk/user/smartdns/tests/smartdns_process_lifecycle.sh
+          python3 scripts/check_smartdns_lifecycle.py
+      - name: Validate Adbyby stop postcondition and cleanup gate
+        run: |
+          set -eu
+          sh -n trunk/user/adbyby/adbyby.sh
+          sh -n trunk/user/adbyby/tests/adbyby_stop_postcondition.sh
+          sh trunk/user/adbyby/tests/adbyby_stop_postcondition.sh
+      - name: Validate Adbyby detached startup readiness and restart status
+        run: |
+          set -eu
+          sh -n trunk/user/adbyby/adbyby.sh
+          sh -n trunk/user/adbyby/tests/adbyby_start_postcondition.sh
+          sh trunk/user/adbyby/tests/adbyby_start_postcondition.sh
+      - name: Compile production scanner and injected regression (GNU89, ASan, UBSan)
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/process_inventory.c \
+            trunk/user/shared/src/tests/process_inventory.c \
+            -o "$RUNNER_TEMP/process-inventory-regression"
+      - name: Exercise process scanner allocation and procfs fault injection
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: "$RUNNER_TEMP/process-inventory-regression"
+      - name: Verify bounded procfs read interruption handling
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          source = Path("trunk/user/shared/src/process_inventory.c").read_text()
+          start = source.index("proc_default_read_file(")
+          opening = source.index("{", start)
+          depth = 0
+          for position in range(opening, len(source)):
+              if source[position] == "{":
+                  depth += 1
+              elif source[position] == "}":
+                  depth -= 1
+                  if depth == 0:
+                      body = source[opening + 1:position]
+                      break
+          else:
+              raise AssertionError("proc_default_read_file body is incomplete")
+          assert body.count("process_io_retry_interrupted(&interruptions)") == 1
+          assert body.count("process_io_retry_interrupted(&extra_interruptions)") == 1
+          assert "PROCESS_IO_MAX_INTERRUPTS 8U" in Path(
+              "trunk/user/shared/src/process_io_retry_policy.h"
+          ).read_text()
+          test = Path("trunk/user/shared/src/tests/process_inventory.c").read_text()
+          assert "test_procfs_read_eintr_retries_are_bounded" in test
+
+          flash = Path("trunk/user/shared/src/flash_mtd.c").read_text()
+          def function_body(source, signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              for position in range(opening, len(source)):
+                  if source[position] == "{":
+                      depth += 1
+                  elif source[position] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+              raise AssertionError("incomplete function: " + signature)
+          read_body = function_body(flash, "read_safe(int fd")
+          write_body = function_body(flash, "write_safe(int fd")
+          assert "process_io_read(fd, buf + r_len, buf_len - r_len)" in read_body
+          assert "process_io_write(fd, buf + w_len, buf_len - w_len)" in write_body
+          # The wrapper owns the bounded EINTR counter; do not restart it.
+          assert "if (errno == EINTR)" not in read_body
+          assert "if (errno == EINTR)" not in write_body
+          assert "continue;" not in read_body
+          assert "continue;" not in write_body
+          assert "ssize_t ret = read(fd, buf + r_len" not in read_body
+          assert "ssize_t ret = write(fd, buf + w_len" not in write_body
+          assert "r_len += ret;" in read_body and "if (ret == 0)" in read_body
+          assert "w_len += (size_t)ret;" in write_body and "errno = EIO;" in write_body
+          print("Procfs and MTD flash I/O EINTR retry bound contract: PASS")
+          PY
+      - name: Compile and run legacy pids() UNKNOWN mapping regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/pids_presence_policy.c \
+            -o "$RUNNER_TEMP/pids-presence-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/pids-presence-policy"
+      - name: Compile service lifecycle all-target preflight regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/shared/src/process_inventory.c \
+            trunk/user/rc/src/tests/service_lifecycle_policy.c \
+            -o "$RUNNER_TEMP/service-lifecycle-regression"
+      - name: Exercise UNKNOWN, identity revalidation and zero-signal gates
+        env:
+          ASAN_OPTIONS: detect_leaks=1
+        run: "$RUNNER_TEMP/service-lifecycle-regression"
+      - name: Compile and run process PID-file identity record regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/process_inventory.c \
+            trunk/user/shared/src/process_pidfile.c \
+            trunk/user/shared/src/tests/process_pidfile.c \
+            -o "$RUNNER_TEMP/process-pidfile-regression"
+          "$RUNNER_TEMP/process-pidfile-regression"
+      - name: Compile and run sysfs WAN counter path and decimal parser regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/net_ifstats_policy.c \
+            -o "$RUNNER_TEMP/net-ifstats-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/net-ifstats-policy"
+
+      - name: Compile and run shared PID-file record policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/process_pidfile_record.c \
+            -o "$RUNNER_TEMP/process-pidfile-record-policy"
+          "$RUNNER_TEMP/process-pidfile-record-policy"
+      - name: Compile and run strict LPD PID-file parser regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/LPRng/src/src/include \
+            trunk/user/LPRng/src/src/tests/lpd_pidfile_policy.c \
+            -o "$RUNNER_TEMP/lpd-pidfile-regression"
+          "$RUNNER_TEMP/lpd-pidfile-regression"
+      - name: Compile and run legacy shared PID-file parser regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/shutils_pidfile_policy.c \
+            -o "$RUNNER_TEMP/shutils-pidfile-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/shutils-pidfile-policy"
+      - name: Compile and run PPPD PID-file identity policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/pppd/ppp-2.4.7/pppd \
+            trunk/user/pppd/ppp-2.4.7/pppd/tests/pppd_pidfile_policy.c \
+            -o "$RUNNER_TEMP/pppd-pidfile-policy"
+          "$RUNNER_TEMP/pppd-pidfile-policy"
+      - name: Compile and run WAN DHCP renewal presence policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_wan_udhcpc_policy.c \
+            -o "$RUNNER_TEMP/detect-wan-udhcpc-policy"
+          "$RUNNER_TEMP/detect-wan-udhcpc-policy"
+      - name: Compile and run PPPoE relay tri-state startup policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/pppoe_relay_policy.c \
+            -o "$RUNNER_TEMP/pppoe-relay-policy"
+          "$RUNNER_TEMP/pppoe-relay-policy"
+      - name: Compile and run process presence start/notify tri-state regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/process_presence_start_policy.c \
+            -o "$RUNNER_TEMP/process-presence-start-policy"
+          "$RUNNER_TEMP/process-presence-start-policy"
+
+      - name: Compile and run detached-daemon startup rollback regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detached_daemon_start_policy.c \
+            -o "$RUNNER_TEMP/detached-daemon-start-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/detached-daemon-start-policy"
+      - name: Compile and run Ralink 802.1X child readiness handshake regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/802.1x/src \
+            trunk/user/802.1x/src/tests/auth_startup_handshake.c \
+            -o "$RUNNER_TEMP/auth-startup-handshake"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/auth-startup-handshake"
+      - name: Compile and run SSH firewall fail-closed policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer \
+            -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/sshd_daemon_policy.c \
+            -o "$RUNNER_TEMP/sshd-daemon-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/sshd-daemon-policy"
+          python3 scripts/check_sshd_firewall_status.py
+      - name: Compile and run WAN0 NVRAM initialization failure regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_nvram_status_policy.c \
+            -o "$RUNNER_TEMP/wan0-nvram-status-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wan0-nvram-status-policy"
+      - name: Compile and run RC boot service status aggregation regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/service_start_status.c \
+            -o "$RUNNER_TEMP/service-start-status"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/service-start-status"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ipv6_global_conf_policy.c \
+            -o "$RUNNER_TEMP/ipv6-global-conf-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ipv6-global-conf-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/lan_addr6_reload_policy.c \
+            -o "$RUNNER_TEMP/lan-addr6-reload-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/lan-addr6-reload-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wan_route_flush_policy.c \
+            -o "$RUNNER_TEMP/wan-route-flush-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wan-route-flush-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/modem_wan_start_policy.c \
+            -o "$RUNNER_TEMP/modem-wan-start-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/modem-wan-start-policy"
+          python3 scripts/check_modem_wan_start_status.py
+      - name: Verify PID 1 required boot environment failure gates
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/router_mode_nvram_policy.c \
+            -o "$RUNNER_TEMP/router-mode-nvram-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/router-mode-nvram-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/rc_nvram_legacy_migration_policy.c \
+            -o "$RUNNER_TEMP/rc-nvram-legacy-migration-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/rc-nvram-legacy-migration-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/init_router_result_policy.c \
+            -o "$RUNNER_TEMP/init-router-result-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/init-router-result-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/boot_device_node_policy.c \
+            -o "$RUNNER_TEMP/boot-device-node-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/boot-device-node-policy"
+          sh trunk/user/scripts/tests/dev_init_boot_policy.sh
+          sh trunk/user/scripts/tests/copyscripts_ca_status.sh
+          python3 scripts/check_dev_init_boot.py
+      - name: Verify PID 1 TCP sysctl failure propagation
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/tcp_tweaks_policy.c \
+            -o "$RUNNER_TEMP/tcp-tweaks-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/tcp-tweaks-policy"
+      - name: Verify libc address-selection file error policy
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/libc_gai_policy.c \
+            -o "$RUNNER_TEMP/libc-gai-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/libc-gai-policy"
+      - name: Verify SCUT crontab update status and persistence
+        run: |
+          set -eu
+          sh -n trunk/user/scripts/files/sbin/check_crontab.sh
+          sh -n trunk/user/scripts/tests/check_crontab_status.sh
+          sh trunk/user/scripts/tests/check_crontab_status.sh
+          python3 scripts/check_crontab_startup_status.py
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/crontab_update_status.c \
+            -o "$RUNNER_TEMP/crontab-update-status"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/crontab-update-status"
+      - name: Compile and run LAN DHCP event-handler link regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/udhcpc_script_link_policy.c \
+            -o "$RUNNER_TEMP/udhcpc-script-link-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/udhcpc-script-link-policy"
+      - name: Compile and run bridge initialization status regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/bridge_init_policy.c \
+            -o "$RUNNER_TEMP/bridge-init-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/bridge-init-policy"
+          cc -D_GNU_SOURCE -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/passwd_temp_file_policy.c \
+            -o "$RUNNER_TEMP/passwd-temp-file-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/passwd-temp-file-policy"
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/bridge_membership_policy.c \
+            -o "$RUNNER_TEMP/bridge-membership-policy"
+          "$RUNNER_TEMP/bridge-membership-policy"
+      - name: Verify Unix account bootstrap status and private password staging
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          shared = Path("trunk/user/shared/src/shutils.c").read_text()
+          header = Path("trunk/user/shared/src/passwd_temp_file_policy.h").read_text()
+          rc = Path("trunk/user/rc/src/rc.c").read_text()
+          test = Path("trunk/user/shared/src/tests/passwd_temp_file_policy.c").read_text()
+
+          def function_body(source, signature):
+              start = source.index(signature)
+              opening = source.index("{", start)
+              depth = 0
+              quote = None
+              escaped = False
+              line_comment = False
+              block_comment = False
+              position = opening
+              while position < len(source):
+                  char = source[position]
+                  following = source[position + 1] if position + 1 < len(source) else ""
+                  if line_comment:
+                      if char == "\n":
+                          line_comment = False
+                      position += 1
+                      continue
+                  if block_comment:
+                      if char == "*" and following == "/":
+                          block_comment = False
+                          position += 2
+                      else:
+                          position += 1
+                      continue
+                  if quote:
+                      if escaped:
+                          escaped = False
+                      elif char == "\\":
+                          escaped = True
+                      elif char == quote:
+                          quote = None
+                      position += 1
+                      continue
+                  if char == "/" and following == "/":
+                      line_comment = True
+                      position += 2
+                      continue
+                  if char == "/" and following == "*":
+                      block_comment = True
+                      position += 2
+                      continue
+                  if char in ('"', "'"):
+                      quote = char
+                  elif char == "{":
+                      depth += 1
+                  elif char == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[opening + 1:position]
+                  position += 1
+              raise AssertionError("incomplete function: " + signature)
+
+          change = function_body(shared, "change_passwd_unix(")
+          recreate = function_body(shared, "recreate_passwd_unix(")
+          recreate_compact = " ".join(recreate.split())
+          init = function_body(rc, "init_router(void)")
+          assert "mkstemp(path_template)" in header and "fchmod(fd, mode)" in header
+          assert 'char tmpfile[] = "/tmp/.tmpchpw.XXXXXX";' in change
+          assert "passwd_temp_file_open(tmpfile, 0600)" in change
+          assert "/tmp/tmpchpw" not in shared
+          assert "router_account_name_is_valid(user)" in change
+          assert "strchr(pass, '\\n')" in change
+          assert "strchr(pass, '\\r')" in change
+          assert "strchr(pass, ':')" in change
+          assert "passwd_temp_stream_finish(fp)" in change
+          assert "system(cmdbuf)" in change
+          assert "passwd_temp_file_open(passwd_temp, 0644)" in recreate
+          assert "passwd_temp_file_backup_create(\"/etc/passwd\"" in recreate
+          assert "passwd_temp_file_backup_create(\"/etc/group\"" in recreate
+          assert "passwd_file_publish_transaction(file_updates, update_count, rename, unlink, &rollback_failed)" in recreate_compact
+          assert "if (rollback_failed)" in recreate
+          assert "passwd_backup[0]" in recreate and "group_backup[0]" in recreate
+          assert "passwd_file_publish_transaction(" in header
+          assert "link(source_path, backup_template)" in header
+          assert "rollback_failed" in header
+          assert 'fprintf(fp1, "%s:!:' in recreate
+          assert "password_status = change_passwd_unix(" in recreate
+          assert "int passwd_status = recreate_passwd_unix(1);" in init
+          assert "boot_services_status, passwd_status);" in init
+          assert "test_temp_file_is_exclusive_and_private();" in test
+          assert "test_second_rename_failure_restores_first_file();" in test
+          assert "test_failed_rollback_preserves_recovery_link();" in test
+          assert "test_missing_original_is_removed_on_rollback();" in test
+          assert "fixture.updates[0].had_original = had_original;" in test
+          assert "test_third_rename_failure_restores_passwd_and_group();" in test
+          print("Unix account bootstrap status and private temporary file contract: PASS")
+          PY
+      - name: Compile and run bridge multicast setup status regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/bridge_config_policy.c \
+            -o "$RUNNER_TEMP/bridge-config-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/bridge-config-policy"
+      - name: Compile and run guest Wi-Fi isolation status regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wireless_guest_isolation_policy.c \
+            -o "$RUNNER_TEMP/wireless-guest-isolation-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wireless-guest-isolation-policy"
+          python3 scripts/check_guest_lan_isolation_status.py
+      - name: Compile and run RC wireless module post-load verification regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/wireless_module_load_policy.c \
+            -o "$RUNNER_TEMP/wireless-module-load-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/wireless-module-load-policy"
+      - name: Compile and run RC watchdog module restart postcondition regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c \
+            -o "$RUNNER_TEMP/watchdog-cpu-restart-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/watchdog-cpu-restart-policy"
+      - name: Compile and run RC DDNS restart result policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ddns_restart_policy.c \
+            -o "$RUNNER_TEMP/ddns-restart-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ddns-restart-policy"
+      - name: Compile and run VPN server restart status propagation regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/vpn_server_restart_policy.c \
+            -o "$RUNNER_TEMP/vpn-server-restart-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/vpn-server-restart-policy"
+      - name: Compile and run MiniUPnP presentation URL bounds regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/miniupnpd_presentation_url.c \
+            -o "$RUNNER_TEMP/miniupnpd-presentation-url"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/miniupnpd-presentation-url"
+      - name: Compile and run MiniUPnP lifecycle lock regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/miniupnpd_lifecycle_lock.c \
+            -o "$RUNNER_TEMP/miniupnpd-lifecycle-lock"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/miniupnpd-lifecycle-lock"
+          python3 scripts/check_miniupnpd_lifecycle_lock.py
+
+      - name: Compile and run RC UPnP restart stop-result regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/upnp_restart_policy.c \
+            -o "$RUNNER_TEMP/upnp-restart-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/upnp-restart-policy"
+      - name: Compile and run RC logger startup result policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/logger_start_policy.c \
+            -o "$RUNNER_TEMP/logger-start-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/logger-start-policy"
+      - name: Compile and run RC file write/close status regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/file_write_status.c \
+            -o "$RUNNER_TEMP/rc-file-write-status"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/rc-file-write-status"
+      - name: Compile and run PPP options file security regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ppp_options_file.c \
+            -o "$RUNNER_TEMP/ppp-options-file-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ppp-options-file-regression"
+          python3 scripts/check_vpn_credential_files.py
+
+      - name: Compile and run PPP quoted credential value regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ppp_option_value_policy.c \
+            -o "$RUNNER_TEMP/ppp-option-value-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ppp-option-value-regression"
+
+      - name: Compile and run Firefly atomic configuration publication regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/firefly_config_file.c \
+            -o "$RUNNER_TEMP/firefly-config-file-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/firefly-config-file-regression"
+      - name: Compile and run MiniDLNA atomic configuration publication regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/minidlna_config_file.c \
+            -o "$RUNNER_TEMP/minidlna-config-file-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/minidlna-config-file-regression"
+      - name: Verify optional add-on boot startup status propagation
+        run: |
+          sh -n trunk/user/scripts/files/usr/bin/autostart.sh
+          sh -n trunk/user/scripts/tests/autostart_optional_start_status.sh
+          sh trunk/user/scripts/tests/autostart_optional_start_status.sh
+      - name: Check SCUT, vlmcsd, iperf3, mentohust, ttyd, OpenSSH and Dropbear lifecycle status propagation
+        run: python3 scripts/check_optional_app_start_status.py
+      - name: Exercise Ralink IAPP daemon lifecycle postconditions
+        run: |
+          sh -n trunk/user/ralinkiappd/iappd.sh
+          sh -n trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
+          sh trunk/user/ralinkiappd/tests/iappd_lifecycle.sh
+      - name: Compile and run IGMP proxy atomic configuration publication regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/igmpproxy_config_file.c \
+            -o "$RUNNER_TEMP/igmpproxy-config-file-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/igmpproxy-config-file-regression"
+      - name: Compile and run XUPnPD unique temporary-file regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/xupnpd_config_file.c \
+            -o "$RUNNER_TEMP/xupnpd-config-file-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/xupnpd-config-file-regression"
+      - name: Compile and run MSD Lite atomic configuration publication regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/msd_lite_config_file.c \
+            -o "$RUNNER_TEMP/msd-lite-config-file-regression"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/msd-lite-config-file-regression"
+      - name: Verify OpenSSH PID-file reload identity
+        run: |
+          sh -n trunk/user/openssh/sshd.sh
+          sh -n trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh
+          sh trunk/user/openssh/tests/sshd_pidfile_lifecycle.sh
+      - name: Verify Transmission reload status propagation
+        run: |
+          sh -n trunk/user/transmission/transmission.sh
+          sh -n trunk/user/transmission/tests/reload_status.sh
+          sh trunk/user/transmission/tests/reload_status.sh
+      - name: Verify WireGuard startup, private-key confinement and teardown lifecycle
+        run: sh trunk/user/wireguard/tests/wireguard_lifecycle.sh
+      - name: Verify ZeroTier tri-state process lifecycle
+        run: |
+          sh -n trunk/user/zerotier/zerotier.sh
+          sh -n trunk/user/zerotier/tests/zerotier_lifecycle.sh
+          sh trunk/user/zerotier/tests/zerotier_lifecycle.sh
+      - name: Compile and run RWFS UBI attach and mount fail-closed policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/storage_rwfs_mount_policy.c \
+            -o "$RUNNER_TEMP/storage-rwfs-mount-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/storage-rwfs-mount-policy"
+      - name: Compile and run RC notification result policy regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/rc_notify_batch_policy.c \
+            -o "$RUNNER_TEMP/rc-notify-batch-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/rc-notify-batch-policy"
+      - name: Verify firmware update notification status propagation
+        run: python3 scripts/check_firmware_update_notification.py
+
+      - name: Verify RWFS mount and Optware readiness integration
+        run: python3 scripts/check_rwfs_mount_integration.py
+      - name: Verify shared-library and RC integration boundaries
+        run: python3 scripts/check_process_lifecycle_integration.py
+
+      - name: Verify LAN startup error propagation through PID 1 and LAN restart
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          lan = (rc / "net_lan.c").read_text()
+          wifi = (rc / "net_wifi.c").read_text()
+          auth_daemon = Path("trunk/user/802.1x/src/rtdot1x.c").read_text()
+          auth_handshake = Path("trunk/user/802.1x/src/auth_startup_handshake.h").read_text()
+          auth_regression = Path("trunk/user/802.1x/src/tests/auth_startup_handshake.c").read_text()
+          auth_config = Path("trunk/user/802.1x/src/config.c").read_text()
+          init = (rc / "rc.c").read_text()
+          header = (rc / "rc.h").read_text()
+          regression = (rc / "tests/service_start_status.c").read_text()
+          net = (rc / "net.c").read_text()
+          net_wan = (rc / "net_wan.c").read_text()
+          netutils = Path("trunk/user/shared/src/netutils.c").read_text()
+          bridge_policy = (rc / "bridge_config_policy.h").read_text()
+          bridge_regression = (rc / "tests/bridge_config_policy.c").read_text()
+          bridge_init_policy = (rc / "bridge_init_policy.h").read_text()
+          bridge_init_regression = (rc / "tests/bridge_init_policy.c").read_text()
+          script_link_policy = (rc / "udhcpc_script_link_policy.h").read_text()
+          script_link_regression = (rc / "tests/udhcpc_script_link_policy.c").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert "\nint\nstart_lan(int is_ap_mode, int do_wait)" in lan
+          assert "\nint\nlan_up_manual(char *lan_ifname, char *lan_dname)" in lan
+          assert "\nvoid\nint\nstart_lan(" not in lan
+          assert "\nvoid\nlan_up_manual(" not in lan
+          start_lan = body(lan, "start_lan(int is_ap_mode, int do_wait)")
+          assert "operation_status = ifconfig(lan_ifname, IFUP, lan_ipaddr, lan_netmsk);" in start_lan
+          assert "operation_status = start_udhcpc_lan(lan_ifname);" in start_lan
+          assert "operation_status = lan_up_manual(lan_ifname, lan_dname);" in start_lan
+          assert "operation_status = add_static_lan_routes(lan_ifname);" in start_lan
+          assert '#include "udhcpc_script_link_policy.h"' in lan
+          assert "operation_status = rc_udhcpc_script_link_ensure(" in start_lan
+          link_prepare_at = start_lan.index("operation_status = rc_udhcpc_script_link_ensure(")
+          link_gate_at = start_lan.index("if (operation_status == 0)", link_prepare_at)
+          dhcp_launch_at = start_lan.index("operation_status = start_udhcpc_lan(lan_ifname);")
+          assert link_prepare_at < link_gate_at < dhcp_launch_at
+          assert start_lan.count("rc_first_service_start_status(start_status, operation_status)") >= 5
+          assert "saved_errno != EEXIST" in script_link_policy
+          assert "memcmp(existing_target, target, target_length)" in script_link_policy
+          assert "test_existing_exact_link_is_idempotent" in script_link_regression
+          assert "test_existing_wrong_link_is_not_replaced" in script_link_regression
+          assert "test_existing_non_symlink_is_rejected" in script_link_regression
+          assert "test_creation_error_does_not_attempt_readback" in script_link_regression
+          assert "return start_status;" in start_lan
+
+          auth_ioctl = body(auth_daemon, "int RT_ioctl(")
+          assert "auth_startup_format_interface_name(wrq.ifr_name" in auth_ioctl
+          assert "sizeof(wrq.ifr_name)" in auth_ioctl
+          assert "sprintf(wrq.ifr_name" not in auth_ioctl
+          assert "test_interface_name_formatting_is_bounded" in auth_regression
+          assert "ENAMETOOLONG" in auth_handshake
+          auth_socket_setup = body(auth_daemon, "int Apd_init_sockets(rtapd *rtapd)")
+          auth_config_query = body(auth_config, "Query_config_from_driver(int ioctl_sock")
+          assert "auth_startup_format_interface_name(ifr.ifr_name" in auth_socket_setup
+          assert "strcpy(ifr.ifr_name" not in auth_socket_setup
+          assert "sprintf(ifr.ifr_name" not in auth_socket_setup
+          assert "memcpy(ifr.ifr_name" in auth_socket_setup
+          assert '#include "auth_startup_handshake.h"' in auth_config
+          assert auth_config_query.count("auth_startup_copy_interface_name(") == 2
+          assert "nas_id_len > sizeof(conf->nasId[i])" in auth_config_query
+          assert "NAS-Identifier: %.*s" in auth_config_query
+          assert r"\\n" not in auth_config_query
+          assert r"\\n" not in auth_socket_setup
+          assert "memcpy(conf->eap_if_name" not in auth_config_query
+          assert "memcpy(conf->preauth_if_name" not in auth_config_query
+          assert "test_driver_interface_name_copy_is_bounded" in auth_regression
+
+          assert "auth_startup_validate_driver_count(" in auth_config_query
+          assert "sizeof(pDot1xCmmConf->Dot1xBssInfo[i].radius_srv_info) /" in auth_config_query
+          assert auth_config_query.count("auth_startup_copy_radius_secret(") == 2
+          assert "strdup((const char *)pDot1xCmmConf" not in auth_config_query
+          assert "conf->mbss_auth_server[i]->shared_secret =" in auth_config_query
+          assert "conf->auth_server->shared_secret =" in auth_config_query
+          assert "RADIUS key configured" in auth_config_query
+          assert "test_driver_radius_fields_are_bounded" in auth_regression
+          config_free_radius = body(auth_config, "static void Config_free_radius(")
+          assert "auth_startup_clear_secret(servers[i].shared_secret" in config_free_radius
+          assert "servers[i].shared_secret_len + 1" in config_free_radius
+          assert config_free_radius.index("auth_startup_clear_secret(") < config_free_radius.index("free(servers[i].shared_secret)")
+          assert "test_radius_secret_clear_is_not_optimized_away" in auth_regression
+          auth_main = body(auth_daemon, "main(int argc, char *argv[])")
+          auth_ready = body(auth_daemon, "wait_for_authenticator_ready(")
+          assert "pipe(startup_pipe)" in auth_main
+          assert "if (child_pid < 0)" in auth_main
+          assert "if (RT_ioctl(" in auth_main
+          assert auth_main.index("Apd_setup_interface(interfaces.rtapd[0])") < auth_main.index("RT_ioctl(")
+          assert auth_main.index("RT_ioctl(") < auth_main.index("auth_startup_write_result(startup_pipe[1], 0)")
+          assert "auth_startup_read_result(startup_fd, startup_result)" in auth_ready
+          assert "poll(&startup_poll, 1, 1000)" in auth_ready
+          assert "AUTH_STARTUP_READY_TIMEOUT_SECONDS" in auth_ready
+          assert "kill(child_pid, SIGKILL)" in auth_main
+          assert "waitpid(child_pid" in auth_main
+          assert "if (interfaces.rtapd)" in auth_main
+          assert "if (eloop_initialized)" in auth_main
+          assert "if (!startup_reported)" in auth_main
+          assert "AUTH_STARTUP_IO_MAX_INTERRUPTS" in auth_handshake
+          assert "test_real_pipe_round_trip" in auth_regression
+          assert "test_eof_is_not_a_ready_notification" in auth_regression
+          assert "test_interrupt_storm_is_bounded" in auth_regression
+
+          manual = body(lan, "lan_up_manual(char *lan_ifname, char *lan_dname)")
+          assert "return EINVAL;" in manual
+          assert "return saved_errno;" in manual
+          assert "int route_status = route_add(" in manual
+          assert "return rc_first_service_start_status(status, saved_errno);" in manual
+          assert "return status;" in manual
+
+          restart = body(lan, "full_restart_lan(void)")
+          assert 'lan_restart_record_status(&restart_status, "disable LAN bridge STP",' in restart
+          assert 'br_set_stp(IFNAME_BR, 0));' in restart
+          assert 'lan_restart_record_status(&restart_status, "set LAN bridge forward delay for restart",' in restart
+          assert 'br_set_fd(IFNAME_BR, 2));' in restart
+          assert 'lan_restart_record_status(&restart_status, "power down LAN ports",' in restart
+          assert 'phy_ports_lan_power(0));' in restart
+          assert 'lan_restart_record_status(&restart_status, "power up LAN ports",' in restart
+          assert 'phy_ports_lan_power(1));' in restart
+          assert "lan_start_status = start_lan(is_ap_mode, 1);" in restart
+          assert 'lan_restart_record_status(&restart_status, "start LAN services", lan_start_status);' in restart
+          assert 'lan_restart_record_status(&restart_status, "restore LAN bridge STP",' in restart
+          assert 'br_set_stp(IFNAME_BR, 1));' in restart
+          assert 'lan_restart_record_status(&restart_status, "restore LAN bridge forward delay",' in restart
+          assert 'br_set_fd(IFNAME_BR, 15));' in restart
+          assert 'lan_restart_record_status(&restart_status, "restart WAN after LAN restart",' in restart
+          assert 'full_restart_wan());' in restart
+          assert 'lan_restart_record_status(&restart_status, "start VPN server after WAN restart",' in restart
+          wan_restart_at = restart.index('full_restart_wan()')
+          vpn_start_after_wan = restart.index('start_vpn_server()', wan_restart_at)
+          restart_order = (
+              restart.index('br_set_stp(IFNAME_BR, 0)'),
+              restart.index('br_set_fd(IFNAME_BR, 2)'),
+              restart.index('phy_ports_lan_power(0)'),
+              restart.index('phy_ports_lan_power(1)'),
+              restart.index('start_lan(is_ap_mode, 1)'),
+              restart.index('br_set_stp(IFNAME_BR, 1)'),
+              restart.index('br_set_fd(IFNAME_BR, 15)'),
+              wan_restart_at,
+              vpn_start_after_wan,
+          )
+          assert restart_order == tuple(sorted(restart_order))
+          assert "return restart_status;" in restart
+
+          loopback = body(lan, "init_loopback(void)")
+          assert ("int" + chr(10) + "init_loopback(void)") in lan
+          assert 'status = ifconfig("lo", IFUP, "127.0.0.1", "255.0.0.0");' in loopback
+          assert 'status = route_add("lo", 0, "127.0.0.0", "0.0.0.0", "255.0.0.0");' in loopback
+          assert loopback.index('if (status != 0)') < loopback.index('route_add("lo"')
+          assert loopback.index('return status;') < loopback.index('route_add("lo"')
+          assert "return status;" in loopback
+
+          init_body = body(init, "init_router(void)")
+          assert "int lan_start_status = start_lan(is_ap_mode, 0);" in init_body
+          assert "boot_services_status = rc_first_service_start_status(" in init_body
+          assert "int loopback_start_status = init_loopback();" in init_body
+          assert "boot_services_status, loopback_start_status);" in init_body
+          assert "int start_lan(int is_ap_mode, int do_wait);" in header
+          assert "int lan_up_manual(char *lan_ifname, char *lan_dname);" in header
+          assert "test_lan_start_preserves_first_required_failure();" in regression
+          bridge = body(lan, "config_bridge(int is_ap_mode)")
+          bridge_policy_body = body(bridge_policy, "rc_bridge_config_apply(")
+          iptv = body(net, "restart_iptv(int is_ap_mode)")
+          assert ("int" + chr(10) + "config_bridge(int is_ap_mode)") in lan
+          assert "int config_bridge(int is_ap_mode);" in header
+          assert "rc_bridge_config_apply(" in bridge and "return status;" in bridge
+          assert "failure_count" in bridge and "first_failure" in bridge
+          assert bridge_policy_body.count("rc_bridge_config_record_failure(status") == 7
+          for operation in ("multicast_router", "multicast_querier",
+                            "multicast_query_use_ifaddr", "multicast_snooping",
+                            "multicast_to_unicast", "phy_igmp_static_port",
+                            "phy_igmp_snooping"):
+              assert operation in bridge_policy_body
+          assert "operation_status = config_bridge(is_ap_mode);" in start_lan
+          assert "rc_first_service_start_status(start_status, operation_status)" in start_lan
+          assert "operation_status = config_bridge(is_ap_mode);" in iptv
+          assert "return rc_first_service_start_status(start_status, operation_status);" in iptv
+          assert "return rc_first_service_start_status(start_status, stop_status);" in iptv
+          assert "test_first_failure_is_returned_after_all_operations" in bridge_regression
+
+          init_bridge = body(lan, "init_bridge(int is_ap_mode, int *switch_vlan_status)")
+          switch_vlan = body(lan, "switch_config_vlan(int first_call)")
+          switch_vlan_restart = body(lan, "restart_switch_config_vlan(void)")
+          switch_base = body(lan, "switch_config_base(void)")
+          switch_storm = body(lan, "switch_config_storm(void)")
+          switch_link = body(lan, "switch_config_link(void)")
+          full_wan_restart = body(net_wan, "full_restart_wan(void)")
+          l2tp_start_merge = body(net_wan, "merge_l2tp_server_start_status(int wan_status)")
+          try_wan_reconnect = body(net_wan, "try_wan_reconnect(int try_use_modem, long pause_in_seconds)")
+          deferred_wan_connect = body(net_wan, "deferred_wan_connect(void)")
+          bridge_create = body(lan, "init_bridge_add_bridge(const char *bridge_ifname)")
+          bridge_add = body(netutils, "br_add_del_bridge(const char *brname, int is_add)")
+          bridge_member_add = body(netutils, "br_add_del_if_internal(const char *brname, const char *ifname, int is_add,")
+          module_loader = body(lan, "init_bridge_load_module_verified(const char *module_name, const char *module_param)")
+          assert ("int" + chr(10) + "init_bridge(int is_ap_mode, int *switch_vlan_status)") in lan
+          assert "int init_bridge(int is_ap_mode, int *switch_vlan_status);" in header
+          assert "operation_status = switch_config_vlan(1);" in init_bridge
+          bridge_compact = " ".join(init_bridge.split())
+          assert "if (switch_vlan_status) *switch_vlan_status = 0;" in bridge_compact
+          vlan_config = bridge_compact.index("operation_status = switch_config_vlan(1);")
+          vlan_capture = bridge_compact.index("*switch_vlan_status = operation_status;", vlan_config)
+          vlan_record = bridge_compact.index('rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);', vlan_capture)
+          assert vlan_config < vlan_capture < vlan_record
+          assert 'rc_bridge_init_record(&bridge_status, "switch VLAN setup", operation_status);' in init_bridge
+          for operation in ("set MAC interface address", "bring up MAC interface",
+                            "power up switch PHYs", "create LAN bridge",
+                            "set LAN bridge STP", "set LAN bridge forward delay",
+                            "set LAN bridge address", "bring up LAN bridge"):
+              assert operation in init_bridge
+          assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
+          assert 'rc_bridge_init_record(&bridge_status, "attach router LAN port", operation_status);' in init_bridge
+          assert 'rc_bridge_init_record(&bridge_status, "attach AP LAN port", operation_status);' in init_bridge
+          lan_member_calls = [
+              line.strip() for line in init_bridge.splitlines()
+              if "br_add_del_if(IFNAME_BR, IFNAME_LAN, 1);" in line
+          ]
+          assert len(lan_member_calls) == 2
+          assert all(call.startswith("operation_status = ") for call in lan_member_calls)
+          assert "br_add_del_bridge(bridge_ifname, 1)" in bridge_create
+          assert "saved_errno = errno;" in bridge_add
+          assert bridge_add.index("saved_errno = errno;") < bridge_add.index("close(sockfd);")
+          assert "if (ret < 0)\n\t\terrno = saved_errno;" in bridge_add
+          assert "saved_errno = errno;" in bridge_member_add
+          assert bridge_member_add.index("saved_errno = errno;") < bridge_member_add.rindex("close(sockfd);")
+          assert "if (ret < 0)\n\t\terrno = saved_errno;" in bridge_member_add
+          assert "saved_errno == EEXIST" in bridge_create
+          assert "br_bridge_is_empty(bridge_ifname)" in bridge_create
+          assert "rc_bridge_init_add_bridge_result" in bridge_create
+          assert "rc_module_load_verified(module_name, module_param, &ops)" in module_loader
+          assert "is_module_loaded" in module_loader
+          assert 'init_bridge_load_module_verified("iNIC_mii", inic_param)' in init_bridge
+
+          # Every requested radio mode/interface must feed its real start result
+          # into the bridge initializer; otherwise init_router() reports success
+          # even when an enabled AP/WDS/APCLI interface failed to come up.
+          for signature in (
+              "start_wifi_ap_rt(int radio_on)", "start_wifi_wds_rt(int radio_on)",
+              "start_wifi_apcli_rt(int radio_on)", "start_wifi_ap_wl(int radio_on)",
+              "start_wifi_wds_wl(int radio_on)", "start_wifi_apcli_wl(int radio_on)",
+          ):
+              assert signature in wifi, signature
+          for call, operation in (
+              ("start_wifi_ap_rt(rt_radio_on)", "2.4GHz AP radio startup"),
+              ("start_wifi_wds_rt(rt_radio_on)", "2.4GHz WDS radio startup"),
+              ("start_wifi_apcli_rt(rt_radio_on)", "2.4GHz APCLI radio startup"),
+              ("start_wifi_ap_wl(wl_radio_on)", "5GHz AP radio startup"),
+              ("start_wifi_wds_wl(wl_radio_on)", "5GHz WDS radio startup"),
+              ("start_wifi_apcli_wl(wl_radio_on)", "5GHz APCLI radio startup"),
+          ):
+              status_variable = {
+                  "start_wifi_ap_rt(rt_radio_on)": "rt_ap_start_status",
+                  "start_wifi_ap_wl(wl_radio_on)": "wl_ap_start_status",
+              }.get(call, "operation_status")
+              expected = status_variable + " = " + call + ";"
+              recorded = 'rc_bridge_init_record(&bridge_status, "' + operation + '", ' + status_variable + ');'
+              assert expected in init_bridge, expected
+              assert recorded in init_bridge, recorded
+          rt_ap_record = 'rc_bridge_init_record(&bridge_status, "2.4GHz AP radio startup", rt_ap_start_status);'
+          assert init_bridge.index("rt_ap_start_status = start_wifi_ap_rt(rt_radio_on);") < init_bridge.index(rt_ap_record)
+          assert init_bridge.index(rt_ap_record) < init_bridge.index("operation_status = ifconfig(IFNAME_BR, IFUP, NULL, NULL);")
+          # Wireless config publication is required boot preparation too. These
+          # calls return -1 when the atomic file publish fails; none may be dropped.
+          for call, operation in (
+              ("gen_ralink_config_2g(1)", "prepare 2.4GHz wireless configuration"),
+              ("gen_ralink_config_5g(1)", "prepare 5GHz wireless configuration"),
+              ("gen_ralink_config_5g(0)", "restore 5GHz wireless configuration"),
+              ("gen_ralink_config_2g(0)", "restore 2.4GHz wireless configuration"),
+          ):
+              call_count = init_bridge.count(call)
+              assert call_count > 0, call
+              capture = 'operation_status = ' + call + '; rc_bridge_init_record(&bridge_status, "' + operation + '", operation_status);'
+              assert bridge_compact.count(capture) == call_count, (call, operation)
+          assert "test_wireless_config_generation_failure_reaches_bridge_status();" in bridge_init_regression
+          assert "return rc_bridge_init_result(&bridge_status);" in init_bridge
+
+          assert 'rc_bridge_init_record(&bridge_status, "required iNIC MII module", operation_status);' in init_bridge
+          assert "optional hw_nat bridge offload unavailable" in init_bridge
+          assert 'init_bridge_load_module_verified("hw_nat", "ttl_regen=0")' in init_bridge
+          assert ("int" + chr(10) + "switch_config_vlan(int first_call)") in lan
+          assert "int switch_config_vlan(int first_call);" in header
+          assert "operation_status = phy_vlan_rule_set(vrule, vlan_vid[vrule], vlan_pri[vrule], vlan_tag[vrule]);" in switch_vlan
+          assert 'rc_bridge_init_record(&vlan_status, "VLAN rule", operation_status);' in switch_vlan
+          assert "operation_status = phy_bridge_mode(bridge_mode, bwan_isolation);" in switch_vlan
+          assert 'rc_bridge_init_record(&vlan_status, "switch bridge mode", operation_status);' in switch_vlan
+          assert "return rc_bridge_init_result(&vlan_status);" in switch_vlan
+          assert "optional iNIC isolation reset failed" in switch_vlan
+          assert "operation_status = switch_config_vlan(0);" in switch_vlan_restart
+          assert "operation_status = full_restart_wan();" in switch_vlan_restart
+          assert "return start_status;" in switch_vlan_restart
+          assert "int restart_switch_config_vlan(void);" in header
+          assert "int bridge_start_status = init_bridge(is_ap_mode, &switch_vlan_status);" in init_body
+          assert "int switch_vlan_status = 0;" in init_body
+          assert "boot_services_status, bridge_start_status);" in init_body
+          assert "init_bridge(is_ap_mode, &switch_vlan_status);" in init_body
+          assert "rc_notify_merge_action_result(action_result, config_bridge(get_ap_mode()))" in body(init, "handle_notifications(void)")
+          assert "rc_notify_merge_action_result(action_result, restart_switch_config_vlan())" in body(init, "handle_notifications(void)")
+          assert "test_bridge_add_idempotency_requires_confirmed_bridge();" in bridge_init_regression
+          assert "rc_bridge_init_record" in bridge_init_policy
+          for operation in ("jumbo frame setting", "green Ethernet setting", "EEE LPI setting"):
+              assert operation in switch_base
+          for operation in ("unknown-unicast storm control", "unknown-multicast storm control",
+                            "multicast storm control", "broadcast storm control"):
+              assert operation in switch_storm
+          assert switch_storm.count("rc_bridge_init_record(&storm_status") == 4
+          assert 'rc_bridge_init_record(&link_status, "WAN link control", operation_status);' in switch_link
+          assert 'rc_bridge_init_record(&link_status, "LAN link control", operation_status);' in switch_link
+          assert "phy_set_link_port(SWAPI_PORT_WAN" in switch_link
+          assert "phy_set_link_port(SWAPI_PORT_LAN1+i" in switch_link
+          assert "int switch_config_base(void);" in header
+          assert "int switch_config_storm(void);" in header
+          assert "int switch_config_link(void);" in header
+          for operation in ("switch_config_base()", "switch_config_storm()", "switch_config_link()"):
+              assert operation in init_bridge
+          assert "rc_notify_merge_action_result(action_result, switch_config_base())" in body(init, "handle_notifications(void)")
+          assert "rc_notify_merge_action_result(action_result, switch_config_storm())" in body(init, "handle_notifications(void)")
+          assert "rc_notify_merge_action_result(action_result, switch_config_link())" in body(init, "handle_notifications(void)")
+          assert "switch_vlan_status = switch_config_vlan(0);" in full_wan_restart
+          assert "if (switch_vlan_status != 0)" in full_wan_restart
+          assert "return switch_vlan_status;" in full_wan_restart
+          assert full_wan_restart.index("return switch_vlan_status;") < full_wan_restart.index("status = start_wan();")
+          assert "status = add_static_lan_routes(IFNAME_BR);" in full_wan_restart
+          assert "static LAN routes could not be restored" in full_wan_restart
+          assert full_wan_restart.index("return status;") < full_wan_restart.index("status = start_wan();")
+          assert "status = phy_clear_mac_table();" in full_wan_restart
+          assert "switch MAC table could not be cleared" in full_wan_restart
+          assert full_wan_restart.index("switch MAC table could not be cleared") < full_wan_restart.index("status = start_wan();")
+          assert 'nvram_match("l2tp_srv_t", "1")' in l2tp_start_merge
+          assert "xl2tp_status = safe_start_xl2tpd();" in l2tp_start_merge
+          assert "xl2tp_status < 0" in l2tp_start_merge
+          assert "wan_status == 0" in l2tp_start_merge
+          assert "return xl2tp_status;" in l2tp_start_merge
+          for caller in (full_wan_restart, try_wan_reconnect, deferred_wan_connect):
+              assert "return merge_l2tp_server_start_status(status);" in caller
+          print("LAN bridge initialization status and caller aggregation: PASS")
+          print("LAN startup error propagation and caller aggregation: PASS")
+          PY
+

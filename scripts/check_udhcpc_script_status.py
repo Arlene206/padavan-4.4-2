@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""Verify udhcpc event-script status propagation and lease-state gating."""
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def read(relative):
+    return (ROOT / relative).read_text()
+
+
+def function_body(source, signature):
+    start = source.index(signature)
+    brace = source.index("{", start)
+    depth = 0
+    pos = brace
+    state = "code"
+    while pos < len(source):
+        ch = source[pos]
+        next_ch = source[pos + 1] if pos + 1 < len(source) else ""
+        if state == "code":
+            if ch == '"':
+                state = "string"
+            elif ch == "'":
+                state = "char"
+            elif ch == "/" and next_ch == "*":
+                state = "block_comment"
+                pos += 1
+            elif ch == "/" and next_ch == "/":
+                state = "line_comment"
+                pos += 1
+            elif ch == "{":
+                depth += 1
+            elif ch == "}":
+                depth -= 1
+                if depth == 0:
+                    return source[brace + 1:pos]
+        elif state in ("string", "char"):
+            if ch == "\\":
+                pos += 1
+            elif state == "string" and ch == '"':
+                state = "code"
+            elif state == "char" and ch == "'":
+                state = "code"
+        elif state == "block_comment":
+            if ch == "*" and next_ch == "/":
+                state = "code"
+                pos += 1
+        elif state == "line_comment" and ch == "\n":
+            state = "code"
+        pos += 1
+    raise AssertionError("unterminated function: " + signature)
+
+
+udhcp_dir = "trunk/user/busybox/busybox-1.24.x/networking/udhcp/"
+dhcpc = read(udhcp_dir + "dhcpc.c")
+policy = read(udhcp_dir + "udhcpc_script_policy.h")
+test = read(udhcp_dir + "tests/udhcpc_script_policy.c")
+spawn = read("trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c")
+libbb = read("trunk/user/busybox/busybox-1.24.x/include/libbb.h")
+workflow = read(".github/workflows/udhcpc-script-status-stability.yml")
+
+assert '#include "udhcpc_script_policy.h"' in dhcpc
+runner = function_body(dhcpc, "static int udhcp_run_script")
+assert "int status;" in runner
+assert "status = spawn_and_wait(argv);" in runner
+assert "if (status != 0)" in runner
+assert "DHCP event script %s failed with status %d" in runner
+assert "return status;" in runner
+assert "static void udhcp_run_script" not in dhcpc
+assert 'opt_complementary = "O::x::T+:t+:A+"' in dhcpc
+
+spawn_body = function_body(spawn, "int FAST_FUNC spawn_and_wait(char **argv)")
+assert "return wait4pid(rc);" in spawn_body
+assert "int spawn_and_wait(char **argv) FAST_FUNC;" in libbb
+assert "Returns sig + 0x180 if child is killed by signal." in libbb
+
+ack_start = dhcpc.index("if (*message == DHCPACK)")
+nak_start = dhcpc.index("if (*message == DHCPNAK)", ack_start)
+ack = dhcpc[ack_start:nak_start]
+script_call = ack.index("script_status = udhcp_run_script")
+failure_gate = ack.index("if (script_status != 0)", script_call)
+retry = ack.index("udhcpc_script_failure_prepare_retry", failure_gate)
+retry_continue = ack.index("continue;", retry)
+bound_publish = ack.index("state = BOUND;", retry_continue)
+assert script_call < failure_gate < retry < retry_continue < bound_publish
+assert "script_status != 0" in ack[failure_gate:retry_continue]
+assert "state == REQUESTING" in ack[retry:retry_continue]
+assert "tryagain_timeout" in ack[retry:retry_continue]
+assert "script_elapsed" in ack[retry:retry_continue]
+assert ack.index("requested_ip = packet.yiaddr;", retry_continue) > retry_continue
+assert "already_waited_sec = script_elapsed;" in ack
+assert "DHCPACK for %s" in ack
+
+# A failed deconfig blocks NAK/expiry/release/manual-renew state transitions.
+assert "#define DECONFIG_PENDING 7" in dhcpc
+assert "static smallint deconfig_resume_state;" in dhcpc
+scheduler = function_body(dhcpc, "udhcpc_schedule_deconfig_retry(")
+assert "change_listen_mode(LISTEN_NONE)" in scheduler
+assert "state = DECONFIG_PENDING;" in scheduler
+assert "*already_waited_sec = 0;" in scheduler
+pending = dhcpc.rindex("case DECONFIG_PENDING:")
+pending_end = dhcpc.index("/* case RELEASED:", pending)
+pending_body = dhcpc[pending:pending_end]
+assert 'udhcp_run_script(NULL, "deconfig")' in pending_body
+assert "udhcpc_deconfig_retry_required(deconfig_status)" in pending_body
+assert "state = deconfig_resume_state;" in pending_body
+assert "change_listen_mode(LISTEN_RAW)" in pending_body
+nak_start = dhcpc.index('bb_info_msg("Received DHCP NAK")')
+nak_end = dhcpc.index("change_listen_mode(LISTEN_RAW);", nak_start)
+nak = dhcpc[nak_start:nak_end]
+assert "udhcpc_deconfig_retry_required(deconfig_status)" in nak
+assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in nak
+
+arp_start = dhcpc.index("if (!arpping(packet.yiaddr,")
+arp_end = dhcpc.index("continue; /* back to main loop */", arp_start)
+arp_conflict = dhcpc[arp_start:arp_end]
+assert "send_decline(" in arp_conflict
+assert "if (state != REQUESTING)" in arp_conflict
+assert "udhcpc_deconfig_retry_required(deconfig_status)" in arp_conflict
+assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in arp_conflict
+assert arp_conflict.index("udhcpc_schedule_deconfig_retry") < arp_conflict.index("change_listen_mode(LISTEN_RAW)")
+expiry_start = dhcpc.index('bb_info_msg("Lease lost, entering init state")')
+expiry_end = dhcpc.index("case DECONFIG_PENDING:", expiry_start)
+expiry = dhcpc[expiry_start:expiry_end]
+assert "udhcpc_deconfig_retry_required(deconfig_status)" in expiry
+assert "udhcpc_schedule_deconfig_retry(INIT_SELECTING" in expiry
+renew = function_body(dhcpc, "static int perform_renew")
+assert "return script_status;" in renew
+release = function_body(dhcpc, "static int perform_release")
+assert "return script_status;" in release
+assert "if (!udhcpc_deconfig_retry_required(script_status))" in release
+signal_release = dhcpc[dhcpc.index("case SIGUSR2:"):dhcpc.index("/* Is it a packet? */")]
+assert "deconfig_resume_state = RELEASED;" in signal_release
+assert "udhcpc_schedule_deconfig_retry(RELEASED" in signal_release
+
+exit_cleanup = dhcpc[dhcpc.index(" ret0:"):]
+assert "if ((opt & OPT_R) || state == DECONFIG_PENDING)" in exit_cleanup
+assert "while (udhcpc_deconfig_retry_required(release_status))" in exit_cleanup
+assert "sleep(retry_delay);" in exit_cleanup
+assert 'release_status = udhcp_run_script(NULL, "deconfig");' in exit_cleanup
+
+assert "if (acquiring)" in policy
+assert "*timeout = retry_timeout > 0 ? retry_timeout : 1;" in policy
+assert "A+" in dhcpc
+assert "*packet_num = 0;" in policy
+assert "script_elapsed >= remaining" in policy
+assert "*already_waited_sec += script_elapsed;" in policy
+assert "return script_status != 0;" in policy
+assert "test_failed_deconfig_blocks_state_transition" in test
+
+for marker in (
+    "test_initial_acquisition_retries_selected_request",
+    "test_nonpositive_retry_interval_is_throttled",
+    "test_failed_renewal_preserves_existing_lease_deadline",
+    "test_script_runtime_cannot_extend_expired_lease",
+    "test_exact_lease_deadline_is_expired",
+    "test_already_expired_lease_is_not_resurrected",
+    "udhcpc script failure and deconfig retry policy: PASS",
+):
+    assert marker in test, marker
+
+paths = (
+    ".github/workflows/udhcpc-script-status-stability.yml",
+    "scripts/check_udhcpc_script_status.py",
+    udhcp_dir + "dhcpc.c",
+    udhcp_dir + "udhcpc_script_policy.h",
+    udhcp_dir + "tests/udhcpc_script_policy.c",
+    "trunk/user/busybox/busybox-1.24.x/libbb/vfork_daemon_rexec.c",
+    "trunk/user/busybox/busybox-1.24.x/include/libbb.h",
+)
+filters = workflow.split("jobs:", 1)[0]
+push_filters, pr_filters = filters.split("  pull_request:", 1)
+for path in paths:
+    quoted = '"' + path + '"'
+    assert push_filters.count(quoted) == 1, "push path count: " + path
+    assert pr_filters.count(quoted) == 1, "pull_request path count: " + path
+
+print("udhcpc event-script status and lease-state source contracts: PASS")

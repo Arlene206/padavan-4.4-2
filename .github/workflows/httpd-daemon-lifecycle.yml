@@ -1,0 +1,196 @@
+name: HTTPD daemon lifecycle stability
+
+on:
+  push:
+    paths:
+      - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/httpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/httpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/httpd_daemon_policy.c"
+      - ".github/workflows/httpd-daemon-lifecycle.yml"
+  pull_request:
+    paths:
+      - "trunk/user/rc/src/watchdog.c"
+      - "trunk/user/rc/src/httpd_lifecycle_lock.h"
+      - "trunk/user/rc/src/tests/httpd_lifecycle_lock.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/httpd_daemon_policy.h"
+      - "trunk/user/rc/src/tests/httpd_daemon_policy.c"
+      - ".github/workflows/httpd-daemon-lifecycle.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  httpd-daemon-lifecycle:
+    name: HTTPD startup, stop and restart postconditions
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Compile and run daemon policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -fno-omit-frame-pointer \
+            -I trunk/user/rc/src -I trunk/user/shared/src \
+            trunk/user/rc/src/tests/httpd_daemon_policy.c \
+            -o /tmp/httpd_daemon_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/httpd_daemon_policy
+
+      - name: Verify HTTPD lifecycle integration and path filters
+        run: |
+          set -eu
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          services = Path("trunk/user/rc/src/services.c").read_text()
+          header = Path("trunk/user/rc/src/rc.h").read_text()
+          policy = Path("trunk/user/rc/src/httpd_daemon_policy.h").read_text()
+          test = Path("trunk/user/rc/src/tests/httpd_daemon_policy.c").read_text()
+          workflow = Path(".github/workflows/httpd-daemon-lifecycle.yml").read_text()
+
+          start = body(services, "start_httpd_locked(int restart_fw)")
+          start_entry = body(services, "start_httpd(int restart_fw)")
+          probe = body(services, "httpd_process_presence(int *scan_error)")
+          stop = body(services, "static int\nstop_httpd_locked(void)")
+          stop_entry = body(services, "stop_httpd(void)")
+          restart = body(services, "restart_httpd(void)")
+          nvram_writer = body(services, "httpd_nvram_set_int_status(const char *param_name, int value, int temporary)")
+          started_writer = body(services, "httpd_started_state_publish_status(int started)")
+
+          assert 'process_inventory_scan("httpd", &snapshot)' in probe
+          assert "snapshot.error" in probe and "process_snapshot_release(&snapshot)" in probe
+          assert "httpd_process_presence(&scan_error)" in start
+          assert "httpd_start_can_launch(presence)" in start
+          assert "httpd_start_precondition_status(presence)" in start
+          assert "pids(\"httpd\")" not in start
+          assert start.index("httpd_process_presence(&scan_error)") < start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
+          assert start.index("httpd_process_presence(&scan_error)") < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          assert 'httpd_nvram_set_int_status("http_lanport", http_port, 0)' in start
+          assert 'httpd_nvram_set_int_status("https_lport", https_port, 0)' in start
+          assert start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)') < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          assert 'httpd_started_state_publish_status(0)' in start
+          assert start.index('httpd_started_state_publish_status(0)') < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          assert "httpd_nvram_write_status(api_result, saved_errno)" in nvram_writer
+          assert "nvram_set_int_temp(param_name, value)" in nvram_writer
+          assert "nvram_set_int(param_name, value)" in nvram_writer
+          assert 'httpd_nvram_set_int_status("httpd_started", started, 1)' in started_writer
+          assert "launch_status = _eval(httpd_argv, NULL, 0, NULL);" in start
+          assert "return httpd_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);" in start
+          assert "httpd_start_postcondition(launch_status, presence)" in start
+          assert "presence == PROCESS_PRESENCE_UNKNOWN" in start
+          assert "scan_error ? scan_error : EIO" in start
+          assert "HTTPD_START_PROBE_ATTEMPTS" in start
+          probe_loop = start.index("status = -1;")
+          started_publish = start.index("status = httpd_started_state_publish_status(1)", probe_loop)
+          status_failure = start.index("if (status != 0)", probe_loop)
+          assert status_failure < started_publish
+          assert start.index("return status;", status_failure) < started_publish
+          initial_wait = start.index('status = service_start_probe_wait("HTTPD", HTTPD_START_INITIAL_WAIT_SECONDS);')
+          initial_wait_failure = start.index("if (status != 0)", initial_wait)
+          initial_wait_loop = start.index("status = -1;", initial_wait_failure)
+          initial_wait_recovery = start[initial_wait_failure:initial_wait_loop]
+          assert "int wait_errno = errno > 0 ? errno : EIO;" in initial_wait_recovery
+          assert "rollback_status = stop_httpd_locked();" in initial_wait_recovery
+          assert "rollback_presence = httpd_process_presence(&rollback_scan_error);" in initial_wait_recovery
+          assert "httpd_failed_start_preserve_running_state(rollback_presence)" in initial_wait_recovery
+          assert "httpd_started_state_publish_status(1)" in initial_wait_recovery
+          assert "errno = wait_errno;" in initial_wait_recovery
+          assert initial_wait_recovery.index("stop_httpd_locked()") < initial_wait_recovery.index("httpd_process_presence") < initial_wait_recovery.index("httpd_failed_start_preserve_running_state")
+          assert initial_wait_recovery.index("httpd_failed_start_preserve_running_state") < initial_wait_recovery.index("httpd_started_state_publish_status(1)") < initial_wait_recovery.index("errno = wait_errno;")
+          assert started_publish < start.index("restart_firewall();", started_publish)
+          assert "return status;" in start
+
+          assert "httpd_lifecycle_lock_acquire_status" in start_entry
+          assert "start_httpd_locked(restart_fw)" in start_entry
+          assert "httpd_lifecycle_lock_finish" in start_entry
+
+          assert "kill_services(svcs, 3, 1)" in stop
+          assert stop.index("kill_services(svcs, 3, 1)") < stop.index("httpd_stop_policy_publish_stopped")
+          stop_publish = stop.index("publish_status = httpd_started_state_publish_status(0)")
+          assert stop.index("httpd_stop_policy_publish_stopped") < stop_publish
+          assert "if (publish_status != 0)" in stop[stop_publish:]
+          assert "return publish_status;" in stop[stop_publish:]
+          assert "return stop_status;" in stop
+          assert "httpd_lifecycle_lock_acquire_status" in stop_entry
+          assert "stop_httpd_locked()" in stop_entry
+          assert "httpd_lifecycle_lock_finish" in stop_entry
+
+          assert 'httpd_lifecycle_lock_acquire_status("restart", &lock_fd)' in restart
+          assert "stop_status = stop_httpd_locked();" in restart
+          assert restart.index("stop_status = stop_httpd_locked();") < restart.index("httpd_restart_can_start(stop_status)")
+          assert restart.index("httpd_restart_can_start(stop_status)") < restart.index("status = start_httpd_locked(1);")
+          assert 'httpd_lifecycle_lock_finish(lock_fd, status, "restart")' in restart
+          assert "stop_httpd();" not in restart
+          assert "start_httpd(1);" not in restart
+
+          assert "int start_httpd(int restart_fw);" in header
+          assert "int stop_httpd(void);" in header
+          assert "int restart_httpd(void);" in header
+          assert "HTTPD_START_PROBE_ATTEMPTS 4" in policy
+          assert "httpd_start_can_launch" in policy
+          assert "enum process_presence process_presence" in policy
+          assert "httpd_start_precondition_status" in policy
+          assert "PROCESS_PRESENCE_UNKNOWN" in test
+          assert "httpd_start_postcondition" in test
+          assert "httpd_start_can_launch" in test
+          assert "httpd_restart_can_start" in test
+
+          push_marker = workflow.index("  pull_request:")
+          dispatch_marker = workflow.index("  workflow_dispatch:",push_marker)
+          push = workflow[:push_marker]
+          pr = workflow[push_marker:dispatch_marker]
+          triggers = (
+              "trunk/user/rc/src/services.c",
+              "trunk/user/rc/src/watchdog.c",
+              "trunk/user/rc/src/httpd_lifecycle_lock.h",
+              "trunk/user/rc/src/tests/httpd_lifecycle_lock.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/httpd_daemon_policy.h",
+              "trunk/user/rc/src/tests/httpd_daemon_policy.c",
+              ".github/workflows/httpd-daemon-lifecycle.yml",
+          )
+          for path in triggers:
+              assert '"' + path + '"' in push
+              assert '"' + path + '"' in pr
+
+          assert "httpd_firewall_failure_requires_stop" in policy
+          assert "httpd_nvram_write_status" in policy
+          assert "httpd_nvram_write_status" in test
+          assert "test_nvram_write_status_preserves_backend_failure();" in test
+          assert "httpd_firewall_failure_requires_stop" in test
+          assert "test_firewall_failure_requires_listener_shutdown();" in test
+          firewall_call = start.index("firewall_status = restart_firewall();")
+          firewall_gate = start.index("httpd_firewall_failure_requires_stop(firewall_status, presence)")
+          firewall_stop = start.index("firewall_stop_status = stop_httpd_locked();")
+          firewall_scan = start.index("firewall_stop_state = httpd_process_presence(&firewall_stop_scan_error);")
+          firewall_absent = start.index("if (firewall_stop_state == PROCESS_PRESENCE_ABSENT)")
+          firewall_return = start.index("return firewall_status;", firewall_call)
+          assert firewall_call < firewall_gate < firewall_stop < firewall_scan < firewall_absent < firewall_return
+          assert "httpd_started_state_publish_status(1)" in start[firewall_absent:firewall_return]
+          assert 'nvram_set_int_temp("httpd_started"' not in start
+          assert "rollback_status = stop_httpd_locked();" in start[started_publish:]
+          assert "firewall_errno = errno > 0 ? errno :" in start
+          assert "errno = 0;" in start
+          print("HTTPD daemon startup, state publication, stop-before-start and path-filter source contracts: PASS")
+          PY

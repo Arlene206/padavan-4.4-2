@@ -1,0 +1,317 @@
+name: detect_internet signal lifecycle stability regression
+
+on:
+  push:
+    paths:
+      - ".github/workflows/detect-internet-signal-stability.yml"
+      - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_internet_signal_policy.h"
+      - "trunk/user/rc/src/detect_internet_nvram_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_nvram_policy.c"
+      - "trunk/user/rc/src/detect_internet_notification_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_signal_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/Makefile"
+  pull_request:
+    paths:
+      - ".github/workflows/detect-internet-signal-stability.yml"
+      - "trunk/user/rc/src/detect_internet.c"
+      - "trunk/user/rc/src/detect_internet_signal_policy.h"
+      - "trunk/user/rc/src/detect_internet_nvram_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_nvram_policy.c"
+      - "trunk/user/rc/src/detect_internet_notification_policy.h"
+      - "trunk/user/rc/src/tests/detect_internet_signal_policy.c"
+      - "trunk/user/rc/src/net_wan.c"
+      - "trunk/user/rc/src/net_lan.c"
+      - "trunk/user/rc/src/rc.c"
+      - "trunk/user/rc/src/services.c"
+      - "trunk/user/rc/src/rc.h"
+      - "trunk/user/rc/src/Makefile"
+
+permissions:
+  contents: read
+
+jobs:
+  detect-internet-signal:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU89 signal deferral policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_internet_signal_policy.c \
+            -o /tmp/detect-internet-signal-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-signal-policy
+      - name: Compile and run Internet status NVRAM retry regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined -I trunk/user/rc/src trunk/user/rc/src/tests/detect_internet_nvram_policy.c -o /tmp/detect-internet-nvram-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-internet-nvram-policy
+      - name: Verify normal-context dispatch, wakeup safety and service wiring
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          rc = Path("trunk/user/rc/src")
+          detect = (rc / "detect_internet.c").read_text()
+          policy = (rc / "detect_internet_signal_policy.h").read_text()
+          notification_policy = (rc / "detect_internet_notification_policy.h").read_text()
+          test = (rc / "tests/detect_internet_signal_policy.c").read_text()
+          wan = (rc / "net_wan.c").read_text()
+          lan = (rc / "net_lan.c").read_text()
+          dispatcher = (rc / "rc.c").read_text()
+          makefile = (rc / "Makefile").read_text()
+          services = (rc / "services.c").read_text()
+          header = (rc / "rc.h").read_text()
+          workflow = Path(".github/workflows/detect-internet-signal-stability.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          assert '#include "detect_internet_signal_policy.h"' in detect
+          assert '#include "detect_internet_nvram_policy.h"' in detect
+          nvram_policy = (rc / "detect_internet_nvram_policy.h").read_text()
+          nvram_test = (rc / "tests/detect_internet_nvram_policy.c").read_text()
+          assert "detect_internet_publish_status(" in nvram_policy
+          assert "di_status_nvram_old" in detect
+          assert "di_status_nvram_target" in detect
+          publisher = body(detect, "di_publish_nvram_status(int status)")
+          writer = body(detect, "di_write_nvram_status(void *context, int status)")
+          assert "di_status_nvram_target = status;" in publisher
+          assert 'nvram_set_int_temp("link_internet", status)' in writer
+          assert "di_status_nvram_error != result" in publisher
+          assert "Internet connectivity NVRAM publication recovered" in publisher
+          reset_state = body(detect, "di_reset_state(void)")
+          assert "status = di_publish_nvram_status(DI_STATUS_INIT);" in reset_state
+          assert "if (status != 0 && di_pause_received)" in reset_state
+          timer_body = body(detect, "di_on_timer(void)")
+          assert "di_publish_nvram_status(di_status_nvram_target)" in timer_body
+          pause_state = body(detect, "di_on_sigusr2(void)")
+          assert "status = di_publish_nvram_status(0);" in pause_state
+          assert "if (status != 0)" in pause_state and "di_alarmtimer(1);" in pause_state
+          for marker in ("test_failed_unknown_state_publication_is_retried",
+                         "test_changed_connectivity_state_keeps_previous_cache_on_failure",
+                         "test_invalid_policy_arguments_fail_closed"):
+              assert marker in nvram_test and marker + "();" in nvram_test
+          assert "detect_internet NVRAM mirror retry policy: PASS" in nvram_test
+          handler = body(detect, "catch_sig_detect_internet(int sig)")
+          assert "detect_internet_record_signal(&di_pending_events, &di_pending_control" in handler
+          for forbidden in ("di_on_timer(", "di_update_last_activity(", "di_on_sigusr1(",
+                            "di_on_sigusr2(", "di_alarmtimer(", "nvram_", "notify_",
+                            "doSystem(", "remove(", "exit("):
+              assert forbidden not in handler, "signal handler still performs work: " + forbidden
+
+          for signal_name in ("SIGHUP", "SIGUSR1", "SIGUSR2", "SIGALRM", "SIGTERM"):
+              assert f"sigaddset(&managed_signals, {signal_name})" in detect
+          main = body(detect, "detect_internet_main(int argc, char *argv[])")
+          assert main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)") < main.index("sigaction(SIGHUP")
+          assert "sa.sa_mask = managed_signals;" in main
+          assert "sigsuspend(&wait_mask)" in main
+          assert "sigprocmask(SIG_SETMASK, &run_mask, NULL)" in main
+          assert "sigprocmask(SIG_BLOCK, &managed_signals, NULL)" in main
+          terminate = main.index("if (events & DI_PENDING_TERMINATE)")
+          pause = main.index("di_on_sigusr2();", terminate)
+          resume = main.index("di_on_sigusr1();", pause)
+          timer_condition = main.index("if ((events & DI_PENDING_TIMER)", resume)
+          unmask = main.index("sigprocmask(SIG_SETMASK, &run_mask, NULL)", timer_condition)
+          timer_dispatch = main.index("di_on_timer();", unmask)
+          reblock = main.index("sigprocmask(SIG_BLOCK, &managed_signals, NULL)", timer_dispatch)
+          assert terminate < pause < resume < timer_condition < unmask < timer_dispatch < reblock
+          assert main.index("sigprocmask(SIG_BLOCK, &managed_signals, &original_mask)") < terminate
+          assert "control != DI_CONTROL_RESUME &&" in main
+          assert "(!di_pause_received || di_status_nvram_error != 0)" in main
+
+          timer = body(detect, "di_on_timer(void)")
+          connect = timer.index("di_connect_to_host(")
+          pause_fence = timer.index("if (di_pause_received)", connect)
+          publish = timer.index("di_publish_nvram_status(link_internet)")
+          assert timer.index("di_publish_nvram_status(di_status);") < connect
+          assert "di_publish_nvram_status(di_status_nvram_target)" in timer
+          assert "if (publish_status != 0)" in timer
+          assert 'nvram_set_int_temp("link_internet"' not in timer
+          assert pause_fence < publish
+          assert "notify_on_internet_state_changed(" in timer
+          assert '#include "detect_internet_notification_policy.h"' in wan
+          notification_error = body(wan, "queue_internet_lost_action(const char *event_name, const char *action_name)")
+          assert "status = notify_rc_status(event_name)" in notification_error
+          assert "detect_internet_notification_error(status, errno)" in notification_error
+          assert "cannot enqueue %s after Internet loss" in notification_error
+          wan_notify = body(wan, "notify_on_internet_state_changed(")
+          assert "notify_rc(" not in wan_notify
+          assert 'queue_internet_lost_action(RCN_RESTART_REBOOT, "router auto-reboot")' in wan_notify
+          assert 'queue_internet_lost_action("auto_wan_reconnect_pause"' in wan_notify
+          assert 'queue_internet_lost_action("auto_wan_reconnect"' in wan_notify
+          assert 'hook_status = doSystem("%s %d %ld", script_inet, has_internet, elapsed);' in wan_notify
+          assert "if (hook_status != 0)" in wan_notify
+          assert "internet state hook failed" in wan_notify
+          assert wan_notify.index("if (check_if_file_exist(script_inet))") < wan_notify.index("hook_status = doSystem(") < wan_notify.index("if (hook_status != 0)") < wan_notify.index("internet state hook failed")
+          assert "detect_internet_notification_error" in notification_policy
+          assert "detect_internet_operation_error" in notification_policy
+          assert "detect_internet_pause_error" in notification_policy
+          assert "test_notification_queue_failure_preserves_errno_or_falls_back" in test
+          assert "test_launcher_and_pidfile_errors_are_normalized" in test
+          assert "test_pause_treats_absence_as_noop_and_reports_identity_failure" in test
+          assert '#include "detect_internet_notification_policy.h"' in detect
+
+          notify_run = body(detect, "notify_run_detect_internet(int delay_time)")
+          assert "int\nnotify_run_detect_internet(int delay_time)" in detect
+          assert "operation_status = start_detect_internet(delay_time);" in notify_run
+          assert "operation_error = detect_internet_operation_error(-1, scan_error);" in notify_run
+          assert "return operation_error;" in notify_run
+          compact_notify_run = "".join(notify_run.split())
+          assert 'operation_status=process_pidfile_signal(DI_PID_FILE,"detect_internet",SIGUSR1);' in compact_notify_run
+          compact_notify_run = "".join(notify_run.split())
+          assert "detect_internet_operation_error(" in compact_notify_run
+          assert "operation_status,operation_errno" in compact_notify_run
+          assert "monitor launch failed" in notify_run
+          assert "monitor resume signal failed" in notify_run
+          assert "(void)start_detect_internet(" not in notify_run
+          assert "(void)process_pidfile_signal(" not in notify_run
+
+          notify_pause = body(detect, "notify_pause_detect_internet(void)")
+          compact_notify_pause = "".join(notify_pause.split())
+          assert "int\nnotify_pause_detect_internet(void)" in detect
+          assert 'operation_status=process_pidfile_signal(DI_PID_FILE,"detect_internet",SIGUSR2);' in compact_notify_pause
+          assert "detect_internet_pause_error(" in compact_notify_pause
+          assert "operation_status,operation_errno" in compact_notify_pause
+          assert "return operation_error;" in notify_pause
+          assert "(void)process_pidfile_signal(" not in notify_pause
+
+          assert "notify_run_detect_internet(" in wan
+          assert "notify_pause_detect_internet(" in wan
+          assert "int  notify_pause_detect_internet(void);" in header
+          assert "notify_run_detect_internet(" in lan
+          lan_stop = body(lan, "stop_lan(int is_ap_mode)")
+          lan_pause_call = lan_stop.index("pause_status = notify_pause_detect_internet();")
+          lan_pause_failure = lan_stop.index("if (pause_status != 0)", lan_pause_call)
+          lan_pause_return = lan_stop.index("return pause_status;", lan_pause_failure)
+          lan_dhcp_stop_call = lan_stop.index("status = stop_udhcpc_lan();")
+          assert lan_pause_call < lan_pause_failure < lan_pause_return < lan_dhcp_stop_call
+          lan_down_auto = body(lan, "lan_down_auto(char *lan_ifname)")
+          assert "(void)notify_pause_detect_internet();" in lan_down_auto
+          assert "Once the lease cleanup is committed, monitor pause is advisory." in lan_down_auto
+          wan_ppp_stop = body(wan, "stop_wan_ppp_locked(void)")
+          wan_ppp_pause = wan_ppp_stop.index("pause_status = notify_pause_detect_internet();")
+          wan_ppp_pause_gate = wan_ppp_stop.index("if (pause_status != 0)", wan_ppp_pause)
+          wan_ppp_pause_return = wan_ppp_stop.index("return pause_status;", wan_ppp_pause_gate)
+          wan_ppp_fence = wan_ppp_stop.index("invalidate_wan_ppp_callback_session()")
+          assert wan_ppp_pause < wan_ppp_pause_gate < wan_ppp_pause_return < wan_ppp_fence
+          wan_stop = body(wan, "stop_wan_locked(void)")
+          wan_pause = wan_stop.index("pause_status = notify_pause_detect_internet();")
+          wan_pause_gate = wan_stop.index("if (pause_status != 0)", wan_pause)
+          wan_pause_return = wan_stop.index("return pause_status;", wan_pause_gate)
+          wan_fence = wan_stop.index("invalidate_wan_ppp_callback_session()")
+          assert wan_pause < wan_pause_gate < wan_pause_return < wan_fence
+          wan_down = body(wan, "wan_down_internal(char *wan_ifname, int unit, int is_static)")
+          wan_pause_call = wan_down.index("route_status = notify_pause_detect_internet();")
+          wan_pause_accumulate = wan_down.index("status = route_status_accumulate(status, route_status);", wan_pause_call)
+          wan_pause_log = wan_down.index("Internet monitor pause incomplete during WAN teardown", wan_pause_accumulate)
+          wan_state_mutation = wan_down.index('route_status = set_nvram_value_status("vpnc_dns_t", "");')
+          assert wan_pause_call < wan_pause_accumulate < wan_pause_log < wan_state_mutation
+          assert "return status;" in wan_down
+          assert "(void)notify_pause_detect_internet();" not in wan_down
+          man_down = body(wan, "man_down_internal(char *man_ifname, int unit, int clear_dhcp_address)")
+          man_pause_call = man_down.index("route_status = notify_pause_detect_internet();")
+          man_pause_accumulate = man_down.index("status = route_status_accumulate(status, route_status);", man_pause_call)
+          man_pause_log = man_down.index("Internet monitor pause incomplete during MAN teardown", man_pause_accumulate)
+          man_lease_snapshot = man_down.index("snapshot_status = wan_man_gateway_snapshot(")
+          assert man_pause_call < man_pause_accumulate < man_pause_log < man_lease_snapshot
+          assert "if (status == 0)" in man_down
+          assert "return status;" in man_down
+          assert "(void)notify_pause_detect_internet();" not in man_down
+          assert "if (status == 0)" in man_down
+          lan_start = body(lan, "start_lan(int is_ap_mode, int do_wait)")
+          assert "operation_status = notify_run_detect_internet(60);" in lan_start
+          assert "operation_status = notify_run_detect_internet(2);" in lan_start
+          assert "rc_first_service_start_status(start_status, operation_status)" in lan_start
+          wan_start = body(wan, "start_wan(void)")
+          assert "sysctl_status = notify_run_detect_internet(60);" in wan_start
+          assert "rc_first_service_start_status(wan_start_status, sysctl_status)" in wan_start
+          wan_up = body(wan, "wan_up_internal(")
+          assert "route_status = notify_run_detect_internet(2);" in wan_up
+          assert "route_status_accumulate(status, route_status)" in wan_up
+          notification_dispatch = body(dispatcher, "handle_notifications(void)")
+          assert "action_result, notify_run_detect_internet(2)" in notification_dispatch
+          assert "notify_pause_detect_internet(" in lan
+          stop_notify = body(detect, "stop_detect_internet(void)")
+          assert 'kill_services_with_pidfiles(services, pidfiles, "detect_internet", 0, 3, 1)' in stop_notify
+          assert "killall" not in stop_notify
+          assert "int stop_detect_internet(void);" in header
+          service_stop = body(services, "stop_services(int stopall)")
+          assert 'record_service_stop_status(&stop_status, "detect_internet", stop_detect_internet())' in service_stop
+          assert "return stop_status;" in service_stop
+          flash = body(dispatcher, "flash_firmware(void)")
+          assert "if (stop_services(0) != 0)" in flash
+          assert flash.index("if (stop_services(0) != 0)") < flash.index('doSystem("%s %d", script_name, 0)')
+
+          lan_stop = body(lan, "stop_lan(int is_ap_mode)")
+          lan_stop_call = lan_stop.index("ap_dhcp_stop_status = stop_udhcpc_lan();")
+          preflight_failure = lan_stop.index("if (status != 0)", lan_stop_call)
+          preflight_resume = lan_stop.index("notify_run_detect_internet(2)", preflight_failure)
+          preflight_return = lan_stop.index("return status;", preflight_failure)
+          ifdown = lan_stop.index("ifconfig(IFNAME_BR, 0, NULL, NULL)")
+          ap_rollback = body(lan, "lan_ap_teardown_abort_restore(")
+          assert "restore_status = start_lan(1, 1);" in ap_rollback
+          assert "notify_run_detect_internet(2)" in ap_rollback
+          assert "if (restore_status != 0)" in ap_rollback
+          assert "if (is_ap_mode && rc_lan_ap_teardown_recovery_required(" in lan_stop
+          assert "ap_dhcp_stop_status = stop_udhcpc_lan();" in lan_stop
+          assert '#include "service_wait_policy.h"' in lan
+          lan_dhcp_stop = body(lan, "stop_udhcpc_lan(void)")
+          lan_release = lan_dhcp_stop.index('process_pidfile_signal(pidfiles[0], "udhcpc", SIGUSR2)')
+          lan_identity_gate = lan_dhcp_stop.index("errno != ENOENT && errno != ESRCH")
+          lan_release_wait = lan_dhcp_stop.index("service_wait_microseconds(300000U)")
+          lan_wait_failure = lan_dhcp_stop.index("if (wait_status != 0)", lan_release_wait)
+          lan_wait_errno = lan_dhcp_stop.index("wait_status = errno > 0 ? errno : EIO;", lan_wait_failure)
+          lan_wait_log = lan_dhcp_stop.index("refusing LAN DHCP stop: deconfig grace wait failed", lan_wait_errno)
+          lan_wait_return = lan_dhcp_stop.index("return wait_status;", lan_wait_log)
+          lan_noforce_stop = lan_dhcp_stop.index('kill_services_with_pidfiles(NULL, pidfiles, "udhcpc", 0, 30, 0)')
+          assert lan_release < lan_identity_gate < lan_release_wait < lan_wait_failure < lan_wait_errno < lan_wait_log < lan_wait_return < lan_noforce_stop
+          assert "errno = wait_status;" in lan_dhcp_stop
+          assert "usleep(300000)" not in lan_dhcp_stop
+          assert lan_stop.index("notify_pause_detect_internet()") < lan_stop_call < preflight_failure
+          assert preflight_failure < preflight_resume < preflight_return < ifdown
+          assert '"detect_internet"' in dispatcher and "detect_internet_main" in dispatcher
+          assert "detect_internet.o" in makefile
+          for marker in ("DI_PENDING_TIMER", "DI_PENDING_ACTIVITY", "DI_PENDING_TERMINATE",
+                         "DI_CONTROL_RESUME", "DI_CONTROL_PAUSE"):
+              assert marker in policy and marker in test
+
+          paths = (
+              ".github/workflows/detect-internet-signal-stability.yml",
+              "trunk/user/rc/src/detect_internet.c",
+              "trunk/user/rc/src/detect_internet_signal_policy.h",
+              "trunk/user/rc/src/detect_internet_nvram_policy.h",
+              "trunk/user/rc/src/tests/detect_internet_nvram_policy.c",
+              "trunk/user/rc/src/detect_internet_notification_policy.h",
+              "trunk/user/rc/src/tests/detect_internet_signal_policy.c",
+              "trunk/user/rc/src/net_wan.c",
+              "trunk/user/rc/src/net_lan.c",
+              "trunk/user/rc/src/rc.c",
+              "trunk/user/rc/src/services.c",
+              "trunk/user/rc/src/rc.h",
+              "trunk/user/rc/src/Makefile",
+          )
+          filters = workflow.split("jobs:", 1)[0]
+          push_filters, pr_filters = filters.split("  pull_request:", 1)
+          for path in paths:
+              assert push_filters.count(path) == 1, f"push path missing/duplicated: {path}"
+              assert pr_filters.count(path) == 1, f"pull_request path missing/duplicated: {path}"
+          print("detect_internet signal/context contract: PASS")
+          PY

@@ -1,0 +1,203 @@
+name: PID 1 mdev hotplug configuration security regression
+
+on:
+  push:
+    paths:
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/init_mdev_config_file.h"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
+      - "trunk/user/rc/src/tests/init_mdev_config_file.c"
+      - "trunk/user/rc/src/tun_device_node_policy.h"
+      - "trunk/user/rc/src/tests/tun_device_node_policy.c"
+      - "trunk/user/rc/src/boot_device_node_policy.h"
+      - "trunk/user/rc/src/tests/boot_device_node_policy.c"
+      - ".github/workflows/init-mdev-security.yml"
+  pull_request:
+    paths:
+      - "trunk/user/rc/src/init.c"
+      - "trunk/user/rc/src/init_mdev_config_file.h"
+      - "trunk/user/rc/src/init_mdev_retry_policy.h"
+      - "trunk/user/rc/src/tests/init_mdev_retry_policy.c"
+      - "trunk/user/rc/src/tests/init_mdev_config_file.c"
+      - "trunk/user/rc/src/tun_device_node_policy.h"
+      - "trunk/user/rc/src/tests/tun_device_node_policy.c"
+      - "trunk/user/rc/src/boot_device_node_policy.h"
+      - "trunk/user/rc/src/tests/boot_device_node_policy.c"
+      - ".github/workflows/init-mdev-security.yml"
+  workflow_dispatch:
+
+jobs:
+  mdev-config-security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and run mdev config publication regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/init_mdev_config_file.c \
+            -o /tmp/init_mdev_config_file
+          ASAN_OPTIONS=detect_leaks=1 /tmp/init_mdev_config_file
+      - name: Build and run deferred mdev retry policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/init_mdev_retry_policy.c \
+            -o /tmp/init_mdev_retry_policy
+          ASAN_OPTIONS=detect_leaks=1 UBSAN_OPTIONS=halt_on_error=1 /tmp/init_mdev_retry_policy
+      - name: Build and run OpenVPN TUN device-node policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/tun_device_node_policy.c -o /tmp/tun_device_node_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/tun_device_node_policy
+      - name: Build and run optional PID 1 boot device-node policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            trunk/user/rc/src/tests/boot_device_node_policy.c -o /tmp/boot_device_node_policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/boot_device_node_policy
+      - name: Check PID 1 hotplug policy publication contract
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          init = Path("trunk/user/rc/src/init.c").read_text()
+          helper = Path("trunk/user/rc/src/init_mdev_config_file.h").read_text()
+          test = Path("trunk/user/rc/src/tests/init_mdev_config_file.c").read_text()
+          retry_policy = Path("trunk/user/rc/src/init_mdev_retry_policy.h").read_text()
+          retry_test = Path("trunk/user/rc/src/tests/init_mdev_retry_policy.c").read_text()
+          tun = Path("trunk/user/rc/src/tun_device_node_policy.h").read_text()
+          tun_test = Path("trunk/user/rc/src/tests/tun_device_node_policy.c").read_text()
+          boot_device_policy = Path("trunk/user/rc/src/boot_device_node_policy.h").read_text()
+          boot_device_test = Path("trunk/user/rc/src/tests/boot_device_node_policy.c").read_text()
+          workflow = Path(".github/workflows/init-mdev-security.yml").read_text()
+
+          def body(source, signature):
+              start = source.index(signature)
+              brace = source.index("{", start)
+              depth = 0
+              for pos in range(brace, len(source)):
+                  if source[pos] == "{":
+                      depth += 1
+                  elif source[pos] == "}":
+                      depth -= 1
+                      if depth == 0:
+                          return source[brace + 1:pos]
+              raise AssertionError("unterminated function: " + signature)
+
+          mdev = body(init, "init_mdev(void)")
+          main_loop = body(init, "init_main_loop(void)")
+          tun_init = body(init, "init_openvpn_tun_node(void)")
+          nodes = body(init, "init_nodes(int *optional_status)")
+          node_prepare = body(init, "init_optional_device_node(const char *path, dev_t device)")
+          node_recorder = body(init, "init_nodes_record_optional_status(int first_status, const char *path,")
+          assert '#include "init_mdev_config_file.h"' in init
+          assert "init_mdev_config_open(" in mdev
+          assert "init_mdev_config_publish(" in mdev
+          assert mdev.index("init_mdev_config_publish(") < mdev.index(
+              'fput_string("/proc/sys/kernel/hotplug", "/sbin/mdev")'
+          )
+          assert "unlink(mdev_conf)" not in mdev
+          assert 'fopen(mdev_conf, "w")' not in mdev
+          assert "if (hotplug_result != 0)" in mdev
+          assert "Failed to activate mdev kernel hotplug handler" in mdev
+          assert '#include "tun_device_node_policy.h"' in init
+          assert "init_openvpn_tun_node()" in nodes
+          assert "check_if_dev_exist(\"/dev/net/tun\")" not in nodes
+          for token in ('lstat("/dev/net"', "S_ISDIR", "chown(\"/dev/net\"",
+                        "chmod(\"/dev/net\"", "lstat(TUN_DEVICE_NODE_PATH",
+                        "tun_device_node_is_secure(", "unlink(TUN_DEVICE_NODE_PATH)",
+                        "mknod(TUN_DEVICE_NODE_PATH", "chown(TUN_DEVICE_NODE_PATH",
+                        "chmod(TUN_DEVICE_NODE_PATH"):
+              assert token in tun_init, token
+          assert "tun_device_directory_is_secure(&st)" in tun_init
+          for token in ("S_ISDIR", "st_uid", "st_gid", "0700", "0011",
+                        "0022", "07000"):
+              assert token in tun, token
+          for token in ("S_IFDIR | 0711", "S_IFDIR | 0700",
+                        "S_IFDIR | 0750", "S_IFDIR | 0775",
+                        "S_IFDIR | 02755", "S_IFDIR | 01755",
+                        "S_IFREG | 0755", "S_IFLNK | 0755",
+                        "S_IFREG", "S_IFLNK", "makedev", "st_uid = 1000",
+                        "st_gid = 1000", "st_nlink = 2", "04666",
+                        "S_IFCHR | 0600"):
+              assert token in tun_test, token
+          assert "init_nodes_record_optional_status" in nodes
+          assert "init_optional_device_node(\"/dev/hwnat0\"" in nodes
+          assert "init_optional_device_node(\"/dev/crypto\"" in nodes
+          assert "init_openvpn_tun_node()" in nodes
+          assert "TUN_DEVICE_NODE_PATH, tun_status" in nodes
+          assert "return nvram_result;" in nodes
+          assert "mknod(path, S_IFCHR | RC_BOOT_DEVICE_NODE_MODE, device)" in node_prepare
+          assert "errno != EEXIST" in node_prepare
+          assert "lstat(path, &st)" in node_prepare
+          assert "rc_boot_device_node_is_secure(&st, device)" in node_prepare
+          assert "return -EPERM;" in node_prepare
+          assert "optional boot device" in node_recorder
+          assert "if (first_status == 0)" in node_recorder
+          assert '#include "boot_device_node_policy.h"' in init
+          assert "rc_boot_device_node_is_secure" in boot_device_policy
+          for token in ("S_ISCHR", "st_rdev != expected_device", "st_nlink != 1",
+                        "(mode & 0600) != 0600", "(mode & 0111) != 0",
+                        "(mode & 07000) != 0"):
+              assert token in boot_device_policy, token
+          for token in ("makedev(220, 0)", "makedev(220, 1)",
+                        "st.st_uid = 1000", "st.st_gid = 1000",
+                        "st.st_nlink = 2", "04666",
+                        "rc_boot_device_node_is_secure(NULL"):
+              assert token in boot_device_test, token
+          assert 'nvram_node_result = init_nodes(&optional_node_status);' in main_loop
+          assert "if (sysctl_status == 0) sysctl_status = optional_node_status;" in " ".join(main_loop.split())
+          assert '#include "init_mdev_retry_policy.h"' in init
+          assert "mdev_status = init_mdev();" in main_loop
+          assert "init_mdev_retry_state_begin(&mdev_retry_state, dev_init_status" in main_loop
+          assert "init_mdev_retry_state_is_pending(&mdev_retry_state)" in main_loop
+          assert "init_mdev_retry_state_record_result(&mdev_retry_state" in main_loop
+          assert main_loop.count("alarm(INIT_MDEV_RETRY_DELAY_SECONDS)") == 2
+          assert main_loop.index("init_signals();") < main_loop.index("alarm(INIT_MDEV_RETRY_DELAY_SECONDS)")
+          alarm_block = main_loop[main_loop.index("if (signal_state.alarm_pending)"):]
+          assert alarm_block.index("init_mdev_retry_state_record_result") < alarm_block.index("on_deferred_hotplug_dev")
+          assert "dev_init.sh already completed mdev -s" in alarm_block
+          assert "dev_init_status == 0 && mdev_init_status != 0" in retry_policy
+          assert "if (mdev_init_status == 0)" in retry_policy
+          assert "deferred mdev hotplug recovery policy: PASS" in retry_test
+
+          for token in ("mkstemp(", "fchmod(fd, 0644)", 'fdopen(fd, "w")',
+                        "ferror(fp)", "fflush(fp)", "INIT_MDEV_CONFIG_FSYNC(fileno(fp))",
+                        "while (sync_result < 0 && errno == EINTR)",
+                        "fclose(fp)", "rename(staged_path, path)", "unlink(staged_path)"):
+              assert token in helper, token
+          for token in ("umask(0000)", "st_mode & 0777", "0644",
+                        "old-policy", "new-policy", "blocked_path",
+                        "preserve", "init_mdev_config_publish",
+                        "fsync_interruptions_remaining = 2",
+                        "fsync_calls - calls_before_publish == 3"):
+              assert token in test, token
+
+          paths = (
+              "trunk/user/rc/src/init.c",
+              "trunk/user/rc/src/boot_device_node_policy.h",
+              "trunk/user/rc/src/tests/boot_device_node_policy.c",
+              "trunk/user/rc/src/init_mdev_config_file.h",
+              "trunk/user/rc/src/init_mdev_retry_policy.h",
+              "trunk/user/rc/src/tests/init_mdev_config_file.c",
+              "trunk/user/rc/src/tests/init_mdev_retry_policy.c",
+              ".github/workflows/init-mdev-security.yml",
+          )
+          push = workflow.split("  push:\n    paths:\n", 1)[1].split(
+              "  pull_request:\n", 1
+          )[0]
+          pull = workflow.split("  pull_request:\n    paths:\n", 1)[1].split(
+              "  workflow_dispatch:\n", 1
+          )[0]
+          for path in paths:
+              assert push.count(path) == 1, (path, "push")
+              assert pull.count(path) == 1, (path, "pull_request")
+          print("PID 1 mdev hotplug config root-only atomic publication contract: PASS")
+          PY
