@@ -39,6 +39,14 @@ static void test_stop_state_requires_confirmed_exit(void)
 	assert(!httpd_stop_policy_publish_stopped(EBUSY));
 }
 
+static void test_failed_start_rollback_keeps_possible_listener_published(void)
+{
+	assert(!httpd_failed_start_preserve_running_state(PROCESS_PRESENCE_ABSENT));
+	assert(httpd_failed_start_preserve_running_state(PROCESS_PRESENCE_RUNNING));
+	assert(httpd_failed_start_preserve_running_state(PROCESS_PRESENCE_UNKNOWN));
+	assert(httpd_failed_start_preserve_running_state((enum process_presence)99));
+}
+
 static void test_firewall_failure_requires_listener_shutdown(void)
 {
 	assert(!httpd_firewall_failure_requires_stop(0, PROCESS_PRESENCE_RUNNING));
@@ -72,6 +80,7 @@ int main(void)
 	test_duplicate_launch_gate_requires_authoritative_absence();
 	test_detached_child_must_be_confirmed_running();
 	test_stop_state_requires_confirmed_exit();
+	test_failed_start_rollback_keeps_possible_listener_published();
 	test_restart_requires_confirmed_exit();
 	test_nvram_write_status_preserves_backend_failure();
 	test_firewall_failure_requires_listener_shutdown();

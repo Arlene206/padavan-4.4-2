@@ -106,6 +106,18 @@ jobs:
           status_failure = start.index("if (status != 0)", probe_loop)
           assert status_failure < started_publish
           assert start.index("return status;", status_failure) < started_publish
+          initial_wait = start.index('status = service_start_probe_wait("HTTPD", HTTPD_START_INITIAL_WAIT_SECONDS);')
+          initial_wait_failure = start.index("if (status != 0)", initial_wait)
+          initial_wait_loop = start.index("status = -1;", initial_wait_failure)
+          initial_wait_recovery = start[initial_wait_failure:initial_wait_loop]
+          assert "int wait_errno = errno > 0 ? errno : EIO;" in initial_wait_recovery
+          assert "rollback_status = stop_httpd_locked();" in initial_wait_recovery
+          assert "rollback_presence = httpd_process_presence(&rollback_scan_error);" in initial_wait_recovery
+          assert "httpd_failed_start_preserve_running_state(rollback_presence)" in initial_wait_recovery
+          assert "httpd_started_state_publish_status(1)" in initial_wait_recovery
+          assert "errno = wait_errno;" in initial_wait_recovery
+          assert initial_wait_recovery.index("stop_httpd_locked()") < initial_wait_recovery.index("httpd_process_presence") < initial_wait_recovery.index("httpd_failed_start_preserve_running_state")
+          assert initial_wait_recovery.index("httpd_failed_start_preserve_running_state") < initial_wait_recovery.index("httpd_started_state_publish_status(1)") < initial_wait_recovery.index("errno = wait_errno;")
           assert started_publish < start.index("restart_firewall();", started_publish)
           assert "return status;" in start
 

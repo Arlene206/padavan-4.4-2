@@ -49,6 +49,13 @@ httpd_stop_policy_publish_stopped(int stop_status)
 	return stop_status == 0;
 }
 
+/* After failed-start rollback, UNKNOWN is conservatively still running. */
+static inline int
+httpd_failed_start_preserve_running_state(enum process_presence after_stop)
+{
+	return after_stop != PROCESS_PRESENCE_ABSENT;
+}
+
 /* Never start a replacement until the old HTTPD process is confirmed gone. */
 static inline int
 httpd_restart_can_start(int stop_status)

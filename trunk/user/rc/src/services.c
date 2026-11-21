@@ -1540,8 +1540,37 @@ start_httpd_locked(int restart_fw)
 	 * state and open firewall ports only after the child remains observable.
 	 */
 	status = service_start_probe_wait("HTTPD", HTTPD_START_INITIAL_WAIT_SECONDS);
-	if (status != 0)
+	if (status != 0) {
+		int wait_errno = errno > 0 ? errno : EIO;
+		int rollback_status;
+		int rollback_scan_error = 0;
+		int state_status;
+		enum process_presence rollback_presence;
+
+		/*
+		 * The listener may already be active even though the settling wait
+		 * was interrupted. Do not return with an untracked public service.
+		 */
+		rollback_status = stop_httpd_locked();
+		rollback_presence = httpd_process_presence(&rollback_scan_error);
+		if (httpd_failed_start_preserve_running_state(rollback_presence)) {
+			state_status = httpd_started_state_publish_status(1);
+			if (state_status != 0)
+				logmessage(LOGNAME,
+					   "cannot publish HTTPD possibly-running state after startup wait failure (status=%d)",
+					   state_status);
+			logmessage(LOGNAME,
+				   "HTTPD may remain active after startup wait failure (stop_status=%d, state=%d, scan_error=%d)",
+				   rollback_status, rollback_presence,
+				   rollback_scan_error);
+		} else if (rollback_status != 0) {
+			logmessage(LOGNAME,
+				   "HTTPD listener is absent after startup wait failure but rollback reported status=%d",
+				   rollback_status);
+		}
+		errno = wait_errno;
 		return status;
+	}
 	status = -1;
 	for (attempt = 0; attempt < HTTPD_START_PROBE_ATTEMPTS; attempt++) {
 		presence = httpd_process_presence(&scan_error);
