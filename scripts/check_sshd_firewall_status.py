@@ -82,7 +82,8 @@ restart = body(SERVICES, "int restart_sshd(void)")
 
 assert 'nvram_get_checked("sshd_enable", &value)' in mode_reader
 assert "sshd_nvram_mode_status(api_result, saved_errno" in mode_reader
-assert "sshd_nvram_mode_status" in mode_policy
+assert "return saved_errno > 0 ? saved_errno : EIO;" in mode_policy
+assert "if (api_result != 1 || !value)" in mode_policy
 assert "strtol(cursor, &end, 10)" in mode_policy
 assert "api_result == 0" in mode_policy
 assert "if (api_result < 0)" in mode_policy

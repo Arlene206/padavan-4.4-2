@@ -148,7 +148,11 @@ jobs:
           assert 'process_inventory_scan(process_name, &snapshot)' in sshd_presence
           assert "process_snapshot_release(&snapshot);" in sshd_presence
           assert "PROCESS_PRESENCE_RUNNING" in function_body(services, "is_sshd_run(void)")
-          sshd_start = function_body(services, "start_sshd(void)")
+          sshd_start_wrapper = function_body(services, "start_sshd(void)")
+          sshd_start = function_body(services, "start_sshd_with_mode(int sshd_mode)")
+          assert "sshd_enabled_mode_read(&sshd_mode)" in sshd_start_wrapper
+          assert "start_sshd_with_mode(sshd_mode)" in sshd_start_wrapper
+          assert 'nvram_get_int("sshd_enable")' not in sshd_start_wrapper
           assert 'start_status = eval("/usr/bin/sshd.sh", "start", "-s");' in sshd_start
           assert 'start_status = eval("/usr/bin/sshd.sh", "start");' in sshd_start
           assert "if (start_status != 0)" in sshd_start

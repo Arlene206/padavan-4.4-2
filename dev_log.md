@@ -1,3 +1,13 @@
+## 2026-11-21 — Align SSH lifecycle contracts with checked start wrapper
+
+- Parent main SHA: `79e1932c74dc289e710c82ba3f184c9ee2bd785e`; production source SHA includes the checked SSH mode read and restart preflight.
+- PID 1 notification queue #44905882925 passed all notification batch, queue trust-boundary, enqueue status, optional-daemon and GNU89/ASan/UBSan SSH policy tests, then failed its Python source checker at the stale assertion that launcher `eval()` calls reside in `start_sshd(void)`. That public entry point is now correctly a checked NVRAM wrapper delegating to `start_sshd_with_mode(int sshd_mode)`. Updated the checker to assert checked-read/delegation in the wrapper and the two legacy launch modes/postconditions in the implementation.
+- Process lifecycle #44905882972 also passed the GNU89/`-Werror`/ASan/UBSan SSH policy binary, then failed because `check_sshd_firewall_status.py` searched for `sshd_nvram_mode_status` inside the function body extracted from that function. Replaced the impossible self-name assertion with concrete checks for backend-error errno propagation and inconsistent API-result/value rejection; existing parsing and range contracts remain.
+- AI handoff docs #44905882928, process inventory #44905882756 and NVRAM audit #44905882978 PASS on exact SHA `79e1932`. XY-C1 #44905883001 is still at Build XY-C1; TRX/artifact pending. Exact-head reruns for the two source-checker repairs are pending. No L3 or L4 claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Preserve SSH remote management on enable NVRAM read errors
 
 - Parent main SHA: e84b9a30b63f1ed62ed96e361d5b085f70f8be3c.
