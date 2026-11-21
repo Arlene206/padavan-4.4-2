@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct MTU checker position space after checked-read migration
+
+- Parent main SHA: `751cb64ff459a1d5afebc836996dd43f810172f6`.
+- Exact-head WAN route run `#44894158533` passed the new network-sysctl assertion and all earlier route policy binaries/contracts, but the MTU source checker failed at its checked getter lookup. The checker mixed an offset taken from the original C function text with a lookup in whitespace-compacted text; those indices are not interchangeable, so it failed to find a real, correctly ordered `get_wan_unit_value_int_status()` call.
+- Reworked the initial-MTU contract to use one source coordinate space throughout. It now checks the checked per-unit MTU read, error aggregation/logging and `continue` before physical default MTU application, then verifies the existing default-write error handling still precedes `ifconfig(IFUP)`. Production source is unchanged.
+- On this parent, WAN teardown run `#44894158502` PASS and AI handoff docs run `#44894158457` PASS. The new checker commit needs a fresh exact-head WAN/AI run. Current firmware L3 and hardware L4 are not claimed.
+
+---
+
 ## 2026-11-21 — Align WAN MTU and teardown checks with checked NVRAM reads
 
 - Parent main SHA: `2811673b34fdf7629dc5bb04d1e488a2a56d4a23`.

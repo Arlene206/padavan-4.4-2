@@ -144,28 +144,33 @@ start_wan = body_at_column_zero_terminator(WAN, "start_wan(void)")
 require("int unit, wan_proto, wan_mtu;" in start_wan,
         "configured WAN MTU must be available to both initial and static setup")
 proto = start_wan.index("wan_proto = get_wan_proto(unit);")
-start_wan_compact = "".join(start_wan.split())
-read_mtu_call = 'get_wan_unit_value_int_status(unit,"mtu",&wan_mtu);'
-read_mtu = start_wan_compact.index(read_mtu_call, proto)
-read_failure = start_wan_compact.index("if(nvram_status!=0)", read_mtu)
-read_abort = start_wan_compact.index("continue;", read_failure)
-prepare = start_wan_compact.index("if(wan_default_mtu_should_be_set(", read_abort)
-default_set = start_wan_compact.index("mtu_status=set_interface_mtu(wan_ifname,1500);", prepare)
-failure = start_wan_compact.index("if(mtu_status!=0)", default_set)
-aggregate = start_wan_compact.index(
-    "wan_start_status=rc_first_service_start_status(", failure
+read_mtu = start_wan.index("get_wan_unit_value_int_status(", proto)
+read_mtu_argument = start_wan.index('unit, "mtu", &wan_mtu);', read_mtu)
+read_failure = start_wan.index("if (nvram_status != 0)", read_mtu_argument)
+read_failure_merge = start_wan.index(
+    "wan_start_status = rc_first_service_start_status(", read_failure
 )
-diagnostic = start_wan_compact.index("WANinterfacedefaultMTUsetupincomplete", aggregate)
-ifup = start_wan_compact.index(
-    'interface_status=ifconfig(wan_ifname,IFUP,"0.0.0.0",NULL);',
+read_failure_log = start_wan.index("cannot read configured MTU", read_failure_merge)
+read_abort = start_wan.index("continue;", read_failure_log)
+prepare = start_wan.index("if (wan_default_mtu_should_be_set(", read_abort)
+default_set = start_wan.index("mtu_status = set_interface_mtu(wan_ifname, 1500);", prepare)
+failure = start_wan.index("if (mtu_status != 0)", default_set)
+aggregate = start_wan.index(
+    "wan_start_status = rc_first_service_start_status(", failure
+)
+diagnostic = start_wan.index("WAN interface %s default MTU setup incomplete", aggregate)
+ifup = start_wan.index(
+    'interface_status = ifconfig(wan_ifname, IFUP, "0.0.0.0", NULL);',
     diagnostic,
 )
 require(
-    proto < read_mtu < read_failure < read_abort < prepare < default_set
-    < failure < aggregate < diagnostic < ifup,
+    proto < read_mtu < read_mtu_argument < read_failure < read_failure_merge
+    < read_failure_log < read_abort < prepare < default_set < failure
+    < aggregate < diagnostic < ifup,
     "checked MTU read must abort only the affected unit on error before default setup; "
     "default write errors are aggregated/logged before interface bring-up",
 )
+assert 'get_wan_unit_value_int(unit, "mtu")' not in start_wan
 default_block = start_wan[prepare:ifup]
 require(
     "wan_proto == IPV4_WAN_PROTO_IPOE_STATIC, wan_mtu" in default_block,

@@ -14,37 +14,38 @@ The checkpoint is mandatory; a document edit is conditional. At every session en
 
 ## Current repository state
 
-- Parent `main` SHA before this checker/continuity correction: `7af88e6e0cf704717511efd808a758611d2fca2b`.
+- Parent `main` immediately before this checker correction: `751cb64ff459a1d5afebc836996dd43f810172f6`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only and unchanged.
-- Latest WAN production-source commit is `7af88e6e0cf704717511efd808a758611d2fca2b` (`fix(wan): fail closed on modem type read errors`). It adds checked modem transport selection for full stop, manual disconnect and `get_wan_ifname()`; unreadable state is propagated instead of being guessed as legacy RAS.
-- Exact-head parent WAN route run `#44893837491` was in progress when inspected; its job had already failed at step 29, `Verify WAN startup and reload network sysctl status propagation`. The checker still expected `tcp_syncookies_enabled = nvram_get_int("fw_syn_cook")` although production uses `get_nvram_int_checked_status()` and returns on a read failure before sysctl writes. The same stale assertion was the confirmed cause of WAN run `#44893645481` on the preceding parent. This commit updates the integration contract.
-- On parent `7af88e6e0cf704717511efd808a758611d2fca2b`, AI handoff docs run `#44893837451` and XY-C1 run `#44893837554` were in progress. Other source-dependent workflows were also pending; inspect their exact-head status rather than waiting idly.
-- XY-C1 L3 baseline remains `20e139d230b73eabc5f25a2b17d56a3a5768af11`, run `#44887656164` SUCCESS for Build XY-C1, TRX verification and artifact upload on that exact source SHA. Later production-source changes have no newer confirmed same-SHA L3 result in this checkpoint. Physical-router L4 is NOT VERIFIED.
-- The November development-log archive index and `docs/dev-log/2026/11/part-021.md` remain preserved. Root `dev_log.md` remains a newest-first rolling window; the new record is within the 20–119 entry rule and far below the size ceiling.
+- Latest WAN production-source commit remains `7af88e6e0cf704717511efd808a758611d2fca2b` (`fix(wan): fail closed on modem type read errors`). The current correction is checker/documentation only.
+- Exact-head parent WAN route run `#44894158533` FAILED at `Verify physical WAN initial MTU status and static override`, after policy binaries, the DNS/PPPoE/MTU/auth/MAN route contracts, VLAN/firewall/DDNS/ZeroTier/APCLI checks and the network-sysctl checker passed. Its root cause was an index-space bug in `scripts/check_wan_initial_mtu_status.py`: a position from uncompressed source was used against a compacted function string. This commit uses raw function-body offsets consistently and verifies checked MTU read/error/continue ordering before default-MTU setup.
+- Exact-head parent WAN teardown run `#44894158502` PASS; AI handoff docs run `#44894158457` PASS. New exact-head route and AI runs are required for this correction.
+- The earlier teardown checker mismatch was fixed in the parent: run `#44894158502` verifies and passes checked USB modem transport selection before monitor pause and NDIS USBnet interface teardown. Do not re-audit the fixed stale getter assertion.
+- XY-C1 firmware Build/TRX/artifact is not verified on a current production-source SHA in this checkpoint. The last proven L3 baseline remains `20e139d230b73eabc5f25a2b17d56a3a5768af11`, exact run `#44887656164` SUCCESS for Build XY-C1, TRX verification and artifact upload. Physical-router L4 is NOT VERIFIED.
+- The November development-log archive index and `docs/dev-log/2026/11/part-021.md` remain preserved; root `dev_log.md` retains its newest-first 20–119 entry window.
 
 ## Active task
 
-Complete exact-head validation of the WAN checked-NVRAM decision paths and integration contracts.
+Finish exact-head validation of the checked WAN NVRAM decision-path migration and its corresponding source contracts.
 
-The current WAN source migration includes:
-- strict checked integer parsing/status preservation through `wan_nvram_status_policy.h`; absent-key defaults remain compatible, while malformed/out-of-range values and backend errors remain distinct;
-- checked DNS-mode reads, with `update_resolvconf()` failing closed before resolver staging/publication when the mode cannot be verified;
-- checked PPPoE manual-mode/demand, physical WAN/MAN MTU, EAPOL/Kabinet authentication-mode, and MAN DNS-route setup/teardown reads;
-- checked global SYN-cookie policy read before WAN setup side effects, with the exact sysctl write status retained separately;
-- checked USB modem transport-type reads in startup and shutdown/interface-selection paths, including defensive teardown when the mode cannot be read.
+The current production slice includes strict checked integer parsing/status preservation; fail-closed DNS-mode resolution before resolver publication; checked PPPoE manual-mode/demand, physical WAN/MAN MTU, EAPOL/Kabinet auth-mode and MAN DNS-route reads; checked global SYN-cookie policy before WAN activation; and checked modem transport selection across WAN startup, stop, manual disconnect and interface lookup. Missing-key defaults and legacy public API behavior remain compatible.
 
-Legacy public accessors remain for compatibility; internal WAN decisions have been migrated away from error-collapsing integer reads. The current slice only aligns the remaining network-sysctl source contract with the implemented checked-read semantics. Do not repeat completed migrations.
+The recent CI-only corrections keep the source-contract suite aligned with those already implemented production decisions:
+- network sysctl contract checks the checked `fw_syn_cook` read and fail-closed return before sysctl writes;
+- WAN teardown contract checks checked modem transport selection before monitor pause and the NDIS interface-selection guard;
+- initial physical MTU contract now uses raw source offsets consistently while requiring checked NVRAM read/error ordering before physical default MTU application.
+
+Do not repeat those completed migrations or weaken their tests.
 
 ## Verification boundary
 
-- Parent WAN run `#44893837491` had reached the network-sysctl source checker after the GNU89/Werror/ASan/UBSan policy binaries and earlier WAN DNS, PPPoE, MTU, auth, MAN route and associated service contracts passed; step 29 failed on the stale `nvram_get_int()` expectation. The integration assertion is now updated to require checked `fw_syn_cook` read, fail-closed return ordering, and exact status capture for the sysctl write.
-- Exact-head WAN run `#44893645481` on the preceding parent independently confirmed the same stale assertion. The new commit must trigger a fresh WAN route run.
-- No local checkout or local build environment is available in this session; no local test or target compile is claimed.
-- Host regression success is L2 only. Current WAN production code is not covered by the older L3 baseline as a same-SHA build. Physical-router L4 remains NOT VERIFIED.
+- Exact-head parent WAN route run `#44894158533` ran the GNU89/Werror/ASan/UBSan policy binaries successfully and passed the network-sysctl assertion; it failed at the initial-MTU Python source checker because of the coordinate-space defect now corrected.
+- Exact-head parent WAN teardown run `#44894158502` PASS and AI documentation run `#44894158457` PASS.
+- No local checkout/build runtime was available; no local Python/C test execution or firmware build is claimed.
+- Host regression success is L2 only. XY-C1 L3 is valid only when Build, TRX verification and artifact upload all pass on the exact same production-source SHA. Physical-router L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch the live `main` head and inspect WAN route, AI handoff docs, XY-C1 and the other relevant push Actions for that exact SHA. Fix the first causal WAN route failure if one remains; do not wait for pending independent checks. Once the WAN route contract passes, resume the first still-open P1 roadmap item: verify and fix full-WAN-restart recovery of static LAN routes when the checked runtime WAN-protocol snapshot fails after the earlier route flush. Inspect the current implementation and callers, preserve the primary protocol-staging error while aggregating route-recovery failure, add/retain a meaningful regression, then publish one atomic main commit and inspect its exact-head Actions.
+Fetch live `main`, frozen backup and exact-SHA WAN route, WAN teardown and AI documentation Actions. Fix the first causal current-head failure. If WAN route passes, inspect the first still-open P1 item in `REFACTOR_ROADMAP.md` against current source, tests and exact-head CI before choosing new work: do not duplicate the full-WAN-restart LAN-route restoration or `ifname_t` fail-closed work if their current code/tests already cover them. Then select a concrete independent stability/security defect, implement source plus regression, make one atomic main commit and inspect its exact-head Actions. Pending independent runs must not block other work.
 
 ## Handoff maintenance
 
