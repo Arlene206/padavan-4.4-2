@@ -14,28 +14,28 @@ The checkpoint is mandatory; a document edit is conditional. Inspect live `main`
 
 ## Current repository state
 
-- Parent `main` SHA for this continuation slice: `5a5981318b1b15c6d1d16d4ddf9725206c0f5c3d`; the latest product-source commit touching MiniUPnP `iptcrdr.c` is `0b5eef8bd00fd6e732449bcf241949df84b4f40c`; the latest errno-runner path commit is `c492d33b10baf96d8a971c4adc6773b3df5808f3`.
-- The frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only. The branch inventory contains only `main` and this preserved backup.
-- Exact-head AI docs run `#44810641058` on `5a5981318b1b15c6d1d16d4ddf9725206c0f5c3d` failed because this file omitted the required phrase `Before context exhaustion`; this commit restores that rule and the required `Current repository state` heading.
-- MiniUPnP run `#44810270387` was on parent `bb4a1910acd73c2ae9433d66971bdcd4313d4f23`, not the current parent SHA. Its GNU89/Werror/ASan/UBSan policy steps and both production IPTC errno-helper API variants passed; the delete source-contract step failed only because it still expected the pre-refactor direct `primary_failure_errno = ENOENT` and `secondary_failure_errno = errno` assignments. Production now correctly records both through `miniupnpd_record_first_failure_errno()`; the stale assertions are corrected in this commit.
-- XY-C1 run `#44809783977` passed Build XY-C1, TRX verification and artifact upload for product-source SHA `0b5eef8bd00fd6e732449bcf241949df84b4f40c`. Later commits through this parent changed tests/checkers/docs, not product source; L3 is therefore verified for that exact current product tree. Physical-router L4 remains NOT VERIFIED.
+- Parent `main` SHA for this checker follow-up: `7be6d83357ab31795b446010aaa9571aac5000dc`; frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- Exact-head AI documentation run `#44874160857` PASSED on `7be6d83357ab31795b446010aaa9571aac5000dc`.
+- Exact-head MiniUPnP run `#44874160863` FAILED at `scripts/check_miniupnpd_iptcrdr_delete.py:82`: `function_body()` intentionally whitespace-normalizes the function into one line, while the new assignment scan split only by newlines and therefore produced an empty list. The C policy tests and both legacy/IPTABLES_143 injected errno helper variants passed before this checker step. This commit makes the extraction independent of whitespace by scanning semicolon-delimited statements and excluding the two declarations while requiring every actual primary/secondary errno assignment to call the first-error helper.
+- XY-C1 validation run `#44874160943` is still IN_PROGRESS on this exact SHA; its exact build/TRX/artifact step conclusions must be checked before claiming current-source L3. The preceding product-source SHA `0b5eef8bd00fd6e732449bcf241949df84b4f40c` had Build, TRX and artifact upload all PASS on run `#44809783977`.
+- Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-1. Validate this checker/handoff correction on its exact pushed `main` SHA. Confirm the MiniUPnP delete-compensation source contract now accepts the first-error helper assignments while continuing to reject direct bypass assignments.
-2. Confirm the AI handoff documentation contract passes with the required current-state heading and context-exhaustion rule.
-3. If either Action fails, inspect the earliest causal log and repair that specific source/test/document contract without weakening coverage. If both pass, close this MiniUPnP validation slice and select the next high-priority user-space reliability defect from the whole-repository roadmap, avoiding repeated audits.
+1. Validate the corrected whitespace-independent delete source contract and the handoff documentation contract on the next exact pushed SHA.
+2. Inspect the exact XY-C1 workflow step results for that same SHA; distinguish host-only validation from actual Build/TRX/artifact L3.
+3. If MiniUPnP and AI pass, resume the whole-repository stability queue on a module outside the recently worked MiniUPnP slice. Check the current source and recent log evidence before selecting a defect; do not repeat completed audits.
 
 ## Verification boundary
 
-- The last observed MiniUPnP C policy and errno-injection binaries passed on parent `bb4a1910acd73c2ae9433d66971bdcd4313d4f23`; its only observed failure was the stale delete source-contract assertion described above. This commit requires a fresh exact-head run.
-- The handoff checker failed on parent `5a5981318b1b15c6d1d16d4ddf9725206c0f5c3d` only for the missing `Before context exhaustion` phrase; this commit requires a fresh exact-head AI docs run.
-- Exact-source XY-C1 L3 is verified for product SHA `0b5eef8bd00fd6e732449bcf241949df84b4f40c` as all three target steps passed on run `#44809783977`. No later product source change has been made.
-- Physical-router L4 is NOT VERIFIED. No local checkout or local test execution was available in this session.
+- MiniUPnP C policy binaries and IPTC errno helper harness (legacy + IPTABLES_143) passed on `7be6d83357ab31795b446010aaa9571aac5000dc`; the only observed failure was the checker’s empty assignment scan. The new exact-head MiniUPnP run must pass the complete suite.
+- AI handoff documentation contract passed on `7be6d83357ab31795b446010aaa9571aac5000dc` (run `#44874160857`).
+- XY-C1 run `#44874160943` was in progress at checkpoint. No current-head L3 claim until its Build, TRX verification and artifact upload conclusions are all SUCCESS on one identical product-source SHA.
+- Physical-router L4 is NOT VERIFIED. No local checkout or local test execution was available.
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and inspect the exact-head MiniUPnP and AI handoff Actions created by this commit. Read the MiniUPnP delete source-contract result and AI documentation result. Repair the first causal failure if either is red; otherwise continue with the next ranked user-space reliability issue.
+Fetch the latest `main` SHA and inspect the exact-head MiniUPnP, AI docs and XY-C1 runs created by this commit. Confirm the delete source checker now passes and its assignment-bypass rejection remains active. If the independent checks are green, move to the next ranked stability issue outside MiniUPnP; if red, fix the earliest causal failure.
 
 ## Handoff maintenance
 

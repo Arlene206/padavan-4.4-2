@@ -1,3 +1,12 @@
+## 2026-11-20 — Make MiniUPnP errno-assignment checker whitespace-independent
+
+- Exact-head MiniUPnP run #44874160863 on parent 7be6d83357ab31795b446010aaa9571aac5000dc passed the GNU89/Werror/ASan/UBSan policy suite, including both legacy and IPTABLES_143 production IPTC errno helper harness variants, but the delete checker failed at its assignment inventory: function_body() normalizes C whitespace to one line, so splitlines() found no assignment statements.
+- Updated the checker to scan semicolon-delimited statements, exclude the two local declarations, and require the first-error helper on every actual primary/secondary errno assignment. The assignment-bypass guard remains strict; no product source or runtime behavior changed.
+- Exact-head AI docs run #44874160857 PASS. XY-C1 run #44874160943 was still in progress at checkpoint; current-head L3 remains pending until Build/TRX/artifact all pass on the same source SHA.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Repair MiniUPnP delete checker and restore execution checkpoint wording
 
 - Exact-head AI handoff run #44810641058 on parent 5a5981318b1b15c6d1d16d4ddf9725206c0f5c3d failed because the handoff omitted the required "Before context exhaustion" rule and used a non-canonical current-state heading; both are restored in this checkpoint.

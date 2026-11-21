@@ -2,6 +2,7 @@
 """Require NAT restoration when a committed NAT deletion is followed by filter failure."""
 
 from pathlib import Path
+import re
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c").read_text()
@@ -76,8 +77,9 @@ assert "miniupnpd_select_cleanup_failure_errno(" in delete
 assert "primary_failure_errno = miniupnpd_record_first_failure_errno(primary_failure_errno," in delete
 assert "secondary_failure_errno = miniupnpd_record_first_failure_errno(secondary_failure_errno," in delete
 errno_capture_assignments = [
-    line.strip() for line in delete.splitlines()
-    if line.lstrip().startswith(("primary_failure_errno =", "secondary_failure_errno ="))
+    statement.strip() for statement in delete.split(";")
+    if re.search(r"\\b(?:primary_failure_errno|secondary_failure_errno)\\s*=", statement)
+    and not re.search(r"\\bint\\s+(?:primary_failure_errno|secondary_failure_errno)\\s*=", statement)
 ]
 assert errno_capture_assignments
 assert all(
