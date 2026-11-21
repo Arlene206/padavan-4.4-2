@@ -1659,7 +1659,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 			ret = firewall_read_integer_setting("udpxy_enable_x", 0, &i_udpxy_port);
 			if (ret != 0)
 				return ret;
-			if (i_udpxy_port > 1023) {
+			if (firewall_unprivileged_port_is_safe(i_udpxy_port)) {
 				ret = firewall_read_integer_setting("udpxy_wport", 0, &i_udpxy_wport);
 				if (ret != 0)
 					return ret;
@@ -1847,7 +1847,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		}
 #endif
 		lport = i_udpxy_port;
-		if (lport > 1023 && is_udpxy_wopen) {
+		if (firewall_unprivileged_port_is_safe(lport) && is_udpxy_wopen) {
 			wport = i_udpxy_wport;
 			if (wport == lport || !is_nat_enabled)
 				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
@@ -2518,7 +2518,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 			ret = firewall_read_integer_setting("udpxy_enable_x", 0, &i_udpxy_port);
 			if (ret != 0)
 				return ret;
-			if (i_udpxy_port > 1023) {
+			if (firewall_unprivileged_port_is_safe(i_udpxy_port)) {
 				ret = firewall_read_integer_setting("udpxy_wport", 0, &i_udpxy_wport);
 				if (ret != 0)
 					return ret;
@@ -2664,7 +2664,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 #endif
 		wport = i_udpxy_wport;
 		lport = i_udpxy_port;
-		if (lport > 1023 && is_udpxy_wopen && (wport == lport))
+		if (firewall_unprivileged_port_is_safe(lport) && is_udpxy_wopen && (wport == lport))
 			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
 #if defined (APP_TRMD)
 		if (is_trmd_enabled && is_trmd_supported) {
@@ -3099,7 +3099,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 			firewall_status = firewall_read_integer_setting("udpxy_enable_x", 0, &i_udpxy_port);
 			if (firewall_status != 0)
 				return firewall_status;
-			if (i_udpxy_port > 1023) {
+			if (firewall_unprivileged_port_is_safe(i_udpxy_port)) {
 				firewall_status = firewall_read_integer_setting("udpxy_wport", 0, &i_udpxy_wport);
 				if (firewall_status != 0)
 					return firewall_status;
@@ -3335,7 +3335,7 @@ ipt_nat_rules(char *man_if, char *man_ip,
 			}
 #endif
 			lport = i_udpxy_port;
-			if (lport > 1023 && nvram_match("udpxy_wopen", "1")) {
+			if (firewall_unprivileged_port_is_safe(lport) && nvram_match("udpxy_wopen", "1")) {
 				wport = i_udpxy_wport;
 				if (wport < 1024 || wport > 65535) {
 					wport = lport;

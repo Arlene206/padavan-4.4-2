@@ -132,6 +132,13 @@ firewall_port_number_is_safe(const char *value)
 	return firewall_decimal_value_is_safe(value, 1U, 65535U);
 }
 
+/* UDPXY uses a listening TCP port above 1023 and within the 16-bit port range. */
+static int
+firewall_unprivileged_port_is_safe(int port)
+{
+	return port >= 1024 && port <= 65535;
+}
+
 static int
 firewall_port_span_is_safe(const char *start, const char *end,
                            unsigned int *number)

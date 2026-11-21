@@ -1,3 +1,13 @@
+## 2026-11-21 — Bound UDPXY listener ports to valid unprivileged range
+
+- Parent main SHA: `e1e48877d521ef9b4559ade13568ff4d97de59ad`.
+- Source review found UDPXY's checked integer setting was still only tested as `> 1023` in the IPv4 filter, IPv6 filter and IPv4 NAT builders. A corrupted value such as `65536` could therefore be emitted as an invalid iptables `--dport` token (and in NAT as a destination port).
+- Added `firewall_unprivileged_port_is_safe()` to the shared filter policy and applied it to all three builders' preflight and rule-emission branches. Range is 1024..65535 inclusive, retaining the intended privileged-port exclusion.
+- Added GNU89 policy regression cases for 0, 1023, 1024, 65535, 65536 and negative values; the Firewall Startup workflow source contract requires the predicate in IPv4 filter, IPv6 filter and IPv4 NAT rule builders and confirms the unit cases remain present. The existing workflow compile step uses GNU89/Werror/ASan/UBSan.
+- Parent exact-head SHA `e1e48877...`: Firewall Startup #44950737943, Process #44950737903, WAN DHCP #44950737926, AI docs #44950737855, HTTPD #44950738016, WAN route #44950737937 and FULLCONENAT #44950737844 PASS; NVRAM #44950737906 and XY-C1 #44950737940 were IN_PROGRESS. No local tests/build or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Restore IPv6 HTTP listener block boundary
 
 - Parent main SHA: `4cd3b21733ad373d2cb0f9adb418bef2df277458`.

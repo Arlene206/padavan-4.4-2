@@ -25,24 +25,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv4 and IPv6 filter builders preflight HTTP/HTTPS, SSH, FTP, UDPXY, Transmission and Aria flags and listener ports through checked NVRAM wrappers before opening their filter rule files. HTTPS/SSH/FTP-only caches are feature-guarded; rule generation reuses the snapshot. Existing Transmission/Aria invalid-but-readable port defaults in the 1024..65535 range are retained.
-- Firewall Startup #44950535060 on parent `4cd3b21733ad373d2cb0f9adb418bef2df277458` failed at the brace-aware source-contract parser: `ip6t_filter_rules()` lacked a closing brace for the HTTP listener block before the HTTPS section. This also accidentally nested later HTTPS/SSH/FTP/UDPXY/Transmission/Aria/VPN rules under HTTP enablement. The block is now closed; CI explicitly asserts its boundary.
-- After exact-head validation passes, continue inspecting `include_vts_nat()` and associated virtual-server/port-forward value conversion for malformed numeric ranges, port-zero/65536 handling and unchecked reads. Preserve valid range behavior.
+- IPv4/IPv6 filter and IPv4 NAT builders now reject UDPXY listener values outside 1024..65535 before emitting accept/DNAT rules. Shared `firewall_unprivileged_port_is_safe()` policy covers the preflight reads and rule emission; GNU89 regression cases cover 0, 1023, 1024, 65535, 65536 and negative values. This closes the malformed-port path where a corrupted `udpxy_enable_x=65536` could produce an invalid `--dport 65536` rule.
+- The IPv6 HTTP listener block boundary fix is validated: Firewall Startup #44950737943 PASS on source SHA `e1e48877d521ef9b4559ade13568ff4d97de59ad`. Process #44950737903, WAN DHCP #44950737926, AI docs #44950737855, HTTPD #44950738016, WAN route #44950737937 and FULLCONENAT #44950737844 also PASS on that exact SHA.
+- NVRAM audit #44950737906 and XY-C1 Firmware Validation #44950737940 were IN_PROGRESS at the last poll. Re-query; do not infer full target-build validation until Build XY-C1, TRX verification and artifact upload all succeed on one SHA.
 
 ## Verification boundary
 
-- Parent SHA `4cd3b21733ad373d2cb0f9adb418bef2df277458`: Firewall Startup #44950535060 FAIL at Python stdin line 314 (`unterminated function: ip6t_filter_rules`) due the missing HTTP-block brace now fixed. HTTPD #44950534996 PASS; AI docs #44950535073 PASS; Process #44950535022 PASS; WAN route #44950534986 PASS; WAN DHCP #44950534973 PASS; FULLCONENAT #44950534983 PASS. NVRAM #44950535055 and XY-C1 #44950534974 were IN_PROGRESS at last poll.
-- Listener-preflight SHA `8a7cf932879931c7df25708a9290dcc8eba2ed89`: Process #44950485777, WAN DHCP #44950485629, AI docs #44950485620, WAN route #44950485619 and FULLCONENAT #44950485662 PASS. Firewall Startup #44950485651 FAIL on the same missing-brace check; NVRAM #44950485650 and HTTPD #44950485750 were cancelled after newer pushes; XY-C1 #44950485679 remained IN_PROGRESS at last poll.
-- Macro-guard cleanup SHA `4cd3b21733ad373d2cb0f9adb418bef2df277458` is the direct parent of the brace fix. No exact-head firewall/build pass may be inferred from an earlier SHA.
-- Checker-correction SHA `13a229e14833708e70f0da7d541fb4aee8396459`: HTTPD Security #44950209297 PASS; AI docs #44950209330 PASS.
-- OpenVPN cache SHA `6e67a918cf560634fa597fcdfd2ea35df96a78c3`: Firewall Startup #44950120695, AI docs #44950120745, Process #44950120902, WAN route #44950120777, FULLCONENAT #44950120775, WAN DHCP #44950120688 and NVRAM #44950120698 PASS; HTTPD #44950120693 failed only the old DMZ predicate literal fixed in `13a229...`; XY-C1 #44950120665 remained IN_PROGRESS at last query.
-- No local checkout or local workflow execution is available. Do not claim L3 unless Build XY-C1, TRX verification and artifact upload all pass on one source SHA. Hardware L4 remains NOT VERIFIED.
+- Product-source SHA before the UDPXY range slice: `e1e48877d521ef9b4559ade13568ff4d97de59ad`. Firewall Startup #44950737943 PASS; HTTPD #44950738016 PASS; Process inventory #44950737903 PASS; WAN DHCP #44950737926 PASS; WAN route #44950737937 PASS; FULLCONENAT #44950737844 PASS; AI docs #44950737855 PASS. NVRAM #44950737906 and XY-C1 #44950737940 remained IN_PROGRESS at last query.
+- Parent of the brace fix `4cd3b21733ad373d2cb0f9adb418bef2df277458`: HTTPD #44950534996, AI docs #44950535073, Process #44950535022, WAN route #44950534986, WAN DHCP #44950534973 and FULLCONENAT #44950534983 PASS; Firewall Startup #44950535060 failed the missing-brace contract now repaired in `e1e488...`; NVRAM #44950535055 / XY-C1 #44950534974 were pending.
+- No local checkout/build or host test run is available in this session. The Firewall Startup CI compiles `firewall_filter_policy.c` under GNU89, `-Wall -Wextra -Werror`, ASan and UBSan; this next slice's exact-head run is required before claiming test completion. No L3 claim without Build + TRX + artifact PASS on one SHA; hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and query exact-head Firewall Startup, HTTPD, NVRAM, Process, AI docs, FULLCONENAT and XY-C1 Actions for the brace-fix commit. Inspect the first causal log on any failure.
-2. Re-query XY-C1 for `4cd3b217...`, `8a7cf932...` and `6e67a918...` only as parent evidence; the newest source SHA requires its own Build/TRX/artifact gates.
-3. Continue virtual-server/port-forward value audit only after the IPv4/IPv6 listener-preflight slice compiles and its source contract passes.
+1. Fetch live `main` and query exact-head Firewall Startup, NVRAM, HTTPD, Process inventory, AI docs and XY-C1 Actions for the UDPXY range-bound commit. Inspect first failing job logs rather than waiting.
+2. Re-query `e1e48877...` NVRAM #44950737906 and XY-C1 #44950737940 as parent evidence only.
+3. Continue the virtual-server/port-forward input audit in `include_vts_nat()` after the UDPXY bound regression passes. Keep backup branch immutable and use atomic expected-SHA, non-force updates.
 
 ## Workflow and preservation rules
 

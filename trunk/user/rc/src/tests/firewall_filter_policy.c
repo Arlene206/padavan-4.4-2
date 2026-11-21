@@ -107,6 +107,14 @@ main(void)
 	assert(!firewall_port_number_is_safe("65536"));
 	assert(!firewall_port_number_is_safe("80\nCOMMIT"));
 
+	/* UDPXY ports must be valid non-privileged TCP/UDP port numbers. */
+	assert(!firewall_unprivileged_port_is_safe(0));
+	assert(!firewall_unprivileged_port_is_safe(1023));
+	assert(firewall_unprivileged_port_is_safe(1024));
+	assert(firewall_unprivileged_port_is_safe(65535));
+	assert(!firewall_unprivileged_port_is_safe(65536));
+	assert(!firewall_unprivileged_port_is_safe(-1));
+
 	assert(firewall_port_range_is_safe("80", 0));
 	assert(firewall_port_range_is_safe("1:65535", 0));
 	assert(firewall_port_range_is_safe("", 1));
