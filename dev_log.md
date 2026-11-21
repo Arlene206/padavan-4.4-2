@@ -1,3 +1,11 @@
+## 2026-11-21 — Normalize the delayed WAN reconnect return token
+
+- Parent main SHA: 5f9aa9a3259def1f668e359fff1237aca3808466.
+- The updated WAN source checker still failed on exact-head XY-C1/USB modem/Firewall checks at `pause_reconnect.index(pause_return, ...)`. `pause_reconnect` is constructed with `''.join(...split())`, which removes every whitespace character from the extracted C body, including whitespace inside string literals. The checker had normalized `pause_error` but left `pause_return` as `return status;`, so the expected token could never match the actual `returnstatus;`.
+- Changed only the expected normalized token to `returnstatus;`. The production WAN reconnect logic is unchanged; the checker still asserts the complete ordered sequence: checked NVRAM read → error branch → diagnostic → status return → reconnect call, and still rejects the unchecked getter.
+- On parent 5f9aa9a3, AI handoff documentation #44919803077 passed. XY-C1 #44919803037 was running; Firewall #44919803049 and USB modem #44919803091 failed at the same checker token, and Process #44919803014 was also running the same failing check. Fresh exact-head reruns are pending.
+
+---
 ## 2026-11-21 — Normalize WAN reconnect diagnostic assertion
 
 - Parent main SHA: `b40c3ec707896cd119d513775ef6d224049ea0d3`.

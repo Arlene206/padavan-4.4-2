@@ -15,24 +15,24 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Deferred WAN reconnect fix: `136db90e2f84513d9bf3da297802b708b0811b44`. `auto_wan_reconnect_pause()` now uses checked `di_recon_pause` reading; backend/parse failure returns before any WAN stop/start while absent key retains zero-second compatibility.
-- DHCP WINS fix: `1770074742e98f13155fab91703fc74ca975c248`. `prepare_dns_dhcpd()` snapshots `dhcp_wins_x` using `nvram_get_checked()` before DHCP-pool repair/generated-file changes, aborts on backend/inconsistent/oversized results, and reuses the private bounded value for option 44. Exact-head DNSMasq regression passed on this SHA.
-- The WAN route workflow passed on `0097f377a1155be4ec09c2fe38334aa985c39b2b`; DNSMasq lifecycle passed on `1770074742e98f13155fab91703fc74ca975c248`; AI handoff docs passed on `b40c3ec707896cd119d513775ef6d224049ea0d3`. XY-C1, USB modem, Firewall and Process checks on `b40c3ec...` failed at the same source-check assertion: `pause_error` still contained spaces even though the function body had been stripped of whitespace. This commit normalizes that expected text too.
+- Main at the start of this checker-only repair: 5f9aa9a3259def1f668e359fff1237aca3808466.
+- The prior checker already normalized `pause_error`, but its extracted WAN function is fully whitespace-elided. The remaining expected token `pause_return = "return status;"` still mismatched the actual normalized `returnstatus;`, causing USB modem #44919803091, Firewall #44919803049 and dependent Process/XY-C1 checks to stop before firmware build.
+- This patch changes only the expected token to `returnstatus;`; the ordered fail-closed contract remains intact. AI handoff docs #44919803077 passed on the parent; exact-head reruns are pending.
 
 
 ## Active task
 
-1. Inspect exact-head XY-C1, USB modem identity, Firewall and Process lifecycle results after the checker whitespace fix; diagnose any new failures from their logs.
-2. Require Build XY-C1, TRX verification and artifact upload to PASS on one exact product-source SHA covering the WAN reconnect and DHCP WINS fixes. Do not mark L3 while any step is skipped or failed.
-3. Continue an independent whole-userland stability/security fix while unrelated CI is pending; don't re-audit completed FTP, storage, WAN source or DNSMasq changes.
+1. Inspect exact-head USB modem, Firewall, Process and XY-C1 Actions after the normalized return-token correction; diagnose any new independent failure from logs.
+2. Require Build XY-C1, TRX verification and artifact upload to PASS on one exact product-source SHA before marking L3.
+3. Continue an independent userland stability fix while Actions are pending; do not repeat completed FTP/Samba/DNSMasq/storage audits.
 
 
 ## Verification boundary
 
-- L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on enable/delay NVRAM read errors; DNSMasq explicit DHCP WINS reads are checked before staging and use a stable bounded snapshot.
-- L2: WAN route status and DNSMasq lifecycle passed on their exact heads; AI handoff documentation passed on `b40c3ec707896cd119d513775ef6d224049ea0d3`. The new WAN caller source-check still failed on `pause_error` whitespace in dependent suites; the check is corrected in this commit and exact-head reruns are pending.
-- L3: NOT VERIFIED. XY-C1 on `b40c3ec` stopped before firmware compilation in the source checker; Build, TRX and artifact steps have not passed on one exact product-source SHA.
-- L4: Physical router reconnect timing, DHCP/WINS lease behavior and runtime failover remain NOT VERIFIED.
+- L1: Delayed WAN reconnect source still reads `di_recon_pause` through the checked NVRAM helper and returns before reconnect on errors; this patch changes no production code.
+- L2: Parent WAN route and DNSMasq regressions passed earlier; on 5f9aa9a3, AI handoff docs passed, while USB modem/Firewall/Process dependent suites failed at the checker’s whitespace-normalized return token. New exact-head checker results pending.
+- L3: NOT VERIFIED until Build XY-C1, TRX and artifact upload PASS on the same exact source SHA.
+- L4: Physical router WAN reconnect, DHCP/WINS runtime and failover remain NOT VERIFIED.
 
 
 ## Workflow and preservation rules
@@ -53,4 +53,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
+Fetch live main; inspect exact-head WAN checker, USB modem, Firewall, Process and XY-C1 Build/TRX/artifact Actions after the return-token normalization. Continue the next independent whole-userland stability task.
 Fetch live main; inspect exact-head XY-C1, USB modem identity, Firewall and Process lifecycle reruns for `check_modem_wan_start_status.py`. Then require Build + TRX + artifact on the same product-source SHA, and continue an independent reliability/security issue.
