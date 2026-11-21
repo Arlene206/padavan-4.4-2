@@ -41,6 +41,7 @@
 #include "pppoe_relay_policy.h"
 #include "wan_ifname_policy.h"
 #include "route_status_policy.h"
+#include "static_route_policy.h"
 #include "conntrack_flush_policy.h"
 #include "igmpproxy_config_file.h"
 #include "service_start_status.h"
@@ -135,10 +136,25 @@ control_static_routes(char *ift, char *ifname, int is_add)
 	char *route_buf;
 	char *ipaddr, *netmask, *gateway, *metric, *metric_end;
 	long metric_value;
-	int status = 0, route_status;
+	char *enable_value = NULL;
+	int status = 0, route_status, api_result, saved_errno, enabled;
 
-	if (is_add && nvram_invmatch("sr_enable_x", "1"))
-		return 0;
+	if (is_add) {
+		errno = 0;
+		api_result = nvram_get_checked("sr_enable_x", &enable_value);
+		saved_errno = errno;
+		status = static_route_nvram_enabled_status(api_result, saved_errno,
+						   enable_value, 0, &enabled);
+		if (status != 0) {
+			errno = status;
+			logmessage(LOGNAME,
+				   "cannot read static-route enable setting (errno=%d)",
+				   status);
+			return status;
+		}
+		if (!enabled)
+			return 0;
+	}
 	if (!ifname || !*ifname)
 		return EINVAL;
 	route_buf = (char *)malloc(SR_BUF_LEN*sizeof(char));

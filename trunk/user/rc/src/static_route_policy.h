@@ -27,6 +27,32 @@ static_route_entry_count_is_safe(int count)
 }
 
 /*
+ * Checked replacement for nvram_invmatch("sr_enable_x", "1"). Missing keys
+ * retain the legacy disabled default; backend errors must not skip updates.
+ */
+static int
+static_route_nvram_enabled_status(int api_result, int saved_errno,
+				  const char *value, int missing_enabled,
+				  int *enabled)
+{
+	if (!enabled)
+		return EINVAL;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0) {
+		if (value)
+			return EIO;
+		*enabled = missing_enabled != 0;
+		return 0;
+	}
+	if (api_result != 1 || !value)
+		return EIO;
+
+	*enabled = strcmp(value, "1") == 0;
+	return 0;
+}
+
+/*
  * Empty metrics retain the old atoi("") == 0 behavior. Non-empty values must
  * be unsigned decimal and leave room for route_add()'s metric + 1 adjustment.
  */

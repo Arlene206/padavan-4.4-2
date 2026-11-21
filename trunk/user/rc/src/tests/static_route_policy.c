@@ -8,7 +8,26 @@
 int
 main(void)
 {
-	int metric;
+	int metric, enabled = 17;
+
+	/* Missing sr_enable_x keeps the legacy disabled setting. */
+	assert(static_route_nvram_enabled_status(0, 0, NULL, 0, &enabled) == 0);
+	assert(enabled == 0);
+	assert(static_route_nvram_enabled_status(0, 0, NULL, 1, &enabled) == 0);
+	assert(enabled == 1);
+	assert(static_route_nvram_enabled_status(1, 0, "1", 0, &enabled) == 0);
+	assert(enabled == 1);
+	assert(static_route_nvram_enabled_status(1, 0, "0", 0, &enabled) == 0);
+	assert(enabled == 0);
+	assert(static_route_nvram_enabled_status(1, 0, "1x", 0, &enabled) == 0);
+	assert(enabled == 0);
+	assert(static_route_nvram_enabled_status(0, 0, "unexpected", 0, &enabled) == EIO);
+	assert(static_route_nvram_enabled_status(2, 0, "1", 0, &enabled) == EIO);
+	assert(static_route_nvram_enabled_status(1, 0, NULL, 0, &enabled) == EIO);
+	assert(static_route_nvram_enabled_status(-1, EACCES, NULL, 0, &enabled) == EACCES);
+	assert(enabled == 0);
+	assert(static_route_nvram_enabled_status(-1, 0, NULL, 0, &enabled) == EIO);
+	assert(static_route_nvram_enabled_status(1, 0, "1", 0, NULL) == EINVAL);
 
 	assert(static_route_entry_count_is_safe(0));
 	assert(static_route_entry_count_is_safe(64));

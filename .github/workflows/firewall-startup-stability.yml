@@ -609,6 +609,7 @@ jobs:
           route_test = Path("trunk/user/rc/src/tests/static_route_policy.c").read_text()
           route_ui = Path("trunk/user/www/n56u_ribbon_fixed/Advanced_GWStaticRoute_Content.asp").read_text()
           route_count_reader = body(firewall_source, "firewall_read_static_route_entry_count(int *entry_count)")
+          route_enable_control = body(Path("trunk/user/rc/src/net.c").read_text(), "control_static_routes(char *ift, char *ifname, int is_add)")
           route_copy_reader = body(firewall_source, "firewall_copy_static_route_setting(const char *name, int index,")
           route_emitter = body(firewall_source, "fill_static_routes(char *buf, int len, const char *ift)")
           route_control = body(Path("trunk/user/rc/src/net.c").read_text(), "control_static_routes(char *ift, char *ifname, int is_add)")
@@ -620,6 +621,11 @@ jobs:
           assert "static_route_entry_count_is_safe(128)" in route_test
           assert "static_route_entry_count_is_safe(129)" in route_test
           assert "STATIC_ROUTE_MAX_SNAPSHOT_SIZE < 8192" in route_test
+          assert "static_route_nvram_enabled_status" in route_test
+          assert 'nvram_get_checked("sr_enable_x", &enable_value)' in route_enable_control
+          assert "static_route_nvram_enabled_status(api_result, saved_errno" in route_enable_control
+          assert "if (!enabled)" in route_enable_control
+          assert 'nvram_invmatch("sr_enable_x", "1")' not in route_enable_control
           assert "static_route_metric_parse" in route_test
           assert "static_route_ipv4_field_is_safe" in route_test
           assert 'nvram_get_checked("sr_num_x", &value)' in route_count_reader
