@@ -2297,10 +2297,18 @@ jobs:
           xl_start = ppp.index("safe_start_xl2tpd_locked(void)")
           xl_end = ppp.index("\nint\nsafe_start_xl2tpd(void)", xl_start)
           xl2tp = ppp[xl_start:xl_end]
+          assert "ppp_config_line_value_copy(get_our_hostname(), hostname, sizeof(hostname))" in xl2tp
+          assert "get_wan_ppp_peer_copy(unit, wan_peer, sizeof(wan_peer))" in xl2tp
+          assert "get_wan_unit_value_copy_status(" in xl2tp
+          assert '"pppoe_username"' in xl2tp
+          assert "ppp_config_line_value_copy(wan_peer, wan_value_check" in xl2tp
+          assert "ppp_config_line_value_copy(wan_user, wan_value_check" in xl2tp
+          peer_check = ppp[pp.index("get_wan_ppp_peer_copy(int unit, char *peer, size_t peer_size)"):xl_start]
+          assert 'get_wan_unit_value_copy_status(unit, "ppp_peer", peer, peer_size)' in peer_check
+          assert 'get_wan_unit_value_copy_status(unit, "man_gateway", peer, peer_size)' in peer_check
+          assert xl2tp.index("get_wan_ppp_peer_copy(unit, wan_peer") < xl2tp.index('fopen(l2tp_conf, "w")')
+          assert xl2tp.index('get_wan_unit_value_copy_status(') < xl2tp.index('fopen(l2tp_conf, "w")')
           for value_copy in (
-              "ppp_config_line_value_copy(get_our_hostname(), hostname, sizeof(hostname))",
-              "ppp_config_line_value_copy(get_wan_ppp_peer(unit), wan_peer, sizeof(wan_peer))",
-              'ppp_config_line_value_copy(get_wan_unit_value(unit, "pppoe_username"), wan_user, sizeof(wan_user))',
               'ppp_config_line_value_copy(nvram_safe_get("vpnc_peer"), vpnc_peer, sizeof(vpnc_peer))',
               'ppp_config_line_value_copy(nvram_safe_get("vpnc_user"), vpnc_user, sizeof(vpnc_user))'
           ):
@@ -2316,7 +2324,9 @@ jobs:
           rp_start = ppp.index("start_rpl2tp(int unit)")
           rp_end = ppp.index("\n#endif", rp_start)
           rpl2tp = ppp[rp_start:rp_end]
-          assert "ppp_config_line_value_copy(get_wan_ppp_peer(unit), peer, sizeof(peer))" in rpl2tp
+          assert "status = get_wan_ppp_peer_copy(unit, peer, sizeof(peer));" in rpl2tp
+          assert "if (status != 0)" in rpl2tp
+          assert "ppp_config_line_value_copy(peer, peer_check, sizeof(peer_check))" in rpl2tp
           assert '#include "l2tp_config_file.h"' in ppp
           assert 'l2tp_config_file_publish("/etc/l2tp", "l2tp.conf",' in rpl2tp
           assert "rpl2tp_config_write" in rpl2tp
@@ -2329,7 +2339,7 @@ jobs:
           assert 'status = eval("/usr/sbin/l2tpd");' in rpl2tp
           assert 'status = eval("/usr/sbin/l2tp-control", "start-session 0.0.0.0");' in rpl2tp
           assert rpl2tp.index('if (status != 0)') < rpl2tp.index('status = eval("/usr/sbin/l2tp-control"')
-          assert "refusing unsafe or oversized rp-l2tp peer" in rpl2tp
+          assert "refusing unsafe or unreadable rp-l2tp peer" in rpl2tp
 
           assert "vlan_result = launch_wan_pppd(unit, wan_proto);" in wan
           wan_start = wan.index("vlan_result = launch_wan_pppd(unit, wan_proto);")
