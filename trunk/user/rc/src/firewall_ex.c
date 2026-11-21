@@ -454,6 +454,31 @@ firewall_read_vts_entry_count(int *entry_count)
 }
 
 static int
+firewall_read_url_entry_count(int *entry_count)
+{
+	int status;
+
+	if (!entry_count) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	status = firewall_read_integer_setting("url_num_x", 0, entry_count);
+	if (status != 0)
+		return status;
+	if (!firewall_url_entry_count_is_safe(*entry_count)) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "invalid URL-filter entry count %d; refusing firewall ruleset publication",
+			   *entry_count);
+		errno = ERANGE;
+		return ERANGE;
+	}
+
+	return 0;
+}
+
+static int
 firewall_read_lw_entry_count(int *entry_count)
 {
 	int status;
@@ -1225,10 +1250,23 @@ include_mac_filter(FILE *fp, int mac_filter_mode, char *logdrop)
 }
 
 static int
-include_webstr_filter(FILE *fp)
+firewall_url_filter_read_failure(int entry)
+{
+	int status = errno ? errno : EIO;
+
+	logmessage(LOGNAME,
+		   "cannot read URL-filter keyword for entry %d; refusing ruleset publication (errno=%d)",
+		   entry, status);
+	errno = status;
+	return -1;
+}
+
+static int
+include_webstr_filter(FILE *fp, int num_entries)
 {
 	int i, webstr_items, url_length, url_total;
-	char url_list[256], nv_name[32], *filterstr;
+	char url_list[256];
+	const char *filter_value, *filterstr;
 	const char *dtype = IPT_CHAIN_NAME_URL_LIST;
 	const char *split = "<&nbsp;>";
 
@@ -1239,9 +1277,11 @@ include_webstr_filter(FILE *fp)
 
 	webstr_items = 0;
 
-	foreach_x("url_num_x") {
-		sprintf(nv_name, "url_keyword_x%d", i);
-		filterstr = nvram_safe_get(nv_name);
+	for (i = 0; i < num_entries; ++i) {
+		if (firewall_read_indexed_string_setting("url_keyword_x", i,
+						 &filter_value) != 0)
+			return firewall_url_filter_read_failure(i);
+		filterstr = filter_value;
 		if (strncasecmp(filterstr, "http://", 7) == 0)
 			filterstr += 7;
 		else if (strncasecmp(filterstr, "https://", 8) == 0)
@@ -1618,7 +1658,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int ret, lw_status, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_vts_enabled = 0, i_vts_count = 0;
-	int is_lw_need_drop = 0, i_lw_count = 0;
+	int is_lw_need_drop = 0, i_lw_count = 0, i_url_count = 0;
 	int is_url_enabled, is_url_inverse, is_lwf_enabled, is_mac_filter_drop;
 	int is_ping_enabled, is_udpxy_enabled, is_upnp_enabled = 0;
 	int is_sshd_enabled = 1, is_ftp_enabled = 1;
@@ -1692,6 +1732,11 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	ret = firewall_read_enabled_setting("url_enable_x", &is_url_enabled);
 	if (ret != 0)
 		return ret;
+	if (is_url_enabled) {
+		ret = firewall_read_url_entry_count(&i_url_count);
+		if (ret != 0)
+			return ret;
+	}
 	ret = firewall_read_enabled_setting("fw_lw_enable_x", &is_lwf_enabled);
 	if (ret != 0)
 		return ret;
@@ -2149,7 +2194,20 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	}
 
 	/* use url filter before accepting ESTABLISHED packets */
-	if (is_url_enabled && include_webstr_filter(fp) > 0) {
+	if (is_url_enabled) {
+		int url_status = include_webstr_filter(fp, i_url_count);
+		if (url_status < 0) {
+			saved_errno = errno ? errno : EIO;
+			logmessage(LOGNAME,
+				   "IPv4 filter: aborting incomplete URL-filter ruleset (errno=%d)",
+				   saved_errno);
+			(void)fclose(fp);
+			firewall_abort_core_restore_after_staging_failure();
+			firewall_rule_file_remove(ipt_file);
+			errno = saved_errno;
+			return -1;
+		}
+		if (url_status > 0) {
 		char mac_buf[24] = {0};
 		timematch[0] = 0;
 		if (timematch_conv(timematch, "url_date_x", "url_time_x")) {
@@ -2163,6 +2221,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 			}
 			fprintf(fp, "-A %s -i %s%s -j %s\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_URL_LIST);
 			ret |= MODULE_WEBSTR_MASK;
+		}
 		}
 	}
 
@@ -2546,14 +2605,14 @@ ipt_raw_rules(void)
 }
 
 #if defined (USE_IPV6)
-static int
-ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
+static intip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
                   char *logaccept, char *logdrop, int tcp_mss_need)
 {
 	FILE *fp;
 	char timematch[160], *ftype, *dtype;
-	int ret, wport, lport;
+	int ret, saved_errno, wport, lport;
 	int ipv6_type, is_fw_enabled, is_url_enabled, is_url_inverse, is_logaccept, is_logdrop;
+	int i_url_count = 0;
 	int i_http_proto, i_bfplimit_ref, i_mac_filter, is_mac_filter_drop;
 	int is_ping_enabled = 0, is_upnp_enabled = 0;
 	int is_vpns_enabled = 0, i_vpns_type = 0;
@@ -2608,6 +2667,11 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 	ret = firewall_read_enabled_setting("url_enable_x", &is_url_enabled);
 	if (ret != 0)
 		return ret;
+	if (is_url_enabled) {
+		ret = firewall_read_url_entry_count(&i_url_count);
+		if (ret != 0)
+			return ret;
+	}
 	is_url_inverse = 0;
 	if (is_url_enabled) {
 		ret = firewall_read_enabled_setting("url_inv_x", &is_url_inverse);
@@ -2956,6 +3020,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 			}
 			fprintf(fp, "-A %s -i %s%s -j %s\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_URL_LIST);
 			ret |= MODULE_WEBSTR_MASK;
+		}
 		}
 	}
 

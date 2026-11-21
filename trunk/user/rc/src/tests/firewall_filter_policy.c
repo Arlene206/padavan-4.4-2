@@ -127,6 +127,12 @@ main(void)
 	assert(!firewall_lw_entry_count_is_safe(-1));
 	assert(!firewall_lw_entry_count_is_safe(65));
 
+	/* The URL keyword UI caps entries at 128. */
+	assert(firewall_url_entry_count_is_safe(0));
+	assert(firewall_url_entry_count_is_safe(128));
+	assert(!firewall_url_entry_count_is_safe(-1));
+	assert(!firewall_url_entry_count_is_safe(129));
+
 	assert(firewall_port_range_is_safe("80", 0));
 	assert(firewall_port_range_is_safe("1:65535", 0));
 	assert(firewall_port_range_is_safe("", 1));

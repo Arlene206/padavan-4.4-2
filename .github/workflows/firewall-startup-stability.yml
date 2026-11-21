@@ -630,6 +630,20 @@ jobs:
           lw_mode_gate = 'firewall_read_match_setting("filter_lw_default_x", "DROP", 0,'
           lw_count_gate = "firewall_read_lw_entry_count(&i_lw_count)"
           assert lw_mode_gate in ipv4_filter and lw_count_gate in ipv4_filter
+          assert "firewall_url_entry_count_is_safe(128)" in filter_test
+          assert "firewall_url_entry_count_is_safe(129)" in filter_test
+          for signature, builder in (("IPv4 filter", ipv4_filter),
+                                     ("IPv6 filter", ipv6_filter)):
+              assert "firewall_read_url_entry_count(&i_url_count)" in builder, signature
+              assert builder.index("firewall_read_url_entry_count(&i_url_count)") < builder.index("firewall_open_rule_file("), signature
+          url_builder = body(firewall_source, "include_webstr_filter(FILE *fp")
+          assert "include_webstr_filter(FILE *fp, int num_entries)" in firewall_source
+          assert "for (i = 0; i < num_entries; ++i)" in url_builder
+          assert 'foreach_x("url_num_x")' not in url_builder
+          assert 'firewall_read_indexed_string_setting("url_keyword_x", i,' in url_builder
+          assert "firewall_url_filter_read_failure(i)" in url_builder
+          assert "url_status = include_webstr_filter(fp, i_url_count)" in ipv6_filter
+          assert "if (url_status < 0)" in ipv6_filter
           assert ipv4_filter.index(lw_mode_gate) < ipv4_filter.index("firewall_open_rule_file(")
           assert ipv4_filter.index(lw_count_gate) < ipv4_filter.index("firewall_open_rule_file(")
           assert "include_lw_filter(fp, wan_if, logaccept, logdrop," in ipv4_filter

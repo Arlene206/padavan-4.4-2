@@ -146,6 +146,13 @@ firewall_vts_entry_count_is_safe(int count)
 	return count >= 0 && count <= 64;
 }
 
+/* The URL filter page allows at most 128 keyword entries. */
+static int
+firewall_url_entry_count_is_safe(int count)
+{
+	return count >= 0 && count <= 128;
+}
+
 /* The Lightweight Filter UI also caps the stored rules at 64 entries. */
 static int
 firewall_lw_entry_count_is_safe(int count)

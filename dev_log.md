@@ -1,3 +1,14 @@
+## 2026-11-21 — Bound URL filter entries and check keyword reads
+
+- Parent main SHA: `3566f46ad6d8521fb7283617c5044bb38521e3dc`.
+- The URL filter WebUI permits at most 128 entries, but `include_webstr_filter()` used the generic `foreach_x("url_num_x")` loop and repeatedly evaluated an unchecked persistent count. It also read each `url_keyword_xN` with `nvram_safe_get()`, so a backend/close failure became an empty keyword and silently omitted a deny rule.
+- Added the checked `firewall_read_url_entry_count()` and a 0..128 policy predicate, with unit tests for 0,128,-1,129. Both IPv4 and IPv6 filter builders preflight/cache the count before opening their rule files and pass it to the URL-rule emitter.
+- URL keyword values now use the checked indexed-string reader. Missing keys retain empty/skip behavior; a failed checked read returns an error. Both builders close/remove the staged rule file, abort the core restore transaction and return without publishing a partial URL policy.
+- Firewall Startup source contracts cover the entry bound, preflight ordering, checked keyword reads, bounded loop and IPv6 error propagation. Exact-head CI is pending.
+- Parent `3566f46...`: all nine triggered runs (Firewall #44952192432, NVRAM #44952192527, AI docs #44952192530, FULLCONENAT #44952192469, XY-C1 #44952192509, Process #44952192541, WAN DHCP #44952192483, HTTPD #44952192648, WAN route #44952192537) were IN_PROGRESS at last poll. No local test/build or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Fail closed on Lightweight Filter field-read errors
 
 - Parent main SHA: `7494b0860d16d6cc9d4e9a812a22db29bd7aa1ac`.

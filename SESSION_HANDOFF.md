@@ -25,22 +25,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- IPv4/IPv6 filter listener preflight, UDPXY 1024..65535 bounds, VTS 0..64 count limit, checked VTS protocol handling, and LWF mode/count preflight are implemented.
-- LWF per-entry fields previously still used `nvram_safe_get()`. A backend failure could become an empty port/IP wildcard or default TCP protocol; in blacklist mode this could omit a configured deny rule. The ICMP list used the same unchecked read. This slice switches the LWF protocol, port, IP-range and ICMP-list reads to checked NVRAM access; an actual read/API/close failure now aborts the staged IPv4 filter transaction rather than emitting widened rules. Malformed but successfully read user values retain the existing validation/skip behavior.
-- `7494b0860d16d6cc9d4e9a812a22db29bd7aa1ac` passed Firewall Startup #44951908711, Process inventory #44951908748 and AI docs #44951908732. NVRAM audit #44951908715 was IN_PROGRESS at last poll.
-- Previous LWF exact-head Firewall Startup `02389c723fbe0aa18474da899f85f483a6135064` failed only because the new unit test forgot to reset its output sentinel before asserting backend-error preservation. That test-only defect was corrected in `7494b08...`.
+- Firewall listener, UDPXY, VTS and LWF checked-NVRAM preflight and validation slices are in the current main ancestry.
+- LWF per-entry protocol, flags, port/IP-range values and ICMP list now use checked NVRAM access; backend/API/close failures abort the staged IPv4 firewall transaction.
+- New review found `include_webstr_filter()` used unchecked `foreach_x("url_num_x")` despite the UI allowing at most 128 keywords, and read each keyword with `nvram_safe_get()`. A failed read could omit a deny rule. The URL count is now preflighted/cached in both IPv4 and IPv6 builders with a 0..128 bound; keyword reads are checked and read failures abort the corresponding staged transaction.
+- Exact-head Firewall Startup on parent `3566f46ad6d8521fb7283617c5044bb38521e3dc` was IN_PROGRESS at last query; NVRAM #44952192527, AI docs #44952192530, FULLCONENAT #44952192469, XY-C1 #44952192509, Process #44952192541, WAN DHCP #44952192483, HTTPD #44952192648 and WAN route #44952192537 were also in progress. Re-query before claiming validation.
 
 ## Verification boundary
 
-- Parent SHA `7494b0860d16d6cc9d4e9a812a22db29bd7aa1ac`: Firewall Startup #44951908711 PASS (includes LWF exact-mode and entry-count policy tests plus source contracts); Process inventory #44951908748 PASS; AI docs #44951908732 PASS; NVRAM #44951908715 IN_PROGRESS at last query.
-- Prior SHA `02389c723fbe0aa18474da899f85f483a6135064`: Firewall Startup #44951788974 failed at `test_lightweight_filter_drop_mode_match_uses_legacy_defaults` because the test expected the sentinel 23 after earlier successful calls had already changed it to zero. The source compile completed to the NVRAM policy test; no production failure was identified. AI docs #44951789062, WAN DHCP #44951789018, Process #44951789016, HTTPD #44951788996, WAN route #44951788962 and FULLCONENAT #44951789081 PASS; NVRAM #44951789060 was still running; XY-C1 #44951788955 had not reached the firmware build.
-- No local C test or firmware build was run. Do not claim L3 until Build XY-C1, TRX verification and artifact upload all PASS on one exact source SHA; hardware L4 remains NOT VERIFIED.
+- Parent SHA `3566f46ad6d8521fb7283617c5044bb38521e3dc`: all nine triggered Actions were IN_PROGRESS at last query (Firewall Startup #44952192432; NVRAM #44952192527; AI docs #44952192530; FULLCONENAT #44952192469; XY-C1 #44952192509; Process #44952192541; WAN DHCP #44952192483; HTTPD #44952192648; WAN route #44952192537). Firewall Startup had only started checkout. Do not infer CI results.
+- Previous exact-head `7494b0860d16d6cc9d4e9a812a22db29bd7aa1ac`: Firewall Startup #44951908711, Process #44951908748 and AI docs #44951908732 PASS; NVRAM #44951908715 was IN_PROGRESS.
+- No local C tests or firmware build are available. No L3 claim until Build XY-C1, TRX verification and artifact upload all PASS on one exact SHA; hardware L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and exact-head Firewall Startup, NVRAM and other triggered Actions for the checked LWF per-entry read commit. Inspect the first failing log and repair source or tests.
-2. Verify checked string reads still preserve absent-key defaults (empty port/IP and TCP default) while any backend/API/close failure aborts publication; do not treat malformed-but-readable values as read failures.
-3. Continue inspecting LWF schedule and other rule value reads, especially any unchecked NVRAM values that can broaden blacklist matches.
+1. Fetch current `main` and exact-head Firewall Startup, NVRAM and all other triggered Actions for URL-filter count/keyword validation. Inspect first failing logs.
+2. Confirm the LWF field-read patch on ancestor `3566f46...` compiles and passes its checked-reader source contracts.
+3. Continue the audit of MAC filtering and static-route loops: verify UI entry caps, checked mode/count semantics and per-entry NVRAM read failures before changing them.
 
 ## Workflow and preservation rules
 
