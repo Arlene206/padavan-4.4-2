@@ -301,7 +301,7 @@ static int
 load_usb_modules(void)
 {
 	int start_status = 0;
-	int modem_rule = 0, modem_type = 0, nvram_status;
+	int modem_rule = 0, modem_type = 0, usb3_disable = 0, nvram_status;
 	int is_ap_mode = 0, ap_mode_status;
 
 	/* load usb printer module before storage */
@@ -352,7 +352,25 @@ load_usb_modules(void)
 #if defined (USE_USB_XHCI)
 	{
 		char xhci_param[32];
-		snprintf(xhci_param, sizeof(xhci_param), "%s=%d", "usb3_disable", nvram_get_int("usb3_disable"));
+
+		/*
+		 * Do not collapse an XHCI module-parameter read failure into an
+		 * apparently valid zero. Keep the legacy zero fallback so USB host
+		 * initialization can continue, but surface the failed read in the
+		 * aggregate hardware-module startup status.
+		 */
+		nvram_status = rc_boot_nvram_read_int_status("usb3_disable", 0,
+							     &usb3_disable);
+		if (nvram_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot read USB 3.0 disable setting during boot (status=%d); using default 0",
+				   nvram_status);
+			start_status = rc_first_service_start_status(start_status,
+							     nvram_status);
+			usb3_disable = 0;
+		}
+		snprintf(xhci_param, sizeof(xhci_param), "%s=%d",
+			 "usb3_disable", usb3_disable);
 		start_status = rc_first_service_start_status(start_status,
 							     load_boot_module("xhci_hcd", xhci_param));
 		start_status = rc_first_service_start_status(start_status,

@@ -1,3 +1,13 @@
+## 2026-11-22 — Check MT7621 XHCI USB3 NVRAM module parameter
+
+- Parent main SHA: `5f61f0345e3bdddf7fa21219eb16a316801920ea`.
+- `load_usb_modules()` already handled `modem_rule` and `modem_type` via `nvram_get_checked()` and the shared strict decimal parser, but the `USE_USB_XHCI` path still used `nvram_get_int("usb3_disable")`. Backend errors, malformed text and overflow could silently become zero, changing the XHCI module configuration while reporting a successful read.
+- Replaced the unchecked read with `rc_boot_nvram_read_int_status("usb3_disable", 0, ...)`. Missing keys preserve the legacy zero default; valid integer values retain their prior behavior. On backend/parser failure the code logs and aggregates the status, explicitly falls back to zero, and still attempts both `xhci_hcd` and `xhci_mtk` to preserve independent USB-host availability.
+- Extended `check_process_lifecycle_integration.py` to require the checked read, failure aggregation, legacy fallback, checked-value parameter formatting and XHCI-before-MTK load order. The existing GNU89/ASan/UBSan `wan_nvram_status_policy.c` regression already covers missing values, valid signed decimal input, malformed/overflow values and backend errors. No local checkout/test execution is claimed; exact-head Process, AI docs and XY-C1 Actions are required.
+- Exact-head CI status: pending for THIS COMMIT; XY-C1 L3 is not claimed. Hardware L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Check DNSMasq DHCP lease and verbosity integers
 
 - Parent main SHA: `4b9f9c2dd2d1a8d736ab8d78a30cd007a39a3c42`.
