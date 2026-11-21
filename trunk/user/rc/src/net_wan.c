@@ -583,7 +583,7 @@ set_wan_unit_param_status(int unit, const char *param_name)
 	int path_len, read_result, api_result, saved_errno;
 	int status = 0, end_status;
 
-	if (!param_name || !param_name[0])
+	if (unit < 0 || !param_name || !param_name[0])
 		return EINVAL;
 
 	path_len = snprintf(wan_param, sizeof(wan_param), "wan_%s", param_name);

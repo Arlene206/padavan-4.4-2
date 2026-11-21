@@ -2019,4 +2019,10 @@ assert "return ap_mode_status;" in ddns_start
 ddns_update = c_function_body(services_source, "notify_ddns_update_locked(void)")
 assert "get_ap_mode_status(&is_ap_mode)" in ddns_update
 assert "is_ap_mode" in ddns_update
+wan_param_setter = c_function_body(
+    wan_source, "set_wan_unit_param_status(int unit, const char *param_name)"
+)
+assert "if (unit < 0 || !param_name || !param_name[0])" in wan_param_setter
+assert wan_param_setter.index("if (unit < 0") < wan_param_setter.index("nvram_transaction_begin")
+
 print("Remaining AP/router mode consumers use checked NVRAM reads: PASS")
