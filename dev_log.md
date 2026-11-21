@@ -1,3 +1,13 @@
+## 2026-11-21 — Point iNIC UNKNOWN-state regression assertion at its test fixture
+
+- Beijing time: 2026-11-21 19:14 (UTC+8). Parent main SHA: `310e7c8668db0eda362a0400775d5670cf7a2242`.
+- On exact SHA `310e7c8668db0eda362a0400775d5670cf7a2242`, Wireless radio state #44897978738 and AI handoff docs #44897978824 passed. iNIC #44897978753 compiled and passed the GNU89/Werror/ASan/UBSan policy binary, then failed because `scripts/check_inicd_signals.py` searched for the test invocation `wireless_guest_isolation_link_state(-1, EACCES, ENODEV,` in the production policy header. The actual regression call is in `tests/wireless_guest_isolation_policy.c`; the header contains the function definition, not the test invocation.
+- Corrected the assertion to inspect the test fixture that actually contains the call. No production source or test behavior changed, and no assertion was removed.
+- No local checkout/runtime is available; no local tests or firmware build are claimed. XY-C1 #44897419694 remains in progress on source SHA `60ad278e7056ace912066b090fdf20d0fd874f3e` with Build running and TRX/artifact pending. Fresh exact-head iNIC and AI handoff runs are required; no L3/L4 claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Scope iNIC guest-state error assertions to the checked probe
 
 - Beijing time: 2026-11-21 19:08 (UTC+8). Parent main SHA: `60ad278e7056ace912066b090fdf20d0fd874f3e`.

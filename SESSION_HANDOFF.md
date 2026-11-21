@@ -12,28 +12,27 @@
 The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state before ending, verify this handoff's source baseline, active task, exact-head Actions, validation boundary, blockers and first next action. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no no-op commit. Update this handoff only when next-session-critical facts materially change.
 
 ## Current repository state
-- Live main before this atomic checker repair: `60ad278e7056ace912066b090fdf20d0fd874f3e`; this commit is a checker/documentation child and does not change product source.
-- The iNIC guest-link-state production fix on `60ad278e7056ace912066b090fdf20d0fd874f3e` uses `wireless_guest_interface_state_checked()` and defers recovery when the state is UNKNOWN. No production code change is included in this follow-up.
-- Exact-head Wireless radio state #44897419595 failed in the embedded contract at the guest-state ordering assertion; exact-head iNIC signal lifecycle #44897419703 failed at the equivalent assertion in `scripts/check_inicd_signals.py:181`. Both failures incorrectly matched the earlier force-disable `if (status != 0)` rather than the later probe error branch. The C policy tests had passed in both workflows.
-- This commit scopes both assertions from the checked guest-state call and preserves the required UNKNOWN-state return-before-recovery behavior.
-- On `60ad278e7056ace912066b090fdf20d0fd874f3e`, AI handoff docs #44897419640, Process umbrella #44897419609, Process inventory #44897419663, watchdog #44897419667, HTTPD #44897419727 and NVRAM #44897419737 passed. XY-C1 #44897419694 was IN_PROGRESS at the last check; its Build/TRX/artifact steps must be inspected before any L3 claim.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable. Legacy PR #1 is closed and unmerged; it is not a development target.
+- Parent main for this checker-only correction: `310e7c8668db0eda362a0400775d5670cf7a2242`; product-source baseline remains `60ad278e7056ace912066b090fdf20d0fd874f3e` (fail-closed iNIC guest-state probe).
+- Exact push SHA `310e7c8668db0eda362a0400775d5670cf7a2242`: Wireless radio state #44897978738 PASS; AI handoff docs #44897978824 PASS; iNIC #44897978753 FAIL in `scripts/check_inicd_signals.py` after its GNU89/Werror/ASan/UBSan policy binary passed. The failure was an incorrect fixture path: the `wireless_guest_isolation_link_state(-1, EACCES, ENODEV,` invocation is in `tests/wireless_guest_isolation_policy.c`, not in the policy header.
+- This atomic follow-up changes only that checker assertion to read the actual test source. The prior ordering correction remains in place.
+- Exact-head on preceding source SHA `60ad278e7056ace912066b090fdf20d0fd874f3e`: AI docs #44897419640, Process umbrella #44897419609, Process inventory #44897419663, watchdog #44897419667, HTTPD #44897419727, NVRAM #44897419737 PASS; Wireless #44897419595 and iNIC #44897419703 failed on the stale ordering assertion corrected in the intermediate checker commit. XY-C1 #44897419694 for the same production source is still in progress; Build was running, TRX and artifact pending.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable. Legacy PR #1 remains closed/unmerged.
 
 ## Active task
-- Verify the new exact-head iNIC signal, Wireless radio state and AI handoff documentation push Actions.
-- Triage any first causal failure from its job log; do not relax the UNKNOWN-state fail-closed contract.
-- Inspect XY-C1 #44897419694 for Build, TRX verification and artifact upload. Its source SHA is `60ad278e7056ace912066b090fdf20d0fd874f3e`; checker/docs-only changes in this commit do not alter that firmware input.
-- Once this radio slice is validated, rotate to the next unfinished P1 reliability issue outside the repeatedly worked HTTPD/WAN/SkipDB areas.
+- Verify exact-head iNIC signal and AI documentation Actions for this correction; Wireless passed on the parent and the embedded Wireless checker uses the correct test-file path.
+- If iNIC fails again, inspect the first causal log and update only the mismatched contract; retain the UNKNOWN-state fail-closed regression.
+- Inspect XY-C1 #44897419694 Build, TRX verification and artifact upload. L3 is allowed only if all three succeeded on production-source SHA `60ad278e7056ace912066b090fdf20d0fd874f3e`.
+- After the iNIC slice closes, rotate to another distinct unfinished P1 reliability/security issue from the roadmap, avoiding repeat work in HTTPD/WAN/SkipDB.
 
 ## Verification boundary
-- No local checkout/runtime was available. No local tests, sanitizer run or local firmware build are claimed for this checker-only repair.
-- Exact-head remote C policy regressions passed on the parent SHA before the source-contract assertions failed; the corrected contracts require new exact-head push runs.
-- L3: pending inspection of XY-C1 #44897419694 Build + TRX + artifact on production-source SHA `60ad278e7056ace912066b090fdf20d0fd874f3e`. Hardware/router L4: NOT VERIFIED.
+- No local checkout/runtime; no local tests, sanitizers or firmware build are claimed for this checker-only follow-up.
+- L2: C regression binaries passed on both preceding exact-head attempts, but the last iNIC source-contract check failed before this correction; exact-head rerun pending.
+- L3: pending XY-C1 Build + TRX + artifact for the current production-source SHA. L4 hardware/router validation: NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect the iNIC signal, Wireless radio state and AI handoff push runs whose `head_sha` exactly matches it.
-2. Read the first causal failure log if any check is red; repair the specific contract/source defect in one atomic main commit.
-3. Inspect XY-C1 run #44897419694 job steps for Build XY-C1, TRX verification and artifact upload; only claim L3 if all three completed successfully for `60ad278e7056ace912066b090fdf20d0fd874f3e`.
-4. Continue with the next distinct P1 stability/security issue from the roadmap; do not repeat the already completed radio probe review.
+1. Fetch live main and inspect iNIC signal lifecycle and AI handoff push runs matching its exact SHA.
+2. Triage the first causal failure, if any, and make a focused atomic main correction without weakening the regression.
+3. Inspect Build/TRX/artifact steps in XY-C1 #44897419694 before making any L3 claim.
+4. Continue with a distinct P1 stability/security issue once the radio slice is closed.
 
 Before context exhaustion, update this handoff only when active task, exact-head status or validation boundary changes; no no-op commit.

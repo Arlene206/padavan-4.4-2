@@ -184,7 +184,7 @@ guest_state_return_pos = inic_check.index("return status;", guest_state_error_po
 guest_state_gate_pos = inic_check.index(guest_gate)
 assert guest_state_call_pos < guest_state_error_pos < guest_state_return_pos < guest_state_gate_pos
 assert "test_unknown_guest_link_state_still_requests_down" in read("trunk/user/rc/src/tests/wireless_guest_isolation_policy.c")
-assert "wireless_guest_isolation_link_state(-1, EACCES, ENODEV," in read("trunk/user/rc/src/wireless_guest_isolation_policy.h")
+assert "wireless_guest_isolation_link_state(-1, EACCES, ENODEV," in read("trunk/user/rc/src/tests/wireless_guest_isolation_policy.c")
 assert "status = wif_control(IFNAME_INIC_GUEST, 1);" in inic_check
 assert "wireless_radio_status_success(status)" in inic_check
 assert "wif_control_success(IFNAME_INIC_GUEST, 1)" not in inic_check
