@@ -1,3 +1,14 @@
+## 2026-11-21 — Align IPTV renewal and MTU checks with checked NVRAM status
+
+- Parent main SHA: `728468e145d625164bf2a6aaba6883b183cb20c2`.
+- Exact-head WAN DHCP callback `#44896094291` passed the C policy regressions and the physical-WAN renewal contract, then failed at the remaining IPTV renewal assertions, which still expected the removed unchecked retry helper and direct NVRAM getters. Updated them to require checked `err`/`route_err`/`mtu_err` reads, decision/error/retry ordering, checked `manv_mtu`, and no legacy getters.
+- Exact-head WAN route status `#44896094274` passed the revised VLAN checker, then failed in `scripts/check_wan_initial_mtu_status.py` because its physical and IPTV renewal checks still looked for the removed retry helper. Migrated both contracts to the checked status decision and fail-closed ordering, retaining the post-retry MTU-triggered rebind checks.
+- Exact-head AI handoff docs `#44896094292` requires the precise phrase `one atomic main commit` and standard checkpoint section headings. Rebuilt the handoff with the protocol's required sections and first actionable task.
+- No product source changed. No local test/build claimed; validate this change only through exact-head Actions.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Align WAN DHCP and IPTV cache-copy source contracts
 
 - Parent main SHA: `21bf595a0ecc81b2cf8e5500c93f93c03f4811e6`.

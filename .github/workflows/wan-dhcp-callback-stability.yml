@@ -637,11 +637,28 @@ jobs:
           assert "return callback_status;" in viptv_bound
           assert "nvram_set_int_temp(" not in viptv_bound
           viptv_renew = body(source, "udhcpc_viptv_renew(char *man_ifname)")
-          assert "dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error)" in viptv_renew
-          assert 'nvram_get_int(strcat_r(prefix, "err", tmp))' in viptv_renew
-          assert 'nvram_get_int(strcat_r(prefix, "route_err", tmp))' in viptv_renew
-          assert 'nvram_get_int(strcat_r(prefix, "mtu_err", tmp))' in viptv_renew
-          assert viptv_renew.index("dhcp_wan_bound_retry_required") < viptv_renew.index('value = getenv("subnet")')
+          viptv_renew_compact = "".join(viptv_renew.split())
+          assert 'strcpy(prefix, "manv_")' in viptv_renew
+          for key, target in (
+              ("err", "lease_error"),
+              ("route_err", "route_error"),
+              ("mtu_err", "mtu_error"),
+          ):
+              assert (
+                  'get_nvram_int_checked_status(strcat_r(prefix,"'
+                  + key + '",tmp),&' + target + ');'
+              ) in viptv_renew_compact
+          retry_decision = viptv_renew_compact.index("dhcp_wan_bound_retry_decide(")
+          retry_error_gate = viptv_renew_compact.index("if(nvram_status!=0)", retry_decision)
+          retry_gate = viptv_renew_compact.index("if(retry_required)", retry_error_gate)
+          retry_call = viptv_renew_compact.index("returnudhcpc_viptv_bound(", retry_gate)
+          assert retry_decision < retry_error_gate < retry_gate < retry_call
+          assert "cannot verify previous DHCP retry state" in viptv_renew
+          assert "retrying IPTV lease/address/route/MTU application" in viptv_renew
+          assert 'get_nvram_int_checked_status("manv_mtu",&stored_mtu);' in viptv_renew_compact
+          assert "nvram_get_int(" not in viptv_renew
+          assert "dhcp_wan_bound_retry_required(" not in viptv_renew
+          assert retry_error_gate < viptv_renew_compact.index("value=getenv(\"subnet\")")
           assert "retrying IPTV lease/address/route/MTU application" in viptv_renew
 
           viptv_deconfig = body(source, "manv_route_deconfig(char *man_ifname)")

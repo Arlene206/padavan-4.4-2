@@ -331,16 +331,35 @@ require(
 )
 
 wan_renew = body(WAN, "udhcpc_renew(char *wan_ifname)")
-wan_renew_retry = wan_renew.index("dhcp_wan_bound_retry_required(")
-wan_retry_bound = wan_renew.index("return udhcpc_bound(wan_ifname, 1);", wan_renew_retry)
-wan_renew_mtu = wan_renew.index('value = getenv("mtu");', wan_retry_bound)
-wan_mtu_change_bound = wan_renew.index(
-    "return udhcpc_bound(wan_ifname, 1);", wan_renew_mtu
+wan_renew_compact = "".join(wan_renew.split())
+for key, target in (
+    ("err", "lease_error"),
+    ("route_err", "route_error"),
+    ("mtu_err", "mtu_error"),
+):
+    require(
+        'get_nvram_int_checked_status(strcat_r(prefix,"' + key + '",tmp),&' +
+        target + ');' in wan_renew_compact,
+        "WAN renewal must check previous DHCP retry state: " + key,
+    )
+wan_renew_retry = wan_renew_compact.index("dhcp_wan_bound_retry_decide(")
+wan_retry_error = wan_renew_compact.index("if(nvram_status!=0)", wan_renew_retry)
+wan_retry_gate = wan_renew_compact.index("if(retry_required)", wan_retry_error)
+wan_retry_bound = wan_renew_compact.index("returnudhcpc_bound(wan_ifname,1);", wan_retry_gate)
+wan_renew_mtu = wan_renew_compact.index('value=getenv("mtu");', wan_retry_bound)
+wan_mtu_change_bound = wan_renew_compact.index(
+    "returnudhcpc_bound(wan_ifname,1);", wan_renew_mtu
 )
 require(
-    wan_renew_retry < wan_retry_bound < wan_renew_mtu < wan_mtu_change_bound,
-    "WAN renew must retry lease/address/route/MTU failures and re-enter bound after a DHCP MTU change",
+    wan_renew_retry < wan_retry_error < wan_retry_gate < wan_retry_bound <
+    wan_renew_mtu < wan_mtu_change_bound,
+    "WAN renewal must fail closed on retry-state read errors, retry incomplete lease state, and re-enter bound after DHCP MTU changes",
 )
+require("cannot verify previous DHCP retry state" in wan_renew and
+        "get_nvram_int_checked_status(strcat_r(prefix,\"mtu\",tmp),&stored_mtu);" in wan_renew_compact,
+        "WAN renewal must use checked stored-MTU reads")
+assert "nvram_get_int(" not in wan_renew
+assert "dhcp_wan_bound_retry_required(" not in wan_renew
 
 viptv_bound = body(WAN, "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)")
 require("mtu_status = 0;" in viptv_bound,
@@ -380,18 +399,35 @@ require(
 )
 
 viptv_renew = body(WAN, "udhcpc_viptv_renew(char *man_ifname)")
-tv_retry = viptv_renew.index("dhcp_wan_bound_retry_required(")
-tv_retry_bound = viptv_renew.index(
-    "return udhcpc_viptv_bound(man_ifname, 1);", tv_retry
-)
-tv_renew_mtu = viptv_renew.index('value = getenv("mtu");', tv_retry_bound)
-tv_mtu_change_bound = viptv_renew.index(
-    "return udhcpc_viptv_bound(man_ifname, 1);", tv_renew_mtu
+tv_renew_compact = "".join(viptv_renew.split())
+for key, target in (
+    ("err", "lease_error"),
+    ("route_err", "route_error"),
+    ("mtu_err", "mtu_error"),
+):
+    require(
+        'get_nvram_int_checked_status(strcat_r(prefix,"' + key + '",tmp),&' +
+        target + ');' in tv_renew_compact,
+        "IPTV renewal must check previous DHCP retry state: " + key,
+    )
+tv_retry = tv_renew_compact.index("dhcp_wan_bound_retry_decide(")
+tv_retry_error = tv_renew_compact.index("if(nvram_status!=0)", tv_retry)
+tv_retry_gate = tv_renew_compact.index("if(retry_required)", tv_retry_error)
+tv_retry_bound = tv_renew_compact.index("returnudhcpc_viptv_bound(man_ifname,1);", tv_retry_gate)
+tv_renew_mtu = tv_renew_compact.index('value=getenv("mtu");', tv_retry_bound)
+tv_mtu_change_bound = tv_renew_compact.index(
+    "returnudhcpc_viptv_bound(man_ifname,1);", tv_renew_mtu
 )
 require(
-    tv_retry < tv_retry_bound < tv_renew_mtu < tv_mtu_change_bound,
-    "IPTV renew must retry lease/address/route/MTU failures and re-enter bound after a DHCP MTU change",
+    tv_retry < tv_retry_error < tv_retry_gate < tv_retry_bound <
+    tv_renew_mtu < tv_mtu_change_bound,
+    "IPTV renewal must fail closed on retry-state read errors, retry incomplete lease state, and re-enter bound after DHCP MTU changes",
 )
+require("cannot verify previous DHCP retry state" in viptv_renew and
+        'get_nvram_int_checked_status("manv_mtu",&stored_mtu);' in tv_renew_compact,
+        "IPTV renewal must use checked stored-MTU reads")
+assert "nvram_get_int(" not in viptv_renew
+assert "dhcp_wan_bound_retry_required(" not in viptv_renew
 
 dhcp_mtu_policy = body(POLICY, "wan_dhcp_mtu_is_supported(")
 require(
