@@ -318,7 +318,7 @@ exit "${MOCK_KILLALL_STATUS:-0}"
 def check_rc_optional_daemon_enable_reads():
     services = RC_SERVICES_SOURCE.read_text()
     reader = extract_c_function_body(
-        services, "service_enabled_mode_status(const char *service_name"
+        services, "\\nservice_enabled_mode_status(const char *service_name"
     )
     assert "nvram_get_checked(nvram_key, &value)" in reader
     assert "rc_wan_nvram_read_int_status(" in reader
