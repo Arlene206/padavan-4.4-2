@@ -1,3 +1,13 @@
+## 2026-11-22 — Correct escaped function locators in OpenVPN callback contract
+
+- Parent main SHA: `88b8124bfa1363b8f6f066e66b4e2c6db80e26f6`.
+- Exact-head VPN lifecycle #44938233419 on `040b3da86f81007605c80a5687b7a516f41d19ce` passed all compiled policy/sanitizer steps but failed in `scripts/check_vpn_client_nvram_state.py`: the new source contract had double-escaped newline/tab sequences and could not locate `on_client_ifup()`.
+- Corrected the Python string escapes in the new contract block. Assertions remain intact; production code is unchanged. Exact-head VPN lifecycle rerun is required.
+- The 040b XY-C1 run #44938233497 and 2352 XY-C1 run #44937972691 were still in progress at the last observation. The latest `88b8124` Actions listing showed only Process and HTTPD queued; do not infer a firmware result from absent runs.
+- L3 requires same-SHA Build, TRX and artifact upload; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Check OpenVPN callback device mode without losing disconnect cleanup
 
 - Parent main SHA: `040b3da86f81007605c80a5687b7a516f41d19ce`.

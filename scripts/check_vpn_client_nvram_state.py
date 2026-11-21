@@ -198,9 +198,9 @@ for token in (
 ):
     assert token in header
 
-openvpn_up = body(openvpn, "static int\\non_client_ifup(void)")
-openvpn_down = body(openvpn, "static int\\non_client_ifdown(void)")
-openvpn_entry = body(openvpn, "int\\novpn_client_script_main(int argc, char **argv)")
+openvpn_up = body(openvpn, "static int\non_client_ifup(void)")
+openvpn_down = body(openvpn, "static int\non_client_ifdown(void)")
+openvpn_entry = body(openvpn, "int\novpn_client_script_main(int argc, char **argv)")
 openvpn_up_compact = " ".join(openvpn_up.split())
 assert 'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);' in openvpn_up
 assert "pdns_status = vpn_server_config_int_status(" in openvpn_up
@@ -216,7 +216,7 @@ ordered(openvpn_up, [
     'values[value_count].name = "vpnc_dom_t";',
     'values[value_count].name = "vpnc_state_t";',
     "vpn_client_nvram_set_all_values(",
-    'vpn_client_nvram_set_temp_status(\\n\\t\\t\\tNULL, "vpnc_state_t", "1")',
+    'vpn_client_nvram_set_temp_status(\n\t\t\tNULL, "vpnc_state_t", "1")',
     'vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", buf)',
     'call_client_script(VPN_CLIENT_UPDOWN_SCRIPT, "up");',
     "return status;"
