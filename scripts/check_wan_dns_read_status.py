@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Verify WAN DNS-mode reads fail closed before resolver publication."""
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]

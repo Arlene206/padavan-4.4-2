@@ -1,3 +1,12 @@
+## 2026-11-21 — Restore regex import in checked WAN source contract
+
+- Parent main SHA: `839922fedd844174ca6553c50901c5a9c942cc44`.
+- Exact-head WAN route run `#44891897645` passed the GNU89/ASan/UBSan policy binaries and DNS-mode static contract, then stopped with `NameError: name 're' is not defined` after the PPPoE checked-read assertions were converted to whitespace-tolerant regex matching.
+- Added the missing standard-library `re` import. No product C source changed in this checker-only correction.
+- The WAN route workflow must pass on the resulting exact SHA; firmware L3 and physical L4 are not claimed.
+
+---
+
 ## 2026-11-21 — Enforce zero unchecked WAN integer getter callsites
 
 - Parent main SHA: `b8cb95b34d1362b23c32cf5c58538b57667e65cc`.
