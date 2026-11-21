@@ -317,30 +317,33 @@ for token in ("nvram_get_checked(param_name, &stored_value)",
               "rc_wan_nvram_read_int_status(api_result, saved_errno"):
     require(token in checked_global, "global checked NVRAM getter missing " + token)
 wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
-require('get_nvram_int_checked_status("fw_syn_cook", &tcp_syncookies_enabled)' in wan_start,
+wan_start_compact = "".join(wan_start.split())
+syncookie_read = 'get_nvram_int_checked_status("fw_syn_cook",&tcp_syncookies_enabled)'
+require(syncookie_read in wan_start_compact,
         "TCP SYN-cookie startup gate must use checked NVRAM reads")
-require("if (nvram_status != 0)" in wan_start and
-        "cannot read TCP SYN-cookie setting" in wan_start and
-        "return nvram_status" in wan_start,
+require("if(nvram_status!=0)" in wan_start_compact and
+        "cannotreadTCPSYN-cookiesetting" in wan_start_compact and
+        "returnnvram_status" in wan_start_compact,
         "WAN startup must abort before sysctl and interface setup on a security-setting read error")
-assert 'nvram_get_int("fw_syn_cook")' not in wan_start
-assert wan_start.index('get_nvram_int_checked_status("fw_syn_cook", &tcp_syncookies_enabled)') < wan_start.index("set_tcp_syncookies(")
+assert 'nvram_get_int("fw_syn_cook")' not in wan_start_compact
+assert wan_start_compact.index(syncookie_read) < wan_start_compact.index("set_tcp_syncookies(")
 print("WAN SYN-cookie security policy read fails closed before activation: PASS")
 
 
 # USB modem startup must not silently interpret NVRAM read failure as RAS mode.
 wan_start = " ".join(function_body_at_column_zero_terminator(source, "start_wan(void)").split())
-modem_read = 'get_nvram_int_checked_status("modem_type", &modem_type)'
-require(modem_read in wan_start,
+wan_start_compact = "".join(wan_start.split())
+modem_read = 'get_nvram_int_checked_status("modem_type",&modem_type)'
+require(modem_read in wan_start_compact,
         "USB modem startup must use checked transport-type reads")
-modem_pos = wan_start.index(modem_read)
-modem_error = wan_start.index("if (nvram_status != 0)", modem_pos)
-modem_branch = wan_start.index("if (modem_type == 3)", modem_pos)
-modem_cleanup = wan_start.index("restore_wan_after_firewall_failure(unit, wan_ifname)", modem_error)
-modem_continue = wan_start.index("continue;", modem_cleanup)
+modem_pos = wan_start_compact.index(modem_read)
+modem_error = wan_start_compact.index("if(nvram_status!=0)", modem_pos)
+modem_branch = wan_start_compact.index("if(modem_type==3)", modem_pos)
+modem_cleanup = wan_start_compact.index("restore_wan_after_firewall_failure(unit,wan_ifname)", modem_error)
+modem_continue = wan_start_compact.index("continue;", modem_cleanup)
 require(modem_pos < modem_error < modem_cleanup < modem_continue < modem_branch,
         "modem type read failure must restore WAN and skip transport activation")
-assert 'nvram_get_int("modem_type")' not in wan_start
+assert 'nvram_get_int("modem_type")' not in wan_start_compact
 print("USB modem startup fails closed when transport type is unreadable: PASS")
 
 # The EAPOL read/start failure guard must close before the WAN protocol's

@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize SYN-cookie and modem-type checked-read contracts
+
+- Parent main SHA: `35967d072836add527cbfec20d1865088b5cd8c3`.
+- Exact-head WAN route run `#44893536012` passed DNS, PPPoE, MAN/physical MTU, EAPOL/Kabinet and MAN DNS-route contracts, then found the same line-break mismatch in the checked `fw_syn_cook` call. Source inspection also showed the adjacent `modem_type` call and rollback call are split over lines, so their source assertions were normalized in the same pass.
+- The checker now matches compacted source for the exact security-setting getter and verifies its fail-closed return precedes `set_tcp_syncookies()`; modem transport failure must still restore the WAN interface and continue before choosing NDIS/RAS.
+- AI handoff documentation run `#44893536072` passed on the same parent SHA. No product C behavior changed.
+
+---
+
 ## 2026-11-21 — Normalize MAN DNS-route source contracts
 
 - Parent main SHA: `590ae64484500b91695076220961e3baabc929bc`.
