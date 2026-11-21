@@ -5,6 +5,8 @@ from pathlib import Path
 
 source = (Path("trunk/user/rc/src") / "net_wan.c").read_text()
 test_source = (Path("trunk/user/rc/src/tests") / "dhcp_lease_policy.c").read_text()
+route_source = (Path("trunk/user/rc/src") / "dhcp_wan_route_transition_policy.h").read_text()
+route_test = (Path("trunk/user/rc/src/tests") / "dhcp_wan_route_transition_policy.c").read_text()
 
 
 def function_body(text, signature):
@@ -62,4 +64,43 @@ assert "wan0_dltime" in test_source
 assert "test_dhcp_lease_fast_renew_publishes_dltime_as_one_checked_value" in test_source
 assert '"ABCDEFGHIJKLlkjihgfedcba"' in test_source
 
-print("WAN DHCP dltime accepted-lease publication contract: PASS")
+
+# Previous lease/route/MTU state must be complete before renew can skip a bind.
+for signature, bound_call in (
+    ("udhcpc_renew(char *wan_ifname)", "returnudhcpc_bound("),
+    ("udhcpc_viptv_renew(char *man_ifname)", "returnudhcpc_viptv_bound("),
+):
+    renew_body = function_body(source, signature)
+    compact = "".join(renew_body.split())
+    read_tokens = (
+        'get_nvram_int_checked_status(strcat_r(prefix,"err",tmp),&lease_error);',
+        'get_nvram_int_checked_status(strcat_r(prefix,"route_err",tmp),&route_error);',
+        'get_nvram_int_checked_status(strcat_r(prefix,"mtu_err",tmp),&mtu_error);',
+    )
+    read_positions = [compact.index(token) for token in read_tokens]
+    decision = (
+        "dhcp_wan_bound_retry_decide(lease_error_read_status,"
+        "route_error_read_status,mtu_error_read_status,lease_error,"
+        "route_error,mtu_error,&retry_required);"
+    )
+    assert decision in compact
+    decision_pos = compact.index(decision)
+    assert read_positions == sorted(read_positions)
+    assert read_positions[-1] < decision_pos
+    error_gate = compact.index("if(nvram_status!=0)", decision_pos)
+    retry_gate = compact.index("if(retry_required)", error_gate)
+    retry_call = compact.index(bound_call, retry_gate)
+    assert decision_pos < error_gate < retry_gate < retry_call
+    assert "cannot verify previous DHCP retry state" in renew_body
+
+wan_renew = function_body(source, "udhcpc_renew(char *wan_ifname)")
+viptv_renew = function_body(source, "udhcpc_viptv_renew(char *man_ifname)")
+assert 'get_nvram_int_checked_status(strcat_r(prefix,"mtu",tmp),&stored_mtu);' in "".join(wan_renew.split())
+assert 'get_nvram_int_checked_status("manv_mtu",&stored_mtu);' in "".join(viptv_renew.split())
+assert "cannot verify stored DHCP MTU" in wan_renew
+assert "cannot verify stored IPTV MTU" in viptv_renew
+assert "dhcp_wan_bound_retry_decide" in route_source
+assert "test_retry_decision_fails_closed_on_each_status_read_error" in route_test
+assert "test_retry_decision_requires_a_complete_checked_tuple" in route_test
+
+print("WAN DHCP checked-renew state and dltime publication contracts: PASS")

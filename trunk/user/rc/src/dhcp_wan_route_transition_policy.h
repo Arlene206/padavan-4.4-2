@@ -129,4 +129,27 @@ dhcp_wan_bound_retry_required(int lease_error, int route_setup_status,
 		mtu_setup_status != 0;
 }
 
+/* Never convert an unreadable previous status field to the healthy value 0.
+ * A complete checked tuple is required before renewal can skip a full rebind. */
+static inline int
+dhcp_wan_bound_retry_decide(int lease_read_status, int route_read_status,
+			    int mtu_read_status, int lease_error,
+			    int route_setup_status, int mtu_setup_status,
+			    int *retry_required)
+{
+	if (!retry_required)
+		return EINVAL;
+	*retry_required = 0;
+	if (lease_read_status != 0)
+		return lease_read_status;
+	if (route_read_status != 0)
+		return route_read_status;
+	if (mtu_read_status != 0)
+		return mtu_read_status;
+
+	*retry_required = dhcp_wan_bound_retry_required(
+		lease_error, route_setup_status, mtu_setup_status);
+	return 0;
+}
+
 #endif /* DHCP_WAN_ROUTE_TRANSITION_POLICY_H */

@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on unreadable DHCP renewal status and MTU
+
+- Parent main SHA: `a68bac734fd3f232fb16f095bed9bba83813da24`.
+- Both physical-WAN `udhcpc_renew()` and IPTV `udhcpc_viptv_renew()` read prior lease, route and MTU error flags with `nvram_get_int()`. A temporary NVRAM backend error collapsed to zero, so a renew path could classify an incomplete lease transition as healthy and skip the full bound/rebind repair.
+- Replaced those reads with `get_nvram_int_checked_status()`, and added `dhcp_wan_bound_retry_decide()` to preserve the first read error and refuse a retry decision from a partial tuple. A read failure is logged and returned before lease comparisons or publication; absent keys retain the default zero.
+- Physical and IPTV renewers now also use checked getters for stored MTU comparisons; backend or malformed-value errors abort renewal rather than being treated as zero.
+- Added GNU89 policy regression cases for each status-read failure, first-error ordering, complete tuple evaluation and independent retry reasons. Extended the WAN DHCP callback source checker to require checked reads and fail-closed ordering. Exact-head WAN DHCP, WAN route and handoff Actions are the validation gate; no local tests were run because this session has no checkout/runtime.
+
+---
+
 ## 2026-11-21 — Preserve WAN interface names across cache-backed NVRAM reads
 
 - Parent main SHA: `f268eab8f685b67a59736ce716a9bf88e031f69c`.

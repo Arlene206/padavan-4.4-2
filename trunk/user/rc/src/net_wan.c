@@ -7151,7 +7151,9 @@ udhcpc_renew(char *wan_ifname)
 	size_t renew_count = 0;
 	int unit, is_man, resolver_changed = 0;
 	int nvram_status, rollback_status = 0;
-	int lease_error, route_error, mtu_error;
+	int lease_error, route_error, mtu_error, retry_required = 0;
+	int lease_error_read_status, route_error_read_status, mtu_error_read_status;
+	int stored_mtu;
 	int dltime_length;
 	struct dhcp_lease_nvram_value renew_values[4];
 
@@ -7171,10 +7173,23 @@ udhcpc_renew(char *wan_ifname)
 	}
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", (is_man) ? "MAN" : "WAN");
 
-	lease_error = nvram_get_int(strcat_r(prefix, "err", tmp));
-	route_error = nvram_get_int(strcat_r(prefix, "route_err", tmp));
-	mtu_error = nvram_get_int(strcat_r(prefix, "mtu_err", tmp));
-	if (dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error)) {
+	lease_error_read_status = get_nvram_int_checked_status(
+		strcat_r(prefix, "err", tmp), &lease_error);
+	route_error_read_status = get_nvram_int_checked_status(
+		strcat_r(prefix, "route_err", tmp), &route_error);
+	mtu_error_read_status = get_nvram_int_checked_status(
+		strcat_r(prefix, "mtu_err", tmp), &mtu_error);
+	nvram_status = dhcp_wan_bound_retry_decide(
+		lease_error_read_status, route_error_read_status,
+		mtu_error_read_status, lease_error, route_error, mtu_error,
+		&retry_required);
+	if (nvram_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot verify previous DHCP retry state on %s (status=%d)",
+			   wan_ifname, nvram_status);
+		return nvram_status;
+	}
+	if (retry_required) {
 		logmessage(log_prefix,
 			   "retrying DHCP lease/address/route/MTU application on %s (lease_error=%d, route_error=%d, mtu_error=%d)",
 			   wan_ifname, lease_error, route_error, mtu_error);
@@ -7214,7 +7229,15 @@ udhcpc_renew(char *wan_ifname)
 		value = trim_r(value);
 		if (!dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value))
 			parsed_value = 0;
-		if (nvram_get_int(strcat_r(prefix, "mtu", tmp)) != (int)parsed_value)
+		nvram_status = get_nvram_int_checked_status(
+			strcat_r(prefix, "mtu", tmp), &stored_mtu);
+		if (nvram_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot verify stored DHCP MTU on %s (status=%d)",
+				   wan_ifname, nvram_status);
+			return nvram_status;
+		}
+		if (stored_mtu != (int)parsed_value)
 			return udhcpc_bound(wan_ifname, 1);
 	}
 
@@ -7332,14 +7355,29 @@ udhcpc_viptv_renew(char *man_ifname)
 	char *value;
 	char tmp[100], prefix[16], gateway_buf[INET_ADDRSTRLEN];
 	unsigned int parsed_value;
-	int lease_error, route_error, mtu_error;
+	int lease_error, route_error, mtu_error, retry_required = 0;
+	int lease_error_read_status, route_error_read_status, mtu_error_read_status;
+	int nvram_status, stored_mtu;
 
 	strcpy(prefix, "manv_");
 
-	lease_error = nvram_get_int(strcat_r(prefix, "err", tmp));
-	route_error = nvram_get_int(strcat_r(prefix, "route_err", tmp));
-	mtu_error = nvram_get_int(strcat_r(prefix, "mtu_err", tmp));
-	if (dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error)) {
+	lease_error_read_status = get_nvram_int_checked_status(
+		strcat_r(prefix, "err", tmp), &lease_error);
+	route_error_read_status = get_nvram_int_checked_status(
+		strcat_r(prefix, "route_err", tmp), &route_error);
+	mtu_error_read_status = get_nvram_int_checked_status(
+		strcat_r(prefix, "mtu_err", tmp), &mtu_error);
+	nvram_status = dhcp_wan_bound_retry_decide(
+		lease_error_read_status, route_error_read_status,
+		mtu_error_read_status, lease_error, route_error, mtu_error,
+		&retry_required);
+	if (nvram_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot verify previous DHCP retry state on %s (status=%d)",
+			   man_ifname, nvram_status);
+		return nvram_status;
+	}
+	if (retry_required) {
 		logmessage(LOGNAME,
 			   "retrying IPTV lease/address/route/MTU application on %s (lease_error=%d, route_error=%d, mtu_error=%d)",
 			   man_ifname, lease_error, route_error, mtu_error);
@@ -7382,7 +7420,14 @@ udhcpc_viptv_renew(char *man_ifname)
 		value = trim_r(value);
 		if (!dhcp_lease_decimal_is_valid(value, 576U, 1500U, &parsed_value))
 			parsed_value = 0;
-		if (nvram_get_int("manv_mtu") != (int)parsed_value)
+		nvram_status = get_nvram_int_checked_status("manv_mtu", &stored_mtu);
+		if (nvram_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot verify stored IPTV MTU on %s (status=%d)",
+				   man_ifname, nvram_status);
+			return nvram_status;
+		}
+		if (stored_mtu != (int)parsed_value)
 			return udhcpc_viptv_bound(man_ifname, 1);
 	}
 

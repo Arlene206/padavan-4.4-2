@@ -110,6 +110,8 @@
 
 ## Priority queue
 
+- WAN DHCP renew callbacks previously used error-collapsing NVRAM reads for previous lease/route/MTU status and stored MTU. THIS SLICE switches physical and IPTV renew paths to checked reads, returns first read errors before renewal side effects, and adds GNU89 policy/source regressions. Exact-head WAN DHCP/route validation pending.
+
 - Full WAN restart restores static LAN routes if the checked runtime WAN-protocol snapshot fails after the earlier route flush. A route-recovery failure is logged and merged without masking the primary protocol-staging error; WAN activation remains aborted. Semantic checker coverage requires retry-before-return and first-error ordering. Exact-head checks pending.
 
 - WAN `ifname_t` publication is fail-closed during PPP-start fallback and before initial RAS/PPP/IPoE activation. The checked writer records errno; failed publication attempts physical-WAN recovery and prevents the failed protocol from continuing. Existing NVRAM helper GNU89/Werror/ASan/UBSan regression passed. The three new failure paths add six first-error merges, so the shared WAN startup checker now expects 28 (not 22) and explicitly verifies RAS/PPP/IPoE recovery+abort ordering; exact-head reruns pending.
