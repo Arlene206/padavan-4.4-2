@@ -1,3 +1,15 @@
+## 2026-11-21 — Cross-service detached-daemon rollback and CI handoff checkpoint
+
+- Source parent SHA: 8f21e7fc31609caae6ab0d2260e4b345f3e6d487; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).
+- Added fail-closed rollback after detached daemon launch/readiness failures across HTTPD, MiniUPnP, DNSMasq, Samba (nmbd/smbd/wsdd2), vsftpd, storage apps and Inadyn. Each cleanup attempt is followed by authoritative process inventory where applicable and preserves the initiating error; policy/source checks cover UNKNOWN and invalid inventory.
+- Source commits in this window: HTTPD `ab866c3e93c5131ed6723c7a2a7d3de5df0e693c`; MiniUPnP `b55d97afc5b09fed7658785f6415023ddb2934e7`; DNSMasq `ba695e6f523b1218bd7486fb77b9b42e4e1e4138`; Samba `f8fc45e7ad1479e2544e093a6e52a074c35bf256` / `3da546fd4e58d09e50cdbc0c872289e7a5504dd0`; vsftpd `66edbcb149c7332c76330b4cb33c8847db21ac31`; storage apps `acbc93decc462e5e0360552ef0da83310fed5512`; Inadyn `41b18c57237e70171e338ec6f416b5a613643fda`.
+- Storage safe-remove checker now needs to validate the revised start-status/rollback control flow; current checker update presence: confirmed by source inspection. Exact current source Actions: XY-C1 Firmware Validation: in_progress (#44878734942); USB storage hotplug stability regression: in_progress (#44878734891). Exact Inadyn Actions: XY-C1 Firmware Validation: in_progress (#44877952694); HTTPD Authentication and Security Regression: success (#44877952674); miniupnpd atomic configuration publication regression: success (#44877952721); Process lifecycle inventory - 41b18c57237e70171e338ec6f416b5a613643fda: success (#44877952692); DNSMasq lifecycle stability regression: success (#44877952738); Samba share configuration stability regression: success (#44877952776); Inadyn fail-closed lifecycle regression: success (#44877952666); WAN DHCP callback state stability regression: success (#44877952702); WAN route operation status regression: success (#44877952689); Process inventory and lifecycle fail-closed regression: success (#44877952774); NVRAM transaction boundary audit: success (#44877952690). Exact Storage checker Actions: AI handoff documentation contract: success (#44878146492); USB storage hotplug stability regression: failure (#44878146416).
+- Historical HTTPD lifecycle/security, Process inventory and WAN route status passes are documented in SESSION_HANDOFF.md; they apply only to their original SHA. XY-C1 L3 and physical-router L4 remain NOT VERIFIED.
+- No local target build or cross-compile was run.
+- Resulting documentation commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Roll back HTTPD when startup settling wait fails; repair handoff contract
 
 - Parent source SHA: ab866c3e93c5131ed6723c7a2a7d3de5df0e693c. Fixed a real HTTPD lifecycle gap in services.c: after _eval() launched a detached listener, failure of the initial settling wait returned directly while httpd_started remained cleared. The wait-failure path now attempts stop_httpd_locked() under the existing lifecycle lock, performs an authoritative process scan, republishes running state for RUNNING/UNKNOWN (fail-closed) and preserves the original wait errno.
