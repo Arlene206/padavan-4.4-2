@@ -350,6 +350,31 @@ def check_rc_optional_daemon_enable_reads():
             assert token not in start_body
             assert token not in restart_body
 
+    ttyd_start = extract_c_function_body(services, "start_ttyd(void)")
+    ttyd_restart = extract_c_function_body(services, "restart_ttyd(void)")
+    compact_ttyd_start = "".join(ttyd_start.split())
+    compact_ttyd_restart = "".join(ttyd_restart.split())
+    ttyd_read = 'service_enabled_mode_status("ttyd","ttyd_enable",&ttyd_mode);'
+    assert ttyd_read in compact_ttyd_start
+    assert ttyd_read in compact_ttyd_restart
+    assert compact_ttyd_start.index(ttyd_read) < compact_ttyd_start.index("if(config_status!=0)")
+    assert compact_ttyd_start.index("if(config_status!=0)") < compact_ttyd_start.index(
+        "returnstart_ttyd_with_mode(ttyd_mode);"
+    )
+    assert compact_ttyd_restart.index(ttyd_read) < compact_ttyd_restart.index("if(config_status!=0)")
+    assert compact_ttyd_restart.index("if(config_status!=0)") < compact_ttyd_restart.index(
+        "stop_status=stop_ttyd();"
+    )
+    assert compact_ttyd_restart.index("stop_status=stop_ttyd();") < compact_ttyd_restart.index(
+        "if(stop_status!=0)"
+    )
+    assert compact_ttyd_restart.index("if(stop_status!=0)") < compact_ttyd_restart.index(
+        "returnstart_ttyd_with_mode(ttyd_mode);"
+    )
+    assert "ttyd_mode=nvram_get_int(" not in compact_ttyd_start
+    assert "ttyd_mode=nvram_get_int(" not in compact_ttyd_restart
+
+
 
 def check_scutclient():
     source = SCUT_SCRIPT.read_text()

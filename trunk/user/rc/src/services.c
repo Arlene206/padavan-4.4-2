@@ -1139,10 +1139,9 @@ int stop_ttyd(void){
 	return eval("/usr/bin/ttyd.sh","stop");
 }
 
-int
-start_ttyd(void)
+static int
+start_ttyd_with_mode(int ttyd_mode)
 {
-	int ttyd_mode = nvram_get_int("ttyd_enable");
 	int start_status, attempt, scan_error;
 	enum process_presence process_state;
 
@@ -1196,14 +1195,38 @@ start_ttyd(void)
 					     PROCESS_PRESENCE_ABSENT);
 }
 
-int restart_ttyd(void){
-	int stop_status = stop_ttyd();
+int start_ttyd(void)
+{
+	int ttyd_mode = 0;
+	int config_status;
 
+	config_status = service_enabled_mode_status(
+		"ttyd", "ttyd_enable", &ttyd_mode);
+	if (config_status != 0)
+		return config_status;
+	return start_ttyd_with_mode(ttyd_mode);
+}
+
+int restart_ttyd(void)
+{
+	int ttyd_mode = 0;
+	int config_status, stop_status;
+
+	config_status = service_enabled_mode_status(
+		"ttyd", "ttyd_enable", &ttyd_mode);
+	if (config_status != 0) {
+		logmessage(LOGNAME,
+			   "ttyd restart aborted because configuration is unavailable (status=%d)",
+			   config_status);
+		return config_status;
+	}
+
+	stop_status = stop_ttyd();
 	if (stop_status != 0) {
 		logmessage(LOGNAME, "ttyd restart aborted because stop failed");
 		return stop_status;
 	}
-	return start_ttyd();
+	return start_ttyd_with_mode(ttyd_mode);
 }
 #endif
 
