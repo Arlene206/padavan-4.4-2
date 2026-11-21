@@ -1606,10 +1606,14 @@ telnetd_inventory = telnetd_start.index('optional_daemon_presence("telnetd", &sc
 telnetd_postcondition = telnetd_start.index("process_presence_start_postcondition(start_status, process_state)", telnetd_inventory)
 assert telnetd_launch < telnetd_initial_wait < telnetd_probe < telnetd_inventory < telnetd_postcondition
 
-ttyd_start = services_source.split("int\nstart_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+ttyd_start = c_function_body(
+    services_source, "start_ttyd_with_mode(int ttyd_mode)"
+)
+ttyd_start_wrapper = c_function_body(services_source, "start_ttyd(void)")
+ttyd_restart_wrapper = c_function_body(services_source, "restart_ttyd(void)")
 assert "int start_status, attempt, scan_error;" in ttyd_start
 assert "enum process_presence process_state;" in ttyd_start
-assert 'if (ttyd_mode != 1)' in ttyd_start
+assert "if (ttyd_mode != 1)" in ttyd_start
 assert ttyd_start.index("return 0;") < ttyd_start.index('optional_daemon_start_status("ttyd", "ttyd")')
 ttyd_start_compact = " ".join(ttyd_start.split())
 assert 'logmessage(LOGNAME, "ttyd start aborted: process inventory unavailable (status=%d)", start_status);' in ttyd_start_compact
@@ -1634,6 +1638,20 @@ ttyd_unknown = ttyd_start.index("if (process_state == PROCESS_PRESENCE_UNKNOWN)"
 ttyd_timeout = ttyd_start.index("errno = ETIMEDOUT;", ttyd_unknown)
 assert ttyd_launch < ttyd_launch_failure < ttyd_launcher_return < ttyd_initial_wait < ttyd_probe < ttyd_inventory < ttyd_postcondition < ttyd_unknown < ttyd_timeout
 assert ttyd_start.count("return process_presence_start_postcondition(start_status,") == 2
+
+ttyd_read = 'service_enabled_mode_status("ttyd", "ttyd_enable", &ttyd_mode);'
+assert ttyd_read in ttyd_start_wrapper
+assert ttyd_start_wrapper.index(ttyd_read) < ttyd_start_wrapper.index("if (config_status != 0)")
+assert ttyd_start_wrapper.index("if (config_status != 0)") < ttyd_start_wrapper.index("return start_ttyd_with_mode(ttyd_mode);")
+assert ttyd_read in ttyd_restart_wrapper
+assert ttyd_restart_wrapper.index(ttyd_read) < ttyd_restart_wrapper.index("if (config_status != 0)")
+assert ttyd_restart_wrapper.index("if (config_status != 0)") < ttyd_restart_wrapper.index("stop_status = stop_ttyd();")
+assert ttyd_restart_wrapper.index("stop_status = stop_ttyd();") < ttyd_restart_wrapper.index("if (stop_status != 0)")
+assert ttyd_restart_wrapper.index("if (stop_status != 0)") < ttyd_restart_wrapper.index("return start_ttyd_with_mode(ttyd_mode);")
+assert "nvram_get_int(" not in ttyd_start_wrapper
+assert "nvram_safe_get(" not in ttyd_start_wrapper
+assert "nvram_get_int(" not in ttyd_restart_wrapper
+assert "nvram_safe_get(" not in ttyd_restart_wrapper
 print("telnetd/ttyd detached-child startup postconditions and disabled sentinels: PASS")
 
 optional_start_contracts = (
