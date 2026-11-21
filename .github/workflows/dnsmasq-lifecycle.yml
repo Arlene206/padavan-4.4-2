@@ -666,7 +666,7 @@ jobs:
           assert "test_integer_boolean_preserves_nonzero_nvram_get_int_semantics" in dnsmasq_nvram_test
           assert 'dnsmasq_nvram_integer_boolean_status(1, 0, "2", 0' in dnsmasq_nvram_test
           wins_flag_read_at = prepare.index(wins_flag_read)
-          assert prepare.index("i_dhcp_enable = is_dhcpd_enabled(is_ap_mode);") < wins_flag_read_at
+          assert prepare.index("option_status = is_dhcpd_enabled_status(is_ap_mode, &i_dhcp_enable);") < wins_flag_read_at
           assert wins_flag_read_at < prepare.index("fill_static_ethers(ipaddr, netmask)")
           assert wins_flag_read_at < prepare.index("fp = dnsmasq_file_open(config_path);")
           assert 'else if (wins_enabled)' in prepare

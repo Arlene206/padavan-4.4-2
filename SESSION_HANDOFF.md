@@ -46,5 +46,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head DNSMasq lifecycle, HTTPD security and XY-C1 Actions for the current checked DHCP-enable commit. Repair any failure from the exact job log; do not claim L3 unless Build, TRX verification and artifact upload all PASS on the same SHA.
+1. Re-run exact-head DNSMasq lifecycle after the stale `is_dhcpd_enabled()` source contract is updated to `is_dhcpd_enabled_status()`; then inspect exact HTTPD security, Process lifecycle regression, WAN route, NVRAM audit and XY-C1 results for the same 7bd product source. Require Build, TRX verification and artifact upload all PASS on one exact SHA before claiming L3.
 2. Audit remaining VPN server config reads in `gen_vpns_pppd_options()` and `start_vpn_server_locked()` (`vpns_auth`, `vpns_mppe`, `vpns_vuse`, `vpns_num_x`, `vpns_user_x*`, `vpns_pass_x*`, and pool/interface values) for backend failure modes and add checked copied reads only where they protect credential/pool publication. Do not reopen WAN route snapshot or duplicate-Authorization production logic.

@@ -1,3 +1,12 @@
+## 2026-11-21 — Update DNSMasq lifecycle contract for checked DHCP status API
+
+- Parent main SHA: `7bd6693df1091b8d7e067e9292c8bf4108608faf`.
+- Exact-head DNSMasq lifecycle #44932076018 ran the lifecycle/policy checks and failed only in the final inline source contract at Python line 257: it still required the retired `i_dhcp_enable = is_dhcpd_enabled(is_ap_mode)` call. Production now uses `option_status = is_dhcpd_enabled_status(is_ap_mode, &i_dhcp_enable)` and returns the error before configuration staging. Updated that source contract to assert the checked call and preserve its ordering before WINS/hosts/config generation.
+- Exact-head Samba configuration stability #44932075707 PASS; Process lifecycle inventory #44932075932 PASS; AI handoff #44932075662 PASS. HTTPD security #44932075758, Process lifecycle regression #44932075823, WAN route #44932075865, XY-C1 Build/TRX/artifact #44932075816, and NVRAM audit #44932075859 were still running at last poll.
+- The DNSMasq policy test did not report a failure; the workflow's only failing step was this stale source-contract assertion. Workflow/docs-only correction, no production source changed.
+
+---
+
 ## 2026-11-21 — Propagate checked DHCP enable reads through DNSMasq and Samba
 
 - Parent main SHA: `588b45378261e62ed73c9e2823a806e58b6be0cd`.
