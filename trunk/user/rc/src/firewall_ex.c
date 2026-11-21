@@ -746,7 +746,8 @@ proto_conv(const char *proto_name, int idx)
 }
 
 static int
-firewall_read_string_setting(const char *param_name, const char **value)
+firewall_read_string_setting_with_presence(const char *param_name,
+					   const char **value, int *present)
 {
 	char *checked_value = NULL;
 	int api_result, saved_errno, status;
@@ -756,6 +757,8 @@ firewall_read_string_setting(const char *param_name, const char **value)
 		return EINVAL;
 	}
 
+	if (present)
+		*present = 0;
 	errno = 0;
 	api_result = nvram_get_checked(param_name, &checked_value);
 	saved_errno = errno;
@@ -766,9 +769,17 @@ firewall_read_string_setting(const char *param_name, const char **value)
 		return status;
 	}
 
+	if (present)
+		*present = (api_result == 1);
 	*value = (api_result == 0) ? "" : checked_value;
 	errno = 0;
 	return 0;
+}
+
+static int
+firewall_read_string_setting(const char *param_name, const char **value)
+{
+	return firewall_read_string_setting_with_presence(param_name, value, NULL);
 }
 
 static int
@@ -898,19 +909,11 @@ filter_conv(char *proto, char *flag, char *srcip, char *srcport, char *dstip, ch
 }
 
 static int
-timematch_conv(char *mstr, const char *nv_date, const char *nv_time)
+timematch_conv_values(char *mstr, const char *date, const char *time)
 {
 	const char *datestr[7] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
-	char time_s[8], time_e[8], *time, *date;
+	char time_s[8], time_e[8];
 	int i, i_time_s, i_time_e, i_full_time, comma = 0;
-
-	date = nvram_get(nv_date);
-	if (!date)
-		date = "1111111";
-
-	time = nvram_get(nv_time);
-	if (!time)
-		time = "00002359";
 
 	mstr[0] = 0;
 
@@ -920,13 +923,11 @@ timematch_conv(char *mstr, const char *nv_date, const char *nv_time)
 
 	strncpy(time_s, time+0, 4);
 	strncpy(time_e, time+4, 4);
-
 	time_s[4] = 0;
 	time_e[4] = 0;
 
 	i_time_s = atoi(time_s);
 	i_time_e = atoi(time_e);
-
 	i_full_time = ((i_time_s == i_time_e) || (i_time_s == 0 && i_time_e == 2359)) ? 1 : 0;
 
 	/* check anytime */
@@ -938,11 +939,11 @@ timematch_conv(char *mstr, const char *nv_date, const char *nv_time)
 		sprintf(mstr, " -m time %s", "--kerneltz");
 	} else {
 		const char *contiguous = "";
-		
+
 		/* check cross-night */
 		if (i_time_s > i_time_e)
 			contiguous = " --contiguous";
-		
+
 		sprintf(mstr, " -m time --timestart %c%c:%c%c:00 --timestop %c%c:%c%c:00%s %s",
 			time[0], time[1], time[2], time[3], time[4], time[5], time[6], time[7],
 			contiguous, "--kerneltz");
@@ -957,13 +958,75 @@ timematch_conv(char *mstr, const char *nv_date, const char *nv_time)
 					strcat(mstr, ",");
 				else
 					comma = 1;
-				
 				strcat(mstr, datestr[i]);
 			}
 		}
 	}
 
 	return 1;
+}
+
+static int
+timematch_conv(char *mstr, const char *nv_date, const char *nv_time)
+{
+	char *time, *date;
+
+	date = nvram_get(nv_date);
+	if (!date)
+		date = "1111111";
+	time = nvram_get(nv_time);
+	if (!time)
+		time = "00002359";
+
+	return timematch_conv_values(mstr, date, time);
+}
+
+/*
+ * The Lightweight Filter schedule is security-sensitive: distinguish missing
+ * legacy keys from checked-read failures and copy each value before the next
+ * lookup can invalidate the shared NVRAM value pointer.
+ */
+static int
+timematch_lw_filter_conv(char *mstr)
+{
+	const char *date_value, *time_value;
+	char date_buffer[8], time_buffer[9];
+	size_t value_len;
+	int date_present, time_present, status;
+
+	if (!mstr) {
+		errno = EINVAL;
+		return -1;
+	}
+	mstr[0] = 0;
+
+	status = firewall_read_string_setting_with_presence("filter_lw_date_x",
+						    &date_value, &date_present);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	date_value = firewall_schedule_value_or_default(date_present, date_value,
+							 "1111111");
+	value_len = strlen(date_value);
+	if (value_len >= sizeof(date_buffer))
+		return 0;
+	memcpy(date_buffer, date_value, value_len + 1);
+
+	status = firewall_read_string_setting_with_presence("filter_lw_time_x",
+						    &time_value, &time_present);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	time_value = firewall_schedule_value_or_default(time_present, time_value,
+							 "00002359");
+	value_len = strlen(time_value);
+	if (value_len >= sizeof(time_buffer))
+		return 0;
+	memcpy(time_buffer, time_value, value_len + 1);
+
+	return timematch_conv_values(mstr, date_buffer, time_buffer);
 }
 
 static char *
@@ -1655,7 +1718,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	FILE *fp;
 	char timematch[160], *ftype, *dtype, *vpnc_if;
 	char ipt_file[] = "/tmp/ipt_filter.XXXXXX";
-	int ret, lw_status, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
+	int ret, lw_status, lw_schedule_status, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_vts_enabled = 0, i_vts_count = 0;
 	int is_lw_need_drop = 0, i_lw_count = 0, i_url_count = 0;
@@ -2264,14 +2327,12 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		fprintf(fp, "-A %s -i %s -m %s %s -j %s\n", dtype, wan_if, CT_STATE, "NEW", IPT_CHAIN_NAME_DOS_LIMIT);
 
 	/* FILTER from LAN to WAN */
-	if (is_lwf_enabled &&
-	    timematch_conv(timematch, "filter_lw_date_x", "filter_lw_time_x")) {
-		lw_status = include_lw_filter(fp, wan_if, logaccept, logdrop,
-					      i_lw_count, is_lw_need_drop);
-		if (lw_status < 0) {
+	if (is_lwf_enabled) {
+		lw_schedule_status = timematch_lw_filter_conv(timematch);
+		if (lw_schedule_status < 0) {
 			saved_errno = errno ? errno : EIO;
 			logmessage(LOGNAME,
-				   "IPv4 filter: aborting incomplete Lightweight Filter ruleset (errno=%d)",
+				   "IPv4 filter: aborting after Lightweight Filter schedule read error (errno=%d)",
 				   saved_errno);
 			(void)fclose(fp);
 			firewall_abort_core_restore_after_staging_failure();
@@ -2279,10 +2340,26 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 			errno = saved_errno;
 			return -1;
 		}
-		if (lw_status > 0)
-			fprintf(fp, "-A %s -i %s%s -j %s\n",
-				dtype, lan_if, timematch, IPT_CHAIN_NAME_LWF_LIST);
+		if (lw_schedule_status > 0) {
+			lw_status = include_lw_filter(fp, wan_if, logaccept, logdrop,
+					      i_lw_count, is_lw_need_drop);
+			if (lw_status < 0) {
+				saved_errno = errno ? errno : EIO;
+				logmessage(LOGNAME,
+					   "IPv4 filter: aborting incomplete Lightweight Filter ruleset (errno=%d)",
+					   saved_errno);
+				(void)fclose(fp);
+				firewall_abort_core_restore_after_staging_failure();
+				firewall_rule_file_remove(ipt_file);
+				errno = saved_errno;
+				return -1;
+			}
+			if (lw_status > 0)
+				fprintf(fp, "-A %s -i %s%s -j %s\n",
+					dtype, lan_if, timematch, IPT_CHAIN_NAME_LWF_LIST);
+		}
 	}
+
 
 	if (is_fw_enabled) {
 		/* Accept LAN other outbound traffic */
@@ -3032,7 +3109,7 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 					strcat(timematch, " --mac-source ");
 					strcat(timematch, mac_buf);
 				}
-				fprintf(fp, "-A %s -i %s%s -j %s\\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_URL_LIST);
+				fprintf(fp, "-A %s -i %s%s -j %s\n", dtype, lan_if, timematch, IPT_CHAIN_NAME_URL_LIST);
 				ret |= MODULE_WEBSTR_MASK;
 			}
 		}

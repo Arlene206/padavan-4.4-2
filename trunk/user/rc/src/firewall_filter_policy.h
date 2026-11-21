@@ -265,6 +265,16 @@ firewall_schedule_time_is_safe(const char *value)
 	       start_minute <= 59U && end_minute <= 59U;
 }
 
+/* Missing schedule keys retain historical defaults; present-empty keys stay empty. */
+static const char *
+firewall_schedule_value_or_default(int present, const char *value,
+				   const char *legacy_default)
+{
+	if (!present)
+		return legacy_default;
+	return value ? value : "";
+}
+
 /*
  * Invalid or explicitly disabled schedules are inactive, not unqualified
  * (all-time) rules. A valid all-days/all-day schedule remains active.

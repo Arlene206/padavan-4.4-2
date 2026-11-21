@@ -181,5 +181,11 @@ main(void)
 	assert(!firewall_schedule_is_active(NULL, "00002359"));
 	assert(!firewall_schedule_is_active("1111111", NULL));
 
+	/* Missing schedule keys use legacy defaults; present empty keys do not. */
+	assert(!strcmp(firewall_schedule_value_or_default(0, NULL, "1111111"), "1111111"));
+	assert(!strcmp(firewall_schedule_value_or_default(0, NULL, "00002359"), "00002359"));
+	assert(!strcmp(firewall_schedule_value_or_default(1, "", "1111111"), ""));
+	assert(!strcmp(firewall_schedule_value_or_default(1, "0101010", "1111111"), "0101010"));
+
 	return 0;
 }

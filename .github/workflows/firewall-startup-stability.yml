@@ -642,7 +642,7 @@ jobs:
           assert 'foreach_x("url_num_x")' not in url_builder
           assert 'firewall_read_indexed_string_setting("url_keyword_x", i,' in url_builder
           assert "firewall_url_filter_read_failure(i)" in url_builder
-          assert re.search(r"static int\\s+ip6t_filter_rules\\(char \\*man_if", firewall_source)
+          assert "static int" + chr(10) + "ip6t_filter_rules(char *man_if" in firewall_source
           assert 'include_webstr_filter(fp)' not in ipv6_filter
           assert "url_status = include_webstr_filter(fp, i_url_count)" in ipv6_filter
           assert "if (url_status < 0)" in ipv6_filter
@@ -651,6 +651,22 @@ jobs:
           assert ipv4_filter.index(lw_mode_gate) < ipv4_filter.index("firewall_open_rule_file(")
           assert ipv4_filter.index(lw_count_gate) < ipv4_filter.index("firewall_open_rule_file(")
           assert "include_lw_filter(fp, wan_if, logaccept, logdrop," in ipv4_filter
+          lw_schedule_reader = body(firewall_source, "timematch_lw_filter_conv(char *mstr)")
+          assert lw_schedule_reader.count("firewall_read_string_setting_with_presence(") == 2
+          assert 'firewall_read_string_setting_with_presence("filter_lw_date_x", &date_value, &date_present)' in lw_schedule_reader
+          assert 'firewall_read_string_setting_with_presence("filter_lw_time_x", &time_value, &time_present)' in lw_schedule_reader
+          assert 'firewall_schedule_value_or_default(date_present, date_value, "1111111")' in lw_schedule_reader
+          assert 'firewall_schedule_value_or_default(time_present, time_value, "00002359")' in lw_schedule_reader
+          assert "return -1;" in lw_schedule_reader
+          assert "firewall_schedule_value_or_default(0, NULL, \"1111111\")" in filter_test
+          assert "firewall_schedule_value_or_default(1, \"\", \"1111111\")" in filter_test
+          assert "lw_schedule_status = timematch_lw_filter_conv(timematch);" in ipv4_filter
+          assert "if (lw_schedule_status < 0)" in ipv4_filter
+          lw_schedule_pos = ipv4_filter.index("lw_schedule_status = timematch_lw_filter_conv(timematch);")
+          lw_schedule_abort = ipv4_filter.index("firewall_abort_core_restore_after_staging_failure()", lw_schedule_pos)
+          lw_filter_call = ipv4_filter.index("include_lw_filter(fp, wan_if, logaccept, logdrop,", lw_schedule_pos)
+          assert lw_schedule_pos < lw_schedule_abort < lw_filter_call
+          assert 'timematch_conv(timematch, "filter_lw_date_x", "filter_lw_time_x")' not in ipv4_filter
           for signature, checked in (
               ("ipt_filter_rules(char *man_if", (
                   'firewall_read_enabled_setting("url_enable_x", &is_url_enabled)',

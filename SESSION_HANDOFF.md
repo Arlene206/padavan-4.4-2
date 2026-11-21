@@ -25,23 +25,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- IPv4/IPv6 listener preflight, UDPXY 1024..65535 bounds, VTS 0..64 count/protocol handling, LWF checked mode/count/field reads and URL filter 0..128 count/checked keyword reads are in main ancestry.
-- The latest URL filter source validates keyword content before emitting quoted iptables rules and makes IPv6 URL read failures abort its staged firewall transaction. Exact-head checks on a16cd7b95d19ccd9057fdf117d794071ead768c4 exposed two workflow-only stale assertions:
-  - Firewall Startup expected an escaped literal newline between static int and the IPv6 function name; the Python source therefore looked for backslash+n rather than a newline. Replace with whitespace-tolerant regex.
-  - HTTPD's URL-filter contract still searches the old include_webstr_filter(FILE *fp) signature; update it for the new (FILE *fp, int num_entries) signature.
-- Next source slice: harden MAC filtering. The UI caps macfilter_num_x at 64; inspect checked count, mode, entry-address and schedule reads before refactoring.
+- IPv4/IPv6 URL filters use bounded, checked keyword loading; IPv6 has the correct `ip6t_filter_rules()` symbol and aborts its staged transaction on URL keyword read failure.
+- The IPv6 URL rule emitter now writes a real newline, not a literal backslash-n.
+- Lightweight Filter schedule reads for `filter_lw_date_x` and `filter_lw_time_x` distinguish genuinely absent keys from backend/API/close errors. Missing keys keep legacy defaults; present-empty or malformed values remain inactive; checked-read errors abort staged IPv4 publication before ruleset apply.
+- Workflow contracts now match the checked LWF API. The `ee47e7f` checker fixes were incomplete: Firewall Startup used undefined Python `re`, and HTTPD still expected the removed unchecked LWF schedule expression. Both are corrected in this checkpoint.
+- Next source target: audit MAC-filter mode/count and per-entry address reads (UI cap 64), then establish the static-route UI bound before auditing its loops.
 
 ## Verification boundary
 
-- Exact-head SHA a16cd7b95d19ccd9057fdf117d794071ead768c4: WAN route #44952833895 PASS; FULLCONENAT #44952833882 PASS; WAN DHCP #44952833872 PASS; Process inventory #44952833889 PASS; AI docs #44952833861 PASS. NVRAM #44952833900 and XY-C1 #44952833916 were IN_PROGRESS. Firewall Startup #44952833879 FAIL at Python stdin line 500 due the escaped-newline source assertion; HTTPD #44952833897 FAIL at Python stdin line 793 due the stale URL-filter signature. Both are checker-only; earlier HTTPD security checks passed.
-- Previous source SHA 4f59f6c72e1d35b323ee4c622bfdbf8f8be23da9: NVRAM #44952467177, WAN DHCP #44952467197, WAN route #44952467210, FULLCONENAT #44952467198, Process #44952467224 and AI docs #44952467200 PASS. Firewall Startup #44952467207 and HTTPD #44952467237 hit the checker defects updated here; XY-C1 #44952467208 was in progress.
-- No local C test or firmware build was run. No L3 claim without Build XY-C1, TRX verification and artifact upload PASS on one exact source SHA; hardware L4 remains NOT VERIFIED.
+- Exact parent `ee47e7f79e400d79361a62d2582816fd54652ad1` Actions: AI handoff #44953071474 PASS; Firewall Startup #44953071424 FAIL with `NameError: re is not defined` at Python line 500; HTTPD #44953071413 FAIL with an assertion at Python line 831 because it still required the old unchecked LWF schedule expression.
+- Parent `a16cd7b95d19ccd9057fdf117d794071ead768c4`: WAN route #44952833895, FULLCONENAT #44952833882, WAN DHCP #44952833872, Process #44952833889 and AI docs #44952833861 PASS; Firewall Startup #44952833879 and HTTPD #44952833897 failed at source-contract assertions. NVRAM #44952833900 and XY-C1 #44952833916 were still in progress at last query; XY was at Build XY-C1.
+- No local C test or firmware build is available in this Git-data-only workspace. No L3 claim without same-SHA Build XY-C1, TRX and artifact-upload PASS; hardware L4 remains NOT VERIFIED.
+- This checkpoint's exact SHA is the new live `main` commit containing this file. Fetch `refs/heads/main` and validate only its push-event runs.
 
 ## Exact first action for the next GPT
 
-1. Query exact-head Firewall Startup and HTTPD on the checker-fix commit; require both source-contract suites to pass. Inspect the first causal line if they still fail.
-2. Re-query XY-C1 #44952833916 and NVRAM #44952833900 for parent a16cd7... as historical evidence only; require new exact-head Build/TRX/artifact checks.
-3. Continue with checked MAC filter mode/count and per-entry address reads (UI cap 64), then review static routes only after confirming their UI bound.
+1. Fetch live `main`; query exact-head Firewall Startup, HTTPD, NVRAM and any XY-C1 Actions for this checkpoint. Diagnose the first causal failure from its logs.
+2. Continue the MAC-filter audit using the WebUI's 64-entry cap: check count/mode reads, per-entry addresses, schedules, and whether read errors can omit or broaden a deny policy. Add C/source regressions.
+3. Inspect static-route UI code to establish its actual entry cap before reviewing count and per-entry reads. Do not modify the frozen backup branch.
 
 ## Workflow and preservation rules
 

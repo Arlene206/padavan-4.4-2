@@ -1,3 +1,14 @@
+## 2026-11-21 — Harden LWF schedule reads and IPv6 URL rule framing
+
+- Parent main SHA: `ee47e7f79e400d79361a62d2582816fd54652ad1`.
+- Lightweight Filter activation still used unchecked `nvram_get()` for date/time keys. Backend/API/close failures could be confused with missing keys, selecting historical all-days/all-day defaults. Added a presence-aware checked reader and LWF-specific formatter: only absent keys receive defaults; present-empty/invalid/overlong values remain inactive; actual read/close errors abort the staged IPv4 restore. Each NVRAM value is copied before the next lookup.
+- Extracted a pure schedule formatter while preserving the legacy URL/MAC wrapper. Added C policy tests for missing versus present-empty schedule values and Firewall Startup contracts for checked date/time reads and abort ordering.
+- Corrected the IPv6 URL rule emitter's double-escaped newline so the generated iptables-restore rule terminates normally.
+- Fixed `ee47e7f` workflow defects: Firewall Startup used undefined `re` in its new symbol assertion; HTTPD still expected the removed unchecked LWF expression. Both now test the current production API.
+- Parent `ee47e7f` Actions: AI docs #44953071474 PASS; Firewall Startup #44953071424 FAIL (`NameError: re is not defined`); HTTPD #44953071413 FAIL (stale LWF schedule assertion). No local build/test or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Correct URL-filter source-contract assumptions
 
 - Parent main SHA: a16cd7b95d19ccd9057fdf117d794071ead768c4.
