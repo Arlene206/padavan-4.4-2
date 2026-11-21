@@ -1,3 +1,13 @@
+## 2026-11-21 — Repair HTTPD regression locator and enable XY-C1 coverage
+
+- Parent main SHA: `f7a3a520f9ae0df659c651ce99b4ced20d103e23`.
+- Exact-head HTTPD security run #44930885718 reached the final authentication/access source-contract block, then failed at Python line 502 with `ValueError: substring not found`. The new contract attempted to find an escaped-newline function boundary that is not a literal sequence in the source; it now stops at the actual following symbol `reset_lang_dict(void)`.
+- XY-C1 validation did not trigger for the HTTPD production change because its push path filter omitted `httpd.c` and the new `httpd_basic_auth.h` policy header. Added those paths and `base64.c` to ensure HTTPD authentication changes receive the MIPS cross-build; the XY-C1 workflow already includes itself in its path filter, so this workflow correction also triggers validation for the current head.
+- On parent SHA f7, AI handoff #44930885671 and Process lifecycle inventory #44930885725 passed; HTTPD security #44930885718 failed only at the source-contract locator described above. NVRAM audit #44930885723 was still in progress at the latest poll.
+- Workflow/docs only in this commit; the HTTPD production change is in parent SHA f7. Exact-head HTTPD security and XY-C1 Build/TRX/artifact validation are required before declaring this slice complete.
+
+---
+
 ## 2026-11-21 — Reject ambiguous duplicate HTTP Authorization fields
 
 - Parent main SHA: `95180e9d7b1d86676928ebb4c58c8af4af4adbab`.

@@ -7,24 +7,24 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Main HEAD immediately before the HTTPD duplicate-Authorization hardening: `95180e9d7b1d86676928ebb4c58c8af4af4adbab`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Main HEAD immediately before this correction: `f7a3a520f9ae0df659c651ce99b4ced20d103e23`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
-- Recent WAN-up ZeroTier changes removed the unchecked NVRAM pre-gate so the checked service wrapper's read/launch status reaches the WAN-up accumulator.
 
-## Active task
+## Active development and verification
 
-- Latest product-source commit `335fddd5b61d20e22987da948136c412cf4bbf81` hardens WAN-down gateway /32 ownership: checked reads are insufficient unless the previous IP passes `dhcp_lease_ipv4_is_valid()` and the mask passes `dhcp_lease_netmask_is_valid()` before subnet classification. Invalid values accumulate EINVAL and cannot authorize /32 deletion.
-- On product-source SHA 335f, WAN teardown #44927981495, Process inventory #44927981473, WAN DHCP callback #44927981545, NVRAM transaction audit #44927981607 and AI handoff #44927981573 passed. XY-C1 firmware validation #44927981534 completed successfully: XY-C1 Build, TRX verification and artifact upload all PASS. L3 is VERIFIED for this exact product SHA; L4 remains NOT VERIFIED.
-- The WAN gateway/address/netmask tuple is now read under one NVRAM transaction in `wan_unit_route_snapshot()` (production commit `74329b3f1e1ae376930dbeb1143d305fb3f6d646`); d0 (`d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192`) restores the PPP-only checked IP read used by conntrack. On d0: WAN DHCP callback #44929756539 PASS, WAN teardown #44929756599 PASS, Process inventory #44929756463 PASS, AI docs #44929756531 PASS, NVRAM audit #44929756500 PASS; WAN route #44929756615 failed at inline assertion 366 (multiline gateway fallback formatting). Exact route run #44930308919 on 7de passed prior route assertions and failed at line 390, which counted two multiline gateway getter calls using raw whitespace. The current workflow correction counts the exact getter in the compact function body. XY-C1 #44929756345 on product SHA d0 remained in progress.
-- After these checker fixes, inspect exact-head Process and WAN route logs. The next production review is whether the WAN gateway/address/netmask reads can race across independent NVRAM updates and produce a mixed-generation route tuple. Use the NVRAM transaction audit result and actual lock/transaction API semantics before changing production code.
+- WAN route teardown now obtains gateway, address and netmask from one NVRAM transaction in `wan_unit_route_snapshot()` (production change `74329b3f1e1ae376930dbeb1143d305fb3f6d646`). Tuple failure denies gateway /32 deletion while a separate checked gateway read preserves best-effort default-route cleanup. PPP uses a separate checked address read for conntrack and is excluded from /32 ownership. WAN route workflow #44930698354 and AI handoff #44930698407 passed on exact SHA `95180e9d7b1d86676928ebb4c58c8af4af4adbab`.
+- XY-C1 Build, TRX verification and artifact upload passed on exact product-source SHA `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192` (#44929756345). WAN teardown #44929756599, WAN DHCP callback #44929756539, NVRAM audit #44929756500 and Process inventory #44929756463 passed on d0. L3 is VERIFIED for d0 only; this does not establish hardware L4.
+- HTTPD production commit `f7a3a520f9ae0df659c651ce99b4ced20d103e23` hardens Basic authentication parsing: the first Authorization field is recorded, any duplicate clears the credential and marks it ambiguous, and protected requests fail the authentication gate. GNU89 unit coverage was added for first-field acceptance, duplicate rejection and third-field persistence.
+- On exact f7 SHA, AI handoff #44930885671 and Process lifecycle inventory #44930885725 passed. HTTPD security #44930885718 failed at the new source-contract block with `ValueError: substring not found` (Python line 502); it searched for an escaped-newline boundary rather than the actual `reset_lang_dict(void)` symbol. The HTTPD policy tests/source checks before that locator were reached, but do not claim the whole workflow passed.
+- XY-C1 did not trigger on f7 because the push path filter omitted `httpd.c` and `httpd_basic_auth.h`; this correction adds those paths (and `base64.c`) and the workflow already lists itself so the changed path filter triggers a build. NVRAM audit #44930885723 was still in progress at the latest poll.
 
 ## Verification boundary
 
-- L1: WAN host-route ownership requires a validated coherent gateway/address/netmask tuple from one NVRAM transaction; tuple-read failure denies /32 deletion while a checked gateway fallback still permits default-route cleanup. PPP gets a separate checked IP copy for conntrack. GNU89 policy tests run under ASan/UBSan. Exact d0 WAN teardown and WAN DHCP callback passed; fresh WAN route source-contract rerun is pending.
-- L2: Process regression #44929876370 and AI handoff #44929876383 PASS on exact main `a760c37dd793f0497907fb5b30a871be6497415b`. WAN route #44929756615 on d0 failed at inline assertion 366 for the multiline gateway fallback; rerun #44930083634 on exact SHA 4dc fixed that assertion but advanced to the next formatting-sensitive PPP IP getter assertion 370. The current correction normalizes both gateway and PPP address checks; exact rerun required.
-- L3: VERIFIED on exact product-source SHA `335fddd5b61d20e22987da948136c412cf4bbf81`: XY-C1 Build, TRX output verification and artifact upload all PASS. This validation does not cover later product-source commits unless rerun.
-- L4: hardware route ownership and concurrent teardown/callback behavior remain NOT VERIFIED.
+- L1: coherent WAN route ownership snapshot, transactional failure invalidation and PPP conntrack fallback are implemented; WAN route workflow passed on exact SHA 951, and WAN teardown / DHCP callback / NVRAM audit passed on d0.
+- L2: Process inventory #44930885725 and AI handoff #44930885671 passed on exact f7. HTTPD security #44930885718 failed at a source-contract boundary locator and requires a fresh exact-head run after the locator fix. NVRAM audit #44930885723 was pending at last poll.
+- L3: VERIFIED on exact product-source SHA `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192`: XY-C1 Build, TRX output verification and artifact upload all PASS. The HTTPD production change in f7 needs its own exact-head cross-build before L3 can be claimed for that code.
+- L4: hardware WAN routing, concurrent callback behavior and on-device HTTPD duplicate-header behavior remain NOT VERIFIED.
 
 ## Workflow and preservation rules
 
@@ -44,4 +44,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-undefined
+Fetch the exact-head HTTPD security, NVRAM transaction audit, Process inventory and XY-C1 workflow runs for the new commit. Repair only failures supported by their exact logs. The XY-C1 workflow path filter now includes `httpd.c`, `httpd_basic_auth.h`, `base64.c` and itself so the duplicate-Authorization production change receives a full Build/TRX/artifact run. L3 for the latest HTTPD code is not verified until all three XY-C1 stages pass on one exact SHA. After these checks pass, continue with a concrete stability/security defect in another Padavan userland subsystem rather than reopening the already-verified WAN route transaction or MiniUPnP SOAP fix.
