@@ -468,6 +468,54 @@ dhcp_lease_nvram_restore(const struct dhcp_lease_nvram_value *values,
 	return first_status;
 }
 
+/*
+ * Retry a failed tuple restoration under a fresh transaction only while each
+ * key still contains either this publication's candidate or its captured
+ * prior value. This accepts a partially compensated tuple but refuses to
+ * overwrite a different lease committed after the first transaction ended.
+ */
+static inline int
+dhcp_lease_nvram_restore_if_current(
+	const struct dhcp_lease_nvram_value *values, size_t count,
+	dhcp_lease_nvram_get_operation get_value,
+	dhcp_lease_nvram_set_operation set_value, void *context,
+	int *restore_attempted, int *restore_status)
+{
+	const char *current_value;
+	size_t i;
+	int status;
+
+	if (!restore_attempted)
+		return EINVAL;
+	*restore_attempted = 0;
+	if (restore_status)
+		*restore_status = 0;
+	if (!values || count == 0 || !get_value || !set_value)
+		return EINVAL;
+
+	for (i = 0; i < count; ++i) {
+		if (!values[i].name || !values[i].name[0] ||
+		    !values[i].value || !values[i].previous_value)
+			return EINVAL;
+	}
+
+	for (i = 0; i < count; ++i) {
+		current_value = NULL;
+		status = get_value(context, values[i].name, &current_value);
+		if (status != 0)
+			return status;
+		if (!current_value)
+			current_value = "";
+		if (strcmp(current_value, values[i].value) != 0 &&
+		    strcmp(current_value, values[i].previous_value) != 0)
+			return EAGAIN;
+	}
+
+	*restore_attempted = 1;
+	return dhcp_lease_nvram_restore(values, count, set_value,
+					context, restore_status);
+}
+
 /* Strict decimal parser: no signs, whitespace, suffixes or overflow. */
 static inline int
 dhcp_lease_decimal_is_valid(const char *value, unsigned int minimum,

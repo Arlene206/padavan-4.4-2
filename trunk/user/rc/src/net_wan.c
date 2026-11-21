@@ -6127,7 +6127,44 @@ static const char *const wan_zcip_viptv_snapshot_params[] = {
 static int
 wan_dhcp_nvram_state_publish(
 	const struct dhcp_lease_nvram_value *values, size_t count,
-	int *rollback_status);
+	int *rollback_status)
+{
+	struct nvram_transaction transaction;
+	int status, end_status, recovery_status, recovery_detail = 0;
+	int publish_attempted = 0, publish_rollback_status = 0;
+
+	if (rollback_status)
+		*rollback_status = 0;
+	if (!values || count == 0 || count > WAN_DHCP_BOUND_SNAPSHOT_COUNT)
+		return EINVAL;
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0)
+		return errno ? errno : EIO;
+	status = dhcp_lease_nvram_publish_if_current(
+		values, count, wan_dhcp_nvram_transaction_get_value,
+		wan_dhcp_nvram_transaction_set, &transaction,
+		&publish_attempted, &publish_rollback_status);
+	errno = 0;
+	if (nvram_transaction_end(&transaction) != 0) {
+		end_status = errno ? errno : EIO;
+		if (status == 0)
+			status = end_status;
+		if (publish_attempted && publish_rollback_status == 0)
+			publish_rollback_status = end_status;
+	}
+	if (publish_attempted && publish_rollback_status != 0) {
+		/* Retry only failed compensation, under a guarded fresh transaction. */
+		recovery_status = wan_dhcp_nvram_restore_values(
+			values, count, &recovery_detail);
+		if (rollback_status)
+			*rollback_status = recovery_status != 0 ?
+				(recovery_detail != 0 ? recovery_detail :
+				 recovery_status) : 0;
+	}
+	return status;
+}
+
+
 
 static int
 wan_dhcp_bound_snapshot_add(struct dhcp_lease_nvram_value *values,
@@ -7197,7 +7234,7 @@ wan_dhcp_nvram_restore_values(
 	int *rollback_status)
 {
 	struct nvram_transaction transaction;
-	int status, end_status;
+	int status, end_status, restore_attempted = 0, restore_detail = 0;
 
 	if (rollback_status)
 		*rollback_status = 0;
@@ -7210,19 +7247,26 @@ wan_dhcp_nvram_restore_values(
 			*rollback_status = status;
 		return status;
 	}
-	status = dhcp_lease_nvram_restore(values, count,
-					  wan_dhcp_nvram_transaction_set,
-					  &transaction, rollback_status);
+	status = dhcp_lease_nvram_restore_if_current(
+		values, count, wan_dhcp_nvram_transaction_get_value,
+		wan_dhcp_nvram_transaction_set, &transaction,
+		&restore_attempted, &restore_detail);
+	if (status != 0 && restore_detail == 0)
+		restore_detail = status;
 	errno = 0;
 	if (nvram_transaction_end(&transaction) != 0) {
 		end_status = errno ? errno : EIO;
 		if (status == 0)
 			status = end_status;
-		if (rollback_status && *rollback_status == 0)
-			*rollback_status = end_status;
+		if (restore_detail == 0)
+			restore_detail = end_status;
 	}
+	if (rollback_status)
+		*rollback_status = restore_detail;
 	return status;
 }
+
+
 
 static int
 wan_dhcp_nvram_state_publish(

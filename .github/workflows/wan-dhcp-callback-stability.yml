@@ -558,7 +558,12 @@ jobs:
           assert "dhcp_lease_nvram_publish_if_current(" in renew_publisher
           assert "wan_dhcp_nvram_transaction_get_value" in renew_publisher
           assert "wan_dhcp_nvram_restore_values(" in renew_publisher
-          assert "if (publish_attempted && status != 0)" in renew_publisher
+          assert "if (publish_attempted && publish_rollback_status != 0)" in renew_publisher
+          restore_guard = body(lease_policy, "dhcp_lease_nvram_restore_if_current(")
+          assert "values[i].value" in restore_guard
+          assert "values[i].previous_value" in restore_guard
+          assert "return dhcp_lease_nvram_restore(" in restore_guard
+          assert "test_dhcp_lease_nvram_restore_if_current_protects_newer_writer" in lease_policy_test
           assert "publish_attempted" in renew_publisher
           transaction_begin = renew_publisher.index("nvram_transaction_begin(&transaction)")
           guarded_publish = renew_publisher.index("dhcp_lease_nvram_publish_if_current(")

@@ -283,6 +283,92 @@ test_lan_dhcp_nvram_publish_compensates_partial_updates(void)
 }
 
 static void
+test_dhcp_lease_nvram_restore_if_current_protects_newer_writer(void)
+{
+	struct dhcp_nvram_fake fake;
+	struct dhcp_lease_nvram_value values[3];
+	int restore_attempted, restore_status, status, i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan0_ipaddr";
+	fake.names[1] = "wan0_gateway";
+	fake.names[2] = "wan0_dns";
+	fake.old_values[0] = "192.0.2.10";
+	fake.old_values[1] = "192.0.2.1";
+	fake.old_values[2] = "";
+	fake.new_values[0] = "198.51.100.10";
+	fake.new_values[1] = "198.51.100.1";
+	fake.new_values[2] = "203.0.113.53";
+	fake.fail_new_index = -1;
+	fake.fail_restore_index = -1;
+	for (i = 0; i < 3; ++i) {
+		values[i].name = fake.names[i];
+		values[i].value = fake.new_values[i];
+		values[i].previous_value = fake.old_values[i];
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.new_values[i]);
+	}
+
+	/* Recovery of a fully-published candidate restores the old tuple. */
+	status = dhcp_lease_nvram_restore_if_current(
+		values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&restore_attempted, &restore_status);
+	assert(status == 0);
+	assert(restore_attempted == 1 && restore_status == 0);
+	assert(strcmp(fake.events, "rrrcba") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
+
+	/* A previous compensation may have restored only part of the tuple. */
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.new_values[i]);
+	snprintf(fake.current[0], sizeof(fake.current[0]), "%s",
+		 fake.old_values[0]);
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	status = dhcp_lease_nvram_restore_if_current(
+		values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&restore_attempted, &restore_status);
+	assert(status == 0);
+	assert(restore_attempted == 1 && restore_status == 0);
+	assert(strcmp(fake.events, "rrrcba") == 0);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.current[i], fake.old_values[i]) == 0);
+
+	/* A distinct newer lease is never overwritten by stale recovery. */
+	for (i = 0; i < 3; ++i)
+		snprintf(fake.current[i], sizeof(fake.current[i]), "%s",
+			 fake.new_values[i]);
+	snprintf(fake.current[1], sizeof(fake.current[1]), "%s", "newer-gateway");
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	status = dhcp_lease_nvram_restore_if_current(
+		values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&restore_attempted, &restore_status);
+	assert(status == EAGAIN);
+	assert(restore_attempted == 0 && restore_status == 0);
+	assert(strcmp(fake.events, "rr") == 0);
+	assert(strcmp(fake.current[0], fake.new_values[0]) == 0);
+	assert(strcmp(fake.current[1], "newer-gateway") == 0);
+	assert(strcmp(fake.current[2], fake.new_values[2]) == 0);
+
+	/* Backend read errors also stop before the first recovery write. */
+	fake.fail_get_enabled = 1;
+	fake.fail_get_index = 2;
+	fake.fail_get_status = EIO;
+	memset(fake.events, 0, sizeof(fake.events));
+	fake.event_count = 0;
+	status = dhcp_lease_nvram_restore_if_current(
+		values, 3, dhcp_nvram_fake_get, dhcp_nvram_fake_set, &fake,
+		&restore_attempted, &restore_status);
+	assert(status == EIO);
+	assert(restore_attempted == 0 && restore_status == 0);
+	assert(strcmp(fake.events, "rrr") == 0);
+}
+
+
+static void
 test_dhcp_lease_nvram_publish_rejects_stale_snapshot(void)
 {
 	struct dhcp_nvram_fake fake;
@@ -1045,6 +1131,7 @@ main(void)
 	test_dhcp_viptv_deconfig_metadata_clear_rolls_back_as_one_tuple();
 	test_lan_dhcp_nvram_publish_compensates_partial_updates();
 	test_dhcp_lease_nvram_publish_rejects_stale_snapshot();
+	test_dhcp_lease_nvram_restore_if_current_protects_newer_writer();
 	test_dhcp_lease_nvram_publish_attempts_all_and_restores_all();
 	test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple();
 	test_dhcp_lease_text_fits_buffer();

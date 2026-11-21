@@ -1,3 +1,14 @@
+## 2026-11-21 — Guard failed DHCP tuple recovery against newer callbacks
+
+- Parent main SHA: `943b2a30bfe7ede0ae6d70e7cd98771c5420187c`.
+- The first-transaction publisher already compensates failed writes in reverse order under its exclusive NVRAM lock, but the wrapper retried restoration unconditionally after releasing that lock. A newer DHCP callback could commit in the gap and then be overwritten by the stale retry.
+- Added `dhcp_lease_nvram_restore_if_current()`: under the recovery transaction it accepts only fields still equal to this attempt's candidate or captured prior values (including a partially compensated tuple), refuses any distinct newer value with `EAGAIN`, and never re-applies the candidate after a failed restore.
+- Changed the WAN wrapper to run fresh recovery only when in-lock compensation or transaction close reported an error, avoiding redundant NVRAM writes when the first rollback already succeeded. Added GNU89 regression coverage for candidate, partial-restore, newer-writer and read-error cases; WAN source contract now checks the guarded recovery path.
+- Exact-head DHCP callback and XY-C1 workflows are pending; Build/TRX/artifact results must be checked on the same SHA.
+- Next: inspect current WAN DHCP/XY-C1/NVRAM audit results and continue any independent reliability fix.
+
+---
+
 ## 2026-11-21 — Make post-commit 6rd failure roll back the committed DHCP tuple safely
 
 - Parent main SHA: `36b227a751934a9efafb42884e7795cb86fcc271`.
