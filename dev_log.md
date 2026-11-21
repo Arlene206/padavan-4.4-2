@@ -1,3 +1,13 @@
+## 2026-11-21 — Correct iNIC checker test-path lookup
+
+- Parent main SHA: `ca6862c97fd964d0aaa9451e9fb7116773411c8d`.
+- Exact-head iNIC run `#44897089095` passed the GNU89/Werror/ASan/UBSan signal policy test, then failed on a checker-only TypeError: `rc` is source text for `rc.c`, not a pathlib.Path, so `rc / "tests/wireless_radio_policy.c"` is invalid. Switched the assertion to the checker’s `read("trunk/user/rc/src/tests/wireless_radio_policy.c")` helper. No source or regression logic changed.
+- Prior exact-head Wireless `#44896945159` and AI docs `#44896945122` passed; the iNIC failures so far were checker issues, not C test failures.
+- No local tests/build claimed. Re-run exact-head iNIC and AI docs.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Fix iNIC retry-wait checker to match the sigsuspend gate
 
 - Parent main SHA: `07e68ffbe95b7d8954274207e4712997a3c1548a`.

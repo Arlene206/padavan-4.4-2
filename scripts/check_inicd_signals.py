@@ -179,7 +179,7 @@ assert inic_check.index(guest_gate) < inic_check.index("status = wif_control(IFN
 assert inic_check.index("wireless_radio_status_success(status)") < inic_check.rindex(disable_return)
 assert "iNIC guest AP recovery deferred until the next health check (status=%d)" in inic_check
 assert inic_check.rstrip().endswith("return 0;")
-assert "wireless_radio_restart_status(0, 256)" in (rc / "tests/wireless_radio_policy.c").read_text()
+assert "wireless_radio_restart_status(0, 256)" in read("trunk/user/rc/src/tests/wireless_radio_policy.c")
 
 paths = (
     ".github/workflows/inicd-signal-stability.yml",
