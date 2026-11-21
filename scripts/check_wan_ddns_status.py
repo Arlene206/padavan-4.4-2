@@ -70,13 +70,16 @@ require("return ddns_enabled && !is_ap_mode;" in policy,
         "DDNS should run only when enabled and not in AP mode")
 
 notify = function_body(SERVICES_SOURCE, "notify_ddns_update_locked(void)")
+mode_read = notify.index("get_ap_mode_status(&is_ap_mode)")
+mode_error = notify.index("if (ap_mode_status != 0)", mode_read)
 gate = notify.index("inadyn_update_should_run(")
 inventory = notify.index('process_inventory_scan("inadyn", &snapshot)')
-require(gate < inventory and
+require(mode_read < mode_error < gate < inventory and
         'nvram_match("ddns_enable_x", "1")' in notify and
-        "get_ap_mode()" in notify and
+        "is_ap_mode" in notify and
+        "return ap_mode_status;" in notify[mode_error:gate] and
         "return 0;" in notify[gate:inventory],
-        "disabled DDNS and AP mode must return a successful no-op before process probing or daemon start")
+        "DDNS updater must fail closed on mode-read errors and keep disabled/AP mode as a successful pre-probe no-op")
 
 wan_up = function_body(
     WAN_SOURCE, "wan_up_internal(char *wan_ifname, int unit, int is_static)"
