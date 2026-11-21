@@ -206,25 +206,62 @@ jobs:
               ("wireguard", 'eval("/usr/bin/wireguard.sh","start")'),
               ("smartdns", 'eval("/usr/bin/smartdns.sh","start")'),
           ):
-              # Match the function name independently of return-type formatting.
               start_body = function_body(services, "start_" + name + "(void)")
               restart_body = function_body(services, "restart_" + name + "(void)")
-              assert " != 1)" in start_body
-              assert "return 0;" in start_body
-              if name == "ttyd":
-                  # ttyd logs the launcher failure before returning its captured status.
-                  assert "start_status = " + launcher + ";" in start_body
-                  assert "return start_status;" in start_body
+              if name in ("ttyd", "ss", "ss_tunnel"):
+                  mode_var, service_name, nvram_key = {
+                      "ttyd": ("ttyd_mode", "ttyd", "ttyd_enable"),
+                      "ss": ("ss_enable", "Shadowsocks", "ss_enable"),
+                      "ss_tunnel": ("ss_tunnel_mode", "Shadowsocks tunnel", "ss-tunnel_enable"),
+                  }[name]
+                  impl = function_body(
+                      services, "start_" + name + "_with_mode(int " + mode_var + ")"
+                  )
+                  compact_impl = "".join(impl.split())
+                  compact_start = "".join(start_body.split())
+                  compact_restart = "".join(restart_body.split())
+                  compact_launcher = "".join(launcher.split())
+                  assert "if(" + mode_var + "!=1)" in compact_impl
+                  assert "return0;" in compact_impl
+                  if name == "ttyd":
+                      assert "start_status=" + compact_launcher + ";" in compact_impl
+                      assert "returnstart_status;" in compact_impl
+                  else:
+                      assert "return" + compact_launcher + ";" in compact_impl
+                  compact_service_name = service_name.replace(" ", "")
+                  read_call = (
+                      'service_enabled_mode_status("' + compact_service_name + '","' +
+                      nvram_key + '",&' + mode_var + ');'
+                  )
+                  assert read_call in compact_start
+                  assert compact_start.index(read_call) < compact_start.index("if(config_status!=0)")
+                  assert compact_start.index("if(config_status!=0)") < compact_start.index(
+                      "returnstart_" + name + "_with_mode(" + mode_var + ");"
+                  )
+                  assert read_call in compact_restart
+                  assert compact_restart.index(read_call) < compact_restart.index("if(config_status!=0)")
+                  stop_call = "stop_" + name + "();"
+                  assert compact_restart.index("if(config_status!=0)") < compact_restart.index(stop_call)
+                  assert compact_restart.index(stop_call) < compact_restart.index("if(stop_status!=0)")
+                  assert compact_restart.index("if(stop_status!=0)") < compact_restart.index(
+                      "returnstart_" + name + "_with_mode(" + mode_var + ");"
+                  )
+                  for token in ("nvram_get_int(", "nvram_safe_get("):
+                      assert token not in start_body
+                      assert token not in restart_body
               else:
+                  assert " != 1)" in start_body
+                  assert "return 0;" in start_body
                   assert "return " + launcher + ";" in start_body
-              if name == "smartdns":
-                  # SmartDNS restart is one shell-locked operation, not a C stop/start pair.
-                  assert 'return eval("/usr/bin/smartdns.sh","restart");' in restart_body
-                  assert "stop_smartdns()" not in restart_body
-                  assert "return start_smartdns();" not in restart_body
-              else:
-                  assert "return start_" + name + "();" in restart_body
-                  assert "start_" + name + "();" not in restart_body.replace("return start_" + name + "();", "")
+                  if name == "smartdns":
+                      assert 'return eval("/usr/bin/smartdns.sh","restart");' in restart_body
+                      assert "stop_smartdns()" not in restart_body
+                      assert "return start_smartdns();" not in restart_body
+                  else:
+                      assert "return start_" + name + "();" in restart_body
+                      assert "start_" + name + "();" not in restart_body.replace(
+                          "return start_" + name + "();", ""
+                      )
               assert "int start_" + name + "(void);" in rc_header
           for daemon, process in (
               ("scutclient", "bin_scutclient"),
