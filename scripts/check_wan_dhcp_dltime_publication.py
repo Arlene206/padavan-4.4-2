@@ -75,19 +75,37 @@ assert "test_dhcp_lease_fast_renew_publishes_dltime_as_one_checked_value" in tes
 assert '"ABCDEFGHIJKLlkjihgfedcba"' in test_source
 
 
-# Previous lease/route/MTU state must be complete before renew can skip a bind.
-for signature, bound_call in (
-    ("udhcpc_renew(char *wan_ifname)", "returnudhcpc_bound("),
-    ("udhcpc_viptv_renew(char *man_ifname)", "returnudhcpc_viptv_bound("),
+# DHCP renewal decisions must consume one coherent, checked snapshot. Missing
+# keys remain empty/zero defaults; read or close failures abort before a bind
+# decision or lease/resolver publication.
+snapshot = function_body(
+    source, "wan_dhcp_renew_state_snapshot(const char *prefix, int include_lease_options"
+)
+for key in ('"err", lease_error', '"route_err", route_error',
+            '"mtu_err", mtu_error', '"netmask", netmask',
+            '"gateway", gateway', '"ipaddr", ipaddr',
+            '"routes", routes', '"routes_ms", routes_ms',
+            '"routes_rfc", routes_rfc', '"mtu", mtu',
+            '"dns", dns', '"domain", domain', '"wins", wins', '"lease", lease'):
+    assert key in snapshot, "DHCP renewal snapshot omits " + key
+assert "rc_wan_nvram_copy_snapshot(" in snapshot
+assert "wan_nvram_transaction_begin_callback" in snapshot
+assert "wan_nvram_transaction_get_callback" in snapshot
+assert "wan_nvram_transaction_end_callback" in snapshot
+
+for signature, bound_call, include_options in (
+    ("udhcpc_renew(char *wan_ifname)", "returnudhcpc_bound(", True),
+    ("udhcpc_viptv_renew(char *man_ifname)", "returnudhcpc_viptv_bound(", False),
 ):
     renew_body = function_body(source, signature)
     compact = "".join(renew_body.split())
-    read_tokens = (
-        'get_nvram_int_checked_status(strcat_r(prefix,"err",tmp),&lease_error);',
-        'get_nvram_int_checked_status(strcat_r(prefix,"route_err",tmp),&route_error);',
-        'get_nvram_int_checked_status(strcat_r(prefix,"mtu_err",tmp),&mtu_error);',
+    snapshot_call = (
+        "wan_dhcp_renew_state_snapshot(prefix,1,&previous_state);"
+        if include_options else
+        "wan_dhcp_renew_state_snapshot(prefix,0,&previous_state);"
     )
-    read_positions = [compact.index(token) for token in read_tokens]
+    assert snapshot_call in compact
+    snapshot_pos = compact.index(snapshot_call)
     decision = (
         "dhcp_wan_bound_retry_decide(lease_error_read_status,"
         "route_error_read_status,mtu_error_read_status,lease_error,"
@@ -95,20 +113,33 @@ for signature, bound_call in (
     )
     assert decision in compact
     decision_pos = compact.index(decision)
-    assert read_positions == sorted(read_positions)
-    assert read_positions[-1] < decision_pos
+    assert snapshot_pos < decision_pos
     error_gate = compact.index("if(nvram_status!=0)", decision_pos)
     retry_gate = compact.index("if(retry_required)", error_gate)
     retry_call = compact.index(bound_call, retry_gate)
-    assert decision_pos < error_gate < retry_gate < retry_call
-    assert "cannot verify previous DHCP retry state" in renew_body
+    assert snapshot_pos < decision_pos < error_gate < retry_gate < retry_call
+    for forbidden in ("nvram_invmatch(", "nvram_safe_get(",
+                      "get_nvram_int_checked_status("):
+        assert forbidden not in renew_body, "unchecked DHCP renewal read remains: " + forbidden
+    for field in ("netmask", "gateway", "ipaddr", "routes", "routes_ms",
+                  "routes_rfc", "mtu"):
+        assert "previous_state." + field in renew_body
+    if include_options:
+        for field in ("dns", "domain", "wins", "lease"):
+            assert "previous_state." + field in renew_body
+    assert "rc_wan_nvram_parse_int_value(" in renew_body
 
 wan_renew = function_body(source, "udhcpc_renew(char *wan_ifname)")
-viptv_renew = function_body(source, "udhcpc_viptv_renew(char *man_ifname)")
-assert 'get_nvram_int_checked_status(strcat_r(prefix,"mtu",tmp),&stored_mtu);' in "".join(wan_renew.split())
-assert 'get_nvram_int_checked_status("manv_mtu",&stored_mtu);' in "".join(viptv_renew.split())
-assert "cannot verify stored DHCP MTU" in wan_renew
-assert "cannot verify stored IPTV MTU" in viptv_renew
+assert "if (resolver_changed)" in wan_renew
+assert wan_renew.index("if (resolver_changed)") < wan_renew.index("wan_dhcp_nvram_publish_values(")
+for field in ("dns", "domain", "wins", "lease"):
+    assert "renew_values[renew_count].previous_value = previous_state." + field in wan_renew
+
+dhcp_snapshot_test = Path(
+    "trunk/user/rc/src/tests/wan_nvram_status_policy.c"
+).read_text()
+assert "DHCP_RENEW_SNAPSHOT_TEST_COUNT 14" in dhcp_snapshot_test
+assert "test_transactional_dhcp_renew_snapshot_copies_complete_state" in dhcp_snapshot_test
 assert "dhcp_wan_bound_retry_decide" in route_source
 assert "test_retry_decision_fails_closed_on_each_status_read_error" in route_test
 assert "test_retry_decision_requires_a_complete_checked_tuple" in route_test
