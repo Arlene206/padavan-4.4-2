@@ -100,6 +100,47 @@ test_checked_read_rejects_unexpected_result(void)
 }
 
 static void
+test_checked_string_match_requires_an_exact_value(void)
+{
+	int matches = -1;
+
+	assert(rc_wan_nvram_match_status(0, "1", "1", &matches) == 0);
+	assert(matches == 1);
+	assert(rc_wan_nvram_match_status(0, "0", "1", &matches) == 0);
+	assert(matches == 0);
+	assert(rc_wan_nvram_match_status(0, "01", "1", &matches) == 0);
+	assert(matches == 0);
+	assert(rc_wan_nvram_match_status(0, "1junk", "1", &matches) == 0);
+	assert(matches == 0);
+	assert(rc_wan_nvram_match_status(0, "", "1", &matches) == 0);
+	assert(matches == 0);
+}
+
+static void
+test_checked_string_match_preserves_backend_errors(void)
+{
+	int matches = 1;
+
+	assert(rc_wan_nvram_match_status(EACCES, "1", "1", &matches) == EACCES);
+	assert(matches == 0);
+	assert(rc_wan_nvram_match_status(EIO, NULL, "1", &matches) == EIO);
+	assert(matches == 0);
+}
+
+static void
+test_checked_string_match_rejects_invalid_arguments(void)
+{
+	int matches = 1;
+
+	assert(rc_wan_nvram_match_status(0, NULL, "1", &matches) == EIO);
+	assert(matches == 0);
+	assert(rc_wan_nvram_match_status(0, "1", NULL, &matches) == EINVAL);
+	assert(matches == 0);
+	assert(rc_wan_nvram_match_status(0, "1", "1", NULL) == EINVAL);
+}
+
+
+static void
 test_success_ignores_stale_errno(void)
 {
 	assert(rc_wan_nvram_write_status(0, EACCES) == 0);
@@ -1391,6 +1432,9 @@ main(void)
 	test_checked_integer_read_accepts_complete_decimal_values();
 	test_checked_integer_read_rejects_malformed_and_overflow_values();
 	test_checked_integer_read_propagates_backend_errors();
+	test_checked_string_match_requires_an_exact_value();
+	test_checked_string_match_preserves_backend_errors();
+	test_checked_string_match_rejects_invalid_arguments();
 	test_success_ignores_stale_errno();
 	test_failure_preserves_errno();
 	test_failure_without_errno_falls_back_to_eio();

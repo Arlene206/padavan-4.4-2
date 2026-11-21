@@ -508,3 +508,56 @@ for case in (
 ):
     require(case in test, "WAN DNS teardown regression missing " + case)
 print("WAN teardown preserves demand-PPP DNS when global MAN DNS cannot be read: PASS")
+
+
+# PPPoE-MWAN enable is a WAN event gate. A failed exact-string read must not
+# collapse to the old nvram_match() false result and silently skip detect.sh.
+match_policy = body(
+    policy,
+    "rc_wan_nvram_match_status(int read_status, const char *value",
+)
+for token in (
+    "if (!matches || !expected)",
+    "*matches = 0;",
+    "if (read_status != 0)",
+    "if (!value)",
+    "strcmp(value, expected) == 0",
+):
+    require(token in match_policy, "exact NVRAM match policy missing " + token)
+match_reader = body(
+    source,
+    "get_nvram_match_checked_status(const char *param_name",
+)
+for token in (
+    "nvram_get_checked(param_name, &stored_value)",
+    "rc_wan_nvram_read_status(api_result, saved_errno)",
+    "rc_wan_nvram_match_status(read_status, NULL",
+    'stored_value = "";',
+    "rc_wan_nvram_match_status(0, stored_value",
+):
+    require(token in match_reader, "checked exact-match reader missing " + token)
+for signature, phase in (
+    ("wan_up_internal(char *wan_ifname, int unit, int is_static)", "WAN-up"),
+    ("wan_down_internal(char *wan_ifname, int unit, int is_static)", "WAN-down"),
+):
+    event = "".join(body(source, signature).split())
+    read = 'get_nvram_match_checked_status("pppoemwan_enable","1",&pppoemwan_enabled);'
+    require(read in event, phase + " must read PPPoE-MWAN enable through checked exact match")
+    require("if(pppoemwan_status!=0)" in event and
+            "status=route_status_accumulate(status,pppoemwan_status);" in event,
+            phase + " must propagate PPPoE-MWAN enable read errors")
+    require("elseif(pppoemwan_enabled)" in event and
+            'eval("/usr/bin/detect.sh")' in event,
+            phase + " must preserve enabled launch / disabled no-op behavior")
+    require(event.index(read) < event.index("if(pppoemwan_status!=0)") <
+            event.index("elseif(pppoemwan_enabled)") <
+            event.index('eval("/usr/bin/detect.sh")'),
+            phase + " PPPoE-MWAN decision ordering changed")
+    assert 'nvram_match("pppoemwan_enable", "1")' not in body(source, signature)
+for case in (
+    "test_checked_string_match_requires_an_exact_value",
+    "test_checked_string_match_preserves_backend_errors",
+    "test_checked_string_match_rejects_invalid_arguments",
+):
+    require(case in test, "exact NVRAM match regression missing " + case)
+print("WAN PPPoE-MWAN event gates preserve checked exact-string NVRAM status: PASS")

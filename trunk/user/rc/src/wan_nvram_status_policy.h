@@ -29,6 +29,26 @@ rc_wan_nvram_read_status(int api_result, int saved_errno)
 	return EIO;
 }
 
+/*
+ * Match a successfully read NVRAM string exactly. The caller supplies an
+ * empty value for a missing key to preserve nvram_match()'s false default.
+ */
+static inline int
+rc_wan_nvram_match_status(int read_status, const char *value,
+			  const char *expected, int *matches)
+{
+	if (!matches || !expected)
+		return EINVAL;
+	*matches = 0;
+	if (read_status != 0)
+		return read_status;
+	if (!value)
+		return EIO;
+	*matches = (strcmp(value, expected) == 0);
+	return 0;
+}
+
+
 /* Parse one complete decimal integer without atoi() overflow/prefix loss. */
 static inline int
 rc_wan_nvram_parse_int_value(const char *text, int *value)

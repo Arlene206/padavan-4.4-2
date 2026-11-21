@@ -14,10 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Active task
 
-- Current source slice: preserve demand-PPP DNS snapshot on WAN teardown when the global MAN DNS key cannot be read.
-- Production correction and GNU89 policy tests are committed in the current main ancestry. WAN teardown regression #44924417107 passed on source SHA `b1e1927079a6189fbf5cb95460a45b294b97b51c`.
-- WAN route #44924416973 failed only because its new source contract expected a whitespace-bearing `else if` token after removing all whitespace. The checker-only correction now expects `elseif`; the exact-head rerun is pending.
-- After rerun, continue the independent PPPoE-MWAN checked-enable-read slice in `wan_up_internal()` and `wan_down_internal()`; both currently use unchecked `nvram_match("pppoemwan_enable", "1")`.
+- Current source slice: check PPPoE-MWAN enable state before WAN-up/down calls to `detect.sh`.
+- Both event handlers use a checked exact-string NVRAM reader. Missing remains disabled; backend/API errors propagate into the WAN event's first-error accumulator; launcher results remain preserved.
+- Regression: exact string-match cases in `tests/wan_nvram_status_policy.c`; caller ordering in `scripts/check_wan_dns_read_status.py`. Exact-head WAN-route rerun and XY-C1 validation must be inspected after push.
+- First independent follow-up: continue the WAN control-plane NVRAM read audit; avoid redoing checked DNS teardown and already completed optional-daemon gates.
 
 ## Verification boundary
 
@@ -44,5 +44,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and confirm the frozen backup is unchanged. Check exact-head WAN route, WAN teardown and AI handoff Actions for the DNS teardown source-checker correction; inspect any FAIL logs and fix the root cause. Check XY-C1 Build + TRX + artifact on the same product-source SHA. Then implement the checked `pppoemwan_enable` reads in WAN-up/down and extend exact-string policy regression coverage.
+Fetch live `main` and confirm the frozen backup is unchanged. Check exact-head WAN route, AI handoff and XY-C1 Build/TRX/artifact Actions for the PPPoE-MWAN checked-reader commit; inspect and fix any FAIL logs. Then continue one independent P1 network/service reliability defect.
 

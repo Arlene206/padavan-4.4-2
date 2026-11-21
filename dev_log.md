@@ -1,3 +1,12 @@
+## 2026-11-21 — Check PPPoE-MWAN enable state in WAN-up/down callbacks
+
+- Parent main SHA: 782adf90be019c2a9741a3e57cb981e4989207fc.
+- Both `wan_up_internal()` and `wan_down_internal()` gated `detect.sh` with unchecked `nvram_match("pppoemwan_enable", "1")`. A backend read failure was indistinguishable from a disabled setting, silently skipping multi-WAN route reconciliation while the WAN event still reported success.
+- Added a checked exact-string global NVRAM matcher that preserves missing-key false behavior and rejects backend errors. Both callbacks now accumulate/log the read error and launch `detect.sh` only after a confirmed exact `"1"`; the launcher status remains aggregated as before.
+- Added strict exact-match/error policy tests and source-order assertions for both callbacks. Exact-head WAN-route and XY-C1 Build/TRX/artifact runs are pending; L3/L4 are not claimed.
+
+---
+
 ## 2026-11-21 — Roll back ttyd, rstats, LLTD and SkipDBv2 after uncertain detached starts
 
 - Parent main SHA: cd33dbd6c9fa9797edb495f07cf40b7018099a67.

@@ -147,6 +147,30 @@ get_nvram_int_checked_status(const char *param_name, int *value)
 }
 
 
+static int
+get_nvram_match_checked_status(const char *param_name,
+			       const char *expected, int *matches)
+{
+	char *stored_value = NULL;
+	int api_result, saved_errno, read_status;
+
+	if (!param_name || !param_name[0] || !expected || !matches)
+		return EINVAL;
+	*matches = 0;
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &stored_value);
+	saved_errno = errno;
+	read_status = rc_wan_nvram_read_status(api_result, saved_errno);
+	if (read_status != 0)
+		return rc_wan_nvram_match_status(read_status, NULL,
+						expected, matches);
+	if (api_result == 0)
+		stored_value = "";
+	return rc_wan_nvram_match_status(0, stored_value, expected, matches);
+}
+
+
 int
 get_wan_unit_value_int(int unit, const char* param_name)
 {
@@ -4392,6 +4416,7 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 	int wan_proto, modem_unit_id;
 	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status, auth_status, auth_mode;
+	int pppoemwan_status, pppoemwan_enabled;
 	int wan_addr_status, wan_mask_status, wan_gate_status;
 #if defined (USE_IPV6)
 	int ipv6_status;
@@ -4634,7 +4659,14 @@ wan_up_internal(char *wan_ifname, int unit, int is_static)
 		logmessage(LOGNAME, "WAN ZeroTier startup incomplete (status=%d)",
 			   route_status);
 #endif
-	if (nvram_match("pppoemwan_enable", "1")) {
+	pppoemwan_status = get_nvram_match_checked_status(
+		"pppoemwan_enable", "1", &pppoemwan_enabled);
+	if (pppoemwan_status != 0) {
+		status = route_status_accumulate(status, pppoemwan_status);
+		logmessage(LOGNAME,
+			   "cannot read PPPoE-MWAN enable setting during WAN-up (status=%d)",
+			   pppoemwan_status);
+	} else if (pppoemwan_enabled) {
 		route_status = eval("/usr/bin/detect.sh");
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)
@@ -4668,6 +4700,7 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 	int ppp_index, gateway_valid, gateway_off_subnet;
 	int status = 0, route_status, interface_cleanup_status;
 	int auth_status, auth_mode;
+	int pppoemwan_status, pppoemwan_enabled;
 	int statistics_status;
 	int force_clear_wan_dns, wan_dns_read_status, clear_wan_dns;
 	char wanx_dns[256];
@@ -4873,7 +4906,14 @@ wan_down_internal(char *wan_ifname, int unit, int is_static)
 			logmessage(LOGNAME, "WAN post-down script incomplete on %s (status=%d)",
 				   wan_ifname, route_status);
 	}
-	if (nvram_match("pppoemwan_enable", "1")) {
+	pppoemwan_status = get_nvram_match_checked_status(
+		"pppoemwan_enable", "1", &pppoemwan_enabled);
+	if (pppoemwan_status != 0) {
+		status = route_status_accumulate(status, pppoemwan_status);
+		logmessage(LOGNAME,
+			   "cannot read PPPoE-MWAN enable setting during WAN-down (status=%d)",
+			   pppoemwan_status);
+	} else if (pppoemwan_enabled) {
 		route_status = eval("/usr/bin/detect.sh");
 		status = route_status_accumulate(status, route_status);
 		if (route_status != 0)
