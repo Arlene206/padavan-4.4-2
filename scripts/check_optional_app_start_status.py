@@ -335,6 +335,8 @@ def check_rc_optional_daemon_enable_reads():
     assert "errno = saved_errno;" in rollback_helper
 
     for signature, key in (
+        ("start_infosvr(void)", "adsc_enable"),
+        ("start_crond(void)", "crond_enable"),
         ("start_rstats(void)", "rstats_enable"),
         ("start_lltd(void)", "lltd_enable"),
     ):
@@ -349,6 +351,10 @@ def check_rc_optional_daemon_enable_reads():
         assert "nvram_invmatch(" not in start_body
         assert "nvram_match(" not in start_body
         assert "nvram_get_int(" not in start_body
+        if key == "crond_enable":
+            assert 'service_nvram_match_status("crond_log","0",0,&debug_logging);' in compact_start
+            assert "cannot read crond logging mode" in start_body
+            assert "continuing with default logging" in start_body
 
     detached_start_cases = (
         ("start_ttyd_with_mode(int ttyd_mode)", "ttyd", "start_status", "start_errno"),

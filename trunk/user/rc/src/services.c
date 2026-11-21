@@ -392,8 +392,16 @@ start_infosvr(void)
 	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
-	if (nvram_invmatch("adsc_enable", "1"))
-		return 0;
+	{
+		int enabled = 0;
+		int config_status = service_nvram_match_status(
+			"adsc_enable", "1", 0, &enabled);
+
+		if (config_status != 0)
+			return config_status;
+		if (!enabled)
+			return 0;
+	}
 
 	start_status = optional_daemon_start_status("infosvr", "infosvr");
 	if (start_status > 0)
@@ -507,8 +515,16 @@ start_crond(void)
 	int launch_status, attempt, status, scan_error, preflight_status, launch_errno;
 	enum process_presence presence;
 
-	if (nvram_invmatch("crond_enable", "1"))
-		return 0;
+	{
+		int enabled = 0;
+		int config_status = service_nvram_match_status(
+			"crond_enable", "1", 0, &enabled);
+
+		if (config_status != 0)
+			return config_status;
+		if (!enabled)
+			return 0;
+	}
 
 	/* Do not spawn a second scheduler when start is requested again. */
 	preflight_status = optional_daemon_start_status("crond", "crond");
@@ -519,8 +535,19 @@ start_crond(void)
 	if (preflight_status < 0)
 		return preflight_status;
 
-	if (nvram_match("crond_log", "0"))
-		crond_argv[1] = "-d8";
+	{
+		int debug_logging = 0;
+		int config_status = service_nvram_match_status(
+			"crond_log", "0", 0, &debug_logging);
+
+		if (config_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot read crond logging mode; continuing with default logging (status=%d)",
+				   config_status);
+		} else if (debug_logging) {
+			crond_argv[1] = "-d8";
+		}
+	}
 
 	setenv_tz();
 

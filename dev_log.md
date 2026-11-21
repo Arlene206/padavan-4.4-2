@@ -1,3 +1,12 @@
+## 2026-11-21 — Check infosvr/crond enable gates and crond log mode
+
+- Parent main SHA: 855d98387f10a802420d8da99d7e97d227970a97.
+- `start_infosvr()` and `start_crond()` still used unchecked exact-string `nvram_invmatch(..., "1")` startup gates. A transient NVRAM error was indistinguishable from disabled state and silently skipped the requested daemon. `start_crond()` also used an unchecked `crond_log` match to choose debug mode.
+- Replaced the enable gates with the shared checked exact-string reader and propagate errors before daemon probing/launch. Crond's optional debug-mode read now uses the same checked reader; on failure it logs the configuration error and continues with the safe default logging mode so a diagnostic-only setting cannot block the scheduler.
+- Added both daemons to the Process source contract and asserted checked logging-mode fallback. Existing matcher regression covers exact string, missing key, malformed output and backend-error behavior. Exact-head Process/XY-C1 verification pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Check rstats and LLTD enable reads before daemon startup
 
 - Parent main SHA: f64ba04148274ce2433e4028eae50efd28b047fb.
