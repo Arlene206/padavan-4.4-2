@@ -1942,21 +1942,38 @@ on_client_ifup(void)
 {
 #define ENV_SCAN_MAX 20
 	int i, i_dns = 0, i_wins = 0, i_dom = 0, vpnc_pdns;
-	int status = 0, write_status, dns_status;
+	int status = 0, write_status, dns_status, api_result, read_errno;
+	int pdns_status;
+	char *pdns_value = NULL;
 	char buf[256], foption[32], fvalue[128], domain[128], *value;
 	struct vpn_client_nvram_value values[2];
 	unsigned int value_count = 0;
 
 	domain[0] = '\0';
-	vpnc_pdns = nvram_get_int("vpnc_pdns");
 	buf[0] = 0;
+
+	/* Do not let a failed compatibility read silently disable DNS policy. */
+	errno = 0;
+	api_result = nvram_get_checked("vpnc_pdns", &pdns_value);
+	read_errno = errno;
+	vpnc_pdns = 0;
+	pdns_status = vpn_server_config_int_status(api_result, read_errno,
+						  pdns_value, 0, 0, 1,
+						  &vpnc_pdns);
+	if (pdns_status != 0) {
+		status = route_status_accumulate(status, pdns_status);
+		logmessage(CLIENT_LOG_NAME,
+			   "cannot read OpenVPN DNS push policy; preserving existing resolver state (status=%d)",
+			   pdns_status);
+	}
+
 	for (i = 0; i < ENV_SCAN_MAX; i++) {
 		snprintf(foption, sizeof(foption), "foreign_option_%d", i);
 		value = getenv(foption);
 		if (value) {
 			memset(fvalue, 0, sizeof(fvalue));
 			if (sscanf(value, "dhcp-option DNS %127s", fvalue) == 1) {
-				if (vpnc_pdns > 0) {
+				if (pdns_status == 0 && vpnc_pdns > 0) {
 					int buf_len = strlen(buf);
 					snprintf(buf + buf_len, sizeof(buf) - buf_len, "%s%s", (buf_len) ? " " : "", fvalue);
 				}
@@ -1974,7 +1991,7 @@ on_client_ifup(void)
 			} else if (sscanf(value, "dhcp-option DOMAIN %127s", fvalue) == 1) {
 				i_dom++;
 				if (i_dom == 1) {
-					if (vpnc_pdns > 0)
+					if (pdns_status == 0 && vpnc_pdns > 0)
 						snprintf(domain, sizeof(domain), "%s", fvalue);
 					setenv("DOMAIN", fvalue, 1);
 				}
@@ -1984,27 +2001,35 @@ on_client_ifup(void)
 			break;
 	}
 
-	values[value_count].name = "vpnc_dom_t";
-	values[value_count++].value =
-		(vpnc_pdns > 0 && domain[0] != '\0') ? domain : "";
-	values[value_count].name = "vpnc_state_t";
-	values[value_count++].value = "1";
-	write_status = vpn_client_nvram_set_all_values(
-		values, value_count, vpn_client_nvram_set_temp_status, NULL);
+	if (pdns_status == 0) {
+		values[value_count].name = "vpnc_dom_t";
+		values[value_count++].value =
+			(vpnc_pdns > 0 && domain[0] != '\0') ? domain : "";
+		values[value_count].name = "vpnc_state_t";
+		values[value_count++].value = "1";
+		write_status = vpn_client_nvram_set_all_values(
+			values, value_count, vpn_client_nvram_set_temp_status, NULL);
+	} else {
+		/* Link state and the user hook are mandatory even when DNS policy is unreadable. */
+		write_status = vpn_client_nvram_set_temp_status(
+			NULL, "vpnc_state_t", "1");
+	}
 	status = route_status_accumulate(status, write_status);
 	if (write_status != 0)
 		logmessage(CLIENT_LOG_NAME,
 			   "cannot publish OpenVPN client up/domain state (status=%d)",
 			   write_status);
 
-	dns_status = vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", buf);
-	status = route_status_accumulate(status, dns_status);
-	if (dns_status == 0)
-		refresh_resolvconf_nonfatal("OpenVPN client DNS update", 0);
-	else
-		logmessage(CLIENT_LOG_NAME,
-			   "cannot publish OpenVPN client DNS snapshot (status=%d)",
-			   dns_status);
+	if (pdns_status == 0) {
+		dns_status = vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", buf);
+		status = route_status_accumulate(status, dns_status);
+		if (dns_status == 0)
+			refresh_resolvconf_nonfatal("OpenVPN client DNS update", 0);
+		else
+			logmessage(CLIENT_LOG_NAME,
+				   "cannot publish OpenVPN client DNS snapshot (status=%d)",
+				   dns_status);
+	}
 
 	call_client_script(VPN_CLIENT_UPDOWN_SCRIPT, "up");
 
@@ -2021,7 +2046,6 @@ on_client_ifup(void)
 
 	return status;
 }
-
 static int
 on_client_ifdown(void)
 {

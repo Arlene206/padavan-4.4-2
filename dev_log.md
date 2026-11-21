@@ -1,3 +1,13 @@
+## 2026-11-22 — Fail closed on OpenVPN pushed-DNS policy read errors
+
+- Parent main SHA: `23520100e3cc74bb7f77a0d023afa361cded2abe`.
+- `on_client_ifup()` used `nvram_get_int("vpnc_pdns")`; a backend failure collapsed into disabled and could overwrite resolver/domain snapshots with empty values and trigger an unintended resolver refresh.
+- Replaced the compatibility getter with `nvram_get_checked()` plus bounded 0/1 parsing. On a read/parse error, optional DNS/domain publication and resolver refresh are skipped, preserving existing resolver state. The callback still attempts `vpnc_state_t=1`, executes the configured up hook, and clears temporary environment variables; the error remains in its return status. The down path still independently restores DNS, clears domain state and executes the down hook.
+- Updated `scripts/check_vpn_client_nvram_state.py` to enforce checked-policy ordering and mandatory state/hook behavior. Existing `vpn_server_config_int_status()` regression tests cover backend errors and malformed/range values; the VPN workflow compiles them and runs the source contract.
+- Exact-head CI for this commit must be checked on live main; no local regression build is claimed. XY-C1 L3 and hardware L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fix xl2tpd caller for the checked VPN address-pool API
 
 - Parent main SHA: `5365b10a5136e479e9db91079eb525634c3fcfa8`.

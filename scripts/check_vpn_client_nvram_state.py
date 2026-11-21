@@ -198,26 +198,31 @@ for token in (
 ):
     assert token in header
 
-openvpn_up = body(openvpn, "static int\non_client_ifup(void)")
-openvpn_down = body(openvpn, "static int\non_client_ifdown(void)")
-openvpn_entry = body(openvpn, "int\novpn_client_script_main(int argc, char **argv)")
+openvpn_up = body(openvpn, "static int\\non_client_ifup(void)")
+openvpn_down = body(openvpn, "static int\\non_client_ifdown(void)")
+openvpn_entry = body(openvpn, "int\\novpn_client_script_main(int argc, char **argv)")
 openvpn_up_compact = " ".join(openvpn_up.split())
-domain_publish = openvpn_up.index('values[value_count].name = "vpnc_dom_t";')
-state_publish = openvpn_up.index('values[value_count].name = "vpnc_state_t";')
-assert domain_publish < state_publish < openvpn_up.index("vpn_client_nvram_set_all_values(")
-expected_domain_publish = (
-    "values[value_count++].value = (vpnc_pdns > 0 && domain[0] != '\\0') ? domain : "
-    + chr(34) + chr(34) + ";"
-)
-assert expected_domain_publish in openvpn_up_compact
+assert 'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);' in openvpn_up
+assert "pdns_status = vpn_server_config_int_status(" in openvpn_up
+assert 'nvram_get_int("vpnc_pdns")' not in openvpn_up
 ordered(openvpn_up, [
+    'api_result = nvram_get_checked("vpnc_pdns", &pdns_value);',
+    "read_errno = errno;",
+    "pdns_status = vpn_server_config_int_status(",
+    "if (pdns_status != 0)",
+    "status = route_status_accumulate(status, pdns_status);",
+    "for (i = 0; i < ENV_SCAN_MAX; i++)",
+    "if (pdns_status == 0) {",
+    'values[value_count].name = "vpnc_dom_t";',
+    'values[value_count].name = "vpnc_state_t";',
     "vpn_client_nvram_set_all_values(",
+    'vpn_client_nvram_set_temp_status(\\n\\t\\t\\tNULL, "vpnc_state_t", "1")',
     'vpn_client_nvram_set_temp_status(NULL, "vpnc_dns_t", buf)',
-    "if (dns_status == 0)",
-    'refresh_resolvconf_nonfatal("OpenVPN client DNS update", 0);',
     'call_client_script(VPN_CLIENT_UPDOWN_SCRIPT, "up");',
     "return status;"
-], "OpenVPN client up NVRAM status")
+], "OpenVPN client up checked DNS policy and mandatory state/hook")
+assert "preserving existing resolver state" in openvpn_up
+assert "if (pdns_status == 0 && vpnc_pdns > 0)" in openvpn_up
 ordered(openvpn_down, [
     'vpn_client_nvram_set_temp_status(NULL, "vpnc_state_t", "0")',
     "dns_status = restore_dns_from_vpnc();",
