@@ -5543,6 +5543,7 @@ jobs:
           watchdog = (root / "watchdog.c").read_text()
           lock = (root / "httpd_lifecycle_lock.h").read_text()
           test = (root / "tests/httpd_lifecycle_lock.c").read_text()
+          httpd_policy_test = (root / "tests/httpd_daemon_policy.c").read_text()
           workflow = Path(".github/workflows/httpd-security.yml").read_text()
           def body(source, signature):
               start = source.index(signature)
@@ -5588,7 +5589,7 @@ jobs:
           first_port_write = start_locked.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
           assert firewall_need < firewall_read < first_port_write
           assert "restart_fw_need |= start_config." not in start_locked
-          assert "test_httpd_start_config_selects_exposed_listener_firewall_requirements();" in test
+          assert "test_httpd_start_config_selects_exposed_listener_firewall_requirements();" in httpd_policy_test
           assert 'service_nvram_match_status("fw_enable_x", "1", 0' in start_locked
           assert "httpd_firewall_refresh_required(restart_fw, restart_fw_need, firewall_enabled)" in start_locked
           assert 'nvram_match("fw_enable_x", "1")' not in start_locked

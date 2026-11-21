@@ -1,3 +1,11 @@
+## 2026-11-21 — Correct HTTPD security policy-test source contract
+
+- Parent main SHA: a655d440c8c77fd46160f81344ad5912b8082b4b.
+- Exact-head HTTPD lifecycle and Process checks passed, but HTTPD Authentication/Security run #44922846367 failed in its duplicate source-contract script: the new listener-firewall selector test marker was checked against `tests/httpd_lifecycle_lock.c`, while the test is defined in `tests/httpd_daemon_policy.c`.
+- The workflow now reads the policy test file separately and checks the marker there. No production code or test binary changed. HTTPD Authentication/Security exact-head rerun pending; XY-C1 run on older SHA 8b remains in progress and does not validate current main.
+ 
+---
+
 ## 2026-11-21 — Correct SSHD rollback policy assertion to inspect test cases
 
 - Parent main SHA: 8b0c30acf066c10beb620236210ae9cb5661047b.
