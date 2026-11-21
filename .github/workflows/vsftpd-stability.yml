@@ -86,6 +86,7 @@ jobs:
           workflow = Path(".github/workflows/vsftpd-stability.yml").read_text()
           daemon_policy = Path("trunk/user/rc/src/ftp_daemon_policy.h").read_text()
           daemon_test = Path("trunk/user/rc/src/tests/ftp_daemon_policy.c").read_text()
+          service_wait_policy = Path("trunk/user/rc/src/service_daemon_wait_policy.h").read_text()
           vsftpd_acl = Path("trunk/user/vsftpd/src/asus_ext.c").read_text()
           vsftpd_acl_header = Path("trunk/user/vsftpd/src/asus_ext.h").read_text()
           vsftpd_postlogin = Path("trunk/user/vsftpd/src/postlogin.c").read_text()
@@ -165,16 +166,19 @@ jobs:
           assert rollback.index("ftp_failed_start_may_leave_daemon") < rollback.index("errno = start_errno > 0")
 
           wait_fn = function_body(source, "ftp_wait_for_daemon(")
-          assert "ftp_daemon_wait_for_stable_presence(daemon, 30" in wait_fn
-          assert "PROCESS_PRESENCE_UNKNOWN" in daemon_policy
-          assert "presence == PROCESS_PRESENCE_UNKNOWN" in daemon_policy
+          assert "return storage_wait_for_daemon(daemon);" in wait_fn
+          storage_wait_fn = function_body(source, "storage_wait_for_daemon(")
+          assert "service_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL)" in storage_wait_fn
+          stable_wait = function_body(
+              service_wait_policy, "service_daemon_wait_for_stable_presence(")
+          assert "presence == PROCESS_PRESENCE_UNKNOWN" in stable_wait
           running_fn = function_body(source, "ftp_daemon_is_running(")
           sleep_fn = function_body(source, "ftp_daemon_sleep(")
           assert "return storage_daemon_presence(daemon, NULL);" in running_fn
           assert "return service_wait_microseconds(microseconds);" in sleep_fn
-          assert "int (*sleep_us)(void *context, unsigned int microseconds);" in daemon_policy
-          assert "ops->sleep_us(context, 500000U) != 0" in daemon_policy
-          assert "ops->sleep_us(context, 100000U) != 0" in daemon_policy
+          assert "int (*sleep_us)(void *context, unsigned int microseconds);" in service_wait_policy
+          assert "ops->sleep_us(context, 500000U) != 0" in stable_wait
+          assert "ops->sleep_us(context, 100000U) != 0" in stable_wait
           assert "fake->sleep_status != 0" in daemon_test
 
           acl_existing = function_body(vsftpd_acl, "asus_check_permission_existing_path(")
