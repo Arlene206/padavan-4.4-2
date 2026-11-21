@@ -55,6 +55,11 @@ static const struct samba_daemon_wait_ops fake_ops = {
 int
 main(void)
 {
+	assert(!samba_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
+	assert(samba_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
+	assert(samba_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN));
+	assert(samba_failed_start_may_leave_daemon((enum process_presence)9));
+
 	{
 		const enum process_presence states[] = {
 			PROCESS_PRESENCE_ABSENT,

@@ -1460,6 +1460,31 @@ stop_nmbd(void)
 	return status;
 }
 
+static void
+samba_rollback_failed_nmbd_start(int start_errno, const char *operation)
+{
+	int stop_status;
+	int scan_error = 0;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	memset(&snapshot, 0, sizeof(snapshot));
+	stop_status = stop_nmbd();
+	presence = process_inventory_scan("nmbd", &snapshot);
+	scan_error = snapshot.error;
+	if (samba_failed_start_may_leave_daemon(presence)) {
+		logmessage("Samba Server",
+			   "nmbd may remain active after failed %s (rollback_status=%d, state=%d, scan_error=%d)",
+			   operation, stop_status, presence, scan_error);
+	} else if (stop_status != 0) {
+		logmessage("Samba Server",
+			   "nmbd is absent after failed %s rollback but stop reported status=%d",
+			   operation, stop_status);
+	}
+	process_snapshot_release(&snapshot);
+	errno = start_errno > 0 ? start_errno : EIO;
+}
+
 int
 start_wins(void)
 {
@@ -1467,6 +1492,8 @@ start_wins(void)
 	char staged_path[64];
 	int command_status, lock_fd, result = -1;
 	int scan_error;
+	int launched_new_daemon = 0;
+	int failure_errno;
 	enum process_presence nmbd_presence;
 	struct process_snapshot nmbd_snapshot;
 
@@ -1531,6 +1558,8 @@ start_wins(void)
 	} else {
 		if (samba_ex_require_absent("nmbd", "before WINS launch") != 0)
 			goto out;
+		errno = 0;
+		launched_new_daemon = 1;
 		command_status = eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf");
 	}
 
@@ -1538,11 +1567,18 @@ start_wins(void)
 		logmessage("Samba Server", "nmbd %s command failed (status %d, errno %d)",
 			   nmbd_presence == PROCESS_PRESENCE_RUNNING ? "reload" : "start",
 			   command_status, errno ? errno : EIO);
+		if (launched_new_daemon) {
+			failure_errno = errno ? errno : EIO;
+			samba_rollback_failed_nmbd_start(failure_errno, "WINS start");
+		}
 		goto out;
 	}
 	if (samba_ex_wait_for_daemon("nmbd") != 0) {
+		failure_errno = errno ? errno : ETIMEDOUT;
 		logmessage("Samba Server", "nmbd did not remain running after WINS start/reload (errno %d)",
-			   errno ? errno : ETIMEDOUT);
+			   failure_errno);
+		if (launched_new_daemon)
+			samba_rollback_failed_nmbd_start(failure_errno, "WINS start");
 		goto out;
 	}
 
@@ -1598,6 +1634,10 @@ restart_nmbd(void)
 {
 	int result = -1, scan_error, command_status;
 	int storage_lock;
+#if defined(APP_SMBD)
+	int launched_new_daemon = 0;
+	int failure_errno;
+#endif
 	struct process_snapshot nmbd_snapshot;
 	enum process_presence nmbd_presence;
 #if defined(APP_SMBD)
@@ -1656,15 +1696,21 @@ restart_nmbd(void)
 			goto out;
 		if (samba_ex_require_absent("nmbd", "after stop and before restart") != 0)
 			goto out;
+		errno = 0;
+		launched_new_daemon = 1;
 		command_status = eval("/sbin/nmbd", "-D", "-s", "/etc/smb.conf");
 		if (command_status != 0) {
+			failure_errno = errno ? errno : EIO;
 			logmessage("Samba Server", "nmbd start command failed after configuration publication (status %d)",
 				   command_status);
+			samba_rollback_failed_nmbd_start(failure_errno, "restart");
 			goto out;
 		}
 		if (samba_ex_wait_for_daemon("nmbd") != 0) {
+			failure_errno = errno ? errno : ETIMEDOUT;
 			logmessage("Samba Server", "nmbd did not remain running after restart (errno %d)",
-				   errno ? errno : ETIMEDOUT);
+				   failure_errno);
+			samba_rollback_failed_nmbd_start(failure_errno, "restart");
 			goto out;
 		}
 		command_status = samba_daemon_signal_snapshot(

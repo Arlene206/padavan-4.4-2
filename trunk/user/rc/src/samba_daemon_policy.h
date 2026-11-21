@@ -13,6 +13,13 @@ struct samba_daemon_wait_ops {
 	int (*sleep_us)(void *context, unsigned int microseconds);
 };
 
+/* UNKNOWN and invalid snapshots mean a failed start may still be active. */
+static int
+samba_failed_start_may_leave_daemon(enum process_presence state)
+{
+	return state != PROCESS_PRESENCE_ABSENT;
+}
+
 static int
 samba_daemon_wait_for_stable_presence(const char *daemon,
 				      unsigned int attempts,

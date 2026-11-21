@@ -347,6 +347,10 @@ jobs:
           assert "ops->sleep_us(context, 100000U)" in wait_policy
           assert "errno = ETIMEDOUT" in wait_policy
           assert "PROCESS_PRESENCE_UNKNOWN" in daemon_test
+          assert "samba_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN)" in daemon_test
+          assert "samba_failed_start_may_leave_daemon((enum process_presence)9)" in daemon_test
+          assert "samba_failed_start_may_leave_daemon(enum process_presence state)" in daemon_policy
+          assert "return state != PROCESS_PRESENCE_ABSENT;" in daemon_policy
           assert "Samba tri-state daemon readiness policy: PASS" in daemon_test
           assert "samba_daemon_signal_snapshot" in process_policy
           assert "samba_process_require_absent" in process_policy
@@ -410,6 +414,10 @@ jobs:
           assert wins.index("samba_config_file_publish") < wins.index('eval("/sbin/nmbd"')
           assert "command_status != 0" in wins
           assert 'samba_ex_wait_for_daemon("nmbd") != 0' in wins
+          assert "launched_new_daemon = 1;" in wins
+          assert "samba_rollback_failed_nmbd_start(failure_errno, \"WINS start\")" in wins
+          assert wins.index("launched_new_daemon = 1;") < wins.index('eval("/sbin/nmbd"')
+          assert "if (launched_new_daemon)" in wins
           assert "samba_config_transaction_recover(" in wins
           assert 'process_inventory_scan("nmbd", &nmbd_snapshot)' in wins
           assert wins.index('process_inventory_scan("nmbd", &nmbd_snapshot)') < wins.index("samba_config_transaction_recover(")
@@ -445,6 +453,14 @@ jobs:
           assert 'process_inventory_scan("smbd", &smbd_snapshot)' in restart_nmbd
           assert restart_nmbd.index('process_inventory_scan("smbd", &smbd_snapshot)') < restart_nmbd.index("write_smb_conf() != 0")
           assert "samba_ex_require_absent" in restart_nmbd
+          assert "launched_new_daemon = 1;" in restart_nmbd
+          assert "samba_rollback_failed_nmbd_start(failure_errno, \"restart\")" in restart_nmbd
+          assert restart_nmbd.index("launched_new_daemon = 1;") < restart_nmbd.index('eval("/sbin/nmbd"')
+          assert restart_nmbd.index("samba_rollback_failed_nmbd_start") < restart_nmbd.index("goto out;")
+          rollback = function_body(services, "static void\nsamba_rollback_failed_nmbd_start(int start_errno, const char *operation)")
+          assert rollback.index("stop_nmbd()") < rollback.index('process_inventory_scan("nmbd", &snapshot)')
+          assert rollback.index('process_inventory_scan("nmbd", &snapshot)') < rollback.index("samba_failed_start_may_leave_daemon")
+          assert rollback.index("samba_failed_start_may_leave_daemon") < rollback.index("errno = start_errno;")
           assert "samba_daemon_signal_snapshot(" in restart_nmbd
           assert "killall" not in restart_nmbd and "pids(" not in restart_nmbd
           assert "process_snapshot_release(&smbd_snapshot)" in restart_nmbd
