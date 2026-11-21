@@ -1392,8 +1392,8 @@ jobs:
                   "stop_samba_locked": "static int\nstop_samba_locked(int force_stop)\n{",
                   "stop_dms_locked": "static int\nstop_dms_locked(void)\n{",
                   "stop_itunes_locked": "static int\nstop_itunes_locked(void)\n{",
-                  "stop_torrent_locked": "static int\nstop_torrent_locked(void)\n{",
-                  "stop_aria_locked": "static int\nstop_aria_locked(void)\n{",
+                  "stop_torrent_locked": "static int stop_torrent_locked(void)\n{",
+                  "stop_aria_locked": "static int stop_aria_locked(void)\n{",
               }
               locked_body = function_body(storage, locked_definitions[locked_name])
               lock_pos = public_body.index("storage_operation_lock_acquire(file_lock)")
