@@ -6486,19 +6486,20 @@ static int
 udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 {
 	char *value, *lan_ip, *lan_nm, *ip, *nm, *gw, *rt, *rt_ms, *rt_rfc;
-	char log_prefix[32], *udhcpc_state, *previous_value;
 	char gateway_buf[INET_ADDRSTRLEN], old_gateway[INET_ADDRSTRLEN];
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char previous_text[WAN_DHCP_VIPTV_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char mtu_text[16];
 	unsigned int parsed_value;
-	size_t i, snapshot_count;
+	size_t i, snapshot_count, previous_snapshot_count;
 	int lease_dur, is_changed, i_err, dhcp_mtu, mtu_seen, route_result;
 	int interface_status, rollback_status, route_setup_status, mtu_status;
 	int route_cleanup_status, route_rollback_status, multicast_status = 0;
 	int snapshot_status, snapshot_rollback_status, snapshot_abort_status;
 	int callback_status, publish_status;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_VIPTV_SNAPSHOT_COUNT];
+	struct nvram_transaction previous_transaction;
+	struct rc_wan_nvram_snapshot_field previous_snapshot_fields[WAN_DHCP_VIPTV_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
 
@@ -6520,18 +6521,26 @@ udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)
 	 * route table. Route text is bounded to the full DHCP option size so an
 	 * unsuccessful publication can restore the exact old lease tuple.
 	 */
+	previous_snapshot_count = 0;
 	for (i = 0; i < WAN_DHCP_VIPTV_SNAPSHOT_COUNT; ++i) {
-		previous_value = nvram_safe_get((char *)wan_dhcp_viptv_snapshot_params[i]);
-		if (!previous_value)
-			previous_value = "";
-		if (strlen(previous_value) >= sizeof(previous_text[i])) {
-			logmessage(log_prefix,
-				   "%s (%s) rejected oversized previous IPTV snapshot field %s",
-				   udhcpc_state, man_ifname, wan_dhcp_viptv_snapshot_params[i]);
-			return ENAMETOOLONG;
-		}
-		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
-			 previous_value);
+		previous_snapshot_fields[previous_snapshot_count].param_name =
+			wan_dhcp_viptv_snapshot_params[i];
+		previous_snapshot_fields[previous_snapshot_count].destination =
+			previous_text[i];
+		previous_snapshot_fields[previous_snapshot_count].destination_size =
+			sizeof(previous_text[i]);
+		++previous_snapshot_count;
+	}
+	snapshot_status = rc_wan_nvram_copy_snapshot(
+		previous_snapshot_fields, (unsigned int)previous_snapshot_count,
+		wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &previous_transaction);
+	if (snapshot_status != 0) {
+		logmessage(log_prefix,
+			   "%s (%s) cannot snapshot previous IPTV DHCP NVRAM tuple (status=%d)",
+			   udhcpc_state, man_ifname, snapshot_status);
+		return snapshot_status;
 	}
 	if (!dhcp_lease_text_fits_buffer(previous_text[2], sizeof(old_gateway)) ||
 	    !dhcp_lease_text_fits_buffer(previous_text[0], sizeof(old_ip)) ||
@@ -6803,14 +6812,15 @@ snapshot_publication_failed:
 static int
 zcip_bound(char *man_ifname)
 {
-	char *value, *ip, *previous_value;
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char previous_text[WAN_ZCIP_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char *zeroconf_mask = "255.255.0.0";
-	size_t i, snapshot_count;
+	size_t i, snapshot_count, previous_snapshot_count;
 	int unit, interface_status, rollback_status, route_setup_status;
 	int snapshot_status, snapshot_rollback_status, interface_rollback_status;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_ZCIP_SNAPSHOT_COUNT];
+	struct nvram_transaction previous_transaction;
+	struct rc_wan_nvram_snapshot_field previous_snapshot_fields[WAN_ZCIP_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 
 	value = getenv("ip");
@@ -6825,18 +6835,26 @@ zcip_bound(char *man_ifname)
 	}
 
 	/* Capture every field before the new link address can become visible. */
+	previous_snapshot_count = 0;
 	for (i = 0; i < WAN_ZCIP_SNAPSHOT_COUNT; ++i) {
-		previous_value = nvram_safe_get((char *)wan_zcip_snapshot_params[i]);
-		if (!previous_value)
-			previous_value = "";
-		if (strlen(previous_value) >= sizeof(previous_text[i])) {
-			logmessage(LOGNAME,
-				   "ZeroConf rejected oversized previous WAN snapshot field %s",
-				   wan_zcip_snapshot_params[i]);
-			return ENAMETOOLONG;
-		}
-		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
-			 previous_value);
+		previous_snapshot_fields[previous_snapshot_count].param_name =
+			wan_zcip_snapshot_params[i];
+		previous_snapshot_fields[previous_snapshot_count].destination =
+			previous_text[i];
+		previous_snapshot_fields[previous_snapshot_count].destination_size =
+			sizeof(previous_text[i]);
+		++previous_snapshot_count;
+	}
+	snapshot_status = rc_wan_nvram_copy_snapshot(
+		previous_snapshot_fields, (unsigned int)previous_snapshot_count,
+		wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &previous_transaction);
+	if (snapshot_status != 0) {
+		logmessage(log_prefix,
+			   "%s (%s) cannot snapshot previous ZeroConf WAN NVRAM tuple (status=%d)",
+			   udhcpc_state, man_ifname, snapshot_status);
+		return snapshot_status;
 	}
 	if (!dhcp_lease_text_fits_buffer(previous_text[WAN_ZCIP_SNAPSHOT_IPADDR], sizeof(old_ip)) ||
 	    !dhcp_lease_text_fits_buffer(previous_text[WAN_ZCIP_SNAPSHOT_NETMASK], sizeof(old_mask))) {
@@ -6910,14 +6928,15 @@ zcip_bound(char *man_ifname)
 static int
 zcip_viptv_bound(char *man_ifname)
 {
-	char *value, *ip, *previous_value;
 	char old_ip[INET_ADDRSTRLEN], old_mask[INET_ADDRSTRLEN];
 	char previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char *zeroconf_mask = "255.255.0.0";
-	size_t i, snapshot_count;
+	size_t i, snapshot_count, previous_snapshot_count;
 	int interface_status, rollback_status;
 	int snapshot_status, snapshot_rollback_status, interface_rollback_status;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_ZCIP_VIPTV_SNAPSHOT_COUNT];
+	struct nvram_transaction previous_transaction;
+	struct rc_wan_nvram_snapshot_field previous_snapshot_fields[WAN_ZCIP_VIPTV_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 
 	value = getenv("ip");
@@ -6931,18 +6950,26 @@ zcip_viptv_bound(char *man_ifname)
 		return EINVAL;
 	}
 
+	previous_snapshot_count = 0;
 	for (i = 0; i < WAN_ZCIP_VIPTV_SNAPSHOT_COUNT; ++i) {
-		previous_value = nvram_safe_get((char *)wan_zcip_viptv_snapshot_params[i]);
-		if (!previous_value)
-			previous_value = "";
-		if (strlen(previous_value) >= sizeof(previous_text[i])) {
-			logmessage(LOGNAME,
-				   "ZeroConf IPTV rejected oversized previous snapshot field %s",
-				   wan_zcip_viptv_snapshot_params[i]);
-			return ENAMETOOLONG;
-		}
-		snprintf(previous_text[i], sizeof(previous_text[i]), "%s",
-			 previous_value);
+		previous_snapshot_fields[previous_snapshot_count].param_name =
+			wan_zcip_viptv_snapshot_params[i];
+		previous_snapshot_fields[previous_snapshot_count].destination =
+			previous_text[i];
+		previous_snapshot_fields[previous_snapshot_count].destination_size =
+			sizeof(previous_text[i]);
+		++previous_snapshot_count;
+	}
+	snapshot_status = rc_wan_nvram_copy_snapshot(
+		previous_snapshot_fields, (unsigned int)previous_snapshot_count,
+		wan_nvram_transaction_begin_callback,
+		wan_nvram_transaction_get_callback,
+		wan_nvram_transaction_end_callback, &previous_transaction);
+	if (snapshot_status != 0) {
+		logmessage(log_prefix,
+			   "%s (%s) cannot snapshot previous ZeroConf IPTV NVRAM tuple (status=%d)",
+			   udhcpc_state, man_ifname, snapshot_status);
+		return snapshot_status;
 	}
 	if (!dhcp_lease_text_fits_buffer(previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_IPADDR], sizeof(old_ip)) ||
 	    !dhcp_lease_text_fits_buffer(previous_text[WAN_ZCIP_VIPTV_SNAPSHOT_NETMASK], sizeof(old_mask))) {

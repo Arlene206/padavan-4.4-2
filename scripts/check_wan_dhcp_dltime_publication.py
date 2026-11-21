@@ -113,4 +113,21 @@ assert "dhcp_wan_bound_retry_decide" in route_source
 assert "test_retry_decision_fails_closed_on_each_status_read_error" in route_test
 assert "test_retry_decision_requires_a_complete_checked_tuple" in route_test
 
-print("WAN DHCP checked-renew state and dltime publication contracts: PASS")
+# Also preserve a coherent rollback tuple for IPTV DHCP and ZeroConf before
+# any live interface changes.
+for signature in (
+    "udhcpc_viptv_bound(char *man_ifname, int is_renew_mode)",
+    "zcip_bound(char *man_ifname)",
+    "zcip_viptv_bound(char *man_ifname)",
+):
+    callback = function_body(source, signature)
+    snapshot = callback.index("rc_wan_nvram_copy_snapshot(")
+    interface_apply = callback.index("dhcp_wan_interface_apply(")
+    assert snapshot < interface_apply
+    assert "wan_nvram_transaction_begin_callback" in callback[snapshot:]
+    assert "wan_nvram_transaction_get_callback" in callback[snapshot:]
+    assert "wan_nvram_transaction_end_callback" in callback[snapshot:]
+    assert "previous_value = nvram_safe_get(" not in callback
+    assert "cannot snapshot previous" in callback
+
+print("WAN DHCP/IPTV/ZeroConf rollback snapshots are transactionally coherent: PASS")
