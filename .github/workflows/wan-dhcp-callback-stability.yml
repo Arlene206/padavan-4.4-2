@@ -572,7 +572,7 @@ jobs:
           assert "int publish_attempted = 0, publish_rollback_status = 0;" in renew_publisher
           assert "&publish_attempted, &publish_rollback_status" in renew_publisher
           assert "if (publish_attempted && publish_rollback_status != 0)" in renew_publisher
-          assert source.count("static int\\nwan_dhcp_nvram_state_publish(") == 1
+          assert source.count(publisher_signature + ";") == 1
           restore_guard = body(lease_policy, "dhcp_lease_nvram_restore_if_current(")
           assert "values[i].value" in restore_guard
           assert "values[i].previous_value" in restore_guard

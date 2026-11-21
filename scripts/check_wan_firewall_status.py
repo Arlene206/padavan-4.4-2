@@ -93,7 +93,9 @@ lease_publish_guard = body(
 require("dhcp_lease_nvram_publish_if_current(" in wan_renew_publisher and
         "wan_dhcp_nvram_transaction_get_value" in wan_renew_publisher and
         "wan_dhcp_nvram_restore_values(" in wan_renew_publisher and
-        "if (publish_attempted && status != 0)" in wan_renew_publisher and
+        "int publish_attempted = 0, publish_rollback_status = 0;" in wan_renew_publisher and
+        "&publish_attempted, &publish_rollback_status" in wan_renew_publisher and
+        "if (publish_attempted && publish_rollback_status != 0)" in wan_renew_publisher and
         "nvram_transaction_begin(&transaction)" in wan_renew_publisher and
         "nvram_transaction_end(&transaction)" in wan_renew_publisher,
         "WAN DHCP renewal snapshot needs guarded transaction and full rollback")
