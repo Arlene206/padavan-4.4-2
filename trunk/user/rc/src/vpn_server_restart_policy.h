@@ -45,4 +45,15 @@ vpn_openvpn_server_restart_run(vpn_openvpn_restart_step_fn stop,
     return start();
 }
 
+static inline int
+vpn_server_restart_should_attempt_restore_shared_xl2tpd(int stop_attempted,
+							int dependency_read_status,
+							int wan_l2tp_enabled,
+							int vpnc_l2tp_enabled)
+{
+	return stop_attempted &&
+	       (dependency_read_status != 0 ||
+		wan_l2tp_enabled || vpnc_l2tp_enabled);
+}
+
 #endif /* VPN_SERVER_RESTART_POLICY_H */

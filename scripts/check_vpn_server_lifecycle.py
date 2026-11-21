@@ -933,6 +933,30 @@ require("vpn_server_route_netmask_status" in config_policy and
         "test_route_netmask_validation" in config_policy_test,
         "VPN remote-LAN ACL mask validation needs unit regression")
 
+shared_dependency_reader=body(vpn,"vpn_server_read_shared_xl2tpd_dependencies(int *wan_l2tp_enabled,")
+shared_restore=body(vpn,"restore_shared_xl2tpd_locked(const char *phase)")
+ordered(shared_dependency_reader,[
+    "nvram_transaction_begin(&transaction)",
+    '"l2tp_wan_t"',
+    '"l2tp_cli_t"',
+    "vpn_server_config_int_status",
+    "nvram_transaction_end(&transaction)"
+],"VPN shared xl2tpd dependency snapshot")
+ordered(shared_restore,[
+    "if (!xl2tpd_stop_attempted_vpns)",
+    "vpn_server_read_shared_xl2tpd_dependencies(",
+    "vpn_server_restart_should_attempt_restore_shared_xl2tpd(",
+    "safe_start_xl2tpd_locked()",
+    "if (dependency_status != 0)",
+    "return -1"
+],"VPN shared xl2tpd fail-safe restoration")
+require("nvram_match(\"l2tp_wan_t\"" not in shared_restore and
+        "nvram_match(\"l2tp_cli_t\"" not in shared_restore,
+        "VPN shared xl2tpd restoration must not treat NVRAM read errors as disabled dependencies")
+require("test_shared_xl2tpd_restore_is_attempted_when_dependency_read_fails" in restart_policy_test and
+        "vpn_server_restart_should_attempt_restore_shared_xl2tpd" in restart_policy_test,
+        "VPN shared xl2tpd read-error restoration regression missing")
+
 print("VPN server lifecycle, identity-bound OpenVPN stop and callback source contract: PASS")
 
 # The bcrelay presence policy and its shared scanner are VPN callback dependencies.

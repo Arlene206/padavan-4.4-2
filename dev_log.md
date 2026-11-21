@@ -1,3 +1,13 @@
+## 2026-11-21 — Restore possibly shared xl2tpd when dependency state is unreadable
+
+- Parent main SHA: `d784825ba2ded79d11f50bdbef08ebc1a71fd83f`.
+- `restore_shared_xl2tpd_locked()` used two `nvram_match()` calls to decide whether WAN-L2TP or VPN-client-L2TP still depended on the shared daemon. Those compatibility checks collapse backend failure into false; if the VPN stop path had already stopped xl2tpd, a transient NVRAM error could therefore skip restoration and leave an independent L2TP service offline.
+- Added a checked transaction snapshot for both dependency flags. When the snapshot succeeds, behavior is unchanged. When dependency state is unreadable after a stop attempt, restoration is attempted conservatively and the original read error is still logged/returned so the caller does not mistake the restart for fully verified success.
+- Added policy tests for restore-on-read-error and source contracts enforcing transaction read, restore attempt and failure propagation.
+- Exact d784 VPN lifecycle #44934107678 and AI handoff #44934107735 passed. Exact f08 HTTPD, Process, Firewall, OpenVPN and Process-lifecycle workflows passed; NVRAM #44933990196 and XY-C1 #44933990161 were pending at last poll. Exact checks for this new source slice are pending.
+
+---
+
 ## 2026-11-21 — Update VPN route source contract after transactional ACL snapshot
 
 - Parent main SHA: `f08c69de6f8a44c6bc623b62da09fe06b6723ba5`.

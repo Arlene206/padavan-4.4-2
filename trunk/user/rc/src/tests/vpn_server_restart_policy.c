@@ -158,11 +158,20 @@ test_client_restart_restores_shared_xl2tpd_after_incomplete_stop(void)
     assert(!vpn_client_restart_should_restore_shared_xl2tpd(1, 0, 0));
 }
 
+static void
+test_shared_xl2tpd_restore_is_attempted_when_dependency_read_fails(void)
+{
+	assert(vpn_server_restart_should_attempt_restore_shared_xl2tpd(1, EIO, 0, 0));
+	assert(vpn_server_restart_should_attempt_restore_shared_xl2tpd(1, -1, 0, 0));
+	assert(!vpn_server_restart_should_attempt_restore_shared_xl2tpd(0, EIO, 0, 0));
+}
+
 int
 main(void)
 {
     test_success_stays_success();
     test_shared_xl2tpd_restoration_decision();
+    test_shared_xl2tpd_restore_is_attempted_when_dependency_read_fails();
     test_client_restart_restores_shared_xl2tpd_after_incomplete_stop();
     test_start_failure_is_returned();
     test_restore_failure_is_returned_when_start_succeeded();

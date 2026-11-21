@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Latest main source checkpoint before remote-LAN ACL source-contract correction: `f08c69de6f8a44c6bc623b62da09fe06b6723ba5` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest main source checkpoint before conservative shared-xl2tpd restoration: `d784825ba2ded79d11f50bdbef08ebc1a71fd83f` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 
@@ -35,7 +35,12 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - Exact f08 VPN lifecycle #44933990171 FAILED at the pre-existing remote-LAN callback contract because it still expected the old compatibility-getter source form; all compiled VPN policy/sanitizer tests passed. The implementation now snapshots ACL state before route mutation, so the stale source contract is updated in this commit.
 
+- Shared `xl2tpd` restoration after VPN teardown now reads WAN-L2TP and VPN-client-L2TP dependencies inside one checked NVRAM transaction. If the read succeeds and neither dependency is enabled, restoration remains skipped. If the read fails after the daemon may have been stopped, startup is attempted conservatively and the read failure is still returned/logged, avoiding silently leaving a potentially shared transport offline.
+
 ## Verification boundary
+
+- Exact d784 VPN lifecycle #44934107678 and AI docs #44934107735 PASS. Exact f08 HTTPD, Process, Firewall, OpenVPN and Process-lifecycle workflows PASS; NVRAM #44933990196 and XY-C1 #44933990161 were still in progress at last poll.
+
 
 - Exact f08 VPN lifecycle #44933990171 FAILED only at the stale remote-LAN source contract; all compiled C policy/sanitizer steps PASS. Updated here to assert transactional snapshot-before-route-mutation. XY-C1 #44933990161 and NVRAM audit #44933990196 were still in progress at last poll.
 
@@ -63,6 +68,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle and NVRAM transaction audit after updating the remote-LAN source contract. Verify every C regression step, then check XY-C1 Build/TRX/artifact for the same product-source SHA.
-2. Continue reviewing remote-LAN ACL callback behavior with a focused fixture if a test seam is available; verify backend failures return before route_add/route_del and no partial snapshot escapes.
-3. Audit remaining VPN route/firewall and hostname inputs for unchecked NVRAM access. Do not reopen the completed PPP, CHAP or pool work absent a failing regression.
+1. Check exact-head VPN lifecycle, AI docs and XY-C1 Actions for the shared-xl2tpd restoration slice; confirm the new failure-injection decision tests and the actual source contract.
+2. Check the outstanding f08 XY-C1 Build/TRX/artifact result. If still pending, proceed with other code review rather than waiting.
+3. Audit remaining VPN service-state getters and shutdown/restore call paths for conservative behavior on checked-read failures; do not reopen route ACL, CHAP, pool or PPP snapshot changes without regression evidence.

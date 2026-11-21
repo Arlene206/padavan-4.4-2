@@ -833,21 +833,96 @@ stop_vpn_server(void)
 }
 
 static int
+vpn_server_read_shared_xl2tpd_dependencies(int *wan_l2tp_enabled,
+					   int *vpnc_l2tp_enabled)
+{
+	struct nvram_transaction transaction;
+	char *value = NULL;
+	int read_status, read_errno, status;
+	int wan_enabled = 0, vpnc_enabled = 0;
+	int result = -1, saved_errno = 0, end_status;
+
+	if (!wan_l2tp_enabled || !vpnc_l2tp_enabled) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	errno = 0;
+	read_status = nvram_transaction_get(&transaction, "l2tp_wan_t", &value);
+	read_errno = errno;
+	status = vpn_server_config_int_status(read_status, read_errno,
+					      value, 0, 0, 1, &wan_enabled);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+
+	value = NULL;
+	errno = 0;
+	read_status = nvram_transaction_get(&transaction, "l2tp_cli_t", &value);
+	read_errno = errno;
+	status = vpn_server_config_int_status(read_status, read_errno,
+					      value, 0, 0, 1, &vpnc_enabled);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+
+	*wan_l2tp_enabled = wan_enabled;
+	*vpnc_l2tp_enabled = vpnc_enabled;
+	return 0;
+}
+
+static int
 restore_shared_xl2tpd_locked(const char *phase)
 {
+	int dependency_status, saved_errno = 0;
+	int wan_l2tp_enabled = 0, vpnc_l2tp_enabled = 0;
 	int restore_status;
 
-	if (!vpn_server_restart_should_restore_shared_xl2tpd(
-		    xl2tpd_stop_attempted_vpns,
-		    nvram_match("l2tp_wan_t", "1"),
-		    nvram_match("l2tp_cli_t", "1")))
+	if (!xl2tpd_stop_attempted_vpns)
 		return 0;
 
+	dependency_status = vpn_server_read_shared_xl2tpd_dependencies(
+		&wan_l2tp_enabled, &vpnc_l2tp_enabled);
+	if (dependency_status != 0)
+		saved_errno = errno ? errno : EIO;
+
+	if (!vpn_server_restart_should_attempt_restore_shared_xl2tpd(
+		    xl2tpd_stop_attempted_vpns, dependency_status,
+		    wan_l2tp_enabled, vpnc_l2tp_enabled))
+		return 0;
+
+	/* If dependency state is unreadable, restore rather than leave a potentially
+	 * shared transport down; still report the configuration-read failure. */
 	restore_status = safe_start_xl2tpd_locked();
 	if (restore_status < 0)
 		logmessage(VPNS_LOG_NAME,
 			   "cannot restore shared xl2tpd daemon %s (status=%d, errno=%d)",
 			   phase, restore_status, errno ? errno : EIO);
+	if (dependency_status != 0) {
+		logmessage(VPNS_LOG_NAME,
+			   "cannot verify shared xl2tpd dependencies %s; restoration was attempted (errno=%d)",
+			   phase, saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 	return restore_status < 0 ? restore_status : 0;
 }
 
