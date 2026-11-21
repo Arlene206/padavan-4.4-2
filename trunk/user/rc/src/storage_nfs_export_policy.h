@@ -309,6 +309,27 @@ storage_nfs_export_may_publish(int enabled, int read_error, int close_error,
 }
 
 static int
+storage_nfs_enabled_status(int api_result, int saved_errno,
+			   const char *value, int *enabled)
+{
+	if (!enabled)
+		return EINVAL;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0) {
+		if (value)
+			return EIO;
+		*enabled = 0;
+		return 0;
+	}
+	if (api_result != 1 || !value)
+		return EIO;
+
+	*enabled = strcmp(value, "1") == 0;
+	return 0;
+}
+
+static int
 storage_nfs_export_may_start(int enabled, int export_status)
 {
 	return enabled && export_status == 0;

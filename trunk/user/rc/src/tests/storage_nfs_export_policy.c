@@ -189,6 +189,33 @@ main(void)
 	assert(!storage_nfs_export_may_start(0, 0));
 	assert(!storage_nfs_export_may_start(1, -1));
 
+	/* Checked NVRAM keeps a missing key disabled but never masks a backend error. */
+	{
+		int enabled = 77;
+
+		assert(storage_nfs_enabled_status(1, 0, "1", &enabled) == 0);
+		assert(enabled == 1);
+		assert(storage_nfs_enabled_status(1, 0, "0", &enabled) == 0);
+		assert(enabled == 0);
+		assert(storage_nfs_enabled_status(1, 0, "", &enabled) == 0);
+		assert(enabled == 0);
+		assert(storage_nfs_enabled_status(0, 0, NULL, &enabled) == 0);
+		assert(enabled == 0);
+
+		enabled = 77;
+		assert(storage_nfs_enabled_status(-1, EACCES, NULL, &enabled) == EACCES);
+		assert(enabled == 77);
+		assert(storage_nfs_enabled_status(-1, 0, NULL, &enabled) == EIO);
+		assert(enabled == 77);
+		assert(storage_nfs_enabled_status(0, 0, "1", &enabled) == EIO);
+		assert(enabled == 77);
+		assert(storage_nfs_enabled_status(1, 0, NULL, &enabled) == EIO);
+		assert(enabled == 77);
+		assert(storage_nfs_enabled_status(2, 0, "1", &enabled) == EIO);
+		assert(enabled == 77);
+		assert(storage_nfs_enabled_status(1, 0, "1", NULL) == EINVAL);
+	}
+
 	/* RC callers must observe export-generation and daemon-start failures. */
 	assert(storage_nfs_start_status(0, 0) == 0);
 	assert(storage_nfs_start_status(-1, 0) == -1);

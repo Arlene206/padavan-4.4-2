@@ -39,6 +39,7 @@
 #include <disk_share.h>
 
 #include "rc.h"
+#include "nvram_linux.h"
 #include "service_start_status.h"
 #include "modem_wan_start_policy.h"
 #include "process_inventory.h"
@@ -117,6 +118,14 @@ static int
 storage_has_mounted_devices(const char *operation)
 {
 	int mount_count;
+
+	config_status = nfsd_enabled_config_read(&nfsd_enabled);
+	if (config_status != 0) {
+		logmessage("Storage",
+			   "NFS restart aborted before stop because enable configuration is unreadable");
+		file_unlock(storage_lock);
+		return -1;
+	}
 
 	mount_count = count_stor_mountpoint();
 	if (!storage_mount_inventory_is_complete(mount_count)) {
@@ -1956,12 +1965,34 @@ int stop_nfsd(void)
 }
 
 static int
-run_nfsd_locked(void)
+nfsd_enabled_config_read(int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!enabled)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_get_checked("nfsd_enable", &value);
+	saved_errno = errno;
+	status = storage_nfs_enabled_status(api_result, saved_errno,
+					    value, enabled);
+	if (status != 0) {
+		logmessage("Storage",
+			   "cannot read NFS enable configuration; preserving current daemon state (errno %d)",
+			   status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
+run_nfsd_enabled_locked(int enabled)
 {
 	int export_status;
 	int command_status = -1;
 
-	if (nvram_invmatch("nfsd_enable", "1"))
+	if (!enabled)
 		return 0;
 
 	export_status = write_nfsd_exports();
@@ -1975,6 +2006,17 @@ run_nfsd_locked(void)
 		logmessage("Storage", "NFS daemon start failed (status %d)", command_status);
 
 	return storage_nfs_start_status(export_status, command_status);
+}
+
+static int
+run_nfsd_locked(void)
+{
+	int enabled, config_status;
+
+	config_status = nfsd_enabled_config_read(&enabled);
+	if (config_status != 0)
+		return -1;
+	return run_nfsd_enabled_locked(enabled);
 }
 
 int
@@ -1994,12 +2036,12 @@ run_nfsd(void)
 }
 
 static int
-reload_nfsd_locked(void)
+reload_nfsd_enabled_locked(int enabled)
 {
 	int export_status;
 	int command_status;
 
-	if (nvram_invmatch("nfsd_enable", "1"))
+	if (!enabled)
 		return 0;
 
 	export_status = write_nfsd_exports();
@@ -2013,6 +2055,17 @@ reload_nfsd_locked(void)
 		logmessage("Storage", "NFS daemon reload failed (status %d)", command_status);
 
 	return command_status == 0 ? 0 : -1;
+}
+
+static int
+reload_nfsd_locked(void)
+{
+	int enabled, config_status;
+
+	config_status = nfsd_enabled_config_read(&enabled);
+	if (config_status != 0)
+		return -1;
+	return reload_nfsd_enabled_locked(enabled);
 }
 
 int
@@ -2034,6 +2087,7 @@ reload_nfsd(void)
 int restart_nfsd(void)
 {
 	int storage_lock, mount_count, status;
+	int nfsd_enabled, config_status;
 
 	/* Serialize inventory, stop and restart with safe storage removal. */
 	storage_lock = storage_operation_lock_acquire(file_lock);
@@ -2056,8 +2110,7 @@ int restart_nfsd(void)
 		return -1;
 	}
 
-	if (nvram_match("nfsd_enable", "1") &&
-	    storage_mount_inventory_has_mounts(mount_count)) {
+	if (nfsd_enabled && storage_mount_inventory_has_mounts(mount_count)) {
 		if (service_wait_seconds(1) != 0) {
 			status = errno > 0 ? errno : EIO;
 			logmessage("Storage", "NFS restart settling wait failed (status %d); refusing restart",
@@ -2065,7 +2118,7 @@ int restart_nfsd(void)
 			/* PID 1 only treats negative action_result as failure. */
 			status = service_wait_failure_status(status);
 		} else {
-			status = run_nfsd_locked();
+			status = run_nfsd_enabled_locked(nfsd_enabled);
 		}
 	} else {
 		unload_nfsd();

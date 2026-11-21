@@ -167,11 +167,21 @@ jobs:
           assert stop_nfsd.index("storage_operation_lock_acquire") < stop_nfsd.index("stop_nfsd_locked()")
           assert "file_unlock(storage_lock)" in stop_nfsd
 
+          enable_read = function_body(service, "nfsd_enabled_config_read(int *enabled)")
+          assert 'nvram_get_checked("nfsd_enable", &value)' in enable_read
+          assert "storage_nfs_enabled_status(api_result, saved_errno" in enable_read
+          run_enabled = function_body(service, "run_nfsd_enabled_locked(int enabled)")
+          assert "if (!enabled)" in run_enabled
+          assert 'command_status = eval("/usr/bin/nfsd.sh", "start");' in run_enabled
+          assert "if (command_status != 0)" in run_enabled
+          assert 'NFS daemon start failed (status %d)' in run_enabled
+          assert run_enabled.count("return storage_nfs_start_status(export_status, command_status);") == 2
           run_nfsd_locked = function_body(service, "run_nfsd_locked(void)")
-          assert 'command_status = eval("/usr/bin/nfsd.sh", "start");' in run_nfsd_locked
-          assert "if (command_status != 0)" in run_nfsd_locked
-          assert 'NFS daemon start failed (status %d)' in run_nfsd_locked
-          assert run_nfsd_locked.count("return storage_nfs_start_status(export_status, command_status);") == 2
+          assert run_nfsd_locked.index("nfsd_enabled_config_read(&enabled)") < run_nfsd_locked.index("run_nfsd_enabled_locked(enabled)")
+          assert 'nvram_invmatch("nfsd_enable", "1")' not in run_nfsd_locked
+          assert "storage_nfs_enabled_status" in policy
+          assert "storage_nfs_enabled_status(-1, EACCES, NULL, &enabled)" in policy_test
+          assert "storage_nfs_enabled_status(0, 0, NULL, &enabled)" in policy_test
           run_nfsd = function_body(service, "run_nfsd(void)")
           assert "storage_operation_lock_acquire(file_lock)" in run_nfsd
           assert run_nfsd.index("storage_operation_lock_acquire") < run_nfsd.index("run_nfsd_locked()")
@@ -179,10 +189,14 @@ jobs:
           start_status = function_body(policy, "storage_nfs_start_status(")
           assert "export_status == 0 && command_status == 0" in start_status
 
+          reload_enabled = function_body(service, "reload_nfsd_enabled_locked(int enabled)")
+          assert "if (!enabled)" in reload_enabled
+          assert 'command_status = eval("/usr/bin/nfsd.sh", "reload");' in reload_enabled
+          assert "if (command_status != 0)" in reload_enabled
+          assert 'NFS daemon reload failed (status %d)' in reload_enabled
           reload_nfsd_locked = function_body(service, "reload_nfsd_locked(void)")
-          assert 'command_status = eval("/usr/bin/nfsd.sh", "reload");' in reload_nfsd_locked
-          assert "if (command_status != 0)" in reload_nfsd_locked
-          assert 'NFS daemon reload failed (status %d)' in reload_nfsd_locked
+          assert reload_nfsd_locked.index("nfsd_enabled_config_read(&enabled)") < reload_nfsd_locked.index("reload_nfsd_enabled_locked(enabled)")
+          assert 'nvram_invmatch("nfsd_enable", "1")' not in reload_nfsd_locked
           reload_nfsd = function_body(service, "reload_nfsd(void)")
           assert "storage_operation_lock_acquire(file_lock)" in reload_nfsd
           assert reload_nfsd.index("storage_operation_lock_acquire") < reload_nfsd.index("reload_nfsd_locked()")
@@ -196,9 +210,11 @@ jobs:
           assert "status = service_wait_failure_status(status);" in restart_nfsd
           assert "service_wait_seconds_with(unsigned int seconds" in service_wait
           assert "storage_operation_lock_acquire(file_lock)" in restart_nfsd
-          assert restart_nfsd.index("storage_operation_lock_acquire") < restart_nfsd.index("count_stor_mountpoint()")
-          assert "stop_nfsd_locked()" in restart_nfsd
-          assert "run_nfsd_locked()" in restart_nfsd
+          assert restart_nfsd.index("storage_operation_lock_acquire") < restart_nfsd.index("nfsd_enabled_config_read(&nfsd_enabled)")
+          assert restart_nfsd.index("nfsd_enabled_config_read(&nfsd_enabled)") < restart_nfsd.index("count_stor_mountpoint()")
+          assert restart_nfsd.index("nfsd_enabled_config_read(&nfsd_enabled)") < restart_nfsd.index("stop_nfsd_locked()")
+          assert "run_nfsd_enabled_locked(nfsd_enabled)" in restart_nfsd
+          assert 'nvram_match("nfsd_enable", "1")' not in restart_nfsd
           assert "file_unlock(storage_lock)" in restart_nfsd
           assert "int run_nfsd(void);" in rc_header
           assert "void run_nfsd(void);" not in rc_header

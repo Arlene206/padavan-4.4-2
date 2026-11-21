@@ -1,3 +1,14 @@
+## 2026-11-21 — Preserve NFS daemon state when enable NVRAM read fails
+
+- Parent main SHA: `0b0df9fd43ab9d674ed4a55d1d6c52857cca7c61`.
+- NFS start/reload used `nvram_invmatch("nfsd_enable", "1")`; restart used `nvram_match()` only after stopping the running server. Since those wrappers collapse backend errors into a non-match, start/reload could report success without acting and restart could stop NFS then unload its modules during a transient NVRAM failure.
+- Added exact-match checked NVRAM policy for legacy `nfsd_enable == "1"` semantics (missing remains disabled; backend/inconsistent results return errno without overwriting the output). Start/reload use the checked decision; restart reads it before the first stop side effect, then reuses the validated state through its locked start path.
+- Added GNU89/Werror cases for enabled, disabled, missing, backend failure, inconsistent API results and output preservation. NFS workflow source assertions now require read-before-stop and reject legacy unchecked checks.
+- MiniUPnP lifecycle #44903303300, AI handoff #44903303195, Samba #44903303343, WAN route #44903303205, DNSMasq #44903303199, Inadyn #44903303186, HTTPD #44903303211 and Process #44903303308/#44903303227 PASS on `0b0df9fd43ab9d674ed4a55d1d6c52857cca7c61`. XY-C1 #44903303317 and NVRAM audit #44903303263 were still IN_PROGRESS. NFS exact-head checks pending. No local MIPS build or hardware L4 is claimed.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Keep MiniUPnP running when service-policy NVRAM reads fail
 
 - Parent main SHA: `f99d7a43be07851f39b0773b62d91aa29fc05235`.
