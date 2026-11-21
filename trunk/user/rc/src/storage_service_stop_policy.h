@@ -13,6 +13,13 @@ storage_service_stop_complete(int command_status, int daemon_running)
 }
 
 
+/* A fresh failed launch is still considered active unless absence is proven. */
+static inline int
+storage_service_failed_start_may_leave_daemon(int process_state)
+{
+	return process_state != 0; /* PROCESS_PRESENCE_ABSENT */
+}
+
 /* UNKNOWN before/after requires conservative firewall reconciliation. */
 static inline int
 storage_service_process_presence_changed(int before, int after)

@@ -815,6 +815,27 @@ jobs:
               daemon_start = function_body(storage, signature)
               assert "return storage_log_daemon_start_result(" in daemon_start
               assert "return errno ? errno : EIO;" in daemon_start
+          rollback = function_body(storage, "storage_rollback_failed_start(")
+          assert "stop_status = stop_daemon();" in rollback
+          assert 'presence = process_inventory_scan(daemon, &snapshot);' in rollback
+          assert "storage_service_failed_start_may_leave_daemon(presence)" in rollback
+          assert "errno = start_errno > 0 ? start_errno : EIO;" in rollback
+          for signature, daemon, stopper in (
+              ("run_dms(int force_rescan)", "minidlna", "stop_dms_locked"),
+              ("run_itunes(void)", "mt-daapd", "stop_itunes_locked"),
+              ("run_torrent(void)", "transmission-daemon", "stop_torrent_locked"),
+              ("run_aria(void)", "aria2c", "stop_aria_locked"),
+          ):
+              daemon_start = function_body(storage, signature)
+              assert "errno = 0;" in daemon_start
+              assert "storage_rollback_failed_start(" in daemon_start
+              assert f'"{daemon}"' in daemon_start
+              assert stopper in daemon_start
+              assert "start_status != 0" in daemon_start
+              assert daemon_start.index("launch_status =") < daemon_start.index("process_state =")
+              assert daemon_start.index("process_state =") < daemon_start.index("storage_rollback_failed_start(")
+          assert "storage_service_failed_start_may_leave_daemon(0)" in storage_stop_test
+          assert "storage_service_failed_start_may_leave_daemon(-1)" in storage_stop_test
           daemon_result = function_body(storage, "storage_log_daemon_start_result(")
           assert "status = rc_first_service_start_status(status, ENOENT);" in daemon_result
           assert "status = rc_first_service_start_status(status, process_status);" in daemon_result

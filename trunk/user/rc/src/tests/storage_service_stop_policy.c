@@ -29,6 +29,12 @@ check_merged_status(const char *name, int current_status, int next_status, int e
 int
 main(void)
 {
+	if (!storage_service_failed_start_may_leave_daemon(0) ||
+	    !storage_service_failed_start_may_leave_daemon(1) ||
+	    !storage_service_failed_start_may_leave_daemon(-1) ||
+	    !storage_service_failed_start_may_leave_daemon(9))
+		return 1;
+
 	if (check_case("successful stop", 0, 0, 0) ||
 	    check_case("command failure", 1, 0, -1) ||
 	    check_case("daemon remains", 0, 1, -1) ||

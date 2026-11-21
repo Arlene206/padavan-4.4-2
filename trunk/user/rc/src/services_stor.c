@@ -169,7 +169,10 @@ storage_log_daemon_start_result(const char *apps_name, int launch_status,
 		logmessage(apps_name, "launch command failed (status=%d)", launch_status);
 
 	if (process_state == PROCESS_PRESENCE_RUNNING) {
-		logmessage(apps_name, "daemon is started");
+		if (launch_status == 0)
+			logmessage(apps_name, "daemon is started");
+		else
+			logmessage(apps_name, "daemon appeared despite a failed launch command; rolling back fresh start");
 	} else if (process_state == PROCESS_PRESENCE_ABSENT) {
 		logmessage(apps_name, "daemon is absent in post-launch process inventory");
 		status = rc_first_service_start_status(status, ENOENT);
@@ -2254,12 +2257,53 @@ int update_minidlna_conf(const char *link_path, const char *conf_path)
 	return status;
 }
 
+/*
+ * Every caller below runs under storage.lock (integrated hotplug startup or
+ * a restart wrapper). A failed fresh launch must not leave an untracked
+ * daemon behind; the stop callback is service-specific and re-inventory is
+ * authoritative. Existing daemons are rejected before the launch point.
+ */
+static int stop_itunes_locked(void);
+static int stop_torrent_locked(void);
+static int stop_aria_locked(void);
+
+static int
+storage_rollback_failed_start(const char *apps_name, const char *daemon,
+			      int start_status, int start_errno,
+			      int (*stop_daemon)(void))
+{
+	int stop_status;
+	int scan_error;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	memset(&snapshot, 0, sizeof(snapshot));
+	stop_status = stop_daemon();
+	presence = process_inventory_scan(daemon, &snapshot);
+	scan_error = snapshot.error;
+	if (storage_service_failed_start_may_leave_daemon(presence)) {
+		logmessage(apps_name,
+			   "%s may remain active after failed start (rollback_status=%d, state=%d, scan_error=%d)",
+			   daemon, stop_status, presence, scan_error);
+	} else if (stop_status != 0) {
+		logmessage(apps_name,
+			   "%s is absent after failed-start rollback but stop reported status=%d",
+			   daemon, stop_status);
+	}
+	process_snapshot_release(&snapshot);
+	errno = start_errno > 0 ? start_errno : EIO;
+	return start_status;
+}
+
 int run_dms(int force_rescan)
 {
 	int db_rescan_mode;
 	int process_state;
 	int config_status;
 	int launch_status;
+	int launch_errno;
+	int start_status;
+	int start_errno;
 	int link_status;
 	unsigned char mac_bin[ETHER_ADDR_LEN] = {0};
 	char mac_str[16];
@@ -2315,10 +2359,22 @@ int run_dms(int force_rescan)
 	else if (db_rescan_mode == 1)
 		minidlna_argv[5] = "-U";
 
+	errno = 0;
 	launch_status = _eval(minidlna_argv, NULL, 0, NULL);
+	launch_errno = errno;
+	errno = 0;
 	process_state = is_dms_run();
-	return storage_log_daemon_start_result(apps_name, launch_status,
-						(enum process_presence)process_state);
+	start_status = storage_log_daemon_start_result(
+		apps_name, launch_status, (enum process_presence)process_state);
+	if (start_status != 0) {
+		start_errno = launch_status != 0 ?
+			(launch_errno ? launch_errno : EIO) :
+			(errno ? errno : start_status);
+		return storage_rollback_failed_start(
+			apps_name, "minidlna", start_status, start_errno,
+			stop_dms_locked);
+	}
+	return 0;
 }
 
 int restart_dms(int force_rescan)
@@ -2430,6 +2486,9 @@ int run_itunes(void)
 	char conf_new[64], conf_old[64];
 	int process_state;
 	int launch_status;
+	int launch_errno;
+	int start_status;
+	int start_errno;
 	int config_status;
 	int path_length;
 	int link_status;
@@ -2488,10 +2547,22 @@ int run_itunes(void)
 		return config_status;
 	}
 
+	errno = 0;
 	launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);
+	launch_errno = errno;
+	errno = 0;
 	process_state = is_itunes_run();
-	return storage_log_daemon_start_result(apps_name, launch_status,
-						(enum process_presence)process_state);
+	start_status = storage_log_daemon_start_result(
+		apps_name, launch_status, (enum process_presence)process_state);
+	if (start_status != 0) {
+		start_errno = launch_status != 0 ?
+			(launch_errno ? launch_errno : EIO) :
+			(errno ? errno : start_status);
+		return storage_rollback_failed_start(
+			apps_name, "mt-daapd", start_status, start_errno,
+			stop_itunes_locked);
+	}
+	return 0;
 }
 
 int restart_itunes(void)
@@ -2595,6 +2666,9 @@ int run_torrent(void)
 	char *dest_dir = "transmission";
 	int process_state;
 	int launch_status;
+	int launch_errno;
+	int start_status;
+	int start_errno;
 	int link_status;
 
 	if (!nvram_match("trmd_enable", "1"))
@@ -2619,10 +2693,22 @@ int run_torrent(void)
 		return link_status;
 	}
 
+	errno = 0;
 	launch_status = eval("/usr/bin/transmission.sh", "start");
+	launch_errno = errno;
+	errno = 0;
 	process_state = is_torrent_run();
-	return storage_log_daemon_start_result(apps_name, launch_status,
-						(enum process_presence)process_state);
+	start_status = storage_log_daemon_start_result(
+		apps_name, launch_status, (enum process_presence)process_state);
+	if (start_status != 0) {
+		start_errno = launch_status != 0 ?
+			(launch_errno ? launch_errno : EIO) :
+			(errno ? errno : start_status);
+		return storage_rollback_failed_start(
+			apps_name, "transmission-daemon", start_status, start_errno,
+			stop_torrent_locked);
+	}
+	return 0;
 }
 
 int restart_torrent(void)
@@ -2737,6 +2823,9 @@ int run_aria(void)
 	char *dest_dir = "aria";
 	int process_state;
 	int launch_status;
+	int launch_errno;
+	int start_status;
+	int start_errno;
 	int link_status;
 
 	if (!nvram_match("aria_enable", "1"))
@@ -2761,10 +2850,22 @@ int run_aria(void)
 		return link_status;
 	}
 
+	errno = 0;
 	launch_status = eval("/usr/bin/aria.sh", "start");
+	launch_errno = errno;
+	errno = 0;
 	process_state = is_aria_run();
-	return storage_log_daemon_start_result(apps_name, launch_status,
-						(enum process_presence)process_state);
+	start_status = storage_log_daemon_start_result(
+		apps_name, launch_status, (enum process_presence)process_state);
+	if (start_status != 0) {
+		start_errno = launch_status != 0 ?
+			(launch_errno ? launch_errno : EIO) :
+			(errno ? errno : start_status);
+		return storage_rollback_failed_start(
+			apps_name, "aria2c", start_status, start_errno,
+			stop_aria_locked);
+	}
+	return 0;
 }
 
 int restart_aria(void)
