@@ -14,10 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Product-source SHA: `bc3cceebfcc4423d03acd30a5604e01c63b13419`; Samba enable and WINS gates use checked NVRAM status and fail closed. The GNU89 policy unit binary PASSed.
-- Samba source-contract run #44917017193 on docs child `90de7e3` failed at WINS call assertions due to production line wrapping. Both start and selective-stop call contracts now normalize whitespace. No production code changed in THIS checker-only correction.
-- XY-C1 #44916836560 on `bc3cceeb`: `in_progress/pending`; NVRAM audit #44916836473: `completed/success`. Keep L3 unverified until Build XY-C1 + TRX + artifact upload pass on the same product-source SHA.
-- AI handoff #44917017123 was in progress on parent `90de7e3`; a new exact-head docs run is expected after THIS COMMIT.
+- Product-source SHA `bc3cceebfcc4423d03acd30a5604e01c63b13419` contains fail-closed Samba runtime/WINS reads and passed the GNU89 policy binary in Samba regression.
+- Samba checker #44917175074 failed on a stale assertion requiring unchecked `nvram_match()` in `restart_smbd()`; updated to require the checked runtime enable read and absence of unchecked matches.
+- USB storage hotplug #44916836630 exposed a stale generic restart assertion for SCUT: source correctly uses `start_scutclient_with_mode(enabled)` (and the corresponding MentoHUST mode helper) after checking stop status. Updated the checker and made stop-before-start ordering explicit.
+- XY-C1 #44916836560 status `in_progress/pending`; NVRAM audit #44916836473 `completed/success`; AI handoff #44917017123 `completed/success`. L3 remains NOT VERIFIED until Build/TRX/artifact pass together.
 
 
 ## Active task

@@ -1,3 +1,12 @@
+## 2026-11-21 — Align Samba restart and optional-daemon mode source contracts
+
+- Parent main SHA: `b0a6a07f6bbb533867a300603d1c1a379e2ea4be`.
+- Samba #44917175074 passed its earlier NVRAM reader and WINS checks, then failed at a legacy source assertion expecting `restart_smbd()` to recompute `samba_enabled` with unchecked `nvram_match()`. The runtime flag is now read once, checked and used before any stop; updated the stale assertion to require that safe path.
+- USB storage hotplug #44916836630 failed its generic manual restart check for `scutclient`: production `restart_scutclient()` correctly checks mode, propagates a failed stop, then calls `start_scutclient_with_mode(enabled)` to avoid a second unchecked read. The contract now recognizes the mode-preserving helper for both SCUT and MentoHUST and explicitly checks stop-failure ordering.
+- Product-source XY-C1 #44916836560: `in_progress/pending`; NVRAM audit #44916836473: `completed/success`; AI docs #44917017123: `completed/success`. No L3 claim until same-SHA build, TRX and artifact succeed.
+
+---
+
 ## 2026-11-21 — Normalize multiline WINS flag call contracts
 
 - Parent main SHA: `90de7e3f2ea3d246738ccabc9148810c1104b45d`.

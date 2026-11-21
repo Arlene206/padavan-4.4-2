@@ -737,7 +737,15 @@ require("int stop_frp(void);" in rc_header,
 for name in ("scutclient", "mentohust", "ttyd", "ss", "ss_tunnel",
              "vlmcsd", "iperf3", "sqm", "aldriver", "wireguard"):
     restart_body = body(services, "int restart_" + name + "(void)")
-    require("int stop_status = stop_" + name + "();" in restart_body and "return stop_status;" in restart_body and "start_" + name + "();" in restart_body,
+    start_call = "start_" + name + "();"
+    if name in ("scutclient", "mentohust"):
+        # These wrappers preserve a previously checked startup mode instead
+        # of re-reading NVRAM after a successful stop.
+        start_call = "return start_" + name + "_with_mode(enabled);"
+    require("int stop_status = stop_" + name + "();" in restart_body and
+            "if (stop_status != 0)" in restart_body and
+            "return stop_status;" in restart_body and start_call in restart_body and
+            restart_body.index("return stop_status;") < restart_body.index(start_call),
             "manual stop/start wrapper must not launch after failed stop: " + name)
 
 # SmartDNS holds one shell-level lock across its entire restart transaction;

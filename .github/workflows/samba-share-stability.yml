@@ -474,7 +474,8 @@ jobs:
           assert "SAMBA_STORAGE_RESTART_ACTION_ABORT" in restart_smbd
           assert "SAMBA_STORAGE_RESTART_ACTION_START_SAMBA" in restart_smbd
           assert "SAMBA_STORAGE_RESTART_ACTION_START_WINS" in restart_smbd
-          assert 'samba_enabled = !(nvram_match("enable_samba", "0")' in restart_smbd
+          assert "samba_read_runtime_enabled_status(&samba_enabled)" in restart_smbd
+          assert "nvram_match(" not in restart_smbd
           assert "if (mount_status > 0)" not in restart_smbd
           assert "samba_status = start_wins()" in restart_smbd
 
