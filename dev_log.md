@@ -1,3 +1,12 @@
+## 2026-11-21 — Align deferred reconnect checker with watchdog rollback contract
+
+- Parent main SHA: `2c0f9ce2b316798109289cdabcdcb20c1d22c21d`.
+- Exact-head WAN route run `#44894284811` passed the earlier network sysctl and initial physical-MTU checks plus the policy binaries, then stopped at `Verify deferred WAN reconnect watchdog launch status`. Its checker required the literal `return launch_status;`, but production intentionally normalizes launcher failure and invokes `watchdog_rollback_failed_start(launch_status, launch_errno, "launcher")`; readiness timeout also runs through the same rollback path. This was a stale source expectation, not a missing production status return.
+- Updated the contract to require explicit unknown-inventory handling and the rollback helper on both launcher failure and readiness timeout. The checked deferred deadline and watchdog call ordering remains required.
+- Exact-head AI documentation run `#44894284801` PASS. New WAN/AI push Actions are the validation gate. No production source changed; current-source L3 and hardware L4 are not claimed.
+
+---
+
 ## 2026-11-21 — Correct MTU checker position space after checked-read migration
 
 - Parent main SHA: `751cb64ff459a1d5afebc836996dd43f810172f6`.

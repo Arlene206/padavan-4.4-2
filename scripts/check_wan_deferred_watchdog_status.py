@@ -90,9 +90,15 @@ require(
     "watchdog startup must have a status-returning public contract",
 )
 watchdog_start = body(WATCHDOG, "start_watchdog(void)")
-require("return launch_status;" in watchdog_start
-        and "PROCESS_PRESENCE_START_ABORT" in watchdog_start,
-        "watchdog launcher and unknown-presence errors must remain visible")
+watchdog_start_compact = "".join(watchdog_start.split())
+require(
+    "PROCESS_PRESENCE_START_ABORT" in watchdog_start
+    and 'returnwatchdog_rollback_failed_start(launch_status,launch_errno,"launcher");'
+    in watchdog_start_compact
+    and 'returnwatchdog_rollback_failed_start(-1,ETIMEDOUT,"readinesstimeout");'
+    in watchdog_start_compact,
+    "watchdog inventory, launcher and readiness failures must remain visible",
+)
 
 deferred_start = reconnect.index("if (pause_in_seconds > 0)")
 deferred = reconnect[deferred_start:]
