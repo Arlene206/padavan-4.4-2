@@ -51,7 +51,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 - L4: Hardware WAN routing, concurrent callback behavior and on-device HTTPD duplicate-header behavior remain NOT VERIFIED.
 
 
-- Exact-head shared-xl2tpd dependency-restoration commit 4037e24d6f7201988ec73c74a5cc6cc06b38684c: VPN lifecycle #44934344633, NVRAM audit #44934344659, AI docs #44934344688, HTTPD #44934344634, OpenVPN staging #44934344680, Process checks #44934344732/#44934344675, XY-C1 #44934344755 and Firewall #44934344637 were in progress at the last poll.
+- Exact-head callback-mode snapshot commit `6569fef7b8420d1d8b6adf51a3a3b6d069f9af86`: VPN lifecycle #44934446434 failed only at the stale shared-xl2tpd restore source contract; compiled VPN config, lifecycle lock, xl2tpd gate, L2TP atomic config, lease, restart, client NVRAM and PPP scalar regressions all passed. OpenVPN #44934446352, Firewall #44934446425 and AI docs #44934446376 passed. HTTPD #44934446395, Process inventory #44934446418/#44934446571, NVRAM audit #44934446421 and XY-C1 #44934446423 were pending at last poll. This checker-only commit updates the contract for `vpn_server_restart_should_attempt_restore_shared_xl2tpd()` and requires its read-error test; exact rerun required.
 
 ## Workflow and preservation rules
 
@@ -71,6 +71,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle, NVRAM transaction audit and XY-C1 runs for the callback-mode snapshot. Require Build, TRX verification and artifact upload all PASS on the same product-source SHA.
-2. Continue audit of VPN callback/route reads, especially OpenVPN callback mode and service shutdown/restore policy. Keep mandatory disconnect cleanup independent from optional configuration reads.
-3. Review residual hostname and DHCP-derived PPP option inputs for unchecked reads; do not reopen completed CHAP, pool, PPP options, remote-LAN ACL or shared-xl2tpd restoration without regression evidence.
+1. Inspect exact-head VPN lifecycle rerun for the shared-xl2tpd checker correction and poll the outstanding 6569 NVRAM, Process and XY-C1 workflows. Require Build, TRX verification and artifact upload all PASS on one product SHA.
+2. Continue with the callback-mode snapshot task: inspect all exact-run results and audit remaining VPN callbacks/hostname/DHCP-derived values for compatibility NVRAM reads. Keep down-side mandatory cleanup independent from optional relay logic.
+3. Do not reopen completed CHAP, address-pool, PPP options or remote-LAN ACL snapshots unless a same-SHA regression appears.

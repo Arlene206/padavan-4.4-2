@@ -1,3 +1,13 @@
+## 2026-11-21 — Align shared-xl2tpd lifecycle contract with fail-safe restoration
+
+- Parent main SHA: 6569fef7b8420d1d8b6adf51a3a3b6d069f9af86.
+- Exact VPN lifecycle #44934446434 passed all compiled VPN config, lifecycle-lock, xl2tpd, L2TP config, lease, restart, client NVRAM and PPP scalar regression steps, then failed in the existing Python source-contract assertion: it expected the former `vpn_server_restart_should_restore_shared_xl2tpd()` call and returned-success path. The current implementation uses the checked dependency snapshot and `vpn_server_restart_should_attempt_restore_shared_xl2tpd()`, and returns failure after a conservative restore attempt if the dependency read failed.
+- Updated the contract to assert dependency snapshot -> conservative restore decision -> start attempt -> read-error propagation, and explicitly require the corresponding policy helper and unit test. This is checker-only; production behavior and test strength are unchanged.
+- On exact 6569, OpenVPN #44934446352, Firewall #44934446425 and AI docs #44934446376 passed. HTTPD #44934446395, Process #44934446418/#44934446571, NVRAM #44934446421 and XY-C1 #44934446423 were pending at last poll. Exact VPN lifecycle rerun required.
+- L3 remains verified only on d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192; L4 hardware testing remains not verified.
+
+---
+
 ## 2026-11-21 — Snapshot VPN callback modes before connection side effects
 
 - Parent main SHA: 4037e24d6f7201988ec73c74a5cc6cc06b38684c.

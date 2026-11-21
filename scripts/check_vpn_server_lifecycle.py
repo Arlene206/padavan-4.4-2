@@ -373,8 +373,12 @@ ordered(t,["vpn_server_lifecycle_lock_acquire()","if (lock_fd < 0)","return -1;"
 require("kill_services_with_pidfiles(svcs, pidfile_paths, \"pppd\", 1, 5, 1)" in tp and "kill_pidfile_s" not in tp,"private stop helper must preflight all PPP clients before signaling")
 restore_helper=body(vpn,"restore_shared_xl2tpd_locked(const char *phase)")
 ordered(restore_helper,[
-    "vpn_server_restart_should_restore_shared_xl2tpd(",
+    "if (!xl2tpd_stop_attempted_vpns)",
+    "vpn_server_read_shared_xl2tpd_dependencies(",
+    "vpn_server_restart_should_attempt_restore_shared_xl2tpd(",
     "safe_start_xl2tpd_locked()",
+    "if (dependency_status != 0)",
+    "return -1;",
     "return restore_status < 0 ? restore_status : 0;"
 ],"shared xl2tpd restore helper")
 require("xl2tpd_stop_attempted_vpns = xl2tpd_active;" in tp and
@@ -402,8 +406,10 @@ require('#include "vpn_server_restart_policy.h"' in vpn,
 require("vpn_server_restart_first_error" in restart_policy and
         "vpn_server_restart_first_error" in restart_policy_test and
         "vpn_server_restart_should_restore_shared_xl2tpd" in restart_policy and
-        "test_shared_xl2tpd_restoration_decision" in restart_policy_test,
-        "restart first-error/shared-xl2tpd restore policy or its regression is missing")
+        "test_shared_xl2tpd_restoration_decision" in restart_policy_test and
+        "vpn_server_restart_should_attempt_restore_shared_xl2tpd" in restart_policy and
+        "test_shared_xl2tpd_restore_is_attempted_when_dependency_read_fails" in restart_policy_test,
+        "restart first-error/shared-xl2tpd read-error restore policy or regression is missing")
 notifications=body(rc,"handle_notifications(void)")
 require("strcmp(entry->d_name, RCN_RESTART_VPNSVR)" in notifications and
         "action_result = rc_notify_merge_action_result(action_result, restart_vpn_server());" in notifications,
