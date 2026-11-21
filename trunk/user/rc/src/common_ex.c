@@ -43,6 +43,8 @@
 #include <flash_mtd.h>
 
 #include "rc.h"
+#include "nvram_linux.h"
+#include "router_mode_nvram_policy.h"
 #include "network_sysctl.h"
 #include "network_sysctl_policy.h"
 #include "service_lifecycle_policy.h"
@@ -393,15 +395,64 @@ get_eeprom_params(void)
 	}
 }
 
-void
+int
 update_router_mode(void)
 {
-	if (nvram_get_int("sw_mode") != 3) {
-		if (nvram_get_int("wan_nat_x") == 0)
-			nvram_set_int("sw_mode", 4);	// Gateway mode
-		else
-			nvram_set_int("sw_mode", 1);	// Router mode
+	struct nvram_transaction transaction;
+	char *sw_mode_value = NULL, *wan_nat_value = NULL;
+	const char *target_value;
+	int api_result, saved_errno, status;
+	int end_result, end_errno;
+	int update_needed = 0, target_mode = 0;
+
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0) {
+		status = errno > 0 ? errno : EIO;
+		goto failed;
 	}
+
+	/* Consume the cache-backed mode value before the next NVRAM read. */
+	errno = 0;
+	api_result = nvram_transaction_get(&transaction, "sw_mode",
+					   &sw_mode_value);
+	saved_errno = errno;
+	status = rc_router_mode_update_needed(api_result, saved_errno,
+					      sw_mode_value, &update_needed);
+	if (status == 0 && update_needed) {
+		errno = 0;
+		api_result = nvram_transaction_get(&transaction, "wan_nat_x",
+						   &wan_nat_value);
+		saved_errno = errno;
+		status = rc_router_mode_update_target(api_result, saved_errno,
+						      wan_nat_value, &target_mode);
+	}
+
+	if (status == 0 && update_needed) {
+		target_value = target_mode == 4 ? "4" : "1";
+		errno = 0;
+		api_result = nvram_transaction_set(&transaction, "sw_mode",
+						   target_value, 0);
+		saved_errno = errno;
+		status = rc_router_mode_nvram_write_status(api_result,
+							    saved_errno);
+	}
+
+	/* Keep the first operation error, but always release a started transaction. */
+	errno = 0;
+	end_result = nvram_transaction_end(&transaction);
+	end_errno = errno;
+	if (status == 0 && end_result != 0)
+		status = rc_router_mode_nvram_write_status(end_result, end_errno);
+	if (status != 0)
+		goto failed;
+
+	return 0;
+
+failed:
+	logmessage(LOGNAME, "router-mode refresh aborted or incomplete (status=%d)",
+		   status);
+	errno = status;
+	return status;
 }
 
 void

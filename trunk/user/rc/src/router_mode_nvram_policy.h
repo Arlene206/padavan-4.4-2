@@ -1,7 +1,10 @@
 #ifndef ROUTER_MODE_NVRAM_POLICY_H
 #define ROUTER_MODE_NVRAM_POLICY_H
 
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdlib.h>
 
 /* Keep the boot-critical router-mode writes injectable for host regressions. */
 typedef int (*rc_router_mode_nvram_set_fn)(void *context,
@@ -55,6 +58,99 @@ rc_router_mode_nvram_read_status(int api_result, int saved_errno,
         return saved_errno > 0 ? saved_errno : EIO;
 
     return EIO;
+}
+
+
+/* Parse a complete decimal value without atoi() prefix or overflow loss. */
+static inline int
+rc_router_mode_parse_integer(const char *value, int *number)
+{
+    const char *cursor;
+    char *end;
+    long parsed;
+
+    if (!number)
+        return EINVAL;
+    if (!value) {
+        *number = 0;
+        return 0;
+    }
+
+    cursor = value;
+    while (*cursor && isspace((unsigned char)*cursor))
+        ++cursor;
+    if (!*cursor) {
+        *number = 0;
+        return 0;
+    }
+
+    errno = 0;
+    parsed = strtol(cursor, &end, 10);
+    if (end == cursor)
+        return EINVAL;
+    if (errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX)
+        return ERANGE;
+    while (*end && isspace((unsigned char)*end))
+        ++end;
+    if (*end)
+        return EINVAL;
+
+    *number = (int)parsed;
+    return 0;
+}
+
+/* Missing sw_mode retains the legacy zero default; AP mode is a no-op. */
+static inline int
+rc_router_mode_update_needed(int api_result, int saved_errno,
+                             const char *value, int *update_needed)
+{
+    int status, mode = 0;
+
+    if (!update_needed)
+        return EINVAL;
+    status = rc_router_mode_nvram_read_status(api_result, saved_errno,
+                                              value != NULL);
+    if (status != 0)
+        return status;
+    if (api_result == 1) {
+        status = rc_router_mode_parse_integer(value, &mode);
+        if (status != 0)
+            return status;
+    }
+
+    *update_needed = (mode != 3);
+    return 0;
+}
+
+/* Missing wan_nat_x retains nvram_get_int()'s zero default. */
+static inline int
+rc_router_mode_update_target(int api_result, int saved_errno,
+                             const char *value, int *target_mode)
+{
+    int status, nat_enabled = 0;
+
+    if (!target_mode)
+        return EINVAL;
+    status = rc_router_mode_nvram_read_status(api_result, saved_errno,
+                                              value != NULL);
+    if (status != 0)
+        return status;
+    if (api_result == 1) {
+        status = rc_router_mode_parse_integer(value, &nat_enabled);
+        if (status != 0)
+            return status;
+    }
+
+    *target_mode = nat_enabled == 0 ? 4 : 1;
+    return 0;
+}
+
+static inline int
+rc_router_mode_nvram_write_status(int api_result, int saved_errno)
+{
+    if (api_result == 0)
+        return 0;
+    return saved_errno > 0 ? saved_errno : EIO;
 }
 
 /*

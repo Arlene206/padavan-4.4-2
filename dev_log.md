@@ -1,3 +1,14 @@
+## 2026-11-21 — Make router-mode refresh fail closed on NVRAM errors
+
+- Parent main SHA: `624dd2468ec8bc6422a4278c55779b69222c8f48`.
+- Confirmed defect in `common_ex.c:update_router_mode()`: `nvram_get_int("sw_mode")` and `nvram_get_int("wan_nat_x")` collapse backend errors into zero. A transient read failure could therefore persistently rewrite `sw_mode` to Gateway (4) or Router (1).
+- Replaced the lossy reads with a single checked NVRAM transaction. The update preserves AP-mode short-circuit behavior (no WAN NAT read in AP mode), legacy missing-key zero defaults, validates full decimal values, publishes the mode only after required reads succeed, and checks the write and transaction-close results.
+- `full_restart_wan()` now performs the refresh before `stop_wan()` and aborts before teardown on failure. The NETFILTER notification skips NAT-module/firewall reload if the refresh fails, reports the action failure and still performs independent conntrack cleanup.
+- Added GNU89 ASan/UBSan unit coverage for AP/missing/present values, backend and inconsistent API results, malformed/overflow values, output preservation and write-status mapping. New source checker verifies transaction order and both callsite gates. Exact-head Actions pending; no local RC or firmware build claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Align HTTPD umbrella contract with checked NFS start wrappers
 
 - Parent main SHA: `b284c28532f2913f4327b02ec59abaf97671be08`; NFS lifecycle Action #44903863601 PASS after the restart preflight placement correction.

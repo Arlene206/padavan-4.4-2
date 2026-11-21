@@ -2381,11 +2381,19 @@ handle_notifications(void)
 		else if (strcmp(entry->d_name, RCN_RESTART_NETFILTER) == 0)
 		{
 			int conntrack_status;
+			int router_mode_status = update_router_mode();
 
-			update_router_mode();
-			action_result = rc_notify_merge_action_result(action_result, reload_nat_modules());
-			action_result = rc_notify_merge_action_result(
-				action_result, restart_firewall());
+			if (router_mode_status == 0) {
+				action_result = rc_notify_merge_action_result(
+					action_result, reload_nat_modules());
+				action_result = rc_notify_merge_action_result(
+					action_result, restart_firewall());
+			} else {
+				logmessage(LOGNAME,
+					   "skipping NAT/firewall reload because router-mode NVRAM refresh failed (status=%d)",
+					   router_mode_status);
+				action_result = rc_notify_merge_action_result(action_result, -1);
+			}
 			conntrack_status = flush_conntrack_table(NULL);
 			if (conntrack_status != 0)
 				logmessage(LOGNAME, "conntrack flush after netfilter restart failed (status=%d)",

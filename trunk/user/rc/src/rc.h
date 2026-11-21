@@ -172,7 +172,7 @@ long uptime(void);
 int rand_seed_by_time(void);
 void set_pagecache_reclaim(void);
 int restart_all_sysctl(void);
-void update_router_mode();
+int update_router_mode(void);
 char *mac_conv(const char *mac_nvkey, int idx, char *buf);
 char *mac_conv2(const char *mac_nvkey, int idx, char *buf);
 void get_eeprom_params(void);

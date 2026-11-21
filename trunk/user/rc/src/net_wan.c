@@ -4669,6 +4669,13 @@ full_restart_wan(void)
 
 	if (get_ap_mode())
 		return 0;
+	status = update_router_mode();
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "aborting full WAN restart because router-mode NVRAM refresh failed (status=%d)",
+			   status);
+		return status;
+	}
 	status = stop_wan();
 	if (status != 0) {
 		logmessage(LOGNAME, "aborting full WAN restart because services did not stop (status=%d)",
@@ -4704,7 +4711,6 @@ full_restart_wan(void)
 			   status);
 		return status;
 	}
-	update_router_mode();
 	reset_status = reset_wan_vars_status();
 	if (reset_status != 0) {
 		status = rc_wan_restore_lan_routes_after_failed_reset(

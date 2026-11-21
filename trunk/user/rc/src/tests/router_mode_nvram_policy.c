@@ -166,6 +166,86 @@ test_invalid_arguments_do_not_write_nvram(void)
     assert(fake.calls == 0);
 }
 
+
+static void
+test_router_mode_update_detection_preserves_ap_mode(void)
+{
+    int update_needed = 77;
+
+    assert(rc_router_mode_update_needed(1, 0, "3", &update_needed) == 0);
+    assert(update_needed == 0);
+    assert(rc_router_mode_update_needed(0, 0, NULL, &update_needed) == 0);
+    assert(update_needed == 1);
+    assert(rc_router_mode_update_needed(1, 0, "1", &update_needed) == 0);
+    assert(update_needed == 1);
+
+    update_needed = 77;
+    assert(rc_router_mode_update_needed(-1, EACCES, NULL,
+                                        &update_needed) == EACCES);
+    assert(update_needed == 77);
+    assert(rc_router_mode_update_needed(-1, 0, NULL,
+                                        &update_needed) == EIO);
+    assert(update_needed == 77);
+    assert(rc_router_mode_update_needed(0, 0, "3",
+                                        &update_needed) == EIO);
+    assert(update_needed == 77);
+    assert(rc_router_mode_update_needed(2, 0, "1",
+                                        &update_needed) == EIO);
+    assert(update_needed == 77);
+    assert(rc_router_mode_update_needed(1, 0, "3", NULL) == EINVAL);
+    assert(rc_router_mode_update_needed(1, 0, "3invalid",
+                                        &update_needed) == EINVAL);
+    assert(update_needed == 77);
+}
+
+static void
+test_router_mode_update_target_preserves_nat_mapping(void)
+{
+    int target_mode = 77;
+
+    assert(rc_router_mode_update_target(1, 0, "0", &target_mode) == 0);
+    assert(target_mode == 4);
+    assert(rc_router_mode_update_target(1, 0, "1", &target_mode) == 0);
+    assert(target_mode == 1);
+    assert(rc_router_mode_update_target(1, 0, "2", &target_mode) == 0);
+    assert(target_mode == 1);
+    assert(rc_router_mode_update_target(0, 0, NULL, &target_mode) == 0);
+    assert(target_mode == 4);
+
+    target_mode = 77;
+    assert(rc_router_mode_update_target(-1, EBUSY, NULL,
+                                        &target_mode) == EBUSY);
+    assert(target_mode == 77);
+    assert(rc_router_mode_update_target(-1, 0, NULL,
+                                        &target_mode) == EIO);
+    assert(target_mode == 77);
+    assert(rc_router_mode_update_target(0, 0, "0",
+                                        &target_mode) == EIO);
+    assert(target_mode == 77);
+    assert(rc_router_mode_update_target(1, 0, NULL,
+                                        &target_mode) == EIO);
+    assert(target_mode == 77);
+    assert(rc_router_mode_update_target(2, 0, "1",
+                                        &target_mode) == EIO);
+    assert(target_mode == 77);
+    assert(rc_router_mode_update_target(1, 0, "1junk",
+                                        &target_mode) == EINVAL);
+    assert(target_mode == 77);
+    assert(rc_router_mode_update_target(1, 0, "99999999999999999999",
+                                        &target_mode) == ERANGE);
+    assert(target_mode == 77);
+    assert(rc_router_mode_update_target(1, 0, "1", NULL) == EINVAL);
+}
+
+static void
+test_router_mode_update_write_status(void)
+{
+    assert(rc_router_mode_nvram_write_status(0, EACCES) == 0);
+    assert(rc_router_mode_nvram_write_status(-1, EACCES) == EACCES);
+    assert(rc_router_mode_nvram_write_status(-1, 0) == EIO);
+    assert(rc_router_mode_nvram_write_status(1, 0) == EIO);
+}
+
 int
 main(void)
 {
@@ -176,6 +256,9 @@ main(void)
     test_each_required_write_failure_aborts_the_sequence();
     test_router_mode_parser_rejects_noncanonical_values();
     test_checked_read_status_distinguishes_absence_from_backend_failure();
+    test_router_mode_update_detection_preserves_ap_mode();
+    test_router_mode_update_target_preserves_nat_mapping();
+    test_router_mode_update_write_status();
     test_invalid_arguments_do_not_write_nvram();
     puts("Router-mode NVRAM publication regression: PASS");
     return 0;
