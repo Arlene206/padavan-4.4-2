@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on inverted firewall enable selectors
+
+- Parent main SHA: `bbd199ab0458296efacd741b473d0ef6d3853f93`.
+- `ipt_filter_rules()` still used unchecked `nvram_invmatch(key, "0")` for `misc_ping_x`, `udpxy_enable_x`, optional `xupnpd_enable_x`, `sshd_enable`, `enable_ftp` and `upnp_enable_x`. Legacy NVRAM access returned an empty string on read failure, and empty string compares unequal to `"0"`, so a transient backend fault could be mistaken for an enabled option.
+- Added a strict checked not-zero policy wrapper. Absent keys retain the legacy inverted-match default (enabled); backend/API/close failures preserve output, abort ruleset staging and invoke rollback. IPv4 filter generation now resolves each applicable inverted selector before opening its rule file; optional feature flags remain compile-guarded, and UPnP is read only when NAT is enabled.
+- Extended the header policy tests for explicit zero/nonzero/unexpected values, missing-key defaults and backend errors. Extended the firewall workflow source contract to pin each read before rule-file creation and forbid the old direct inverted match. The workflow's existing GNU89/Werror/ASan/UBSan compile/run step covers this C regression. No local checkout/test execution is claimed.
+- Parent Firewall Startup #44948667798, Process inventory #44948667779 and AI handoff #44948667780 all PASS. Parent NVRAM audit #44948667802 and XY-C1 #44948667816 were pending at last poll. Current exact-head checks pending; no L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Fail closed on firewall VPN/NAT NVRAM policy reads
 
 - Parent main SHA: `a727f2e78a42fac20d2558dee63ac78673551c79`.

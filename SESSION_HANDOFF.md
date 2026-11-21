@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Parent main SHA before the current firewall/VPN NVRAM fail-closed slice: `a727f2e78a42fac20d2558dee63ac78673551c79`. The XHCI source and its whitespace-normalized Process checker repair are included in this parent; the current firewall source/integration checks plus handoff records form one new atomic commit.
+- Parent main SHA before the current inverted firewall-selector read slice: `bbd199ab0458296efacd741b473d0ef6d3853f93`. The VPN/NAT checked-read source and workflow contract are in this parent; the current inverted-selector reader, tests and records are one atomic commit.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -25,19 +25,18 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- A firewall ruleset review found `ipt_filter_rules()` still used unchecked NVRAM getters for security policy selectors `wan_nat_x`, `vpns_enable/type/actl` and `vpnc_enable/type/sfw`. In particular, a backend failure for `vpnc_sfw` collapsed to zero, the branch interpreted as ACCEPT for the VPN-client interface; a `vpns_actl` failure similarly defaulted to broad policy mode `0`.
-- This slice moves those reads to existing `firewall_read_enabled_setting()` / `firewall_read_integer_setting()` wrappers before `firewall_open_rule_file()`, so read/close/parser failures abort ruleset generation and invoke the staged-restore rollback gate. Missing keys preserve their prior defaults (false/zero).
-- OpenVPN-specific server mode/protocol/port and client TUN/TAP selectors are also checked only when the corresponding OpenVPN server/client is enabled and type 2, avoiding unnecessary reads for inactive features. The server port retains its default 1194 when outside 1..65535, matching its prior `nvram_safe_get_int(..., 1194, 1, 65535)` range behavior. Firewall workflow source-contract assertions now pin these checked reads before file creation; its existing GNU89/ASan/UBSan helper test covers strict parser and backend failures.
+- `ipt_filter_rules()` also contained inverted-boolean policy reads using unchecked `nvram_invmatch(key, "0")`. A backend error was converted to an empty string, which compares unequal to `"0"` and therefore enables the option. This affected `misc_ping_x` (inbound ping/traceroute), `udpxy_enable_x`/optional `xupnpd_enable_x` multicast acceptance, remote SSH/FTP enable gates, and `upnp_enable_x` forwarding-chain selection.
+- This slice introduces `firewall_nvram_not_zero_status()` plus `firewall_read_not_zero_setting()`. Missing-key behavior intentionally retains legacy `nvram_invmatch(..., "0")` semantics (enabled), but NVRAM backend/read/close errors abort before rules are staged and trigger the existing rollback path. The checked values now replace all inverted reads for those keys in the IPv4 filter builder; optional compile-time flags remain guarded and UPnP is queried only when NAT is enabled.
+- `firewall_nvram_match_policy.c` now tests zero/nonzero, unexpected legacy nonzero text, absent-key defaults, and backend/API failures with output preservation. The firewall workflow compiles/runs it under GNU89/Werror/ASan/UBSan and asserts each new checked gate precedes `firewall_open_rule_file()` and no old inverted getter remains.
 ## Verification boundary
 
-- XHCI source commit `692c260ecf9d49ab44b2baefcb4895d1a4190d7f` had a Process lifecycle integration failure at the new checker because it searched for a wrapped C call on one line. The checker-only correction is `a727f2e78a42fac20d2558dee63ac78673551c79`; its exact-head Actions had not appeared at the time of this firewall slice. Do not claim it PASS without rerun.
-- Source SHA `692c260...` also passed Process inventory #44948258854, USB modem #44948258515, Firewall Startup #44948258642, WAN route #44948258490 and AI handoff #44948258596; these are parent SHA evidence only. XY-C1 #44948258645 and NVRAM audit #44948258687 were in progress at last poll.
-- The current firewall/VPN slice requires exact-head Firewall Startup validation (GNU89/ASan/UBSan helper test plus source contract), and XY-C1 Build/TRX/artifact on one SHA for L3. No local build/test or hardware L4 claim is made.
+- Firewall/VPN source commit `bbd199ab0458296efacd741b473d0ef6d3853f93`: Firewall Startup #44948667798 PASS (including its C policy tests and source contracts); Process inventory #44948667779 PASS; AI handoff #44948667780 PASS. NVRAM transaction audit #44948667802 and XY-C1 #44948667816 were still running at last poll. The earlier XHCI source SHA `692c260...` had Process integration #44948258619 fail only on a single-line checker match; checker-only commit `a727f2e78a42fac20d2558dee63ac78673551c79` later passed Process integration #44948463340 and AI docs #44948463272.
+- The current inverted-selector slice requires a fresh exact-head Firewall Startup run and XY-C1 Build/TRX/artifact for L3. No local test execution or hardware L4 claim.
 ## Exact first action for the next GPT
 
-1. Fetch exact current main and inspect this commit's Firewall Startup run. Require its GNU89/ASan/UBSan helper regression and inline VPN/NAT source contract to pass; inspect failure logs and repair atomically. Track XY-C1 through Build, TRX and artifact upload; do not attribute parent evidence to this SHA.
-2. Re-query Process lifecycle for the whitespace-normalized XHCI checker on its own SHA `a727f2e78a42fac20d2558dee63ac78673551c79`; it is a checker-only descendant of the XHCI source fix.
-3. Continue reviewing firewall filter selectors (remote-admin/FTP/HTTP/UDPXY ports and enable flags) where unchecked NVRAM getters might turn backend faults into altered policy. Confirm call-site ranges and semantics before widening scope.
+1. Fetch current main and inspect exact-head Firewall Startup, Process inventory, AI docs, NVRAM and XY-C1 runs. The `firewall_read_not_zero_setting()` change must pass its GNU89/ASan/UBSan policy regression and source-order assertions; diagnose any failures. L3 requires same-SHA XY-C1 Build, TRX verification and artifact upload.
+2. Close out the earlier XHCI source SHA `bbd199ab0458296efacd741b473d0ef6d3853f93` XY-C1 Build/TRX/artifact and NVRAM audit if still pending, without attributing those results to this new current commit.
+3. Continue the firewall review of numeric listener ports and remaining direct `nvram_get_int()` calls only where they alter exposure or malformed ruleset publication. Preserve documented default/range semantics and use checked reads where backend failure changes policy.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

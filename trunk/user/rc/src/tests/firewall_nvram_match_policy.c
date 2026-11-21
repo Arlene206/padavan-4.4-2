@@ -56,6 +56,38 @@ test_invalid_arguments_are_rejected(void)
 }
 
 static void
+test_not_zero_reader_preserves_invmatch_defaults(void)
+{
+    int enabled = -1;
+
+    assert(firewall_nvram_not_zero_status(1, 0, "0", 1, &enabled) == 0);
+    assert(enabled == 0);
+    assert(firewall_nvram_not_zero_status(1, 0, "1", 1, &enabled) == 0);
+    assert(enabled == 1);
+    assert(firewall_nvram_not_zero_status(1, 0, "unexpected", 1, &enabled) == 0);
+    assert(enabled == 1);
+    assert(firewall_nvram_not_zero_status(0, 0, NULL, 1, &enabled) == 0);
+    assert(enabled == 1);
+    assert(firewall_nvram_not_zero_status(0, 0, NULL, 0, &enabled) == 0);
+    assert(enabled == 0);
+}
+
+static void
+test_not_zero_backend_failure_preserves_output(void)
+{
+    int enabled = 17;
+
+    assert(firewall_nvram_not_zero_status(-1, EACCES, NULL, 1, &enabled) == EACCES);
+    assert(enabled == 17);
+    assert(firewall_nvram_not_zero_status(-1, 0, NULL, 1, &enabled) == EIO);
+    assert(enabled == 17);
+    assert(firewall_nvram_not_zero_status(2, 0, "0", 1, &enabled) == EIO);
+    assert(enabled == 17);
+    assert(firewall_nvram_not_zero_status(1, 0, NULL, 1, &enabled) == EIO);
+    assert(enabled == 17);
+}
+
+static void
 test_integer_modes_preserve_decimal_semantics(void)
 {
 	int number = -9;
@@ -103,6 +135,8 @@ main(void)
 	test_backend_errors_preserve_status_and_output();
 	test_invalid_api_results_fail_closed();
 	test_invalid_arguments_are_rejected();
+	test_not_zero_reader_preserves_invmatch_defaults();
+	test_not_zero_backend_failure_preserves_output();
 	test_integer_modes_preserve_decimal_semantics();
 	test_integer_errors_are_fail_closed_and_preserve_output();
 	return 0;

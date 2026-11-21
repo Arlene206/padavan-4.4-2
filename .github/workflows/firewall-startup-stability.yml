@@ -325,6 +325,12 @@ jobs:
           assert "nvram_get_checked(param_name, &value)" in firewall_nvram_reader
           assert "firewall_nvram_match_status(" in firewall_nvram_reader
           assert "firewall_abort_core_restore_after_staging_failure();" in firewall_nvram_reader
+          not_zero_reader = body(firewall_source, "firewall_read_not_zero_setting(const char *param_name, int *enabled)")
+          assert "nvram_get_checked(param_name, &value)" in not_zero_reader
+          assert "firewall_nvram_not_zero_status(api_result, saved_errno" in not_zero_reader
+          assert "firewall_abort_core_restore_after_staging_failure();" in not_zero_reader
+          assert "test_not_zero_reader_preserves_invmatch_defaults" in firewall_nvram_test
+          assert "test_not_zero_backend_failure_preserves_output" in firewall_nvram_test
           assert "test_backend_errors_preserve_status_and_output" in firewall_nvram_test
           assert "test_missing_key_uses_explicit_legacy_default" in firewall_nvram_test
           mac_integer_reader = body(firewall_source, "firewall_read_integer_setting(const char *param_name, int missing_value, int *number)")
@@ -371,6 +377,20 @@ jobs:
           assert 'nvram_safe_get_int("vpns_ov_port"' not in ipv4_filter
           assert 'nvram_get_int("vpnc_ov_mode")' not in ipv4_filter
           assert 'nvram_get_int("vpnc_ov_cnat")' not in ipv4_filter
+          inverted_gates = (
+              'firewall_read_not_zero_setting("misc_ping_x", &is_ping_enabled)',
+              'firewall_read_not_zero_setting("udpxy_enable_x", &is_udpxy_enabled)',
+              'firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled)',
+              'firewall_read_not_zero_setting("enable_ftp", &is_ftp_enabled)',
+              'firewall_read_not_zero_setting("upnp_enable_x", &is_upnp_enabled)',
+              'firewall_read_not_zero_setting("xupnpd_enable_x", &is_xupnpd_enabled)',
+          )
+          for gate in inverted_gates:
+              assert gate in ipv4_filter, gate
+              assert ipv4_filter.index(gate) < ipv4_filter.index("firewall_open_rule_file("), gate
+          for key in ("misc_ping_x", "udpxy_enable_x", "sshd_enable",
+                      "enable_ftp", "upnp_enable_x", "xupnpd_enable_x"):
+              assert f'nvram_invmatch("{key}", "0")' not in ipv4_filter
           dos_gate = 'firewall_read_enabled_setting("fw_dos_x", &is_dos_enabled)'
           assert dos_gate in ipv4_filter
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):

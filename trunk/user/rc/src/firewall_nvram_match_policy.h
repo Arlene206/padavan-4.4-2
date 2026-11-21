@@ -64,4 +64,27 @@ firewall_nvram_int_status(int api_result, int saved_errno,
 	return 0;
 }
 
+/* Checked counterpart of legacy nvram_invmatch(key, "0"): an absent
+ * value remains enabled, while backend/close and malformed-result errors
+ * are propagated instead of being mistaken for an enabled setting. */
+static inline int
+firewall_nvram_not_zero_status(int api_result, int saved_errno,
+                               const char *value, int missing_enabled,
+                               int *enabled)
+{
+    int matches_zero, status;
+
+    if (!enabled)
+        return EINVAL;
+    status = firewall_nvram_match_status(api_result, saved_errno,
+                                         value, "0",
+                                         missing_enabled ? 0 : 1,
+                                         &matches_zero);
+    if (status != 0)
+        return status;
+
+    *enabled = !matches_zero;
+    return 0;
+}
+
 #endif /* PADAVAN_FIREWALL_NVRAM_MATCH_POLICY_H */

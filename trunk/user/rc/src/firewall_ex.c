@@ -350,6 +350,32 @@ firewall_read_enabled_setting(const char *param_name, int *enabled)
 
 
 static int
+firewall_read_not_zero_setting(const char *param_name, int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	if (!param_name || !param_name[0] || !enabled) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &value);
+	saved_errno = errno;
+	status = firewall_nvram_not_zero_status(api_result, saved_errno,
+						 value, 1, enabled);
+	if (status != 0) {
+		firewall_abort_core_restore_after_staging_failure();
+		logmessage(LOGNAME,
+			   "cannot read firewall inverted setting '%s'; refusing ruleset publication (errno=%d)",
+			   param_name, status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
 firewall_read_integer_setting(const char *param_name, int missing_value, int *number)
 {
 	char *value = NULL;
@@ -1416,6 +1442,11 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int ret, wport, lport, saved_errno, vpn_lease_lock_fd = -1;
 	int is_nat_enabled, is_dos_enabled, is_fw_enabled, is_logaccept, is_logdrop;
 	int is_url_enabled, is_url_inverse, is_lwf_enabled, is_mac_filter_drop;
+	int is_ping_enabled, is_udpxy_enabled, is_upnp_enabled = 0;
+	int is_sshd_enabled = 1, is_ftp_enabled = 1;
+#if defined (APP_XUPNPD)
+	int is_xupnpd_enabled;
+#endif
 	int i_vpns_enable, i_vpns_type, i_vpns_actl, i_http_proto, i_bfplimit_ref;
 	int i_vpnc_enable, i_vpnc_type, i_vpnc_sfw, i_mac_filter;
 #if defined (APP_OPENVPN)
@@ -1457,6 +1488,35 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	ret = firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop);
 	if (ret != 0)
 		return ret;
+
+	/* Preserve legacy nvram_invmatch(..., "0") defaults, but fail closed
+	 * on NVRAM read/close errors before any filter rules are staged. */
+	ret = firewall_read_not_zero_setting("misc_ping_x", &is_ping_enabled);
+	if (ret != 0)
+		return ret;
+	ret = firewall_read_not_zero_setting("udpxy_enable_x", &is_udpxy_enabled);
+	if (ret != 0)
+		return ret;
+#if defined (APP_XUPNPD)
+	ret = firewall_read_not_zero_setting("xupnpd_enable_x", &is_xupnpd_enabled);
+	if (ret != 0)
+		return ret;
+#endif
+#if defined (APP_SSHD)
+	ret = firewall_read_not_zero_setting("sshd_enable", &is_sshd_enabled);
+	if (ret != 0)
+		return ret;
+#endif
+#if defined (APP_FTPD)
+	ret = firewall_read_not_zero_setting("enable_ftp", &is_ftp_enabled);
+	if (ret != 0)
+		return ret;
+#endif
+	if (is_nat_enabled) {
+		ret = firewall_read_not_zero_setting("upnp_enable_x", &is_upnp_enabled);
+		if (ret != 0)
+			return ret;
+	}
 
 	ret = firewall_read_integer_setting("vpns_enable", 0, &i_vpns_enable);
 	if (ret != 0)
@@ -1568,9 +1628,9 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		fprintf(fp, "-A %s -m %s %s -j %s\n", dtype, CT_STATE, "INVALID", logdrop);
 		
 		/* Accept multicast (all, except udp port 1900) */
-		if (nvram_match("mr_enable_x", "1") || nvram_invmatch("udpxy_enable_x", "0")
+		if (nvram_match("mr_enable_x", "1") || is_udpxy_enabled
 #if defined (APP_XUPNPD)
-		 || nvram_invmatch("xupnpd_enable_x", "0")
+		 || is_xupnpd_enabled
 #endif
 		) {
 			fprintf(fp, "-A %s -p 2 -d 224.0.0.0/4 -j %s\n", dtype, logaccept);
@@ -1618,7 +1678,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		}
 #endif
 #if defined (APP_SSHD)
-		if (nvram_invmatch("sshd_enable", "0") && nvram_match("sshd_wopen", "1")) {
+		if (is_sshd_enabled && nvram_match("sshd_wopen", "1")) {
 			i_bfplimit_ref++;
 			wport = nvram_get_int("sshd_wport");
 			lport = 22;
@@ -1629,7 +1689,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 		}
 #endif
 #if defined (APP_FTPD)
-		if (nvram_invmatch("enable_ftp", "0") && nvram_match("ftpd_wopen", "1")) {
+		if (is_ftp_enabled && nvram_match("ftpd_wopen", "1")) {
 			wport = nvram_get_int("ftpd_wport");
 			lport = 21;
 			if (wport == lport || !is_nat_enabled)
@@ -1714,7 +1774,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 			include_vts_filter(fp, lan_ip, logaccept, 0);
 		
 		/* Accept ICMPv4 packets */
-		if (nvram_invmatch("misc_ping_x", "0")) {
+		if (is_ping_enabled) {
 			/* Accept all ICMP and UDP ports 33434-33534 for traceroute */
 			fprintf(fp, "-A %s -p icmp -j %s\n", dtype, logaccept);
 			fprintf(fp, "-A %s -p udp --dport %d:%d -j %s\n", dtype, 33434, 33534, logaccept);
@@ -1869,7 +1929,7 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 				include_vts_filter(fp, lan_ip, logaccept, 1);
 			
 			/* Jump to IGD UPnP/NAT-PMP (miniupnpd chain) */
-			if (nvram_invmatch("upnp_enable_x", "0"))
+			if (is_upnp_enabled)
 				fprintf(fp, "-A %s -j %s\n", dtype, MINIUPNPD_CHAIN_IP4_FORWARD);
 #endif
 		}
