@@ -126,6 +126,8 @@
 #include	<netinet/in.h>
 #include	<arpa/inet.h>
 
+#include "p910nd_sigpipe_policy.h"
+
 #ifdef	USE_LIBWRAP
 #include	"tcpd.h"
 int allow_severity, deny_severity;
@@ -755,6 +757,12 @@ int main(int argc, char *argv[])
 	 * I disagree with the intention to add PERROR.  --Stef  */
 	if (!log_to_stdout)
 		openlog(p, LOG_PID, LOG_LPR);
+
+	/* A disconnected bidirectional client must not terminate the daemon. */
+	if (bidir && p910nd_install_sigpipe_policy() < 0) {
+		dolog(LOG_ERR, "cannot ignore SIGPIPE: %m\n");
+		return 1;
+	}
 
 	if (log_to_stdout || is_standalone())
 		server(lpnumber);

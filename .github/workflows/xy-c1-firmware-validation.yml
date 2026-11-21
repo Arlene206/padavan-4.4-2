@@ -372,6 +372,7 @@ on:
       - "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr_allocation_policy.h"
       - "trunk/user/rc/src/firewall_startup_policy.h"
       - "trunk/user/rc/src/tests/firewall_startup_policy.c"
+      - "trunk/user/p910nd/**"
   workflow_dispatch:
 
 permissions:
