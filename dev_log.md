@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize multiline MAN MTU checked-read contract
+
+- Parent main SHA: `703ff6abcffa17313482ac2ca772fc0c79afb826`.
+- Exact-head WAN route run `#44893094794` passed the GNU89/ASan/UBSan policy binaries and the DNS-mode + PPPoE read contracts, then stopped at the MAN MTU static assertion. The implementation uses `get_wan_unit_value_int_status()` and returns before the MAN address snapshot on read error; its call is split across lines, but the checker first flattened whitespace and then compared against a string with no space after the function name.
+- Changed the assertion to compare a whitespace-compacted call expression, preserving the exact getter, `unit`, `man_mtu` key and output pointer.
+- AI handoff documentation run `#44893094799` passed on the same parent SHA. No product C behavior changed.
+
+---
+
 ## 2026-11-21 — Normalize PPPoE rollback call arguments in source checker
 
 - Parent main SHA: `7f5221f1fc861e1b9191ddec2ba5aca106741bc8`.

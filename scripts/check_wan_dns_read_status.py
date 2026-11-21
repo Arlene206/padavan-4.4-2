@@ -243,7 +243,8 @@ print("PPPoE manual-mode and demand NVRAM errors abort WAN activation: PASS")
 
 # MAN and physical WAN MTUs must be checked before any interface/client setup.
 wanx_start = " ".join(body(source, "launch_wanx(char *man_ifname, int unit, int wait_dhcpc, int use_zcip)").split())
-require('get_wan_unit_value_int_status(unit, "man_mtu", &man_mtu)' in wanx_start,
+wanx_start_compact = "".join(wanx_start.split())
+require('get_wan_unit_value_int_status(unit,"man_mtu",&man_mtu)' in wanx_start_compact,
         "MAN MTU must use checked NVRAM reads")
 require(wanx_start.index("if (nvram_status != 0)") < wanx_start.index("wan_static_ipv4_snapshot("),
         "MAN MTU read errors must stop before address snapshot/client setup")
