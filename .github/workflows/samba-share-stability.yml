@@ -274,7 +274,7 @@ jobs:
           assert "samba_daemon_signal_snapshot(initial_snapshot,SIGHUP" in ensure_compact
           assert "launched_new_daemon = 1;" in ensure_fn
           assert "samba_rollback_failed_daemon_start(daemon, start_errno)" in ensure_compact
-          assert ensure_fn.count("samba_rollback_failed_daemon_start(daemon,start_errno)") == 2
+          assert ensure_compact.count("samba_rollback_failed_daemon_start(daemon,start_errno)") == 2
           reload_branch = ensure_fn[ensure_fn.index("if (action == SAMBA_DAEMON_ACTION_RELOAD)"):ensure_fn.index("} else {")]
           assert "samba_rollback_failed_daemon_start" not in reload_branch
           rollback = function_body(stor, "static void\\nsamba_rollback_failed_daemon_start(const char *daemon, int start_errno)")
