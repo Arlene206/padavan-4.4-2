@@ -1,3 +1,13 @@
+## 2026-11-21 — Replace undefined Inadyn checker ordering helper
+
+- Parent main SHA: `f27f59a23141112124ef874a1d4a0406dac898f5`.
+- Exact-head Inadyn lifecycle run #44940446835 compiled and passed the existing tri-state policy, the new checked-integer parser, and the exclusive lifecycle lock regression binaries under GNU89/ASan/UBSan.
+- The final production source-contract step failed with `NameError: ordered is not defined`; the checker has no such helper. Replaced the call with explicit ordered-token positions plus assertions that all six checked reads, the fail-closed return, and the preflight occur before opening the staged config. The checks remain in place.
+- AI docs #44940446730, WAN route #44940446824, WAN DHCP #44940446779, HTTPD #44940446885, DNSMasq #44940446712, Samba #44940446725, miniupnpd #44940446973, Process #44940446796 and Process inventory #44940446907 passed on f27f59a. NVRAM audit #44940446992 was pending.
+- XY-C1 #44940446898 was in its build step at last poll. Require Build + TRX + artifact on one SHA for L3; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on Inadyn TLS and endpoint-option NVRAM reads
 
 - Parent main SHA: `96de0aedf60c0605cbead65e50f69aa31483e82b`.

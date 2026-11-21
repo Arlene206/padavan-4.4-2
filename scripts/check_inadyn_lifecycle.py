@@ -86,15 +86,22 @@ assert "inadyn_config_file_read_integer_status" in config_file_header
 assert "test_checked_integer_status_preserves_defaults_and_rejects_errors" in config_file_test
 
 config_writer = body("write_inadyn_conf(const char *conf_file)")
-ordered(config_writer, [
+preflight_tokens = [
     'inadyn_read_nvram_integer("ddns_source", 0, 0, 2,',
     'inadyn_read_nvram_integer("ddns_ipv6", 0, 0, 1,',
     'inadyn_read_nvram_integer("ddns_ssl", 0, 0, 1,',
     'inadyn_read_nvram_integer("ddns_wildcard_x", 0, 0, 1,',
     'inadyn_read_nvram_integer("ddns2_ssl", 0, 0, 1,',
     'inadyn_read_nvram_integer("ddns2_wildcard_x", 0, 0, 1,',
-    'inadyn_config_file_open(conf_file, staged_path, sizeof(staged_path))'
-], "Inadyn checked security-option preflight before staging")
+]
+preflight_positions = [config_writer.index(token) for token in preflight_tokens]
+assert preflight_positions == sorted(preflight_positions)
+preflight_start = config_writer.index("if ((read_status = inadyn_read_nvram_integer(")
+preflight_error = config_writer.index("saved_errno = read_status;", preflight_start)
+preflight_return = config_writer.index("return 0;", preflight_error)
+config_open = config_writer.index("fp = inadyn_config_file_open(")
+assert preflight_positions[0] >= preflight_start
+assert preflight_positions[-1] < preflight_error < preflight_return < config_open
 for key in ("ddns_source", "ddns_ipv6", "ddns_ssl", "ddns_wildcard_x",
             "ddns2_ssl", "ddns2_wildcard_x"):
     assert f'nvram_get_int("{key}")' not in config_writer

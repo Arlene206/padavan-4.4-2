@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Parent main: `53e9c553994afe3917c3451dee9d73f116be1024`.
+- Main at last checkpoint: `f27f59a23141112124ef874a1d4a0406dac898f5`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged; no feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 
 ## Completed source slices
@@ -19,16 +19,16 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Active task
 
 - The exported OpenVPN client profile actively requires `remote-cert-tls server`, matching the generated certificate's `serverAuth` EKU. Dual-stack modes 4/5 use validated WAN IPv4 only as a final fallback after DDNS and IPv6 sources fail; IPv6-only modes remain unchanged.
-- VPN lifecycle #44939760147 passed on `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`; AI handoff docs #44940022312 passed on `96de0aedf60c0605cbead65e50f69aa31483e82b`. d3b7 XY-C1 run #44939588534 was still in progress at last poll; inspect its final result.
+- VPN lifecycle #44939760147 passed on `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`; AI handoff docs #44940022312 passed on `96de0aedf60c0605cbead65e50f69aa31483e82b`.
 - Inadyn `write_inadyn_conf()` used error-collapsing reads for `ddns_ssl`, `ddns2_ssl`, wildcard flags, `ddns_ipv6` and `ddns_source`. A backend failure could turn TLS off and publish a configuration that transmits credentials without encryption.
-- This slice adds a strict checked integer parser and preflights six security/endpoint options via `nvram_get_checked()` before staging a replacement. Missing/empty values preserve legacy defaults; read/parse/range/overflow errors leave the last-known-good config intact. The existing Inadyn workflow gains GNU89/ASan/UBSan tests and source-contract assertions.
-
+- Commit `f27f59a23141112124ef874a1d4a0406dac898f5` adds a bounded checked integer parser, six checked NVRAM option reads before staged-config creation, and GNU89/ASan/UBSan tests. Inadyn workflow #44940446835 passed all three compiled test binaries but failed the source contract with `NameError: ordered is not defined`; this checker-only child replaces the undefined helper with explicit token and preflight-order assertions.
 ## Verification boundary
 
-- On parent `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a`, OpenVPN client credential staging #44939588500 PASS. VPN lifecycle #44939588479 failed in the new exported-profile source contract because the ordered assertion searched for nested `options.auth_digest` before the containing `openvpn_add_auth()` call; this follow-up separates field-presence checks from ordered helper calls. Production source is unchanged by this checker correction.
-- AI handoff docs #44939588455 failed because the previous handoff rewrite omitted the mandatory end-of-session accuracy checkpoint; this commit restores that required section.
-- XY-C1 #44939588534 remained in progress before Build XY-C1 at last poll; Build, TRX verification and artifact upload had not yet run. No L3 result is established. Process #44939588492, NVRAM #44939588487 and HTTPD #44939588574 were also in progress.
-- The parent source SHA `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a` still requires same-SHA XY-C1 Build, TRX and artifact upload. No local tests/build are claimed; hardware L4 remains NOT VERIFIED.
+- Inadyn run #44940446835 on `f27f59a23141112124ef874a1d4a0406dac898f5`: all three compiled test binaries passed, including checked integer parser tests. The final production integration check failed only due to checker `NameError: ordered is not defined`; the checker-only correction removes this undefined dependency while retaining ordering assertions.
+- AI handoff docs #44940446730 PASS on `f27f59a23141112124ef874a1d4a0406dac898f5`; Process #44940446796, WAN route #44940446824, WAN DHCP #44940446779, HTTPD #44940446885, DNSMasq #44940446712, Samba #44940446725, miniupnpd #44940446973 and process inventory #44940446907 PASS on the same SHA. NVRAM transaction audit #44940446992 was pending at last poll.
+- XY-C1 #44940446898 on `f27f59a23141112124ef874a1d4a0406dac898f5` was in the Build XY-C1 step. Same-SHA Build, TRX verification and artifact upload remain necessary for L3; L4 hardware validation remains NOT VERIFIED.
+- Earlier d3b7 XY-C1 #44939588534 also remained in progress at last poll. Do not transfer any earlier firmware pass to later source commits.
+- No local tests or cross-builds are claimed; the results above are GitHub Actions only.
 
 ## Exact first action for the next GPT
 
