@@ -1133,28 +1133,126 @@ samba_validate_identity(void *context,const struct process_identity *identity)
 	return process_identity_validate(daemon,identity);
 }
 static int samba_send_signal(void *context,pid_t pid,int sig){(void)context;return kill(pid,sig);}
-static int
-samba_ensure_daemon(const char *daemon,const struct process_snapshot *initial_snapshot)
+/* Remove only a newly launched daemon when its startup postcondition fails. */
+static void
+samba_rollback_failed_daemon_start(const char *daemon, int start_errno)
 {
-	const char *daemon_path;int command_status;enum samba_daemon_action action;
-	struct process_snapshot current_snapshot;enum process_presence current_presence;
-	if(!daemon||(strcmp(daemon,"nmbd")&&strcmp(daemon,"smbd")&&strcmp(daemon,"wsdd2"))||!initial_snapshot){errno=EINVAL;return -1;}
-	action=samba_daemon_action_for_presence(initial_snapshot->state);
-	if(action==SAMBA_DAEMON_ACTION_ABORT){errno=EIO;logmessage("Samba Server","%s process state UNKNOWN; refusing start/reload",daemon);return -1;}
-	if(action==SAMBA_DAEMON_ACTION_RELOAD){
-		command_status=samba_daemon_signal_snapshot(initial_snapshot,SIGHUP,samba_validate_identity,samba_send_signal,(void *)daemon);
-	}else{
-		memset(&current_snapshot,0,sizeof(current_snapshot));
-		current_presence=process_inventory_scan(daemon, &current_snapshot);
-		if(current_presence==PROCESS_PRESENCE_UNKNOWN){errno=current_snapshot.error?current_snapshot.error:EIO;process_snapshot_release(&current_snapshot);logmessage("Samba Server","%s inventory UNKNOWN before launch",daemon);return -1;}
-		if(current_presence!=PROCESS_PRESENCE_ABSENT){process_snapshot_release(&current_snapshot);errno=EBUSY;logmessage("Samba Server","%s appeared before launch; refusing duplicate",daemon);return -1;}
-		process_snapshot_release(&current_snapshot);
-		if(!strcmp(daemon,"nmbd")){daemon_path="/sbin/nmbd";command_status=eval(daemon_path,"-D","-s","/etc/smb.conf");}
-		else if(!strcmp(daemon,"smbd")){daemon_path="/sbin/smbd";command_status=eval(daemon_path,"-D","-s","/etc/smb.conf");}
-		else{daemon_path="/sbin/wsdd2";command_status=eval(daemon_path,"-d","-w");}
+	char *services[2];
+	int stop_status;
+	int scan_error = 0;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	services[0] = (char *)daemon;
+	services[1] = NULL;
+	memset(&snapshot, 0, sizeof(snapshot));
+	stop_status = kill_services(services, 5, 1);
+	presence = process_inventory_scan(daemon, &snapshot);
+	scan_error = snapshot.error;
+	if (samba_failed_start_may_leave_daemon(presence)) {
+		logmessage("Samba Server",
+			   "%s may remain active after failed start (rollback_status=%d, state=%d, scan_error=%d)",
+			   daemon, stop_status, presence, scan_error);
+	} else if (stop_status != 0) {
+		logmessage("Samba Server",
+			   "%s is absent after failed-start rollback but stop reported status=%d",
+			   daemon, stop_status);
 	}
-	if(command_status!=0){logmessage("Samba Server","%s %s command failed (status %d)",daemon,action==SAMBA_DAEMON_ACTION_RELOAD?"reload":"start",command_status);return -1;}
-	if(samba_wait_for_daemon(daemon)!=0){logmessage("Samba Server","%s not stable after %s (errno %d)",daemon,action==SAMBA_DAEMON_ACTION_RELOAD?"reload":"start",errno?errno:ETIMEDOUT);return -1;}
+	process_snapshot_release(&snapshot);
+	errno = start_errno > 0 ? start_errno : EIO;
+}
+
+static int
+samba_ensure_daemon(const char *daemon,
+		    const struct process_snapshot *initial_snapshot)
+{
+	const char *daemon_path;
+	int command_status;
+	int launched_new_daemon = 0;
+	int start_errno;
+	enum samba_daemon_action action;
+	struct process_snapshot current_snapshot;
+	enum process_presence current_presence;
+
+	if (!daemon ||
+	    (strcmp(daemon, "nmbd") && strcmp(daemon, "smbd") &&
+	     strcmp(daemon, "wsdd2")) ||
+	    !initial_snapshot) {
+		errno = EINVAL;
+		return -1;
+	}
+
+	action = samba_daemon_action_for_presence(initial_snapshot->state);
+	if (action == SAMBA_DAEMON_ACTION_ABORT) {
+		errno = EIO;
+		logmessage("Samba Server",
+			   "%s process state UNKNOWN; refusing start/reload", daemon);
+		return -1;
+	}
+
+	if (action == SAMBA_DAEMON_ACTION_RELOAD) {
+		command_status = samba_daemon_signal_snapshot(
+			initial_snapshot, SIGHUP, samba_validate_identity,
+			samba_send_signal, (void *)daemon);
+	} else {
+		memset(&current_snapshot, 0, sizeof(current_snapshot));
+		current_presence = process_inventory_scan(daemon, &current_snapshot);
+		if (current_presence == PROCESS_PRESENCE_UNKNOWN) {
+			errno = current_snapshot.error ? current_snapshot.error : EIO;
+			process_snapshot_release(&current_snapshot);
+			logmessage("Samba Server",
+				   "%s inventory UNKNOWN before launch", daemon);
+			return -1;
+		}
+		if (current_presence != PROCESS_PRESENCE_ABSENT) {
+			process_snapshot_release(&current_snapshot);
+			errno = EBUSY;
+			logmessage("Samba Server",
+				   "%s appeared before launch; refusing duplicate", daemon);
+			return -1;
+		}
+		process_snapshot_release(&current_snapshot);
+
+		errno = 0;
+		launched_new_daemon = 1;
+		if (!strcmp(daemon, "nmbd")) {
+			daemon_path = "/sbin/nmbd";
+			command_status = eval(daemon_path, "-D", "-s", "/etc/smb.conf");
+		} else if (!strcmp(daemon, "smbd")) {
+			daemon_path = "/sbin/smbd";
+			command_status = eval(daemon_path, "-D", "-s", "/etc/smb.conf");
+		} else {
+			daemon_path = "/sbin/wsdd2";
+			command_status = eval(daemon_path, "-d", "-w");
+		}
+	}
+
+	if (command_status != 0) {
+		start_errno = errno ? errno : EIO;
+		logmessage("Samba Server",
+			   "%s %s command failed (status %d)", daemon,
+			   action == SAMBA_DAEMON_ACTION_RELOAD ? "reload" : "start",
+			   command_status);
+		if (launched_new_daemon)
+			samba_rollback_failed_daemon_start(daemon, start_errno);
+		else
+			errno = start_errno;
+		return -1;
+	}
+
+	if (samba_wait_for_daemon(daemon) != 0) {
+		start_errno = errno ? errno : ETIMEDOUT;
+		logmessage("Samba Server", "%s not stable after %s (errno %d)",
+			   daemon,
+			   action == SAMBA_DAEMON_ACTION_RELOAD ? "reload" : "start",
+			   start_errno);
+		if (launched_new_daemon)
+			samba_rollback_failed_daemon_start(daemon, start_errno);
+		else
+			errno = start_errno;
+		return -1;
+	}
+
 	return 0;
 }
 
