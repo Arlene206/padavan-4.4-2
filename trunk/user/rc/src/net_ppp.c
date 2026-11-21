@@ -754,6 +754,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 
 	text_status = ppp_wan_option_text_values_read(
 		(wan_proto == IPV4_WAN_PROTO_PPPOE),
+		(wan_proto == IPV4_WAN_PROTO_PPTP),
 		ppp_wan_option_read_text, &unit, &text_values);
 	if (text_status != 0) {
 		saved_errno = text_status > 0 ? text_status : EIO;

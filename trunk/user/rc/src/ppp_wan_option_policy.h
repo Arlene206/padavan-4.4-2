@@ -95,14 +95,16 @@ typedef int (*ppp_wan_option_read_text_fn)(void *context,
 
 /* Read all PPP option strings before any session or shared-file mutation. */
 static inline int
-ppp_wan_option_text_values_read(int is_pppoe,
+ppp_wan_option_text_values_read(int is_pppoe, int is_pptp,
 				ppp_wan_option_read_text_fn read_text,
 				void *context,
 				struct ppp_wan_option_text_values *values)
 {
 	int status;
 
-	if ((is_pppoe != 0 && is_pppoe != 1) || !read_text || !values)
+	if ((is_pppoe != 0 && is_pppoe != 1) ||
+	    (is_pptp != 0 && is_pptp != 1) ||
+	    is_pppoe + is_pptp != 1 || !read_text || !values)
 		return EINVAL;
 	memset(values, 0, sizeof(*values));
 #define PPP_WAN_READ_TEXT(name, member) \
@@ -115,9 +117,11 @@ ppp_wan_option_text_values_read(int is_pppoe,
 
 	PPP_WAN_READ_TEXT("pppoe_username", username);
 	PPP_WAN_READ_TEXT("pppoe_passwd", password);
-	PPP_WAN_READ_TEXT("ppp_peer", peer);
-	if (!values->peer[0])
-		PPP_WAN_READ_TEXT("man_gateway", peer);
+	if (is_pptp) {
+		PPP_WAN_READ_TEXT("ppp_peer", peer);
+		if (!values->peer[0])
+			PPP_WAN_READ_TEXT("man_gateway", peer);
+	}
 	if (is_pppoe) {
 		PPP_WAN_READ_TEXT("pppoe_ac", access_concentrator);
 		PPP_WAN_READ_TEXT("pppoe_service", service);

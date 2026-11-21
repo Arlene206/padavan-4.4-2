@@ -125,11 +125,22 @@ require(primary < default_route < static_routes,
 require("status = route_status_accumulate(status, route_status)" in routes,
         "PPP primary read error must be reported")
 
+text_policy = body(policy, "ppp_wan_option_text_values_read(int is_pppoe, int is_pptp")
+require("is_pppoe + is_pptp != 1" in text_policy,
+        "PPP text snapshot must accept exactly one protocol")
+peer_gate = text_policy.index("if (is_pptp)")
+peer_read = text_policy.index('PPP_WAN_READ_TEXT("ppp_peer", peer)', peer_gate)
+pppoe_gate = text_policy.index("if (is_pppoe)")
+pppoe_options = text_policy.index('PPP_WAN_READ_TEXT("pppoe_ac", access_concentrator)', pppoe_gate)
+require(peer_gate < peer_read < pppoe_gate < pppoe_options,
+        "peer and PPPoE-only text keys must be protocol-scoped")
+
 for name in ("test_pppoe_options","test_pptp_and_l2tp_options",
              "test_missing_values_keep_zero_defaults",
              "test_failures_stop_and_clear_snapshot",
              "test_invalid_arguments_fail_closed",
-             "test_pppoe_string_snapshot_reads_all_fields",
+             "test_pppoe_string_snapshot_reads_only_pppoe_fields",
+             "test_l2tp_string_snapshot_skips_inactive_peer_and_pppoe_fields",
              "test_empty_peer_uses_checked_management_gateway_fallback",
              "test_text_backend_failure_discards_partial_values",
              "test_empty_text_defaults_and_oversize_failure"):

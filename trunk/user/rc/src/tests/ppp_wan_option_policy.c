@@ -117,14 +117,14 @@ fake_read_text(void *context, const char *name, char *value, size_t value_size)
 }
 
 static void
-test_pppoe_string_snapshot_reads_all_fields(void)
+test_pppoe_string_snapshot_reads_only_pppoe_fields(void)
 {
 	static const char *const names[] = {
-		"pppoe_username", "pppoe_passwd", "ppp_peer",
-		"pppoe_ac", "pppoe_service", "ppp_pppd"
+		"pppoe_username", "pppoe_passwd", "pppoe_ac",
+		"pppoe_service", "ppp_pppd"
 	};
 	static const char *const inputs[] = {
-		"alice", "secret", "peer.example", "access-node", "fiber", "debug"
+		"alice", "secret", "access-node", "fiber", "debug"
 	};
 	struct fake_text_reader fake;
 	struct ppp_wan_option_text_values values;
@@ -132,15 +132,15 @@ test_pppoe_string_snapshot_reads_all_fields(void)
 
 	memset(&fake, 0, sizeof(fake));
 	fake.fail_at = -1;
-	for (i = 0; i < 6; ++i)
+	for (i = 0; i < 5; ++i)
 		fake.values[i] = inputs[i];
-	assert(ppp_wan_option_text_values_read(1, fake_read_text, &fake, &values) == 0);
-	assert(fake.calls == 6);
-	for (i = 0; i < 6; ++i)
+	assert(ppp_wan_option_text_values_read(1, 0, fake_read_text, &fake, &values) == 0);
+	assert(fake.calls == 5);
+	for (i = 0; i < 5; ++i)
 		assert(strcmp(fake.names[i], names[i]) == 0);
 	assert(strcmp(values.username, "alice") == 0);
 	assert(strcmp(values.password, "secret") == 0);
-	assert(strcmp(values.peer, "peer.example") == 0);
+	assert(values.peer[0] == '\0');
 	assert(strcmp(values.access_concentrator, "access-node") == 0);
 	assert(strcmp(values.service, "fiber") == 0);
 	assert(strcmp(values.user_options, "debug") == 0);
@@ -163,7 +163,7 @@ test_empty_peer_uses_checked_management_gateway_fallback(void)
 	fake.values[2] = "";
 	fake.values[3] = "gateway.example";
 	fake.values[4] = "";
-	assert(ppp_wan_option_text_values_read(0, fake_read_text, &fake, &values) == 0);
+	assert(ppp_wan_option_text_values_read(0, 1, fake_read_text, &fake, &values) == 0);
 	assert(fake.calls == 5);
 	for (i = 0; i < 5; ++i)
 		assert(strcmp(fake.names[i], names[i]) == 0);
@@ -173,24 +173,50 @@ test_empty_peer_uses_checked_management_gateway_fallback(void)
 }
 
 static void
+test_l2tp_string_snapshot_skips_inactive_peer_and_pppoe_fields(void)
+{
+	static const char *const names[] = {
+		"pppoe_username", "pppoe_passwd", "ppp_pppd"
+	};
+	struct fake_text_reader fake;
+	struct ppp_wan_option_text_values values;
+	int i;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_at = -1;
+	fake.values[0] = "l2tp-user";
+	fake.values[1] = "l2tp-password";
+	fake.values[2] = "debug";
+	assert(ppp_wan_option_text_values_read(0, 0, fake_read_text, &fake, &values) == 0);
+	assert(fake.calls == 3);
+	for (i = 0; i < 3; ++i)
+		assert(strcmp(fake.names[i], names[i]) == 0);
+	assert(strcmp(values.username, "l2tp-user") == 0);
+	assert(strcmp(values.password, "l2tp-password") == 0);
+	assert(values.peer[0] == '\0');
+	assert(values.access_concentrator[0] == '\0');
+	assert(values.service[0] == '\0');
+	assert(strcmp(values.user_options, "debug") == 0);
+}
+
+static void
 test_text_backend_failure_discards_partial_values(void)
 {
 	struct fake_text_reader fake;
 	struct ppp_wan_option_text_values values;
 	int failure;
 
-	for (failure = 0; failure < 6; ++failure) {
+	for (failure = 0; failure < 5; ++failure) {
 		memset(&fake, 0, sizeof(fake));
 		fake.fail_at = failure;
 		fake.failure_status = EACCES;
 		fake.values[0] = "alice";
 		fake.values[1] = "secret";
-		fake.values[2] = "peer";
-		fake.values[3] = "ac";
-		fake.values[4] = "service";
-		fake.values[5] = "extra";
+		fake.values[2] = "ac";
+		fake.values[3] = "service";
+		fake.values[4] = "extra";
 		memset(&values, 0x5a, sizeof(values));
-		assert(ppp_wan_option_text_values_read(1, fake_read_text, &fake, &values) == EACCES);
+		assert(ppp_wan_option_text_values_read(1, 0, fake_read_text, &fake, &values) == EACCES);
 		assert(fake.calls == failure + 1);
 		assert(values.username[0] == '\0' && values.password[0] == '\0');
 		assert(values.peer[0] == '\0' && values.access_concentrator[0] == '\0');
@@ -207,8 +233,8 @@ test_empty_text_defaults_and_oversize_failure(void)
 
 	memset(&fake, 0, sizeof(fake));
 	fake.fail_at = -1;
-	assert(ppp_wan_option_text_values_read(1, fake_read_text, &fake, &values) == 0);
-	assert(fake.calls == 7);
+	assert(ppp_wan_option_text_values_read(1, 0, fake_read_text, &fake, &values) == 0);
+	assert(fake.calls == 5);
 	assert(values.username[0] == '\0' && values.password[0] == '\0');
 	assert(values.peer[0] == '\0' && values.access_concentrator[0] == '\0');
 	assert(values.service[0] == '\0' && values.user_options[0] == '\0');
@@ -218,7 +244,7 @@ test_empty_text_defaults_and_oversize_failure(void)
 	memset(&fake, 0, sizeof(fake));
 	fake.fail_at = -1;
 	fake.values[0] = oversized;
-	assert(ppp_wan_option_text_values_read(0, fake_read_text, &fake, &values) == ENAMETOOLONG);
+	assert(ppp_wan_option_text_values_read(0, 1, fake_read_text, &fake, &values) == ENAMETOOLONG);
 	assert(fake.calls == 1 && values.username[0] == '\0');
 }
 
@@ -229,7 +255,8 @@ int main(void)
 	test_missing_values_keep_zero_defaults();
 	test_failures_stop_and_clear_snapshot();
 	test_invalid_arguments_fail_closed();
-	test_pppoe_string_snapshot_reads_all_fields();
+	test_pppoe_string_snapshot_reads_only_pppoe_fields();
+	test_l2tp_string_snapshot_skips_inactive_peer_and_pppoe_fields();
 	test_empty_peer_uses_checked_management_gateway_fallback();
 	test_text_backend_failure_discards_partial_values();
 	test_empty_text_defaults_and_oversize_failure();
