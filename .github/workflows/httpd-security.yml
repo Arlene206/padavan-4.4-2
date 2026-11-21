@@ -1385,7 +1385,12 @@ jobs:
           assert "test_global_cache_flush_is_attempted_and_errors_are_preserved" in route_flush_test
           assert "rc_first_service_start_status(first_status, status)" in route_flush_policy
           assert "test_all_interfaces_are_attempted_and_first_error_is_preserved" in route_flush_test
-          assert lan_restart.index("if (get_ap_mode())") < lan_restart.index("pvid_wan_before = phy_vlan_pvid_wan_get();")
+          lan_mode_read = lan_restart.index("get_ap_mode_status(&is_ap_mode)")
+          lan_mode_error = lan_restart.index("if (ap_mode_status != 0)", lan_mode_read)
+          lan_mode_noop = lan_restart.index("if (is_ap_mode)", lan_mode_error)
+          assert lan_mode_read < lan_mode_error < lan_mode_noop < lan_restart.index("pvid_wan_before = phy_vlan_pvid_wan_get();")
+          assert "return ap_mode_status;" in lan_restart[lan_mode_error:lan_mode_noop]
+          assert "get_ap_mode()" not in lan_restart
           assert "switch_status_vlan_pvid_changed(pvid_wan_before, pvid_wan_after)" in lan_restart
           assert "unable to compare WAN switch PVID" in lan_restart
           for path in (
