@@ -62,6 +62,8 @@
 #include "samba_daemon_policy.h"
 #include "samba_process_policy.h"
 #include "samba_config_transaction.h"
+#include "samba_config_mode_policy.h"
+#include "wan_nvram_status_policy.h"
 #endif
 
 #define DHCPD_STATIC_MAX	64
@@ -1544,22 +1546,55 @@ samba_rollback_failed_nmbd_start(int start_errno, const char *operation)
 	errno = start_errno > 0 ? start_errno : EIO;
 }
 
+static int
+samba_ex_read_boolean_status(const char *name, int missing_value, int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, read_status, status;
+	int parsed = 0;
+
+	if (!name || !enabled)
+		return EINVAL;
+	*enabled = 0;
+	errno = 0;
+	api_result = nvram_get_checked(name, &value);
+	saved_errno = errno;
+	read_status = rc_wan_nvram_read_int_status(api_result, saved_errno,
+						   value, missing_value,
+						   &parsed);
+	status = samba_boolean_value_status(read_status, parsed, enabled);
+	if (status != 0)
+		errno = status;
+	return status == 0 ? 0 : -1;
+}
+
+
 int
 start_wins(void)
 {
 	FILE *fp = NULL;
 	char staged_path[64];
 	int command_status, lock_fd, result = -1;
-	int scan_error;
+	int scan_error, wins_enabled;
 	int launched_new_daemon = 0;
 	int failure_errno;
 	enum process_presence nmbd_presence;
 	struct process_snapshot nmbd_snapshot;
 
-	memset(&nmbd_snapshot, 0, sizeof(nmbd_snapshot));
-	if (nvram_match("wins_enable", "0"))
+	if (samba_ex_read_boolean_status("wins_enable", 1,
+					 &wins_enabled) != 0) {
+		int read_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "cannot read WINS enable state; refusing startup (errno %d)",
+			   read_error);
+		errno = read_error;
+		return -1;
+	}
+	if (!wins_enabled)
 		return 0;
 
+	memset(&nmbd_snapshot, 0, sizeof(nmbd_snapshot));
 	lock_fd = samba_config_transaction_lock_acquire(
 		SAMBA_CONFIG_TRANSACTION_LOCK_FILE);
 	if (lock_fd < 0) {

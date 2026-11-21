@@ -31,7 +31,9 @@ on:
       - ".github/workflows/samba-share-stability.yml"
       - "trunk/user/rc/src/services_stor.c"
       - "trunk/user/rc/src/services_ex.c"
-      - "trunk/user/rc/src/services_stor.c"
+      - "trunk/user/rc/src/samba_config_mode_policy.h"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
+      - "trunk/user/rc/src/tests/samba_config_mode_policy.c"
       - "trunk/user/rc/src/service_wait_policy.h"
       - "trunk/user/rc/src/tests/service_wait_policy.c"
       - "trunk/user/rc/src/rc.h"
@@ -137,10 +139,20 @@ jobs:
           assert "ferror(fp)" in header_body
 
           smb = function_body(stor, "write_smb_conf_unlocked(void)")
+          integer_reader = function_body(stor, "samba_read_integer_status(const char *name, int missing_value, int *value)")
+          boolean_reader = function_body(stor, "samba_read_boolean_status(const char *name, int missing_value, int *enabled)")
+          mode_reader = function_body(stor, "samba_read_mode_status(int missing_value, int *mode)")
           config_mode_reader = function_body(stor, "samba_read_config_mode_status(int *mode)")
-          assert 'nvram_get_checked("st_samba_mode", &value)' in config_mode_reader
-          assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in config_mode_reader
-          assert "samba_config_mode_is_valid(*mode)" in config_mode_reader
+          runtime_reader = function_body(stor, "samba_read_runtime_enabled_status(int *enabled)")
+          assert 'nvram_get_checked(name, &text)' in integer_reader
+          assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in integer_reader
+          assert "samba_boolean_value_status(read_status, value, enabled)" in boolean_reader
+          assert 'samba_read_integer_status("st_samba_mode", missing_value, mode)' in mode_reader
+          assert "samba_config_mode_is_valid(*mode)" in mode_reader
+          assert "samba_read_mode_status(0, mode)" in config_mode_reader
+          assert 'samba_read_integer_status("enable_samba", 1, &enable_value)' in runtime_reader
+          assert 'samba_read_integer_status("st_samba_mode", 1, &mode_value)' in runtime_reader
+          assert "samba_runtime_enabled_status(" in runtime_reader
           assert "rc_wan_nvram_parse_int_value" in nvram_policy
           assert 'nvram_get_int("st_samba_mode")' not in smb
           assert "samba_read_config_mode_status(&i_smb_mode)" in smb
@@ -148,7 +160,13 @@ jobs:
           assert "i_smb_mode == 0" in smb
           assert "result = -1;" in smb[smb.index("i_smb_mode == 0"):]
           assert "samba_config_mode_is_valid" in config_mode_policy
+          assert "samba_boolean_value_status" in config_mode_policy
+          assert "samba_runtime_enabled_status" in config_mode_policy
           assert "samba_config_mode_is_valid(2)" in config_mode_test
+          assert "samba_boolean_value_status(EIO, 0, &enabled)" in config_mode_test
+          assert "samba_runtime_enabled_status(0, 0, EIO, 99, &enabled)" in config_mode_test
+          assert "samba_runtime_enabled_status(0, 1, EIO, 1, &enabled)" in config_mode_test
+          assert "samba_runtime_enabled_status(0, 1, 0, 4, &enabled)" in config_mode_test
           assert "samba_config_file_open(SAMBA_CONF" in smb
           assert "write_smb_conf_header(fp)" in smb
           assert "samba_config_file_publish(&fp, staged_path, SAMBA_CONF)" in smb
@@ -165,7 +183,14 @@ jobs:
           assert "ferror(tp)" in check
           assert "fclose(tp)" in check
 
+          wins_reader = function_body(services, "samba_ex_read_boolean_status(const char *name, int missing_value, int *enabled)")
+          assert "nvram_get_checked(name, &value)" in wins_reader
+          assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in wins_reader
+          assert "samba_boolean_value_status(read_status, parsed, enabled)" in wins_reader
           wins = function_body(services, "start_wins(void)")
+          assert 'samba_ex_read_boolean_status("wins_enable", 1, &wins_enabled)' in wins
+          assert wins.index('samba_ex_read_boolean_status("wins_enable", 1, &wins_enabled)') < wins.index("samba_config_transaction_lock_acquire(")
+          assert 'nvram_match("wins_enable", "0")' not in wins
           assert "samba_config_transaction_prepare_parent_directory(" in wins
           assert wins.index("samba_config_transaction_prepare_parent_directory(") < wins.index("samba_config_transaction_recover(")
           assert "samba_config_transaction_lock_acquire(" in wins
@@ -225,6 +250,10 @@ jobs:
           assert "samba_config_file_publish(&fp, staged, directory_target) != 0" in test
           assert "samba_config_file_discard(&fp, staged)" in test
           run_samba = function_body(stor, "int run_samba(void)")
+          assert "samba_read_runtime_enabled_status(&runtime_enabled)" in run_samba
+          assert run_samba.index("samba_read_runtime_enabled_status(&runtime_enabled)") < run_samba.index("samba_config_transaction_lock_acquire(")
+          assert 'nvram_match("enable_samba", "0")' not in run_samba
+          assert 'nvram_match("st_samba_mode", "0")' not in run_samba
           assert run_samba.index("samba_config_transaction_prepare_parent_directory(") < run_samba.index("samba_config_transaction_recover(")
           assert 'mkdir_if_none("/etc/samba", "777")' not in run_samba
           assert run_samba.index("samba_config_transaction_lock_acquire(") < run_samba.index("samba_config_transaction_recover(")
@@ -347,6 +376,10 @@ jobs:
           assert "process_snapshot_release(&snapshot)" in require_absent
 
           restart_smbd = function_body(stor, "int restart_smbd(void)")
+          assert "samba_read_runtime_enabled_status(&samba_enabled)" in restart_smbd
+          assert restart_smbd.index("samba_read_runtime_enabled_status(&samba_enabled)") < restart_smbd.index("stop_status = stop_samba_locked(1)")
+          assert 'samba_read_boolean_status("wins_enable", 1, &wins_enabled)' in restart_smbd
+          assert "nvram_match(" not in restart_smbd
           assert "samba_status = run_samba();" in restart_smbd
           assert "if (samba_status != 0)" in restart_smbd
           restart_lock = restart_smbd.index("storage_operation_lock_acquire(file_lock)")
@@ -409,6 +442,9 @@ jobs:
               assert token in process_test
 
           stop_samba = function_body(stor, "stop_samba_locked(int force_stop)")
+          assert 'samba_read_boolean_status("wins_enable", 0, &wins_enabled)' in stop_samba
+          assert stop_samba.index('samba_read_boolean_status("wins_enable", 0, &wins_enabled)') < stop_samba.index("stop_status = kill_services(svcs, 5, 1)")
+          assert 'nvram_match("wins_enable", "1")' not in stop_samba
           assert "stop_status = kill_services(svcs, 5, 1)" in stop_samba
           assert "if (stop_status != 0)" in stop_samba
           assert 'samba_require_daemon_absent("smbd", "after stop")' in stop_samba

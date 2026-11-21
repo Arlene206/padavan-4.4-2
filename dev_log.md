@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on Samba enable and WINS NVRAM read errors
+
+- Parent main SHA: `fbec957a7aa7ecb91ec538b7fa0ebe8acfd324af`.
+- Fixed four service decisions that previously used `nvram_match()` without distinguishing a backend read error from a real value: global Samba enable/share mode in `run_samba()`, the pre-stop decision in `restart_smbd()`, selective `nmbd` stop when WINS is enabled, and WINS startup in `start_wins()`.
+- Added shared status-policy validation and GNU89 unit cases for backend errors, invalid booleans, disabled-service short-circuit, invalid modes and all supported modes. Runtime mode reads retain legacy missing-key default 1; configuration generation retains missing-mode default 0. WINS start/stop preserve their legacy missing-key defaults (1/0).
+- Extended source contracts to require checks before teardown, publication and launch; added missing Samba header/test dependencies to the pull-request path filter. XY-C1 workflow already watches both production source files.
+- Parent exact-head `fbec957`: WAN callback #44915851413, WAN route #44915851347 and AI handoff #44915851360 PASS. XY-C1 #44915851356 host validation PASS, but Build XY-C1, TRX verification and artifact upload were SKIPPED because the parent commit changed no production input. The current production-source commit requires a new full same-SHA Build/TRX/artifact result. No L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Align WAN callback and route regressions with split rollback status
 
 - Parent main SHA: `6882aefa2c70b7bfc53da5e770610dc45dc802ba`.

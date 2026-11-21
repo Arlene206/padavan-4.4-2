@@ -637,25 +637,48 @@ check_existed_share(const char *string, const char *config_path)
 }
 
 static int
-samba_read_config_mode_status(int *mode)
+samba_read_integer_status(const char *name, int missing_value, int *value)
 {
-	char *value = NULL;
-	int api_result, saved_errno, status;
+	char *text = NULL;
+	int api_result, saved_errno;
+
+	if (!name || !value)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_get_checked(name, &text);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(api_result, saved_errno,
+					    text, missing_value, value);
+}
+
+
+static int
+samba_read_boolean_status(const char *name, int missing_value, int *enabled)
+{
+	int value = 0;
+	int read_status, status;
+
+	if (!enabled)
+		return EINVAL;
+	*enabled = 0;
+	read_status = samba_read_integer_status(name, missing_value, &value);
+	status = samba_boolean_value_status(read_status, value, enabled);
+	if (status != 0)
+		errno = status;
+	return status == 0 ? 0 : -1;
+}
+
+
+static int
+samba_read_mode_status(int missing_value, int *mode)
+{
+	int status;
 
 	if (!mode) {
 		errno = EINVAL;
 		return -1;
 	}
-
-	/*
-	 * A failed NVRAM read must not look like the legacy disabled value 0:
-	 * that would publish a header-only smb.conf over the last-good config.
-	 */
-	errno = 0;
-	api_result = nvram_get_checked("st_samba_mode", &value);
-	saved_errno = errno;
-	status = rc_wan_nvram_read_int_status(api_result, saved_errno,
-					      value, 0, mode);
+	status = samba_read_integer_status("st_samba_mode", missing_value, mode);
 	if (status != 0) {
 		errno = status;
 		return -1;
@@ -664,7 +687,44 @@ samba_read_config_mode_status(int *mode)
 		errno = EINVAL;
 		return -1;
 	}
+	return 0;
+}
 
+
+/* Configuration generation historically treats a missing mode as disabled. */
+static int
+samba_read_config_mode_status(int *mode)
+{
+	return samba_read_mode_status(0, mode);
+}
+
+
+/* Runtime startup historically treats missing global/mode flags as enabled. */
+static int
+samba_read_runtime_enabled_status(int *enabled)
+{
+	int enable_value = 1, mode_value = 1;
+	int enable_read_status, mode_read_status = 0;
+	int status;
+
+	if (!enabled) {
+		errno = EINVAL;
+		return -1;
+	}
+	*enabled = 0;
+	enable_read_status = samba_read_integer_status(
+		"enable_samba", 1, &enable_value);
+	if (enable_read_status == 0 && enable_value == 1)
+		mode_read_status = samba_read_integer_status(
+			"st_samba_mode", 1, &mode_value);
+
+	status = samba_runtime_enabled_status(enable_read_status, enable_value,
+					      mode_read_status, mode_value,
+					      enabled);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
 	return 0;
 }
 
@@ -1139,10 +1199,22 @@ stop_samba_locked(int force_stop)
 	 "nmbd", NULL };
 
 	const int nmbdidx = sizeof(svcs) / sizeof(svcs[0]) - 2;
-	int stop_status;
+	int stop_status, wins_enabled = 0;
 
-	if (!force_stop && nvram_match("wins_enable", "1"))
-		svcs[nmbdidx] = NULL;
+	if (!force_stop) {
+		if (samba_read_boolean_status("wins_enable", 0,
+					      &wins_enabled) != 0) {
+			int read_error = errno ? errno : EIO;
+
+			logmessage("Samba Server",
+				   "cannot read WINS enable state; refusing selective daemon stop (errno %d)",
+				   read_error);
+			errno = read_error;
+			return -1;
+		}
+		if (wins_enabled)
+			svcs[nmbdidx] = NULL;
+	}
 
 	stop_status = kill_services(svcs, 5, 1);
 	fput_int("/proc/net/netfilter/nf_fp_smb", 0);
@@ -1355,6 +1427,7 @@ int run_samba(void)
 {
 	int lock_fd, sh_num, i, j;
 	int credential_failed = 0, daemon_failed = 0, result = -1;
+	int runtime_enabled;
 	char tmpuser[40], tmp2[40];
 	enum process_presence smbd_presence, nmbd_presence;
 	struct process_snapshot smbd_snapshot, nmbd_snapshot;
@@ -1363,14 +1436,23 @@ int run_samba(void)
 	int saved_errno, transaction_active = 0;
 	char staged_passdb[128];
 #endif
+	if (samba_read_runtime_enabled_status(&runtime_enabled) != 0) {
+		int config_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "cannot determine Samba enable state; preserving current daemon/configuration state (errno %d)",
+			   config_error);
+		errno = config_error;
+		return -1;
+	}
+	if (!runtime_enabled)
+		return 0;
+
 	memset(&smbd_snapshot, 0, sizeof(smbd_snapshot));
 	memset(&nmbd_snapshot, 0, sizeof(nmbd_snapshot));
 #if defined (APP_SMBD36)
 	memset(&wsdd2_snapshot, 0, sizeof(wsdd2_snapshot));
 #endif
-
-	if (nvram_match("enable_samba", "0") || nvram_match("st_samba_mode", "0"))
-		return 0;
 
 	lock_fd = samba_config_transaction_lock_acquire(
 		SAMBA_CONFIG_TRANSACTION_LOCK_FILE);
@@ -1594,7 +1676,7 @@ int restart_smbd(void)
 {
 	int storage_lock, samba_status = 0;
 	int stop_status, mount_status, restart_status = -1;
-	int samba_enabled;
+	int samba_enabled, wins_enabled;
 	enum samba_storage_restart_action restart_action;
 
 	/* Keep Samba's stop/inventory/start transaction inside the eject barrier. */
@@ -1602,6 +1684,26 @@ int restart_smbd(void)
 	if (storage_lock < 0) {
 		logmessage("Samba Server", "cannot acquire storage operation lock; refusing Samba restart");
 		return -1;
+	}
+
+	if (samba_read_runtime_enabled_status(&samba_enabled) != 0) {
+		int config_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "cannot determine Samba enable state; refusing restart before daemon stop (errno %d)",
+			   config_error);
+		errno = config_error;
+		goto out;
+	}
+	if (!samba_enabled &&
+	    samba_read_boolean_status("wins_enable", 1, &wins_enabled) != 0) {
+		int config_error = errno ? errno : EIO;
+
+		logmessage("Samba Server",
+			   "cannot determine WINS enable state; refusing restart before daemon stop (errno %d)",
+			   config_error);
+		errno = config_error;
+		goto out;
 	}
 
 	stop_status = stop_samba_locked(1);
@@ -1625,8 +1727,6 @@ int restart_smbd(void)
 		logmessage("Samba Server", "restart aborted because mounted storage state is unknown");
 		goto out;
 	}
-	samba_enabled = !(nvram_match("enable_samba", "0") ||
-			   nvram_match("st_samba_mode", "0"));
 	restart_action = samba_storage_restart_action_for(samba_enabled,
 						  mount_status);
 	if (restart_action == SAMBA_STORAGE_RESTART_ACTION_ABORT) {
