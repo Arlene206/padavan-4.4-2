@@ -1,3 +1,13 @@
+## 2026-11-22 07:49 CST — Normalize full WAN VLAN source contract before ordering checks
+
+- Parent main SHA: `85a34af0483c4c16a26e5a25281c3c18afa78c5f`; WAN source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`.
+- Exact WAN route run #44960876481 failed at `scripts/check_wan_vlan_setup.py:183`: checked getter parameters span lines, so comparing a single-line token against the raw C function body raised `ValueError: substring not found`. The earlier GNU89/Werror/ASan/UBSan WAN helper test and preceding WAN route regressions passed. THIS COMMIT normalizes the complete extracted function, including bridge-mode and VLAN selector/read ordering positions, so positions are compared in one coordinate system.
+- The e853 USB storage checker failure was the same class of mismatch: compact C uses `}elseif(...)`; the corrected token is already present in `85a34af0483c4c16a26e5a25281c3c18afa78c5f` and retained here for exact rerun.
+- Exact b4 Actions already PASS: HTTPD, Process umbrella/inventory, DNSMasq, MiniUPnP, ZeroTier, router-mode NVRAM, WAN teardown, USB modem, WAN ARP, WAN DHCP callback, detect_link, AI docs, wireless, Firewall Startup, watchdog, detect_internet, VPN server. WAN route failed at the checker formatting mismatch. XY-C1 #44960876531 and NVRAM #44960876561 were in progress at last poll.
+- Next: verify exact-head WAN route and USB storage checker jobs, then confirm b4 XY-C1 Build/TRX/artifact and NVRAM audit. No L3 claim before all firmware steps pass.
+
+---
+
 ## 2026-11-22 07:34 CST — Correct normalized storage marker branch token
 
 - Parent main SHA: `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`.

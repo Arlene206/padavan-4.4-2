@@ -1,8 +1,8 @@
 ## Current checkpoint — 2026-11-22
 
-- WAN VLAN source SHA `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`: `config_vinet_wan()` now checks `vlan_filter`, enabled CPU/IPTV VLAN IDs and CPU priority before hardware/interface mutation; WAN route source contract updated. Exact route and XY-C1 Build/TRX/artifact were still pending at last poll.
-- Safe-eject checker `e8537853a78498db6c0b7fdc1c5fae020dc6675b` had one normalized `elseif` token expectation error (run #44960744369); caller-graph regression passed. THIS COMMIT updates the checker-only assertion, with exact storage rerun pending.
-- Frozen backup remains read-only.
+- Product source b4 `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`: WAN VLAN enable/VID/priority now use checked NVRAM before hardware/interface changes. WAN route exact run #44960876481 failed only because checker getter token did not normalize multiline C formatting; THIS COMMIT normalizes the full function body before all positional assertions.
+- USB safe-eject checker in `85a34af0483c4c16a26e5a25281c3c18afa78c5f` corrects compact `}elseif` token expectation; this fix is retained for exact storage rerun.
+- Exact b4 WAN route host sanitizer/policy binaries and other recorded subsystem workflows passed before the static checker failure. XY-C1 #44960876531 and NVRAM #44960876561 were in progress at last poll. Confirm same-source Build/TRX/artifact before L3.
 
 ## Historical checkpoint — 2026-11-21
 

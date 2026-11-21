@@ -28,21 +28,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Product source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` hardens `config_vinet_wan()`: checked `vlan_filter` string selector and checked CPU/IPTV VID plus CPU priority reads abort before hardware VLAN mapping/interface changes on backend or malformed-value errors. Its WAN route source checker and existing GNU89/Werror/ASan/UBSan NVRAM regression are included.
-- USB deferred printer/modem event-pair source fix is `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`. Checker-only `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` passes Firewall Startup, Process fail-closed, USB modem and AI docs. Safe-eject checker follow-up `e8537853a78498db6c0b7fdc1c5fae020dc6675b` hit a token-normalization mismatch: `compact()` yields `}elseif(...)`; THIS COMMIT corrects that expectation.
-- Exact b4 WAN route, Process, Firewall, USB and XY-C1 jobs are still running or queued at last poll. XY-C1 needs Build XY-C1, TRX verification and artifact upload all PASS on b4 before claiming L3. Hardware L4 is NOT VERIFIED.
+- Product source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` hardens `config_vinet_wan()`: checked `vlan_filter` and enabled CPU/IPTV VID plus CPU priority reads abort before hardware VLAN mapping/interface changes on NVRAM backend or malformed-value errors.
+- Exact b4 WAN route #44960876481 failed at `scripts/check_wan_vlan_setup.py:183` because checked getter arguments span C lines. The pre-existing WAN NVRAM helper regression and preceding route host tests passed. THIS COMMIT normalizes the entire `config_vinet_wan()` body before comparing source tokens and order.
+- The USB safe-eject compact branch assertion was fixed to `}elseif(...)` in `85a34af0483c4c16a26e5a25281c3c18afa78c5f`; this commit preserves that checker fix.
+- Exact b4 PASS: HTTPD, Process umbrella/inventory, DNSMasq, MiniUPnP, ZeroTier, router-mode NVRAM, WAN teardown, USB modem, WAN ARP, WAN DHCP callback, detect_link, AI docs, wireless, Firewall Startup, watchdog, detect_internet and VPN server. WAN route checker failed at the formatting mismatch. XY-C1 #44960876531 and NVRAM #44960876561 were running at last poll.
+- Confirm exact b4 XY-C1 Build, TRX and artifact upload before claiming L3. Hardware L4 remains NOT VERIFIED.
 
 ## Verification boundary
 
-- e853 USB storage exact run `44960744369` failed only at the stale normalized `else if` token in `check_storage_safe_remove.py`; the full storage caller graph passed. This commit repairs only that check.
-- Product source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` exact Actions were pending at last poll; no L2/L3 success claim until exact jobs complete. The previous checker-only XY source run skipped Build/TRX/artifact and is not L3.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- This is a checker-only normalization follow-up; exact WAN route and USB storage reruns are pending.
+- Exact b4 WAN route policy/helper sanitizer tests passed before the static checker failed; firmware and NVRAM audit status pending.
+- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head USB storage rerun for THIS commit.
-2. Resolve every b4 source Action; especially WAN route status and XY-C1 Build/TRX/artifact. If any current-head contract or build fails, diagnose from that job log.
-3. After the WAN VLAN slice and storage contract are green, continue another independent stability/security defect; do not re-audit completed USB event marker pairs.
+1. Check exact-head WAN route and USB storage jobs for THIS commit.
+2. Resolve exact b4 XY-C1 Build/TRX/artifact and NVRAM audit. If Build/TRX is skipped, inspect detector rather than claiming L3.
+3. Continue a separate userland stability/security defect after the WAN VLAN source contract passes.
 
 ## Workflow and preservation rules
 
