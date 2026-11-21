@@ -228,7 +228,7 @@ idle_end = idle_position + demand_match.start()
 idle_failure = wan_start[idle_position:idle_end]
 require("if (nvram_status != 0)" in idle_failure and
         re.search(
-            r"restore_wan_after_firewall_failure\\s*\\(\\s*unit,\\s*wan_ifname\\s*\\)",
+            r"restore_wan_after_firewall_failure\s*\(\s*unit,\s*wan_ifname\s*\)",
             idle_failure,
         ) is not None and
         "continue;" in idle_failure,

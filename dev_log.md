@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct WAN rollback regex escaping
+
+- Parent main SHA: `49cde0cd18521a94466b3bac2017d3edab346e88`.
+- Exact-head WAN route run `#44892863922` passed the GNU89/ASan/UBSan policy binaries and the preceding WAN source contract, then failed the new PPPoE rollback regex. The source contains the expected multiline `restore_wan_after_firewall_failure(unit, wan_ifname)` call; the checker expression again contained doubled backslashes and matched literal backslashes instead of whitespace.
+- Corrected the regex to use one backslash per whitespace escape. The assertion still pins both the restore helper and the exact `unit` / `wan_ifname` arguments.
+- WAN DHCP callback run `#44892863908` and AI handoff docs `#44892863965` both passed on the same parent SHA.
+
+---
+
 ## 2026-11-21 — Scope WAN failure-path assertions to their own branches
 
 - Parent main SHA: `b1a6dc2eef817674065df02bcb08c8bce95ca8ac`.
