@@ -288,25 +288,74 @@ jobs:
           busybox_wait_source = Path("trunk/user/busybox/busybox-1.24.x/libbb/xfuncs.c").read_text()
           common_ex_source = Path("trunk/user/rc/src/common_ex.c").read_text()
 
+          def code_characters(text, start):
+              """Yield C code characters, skipping comments and literals."""
+              pos = start
+              while pos < len(text):
+                  if text.startswith("//", pos):
+                      newline = text.find(chr(10), pos + 2)
+                      pos = len(text) if newline < 0 else newline + 1
+                      continue
+                  if text.startswith("/*", pos):
+                      close = text.find("*/", pos + 2)
+                      pos = len(text) if close < 0 else close + 2
+                      continue
+                  char = text[pos]
+                  if char in ('"', "'"):
+                      quote = char
+                      pos += 1
+                      while pos < len(text):
+                          if ord(text[pos]) == 92:
+                              pos += 2
+                          elif text[pos] == quote:
+                              pos += 1
+                              break
+                          else:
+                              pos += 1
+                      continue
+                  yield pos, char
+                  pos += 1
+
           def body(text, signature):
               search_from = 0
+              brace = -1
               while True:
-                  start = text.index(signature, search_from)
-                  brace = text.index("{", start)
-                  terminator = text.find(";", start)
-                  if terminator >= 0 and terminator < brace:
-                      search_from = start + len(signature)
-                      continue
-                  break
+                  start = text.find(signature, search_from)
+                  if start < 0:
+                      break
+                  for pos, char in code_characters(text, start + len(signature)):
+                      if char == ";":
+                          break
+                      if char == "{":
+                          brace = pos
+                          break
+                  if brace >= 0:
+                      break
+                  search_from = start + len(signature)
+              if brace < 0:
+                  raise AssertionError(f"missing function body: {signature}")
               depth = 0
-              for pos in range(brace, len(text)):
-                  if text[pos] == "{":
+              for pos, char in code_characters(text, brace):
+                  if char == "{":
                       depth += 1
-                  elif text[pos] == "}":
+                  elif char == "}":
                       depth -= 1
                       if depth == 0:
                           return text[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
+
+          _body_probe = r'''
+          int callback_probe(void);
+          int callback_probe(void) {
+              const char *brace = "}";
+              char open = '{';
+              /* ignored: { } */
+              // ignored: { }
+              if (open == '{') { return brace[0] == '}' ? 1 : 0; }
+              return 0;
+          }
+          '''
+          assert "if (open == '{')" in body(_body_probe, "callback_probe(void)")
 
           for name in (
               "man_down_internal",
