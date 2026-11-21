@@ -1477,6 +1477,51 @@ finish_transaction:
 
 
 static int
+vpn_server_read_callback_mode_snapshot(int *virtual_mode, int *cast_mode)
+{
+	struct nvram_transaction transaction;
+	int next_virtual_mode = 0, next_cast_mode = 0;
+	int status, result = -1, saved_errno = 0, end_status;
+
+	if (!virtual_mode || !cast_mode) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	status = vpn_server_transaction_get_int(&transaction, "vpns_vuse",
+						 0, 0, 2, &next_virtual_mode);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	status = vpn_server_transaction_get_int(&transaction, "vpns_cast",
+						 0, 0, 3, &next_cast_mode);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	*virtual_mode = next_virtual_mode;
+	*cast_mode = next_cast_mode;
+	return 0;
+}
+
+static int
 vpn_server_read_route_acl_snapshot(struct vpn_server_route_acl_snapshot *snapshot)
 {
 	struct nvram_transaction transaction;
@@ -1691,6 +1736,15 @@ ipup_vpns_main(int argc, char **argv)
 		(void)vpn_server_lifecycle_lock_release(lifecycle_fd);
 		return -1;
 	}
+	if (vpn_server_read_callback_mode_snapshot(&i_vuse, &i_cast) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read VPN callback mode; refusing connection setup (errno=%d)",
+			   saved_errno);
+		(void)vpn_server_lifecycle_lock_release(lifecycle_fd);
+		errno = saved_errno;
+		return -1;
+	}
 	logmessage(VPNS_LOG_NAME, "peer %s (%s) connected - ifname: %s, local IP: %s",
 		   argv[6], peer_name, argv[1], argv[5]);
 	umask(0000);
@@ -1730,7 +1784,6 @@ ipup_vpns_main(int argc, char **argv)
 		cleanup_failed = 1;
 	}
 
-	i_vuse = nvram_get_int("vpns_vuse");
 	if (i_vuse) {
 		char *ifconfig_argv[] = { "ifconfig", argv[1], "-multicast", NULL };
 		_eval(ifconfig_argv, NULL, 0, NULL);
@@ -1742,7 +1795,6 @@ ipup_vpns_main(int argc, char **argv)
 		cleanup_failed = 1;
 	}
 	set_vpn_balancing(argv[1], 1);
-	i_cast = nvram_get_int("vpns_cast");
 	if (i_cast == 0 || i_vuse == 0) {
 		presence = process_inventory_scan("bcrelay", &snapshot);
 		scan_error = snapshot.error;
@@ -1800,6 +1852,7 @@ ipdown_vpns_main(int argc, char **argv)
 	int i_clients = 0, firewall_status = -1, lease_status = -1;
 	int cleanup_failed = 0, lock_fd, lifecycle_fd, callback_state;
 	int scan_error, stop_status, route_status, hook_status;
+	int i_vuse = 0, i_cast = 0, mode_status, saved_errno;
 	struct process_snapshot snapshot;
 	enum process_presence presence;
 	enum process_presence_start_action relay_action;
@@ -1821,6 +1874,14 @@ ipdown_vpns_main(int argc, char **argv)
 			logmessage(VPNS_LOG_NAME, "cannot authenticate VPN down callback for %s (errno=%d)",
 				   argv[1], errno ? errno : EIO);
 		return callback_state == 0 ? 0 : -1;
+	}
+	mode_status = vpn_server_read_callback_mode_snapshot(&i_vuse, &i_cast);
+	if (mode_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read VPN callback mode; skipping optional relay management (errno=%d)",
+			   saved_errno);
+		cleanup_failed = 1;
 	}
 	peer_name = safe_getenv("PEERNAME");
 	logmessage(VPNS_LOG_NAME, "peer %s (%s) disconnected", argv[6], peer_name);
@@ -1864,7 +1925,7 @@ ipdown_vpns_main(int argc, char **argv)
 		}
 	}
 	if ((lease_status == 0 && i_clients == 0) ||
-	    nvram_get_int("vpns_cast") == 0) {
+	    (mode_status == 0 && i_cast == 0)) {
 		presence = process_inventory_scan("bcrelay", &snapshot);
 		scan_error = snapshot.error;
 		process_snapshot_release(&snapshot);

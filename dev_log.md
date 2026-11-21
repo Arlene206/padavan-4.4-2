@@ -1,3 +1,13 @@
+## 2026-11-21 — Snapshot VPN callback modes before connection side effects
+
+- Parent main SHA: 4037e24d6f7201988ec73c74a5cc6cc06b38684c.
+- ipup_vpns_main() previously read vpns_vuse before multicast setup and vpns_cast after route installation through compatibility getters. A failed read silently became zero, potentially applying the wrong multicast and bcrelay policy after firewall/lease mutation. ipdown_vpns_main() also read vpns_cast unchecked when deciding optional relay teardown.
+- Added one checked NVRAM transaction snapshot for the two bounded modes (vpns_vuse 0..2, vpns_cast 0..3). Connection setup now aborts before firewall/lease/route changes if the snapshot or transaction end fails. Disconnect still performs mandatory firewall, lease, route and custom-hook cleanup after a mode-read failure, but skips the optional cast=0 relay branch unless the independent last-client condition requires it.
+- Added mode-bound regression coverage and lifecycle assertions for snapshot-before-side-effects and absence of compatibility mode getters. The new source commit triggers exact-head VPN, NVRAM audit and XY-C1 checks.
+- Exact 4037 shared-xl2tpd restoration checks #44934344633 VPN, #44934344659 NVRAM, #44934344688 AI docs and #44934344755 XY-C1 were still in progress at last poll.
+
+---
+
 ## 2026-11-21 — Restore possibly shared xl2tpd when dependency state is unreadable
 
 - Parent main SHA: `d784825ba2ded79d11f50bdbef08ebc1a71fd83f`.

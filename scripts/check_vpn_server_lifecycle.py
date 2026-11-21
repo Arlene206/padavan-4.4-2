@@ -957,6 +957,36 @@ require("test_shared_xl2tpd_restore_is_attempted_when_dependency_read_fails" in 
         "vpn_server_restart_should_attempt_restore_shared_xl2tpd" in restart_policy_test,
         "VPN shared xl2tpd read-error restoration regression missing")
 
+callback_modes=body(vpn,"vpn_server_read_callback_mode_snapshot(int *virtual_mode, int *cast_mode)")
+ordered(callback_modes,[
+    "nvram_transaction_begin(&transaction)",
+    '"vpns_vuse"',
+    '"vpns_cast"',
+    "nvram_transaction_end(&transaction)"
+],"VPN callback mode transactional snapshot")
+ipup_callback=body(vpn,"ipup_vpns_main(int argc, char **argv)")
+ordered(ipup_callback,[
+    "vpn_server_read_callback_mode_snapshot(&i_vuse, &i_cast)",
+    "vpn_server_lease_lock_acquire",
+    "vpns_firewall_permission(argv[1], 1)",
+    "if (i_vuse)",
+    "if (i_cast == 0 || i_vuse == 0)"
+],"VPN up callback must check modes before firewall/lease side effects")
+ipdown_callback=body(vpn,"ipdown_vpns_main(int argc, char **argv)")
+ordered(ipdown_callback,[
+    "vpn_server_read_callback_mode_snapshot(&i_vuse, &i_cast)",
+    "vpn_server_lease_lock_acquire",
+    "vpns_firewall_permission(argv[1], 0)",
+    "vpns_route_to_remote_lan(peer_name, argv[1], NULL, 0)",
+    "mode_status == 0 && i_cast == 0"
+],"VPN down callback must continue mandatory cleanup after optional mode-read failure")
+require('nvram_get_int("vpns_vuse")' not in ipup_callback and
+        'nvram_get_int("vpns_cast")' not in ipup_callback and
+        'nvram_get_int("vpns_cast")' not in ipdown_callback,
+        "VPN callbacks must not use unchecked mode getters")
+require("test_vpn_callback_mode_bounds" in config_policy_test,
+        "VPN callback mode bounds regression missing")
+
 print("VPN server lifecycle, identity-bound OpenVPN stop and callback source contract: PASS")
 
 # The bcrelay presence policy and its shared scanner are VPN callback dependencies.

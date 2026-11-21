@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Latest main source checkpoint before conservative shared-xl2tpd restoration: `d784825ba2ded79d11f50bdbef08ebc1a71fd83f` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest main source checkpoint before VPN callback mode snapshot: `4037e24d6f7201988ec73c74a5cc6cc06b38684c` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 
@@ -50,6 +50,9 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 - L3: VERIFIED only on product-source SHA `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192` where Build, TRX verification and artifact upload all passed. This does not verify the later VPN source changes at d59; its exact XY-C1 run #44933121304 was PENDING. L4 hardware validation remains NOT VERIFIED.
 - L4: Hardware WAN routing, concurrent callback behavior and on-device HTTPD duplicate-header behavior remain NOT VERIFIED.
 
+
+- Exact-head shared-xl2tpd dependency-restoration commit 4037e24d6f7201988ec73c74a5cc6cc06b38684c: VPN lifecycle #44934344633, NVRAM audit #44934344659, AI docs #44934344688, HTTPD #44934344634, OpenVPN staging #44934344680, Process checks #44934344732/#44934344675, XY-C1 #44934344755 and Firewall #44934344637 were in progress at the last poll.
+
 ## Workflow and preservation rules
 
 - Main only. One logical slice, one atomic main commit: create all blobs, one tree based on current main, one commit with current main as parent, then non-forced update_ref using the exact expected SHA. No force push, amend, history rewrite, branches, PR-based development or partial per-file commits.
@@ -68,6 +71,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Check exact-head VPN lifecycle, AI docs and XY-C1 Actions for the shared-xl2tpd restoration slice; confirm the new failure-injection decision tests and the actual source contract.
-2. Check the outstanding f08 XY-C1 Build/TRX/artifact result. If still pending, proceed with other code review rather than waiting.
-3. Audit remaining VPN service-state getters and shutdown/restore call paths for conservative behavior on checked-read failures; do not reopen route ACL, CHAP, pool or PPP snapshot changes without regression evidence.
+1. Inspect exact-head VPN lifecycle, NVRAM transaction audit and XY-C1 runs for the callback-mode snapshot. Require Build, TRX verification and artifact upload all PASS on the same product-source SHA.
+2. Continue audit of VPN callback/route reads, especially OpenVPN callback mode and service shutdown/restore policy. Keep mandatory disconnect cleanup independent from optional configuration reads.
+3. Review residual hostname and DHCP-derived PPP option inputs for unchecked reads; do not reopen completed CHAP, pool, PPP options, remote-LAN ACL or shared-xl2tpd restoration without regression evidence.
