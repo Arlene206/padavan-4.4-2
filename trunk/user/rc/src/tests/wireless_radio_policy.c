@@ -188,7 +188,7 @@ enum inic_radio_test_event {
 };
 typedef struct inic_radio_test_context {
 	int radio_on_status, radio_off_status, isolate_status, unisolate_status;
-	int prepare_status;
+	int prepare_status, publish_status;
 	int event_count, events[8], publish_count, published_state;
 } inic_radio_test_context_t;
 static void inic_radio_record(inic_radio_test_context_t *c, int e)
@@ -214,12 +214,13 @@ static int inic_radio_test_prepare_on(void *p)
 	inic_radio_record(c, INIC_EVENT_PREPARE_ON);
 	return c->prepare_status;
 }
-static void inic_radio_test_publish(void *p, int on)
+static int inic_radio_test_publish(void *p, int on)
 {
 	inic_radio_test_context_t *c = (inic_radio_test_context_t *)p;
 	inic_radio_record(c, on ? INIC_EVENT_PUBLISH_ON : INIC_EVENT_PUBLISH_OFF);
 	c->publish_count++;
 	c->published_state = !!on;
+	return c->publish_status;
 }
 static const wireless_inic_radio_ops_t inic_radio_test_ops = {
 	inic_radio_test_set_power, inic_radio_test_set_isolation,
@@ -301,6 +302,27 @@ static int test_inic_radio_txpower_failure_rolls_back_without_unisolation(void)
 	       !inic_radio_events_equal(&c, e, 5) || c.publish_count != 0;
 }
 
+static int test_inic_radio_enable_publication_failure_rolls_back(void)
+{
+	inic_radio_test_context_t c = { 0 };
+	const int e[] = { INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_ON,
+		INIC_EVENT_PREPARE_ON, INIC_EVENT_UNISOLATE,
+		INIC_EVENT_PUBLISH_ON, INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_OFF };
+	c.publish_status = ENOSPC;
+	return wireless_inic_radio_transition(1, &inic_radio_test_ops, &c) != ENOSPC ||
+	       !inic_radio_events_equal(&c, e, 7) || c.publish_count != 1;
+}
+
+static int test_inic_radio_disable_publication_failure_is_reported(void)
+{
+	inic_radio_test_context_t c = { 0 };
+	const int e[] = { INIC_EVENT_ISOLATE, INIC_EVENT_RADIO_OFF,
+		INIC_EVENT_PUBLISH_OFF };
+	c.publish_status = EIO;
+	return wireless_inic_radio_transition(0, &inic_radio_test_ops, &c) != EIO ||
+	       !inic_radio_events_equal(&c, e, 3) || c.publish_count != 1;
+}
+
 static int test_inic_radio_policy_rejects_incomplete_operations(void)
 {
 	return wireless_inic_radio_transition(1, NULL, NULL) != -EINVAL;
@@ -333,6 +355,8 @@ main(void)
 	    test_inic_radio_power_off_failure_does_not_publish() ||
 	    test_inic_radio_initial_isolation_failure_prevents_power_on() ||
 	    test_inic_radio_txpower_failure_rolls_back_without_unisolation() ||
+	    test_inic_radio_enable_publication_failure_rolls_back() ||
+	    test_inic_radio_disable_publication_failure_is_reported() ||
 	    test_inic_radio_policy_rejects_incomplete_operations()) {
 		fprintf(stderr, "Wireless interface status policy: FAIL\n");
 		return 1;

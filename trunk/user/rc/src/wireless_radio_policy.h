@@ -93,7 +93,7 @@ typedef struct wireless_inic_radio_ops {
 	int (*set_power)(void *context, int is_on);
 	int (*set_isolation)(void *context, int isolated);
 	int (*prepare_on)(void *context);
-	void (*publish)(void *context, int is_on);
+	int (*publish)(void *context, int is_on);
 } wireless_inic_radio_ops_t;
 
 static inline int
@@ -103,6 +103,7 @@ wireless_inic_radio_transition(int is_on, const wireless_inic_radio_ops_t *ops,
 	int isolation_status;
 	int power_status;
 	int prepare_status;
+	int publish_status;
 
 	if (!ops || !ops->set_power || !ops->set_isolation || !ops->publish)
 		return -EINVAL;
@@ -149,7 +150,15 @@ wireless_inic_radio_transition(int is_on, const wireless_inic_radio_ops_t *ops,
 			return power_status;
 	}
 
-	ops->publish(context, !!is_on);
+	publish_status = ops->publish(context, !!is_on);
+	if (publish_status != 0) {
+		if (is_on) {
+			/* Do not leave the radio active when state publication failed. */
+			(void)ops->set_isolation(context, 1);
+			(void)ops->set_power(context, 0);
+		}
+		return publish_status;
+	}
 	return 0;
 }
 

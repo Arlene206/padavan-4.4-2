@@ -409,12 +409,21 @@ wireless_inic_radio_prepare_on(void *opaque)
 	return 0;
 }
 
-static void
+static int
 wireless_inic_radio_publish(void *opaque, int is_on)
 {
+	int status;
+
 	(void)opaque;
-	mlme_state_rt(is_on);
+	status = nvram_set_int("mlme_radio_rt", !!is_on);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "failed to publish 2.4GHz iNIC radio state %d (status=%d)",
+			   !!is_on, status);
+		return status;
+	}
 	LED_CONTROL(LED_SW2G, is_on ? LED_ON : LED_OFF);
+	return 0;
 }
 
 static const wireless_inic_radio_ops_t wireless_inic_radio_ops = {

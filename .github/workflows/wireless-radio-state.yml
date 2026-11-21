@@ -169,7 +169,23 @@ jobs:
           assert '"TxPower"' in prepare_on and "doSystem(" in prepare_on
           assert "return status;" in prepare_on
           publish = function_body(source, mii_helpers[3])
-          assert "mlme_state_rt(is_on);" in publish and "LED_CONTROL(" in publish
+          assert "status = nvram_set_int(\"mlme_radio_rt\", !!is_on);" in publish
+          assert "if (status != 0)" in publish
+          assert publish.index("if (status != 0)") < publish.index("LED_CONTROL(")
+          assert "return status;" in publish and "return 0;" in publish
+          assert "test_inic_radio_enable_publication_failure_rolls_back" in regression
+          assert "test_inic_radio_disable_publication_failure_is_reported" in regression
+
+          inic_transition = function_body(notification_policy,
+              "wireless_inic_radio_transition(int is_on,")
+          publication_call = "publish_status = ops->publish(context, !!is_on);"
+          publication_failure = inic_transition.index("if (publish_status != 0)")
+          assert publication_call in inic_transition
+          assert inic_transition.index(publication_call) < publication_failure
+          assert "return publish_status;" in inic_transition
+          assert "if (is_on)" in inic_transition[publication_failure:]
+          assert "ops->set_isolation(context, 1)" in inic_transition[publication_failure:]
+          assert "ops->set_power(context, 0)" in inic_transition[publication_failure:]
 
           for name, restart in (("control_radio_wl", "restart_wifi_wl"),
                                 ("control_radio_rt", "restart_wifi_rt")):
