@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize USB/XHCI source-checker whitespace
+
+- Parent main SHA: `692c260ecf9d49ab44b2baefcb4895d1a4190d7f`.
+- Exact Process lifecycle integration #44948258619 reached the final integration checker after all previous regression cases passed, then failed at `scripts/check_process_lifecycle_integration.py:1932`: the checker expected the checked `usb3_disable` call as a single-line literal even though `rc.c` wraps its arguments.
+- Correct the checker by compacting whitespace in the extracted `load_usb_modules()` body before comparing the read call, error block, zero fallback, module-parameter formatting and XHCI/MTK load order. This is a checker-only correction; no production source is changed.
+- Source-parent Process inventory #44948258854, USB modem #44948258515, Firewall Startup #44948258642, WAN route #44948258490 and AI handoff #44948258596 passed. Parent XY-C1 #44948258645 and NVRAM transaction audit #44948258687 were in progress at the last poll. Exact-head Process rerun required; no L3 claim.
+
+---
+
 ## 2026-11-22 — Check MT7621 XHCI USB3 NVRAM module parameter
 
 - Parent main SHA: `5f61f0345e3bdddf7fa21219eb16a316801920ea`.

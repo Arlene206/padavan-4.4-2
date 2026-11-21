@@ -1928,19 +1928,22 @@ assert "get_ap_mode()" not in usb_modules
 
 # XHCI must use the checked integer reader and retain its legacy fallback
 # without hiding NVRAM backend or parse failures from boot status.
+# Normalize C whitespace before comparing calls: production formatting may
+# wrap function arguments without changing the checked-read contract.
+usb_modules_compact = " ".join(usb_modules.split())
 usb3_read = 'nvram_status = rc_boot_nvram_read_int_status("usb3_disable", 0, &usb3_disable);'
-assert usb3_read in usb_modules
-usb3_read_at = usb_modules.index(usb3_read)
-usb3_error_at = usb_modules.index("if (nvram_status != 0)", usb3_read_at)
-usb3_error_block = usb_modules[usb3_error_at:usb_modules.index("usb3_disable = 0;", usb3_error_at)]
+assert usb3_read in usb_modules_compact
+usb3_read_at = usb_modules_compact.index(usb3_read)
+usb3_error_at = usb_modules_compact.index("if (nvram_status != 0)", usb3_read_at)
+usb3_fallback_at = usb_modules_compact.index("usb3_disable = 0;", usb3_error_at)
+usb3_error_block = usb_modules_compact[usb3_error_at:usb3_fallback_at]
 assert "cannot read USB 3.0 disable setting during boot" in usb3_error_block
 assert "rc_first_service_start_status" in usb3_error_block
-usb3_fallback_at = usb_modules.index("usb3_disable = 0;", usb3_error_at)
-usb3_param_at = usb_modules.index("snprintf(xhci_param", usb3_fallback_at)
-xhci_load_at = usb_modules.index('load_boot_module("xhci_hcd", xhci_param)')
-xhci_mtk_load_at = usb_modules.index('load_boot_module("xhci_mtk", NULL)')
+usb3_param_at = usb_modules_compact.index("snprintf(xhci_param", usb3_fallback_at)
+xhci_load_at = usb_modules_compact.index('load_boot_module("xhci_hcd", xhci_param)')
+xhci_mtk_load_at = usb_modules_compact.index('load_boot_module("xhci_mtk", NULL)')
 assert usb3_read_at < usb3_error_at < usb3_fallback_at < usb3_param_at < xhci_load_at < xhci_mtk_load_at
-assert 'nvram_get_int("usb3_disable")' not in usb_modules
+assert 'nvram_get_int("usb3_disable")' not in usb_modules_compact
 print("USB XHCI checked NVRAM parameter and boot-status propagation: PASS")
 
 router_init = c_function_body(rc_source, "init_router(void)")
