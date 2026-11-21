@@ -640,7 +640,8 @@ jobs:
           assert "int entry_count = 0, i = 0," in route_emitter
           route_emitter_compact = " ".join(route_emitter.split())
           assert "if (!static_route_ipv4_address_is_valid(gateway))" in route_emitter
-          assert 'firewall_copy_static_route_global_setting("wanx_gateway", fallback_gateway, sizeof(fallback_gateway))' in route_emitter_compact
+          assert "firewall_copy_static_route_global_setting(" in route_emitter_compact
+          assert '"wanx_gateway", fallback_gateway, sizeof(fallback_gateway)' in route_emitter_compact
           assert "static_route_ipv4_address_is_valid(fallback_gateway)" in route_emitter
           assert "static_route_ipv4_address_is_valid" in route_test
           assert 'firewall_read_string_setting(name, &value)' in route_fallback_reader
