@@ -35,6 +35,7 @@
 #include <process_inventory.h>
 #include "ppp_options_file.h"
 #include "ppp_option_value_policy.h"
+#include "wan_nvram_status_policy.h"
 #include "modem_node_identity_policy.h"
 #include "modem_module_reload_policy.h"
 
@@ -87,16 +88,30 @@ write_pppd_ras_conf(const char* call_path, const char *modem_node, int unit)
 {
 	FILE *fp;
 	int modem_type, vid = 0, pid = 0, saved_errno;
+	int nvram_api_result, nvram_read_errno, modem_type_status;
+	char *modem_type_value = NULL;
 	const char *failed_credential = NULL;
 	char tmp[256], *user, *pass, *isp, *connect;
 
 	if (!get_modem_vid_pid(modem_node, &vid, &pid))
 		return 0;
 
+	errno = 0;
+	nvram_api_result = nvram_get_checked("modem_type", &modem_type_value);
+	nvram_read_errno = errno;
+	modem_type_status = rc_wan_nvram_read_int_status(
+		nvram_api_result, nvram_read_errno, modem_type_value, 0, &modem_type);
+	if (modem_type_status != 0) {
+		saved_errno = modem_type_status;
+		logmessage(LOGNAME,
+			   "cannot read USB modem transport type for PPP peer file (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 0;
+	}
+
 	if (!(fp = ppp_options_file_open(call_path)))
 		return 0;
-
-	modem_type = nvram_get_int("modem_type");
 	user = nvram_safe_get("modem_user");
 	pass = nvram_safe_get("modem_pass");
 	isp = nvram_safe_get("modem_isp");

@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed on unreadable USB modem type while writing RAS peer config
+
+- Parent main SHA: `b107e60a4c30b838ab963d3dc8ccdabeb4fe62e8`.
+- `write_pppd_ras_conf()` still performed a second, unchecked `nvram_get_int("modem_type")` after opening/truncating the RAS peer file. If the NVRAM backend failed at this point, the error collapsed to legacy value zero and could select `Generic_conn.scr`; a partially rewritten peer file could then be published using a guessed transport profile.
+- Moved the modem-type lookup ahead of peer-file creation, routed it through `nvram_get_checked()` plus the existing strict `rc_wan_nvram_read_int_status()` parser, and aborts with the preserved status on backend, malformed-value or range errors. Missing-key behavior remains the legacy default zero.
+- Extended the USB-modem source contract to require the checked read and reject the unchecked getter. The USB-modem workflow now includes the existing WAN NVRAM policy regression, compiles it as GNU89 with `-Werror`/ASan/UBSan, and runs it on changes to the checked-reader header/tests.
+
+---
+
 ## 2026-11-21 — Align deferred reconnect checker with watchdog rollback contract
 
 - Parent main SHA: `2c0f9ce2b316798109289cdabcdcb20c1d22c21d`.

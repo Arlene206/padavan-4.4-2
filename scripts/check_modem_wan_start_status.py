@@ -48,6 +48,8 @@ POLICY_SOURCE = (RC / "modem_wan_start_policy.h").read_text()
 WAN_TEST = (RC / "tests/modem_wan_start_policy.c").read_text()
 PPP_VALUE_POLICY_SOURCE = (RC / "ppp_option_value_policy.h").read_text()
 PPP_VALUE_POLICY_TEST = (RC / "tests/ppp_option_value_policy.c").read_text()
+WAN_NVRAM_POLICY_SOURCE = (RC / "wan_nvram_status_policy.h").read_text()
+WAN_NVRAM_POLICY_TEST = (RC / "tests/wan_nvram_status_policy.c").read_text()
 
 
 def code_characters(source: str, start: int):
@@ -139,6 +141,28 @@ assert 'write_pppd_ras_credential(fp, "password", pass, tmp, sizeof(tmp))' in ra
 assert "safe_pppd_line(user" not in ras_conf_writer
 assert "safe_pppd_line(pass" not in ras_conf_writer
 assert "goto invalid_credential;" in ras_conf_writer
+assert '#include "wan_nvram_status_policy.h"' in USB_SOURCE
+assert "rc_wan_nvram_read_int_status" in WAN_NVRAM_POLICY_SOURCE
+assert "test_checked_integer_read_propagates_backend_errors" in WAN_NVRAM_POLICY_TEST
+modem_type_read = 'nvram_api_result = nvram_get_checked("modem_type", &modem_type_value);'
+modem_type_parse = (
+    "modem_type_status = rc_wan_nvram_read_int_status("
+    "nvram_api_result, nvram_read_errno, modem_type_value, 0, &modem_type);"
+)
+assert modem_type_read in ras_conf_writer
+assert "nvram_read_errno = errno;" in ras_conf_writer
+assert modem_type_parse in ras_conf_writer
+assert "if (modem_type_status != 0)" in ras_conf_writer
+modem_type_failure = ras_conf_writer[
+    ras_conf_writer.index("if (modem_type_status != 0)"):
+    ras_conf_writer.index("ppp_options_file_open(call_path)")
+]
+assert "errno = saved_errno;" in modem_type_failure
+assert "return 0;" in modem_type_failure
+assert ras_conf_writer.index(modem_type_read) < ras_conf_writer.index(
+    "ppp_options_file_open(call_path)"
+)
+assert 'nvram_get_int("modem_type")' not in ras_conf_writer
 assert "errno = 0; launch_status = eval(\"/usr/sbin/pppd\", \"call\", call_file);" in ras_launch
 assert "if (!modem_wan_ras_peer_cleanup_required(launch_status)) return launch_status;" in ras_launch
 assert "saved_errno = errno;" in ras_launch
