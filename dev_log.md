@@ -1,3 +1,12 @@
+## 2026-11-21 — Align optional boot-daemon checks with checked enable gates
+
+- Parent main SHA: `d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192`.
+- Exact-head Process regression on `e302ebc82d5c6b7b464db9c153dbdae1e740580d` passed crond startup contracts and then failed because the later infosvr/LLTD/rstats checker still expected raw `nvram_invmatch()` guards. All three source functions already use `service_nvram_match_status()`, return the config-read error, and treat disabled as a successful no-op. Replaced the stale source assertions with normalized checked-read/error/disabled/preflight ordering for all three daemons.
+- New exact-head WAN route verification continues against the PPP-safe address fallback and transactional tuple changes; XY-C1 Build/TRX/artifact and NVRAM audit on SHA d0 were still running at last poll.
+- Checker-only change; no production source changed.
+
+---
+
 ## 2026-11-21 — Preserve PPP conntrack address after coherent route snapshot
 
 - Parent main SHA: `e302ebc82d5c6b7b464db9c153dbdae1e740580d`.
