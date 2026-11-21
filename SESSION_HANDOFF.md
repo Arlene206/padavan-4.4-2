@@ -14,10 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Active task
 
-- Production slices: preserve indexed demand-PPP DNS on WAN teardown when global MAN DNS cannot be read; checked exact-string PPPoE-MWAN enable decisions in WAN-up/down; checked rstats/LLTD service enable reads; checked DHCP gateway-ARP enable state before process inventory/start.
-- Current task: align three integration contracts with the checked gateway-ARP refactor. WAN route checker follows the new gateway-read comment; detect-WAN ARP socket workflow asserts the checked matcher and forbids raw `nvram_match`; Process integration slices the new checker scope and preserves tri-state inventory assertions.
-- On exact SHA `e1003f0cb6871aad9479a3757cb7c36368780578`, AI handoff, WAN interface teardown, WAN DHCP callback, ZeroTier and several other workflow suites passed; WAN route #44925528581, gateway-ARP socket #44925528501 and Process integration #44925528510 failed at stale source-contract assertions only. Process lifecycle inventory #44925528547 passed. XY-C1 #44925528552 remained in progress at last poll; exact-head rerun after these checker updates is needed.
-- First production follow-up after these reruns: inspect remaining WAN-down gateway/address/netmask snapshot reads for unchecked NVRAM failures that can suppress route removal.
+- Production fixes on current main: PPP DNS teardown snapshot preservation; checked PPPoE-MWAN, rstats/LLTD and DHCP gateway-ARP enable reads; preserve WAN process tri-state startup.
+- Current compile fix: XY-C1 run #44925528552 on SHA `e1003f0cb6871aad9479a3757cb7c36368780578` failed during final RC link because `net_wan.c` used `modem_wan_select_device_status()` from a static-inline policy without including `modem_wan_start_policy.h`. The source now includes the implementation header and the USB modem checker asserts this dependency.
+- Current independent reliability slice: WAN teardown still reads `wan%d_gateway`, `wan%d_ipaddr`, and `wan%d_netmask` via unchecked `get_wan_unit_value()`; a transient backend error can skip default/host route removal or conntrack cleanup without reporting it. Replace with bounded checked copies, preserve best-effort teardown, and add policy tests.
+- Exact-head route/ARP/AI tests on SHA `432005050395db4136cd80407f37000c5dede114` passed. Process integration #44925798100 failed only at stale LLTD source assertions (production uses checked `service_nvram_match_status`); update that contract alongside the next test repair.
 
 ## Verification boundary
 
@@ -44,5 +44,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main and verify the frozen backup remains unchanged. Check exact-head WAN route, gateway-ARP socket, Process integration and XY-C1 Build/TRX/artifact runs for the checker alignment commit; inspect and repair any failures. Then audit WAN-down gateway/address/netmask NVRAM reads and add checked teardown status handling with policy regression tests if confirmed.
+Check exact-head XY-C1 Build/TRX/artifact and USB modem source contract for the missing policy-header include. Repair any link/compiler failures from logs. Continue WAN teardown gateway/address/netmask checked snapshot implementation with GNU89 regressions and source-contract assertions, and update the LLTD/rstats process integration checker for checked service-enable reads. Confirm live main and frozen backup before each tree/commit update.
 

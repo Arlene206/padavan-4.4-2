@@ -1,3 +1,11 @@
+## 2026-11-21 — Fix XY-C1 linker failure in USB modem selection
+
+- Parent main SHA: 432005050395db4136cd80407f37000c5dede114.
+- XY-C1 build run #44925528552 on product source SHA `e1003f0cb6871aad9479a3757cb7c36368780578` compiled the RC objects but failed at final link with two undefined references to `modem_wan_select_device_status` from `net_wan.o`.
+- The helper is a `static inline` implementation in `modem_wan_start_policy.h`, but `net_wan.c` called it without including that header. Added the missing include and extended the USB modem source contract to prevent a future translation-unit link regression. This is a compile/link fix; exact-head XY-C1 Build/TRX/artifact verification is pending.
+
+---
+
 ## 2026-11-21 — Align gateway-ARP and process integration contracts
 
 - Parent main SHA: e1003f0cb6871aad9479a3757cb7c36368780578.

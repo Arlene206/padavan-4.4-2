@@ -91,6 +91,10 @@ def main() -> None:
     require(assignment >= 0 and check > assignment and returned > check,
             "USB modem removal must report a failed WAN-selection reset")
 
+    require('#include "modem_wan_start_policy.h"' in net_wan,
+            "WAN modem selection must include its static-inline policy implementation")
+    require("modem_wan_select_device_status(" in net_wan,
+            "WAN modem selection must use the checked device-priority policy")
     select = function_body(net_wan, "select_usb_modem_to_wan(void)")
     assignment = select.find("status = set_usb_modem_dev_wan(0, modem_devnum);")
     check = select.find("if (status != 0)", assignment)

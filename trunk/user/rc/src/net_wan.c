@@ -49,6 +49,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "wan_nvram_status_policy.h"
+#include "modem_wan_start_policy.h"
 #include "detect_internet_notification_policy.h"
 #include "dnsmasq_file.h"
 #include "dnsmasq_lifecycle_lock.h"
