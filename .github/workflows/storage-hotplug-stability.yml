@@ -870,6 +870,18 @@ jobs:
 
           deferred_start = function_body(storage, "try_start_stor_apps(void)")
           assert deferred_start.index("storage_operation_lock_acquire(file_lock)") < deferred_start.index("storage_has_mounted_devices(")
+          deferred_start_compact = "".join(deferred_start.split())
+          optware_request_read = 'storage_read_integer_status("usb_opt_start",0,&need_optware)'
+          assert optware_request_read in deferred_start_compact
+          assert 'nvram_get_int("usb_opt_start")' not in deferred_start
+          assert 'if(mounted_devices>0)' in deferred_start_compact
+          assert deferred_start_compact.index('if(mounted_devices>0)') < deferred_start_compact.index(optware_request_read) < deferred_start_compact.index("child_result=storage_optware_start_result_read()")
+          optware_read_failure = deferred_start[deferred_start.index("if (optware_status != 0)"):deferred_start.index("child_result = storage_optware_start_result_read();")]
+          assert "optware_error = optware_status > 0 ? optware_status : EIO;" in optware_read_failure
+          assert "file_unlock(storage_lock);" in optware_read_failure
+          assert "errno = optware_error;" in optware_read_failure
+          assert "return -1;" in optware_read_failure
+          assert "cannot read Optware startup request; preserving pending state for retry" in optware_read_failure
           child_result_read = deferred_start.index("child_result = storage_optware_start_result_read();")
           worker_running_gate = deferred_start.index("if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING)")
           integrated_start = deferred_start.index("integrated_start_status = start_stor_apps();")

@@ -1,4 +1,15 @@
-## 2026-11-21  17:4 ET — Keep deferred modem unplug queued when modem_rule cannot be read
+## 2026-11-21 — Preserve Optware startup requests when NVRAM reads fail
+
+- Parent main SHA: `5be0434769a37b94703676e99ed797095626368f`.
+- `try_start_stor_apps()` used unchecked `nvram_get_int("usb_opt_start")`. A transient NVRAM backend/read/close error collapsed to zero, so a requested Optware startup could be silently skipped and the deferred callback would see success rather than arm its retry.
+- THIS COMMIT checks the value with the shared storage NVRAM reader while holding the storage operation lock and before consuming the asynchronous child's result pipe. On read failure it preserves the pending request, does not consume a completed child status, restores errno and returns failure so the existing five-second deferred retry is armed. Empty storage inventory retains the historical stale-request cleanup; missing key still defaults to zero.
+- Extended the storage-hotplug workflow source contract to require checked read → failure/lock release → child-result read ordering and reject the old unchecked getter.
+- Exact-head USB storage, USB modem and XY-C1 Build/TRX/artifact checks are pending for this source SHA; no current L3/L4 claim.
+- Next: inspect exact-SHA storage/USB modem/XY-C1 results and correct any causal failure.
+
+---
+
+## 2026-11-21 — Keep deferred modem unplug queued when modem_rule cannot be read
 
 - Parent main SHA: `6f8be6b66bd9974390b29556ff9a671d67d9e0b6`.
 - Confirmed defect in `on_deferred_hotplug_dev()`: it cleared `usb_unplug_md` before an unchecked `nvram_get_int("modem_rule")`. A transient NVRAM backend/read/close error collapsed to zero, permanently acknowledged the detach and skipped WAN reconnection. If detach and replug were coalesced, the replug could then start against stale WAN transport state.

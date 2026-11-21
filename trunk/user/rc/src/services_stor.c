@@ -4239,7 +4239,8 @@ try_start_stor_apps(void)
 {
 	int storage_lock;
 	int mounted_devices;
-	int need_optware;
+	int need_optware = 0;
+	int optware_status, optware_error;
 	int child_result;
 	int integrated_start_status = 0;
 
@@ -4265,6 +4266,25 @@ try_start_stor_apps(void)
 	 * services. A five-second wakeup must not duplicate FTP/Samba/NFS starts
 	 * while the previous Optware attempt is still running.
 	 */
+	/*
+	 * Snapshot the pending Optware request before consuming the asynchronous
+	 * worker result. A failed NVRAM read must not look like "not requested",
+	 * otherwise the child completion can be discarded and startup stranded.
+	 */
+	if (mounted_devices > 0) {
+		optware_status = storage_read_integer_status(
+			"usb_opt_start", 0, &need_optware);
+		if (optware_status != 0) {
+			optware_error = optware_status > 0 ? optware_status : EIO;
+			logmessage("Storage",
+				   "cannot read Optware startup request; preserving pending state for retry (status=%d)",
+				   optware_error);
+			file_unlock(storage_lock);
+			errno = optware_error;
+			return -1;
+		}
+	}
+
 	child_result = storage_optware_start_result_read();
 	if (child_result == STORAGE_OPTWARE_START_CHILD_RUNNING) {
 		file_unlock(storage_lock);
@@ -4293,7 +4313,6 @@ try_start_stor_apps(void)
 				   integrated_start_status);
 		}
 	}
-	need_optware = nvram_get_int("usb_opt_start");
 
 	/* External init scripts must never inherit storage.lock. */
 	file_unlock(storage_lock);
