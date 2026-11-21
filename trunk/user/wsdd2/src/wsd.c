@@ -756,6 +756,9 @@ static int send_http_resp_header(int fd, struct endpoint *ep,
 	case 400:
 		status_str = "400 Bad Request";
 		break;
+	case 413:
+		status_str = "413 Payload Too Large";
+		break;
 	case 405:
 		status_str = "405 Method Not Allowed";
 		break;
