@@ -1,8 +1,8 @@
 ## Current checkpoint — 2026-11-22
 
-- Product-source SHA `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`: checked USB printer/modem marker pairs and sanitizer regressions pass. USB modem, Firewall Startup, Process fail-closed, AI docs exact-head reruns on checker-only SHA `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` PASS.
-- USB storage `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` failed only on stale safe-remove checker lookup for deleted `nvram_match("usb_unplug_ms")`; THIS COMMIT updates it to require checked event dispatch and retry ordering. Exact-head storage rerun pending.
-- XY-C1 on checker-only dadb SHA passed source/host preflight but skipped Build/TRX/artifact because no firmware input changed. It is not L3 validation. NVRAM audit #44960208335 on source SHA 7e2e PASS. Frozen backup remains read-only.
+- Product source `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` adds checked deferred printer/modem marker-pair reads and preserves events on NVRAM failures. Checker-only `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` passes Firewall Startup, Process fail-closed, USB modem and AI docs; USB storage exposed a remaining stale safe-remove assertion, corrected in `e8537853a78498db6c0b7fdc1c5fae020dc6675b` (exact workflow inventory pending).
+- THIS COMMIT hardens WAN VLAN configuration reads in `config_vinet_wan()`: check `vlan_filter`, then enabled CPU/IPTV VIDs and CPU priority before any hardware/interface mutation. WAN route source contract and existing checked-NVRAM policy coverage updated; exact-head WAN route/XY-C1 Build/TRX/artifact pending.
+- XY-C1 on checker-only dadb SHA skipped firmware Build/TRX/artifact because no production input changed; not L3. Frozen backup remains read-only.
 
 ## Historical checkpoint — 2026-11-21
 

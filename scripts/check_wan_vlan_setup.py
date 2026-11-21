@@ -179,11 +179,27 @@ require(iso_read_pos < iso_error_return < first_wan_probe and
 vinet = body(wan, "config_vinet_wan(void)")
 mode_read_pos = vinet.index("get_wan_bridge_mode_status(&bridge_mode)")
 mode_error_return = vinet.index("return ret;", mode_read_pos)
-first_vinet_read = vinet.index('nvram_match("vlan_filter", "1")')
-require(mode_read_pos < mode_error_return < first_vinet_read and
+filter_read = 'get_nvram_match_checked_status("vlan_filter", "1", &is_vlan_filter)'
+filter_read_pos = vinet.index(filter_read)
+filter_error_gate = vinet.index("if (ret != 0)", filter_read_pos)
+filter_error_return = vinet.index("return ret;", filter_error_gate)
+cpu_vid_read = 'get_nvram_int_checked_status("vlan_vid_cpu", &vlan_vid[0])'
+iptv_vid_read = 'get_nvram_int_checked_status("vlan_vid_iptv", &vlan_vid[1])'
+cpu_pri_read = 'get_nvram_int_checked_status("vlan_pri_cpu", &vlan_pri)'
+cpu_vid_pos = vinet.index(cpu_vid_read)
+iptv_vid_pos = vinet.index(iptv_vid_read)
+cpu_pri_pos = vinet.index(cpu_pri_read)
+first_vlan_change = vinet.index("hw_vlan_tx_map(6, vlan_vid[0])")
+require(mode_read_pos < mode_error_return < filter_read_pos < filter_error_gate < filter_error_return and
+        filter_error_return < cpu_vid_pos < iptv_vid_pos < cpu_pri_pos < first_vlan_change and
         "if (bridge_mode != SWAPI_WAN_BRIDGE_DISABLE)" in vinet and
         "get_wan_bridge_mode()" not in vinet,
-        "WAN VLAN setup must use one checked bridge-mode snapshot before configuration reads")
+        "WAN VLAN setup must check the filter and all enabled VLAN inputs before any VLAN/interface mutation")
+for key in ("vlan_vid_cpu", "vlan_vid_iptv", "vlan_pri_cpu"):
+    require(f'nvram_get_int("{key}")' not in vinet,
+            f"WAN VLAN setup must not collapse read errors for {key}")
+require('nvram_match("vlan_filter", "1")' not in vinet,
+        "WAN VLAN enable must not collapse a checked NVRAM backend error")
 
 other = body(wan, "config_soft_bridges_other(")
 port_reader = body(wan, "read_soft_bridge_port_vlan_config(")

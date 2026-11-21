@@ -1,3 +1,14 @@
+## 2026-11-22 07:26 CST — Fail closed on WAN VLAN configuration read errors
+
+- Parent main SHA: `e8537853a78498db6c0b7fdc1c5fae020dc6675b`.
+- `config_vinet_wan()` still read `vlan_filter` with `nvram_match()` and, when enabled, read CPU/IPTV VLAN IDs and CPU priority with `nvram_get_int()`. Transient NVRAM ioctl/read/close errors could masquerade as disabled filtering or zero values, then mutate VLAN TX mappings and interface topology from an incomplete configuration.
+- THIS COMMIT reads the selector through `get_nvram_match_checked_status()` and enabled VLAN ID/priority through `get_nvram_int_checked_status()`. Any backend or malformed-integer failure returns before `hw_vlan_tx_map()`, interface changes or WAN VLAN publication. Missing-key defaults and disabled-filter behavior remain compatible; valid CPU priority still uses the low three bits.
+- Extended `scripts/check_wan_vlan_setup.py` to pin checked selector/value ordering, fail-before-mutation gates, and removal of the old lossy getters. The existing `wan_nvram_status_policy.c` GNU89/ASan/UBSan regression already covers exact match, missing defaults, integer parsing, malformed/overflow values and backend errors.
+- Exact-head WAN route and XY-C1 results for THIS source commit are PENDING. No MIPS Build/TRX/artifact or hardware result is claimed yet.
+- Next: inspect exact-head WAN route and XY-C1 jobs, confirm Build/TRX/artifact actually ran, and repair any same-SHA failure. Then continue another independent userland stability/security issue.
+
+---
+
 ## 2026-11-22 07:19 CST — Align safe-eject checker with checked storage marker dispatch
 
 - Parent main SHA: `dadb757d3bd255e8a1b49b1b50aa31ef4084db36`.

@@ -2156,11 +2156,41 @@ config_vinet_wan(void)
 	}
 #endif
 
-	is_vlan_filter = (nvram_match("vlan_filter", "1")) ? 1 : 0;
+	ret = get_nvram_match_checked_status("vlan_filter", "1",
+					     &is_vlan_filter);
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN VLAN filter flag before interface setup (status=%d)",
+			   ret);
+		errno = ret;
+		return ret;
+	}
 	if (is_vlan_filter) {
-		vlan_vid[0] = nvram_get_int("vlan_vid_cpu");
-		vlan_vid[1] = nvram_get_int("vlan_vid_iptv");
-		vlan_pri = nvram_get_int("vlan_pri_cpu") & 0x07;
+		ret = get_nvram_int_checked_status("vlan_vid_cpu", &vlan_vid[0]);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read WAN CPU VLAN ID before interface setup (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+		ret = get_nvram_int_checked_status("vlan_vid_iptv", &vlan_vid[1]);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read WAN IPTV VLAN ID before interface setup (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+		ret = get_nvram_int_checked_status("vlan_pri_cpu", &vlan_pri);
+		if (ret != 0) {
+			logmessage(LOGNAME,
+				   "cannot read WAN CPU VLAN priority before interface setup (status=%d)",
+				   ret);
+			errno = ret;
+			return ret;
+		}
+		vlan_pri &= 0x07;
 	} else {
 		vlan_vid[0] = 0;
 		vlan_vid[1] = 0;
