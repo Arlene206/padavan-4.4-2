@@ -1,10 +1,11 @@
 ## Current checkpoint — 2026-11-21
 
-- Main source SHA before this docs-only checkpoint: `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
-- WSD HTTP POST parser source `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`: old NULL-CRLF dereference, stale pointer after header compaction and short-body recv assumptions fixed. GNU99/Werror/ASan/UBSan socket regression plus exact WSD contract PASS (#44942356801); exact XY-C1 #44942356809 Build pending, TRX/artifact pending.
-- P910nd bidirectional SIGPIPE fix source `23248f7df1575885e991fe518629bb974fc05c35`: socketpair regression, p910nd, Process inventory, Process lifecycle and AI checks PASS; exact XY-C1 #44941685839 still building (TRX/artifact pending).
-- MiniUPnP checked config source `be4952e90111ddea8f91684f6c3fe5ecf25be785`: MiniUPnP, NVRAM, Process inventory, Samba and AI Actions PASS; exact XY-C1 #44941839623 Build pending.
-- Only MiniUPnP redirect-description source `4a5139f484943abe3a5ac9cf0f6d56bc70067a56` currently has same-SHA Build/TRX/artifact L3 PASS (#44940761694). WSD, p910nd and the later MiniUPnP config source have L3 NOT VERIFIED. Physical L4 NOT VERIFIED.
+- Main before this docs-only checkpoint: `f56fe999363645a737233a6721261f82ceb1cd2b`. Frozen backup: `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- WSD request framing now reads complete CRLF lines and exact Content-Length bodies, rejects duplicate/malformed/overflow lengths and unsupported Transfer-Encoding; 413 is mapped to Payload Too Large.
+- WSD XML paths escape both request-derived RelatesTo and all seven configured GetResponse metadata text values. The latest configured metadata source commit is `edc9d59456fe40d5c991b3a07507515ddf2c5eaf`; exact-head regression must still be inspected before calling it green.
+- LLMNR parsing is length-bounded and validates label wire/text forms. First host regression uncovered a fixture buffer overflow; tests/checker were corrected, but verify the latest run before recording PASS.
+- p910nd SIGPIPE and MiniUPnP checked-configuration fixes remain as previous checkpointed. L3 is recorded only for MiniUPnP redirect-description SHA `4a5139f484943abe3a5ac9cf0f6d56bc70067a56` (#44940761694). Hardware L4 NOT VERIFIED.
+- HTTPD security workflow checker offset bug failed in #44945277626 and is repaired in `c9005f49bb7edf6ac9efad6bfa51b82f6b902cc4`; rerun pending verification.
 
 ---
 

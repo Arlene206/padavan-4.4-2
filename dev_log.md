@@ -1,3 +1,20 @@
+## 2026-11-21 — Escape configured metadata in wsdd2 WSD GetResponse XML
+
+- Parent main: `202266c59eafb6c1afff9205ef793f5818ce5ea6`; source commit: `edc9d59456fe40d5c991b3a07507515ddf2c5eaf`.
+- WSD GetResponse reflected seven configured values raw into XML text nodes: vendor, vendor URL, model, model URL, presentation URL, NetBIOS name and workgroup. Characters such as ampersand/angle brackets could break the SOAP/XML response and permit markup injection.
+- Reuse `wsd_xml_escape_text()` for every value before formatting; fail closed on invalid/control input or allocation failure and release every escaped string on all exits. Added metadata escaping unit cases and source-contract assertions.
+- Exact-head XML regression state: #44945383982 wsdd2 WSD XML reflection regression: completed/success; #44945383956 wsdd2 bounded HTTP framing regression: completed/success; #44945383886 Process lifecycle inventory - edc9d59456fe40d5c991b3a07507515ddf2c5eaf: completed/success; #44945383870 XY-C1 Firmware Validation: in_progress; #44945383856 NVRAM transaction boundary audit: completed/success. No new L3/hardware claim.
+
+---
+
+## 2026-11-21 — Fix HTTPD security workflow source-offset assertion
+
+- Parent main: `b5d63a69a644e7edd92ec407a1964d71290e95df`; checker-only commit: `c9005f49bb7edf6ac9efad6bfa51b82f6b902cc4`.
+- #44945277626 failed with `ValueError: substring not found` in the inline Python route-flush source checker. It calculated the starting offset with `full_restart_compact.index(...)` then used that offset to search the original `full_restart_routes` string; whitespace compaction changes offsets. Compute the offset using `full_restart_routes.index(...)` instead.
+- This change only repairs test/checker logic; it does not modify router runtime source. Exact-head rerun state: #44945615079 AI handoff documentation contract: completed/success; #44945615000 HTTPD Authentication and Security Regression: completed/cancelled. The previous run is a confirmed FAIL; do not report this fix as PASS until rerun.
+
+---
+
 ## 2026-11-21 — Harden wsdd2 HTTP POST request framing
 
 - Parent source SHA: `be4952e90111ddea8f91684f6c3fe5ecf25be785`; source commit: `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`.
