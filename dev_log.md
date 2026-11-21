@@ -1,3 +1,11 @@
+## 2026-11-21 — Correct storage hotplug checker for checked-mode restart wrappers
+
+- Parent main SHA: bd0a0252aacbcf63ee0525d017236c23a4b52aa7.
+- The storage hotplug workflow repeatedly failed at `scripts/check_storage_safe_remove.py` line 740 for `scutclient`. Production `restart_scutclient()` (and `restart_mentohust()`) deliberately declares `int config_status, stop_status;`, reads the configured enable mode before stopping, propagates config/stop errors, and passes that captured mode to `start_*_with_mode(enabled)`. The checker incorrectly required an inline `int stop_status = stop_*();`, so it rejected the intended safer wrapper shape.
+- Updated the contract to validate the exact preflight mode key and display name, require config validation before stop, require nonzero stop propagation before launch, and preserve the wrapper's captured-mode startup. Other wrappers retain their existing declaration/stop/start checks. No production behavior or test requirement was weakened.
+- This assertion had failed in runs #44917653988, #44917367023 and #44916836630; the first two independent binaries/most other storage checks passed. Fresh exact-head storage workflow is pending.
+
+---
 ## 2026-11-21 — Check DNSMasq WINS advertisement before preparing DHCP configuration
 
 - Parent main SHA: e9ce710c6acc5138400faf6238d85fcd0197ce23.

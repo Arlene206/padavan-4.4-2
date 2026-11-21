@@ -739,11 +739,25 @@ for name in ("scutclient", "mentohust", "ttyd", "ss", "ss_tunnel",
     restart_body = body(services, "int restart_" + name + "(void)")
     start_call = "start_" + name + "();"
     if name in ("scutclient", "mentohust"):
-        # These wrappers preserve a previously checked startup mode instead
-        # of re-reading NVRAM after a successful stop.
+        # These wrappers validate and retain the mode before stopping, so the
+        # replacement launch neither re-reads mutable NVRAM nor races a config
+        # change between stop and start. Their locals are declared together.
+        option_name = "scutclient_enable" if name == "scutclient" else "mentohust_enable"
+        display_name = "SCUT client" if name == "scutclient" else "MentoHUST"
         start_call = "return start_" + name + "_with_mode(enabled);"
-    require("int stop_status = stop_" + name + "();" in restart_body and
-            "if (stop_status != 0)" in restart_body and
+        config_read = "config_status = service_enabled_mode_status("
+        require("int config_status, stop_status;" in restart_body and
+                config_read in restart_body and
+                '"' + display_name + '", "' + option_name + '", &enabled' in restart_body and
+                "if (config_status != 0)" in restart_body and
+                "return config_status;" in restart_body and
+                "stop_status = stop_" + name + "();" in restart_body and
+                restart_body.index("return config_status;") < restart_body.index("stop_status = stop_" + name + "();"),
+                "mode must be checked before stopping " + name)
+    else:
+        require("int stop_status = stop_" + name + "();" in restart_body,
+                "manual stop/start wrapper must declare checked stop status: " + name)
+    require("if (stop_status != 0)" in restart_body and
             "return stop_status;" in restart_body and start_call in restart_body and
             restart_body.index("return stop_status;") < restart_body.index(start_call),
             "manual stop/start wrapper must not launch after failed stop: " + name)
