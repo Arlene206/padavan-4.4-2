@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Last meaningful product-source baseline: `182cfee52473b9f072816c6e5f67ef727945143e` (`fix(network): validate static route gateway fallback`). The live `main` ref is fetched independently on each takeover; later checker/documentation commits do not change this source baseline.
+- Latest product-source baseline: `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` (`fix(usb): preserve deferred event markers on NVRAM errors`), which moves deferred printer/modem event pairs to checked reads and preserves markers on NVRAM errors. THIS COMMIT is a checker-only follow-up for the exact 7e2e stale contracts. Re-fetch live `main` on takeover.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -27,20 +27,23 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
-- MAC-filter source hardening is complete; do not repeat the audit. Static-route source hardening is complete through `182cfee`, including checked `sr_enable_x`, bounded 128-row snapshots, and strict gateway dotted-quad validation with legacy fallback.
-- The static-route UI and storage checker false negatives were corrected; the WAN-route workflow source contract was corrected in `923f8c6`. Exact-head WAN route #44956642473 PASS and AI handoff docs #44956642509 PASS on checker-only commit `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`.
-- On product-source SHA `182cfee52473b9f072816c6e5f67ef727945143e`, Firewall Startup #44956596799 PASS, AI docs #44956596834 PASS, WAN DHCP #44956596822 PASS, and HTTPD check-run reported PASS. XY-C1 #44956596804 was IN_PROGRESS at last poll; verify Build/TRX/artifact on an exact same SHA before making an L3 claim.
+
+- Product-source slice `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` replaces unchecked deferred printer/modem marker reads in `on_deferred_hotplug_dev()` with checked `storage_read_integer_status()` pairs via `usb_hotplug_event_pair_status()`. Both events in a pair are acted on only if both reads succeed; failures preserve both markers and arm a five-second retry. The standalone GNU89/ASan/UBSan pair regression passed in both USB and storage workflows.
+- Exact 7e2e failures were checker-only: USB modem #44960208387's inline contract still searched for the deleted `nvram_match("usb_hotplug_md")`; Firewall Startup #44960208310 and Process fail-closed #44960208466 hit the stale `usb_unplug_md` search in the shared WAN-start checker; XY-C1 #44960208271 stopped at that same shared checker before Build; USB storage #44960208338 used a fragile escaped-newline read slice. The exact-head checkers are refreshed in THIS COMMIT.
+- Files in THIS COMMIT: `.github/workflows/storage-hotplug-stability.yml`, `.github/workflows/usb-modem-identity-stability.yml`, `scripts/check_modem_wan_start_status.py`, plus `dev_log.md`, `REFACTOR_ROADMAP.md`, and this handoff. Production source is unchanged.
+- PASS on exact 7e2e: HTTPD #44960208345, NFS #44960208262, VSFTPD #44960208366, Samba #44960208251, Process lifecycle inventory #44960208452, AI handoff docs #44960209215. NVRAM #44960208335 was IN_PROGRESS at last poll; exact XY-C1 and affected checker reruns remain pending for THIS checker commit.
 
 ## Verification boundary
-- Exact checker-only `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`: WAN route #44956642473 PASS; AI docs #44956642509 PASS.
-- Exact product-source `182cfee52473b9f072816c6e5f67ef727945143e`: Firewall Startup #44956596799 PASS; AI docs #44956596834 PASS; WAN DHCP #44956596822 PASS; HTTPD check-run PASS at last poll. XY-C1 #44956596804 was IN_PROGRESS at last poll; recheck exact SHA result. Do not infer L3 if Build/TRX/artifact are incomplete.
-- Exact MAC-policy SHA `8dd8a5bcb515b752dc9c4fd07e11440e929d5c49`: listed policy/lifecycle checks and XY-C1 Build/TRX/artifact passed. That L3 evidence applies to that SHA only.
-- Hardware/device L4 remains NOT VERIFIED.
+
+- Exact source SHA `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`: USB event-pair sanitizer binary passed in USB modem and USB storage Actions; source checker contracts failed as above. XY-C1 Build/TRX/artifact did not run, so L3 is NOT VERIFIED.
+- Exact 7e2e affected failures: USB modem #44960208387, Firewall Startup #44960208310, Process fail-closed #44960208466, XY-C1 #44960208271 and USB storage #44960208338; all diagnosed as stale checker assumptions/locator, not a confirmed source regression. NVRAM #44960208335 remained IN_PROGRESS at last poll.
+- Hardware/device L4 remains NOT VERIFIED. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; do not modify it.
 
 ## Exact first action for the next GPT
-1. Re-fetch live `main`, exact-head Actions and frozen backup (`72f4f157a084f8184b9597ca5bf334b8080e5807`).
-2. Finish exact-SHA XY-C1 Build/TRX/artifact verification for `182cfee`; check storage and NVRAM results from the relevant latest source runs.
-3. Continue the next independent stability/security source task across Padavan userland; avoid re-auditing MAC filtering and static routes unless new evidence appears.
+
+1. Fetch live `main` and exact-head Actions for THIS checker commit. Confirm USB modem, Firewall Startup, Process fail-closed, USB storage, NVRAM and XY-C1 checks. Do not infer from parent SHA.
+2. If any check still fails, diagnose the failing job/log and fix the actual assertion or source issue. Confirm same-SHA XY-C1 Build, TRX verification and artifact upload before any L3 claim.
+3. Once these regressions are closed, continue with a different P1 stability/security issue in Padavan userland; printer and modem event-marker handling are already covered by the checked-pair source slice.
 
 ## Workflow and preservation rules
 

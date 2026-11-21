@@ -582,9 +582,11 @@ jobs:
           assert 'nvram_match("usb_unplug_ms","1")' not in deferred_storage.split("#else", 1)[0]
           assert 'nvram_match("usb_hotplug_ms","1")' not in deferred_storage.split("#else", 1)[0]
           assert 'nvram_match("usb_opt_start","1")' not in deferred_storage.split("#else", 1)[0]
-          unplug_event = deferred_storage[deferred_storage.index('storage_read_integer_status(\\n\\t\\t"usb_unplug_ms"'):deferred_storage.index('storage_read_integer_status(\\n\\t\\t"usb_hotplug_ms"')]
-          assert unplug_event.index("if (storage_unplug_read_status != 0)") < unplug_event.index('nvram_set_int_temp("usb_unplug_ms", 0);') < unplug_event.index("storage_unplug_status = umount_ejected();")
-          assert "storage_unplug_pending = 1;" in unplug_event
+          unplug_event_start = deferred_code.index(unplug_read)
+          hotplug_event_start = deferred_code.index(hotplug_read)
+          unplug_event = deferred_code[unplug_event_start:hotplug_event_start]
+          assert unplug_event.index("if(storage_unplug_read_status!=0)") < unplug_event.index('nvram_set_int_temp("usb_unplug_ms",0)') < unplug_event.index("storage_unplug_status=umount_ejected();")
+          assert "storage_unplug_pending=1;" in unplug_event
           assert "if (storage_dispatch_status != 0)" in deferred_storage
           assert "cannot read deferred storage event markers; preserving pending events for retry" in deferred_storage
           assert "alarm(5);" in deferred_storage

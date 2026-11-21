@@ -1,4 +1,10 @@
-## Current checkpoint — 2026-11-21
+## Current checkpoint — 2026-11-22
+
+- Product source `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` adds checked deferred printer/modem marker-pair reads with event preservation and a five-second retry. The new GNU89/ASan/UBSan event-pair regression passed in both USB modem and storage jobs.
+- Exact 7e2e source Actions revealed stale regression contracts: USB modem #44960208387, Firewall Startup #44960208310, Process fail-closed #44960208466, XY-C1 #44960208271 and USB storage #44960208338 failed at legacy source-match assertions or an escaped-whitespace locator. THIS COMMIT repairs only those checkers. Exact reruns and same-SHA firmware validation are pending; no L3 claim.
+- NVRAM audit #44960208335 was in progress at last poll. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+
+## Historical checkpoint — 2026-11-21
 
 - Parent main SHA before this Samba source/test checkpoint: `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`. Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - WSD TCP send-all source `9a0ed45f2be0f67807b53c0b8e6d33723436b0ac`: WSD send #44946503639, XML #44946503555, HTTP #44946503545, Process inventory #44946503511, AI docs #44946503574 and NVRAM #44946503644 all completed/success. XY-C1 #44946503534 was still building at last poll; TRX/artifact pending, so no L3 claim for `9a0ed45`.

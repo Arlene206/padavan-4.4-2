@@ -1,3 +1,13 @@
+## 2026-11-22 07:12 CST — Align USB marker regression contracts with checked pair dispatch
+
+- Parent main SHA: `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`; source/test slice `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` replaces four deferred printer/modem marker `nvram_match()` gates with checked pair reads, failure preservation and five-second retry.
+- Exact 7e2e Actions exposed stale contracts, not a confirmed production-source failure: USB modem #44960208387 reached only its old `nvram_match("usb_hotplug_md")` source lookup after all compiled host regressions (including the new pair policy) passed; Firewall Startup #44960208310 and Process fail-closed #44960208466 stopped in `check_modem_wan_start_status.py` at the removed `usb_unplug_md` match; XY-C1 #44960208271 likewise stopped at that global checker before firmware build. USB storage #44960208338 hit a stale newline-sensitive checked-read slice in its whole-caller-graph checker.
+- This checker-only slice removes those obsolete assumptions: global WAN-start and USB modem workflow assert checked printer/modem pair reads, read-before-dispatch, no unchecked marker matches, checked modem-rule acknowledgement and requeue/retry order; storage checker slices already-normalized source tokens instead of escaped whitespace.
+- Exact 7e2e Actions: HTTPD #44960208345, NFS #44960208262, VSFTPD #44960208366, Samba #44960208251, Process lifecycle inventory #44960208452 and AI handoff #44960209215 PASS. USB modem #44960208387, Firewall Startup #44960208310, Process fail-closed #44960208466, XY-C1 #44960208271 and USB storage #44960208338 FAIL at the stale checker assertions above. NVRAM audit #44960208335 was still IN_PROGRESS at last poll; recheck. No firmware/TRX/artifact L3 claim.
+- Next: verify exact-head checker reruns for this commit; inspect the remaining NVRAM and XY-C1 results. Once this regression slice passes, choose a separate unaddressed whole-userland stability/security issue; do not re-audit printer/modem marker reads.
+
+---
+
 ## 2026-11-21 — Fail closed on deferred printer/modem USB event-marker reads
 
 - Parent main SHA: `b69c759d94c2091996b78efe196a21eecaa5f3f7`.

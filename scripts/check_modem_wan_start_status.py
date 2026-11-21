@@ -848,33 +848,55 @@ modem_start = compact(body(SERVICES_USB_SOURCE, "try_start_usb_modem_to_wan(void
 assert "return try_wan_reconnect(1, 0);" in modem_start
 assert "return;" not in modem_start
 
-unplug_event = deferred_hotplug.index('if (nvram_match("usb_unplug_md", "1"))')
-plug_event = deferred_hotplug.index('if (nvram_match("usb_hotplug_md", "1"))')
-unplug_attempt = deferred_hotplug.index("if (unplug_modem)")
-plug_attempt = deferred_hotplug.index("if (plug_modem && !unplug_modem)")
-retry_policy = deferred_hotplug.index("modem_wan_hotplug_retry_mask(")
-assert unplug_event < plug_event < unplug_attempt < plug_attempt < retry_policy
-
-plug_capture = deferred_hotplug[plug_event:unplug_attempt]
-assert "plug_modem = 1;" in plug_capture
-assert "if (!unplug_modem)" in plug_capture
-assert plug_capture.index("if (!unplug_modem)") < plug_capture.index('nvram_set_int_temp("usb_hotplug_md", 0)')
-assert "modem_unplug_status = try_wan_reconnect(1, 0);" in deferred_hotplug
 deferred_code = "".join(deferred_hotplug.split())
-assert 'storage_read_integer_status("modem_rule",0,&modem_rule_value)' in deferred_code
-assert 'modem_wan_unplug_event_status(modem_rule_status,modem_rule_value,&unplug_modem)' in deferred_code
+printer_unplug_read = 'storage_read_integer_status("usb_unplug_lp",0,&printer_unplug_value)'
+printer_hotplug_read = 'storage_read_integer_status("usb_hotplug_lp",0,&printer_hotplug_value)'
+modem_unplug_read = 'storage_read_integer_status("usb_unplug_md",0,&modem_unplug_value)'
+modem_hotplug_read = 'storage_read_integer_status("usb_hotplug_md",0,&modem_hotplug_value)'
+assert printer_unplug_read in deferred_code
+assert printer_hotplug_read in deferred_code
+assert modem_unplug_read in deferred_code
+assert modem_hotplug_read in deferred_code
+assert deferred_code.count("usb_hotplug_event_pair_status(") == 2
+for marker in ("usb_unplug_lp", "usb_hotplug_lp", "usb_unplug_md", "usb_hotplug_md"):
+    assert f'nvram_match("{marker}","1")' not in deferred_code
+
+printer_pair = deferred_code.index("usb_hotplug_event_pair_status(")
+modem_pair = deferred_code.index("usb_hotplug_event_pair_status(", printer_pair + 1)
+assert deferred_code.index(printer_unplug_read) < deferred_code.index(printer_hotplug_read) < printer_pair
+assert deferred_code.index(modem_unplug_read) < deferred_code.index(modem_hotplug_read) < modem_pair
+assert "cannot read deferred printer event markers; preserving pending events for retry" in deferred_hotplug
+assert "cannot read deferred modem event markers; preserving pending events for retry" in deferred_hotplug
+
+modem_rule_read = 'storage_read_integer_status("modem_rule",0,&modem_rule_value)'
+modem_rule_policy = 'modem_wan_unplug_event_status(modem_rule_status,modem_rule_value,&unplug_modem)'
+unplug_ack = 'nvram_set_int_temp("usb_unplug_md",0)'
+assert modem_rule_read in deferred_code
+assert modem_rule_policy in deferred_code
+rule_read_pos = deferred_code.index(modem_rule_read, modem_pair)
+rule_policy_pos = deferred_code.index(modem_rule_policy, rule_read_pos)
+rule_success_pos = deferred_code.index("if(modem_rule_status==0)", rule_policy_pos)
+unplug_ack_pos = deferred_code.index(unplug_ack, rule_success_pos)
+assert modem_pair < rule_read_pos < rule_policy_pos < rule_success_pos < unplug_ack_pos
 assert 'nvram_get_int("modem_rule")' not in deferred_hotplug
-unplug_event_code = deferred_code.index('if(nvram_match("usb_unplug_md","1"))')
-plug_event_code = deferred_code.index('if(nvram_match("usb_hotplug_md","1"))')
-unplug_attempt_code = deferred_code.index("if(unplug_modem)")
-plug_attempt_code = deferred_code.index("if(plug_modem&&!unplug_modem)")
-retry_policy_code = deferred_code.index("modem_wan_hotplug_retry_mask(")
-unplug_capture_code = deferred_code[unplug_event_code:plug_event_code]
-assert unplug_capture_code.index('storage_read_integer_status("modem_rule",0,&modem_rule_value)') < unplug_capture_code.index("modem_wan_unplug_event_status(") < unplug_capture_code.index("if(modem_rule_status==0)") < unplug_capture_code.index('nvram_set_int_temp("usb_unplug_md",0)')
-unplug_attempt_code_block = deferred_code[unplug_attempt_code:plug_attempt_code]
-assert "if(modem_rule_status==0)" in unplug_attempt_code_block
-assert "modem_unplug_status=try_wan_reconnect(1,0)" in unplug_attempt_code_block
-assert unplug_event_code < plug_event_code < unplug_attempt_code < plug_attempt_code < retry_policy_code
+assert "unplug_modem=1;" in deferred_code
+assert "modem_unplug_status=modem_rule_status;" in deferred_code
+assert "if(unplug_modem)" in deferred_code
+assert "modem_unplug_status=try_wan_reconnect(1,0)" in deferred_code
+assert "if(modem_rule_status==0)" in deferred_code
+assert "modem_plug_status=try_start_usb_modem_to_wan();" in deferred_code
+assert "MODEM_WAN_HOTPLUG_RETRY_UNPLUG" in deferred_hotplug
+assert "MODEM_WAN_HOTPLUG_RETRY_PLUG" in deferred_hotplug
+assert 'nvram_set_int_temp("usb_unplug_md",1)' in deferred_code
+assert 'nvram_set_int_temp("usb_hotplug_md",1)' in deferred_code
+assert "modem_wan_hotplug_retry_mask(" in deferred_code
+assert "alarm(5);" in deferred_hotplug
+
+usb_event_policy = (RC / "usb_hotplug_event_policy.h").read_text()
+usb_event_test = (RC / "tests/usb_hotplug_event_policy.c").read_text()
+assert "usb_hotplug_event_pair_status" in usb_event_policy
+assert "test_each_failed_marker_read_preserves_the_pair" in usb_event_test
+
 modem_test = (RC / "tests/modem_wan_start_policy.c").read_text()
 assert "test_modem_unplug_rule_read_fails_closed" in modem_test
 assert "test_modem_unplug_rule_read_fails_closed();" in modem_test
