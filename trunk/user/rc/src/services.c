@@ -1235,42 +1235,92 @@ int stop_ss(void){
 	return eval("/usr/bin/shadowsocks.sh","stop");
 }
 
-int start_ss(void){
-	int ss_enable = nvram_get_int("ss_enable");
+static int
+start_ss_with_mode(int ss_enable)
+{
 	if (ss_enable != 1)
 		return 0;
-	return eval("/usr/bin/shadowsocks.sh","start");
+	return eval("/usr/bin/shadowsocks.sh", "start");
 }
 
-int restart_ss(void){
-	int stop_status = stop_ss();
+int start_ss(void)
+{
+	int ss_enable = 0;
+	int config_status;
 
+	config_status = service_enabled_mode_status(
+		"Shadowsocks", "ss_enable", &ss_enable);
+	if (config_status != 0)
+		return config_status;
+	return start_ss_with_mode(ss_enable);
+}
+
+int restart_ss(void)
+{
+	int ss_enable = 0;
+	int config_status, stop_status;
+
+	config_status = service_enabled_mode_status(
+		"Shadowsocks", "ss_enable", &ss_enable);
+	if (config_status != 0) {
+		logmessage(LOGNAME,
+			   "Shadowsocks restart aborted because configuration is unavailable (status=%d)",
+			   config_status);
+		return config_status;
+	}
+
+	stop_status = stop_ss();
 	if (stop_status != 0) {
 		logmessage(LOGNAME, "ss restart aborted because stop failed");
 		return stop_status;
 	}
-	return start_ss();
+	return start_ss_with_mode(ss_enable);
 }
 
 int stop_ss_tunnel(void){
 	return eval("/usr/bin/ss-tunnel.sh","stop");
 }
 
-int start_ss_tunnel(void){
-	int ss_tunnel_mode = nvram_get_int("ss-tunnel_enable");
+static int
+start_ss_tunnel_with_mode(int ss_tunnel_mode)
+{
 	if (ss_tunnel_mode != 1)
 		return 0;
-	return eval("/usr/bin/ss-tunnel.sh","start");
+	return eval("/usr/bin/ss-tunnel.sh", "start");
 }
 
-int restart_ss_tunnel(void){
-	int stop_status = stop_ss_tunnel();
+int start_ss_tunnel(void)
+{
+	int ss_tunnel_mode = 0;
+	int config_status;
 
+	config_status = service_enabled_mode_status(
+		"Shadowsocks tunnel", "ss-tunnel_enable", &ss_tunnel_mode);
+	if (config_status != 0)
+		return config_status;
+	return start_ss_tunnel_with_mode(ss_tunnel_mode);
+}
+
+int restart_ss_tunnel(void)
+{
+	int ss_tunnel_mode = 0;
+	int config_status, stop_status;
+
+	config_status = service_enabled_mode_status(
+		"Shadowsocks tunnel", "ss-tunnel_enable", &ss_tunnel_mode);
+	if (config_status != 0) {
+		logmessage(LOGNAME,
+			   "Shadowsocks tunnel restart aborted because configuration is unavailable (status=%d)",
+			   config_status);
+		return config_status;
+	}
+
+	stop_status = stop_ss_tunnel();
 	if (stop_status != 0) {
 		logmessage(LOGNAME, "ss_tunnel restart aborted because stop failed");
 		return stop_status;
 	}
-	return start_ss_tunnel();
+	return start_ss_tunnel_with_mode(ss_tunnel_mode);
 }
 
 void update_chnroute(void){

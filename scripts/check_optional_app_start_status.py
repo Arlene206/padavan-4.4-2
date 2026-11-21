@@ -374,6 +374,31 @@ def check_rc_optional_daemon_enable_reads():
     assert "ttyd_mode=nvram_get_int(" not in compact_ttyd_start
     assert "ttyd_mode=nvram_get_int(" not in compact_ttyd_restart
 
+    for name, service_name, key, mode_var, stop_name, start_helper in (
+        ("ss", "Shadowsocks", "ss_enable", "ss_enable", "stop_ss()", "start_ss_with_mode(ss_enable)"),
+        ("ss_tunnel", "Shadowsocks tunnel", "ss-tunnel_enable", "ss_tunnel_mode",
+         "stop_ss_tunnel()", "start_ss_tunnel_with_mode(ss_tunnel_mode)"),
+    ):
+        start_body = extract_c_function_body(services, "start_" + name + "(void)")
+        restart_body = extract_c_function_body(services, "restart_" + name + "(void)")
+        compact_start = "".join(start_body.split())
+        compact_restart = "".join(restart_body.split())
+        compact_service_name = service_name.replace(" ", "")
+        read_call = (
+            'service_enabled_mode_status("' + compact_service_name + '","' + key + '",&' + mode_var + ');'
+        )
+        assert read_call in compact_start
+        assert read_call in compact_restart
+        assert compact_start.index(read_call) < compact_start.index("if(config_status!=0)")
+        assert compact_start.index("if(config_status!=0)") < compact_start.index("return" + start_helper + ";")
+        assert compact_restart.index(read_call) < compact_restart.index("if(config_status!=0)")
+        assert compact_restart.index("if(config_status!=0)") < compact_restart.index(stop_name)
+        assert compact_restart.index(stop_name) < compact_restart.index("if(stop_status!=0)")
+        assert compact_restart.index("if(stop_status!=0)") < compact_restart.index("return" + start_helper + ";")
+        for token in ("nvram_get_int(", "nvram_safe_get("):
+            assert token not in start_body
+            assert token not in restart_body
+
 
 
 def check_scutclient():
