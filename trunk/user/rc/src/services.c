@@ -1600,6 +1600,23 @@ httpd_nvram_set_int_status(const char *param_name, int value, int temporary)
 }
 
 static int
+httpd_nvram_read_int_status(const char *param_name, int missing_value, int *value)
+{
+	char *text = NULL;
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0] || !value)
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &text);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(
+		api_result, saved_errno, text, missing_value, value);
+}
+
+
+static int
 httpd_started_state_publish_status(int started)
 {
 	return httpd_nvram_set_int_status("httpd_started", started, 1);
@@ -1670,7 +1687,13 @@ start_httpd_locked(int restart_fw)
 	}
 
 #if defined (SUPPORT_HTTPS)
-	http_proto = nvram_get_int("http_proto");
+	status = httpd_nvram_read_int_status("http_proto", 0, &http_proto);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read HTTP protocol configuration; refusing insecure fallback (status=%d)",
+			   status);
+		return status;
+	}
 #else
 	http_proto = 0;
 #endif

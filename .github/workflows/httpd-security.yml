@@ -5567,6 +5567,19 @@ jobs:
           assert "stop_httpd_locked()" in restart and "start_httpd_locked(1)" in restart
           assert "stop_httpd()" not in restart and "start_httpd(1)" not in restart
           assert "httpd_process_presence(&scan_error)" in start_locked
+          httpd_config_reader = body(services, "httpd_nvram_read_int_status(")
+          assert "nvram_get_checked(param_name, &text)" in httpd_config_reader
+          assert "rc_wan_nvram_read_int_status(" in httpd_config_reader
+          assert 'httpd_nvram_read_int_status("http_proto", 0, &http_proto)' in start_locked
+          assert 'http_proto = nvram_get_int("http_proto")' not in start_locked
+          compact_start_locked = "".join(start_locked.split())
+          protocol_read = compact_start_locked.index('httpd_nvram_read_int_status("http_proto",0,&http_proto);')
+          protocol_error = compact_start_locked.index("if(status!=0)", protocol_read)
+          listener_selection = compact_start_locked.index("if(http_proto==0||http_proto==2)", protocol_error)
+          stale_state_clear = compact_start_locked.index('httpd_started_state_publish_status(0)', listener_selection)
+          httpd_launch = compact_start_locked.index("_eval(httpd_argv", stale_state_clear)
+          assert protocol_read < protocol_error < listener_selection < stale_state_clear < httpd_launch
+          assert "refusing insecure fallback" in start_locked
           assert 'process_inventory_scan("httpd", &snapshot)' in presence
           recovery = body(watchdog, "static void httpd_process_check(void)")
           assert "restart_status = restart_httpd();" in recovery
