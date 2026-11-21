@@ -1308,7 +1308,7 @@ assert "if (lan_stop_status != 0)" in shutdown_router
 assert "lan_stop_status == 0" in shutdown_router
 assert 'LAN shutdown incomplete; continuing power-down without storage persistence' in shutdown_router
 assert shutdown_router.count("stop_lan(is_ap_mode);") == 1
-mtd_gate_pos = shutdown_router.index("if (storage_remove_status == 0")
+mtd_gate_pos = shutdown_router.index("storage_remove_status == 0")
 assert shutdown_router.index("wifi_wl_stop_status = stop_wifi_all_wl();") < mtd_gate_pos
 assert shutdown_router.index("wifi_rt_stop_status = stop_wifi_all_rt();") < mtd_gate_pos
 lan_stop_pos = shutdown_router.index("lan_stop_status = stop_lan(is_ap_mode);")
