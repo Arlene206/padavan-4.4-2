@@ -1,3 +1,12 @@
+## 2026-11-21 — Fix duplicate watchdog workflow filters and restore mandatory handoff checkpoint wording
+
+- Parent main SHA: `759eb1181483a74f8f4103ec7a5827fcac375dd4`.
+- Exact Watchdog Action #44885340239 failed because the detached-daemon rollback header and regression test were each listed twice in both push and pull_request path filters. Removed only duplicates; the inline source-contract path list remains single-copy.
+- Exact AI handoff Action #44885340194 failed because the rewritten handoff omitted the validator's exact end-of-session checkpoint heading and wording. Restored both required phrases.
+- This follow-up changes no production behavior. Exact-SHA Watchdog and AI handoff results are required after publication.
+- Resulting main commit: THIS COMMIT.
+
+---
 ## 2026-11-21 — Align watchdog workflow contract with targeted startup rollback
 
 - Parent main SHA: `8a55d24a4b797c96ca94bc8ece112966d86fa204`.
