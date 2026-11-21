@@ -1,3 +1,13 @@
+## 2026-11-21 — Fix iNIC retry-wait checker to match the sigsuspend gate
+
+- Parent main SHA: `07e68ffbe95b7d8954274207e4712997a3c1548a`.
+- Exact-head iNIC run `#44896945147` passed the GNU89/Werror/ASan/UBSan signal-policy executable, then its source contract raised ValueError because it searched for `if (events == 0)` while the main loop uses `if (events == 0 && sigsuspend(...)`. Changed the checker to anchor on the actual retry-wait prefix and still require the health-check error log to precede the wait and forbid a poll failure from breaking the daemon loop.
+- Exact-head Wireless `#44896945159` and AI docs `#44896945122` passed on the same SHA. This is checker-only; no product source changes.
+- No local tests/build claimed. Exact-head iNIC and AI docs must be rechecked on the new SHA.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Correct iNIC callback source signature checker formatting
 
 - Parent main SHA: `215892b1acde4eea1be4be7785f4ef2b2b197e55`.

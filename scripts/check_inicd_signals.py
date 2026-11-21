@@ -100,7 +100,9 @@ poll_log = main.index('"iNIC health check incomplete (status=%d); retrying at ne
 assert take < pending < pending_stop < stop < poll < callback < poll_error < poll_log
 assert "int poll_status;" in main
 assert "events == 0" in main
-assert "break;" not in main[poll_error:main.index("if (events == 0)", poll_error)]
+retry_wait = main.index("if (events == 0 &&", poll_error)
+assert poll_log < retry_wait
+assert "break;" not in main[poll_error:retry_wait]
 publish_pidfile = main.index('process_pidfile_write(INICD_PID_FILE, "inicd")')
 publish_failure = main.index("if (process_pidfile_write(INICD_PID_FILE, \"inicd\") != 0)")
 timer_start = main.index("timer_status = inicd_alarmtimer(INICD_POLL_INTERVAL)")
