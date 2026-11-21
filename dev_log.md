@@ -1,3 +1,13 @@
+## 2026-11-21 — Align HTTPD umbrella contract with checked NFS start wrappers
+
+- Parent main SHA: `b284c28532f2913f4327b02ec59abaf97671be08`; NFS lifecycle Action #44903863601 PASS after the restart preflight placement correction.
+- HTTPD umbrella #44903863573 failed only in its duplicated NFS export source contract: it still expected `run_nfsd_locked()` / `reload_nfsd_locked()` to contain export generation and the `eval()` launch, but the checked-enable fix deliberately separates that implementation into `run_nfsd_enabled_locked()` / `reload_nfsd_enabled_locked()` after `nfsd_enabled_config_read()`. The failure was a stale contract, not an NFS policy/test failure.
+- Updated the HTTPD checker to enforce the checked NVRAM read and error gate in the wrappers, and preserve export-generation/start-eligibility-before-launch assertions in the new enabled-only implementations. Legacy unchecked NVRAM match calls are still explicitly forbidden.
+- Exact HTTPD rerun pending. XY-C1 #44903863658 (Build running; TRX/artifact pending) and NVRAM audit #44903863567 remain IN_PROGRESS on parent SHA. AI docs #44903863682 and Samba #44903863669 PASS.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Place the NFS restart preflight at its destructive boundary
 
 - Parent main SHA: `ce227363a7cd0aee0beab112bca9773a79e4630f`; exact NFS source-contract Action #44903638098 failed after the policy compile/run passed. The checker showed the enable-read block had been placed in unrelated `storage_has_mounted_devices()`, while `restart_nfsd()` still stopped the server before checking enablement. This was a genuine placement defect.

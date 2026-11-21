@@ -5722,8 +5722,11 @@ jobs:
 
           writer = body(source, "write_nfsd_exports(void)")
           starter = body(source, "run_nfsd_locked(void)")
+          start_impl = body(source, "run_nfsd_enabled_locked(int enabled)")
+          enable_read = body(source, "nfsd_enabled_config_read(int *enabled)")
           public_starter = body(source, "run_nfsd(void)")
           reloader = body(source, "reload_nfsd_locked(void)")
+          reload_impl = body(source, "reload_nfsd_enabled_locked(int enabled)")
           public_reloader = body(source, "reload_nfsd(void)")
           assert "storage_operation_lock_acquire(file_lock)" in public_starter
           assert public_starter.index("storage_operation_lock_acquire") < public_starter.index("run_nfsd_locked()")
@@ -5745,11 +5748,24 @@ jobs:
           assert "rename(staged_path, exports_file)" in writer
           assert "unlink(exports_file)" not in writer
           assert "storage_nfs_export_may_start" in policy
-          for function, action in ((starter, '"start"'), (reloader, '"reload"')):
-              assert "write_nfsd_exports()" in function
-              assert "storage_nfs_export_may_start" in function
-              assert function.index("storage_nfs_export_may_start") < function.index("eval(")
-              assert action in function
+          assert 'nvram_get_checked("nfsd_enable", &value)' in enable_read
+          assert "storage_nfs_enabled_status(api_result, saved_errno" in enable_read
+          for wrapper, implementation, action in (
+              (starter, start_impl, '"start"'),
+              (reloader, reload_impl, '"reload"'),
+          ):
+              assert "nfsd_enabled_config_read(&enabled)" in wrapper
+              assert wrapper.index("nfsd_enabled_config_read(&enabled)") < wrapper.index("if (config_status != 0)")
+              assert "return -1;" in wrapper
+              assert "write_nfsd_exports()" not in wrapper
+              assert "storage_nfs_export_may_start" not in wrapper
+              assert "if (!enabled)" in implementation
+              assert "write_nfsd_exports()" in implementation
+              assert "storage_nfs_export_may_start" in implementation
+              assert implementation.index("storage_nfs_export_may_start") < implementation.index("eval(")
+              assert action in implementation
+          assert 'nvram_invmatch("nfsd_enable", "1")' not in starter
+          assert 'nvram_invmatch("nfsd_enable", "1")' not in reloader
           paths = (
               "trunk/user/rc/src/services_stor.c",
               "trunk/user/rc/src/storage_nfs_export_policy.h",
