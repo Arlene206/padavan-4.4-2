@@ -114,10 +114,10 @@ require("int" + chr(10) + "vpns_route_to_remote_lan(" in vpn and
         "VPN remote-LAN helper must expose operation status")
 vpn_remote_route=body(vpn,"vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)")
 ordered(vpn_remote_route,[
-    "if (!cname || !ifname || !ifname[0])",
-    "route_status = add ?",
-    "route_add(ifname, 0, acl_rnet, gw, acl_rmsk)",
-    "route_del(ifname, 0, acl_rnet, gw, acl_rmsk)",
+    "if (!cname || !cname[0] || !ifname || !ifname[0]",
+    "vpn_server_read_route_acl_snapshot(&snapshot)",
+    "route_add(ifname, 0,",
+    "route_del(ifname, 0,",
     "route_status_idempotent_add(route_status)",
     "route_status_idempotent_delete(route_status)",
     "if (route_status != 0)",

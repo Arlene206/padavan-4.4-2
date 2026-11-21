@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Latest main source checkpoint before remote-LAN ACL snapshot: `47f339f6c51b64f75963c0e743db51285e8be897` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- Latest main source checkpoint before remote-LAN ACL source-contract correction: `f08c69de6f8a44c6bc623b62da09fe06b6723ba5` (VPN CHAP credential snapshot plus checked LAN/custom VPN address-pool validation); frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains read-only at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
 - PR #1 remains closed/unmerged and is not a development path. No force push, branch creation, or backup-branch mutation.
 - The MiniUPnP SOAP internal-port-zero TODO is already implemented in `upnpsoap.c` / `upnpsoap_input_policy.h` and covered by `upnpsoap_input_policy_test.c`; do not duplicate it.
 
@@ -33,7 +33,12 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - VPN remote-LAN route callbacks now build one exclusive NVRAM transaction snapshot of the ACL count, LAN address/netmask and all username/remote-network/remote-mask rows. Cache-backed values are copied before subsequent reads; remote networks are normalized to their masked network address and masks must be contiguous/non-zero. Backend errors abort before `route_add()`/`route_del()`, preventing partial ACL generations from mutating routes.
 
+- Exact f08 VPN lifecycle #44933990171 FAILED at the pre-existing remote-LAN callback contract because it still expected the old compatibility-getter source form; all compiled VPN policy/sanitizer tests passed. The implementation now snapshots ACL state before route mutation, so the stale source contract is updated in this commit.
+
 ## Verification boundary
+
+- Exact f08 VPN lifecycle #44933990171 FAILED only at the stale remote-LAN source contract; all compiled C policy/sanitizer steps PASS. Updated here to assert transactional snapshot-before-route-mutation. XY-C1 #44933990161 and NVRAM audit #44933990196 were still in progress at last poll.
+
 
 - L1: VPN enable/type fail-closed reads, transactional CHAP credential snapshot and transactional/validated LAN or RFC1918 custom address-pool selection are implemented. WAN route teardown retains the transactional ownership snapshot and separate PPP conntrack address read.
 - L2: On exact pool-source SHA `d59d266a0e37436e1d5fc8ffb708ef20112b301d`, VPN server lifecycle #44933121391 PASS, WAN DHCP callback #44933121789 PASS, WAN route #44933121597 PASS, AI handoff #44933121473 PASS, Process inventory #44933121412 PASS. HTTPD security #44933121393 failed at its final Python source-contract locator because two old delimiters expected the previous void pool API; both are corrected by this checker-only commit. Exact-head rerun is required. Process lifecycle #44933121578, NVRAM audit #44933121469, FRP #44933121501 and XY-C1 #44933121304 were PENDING at the last observation.
@@ -58,6 +63,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Check exact-head VPN stability, NVRAM transaction audit and XY-C1 Build/TRX/artifact for the remote-LAN route ACL snapshot commit; repair any confirmed failures from exact logs.
-2. Audit remaining VPN route/firewall hooks and hostname inputs for unchecked NVRAM reads; keep all route mutations behind a complete checked snapshot.
-3. Do not reopen completed PPP options snapshot, CHAP credential snapshot or VPN pool arithmetic unless a same-SHA regression demonstrates a fault.
+1. Inspect exact-head VPN lifecycle and NVRAM transaction audit after updating the remote-LAN source contract. Verify every C regression step, then check XY-C1 Build/TRX/artifact for the same product-source SHA.
+2. Continue reviewing remote-LAN ACL callback behavior with a focused fixture if a test seam is available; verify backend failures return before route_add/route_del and no partial snapshot escapes.
+3. Audit remaining VPN route/firewall and hostname inputs for unchecked NVRAM access. Do not reopen the completed PPP, CHAP or pool work absent a failing regression.

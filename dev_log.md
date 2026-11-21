@@ -1,3 +1,12 @@
+## 2026-11-21 — Update VPN route source contract after transactional ACL snapshot
+
+- Parent main SHA: `f08c69de6f8a44c6bc623b62da09fe06b6723ba5`.
+- Exact VPN lifecycle #44933990171 failed at the existing pre-remote-LAN contract at Python line 117. It still demanded the prior compatibility getter guard and literal `route_status = add ?` / unformatted route-add statements, while the production callback now obtains a checked transaction snapshot, then performs a formatted route_add/route_del call. The new appended contract covers transaction ordering and no compatibility getters; the legacy contract was not updated in the same source slice.
+- Updated the old contract to require the new fail-closed input guard, completed snapshot before route changes, idempotent status mapping and status propagation. All preceding C policy and sanitizer steps passed in the failed run; rerun exact-head VPN stability after this checker correction.
+- Exact f08 XY-C1 #44933990161, NVRAM #44933990196, AI docs #44933990188, OpenVPN #44933990213, Process checks #44933990242/#44933990166, HTTPD #44933990290 and Firewall #44933990132 were in progress at last poll.
+
+---
+
 ## 2026-11-21 — Snapshot VPN remote-LAN route ACL before route mutation
 
 - Parent main SHA: `47f339f6c51b64f75963c0e743db51285e8be897`.
