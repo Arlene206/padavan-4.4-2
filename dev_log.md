@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on OpenVPN server TUN/TAP mode reads
+
+- Parent main SHA: 29c9c56318ae8770da8bb5fc23b77456b0bccf79.
+- start_openvpn_server() previously collapsed vpns_ov_mode read/parse failures to integer zero, silently selecting TAP mode even when NVRAM backend or configuration state was unknown. The selected mode controls both emitted server.conf device/network directives and whether a TAP bridge or TUN interface is created.
+- Added a checked NVRAM transaction read with strict integer bounds 0..1. Missing key retains legacy TAP default; backend errors, malformed values and unsupported mode values abort before creating directories, publishing configuration, or mutating interfaces. The same checked value is passed to config generation and interface setup.
+- Added boundary/backend-error regressions and lifecycle source contracts requiring the transaction read before config and interface side effects.
+- Parent caafec82 OpenVPN CCD source compiled and its VPN lifecycle failure was only the checker NameError, corrected by 29c9c563. The 29c9 lifecycle check was PASS at last poll; full run was finishing. Parent d93dc94 VPN, HTTPD, Firewall, OpenVPN client staging, AI docs, Process and NVRAM PASS; XY-C1 #44934938330 still pending.
+
+---
+
 ## 2026-11-21 — Snapshot OpenVPN server CCD ACL policy before file publication
 
 - Parent main SHA: d93dc94dd989bf81049cd041b0b7bf4d3876a326.

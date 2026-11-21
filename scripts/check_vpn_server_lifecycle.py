@@ -991,6 +991,26 @@ require("nvram_match" not in xl2tpd_stop_set and
         "test_xl2tpd_stop_set_ownership_policy" in config_policy_test,
         "VPN shared xl2tpd stop-set must use checked ownership reads and tested dependency policy")
 
+openvpn_mode_reader=body(vpn_openvpn,"openvpn_read_server_mode_status(int *is_tun)")
+ordered(openvpn_mode_reader,[
+    "nvram_transaction_begin(&transaction)",
+    '"vpns_ov_mode"',
+    "vpn_server_config_int_status",
+    "nvram_transaction_end(&transaction)",
+    "*is_tun = mode"
+],"OpenVPN server interface-mode read must be checked and transaction-scoped")
+openvpn_server_start=body(vpn_openvpn,"start_openvpn_server(void)")
+ordered(openvpn_server_start,[
+    "openvpn_read_server_mode_status(&i_mode_tun)",
+    "openvpn_create_server_conf(vpns_cfg, i_mode_tun)",
+    "if (i_mode_tun)",
+    "openvpn_tunif_start(IFNAME_SERVER_TUN, 1)",
+    "openvpn_tapif_start(IFNAME_SERVER_TAP, 1, 1)"
+],"OpenVPN config and interface must use the same checked server mode")
+require('nvram_get_int("vpns_ov_mode")' not in openvpn_server_start and
+        "test_openvpn_server_mode_bounds" in config_policy_test,
+        "OpenVPN server startup mode read must fail closed and have boundary regression coverage")
+
 server_acl_snapshot=body(vpn_openvpn,"openvpn_server_acl_read_snapshot(struct openvpn_server_acl_entry *entries,")
 ordered(server_acl_snapshot,[
     "nvram_transaction_begin(&transaction)",

@@ -708,6 +708,48 @@ openvpn_export_remove_tempdir(const char *tmp_dir)
 }
 
 static int
+openvpn_read_server_mode_status(int *is_tun)
+{
+	struct nvram_transaction transaction;
+	char *value = NULL;
+	int read_status, read_errno, mode = 0, status;
+	int result = -1, saved_errno = 0, end_status;
+
+	if (!is_tun) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	errno = 0;
+	read_status = nvram_transaction_get(&transaction, "vpns_ov_mode", &value);
+	read_errno = errno;
+	status = vpn_server_config_int_status(read_status, read_errno, value,
+					      0, 0, 1, &mode);
+	if (status != 0) {
+		errno = status;
+		goto finish_transaction;
+	}
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+	*is_tun = mode;
+	return 0;
+}
+
+static int
 openvpn_create_server_conf(const char *conf_file, int is_tun)
 {
 	FILE *fp;
@@ -1651,7 +1693,15 @@ start_openvpn_server(void)
 	mkdir_if_none(SERVER_ROOT_DIR, "755");
 	mkdir_if_none(COMMON_TEMP_DIR, "777");
 
-	i_mode_tun = (nvram_get_int("vpns_ov_mode") == 1) ? 1 : 0;
+	if (openvpn_read_server_mode_status(&i_mode_tun) != 0) {
+		int saved_errno = errno ? errno : EIO;
+
+		logmessage(SERVER_LOG_NAME,
+			   "cannot read OpenVPN server interface mode; refusing startup (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 1;
+	}
 
 	/* create conf file */
 	if (openvpn_create_server_conf(vpns_cfg, i_mode_tun))
