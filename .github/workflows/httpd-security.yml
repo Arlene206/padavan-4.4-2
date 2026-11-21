@@ -1374,7 +1374,7 @@ jobs:
           assert "interface routes or the global route cache could not be flushed" in full_restart_routes
           route_flush_restore = full_restart_routes.index(
               "status = rc_wan_restore_lan_routes_after_failed_step(",
-              full_restart_compact.index("if (route_flush_status != 0)"))
+              full_restart_routes.index("if (route_flush_status != 0)"))
           route_flush_restore_check = full_restart_routes.index(
               "if (static_lan_route_status != 0)", route_flush_restore)
           route_flush_restore_return = full_restart_routes.index(
