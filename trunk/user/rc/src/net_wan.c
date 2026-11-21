@@ -107,7 +107,7 @@ get_wan_unit_value_copy_status(int unit, const char *param_name,
 }
 
 
-static int
+int
 get_wan_unit_value_int_status(int unit, const char *param_name, int *value)
 {
 	char wanN_param[64];

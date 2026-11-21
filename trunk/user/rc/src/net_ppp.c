@@ -37,6 +37,7 @@
 #include "vpn_server_lifecycle_lock.h"
 #include "route_status_policy.h"
 #include "ppp_options_file.h"
+#include "ppp_wan_option_policy.h"
 #include "wan_ifname_policy.h"
 #include "ppp_option_value_policy.h"
 #include "ppp_callback_identity_policy.h"
@@ -652,11 +653,27 @@ ppp_options_write_text(FILE *fp, const char *value, char *buf, size_t buf_size)
 }
 
 static int
+ppp_wan_option_read_int(void *context, const char *param_name, int *value)
+{
+	int *unit = (int *)context;
+	int status;
+
+	if (!unit)
+		return EINVAL;
+	status = get_wan_unit_value_int_status(*unit, param_name, value);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+
+static int
 launch_wan_pppd_locked(int unit, int wan_proto)
 {
 	FILE *fp;
+	struct ppp_wan_option_values option_values;
 	int auth_type, mtu, mru, mtu_max, mru_max, mtu_def, mru_def;
-	int saved_errno, launch_status, cleanup_status;
+	int option_status, saved_errno, launch_status, cleanup_status;
 	unsigned long callback_generation;
 	char callback_generation_text[sizeof(unsigned long) * CHAR_BIT + 1];
 	char pppoe_ifname[16];
@@ -670,6 +687,25 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 
 	if (unit < 0)
 		return -1;
+
+	/*
+	 * Resolve every integer that affects authentication, encryption, DNS or
+	 * PPP negotiation before invalidating the previous session, stopping a
+	 * transport daemon, or opening the shared options file.
+	 */
+	option_status = ppp_wan_option_values_read(
+		(wan_proto == IPV4_WAN_PROTO_PPPOE),
+		(wan_proto == IPV4_WAN_PROTO_PPTP),
+		(wan_proto == IPV4_WAN_PROTO_L2TP),
+		ppp_wan_option_read_int, &unit, &option_values);
+	if (option_status != 0) {
+		saved_errno = option_status > 0 ? option_status : EIO;
+		logmessage(LOGNAME,
+			   "refusing WAN PPP launch because a required option read failed (status=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	/* The nic-* line is parsed as a separate pppd option. Never allow an
 	 * NVRAM interface name to inject another privileged PPP option. */
@@ -758,7 +794,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		goto invalid_options;
 	fprintf(fp, "refuse-eap\n");
 
-	auth_type = get_wan_unit_value_int(unit, "ppp_auth");
+	auth_type = option_values.auth_type;
 	if (auth_type == 3) {
 		/* MS-CHAPv2 */
 		fprintf(fp, "refuse-pap\n");
@@ -791,8 +827,8 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		mtu_max = 1476;
 		mru_def = 1400;
 		mru_max = 1500;
-		mtu = get_wan_unit_value_int(unit, "pptp_mtu");
-		mru = get_wan_unit_value_int(unit, "pptp_mru");
+		mtu = option_values.mtu;
+		mru = option_values.mru;
 		
 		fprintf(fp, "plugin pptp.so\n");
 		failed_option = "pptp_server";
@@ -806,8 +842,8 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		mtu_max = 1460;
 		mru_def = 1460;
 		mru_max = 1500;
-		mtu = get_wan_unit_value_int(unit, "l2tp_mtu");
-		mru = get_wan_unit_value_int(unit, "l2tp_mru");
+		mtu = option_values.mtu;
+		mru = option_values.mru;
 		
 		// L2TP: Don't wait for LCP term responses; exit immediately when killed
 		fprintf(fp, "lcp-max-terminate %d\n", 0);
@@ -817,8 +853,8 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		int demand;
 		char *pppoe_ac, *pppoe_sv;
 		
-		mtu = get_wan_unit_value_int(unit, "pppoe_mtu");
-		mru = get_wan_unit_value_int(unit, "pppoe_mru");
+		mtu = option_values.mtu;
+		mru = option_values.mru;
 		
 		fprintf(fp, "plugin rp-pppoe.so\n");
 		fprintf(fp, "nic-%s\n", pppoe_ifname);
@@ -837,10 +873,10 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 				goto invalid_options;
 		}
 		
-		demand = get_wan_unit_value_int(unit, "pppoe_idletime");
-		if (demand > 0 && get_wan_unit_value_int(unit, "pppoe_demand") > 0) {
+		demand = option_values.pppoe_idletime;
+		if (demand > 0 && option_values.pppoe_demand > 0) {
 			fprintf(fp, "idle %d ", demand);
-			if (get_wan_unit_value_int(unit, "pppoe_txonly_x") > 0)
+			if (option_values.pppoe_txonly_x > 0)
 				fprintf(fp, "tx_only ");
 			fprintf(fp, "demand\n");
 		}
@@ -862,7 +898,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	fprintf(fp, "mtu %d\n", mtu);
 	fprintf(fp, "mru %d\n", mru);
 
-	if (get_wan_unit_value_int(unit, "dnsenable_x") > 0)
+	if (option_values.dnsenable_x > 0)
 		fprintf(fp, "usepeerdns\n");
 
 	fprintf(fp, "default-asyncmap\n");
@@ -876,7 +912,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	fprintf(fp, "novj nobsdcomp nodeflate\n");
 
 	if (wan_proto != IPV4_WAN_PROTO_PPPOE) {
-		int mppe_mode = get_wan_unit_value_int(unit, "ppp_mppe");
+		int mppe_mode = option_values.mppe_mode;
 		if (mppe_mode == 0) {
 			fprintf(fp, "nomppe nomppc\n");
 		} else {
@@ -898,12 +934,12 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 		fprintf(fp, "nomppe nomppc\n");
 	}
 
-	if (get_wan_unit_value_int(unit, "ppp_lcp") > 0) {
+	if (option_values.lcp_echo > 0) {
 		/* echo failures (6*20s) */
 		fprintf(fp, "lcp-echo-interval %d\n", 20);
 		fprintf(fp, "lcp-echo-failure %d\n", 6);
 	}
-	if (get_wan_unit_value_int(unit, "ppp_alcp") > 0)
+	if (option_values.adaptive_lcp > 0)
 		fprintf(fp, "lcp-echo-adaptive\n");
 
 	fprintf(fp, "minunit %d\n", unit);
@@ -1029,10 +1065,16 @@ launch_wan_pppd(int unit, int wan_proto)
 int
 preset_wan_ppp_routes(char *ppp_ifname, int unit)
 {
-	int status = 0, route_status;
+	int status = 0, route_status, primary = 0;
 
-	/* Set default route to gateway if specified. */
-	if (get_wan_unit_value_int(unit, "primary") == 1) {
+	/* Do not guess whether this link owns the default route on read failure. */
+	route_status = get_wan_unit_value_int_status(unit, "primary", &primary);
+	if (route_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN primary-route setting for unit %d (status=%d)",
+			   unit, route_status);
+		status = route_status_accumulate(status, route_status);
+	} else if (primary == 1) {
 		route_status = route_add(ppp_ifname, 1, "0.0.0.0", "0.0.0.0", "0.0.0.0");
 		route_status = route_status_idempotent_add(route_status);
 		status = route_status_accumulate(status, route_status);

@@ -73,6 +73,9 @@ on:
       - "trunk/linux-4.4.x/net/ipv4/fib_semantics.c"
       - "trunk/linux-4.4.x/net/ipv4/fib_frontend.c"
       - "trunk/user/rc/src/net_ppp.c"
+      - "trunk/user/rc/src/ppp_wan_option_policy.h"
+      - "trunk/user/rc/src/tests/ppp_wan_option_policy.c"
+      - "scripts/check_ppp_wan_options.py"
       - "trunk/user/rc/src/xl2tpd_start_policy.h"
       - "trunk/user/rc/src/tests/xl2tpd_start_policy.c"
       - "trunk/user/rc/src/rc.h"
@@ -238,6 +241,17 @@ jobs:
             trunk/user/rc/src/tests/wan_nvram_status_policy.c \
             -o /tmp/wan-nvram-status-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/wan-nvram-status-policy
+      - name: Compile and run PPP WAN option checked-read preflight regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/ppp_wan_option_policy.c \
+            -o /tmp/ppp-wan-option-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/ppp-wan-option-policy
+
+      - name: Check PPP option reads fail closed before session changes
+        run: python3 scripts/check_ppp_wan_options.py
       - name: Check WAN DNS-mode error propagation contract
         run: python3 scripts/check_wan_dns_read_status.py
       - name: Compile and run Inadyn configured-WAN update policy regression

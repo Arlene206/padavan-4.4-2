@@ -267,6 +267,8 @@ int  udhcpc_lan_main(int argc, char **argv);
 /* net_wan.c */
 char* get_wan_unit_value(int unit, const char* param_name);
 int  get_wan_unit_value_int(int unit, const char* param_name);
+int get_wan_unit_value_int_status(int unit, const char *param_name,
+				  int *value);
 int set_wan_unit_value_status(int unit, const char *param_name, const char *value);
 int set_wan_unit_value_int_status(int unit, const char *param_name, int value);
 int set_wan_unit_error_status(int unit, int error);
