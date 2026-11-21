@@ -12,29 +12,29 @@
 The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state before ending, verify this handoff's source baseline, active task, exact-head Actions, validation boundary, blockers and first next action. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no no-op commit. Update this handoff only when next-session-critical facts materially change.
 
 ## Current repository state
-- Live main parent for this Samba config-mode slice: `c9eff6c602124abc3d389272d3f0a98bbc6d092d`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
-- Radio product source SHA `60ad278e7056ace912066b090fdf20d0fd874f3e`: Wireless/iNIC L2 plus XY-C1 #44897419694 Build + TRX + artifact all PASS (L3 VERIFIED).
-- USB modem boot-selection + fail-closed NDIS/RAS removal source SHA `c58272b954ad175b16bb85879d3913d384035704`: USB #44898901905, Process #44898901784, AI docs #44898901797, WAN DHCP #44898901879, WAN teardown #44898901886 and NVRAM audit #44898901848 PASS. XY-C1 #44898901805 still IN_PROGRESS (Build running, TRX/artifact pending).
-- OpenVPN TLS-crypt-v2 server key/umask fix source SHA `c9eff6c602124abc3d389272d3f0a98bbc6d092d`: private-key regression #44899519368 PASS, Process #44899519328/#44899519428 PASS, AI docs #44899519407 PASS. XY-C1 #44899519362 still IN_PROGRESS (Build step started; TRX/artifact pending).
-- New distinct Samba defect fixed in current commit: `write_smb_conf_unlocked()` used an error-collapsing `nvram_get_int("st_samba_mode")`; backend failure became zero and invalid values silently published an incomplete header-only configuration. The checked reader distinguishes missing-key legacy zero from I/O/malformed/overflow errors; mode allowlist is exactly 0/1/3/4; writer rejects invalid mode before staging and preserves the last-good config. A GNU89 allowlist fixture and exact source contracts are wired into Samba workflow; new header is a XY-C1 production input.
-- Frozen backup is immutable; legacy PR #1 closed/unmerged.
+- Live main parent for this watchdog config-read slice: `47335ed2ce9e949aded6c361e7164ac51851ff95`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- Samba config-mode fix on parent `47335ed2ce9e949aded6c361e7164ac51851ff95`: Samba host regression #44900045476 PASS; Process inventory #44900045461 PASS; USB modem identity #44900045444 PASS; vsftpd #44900045350 PASS; NFS #44900045396 PASS; AI docs #44900045349 PASS. XY-C1 #44900045362 pending (Build/TRX/artifact not yet verified).
+- New watchdog defect fixed in current commit: unchecked `nvram_get_int("watchdog_cpu")` converted backend errors to zero, skipping CPU watchdog boot startup and potentially unloading a live module on restart. Checked NVRAM + strict integer parse now distinguishes absent-key default zero from read/parse failures. Both start and restart return the read error without changing module state.
+- Existing watchdog GNU89/Werror/ASan/UBSan fixture now covers missing default, enabled values, backend/malformed/overflow error-status preservation and invalid output. Workflow source contracts and XY-C1 input test cover the checked reader/header.
+- Radio source SHA `60ad278e7056ace912066b090fdf20d0fd874f3e` previously L3 VERIFIED; USB source `c58272b9` and OpenVPN source `c9eff6c6` host checks passed but exact-source XY-C1 remained pending at their last recorded poll.
+- Frozen backup immutable; legacy PR #1 closed/unmerged.
 
 ## Active task
-- Inspect current exact-head Samba share-stability, Process lifecycle, AI handoff and XY-C1 push Actions for this commit.
-- On failure, read the first causal log and fix the source/contract rather than relaxing mode allowlist or treating NVRAM errors as disabled.
-- Continue to an independent P1 stability/security issue after this Samba slice; do not loop back to completed HTTPD/WAN/SkipDB work.
+- Verify exact-head watchdog-signal, Process inventory/lifecycle, AI handoff and XY-C1 Actions for this commit.
+- Inspect parent XY-C1 #44900045362 separately; it validates the preceding Samba production input.
+- Keep watchdog configuration UNKNOWN fail-closed: do not translate backend or parse errors into disabled or perform a load/unload operation.
+- Continue an independent P1 reliability/security issue once this host regression passes; do not wait on pending firmware builds.
 
 ## Verification boundary
-- Samba checked-mode source and C fixture committed; exact-head L2 pending. No local test run.
-- OpenVPN source `c9eff6c6`: host OpenVPN/Process/AI checks pass; same-SHA XY-C1 pending.
-- USB source `c58272b9`: host checks pass; same-SHA XY-C1 pending.
-- Radio source `60ad278e`: L3 VERIFIED.
+- Watchdog checked-config reader and test committed; exact-head host Actions pending. No local run claimed.
+- Samba parent `47335ed2ce9e949aded6c361e7164ac51851ff95`: dedicated Samba + Process inventory + USB + vsftpd + NFS + AI host Actions PASS; XY-C1 #44900045362 pending.
+- Radio source `60ad278e`: L3 VERIFIED; USB/OpenVPN exact-source XY-C1 L3 pending at last documented poll.
 - Hardware/router L4: NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect exact-head Samba, Process, AI docs and XY-C1 Actions.
-2. Diagnose the first causal test/contract failure; preserve checked-read and fail-closed mode behavior.
-3. Inspect XY-C1 #44899519362 for OpenVPN L3 and #44898901805 for USB L3 separately; do not combine SHA results.
-4. Continue a distinct P1 security/reliability issue outside the recently completed radio, USB and OpenVPN slices.
+1. Fetch live main and inspect exact-head watchdog-signal, Process inventory/lifecycle, AI handoff and XY-C1 runs.
+2. Triage the first causal failing step; retain strict checked NVRAM and the no-module-side-effect-on-error rule.
+3. Inspect parent XY-C1 #44900045362 as Samba source validation only, and the new run for watchdog source validation.
+4. Continue with another distinct P1 reliability/security issue outside the just-closed watchdog config slice.
 
-Before context exhaustion, update this handoff only when active task, exact-head state or verification boundary changes; no no-op commit.
+Before context exhaustion, update this handoff only when active task, exact-head status or validation boundary changes; no no-op commit.

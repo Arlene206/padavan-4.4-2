@@ -1,3 +1,15 @@
+## 2026-11-21 — Preserve CPU watchdog module state when its NVRAM setting is unreadable
+
+- Parent main SHA: `47335ed2ce9e949aded6c361e7164ac51851ff95`.
+- `start_watchdog_cpu()` and `restart_watchdog_cpu()` read `watchdog_cpu` through `nvram_get_int()`. That API collapses a backend/lock/ioctl/close error to zero: boot could silently skip the configured CPU watchdog, while a PID-1 restart during a transient NVRAM failure could interpret the setting as disabled and unload an already-running watchdog module.
+- Added `watchdog_cpu_config_enabled()` using `nvram_get_checked()`, the strict integer reader and a status policy. Missing keys retain the historical disabled default; malformed, overflow and backend failures are returned unchanged. Both start and restart now return before any module load, unload or postcondition probe if the setting cannot be read.
+- Extended the GNU89 watchdog policy test for missing/default, nonzero enable, error preservation and invalid output pointer. Added exact source/call-order contracts and the NVRAM status header to watchdog workflow push/PR filters and XY-C1 firmware-input regression.
+- Parent Samba slice on `47335ed2ce9e949aded6c361e7164ac51851ff95`: Samba #44900045476 PASS, Process inventory #44900045461 PASS, USB identity #44900045444 PASS, vsftpd #44900045350 PASS, NFS #44900045396 PASS, AI docs #44900045349 PASS. XY-C1 #44900045362 was IN_PROGRESS at last poll; exact Build/TRX/artifact pending. Process inventory/lifecycle umbrella and other independent workflows required continued polling.
+- No local checkout/runtime; no local test, sanitizer or MIPS build is claimed. This watchdog regression and same-SHA XY-C1 require exact-head Actions.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Fail closed on Samba share-mode NVRAM errors and unsupported values
 
 - Parent main SHA: `c9eff6c602124abc3d389272d3f0a98bbc6d092d`.

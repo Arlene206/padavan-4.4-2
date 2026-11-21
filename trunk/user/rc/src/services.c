@@ -32,6 +32,7 @@
 #include "logger_start_policy.h"
 #include "service_start_status.h"
 #include "watchdog_cpu_restart_policy.h"
+#include "wan_nvram_status_policy.h"
 #include "service_wait_policy.h"
 
 static int optional_daemon_start_status(const char *service_name, const char *process_name);
@@ -2001,13 +2002,44 @@ stop_logger(void)
 	return kill_services(svcs, 3, 1);
 }
 
+static int
+watchdog_cpu_config_enabled(int *should_load)
+{
+	char *value = NULL;
+	int api_result, saved_errno, configured_value = 0;
+	int read_status, status;
+
+	if (!should_load) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	errno = 0;
+	api_result = nvram_get_checked("watchdog_cpu", &value);
+	saved_errno = errno;
+	read_status = rc_wan_nvram_read_int_status(
+		api_result, saved_errno, value, 0, &configured_value);
+	status = rc_watchdog_cpu_restart_config_status(
+		read_status, configured_value, should_load);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
 int
 start_watchdog_cpu(void)
 {
-	int module_status;
+	int module_status, should_load, config_status;
 
-	if (nvram_get_int("watchdog_cpu") == 0)
+	config_status = watchdog_cpu_config_enabled(&should_load);
+	if (config_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read CPU watchdog configuration; preserving current module state (status=%d)",
+			   config_status);
+		return config_status;
+	}
+	if (!should_load)
 		return 0;
+
 	/*
 	 * module_smart_load() returns zero for both "already loaded" and
 	 * "load failed". Verify the tri-state module probe after the operation.
@@ -2055,10 +2087,17 @@ static const rc_watchdog_cpu_restart_ops_t watchdog_cpu_restart_ops = {
 int
 restart_watchdog_cpu(void)
 {
-	int should_load = (nvram_get_int("watchdog_cpu") != 0);
-	int status = rc_watchdog_cpu_restart_verified("rt_timer_wdg", should_load,
-						      &watchdog_cpu_restart_ops);
+	int should_load, config_status, status;
 
+	config_status = watchdog_cpu_config_enabled(&should_load);
+	if (config_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read CPU watchdog configuration; refusing module state change (status=%d)",
+			   config_status);
+		return config_status;
+	}
+	status = rc_watchdog_cpu_restart_verified("rt_timer_wdg", should_load,
+					 &watchdog_cpu_restart_ops);
 	if (status != 0) {
 		if (should_load)
 			logmessage(LOGNAME, "CPU watchdog module enable failed or module is unavailable (status=%d)",

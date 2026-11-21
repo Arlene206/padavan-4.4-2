@@ -30,6 +30,7 @@ on:
       - "trunk/user/rc/src/services.c"
       - "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c"
       - "trunk/user/rc/src/watchdog_cpu_restart_policy.h"
+      - "trunk/user/rc/src/wan_nvram_status_policy.h"
       - "trunk/user/rc/src/net_wifi.c"
       - "trunk/user/rc/src/Makefile"
       - "trunk/user/rc/Makefile"
@@ -243,9 +244,23 @@ jobs:
           assert "route_status = notify_watchdog_time();" in wan
           assert "route_status_accumulate(status, route_status)" in wan
           assert '#include "watchdog_cpu_restart_policy.h"' in services
+          assert '#include "wan_nvram_status_policy.h"' in services
+          config_reader = body(services, "watchdog_cpu_config_enabled(int *should_load)")
+          assert 'nvram_get_checked("watchdog_cpu", &value)' in config_reader
+          assert "rc_wan_nvram_read_int_status(" in config_reader
+          assert "rc_watchdog_cpu_restart_config_status(" in config_reader
+          assert 'nvram_get_int("watchdog_cpu")' not in config_reader
+          assert config_reader.index("nvram_get_checked(") < config_reader.index("rc_wan_nvram_read_int_status(")
           cpu_start = body(services, "start_watchdog_cpu(void)")
           cpu_restart = body(services, "restart_watchdog_cpu(void)")
-          assert 'nvram_get_int("watchdog_cpu")' in cpu_start
+          assert "watchdog_cpu_config_enabled(&should_load)" in cpu_start
+          assert cpu_start.index("watchdog_cpu_config_enabled(&should_load)") < cpu_start.index('module_smart_load("rt_timer_wdg", NULL)')
+          assert "watchdog_cpu_config_enabled(&should_load)" in cpu_restart
+          assert cpu_restart.index("watchdog_cpu_config_enabled(&should_load)") < cpu_restart.index("rc_watchdog_cpu_restart_verified(")
+          assert "return config_status;" in cpu_start and "return config_status;" in cpu_restart
+          assert 'nvram_get_int("watchdog_cpu")' not in cpu_start + cpu_restart
+          cpu_start = body(services, "start_watchdog_cpu(void)")
+          cpu_restart = body(services, "restart_watchdog_cpu(void)")
           assert 'module_smart_load("rt_timer_wdg", NULL)' in cpu_start
           assert 'is_module_loaded_status("rt_timer_wdg")' in cpu_start
           assert 'rc_watchdog_cpu_restart_verified("rt_timer_wdg", should_load,' in cpu_restart
@@ -326,6 +341,7 @@ jobs:
               "trunk/user/rc/src/services.c",
               "trunk/user/rc/src/tests/watchdog_cpu_restart_policy.c",
               "trunk/user/rc/src/watchdog_cpu_restart_policy.h",
+              "trunk/user/rc/src/wan_nvram_status_policy.h",
               "trunk/user/rc/src/net_wifi.c",
               "trunk/user/rc/src/Makefile",
               "trunk/user/rc/Makefile",

@@ -71,6 +71,38 @@ reset_case(int visible, int load_rc, int unload_rc,
 }
 
 static void
+test_config_absent_default_disables_module(void)
+{
+	int should_load = -1;
+	assert(rc_watchdog_cpu_restart_config_status(0, 0, &should_load) == 0);
+	assert(should_load == 0);
+}
+
+static void
+test_config_nonzero_enables_module(void)
+{
+	int should_load = 0;
+	assert(rc_watchdog_cpu_restart_config_status(0, 1, &should_load) == 0);
+	assert(should_load == 1);
+	should_load = 0;
+	assert(rc_watchdog_cpu_restart_config_status(0, -1, &should_load) == 0);
+	assert(should_load == 1);
+}
+
+static void
+test_config_read_failure_preserves_output_and_blocks_module_action(void)
+{
+	int should_load = 17;
+	assert(rc_watchdog_cpu_restart_config_status(EIO, 0, &should_load) == EIO);
+	assert(should_load == 17);
+	assert(rc_watchdog_cpu_restart_config_status(EACCES, 1, &should_load) == EACCES);
+	assert(should_load == 17);
+	assert(rc_watchdog_cpu_restart_config_status(EINVAL, 0, &should_load) == EINVAL);
+	assert(should_load == 17);
+	assert(rc_watchdog_cpu_restart_config_status(0, 1, NULL) == EINVAL);
+}
+
+static void
 test_enabled_module_already_loaded_is_success(void)
 {
 	reset_case(1, 0, 0, 0, 0);
@@ -187,6 +219,9 @@ test_invalid_inputs_fail_before_side_effects(void)
 int
 main(void)
 {
+	test_config_absent_default_disables_module();
+	test_config_nonzero_enables_module();
+	test_config_read_failure_preserves_output_and_blocks_module_action();
 	test_enabled_module_already_loaded_is_success();
 	test_enabled_new_module_is_verified();
 	test_failed_load_is_not_success();

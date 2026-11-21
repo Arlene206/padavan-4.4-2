@@ -4,6 +4,22 @@
 #include <errno.h>
 #include <stddef.h>
 
+/*
+ * A failed watchdog_cpu read must not become configuration value zero:
+ * zero explicitly disables the CPU watchdog module.
+ */
+static inline int
+rc_watchdog_cpu_restart_config_status(int read_status, int configured_value,
+				      int *should_load)
+{
+	if (!should_load)
+		return EINVAL;
+	if (read_status != 0)
+		return read_status;
+	*should_load = configured_value != 0;
+	return 0;
+}
+
 typedef struct {
 	int (*load)(const char *module_name, const char *module_param);
 	int (*unload)(const char *module_name, int recurse_unload);
