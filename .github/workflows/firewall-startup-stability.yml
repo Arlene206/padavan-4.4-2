@@ -545,9 +545,10 @@ jobs:
               assert 'nvram_match("vts_enable_x", "1")' not in builder, signature
           vts_filter_builder = body(firewall_source, "include_vts_filter(FILE *fp")
           vts_nat_builder = body(firewall_source, "include_vts_nat(FILE *fp")
+          assert "include_vts_filter(FILE *fp, char *lan_ip, char *logaccept, int num_entries, int forward_chain)" in firewall_source
+          assert "include_vts_nat(FILE *fp, int num_entries)" in firewall_source
           for signature, builder in (("VTS filter", vts_filter_builder),
                                      ("VTS NAT", vts_nat_builder)):
-              assert "int num_entries" in builder, signature
               assert "for (i = 0; i < num_entries; ++i)" in builder, signature
               assert 'foreach_x("vts_num_x")' not in builder, signature
           nat_dmz = nat_builder
@@ -595,11 +596,16 @@ jobs:
           vts_proto_reader = firewall_source[vts_proto_at:vts_proto_end]
           assert "nvram_get_checked(nvram_name, &value)" in vts_proto_reader
           assert "firewall_nvram_read_status(api_result, saved_errno, value)" in vts_proto_reader
+          assert "return firewall_vts_protocol_name(value);" in vts_proto_reader
           assert "nvram_safe_get" not in vts_proto_reader
           assert firewall_source.count('proto = proto_conv("vts_proto_x", i);') == 2
           assert firewall_source.count("if (!proto) {") >= 2
           assert "skipping virtual-server rule %d: cannot read protocol" in firewall_source
+          assert "firewall_vts_protocol_name" in firewall_nvram_policy
+          assert 'return "both";' in firewall_nvram_policy
+          assert 'return "other";' in firewall_nvram_policy
           assert "test_nvram_read_status_distinguishes_missing_and_backend_error" in firewall_nvram_test
+          assert "test_vts_protocol_name_preserves_legacy_modes" in firewall_nvram_test
           assert "api_result < 0" in firewall_nvram_policy
           for signature, checked in (
               ("ipt_filter_rules(char *man_if", (

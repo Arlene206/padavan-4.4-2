@@ -136,6 +136,19 @@ test_nvram_read_status_distinguishes_missing_and_backend_error(void)
     assert(firewall_nvram_read_status(-1, 0, NULL) == EIO);
     assert(firewall_nvram_read_status(2, 0, "TCP") == EIO);
     assert(firewall_nvram_read_status(1, 0, NULL) == EIO);
+    assert(firewall_nvram_read_status(0, 0, "unexpected") == EIO);
+}
+
+static void
+test_vts_protocol_name_preserves_legacy_modes(void)
+{
+    assert(strcmp(firewall_vts_protocol_name("TCP"), "tcp") == 0);
+    assert(strcmp(firewall_vts_protocol_name("udp"), "udp") == 0);
+    assert(strcmp(firewall_vts_protocol_name("BoTh"), "both") == 0);
+    assert(strcmp(firewall_vts_protocol_name("OtHeR"), "other") == 0);
+    assert(strcmp(firewall_vts_protocol_name(""), "tcp") == 0);
+    assert(strcmp(firewall_vts_protocol_name("invalid"), "tcp") == 0);
+    assert(firewall_vts_protocol_name(NULL) == NULL);
 }
 int
 main(void)
@@ -150,5 +163,6 @@ main(void)
 	test_integer_modes_preserve_decimal_semantics();
 	test_integer_errors_are_fail_closed_and_preserve_output();
 	test_nvram_read_status_distinguishes_missing_and_backend_error();
+	test_vts_protocol_name_preserves_legacy_modes();
 	return 0;
 }

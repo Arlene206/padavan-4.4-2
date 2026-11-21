@@ -1,3 +1,13 @@
+## 2026-11-21 — Restore VTS protocol mapping semantics and correct count contract
+
+- Parent main SHA: `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3`.
+- Firewall Startup run #44951308314 on parent b60 failed at Python stdin line 405 with `AssertionError: VTS filter`. The newly added `body()` source parser returns a function body without its signature, but the contract incorrectly looked for `int num_entries` inside that body. Updated the workflow to assert the complete signatures against `firewall_source` and the bounded loop inside each parsed body.
+- Source review of parent b60 also found a production behavior regression: `proto_conv()` returned `tcpudp` for BOTH (where filter/NAT emitters require `both`) and omitted OTHER, making an OTHER rule fall back to TCP. Added a tested protocol normalizer that preserves legacy `tcp`, `udp`, `both`, `other` tokens, as well as TCP fallback for absent/unrecognized values, while checked NVRAM backend errors still return NULL and skip only that mapping.
+- Hardened `firewall_nvram_read_status()` to reject the invalid API combination “missing key with non-NULL value”. Regression now covers the malformed combination and all legacy protocol mappings.
+- Parent b60 exact-head checks: Firewall Startup #44951308314 FAIL as above; HTTPD #44951308243, HTTPD lifecycle #44951308276, FULLCONENAT #44951308225, WAN route #44951308283, WAN DHCP #44951308315, Process #44951308244 and AI docs #44951308326 were IN_PROGRESS; NVRAM #44951308249 QUEUED; XY-C1 #44951308274 IN_PROGRESS. No local test/build or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Fail closed on VTS protocol NVRAM backend errors
 
 - Parent main SHA: `79cfb79099f40e3b67b6c23a520c623c422c2d16`.

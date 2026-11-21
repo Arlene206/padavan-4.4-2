@@ -25,19 +25,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv4/IPv6 filter listener preflight and NAT/DMZ hardening are in the current main ancestry. The next firewall review found one remaining policy ambiguity in Virtual Server (VTS) mappings: `proto_conv("vts_proto_x", i)` used the legacy safe getter and defaulted unknown/empty strings to TCP. An NVRAM backend read/close failure is also surfaced as an empty string by the legacy API, so a transient fault could synthesize a TCP DNAT/ACCEPT mapping for a rule that was intended to be UDP or another protocol.
-- This slice adds a tested classifier for `nvram_get_checked()` results and updates `proto_conv()` to distinguish absent from backend failure. Missing or unrecognized values preserve the historical TCP fallback; backend/API/close failures return NULL. Both VTS filter and NAT loops now log and skip only the affected mapping instead of publishing the wrong TCP rule.
-- The Firewall Startup workflow now asserts the checked protocol reader, both fail-closed call sites, and the C regression that distinguishes absent-key defaults from backend failures.
+- The IPv4/IPv6 filter listener preflight, UDPXY 1024..65535 bounds and VTS count snapshot limit (0..64) are implemented in current main ancestry.
+- The current VTS protocol-read hardening uses `nvram_get_checked()` and skips a single mapping on backend/API/close failure. Review of parent `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3` found a behavior regression in its normalizer: it returned `tcpudp` although the emitters require `both`, and omitted the `OTHER` token, which consequently fell back to TCP. The corrected protocol classifier preserves all legacy tokens (`tcp`, `udp`, `both`, `other`) while retaining checked-read fail-closed behavior; unit cases now pin each mode and default.
+- The same parent Firewall Startup run failed at Python stdin line 405 with `AssertionError: VTS filter`. The workflow's brace-extracted `body()` deliberately excludes the function signature; its `int num_entries` assertion therefore looked in the wrong text. The source contract now checks each full signature in the source and the bounded loop in each body. No production behavior change is attached to this checker correction.
+- The exact-head Firewall Startup run on `79cfb79099f40e3b67b6c23a520c623c422c2d16` and its child `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3` both failed at this same VTS count assertion before later tests ran. The b60 protocol classifier and the corrected source/test contract now require a fresh exact-head run.
+
 ## Verification boundary
 
-- Current main parent before VTS protocol-read hardening: `79cfb79099f40e3b67b6c23a520c623c422c2d16` (`fix(firewall): bound virtual server rule count`). The IPv4/IPv6 filter listener source must be considered unverified until this exact descendant passes Firewall Startup and XY-C1 Build/TRX/artifact checks.
-- Earlier exact-head listener parent `8a7cf932879931c7df25708a9290dcc8eba2ed89` had Firewall Startup parser failure due the extra IPv6 HTTP block opener; fixed in descendant `e1e48877d521ef9b4559ade13568ff4d97de59ad`, which the current main ancestry contains. The immediate parent and current workflows must be polled from live Actions; no L3/hardware L4 claim is made.
-- No local C test/build execution is claimed. The new NVRAM status unit regression runs only through exact-head Firewall Startup CI.
+- Parent `b60f5d95776c8f7cc78d30edc7c6c2c6bfe032a3`: Firewall Startup #44951308314 FAIL at source-contract line 405 (`AssertionError: VTS filter`), identical to parent `79cf...`; HTTPD security #44951308243, HTTPD lifecycle #44951308276, FULLCONENAT #44951308225, WAN route #44951308283, WAN DHCP #44951308315, Process #44951308244 and AI docs #44951308326 were IN_PROGRESS at last poll; NVRAM #44951308249 was QUEUED; XY-C1 #44951308274 was IN_PROGRESS.
+- Parent `79cfb79099f40e3b67b6c23a520c623c422c2d16`: Firewall Startup #44951249909 failed at the same assertion; HTTPD #44951249893, FULLCONENAT #44951249935, WAN route #44951249881, WAN DHCP #44951249917, AI docs #44951249876 and Process #44951249977 PASS; NVRAM #44951250016 was cancelled by the later push; XY-C1 #44951249880 remained IN_PROGRESS at last poll.
+- Product-source SHA `aea6b95138171a165edec978680d6fb14913a640`: Firewall Startup #44950937394, HTTPD #44950937384, FULLCONENAT #44950937401, WAN route #44950937440, WAN DHCP #44950937407, AI docs #44950937391, Process #44950937421 and NVRAM #44950937375 PASS; XY-C1 #44950937424 was still IN_PROGRESS at last poll.
+- No local C tests or firmware builds are claimed. The new exact-head Firewall Startup run must pass its GNU89/Werror/ASan/UBSan NVRAM test step plus source-contract checks. No L3 claim until Build XY-C1, TRX verification and artifact upload all PASS on one source SHA; hardware L4 remains NOT VERIFIED.
+
 ## Exact first action for the next GPT
 
-1. Query exact-head Firewall Startup and XY-C1 for the VTS protocol hardening. Require the GNU89/Werror/ASan/UBSan helper regression and the two VTS checked-read assertions to pass; inspect the first failing source/test line rather than weakening the assertion.
-2. Track XY-C1 Build, TRX verification and artifact upload on the same exact SHA. Re-query the current parent's Actions only as parent evidence.
-3. Continue the firewall audit of VTS enable/count/port/address parsing and `include_vts_filter`/`include_vts_nat` semantics. Preserve legacy absent defaults; ensure backend errors or malformed WAN-facing fields cannot synthesize a more permissive mapping.
+1. Fetch live `main` and query exact-head Firewall Startup, XY-C1, NVRAM, HTTPD, Process, WAN, FULLCONENAT and AI Actions for the protocol-normalization/checker correction. Inspect the first causal log on any failure.
+2. Confirm the classifier regression preserves TCP, UDP, BOTH and OTHER semantics while a failed checked NVRAM read still skips only the affected VTS mapping.
+3. Continue the firewall input audit after exact-head validation. Preserve the 64-entry bound and valid port/IP/protocol mappings.
+
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

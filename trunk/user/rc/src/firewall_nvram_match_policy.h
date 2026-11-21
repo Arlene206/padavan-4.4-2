@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 /* nvram_get_checked(): 1=value present, 0=key absent, -1=read/backend error.
  * Missing values use the explicit legacy default; errors never become false. */
@@ -94,8 +95,27 @@ firewall_nvram_read_status(int api_result, int saved_errno, const char *value)
 {
     if (api_result < 0)
         return saved_errno ? saved_errno : EIO;
-    if (api_result > 1 || (api_result == 1 && !value))
+    if (api_result == 0)
+        return value ? EIO : 0;
+    if (api_result != 1 || !value)
         return EIO;
     return 0;
+}
+
+/* Keep the protocol tokens expected by the VTS filter/NAT emitters. */
+static inline const char *
+firewall_vts_protocol_name(const char *value)
+{
+    if (!value)
+        return NULL;
+    if (!strncasecmp(value, "Both", 4))
+        return "both";
+    if (!strncasecmp(value, "TCP", 3))
+        return "tcp";
+    if (!strncasecmp(value, "UDP", 3))
+        return "udp";
+    if (!strncasecmp(value, "OTHER", 5))
+        return "other";
+    return "tcp";
 }
 #endif /* PADAVAN_FIREWALL_NVRAM_MATCH_POLICY_H */
