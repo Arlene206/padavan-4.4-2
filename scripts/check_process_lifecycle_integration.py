@@ -3331,6 +3331,11 @@ assert "return service_wait_failure_status(status);" in start_wait
 wait_failure = c_function_body(service_wait, "service_wait_failure_status(int wait_errno)")
 assert "errno = wait_errno > 0 ? wait_errno : EIO;" in wait_failure
 assert "return -1;" in wait_failure
+sshd_wrapper = c_function_body(rc_services, "start_sshd(void)")
+assert "sshd_enabled_mode_read(&sshd_mode)" in sshd_wrapper
+assert "return start_sshd_with_mode(sshd_mode);" in sshd_wrapper
+assert 'nvram_get_int("sshd_enable")' not in sshd_wrapper
+
 for signature, service_name, initial, retry in (
     ("start_syslogd(void)", "syslogd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
     ("start_klogd(void)", "klogd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
@@ -3338,7 +3343,7 @@ for signature, service_name, initial, retry in (
     ("start_crond(void)", "crond", "CROND_START_INITIAL_WAIT_SECONDS", "CROND_START_RETRY_WAIT_SECONDS"),
     ("start_networkmap(int first_call)", "networkmap", "NETWORKMAP_START_INITIAL_WAIT_SECONDS", "NETWORKMAP_START_RETRY_WAIT_SECONDS"),
     ("start_telnetd(void)", "telnetd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
-    ("start_sshd(void)", "SSH", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
+    ("start_sshd_with_mode(int sshd_mode)", "SSH", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
     ("start_ttyd(void)", "ttyd", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),
     ("start_httpd_locked(int restart_fw)", "HTTPD", "HTTPD_START_INITIAL_WAIT_SECONDS", "HTTPD_START_RETRY_WAIT_SECONDS"),
     ("start_rstats(void)", "rstats", "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS", "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS"),

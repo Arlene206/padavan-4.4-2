@@ -1,3 +1,12 @@
+## 2026-11-21 — Align SSH settling-wait checker with checked start delegation
+
+- Parent main SHA: 917415b910965a663b0d0869dec75639e93b277d; product-source baseline unchanged.
+- Exact Process lifecycle #44906404890 ran all earlier daemon, shell, PID-file, WAN/LAN, VPN, UPnP, IPv6 and startup integration regressions successfully, then failed at check_process_lifecycle_integration.py:3348. It incorrectly expected service_start_probe_wait() inside public start_sshd(void). The checked public wrapper correctly reads sshd_enable and delegates to start_sshd_with_mode(int sshd_mode), which contains the detached-child settle/probe loop. Updated the checker to inspect wait/retry in that helper and separately assert checked-read/delegation plus absence of the legacy unchecked nvram_get_int() in the wrapper.
+- RT3352 TxPower Wireless #44906405015, iNIC signal #44906405082, watchdog signal #44906405010, process inventory #44906404949, AI docs #44906404948 and HTTPD security #44906404924 PASS on exact SHA 917415b. XY-C1 #44906404894 remains in Build XY-C1; TRX/artifact pending. NVRAM audit #44906405138 remains in caller audit. No L3/L4 claim.
+- Resulting main commit: THIS COMMIT. Exact Process/AI reruns pending.
+
+---
+
 ## 2026-11-21 — Normalize RT3352 MII TxPower across config and live radio paths
 
 - Parent main SHA: `b33f359bf38874d530db2a99c7ca345cb55f0a80`.
