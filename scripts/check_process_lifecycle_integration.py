@@ -824,7 +824,15 @@ wan_up = net_wan.split("wan_up_internal(char *wan_ifname, int unit, int is_stati
 wan_down = net_wan.split("wan_down_internal(char *wan_ifname, int unit, int is_static)", 1)[1].split(
     "\nint\nwan_down(", 1
 )[0]
-assert "auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);" in wan_start
+wan_start_compact = " ".join(wan_start.split())
+assert "auth_status = nvram_status;" in wan_start_compact
+assert "if (nvram_status == 0 && wan_auth_mode > 1)" in wan_start_compact
+assert "auth_status = start_auth_eapol(" in wan_start_compact
+assert (
+    wan_start_compact.index("auth_status = nvram_status;")
+    < wan_start_compact.index("auth_status = start_auth_eapol(")
+    < wan_start_compact.index("if (auth_status != 0)")
+)
 wan_eapol_failure = wan_start.split("if (auth_status != 0)", 1)[1].split("/* We are done configuration */", 1)[0]
 wan_eapol_compact = "".join(wan_eapol_failure.split())
 assert "vlan_result=set_wan_unit_error_status(unit,1);" in wan_eapol_compact

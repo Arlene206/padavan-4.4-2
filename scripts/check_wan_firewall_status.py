@@ -553,8 +553,17 @@ require("rc_wan_static_ipoe_clear_failure_requires_ifdown" in policy and
         "return is_static_ipoe && clear_status != 0;" in policy,
         "static IPoE clear failure must trigger a fail-closed interface-down decision")
 eapol = start.split("/* Start eapol authenticator */", 1)[1]
-require("auth_status = start_auth_eapol(wan_ifname, unit, wan_auth_mode - 2);" in eapol,
-        "EAPOL startup result must be captured")
+eapol_compact = " ".join(eapol.split())
+require("auth_status = nvram_status;" in eapol_compact and
+        "if (nvram_status == 0 && wan_auth_mode > 1)" in eapol_compact and
+        "auth_status = start_auth_eapol(" in eapol_compact,
+        "EAPOL startup result must be captured after a successful checked mode read")
+require(
+    eapol_compact.index("auth_status = nvram_status;") <
+    eapol_compact.index("auth_status = start_auth_eapol(") <
+    eapol_compact.index("if (auth_status != 0)"),
+    "EAPOL mode-read/launch errors must converge on the cleanup path",
+)
 eapol_order = (
     "wan_start_status = rc_first_service_start_status(",
     "wan_start_status, auth_status);",

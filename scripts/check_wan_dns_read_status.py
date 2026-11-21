@@ -171,7 +171,13 @@ require(idle_match is not None,
         "PPPoE idle-time must use checked NVRAM reads")
 idle_read = idle_match.group(0)
 idle_position = idle_match.start()
-idle_end = wan_start.index('set_wan_unit_value_int_status(unit, "pppoe_demand", i_demand)', idle_position)
+demand_match = re.search(
+    r'set_wan_unit_value_int_status\\s*\\(\\s*unit,\\s*"pppoe_demand",\\s*i_demand\\s*\\)\\s*;',
+    wan_start[idle_position:],
+)
+require(demand_match is not None,
+        "PPPoE demand publication must follow the checked idle-time read")
+idle_end = idle_position + demand_match.start()
 idle_failure = wan_start[idle_position:idle_end]
 require("if (nvram_status != 0)" in idle_failure and
         "restore_wan_after_firewall_failure(unit, wan_ifname)" in idle_failure and

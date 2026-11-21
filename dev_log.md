@@ -1,3 +1,13 @@
+## 2026-11-21 — Align WAN regression contracts with checked EAPOL and PPPoE reads
+
+- Parent main SHA: `cb21893b8651dc975646c9ac0bb08cf923a29030`.
+- Exact-head WAN route run `#44891999134` passed its GNU89/ASan/UBSan policy binaries and the DNS-mode contract, then exposed a second formatting-sensitive check: idle-time publication used a multi-line call and was searched as one literal.
+- The checked PPPoE demand-publication assertion now tolerates C whitespace while still requiring a call after the checked idle-time read.
+- The XY-C1 and process integration workflows also expected the pre-migration direct EAPOL assignment. Updated them to require the current sequence: checked auth-mode read initializes `auth_status`, conditional EAPOL launch overwrites it, and the error branch consumes it. No production behavior or guard was weakened.
+- Re-run the WAN route, XY-C1, and process checks on the resulting exact SHA; firmware L3 must only be recorded after build, TRX and artifact upload all pass on one SHA.
+
+---
+
 ## 2026-11-21 — Restore regex import in checked WAN source contract
 
 - Parent main SHA: `839922fedd844174ca6553c50901c5a9c942cc44`.
