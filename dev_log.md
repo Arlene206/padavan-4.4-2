@@ -1,3 +1,10 @@
+## 2026-11-21 — Isolate Transmission/Aria daemon-readiness CI failure
+
+- Parent main SHA: `331d94f73dd21eeb49a806357ec6f560ee6afac0`; storage-hotplug run #44879557620 failed in the first new Transmission successful-start regression. The Action output identified the failing assertion but the launcher output had been redirected away.
+- Added failure-only launcher output and a bounded pidof/sleep/launch trace to expose the exact post-launch transition on the next exact-SHA run; corrected the fake launcher's PID marker formatting. This is test diagnostics only and does not alter service startup behavior.
+
+---
+
 ## 2026-11-21 — Verify detached Transmission and Aria2 children before successful storage-app startup
 
 - Parent main SHA: `b0381ae36cc38f2963448681d28f97ecf41a5202`.
