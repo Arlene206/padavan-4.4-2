@@ -29,7 +29,7 @@ assert "atoi(val)" not in parser
 assert "wsd_http_read_exact(fd, buf, &len, contentlength)" in parser
 assert re.search(r"memmove\(buf, p, len\); p = buf;", parser), parser
 assert "errno == EMSGSIZE" in parser
-assert 'case 413:\\n\\t\\tstatus_str = "413 Payload Too Large";' in SOURCE
+assert re.search(r'case\s+413:\s*status_str = "413 Payload Too Large";', SOURCE)
 tag_finder = SOURCE[SOURCE.index("static const char *wsd_tag_find("):
                      SOURCE.index("static struct wsd_req_info *wsd_req_parse(")]
 assert "const char *nested = strchr(p, '<');" in tag_finder
