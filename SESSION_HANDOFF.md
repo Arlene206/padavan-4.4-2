@@ -28,22 +28,21 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Latest product-source slice: THIS COMMIT hardens `config_vinet_wan()`. The `vlan_filter` selector now uses checked exact-string NVRAM status; when enabled, CPU/IPTV VLAN IDs and CPU VLAN priority use checked integer reads. A read or malformed-value error returns before VLAN TX mapping, interface changes or active WAN identity publication. Missing-key defaults and valid priority masking remain compatible.
-- Parent main SHA: `e8537853a78498db6c0b7fdc1c5fae020dc6675b`. Changed production source: `trunk/user/rc/src/net_wan.c`; integration contract: `scripts/check_wan_vlan_setup.py`; existing `wan_nvram_status_policy.c` GNU89/Werror/ASan/UBSan test covers the checked match/integer helpers and backend/malformed-value cases. The WAN route workflow already watches all changed paths.
-- Product source `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` closed deferred printer/modem checked event pairs. Checker-only descendant `dadb757d3bd255e8a1b49b1b50aa31ef4084db36`: Firewall Startup, Process fail-closed, USB modem, AI docs PASS; USB storage exposed one stale safe-remove checker lookup, now corrected in checker-only `e8537853a78498db6c0b7fdc1c5fae020dc6675b`. Exact-head run inventory for e853 was empty at first poll; recheck if needed.
-- Current WAN VLAN source slice requires exact-head WAN route regression and XY-C1 Build, TRX verification and artifact upload. Hardware/device L4 remains NOT VERIFIED.
+- Product source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` hardens `config_vinet_wan()`: checked `vlan_filter` string selector and checked CPU/IPTV VID plus CPU priority reads abort before hardware VLAN mapping/interface changes on backend or malformed-value errors. Its WAN route source checker and existing GNU89/Werror/ASan/UBSan NVRAM regression are included.
+- USB deferred printer/modem event-pair source fix is `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8`. Checker-only `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` passes Firewall Startup, Process fail-closed, USB modem and AI docs. Safe-eject checker follow-up `e8537853a78498db6c0b7fdc1c5fae020dc6675b` hit a token-normalization mismatch: `compact()` yields `}elseif(...)`; THIS COMMIT corrects that expectation.
+- Exact b4 WAN route, Process, Firewall, USB and XY-C1 jobs are still running or queued at last poll. XY-C1 needs Build XY-C1, TRX verification and artifact upload all PASS on b4 before claiming L3. Hardware L4 is NOT VERIFIED.
 
 ## Verification boundary
 
-- Source/checker token preflight: PASS locally in the commit preparation; exact CI has not yet reported.
-- Do not mark L3 verified unless XY-C1 Build, TRX and artifact upload all PASS on THIS product-source SHA. A checker-only descendant with Build skipped is not firmware validation.
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- e853 USB storage exact run `44960744369` failed only at the stale normalized `else if` token in `check_storage_safe_remove.py`; the full storage caller graph passed. This commit repairs only that check.
+- Product source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` exact Actions were pending at last poll; no L2/L3 success claim until exact jobs complete. The previous checker-only XY source run skipped Build/TRX/artifact and is not L3.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route Actions and XY-C1 Build/TRX/artifact for THIS commit. Inspect the production-input detector if firmware build is skipped for an RC source change.
-2. Fix any current-SHA checker or build failure based on its job log; never infer PASS from parent SHA.
-3. After WAN VLAN validation, continue the next independent stability/security defect in another Padavan userland subsystem.
+1. Inspect exact-head USB storage rerun for THIS commit.
+2. Resolve every b4 source Action; especially WAN route status and XY-C1 Build/TRX/artifact. If any current-head contract or build fails, diagnose from that job log.
+3. After the WAN VLAN slice and storage contract are green, continue another independent stability/security defect; do not re-audit completed USB event marker pairs.
 
 ## Workflow and preservation rules
 

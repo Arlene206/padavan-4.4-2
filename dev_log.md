@@ -1,3 +1,12 @@
+## 2026-11-22 07:34 CST — Correct normalized storage marker branch token
+
+- Parent main SHA: `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`.
+- Exact e853 checker run USB storage #44960744369 failed only in `scripts/check_storage_safe_remove.py`: after removing C whitespace, the source token is `}elseif(storage_unplug_value==1)`, not `else if(...)`. The checked dispatch checker otherwise reached this assertion after the USB storage caller-graph PASS. No storage-source defect was indicated.
+- THIS COMMIT corrects the normalized token expectation only. The product WAN VLAN source commit `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` is concurrently running exact-head WAN/Process/firewall/XY-C1 checks; those results must be resolved separately.
+- Next: verify exact-head USB storage rerun and complete the WAN VLAN exact-SHA checks including Build/TRX/artifact. Do not infer L3 from checker-only jobs.
+
+---
+
 ## 2026-11-22 07:26 CST — Fail closed on WAN VLAN configuration read errors
 
 - Parent main SHA: `e8537853a78498db6c0b7fdc1c5fae020dc6675b`.

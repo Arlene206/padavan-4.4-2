@@ -1,8 +1,8 @@
 ## Current checkpoint — 2026-11-22
 
-- Product source `7e2e7d4efcb3391b61d7bbe03397f83a57029ae8` adds checked deferred printer/modem marker-pair reads and preserves events on NVRAM failures. Checker-only `dadb757d3bd255e8a1b49b1b50aa31ef4084db36` passes Firewall Startup, Process fail-closed, USB modem and AI docs; USB storage exposed a remaining stale safe-remove assertion, corrected in `e8537853a78498db6c0b7fdc1c5fae020dc6675b` (exact workflow inventory pending).
-- THIS COMMIT hardens WAN VLAN configuration reads in `config_vinet_wan()`: check `vlan_filter`, then enabled CPU/IPTV VIDs and CPU priority before any hardware/interface mutation. WAN route source contract and existing checked-NVRAM policy coverage updated; exact-head WAN route/XY-C1 Build/TRX/artifact pending.
-- XY-C1 on checker-only dadb SHA skipped firmware Build/TRX/artifact because no production input changed; not L3. Frozen backup remains read-only.
+- WAN VLAN source SHA `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`: `config_vinet_wan()` now checks `vlan_filter`, enabled CPU/IPTV VLAN IDs and CPU priority before hardware/interface mutation; WAN route source contract updated. Exact route and XY-C1 Build/TRX/artifact were still pending at last poll.
+- Safe-eject checker `e8537853a78498db6c0b7fdc1c5fae020dc6675b` had one normalized `elseif` token expectation error (run #44960744369); caller-graph regression passed. THIS COMMIT updates the checker-only assertion, with exact storage rerun pending.
+- Frozen backup remains read-only.
 
 ## Historical checkpoint — 2026-11-21
 

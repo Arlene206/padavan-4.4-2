@@ -316,7 +316,7 @@ unplug_call = "storage_unplug_status=umount_ejected()"
 storage_start = "storage_start_result=try_start_stor_apps()"
 dispatch = "storage_dispatch_status=storage_deferred_start_dispatch_status("
 unplug_retry_gate = "if(storage_unplug_read_status!=0)"
-unplug_event_gate = "else if(storage_unplug_value==1)"
+unplug_event_gate = "elseif(storage_unplug_value==1)"
 unplug_failure_gate = "if(storage_unplug_status!=0)"
 require(
     unplug_read in deferred_storage_code
