@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed on SSH public-firewall NVRAM errors
+
+- Parent main SHA: d399f744701e24284cbc0ca92d4b314d44e20ae2.
+- SSH restart used unchecked exact-string matches for sshd_wopen and fw_enable_x. A transient NVRAM failure was indistinguishable from a disabled public-access setting and could skip firewall reconciliation after the daemon state changed.
+- Promoted the checked exact-string matcher to a shared service helper and use it for both HTTPD and SSHD. SSH restart preserves the previous short-circuit order (read firewall enable only when SSH public access is exactly "1"); any read/backend error is recorded as a firewall reconciliation failure and runs the existing identity-safe stop + fresh process-inventory postcondition. Missing keys and any value other than exact "1" still retain the legacy false result.
+- Added GNU89 policy cases for exact/mismatched strings, absent-key defaults, inconsistent API output and backend-error preservation. Extended the SSH source checker and its path filters, and updated both HTTPD contracts for the shared helper name. Exact-head SSH/HTTPD/Process Actions pending; XY-C1 L3 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Restore HTTPD firewall preflight selection from the config snapshot
 
 - Parent main SHA: 8ea482693c8c5de9fa4dfe8226d2f658372afe4d.

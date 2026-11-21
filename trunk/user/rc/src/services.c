@@ -62,6 +62,23 @@ service_start_probe_wait(const char *service_name, unsigned int seconds)
 	return service_wait_failure_status(status);
 }
 
+static int
+service_nvram_match_status(const char *param_name, const char *expected,
+			   int missing_match, int *matches)
+{
+	char *text = NULL;
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0] || !expected || !matches)
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &text);
+	saved_errno = errno;
+	return firewall_nvram_match_status(api_result, saved_errno, text,
+				   expected, missing_match, matches);
+}
+
 static void
 record_service_stop_status(int *first_status, const char *service_name, int status)
 {
@@ -930,6 +947,10 @@ int restart_sshd(void)
 	int start_status;
 	int firewall_status = 0;
 	int firewall_errno = 0;
+	int firewall_refresh_needed = 0;
+	int sshd_public_access = 0;
+	int firewall_enabled = 0;
+	int firewall_config_status = 0;
 	int firewall_stop_status;
 	int firewall_stop_scan_error = 0;
 	enum process_presence firewall_stop_state;
@@ -976,13 +997,28 @@ int restart_sshd(void)
 	start_status = start_sshd_with_mode(sshd_mode);
 	after_state = sshd_process_presence(&scan_error);
 
-	if (sshd_firewall_refresh_required(before_state, after_state) &&
-	    nvram_match("sshd_wopen", "1") && nvram_match("fw_enable_x", "1")) {
-		errno = 0;
-		firewall_status = restart_firewall();
-		if (firewall_status != 0)
-			firewall_errno = errno > 0 ? errno :
-				(firewall_status > 0 ? firewall_status : EIO);
+	firewall_refresh_needed =
+		sshd_firewall_refresh_required(before_state, after_state);
+	if (firewall_refresh_needed) {
+		firewall_config_status = service_nvram_match_status(
+			"sshd_wopen", "1", 0, &sshd_public_access);
+		if (firewall_config_status == 0 && sshd_public_access)
+			firewall_config_status = service_nvram_match_status(
+				"fw_enable_x", "1", 0, &firewall_enabled);
+
+		if (firewall_config_status != 0) {
+			firewall_status = firewall_config_status;
+			firewall_errno = firewall_config_status;
+			logmessage(LOGNAME,
+				   "cannot read SSH public-firewall configuration; reconciling listener fail-closed (status=%d)",
+				   firewall_config_status);
+		} else if (sshd_public_access && firewall_enabled) {
+			errno = 0;
+			firewall_status = restart_firewall();
+			if (firewall_status != 0)
+				firewall_errno = errno > 0 ? errno :
+					(firewall_status > 0 ? firewall_status : EIO);
+		}
 	}
 
 	/*
@@ -1739,22 +1775,6 @@ httpd_nvram_read_int_adapter(void *context, const char *param_name,
 	return httpd_nvram_read_int_status(param_name, missing_value, value);
 }
 
-static int
-httpd_nvram_match_status(const char *param_name, const char *expected,
-			 int missing_match, int *matches)
-{
-	char *text = NULL;
-	int api_result, saved_errno;
-
-	if (!param_name || !param_name[0] || !expected || !matches)
-		return EINVAL;
-
-	errno = 0;
-	api_result = nvram_get_checked(param_name, &text);
-	saved_errno = errno;
-	return firewall_nvram_match_status(api_result, saved_errno, text,
-				   expected, missing_match, matches);
-}
 
 
 static int
@@ -1880,7 +1900,7 @@ start_httpd_locked(int restart_fw)
 	http_port = start_config.http_port;
 	restart_fw_need = httpd_start_config_firewall_required(&start_config);
 	if (restart_fw && restart_fw_need) {
-		status = httpd_nvram_match_status("fw_enable_x", "1", 0,
+		status = service_nvram_match_status("fw_enable_x", "1", 0,
 						 &firewall_enabled);
 		if (status != 0) {
 			logmessage(LOGNAME,

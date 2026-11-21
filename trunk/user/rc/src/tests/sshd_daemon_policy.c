@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "firewall_nvram_match_policy.h"
 #include "sshd_daemon_policy.h"
 
 static void test_process_name_selection_matches_inventory_backend(void)
@@ -60,6 +61,32 @@ static void test_running_or_unknown_blocks_start(void)
 static void test_confirmed_absence_allows_start(void)
 {
 	assert(sshd_restart_can_start(0, PROCESS_PRESENCE_ABSENT));
+}
+
+static void
+test_sshd_firewall_config_read_preserves_match_and_backend_errors(void)
+{
+	int matches = 77;
+
+	assert(firewall_nvram_match_status(1, 0, "1", "1", 0,
+					   &matches) == 0);
+	assert(matches == 1);
+	assert(firewall_nvram_match_status(1, 0, "01", "1", 0,
+					   &matches) == 0);
+	assert(matches == 0);
+	assert(firewall_nvram_match_status(1, 0, " 1", "1", 0,
+					   &matches) == 0);
+	assert(matches == 0);
+	assert(firewall_nvram_match_status(0, 0, NULL, "1", 0,
+					   &matches) == 0);
+	assert(matches == 0);
+	matches = 7;
+	assert(firewall_nvram_match_status(-1, EACCES, NULL, "1", 0,
+					   &matches) == EACCES);
+	assert(matches == 7);
+	assert(firewall_nvram_match_status(0, 0, "1", "1", 0,
+					   &matches) == EIO);
+	assert(matches == 7);
 }
 
 static void test_firewall_failure_requires_listener_shutdown(void)
@@ -136,6 +163,7 @@ int main(void)
 	test_running_or_unknown_blocks_start();
 	test_confirmed_absence_allows_start();
 	test_firewall_refresh_policy();
+	test_sshd_firewall_config_read_preserves_match_and_backend_errors();
 	test_firewall_failure_requires_listener_shutdown();
 	puts("sshd tri-state stop-before-start and firewall reconciliation policy: PASS");
 	return 0;

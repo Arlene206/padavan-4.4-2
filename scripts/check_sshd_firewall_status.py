@@ -29,15 +29,27 @@ def compact(source: str) -> str:
     return re.sub(r"\s+", "", source)
 
 
+MATCH_POLICY = (RC / "firewall_nvram_match_policy.h").read_text()
+
 assert "sshd_firewall_failure_requires_stop" in POLICY
 policy_body = body(POLICY, "sshd_firewall_failure_requires_stop(")
 assert "firewall_status!=0" in compact(policy_body)
 assert "after_state!=PROCESS_PRESENCE_ABSENT" in compact(policy_body)
 
 restart = body(SERVICES, "restart_sshd(void)")
+match_reader = body(SERVICES, "service_nvram_match_status(")
+assert "nvram_get_checked(param_name, &text)" in match_reader
+assert "firewall_nvram_match_status(api_result, saved_errno, text" in match_reader
 assert "sshd_firewall_refresh_required(before_state, after_state)" in restart
-assert 'nvram_match("sshd_wopen", "1")' in restart
-assert 'nvram_match("fw_enable_x", "1")' in restart
+assert "firewall_refresh_needed =\n\t\tsshd_firewall_refresh_required(before_state, after_state);" in restart
+assert 'service_nvram_match_status(\n\t\t\t"sshd_wopen", "1", 0, &sshd_public_access)' in restart
+assert 'service_nvram_match_status(\n\t\t\t\t"fw_enable_x", "1", 0, &firewall_enabled)' in restart
+assert "if (firewall_config_status == 0 && sshd_public_access)" in restart
+assert "firewall_status = firewall_config_status;" in restart
+assert "firewall_errno = firewall_config_status;" in restart
+assert "nvram_match(\"sshd_wopen\", \"1\")" not in restart
+assert "nvram_match(\"fw_enable_x\", \"1\")" not in restart
+assert "firewall_nvram_match_status" in MATCH_POLICY
 assert "errno = 0;" in restart
 assert "firewall_status = restart_firewall();" in restart
 assert "firewall_errno = errno > 0 ? errno :" in restart
@@ -60,6 +72,8 @@ order = [
 ]
 assert order == sorted(order)
 
+assert "test_sshd_firewall_config_read_preserves_match_and_backend_errors();" in TEST
+assert "firewall_nvram_match_status" in TEST
 assert "test_firewall_failure_requires_listener_shutdown();" in TEST
 test = body(TEST, "test_firewall_failure_requires_listener_shutdown(void)")
 assert test.count("sshd_firewall_failure_requires_stop(") == 6
