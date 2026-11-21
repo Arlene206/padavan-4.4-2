@@ -325,6 +325,29 @@ def check_rc_optional_daemon_enable_reads():
     assert "rc_service_enabled_mode_decide(" in reader
     assert "preserving existing daemon state" in reader
 
+    telnetd_recovery = extract_c_function_body(
+        services, "telnetd_start_failure_recover(int failure_status, const char *phase)"
+    )
+    assert "stop_telnetd()" in telnetd_recovery
+    assert 'optional_daemon_presence("telnetd", &scan_error)' in telnetd_recovery
+    assert "optional_daemon_failed_start_may_survive(after_stop)" in telnetd_recovery
+    assert telnetd_recovery.index("stop_telnetd()") < telnetd_recovery.index(
+        'optional_daemon_presence("telnetd", &scan_error)'
+    ) < telnetd_recovery.index("optional_daemon_failed_start_may_survive(after_stop)") < telnetd_recovery.index(
+        "errno = failure_errno;"
+    ) < telnetd_recovery.index("return failure_status;")
+
+    telnetd_start = extract_c_function_body(services, "start_telnetd(void)")
+    for recovery_call in (
+        'telnetd_start_failure_recover(start_status, "launcher")',
+        'telnetd_start_failure_recover(start_status, "initial startup")',
+        'telnetd_start_failure_recover(-1, "process inventory")',
+        'telnetd_start_failure_recover(start_status, "retry")',
+    ):
+        assert recovery_call in telnetd_start
+    assert "return process_presence_start_postcondition(start_status," in telnetd_start
+    assert "optional_daemon_failed_start_may_survive" in (RC_ROOT / "optional_daemon_policy.h").read_text()
+
     for name, service_name, key in (
         ("adguardhome", "AdGuardHome", "adg_enable"),
         ("ddnsto", "DDNS.to", "ddnsto_enable"),

@@ -1,3 +1,12 @@
+## 2026-11-21 — Roll back Telnet after uncertain detached startup
+
+- Parent main SHA: d3fdae5b35e6d615515c7ea37f236390f0e97e26.
+- `start_telnetd()` daemonizes via BusyBox `eval("telnetd")`, but launcher failure, wait interruption, retry wait failure or an UNKNOWN procfs inventory returned immediately. A child listener could therefore survive without the caller being able to verify its state.
+- Added `telnetd_start_failure_recover()`: invoke the identity-checked `stop_telnetd()`, perform a fresh process-inventory scan, log RUNNING/UNKNOWN/invalid as a possible survivor, and restore the original failure status/errno. All four uncertain post-launch failure paths now share it; repeated, confirmed ABSENT still returns the existing postcondition/timeout result.
+- Added a conservative tri-state policy helper plus GNU89/ASAN/UBSAN regression cases for ABSENT/RUNNING/UNKNOWN/invalid state. The Process workflow now compiles this policy test and its source checker verifies stop → rescan → survivor report → original status ordering. Exact-head Process/XY-C1 validation pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Remove the unchecked WAN-up ZeroTier pre-gate
 
 - Parent main SHA: 5c2123ee1810790fb19e0b8a9a24f47ae2f8012f.

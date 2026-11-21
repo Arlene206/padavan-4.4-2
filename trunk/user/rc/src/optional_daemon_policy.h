@@ -12,6 +12,12 @@ optional_daemon_start_allowed(enum process_presence state)
 }
 
 static inline int
+optional_daemon_failed_start_may_survive(enum process_presence after_stop)
+{
+	return after_stop != PROCESS_PRESENCE_ABSENT;
+}
+
+static inline int
 optional_daemon_stop_complete(int command_status, enum process_presence state)
 {
 	if (command_status != 0)

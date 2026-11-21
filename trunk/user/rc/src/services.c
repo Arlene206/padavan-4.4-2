@@ -720,6 +720,34 @@ stop_telnetd(void)
 	return optional_daemon_stop_status("telnetd", "telnetd", kill_services(svcs, 3, 1));
 }
 
+static int
+telnetd_start_failure_recover(int failure_status, const char *phase)
+{
+	int failure_errno = errno > 0 ? errno : EIO;
+	int stop_status;
+	int scan_error = 0;
+	enum process_presence after_stop;
+
+	/*
+	 * eval() observes only the daemonizing parent. A launcher or wait error
+	 * does not prove that the detached listener is absent.
+	 */
+	stop_status = stop_telnetd();
+	after_stop = optional_daemon_presence("telnetd", &scan_error);
+	if (optional_daemon_failed_start_may_survive(after_stop)) {
+		logmessage(LOGNAME,
+			   "telnetd may remain active after %s startup failure (stop_status=%d, state=%d, scan_error=%d)",
+			   phase, stop_status, after_stop, scan_error);
+	} else if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "telnetd confirmed absent after %s startup failure but stop reported status=%d",
+			   phase, stop_status);
+	}
+
+	errno = failure_errno;
+	return failure_status;
+}
+
 int
 run_telnetd(void)
 {
@@ -765,13 +793,14 @@ start_telnetd(void)
 	start_status = eval("telnetd");
 	if (start_status != 0) {
 		logmessage(LOGNAME, "telnetd launcher failed (status=%d)", start_status);
-		return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+		if (errno <= 0)
+			errno = start_status > 0 ? start_status : EIO;
+		return telnetd_start_failure_recover(start_status, "launcher");
 	}
 
 	start_status = service_start_probe_wait("telnetd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
 	if (start_status != 0)
-		return start_status;
+		return telnetd_start_failure_recover(start_status, "initial startup");
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("telnetd", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -780,12 +809,12 @@ start_telnetd(void)
 			errno = scan_error > 0 ? scan_error : EIO;
 			logmessage(LOGNAME, "cannot verify telnetd startup (scan_error=%d)",
 				   errno);
-			return -1;
+			return telnetd_start_failure_recover(-1, "process inventory");
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("telnetd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
 			if (start_status != 0)
-				return start_status;
+				return telnetd_start_failure_recover(start_status, "retry");
 		}
 	}
 
