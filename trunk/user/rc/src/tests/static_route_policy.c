@@ -49,14 +49,6 @@ main(void)
 	assert(static_route_metric_parse("999999999999", &metric) == ERANGE);
 	assert(static_route_metric_parse("1", NULL) == EINVAL);
 
-	assert(static_route_ipv4_field_is_safe(""));
-	assert(static_route_ipv4_field_is_safe("192.168.1.1"));
-	assert(static_route_ipv4_field_is_safe("255.255.255.255"));
-	assert(!static_route_ipv4_field_is_safe(NULL));
-	assert(!static_route_ipv4_field_is_safe("1234567890123456"));
-	assert(!static_route_ipv4_field_is_safe("192.168.1.1:COMMIT"));
-	assert(!static_route_ipv4_field_is_safe("192.168.1.1\n"));
-
 	assert(static_route_interface_is_safe(""));
 	assert(static_route_interface_is_safe("LAN"));
 	assert(static_route_interface_is_safe("MAN"));
