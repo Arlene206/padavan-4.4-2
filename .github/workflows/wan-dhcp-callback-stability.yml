@@ -492,6 +492,8 @@ jobs:
           assert "dhcp_lease_nvram_reverse_snapshot(" in callback
           callback_compact = "".join(callback.split())
           assert "dhcp_lease_nvram_reverse_snapshot(snapshot_values,snapshot_count,rollback_values)" in callback_compact
+          lease_policy = (rc / "dhcp_lease_policy.h").read_text()
+          lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
           assert "dhcp_lease_nvram_reverse_snapshot(" in lease_policy
           assert "preserving current interface/routes" in callback
           callback_status_publish = callback.index("callback_status = route_status_accumulate(route_setup_status, mtu_status);")
@@ -554,8 +556,6 @@ jobs:
               'nvram_set_int_temp(strcat_r(prefix, "lease", tmp), (int)parsed_value)',
           ):
               assert marker not in wan_dhcp_renew
-          lease_policy = (rc / "dhcp_lease_policy.h").read_text()
-          lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
           publisher_anchor = source.index("static int\nwan_dhcp_nvram_restore_values(")
           publisher_start = source.index("static int\nwan_dhcp_nvram_state_publish(", publisher_anchor)
           publisher_signature = (
@@ -587,8 +587,6 @@ jobs:
           assert "test_dhcp_lease_nvram_publish_rejects_stale_snapshot" in lease_policy_test
           assert "status == EAGAIN" in lease_policy_test
           assert "publish_attempted == 0" in lease_policy_test
-          lease_policy = (rc / "dhcp_lease_policy.h").read_text()
-          lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
           assert "dhcp_lease_text_fits_buffer" in lease_policy
           assert "test_dhcp_lease_text_fits_buffer" in lease_policy_test
           assert "test_dhcp_lease_text_fits_buffer();" in lease_policy_test

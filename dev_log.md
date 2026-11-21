@@ -1,3 +1,13 @@
+## 2026-11-21 — Fix WAN callback checker use-before-initialization
+
+- Parent main SHA: `0c172fa0e5c7454af1052aa2fee84c2803d6e6b8`.
+- WAN callback run #44915003721 on `0c172fa` passed all policy binaries and earlier source contracts, then failed at the first reference to `lease_policy`: its source/test files were initialized later in the same inline Python block.
+- Moved the `dhcp_lease_policy.h` and `tests/dhcp_lease_policy.c` reads above their first use, removing the later duplicate reads. Existing compare-and-publish, stale-restore and reverse-snapshot assertions remain unchanged.
+- AI handoff contract #44915003659 PASS on `0c172fa`; NVRAM audit #44914790008 PASS on product source `2bfb2aa`; Process regression/inventory PASS on that source SHA. XY-C1 #44914789805 still running on `2bfb2aa`, with Build XY-C1 active and TRX/artifact pending at last poll.
+- This is a checker-only correction; no local test or build is claimed. L3 remains pending same-SHA Build/TRX/artifact; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Repair WAN workflow YAML indentation and restore handoff contract
 
 - Parent main SHA: `2bfb2aa93f525762685d49ad50ff89d498eacdde`.

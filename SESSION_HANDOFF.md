@@ -7,21 +7,20 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Current repository state
 
 - Repository Arlene206/padavan-4.4-2; develop on main only.
-- Current main at checkpoint preparation: 2bfb2aa93f525762685d49ad50ff89d498eacdde. This source commit restores the WAN DHCP state-publisher forward declaration and keeps one implementation; it is awaiting exact-SHA CI and XY-C1 build validation.
+- Current main at checkpoint preparation: 0c172fa0e5c7454af1052aa2fee84c2803d6e6b8. It includes the WAN publisher forward-declaration fix and the YAML/handoff corrections; the remaining WAN checker use-before-assignment is fixed in THIS COMMIT.
 - Frozen backup branch backup/pre-plugin-overhaul-2026-11-14 remains immutable at 72f4f157a084f8184b9597ca5bf334b8080e5807. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
 - Legacy PR #1 is closed and unmerged. Do not reopen or develop through its branch.
 - The previous product-source baseline was 9a25b71fb74932dc27063432b2f342d9724d60e2. Recent protected functionality includes checked optional-daemon settings, ttyd/SSH mode handling, WAN DHCP compare-and-publish and stale-callback rollback fencing.
 
 ### Relevant exact-SHA evidence
 
-- Current product-source SHA: `2bfb2aa93f525762685d49ad50ff89d498eacdde`. It removes the accidental duplicate `wan_dhcp_nvram_state_publish` definition at the earlier forward-declaration location and preserves the single later compare-and-publish/guarded-restore implementation.
-- The previous XY-C1 run #44913834107 on SHA `9a25b71` failed at MIPS compilation because that earlier declaration had been replaced by a second full definition. TRX verification and artifact upload were skipped. The new exact-head XY-C1 run #44914789805 is IN_PROGRESS on `2bfb2aa`; Build was running and TRX/artifact remained pending at the last inspection.
-- NVRAM transaction audit #44914790008 is IN_PROGRESS on exact SHA `2bfb2aa`.
-- Process lifecycle regression #44914789828 and process inventory #44914790193 both PASS on exact SHA `2bfb2aa`.
-- HTTPD authentication #44914789741, Wireless radio #44914789770, Firewall #44914789954, WAN interface teardown #44914789922, miniupnpd #44914789910, VPN server #44914789743, WAN route #44914789727, WAN gateway ARP #44914789915, ZeroTier #44914789950, USB modem #44914790028, watchdog #44914789925, detect_link #44914789773, detect_internet #44914789710 and DNSMasq #44914789700 all PASS on exact SHA `2bfb2aa`.
-- AI handoff documentation run #44914790056 FAILED on `2bfb2aa` because this file lacked the exact cross-session rule phrase `one atomic main commit`; corrected in THIS COMMIT.
-- WAN callback workflow run #44914788251 failed to load any job because the inline Python block contained one unindented assertion at YAML line 494; this broke the workflow's step block. Corrected by restoring the ten-space YAML script indentation in THIS COMMIT. A fresh WAN callback push run is required.
-- Hardware L4 remains NOT VERIFIED. Do not claim L3 until Build XY-C1, TRX verification and artifact upload all PASS on the same exact product-source SHA.
+- Latest production-source SHA: `2bfb2aa93f525762685d49ad50ff89d498eacdde`. It restores the WAN DHCP state-publisher forward declaration after a prior accidental duplicate body caused MIPS compiler errors; the original single lower implementation retains compare-and-publish and guarded stale-writer restoration.
+- XY-C1 run #44914789805 on product-source SHA `2bfb2aa` remained IN_PROGRESS at the last poll. Its Build XY-C1 step was running and TRX verification/artifact upload were pending. Do not claim L3 until all three pass on that same SHA.
+- NVRAM transaction-boundary audit #44914790008: SUCCESS on product-source SHA `2bfb2aa`.
+- Process lifecycle regression #44914789828 and Process inventory #44914790193: SUCCESS on `2bfb2aa`. HTTPD, Wireless, Firewall, WAN interface teardown, miniupnpd, VPN server, WAN route, WAN gateway ARP, ZeroTier, USB modem, watchdog, detect_link, detect_internet and DNSMasq workflows also PASS on the same SHA.
+- AI handoff docs #44915003659: SUCCESS on exact main SHA `0c172fa`.
+- WAN DHCP callback #44915003721: FAILURE on `0c172fa`; all earlier compile/policy checks passed, then the inline contract referenced `lease_policy` before its later initialization. This is a test ordering bug, not a production source failure. The policy-header/test reads are moved before first use in THIS COMMIT.
+- L3 still depends on completion of XY-C1 Build, TRX verification and artifact upload on `2bfb2aa`; L4 physical router validation remains NOT VERIFIED.
 
 
 ## Active task
@@ -33,7 +32,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Verification boundary
 
 - L1: source review confirms the first WAN publisher is now a forward declaration and only the later implementation remains. The guarded stale-writer rollback logic is retained.
-- L2: Process regression and process inventory PASS on 2bfb2aa. The WAN workflow and AI handoff check failed due to checker/document text issues fixed in THIS COMMIT; exact-head reruns are required.
+- L2: Process regression and process inventory PASS on 2bfb2aa; NVRAM audit PASS on the same SHA. AI handoff docs PASS on 0c172fa. WAN callback failed due to checker use-before-initialization; fixed in THIS COMMIT and requires exact-head rerun.
 - L3: NOT VERIFIED. XY-C1 run #44914789805 is still running on 2bfb2aa; require Build + TRX + artifact upload all PASS on that same SHA.
 - L4: physical router flash, boot and runtime validation NOT VERIFIED.
 
@@ -55,4 +54,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main and inspect the new exact-head WAN callback and AI handoff push runs after THIS COMMIT; recheck XY-C1 #44914789805 and NVRAM #44914790008 on 2bfb2aa. Diagnose first failures from their job logs and continue independent reliability work while builds are pending.
+Fetch live main and inspect its exact-head WAN callback and AI handoff push runs. Recheck XY-C1 #44914789805 on product-source SHA 2bfb2aa, including Build/TRX/artifact; NVRAM #44914790008 already PASSed. Diagnose failures from the first causal job step and continue independent reliability work while the build is pending.
