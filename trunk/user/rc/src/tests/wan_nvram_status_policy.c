@@ -640,6 +640,7 @@ test_wan6_reset_config_clears_identity_only_after_all_values_succeed(void)
 
 struct fake_nvram_reader {
 	const char *values[4];
+	const char *names[4];
 	unsigned int calls;
 	int fail_at;
 	int missing_at;
@@ -657,7 +658,8 @@ fake_nvram_get(void *opaque, const char *param_name, char **value)
 	unsigned int index = fake->calls++;
 
 	assert(index < 4);
-	assert(strcmp(param_name, names[index]) == 0);
+	assert(strcmp(param_name,
+		      fake->names[index] ? fake->names[index] : names[index]) == 0);
 	if ((int)index == fake->fail_at) {
 		*value = NULL;
 		errno = fake->failure_errno;
@@ -711,6 +713,8 @@ test_wan_interface_names_survive_shared_cache_overwrite(void)
 	memset(&fake, 0, sizeof(fake));
 	fake.fail_at = -1;
 	fake.missing_at = -1;
+	fake.names[0] = "wan0_man_ifname";
+	fake.names[1] = "wan0_ifname_t";
 	fake.values[0] = "br0";
 	fake.values[1] = "usbnet0";
 

@@ -1,3 +1,12 @@
+## 2026-11-21 — Repair shared-cache NVRAM test fixture for interface names
+
+- Parent main SHA: `8700539128d7865df7d4e706fe710603e772c2c9`; exact-head commit `8700539128d7865df7d4e706fe710603e772c2c9`.
+- WAN DHCP callback run `#44895295803`, WAN route run `#44895295721`, and USB modem identity run `#44895295781` all reached the GNU89/ASan/UBSan `wan_nvram_status_policy.c` binary and failed in its `fake_nvram_get()` fixture at line 660. The new cache-overwrite test requested `wan0_man_ifname` and `wan0_ifname_t`, but the fake reader still hard-coded the older address/mask key sequence.
+- Extended the fixture with optional per-call expected names (retaining the original defaults for existing tests) and initialized the two interface-name keys in the new regression. This restores the intended shared-cache overwrite coverage; it does not alter production code or weaken assertions.
+- The same exact-head Actions also exposed independent stale checker failures: Firewall startup `#44895295888` expects an obsolete direct modem-type parse, while HTTPD security `#44895295713` fails a DHCP callback ordering assertion. These are the next diagnosis targets. WAN route and DHCP tests did not reach the new checked-renew tests because the fixture aborted first.
+
+---
+
 ## 2026-11-21 — Fail closed on unreadable DHCP renewal status and MTU
 
 - Parent main SHA: `a68bac734fd3f232fb16f095bed9bba83813da24`.
