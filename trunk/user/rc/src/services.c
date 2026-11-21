@@ -2717,8 +2717,7 @@ start_services_once(int is_ap_mode)
 	}
 	start_status = rc_first_service_start_status(start_status, start_watchdog());
 	start_status = rc_first_service_start_status(start_status, start_gpio_btn());
-	if (nvram_match("adsc_enable", "1"))
-		start_status = rc_first_service_start_status(start_status, start_infosvr());
+	start_status = rc_first_service_start_status(start_status, start_infosvr());
 
 	if (!is_ap_mode) {
 		if (!is_upnp_run())
@@ -2800,11 +2799,9 @@ start_services_once(int is_ap_mode)
 		start_status = rc_first_service_start_status(start_status, iperf3_start_status);
 	}
 #endif
-	if (nvram_match("lltd_enable", "1"))
-		start_status = rc_first_service_start_status(start_status, start_lltd());
+	start_status = rc_first_service_start_status(start_status, start_lltd());
 	start_status = rc_first_service_start_status(start_status, start_watchdog_cpu());
-	if (nvram_match("crond_enable", "1"))
-		start_status = rc_first_service_start_status(start_status, start_crond());
+	start_status = rc_first_service_start_status(start_status, start_crond());
 	{
 		int networkmap_start_status = start_networkmap(1);
 		if (networkmap_start_status != 0)
@@ -2813,8 +2810,7 @@ start_services_once(int is_ap_mode)
 				   networkmap_start_status);
 		start_status = rc_first_service_start_status(start_status, networkmap_start_status);
 	}
-	if (nvram_match("rstats_enable", "1"))
-		start_status = rc_first_service_start_status(start_status, start_rstats());
+	start_status = rc_first_service_start_status(start_status, start_rstats());
 #if defined(APP_MENTOHUST)
 	{
 		int mentohust_start_status = start_mentohust();

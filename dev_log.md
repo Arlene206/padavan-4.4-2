@@ -1,3 +1,12 @@
+## 2026-11-21 — Preserve checked service-enable errors through boot
+
+- Parent main SHA: 38bc699b31a449f9708daf57e114de02560f17cc.
+- Exact-head Process integration #44925798100 on the prior checker-alignment SHA failed at an LLTD source assertion which still expected raw nvram_invmatch. Inspecting the full boot call path found a production bypass: start_services_once() applied unchecked nvram_match outer gates for infosvr, LLTD, crond and rstats, so an NVRAM backend error could silently skip the checked service start routine and never reach boot status aggregation.
+- Removed all four outer pre-gates. The service start routines already call service_nvram_match_status() and return its read error; missing or disabled flags remain successful no-ops, while backend errors now propagate through rc_first_service_start_status().
+- Updated both duplicate process-integration source contracts to require the checked read/error/disabled behavior in all four service routines and ensure boot invokes each one without raw nvram_match/nvram_invmatch gates. New exact-head Process and XY-C1 validation is pending.
+
+---
+
 ## 2026-11-21 — Fix XY-C1 linker failure in USB modem selection
 
 - Parent main SHA: 432005050395db4136cd80407f37000c5dede114.

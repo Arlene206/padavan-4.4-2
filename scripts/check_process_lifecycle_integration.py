@@ -1455,12 +1455,10 @@ print("watchdog process inventory tri-state recovery/start integration: PASS")
 
 lltd_start = services_source.split("int\nstart_lltd(void)", 1)[1].split("\n}", 1)[0]
 lltd_launcher = 'start_status = eval("/bin/lld2d", IFNAME_BR);'
-assert 'if (nvram_invmatch("lltd_enable", "1"))' in lltd_start
-lltd_disabled = lltd_start.split('if (nvram_invmatch("lltd_enable", "1"))', 1)[1].split(
-    'optional_daemon_start_status("lld2d", "lld2d")', 1
-)[0]
-assert "return 0;" in lltd_disabled
-assert "return 1;" not in lltd_disabled
+assert '"lltd_enable", "1", 0, &enabled' in lltd_start
+assert "if (config_status != 0)" in lltd_start
+assert "if (!enabled)" in lltd_start
+assert 'nvram_invmatch("lltd_enable", "1")' not in lltd_start
 assert "if (start_status > 0)" in lltd_start and "if (start_status < 0)" in lltd_start
 assert lltd_launcher in lltd_start
 assert 'logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);' in lltd_start
@@ -1483,12 +1481,10 @@ assert "return process_presence_start_postcondition(start_status," in lltd_start
 
 rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
 rstats_launcher = 'start_status = eval("/sbin/rstats");'
-assert 'if (nvram_invmatch("rstats_enable", "1"))' in rstats_start
-rstats_disabled = rstats_start.split('if (nvram_invmatch("rstats_enable", "1"))', 1)[1].split(
-    'optional_daemon_start_status("rstats", "rstats")', 1
-)[0]
-assert "return 0;" in rstats_disabled
-assert "return 1;" not in rstats_disabled
+assert '"rstats_enable", "1", 0, &enabled' in rstats_start
+assert "if (config_status != 0)" in rstats_start
+assert "if (!enabled)" in rstats_start
+assert 'nvram_invmatch("rstats_enable", "1")' not in rstats_start
 assert "if (start_status > 0)" in rstats_start and "if (start_status < 0)" in rstats_start
 assert rstats_launcher in rstats_start
 assert 'logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);' in rstats_start
@@ -1773,8 +1769,21 @@ for service, flag in (
     ("start_crond()", "crond_enable"),
     ("start_rstats()", "rstats_enable"),
 ):
-    assert 'if (nvram_match("' + flag + '", "1"))' in boot_start
     assert "rc_first_service_start_status(start_status, " + service + ")" in boot_start
+    assert 'nvram_match("' + flag + '", "1")' not in boot_start
+    assert 'nvram_invmatch("' + flag + '", "1")' not in boot_start
+
+for service_name, flag in (
+    ("start_infosvr(void)", "adsc_enable"),
+    ("start_lltd(void)", "lltd_enable"),
+    ("start_crond(void)", "crond_enable"),
+    ("start_rstats(void)", "rstats_enable"),
+):
+    service_body = c_function_body(services_source, service_name)
+    assert "service_nvram_match_status(" in service_body
+    assert '"' + flag + '", "1", 0, &enabled' in service_body
+    assert "if (config_status != 0)" in service_body
+    assert "if (!enabled)" in service_body
 assert "return start_status;" in boot_start
 assert "return first_status != 0 ? first_status : next_status;" in service_start_policy
 for contract in (
@@ -2480,12 +2489,10 @@ print("watchdog process inventory tri-state recovery/start integration: PASS")
 
 lltd_start = services_source.split("int\nstart_lltd(void)", 1)[1].split("\n}", 1)[0]
 lltd_launcher = 'start_status = eval("/bin/lld2d", IFNAME_BR);'
-assert 'if (nvram_invmatch("lltd_enable", "1"))' in lltd_start
-lltd_disabled = lltd_start.split('if (nvram_invmatch("lltd_enable", "1"))', 1)[1].split(
-    'optional_daemon_start_status("lld2d", "lld2d")', 1
-)[0]
-assert "return 0;" in lltd_disabled
-assert "return 1;" not in lltd_disabled
+assert '"lltd_enable", "1", 0, &enabled' in lltd_start
+assert "if (config_status != 0)" in lltd_start
+assert "if (!enabled)" in lltd_start
+assert 'nvram_invmatch("lltd_enable", "1")' not in lltd_start
 assert "if (start_status > 0)" in lltd_start and "if (start_status < 0)" in lltd_start
 assert lltd_launcher in lltd_start
 assert 'logmessage(LOGNAME, "LLTD daemon launch failed (status=%d)", start_status);' in lltd_start
@@ -2508,12 +2515,10 @@ assert "return process_presence_start_postcondition(start_status," in lltd_start
 
 rstats_start = services_source.split("int\nstart_rstats(void)", 1)[1].split("\n}", 1)[0]
 rstats_launcher = 'start_status = eval("/sbin/rstats");'
-assert 'if (nvram_invmatch("rstats_enable", "1"))' in rstats_start
-rstats_disabled = rstats_start.split('if (nvram_invmatch("rstats_enable", "1"))', 1)[1].split(
-    'optional_daemon_start_status("rstats", "rstats")', 1
-)[0]
-assert "return 0;" in rstats_disabled
-assert "return 1;" not in rstats_disabled
+assert '"rstats_enable", "1", 0, &enabled' in rstats_start
+assert "if (config_status != 0)" in rstats_start
+assert "if (!enabled)" in rstats_start
+assert 'nvram_invmatch("rstats_enable", "1")' not in rstats_start
 assert "if (start_status > 0)" in rstats_start and "if (start_status < 0)" in rstats_start
 assert rstats_launcher in rstats_start
 assert 'logmessage(LOGNAME, "rstats daemon launch failed (status=%d)", start_status);' in rstats_start
@@ -2779,8 +2784,21 @@ for service, flag in (
     ("start_crond()", "crond_enable"),
     ("start_rstats()", "rstats_enable"),
 ):
-    assert 'if (nvram_match("' + flag + '", "1"))' in boot_start
     assert "rc_first_service_start_status(start_status, " + service + ")" in boot_start
+    assert 'nvram_match("' + flag + '", "1")' not in boot_start
+    assert 'nvram_invmatch("' + flag + '", "1")' not in boot_start
+
+for service_name, flag in (
+    ("start_infosvr(void)", "adsc_enable"),
+    ("start_lltd(void)", "lltd_enable"),
+    ("start_crond(void)", "crond_enable"),
+    ("start_rstats(void)", "rstats_enable"),
+):
+    service_body = c_function_body(services_source, service_name)
+    assert "service_nvram_match_status(" in service_body
+    assert '"' + flag + '", "1", 0, &enabled' in service_body
+    assert "if (config_status != 0)" in service_body
+    assert "if (!enabled)" in service_body
 assert "return start_status;" in boot_start
 assert "return first_status != 0 ? first_status : next_status;" in service_start_policy
 for contract in (
