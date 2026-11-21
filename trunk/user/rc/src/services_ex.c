@@ -1970,6 +1970,7 @@ start_upnp_locked(void)
 		return presence_error;
 	}
 
+	errno = 0;
 	launch_status = eval("/usr/bin/miniupnpd");
 	start_status = miniupnpd_confirm_started(launch_status);
 	if (start_status != 0) {

@@ -137,6 +137,8 @@ assert start.count("miniupnpd_process_presence(&scan_error)") >= 2
 assert "miniupnpd_confirm_started(launch_status)" in start
 assert "if (start_status != 0)" in start
 assert "start_errno = errno > 0 ? errno :" in start
+assert "errno = 0;" in start
+assert start.rindex("errno = 0;") < start.index('eval("/usr/bin/miniupnpd")')
 assert "rollback_status = stop_upnp_locked()" in start
 assert "rollback_presence = miniupnpd_process_presence(&rollback_scan_error)" in start
 assert "miniupnpd_failed_start_may_leave_daemon(rollback_presence)" in start

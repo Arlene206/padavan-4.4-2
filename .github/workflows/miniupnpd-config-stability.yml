@@ -576,7 +576,15 @@ jobs:
           assert "if (ret != 0)" in start
           assert "miniupnpd configuration publication failed" in start
           assert 'fopen("/etc/miniupnpd.conf", "w")' not in start
-          assert "ret = miniupnpd_confirm_started(ret);" in start
+          assert "start_status = miniupnpd_confirm_started(launch_status);" in start
+          assert "errno = 0;" in start
+          assert "rollback_status = stop_upnp_locked();" in start
+          assert "rollback_presence = miniupnpd_process_presence(&rollback_scan_error)" in start
+          assert "miniupnpd_failed_start_may_leave_daemon(rollback_presence)" in start
+          assert "errno = start_errno;" in start
+          assert start.index("start_status = miniupnpd_confirm_started(launch_status);") < start.index("stop_upnp_locked()")
+          assert start.index("stop_upnp_locked()") < start.index("miniupnpd_process_presence(&rollback_scan_error)")
+          assert start.index("miniupnpd_process_presence(&rollback_scan_error)") < start.index("errno = start_errno;")
           confirm = function_body(service, "miniupnpd_confirm_started(int launch_status)")
           assert "MINIUPNPD_START_WAIT_ATTEMPTS" in confirm
           assert "miniupnpd_process_presence(&scan_error)" in confirm
