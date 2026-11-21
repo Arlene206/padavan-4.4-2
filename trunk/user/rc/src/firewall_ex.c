@@ -2640,7 +2640,8 @@ ip6t_filter_rules(char *man_if, char *wan_if, char *lan_if,
 			wport = i_misc_httpport;
 			lport = i_http_lanport;
 			if (wport == lport)
-			fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
+				fprintf(fp, "-A %s -p tcp --dport %d -j %s\n", dtype, lport, logaccept);
+		}
 #if defined (SUPPORT_HTTPS)
 		wport = i_https_wport;
 		lport = i_https_lport;

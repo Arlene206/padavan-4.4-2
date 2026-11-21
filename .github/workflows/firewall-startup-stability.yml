@@ -524,6 +524,10 @@ jobs:
                           "https_lport", "sshd_wport", "ftpd_wport", "udpxy_enable_x",
                           "udpxy_wport", "trmd_pport", "trmd_rport", "aria_pport", "aria_rport"):
                   assert f'nvram_get_int("{key}")' not in builder, (signature, key)
+          http_listener = 'if ((i_http_proto == 0 || i_http_proto == 2) && is_misc_http_enabled) {'
+          http_listener_start = ipv6_filter.index(http_listener)
+          https_section = ipv6_filter.index("#if defined (SUPPORT_HTTPS)", http_listener_start)
+          assert ipv6_filter[http_listener_start:https_section].rstrip().endswith("}")
           nat_dmz = nat_builder
           dmz_gates = (
               'firewall_read_enabled_setting("trmd_enable", &is_trmd_enabled)',

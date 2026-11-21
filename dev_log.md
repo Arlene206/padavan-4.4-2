@@ -1,3 +1,12 @@
+## 2026-11-21 — Restore IPv6 HTTP listener block boundary
+
+- Parent main SHA: `4cd3b21733ad373d2cb0f9adb418bef2df277458`.
+- Firewall Startup run #44950535060 failed at Python stdin line 314. The workflow's brace-aware `body()` parser found `ip6t_filter_rules()` unterminated. The IPv6 HTTP listener conditional opened a block but did not close it before the HTTPS compile section, unintentionally nesting subsequent WAN listener and VPN exceptions under the HTTP-enable predicate.
+- Closed the HTTP listener block, corrected its indentation and added a source-contract assertion that it ends before the HTTPS section. This ensures the workflow rejects the same accidental control-flow nesting.
+- Parent exact-head checks: HTTPD #44950534996, AI docs #44950535073, Process #44950535022, WAN route #44950534986, WAN DHCP #44950534973 and FULLCONENAT #44950534983 PASS. Firewall Startup #44950535060 FAIL as above; NVRAM #44950535055 and XY-C1 #44950534974 were IN_PROGRESS. No local C/build test or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Guard optional filter listener caches by feature macro
 
 - Parent main SHA: `8a7cf932879931c7df25708a9290dcc8eba2ed89`.
