@@ -152,6 +152,97 @@ miniupnpd_test_identity_bound_signal(void)
 }
 
 static void
+miniupnpd_test_checked_service_integer_reads(void)
+{
+	int value = 77;
+
+	assert(miniupnpd_nvram_int_status(1, 0, "1", 0, &value) == 0);
+	assert(value == 1);
+	assert(miniupnpd_nvram_int_status(1, 0, "  -2 \t", 0, &value) == 0);
+	assert(value == -2);
+	assert(miniupnpd_nvram_int_status(1, 0, "", 0, &value) == 0);
+	assert(value == 0);
+	assert(miniupnpd_nvram_int_status(0, 0, NULL, 0, &value) == 0);
+	assert(value == 0);
+	assert(miniupnpd_nvram_int_status(0, 0, NULL, 7, &value) == 0);
+	assert(value == 7);
+
+	value = 77;
+	assert(miniupnpd_nvram_int_status(-1, EACCES, NULL, 0, &value) == EACCES);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(-1, 0, NULL, 0, &value) == EIO);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(0, 0, "1", 0, &value) == EIO);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, NULL, 0, &value) == EIO);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(2, 0, "1", 0, &value) == EIO);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, "1junk", 0, &value) == EINVAL);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, "999999999999999999999", 0,
+					 &value) == ERANGE);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, "2147483648", 0, &value) == ERANGE);
+	assert(value == 77);
+	assert(miniupnpd_nvram_int_status(1, 0, "1", 0, NULL) == EINVAL);
+}
+
+static void
+miniupnpd_test_checked_bridge_mode_reads(void)
+{
+	int bridged = 77;
+
+	assert(miniupnpd_nvram_bridge_status(1, 0, "IP_Bridged", &bridged) == 0);
+	assert(bridged == 1);
+	assert(miniupnpd_nvram_bridge_status(1, 0, "IP_Routed", &bridged) == 0);
+	assert(bridged == 0);
+	assert(miniupnpd_nvram_bridge_status(0, 0, NULL, &bridged) == 0);
+	assert(bridged == 0);
+
+	bridged = 77;
+	assert(miniupnpd_nvram_bridge_status(-1, EPERM, NULL, &bridged) == EPERM);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(-1, 0, NULL, &bridged) == EIO);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(0, 0, "stale", &bridged) == EIO);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(1, 0, NULL, &bridged) == EIO);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(2, 0, "IP_Bridged", &bridged) == EIO);
+	assert(bridged == 77);
+	assert(miniupnpd_nvram_bridge_status(1, 0, "IP_Bridged", NULL) == EINVAL);
+}
+
+static void
+miniupnpd_test_checked_update_decision(void)
+{
+	int should_stop = 77;
+
+	assert(miniupnpd_update_status(0, 1, 0, 1, 0, 0,
+				       &should_stop) == 0);
+	assert(should_stop == 0);
+	assert(miniupnpd_update_status(0, 0, 0, 1, 0, 0,
+				       &should_stop) == 0);
+	assert(should_stop == 1);
+	assert(miniupnpd_update_status(0, 1, 0, 1, 0, 1,
+				       &should_stop) == 0);
+	assert(should_stop == 1);
+
+	should_stop = 77;
+	assert(miniupnpd_update_status(EACCES, 1, 0, 1, 0, 0,
+				       &should_stop) == EACCES);
+	assert(should_stop == 77);
+	assert(miniupnpd_update_status(0, 1, EIO, 1, 0, 0,
+				       &should_stop) == EIO);
+	assert(should_stop == 77);
+	assert(miniupnpd_update_status(0, 1, 0, 1, EPERM, 0,
+				       &should_stop) == EPERM);
+	assert(should_stop == 77);
+	assert(miniupnpd_update_status(0, 1, 0, 1, 0, 0, NULL) == EINVAL);
+}
+
+static void
 miniupnpd_test_update_desired_state(void)
 {
 	assert(!miniupnpd_update_should_stop(1, 1, 0));
@@ -175,6 +266,9 @@ main(void)
 {
 	miniupnpd_test_presence_policy();
 	miniupnpd_test_identity_bound_signal();
+	miniupnpd_test_checked_service_integer_reads();
+	miniupnpd_test_checked_bridge_mode_reads();
+	miniupnpd_test_checked_update_decision();
 	miniupnpd_test_update_desired_state();
 	miniupnpd_test_failed_start_rollback_policy();
 

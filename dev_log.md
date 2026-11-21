@@ -1,3 +1,14 @@
+## 2026-11-21 — Keep MiniUPnP running when service-policy NVRAM reads fail
+
+- Parent main SHA: `f99d7a43be07851f39b0773b62d91aa29fc05235`.
+- Source review found `start_upnp_locked()` and `update_upnp_locked()` used error-collapsing `nvram_get_int()` reads for `upnp_enable_x` / `wan_nat_x` and `get_ap_mode()` for `wan_route_x`. A temporary backend failure could suppress a needed start or stop a working UPnP daemon and discard live port mappings; a bridge-mode read failure also appeared as non-bridged mode.
+- Added checked integer and exact bridge-value policy helpers with explicit missing-key defaults and output preservation on API/read errors. All three settings are read under one NVRAM transaction; the decision is published only after transaction close succeeds. Start/update now abort on read/close errors; update releases its process snapshot and preserves the active daemon.
+- Added GNU89/Werror regression cases for present/missing, malformed/overflow, bridge comparison, backend/API inconsistencies and output preservation. MiniUPnP workflow source assertions now require transactional checked reads before daemon start/stop actions.
+- Existing MiniUPnP lifecycle test is compiled by CI with GNU89 and `-Wall -Wextra -Werror`; exact-head Actions and XY-C1 cross-build are pending. No local firmware build or hardware L4 is claimed.
+- Product-source baseline before this slice: `f99d7a43be07851f39b0773b62d91aa29fc05235`; resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Preserve URL and LWF firewall filtering on NVRAM read errors
 
 - Parent main SHA: `dffca184e64dc44d8cfae11a43bbcebe21d9e0b6`.

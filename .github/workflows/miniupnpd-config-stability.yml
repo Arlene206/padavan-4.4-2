@@ -626,9 +626,44 @@ jobs:
           assert "return start_upnp_locked();" in update
           assert "return stop_upnp_locked();" in update
           assert "miniupnpd_action_for_presence(state)" in update
-          assert "miniupnpd_update_should_stop(" in update
-          assert 'miniupnpd_update_should_stop(nvram_get_int("upnp_enable_x"), nvram_get_int("wan_nat_x"), get_ap_mode())' in update_compact
-          assert update.index("miniupnpd_update_should_stop(") < update.index("miniupnpd_signal_snapshot(")
+          assert "miniupnpd_read_stop_policy(&should_stop)" in update
+          assert "miniupnpd_update_should_stop(" not in update
+          assert 'nvram_get_int("upnp_enable_x")' not in update
+          assert 'nvram_get_int("wan_nat_x")' not in update
+          assert "get_ap_mode()" not in update
+          assert update.index("miniupnpd_read_stop_policy(&should_stop)") < update.index("stop_upnp_locked()")
+          assert update.index("miniupnpd_read_stop_policy(&should_stop)") < update.index("miniupnpd_signal_snapshot(")
+          start = function_body(service, "start_upnp_locked(void)")
+          assert "miniupnpd_read_stop_policy(&should_stop)" in start
+          assert start.index("miniupnpd_read_stop_policy(&should_stop)") < start.index("miniupnpd_process_presence(")
+          assert 'nvram_get_int("upnp_enable_x")' not in start
+          assert 'nvram_get_int("wan_nat_x")' not in start
+          assert "get_ap_mode()" not in start
+          transaction_integer = function_body(service, "miniupnpd_read_transaction_int(")
+          assert "nvram_transaction_get(transaction, name, &value)" in transaction_integer
+          assert "miniupnpd_nvram_int_status(api_result, saved_errno" in transaction_integer
+          transaction_bridge = function_body(service, "miniupnpd_read_transaction_bridge(")
+          assert 'nvram_transaction_get(transaction, "wan_route_x", &value)' in transaction_bridge
+          assert "miniupnpd_nvram_bridge_status(api_result, saved_errno" in transaction_bridge
+          stop_policy = function_body(service, "miniupnpd_read_stop_policy(int *should_stop)")
+          assert "nvram_transaction_begin(&transaction)" in stop_policy
+          assert "nvram_transaction_end(&transaction)" in stop_policy
+          assert stop_policy.index("nvram_transaction_begin(&transaction)") < stop_policy.index("miniupnpd_read_transaction_int(")
+          assert stop_policy.index("miniupnpd_read_transaction_bridge(") < stop_policy.index("nvram_transaction_end(&transaction)")
+          assert "miniupnpd_update_status(0, upnp_enabled, 0, nat_enabled" in stop_policy
+          assert stop_policy.index("nvram_transaction_end(&transaction)") < stop_policy.index("*should_stop = local_should_stop")
+          assert "miniupnpd_nvram_int_status" in policy
+          assert "miniupnpd_nvram_bridge_status" in policy
+          assert "miniupnpd_update_status" in policy
+          for marker in (
+              "miniupnpd_test_checked_service_integer_reads",
+              "miniupnpd_test_checked_bridge_mode_reads",
+              "miniupnpd_test_checked_update_decision",
+              "miniupnpd_nvram_int_status(-1, EACCES, NULL, 0, &value)",
+              "miniupnpd_nvram_bridge_status(-1, EPERM, NULL, &bridged)",
+              "miniupnpd_update_status(EACCES, 1, 0, 1, 0, 0",
+          ):
+              assert marker in daemon_test, marker
           for token in (
               "miniupnpd_update_should_stop(1, 1, 0)",
               "miniupnpd_update_should_stop(0, 1, 0)",

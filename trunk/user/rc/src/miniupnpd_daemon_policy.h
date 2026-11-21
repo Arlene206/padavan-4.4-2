@@ -1,8 +1,12 @@
 #ifndef PADAVAN_MINIUPNPD_DAEMON_POLICY_H
 #define PADAVAN_MINIUPNPD_DAEMON_POLICY_H
 
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <signal.h>
+#include <stdlib.h>
+#include <string.h>
 #include <sys/types.h>
 #include <process_inventory.h>
 
@@ -51,6 +55,96 @@ static int
 miniupnpd_update_should_stop(int upnp_enabled, int nat_enabled, int ap_mode)
 {
 	return !upnp_enabled || !nat_enabled || ap_mode;
+}
+
+/*
+ * Checked transaction reads keep nvram_get_int() defaults for absent keys,
+ * while refusing to turn an NVRAM backend or malformed-value error into 0.
+ */
+static int
+miniupnpd_nvram_int_status(int api_result, int saved_errno,
+			   const char *value, int missing_value, int *number)
+{
+	const char *cursor;
+	char *end;
+	long parsed;
+
+	if (!number)
+		return EINVAL;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0) {
+		if (value)
+			return EIO;
+		*number = missing_value;
+		return 0;
+	}
+	if (api_result != 1 || !value)
+		return EIO;
+
+	cursor = value;
+	while (*cursor && isspace((unsigned char)*cursor))
+		++cursor;
+	if (!*cursor) {
+		*number = 0;
+		return 0;
+	}
+
+	errno = 0;
+	parsed = strtol(cursor, &end, 10);
+	if (errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX)
+		return ERANGE;
+	if (end == cursor)
+		return EINVAL;
+	while (*end && isspace((unsigned char)*end))
+		++end;
+	if (*end)
+		return EINVAL;
+
+	*number = (int)parsed;
+	return 0;
+}
+
+/* get_ap_mode() historically matches this value exactly; missing means false. */
+static int
+miniupnpd_nvram_bridge_status(int api_result, int saved_errno,
+			      const char *value, int *bridged)
+{
+	if (!bridged)
+		return EINVAL;
+	if (api_result < 0)
+		return saved_errno > 0 ? saved_errno : EIO;
+	if (api_result == 0) {
+		if (value)
+			return EIO;
+		*bridged = 0;
+		return 0;
+	}
+	if (api_result != 1 || !value)
+		return EIO;
+
+	*bridged = strcmp(value, "IP_Bridged") == 0;
+	return 0;
+}
+
+/* Do not make a stop/start decision unless all three settings were read. */
+static int
+miniupnpd_update_status(int upnp_status, int upnp_enabled,
+			int nat_status, int nat_enabled,
+			int bridge_status, int bridged, int *should_stop)
+{
+	if (!should_stop)
+		return EINVAL;
+	if (upnp_status != 0)
+		return upnp_status;
+	if (nat_status != 0)
+		return nat_status;
+	if (bridge_status != 0)
+		return bridge_status;
+
+	*should_stop = miniupnpd_update_should_stop(upnp_enabled,
+						    nat_enabled, bridged);
+	return 0;
 }
 
 static enum miniupnpd_daemon_action

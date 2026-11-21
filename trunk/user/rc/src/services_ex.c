@@ -33,6 +33,7 @@
 #include <net/ethernet.h>
 
 #include "rc.h"
+#include "nvram_linux.h"
 #include "ipv4_netmask_policy.h"
 #include "storage_operation_lock.h"
 #include "upnp_restart_policy.h"
@@ -1982,6 +1983,90 @@ miniupnpd_write_config(FILE *fp, void *opaque)
 	return 0;
 }
 
+static int
+miniupnpd_read_transaction_int(struct nvram_transaction *transaction,
+				const char *name, int *number)
+{
+	char *value = NULL;
+	int api_result, saved_errno;
+
+	if (!transaction || !name || !number)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, name, &value);
+	saved_errno = errno;
+	return miniupnpd_nvram_int_status(api_result, saved_errno,
+					  value, 0, number);
+}
+
+static int
+miniupnpd_read_transaction_bridge(struct nvram_transaction *transaction,
+				  int *bridged)
+{
+	char *value = NULL;
+	int api_result, saved_errno;
+
+	if (!transaction || !bridged)
+		return EINVAL;
+	errno = 0;
+	api_result = nvram_transaction_get(transaction, "wan_route_x", &value);
+	saved_errno = errno;
+	return miniupnpd_nvram_bridge_status(api_result, saved_errno,
+					     value, bridged);
+}
+
+/*
+ * Read the service enablement tuple under one NVRAM lock. An unreadable
+ * setting must not be treated as disabled and must never stop a live daemon.
+ */
+static int
+miniupnpd_read_stop_policy(int *should_stop)
+{
+	struct nvram_transaction transaction;
+	int upnp_enabled = 0, nat_enabled = 0, bridged = 0;
+	int local_should_stop = 0;
+	int status, end_result, end_errno;
+
+	if (!should_stop)
+		return EINVAL;
+	errno = 0;
+	if (nvram_transaction_begin(&transaction) != 0) {
+		status = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot begin UPnP service-policy NVRAM transaction (errno=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
+
+	status = miniupnpd_read_transaction_int(&transaction,
+						"upnp_enable_x", &upnp_enabled);
+	if (status == 0)
+		status = miniupnpd_read_transaction_int(&transaction,
+							"wan_nat_x", &nat_enabled);
+	if (status == 0)
+		status = miniupnpd_read_transaction_bridge(&transaction, &bridged);
+	if (status == 0)
+		status = miniupnpd_update_status(0, upnp_enabled, 0, nat_enabled,
+						 0, bridged, &local_should_stop);
+
+	errno = 0;
+	end_result = nvram_transaction_end(&transaction);
+	end_errno = errno;
+	if (status == 0 && end_result != 0)
+		status = end_errno > 0 ? end_errno : EIO;
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "UPnP service-policy NVRAM read failed; preserving daemon state (errno=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
+
+	*should_stop = local_should_stop;
+	return 0;
+}
+
 static int stop_upnp_locked(void);
 
 static int
@@ -1993,6 +2078,7 @@ start_upnp_locked(void)
 	enum process_presence rollback_presence;
 	int scan_error, presence_error;
 	int url_error;
+	int service_policy_status, should_stop;
 	enum process_presence state;
 	char *lan_addr, *lan_mask, *lan_url, *proto_upnp, *proto_npmp, *secured;
 	char var[100];
@@ -2001,7 +2087,15 @@ start_upnp_locked(void)
 	uint8_t lan_mac[16];
 	struct miniupnpd_config_data config;
 
-	if (!nvram_get_int("upnp_enable_x") || !nvram_get_int("wan_nat_x") || get_ap_mode())
+	service_policy_status = miniupnpd_read_stop_policy(&should_stop);
+	if (service_policy_status != 0) {
+		errno = service_policy_status;
+		logmessage(LOGNAME,
+			   "miniupnpd start aborted: service configuration is unreadable (errno=%d)",
+			   service_policy_status);
+		return service_policy_status;
+	}
+	if (should_stop)
 		return 0;
 
 	state = miniupnpd_process_presence(&scan_error);
@@ -2243,6 +2337,7 @@ update_upnp_locked(void)
 	int scan_error;
 	int result;
 	int saved_errno;
+	int service_policy_status, should_stop;
 
 	state = process_inventory_scan("miniupnpd", &snapshot);
 	action = miniupnpd_action_for_presence(state);
@@ -2260,8 +2355,16 @@ update_upnp_locked(void)
 		return start_upnp_locked();
 	}
 
-	if (miniupnpd_update_should_stop(nvram_get_int("upnp_enable_x"),
-					 nvram_get_int("wan_nat_x"), get_ap_mode())) {
+	service_policy_status = miniupnpd_read_stop_policy(&should_stop);
+	if (service_policy_status != 0) {
+		process_snapshot_release(&snapshot);
+		errno = service_policy_status;
+		logmessage(LOGNAME,
+			   "UPnP update aborted: service configuration is unreadable; daemon remains active (errno=%d)",
+			   service_policy_status);
+		return service_policy_status;
+	}
+	if (should_stop) {
 		process_snapshot_release(&snapshot);
 		return stop_upnp_locked();
 	}
