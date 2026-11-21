@@ -5107,9 +5107,17 @@ full_restart_wan(void)
 	int static_lan_route_status;
 	int switch_vlan_status;
 	int route_flush_status;
+	int is_ap_mode, ap_mode_status;
 	char *route_ifnames[2];
 
-	if (get_ap_mode())
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "aborting full WAN restart because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+	if (is_ap_mode)
 		return 0;
 	status = update_router_mode();
 	if (status != 0) {
@@ -5209,7 +5217,16 @@ int
 try_wan_reconnect(int try_use_modem, long pause_in_seconds)
 {
 	int status;
-	if (get_ap_mode())
+	int is_ap_mode, ap_mode_status;
+
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "aborting WAN reconnect because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+	if (is_ap_mode)
 		return 0;
 	status = stop_wan();
 	if (status != 0) {
@@ -5289,8 +5306,17 @@ int
 manual_wan_disconnect(void)
 {
 	int wan_proto, status, is_ndis_modem = 0;
+	int is_ap_mode, ap_mode_status;
+
 	logmessage(LOGNAME, "Perform WAN %s %s", "manual", "disconnect");
-	if (get_ap_mode())
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "refusing manual WAN disconnect because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+	if (is_ap_mode)
 		return 0;
 	wan_proto = get_wan_proto(0);
 	if (get_usb_modem_wan(0)) {
@@ -6203,12 +6229,13 @@ in_addr_t
 get_wan_ip4(int only_broadband_wan)
 {
 	int unit = 0;
-	int status;
+	int status, is_ap_mode;
 	char man_ifname[16], ifname_temp[16];
 	char *man_ifname_value;
 	const char *ifname = man_ifname;
 
-	if (get_ap_mode())
+	status = get_ap_mode_status(&is_ap_mode);
+	if (status != 0 || is_ap_mode)
 		return INADDR_ANY;
 
 	man_ifname_value = get_man_ifname(unit);

@@ -1850,3 +1850,77 @@ assert "rc_wan_nvram_copy_missing_default" in wan_nvram_policy_header
 assert '"trunk/user/rc/src/tests/wan_nvram_status_policy.c"' in process_workflow
 assert "Compile and run WAN0 NVRAM initialization failure regression" in process_workflow
 print("WAN0 NVRAM defaults/runtime identity fail-closed boot gate: PASS")
+
+shared_src = root / "trunk/user/shared/src"
+netutils_source = (shared_src / "netutils.c").read_text()
+netutils_header = (shared_src / "netutils.h").read_text()
+ap_mode_policy = (shared_src / "ap_mode_read_policy.h").read_text()
+ap_mode_test = (shared_src / "tests/ap_mode_read_policy.c").read_text()
+rc_source = (root / "trunk/user/rc/src/rc.c").read_text()
+net_source = (root / "trunk/user/rc/src/net.c").read_text()
+wan_source = (root / "trunk/user/rc/src/net_wan.c").read_text()
+
+ap_mode_reader = c_function_body(netutils_source, "get_ap_mode_status(int *is_ap_mode)")
+assert 'nvram_get_checked("wan_route_x", &route_mode)' in ap_mode_reader
+assert "rc_ap_mode_read_status(api_result, saved_errno, route_mode" in ap_mode_reader
+assert "extern int       get_ap_mode_status(int *is_ap_mode);" in netutils_header
+assert "rc_ap_mode_read_status" in ap_mode_policy
+legacy_ap_mode = c_function_body(netutils_source, "get_ap_mode(void)")
+assert "get_ap_mode_status(&is_ap_mode)" in legacy_ap_mode
+assert "return 0;" in legacy_ap_mode
+
+usb_modules = c_function_body(rc_source, "load_usb_modules(void)")
+assert "ap_mode_status = get_ap_mode_status(&is_ap_mode);" in usb_modules
+assert "if (ap_mode_status != 0)" in usb_modules
+assert "skipping modem-specific module selection" in usb_modules
+assert "get_ap_mode()" not in usb_modules
+
+router_init = c_function_body(rc_source, "init_router(void)")
+mode_read = router_init.index("ap_mode_status = get_ap_mode_status(&is_ap_mode);")
+mode_failure = router_init.index("if (ap_mode_status != 0)", mode_read)
+mode_fallback = router_init.index("is_ap_mode = 1;", mode_failure)
+mode_aggregate = router_init.index(
+    "boot_services_status = rc_first_service_start_status(",
+    mode_fallback
+)
+bridge_start = router_init.index("init_bridge(is_ap_mode, &switch_vlan_status);")
+assert mode_read < mode_failure < mode_fallback < mode_aggregate < bridge_start
+assert "blocking WAN startup" in router_init
+
+firewall_restart = c_function_body(net_source, "restart_firewall(void)")
+firewall_mode = firewall_restart.index("get_ap_mode_status(&is_ap_mode)")
+firewall_failure = firewall_restart.index("if (ap_mode_status != 0)", firewall_mode)
+firewall_mutation = firewall_restart.index("start_firewall_ex();")
+assert firewall_mode < firewall_failure < firewall_mutation
+assert "return ap_mode_status;" in firewall_restart[firewall_failure:firewall_mutation]
+
+for signature in (
+    "full_restart_wan(void)",
+    "try_wan_reconnect(int try_use_modem, long pause_in_seconds)",
+    "manual_wan_disconnect(void)",
+    "get_wan_ip4(int only_broadband_wan)",
+):
+    function = c_function_body(wan_source, signature)
+    assert "get_ap_mode_status(&is_ap_mode)" in function, signature
+    assert "get_ap_mode()" not in function, signature
+    assert "if (ap_mode_status != 0)" in function or "if (status != 0 || is_ap_mode)" in function, signature
+    if signature != "get_wan_ip4(int only_broadband_wan)":
+        assert "return ap_mode_status;" in function, signature
+    else:
+        assert "return INADDR_ANY;" in function, signature
+
+for case in (
+    "test_missing_and_routed_settings_keep_router_mode",
+    "test_bridged_setting_selects_access_point_mode_exactly",
+    "test_backend_failures_preserve_output_and_errno",
+    "test_inconsistent_results_are_rejected_without_changing_output",
+):
+    assert case in ap_mode_test and case + "();" in ap_mode_test
+assert "AP/router mode checked NVRAM read regression: PASS" in ap_mode_test
+assert '"trunk/user/shared/src/ap_mode_read_policy.h"' in process_workflow
+assert '"trunk/user/shared/src/tests/ap_mode_read_policy.c"' in process_workflow
+assert "Compile and run AP/router mode checked-read regression" in process_workflow
+xy_workflow = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_text()
+assert '"trunk/user/shared/src/tests/ap_mode_read_policy.c"' in xy_workflow
+assert '"trunk/user/rc/src/rc.c"' in xy_workflow
+print("Checked AP/router mode NVRAM read and fail-closed boot/WAN/firewall gates: PASS")

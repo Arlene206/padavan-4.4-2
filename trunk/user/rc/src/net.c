@@ -1578,8 +1578,16 @@ restart_firewall(void)
 {
 	int firewall_status, upnp_status;
 	int saved_errno = 0;
+	int is_ap_mode, ap_mode_status;
 
-	if (get_ap_mode())
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "aborting firewall restart because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+	if (is_ap_mode)
 		return 0;
 
 	/* Rebuild the core ruleset, but always attempt the independent UPnP refresh. */

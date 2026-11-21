@@ -43,6 +43,7 @@
 #include <ifaddrs.h>
 
 #include "nvram_linux.h"
+#include "ap_mode_read_policy.h"
 #include "usb_modem_wan_policy.h"
 #include "netutils.h"
 #include "shutils.h"
@@ -261,12 +262,30 @@ is_man_wisp(const char *ifname)
 }
 
 int
+get_ap_mode_status(int *is_ap_mode)
+{
+	char *route_mode = NULL;
+	int api_result, saved_errno;
+
+	if (!is_ap_mode)
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_get_checked("wan_route_x", &route_mode);
+	saved_errno = errno;
+	return rc_ap_mode_read_status(api_result, saved_errno, route_mode,
+				      is_ap_mode);
+}
+
+int
 get_ap_mode(void)
 {
-	if (nvram_match("wan_route_x", "IP_Bridged"))
-		return 1;
+	int is_ap_mode = 0;
 
-	return 0;
+	/* Keep the legacy Boolean fallback for non-critical callers. */
+	if (get_ap_mode_status(&is_ap_mode) != 0)
+		return 0;
+	return is_ap_mode;
 }
 
 int

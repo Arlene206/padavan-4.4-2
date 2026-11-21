@@ -189,6 +189,9 @@ on:
       - "trunk/user/shared/src/process_pidfile_record.h"
       - "trunk/user/shared/src/net_ifstats_policy.h"
       - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/ap_mode_read_policy.h"
+      - "trunk/user/shared/src/tests/ap_mode_read_policy.c"
       - "trunk/user/shared/src/tests/net_ifstats_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/shutils.c"
@@ -397,6 +400,9 @@ on:
       - "trunk/user/shared/src/process_pidfile_record.h"
       - "trunk/user/shared/src/net_ifstats_policy.h"
       - "trunk/user/shared/src/netutils.c"
+      - "trunk/user/shared/src/netutils.h"
+      - "trunk/user/shared/src/ap_mode_read_policy.h"
+      - "trunk/user/shared/src/tests/ap_mode_read_policy.c"
       - "trunk/user/shared/src/tests/net_ifstats_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/shutils.c"
@@ -654,6 +660,14 @@ jobs:
             -o "$RUNNER_TEMP/sshd-daemon-policy"
           ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/sshd-daemon-policy"
           python3 scripts/check_sshd_firewall_status.py
+      - name: Compile and run AP/router mode checked-read regression
+        run: |
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -fno-omit-frame-pointer -I trunk/user/shared/src \
+            trunk/user/shared/src/tests/ap_mode_read_policy.c \
+            -o "$RUNNER_TEMP/ap-mode-read-policy"
+          ASAN_OPTIONS=detect_leaks=1 "$RUNNER_TEMP/ap-mode-read-policy"
+
       - name: Compile and run WAN0 NVRAM initialization failure regression
         run: |
           cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \

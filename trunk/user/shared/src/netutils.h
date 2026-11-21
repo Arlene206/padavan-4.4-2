@@ -167,6 +167,7 @@ extern int       is_valid_hostname(const char *hname);
 extern int       is_man_wisp(const char *ifname);
 extern int       is_usbnet_interface(const char *ifname);
 extern int       get_ap_mode(void);
+extern int       get_ap_mode_status(int *is_ap_mode);
 extern int       get_wan_proto(int unit);
 extern char*     get_man_ifname(int unit);
 extern int       get_usb_modem_wan(int unit);

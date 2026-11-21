@@ -302,6 +302,7 @@ load_usb_modules(void)
 {
 	int start_status = 0;
 	int modem_rule = 0, modem_type = 0, nvram_status;
+	int is_ap_mode = 0, ap_mode_status;
 
 	/* load usb printer module before storage */
 	start_status = rc_first_service_start_status(start_status,
@@ -315,7 +316,14 @@ load_usb_modules(void)
 	 * Preserve the absent-key defaults, but fail the boot module gate on
 	 * backend errors and malformed persisted integers.
 	 */
-	if (!get_ap_mode()) {
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot determine AP/router mode during USB module setup (status=%d); skipping modem-specific module selection",
+			   ap_mode_status);
+		start_status = rc_first_service_start_status(start_status,
+							     ap_mode_status);
+	} else if (!is_ap_mode) {
 		nvram_status = rc_boot_nvram_read_int_status("modem_rule", 0,
 							     &modem_rule);
 		if (nvram_status != 0) {
@@ -1281,6 +1289,7 @@ int
 init_router(void)
 {
 	int log_remote, is_ap_mode, nvram_need_commit;
+	int ap_mode_status;
 	int storage_save_status, dnsmasq_start_status;
 	int boot_modules_status, boot_services_status;
 	int rwfs_mount_status;
@@ -1392,7 +1401,19 @@ init_router(void)
 			boot_services_status, logger_start_status);
 	}
 
-	is_ap_mode = get_ap_mode();
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		/*
+		 * Unknown mode must not enter the router WAN/firewall path. Use
+		 * AP-safe bridge configuration and retain DEGRADED boot status.
+		 */
+		is_ap_mode = 1;
+		logmessage(LOGNAME,
+			   "cannot determine AP/router mode during boot (status=%d); using AP-safe network setup and blocking WAN startup",
+			   ap_mode_status);
+		boot_services_status = rc_first_service_start_status(
+			boot_services_status, ap_mode_status);
+	}
 
 	{
 		int loopback_start_status = init_loopback();
