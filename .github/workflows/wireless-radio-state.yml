@@ -69,6 +69,7 @@ jobs:
           source = (rc / "net_wifi.c").read_text()
           rc_source = (rc / "rc.c").read_text()
           workflow = Path(".github/workflows/wireless-radio-state.yml").read_text()
+          notification_policy = (rc / "wireless_radio_policy.h").read_text()
           notification_test = (rc / "tests/wireless_radio_policy.c").read_text()
           shared = root / "trunk/user/shared/src"
           netutils_source = (shared / "netutils.c").read_text()
@@ -196,8 +197,6 @@ jobs:
               assert "mlme_radio_" in body and "_apply(" in body
               assert "if (is_radio_changed && !manual)" in body
 
-          notification_policy = (rc / "wireless_radio_policy.h").read_text()
-          notification_test = (rc / "tests/wireless_radio_policy.c").read_text()
           for token in ("wireless_inic_radio_transition",
                         "ops->set_isolation(context, 1)",
                         "ops->set_power(context, 0)",
