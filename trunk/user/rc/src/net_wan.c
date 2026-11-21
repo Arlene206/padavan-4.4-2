@@ -5033,24 +5033,35 @@ auto_wan_reconnect_pause(void)
 	return try_wan_reconnect(1, pause_seconds);
 }
 
-void
+int
 notify_on_wan_ether_link_restored(void)
 {
 	int unit = 0;
 	int wan_proto = get_wan_proto(unit);
+	int status, saved_errno;
 
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC || nvram_match("x_DHCPClient", "0"))
-		return;
+		return 0;
 
 	if (is_usbnet_interface(get_wan_unit_value(unit, "ifname_t")))
-		return;
+		return 0;
 
 	if (get_wan_wisp_active(NULL))
-		return;
+		return 0;
 
-	if (renew_udhcpc_wan(unit) == 0) {
-		logmessage(LOGNAME, "force WAN DHCP client renew...");
+	errno = 0;
+	status = renew_udhcpc_wan(unit);
+	if (status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(LOGNAME,
+			   "cannot signal WAN DHCP client to renew after Ethernet link restoration (status=%d, errno=%d)",
+			   status, saved_errno);
+		errno = saved_errno;
+		return saved_errno;
 	}
+
+	logmessage(LOGNAME, "force WAN DHCP client renew...");
+	return 0;
 }
 
 static void

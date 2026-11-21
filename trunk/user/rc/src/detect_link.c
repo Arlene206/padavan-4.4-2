@@ -37,6 +37,7 @@
 #include "switch_status_policy.h"
 #include "detect_link_signal_policy.h"
 #include "detect_link_nvram_policy.h"
+#include "detect_link_dhcp_renew_policy.h"
 #include "process_presence_start_policy.h"
 #include <process_inventory.h>
 #include <process_pidfile.h>
@@ -49,6 +50,7 @@ static unsigned long dl_counter_total = 0;
 static unsigned long dl_counter_wan_down = 0;
 static unsigned long dl_counter_dhcpc_renew = 0;
 static unsigned long dl_counter_modem_check = 0;
+static unsigned int dl_dhcpc_renew_retries = 0;
 
 /* Signal handlers only publish pending events; the main loop owns all work. */
 static volatile sig_atomic_t dl_pending_events = 0;
@@ -87,6 +89,7 @@ dl_reset_state(void)
 	dl_counter_wan_down = 0;
 	dl_counter_dhcpc_renew = 0;
 	dl_counter_modem_check = 0;
+	dl_dhcpc_renew_retries = 0;
 
 	dl_status_wisp = 0;
 	dl_status_wisp_old = 0;
@@ -158,17 +161,19 @@ dl_handle_link_wan(void)
 
 		if (dl_status_wan) {
 			dl_counter_modem_check = 0;
+			dl_dhcpc_renew_retries = 0;
 			
 			if (dl_counter_total > 5) {
 				/* link missing some time (> 10s) */
 				if ((dl_counter_total - dl_counter_wan_down) > 5)
-					dl_counter_dhcpc_renew = (dl_counter_total + 2); // 4s after link up
+					dl_counter_dhcpc_renew = (dl_counter_total + DETECT_LINK_DHCP_RENEW_RETRY_TICKS); // 4s after link up
 				
 				dl_counter_modem_check = (dl_counter_total + 10); // 20s after link up
 			}
 		} else {
 			dl_counter_wan_down = dl_counter_total;
 			dl_counter_dhcpc_renew = 0;
+			dl_dhcpc_renew_retries = 0;
 			dl_counter_modem_check = 0;
 			
 			if (dl_counter_total > 5) {
@@ -184,10 +189,24 @@ dl_handle_link_wan(void)
 	}
 
 	if ((dl_counter_dhcpc_renew > 0) && (dl_counter_total >= dl_counter_dhcpc_renew)) {
-		dl_counter_dhcpc_renew = 0;
-		
-		if (dl_status_wan)
-			notify_on_wan_ether_link_restored();
+		int renew_status, retry_status;
+
+		renew_status = dl_status_wan ? notify_on_wan_ether_link_restored() : 0;
+		retry_status = detect_link_dhcp_renew_retry_status(
+			renew_status, &dl_dhcpc_renew_retries,
+			dl_counter_total, &dl_counter_dhcpc_renew);
+		if (retry_status > 0) {
+			logmessage("detect_link",
+				   "WAN DHCP renewal signal failed (status=%d); retry %u/%u in %u seconds",
+				   renew_status, dl_dhcpc_renew_retries,
+				   (unsigned int)DETECT_LINK_DHCP_RENEW_MAX_RETRIES,
+				   (unsigned int)(DL_POLL_INTERVAL * DETECT_LINK_DHCP_RENEW_RETRY_TICKS));
+		} else if (retry_status < 0) {
+			logmessage("detect_link",
+				   "WAN DHCP renewal signal failed after %u attempts (status=%d); giving up",
+				   (unsigned int)(DETECT_LINK_DHCP_RENEW_MAX_RETRIES + 1),
+				   renew_status);
+		}
 	}
 
 #if defined (USE_USB_SUPPORT)

@@ -299,7 +299,7 @@ int manual_wan_reconnect(void);
 int manual_wan_disconnect(void);
 int manual_wisp_reassoc(void);
 int deferred_wan_connect(void);
-void notify_on_wan_ether_link_restored(void);
+int notify_on_wan_ether_link_restored(void);
 void notify_on_internet_state_changed(int has_internet, long elapsed);
 int  add_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms, char *ifname, int metric);
 int  add_dhcp_routes_by_prefix(char *prefix, char *ifname, int metric);

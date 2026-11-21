@@ -1,3 +1,12 @@
+## 2026-11-21 — Retry failed WAN DHCP renew signals after link restoration
+
+- Parent main SHA: `b846d1035e0702815b360c1caa8c83a1b5a6980c`.
+- `dl_handle_link_wan()` previously cleared its only DHCP-renew deadline before calling a void helper. If the DHCP pidfile was stale/missing or process inventory could not be read, `process_pidfile_signal()` failed and the caller discarded the result; no retry occurred.
+- The helper now returns normalized errors and `detect_link` schedules two retries 4 seconds apart before logging exhaustion. Link-down/reset/success clear the retry state; intentional static-IP/USB/WISP skips remain success. Added a GNU89 ASAN/UBSAN policy test and exact detect_link workflow source/path coverage.
+- L3/L4 remain NOT VERIFIED pending exact-head firmware gates and physical-router DHCP behavior.
+
+---
+
 ## 2026-11-21 — Normalize WAN reconnect call token in source checker
 
 - Parent main SHA: `9b7eecf72aa3cd7224d4597e8410d5555463bd8e`.

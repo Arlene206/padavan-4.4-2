@@ -13,6 +13,8 @@ on:
       - "trunk/user/rc/src/detect_link_nvram_policy.h"
       - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
+      - "trunk/user/rc/src/detect_link_dhcp_renew_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/net_wan.c"
@@ -32,6 +34,8 @@ on:
       - "trunk/user/rc/src/detect_link_nvram_policy.h"
       - "trunk/user/rc/src/tests/detect_link_nvram_policy.c"
       - "trunk/user/rc/src/tests/detect_link_signal_policy.c"
+      - "trunk/user/rc/src/detect_link_dhcp_renew_policy.h"
+      - "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c"
       - "trunk/user/rc/src/rc.c"
       - "trunk/user/rc/src/rc.h"
       - "trunk/user/rc/src/net_wan.c"
@@ -56,6 +60,14 @@ jobs:
             trunk/user/rc/src/tests/detect_link_signal_policy.c \
             -o /tmp/detect-link-signal-policy
           ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-signal-policy
+      - name: Compile and run bounded WAN DHCP renewal retry policy regression
+        run: |
+          set -eu
+          cc -std=gnu89 -Wall -Wextra -Werror -fsanitize=address,undefined \
+            -I trunk/user/rc/src \
+            trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c \
+            -o /tmp/detect-link-dhcp-renew-policy
+          ASAN_OPTIONS=detect_leaks=1 /tmp/detect-link-dhcp-renew-policy
       - name: Compile and run WAN link NVRAM mirror retry regression
         run: |
           set -eu
@@ -76,6 +88,8 @@ jobs:
           dispatcher = (rc / "rc.c").read_text()
           header = (rc / "rc.h").read_text()
           wan = (rc / "net_wan.c").read_text()
+          renew_policy = (rc / "detect_link_dhcp_renew_policy.h").read_text()
+          renew_test = (rc / "tests/detect_link_dhcp_renew_policy.c").read_text()
           lan = (rc / "net_lan.c").read_text()
           services = (rc / "services.c").read_text()
           makefile = (rc / "Makefile").read_text()
@@ -105,6 +119,26 @@ jobs:
           assert 'nvram_set_int_temp("link_wan"' not in body(detect, "dl_handle_link_wan(void)")
           wan_handler = body(detect, "dl_handle_link_wan(void)")
           assert wan_handler.index("dl_publish_wan_nvram_status();") < wan_handler.index("if (dl_status_wan_old != dl_status_wan)")
+          assert '#include "detect_link_dhcp_renew_policy.h"' in detect
+          renew_notify = body(wan, "notify_on_wan_ether_link_restored(void)")
+          assert "status = renew_udhcpc_wan(unit);" in renew_notify
+          assert "if (status != 0)" in renew_notify
+          assert "return saved_errno;" in renew_notify
+          assert "cannot signal WAN DHCP client to renew after Ethernet link restoration" in renew_notify
+          assert "int notify_on_wan_ether_link_restored(void);" in header
+          renew_dispatch = body(detect, "dl_handle_link_wan(void)")
+          assert "renew_status = dl_status_wan ? notify_on_wan_ether_link_restored() : 0;" in renew_dispatch
+          assert "detect_link_dhcp_renew_retry_status(" in renew_dispatch
+          assert renew_dispatch.index("renew_status = dl_status_wan") < renew_dispatch.index("detect_link_dhcp_renew_retry_status(")
+          assert "if (retry_status > 0)" in renew_dispatch
+          assert "if (retry_status < 0)" in renew_dispatch
+          assert "dl_dhcpc_renew_retries = 0;" in detect
+          assert "DETECT_LINK_DHCP_RENEW_MAX_RETRIES 2U" in renew_policy
+          for marker in ("test_failed_renew_schedules_bounded_retries",
+                         "test_success_clears_pending_retry_state",
+                         "test_invalid_outputs_fail_closed",
+                         "detect_link bounded WAN DHCP renewal retry policy: PASS"):
+              assert marker in renew_test
           nvram_policy = (rc / "detect_link_nvram_policy.h").read_text()
           mirror_test = (rc / "tests/detect_link_nvram_policy.c").read_text()
           assert "if (result == 0)" in nvram_policy and "*last_published = status;" in nvram_policy
@@ -189,6 +223,8 @@ jobs:
               "trunk/user/rc/src/detect_link_nvram_policy.h",
               "trunk/user/rc/src/tests/detect_link_nvram_policy.c",
               "trunk/user/rc/src/tests/detect_link_signal_policy.c",
+              "trunk/user/rc/src/detect_link_dhcp_renew_policy.h",
+              "trunk/user/rc/src/tests/detect_link_dhcp_renew_policy.c",
               "trunk/user/rc/src/rc.c",
               "trunk/user/rc/src/rc.h",
               "trunk/user/rc/src/net_wan.c",

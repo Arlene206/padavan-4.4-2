@@ -15,24 +15,25 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Deferred WAN reconnect NVRAM preflight: `136db90e2f84513d9bf3da297802b708b0811b44`. The function uses the checked `di_recon_pause` reader and aborts before WAN stop/start on backend/parse failure; absent key retains the zero-second default.
-- Explicit DHCP WINS fix: `1770074742e98f13155fab91703fc74ca975c248`. The checked `dhcp_wins_x` snapshot is validated before generated DHCP config side effects and reused when emitting option 44; exact-head DNSMasq workflow passed.
-- WAN caller source-checker failures are test-only. The normalized-body assertion successively exposed spaces in the diagnostic, return and reconnect-call tokens; this patch normalizes the last token to `returntry_wan_reconnect(1,pause_seconds);`. Prior C policy binaries and earlier source contracts passed before reaching this final assertion. Exact-head dependent reruns are pending.
+- Main at the start of this slice: `b846d1035e0702815b360c1caa8c83a1b5a6980c`.
+- Deferred WAN reconnect NVRAM preflight: `136db90e2f84513d9bf3da297802b708b0811b44`. `auto_wan_reconnect_pause()` uses the checked `di_recon_pause` read and aborts before WAN stop/start on backend/parse failure; absent key retains the zero-second default.
+- Explicit DHCP WINS fix: `1770074742e98f13155fab91703fc74ca975c248`. `prepare_dns_dhcpd()` reads a bounded checked `dhcp_wins_x` snapshot before generated-config side effects and reuses it for option 44; exact-head DNSMasq lifecycle passed.
+- WAN DHCP link-restoration fix in this slice: return normalized `renew_udhcpc_wan()` errors to `detect_link`, retry twice at four-second intervals, reset on down/reset/success, and log exhaustion. GNU89 ASAN/UBSAN policy coverage and workflow path/source contracts are added; CI and target-router behavior are pending.
 
 
 ## Active task
 
-1. Inspect exact-head XY-C1, USB modem identity, Firewall and Process checks after the normalized reconnect-call token fix; investigate any remaining failures from logs.
-2. Require XY-C1 Build, TRX verification and artifact upload to PASS on the same exact product-source SHA, including the WAN reconnect and DHCP WINS commits.
-3. Continue independent whole-userland reliability/security work while CI is pending; do not repeat the completed DNSMasq/FTP/storage slices.
+1. Inspect exact-head detect_link signal/retry policy, XY-C1, USB modem identity, Firewall and Process results; fix failures from logs without weakening source contracts.
+2. Require XY-C1 Build, TRX verification and artifact upload to PASS on the same exact product-source SHA covering the WAN reconnect NVRAM, DHCP WINS and link-restoration retry fixes.
+3. Continue an independent whole-userland reliability/security fix while CI is pending; do not re-audit completed FTP, storage or DNSMasq slices.
 
 
 ## Verification boundary
 
-- L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on relevant NVRAM read errors; explicit DHCP WINS reads are checked before staging and use a stable bounded snapshot.
-- L2: WAN route status and DNSMasq lifecycle passed on exact heads. On `9b7eecf7`, AI handoff docs passed but XY-C1, USB modem, Firewall and Process stopped at the remaining whitespace-sensitive `pause_start` token. This checker correction is queued for exact-head reruns.
-- L3: NOT VERIFIED until Build XY-C1, TRX verification and artifact upload PASS on one exact product-source SHA; the prior XY-C1 jobs stopped in source checks before firmware compilation.
-- L4: Physical WAN reconnect timing, DHCP/WINS lease behavior and router runtime remain NOT VERIFIED.
+- L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on relevant NVRAM read errors; explicit DHCP WINS reads are checked before staging and use a bounded snapshot; physical-link DHCP renew signal errors now receive two bounded retries.
+- L2: WAN route status and DNSMasq lifecycle passed on exact heads. The reconnect caller source-check was corrected in `b846d103`; dependent exact-head jobs and the new detect_link GNU89/ASAN/UBSAN tests/source contract are pending.
+- L3: NOT VERIFIED until XY-C1 Build, TRX verification and artifact upload PASS on one exact product-source SHA.
+- L4: Physical WAN reconnect timing, DHCP/WINS lease behavior and DHCP renew delivery remain NOT VERIFIED.
 
 
 ## Workflow and preservation rules
@@ -53,4 +54,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main; inspect exact-head XY-C1 / USB modem / Firewall / Process checks for the normalized reconnect-call token. Confirm the checker passes end-to-end, then require Build + TRX + artifact on one product-source SHA and continue a separate reliability/security issue.
+Fetch live main; inspect exact-head detect_link retry-policy, XY-C1, USB modem, Firewall and Process checks. Confirm GNU89 ASAN/UBSAN and source contracts pass, then require Build + TRX + artifact on one product-source SHA.
