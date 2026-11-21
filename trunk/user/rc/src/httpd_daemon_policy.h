@@ -8,6 +8,69 @@
 #define HTTPD_START_RETRY_WAIT_SECONDS 1
 #define HTTPD_START_PROBE_ATTEMPTS 4
 
+struct httpd_start_config {
+	int http_proto;
+	int http_port;
+	int misc_http_x;
+	int https_port;
+	int https_wopen;
+};
+
+typedef int (*httpd_nvram_int_reader_fn)(void *context, const char *param_name,
+					 int missing_value, int *value);
+
+/*
+ * Read every setting needed by the selected HTTP/HTTPS listeners before the
+ * caller normalizes ports, publishes service state, or launches HTTPD.
+ * Build into a local snapshot so any backend/parse error leaves *config
+ * untouched and cannot be mistaken for an absent key.
+ */
+static inline int
+httpd_start_config_read(httpd_nvram_int_reader_fn read_int, void *context,
+		       int support_https, struct httpd_start_config *config)
+{
+	struct httpd_start_config next;
+	int status;
+
+	if (!read_int || !config ||
+	    (support_https != 0 && support_https != 1))
+		return EINVAL;
+
+	next.http_proto = 0;
+	next.http_port = 0;
+	next.misc_http_x = 0;
+	next.https_port = 0;
+	next.https_wopen = 0;
+
+	if (support_https) {
+		status = read_int(context, "http_proto", 0, &next.http_proto);
+		if (status != 0)
+			return status;
+	}
+
+	if (next.http_proto == 0 || next.http_proto == 2) {
+		status = read_int(context, "http_lanport", 0, &next.http_port);
+		if (status != 0)
+			return status;
+		status = read_int(context, "misc_http_x", 0, &next.misc_http_x);
+		if (status != 0)
+			return status;
+	}
+
+	if (support_https &&
+	    (next.http_proto == 1 || next.http_proto == 2)) {
+		status = read_int(context, "https_lport", 0, &next.https_port);
+		if (status != 0)
+			return status;
+		status = read_int(context, "https_wopen", 0, &next.https_wopen);
+		if (status != 0)
+			return status;
+	}
+
+	*config = next;
+	return 0;
+}
+
 /* A successful _eval() only confirms that the launcher exited successfully;
  * the detached HTTPD child must also remain observable. */
 static inline int

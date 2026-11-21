@@ -70,6 +70,7 @@ jobs:
           workflow = Path(".github/workflows/httpd-daemon-lifecycle.yml").read_text()
 
           start = body(services, "start_httpd_locked(int restart_fw)")
+          nvram_reader = body(services, "httpd_nvram_read_int_adapter(")
           start_entry = body(services, "start_httpd(int restart_fw)")
           probe = body(services, "httpd_process_presence(int *scan_error)")
           stop = body(services, "static int\nstop_httpd_locked(void)")
@@ -77,6 +78,25 @@ jobs:
           restart = body(services, "restart_httpd(void)")
           nvram_writer = body(services, "httpd_nvram_set_int_status(const char *param_name, int value, int temporary)")
           started_writer = body(services, "httpd_started_state_publish_status(int started)")
+
+          assert "httpd_nvram_read_int_status(param_name, missing_value, value)" in nvram_reader
+          assert "httpd_start_config_read(httpd_nvram_read_int_adapter" in start
+          config_snapshot = start.index("httpd_start_config_read(httpd_nvram_read_int_adapter")
+          config_read_error = start.index("if (status != 0)", config_snapshot)
+          first_port_write = start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
+          assert config_snapshot < config_read_error < first_port_write
+          assert config_snapshot < start.index("launch_status = _eval(httpd_argv, NULL, 0, NULL);")
+          for key in ("http_lanport", "misc_http_x", "https_lport", "https_wopen"):
+              assert 'nvram_get_int("' + key + '")' not in start
+          assert "httpd_start_config_read" in policy
+          for marker in (
+              "test_start_config_reads_only_selected_listener_settings",
+              "test_start_config_preserves_missing_key_defaults_and_http_only_builds",
+              "test_start_config_reads_https_only_settings_when_selected",
+              "test_start_config_fails_closed_without_partial_snapshot",
+              "test_start_config_rejects_invalid_arguments",
+          ):
+              assert marker in test and marker + "();" in test
 
           assert 'process_inventory_scan("httpd", &snapshot)' in probe
           assert "snapshot.error" in probe and "process_snapshot_release(&snapshot)" in probe

@@ -1730,6 +1730,14 @@ httpd_nvram_read_int_status(const char *param_name, int missing_value, int *valu
 		api_result, saved_errno, text, missing_value, value);
 }
 
+static int
+httpd_nvram_read_int_adapter(void *context, const char *param_name,
+			    int missing_value, int *value)
+{
+	(void)context;
+	return httpd_nvram_read_int_status(param_name, missing_value, value);
+}
+
 
 static int
 httpd_started_state_publish_status(int started)
@@ -1754,6 +1762,7 @@ httpd_process_presence(int *scan_error)
 static int
 start_httpd_locked(int restart_fw)
 {
+	struct httpd_start_config start_config;
 	int http_proto, argv_index, http_port, restart_fw_need;
 	int launch_status, attempt, status, scan_error, firewall_status = 0;
 	int firewall_errno = 0;
@@ -1802,19 +1811,23 @@ start_httpd_locked(int restart_fw)
 	}
 
 #if defined (SUPPORT_HTTPS)
-	status = httpd_nvram_read_int_status("http_proto", 0, &http_proto);
+	status = httpd_start_config_read(httpd_nvram_read_int_adapter, NULL,
+					 1, &start_config);
+#else
+	status = httpd_start_config_read(httpd_nvram_read_int_adapter, NULL,
+					 0, &start_config);
+#endif
 	if (status != 0) {
 		logmessage(LOGNAME,
-			   "cannot read HTTP protocol configuration; refusing insecure fallback (status=%d)",
+			   "cannot read HTTPD startup settings; refusing listener launch (status=%d)",
 			   status);
 		return status;
 	}
-#else
-	http_proto = 0;
-#endif
+	http_proto = start_config.http_proto;
+	http_port = start_config.http_port;
+
 	if (http_proto == 0 || http_proto == 2) {
 
-		http_port = nvram_get_int("http_lanport");
 		if (http_port < 80 || http_port > 65535) {
 			http_port = 80;
 			status = httpd_nvram_set_int_status("http_lanport", http_port, 0);
@@ -1831,12 +1844,12 @@ start_httpd_locked(int restart_fw)
 		httpd_argv[argv_index++] = "-p";
 		httpd_argv[argv_index++] = http_port_s;
 
-		restart_fw_need |= nvram_get_int("misc_http_x");
+		restart_fw_need |= start_config.misc_http_x;
 	}
 
 #if defined (SUPPORT_HTTPS)
 	if (http_proto == 1 || http_proto == 2) {
-		int https_port = nvram_get_int("https_lport");
+		int https_port = start_config.https_port;
 		if (https_port < 81 || https_port > 65535 || https_port == http_port) {
 			https_port = 443;
 			status = httpd_nvram_set_int_status("https_lport", https_port, 0);
@@ -1853,7 +1866,7 @@ start_httpd_locked(int restart_fw)
 		httpd_argv[argv_index++] = "-s";
 		httpd_argv[argv_index++] = https_port_s;
 
-		restart_fw_need |= nvram_get_int("https_wopen");
+		restart_fw_need |= start_config.https_wopen;
 	}
 #endif
 

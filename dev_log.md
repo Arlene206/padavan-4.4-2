@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed on HTTPD startup setting read errors
+
+- Parent main SHA: `772916f1f377917ba9c6262b7b421f61dc79e6b6`.
+- `start_httpd_locked()` already checked `http_proto`, but still consumed `http_lanport`, `misc_http_x`, `https_lport` and `https_wopen` through unchecked integer getters. A backend failure could overwrite a configured listener port with the legacy fallback or skip the firewall refresh needed for a public HTTP/HTTPS listener.
+- Added an injectable all-or-nothing startup-settings snapshot using the existing checked NVRAM integer reader. Missing keys retain zero defaults and HTTP-only / HTTP / HTTPS / dual-listener selections read only their relevant values. All reads complete before port normalization writes, service-state publication or daemon launch; any read/parse failure aborts startup without changing the config snapshot.
+- Added GNU89 policy regressions for protocol-specific read ordering, missing defaults, each of five injected read failures, output preservation and invalid arguments. Extended HTTPD lifecycle source contracts to require the checked preflight before writes/launch and forbid the four unchecked getters. Exact-head HTTPD / Process / XY-C1 validation pending; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Normalize multiline USB modem selector source assertion
 
 - Parent main SHA: `af16c58c166b915e8847d1e30325ccea5bc78460`.
