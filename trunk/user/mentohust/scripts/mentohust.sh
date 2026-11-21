@@ -215,6 +215,14 @@ func_start(){
 			else
 				func_log "Daemon startup readiness could not be verified (status=$readiness_status)"
 			fi
+			# A child can appear just after the final bounded probe. Re-inventory
+			# before returning failure; pl_stop_named never signals UNKNOWN state.
+			if pl_stop_named "$mentohust_exec" 3 2; then
+				func_log "Daemon startup rollback confirmed process absent"
+			else
+				rollback_status=$?
+				func_log "Daemon startup rollback incomplete (primary_status=$readiness_status, rollback_status=$rollback_status)"
+			fi
 			return "$readiness_status"
 		fi
 		echo "[  OK  ]"

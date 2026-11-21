@@ -320,6 +320,10 @@ def check_scutclient():
     assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in source
     assert 'pl_stop_named "$scutclient_exec" 3 2' in source
     assert 'pl_wait_started "$scutclient_exec" 1 4 1' in source
+    assert source.index("if start-stop-daemon ") < source.index(
+        'if pl_wait_started "$scutclient_exec" 1 4 1'
+    ) < source.index('if pl_stop_named "$scutclient_exec" 3 2')
+    assert "primary_status=$readiness_status" in source
     with tempfile.TemporaryDirectory(prefix="scutclient-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")
@@ -334,6 +338,14 @@ if [ "$1" = get ]; then
 fi
 """)
         executable(bin_dir / "pidof", """#!/bin/sh
+count=0
+[ -r "$MOCK_PIDOF_COUNT_FILE" ] && count=$(cat "$MOCK_PIDOF_COUNT_FILE")
+count=$((count + 1))
+echo "$count" > "$MOCK_PIDOF_COUNT_FILE"
+if [ "${MOCK_PIDOF_RUNNING_AT:-0}" -gt 0 ] &&
+   [ "$count" -ge "$MOCK_PIDOF_RUNNING_AT" ]; then
+    echo running > "$MOCK_STATE_FILE"
+fi
 case "$(cat "$MOCK_STATE_FILE")" in
     running) echo 123; exit 0 ;;
     absent) exit 1 ;;
@@ -354,7 +366,10 @@ exit 0
 """)
         executable(bin_dir / "killall", """#!/bin/sh
 echo "$*" >> "$MOCK_STOP_LOG"
-echo "$MOCK_TERM_STATE" > "$MOCK_STATE_FILE"
+case " $* " in
+    *" -9 "*) echo "$MOCK_KILL_STATE" > "$MOCK_STATE_FILE" ;;
+    *) echo "$MOCK_TERM_STATE" > "$MOCK_STATE_FILE" ;;
+esac
 exit "$MOCK_STOP_STATUS"
 """)
         executable(bin_dir / "sleep", """#!/bin/sh
@@ -393,6 +408,9 @@ exit 0
             "MOCK_TERM_STATE": "absent",
             "MOCK_SLEEP_STATUS": "0",
             "MOCK_SLEEP_COUNT_FILE": str(sleep_count),
+            "MOCK_PIDOF_COUNT_FILE": str(base / "pidof.count"),
+            "MOCK_PIDOF_RUNNING_AT": "0",
+            "MOCK_KILL_STATE": "absent",
             "MOCK_SLEEP_APPEARS_AFTER": "0",
             "PROCESS_LIFECYCLE_LIB": str(PROCESS_LIFECYCLE_LIB),
         })
@@ -421,14 +439,52 @@ exit 0
         assert len(stop_log.read_text().splitlines()) == 1
         assert len(logout_log.read_text().splitlines()) == 1
 
-        # A zero background-fork status is not proof that the child survived.
+        # ABSENT after the bounded wait needs no signal; a late child appearing
+        # at the rollback recheck must be stopped without changing primary status.
         env["MOCK_START_APPEARS"] = "0"
+        log.write_text("")
+        stop_count_before = len(stop_log.read_text().splitlines())
         sleep_count.write_text("0")
+        pidof_count = Path(env["MOCK_PIDOF_COUNT_FILE"])
+        pidof_count.write_text("0")
         missing_child = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
         assert missing_child.returncode == 1, f"SCUT accepted absent child: {missing_child.returncode}"
         assert "startup readiness timed out" in log.read_text()
+        assert "Daemon startup rollback confirmed process absent" in log.read_text()
         assert state.read_text().strip() == "absent"
         assert sleep_count.read_text().strip() == "4"
+        assert len(stop_log.read_text().splitlines()) == stop_count_before
+
+        log.write_text("")
+        env["MOCK_PIDOF_RUNNING_AT"] = "6"
+        pidof_count.write_text("0")
+        sleep_count.write_text("0")
+        late_child = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
+        assert late_child.returncode == 1, "SCUT replaced readiness failure with rollback success"
+        assert state.read_text().strip() == "absent"
+        stop_lines = stop_log.read_text().splitlines()
+        assert len(stop_lines) == stop_count_before + 1 and stop_lines[-1] == "-q bin_scutclient"
+        assert "Daemon startup rollback confirmed process absent" in log.read_text()
+        env["MOCK_PIDOF_RUNNING_AT"] = "0"
+        pidof_count.write_text("0")
+
+        log.write_text("")
+        env["MOCK_PIDOF_RUNNING_AT"] = "6"
+        env["MOCK_TERM_STATE"] = "running"
+        env["MOCK_KILL_STATE"] = "running"
+        pidof_count.write_text("0")
+        sleep_count.write_text("0")
+        cleanup_failed = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
+        assert cleanup_failed.returncode == 1
+        assert "Daemon startup rollback incomplete (primary_status=1, rollback_status=1)" in log.read_text()
+        assert stop_log.read_text().splitlines()[-1] == "-q -9 bin_scutclient"
+        assert state.read_text().strip() == "running"
+        env["MOCK_TERM_STATE"] = "absent"
+        env["MOCK_KILL_STATE"] = "absent"
+        env["MOCK_PIDOF_RUNNING_AT"] = "0"
+        pidof_count.write_text("0")
+        state.write_text("absent")
+        stop_count_before = len(stop_log.read_text().splitlines())
         sleep_count.write_text("0")
         env["MOCK_SLEEP_APPEARS_AFTER"] = "2"
         delayed_child = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
@@ -441,11 +497,16 @@ exit 0
         assert len(logout_log.read_text().splitlines()) == 2
         env["MOCK_SLEEP_APPEARS_AFTER"] = "0"
         env["MOCK_START_STATE"] = "unknown"
+        log.write_text("")
         sleep_count.write_text("0")
+        pidof_count.write_text("0")
+        stop_count_before = len(stop_log.read_text().splitlines())
         unknown_child = run(["/bin/sh", str(SCUT_SCRIPT), "start"], env)
         assert unknown_child.returncode == 2, f"SCUT accepted UNKNOWN child: {unknown_child.returncode}"
         assert "startup readiness could not be verified" in log.read_text()
+        assert "Daemon startup rollback incomplete (primary_status=2, rollback_status=2)" in log.read_text()
         assert sleep_count.read_text().strip() == "1"
+        assert len(stop_log.read_text().splitlines()) == stop_count_before, "UNKNOWN rollback must not signal"
         del env["MOCK_START_STATE"]
 
         # UNKNOWN blocks start, stop, restart, signal and logoff.
@@ -580,10 +641,22 @@ def check_mentohust():
     assert '. "$PROCESS_LIFECYCLE_LIB" || exit 127' in source
     assert 'pl_stop_named "$mentohust_exec" 3 2' in source
     assert 'pl_wait_started "$mentohust_exec" 1 4 1' in source
+    assert source.index("if start-stop-daemon ") < source.index(
+        'if pl_wait_started "$mentohust_exec" 1 4 1'
+    ) < source.index('if pl_stop_named "$mentohust_exec" 3 2')
+    assert "primary_status=$readiness_status" in source
     with tempfile.TemporaryDirectory(prefix="mentohust-lifecycle-") as tmp:
         base = Path(tmp)
         bin_dir = mock_bin(base / "bin")
         executable(bin_dir / "pidof", """#!/bin/sh
+count=0
+[ -r "$MOCK_PIDOF_COUNT_FILE" ] && count=$(cat "$MOCK_PIDOF_COUNT_FILE")
+count=$((count + 1))
+echo "$count" > "$MOCK_PIDOF_COUNT_FILE"
+if [ "${MOCK_PIDOF_RUNNING_AT:-0}" -gt 0 ] &&
+   [ "$count" -ge "$MOCK_PIDOF_RUNNING_AT" ]; then
+    echo running > "$MOCK_STATE_FILE"
+fi
 case "$(cat "$MOCK_STATE_FILE")" in
     running) echo 456; exit 0 ;;
     absent) exit 1 ;;
@@ -604,7 +677,10 @@ exit 0
 """)
         executable(bin_dir / "killall", """#!/bin/sh
 echo "$*" >> "$MOCK_STOP_LOG"
-echo "$MOCK_TERM_STATE" > "$MOCK_STATE_FILE"
+case " $* " in
+    *" -9 "*) echo "$MOCK_KILL_STATE" > "$MOCK_STATE_FILE" ;;
+    *) echo "$MOCK_TERM_STATE" > "$MOCK_STATE_FILE" ;;
+esac
 exit "$MOCK_STOP_STATUS"
 """)
         executable(bin_dir / "sleep", """#!/bin/sh
@@ -638,6 +714,9 @@ exit "$MOCK_SLEEP_STATUS"
             "MOCK_TERM_STATE": "absent",
             "MOCK_SLEEP_STATUS": "0",
             "MOCK_SLEEP_COUNT_FILE": str(sleep_count),
+            "MOCK_PIDOF_COUNT_FILE": str(base / "pidof.count"),
+            "MOCK_PIDOF_RUNNING_AT": "0",
+            "MOCK_KILL_STATE": "absent",
             "MOCK_SLEEP_APPEARS_AFTER": "0",
             "MOCK_LOG": str(log),
             "MENTOHUST_BIN_CONF_FILE": str(config),
@@ -667,13 +746,52 @@ exit "$MOCK_SLEEP_STATUS"
         assert state.read_text().strip() == "absent"
 
         # A successful background fork must be followed by a visible child.
+        # Recheck/rollback closes the race where the daemon appears just after
+        # the last readiness probe, while retaining the primary timeout.
         env["MOCK_START_APPEARS"] = "0"
+        log.write_text("")
+        stop_count_before = len(stop_log.read_text().splitlines())
         sleep_count.write_text("0")
+        pidof_count = Path(env["MOCK_PIDOF_COUNT_FILE"])
+        pidof_count.write_text("0")
         missing_child = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
         assert missing_child.returncode == 1, f"mentohust accepted absent child: {missing_child.returncode}"
         assert "startup readiness timed out" in log.read_text()
+        assert "Daemon startup rollback confirmed process absent" in log.read_text()
         assert state.read_text().strip() == "absent"
         assert sleep_count.read_text().strip() == "4"
+        assert len(stop_log.read_text().splitlines()) == stop_count_before
+
+        log.write_text("")
+        env["MOCK_PIDOF_RUNNING_AT"] = "6"
+        pidof_count.write_text("0")
+        sleep_count.write_text("0")
+        late_child = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
+        assert late_child.returncode == 1, "MentoHUST replaced readiness failure with rollback success"
+        assert state.read_text().strip() == "absent"
+        stop_lines = stop_log.read_text().splitlines()
+        assert len(stop_lines) == stop_count_before + 1 and stop_lines[-1] == "-q bin_mentohust"
+        assert "Daemon startup rollback confirmed process absent" in log.read_text()
+        env["MOCK_PIDOF_RUNNING_AT"] = "0"
+        pidof_count.write_text("0")
+
+        log.write_text("")
+        env["MOCK_PIDOF_RUNNING_AT"] = "6"
+        env["MOCK_TERM_STATE"] = "running"
+        env["MOCK_KILL_STATE"] = "running"
+        pidof_count.write_text("0")
+        sleep_count.write_text("0")
+        cleanup_failed = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
+        assert cleanup_failed.returncode == 1
+        assert "Daemon startup rollback incomplete (primary_status=1, rollback_status=1)" in log.read_text()
+        assert stop_log.read_text().splitlines()[-1] == "-q -9 bin_mentohust"
+        assert state.read_text().strip() == "running"
+        env["MOCK_TERM_STATE"] = "absent"
+        env["MOCK_KILL_STATE"] = "absent"
+        env["MOCK_PIDOF_RUNNING_AT"] = "0"
+        pidof_count.write_text("0")
+        state.write_text("absent")
+        stop_count_before = len(stop_log.read_text().splitlines())
         sleep_count.write_text("0")
         env["MOCK_SLEEP_APPEARS_AFTER"] = "2"
         delayed_child = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
@@ -685,11 +803,16 @@ exit "$MOCK_SLEEP_STATUS"
         assert state.read_text().strip() == "absent"
         env["MOCK_SLEEP_APPEARS_AFTER"] = "0"
         env["MOCK_START_STATE"] = "unknown"
+        log.write_text("")
         sleep_count.write_text("0")
+        pidof_count.write_text("0")
+        stop_count_before = len(stop_log.read_text().splitlines())
         unknown_child = run(["/bin/sh", str(MENTOHUST_SCRIPT), "start"], env)
         assert unknown_child.returncode == 2, f"mentohust accepted UNKNOWN child: {unknown_child.returncode}"
         assert "startup readiness could not be verified" in log.read_text()
+        assert "Daemon startup rollback incomplete (primary_status=2, rollback_status=2)" in log.read_text()
         assert sleep_count.read_text().strip() == "1"
+        assert len(stop_log.read_text().splitlines()) == stop_count_before, "UNKNOWN rollback must not signal"
         del env["MOCK_START_STATE"]
 
         # UNKNOWN blocks both stop and restart; no signal or replacement launch.

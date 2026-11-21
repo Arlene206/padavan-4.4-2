@@ -1,3 +1,14 @@
+## 2026-11-21 — Roll back late SCUT/MentoHUST children after startup readiness failure
+
+- Parent main SHA: `3301df972d42fbeff8ccde3835642c15421b997d`.
+- Fixed a narrow detached-child race in both SCUT and MentoHUST wrappers: after the bounded startup wait reported ABSENT/UNKNOWN, a late child could become visible immediately afterward and remain running even though RC received a failed start. The failure path now re-inventories through the shared `pl_stop_named` helper; it signals only a freshly verified process, refuses to signal UNKNOWN inventory, and records whether cleanup was confirmed.
+- The original readiness status remains the command result regardless of cleanup outcome. A failed launcher path is unchanged, and an already-running process is never stopped by this new logic.
+- Extended the existing optional-app regression to cover no-op cleanup for confirmed ABSENT, a child appearing exactly at the post-timeout recheck, a stubborn child that survives TERM/KILL, and UNKNOWN refusing signals. The mocks validate that cleanup failures never overwrite the primary startup failure.
+- Local checkout/runtime tests were unavailable; exact-SHA Process lifecycle and XY-C1 firmware Actions will execute the Python integration checker and shell syntax checks. No physical-router behavior is claimed.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Retry static LAN route recovery after a failed WAN restart stage
 
 - Parent main SHA: `ce0f46dcdca763e68302ea81d00fbc59cb92e380`.
