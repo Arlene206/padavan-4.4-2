@@ -14,10 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Active task
 
-- Current source slice: checked PPPoE-MWAN exact-enable decisions in WAN-up/down, plus the preceding demand-PPP DNS teardown preservation fix.
-- PPPoE-MWAN WAN-up/down gates now use `get_nvram_match_checked_status()`; missing remains disabled, backend errors enter the first-error accumulator, exact `"1"` is required to launch `detect.sh`.
-- The WAN route checker had a test ownership error: its four DNS teardown cases reside in `tests/wan_teardown_policy.c`, not `tests/wan_nvram_status_policy.c`. This checker-only correction reads the proper file. Exact-head rerun must verify the new checker and PPPoE policy tests.
-- First independent follow-up: continue the WAN control-plane NVRAM read audit after the PPPoE-MWAN and gateway-ARP decisions; avoid redoing already fixed DNS, ZeroTier and optional-daemon gates.
+- Production source slices: preserve indexed demand-PPP DNS on WAN teardown when global MAN DNS cannot be read; use checked exact-string PPPoE-MWAN enable reads in both WAN-up and WAN-down; check rstats/LLTD enable state before daemon startup.
+- Current task: repair three stale regression assertions. The WAN route checker must accept the checked PPPoE-MWAN read/error/launch sequence after the WAN post-down hook; the PPPoE-MWAN checker must test that same checked read in both event handlers; the Process checker must normalize whitespace across multi-line C rollback calls.
+- Earlier route/ZeroTier/firewall contracts now pass on the 855d ancestry; WAN route #44925135400 failed later at check_wan_detect_wan_status.py. XY-C1 #44925135581 passed the PPPoE shell tests and failed at the old PPPoE-MWAN caller assertion. Process #44925135670 failed only at the whitespace-sensitive rollback assertion. Exact-head reruns pending.
+- After these contracts pass, continue the WAN event NVRAM audit with the DHCP gateway-ARP enable decision.
 
 ## Verification boundary
 
@@ -44,5 +44,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and verify the frozen backup remains unchanged. Check exact-head WAN route, teardown, AI handoff and XY-C1 Build/TRX/artifact Actions for the WAN checker correction; inspect failures and repair. Then continue the WAN event NVRAM audit with the DHCP gateway-ARP enable decision, using checked exact-string reads and regression coverage.
+Fetch live main and verify the frozen backup remains unchanged. Check exact-head WAN route, XY-C1 Build/TRX/artifact, and Process Actions for the checker repair; inspect any failure logs and fix only the true failing contract/implementation. Then implement the DHCP gateway-ARP enable check using the checked exact-string NVRAM reader and add regression coverage.
 

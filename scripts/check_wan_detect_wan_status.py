@@ -149,13 +149,29 @@ down_hook_merge = down_hook.index(
 )
 down_hook_failure = down_hook.index("if (route_status != 0)", down_hook_merge)
 down_hook_log = down_hook.index("WAN post-down script incomplete", down_hook_failure)
-later_mwan_gate = down_hook.index(
-    'if (nvram_match("pppoemwan_enable", "1"))', down_hook_log
+later_mwan_read = down_hook.index(
+    "pppoemwan_status = get_nvram_match_checked_status(", down_hook_log
+)
+later_mwan_error = down_hook.index(
+    "if (pppoemwan_status != 0)", later_mwan_read
+)
+later_mwan_error_merge = down_hook.index(
+    "status = route_status_accumulate(status, pppoemwan_status);",
+    later_mwan_error,
+)
+later_mwan_enabled = down_hook.index(
+    "else if (pppoemwan_enabled)", later_mwan_error
 )
 later_mwan_eval = down_hook.index(
-    'route_status = eval("/usr/bin/detect.sh");', later_mwan_gate
+    'route_status = eval("/usr/bin/detect.sh");', later_mwan_enabled
 )
 down_return = down_hook.index("return status;", later_mwan_eval)
+require(
+    'nvram_match("pppoemwan_enable", "1")' not in down_hook
+    and down_hook_log < later_mwan_read < later_mwan_error
+    < later_mwan_error_merge < later_mwan_enabled < later_mwan_eval < down_return,
+    "post-down hook failure must be aggregated before checked PPPoE-MWAN detection and WAN return",
+)
 
 
 static_down = down_hook.split(
@@ -200,7 +216,8 @@ require(
 
 require(
     down_hook_guard < down_hook_eval < down_hook_merge < down_hook_failure
-    < down_hook_log < later_mwan_gate < later_mwan_eval < down_return,
+    < down_hook_log < later_mwan_read < later_mwan_error
+    < later_mwan_error_merge < later_mwan_enabled < later_mwan_eval < down_return,
     "post-down hook failure must be captured and aggregated without skipping later PPPoE-MWAN reconfiguration",
 )
 require(down_hook.count('eval(script_postw, "down", wan_ifname, wan_addr)') == 1,

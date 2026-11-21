@@ -72,21 +72,31 @@ def require(condition, message):
 
 def check_caller(signature, direction, diagnostic):
     caller = function_body(WAN, signature)
-    gate = caller.index('if (nvram_match("pppoemwan_enable", "1"))')
-    opening = caller.index("{", gate)
-    block, end = braced_body(caller, opening)
-    launch = block.index('route_status = eval("/usr/bin/detect.sh");')
-    merge = block.index("status = route_status_accumulate(status, route_status);", launch)
-    failure_check = block.index("if (route_status != 0)", merge)
-    log = block.index(diagnostic, failure_check)
+    read = caller.index("pppoemwan_status = get_nvram_match_checked_status(")
+    read_error = caller.index("if (pppoemwan_status != 0)", read)
+    read_merge = caller.index(
+        "status = route_status_accumulate(status, pppoemwan_status);",
+        read_error,
+    )
+    read_log = caller.index(
+        "cannot read PPPoE-MWAN enable setting during " + direction,
+        read_error,
+    )
+    enabled = caller.index("else if (pppoemwan_enabled)", read_error)
+    launch = caller.index('route_status = eval("/usr/bin/detect.sh");', enabled)
+    merge = caller.index("status = route_status_accumulate(status, route_status);", launch)
+    failure_check = caller.index("if (route_status != 0)", merge)
+    log = caller.index(diagnostic, failure_check)
     require(
-        launch < merge < failure_check < log,
-        direction + " detector result must be captured, aggregated and logged in order",
+        read < read_error < read_merge < read_log < enabled < launch
+        < merge < failure_check < log,
+        direction + " must report checked configuration errors and aggregate detector status in order",
     )
     require(
-        'doSystem("/usr/bin/detect.sh")' not in caller
-        and "return status;" in caller[end:],
-        direction + " must return the accumulated detector status",
+        'nvram_match("pppoemwan_enable", "1")' not in caller
+        and 'doSystem("/usr/bin/detect.sh")' not in caller
+        and "return status;" in caller[log:],
+        direction + " must not use an unchecked gate and must return accumulated status",
     )
 
 

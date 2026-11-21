@@ -1,3 +1,12 @@
+## 2026-11-21 — Update PPPoE-MWAN and detached-daemon source contracts
+
+- Parent main SHA: 6f90222e0d35cb04bf640aef51957b02efa3cf60.
+- WAN route run #44925135400 on 855d98387f10a802420d8da99d7e97d227970a97 passed firewall, DDNS, ZeroTier and other preceding checks, then failed because check_wan_detect_wan_status.py still searched for the removed raw PPPoE-MWAN nvram_match gate after the WAN post-down hook.
+- XY-C1 run #44925135581 reached the PPPoE-MWAN test matrix (all shell-level PPPoE tests shown before the failing Python check passed) and failed because check_pppoe_mwan_status.py still expected the old unchecked gate. Both source contracts now verify checked exact-match read → error accumulation → confirmed-enabled launch ordering.
+- Process run #44925135670 failed at the detached-start source contract because C rollback calls span multiple lines while the Python checker used whitespace-sensitive comparisons. It now normalizes the C function body before matching the exact calls. The production implementations are unchanged by this checker-only repair; exact-head reruns are pending.
+
+---
+
 ## 2026-11-21 — Check infosvr/crond enable gates and crond log mode
 
 - Parent main SHA: 855d98387f10a802420d8da99d7e97d227970a97.

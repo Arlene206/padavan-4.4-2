@@ -364,15 +364,19 @@ def check_rc_optional_daemon_enable_reads():
     )
     for signature, process_name, status_var, errno_var in detached_start_cases:
         start_body = extract_c_function_body(services, signature)
-        assert ('optional_daemon_presence("' + process_name + '", &scan_error)') in start_body
+        compact_start_body = "".join(start_body.split())
+        assert (
+            'optional_daemon_presence("' + process_name + '",&scan_error)'
+            in compact_start_body
+        )
         for call in (
-            'optional_daemon_rollback_failed_start("' + process_name + '", ' +
-            status_var + ", " + errno_var + ")",
-            'optional_daemon_rollback_failed_start("' + process_name + '", -1, ' +
+            'optional_daemon_rollback_failed_start("' + process_name + '",' +
+            status_var + "," + errno_var + ")",
+            'optional_daemon_rollback_failed_start("' + process_name + '",-1,' +
             errno_var + ")",
-            'optional_daemon_rollback_failed_start("' + process_name + '", -1, ETIMEDOUT)',
+            'optional_daemon_rollback_failed_start("' + process_name + '",-1,ETIMEDOUT)',
         ):
-            assert call in start_body, signature + ": " + call
+            assert call in compact_start_body, signature + ": " + call
         assert "PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS" in start_body
         assert "PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS" in start_body
         assert "PROCESS_PRESENCE_UNKNOWN" in start_body
