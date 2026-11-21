@@ -337,8 +337,12 @@ require(
     "manual WAN disconnect must report stop_wan/stop_wan_ppp failures",
 )
 require(
-    "if (get_ap_mode())" in manual_disconnect and "return 0;" in manual_disconnect,
-    "manual WAN disconnect remains a harmless no-op in AP mode",
+    "ap_mode_status = get_ap_mode_status(&is_ap_mode);" in manual_disconnect
+    and "if (ap_mode_status != 0)" in manual_disconnect
+    and "return ap_mode_status;" in manual_disconnect
+    and "if (is_ap_mode)" in manual_disconnect
+    and "return 0;" in manual_disconnect,
+    "manual WAN disconnect must fail closed on unknown mode and remain a no-op in AP mode",
 )
 manual_disconnect_dispatch = body(RC_SOURCE, "handle_notifications(void)")
 manual_disconnect_action = manual_disconnect_dispatch.split(
