@@ -43,6 +43,7 @@
 #include "modem_wan_start_policy.h"
 #include "process_inventory.h"
 #include "service_wait_policy.h"
+#include "service_daemon_wait_policy.h"
 #include "storage_operation_lock.h"
 #include "samba_share_policy.h"
 #include "samba_fastpath_policy.h"
@@ -160,7 +161,8 @@ storage_daemon_presence(const char *daemon, int *scan_error)
 #if defined (APP_MINIDLNA) || defined (APP_FIREFLY) || defined (APP_TRMD) || defined (APP_ARIA)
 static int
 storage_log_daemon_start_result(const char *apps_name, int launch_status,
-				enum process_presence process_state)
+				enum process_presence process_state,
+				int process_error)
 {
 	int status = launch_status;
 	int process_status;
@@ -177,13 +179,40 @@ storage_log_daemon_start_result(const char *apps_name, int launch_status,
 		logmessage(apps_name, "daemon is absent in post-launch process inventory");
 		status = rc_first_service_start_status(status, ENOENT);
 	} else {
-		process_status = errno ? errno : EIO;
+		process_status = process_error > 0 ? process_error : EIO;
 		logmessage(apps_name, "cannot verify daemon startup (scan error=%d)",
 			   process_status);
 		status = rc_first_service_start_status(status, process_status);
 	}
 
 	return status;
+}
+#endif
+
+#if defined (APP_FTPD) || defined (APP_MINIDLNA) || defined (APP_FIREFLY)
+static int
+storage_daemon_wait_is_running(void *context, const char *daemon)
+{
+	(void)context;
+	return storage_daemon_presence(daemon, NULL);
+}
+
+static int
+storage_daemon_wait_sleep_us(void *context, unsigned int microseconds)
+{
+	(void)context;
+	return service_wait_microseconds(microseconds);
+}
+
+static int
+storage_wait_for_daemon(const char *daemon)
+{
+	static const struct service_daemon_wait_ops ops = {
+		storage_daemon_wait_is_running,
+		storage_daemon_wait_sleep_us
+	};
+
+	return service_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
 }
 #endif
 
@@ -333,28 +362,9 @@ write_vsftpd_conf(void)
 }
 
 static int
-ftp_daemon_is_running(void *context, const char *daemon)
-{
-	(void)context;
-	return storage_daemon_presence(daemon, NULL);
-}
-
-static int
-ftp_daemon_sleep(void *context, unsigned int microseconds)
-{
-	(void)context;
-	return service_wait_microseconds(microseconds);
-}
-
-static int
 ftp_wait_for_daemon(const char *daemon)
 {
-	static const struct ftp_daemon_wait_ops ops = {
-		ftp_daemon_is_running,
-		ftp_daemon_sleep
-	};
-
-	return ftp_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL);
+	return storage_wait_for_daemon(daemon);
 }
 
 int
@@ -2299,6 +2309,7 @@ int run_dms(int force_rescan)
 {
 	int db_rescan_mode;
 	int process_state;
+	int process_error;
 	int config_status;
 	int launch_status;
 	int launch_errno;
@@ -2362,14 +2373,28 @@ int run_dms(int force_rescan)
 	errno = 0;
 	launch_status = _eval(minidlna_argv, NULL, 0, NULL);
 	launch_errno = errno;
-	errno = 0;
-	process_state = is_dms_run();
+	process_error = 0;
+	if (launch_status == 0) {
+		if (storage_wait_for_daemon("minidlna") == 0)
+			process_state = PROCESS_PRESENCE_RUNNING;
+		else {
+			process_error = errno ? errno : EIO;
+			process_state = process_error == ETIMEDOUT ?
+				PROCESS_PRESENCE_ABSENT : PROCESS_PRESENCE_UNKNOWN;
+		}
+	} else {
+		errno = 0;
+		process_state = is_dms_run();
+		if (process_state == PROCESS_PRESENCE_UNKNOWN)
+			process_error = errno ? errno : EIO;
+	}
 	start_status = storage_log_daemon_start_result(
-		apps_name, launch_status, (enum process_presence)process_state);
+		apps_name, launch_status, (enum process_presence)process_state,
+		process_error);
 	if (start_status != 0) {
 		start_errno = launch_status != 0 ?
 			(launch_errno ? launch_errno : EIO) :
-			(errno ? errno : start_status);
+			(process_error ? process_error : (errno ? errno : start_status));
 		return storage_rollback_failed_start(
 			apps_name, "minidlna", start_status, start_errno,
 			stop_dms_locked);
@@ -2485,6 +2510,7 @@ int run_itunes(void)
 	char *dest_dir = ".itunes";
 	char conf_new[64], conf_old[64];
 	int process_state;
+	int process_error;
 	int launch_status;
 	int launch_errno;
 	int start_status;
@@ -2550,14 +2576,28 @@ int run_itunes(void)
 	errno = 0;
 	launch_status = eval("/usr/bin/mt-daapd", "-c", conf_new);
 	launch_errno = errno;
-	errno = 0;
-	process_state = is_itunes_run();
+	process_error = 0;
+	if (launch_status == 0) {
+		if (storage_wait_for_daemon("mt-daapd") == 0)
+			process_state = PROCESS_PRESENCE_RUNNING;
+		else {
+			process_error = errno ? errno : EIO;
+			process_state = process_error == ETIMEDOUT ?
+				PROCESS_PRESENCE_ABSENT : PROCESS_PRESENCE_UNKNOWN;
+		}
+	} else {
+		errno = 0;
+		process_state = is_itunes_run();
+		if (process_state == PROCESS_PRESENCE_UNKNOWN)
+			process_error = errno ? errno : EIO;
+	}
 	start_status = storage_log_daemon_start_result(
-		apps_name, launch_status, (enum process_presence)process_state);
+		apps_name, launch_status, (enum process_presence)process_state,
+		process_error);
 	if (start_status != 0) {
 		start_errno = launch_status != 0 ?
 			(launch_errno ? launch_errno : EIO) :
-			(errno ? errno : start_status);
+			(process_error ? process_error : (errno ? errno : start_status));
 		return storage_rollback_failed_start(
 			apps_name, "mt-daapd", start_status, start_errno,
 			stop_itunes_locked);
@@ -2665,6 +2705,7 @@ int run_torrent(void)
 	char *link_path = "/mnt/transmission";
 	char *dest_dir = "transmission";
 	int process_state;
+	int process_error;
 	int launch_status;
 	int launch_errno;
 	int start_status;
@@ -2698,12 +2739,15 @@ int run_torrent(void)
 	launch_errno = errno;
 	errno = 0;
 	process_state = is_torrent_run();
+	process_error = process_state == PROCESS_PRESENCE_UNKNOWN ?
+		(errno ? errno : EIO) : 0;
 	start_status = storage_log_daemon_start_result(
-		apps_name, launch_status, (enum process_presence)process_state);
+		apps_name, launch_status, (enum process_presence)process_state,
+		process_error);
 	if (start_status != 0) {
 		start_errno = launch_status != 0 ?
 			(launch_errno ? launch_errno : EIO) :
-			(errno ? errno : start_status);
+			(process_error ? process_error : (errno ? errno : start_status));
 		return storage_rollback_failed_start(
 			apps_name, "transmission-daemon", start_status, start_errno,
 			stop_torrent_locked);
@@ -2822,6 +2866,7 @@ int run_aria(void)
 	char *link_path = "/mnt/aria";
 	char *dest_dir = "aria";
 	int process_state;
+	int process_error;
 	int launch_status;
 	int launch_errno;
 	int start_status;
@@ -2855,12 +2900,15 @@ int run_aria(void)
 	launch_errno = errno;
 	errno = 0;
 	process_state = is_aria_run();
+	process_error = process_state == PROCESS_PRESENCE_UNKNOWN ?
+		(errno ? errno : EIO) : 0;
 	start_status = storage_log_daemon_start_result(
-		apps_name, launch_status, (enum process_presence)process_state);
+		apps_name, launch_status, (enum process_presence)process_state,
+		process_error);
 	if (start_status != 0) {
 		start_errno = launch_status != 0 ?
 			(launch_errno ? launch_errno : EIO) :
-			(errno ? errno : start_status);
+			(process_error ? process_error : (errno ? errno : start_status));
 		return storage_rollback_failed_start(
 			apps_name, "aria2c", start_status, start_errno,
 			stop_aria_locked);

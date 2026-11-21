@@ -61,6 +61,7 @@ on:
       - "trunk/user/rc/src/storage_service_stop_policy.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/rc/src/tests/storage_service_stop_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/process_inventory.h"
@@ -136,6 +137,7 @@ on:
       - "trunk/user/rc/src/storage_service_stop_policy.h"
       - "trunk/user/rc/src/tests/ftp_daemon_policy.c"
       - "trunk/user/rc/src/ftp_daemon_policy.h"
+      - "trunk/user/rc/src/service_daemon_wait_policy.h"
       - "trunk/user/rc/src/tests/storage_service_stop_policy.c"
       - "trunk/user/shared/src/shutils.h"
       - "trunk/user/shared/src/process_inventory.h"
@@ -427,6 +429,7 @@ jobs:
           storage_stop_policy = (rc_dir / "storage_service_stop_policy.h").read_text()
           storage_stop_test = (rc_dir / "tests/storage_service_stop_policy.c").read_text()
           ftp_policy = (rc_dir / "ftp_daemon_policy.h").read_text()
+          daemon_wait_policy = (rc_dir / "service_daemon_wait_policy.h").read_text()
           ftp_test = (rc_dir / "tests/ftp_daemon_policy.c").read_text()
           rc = (rc_dir / "rc.c").read_text()
           workflow = Path(".github/workflows/storage-hotplug-stability.yml").read_text()
@@ -839,7 +842,23 @@ jobs:
           daemon_result = function_body(storage, "storage_log_daemon_start_result(")
           assert "status = rc_first_service_start_status(status, ENOENT);" in daemon_result
           assert "status = rc_first_service_start_status(status, process_status);" in daemon_result
+          assert "process_error > 0 ? process_error : EIO" in daemon_result
           assert "return status;" in daemon_result
+          daemon_wait = function_body(storage, "storage_wait_for_daemon(const char *daemon)")
+          assert "service_daemon_wait_for_stable_presence(daemon, 30, &ops, NULL)" in daemon_wait
+          assert "PROCESS_PRESENCE_UNKNOWN" in daemon_wait_policy
+          assert "PROCESS_PRESENCE_ABSENT" in daemon_wait_policy
+          for signature, daemon in (
+              ("run_dms(int force_rescan)", "minidlna"),
+              ("run_itunes(void)", "mt-daapd"),
+          ):
+              daemon_start = function_body(storage, signature)
+              launch_ok = daemon_start.index("if (launch_status == 0)")
+              wait_call = daemon_start.index('storage_wait_for_daemon("' + daemon + '")')
+              assert launch_ok < wait_call
+              assert "ETIMEDOUT" in daemon_start
+              assert "PROCESS_PRESENCE_UNKNOWN" in daemon_start
+          assert "minidlna" in ftp_test and "mt-daapd" in ftp_test
           assert "int run_dms(int force_rescan);" in rc_header
           assert "int run_itunes(void);" in rc_header
           assert "int run_torrent(void);" in rc_header
@@ -1446,8 +1465,10 @@ jobs:
           assert "daemon remains" in storage_stop_test
           assert "negative process query" in storage_stop_test
           assert "storage_service_process_presence_changed" in storage_stop_policy
-          assert "PROCESS_PRESENCE_UNKNOWN" in ftp_policy and "EIO" in ftp_policy
+          assert "PROCESS_PRESENCE_ABSENT" in ftp_policy
+          assert "PROCESS_PRESENCE_UNKNOWN" in daemon_wait_policy and "EIO" in daemon_wait_policy
           assert "PROCESS_PRESENCE_UNKNOWN" in ftp_test and "EACCES" in ftp_test
+          assert "service_daemon_wait_for_stable_presence" in ftp_test
           for restart_name, stop_name, start_name, operation in (
               ("restart_dms", "stop_dms", "run_dms", "DLNA"),
               ("restart_itunes", "stop_itunes", "run_itunes", "Firefly"),

@@ -1,3 +1,12 @@
+## 2026-11-21 — Wait for detached MiniDLNA and Firefly children before declaring storage startup success
+
+- Parent main SHA: `1fd04b9224460af23f6f63fa667c95e0edcbc045`.
+- Fixed a remaining race in `trunk/user/rc/src/services_stor.c`: MiniDLNA is launched without its foreground/debug option and mt-daapd without `-f`, so both daemonize. RC previously inspected `/proc` only once immediately after `_eval`/`eval`; a child not yet scheduled could be classified ABSENT and trigger a false rollback.
+- Extracted the existing FTP stable-presence policy into generic `service_daemon_wait_policy.h` while preserving FTP's specific failed-start policy. The common wait retries confirmed absence, requires a second RUNNING sample after 500 ms, and fails closed on UNKNOWN / timeout. MiniDLNA and Firefly now wait for their own daemon processes after successful launcher return; failed launcher returns still use immediate inventory/rollback. The primary process error is preserved explicitly through logging/rollback.
+- Extended the generic policy regression for `minidlna` and `mt-daapd`, and added workflow static contracts for both call sites and the fail-closed wait. Exact-SHA storage Actions will execute GNU89 policy compilation and the full storage hotplug regression; no firmware or physical-router result is claimed.
+
+---
+
 ## 2026-11-21 — Fix delayed-daemon fixture marker detection
 
 - Parent main SHA: `2647a9e4e90828fbae69d0f2d63413acc3908e1a`; the diagnostic rerun (#44879745837) reproduced the failure: the mock sleep did publish the delayed-child marker, but the mock `pidof` checked it with `-s`. The marker is intentionally an empty file, so `-s` incorrectly kept reporting ABSENT and made successful simulated startup time out.
