@@ -380,6 +380,57 @@ fake_ndis_identity_set(void *opaque, const char *param_name, const char *value)
 }
 
 static void
+test_ndis_identity_clear_removes_both_fields(void)
+{
+	struct fake_ndis_identity_writer fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_call = -1;
+	fake.cleanup_fail_call = -1;
+	assert(modem_wan_clear_ndis_identity(fake_ndis_identity_set, &fake) == 0);
+	assert(fake.calls == 2);
+	assert(strcmp(fake.names[0], "ifname_t") == 0);
+	assert(strcmp(fake.values[0], "") == 0);
+	assert(strcmp(fake.names[1], "proto_t") == 0);
+	assert(strcmp(fake.values[1], "") == 0);
+}
+
+static void
+test_ndis_identity_clear_attempts_protocol_after_ifname_failure(void)
+{
+	struct fake_ndis_identity_writer fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_call = 0;
+	fake.failure_status = EIO;
+	fake.cleanup_fail_call = 1;
+	fake.cleanup_failure_status = EPERM;
+	assert(modem_wan_clear_ndis_identity(fake_ndis_identity_set, &fake) == EIO);
+	assert(fake.calls == 2);
+	assert(strcmp(fake.names[0], "ifname_t") == 0);
+	assert(strcmp(fake.names[1], "proto_t") == 0);
+}
+
+static void
+test_ndis_identity_clear_reports_second_field_failure(void)
+{
+	struct fake_ndis_identity_writer fake;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.fail_call = 1;
+	fake.failure_status = ENOSPC;
+	fake.cleanup_fail_call = -1;
+	assert(modem_wan_clear_ndis_identity(fake_ndis_identity_set, &fake) == ENOSPC);
+	assert(fake.calls == 2);
+}
+
+static void
+test_ndis_identity_clear_rejects_missing_writer(void)
+{
+	assert(modem_wan_clear_ndis_identity(NULL, NULL) == EINVAL);
+}
+
+static void
 test_ndis_identity_is_published_before_interface_activation(void)
 {
 	struct fake_ndis_identity_writer fake;
@@ -468,6 +519,10 @@ main(void)
 	test_dhcp_launch_result_is_returned_after_migration();
 	test_ras_peer_file_cleanup_only_after_failed_launch();
 	test_ndis_interface_bringup_failure_skips_network_start();
+	test_ndis_identity_clear_removes_both_fields();
+	test_ndis_identity_clear_attempts_protocol_after_ifname_failure();
+	test_ndis_identity_clear_reports_second_field_failure();
+	test_ndis_identity_clear_rejects_missing_writer();
 	test_ndis_identity_is_published_before_interface_activation();
 	test_ndis_identity_failure_clears_both_fields_and_preserves_primary_error();
 	test_ndis_identity_first_write_failure_still_clears_stale_fields();

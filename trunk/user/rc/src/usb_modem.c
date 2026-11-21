@@ -1092,10 +1092,17 @@ launch_wan_usbnet(int unit)
 		interface_status = doSystem("ifconfig %s mtu %d up %s", ndis_ifname, ndis_mtu, "0.0.0.0");
 		if (interface_status != 0) {
 			error_status = set_wan_unit_error_status(unit, 1);
+			identity_rollback_status = modem_wan_clear_ndis_identity(
+				usb_modem_wan_identity_set_value, &unit);
+			if (identity_rollback_status != 0)
+				logmessage(LOGNAME,
+					   "USB modem WAN interface identity rollback failed after ifconfig error (status=%d)",
+					   identity_rollback_status);
 			logmessage(LOGNAME,
 				   "USB modem WAN interface %s bring-up failed (status=%d)",
 				   ndis_ifname, interface_status);
 			result_status = modem_wan_start_status(migration_status, interface_status);
+			result_status = modem_wan_start_status(result_status, identity_rollback_status);
 			return modem_wan_start_status(result_status, error_status);
 		}
 		firewall_status = start_firewall_ex();

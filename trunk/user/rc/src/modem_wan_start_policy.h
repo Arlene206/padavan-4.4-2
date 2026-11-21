@@ -92,6 +92,30 @@ typedef int (*modem_wan_nvram_set_value_fn)(void *context,
 					    const char *value);
 
 /*
+ * Clear the active interface before its protocol label. Always attempt both
+ * writes and return the first cleanup error so stale identity is not treated
+ * as successfully removed.
+ */
+static inline int
+modem_wan_clear_ndis_identity(modem_wan_nvram_set_value_fn set_value,
+			      void *context)
+{
+	int status, first_status = 0;
+
+	if (!set_value)
+		return EINVAL;
+
+	status = set_value(context, "ifname_t", "");
+	if (status != 0)
+		first_status = status;
+	status = set_value(context, "proto_t", "");
+	if (first_status == 0 && status != 0)
+		first_status = status;
+
+	return first_status;
+}
+
+/*
  * Publish the NDIS protocol label and active interface before bringing the
  * device up. If either NVRAM write fails, clear both fields in reverse order;
  * preserve the publication error and report the first cleanup error separately.
@@ -101,7 +125,7 @@ modem_wan_publish_ndis_identity(modem_wan_nvram_set_value_fn set_value,
 				void *context, const char *ifname,
 				int *rollback_status)
 {
-	int status, cleanup_status, first_cleanup_status = 0;
+	int status, cleanup_status;
 
 	if (rollback_status)
 		*rollback_status = 0;
@@ -115,15 +139,9 @@ modem_wan_publish_ndis_identity(modem_wan_nvram_set_value_fn set_value,
 		return 0;
 
 	/* A failed setter may have partially changed backend state. Clear both. */
-	cleanup_status = set_value(context, "ifname_t", "");
-	if (cleanup_status != 0)
-		first_cleanup_status = cleanup_status;
-	cleanup_status = set_value(context, "proto_t", "");
-	if (first_cleanup_status == 0 && cleanup_status != 0)
-		first_cleanup_status = cleanup_status;
-
+	cleanup_status = modem_wan_clear_ndis_identity(set_value, context);
 	if (rollback_status)
-		*rollback_status = first_cleanup_status;
+		*rollback_status = cleanup_status;
 	return status;
 }
 

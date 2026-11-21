@@ -143,8 +143,16 @@ assert interface_failure_pos < firewall_start_pos < control_start_pos < control_
 assert ndis.index("startup_status = modem_wan_start_status(migration_status, firewall_status);") < control_start_pos
 interface_failure = ndis[interface_failure_pos:firewall_start_pos]
 assert "set_wan_unit_error_status(unit, 1);" in interface_failure
+assert "identity_rollback_status = modem_wan_clear_ndis_identity(" in interface_failure
+assert "usb_modem_wan_identity_set_value, &unit);" in interface_failure
+assert "if (identity_rollback_status != 0)" in interface_failure
+assert "USB modem WAN interface identity rollback failed after ifconfig error" in interface_failure
 assert "return modem_wan_start_status(result_status, error_status);" in interface_failure
 assert "logmessage(LOGNAME" in interface_failure
+assert "modem_wan_clear_ndis_identity" in POLICY_SOURCE
+assert "test_ndis_identity_clear_attempts_protocol_after_ifname_failure" in WAN_TEST
+assert "test_ndis_identity_clear_reports_second_field_failure" in WAN_TEST
+assert "test_ndis_identity_clear_removes_both_fields();" in WAN_TEST
 
 control_failure = ndis[control_failure_pos:dhcp_start_pos]
 assert "set_wan_unit_error_status(unit, 1);" in control_failure
