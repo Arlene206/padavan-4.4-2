@@ -1,0 +1,33 @@
+name: wsdd2 WSD XML reflection regression
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/wsdd2-xml-reflection-regression.yml"
+      - "trunk/user/wsdd2/src/wsd.c"
+      - "trunk/user/wsdd2/src/wsd_xml_text_policy.h"
+      - "trunk/user/wsdd2/src/tests/wsd_xml_text_policy_test.c"
+      - "scripts/test_wsdd2_xml_reflection.sh"
+      - "scripts/check_wsdd2_xml_reflection.py"
+  pull_request:
+    paths:
+      - ".github/workflows/wsdd2-xml-reflection-regression.yml"
+      - "trunk/user/wsdd2/src/wsd.c"
+      - "trunk/user/wsdd2/src/wsd_xml_text_policy.h"
+      - "trunk/user/wsdd2/src/tests/wsd_xml_text_policy_test.c"
+      - "scripts/test_wsdd2_xml_reflection.sh"
+      - "scripts/check_wsdd2_xml_reflection.py"
+
+permissions:
+  contents: read
+
+jobs:
+  xml-reflection:
+    name: WSD request-derived RelatesTo XML text policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile and run GNU99 ASan/UBSan XML text regression and source contract
+        run: sh scripts/test_wsdd2_xml_reflection.sh

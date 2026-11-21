@@ -51,6 +51,7 @@
 */
 #include "wsdd.h"
 #include "wsd.h"
+#include "wsd_xml_text_policy.h"
 #include "wsd_http_header_policy.h"
 #include <nvram_linux.h>
 
@@ -529,16 +530,26 @@ static int wsd_send_soap_msg(int fd, struct endpoint *ep,
 	"</soap:Envelope>";
 
 	char msg_id[UUIDLEN], *soap_relates, *msg;
+	char *escaped_relates;
 
 	uuid_random(msg_id, sizeof msg_id);
 
 	if (relates) {
+		escaped_relates = wsd_xml_escape_text(relates);
+		if (!escaped_relates) {
+			ep->errstr = __FUNCTION__ ": invalid RelatesTo text";
+			ep->_errno = errno;
+			return -1;
+		}
 		if (asprintf(&soap_relates,
-			"<wsa:RelatesTo>%s</wsa:RelatesTo>", relates) <= 0) {
+			"<wsa:RelatesTo>%s</wsa:RelatesTo>",
+			escaped_relates) <= 0) {
+			free(escaped_relates);
 			ep->errstr = __FUNCTION__ ": asprintf";
 			ep->_errno = errno;
 			return -1;
 		}
+		free(escaped_relates);
 	} else {
 		if (!(soap_relates = strdup(""))) {
 			ep->errstr = __FUNCTION__ ": strdup";
