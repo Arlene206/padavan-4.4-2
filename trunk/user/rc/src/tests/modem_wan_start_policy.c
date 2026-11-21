@@ -597,6 +597,27 @@ test_ndis_identity_rejects_invalid_arguments_before_writes(void)
 	assert(fake.calls == 0);
 }
 
+static void
+test_modem_unplug_rule_read_fails_closed(void)
+{
+	int unplug_required = -1;
+
+	/* A missing key retains the historical modem_rule == 0 behavior. */
+	assert(modem_wan_unplug_event_status(0, 0, &unplug_required) == 0);
+	assert(unplug_required == 0);
+	assert(modem_wan_unplug_event_status(0, 1, &unplug_required) == 0);
+	assert(unplug_required == 1);
+	assert(modem_wan_unplug_event_status(0, -1, &unplug_required) == 0);
+	assert(unplug_required == 0);
+
+	/* Failed reads never masquerade as "no configured modem". */
+	assert(modem_wan_unplug_event_status(EIO, 1, &unplug_required) == EIO);
+	assert(unplug_required == 0);
+	assert(modem_wan_unplug_event_status(-1, 1, &unplug_required) == EIO);
+	assert(unplug_required == 0);
+	assert(modem_wan_unplug_event_status(0, 1, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -639,26 +660,6 @@ main(void)
 	test_modem_unplug_rule_read_fails_closed();
 	test_unplug_ifdown_failure_is_distinguished_from_removed_interface();
 	test_static_wan_address_and_netmask_validation();
-static void
-test_modem_unplug_rule_read_fails_closed(void)
-{
-	int unplug_required = -1;
-
-	/* A missing key retains the historical modem_rule == 0 behavior. */
-	assert(modem_wan_unplug_event_status(0, 0, &unplug_required) == 0);
-	assert(unplug_required == 0);
-	assert(modem_wan_unplug_event_status(0, 1, &unplug_required) == 0);
-	assert(unplug_required == 1);
-	assert(modem_wan_unplug_event_status(0, -1, &unplug_required) == 0);
-	assert(unplug_required == 0);
-
-	/* Failed reads never masquerade as "no configured modem". */
-	assert(modem_wan_unplug_event_status(EIO, 1, &unplug_required) == EIO);
-	assert(unplug_required == 0);
-	assert(modem_wan_unplug_event_status(-1, 1, &unplug_required) == EIO);
-	assert(unplug_required == 0);
-	assert(modem_wan_unplug_event_status(0, 1, NULL) == EINVAL);
-}
 
 	puts("USB modem WAN startup status policy: PASS");
 	return 0;
