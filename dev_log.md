@@ -1,3 +1,12 @@
+## 2026-11-21 — Align WAN DHCP MTU regression with checked NVRAM read
+
+- Parent main SHA: `b816880f652adcec58168be3911d38dec75a22b1`.
+- Reviewed the earlier WAN DHCP callback run `#44891687966` (on c930b7e). Its inline checker still expected `wan_mtu = get_wan_unit_value_int(unit, "mtu")`, while current `start_wan()` reads MTU through `get_wan_unit_value_int_status()` and aborts the unit before default-MTU/interface setup on read failure.
+- Updated the existing physical-WAN setup contract to require the checked getter, verify the `nvram_status != 0` guard and `continue` precede the default-MTU branch, and reject the legacy error-collapsing getter.
+- This is a stale test expectation, not a new production change. The current exact SHA's WAN DHCP workflow will verify the updated contract.
+
+---
+
 ## 2026-11-21 — Correct PPPoE whitespace regex escape in WAN checker
 
 - Parent main SHA: `d2e41ab61db5607c7d075b65df3de9ae081cc83a`.
