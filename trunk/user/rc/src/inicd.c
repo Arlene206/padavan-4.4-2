@@ -78,6 +78,7 @@ inicd_main(int argc, char *argv[])
 	sigset_t managed_signals, previous_mask, wait_mask, pending_signals;
 	sig_atomic_t events;
 	int timer_status;
+	int poll_status;
 	int saved_errno;
 	int exit_status = EXIT_SUCCESS;
 
@@ -177,8 +178,13 @@ inicd_main(int argc, char *argv[])
 		if (inicd_event_should_stop(events))
 			break;
 
-		if (events & INICD_EVENT_POLL)
-			check_inic_mii_rebooted();
+		if (events & INICD_EVENT_POLL) {
+			poll_status = check_inic_mii_rebooted();
+			if (poll_status != 0)
+				logmessage("inicd",
+					   "iNIC health check incomplete (status=%d); retrying at next poll",
+					   poll_status);
+		}
 
 		if (events == 0 &&
 		    sigsuspend(&wait_mask) < 0 && errno != EINTR) {

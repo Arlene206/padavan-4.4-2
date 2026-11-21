@@ -94,9 +94,13 @@ pending = main.index("sigpending(&pending_signals)")
 pending_stop = main.index("sigismember(&pending_signals, SIGTERM)")
 stop = main.index("inicd_event_should_stop(events)")
 poll = main.index("if (events & INICD_EVENT_POLL)")
-callback = main.index("check_inic_mii_rebooted();")
-assert take < pending < pending_stop < stop < poll < callback
+callback = main.index("poll_status = check_inic_mii_rebooted();")
+poll_error = main.index("if (poll_status != 0)", callback)
+poll_log = main.index('"iNIC health check incomplete (status=%d); retrying at next poll"', poll_error)
+assert take < pending < pending_stop < stop < poll < callback < poll_error < poll_log
+assert "int poll_status;" in main
 assert "events == 0" in main
+assert "break;" not in main[poll_error:main.index("if (events == 0)", poll_error)]
 publish_pidfile = main.index('process_pidfile_write(INICD_PID_FILE, "inicd")')
 publish_failure = main.index("if (process_pidfile_write(INICD_PID_FILE, \"inicd\") != 0)")
 timer_start = main.index("timer_status = inicd_alarmtimer(INICD_POLL_INTERVAL)")
@@ -140,7 +144,7 @@ assert '#if defined (USE_RT3352_MII)' in rc_header
 assert "int inicd_main(int argc, char *argv[]);" in rc_header
 assert "int start_inicd(void);" in rc_header
 assert "int stop_inicd(void);" in rc_header
-assert "void check_inic_mii_rebooted(void);" in rc_header
+assert "int check_inic_mii_rebooted(void);" in rc_header
 assert "OBJS += inicd.o" in src_makefile
 assert "$(LN) rc $(ROMFSDIR)/sbin/inicd" in package_makefile
 assert "start_inicd()" in function_body(wifi, "start_wifi_ap_rt(int radio_on)")
@@ -150,7 +154,30 @@ isolate_hardware = stop_wifi.index("phy_isolate_inic(1)")
 assert stop_daemon < isolate_hardware
 assert "return -1;" in stop_wifi[stop_daemon:isolate_hardware]
 assert "iNIC health monitor did not stop" in stop_wifi[stop_daemon:isolate_hardware]
-assert "check_inic_mii_rebooted(void)" in wifi
+assert "int check_inic_mii_rebooted(void)" in wifi
+inic_check = function_body(wifi, "check_inic_mii_rebooted(void)")
+disabled_gate = "if (!get_mlme_radio_rt())"
+disable_call = 'status = doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN,'
+disable_error = "if (status != 0)"
+disable_return = "return wireless_radio_restart_status(0, status);"
+assert disabled_gate in inic_check
+assert disable_call in " ".join(inic_check.split())
+assert disable_error in inic_check
+assert disable_return in inic_check
+assert inic_check.index(disabled_gate) < inic_check.index("status = doSystem(")
+assert inic_check.index("status = doSystem(") < inic_check.index(disable_error)
+assert inic_check.index(disable_error) < inic_check.index(disable_return)
+assert "iNIC radio force-disable command failed" in inic_check
+guest_gate = "if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt())"
+assert guest_gate in inic_check
+assert "status = wif_control(IFNAME_INIC_GUEST, 1);" in inic_check
+assert "wireless_radio_status_success(status)" in inic_check
+assert "wif_control_success(IFNAME_INIC_GUEST, 1)" not in inic_check
+assert inic_check.index(guest_gate) < inic_check.index("status = wif_control(IFNAME_INIC_GUEST, 1);")
+assert inic_check.index("wireless_radio_status_success(status)") < inic_check.rindex(disable_return)
+assert "iNIC guest AP recovery deferred until the next health check (status=%d)" in inic_check
+assert inic_check.rstrip().endswith("return 0;")
+assert "wireless_radio_restart_status(0, 256)" in (rc / "tests/wireless_radio_policy.c").read_text()
 
 paths = (
     ".github/workflows/inicd-signal-stability.yml",

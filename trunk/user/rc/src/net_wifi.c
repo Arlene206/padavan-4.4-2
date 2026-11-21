@@ -775,24 +775,39 @@ fail_start:
 	return wireless_radio_startup_result(all_started);
 }
 
-void
+int
 check_inic_mii_rebooted(void)
 {
 	int rt_mode_x;
+	int status;
 
 	if (!get_mlme_radio_rt()) {
-		doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN, "RadioOn", 0);
-		return;
+		status = doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN,
+				  "RadioOn", 0);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "iNIC radio force-disable command failed (status=%d)",
+				   status);
+			return wireless_radio_restart_status(0, status);
+		}
+		return 0;
 	}
 
 	rt_mode_x = get_mode_radio_rt();
 	if (rt_mode_x != 1 && rt_mode_x != 3) {
 		/* check guest AP */
 		if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt()) {
-			if (!wif_control_success(IFNAME_INIC_GUEST, 1))
-				logmessage(LOGNAME, "iNIC guest AP recovery deferred until the next health check");
+			status = wif_control(IFNAME_INIC_GUEST, 1);
+			if (!wireless_radio_status_success(status)) {
+				logmessage(LOGNAME,
+					   "iNIC guest AP recovery deferred until the next health check (status=%d)",
+					   status);
+				return wireless_radio_restart_status(0, status);
+			}
 		}
 	}
+
+	return 0;
 }
 #endif
 

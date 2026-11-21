@@ -1,3 +1,14 @@
+## 2026-11-21 — Propagate iNIC MII health-recovery failures to periodic monitor
+
+- Parent main SHA: `6dd282fc7112b86ccdb167100e44765fbca97b73`.
+- Source review found `check_inic_mii_rebooted()` silently ignored the `doSystem()` result when forcing RT3352 iNIC radio off for a disabled radio. Guest AP recovery errors were only logged; the void callback gave `inicd_main()` no status to report.
+- Changed the callback to return int, normalize both command failure paths through the existing tested `wireless_radio_restart_status()`, and have the daemon log an incomplete health poll while continuing to the next timer tick. Updated both iNIC and Wireless source contracts to require returned status and retry semantics. No timer/stop signal behavior changed.
+- Existing Wireless C policy regression already exercises positive and negative `system()` wait status normalization/sticky first error; existing iNIC signal GNU89 ASan/UBSan test remains wired.
+- No local checkout/runtime available; no local C/Python test, sanitizer or firmware build is claimed. Exact-head iNIC and Wireless Actions are the verification gate.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Align IPTV static-copy bounds contract with shared helper
 
 - Parent main SHA: `8a2f50bedb44fdff0cb8b322372090fc190d978c`.

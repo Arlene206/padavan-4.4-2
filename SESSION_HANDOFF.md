@@ -12,25 +12,25 @@
 The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect the live repository state before ending, verify this handoff's source baseline, active task, exact-head Actions, validation boundary, blockers and first next action. If all checkpoint facts and the first action are already accurate, explicitly conclude the check with no file change and no no-op commit. Update this handoff only when next-session-critical facts materially change.
 
 ## Current repository state
-- Live main at the start of this slice: `8a2f50bedb44fdff0cb8b322372090fc190d978c`, commit `test(wan): finish checked renewal state contracts`.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`; immutable.
-- On exact SHA `8a2f50bedb44fdff0cb8b322372090fc190d978c`: AI handoff docs `#44896283589` PASS; WAN route status `#44896283559` PASS; HTTPD Security inherited from `728468e145d625164bf2a6aaba6883b183cb20c2` `#44896094278` PASS. WAN DHCP callback `#44896283833` FAIL in the later static IPTV checker because it still demanded manual `strlen()` bounds checks after the source switched to `rc_wan_nvram_copy_value(..., destination, sizeof(destination))`, whose shared helper rejects truncation with `ENAMETOOLONG`. This next commit updates the test contract to the actual bounded-copy API; it does not weaken the bounds guarantee.
-- WAN physical/IPTV renewal source uses checked status reads and `dhcp_wan_bound_retry_decide()`; WAN route checker validates checked IPTV mode and copied settings; HTTPD WAN route-option checker validates three route option reads/validations/comparisons.
-- Exact SHA `21bf595a0ecc81b2cf8e5500c93f93c03f4811e6`: most independent services passed (Process lifecycle inventory, NVRAM, MiniUPnP, Process lifecycle, USB modem identity, Firewall startup, Wireless, watchdog, detect_link/internet, WAN ARP and teardown); results remain scoped to that exact source SHA.
-- XY-C1 L3 run `#44895865716` for `21bf595a0ecc81b2cf8e5500c93f93c03f4811e6` was still IN_PROGRESS at last poll. Prior proven L3 baseline: `20e139d230b73eabc5f25a2b17d56a3a5768af11` / `#44887656164`. Current-source L3 and physical-router L4 NOT VERIFIED.
+- Parent main for the iNIC recovery-status slice: `6dd282fc7112b86ccdb167100e44765fbca97b73`; WAN bounded NVRAM-copy regression was closed on exact SHA `6dd282fc7112b86ccdb167100e44765fbca97b73` (WAN DHCP callback `#44896408504` PASS; AI handoff docs `#44896408521` PASS). WAN route status `#44896283559` PASS on the prior source-equivalent SHA `8a2f50bedb44fdff0cb8b322372090fc190d978c`; HTTPD security `#44896094278` PASS on `728468e145d625164bf2a6aaba6883b183cb20c2`.
+- iNIC MII health monitor source had a concrete status-loss defect: `check_inic_mii_rebooted()` discarded the `doSystem(iwpriv ... RadioOn=0)` failure when configuration disabled the RT3352 radio. Guest-AP recovery did log failure but the void callback could not return status. This slice makes both branches return a normalized negative error, changes the callback prototype to `int`, and has `inicd_main()` log failed poll work while continuing periodic retries.
+- Relevant workflow paths already include the changed source: iNIC `.github/workflows/inicd-signal-stability.yml` watches `inicd.c`, `net_wifi.c`, `rc.h`, and the checker; Wireless radio state watches `net_wifi.c`, `rc.h`, and `tests/wireless_radio_policy.c`.
+- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
+- XY-C1 run `#44895865716` is still IN_PROGRESS on source SHA `21bf595a0ecc81b2cf8e5500c93f93c03f4811e6` at the latest poll; this does not validate the later main. Prior L3 source baseline `20e139d230b73eabc5f25a2b17d56a3a5768af11` / `#44887656164`; current-source L3 and hardware L4 NOT VERIFIED.
 
 ## Active task
-- Close remaining WAN DHCP callback contracts after the source changes to checked NVRAM retry-state reads and bounded cache copies. Current failing assertion is the IPTV static settings size check in the embedded WAN DHCP workflow. The shared copy helper guarantees `length < destination_size` and returns `ENAMETOOLONG`; contracts should assert the checked copy API and its error return.
-- Once exact-head WAN DHCP, WAN route, HTTPD and AI docs regressions converge, rotate to a distinct P1 reliability/security issue elsewhere in Padavan userland. Continue reviewing valid unmerged work from legacy PR #1 only by porting to current main; never use its branch as a validation target.
+- Verify the iNIC force-disable and guest-AP repair status propagation: the exact-head iNIC workflow must run the GNU89/Werror/ASan/UBSan signal policy test and source checker; Wireless radio state must run its radio policy test and updated embedded callback contract.
+- On FAIL inspect the first failing job step and preserve the source contract; do not normalize a failed check to success. PENDING does not block work on independent modules.
+- After iNIC status propagation closes, select a distinct P1 reliability/security task outside already heavily worked WAN/HTTPD/SkipDB modules. Legacy PR #1's HMAC-SHA1 and CA bootstrap work is already present on current main; no re-import is needed.
 
 ## Verification boundary
-- No local checkout/runtime available; no local C/Python tests, sanitizer binary or firmware build is claimed.
-- Remote exact-head Actions are the regression evidence. Host validation is L2. XY-C1 Build + TRX + artifact on one exact production-source SHA is L3; hardware/router L4 remains NOT VERIFIED.
+- No local checkout/runtime available; no local C/Python tests, sanitizer run or firmware build is claimed.
+- Current Actions provide L2 evidence only. XY-C1 Build + TRX + artifact on one exact production-source SHA is required for L3; hardware/router L4 NOT VERIFIED.
 
 ## Exact first action for the next GPT
-1. Fetch live main and inspect exact-head WAN DHCP callback, AI docs, WAN route and HTTPD Actions after the checked-copy assertion update.
-2. Diagnose any new failure at its first failing step; do not infer later steps passed if an earlier source checker failed.
-3. Revisit the XY-C1 run #44895865716 and current-source target verification; then proceed to a distinct userland P1 issue.
-4. Continue legacy PR #1 preservation review only after the active WAN validation gate is closed.
+1. Fetch live main and inspect exact-head iNIC signal and Wireless radio state Actions.
+2. If either fails, inspect its first causal failure and correct the source/test/checker integration.
+3. Revisit XY-C1 run `#44895865716` and check Build, TRX and artifact steps; do not infer completion from an old SHA.
+4. After iNIC closes, choose another concrete P1 reliability/security defect in a less-worked userland subsystem.
 
-Before context exhaustion, checkpoint every material active-task, exact-SHA and validation-boundary change; do not create a no-op commit when this handoff remains accurate.
+Before context exhaustion, checkpoint changed exact-head results and first action only when next-session-critical facts materially change; no no-op commit.

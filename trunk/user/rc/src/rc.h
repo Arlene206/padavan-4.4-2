@@ -457,7 +457,7 @@ int  is_apcli_wisp_rt(void);
 int  get_apcli_sta_auto(int is_aband);
 char* get_apcli_wisp_ifname(void);
 #if defined (USE_RT3352_MII)
-void check_inic_mii_rebooted(void);
+int check_inic_mii_rebooted(void);
 #endif
 void update_vga_clamp_wl(int first_call);
 void update_vga_clamp_rt(int first_call);

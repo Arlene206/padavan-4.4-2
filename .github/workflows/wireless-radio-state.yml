@@ -625,14 +625,25 @@ jobs:
                   assert "wireless_bridge_membership_record(&all_started, " + ifname + ", 1)" in body
                   assert "wireless_bridge_membership_record(&all_started, " + ifname + ", 0)" in body
 
-          # The periodic iNIC health check must retain the guest-up result.
+          # The periodic iNIC health check must surface failed recovery commands.
           inic_check = function_body(source, "check_inic_mii_rebooted(void)")
+          assert "int check_inic_mii_rebooted(void)" in source
+          disabled_gate = "if (!get_mlme_radio_rt())"
+          assert disabled_gate in inic_check
+          assert 'status = doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN,' in " ".join(inic_check.split())
+          assert "if (status != 0)" in inic_check
+          assert "iNIC radio force-disable command failed" in inic_check
+          assert "return wireless_radio_restart_status(0, status);" in inic_check
+          assert inic_check.index("status = doSystem(") < inic_check.index("if (status != 0)") < inic_check.index("return wireless_radio_restart_status(0, status);")
           guest_gate = "if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt())"
           assert guest_gate in inic_check
-          assert "wif_control_success(IFNAME_INIC_GUEST, 1)" in inic_check
-          assert "wif_control(IFNAME_INIC_GUEST, 1)" not in inic_check
-          assert inic_check.index(guest_gate) < inic_check.index("wif_control_success(IFNAME_INIC_GUEST, 1)")
-          assert "deferred until the next health check" in inic_check
+          assert "status = wif_control(IFNAME_INIC_GUEST, 1);" in inic_check
+          assert "wireless_radio_status_success(status)" in inic_check
+          assert "wif_control_success(IFNAME_INIC_GUEST, 1)" not in inic_check
+          assert inic_check.index(guest_gate) < inic_check.index("status = wif_control(IFNAME_INIC_GUEST, 1);")
+          assert "iNIC guest AP recovery deferred until the next health check (status=%d)" in inic_check
+          assert inic_check.rstrip().endswith("return 0;")
+          assert "test_restart_failure_wait_status_is_normalized_and_sticky" in notification_test
 
           stop_helper = function_body(
               source,
