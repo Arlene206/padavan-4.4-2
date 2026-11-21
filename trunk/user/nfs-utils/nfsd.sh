@@ -110,9 +110,9 @@ func_process_presence()
 	return 1
 }
 
-# rpc.mountd daemonizes by default. Its launcher can exit before the child
-# is visible in procfs, so use a bounded readiness window rather than one
-# immediate snapshot. UNKNOWN aborts immediately; ABSENT is retried.
+# rpcbind and rpc.mountd can daemonize before their children become visible
+# in procfs. Use a bounded readiness window rather than one immediate
+# snapshot. UNKNOWN aborts immediately; ABSENT is retried.
 func_wait_process_running()
 {
 	wanted_name="$1"
@@ -152,11 +152,10 @@ func_start()
 			logger -t "NFS server" "cannot start rpcbind"
 			return 1
 		}
-		sleep 1
-		func_process_presence rpcbind
+		func_wait_process_running rpcbind
 		rpcbind_state=$?
 		if [ "$rpcbind_state" -ne 0 ]; then
-			logger -t "NFS server" "rpcbind command returned success but the daemon is not running"
+			logger -t "NFS server" "rpcbind command returned success but the daemon did not become ready (state=$rpcbind_state)"
 			return 1
 		fi
 		;;

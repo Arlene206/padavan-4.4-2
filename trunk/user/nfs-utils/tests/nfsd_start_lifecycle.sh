@@ -48,12 +48,24 @@ case "$name" in
 		exit 0
 		;;
 	sleep)
-		if [ "$DELAY_PID_COMMAND" = "rpc.mountd" ] &&
-		   [ -f "$STATE_DIR/delay-rpc.mountd" ]; then
-			rm -f "$STATE_DIR/delay-rpc.mountd"
-			: > "$STATE_DIR/rpc.mountd"
-			mkdir -p "$PROC_ROOT/124"
-			printf 'rpc.mountd\n' > "$PROC_ROOT/124/comm"
+		if [ -n "$DELAY_PID_COMMAND" ] &&
+		   [ -f "$STATE_DIR/delay-$DELAY_PID_COMMAND" ]; then
+			delay_count_file="$STATE_DIR/delay-$DELAY_PID_COMMAND.count"
+			delay_count=0
+			[ -r "$delay_count_file" ] && delay_count=$(cat "$delay_count_file")
+			delay_count=$((delay_count + 1))
+			echo "$delay_count" > "$delay_count_file"
+			if [ "$delay_count" -ge "$DELAY_PID_AFTER" ]; then
+				rm -f "$STATE_DIR/delay-$DELAY_PID_COMMAND"
+				case "$DELAY_PID_COMMAND" in
+					rpcbind) state_file="$STATE_DIR/rpcbind"; process_pid=125; process_name=rpcbind ;;
+					rpc.mountd) state_file="$STATE_DIR/rpc.mountd"; process_pid=124; process_name=rpc.mountd ;;
+					*) exit 2 ;;
+				esac
+				: > "$state_file"
+				mkdir -p "$PROC_ROOT/$process_pid"
+				printf '%s\n' "$process_name" > "$PROC_ROOT/$process_pid/comm"
+			fi
 		fi
 		exit 0
 		;;
@@ -118,6 +130,7 @@ ln -s "$tmp_dir/bin/mock-command" "$tmp_dir/no-pidof-bin/logger"
 reset_fixture()
 {
 	rm -f "$STATE_DIR/rpcbind" "$STATE_DIR/nfsd" "$STATE_DIR/rpc.mountd"
+	rm -f "$STATE_DIR"/delay-*
 	rm -rf "$PROC_ROOT/1" "$PROC_ROOT/123" "$PROC_ROOT/124" "$PROC_ROOT/125"
 	rm -f "$tmp_dir/etc/exports" "$tmp_dir/var/lib/nfs/etab" \
 		"$tmp_dir/var/lib/nfs/rmtab" "$tmp_dir/var/lib/nfs/xtab"
@@ -159,9 +172,10 @@ run_command()
 	action=$3
 	delay_pid_command=${4:-}
 	fail_logger=${5:-}
+	delay_pid_after=${6:-1}
 	if FAIL_COMMAND="$fail_command" NO_PID_COMMAND="$no_pid_command" \
-	   DELAY_PID_COMMAND="$delay_pid_command" FAIL_LOGGER="$fail_logger" \
-	   /bin/sh "$tmp_dir/nfsd.sh" "$action"; then
+	   DELAY_PID_COMMAND="$delay_pid_command" DELAY_PID_AFTER="$delay_pid_after" \
+	   FAIL_LOGGER="$fail_logger" /bin/sh "$tmp_dir/nfsd.sh" "$action"; then
 		status=0
 	else
 		status=$?
@@ -292,6 +306,25 @@ assert_no_command exportfs
 assert_no_command umount
 [ -f "$STATE_DIR/nfsd" ] && [ -f "$STATE_DIR/rpc.mountd" ] || {
 	echo "NFS stop disturbed daemon state after an incomplete inventory" >&2
+	exit 1
+}
+
+# rpcbind is detached too: its child may require more than the old fixed
+# one-second pause to become visible. The bounded readiness helper must wait
+# through two ABSENT samples and accept the child when the third sample sees it.
+reset_fixture
+status=$(run_command "" "" start rpcbind "" 2)
+[ "$status" -eq 0 ] || {
+	echo "NFS start rejected rpcbind child after daemonization delay: $status" >&2
+	exit 1
+}
+assert_command rpcbind
+[ -f "$STATE_DIR/rpcbind" ] || {
+	echo "NFS start returned success before delayed rpcbind child appeared" >&2
+	exit 1
+}
+[ "$(grep -c '^sleep ' "$COMMAND_LOG")" -eq 2 ] || {
+	echo "NFS rpcbind readiness wait did not poll for two delayed intervals" >&2
 	exit 1
 }
 

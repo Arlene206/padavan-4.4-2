@@ -126,6 +126,8 @@ jobs:
           assert "func_process_presence rpc.mountd" in start
           assert "cannot verify NFS daemon inventory" in start
           assert start.index("func_process_presence rpcbind") < start.index("/sbin/rpcbind ||")
+          assert start.index("/sbin/rpcbind ||") < start.index("func_wait_process_running rpcbind")
+          assert start.index("func_wait_process_running rpcbind") < start.index("func_process_presence nfsd")
           for command in (
               "/sbin/rpcbind ||",
               "touch /etc/exports",
@@ -146,6 +148,8 @@ jobs:
           assert "NFS startup cleanup after export publication failure was incomplete" in start
           assert "refusing to reset NFS state while only one server daemon is running" in start
           assert "rpc.nfsd returned success but nfsd is not running" in start
+          assert "func_wait_process_running rpcbind" in start
+          assert "rpcbind command returned success but the daemon did not become ready" in start
           assert "func_wait_process_running rpc.mountd" in start
           assert "rpc.mountd returned success but the daemon did not become ready" in start
 
@@ -282,6 +286,8 @@ jobs:
           assert "NFS reload with missing process inventory" in lifecycle_test
           assert "NFS stop with missing process inventory" in lifecycle_test
           assert "NFS stop with malformed process inventory" in lifecycle_test
+          assert "rpcbind child after daemonization delay" in lifecycle_test
+          assert "func_wait_process_running rpcbind" in script
           assert "conflicting nfsd mount tuple" in lifecycle_test
           assert "conflicting rpc_pipefs mount tuple" in lifecycle_test
           assert "duplicate nfsd mountpoint entries" in lifecycle_test

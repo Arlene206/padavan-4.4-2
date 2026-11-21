@@ -1,3 +1,13 @@
+## 2026-11-21 — Bound rpcbind daemon readiness after asynchronous launch
+
+- Parent main SHA: `4806c8fd5e387e93fcbe832679efcb0f1a97b095`.
+- Fixed an NFS startup false-negative: `rpcbind` may daemonize and return before its child is visible, but `nfsd.sh` previously waited a fixed one second and took only one procfs snapshot. Startup could fail on a healthy but slower daemon. It now uses the existing bounded `func_wait_process_running` policy shared with `rpc.mountd`: retry confirmed ABSENT, abort UNKNOWN immediately, and fail after the bounded window.
+- Extended the NFS lifecycle mock to delay rpcbind visibility until the second polling interval; the integration test requires startup to succeed only after the third inventory sample observes the child. The workflow static contract now verifies rpcbind launch/wait ordering and the focused regression marker.
+- Host/CI regression is the verification target; no local checkout or physical-router test was available in this environment.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Make late-child PIDOF race fixture one-shot
 
 - Parent main SHA: `b5052e9f49edb751f1c68cfe7f848bbdb47bc8a6`.
