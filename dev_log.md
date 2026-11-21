@@ -1,3 +1,12 @@
+## 2026-11-21 — Roll back HTTPD when a delayed startup probe wait fails
+
+- Parent main SHA: `4aead28cd9b3e2802922e4935bad22fbe742c3a9`.
+- A retry probe wait could fail after `_eval()` had already launched HTTPD. Unlike the initial wait-failure path, the retry loop returned immediately, leaving a potentially active listener without a best-effort stop, authoritative process rescan or `httpd_started=1` recovery publication.
+- Centralized startup wait-failure cleanup in `httpd_start_wait_failure_recover()` and route both initial and delayed retry wait errors through it. The helper stops HTTPD, rescans process inventory, conservatively republishes the started state for RUNNING/UNKNOWN, logs incomplete rollback, and restores the original wait errno/status.
+- Extended exact source contracts for both wait sites and the rollback/rescan/state-publication ordering. Existing GNU89/ASAN/UBSAN policy tests cover ABSENT versus RUNNING/UNKNOWN rollback-state decisions. Exact-head HTTPD lifecycle/security, Process and XY-C1 validation pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Align HTTPD security contract with checked startup snapshot
 
 - Parent main SHA: `6976792a61c28d782232e13a576e806e05b35731`.

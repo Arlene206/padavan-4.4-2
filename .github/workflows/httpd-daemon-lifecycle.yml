@@ -70,6 +70,7 @@ jobs:
           workflow = Path(".github/workflows/httpd-daemon-lifecycle.yml").read_text()
 
           start = body(services, "start_httpd_locked(int restart_fw)")
+          wait_recovery = body(services, "httpd_start_wait_failure_recover(int wait_status, const char *phase)")
           nvram_reader = body(services, "httpd_nvram_read_int_adapter(")
           start_entry = body(services, "start_httpd(int restart_fw)")
           probe = body(services, "httpd_process_presence(int *scan_error)")
@@ -81,6 +82,18 @@ jobs:
 
           assert "httpd_nvram_read_int_status(param_name, missing_value, value)" in nvram_reader
           assert "httpd_start_config_read(httpd_nvram_read_int_adapter" in start
+          assert 'httpd_start_wait_failure_recover(status, "initial startup")' in start
+          assert 'httpd_start_wait_failure_recover(status, "retry")' in start
+          retry_wait = start[start.index('status = service_start_probe_wait("HTTPD", HTTPD_START_RETRY_WAIT_SECONDS);'):]
+          retry_error_gate = retry_wait.index("if (status != 0)")
+          retry_error_path = retry_wait[retry_error_gate:retry_wait.index("}", retry_error_gate)]
+          assert "httpd_start_wait_failure_recover(status, \"retry\")" in retry_error_path
+          assert "return status;" not in retry_error_path
+          assert "stop_httpd_locked()" in wait_recovery
+          assert "httpd_process_presence(&rollback_scan_error)" in wait_recovery
+          assert "httpd_failed_start_preserve_running_state(rollback_presence)" in wait_recovery
+          assert "httpd_started_state_publish_status(1)" in wait_recovery
+          assert wait_recovery.index("stop_httpd_locked()") < wait_recovery.index("httpd_process_presence") < wait_recovery.index("httpd_failed_start_preserve_running_state") < wait_recovery.index("httpd_started_state_publish_status(1)") < wait_recovery.index("errno = wait_errno;") < wait_recovery.index("return wait_status;")
           config_snapshot = start.index("httpd_start_config_read(httpd_nvram_read_int_adapter")
           config_read_error = start.index("if (status != 0)", config_snapshot)
           first_port_write = start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
@@ -175,6 +188,7 @@ jobs:
           assert "httpd_start_postcondition" in test
           assert "httpd_start_can_launch" in test
           assert "httpd_restart_can_start" in test
+          assert "test_failed_start_rollback_keeps_possible_listener_published();" in test
 
           push_marker = workflow.index("  pull_request:")
           dispatch_marker = workflow.index("  workflow_dispatch:",push_marker)
