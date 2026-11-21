@@ -796,7 +796,7 @@ for signature, call in (
 pause_reconnect = "".join(compact(body(WAN_SOURCE, "auto_wan_reconnect_pause(void)")).split())
 pause_read = 'status=get_nvram_int_checked_status("di_recon_pause",&pause_seconds);'
 pause_gate = "if(status!=0){"
-pause_error = "aborting automatic WAN reconnect because delay configuration is unavailable"
+pause_error = "".join("aborting automatic WAN reconnect because delay configuration is unavailable".split())
 pause_return = "return status;"
 pause_start = "return try_wan_reconnect(1,pause_seconds);"
 pause_positions = (

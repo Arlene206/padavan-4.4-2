@@ -1,3 +1,11 @@
+## 2026-11-21 — Normalize WAN reconnect diagnostic assertion
+
+- Parent main SHA: `b40c3ec707896cd119d513775ef6d224049ea0d3`.
+- The previous checker correction stripped all whitespace from the compacted `auto_wan_reconnect_pause()` body, but its expected diagnostic string still contained spaces. Exact-head XY-C1, USB modem, Firewall and Process jobs therefore failed on `pause_reconnect.index(pause_error)`; prior GNU89/ASAN/UBSAN policy binaries and earlier source assertions passed.
+- The expected diagnostic fragment is now normalized with the same whitespace removal. This is test-only and retains the requirement that the checked NVRAM read, fail-closed return and reconnect call occur in order. The XY-C1 build had not started; L3 remains NOT VERIFIED pending Build, TRX and artifact on the same exact product-source SHA.
+
+---
+
 ## 2026-11-21 — Correct whitespace normalization in WAN caller contract
 
 - Parent main SHA: `1770074742e98f13155fab91703fc74ca975c248`.

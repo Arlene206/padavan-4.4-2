@@ -10,8 +10,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 - Main at the start of this slice: `1770074742e98f13155fab91703fc74ca975c248`. The product-source changes now on main include the deferred WAN reconnect fail-closed NVRAM preflight (`136db90e2f84513d9bf3da297802b708b0811b44`) and the checked DHCP WINS address snapshot committed in `1770074742e98f13155fab91703fc74ca975c248`.
 - WAN route status and AI handoff documentation passed on `0097f377a1155be4ec09c2fe38334aa985c39b2b`; DNSMasq lifecycle passed on `1770074742e98f13155fab91703fc74ca975c248`. The XY-C1 / USB modem / Firewall / Process checks subsequently exposed one test-only mismatch in `check_modem_wan_start_status.py`: `compact()` preserves single spaces while its new assertion used no-space tokens. This correction strips whitespace from the extracted function before the order checks.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
-
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. Never modify, checkout, merge, reset, rename, prune or delete it. Only main and backup branches are authorized.
 - Legacy PR #1 remains closed and unmerged; do not reopen or develop through its branch.
 - Protected reliability work includes checked optional-daemon settings, ttyd/SSH mode wrappers and detached-child probes, WAN DHCP compare-and-publish, stale-writer guarded recovery and validate-first reverse tuple construction for post-commit 6rd failure.
 
@@ -19,7 +17,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - Deferred WAN reconnect fix: `136db90e2f84513d9bf3da297802b708b0811b44`. `auto_wan_reconnect_pause()` now uses checked `di_recon_pause` reading; backend/parse failure returns before any WAN stop/start while absent key retains zero-second compatibility.
 - DHCP WINS fix: `1770074742e98f13155fab91703fc74ca975c248`. `prepare_dns_dhcpd()` snapshots `dhcp_wins_x` using `nvram_get_checked()` before DHCP-pool repair/generated-file changes, aborts on backend/inconsistent/oversized results, and reuses the private bounded value for option 44. Exact-head DNSMasq regression passed on this SHA.
-- The WAN route workflow passed on `0097f377a1155be4ec09c2fe38334aa985c39b2b`. Earlier XY-C1/USB modem/Firewall/Process failures on `9341a1ce` all stopped at the new source-check whitespace assertion; the current checker-only correction is pending its exact-head reruns.
+- The WAN route workflow passed on `0097f377a1155be4ec09c2fe38334aa985c39b2b`; DNSMasq lifecycle passed on `1770074742e98f13155fab91703fc74ca975c248`; AI handoff docs passed on `b40c3ec707896cd119d513775ef6d224049ea0d3`. XY-C1, USB modem, Firewall and Process checks on `b40c3ec...` failed at the same source-check assertion: `pause_error` still contained spaces even though the function body had been stripped of whitespace. This commit normalizes that expected text too.
 
 
 ## Active task
@@ -32,8 +30,8 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 ## Verification boundary
 
 - L1: FTP startup/restart and delayed automatic WAN reconnect fail closed on enable/delay NVRAM read errors; DNSMasq explicit DHCP WINS reads are checked before staging and use a stable bounded snapshot.
-- L2: WAN route status passed on `0097f377...`; DNSMasq lifecycle, WAN route, handoff, Samba, Inadyn, HTTPD and MiniUPnP regressions passed on recent exact heads. The new WAN caller source-check correction and the affected dependent suites are pending reruns.
-- L3: NOT VERIFIED until Build XY-C1, TRX verification and artifact upload PASS on one exact product-source SHA. XY-C1 on `9341a1ce` stopped in a checker before compilation; the latest run on `1770074742e98f13155fab91703fc74ca975c248` was in progress at handoff.
+- L2: WAN route status and DNSMasq lifecycle passed on their exact heads; AI handoff documentation passed on `b40c3ec707896cd119d513775ef6d224049ea0d3`. The new WAN caller source-check still failed on `pause_error` whitespace in dependent suites; the check is corrected in this commit and exact-head reruns are pending.
+- L3: NOT VERIFIED. XY-C1 on `b40c3ec` stopped before firmware compilation in the source checker; Build, TRX and artifact steps have not passed on one exact product-source SHA.
 - L4: Physical router reconnect timing, DHCP/WINS lease behavior and runtime failover remain NOT VERIFIED.
 
 
@@ -55,4 +53,4 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main; inspect the exact-head XY-C1 / USB modem identity / Firewall / Process runs for the corrected `check_modem_wan_start_status.py`. Then confirm XY-C1 Build + TRX + artifact on the same product-source SHA and continue an independent reliability/security issue.
+Fetch live main; inspect exact-head XY-C1, USB modem identity, Firewall and Process lifecycle reruns for `check_modem_wan_start_status.py`. Then require Build + TRX + artifact on the same product-source SHA, and continue an independent reliability/security issue.
