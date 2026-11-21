@@ -1,3 +1,15 @@
+## 2026-11-21 — PPP and WAN rollback-state consistency
+
+- Main parent checkpoint: `77f7a711c576f4cc50f78ea5307a2bd561058aae`.
+- `cc4887aa2cab`: replaced independent previous-lease `nvram_safe_get` calls in `udhcpc_bound` with a checked transaction snapshot before interface mutation.
+- `91697917a749`: extended transaction snapshots to IPTV DHCP, ZeroConf WAN and ZeroConf IPTV; the shared DHCP callback source checker now asserts all four callbacks snapshot before applying link changes. Exact WAN DHCP callback Actions: PASS.
+- `77f7a711c576`: PPP ip-up now copies its previous WAN address tuple and publishes the new tuple while holding one NVRAM transaction; recovery is attempted only if publication started.
+- PPP source work also includes checked integer/text option preflight, protocol-scoped string reads, checked primary-route handling and the `mtu_def` build fix.
+- Exact-head status at the checkpoint is captured in `SESSION_HANDOFF.md`; pending build/security/route checks must not be reported as PASS until their exact run completes.
+- Next: inspect exact current-head Actions and fix any first failure; then continue a separate source-level reliability defect.
+ 
+---
+
 ## 2026-11-21 — Declare RT3352 iNIC startup result before propagation
 
 - Parent main SHA: `7f5b2a1676aca910352ac9106c3c8289384aa963`; product base includes the PPP checked-option and route-primary work from `bf43b52`.
