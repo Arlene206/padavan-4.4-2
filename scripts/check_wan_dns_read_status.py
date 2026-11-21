@@ -179,3 +179,21 @@ require("is_man_dns_auto = 1" in teardown_man_routes and
 assert 'get_wan_unit_value_int(unit, "dnsenable_x")' not in add_man_routes
 assert 'get_wan_unit_value_int(unit, "dnsenable_x")' not in teardown_man_routes
 print("MAN DNS-route setup/teardown preserves NVRAM read errors and best-effort cleanup: PASS")
+
+
+# The global SYN-cookie security gate must never mistake a backend error for
+# the configured default. Missing-key zero remains compatible with nvram_get_int.
+checked_global = body(source, "get_nvram_int_checked_status(const char *param_name, int *value)")
+for token in ("nvram_get_checked(param_name, &stored_value)",
+              "rc_wan_nvram_read_int_status(api_result, saved_errno"):
+    require(token in checked_global, "global checked NVRAM getter missing " + token)
+wan_start = " ".join(body(source, "start_wan(void)").split())
+require('get_nvram_int_checked_status("fw_syn_cook", &tcp_syncookies_enabled)' in wan_start,
+        "TCP SYN-cookie startup gate must use checked NVRAM reads")
+require("if (nvram_status != 0)" in wan_start and
+        "cannot read TCP SYN-cookie setting" in wan_start and
+        "return nvram_status" in wan_start,
+        "WAN startup must abort before sysctl and interface setup on a security-setting read error")
+assert 'nvram_get_int("fw_syn_cook")' not in wan_start
+assert wan_start.index('get_nvram_int_checked_status("fw_syn_cook", &tcp_syncookies_enabled)') < wan_start.index("set_tcp_syncookies(")
+print("WAN SYN-cookie security policy read fails closed before activation: PASS")

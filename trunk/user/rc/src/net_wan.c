@@ -99,6 +99,23 @@ get_wan_unit_value_int_status(int unit, const char *param_name, int *value)
 					    stored_value, 0, value);
 }
 
+static int
+get_nvram_int_checked_status(const char *param_name, int *value)
+{
+	char *stored_value = NULL;
+	int api_result, saved_errno;
+
+	if (!param_name || !param_name[0] || !value)
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_get_checked(param_name, &stored_value);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(api_result, saved_errno,
+					    stored_value, 0, value);
+}
+
+
 int
 get_wan_unit_value_int(int unit, const char* param_name)
 {
@@ -2681,8 +2698,16 @@ start_wan(void)
 		return wan_start_status;
 	}
 
-	/* Apply explicit SYN-cookie protection before any WAN setup side effects. */
-	tcp_syncookies_enabled = nvram_get_int("fw_syn_cook") ? 1 : 0;
+	/* Read the security policy before any WAN setup side effects. */
+	nvram_status = get_nvram_int_checked_status(
+		"fw_syn_cook", &tcp_syncookies_enabled);
+	if (nvram_status != 0) {
+		logmessage(LOGNAME,
+			   "aborting WAN startup: cannot read TCP SYN-cookie setting (status=%d)",
+			   nvram_status);
+		return nvram_status;
+	}
+	tcp_syncookies_enabled = tcp_syncookies_enabled ? 1 : 0;
 	sysctl_status = set_tcp_syncookies(tcp_syncookies_enabled, &tcp_syncookies_status);
 	if (sysctl_status != 0)
 		logmessage(LOGNAME, "WAN TCP/ICMP security sysctl configuration failed (status=%d)",
