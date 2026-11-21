@@ -1,3 +1,13 @@
+## 2026-11-21 — Repair WAN workflow YAML indentation and restore handoff contract
+
+- Parent main SHA: `2bfb2aa93f525762685d49ad50ff89d498eacdde`.
+- WAN callback workflow #44914788251 was registered without any jobs because the whitespace-normalized reverse-snapshot assertion inserted in the previous slice was missing the YAML block's ten-space indentation. Restored that indentation so the inline Python remains inside the step block.
+- AI handoff docs #44914790056 failed only because the live handoff omitted the validator's required exact phrase "one atomic main commit". Restored that cross-session atomic-main-commit rule and refreshed the checkpoint with exact SHA run statuses.
+- Process lifecycle #44914789828 and process inventory #44914790193 PASS on `2bfb2aa`; XY-C1 #44914789805 and NVRAM audit #44914790008 remain IN_PROGRESS on the same SHA. A fresh WAN callback and AI handoff push run is required after this repair.
+- No production source changed in this slice; no local regression or build is claimed. L3 remains NOT VERIFIED until Build, TRX and artifact upload pass on one exact SHA; L4 hardware validation remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Restore the WAN DHCP publisher forward declaration and remove duplicate definition
 
 - Parent main SHA: 188a2b85bc0b80246bfc1a37f2030f7ceec85e29; the latest product-source baseline had failed XY-C1 Build #44913834107.

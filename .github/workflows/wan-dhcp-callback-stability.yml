@@ -491,7 +491,7 @@ jobs:
           assert published_state < rollback_state < restore_publish < route_abort
           assert "dhcp_lease_nvram_reverse_snapshot(" in callback
           callback_compact = "".join(callback.split())
-assert "dhcp_lease_nvram_reverse_snapshot(snapshot_values,snapshot_count,rollback_values)" in callback_compact
+          assert "dhcp_lease_nvram_reverse_snapshot(snapshot_values,snapshot_count,rollback_values)" in callback_compact
           assert "dhcp_lease_nvram_reverse_snapshot(" in lease_policy
           assert "preserving current interface/routes" in callback
           callback_status_publish = callback.index("callback_status = route_status_accumulate(route_setup_status, mtu_status);")
