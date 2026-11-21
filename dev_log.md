@@ -1,3 +1,13 @@
+## 2026-11-21 — Repair PID-file regression workflow YAML indentation
+
+- Parent main SHA: `20e139d230b73eabc5f25a2b17d56a3a5768af11`.
+- Exact-head Process workflow run `#44887655190` failed before job creation because the new parser step had one extra leading space, breaking the workflow's step-level YAML indentation. Corrected the step to match adjacent six-space step/eight-space `run` indentation; no test or workflow coverage was removed.
+- On the parent SHA, Process inventory `#44887656234` and AI handoff `#44887656223` both passed. The standalone parser regression also passed local GNU89/ASan/UBSan compilation and execution; the corrected exact-head Process workflow must still confirm integration.
+- XY-C1 exact-source L3 is now verified: run `#44885238962` passed build, TRX validation and artifact upload on SHA `8a55d24a4b797c96ca94bc8ece112966d86fa204`.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Harden exported legacy shared PID-file signalling; confirm XY-C1 L3
 
 - Parent main SHA: `1ab5e53519d7316243f13cff4095dc1b3c13ce5d`.
