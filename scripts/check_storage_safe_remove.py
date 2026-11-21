@@ -507,12 +507,29 @@ ftp_start = body(storage, "run_ftp(void)")
 require("process_state != PROCESS_PRESENCE_ABSENT" in ftp_start and
         "PROCESS_PRESENCE_RUNNING" in ftp_start,
         "FTP start must refuse unknown daemon presence")
-for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
-                  "int run_torrent(void)", "int run_aria(void)"):
+for signature, daemon, stop_callback in (
+        ("int run_dms(int force_rescan)", "minidlna", "stop_dms_locked"),
+        ("int run_itunes(void)", "mt-daapd", "stop_itunes_locked"),
+        ("int run_torrent(void)", "transmission-daemon", "stop_torrent_locked"),
+        ("int run_aria(void)", "aria2c", "stop_aria_locked"),
+):
     run_body = body(storage, signature)
     require("process_state != PROCESS_PRESENCE_ABSENT" in run_body and
             "PROCESS_PRESENCE_RUNNING" in run_body,
             "storage daemon start must fail closed on unknown presence: " + signature)
+    require("launch_errno = errno;" in run_body and
+            "start_status = storage_log_daemon_start_result(" in run_body and
+            "if (start_status != 0)" in run_body and
+            "storage_rollback_failed_start(" in run_body and
+            stop_callback in run_body,
+            "fresh " + daemon + " start must roll back when launch/readiness postconditions fail")
+
+rollback = body(storage, "static int\nstorage_rollback_failed_start(")
+require("stop_status = stop_daemon();" in rollback and
+        "process_inventory_scan(daemon, &snapshot)" in rollback and
+        "storage_service_failed_start_may_leave_daemon(presence)" in rollback and
+        "errno = start_errno > 0 ? start_errno : EIO;" in rollback,
+        "failed fresh-start rollback must stop, re-inventory and preserve the original error")
 require("PROCESS_PRESENCE_UNKNOWN" in ftp_policy and "return -1;" in ftp_policy and "EIO" in ftp_policy,
         "FTP daemon wait must fail immediately on unknown process state")
 require("PROCESS_PRESENCE_UNKNOWN" in ftp_test and "EACCES" in ftp_test,
