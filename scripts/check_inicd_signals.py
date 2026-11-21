@@ -178,8 +178,11 @@ assert guest_state_error in inic_check
 assert "iNIC guest AP state is unknown; recovery deferred until the next health check" in inic_check
 assert guest_gate in inic_check
 assert "is_interface_up(IFNAME_INIC_GUEST)" not in inic_check
-assert inic_check.index("wireless_guest_interface_state_checked(") < inic_check.index(guest_state_error)
-assert inic_check.index(guest_state_error) < inic_check.index("return status;", inic_check.index(guest_state_error)) < inic_check.index(guest_gate)
+guest_state_call_pos = inic_check.index("wireless_guest_interface_state_checked(")
+guest_state_error_pos = inic_check.index(guest_state_error, guest_state_call_pos)
+guest_state_return_pos = inic_check.index("return status;", guest_state_error_pos)
+guest_state_gate_pos = inic_check.index(guest_gate)
+assert guest_state_call_pos < guest_state_error_pos < guest_state_return_pos < guest_state_gate_pos
 assert "test_unknown_guest_link_state_still_requests_down" in read("trunk/user/rc/src/tests/wireless_guest_isolation_policy.c")
 assert "wireless_guest_isolation_link_state(-1, EACCES, ENODEV," in read("trunk/user/rc/src/wireless_guest_isolation_policy.h")
 assert "status = wif_control(IFNAME_INIC_GUEST, 1);" in inic_check

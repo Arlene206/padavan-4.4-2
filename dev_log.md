@@ -1,3 +1,13 @@
+## 2026-11-21 — Scope iNIC guest-state error assertions to the checked probe
+
+- Beijing time: 2026-11-21 19:08 (UTC+8). Parent main SHA: `60ad278e7056ace912066b090fdf20d0fd874f3e`.
+- Exact-head Wireless run #44897419595 and iNIC run #44897419703 both reached their source contracts and failed on the same brittle ordering assertion. The checker used the first `if (status != 0)` in `check_inic_mii_rebooted()`, which belongs to the earlier radio force-disable path, rather than the error branch following `wireless_guest_interface_state_checked()`. The iNIC GNU89/Werror/ASan/UBSan policy binary passed; the Wireless bridge, guest-isolation and PID-1 status policy checks also passed before its inline contract failed.
+- Updated `scripts/check_inicd_signals.py` and the embedded Wireless workflow contract to locate the error branch starting at the checked guest-state call, then verify the call → error gate → return → DOWN-only recovery order. This corrects the test contract without weakening it or changing production behavior.
+- No local checkout/runtime is available; no local tests or firmware build are claimed. On parent SHA, AI handoff docs #44897419640, Process umbrella #44897419609, Process inventory #44897419663, watchdog #44897419667, HTTPD #44897419727 and NVRAM #44897419737 passed. XY-C1 #44897419694 was still in progress. Fresh exact-head iNIC, Wireless and AI handoff runs are required; no new L3/L4 claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Keep iNIC recovery fail-closed when guest link state is unknown
 
 - Parent main SHA: `ed7c42675c8784123f1ad14cf098b2d31be6ddcc`.
