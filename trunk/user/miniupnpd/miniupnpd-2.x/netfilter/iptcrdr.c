@@ -224,16 +224,18 @@ get_redirect_desc(unsigned short eport, int proto,
 	{
 		if(p->eport == eport && p->proto == (short)proto)
 		{
-			if(desc)
-				strncpy(desc, p->str, desclen);
+			if (desc && desclen > 0)
+				(void)miniupnpd_redirect_desc_copy_bounded(
+					desc, (size_t)desclen, p->str);
 			if(timestamp)
 				*timestamp = p->timestamp;
 			return;
 		}
 	}
 	/* if no description was found, return miniupnpd as default */
-	if(desc)
-		strncpy(desc, "miniupnpd", desclen);
+	if (desc && desclen > 0)
+		(void)miniupnpd_redirect_desc_copy_bounded(
+			desc, (size_t)desclen, "miniupnpd");
 	if(timestamp)
 		*timestamp = 0;
 }

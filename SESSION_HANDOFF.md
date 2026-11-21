@@ -18,24 +18,20 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The exported OpenVPN client profile actively requires `remote-cert-tls server`, matching the generated certificate's `serverAuth` EKU. Dual-stack modes 4/5 use validated WAN IPv4 only as a final fallback after DDNS and IPv6 sources fail; IPv6-only modes remain unchanged.
-- VPN lifecycle #44939760147 passed on `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`; AI handoff docs #44940022312 passed on `96de0aedf60c0605cbead65e50f69aa31483e82b`.
-- Inadyn `write_inadyn_conf()` used error-collapsing reads for `ddns_ssl`, `ddns2_ssl`, wildcard flags, `ddns_ipv6` and `ddns_source`. A backend failure could turn TLS off and publish a configuration that transmits credentials without encryption.
-- Commit `f27f59a23141112124ef874a1d4a0406dac898f5` adds a bounded checked integer parser, six checked NVRAM option reads before staged-config creation, and GNU89/ASan/UBSan tests. Inadyn workflow #44940446835 passed all three compiled test binaries but failed the source contract with `NameError: ordered is not defined`; this checker-only child replaces the undefined helper with explicit token and preflight-order assertions.
+- MiniUPnP redirect-description output previously used unbounded-to-termination `strncpy()` into caller-supplied buffers. A SOAP-controlled description can be at least 64 bytes, while `GetSpecificPortMappingEntry()` copies into `char desc[64]` and passes the result to XML escaping and `%s` logging. This slice adds a NUL-preserving bounded-copy helper for stored and default descriptions, GNU89 sanitizer regression coverage and a source contract tied to the SOAP consumer.
+- The recent current-head Inadyn repair `1af2d134760bef0ade9054dfb88f67f641759ced` passed AI docs #44940632808, Inadyn lifecycle #44940632768 and DNSMasq #44940632885. The previous helper-definition failure on parent f27f was corrected without weakening the source checks.
+- The MiniUPnP slice must pass its exact-head stability workflow and same-SHA XY-C1 Build/TRX/artifact. Hardware L4 remains NOT VERIFIED.
 ## Verification boundary
 
-- Inadyn run #44940446835 on `f27f59a23141112124ef874a1d4a0406dac898f5`: all three compiled test binaries passed, including checked integer parser tests. The final production integration check failed only due to checker `NameError: ordered is not defined`; the checker-only correction removes this undefined dependency while retaining ordering assertions.
-- AI handoff docs #44940446730 PASS on `f27f59a23141112124ef874a1d4a0406dac898f5`; Process #44940446796, WAN route #44940446824, WAN DHCP #44940446779, HTTPD #44940446885, DNSMasq #44940446712, Samba #44940446725, miniupnpd #44940446973 and process inventory #44940446907 PASS on the same SHA. NVRAM transaction audit #44940446992 was pending at last poll.
-- XY-C1 #44940446898 on `f27f59a23141112124ef874a1d4a0406dac898f5` was in the Build XY-C1 step. Same-SHA Build, TRX verification and artifact upload remain necessary for L3; L4 hardware validation remains NOT VERIFIED.
-- Earlier d3b7 XY-C1 #44939588534 also remained in progress at last poll. Do not transfer any earlier firmware pass to later source commits.
-- No local tests or cross-builds are claimed; the results above are GitHub Actions only.
-
+- Parent `1af2d134760bef0ade9054dfb88f67f641759ced`: AI handoff #44940632808 PASS, Inadyn lifecycle #44940632768 PASS, DNSMasq lifecycle #44940632885 PASS. Process inventory, WAN route, WAN DHCP, Samba, HTTPD and MiniUPnP configuration publication also passed on parent f27f `#44940446796`, `#44940446824`, `#44940446779`, `#44940446725`, `#44940446885` and `#44940446973` respectively.
+- The earlier Inadyn workflow #44940446835 failed only after all GNU89 sanitizer binaries passed, because its checker called undefined `ordered()`; commit `1af2d134760bef0ade9054dfb88f67f641759ced` corrected the contract and exact-head Inadyn rerun passed.
+- The d3b7 OpenVPN source SHA `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a` has VPN lifecycle PASS on checker child `69b61e88ef094496f3c7b4e7f7ac69669aa7a3b1`. Its same-source XY-C1 run #44939588534 had Build/TRX PASS and artifact upload still running at the last poll; do not claim L3 until artifact upload completes.
+- No local test/build is run or claimed for this MiniUPnP slice. Its exact-head MiniUPnP workflow and XY-C1 are pending after commit; L3 and hardware L4 are NOT VERIFIED.
 ## Exact first action for the next GPT
 
-1. Fetch live main and inspect exact-head Inadyn lifecycle, AI docs, NVRAM/Process and XY-C1 Actions for the checked TLS-option preflight. Diagnose any failure from its first causal log error; preserve the last-good DDNS configuration.
-2. Require Build XY-C1, TRX verification and artifact upload on one exact SHA before recording L3. Independently resolve d3b7 XY-C1 run #44939588534; it was pending at last observation.
-3. Continue the next highest-risk stability/security defect in a different Padavan userland module after this Inadyn slice.
-
+1. Fetch live `main`; inspect exact-head MiniUPnP config-stability and XY-C1 Actions for the bounded redirect-description commit. Confirm the GNU89 ASan/UBSan regression and source contract pass; require Build XY-C1, TRX verification and artifact upload all PASS on this same production-source SHA before claiming L3.
+2. Diagnose any CI failure from its first causal log error and fix source/tests atomically without weakening checks. PENDING runs do not block independent tasks.
+3. After this bounded MiniUPnP security issue validates, continue the highest-risk unfinished defect in another Padavan userland module.
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history, create branches or PRs.

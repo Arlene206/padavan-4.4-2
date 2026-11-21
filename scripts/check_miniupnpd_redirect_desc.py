@@ -5,6 +5,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/iptcrdr.c").read_text()
+SOAP_SOURCE = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/upnpsoap.c").read_text()
 POLICY = (ROOT / "trunk/user/miniupnpd/miniupnpd-2.x/netfilter/miniupnpd_redirect_desc_policy.h").read_text()
 
 
@@ -90,6 +91,21 @@ rollback = update.index("rollback_nat:")
 assert "free(desc_entry);" in update[rollback:]
 assert "return update_portmapping_desc_timestamp(" not in update
 
+get_description = normalized("get_redirect_desc(unsigned short eport, int proto,")
+assert "miniupnpd_redirect_desc_copy_bounded(desc, (size_t)desclen, p->str)" in get_description
+assert 'miniupnpd_redirect_desc_copy_bounded(desc, (size_t)desclen, "miniupnpd")' in get_description
+assert "strncpy(desc" not in get_description
+
+soap_get_specific = function_body(SOAP_SOURCE, "GetSpecificPortMappingEntry(struct upnphttp * h,")
+assert "char desc[64];" in soap_get_specific
+assert "desc, sizeof(desc)" in soap_get_specific
+assert soap_get_specific.index("upnp_get_redirection_infos(") < soap_get_specific.index("miniupnpd_soap_xml_escape(escaped_desc")
+
+copy_policy = " ".join(POLICY.split())
+assert "copy_size = strlen(source);" in copy_policy
+assert "if (copy_size >= destination_size) copy_size = destination_size - 1;" in copy_policy
+assert "destination[copy_size] = '\\0';" in copy_policy
+
 replace = normalized("replace_redirect_desc(unsigned short eport, int proto, struct rdr_desc * p)")
 assert replace.index("del_redirect_desc(") < replace.index("publish_redirect_desc(")
 
@@ -97,5 +113,6 @@ policy_text = " ".join(POLICY.split())
 assert "text_size > (size_t)-1 - header_size" in policy_text
 assert "errno = EOVERFLOW;" in policy_text
 assert "errno = EINVAL;" in policy_text
+assert "miniupnpd_redirect_desc_copy_bounded" in policy_text
 
 print("MiniUPnP redirect metadata allocation/order source contract: PASS")

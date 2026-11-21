@@ -1,3 +1,13 @@
+## 2026-11-22 — Bound MiniUPnP redirect-description reads
+
+- Parent main SHA: `1af2d134760bef0ade9054dfb88f67f641759ced`.
+- Security defect: `get_redirect_desc()` copied a dynamically stored, SOAP-controlled mapping description with `strncpy(desc, p->str, desclen)` without reserving or forcing a trailing NUL. `GetSpecificPortMappingEntry()` supplies a fixed 64-byte stack buffer and immediately passes it to XML escaping and `%s` logging. A description of 64 bytes or longer therefore caused an out-of-bounds stack read.
+- Added a bounded-copy helper to the redirect-description policy and used it for both stored descriptions and the default fallback. It reserves one byte for NUL and safely handles 1-byte, zero-capacity and null-argument boundaries.
+- Extended the existing GNU89 `-Werror` ASan/UBSan redirect-metadata regression for exact fit, truncation, 1-byte, empty and invalid arguments. Extended `check_miniupnpd_redirect_desc.py` to bind the helper to `get_redirect_desc()` and the fixed-size SOAP consumer. Existing workflow push/PR filters already cover the source, helper, test, checker and SOAP consumer.
+- Local test execution: NOT RUN (no local checkout). Exact-head MiniUPnP config-stability and XY-C1 Build/TRX/artifact must be checked after this source commit. L3 and hardware L4 are not claimed.
+
+---
+
 ## 2026-11-21 — Replace undefined Inadyn checker ordering helper
 
 - Parent main SHA: `f27f59a23141112124ef874a1d4a0406dac898f5`.

@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <stddef.h>
 #include <stdio.h>
+#include <string.h>
 
 #include "../netfilter/miniupnpd_redirect_desc_policy.h"
 
@@ -24,6 +25,37 @@ success_allocator(size_t size)
 	allocation_calls++;
 	observed_size = size;
 	return storage;
+}
+
+static void
+test_bounded_description_copy(void)
+{
+	char exact[4];
+	char truncated[4];
+	char one_byte[1];
+	char untouched[2] = {'x', 'y'};
+
+	assert(miniupnpd_redirect_desc_copy_bounded(exact, sizeof(exact), "abc") == 0);
+	assert(strcmp(exact, "abc") == 0);
+	assert(miniupnpd_redirect_desc_copy_bounded(
+		truncated, sizeof(truncated), "untrusted-long-description") == 0);
+	assert(strcmp(truncated, "unt") == 0);
+	assert(truncated[sizeof(truncated) - 1] == '\0');
+	assert(miniupnpd_redirect_desc_copy_bounded(one_byte, sizeof(one_byte), "x") == 0);
+	assert(one_byte[0] == '\0');
+	assert(miniupnpd_redirect_desc_copy_bounded(exact, sizeof(exact), "") == 0);
+	assert(exact[0] == '\0');
+
+	errno = 0;
+	assert(miniupnpd_redirect_desc_copy_bounded(NULL, sizeof(exact), "x") == -1);
+	assert(errno == EINVAL);
+	errno = 0;
+	assert(miniupnpd_redirect_desc_copy_bounded(untouched, 0, "x") == -1);
+	assert(errno == EINVAL);
+	assert(untouched[0] == 'x');
+	errno = 0;
+	assert(miniupnpd_redirect_desc_copy_bounded(untouched, sizeof(untouched), NULL) == -1);
+	assert(errno == EINVAL);
 }
 
 static void
@@ -65,6 +97,7 @@ test_overflow_and_invalid_allocator(void)
 int
 main(void)
 {
+	test_bounded_description_copy();
 	test_allocation_failure();
 	test_success();
 	test_overflow_and_invalid_allocator();
