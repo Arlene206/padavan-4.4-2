@@ -1,3 +1,13 @@
+## 2026-11-21 — Correct iNIC callback source signature checker formatting
+
+- Parent main SHA: `215892b1acde4eea1be4be7785f4ef2b2b197e55`.
+- The Wireless radio state workflow `#44896853653` compiled and passed all C radio, bridge-membership and guest-isolation policy tests, then failed in the embedded source contract because it expected the iNIC function declaration `int check_inic_mii_rebooted(void)` on one line. The production source uses the repository's valid two-line style (`int` newline function name). Corrected both iNIC and Wireless source checkers to assert the actual multiline declaration; no production code or test semantics changed.
+- iNIC workflow `#44896853546` was still in progress at the time of this correction. Other exact-head results: WAN route, USB modem, infosvr, vsftpd, VPN server, networkmap, MiniUPnP, Samba and Adbyby PASS; XY-C1 remained in progress.
+- No local checkout/runtime; no local test/build claimed. Re-run exact-head iNIC and Wireless Actions.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Propagate iNIC MII health-recovery failures to periodic monitor
 
 - Parent main SHA: `6dd282fc7112b86ccdb167100e44765fbca97b73`.

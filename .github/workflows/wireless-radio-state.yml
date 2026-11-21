@@ -627,7 +627,7 @@ jobs:
 
           # The periodic iNIC health check must surface failed recovery commands.
           inic_check = function_body(source, "check_inic_mii_rebooted(void)")
-          assert "int check_inic_mii_rebooted(void)" in source
+          assert "int\ncheck_inic_mii_rebooted(void)" in source
           disabled_gate = "if (!get_mlme_radio_rt())"
           assert disabled_gate in inic_check
           assert 'status = doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN,' in " ".join(inic_check.split())

@@ -154,7 +154,7 @@ isolate_hardware = stop_wifi.index("phy_isolate_inic(1)")
 assert stop_daemon < isolate_hardware
 assert "return -1;" in stop_wifi[stop_daemon:isolate_hardware]
 assert "iNIC health monitor did not stop" in stop_wifi[stop_daemon:isolate_hardware]
-assert "int check_inic_mii_rebooted(void)" in wifi
+assert "int\ncheck_inic_mii_rebooted(void)" in wifi
 inic_check = function_body(wifi, "check_inic_mii_rebooted(void)")
 disabled_gate = "if (!get_mlme_radio_rt())"
 disable_call = 'status = doSystem("iwpriv %s set %s=%d", IFNAME_INIC_MAIN,'
