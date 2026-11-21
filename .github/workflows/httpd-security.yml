@@ -4917,7 +4917,8 @@ jobs:
           assert "firewall_schedule_is_active(date, time)" in firewall
           assert 'firewall_schedule_is_active("1111111", "00002359")' in firewall_test
           assert 'firewall_schedule_is_active("0000000", "00002359")' in firewall_test
-          assert 'if (!timematch_conv(mac_timematch, nv_date, nv_time))' in firewall
+          assert "firewall_read_mac_filter_schedule(mac_timematch, i)" in firewall
+          assert 'if (!timematch_conv(mac_timematch, nv_date, nv_time))' not in firewall
           assert firewall.count('if (timematch_conv(timematch, "url_date_x", "url_time_x"))') == 2
           assert "timematch_lw_filter_conv(timematch)" in firewall
           assert 'timematch_conv(timematch, "filter_lw_date_x", "filter_lw_time_x")' not in firewall
