@@ -2,27 +2,31 @@
 
 ## Current repository state
 
-- Repository: `Arlene206/padavan-4.4-2`; active branch: `main`.
-- Parent main: `418373c53d35051fc316c67f119d372126a08f89`.
+- Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
+- Parent main: `53e9c553994afe3917c3451dee9d73f116be1024`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged; no feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 
-## Active engineering slice
+## Completed source slices
 
-- The prior source commit `418373c53d35051fc316c67f119d372126a08f89` migrated PPP VPN and OpenVPN callbacks to the shared checked `vpn_client_nvram_read_bool_status()` reader. Its GNU89 policy test passed, but the OpenVPN callback retained a stale argument tail from the former parser invocation; this commit removes that invalid tail and updates the VPN source contract to assert the new shared helper exactly once.
-- The same parent AI handoff check found `docs/dev-log/2026/11/part-023.md` indexed as 109434 bytes while the immutable archive is 109696 bytes. This commit corrects only the index byte count; the archive blob and bytes remain untouched.
-- Parent 418 Actions: OpenVPN credential staging #44939243151 PASS; DNSMasq lifecycle #44939243079 PASS. VPN lifecycle #44939242958 failed at the stale OpenVPN helper source assertion (after all compiled policy tests passed). AI handoff docs #44939242988 failed only at the part-023 byte count. XY-C1 #44939242892 was still preparing the build before Build XY-C1 at last poll; NVRAM #44939243070, Firewall #44939242926, HTTPD #44939242904, WAN route #44939242908 and Process inventory/lifecycle #44939243154/#44939242924 were pending.
-- No exact parent 418 target Build/TRX/artifact PASS is established. L4 hardware flash/boot/runtime remains NOT VERIFIED.
+- Shared VPN boolean policy: both PPP VPN and OpenVPN up callbacks use checked `vpn_client_nvram_read_bool_status()`. The follow-up commit `53e9c553994afe3917c3451dee9d73f116be1024` removes an accidentally retained old argument tail from `on_client_ifup()`, updates the checker to the shared helper, and corrects the part-023 archive index byte count from 109434 to the verified 109696 UTF-8 bytes (archive blob SHA `d896a53f5bd56915dbabb5ec4987a2dc069d8388` remains unchanged).
+- OpenVPN server callbacks prefer event-supplied `dev`, use checked topology fallback only when absent, and preserve disconnect hook cleanup. Client DNS policy errors preserve last-good DNS/domain state while mandatory state/hook work continues.
+- This commit hardens exported client profiles: activate `remote-cert-tls server` to match the generated server certificate's `serverAuth` EKU, and use a validated WAN IPv4 endpoint only as a final fallback for dual-stack modes 4/5 after DDNS and both IPv6 sources fail. IPv6-only modes remain unchanged. The VPN lifecycle checker cross-validates the directive against `openvpn-cert.sh` and checks profile option mapping/fallback order.
+
+## Verification boundary
+
+- Exact-head 53e9 Actions were pending at last poll: VPN lifecycle #44939430753, XY-C1 #44939430749, AI docs #44939430857, NVRAM #44939430717, Process inventory #44939430869, OpenVPN credential staging #44939430805. Those runs are stale relative to the current source commit.
+- Parent 418 workflow findings: shared VPN policy C regression passed, but VPN lifecycle #44939242958 failed at a stale checker expecting the former parser; AI docs #44939242988 failed on part-023 byte count. Both were corrected in 53e9; exact-head re-runs are required.
+- Parent 53e9 exact-head L3 not established. The current source commit must pass same-SHA XY-C1 Build, TRX verification and artifact upload before L3 is claimed. No local build/tests are claimed. Hardware L4 remains NOT VERIFIED.
 
 ## Exact first actions for the next GPT
 
-1. Inspect exact-head VPN lifecycle, AI docs, NVRAM and XY-C1 Actions for this repair commit. The VPN run must pass the shared boolean helper contract; AI docs must accept part-023's indexed 109696-byte size. XY-C1 must pass Build, TRX verification and artifact upload on the same exact SHA before L3 is claimed.
-2. If checks pass, continue the next OpenVPN export-profile security/functionality issue: enable `remote-cert-tls server` (the generated server certificate carries `serverAuth` EKU) and add validated IPv4 endpoint fallback only for dual-stack modes 4/5 after DDNS and IPv6 lookup fail. Keep IPv6-only modes unchanged.
-3. After that independent source slice, switch to the highest-risk unfinished reliability/security defect in another Padavan userland module.
+1. Fetch live main and inspect exact-head VPN lifecycle, AI docs, NVRAM, Process and XY-C1 Actions for the current profile commit. The VPN checker must validate server EKU and dual-stack fallback; XY-C1 Build, TRX and artifact upload must all PASS on the same SHA.
+2. Diagnose any first causal failure without weakening checks; PENDING may be followed by independent work.
+3. Continue the highest-risk remaining stability/security defect in a different Padavan userland module after this bounded OpenVPN export slice; do not stay in VPN indefinitely.
 
 ## Workflow and preservation rules
 
-- Develop only on `main`. For each logical slice create all blobs, one complete Git tree, one commit and one non-forced expected-SHA ref update. Never force-push, amend history, create branches or PRs.
-- Re-fetch main at the write boundary; if it moves, rebuild from its new tree. Inspect only exact-head push Actions. PENDING does not block independent work; diagnose FAIL from its first causal error.
-- Preserve GNU89, MIPS/uClibc, BusyBox, Linux 4.4, ABI, legacy NVRAM defaults, security and device compatibility. Do not weaken tests/source contracts or claim tests/builds not run.
-- Root `dev_log.md` remains a newest-first rolling window of 20–119 records; archive the 100 oldest complete entries when the next entry would make 120. Preserve immutable archive files and index integrity.
+- Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history, create branches or PRs.
+- Re-fetch main immediately before writes. Only exact-head push Actions count. Preserve GNU89, MIPS/uClibc, BusyBox, Linux 4.4, ABI, legacy NVRAM defaults, security and device compatibility. Never claim tests/builds not run.
+- Root `dev_log.md` remains a newest-first 20–119-record rolling window; archive the 100 oldest complete records when the next entry would reach 120. Preserve existing archive bytes and index integrity.
 

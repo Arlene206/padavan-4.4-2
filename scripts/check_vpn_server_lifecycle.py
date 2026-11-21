@@ -41,6 +41,7 @@ def ordered(txt,tokens,label):
 
 vpn=read("trunk/user/rc/src/vpn_server.c")
 vpn_openvpn=read("trunk/user/rc/src/vpn_openvpn.c")
+cert_script=read("trunk/user/openvpn/openvpn-cert.sh")
 config_policy=read("trunk/user/rc/src/vpn_server_config_policy.h")
 config_policy_test=read("trunk/user/rc/src/tests/vpn_server_config_policy.c")
 route_status_policy=read("trunk/user/rc/src/route_status_policy.h")
@@ -429,6 +430,7 @@ require("start_vpn_server();" in body(services,"start_services_once(int is_ap_mo
 require('record_service_stop_status(&stop_status, "VPN server", stop_vpn_server());' in body(services,"stop_services(int stopall)"),"service stop result must be aggregated")
 require("return stop_status;" in body(services,"stop_services(int stopall)"),"service stop failure must reach caller")
 for p in ("trunk/user/rc/src/vpn_server.c","trunk/user/rc/src/vpn_openvpn.c",
+          "trunk/user/openvpn/openvpn-cert.sh",
           "trunk/user/rc/src/vpn_server_lifecycle_lock.h",
           "trunk/user/rc/src/vpn_server_lease_lock.h",
           "trunk/user/rc/src/tests/vpn_server_lease_lock.c",
@@ -448,6 +450,9 @@ pull_paths=workflow.split("  pull_request:",1)[1].split("  workflow_dispatch:",1
 openvpn_filter="      - 'trunk/user/rc/src/vpn_openvpn.c'"
 require(push_paths.count(openvpn_filter) == 1 and pull_paths.count(openvpn_filter) == 1,
         "OpenVPN production source path must appear exactly once in push and pull_request filters")
+cert_filter="      - 'trunk/user/openvpn/openvpn-cert.sh'"
+require(push_paths.count(cert_filter) == 1 and pull_paths.count(cert_filter) == 1,
+        "OpenVPN certificate generator path must appear exactly once in push and pull_request filters")
 require("fork()" in test and "errno==EBUSY" in test.replace(" ",""),"cross-process contention regression missing")
 require("test_first_failure_survives_later_restore_and_unlock_errors" in restart_policy_test and
         "rc_notify_merge_action_result(0, status) == -1" in restart_policy_test,
@@ -841,6 +846,7 @@ xy_workflow=read(".github/workflows/xy-c1-firmware-validation.yml")
 for path in ("trunk/user/rc/src/l2tp_config_file.h",
              "trunk/user/rc/src/tests/l2tp_config_file.c",
              "trunk/user/rc/src/vpn_openvpn.c",
+             "trunk/user/openvpn/openvpn-cert.sh",
              "trunk/user/rc/src/openvpn_process_stop_policy.h"):
     require(xy_workflow.count('      - "{}"'.format(path)) == 1,
             f"XY-C1 firmware workflow must rebuild OpenVPN source dependency: {path}")
@@ -1065,14 +1071,35 @@ ordered(server_export,[
     "options.port",
     "options.auth_digest",
     "options.cipher",
-    "options.compression"
-],"OpenVPN exported client profile must use checked server snapshots before filesystem/key-generation side effects")
+    "options.compression",
+    "openvpn_add_auth(fp, options.auth_digest)",
+    "openvpn_add_cipher(fp, options.cipher, options.ncp_cipher_list)",
+    "openvpn_add_compress(fp, options.compression, 0)",
+    'fprintf(fp, "remote-cert-tls server\\n");'
+],"OpenVPN exported client profile must preserve crypto settings and verify server certificate purpose")
 require("nvram_get_int" not in server_export and
         "nvram_safe_get_int" not in server_export and
         "nvram_get(" not in server_export and
         "nvram_safe_get(" not in server_export and
         "nvram_match" not in server_export,
         "OpenVPN export must not bypass the checked server settings snapshot")
+dualstack_endpoint=server_export
+ordered(dualstack_endpoint,[
+    "if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)",
+    "wan_addr = get_wan_addr6_host(addr6s);",
+    "wan_addr = get_lan_addr6_host(addr6s);",
+    "if (!wan_addr && i_prot > 3)",
+    'wan_addr = get_wan_unit_value(0, "ipaddr");',
+    "if (!is_valid_ipv4(wan_addr))",
+    'wan_addr = "{wan_address}";'
+],"Dual-stack profiles may use IPv4 only after validated IPv6 endpoint lookup fails")
+require("extendedKeyUsage=serverAuth" in cert_script and
+        "extendedKeyUsage=clientAuth" in cert_script and
+        "sign_cert $CA_KEY $CA_CRT server.csr $SERVER_CRT $CERT_DAYS $DGST_ALG server" in cert_script,
+        "exported profile must match the certificate generator's serverAuth/clientAuth roles")
+require('fprintf(fp, ";remote-cert-tls %s\\n", "server");' not in server_export,
+        "exported profile must not leave server certificate purpose validation commented out")
+
 client_config_snapshot=body(vpn_openvpn,"openvpn_read_client_config_snapshot(struct openvpn_client_config_snapshot *config)")
 ordered(client_config_snapshot,[
     "nvram_transaction_begin(&transaction)",

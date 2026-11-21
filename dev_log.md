@@ -1,3 +1,13 @@
+## 2026-11-22 — Harden OpenVPN exported server identity and dual-stack reachability
+
+- Parent main SHA: `53e9c553994afe3917c3451dee9d73f116be1024`.
+- Exported client profiles previously emitted a commented `;remote-cert-tls server` directive even though `openvpn-cert.sh` signs the server certificate with `extendedKeyUsage=serverAuth` and client certificates with `clientAuth`. The exporter now activates `remote-cert-tls server`, requiring the peer's server certificate purpose.
+- For dual-stack server protocol modes 4/5, export previously stopped after DDNS and IPv6 WAN/LAN lookup. It now falls back to the WAN IPv4 address only when both IPv6 sources fail and only if the IPv4 address validates. IPv6-only protocol modes 2/3 remain IPv6-only.
+- Extended the VPN lifecycle source contract to tie the profile directive to the certificate generator's EKU/signing definitions, verify shared auth/cipher/compression mapping, and enforce the dual-stack fallback ordering. Added `openvpn-cert.sh` to VPN lifecycle push/PR triggers; XY-C1 already rebuilds for both OpenVPN source and certificate-generator paths.
+- Exact-head Actions on parent 53e9 were still pending at last poll (VPN lifecycle #44939430753, XY-C1 #44939430749, AI docs #44939430857, NVRAM #44939430717, Process #44939430869 and OpenVPN credential staging #44939430805). No local tests/build or L3/L4 result is claimed; current source commit requires fresh same-SHA checks.
+
+---
+
 ## 2026-11-22 — Repair shared VPN DNS policy integration and archive byte index
 
 - Parent main SHA: `418373c53d35051fc316c67f119d372126a08f89`.

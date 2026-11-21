@@ -2449,6 +2449,13 @@ ovpn_server_expcli_main(int argc, char **argv)
 			wan_addr = get_wan_addr6_host(addr6s);
 			if (!wan_addr)
 				wan_addr = get_lan_addr6_host(addr6s);
+			/* Dual-stack listeners remain reachable over IPv4 when this router
+			 * has no usable IPv6 endpoint. IPv6-only modes stay IPv6-only. */
+			if (!wan_addr && i_prot > 3) {
+				wan_addr = get_wan_unit_value(0, "ipaddr");
+				if (!is_valid_ipv4(wan_addr))
+					wan_addr = NULL;
+			}
 		} else
 #endif
 		{
@@ -2478,7 +2485,7 @@ ovpn_server_expcli_main(int argc, char **argv)
 	fprintf(fp, "nice %d\n", 0);
 	fprintf(fp, "verb %d\n", 3);
 	fprintf(fp, "mute %d\n", 10);
-	fprintf(fp, ";remote-cert-tls %s\n", "server");
+	fprintf(fp, "remote-cert-tls server\n");
 	if (openvpn_add_key(fp, SERVER_CERT_DIR, openvpn_server_keys[0], "ca") != 0 ||
 	    openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[1], "cert") != 0 ||
 	    openvpn_add_key(fp, tmp_ovpn_path, openvpn_client_keys[2], "key") != 0)
