@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize WAN notification source assertion for router-mode gate
+
+- Parent main SHA: `0398903bb6475668035313743f51a827cfe7f919`; XY-C1 validation #44904764739 on router-mode source SHA `d9bffce5` stopped before firmware cross-build, after earlier policy steps passed, because `check_modem_wan_start_status.py` expected a one-line NETFILTER call. The router-mode failure guard intentionally wraps `rc_notify_merge_action_result(...reload_nat_modules())` across lines.
+- Replaced the literal count with a whitespace-tolerant regular-expression count that still requires exactly two call sites. The independent FIREWALL notification call remains present; no production source or assertion strength was removed.
+- Router-mode dedicated regression #44904910387 PASS on `0398903bb6475668035313743f51a827cfe7f919`. HTTPD #44904764718 and NFS #44904764717 PASS on prior source SHA `d9bffce5`. XY-C1 and NVRAM audit reruns pending after this checker correction.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Normalize multiline router-mode source contract
 
 - Parent main SHA: `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`; Router mode NVRAM update regression #44904764742 compiled and ran its GNU89 ASan/UBSan policy tests successfully, then failed in the source checker on a formatting-sensitive assertion. The production call intentionally breaks after the comma, so the checker searched for a one-line spelling that did not exist.
