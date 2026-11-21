@@ -2304,7 +2304,7 @@ jobs:
           assert '"pppoe_username"' in xl2tp
           assert "ppp_config_line_value_copy(wan_peer, wan_value_check" in xl2tp
           assert "ppp_config_line_value_copy(wan_user, wan_value_check" in xl2tp
-          peer_check = ppp[pp.index("get_wan_ppp_peer_copy(int unit, char *peer, size_t peer_size)"):xl_start]
+          peer_check = ppp[ppp.index("get_wan_ppp_peer_copy(int unit, char *peer, size_t peer_size)"):xl_start]
           assert 'get_wan_unit_value_copy_status(unit, "ppp_peer", peer, peer_size)' in peer_check
           assert 'get_wan_unit_value_copy_status(unit, "man_gateway", peer, peer_size)' in peer_check
           assert xl2tp.index("get_wan_ppp_peer_copy(unit, wan_peer") < xl2tp.index('fopen(l2tp_conf, "w")')
