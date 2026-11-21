@@ -1,3 +1,13 @@
+## 2026-11-21 — Normalize source whitespace before modem retry assertions
+
+- Parent main SHA: `b0696dce08423d7467b3fca461a0ef8d35230567`.
+- Exact USB modem run #44959059134 reached the shared WAN-start source checker after the new modem policy host test compiled and executed. It failed because `check_modem_wan_start_status.py` applies `compact()` (collapsing whitespace to single spaces) but this new assertion compared against a no-whitespace token string. Firewall Startup #44959059154 failed at the same shared checker line; neither failure indicated a production-source or policy-test defect.
+- THIS COMMIT strips whitespace from the extracted deferred-handler body before the new token/order assertions and independently checks unplug-event → replug-event → reconnect-attempt → replug-attempt → retry-mask ordering. Production source and policy behavior are unchanged.
+- Exact b069 SHA: VSFTPD #44959059259 PASS, Samba #44959059221 PASS, HTTPD #44959059070 PASS, AI handoff #44959059168 PASS, Process inventory #44959059199 PASS, NFS #44959059105 PASS. USB modem #44959059134 and Firewall Startup #44959059154 failed only at the shared checker; exact XY-C1 #44959059138 and USB storage #44959059095 were still running at last poll.
+- Next: inspect corrected exact-head USB modem/Firewall/Storage and XY-C1 jobs; no L3/L4 claim until current source SHA's complete firmware validation passes.
+
+---
+
 ## 2026-11-21 — Align modem unplug retry gate with shared source checker
 
 - Parent main SHA: `f29b64cccedf3fddbf8c0e4f04f3c28aefe2d5e0`.
