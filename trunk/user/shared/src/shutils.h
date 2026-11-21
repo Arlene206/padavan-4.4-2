@@ -64,10 +64,12 @@ extern int recreate_passwd_unix(int force_create);
  */
 extern int _eval(char *const argv[], char *path, int timeout, pid_t *ppid);
 
-/* 
- * Kills process whose PID is stored in plaintext in pidfile
- * @param	pidfile	PID file
- * @return	0 on success and errno on failure
+/*
+ * Kills process whose PID is stored in a numeric PID-only file.
+ * The PID is range-checked before conversion to pid_t; malformed or
+ * non-regular files fail with -1 and errno set.
+ * @param pidfile PID file
+ * @return 0 on success, -1 on failure with errno set
  */
 extern int kill_pidfile(char *pidfile);
 extern int kill_pidfile_s(char *pidfile, int sig);

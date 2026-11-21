@@ -43,6 +43,7 @@
 
 #include "nvram_linux.h"
 #include "shutils.h"
+#include "shutils_pidfile_policy.h"
 #include "file_write_status.h"
 #include "passwd_temp_file_policy.h"
 
@@ -702,20 +703,59 @@ kill_pidfile_s(char *pidfile, int sig)
 {
 	FILE *fp;
 	pid_t pid;
+	struct stat st;
 	char buf[64];
-	int ret = -1;
+	size_t length;
+	int fd, saved_errno = 0;
 
-	fp = fopen(pidfile, "r");
-	if (fp) {
-		if (fgets(buf, sizeof(buf), fp)) {
-			pid = strtoul(buf, NULL, 0);
-			if (pid > 1 && pid < ULONG_MAX)
-				ret = kill(pid, sig);
-		}
-		fclose(fp);
+	if (!pidfile || !*pidfile) {
+		errno = EINVAL;
+		return -1;
 	}
 
-	return ret;
+	/* O_NONBLOCK prevents a stale FIFO path from hanging callers. */
+	fd = open(pidfile, O_RDONLY | O_NONBLOCK);
+	if (fd < 0)
+		return -1;
+	if (fstat(fd, &st) != 0)
+		saved_errno = errno ? errno : EIO;
+	else if (!S_ISREG(st.st_mode))
+		saved_errno = EINVAL;
+	else if (st.st_size >= (off_t)sizeof(buf))
+		saved_errno = EOVERFLOW;
+	if (saved_errno != 0) {
+		(void)close(fd);
+		errno = saved_errno;
+		return -1;
+	}
+
+	fp = fdopen(fd, "r");
+	if (!fp) {
+		saved_errno = errno ? errno : EIO;
+		(void)close(fd);
+		errno = saved_errno;
+		return -1;
+	}
+
+	errno = 0;
+	length = fread(buf, 1, sizeof(buf), fp);
+	if (ferror(fp))
+		saved_errno = errno ? errno : EIO;
+	else if (length == sizeof(buf) || !feof(fp))
+		saved_errno = EOVERFLOW;
+	else if (shutils_pidfile_parse_record(buf, length, &pid) != 0)
+		saved_errno = errno ? errno : EINVAL;
+
+	if (saved_errno == 0)
+		errno = 0;
+	if (fclose(fp) != 0 && saved_errno == 0)
+		saved_errno = errno ? errno : EIO;
+	if (saved_errno != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+
+	return kill(pid, sig);
 }
 
 /* 

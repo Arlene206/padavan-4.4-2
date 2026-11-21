@@ -68,6 +68,9 @@ netutils_source = (root / "trunk/user/shared/src/netutils.c").read_text()
 net_ifstats_policy = (root / "trunk/user/shared/src/net_ifstats_policy.h").read_text()
 net_ifstats_test = (root / "trunk/user/shared/src/tests/net_ifstats_policy.c").read_text()
 shared_header = (root / "trunk/user/shared/src/shutils.h").read_text()
+shared_source = (root / "trunk/user/shared/src/shutils.c").read_text()
+shared_pidfile_policy = (root / "trunk/user/shared/src/shutils_pidfile_policy.h").read_text()
+shared_pidfile_test = (root / "trunk/user/shared/src/tests/shutils_pidfile_policy.c").read_text()
 pids_source = (root / "trunk/user/shared/src/pids.c").read_text()
 pids_presence_policy = (root / "trunk/user/shared/src/pids_presence_policy.h").read_text()
 pids_presence_test = (root / "trunk/user/shared/src/tests/pids_presence_policy.c").read_text()
@@ -88,6 +91,20 @@ assert "service_lifecycle_release_targets(targets, count);" in notify_body
 assert "free(targets)" not in notify_body
 assert "service_lifecycle_release_targets(targets, count);" in pidfile_stop_body
 assert "free(targets)" not in pidfile_stop_body
+legacy_pidfile_body = c_function_body(
+    shared_source, "kill_pidfile_s(char *pidfile, int sig)"
+)
+assert "#include \"shutils_pidfile_policy.h\"" in shared_source
+assert "open(pidfile, O_RDONLY | O_NONBLOCK)" in legacy_pidfile_body
+assert "fstat(fd, &st)" in legacy_pidfile_body
+assert "S_ISREG(st.st_mode)" in legacy_pidfile_body
+assert "fdopen(fd, \"r\")" in legacy_pidfile_body
+assert "shutils_pidfile_parse_record(buf, length, &pid)" in legacy_pidfile_body
+assert "fgets(" not in legacy_pidfile_body
+assert "strtoul(" not in legacy_pidfile_body
+assert "value > (unsigned long)INT_MAX" in shared_pidfile_policy
+assert 'expect_valid("052", 3' in shared_pidfile_test
+assert 'expect_invalid("2junk", 5, EINVAL)' in shared_pidfile_test
 assert "kill_process_pidfile" not in common_ex
 assert "kill_pidfile_s(" not in common_ex
 assert "kill_pidfile(" not in common_ex

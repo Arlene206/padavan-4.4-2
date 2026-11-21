@@ -1,3 +1,14 @@
+## 2026-11-21 — Harden exported legacy shared PID-file signalling; confirm XY-C1 L3
+
+- Parent main SHA: `1ab5e53519d7316243f13cff4095dc1b3c13ce5d`.
+- The legacy `kill_pidfile_s()` helper used `fgets` followed by `strtoul(..., NULL, 0)` and cast before range checking. This accepted numeric prefixes such as `2junk` and could wrap out-of-range records on wider hosts.
+- Hardened the exported compatibility API without changing PID-only record syntax: nonblocking open plus regular-file validation, bounded full-record read, strict trailing/NUL checks, and `INT_MAX` validation before casting. Legacy decimal/octal/hex forms and surrounding whitespace remain accepted. Added GNU89 parser regressions, source integration assertions and Process-workflow push/PR path filters.
+- Exact-source XY-C1 `#44885238962` completed SUCCESS on `8a55d24a4b797c96ca94bc8ece112966d86fa204`; Build XY-C1, TRX output verification and artifact upload all passed. Firmware build L3 is verified on that SHA; physical-router L4 remains unverified.
+- The new standalone parser regression was compiled and run locally with GNU89, warnings-as-errors, ASan and UBSan: PASS. Exact-head Actions are still required for repository integration.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Remove obsolete watchdog ETIMEDOUT errno checker assertions
 
 - Parent main SHA: `6ce50b1f558a99db1569fa6fd1a03aff4075e012`.
