@@ -14,7 +14,7 @@ def code_characters(text, start):
     length = len(text)
     while index < length:
         if text.startswith("//", index):
-            newline = text.find("\\n", index + 2)
+            newline = text.find(chr(10), index + 2)
             index = length if newline < 0 else newline + 1
             continue
         if text.startswith("/*", index):
@@ -26,7 +26,7 @@ def code_characters(text, start):
             quote = character
             index += 1
             while index < length:
-                if text[index] == "\\\\":
+                if ord(text[index]) == 92:
                     index += 2
                 elif text[index] == quote:
                     index += 1
@@ -81,6 +81,16 @@ int probe(void) {
 }
 '''
 _parser_probe = body(_parser_probe_source, "probe(void)")
+_parser_escape_probe_source = r'''
+int escaped_probe(void) {
+    const char *escaped = "quote: \\" }";
+    // ignored } { on this line
+    return escaped[0] == 'q' ? 1 : 0;
+}
+'''
+if "return escaped[0]" not in body(_parser_escape_probe_source, "escaped_probe(void)"):
+    raise AssertionError("C string escape/comment parser regression")
+
 if "if (open_brace == '{')" not in _parser_probe or "return 0;" not in _parser_probe:
     raise AssertionError("C-aware function body parser regression")
 
