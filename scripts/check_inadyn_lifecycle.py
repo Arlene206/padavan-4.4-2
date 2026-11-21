@@ -104,6 +104,26 @@ assert "stop_status = stop_ddns_locked()" in start
 assert start.index("if (stop_status != 0)") < start.index('eval("/bin/inadyn"')
 assert 'launch_status = eval("/bin/inadyn"' in start
 assert "inadyn_confirm_started(launch_status)" in start
+assert "int launch_errno;" in start
+assert "int start_status;" in start
+assert "int start_errno;" in start
+assert start.index("errno = 0;") < start.index('launch_status = eval("/bin/inadyn"')
+assert "launch_errno = errno;" in start
+assert start.count("inadyn_rollback_failed_start(") == 2
+assert 'inadyn_rollback_failed_start(\n\t\t\tlaunch_status, start_errno, "launcher")' in start
+assert 'inadyn_rollback_failed_start(\n\t\t\tstart_status, start_errno, "startup confirmation")' in start
+assert start.index("inadyn_confirm_started(launch_status)") < start.index("inadyn_rollback_failed_start(\n\t\t\tstart_status")
+rollback = body("inadyn_rollback_failed_start(int start_status, int start_errno,")
+assert "stop_status = stop_ddns_locked();" in rollback
+assert "presence = inadyn_process_presence(&scan_error);" in rollback
+assert "inadyn_failed_start_may_leave_daemon(presence)" in rollback
+assert "errno = start_errno > 0 ? start_errno : EIO;" in rollback
+assert rollback.index("stop_ddns_locked()") < rollback.index("inadyn_process_presence(&scan_error)")
+assert rollback.index("inadyn_process_presence(&scan_error)") < rollback.index("inadyn_failed_start_may_leave_daemon")
+assert rollback.index("inadyn_failed_start_may_leave_daemon") < rollback.index("errno = start_errno > 0")
+assert "inadyn_failed_start_may_leave_daemon(enum process_presence state)" in policy
+assert "return state != PROCESS_PRESENCE_ABSENT;" in policy
+assert "test_failed_start_may_leave_daemon" in test
 
 restore = body("inadyn_restore_previous_instance(int previous_running)")
 assert "inadyn_restore_action_for_state(previous_running, state)" in restore

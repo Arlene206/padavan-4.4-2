@@ -65,6 +65,13 @@ inadyn_start_status(int launch_status, enum process_presence state,
 	return status;
 }
 
+/* Failed detached launches are active unless absence is proven. */
+static int
+inadyn_failed_start_may_leave_daemon(enum process_presence state)
+{
+	return state != PROCESS_PRESENCE_ABSENT;
+}
+
 static enum inadyn_daemon_action
 inadyn_action_for_presence(enum process_presence state)
 {

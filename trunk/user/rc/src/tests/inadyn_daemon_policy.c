@@ -439,12 +439,22 @@ test_cache_prepare_status(void)
 	assert(errno == EINVAL);
 }
 
+static void
+test_failed_start_may_leave_daemon(void)
+{
+	assert(!inadyn_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
+	assert(inadyn_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
+	assert(inadyn_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN));
+	assert(inadyn_failed_start_may_leave_daemon((enum process_presence)99));
+}
+
 int
 main(void)
 {
 	test_update_configuration_gate();
 	test_presence_decisions();
 	test_start_postcondition_status();
+	test_failed_start_may_leave_daemon();
 	test_restore_previous_instance_action();
 	test_cache_prepare_status();
 	test_config_preflight_requires_all_live_identities();

@@ -2795,6 +2795,36 @@ inadyn_restore_previous_instance(int previous_running)
 	return status;
 }
 
+/*
+ * The previous daemon was confirmed absent before the fresh launch. If the
+ * detached launcher or its readiness wait fails, remove only this attempt,
+ * then verify absence. UNKNOWN remains fail-closed and the original error is
+ * preserved for rc's caller.
+ */
+static int
+inadyn_rollback_failed_start(int start_status, int start_errno,
+			     const char *operation)
+{
+	int stop_status;
+	int scan_error = 0;
+	enum process_presence presence;
+
+	stop_status = stop_ddns_locked();
+	presence = inadyn_process_presence(&scan_error);
+	if (inadyn_failed_start_may_leave_daemon(presence)) {
+		logmessage(LOGNAME,
+			   "Inadyn may remain active after failed %s (start_status=%d, rollback_status=%d, state=%d, scan_error=%d)",
+			   operation, start_status, stop_status, presence,
+			   scan_error);
+	} else if (stop_status != 0) {
+		logmessage(LOGNAME,
+			   "Inadyn is absent after failed %s rollback but stop reported status=%d",
+			   operation, stop_status);
+	}
+	errno = start_errno > 0 ? start_errno : EIO;
+	return start_status;
+}
+
 static int
 start_ddns_locked(int clear_cache)
 {
@@ -2804,6 +2834,9 @@ start_ddns_locked(int clear_cache)
 	int stop_status;
 	int cache_status;
 	int launch_status;
+	int launch_errno;
+	int start_status;
+	int start_errno;
 	int previous_running = 0;
 	int scan_error = 0;
 	int restore_status;
@@ -2876,6 +2909,7 @@ start_ddns_locked(int clear_cache)
 
 	startup_delay = (!is_ntpc_updated()) ? "30" : "3";
 
+	errno = 0;
 	launch_status = eval("/bin/inadyn",
 		"--no-pidfile",
 		"-l", ddns_verbose_str[verbose_idx],
@@ -2884,12 +2918,23 @@ start_ddns_locked(int clear_cache)
 		"--cache-dir", DDNS_CACHE_DIR,
 		"-e", DDNS_DONE_SCRIPT,
 		"--exec-mode", "compat");
+	launch_errno = errno;
 	if (launch_status != 0) {
+		start_errno = launch_errno > 0 ? launch_errno :
+			(launch_status > 0 ? launch_status : EIO);
 		logmessage(LOGNAME, "Inadyn launcher failed (status=%d)", launch_status);
-		return launch_status;
+		return inadyn_rollback_failed_start(
+			launch_status, start_errno, "launcher");
 	}
 
-	return inadyn_confirm_started(launch_status);
+	start_status = inadyn_confirm_started(launch_status);
+	if (start_status != 0) {
+		start_errno = errno > 0 ? errno :
+			(start_status > 0 ? start_status : EIO);
+		return inadyn_rollback_failed_start(
+			start_status, start_errno, "startup confirmation");
+	}
+	return 0;
 }
 
 int
