@@ -1,3 +1,12 @@
+## 2026-11-20 — Commit WAN DHCP timestamp only with an accepted lease
+
+- Parent main SHA: b2971b23154c1dac6794cf3ff1295ae0632e7cf4. MiniUPnP exact-head regression #44874295877 PASS. XY-C1 run #44874295896 passed host validation only; Build XY-C1/TRX/artifact were skipped, so this is not new L3 evidence. Last complete L3 evidence remains #44809783977 on product-source SHA 0b5eef8bd00fd6e732449bcf241949df84b4f40c.
+- Fixed a consistency defect in net_wan.c: physical WAN BOUND and fast RENEW previously updated wanN_dltime at callback entry through a void setter, before validating/committing DHCP state. BOUND now includes dltime in the compensatable lease tuple; fast RENEW publishes dltime only after changed options commit, using checked transactional publication. MAN/IPTV behavior is unchanged.
+- Extended the DHCP lease tuple regression to require dltime rollback and added a one-value dltime test. Added scripts/check_wan_dhcp_dltime_publication.py and the WAN callback workflow hook. Exact-head tests/Actions are pending.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Make MiniUPnP errno-assignment checker whitespace-independent
 
 - Exact-head MiniUPnP run #44874160863 on parent 7be6d83357ab31795b446010aaa9571aac5000dc passed the GNU89/Werror/ASan/UBSan policy suite, including both legacy and IPTABLES_143 production IPTC errno helper harness variants, but the delete checker failed at its assignment inventory: function_body() normalizes C whitespace to one line, so splitlines() found no assignment statements.

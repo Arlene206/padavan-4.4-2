@@ -5602,6 +5602,7 @@ enum {
 	WAN_DHCP_BOUND_DOMAIN,
 	WAN_DHCP_BOUND_LEASE,
 	WAN_DHCP_BOUND_GATEWAY,
+	WAN_DHCP_BOUND_DLTIME,
 	WAN_DHCP_BOUND_SNAPSHOT_COUNT
 };
 
@@ -5610,7 +5611,7 @@ enum {
 
 static const char *const wan_dhcp_bound_snapshot_params[] = {
 	"ipaddr", "netmask", "dns", "wins", "mtu", "routes",
-	"routes_ms", "routes_rfc", "domain", "lease", "gateway"
+	"routes_ms", "routes_rfc", "domain", "lease", "gateway", "dltime"
 };
 
 enum {
@@ -5668,7 +5669,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	char bound_names[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_KEY_MAX];
 	char previous_text[WAN_DHCP_BOUND_SNAPSHOT_COUNT][WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
 	char routes_rfc_parse[WAN_DHCP_BOUND_SNAPSHOT_VALUE_MAX];
-	char mtu_text[16], lease_text[16];
+	char mtu_text[16], lease_text[16], dltime_text[16];
 	unsigned int parsed_value;
 	size_t i, snapshot_count;
 	int unit, is_man, is_changed, i_err, has_gateway, lease_dur, dhcp_mtu;
@@ -5678,6 +5679,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	int route_cleanup_status, route_rollback_status;
 	int key_length, snapshot_status, snapshot_rollback_status;
 	int snapshot_abort_status, callback_status, publish_status;
+	int dltime_length;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct wan_dhcp_interface_context interface_context;
 	struct wan_dhcp_route_transition_context route_context;
@@ -5691,8 +5693,14 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		strcpy(prefix, "wanx_");
 	} else {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
+		/* Capture callback time now; publish only with an accepted lease. */
+		dltime_length = snprintf(dltime_text, sizeof(dltime_text),
+					 "%ld", uptime());
+		if (dltime_length < 0)
+			return errno ? errno : EIO;
+		if ((size_t)dltime_length >= sizeof(dltime_text))
+			return EOVERFLOW;
 		snprintf(tmp, sizeof(tmp), "%ld", uptime());
-		set_wan_unit_value(unit, "dltime", tmp);
 	}
 
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", (is_man) ? "MAN" : "WAN");
@@ -5719,6 +5727,9 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	 * old value rather than risk a truncated rollback snapshot.
 	 */
 	for (i = 0; i < WAN_DHCP_BOUND_SNAPSHOT_COUNT; ++i) {
+		/* MAN uses a separate metadata namespace and has no WAN dltime. */
+		if (is_man && i == WAN_DHCP_BOUND_DLTIME)
+			continue;
 		key_length = snprintf(bound_names[i], sizeof(bound_names[i]),
 				      "%s%s", prefix,
 				      wan_dhcp_bound_snapshot_params[i]);
@@ -5986,6 +5997,15 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		previous_text[WAN_DHCP_BOUND_GATEWAY]);
 	if (snapshot_status != 0)
 		goto snapshot_publication_failed;
+
+	if (!is_man) {
+		snapshot_status = wan_dhcp_bound_snapshot_add(
+			snapshot_values, &snapshot_count,
+			bound_names[WAN_DHCP_BOUND_DLTIME], dltime_text,
+			previous_text[WAN_DHCP_BOUND_DLTIME]);
+		if (snapshot_status != 0)
+			goto snapshot_publication_failed;
+	}
 
 	/*
 	 * Do not expose a mixed lease tuple after the old route inventory has
@@ -6800,11 +6820,14 @@ udhcpc_renew(char *wan_ifname)
 	char key_dns[32], key_domain[32], key_wins[32], key_lease[32];
 	char old_dns[256], old_domain[256], old_wins[256], old_lease[16];
 	char lease_text[16], gateway_buf[INET_ADDRSTRLEN];
+	char dltime_name[32], dltime_text[16];
+	const char *dltime_names[1], *dltime_values[1];
 	unsigned int parsed_value;
 	size_t renew_count = 0;
 	int unit, is_man, resolver_changed = 0;
 	int nvram_status, rollback_status = 0;
 	int lease_error, route_error, mtu_error;
+	int dltime_length;
 	struct dhcp_lease_nvram_value renew_values[4];
 
 	unit = get_wan_unit(wan_ifname);
@@ -6813,8 +6836,13 @@ udhcpc_renew(char *wan_ifname)
 		strcpy(prefix, "wanx_");
 	} else {
 		snprintf(prefix, sizeof(prefix), "wan%d_", unit);
-		snprintf(tmp, sizeof(tmp), "%ld", uptime());
-		set_wan_unit_value(unit, "dltime", tmp);
+		/* Capture time but defer publication until renewal validation succeeds. */
+		dltime_length = snprintf(dltime_text, sizeof(dltime_text),
+					 "%ld", uptime());
+		if (dltime_length < 0)
+			return errno ? errno : EIO;
+		if ((size_t)dltime_length >= sizeof(dltime_text))
+			return EOVERFLOW;
 	}
 	snprintf(log_prefix, sizeof(log_prefix), "%s %s Client", "DHCP", (is_man) ? "MAN" : "WAN");
 
@@ -6949,6 +6977,26 @@ udhcpc_renew(char *wan_ifname)
 	if (resolver_changed) {
 		logmessage(log_prefix, "renew (%s), DNS/domain configuration changed", wan_ifname);
 		refresh_resolvconf_nonfatal("WAN DHCP renewal", 0);
+	}
+
+	if (!is_man) {
+		dltime_length = snprintf(dltime_name, sizeof(dltime_name),
+					 "%sdltime", prefix);
+		if (dltime_length < 0)
+			return errno ? errno : EIO;
+		if ((size_t)dltime_length >= sizeof(dltime_name))
+			return ENAMETOOLONG;
+
+		dltime_names[0] = dltime_name;
+		dltime_values[0] = dltime_text;
+		nvram_status = wan_dhcp_nvram_publish_values(
+			dltime_names, dltime_values, 1);
+		if (nvram_status != 0) {
+			logmessage(log_prefix,
+				   "cannot publish successful DHCP renewal timestamp on %s (status=%d)",
+				   wan_ifname, nvram_status);
+			return nvram_status;
+		}
 	}
 	return 0;
 }

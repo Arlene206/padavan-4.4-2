@@ -2,43 +2,44 @@
 
 ## Cross-session execution mandate
 
-- Continue development on `main` only. Every logical task is one atomic main commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
+- Continue development on `main` only. Each logical task is one atomic commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
 - Never amend, force-push, create development branches/PRs, or modify the frozen backup.
-- Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Fix actual source defects with focused regressions; never weaken checks.
+- Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Fix real source defects with focused regressions; do not weaken checks.
 - PENDING Actions do not block independent work. Diagnose the earliest causal failure log.
-- Before context exhaustion, finish the current safe slice, inspect the full diff, publish it atomically, and preserve the exact next action here. Do not start work that cannot be safely completed.
+- Before context exhaustion, finish the current safe slice, inspect the full diff, publish atomically, and preserve the exact next action here.
 
 ## Mandatory handoff checkpoint
 
-The checkpoint is mandatory; a document edit is conditional. Inspect live `main`, verify the frozen backup SHA and check exact-SHA Actions at session end. Update this file only when the source baseline, test evidence, blocker or first next action materially changes. Do not make no-op commits.
+The checkpoint is mandatory; document edits are conditional. Inspect live `main`, verify the frozen backup SHA and check exact-SHA Actions at session end. Update this file only when the baseline, evidence, blocker or first next action materially changes. Do not make no-op commits.
 
 ## Current repository state
 
-- Parent `main` SHA for this checker follow-up: `7be6d83357ab31795b446010aaa9571aac5000dc`; frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Exact-head AI documentation run `#44874160857` PASSED on `7be6d83357ab31795b446010aaa9571aac5000dc`.
-- Exact-head MiniUPnP run `#44874160863` FAILED at `scripts/check_miniupnpd_iptcrdr_delete.py:82`: `function_body()` intentionally whitespace-normalizes the function into one line, while the new assignment scan split only by newlines and therefore produced an empty list. The C policy tests and both legacy/IPTABLES_143 injected errno helper variants passed before this checker step. This commit makes the extraction independent of whitespace by scanning semicolon-delimited statements and excluding the two declarations while requiring every actual primary/secondary errno assignment to call the first-error helper.
-- XY-C1 validation run `#44874160943` is still IN_PROGRESS on this exact SHA; its exact build/TRX/artifact step conclusions must be checked before claiming current-source L3. The preceding product-source SHA `0b5eef8bd00fd6e732449bcf241949df84b4f40c` had Build, TRX and artifact upload all PASS on run `#44809783977`.
+- Parent `main` SHA for this slice: `b2971b23154c1dac6794cf3ff1295ae0632e7cf4`.
+- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- MiniUPnP exact-head run `#44874295877` PASSED on `b2971b23154c1dac6794cf3ff1295ae0632e7cf4`; its first-error errno delete contract, GNU89/Werror/ASan/UBSan policy suite and both IPTC API variants passed.
+- XY-C1 validation run `#44874295896` PASSED host validation on `b2971b23154c1dac6794cf3ff1295ae0632e7cf4`, but Build XY-C1, TRX verification and artifact upload were SKIPPED. Do not claim L3 for this run. The last complete Build/TRX/artifact L3 evidence remains run `#44809783977` on product-source SHA `0b5eef8bd00fd6e732449bcf241949df84b4f40c`.
 - Physical-router L4 remains NOT VERIFIED.
+- New defect found in `net_wan.c`: physical WAN `udhcpc_bound()` and fast `udhcpc_renew()` wrote `wanN_dltime` at callback entry using a void setter, before validation or successful DHCP state publication. A rejected lease or failed transition could alter the timestamp while retaining the old lease. This commit moves BOUND timestamp into its compensatable 12-field lease tuple and fast RENEW timestamp after successful option reconciliation, with checked transactional publication.
 
 ## Active task
 
-1. Validate the corrected whitespace-independent delete source contract and the handoff documentation contract on the next exact pushed SHA.
-2. Inspect the exact XY-C1 workflow step results for that same SHA; distinguish host-only validation from actual Build/TRX/artifact L3.
-3. If MiniUPnP and AI pass, resume the whole-repository stability queue on a module outside the recently worked MiniUPnP slice. Check the current source and recent log evidence before selecting a defect; do not repeat completed audits.
+1. Validate this dltime change on its exact pushed SHA: GNU89/Werror/ASan/UBSan DHCP lease regression, source-order checker, WAN DHCP callback Action and AI documentation contract.
+2. Inspect exact-head XY-C1 steps. Record L3 only if Build, TRX verification and artifact upload all PASS on the same product-source SHA.
+3. After validation, continue the broader user-space reliability queue outside the recently completed MiniUPnP delete-compensation work. Prefer a concrete P1/P2 defect with a focused regression; avoid repeated audits.
 
 ## Verification boundary
 
-- MiniUPnP C policy binaries and IPTC errno helper harness (legacy + IPTABLES_143) passed on `7be6d83357ab31795b446010aaa9571aac5000dc`; the only observed failure was the checker’s empty assignment scan. The new exact-head MiniUPnP run must pass the complete suite.
-- AI handoff documentation contract passed on `7be6d83357ab31795b446010aaa9571aac5000dc` (run `#44874160857`).
-- XY-C1 run `#44874160943` was in progress at checkpoint. No current-head L3 claim until its Build, TRX verification and artifact upload conclusions are all SUCCESS on one identical product-source SHA.
-- Physical-router L4 is NOT VERIFIED. No local checkout or local test execution was available.
+- The DHCP lease tuple regression and source checker are added in this commit; exact-head Actions are pending. No local checkout/compiler execution was available.
+- MiniUPnP passed on parent `b2971b23154c1dac6794cf3ff1295ae0632e7cf4` (run `#44874295877`).
+- XY-C1 passed host validation only on `b2971b23154c1dac6794cf3ff1295ae0632e7cf4`; Build/TRX/artifact were skipped. Earlier full L3 evidence is limited to `0b5eef8bd00fd6e732449bcf241949df84b4f40c` / run `#44809783977`.
+- Physical-router L4 is NOT VERIFIED.
 
 ## Exact first action for the next GPT
 
-Fetch the latest `main` SHA and inspect the exact-head MiniUPnP, AI docs and XY-C1 runs created by this commit. Confirm the delete source checker now passes and its assignment-bypass rejection remains active. If the independent checks are green, move to the next ranked stability issue outside MiniUPnP; if red, fix the earliest causal failure.
+Fetch latest `main` and inspect exact-head WAN DHCP callback, AI docs and XY-C1 Actions created by this commit. Confirm the dltime regression/checker passes and inspect Build XY-C1, TRX and artifact conclusions. Repair the earliest causal failure if any; otherwise continue with the next ranked user-space reliability issue outside MiniUPnP.
 
 ## Handoff maintenance
 
-- Keep `dev_log.md` newest-first; archive only at 120 records, retaining the newest 20.
+- Keep `dev_log.md` newest-first; archive only at 120 root records, retaining the newest 20.
 - Update `REFACTOR_ROADMAP.md` only when module status, evidence or priority materially changes.
 - Host regression, exact-source firmware L3 and physical hardware L4 are separate evidence levels.

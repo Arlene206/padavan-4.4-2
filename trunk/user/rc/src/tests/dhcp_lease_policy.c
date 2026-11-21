@@ -534,10 +534,10 @@ test_dhcp_viptv_deconfig_metadata_clear_rolls_back_as_one_tuple(void)
 }
 
 struct dhcp_nvram_tuple_fake {
-	const char *names[11];
-	const char *old_values[11];
-	const char *new_values[11];
-	char current[11][16];
+	const char *names[12];
+	const char *old_values[12];
+	const char *new_values[12];
+	char current[12][16];
 	int fail_new_index;
 	char events[32];
 	size_t event_count;
@@ -558,7 +558,9 @@ dhcp_nvram_tuple_set(void *context, const char *name, const char *value)
 	struct dhcp_nvram_tuple_fake *fake = (struct dhcp_nvram_tuple_fake *)context;
 	size_t i;
 
-	for (i = 0; i < 11; ++i) {
+	for (i = 0; i < 12; ++i) {
+		if (!fake->names[i])
+			continue;
 		if (strcmp(name, fake->names[i]) != 0)
 			continue;
 		if (strcmp(value, fake->new_values[i]) == 0) {
@@ -581,20 +583,20 @@ dhcp_nvram_tuple_set(void *context, const char *name, const char *value)
 static void
 test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple(void)
 {
-	static const char *const names[11] = {
+	static const char *const names[12] = {
 		"wan0_ipaddr", "wan0_netmask", "wan0_dns", "wan0_wins",
 		"wan0_mtu", "wan0_routes", "wan0_routes_ms", "wan0_routes_rfc",
-		"wan0_domain", "wan0_lease", "wan0_gateway"
+		"wan0_domain", "wan0_lease", "wan0_gateway", "wan0_dltime"
 	};
-	static const char *const old_values[11] = {
+	static const char *const old_values[12] = {
 		"old-ip", "old-mask", "old-dns", "old-wins", "old-mtu",
 		"old-routes", "old-routes-ms", "old-routes-rfc", "old-domain",
-		"old-lease", "old-gateway"
+		"old-lease", "old-gateway", "old-dltime"
 	};
-	static const char *const new_values[11] = {
+	static const char *const new_values[12] = {
 		"new-ip", "new-mask", "new-dns", "new-wins", "new-mtu",
 		"new-routes", "new-routes-ms", "new-routes-rfc", "new-domain",
-		"new-lease", "new-gateway"
+		"new-lease", "new-gateway", "new-dltime"
 	};
 	struct dhcp_nvram_tuple_fake fake;
 	struct dhcp_lease_nvram_value values[11];
@@ -602,7 +604,7 @@ test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple(void)
 
 	memset(&fake, 0, sizeof(fake));
 	fake.fail_new_index = 4;
-	for (i = 0; i < 11; ++i) {
+	for (i = 0; i < 12; ++i) {
 		fake.names[i] = names[i];
 		fake.old_values[i] = old_values[i];
 		fake.new_values[i] = new_values[i];
@@ -611,12 +613,38 @@ test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple(void)
 		values[i].previous_value = old_values[i];
 		snprintf(fake.current[i], sizeof(fake.current[i]), "%s", old_values[i]);
 	}
-	assert(dhcp_lease_nvram_publish(values, 11, dhcp_nvram_tuple_set,
+	assert(dhcp_lease_nvram_publish(values, 12, dhcp_nvram_tuple_set,
 					&fake, &rollback_status) == ENOSPC);
 	assert(rollback_status == 0);
-	assert(strcmp(fake.events, "ABCDEFGHIJKkjihgfedcba") == 0);
-	for (i = 0; i < 11; ++i)
+	assert(strcmp(fake.events, "ABCDEFGHIJKLlkjihgfedcba") == 0);
+	for (i = 0; i < 12; ++i)
 		assert(strcmp(fake.current[i], old_values[i]) == 0);
+}
+
+
+static void
+test_dhcp_lease_fast_renew_publishes_dltime_as_one_checked_value(void)
+{
+	struct dhcp_nvram_tuple_fake fake;
+	struct dhcp_lease_nvram_value value;
+	int rollback_status;
+
+	memset(&fake, 0, sizeof(fake));
+	fake.names[0] = "wan0_dltime";
+	fake.old_values[0] = "123";
+	fake.new_values[0] = "456";
+	fake.fail_new_index = -1;
+	snprintf(fake.current[0], sizeof(fake.current[0]), "%s",
+		 fake.old_values[0]);
+
+	value.name = fake.names[0];
+	value.value = fake.new_values[0];
+	value.previous_value = fake.old_values[0];
+	assert(dhcp_lease_nvram_publish(&value, 1, dhcp_nvram_tuple_set,
+					&fake, &rollback_status) == 0);
+	assert(rollback_status == 0);
+	assert(strcmp(fake.events, "A") == 0);
+	assert(strcmp(fake.current[0], "456") == 0);
 }
 
 int
@@ -876,6 +904,7 @@ main(void)
 	test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple();
 	test_dhcp_lease_text_fits_buffer();
 	test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple();
+	test_dhcp_lease_fast_renew_publishes_dltime_as_one_checked_value();
 	puts("DHCP lease input policy regression: OK");
 	return 0;
 }
