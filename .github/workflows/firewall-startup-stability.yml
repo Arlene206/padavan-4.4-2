@@ -637,7 +637,8 @@ jobs:
               assert 'firewall_copy_static_route_setting("' + key + '", i' in route_emitter
           assert "static_route_metric_parse(metric, &metric_value)" in route_emitter
           assert "int entry_count = 0, i = 0," in route_emitter
-          assert "if (gateway[0] && !is_valid_ipv4(gateway))" in route_emitter
+          assert "if (gateway[0] && !static_route_ipv4_address_is_valid(gateway))" in route_emitter
+          assert "static_route_ipv4_address_is_valid" in route_test
           assert "gateway[0] = '\\0';" in route_emitter
           assert "!static_route_interface_is_safe(interface)" in route_emitter
           assert "foreach_x(" not in route_emitter and "general_conv(" not in route_emitter

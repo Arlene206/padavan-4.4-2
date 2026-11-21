@@ -62,6 +62,17 @@ main(void)
 	assert(static_route_interface_is_safe("MAN"));
 	assert(static_route_interface_is_safe("WAN"));
 	assert(!static_route_interface_is_safe(NULL));
+
+	assert(static_route_ipv4_address_is_valid("192.168.1.1"));
+	assert(static_route_ipv4_address_is_valid("0.0.0.0"));
+	assert(static_route_ipv4_address_is_valid("255.255.255.255"));
+	assert(!static_route_ipv4_address_is_valid(""));
+	assert(!static_route_ipv4_address_is_valid(NULL));
+	assert(!static_route_ipv4_address_is_valid("256.1.1.1"));
+	assert(!static_route_ipv4_address_is_valid("1.2.3"));
+	assert(!static_route_ipv4_address_is_valid("1.2.3.4.5"));
+	assert(!static_route_ipv4_address_is_valid("1.2.3.4:COMMIT"));
+	assert(!static_route_ipv4_address_is_valid("1.2.3.4\\n"));
 	assert(!static_route_interface_is_safe("WAN;DROP"));
 
 	puts("static_route_policy: PASS");

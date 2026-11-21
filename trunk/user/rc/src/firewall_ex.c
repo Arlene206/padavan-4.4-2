@@ -1363,7 +1363,7 @@ fill_static_routes(char *buf, int len, const char *ift)
 			goto failed;
 		}
 		/* Preserve the legacy Oleg fallback for absent or invalid gateways. */
-		if (gateway[0] && !is_valid_ipv4(gateway))
+		if (gateway[0] && !static_route_ipv4_address_is_valid(gateway))
 			gateway[0] = '\0';
 		status = static_route_metric_parse(metric, &metric_value);
 		if (status != 0)

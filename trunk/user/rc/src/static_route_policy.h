@@ -110,4 +110,34 @@ static_route_interface_is_safe(const char *value)
 	       strcmp(value, "MAN") == 0 || strcmp(value, "WAN") == 0;
 }
 
+/* Strict dotted-quad validation for a configured route gateway. */
+static int
+static_route_ipv4_address_is_valid(const char *value)
+{
+	unsigned int octet = 0;
+	int digits = 0, separators = 0;
+	size_t i;
+
+	if (!value || !value[0])
+		return 0;
+	for (i = 0; value[i]; ++i) {
+		if (value[i] >= '0' && value[i] <= '9') {
+			if (++digits > 3)
+				return 0;
+			octet = octet * 10U + (unsigned int)(value[i] - '0');
+			if (octet > 255U)
+				return 0;
+		} else if (value[i] == '.') {
+			if (digits == 0 || separators >= 3)
+				return 0;
+			++separators;
+			digits = 0;
+			octet = 0;
+		} else {
+			return 0;
+		}
+	}
+	return separators == 3 && digits > 0;
+}
+
 #endif /* PADAVAN_STATIC_ROUTE_POLICY_H */
