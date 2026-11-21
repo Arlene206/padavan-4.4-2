@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname "$0")/../../../.." && pwd)
-TEST_TMP=$(mktemp "${TMPDIR:-/tmp}/scut-watchcat.XXXXXX")
+TEST_TMP=$(mktemp -d "${TMPDIR:-/tmp}/scut-watchcat.XXXXXX")
 mkdir -p "$TEST_TMP"
 TEST_BIN="$TEST_TMP/bin"
 PROC_ROOT="$TEST_TMP/proc"

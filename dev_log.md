@@ -1,3 +1,12 @@
+## 2026-11-21 — Create SCUT watchdog regression workspace as a directory
+
+- Parent main SHA: `068762548f4004200bbf42e49423eac1da09997f`.
+- Corrected the new SCUT watchdog host-test fixture to request a directory from `mktemp -d` before populating its mock binaries and procfs tree. The production change is unchanged.
+- Exact-SHA Actions on the parent were still running when this correction was prepared; this follow-up must pass the dedicated watchdog workflow and rerun the firmware path-filtered build.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Stop SCUT watchdog from killing recycled unrelated PIDs
 
 - Parent main SHA: `5869188f5f174746cc2dea43c2938be55378c87c`.
