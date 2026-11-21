@@ -133,7 +133,7 @@ option_names = (
 )
 gate_positions = []
 for option_name, local_name in option_names:
-    gate = 'dnsmasq_read_boolean_option("' + option_name + '", &' + local_name + ')'
+    gate = 'dnsmasq_read_boolean_option( "' + option_name + '", &' + local_name + ')'
     assert gate in prepare, "missing checked option read: " + option_name
     gate_positions.append(prepare.index(gate))
 assert gate_positions == sorted(gate_positions)

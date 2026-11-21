@@ -19,6 +19,8 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 - On exact SHA `232e31d7eeaa5a6a5e7510ce74a59d9b2f9a7950`, DNSMasq #44902070166 passed the new GNU89/ASan policy binary and preceding lifecycle regressions, then hit a checker `ValueError` caused by an over-escaped newline in the new C signature. WAN route #44902070187 passed WAN DNS-mode, MTU, EAPOL and firewall propagation checks, then failed the new ternary token only because the checker expected extra outer parentheses. This commit corrects both checker expressions; source behavior is unchanged. AI docs #44902070141, miniupnpd #44902070251, HTTPD #44902070259, Samba #44902070353, Inadyn #44902070265, WAN DHCP #44902070191 and Process inventory #44902070152 passed. XY-C1 #44902070311 and NVRAM audit #44902070127 were in progress at last poll.
 
+- On SHA `2a2238af`, the DNSMasq option source checker uses the actual `prepare_dns_dhcpd()` newline signature. A final whitespace-normalization review found the five multiline option calls compact to one space after `(`, so the checker is now aligned to that representation without changing production code.
+
 ## Active task
 - Verify exact-head WAN route, XY-C1 and AI handoff reruns for `04b8537a`, and DNSMasq regression plus XY-C1 for this new source slice.
 - For DNSMasq, confirm all five checked reads happen before DHCP range persistence, hosts writes, resolver file creation and opening staged config. Missing values retain false defaults; API/read errors abort before new config publication.

@@ -1,3 +1,11 @@
+## 2026-11-21 — Match DNSMasq preflight assertion to normalized call formatting
+
+- Parent main SHA: `2a2238af3fb43b28a1147fa264459f004359795f`.
+- Follow-up review of the exact Python checker found the preflight calls are split after the opening parenthesis. `compact()` normalizes that newline to one space, so the gate token now includes that space while retaining the five exact option names and before-side-effects ordering assertions.
+- No product source or policy test changed; exact DNSMasq/WAN reruns on this checker state remain pending.
+- Resulting main commit: THIS COMMIT.
+
+---
 ## 2026-11-21 — Correct DNSMasq and WAN checker formatting assumptions
 
 - Parent main SHA: `232e31d7eeaa5a6a5e7510ce74a59d9b2f9a7950`.
