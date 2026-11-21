@@ -52,6 +52,7 @@
 #include <netinet/in.h>
 
 #include "wsdd.h"
+#include "llmnr_question_policy.h"
 
 /* set new debug class */
 #undef  DBGC_CLASS
@@ -80,8 +81,7 @@ static int llmnr_send_response(struct endpoint *ep,
 {
 	uint16_t qdcount, ancount, nscount;
 	uint16_t qtype, qclass;
-	char *in_name = NULL, in_label[64];
-	const uint8_t *in_name_p = NULL;
+	char in_name[256];
 	size_t in_name_len = 0, out_name_len = 0;
 	char *out = NULL;
 	size_t answer_len = 0;
@@ -126,8 +126,8 @@ static int llmnr_send_response(struct endpoint *ep,
 	 * plus at least 1 byte of question section
 	 * (see RFCs 4795, 1035, 3596)
 	 */
-	if (inlen < 13) {
-		DEBUG(1, L, "llmnr: packet less than 13 bytes");
+	if (inlen < 17) {
+		DEBUG(1, L, "llmnr: packet shorter than DNS header and question");
 		return -1;
 	}
 
@@ -178,77 +178,37 @@ static int llmnr_send_response(struct endpoint *ep,
 		return -1;
 	}
 
-	/* process all labels in question section */
-	in_name_p = &in[12];
-	while (*in_name_p > 0) {
-		/*
-		 * not supporting message compression
-		 * see section 4.1.4 of RFC 1035
-		 */
-		if (*in_name_p >= 0xC0) {
-			DEBUG(1, L, "llmnr: message compression not "
-				  "supported");
-			free(in_name);
-			return -1;
-		}
-
-		/* process current label in question section */
-		memcpy(in_label, in_name_p+1, *in_name_p);
-		in_label[*in_name_p] = '\0';
-
-		/* append to the whole name */
-		in_name_len += *in_name_p + 1;
-		if (in_name) {
-			in_name = realloc(in_name,
-					strlen(in_name) + strlen(in_label) + 2);
-			strcat(in_name, ".");
-			strcat(in_name, in_label);
-		} else {
-			in_name = strdup(in_label);
-		}
-
-		/* next label */
-		in_name_p += (*in_name_p + 1);
-		//memset(in_label, 0, sizeof(in_label));
+	/* Parse one DNS question with bounded label and QTYPE/QCLASS reads. */
+	if (llmnr_parse_question(in, inlen, in_name, sizeof(in_name),
+				 &qtype, &qclass) != 0) {
+		DEBUG(1, L, "llmnr: malformed or truncated question section");
+		return -1;
 	}
-
+	in_name_len = strlen(in_name);
 	DEBUG(2, L, "llmnr: name in query %s (length: %zu)", in_name,
-		   in_name_len);
+		  in_name_len);
 
 	/*
 	 * this implementation only supports questions of type A
 	 * or AAAA
 	 */
-	qtype = in_name_p[1]*256 + in_name_p[2];
 	if (qtype != DNS_TYPE_A && qtype != DNS_TYPE_AAAA) {
 		DEBUG(1, L, "llmnr: record in question not of type A or AAAA");
-		free(in_name);
 		return -1;
 	}
 
 	/* this implementation only supports questions of class IN */
-	qclass = in_name_p[3]*256 + in_name_p[4];
 	if (qclass != DNS_CLASS_IN) {
 		DEBUG(1, L, "llmnr: record is not of class IN");
-		free(in_name);
-		return -1;
-	}
-
-	if (!in_name) {
-		DEBUG(1, L, "llmnr: could not get name");
 		return -1;
 	}
 
 	/* check whether we are authorize for resolving this query */
-	in_name_len = strlen(in_name);
 	if (strlen(myname) != in_name_len ||
 	    strncasecmp(myname, in_name, in_name_len)) {
 		DEBUG(2, L, "llmnr: not authoritative for name %s", in_name);
-		free(in_name);
 		return -1;
 	}
-
-	free(in_name);
 
 	/*
 	 * start building up the LLMNR response
