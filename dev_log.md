@@ -1,3 +1,13 @@
+## 2026-11-21 — Align firewall contract with checked WAN MAC identity
+
+- Parent main SHA: `49bed878c17bf3d5c87a9da9303956de33f9b84e`.
+- WAN route run `#44963845988` reached `check_wan_firewall_status.py` and failed because the static contract still searched for the retired `wan_hwaddr = (strlen(mac_buf)` assignment and old failure-context string. The source now calls `wan_hardware_address_copy_status()` and aborts before publishing identity on checked-read failure.
+- XY-C1 run `#44963845946` completed its host regression steps successfully but failed the dependent firewall contract. PPPoE-MWAN cleanup, IAPP, later WAN regressions, firmware input detection, Build XY-C1, TRX and artifact upload were consequently SKIPPED; there is no build/compiler result on this SHA.
+- THIS COMMIT updates the firewall contract to require checked MAC acquisition, its error gate, and ordering before persistent and per-unit interface identity writes. Exact-head WAN route and XY-C1 reruns are pending.
+- The formatter/source regression additions from `49bed878c17bf3d5c87a9da9303956de33f9b84e` were prepared with compatibility assertions; the route job stopped in the separate firewall contract before final WAN verification. Inspect the corrected exact-SHA test run before claiming host regression PASS.
+
+---
+
 ## 2026-11-21 — Check WAN custom and factory hardware-MAC reads
 
 - Parent main SHA: `ff3ad9d49680d7097a265d1a66dd8b7e14efddee`.

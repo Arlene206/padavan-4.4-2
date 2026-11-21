@@ -820,18 +820,25 @@ require('set_wan_unit_param(unit, "auth_mode")' not in reset and
         'set_wan_unit_param(unit, "auth_pass")' not in reset,
         "legacy unchecked EAPOL authentication copies must be removed")
 
-mac_start = reset.index("wan_hwaddr = (strlen(mac_buf)")
+mac_start = reset.index("proto_status = wan_hardware_address_copy_status(")
 mac_end = reset.index("#if defined (USE_IPV6)", mac_start)
 mac_snapshot = reset[mac_start:mac_end]
-require('set_nvram_persistent_value_status("wan_hwaddr", wan_hwaddr)' in mac_snapshot and
-        'set_wan_unit_value_status(unit, "hwaddr", wan_hwaddr)' in mac_snapshot,
-        "global and indexed WAN interface MAC snapshots must both use checked NVRAM writes")
-require('reset_failure_context = "WAN interface hardware address";' in mac_snapshot and
-        "goto reset_failed;" in mac_snapshot,
-        "WAN hardware address staging failure must abort before interface/VLAN activation")
+mac_snapshot_code = " ".join(mac_snapshot.split())
+require('wan_hardware_address_copy_status( mac_buf, sizeof(mac_buf))' in mac_snapshot_code and
+        'set_nvram_persistent_value_status("wan_hwaddr", wan_hwaddr)' in mac_snapshot_code and
+        'set_wan_unit_value_status(unit, "hwaddr", wan_hwaddr)' in mac_snapshot_code,
+        "checked WAN hardware-MAC source and global/indexed identity snapshots must be present")
+require('if (proto_status != 0) { reset_failure_context = "WAN hardware address configuration"; goto reset_failed; }' in mac_snapshot_code and
+        'wan_hwaddr = mac_buf;' in mac_snapshot_code and
+        mac_snapshot_code.index("wan_hardware_address_copy_status(") <
+        mac_snapshot_code.index("wan_hwaddr = mac_buf;") <
+        mac_snapshot_code.index('set_nvram_persistent_value_status("wan_hwaddr", wan_hwaddr)'),
+        "WAN hardware address read failure must abort before interface/VLAN activation or persistent identity publication")
 require('nvram_set("wan_hwaddr", mac_buf)' not in reset and
-        'set_wan_unit_param(unit, "hwaddr")' not in reset,
-        "legacy unchecked WAN MAC copies must be removed")
+        'set_wan_unit_param(unit, "hwaddr")' not in reset and
+        'mac_conv("wan_hwaddr_x"' not in reset and
+        'nvram_safe_get("il1macaddr")' not in reset,
+        "legacy unchecked WAN MAC reads/writes must be removed")
 
 dhcp_params_start = reset.index('dhcp_ppp_params[] = {')
 dhcp_params_end = reset.index("};", dhcp_params_start)
