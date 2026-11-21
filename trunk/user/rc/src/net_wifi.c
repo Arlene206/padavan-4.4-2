@@ -779,6 +779,7 @@ int
 check_inic_mii_rebooted(void)
 {
 	int rt_mode_x;
+	int guest_is_up;
 	int status;
 
 	if (!get_mlme_radio_rt()) {
@@ -795,8 +796,17 @@ check_inic_mii_rebooted(void)
 
 	rt_mode_x = get_mode_radio_rt();
 	if (rt_mode_x != 1 && rt_mode_x != 3) {
-		/* check guest AP */
-		if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt()) {
+		/* Do not confuse an ioctl/socket failure with a down guest interface. */
+		status = wireless_guest_interface_state_checked(IFNAME_INIC_GUEST,
+							 &guest_is_up);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "iNIC guest AP state is unknown; recovery deferred until the next health check (status=%d)",
+				   status);
+			return status;
+		}
+
+		if (!guest_is_up && is_guest_allowed_rt()) {
 			status = wif_control(IFNAME_INIC_GUEST, 1);
 			if (!wireless_radio_status_success(status)) {
 				logmessage(LOGNAME,

@@ -170,8 +170,18 @@ assert inic_check.index(disabled_gate) < inic_check.index("status = doSystem(")
 assert inic_check.index("status = doSystem(") < inic_check.index(disable_error)
 assert inic_check.index(disable_error) < inic_check.index(disable_return)
 assert "iNIC radio force-disable command failed" in inic_check
-guest_gate = "if (!is_interface_up(IFNAME_INIC_GUEST) && is_guest_allowed_rt())"
+guest_state_check = "status = wireless_guest_interface_state_checked(IFNAME_INIC_GUEST,"
+guest_state_error = "if (status != 0)"
+guest_gate = "if (!guest_is_up && is_guest_allowed_rt())"
+assert guest_state_check in " ".join(inic_check.split())
+assert guest_state_error in inic_check
+assert "iNIC guest AP state is unknown; recovery deferred until the next health check" in inic_check
 assert guest_gate in inic_check
+assert "is_interface_up(IFNAME_INIC_GUEST)" not in inic_check
+assert inic_check.index("wireless_guest_interface_state_checked(") < inic_check.index(guest_state_error)
+assert inic_check.index(guest_state_error) < inic_check.index("return status;", inic_check.index(guest_state_error)) < inic_check.index(guest_gate)
+assert "test_unknown_guest_link_state_still_requests_down" in read("trunk/user/rc/src/tests/wireless_guest_isolation_policy.c")
+assert "wireless_guest_isolation_link_state(-1, EACCES, ENODEV," in read("trunk/user/rc/src/wireless_guest_isolation_policy.h")
 assert "status = wif_control(IFNAME_INIC_GUEST, 1);" in inic_check
 assert "wireless_radio_status_success(status)" in inic_check
 assert "wif_control_success(IFNAME_INIC_GUEST, 1)" not in inic_check

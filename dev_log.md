@@ -1,3 +1,14 @@
+## 2026-11-21 — Keep iNIC recovery fail-closed when guest link state is unknown
+
+- Parent main SHA: `ed7c42675c8784123f1ad14cf098b2d31be6ddcc`.
+- Follow-up source review found `is_interface_up()` collapses `get_interface_flags()` errors to false. In `check_inic_mii_rebooted()`, a socket/ioctl error was therefore misread as a down guest VIF and could trigger a recovery bring-up despite unknown driver state.
+- Replaced the boolean probe with the existing checked `wireless_guest_interface_state_checked()`. A generic probe error now logs and returns before changing the guest AP; only a successfully observed DOWN state can enter recovery. This reuses the existing `wireless_guest_isolation_link_state()` policy and `test_unknown_guest_link_state_still_requests_down` coverage, with both iNIC and Wireless workflow source contracts updated.
+- iNIC and Wireless workflows passed on the earlier status-propagation source/checker SHA `07e68ff`; the new UNKNOWN-state behavior itself is pending exact-head validation.
+- No local checkout/runtime; no local tests/build claimed.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Correct iNIC checker test-path lookup
 
 - Parent main SHA: `ca6862c97fd964d0aaa9451e9fb7116773411c8d`.
