@@ -1,3 +1,14 @@
+## 2026-11-21 — Align WAN DHCP and IPTV cache-copy source contracts
+
+- Parent main SHA: `21bf595a0ecc81b2cf8e5500c93f93c03f4811e6`.
+- Exact-head HTTPD `#44895865685` and WAN DHCP callback `#44895865642` still asserted the pre-migration direct helper and unchecked `nvram_get_int()` status reads. Updated the source contracts to require all three checked status reads, first-error fail-closed ordering, checked stored-MTU reads, and rebind only after the decision helper succeeds. The HTTPD route-option assertion now checks each of the three supported route variables is validated before comparison rather than requiring an obsolete duplicate count.
+- Exact-head WAN route `#44895865688` exposed stale `launch_viptv_wan()` assertions for `nvram_get_int()` and borrowed static setting pointers. Updated the contract to require checked `viptv_mode` reads, fail-closed error gates, copied address/netmask/gateway values, validation before local copy, and completion before VLAN teardown.
+- Exact-head AI handoff `#44895865686` exposed a missing handoff checkpoint rule; restored the mandatory state-accuracy check and explicit no-op-commit prohibition.
+- No production source changed in this commit. Remote exact-head CI on the new SHA is the verification gate; no local test/build is claimed.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Preserve IPTV VLAN settings across NVRAM cache reuse
 
 - Parent main SHA: `87807147e186061a8450680de567edc13311826a`.

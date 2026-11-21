@@ -489,14 +489,52 @@ jobs:
           assert "return callback_status;" in callback
           assert "nvram_set_int_temp(" not in callback
           wan_dhcp_renew = body(source, "udhcpc_renew(char *wan_ifname)")
-          assert "dhcp_wan_bound_retry_required(lease_error, route_error, mtu_error)" in wan_dhcp_renew
-          assert 'nvram_get_int(strcat_r(prefix, "err", tmp))' in wan_dhcp_renew
-          assert 'nvram_get_int(strcat_r(prefix, "route_err", tmp))' in wan_dhcp_renew
-          assert 'nvram_get_int(strcat_r(prefix, "mtu_err", tmp))' in wan_dhcp_renew
-          assert wan_dhcp_renew.index("dhcp_wan_bound_retry_required") < wan_dhcp_renew.index('value = getenv("subnet")')
+          wan_dhcp_renew_compact = "".join(wan_dhcp_renew.split())
+          for key, target in (
+              ("err", "lease_error"),
+              ("route_err", "route_error"),
+              ("mtu_err", "mtu_error"),
+          ):
+              assert (
+                  'get_nvram_int_checked_status(strcat_r(prefix,"'
+                  + key + '",tmp),&' + target + ');'
+              ) in wan_dhcp_renew_compact
+          retry_decision = wan_dhcp_renew_compact.index("dhcp_wan_bound_retry_decide(")
+          retry_error_gate = wan_dhcp_renew_compact.index("if(nvram_status!=0)", retry_decision)
+          retry_gate = wan_dhcp_renew_compact.index("if(retry_required)", retry_error_gate)
+          retry_call = wan_dhcp_renew_compact.index("returnudhcpc_bound(", retry_gate)
+          assert retry_decision < retry_error_gate < retry_gate < retry_call
+          assert "cannot verify previous DHCP retry state" in wan_dhcp_renew
+          assert "retrying DHCP lease/address/route/MTU application" in wan_dhcp_renew
+          assert 'get_nvram_int_checked_status(strcat_r(prefix,"mtu",tmp),&stored_mtu);' in wan_dhcp_renew_compact
+          assert "nvram_get_int(" not in wan_dhcp_renew
+          assert "dhcp_wan_bound_retry_required(" not in wan_dhcp_renew
+          assert retry_error_gate < wan_dhcp_renew_compact.index('value=getenv("subnet")')
           assert "retrying DHCP lease/address/route/MTU application" in wan_dhcp_renew
           assert "wan_dhcp_nvram_state_publish(" in wan_dhcp_renew
           assert "struct dhcp_lease_nvram_value renew_values[4];" in wan_dhcp_renew
+          wan_iptv_renew = body(source, "udhcpc_viptv_renew(char *man_ifname)")
+          wan_iptv_renew_compact = "".join(wan_iptv_renew.split())
+          assert 'strcpy(prefix, "manv_")' in wan_iptv_renew
+          for key, target in (
+              ("err", "lease_error"),
+              ("route_err", "route_error"),
+              ("mtu_err", "mtu_error"),
+          ):
+              assert (
+                  'get_nvram_int_checked_status(strcat_r(prefix,"'
+                  + key + '",tmp),&' + target + ');'
+              ) in wan_iptv_renew_compact
+          iptv_retry_decision = wan_iptv_renew_compact.index("dhcp_wan_bound_retry_decide(")
+          iptv_retry_error_gate = wan_iptv_renew_compact.index("if(nvram_status!=0)", iptv_retry_decision)
+          iptv_retry_gate = wan_iptv_renew_compact.index("if(retry_required)", iptv_retry_error_gate)
+          iptv_retry_call = wan_iptv_renew_compact.index("returnudhcpc_viptv_bound(", iptv_retry_gate)
+          assert iptv_retry_decision < iptv_retry_error_gate < iptv_retry_gate < iptv_retry_call
+          assert "cannot verify previous DHCP retry state" in wan_iptv_renew
+          assert 'get_nvram_int_checked_status("manv_mtu",&stored_mtu);' in wan_iptv_renew_compact
+          assert "nvram_get_int(" not in wan_iptv_renew
+          assert "dhcp_wan_bound_retry_required(" not in wan_iptv_renew
+
           assert "if (renew_count != 0)" in wan_dhcp_renew
           assert "return nvram_status;" in wan_dhcp_renew
           for marker in (

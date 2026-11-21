@@ -2661,7 +2661,22 @@ jobs:
           assert "callback_status = route_status_accumulate(callback_status, publish_status);" in bound_compact
           assert "return callback_status;" in bound
           assert 'nvram_set_int_temp(strcat_r(prefix, "route_err", tmp), route_setup_status)' not in bound
-          assert renew.count("dhcp_lease_route_text_is_safe(value)") >= 6
+          route_text_checks = renew.count("dhcp_lease_route_text_is_safe(value)")
+          assert route_text_checks == 3
+          for route_option, stored_option in (
+              ("routes", "routes"),
+              ("msstaticroutes", "routes_ms"),
+              ("staticroutes", "routes_rfc"),
+          ):
+              read_position = renew.index('value = safe_getenv("' + route_option + '");')
+              validation_position = renew.index(
+                  "dhcp_lease_route_text_is_safe(value)", read_position
+              )
+              compare_position = renew.index(
+                  'nvram_invmatch(strcat_r(prefix, "' + stored_option + '", tmp), value)',
+                  validation_position,
+              )
+              assert read_position < validation_position < compare_position
           wan_router_start = renew.index('value = getenv("router");')
           wan_router_end = renew.index('value = getenv("ip");', wan_router_start)
           wan_router = renew[wan_router_start:wan_router_end]

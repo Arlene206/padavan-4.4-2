@@ -291,16 +291,32 @@ require(wisp_publish < wisp_gate < wisp.index("return 0;", wisp_gate) and
 viptv = body(wan, "launch_viptv_wan(void)")
 iptv_start = viptv.index("/* VLAN interface for IPTV */")
 iptv_setup = viptv[iptv_start:]
-static_mode_pos = viptv.index('viptv_mode = nvram_get_int("viptv_mode");')
-static_addr_pos = viptv.index('viptv_addr_setting = nvram_safe_get("viptv_ipaddr");')
-static_mask_pos = viptv.index('viptv_mask_setting = nvram_safe_get("viptv_netmask");')
-static_validation_pos = viptv.index("if (viptv_mode == 2)")
-static_copy_pos = viptv.index("strcpy(viptv_addr, viptv_addr_setting);")
-static_gateway_copy_pos = viptv.index("strcpy(viptv_gate, viptv_gate_setting);")
-old_vlan_removal_pos = viptv.index("/* Remove a no-longer-used VLAN", static_validation_pos)
-require(static_mode_pos < static_addr_pos < static_mask_pos < static_validation_pos <
-        static_copy_pos < static_gateway_copy_pos < old_vlan_removal_pos,
-        "static IPTV inputs must be validated and copied before old VLAN teardown or replacement")
+mode_read_pos = viptv.index('ret = get_nvram_int_checked_status("viptv_mode", &viptv_mode);')
+mode_error_gate_pos = viptv.index("if (ret != 0)", mode_read_pos)
+mode_error_return_pos = viptv.index("return ret;", mode_error_gate_pos)
+static_mode_gate_pos = viptv.index("if (viptv_mode == 2)", mode_error_return_pos)
+static_addr_read_pos = viptv.index('"viptv_ipaddr", viptv_addr_setting,', static_mode_gate_pos)
+static_mask_read_pos = viptv.index('"viptv_netmask",', static_addr_read_pos)
+static_pair_error_pos = viptv.index("if (ret != 0)", static_mask_read_pos)
+static_pair_return_pos = viptv.index("return ret;", static_pair_error_pos)
+static_validation_pos = viptv.index("if (!is_valid_ipv4(viptv_addr_setting)", static_pair_return_pos)
+static_addr_copy_pos = viptv.index("strcpy(viptv_addr, viptv_addr_setting);", static_validation_pos)
+static_mask_copy_pos = viptv.index("strcpy(viptv_mask, viptv_mask_setting);", static_addr_copy_pos)
+static_gateway_read_pos = viptv.index('"viptv_gateway", viptv_gate_setting,', static_mask_copy_pos)
+static_gateway_error_pos = viptv.index("if (ret != 0)", static_gateway_read_pos)
+static_gateway_return_pos = viptv.index("return ret;", static_gateway_error_pos)
+static_gateway_copy_pos = viptv.index("strcpy(viptv_gate, viptv_gate_setting);", static_gateway_return_pos)
+old_vlan_removal_pos = viptv.index("/* Remove a no-longer-used VLAN", static_gateway_copy_pos)
+require(mode_read_pos < mode_error_gate_pos < mode_error_return_pos <
+        static_mode_gate_pos < static_addr_read_pos < static_mask_read_pos <
+        static_pair_error_pos < static_pair_return_pos < static_validation_pos <
+        static_addr_copy_pos < static_mask_copy_pos < static_gateway_read_pos <
+        static_gateway_error_pos < static_gateway_return_pos <
+        static_gateway_copy_pos < old_vlan_removal_pos,
+        "static IPTV mode/address/mask/gateway must be checked, copied, validated and committed to local buffers before VLAN teardown")
+for key in ("viptv_ipaddr", "viptv_netmask", "viptv_gateway"):
+    assert f'nvram_safe_get("{key}")' not in viptv
+
 snapshot_pos = iptv_setup.index("vlan_flags = get_interface_flags(viptv_ifname);")
 create_pos = iptv_setup.index("ret = create_vlan_iface_tracked(")
 bridge_pos = iptv_setup.index("ret = config_soft_bridge_wan_internal(")
