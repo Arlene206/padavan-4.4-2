@@ -8,6 +8,10 @@
 - PENDING Actions do not block independent work. Diagnose the first causal failure and fix it.
 - Before context exhaustion, finish the current safe slice, publish atomically and leave the exact first next action here.
 
+## Mandatory handoff checkpoint — end-of-session accuracy
+
+The checkpoint is mandatory; a document edit is conditional. At every session end, compare live `main`, relevant exact-SHA Actions, the product-source baseline, verification boundary, blockers and the first next action with this record. Update it only when one of those resumable facts materially changes; do not create a no-op commit.
+
 ## Repository state
 
 - Main parent before the BusyBox mount-status correction: `065837e4dcc383ebe2d5276b8165ffa834f9dd3f`.
