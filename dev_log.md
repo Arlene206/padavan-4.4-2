@@ -1,3 +1,15 @@
+## 2026-11-21 — Preserve NVRAM failures in USB modem boot selection
+
+- Beijing time: 2026-11-21 19:20 (UTC+8). Parent main SHA: `cd04be437693e91e029f4b2f64d415ae7017e9eb`.
+- Source review confirmed `load_usb_modules()` used `nvram_get_int("modem_rule")` and `nvram_get_int("modem_type")` to select and initialize the configured USB modem driver family. `nvram_get_int()` calls the error-collapsing getter, so a transient NVRAM device/lock/read/close failure becomes zero; the boot path then silently skips the required driver readiness check and may continue to WAN startup.
+- Added a checked integer reader based on `nvram_get_checked()` + `rc_wan_nvram_read_int_status()`. Missing keys retain the former zero defaults; backend, close and malformed/overflow errors now join the boot first-error accumulator. Modem-family reload occurs only after both required reads succeed. Independent USB printer/storage/host module attempts continue even when the modem configuration read fails.
+- Extended `scripts/check_modem_module_reload.py` to pin checked reads, no unchecked modem-rule/type getters, and the read → error gate → modem reload → independent host-module ordering. The USB workflow already watches `rc.c`, the checker and the existing checked-integer policy test in both push and pull_request filters; its GNU89/Werror/ASan/UBSan test covers absent defaults, backend errors, malformed decimal and overflow cases.
+- Radio stabilization is now L2 PASS on product source SHA `60ad278e7056ace912066b090fdf20d0fd874f3e`: Wireless #44897978738 PASS; iNIC #44898111180 PASS; AI docs #44898111202 PASS (on checker/docs descendants of the same source). XY-C1 #44897419694 on that exact source completed Build XY-C1, TRX verification and artifact upload successfully; L3 VERIFIED for this production-source SHA. Physical router L4 remains NOT VERIFIED.
+- No local checkout/runtime is available; no local test or local MIPS build is claimed for this commit. Exact-head USB / Process / XY-C1 Actions pending.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Point iNIC UNKNOWN-state regression assertion at its test fixture
 
 - Beijing time: 2026-11-21 19:14 (UTC+8). Parent main SHA: `310e7c8668db0eda362a0400775d5670cf7a2242`.

@@ -50,7 +50,31 @@ assert "rc_modem_module_load_group_verified" in loader
 assert "int  reload_modem_modules(int modem_type, int reload);" in HEADER
 boot = body(RC_SOURCE, "load_usb_modules(")
 assert "rc_first_service_start_status" in boot
-assert 'reload_modem_modules(nvram_get_int("modem_type"), 0)' in boot
+boot_reader = body(
+    RC_SOURCE,
+    "rc_boot_nvram_read_int_status(const char *name, int missing_value, int *value)",
+)
+assert "nvram_get_checked(name, &text)" in boot_reader
+assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in boot_reader
+assert "saved_errno = errno;" in boot_reader
+assert "errno = status;" in boot_reader
+
+assert 'rc_boot_nvram_read_int_status("modem_rule", 0,' in boot
+assert 'rc_boot_nvram_read_int_status("modem_type", 0,' in boot
+assert 'reload_modem_modules(modem_type, 0)' in boot
+assert 'nvram_get_int("modem_rule")' not in boot
+assert 'nvram_get_int("modem_type")' not in boot
+rule_read = boot.index('rc_boot_nvram_read_int_status("modem_rule", 0,')
+rule_error = boot.index("if (nvram_status != 0)", rule_read)
+rule_enable = boot.index("else if (modem_rule > 0)", rule_error)
+type_read = boot.index('rc_boot_nvram_read_int_status("modem_type", 0,', rule_enable)
+type_error = boot.index("if (nvram_status != 0)", type_read)
+reload_call = boot.index("reload_modem_modules(modem_type, 0)", type_error)
+usb_host = boot.index("/* start usb host */")
+assert rule_read < rule_error < rule_enable < type_read < type_error < reload_call < usb_host
+assert "rc_first_service_start_status(start_status" in boot[rule_error:type_read]
+assert "rc_first_service_start_status(start_status" in boot[type_error:reload_call]
+assert "nvram_get_int(" not in boot[rule_read:usb_host]
 
 notify_start = RC_SOURCE.index('else if (!strcmp(entry->d_name, RCN_RESTART_MODEM))')
 notify_end = RC_SOURCE.index('else if (strcmp(entry->d_name, RCN_RESTART_SPOOLER)', notify_start)

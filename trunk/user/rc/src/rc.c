@@ -277,9 +277,31 @@ load_wireless_modules(void)
 
 #if defined (USE_USB_SUPPORT)
 static int
+rc_boot_nvram_read_int_status(const char *name, int missing_value, int *value)
+{
+	char *text = NULL;
+	int api_result, saved_errno, status;
+
+	if (!name || !value) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+
+	errno = 0;
+	api_result = nvram_get_checked(name, &text);
+	saved_errno = errno;
+	status = rc_wan_nvram_read_int_status(api_result, saved_errno,
+					      text, missing_value, value);
+	if (status != 0)
+		errno = status;
+	return status;
+}
+
+static int
 load_usb_modules(void)
 {
 	int start_status = 0;
+	int modem_rule = 0, modem_type = 0, nvram_status;
 
 	/* load usb printer module before storage */
 	start_status = rc_first_service_start_status(start_status,
@@ -288,10 +310,35 @@ load_usb_modules(void)
 	start_status = rc_first_service_start_status(start_status,
 						     load_boot_module("usb_storage", NULL));
 
-	/* Verify that at least one driver in the selected modem family is available. */
-	if (!get_ap_mode() && nvram_get_int("modem_rule") > 0)
-		start_status = rc_first_service_start_status(
-			start_status, reload_modem_modules(nvram_get_int("modem_type"), 0));
+	/*
+	 * Do not turn NVRAM read failures into modem_rule=0 or modem_type=0.
+	 * Preserve the absent-key defaults, but fail the boot module gate on
+	 * backend errors and malformed persisted integers.
+	 */
+	if (!get_ap_mode()) {
+		nvram_status = rc_boot_nvram_read_int_status("modem_rule", 0,
+							     &modem_rule);
+		if (nvram_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot read USB modem rule during boot (status=%d)",
+				   nvram_status);
+			start_status = rc_first_service_start_status(start_status,
+							     nvram_status);
+		} else if (modem_rule > 0) {
+			nvram_status = rc_boot_nvram_read_int_status("modem_type", 0,
+								     &modem_type);
+			if (nvram_status != 0) {
+				logmessage(LOGNAME,
+					   "cannot read USB modem type during boot (status=%d)",
+					   nvram_status);
+				start_status = rc_first_service_start_status(start_status,
+								     nvram_status);
+			} else {
+				start_status = rc_first_service_start_status(
+					start_status, reload_modem_modules(modem_type, 0));
+			}
+		}
+	}
 
 	/* start usb host */
 #if defined (USE_USB_XHCI)
