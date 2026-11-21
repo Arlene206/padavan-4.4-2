@@ -6614,10 +6614,13 @@ snapshot_publication_failed:
 		 * still matches this callback's committed lease; never undo a
 		 * newer DHCP callback.
 		 */
-		for (i = 0; i < snapshot_count; ++i) {
-			rollback_values[i].name = snapshot_values[i].name;
-			rollback_values[i].value = snapshot_values[i].previous_value;
-			rollback_values[i].previous_value = snapshot_values[i].value;
+		snapshot_restore_status = dhcp_lease_nvram_reverse_snapshot(
+			snapshot_values, snapshot_count, rollback_values);
+		if (snapshot_restore_status != 0) {
+			logmessage(log_prefix,
+				   "cannot prepare reverse DHCP lease snapshot on %s (status=%d); preserving current interface/routes",
+				   wan_ifname, snapshot_restore_status);
+			return snapshot_status;
 		}
 		snapshot_restore_status = wan_dhcp_nvram_state_publish(
 			rollback_values, snapshot_count,

@@ -880,6 +880,50 @@ test_dhcp_lease_fast_renew_publishes_dltime_as_one_checked_value(void)
 	assert(strcmp(fake.current[0], "456") == 0);
 }
 
+static void
+test_dhcp_lease_nvram_reverse_snapshot_validates_complete_tuple(void)
+{
+	struct dhcp_lease_nvram_value values[3], reversed[3];
+	const char *const names[3] = {
+		"wan0_ipaddr", "wan0_gateway", "wan0_dns"
+	};
+	const char *const candidates[3] = {
+		"198.51.100.10", "198.51.100.1", "203.0.113.53"
+	};
+	const char *const previous[3] = {
+		"192.0.2.10", "192.0.2.1", ""
+	};
+	size_t i;
+
+	memset(reversed, 0, sizeof(reversed));
+	for (i = 0; i < 3; ++i) {
+		values[i].name = names[i];
+		values[i].value = candidates[i];
+		values[i].previous_value = previous[i];
+	}
+	assert(dhcp_lease_nvram_reverse_snapshot(values, 3, reversed) == 0);
+	for (i = 0; i < 3; ++i) {
+		assert(reversed[i].name == values[i].name);
+		assert(reversed[i].value == values[i].previous_value);
+		assert(reversed[i].previous_value == values[i].value);
+	}
+
+	/* Validate the entire input before modifying any destination entry. */
+	memset(reversed, 0, sizeof(reversed));
+	values[2].previous_value = NULL;
+	assert(dhcp_lease_nvram_reverse_snapshot(values, 3, reversed) == EINVAL);
+	for (i = 0; i < 3; ++i) {
+		assert(reversed[i].name == NULL);
+		assert(reversed[i].value == NULL);
+		assert(reversed[i].previous_value == NULL);
+	}
+	values[2].previous_value = previous[2];
+	assert(dhcp_lease_nvram_reverse_snapshot(values, 0, reversed) == EINVAL);
+	assert(dhcp_lease_nvram_reverse_snapshot(values, 3, NULL) == EINVAL);
+	assert(dhcp_lease_nvram_reverse_snapshot(values, 3, values) == EINVAL);
+}
+
+
 int
 main(void)
 {
@@ -1137,6 +1181,7 @@ main(void)
 	test_dhcp_lease_nvram_restore_if_current_protects_newer_writer();
 	test_dhcp_lease_nvram_publish_attempts_all_and_restores_all();
 	test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple();
+	test_dhcp_lease_nvram_reverse_snapshot_validates_complete_tuple();
 	test_dhcp_lease_text_fits_buffer();
 	test_dhcp_lease_nvram_publish_restores_full_wan_bound_tuple();
 	test_dhcp_lease_fast_renew_publishes_dltime_as_one_checked_value();

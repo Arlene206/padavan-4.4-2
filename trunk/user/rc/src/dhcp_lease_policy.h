@@ -314,6 +314,33 @@ struct dhcp_lease_nvram_value {
 	const char *previous_value;
 };
 
+/*
+ * Build the inverse of a prepared lease publication. The operation is
+ * validate-first so malformed input never leaves a partially-written output
+ * tuple; callers use a separate destination vector.
+ */
+static inline int
+dhcp_lease_nvram_reverse_snapshot(
+	const struct dhcp_lease_nvram_value *values, size_t count,
+	struct dhcp_lease_nvram_value *reversed)
+{
+	size_t i;
+
+	if (!values || !reversed || count == 0 || values == reversed)
+		return EINVAL;
+	for (i = 0; i < count; ++i) {
+		if (!values[i].name || !values[i].name[0] ||
+		    !values[i].value || !values[i].previous_value)
+			return EINVAL;
+	}
+	for (i = 0; i < count; ++i) {
+		reversed[i].name = values[i].name;
+		reversed[i].value = values[i].previous_value;
+		reversed[i].previous_value = values[i].value;
+	}
+	return 0;
+}
+
 typedef int (*dhcp_lease_nvram_set_operation)(void *context,
 					      const char *name,
 					      const char *value);

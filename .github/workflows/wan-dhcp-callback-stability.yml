@@ -489,7 +489,9 @@ jobs:
           restore_publish = callback.index("wan_dhcp_nvram_state_publish(", rollback_state)
           route_abort = callback.index("dhcp_wan_route_transition_abort_snapshot(", rollback_state)
           assert published_state < rollback_state < restore_publish < route_abort
-          assert "rollback_values[i].previous_value = snapshot_values[i].value;" in callback
+          assert "dhcp_lease_nvram_reverse_snapshot(" in callback
+          assert "dhcp_lease_nvram_reverse_snapshot(snapshot_values, snapshot_count, rollback_values)" in callback
+          assert "dhcp_lease_nvram_reverse_snapshot(" in lease_policy
           assert "preserving current interface/routes" in callback
           callback_status_publish = callback.index("callback_status = route_status_accumulate(route_setup_status, mtu_status);")
           assert "ip6rd_status" not in callback

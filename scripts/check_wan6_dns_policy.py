@@ -129,7 +129,8 @@ sixrd_restore = wan_bound.index("wan_dhcp_nvram_state_publish(", sixrd_recovery)
 sixrd_route_abort = wan_bound.index("dhcp_wan_route_transition_abort_snapshot(", sixrd_recovery)
 assert sixrd_publish < sixrd_call < sixrd_abort
 assert sixrd_recovery < sixrd_restore < sixrd_route_abort
-assert "rollback_values[i].previous_value = snapshot_values[i].value;" in wan_bound
+assert "dhcp_lease_nvram_reverse_snapshot(snapshot_values, snapshot_count, rollback_values)" in wan_bound
+assert "dhcp_lease_nvram_reverse_snapshot(" in lease_policy
 assert "preserving current interface/routes" in wan_bound
 assert "test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple" in lease_policy_test
 assert "test_dhcp_lease_6rd_snapshot_failure_restores_entire_tuple();" in lease_policy_test

@@ -1,3 +1,14 @@
+## 2026-11-21 — Centralize and test reverse DHCP lease tuple construction
+
+- Parent main SHA: `0b51276c02bbbcdde34de71435a1569dbd643b23`.
+- The post-commit 6rd failure path manually swapped each lease value and prior value in `net_wan.c`. That duplicated tuple semantics in production and left the transformation itself untested.
+- Added `dhcp_lease_nvram_reverse_snapshot()`, which validates the complete source tuple before writing any destination field, rejects aliasing, and creates a reversed candidate/prior vector. The WAN callback now uses this helper before guarded compare-and-publish recovery.
+- Added GNU89 regression coverage for successful reversal, malformed late-entry rejection without partial output, zero count, null destination, and aliased vectors. Updated WAN callback and WAN6 source contracts to require the shared helper.
+- Exact-head WAN callback #44913833976 had failed at a now-obsolete 6rd status assertion; the corrected contract is included here and will be exercised on this source SHA. XY-C1 build remains pending after the prior stale accumulator compile fix.
+- Next: verify WAN callback, GNU89 policy, XY-C1 Build, TRX and artifact on this SHA.
+
+---
+
 ## 2026-11-21 — Correct the remaining ttyd integration checker extractor
 
 - Parent main SHA: `74b1381c7e4c66a9095d046b9ae1f99a239144df`.
