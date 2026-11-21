@@ -951,6 +951,7 @@ switch_config_vlan(int first_call)
 			"vlan_pri_lan3", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN3]);
 		if (status != 0)
 			return status;
+		vlan_pri[SWAPI_VLAN_RULE_WAN_LAN3] &= 0x07;
 		status = lan_nvram_get_int_before_vlan_apply(
 			"vlan_pri_lan4", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN4]);
 		if (status != 0)

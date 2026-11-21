@@ -1,7 +1,8 @@
 ## Current checkpoint — 2026-11-21
 
 - LAN source chain: checked VLAN selector/VID/priority; checked soft-bridge/core-bridge multicast and router settings; checked switch VLAN snapshot before first rule apply; checked storm-control rates and switch jumbo/green/EEE before PHY writes. Latest switch source corrected a missing local `status` declaration and checker token whitespace; exact WAN route #44961918900 PASS.
-- WAN dynamic-route source checks on parent `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` failed because the new assertions selected earlier call sites instead of the three function definitions; HTTPD still expected the retired unchecked `nvram_match()` condition. THIS checker-only follow-up fixes both contracts; exact-head WAN/HTTPD reruns are pending.
+- WAN dynamic-route source checks on parent `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` exposed two stale contracts (short function locators and an old unchecked `nvram_match()` assertion). Checker-only correction `88054b9f272d9f673dabf45df60d497de441b2d2` fixes both; exact-head WAN/HTTPD reruns were not yet visible.
+- VLAN QoS compatibility fix: checked-read migration had omitted the original `& 0x07` mask for `vlan_pri_lan3`; THIS COMMIT restores it and tests that all six checked priority values are normalized before hardware programming. Exact-head WAN/HTTPD/XY-C1 Actions pending.
 - Same-source L3 still requires XY-C1 Build, TRX and artifact upload all PASS. Frozen backup remains read-only.
 
 ## Historical checkpoint — 2026-11-21

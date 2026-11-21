@@ -283,6 +283,21 @@ read_positions = [switch_vlan_code.index(item) for item in read_order]
 first_rule_apply = switch_vlan_code.index("phy_vlan_rule_set(")
 require(read_positions == sorted(read_positions) and read_positions[-1] < first_rule_apply,
         "switch VLAN mode, selector, VIDs, priorities and tag flags must all be checked before programming any VLAN rule")
+priority_rules = ("WAN_INET", "WAN_IPTV", "WAN_LAN1", "WAN_LAN2", "WAN_LAN3", "WAN_LAN4")
+priority_masks = [
+    f"vlan_pri[SWAPI_VLAN_RULE_{rule}] &= 0x07;"
+    for rule in priority_rules
+]
+require(all(mask in switch_vlan_code for mask in priority_masks),
+        "all six VLAN priorities must retain their legacy three-bit normalization")
+priority_mask_positions = [switch_vlan_code.index(mask) for mask in priority_masks]
+priority_read_positions = [switch_vlan_code.index(read) for read in pri_reads]
+require(
+    all(read < mask for read, mask in zip(priority_read_positions, priority_mask_positions)) and
+    priority_mask_positions == sorted(priority_mask_positions) and
+    priority_mask_positions[-1] < first_rule_apply,
+    "each checked VLAN priority must be normalized after its read and before hardware programming"
+)
 require("if (status != 0) return status;" in switch_vlan_code and
         "lan_wan_bridge_mode_status" in switch_vlan_code and
         "lan_wan_bridge_iso_mode_status" in switch_vlan_code,

@@ -1,3 +1,13 @@
+## 2026-11-21 — Restore the third LAN VLAN priority mask
+
+- Parent main SHA: `88054b9f272d9f673dabf45df60d497de441b2d2`.
+- The original `switch_config_vlan()` masked all six configured VLAN priorities with `& 0x07`. The checked-NVRAM migration inadvertently omitted the LAN3 mask, while the RTL8367 and MTK ESW PHY encoders preserve all eight input bits in the packed priority byte. A persisted `vlan_pri_lan3` outside 0..7 could therefore diverge from the old three-bit 802.1p behavior for that port alone.
+- THIS COMMIT restores `vlan_pri[SWAPI_VLAN_RULE_WAN_LAN3] &= 0x07` immediately after its checked read. `scripts/check_wan_vlan_setup.py` now requires all six masks, each after its corresponding checked read and before the first `phy_vlan_rule_set()`.
+- Targeted source-contract preflight confirmed that the assertion rejects the parent source and passes the patched function. Parent c4 WAN route `#44962248260` and HTTPD `#44962248262` failures were checker mismatches; a checker-only repair at `88054b9f272d9f673dabf45df60d497de441b2d2` was pushed, with exact reruns not yet observed.
+- Next: inspect exact-head WAN route/HTTPD and XY-C1 Build/TRX/artifact for the current main commit; then continue the ranked PID-1 WAN NVRAM publication audit. No hardware L4 result is claimed.
+
+---
+
 ## 2026-11-21 — Repair DHCP dynamic-route source-contract locators
 
 - Parent main SHA: `c4a3bb279d23ca331572a91ab8ca85acfff8edc7`; this is a checker-only follow-up.

@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Latest product-source baseline: `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` (`fix(wan): check dynamic route flag before DHCP setup`). This source commit checks the `dr_enable_x` selector in WAN/IPTV DHCP option producers and route addition while keeping route cleanup unconditional. Its two exact-head checker failures were traced to stale function locators and a retired `nvram_match()` assertion; THIS COMMIT repairs those contracts only. Re-fetch live `main` on takeover.
+- Latest product-source baseline before the current LAN QoS fix: `88054b9f272d9f673dabf45df60d497de441b2d2` (checker-only correction for WAN dynamic-route source contracts). The preceding source commit `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` adds checked `dr_enable_x` selector reads to WAN/IPTV DHCP option setup and route additions while keeping cleanup unconditional. Exact-head WAN/HTTPD reruns for the checker repair must still be inspected. Re-fetch live `main` on takeover.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -28,23 +28,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Product source `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` adds checked `dr_enable_x` reads to `control_dhcp_routes()`, `start_udhcpc_wan()` and `start_udhcpc_viptv()`. The route cleanup path remains unconditional; only add operations use the selector.
-- Exact c4 WAN route run `#44962248260` failed in the newly added source checker because short `body()` signatures matched earlier callers rather than the function definitions. HTTPD `#44962248262` failed on one stale assertion for the old unchecked `nvram_match()` condition. Both failures are checker-only; the exact c4 WAN source confirms checked NVRAM status and error returns.
-- THIS COMMIT fixes the WAN checker to use exact function signatures and the HTTPD contract to require checked selector status, error propagation and cleanup independence. Targeted preflight against exact c4 source passes all three sites and HTTPD's route-add contract.
-- Parent c4's other completed checks include DNSMasq, WAN DHCP callback, Firewall Startup, Wireless, VPN server, USB modem, ZeroTier, watchdog, detect_link, detect_internet, ARP probe, miniupnpd, router-mode NVRAM and AI docs. WAN route/HTTPD were FAIL; Process/NVRAM/XY-C1 were PENDING at last poll.
-- After exact-head WAN/HTTPD reruns and XY-C1 status are inspected, continue the known LAN VLAN QoS follow-up: restore the legacy `& 0x07` mask omitted for `vlan_pri_lan3`; require all six masks in the source contract.
+- THIS source/test slice restores `vlan_pri[SWAPI_VLAN_RULE_WAN_LAN3] &= 0x07` immediately after the successful checked NVRAM read. The original `f20473f` implementation masked all six 802.1p priorities; the checked-read migration in `ebc799f` dropped only the LAN3 mask. Both RTL8367 and MTK ESW PHY encoders pack priority using an eight-bit field, so the omitted normalization could change LAN3 QoS values above seven.
+- `scripts/check_wan_vlan_setup.py` now requires all six priority masks, each after its own checked read and before the first `phy_vlan_rule_set()`. Targeted preflight confirmed this contract rejects the parent source and passes the fix.
+- Parent `c4a3bb279d23ca331572a91ab8ca85acfff8edc7` WAN route `#44962248260` and HTTPD `#44962248262` failed only on static contracts for the new dynamic-route selector. The checker-only fix is `88054b9f272d9f673dabf45df60d497de441b2d2`; its exact-head reruns had not appeared at the last poll. Parent XY-C1 `#44962248242` Build was pending, and NVRAM `#44962248222` was in progress.
+- LAN checked-read work remains in place: WAN VLAN config, soft/core bridge multicast/router settings, switch mode/isolation/filter, six VIDs, six priorities/four tags, storm-control and jumbo/green/EEE preflights. Do not redo those audits.
+- After exact-head verification of the new source commit, continue the ranked P1 PID-1 WAN NVRAM publication review at `set_wan_unit_value_int()` / `set_wan_unit_param()`.
 
 ## Verification boundary
 
-- Source transformation and static checker preflight passed before creating Git objects; exact current-head WAN route and firmware CI pending.
-- No L3 claim unless XY-C1 Build, TRX and artifact upload all PASS on this product-source SHA. Hardware L4 remains NOT VERIFIED.
-- Frozen backup `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
+- This LAN priority source/checker commit has not yet run its exact-head Actions. Inspect WAN route, HTTPD, Process, NVRAM and XY-C1 results for its live main SHA.
+- The preceding checker correction `88054b9f272d9f673dabf45df60d497de441b2d2` had no exact-head run visible at the last poll; do not treat the c4 parent failures as resolved until the corrected SHA passes.
+- L3 requires Bui## Exact first action for the next GPT
 
-## Exact first action for the next GPT
+1. Fetch live `main` and inspect exact-head WAN route, HTTPD, NVRAM and XY-C1 runs for THIS source/test commit; inspect Build XY-C1, Verify TRX and artifact upload individually.
+2. Repair only current-SHA failures. Also inspect the corrected WAN/HTTPD reruns for `88054b9f272d9f673dabf45df60d497de441b2d2`; do not claim the c4 failures resolved without those checks.
+3. Continue the P1 `set_wan_unit_value_int()` / `set_wan_unit_param()` NVRAM publication audit after the LAN VLAN path validates.
 
-1. Fetch exact-head WAN route and XY-C1 runs for THIS commit; inspect Build XY-C1, Verify TRX and upload-artifact separately.
-2. Fix any current-SHA checker, compiler or firmware failure from the exact job logs.
-3. Continue an independent whole-userland reliability/security issue after the dynamic-route selector path validates.
 
 ## Workflow and preservation rules
 
