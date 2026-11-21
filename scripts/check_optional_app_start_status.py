@@ -363,6 +363,16 @@ def check_rc_optional_daemon_enable_reads():
             assert "nvram_get_int(" not in start_body
             assert "nvram_safe_get(" not in start_body
 
+    telnetd_start = extract_c_function_body(services, "start_telnetd(void)")
+    telnetd_compact = "".join(telnetd_start.split())
+    telnetd_read = 'service_nvram_match_status("telnetd","1",0,&telnet_enabled);'
+    assert telnetd_read in telnetd_compact
+    assert telnetd_compact.index(telnetd_read) < telnetd_compact.index("if(config_status!=0)")
+    assert telnetd_compact.index("if(config_status!=0)") < telnetd_compact.index(
+        "if(!telnet_enabled)"
+    )
+    assert 'nvram_match("telnetd", "1")' not in telnetd_start
+
     smartdns_start = extract_c_function_body(services, "start_smartdns(void)")
     smartdns_compact = "".join(smartdns_start.split())
     smartdns_read = 'service_enabled_mode_status("SmartDNS","sdns_enable",&smartdns_mode);'

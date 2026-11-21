@@ -1,3 +1,11 @@
+## 2026-11-21 — Propagate checked Telnet service-enable reads
+
+- Parent main SHA: 4c79d11ce89248d828f8f4ae263fa918081c2797.
+- `start_telnetd()` used an unchecked exact-string `nvram_match("telnetd", "1")`; read errors silently looked like a disabled service and returned success. Replaced it with the shared checked exact-match reader, preserving the original exact-`1` behavior and missing-key default while returning backend/parse errors before the process-inventory scan or launch.
+- Extended the optional-app checker to enforce checked-read → error gate → enabled gate ordering and reject the raw matcher. Exact-head Process workflow and XY-C1 build/TRX/artifact validation pending; L3/L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Check optional add-on enable reads before daemon startup
 
 - Parent main SHA: 1f6de563ff8ac2b748368bb96101e8759ec42e04.

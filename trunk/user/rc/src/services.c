@@ -738,9 +738,14 @@ int
 start_telnetd(void)
 {
 	int start_status, attempt, scan_error;
+	int telnet_enabled = 0;
+	int config_status = service_nvram_match_status(
+		"telnetd", "1", 0, &telnet_enabled);
 	enum process_presence process_state;
 
-	if (!nvram_match("telnetd", "1"))
+	if (config_status != 0)
+		return config_status;
+	if (!telnet_enabled)
 		return 0;
 
 	start_status = optional_daemon_start_status("telnetd", "telnetd");
