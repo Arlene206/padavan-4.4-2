@@ -1,8 +1,8 @@
-# 2026-11-20 continuation checkpoint
+# Cross-session execution mandate — 2026-11-21 checkpoint
 
 ## Cross-session execution mandate
 
-- Continue development on `main` only. Each logical task is one atomic commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
+- Continue development on `main` only. Each logical task is one atomic main commit: create all blobs and one complete Git tree, then one commit and a non-forced expected-SHA update.
 - Never amend, force-push, create development branches/PRs, or modify the frozen backup.
 - Preserve GNU89, MIPS/uClibc, BusyBox and Linux 4.4 compatibility. Fix real source defects with focused regressions; do not weaken checks.
 - PENDING Actions do not block independent work. Diagnose the earliest causal failure log.
@@ -14,30 +14,32 @@ The checkpoint is mandatory; a document edit is conditional. Inspect live `main`
 
 ## Current repository state
 
-- Parent `main` SHA for the validation follow-up: `4e4b1e51ec58958823e2c94890d4e073450bcb87`.
-- Frozen archival branch `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- WAN DHCP run `#44874862762` failed at the DHCP lease policy binary under ASan: the expanded 12-value tuple test still declared its local `values` array with 11 elements. The fake tuple and 12 loop iterations correctly expanded; this one declaration was missed and is corrected in this commit.
-- AI docs run `#44874862864` failed because the handoff paragraph paraphrased rather than exactly preserving the checker-required sentence `The checkpoint is mandatory; a document edit is conditional.`. The exact required sentence is restored here.
-- MiniUPnP exact-head run `#44874862770` PASSED on `4e4b1e51ec58958823e2c94890d4e073450bcb87`, including the first-error delete contract and both IPTC API variants.
-- XY-C1 run `#44874862823` was still in progress at the last poll. Its Build/TRX/artifact steps must be checked before making any L3 claim. The prior full L3 evidence remains run `#44809783977` on product-source SHA `0b5eef8bd00fd6e732449bcf241949df84b4f40c`.
+- Source baseline main SHA: ab866c3e93c5131ed6723c7a2a7d3de5df0e693c; this checkpoint is a documentation-only child of that source slice.
+- Frozen archival branch backup/pre-plugin-overhaul-2026-11-14 remains at 72f4f157a084f8184b9597ca5bf334b8080e5807, read-only.
+- HTTPD startup/stop/restart regression run #44875048202 PASSED on ab866c3e93c5131ed6723c7a2a7d3de5df0e693c: GNU89/Werror/ASan/UBSan policy binary and source integration/path-filter checks passed.
+- HTTPD Authentication and Security run #44875048156 PASSED on ab866c3e93c5131ed6723c7a2a7d3de5df0e693c; whole-repository Process lifecycle inventory run #44875048297 PASSED; WAN route operation status run #44875048033 PASSED.
+- AI handoff contract run #44875048197 FAILED on ab866c3e93c5131ed6723c7a2a7d3de5df0e693c because the handoff used “one atomic commit” rather than the exact required phrase “one atomic main commit”. This checkpoint restores the literal contract and required top-level heading.
+- XY-C1 run #44875048030 was still building at checkpoint; its Build, TRX verification and artifact-upload conclusions must be inspected before any L3 claim.
+- NVRAM transaction boundary audit run #44875048211 and Process lifecycle regression run #44875048100 were in progress. Other exact-head workflows may remain pending.
 - Physical-router L4 remains NOT VERIFIED.
 
 ## Active task
 
-1. Recheck the exact-head WAN DHCP callback and AI documentation Actions after this focused test/handoff correction.
-2. Inspect exact-head XY-C1 Build, TRX and artifact step conclusions, and diagnose any other failed exact-head workflow at its earliest causal step.
-3. When validations are green, continue the user-space reliability queue outside MiniUPnP, prioritizing a concrete P1/P2 defect with a focused regression.
+1. Inspect the exact-head AI handoff documentation run triggered by this checkpoint and confirm the literal heading and “one atomic main commit” rule pass.
+2. Finish checking exact-head Actions from source SHA ab866c3e93c5131ed6723c7a2a7d3de5df0e693c, especially XY-C1 Build, TRX verification and artifact upload, NVRAM transaction audit and whole-repository Process lifecycle regression. Diagnose any FAIL at its earliest causal step; PENDING does not block independent work.
+3. Continue the userland stability queue with a concrete source defect outside the just-completed HTTPD startup-wait rollback slice; add a focused GNU89-compatible regression and commit atomically.
 
 ## Verification boundary
 
-- In the failed WAN run, both DHCP policy C source compilation and ASan execution reached the 12-value tuple function; UBSan/ASan pinpointed the exact out-of-bounds array declaration described above. Later workflow steps were skipped. The corrected declaration requires a fresh exact-head run.
-- AI docs failed only on the exact wording requirement; the rule itself was already present semantically. The exact sentence is restored for a fresh run.
-- MiniUPnP PASS on `4e4b1e51ec58958823e2c94890d4e073450bcb87` (run `#44874862770`).
-- XY-C1 run `#44874862823` was pending; do not claim L3 until Build/TRX/artifact all PASS on one SHA. Physical-router L4 remains NOT VERIFIED.
+- HTTPD startup wait failure now attempts listener rollback under the lifecycle lock, re-scans authoritative process state, republishes httpd_started=1 when the listener may still exist, and preserves the original wait error. The policy regression covers ABSENT, RUNNING, UNKNOWN and invalid scan outcomes.
+- HTTPD daemon lifecycle PASS on ab866c3e93c5131ed6723c7a2a7d3de5df0e693c (run #44875048202); HTTPD authentication/security PASS (run #44875048156); Process lifecycle inventory PASS (run #44875048297); WAN route status PASS (run #44875048033).
+- AI handoff contract failed on ab866c3e93c5131ed6723c7a2a7d3de5df0e693c solely at the missing exact wording “one atomic main commit”; this checkpoint corrects the required H1 heading and phrase. Its new exact-head run is pending.
+- XY-C1 Build was in progress on ab866c3e93c5131ed6723c7a2a7d3de5df0e693c. L3 is NOT established until Build, TRX verification and artifact upload all PASS on the same product-source SHA. Physical-router L4 remains NOT VERIFIED.
+- No local checkout or local cross-compiler was available; runtime/build claims rely only on exact Actions evidence.
 
 ## Exact first action for the next GPT
 
-Fetch latest `main` and inspect the exact-head WAN DHCP callback, AI docs, XY-C1, HTTPD authentication and other in-progress/failed Actions. Confirm the corrected 12-entry fixture and handoff wording pass; read the first causal failure log for any other red workflow. Continue with the next independent P1/P2 source defect once the current slice is green.
+Fetch live main and confirm the frozen backup remains unchanged. Inspect the exact-SHA AI handoff run created by this checkpoint; then finish the XY-C1 Build, TRX and artifact steps plus the pending NVRAM and Process lifecycle Actions for source SHA ab866c3e93c5131ed6723c7a2a7d3de5df0e693c. Record L3 only on a single SHA with all three firmware steps passing. Fix the earliest causal failure if any; otherwise continue with the next independent userland P1/P2 source defect outside HTTPD.
 
 ## Handoff maintenance
 

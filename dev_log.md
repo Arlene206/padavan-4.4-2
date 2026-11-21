@@ -1,3 +1,14 @@
+## 2026-11-21 — Roll back HTTPD when startup settling wait fails; repair handoff contract
+
+- Parent source SHA: ab866c3e93c5131ed6723c7a2a7d3de5df0e693c. Fixed a real HTTPD lifecycle gap in services.c: after _eval() launched a detached listener, failure of the initial settling wait returned directly while httpd_started remained cleared. The wait-failure path now attempts stop_httpd_locked() under the existing lifecycle lock, performs an authoritative process scan, republishes running state for RUNNING/UNKNOWN (fail-closed) and preserves the original wait errno.
+- Added HTTPD failed-start policy tests for ABSENT, RUNNING, UNKNOWN and invalid enum outcomes, plus a source-order contract in the HTTPD workflow. Exact-head HTTPD lifecycle run #44875048202 PASS; HTTPD authentication/security #44875048156 PASS; Process lifecycle inventory #44875048297 PASS; WAN route status #44875048033 PASS.
+- Exact-head AI documentation run #44875048197 failed because SESSION_HANDOFF.md omitted the literal phrase “one atomic main commit” and the required top-level “# Cross-session execution mandate” heading. This checkpoint fixes both without weakening the validator.
+- XY-C1 run #44875048030 was still executing the build pipeline at checkpoint; Build, TRX and artifact must all finish PASS on one identical SHA for L3. NVRAM transaction audit #44875048211 and whole-repository Process lifecycle regression #44875048100 were in progress.
+- Frozen backup remains backup/pre-plugin-overhaul-2026-11-14 at 72f4f157a084f8184b9597ca5bf334b8080e5807. No local checkout/build was available; PASS claims above are from exact-SHA Actions.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-20 — Repair DHCP timestamp regression fixture and handoff wording
 
 - Exact-head WAN DHCP run #44874862762 caught an ASan/UBSan stack overflow in the new 12-field full-WAN tuple test: its local dhcp_lease_nvram_value array remained length 11 while the fixture and loop were expanded to 12. Corrected the declaration; production code was not implicated by this failure.
