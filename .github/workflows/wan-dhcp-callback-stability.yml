@@ -537,6 +537,8 @@ jobs:
               'nvram_set_int_temp(strcat_r(prefix, "lease", tmp), (int)parsed_value)',
           ):
               assert marker not in wan_dhcp_renew
+          lease_policy = (rc / "dhcp_lease_policy.h").read_text()
+          lease_policy_test = (rc / "tests/dhcp_lease_policy.c").read_text()
           publisher_anchor = source.index("static int\nwan_dhcp_nvram_restore_values(")
           publisher_start = source.index("static int\nwan_dhcp_nvram_state_publish(", publisher_anchor)
           renew_publisher = body(source[publisher_start:], "wan_dhcp_nvram_state_publish(")
@@ -545,7 +547,10 @@ jobs:
           assert "wan_dhcp_nvram_restore_values(" in renew_publisher
           assert "if (publish_attempted && status != 0)" in renew_publisher
           assert "publish_attempted" in renew_publisher
-          assert "nvram_transaction_begin(&transaction)" in renew_publisher
+          transaction_begin = renew_publisher.index("nvram_transaction_begin(&transaction)")
+          guarded_publish = renew_publisher.index("dhcp_lease_nvram_publish_if_current(")
+          transaction_end = renew_publisher.index("nvram_transaction_end(&transaction)")
+          assert transaction_begin < guarded_publish < transaction_end
           snapshot_guard = body(lease_policy, "dhcp_lease_nvram_publish_if_current(")
           assert "dhcp_lease_nvram_snapshot_matches(" in snapshot_guard
           assert "*publish_attempted = 1;" in snapshot_guard

@@ -1,3 +1,13 @@
+## 2026-11-21 — Align WAN source contracts with guarded DHCP publication
+
+- Parent main SHA: `59268855734cc173815b1a99dc5aebd8ac1ea507`.
+- Exact-head WAN callback Actions exposed two source-check regressions in the compare-and-publish slice: the inline callback contract referenced lease-policy variables before loading their files, and `check_wan_firewall_status.py` still required the old direct `dhcp_lease_nvram_publish()` call inside the WAN wrapper.
+- Fixed the workflow variable declarations and asserted that the guard executes strictly between transaction begin/end. Updated the firewall contract to inspect the policy helper and require checked snapshot comparison, guarded publication, attempt-gated recovery and a held transaction; no behavior or coverage was removed.
+- Exact-head WAN callback #44912297779 failed on the undefined Python variable. Exact-head XY-C1 #44912297675 failed its pre-build firewall source contract ("WAN DHCP renewal snapshot needs transaction and full rollback"), so Build/TRX/artifact were not reached. These are source-check failures, not product-build results.
+- Next: rerun WAN callback and XY-C1 on the corrected SHA; diagnose any next failure and inspect the NVRAM boundary audit. Do not declare L3 until Build, TRX and artifact upload all pass on one SHA.
+
+---
+
 ## 2026-11-21 — Reject stale WAN DHCP rollback snapshots before publication
 
 - Parent main SHA: `ef85dc0c5528b7a0e6e5fe87767ee0c515c42453`.

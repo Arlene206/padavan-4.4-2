@@ -86,10 +86,21 @@ require("wan_dhcp_nvram_state_publish(" in wan_renew and
 publisher_anchor = wan.index("static int\nwan_dhcp_nvram_restore_values(")
 publisher_start = wan.index("static int\nwan_dhcp_nvram_state_publish(", publisher_anchor)
 wan_renew_publisher = body(wan[publisher_start:], "wan_dhcp_nvram_state_publish(")
-require("dhcp_lease_nvram_publish(" in wan_renew_publisher and
+lease_policy = (RC / "dhcp_lease_policy.h").read_text()
+lease_publish_guard = body(
+    lease_policy, "dhcp_lease_nvram_publish_if_current("
+)
+require("dhcp_lease_nvram_publish_if_current(" in wan_renew_publisher and
+        "wan_dhcp_nvram_transaction_get_value" in wan_renew_publisher and
         "wan_dhcp_nvram_restore_values(" in wan_renew_publisher and
-        "nvram_transaction_begin(&transaction)" in wan_renew_publisher,
-        "WAN DHCP renewal snapshot needs transaction and full rollback")
+        "if (publish_attempted && status != 0)" in wan_renew_publisher and
+        "nvram_transaction_begin(&transaction)" in wan_renew_publisher and
+        "nvram_transaction_end(&transaction)" in wan_renew_publisher,
+        "WAN DHCP renewal snapshot needs guarded transaction and full rollback")
+require("dhcp_lease_nvram_snapshot_matches(" in lease_publish_guard and
+        "*publish_attempted = 1;" in lease_publish_guard and
+        "dhcp_lease_nvram_publish(" in lease_publish_guard,
+        "WAN DHCP compare-and-publish guard must verify the old tuple before writes")
 for marker in (
     'nvram_set_temp(param, lease_dns)',
     'nvram_set_temp(param, lease_domain)',
