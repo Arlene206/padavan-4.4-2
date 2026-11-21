@@ -1,3 +1,11 @@
+## 2026-11-21 — Fix optional-daemon source checker path NameError
+
+- Parent main SHA: af276eab4c5af6750345da77274a2271d1910b5c.
+- Process inventory/lifecycle exact-head run #44924180053 passed all preceding GNU89/ASan/UBSan, process inventory and service-policy steps, then the optional-app source contract raised `NameError: RC_ROOT is not defined` while trying to inspect `optional_daemon_policy.h`.
+- Added an explicit `OPTIONAL_DAEMON_POLICY` path rooted at `ROOT` and used it in the assertion. This is checker-only; the production policy and test behavior are unchanged. Exact-head Process rerun pending.
+
+---
+
 ## 2026-11-21 — Repair exact-head Process, ZeroTier and PID 1 regression contracts
 
 - Parent main SHA: 206ee98f72b29555c325efb93f3287e8f6e530fd.

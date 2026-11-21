@@ -12,6 +12,7 @@ PROCESS_LIFECYCLE_TEST = ROOT / "trunk/user/shared/tests/process_lifecycle.sh"
 SHARED_MAKEFILE = ROOT / "trunk/user/shared/Makefile"
 VLM_SCRIPT = ROOT / "trunk/user/vlmcsd/vlmcsd.sh"
 RC_SERVICES_SOURCE = ROOT / "trunk/user/rc/src/services.c"
+OPTIONAL_DAEMON_POLICY = ROOT / "trunk/user/rc/src/optional_daemon_policy.h"
 RC_SOURCE = ROOT / "trunk/user/rc/src/rc.c"
 IAPPD_SCRIPT = ROOT / "trunk/user/ralinkiappd/iappd.sh"
 IAPPD_TEST = ROOT / "trunk/user/ralinkiappd/tests/iappd_lifecycle.sh"
@@ -346,7 +347,7 @@ def check_rc_optional_daemon_enable_reads():
     ):
         assert recovery_call in telnetd_start
     assert "return process_presence_start_postcondition(start_status," in telnetd_start
-    assert "optional_daemon_failed_start_may_survive" in (RC_ROOT / "optional_daemon_policy.h").read_text()
+    assert "optional_daemon_failed_start_may_survive" in OPTIONAL_DAEMON_POLICY.read_text()
 
     for name, service_name, key in (
         ("adguardhome", "AdGuardHome", "adg_enable"),
