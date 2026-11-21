@@ -5926,6 +5926,9 @@ static int
 control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
                     char *ifname, int metric, int is_add)
 {
+	int dr_enable_value = 0;
+	int dr_enable_status;
+
 	char *routes, *tmp;
 	const char *classless_routes;
 	struct in_addr mask;
@@ -5936,8 +5939,19 @@ control_dhcp_routes(char *rt, char *rt_rfc, char *rt_ms,
 	char netmask[] = "255.255.255.255";
 
 	/* Keep cleanup working even after the dynamic-route option is disabled. */
-	if (is_add && !nvram_match("dr_enable_x", "1"))
-		return 0;
+	if (is_add) {
+		dr_enable_status = get_nvram_match_checked_status(
+			"dr_enable_x", "1", &dr_enable_value);
+		if (dr_enable_status != 0) {
+			logmessage(LOGNAME,
+				   "cannot read dynamic-route enable flag before adding DHCP routes (status=%d)",
+				   dr_enable_status);
+			errno = dr_enable_status;
+			return dr_enable_status;
+		}
+		if (!dr_enable_value)
+			return 0;
+	}
 	if (!ifname || !*ifname)
 		return EINVAL;
 	if (!rt)
@@ -8446,6 +8460,9 @@ zcip_viptv_main(int argc, char **argv)
 
 int start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)
 {
+	int dr_enable_value = 0;
+	int dr_enable_status;
+
 	int index, is_man;
 	char log_prefix[32], pidfile[32] = {0};
 	char *wan_hostname, *wan_vci;
@@ -8496,7 +8513,16 @@ int start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)
 
 	dhcp_argv[index++] = "-O26";	/* "mtu" */
 
-	if (nvram_match("dr_enable_x", "1")) {
+	dr_enable_status = get_nvram_match_checked_status(
+		"dr_enable_x", "1", &dr_enable_value);
+	if (dr_enable_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read dynamic-route enable flag before DHCP option setup (status=%d)",
+			   dr_enable_status);
+		errno = dr_enable_status;
+		return dr_enable_status;
+	}
+	if (dr_enable_value) {
 		dhcp_argv[index++] = "-O33";	/* "routes" */
 		dhcp_argv[index++] = "-O121";	/* "staticroutes" */
 		dhcp_argv[index++] = "-O249";	/* "msstaticroutes" */
@@ -8516,6 +8542,9 @@ int start_udhcpc_wan(char *wan_ifname, int unit, int wait_lease)
 
 int start_udhcpc_viptv(char *man_ifname)
 {
+	int dr_enable_value = 0;
+	int dr_enable_status;
+
 	int index;
 	char log_prefix[32], pidfile[32] = {0};
 	char *dhcp_argv[] = {
@@ -8539,7 +8568,16 @@ int start_udhcpc_viptv(char *man_ifname)
 
 	dhcp_argv[index++] = "-O26";	/* "mtu" */
 
-	if (nvram_match("dr_enable_x", "1")) {
+	dr_enable_status = get_nvram_match_checked_status(
+		"dr_enable_x", "1", &dr_enable_value);
+	if (dr_enable_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read dynamic-route enable flag before DHCP option setup (status=%d)",
+			   dr_enable_status);
+		errno = dr_enable_status;
+		return dr_enable_status;
+	}
+	if (dr_enable_value) {
 		dhcp_argv[index++] = "-O33";	/* "routes" */
 		dhcp_argv[index++] = "-O121";	/* "staticroutes" */
 		dhcp_argv[index++] = "-O249";	/* "msstaticroutes" */

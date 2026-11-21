@@ -718,3 +718,28 @@ for path in ("trunk/user/rc/src/wan_viptv_static_policy.h",
     require(path in workflow, f"WAN workflow path missing {path}")
 
 print("WAN VLAN/bridge and IGMP proxy result-propagation contracts: PASS")
+
+
+# DHCP dynamic-route selector reads must preserve backend errors in both producers and route consumer.
+route_add = body(wan, "control_dhcp_routes(")
+wan_dhcp = body(wan, "start_udhcpc_wan(")
+iptv_dhcp = body(wan, "start_udhcpc_viptv(")
+route_add_code = " ".join(route_add.split())
+wan_dhcp_code = " ".join(wan_dhcp.split())
+iptv_dhcp_code = " ".join(iptv_dhcp.split())
+checked_dr_read = 'get_nvram_match_checked_status( "dr_enable_x", "1", &dr_enable_value)'
+for name, code in (("route-add", route_add_code),
+                   ("WAN DHCP", wan_dhcp_code),
+                   ("IPTV DHCP", iptv_dhcp_code)):
+    require(checked_dr_read in code and
+            "if (dr_enable_status != 0)" in code and
+            "return dr_enable_status;" in code and
+            'nvram_match("dr_enable_x", "1")' not in code,
+            f"{name} must preserve dynamic-route NVRAM read errors")
+require(route_add_code.index("if (is_add)") < route_add_code.index(checked_dr_read) <
+        route_add_code.index("if (!dr_enable_value)") and
+        "if (!is_add)" not in route_add_code[:route_add_code.index(checked_dr_read)],
+        "DHCP route cleanup must remain independent of the dynamic-route add selector")
+for code in (wan_dhcp_code, iptv_dhcp_code):
+    require(code.index(checked_dr_read) < code.index("if (dr_enable_value)"),
+            "DHCP clients must check the dynamic-route selector before adding option requests")

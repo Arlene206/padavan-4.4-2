@@ -1,3 +1,14 @@
+## 2026-11-21 — Preserve DHCP dynamic routes when the NVRAM selector read fails
+
+- Parent main SHA: `b7f0e368c742172d3ef5b0e0b6273fe341f9007b`.
+- Current product source includes checked WAN/LAN VLAN snapshots, bridge/multicast settings, storm-control rates, and switch jumbo/green/EEE settings. The latest exact WAN route workflow #44961918900 passed after the switch VLAN checker whitespace fix and missing local `int status` declaration.
+- The XY-C1 job #44961919041 was still running when last polled; Build/TRX/artifact completion is not yet confirmed for the current source SHA.
+- THIS COMMIT checks `dr_enable_x` through `get_nvram_match_checked_status()` in both WAN/IPTV DHCP option producers and the DHCP route-add consumer. Read errors now abort with the real status rather than silently suppressing dynamic-route requests/additions. The route-remove/cleanup path remains unconditional, as before.
+- Extended the existing WAN source checker to pin all three checked reads, error propagation, and cleanup independence. The WAN NVRAM sanitizer regression already covers exact-string matching and backend-error propagation.
+- Next: inspect exact-head WAN/XY-C1 Actions. Do not claim L3 until same-SHA Build XY-C1, TRX verification and artifact upload pass.
+
+---
+
 ## 2026-11-21 — Fix switch VLAN status declaration and checker token normalization
 
 - Parent main SHA: `e66b1172069763f08aab52df5a08431a10000fd6`.

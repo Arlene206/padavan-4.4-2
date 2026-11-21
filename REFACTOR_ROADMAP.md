@@ -1,10 +1,8 @@
 ## Current checkpoint — 2026-11-21
 
-- WAN `config_vinet_wan()` uses checked selector/VID/priority reads before hardware mapping; checker whitespace normalization and source flow had already passed.
-- LAN `config_soft_bridge_lan()` and `config_bridge()` use checked multicast, router-mode, AP-uport and WAN-bridge settings before topology changes.
-- LAN `switch_config_vlan()` checks bridge mode/isolation, filter, six VIDs, six priorities and four tags before first hardware rule call. Exact e66 WAN route run #44961762404 exposed a checker formatting mismatch; review also found the function used an undeclared local `status`. THIS COMMIT adds the declaration and corrects only the checker token normalization.
-- LAN storm-control rates use checked/range-normalized reads; switch base jumbo/green/EEE reads are checked before PHY operations.
-- Same-source XY-C1 Build/TRX/artifact is pending for the current source chain; frozen backup remains read-only.
+- LAN source chain: checked VLAN selector/VID/priority; checked soft-bridge/core-bridge multicast and router settings; checked switch VLAN snapshot before first rule apply; checked storm-control rates and switch jumbo/green/EEE before PHY writes. Latest switch source corrected a missing local `status` declaration and checker token whitespace; exact WAN route #44961918900 PASS.
+- THIS COMMIT hardens dynamic-route NVRAM handling in WAN/IPTV DHCP option producers and DHCP route addition. All three `dr_enable_x` reads are checked and errors propagate; route cleanup remains unconditional. Exact current-head WAN/XY-C1 Actions pending.
+- Same-source L3 still requires XY-C1 Build, TRX and artifact upload all PASS. Frozen backup remains read-only.
 
 ## Historical checkpoint — 2026-11-21
 
