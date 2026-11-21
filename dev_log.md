@@ -1,3 +1,13 @@
+## 2026-11-21 — Restore checked optional-daemon enable reader
+
+- Parent main SHA: `ac05b377f8cb4cd28ac68f426bf6280bb6abeb6c`.
+- The optional-daemon enable-read change introduced checked SCUT/MentoHUST start/restart call sites and a static reader contract, but the reader definition itself was absent. The Process workflow therefore failed at its exact-head source check (#44911903470 on `ac05b377`), and the source also lacked the implementation needed by the new call sites.
+- Added `service_enabled_mode_status()`: it reads the configured mode through `nvram_get_checked()`, preserves the legacy disabled default for a genuinely absent key, parses backend results through `rc_wan_nvram_read_int_status()`, and preserves the current daemon state on read/parse failure.
+- Existing GNU89 policy regression covers success, disabled default, backend errors and output preservation. The Process source contract verifies the checked reader and call ordering; exact-head reruns are pending this source commit.
+- Next independent task: close the WAN DHCP rollback-snapshot TOCTOU window with an under-lock compare-and-publish guard; do not revert transactional snapshots.
+
+---
+
 ## 2026-11-21 — PPP and WAN rollback-state consistency
 
 - Main parent checkpoint: `77f7a711c576f4cc50f78ea5307a2bd561058aae`.

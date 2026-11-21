@@ -131,6 +131,35 @@ optional_daemon_stop_status(const char *service_name, const char *process_name,
 	return result;
 }
 
+static int
+service_enabled_mode_status(const char *service_name, const char *nvram_key,
+			    int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, configured_mode = 0;
+	int read_status, status;
+
+	if (!service_name || !service_name[0] ||
+	    !nvram_key || !nvram_key[0] || !enabled)
+		return EINVAL;
+
+	errno = 0;
+	api_result = nvram_get_checked(nvram_key, &value);
+	saved_errno = errno;
+	read_status = rc_wan_nvram_read_int_status(
+		api_result, saved_errno, value, 0, &configured_mode);
+	status = rc_service_enabled_mode_decide(
+		read_status, configured_mode, enabled);
+	if (status != 0) {
+		errno = status;
+		logmessage(LOGNAME,
+			   "%s enable-setting read failed; preserving existing daemon state (status=%d)",
+			   service_name, status);
+	}
+	return status;
+}
+
+
 static enum process_presence
 optional_daemon_rollback_scan(void *context, int *scan_error)
 {
