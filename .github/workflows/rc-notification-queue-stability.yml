@@ -263,6 +263,7 @@ jobs:
                           "return start_" + name + "();", ""
                       )
               assert "int start_" + name + "(void);" in rc_header
+          optional_boot = function_body(services, "start_services_once(int is_ap_mode)")
           for daemon, process in (
               ("scutclient", "bin_scutclient"),
               ("mentohust", "bin_mentohust"),
@@ -271,19 +272,16 @@ jobs:
           ):
               assert 'optional_daemon_presence("' + process + '", NULL)' in services
               assert 'optional_daemon_stop_status("' + daemon + '", "' + process + '"' in services
-              assert "return start_" + daemon + "();" in services
+              assert "start_" + daemon + "()" in optional_boot
               assert "int start_" + daemon + "(void);" in rc_header
+              start_wrapper = function_body(services, "int start_" + daemon + "(void)")
+              assert "service_enabled_mode_status(" in start_wrapper
+              assert "return start_" + daemon + "_with_mode(" in start_wrapper
+              start_helper = function_body(services, "start_" + daemon + "_with_mode(int enabled)")
+              assert 'optional_daemon_start_status("' + daemon + '", "' + process + '")' in start_helper
+              assert "return start_status;" in start_helper
           assert "optional_daemon_stop_complete(command_status, presence)" in services
           assert "optional_daemon_start_allowed(presence)" in services
-          for daemon, process in (
-              ("scutclient", "bin_scutclient"),
-              ("mentohust", "bin_mentohust"),
-              ("vlmcsd", "vlmcsd"),
-              ("iperf3", "iperf3"),
-          ):
-              start_body = function_body(services, "int start_" + daemon + "(void)")
-              assert 'optional_daemon_start_status("' + daemon + '", "' + process + '")' in start_body
-              assert "return start_status;" in start_body
 
           assert "PROCESS_PRESENCE_ABSENT" in optional_policy
           assert "PROCESS_PRESENCE_UNKNOWN" in optional_test

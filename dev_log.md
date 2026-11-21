@@ -1,3 +1,13 @@
+## 2026-11-21 — Align PID 1 optional-daemon queue contract with mode wrappers
+
+- Parent main SHA: `a275bd99a3f4c3ac6c0ab67b7ddcb9a81eff27d5`.
+- The PID 1 notification queue workflow's source contract still assumed SCUT, MentoHUST, vlmcsd and iperf3 launch functions directly contained `optional_daemon_start_status()` and called `return start_<daemon>()`. The implementation now deliberately separates the checked NVRAM mode wrapper (`start_<daemon>()`) from the process-presence launch helper (`start_<daemon>_with_mode()`), and boot invokes the public wrapper without returning it from its own source file.
+- Reworked the contract to verify the actual boundaries: boot calls each public wrapper; each wrapper checks NVRAM mode before delegating; each mode helper performs tri-state presence checks and propagates start errors; stop handlers retain their postcondition checks.
+- This is a stale static-contract failure from PID 1 notification queue run #44913692593, not a product-code failure. The workflow path includes its own YAML, so the corrected contract will run on this commit.
+- Next: verify the queue contract, Process inventory integration and WAN DHCP/XY-C1 validation.
+
+---
+
 ## 2026-11-21 — Point ttyd startup postcondition checks at the launch helper
 
 - Parent main SHA: `f405b71f7a6b5c8504da9296b73914c9328fd415`.
