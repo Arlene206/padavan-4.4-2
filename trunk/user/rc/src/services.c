@@ -1351,30 +1351,51 @@ int stop_vlmcsd(void)
 					   eval("/usr/bin/vlmcsd.sh", "stop"));
 }
 
-int start_vlmcsd(void)
+static int
+start_vlmcsd_with_mode(int enabled)
 {
-	int mode = nvram_get_int("vlmcsd_enable");
 	int start_status;
 
-	if (mode != 1)
+	if (enabled != 1)
 		return 0;
-
 	start_status = optional_daemon_start_status("vlmcsd", "vlmcsd");
 	if (start_status > 0)
 		return 0;
 	if (start_status < 0)
 		return start_status;
-
 	return eval("/usr/bin/vlmcsd.sh", "start");
+}
+
+int start_vlmcsd(void)
+{
+	int enabled = 0;
+	int config_status;
+
+	config_status = service_enabled_mode_status(
+		"vlmcsd", "vlmcsd_enable", &enabled);
+	if (config_status != 0)
+		return config_status;
+	return start_vlmcsd_with_mode(enabled);
 }
 
 int restart_vlmcsd(void)
 {
-	int stop_status = stop_vlmcsd();
+	int enabled = 0;
+	int config_status, stop_status;
 
+	config_status = service_enabled_mode_status(
+		"vlmcsd", "vlmcsd_enable", &enabled);
+	if (config_status != 0) {
+		logmessage(LOGNAME,
+			   "vlmcsd restart aborted because configuration is unavailable (status=%d)",
+			   config_status);
+		return config_status;
+	}
+
+	stop_status = stop_vlmcsd();
 	if (stop_status != 0)
 		return stop_status;
-	return start_vlmcsd();
+	return start_vlmcsd_with_mode(enabled);
 }
 #endif
 
@@ -1390,30 +1411,51 @@ int stop_iperf3(void)
 					   eval("/usr/bin/iperf3.sh", "stop"));
 }
 
-int start_iperf3(void)
+static int
+start_iperf3_with_mode(int enabled)
 {
-	int mode = nvram_get_int("iperf3_enable");
 	int start_status;
 
-	if (mode != 1)
+	if (enabled != 1)
 		return 0;
-
 	start_status = optional_daemon_start_status("iperf3", "iperf3");
 	if (start_status > 0)
 		return 0;
 	if (start_status < 0)
 		return start_status;
-
 	return eval("/usr/bin/iperf3.sh", "start");
+}
+
+int start_iperf3(void)
+{
+	int enabled = 0;
+	int config_status;
+
+	config_status = service_enabled_mode_status(
+		"iperf3", "iperf3_enable", &enabled);
+	if (config_status != 0)
+		return config_status;
+	return start_iperf3_with_mode(enabled);
 }
 
 int restart_iperf3(void)
 {
-	int stop_status = stop_iperf3();
+	int enabled = 0;
+	int config_status, stop_status;
 
+	config_status = service_enabled_mode_status(
+		"iperf3", "iperf3_enable", &enabled);
+	if (config_status != 0) {
+		logmessage(LOGNAME,
+			   "iperf3 restart aborted because configuration is unavailable (status=%d)",
+			   config_status);
+		return config_status;
+	}
+
+	stop_status = stop_iperf3();
 	if (stop_status != 0)
 		return stop_status;
-	return start_iperf3();
+	return start_iperf3_with_mode(enabled);
 }
 #endif
 #if defined(APP_DNSFORWARDER)

@@ -1088,11 +1088,50 @@ def check_shared_process_lifecycle():
     assert "shared process lifecycle regression: PASS" in result.stdout
 
 
+def check_vlmcsd_iperf3_checked_enable_reads():
+    services = RC_SERVICES_SOURCE.read_text()
+    for name, key, stop_call in (
+        ("vlmcsd", "vlmcsd_enable", "stop_vlmcsd()"),
+        ("iperf3", "iperf3_enable", "stop_iperf3()"),
+    ):
+        start_body = extract_c_function_body(services, "start_" + name + "(void)")
+        restart_body = extract_c_function_body(services, "restart_" + name + "(void)")
+        helper_body = extract_c_function_body(
+            services, "start_" + name + "_with_mode(int enabled)"
+        )
+        compact_start = "".join(start_body.split())
+        compact_restart = "".join(restart_body.split())
+        compact_helper = "".join(helper_body.split())
+        read_call = (
+            'service_enabled_mode_status("' + name + '","' + key + '",&enabled);'
+        )
+        assert read_call in compact_start
+        assert compact_start.index(read_call) < compact_start.index("if(config_status!=0)")
+        assert compact_start.index("if(config_status!=0)") < compact_start.index(
+            "returnstart_" + name + "_with_mode(enabled);"
+        )
+        assert read_call in compact_restart
+        assert compact_restart.index(read_call) < compact_restart.index("if(config_status!=0)")
+        assert compact_restart.index("if(config_status!=0)") < compact_restart.index(stop_call)
+        assert compact_restart.index(stop_call) < compact_restart.index("if(stop_status!=0)")
+        assert compact_restart.index("if(stop_status!=0)") < compact_restart.index(
+            "returnstart_" + name + "_with_mode(enabled);"
+        )
+        assert "if(enabled!=1)" in compact_helper
+        assert "return0;" in compact_helper
+        assert 'optional_daemon_start_status("' + name + '", "' + name + '")' in helper_body
+        assert "nvram_get_int(" not in start_body
+        assert "nvram_safe_get(" not in start_body
+        assert "nvram_get_int(" not in restart_body
+        assert "nvram_safe_get(" not in restart_body
+
+
 if __name__ == "__main__":
     check_dns_forwarder_rc_shutdown_registration()
     check_ralink_iappd_rc_shutdown_registration()
     check_shared_process_lifecycle()
     check_rc_optional_daemon_enable_reads()
+    check_vlmcsd_iperf3_checked_enable_reads()
     check_scutclient()
     check_vlmcsd()
     check_iperf3()
