@@ -1,3 +1,13 @@
+## 2026-11-21 — Validate VPN client address pools from checked NVRAM snapshots
+
+- Parent main SHA: `aaf58991f43d0a1093a5d8d89034cf0ed9259e8f`.
+- `get_vpns_pool()` previously used `nvram_safe_get()` for LAN/VPN subnet strings and `nvram_safe_get_int()` for pool offsets. A backend error or malformed address could become `0.0.0.0`/zero and still generate PPTP `localip`/`remoteip`; the function returned void, so startup could not refuse invalid output.
+- Pool generation now uses one exclusive NVRAM transaction for checked `vpns_vuse`, LAN address/netmask, custom subnet and LAN pool offsets. Strict IPv4 and contiguous-mask validation reject missing/malformed values. LAN pools are clamped to usable host offsets, reject router-address collisions and enforce the client cap; custom pools are RFC1918 and checked against the LAN subnet for overlap. `get_vpns_pool()` returns status and startup aborts before publishing PPTP configuration on failure.
+- Added pure pool-policy tests for strict IPv4 parsing, default /24 pool, small-subnet clamping, invalid masks/hosts, router collisions, custom RFC1918 and LAN overlap. Extended lifecycle source contracts. The preceding CHAP credential snapshot commit `aaf58991f43d0a1093a5d8d89034cf0ed9259e8f` VPN lifecycle regression passed; XY-C1 and NVRAM audit were still pending at last poll. Exact checks for this pool slice are pending.
+- On exact aaf, VPN stability #44932654558, HTTPD security #44932654640, AI docs #44932654632, Process lifecycle #44932654566, Firewall #44932654590 and OpenVPN credential staging #44932654552 passed; NVRAM audit #44932654655, Process inventory #44932654563 and XY-C1 #44932654612 were in progress.
+
+---
+
 ## 2026-11-21 — Snapshot VPN CHAP credentials before publishing secrets
 
 - Parent main SHA: `8c3fc25fdec2bd2a7de3bf05baf2f73b77caf613`.

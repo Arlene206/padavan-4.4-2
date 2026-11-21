@@ -414,7 +414,7 @@ int stop_vpn_server(void);
 int stop_vpn_server_under_lifecycle_lock(void);
 int restart_vpn_server(void);
 int reapply_vpn_server(void);
-void get_vpns_pool(int i_vuse, unsigned int *ip_v, unsigned int *ip_m, unsigned int *vp_b, unsigned int *vp_e);
+int get_vpns_pool(unsigned int *ip_v, unsigned int *ip_m, unsigned int *vp_b, unsigned int *vp_e);
 int vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add);
 int ipup_vpns_main(int argc, char **argv);
 int ipdown_vpns_main(int argc, char **argv);

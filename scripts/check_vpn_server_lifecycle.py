@@ -215,12 +215,12 @@ require('nvram_invmatch("vpns_enable", "1")' not in reapply_gate and
         "VPN reapply must not collapse missing/failed NVRAM reads into implicit defaults")
 
 acl_reader=body(vpn,"vpn_server_read_acl_snapshot(struct vpn_server_acl_entry *entries,")
-acl_copy=body(vpn,"vpn_server_transaction_copy_acl_text(struct nvram_transaction *transaction,")
+acl_copy=body(vpn,"vpn_server_transaction_copy_text(struct nvram_transaction *transaction,")
 ordered(acl_reader,[
     "nvram_transaction_begin(&transaction)",
     'nvram_transaction_get(&transaction, "vpns_num_x", &value)',
     "vpn_server_config_int_status(read_status, read_errno",
-    "vpn_server_transaction_copy_acl_text(&transaction, key",
+    "vpn_server_transaction_copy_text(&transaction, key",
     'nvram_transaction_get(&transaction, key, &value)',
     "nvram_transaction_end(&transaction)"
 ],"VPN CHAP credential transactional snapshot")
@@ -240,6 +240,28 @@ require('nvram_get_int("vpns_num_x")' not in sp and
         'nvram_safe_get(acl_user_var)' not in sp and
         'nvram_safe_get(acl_pass_var)' not in sp,
         "VPN CHAP publication must not use unchecked per-row NVRAM getters")
+
+pool_reader=body(vpn,"int\nget_vpns_pool(unsigned int *ip_v,")
+ordered(pool_reader,[
+    "nvram_transaction_begin(&transaction)",
+    '"vpns_vuse"',
+    '"lan_ipaddr"',
+    '"lan_netmask"',
+    "vpn_server_pool_parse_ipv4(lan_ip_text",
+    "nvram_transaction_end(&transaction)"
+],"VPN address-pool transactional snapshot")
+require("vpn_server_pool_resolve_lan" in pool_reader and
+        "vpn_server_pool_resolve_virtual" in pool_reader and
+        "vpn_server_transaction_get_int" in pool_reader,
+        "VPN client pool must use checked numeric reads and validated pool policies")
+require("nvram_safe_get" not in pool_reader and "nvram_get_int" not in pool_reader,
+        "VPN client pool must not use compatibility NVRAM getters")
+ordered(sp,[
+    "if (get_vpns_pool(&vaddr, &vmask, &vp_b, &vp_e) != 0)",
+    "if (i_type != 1)"
+],"VPN startup must validate the client pool before publishing PPTP configuration")
+require("int get_vpns_pool(unsigned int *ip_v" in rc_header,
+        "VPN pool API must propagate validation/read failures")
 require("acl_entries[i].username" in sp and "acl_entries[i].password" in sp and
         "acl_entries[i].address" in sp,
         "VPN CHAP secrets must be emitted from the validated credential snapshot")
@@ -255,6 +277,11 @@ for marker in (
     "test_int_accepts_only_complete_bounded_decimal",
     "test_int_rejects_malformed_and_out_of_range_values",
     "test_int_backend_error_fails_closed",
+    "test_pool_ipv4_parser_is_strict",
+    "test_pool_lan_defaults_and_client_range",
+    "test_pool_lan_small_subnet_is_clamped_safely",
+    "test_pool_lan_rejects_invalid_masks_hosts_and_gateway_overlap",
+    "test_pool_virtual_private_network_and_lan_separation",
 ):
     require(marker in config_policy_test,f"VPN config-read regression missing {marker}")
 require("read_status < 0" in config_policy and "read_status == 0" in config_policy and
@@ -265,6 +292,11 @@ require("read_status < 0" in config_policy and "read_status == 0" in config_poli
 require("vpn_server_config_int_status" in config_policy and
         "parsed < minimum || parsed > maximum" in config_policy,
         "VPN ACL integer policy must distinguish absent/error and enforce bounds")
+require("vpn_server_pool_parse_ipv4" in config_policy and
+        "vpn_server_pool_resolve_lan" in config_policy and
+        "vpn_server_pool_resolve_virtual" in config_policy and
+        "EADDRINUSE" in config_policy,
+        "VPN client pool policy must validate subnets, ranges and overlap")
 for path in (
     "trunk/user/rc/src/vpn_server_config_policy.h",
     "trunk/user/rc/src/tests/vpn_server_config_policy.c",

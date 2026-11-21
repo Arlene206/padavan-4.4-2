@@ -369,7 +369,7 @@ vpn_server_read_type_status(int *type)
 
 
 static int
-vpn_server_transaction_copy_acl_text(struct nvram_transaction *transaction,
+vpn_server_transaction_copy_text(struct nvram_transaction *transaction,
 				     const char *name, char *buffer,
 				     size_t buffer_size)
 {
@@ -453,7 +453,7 @@ vpn_server_read_acl_snapshot(struct vpn_server_acl_entry *entries,
 			errno = EOVERFLOW;
 			goto finish_transaction;
 		}
-		if (vpn_server_transaction_copy_acl_text(&transaction, key,
+		if (vpn_server_transaction_copy_text(&transaction, key,
 							  entries[i].username,
 							  sizeof(entries[i].username)) != 0)
 			goto finish_transaction;
@@ -463,7 +463,7 @@ vpn_server_read_acl_snapshot(struct vpn_server_acl_entry *entries,
 			errno = EOVERFLOW;
 			goto finish_transaction;
 		}
-		if (vpn_server_transaction_copy_acl_text(&transaction, key,
+		if (vpn_server_transaction_copy_text(&transaction, key,
 							  entries[i].password,
 							  sizeof(entries[i].password)) != 0)
 			goto finish_transaction;
@@ -513,7 +513,7 @@ static int
 start_vpn_server_locked(void)
 {
 	FILE *fp;
-	int i, i_type, i_vuse, xl2tpd_status, saved_errno;
+	int i, i_type, xl2tpd_status, saved_errno;
 	int enabled, config_status, acl_count = 0;
 	struct vpn_server_acl_entry acl_entries[MAX_CLIENTS_NUM];
 	char *vpns_cfg = "/etc/pptpd.conf";
@@ -575,9 +575,14 @@ start_vpn_server_locked(void)
 		return -1;
 	}
 
-	i_vuse = nvram_get_int("vpns_vuse");
-
-	get_vpns_pool(i_vuse, &vaddr, &vmask, &vp_b, &vp_e);
+	if (get_vpns_pool(&vaddr, &vmask, &vp_b, &vp_e) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(VPNS_LOG_NAME,
+			   "cannot read or validate VPN client address pool; refusing startup (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
 
 	if (i_type != 1) {
 		fp = ppp_options_file_open(vpns_cfg);
@@ -1174,38 +1179,107 @@ failed:
 	return -1;
 }
 
-void
-get_vpns_pool(int i_vuse, unsigned int *ip_v, unsigned int *ip_m, unsigned int *vp_b, unsigned int *vp_e)
+static int
+vpn_server_transaction_get_int(struct nvram_transaction *transaction,
+				const char *name, int default_value,
+				int minimum, int maximum, int *result)
 {
-	unsigned int lsnet, lpool[2];
+	char *value = NULL;
+	int read_status, read_errno;
+	if (!transaction || !name || !result) {
+		errno = EINVAL;
+		return -1;
+	}
+	errno = 0;
+	read_status = nvram_transaction_get(transaction, name, &value);
+	read_errno = errno;
+	return vpn_server_config_int_status(read_status, read_errno,
+					    value, default_value,
+					    minimum, maximum, result);
+}
 
-	if (i_vuse == 0) {
-		*ip_v = ntohl(inet_addr(nvram_safe_get("lan_ipaddr")));
-		*ip_m = ntohl(inet_addr(nvram_safe_get("lan_netmask")));
-		lsnet = ~(*ip_m) - 1;
-		
-		lpool[0] = (unsigned int)nvram_safe_get_int("vpns_cli0", 245, 1, 254);
-		lpool[1] = (unsigned int)nvram_safe_get_int("vpns_cli1", 254, 2, 254);
-		if (lpool[0] >= lsnet)
-			lpool[0] = (lsnet - 1);
-		if (lpool[1] > lsnet)
-			lpool[1] = lsnet;
-		if (lpool[1] <= lpool[0])
-			lpool[1] = lpool[0] + 1;
-		*ip_v = (*ip_v & *ip_m) | lpool[0];
-		lpool[0] += 1;
-	} else {
-		*ip_v = ntohl(inet_addr(nvram_safe_get("vpns_vnet")));
-		*ip_m = ntohl(inet_addr(VPN_SERVER_SUBNET_MASK));
-		*ip_v = (*ip_v & *ip_m) | 1;
-		
-		lpool[0] = 2;
-		lpool[1] = lpool[0] + MAX_CLIENTS_NUM - 1;
+int
+get_vpns_pool(unsigned int *ip_v, unsigned int *ip_m,
+	      unsigned int *vp_b, unsigned int *vp_e)
+{
+	struct nvram_transaction transaction;
+	char lan_ip_text[16], lan_mask_text[16], virtual_net_text[16];
+	uint32_t lan_address, lan_mask, virtual_address;
+	uint32_t local_address, result_mask, client_start, client_end;
+	int vuse, cli_start = 245, cli_end = 254;
+	int result = -1, saved_errno = 0, end_status;
+
+	if (!ip_v || !ip_m || !vp_b || !vp_e) {
+		errno = EINVAL;
+		return -1;
+	}
+	if (nvram_transaction_begin(&transaction) != 0)
+		return -1;
+
+	if (vpn_server_transaction_get_int(&transaction, "vpns_vuse",
+					   0, 0, 2, &vuse) != 0)
+		goto finish_transaction;
+	if (vpn_server_transaction_copy_text(&transaction, "lan_ipaddr",
+					     lan_ip_text, sizeof(lan_ip_text)) != 0 ||
+	    vpn_server_transaction_copy_text(&transaction, "lan_netmask",
+					     lan_mask_text, sizeof(lan_mask_text)) != 0)
+		goto finish_transaction;
+	if (vpn_server_pool_parse_ipv4(lan_ip_text, &lan_address) != 0 ||
+	    vpn_server_pool_parse_ipv4(lan_mask_text, &lan_mask) != 0) {
+		errno = EINVAL;
+		goto finish_transaction;
 	}
 
-	*vp_b = lpool[0];
-	*vp_e = lpool[1];
+	if (vuse == 0) {
+		if (vpn_server_transaction_get_int(&transaction, "vpns_cli0",
+						   245, 1, 254, &cli_start) != 0 ||
+		    vpn_server_transaction_get_int(&transaction, "vpns_cli1",
+						   254, 2, 254, &cli_end) != 0)
+			goto finish_transaction;
+		if (vpn_server_pool_resolve_lan(lan_address, lan_mask,
+						cli_start, cli_end, 50,
+						&local_address, &result_mask,
+						&client_start, &client_end) != 0)
+			goto finish_transaction;
+	} else {
+		if (vpn_server_transaction_copy_text(&transaction, "vpns_vnet",
+						     virtual_net_text,
+						     sizeof(virtual_net_text)) != 0)
+			goto finish_transaction;
+		if (vpn_server_pool_parse_ipv4(virtual_net_text, &virtual_address) != 0) {
+			errno = EINVAL;
+			goto finish_transaction;
+		}
+		if (vpn_server_pool_resolve_virtual(virtual_address, lan_address,
+						    lan_mask, MAX_CLIENTS_NUM,
+						    &local_address, &result_mask,
+						    &client_start, &client_end) != 0)
+			goto finish_transaction;
+	}
+
+	result = 0;
+
+finish_transaction:
+	if (result != 0)
+		saved_errno = errno ? errno : EIO;
+	end_status = nvram_transaction_end(&transaction);
+	if (end_status != 0 && result == 0) {
+		result = -1;
+		saved_errno = errno ? errno : EIO;
+	}
+	if (result != 0) {
+		errno = saved_errno;
+		return -1;
+	}
+
+	*ip_v = (unsigned int)local_address;
+	*ip_m = (unsigned int)result_mask;
+	*vp_b = (unsigned int)client_start;
+	*vp_e = (unsigned int)client_end;
+	return 0;
 }
+
+
 
 int
 vpns_route_to_remote_lan(const char *cname, char *ifname, char *gw, int add)

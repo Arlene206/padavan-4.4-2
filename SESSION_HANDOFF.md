@@ -25,6 +25,8 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - VPN PPP CHAP credentials now use one exclusive NVRAM transaction snapshot for `vpns_num_x`, username/password pairs and each active row's address octet. Every cache-backed NVRAM value is copied before the next read; strings are bounded to the UI's 32-character field and reject control bytes, quotes and backslashes. Backend, parse/range, buffer and transaction-end failures abort before lease cleanup or truncating CHAP secrets. This fixes the fail-open case where `nvram_get_int("vpns_addr_xN")` converted backend errors to zero and wrote wildcard `*`.
 
+- VPN LAN-backed and custom address-pool selection reads `vpns_vuse`, LAN IPv4/netmask, custom subnet and pool offsets inside one exclusive NVRAM transaction. Strict IPv4/contiguous-mask checks reject missing or malformed values; LAN pools clamp to usable host offsets and reject router-address collisions/oversized ranges; custom pools must be RFC1918 and must not overlap LAN. `get_vpns_pool()` now returns status so invalid configuration aborts before PPTP config publication.
+
 ## Verification boundary
 
 - L1: coherent WAN route ownership snapshot, transactional failure invalidation and PPP conntrack fallback are implemented; WAN route workflow passed on exact SHA 951, and WAN teardown / DHCP callback / NVRAM audit passed on d0.
@@ -50,6 +52,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle and XY-C1 Actions for the CHAP credential snapshot slice; fix only failures supported by their exact logs.
-2. Continue auditing VPN runtime values: `gen_vpns_pppd_options()` still reads `vpns_auth`, `vpns_mppe`, `vpns_vuse`, DNS/WINS and LAN IP through compatibility getters; `get_vpns_pool()` still trusts LAN/VPN subnet strings and pool offsets. Convert critical reads to checked copies and validate subnet/pool arithmetic while preserving defaults only for genuinely missing keys.
-3. Do not reopen the duplicate-Authorization HTTPD parser or completed WAN route transaction.
+1. Inspect exact-head VPN lifecycle, NVRAM audit, AI docs and XY-C1 Actions for the pool-validation commit. Repair only failures supported by exact logs.
+2. Continue auditing VPN PPP options: `gen_vpns_pppd_options()` still reads `vpns_auth`, `vpns_mppe`, `vpns_vuse`, DNS/WINS and LAN IP through compatibility getters. Snapshot critical settings transactionally, preserve defaults only for genuinely absent keys, and fail before opening/truncating the options file on backend errors.
+3. Review route ACL callbacks for remaining unchecked account/network reads; do not reopen the CHAP credential or pool fixes without new failure evidence.

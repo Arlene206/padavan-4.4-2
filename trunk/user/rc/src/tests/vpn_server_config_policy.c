@@ -165,6 +165,79 @@ test_int_backend_error_fails_closed(void)
 	assert(value == 19);
 }
 
+static void
+test_pool_ipv4_parser_is_strict(void)
+{
+	uint32_t address = 0;
+	assert(vpn_server_pool_parse_ipv4("192.168.1.1", &address) == 0);
+	assert(address == 0xc0a80101U);
+	assert(vpn_server_pool_parse_ipv4("192.168.1", &address) == EINVAL);
+	assert(vpn_server_pool_parse_ipv4("192.168.1.999", &address) == EINVAL);
+	assert(vpn_server_pool_parse_ipv4("not-an-ip", &address) == EINVAL);
+	assert(vpn_server_pool_parse_ipv4(NULL, &address) == EINVAL);
+}
+
+static void
+test_pool_lan_defaults_and_client_range(void)
+{
+	uint32_t local = 0, mask = 0, begin = 0, end = 0;
+	assert(vpn_server_pool_resolve_lan(0xc0a80101U, 0xffffff00U,
+					   245, 254, 50,
+					   &local, &mask, &begin, &end) == 0);
+	assert(local == 0xc0a801f5U && mask == 0xffffff00U);
+	assert(begin == 246U && end == 254U);
+}
+
+static void
+test_pool_lan_small_subnet_is_clamped_safely(void)
+{
+	uint32_t local = 0, mask = 0, begin = 0, end = 0;
+	assert(vpn_server_pool_resolve_lan(0xc0a80101U, 0xfffffff8U,
+					   245, 254, 50,
+					   &local, &mask, &begin, &end) == 0);
+	assert(local == 0xc0a80105U && mask == 0xfffffff8U);
+	assert(begin == 6U && end == 6U);
+}
+
+static void
+test_pool_lan_rejects_invalid_masks_hosts_and_gateway_overlap(void)
+{
+	uint32_t local = 1, mask = 2, begin = 3, end = 4;
+	assert(vpn_server_pool_resolve_lan(0xc0a80101U, 0xff00ff00U,
+					   245, 254, 50,
+					   &local, &mask, &begin, &end) == EINVAL);
+	assert(local == 1 && mask == 2 && begin == 3 && end == 4);
+	assert(vpn_server_pool_resolve_lan(0xc0a80100U, 0xffffff00U,
+					   20, 30, 50,
+					   &local, &mask, &begin, &end) == EINVAL);
+	assert(vpn_server_pool_resolve_lan(0xc0a801faU, 0xffffff00U,
+					   245, 254, 50,
+					   &local, &mask, &begin, &end) == EADDRINUSE);
+	assert(vpn_server_pool_resolve_lan(0xc0a80101U, 0xffffff00U,
+					   20, 30, 5,
+					   &local, &mask, &begin, &end) == EINVAL);
+}
+
+static void
+test_pool_virtual_private_network_and_lan_separation(void)
+{
+	uint32_t local = 0, mask = 0, begin = 0, end = 0;
+	assert(vpn_server_pool_resolve_virtual(0x0a080001U,
+					       0xc0a80101U, 0xffffff00U,
+					       50, &local, &mask, &begin, &end) == 0);
+	assert(local == 0x0a080001U && mask == 0xffffff00U);
+	assert(begin == 2U && end == 51U);
+	assert(vpn_server_pool_resolve_virtual(0xc0a80100U,
+					       0xc0a80101U, 0xffffff00U,
+					       50, &local, &mask, &begin, &end) == EADDRINUSE);
+	assert(vpn_server_pool_resolve_virtual(0xc0a80000U,
+					       0xc0a80101U, 0xffff0000U,
+					       50, &local, &mask, &begin, &end) == EADDRINUSE);
+	assert(vpn_server_pool_resolve_virtual(0x08080800U,
+					       0xc0a80101U, 0xffffff00U,
+					       50, &local, &mask, &begin, &end) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -179,6 +252,11 @@ main(void)
 	test_int_accepts_only_complete_bounded_decimal();
 	test_int_rejects_malformed_and_out_of_range_values();
 	test_int_backend_error_fails_closed();
+	test_pool_ipv4_parser_is_strict();
+	test_pool_lan_defaults_and_client_range();
+	test_pool_lan_small_subnet_is_clamped_safely();
+	test_pool_lan_rejects_invalid_masks_hosts_and_gateway_overlap();
+	test_pool_virtual_private_network_and_lan_separation();
 
 	puts("VPN server configuration read gate policy: PASS");
 	return 0;
