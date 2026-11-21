@@ -1,3 +1,13 @@
+## 2026-11-21 — Declare RT3352 iNIC startup result before propagation
+
+- Parent main SHA: `7f5b2a1676aca910352ac9106c3c8289384aa963`; product base includes the PPP checked-option and route-primary work from `bf43b52`.
+- While reviewing the earlier iNIC checked-read startup path, found that `start_wifi_ap_rt()` assigns `operation_status = start_inic_mii(inic_enabled)` under `USE_RT3352_MII` without declaring that identifier in this function's scope. The other use is local to a different function, and neither `rc.h` nor `wireless_radio_policy.h` declares it. Added the missing function-scope local in the RT3352 declaration block; behavior is unchanged.
+- Extended the Wireless source contract to require the local declaration alongside helper result propagation. This closes a target-configuration compile blocker that the policy-only unit test cannot catch. Exact-head Wireless and XY-C1 validation pending.
+- WAN PPP route operation status #44908223067 and AI docs #44908223050 PASS on exact main SHA `7f5b2a1`. Earlier product SHA `bf43b52`: Wireless #44907884270, Process #44907884319, and NVRAM audit #44907884214 PASS. XY-C1 #44907884176 was still at Build XY-C1 with TRX/artifact pending at last poll. No current L3/L4 claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Restore indentation in Wireless inline source contract
 
 - Parent main SHA: 7344df1f59b04155c8cbffd8a96ee3a34600ac9d; production source is unchanged from 75d7dee28c30bca036a0287c5124dfb475e3b684.

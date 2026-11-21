@@ -511,6 +511,7 @@ jobs:
 
           ap_rt = function_body(source, "start_wifi_ap_rt(int radio_on)")
           assert "operation_status = start_inic_mii(inic_enabled);" in ap_rt
+assert "int operation_status;" in ap_rt
           assert "if (operation_status < 0)" in ap_rt
           assert "return operation_status;" in ap_rt
           assert 'nvram_api_result = nvram_get_checked("inic_disable", &inic_disable_value);' in ap_rt

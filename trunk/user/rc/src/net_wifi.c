@@ -984,6 +984,7 @@ start_wifi_ap_rt(int radio_on)
 	int all_started = 1;
 	int i_mode_x = get_mode_radio_rt();
 #if defined(USE_RT3352_MII)
+	int operation_status;
 	char *inic_disable_value = NULL;
 	int nvram_api_result, nvram_saved_errno, nvram_read_status;
 	int inic_disabled = 0, inic_enabled = 0, policy_status;
