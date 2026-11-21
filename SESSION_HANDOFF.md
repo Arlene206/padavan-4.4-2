@@ -77,6 +77,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle, NVRAM transaction audit and XY-C1 Build/TRX/artifact statuses for the OpenVPN client config snapshot SHA.
-2. Audit on_client_ifup() and on_client_ifdown() runtime NVRAM reads (especially vpnc_pdns) and environment-provided DNS/WINS/DOMAIN options. Ensure optional DNS processing does not suppress mandatory route and hook cleanup.
-3. Verify all client/server OpenVPN settings preserve UI defaults and existing protocol/address-family behavior; do not reopen the CCD ACL or credential staging work absent regression evidence.
+1. Inspect exact-head VPN lifecycle, NVRAM audit and XY-C1 Build/TRX/artifact results for the server-export snapshot SHA.
+2. Audit ovpn_server_script_main() mode handling and on_client_ifup()/on_client_ifdown() runtime DNS policy (especially vpnc_pdns). Preserve mandatory DNS restoration, route and hook cleanup when optional policy reads fail.
+3. Check server export profile parity (device/protocol/port/TLS/crypto) against active server snapshots; do not reopen the completed CCD, credential-staging or client-startup snapshots without a same-SHA regression.

@@ -1,3 +1,13 @@
+## 2026-11-21 — Snapshot OpenVPN server settings for exported client profiles
+
+- Parent main SHA: 2e99cd420a33c4e23bbfe866fba502c3cd59ca80.
+- ovpn_server_expcli_main() remained a bypass around the checked server configuration path: it fetched vpns_ov_mode, protocol, port, TLS auth/crypt flags, digest, cipher/NCP list and compression through compatibility getters, so an exported client profile could disagree with the running server and silently select defaults after read failures.
+- The exporter now obtains both the validated server network snapshot and complete server options snapshot before checking server keys, unlinking any previous export, creating the temporary certificate directory or generating a client certificate. Profile device, protocol, port, digest/cipher/compression and TLS flags all come from those immutable snapshots.
+- All direct compatibility NVRAM getters/matchers were removed from the export function. The lifecycle source contract now asserts snapshot-before-side-effects and prohibits getter bypasses. Existing server option and network policy tests cover the values and defaults.
+- On exact 2e99, VPN #44936433999, OpenVPN client staging #44936433953, Process #44936433958, AI #44936433911 and HTTPD #44936433967 PASS; NVRAM #44936433895 and XY-C1 #44936434017 were pending at last poll.
+
+---
+
 ## 2026-11-21 — Snapshot OpenVPN client settings before config and interface side effects
 
 - Parent main SHA: 48c23d6cad5313bd1d62416097d12b2169c64b8b.

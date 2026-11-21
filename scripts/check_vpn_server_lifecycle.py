@@ -1011,6 +1011,26 @@ ordered(server_options_snapshot,[
     "nvram_transaction_end(&transaction)",
     "*options = pending"
 ],"OpenVPN server option snapshot must check every scalar and copied DHCP option before publication")
+server_export=body(vpn_openvpn,"ovpn_server_expcli_main(int argc, char **argv)")
+ordered(server_export,[
+    "openvpn_read_server_network_snapshot(&network)",
+    "openvpn_read_server_options_snapshot(&options)",
+    "openvpn_check_key",
+    "unlink(tmp_ovpn_conf)",
+    "mkdtemp(tmp_ovpn_path)",
+    "openvpn_config_file_open(tmp_ovpn_conf, staged_ovpn_conf",
+    "network.is_tun",
+    "options.port",
+    "options.auth_digest",
+    "options.cipher",
+    "options.compression"
+],"OpenVPN exported client profile must use checked server snapshots before filesystem/key-generation side effects")
+require("nvram_get_int" not in server_export and
+        "nvram_safe_get_int" not in server_export and
+        "nvram_get(" not in server_export and
+        "nvram_safe_get(" not in server_export and
+        "nvram_match" not in server_export,
+        "OpenVPN export must not bypass the checked server settings snapshot")
 client_config_snapshot=body(vpn_openvpn,"openvpn_read_client_config_snapshot(struct openvpn_client_config_snapshot *config)")
 ordered(client_config_snapshot,[
     "nvram_transaction_begin(&transaction)",

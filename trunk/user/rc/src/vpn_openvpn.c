@@ -2297,7 +2297,9 @@ int
 ovpn_server_expcli_main(int argc, char **argv)
 {
 	FILE *fp = NULL;
-	int i, i_prot, i_atls, i_tcv2, days_valid;
+	struct openvpn_server_network_config network;
+	struct openvpn_server_options_config options;
+	int i, i_prot, i_atls, i_tcv2, days_valid, config_status;
 	int cert_status, keygen_status, env_set = 0, temp_dir_created = 0;
 	int saved_errno, path_len;
 	const char *p_prot, *wan_addr, *rsa_bits;
@@ -2318,8 +2320,21 @@ ovpn_server_expcli_main(int argc, char **argv)
 	days_valid = 365;
 	if (argc > 3 && atoi(argv[3]) > 0)
 		days_valid = atoi(argv[3]);
-	i_atls = nvram_get_int("vpns_ov_atls");
-	i_tcv2 = nvram_get_int("vpns_ov_tcv2");
+
+	/* Match the exported profile to the currently validated server settings. */
+	config_status = openvpn_read_server_network_snapshot(&network);
+	if (config_status == 0)
+		config_status = openvpn_read_server_options_snapshot(&options);
+	if (config_status != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage(SERVER_LOG_NAME,
+			   "cannot read OpenVPN server settings for client export (errno=%d)",
+			   saved_errno);
+		errno = saved_errno;
+		return 1;
+	}
+	i_atls = options.tls_auth_mode;
+	i_tcv2 = options.tls_crypt_v2;
 	for (i=0; i<6; i++) {
 		if (!i_atls && (i == 4))
 			continue;
@@ -2366,7 +2381,7 @@ ovpn_server_expcli_main(int argc, char **argv)
 			   cert_status, errno);
 		goto failed;
 	}
-	i_prot = nvram_get_int("vpns_ov_prot");
+	i_prot = options.protocol;
 	if (i_prot > 1 && get_ipv6_type() == IPV6_DISABLED)
 		i_prot &= 1;
 #if defined (USE_IPV6)
@@ -2406,17 +2421,17 @@ ovpn_server_expcli_main(int argc, char **argv)
 	if (!fp)
 		goto failed;
 	fprintf(fp, "client\n");
-	fprintf(fp, "dev %s\n", (nvram_get_int("vpns_ov_mode") == 1) ? "tun" : "tap");
+	fprintf(fp, "dev %s\n", network.is_tun ? "tun" : "tap");
 	fprintf(fp, "proto %s\n", p_prot);
-	fprintf(fp, "remote %s %d\n", wan_addr, nvram_safe_get_int("vpns_ov_port", 1194, 1, 65535));
+	fprintf(fp, "remote %s %d\n", wan_addr, options.port);
 	fprintf(fp, "resolv-retry %s\n", "infinite");
 	fprintf(fp, ";float\n");
 	fprintf(fp, "nobind\n");
 	fprintf(fp, "persist-key\n");
 	fprintf(fp, "persist-tun\n");
-	openvpn_add_auth(fp, nvram_get_int("vpns_ov_mdig"));
-	openvpn_add_cipher(fp, nvram_get_int("vpns_ov_ciph"), nvram_get("vpns_ov_ncp_clist"));
-	openvpn_add_compress(fp, nvram_get_int("vpns_ov_compress"), 0);
+	openvpn_add_auth(fp, options.auth_digest);
+	openvpn_add_cipher(fp, options.cipher, options.ncp_cipher_list);
+	openvpn_add_compress(fp, options.compression, 0);
 	fprintf(fp, "nice %d\n", 0);
 	fprintf(fp, "verb %d\n", 3);
 	fprintf(fp, "mute %d\n", 10);
