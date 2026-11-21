@@ -111,6 +111,29 @@ test_bad_label_types_and_missing_root(void)
 }
 
 static void
+test_ambiguous_text_labels_are_rejected(void)
+{
+	uint8_t packet[64];
+	const uint8_t embedded_nul[] = {
+		8, 'r','o','u','t','e','r','\0','x', 0
+	};
+	const uint8_t embedded_dot[] = {
+		8, 'r','o','u','t','e','r','.','x', 0
+	};
+	char name[256];
+	uint16_t qtype, qclass;
+	size_t len;
+
+	len = make_question(packet, embedded_nul, sizeof(embedded_nul), 1, 1);
+	assert(llmnr_parse_question(packet, len, name, sizeof(name),
+	                            &qtype, &qclass) == -1);
+
+	len = make_question(packet, embedded_dot, sizeof(embedded_dot), 1, 1);
+	assert(llmnr_parse_question(packet, len, name, sizeof(name),
+	                            &qtype, &qclass) == -1);
+}
+
+static void
 test_dns_name_and_output_bounds(void)
 {
 	uint8_t packet[300] = {0};
@@ -154,6 +177,7 @@ main(void)
 	test_valid_single_and_multi_label();
 	test_truncated_label_and_question();
 	test_bad_label_types_and_missing_root();
+	test_ambiguous_text_labels_are_rejected();
 	test_dns_name_and_output_bounds();
 	return 0;
 }

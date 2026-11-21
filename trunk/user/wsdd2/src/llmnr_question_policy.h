@@ -38,6 +38,14 @@ llmnr_parse_question(const uint8_t *packet, size_t packet_len,
 			return -1;
 		if (wire_len > 255 - (label_len + 1))
 			return -1;
+		/* Dotted text form must be unambiguous and cannot contain C-string NUL. */
+		{
+			size_t i;
+			for (i = 0; i < label_len; ++i) {
+				if (cursor[i] == '\0' || cursor[i] == '.')
+					return -1;
+			}
+		}
 		wire_len += label_len + 1;
 
 		separator_len = name_len ? 1 : 0;

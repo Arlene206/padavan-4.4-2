@@ -31,6 +31,7 @@ policy = compact(POLICY)
 for token in (
     "packet_len < 17",
     "label_len > 63",
+    "cursor[i] == '\\0' || cursor[i] == '.'",
     "(size_t)(end - cursor) < label_len",
     "wire_len >= 255",
     "(size_t)(end - cursor) < 4",
