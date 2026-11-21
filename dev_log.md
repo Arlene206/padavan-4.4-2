@@ -1,3 +1,11 @@
+## 2026-11-21 — Normalize WAN reconnect call token in source checker
+
+- Parent main SHA: `9b7eecf72aa3cd7224d4597e8410d5555463bd8e`.
+- Exact-head XY-C1, USB modem identity, Firewall and Process runs on `9b7eecf72aa3cd7224d4597e8410d5555463bd8e` reached `pause_reconnect.index(pause_start)` and failed: the test strips all whitespace from the extracted C body but the expected reconnect statement retained the space after `return`.
+- Changed the expected token to `returntry_wan_reconnect(1,pause_seconds);`. This is checker-only; the ordered read, error gate, diagnostic, error return and reconnect operation remain required. XY-C1 build was not reached on the failing SHA; L3 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Normalize the delayed WAN reconnect return token
 
 - Parent main SHA: 5f9aa9a3259def1f668e359fff1237aca3808466.

@@ -799,7 +799,7 @@ pause_gate = "if(status!=0){"
 pause_error = "".join("aborting automatic WAN reconnect because delay configuration is unavailable".split())
 # pause_reconnect has all whitespace removed above, including inside literals.
 pause_return = "returnstatus;"
-pause_start = "return try_wan_reconnect(1,pause_seconds);"
+pause_start = "returntry_wan_reconnect(1,pause_seconds);"
 pause_positions = (
     pause_reconnect.index(pause_read),
     pause_reconnect.index(pause_gate),
