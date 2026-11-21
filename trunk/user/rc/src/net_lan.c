@@ -178,6 +178,21 @@ lan_nvram_get_int_before_vlan_apply(const char *param_name, int *value)
 }
 
 static int
+lan_nvram_get_int_before_switch_apply(const char *param_name, int *value)
+{
+	int status;
+
+	status = lan_nvram_get_int_status(param_name, value);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read switch setting %s before hardware configuration (status=%d)",
+			   param_name ? param_name : "(null)", status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
 lan_nvram_get_int_range_logged_status(const char *param_name,
 				      int minimum, int maximum,
 				      int fallback, int *normalized)
@@ -758,16 +773,31 @@ switch_config_base(void)
 {
 	rc_bridge_init_status_t base_status;
 	int operation_status;
+	int read_status;
+	int ether_jumbo, ether_green, ether_eee;
 
 	rc_bridge_init_status_reset(&base_status);
+	read_status = lan_nvram_get_int_before_switch_apply(
+		"ether_jumbo", &ether_jumbo);
+	if (read_status != 0)
+		return read_status;
+	read_status = lan_nvram_get_int_before_switch_apply(
+		"ether_green", &ether_green);
+	if (read_status != 0)
+		return read_status;
+	read_status = lan_nvram_get_int_before_switch_apply(
+		"ether_eee", &ether_eee);
+	if (read_status != 0)
+		return read_status;
+
 	/* LED indication is best-effort; it does not affect forwarding setup. */
 	update_ether_leds();
 
-	operation_status = phy_jumbo_frames(nvram_get_int("ether_jumbo"));
+	operation_status = phy_jumbo_frames(ether_jumbo);
 	rc_bridge_init_record(&base_status, "jumbo frame setting", operation_status);
-	operation_status = phy_green_ethernet(nvram_get_int("ether_green"));
+	operation_status = phy_green_ethernet(ether_green);
 	rc_bridge_init_record(&base_status, "green Ethernet setting", operation_status);
-	operation_status = phy_eee_lpi(nvram_get_int("ether_eee"));
+	operation_status = phy_eee_lpi(ether_eee);
 	rc_bridge_init_record(&base_status, "EEE LPI setting", operation_status);
 
 	if (base_status.first_status != 0)

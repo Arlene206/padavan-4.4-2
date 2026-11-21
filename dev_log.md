@@ -1,3 +1,14 @@
+## 2026-11-22 09:03 CST — Check switch base feature settings before hardware writes
+
+- Parent main SHA: `991bc8cb3cc9be8a223f8d6646df3f8384a4f590`.
+- `switch_config_base()` previously passed unchecked `nvram_get_int()` results directly into jumbo-frame, green-Ethernet and EEE PHY operations. An NVRAM read failure silently disabled features or applied a zero-valued configuration.
+- THIS COMMIT reads all three settings through the checked integer parser before the first PHY call. Backend/close/malformed-value failures return before any switch base hardware write; absent-key and valid integer semantics remain unchanged. Best-effort LED indication now follows the checked snapshot.
+- Extended the source contract checker to require all three checked reads before `phy_jumbo_frames()` and reject the former getters. Existing sanitizer policy test covers the shared integer backend.
+- Exact current product SHA `991bc8cb3cc9be8a223f8d6646df3f8384a4f590` had WAN route, XY-C1, NVRAM and subsystem workflows queued/in progress at last poll. This new production source commit triggers exact-head checks again.
+- Next: inspect exact-head WAN route and XY-C1 Build/TRX/artifact; fix any current-SHA source/checker/compiler regression and continue another independent userland issue.
+
+---
+
 ## 2026-11-22 08:48 CST — Preserve switch storm-control rates on NVRAM read errors
 
 - Parent main SHA: `ebc799f8bb49b9258ae9e0206ec48c69b0772e7a`.

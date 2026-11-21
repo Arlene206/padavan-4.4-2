@@ -1,10 +1,11 @@
 ## Current checkpoint — 2026-11-22
 
 - WAN `config_vinet_wan()` checked VLAN selector/IDs/priority before mapping; checker normalization cfc WAN route + AI docs PASS.
-- LAN `config_soft_bridge_lan()` checked IGMP/M2U before topology (7f66); WAN route PASS; XY-C1/NVRAM still running at last poll.
-- LAN `config_bridge()` checked IGMP/M2U/router/AP-uport/WAN mode before apply (f204); WAN route PASS; XY-C1/NVRAM still running.
-- LAN `switch_config_vlan()` checked mode/isolation/filter, six VIDs, six priorities and four tags before first hardware rule call (ebc); exact WAN route running.
-- THIS COMMIT checks four storm-control rates before hardware programming. 1024 fallback applies only to successfully read missing/out-of-range values; backend/parse failures abort. Existing range sanitizer tests cover policy.
+- LAN soft bridge checked IGMP/M2U before topology (7f66); WAN route PASS, XY-C1/NVRAM were in progress at last poll.
+- LAN core bridge checked IGMP/M2U/router/AP-uport/WAN mode before apply (f204); WAN route PASS, XY-C1/NVRAM still running.
+- LAN switch VLAN checked bridge mode/isolation, filter, six VIDs, six priorities and four tags before hardware rule call (ebc); exact WAN route was running.
+- LAN switch storm-control rates checked before hardware writes (991); 1024 fallback retained only for readable missing/out-of-range values.
+- THIS COMMIT checks `ether_jumbo`, `ether_green` and `ether_eee` before first switch base PHY call; source contract extended; exact CI pending.
 - Frozen backup read-only; L3 requires same-source XY-C1 Build/TRX/artifact PASS.
 
 ## Historical checkpoint — 2026-11-21

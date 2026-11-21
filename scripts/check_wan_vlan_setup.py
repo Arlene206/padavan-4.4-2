@@ -315,6 +315,22 @@ for key in storm_keys:
     require(f'nvram_get_int("{key}")' not in storm_code,
             f"storm-control rate {key} must not collapse NVRAM read errors")
 
+switch_base = body(lan, "switch_config_base(void)")
+switch_base_code = " ".join(switch_base.split())
+base_keys = ("ether_jumbo", "ether_green", "ether_eee")
+base_positions = [
+    switch_base_code.index(f'lan_nvram_get_int_before_switch_apply( "{key}",')
+    for key in base_keys
+]
+first_base_apply = switch_base_code.index("phy_jumbo_frames(")
+require(base_positions == sorted(base_positions) and
+        base_positions[-1] < first_base_apply and
+        "if (read_status != 0) return read_status;" in switch_base_code,
+        "jumbo/green/EEE settings must all be checked before the first switch hardware configuration")
+for key in base_keys:
+    require(f'nvram_get_int("{key}")' not in switch_base_code,
+            f"switch base {key} must not collapse NVRAM read errors")
+
 other = body(wan, "config_soft_bridges_other(")
 port_reader = body(wan, "read_soft_bridge_port_vlan_config(")
 require('get_nvram_int_checked_status(param_name, &configured_vid)' in port_reader and
