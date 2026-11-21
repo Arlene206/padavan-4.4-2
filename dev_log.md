@@ -1,3 +1,12 @@
+## 2026-11-21 — Align Optware tri-state checker and end-session handoff contract
+
+- Parent main SHA: `fa888e9c9323a555d63b2d84a9bd4bd82a181764`.
+- Exact Storage Hotplug run `#44889271838` on source SHA `421042f3a436e82eb73305ebab77161e6c3d6f17`: the BusyBox 1.24.2 ash lifecycle regression and all shell regression steps passed, including the explicit UNKNOWN/malformed-mount case; only the final static source checker failed because it expected `case _mount_match_result in` while the actual shell correctly uses `case $_mount_match_result in`. Corrected the checker to match the actual variable expansion; no production shell behavior was changed.
+- Exact Process inventory `#44889271901` passed on `421042f3`. Exact AI handoff run `#44889426235` on `fa888e9` failed because the handoff was missing the required literal `one atomic main commit` and the required four structured sections. Reorganized the live handoff into those required sections while retaining the mandatory end-of-session accuracy checkpoint.
+- Fixed the dev-log archive index to record the actual part-021 blob SHA `f80bf2d087fa1c313cb671f2108e3279092db234`.
+- Storage Hotplug and AI handoff exact-head Actions must be rechecked on this commit. XY-C1 run `#44889271879` remained PENDING/IN_PROGRESS on exact source SHA `421042f3` at the last poll; no result is inferred for this documentation-only child. Product L3 remains verified only on `20e139d230b73eabc5f25a2b17d56a3a5768af11`; physical-router L4 is not verified.
+
+---
 ## 2026-11-21 — Preserve UNKNOWN mount inventory status under BusyBox awk
 
 - Parent main SHA: `065837e4dcc383ebe2d5276b8165ffa834f9dd3f`.

@@ -27,7 +27,7 @@
 | `docs/dev-log/2026/11/part-018.md` | 101 | 2026-11-19 — Serialize Inadyn stop/start and configuration notifications → 2026-11-19 09:20 EST — Correct the committed AI handoff checkpoint contract | 123512 | `7c69f94c23df8035a0d8d3cdf357c54bc80c2be8` |
 | `docs/dev-log/2026/11/part-019.md` | 100 | 2026-11-19 → 2026-11-20 | 114230 | `bf5f91f6e47631f2f1331a3be3dd46c3515d4a89` |
 | `docs/dev-log/2026/11/part-020.md` | 100 | 2026-11-19 — Transactional LAN DHCP deconfig snapshot → 2026-11-20 — Escape untrusted UPnP mapping output before SOAP XML serialization | 129506 | `ca34b9403978210508f3102ec5cbd01579ecd198` |
-| `part-021.md` | 100 | 2026-11-20 → 2026-11-21 | 107416 | pending commit blob |
+| `part-021.md` | 100 | 2026-11-20 → 2026-11-21 | 107416 | `f80bf2d087fa1c313cb671f2108e3279092db234` |
 
 
 - **Post-migration rotation:** the first evicted root-window record is preserved verbatim in `part-003.md`; its original root source blob was `733d3c678575611642b3f69fe4cfe5e19ece9b57`.
