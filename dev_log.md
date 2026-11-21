@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on firewall VPN/NAT NVRAM policy reads
+
+- Parent main SHA: `a727f2e78a42fac20d2558dee63ac78673551c79`.
+- `ipt_filter_rules()` still selected NAT and VPN policy from unchecked `nvram_match()` / `nvram_get_int()` calls. A backend failure for `vpnc_sfw` became `0`, which emits ACCEPT for the VPN-client interface; `vpns_actl` failures also became the broad legacy mode `0`. This could publish a changed and potentially more permissive firewall ruleset during transient NVRAM failure.
+- Replaced unchecked `wan_nat_x` with `firewall_read_enabled_setting()` and all six VPN server/client enable/type/traffic-policy integers with `firewall_read_integer_setting()`, each checked before rule-file creation. Conditional OpenVPN server mode/protocol/port and client TUN/TAP mode flags now use the same checked reader only when an enabled type-2 endpoint needs them. The OpenVPN server port still defaults to 1194 when outside 1..65535, matching its prior safe_get_int range behavior.
+- Extended `firewall-startup-stability.yml` source-contract assertions to require checked readers before `firewall_open_rule_file()` and reject the old unchecked key reads. The existing `firewall_nvram_match_policy.c` host regression covers absent defaults, strict decimal behavior, malformed/overflow input and backend errors; that workflow compiles/runs it under GNU89/Werror/ASan/UBSan. No local checkout/test execution is claimed.
+- Exact-head Firewall Startup and XY-C1 validation pending; no L3 or hardware L4 claim.
+
+---
+
 ## 2026-11-21 — Normalize USB/XHCI source-checker whitespace
 
 - Parent main SHA: `692c260ecf9d49ab44b2baefcb4895d1a4190d7f`.

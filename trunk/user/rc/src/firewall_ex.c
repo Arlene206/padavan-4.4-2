@@ -1419,7 +1419,8 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	int i_vpns_enable, i_vpns_type, i_vpns_actl, i_http_proto, i_bfplimit_ref;
 	int i_vpnc_enable, i_vpnc_type, i_vpnc_sfw, i_mac_filter;
 #if defined (APP_OPENVPN)
-	int i_vpns_ov_mode = nvram_get_int("vpns_ov_mode");
+	int i_vpns_ov_mode = 0, i_vpns_ov_prot = 0, i_vpns_ov_port = 1194;
+	int i_vpnc_ov_mode = 0, i_vpnc_ov_cnat = 0;
 #endif
 #if defined (USE_IPV6)
 	int ipv6_type = get_ipv6_type();
@@ -1431,7 +1432,9 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	is_logaccept = (strcmp(logaccept, IPT_CHAIN_NAME_LOG_ACCEPT) == 0) ? 1 : 0;
 	is_logdrop = (strcmp(logdrop, IPT_CHAIN_NAME_LOG_DROP) == 0) ? 1 : 0;
 
-	is_nat_enabled = nvram_match("wan_nat_x", "1");
+	ret = firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled);
+	if (ret != 0)
+		return ret;
 	ret = firewall_read_enabled_setting("fw_dos_x", &is_dos_enabled);
 	if (ret != 0)
 		return ret;
@@ -1455,21 +1458,58 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 	if (ret != 0)
 		return ret;
 
-	i_vpns_enable  = nvram_get_int("vpns_enable");
-	i_vpns_type    = nvram_get_int("vpns_type");
-	i_vpns_actl    = nvram_get_int("vpns_actl");
+	ret = firewall_read_integer_setting("vpns_enable", 0, &i_vpns_enable);
+	if (ret != 0)
+		return ret;
+	ret = firewall_read_integer_setting("vpns_type", 0, &i_vpns_type);
+	if (ret != 0)
+		return ret;
+	ret = firewall_read_integer_setting("vpns_actl", 0, &i_vpns_actl);
+	if (ret != 0)
+		return ret;
 
-	i_vpnc_enable  = nvram_get_int("vpnc_enable");
-	i_vpnc_type    = nvram_get_int("vpnc_type");
-	i_vpnc_sfw     = nvram_get_int("vpnc_sfw");
+	ret = firewall_read_integer_setting("vpnc_enable", 0, &i_vpnc_enable);
+	if (ret != 0)
+		return ret;
+	ret = firewall_read_integer_setting("vpnc_type", 0, &i_vpnc_type);
+	if (ret != 0)
+		return ret;
+	ret = firewall_read_integer_setting("vpnc_sfw", 0, &i_vpnc_sfw);
+	if (ret != 0)
+		return ret;
+
+#if defined (APP_OPENVPN)
+	/* Read OpenVPN-only policy only when the corresponding VPN is enabled. */
+	if (i_vpns_enable && i_vpns_type == 2) {
+		ret = firewall_read_integer_setting("vpns_ov_mode", 0, &i_vpns_ov_mode);
+		if (ret != 0)
+			return ret;
+		ret = firewall_read_integer_setting("vpns_ov_prot", 0, &i_vpns_ov_prot);
+		if (ret != 0)
+			return ret;
+		ret = firewall_read_integer_setting("vpns_ov_port", 1194, &i_vpns_ov_port);
+		if (ret != 0)
+			return ret;
+		if (i_vpns_ov_port < 1 || i_vpns_ov_port > 65535)
+			i_vpns_ov_port = 1194;
+	}
+	if (i_vpnc_enable && i_vpnc_type == 2) {
+		ret = firewall_read_integer_setting("vpnc_ov_mode", 0, &i_vpnc_ov_mode);
+		if (ret != 0)
+			return ret;
+		ret = firewall_read_integer_setting("vpnc_ov_cnat", 0, &i_vpnc_ov_cnat);
+		if (ret != 0)
+			return ret;
+	}
+#endif
 
 	vpnc_if = NULL;
 	if (i_vpnc_enable) {
 #if defined (APP_OPENVPN)
 		if (i_vpnc_type == 2) {
-			if (nvram_get_int("vpnc_ov_mode") == 1)
+			if (i_vpnc_ov_mode == 1)
 				vpnc_if = IFNAME_CLIENT_TUN;
-			else if (nvram_get_int("vpnc_ov_cnat") == 1)
+			else if (i_vpnc_ov_cnat == 1)
 				vpnc_if = IFNAME_CLIENT_TAP;
 		} else
 #endif
@@ -1639,15 +1679,13 @@ ipt_filter_rules(char *man_if, char *wan_if, char *lan_if, char *lan_ip,
 #if defined (APP_OPENVPN)
 			if (i_vpns_type == 2) {
 				const char *ov_prot = "udp";
-				int i_ov_prot = nvram_get_int("vpns_ov_prot");
-				int i_ov_port = nvram_safe_get_int("vpns_ov_port", 1194, 1, 65535);
 				
 				if (i_vpns_ov_mode == 0)
 					i_need_vpnlist = 0;
-				if (i_ov_prot == 1 || i_ov_prot == 3 || i_ov_prot == 5)
+				if (i_vpns_ov_prot == 1 || i_ov_prot == 3 || i_ov_prot == 5)
 					ov_prot = "tcp";
 				if (i_ov_prot == 0 || i_ov_prot == 1 || i_ov_prot == 4 || i_ov_prot == 5)
-					fprintf(fp, "-A %s -p %s --dport %d -j %s\n", dtype, ov_prot, i_ov_port, logaccept);
+					fprintf(fp, "-A %s -p %s --dport %d -j %s\n", dtype, ov_prot, i_vpns_ov_port, logaccept);
 			} else
 #endif
 			if (i_vpns_type == 1) {

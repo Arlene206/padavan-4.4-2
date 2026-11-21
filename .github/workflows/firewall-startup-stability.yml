@@ -338,8 +338,41 @@ jobs:
           assert "test_integer_errors_are_fail_closed_and_preserve_output" in firewall_nvram_test
           assert "test_backend_errors_preserve_status_and_output" in firewall_nvram_test
           assert "test_missing_key_uses_explicit_legacy_default" in firewall_nvram_test
+          ipv4_filter = body(firewall_source, "ipt_filter_rules(char *man_if")
+          nat_gate = 'firewall_read_enabled_setting("wan_nat_x", &is_nat_enabled)'
+          assert nat_gate in ipv4_filter
+          vpn_integer_gates = (
+              'firewall_read_integer_setting("vpns_enable", 0, &i_vpns_enable)',
+              'firewall_read_integer_setting("vpns_type", 0, &i_vpns_type)',
+              'firewall_read_integer_setting("vpns_actl", 0, &i_vpns_actl)',
+              'firewall_read_integer_setting("vpnc_enable", 0, &i_vpnc_enable)',
+              'firewall_read_integer_setting("vpnc_type", 0, &i_vpnc_type)',
+              'firewall_read_integer_setting("vpnc_sfw", 0, &i_vpnc_sfw)',
+          )
+          for gate in (nat_gate,) + vpn_integer_gates:
+              assert gate in ipv4_filter, gate
+              assert ipv4_filter.index(gate) < ipv4_filter.index("firewall_open_rule_file("), gate
+          for key in ("wan_nat_x", "vpns_enable", "vpns_type", "vpns_actl",
+                      "vpnc_enable", "vpnc_type", "vpnc_sfw"):
+              assert f'nvram_get_int("{key}")' not in ipv4_filter
+          assert 'nvram_match("wan_nat_x", "1")' not in ipv4_filter
+          openvpn_gates = (
+              'firewall_read_integer_setting("vpns_ov_mode", 0, &i_vpns_ov_mode)',
+              'firewall_read_integer_setting("vpns_ov_prot", 0, &i_vpns_ov_prot)',
+              'firewall_read_integer_setting("vpns_ov_port", 1194, &i_vpns_ov_port)',
+              'firewall_read_integer_setting("vpnc_ov_mode", 0, &i_vpnc_ov_mode)',
+              'firewall_read_integer_setting("vpnc_ov_cnat", 0, &i_vpnc_ov_cnat)',
+          )
+          for gate in openvpn_gates:
+              assert gate in ipv4_filter, gate
+              assert ipv4_filter.index(gate) < ipv4_filter.index("firewall_open_rule_file("), gate
+          assert 'nvram_get_int("vpns_ov_mode")' not in ipv4_filter
+          assert 'nvram_get_int("vpns_ov_prot")' not in ipv4_filter
+          assert 'nvram_safe_get_int("vpns_ov_port"' not in ipv4_filter
+          assert 'nvram_get_int("vpnc_ov_mode")' not in ipv4_filter
+          assert 'nvram_get_int("vpnc_ov_cnat")' not in ipv4_filter
           dos_gate = 'firewall_read_enabled_setting("fw_dos_x", &is_dos_enabled)'
-          assert dos_gate in body(firewall_source, "ipt_filter_rules(char *man_if")
+          assert dos_gate in ipv4_filter
           for signature in ("ipt_filter_rules(char *man_if", "ip6t_filter_rules(char *man_if"):
               filter_builder = body(firewall_source, signature)
               mac_gate = "firewall_read_mac_filter_settings(&i_mac_filter, &is_mac_filter_drop)"
