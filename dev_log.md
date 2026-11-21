@@ -1,3 +1,14 @@
+## 2026-11-21 — Fail closed on FTP mode and audit-setting NVRAM errors
+
+- Parent main SHA: `88f545440c24761c046eb03d3954287db3088ca4`.
+- Follow-up review of `write_vsftpd_conf()` found two remaining unchecked security/observability controls: `st_ftp_mode` (anonymous versus local-auth mode) and `st_ftp_log` (syslog export). On a transient backend failure, the old getters silently normalized the mode to local-auth-only or disabled FTP logs, then replaced the last-known-good config.
+- THIS COMMIT reads both settings through the shared checked NVRAM reader before staging `vsftpd.conf`. Missing-key behavior is preserved (mode normalizes to authenticated-local mode; logging remains disabled). A real read error now preserves the existing config. The connection-limit checked-read gate remains in place.
+- Extended the VSFTPD source-contract regression to require each read before staging and reject the old unchecked getters. Shared policy GNU89/Werror test and the initial FTP source contract passed exact run #44957924406. Samba checker follow-up #88f5454 is now in exact run #44958170852; pending at this checkpoint.
+- XY-C1 run #44957924444 was still executing `Build XY-C1` at last poll. This follow-up has no L3/L4 claim until its own exact-SHA validation.
+- Next: inspect current exact-head VSFTPD/Samba/XY-C1 runs and repair any causal failure.
+
+---
+
 ## 2026-11-21 — Correct Samba connection-limit workflow source contract
 
 - Parent main SHA: `d2890e3fa3930e64d909df8feeeaff3ad87439a4`.

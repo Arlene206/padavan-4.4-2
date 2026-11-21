@@ -150,6 +150,18 @@ jobs:
           max_user_read = 'storage_read_integer_status("st_max_user",0,&max_user_value)'
           max_user_policy = 'service_connection_limit_value_status(max_user_status,max_user_value,MAX_CLIENTS_NUM,&i_maxuser)'
           ftp_config_open = 'ftp_config_file_open("/etc/vsftpd.conf"'
+          ftp_mode_read = 'storage_read_integer_status("st_ftp_mode",0,&ftp_mode_value)'
+          ftp_log_read = 'storage_read_integer_status("st_ftp_log",0,&ftp_log_value)'
+          assert ftp_mode_read in config_compact
+          assert ftp_log_read in config_compact
+          assert config_compact.index(ftp_mode_read) < config_compact.index(ftp_config_open)
+          assert config_compact.index(ftp_log_read) < config_compact.index(ftp_config_open)
+          assert 'nvram_get_int("st_ftp_mode")' not in config
+          assert 'nvram_get_int("st_ftp_log")' not in config
+          assert "ftp_share_mode_normalize(ftp_mode_value)" in config
+          assert "(ftp_log_value == 0)" in config
+          assert "cannot read FTP configuration" in config
+          assert config.index("cannot read FTP configuration") < config.index(ftp_config_open)
           assert max_user_read in config_compact
           assert max_user_policy in config_compact
           assert config_compact.index(max_user_read) < config_compact.index(max_user_policy) < config_compact.index(ftp_config_open)

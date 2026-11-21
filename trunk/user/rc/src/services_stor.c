@@ -306,17 +306,25 @@ write_vsftpd_conf(void)
 	FILE *fp = NULL;
 	char staged_path[64];
 	int i_maxuser = 0, max_user_value = 0;
-	int max_user_status, saved_errno, i_ftp_mode;
+	int ftp_mode_value = 0, ftp_log_value = 0;
+	int max_user_status, ftp_mode_status, ftp_log_status;
+	int config_status, saved_errno, i_ftp_mode;
 	const char *banner_product;
 
+	ftp_mode_status = storage_read_integer_status(
+		"st_ftp_mode", 0, &ftp_mode_value);
+	ftp_log_status = storage_read_integer_status(
+		"st_ftp_log", 0, &ftp_log_value);
 	max_user_status = storage_read_integer_status(
 		"st_max_user", 0, &max_user_value);
 	max_user_status = service_connection_limit_value_status(
 		max_user_status, max_user_value, MAX_CLIENTS_NUM, &i_maxuser);
-	if (max_user_status != 0) {
-		saved_errno = max_user_status > 0 ? max_user_status : EIO;
+	config_status = ftp_mode_status != 0 ? ftp_mode_status :
+		ftp_log_status != 0 ? ftp_log_status : max_user_status;
+	if (config_status != 0) {
+		saved_errno = config_status > 0 ? config_status : EIO;
 		logmessage("FTP server",
-			   "cannot read max-connection limit; preserving active configuration (errno %d)",
+			   "cannot read FTP configuration; preserving active configuration (errno %d)",
 			   saved_errno);
 		errno = saved_errno;
 		return -1;
@@ -348,7 +356,7 @@ write_vsftpd_conf(void)
 	fprintf(fp, "ssl_enable=%s\n", "NO");
 #endif
 
-	i_ftp_mode = ftp_share_mode_normalize(nvram_get_int("st_ftp_mode"));
+	i_ftp_mode = ftp_share_mode_normalize(ftp_mode_value);
 	if (i_ftp_mode == 1 || i_ftp_mode == 3) {
 		fprintf(fp, "local_enable=%s\n", "NO");
 		fprintf(fp, "anonymous_enable=%s\n", "YES");
@@ -374,7 +382,7 @@ write_vsftpd_conf(void)
 	fprintf(fp, "allow_writable_root=%s\n", "YES");
 	fprintf(fp, "check_shell=%s\n", "NO");
 	fprintf(fp, "xferlog_enable=%s\n", "NO");
-	fprintf(fp, "syslog_enable=%s\n", (nvram_get_int("st_ftp_log") == 0) ? "NO" : "YES");
+	fprintf(fp, "syslog_enable=%s\n", (ftp_log_value == 0) ? "NO" : "YES");
 	fprintf(fp, "force_dot_files=%s\n", "YES");
 	fprintf(fp, "dirmessage_enable=%s\n", "YES");
 	fprintf(fp, "hide_ids=%s\n", "YES");
