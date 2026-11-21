@@ -4,6 +4,23 @@
 #include <stdio.h>
 
 static int
+test_inic_start_enable_gate_fails_closed(void)
+{
+	int enabled = 1;
+
+	if (wireless_inic_start_enabled(EACCES, 0, &enabled) != EACCES ||
+	    enabled != 0)
+		return 1;
+	if (wireless_inic_start_enabled(0, 0, &enabled) != 0 || enabled != 1)
+		return 1;
+	if (wireless_inic_start_enabled(0, 1, &enabled) != 0 || enabled != 0)
+		return 1;
+	if (wireless_inic_start_enabled(0, 2, &enabled) != 0 || enabled != 1)
+		return 1;
+	return wireless_inic_start_enabled(0, 0, NULL) != EINVAL;
+}
+
+static int
 test_success_is_published(void)
 {
 	return !wireless_radio_status_success(0);
@@ -344,7 +361,8 @@ test_txpower_config_value_is_normalized(void)
 int
 main(void)
 {
-	if (test_txpower_config_value_is_normalized() ||
+	if (test_inic_start_enable_gate_fails_closed() ||
+	    test_txpower_config_value_is_normalized() ||
 	    test_success_is_published() ||
 	    test_interface_failures_are_not_published() ||
 	    test_interface_and_hw_nat_failures_preserve_first_error() ||

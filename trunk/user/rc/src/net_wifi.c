@@ -30,6 +30,7 @@
 #include "rc.h"
 #include "wireless_restart_policy.h"
 #include "wireless_radio_policy.h"
+#include "wan_nvram_status_policy.h"
 #include "service_wait_policy.h"
 #include "wireless_guest_isolation_policy.h"
 #include "switch.h"
@@ -665,12 +666,12 @@ update_inic_mii(void)
 }
 
 static int
-start_inic_mii(void)
+start_inic_mii(int inic_enabled)
 {
 	const char *ifname_inic = IFNAME_INIC_MAIN;
 	int operation_status, all_started = 1;
 
-	if (nvram_get_int("inic_disable") != 1) {
+	if (inic_enabled) {
 		/* release iNIC reset pin */
 		cpu_gpio_set_pin(1, 1);
 
@@ -983,7 +984,27 @@ start_wifi_ap_rt(int radio_on)
 	int all_started = 1;
 	int i_mode_x = get_mode_radio_rt();
 #if defined(USE_RT3352_MII)
+	char *inic_disable_value = NULL;
+	int nvram_api_result, nvram_saved_errno, nvram_read_status;
+	int inic_disabled = 0, inic_enabled = 0, policy_status;
 	int is_ap_mode = get_ap_mode();
+
+	/* Read the iNIC gate once, before changing any radio/bridge state. */
+	errno = 0;
+	nvram_api_result = nvram_get_checked("inic_disable", &inic_disable_value);
+	nvram_saved_errno = errno;
+	nvram_read_status = rc_wan_nvram_read_int_status(
+		nvram_api_result, nvram_saved_errno, inic_disable_value,
+		0, &inic_disabled);
+	policy_status = wireless_inic_start_enabled(
+		nvram_read_status, inic_disabled, &inic_enabled);
+	if (policy_status != 0) {
+		errno = policy_status;
+		logmessage(LOGNAME,
+			   "iNIC startup aborted: cannot read inic_disable (status=%d)",
+			   policy_status);
+		return -policy_status;
+	}
 #endif
 
 	// check WDS only, ApCli only or Radio disabled
@@ -1002,14 +1023,16 @@ start_wifi_ap_rt(int radio_on)
 
 #if defined(USE_RT3352_MII)
 	// iNIC_mii driver always needed rai0 first before use other interfaces (boot firmware)
-	if (start_inic_mii() < 0) {
-		logmessage(LOGNAME, "2.4GHz iNIC startup failed");
-		return -EIO;
+	operation_status = start_inic_mii(inic_enabled);
+	if (operation_status < 0) {
+		logmessage(LOGNAME, "2.4GHz iNIC startup failed (status=%d)",
+			   operation_status);
+		return operation_status;
 	}
 
 	// check Radio enabled and check not WDS only, not ApCli only
 	if (radio_on && i_mode_x != 1 && i_mode_x != 3 &&
-	    nvram_get_int("inic_disable") != 1 && is_guest_allowed_rt())
+	    inic_enabled && is_guest_allowed_rt())
 	{
 		if (!wif_control_success(IFNAME_INIC_GUEST, 1))
 			return -EIO;
@@ -1018,7 +1041,7 @@ start_wifi_ap_rt(int radio_on)
 	}
 
 	// The radio restart is incomplete if its enabled health monitor cannot start.
-	if (nvram_get_int("inic_disable") != 1) {
+	if (inic_enabled) {
 		int inicd_start_status = start_inicd();
 
 		if (inicd_start_status != 0)

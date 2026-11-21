@@ -448,7 +448,7 @@ jobs:
 
           # RT3352 iNIC startup must verify every state-changing dependency:
           # RGMII enable, rai0 up, isolation/MLME configuration and RADIUS bridge.
-          inic = function_body(source, "start_inic_mii(void)")
+          inic = function_body(source, "start_inic_mii(int inic_enabled)")
           reset_release = inic.index("cpu_gpio_set_pin(1, 1);")
           reset_wait = inic.index("operation_status = service_wait_microseconds(50000U);", reset_release)
           wait_failure = inic.index("if (operation_status != 0)", reset_wait)
@@ -509,10 +509,22 @@ jobs:
           assert "return;" not in disable_path
 
           ap_rt = function_body(source, "start_wifi_ap_rt(int radio_on)")
-          assert "if (start_inic_mii() < 0)" in ap_rt, (
+          assert "operation_status = start_inic_mii(inic_enabled);" in ap_rt
+          assert "if (operation_status < 0)" in ap_rt
+          assert "return operation_status;" in ap_rt
+          assert 'nvram_api_result = nvram_get_checked("inic_disable", &inic_disable_value);' in ap_rt
+          assert "rc_wan_nvram_read_int_status(" in ap_rt
+          assert "wireless_inic_start_enabled(" in ap_rt
+          assert "if (policy_status != 0)" in ap_rt
+          assert ap_rt.index("nvram_get_checked(\"inic_disable\"") < ap_rt.index("if (policy_status != 0)") < ap_rt.index("mlme_state_rt(radio_on)")
+          assert 'nvram_get_int("inic_disable")' not in ap_rt
+          assert "inic_enabled && is_guest_allowed_rt()" in ap_rt
+          assert "if (inic_enabled)" in ap_rt
+          assert "test_inic_start_enable_gate_fails_closed" in notification_test
+          assert "if (start_inic_mii()" not in ap_rt, (
               "start_wifi_ap_rt must propagate an iNIC interface-up failure"
           )
-          assert 'nvram_get_int("inic_disable") != 1 && is_guest_allowed_rt()' in ap_rt, (
+          assert "inic_enabled && is_guest_allowed_rt()" in ap_rt, (
               "a deliberately disabled iNIC must not be treated as a failed guest-AP start"
           )
           assert "int inicd_start_status = start_inicd();" in ap_rt, (

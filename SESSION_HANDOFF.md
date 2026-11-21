@@ -10,25 +10,25 @@
 The checkpoint is mandatory; a document edit is conditional. Before context exhaustion, inspect live main and compare this resumable record: source baseline, active task, exact-head Actions, validation boundary, blockers and first action. If all remain accurate, make no handoff commit.
 
 ## Current repository state
-- Parent main before this checker repair: 917415b910965a663b0d0869dec75639e93b277d; production source includes the RT3352 MII TxPower normalization fix from its parent chain. Frozen archival branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable. Legacy PR #1 is closed/unmerged.
-- RT3352 MII TxPower fix is live in 917415b: shared 0..100/default-100 normalization is used by both ralink.c AP config generation and net_wifi.c runtime iwpriv command; GNU89 boundary test and source/path CI contract included. Wireless radio #44906405015 PASS, iNIC signal #44906405082 PASS, watchdog signal #44906405010 PASS, process inventory #44906404949 PASS, AI docs #44906404948 PASS and HTTPD #44906404924 PASS, all exact SHA 917415b.
-- Process lifecycle regression #44906404890 failed on exact 917415b at its final shared-library/RC integration checker line 3348. All preceding service and shell regressions passed, including fput_string, MiniDLNA, OpenSSH PID-file, Transmission, WireGuard, ZeroTier, RWFS, RC notification, WAN/LAN, VPN, UPnP, IPv6, and daemon startup checks. The failure is a stale test mapping: loop expected settling waits in public start_sshd(void), but SSH checked-start now correctly delegates to start_sshd_with_mode(int sshd_mode); public wrapper only performs checked mode read/delegation. This commit updates the source contract to validate wait probes in the helper and separately assert checked-read/delegation in the wrapper.
-- XY-C1 #44906404894 is still in progress on exact production-source SHA 917415b, currently at Build XY-C1; TRX and artifact upload are pending. Do not claim L3 until all three steps pass on the same SHA.
-- NVRAM transaction audit #44906405138 remains in progress at raw ioctl/kernel caller audit. No conclusion yet.
-- Router-mode transactional fix, checked NFS start/restart, HTTPD fail-closed wrapper, USB storage NFS policy, MiniUPnP internal-port nonzero parser and SSH lifecycle fix are already implemented; avoid repeating completed work. Physical router L4 remains NOT VERIFIED.
+- Parent main before this iNIC NVRAM reliability fix: c1d2f8d9dee93bb374d3674958d6090d5de1e68a. Frozen archival branch backup/pre-plugin-overhaul-2026-11-14 remains 72f4f157a084f8184b9597ca5bf334b8080e5807; immutable.
+- RT3352 MII TxPower normalization fix is live in 917415b; Wireless radio, iNIC signal, watchdog signal, process inventory, AI docs and HTTPD security passed on that exact source SHA.
+- SSH lifecycle checker repair was committed as c1d2f8d. Exact Process lifecycle #44906611688 and AI docs #44906611710 PASS on c1d2f8d. NVRAM transaction audit #44906405138 PASS on product source SHA 917415b.
+- XY-C1 #44906404894 on exact product source SHA 917415b remains at Build XY-C1; TRX verification and artifact upload pending. No L3 claim until all stages complete on the same source SHA.
+- Newly confirmed RT3352 iNIC config-read fail-open defect: start_inic_mii() and its AP caller read inic_disable through nvram_get_int(), whose nvram_get_checked failure collapses to zero. On a transient NVRAM backend error, the iNIC start path could treat an explicitly disabled module as enabled and change GPIO/RGMII/interface/radio state. The AP caller also reread the same flag independently for guest AP and health-monitor startup, allowing inconsistent decisions within one restart. This commit reads the flag once with nvram_get_checked plus strict integer parsing at the top of start_wifi_ap_rt, before mlme or bridge/hardware side effects, and passes one validated enabled decision through start_inic_mii, guest AP and iNIC monitor gates. Missing-key default zero and the legacy exactly-1-disabled rule are preserved; malformed/backend results fail closed.
+- iNIC start-gate regression covers backend error, absent/default enabled, disabled, non-1 legacy enabled and NULL output. Wireless source contract pins checked read and error return before the MLME/hardware transition and asserts no raw inic_disable read remains.
+- MiniUPnP internal-port-zero parser and SSH/NFS/router-mode/HTTPD/USB protections are already implemented; do not re-audit without new evidence. Physical router L4 remains NOT VERIFIED.
 
 ## Active task
-1. Inspect exact-head Process lifecycle and AI docs reruns from this checker repair. If there is another failure, read the first causal assertion/log and correct the exact contract without weakening regression coverage.
-2. Inspect XY-C1 #44906404894 Build XY-C1, Verify TRX output and artifact upload separately on 917415b; claim L3 only if the entire same-SHA chain passes.
-3. Check NVRAM audit #44906405138 result and continue with any genuinely open P1 security/reliability defect from the broader userland.
+1. Check exact-head Wireless radio and XY-C1 Actions created by the iNIC checked-read slice. If a source contract fails, fix only the first causal mismatch while preserving all checks.
+2. Inspect XY-C1 Build XY-C1, TRX verification and artifact upload on exact current product-source SHA. Claim L3 only after the complete same-SHA chain passes.
+3. Continue broad userland review for another concrete status-loss or unchecked configuration gate, with regression and exact-SHA validation.
 
 ## Verification boundary
-- RT3352 TxPower GNU89/-Werror wireless regression and source contract PASS; iNIC/watchdog and other named Actions PASS on exact SHA 917415b.
-- Process lifecycle failed only in late source integration assertion: it expected startup waits in the SSH public wrapper. Prior test steps in that job passed; updated contract awaits exact-SHA rerun.
-- XY-C1 current product-source build is pending at Build; TRX/artifact pending. No L3 result for 917415b yet. NVRAM audit pending at caller audit. No physical hardware L4.
-- No local RC cross-compile or hardware test is claimed.
+- iNIC checked configuration preflight, shared boolean policy and GNU89 regression are committed together; no local cross-build or unit binary run is claimed in this environment. Exact-head Wireless validation pending.
+- Process lifecycle and AI docs PASS on docs/test-only SHA c1d2f8d. NVRAM audit PASS on product source SHA 917415b.
+- XY-C1 Build on 917415b still in progress; TRX/artifact pending. No current L3 or physical L4 claim.
 
 ## Exact first action for the next GPT
-Fetch live main and inspect exact-head Process lifecycle and AI docs reruns from this checker correction. Poll XY-C1 Build/TRX/artifact and NVRAM caller audit independently; continue an unrelated confirmed production-source fix while jobs are pending.
+Fetch live main and inspect exact-head Wireless and XY-C1 runs for this iNIC checked-read slice. Poll the existing 917415b XY-C1 build's TRX/artifact steps. Continue another independent concrete status-propagation review if these are pending.
 
 Before context exhaustion, update this handoff only when active task, exact-head result, validation boundary or first action materially changes; no no-op commit.

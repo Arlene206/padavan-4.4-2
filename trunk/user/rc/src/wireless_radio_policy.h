@@ -4,6 +4,24 @@
 #include <errno.h>
 
 /*
+ * The iNIC is enabled unless its disable flag is exactly 1. A checked-read
+ * failure must never be coerced to zero, which would silently power it up.
+ * Initialize the output to disabled so every error is fail-closed.
+ */
+static inline int
+wireless_inic_start_enabled(int read_status, int disabled_value,
+			    int *inic_enabled)
+{
+	if (!inic_enabled)
+		return EINVAL;
+	*inic_enabled = 0;
+	if (read_status != 0)
+		return read_status;
+	*inic_enabled = (disabled_value != 1);
+	return 0;
+}
+
+/*
  * A radio operation is considered successful only when the driver command or
  * the enclosing restart transaction returns the conventional zero status.
  */

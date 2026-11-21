@@ -1,3 +1,15 @@
+## 2026-11-21 — Fail closed on RT3352 iNIC disable-flag read errors
+
+- Parent main SHA: c1d2f8d9dee93bb374d3674958d6090d5de1e68a; product-source base includes the RT3352 MII TxPower fix in 917415b.
+- Found an additional RT3352 startup status-loss defect: start_inic_mii() used nvram_get_int("inic_disable"), which maps nvram_get_checked() backend failure to zero; zero means enabled. The start_wifi_ap_rt() caller then made two more unchecked reads for guest-AP and health-monitor gates, permitting inconsistent decisions if the backend failed or value changed during one transition.
+- Added a checked NVRAM read and strict decimal parser at the top of start_wifi_ap_rt(), before MLME, bridge, GPIO, RGMII or interface state changes. The missing-key zero default and legacy "exactly 1 disables" behavior are preserved; malformed/backend values fail closed.
+- The validated enabled decision is passed to start_inic_mii(int inic_enabled) and reused for guest AP and iNIC health-monitor gates; all direct raw reads of inic_disable are removed from the radio start path. The public caller now preserves the helper's negative errno status.
+- Added GNU89 wireless policy regression for backend error, missing/default enabled, disabled, legacy non-1 enabled and invalid output pointer. Updated Wireless source contract to require read/error gate before MLME and disallow unchecked duplicate reads.
+- Process lifecycle #44906611688 and AI docs #44906611710 PASS on parent c1d2f8d; NVRAM audit #44906405138 PASS on product SHA 917415b. XY-C1 #44906404894 on 917415b remains at Build; TRX/artifact pending. Exact-head Wireless/XY verification for this new product change pending; no L3/L4 claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Align SSH settling-wait checker with checked start delegation
 
 - Parent main SHA: 917415b910965a663b0d0869dec75639e93b277d; product-source baseline unchanged.
