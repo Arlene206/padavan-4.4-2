@@ -56,6 +56,20 @@ static const struct service_daemon_wait_ops fake_ops = {
 int
 main(void)
 {
+	int enabled = -1;
+
+	assert(ftp_enable_value_status(EIO, 1, &enabled) == EIO);
+	assert(enabled == 0);
+	assert(ftp_enable_value_status(-1, 1, &enabled) == EIO);
+	assert(enabled == 0);
+	assert(ftp_enable_value_status(0, 2, &enabled) == EINVAL);
+	assert(enabled == 0);
+	assert(ftp_enable_value_status(0, 1, &enabled) == 0);
+	assert(enabled == 1);
+	assert(ftp_enable_value_status(0, 0, &enabled) == 0);
+	assert(enabled == 0);
+	assert(ftp_enable_value_status(0, 1, NULL) == EINVAL);
+
 	assert(!ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
 	assert(ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
 	assert(ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN));

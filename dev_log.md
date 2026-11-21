@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on FTP enable-state read errors
+
+- Parent main SHA: `ae4ae4a57b2c34d6dccf2541161a51606170047c`.
+- `run_ftp()` previously relied on `nvram_match("enable_ftp", "0")`; a failed NVRAM backend read could be confused with enabled state and continue to process inspection, configuration publication and daemon launch. It now uses `nvram_get_checked()`, the shared strict integer parser and explicit 0/1 validation. Missing-key default remains enabled for compatibility.
+- `restart_ftpd()` performs the same checked preflight while holding the storage-operation lock and before process inspection or daemon stop. An unreadable flag preserves the current daemon state.
+- Added GNU89 policy cases for backend errors, negative parser status, malformed boolean, both valid values and NULL output; the vsftpd contract verifies startup and restart ordering.
+- The complete repository tree was restored by recovery commit `954d1dc4d11e5518e6e69e86a167fcfd0e5efd33` after a transient incomplete tree from a concurrent session. No history rewrite/force reset was used. This production-source commit requires exact-SHA vsftpd and XY-C1 Build/TRX/artifact checks before any L3 claim; L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Cover all captured-mode restart wrappers in storage contract
 
 - Parent main SHA: 985e86b3d85cfc3abf99ec5c13d5988eb3acd866.

@@ -14,9 +14,10 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ### Current source slice
 
-- Main at the start of the mode-wrapper checker follow-up: 985e86b3d85cfc3abf99ec5c13d5988eb3acd866.
-- The integer WINS compatibility patch is now on main (985e86b3); exact-head DNSMasq/Samba runs for it are queued, and its policy test covers nonzero integer values and invalid numeric input.
-- USB hotplug run #44918173009 passed earlier storage checks and failed only because the checker handled captured-mode SCUT/MentoHUST wrappers but omitted five other wrappers with the same validated-mode design. This patch covers all seven.
+- Parent main SHA: `ae4ae4a57b2c34d6dccf2541161a51606170047c`; current source contains Samba checked global-enable/mode/WINS state and guarded WAN DHCP publication/rollback.
+- FTP enablement now uses a checked NVRAM read, strict integer parsing and explicit 0/1 validation while preserving the historical missing-key default of enabled. Both `run_ftp()` and `restart_ftpd()` refuse side effects after an unreadable enable flag; restart checks before inventory and stop. This commit adds GNU89 policy tests and source-contract coverage.
+- Recovery commit `954d1dc4d11e5518e6e69e86a167fcfd0e5efd33` restored the full repository tree after a transient concurrent partial-tree update. Main remains the only development branch; backup is immutable.
+- This source commit requires same-SHA XY-C1 Build + TRX verification + artifact upload. L3/L4 are NOT VERIFIED until their full gates pass.
 
 
 ## Active task

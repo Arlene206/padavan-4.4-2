@@ -148,7 +148,15 @@ jobs:
           publish_success = config.index("return 0;", publish_gate)
           assert publish_gate < publish_error < publish_success
 
+          enable_reader = function_body(source, "ftp_read_enabled_status(int *enabled)")
+          assert 'nvram_get_checked("enable_ftp", &value)' in enable_reader
+          assert "rc_wan_nvram_read_int_status(api_result, saved_errno" in enable_reader
+          assert "ftp_enable_value_status(read_status, parsed, enabled)" in enable_reader
+
           run = function_body(source, "run_ftp(")
+          assert "ftp_read_enabled_status(&ftp_enabled)" in run
+          assert run.index("ftp_read_enabled_status(&ftp_enabled)") < run.index("is_ftp_run()")
+          assert 'nvram_match("enable_ftp", "0")' not in run
           failure_gate = run.index("if (write_vsftpd_conf() != 0)")
           failure_return = run.index("return -1;", failure_gate)
           daemon_start = run.index('eval("/sbin/vsftpd")')
@@ -158,6 +166,15 @@ jobs:
           assert "errno = 0;" in run
           assert run.count('ftp_rollback_failed_start(start_errno, "start")') == 2
           assert run.index('eval("/sbin/vsftpd")') < run.index('ftp_wait_for_daemon("vsftpd")')
+
+          restart = function_body(source, "restart_ftpd(void)")
+          assert "ftp_read_enabled_status(&ftp_enabled)" in restart
+          assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("is_run_before = is_ftp_run()")
+          assert restart.index("ftp_read_enabled_status(&ftp_enabled)") < restart.index("stop_status = stop_ftp_locked()")
+          assert "ftp_enable_value_status(EIO, 1, &enabled)" in daemon_test
+          assert "ftp_enable_value_status(0, 2, &enabled)" in daemon_test
+          assert "ftp_enable_value_status(0, 1, NULL)" in daemon_test
+          assert "ftp_enable_value_status(int read_status, int value, int *enabled)" in daemon_policy
           assert "ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN)" in daemon_test
           assert "ftp_failed_start_may_leave_daemon((enum process_presence)9)" in daemon_test
           assert "ftp_failed_start_may_leave_daemon(enum process_presence state)" in daemon_policy

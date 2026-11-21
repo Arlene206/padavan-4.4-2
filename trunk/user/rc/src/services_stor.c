@@ -370,14 +370,48 @@ ftp_wait_for_daemon(const char *daemon)
 	return storage_wait_for_daemon(daemon);
 }
 
+static int
+ftp_read_enabled_status(int *enabled)
+{
+	char *value = NULL;
+	int api_result, saved_errno, read_status, status;
+	int parsed = 1;
+
+	if (!enabled) {
+		errno = EINVAL;
+		return -1;
+	}
+	*enabled = 0;
+	errno = 0;
+	api_result = nvram_get_checked("enable_ftp", &value);
+	saved_errno = errno;
+	read_status = rc_wan_nvram_read_int_status(api_result, saved_errno,
+						   value, 1, &parsed);
+	status = ftp_enable_value_status(read_status, parsed, enabled);
+	if (status != 0) {
+		errno = status;
+		return -1;
+	}
+	return 0;
+}
+
+
 int
 run_ftp(void)
 {
 	int saved_errno, command_status;
 	int process_state;
-	int start_errno;
+	int start_errno, ftp_enabled;
 
-	if (nvram_match("enable_ftp", "0"))
+	if (ftp_read_enabled_status(&ftp_enabled) != 0) {
+		saved_errno = errno ? errno : EIO;
+		logmessage("FTP server",
+			   "cannot determine FTP enable state; refusing startup (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		return -1;
+	}
+	if (!ftp_enabled)
 		return 0;
 
 	process_state = is_ftp_run();
@@ -439,13 +473,23 @@ restart_ftpd(void)
 {
 	int storage_lock, is_run_before;
 	int stop_status, mount_status, start_status = 0, restart_status = -1;
-	int firewall_status = 0;
+	int firewall_status = 0, ftp_enabled;
 
 	/* Serialize stop/inventory/start with hotplug and safe storage removal. */
 	storage_lock = storage_operation_lock_acquire(file_lock);
 	if (storage_lock < 0) {
 		logmessage("FTP server", "cannot acquire storage operation lock; refusing FTP restart");
 		return -1;
+	}
+
+	if (ftp_read_enabled_status(&ftp_enabled) != 0) {
+		int saved_errno = errno ? errno : EIO;
+
+		logmessage("FTP server",
+			   "cannot determine FTP enable state; refusing restart before daemon stop (errno %d)",
+			   saved_errno);
+		errno = saved_errno;
+		goto out;
 	}
 
 	is_run_before = is_ftp_run();
