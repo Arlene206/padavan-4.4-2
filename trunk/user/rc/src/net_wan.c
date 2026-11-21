@@ -5450,36 +5450,46 @@ notify_on_internet_state_changed(int has_internet, long elapsed)
 	const char *script_inet = SCRIPT_INTERNET_STATE;
 	int hook_status;
 
-	if (!has_internet && !get_ap_mode()) {
-		int fail_action = nvram_safe_get_int("di_lost_action", 0, 0, 3);
-		switch (fail_action)
-		{
-		case 1:
-			logmessage(LOGNAME, "Perform router auto-reboot on %s event", "Internet lost");
-			queue_internet_lost_action(RCN_RESTART_REBOOT, "router auto-reboot");
-			return;
-		case 2:
-			queue_internet_lost_action("auto_wan_reconnect_pause",
-					   "automatic WAN reconnect pause");
-			break;
-#if defined (USE_USB_SUPPORT)
-		case 3:
-			if (get_modem_devnum()) {
-				int priority_status;
+	if (!has_internet) {
+		int is_ap_mode, ap_mode_status;
 
-				priority_status = wan_nvram_int_status(
-					"modem_prio", (get_usb_modem_wan(0)) ? 0 : 1);
-				if (priority_status != 0) {
-					logmessage(LOGNAME,
-						   "cannot publish modem priority before automatic WAN reconnect (status=%d)",
-						   priority_status);
-					break;
+		ap_mode_status = get_ap_mode_status(&is_ap_mode);
+		if (ap_mode_status != 0) {
+			logmessage(LOGNAME,
+				   "router Internet-loss actions suppressed because AP/router mode cannot be verified (status=%d)",
+				   ap_mode_status);
+		} else if (!is_ap_mode) {
+			int fail_action = nvram_safe_get_int("di_lost_action", 0, 0, 3);
+
+			switch (fail_action)
+			{
+			case 1:
+				logmessage(LOGNAME, "Perform router auto-reboot on %s event", "Internet lost");
+				queue_internet_lost_action(RCN_RESTART_REBOOT, "router auto-reboot");
+				return;
+			case 2:
+				queue_internet_lost_action("auto_wan_reconnect_pause",
+						   "automatic WAN reconnect pause");
+				break;
+#if defined (USE_USB_SUPPORT)
+			case 3:
+				if (get_modem_devnum()) {
+					int priority_status;
+
+					priority_status = wan_nvram_int_status(
+						"modem_prio", (get_usb_modem_wan(0)) ? 0 : 1);
+					if (priority_status != 0) {
+						logmessage(LOGNAME,
+							   "cannot publish modem priority before automatic WAN reconnect (status=%d)",
+							   priority_status);
+						break;
+					}
+					queue_internet_lost_action("auto_wan_reconnect",
+							   "automatic WAN reconnect");
 				}
-				queue_internet_lost_action("auto_wan_reconnect",
-						   "automatic WAN reconnect");
-			}
-			break;
+				break;
 #endif
+			}
 		}
 	}
 

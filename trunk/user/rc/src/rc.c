@@ -1645,7 +1645,8 @@ void
 shutdown_router(int level)
 {
 	int use_halt = (level == 1) ? 1 : 0;
-	int is_ap_mode = get_ap_mode();
+	int is_ap_mode = 1;
+	int ap_mode_status;
 	int storage_remove_status = 0;
 	int misc_stop_status, service_stop_status = 0, printer_stop_status = 0;
 	int wan_stop_status, lan_wan_stop_status = 0;
@@ -1658,6 +1659,14 @@ shutdown_router(int level)
 	int shutdown_script_status = 0;
 	int storage_time_status, storage_mtd_status;
 	const char *script_name = SCRIPT_SHUTDOWN;
+
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		is_ap_mode = 1;
+		logmessage(LOGNAME,
+			   "cannot determine AP/router mode during shutdown (status=%d); using AP-safe LAN teardown and skipping storage persistence",
+			   ap_mode_status);
+	}
 
 	/* Prevent a late Optware start hook from racing service shutdown. */
 	optware_stop_status = stop_rwfs_optware();
@@ -1745,7 +1754,8 @@ shutdown_router(int level)
 
 	LED_CONTROL(LED_WAN, LED_OFF);
 
-	if (storage_remove_status == 0 && misc_stop_status == 0 &&
+	if (ap_mode_status == 0 &&
+	    storage_remove_status == 0 && misc_stop_status == 0 &&
 	    service_stop_status == 0 && printer_stop_status == 0 &&
 	    wan_stop_status == 0 && lan_wan_stop_status == 0 &&
 	    auth_stop_status == 0 && logger_stop_status == 0 &&
@@ -1906,7 +1916,16 @@ handle_notifications(void)
 #if defined (USE_IPV6)
 		else if (!strcmp(entry->d_name, RCN_RESTART_IPV6))
 		{
-			if (!get_ap_mode()) {
+			int is_ap_mode, ap_mode_status;
+
+			ap_mode_status = get_ap_mode_status(&is_ap_mode);
+			if (ap_mode_status != 0) {
+				logmessage(LOGNAME,
+					   "IPv6 restart skipped because AP/router mode cannot be verified (status=%d)",
+					   ap_mode_status);
+				action_result = rc_notify_merge_action_result(
+					action_result, ap_mode_status);
+			} else if (!is_ap_mode) {
 				int ipv6_restart_status = full_restart_ipv6(nvram_ipv6_type);
 
 				action_result = rc_notify_merge_action_result(
@@ -1935,11 +1954,22 @@ handle_notifications(void)
 		}
 		else if (!strcmp(entry->d_name, RCN_RESTART_IPTV))
 		{
-			int is_ap_mode = get_ap_mode();
-			action_result = rc_notify_merge_action_result(action_result, restart_iptv(is_ap_mode));
-			if (!is_ap_mode)
+			int is_ap_mode, ap_mode_status;
+
+			ap_mode_status = get_ap_mode_status(&is_ap_mode);
+			if (ap_mode_status != 0) {
+				logmessage(LOGNAME,
+					   "IPTV restart skipped because AP/router mode cannot be verified (status=%d)",
+					   ap_mode_status);
 				action_result = rc_notify_merge_action_result(
-					action_result, restart_firewall());
+					action_result, ap_mode_status);
+			} else {
+				action_result = rc_notify_merge_action_result(
+					action_result, restart_iptv(is_ap_mode));
+				if (!is_ap_mode)
+					action_result = rc_notify_merge_action_result(
+						action_result, restart_firewall());
+			}
 		}
 		else if(!strcmp(entry->d_name, "deferred_wan_connect"))
 		{
@@ -2341,20 +2371,49 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DDNS) == 0)
 		{
-			int ddns_status = rc_ddns_restart_run(get_ap_mode(),
-							       nvram_match("ddns_enable_x", "1"),
-							       start_ddns, stop_ddns);
+			int is_ap_mode, ap_mode_status, ddns_status;
+
+			ap_mode_status = get_ap_mode_status(&is_ap_mode);
+			if (ap_mode_status != 0) {
+				logmessage(LOGNAME,
+					   "DDNS restart skipped because AP/router mode cannot be verified (status=%d)",
+					   ap_mode_status);
+				ddns_status = ap_mode_status;
+			} else {
+				ddns_status = rc_ddns_restart_run(is_ap_mode,
+								 nvram_match("ddns_enable_x", "1"),
+								 start_ddns, stop_ddns);
+			}
 			action_result = rc_notify_merge_action_result(action_result, ddns_status);
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DI) == 0)
 		{
-			if (get_ap_mode() || has_wan_ip4(0))
+			int is_ap_mode, ap_mode_status;
+
+			ap_mode_status = get_ap_mode_status(&is_ap_mode);
+			if (ap_mode_status != 0) {
+				logmessage(LOGNAME,
+					   "Internet detection skipped because AP/router mode cannot be verified (status=%d)",
+					   ap_mode_status);
+				action_result = rc_notify_merge_action_result(
+					action_result, ap_mode_status);
+			} else if (is_ap_mode || has_wan_ip4(0)) {
 				action_result = rc_notify_merge_action_result(
 					action_result, notify_run_detect_internet(2));
+			}
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_DHCPD) == 0)
 		{
-			if (get_ap_mode()) {
+			int is_ap_mode, ap_mode_status;
+
+			ap_mode_status = get_ap_mode_status(&is_ap_mode);
+			if (ap_mode_status != 0) {
+				logmessage(LOGNAME,
+					   "DHCP service restart skipped because AP/router mode cannot be verified (status=%d)",
+					   ap_mode_status);
+				action_result = rc_notify_merge_action_result(
+					action_result, ap_mode_status);
+			} else if (is_ap_mode) {
 				int hosts_status = update_hosts_ap();
 
 				action_result = rc_notify_merge_action_result(action_result, hosts_status);
@@ -2370,7 +2429,19 @@ handle_notifications(void)
 		}
 		else if (strcmp(entry->d_name, RCN_RESTART_SWITCH_CFG) == 0)
 		{
-			action_result = rc_notify_merge_action_result(action_result, config_bridge(get_ap_mode()));
+			int is_ap_mode, ap_mode_status;
+
+			ap_mode_status = get_ap_mode_status(&is_ap_mode);
+			if (ap_mode_status != 0) {
+				logmessage(LOGNAME,
+					   "bridge configuration skipped because AP/router mode cannot be verified (status=%d)",
+					   ap_mode_status);
+				action_result = rc_notify_merge_action_result(
+					action_result, ap_mode_status);
+			} else {
+				action_result = rc_notify_merge_action_result(
+					action_result, config_bridge(is_ap_mode));
+			}
 			action_result = rc_notify_merge_action_result(action_result, switch_config_base());
 			action_result = rc_notify_merge_action_result(action_result, switch_config_storm());
 			action_result = rc_notify_merge_action_result(action_result, switch_config_link());

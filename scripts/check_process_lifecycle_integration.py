@@ -1924,3 +1924,47 @@ xy_workflow = (root / ".github/workflows/xy-c1-firmware-validation.yml").read_te
 assert '"trunk/user/shared/src/tests/ap_mode_read_policy.c"' in xy_workflow
 assert '"trunk/user/rc/src/rc.c"' in xy_workflow
 print("Checked AP/router mode NVRAM read and fail-closed boot/WAN/firewall gates: PASS")
+
+shutdown = c_function_body(rc_source, "shutdown_router(int level)")
+assert "get_ap_mode_status(&is_ap_mode)" in shutdown
+assert "cannot determine AP/router mode during shutdown" in shutdown
+assert "ap_mode_status == 0" in shutdown
+assert "int is_ap_mode = 1;" in shutdown
+notification_dispatch = c_function_body(rc_source, "handle_notifications(void)")
+assert "get_ap_mode()" not in notification_dispatch
+assert notification_dispatch.count("get_ap_mode_status(&is_ap_mode)") >= 6
+for marker in (
+    "IPv6 restart skipped because AP/router mode cannot be verified",
+    "IPTV restart skipped because AP/router mode cannot be verified",
+    "DDNS restart skipped because AP/router mode cannot be verified",
+    "Internet detection skipped because AP/router mode cannot be verified",
+    "DHCP service restart skipped because AP/router mode cannot be verified",
+    "bridge configuration skipped because AP/router mode cannot be verified",
+):
+    assert marker in notification_dispatch, marker
+
+nat_reload = c_function_body(net_source, "reload_nat_modules(void)")
+assert "get_ap_mode_status(&is_ap_mode)" in nat_reload
+assert "aborting NAT helper reload because AP/router mode cannot be verified" in nat_reload
+assert "get_ap_mode()" not in nat_reload
+
+internet_state = c_function_body(wan_source, "notify_on_internet_state_changed(int has_internet, long elapsed)")
+assert "get_ap_mode_status(&is_ap_mode)" in internet_state
+assert "router Internet-loss actions suppressed because AP/router mode cannot be verified" in internet_state
+assert "get_ap_mode()" not in internet_state
+
+services_source = (root / "trunk/user/rc/src/services_ex.c").read_text()
+dnsmasq_restart = c_function_body(services_source, "restart_dhcpd_locked(void)")
+assert "get_ap_mode_status(&is_ap_mode)" in dnsmasq_restart
+assert "prepare_dns_dhcpd(is_ap_mode, &service_enabled)" in dnsmasq_restart
+assert "DNSMasq restart aborted because AP/router mode cannot be verified" in dnsmasq_restart
+samba_header = c_function_body(services_source, "write_smb_conf_header(FILE *fp)")
+assert "get_ap_mode_status(&is_ap_mode)" in samba_header
+assert "is_dhcpd_enabled_status(is_ap_mode, &dhcp_enabled)" in samba_header
+ddns_start = c_function_body(services_source, "start_ddns_locked(int clear_cache)")
+assert "get_ap_mode_status(&is_ap_mode)" in ddns_start
+assert "return ap_mode_status;" in ddns_start
+ddns_update = c_function_body(services_source, "notify_ddns_update_locked(void)")
+assert "get_ap_mode_status(&is_ap_mode)" in ddns_update
+assert "is_ap_mode" in ddns_update
+print("Remaining AP/router mode consumers use checked NVRAM reads: PASS")

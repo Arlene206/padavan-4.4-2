@@ -1281,6 +1281,7 @@ reload_nat_modules(void)
 	int wan_nat_x = nvram_get_int("wan_nat_x");
 	int reload_status = 0;
 	int module_status;
+	int is_ap_mode, ap_mode_status;
 	static const rc_module_load_ops_t module_ops = {
 		module_smart_load, is_module_loaded_status
 	};
@@ -1315,7 +1316,15 @@ reload_nat_modules(void)
 	int sfe_loaded;
 #endif
 
-	if (!get_ap_mode())
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "aborting NAT helper reload because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+
+	if (!is_ap_mode)
 	{
 		needed_ftp0 = nvram_get_int("nf_alg_ftp0");
 		needed_ftp1 = nvram_get_int("nf_alg_ftp1");

@@ -1362,6 +1362,7 @@ restart_dhcpd_locked(void)
 {
 	int was_running;
 	int service_enabled = 0;
+	int is_ap_mode, ap_mode_status;
 	int prepare_status;
 	int stop_status;
 	int stop_postcondition;
@@ -1383,7 +1384,14 @@ restart_dhcpd_locked(void)
 	}
 	was_running = (initial_presence == PROCESS_PRESENCE_RUNNING);
 
-	prepare_status = prepare_dns_dhcpd(get_ap_mode(), &service_enabled);
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "DNSMasq restart aborted because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+	prepare_status = prepare_dns_dhcpd(is_ap_mode, &service_enabled);
 	action = dnsmasq_restart_policy_action(was_running, prepare_status, service_enabled);
 	if (action == DNSMASQ_RESTART_KEEP_RUNNING) {
 		logmessage(LOGNAME, "DNSMasq refresh preparation failed (status=%d); keeping the running daemon", prepare_status);
@@ -1593,6 +1601,7 @@ write_smb_conf_header(FILE *fp)
 {
 	int i_lmb, i_wins_enable;
 	int dhcp_enabled = 0, dhcp_status;
+	int is_ap_mode, ap_mode_status;
 	char *p_computer_name, *p_workgroup, *p_res_order;
 
 	if (!fp)
@@ -1611,7 +1620,15 @@ write_smb_conf_header(FILE *fp)
 	}
 
 	if (!i_wins_enable) {
-		dhcp_status = is_dhcpd_enabled_status(get_ap_mode(), &dhcp_enabled);
+		ap_mode_status = get_ap_mode_status(&is_ap_mode);
+		if (ap_mode_status != 0) {
+			logmessage("Samba Server",
+				   "cannot determine AP/router mode; refusing smb.conf header publication (errno %d)",
+				   ap_mode_status);
+			errno = ap_mode_status;
+			return -1;
+		}
+		dhcp_status = is_dhcpd_enabled_status(is_ap_mode, &dhcp_enabled);
 		if (dhcp_status != 0) {
 			logmessage("Samba Server",
 				   "cannot read DHCP enable state; refusing smb.conf header publication (errno %d)",
@@ -3297,9 +3314,18 @@ start_ddns_locked(int clear_cache)
 	int scan_error = 0;
 	int restore_status;
 	int saved_status;
+	int is_ap_mode, ap_mode_status;
 	enum process_presence previous_presence;
 
-	if (get_ap_mode())
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		errno = ap_mode_status;
+		logmessage(LOGNAME,
+			   "Inadyn start aborted because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+	if (is_ap_mode)
 		return -1;
 
 	/* Do not destroy the current DDNS service when its state is unknown. */
@@ -3428,9 +3454,18 @@ notify_ddns_update_locked(void)
 	int scan_error;
 	int result;
 	int saved_errno;
+	int is_ap_mode, ap_mode_status;
 
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		errno = ap_mode_status;
+		logmessage(LOGNAME,
+			   "DDNS update aborted because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
 	if (!inadyn_update_should_run(nvram_match("ddns_enable_x", "1"),
-				      get_ap_mode()))
+				      is_ap_mode))
 		return 0;
 
 	state = process_inventory_scan("inadyn", &snapshot);
