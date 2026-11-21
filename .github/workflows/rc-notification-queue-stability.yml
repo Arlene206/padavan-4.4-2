@@ -250,9 +250,18 @@ jobs:
                       assert token not in start_body
                       assert token not in restart_body
               else:
-                  assert " != 1)" in start_body
-                  assert "return 0;" in start_body
-                  assert "return " + launcher + ";" in start_body
+                  if name == "zerotier":
+                      compact_start = "".join(start_body.split())
+                      assert 'service_nvram_match_status("zerotier_enable","1",0,&zerotier_enabled);' in compact_start
+                      assert "if(config_status!=0)returnconfig_status;" in compact_start
+                      assert "if(!zerotier_enabled)return0;" in compact_start
+                      assert 'returneval("/usr/bin/zerotier.sh","start");' in compact_start
+                      assert "nvram_match(" not in start_body
+                      assert "nvram_get_int(" not in start_body
+                  else:
+                      assert " != 1)" in start_body
+                      assert "return 0;" in start_body
+                      assert "return " + launcher + ";" in start_body
                   if name == "smartdns":
                       assert 'return eval("/usr/bin/smartdns.sh","restart");' in restart_body
                       assert "stop_smartdns()" not in restart_body

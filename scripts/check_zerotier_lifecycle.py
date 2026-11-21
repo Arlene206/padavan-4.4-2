@@ -365,11 +365,15 @@ require('zerotier_kernel_route_segment "$zt0"' in cleanup_section,
 require('$(ROMFSINST) -p +x $(THISDIR)/zerotier.sh /usr/bin/zerotier.sh' in makefile,
         "ROMFS must install the exercised ZeroTier launcher")
 start = function_body(services, "int start_zerotier(void)")
+start_compact = "".join(start.split())
 require('eval("/usr/bin/zerotier.sh","stop")' in services and
-        'return eval("/usr/bin/zerotier.sh","start");' in start and
-        'if (zerotier_enable != 1)' in start and
-        'int start_zerotier(void);' in rc_header,
-        "RC ZeroTier start wrapper must propagate launch status and preserve disabled mode")
+        'service_nvram_match_status("zerotier_enable","1",0,&zerotier_enabled);' in start_compact and
+        'if(config_status!=0)returnconfig_status;' in start_compact and
+        'if(!zerotier_enabled)return0;' in start_compact and
+        'returneval("/usr/bin/zerotier.sh","start");' in start_compact and
+        'int start_zerotier(void);' in rc_header and
+        'nvram_match("zerotier_enable", "1")' not in start,
+        "RC ZeroTier start wrapper must propagate checked enable-read and launch statuses and preserve exact disabled mode")
 stop = function_body(services, "int stop_zerotier(void)")
 require('return eval("/usr/bin/zerotier.sh","stop");' in stop and
         'int stop_zerotier(void);' in rc_header,

@@ -1,3 +1,12 @@
+## 2026-11-21 — Repair exact-head Process, ZeroTier and PID 1 regression contracts
+
+- Parent main SHA: 206ee98f72b29555c325efb93f3287e8f6e530fd.
+- Exact-head Process lifecycle #44923859668 reached the new optional-daemon policy compile and failed because `optional_daemon_policy.h` includes shared `process_inventory.h`; the test command had only added the RC include directory. Added `-I trunk/user/shared/src`.
+- Exact-head ZeroTier #44923859847 passed shell lifecycle cases but its source checker still required the removed integer getter / old `!= 1` branch. It now verifies checked exact-string NVRAM status propagation, disabled no-op and launcher status. The PID 1 notification regression reused the same stale `!= 1` assumption in its cross-service checker; it now has an explicit checked-ZeroTier branch while preserving other mode checks.
+- These are test/workflow-only corrections; no firmware source changed. Exact-head reruns pending. PID 1's log also contains intentionally failing gzip/mkdir fixtures whose assertions passed; its actual failure was the stale ZeroTier wrapper assertion, not the fixture diagnostics.
+
+---
+
 ## 2026-11-21 — Roll back Telnet after uncertain detached startup
 
 - Parent main SHA: d3fdae5b35e6d615515c7ea37f236390f0e97e26.
