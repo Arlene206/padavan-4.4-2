@@ -144,6 +144,39 @@ lan_wan_bridge_mode_status(int *bridge_mode)
 					     bridge_mode);
 }
 
+static int
+lan_wan_bridge_iso_mode_status(int bridge_mode, int *bwan_isolation)
+{
+	int configured_isolation = 0;
+	int status;
+
+	if (!bwan_isolation)
+		return EINVAL;
+	if (bridge_mode == SWAPI_WAN_BRIDGE_DISABLE) {
+		*bwan_isolation = SWAPI_WAN_BWAN_ISOLATION_NONE;
+		return 0;
+	}
+	status = lan_nvram_get_int_status("wan_stb_iso", &configured_isolation);
+	return rc_wan_nvram_int_range_status(
+		status, configured_isolation, 0, 2,
+		SWAPI_WAN_BWAN_ISOLATION_NONE, bwan_isolation);
+}
+
+static int
+lan_nvram_get_int_before_vlan_apply(const char *param_name, int *value)
+{
+	int status;
+
+	status = lan_nvram_get_int_status(param_name, value);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read switch VLAN setting %s before rule updates (status=%d)",
+			   param_name ? param_name : "(null)", status);
+		errno = status;
+	}
+	return status;
+}
+
 in_addr_t get_lan_ip4(void)
 {
 	return get_interface_addr4(IFNAME_BR);
@@ -777,42 +810,116 @@ switch_config_vlan(int first_call)
 	unsigned int vrule;
 
 	rc_bridge_init_status_reset(&vlan_status);
-	bridge_mode = get_wan_bridge_mode();
-	bwan_isolation = get_wan_bridge_iso_mode(bridge_mode);
+	status = lan_wan_bridge_mode_status(&bridge_mode);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN bridge mode before switch VLAN configuration (status=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
+	status = lan_wan_bridge_iso_mode_status(bridge_mode, &bwan_isolation);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN bridge isolation before switch VLAN configuration (status=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
 
-	is_vlan_filter = (nvram_match("vlan_filter", "1")) ? 1 : 0;
+	status = lan_nvram_get_match_status("vlan_filter", "1", &is_vlan_filter);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read VLAN filter flag before switch VLAN configuration (status=%d)",
+			   status);
+		errno = status;
+		return status;
+	}
 	if (is_vlan_filter) {
 #if defined(USE_MTK_ESW)
 		/* MT7620 and MT7628 ESW not support port matrix + security */
 		if (bwan_isolation == SWAPI_WAN_BWAN_ISOLATION_BETWEEN)
 			bwan_isolation = SWAPI_WAN_BWAN_ISOLATION_NONE;
 #endif
-		vlan_vid[SWAPI_VLAN_RULE_WAN_INET] = nvram_get_int("vlan_vid_cpu");
-		vlan_vid[SWAPI_VLAN_RULE_WAN_IPTV] = nvram_get_int("vlan_vid_iptv");
-		vlan_vid[SWAPI_VLAN_RULE_WAN_LAN1] = nvram_get_int("vlan_vid_lan1");
-		vlan_vid[SWAPI_VLAN_RULE_WAN_LAN2] = nvram_get_int("vlan_vid_lan2");
-		vlan_vid[SWAPI_VLAN_RULE_WAN_LAN3] = nvram_get_int("vlan_vid_lan3");
-		vlan_vid[SWAPI_VLAN_RULE_WAN_LAN4] = nvram_get_int("vlan_vid_lan4");
-		
-		vlan_pri[SWAPI_VLAN_RULE_WAN_INET] = nvram_get_int("vlan_pri_cpu")  & 0x07;
-		vlan_pri[SWAPI_VLAN_RULE_WAN_IPTV] = nvram_get_int("vlan_pri_iptv") & 0x07;
-		vlan_pri[SWAPI_VLAN_RULE_WAN_LAN1] = nvram_get_int("vlan_pri_lan1") & 0x07;
-		vlan_pri[SWAPI_VLAN_RULE_WAN_LAN2] = nvram_get_int("vlan_pri_lan2") & 0x07;
-		vlan_pri[SWAPI_VLAN_RULE_WAN_LAN3] = nvram_get_int("vlan_pri_lan3") & 0x07;
-		vlan_pri[SWAPI_VLAN_RULE_WAN_LAN4] = nvram_get_int("vlan_pri_lan4") & 0x07;
-		
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_vid_cpu", &vlan_vid[SWAPI_VLAN_RULE_WAN_INET]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_vid_iptv", &vlan_vid[SWAPI_VLAN_RULE_WAN_IPTV]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_vid_lan1", &vlan_vid[SWAPI_VLAN_RULE_WAN_LAN1]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_vid_lan2", &vlan_vid[SWAPI_VLAN_RULE_WAN_LAN2]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_vid_lan3", &vlan_vid[SWAPI_VLAN_RULE_WAN_LAN3]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_vid_lan4", &vlan_vid[SWAPI_VLAN_RULE_WAN_LAN4]);
+		if (status != 0)
+			return status;
+
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_pri_cpu", &vlan_pri[SWAPI_VLAN_RULE_WAN_INET]);
+		if (status != 0)
+			return status;
+		vlan_pri[SWAPI_VLAN_RULE_WAN_INET] &= 0x07;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_pri_iptv", &vlan_pri[SWAPI_VLAN_RULE_WAN_IPTV]);
+		if (status != 0)
+			return status;
+		vlan_pri[SWAPI_VLAN_RULE_WAN_IPTV] &= 0x07;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_pri_lan1", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN1]);
+		if (status != 0)
+			return status;
+		vlan_pri[SWAPI_VLAN_RULE_WAN_LAN1] &= 0x07;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_pri_lan2", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN2]);
+		if (status != 0)
+			return status;
+		vlan_pri[SWAPI_VLAN_RULE_WAN_LAN2] &= 0x07;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_pri_lan3", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN3]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_pri_lan4", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN4]);
+		if (status != 0)
+			return status;
+		vlan_pri[SWAPI_VLAN_RULE_WAN_LAN4] &= 0x07;
+
 		vlan_tag[SWAPI_VLAN_RULE_WAN_INET] = 0;
 		vlan_tag[SWAPI_VLAN_RULE_WAN_IPTV] = 0;
-		vlan_tag[SWAPI_VLAN_RULE_WAN_LAN1] = nvram_get_int("vlan_tag_lan1");
-		vlan_tag[SWAPI_VLAN_RULE_WAN_LAN2] = nvram_get_int("vlan_tag_lan2");
-		vlan_tag[SWAPI_VLAN_RULE_WAN_LAN3] = nvram_get_int("vlan_tag_lan3");
-		vlan_tag[SWAPI_VLAN_RULE_WAN_LAN4] = nvram_get_int("vlan_tag_lan4");
-		
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_tag_lan1", &vlan_tag[SWAPI_VLAN_RULE_WAN_LAN1]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_tag_lan2", &vlan_tag[SWAPI_VLAN_RULE_WAN_LAN2]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_tag_lan3", &vlan_tag[SWAPI_VLAN_RULE_WAN_LAN3]);
+		if (status != 0)
+			return status;
+		status = lan_nvram_get_int_before_vlan_apply(
+			"vlan_tag_lan4", &vlan_tag[SWAPI_VLAN_RULE_WAN_LAN4]);
+		if (status != 0)
+			return status;
+
 		if (is_vlan_vid_valid(vlan_vid[SWAPI_VLAN_RULE_WAN_INET]))
 			vlan_tag[SWAPI_VLAN_RULE_WAN_INET] = 1;
 		else
 			vlan_vid[SWAPI_VLAN_RULE_WAN_INET] = 0;
-		
+
 		if (is_vlan_vid_valid(vlan_vid[SWAPI_VLAN_RULE_WAN_IPTV]))
 			vlan_tag[SWAPI_VLAN_RULE_WAN_IPTV] = 1;
 		else

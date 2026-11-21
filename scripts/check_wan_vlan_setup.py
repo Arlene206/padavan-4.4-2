@@ -244,6 +244,53 @@ for old_read in ('nvram_get_int("ether_igmp")','nvram_get_int("ether_m2u")',
     require(old_read not in config_bridge_code,
             f"LAN bridge must not collapse NVRAM errors for {old_read}")
 
+switch_vlan = body(lan, "switch_config_vlan(int first_call)")
+switch_vlan_code = " ".join(switch_vlan.split())
+mode_read = 'lan_wan_bridge_mode_status(&bridge_mode)'
+isolation_read = 'lan_wan_bridge_iso_mode_status(bridge_mode, &bwan_isolation)'
+filter_read = 'lan_nvram_get_match_status("vlan_filter", "1", &is_vlan_filter)'
+vid_reads = [
+    'lan_nvram_get_int_before_vlan_apply("vlan_vid_cpu", &vlan_vid[SWAPI_VLAN_RULE_WAN_INET])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_vid_iptv", &vlan_vid[SWAPI_VLAN_RULE_WAN_IPTV])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_vid_lan1", &vlan_vid[SWAPI_VLAN_RULE_WAN_LAN1])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_vid_lan2", &vlan_vid[SWAPI_VLAN_RULE_WAN_LAN2])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_vid_lan3", &vlan_vid[SWAPI_VLAN_RULE_WAN_LAN3])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_vid_lan4", &vlan_vid[SWAPI_VLAN_RULE_WAN_LAN4])',
+]
+pri_reads = [
+    'lan_nvram_get_int_before_vlan_apply("vlan_pri_cpu", &vlan_pri[SWAPI_VLAN_RULE_WAN_INET])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_pri_iptv", &vlan_pri[SWAPI_VLAN_RULE_WAN_IPTV])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_pri_lan1", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN1])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_pri_lan2", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN2])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_pri_lan3", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN3])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_pri_lan4", &vlan_pri[SWAPI_VLAN_RULE_WAN_LAN4])',
+]
+tag_reads = [
+    'lan_nvram_get_int_before_vlan_apply("vlan_tag_lan1", &vlan_tag[SWAPI_VLAN_RULE_WAN_LAN1])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_tag_lan2", &vlan_tag[SWAPI_VLAN_RULE_WAN_LAN2])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_tag_lan3", &vlan_tag[SWAPI_VLAN_RULE_WAN_LAN3])',
+    'lan_nvram_get_int_before_vlan_apply("vlan_tag_lan4", &vlan_tag[SWAPI_VLAN_RULE_WAN_LAN4])',
+]
+read_order = [mode_read, isolation_read, filter_read] + vid_reads + pri_reads + tag_reads
+read_positions = [switch_vlan_code.index(item) for item in read_order]
+first_rule_apply = switch_vlan_code.index("phy_vlan_rule_set(")
+require(read_positions == sorted(read_positions) and read_positions[-1] < first_rule_apply,
+        "switch VLAN mode, selector, VIDs, priorities and tag flags must all be checked before programming any VLAN rule")
+require("if (status != 0) return status;" in switch_vlan_code and
+        "lan_wan_bridge_mode_status" in switch_vlan_code and
+        "lan_wan_bridge_iso_mode_status" in switch_vlan_code,
+        "switch VLAN read failures must abort before hardware VLAN/bridge programming")
+for key in ("vlan_vid_cpu","vlan_vid_iptv","vlan_vid_lan1","vlan_vid_lan2",
+            "vlan_vid_lan3","vlan_vid_lan4","vlan_pri_cpu","vlan_pri_iptv",
+            "vlan_pri_lan1","vlan_pri_lan2","vlan_pri_lan3","vlan_pri_lan4",
+            "vlan_tag_lan1","vlan_tag_lan2","vlan_tag_lan3","vlan_tag_lan4"):
+    require(f'nvram_get_int("{key}")' not in switch_vlan_code,
+            f"switch VLAN setup must not collapse NVRAM errors for {key}")
+require('nvram_match("vlan_filter", "1")' not in switch_vlan_code and
+        "get_wan_bridge_mode()" not in switch_vlan_code and
+        "get_wan_bridge_iso_mode(" not in switch_vlan_code,
+        "switch VLAN selector/bridge modes must not use lossy getters")
+
 other = body(wan, "config_soft_bridges_other(")
 port_reader = body(wan, "read_soft_bridge_port_vlan_config(")
 require('get_nvram_int_checked_status(param_name, &configured_vid)' in port_reader and

@@ -1,3 +1,14 @@
+## 2026-11-22 08:34 CST — Fail closed on LAN switch VLAN snapshot errors
+
+- Parent main SHA: `f20473f17034ca1188abb3226533e2eb0e6564d3`.
+- `switch_config_vlan()` still used fallback `get_wan_bridge_mode()/get_wan_bridge_iso_mode()`, `nvram_match("vlan_filter")`, and 16 unchecked VLAN VID/priority/tag integer reads. Backend or malformed-value errors could be converted to disabled filtering/zero fields, then the function would program all hardware VLAN rules and bridge mode from an incomplete snapshot.
+- THIS COMMIT routes bridge mode/isolation through checked range policies, reads `vlan_filter` through checked exact-match, and checks every enabled VID/priority/tag setting before the first `phy_vlan_rule_set()`. A failure returns with errno before any hardware VLAN/bridge operation. Missing-key defaults, valid-value behavior, low-three-bit priority masking and readable out-of-range bridge-mode fallbacks remain unchanged.
+- Extended `scripts/check_wan_vlan_setup.py` with ordered source assertions for all 19 checked reads and ensures lossy getters are absent. Existing NVRAM status policy tests cover missing keys, exact matches, malformed/overflow integers and backend errors.
+- Previous LAN core `config_bridge()` checked-read slice is `f20473f17034ca1188abb3226533e2eb0e6564d3`; exact actions for it had not yet appeared at last poll. WAN VLAN/soft-bridge source slices are earlier in the same main history. This commit is the next product-source trigger for WAN route checks and XY-C1 Build/TRX/artifact.
+- Next: inspect exact-head WAN route and XY-C1 build jobs; repair any current-SHA issue before continuing another subsystem.
+
+---
+
 ## 2026-11-22 08:16 CST — Check LAN bridge multicast and port settings before applying bridge state
 
 - Parent main SHA: `7f66b9d41d7244265bf7292e89d5b8400da4080a`.
