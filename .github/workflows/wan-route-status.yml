@@ -823,7 +823,7 @@ jobs:
           gateway_host_delete = wan_down.index('route_status = route_del(wan_ifname, 1, wan_gate, NULL,')
           static_route_delete = wan_down.index("route_status = del_static_wan_routes(wan_ifname);")
           assert snapshot_pos < snapshot_error < fallback_gateway < gateway_default_delete < gateway_host_gate < gateway_host_delete < static_route_delete
-          assert wan_down.count('get_wan_unit_value_copy_status(unit, "gateway"') == 2
+          assert wan_down_compact.count('get_wan_unit_value_copy_status(unit,"gateway",wan_gate,sizeof(wan_gate))') == 2
           gateway_policy = body(wan_teardown_policy, "wan_teardown_gateway_host_route_required(int gateway_read_status")
           for token in ("gateway_read_status == 0", "address_read_status == 0", "netmask_read_status == 0", "gateway_valid", "address_valid", "netmask_valid", "ppp_index < 0", "gateway_off_subnet"):
               require(token in gateway_policy, "WAN host-route read gate missing " + token)

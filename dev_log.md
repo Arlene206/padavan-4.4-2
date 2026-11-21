@@ -1,3 +1,12 @@
+## 2026-11-21 — Normalize gateway-read count in WAN teardown contract
+
+- Parent main SHA: `7de7b00754ffcb5c34b20db82e60c0069efd204c`.
+- Exact-head WAN route #44930308919 reached the final teardown-order contracts and failed at Python line 390. The assertion counted a split C call using raw source text, so it did not match the multiline gateway getter. Replaced it with an exact count over the whitespace-compacted WAN teardown body; the expected two calls remain enforced (failed-tuple default-route fallback and PPP default-route read).
+- AI handoff #44930308925 passed on the same SHA. The prior route run #44930083634 reached the next source assertion after earlier formatting repairs; this correction targets the exact current failure only.
+- Workflow/docs only; no production source changed.
+
+---
+
 ## 2026-11-21 — Normalize PPP-only WAN address checker
 
 - Parent main SHA: `4dc1e9db6dd81451530593170d0679c79d4aab91`.
