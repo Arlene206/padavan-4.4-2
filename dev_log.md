@@ -1,3 +1,12 @@
+## 2026-11-21 — Scope WAN failure-path assertions to their own branches
+
+- Parent main SHA: `b1a6dc2eef817674065df02bcb08c8bce95ca8ac`.
+- Exact-head WAN route run `#44892718181` reached the PPPoE idle-time rollback assertion. Source inspection showed the checked-read failure branch does restore WAN and continue; the call is split after the opening parenthesis, while the checker required a single exact spacing form. Changed it to a whitespace-tolerant regex that still verifies the unit and interface arguments.
+- Exact-head WAN DHCP run `#44892718115` reached physical-interface cleanup ordering. The MTU-read error branch contains an earlier `continue;`, so searching the whole physical-setup slice falsely treated it as the interface-failure branch's continue. Scoped cleanup ordering to the `if (interface_status != 0)` block.
+- Both are static-contract corrections; no production code or failure guards were weakened.
+
+---
+
 ## 2026-11-21 — Scope DNSMasq resolver-lock assertion to its failure branch
 
 - Parent main SHA: `68e10bad396c35c000a17cd26c6763573b13413e`.

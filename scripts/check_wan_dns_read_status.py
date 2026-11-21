@@ -227,7 +227,10 @@ require(demand_match is not None,
 idle_end = idle_position + demand_match.start()
 idle_failure = wan_start[idle_position:idle_end]
 require("if (nvram_status != 0)" in idle_failure and
-        "restore_wan_after_firewall_failure(unit, wan_ifname)" in idle_failure and
+        re.search(
+            r"restore_wan_after_firewall_failure\\s*\\(\\s*unit,\\s*wan_ifname\\s*\\)",
+            idle_failure,
+        ) is not None and
         "continue;" in idle_failure,
         "PPPoE idle-time read failure must restore WAN before demand publication")
 assert 'get_wan_unit_value_int(unit, "pppoe_idletime")' not in wan_start

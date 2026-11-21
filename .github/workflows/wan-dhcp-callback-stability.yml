@@ -1427,7 +1427,9 @@ jobs:
           assert "failed to keep physical WAN interface %s down after startup failure (status=%d)" in physical_setup
           assert "doSystem(" not in physical_setup
           assert physical_setup.index("mtu_status = set_interface_mtu(") < physical_setup.index("interface_status = ifconfig(")
-          assert physical_setup.index("if (interface_status != 0)") < physical_setup.index("interface_cleanup_status = ifconfig(") < physical_setup.index("continue;")
+          interface_failure = physical_setup[
+              physical_setup.index("if (interface_status != 0)"):]
+          assert interface_failure.index("interface_cleanup_status = ifconfig(") < interface_failure.index("continue;")
           launch_call = "vlan_result = launch_viptv_wan();"
           launch_error = 'logmessage(LOGNAME, "IPTV VLAN or service setup incomplete (error=%d)", vlan_result);'
           assert launch_call in wan_start
