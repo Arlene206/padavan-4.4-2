@@ -1,3 +1,13 @@
+## 2026-11-21 — Keep committed IPv4 lease when optional 6rd metadata fails
+
+- Parent main SHA: `6144640848b15f47a8e6df2e9f679421a45fcddc`.
+- The DHCP bound path published the complete IPv4 lease tuple, then attempted an optional DHCP 6rd metadata write. A failed 6rd NVRAM update jumped to the pre-publication rollback label, reverting the interface/routes while leaving the already committed IPv4 tuple in NVRAM.
+- Changed 6rd failure handling to keep the accepted IPv4 lease and continue the IPv4 route/MTU path, while logging and accumulating the 6rd status into the callback result. The optional IPv6 failure remains observable; it no longer treats the committed IPv4 lease as uncommitted.
+- Extended the WAN callback source contract to require that 6rd failures do not enter the old lease rollback path and that their status remains observable. Exact-head WAN callback and XY-C1 firmware validation are pending.
+- Follow-up: review the IPv6 6rd metadata writer's recovery details and inspect same-SHA Build/TRX/artifact results.
+
+---
+
 ## 2026-11-21 — Align WAN source contracts with guarded DHCP publication
 
 - Parent main SHA: `59268855734cc173815b1a99dc5aebd8ac1ea507`.

@@ -6155,7 +6155,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	int remove_old_host_route, remove_old_dhcp_routes;
 	int route_cleanup_status, route_rollback_status;
 	int key_length, snapshot_status, snapshot_rollback_status;
-	int snapshot_abort_status, callback_status, publish_status;
+	int snapshot_abort_status, callback_status, publish_status, ip6rd_status;
 	int dltime_length;
 	struct dhcp_lease_nvram_value snapshot_values[WAN_DHCP_BOUND_SNAPSHOT_COUNT];
 	struct nvram_transaction previous_transaction;
@@ -6167,6 +6167,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	is_man = is_ifunit_man(wan_ifname, unit);
 	route_setup_status = 0;
 	mtu_status = 0;
+	ip6rd_status = 0;
 
 	if (is_man) {
 		strcpy(prefix, "wanx_");
@@ -6508,11 +6509,18 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 		goto snapshot_publication_failed;
 
 #if defined (USE_IPV6)
+	/*
+	 * The IPv4 lease tuple is already committed. A failed optional 6rd
+	 * metadata update must not roll the accepted IPv4 address/routes back
+	 * while leaving that committed tuple visible in NVRAM.
+	 */
 	value = getenv("ip6rd");
 	if (value) {
-		snapshot_status = store_ip6rd_from_dhcp_status(value, prefix);
-		if (snapshot_status != 0)
-			goto snapshot_publication_failed;
+		ip6rd_status = store_ip6rd_from_dhcp_status(value, prefix);
+		if (ip6rd_status != 0)
+			logmessage(log_prefix,
+				   "DHCP 6rd metadata update incomplete on %s (status=%d); keeping accepted IPv4 lease",
+				   wan_ifname, ip6rd_status);
 	}
 #endif
 
@@ -6540,6 +6548,7 @@ udhcpc_bound(char *wan_ifname, int is_renew_mode)
 	}
 
 	callback_status = route_status_accumulate(route_setup_status, mtu_status);
+	callback_status = route_status_accumulate(callback_status, ip6rd_status);
 	publish_status = wan_nvram_int_temp_status(
 		strcat_r(prefix, "mtu_err", tmp), mtu_status);
 	callback_status = route_status_accumulate(callback_status, publish_status);
