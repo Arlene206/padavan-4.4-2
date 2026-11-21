@@ -14,11 +14,11 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Active task
 
-- Completed checked configuration fixes: PPPoE-MWAN WAN-up/down; rstats/LLTD service enable; DHCP gateway-ARP enable; PPP DNS snapshot preservation.
-- Current WAN teardown task: `wan_down_internal()` now snapshots gateway/address/netmask with bounded checked NVRAM reads, accumulates/logs read errors, and only removes off-subnet gateway /32 route with a complete checked tuple. The checked previous WAN address is reused for conntrack flush and post-WAN hook fallback.
-- GNU89 regression in `tests/wan_teardown_policy.c` exercises successful off-subnet host route, on-subnet/PPP/invalid gateway cases, and gateway/address/netmask read failures. `scripts/check_wan_dns_read_status.py` asserts the production call path.
-- Exact-head main on checker-fix SHA `432005050395db4136cd80407f37000c5dede114`: WAN route #44925798017 PASS; gateway-ARP socket #44925798034 PASS; AI handoff #44925798009 PASS. Process integration #44925798100 failed only at stale LLTD enable-state assertions; its current implementation uses checked `service_nvram_match_status` and requires a matching contract update. XY-C1 on e100 SHA failed at the missing static-inline modem policy include; `net_wan.c` now includes `modem_wan_start_policy.h` and a fresh build is pending.
-- First next task: align LLTD/rstats startup contracts with checked enable reads, repair exact-head failures, then continue WAN control-plane state audit.
+- WAN teardown checked route snapshot fix committed at `cb3a9460635a3754e3317d6340ac6b6749aef4ff`: gateway/address/netmask now use bounded checked copies; error states are logged/accumulated; off-subnet host /32 removal requires a complete checked tuple; conntrack uses the same verified old address.
+- Current Process source fix: `restart_lltd()` and `restart_rstats()` no longer re-read their enable keys with unchecked `nvram_match()` after the checked start function; they return its status directly. This prevents NVRAM/start errors being converted to success while retaining disabled-service no-op behavior.
+- Regression contract in `scripts/check_process_lifecycle_integration.py` verifies both wrappers propagate the checked start result.
+- Last exact-head Actions for `cb3a946...` were queued/in progress: WAN teardown #44926424756, WAN route #44926424777, Process inventory #44926424612, XY-C1 #44926424759, USB modem #44926424748; poll these against their exact SHA and inspect failures before claiming success.
+- First next task: continue the WAN-down/control-plane status audit after exact-head verification.
 
 ## Verification boundary
 
@@ -45,5 +45,5 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-Fetch live main and confirm backup `backup/pre-plugin-overhaul-2026-11-14` is unchanged. Check exact-head WAN route, teardown, Process integration, USB modem and XY-C1 Build/TRX/artifact Actions for the checked gateway/address/netmask change; inspect failures and repair. Update LLTD/rstats integration assertions to expect `service_nvram_match_status()` instead of unchecked `nvram_invmatch()`. Then continue one independent P1 WAN/service reliability issue.
+Fetch live main and confirm backup `backup/pre-plugin-overhaul-2026-11-14` is unchanged. Check exact-head Process inventory, WAN route, WAN teardown, USB modem, XY-C1 Build/TRX/artifact and AI handoff Actions for the LLTD/rstats restart status-propagation fix. Inspect all failures and fix root causes. Then continue one independent WAN/service reliability slice, maintaining exact-SHA tests and atomic commits.
 

@@ -1505,6 +1505,19 @@ rstats_postcondition_at = rstats_start.index("process_presence_start_postconditi
 assert rstats_preflight < rstats_launch_at < rstats_wait_at < rstats_probe_at < rstats_inventory_at < rstats_postcondition_at
 assert "return process_presence_start_postcondition(start_status," in rstats_start
 
+# start_lltd()/start_rstats() already implement a checked enable read and
+# return zero when disabled. Re-reading the same key with nvram_match() here
+# used to swallow a real start/configuration error when that second read failed.
+lltd_restart = c_function_body(services_source, "int restart_lltd(void)")
+assert "return start_lltd();" in lltd_restart
+assert 'nvram_match("lltd_enable", "1")' not in lltd_restart
+assert "return stop_status;" in lltd_restart
+
+rstats_restart = c_function_body(services_source, "int restart_rstats(void)")
+assert "return start_rstats();" in rstats_restart
+assert 'nvram_match("rstats_enable", "1")' not in rstats_restart
+assert "return stop_status;" in rstats_restart
+
 rstats_main = c_function_body(rstats_source, "int rstats_main(int argc, char *argv[])")
 assert rstats_main.index("if (daemon(0, 0) < 0)") < rstats_main.index("if (alloc_rstats() < 0)")
 assert rstats_main.index("if (alloc_rstats() < 0)") < rstats_main.index('process_pidfile_write(RSTATS_PID_FILE, "rstats")')

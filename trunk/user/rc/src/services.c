@@ -2354,14 +2354,10 @@ int
 restart_rstats(void)
 {
 	int stop_status = stop_rstats();
-	int start_status;
 
 	if (stop_status != 0)
 		return stop_status;
-	start_status = start_rstats();
-	if (start_status != 0 && nvram_match("rstats_enable", "1"))
-		return start_status;
-	return 0;
+	return start_rstats();
 }
 
 int
@@ -2445,14 +2441,10 @@ int
 restart_lltd(void)
 {
 	int stop_status = stop_lltd();
-	int start_status;
 
 	if (stop_status != 0)
 		return stop_status;
-	start_status = start_lltd();
-	if (start_status != 0 && nvram_match("lltd_enable", "1"))
-		return start_status;
-	return 0;
+	return start_lltd();
 }
 
 int

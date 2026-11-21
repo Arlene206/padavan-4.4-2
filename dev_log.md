@@ -1,3 +1,12 @@
+## 2026-11-21 — Preserve checked LLTD/rstats restart failures
+
+- Parent main SHA: cb3a9460635a3754e3317d6340ac6b6749aef4ff.
+- `start_lltd()` and `start_rstats()` now use `service_nvram_match_status()` and return checked configuration-read errors. Their restart wrappers nevertheless re-read the same enable keys through unchecked `nvram_match()`; if the startup/read had failed and the second read also failed, the wrapper converted the error to success.
+- Simplified both restart wrappers to return the status from `start_lltd()`/`start_rstats()` after a successful stop. Disabled services already return zero from their checked start functions, so this preserves disabled behavior while preventing restart wrappers from swallowing read/launch/postcondition errors.
+- Extended `check_process_lifecycle_integration.py` to assert both wrappers propagate start status and do not re-read the keys unchecked. Process integration run #44925798100 had previously passed all process/daemon source checks until a stale pre-refactor LLTD assertion; current checker now expects checked enable reads. Exact-head Process and XY-C1 validation pending.
+
+---
+
 ## 2026-11-21 — Check WAN gateway/address/netmask reads during teardown
 
 - Parent main SHA: 7f3a752aec75f9b59984bd83cb40d8cbf0cbc5af.
