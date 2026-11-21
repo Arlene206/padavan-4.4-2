@@ -1,3 +1,12 @@
+## 2026-11-21 — Fail closed on uncertain USB modem WAN selection
+
+- Parent main SHA: `939e06459c5cb83b563758c30fc7371141e673f1`.
+- `select_usb_modem_to_wan()` used unchecked `nvram_get_int("modem_prio")`; a transient NVRAM read/parse failure collapsed to zero and silently selected the wired WAN even when a ready USB modem was configured. For priority 2, a failed `get_wan_ether_link_direct()` probe was also forced to zero, which treated an unknown Ethernet state as confirmed link absence and could select the modem while the physical WAN state was unknown.
+- Selection now reads `modem_prio` through the checked integer helper (missing key remains zero), checks `wan_src_phy` before PHY probing, retains PHY-probe errno, and applies a pure selection policy. Priority/read or link-probe errors abort before `set_usb_modem_dev_wan()`; priority 2 still prefers a confirmed wired link, uses the modem only after confirmed link absence, and retains APCLI/WISP behavior.
+- Added GNU89/ASAN/UBSAN policy coverage for missing defaults, backend/link errors, priority branches, WISP, absent modem and invalid inputs, plus exact USB workflow source assertions. USB / WAN / Process / XY-C1 exact-head CI is pending; L3/L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Retry failed WAN DHCP renew signals after link restoration
 
 - Parent main SHA: `b846d1035e0702815b360c1caa8c83a1b5a6980c`.

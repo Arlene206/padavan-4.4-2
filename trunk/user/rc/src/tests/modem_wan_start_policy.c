@@ -36,6 +36,91 @@ test_ras_peer_file_cleanup_only_after_failed_launch(void)
 }
 
 static void
+test_modem_selection_preserves_missing_priority_default(void)
+{
+	int selected = -1;
+
+	/* A missing modem_prio key historically resolves to zero: no modem. */
+	assert(modem_wan_select_device_status(7, 0, 0, 0, 0, 0,
+					      &selected) == 0);
+	assert(selected == 0);
+}
+
+static void
+test_modem_selection_fails_closed_on_priority_read_error(void)
+{
+	int selected = -1;
+
+	assert(modem_wan_select_device_status(7, EIO, 2, 0, 0, 0,
+					      &selected) == EIO);
+	assert(selected == 7);
+}
+
+static void
+test_modem_selection_fails_closed_on_unknown_ethernet_link(void)
+{
+	int selected = -1;
+
+	assert(modem_wan_select_device_status(7, 0, 2, 0, EACCES, 0,
+					      &selected) == EACCES);
+	assert(selected == 7);
+}
+
+static void
+test_modem_selection_prefers_wired_link_when_present(void)
+{
+	int selected = -1;
+
+	assert(modem_wan_select_device_status(7, 0, 2, 0, 0, 1,
+					      &selected) == 0);
+	assert(selected == 0);
+}
+
+static void
+test_modem_selection_uses_modem_only_after_confirmed_link_absence(void)
+{
+	int selected = -1;
+
+	assert(modem_wan_select_device_status(7, 0, 2, 0, 0, 0,
+					      &selected) == 0);
+	assert(selected == 7);
+}
+
+static void
+test_modem_selection_keeps_wisp_compatibility_without_link_probe(void)
+{
+	int selected = -1;
+
+	assert(modem_wan_select_device_status(7, 0, 2, 1, EIO, 0,
+					      &selected) == 0);
+	assert(selected == 0);
+}
+
+static void
+test_modem_selection_skips_priority_read_when_no_modem_is_present(void)
+{
+	int selected = -1;
+
+	assert(modem_wan_select_device_status(0, EIO, 2, 0, EIO, 0,
+					      &selected) == 0);
+	assert(selected == 0);
+}
+
+static void
+test_modem_selection_rejects_invalid_probe_and_output(void)
+{
+	int selected = -1;
+
+	assert(modem_wan_select_device_status(7, 0, 2, 0, 0, 2,
+					      &selected) == EIO);
+	assert(selected == 7);
+	assert(modem_wan_select_device_status(7, 0, 1, 0, 0, 0,
+					      NULL) == EINVAL);
+	assert(modem_wan_select_device_status(-1, 0, 1, 0, 0, 0,
+					      &selected) == EINVAL);
+}
+
+static void
 test_ndis_interface_bringup_failure_skips_network_start(void)
 {
 	int interface_status = EIO;
@@ -516,6 +601,14 @@ int
 main(void)
 {
 	test_miniupnp_migration_failure_blocks_dhcp();
+	test_modem_selection_preserves_missing_priority_default();
+	test_modem_selection_fails_closed_on_priority_read_error();
+	test_modem_selection_fails_closed_on_unknown_ethernet_link();
+	test_modem_selection_prefers_wired_link_when_present();
+	test_modem_selection_uses_modem_only_after_confirmed_link_absence();
+	test_modem_selection_keeps_wisp_compatibility_without_link_probe();
+	test_modem_selection_skips_priority_read_when_no_modem_is_present();
+	test_modem_selection_rejects_invalid_probe_and_output();
 	test_dhcp_launch_result_is_returned_after_migration();
 	test_ras_peer_file_cleanup_only_after_failed_launch();
 	test_ndis_interface_bringup_failure_skips_network_start();

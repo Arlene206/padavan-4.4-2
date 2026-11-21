@@ -125,6 +125,7 @@ jobs:
           dev_info_header = (libdisk / "dev_info.h").read_text()
           usb_info = (libdisk / "usb_info.c").read_text()
           hotplug = (rc / "hotplug_usb.c").read_text()
+          wan_network = (rc / "net_wan.c").read_text()
           sr_policy = (rc / "modem_sr_status_policy.h").read_text()
           sr_test = (rc / "tests/modem_sr_status_policy.c").read_text()
           sg_policy = (rc / "modem_sg_module_policy.h").read_text()
@@ -152,6 +153,30 @@ jobs:
                       if depth == 0:
                           return source[brace + 1:pos]
               raise AssertionError("unterminated function: " + signature)
+
+          modem_selector = body(wan_network, "select_usb_modem_to_wan(void)")
+          assert 'get_nvram_int_checked_status("modem_prio", &modem_priority)' in modem_selector
+          assert "modem_wan_select_device_status(" in modem_selector
+          assert 'nvram_get_int("modem_prio")' not in modem_selector
+          assert "if (has_link < 0)" in modem_selector
+          assert "link_probe_status = errno > 0 ? errno : EIO;" in modem_selector
+          assert modem_selector.index('get_nvram_int_checked_status("modem_prio"') < modem_selector.index("modem_wan_select_device_status(") < modem_selector.index("set_usb_modem_dev_wan(")
+          ethernet_probe = body(wan_network, "get_wan_ether_link_direct(int is_ap_mode)")
+          assert 'get_nvram_int_checked_status("wan_src_phy", &wan_src_phy)' in ethernet_probe
+          assert 'nvram_get_int("wan_src_phy")' not in ethernet_probe
+          assert "if (status != 0)" in ethernet_probe and "errno = status;" in ethernet_probe
+          assert "errno = EIO;" in ethernet_probe and "return -1;" in ethernet_probe
+          for marker in (
+              "test_modem_selection_preserves_missing_priority_default",
+              "test_modem_selection_fails_closed_on_priority_read_error",
+              "test_modem_selection_fails_closed_on_unknown_ethernet_link",
+              "test_modem_selection_prefers_wired_link_when_present",
+              "test_modem_selection_uses_modem_only_after_confirmed_link_absence",
+              "test_modem_selection_keeps_wisp_compatibility_without_link_probe",
+              "test_modem_selection_skips_priority_read_when_no_modem_is_present",
+              "test_modem_selection_rejects_invalid_probe_and_output",
+          ):
+              assert marker in retry_test and marker + "();" in retry_test
 
           assert "DEVICE_TYPE_MODEM_WDM" in dev_info_header
           classify = body(dev_info, "get_device_type_by_device(")

@@ -5666,26 +5666,40 @@ int
 select_usb_modem_to_wan(void)
 {
 	int modem_devnum = 0;
+	int selected_devnum = 0;
+	int modem_priority = 0;
+	int priority_status = 0, link_probe_status = 0;
+	int is_apcli_wisp = 0, has_link = 0;
 	int status;
 
 #if defined (USE_USB_SUPPORT)
 	/* check modem enabled and ready */
 	modem_devnum = get_modem_devnum();
 	if (modem_devnum) {
-		int modem_prio = nvram_get_int("modem_prio");
-		if (modem_prio < 1) {
-			modem_devnum = 0;
-		} else if (modem_prio == 2) {
-			if (!get_apcli_wisp_ifname()) {
-				int has_link = get_wan_ether_link_direct(0);
+		priority_status = get_nvram_int_checked_status("modem_prio",
+							 &modem_priority);
+		if (priority_status == 0 && modem_priority == 2) {
+			is_apcli_wisp = (get_apcli_wisp_ifname() != NULL);
+			if (!is_apcli_wisp) {
+				errno = 0;
+				has_link = get_wan_ether_link_direct(0);
 				if (has_link < 0)
-					has_link = 0;
-				
-				if (has_link)
-					modem_devnum = 0;
-			} else
-				modem_devnum = 0;
+					link_probe_status = errno > 0 ? errno : EIO;
+			}
 		}
+
+		status = modem_wan_select_device_status(
+			modem_devnum, priority_status, modem_priority,
+			is_apcli_wisp, link_probe_status, has_link,
+			&selected_devnum);
+		if (status != 0) {
+			logmessage(LOGNAME,
+				   "aborting USB modem WAN selection because priority or Ethernet link state is unavailable (status=%d)",
+				   status);
+			errno = status;
+			return status;
+		}
+		modem_devnum = selected_devnum;
 	}
 #endif
 	status = set_usb_modem_dev_wan(0, modem_devnum);
@@ -5697,22 +5711,31 @@ select_usb_modem_to_wan(void)
 	}
 	return 0;
 }
-
 int
 get_wan_ether_link_direct(int is_ap_mode)
 {
 	int ret = 0, wan_src_phy = SWAPI_PORT_WAN;
+	int status;
 	unsigned int phy_link = 0;
 
-	if (!is_ap_mode)
-		wan_src_phy = nvram_get_int("wan_src_phy");
+	if (!is_ap_mode) {
+		status = get_nvram_int_checked_status("wan_src_phy", &wan_src_phy);
+		if (status != 0) {
+			errno = status;
+			return -1;
+		}
+	}
 
 	if (wan_src_phy < 0)
 		wan_src_phy = SWAPI_PORT_WAN;
 
+	errno = 0;
 	ret = phy_status_port_link(wan_src_phy, &phy_link);
-	if (ret != 0)
+	if (ret != 0) {
+		if (errno <= 0)
+			errno = EIO;
 		return -1;
+	}
 
 	return (phy_link) ? 1 : 0;
 }

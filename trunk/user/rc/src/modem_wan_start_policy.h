@@ -55,6 +55,49 @@ modem_wan_start_status(int migration_status, int dhcp_status)
 }
 
 /*
+ * Select the modem only from a complete configuration snapshot. A failed
+ * priority read or uncertain Ethernet link must never be interpreted as
+ * permission to replace the currently selected WAN transport.
+ */
+static inline int
+modem_wan_select_device_status(int modem_devnum, int priority_status,
+			       int modem_priority, int is_apcli_wisp,
+			       int link_probe_status, int has_ethernet_link,
+			       int *selected_devnum)
+{
+	if (!selected_devnum)
+		return EINVAL;
+	if (modem_devnum < 0)
+		return EINVAL;
+
+	*selected_devnum = modem_devnum;
+	if (modem_devnum == 0) {
+		*selected_devnum = 0;
+		return 0;
+	}
+	if (priority_status != 0)
+		return priority_status;
+	if (modem_priority < 1) {
+		*selected_devnum = 0;
+		return 0;
+	}
+	if (modem_priority == 2) {
+		if (is_apcli_wisp) {
+			*selected_devnum = 0;
+			return 0;
+		}
+		if (link_probe_status != 0)
+			return link_probe_status;
+		if (has_ethernet_link != 0 && has_ethernet_link != 1)
+			return EIO;
+		if (has_ethernet_link)
+			*selected_devnum = 0;
+	}
+
+	return 0;
+}
+
+/*
  * Preserve a queued replug while an unplug transition is still running.
  * A failed transition is retried by restoring its matching hotplug event.
  */
