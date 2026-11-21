@@ -1111,7 +1111,7 @@ assert "Cannot read active nf_conntrack_ftp ports" in reload_modules
 assert "still referenced" in reload_modules
 assert "return reload_status;" in reload_modules
 assert "int reload_nat_modules(void);" in HEADER
-assert compact(RC_SOURCE).count("rc_notify_merge_action_result(action_result, reload_nat_modules())") == 2
+assert "".join(RC_SOURCE.split()).count("rc_notify_merge_action_result(action_result,reload_nat_modules())") == 2
 assert RC_SOURCE.count("reload_nat_modules();") == 0
 
 # WAN startup must retain NAT helper/accelerator errors without aborting the

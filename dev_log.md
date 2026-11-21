@@ -1,3 +1,14 @@
+## 2026-11-21 — Normalize whitespace inside shared WAN NVRAM call contracts
+
+- Parent main SHA: `a0b9a4f09d8091b427eda457a3a06b78e3cfd1df`; product source baseline remains `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`.
+- Exact-head USB storage #44905236668 PASS on `a0b9a4f`, including the corrected checked NFS wrapper/start/reload/restart source contract.
+- Firewall #44905236641, XY-C1 #44905236647, USB modem #44905236704 and Process inventory #44905236635 all reached the same WAN caller checker and failed the raw compact-count assertion. Evidence: the NETFILTER call has whitespace directly after the opening parenthesis, so the normalizer that collapses whitespace to a single space is insufficient. Corrected the count by removing all source whitespace before matching the exact invocation; exact count=2 remains required. The earlier policy binaries and WAN caller status checks in these jobs passed. XY-C1 stopped before target build/TRX/artifact.
+- AI docs #44905236737 failed because the current handoff omitted the required literal “Before context exhaustion” continuous-execution line; restored it without changing the handoff's materiality gate. Exact docs rerun pending.
+- NVRAM audit #44904764756 PASS on source `d9bffce5`; router-mode source regression #44904910387 PASS on `0398903`. No current-source XY-C1 L3 claim.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Correct shared WAN call normalization and NFS storage contract
 
 - Parent main SHA: `474eec0dc8b19630c62b13713731c4a3976073ce`; product-source baseline remains `d9bffce5e1dd5e3683102a5ced9350e26c15d02e`.

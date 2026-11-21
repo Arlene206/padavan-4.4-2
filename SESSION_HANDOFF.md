@@ -31,6 +31,8 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main w
 - NVRAM audit PASS on `d9bffce5`. The only fully proven later L3 cited here is old product SHA `b284c285`; no L3 for `d9bffce5`. Physical router L4 NOT VERIFIED.
 - No local checkout/runtime or local RC compile/sanitizer run was available in this session.
 
+Before context exhaustion, update this handoff when the validation boundary or next task changes; do not make no-op edits.
+
 ## Exact first action for the next GPT
 Fetch live main and inspect the exact-head USB storage, shared WAN source-check (USB modem/Firewall/Process/XY) and AI docs runs. If those source contracts pass, proceed immediately to the MiniUPnP internal-port validation production fix while any unrelated jobs remain pending. The MiniUPnP source commit should trigger the complete XY-C1 build for the combined current product state.
 
