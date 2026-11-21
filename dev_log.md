@@ -1,3 +1,12 @@
+## 2026-11-21 — Require an actual column-zero C function terminator
+
+- Parent main SHA: `c3fe4cfceb16f9fb140316ad789a45bebe2a60cb`.
+- The first preprocessor-aware extractor revision still accepted any whitespace-only line prefix as a function terminator; its own regression fixture exposed that this stopped at an indented inner block close rather than the function close. The same predicate existed in the WAN DHCP workflow helper.
+- Tightened both extractors to accept only a literal column-zero closing brace (`line_start == brace_position`), matching the repository's C function layout. The conditional-branch fixtures assert statements after the inner brace remain in the extracted body.
+- No production code changed. Both WAN route and WAN DHCP workflows will rerun because their checker files are part of the updated commit.
+
+---
+
 ## 2026-11-21 — Use preprocessor-aware extraction in WAN DHCP regression
 
 - Parent main SHA: `a4a60944890edae9dc6821eec906d3c4c6d881b0`.

@@ -118,7 +118,7 @@ def function_body_at_column_zero_terminator(text, signature):
         if character != "}":
             continue
         line_start = text.rfind(chr(10), 0, index) + 1
-        if not text[line_start:index].strip():
+        if line_start == index:
             return text[opening + 1:index]
     raise AssertionError("unterminated function: " + signature)
 

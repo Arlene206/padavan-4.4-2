@@ -367,7 +367,7 @@ jobs:
                   if char != "}":
                       continue
                   line_start = text.rfind(chr(10), 0, pos) + 1
-                  if not text[line_start:pos].strip():
+                  if line_start == pos:
                       return text[brace + 1:pos]
               raise AssertionError(f"unterminated function: {signature}")
 
