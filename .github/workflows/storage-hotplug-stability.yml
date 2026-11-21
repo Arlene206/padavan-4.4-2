@@ -1386,7 +1386,11 @@ jobs:
           ):
               locked_name = stop_name + "_locked"
               public_body = function_body(storage, signature)
-              locked_body = function_body(storage, locked_name + "(")
+              # Search the definition, not an earlier forward declaration or call.
+              locked_definition = "static int\n" + locked_name + "("
+              if locked_definition not in storage:
+                  locked_definition = "static int " + locked_name + "("
+              locked_body = function_body(storage, locked_definition)
               lock_pos = public_body.index("storage_operation_lock_acquire(file_lock)")
               call_pos = public_body.index(locked_name + "(")
               unlock_pos = public_body.index("file_unlock(storage_lock);")
