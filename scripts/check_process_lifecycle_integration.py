@@ -2631,7 +2631,9 @@ telnetd_inventory = telnetd_start.index('optional_daemon_presence("telnetd", &sc
 telnetd_postcondition = telnetd_start.index("process_presence_start_postcondition(start_status, process_state)", telnetd_inventory)
 assert telnetd_launch < telnetd_initial_wait < telnetd_probe < telnetd_inventory < telnetd_postcondition
 
-ttyd_start = services_source.split("int start_ttyd(void)", 1)[1].split("\n}\n", 1)[0]
+ttyd_start = c_function_body(
+    services_source, "start_ttyd_with_mode(int ttyd_mode)"
+)
 assert "int start_status, attempt, scan_error;" in ttyd_start
 assert "enum process_presence process_state;" in ttyd_start
 assert 'if (ttyd_mode != 1)' in ttyd_start

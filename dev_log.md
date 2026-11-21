@@ -1,3 +1,13 @@
+## 2026-11-21 — Point ttyd startup postcondition checks at the launch helper
+
+- Parent main SHA: `f405b71f7a6b5c8504da9296b73914c9328fd415`.
+- The second Process integration assertion now extracted the public `start_ttyd()` wrapper, but the assertions immediately below check launch status, retries, and detached-child postconditions that live in `start_ttyd_with_mode(int ttyd_mode)`. The checker therefore failed at its first declaration assertion after successful extraction.
+- Changed that block to extract the actual launch helper with the existing balanced C-function extractor. The public wrapper's checked NVRAM mode-read ordering remains independently asserted.
+- Exact-head Process integration #44914072650 failed at this mismatched function body; rerun on the new SHA is pending.
+- Next: verify the Process regression and inspect XY-C1 Build/TRX/artifact on the current source SHA.
+
+---
+
 ## 2026-11-21 — Centralize and test reverse DHCP lease tuple construction
 
 - Parent main SHA: `0b51276c02bbbcdde34de71435a1569dbd643b23`.
