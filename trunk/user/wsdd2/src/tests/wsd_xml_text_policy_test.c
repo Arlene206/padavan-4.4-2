@@ -26,6 +26,24 @@ test_markup_characters_are_escaped(void)
 }
 
 static void
+test_configured_metadata_text_is_escaped(void)
+{
+	char *vendor = wsd_xml_escape_text("Acme & Partners <Networks>");
+	char *model_url = wsd_xml_escape_text("https://router.test/?a=1&b=2");
+	char *workgroup = wsd_xml_escape_text("Office & Sales");
+
+	assert(vendor != NULL);
+	assert(strcmp(vendor, "Acme &amp; Partners &lt;Networks&gt;") == 0);
+	assert(model_url != NULL);
+	assert(strcmp(model_url, "https://router.test/?a=1&amp;b=2") == 0);
+	assert(workgroup != NULL);
+	assert(strcmp(workgroup, "Office &amp; Sales") == 0);
+	free(vendor);
+	free(model_url);
+	free(workgroup);
+}
+
+static void
 test_xml_whitespace_is_preserved(void)
 {
 	char *result = wsd_xml_escape_text("line1\tline2\nline3\r");
@@ -77,6 +95,7 @@ main(void)
 {
 	test_plain_text_is_preserved();
 	test_markup_characters_are_escaped();
+	test_configured_metadata_text_is_escaped();
 	test_xml_whitespace_is_preserved();
 	test_invalid_controls_and_null_are_rejected();
 	test_empty_and_large_text();

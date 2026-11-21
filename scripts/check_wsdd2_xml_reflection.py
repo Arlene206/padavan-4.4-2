@@ -33,4 +33,18 @@ for marker in (
     assert marker in POLICY, marker
 assert "wsd_xml_text_policy_test.c" in WORKFLOW
 assert 'trunk/user/wsdd2/**' in XY_WORKFLOW
-print("wsdd2 WSD RelatesTo XML escaping source contract: PASS")
+
+get_start = SOURCE.index("static int wsd_send_get_response(")
+get_end = SOURCE.index("\n/*\n * Validate HTTP POST", get_start)
+get_response = SOURCE[get_start:get_end]
+metadata_keys = ("vendor:", "vendorurl:", "model:", "modelurl:", "presentationurl:")
+for index, key in enumerate(metadata_keys):
+    assert f'raw_metadata[{index}] = get_getresp("{key}")' in get_response
+assert "raw_metadata[5] = netbiosname;" in get_response
+assert "raw_metadata[6] = workgroup;" in get_response
+assert "escaped[i] = wsd_xml_escape_text(raw_metadata[i])" in get_response
+assert get_response.index("wsd_xml_escape_text(raw_metadata[i])") < get_response.index("asprintf(&body")
+assert "escaped[0]" in get_response and "escaped[6]" in get_response
+assert "free(escaped[i]);" in get_response
+
+print("wsdd2 WSD RelatesTo and metadata XML escaping source contract: PASS")

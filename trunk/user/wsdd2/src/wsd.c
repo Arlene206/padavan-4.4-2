@@ -805,7 +805,12 @@ static int wsd_send_get_response(int fd,
 				const struct wsd_req_info *info,
 				const char *ip)
 {
-	char *body;
+	char *body = NULL;
+	char *escaped[7] = { NULL };
+	const char *raw_metadata[7];
+	ssize_t len;
+	int rv = -1;
+	size_t i;
 	const char body_templ[] =
 		"<soap:Body>"
 		"<wsx:Metadata>"
@@ -846,30 +851,52 @@ static int wsd_send_get_response(int fd,
 		"</wsx:Metadata>"
 		"</soap:Body>";
 
-	ssize_t len = asprintf(&body, body_templ,
+	/* Configured values are XML text, not trusted markup. */
+	raw_metadata[0] = get_getresp("vendor:");
+	raw_metadata[1] = get_getresp("vendorurl:");
+	raw_metadata[2] = get_getresp("model:");
+	raw_metadata[3] = get_getresp("modelurl:");
+	raw_metadata[4] = get_getresp("presentationurl:");
+	raw_metadata[5] = netbiosname;
+	raw_metadata[6] = workgroup;
+
+	for (i = 0; i < sizeof(raw_metadata) / sizeof(raw_metadata[0]); ++i) {
+		escaped[i] = wsd_xml_escape_text(raw_metadata[i]);
+		if (!escaped[i]) {
+			ep->errstr = "wsd_send_get_response: XML metadata escape";
+			ep->_errno = errno;
+			goto out;
+		}
+	}
+
+	len = asprintf(&body, body_templ,
 				"Microsoft Publication Service Device Host",
 				"1.0",
 				"20050718",
-				get_getresp("vendor:"),
-				get_getresp("vendorurl:"),
-				get_getresp("model:"),
-				get_getresp("modelurl:"),
-				get_getresp("presentationurl:"),
+				escaped[0],
+				escaped[1],
+				escaped[2],
+				escaped[3],
+				escaped[4],
 				wsd_endpoint,
 				wsd_endpoint,
-				netbiosname,
-				workgroup
+				escaped[5],
+				escaped[6]
 			);
 	if (len <= 0) {
 		ep->errstr = "wsd_send_get_response: asprintf";
 		ep->_errno = errno;
-		return -1;
+		goto out;
 	}
 
-	int rv = wsd_send_soap_msg(fd, ep, sa, WSD_TO_ANONYMOUS,
+	rv = wsd_send_soap_msg(fd, ep, sa, WSD_TO_ANONYMOUS,
 					WXT_ACT_GETRESPONSE, info->msgid, body,
 					send_http_resp_header, 200);
+
+out:
 	free(body);
+	for (i = 0; i < sizeof(escaped) / sizeof(escaped[0]); ++i)
+		free(escaped[i]);
 	return rv;
 }
 
