@@ -43,7 +43,17 @@ case "$name" in
 		fi
 		exit 1
 		;;
-	logger|sleep)
+	logger)
+		exit 0
+		;;
+	sleep)
+		if [ "$DELAY_PID_COMMAND" = "rpc.mountd" ] &&
+		   [ -f "$STATE_DIR/delay-rpc.mountd" ]; then
+			rm -f "$STATE_DIR/delay-rpc.mountd"
+			: > "$STATE_DIR/rpc.mountd"
+			mkdir -p "$PROC_ROOT/124"
+			printf 'rpc.mountd\n' > "$PROC_ROOT/124/comm"
+		fi
 		exit 0
 		;;
 	rpcbind|rpc.nfsd|rpc.mountd)
@@ -53,7 +63,9 @@ case "$name" in
 			rpc.nfsd) state_file="$STATE_DIR/nfsd"; process_pid=123; process_name=nfsd ;;
 			rpc.mountd) state_file="$STATE_DIR/rpc.mountd"; process_pid=124; process_name=rpc.mountd ;;
 		esac
-		if [ "$NO_PID_COMMAND" != "$name" ]; then
+		if [ "$DELAY_PID_COMMAND" = "$name" ]; then
+			: > "$STATE_DIR/delay-$name"
+		elif [ "$NO_PID_COMMAND" != "$name" ]; then
 			: > "$state_file"
 			mkdir -p "$PROC_ROOT/$process_pid"
 			printf '%s\n' "$process_name" > "$PROC_ROOT/$process_pid/comm"
@@ -144,8 +156,9 @@ run_command()
 	fail_command=$1
 	no_pid_command=$2
 	action=$3
+	delay_pid_command=${4:-}
 	if FAIL_COMMAND="$fail_command" NO_PID_COMMAND="$no_pid_command" \
-		/bin/sh "$tmp_dir/nfsd.sh" "$action"; then
+	   DELAY_PID_COMMAND="$delay_pid_command" /bin/sh "$tmp_dir/nfsd.sh" "$action"; then
 		status=0
 	else
 		status=$?
@@ -440,6 +453,25 @@ status=$(run_command "" "" reload)
 }
 assert_command exportfs
 assert_no_command rpc.nfsd
+
+
+# rpc.mountd daemonizes: the launcher may return before the child becomes
+# visible in procfs. A later poll must accept the child without false rollback.
+reset_fixture
+status=$(run_command "" "" start rpc.mountd)
+[ "$status" -eq 0 ] || {
+	echo "NFS start rejected rpc.mountd child after daemonization delay: $status" >&2
+	exit 1
+}
+assert_command rpc.mountd
+grep -q '^sleep ' "$COMMAND_LOG" || {
+	echo "NFS mountd readiness wait did not poll after launcher success" >&2
+	exit 1
+}
+[ -f "$STATE_DIR/rpc.mountd" ] || {
+	echo "NFS start returned success before delayed rpc.mountd child appeared" >&2
+	exit 1
+}
 
 reset_fixture
 status=$(run_command "" "" start)

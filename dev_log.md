@@ -1,3 +1,12 @@
+## 2026-11-21 — Wait for daemonized rpc.mountd child before treating NFS startup as failed
+
+- Parent main SHA: `32101ce99fa668c986871b5eff306fe90d18683d`.
+- Fixed an NFS startup race in `trunk/user/nfs-utils/nfsd.sh`: `rpc.mountd` daemonizes by default, but the script previously checked procfs only once immediately after its launcher returned. A scheduled-later child could be misclassified as a false-success/failed start and trigger avoidable teardown. Startup now uses four bounded process-inventory attempts with three one-second settling intervals; RUNNING succeeds, UNKNOWN fails immediately, and continued ABSENT fails closed into existing cleanup.
+- Added a shell integration regression that delays publishing the mock rpc.mountd child until the first post-launch poll; it requires startup success only after the child appears. Existing false-success and cleanup cases remain in place.
+- Shell syntax and host regression are delegated to exact-SHA NFS Actions; no local target build or physical-router test is claimed. Exact-head Actions are pending at commit time.
+
+---
+
 ## 2026-11-21 — Cross-service detached-daemon rollback and CI handoff checkpoint
 
 - Source parent SHA: 8f21e7fc31609caae6ab0d2260e4b345f3e6d487; frozen backup: 72f4f157a084f8184b9597ca5bf334b8080e5807 (unchanged).

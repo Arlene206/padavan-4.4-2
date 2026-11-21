@@ -109,6 +109,37 @@ func_process_presence()
 	done
 	return 1
 }
+
+# rpc.mountd daemonizes by default. Its launcher can exit before the child
+# is visible in procfs, so use a bounded readiness window rather than one
+# immediate snapshot. UNKNOWN aborts immediately; ABSENT is retried.
+func_wait_process_running()
+{
+	wanted_name="$1"
+	attempt=0
+
+	while [ "$attempt" -lt 4 ]; do
+		func_process_presence "$wanted_name"
+		presence=$?
+		case "$presence" in
+		0)
+			return 0
+			;;
+		1)
+			;;
+		*)
+			return 2
+			;;
+		esac
+
+		attempt=$((attempt + 1))
+		[ "$attempt" -lt 4 ] || break
+		sleep 1 || return 2
+	done
+
+	return 1
+}
+
 func_start()
 {
 	func_process_presence rpcbind
@@ -239,10 +270,10 @@ func_start()
 		func_stop || logger -t "NFS server" "NFS startup cleanup after rpc.mountd failure was incomplete"
 		return 1
 	}
-	func_process_presence rpc.mountd
+	func_wait_process_running rpc.mountd
 	mountd_state=$?
 	if [ "$mountd_state" -ne 0 ]; then
-		logger -t "NFS server" "rpc.mountd returned success but the daemon is not running"
+		logger -t "NFS server" "rpc.mountd returned success but the daemon did not become ready (state=$mountd_state)"
 		func_stop || logger -t "NFS server" "NFS startup cleanup after rpc.mountd failure was incomplete"
 		return 1
 	fi
