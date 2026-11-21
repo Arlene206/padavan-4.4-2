@@ -628,7 +628,8 @@ jobs:
           assert "if (!enabled)" in route_enable_control
           assert 'nvram_invmatch("sr_enable_x", "1")' not in route_enable_control
           assert "static_route_metric_parse" in route_test
-          assert "static_route_ipv4_field_is_safe" in route_test
+          assert "static_route_ipv4_address_is_valid" in route_test
+          assert 'static_route_ipv4_address_is_valid("01.2.3.4")' in route_test
           assert 'nvram_get_checked("sr_num_x", &value)' in route_count_reader
           assert "static_route_entry_count_is_safe(*entry_count)" in route_count_reader
           assert "firewall_read_indexed_string_setting(name, index, &value)" in route_copy_reader
