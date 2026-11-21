@@ -180,8 +180,11 @@ for start_marker, end_marker, launcher, enable_guard, service_name, presence_cal
     assert "if (process_state == PROCESS_PRESENCE_RUNNING)" in start_body
     assert "if (process_state != PROCESS_PRESENCE_ABSENT)" in start_body
     assert launcher in start_body
-    assert "storage_log_daemon_start_result(apps_name, launch_status," in start_body
-    assert start_body.index(launcher) < start_body.index("storage_log_daemon_start_result(apps_name, launch_status,")
+    normalized_start_body = " ".join(start_body.split())
+    normalized_launcher = " ".join(launcher.split())
+    start_result_call = "storage_log_daemon_start_result( apps_name, launch_status,"
+    assert start_result_call in normalized_start_body
+    assert normalized_start_body.index(normalized_launcher) < normalized_start_body.index(start_result_call)
     post_launch = start_body.split(launcher, 1)[1]
     assert "process_state = " + presence_call + ";" in post_launch
     assert service_name in start_body
