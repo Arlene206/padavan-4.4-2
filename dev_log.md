@@ -1,3 +1,13 @@
+## 2026-11-21 — Correct the remaining shared-xl2tpd success-sentinel contract
+
+- Parent main SHA: 75351d845a23d351c3d6e44a682257693be90d8a.
+- Exact VPN lifecycle #44934584827 passed all compiled regression steps but then failed at Python line 498: a second pre-existing source assertion still required the removed vpn_server_restart_should_restore_shared_xl2tpd() call. That predicate was superseded by the fail-safe checked dependency snapshot and vpn_server_restart_should_attempt_restore_shared_xl2tpd() decision.
+- Updated the assertion to require the checked dependency reader, conservative restore decision, safe_start_xl2tpd_locked() attempt, dependency-error propagation and the existing nonnegative-start success convention. This verifies that a positive already-running sentinel remains success while read errors remain visible.
+- Exact AI handoff #44934584859 passed. Exact 6569 VPN lifecycle failed only in source contracts after all compiled policy/sanitizer tests passed; 6569 OpenVPN #44934446352, Firewall #44934446425, HTTPD #44934446395, Process #44934446571/#44934446418 passed; NVRAM #44934446421 and XY-C1 #44934446423 were still pending.
+- L3 remains verified only on d0f9140a9ba392dbd0a9366b5a7472d0e7c9a192; L4 remains not verified.
+
+---
+
 ## 2026-11-21 — Align shared-xl2tpd lifecycle contract with fail-safe restoration
 
 - Parent main SHA: 6569fef7b8420d1d8b6adf51a3a3b6d069f9af86.

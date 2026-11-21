@@ -51,7 +51,7 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 - L4: Hardware WAN routing, concurrent callback behavior and on-device HTTPD duplicate-header behavior remain NOT VERIFIED.
 
 
-- Exact-head callback-mode snapshot commit `6569fef7b8420d1d8b6adf51a3a3b6d069f9af86`: VPN lifecycle #44934446434 failed only at the stale shared-xl2tpd restore source contract; compiled VPN config, lifecycle lock, xl2tpd gate, L2TP atomic config, lease, restart, client NVRAM and PPP scalar regressions all passed. OpenVPN #44934446352, Firewall #44934446425 and AI docs #44934446376 passed. HTTPD #44934446395, Process inventory #44934446418/#44934446571, NVRAM audit #44934446421 and XY-C1 #44934446423 were pending at last poll. This checker-only commit updates the contract for `vpn_server_restart_should_attempt_restore_shared_xl2tpd()` and requires its read-error test; exact rerun required.
+- Exact-head VPN lifecycle #44934584827 after the first checker correction reached a second stale assertion at line 498: an older shared-xl2tpd test still required the removed vpn_server_restart_should_restore_shared_xl2tpd() call. The conservative path now uses a transaction-read dependency snapshot and vpn_server_restart_should_attempt_restore_shared_xl2tpd(), then starts the daemon and propagates dependency-read failure. All compiled VPN regression steps passed before this source-contract failure. This commit aligns that remaining assertion with the new flow.
 
 ## Workflow and preservation rules
 
@@ -71,6 +71,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle rerun for the shared-xl2tpd checker correction and poll the outstanding 6569 NVRAM, Process and XY-C1 workflows. Require Build, TRX verification and artifact upload all PASS on one product SHA.
-2. Continue with the callback-mode snapshot task: inspect all exact-run results and audit remaining VPN callbacks/hostname/DHCP-derived values for compatibility NVRAM reads. Keep down-side mandatory cleanup independent from optional relay logic.
-3. Do not reopen completed CHAP, address-pool, PPP options or remote-LAN ACL snapshots unless a same-SHA regression appears.
+1. Inspect exact-head VPN lifecycle rerun after aligning both stale shared-xl2tpd source contracts. Poll 6569 NVRAM, Process and XY-C1 results; confirm same-SHA Build, TRX and artifact all PASS before advancing L3.
+2. Review remaining VPN callback and service-state reads for unchecked NVRAM compatibility getters. Confirm ipdown_vpns_main() keeps mandatory firewall, lease, route and custom-hook cleanup if optional mode data cannot be read.
+3. Audit residual hostname and DHCP-derived PPP inputs; leave completed CHAP, pool, PPP options and remote-LAN ACL snapshots closed absent regression evidence.
