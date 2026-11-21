@@ -1,3 +1,7 @@
+## Mandatory handoff checkpoint
+
+The checkpoint is mandatory; a document edit is conditional. Every session MUST inspect live main, the engineering baseline, exact-head Actions, validation boundaries and the first next action before ending. Update this file only when those facts materially change; do not create a no-op commit or chase documentation-only SHAs. Each multi-file logical slice must land as one atomic main commit. Before context exhaustion, finish the active safe slice and leave an exact first action.
+
 # Cross-session execution mandate
 
 ## Current repository state
@@ -14,9 +18,10 @@
 
 ## Verification boundary
 
-- Exact-head 53e9 Actions were pending at last poll: VPN lifecycle #44939430753, XY-C1 #44939430749, AI docs #44939430857, NVRAM #44939430717, Process inventory #44939430869, OpenVPN credential staging #44939430805. Those runs are stale relative to the current source commit.
-- Parent 418 workflow findings: shared VPN policy C regression passed, but VPN lifecycle #44939242958 failed at a stale checker expecting the former parser; AI docs #44939242988 failed on part-023 byte count. Both were corrected in 53e9; exact-head re-runs are required.
-- Parent 53e9 exact-head L3 not established. The current source commit must pass same-SHA XY-C1 Build, TRX verification and artifact upload before L3 is claimed. No local build/tests are claimed. Hardware L4 remains NOT VERIFIED.
+- On parent `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a`, OpenVPN client credential staging #44939588500 PASS. VPN lifecycle #44939588479 failed in the new exported-profile source contract because the ordered assertion searched for nested `options.auth_digest` before the containing `openvpn_add_auth()` call; this follow-up separates field-presence checks from ordered helper calls. Production source is unchanged by this checker correction.
+- AI handoff docs #44939588455 failed because the previous handoff rewrite omitted the mandatory end-of-session accuracy checkpoint; this commit restores that required section.
+- XY-C1 #44939588534 remained in progress before Build XY-C1 at last poll; Build, TRX verification and artifact upload had not yet run. No L3 result is established. Process #44939588492, NVRAM #44939588487 and HTTPD #44939588574 were also in progress.
+- The parent source SHA `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a` still requires same-SHA XY-C1 Build, TRX and artifact upload. No local tests/build are claimed; hardware L4 remains NOT VERIFIED.
 
 ## Exact first actions for the next GPT
 

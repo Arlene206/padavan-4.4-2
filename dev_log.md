@@ -1,3 +1,12 @@
+## 2026-11-22 — Correct OpenVPN export contract ordering and restore mandatory handoff gate
+
+- Parent main SHA: `d3b7304c83e962c15d25f4be7c2dae8ce4f8484a`.
+- VPN lifecycle #44939588479 passed the client DNS shared-reader contract and earlier policy regressions, then failed because `ordered()` matched nested `options.auth_digest` before the containing `openvpn_add_auth()` call. Split snapshot-field presence from the ordered helper-call sequence; production source is unchanged by this checker correction.
+- AI handoff docs #44939588455 found that the rewritten handoff omitted the mandatory end-of-session accuracy checkpoint. Restored the required checkpoint section.
+- OpenVPN credential staging #44939588500 passed on the parent. XY-C1 #44939588534 was still before Build XY-C1 at last poll; no TRX/artifact/L3 result was available. Exact-head VPN and AI reruns plus same-SHA XY-C1 Build/TRX/artifact verification remain required; L4 is NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Harden OpenVPN exported server identity and dual-stack reachability
 
 - Parent main SHA: `53e9c553994afe3917c3451dee9d73f116be1024`.

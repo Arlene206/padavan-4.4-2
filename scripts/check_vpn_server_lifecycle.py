@@ -1068,10 +1068,13 @@ ordered(server_export,[
     "mkdtemp(tmp_ovpn_path)",
     "openvpn_config_file_open(tmp_ovpn_conf, staged_ovpn_conf",
     "network.is_tun",
-    "options.port",
-    "options.auth_digest",
-    "options.cipher",
-    "options.compression",
+    "options.port"
+],"OpenVPN exported client profile must use checked server snapshots before filesystem/key-generation side effects")
+require("options.auth_digest" in server_export and
+        "options.cipher" in server_export and
+        "options.compression" in server_export,
+        "exported profile must carry validated auth, cipher and compression settings")
+ordered(server_export,[
     "openvpn_add_auth(fp, options.auth_digest)",
     "openvpn_add_cipher(fp, options.cipher, options.ncp_cipher_list)",
     "openvpn_add_compress(fp, options.compression, 0)",
