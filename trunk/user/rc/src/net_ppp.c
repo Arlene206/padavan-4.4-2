@@ -717,7 +717,7 @@ launch_wan_pppd_locked(int unit, int wan_proto)
 	FILE *fp;
 	struct ppp_wan_option_values option_values;
 	struct ppp_wan_option_text_values text_values;
-	int auth_type, mtu, mru, mtu_max, mru_def, mru_max;
+	int auth_type, mtu, mru, mtu_max, mtu_def, mru_def, mru_max;
 	int option_status, text_status, saved_errno, launch_status, cleanup_status;
 	unsigned long callback_generation;
 	char callback_generation_text[sizeof(unsigned long) * CHAR_BIT + 1];

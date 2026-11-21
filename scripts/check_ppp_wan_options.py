@@ -90,6 +90,8 @@ require('get_wan_unit_value_copy_status(unit, "ppp_peer"' in peer_copy and
         "PPP peer fallback must use checked local copies")
 
 launch = body(net_ppp, "launch_wan_pppd_locked(int unit, int wan_proto)")
+require("int auth_type, mtu, mru, mtu_max, mtu_def, mru_def, mru_max;" in launch,
+        "PPP MTU default local must remain declared for all protocol branches")
 preflight = launch.index("ppp_wan_option_values_read(")
 text_preflight = launch.index("ppp_wan_option_text_values_read(")
 generation = launch.index("ppp_wan_session_generation_change(&callback_generation)")
