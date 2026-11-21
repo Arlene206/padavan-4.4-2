@@ -28,6 +28,7 @@
 #include "process_inventory.h"
 #include "optional_daemon_policy.h"
 #include "process_presence_start_policy.h"
+#include "detached_daemon_start_policy.h"
 #include "logger_start_policy.h"
 #include "service_start_status.h"
 #include "watchdog_cpu_restart_policy.h"
@@ -127,6 +128,60 @@ optional_daemon_stop_status(const char *service_name, const char *process_name,
 	return result;
 }
 
+static enum process_presence
+optional_daemon_rollback_scan(void *context, int *scan_error)
+{
+	if (!context) {
+		if (scan_error)
+			*scan_error = EINVAL;
+		errno = EINVAL;
+		return PROCESS_PRESENCE_UNKNOWN;
+	}
+	return optional_daemon_presence((const char *)context, scan_error);
+}
+
+static int
+optional_daemon_rollback_stop(void *context)
+{
+	char *service_names[2];
+
+	if (!context) {
+		errno = EINVAL;
+		return EINVAL;
+	}
+	service_names[0] = (char *)context;
+	service_names[1] = NULL;
+	return kill_services(service_names, 3, 1);
+}
+
+static int
+optional_daemon_rollback_failed_start(const char *service_name,
+				      int start_status, int start_errno)
+{
+	int stop_status = 0;
+	int scan_error = 0;
+	int saved_errno;
+	int result;
+	enum process_presence final_state = PROCESS_PRESENCE_UNKNOWN;
+
+	result = detached_daemon_start_rollback_with_ops(
+		start_status, start_errno, optional_daemon_rollback_stop,
+		optional_daemon_rollback_scan, (void *)service_name,
+		&stop_status, &final_state, &scan_error);
+	saved_errno = errno;
+	if (final_state == PROCESS_PRESENCE_ABSENT) {
+		logmessage(LOGNAME,
+			   "%s startup rollback confirmed process absent (stop_status=%d)",
+			   service_name, stop_status);
+	} else {
+		logmessage(LOGNAME,
+			   "%s startup rollback incomplete (primary_status=%d, stop_status=%d, process_state=%d, scan_error=%d)",
+			   service_name, start_status, stop_status, final_state, scan_error);
+	}
+	errno = saved_errno;
+	return result;
+}
+
 void
 stop_syslogd(void)
 {
@@ -156,7 +211,7 @@ start_syslogd(void)
 		NULL, NULL,			/* -R host:port */
 		NULL
 	};
-	int start_status, attempt, scan_error;
+	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
 	start_status = optional_daemon_start_status("syslogd", "syslogd");
@@ -182,16 +237,19 @@ start_syslogd(void)
 	 * BusyBox syslogd daemonizes unless -n is supplied. _eval() waits for
 	 * that short-lived launcher, not for the detached logging child.
 	 */
+	errno = 0;
 	start_status = _eval(syslogd_argv, NULL, 0, NULL);
 	if (start_status != 0) {
 		logmessage(LOGNAME, "syslogd launcher failed (status=%d)", start_status);
-		return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+		start_errno = errno;
+		return optional_daemon_rollback_failed_start("syslogd", start_status, start_errno);
 	}
 
 	start_status = service_start_probe_wait("syslogd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
-	if (start_status != 0)
-		return start_status;
+	if (start_status != 0) {
+		start_errno = errno;
+		return optional_daemon_rollback_failed_start("syslogd", start_status, start_errno);
+	}
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("syslogd", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -200,25 +258,27 @@ start_syslogd(void)
 			errno = scan_error > 0 ? scan_error : EIO;
 			logmessage(LOGNAME, "cannot verify syslogd startup (scan_error=%d)",
 				   errno);
-			return -1;
+			start_errno = errno;
+			return optional_daemon_rollback_failed_start("syslogd", -1, start_errno);
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("syslogd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
-			if (start_status != 0)
-				return start_status;
+			if (start_status != 0) {
+				start_errno = errno;
+				return optional_daemon_rollback_failed_start("syslogd", start_status, start_errno);
+			}
 		}
 	}
 
 	errno = ETIMEDOUT;
 	logmessage(LOGNAME, "syslogd did not remain running after launch");
-	return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+	return optional_daemon_rollback_failed_start("syslogd", -1, ETIMEDOUT);
 }
 
 int
 start_klogd(void)
 {
-	int start_status, attempt, scan_error;
+	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
 	start_status = optional_daemon_start_status("klogd", "klogd");
@@ -231,16 +291,19 @@ start_klogd(void)
 	 * BusyBox klogd daemonizes by default before opening the kernel log.
 	 * Verify the detached reader, not only the short-lived launcher.
 	 */
+	errno = 0;
 	start_status = eval("/sbin/klogd");
 	if (start_status != 0) {
 		logmessage(LOGNAME, "klogd launcher failed (status=%d)", start_status);
-		return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+		start_errno = errno;
+		return optional_daemon_rollback_failed_start("klogd", start_status, start_errno);
 	}
 
 	start_status = service_start_probe_wait("klogd", PROCESS_PRESENCE_START_INITIAL_WAIT_SECONDS);
-	if (start_status != 0)
-		return start_status;
+	if (start_status != 0) {
+		start_errno = errno;
+		return optional_daemon_rollback_failed_start("klogd", start_status, start_errno);
+	}
 	for (attempt = 0; attempt < PROCESS_PRESENCE_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("klogd", &scan_error);
 		if (process_presence_start_postcondition(start_status, process_state) == 0)
@@ -249,19 +312,21 @@ start_klogd(void)
 			errno = scan_error > 0 ? scan_error : EIO;
 			logmessage(LOGNAME, "cannot verify klogd startup (scan_error=%d)",
 				   errno);
-			return -1;
+			start_errno = errno;
+			return optional_daemon_rollback_failed_start("klogd", -1, start_errno);
 		}
 		if (attempt + 1 < PROCESS_PRESENCE_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("klogd", PROCESS_PRESENCE_START_RETRY_WAIT_SECONDS);
-			if (start_status != 0)
-				return start_status;
+			if (start_status != 0) {
+				start_errno = errno;
+				return optional_daemon_rollback_failed_start("klogd", start_status, start_errno);
+			}
 		}
 	}
 
 	errno = ETIMEDOUT;
 	logmessage(LOGNAME, "klogd did not remain running after launch");
-	return process_presence_start_postcondition(start_status,
-					     PROCESS_PRESENCE_ABSENT);
+	return optional_daemon_rollback_failed_start("klogd", -1, ETIMEDOUT);
 }
 
 int
@@ -274,7 +339,7 @@ stop_infosvr(void)
 int
 start_infosvr(void)
 {
-	int start_status, attempt, scan_error;
+	int start_status, attempt, scan_error, start_errno;
 	enum process_presence process_state;
 
 	if (nvram_invmatch("adsc_enable", "1"))
@@ -291,19 +356,22 @@ start_infosvr(void)
 	 * observes the daemonizing parent, so confirm the detached child remains
 	 * visible before reporting a successful service start to PID 1.
 	 */
+	errno = 0;
 	start_status = eval("/usr/sbin/infosvr", IFNAME_BR);
 	if (start_status != 0) {
 		logmessage("infosvr", "infosvr launch failed (status=%d)",
 			   start_status);
 		if (start_status > 0)
 			errno = EIO;
-		return infosvr_start_postcondition(start_status,
-						   PROCESS_PRESENCE_ABSENT);
+		start_errno = errno;
+		return optional_daemon_rollback_failed_start("infosvr", -1, start_errno);
 	}
 
 	start_status = service_start_probe_wait("infosvr", INFOSVR_START_INITIAL_WAIT_SECONDS);
-	if (start_status != 0)
-		return start_status;
+	if (start_status != 0) {
+		start_errno = errno;
+		return optional_daemon_rollback_failed_start("infosvr", start_status, start_errno);
+	}
 	for (attempt = 0; attempt < INFOSVR_START_PROBE_ATTEMPTS; attempt++) {
 		process_state = optional_daemon_presence("infosvr", &scan_error);
 		if (infosvr_start_postcondition(start_status, process_state) == 0)
@@ -312,18 +380,21 @@ start_infosvr(void)
 			errno = scan_error > 0 ? scan_error : EIO;
 			logmessage("infosvr", "cannot verify daemon startup (scan_error=%d)",
 				   errno);
-			return -1;
+			start_errno = errno;
+			return optional_daemon_rollback_failed_start("infosvr", -1, start_errno);
 		}
 		if (attempt + 1 < INFOSVR_START_PROBE_ATTEMPTS) {
 			start_status = service_start_probe_wait("infosvr", INFOSVR_START_RETRY_WAIT_SECONDS);
-			if (start_status != 0)
-				return start_status;
+			if (start_status != 0) {
+				start_errno = errno;
+				return optional_daemon_rollback_failed_start("infosvr", start_status, start_errno);
+			}
 		}
 	}
 
 	errno = ETIMEDOUT;
 	logmessage("infosvr", "daemon did not remain running after launch");
-	return -1;
+	return optional_daemon_rollback_failed_start("infosvr", -1, ETIMEDOUT);
 }
 
 int
@@ -383,7 +454,7 @@ start_crond(void)
 		NULL,			/* -d8 */
 		NULL
 	};
-	int launch_status, attempt, status, scan_error, preflight_status;
+	int launch_status, attempt, status, scan_error, preflight_status, launch_errno;
 	enum process_presence presence;
 
 	if (nvram_invmatch("crond_enable", "1"))
@@ -408,15 +479,19 @@ start_crond(void)
 	 * detached child still has to enter the spool directory, scan jobs
 	 * and publish its pidfile, so _eval() alone is not a daemon postcondition.
 	 */
+	errno = 0;
 	launch_status = _eval(crond_argv, NULL, 0, NULL);
 	if (launch_status != 0) {
 		logmessage(LOGNAME, "crond launcher failed: %d", launch_status);
-		return crond_start_postcondition(launch_status, PROCESS_PRESENCE_ABSENT);
+		launch_errno = errno;
+		return optional_daemon_rollback_failed_start("crond", -1, launch_errno);
 	}
 
 	status = service_start_probe_wait("crond", CROND_START_INITIAL_WAIT_SECONDS);
-	if (status != 0)
-		return status;
+	if (status != 0) {
+		launch_errno = errno;
+		return optional_daemon_rollback_failed_start("crond", status, launch_errno);
+	}
 	status = -1;
 	for (attempt = 0; attempt < CROND_START_PROBE_ATTEMPTS; attempt++) {
 		presence = crond_process_presence(&scan_error);
@@ -424,21 +499,25 @@ start_crond(void)
 		if (presence == PROCESS_PRESENCE_RUNNING)
 			return 0;
 		if (presence == PROCESS_PRESENCE_UNKNOWN) {
+			errno = scan_error > 0 ? scan_error : EIO;
 			logmessage(LOGNAME,
 				   "cannot verify crond startup postcondition (scan_error=%d)",
 				   scan_error ? scan_error : EIO);
-			break;
+			return optional_daemon_rollback_failed_start("crond", status, errno);
 		}
 
 		if (attempt + 1 < CROND_START_PROBE_ATTEMPTS) {
 			status = service_start_probe_wait("crond", CROND_START_RETRY_WAIT_SECONDS);
-			if (status != 0)
-				return status;
+			if (status != 0) {
+				launch_errno = errno;
+				return optional_daemon_rollback_failed_start("crond", status, launch_errno);
+			}
 		}
 	}
 
 	logmessage(LOGNAME, "crond daemon did not remain running after launch");
-	return status;
+	errno = ETIMEDOUT;
+	return optional_daemon_rollback_failed_start("crond", status, ETIMEDOUT);
 }
 
 int
@@ -474,7 +553,7 @@ start_networkmap(int first_call)
 {
 	struct process_snapshot snapshot;
 	enum process_presence state;
-	int scan_error, launch_status, attempt;
+	int scan_error, launch_status, attempt, launch_errno;
 
 	state = process_inventory_scan("networkmap", &snapshot);
 	if (state == PROCESS_PRESENCE_RUNNING) {
@@ -495,15 +574,19 @@ start_networkmap(int first_call)
 	 * networkmap calls daemon(0, 0) before opening its pidfile and entering
 	 * the scan loop. eval() observes the parent; verify the detached child.
 	 */
+	errno = 0;
 	launch_status = eval("/usr/sbin/networkmap", (first_call) ? "-w" : "");
 	if (launch_status != 0) {
 		logmessage(LOGNAME, "networkmap launch failed (status=%d)", launch_status);
-		return launch_status;
+		launch_errno = errno;
+		return optional_daemon_rollback_failed_start("networkmap", launch_status, launch_errno);
 	}
 
 	launch_status = service_start_probe_wait("networkmap", NETWORKMAP_START_INITIAL_WAIT_SECONDS);
-	if (launch_status != 0)
-		return launch_status;
+	if (launch_status != 0) {
+		launch_errno = errno;
+		return optional_daemon_rollback_failed_start("networkmap", launch_status, launch_errno);
+	}
 	for (attempt = 0; attempt < NETWORKMAP_START_PROBE_ATTEMPTS; attempt++) {
 		state = process_inventory_scan("networkmap", &snapshot);
 		if (networkmap_start_postcondition(launch_status, state) == 0) {
@@ -516,19 +599,22 @@ start_networkmap(int first_call)
 			errno = scan_error;
 			logmessage(LOGNAME, "networkmap startup inventory unknown (errno=%d)",
 				   scan_error);
-			return -1;
+			launch_errno = scan_error;
+			return optional_daemon_rollback_failed_start("networkmap", -1, launch_errno);
 		}
 		process_snapshot_release(&snapshot);
 		if (attempt + 1 < NETWORKMAP_START_PROBE_ATTEMPTS) {
 			launch_status = service_start_probe_wait("networkmap", NETWORKMAP_START_RETRY_WAIT_SECONDS);
-			if (launch_status != 0)
-				return launch_status;
+			if (launch_status != 0) {
+				launch_errno = errno;
+				return optional_daemon_rollback_failed_start("networkmap", launch_status, launch_errno);
+			}
 		}
 	}
 
 	errno = ETIMEDOUT;
 	logmessage(LOGNAME, "networkmap daemon did not remain running after launch");
-	return -1;
+	return optional_daemon_rollback_failed_start("networkmap", -1, ETIMEDOUT);
 }
 
 int

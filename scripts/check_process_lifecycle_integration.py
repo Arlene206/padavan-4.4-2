@@ -3270,6 +3270,19 @@ for signature, service_name, initial, retry in (
     assert f'service_start_probe_wait("{service_name}", {retry})' in daemon_start
     assert "sleep(" not in daemon_start and "usleep(" not in daemon_start, signature
 print("RC detached-daemon startup probes preserve full wait intervals across EINTR: PASS")
+for signature in (
+    "start_syslogd(void)", "start_klogd(void)", "start_infosvr(void)",
+    "start_crond(void)", "start_networkmap(int first_call)",
+):
+    daemon_start = c_function_body(rc_services, signature)
+    assert "optional_daemon_rollback_failed_start(" in daemon_start, signature
+    assert "service_start_probe_wait(" in daemon_start, signature
+rollback_stop = c_function_body(rc_services, "optional_daemon_rollback_stop(void *context)")
+rollback_scan = c_function_body(rc_services, "optional_daemon_rollback_scan(void *context")
+assert "kill_services(service_names, 3, 1)" in rollback_stop
+assert "optional_daemon_presence((const char *)context, scan_error)" in rollback_scan
+assert "detached_daemon_start_rollback_with_ops(" in rc_services
+
 
 # crond must not start a second BusyBox scheduler when a prior start already
 # succeeded. RUNNING is a no-op, UNKNOWN fails closed, and ABSENT alone reaches _eval().

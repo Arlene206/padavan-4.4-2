@@ -1,3 +1,14 @@
+## 2026-11-21 — Roll back failed detached starts for core RC daemons
+
+- Parent main SHA: `c8923187b3027da02b41dd6d76ae00b2dc0b12cd`.
+- Closed the late-child/orphan race in syslogd, klogd, infosvr, crond and networkmap. Each already waited for a detached RUNNING postcondition, but launcher errors, interrupted initial/retry waits, UNKNOWN inventories and readiness timeouts returned without stopping a child that could still have started.
+- Added a shared RC adapter using `kill_services()` for only the affected process name, followed by fresh tri-state inventory. The common detached rollback policy keeps the original startup status/errno; incomplete cleanup is logged without masking the primary failure. Existing RUNNING preflight remains a no-op and UNKNOWN preflight still aborts before launch.
+- Reused the previously ASan/UBSan-tested detached rollback policy and strengthened the Process Lifecycle source contract to require rollback wiring for all five daemons. Process Lifecycle and XY-C1 already watch `services.c` and the shared helper/test.
+- Local build is unavailable; exact-head Process Lifecycle and XY-C1 Actions must validate the C integration. Router startup behavior remains unverified.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Fix UDPXY checker NameError after detached-daemon policy validation
 
 - Parent main SHA: `41023c0835fc399ea521e397a8fb5563dd86f02e`.
