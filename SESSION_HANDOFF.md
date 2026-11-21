@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Parent main SHA before the IPv4 NAT listener-port fail-closed preflight: `70c0d4c097d68177d698bc88031f829d2a6ecd9a`. That parent includes checked IPv4 NAT VPN/UPnP and IPv6 inverted/VPN selector work; this slice prevents NVRAM port-read failures from silently selecting permissive remote DNAT defaults.
+- Last meaningful product-source baseline: `6e67a918cf560634fa597fcdfd2ea35df96a78c3` (`fix(firewall): use checked OpenVPN protocol cache`). The live `main` ref is fetched independently on each takeover; later checker/documentation commits do not change this source baseline.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -25,19 +25,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- The IPv4 NAT DMZ-exclusion slice is committed as `da1695156cebf82ac7e8c4e4052c44a4a370a5f1`. Follow-up review found four stale `i_ov_prot` identifiers in the IPv4 and IPv6 filter builders after the earlier unchecked OpenVPN local variable had been removed. Both functions already have the checked cached field `i_vpns_ov_prot`; the stale identifiers would leave the OpenVPN-enabled compile paths referring to an undeclared variable.
-- This slice replaces all four stale identifiers with the checked cached field in both protocol-selection predicates in each family. It preserves the existing protocol-number sets and removes any dependence on the deleted local NVRAM value. The Firewall Startup source contract now explicitly asserts that the undefined old identifier never reappears.
-- The preceding DMZ slice remains in place: Transmission/Aria2 service enable, remote-open and port values are checked before NAT rule-file creation when DMZ is active and the binary exists; checked values are reused by catch-all exclusions.
+- The IPv4 DMZ service-exception preflight and cached OpenVPN protocol identifier correction are committed in product-source baseline `6e67a918cf560634fa597fcdfd2ea35df96a78c3`. The OpenVPN correction replaces four stale `i_ov_prot` identifiers with the checked `i_vpns_ov_prot` cache in both IPv4 and IPv6 filter families; the existing protocol-value sets are unchanged.
+- Exact-head HTTPD Security #44949890929 on parent `da169515...` exposed an unrelated but real cross-workflow checker defect at Python stdin line 874. The source assignment is `is_use_dmz = firewall_ipv4_address_is_safe(dmz_ip) ? 1 : 0;`; the HTTPD workflow required unnecessary parentheses. This commit makes the check whitespace-tolerant and consistent with the production expression. No production code is changed by the checker correction.
+- Once the exact-head checker rerun passes, continue the firewall audit with IPv6 remote-open listener exceptions and the port-forward helper's value validation. Preserve all prior checked NVRAM gates and valid-input behavior.
+
 ## Verification boundary
 
-- Parent `f35638a262b7d0ce797aa41576161713933fb687`: Firewall Startup #44949762834, Process inventory #44949762882, WAN route #44949762889, HTTPD #44949762946, FULLCONENAT #44949762933 and WAN DHCP #44949762871 all PASS; AI docs #44949762939, NVRAM #44949762990 and XY-C1 #44949762845 were in progress at last poll.
-- DMZ source commit `da1695156cebf82ac7e8c4e4052c44a4a370a5f1`: Firewall Startup #44949891033, AI docs #44949890928, Process inventory #44949890931, WAN route #44949890950, FULLCONENAT #44949890994 and WAN DHCP #44949890952 PASS. HTTPD #44949890929 FAIL at its final Python source contract (line 874, after preceding HTTPD assertions passed); failure still needs independent diagnosis and must not be attributed to firewall code without evidence. NVRAM #44949890937 and XY-C1 #44949891023 were still running at last poll.
-- Current OpenVPN identifier correction requires fresh exact-head Firewall Startup and XY-C1 Build/TRX/artifact checks. No local build/test or hardware L4 claim.
+- Product-source SHA `6e67a918cf560634fa597fcdfd2ea35df96a78c3` was current `main` when this checkpoint was prepared. Exact-head push runs were all IN_PROGRESS at the last query: Firewall Startup #44950120695; XY-C1 Firmware Validation #44950120665; NVRAM audit #44950120698; WAN route #44950120777; FULLCONENAT #44950120775; WAN DHCP #44950120688; HTTPD Security #44950120693; Process inventory #44950120902; AI docs #44950120745. All returned `head_sha=6e67a918cf560634fa597fcdfd2ea35df96a78c3`.
+- Parent DMZ source SHA `da1695156cebf82ac7e8c4e4052c44a4a370a5f1`: Firewall Startup #44949891033, AI docs #44949890928, Process inventory #44949890931, WAN route #44949890950, FULLCONENAT #44949890994 and WAN DHCP #44949890952 PASS. HTTPD Security #44949890929 failed only at its final source assertion; the exact mismatch and correction are recorded above. NVRAM #44949890937 and XY-C1 #44949891023 were IN_PROGRESS at the last query.
+- No local repository checkout or local workflow execution is available in this environment. Do not claim L3 unless a single exact source SHA completes Build XY-C1, TRX verification and artifact upload. No new L3 claim; hardware L4 remains NOT VERIFIED.
+
 ## Exact first action for the next GPT
 
-1. Query exact-head Firewall Startup and XY-C1 for the OpenVPN identifier fix. The firewall workflow now forbids `i_ov_prot`; inspect any build failure logs and require Build + TRX + artifact upload on one source SHA before claiming L3.
-2. Diagnose unrelated HTTPD run #44949890929 on parent `da169515...`: final source-contract assertion failed at Python line 874 after HTTPD auth/route/upload assertions passed. Inspect the exact assertion and distinguish stale checker versus real defect; do not weaken it blindly.
-3. Close parent NVRAM #44949890937 / XY-C1 #44949891023 results separately, then continue IPv6 listener-port validation.
+1. Fetch live `main` and query exact-head push Actions for this checker-correction commit. Require HTTPD Security to pass; inspect the first causal log if it does not.
+2. Re-query the exact `6e67a918...` runs above as needed, especially Firewall Startup, NVRAM and XY-C1; do not treat PENDING as a reason to wait idly or infer target-build success.
+3. Continue with IPv6 remote-open listener handling and the port-forward helper's input/value validation. Implement source fixes and regression coverage directly on the current `main`.
+
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history or write a multi-file slice as successive partial commits.

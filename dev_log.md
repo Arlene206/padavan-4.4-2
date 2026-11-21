@@ -1,3 +1,12 @@
+## 2026-11-22 — Correct stale HTTPD firewall source assertion
+
+- Parent main SHA: `6e67a918cf560634fa597fcdfd2ea35df96a78c3`.
+- Exact-head HTTPD Security #44949890929 on `da1695156cebf82ac7e8c4e4052c44a4a370a5f1` failed at Python stdin line 874. The failing check required unnecessary parentheses around the already-safe DMZ IPv4 predicate assignment; the actual production statement is equivalent and had been introduced in the preceding source commit. The earlier compiled and HTTPD security checks had passed.
+- Updated `.github/workflows/httpd-security.yml` to assert the actual assignment with whitespace-tolerant matching. No production source changed. Added this exact failure diagnosis and the next IPv6 listener/port-forward task to the handoff.
+- On parent `6e67a918cf560634fa597fcdfd2ea35df96a78c3`, all nine push Actions (Firewall, XY-C1, NVRAM, WAN route, FULLCONENAT, WAN DHCP, HTTPD, Process inventory and AI docs) were IN_PROGRESS at the last live query. Fresh exact-head checks are required after this checker commit. No local workflow/test or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Use checked OpenVPN protocol cache in both filter families
 
 - Parent main SHA: `da1695156cebf82ac7e8c4e4052c44a4a370a5f1`.
