@@ -1,7 +1,9 @@
 #ifndef PADAVAN_WAN_NVRAM_STATUS_POLICY_H
 #define PADAVAN_WAN_NVRAM_STATUS_POLICY_H
 
+#include <ctype.h>
 #include <errno.h>
+#include <limits.h>
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
@@ -25,6 +27,65 @@ rc_wan_nvram_read_status(int api_result, int saved_errno)
 	if (api_result < 0)
 		return saved_errno > 0 ? saved_errno : EIO;
 	return EIO;
+}
+
+/* Parse one complete decimal integer without atoi() overflow/prefix loss. */
+static inline int
+rc_wan_nvram_parse_int_value(const char *text, int *value)
+{
+	char *end;
+	long parsed;
+
+	if (!text || !value)
+		return EINVAL;
+
+	end = (char *)text;
+	while (*end && isspace((unsigned char)*end))
+		++end;
+	if (!*end) {
+		/* Preserve atoi()'s zero result for empty/whitespace NVRAM values. */
+		*value = 0;
+		return 0;
+	}
+
+	errno = 0;
+	parsed = strtol(text, &end, 10);
+	if (end == text)
+		return EINVAL;
+	if (errno == ERANGE || parsed < INT_MIN || parsed > INT_MAX)
+		return ERANGE;
+	while (*end && isspace((unsigned char)*end))
+		++end;
+	if (*end)
+		return EINVAL;
+
+	*value = (int)parsed;
+	return 0;
+}
+
+/*
+ * nvram_get_checked() returns 0 for a missing key and -1 for a backend error.
+ * Keep those states distinct while retaining the caller's legacy default.
+ */
+static inline int
+rc_wan_nvram_read_int_status(int api_result, int saved_errno,
+			     const char *text, int missing_value, int *value)
+{
+	int status;
+
+	if (!value)
+		return EINVAL;
+	status = rc_wan_nvram_read_status(api_result, saved_errno);
+	if (status != 0)
+		return status;
+	if (api_result == 0) {
+		*value = missing_value;
+		return 0;
+	}
+	if (!text)
+		return EIO;
+
+	return rc_wan_nvram_parse_int_value(text, value);
 }
 
 typedef int (*rc_wan_nvram_get_fn)(void *context,

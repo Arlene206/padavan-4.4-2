@@ -75,6 +75,30 @@ get_wan_unit_value(int unit, const char* param_name)
 	return nvram_safe_get(wanN_param);
 }
 
+
+static int
+get_wan_unit_value_int_status(int unit, const char *param_name, int *value)
+{
+	char wanN_param[64];
+	char *stored_value = NULL;
+	int length, api_result, saved_errno;
+
+	if (unit < 0 || !param_name || !param_name[0] || !value)
+		return EINVAL;
+	length = snprintf(wanN_param, sizeof(wanN_param), "wan%d_%s", unit,
+			  param_name);
+	if (length < 0)
+		return errno ? errno : EIO;
+	if ((size_t)length >= sizeof(wanN_param))
+		return ENAMETOOLONG;
+
+	errno = 0;
+	api_result = nvram_get_checked(wanN_param, &stored_value);
+	saved_errno = errno;
+	return rc_wan_nvram_read_int_status(api_result, saved_errno,
+					    stored_value, 0, value);
+}
+
 int
 get_wan_unit_value_int(int unit, const char* param_name)
 {
@@ -4729,6 +4753,8 @@ notify_on_internet_state_changed(int has_internet, long elapsed)
 	}
 }
 
+static int get_wan_dns_static_status(int *is_static);
+
 int
 update_resolvconf(int is_first_run, int do_not_notify)
 {
@@ -4737,7 +4763,7 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	const char *google_dns = "8.8.8.8";
 	char resolv_temp[] = "/etc/resolv.conf.XXXXXX";
 	int i, i_pdns, i_total_dns = 0;
-	int lock, dns_static, resolv_changed = 0;
+	int lock, dns_static, dns_static_status, resolv_changed = 0;
 	int dns_restart_status;
 	int dns_servers_ready = 1, dns_servers_error = 0, saved_errno, validation_errno;
 
@@ -4763,7 +4789,15 @@ update_resolvconf(int is_first_run, int do_not_notify)
 	}
 
 	i_pdns = nvram_get_int("vpnc_pdns");
-	dns_static = get_wan_dns_static();
+	dns_static_status = get_wan_dns_static_status(&dns_static);
+	if (dns_static_status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read WAN DNS mode; keeping the existing resolver file (status=%d)",
+			   dns_static_status);
+		file_unlock(lock);
+		errno = dns_static_status;
+		return dns_static_status;
+	}
 
 	/* Never truncate /etc/resolv.conf or use a predictable temporary path. */
 	fp = dnsmasq_file_open(resolv_temp);
@@ -5306,21 +5340,52 @@ get_wan_ether_link_direct(int is_ap_mode)
 	return (phy_link) ? 1 : 0;
 }
 
+static int
+get_wan_dns_static_status(int *is_static)
+{
+	int unit = 0, api_result, saved_errno, status, dns_enabled;
+	char *stored_value = NULL;
+
+	if (!is_static)
+		return EINVAL;
+	if (get_usb_modem_wan(unit)) {
+		/* The legacy nvram_match() default for an absent key is false. */
+		*is_static = 0;
+		errno = 0;
+		api_result = nvram_get_checked("modem_dnsa", &stored_value);
+		saved_errno = errno;
+		status = rc_wan_nvram_read_status(api_result, saved_errno);
+		if (status != 0)
+			return status;
+		if (api_result == 1 && !stored_value)
+			return EIO;
+		*is_static = (api_result == 1 && strcmp(stored_value, "0") == 0);
+		return 0;
+	}
+
+	if (get_wan_proto(unit) == IPV4_WAN_PROTO_IPOE_STATIC) {
+		*is_static = 1;
+		return 0;
+	}
+
+	/* Preserve the legacy fallback: failed/missing integer reads select static DNS. */
+	*is_static = 1;
+	status = get_wan_unit_value_int_status(unit, "dnsenable_x", &dns_enabled);
+	if (status != 0)
+		return status;
+	*is_static = (dns_enabled < 1);
+	return 0;
+}
+
 int
 get_wan_dns_static(void)
 {
-	int unit = 0;
+	int is_static = 0;
+	int status = get_wan_dns_static_status(&is_static);
 
-	if (get_usb_modem_wan(unit))
-		return nvram_match("modem_dnsa", "0"); // dynamic or static dns for ppp2/weth0
-
-	if (get_wan_proto(unit) == IPV4_WAN_PROTO_IPOE_STATIC)
-		return 1;
-
-	if (get_wan_unit_value_int(unit, "dnsenable_x") < 1)
-		return 1;
-
-	return 0;
+	if (status != 0)
+		errno = status;
+	return is_static;
 }
 
 int

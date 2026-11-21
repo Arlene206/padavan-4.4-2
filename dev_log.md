@@ -1,3 +1,13 @@
+## 2026-11-21 — Preserve WAN DNS-mode NVRAM read failures
+
+- Parent main SHA: `f2920b4d320be4bbb7340673f1b29a9c7c0d2b62`.
+- Narrow WAN DNS slice: added GNU89-compatible strict decimal parsing and a checked integer-read policy around `nvram_get_checked()`. Missing keys preserve the existing numeric default, successful values must be a complete base-10 integer within `int` bounds, malformed prefixes/overflow fail, and backend/read/close errors remain distinct.
+- Migrated `get_wan_dns_static()` internals to an errno-style status helper for both USB modem `modem_dnsa` and normal WAN `dnsenable_x`. The exported legacy getter retains its prior conservative boolean fallback and reports the error through `errno`.
+- `update_resolvconf()` now aborts before staging/opening `/etc/resolv.conf` if the DNS-mode read failed; it releases the resolver lock and preserves the last-known-good file.
+- Added missing/default, valid signed/whitespace/boundary, malformed, overflow, backend-error and null-pointer policy regressions; added a source-contract checker and exact workflow path/step wiring.
+- No local compiler/checkout is available. Exact-head WAN-route, Process, AI-docs, Storage and XY-C1 Actions must be inspected on the resulting SHA; host regression PASS is not firmware L3.
+
+---
 ## 2026-11-21 — Fix archive index path/size and Storage filter assertion
 
 - Parent main SHA: `d397166be2fcd3582492a8004eac5e8dec216929`.

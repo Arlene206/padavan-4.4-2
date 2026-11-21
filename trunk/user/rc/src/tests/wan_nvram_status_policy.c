@@ -1063,6 +1063,72 @@ test_lan_boot_runtime_snapshot_stops_at_each_failed_write(void)
 }
 
 
+static void
+test_checked_integer_read_preserves_missing_default(void)
+{
+	int value = 91;
+
+	assert(rc_wan_nvram_read_int_status(0, 0, NULL, 0, &value) == 0);
+	assert(value == 0);
+	value = 91;
+	assert(rc_wan_nvram_read_int_status(0, 0, NULL, 1, &value) == 0);
+	assert(value == 1);
+}
+
+static void
+test_checked_integer_read_accepts_complete_decimal_values(void)
+{
+	int value = 0;
+
+	assert(rc_wan_nvram_read_int_status(1, 0, " \t+42\r\n", 0, &value) == 0);
+	assert(value == 42);
+	assert(rc_wan_nvram_read_int_status(1, 0, "-17", 0, &value) == 0);
+	assert(value == -17);
+	assert(rc_wan_nvram_read_int_status(1, 0, "", 0, &value) == 0);
+	assert(value == 0);
+	assert(rc_wan_nvram_read_int_status(1, 0, " \t\r\n", 0, &value) == 0);
+	assert(value == 0);
+	assert(rc_wan_nvram_read_int_status(1, 0, "2147483647", 0, &value) == 0);
+	assert(value == INT_MAX);
+	assert(rc_wan_nvram_read_int_status(1, 0, "-2147483648", 0, &value) == 0);
+	assert(value == INT_MIN);
+}
+
+static void
+test_checked_integer_read_rejects_malformed_and_overflow_values(void)
+{
+	int value = 73;
+
+	assert(rc_wan_nvram_read_int_status(1, 0, "42junk", 0, &value) == EINVAL);
+	assert(value == 73);
+	assert(rc_wan_nvram_read_int_status(1, 0, "1 2", 0, &value) == EINVAL);
+	assert(value == 73);
+	assert(rc_wan_nvram_read_int_status(1, 0, "+", 0, &value) == EINVAL);
+	assert(value == 73);
+	assert(rc_wan_nvram_read_int_status(1, 0, "2147483648", 0, &value) == ERANGE);
+	assert(value == 73);
+	assert(rc_wan_nvram_read_int_status(1, 0, "-2147483649", 0, &value) == ERANGE);
+	assert(value == 73);
+	assert(rc_wan_nvram_read_int_status(1, 0, "99999999999999999999999", 0, &value) == ERANGE);
+	assert(value == 73);
+}
+
+static void
+test_checked_integer_read_propagates_backend_errors(void)
+{
+	int value = 19;
+
+	assert(rc_wan_nvram_read_int_status(-1, EACCES, NULL, 0, &value) == EACCES);
+	assert(value == 19);
+	assert(rc_wan_nvram_read_int_status(-1, 0, NULL, 0, &value) == EIO);
+	assert(value == 19);
+	assert(rc_wan_nvram_read_int_status(1, 0, NULL, 0, &value) == EIO);
+	assert(value == 19);
+	assert(rc_wan_nvram_read_int_status(2, 0, "5", 0, &value) == EIO);
+	assert(value == 19);
+	assert(rc_wan_nvram_read_int_status(1, 0, "5", 0, NULL) == EINVAL);
+}
+
 int
 main(void)
 {
@@ -1073,6 +1139,10 @@ main(void)
 	test_checked_read_preserves_backend_error();
 	test_checked_read_without_errno_falls_back_to_eio();
 	test_checked_read_rejects_unexpected_result();
+	test_checked_integer_read_preserves_missing_default();
+	test_checked_integer_read_accepts_complete_decimal_values();
+	test_checked_integer_read_rejects_malformed_and_overflow_values();
+	test_checked_integer_read_propagates_backend_errors();
 	test_success_ignores_stale_errno();
 	test_failure_preserves_errno();
 	test_failure_without_errno_falls_back_to_eio();
