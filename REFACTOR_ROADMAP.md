@@ -1,8 +1,8 @@
 ## Current checkpoint — 2026-11-22
 
-- Product source b4 `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`: WAN VLAN enable/VID/priority now use checked NVRAM before hardware/interface changes. WAN route exact run #44960876481 failed only because checker getter token did not normalize multiline C formatting; THIS COMMIT normalizes the full function body before all positional assertions.
-- USB safe-eject checker in `85a34af0483c4c16a26e5a25281c3c18afa78c5f` corrects compact `}elseif` token expectation; this fix is retained for exact storage rerun.
-- Exact b4 WAN route host sanitizer/policy binaries and other recorded subsystem workflows passed before the static checker failure. XY-C1 #44960876531 and NVRAM #44960876561 were in progress at last poll. Confirm same-source Build/TRX/artifact before L3.
+- WAN VLAN setup source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` now checks `vlan_filter`, CPU/IPTV VIDs and CPU priority before hardware changes; its checker formatting fix is `cfc41b84b12004bc43d1a0a136072a8ef53c5727`. Exact WAN route rerun was queued/running at last poll.
+- THIS COMMIT checks LAN soft-bridge `ether_igmp` and `ether_m2u` before interface probes, VLAN/bridge topology operations, extending the same fail-closed NVRAM policy.
+- Exact b4 XY-C1 Build/TRX/artifact and NVRAM audit were still running at last poll; confirm on source SHA. Frozen backup read-only.
 
 ## Historical checkpoint — 2026-11-21
 

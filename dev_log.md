@@ -1,3 +1,14 @@
+## 2026-11-22 08:02 CST — Check LAN bridge multicast settings before topology changes
+
+- Parent main SHA: `cfc41b84b12004bc43d1a0a136072a8ef53c5727`.
+- `config_soft_bridge_lan()` read `ether_igmp` and `ether_m2u` through `nvram_get_int()` in declaration initializers. An NVRAM read/close/backend error could therefore silently disable IGMP snooping or multicast-to-unicast and still proceed to VLAN/bridge membership mutations.
+- THIS COMMIT reads both settings with `get_nvram_int_checked_status()` and returns the preserved error before bridge mode reads, interface probes, VLAN creation or bridge membership changes. Valid integer semantics remain unchanged; the existing WAN NVRAM sanitizer test exercises the checked integer parser/error policy.
+- Extended `scripts/check_wan_vlan_setup.py` to pin both reads, error returns and ordering before `get_interface_flags()`, and forbid the old lossy getters.
+- Exact WAN route checker normalization on `cfc41b84b12004bc43d1a0a136072a8ef53c5727` is now queued/running; exact b4 source Build/TRX and NVRAM audit were pending last poll. This second source slice should independently trigger the WAN and XY-C1 checks; no build/device result claimed.
+- Next: inspect exact-head WAN route and XY-C1 checks for the combined LAN/WAN NVRAM preflight changes; continue only after failures are fixed.
+
+---
+
 ## 2026-11-22 07:49 CST — Normalize full WAN VLAN source contract before ordering checks
 
 - Parent main SHA: `85a34af0483c4c16a26e5a25281c3c18afa78c5f`; WAN source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`.

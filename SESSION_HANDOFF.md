@@ -28,23 +28,22 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Product source `b4c2a6010c765631a5d6d93e4e84521f54fcf72b` hardens `config_vinet_wan()`: checked `vlan_filter` and enabled CPU/IPTV VID plus CPU priority reads abort before hardware VLAN mapping/interface changes on NVRAM backend or malformed-value errors.
-- Exact b4 WAN route #44960876481 failed at `scripts/check_wan_vlan_setup.py:183` because checked getter arguments span C lines. The pre-existing WAN NVRAM helper regression and preceding route host tests passed. THIS COMMIT normalizes the entire `config_vinet_wan()` body before comparing source tokens and order.
-- The USB safe-eject compact branch assertion was fixed to `}elseif(...)` in `85a34af0483c4c16a26e5a25281c3c18afa78c5f`; this commit preserves that checker fix.
-- Exact b4 PASS: HTTPD, Process umbrella/inventory, DNSMasq, MiniUPnP, ZeroTier, router-mode NVRAM, WAN teardown, USB modem, WAN ARP, WAN DHCP callback, detect_link, AI docs, wireless, Firewall Startup, watchdog, detect_internet and VPN server. WAN route checker failed at the formatting mismatch. XY-C1 #44960876531 and NVRAM #44960876561 were running at last poll.
-- Confirm exact b4 XY-C1 Build, TRX and artifact upload before claiming L3. Hardware L4 remains NOT VERIFIED.
+- Latest source slice: THIS COMMIT hardens `config_soft_bridge_lan()`. Both `ether_igmp` and `ether_m2u` now use checked integer reads and abort with the concrete error before bridge mode reads, interface probes, VLAN creation or bridge membership changes. This preserves valid integer semantics and prevents a failed read from silently disabling multicast forwarding features.
+- Parent main: `cfc41b84b12004bc43d1a0a136072a8ef53c5727`; production file `trunk/user/rc/src/net_wan.c`; source contract `scripts/check_wan_vlan_setup.py`. The same file also contains the previous WAN VLAN hardening commit `b4c2a6010c765631a5d6d93e4e84521f54fcf72b`; WAN NVRAM helper sanitizer regression exists in the WAN route workflow.
+- WAN VLAN checker failure on b4 was a raw multiline-source assertion; checker normalization follow-up `cfc41b84b12004bc43d1a0a136072a8ef53c5727` was queued/running at last poll. b4 XY-C1 #44960876531 and NVRAM audit #44960876561 were also still running at last poll. Checker-only fixes to USB storage and WAN formatting must be validated on current HEAD.
+- Exact current-head WAN route and XY-C1 Build/TRX/artifact required; no L3 or hardware L4 claim yet.
 
 ## Verification boundary
 
-- This is a checker-only normalization follow-up; exact WAN route and USB storage reruns are pending.
-- Exact b4 WAN route policy/helper sanitizer tests passed before the static checker failed; firmware and NVRAM audit status pending.
-- Frozen backup branch `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807` remains immutable.
+- The existing WAN NVRAM sanitizer tests cover checked string match and integer parser backend/malformed/overflow handling, but this new caller integration and the previous WAN VLAN change require exact workflow reruns.
+- XY-C1 Build/TRX/artifact must all PASS on a product-source SHA before L3 is recorded. Checker-only workflow heads may skip firmware output.
+- Frozen backup branch remains `backup/pre-plugin-overhaul-2026-11-14` at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
 
 ## Exact first action for the next GPT
 
-1. Check exact-head WAN route and USB storage jobs for THIS commit.
-2. Resolve exact b4 XY-C1 Build/TRX/artifact and NVRAM audit. If Build/TRX is skipped, inspect detector rather than claiming L3.
-3. Continue a separate userland stability/security defect after the WAN VLAN source contract passes.
+1. Fetch exact-head WAN route / XY-C1 / NVRAM runs for THIS COMMIT. Inspect Build, TRX and artifact steps, not just job conclusion.
+2. Repair any current-head checker, compiler or firmware failure based on its exact log.
+3. Continue another independent P1 whole-userland stability/security task after LAN/WAN switch-setting read hardening passes.
 
 ## Workflow and preservation rules
 

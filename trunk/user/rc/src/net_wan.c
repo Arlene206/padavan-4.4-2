@@ -1224,8 +1224,7 @@ config_soft_bridge_lan(void)
 {
 	char lan_ifname[24];
 	const char *wired_ifname;
-	int igmp_snoop = nvram_get_int("ether_igmp");
-	int wired_m2u = nvram_get_int("ether_m2u");
+	int igmp_snoop, wired_m2u;
 	int ret, saved_errno, cleanup_ret;
 	int bridge_mode, bridge_enabled, vlan_flags, vlan_exists, vlan_was_up;
 	int vlan_created = 0;
@@ -1235,6 +1234,23 @@ config_soft_bridge_lan(void)
 	int vlan_attach_ambiguous = 0, physical_attach_ambiguous = 0;
 	int vlan_state_safe = 1, physical_state_safe = 1;
 	int vlan_detached_safe = 0;
+
+	ret = get_nvram_int_checked_status("ether_igmp", &igmp_snoop);
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot read LAN bridge IGMP snooping setting before topology changes (status=%d)",
+			   ret);
+		errno = ret;
+		return ret;
+	}
+	ret = get_nvram_int_checked_status("ether_m2u", &wired_m2u);
+	if (ret != 0) {
+		logmessage(LOGNAME,
+			   "cannot read LAN bridge multicast-to-unicast setting before topology changes (status=%d)",
+			   ret);
+		errno = ret;
+		return ret;
+	}
 
 	snprintf(lan_ifname, sizeof(lan_ifname), "%s.%d", IFNAME_MAC, 1);
 	ret = get_wan_bridge_mode_status(&bridge_mode);

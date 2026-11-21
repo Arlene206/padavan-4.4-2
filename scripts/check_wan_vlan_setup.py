@@ -161,11 +161,24 @@ require('get_nvram_int_checked_status("wan_stb_iso", &configured_isolation)' in 
         "WAN bridge isolation must use checked reads and retain the no-isolation fallback")
 
 soft_lan = body(wan, "config_soft_bridge_lan(void)")
-mode_read_pos = soft_lan.index("get_wan_bridge_mode_status(&bridge_mode)")
-mode_error_return = soft_lan.index("return ret;", mode_read_pos)
-first_lan_probe = soft_lan.index("get_interface_flags(lan_ifname)")
-require(mode_read_pos < mode_error_return < first_lan_probe,
-        "LAN bridge mode read failures must abort before interface probes or topology changes")
+soft_lan_code = " ".join(soft_lan.split())
+igmp_read = 'get_nvram_int_checked_status("ether_igmp", &igmp_snoop)'
+m2u_read = 'get_nvram_int_checked_status("ether_m2u", &wired_m2u)'
+igmp_pos = soft_lan_code.index(igmp_read)
+igmp_gate = soft_lan_code.index("if (ret != 0)", igmp_pos)
+igmp_return = soft_lan_code.index("return ret;", igmp_gate)
+m2u_pos = soft_lan_code.index(m2u_read)
+m2u_gate = soft_lan_code.index("if (ret != 0)", m2u_pos)
+m2u_return = soft_lan_code.index("return ret;", m2u_gate)
+mode_read_pos = soft_lan_code.index("get_wan_bridge_mode_status(&bridge_mode)")
+mode_error_return = soft_lan_code.index("return ret;", mode_read_pos)
+first_lan_probe = soft_lan_code.index("get_interface_flags(lan_ifname)")
+require(igmp_pos < igmp_gate < igmp_return < m2u_pos < m2u_gate < m2u_return <
+        mode_read_pos < mode_error_return < first_lan_probe,
+        "LAN bridge multicast settings and WAN bridge mode must all be checked before interface probes/topology changes")
+require('nvram_get_int("ether_igmp")' not in soft_lan_code and
+        'nvram_get_int("ether_m2u")' not in soft_lan_code,
+        "LAN bridge multicast configuration must not collapse NVRAM read errors")
 
 soft_wan = body(wan, "config_soft_bridge_wan_internal(")
 iso_read_pos = soft_wan.index("get_wan_bridge_iso_mode_status(&bwan_isolation)")
