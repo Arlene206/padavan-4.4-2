@@ -1,9 +1,10 @@
 ## Current checkpoint — 2026-11-21
 
-- Parent `main` immediately before this CPU watchdog config-read slice: `47335ed2ce9e949aded6c361e7164ac51851ff95`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only.
-- Samba checked share-mode source on parent `47335ed2ce9e949aded6c361e7164ac51851ff95`: Samba config #44900045476 PASS; Process inventory #44900045461 PASS; USB modem identity #44900045444 PASS; vsftpd #44900045350 PASS; NFS #44900045396 PASS; AI docs #44900045349 PASS. XY-C1 #44900045362 and remaining independent workflows pending at last poll.
-- THIS COMMIT closes a separate watchdog reliability gap: `watchdog_cpu` was read with `nvram_get_int()`, so an NVRAM backend failure looked like an explicit zero and could suppress watchdog startup or actively unload the module during PID-1 restart. Both start and restart now use checked NVRAM + strict integer parsing and refuse any module-state change on read/parse failure; the missing-key zero default remains unchanged.
-- GNU89/ASan/UBSan watchdog policy regression, source contracts and same-source XY-C1 pending. Physical router L4 remains NOT VERIFIED.
+- Main source SHA before this docs-only checkpoint: `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`; frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+- WSD HTTP POST parser source `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`: old NULL-CRLF dereference, stale pointer after header compaction and short-body recv assumptions fixed. GNU99/Werror/ASan/UBSan socket regression plus exact WSD contract PASS (#44942356801); exact XY-C1 #44942356809 Build pending, TRX/artifact pending.
+- P910nd bidirectional SIGPIPE fix source `23248f7df1575885e991fe518629bb974fc05c35`: socketpair regression, p910nd, Process inventory, Process lifecycle and AI checks PASS; exact XY-C1 #44941685839 still building (TRX/artifact pending).
+- MiniUPnP checked config source `be4952e90111ddea8f91684f6c3fe5ecf25be785`: MiniUPnP, NVRAM, Process inventory, Samba and AI Actions PASS; exact XY-C1 #44941839623 Build pending.
+- Only MiniUPnP redirect-description source `4a5139f484943abe3a5ac9cf0f6d56bc70067a56` currently has same-SHA Build/TRX/artifact L3 PASS (#44940761694). WSD, p910nd and the later MiniUPnP config source have L3 NOT VERIFIED. Physical L4 NOT VERIFIED.
 
 ---
 
@@ -179,6 +180,8 @@
 
 ## Verification matrix
 
+| p910nd USB print server | PARTIAL / BIDIRECTIONAL SIGPIPE DAEMON-CRASH FIX IMPLEMENTED; GNU89 ASAN/UBSAN SOCKETPAIR L2 PASS | In `-b` mode printer-return writes target the TCP client. Peer disconnect could raise default SIGPIPE and kill the daemon before EPIPE recovery. Ignore SIGPIPE only in bidirectional mode and fail startup if setup fails; existing write error handling remains authoritative. Exact p910nd, Process inventory, Process lifecycle and AI checks PASS on source `23248f7`. | Exact XY-C1 #44941685839 Build/TRX/artifact pending; target MIPS/uClibc and physical printer disconnect L4 NOT VERIFIED. |
+| wsdd2 WSD / HTTP request framing | PARTIAL / BOUNDED CRLF + EXACT BODY READS + STRICT CONTENT-LENGTH FIX; GNU99 ASAN/UBSAN SOCKETPAIR L2 PASS | Prevent NULL dereference on incomplete POST request line; bounded fragmented header reads, reset cursor after compaction, handle short body reads/EINTR, reject duplicate/malformed/overflow Content-Length and over-cap payload. Exact WSD workflow #44942356801 PASS. | Exact XY-C1 #44942356809 Build/TRX/artifact pending; target MIPS/uClibc HTTP integration, SOAP compatibility and physical L4 NOT VERIFIED. |
 | Level | Evidence | Limits |
 |---|---|---|
 | L1 source review | PASS for AliyunDrive lifecycle/argv redaction and QEMU-verified v1.2.1 env interface; upstream source audit identified token-file mode dependence and token-bearing INFO logging. This commit adds private workdir/token modes, owner/symlink/hardlink checks, umask 077 and INFO suppression. | Static review cannot prove target filesystem/procfs behavior or conceal env from privileged root. |

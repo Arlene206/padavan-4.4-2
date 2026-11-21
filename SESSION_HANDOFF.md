@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Main at last checkpoint: `1a13b60672917c55b0075d8c015522b87d37fea6`.
+- Main source SHA at this checkpoint: `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e` (the handoff/log/roadmap update is committed as a documentation-only child).
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged; no feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 
 ## Completed source slices
@@ -18,19 +18,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 
 ## Active task
 
-- `start_upnp_locked()` now reads protocol, secure mode, HTTP presentation port, both cleanup timer settings, and all internal/external mapping port-range bounds through `miniupnpd_read_nvram_integer()`. Missing/empty values preserve defaults; backend, malformed and out-of-range values fail before publishing a replacement daemon configuration. Existing min>max normalization is unchanged.
-- The preceding checked config preflight on parent `27c02048027d50435f2d18665bbe74aaddc90fc9` had a workflow-only NameError from two undefined checker identifiers; fixed in child `6c48528d8ec5c746de31f9d25b2016504e9aa831`. Exact-head MiniUPnP and AI docs checks on that child both passed (#44941570192 and #44941570201).
-- This expanded preflight is the next source validation target. Require its MiniUPnP host/source-contract run and XY-C1 Build/TRX/artifact on the same source SHA; hardware L4 remains NOT VERIFIED.
+- WSD/WS-Discovery HTTP POST framing hardening is in source commit `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`. The old parser dereferenced a NULL `strstr()` result for a POST whose first read did not yet contain CRLF; fragmented header refill also retained the pre-`memmove` pointer, one `recv()` incorrectly assumed it filled the body, and `atoi(Content-Length)` accepted overflow/trailing junk. The new bounded socket helpers read complete CRLF lines and body length, restore the buffer cursor after compaction, strictly parse a non-zero decimal Content-Length, reject duplicates and enforce the buffer cap. GNU99/Werror/ASan/UBSan socket regression and source contract passed in exact-head WSD run #44942356801.
+- P910nd bidirectional SIGPIPE daemon-crash fix remains in source commit `23248f7df1575885e991fe518629bb974fc05c35`. Exact-head p910nd workflow #44941685747, Process inventory #44941685697, Process regression #44941685794 and AI docs #44941685744 passed. Its XY-C1 run #44941685839 remains in progress (Build XY-C1 in progress; TRX and artifact pending); NVRAM run #44941685864 was cancelled by a later head. L3 is not verified.
+- MiniUPnP config preflight now checks protocol, secure mode, HTTP presentation port, cleanup timers and internal/external mapping range bounds through checked integer reads in source commit `be4952e90111ddea8f91684f6c3fe5ecf25be785`. MiniUPnP run #44941839578, NVRAM #44941839605, Process inventory #44941839608, Samba #44941839654 and AI docs #44941839672 passed; XY-C1 #44941839623 remained Build-in-progress with TRX/artifact pending.
+- The older MiniUPnP redirect-description source SHA `4a5139f484943abe3a5ac9cf0f6d56bc70067a56` is the only one of these MiniUPnP slices with exact-source XY-C1 Build, TRX and artifact upload PASS (#44940761694); do not extend L3 to later SHAs.
+
 ## Verification boundary
 
-- Parent `23248f7df1575885e991fe518629bb974fc05c35`: p910nd SIGPIPE regression #44941685747 PASS; AI handoff #44941685744 PASS. XY-C1 #44941685839 remained before Build XY-C1 (Build/TRX/artifact pending) at the last poll. Process inventory #44941685697 and NVRAM audit #44941685864 were still in progress.
-- The preceding MiniUPnP checked protocol/security/HTTP preflight was validated on child `6c48528d8ec5c746de31f9d25b2016504e9aa831`: MiniUPnP config regression #44941570192 PASS and AI handoff #44941570201 PASS. The prior failure #44941367108 was a Python NameError, corrected without altering production policy.
-- The current full preflight change has not yet run Actions. Same-SHA Build XY-C1, TRX and artifact upload are required for L3. No local build or hardware L4 is claimed.
+- WSD source SHA `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`: WSD HTTP framing workflow #44942356801 PASS; AI handoff #44942356848 PASS. Process inventory #44942356815, Process lifecycle regression #44942356893 and NVRAM audit #44942356787 were queued/in progress at last poll. XY-C1 #44942356809 was in progress with Build still pending; TRX and upload pending. L2 host/contract PASS, L3 NOT VERIFIED, hardware L4 NOT VERIFIED.
+- P910nd source SHA `23248f7df1575885e991fe518629bb974fc05c35`: p910nd #44941685747, Process inventory #44941685697, Process lifecycle #44941685794 and AI docs #44941685744 PASS. XY-C1 #44941685839 Build was in progress, TRX/artifact pending. NVRAM #44941685864 was cancelled. L3 NOT VERIFIED.
+- MiniUPnP checked-range/cleanup source SHA `be4952e90111ddea8f91684f6c3fe5ecf25be785`: MiniUPnP, NVRAM, Process inventory, Samba and AI docs PASS; XY-C1 #44941839623 Build was in progress, TRX/artifact pending. L3 NOT VERIFIED.
+- L3 remains established only for the redirect-description source SHA `4a5139f484943abe3a5ac9cf0f6d56bc70067a56` with #44940761694 Build/TRX/artifact PASS. Hardware L4 remains NOT VERIFIED.
+
 ## Exact first action for the next GPT
 
-1. Inspect exact-head MiniUPnP config regression for this change. Confirm its parser tests pass and the source contract requires all nine checked NVRAM settings, rejecting any unchecked `nvram_safe_get_int("upnp_...")` fallback in `start_upnp_locked()`.
-2. Inspect the XY-C1 run for this same production-source SHA; require Build XY-C1, TRX verification and artifact upload all PASS before recording L3.
-3. Continue the highest-risk remaining reliability/security defect in another Padavan userland module once these independent checks are running; PENDING does not block work.
+1. Inspect WSD XY-C1 run #44942356809 for source SHA `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`; require Build XY-C1, TRX verification and artifact upload all PASS before recording L3. Resolve any exact-SHA failure at its first causal log.
+2. Poll WSD Process inventory #44942356815, Process lifecycle #44942356893 and NVRAM #44942356787; inspect p910nd XY-C1 #44941685839 and MiniUPnP XY-C1 #44941839623. Do not wait on PENDING; continue another independent userland reliability/security slice.
+3. Keep the backup branch immutable. Do not reopen the bounded WSD/p910nd/MiniUPnP fixes without an exact-source regression.
+
 ## Workflow and preservation rules
 
 - Develop only on `main`. Each logical slice is one complete Git tree, one commit and one non-forced expected-SHA update. Never force-push, amend history, create branches or PRs.

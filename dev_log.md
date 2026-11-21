@@ -1,3 +1,21 @@
+## 2026-11-21 — Harden wsdd2 HTTP POST request framing
+
+- Parent source SHA: `be4952e90111ddea8f91684f6c3fe5ecf25be785`; source commit: `1c0ac607c66179ab58c3ae04c9cda2691c4dd91e`.
+- A malformed/fragmented HTTP POST could crash wsdd2: `wsd_parse_http_header()` dereferenced `*eol` after `strstr()` returned NULL when the first TCP read did not include CRLF. The header refill path compacted bytes but kept the old `p` offset; the body path assumed one `recv()` filled the requested bytes; `atoi(Content-Length)` also accepted trailing garbage and had overflow behavior.
+- Added bounded CRLF search/read helpers, complete-body reads that retry short reads/EINTR, strict overflow-checked nonzero decimal Content-Length parsing, duplicate Content-Length rejection and the missing `p = buf` after compaction. Requests exceeding the in-buffer body cap are rejected before body access.
+- Local GNU99 `-Wall -Wextra -Werror` ASan/UBSan socketpair regression PASS. Exact-head WSD run #44942356801 PASS, covering bounded CRLF search, split request line, split body, malformed/overflow lengths, overlong line and EOF. AI handoff #44942356848 PASS. XY-C1 #44942356809 Build pending at checkpoint; TRX/artifact pending. L3 and hardware L4 NOT VERIFIED.
+
+---
+
+## 2026-11-21 — Prevent p910nd bidirectional SIGPIPE daemon termination
+
+- Parent main SHA: `6c48528d8ec5c746de31f9d25b2016504e9aa831`; source commit: `23248f7df1575885e991fe518629bb974fc05c35`.
+- In bidirectional `-b` mode, `copy_stream()` writes printer-return bytes to the remote TCP socket. A disconnected client could trigger default SIGPIPE and terminate the daemon before the existing EPIPE recovery path ran.
+- Install SIGPIPE ignore only for bidirectional mode and fail startup if policy setup fails. Existing socket write-error recovery handles the resulting EPIPE. Added GNU89 socketpair/source-contract regression and dedicated Actions coverage; XY-C1 path filter includes p910nd.
+- Local GNU89 `-Wall -Wextra -Werror -fsanitize=address,undefined` socketpair regression PASS. Exact-head p910nd #44941685747, Process inventory #44941685697, Process regression #44941685794 and AI docs #44941685744 PASS. XY-C1 #44941685839 still building (TRX/artifact pending); NVRAM #44941685864 cancelled. L3 and hardware L4 NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on MiniUPnP port-range and cleanup policy reads
 
 - Parent main SHA: `23248f7df1575885e991fe518629bb974fc05c35`.
