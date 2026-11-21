@@ -569,15 +569,33 @@ for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
             "PROCESS_PRESENCE_RUNNING" in run_body,
             "storage daemon start must fail closed on unknown presence: " + signature)
 
-# Media/download helpers now return launch and daemon-readiness postconditions.
-for signature in ("int run_dms(int force_rescan)", "int run_itunes(void)",
-                  "int run_torrent(void)", "int run_aria(void)"):
+# Media/download helpers preserve launch/readiness failures and attempt a
+# process-identity-checked rollback before returning a failed start.
+for signature, daemon, stopper in (
+    ("int run_dms(int force_rescan)", "minidlna", "stop_dms_locked"),
+    ("int run_itunes(void)", "mt-daapd", "stop_itunes_locked"),
+    ("int run_torrent(void)", "transmission-daemon", "stop_torrent_locked"),
+    ("int run_aria(void)", "aria2c", "stop_aria_locked"),
+):
     run_body = body(storage, signature)
-    require("return storage_log_daemon_start_result(" in run_body and
+    require("start_status = storage_log_daemon_start_result(" in run_body and
+            "if (start_status != 0)" in run_body and
+            "start_errno = launch_status != 0 ?" in run_body and
+            "return storage_rollback_failed_start(" in run_body and
+            'apps_name, "' + daemon + '", start_status, start_errno,' in run_body and
+            stopper in run_body and
             "return errno ? errno : EIO;" in run_body,
-            "storage daemon must return launch/readiness failures: " + signature)
+            "storage daemon must return launch/readiness failures with rollback: " + signature)
     require(signature + ";" in rc_header,
             "status-bearing daemon prototype missing: " + signature)
+
+rollback_body = body(storage, "storage_rollback_failed_start(")
+require("stop_status = stop_daemon();" in rollback_body and
+        "process_inventory_scan(daemon, &snapshot)" in rollback_body and
+        "storage_service_failed_start_may_leave_daemon(presence)" in rollback_body and
+        "return start_status;" in rollback_body and
+        "errno = start_errno > 0 ? start_errno : EIO;" in rollback_body,
+        "failed-start rollback must verify daemon identity and preserve the primary error")
 
 daemon_result = body(storage, "storage_log_daemon_start_result(")
 require("status = rc_first_service_start_status(status, ENOENT);" in daemon_result and
