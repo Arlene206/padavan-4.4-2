@@ -528,9 +528,11 @@ start_udpxy(char *wan_ifname)
 		}
 
 		nvram_set("msd_lite_enable", "1");
+		errno = 0;
 		launch_status = eval("/usr/bin/msd_lite", "-d", "-c", dst_conf);
 	}
 #else
+	errno = 0;
 	launch_status = eval("/usr/sbin/udpxy",
 		"-m", wan_ifname,
 		"-p", nvram_safe_get("udpxy_enable_x"),

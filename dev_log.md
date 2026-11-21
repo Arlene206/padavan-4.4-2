@@ -1,3 +1,12 @@
+## 2026-11-21 — Reset errno before UDPXY/MSD Lite launch
+
+- Parent main SHA: `734f811620f596b9ea72863261d8cc4a7103bee2`.
+- Tightened failed-launch diagnostics and rollback context: the UDPXY and MSD Lite launcher paths now clear ambient `errno` immediately before `eval()`, so a nonzero launcher result is not paired with an unrelated errno left by an earlier successful config/procfs operation.
+- Added a source-contract guard for the ordering.
+- Resulting commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Roll back IPTV daemons after failed detached startup
 
 - Parent main SHA: `9df0573782afb3a3e19864ac17250d7358ef26ca`.

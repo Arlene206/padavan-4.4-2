@@ -351,6 +351,10 @@ assert preflight < udpxy_start.index('eval("/usr/bin/msd_lite"')
 assert preflight < udpxy_start.index('eval("/usr/sbin/udpxy"')
 assert "return launch_status;" in udpxy_start
 assert "int start_udpxy(char *wan_ifname);" in rc_header
+udpxy_start = c_function_body(net_source, "start_udpxy(char *wan_ifname)")
+assert "errno = 0;" in udpxy_start
+assert udpxy_start.index("errno = 0;") < udpxy_start.index("eval(")
+
 rollback_helper = c_function_body(net_source, "iptv_proxy_rollback_failed_start(")
 rollback_stop = c_function_body(net_source, "iptv_proxy_process_stop(")
 assert "detached_daemon_start_rollback_with_ops(" in rollback_helper
