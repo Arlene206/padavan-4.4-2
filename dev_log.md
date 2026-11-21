@@ -1,3 +1,13 @@
+## 2026-11-21 — Close MAC-filter and static-route hardening; stabilize contracts
+
+- MAC filter mode and per-entry checked-read hardening landed in `8dd8a5bcb515b752dc9c4fd07e11440e929d5c49`; exact XY-C1 #44955441811 passed Build/TRX/artifact.
+- Static routes now enforce the actual 64-row UI limit, read `sr_enable_x` and entry fields through checked APIs, validate metrics/gateways/interfaces, preserve invalid-gateway fallback, and safely retain up to 128 persisted entries. Max snapshot 7,552 bytes fits the 8,192-byte buffer. Latest product-source commit `182cfee52473b9f072816c6e5f67ef727945143e`.
+- Fixed the escaped Delete-button checker (`37d0b7b`), storage IPTV dispatch whitespace checker (`f3a1cdda`), and WAN-route workflow source-contract check (`923f8c64`). Exact checker-head WAN route #44956642473 and AI docs #44956642509 passed.
+- Exact product-source `182cfee` Firewall Startup #44956596799, WAN DHCP #44956596822, AI docs #44956596834 and HTTPD check-run passed at last poll. XY-C1 #44956596804 was still in progress; no current-head L3 claim. Hardware L4 remains NOT VERIFIED.
+- Frozen backup remains `72f4f157a084f8184b9597ca5bf334b8080e5807`.
+
+---
+
 ## 2026-11-21 — Stabilize exact-head Firewall/HTTPD source contracts
 
 - Parent main SHA: `ef324cc77a34420655ab63cb856120c5fad59dc7`.

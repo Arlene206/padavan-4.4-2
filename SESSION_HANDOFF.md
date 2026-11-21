@@ -7,7 +7,7 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 ## Current repository state
 
 - Repository: `Arlene206/padavan-4.4-2`; development branch: `main`.
-- Last meaningful product-source baseline: `6e67a918cf560634fa597fcdfd2ea35df96a78c3` (`fix(firewall): use checked OpenVPN protocol cache`). The live `main` ref is fetched independently on each takeover; later checker/documentation commits do not change this source baseline.
+- Last meaningful product-source baseline: `182cfee52473b9f072816c6e5f67ef727945143e` (`fix(network): validate static route gateway fallback`). The live `main` ref is fetched independently on each takeover; later checker/documentation commits do not change this source baseline.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains immutable at `72f4f157a084f8184b9597ca5bf334b8080e5807`. PR #1 is closed/unmerged. No feature branches/PRs, force-push or history rewriting. Do not touch GPT Session Rotator or replay SHA `9d5a5cb`.
 - GitHub Git data APIs are being used; this execution workspace has no complete repository checkout.
 
@@ -23,25 +23,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - RC AP/router-mode and LAN/WAN checked-read gates were expanded in commits `74e0ecc4`, `dbce98c2`, `ae3b0eb0`, `3e3ba126` and `202266c5`. These have mixed exact-SHA results; do not infer current-head PASS from older source or checker-only commits.
 - HTTPD security workflow offset correction is in `c9005f49bb7edf6ac9efad6bfa51b82f6b902cc4`. The original checker run #44945277626 failed; the later exact-head HTTPD run #44945662341 on source descendant `f56fe999...` completed/success, validating the correction. Do not confuse this with the cancelled intermediate run #44945615000.
 
+- MAC-filter hardening complete: supported WebUI modes are enforced, indexed MAC/date/time values use checked NVRAM reads, address tokens are validated, and absent schedule keys preserve legacy defaults. Exact source commit `8dd8a5bcb515b752dc9c4fd07e11440e929d5c49` passed HTTPD, NVRAM, Firewall Startup, WAN DHCP, WAN route, FULLCONENAT, inventory and AI docs; exact XY-C1 #44955441811 passed Build/TRX/artifact (L3 only for that SHA).
+- Static-route hardening complete through source commit `182cfee52473b9f072816c6e5f67ef727945143e`: fixed WebUI 64-row Add off-by-one, checked NVRAM enable/count/entry reads, fail-closed handling, strict metric and gateway validation, preserved the historical invalid-gateway fallback, and retained compatibility up to the generic 128-row storage limit. Maximum serialized snapshot is 7,552 bytes < 8,192-byte buffer. Source commits `1ace1932a59c91e5e313ec53fb1a8d2560d90717`, `06e243f66c34949cf77603479e6135c925422f2c`, `182cfee52473b9f072816c6e5f67ef727945143e`.
+- Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
-
-- The IPv6 URL rule terminator is corrected, and Lightweight Filter schedule gating now uses presence-aware checked NVRAM reads. Missing keys preserve the legacy all-days/all-day defaults; present-empty/invalid/overlong entries remain inactive; backend/API/close errors abort staged IPv4 publication.
-- Exact-head CI on `ef324cc77a34420655ab63cb856120c5fad59dc7`: Firewall Startup #44953373884 failed in its source contract at the new reader-body substring count; HTTPD #44953373906 failed in its private-rule cleanup-count contract after the fail-closed URL/LWF staging paths added cleanup sites. Both are workflow-contract brittleness, not failures in the preceding compiled tests.
-- The firewall contract now slices the LWF helper by its actual source boundaries rather than the generic function-body parser. HTTPD now requires at least the original cleanup count rather than a brittle exact count.
-- Next source target: harden MAC filtering. The WebUI is expected to cap `macfilter_num_x` at 64; confirm the input and count contract, then make per-entry MAC/schedule reads checked and propagate errors before publishing rules. Follow with static routes after confirming their UI cap.
+- MAC-filter source hardening is complete; do not repeat the audit. Static-route source hardening is complete through `182cfee`, including checked `sr_enable_x`, bounded 128-row snapshots, and strict gateway dotted-quad validation with legacy fallback.
+- The static-route UI and storage checker false negatives were corrected; the WAN-route workflow source contract was corrected in `923f8c6`. Exact-head WAN route #44956642473 PASS and AI handoff docs #44956642509 PASS on checker-only commit `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`.
+- On product-source SHA `182cfee52473b9f072816c6e5f67ef727945143e`, Firewall Startup #44956596799 PASS, AI docs #44956596834 PASS, WAN DHCP #44956596822 PASS, and HTTPD check-run reported PASS. XY-C1 #44956596804 was IN_PROGRESS at last poll; verify Build/TRX/artifact on an exact same SHA before making an L3 claim.
 
 ## Verification boundary
-
-- Exact parent `ef324cc77a34420655ab63cb856120c5fad59dc7`: WAN route #44953373909 PASS; Process inventory #44953373841 PASS; AI handoff #44953373949 PASS; FULLCONENAT #44953373928 PASS; WAN DHCP #44953373881 PASS. Firewall Startup #44953373884 failed at source-contract line 511; HTTPD #44953373906 failed in the later firewall private-rule cleanup-count contract. NVRAM #44953373840 and XY-C1 #44953373845 remained IN_PROGRESS at last poll (XY-C1 had reached toolchain setup before Build).
-- Earlier C regression steps within Firewall Startup completed PASS before the source-contract assertion. HTTPD's URL sanitizer, firewall token-validation and VPN lease contracts preceding the cleanup check completed PASS.
-- No local test/build and no completed same-SHA XY-C1 build/TRX/artifact evidence. No L3 claim; hardware L4 remains NOT VERIFIED.
-- This checkpoint's exact SHA is the new main commit made from this parent. Re-fetch main and only use its exact push-event Actions.
+- Exact checker-only `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`: WAN route #44956642473 PASS; AI docs #44956642509 PASS.
+- Exact product-source `182cfee52473b9f072816c6e5f67ef727945143e`: Firewall Startup #44956596799 PASS; AI docs #44956596834 PASS; WAN DHCP #44956596822 PASS; HTTPD check-run PASS at last poll. XY-C1 #44956596804 was IN_PROGRESS at last poll; recheck exact SHA result. Do not infer L3 if Build/TRX/artifact are incomplete.
+- Exact MAC-policy SHA `8dd8a5bcb515b752dc9c4fd07e11440e929d5c49`: listed policy/lifecycle checks and XY-C1 Build/TRX/artifact passed. That L3 evidence applies to that SHA only.
+- Hardware/device L4 remains NOT VERIFIED.
 
 ## Exact first action for the next GPT
-
-1. Re-fetch main; query its exact-head Firewall Startup, HTTPD, NVRAM and XY-C1 runs. Confirm both repaired source-contract suites pass; inspect logs if not.
-2. Continue MAC filter audit: inspect WebUI cap, checked mode/count and per-entry address/date/time reads. Preserve absent-key defaults while failing closed on actual read errors.
-3. Audit static-route UI input maximum and all per-entry conversions only after the limit is proven. Do not modify the frozen backup branch.
+1. Re-fetch live `main`, exact-head Actions and frozen backup (`72f4f157a084f8184b9597ca5bf334b8080e5807`).
+2. Finish exact-SHA XY-C1 Build/TRX/artifact verification for `182cfee`; check storage and NVRAM results from the relevant latest source runs.
+3. Continue the next independent stability/security source task across Padavan userland; avoid re-auditing MAC filtering and static routes unless new evidence appears.
 
 ## Workflow and preservation rules
 
