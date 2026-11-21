@@ -1,3 +1,14 @@
+## 2026-11-21 — Stop WAN reset from publishing an empty protocol on NVRAM read failure
+
+- Parent main SHA: `4a02532fb9082af0872240cd7b70330426332b2a`.
+- Source review found `reset_wan_vars_status()` copied global `wan_proto` to `wan0_proto` using `nvram_safe_get()` followed by a separate write. The safe getter maps an NVRAM backend/lock/ioctl/close error to an empty string. A transient failure could therefore overwrite the per-unit protocol marker and make later WAN startup select an invalid/no protocol instead of preserving a coherent configuration.
+- Replaced that error-collapsing read/write pair with the existing `set_wan_unit_param_status(unit, "proto")`: it reads `wan_proto`, distinguishes absent from backend errors, and publishes `wan0_proto` under one NVRAM transaction. Missing key continues to copy as an empty value; backend/read/write/transaction-close failures propagate before startup advances.
+- Extended `check_wan_dns_read_status.py` with a production source-order contract requiring the transaction helper, checked read-status gate and no `nvram_safe_get("wan_proto")` fallback. Existing GNU89 WAN NVRAM status tests and WAN-route workflow run alongside it.
+- Full router RC/MIPS build and physical WAN behavior remain pending; exact-head WAN-route and XY-C1 Actions will be checked for this source SHA.
+- Resulting main commit: THIS COMMIT.
+
+---
+
 ## 2026-11-21 — Preserve MAC access-control and DoS gates on NVRAM errors
 
 - Parent main SHA: `ee01141a9761cd702ef71b6f8dbae2ad48604f6a`.

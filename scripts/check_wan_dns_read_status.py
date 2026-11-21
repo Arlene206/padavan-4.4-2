@@ -288,6 +288,34 @@ assert 'get_wan_unit_value_int(unit, "auth_mode")' not in source
 print("EAPOL/Kabinet auth-mode reads fail closed and teardown remains defensive: PASS")
 
 
+# Per-unit WAN protocol must be copied with one checked NVRAM transaction.
+# nvram_safe_get() collapses backend errors to an empty string; on a transient
+# failure this used to overwrite wan0_proto and potentially select no/wrong WAN.
+reset_wan = function_body_at_column_zero_terminator(source, "reset_wan_vars_status(void)")
+require('set_wan_unit_param_status(unit, "proto")' in reset_wan,
+        "WAN reset must copy wan_proto with the checked transaction helper")
+assert 'nvram_safe_get("wan_proto")' not in reset_wan
+param_copy = function_body_at_column_zero_terminator(
+    source, "set_wan_unit_param_status(int unit, const char *param_name)"
+)
+for token in (
+    "nvram_transaction_begin(&transaction)",
+    "nvram_transaction_get(&transaction, wan_param, &source_value)",
+    "rc_wan_nvram_read_status(read_result, saved_errno)",
+    '((read_result == 1) ? source_value : "")',
+    "nvram_transaction_set(&transaction, wanN_param",
+    "nvram_transaction_end(&transaction)",
+):
+    require(token in param_copy,
+            "WAN protocol copy must remain checked and transactional: " + token)
+read_error = param_copy.index("status = rc_wan_nvram_read_status(read_result, saved_errno)")
+write_value = param_copy.index("nvram_transaction_set(&transaction, wanN_param")
+require(read_error < write_value and
+        "if (status == 0) {" in param_copy[read_error:write_value],
+        "a failed shared WAN protocol read must stop before wan0_proto is written")
+print("WAN protocol reset uses checked transactional NVRAM copy: PASS")
+
+
 # MAN DNS-route creation is fail-closed; teardown still attempts idempotent removal.
 add_man_routes = " ".join(body(source, "add_man_gateway_routes(char *man_ifname, int unit, int metric, int *gateway_route_status)").split())
 add_man_routes_compact = "".join(add_man_routes.split())

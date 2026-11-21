@@ -737,8 +737,7 @@ reset_wan_vars_status(void)
 	 * get_wan_proto() reads wanN_proto, so a failed copy from wan_proto
 	 * must not leave a previous protocol selected for this WAN restart.
 	 */
-	proto_status = set_wan_unit_value_status(
-		unit, "proto", nvram_safe_get("wan_proto"));
+	proto_status = set_wan_unit_param_status(unit, "proto");
 	if (proto_status != 0) {
 		wan_vars_reset_status = proto_status;
 		errno = proto_status;
