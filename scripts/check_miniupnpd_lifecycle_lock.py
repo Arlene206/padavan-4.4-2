@@ -152,7 +152,7 @@ assert "miniupnpd_failed_start_may_leave_daemon(enum process_presence state)" in
 assert "return state != PROCESS_PRESENCE_ABSENT;" in DAEMON_POLICY
 assert "miniupnpd_test_failed_start_rollback_policy" in DAEMON_TEST
 
-stop = body(SERVICES, "stop_upnp_locked(void)")
+stop = body(SERVICES, "static int\nstop_upnp_locked(void)")
 assert stop.index("kill_services(svcs, 3, 1)") < stop.index(
     "miniupnpd_process_presence(&scan_error)"
 )
