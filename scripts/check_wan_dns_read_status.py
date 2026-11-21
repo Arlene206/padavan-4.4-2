@@ -83,7 +83,7 @@ int probe(void) {
 _parser_probe = body(_parser_probe_source, "probe(void)")
 _parser_escape_probe_source = r'''
 int escaped_probe(void) {
-    const char *escaped = "quote: \\" }";
+    const char *escaped = "quote: \" }";
     // ignored } { on this line
     return escaped[0] == 'q' ? 1 : 0;
 }
