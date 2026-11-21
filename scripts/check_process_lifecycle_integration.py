@@ -1034,6 +1034,33 @@ for stop_status, start_call in (
     restore = lan_restart_transaction.index(start_call, restore_gate)
     assert lan_vpn_abort < stop_call < lan_dhcp_failure
     assert lan_vpn_restore < restore_gate < restore
+
+switch_vlan_restart = c_function_body(net_lan_dhcp, "restart_switch_config_vlan(void)")
+switch_vlan_mode = switch_vlan_restart.index("get_ap_mode_status(&is_ap_mode)")
+switch_vlan_error = switch_vlan_restart.index("if (ap_mode_status != 0)", switch_vlan_mode)
+switch_vlan_mutation = switch_vlan_restart.index("notify_reset_detect_link();")
+assert switch_vlan_mode < switch_vlan_error < switch_vlan_mutation
+assert "return ap_mode_status;" in switch_vlan_restart[switch_vlan_error:switch_vlan_mutation]
+assert "get_ap_mode()" not in switch_vlan_restart
+
+lan_status_update = c_function_body(net_lan_dhcp, "update_lan_status(int is_auto)")
+lan_status_mode = lan_status_update.index("get_ap_mode_status(&is_ap_mode)")
+lan_status_error = lan_status_update.index("if (ap_mode_status != 0)", lan_status_mode)
+lan_status_snapshot = lan_status_update.index("lan_dhcp_runtime_snapshot_copy(&snapshot)")
+assert lan_status_mode < lan_status_error < lan_status_snapshot
+assert "return ap_mode_status;" in lan_status_update[lan_status_error:lan_status_snapshot]
+assert "get_ap_mode()" not in lan_status_update
+
+hosts_retry = c_function_body(
+    net_lan_dhcp,
+    "lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,"
+)
+hosts_retry_mode = hosts_retry.index("get_ap_mode_status(&is_ap_mode)")
+hosts_retry_error = hosts_retry.index("if (ap_mode_status != 0)", hosts_retry_mode)
+hosts_retry_notify = hosts_retry.index("notify_rc_status(RCN_RESTART_DHCPD)")
+assert hosts_retry_mode < hosts_retry_error < hosts_retry_notify
+assert "errno = saved_errno;" in hosts_retry[hosts_retry_error:hosts_retry_notify]
+
 print("LAN restart VPN fail-closed stop and rollback integration: PASS")
 
 wan_stop_transaction = net_wan.split("static int\nstop_wan_locked(void)", 1)[1].split("\n}\n", 1)[0]

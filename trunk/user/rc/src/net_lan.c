@@ -753,11 +753,19 @@ restart_switch_config_vlan(void)
 {
 	int start_status = 0;
 	int operation_status;
+	int is_ap_mode, ap_mode_status;
 #if !defined (USE_GMAC2_TO_GPHY) && !defined (USE_GMAC2_TO_GSW)
 	int pvid_wan_before, pvid_wan_after;
 #endif
 
-	if (get_ap_mode())
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "switch VLAN restart aborted because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
+	if (is_ap_mode)
 		return 0;
 
 #if !defined (USE_GMAC2_TO_GPHY) && !defined (USE_GMAC2_TO_GSW)
@@ -2181,13 +2189,19 @@ update_lan_status(int is_auto)
 	struct lan_dhcp_runtime_snapshot snapshot;
 	struct dhcp_lease_nvram_value values[LAN_DHCP_STATUS_METADATA_COUNT];
 	const char *gateway;
-	int is_ap_mode, dhcpd_enabled;
+	int is_ap_mode, dhcpd_enabled, ap_mode_status;
 	int status, rollback_status = 0;
 
 	if (is_auto)
 		return 0;
 
-	is_ap_mode = get_ap_mode();
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage(LOGNAME,
+			   "LAN status update aborted because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		return ap_mode_status;
+	}
 	dhcpd_enabled = (!is_ap_mode && is_dhcpd_enabled(0));
 
 	status = lan_dhcp_runtime_snapshot_copy(&snapshot);
@@ -2248,7 +2262,7 @@ lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 					  const char *lease_domain)
 {
 	int hosts_status, saved_errno, retry_errno;
-	int notification_status;
+	int notification_status, is_ap_mode, ap_mode_status;
 
 	errno = 0;
 	hosts_status = create_hosts_lan((char *)lease_ip, (char *)lease_domain);
@@ -2259,7 +2273,15 @@ lan_dhcp_publish_hosts_and_schedule_retry(const char *lease_ip,
 	logmessage("DHCP LAN Client",
 		   "LAN lease applied but hostname files could not be published (status=%d)",
 		   hosts_status);
-	if (get_ap_mode()) {
+	ap_mode_status = get_ap_mode_status(&is_ap_mode);
+	if (ap_mode_status != 0) {
+		logmessage("DHCP LAN Client",
+			   "hostname-file retry suppressed because AP/router mode cannot be verified (status=%d)",
+			   ap_mode_status);
+		errno = saved_errno;
+		return hosts_status;
+	}
+	if (is_ap_mode) {
 		/* Queue an immediate retry; a later AP DHCP RENEW is the durable
 		 * fallback if the notification queue is unavailable. */
 		notification_status = notify_rc_status(RCN_RESTART_DHCPD);
