@@ -813,7 +813,7 @@ jobs:
           for signature in ("run_dms(int force_rescan)", "run_itunes(void)",
                             "run_torrent(void)", "run_aria(void)"):
               daemon_start = function_body(storage, signature)
-              assert "return storage_log_daemon_start_result(" in daemon_start
+              assert "start_status = storage_log_daemon_start_result(" in daemon_start
               assert "return errno ? errno : EIO;" in daemon_start
           rollback = function_body(storage, "storage_rollback_failed_start(")
           assert "stop_status = stop_daemon();" in rollback
@@ -833,7 +833,7 @@ jobs:
               assert stopper in daemon_start
               assert "start_status != 0" in daemon_start
               assert daemon_start.index("launch_status =") < daemon_start.rindex("process_state =")
-              assert daemon_start.index("process_state =") < daemon_start.index("storage_rollback_failed_start(")
+              assert daemon_start.rindex("process_state =") < daemon_start.index("storage_rollback_failed_start(")
           assert "storage_service_failed_start_may_leave_daemon(0)" in storage_stop_test
           assert "storage_service_failed_start_may_leave_daemon(-1)" in storage_stop_test
           daemon_result = function_body(storage, "storage_log_daemon_start_result(")
