@@ -1,3 +1,13 @@
+## 2026-11-21 — Fail closed on WAN reset protocol-read errors
+
+- Parent main SHA: `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01`.
+- `reset_wan_vars_status()` first checks and stages `wan_proto` into the unit-specific runtime field, but then used shared `get_wan_proto()`. The shared helper calls `nvram_safe_get()` and maps both backend failures and unknown/missing values to `-1`; reset previously fell through the non-static path and continued publishing defaults instead of reporting invalid protocol state.
+- THIS COMMIT adds `get_wan_unit_proto_checked_status()`, uses bounded `get_wan_unit_value_copy_status()`, maps the supported `pppoe/pptp/l2tp/dhcp/static` values, and returns the underlying read error or `EINVAL` for missing/unknown protocol text. Reset now preserves that first error and aborts before protocol-dependent address clearing or manual endpoint publication.
+- The WAN static source checker requires all five mappings, checked read use, the fail-closed reset branch and absence of the old unchecked helper call in this critical path. Existing policy tests cover the bounded checked-copy backend/missing/truncation semantics.
+- Next: audit custom/fallback WAN hardware-MAC reads at `wan_hwaddr_x` and `il1macaddr`; preserve `mac_conv()` formatting/fallback behavior while surfacing genuine NVRAM backend errors.
+
+---
+
 ## 2026-11-21 — Check manual WAN reset selectors and endpoint snapshot
 
 - Parent main SHA: `9373ac1e3907be3e11d8538485bb38748ab0654e`.

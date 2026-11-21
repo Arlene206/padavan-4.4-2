@@ -28,25 +28,24 @@ The checkpoint is mandatory; a document edit is conditional. Every session MUST 
 - Static-route Delete checker now matches the escaped quotes emitted in the JavaScript string (`37d0b7b96ee8dcd0b654c4e2e514d36fb4e6fdb7`); storage IPTV dispatch check ignores formatting-only whitespace (`f3a1cdda6e36c3014809f276c31c84a119016158`). WAN-route result-propagation contract was corrected in `923f8c64dc7598f92ce454a0fc2f71beb8f5a227`; exact run #44956642473 passed.
 ## Active task
 
-- Audit of the roadmap's `set_wan_unit_value_int()` / `set_wan_unit_param()` wrappers is closed: there are no C callsites in the 36 files under `trunk/user/rc/src`; the only calls to the void `set_wan_unit_value()` wrapper publish optional uptime/RX/TX telemetry. Critical WAN protocol/parameter writes use `set_wan_unit_param_status()` via checked callbacks, and `set_wan_unit_value_int_status()` is used with propagated status. No speculative API conversion was made.
-- The audit found a concrete reset-path defect: `reset_wan_vars_status()` used lossy `nvram_match()` for `x_DHCPClient` / `wan_pppoe_man`, then four independent `nvram_safe_get()` calls for the PPTP/L2TP/manual-PPPoE underlay. Backend failures could silently select defaults and publish an empty/stale manual endpoint.
-- THIS source/test slice replaces both selectors with checked exact-match reads and copies `wan_ipaddr`, `wan_netmask`, `wan_gateway`, and `wan_mtu` as one checked NVRAM transaction. It aborts reset on selector/read/close/truncation errors before publishing `man_ipaddr` and related fields. Missing keys still map to the legacy empty-string/false defaults.
-- `scripts/check_wan_vlan_setup.py` now pins selector status propagation, all four fields in one snapshot, ordering before endpoint publication, and absence of the six lossy legacy calls. The existing WAN NVRAM GNU89/ASan/UBSan policy regression already tests transactional snapshots, cache-copy stability, missing values, backend errors, close failures and invalidation.
-- Prior exact LAN QoS SHA `9373ac1e3907be3e11d8538485bb38748ab0654e`: WAN route, Process, HTTPD, NVRAM, WAN DHCP callback, Firewall, Wireless, DNSMasq, watchdog, detect_link, detect_internet and AI docs all PASS; XY-C1 `#44962557368` was still building at the last poll.
-- Next independent check after this slice: audit the remaining unchecked `wan_hwaddr_x` / `il1macaddr` reads and the implementation of `get_wan_proto()` in the reset path; do not repeat the closed void-setter caller audit.
+- The P1 audit of `set_wan_unit_value_int()` / `set_wan_unit_param()` void wrappers is closed: neither has a C callsite in the 36 files under `trunk/user/rc/src`; `set_wan_unit_value()` is used only for optional uptime/RX/TX telemetry. Mandatory WAN writes use status-returning helpers with caller error propagation.
+- Commit `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01` hardens manual underlay reset: it checks `x_DHCPClient` and `wan_pppoe_man` via exact-match status reads and snapshots `wan_ipaddr`, `wan_netmask`, `wan_gateway`, `wan_mtu` under one NVRAM transaction. Exact-head host checks passed for WAN route, WAN DHCP callback, HTTPD, Router mode, DNSMasq, Firewall, Wireless, ZeroTier, VPN server, miniupnpd, WAN teardown, ARP probe, detect_link/internet, watchdog, USB modem and AI docs. Process inventory, NVRAM audit and XY-C1 were still in progress at last poll.
+- The follow-up review found that `reset_wan_vars_status()` still called shared `get_wan_proto()`, which uses `nvram_safe_get()` and returns `-1` on backend failure or unknown protocol. Reset could then branch as if a non-static default had been selected and continue publication. THIS source/test slice adds a checked unit-protocol text reader, validates all five supported protocol strings, and aborts reset on a read/missing/unknown value before protocol-dependent cleanup.
+- The existing WAN NVRAM policy regression already tests checked bounded copies, missing values, backend errors and transactional snapshot invalidation; `scripts/check_wan_vlan_setup.py` now pins the reset helper's mapping and fail-closed ordering.
+- Next audit: `wan_hwaddr_x` / `il1macaddr` are still read through lossy `mac_conv()` / `nvram_safe_get()` at WAN reset. Determine whether they require a checked transactional snapshot before changing fallback semantics.
 
 ## Verification boundary
 
-- The current source/checker commit has not yet run its exact-head Actions. Inspect WAN route (including the WAN source contract and GNU89/ASan/UBSan NVRAM binary), HTTPD, Process, NVRAM audit and XY-C1 for the new main SHA.
-- For XY-C1, inspect Build XY-C1, Verify TRX and artifact upload individually. L3 is VERIFIED only when all three pass on this same product-source SHA; hardware/device L4 remains NOT VERIFIED.
-- Earlier checker-only correction `88054b9f272d9f673dabf45df60d497de441b2d2` passed WAN route `#44962481865`, HTTPD `#44962481912` and AI docs `#44962481991`.
+- The current source/checker commit has not yet run its exact-head Actions. Inspect WAN route, HTTPD, Process inventory/lifecycle, NVRAM boundary audit and XY-C1 for the new main SHA.
+- Parent `b75f4cc2c92bf241ea7d5ba43906cd94ec792d01`: WAN route `#44962992252`, WAN DHCP callback `#44962992396`, HTTPD `#44962992270`, Router mode NVRAM `#44962992231`, WAN teardown `#44962992316`, DNSMasq `#44962992400`, Firewall `#44962992346`, Wireless `#44962992331`, ZeroTier `#44962992253`, VPN server `#44962992220`, miniupnpd `#44962992249`, ARP probe `#44962992415`, detect_link/internet `#44962992392`/`#44962992426`, watchdog `#44962992403`, USB modem `#44962992356` and AI docs `#44962992444` passed. Process inventory `#44962992368`, NVRAM audit `#44962992800` and XY-C1 `#44962992266` were in progress at last poll.
+- For XY-C1, inspect Build XY-C1, Verify TRX and artifact upload individually. L3 is verified only when all three pass on this same product-source SHA; hardware/device L4 remains NOT VERIFIED.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14` remains at `72f4f157a084f8184b9597ca5bf334b8080e5807`, immutable.
 
 ## Exact first action for the next GPT
 
-1. Fetch live `main` and inspect exact-head WAN route, HTTPD, NVRAM, Process and XY-C1 runs for THIS source/test commit.
-2. For XY-C1, verify Build XY-C1, TRX verification and artifact upload individually; diagnose only exact-SHA failures.
-3. Continue with the reset-path `wan_hwaddr_x` / `il1macaddr` and checked `get_wan_proto()` audit after these tests pass.
+1. Fetch live `main` and inspect exact-head WAN route, HTTPD, Process, NVRAM and XY-C1 results for THIS commit.
+2. Inspect XY-C1 Build, TRX and artifact upload separately; fix only current-SHA failures.
+3. Continue the `wan_hwaddr_x` / `il1macaddr` checked-read audit and then address other independent P1 network lifecycle gaps.
 
 
 ## Workflow and preservation rules

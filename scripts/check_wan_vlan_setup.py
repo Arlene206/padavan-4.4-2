@@ -759,6 +759,27 @@ for code in (wan_dhcp_code, iptv_dhcp_code):
     require(code.index(checked_dr_read) < code.index("if (dr_enable_value)"),
             "DHCP clients must check the dynamic-route selector before adding option requests")
 
+# Protocol identity is a required reset input, not a lossy legacy nvram_safe_get().
+wan_proto_reader = body(
+    wan,
+    "get_wan_unit_proto_checked_status(int unit, int *wan_proto)"
+)
+wan_proto_reader_code = " ".join(wan_proto_reader.split())
+require('get_wan_unit_value_copy_status( unit, "proto", proto_text, sizeof(proto_text))' in wan_proto_reader_code and
+        all(f'strcmp(proto_text, "{proto}") == 0' in wan_proto_reader_code
+            for proto in ("pppoe", "pptp", "l2tp", "dhcp", "static")) and
+        "return EINVAL;" in wan_proto_reader_code,
+        "WAN reset protocol parser must use checked text and reject unknown values")
+wan_reset = body(wan, "reset_wan_vars_status(void)")
+wan_reset_code = " ".join(wan_reset.split())
+checked_proto_read = "get_wan_unit_proto_checked_status(unit, &wan_proto)"
+require(checked_proto_read in wan_reset_code and
+        'reset_failure_context = "WAN protocol snapshot";' in wan_reset_code and
+        wan_reset_code.index(checked_proto_read) <
+        wan_reset_code.index("if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC)") and
+        "wan_proto = get_wan_proto(unit);" not in wan_reset_code,
+        "WAN reset must abort on protocol-read errors before branching on protocol")
+
 # Manual WAN underlay selectors and endpoint values are required startup inputs.
 manual_snapshot = body(
     wan,

@@ -874,6 +874,36 @@ reset_man_vars(void)
  * four empty defaults.
  */
 static int
+get_wan_unit_proto_checked_status(int unit, int *wan_proto)
+{
+	char proto_text[32];
+	int status;
+
+	if (!wan_proto)
+		return EINVAL;
+	status = get_wan_unit_value_copy_status(
+		unit, "proto", proto_text, sizeof(proto_text));
+	if (status != 0)
+		return status;
+
+	if (strcmp(proto_text, "pppoe") == 0)
+		*wan_proto = IPV4_WAN_PROTO_PPPOE;
+	else if (strcmp(proto_text, "pptp") == 0)
+		*wan_proto = IPV4_WAN_PROTO_PPTP;
+	else if (strcmp(proto_text, "l2tp") == 0)
+		*wan_proto = IPV4_WAN_PROTO_L2TP;
+	else if (strcmp(proto_text, "dhcp") == 0)
+		*wan_proto = IPV4_WAN_PROTO_IPOE_DHCP;
+	else if (strcmp(proto_text, "static") == 0)
+		*wan_proto = IPV4_WAN_PROTO_IPOE_STATIC;
+	else
+		return EINVAL;
+
+	return 0;
+}
+
+
+static int
 wan_manual_endpoint_snapshot(char *wan_addr, size_t wan_addr_size,
 			     char *wan_mask, size_t wan_mask_size,
 			     char *wan_gateway, size_t wan_gateway_size,
@@ -1004,7 +1034,11 @@ reset_wan_vars_status(void)
 	}
 
 
-	wan_proto = get_wan_proto(unit);
+	proto_status = get_wan_unit_proto_checked_status(unit, &wan_proto);
+	if (proto_status != 0) {
+		reset_failure_context = "WAN protocol snapshot";
+		goto reset_failed;
+	}
 
 	if (wan_proto == IPV4_WAN_PROTO_IPOE_STATIC) {
 		proto_status = rc_wan_nvram_set_required_params(
