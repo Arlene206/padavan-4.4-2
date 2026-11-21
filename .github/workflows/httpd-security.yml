@@ -5582,6 +5582,13 @@ jobs:
           assert "nvram_get_checked(param_name, &text)" in match_reader
           assert "firewall_nvram_match_status(api_result, saved_errno, text" in match_reader
           assert "httpd_start_config_read(httpd_nvram_read_int_adapter" in start_locked
+          assert "httpd_start_config_firewall_required(&start_config)" in start_locked
+          firewall_need = start_locked.index("httpd_start_config_firewall_required(&start_config)")
+          firewall_read = start_locked.index('httpd_nvram_match_status("fw_enable_x", "1", 0')
+          first_port_write = start_locked.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
+          assert firewall_need < firewall_read < first_port_write
+          assert "restart_fw_need |= start_config." not in start_locked
+          assert "test_httpd_start_config_selects_exposed_listener_firewall_requirements();" in test
           assert 'httpd_nvram_match_status("fw_enable_x", "1", 0' in start_locked
           assert "httpd_firewall_refresh_required(restart_fw, restart_fw_need, firewall_enabled)" in start_locked
           assert 'nvram_match("fw_enable_x", "1")' not in start_locked

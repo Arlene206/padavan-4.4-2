@@ -135,6 +135,25 @@ httpd_nvram_write_status(int api_result, int saved_errno)
 	return saved_errno > 0 ? saved_errno : EIO;
 }
 
+/*
+ * Derive firewall work from the selected listeners before any listener port
+ * normalization or daemon launch. HTTP is enabled for protocols 0/2 and
+ * HTTPS for protocols 1/2; unrelated listener flags must not trigger refresh.
+ */
+static inline int
+httpd_start_config_firewall_required(const struct httpd_start_config *config)
+{
+	int required = 0;
+
+	if (!config)
+		return 0;
+	if (config->http_proto == 0 || config->http_proto == 2)
+		required |= config->misc_http_x;
+	if (config->http_proto == 1 || config->http_proto == 2)
+		required |= config->https_wopen;
+	return required;
+}
+
 /* Match the legacy short-circuit gate without collapsing NVRAM errors. */
 static inline int
 httpd_firewall_refresh_required(int restart_requested, int listener_requested,

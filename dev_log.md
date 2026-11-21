@@ -1,3 +1,12 @@
+## 2026-11-21 — Restore HTTPD firewall preflight selection from the config snapshot
+
+- Parent main SHA: 8ea482693c8c5de9fa4dfe8226d2f658372afe4d.
+- Review of the live source found the previous firewall-enable check was syntactically present but its preflight selector had no body: both restart_fw_need assignments remained in the later listener-argv blocks. As a result, the pre-launch check always saw zero and the post-launch gate could skip firewall refresh even when HTTP/HTTPS public access was configured.
+- Added httpd_start_config_firewall_required() to derive the required firewall work from the checked protocol snapshot before port normalization and launch. Removed the late flag mutations. HTTP/HTTPS protocol selection, separate listener access flags and irrelevant cross-protocol flags are covered by GNU89 regression cases; both HTTPD workflows now assert preflight derivation → checked enable read → first port write ordering.
+- Exact-head HTTPD lifecycle/security and XY-C1 runs pending. This correction is a follow-up to the previous HTTPD firewall-read hardening; do not treat the older green lifecycle run as validation of this corrected ordering. L3/L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-21 — Fail closed on WAN VLAN and bridge setting read errors
 
 - Parent main SHA: `956925458e646947d05930ab6ba00bf064f34482`.

@@ -70,6 +70,46 @@ test_httpd_firewall_enable_read_preserves_exact_match_and_backend_errors(void)
 }
 
 static void
+test_httpd_start_config_selects_exposed_listener_firewall_requirements(void)
+{
+	struct httpd_start_config config;
+
+	memset(&config, 0, sizeof(config));
+	config.http_proto = 0;
+	config.misc_http_x = 1;
+	config.https_wopen = 1;
+	assert(httpd_start_config_firewall_required(&config) == 1);
+
+	config.http_proto = 0;
+	config.misc_http_x = 0;
+	config.https_wopen = 1;
+	assert(httpd_start_config_firewall_required(&config) == 0);
+
+	config.http_proto = 1;
+	config.misc_http_x = 1;
+	config.https_wopen = 0;
+	assert(httpd_start_config_firewall_required(&config) == 0);
+
+	config.http_proto = 1;
+	config.https_wopen = 1;
+	assert(httpd_start_config_firewall_required(&config) == 1);
+
+	config.http_proto = 2;
+	config.misc_http_x = 1;
+	config.https_wopen = 0;
+	assert(httpd_start_config_firewall_required(&config) == 1);
+
+	config.http_proto = 2;
+	config.misc_http_x = 0;
+	config.https_wopen = 1;
+	assert(httpd_start_config_firewall_required(&config) == 1);
+
+	config.http_proto = 99;
+	assert(httpd_start_config_firewall_required(&config) == 0);
+	assert(httpd_start_config_firewall_required(NULL) == 0);
+}
+
+static void
 test_httpd_firewall_refresh_gate_preserves_short_circuit_semantics(void)
 {
 	assert(httpd_firewall_refresh_required(1, 1, 1));
@@ -313,6 +353,7 @@ int main(void)
 	test_restart_requires_confirmed_exit();
 	test_nvram_write_status_preserves_backend_failure();
 	test_httpd_firewall_enable_read_preserves_exact_match_and_backend_errors();
+	test_httpd_start_config_selects_exposed_listener_firewall_requirements();
 	test_httpd_firewall_refresh_gate_preserves_short_circuit_semantics();
 	test_firewall_failure_requires_listener_shutdown();
 	puts("HTTPD daemon startup, duplicate-launch, stop-state and restart policy: PASS");

@@ -85,6 +85,14 @@ jobs:
 
           assert "httpd_nvram_read_int_status(param_name, missing_value, value)" in nvram_reader
           assert "httpd_start_config_read(httpd_nvram_read_int_adapter" in start
+          assert "httpd_start_config_firewall_required(&start_config)" in start
+          firewall_need = start.index("httpd_start_config_firewall_required(&start_config)")
+          firewall_read = start.index('httpd_nvram_match_status("fw_enable_x", "1", 0')
+          first_port_write = start.index('httpd_nvram_set_int_status("http_lanport", http_port, 0)')
+          assert firewall_need < firewall_read < first_port_write
+          assert "restart_fw_need |= start_config." not in start
+          assert "httpd_start_config_firewall_required" in policy
+          assert "test_httpd_start_config_selects_exposed_listener_firewall_requirements();" in test
           assert "nvram_get_checked(param_name, &text)" in match_reader
           assert "firewall_nvram_match_status(api_result, saved_errno, text" in match_reader
           assert "httpd_firewall_refresh_required(restart_fw, restart_fw_need, firewall_enabled)" in start

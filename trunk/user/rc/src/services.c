@@ -1878,11 +1878,7 @@ start_httpd_locked(int restart_fw)
 	}
 	http_proto = start_config.http_proto;
 	http_port = start_config.http_port;
-	restart_fw_need = 0;
-	if (http_proto == 0 || http_proto == 2)
-#if defined (SUPPORT_HTTPS)
-	if (http_proto == 1 || http_proto == 2)
-#endif
+	restart_fw_need = httpd_start_config_firewall_required(&start_config);
 	if (restart_fw && restart_fw_need) {
 		status = httpd_nvram_match_status("fw_enable_x", "1", 0,
 						 &firewall_enabled);
@@ -1912,7 +1908,6 @@ start_httpd_locked(int restart_fw)
 		httpd_argv[argv_index++] = "-p";
 		httpd_argv[argv_index++] = http_port_s;
 
-		restart_fw_need |= start_config.misc_http_x;
 	}
 
 #if defined (SUPPORT_HTTPS)
@@ -1934,7 +1929,6 @@ start_httpd_locked(int restart_fw)
 		httpd_argv[argv_index++] = "-s";
 		httpd_argv[argv_index++] = https_port_s;
 
-		restart_fw_need |= start_config.https_wopen;
 	}
 #endif
 
