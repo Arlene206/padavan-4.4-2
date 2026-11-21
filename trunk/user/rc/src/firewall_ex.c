@@ -1338,7 +1338,6 @@ fill_static_routes(char *buf, int len, const char *ift)
 	size_t used = 0, remaining;
 	char ip[16], netmask[16], gateway[16], metric[16], interface[8];
 	char fallback_gateway[16];
-	struct in_addr parsed_address;
 
 	if (!buf || len < 32) {
 		errno = EINVAL;
@@ -1381,11 +1380,8 @@ fill_static_routes(char *buf, int len, const char *ift)
 		if (status != 0)
 			goto failed;
 
-		if (!ip[0] || !netmask[0] ||
-		    !static_route_ipv4_field_is_safe(ip) ||
-		    !static_route_ipv4_field_is_safe(netmask) ||
-		    inet_aton(ip, &parsed_address) == 0 ||
-		    inet_aton(netmask, &parsed_address) == 0) {
+		if (!static_route_ipv4_address_is_valid(ip) ||
+		    !static_route_ipv4_address_is_valid(netmask)) {
 			status = EINVAL;
 			goto failed;
 		}

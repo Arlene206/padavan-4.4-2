@@ -71,6 +71,9 @@ main(void)
 	assert(!static_route_ipv4_address_is_valid("256.1.1.1"));
 	assert(!static_route_ipv4_address_is_valid("1.2.3"));
 	assert(!static_route_ipv4_address_is_valid("1.2.3.4.5"));
+	assert(!static_route_ipv4_address_is_valid("01.2.3.4"));
+	assert(!static_route_ipv4_address_is_valid("1.02.3.4"));
+	assert(!static_route_ipv4_address_is_valid("000.0.0.0"));
 	assert(!static_route_ipv4_address_is_valid("1.2.3.4:COMMIT"));
 	assert(!static_route_ipv4_address_is_valid("1.2.3.4\\n"));
 	assert(!static_route_interface_is_safe("WAN;DROP"));

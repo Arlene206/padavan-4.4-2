@@ -122,7 +122,8 @@ static_route_ipv4_address_is_valid(const char *value)
 		return 0;
 	for (i = 0; value[i]; ++i) {
 		if (value[i] >= '0' && value[i] <= '9') {
-			if (++digits > 3)
+			/* inet_aton() treats leading-zero octets as octal. Reject them. */
+			if (++digits > 3 || (digits > 1 && octet == 0))
 				return 0;
 			octet = octet * 10U + (unsigned int)(value[i] - '0');
 			if (octet > 255U)
