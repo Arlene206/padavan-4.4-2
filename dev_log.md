@@ -1,3 +1,13 @@
+## 2026-11-21 — Correct the remaining ttyd integration checker extractor
+
+- Parent main SHA: `74b1381c7e4c66a9095d046b9ae1f99a239144df`.
+- The first ttyd source-contract block now uses the whitespace-normalized function helper, but a second, older integration block still extracts `start_ttyd` using a non-existent line break between the return type and function name. Process regression #44913870486 reached that stale extractor and failed with `IndexError`.
+- Updated the second extractor to match the actual `int start_ttyd(void)` declaration. The detailed startup ordering and checked mode-read assertions remain intact.
+- A fresh Process integration run is pending this checker-only commit.
+- Next: verify this Process run and the corrected WAN callback/XY-C1 builds.
+
+---
+
 ## 2026-11-21 — Align WAN callback source contract with restored 6rd abort flow
 
 - Parent main SHA: `6085986f64e65078c8116d7398c5fb62139ea00d`.
