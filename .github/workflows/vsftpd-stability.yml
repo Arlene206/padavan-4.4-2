@@ -159,7 +159,7 @@ jobs:
           assert "ftp_failed_start_may_leave_daemon((enum process_presence)9)" in daemon_test
           assert "ftp_failed_start_may_leave_daemon(enum process_presence state)" in daemon_policy
           assert "return state != PROCESS_PRESENCE_ABSENT;" in daemon_policy
-          rollback = function_body(source, "static void\\nftp_rollback_failed_start(int start_errno, const char *operation)")
+          rollback = function_body(source, "static void\nftp_rollback_failed_start(int start_errno, const char *operation)")
           assert rollback.index("stop_ftp_locked()") < rollback.index('process_inventory_scan("vsftpd", &snapshot)')
           assert rollback.index('process_inventory_scan("vsftpd", &snapshot)') < rollback.index("ftp_failed_start_may_leave_daemon")
           assert rollback.index("ftp_failed_start_may_leave_daemon") < rollback.index("errno = start_errno > 0")
