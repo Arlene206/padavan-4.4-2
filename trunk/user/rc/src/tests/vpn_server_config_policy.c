@@ -265,7 +265,8 @@ test_openvpn_server_mode_bounds(void)
 	assert(vpn_server_config_int_status(1, 0, "1", 0, 0, 1, &mode) == 0);
 	assert(mode == 1);
 	assert(vpn_server_config_int_status(1, 0, "2", 0, 0, 1, &mode) == EINVAL);
-	assert(vpn_server_config_int_status(1, 0, "01", 0, 0, 1, &mode) == EINVAL);
+	assert(vpn_server_config_int_status(1, 0, "01", 0, 0, 1, &mode) == 0);
+	assert(mode == 1);
 	assert(vpn_server_config_int_status(-1, EIO, NULL, 0, 0, 1, &mode) == EIO);
 }
 

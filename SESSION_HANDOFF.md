@@ -56,6 +56,9 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 - Exact-head xl2tpd stop-set ownership snapshot commit d93dc94dd989bf81049cd041b0b7bf4d3876a326: VPN lifecycle #44934938301, Firewall #44934938310, OpenVPN credential staging #44934938321, AI docs #44934938340, Process inventory #44934938302/#44934938299 and HTTPD #44934938324 PASS. NVRAM audit #44934938318 and XY-C1 #44934938330 were in progress at last poll. The task here is separate OpenVPN server CCD ACL read consistency; it does not change OpenVPN client credential staging.
 
+
+- Exact dfd2 VPN lifecycle #44935459202 failed at the first GNU89/ASan policy test because `test_openvpn_server_mode_bounds()` incorrectly expected the generic integer parser to reject the valid decimal spelling `01`. The parser intentionally accepts complete decimal strings with leading zeroes; startup mode remains bounded to 0..1. Corrected the regression to assert `01` parses to mode 1. This is a test expectation correction; production parser semantics are unchanged. Same-SHA NVRAM #44935459206, HTTPD #44935459183, OpenVPN client staging #44935459254, Process #44935459317, AI #44935459291 passed; XY-C1 #44935459269 remained in progress at last poll.
+
 ## Workflow and preservation rules
 
 - Main only. One logical slice, one atomic main commit: create all blobs, one tree based on current main, one commit with current main as parent, then non-forced update_ref using the exact expected SHA. No force push, amend, history rewrite, branches, PR-based development or partial per-file commits.
@@ -74,6 +77,6 @@ The checkpoint is mandatory; a document edit is conditional. Compare live main, 
 
 ## Exact first action for the next GPT
 
-1. Inspect exact-head VPN lifecycle, NVRAM audit and XY-C1 Actions for the OpenVPN server mode gate. Require same-SHA Build, TRX verification and artifact upload all PASS before updating L3.
-2. Continue OpenVPN server configuration hardening for protocol, port, virtual network, LAN address, and DNS/WINS options, using checked snapshots and validation before staged-file publication.
-3. Audit remaining OpenVPN callback and client config NVRAM reads independently from client credential staging; preserve mandatory cleanup and atomic config/key publication.
+1. Inspect exact-head VPN lifecycle rerun after the decimal-mode test correction; poll XY-C1 and confirm Build, TRX verification and artifact upload on one SHA before advancing L3.
+2. Continue OpenVPN server network config snapshot: transactionally read LAN IPv4/netmask and TUN virtual network or TAP client offsets; validate topology and use the same snapshot for server config and interface setup.
+3. Then snapshot protocol/port/crypto and DNS/WINS settings before staged config publication. Preserve client-secret staging and the completed CCD ACL transaction.

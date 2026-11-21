@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct OpenVPN server mode decimal regression
+
+- Parent main SHA: dfd2f275ecc1b56c7cfd251790ea609db38d8ad7.
+- Exact VPN lifecycle #44935459202 failed before later lifecycle tests ran: `test_openvpn_server_mode_bounds()` assumed the shared strict integer parser rejected `01`, but that parser intentionally accepts a fully consumed decimal string with leading zeroes. No production bug was demonstrated; the assertion contradicted established parser behavior.
+- Updated the test to assert that `01` is accepted as integer mode 1. Unsupported values such as 2, out-of-bounds parse results and backend errors remain rejected. Production code is unchanged.
+- Same-SHA NVRAM #44935459206, HTTPD #44935459183, OpenVPN client staging #44935459254, Process #44935459317 and AI docs #44935459291 PASS. XY-C1 #44935459269 was still in progress at last poll. Exact VPN rerun required.
+
+---
+
 ## 2026-11-21 — Fail closed on OpenVPN server TUN/TAP mode reads
 
 - Parent main SHA: 29c9c56318ae8770da8bb5fc23b77456b0bccf79.
