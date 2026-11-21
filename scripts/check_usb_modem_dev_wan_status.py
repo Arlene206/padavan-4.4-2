@@ -68,13 +68,20 @@ def main() -> None:
     require("int select_usb_modem_to_wan(void);" in rc_header,
             "WAN selection entrypoint must expose its status")
 
-    boot = function_body(rc_source, "init_router(void)")
-    assignment = boot.find("status = set_usb_modem_dev_wan(0, 0);")
-    check = boot.find("if (status != 0)", assignment)
-    returned = boot.find("return status;", check)
-    reset = boot.find("reset_wan_vars();", assignment)
+    wan_setup = function_body(rc_source, "nvram_convert_misc_values(void)")
+    assignment = wan_setup.find("status = set_usb_modem_dev_wan(0, 0);")
+    check = wan_setup.find("if (status != 0)", assignment)
+    returned = wan_setup.find("return status;", check)
+    reset = wan_setup.find("reset_wan_vars();", assignment)
     require(assignment >= 0 and check > assignment and returned > check and reset > returned,
-            "PID 1 must abort initialization before WAN reset if modem selection cannot be cleared")
+            "WAN NVRAM setup must stop before WAN reset if modem selection cannot be cleared")
+
+    boot = function_body(rc_source, "init_router(void)")
+    setup_call = boot.find("nvram_setup_status = nvram_convert_misc_values();")
+    setup_check = boot.find("if (nvram_setup_status != 0)", setup_call)
+    setup_return = boot.find("return INIT_ROUTER_RESULT_FATAL;", setup_check)
+    require(setup_call >= 0 and setup_check > setup_call and setup_return > setup_check,
+            "PID 1 must abort startup when WAN NVRAM setup fails")
 
     remove = function_body(usb_modem, "safe_remove_usb_modem(void)")
     assignment = remove.find("publish_status = set_usb_modem_dev_wan(0, 0);")
