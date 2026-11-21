@@ -1,3 +1,12 @@
+## 2026-11-21 — Correct LWF NVRAM test sentinel setup
+
+- Parent main SHA: `02389c723fbe0aa18474da899f85f483a6135064`.
+- Firewall Startup #44951788974 failed in `test_lightweight_filter_drop_mode_match_uses_legacy_defaults`. The new assertion intended to test that a backend failure leaves the output parameter unchanged at 23, but the same test had already set it to 0 with a successful mismatch and a missing-key default. The final expectation was therefore wrong.
+- Reset the sentinel to 23 immediately before the backend-error call. This changes only the regression test, not runtime code or legacy semantics. Exact-head rerun is required.
+- Parent Actions: AI docs #44951789062 PASS; Firewall Startup #44951788974 FAIL on the test expectation above; NVRAM #44951789060, HTTPD #44951788996, Process #44951789016, FULLCONENAT #44951789081, WAN route #44951788962, WAN DHCP #44951789018 and XY-C1 #44951788955 were still running. XY-C1 had not yet reached Build. No local test/build or L3/L4 claim.
+
+---
+
 ## 2026-11-21 — Snapshot Lightweight Filter mode and bounded rule count
 
 - Parent main SHA: `fc208c6baf1956855799c3d3320b5d88ae440d7a`.

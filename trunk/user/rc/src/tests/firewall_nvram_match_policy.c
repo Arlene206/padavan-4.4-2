@@ -161,6 +161,7 @@ test_lightweight_filter_drop_mode_match_uses_legacy_defaults(void)
 	assert(matches == 0);
 	assert(firewall_nvram_match_status(0, 0, NULL, "DROP", 0, &matches) == 0);
 	assert(matches == 0);
+	matches = 23;
 	assert(firewall_nvram_match_status(-1, EIO, NULL, "DROP", 0, &matches) == EIO);
 	assert(matches == 23);
 }
