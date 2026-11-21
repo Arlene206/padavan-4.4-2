@@ -14,18 +14,22 @@ The checkpoint is mandatory; a document edit is conditional. At every session en
 
 ## Current repository state
 
-- Current main before archive restoration: `3791719dff38276df830dafe1ffbb2f501f0b13b`.
+- Current main before this archive-index and workflow-check correction: `d397166be2fcd3582492a8004eac5e8dec216929`.
 - Frozen backup `backup/pre-plugin-overhaul-2026-11-14`: `72f4f157a084f8184b9597ca5bf334b8080e5807`, read-only and unchanged.
 - Product-source SHA `20e139d230b73eabc5f25a2b17d56a3a5768af11` has exact XY-C1 run `#44887656164` SUCCESS: Build XY-C1, TRX verification and artifact upload all passed. L3 is verified only for that exact source SHA. Physical router L4 remains NOT VERIFIED.
 - PID-only helper hardening in `20e139d2` was validated by Process regression `#44887824016` and AI handoff `#44887824043` on docs-only child `94c0e2c`.
 - Process inventory run `#44889271901` passed on source SHA `421042f3a436e82eb73305ebab77161e6c3d6f17`.
-- XY-C1 run `#44889614321` is IN_PROGRESS on exact source SHA `3791719dff38276df830dafe1ffbb2f501f0b13b` at the last poll; do not infer a result until Build XY-C1, TRX verification and artifact upload complete on that same SHA.
-- Storage Hotplug run `#44889614290` is IN_PROGRESS on exact SHA `3791719dff38276df830dafe1ffbb2f501f0b13b`; all shell syntax and pre-ash runtime steps had passed at the last poll, and the BusyBox 1.24.2 ash build/lifecycle regression was in progress. The previous failure on `421042f` was only a static assertion typo; commit `3791719d` corrected it.
-- AI handoff run `#44889614300` failed on exact SHA `3791719dff38276df830dafe1ffbb2f501f0b13b`: the validator found that `docs/dev-log/2026/11/part-021.md` was indexed but absent from the Git tree. Its original complete 107,416-byte content was recovered from the existing Git blob `f80bf2d087fa1c313cb671f2108e3279092db234` and is restored at the indexed path in this commit.
+- XY-C1 run `#44889614321` completed SUCCESS on exact SHA `3791719dff38276df830dafe1ffbb2f501f0b13b`, but production-input detection marked the commit docs/checker-only, so Build XY-C1, TRX verification and artifact upload were SKIPPED. This is not new L3 evidence; the last fully verified product-source baseline remains `20e139d230b73eabc5f25a2b17d56a3a5768af11`.
+- Storage Hotplug run `#44889614290` FAILED on exact SHA `3791719dff38276df830dafe1ffbb2f501f0b13b` only at the final static checker. BusyBox 1.24.2 ash lifecycle regression and every prior shell/compile step passed. The checker counted path literals across the entire workflow YAML and included extra references in embedded Python; the three Optware paths are already present exactly once in each `push` and `pull_request` filter. This commit scopes the check to those filter blocks.
+- AI handoff run `#44889732024` FAILED on exact SHA `d397166be2fcd3582492a8004eac5e8dec216929`: the restored archive file exists, but its index row used basename `part-021.md` instead of repository-relative path `docs/dev-log/2026/11/part-021.md`; the recorded byte size was also 107,416 instead of the actual 107,650 UTF-8 bytes. The path and byte count are corrected here; the existing content hash `f80bf2d087fa1c313cb671f2108e3279092db234` and 100-record count are unchanged.
 
 ## Active task
 
-Restore the missing `docs/dev-log/2026/11/part-021.md` archive object. The index already referenced the correct blob SHA `f80bf2d087fa1c313cb671f2108e3279092db234`, but the path was omitted from the tree; the original complete 107,416-byte blob has now been reintroduced without rewriting its contents. Verify the exact-head AI handoff contract and continue monitoring Storage Hotplug and XY-C1 Actions on their recorded SHAs.
+Close the two exact-head CI contract failures without changing production storage behavior:
+1. The Storage Hotplug checker must compare Optware paths inside the dedicated `push_filters` and `pull_filters` sections, not count references throughout the workflow's embedded test script. Each of the three paths already appears exactly once in each path filter.
+2. The November dev-log archive index must use a repository-relative path and its actual UTF-8 byte size. The archive file has been restored unchanged with Git blob SHA `f80bf2d087fa1c313cb671f2108e3279092db234`, 107,650 bytes and 100 records.
+
+The exact BusyBox 1.24.2 ash mount-owner regression passed on the previous Storage run. Re-run Storage Hotplug and AI handoff on this corrected commit; do not weaken coverage.
 
 
 Completed process audit: full tracked `trunk/user` scan on `1ab5e53519d7316243f13cff4095dc1b3c13ce5d`: 9,725 entries, 6,478 text files, 37 hit files, zero missing candidates/read errors. `kill_pidfile_s()` has one in-tree invocation only from the `kill_pidfile()` compatibility wrapper; preserve exported numeric PID-only semantics for external consumers and do not repeat the scan absent new callers.
@@ -40,11 +44,11 @@ Completed process audit: full tracked `trunk/user` scan on `1ab5e53519d7316243f1
 
 ## Exact first action for the next GPT
 
-Fetch live `main` and confirm the frozen backup SHA. Inspect exact-head AI handoff and Storage Hotplug Actions created by this archive-restoration commit; the previous AI failure was caused only by the indexed `part-021.md` path being missing. Continue to monitor XY-C1 run `#44889614321` only for exact source SHA `3791719dff38276df830dafe1ffbb2f501f0b13b`; no descendant docs commit can inherit its firmware result. When the immediate governance checks are resolved, continue the WAN NVRAM error-propagation stability task in `trunk/user/rc/src/net_wan.c`: audit identified that `nvram_get_int()` returns zero for both absent keys and backend/read/close failures, affecting PPPoE manual/demand, MTU, EAPOL/Kabinet auth and MAN DNS route/resolver choices. Use `nvram_get_checked()`, preserve absent-key defaults, fail closed on backend errors, add GNU89 regression coverage and exact workflow checks.
+Fetch live `main` and confirm the frozen backup SHA. Inspect the exact-head AI handoff and Storage Hotplug runs created by this index/checker correction. If they pass, start WAN NVRAM error propagation in `trunk/user/rc/src/net_wan.c`: replace ambiguous `nvram_get_int()` reads for checked internal decisions with `nvram_get_checked()` and a strict errno-style integer parser, preserve absent-key defaults, fail closed on backend/read/close errors, add GNU89 policy regression tests and exact workflow coverage. Keep XY-C1 L3 attached only to a source SHA on which Build, TRX and artifact all ran and passed; a detector-skipped build is not L3.
 
 ## Handoff maintenance
 
-- Root `dev_log.md` currently retains 21 newest-first records; this record makes 22. Archive the oldest 100 complete records only when the next addition would make the root reach 120, retaining the newest 20.
+- Root `dev_log.md` currently retains 22 newest-first records; this record makes 23. Archive the oldest 100 complete records only when the next addition would make the root reach 120, retaining the newest 20.
 - The 100 historical records in `docs/dev-log/2026/11/part-021.md` are indexed with blob SHA `f80bf2d087fa1c313cb671f2108e3279092db234`.
 - Update `REFACTOR_ROADMAP.md` only when whole-repository module priority/status materially changes; do not re-audit completed tasks.
 - Keep the frozen backup permanently unchanged.

@@ -1,3 +1,14 @@
+## 2026-11-21 — Fix archive index path/size and Storage filter assertion
+
+- Parent main SHA: `d397166be2fcd3582492a8004eac5e8dec216929`.
+- AI handoff run `#44889732024` on `d397166be2fcd3582492a8004eac5e8dec216929` found that the archive itself was restored, but its index row used only `part-021.md` rather than the repository-relative path and recorded 107,416 rather than the actual 107,650 UTF-8 bytes. Corrected the index path and byte count; the original blob SHA and 100 headings are unchanged.
+- Storage run `#44889614290` on `3791719dff38276df830dafe1ffbb2f501f0b13b` passed BusyBox 1.24.2 ash lifecycle tests and every earlier runtime check, then failed because a checker counted three Optware paths across the entire YAML file. Embedded test-script references made the total exceed two even though each path existed exactly once in push and pull_request filters. Corrected the checker to inspect those filter sections separately.
+- XY-C1 run `#44889614321` completed SUCCESS on `3791719d`, but Build XY-C1, TRX verification and artifact upload were all SKIPPED by production-input detection for documentation/checker-only changes; this is not L3 verification. The last verified product-source baseline remains `20e139d230b73eabc5f25a2b17d56a3a5768af11`.
+- Re-run exact-head Storage Hotplug and AI handoff checks on this correction. No production source behavior changed.
+- Resulting main commit: THIS COMMIT
+
+---
+
 ## 2026-11-21 — Restore the indexed November log archive object
 
 - Parent main SHA: `3791719dff38276df830dafe1ffbb2f501f0b13b`.

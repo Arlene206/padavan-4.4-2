@@ -1339,7 +1339,9 @@ require("Compile and run storage hotplug notification failure regression" in wor
 for path in ("trunk/user/optware/opt-umount.sh",
              "trunk/user/scripts/files/sbin/optware_lifecycle_lock.sh",
              "trunk/user/scripts/tests/optware_lifecycle_teardown.sh"):
-    require(workflow.count('"' + path + '"') == 2,
-            "Optware storage workflow push/PR filters must include " + path)
+    require('"' + path + '"' in push_filters,
+            "Optware storage workflow push filter must include " + path)
+    require('"' + path + '"' in pull_filters,
+            "Optware storage workflow pull_request filter must include " + path)
 
 print("Storage eject inventory, mount-link errno, failure propagation and persistence gates: PASS")
