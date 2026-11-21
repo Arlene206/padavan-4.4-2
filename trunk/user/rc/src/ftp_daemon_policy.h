@@ -4,6 +4,13 @@
 #include <errno.h>
 #include "process_inventory.h"
 
+/* A failed detached launch is considered active unless absence is proven. */
+static int
+ftp_failed_start_may_leave_daemon(enum process_presence state)
+{
+	return state != PROCESS_PRESENCE_ABSENT;
+}
+
 /* Testable bounded wait for an FTP daemon to remain present after start. */
 struct ftp_daemon_wait_ops {
 	int (*is_running)(void *context, const char *daemon);

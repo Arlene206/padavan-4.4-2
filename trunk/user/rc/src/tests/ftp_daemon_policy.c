@@ -53,6 +53,11 @@ static const struct ftp_daemon_wait_ops fake_ops = {
 int
 main(void)
 {
+	assert(!ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_ABSENT));
+	assert(ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_RUNNING));
+	assert(ftp_failed_start_may_leave_daemon(PROCESS_PRESENCE_UNKNOWN));
+	assert(ftp_failed_start_may_leave_daemon((enum process_presence)9));
+
 	{
 		const int states[] = { 0, 1, 1 };
 		struct fake_daemon fake = { states, 3, 0, 0, 0, 0, 0 };

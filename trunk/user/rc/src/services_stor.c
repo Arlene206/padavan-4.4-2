@@ -205,6 +205,33 @@ stop_ftp_locked(void)
 	return 0;
 }
 
+/* Only a fresh failed start is eligible for rollback; RUNNING was
+ * rejected before launch and existing daemons are never torn down here. */
+static void
+ftp_rollback_failed_start(int start_errno, const char *operation)
+{
+	int stop_status;
+	int scan_error;
+	struct process_snapshot snapshot;
+	enum process_presence presence;
+
+	memset(&snapshot, 0, sizeof(snapshot));
+	stop_status = stop_ftp_locked();
+	presence = process_inventory_scan("vsftpd", &snapshot);
+	scan_error = snapshot.error;
+	if (ftp_failed_start_may_leave_daemon(presence)) {
+		logmessage("FTP server",
+			   "vsftpd may remain active after failed %s (rollback_status=%d, state=%d, scan_error=%d)",
+			   operation, stop_status, presence, scan_error);
+	} else if (stop_status != 0) {
+		logmessage("FTP server",
+			   "vsftpd is absent after failed %s rollback but stop reported status=%d",
+			   operation, stop_status);
+	}
+	process_snapshot_release(&snapshot);
+	errno = start_errno > 0 ? start_errno : EIO;
+}
+
 int
 stop_ftp(void)
 {
@@ -332,6 +359,7 @@ run_ftp(void)
 {
 	int saved_errno, command_status;
 	int process_state;
+	int start_errno;
 
 	if (nvram_match("enable_ftp", "0"))
 		return 0;
@@ -354,14 +382,19 @@ run_ftp(void)
 		return -1;
 	}
 
+	errno = 0;
 	command_status = eval("/sbin/vsftpd");
 	if (command_status != 0) {
+		start_errno = errno ? errno : EIO;
 		logmessage("FTP server", "vsftpd start command failed (status %d)", command_status);
+		ftp_rollback_failed_start(start_errno, "start");
 		return -1;
 	}
 	if (ftp_wait_for_daemon("vsftpd") != 0) {
+		start_errno = errno ? errno : ETIMEDOUT;
 		logmessage("FTP server", "vsftpd did not remain running after startup (errno %d)",
-			   errno ? errno : ETIMEDOUT);
+			   start_errno);
+		ftp_rollback_failed_start(start_errno, "start");
 		return -1;
 	}
 
