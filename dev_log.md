@@ -1,3 +1,14 @@
+## 2026-11-21 — Fail closed on MiniUPnP protocol and secure-mode reads
+
+- Parent main SHA: `1a13b60672917c55b0075d8c015522b87d37fea6`.
+- `start_upnp_locked()` used error-collapsing `nvram_get_int()` calls for `upnp_proto`, `upnp_secure` and `http_lanport`. A transient backend failure could silently choose a less restrictive zero-value daemon policy.
+- Added `miniupnpd_config_file_read_integer_status()`: missing/blank values retain legacy defaults; backend errors, malformed text, overflow and out-of-range values return errno-style failures without changing the output.
+- Added `miniupnpd_read_nvram_integer()` and preflighted protocol (0–2), secure mode (0–1) and HTTP LAN port (0–65535) before publishing the replacement config. Any failed read aborts startup while leaving the last-good daemon config untouched.
+- Added GNU89 parser regression coverage for defaults, valid/whitespace values, malformed/signed/range/overflow values, backend errors and output preservation. Extended the existing MiniUPnP workflow source contract to verify checked reads, use of validated values and preflight-before-publication ordering. No local test or cross-build is claimed.
+- Parent MiniUPnP regression #44940897575 and AI docs #44940897569 passed; XY-C1 #44940897544 skipped Build/TRX/artifact. New exact-head CI is required; L3 is NOT VERIFIED, and L4 remains NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Normalize bounded-description source contract spacing
 
 - Parent main SHA: `4a5139f484943abe3a5ac9cf0f6d56bc70067a56`.

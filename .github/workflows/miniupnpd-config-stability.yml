@@ -639,6 +639,27 @@ jobs:
           assert 'nvram_get_int("upnp_enable_x")' not in start
           assert 'nvram_get_int("wan_nat_x")' not in start
           assert "get_ap_mode()" not in start
+          config_reader = function_body(service, "miniupnpd_read_nvram_integer(const char *name,")
+          assert "nvram_get_checked(name, &value)" in config_reader
+          assert "miniupnpd_config_file_read_integer_status(" in config_reader
+          assert "saved_errno = errno;" in config_reader
+          assert "errno = status;" in config_reader
+          assert "miniupnpd_config_file_read_integer_status" in config_file_header
+          assert "test_checked_integer_read_preserves_defaults_and_rejects_errors" in config_file_test
+          option_tokens = [
+              'miniupnpd_read_nvram_integer("upnp_proto", 0, 0, 2,',
+              'miniupnpd_read_nvram_integer("upnp_secure", 0, 0, 1,',
+              'miniupnpd_read_nvram_integer("http_lanport", 0, 0, 65535,',
+          ]
+          option_positions = [start.index(token) for token in option_tokens]
+          assert option_positions == sorted(option_positions)
+          preflight_error = start.index("return read_status;")
+          config_publish = start.index('miniupnpd_config_publish("/etc/miniupnpd.conf"')
+          assert option_positions[-1] < preflight_error < config_publish
+          for key in ("upnp_proto", "upnp_secure", "http_lanport"):
+              assert f'nvram_get_int("{key}")' not in start
+          assert 'secured = i_upnp_secure ? "yes" : "no";' in start
+          assert "miniupnpd_format_lan_url(lan_addr, i_http_lanport," in start
           transaction_integer = function_body(service, "miniupnpd_read_transaction_int(")
           assert "nvram_transaction_get(transaction, name, &value)" in transaction_integer
           assert "miniupnpd_nvram_int_status(api_result, saved_errno" in transaction_integer

@@ -85,6 +85,49 @@ assert_two_targets_remain(const char *directory, const char *first,
 	assert(first_seen == 1 && second_seen == 1);
 }
 
+static void
+test_checked_integer_read_preserves_defaults_and_rejects_errors(void)
+{
+	int result;
+
+	result = 77;
+	assert(miniupnpd_config_file_read_integer_status(0, 0, NULL, 0, 0, 2, &result) == 0);
+	assert(result == 0);
+	result = 77;
+	assert(miniupnpd_config_file_read_integer_status(0, 0, NULL, 1, 0, 2, &result) == 0);
+	assert(result == 1);
+	result = 77;
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "2", 0, 0, 2, &result) == 0);
+	assert(result == 2);
+	result = 77;
+	assert(miniupnpd_config_file_read_integer_status(1, 0, " \t1 \r\n", 0, 0, 1, &result) == 0);
+	assert(result == 1);
+	result = 77;
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "", 0, 0, 1, &result) == 0);
+	assert(result == 0);
+	result = 77;
+	assert(miniupnpd_config_file_read_integer_status(1, 0, " \t ", 1, 0, 2, &result) == 0);
+	assert(result == 1);
+
+	result = 77;
+	assert(miniupnpd_config_file_read_integer_status(-1, EACCES, "1", 0, 0, 1, &result) == EACCES);
+	assert(result == 77);
+	assert(miniupnpd_config_file_read_integer_status(-1, 0, "1", 0, 0, 1, &result) == EIO);
+	assert(miniupnpd_config_file_read_integer_status(2, 0, "1", 0, 0, 1, &result) == EIO);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, NULL, 0, 0, 1, &result) == EIO);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "-1", 0, 0, 1, &result) == EINVAL);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "+1", 0, 0, 1, &result) == EINVAL);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "1x", 0, 0, 1, &result) == EINVAL);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "1.0", 0, 0, 1, &result) == EINVAL);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "2", 0, 0, 1, &result) == EINVAL);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "999999999999999999999999999999999999", 0, 0, 1, &result) == ERANGE);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "1", 2, 0, 1, &result) == EINVAL);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "1", 0, 2, 1, &result) == EINVAL);
+	assert(miniupnpd_config_file_read_integer_status(1, 0, "1", 0, 0, 1, NULL) == EINVAL);
+	assert(result == 77);
+}
+
+
 int
 main(void)
 {
@@ -95,6 +138,7 @@ main(void)
 	struct stat st;
 	int status;
 
+	test_checked_integer_read_preserves_defaults_and_rejects_errors();
 	assert(mkdtemp(directory) != NULL);
 	assert(snprintf(path, sizeof(path), "%s/miniupnpd.conf", directory) > 0);
 	assert(snprintf(directory_target, sizeof(directory_target), "%s/directory-target", directory) > 0);

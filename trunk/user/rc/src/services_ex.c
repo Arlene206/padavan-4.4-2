@@ -2282,11 +2282,34 @@ miniupnpd_read_stop_policy(int *should_stop)
 static int stop_upnp_locked(void);
 
 static int
+miniupnpd_read_nvram_integer(const char *name, int default_value,
+                             int minimum, int maximum, int *result)
+{
+	char *value = NULL;
+	int api_result, saved_errno, status;
+
+	errno = 0;
+	api_result = nvram_get_checked(name, &value);
+	saved_errno = errno;
+	status = miniupnpd_config_file_read_integer_status(
+		api_result, saved_errno, value, default_value, minimum, maximum,
+		result);
+	if (status != 0) {
+		logmessage(LOGNAME,
+			   "cannot read or validate MiniUPnP option %s (status=%d)",
+			   name, status);
+		errno = status;
+	}
+	return status;
+}
+
+static int
 start_upnp_locked(void)
 {
-	int ret, launch_status, start_status, start_errno;
+	int ret, launch_status, start_status, start_errno, read_status;
 	int rollback_status, rollback_scan_error = 0;
-	int i_proto_use, i_clean_min, i_clean_int, i_iports[2], i_eports[2];
+	int i_proto_use, i_upnp_secure, i_http_lanport;
+	int i_clean_min, i_clean_int, i_iports[2], i_eports[2];
 	enum process_presence rollback_presence;
 	int scan_error, presence_error;
 	int url_error;
@@ -2324,7 +2347,24 @@ start_upnp_locked(void)
 		return presence_error;
 	}
 
-	i_proto_use = nvram_get_int("upnp_proto");
+	/*
+	 * Protocol selection and secure_mode define the exposure boundary.
+	 * Never replace an unreadable setting with the less restrictive zero
+	 * default or publish a partially refreshed daemon configuration.
+	 */
+	if ((read_status = miniupnpd_read_nvram_integer("upnp_proto", 0, 0, 2,
+						       &i_proto_use)) != 0 ||
+	    (read_status = miniupnpd_read_nvram_integer("upnp_secure", 0, 0, 1,
+						       &i_upnp_secure)) != 0 ||
+	    (read_status = miniupnpd_read_nvram_integer("http_lanport", 0, 0, 65535,
+						       &i_http_lanport)) != 0) {
+		errno = read_status;
+		logmessage(LOGNAME,
+			   "miniupnpd start aborted: protocol/security/HTTP policy is unreadable (status=%d)",
+			   read_status);
+		return read_status;
+	}
+
 	i_clean_min = nvram_safe_get_int("upnp_clean_min", 10, 1, 999);
 	i_clean_int = nvram_safe_get_int("upnp_clean_int", 600, 0, 86400);
 	i_iports[0] = nvram_safe_get_int("upnp_iport_min", 21, 1, 65535);
@@ -2357,8 +2397,7 @@ start_upnp_locked(void)
 	memset(lan_mac, 0, sizeof(lan_mac));
 	ether_atoe(nvram_safe_get("lan_hwaddr"), lan_mac);
 
-	ret = nvram_get_int("http_lanport");
-	if (miniupnpd_format_lan_url(lan_addr, ret, var, sizeof(var)) != 0) {
+	if (miniupnpd_format_lan_url(lan_addr, i_http_lanport, var, sizeof(var)) != 0) {
 		url_error = errno > 0 ? errno : EIO;
 		logmessage(LOGNAME, "miniupnpd start aborted: cannot format LAN presentation URL (errno %d)",
 			   url_error);
@@ -2377,7 +2416,7 @@ start_upnp_locked(void)
 		proto_npmp = "no";
 	}
 
-	secured = (nvram_get_int("upnp_secure")) ? "yes" : "no";
+	secured = i_upnp_secure ? "yes" : "no";
 
 	memset(&config, 0, sizeof(config));
 	config.wan_ifname = wan_ifname;
