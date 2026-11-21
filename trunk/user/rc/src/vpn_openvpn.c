@@ -1752,12 +1752,13 @@ openvpn_server_lease_update(const char *path, int is_add,
 	struct stat source_stat;
 
 	staged_path[0] = '\0';
-	if (!path || !path[0] || !ifname || !ifname[0] ||
+	if (!path || !path[0] || !ifname || (is_add && !ifname[0]) ||
 	    !peer_addr_l || !peer_addr_l[0] || !peer_addr_r || !peer_addr_r[0] ||
 	    !common_name || !common_name[0] ||
-	    strlen(ifname) >= 16 || strlen(peer_addr_l) >= 64 ||
-	    strlen(peer_addr_r) >= 64 || strlen(common_name) >= 64 ||
-	    strpbrk(ifname, " \t\r\n") ||
+	    (ifname[0] && (strlen(ifname) >= 16 ||
+			   strpbrk(ifname, " \t\r\n"))) ||
+	    strlen(peer_addr_l) >= 64 || strlen(peer_addr_r) >= 64 ||
+	    strlen(common_name) >= 64 ||
 	    strpbrk(peer_addr_l, " \t\r\n") ||
 	    strpbrk(peer_addr_r, " \t\r\n") ||
 	    strpbrk(common_name, "\r\n")) {
@@ -1854,7 +1855,7 @@ on_server_client_connect(int is_tun)
 	if (!is_valid_ipv4(peer_addr_r))
 		peer_addr_r = safe_getenv("trusted_ip6");
 #endif
-	if (strlen(dev_ifname) == 0)
+	if (strlen(dev_ifname) == 0 && is_tun >= 0)
 		dev_ifname = (is_tun) ? IFNAME_SERVER_TUN : IFNAME_SERVER_TAP;
 	logmessage(SERVER_LOG_NAME, "peer %s (%s) connected - local IP: %s",
 		peer_addr_r, common_name, peer_addr_l);
@@ -1892,7 +1893,7 @@ on_server_client_disconnect(int is_tun)
 	if (!is_valid_ipv4(peer_addr_r))
 		peer_addr_r = safe_getenv("trusted_ip6");
 #endif
-	if (strlen(dev_ifname) == 0)
+	if (strlen(dev_ifname) == 0 && is_tun >= 0)
 		dev_ifname = (is_tun) ? IFNAME_SERVER_TUN : IFNAME_SERVER_TAP;
 	logmessage(SERVER_LOG_NAME, "peer %s (%s) disconnected, sent: %llu KB, received: %llu KB",
 		peer_addr_r, common_name, llsent / 1024, llrecv / 1024);
@@ -2283,12 +2284,31 @@ restart_openvpn_server(void)
 int
 ovpn_server_script_main(int argc, char **argv)
 {
-	int i_mode_tun;
+	int i_mode_tun = -1, api_result, read_errno, mode_status;
+	char *mode_value = NULL;
+	char *dev_ifname = safe_getenv("dev");
 	char *script_type = safe_getenv("script_type");
 
-	i_mode_tun = (nvram_get_int("vpns_ov_mode") == 1) ? 1 : 0;
-
 	umask(0000);
+
+	/* The OpenVPN-provided device is authoritative. Read NVRAM only for
+	 * legacy callbacks that omit it; never silently turn a read error into TAP. */
+	if ((strcmp(script_type, "client-connect") == 0 ||
+	     strcmp(script_type, "client-disconnect") == 0) &&
+	    strlen(dev_ifname) == 0) {
+		errno = 0;
+		api_result = nvram_get_checked("vpns_ov_mode", &mode_value);
+		read_errno = errno;
+		mode_status = vpn_server_config_int_status(api_result, read_errno,
+							 mode_value, 0, 0, 1,
+							 &i_mode_tun);
+		if (mode_status != 0) {
+			logmessage(SERVER_LOG_NAME,
+				   "cannot read OpenVPN server mode for callback device fallback (status=%d); preserving unknown device",
+				   mode_status);
+			i_mode_tun = -1;
+		}
+	}
 
 	if (strcmp(script_type, "client-connect") == 0)
 	{

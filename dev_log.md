@@ -1,3 +1,13 @@
+## 2026-11-22 — Check OpenVPN callback device mode without losing disconnect cleanup
+
+- Parent main SHA: `040b3da86f81007605c80a5687b7a516f41d19ce`.
+- `ovpn_server_script_main()` unconditionally used `nvram_get_int("vpns_ov_mode")`, even though OpenVPN supplies the actual `dev` environment value. On a transient backend error, the compatibility getter silently selected TAP for callbacks that needed the NVRAM fallback.
+- The callback now trusts OpenVPN's `dev` when present and only reads the mode through checked NVRAM + strict 0/1 parsing when `dev` is absent. An unreadable fallback stays unknown instead of synthesizing TAP; connect/disconnect dispatch and configured hooks still run. Lease additions require a known interface, while disconnect cleanup remains address-based and accepts an absent interface so stale lease entries can still be removed.
+- Updated the VPN lifecycle source contract to protect checked mode fallback, no fabricated interface, disconnect lease removal and hook dispatch. Exact-head CI for this slice and the preceding pushed-DNS policy fix must be inspected; no local build is claimed.
+- XY-C1 L3 and hardware L4 remain NOT VERIFIED.
+
+---
+
 ## 2026-11-22 — Fail closed on OpenVPN pushed-DNS policy read errors
 
 - Parent main SHA: `23520100e3cc74bb7f77a0d023afa361cded2abe`.

@@ -891,6 +891,30 @@ for signature,label in (("static void\non_server_client_connect(int is_tun)","co
     ordered(callback,["lease_status = openvpn_server_lease_update(",
         "if (lease_status == -2)","check_if_file_exist(script_name)",
         "_eval(hook_argv, NULL, 0, NULL)"],f"OpenVPN {label} stale callback hook gate")
+require("(is_add && !ifname[0])" in lease_update and
+        "(ifname[0] && (strlen(ifname) >= 16" in lease_update,
+        "OpenVPN lease disconnect must allow an unknown interface while add must require one")
+for signature,label in (("static void\\non_server_client_connect(int is_tun)","connect"),
+                        ("static void\\non_server_client_disconnect(int is_tun)","disconnect")):
+    callback=body(openvpn,signature)
+    require("if (strlen(dev_ifname) == 0 && is_tun >= 0)" in callback,
+            f"OpenVPN {label} callback must not invent a device after a mode read failure")
+    ordered(callback,["lease_status = openvpn_server_lease_update(",
+        "if (lease_status == -2)","check_if_file_exist(script_name)",
+        "_eval(hook_argv, NULL, 0, NULL)"],f"OpenVPN {label} stale callback hook gate")
+server_entry=body(openvpn,"int\\novpn_server_script_main(int argc, char **argv)")
+require('nvram_get_checked("vpns_ov_mode", &mode_value)' in server_entry and
+        "vpn_server_config_int_status(" in server_entry and
+        'nvram_get_int("vpns_ov_mode")' not in server_entry,
+        "OpenVPN server callback mode fallback must use checked NVRAM reads")
+ordered(server_entry,[
+    'char *dev_ifname = safe_getenv("dev");',
+    'if ((strcmp(script_type, "client-connect") == 0 ||',
+    'api_result = nvram_get_checked("vpns_ov_mode", &mode_value);',
+    "if (mode_status != 0)",
+    "on_server_client_connect(i_mode_tun)",
+    "on_server_client_disconnect(i_mode_tun)"
+],"OpenVPN server callback device fallback and mandatory event dispatch")
 ovpn_clear=body(openvpn,"static int\nopenvpn_server_lease_clear(void)")
 ordered(ovpn_clear,["vpn_server_lease_lock_acquire(VPN_SERVER_LEASE_LOCK_FILE)",
     "unlink(SERVER_PID_FILE)","unlink(VPN_SERVER_LEASE_FILE)",
