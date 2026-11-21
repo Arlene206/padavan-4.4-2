@@ -41,6 +41,9 @@ def require(condition, message):
         raise AssertionError(message)
 
 
+require(source.count("get_wan_unit_value_int(") == 1,
+        "internal WAN decisions must not use the error-collapsing integer getter")
+
 checked_int = body(
     source,
     "get_wan_unit_value_int_status(int unit, const char *param_name, int *value)",

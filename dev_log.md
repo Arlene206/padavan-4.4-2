@@ -1,3 +1,11 @@
+## 2026-11-21 — Enforce zero unchecked WAN integer getter callsites
+
+- Parent main SHA: `b8cb95b34d1362b23c32cf5c58538b57667e65cc`.
+- Audited the current `net_wan.c` after migrating DNS mode, PPPoE manual/demand, WAN/MAN MTU, EAPOL/Kabinet auth and MAN DNS route setup/teardown. The legacy `get_wan_unit_value_int()` remains only as a public compatibility definition; there are no remaining internal callsites.
+- Added a whole-file source-contract assertion so future WAN code cannot silently reintroduce the error-collapsing getter into an internal network decision.
+- This is a static integration guard; exact-head CI is still required for C policy tests and downstream workflow gates.
+
+---
 ## 2026-11-21 — Make WAN source-contract parser skip prototypes
 
 - Parent main SHA: `de62205e3e02687e5908e863312945ff4b81bc39`.
